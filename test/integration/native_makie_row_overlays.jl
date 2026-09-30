@@ -28,11 +28,11 @@
     for (component,values) in enumerate(expected), point in 1:2
         pair=result[(component-1)*4+(point-1)*2+1:(component-1)*4+point*2]
         @test [length(page.axes) for page in pair]==[2,1]
-        @test [page.addon_state.panel_page.index for page in pair]==[(1,1),(2,1)]
-        @test [page.addon_state.panel_page.coordinates for page in pair]==
+        @test [page.plot_state.panel_page.index for page in pair]==[(1,1),(2,1)]
+        @test [page.plot_state.panel_page.coordinates for page in pair]==
             [((point,1),(point,2)),((point,3),)]
-        @test all(page -> page.addon_state.displayed_indices==[point],pair)
-        @test all(page -> page.addon_state.nominal_capacity==(1,2),pair)
+        @test all(page -> page.plot_state.displayed_indices==[point],pair)
+        @test all(page -> page.plot_state.nominal_capacity==(1,2),pair)
         labels=G.observation_labels(observed;request=requests[component],fallback="")
         @test all(page -> occursin(labels[point],page.export_name),pair)
         for (mode,axis) in enumerate(vcat(pair[1].axes,pair[2].axes))
@@ -56,13 +56,13 @@
     automatic=LineCableModels.plot(observed;ydata=((Tv,abs),),options...)
     append!(kept,automatic)
     @test length(automatic)==2
-    @test all(page -> page.addon_state.nominal_capacity==(2,2),automatic)
+    @test all(page -> page.plot_state.nominal_capacity==(2,2),automatic)
     @test all(page -> length(page.axes)==3,automatic)
     scalar=LineCableModels.plot(first(observed);ydata=((Tv,abs),),options...)
     singleton=LineCableModels.plot([first(observed)];ydata=((Tv,abs),),options...)
     raw=LineCableModels.plot(first(segments);ydata=((Tv,abs),),options...)
     append!(kept,[scalar,singleton,raw])
-    @test scalar.addon_state.panel_page==singleton.addon_state.panel_page==raw.addon_state.panel_page
+    @test scalar.plot_state.panel_page==singleton.plot_state.panel_page==raw.plot_state.panel_page
     @test scalar.export_name==singleton.export_name==raw.export_name
     @test !occursin(r"(?:Point|Result) 1",scalar.export_name)
     @test [[curve[1][] for curve in lines(axis)] for axis in scalar.axes]==
@@ -86,7 +86,7 @@
     reordered=LineCableModels.plot(first(observed);ydata=(selected,),
         layout=(1,1),options...)
     append!(kept,reordered)
-    @test [only(page.addon_state.panel_page.coordinates) for page in reordered]==[(1,3),(1,1)]
+    @test [only(page.plot_state.panel_page.coordinates) for page in reordered]==[(1,3),(1,1)]
     for (page,mode) in zip(reordered,[3,1]), (curve,row) in zip(lines(only(page.axes)),[3,1])
         @test first.(curve[1][])≈f[2:3] rtol=8eps(Float32)
         @test last.(curve[1][])≈abs.(voltage[row,mode,2:3]) rtol=8eps(Float32)
@@ -104,7 +104,7 @@
     ranged=@observe (Tv,abs)[1:2,2:3,:]
     range_page=LineCableModels.plot(first(observed);ydata=(ranged,),options...)
     push!(kept,range_page)
-    @test range_page.addon_state.panel_page.coordinates==((1,2),(1,3))
+    @test range_page.plot_state.panel_page.coordinates==((1,2),(1,3))
     @test last.(lines(range_page.axes[2])[2][1][])≈abs.(voltage[2,3,:]) rtol=8eps(Float32)
 
     filtered=LineCableModels.plot(observed;ydata=((Tv,abs),),problem=2,
@@ -113,8 +113,8 @@
         panel_legends=Dict((3,2)=>:inside),options...)
     append!(kept,filtered)
     @test length(filtered)==2
-    @test filtered[1].addon_state.panel_page.coordinates==((2,1),(2,2),(2,3))
-    @test filtered[2].addon_state.panel_page.coordinates==((3,1),(3,2),(3,3))
+    @test filtered[1].plot_state.panel_page.coordinates==((2,1),(2,2),(2,3))
+    @test filtered[2].plot_state.panel_page.coordinates==((3,1),(3,2),(3,3))
     @test occursin("reference",lowercase(filtered[2].export_name))
     @test filtered[2].axes[2].title[]=="Reference mode two"
     @test haskey(filtered[2].panel_legends,(3,2))
@@ -129,7 +129,7 @@
     separate=LineCableModels.plot(equivalent;ydata=((Tv,abs),),options...)
     append!(kept,separate)
     @test length(separate)==2
-    @test [page.addon_state.displayed_indices for page in separate]==[[1],[2]]
+    @test [page.plot_state.displayed_indices for page in separate]==[[1],[2]]
 
     # Invalid dimensions and positional overrides fail before backend activation.
     mixed=observables(first(segments),(gamma,requests...))

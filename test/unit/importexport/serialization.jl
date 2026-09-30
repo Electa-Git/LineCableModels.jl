@@ -402,8 +402,8 @@ end
     @test restored_descriptive.nominal_data == descriptive.nominal_data
 
     library=CablesLibrary()
-    catalogue_record=DatasheetInfo(designation_code = "MV cable", voltage_kv = 30.0)
-    add!(library, design; catalogue = catalogue_record)
+    datasheet_record=DatasheetInfo(designation_code = "MV cable", voltage_kv = 30.0)
+    add!(library, design; datasheet = datasheet_record)
     mktempdir() do directory
         for extension in ("json", "jls")
             path=joinpath(directory, "library.$extension")
@@ -412,9 +412,9 @@ end
             @test load!(restored_library; file_name = path) === restored_library
             @test only(keys(restored_library)) == design.cable_id
             @test IE.serialize_value(only(values(restored_library))) == encoded
-            restored_catalogue=catalogue(restored_library, design.cable_id)
-            @test restored_catalogue.designation_code == catalogue_record.designation_code
-            @test restored_catalogue.voltage_kv == catalogue_record.voltage_kv
+            restored_datasheet=datasheet(restored_library, design.cable_id)
+            @test restored_datasheet.designation_code == datasheet_record.designation_code
+            @test restored_datasheet.voltage_kv == datasheet_record.voltage_kv
         end
     end
 end
@@ -438,14 +438,14 @@ end
     add!(
         cables,
         TestFixtures.coaxial_design();
-        catalogue = DatasheetInfo(designation_code = "NA2XS(FL)2Y", U = 30.0)
+        datasheet = DatasheetInfo(designation_code = "NA2XS(FL)2Y", U = 30.0)
     )
     cables_document=IE._json_document(cables)
     @test cables_document["\$schema"] == IE.JSON_SCHEMA_DIALECT
     @test cables_document["format"] == IE.CABLES_SCHEMA
     @test cables_document["version"] == "1.0.0"
     @test cables_document["root"]["kind"] == "cable_library"
-    @test only(values(cables_document["root"]["cables"]))["catalogue"] == Dict(
+    @test only(values(cables_document["root"]["cables"]))["datasheet"] == Dict(
         "designation_code" => "NA2XS(FL)2Y",
         "U" => IE.serialize_value(30.0)
     )

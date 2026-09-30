@@ -140,7 +140,7 @@ end
         (radius, spacing)->fixture.pair(radius, spacing),
         (Grid(0.01, AbsoluteError(1e-4)), Grid(0.021, AbsoluteError(0.004))))
     point=only(LineCableModels.points(space))
-    context=DM.prepare_clearance(point)
+    context=DM.collect_clearance_requirements(point)
     @test context.records[1].clearances[1, 2] > 0.004
     @test DM._CLEARANCE_CONTEXT[] === nothing
     for (radius, spacing) in ((0.0108, 0.015), (0.0112, 0.006), (0.009, 0.045), (0.01, 0.0))
@@ -182,7 +182,7 @@ end
         end,
         (Grid(0.0, AbsoluteError(0.05)),))
     local_point=only(LineCableModels.points(local_space))
-    local_context=DM.prepare_clearance(local_point)
+    local_context=DM.collect_clearance_requirements(local_point)
     local_problem=@test_logs DM.with_clearance(local_context) do
         LineCableModels.realize(local_point, (0.15,))
     end
@@ -211,7 +211,7 @@ end
     @test sampled.trial_counts == [3]
     @test isempty(only(sampled.details.data.failures))
     @test only(sampled.details.data.clearance).adjustments == 3
-    @test length(constructed) == 4 # one uncertain preparation, three draws
+    @test length(constructed) == 4 # one uncertain geometry, three draws
     @test all(system -> nominal(only(fixture.gaps(system))) >= 0.002001, constructed)
     @test DM._CLEARANCE_CONTEXT[] === nothing
 end

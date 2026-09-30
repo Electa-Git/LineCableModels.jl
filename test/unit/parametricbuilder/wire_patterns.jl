@@ -10,99 +10,99 @@
     @test Wires.awg_label(-3) == "0000 (4/0)"
     @test Wires.awg_label(12) == "12"
 
-    target_mm2 = 1_000.0
-    estimate = make_stranded(target_mm2)
+    target_area = 1_000.0
+    estimate = estimate_stranding(target_area)
     @test estimate isa WireEstimate{Float64}
     @test estimate.feasible
     @test estimate.status === :feasible
     @test isempty(estimate.reasons)
     for choice in estimate
         @test choice.wires == 1 + 3 * choice.layers * (choice.layers - 1)
-        @test choice.total_area_m2 > 0
-        @test choice.wire_diameter_m > 0
+        @test choice.total_area > 0
+        @test choice.wire_diameter > 0
     end
-    match = estimate[:match]
-    layers = estimate[:layers]
-    diameter = estimate[:diameter]
-    @test abs(1e6 * match.total_area_m2 - target_mm2) <=
-          abs(1e6 * diameter.total_area_m2 - target_mm2)
+    match = estimate[:closest_area]
+    layers = estimate[:fewest_layers]
+    diameter = estimate[:smallest_diameter]
+    @test abs(1e6 * match.total_area - target_area) <=
+          abs(1e6 * diameter.total_area - target_area)
     @test layers.layers <= diameter.layers
-    @test estimate[:wires].wires == minimum(p.wires for p in estimate)
-    @test estimate[Val(:match)] === estimate[:match]
+    @test estimate[:fewest_wires].wires == minimum(p.wires for p in estimate)
+    @test estimate[Val(:closest_area)] === estimate[:closest_area]
 
-    estimate32 = make_stranded(Float32(95))
+    estimate32 = estimate_stranding(Float32(95))
     @test estimate32 isa WireEstimate{Float32}
-    @test typeof(first(estimate32).total_area_m2) === Float32
+    @test typeof(first(estimate32).total_area) === Float32
 
-    infeasible = make_stranded(1.0e12; nmin = 40, nmax = 40)
+    infeasible = estimate_stranding(1.0e12; awg_min = 40, awg_max = 40)
     @test !infeasible.feasible
     @test infeasible.status === :infeasible
     @test !isempty(infeasible.reasons)
-    @test infeasible[:match] isa Wires.HexaPattern
+    @test infeasible[:closest_area] isa Wires.HexaPattern
 
-    @test_throws DomainError make_stranded(0.0)
-    @test_throws ArgumentError make_stranded(10.0; nmin = 10, nmax = 9)
+    @test_throws DomainError estimate_stranding(0.0)
+    @test_throws ArgumentError estimate_stranding(10.0; awg_min = 10, awg_max = 9)
     @test_throws ArgumentError estimate[:unknown]
 end
 
 @testitem "ParametricBuilder / wire patterns / screened estimates" tags = [:unit] begin
     const Wires = LineCableModels.ParametricBuilder.WirePatterns
 
-    required_area_mm2 = 35.0
-    lay_diameter_mm = 60.0
+    target_area = 35.0
+    lay_diameter = 60.0
     minimum_coverage = 85.0
-    estimate = make_screened(
-        required_area_mm2,
-        lay_diameter_mm;
-        coverage_min_pct = minimum_coverage
+    estimate = estimate_screen(
+        target_area,
+        lay_diameter;
+        coverage_min = minimum_coverage
     )
 
     @test estimate isa WireEstimate{Float64}
     @test estimate.feasible
     for choice in estimate
-        @test 1e6 * choice.total_area_m2 >= required_area_mm2
-        @test minimum_coverage <= choice.coverage_pct <= 100.0
-        @test choice.radius_m ==
-              (choice.lay_diameter_m + choice.wire_diameter_m) / 2
-        separation = 2 * choice.radius_m * sinpi(1 / choice.wires)
-        @test separation >= choice.wire_diameter_m
+        @test 1e6 * choice.total_area >= target_area
+        @test minimum_coverage <= choice.coverage <= 100.0
+        @test choice.radius ==
+              (choice.lay_diameter + choice.wire_diameter) / 2
+        separation = 2 * choice.radius * sinpi(1 / choice.wires)
+        @test separation >= choice.wire_diameter
     end
-    @test estimate[:wires].wires <= estimate[:diameter].wires
-    @test estimate[:diameter].wire_diameter_m <= estimate[:wires].wire_diameter_m
+    @test estimate[:fewest_wires].wires <= estimate[:smallest_diameter].wires
+    @test estimate[:smallest_diameter].wire_diameter <= estimate[:fewest_wires].wire_diameter
 
-    custom = make_screened(
-        required_area_mm2,
-        lay_diameter_mm;
-        custom_diameters_mm = [1.2],
-        nmin = 40,
-        nmax = 40,
-        max_overshoot_pct = Inf
+    custom = estimate_screen(
+        target_area,
+        lay_diameter;
+        wire_diameters = [1.2],
+        awg_min = 40,
+        awg_max = 40,
+        max_area_overshoot = Inf
     )
     @test any(choice -> startswith(choice.awg, "custom"), custom)
-    @test any(choice -> choice.wire_diameter_m == 0.0012, custom)
+    @test any(choice -> choice.wire_diameter == 0.0012, custom)
 
     screen = first(estimate)
     @test Wires.maxfill(
         Wires.ScreenPattern,
-        screen.radius_m,
-        screen.wire_diameter_m / 2
+        screen.radius,
+        screen.wire_diameter / 2
     ) >= screen.wires
 
-    infeasible = make_screened(
-        required_area_mm2,
-        lay_diameter_mm;
-        coverage_min_pct = 99,
-        coverage_max_pct = 99
+    infeasible = estimate_screen(
+        target_area,
+        lay_diameter;
+        coverage_min = 99,
+        coverage_max = 99
     )
     @test !infeasible.feasible
     @test !isempty(infeasible.reasons)
-    @test infeasible[:match] isa Wires.ScreenPattern
+    @test infeasible[:closest_area] isa Wires.ScreenPattern
 
-    @test_throws DomainError make_screened(0.0, lay_diameter_mm)
-    @test_throws DomainError make_screened(required_area_mm2, 0.0)
-    @test_throws DomainError make_screened(
-        required_area_mm2,
-        lay_diameter_mm;
-        coverage_min_pct = 101.0
+    @test_throws DomainError estimate_screen(0.0, lay_diameter)
+    @test_throws DomainError estimate_screen(target_area, 0.0)
+    @test_throws DomainError estimate_screen(
+        target_area,
+        lay_diameter;
+        coverage_min = 101.0
     )
 end

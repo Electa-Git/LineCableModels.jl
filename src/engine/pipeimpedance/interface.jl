@@ -47,9 +47,9 @@ function Formulation(backend, selected::PipeImpedanceFormulation, design::CableD
         for terminal in design.terminal_order
             terminal === wall.terminal && continue
             sources = filter(region -> region.terminal === terminal, design.geometry.regions)
-            centre = DataModel.conductor_zone_position(sources)
-            distance = hypot(centre[1] - axis[1], centre[2] - axis[2])
-            if distance < wall.primitive.ri && !DataModel.same_radial_position(centre, axis)
+            center = DataModel.conductor_zone_position(sources)
+            distance = hypot(center[1] - axis[1], center[2] - axis[2])
+            if distance < wall.primitive.ri && !DataModel.same_radial_position(center, axis)
                 topology = Val(:pipe)
                 break
             end

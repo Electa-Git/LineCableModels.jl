@@ -85,9 +85,9 @@ function LineCableModels.export_svg(
         "refusing to overwrite existing file: $output",
     ))
     mkpath(dirname(output))
-    _addon_export_presentation!(plot,export_theme) do
+    _export_presentation!(plot,export_theme) do
         # Preserve the current figure and view. Saving must not run the native
-        # display preparation that resets automatic axes.
+        # display initialization that resets automatic axes.
         Makie.save(output,plot.figure;backend=cairo.CairoMakie,update=false)
     end
     opened = should_open && _native_open_export(output)

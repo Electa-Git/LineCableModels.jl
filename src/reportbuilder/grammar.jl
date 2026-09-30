@@ -143,7 +143,7 @@ struct TableReportDefinition{R<:Tuple,U<:Tuple,P,O<:NamedTuple} <: AbstractRepor
     illustration::P
     "Options passed to the illustration call."
     plot_options::O
-    "Engineering recentering used only when constructing a raw-input observation."
+    "Set unresolved observed values to exact zero, including zero uncertainty."
     clip::Bool
 end
 TableReportDefinition(requests::Tuple=();units::Tuple=(),illustration=nothing,
@@ -288,7 +288,7 @@ units and numerical eligibility unless compatible display units are requested.
 - `reference=nothing`: A separate atomic raw or observed reference. It does not
   trigger a numerical comparison or become another reported result.
 - `illustration=nothing`: `true` or a plotting callable requests an illustration
-  of the prepared observations with the matching `ydata` selection.
+  of the retained observations with the matching `ydata` selection.
 - `plot_options=(;)`: Options for an explicitly requested illustration.
 
 # Returns

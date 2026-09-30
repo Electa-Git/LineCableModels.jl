@@ -69,20 +69,20 @@ M_{\\mathrm{red}} = M_{11} - M_{12}M_{22}^{-1}M_{21}.
 
 - The reduced matrix.
 """
-function kronify(
+function kron_reduce(
         M::Matrix{Complex{T}},
         phase_map::Vector{Int}
 ) where {T <: Real}
     retained = count(!=(0), phase_map)
     reduced = similar(M, retained, retained)
-    kronify!(M, phase_map, reduced)
+    kron_reduce!(M, phase_map, reduced)
     return reduced
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Write the Kron-reduced matrix from [`kronify`](@ref) into `Mred`.
+Write the Kron-reduced matrix from [`kron_reduce`](@ref) into `Mred`.
 
 # Arguments
 
@@ -95,7 +95,7 @@ Write the Kron-reduced matrix from [`kronify`](@ref) into `Mred`.
 
 - `nothing`.
 """
-function kronify!(
+function kron_reduce!(
         M::Matrix{Complex{T}},
         phase_map::Vector{Int},
         Mred::Matrix{Complex{T}}
@@ -107,7 +107,7 @@ function kronify!(
     # This entry point also permits Mred to alias M. The reusable-buffer entry
     # point below requires independent scratch, as in the computation workspace.
     source = Base.unalias(Mred, M)
-    kronify!(source, keep, eliminate, Mred,
+    kron_reduce!(source, keep, eliminate, Mred,
         similar(M, length(eliminate), length(eliminate)),
         similar(M, length(keep), length(eliminate)),
         similar(M, length(eliminate), length(keep)))
@@ -116,7 +116,7 @@ end
 
 # The destination and three scratch blocks must not alias the source or one
 # another. Callers with aliased storage use the phase-map entry point above.
-function kronify!(
+function kron_reduce!(
         matrix::AbstractMatrix{Complex{T}},
         keep::AbstractVector{Int},
         eliminate::AbstractVector{Int},
@@ -246,7 +246,7 @@ function _structural_reduction(
     if kron_map !== nothing
         eliminate = findall(==(0), kron_map)
         if !isempty(eliminate)
-            transformed = kronify!(
+            transformed = kron_reduce!(
                 transformed,
                 findall(!=(0), kron_map),
                 eliminate,

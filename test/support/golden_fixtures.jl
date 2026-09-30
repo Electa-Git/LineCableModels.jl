@@ -54,23 +54,23 @@ function comparison(;uncertain=false)
         run(seed)=compute(problem,MonteCarlo(selection;trials=128,seed,
             distribution=:uniform,return_samples=true,return_histograms=false))
         reference=run(2027)
-        candidate=run(2039)
+        result=run(2039)
         metadata=(port_order=["west","east"],)
         artifact=report(BenchmarkTableDefinition(((statistics,R,mean),);bands=(:all,)),
             (reference=(result=reference,metadata=metadata),
-                candidate=(result=candidate,metadata=metadata)))
+                result=(result=result,metadata=metadata)))
         return LineCableModels.plot(artifact;ydata=(R,),plot_options...)
     end
     reference=two_conductor_results()
     omega=reshape(2pi.*reference.f,1,1,:)
-    candidate=LineParameters(1.1R(reference).+im.*omega.*1.2L(reference),
+    result=LineParameters(1.1R(reference).+im.*omega.*1.2L(reference),
         1.3G(reference).+im.*omega.*1.4C(reference),reference.f;
         details=ComputationDetails(;coordinates=["west","east"],))
     selections=[NamedTuple(Formulation()),NamedTuple(Formulation(earth_impedance=:pollaczek1926))]
-    points=ParametricResult(nothing,[reference,candidate],
+    points=ParametricResult(nothing,[reference,result],
         (problems=[:current],formulations=selections), ComputationDetails((;)))
     baseline=(result=reference,metadata=(port_order=["west","east"],formulation=selections[1],axes=nothing))
-    artifact=report(BenchmarkTableDefinition((R,);bands=(:all,)),(reference=baseline,candidate=points))
+    artifact=report(BenchmarkTableDefinition((R,);bands=(:all,)),(reference=baseline,result=points))
     return LineCableModels.plot(artifact;ydata=(R,),plot_options...)
 end
 

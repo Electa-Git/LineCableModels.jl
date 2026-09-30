@@ -20,17 +20,21 @@ function _data_rows(path::AbstractString)
     end
 end
 
+"""
+Wait for complete output rows for at most `timeout` \\[s\\], checking every
+`poll_interval` \\[s\\]. Require the requested row count before returning a path.
+"""
 function _wait_output(
         roots,
         suffix::AbstractString,
         expected_rows::Integer;
-        timeout_seconds::Real = 30,
-        poll_seconds::Real = 0.1
+        timeout::Real = 30,
+        poll_interval::Real = 0.1
 )
     expected_rows > 0 || throw(ArgumentError("expected_rows must be positive"))
-    timeout_seconds > 0 || throw(ArgumentError("timeout_seconds must be positive"))
-    poll_seconds > 0 || throw(ArgumentError("poll_seconds must be positive"))
-    deadline=time() + timeout_seconds
+    timeout > 0 || throw(ArgumentError("timeout must be positive"))
+    poll_interval > 0 || throw(ArgumentError("poll_interval must be positive"))
+    deadline=time() + timeout
     previous=nothing
     observed="no matching file"
     while time() < deadline
@@ -49,10 +53,10 @@ function _wait_output(
             state == previous && rows == expected_rows && return path
             previous=state
         end
-        sleep(poll_seconds)
+        sleep(poll_interval)
     end
     throw(ArgumentError(
-        "PSCAD output $suffix did not become complete within $timeout_seconds seconds; " *
+        "PSCAD output $suffix did not become complete within $timeout seconds; " *
         "last observed $observed",
     ))
 end

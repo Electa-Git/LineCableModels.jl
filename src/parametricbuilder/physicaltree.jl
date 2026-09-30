@@ -614,7 +614,7 @@ function _stranded(
             "a sector stranded core requires circular Disk wires"
         ))
         center === nothing || throw(ArgumentError(
-            "a sector bundle infers its centre strand from shape; omit center"
+            "a sector bundle infers its center strand from shape; omit center"
         ))
         compact === nothing || throw(ArgumentError(
             "sector stranded cores are intrinsically compacted; omit compact"
@@ -637,7 +637,7 @@ function _stranded(
             compaction = true
         end
         center isa DataModel.Disk || throw(ArgumentError(
-            "a disk-bounded stranded core requires one circular centre wire"
+            "a disk-bounded stranded core requires one circular center wire"
         ))
     end
 
@@ -848,19 +848,19 @@ function _milliken(
     center_radius = minimum(_inner_radius, segment_primitives)
     center_radius > zero(center_radius) || throw(DomainError(
         center_radius,
-        "milliken segment strands leave no positive radius for the centre wire"
+        "milliken segment strands leave no positive radius for the center wire"
     ))
     center = DataModel.Disk(center_radius)
     members = DataModel.AssemblyMember[]
-    centre_terminal = DataModel.Group(
-        :milliken_centre,
+    center_terminal = DataModel.Group(
+        :milliken_center,
         DataModel.Pose2(0, 0, 0),
         DataModel.Region(:wire, center, material),
         nothing,
         nothing,
         nothing
     )
-    push!(members, DataModel.AssemblyMember(centre_terminal))
+    push!(members, DataModel.AssemblyMember(center_terminal))
     for index in 1:Int(segments)
         name = Symbol(:milliken_segment_, index)
         terminal = DataModel.Group(
@@ -999,7 +999,7 @@ Repeat one physical item as a central child and concentric outer courses.
 # Keywords
 
 - `layers`: Number of outer courses \\[dimensionless\\].
-- `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
+- `n=6`: Base count, exact course schedule, or deferred maximum count `capacity()`.
 - `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
   may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
 - `dir=1`: One handedness or one value per outer course.
@@ -1062,7 +1062,7 @@ outer boundary.
 # Keywords
 
 - `shape`: Intrinsic armor-member primitive.
-- `n`: Exact cardinality or deferred `capacity()` policy.
+- `n`: Exact cardinality or deferred maximum count `capacity()`.
 - `lay=nothing`: One helical lay law.
 - `dir=1`: Helix handedness, `1` or `-1` \\[dimensionless\\].
 - `φ0=0`: Initial angular position \\[rad\\].
@@ -1142,7 +1142,7 @@ Declare a repeated conductive, semiconductive, or insulating tape system.
 # Keywords
 
 - `section`: Intrinsic tape cross-section.
-- `n`: Exact angular cardinality or deferred `capacity()` policy.
+- `n`: Exact angular cardinality or deferred maximum count `capacity()`.
 - `lay=nothing`: One helical lay law.
 - `gap_frac=0`: Fractional angular clearance \\[dimensionless\\].
 - `compact=nothing`: Explicit compaction law.

@@ -1,6 +1,6 @@
 # Renderers select detached records. Scientific normalization and extraction
 # belong to ObservedResult construction.
-function _prepare_line_observations(records::Tuple)
+function _line_plot_data(records::Tuple)
     for q in records
         kind=q.coordinates.kind
         kind in (:matrix,:diagonal,:vector,:assemblies,:array) || throw(ArgumentError(

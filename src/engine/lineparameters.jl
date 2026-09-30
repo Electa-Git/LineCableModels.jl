@@ -103,7 +103,7 @@ function _solve!(
             formulation.options.data.ideal_transposition && ideal_transposition!(Pinverse)
             @views Yout[:, :, frequency] .= Pinverse
         else
-            kronify!(
+            kron_reduce!(
                 Zbuffer,
                 keep_indices,
                 eliminate_indices,
@@ -115,7 +115,7 @@ function _solve!(
             formulation.options.data.ideal_transposition && ideal_transposition!(reduced)
             @views Zout[:, :, frequency] .= reduced
 
-            kronify!(
+            kron_reduce!(
                 Pbuffer,
                 keep_indices,
                 eliminate_indices,
@@ -274,7 +274,7 @@ function _compute(
     values = map(formulations, inputs, eachindex(formulations)) do formulation, input, index
         gridpoint = Grammar.gridpoint_id(; source_id, formulation_index=index)
         # One full scan: workspace, solve, and validated result construction.
-        # Shared preparation, attachment, callback, and progress are excluded.
+        # Shared input/workspace construction, attachment, callbacks and progress are excluded.
         value = if timing isa Val{true}
             measured = Base.@timed _compute(engine, problem, formulation, execution,
                 input, physical_inputs, gridpoint)
@@ -352,9 +352,10 @@ open wire/tape domains retain their physical geometry for the explicitly selecte
 `shunt_model=:boundary` calculation; the default uses annular geometry. The
 physical system is normalized once into a backend-owned
 workspace, and all reusable numerical storage is allocated before the frequency
-loop. `trace=true` retains completed
-intermediate matrices under `details(result).data.trace`; it does not change the
-result type.
+loop. `trace=true` copies `Zin`, `Pin`, `Zg`, `Pg`, `Z`, `P`, `phase_map`,
+`cable_map` and the integration records into `details(result).data.trace`.
+These arrays remain available after the workspace is reused; the result type
+is unchanged.
 
 # Arguments
 
@@ -370,7 +371,7 @@ result type.
   (`1` for a scalar call). Its return value is ignored; exceptions propagate.
   The callback must not mutate the problem or result. The default is `nothing`.
   The selected local shunt coefficients are constructed in the cable blueprints;
-  no separate preparation call or execution option is required.
+  the compute call constructs them without an additional execution option.
 
 # Returns
 
@@ -547,7 +548,7 @@ function homogenize!(destination,
     return destination
 end
 
-# Reuse layerwise FrequencyDependent values already evaluated when preparing the calculation.
+# Reuse layerwise FrequencyDependent values already evaluated during input construction.
 function layers!(destination, evaluated::NamedTuple,
         model::EarthModel, frequency::Integer, interactions)
     unit=one(eltype(destination.rho))

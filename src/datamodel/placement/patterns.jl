@@ -8,7 +8,7 @@ $(TYPEDFIELDS)
 struct _DeferredCardinality end
 
 """
-Return the deferred maximum-capacity policy used by placement patterns.
+Return the deferred maximum wire count used by placement patterns.
 """
 capacity() = _DeferredCardinality()
 
@@ -410,7 +410,7 @@ function _sector_ring_poses(pattern::Ring, shape::SectorShape, allow_contact::Bo
     pattern.n == 1 && return _ring_poses(pattern, pattern.n, pattern.r)
     iszero(pattern.gap_frac) || throw(DomainError(
         pattern.gap_frac,
-        "origin-centred sector spacing is set by its physical side clearance, " *
+        "origin-centered sector spacing is set by its physical side clearance, " *
         "not Ring gap_frac"
     ))
     pitch = _ring_step(pattern, pattern.n)
@@ -423,7 +423,7 @@ function _sector_ring_poses(pattern::Ring, shape::SectorShape, allow_contact::Bo
         rtol = sqrt(eps(float(_geometry_scalar(pitch))))
     ) || throw(DomainError(
         shape.primitive.span,
-        "an origin-centred sector span must equal its angular pitch $pitch so " *
+        "an origin-centered sector span must equal its angular pitch $pitch so " *
         "neighboring wedge sides remain parallel"
     ))
     clearance = _sector_side_clearance(shape.primitive)
@@ -439,7 +439,7 @@ function _sector_ring_poses(pattern::Ring, shape::SectorShape, allow_contact::Bo
         clearance,
         allow_contact ?
         "sector insulation boundaries overlap" :
-        "bare origin-centred sectors require a positive physical side clearance"
+        "bare origin-centered sectors require a positive physical side clearance"
     ))
     return _ring_poses(pattern, pattern.n, pattern.r)
 end

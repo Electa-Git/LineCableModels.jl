@@ -1,6 +1,6 @@
 # One current placement for each native guide. Construction and mutations enter
 # the same composition operation; detached guides retain their native edits.
-function _addon_guide_position(position;legend=false,main=false)
+function _guide_position(position;legend=false,main=false)
     position===nothing && return nothing
     legend && position===:inside && return position
     main && position===Val(:content) && return position
@@ -10,14 +10,14 @@ function _addon_guide_position(position;legend=false,main=false)
     throw(ArgumentError("guide position must be a side or positive side-grid slot; (2,2) is reserved for content"))
 end
 
-function _addon_guide_gap(value)
+function _guide_gap(value)
     values=value isa Real ? ntuple(_ -> value,4) : value
     values isa Tuple && length(values)==4 && all(x -> x isa Real && isfinite(x) && x>=0,values) ||
         throw(ArgumentError("guide_gap must be nonnegative or a nonnegative (left,right,bottom,top) tuple"))
     return Float64.(values)
 end
 
-function _addon_guide_spacing(value,current=(rowgap=12.0,colgap=12.0))
+function _guide_spacing(value,current=(rowgap=12.0,colgap=12.0))
     fields=value isa Real ? (rowgap=value,colgap=value) : value
     fields isa NamedTuple && all(key -> key in (:rowgap,:colgap),keys(fields)) ||
         throw(ArgumentError("guide_spacing must be a nonnegative number or (rowgap=..., colgap=...)"))
@@ -27,8 +27,8 @@ function _addon_guide_spacing(value,current=(rowgap=12.0,colgap=12.0))
     return map(Float64,result)
 end
 
-function _addon_colorbar_group_attributes(attributes,count=nothing)
-    _addon_guide_attributes(attributes)
+function _colorbar_group_attributes(attributes,count=nothing)
+    _guide_attributes(attributes)
     for (key,value) in pairs(attributes)
         if key===:layout
             value===nothing && continue
@@ -38,7 +38,7 @@ function _addon_colorbar_group_attributes(attributes,count=nothing)
             count===nothing || big(value[1])*value[2]>=count ||
                 throw(ArgumentError("colorbar group layout $value cannot hold $count supplied scales"))
         elseif key in (:rowgap,:colgap)
-            value===nothing || _addon_guide_spacing((;key=>value))
+            value===nothing || _guide_spacing((;key=>value))
         elseif key in (:width,:height)
             value isa Real && (!(value isa Bool) && isfinite(value) && value>0) && continue
             value===nothing || value isa Union{Auto,Relative} ||
@@ -54,7 +54,7 @@ end
 
 # Ordered one-dimensional packing. Explicit spacer tracks carry each adjacency
 # once; native gaps on those tracks remain zero. The caller handles overflow.
-function _addon_pack_guides(extents,span,gap,fractions;desired=nothing)
+function _pack_guides(extents,span,gap,fractions;desired=nothing)
     isempty(extents) && return (;starts=Float64[],extent=0.0,span=Float64(span))
     suffix=reverse(cumsum(reverse(extents)))
     total=first(suffix)+(length(extents)-1)*gap
@@ -74,10 +74,10 @@ function _addon_pack_guides(extents,span,gap,fractions;desired=nothing)
     return (;starts,extent=total,span)
 end
 
-function _addon_guide_attributes(attributes)
+function _guide_attributes(attributes)
     attributes isa NamedTuple || throw(ArgumentError("guide attributes must be a NamedTuple"))
     if haskey(attributes,:margin)
-        _addon_guide_gap(to_value(attributes.margin))
+        _guide_gap(to_value(attributes.margin))
     end
     for (key,symbols) in ((:halign,(:left,:center,:right)),(:valign,(:bottom,:center,:top)))
         haskey(attributes,key) || continue
@@ -88,24 +88,24 @@ function _addon_guide_attributes(attributes)
     return attributes
 end
 
-function _addon_legend_owner(p,panel)
-    panel===nothing && return (body=p.addon_state.shell.body,groups=p.addon_state.groups,
-        order=p.addon_state.order,labels=p.addon_state.labels,bounds=p.addon_state.inside_bbox)
-    panel=_addon_panel_identity(panel)
-    haskey(p.addon_state.panel_data,panel) || throw(ArgumentError("panel $(repr(panel)) is absent from this figure"))
-    data=p.addon_state.panel_data[panel]
-    return (body=something(data.panel.layout,p.addon_state.shell.body),groups=data.groups,order=data.order,labels=data.labels,bounds=data.axis.scene.viewport)
+function _legend_owner(p,panel)
+    panel===nothing && return (body=p.plot_state.shell.body,groups=p.plot_state.groups,
+        order=p.plot_state.order,labels=p.plot_state.labels,bounds=p.plot_state.inside_bbox)
+    panel=_panel_identity(panel)
+    haskey(p.plot_state.panel_data,panel) || throw(ArgumentError("panel $(repr(panel)) is absent from this figure"))
+    data=p.plot_state.panel_data[panel]
+    return (body=something(data.panel.layout,p.plot_state.shell.body),groups=data.groups,order=data.order,labels=data.labels,bounds=data.axis.scene.viewport)
 end
 
-function _addon_guide_state(kind,scope,position,attributes;max_fraction=0.5,title=nothing)
-    _addon_guide_position(position;legend=kind===:legend,main=kind===:colorbars)
-    _addon_guide_attributes(attributes)
+function _guide_state(kind,scope,position,attributes;max_fraction=0.5,title=nothing)
+    _guide_position(position;legend=kind===:legend,main=kind===:colorbars)
+    _guide_attributes(attributes)
     return (;kind,scope,position=Ref{Any}(position),attributes=Ref{Any}(attributes),
-        max_fraction=Ref(_addon_legend_fraction(max_fraction)),title=Ref{Any}(title),placed=Ref{Any}(_omitted),object=Ref{Any}(nothing),
+        max_fraction=Ref(_legend_fraction(max_fraction)),title=Ref{Any}(title),placed=Ref{Any}(_omitted),object=Ref{Any}(nothing),
         layout=Ref{Any}(nothing),items=Any[],fit=Ref{Any}(nothing),subscriptions=Any[],hidden=Ref(false),visibility=IdDict{Any,Bool}())
 end
 
-function _addon_native_guide_attributes!(object,attributes)
+function _native_guide_attributes!(object,attributes)
     previous=Pair{Any,Any}[]
     try
         for (key,value) in pairs(attributes)
@@ -123,8 +123,8 @@ function _addon_native_guide_attributes!(object,attributes)
     return object
 end
 
-function _addon_validate_native_guide(type,attributes)
-    _addon_guide_attributes(attributes)
+function _validate_native_guide(type,attributes)
+    _guide_attributes(attributes)
     for (key,attribute) in pairs(attributes)
         key in propertynames(type) || throw(ArgumentError("unsupported native guide attribute $key"))
         value=to_value(attribute)
@@ -154,18 +154,18 @@ function _addon_validate_native_guide(type,attributes)
     return attributes
 end
 
-function _addon_hide_guide!(p,state)
+function _hide_guide!(p,state)
     state.hidden[] && return nothing
     empty!(state.visibility)
     if state.layout[]!==nothing
         for object in p.figure.content
-            if _addon_belongs_to_slot(object,state.layout[])
+            if _belongs_to_slot(object,state.layout[])
                 state.visibility[object]=object.blockscene.visible[]
                 object.blockscene.visible[]=false
             end
         end
     end
-    state.layout[]===nothing || _addon_detach!(state.layout[])
+    state.layout[]===nothing || _detach!(state.layout[])
     objects=state.kind===:legend ? (state.object[],) : something(state.object[],())
     for object in objects
         object===nothing && continue
@@ -176,7 +176,7 @@ function _addon_hide_guide!(p,state)
     return nothing
 end
 
-function _addon_restore_guide!(state)
+function _restore_guide!(state)
     state.hidden[] || return nothing
     for (object,visible) in state.visibility
         object.blockscene.visible[]=visible
@@ -186,7 +186,7 @@ function _addon_restore_guide!(state)
     return nothing
 end
 
-function _addon_guide_extent(state,dimension)
+function _guide_extent(state,dimension)
     object=state.layout[]
     object===nothing && return 0.0
     dimensions=object.layoutobservables.reporteddimensions[]
@@ -196,7 +196,7 @@ function _addon_guide_extent(state,dimension)
     return Float64(something(value,object.layoutobservables.computedbbox[].widths[dimension])+extra)
 end
 
-function _addon_alignment(value,dimension)
+function _alignment(value,dimension)
     hasproperty(value,:x) && getproperty(value,:x) isa Real && return Float64(value.x)
     value isa Real && return Float64(value)
     value in (:left,:bottom) && return 0.0
@@ -204,20 +204,20 @@ function _addon_alignment(value,dimension)
     return 0.5
 end
 
-function _addon_compose_guides!(p)
-    state=p.addon_state
+function _compose_guides!(p)
+    state=p.plot_state
     state.composing_guides[] && return p
     state.composing_guides[]=true
     views=[axis.targetlimits[] for axis in p.axes]
     try
         for guide in values(state.guides)
-            guide.layout[]===nothing || _addon_detach!(guide.layout[])
+            guide.layout[]===nothing || _detach!(guide.layout[])
             if guide.kind===:legend && guide.object[]!==nothing
-                _addon_detach!(guide.object[])
+                _detach!(guide.object[])
             end
         end
         for dock in state.guide_docks
-            _addon_delete_subtree!(dock)
+            _delete_subtree!(dock)
         end
         empty!(state.guide_docks)
         bodies=Any[state.shell.body]
@@ -249,39 +249,39 @@ function _addon_compose_guides!(p)
             position=guide.position[]
             guide.kind===:colorbars && isempty(state.color_scales) && continue
             if position===nothing
-                _addon_hide_guide!(p,guide)
+                _hide_guide!(p,guide)
                 continue
             end
-            _addon_restore_guide!(guide)
+            _restore_guide!(guide)
             guide.kind===:colorbars && guide.object[]!==nothing && (p.colorbars=Any[guide.object[]...])
             guide.kind===:legend && guide.object[]!==nothing && !guide.object[].blockscene.visible[] && continue
             if guide.kind===:colorbars && !isempty(guide.items) && !any(item -> item.visible[],guide.items)
-                _addon_restore_guide!(guide)
-                _addon_reflow_colorbars!(p,guide)
+                _restore_guide!(guide)
+                _reflow_colorbars!(p,guide)
                 continue
             end
-            owner=guide.kind===:legend ? _addon_legend_owner(p,guide.scope) :
+            owner=guide.kind===:legend ? _legend_owner(p,guide.scope) :
                 (body=state.shell.body,bounds=state.inside_bbox)
             guide.kind===:legend && !any(group -> haskey(owner.labels,group),owner.order) && continue
             if position===:inside
-                _addon_place_legend!(p,guide,owner,nothing)
+                _place_legend!(p,guide,owner,nothing)
                 continue
             end
             position===Val(:content) && begin
-                _addon_place_colorbars!(p,guide,state.shell.canvas[1,1],:horizontal)
+                _place_colorbars!(p,guide,state.shell.canvas[1,1],:horizontal)
                 continue
             end
             push!(get!(placements,(owner.body,position),Any[]),guide)
         end
         for ((body,position),guides) in placements
-            slot,orientation=_addon_legend_slot(body,position)
+            slot,orientation=_legend_slot(body,position)
             rows,columns=orientation===:vertical ? (2length(guides)+1,1) : (1,2length(guides)+1)
             # Both complete extents participate in content fitting. Flexible
             # construction/resize tracks still resolve the reference allocation.
             dock=GridLayout(rows,columns;tellwidth=true,tellheight=true)
             slot[]=dock
             push!(state.guide_docks,dock)
-            row,column=_addon_dock_indices(position)
+            row,column=_dock_indices(position)
             gap=state.guide_gap
             if row!=2
                 rowsize!(body,row,Auto(true));rowgap!(body,row<2 ? row : row-1,gap[row<2 ? 4 : 3])
@@ -292,19 +292,19 @@ function _addon_compose_guides!(p)
             for (index,guide) in enumerate(guides)
                 target=orientation===:vertical ? dock[2index,1] : dock[1,2index]
                 if guide.kind===:legend
-                    _addon_place_legend!(p,guide,_addon_legend_owner(p,guide.scope),target;orientation)
+                    _place_legend!(p,guide,_legend_owner(p,guide.scope),target;orientation)
                 else
-                    _addon_place_colorbars!(p,guide,target,orientation)
+                    _place_colorbars!(p,guide,target,orientation)
                 end
             end
             dimension=orientation===:vertical ? 2 : 1
             bounds=body===state.shell.body ? state.inside_bbox[] :
                 state.panel_data[first(guides).scope].axis.scene.viewport[]
             span=Float64(bounds.widths[dimension])
-            extents=[max(0.,_addon_guide_extent(guide,dimension)) for guide in guides]
+            extents=[max(0.,_guide_extent(guide,dimension)) for guide in guides]
             anchors=map(guides) do guide
                 object=guide.kind===:legend ? guide.object[] : guide.layout[]
-                _addon_alignment(to_value(getproperty(object,dimension==1 ? :halign : :valign)),dimension)
+                _alignment(to_value(getproperty(object,dimension==1 ? :halign : :valign)),dimension)
             end
             # Fixed native tracks retain complete guide extents. Equal anchors
             # form one compact stack; different anchors pack in declaration order.
@@ -321,7 +321,7 @@ function _addon_compose_guides!(p)
             else
                 nothing
             end
-            packed=_addon_pack_guides(extents,span,gap,fractions;desired)
+            packed=_pack_guides(extents,span,gap,fractions;desired)
             span=packed.span
             getproperty(dock,dimension==1 ? :width : :height)[]=span
             assigned=dock.layoutobservables.suggestedbbox[]
@@ -358,7 +358,7 @@ function _addon_compose_guides!(p)
             occupied_rows=Set{Int}();occupied_columns=Set{Int}()
             for ((owner,position),_) in placements
                 owner===body || continue
-                row,column=_addon_dock_indices(position)
+                row,column=_dock_indices(position)
                 push!(occupied_rows,row);push!(occupied_columns,column)
             end
             for row in 1:size(body)[1]
@@ -370,7 +370,7 @@ function _addon_compose_guides!(p)
         end
         for guide in values(state.guides)
             if guide.kind===:legend && guide.position[]===:inside && guide.object[]!==nothing && !haskey(guide.attributes[],:bbox)
-                guide.object[].layoutobservables.suggestedbbox[]=_addon_legend_owner(p,guide.scope).bounds[]
+                guide.object[].layoutobservables.suggestedbbox[]=_legend_owner(p,guide.scope).bounds[]
             end
         end
     finally
@@ -382,45 +382,45 @@ function _addon_compose_guides!(p)
     return p
 end
 
-function _addon_watch_guide!(p,guide,object)
+function _watch_guide!(p,guide,object)
     attributes=object isa Colorbar ? (:ticks,:tickformat,:ticklabelsize,:ticklabelrotation,
         :ticklabelfont,:label,:labelsize,:labelfont,:labelvisible,:ticklabelsvisible,
         :labelpadding,:ticklabelpad,:spinewidth,:flipaxis,:vertical,:width,:height) :
         (:labelsize,:labelfont,:titlesize,:titlefont,:padding,:margin,:patchsize,:rowgap,:colgap,:orientation,:nbanks)
-    append!(guide.subscriptions,_addon_watch_presentation!(p,object,attributes))
+    append!(guide.subscriptions,_watch_presentation!(p,object,attributes))
     push!(guide.subscriptions,on(object.blockscene,object.layoutobservables.autosize) do _
-        _addon_compose_guides!(p)
+        _compose_guides!(p)
         nothing
     end)
     if object isa Legend
         push!(guide.subscriptions,on(object.blockscene,object.blockscene.visible) do _
-            state=p.addon_state
+            state=p.plot_state
             state.composing_guides[] || state.fitting_geometry[] ||
-                _addon_edit_presentation!(() -> nothing,p)
+                _update_figure_layout!(() -> nothing,p)
             nothing
         end)
     end
     return object
 end
 
-function _addon_place_legend!(p,guide,owner,target;orientation=:vertical)
+function _place_legend!(p,guide,owner,target;orientation=:vertical)
     position=guide.position[]
     if guide.object[]===nothing
         if position!==:inside
             guide.layout[]=GridLayout()
             target[]=guide.layout[]
         end
-        guide.object[],guide.fit[]=_addon_legend!(p.figure,owner.groups,owner.order,owner.labels;
-            dependent_plots=p.addon_state.dependent_plots,position=guide.position,
+        guide.object[],guide.fit[]=_legend!(p.figure,owner.groups,owner.order,owner.labels;
+            dependent_plots=p.plot_state.dependent_plots,position=guide.position,
             attributes=guide.attributes[],max_fraction=guide.max_fraction,title=guide.title[],
             inside_bbox=owner.bounds,target=position===:inside ? nothing : guide.layout[][1,1],
-            target_orientation=orientation,fitting_geometry=p.addon_state.fitting_geometry)
-        _addon_watch_guide!(p,guide,guide.object[])
+            target_orientation=orientation,fitting_geometry=p.plot_state.fitting_geometry)
+        _watch_guide!(p,guide,guide.object[])
     end
     legend=guide.object[]
-    _addon_restore_guide!(guide)
+    _restore_guide!(guide)
     if position===:inside
-        _addon_detach!(legend)
+        _detach!(legend)
         if !haskey(guide.attributes[],:bbox)
             legend.layoutobservables.suggestedbbox[]=owner.bounds[]
         end
@@ -442,18 +442,18 @@ function _addon_place_legend!(p,guide,owner,target;orientation=:vertical)
     guide.fit[]===nothing || guide.fit[]()
     if guide.scope===nothing
         p.legend=legend
-        p.addon_state.controls_enabled && (p.controls[:legend]=legend)
+        p.plot_state.controls_enabled && (p.controls[:legend]=legend)
     else
         p.panel_legends[guide.scope]=legend
     end
     return legend
 end
 
-function _addon_watch_scale_item!(p,guide,item)
-    _addon_watch_guide!(p,guide,item.bar)
+function _watch_scale_item!(p,guide,item)
+    _watch_guide!(p,guide,item.bar)
     for name in (:vertical,:width,:height,:labelvisible)
         push!(guide.subscriptions,on(item.bar.blockscene,getproperty(item.bar,name);priority=2) do value
-            state=p.addon_state
+            state=p.plot_state
             state.composing_guides[] || state.fitting_geometry[] || begin
                 if name===:labelvisible
                     item.labelvisible[]=value
@@ -465,9 +465,9 @@ function _addon_watch_scale_item!(p,guide,item)
         end)
     end
     push!(guide.subscriptions,on(item.bar.blockscene,item.bar.blockscene.visible) do visible
-        state=p.addon_state
+        state=p.plot_state
         state.composing_guides[] || state.fitting_geometry[] || visible==item.visible[] || begin
-            _addon_edit_presentation!(p) do
+            _update_figure_layout!(p) do
                 item.visible[]=visible
             end
         end
@@ -476,24 +476,24 @@ function _addon_watch_scale_item!(p,guide,item)
     return item
 end
 
-function _addon_reflow_colorbars!(p,guide)
+function _reflow_colorbars!(p,guide)
     grid=guide.layout[]
     grid===nothing && return nothing
-    attributes=p.addon_state.colorbar_group_attributes[]
-    _addon_colorbar_group_attributes(attributes,length(p.addon_state.color_scales))
+    attributes=p.plot_state.colorbar_group_attributes[]
+    _colorbar_group_attributes(attributes,length(p.plot_state.color_scales))
     position=guide.position[]
     active=filter(item -> item.visible[],guide.items)
     requested=get(attributes,:layout,nothing)
     columns=requested===nothing ? (position in (:top,:bottom) ? max(1,length(active)) : 1) : Int(requested[2])
-    rowgap=something(get(attributes,:rowgap,nothing),p.addon_state.guide_spacing[].rowgap)
-    colgap=something(get(attributes,:colgap,nothing),p.addon_state.guide_spacing[].colgap)
+    rowgap=something(get(attributes,:rowgap,nothing),p.plot_state.guide_spacing[].rowgap)
+    colgap=something(get(attributes,:colgap,nothing),p.plot_state.guide_spacing[].colgap)
     for item in guide.items
         bar=item.bar
         if item.managed.vertical[]
             vertical=position ∉ (:top,:bottom,Val(:content))
             bar.vertical[]==vertical || (bar.vertical[]=vertical)
         end
-        natural=position===Val(:content) ? Auto() : _ADDON_COLORBAR_DOCK_LENGTH
+        natural=position===Val(:content) ? Auto() : _COLORBAR_DOCK_LENGTH
         # Auto keeps Makie's native `size` as the bar thickness. `nothing`
         # instead stretches that dimension across the assigned group track.
         for (key,value) in pairs(bar.vertical[] ? (width=Auto(),height=natural) : (width=natural,height=Auto()))
@@ -502,9 +502,9 @@ function _addon_reflow_colorbars!(p,guide)
         side_label=!bar.vertical[]
         bar.labelvisible[]==(!side_label && item.labelvisible[]) || (bar.labelvisible[]=!side_label && item.labelvisible[])
         item.companion.blockscene.visible[]=item.visible[] && side_label && item.labelvisible[]
-        _addon_detach!(item.layout)
-        _addon_detach!(bar)
-        _addon_detach!(item.companion)
+        _detach!(item.layout)
+        _detach!(bar)
+        _detach!(item.companion)
         if item.visible[]
             if side_label && item.labelvisible[]
                 item.layout[1,1]=item.companion
@@ -580,32 +580,32 @@ function _addon_reflow_colorbars!(p,guide)
     return grid
 end
 
-function _addon_place_colorbars!(p,guide,target,orientation)
+function _place_colorbars!(p,guide,target,orientation)
     if guide.object[]===nothing
-        _addon_colorbar_group_attributes(p.addon_state.colorbar_group_attributes[],length(p.addon_state.color_scales))
-        result=_addon_colorbars!(target,p.addon_state.color_scales;
+        _colorbar_group_attributes(p.plot_state.colorbar_group_attributes[],length(p.plot_state.color_scales))
+        result=_colorbars!(target,p.plot_state.color_scales;
             attributes=guide.attributes[],orientation,main=guide.position[]===Val(:content),
             scene=p.figure.scene)
         guide.object[]=result.colorbars
         guide.layout[]=result.layout
         append!(guide.items,result.items)
-        _addon_native_guide_group!(guide.layout[],p.addon_state.colorbar_group_attributes[])
+        _native_guide_group!(guide.layout[],p.plot_state.colorbar_group_attributes[])
         for item in guide.items
-            _addon_watch_scale_item!(p,guide,item)
+            _watch_scale_item!(p,guide,item)
         end
     end
-    _addon_restore_guide!(guide)
-    _addon_reflow_colorbars!(p,guide)
+    _restore_guide!(guide)
+    _reflow_colorbars!(p,guide)
     target[]=guide.layout[]
     p.colorbars=Any[guide.object[]...]
     return guide.object[]
 end
 
-function _addon_native_guide_group!(grid,attributes)
+function _native_guide_group!(grid,attributes)
     for (key,value) in pairs(attributes)
         key in (:layout,:rowgap,:colgap) && continue
         if key===:margin
-            grid.alignmode[]=Outside(_addon_guide_gap(to_value(value))...)
+            grid.alignmode[]=Outside(_guide_gap(to_value(value))...)
             continue
         end
         key in (:halign,:valign,:width,:height,:tellwidth,:tellheight) ||
@@ -615,23 +615,23 @@ function _addon_native_guide_group!(grid,attributes)
     return grid
 end
 
-function _addon_update_legend!(p,panel;position=_omitted,title=_omitted,max_fraction=_omitted,legend_labels=nothing,kwargs...)
-    owner=_addon_legend_owner(p,panel)
+function _update_legend!(p,panel;position=_omitted,title=_omitted,max_fraction=_omitted,legend_labels=nothing,kwargs...)
+    owner=_legend_owner(p,panel)
     key=(:legend,panel)
-    guide=get(p.addon_state.guides,key,nothing)
+    guide=get(p.plot_state.guides,key,nothing)
     resolved=position===_omitted ? (guide===nothing ? :right : guide.position[]) : position
-    _addon_guide_position(resolved;legend=true)
-    fraction=_addon_legend_fraction(max_fraction===_omitted ? (guide===nothing ? 0.5 : guide.max_fraction[]) : max_fraction)
-    attributes=_addon_validate_native_guide(Legend,(;kwargs...))
+    _guide_position(resolved;legend=true)
+    fraction=_legend_fraction(max_fraction===_omitted ? (guide===nothing ? 0.5 : guide.max_fraction[]) : max_fraction)
+    attributes=_validate_native_guide(Legend,(;kwargs...))
     haskey(attributes,:anchor) && throw(ArgumentError("anchor was removed; use native halign and valign"))
-    previous_guard=p.addon_state.composing_guides[]
-    p.addon_state.composing_guides[]=true
+    previous_guard=p.plot_state.composing_guides[]
+    p.plot_state.composing_guides[]=true
     try
-        _addon_relabel_legend!(owner.labels,owner.groups,owner.order,legend_labels)
+        _relabel_legend!(owner.labels,owner.groups,owner.order,legend_labels)
         if guide===nothing
-            guide=_addon_guide_state(:legend,panel,resolved,attributes;max_fraction=fraction,title=title===_omitted ? nothing : title)
-            p.addon_state.guides[key]=guide
-            push!(p.addon_state.guide_order,key)
+            guide=_guide_state(:legend,panel,resolved,attributes;max_fraction=fraction,title=title===_omitted ? nothing : title)
+            p.plot_state.guides[key]=guide
+            push!(p.plot_state.guide_order,key)
         elseif guide.object[]!==nothing && (legend_labels!==nothing || haskey(attributes,:bbox))
             current_title,current_entries=only(guide.object[].entrygroups[])
             guide.title[]=current_title
@@ -644,12 +644,12 @@ function _addon_update_legend!(p,panel;position=_omitted,title=_omitted,max_frac
             native=(; (name=>to_value(getproperty(guide.object[],name)) for name in propertynames(Legend) if name!==:entrygroups)...)
             guide.attributes[]=merge(guide.attributes[],native,attributes)
             foreach(off,guide.subscriptions);empty!(guide.subscriptions)
-            _addon_remove_legend!(guide.object[])
-            guide.layout[]===nothing || _addon_delete_subtree!(guide.layout[])
+            _remove_legend!(guide.object[])
+            guide.layout[]===nothing || _delete_subtree!(guide.layout[])
             guide.object[]=nothing;guide.layout[]=nothing;guide.fit[]=nothing
             empty!(guide.visibility);guide.hidden[]=false
         elseif guide.object[]!==nothing
-            _addon_native_guide_attributes!(guide.object[],attributes)
+            _native_guide_attributes!(guide.object[],attributes)
         end
         guide.attributes[]=merge(guide.attributes[],attributes)
         guide.position[]=resolved;guide.max_fraction[]=fraction
@@ -657,14 +657,14 @@ function _addon_update_legend!(p,panel;position=_omitted,title=_omitted,max_frac
             guide.title[]=title
             if guide.object[]!==nothing
                 entries=last(only(guide.object[].entrygroups[]))
-                _addon_legend_entries!(guide.object[],title,entries)
+                _legend_entries!(guide.object[],title,entries)
             end
         end
     finally
-        p.addon_state.composing_guides[]=previous_guard
+        p.plot_state.composing_guides[]=previous_guard
     end
     guide.fit[]===nothing || guide.fit[]()
-    _addon_compose_guides!(p)
+    _compose_guides!(p)
     if resolved===nothing
         panel===nothing ? (p.legend=nothing;delete!(p.controls,:legend)) : delete!(p.panel_legends,panel)
     end
@@ -672,18 +672,18 @@ function _addon_update_legend!(p,panel;position=_omitted,title=_omitted,max_frac
 end
 
 function LineCableModels.figurelegend!(p::LineCableModels.UIPlot;guide_spacing=_omitted,kwargs...)
-    state=p.addon_state
-    spacing=guide_spacing===_omitted ? state.guide_spacing[] : _addon_guide_spacing(guide_spacing,state.guide_spacing[])
+    state=p.plot_state
+    spacing=guide_spacing===_omitted ? state.guide_spacing[] : _guide_spacing(guide_spacing,state.guide_spacing[])
     # Validate native options and placement before changing the shared setting.
     native=(; (key=>value for (key,value) in kwargs if key ∉ (:position,:title,:max_fraction,:legend_labels))...)
-    _addon_validate_native_guide(Legend,native)
-    haskey(kwargs,:position) && _addon_guide_position(kwargs[:position];legend=true)
-    haskey(kwargs,:max_fraction) && _addon_legend_fraction(kwargs[:max_fraction])
+    _validate_native_guide(Legend,native)
+    haskey(kwargs,:position) && _guide_position(kwargs[:position];legend=true)
+    haskey(kwargs,:max_fraction) && _legend_fraction(kwargs[:max_fraction])
     previous=state.guide_spacing[]
     try
-        return _addon_edit_presentation!(p) do
+        return _update_figure_layout!(p) do
             state.guide_spacing[]=spacing
-            _addon_update_legend!(p,nothing;kwargs...)
+            _update_legend!(p,nothing;kwargs...)
         end
     catch
         state.guide_spacing[]=previous
@@ -691,20 +691,20 @@ function LineCableModels.figurelegend!(p::LineCableModels.UIPlot;guide_spacing=_
     end
 end
 LineCableModels.panellegend!(p::LineCableModels.UIPlot,panel;kwargs...)=
-    _addon_edit_presentation!(() -> _addon_update_legend!(p,panel;kwargs...),p)
+    _update_figure_layout!(() -> _update_legend!(p,panel;kwargs...),p)
 
 function LineCableModels.figurecolorbars!(p::LineCableModels.UIPlot;position=_omitted,
         group_attributes=_omitted,guide_spacing=_omitted,kwargs...)
-    state=p.addon_state
+    state=p.plot_state
     guide=state.guides[(:colorbars,nothing)]
     resolved=position===_omitted ? guide.position[] : position
-    _addon_guide_position(resolved;main=position===_omitted)
+    _guide_position(resolved;main=position===_omitted)
     group_attributes===_omitted || group_attributes isa NamedTuple ||
         throw(ArgumentError("group_attributes must be a NamedTuple"))
-    group=_addon_colorbar_group_attributes(group_attributes===_omitted ? state.colorbar_group_attributes[] :
+    group=_colorbar_group_attributes(group_attributes===_omitted ? state.colorbar_group_attributes[] :
         merge(state.colorbar_group_attributes[],group_attributes),length(state.color_scales))
-    spacing=guide_spacing===_omitted ? state.guide_spacing[] : _addon_guide_spacing(guide_spacing,state.guide_spacing[])
-    attributes=_addon_validate_native_guide(Colorbar,(;kwargs...))
+    spacing=guide_spacing===_omitted ? state.guide_spacing[] : _guide_spacing(guide_spacing,state.guide_spacing[])
+    attributes=_validate_native_guide(Colorbar,(;kwargs...))
     previous=(position=guide.position[],attributes=guide.attributes[],group=state.colorbar_group_attributes[],
         spacing=state.guide_spacing[],size=Tuple(p.figure.scene.viewport[].widths),
         native=guide.layout[]===nothing ? nothing : (; (key=>to_value(getproperty(guide.layout[],key)) for key in
@@ -715,13 +715,13 @@ function LineCableModels.figurecolorbars!(p::LineCableModels.UIPlot;position=_om
         (;item,native,managed=map(x -> x[],item.managed),labelvisible=item.labelvisible[])
     end
     try
-        _addon_edit_presentation!(p) do
+        _update_figure_layout!(p) do
             state.composing_guides[]=true
             try
                 state.colorbar_group_attributes[]=group
                 state.guide_spacing[]=spacing
                 if guide.layout[]!==nothing && group_attributes!==_omitted
-                    _addon_native_guide_group!(guide.layout[],group_attributes)
+                    _native_guide_group!(guide.layout[],group_attributes)
                 end
                 guide.attributes[]=merge(guide.attributes[],attributes)
                 for item in guide.items
@@ -729,7 +729,7 @@ function LineCableModels.figurecolorbars!(p::LineCableModels.UIPlot;position=_om
                         haskey(attributes,key) && (item.managed[key][]=false)
                     end
                     haskey(attributes,:labelvisible) && (item.labelvisible[]=to_value(attributes.labelvisible))
-                    _addon_native_guide_attributes!(item.bar,attributes)
+                    _native_guide_attributes!(item.bar,attributes)
                 end
                 guide.position[]=resolved
             finally
@@ -749,15 +749,15 @@ function LineCableModels.figurecolorbars!(p::LineCableModels.UIPlot;position=_om
                 foreach(off,guide.subscriptions);empty!(guide.subscriptions)
                 for item in guide.items
                     delete!(item.bar);delete!(item.companion)
-                    _addon_detach!(item.layout)
+                    _detach!(item.layout)
                 end
-                _addon_detach!(guide.layout[])
+                _detach!(guide.layout[])
                 empty!(guide.items)
                 guide.layout[]=nothing;guide.object[]=nothing
                 empty!(p.colorbars)
             end
             for record in saved
-                _addon_native_guide_attributes!(record.item.bar,record.native)
+                _native_guide_attributes!(record.item.bar,record.native)
                 for key in keys(record.managed)
                     record.item.managed[key][]=record.managed[key]
                 end
@@ -766,7 +766,7 @@ function LineCableModels.figurecolorbars!(p::LineCableModels.UIPlot;position=_om
         finally
             state.composing_guides[]=false
         end
-        _addon_resize_preserving_views!(p,previous.size)
+        _resize_preserving_views!(p,previous.size)
         rethrow()
     end
     resolved===nothing && empty!(p.colorbars)

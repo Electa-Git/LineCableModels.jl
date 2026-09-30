@@ -94,7 +94,7 @@ $(TYPEDSIGNATURES)
 
 Return the simultaneous DKW bound for all retained real marginal summaries at
 one outer point. Both matrix orientations are counted conservatively. This is
-an iid-sampling bound, not measured CDF error; retry sampling concerns the
+an iid-sampling bound, not measured CDF error; resampling concerns the
 population conditional on success. Fixed trial counts do not certify the
 configured target automatically.
 """
@@ -113,7 +113,7 @@ function confidence(value::MonteCarloResult, point::Integer)
         target_cdf=cdf_tolerance(value), cdf_bound=min(1.0,bound),
         target_supported=bound <= cdf_tolerance(value), scope=:point_all_retained_marginals,
         assumption=:iid, distribution=sampling_distribution(value),
-        conditioning=(value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).on_error === :retry ? :successful_realizations : :none,
+        conditioning=(value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).on_error === :resample ? :successful_realizations : :none,
         diagnostics, mean_standard_error, root_seed=root_seed(value), point_seed=point_seed(value,point),
         samples_retained=samples(value) !== nothing, histograms_retained=histograms(value) !== nothing)
 end

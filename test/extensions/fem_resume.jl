@@ -85,7 +85,7 @@
     @test dispersive_inputs.mesh_fingerprint == inputs.mesh_fingerprint
     @test getproperty.(dispersive_inputs.earth_materials,:eps_r) ==
         2 .* getproperty.(inputs.earth_materials,:eps_r)
-    # Simulate a changed resolver with the declaration and mesh-size policy
+    # Simulate a changed resolver with the declaration and mesh-size settings
     # held fixed. The domains handed to Gmsh are authoritative for reuse.
     changed_model = deepcopy(model)
     region = first(changed_model.region_plans)
@@ -115,7 +115,7 @@
     @test Bool(Gmsh.gmsh.is_initialized()) == before
     mktempdir() do root
         run = extension._create_run(root)
-        extension._prepare_run_inputs!(run, model)
+        extension._write_run_inputs!(run, model)
         assets = extension._getdp_assets(joinpath(run.path, "input", "getdp"))
         @test keys(assets) ==
               (:model, :jacobian, :integration, :materials, :quasi_tem, :quasi_full)
@@ -123,11 +123,11 @@
               ("model.pro", "jacobian.pro", "integration.pro", "materials.pro",
                   "quasi-tem.pro", "quasi-full.pro")
         captured = map(path -> (read(path), stat(path).mtime), assets)
-        extension._prepare_run_inputs!(run, model)
+        extension._write_run_inputs!(run, model)
         @test map(path -> (read(path), stat(path).mtime), assets) == captured
         # A changed equation file must not be silently repaired or reused.
         write(assets.quasi_tem, "// changed equation snapshot\n")
-        @test_throws LineCableModelsFEMError extension._prepare_run_inputs!(run, model)
+        @test_throws LineCableModelsFEMError extension._write_run_inputs!(run, model)
         @test read(assets.quasi_tem, String) == "// changed equation snapshot\n"
         write(assets.quasi_tem, captured.quasi_tem[1])
         @test !extension._resume_inputs_match(run.path, model, inputs)
@@ -183,7 +183,7 @@
             owned_gmsh = false)))
         for execution in
             (merge(inputs.execution, (ui=true,)),
-            merge(inputs.execution, (mesh_policy=:remesh,)))
+            merge(inputs.execution, (mesh_mode=:remesh,)))
             excluded = merge(retained_inputs, (; execution))
             extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), excluded)
             @test !extension._resume_inputs_match(run.path, model, excluded)
@@ -211,7 +211,7 @@
             @test relocated_inputs.getdp_identity == second_record.getdp_identity
             @test relocated_inputs.getdp_selection.path != second_record.getdp_selection.path
             relocation_run = extension._create_run(root)
-            extension._prepare_run_inputs!(relocation_run, model)
+            extension._write_run_inputs!(relocation_run, model)
             extension._write_json_atomic(
                 joinpath(relocation_run.path, "input", "computation.json"), second_record)
             @test extension._resume_inputs_match(relocation_run.path, model, relocated_inputs)

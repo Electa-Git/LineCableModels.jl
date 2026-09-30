@@ -1,4 +1,4 @@
-@testitem "Logging / verbosity respects module ancestry and caller policy" tags=[:unit] begin
+@testitem "Logging / verbosity respects module ancestry and caller logging controls" tags=[:unit] begin
     using Logging
     const LCM = LineCableModels
     @test LCM.verbosity((default = 0, progress = 1, Engine = 2)) ==
@@ -45,7 +45,7 @@
     end
     @test evaluations[] == 0
     @test_throws ErrorException with_logger(filter) do
-        @warn error("caller exception policy")
+        @warn error("caller exception marker")
     end
 end
 

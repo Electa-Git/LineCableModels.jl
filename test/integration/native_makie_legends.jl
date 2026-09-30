@@ -5,8 +5,8 @@
     impedance = [complex(i + 2j + k, i + j + 2k) for i in 1:2, j in 1:2, k in 1:3]
     admittance = impedance .* 1e-6
     reference = LineParameters(copy(impedance), copy(admittance), frequency)
-    candidate = LineParameters(2impedance, 2admittance, frequency)
-    sources = (; reference, candidate)
+    result = LineParameters(2impedance, 2admittance, frequency)
+    sources = (; reference, result)
     requests = ((R, 1, 1:2, :),)
     options = (; backend = :cairo, display_plot = false, controls = false,
         layout = (1, 2), panel_titles = ("Self resistance", "Mutual resistance"),
@@ -18,7 +18,7 @@
         panel_legends = (1, 1) => :right)
     @test Set(keys(plot.panel_legends)) == Set(((1, 1),))
     @test plot.panel_legends[(1, 1)] isa Makie.Legend
-    @test plot.addon_state.guides[(:legend, (1, 1))].position[] == :right
+    @test plot.plot_state.guides[(:legend, (1, 1))].position[] == :right
     @test plot.panel_legends[(1, 1)].orientation[] == :vertical
 
     local_labels = ("local baseline", "local alternative")
@@ -35,11 +35,11 @@
     @test legend.valign[] == :bottom
     @test legend.labelsize[] == 13
     @test first(only(legend.entrygroups[])) == "Local sources"
-    @test Set(values(inside.addon_state.panel_data[(1, 1)].labels)) == Set(local_labels)
+    @test Set(values(inside.plot_state.panel_data[(1, 1)].labels)) == Set(local_labels)
     @test [entry.label[] for entry in last(only(legend.entrygroups[]))] ==
           collect(local_labels)
-    @test Set(values(inside.addon_state.labels)) == Set(("baseline", "alternative"))
-    @test Set(values(inside.addon_state.panel_data[(1, 2)].labels)) ==
+    @test Set(values(inside.plot_state.labels)) == Set(("baseline", "alternative"))
+    @test Set(values(inside.plot_state.panel_data[(1, 2)].labels)) ==
           Set(("baseline", "alternative"))
 
     moved = panellegend!(inside, (1, 1); position = :bottom, max_fraction = 0.5)
@@ -48,10 +48,10 @@
     @test moved.orientation[] == :vertical # native row-major grid
     @test moved.nbanks[] >= 1
     @test first(only(moved.entrygroups[])) == "Local sources"
-    @test inside.addon_state.guides[(:legend, (1, 1))].position[] == :bottom
+    @test inside.plot_state.guides[(:legend, (1, 1))].position[] == :bottom
     @test panellegend!(inside, (1, 1); position = nothing) === nothing
     @test !haskey(inside.panel_legends, (1, 1))
-    @test inside.addon_state.guides[(:legend, (1, 1))].position[]===nothing
+    @test inside.plot_state.guides[(:legend, (1, 1))].position[]===nothing
 
     configured = Makie.plot(sources, requests; options...,
         panel_legends = Dict(
@@ -64,14 +64,14 @@
     @test configured.panel_legends[(1, 2)].nbanks[] >= 1
     @test first(only(configured.panel_legends[(1, 2)].entrygroups[])) ==
           "Reactance sources"
-    @test Set(values(configured.addon_state.panel_data[(1, 2)].labels)) ==
+    @test Set(values(configured.plot_state.panel_data[(1, 2)].labels)) ==
           Set(("renamed", "alternative"))
     @test [entry.label[]
            for entry in last(only(
         configured.panel_legends[(1, 2)].entrygroups[]))] == ["renamed", "alternative"]
-    @test Set(values(configured.addon_state.labels)) == Set(("baseline", "alternative"))
+    @test Set(values(configured.plot_state.labels)) == Set(("baseline", "alternative"))
     panellegend!(configured, (1, 2); position = :left, max_fraction = 0.5)
-    @test configured.addon_state.guides[(:legend, (1, 2))].position[] == :left
+    @test configured.plot_state.guides[(:legend, (1, 2))].position[] == :left
     @test configured.panel_legends[(1, 2)].orientation[] == :vertical
 
     for rendered in (plot, inside, configured)
@@ -89,8 +89,8 @@
     end
     @test Z(reference) == impedance
     @test Y(reference) == admittance
-    @test Z(candidate) == 2impedance
-    @test Y(candidate) == 2admittance
+    @test Z(result) == 2impedance
+    @test Y(result) == 2admittance
 
     for requested in (42, ((0, 1) => :right), ((true, 1) => :right),
         ((1, 1) => 42), ((1, 1) => (position = :inside, anchor = (:left,))))
@@ -130,7 +130,7 @@ end
             colorbar_group_attributes = (valign = :center, margin = (0, 0, 0, 0)))
         Makie.colorbuffer(p.figure)
         legend=p.legend.layoutobservables.computedbbox[]
-        scales=p.addon_state.guides[(:colorbars, nothing)].layout[].layoutobservables.computedbbox[]
+        scales=p.plot_state.guides[(:colorbars, nothing)].layout[].layoutobservables.computedbbox[]
         skip=legend.origin[2]-(scales.origin[2]+scales.widths[2])
         @info "complete guide baseline" skip legend scales
         @test skip>=11
@@ -164,14 +164,14 @@ end
         @test legend.labelsize[]==17
         @test bars[1].labelsize[]==19
         @test bars[1].label[]=="Edited native scale"
-        @test length(p.addon_state.guide_docks)==1
+        @test length(p.plot_state.guide_docks)==1
     end
     companion=filter(p.figure.content) do block
         block isa Makie.Label&&block.text[]=="Edited native scale"
     end
     @test length(companion)==1
     @test only(companion).fontsize[]==19
-    @test p.addon_state.shell.body.colsizes[3]==Makie.Fixed(0)
+    @test p.plot_state.shell.body.colsizes[3]==Makie.Fixed(0)
     @test_throws ArgumentError figurecolorbars!(p; position = (2, 2))
     @test_throws ArgumentError paneltitle!(p, (9, 9), "absent")
     @test axis.targetlimits[]==view
@@ -215,7 +215,7 @@ end
         end
         @test length(p.colorbars)==3
         @test p.legend isa Makie.Legend
-        @test length(p.addon_state.guide_docks)==1
+        @test length(p.plot_state.guide_docks)==1
         @test all(isfinite, only(p.axes).targetlimits[].widths)
     end
     @test all(isapprox.(first_legend.figure.scene.viewport[].widths,
@@ -230,9 +230,9 @@ end
     @test length(figurecolorbars!(hidden; position = :bottom))==3
     figurelegend!(hidden; position = nothing)
     figurecolorbars!(hidden; position = :right, group_attributes = (valign = 0.25,))
-    group=hidden.addon_state.guides[(:colorbars, nothing)].layout[]
+    group=hidden.plot_state.guides[(:colorbars, nothing)].layout[]
     bounds=group.layoutobservables.computedbbox[]
-    frame=hidden.addon_state.inside_bbox[]
+    frame=hidden.plot_state.inside_bbox[]
     @test isapprox(bounds.origin[2], frame.origin[2]+0.25*(frame.widths[2]-bounds.widths[2]); atol = 2)
 end
 
@@ -242,7 +242,7 @@ end
     for (extents, gap, span, fractions) in (([20.0, 30.0], 12.0, 62.0, [0.5, 0.5]),
         ([20.0, 30.0], 12.0, 120.0, [0.25, 0.25]), ([20.0, 30.0], 0.0, 100.0, [0.0, 1.0]),
         ([20.0], 25.0, 100.0, [0.5]), ([20.0, 30.0, 10.0], 7.5, 120.0, [1.0, 0.0, 0.5]))
-        result=ext._addon_pack_guides(extents, span, gap, fractions)
+        result=ext._pack_guides(extents, span, gap, fractions)
         @test result.extent==sum(extents)+(length(extents)-1)*gap
         @test first(result.starts)>=0
         @test last(result.starts)+last(extents)<=result.span
@@ -252,20 +252,20 @@ end
             @test first(result.starts)==first(fractions)*(span-result.extent)
         end
     end
-    @test ext._addon_pack_guides(Float64[], 100.0, 12.0, Float64[]).extent==0
-    @test ext._addon_pack_guides([20.0, 30.0], 100.0, 12.0, [0.0, 1.0]).starts==[0.0, 70.0]
-    @test ext._addon_pack_guides([20.0, 30.0], 30.0, 12.0, [0.0, 1.0]).span==62
-    @test ext._addon_pack_guides([20.0, 30.0, 10.0], 200.0, 15.0, fill(0.5, 3)).extent -
-          ext._addon_pack_guides([20.0, 30.0, 10.0], 200.0, 5.0, fill(0.5, 3)).extent==20
-    @test ext._addon_guide_spacing((rowgap = 2.5,))==(rowgap = 2.5, colgap = 12.0)
-    @test ext._addon_guide_spacing((colgap = 3.5,), (rowgap = 2.5, colgap = 8.0))==(
+    @test ext._pack_guides(Float64[], 100.0, 12.0, Float64[]).extent==0
+    @test ext._pack_guides([20.0, 30.0], 100.0, 12.0, [0.0, 1.0]).starts==[0.0, 70.0]
+    @test ext._pack_guides([20.0, 30.0], 30.0, 12.0, [0.0, 1.0]).span==62
+    @test ext._pack_guides([20.0, 30.0, 10.0], 200.0, 15.0, fill(0.5, 3)).extent -
+          ext._pack_guides([20.0, 30.0, 10.0], 200.0, 5.0, fill(0.5, 3)).extent==20
+    @test ext._guide_spacing((rowgap = 2.5,))==(rowgap = 2.5, colgap = 12.0)
+    @test ext._guide_spacing((colgap = 3.5,), (rowgap = 2.5, colgap = 8.0))==(
         rowgap = 2.5, colgap = 3.5)
     for value in (true, -1, Inf, NaN, (rowgap = true,), (rowgap = -1,), (colgap = Inf,), (extra = 1,))
-        @test_throws ArgumentError ext._addon_guide_spacing(value)
+        @test_throws ArgumentError ext._guide_spacing(value)
     end
     for value in ((layout = (true, 3),), (layout = (1, 2),), (layout = (0, 3),), (rowgap = NaN,),
         (colgap = -1,), (rowgap = true,), (layout = :horizontal,), (horizontal_strip = true,))
-        @test_throws ArgumentError ext._addon_colorbar_group_attributes(value, 3)
+        @test_throws ArgumentError ext._colorbar_group_attributes(value, 3)
     end
 end
 
@@ -281,7 +281,7 @@ end
     p=preview(design; options..., colorbar_position = :bottom, guide_spacing = (
         rowgap = 14, colgap = 18))
     direct=preview(design; options..., colorbar_position = :bottom)
-    guide=p.addon_state.guides[(:colorbars, nothing)]
+    guide=p.plot_state.guides[(:colorbars, nothing)]
     bars=copy(p.colorbars)
     companions=[item.companion for item in guide.items]
     plots=copy(only(p.axes).scene.plots)
@@ -309,7 +309,7 @@ end
     # Compare local geometry; independent windows retain their own frame sizes.
     Makie.colorbuffer(direct.figure)
     function local_boxes(q)
-        g=q.addon_state.guides[(:colorbars, nothing)]
+        g=q.plot_state.guides[(:colorbars, nothing)]
         origin=g.layout[].layoutobservables.computedbbox[].origin
         [(Tuple(item.layout.layoutobservables.computedbbox[].origin-origin),
              Tuple(item.layout.layoutobservables.computedbbox[].widths))
@@ -351,26 +351,26 @@ end
     @test length(guide.subscriptions)==listeners
     @test only(p.axes).targetlimits[]==view
 
-    before=(position = guide.position[], group = p.addon_state.colorbar_group_attributes[],
-        spacing = p.addon_state.guide_spacing[], size = p.figure.scene.viewport[],
+    before=(position = guide.position[], group = p.plot_state.colorbar_group_attributes[],
+        spacing = p.plot_state.guide_spacing[], size = p.figure.scene.viewport[],
         attributes = guide.attributes[], boxes = local_boxes(p))
     for invalid in ((group_attributes = (layout = (1, 2),),), (guide_spacing = -1,),
         (group_attributes = (bogus = 1,),), (group_attributes = (colgap = true,),),
         (vertical = :horizontal,), (width = NaN,), (position = (2, 2),), (unknown_attribute = 1,))
         @test_throws ArgumentError figurecolorbars!(p; position = :left, invalid...)
         @test guide.position[]==before.position
-        @test p.addon_state.colorbar_group_attributes[]==before.group
-        @test p.addon_state.guide_spacing[]==before.spacing
+        @test p.plot_state.colorbar_group_attributes[]==before.group
+        @test p.plot_state.guide_spacing[]==before.spacing
         @test p.figure.scene.viewport[]==before.size
         @test guide.attributes[]==before.attributes
         @test local_boxes(p)==before.boxes
     end
     figurecolorbars!(p; group_attributes = (rowgap = nothing, colgap = nothing),
         guide_spacing = (colgap = 19.5,))
-    @test p.addon_state.guide_spacing[]==(rowgap = 14.0, colgap = 19.5)
+    @test p.plot_state.guide_spacing[]==(rowgap = 14.0, colgap = 19.5)
     @test guide.layout[].default_colgap==Makie.Fixed(19.5)
     figurelegend!(p; guide_spacing = (rowgap = 15.5,))
-    @test p.addon_state.guide_spacing[]==(rowgap = 15.5, colgap = 19.5)
+    @test p.plot_state.guide_spacing[]==(rowgap = 15.5, colgap = 19.5)
     @test guide.layout[].default_rowgap==Makie.Fixed(15.5)
     # Structural reflow must not replay constructor appearance over native edits.
     guide.layout[].halign[]=:left
@@ -381,10 +381,10 @@ end
     @test guide.layout[].halign[].x==0
     @test guide.layout[].alignmode[]==appearance
     geometry=local_boxes(p)
-    previous_group=p.addon_state.colorbar_group_attributes[]
+    previous_group=p.plot_state.colorbar_group_attributes[]
     previous_size=p.figure.scene.viewport[]
     @test_throws ArgumentError figurecolorbars!(p; group_attributes = (width = 1,))
-    @test p.addon_state.colorbar_group_attributes[]==previous_group
+    @test p.plot_state.colorbar_group_attributes[]==previous_group
     @test p.figure.scene.viewport[]==previous_size
     @test local_boxes(p)==geometry
     tickformat=bars[1].tickformat[]
@@ -409,7 +409,7 @@ end
         colorbar_position = :bottom, colorbar_group_attributes = (
             layout = (1, 3), colgap = 16.5, halign = 0.25, margin = (0, 0, 0, 0)),
         guide_spacing = (rowgap = 14.5, colgap = 18.5), guide_gap = 8)
-    guide=p.addon_state.guides[(:colorbars, nothing)]
+    guide=p.plot_state.guides[(:colorbars, nothing)]
     # Native block scenes use the figure's logical pixels as their data coordinates.
     # Measure rendered glyphs, including native endpoint text, not only allocations.
     function visible_bounds(item)
@@ -422,7 +422,7 @@ end
     end
     function check_items(p, dimension, minimum_gap)
         Makie.colorbuffer(p.figure)
-        g=p.addon_state.guides[(:colorbars, nothing)]
+        g=p.plot_state.guides[(:colorbars, nothing)]
         active=filter(item->item.visible[], g.items)
         bounds=visible_bounds.(active)
         for (item, box) in zip(active, bounds)
@@ -444,7 +444,7 @@ end
           first(boxes).high[2]-first(boxes).low[2]+3
     legend=p.legend.layoutobservables.computedbbox[]
     @test minimum(b -> b.low[1], boxes)-(legend.origin[1]+legend.widths[1])>=17.5
-    @test p.addon_state.guide_gap==(8.0, 8.0, 8.0, 8.0)
+    @test p.plot_state.guide_gap==(8.0, 8.0, 8.0, 8.0)
     dimensions=[(bar.width[], bar.height[]) for bar in p.colorbars]
     inner=guide.layout[].addedcolgaps|>copy
     figurelegend!(p; guide_spacing = (colgap = 30.5,))
@@ -479,7 +479,7 @@ end
     @test all(isapprox.(size_before, p.figure.scene.viewport[].widths; atol = 1))
     @test all(isapprox.(legend_before.widths, p.legend.layoutobservables.computedbbox[].widths; atol = 1))
     @test p.legend.margin[]==(0, 0, 0, 0)
-    @test p.addon_state.guide_gap==(8.0, 8.0, 8.0, 8.0)
+    @test p.plot_state.guide_gap==(8.0, 8.0, 8.0, 8.0)
     # Orientation changes the native bar, never its sibling cells. Measure
     # vertical bars in both arrangements as well as the horizontal cases above.
     figurelegend!(p; position = nothing)
@@ -499,7 +499,7 @@ end
         colorbar_attributes = (vertical = false, width = 160, height = 14))
     p=preview(design; options..., colorbar_position = :right)
     bars=copy(p.colorbars)
-    guide=p.addon_state.guides[(:colorbars, nothing)]
+    guide=p.plot_state.guides[(:colorbars, nothing)]
     views=[axis.targetlimits[] for axis in p.axes]
     listeners=length(guide.subscriptions)
     function aligned(p, dimension, indices = eachindex(p.colorbars))
@@ -514,7 +514,7 @@ end
     aligned(p, 1)
     function local_origins(p)
         Makie.colorbuffer(p.figure)
-        group=p.addon_state.guides[(:colorbars, nothing)].layout[]
+        group=p.plot_state.guides[(:colorbars, nothing)].layout[]
         [bar.layoutobservables.computedbbox[].origin-group.layoutobservables.computedbbox[].origin
          for bar in p.colorbars]
     end
@@ -572,43 +572,43 @@ end
     @test hidden.figure.content==original_content
     @test hidden.figure.scene.children==original_scenes
     @test hidden.figure.scene.viewport[]==original_size
-    @test hidden.addon_state.guides[(:colorbars, nothing)].position[]===nothing
+    @test hidden.plot_state.guides[(:colorbars, nothing)].position[]===nothing
     @test isempty(hidden.colorbars)
     @test length(figurecolorbars!(hidden; position = :bottom))==3
     for count in 0:3
         p=preview(design; options..., legend_position = nothing, colorbar_position = nothing)
-        p.addon_state=merge(p.addon_state, (color_scales = p.addon_state.color_scales[1:count],))
+        p.plot_state=merge(p.plot_state, (color_scales = p.plot_state.color_scales[1:count],))
         figurecolorbars!(p; position = :bottom, group_attributes = (layout = (2, 4),), guide_spacing = 12.5)
         Makie.colorbuffer(p.figure)
         @test length(p.colorbars)==count
-        guide=p.addon_state.guides[(:colorbars, nothing)]
+        guide=p.plot_state.guides[(:colorbars, nothing)]
         if count==0
-            @test isempty(p.addon_state.guide_docks)
+            @test isempty(p.plot_state.guide_docks)
         else
             @test size(guide.layout[])==(1, count)
             for bar in p.colorbars
                 bar.blockscene.visible[]=false
             end
-            @test isempty(p.addon_state.guide_docks)
+            @test isempty(p.plot_state.guide_docks)
             @test length(p.colorbars)==count
             @test all(item -> !item.companion.blockscene.visible[], guide.items)
             figurecolorbars!(p; position = nothing)
             figurecolorbars!(p; position = :right)
             @test length(p.colorbars)==count
-            @test isempty(p.addon_state.guide_docks)
+            @test isempty(p.plot_state.guide_docks)
             foreach(bar->bar.blockscene.visible[]=true, p.colorbars)
             @test size(guide.layout[])==(1, count)
         end
     end
     p=preview(design; options..., legend_position = :right, colorbar_position = :bottom,
         colorbar_group_attributes = (layout = (1, 3), colgap = 16.5), guide_spacing = 14.5)
-    guide=p.addon_state.guides[(:colorbars, nothing)]
+    guide=p.plot_state.guides[(:colorbars, nothing)]
     bars=copy(p.colorbars)
     bars[1].width[]=213.5
     bars[1].vertical[]=true
     @test size(guide.layout[])==(1, 3)
     @test bars[1].width[]==213.5
-    @test bars[1].height[]==ext._ADDON_COLORBAR_DOCK_LENGTH
+    @test bars[1].height[]==ext._COLORBAR_DOCK_LENGTH
     bars[1].vertical[]=false
     @test bars[1].width[]==213.5
     @test bars[1].height[]==Makie.Auto()
@@ -628,7 +628,7 @@ end
             path=export_svg(p; path = joinpath(directory, string(theme)*".svg"), theme, open_file = false)
             @test isfile(path)
             @test occursin("<svg", read(path, String))
-            @test_throws ErrorException ext._addon_export_presentation!(p, theme) do
+            @test_throws ErrorException ext._export_presentation!(p, theme) do
                 @test guide.items[2].visible[]==false
                 @test !guide.items[2].companion.blockscene.visible[]
                 Makie.colorbuffer(p.figure)
@@ -654,11 +654,11 @@ end
     result=LineCableModels.plot(raw, raw; ydata = ((R, 1, 1:2, :),), layout = (1, 2),
         backend = :cairo, display_plot = false, controls = false, guide_spacing = (rowgap = 7.5,),
         panel_legends = (1, 1)=>:right)
-    @test result.addon_state.guide_spacing[]==(rowgap = 7.5, colgap = 12.0)
+    @test result.plot_state.guide_spacing[]==(rowgap = 7.5, colgap = 12.0)
     panel=result.panel_legends[(1, 1)]
     figurelegend!(result; guide_spacing = (colgap = 17.5,))
     @test result.panel_legends[(1, 1)]===panel
-    @test result.addon_state.guide_spacing[]==(rowgap = 7.5, colgap = 17.5)
+    @test result.plot_state.guide_spacing[]==(rowgap = 7.5, colgap = 17.5)
     @test_throws ArgumentError panellegend!(result, (1, 1); guide_spacing = 5)
     canvas=LineCableModels.plotwindow(; title = "Native guide spacing", backend = :cairo,
         display_plot = false, controls = false, guide_spacing = 14.5) do grid
@@ -666,7 +666,7 @@ end
         lines!(axis, [1.0, 2.0, 3.0], [2.0, 3.0, 4.0]; label = "native curve")
         axis
     end
-    @test canvas.addon_state.guide_spacing[]==(rowgap = 14.5, colgap = 14.5)
+    @test canvas.plot_state.guide_spacing[]==(rowgap = 14.5, colgap = 14.5)
     figurelegend!(canvas; position = :right, valign = 0.5)
     panellegend!(canvas, 1; position = :right, valign = 0.5)
     Makie.colorbuffer(canvas.figure)
@@ -680,11 +680,11 @@ end
     @test only(canvas.axes).targetlimits[]==original_view
     scales=LineCableModels.show_material_scale(;
         backend = :cairo, display_plot = false, controls = false, guide_spacing = 9.5)
-    @test size(scales.addon_state.guides[(:colorbars, nothing)].layout[])==(3, 1)
-    @test scales.addon_state.guide_spacing[]==(rowgap = 9.5, colgap = 9.5)
+    @test size(scales.plot_state.guides[(:colorbars, nothing)].layout[])==(3, 1)
+    @test scales.plot_state.guide_spacing[]==(rowgap = 9.5, colgap = 9.5)
     collection=preview(
         fill(design, 2); options..., layout = (1, 2), colorbar_position = :bottom,
         colorbar_group_attributes = (layout = (1, 3),), guide_spacing = 10.5)
     @test length(collection.axes)==2
-    @test size(collection.addon_state.guides[(:colorbars, nothing)].layout[])==(1, 3)
+    @test size(collection.plot_state.guides[(:colorbars, nothing)].layout[])==(1, 3)
 end

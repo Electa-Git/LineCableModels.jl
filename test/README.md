@@ -3,11 +3,11 @@
 Tests check the current implementation and architecture, with a **95% production
 line-coverage gate**. Scientific acceptance is a research judgment. Float32 inputs
 must work without type-induced crashes; there is no extra Float32 accuracy promise.
-See the [testing policy](../docs/src/developers.md#testing-policy).
+See the [testing requirements](../docs/src/developers.md#testing-requirements).
 
 ## While coding
 
-Run from the repository root with Julia 1.12. Prepare the environment before first
+Run from the repository root with Julia 1.12. Resolve and instantiate the environment before first
 use and after dependency changes:
 
 ```sh
@@ -16,9 +16,9 @@ julia --project=test -e 'using Pkg; Pkg.resolve(); Pkg.instantiate()'
 
 Use the corresponding project for additional environments. `resolve` refreshes
 local manifests after changes to the developed package; `instantiate` installs
-and precompiles that resolved graph. Finish preparation before starting tests.
+and precompiles that resolved graph. Finish those operations before starting tests.
 Ordinary tests share the root workspace `Manifest.toml`; there is no separate
-`test/Manifest.toml`. Do not launch overlapping cold preparations or use `--compiled-modules=no` to
+`test/Manifest.toml`. Do not run these environment operations concurrently or use `--compiled-modules=no` to
 work around stale manifests. That flag is retained only for the existing native
 and visual commands below.
 
@@ -97,7 +97,7 @@ the line percentage passes.
 
 The [execution report](../local/validation-refoundation/2026-09-15/execution/report.md)
 records scopes and measured wall times on the shared local machine.
-The ATP file selection took 41 s. Core-only preparation plus six checks took
+The ATP file selection took 41 s. Core-only environment setup plus six checks took
 74 s; quality took 279 s; native FEM and the existing visual selection took
 about 25 minutes each. These include compilation and are not isolated CI timing
 predictions.

@@ -57,7 +57,7 @@ named tuple and does not copy mutable values within it.
 $(TYPEDFIELDS)
 """
 struct FormulationOptions{NT <: NamedTuple}
-    "Named-tuple payload, accessed explicitly through `.data`."
+    "Supplied formulation options."
     data::NT
     FormulationOptions(data::NamedTuple) = new{typeof(data)}(data)
 end
@@ -81,7 +81,7 @@ role, not a backend or a completed validation stage.
 $(TYPEDFIELDS)
 """
 struct ComputationOptions{NT <: NamedTuple}
-    "Named-tuple payload, accessed explicitly through `.data`."
+    "Supplied computation options."
     data::NT
     ComputationOptions(data::NamedTuple) = new{typeof(data)}(data)
 end

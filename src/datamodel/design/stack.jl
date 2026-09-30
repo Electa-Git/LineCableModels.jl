@@ -47,9 +47,9 @@ struct CableGeometry{V <: AbstractVector, B <: AbstractShape}
         ))
         all(regions) do region
             region_area = area(region)
-            centre = centroid(region)
+            center = centroid(region)
             region_area isa Real && isfinite(region_area) && region_area > 0 &&
-                all(isfinite, centre)
+                all(isfinite, center)
         end || throw(ArgumentError(
             "cable geometry requires finite, positive-area placed regions"
         ))

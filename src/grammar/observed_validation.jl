@@ -155,9 +155,9 @@ function _validate_observed_cutoff(value,samples)
 end
 
 function _validate_observed_comparison(row)
-    _observed_fields(row,(:candidate_id,:reference_id,:request,:quantity,:statistic,:band,
+    _observed_fields(row,(:result_id,:reference_id,:request,:quantity,:statistic,:band,
         :normalization,:absolute,:relative,:absolute_unit,:relative_unit,:coordinates,:settings,:maxima),"completed comparison")
-    for id in (row.candidate_id,row.reference_id)
+    for id in (row.result_id,row.reference_id)
         _validate_observed_id(id)
     end
     _observed_fields(row.settings,(:basis,:indices,:sample_count,:status,:normalization_reason),"comparison settings")

@@ -43,7 +43,7 @@
         @test actual.assembly_ranges == expected.assembly_ranges == [i:i for i in 1:count]
         for (left, right) in zip(actual.conductors, expected.conductors)
             @test left.terminal === right.terminal
-            for field in (:r_in, :r_ex, :cross_section, :num_wires, :num_turns,
+            for field in (:r_in, :r_ex, :cross_section, :num_wires, :turns_per_length,
                     :resistance, :alpha, :gmr, :position)
                 @test all(isapprox.(getproperty(left, field), getproperty(right, field)))
             end
@@ -58,14 +58,14 @@
     end
 
     # The same Assembly becomes a strand course when a Group coalesces it.
-    centre = terminal(:core, solid(copper, wire))
+    center = terminal(:core, solid(copper, wire))
     member = terminal(:wire, solid(copper, wire))
     pattern = Ring(6; r=2wire.r)
     outer = assembly(member; pattern, names=ntuple(index -> Symbol(:wire_, index), 6))
-    merged = terminal(:core, assembly(centre, outer))
+    merged = terminal(:core, assembly(center, outer))
     direct = Group(:core, Region(:solid, wire, copper); pattern)
     merged_design = build(CableDesign, "coalesced", merged)
-    direct_design = build(CableDesign, "direct", centre, direct)
+    direct_design = build(CableDesign, "direct", center, direct)
     @test DM.radial_components(merged_design, Float64) == DM.radial_components(direct_design, Float64)
     @test all(region -> all(entry -> entry.owner !== DM.Assembly, region.placement.patterns),
         merged_design.geometry.regions)

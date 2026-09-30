@@ -78,10 +78,10 @@
                     @test all(isfile,result.details.data.fem.run.map_paths)
                 else
                     @test result isa LineCableModelsFEMError
-                    @test result.category== (action===:during_solve ? :cancelled : :not_executed)
+                    @test result.category== (action===:during_solve ? :canceled : :not_executed)
                     state=JSON3.read(read(joinpath(run_path[],"run.json"),String))
-                    @test state.state== (action===:during_solve ? "cancelled" : "not_executed")
-                    @test E._assert_no_live_attempts(E.FEMRun(run_path[],E.cancelled,"test",:none,""))===nothing
+                    @test state.state== (action===:during_solve ? "canceled" : "not_executed")
+                    @test E._assert_no_live_attempts(E.FEMRun(run_path[],E.canceled,"test",:none,""))===nothing
                 end
             finally
                 Gmsh.finalize()

@@ -88,18 +88,18 @@ Return the dimensionless permeability factor for a helical solenoid:
 k_\\mu=1+\\frac{2\\pi^2N^2(r_i^2-r_c^2)}{\\log(r_i/r_c)}.
 ```
 
-`num_turns` is the nonnegative number of turns per meter ``N``.
+`turns_per_length` is the nonnegative number of turns per meter ``N``.
 `r_con` is the conductor radius ``r_c`` and `r_ins` is the outer insulation
 radius ``r_i``, both in meters, with ``0\\le r_c<r_i``.
-`num_turns=NaN` denotes an unspecified winding and returns `1` before checking
+`turns_per_length=NaN` denotes an unspecified winding and returns `1` before checking
 the radii.
 """
-function solenoid_factor(num_turns::Real, r_con::Real, r_ins::Real)
+function solenoid_factor(turns_per_length::Real, r_con::Real, r_ins::Real)
     turns, conductor, insulator = promote(
-        float(num_turns), float(r_con), float(r_ins)
+        float(turns_per_length), float(r_con), float(r_ins)
     )
     isnan(turns) && return one(turns)
-    turns >= zero(turns) || throw(DomainError(turns, "number of turns must be nonnegative"))
+    turns >= zero(turns) || throw(DomainError(turns, "turns per unit length must be nonnegative"))
     conductor >= zero(conductor) || throw(DomainError(
         conductor, "conductor radius must be nonnegative"
     ))

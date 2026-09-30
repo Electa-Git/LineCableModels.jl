@@ -64,7 +64,7 @@ using Statistics: mean
 # request such as `@observe Z[1,1,:]` keeps its conductor coordinates while
 # selecting the complete frequency range. Plotting consumes that resolved
 # request; it does not ask the caller to repeat `(R, X)`.
-# The plot-facing name for this ordinate selection is `ydata`; it may be passed
+# The plot-facing name for this ordinate selection is `ydata`; pass it
 # positionally or as a keyword, for example `plot(result; ydata=(R, L))`.
 #
 # With matrix gridpoint overlays, every `(quantity, row, column)` has one axis.
@@ -151,7 +151,7 @@ using Statistics: mean
 #
 # Result overlays use solid lines with sparse, staggered markers on saved
 # sample points: black curves and hollow circles for references, colored curves
-# and filled shapes for candidates. References may themselves carry uncertainty.
+# and filled shapes for results. References may themselves carry uncertainty.
 # Default routes and explicit implementations have the same styling semantics.
 # Deterministic references mark both endpoints.
 # Colors and marker identities remain stable
@@ -162,7 +162,7 @@ using Statistics: mean
 #
 # With multiple displayed series, `errorbar_sampling=:staggered` selects sparse error
 # bars at retained samples separately from automatic markers. Both references
-# and candidates retain their full mean curves. Coordinates, uncertainties,
+# and results retain their full mean curves. Coordinates, uncertainties,
 # comparison calculations, and full-data axis limits are unchanged. X and Y
 # intervals use the same indices. When very few samples are available, intervals
 # take priority over conflicting automatic markers; the legend retains identity.
@@ -181,16 +181,16 @@ using Statistics: mean
 # coordinate and uncertainty meaning participates; equal curves or descriptions
 # alone never merge cases. Different physical points remain separate. Conflicting
 # observations under the same selection raise an error. Saved results remain intact.
-# Default labels show only relevant differences across candidates and reference,
+# Default labels show only relevant differences across results and reference,
 # omitting common physical inputs and individual controls. Names are captured from
 # owner-dispatched `description(...; compact=true)` methods used by report tables:
-# `FEM (reference)`, `PSCAD (reference)`, `Monte Carlo (reference)`, and candidates
-# such as `LEP` or `earth Z=Saad`, without candidate numbering.
+# `FEM (reference)`, `PSCAD (reference)`, `Monte Carlo (reference)`, and results
+# such as `LEP` or `earth Z=Saad`, without result numbering.
 # `formulations=[3,1]` selects recorded original formulation identities, preserving
 # order and colors. Explicit `series_labels` and styles follow the retained source;
 # they do not create new formula identities. When nothing varies, labels use the
-# applicable compact owner description. Automatic candidates are chromatic;
-# the separate reference is black and does not change candidate colors.
+# applicable compact owner description. Automatic results are chromatic;
+# the separate reference is black and does not change result colors.
 # Full scientific explanations and common settings remain in `formula_details`.
 #
 # Top/bottom legends fit a measured row-major grid and wrap long labels without
@@ -371,7 +371,7 @@ legend_scope_demo = Makie.plot(
     parameters,
     parameters,
     @observe R[1, 1:2, :];
-    series_labels = ("reference", "candidate"),
+    series_labels = ("reference", "result"),
     backend = :cairo,
     display_plot = false,
     controls = false,
@@ -612,8 +612,8 @@ modal_inductance.figure #hide
 # Uncertain retained values draw native intervals around their nominal curves.
 # Full uncertainty support participates in limits even when intervals are sparse.
 # `ObservedResult` classifies engineering zero using absolute nominal magnitude
-# and owner-defined cutoffs. With `clip=true`, it recenters those nominal values
-# without discarding their uncertainty dependencies. Phase unavailability and
+# and owner-defined cutoffs. With `clip=true`, values within those cutoffs
+# become exact zero with zero uncertainty. Phase unavailability and
 # linked X/L or B/C thresholds are observation concerns. Plotting applies no
 # further clipping and never applies an operand floor to retained RMS errors.
 # `clip=false` and `atol` are raw acquisition options. Compatible display units
@@ -663,13 +663,13 @@ uncertainty_plot[2].figure #hide
 # observation owner validates usable units and coordinates. Plotting overlays sources in one axis for every selected matrix position. Each
 # result may retain its own frequency samples.
 
-candidate = LineParameters(
+result = LineParameters(
     parameters.Z.values .* (1.06 + 0im),
     parameters.Y.values .* (0.94 + 0im),
     parameters.f
 );
 comparison_plot = Makie.plot(
-    (; reference = parameters, candidate),
+    (; reference = parameters, result),
     (R,);
     backend = :cairo,
     display_plot = false,
@@ -684,8 +684,8 @@ comparison_plot = Makie.plot(
 comparison_plot.figure #hide
 
 # The exact-request positional form is
-# `Makie.plot(reference, candidate, @observe(Z[1,1,:]);
-# series_labels=("reference", "candidate"))`.
+# `Makie.plot(reference, result, @observe(Z[1,1,:]);
+# series_labels=("reference", "result"))`.
 # Change line styling after construction through the native plot objects in each
 # axis; change source identity through `series_labels` or named-tuple keys.
 
@@ -730,7 +730,7 @@ observed_plot[2].figure #hide
 
 # `DataModel.preview_shapes` exposes detached physical polygons with only their
 # material and construction tag. The Makie preview adapter derives optional
-# presentation groups and `_addon_preview_axis!` draws the polygons with native
+# presentation groups and `_preview_axis!` draws the polygons with native
 # `poly!`, locks the axis to `DataAspect`, and computes
 # geometry limits. Preview `size` is an initial reference allocation. The shared
 # shell preserves physical frame sizes and view limits, then fits the window
@@ -1242,7 +1242,7 @@ custom_dashboard.figure #hide
 # rules. `colorbar_group_attributes.layout` determines the independent group
 # arrangement; `guide_spacing` supplies minimum sibling gaps unless group
 # `rowgap`/`colgap` overrides them. A preview supplies several schemes, but
-# `_addon_colorbar!` always consumes one scheme and creates one native
+# `_colorbar!` always consumes one scheme and creates one native
 # `Colorbar`. The reusable public atom remains
 # `materialcolors(property, range)` plus `materialscale!(position, scheme)`.
 
@@ -1250,7 +1250,7 @@ custom_dashboard.figure #hide
 
 # Two distinct concepts are intentionally present. `@observe` belongs to the
 # scientific observation grammar: it selects a physically meaningful view of a
-# result vault, including matrix and frequency coordinates. Makie's
+# result, including matrix and frequency coordinates. Makie's
 # `Observable` type drives live UI state such as controls, scales, limits,
 # visibility, and layout bounds. The adapter consumes the former and wires the
 # latter; it does not replace either one with an `AxisBehavior` aggregate.
@@ -1311,13 +1311,13 @@ export_svg(
 # A new high-level recipe should keep these responsibilities with their owners:
 #
 # 1. Expose numerical observations or physical geometry through the owning
-#    module's existing public protocol. Do not add plot preparation, labels,
+#    module's existing public protocol. Do not add plot-data construction, labels,
 #    colors, layout, or Makie types to scientific owners.
 # 2. Add request normalization and the narrow public dispatch method in
 #    `LineCableModelsMakieExt`, then call
 #    native Makie constructors or primitives there.
-# 3. Reuse only the shared Makie functions the recipe needs: `_addon_shell`,
-#    `_addon_axis!`, `_addon_finish!`, or `plotwindow`. Do not create a second
+# 3. Reuse only the shared Makie functions the recipe needs: `_figure_layout`,
+#    `_axis!`, `_finish_plot!`, or `plotwindow`. Do not create a second
 #    plot specification or an optional adapter hierarchy.
 # 4. Return `UIPlot` with the actual native objects and leave further mutation to
 #    the caller.
@@ -1342,7 +1342,7 @@ export_svg(
 # | `src/plotbuilder/` | Optional entry points and `UIPlot` |
 # | `ext/LineCableModelsMakieExt/recipes/line_data.jl` and `comparison_data.jl` | Select observations for plotting |
 # | `src/datamodel/preview/geometry.jl` and `materials.jl` | Geometry and material ranges |
-# | `ext/LineCableModelsMakieExt/recipes/preview_data.jl` | Prepare geometry for drawing |
+# | `ext/LineCableModelsMakieExt/recipes/preview_data.jl` | Extract geometry for drawing |
 # | `ext/LineCableModelsMakieExt/material_colors.jl` | Material palettes |
 # | `ext/LineCableModelsMakieExt/shell.jl` | Figure layout, axes, limits, and controls |
 # | `ext/LineCableModelsMakieExt/recipes/*_render.jl` | Draw declaration geometry |

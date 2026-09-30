@@ -107,7 +107,7 @@
     @test details(untimed).data.execution.input_sha256 == details(first_result).data.execution.input_sha256
     @test Z(untimed) == Z(first_result) && Y(untimed) == Y(first_result)
     observed = ObservedResult(first_result)
-    artifact = report(BenchmarkTableDefinition(),(reference=first_result,candidate=last(batch)))
+    artifact = report(BenchmarkTableDefinition(),(reference=first_result,result=last(batch)))
     @test !isempty(artifact.tables.formulations.label)
     pages = LineCableModels.plot(artifact,(Z,);backend=:cairo,display_plot=false,
         controls=false,open_export=false)

@@ -7,14 +7,14 @@
     z=fill(ComplexF32(1,2),2,2,2)
     y=fill(ComplexF32(0,1e-6),2,2,2)
     reference=LineParameters(PhaseDomain,z,y,samples;details=ComputationDetails(;coordinates=["a","b"],))
-    candidate=LineParameters(PhaseDomain,2z,2y,samples;details=ComputationDetails(;coordinates=["a","b"],))
-    artifact=report(BenchmarkTableDefinition(quantities=(Z,G),bands=(:all,)),(;reference,candidate))
+    result=LineParameters(PhaseDomain,2z,2y,samples;details=ComputationDetails(;coordinates=["a","b"],))
+    artifact=report(BenchmarkTableDefinition(quantities=(Z,G),bands=(:all,)),(;reference,result))
     @test nrow(report(BenchmarkTableDefinition(quantities=(G,)),artifact.observed).tables.maxima)==1
     @test_throws ArgumentError report(BenchmarkTableDefinition(bands=(:wide,)),artifact.observed)
     @test_throws ArgumentError report(BenchmarkTableDefinition(atol=(G=1f-8,)),artifact.observed)
     @test_throws r"unknown" BenchmarkTableDefinition(no_such_control=true)
     @test_throws r"pairing" BenchmarkTableDefinition(pairing=[(1,1),(2,1)])
-    @test_throws r"scalar reference" report(BenchmarkTableDefinition(pairing=[(2,1)]),(;reference,candidate))
+    @test_throws r"scalar reference" report(BenchmarkTableDefinition(pairing=[(2,1)]),(;reference,result))
     @test all(ismissing,filter(row -> row.quantity === :G,artifact.tables.terms).relative_rms_percent)
     @test all(ismissing,filter(row -> row.quantity === :G,artifact.tables.terms).absolute_rms)
     far=LineParameters(PhaseDomain,z,y,Float32[1e7,2e7];details=ComputationDetails(;coordinates=["a","b"],))
@@ -37,13 +37,13 @@ end
     z = ones(ComplexF64, 1, 1, 2)
     reference = LineParameters(PhaseDomain,z,fill(1e-6+1e-4im,1,1,2),f;
         details=ComputationDetails(;coordinates=["a"],))
-    candidate = LineParameters(PhaseDomain,z,fill(1e-14+1e-4im,1,1,2),f;
+    result = LineParameters(PhaseDomain,z,fill(1e-14+1e-4im,1,1,2),f;
         details=ComputationDetails(;coordinates=["a"],))
     definition = BenchmarkTableDefinition(quantities=(G,Y),bands=(:all,))
-    artifact = report(definition,(;reference,candidate))
+    artifact = report(definition,(;reference,result))
     g = only(eachrow(filter(row -> row.quantity === :G,artifact.tables.terms)))
     @test ismissing(g.relative_rms_percent)
-    @test g.status === :candidate_below_tolerance
+    @test g.status === :result_below_tolerance
     @test ismissing(g.absolute_rms)
     @test only(filter(row -> row.quantity === :G,artifact.tables.maxima).unavailable) == 1
     @test !ismissing(only(filter(row -> row.quantity === :Y,artifact.tables.terms).relative_rms_percent))
@@ -56,7 +56,7 @@ end
     recorded=merge(original,(relative=fill(1.,1,1),))
     retained=ObservedResult(artifact.observed.gridpoint,artifact.observed.quantities,[recorded],artifact.observed.timings)
     @test only(report(BenchmarkTableDefinition(),retained).tables.terms.relative_rms_percent)==100
-    refreshed=report(definition,(;reference,candidate))
+    refreshed=report(definition,(;reference,result))
     @test ismissing(only(filter(row -> row.quantity===:G,refreshed.tables.terms).relative_rms_percent))
     @test only(first(retained.errors).relative)==1
 end

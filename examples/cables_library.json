@@ -8,7 +8,7 @@
                 "cable_id": "18kV_1000mm2",
                 "nominal_data": [
                 ],
-                "catalogue": {
+                "datasheet": {
                     "U": {
                         "value": 30,
                         "__type__": "Float64"
@@ -572,7 +572,7 @@
                 "cable_id": "525kV_1600mm2",
                 "nominal_data": [
                 ],
-                "catalogue": {
+                "datasheet": {
                     "U": {
                         "value": 525,
                         "__type__": "Float64"

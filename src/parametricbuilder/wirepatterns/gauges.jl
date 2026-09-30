@@ -15,17 +15,19 @@ function awg_to_area_mm2(number::Real)
     ((oftype(float(number), 36) - number) / oftype(float(number), 19.5))
 end
 
-function d_mm_to_awg(diameter_mm::Real)
-    oftype(float(diameter_mm), 36) -
-    oftype(float(diameter_mm), 39) *
-    log(diameter_mm / oftype(float(diameter_mm), _D0_MM)) /
-    log(oftype(float(diameter_mm), _AWG_BASE))
+"""Return the AWG number corresponding to `diameter` \\[mm\\]."""
+function d_mm_to_awg(diameter::Real)
+    oftype(float(diameter), 36) -
+    oftype(float(diameter), 39) *
+    log(diameter / oftype(float(diameter), _D0_MM)) /
+    log(oftype(float(diameter), _AWG_BASE))
 end
-function area_mm2_to_awg(area_mm2::Real)
-    oftype(float(area_mm2), 36) -
-    oftype(float(area_mm2), 19.5) *
-    log(area_mm2 / oftype(float(area_mm2), _AREA0_MM2)) /
-    log(oftype(float(area_mm2), _AWG_BASE))
+"""Return the AWG number corresponding to solid metal `area` \\[mm²\\]."""
+function area_mm2_to_awg(area::Real)
+    oftype(float(area), 36) -
+    oftype(float(area), 19.5) *
+    log(area / oftype(float(area), _AREA0_MM2)) /
+    log(oftype(float(area), _AWG_BASE))
 end
 
 function awg_label(number::Integer)
@@ -36,13 +38,13 @@ function awg_label(number::Integer)
     return string(number)
 end
 
-function awg_sizes(::Type{T}, nmin::Integer = -3, nmax::Integer = 40) where {T <: Real}
-    nmin <= nmax || throw(ArgumentError("nmin must not exceed nmax"))
+function awg_sizes(::Type{T}, awg_min::Integer = -3, awg_max::Integer = 40) where {T <: Real}
+    awg_min <= awg_max || throw(ArgumentError("awg_min must not exceed awg_max"))
     return [(awg_label(number), convert(T, awg_to_d_mm(number)) / T(1000))
-            for number in nmin:nmax]
+            for number in awg_min:awg_max]
 end
 
-awg_sizes(nmin::Integer = -3, nmax::Integer = 40) = awg_sizes(Float64, nmin, nmax)
+awg_sizes(awg_min::Integer = -3, awg_max::Integer = 40) = awg_sizes(Float64, awg_min, awg_max)
 
 """
 Apply a fill factor to solid area to approximate stranded metallic area.
@@ -62,9 +64,10 @@ const _WIRE_RULES = Tuple{Int, Int, Union{Int, Nothing}}[
 
 _hex_wires(layers::Int) = 1 + 3layers * (layers - 1)
 
-function _allowed_wires(target_mm2::Real)
+"""Return wire-count bounds for the requested metal `target_area` \\[mm²\\]."""
+function _allowed_wires(target_area::Real)
     for (threshold, minimum, maximum) in _WIRE_RULES
-        target_mm2 <= threshold && return minimum, maximum
+        target_area <= threshold && return minimum, maximum
     end
     return 53, nothing
 end

@@ -1,15 +1,15 @@
 
 # Implement the AbstractDict interface
 Base.length(lib::CablesLibrary) = length(lib.data)
-function Base.setindex!(lib::CablesLibrary, value::CableDesign, key)
+function Base.setindex!(lib::CablesLibrary, design::CableDesign, key)
     cable_id = convert(String, key)
-    cable_id == value.cable_id || throw(ArgumentError(
-        "cable key '$cable_id' differs from cable_id '$(value.cable_id)'",
+    cable_id == design.cable_id || throw(ArgumentError(
+        "cable key '$cable_id' differs from cable_id '$(design.cable_id)'",
     ))
-    candidate = validate(value)
-    record = DatasheetInfo(candidate.nominal_data)
-    lib.data[cable_id] = candidate
-    lib.catalogues[cable_id] = record
+    validate(design)
+    record = DatasheetInfo(design.nominal_data)
+    lib.data[cable_id] = design
+    lib.datasheets[cable_id] = record
     return lib
 end
 Base.iterate(lib::CablesLibrary, state...) = iterate(lib.data, state...)
@@ -61,7 +61,7 @@ Remove the cable design stored under `cable_id`.
 """
 function Base.delete!(library::CablesLibrary, cable_id)
     delete!(library.data, cable_id)
-    delete!(library.catalogues, cable_id)
+    delete!(library.datasheets, cable_id)
     return library
 end
 
@@ -75,7 +75,7 @@ Remove every cable design and catalog record and return `library`.
 """
 function Base.empty!(library::CablesLibrary)
     empty!(library.data)
-    empty!(library.catalogues)
+    empty!(library.datasheets)
     return library
 end
 
@@ -85,6 +85,6 @@ Return a shallow cable-library copy with independent dictionary storage.
 function Base.copy(library::CablesLibrary)
     copied = CablesLibrary()
     copied.data = copy(library.data)
-    copied.catalogues = copy(library.catalogues)
+    copied.datasheets = copy(library.datasheets)
     return copied
 end

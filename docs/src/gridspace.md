@@ -214,8 +214,8 @@ space = Gridspace{Tuple}(
 )
 ```
 
-Avoid `Function`-typed fields in frequently called builders. A captured closure is suitable
-for local experiments. Reusable callables use concrete types.
+Avoid `Function`-typed fields in frequently called builders. A function that captures
+local variables is suitable for local experiments. Reusable callables use concrete types.
 Do not introduce a passive record merely to store arguments that another
 function immediately unpacks.
 
@@ -328,7 +328,7 @@ for each selected outer point
         redraw uncertain leaves within that point
         build a fresh complete core problem
         Engine.compute
-        optionally reject DomainError realisations under a bounded retry settings
+        optionally reject DomainError realisations with a bounded number of resampling attempts
     aggregate that point's draws
 end
 ```
@@ -338,10 +338,10 @@ mixture. `MonteCarloResult` directly owns sample-mean core results, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
 
-The default `on_error=:fail` settings rethrows every exception. With
-`options=(retain_details=true, on_error=:retry, max_failures=n)`, only
+The default `on_error=:fail` rethrows every exception. With
+`options=(retain_details=true, on_error=:resample, max_failures=n)`, only
 `DomainError` is treated as an unsupported realization. Rejected draws do not
-enter samples or statistics, and retry stops when the requested accepted-trial
+enter samples or statistics, and resampling stops when the requested accepted-trial
 count is reached or `n` failures have occurred. This estimates the conditional
 distribution of the output given that problem construction and computation
 succeed; the retained failure summary makes the conditioning rate explicit.
@@ -380,7 +380,7 @@ products, available only when retained or derivable from retained samples.
 ```julia
 definition = BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std));
     bands=(:all, :dc, :harmonic, :narrow, :wide))
-comparison = report(definition, (reference=mc_result, candidate=lep_result))
+comparison = report(definition, (reference=mc_result, result=lep_result))
 comparison.table.features   # Numeric formulation rows, frequency-band columns
 comparison.table.statistics
 comparison.table.sampling
@@ -576,7 +576,7 @@ It preserves each length's nominal mean and 10% standard deviation, but derived
 areas scale quadratically: their mean is `1.01` times nominal area. Linear
 propagation is local and does not include that second-order mean shift.
 Normal sampling remains the default and has unbounded support; finite reserve
-distances cannot make all independent normal draws feasible. Retry mode
+distances cannot make all independent normal draws feasible. Resampling
 estimates a distribution conditional on success, not the original input law.
 
 Executable native checkpoints retain the joint builder and its sources.

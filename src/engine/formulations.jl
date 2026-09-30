@@ -139,7 +139,7 @@ end
 """
 $(TYPEDEF)
 
-Report a failure in finite-element model preparation, meshing, solving, or result validation.
+Report a failure in finite-element model construction, meshing, solving, or result validation.
 
 $(TYPEDFIELDS)
 """
@@ -193,7 +193,7 @@ Supertype for Engine impedance formulations.
 """
 abstract type AbstractImpedanceFormulation <: AbstractFormulation end
 """
-Select conductor surface impedance equations [Ω/m]. Concrete subtypes prepare
+Select conductor surface impedance equations [Ω/m]. Concrete subtypes construct
 shared state when called with conductor dimensions and material properties,
 and implement `InternalImpedance.internal_impedance` for their supported
 `inner`, `outer`, and `transfer` cases.

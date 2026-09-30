@@ -271,7 +271,7 @@ matrices between different cables.
 
 `report(constants)` uses the available quantities and default display units.
 Choose Ω/km, mH/km, μS/km, and μF/km explicitly so the R/L/C units match the
-catalogue entries used below.
+datasheet entries used below.
 =#
 
 constants_report = report(
@@ -304,7 +304,7 @@ The following displays keep the three quantities separate. They inspect the
 DataFrames already produced by the report; they do not read numerical result
 fields or repeat unit conversion.
 
-The catalogue resistance is a DC value, whereas the calculated resistance is
+The datasheet resistance is a DC value, whereas the calculated resistance is
 at 50 Hz. Compare their magnitudes with those different conditions in mind:
 this is not an equal-condition error calculation.
 =#
@@ -316,7 +316,7 @@ datasheet_info.resistance
 constants_report[R]
 
 #=
-The catalogue inductance is specified for trefoil. `CableConstants` supplies
+The datasheet inductance is specified for trefoil. `CableConstants` supplies
 the earth-free concentric-assembly value, not a calculation of that trefoil
 installation. The two are reference values with different stated scopes, not
 a benchmark pair.
@@ -329,8 +329,8 @@ datasheet_info.inductance
 constants_report[L]
 
 #=
-Inspect the catalogue capacitance alongside the calculated capacitance in the
-same displayed units. The supplied catalogue record does not include a
+Inspect the datasheet capacitance alongside the calculated capacitance in the
+same displayed units. The supplied datasheet record does not include a
 capacitance test frequency or temperature; no such conditions are inferred.
 The main insulation in this numerical model uses `:pe` as stated above.
 =#
@@ -341,7 +341,7 @@ datasheet_info.capacitance
 # Calculated local capacitance [μF/km]:
 constants_report[C]
 
-# The conductance table remains a separate result; no catalogue G is supplied:
+# The conductance table remains a separate result; no datasheet G is supplied:
 constants_report[G]
 
 #=
@@ -358,12 +358,12 @@ equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 ## Saving the cable design
 
 A [`CablesLibrary`](@ref) stores designs for reuse. Add the physical design and
-its associated catalogue information, then save the library. Load it into a
+its associated datasheet information, then save the library. Load it into a
 fresh library object to retrieve the design by its identifier.
 =#
 
 library = CablesLibrary()
-add!(library, cable_design; catalogue = datasheet_info);
+add!(library, cable_design; datasheet = datasheet_info);
 library
 
 library_file = fullfile("cables_library.json")
@@ -380,7 +380,7 @@ loaded_library
 The installed arrangement is represented by [`LineCableSystem`](@ref). A
 [`LineParametersProblem`](@ref LineCableModels.Engine.LineParametersProblem)
 adds the operating temperature, earth properties, and analysis frequencies to
-that completed physical system. This tutorial prepares the problem and exports
+that completed physical system. This tutorial constructs the problem and exports
 the system; it does not execute a frequency-dependent line-parameter scan.
 
 ### Earth model

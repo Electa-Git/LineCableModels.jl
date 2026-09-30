@@ -45,16 +45,16 @@ end
     base=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.])
     reference=retain_gridpoint(base,gridpoint_id())
     source=gridpoint_id().source_id
-    candidates=[retain_gridpoint(LineParameters(base.Z.*factor,base.Y,[1.,2.,3.]),
+    results=[retain_gridpoint(LineParameters(base.Z.*factor,base.Y,[1.,2.,3.]),
         gridpoint_id(source_id=source,problem_index=index)) for (index,factor) in enumerate((1.1,1.2))]
-    errors=compare(reference,candidates,[R,L];bands=(:all,))
-    timings=[(candidate_id=LineCableModels.Grammar.observation_gridpoint(candidate).id,seconds=index)
-        for (index,candidate) in enumerate(candidates)]
-    observed=observables(reverse(candidates);comparisons=errors,timings)
+    errors=compare(reference,results,[R,L];bands=(:all,))
+    timings=[(result_id=LineCableModels.Grammar.observation_gridpoint(result).id,seconds=index)
+        for (index,result) in enumerate(results)]
+    observed=observables(reverse(results);comparisons=errors,timings)
     @test length(observed)==2
     @test observed[1].gridpoint.id.problem_index==2
     @test observed[1].timings.seconds==2
-    @test all(error -> error.candidate_id==observed[1].gridpoint.id,observed[1].errors)
+    @test all(error -> error.result_id==observed[1].gridpoint.id,observed[1].errors)
     @test all(error -> error.maxima.absolute.value>0,observed[1].errors)
     ref=ObservedResult(reference)
     artifact=report(BenchmarkTableDefinition(),observed[1:1];reference=ref)
@@ -63,17 +63,17 @@ end
     @test size(artifact.tables.terms,1)==8
     @test all(==(2),artifact.tables.terms.problem_index)
     @test only(artifact.tables.execution.seconds)==2
-    @test only(artifact.tables.execution.candidate_source)==string(observed[1].gridpoint.id.source_id)
-    @test only(artifact.tables.execution.candidate_point)==2
+    @test only(artifact.tables.execution.result_source)==string(observed[1].gridpoint.id.source_id)
+    @test only(artifact.tables.execution.result_point)==2
     @test only(artifact.tables.execution.reference_source)==string(ref.gridpoint.id.source_id)
-    equal_timings=[(candidate_id=point.gridpoint.id,seconds=1.,scope=:compute_call_wall) for point in observed]
-    equal_observed=observables(reverse(candidates);comparisons=errors,timings=equal_timings)
+    equal_timings=[(result_id=point.gridpoint.id,seconds=1.,scope=:compute_call_wall) for point in observed]
+    equal_observed=observables(reverse(results);comparisons=errors,timings=equal_timings)
     timing_report=report(BenchmarkTableDefinition(),equal_observed;reference=ref)
     @test timing_report.tables.execution.seconds==[1.,1.]
-    @test timing_report.tables.execution.candidate_point==[2,1]
-    @test timing_report.tables.execution.candidate_formulation==[1,1]
-    @test_throws ArgumentError ObservedResult(first(candidates);timings=first(timings[2:2]))
-    candidates[2].Z.values .= NaN
+    @test timing_report.tables.execution.result_point==[2,1]
+    @test timing_report.tables.execution.result_formulation==[1,1]
+    @test_throws ArgumentError ObservedResult(first(results);timings=first(timings[2:2]))
+    results[2].Z.values .= NaN
     @test all(isfinite,skipmissing(artifact.tables.terms.absolute_rms))
     @test_throws ArgumentError report(BenchmarkTableDefinition((C,)),observed;reference=ref)
     @test length(observation_groups(observed;request=R))==2

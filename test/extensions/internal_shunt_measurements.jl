@@ -48,11 +48,11 @@
     geometric_central = (varying_radius(0.2e-3+1e-8)-varying_radius(0.2e-3-1e-8))/2e-8
     @test Measurements.derivative.(geometry_result.C, Ref(radius)) ≈ geometric_central rtol=5e-3
     @test maximum(Measurements.uncertainty.(geometry_result.C)) > 0
-    centre = measurement(0.0, 1e-6)
-    other_centre = measurement(0.0, 1e-6)
-    @test E.ShuntModel._shunt_same(centre, centre, 0.01)
-    @test !E.ShuntModel._shunt_same(centre, other_centre, 0.01)
-    @test !E.ShuntModel._shunt_same(centre, 0.0, 0.01)
+    center = measurement(0.0, 1e-6)
+    other_center = measurement(0.0, 1e-6)
+    @test E.ShuntModel._shunt_same(center, center, 0.01)
+    @test !E.ShuntModel._shunt_same(center, other_center, 0.01)
+    @test !E.ShuntModel._shunt_same(center, 0.0, 0.01)
     wire_angle = measurement(0.31, 1e-4)
     angle_domain,
     _ = internal_shunt_test_domain(internal_shunt_test_design(; wire_angle, count = 4))
@@ -104,7 +104,7 @@ end
         options = (resolution = (wire = 100_000,),)))
     @test_throws BoundarySolveError compute(
         problem, MonteCarlo(strict;
-            trials = 2, seed = 314, on_error = :retry, retain_details = true))
+            trials = 2, seed = 314, on_error = :resample, retain_details = true))
     # Blueprint sharing must not erase independent Measurements sources.
     independent = CableConstantsProblem(internal_shunt_test_design(
         epsilon = measurement(2.5, 0.0025), tapes = false, count = 4))

@@ -283,7 +283,7 @@ a common layer around the disconnected assembly requires an explicit
 `Enclosure`.
 
 The package-owned formulation converts each sector conductor and conformal
-dielectric to equivalent-area circles only while preparing its numerical
+dielectric to equivalent-area circles only while constructing its numerical
 input. The exact sectors and their centroids remain authoritative in the
 completed design and in persisted declarations.
 
@@ -901,7 +901,7 @@ rope_factor = overlength(Helix(rope_lay), rope_member_radius)
 
 using DataFrames
 DataFrame(
-    wires=["central wire", "central member: course", "outer members: centres",
+    wires=["central wire", "central member: course", "outer members: centers",
            "outer members: courses"],
     count=[1, 6, 6, 36],
     strand=[1.0, strand_factor, 1.0, strand_factor],

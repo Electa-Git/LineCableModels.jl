@@ -102,7 +102,7 @@ end
     @test computation_options(LineCableModelsFEM, ComputationOptions((;domain_skin_depths=1.5))).data.domain_skin_depths === 1.5
     callback = (problem, index, result) -> nothing
     raw = (frequency_workers=Int32(4), solver_threads=Int16(2),
-        on_result=callback, trace=true, mesh_policy=:remesh,
+        on_result=callback, trace=true, mesh_mode=:remesh,
         getdp_executable=SubString("/tmp/getdp", 1), verbosity=(default=1,))
     configured = computation_options(LineCableModelsFEM, ComputationOptions(raw))
     @test keys(configured.data) == keys(defaults.data)

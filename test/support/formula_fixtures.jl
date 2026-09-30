@@ -18,7 +18,7 @@
         buffers) = merge(buffers, (destination = copy(buffers.destination),))
 
     # These are consumer-owned scientific selections, not registrations or
-    # private constructors of built-in Formula types. The catalogues stay closed.
+    # private constructors of built-in Formula types. The built-in formula lists stay closed.
     for (name, parent, owner, operation) in (
         (:LayerImpedance, E.EarthImpedanceFormulation, EI, EI.earth_impedance),
         (:LayerPotential, E.EarthAdmittanceFormulation, EA, EA.earth_potential_coefficient))
@@ -130,7 +130,7 @@
     struct SurfaceLaw{Kinds, P, O} <: E.InternalImpedanceFormulation
         parameters::P
         options::O
-        preparations::Vector{Tuple}
+        state_inputs::Vector{Tuple}
         evaluations::Vector{Tuple}
     end
     function SurfaceLaw(; kinds = (:inner, :outer, :transfer),
@@ -141,8 +141,8 @@
             parameters, options, Tuple[], Tuple[])
     end
     function (selected::SurfaceLaw)(r_in, r_ex, rho, mu_r, jω)
-        push!(selected.preparations, (r_in, r_ex, rho, mu_r, jω))
-        state = (serial = length(selected.preparations), rho = rho, radius = r_ex)
+        push!(selected.state_inputs, (r_in, r_ex, rho, mu_r, jω))
+        state = (serial = length(selected.state_inputs), rho = rho, radius = r_ex)
         return II.Functor(selected, state, selected.options)
     end
     # Availability is dispatched by actual surface, not inferred from options.
@@ -391,23 +391,23 @@
     struct UserCoaxialShunt{P, O} <: E.ShuntModelFormulation
         parameters::P
         options::O
-        preparations::Base.RefValue{Int}
+        response_count::Base.RefValue{Int}
     end
     UserCoaxialShunt() = UserCoaxialShunt((;), FormulationOptions(), Ref(0))
     function E.internal_shunt_response(selected::UserCoaxialShunt, design::CableDesign,
             geometry, T, methods, solutions, design_index)
-        selected.preparations[]+=1
+        selected.response_count[]+=1
         response=E.internal_shunt_response(E.ShuntModel.Formula(:coaxial),
             design, geometry, T, methods, solutions, design_index)
         merge(response, (details = merge(response.details, (requested = :UserCoaxialShunt,)),))
     end
 
-    struct CoaxialPipePolicy{P, O} <: E.PipeImpedanceFormulation
+    struct UserCoaxialPipe{P, O} <: E.PipeImpedanceFormulation
         parameters::P
         options::O
     end
-    CoaxialPipePolicy() = CoaxialPipePolicy((;), FormulationOptions())
-    E.Formulation(::LineCableModelsCoaxial, ::CoaxialPipePolicy, ::Val{:coaxial}) = nothing
+    UserCoaxialPipe() = UserCoaxialPipe((;), FormulationOptions())
+    E.Formulation(::LineCableModelsCoaxial, ::UserCoaxialPipe, ::Val{:coaxial}) = nothing
 
     # Counter-bearing native types observe choreography without replacing any
     # package method or attaching executable values to a selection record.
@@ -482,7 +482,7 @@
         (LayerImpedance, LayerPotential, CoupledImpedance, SurfaceLaw, SpectralSurface,
         DispersiveEarth, InsulationReactance, ConstantResistivity, ScaledResistivity,
         ExponentialResistivity, DispersiveSoil, ScaledSoil, OhmicDielectric, InsulationLaw, SemiconLaw,
-        MeanEarth, SquaredBottomEarth, FixedModalMaps, UserCoaxialShunt, CoaxialPipePolicy,
+        MeanEarth, SquaredBottomEarth, FixedModalMaps, UserCoaxialShunt, UserCoaxialPipe,
         CountedInsulationZ, CountedInsulationY,
         CountedSemiconY, CountedEarthZ, CountedEarthP)
         id=Symbol(nameof(selected_type))

@@ -58,7 +58,7 @@ end
             @test ismissing(only(error.absolute))
             @test Base.nonmissingtype(eltype(error.absolute))===T
             @test only(error.details.data.unresolved_samples).reference>0
-            @test only(error.details.data.unresolved_samples).candidate>0
+            @test only(error.details.data.unresolved_samples).result>0
         end
         @test !ismissing(only(compare(a,b,G;band=:wide,atol=cutoff).relative))
         total=LineParameters(10z,10y,f;basis=:total)
@@ -100,7 +100,7 @@ end
     @test all(iszero,observe(ObservedResult(single;atol=(G=1e100,)),G))
 end
 
-@testitem "UQ / recentering preserves every dependency and spread" tags=[:extension] begin
+@testitem "UQ / clipping zeros uncertainty only for unresolved values" tags=[:extension] begin
     using Measurements
     using LineCableModels.Grammar: detach,observation_resolution
     summary=LineCableModels.UQ.SampleSummary([1e-18,2e-18,3e-18])
@@ -111,7 +111,7 @@ end
     @test detached.n==summary.n
     for T in (Float32,Float64,BigFloat)
         cutoff=T(1e-12)
-        original=measurement.(T[cutoff/2,cutoff/2,2cutoff,2cutoff],T[cutoff/2,2cutoff,cutoff/2,2cutoff])
+        original=measurement.(T[cutoff/2,cutoff/2,cutoff,2cutoff],T[cutoff/2,2cutoff,cutoff/2,2cutoff])
         y=reshape(complex.(original,zero.(original)),1,1,:)
         source=LineParameters(copy(y),y,T[1,10,100,1000])
         for length_unit in (:base,:kilo)
@@ -119,9 +119,12 @@ end
             observed=ObservedResult(source;length_unit,atol=(G=cutoff,))
             values=vec(observe(observed,G))
             @test eltype(values)===eltype(original)
-            @test Measurements.value.(values)≈factor.*T[0,0,2cutoff,2cutoff]
-            @test Measurements.uncertainty.(values)≈factor.*Measurements.uncertainty.(original)
-            @test all(iszero,Measurements.uncertainty.(values.-factor.*original))
+            @test Measurements.value.(values)≈factor.*T[0,0,0,2cutoff]
+            @test Measurements.uncertainty.(values)≈factor.*T[0,0,0,2cutoff]
+            @test all(iszero,Measurements.value.(values[1:3]))
+            @test all(iszero,Measurements.uncertainty.(values[1:3]))
+            @test iszero(Measurements.uncertainty(values[4]-factor*original[4]))
+            @test Measurements.uncertainty.(real.(vec(Y(source))))==Measurements.uncertainty.(original)
             raw=vec(observe(ObservedResult(source;length_unit,clip=false),G))
             @test Measurements.value.(raw)==factor.*Measurements.value.(original)
             @test all(iszero,Measurements.uncertainty.(raw.-factor.*original))
@@ -134,7 +137,7 @@ end
         ((Y,abs),(Y,angle));atol=(G=1e-12,B=1e-12),length_unit=:base)
     @test ismissing(only(observe(observed,Y,angle)))
     @test nominal(only(observe(observed,Y,abs)))==0
-    @test uncertainty(only(observe(observed,Y,abs)))>0
+    @test iszero(uncertainty(only(observe(observed,Y,abs))))
     for value in (NaN,Inf,missing)
         r=observation_resolution(Union{Missing,Float64}[value],G)
         @test !only(r.unresolved) && !only(r.available)

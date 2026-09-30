@@ -37,7 +37,7 @@ end
 
 function description(::Type{<:Formula{:unified}}; compact::Bool = false)
     compact ? "Unified" :
-    "Unified circumferential earth potential with full current closure"
+    "Unified circumferential earth potential with complete enclosed-current normalization"
 end
 
 function description(::Type{<:Formula{:unified}}, ::Val{:Γ}, value::Number; compact::Bool = false)
@@ -171,7 +171,7 @@ function earth_bindings(
         selected, physical, homogeneous, collect(eachindex(physical)))
     options=first(binding.equations).declaration.options
     all(group->isequal(group.declaration.options, options), binding.equations) ||
-        throw(ArgumentError("the unified current closure requires common integration controls"))
+        throw(ArgumentError("the unified earth-return calculation requires common formulation options for all conductor pairs"))
     groups=map(binding.equations) do group
         declaration=group.declaration
         primary=declaration.equation
@@ -194,7 +194,7 @@ function earth_bindings(::Union{EarthImpedance.Formula{:unified}, Formula{:unifi
         source_radius=geometry.radius[pair.column]
         # Physical shapes can be disjoint while their equivalent circles overlap.
         # The field coefficients integrate these circles, so their applicability
-        # is checked here using the engine's prepared geometry.
+        # is checked here using the engine's geometry.
         if pair.row==pair.column
             target_radius<abs(pair.heights[1]) || throw(DomainError(target_radius,
                 "each exterior circumference must lie wholly in one half-space"))
@@ -229,7 +229,7 @@ function initialize_buffers(
                 scales = sizehint!(R[], 16))))
 end
 
-# Formula preparation consumes completed materials and engine-resolved layers.
+# Formula-state construction consumes completed materials and engine-resolved layers.
 function (selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}})(
         materials, binding, workspace, frequency::Int)
     s=workspace.input.jω[frequency]
@@ -247,7 +247,7 @@ function (selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}})(
         for column in axes(values, 2), row in axes(values, 1)
 
             same_physical_state(values[row, column], values[row, 1]) ||
-                throw(ArgumentError("unified current closure requires globally consistent equivalent media"))
+                throw(ArgumentError("the unified earth-return calculation requires the same equivalent media for all conductor pairs"))
         end
     end
     Γ=oftype(s, longitudinal)

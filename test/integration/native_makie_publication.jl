@@ -26,9 +26,9 @@
         plot = Makie.plot(source, frequency,
             (selector, [2, 1], [2, 1], samples); options...)
         @test plot isa UIPlot
-        @test Set(keys(plot.addon_state.panel_data)) ==
+        @test Set(keys(plot.plot_state.panel_data)) ==
             Set(((1, 1), (1, 2), (2, 1), (2, 2)))
-        for ((row, column), panel) in plot.addon_state.panel_data
+        for ((row, column), panel) in plot.plot_state.panel_data
             curve = only(filter(item -> item isa Makie.Lines, panel.axis.scene.plots))
             points = curve[1][]
             @test first.(points) ≈ frequency[samples] ./ 1000
@@ -42,8 +42,8 @@
     )
         plot = Makie.plot(parameters, (selector, diag, [2, 1], samples);
             frequencies=copy(frequency), options...)
-        @test Set(keys(plot.addon_state.panel_data)) == Set(((1, 1), (2, 2)))
-        for ((row, column), panel) in plot.addon_state.panel_data
+        @test Set(keys(plot.plot_state.panel_data)) == Set(((1, 1), (2, 2)))
+        for ((row, column), panel) in plot.plot_state.panel_data
             @test row == column
             curve = only(filter(item -> item isa Makie.Lines, panel.axis.scene.plots))
             @test first.(curve[1][]) ≈ frequency[samples] ./ 1000
@@ -62,7 +62,7 @@
         [10.0, 100.0, Inf, 10_000.0], G; options...)
     for (source,selector) in ((SeriesImpedance(impedance),L),(ShuntAdmittance(admittance),C))
         page=Makie.plot(source,[0.0,100.0,1000.0,10_000.0],selector;options...)
-        retained=observe(only(page.addon_state.observed),selector)
+        retained=observe(only(page.plot_state.observed),selector)
         @test all(ismissing,retained[:,:,1])
         @test all(isfinite,retained[:,:,2:end])
         for axis in page.axes
@@ -140,7 +140,7 @@ end
                 files_before = Set(readdir())
                 plot.controls[:export_svg].clicks[] += 1
                 saved = joinpath(directory, only(setdiff(Set(readdir()), files_before)))
-                @test plot.addon_state.shell.status[] == "Saved SVG to $saved"
+                @test plot.plot_state.shell.status[] == "Saved SVG to $saved"
                 @test all(==(view), rendered_views)
                 @test axis.targetlimits[] == target
                 @test axis.finallimits[] == view
@@ -258,14 +258,14 @@ end
             files_before = Set(readdir(directory))
             plot.export_theme = :invalid
             @test_nowarn plot.controls[:export_svg].clicks[] += 1
-            @test occursin("theme must be", plot.addon_state.shell.status[])
+            @test occursin("theme must be", plot.plot_state.shell.status[])
             @test Set(readdir(directory)) == files_before
             @test map(observable -> observable[], observables) == before
             plot.export_theme = :default
             plot.controls[:export_svg].clicks[] += 1
             saved = joinpath(directory, only(setdiff(Set(readdir(directory)), files_before)))
             @test occursin("<svg", read(saved, String))
-            @test plot.addon_state.shell.status[] == "Saved SVG to $saved"
+            @test plot.plot_state.shell.status[] == "Saved SVG to $saved"
             @test Makie.current_backend() === backend
             @test axis.limits[] == limits
             if Sys.islinux()

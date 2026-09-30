@@ -82,8 +82,8 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         println(io, "AirMu = ", _pro_number(air.mu_r * 4π * 1e-7), ";")
         println(io, "DomainRadius = ", _pro_number(model.domain_radius), ";")
         println(io, "ShellOuterRadius = ", _pro_number(model.shell_outer_radius), ";")
-        println(io, "Xcenter = ", _pro_number(model.centre[1]), ";")
-        println(io, "Ycenter = ", _pro_number(model.centre[2]), ";")
+        println(io, "Xcenter = ", _pro_number(model.center[1]), ";")
+        println(io, "Ycenter = ", _pro_number(model.center[2]), ";")
         println(io, "Zcenter = 0.0;")
     end
     return path
@@ -187,7 +187,7 @@ function _resolve_getdp(execution::ComputationOptions, run::FEMRun)
     for (key, value) in pairs(JSON3.read(JSON3.write(identity))))
     _resume_value_matches(recorded_identity, expected_identity) ||
         _fem_error(:getdp, "GetDP", :getdp_executable,
-            "GetDP executable identity changed after input preparation; start a new run";
+            "GetDP executable identity changed after writing the run inputs; start a new run";
             run_directory = run.path)
     return selection.path
 end

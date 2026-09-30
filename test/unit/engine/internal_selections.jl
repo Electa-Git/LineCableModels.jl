@@ -39,8 +39,8 @@
     end
     observed=ObservedSurfaces(scalar,(;),scalar.options,Tuple[])
     function (leaf::ObservedSurfaces)(args...)
-        prepared=leaf.base(args...)
-        II.Functor(leaf,prepared.state,leaf.options)
+        surface_functor=leaf.base(args...)
+        II.Functor(leaf,surface_functor.state,leaf.options)
     end
     function II.internal_impedance(leaf::ObservedSurfaces,kind::Union{Val{:inner},Val{:outer},Val{:transfer}},
             functor,workspace)
@@ -62,7 +62,7 @@
     distinct=merge(same,(transfer=alternative,))
     values=II.surface_impedances(distinct,args...)
     @test values.inner==reference.inner && values.outer==reference.outer
-    @test values.transfer==41+42im && length(alternative.preparations)==1
+    @test values.transfer==41+42im && length(alternative.state_inputs)==1
     @test_throws ArgumentError II.surface_impedances(merge(same,(inner=alternative,)),args...)
 
     problem=TestFixtures.line_parameters_problem(frequencies=[50.,500.])
@@ -77,9 +77,9 @@
     custom=compute(problem,Formulation(internal_impedance=distinct))
     @test Z(custom)!=Z(original) && Y(custom)==Y(original)
     @test details(custom).data.formulations.methods.internal_impedance.transfer.identifier === :SurfaceLaw
-    candidates=Formulation(internal_impedance=Grid((formula(:default),customized));combine=:zip)
-    @test length(candidates)==2
-    @test collect(candidates)[2].methods.internal_impedance.transfer === customized.transfer
+    formulations=Formulation(internal_impedance=Grid((formula(:default),customized));combine=:zip)
+    @test length(formulations)==2
+    @test collect(formulations)[2].methods.internal_impedance.transfer === customized.transfer
     native=Formulation(internal_impedance=same)
     for source in (native,MonteCarlo(native),LinearError(native))
         saved=IO.deserialize_value(Val(:formulation),NamedTuple(source))

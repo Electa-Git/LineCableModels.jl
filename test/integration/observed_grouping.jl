@@ -24,9 +24,9 @@
     @test length(tabulate(observed))==4
     opts=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     page=LineCableModels.plot(observed;ydata=(R,),opts...)
-    @test page.addon_state.displayed_indices==[1,3,4]
-    @test only(page.addon_state.display_groups).groups==groups
-    @test length(page.addon_state.observed)==4
+    @test page.plot_state.displayed_indices==[1,3,4]
+    @test only(page.plot_state.display_groups).groups==groups
+    @test length(page.plot_state.observed)==4
     @test length(filter(plot -> plot isa Makie.Lines,only(page.axes).scene.plots))==3
     @test_throws ArgumentError LineCableModels.plot(observed;ydata=(L,),opts...)
     @test_throws ArgumentError LineCableModels.plot(observed;clip=false,opts...)
@@ -37,8 +37,8 @@
     @test length(artifact.tables.features)==2
     @test all(feature -> length(feature.relative.formula)==1,artifact.tables.features)
     overlay=LineCableModels.plot(artifact;ydata=(R,),problem=2,band=(10.,100.),opts...)
-    @test length(overlay.addon_state.observed)==2
-    @test first(overlay.addon_state.observed).gridpoint.id.problem_index==2
+    @test length(overlay.plot_state.observed)==2
+    @test first(overlay.plot_state.observed).gridpoint.id.problem_index==2
     curves=filter(plot -> plot isa Makie.Lines,only(overlay.axes).scene.plots)
     @test length(curves)==2
     @test all(curve -> length(curve[1][])==2,curves)

@@ -1,4 +1,4 @@
-function _addon_observable_snapshot!(snapshot, object, names)
+function _snapshot_observables!(snapshot, object, names)
     for name in names
         hasproperty(object, name) || continue
         value = getproperty(object, name)
@@ -8,28 +8,28 @@ function _addon_observable_snapshot!(snapshot, object, names)
     return snapshot
 end
 
-function _addon_set_observable!(snapshot, observable, value)
+function _set_observable!(snapshot, observable, value)
     push!(snapshot, observable => observable[])
     observable[] = value
     return observable
 end
 
-function _addon_hide_layout_content!(snapshot, content)
+function _hide_layout_content!(snapshot, content)
     if content isa GridLayout
         for entry in content.content
-            _addon_hide_layout_content!(snapshot, entry.content)
+            _hide_layout_content!(snapshot, entry.content)
         end
     elseif hasproperty(content, :blockscene)
-        _addon_set_observable!(snapshot, content.blockscene.visible, false)
+        _set_observable!(snapshot, content.blockscene.visible, false)
     end
     return snapshot
 end
 
-function _addon_publication_snapshot!(snapshot, plot::LineCableModels.UIPlot, theme::Symbol)
+function _apply_export_theme!(snapshot, plot::LineCableModels.UIPlot, theme::Symbol)
     theme in (:default, :publication) || throw(ArgumentError(
         "theme must be :default or :publication",
     ))
-    _addon_observable_snapshot!(snapshot, plot.figure.scene, (:backgroundcolor,))
+    _snapshot_observables!(snapshot, plot.figure.scene, (:backgroundcolor,))
     plot.figure.scene.backgroundcolor[] = Makie.to_color(:white)
     theme === :default && return nothing
 
@@ -37,13 +37,13 @@ function _addon_publication_snapshot!(snapshot, plot::LineCableModels.UIPlot, th
     figure_fonts = plot.figure.scene.theme[:fonts]
     for (role, latex_role) in ((:regular, :regular), (:italic, :italic),
         (:bold, :bold), (:bold_italic, :bolditalic))
-        _addon_set_observable!(snapshot, figure_fonts[role], latex_fonts[latex_role][])
+        _set_observable!(snapshot, figure_fonts[role], latex_fonts[latex_role][])
     end
     regular = :regular
     bold = :bold
     for block in plot.figure.content
         if block isa Axis
-            _addon_observable_snapshot!(snapshot, block,
+            _snapshot_observables!(snapshot, block,
                 (
                     :titlefont,
                     :xlabelfont,
@@ -57,30 +57,30 @@ function _addon_publication_snapshot!(snapshot, plot::LineCableModels.UIPlot, th
             block.xticklabelfont[] = regular
             block.yticklabelfont[] = regular
         elseif block isa Legend
-            _addon_observable_snapshot!(snapshot, block, (:labelfont, :titlefont))
+            _snapshot_observables!(snapshot, block, (:labelfont, :titlefont))
             block.labelfont[] = regular
             block.titlefont[] = bold
         elseif block isa Colorbar
-            _addon_observable_snapshot!(snapshot, block, (:labelfont, :ticklabelfont))
+            _snapshot_observables!(snapshot, block, (:labelfont, :ticklabelfont))
             block.labelfont[] = regular
             block.ticklabelfont[] = regular
         elseif block isa Label
-            _addon_observable_snapshot!(snapshot, block, (:font,))
+            _snapshot_observables!(snapshot, block, (:font,))
             block.font[] = block === plot.title ? bold : regular
         end
     end
     return nothing
 end
 
-function _addon_restore_snapshot!(snapshot)
+function _restore_snapshot!(snapshot)
     for (observable, value) in Iterators.reverse(snapshot)
         observable[] = value
     end
     return nothing
 end
 
-function _addon_hide_chrome!(snapshot, p)
-    shell=p.addon_state.shell
+function _hide_export_controls!(snapshot, p)
+    shell=p.plot_state.shell
     root=shell.root
     first_row=1+offsets(root)[1]
     last_row=nrows(root)+offsets(root)[1]
@@ -90,7 +90,7 @@ function _addon_hide_chrome!(snapshot, p)
     for object in shell.chrome
         gc=GridLayoutBase.gridcontent(object)
         gc===nothing && continue
-        _addon_hide_layout_content!(snapshot, object)
+        _hide_layout_content!(snapshot, object)
         union!(occupied, gc.span.rows)
     end
     with_updates_suspended(root) do
@@ -107,11 +107,11 @@ function _addon_hide_chrome!(snapshot, p)
     return saved
 end
 
-function _addon_export_presentation!(write, p, theme)
-    state=p.addon_state
+function _export_presentation!(write, p, theme)
+    state=p.plot_state
     state===nothing && throw(ArgumentError("SVG presentation requires a managed UIPlot"))
     size=Tuple(p.figure.scene.viewport[].widths)
-    (; frames, canvas, views)=_addon_frame_snapshot(p)
+    (; frames, canvas, views)=_frame_snapshot(p)
     grids=Any[state.shell.root, state.shell.body, state.shell.canvas]
     append!(grids, [data.panel.layout
                     for data in values(state.panel_data) if data.panel.layout!==nothing])
@@ -122,22 +122,22 @@ function _addon_export_presentation!(write, p, theme)
     alignments=[axis.alignmode[] for axis in p.axes]
     snapshot=Pair{Any, Any}[]
     for grid in grids
-        _addon_observable_snapshot!(snapshot, grid, (
+        _snapshot_observables!(snapshot, grid, (
             :width, :height, :tellwidth, :tellheight))
     end
     chrome=nothing
     previous_guard=state.fitting_geometry[]
     state.fitting_geometry[]=true
     try
-        chrome=_addon_hide_chrome!(snapshot, p)
-        _addon_publication_snapshot!(snapshot, p, theme)
-        _addon_compose_guides!(p)
+        chrome=_hide_export_controls!(snapshot, p)
+        _apply_export_theme!(snapshot, p, theme)
+        _compose_guides!(p)
         all(axis -> axis.aspect[]===nothing, p.axes) && state.panel_page!==nothing &&
-            _addon_panel_padding!(p)
-        _addon_fit_frames!(p, frames; canvas)
+            _panel_padding!(p)
+        _fit_frames!(p, frames; canvas)
         return write()
     finally
-        _addon_restore_snapshot!(snapshot)
+        _restore_snapshot!(snapshot)
         if chrome!==nothing
             with_updates_suspended(state.shell.root) do
                 for (row, value) in enumerate(chrome.rows)
@@ -161,7 +161,7 @@ function _addon_export_presentation!(write, p, theme)
             end
         end
         try
-            _addon_resize_preserving_views!(p, size)
+            _resize_preserving_views!(p, size)
         finally
             state.fitting_geometry[]=previous_guard
         end

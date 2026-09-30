@@ -13,15 +13,15 @@
         fields=merge(completed_formulation(choices[index]),(inputs=(radius=.01,resistivity=100.),coordinates=["a","b"])))
         for (index,k) in enumerate((2,3))]
     reference=LineParameters(z,y,f)
-    candidates=ParametricResult(nothing,points,(problems=[:unavailable],formulations=choices),ComputationDetails())
-    completed=LineCableModels.Engine.compare(reference,candidates,[Z,Y,R,L,G,C];bands=(:all,:wide))
-    timings=[(candidate_id=point.details.data.gridpoint,seconds=Float64(index),scope=:compute_call_wall,
+    results=ParametricResult(nothing,points,(problems=[:unavailable],formulations=choices),ComputationDetails())
+    completed=LineCableModels.Engine.compare(reference,results,[Z,Y,R,L,G,C];bands=(:all,:wide))
+    timings=[(result_id=point.details.data.gridpoint,seconds=Float64(index),scope=:compute_call_wall,
         context=(id=:benchmark_title_probe,)) for (index,point) in enumerate(points)]
-    observed=observables(candidates;comparisons=completed,timings,length_unit=:base,clip=false)
+    observed=observables(results;comparisons=completed,timings,length_unit=:base,clip=false)
     observed_reference=ObservedResult(reference;length_unit=:base,clip=false)
     artifact=report(BenchmarkTableDefinition(bands=(:all,:wide)),observed;reference=observed_reference)
     @test artifact.tables.execution.seconds==[1.,2.]
-    @test artifact.tables.execution.candidate_formulation==[1,2]
+    @test artifact.tables.execution.result_formulation==[1,2]
     @test length.(getproperty.(observed,:errors))==[12,12]
     @test all(error -> error.reference_id==observed_reference.gridpoint.id,Iterators.flatten(getproperty.(observed,:errors)))
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
@@ -30,9 +30,9 @@
     @test getproperty.(pages,:export_name)==["benchmark_title_probe — Series resistance","benchmark_title_probe — Series reactance"]
     @test sum(length(page.axes) for page in pages)==8
     for (transform,page) in zip((real,imag),pages)
-        @test length(page.addon_state.observed)==3
-        @test any(endswith(" (reference)"),values(page.addon_state.labels))
-        for ((i,j),panel) in page.addon_state.panel_data
+        @test length(page.plot_state.observed)==3
+        @test any(endswith(" (reference)"),values(page.plot_state.labels))
+        for ((i,j),panel) in page.plot_state.panel_data
             curves=filter(item -> item isa Makie.Lines,panel.axis.scene.plots)
             @test length(curves)==3
             @test Makie.to_color(last(curves).color[])==Makie.to_color(:black)
@@ -43,9 +43,9 @@
         end
     end
     filtered=LineCableModels.plot(artifact,(R,);formulations=2,options...)
-    @test first(filtered.addon_state.observed).gridpoint.id.formulation_index==2
-    @test first(filtered.addon_state.observed).timings.seconds==2.
-    @test all(error -> error.candidate_id.formulation_index==2,first(filtered.addon_state.observed).errors)
+    @test first(filtered.plot_state.observed).gridpoint.id.formulation_index==2
+    @test first(filtered.plot_state.observed).timings.seconds==2.
+    @test all(error -> error.result_id.formulation_index==2,first(filtered.plot_state.observed).errors)
     for (all_axis,selected_axis) in zip(first(pages).axes,filtered.axes)
         all_curves=filter(item -> item isa Makie.Lines,all_axis.scene.plots)
         selected=filter(item -> item isa Makie.Lines,selected_axis.scene.plots)
@@ -61,9 +61,9 @@
     @test all(axis -> axis.yscale[](1e-18)>0 && axis.yscale[](-1e-18)<0,signed.axes)
     @test_throws ArgumentError LineCableModels.plot(artifact,(R,);band=(100.,200.),options...)
     @test_throws ArgumentError LineCableModels.plot(artifact,(R,);band=:wide,options...)
-    raw_page=LineCableModels.plot(candidates;ydata=(R,),reference,length_unit=:base,options...)
+    raw_page=LineCableModels.plot(results;ydata=(R,),reference,length_unit=:base,options...)
     @test length(raw_page.axes)==4
-    @test length(first(raw_page.addon_state.observed).quantities)==4
+    @test length(first(raw_page.plot_state.observed).quantities)==4
     # Rendering and exporting must not consult either poisoned numerical source.
     Z(reference).=NaN;Z(points[1]).=NaN
     rebuilt=report(BenchmarkTableDefinition(),artifact.observed;reference=artifact.reference)
@@ -95,8 +95,8 @@ end
     groups=observation_groups(observed;request=R)
     @test getproperty.(groups,:members)==[[1,2],[3],[4]]
     page=LineCableModels.plot(observed;ydata=(R,),backend=:cairo,display_plot=false,controls=false,open_export=false)
-    @test length(page.addon_state.observed)==4
-    @test page.addon_state.displayed_indices==[1,3,4]
+    @test length(page.plot_state.observed)==4
+    @test page.plot_state.displayed_indices==[1,3,4]
     @test count(item -> item isa Makie.Lines,only(page.axes).scene.plots)==3
     @test count(item -> item isa Makie.Errorbars,only(page.axes).scene.plots)==3
 end
@@ -114,12 +114,12 @@ end
     points=[retain_gridpoint(base,gridpoint_id(;source_id,formulation_index=index);
         fields=merge(completed_formulation(choice),(inputs=(radius=.01,resistivity=100.),)))
         for (index,choice) in enumerate(choices)]
-    artifact=report(BenchmarkTableDefinition(),(reference=LineParameters(Z(base),Y(base),f),candidate=points))
+    artifact=report(BenchmarkTableDefinition(),(reference=LineParameters(Z(base),Y(base),f),result=points))
     for (request,count) in ((R,5),(X,5),(G,3),(B,3))
         @test length(observation_groups(artifact.observed;request))==count
         page=LineCableModels.plot(artifact;ydata=(request,),backend=:cairo,display_plot=false,controls=false,open_export=false)
-        @test length(page.addon_state.displayed_indices)==count+1
-        labels=collect(values(page.addon_state.labels))
+        @test length(page.plot_state.displayed_indices)==count+1
+        labels=collect(values(page.plot_state.labels))
         other=request in (R,X) ? "earth Y" : "earth Z"
         @test all(!occursin(other,label) for label in labels)
     end
@@ -139,6 +139,6 @@ end
         page=LineCableModels.plot(observed;ydata=(request,),backend=:cairo,display_plot=false,controls=false,open_export=false)
         fields=getproperty(observed.gridpoint.formulation_fields,request===R ? :Z : :Y)
         @test all(label in [field.name*"="*field.value for field in fields] for label in labels)
-        @test only(values(page.addon_state.labels))==description(LineParametersFormulation,physical;quantity=request,compact=true)
+        @test only(values(page.plot_state.labels))==description(LineParametersFormulation,physical;quantity=request,compact=true)
     end
 end

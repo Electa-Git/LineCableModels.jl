@@ -4,7 +4,7 @@
     function P.remote_command(::Val{:local_failure_probe}, config::P.RemoteConfig, command::AbstractString)
         script = occursin("-SharedCase", command) ?
             "println(stderr, \"synthetic transport failure\"); exit(9)" :
-            "write(" * repr(joinpath(config.local_root, "cancelled")) * ", \"cancelled\")"
+            "write(" * repr(joinpath(config.local_root, "canceled")) * ", \"canceled\")"
         return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
     end
     function P.remote_command(::Val{:local_interrupt_probe}, config::P.RemoteConfig, command::AbstractString)
@@ -32,7 +32,7 @@
         @test occursin("Full PSCAD diagnostics:", sprint(showerror, caught))
         @test occursin("Transport stderr:", sprint(showerror, caught))
         @test read(joinpath(output, "transport-stderr.txt"), String) == "synthetic transport failure\n"
-        @test isfile(joinpath(root, "cancelled"))
+        @test isfile(joinpath(root, "canceled"))
         @test occursin("before the remote failure", read(joinpath(output, "pscad-console.txt"), String))
         @test_throws ArgumentError P.run_remote_pscad(config, project, output,
             Formulation(:pscad), 10.0.^range(-1, 5; length = 101); output_stem = "fixture")
@@ -47,9 +47,9 @@
         mktempdir() do root
             config = P.RemoteConfig("local-fixture", root, "scratch", "julia", "python";
                 local_root = root, transport = :local_interrupt_probe)
-            cancelled = Ref(false)
+            canceled = Ref(false)
             callback = () -> begin
-                cancelled[] = true
+                canceled[] = true
                 callback_fails && error("synthetic cancellation diagnostic")
             end
             log = Test.TestLogger(min_level=Logging.Debug)
@@ -68,7 +68,7 @@
             @test !istaskdone(task)
             schedule(task, InterruptException(); error = true)
             @test fetch(task) isa InterruptException
-            @test cancelled[]
+            @test canceled[]
             @test callback_fails == any(record -> occursin("cancellation could not be confirmed",
                 string(record.message)), log.logs)
         end

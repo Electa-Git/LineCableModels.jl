@@ -79,7 +79,7 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.ImportExport.deserialize_extension
 )
 
-_contains_identity(collection, object) = any(candidate -> candidate === object, collection)
+_contains_identity(collection, object) = any(entry -> entry === object, collection)
 function api_reference_entry(object)
     !_contains_identity(CONVENIENCE_API_OBJECTS, object) &&
         !_contains_identity(EXTENSION_API_OBJECTS, object)

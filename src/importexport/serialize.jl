@@ -12,10 +12,10 @@ _scalar_tag(::Type{BigFloat}) = "BigFloat"
 """Encode a supported scalar, collection, Grid, or v1 declaration."""
 function serialize_value(value::AbstractFloat)
     tag = _scalar_tag(typeof(value))
-    payload = value isa BigFloat ? string(value) : value
+    encoded_value = value isa BigFloat ? string(value) : value
     if isfinite(value)
-        return value isa BigFloat ? Dict("__type__"=>tag,"value"=>payload,"precision"=>precision(value)) :
-            Dict("__type__" => tag, "value" => payload)
+        return value isa BigFloat ? Dict("__type__"=>tag,"value"=>encoded_value,"precision"=>precision(value)) :
+            Dict("__type__" => tag, "value" => encoded_value)
     end
     special = isnan(value) ? "NaN" : signbit(value) ? "-Inf" : "Inf"
     return Dict("__type__" => tag, "special" => special)
@@ -330,9 +330,9 @@ function _json_document(library::CablesLibrary)
             "cables" => Dict(
                 cable_id => merge(
                     _serialize_design(library.data[cable_id], material_name),
-                    Dict("catalogue" => Dict(
+                    Dict("datasheet" => Dict(
                         String(name) => serialize_value(item)
-                    for (name, item) in pairs(library.catalogues[cable_id])
+                    for (name, item) in pairs(library.datasheets[cable_id])
                     ))
                 )
             for cable_id in cable_ids

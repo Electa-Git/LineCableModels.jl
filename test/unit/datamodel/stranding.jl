@@ -118,10 +118,10 @@ end
             for k in 0:3
                 indices = findall(m -> m.course == k, members)
                 @test all(indices) do i
-                    centre = DM.centroid(shapes[i])
+                    center = DM.centroid(shapes[i])
                     any(indices) do j
                         mirror = DM.centroid(shapes[j])
-                        hypot(centre[1] - mirror[1], centre[2] + mirror[2]) < tolerance
+                        hypot(center[1] - mirror[1], center[2] + mirror[2]) < tolerance
                     end
                 end
             end

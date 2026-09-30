@@ -130,7 +130,7 @@ end
         for invalid in (0, -0.1, 1.01, Inf, NaN, true, :show_all, :ellipsis)
             @test_throws ArgumentError figurelegend!(p; max_fraction = invalid)
         end
-        @test p.addon_state.guides[(:legend, nothing)].max_fraction[]==1
+        @test p.plot_state.guides[(:legend, nothing)].max_fraction[]==1
         figurelegend!(p; max_fraction = 0.001)
         @test !p.legend.blockscene.visible[]
         figurelegend!(p; position = nothing)
@@ -145,7 +145,7 @@ end
     for sizing in ((fig_size = (680, 440),), (
         fig_size = (400, 300), figure = (size = (680, 440),)))
         p=LineCableModels.plot(source; options..., sizing...)
-        @test p.addon_state.shell.reference_size==(680, 440)
+        @test p.plot_state.shell.reference_size==(680, 440)
         @test !isempty(Makie.colorbuffer(p.figure))
         empty!(p.figure)
     end
@@ -179,13 +179,13 @@ end
     subscription=on(_->(measurements[]+=1), probe.text)
     publications=Ref(0)
     entry_subscription=on(_->(publications[]+=1), p.legend.entrygroups)
-    bounds=p.addon_state.inside_bbox
+    bounds=p.plot_state.inside_bbox
     initial=bounds[]
     frames=[axis.scene.viewport[] for axis in p.axes]
     listeners=length(p.figure.scene.viewport.listeners)
     for _ in 1:3
         notify(bounds)
-        ext._addon_edit_presentation!(() -> nothing, p)
+        ext._update_figure_layout!(() -> nothing, p)
     end
     @test measurements[]==0
     @test publications[]==0
@@ -265,7 +265,7 @@ end
     strip_viewport=strip.figure.scene.viewport[]
     @test all(colorbar -> inside(strip_viewport, colorbar), strip.colorbars)
     @test inside(strip_viewport, only(strip.axes))
-    @test strip.addon_state.guides[(:colorbars, nothing)].position[]===:bottom
+    @test strip.plot_state.guides[(:colorbars, nothing)].position[]===:bottom
 
     collection=preview(
         fill(design, 4);
@@ -366,13 +366,13 @@ end
     @test last(pages).axes[2].title[]=="Fourth"
     @test first(pages).axes[2].title[]==design.cable_id
     auto=preview(fill(design, 3); options..., controls = false, panel_titles = i->"Cable $i")
-    identities=auto.addon_state.panel_page.coordinates
+    identities=auto.plot_state.panel_page.coordinates
     resize!(auto.figure, 1800, 450)
-    @test auto.addon_state.panel_page.coordinates==identities
-    @test auto.addon_state.panel_page.dimensions==(1, 3)
+    @test auto.plot_state.panel_page.coordinates==identities
+    @test auto.plot_state.panel_page.dimensions==(1, 3)
     resize!(auto.figure, 450, 1800)
-    @test auto.addon_state.panel_page.dimensions==(3, 1)
-    @test [auto.addon_state.panel_data[i].axis.title[] for i in identities]==["Cable $i"
+    @test auto.plot_state.panel_page.dimensions==(3, 1)
+    @test [auto.plot_state.panel_data[i].axis.title[] for i in identities]==["Cable $i"
                                                                               for i in identities]
 
     canvas=LineCableModels.plotwindow(; title = "Nested", options..., controls = false) do grid
@@ -397,7 +397,7 @@ end
     p=preview(fill(design, 2); controls = false, display_plot = false,
         backend = :cairo, size = (1200, 900))
     @test p.figure.scene.viewport[].widths[2]<800
-    @test p.addon_state.guide_gap==(8.0, 8.0, 24.0, 8.0)
+    @test p.plot_state.guide_gap==(8.0, 8.0, 24.0, 8.0)
     frames=[axis.scene.viewport[] for axis in p.axes]
     @test all(frame -> isapprox(frame.widths[1], frame.widths[2]; atol = 1), frames)
     @test all(all(isapprox.(axis.layoutobservables.computedbbox[].widths,
@@ -407,7 +407,7 @@ end
     listeners=length(p.figure.scene.viewport.listeners)
     dimensions=Tuple(p.figure.scene.viewport[].widths)
     for _ in 1:5
-        ext._addon_edit_presentation!(()->nothing, p)
+        ext._update_figure_layout!(()->nothing, p)
         @test Tuple(p.figure.scene.viewport[].widths)==dimensions
         @test all(all(isapprox.(axis.scene.viewport[].widths, frame.widths; atol = 1))
         for (axis, frame) in zip(p.axes, frames))
@@ -431,7 +431,7 @@ end
             for (axis, frame) in zip(p.axes, resized))
         end
     end
-    @test_throws ErrorException ext._addon_export_presentation!(p, :publication) do
+    @test_throws ErrorException ext._export_presentation!(p, :publication) do
         error("failing native writer")
     end
     @test Tuple(p.figure.scene.viewport[].widths)==dimensions
@@ -459,7 +459,7 @@ end
         haskey(attributes, :width) && attributes.width isa Real &&
             @test Tuple(initial.widths)==(700, 250)
         for _ in 1:3
-            ext._addon_edit_presentation!(() -> nothing, p)
+            ext._update_figure_layout!(() -> nothing, p)
             @test all(isapprox.(axis.scene.viewport[].widths, initial.widths; atol = 1))
             @test Tuple(p.figure.scene.viewport[].widths)==size
         end

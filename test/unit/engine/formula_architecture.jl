@@ -47,7 +47,7 @@
     @test_throws ArgumentError FM(EI.Formula(:carson1926), soil)(nothing, soil, nothing)
 end
 
-@testitem "Engine / common earth functors contain evaluated materials, not propagation policy" tags=[:unit] begin
+@testitem "Engine / common earth functors contain evaluated materials, not uncertainty propagation controls" tags=[:unit] begin
     const E=LineCableModels.Engine
     μ0, ε0=4pi*1e-7, 8.8541878128e-12
     rho, epsilon, mu=[Inf, 100.0], [ε0, 10ε0], [μ0, μ0]
@@ -129,7 +129,7 @@ end
     @test_throws ArgumentError validate(selected, pairs[2:end]) # Unconsumed integral controls.
     absent=E.EarthPair(1, 2, (-2.0, -3.0), 1.0, (3, 4))
     @test_throws ArgumentError LineCableModels.FormulaMethod(selected, absent)(nothing, absent, nothing)
-    # A numerical specialization alone cannot admit a missing canonical case.
+    # A numerical specialization alone cannot admit a missing required formula case.
     EI.earth_impedance(::M.LayerImpedance, ::Val{:mutual}, ::Val{3}, ::Val{4},
         f::Float64, pair, workspace)=0
     @test_throws ArgumentError LineCableModels.FormulaMethod(selected, absent)(nothing, absent, nothing)

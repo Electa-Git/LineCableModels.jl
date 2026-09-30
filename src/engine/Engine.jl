@@ -30,7 +30,7 @@ export LineParametersProblem, CableConstantsProblem,
        resistance, reactance, inductance,
        conductance, susceptance, capacitance,
        frequencies, nconductors, nfrequencies, basis,
-       kronify
+       kron_reduce
 export AbstractFormulation, LineParametersFormulation, CableConstantsFormulation,
        Formulation
 export LineCableModelsCoaxial, LineCableModelsFEM,

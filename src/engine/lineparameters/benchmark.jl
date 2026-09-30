@@ -101,13 +101,13 @@ function observables(::Type{<:LineParametersBenchmark})
     )
 end
 
-function _rms_series(reference::AbstractVector, candidate::AbstractVector,
-        normalization::Symbol, tolerance, candidate_tolerance;
-        reference_unresolved=nothing, candidate_unresolved=nothing)
+function _rms_series(reference::AbstractVector, result::AbstractVector,
+        normalization::Symbol, tolerance, result_tolerance;
+        reference_unresolved=nothing, result_unresolved=nothing)
     unresolved_reference = reference_unresolved===nothing ? count(_resolution_unresolved.(reference,tolerance)) : count(reference_unresolved)
-    unresolved_candidate = candidate_unresolved===nothing ? count(_resolution_unresolved.(candidate,candidate_tolerance)) : count(candidate_unresolved)
-    counts = (; reference=unresolved_reference, candidate=unresolved_candidate)
-    for (operand,values) in ((:reference,reference),(:candidate,candidate))
+    unresolved_result = result_unresolved===nothing ? count(_resolution_unresolved.(result,result_tolerance)) : count(result_unresolved)
+    counts = (; reference=unresolved_reference, result=unresolved_result)
+    for (operand,values) in ((:reference,reference),(:result,result))
         if any(value -> !resolution_available(value),values)
             return (absolute=missing,relative=missing,status=Symbol(operand,:_unavailable),
                 reason="$(operand) contains unavailable or nonfinite samples; no samples were omitted",counts)
@@ -121,25 +121,25 @@ function _rms_series(reference::AbstractVector, candidate::AbstractVector,
             status = if operand === :reference
                 entire_trace ? :reference_below_tolerance : :reference_sample_below_tolerance
             else
-                entire_trace ? :candidate_below_tolerance : :candidate_sample_below_tolerance
+                entire_trace ? :result_below_tolerance : :result_sample_below_tolerance
             end
             reason = "Samples at or below declared resolution: reference " *
-                "$(counts.reference)/$(length(reference)), candidate $(counts.candidate)/$(length(reference)); " *
+                "$(counts.reference)/$(length(reference)), result $(counts.result)/$(length(reference)); " *
                 "both RMS metrics require nominal operands above tolerance at every selected sample; no samples were omitted"
             return (; absolute=missing, relative = missing, status, reason, counts)
         end
     end
-    difference_norm = norm(reference .- candidate)
+    difference_norm = norm(reference .- result)
     sample_normalizer = sqrt(oftype(difference_norm, length(reference)))
     absolute = difference_norm / sample_normalizer
     relative = normalization === :pointwise ?
-               norm((candidate .- reference) ./ reference) / sample_normalizer :
+               norm((result .- reference) ./ reference) / sample_normalizer :
                difference_norm / norm(reference)
     return (; absolute, relative, status = :compared, reason = nothing, counts)
 end
 
 """
-    compare(reference::AbstractArray{<:Number,3}, candidate; normalization=:reference_rms, atol=0)
+    compare(reference::AbstractArray{<:Number,3}, result; normalization=:reference_rms, atol=0)
 
 Measure per-entry absolute and relative RMS differences across the third axis.
 The caller must establish equal physical coordinates, units and terminal order.
@@ -149,9 +149,9 @@ below `atol` at any selected sample, for either normalization. `details` explain
 unavailable comparisons. Eligible small and zero errors are retained unchanged.
 """
 function compare(
-        reference::AbstractArray{<:Number, 3}, candidate::AbstractArray{<:Number, 3};
+        reference::AbstractArray{<:Number, 3}, result::AbstractArray{<:Number, 3};
         normalization::Symbol = :reference_rms, atol = 0)
-    axes(reference) == axes(candidate) ||
+    axes(reference) == axes(result) ||
         throw(DimensionMismatch("RMS tensor axes must match"))
     isempty(reference) && throw(ArgumentError("RMS tensors cannot be empty"))
     normalization in (:reference_rms, :pointwise) ||
@@ -161,17 +161,17 @@ function compare(
         throw(DimensionMismatch("one tolerance per sample is required"))
     all(value -> value isa Real && isfinite(value) && value >= 0, tolerance) ||
         throw(ArgumentError("RMS tolerances must be finite and nonnegative"))
-    return _rms_arrays(reference, candidate, normalization, tolerance, tolerance)
+    return _rms_arrays(reference, result, normalization, tolerance, tolerance)
 end
 
-function _rms_arrays(reference, candidate, normalization, tolerance, candidate_tolerance;
-        reference_unresolved=nothing,candidate_unresolved=nothing)
+function _rms_arrays(reference, result, normalization, tolerance, result_tolerance;
+        reference_unresolved=nothing,result_unresolved=nothing)
     T=promote_type(typeof(float(real(zero(Base.nonmissingtype(eltype(reference)))))),
-        typeof(float(real(zero(Base.nonmissingtype(eltype(candidate)))))))
+        typeof(float(real(zero(Base.nonmissingtype(eltype(result)))))))
     errors=[_rms_series(view(reference, row, column, :),
-                view(candidate, row, column, :), normalization, tolerance, candidate_tolerance;
+                view(result, row, column, :), normalization, tolerance, result_tolerance;
                 reference_unresolved=reference_unresolved===nothing ? nothing : view(reference_unresolved,row,column,:),
-                candidate_unresolved=candidate_unresolved===nothing ? nothing : view(candidate_unresolved,row,column,:))
+                result_unresolved=result_unresolved===nothing ? nothing : view(result_unresolved,row,column,:))
             for row in axes(reference, 1), column in axes(reference, 2)]
     return RMSError{T}(getproperty.(errors, :absolute), getproperty.(errors, :relative);
         details = ComputationDetails(; normalization, atol = tolerance, sample_count = size(reference, 3),
@@ -186,7 +186,7 @@ $(TYPEDSIGNATURES)
 Compare two line-parameter results using absolute and reference-normalized
 root-mean-square errors for each Z and Y matrix term across frequency.
 
-For the reference series ``A_{ij}`` and candidate series ``B_{ij}`` at one
+For the reference series ``A_{ij}`` and result series ``B_{ij}`` at one
 matrix term, the default `normalization=:reference_rms` uses:
 
 ```math
@@ -218,7 +218,7 @@ error retains its selected samples and numerical-zero classification.
 # Arguments
 
 - `reference`: Reference line parameters.
-- `candidate`: Candidate line parameters on the same frequency samples.
+- `result`: Result line parameters on the same frequency samples.
 
 # Returns
 
@@ -231,9 +231,9 @@ error retains its selected samples and numerical-zero classification.
 - `DimensionMismatch` when Z/Y tensor dimensions differ.
 - `ArgumentError` when frequencies, basis, or domain differ.
 """
-function compare(reference::LineParameters, candidate::LineParameters; kwargs...)
-    return LineParametersBenchmark(compare(reference, candidate, Z; kwargs...),
-        compare(reference, candidate, Y; kwargs...); basis = basis(reference))
+function compare(reference::LineParameters, result::LineParameters; kwargs...)
+    return LineParametersBenchmark(compare(reference, result, Z; kwargs...),
+        compare(reference, result, Y; kwargs...); basis = basis(reference))
 end
 
 """
@@ -244,7 +244,7 @@ The first operand sets the relative-error normalization, not scientific truth.
 
 # Arguments
 
-- `reference`, `candidate`: Results with identical frequency coordinates, basis,
+- `reference`, `result`: Results with identical frequency coordinates, basis,
   domain, and matrix dimensions.
 - `quantity`: `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, or `C`. In particular, comparing `G`
   separately prevents displacement current from hiding dielectric-loss differences.
@@ -285,9 +285,9 @@ Both RMS metrics require every original operand sample to pass
 `observation_resolution`, for either normalization. Real quantities use absolute
 nominal magnitude; complex zero requires both components to satisfy their own
 cutoffs. An entire trace within tolerance gives `missing` for both metrics with status
-`:reference_below_tolerance` or `:candidate_below_tolerance`; a partially
+`:reference_below_tolerance` or `:result_below_tolerance`; a partially
 negligible trace gives `:reference_sample_below_tolerance` or
-`:candidate_sample_below_tolerance`. The check is local to the selected band.
+`:result_sample_below_tolerance`. The check is local to the selected band.
 No denominator floor is introduced. Source arrays are never modified.
 
 For `normalization=:pointwise`, the relative error is
@@ -306,30 +306,30 @@ in `details.normalization_reason`.
 - [`RMSError`](@ref), including actual bounds, sample indices/count, tolerance,
   reason, and a per-term status matrix in `details`.
 """
-function compare(reference::AbstractCoreResult, candidate::AbstractCoreResult,
+function compare(reference::AbstractCoreResult, result::AbstractCoreResult,
         quantity::Union{typeof(Z), typeof(Y), typeof(R), typeof(X), typeof(L), typeof(G), typeof(B), typeof(C)};
         normalization::Symbol = :reference_rms,
         band = :all, fundamental::Real = 50.0, harmonics::Integer = 50,
         atol = nothing, unsupported::NamedTuple = (;))
     validate(compare; normalization, band, fundamental, harmonics, atol, unsupported)
     left_coordinates=get(details(reference).data, :coordinates, nothing)
-    right_coordinates=get(details(candidate).data, :coordinates, nothing)
+    right_coordinates=get(details(result).data, :coordinates, nothing)
     if left_coordinates !== nothing && right_coordinates !== nothing
-        left_coordinates == right_coordinates || throw(ArgumentError("reference and candidate output terminal identities differ"))
+        left_coordinates == right_coordinates || throw(ArgumentError("reference and result output terminal identities differ"))
     end
     f = frequencies(reference)
     isempty(f) && throw(ArgumentError("reference frequencies cannot be empty"))
-    f == frequencies(candidate) || throw(ArgumentError(
-        "reference and candidate frequencies must match exactly and in order"))
-    basis(reference) === basis(candidate) || throw(ArgumentError("reference and candidate basis must match"))
-    domain(reference) === domain(candidate) || throw(ArgumentError("reference and candidate domains must match"))
+    f == frequencies(result) || throw(ArgumentError(
+        "reference and result frequencies must match exactly and in order"))
+    basis(reference) === basis(result) || throw(ArgumentError("reference and result basis must match"))
+    domain(reference) === domain(result) || throw(ArgumentError("reference and result domains must match"))
     issorted(f) || throw(ArgumentError("frequency-band comparison requires ascending stored frequencies"))
-    left, right = _line_observation_values(reference,quantity), _line_observation_values(candidate,quantity)
-    declared = merge(get(details(candidate).data, :comparison_unsupported, (;)),
+    left, right = _line_observation_values(reference,quantity), _line_observation_values(result,quantity)
+    declared = merge(get(details(result).data, :comparison_unsupported, (;)),
         get(details(reference).data, :comparison_unsupported, (;)), unsupported)
     return compare(left, right, quantity; frequencies=f, result_basis=basis(reference),
         reference_resolution=observation_resolution(reference, quantity; atol, frequencies=f),
-        candidate_resolution=observation_resolution(candidate, quantity; atol, frequencies=f),
+        result_resolution=observation_resolution(result, quantity; atol, frequencies=f),
         normalization, band, fundamental, harmonics, atol, unsupported=declared)
 end
 
@@ -344,7 +344,7 @@ physical calculation is performed.
 """
 function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::AbstractArray{<:Union{Missing,Number},3},
         quantity::Function; frequencies::AbstractVector, result_basis::Symbol,
-        reference_resolution=nothing, candidate_resolution=nothing,
+        reference_resolution=nothing, result_resolution=nothing,
         normalization::Symbol=:reference_rms, band=:all, fundamental::Real=50.0,
         harmonics::Integer=50, atol=nothing, unsupported::NamedTuple=(;))
     validate(compare; normalization, band, fundamental, harmonics, atol, unsupported)
@@ -353,7 +353,7 @@ function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::Abstract
     f = frequencies
     !isempty(f) && issorted(f) && all(value -> isfinite(value) && value >= 0, f) ||
         throw(ArgumentError("frequency-band comparison requires finite ascending nonnegative frequencies"))
-    size(left) == size(right) || throw(DimensionMismatch("reference and candidate quantity dimensions must match"))
+    size(left) == size(right) || throw(DimensionMismatch("reference and result quantity dimensions must match"))
     !isempty(left) && size(left, 3) == length(f) ||
         throw(DimensionMismatch("quantity dimensions must match the stored frequencies"))
     requested = if band === :all
@@ -390,10 +390,10 @@ function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::Abstract
     name = Symbol(nameof(quantity))
     resolution = reference_resolution === nothing ?
         observation_resolution(left, quantity; atol, frequencies=f, result_basis) : reference_resolution
-    candidate_resolution = candidate_resolution === nothing ?
-        observation_resolution(right, quantity; atol, frequencies=f, result_basis) : candidate_resolution
+    result_resolution = result_resolution === nothing ?
+        observation_resolution(right, quantity; atol, frequencies=f, result_basis) : result_resolution
     tolerance = _comparison_cutoffs(resolution.atol,indices)
-    candidate_tolerance = _comparison_cutoffs(candidate_resolution.atol,indices)
+    result_tolerance = _comparison_cutoffs(result_resolution.atol,indices)
     reason = get(unsupported, name, nothing)
     reason === nothing || reason isa AbstractString && !isempty(reason) ||
         throw(ArgumentError("unsupported comparisons require a nonempty explanatory string for $name"))
@@ -405,12 +405,12 @@ function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::Abstract
     fill!(relative, missing)
     classifications = fill(status, size(absolute))
     normalization_reasons = Matrix{Union{Nothing, String}}(nothing, size(absolute))
-    unresolved_samples = fill((reference=0, candidate=0), size(absolute))
+    unresolved_samples = fill((reference=0, result=0), size(absolute))
     if status === :compared
         error=_rms_arrays(left[:, :, indices], right[:, :, indices], normalization,
-            tolerance, candidate_tolerance;
+            tolerance, result_tolerance;
             reference_unresolved=resolution.unresolved[:,:,indices],
-            candidate_unresolved=candidate_resolution.unresolved[:,:,indices])
+            result_unresolved=result_resolution.unresolved[:,:,indices])
         absolute .= error.absolute
         relative .= error.relative
         classifications .= error.details.data.status
@@ -422,7 +422,7 @@ function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::Abstract
     comparison_details = (; quantity = name, normalization, band,
         requested_bounds = requested, actual_bounds = bounds,
         indices, sample_count = length(indices), fundamental, harmonics, atol = tolerance,
-        candidate_atol = candidate_tolerance,
+        result_atol = result_tolerance,
         status = classifications, reason, normalization_reason = normalization_reasons,
         unresolved_samples,
         resolution=(; resolution.kind, resolution.unit))
@@ -445,8 +445,8 @@ _comparison_primary(source::Grammar.AbstractResultSpace,index) = source[index]
 _comparison_primary(source::AbstractVector,index) = source[index]
 _comparison_primary(source,index) = index==1 ? source : throw(BoundsError(source,index))
 
-function compare(reference::AbstractCoreResult,candidates::AbstractVector,request::Union{Function,Tuple};kwargs...)
-    return [compare(reference,candidate,request;kwargs...) for candidate in candidates]
+function compare(reference::AbstractCoreResult,results::AbstractVector,request::Union{Function,Tuple};kwargs...)
+    return [compare(reference,result,request;kwargs...) for result in results]
 end
 
 function _comparison_maximum(values)
@@ -460,33 +460,33 @@ end
 $(TYPEDSIGNATURES)
 
 Complete explicitly requested comparisons through the existing scalar or UQ
-comparison methods, then associate each product with its original candidate and
+comparison methods, then associate each product with its original result and
 reference identities. The request vector distinguishes this operation from one
 statistical request tuple. No observation constructor performs this operation.
 """
-function compare(reference,candidate,requests::AbstractVector;
+function compare(reference,result,requests::AbstractVector;
         bands=(:all,),normalizations=(:reference_rms,),pairing=nothing,kwargs...)
     isempty(requests) && throw(ArgumentError("comparison requests must be nonempty"))
     allunique(requests) && allunique(bands) && allunique(normalizations) ||
         throw(ArgumentError("comparison selections must be distinct"))
     if reference isa AbstractCoreResult && pairing!==nothing
-        count=candidate isa Union{AbstractVector,Grammar.AbstractResultSpace} ? length(candidate) : 1
+        count=result isa Union{AbstractVector,Grammar.AbstractResultSpace} ? length(result) : 1
         all(pair -> first(pair)==1,pairing) && sort(last.(collect(pairing)))==collect(1:count) ||
-            throw(ArgumentError("a scalar reference requires reference index 1 for every candidate"))
+            throw(ArgumentError("a scalar reference requires reference index 1 for every result"))
         pairing=nothing
     end
     completed=NamedTuple[]
     for request in requests,band in bands,normalization in normalizations
-        errors=pairing===nothing ? compare(reference,candidate,request;band,normalization,kwargs...) :
-            compare(reference,candidate,request;band,normalization,pairing,kwargs...)
-        for (candidate_index,error) in enumerate(errors isa RMSError ? (errors,) : errors)
-            reference_index=pairing===nothing ? 1 : first(only(filter(pair -> last(pair)==candidate_index,pairing)))
+        errors=pairing===nothing ? compare(reference,result,request;band,normalization,kwargs...) :
+            compare(reference,result,request;band,normalization,pairing,kwargs...)
+        for (result_index,error) in enumerate(errors isa RMSError ? (errors,) : errors)
+            reference_index=pairing===nothing ? 1 : first(only(filter(pair -> last(pair)==result_index,pairing)))
             left=_comparison_primary(reference,reference_index)
-            right=_comparison_primary(candidate,candidate_index)
+            right=_comparison_primary(result,result_index)
             reference_id=Grammar.observation_gridpoint(left).id
-            candidate_id=Grammar.observation_gridpoint(right).id
+            result_id=Grammar.observation_gridpoint(right).id
             reference_id===nothing && throw(ArgumentError("the reference needs an explicit retained gridpoint identity"))
-            candidate_id===nothing && throw(ArgumentError("the candidate needs an explicit retained gridpoint identity"))
+            result_id===nothing && throw(ArgumentError("the result needs an explicit retained gridpoint identity"))
             absolute=observe(error,absolute_error)
             relative=observe(error,relative_error)
             information=merge(details(error).data,(basis=basis(right),requested_atol=get(kwargs,:atol,nothing),unsupported=get(kwargs,:unsupported,(;))))
@@ -494,7 +494,7 @@ function compare(reference,candidate,requests::AbstractVector;
             statistic=identity isa Tuple && first(identity)!==Z && first(identity)!==Y ?
                 (last(identity) isa Base.Fix2 ? Symbol("quantile_",last(identity).x) : nameof(last(identity))) : :value
             unit=Units.native_unit(Grammar.request_quantity(request),basis(right))
-            push!(completed,Grammar.detach((candidate_id,reference_id,request,
+            push!(completed,Grammar.detach((result_id,reference_id,request,
                 quantity=Grammar.request_quantity(request),statistic,band,normalization,
                 absolute,relative,absolute_unit=unit,relative_unit=Units.units(:base,:dimensionless),
                 coordinates=get(details(right).data,:coordinates,string.(1:size(absolute,1))),

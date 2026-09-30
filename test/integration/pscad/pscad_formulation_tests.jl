@@ -70,11 +70,11 @@
         Formulation(:pscad; insulation_admittance = :lossy))
     resolved=map(value->Formulation(Val(:pscad), underground, value), requested)
     root=mktempdir()
-    prepared=[P._stage_pscad_project(P._prepare_pscad(underground, value, P._pscad_blueprints(underground.system)), root) for value in resolved]
+    staged_projects=[P._stage_pscad_project(P._pscad_inputs(underground, value, P._pscad_blueprints(underground.system)), root) for value in resolved]
     try
-        @test length(unique(getproperty.(prepared, :root))) == 3
-        @test all(project -> dirname(project.root) == root,prepared)
-        projects=[read(value.staged, String) for value in prepared]
+        @test length(unique(getproperty.(staged_projects, :root))) == 3
+        @test all(project -> dirname(project.root) == root,staged_projects)
+        projects=[read(value.staged, String) for value in staged_projects]
         @test projects[1] == projects[2]
         @test projects[1] != projects[3]
         @test P.pscad_setting(resolved[1], underground).ground ==
@@ -82,7 +82,7 @@
         @test P.pscad_setting(Formulation(:pscad; earth_impedance = :saad1996), underground) !=
               P.pscad_setting(resolved[1], underground)
     finally
-        foreach(value->rm(value.root; recursive = true), prepared)
+        foreach(value->rm(value.root; recursive = true), staged_projects)
     end
 
     @test NamedTuple(Formulation(:pscad)).methods.internal_impedance.identifier === :wedepohl1973
@@ -97,7 +97,7 @@
     @test computation_details(typeof(Formulation(:pscad)), result) === details(result)
 end
 
-@testitem "PSCAD / catalogue follows native setting dispatch" tags=[:integration] begin
+@testitem "PSCAD / supported formula list follows native setting dispatch" tags=[:integration] begin
     const P=LineCableModels.PSCAD
     const EI=LineCableModels.Engine.EarthImpedance
     for owner in (EI, LineCableModels.Engine.EarthAdmittance)
@@ -155,7 +155,7 @@ end
         Formulation(:pscad; earth_impedance = (
             air = formula(:gary1976; options = (integration = (method = :quad,),)),
             earth = :saad1996, mixed = :lucca1994)))
-    staged = P._stage_pscad_project(P._prepare_pscad(problem, selected, P._pscad_blueprints(problem.system)), mktempdir())
+    staged = P._stage_pscad_project(P._pscad_inputs(problem, selected, P._pscad_blueprints(problem.system)), mktempdir())
     try
         document = EzXML.readxml(staged.staged)
         ground = only(EzXML.findall("//User[@defn='master:Line_Ground']", document))

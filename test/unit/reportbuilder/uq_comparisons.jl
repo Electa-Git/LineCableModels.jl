@@ -53,7 +53,7 @@
     @test first(retained.quantities).coordinates.frequencies≈f./1000
     @test observe(retained,statistics,R,mean)≈1000means.R
     physical_report=report(BenchmarkTableDefinition(((statistics,L,std),(statistics,C,mean))),
-        (reference=mc,candidate=mc);observation_options=(length_unit=:base,quantity_units=:base))
+        (reference=mc,result=mc);observation_options=(length_unit=:base,quantity_units=:base))
     @test length(physical_report.tables.features)==2
     @test observe(only(physical_report.observed),statistics,L,std)≈std.(summaries.L)
     @test observe(only(physical_report.observed),statistics,C,mean)≈mean.(summaries.C)
@@ -69,9 +69,9 @@
     @test length(errors)==2 &&
           all(error -> all(iszero, observe(error, absolute_error)), errors)
     @test_throws ArgumentError report(BenchmarkTableDefinition(((statistics,R,mean),);
-        pairing=((1,2),(2,1))),(reference=two,candidate=two))
+        pairing=((1,2),(2,1))),(reference=two,result=two))
     percentiles=report(BenchmarkTableDefinition(((statistics,R,median),(statistics,R,Base.Fix2(quantile,.05)))),
-        (reference=mc,candidate=mc))
+        (reference=mc,result=mc))
     @test length(percentiles.tables.features)==2
     @test Set(percentiles.tables.terms.statistic)==Set((:median,Symbol("quantile_0.05")))
     @test Set(percentiles.tables.statistics.statistic)==Set((:median,Symbol("quantile_0.05")))
@@ -108,7 +108,7 @@
     lep=LinearErrorResult(LinearError(Formulation()), [core])
     @test_throws ArgumentError report(
         BenchmarkTableDefinition(((statistics, R, median),)), (
-            reference = mc, candidate = lep))
+            reference = mc, result = lep))
     @test_throws ArgumentError compare(mc, lep, (statistics, R, Base.Fix2(quantile, 0.1)))
     @test_throws ArgumentError compare(mc, lep, (statistics, Z, median))
 
@@ -127,9 +127,9 @@
         MonteCarlo(Formulation(); trials = 1700, seed = 12, return_samples = true),
         [core], [large_summaries], [large_samples], nothing, UInt64(12), UInt64[13], [1700])
     definition=BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands = (:all,))
-    report(definition, (reference = mc, candidate = mc))
-    report(definition, (reference = large, candidate = large))
-    small_bytes=@allocated report(definition, (reference = mc, candidate = mc))
-    large_bytes=@allocated report(definition, (reference = large, candidate = large))
+    report(definition, (reference = mc, result = mc))
+    report(definition, (reference = large, result = large))
+    small_bytes=@allocated report(definition, (reference = mc, result = mc))
+    large_bytes=@allocated report(definition, (reference = large, result = large))
     @test large_bytes <= small_bytes+16_384
 end

@@ -19,7 +19,7 @@ struct BlueprintConductor{T <: Real}
     "Number of explicitly represented wires."
     num_wires::Int
     "Equivalent helical turns per unit length [1/m]."
-    num_turns::T
+    turns_per_length::T
     "Equivalent resistance at the material reference temperature [Ω/m]."
     resistance::T
     "Equivalent temperature coefficient [1/°C]."
@@ -208,9 +208,9 @@ function validate(blueprint::CableBlueprint)
             conductor.num_wires,
             "CableBlueprint.conductors[$index].num_wires must be nonnegative"
         ))
-        isfinite(conductor.num_turns) || throw(DomainError(
-            conductor.num_turns,
-            "CableBlueprint.conductors[$index].num_turns must be finite"
+        isfinite(conductor.turns_per_length) || throw(DomainError(
+            conductor.turns_per_length,
+            "CableBlueprint.conductors[$index].turns_per_length must be finite"
         ))
         isfinite(conductor.resistance) &&
         conductor.resistance > zero(conductor.resistance) || throw(DomainError(
@@ -328,7 +328,7 @@ function flatten(
             conductor.r_ex,
             conductor.cross_section,
             conductor.num_wires,
-            conductor.num_turns,
+            conductor.turns_per_length,
             conductor.resistance,
             conductor.alpha,
             conductor.gmr,
@@ -398,9 +398,9 @@ struct LocalCableData{T <: Real}
     "Reference conductor materials, including their resistivity calibration."
     conductor_materials::Vector{Material{T}}
     "Conductor relative permeabilities."
-    mu_cond::Vector{T}
+    mu_r_cond::Vector{T}
     "Equivalent relative permeabilities of conductor-owned dielectric intervals."
-    mu_ins::Vector{T}
+    mu_r_ins::Vector{T}
     "Physical dielectric-layer range owned by each conductor."
     dielectric_ranges::Vector{UnitRange{Int}}
     "Physical dielectric-layer inner radii [m]."
@@ -446,8 +446,8 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     r_ins_in = Vector{T}(undef, conductor_count)
     r_ins_ext = Vector{T}(undef, conductor_count)
     conductor_materials = Vector{Material{T}}(undef, conductor_count)
-    mu_cond = Vector{T}(undef, conductor_count)
-    mu_ins = Vector{T}(undef, conductor_count)
+    mu_r_cond = Vector{T}(undef, conductor_count)
+    mu_r_ins = Vector{T}(undef, conductor_count)
     dielectric_ranges = Vector{UnitRange{Int}}(undef, conductor_count)
     r_layer_in = Vector{T}(undef, layer_count)
     r_layer_ext = Vector{T}(undef, layer_count)
@@ -497,7 +497,7 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
             r_in_values[index] = conductor.r_in
             r_ext_values[index] = conductor.r_ex
             conductor_materials[index] = conductor.material
-            mu_cond[index] = conductor.material.mu_r
+            mu_r_cond[index] = conductor.material.mu_r
 
             local_layers = blueprint.dielectric_ranges[local_index]
             first_layer = layer_offset + 1
@@ -521,14 +521,14 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
             if isempty(local_layers)
                 r_ins_in[index] = conductor.r_ex
                 r_ins_ext[index] = conductor.r_ex
-                mu_ins[index] = one(T)
+                mu_r_ins[index] = one(T)
             else
                 r_ins_in[index] = blueprint.dielectrics[first(local_layers)].r_in
                 r_ins_ext[index] = blueprint.dielectrics[last(local_layers)].r_ex
                 layers = @view blueprint.dielectrics[local_layers]
-                mu_ins[index] = DataModel.equivalent_dielectric_permeability(
+                mu_r_ins[index] = DataModel.equivalent_dielectric_permeability(
                     layers,
-                    conductor.num_turns,
+                    conductor.turns_per_length,
                     conductor.r_ex,
                     r_ins_ext[index]
                 )
@@ -547,8 +547,8 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
         r_ins_in,
         r_ins_ext,
         conductor_materials,
-        mu_cond,
-        mu_ins,
+        mu_r_cond,
+        mu_r_ins,
         dielectric_ranges,
         r_layer_in,
         r_layer_ext,

@@ -74,9 +74,9 @@ end
         @test boundary(boundary_shape) === boundary_shape
         @test area(boundary_shape) ≈ pi * (0.5e-3^2 + 0.8e-3^2)
         @test perimeter(boundary_shape) ≈ 2pi * (0.5e-3 + 0.8e-3)
-        centre = centroid(boundary_shape)
-        @test centre[1] ≈ 2e-3 * (0.8e-3^2 - 0.5e-3^2) / (0.8e-3^2 + 0.5e-3^2)
-        @test centre[2] ≈ height
+        center = centroid(boundary_shape)
+        @test center[1] ≈ 2e-3 * (0.8e-3^2 - 0.5e-3^2) / (0.8e-3^2 + 0.5e-3^2)
+        @test center[2] ≈ height
         for angle in (0.0, pi / 4, pi / 2, pi)
             @test support(boundary_shape, angle) ≈ max(
                 -2e-3 * cos(angle) + height * sin(angle) + 0.5e-3,

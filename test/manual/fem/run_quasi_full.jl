@@ -14,7 +14,7 @@ problem = LineParametersProblem(system; frequencies,
     earth_props=homogeneous(rho=0.1, eps_r=1.0, mu_r=1.0))
 formulation = Formulation(:LineCableModelsFEM;
     options=(physics=:quasi_fw, reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
-execution = computation_options(LineCableModelsFEM, ComputationOptions(;mesh_policy=:remesh, gmsh_verbosity=2, getdp_verbosity=3,
+execution = computation_options(LineCableModelsFEM, ComputationOptions(;mesh_mode=:remesh, gmsh_verbosity=2, getdp_verbosity=3,
         plot_field_maps=false, solver_threads=1, keep_run_directory=true))
 
 # Reuse the package's material resolver and mesher. No production FEM solve is
@@ -31,7 +31,7 @@ lock(FEM.FEM_SESSION_LOCK) do
         geometry = FEM._build_geometry!(model, "quasi-full-$(basename(run_directory))")
         global mesh_paths = FEM._select_meshes!(manual_run, model, geometry,
             execution, runtime_root)
-        FEM._prepare_run_inputs!(manual_run, model)
+        FEM._write_run_inputs!(manual_run, model)
         for (mesh, plan) in zip(mesh_paths, model.mesh_plans)
             path = joinpath(run_directory, "input", @sprintf("paths-f%04d.pro", plan.frequency_index))
             # Before: quasi_full_paths.jl forwarded to the extension. The extension

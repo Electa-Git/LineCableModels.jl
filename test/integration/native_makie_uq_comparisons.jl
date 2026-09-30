@@ -14,13 +14,13 @@
         [LineCableModels.materialize(core,summaries)],[summaries],nothing,nothing,UInt64(1),UInt64[2],[3])
     measured=map(a -> measurement.(1.05 .* a,0.03 .* a),parts)
     source_id=gridpoint_id().source_id
-    candidates=[retain_gridpoint(LineParameters(factor.*complex.(measured.R,omega.*measured.L),
+    results=[retain_gridpoint(LineParameters(factor.*complex.(measured.R,omega.*measured.L),
         factor.*complex.(measured.G,omega.*measured.C),f),gridpoint_id(;source_id,problem_index=index);
         fields=(inputs=(temperature=20index,),)) for (index,factor) in enumerate((1.,1.2))]
-    lep=LinearErrorResult(LinearError(Formulation()),candidates)
+    lep=LinearErrorResult(LinearError(Formulation()),results)
     requests=(R,X,G,B,(statistics,R,mean),(statistics,R,std))
     artifact=report(BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std));bands=(:all,)),
-        (reference=mc,candidate=lep,context=(id=:benchmark_uq_title_probe,));requests,
+        (reference=mc,result=lep,context=(id=:benchmark_uq_title_probe,));requests,
         observation_options=(length_unit=:base,))
     options=(backend=:cairo,display_plot=false,open_export=false)
     page=LineCableModels.plot(artifact;ydata=((R,2,1,:),),problem=2,options...,
@@ -28,10 +28,10 @@
     axis=only(page.axes)
     @test axis.xlabelvisible[] && axis.xticklabelsvisible[]
     @test page.export_name=="benchmark_uq_title_probe — Series resistance"
-    @test any(label -> occursin(description(LinearError;compact=true),label),values(page.addon_state.labels))
-    @test any(label -> occursin(description(MonteCarlo;compact=true),label),values(page.addon_state.labels))
-    @test any(label -> occursin(description(MonteCarlo,Val(:representation);compact=true),label),values(page.addon_state.labels))
-    @test all(label -> !occursin("marginal_mean_std",label),values(page.addon_state.labels))
+    @test any(label -> occursin(description(LinearError;compact=true),label),values(page.plot_state.labels))
+    @test any(label -> occursin(description(MonteCarlo;compact=true),label),values(page.plot_state.labels))
+    @test any(label -> occursin(description(MonteCarlo,Val(:representation);compact=true),label),values(page.plot_state.labels))
+    @test all(label -> !occursin("marginal_mean_std",label),values(page.plot_state.labels))
     recorded=first(artifact.observed)
     undescribed=ObservedResult(merge(recorded.gridpoint,(uncertainty_descriptions=nothing,)),
         recorded.quantities,recorded.errors,recorded.timings)
@@ -46,7 +46,7 @@
         indices=[findfirst(==(point[1]),f) for point in bar[1][]]
         @test getindex.(bar[1][],2)≈nominal.(R(source)[2,1,indices])
         @test getindex.(bar[1][],3)≈uncertainty.(R(source)[2,1,indices])
-        group=only(filter(handles -> curve in handles,collect(values(page.addon_state.groups))))
+        group=only(filter(handles -> curve in handles,collect(values(page.plot_state.groups))))
         marker=only(filter(p -> p isa Makie.Scatter,group))
         @test isdisjoint(first.(marker[1][]),first.(bar[1][]))
         @test curve.linewidth[]==bar.linewidth[]==3
@@ -56,8 +56,8 @@
     @test axis.yscale[]===log10
     @test all(x -> x isa AbstractString,axis.yaxis.ticklabels[])
     full=LineCableModels.plot(artifact;ydata=((R,2,1,:),),problem=2,options...,errorbar_sampling=:all)
-    for key in full.addon_state.order
-        group=full.addon_state.groups[key]
+    for key in full.plot_state.order
+        group=full.plot_state.groups[key]
         @test length(only(filter(p -> p isa Makie.Errorbars,group))[1][])==length(f)
         @test isempty(only(filter(p -> p isa Makie.Scatter,group))[1][])
     end
@@ -65,10 +65,10 @@
     mktempdir() do directory
         path=LineCableModels.save(artifact,joinpath(directory,"observed.jls"))
         restored=import_data(:observed,path)
-        for point in candidates;Z(point).=NaN;end
+        for point in results;Z(point).=NaN;end
         reloaded=report(BenchmarkTableDefinition(),restored.observed;reference=restored.reference)
         other=LineCableModels.plot(reloaded;ydata=((R,2,1,:),),problem=2,options...)
-        @test other.addon_state.labels==page.addon_state.labels
+        @test other.plot_state.labels==page.plot_state.labels
         other_curves=filter(p -> p isa Makie.Lines,only(other.axes).scene.plots)
         for (left,right) in zip(curves,other_curves)
             @test left[1][]==right[1][]
@@ -89,11 +89,11 @@ end
     reference=MonteCarloResult(MonteCarlo(Formulation();trials=2,seed=7),
         [LineCableModels.materialize(core,stats)],[stats],nothing,nothing,UInt64(7),UInt64[8],[2])
     measured=map(a -> measurement.(a,sqrt(2) * 0.1 .* a),parts)
-    candidate=LinearErrorResult(LinearError(Formulation()),[LineParameters(
+    result=LinearErrorResult(LinearError(Formulation()),[LineParameters(
         complex.(measured.R,omega.*measured.L),complex.(measured.G,omega.*measured.C),measurement.(f,0.))])
     requests=((statistics,R,mean),(statistics,R,std),(statistics,B,mean))
     artifact=report(BenchmarkTableDefinition(requests;bands=(:all,:wide)),
-        (reference,candidate,context=(id=:benchmark_uq_statistics,));observation_options=(length_unit=:base,))
+        (reference,result,context=(id=:benchmark_uq_statistics,));observation_options=(length_unit=:base,))
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     pages=LineCableModels.plot(artifact;ydata=requests,layout=(2,2),options...,fig_size=(1100,750))
     @test length(pages)==12
@@ -104,30 +104,30 @@ end
         @test !isempty(Makie.colorbuffer(page.figure))
         request=requests[cld(index,4)]
         expected=observe(reference,statistics,request[2],request[3],1)
-        for ((i,j),panel) in pairs(page.addon_state.panel_data)
+        for ((i,j),panel) in pairs(page.plot_state.panel_data)
             curves=filter(p -> p isa Makie.Lines,panel.axis.scene.plots)
             @test length(curves)==2
             @test first(curves)[1][]≈last(curves)[1][]
             @test last.(last(curves)[1][])≈expected[i,j,:]
-            group=panel.groups[last(page.addon_state.order)]
+            group=panel.groups[last(page.plot_state.order)]
             markers=only(filter(p -> p isa Makie.Scatter,group))
             @test last(markers[1][])[1]≈last(f)
         end
     end
-    @test eltype(frequencies(only(candidate)))<:Measurement
+    @test eltype(frequencies(only(result)))<:Measurement
     @test nrow(artifact.tables.statistics)>0
     selection=(statistics,R,mean,[3,1],[2],2:2:12)
     subset=LineCableModels.plot(artifact;ydata=(selection,),options...)
     @test length(subset.axes)==2
-    for panel in values(subset.addon_state.panel_data),curve in filter(p -> p isa Makie.Lines,panel.axis.scene.plots)
+    for panel in values(subset.plot_state.panel_data),curve in filter(p -> p isa Makie.Lines,panel.axis.scene.plots)
         @test first.(curve[1][])≈f[2:2:12]
     end
     @test_throws ArgumentError LineCableModels.plot(artifact;ydata=(R,),options...)
-    @test any(label -> occursin(description(MonteCarlo;compact=true),label),values(first(pages).addon_state.labels))
-    @test any(label -> occursin(description(LinearError;compact=true),label),values(first(pages).addon_state.labels))
+    @test any(label -> occursin(description(MonteCarlo;compact=true),label),values(first(pages).plot_state.labels))
+    @test any(label -> occursin(description(LinearError;compact=true),label),values(first(pages).plot_state.labels))
     selected=LineCableModels.plot(artifact;ydata=requests[1:2],layout=(2,2),band=:wide,options...)
     @test length(selected)==8
-    for page in selected,panel in values(page.addon_state.panel_data),curve in filter(p -> p isa Makie.Lines,panel.axis.scene.plots)
+    for page in selected,panel in values(page.plot_state.panel_data),curve in filter(p -> p isa Makie.Lines,panel.axis.scene.plots)
         @test all(>(1e6),first.(curve[1][]))
         @test last(curve[1][])[1]≈last(f)
     end

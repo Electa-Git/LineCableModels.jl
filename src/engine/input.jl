@@ -11,7 +11,7 @@ workspace; no mutable state is shared between calculations. Constant fields fix
 its input and buffer bindings; reference identity avoids copying this large
 record when dispatching heterogeneous equation groups.
 
-Prepared earth calculations and their material arrays are stored as tuples.
+Bound earth calculations and their material arrays are stored as tuples.
 The complete scan specializes on their concrete types once, before frequency
 traversal; the workspace type itself does not depend on conductor layout.
 
@@ -86,7 +86,7 @@ function validate(workspace::LineParametersWorkspace)
         input.horz, input.vert, input.phase_map, input.cable_map,
         input.design_map, cable.terminals, cable.positions, cable.r_in,
         cable.r_ext, cable.r_ins_in, cable.r_ins_ext, cable.conductor_materials,
-        cable.mu_cond, cable.mu_ins,
+        cable.mu_r_cond, cable.mu_r_ins,
         cable.dielectric_ranges
     )
         length(values) == n || throw(DimensionMismatch(
@@ -135,7 +135,7 @@ line-parameter problem.
 The selected designs have already been flattened into frequency-independent
 blueprints. This step constructs local cable arrays, physical geometry,
 terminal indices, and frequency coordinates once. It does not apply
-temperature correction, earth-property/EquivalentHomogeneous formulas, reduction policy, or
+temperature correction, earth-property/EquivalentHomogeneous formulas, reduction choices, or
 allocate formula-specific buffers.
 
 # Arguments
@@ -357,15 +357,15 @@ function LineParametersWorkspace{T}(
             (impedance_indices = Int[], potential_indices = potential.output_indices)))
     end
     earth_calculations = map(Tuple(calculations)) do calculation
-        prepared = earth_bindings(calculation.selection, calculation, geometry)
-        previous = zeros(Int, length(prepared.interactions))
-        for group in prepared.equations
+        earth_binding = earth_bindings(calculation.selection, calculation, geometry)
+        previous = zeros(Int, length(earth_binding.interactions))
+        for group in earth_binding.equations
             for (ordinal, position) in pairs(group.indices)
                 for earlier in (ordinal - 1):-1:1
-                    candidate = group.indices[earlier]
-                    if same_physical_state(prepared.reuse_inputs[position],
-                        prepared.reuse_inputs[candidate])
-                        previous[position] = candidate
+                    previous_interaction = group.indices[earlier]
+                    if same_physical_state(earth_binding.reuse_inputs[position],
+                        earth_binding.reuse_inputs[previous_interaction])
+                        previous[position] = previous_interaction
                         break
                     end
                 end
@@ -373,7 +373,7 @@ function LineParametersWorkspace{T}(
         end
         layers = calculation.selection.equivalent_earth === nothing ? geometry.layers :
                  [layer == 1 ? 1 : 2 for layer in geometry.layers]
-        merge(prepared, (equations = Tuple(prepared.equations), previous, layers))
+        merge(earth_binding, (equations = Tuple(earth_binding.equations), previous, layers))
     end
     # The workspace layout is independent of the required layer signatures.
     # _solve! specializes once on these concrete tuples before its frequency loop.

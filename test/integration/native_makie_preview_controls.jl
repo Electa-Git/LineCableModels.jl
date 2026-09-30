@@ -9,7 +9,7 @@
     grouped = preview(design; options..., display_colorbars=false,
         legend_group=Dict(:core=>:metal, :insulation=>:dielectric),
         legend_labels=group -> uppercasefirst(String(group)))
-    @test Set(values(grouped.addon_state.labels)) == Set(("Metal", "Dielectric"))
+    @test Set(values(grouped.plot_state.labels)) == Set(("Metal", "Dielectric"))
     @test isempty(grouped.colorbars)
     @test length(grouped.axes) == 1
     @test_throws ArgumentError preview(design; options..., legend_group=1)
@@ -80,7 +80,7 @@ end
     pages=LineCableModels.plot(raw;ydata=(R,L),widgets=(custom,),options...)
     @test constructions[]==2 && calls[]==0
     p=first(pages)
-    @test p.status===p.addon_state.shell.status
+    @test p.status===p.plot_state.shell.status
     controls[1].clicks[]+=1
     @test calls[]==1 && p.status[]=="Counted"
     for _ in 1:3

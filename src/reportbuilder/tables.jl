@@ -60,7 +60,7 @@ $(TYPEDSIGNATURES)
 Request per-term comparisons grouped by formulation and frequency band.
 Quantities use the observation grammar. The default bands are the entire range,
 near DC, harmonic, narrowband and wideband. `fundamental` is in Hz. No figure is
-created unless `illustration` is explicitly supplied. A benchmark report retains one scalar reference separately from its candidates.
+created unless `illustration` is explicitly supplied. A benchmark report retains one scalar reference separately from its results.
 The explicit comparison operation also supports declared collection pairings.
 """
 function BenchmarkTableDefinition(; clip::Bool=false, illustration=nothing, plot_options=(;), kwargs...)
@@ -131,7 +131,7 @@ function validate(definition::BenchmarkTableDefinition)
         settings.pairing isa Union{Tuple,AbstractVector} && !isempty(settings.pairing) &&
             all(pair -> pair isa Tuple{Integer,Integer} && all(index -> !(index isa Bool) && index>0,pair),settings.pairing) &&
             sort(last.(collect(settings.pairing))) == collect(1:length(settings.pairing)) ||
-            throw(ArgumentError("pairing must list positive reference/candidate indices with each candidate exactly once"))
+            throw(ArgumentError("pairing must list positive reference/result indices with each result exactly once"))
     end
     !isempty(settings.bands) && allunique(settings.bands) ||
         throw(ArgumentError("benchmark needs distinct frequency bands"))

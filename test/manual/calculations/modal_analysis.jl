@@ -47,10 +47,6 @@ system = build(LineCableSystem, fill(design, length(centers)),
     environment = earth)
 problem = LineParametersProblem(system; temperature = 20.0, earth_props = earth,
     frequencies = collect(frequency_grid))
-formulation = Formulation(earth_impedance = :unified, earth_admittance = :unified,
-    shunt_model = :coaxial, insulation_admittance = :lossy;
-    options = (reduce_bundle = false, kron_reduction = false,
-        ideal_transposition = false))
 
 @assert length(centers) == 9
 @assert length(system.terminal_order) == 18
@@ -62,10 +58,14 @@ geometry_plot = preview(system; earth_model = earth, backend = :gl,
     display_plot = true, open_export = false)
 
 # Two public calculations, followed by the finite line from Table IV.
-phase = @time compute(problem, formulation; options = phase_options)
+phase = @time compute(problem, Formulation(earth_impedance = :unified, 
+earth_admittance = :unified, shunt_model = :coaxial, insulation_admittance = :lossy;
+    options = (reduce_bundle = false, kron_reduction = false,
+        ideal_transposition = false)); options = phase_options,
+         modal = :default,)
 modal = @time compute(
     ModalAnalysisProblem(phase),
-    ModalAnalysisFormulation(:wedehpol1996);
+    ModalAnalysisFormulation(:default);
     options = (rotate = true,)
 )
 restored_phase = transform(PhaseDomain, modal)

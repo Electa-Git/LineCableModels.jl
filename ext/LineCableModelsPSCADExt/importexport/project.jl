@@ -340,7 +340,7 @@ function _pscad_components(blueprint::Engine.CableBlueprint, frequency, formulat
                   (2 * (one(T) * pi) * epsilon0)
         permeability = isempty(layers) ? one(T) :
                        DataModel.equivalent_dielectric_permeability(
-            layers, conductor.num_turns, conductor.r_ex, outer)
+            layers, conductor.turns_per_length, conductor.r_ex, outer)
         dielectric = Material(:insulator, oftype(epsilon, Inf), epsilon, permeability)
         return (name = conductor.terminal,
             conductor = (r_in = conductor.r_in, r_ex = conductor.r_ex, material = metal),

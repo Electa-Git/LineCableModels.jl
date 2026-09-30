@@ -1,4 +1,4 @@
-@testitem "Engine / prepared earth tuples preserve equation types across layouts" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / earth binding tuples preserve equation types across layouts" tags=[:unit] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     design=build(CableDesign, "typed earth equations", terminal(:core,
         core(Material(:conductor, 1.72e-8); r=0.004),

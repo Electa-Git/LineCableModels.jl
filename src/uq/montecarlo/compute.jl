@@ -228,14 +228,14 @@ function _failure_summary(failures, accepted::Int, attempts::Int)
     )
 end
 
-function _retry_limit_error(failures, accepted::Int, attempts::Int, maximum::Int)
+function _resampling_limit_error(failures, accepted::Int, attempts::Int, maximum::Int)
     summary = _failure_summary(failures, accepted, attempts)
     final_failure = last(failures)
     stack = final_failure.error.stack
     location = isempty(stack) ? "unknown location" :
                "$(first(stack).file):$(first(stack).line) in $(first(stack).function_name)"
     throw(ErrorException(
-        "Monte Carlo retry limit of $maximum failures was exhausted after " *
+        "Monte Carlo resampling limit of $maximum failures was exhausted after " *
         "$(summary.attempts) attempts ($(summary.accepted) accepted); final " *
         "$(final_failure.error.type) during $(final_failure.stage) at $location: " *
         final_failure.error.message,
@@ -267,7 +267,7 @@ end
 
 function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options)
     clearance = point isa Gridpoint{Engine.LineParametersProblem} ?
-                DataModel.prepare_clearance(point) : nothing
+                DataModel.collect_clearance_requirements(point) : nothing
     physical_inputs=clearance===nothing ? nothing : Engine.completed_inputs(clearance.declaration[])
     clearance===nothing || (clearance.declaration[]=nothing)
     try
@@ -326,7 +326,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             succeeded = true
         catch exception
             backtrace = catch_backtrace()
-            formulation.options.data.on_error === :retry && exception isa DomainError ||
+            formulation.options.data.on_error === :resample && exception isa DomainError ||
                 rethrow()
             push!(failures, _failure_record(
                 attempts,
@@ -337,7 +337,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 backtrace
             ))
             length(failures) < formulation.options.data.max_failures ||
-                _retry_limit_error(
+                _resampling_limit_error(
                     failures,
                     accepted,
                     attempts,

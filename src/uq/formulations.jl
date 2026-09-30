@@ -1,5 +1,5 @@
-_validate_shunt_policy(::AbstractFormulation) = nothing
-function _validate_shunt_policy(inner::Union{Engine.LineParametersFormulation,Engine.CableConstantsFormulation})
+_validate_fixed_shunt_model(::AbstractFormulation) = nothing
+function _validate_fixed_shunt_model(inner::Union{Engine.LineParametersFormulation,Engine.CableConstantsFormulation})
     selected = inner.methods.shunt_model
     if selected isa Engine.ShuntModel.Formula{:boundary} && selected.parameters.fallback !== :error
         throw(ArgumentError("uncertainty propagation requires a fixed shunt model; select strict :boundary or :coaxial, without automatic fallback"))
@@ -28,7 +28,7 @@ struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: Abstrac
     options::O
 
     function LinearError(inner::AbstractFormulation, options::ComputationOptions)
-        _validate_shunt_policy(inner)
+        _validate_fixed_shunt_model(inner)
         normalized = computation_options(LinearError, options)
         return new{typeof(inner), typeof(normalized)}(inner, normalized)
     end
@@ -78,9 +78,9 @@ $(TYPEDEF)
 Select conditional Monte Carlo propagation over a
 [`ParametricProblem`](@ref). Randomness is local and reproducible when `seed`
 is supplied. Computation option `on_error=:fail` propagates every exception.
-`on_error=:retry` rejects only realizations that raise `DomainError`, retains
+`on_error=:resample` rejects only realizations that raise `DomainError`, retains
 their sampled arguments and error summaries, and continues until the requested
-number of successful trials is obtained or `max_failures` is reached. Retry
+number of successful trials is obtained or `max_failures` is reached. Resampling
 mode requires `retain_details=true` and estimates the output distribution
 conditional on successful problem construction and computation.
 
@@ -92,7 +92,7 @@ not retained by the marginal surrogate. Access and transport reuse the stored
 uncertainty-source identities.
 
 Line-system construction enforces exterior clearance on every realization.
-When Measurements is loaded, the propagated clearance reserve is prepared
+When Measurements is loaded, the propagated clearance reserve is computed
 before sampling and retained for every draw. Adjusted placements therefore
 describe a clearance-constrained system. Adjustments emit one summary per
 parameter point, not one warning per trial; retained details include their
@@ -118,7 +118,7 @@ struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <:
     options::O
 
     function MonteCarlo(inner::AbstractFormulation, options::ComputationOptions)
-        _validate_shunt_policy(inner)
+        _validate_fixed_shunt_model(inner)
         normalized = computation_options(MonteCarlo, options)
         return new{typeof(inner), typeof(normalized)}(inner, normalized)
     end
@@ -200,14 +200,14 @@ function computation_options(
         throw(ArgumentError(
             "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
         ))
-    normalized.on_error === :fail || normalized.on_error === :retry ||
+    normalized.on_error === :fail || normalized.on_error === :resample ||
         throw(ArgumentError(
-            "MonteCarlo on_error must be :fail or :retry",
+            "MonteCarlo on_error must be :fail or :resample",
         ))
-    normalized.on_error === :retry && !normalized.retain_details &&
+    normalized.on_error === :resample && !normalized.retain_details &&
         throw(
             ArgumentError(
-            "MonteCarlo on_error=:retry requires retain_details=true",
+            "MonteCarlo on_error=:resample requires retain_details=true",
         ),
         )
     return ComputationOptions(;
@@ -251,7 +251,7 @@ the same names and are merged into `options` before normalization.
 - `return_histograms=false`: Retain marginal histogram densities.
 - `bins=nothing`: Positive histogram bin count, or automatic binning.
 - `retain_details=false`: Retain accepted-trial details and failure diagnostics.
-- `on_error=:fail`: Propagate exceptions; `:retry` rejects `DomainError` realizations and requires `retain_details=true`.
+- `on_error=:fail`: Propagate exceptions; `:resample` rejects `DomainError` realizations and requires `retain_details=true`.
 - `max_failures=100`: Positive maximum rejected-trial count per parameter point.
 
 # Returns

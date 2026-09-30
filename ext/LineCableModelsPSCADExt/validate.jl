@@ -48,6 +48,6 @@ function validate(problem::LineParametersProblem, formulation::PSCADFormulation)
     _pscad_deterministic(eltype(problem), typeof(formulation.options.data.base_frequency))
     _validate_frequencies(problem.frequencies)
     _pscad_size(problem)
-    _prepare_pscad(problem, formulation, _pscad_blueprints(problem.system))
+    _pscad_inputs(problem, formulation, _pscad_blueprints(problem.system))
     return problem
 end

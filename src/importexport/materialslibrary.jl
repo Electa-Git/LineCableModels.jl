@@ -37,7 +37,7 @@ function load!(
         "materials library file not found: '$(_display_path(file_name))'",
     ))
     extension = lowercase(splitext(file_name)[2])
-    candidate = if extension == ".jls"
+    materials = if extension == ".jls"
         _trusted_material_data(Serialization.deserialize(file_name))
     elseif extension == ".json"
         document = _read_document(file_name, MATERIALS_SCHEMA)
@@ -49,7 +49,7 @@ function load!(
             "MaterialsLibrary loading requires a .json or .jls file",
         ))
     end
-    library.data = candidate
+    library.data = materials
     return library
 end
 
@@ -57,12 +57,12 @@ function _trusted_material_data(decoded)
     decoded isa AbstractDict || throw(ArgumentError(
         "trusted JLS material data must be a dictionary",
     ))
-    candidate = Dict{String, Material}()
+    materials = Dict{String, Material}()
     for (name, material) in decoded
         material isa Material || throw(ArgumentError(
             "material '$name' must be Material, not $(typeof(material))",
         ))
-        candidate[String(name)] = validate(material)
+        materials[String(name)] = validate(material)
     end
-    return candidate
+    return materials
 end

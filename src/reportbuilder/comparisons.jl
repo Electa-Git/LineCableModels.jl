@@ -47,7 +47,7 @@ end
 $(TYPEDSIGNATURES)
 
 Tabulate completed comparisons, independent maxima, sampling information, and
-recorded performance evidence. Every candidate remains represented. Display
+recorded performance evidence. Every result remains represented. Display
 features consume the same observation-side groups as plots; no source access,
 comparison, sampling estimate, or timing measurement occurs here.
 """
@@ -64,9 +64,9 @@ function tabulate(definition::BenchmarkTableDefinition,
     for (index,point) in enumerate(points),error in selected_errors[index]
         id=point.gridpoint.id
         settings=error.settings
-        identity=(candidate_id=error.candidate_id,reference_id=error.reference_id,
+        identity=(result_id=error.result_id,reference_id=error.reference_id,
             problem_index=id.problem_index,formulation_index=id.formulation_index,
-            candidate_point=index,method=labels[index],request=error.request,
+            result_point=index,method=labels[index],request=error.request,
             quantity=Symbol(Units.symbol(error.quantity)),statistic=error.statistic,
             band=error.band,normalization=error.normalization,
             absolute_unit=Units.label(error.absolute_unit),samples=settings.sample_count,
@@ -98,7 +98,7 @@ function tabulate(definition::BenchmarkTableDefinition,
     for (request,normalization,reference_id,problem_index) in partitions
         selected=filter(row -> row.request==request && row.normalization==normalization && row.reference_id==reference_id && row.problem_index==problem_index,maxima)
         bands=unique(row.band for row in selected)
-        active=unique(row.candidate_point for row in selected)
+        active=unique(row.result_point for row in selected)
         display_groups=[Grammar.observation_groups(points[active];request,band,normalization,reference=reference_id) for band in bands]
         representatives=sort(unique(vcat(([active[group.representative] for group in entries] for entries in display_groups)...)))
         push!(groups,(request,normalization,reference_id,bands,groups=display_groups,points=active))
@@ -108,7 +108,7 @@ function tabulate(definition::BenchmarkTableDefinition,
             name=band isa Symbol ? band : Symbol(string(band))
             for (frame,field) in ((absolute,:maximum_absolute_rms),(relative,:maximum_relative_rms_percent))
                 frame[!,name]=[begin
-                    matches=filter(row -> row.candidate_point==index && isequal(row.band,band),selected)
+                    matches=filter(row -> row.result_point==index && isequal(row.band,band),selected)
                     isempty(matches) ? missing : getproperty(only(matches),field)
                 end for index in representatives]
             end
@@ -116,13 +116,13 @@ function tabulate(definition::BenchmarkTableDefinition,
         push!(features,(request,quantity=first(selected).quantity,statistic=first(selected).statistic,
             normalization,reference_id,problem_index,absolute_unit=first(selected).absolute_unit,absolute,relative))
     end
-    candidate_info=_point_information(points,:candidate,labels)
+    result_info=_point_information(points,:result,labels)
     reference_info=reference===nothing ? (calculations=NamedTuple[],formulations=NamedTuple[],formula_details=NamedTuple[]) :
         _point_information([reference],:reference,[last(labels)])
-    info=map((a,b) -> DataFrame(vcat(a,b)),candidate_info,reference_info)
+    info=map((a,b) -> DataFrame(vcat(a,b)),result_info,reference_info)
     timing=_timing_tables(points,reference)
     sampling=_sampling_tables(points,reference)
-    coverage=DataFrame([(candidate_source=string(row.candidate_id.source_id),reference_source=string(row.reference_id.source_id),
+    coverage=DataFrame([(result_source=string(row.result_id.source_id),reference_source=string(row.reference_id.source_id),
         point=row.problem_index,formulation_index=row.formulation_index,band=row.band isa Tuple ? string(row.band) : row.band,
         frequency_count=row.samples,first_Hz=row.actual_bounds_Hz===nothing ? missing : Grammar.nominal(first(row.actual_bounds_Hz)),
         last_Hz=row.actual_bounds_Hz===nothing ? missing : Grammar.nominal(last(row.actual_bounds_Hz))) for row in maxima])
@@ -152,17 +152,17 @@ observation construction. Already completed products supplied as `comparisons`
 are joined by original identities. The reference remains a separate observation.
 """
 function report(definition::BenchmarkTableDefinition,source::NamedTuple;requests::Tuple=(),observation_options::NamedTuple=(;))
-    all(key -> haskey(source,key),(:reference,:candidate)) || throw(ArgumentError("benchmark operands require reference and candidate"))
+    all(key -> haskey(source,key),(:reference,:result)) || throw(ArgumentError("benchmark operands require reference and result"))
     reference=source.reference isa NamedTuple && haskey(source.reference,:result) ? source.reference.result : source.reference
-    candidate=source.candidate isa NamedTuple && haskey(source.candidate,:result) ? source.candidate.result : source.candidate
-    candidate isa Union{ObservedResult,AbstractVector{<:ObservedResult}} && return report(definition,candidate;reference)
+    result=source.result isa NamedTuple && haskey(source.result,:result) ? source.result.result : source.result
+    result isa Union{ObservedResult,AbstractVector{<:ObservedResult}} && return report(definition,result;reference)
     settings=definition.settings
-    completed=haskey(source,:comparisons) ? source.comparisons : Engine.compare(reference,candidate,collect(settings.requests);
+    completed=haskey(source,:comparisons) ? source.comparisons : Engine.compare(reference,result,collect(settings.requests);
         bands=settings.bands,normalizations=settings.normalizations,pairing=settings.pairing,
         atol=settings.atol,fundamental=settings.fundamental,harmonics=settings.harmonics,unsupported=settings.unsupported)
     timings=(measurements=get(source,:measurements,nothing),context=get(source,:context,(;)))
-    candidate isa AbstractUncertaintyResult && isempty(requests) && (requests=settings.requests)
-    observed=observables(candidate,requests;comparisons=completed,timings,clip=definition.clip,atol=settings.atol,complete_pairs=true,observation_options...)
+    result isa AbstractUncertaintyResult && isempty(requests) && (requests=settings.requests)
+    observed=observables(result,requests;comparisons=completed,timings,clip=definition.clip,atol=settings.atol,complete_pairs=true,observation_options...)
     observed_reference=reference isa AbstractUncertaintyResult ?
         (length(reference)==1 ? ObservedResult(reference,1,requests;clip=definition.clip,atol=settings.atol,complete_pairs=true,observation_options...) :
             throw(ArgumentError("a benchmark report retains one separate reference point"))) :

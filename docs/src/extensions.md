@@ -40,7 +40,7 @@ PSCAD's native defaults must not be described as the analytical default equation
 ## User-owned equations
 
 Select a concrete type directly in the physical slot, for example
-`Formulation(earth_properties=MySoil(...))`. Built-in `Formula` catalogues do not
+`Formulation(earth_properties=MySoil(...))`. Built-in `Formula` lists do not
 need edits. There is no callback bag or replacement of a built-in identity.
 `FormulaMethod(selected, operation, Val(...), ...)` calls the operation with the
 selected object first; IDs are for inspection only. `:default` resolves to an
@@ -66,7 +66,7 @@ Execution controls use `ComputationOptions`; completed supplemental output uses
 `ComputationDetails`. Read their payloads explicitly through `.data`.
 Indexed families declare numerical defaults for the actual selected type and
 case with `formulation_options(::FormulaMethod{<:MyType,typeof(operation),...})`.
-No numerical section selects physical preparation. Earth field equations consume
+No numerical section selects physical input construction. Earth field equations consume
 evaluated material properties. Their wave numbers and field approximations are
 local to the equation, not material constitutive laws. `constitutive` requires a
 valid material argument and is implemented by material-law families, not earth
@@ -100,8 +100,8 @@ discovers physical features nor samples a kernel before handing it to QuadGK.
 There is no shared spectral sampler. Repeated short physical expressions can
 remain local to their formulas.
 
-`ShuntModel` owns conductor and dielectric geometry extraction, numerical coefficients and fallback
-policy. Its `blueprint_dependencies` methods identify the actual local selections
+`ShuntModel` owns conductor and dielectric geometry extraction, numerical coefficients and the requested fallback
+model. Its `blueprint_dependencies` methods identify the actual local selections
 that affect those coefficients; Engine uses that dependency record for reuse
 within one blueprint construction. Only completed coefficient blocks survive
 that construction; the charge-system factorization and workspace are reused there.
@@ -114,9 +114,9 @@ inputs and writes the selected destinations. Unpaired selections use its ordinar
 indexed implementation. New equations do not change the Engine frequency sequence
 or create a second workspace, validity flag, reset method or material-law callback.
 
-Internal state is prepared once per conductor and frequency through the selected
+Internal state is constructed once per conductor and frequency through the selected
 type's physical constructor and `InternalImpedance.Functor`. Shunt geometry
-preparation must be frequency independent and returns blueprint blocks and
+construction must be frequency independent and returns blueprint blocks and
 diagnostics; it is never repeated in the frequency loop. A consuming earth
 equation explicitly admits a custom equivalent-earth rule using `validate`.
 

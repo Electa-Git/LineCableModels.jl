@@ -87,7 +87,7 @@ end
     @test observation_gridpoint(constants).inputs.design.origin.items[1].item.items[1].primitive.r==0.005
 end
 
-@testitem "ObservedResult / nominal recentering retains uncertainty dependencies" tags=[:unit] begin
+@testitem "ObservedResult / clipping gives exact zero without uncertainty" tags=[:unit] begin
     using Measurements, Calculus
     shared=Measurements.measurement(5e-13,1e-20)
     x=[shared,2shared]
@@ -95,16 +95,17 @@ end
     observed=ObservedResult(constants,(G,);length_unit=:base)
     shifted=observe(observed,G)
     @test Measurements.value.(shifted)==zeros(2)
-    @test Measurements.uncertainty.(shifted)==Measurements.uncertainty.(x)
+    @test Measurements.uncertainty.(shifted)==zeros(2)
     @test Measurements.uncertainty(shifted[2]-2shifted[1])==0
-    @test Measurements.uncertainty(shifted[1]-shared)==0
+    @test Measurements.uncertainty(shifted[1]-shared)==Measurements.uncertainty(shared)
+    @test observe(constants,G)==x
     untrimmed=ObservedResult(constants,(G,);length_unit=:base,clip=false)
     @test observe(untrimmed,G)==x
     @test all(only(observed.quantities).available)
     @test all(only(observed.quantities).engineering_zero)
     scalar=ObservedResult(constants,((G,1),);length_unit=:base)
     @test iszero(Measurements.value(observe(scalar,G)))
-    @test Measurements.uncertainty(observe(scalar,G)-shared)==0
+    @test iszero(Measurements.uncertainty(observe(scalar,G)))
     unassessed=ObservedResult(constants,(L,);length_unit=:base,quantity_units=:base,
         atol=(X=1e-6,))
     @test only(unassessed.quantities).thresholds.kind===:unassessed

@@ -1,54 +1,65 @@
 """
 $(TYPEDSIGNATURES)
 
-Estimate hexagonally packed strand patterns for `target_mm2` of metal.
+Estimate hexagonally packed strand patterns for a metallic cross-section.
 
-The returned [`WireEstimate`](@ref) retains ranked candidates. When no
-candidate reaches the target, the result has `status == :infeasible`.
+# Arguments
+
+- `target_area`: Required metal area \\[mm²\\]. Stored areas use \\[m²\\].
+
+# Keywords
+
+- `awg_min=-3`, `awg_max=40`: Inclusive AWG-number limits.
+
+# Returns
+
+The returned [`WireEstimate`](@ref) retains ranked patterns, including those
+below the target area. When no pattern reaches that area, the result has
+`status == :infeasible`.
 """
-function make_stranded(target_mm2::Real; nmin::Integer = -3, nmax::Integer = 40)
-    target_mm2 > zero(target_mm2) || throw(DomainError(
-        target_mm2, "target cross-section must be positive"
+function estimate_stranding(target_area::Real; awg_min::Integer = -3, awg_max::Integer = 40)
+    target_area > zero(target_area) || throw(DomainError(
+        target_area, "target cross-section must be positive"
     ))
-    nmin <= nmax || throw(ArgumentError("nmin must not exceed nmax"))
+    awg_min <= awg_max || throw(ArgumentError("awg_min must not exceed awg_max"))
 
-    target_value = float(target_mm2)
+    target_value = float(target_area)
     T = typeof(target_value)
-    target = target_value * T(1e-6)
+    target_area = target_value * T(1e-6)
     minimum, maximum_wires = _allowed_wires(target_value)
-    candidates = HexaPattern{T}[]
+    patterns = HexaPattern{T}[]
 
-    for (awg, diameter) in awg_sizes(T, nmin, nmax)
+    for (awg, diameter) in awg_sizes(T, awg_min, awg_max)
         area = _wire_area(diameter)
         for layers in 1:300
             wires = _hex_wires(layers)
             _allowed_wires(wires, minimum, maximum_wires) && push!(
-                candidates,
+                patterns,
                 HexaPattern(layers, wires, diameter, wires * area, awg)
             )
             maximum_wires !== nothing && wires > maximum_wires && break
         end
     end
-    isempty(candidates) && throw(ArgumentError(
-        "the AWG range and permitted wire counts produced no candidates",
+    isempty(patterns) && throw(ArgumentError(
+        "the AWG range and permitted wire counts produced no patterns",
     ))
 
-    sort!(candidates;
+    sort!(patterns;
         by = pattern -> (
-            abs(pattern.total_area_m2 - target), pattern.wire_diameter_m,
+            abs(pattern.total_area - target_area), pattern.wire_diameter,
             pattern.layers
         ))
-    feasible = any(pattern -> pattern.total_area_m2 >= target, candidates)
+    feasible = any(pattern -> pattern.total_area >= target_area, patterns)
     reasons = feasible ? String[] :
               [
         "no permitted strand pattern reaches the requested metallic area",
     ]
     estimate = WireEstimate(
-        target, candidates, feasible, feasible ? :feasible : :infeasible, reasons
+        target_area, patterns, feasible, feasible ? :feasible : :infeasible, reasons
     )
-    estimate[:match].wires > 271 &&
+    estimate[:closest_area].wires > 271 &&
         @warn("The closest stranded pattern exceeds 271 wires.",
-            wires=estimate[:match].wires,)
+            wires=estimate[:closest_area].wires,)
     return estimate
 end
 

@@ -73,7 +73,7 @@ function _pscad_row_definition(
         project,
         requested::Union{Nothing, AbstractString} = nothing
 )
-    candidates = NamedTuple[]
+    row_definitions = NamedTuple[]
     for definition in findall("./definitions/Definition", project)
         users = findall("./schematic/User", definition)
         frequency = filter(
@@ -92,20 +92,20 @@ function _pscad_row_definition(
         length(ground) == 1 || throw(ArgumentError(
             "PSCAD definition '$(definition["name"])' has multiple ground definitions",
         ))
-        push!(candidates, (;
+        push!(row_definitions, (;
             definition,
             users,
             frequency = only(frequency),
             ground = only(ground)
         ))
     end
-    isempty(candidates) && throw(ArgumentError(
+    isempty(row_definitions) && throw(ArgumentError(
         "PSCAD project contains no supported frequency-dependent row definition",
     ))
     if requested !== nothing
         qualified = String(requested)
         name = last(split(qualified, ':'; limit = 2))
-        selected = filter(candidate -> candidate.definition["name"] == name, candidates)
+        selected = filter(row_definition -> row_definition.definition["name"] == name, row_definitions)
         length(selected) == 1 || throw(ArgumentError(
             isempty(selected) ?
             "PSCAD project contains no supported row definition '$qualified'" :
@@ -113,12 +113,12 @@ function _pscad_row_definition(
         ))
         return only(selected)
     end
-    enabled = filter(candidate -> _pscad_output_enabled(candidate.frequency) === true,
-        candidates)
+    enabled = filter(row_definition -> _pscad_output_enabled(row_definition.frequency) === true,
+        row_definitions)
     if length(enabled) == 1
         return only(enabled)
     end
-    isempty(enabled) && length(candidates) == 1 && return only(candidates)
+    isempty(enabled) && length(row_definitions) == 1 && return only(row_definitions)
     throw(ArgumentError(
         isempty(enabled) ?
         "PSCAD project has multiple row definitions and none is selected for output" :
@@ -153,15 +153,15 @@ end
 function _pscad_instance(document, project, row)
     namespace = project["name"]
     target = "$namespace:$(row.definition["name"])"
-    candidates = filter(findall("//User", document)) do node
+    matching_nodes = filter(findall("//User", document)) do node
         _pscad_binding(node) == target || return false
         values = _pscad_parameters(node)
         return haskey(values, "Length") && haskey(values, "Name")
     end
-    length(candidates) == 1 || throw(ArgumentError(
+    length(matching_nodes) == 1 || throw(ArgumentError(
         "PSCAD project must contain one instance of '$target' with line parameters",
     ))
-    return only(candidates)
+    return only(matching_nodes)
 end
 
 function _pscad_material(kind::Symbol, rho, eps_r, mu_r)

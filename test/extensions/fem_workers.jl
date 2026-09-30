@@ -54,7 +54,7 @@ for b in bases:
             function fresh()
                 run=E._create_run(root)
                 E._write_json_atomic(joinpath(run.path,"input/computation.json"),inputs)
-                E._prepare_run_inputs!(run,model)
+                E._write_run_inputs!(run,model)
                 run
             end
             write(config,JSON3.write((delay=0.02,fail=false)))
@@ -96,7 +96,7 @@ with open(sys.argv[1],'a+') as f:
                 write(joinpath(directory,"attempt.json"),content)
             end
             @test E._assert_no_live_attempts(run)===nothing
-            # Lose both the canonical column and its completed attempt marker.
+            # Lose both the completed frequency column and its completed attempt marker.
             rm(paths.checkpoint)
             for attempt in filter(isdir,readdir(joinpath(run.path,"attempts");join=true))
                 rm(E._column_paths(attempt,1,2,false).marker;force=true)
@@ -139,7 +139,7 @@ with open(sys.argv[1],'a+') as f:
             stopped=fresh();write(config,JSON3.write((delay=2.0,fail=false)))
             @test_throws LineCableModelsFEMError E._run_getdp!(stopped,model,form, execution_options,meshes;
                 pump=()->stopped.getdp_invocations==0)
-            @test stopped.state===E.cancelled
+            @test stopped.state===E.canceled
             @test E._assert_no_live_attempts(stopped)===nothing
             @test_throws LineCableModelsFEMError E._parse_scan(stopped,model,form, execution_options)
             # A surviving child from a crashed coordinator blocks retry.

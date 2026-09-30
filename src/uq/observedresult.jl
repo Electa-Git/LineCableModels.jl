@@ -164,9 +164,9 @@ function observables(source::Union{MonteCarloResult,LinearErrorResult},requests:
         comparisons=(),timings=(;),kwargs...)
     return [begin
         id=Grammar.observation_gridpoint(source[point]).id
-        errors=filter(record -> record.candidate_id==id,comparisons)
+        errors=filter(record -> record.result_id==id,comparisons)
         recorded=timings isa NamedTuple ? timings : begin
-            matched=filter(record -> record.candidate_id==id,timings)
+            matched=filter(record -> record.result_id==id,timings)
             length(matched)<=1 || throw(ArgumentError("duplicate point timings"))
             isempty(matched) ? (;) : only(matched)
         end

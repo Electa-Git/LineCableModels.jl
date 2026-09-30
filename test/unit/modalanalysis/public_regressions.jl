@@ -76,15 +76,15 @@ end
     @test descriptions.all==descriptions.Z==descriptions.Y
     @test descriptions.all !== descriptions.Z && descriptions.all !== descriptions.Y &&
         descriptions.Z !== descriptions.Y
-    candidate_source=G.gridpoint_id().source_id
-    candidates=[E.retain_gridpoint(result,G.gridpoint_id(;source_id=candidate_source,
+    result_source=G.gridpoint_id().source_id
+    results=[E.retain_gridpoint(result,G.gridpoint_id(;source_id=result_source,
         formulation_index=index)) for (index,result) in enumerate((first_segment.parameters,alternate_modal))]
     reference=E.retain_gridpoint(first_segment.parameters,G.gridpoint_id())
-    comparisons=E.compare(reference,candidates,[E.R];bands=(:all,))
+    comparisons=E.compare(reference,results,[E.R];bands=(:all,))
     @test isequal(comparisons[1].absolute,comparisons[2].absolute)
     @test isequal(comparisons[1].relative,comparisons[2].relative)
     @test comparisons[1].assumptions!=comparisons[2].assumptions
-    compared=observables(candidates,(E.R,E.X);comparisons)
+    compared=observables(results,(E.R,E.X);comparisons)
     @test length(G.observation_groups(compared;request=E.R,band=:all,
         normalization=:reference_rms,reference=details(reference).data.gridpoint))==2
     artifact=report(LineCableModels.ReportBuilder.BenchmarkTableDefinition((E.R,);bands=(:all,)),

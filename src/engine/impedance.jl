@@ -38,7 +38,7 @@ function cable_impedance!(
                 input.r_in[index],
                 input.r_ext[index],
                 rho_cond[index],
-                input.mu_cond[index],
+                input.mu_r_cond[index],
                 s; workspace
             )
             outside = surfaces.outer
@@ -46,7 +46,7 @@ function cable_impedance!(
             insulation = methods.insulation_impedance(
                 input.r_ext[index],
                 input.r_ins_ext[index],
-                input.mu_ins[index],
+                input.mu_r_ins[index],
                 s; workspace
             )
             loop = outside + inside + insulation
@@ -61,7 +61,7 @@ function cable_impedance!(
                 end
             end
             destination[index, index] += loop
-            # Reuse this wall's prepared state when its inner surface is needed
+            # Reuse this wall's evaluated state when its inner surface is needed
             # by the next contained conductor.
             position > 1 && (inside = surfaces.inner)
         end

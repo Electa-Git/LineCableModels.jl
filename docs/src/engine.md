@@ -39,7 +39,7 @@ literature relations model measured soil dispersion; their references remain
 attached to the equations without determining their software names.
 EquivalentHomogeneous selects the basement when explicitly requested, and the
 modal default performs Levenberg–Marquardt tracking. The EquivalentHomogeneous
-default is a package-owned policy rather than an author equation.
+default is a package-defined selection rather than an author equation.
 
 ## Coaxial computation
 
@@ -147,7 +147,7 @@ formulation = Formulation(shunt_model=:boundary)
 result = @time compute(problem, formulation)
 ```
 
-There is no separate preparation object or execution option. Default coaxial
+The compute call constructs the selected local shunt model. Default coaxial
 blueprints contain no boundary blocks, extract no boundary domains, and evaluate
 no boundary material law. Their reports describe the concentric assembly ranges;
 no boundary audit is implied.
@@ -199,9 +199,9 @@ production; the audit additionally checks step halving. Derivative matrices
 are streamed in bounded blocks rather than stored
 as dense Measurement arrays. This is fixed-topology linear propagation, not a
 claim about differentiability across a contact or strand-count transition.
-Each Monte Carlo realization prepares its own physical geometry/material
+Each Monte Carlo realization constructs its own physical geometry/material
 operator; identical cables/formulations within that realization share it.
-Concentricity checks include coordinate dependencies: two centres with equal
+Concentricity checks include coordinate dependencies: two centers with equal
 nominal positions but independent uncertainty do not qualify as concentric.
 The local boundary calculation uses Float64 workspaces; it does not promise
 arbitrary-precision boundary accuracy when surrounding scalar inputs use a
@@ -279,7 +279,7 @@ result = compute(problem, selected; options=(trace=true,))
 `options`, and an optional formula-local `equivalent_earth`. It is a passive
 request. A family constructor resolves a symbol or declaration to a concrete
 selection; a completed user-owned selection passes through unchanged. Built-in
-catalogues are explicit inventories, not admission registries for user code.
+formula lists are explicit inventories, not admission registries for user code.
 There is no `hooks` field or callable-override channel.
 
 A `FormulaMethod(selection, operation, Val(...), ...)` binds the actual selected
@@ -311,8 +311,8 @@ material selections, not analytical impedance equations.
 Numerical defaults belong to `formulation_options(::FormulaMethod{<:MySelection,
 typeof(operation), ...})`. Empty defaults admit no controls. Unknown or unused
 numerical sections are errors. The selected formula provisions QuadGK storage
-through `initialize_buffers` when its required indexed consumers need integration;
-option-key presence is not an allocation policy. Full-system earth physics also
+through `initialize_buffers` when its required indexed consumers need integration.
+An option key alone does not allocate storage. Full-system earth physics also
 belongs to the selected physical formulation.
 
 Custom types implement the existing family operation and expose `parameters`
@@ -392,22 +392,22 @@ inputs and output position; assembly, reduction and modal transformation preserv
 the returned ordered entries.
 No implicit reciprocity operation supplies a missing equation or averages its result.
 
-Compatible impedance and potential selections share one prepared calculation
+Compatible impedance and potential selections share one bound calculation
 with explicit output indices for each quantity. Distinct controls retain separate
-calculations and material arrays. The prepared calculations and their equation
+calculations and material arrays. The bound calculations and their equation
 groups are concrete tuples; conductor interactions and numerical storage remain
 arrays. The complete scan specializes on those tuples before entering its
 frequency loop, while the workspace type remains independent of conductor layout.
 
 Repeated numerical interactions use the shared `Engine.earth!` traversal of
-bound indexed equations. During workspace preparation,
+bound indexed equations. During workspace construction,
 `earth_bindings(selection, binding, geometry)` supplies the complete invariant
 arithmetic inputs for comparison. The default includes destination indices;
 a formula omits them only when its arithmetic does not use them. These inputs
 serve reuse alone: equations consume the existing `EarthPair` and evaluated
 material data, without a second pair representation or callback interface.
 
-Candidates belong to the same bound equation and resolved controls. At each
+Earlier interactions belong to the same bound equation and resolved controls. At each
 frequency, Engine compares their current material values using
 `same_physical_state`, evaluates each distinct interaction, and distributes
 its scalar or tuple of coefficients. Equal nominal values with independent
@@ -523,7 +523,7 @@ formulation_options(
 ```
 
 The equation is `II.internal_impedance(selected::MyConductor, ::Val{:outer},
-functor, workspace)`. Its state constructor prepares one `II.Functor` per
+functor, workspace)`. Its state constructor constructs one `II.Functor` per
 conductor and frequency. The same state is shared by all surfaces using that
 selection. An integral equation declares its own integration section; an
 algebraic equation does not inherit another formula's numerical options.
@@ -550,7 +550,7 @@ Each surface can select a built-in or user-owned formulation that implements tha
 surface, with its own parameters and numerical options. A custom transfer
 selection belongs directly in that leaf, as `transfer=my_transfer_model`.
 Identical complete
-selections share their prepared conductor state. Scalar shorthand retains its
+selections share their conductor state. Scalar shorthand retains its
 existing numerical behavior. The internal term is called `transfer`; earth
 `self`/`mutual` interaction names are unchanged.
 
@@ -593,7 +593,7 @@ completed entries directly; independent calculations never share mutable buffers
 Each family explicitly includes its supported formula files, each returning one
 identifier. `FormulaMethod` binds a selected formulation and its indexed case to
 the family-owned equation generic.
-The hot loop has no lookup registry. Later unchanged reproductions of an equation
+The hot loop has no lookup table. Later unchanged reproductions of an equation
 receive no entry; distinct contributions require their own verified equations.
 
 Result details retain one requested/resolved formulation record. Its `requested`
@@ -783,7 +783,7 @@ formulation points.
 
 `CableConstantsFormulation`, `ModalAnalysisFormulation`, and backend
 formulation constructors follow the same rule. A deterministic `Grid` of
-already completed, potentially external formulations is also accepted by
+already completed formulations, including externally supplied formulations is also accepted by
 `Combinatorial`.
 
 For each selected problem, the Coaxial collection dispatch validates and
@@ -1048,7 +1048,7 @@ cannot be used as either kind of options.
 [`computation_details`](@ref) returns the fixed-key details record owned by a
 registered formulation type. There is no general method: an unregistered
 formulation raises `MethodError`. Higher-order calculations dispatch directly
-on `typeof(formulation)` while collecting retained records; no owner registry
+on `typeof(formulation)` while collecting retained records; no owner lookup table
 or wrapper token intervenes.
 
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
@@ -1164,9 +1164,9 @@ modal actions retain their existing option handling.
 One measurement describes one materialized problem and formulation over the
 complete requested frequency vector. The owned backend uses `Base.@timed` around
 its existing workspace construction, solve, and validated result construction.
-Batch-shared input preparation, timing attachment, `on_result`, and subsequent
+Batch-shared input construction, timing attachment, `on_result`, and subsequent
 progress logging lie outside the measured expression. Three executed formulations produce
-three measurements; shared preparation is neither duplicated nor apportioned.
+three measurements; shared input construction is neither duplicated nor apportioned.
 Compilation that occurs before the measured expression begins is not included.
 
 | Backend | Fields in `details(result).data.timing` |
@@ -1177,7 +1177,7 @@ Compilation that occurs before the measured expression begins is not included.
 
 All durations are in seconds. `bytes` is Julia allocation volume, not retained
 size or peak memory. Native `wall_seconds` covers caller-side execution and
-completed result construction after shared preparation. FEM phase durations sum
+completed result construction after shared input construction. FEM phase durations sum
 the existing native column measurements; `worker_wall_seconds` sums newly
 executed process durations, not elapsed scan time. PSCAD `compile_call_seconds`
 measures the worker's `line.compile()` call and excludes output-readiness waiting.
@@ -1322,7 +1322,7 @@ from dictionaries, pairs, or `nothing`.
 
 `MonteCarlo` owns a separate outer computation-option tuple. Its normalized
 keys are `retain_details`, `on_error`, and `max_failures`. `on_error=:fail` is
-the default and rethrows every exception. `on_error=:retry` requires
+the default and rethrows every exception. `on_error=:resample` requires
 `retain_details=true` and rejects only `DomainError` realizations until the
 requested accepted-trial count is reached or `max_failures` is exhausted.
 Other exception types always propagate immediately.
@@ -1440,9 +1440,9 @@ For formulation comparisons, ReportBuilder retains unformatted data in
 ```julia
 using LineCableModels.ReportBuilder: BenchmarkTableDefinition
 
-candidates = compute(problem, Formulation(earth_properties=Grid((:constant, :longmire1975))))
+results = compute(problem, Formulation(earth_properties=Grid((:constant, :longmire1975))))
 reference = compute(problem, Formulation())
-artifact = report(BenchmarkTableDefinition(), (; reference, candidate=candidates))
+artifact = report(BenchmarkTableDefinition(), (; reference, result=results))
 artifact.tables.summary
 artifact.tables.terms
 # After loading a Makie backend:
@@ -1450,7 +1450,7 @@ plot(artifact, (Z, Y))
 ```
 
 The default request compares all Z/Y/R/L/G/C matrix terms in five bands. It creates
-no figure. Completed comparisons are joined to their candidate identities before
+no figure. Completed comparisons are joined to their result identities before
 observation construction. `artifact.reference` is a separate atomic observation.
 Retained reports never recalculate RMS; changed numerical settings require explicit
 comparison. Arithmetic dimensions, coordinates, and units must be usable; scientific

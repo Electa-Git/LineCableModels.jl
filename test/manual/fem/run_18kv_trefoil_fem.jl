@@ -1,5 +1,5 @@
 # Manual run: include("test/manual/fem/run_18kv_trefoil_fem.jl")
-# Uses the current catalogue case, not saved campaign results. No gauntlet run.
+# Uses the current datasheet case, not saved campaign results. No gauntlet run.
 # Before: this include activated Gauntlet. Now preserve the IDE's active project.
 gauntlet_project = normpath(joinpath(@__DIR__, "..", "..", "..", "gauntlet"))
 gauntlet_project in LOAD_PATH || push!(LOAD_PATH, gauntlet_project)
@@ -25,7 +25,7 @@ fem_formulation = Formulation(:LineCableModelsFEM;
         ideal_transposition=false,
     ))
 fem_options = (
-    mesh_policy=:remesh,
+    mesh_mode=:remesh,
     resume_run_directory=nothing,
     keep_run_directory=true,
     trace=true,

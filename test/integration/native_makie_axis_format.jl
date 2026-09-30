@@ -538,7 +538,7 @@ end
     core = LineParameters(v.R .+ im .* omega .* v.L, v.G .+ im .* omega .* v.C, f)
     metadata = (port_order=["a", "b"], formulation=NamedTuple(Formulation()), axes=nothing)
     deterministic = report(BenchmarkTableDefinition((R,); bands=(:all,)),
-        (reference=(result=core, metadata=metadata), candidate=(result=core, metadata=metadata));observation_options=(length_unit=:base,))
+        (reference=(result=core, metadata=metadata), result=(result=core, metadata=metadata));observation_options=(length_unit=:base,))
     summaries = map(a -> map(x -> SampleSummary([0.9x, 1.1x]), a), v)
     mc = MonteCarloResult(MonteCarlo(Formulation(); trials=2, seed=7),
         [LineCableModels.materialize(core,summaries)],
@@ -547,7 +547,7 @@ end
     lep = LinearErrorResult(LinearError(Formulation()), [LineParameters(
         m.R .+ im .* omega .* m.L, m.G .+ im .* omega .* m.C, measurement.(f, 0.0))])
     uq = report(BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands=(:all,)),
-        (reference=(result=mc, metadata=metadata), candidate=(result=lep, metadata=metadata));observation_options=(length_unit=:base,))
+        (reference=(result=mc, metadata=metadata), result=(result=lep, metadata=metadata));observation_options=(length_unit=:base,))
     for (artifact, request, expected) in ((deterministic, (R,), r),
             (uq, ((statistics, R, mean),), r),
             (uq, ((statistics, R, std),), sqrt(2) * 0.1 .* r))
@@ -562,7 +562,7 @@ end
         @test 5 <= length(axis.xaxis.tickvalues[]) <= 10
         @test occursin("6", repr(axis.xlabel[]))
         @test parse.(Float64, axis.xaxis.ticklabels[]) .* 1e6 ≈ axis.xaxis.tickvalues[]
-        for ((i, j), panel) in pairs(page.addon_state.panel_data)
+        for ((i, j), panel) in pairs(page.plot_state.panel_data)
             for line in filter(p -> p isa Makie.Lines, panel.axis.scene.plots)
                 @test first.(line[1][]) ≈ f
                 @test last.(line[1][]) ≈ expected[i, j, :]
@@ -672,7 +672,7 @@ end
     negative = LineParameters(z, fill(-1e-6 + 1e-6im, 2, 2, 3), f)
     operand = (result=negative,
         metadata=(port_order=["a", "b"], formulation=NamedTuple(Formulation()), axes=nothing))
-    comparison = report(BenchmarkTableDefinition((G,)), (reference=operand, candidate=operand))
+    comparison = report(BenchmarkTableDefinition((G,)), (reference=operand, result=operand))
     signed = LineCableModels.plot(comparison; ydata=(G,), backend=:cairo,
         display_plot=false, controls=true, open_export=false, yscale=:pseudolog10)
     @test signed.controls[:ylog].active[]
@@ -740,13 +740,13 @@ end
     using Measurements: measurement
     extension = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     for exponent in (-300, -14, -3, 0, 8, 300)
-        format = extension._addon_linear_tickformat(exponent)
+        format = extension._linear_tickformat(exponent)
         @test format([-1.0, 0.0, 1.0] .* 10.0^exponent) == ["-1", "0", "1"]
         @test format([-0.0, 0.25, 0.5] .* 10.0^exponent) == ["0", "0.25", "0.5"]
     end
-    @test extension._addon_linear_tickformat(-324)([0.0, nextfloat(0.0)]) ==
+    @test extension._linear_tickformat(-324)([0.0, nextfloat(0.0)]) ==
           ["0", "4.941"]
-    format = extension._addon_linear_tickformat(8)
+    format = extension._linear_tickformat(8)
     ticks = [1e8, 1e8 + 1, 1e8 + 2]
     @test length(unique(format(ticks))) == 3
     @test all(!occursin(r"[eE]", label) for label in format(ticks))

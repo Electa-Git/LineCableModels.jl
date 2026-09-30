@@ -89,7 +89,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Prepare the reflected Fourier modes of the local electrostatic Green function
+Evaluate the reflected Fourier modes of the local electrostatic Green function
 in a concentric layered annulus. The radial basis ``r^{\\pm m}``, with
 ``1,\\log r`` for the zero mode, is the classical cylindrical Laplace basis;
 see [Schelkunoff1934](@cite), Eqs. (122)–(124), p. 573, in the small-radius-to-
@@ -258,10 +258,10 @@ _shunt_core_voltage(z, g) = 1-(g.Rleft+log(abs(z)/g.a)/g.epsilon)/g.Rtotal
 function _shunt_points(g, nw, fraction; shift = 0.0)
     targets, sources = ComplexF64[], ComplexF64[]
     for wire in g.wires
-        centre = complex(wire.x, wire.y)
+        center = complex(wire.x, wire.y)
         for j in 0:(nw - 1)
-            push!(targets, centre + wire.r*cis(2pi*(j+shift)/nw))
-            push!(sources, centre + fraction*wire.r*cis(2pi*j/nw))
+            push!(targets, center + wire.r*cis(2pi*(j+shift)/nw))
+            push!(sources, center + fraction*wire.r*cis(2pi*j/nw))
         end
     end
     (; targets, sources)
@@ -392,7 +392,7 @@ discretizations are not the boundary-integral element implemented here.
 # Arguments
 
 - `g`: Host/layer radii \\[m\\] and relative permittivities \\[dimensionless\\].
-- `s`: Tape inner/outer radii \\[m\\], centre angle and angular span \\[rad\\],
+- `s`: Tape inner/outer radii \\[m\\], center angle and angular span \\[rad\\],
   and terminal index.
 - `p`: Highest Jacobi degree on each face.
 - `quadrature`: Number of normalized Gauss–Jacobi nodes per face.

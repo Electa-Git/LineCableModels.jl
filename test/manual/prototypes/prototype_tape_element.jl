@@ -59,14 +59,14 @@ function ws_exposed_geometry_check(g)
     # Whole-face bases require whole exposed faces. Reject overlaps rather than
     # silently impose boundary conditions inside a metal union or move geometry.
     tolerance = 64eps(Float64)*g.b
-    centres = [complex(w.at.x,w.at.y) for w in g.wires]
-    gaps = [abs(centres[i]-centres[j])-g.wires[i].r-g.wires[j].r
-        for i in eachindex(centres) for j in 1:i-1]
+    centers = [complex(w.at.x,w.at.y) for w in g.wires]
+    gaps = [abs(centers[i]-centers[j])-g.wires[i].r-g.wires[j].r
+        for i in eachindex(centers) for j in 1:i-1]
     wire_gap = isempty(gaps) ? Inf : minimum(gaps)
     wire_gap >= -tolerance || error("Overlapping screen wires: exposed-union boundaries required.")
-    radial = [g.tape.ri-abs(c)-w.r for (c,w) in zip(centres,g.wires)]
+    radial = [g.tape.ri-abs(c)-w.r for (c,w) in zip(centers,g.wires)]
     minimum(radial) >= -tolerance || error("Wire/tape radial overlap: whole-face tape prototype is not applicable.")
-    @assert all(abs(c)-w.r >= g.a-tolerance for (c,w) in zip(centres,g.wires))
+    @assert all(abs(c)-w.r >= g.a-tolerance for (c,w) in zip(centers,g.wires))
     @assert g.a < g.tape.ri < g.tape.ro <= g.b+tolerance
     @assert 0 < g.tape.span < 2pi
     (; wire_wire_gap_m = wire_gap, wire_tape_radial_gap_m = minimum(radial),

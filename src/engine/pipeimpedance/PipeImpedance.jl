@@ -31,7 +31,7 @@ const FORMULAS = (
 #! explicit-imports: on
 
 """
-Return registered pipe selections, including the explicit default policy.
+Return registered pipe selections, including the explicit default selection.
 """
 formulas() = FORMULAS
 

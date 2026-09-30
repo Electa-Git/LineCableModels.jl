@@ -29,9 +29,9 @@ function clean_traces!(; report::Bool=true)
         for (root, _, names) in walkdir(directory)
             for name in names
                 if endswith(name,".cov")
-                    candidate = joinpath(root, name)
-                    rm(candidate; force = true)
-                    push!(removed, candidate)
+                    coverage_path = joinpath(root, name)
+                    rm(coverage_path; force = true)
+                    push!(removed, coverage_path)
                 end
             end
         end

@@ -7,6 +7,7 @@ Station connection and filesystem mapping for native PSCAD execution.
 `local_root` and `shared_root` name the same directory on the caller and station.
 `remote_root` is scratch space on the station. Construction from field values
 performs no I/O. Construction from a TOML filename only reads that file.
+`timeout` is the remote execution limit \\[s\\], defaulting to 1800.
 
 $(TYPEDFIELDS)
 """
@@ -19,7 +20,8 @@ struct RemoteConfig
     python_executable::String
     pscad_version::String
     transport::Symbol
-    timeout_seconds::Int
+    "Remote execution timeout \\[s\\]."
+    timeout::Int
     "Argument array for `:command` transport; exact `{host}` arguments are replaced."
     command::Vector{String}
 end
@@ -34,7 +36,7 @@ function RemoteConfig(
         pscad_version::AbstractString = "5.1.0",
         transport::Symbol = :ssh,
         verbosity = nothing,
-        timeout_seconds::Integer = 1800,
+        timeout::Integer = 1800,
         command::AbstractVector{<:AbstractString} = String[]
 )
     verbosity === nothing || throw(ArgumentError(
@@ -56,8 +58,8 @@ function RemoteConfig(
     pscad_version == "5.1.0" || throw(ArgumentError(
         "this PSCAD adapter supports version 5.1.0 only",
     ))
-    timeout_seconds > 0 || throw(ArgumentError(
-        "PSCAD timeout_seconds must be positive",
+    timeout > 0 || throw(ArgumentError(
+        "PSCAD timeout must be positive",
     ))
     if transport === :command
         isempty(command) && throw(ArgumentError("PSCAD command transport requires an argument array"))
@@ -74,7 +76,7 @@ function RemoteConfig(
         String(python_executable),
         String(pscad_version),
         transport,
-        Int(timeout_seconds),
+        Int(timeout),
         String.(command)
     )
 end
@@ -90,7 +92,7 @@ files or read environment variables.
 
 - `path`: TOML filename. Required fields are `host`, `local_root`, `shared_root`,
   `remote_root`, `julia_executable`, and `python_executable`. Optional fields are
-  `pscad_version`, `transport`, `timeout_seconds`, and `command`.
+  `pscad_version`, `transport`, `timeout`, and `command`.
 
 # Returns
 
@@ -107,7 +109,7 @@ function RemoteConfig(path::AbstractString)
     values = TOML.parsefile(path)
     required = ("host", "local_root", "shared_root", "remote_root",
         "julia_executable", "python_executable")
-    optional = ("pscad_version", "transport", "timeout_seconds", "command")
+    optional = ("pscad_version", "transport", "timeout", "command")
     unknown = setdiff(keys(values), (required..., optional...))
     isempty(unknown) || throw(ArgumentError("unknown PSCAD configuration fields: $(sort!(collect(unknown)))"))
     for name in required
@@ -118,9 +120,9 @@ function RemoteConfig(path::AbstractString)
         !haskey(values, name) || values[name] isa AbstractString || throw(ArgumentError(
             "PSCAD configuration field $name must be a string"))
     end
-    timeout = get(values, "timeout_seconds", 1800)
+    timeout = get(values, "timeout", 1800)
     timeout isa Integer && !(timeout isa Bool) || throw(ArgumentError(
-        "PSCAD timeout_seconds must be an integer"))
+        "PSCAD timeout must be an integer"))
     command = get(values, "command", String[])
     command isa AbstractVector && all(value -> value isa AbstractString, command) ||
         throw(ArgumentError("PSCAD command must be an array of strings"))
@@ -131,5 +133,5 @@ function RemoteConfig(path::AbstractString)
         local_root = isabspath(local_root) ? local_root : joinpath(dirname(abspath(path)), local_root),
         pscad_version = get(values, "pscad_version", "5.1.0"),
         transport = Symbol(get(values, "transport", "ssh")),
-        timeout_seconds = timeout, command = String[value for value in command])
+        timeout = timeout, command = String[value for value in command])
 end

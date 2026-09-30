@@ -31,7 +31,7 @@ manual_output = joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
 mkpath(manual_output)
 fullfile(filename) = joinpath(manual_output, filename); #hide
 
-# Edit these inputs for a different catalogue case or frequency sweep.
+# Edit these inputs for a different datasheet case or frequency sweep.
 case_id = :cable_220kv_milliken_1x2500_252_trefoil
 frequency_grid = 10.0 .^ range(-1, 7; length = 101)  # Hz; use [50.0] for one frequency.
 loaded_case = Gauntlet.load_case(case_id;
@@ -57,7 +57,7 @@ if run_fem
             ideal_transposition = false
         ))
     fem_options = (
-        mesh_policy = :remesh,
+        mesh_mode = :remesh,
         resume_run_directory = nothing,
         keep_run_directory = true,
         trace = true,

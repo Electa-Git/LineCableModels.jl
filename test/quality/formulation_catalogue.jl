@@ -149,7 +149,7 @@
     end
 end
 
-@testitem "Quality / local shunt formulation catalogue" tags = [:quality] begin
+@testitem "Quality / local shunt formulations" tags = [:quality] begin
     const owner = LineCableModels.Engine.ShuntModel
     @test owner.formulas() == (:default, :coaxial, :boundary)
     @test allunique(owner.formulas())

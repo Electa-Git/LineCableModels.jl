@@ -392,7 +392,7 @@ end
             ideal_transposition = true
         )
     )
-    policy=MonteCarlo(
+    monte_carlo=MonteCarlo(
         formulation;
         trials = 12,
         distribution = :normal,
@@ -401,7 +401,7 @@ end
     )
 
     parametric_problem=ParametricProblem(problem)
-    sampled=compute(parametric_problem, policy)
+    sampled=compute(parametric_problem, monte_carlo)
     @test sampled isa MonteCarloResult{<:LineParameters}
     @test size(only(samples(sampled)).G) == (2, 2, 2, 12)
     @test std(only(samples(sampled)).G[1, 1, 1, :]) > 0
@@ -421,7 +421,7 @@ end
     @test all(isfinite, empirical_covariance)
     @test any(!iszero, empirical_covariance)
 
-    repeated=compute(parametric_problem, policy)
+    repeated=compute(parametric_problem, monte_carlo)
     for component in (:R, :L, :G, :C)
         @test getproperty(only(samples(repeated)), component) ==
               getproperty(only(samples(sampled)), component)
@@ -429,7 +429,7 @@ end
 
     total=compute(
         ParametricProblem(problem, ComputationOptions((output_basis = :total,))),
-        policy
+        monte_carlo
     )
     @test basis(only(sampled)) === :pul
     @test basis(only(total)) === :total

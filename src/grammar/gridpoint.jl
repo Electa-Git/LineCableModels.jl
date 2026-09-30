@@ -14,7 +14,7 @@ detach(value::Pair) = detach(first(value)) => detach(last(value))
 detach(value::AbstractDict) = Dict(detach(key) => detach(item) for (key, item) in value)
 detach(value::Union{Units.UnitExpr,Units.Unit,Units.Quantity}) = value
 function detach(value::Function)
-    Base.issingletontype(typeof(value)) || throw(ArgumentError("observation records cannot retain a closure"))
+    Base.issingletontype(typeof(value)) || throw(ArgumentError("observation records require a singleton function type or a type-specific detach method"))
     return value
 end
 detach(value::Base.Fix2) = Base.Fix2(detach(value.f),detach(value.x))

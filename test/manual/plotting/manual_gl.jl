@@ -137,7 +137,7 @@ handle = first(plots)
             svg_path = joinpath(directory, only(readdir(directory)))
             @test filesize(svg_path) > 100
             @test occursin("<svg", read(svg_path, String))
-            @test handle.addon_state.shell.status[] == "Saved SVG to $svg_path"
+            @test handle.plot_state.shell.status[] == "Saved SVG to $svg_path"
             cp(svg_path, joinpath(ARTIFACT_DIRECTORY, "repeated-gl-export.svg"); force = true)
         end
     end
@@ -203,7 +203,7 @@ end
         colorbar_attributes=(vertical=false,width=160,height=14),
         colorbar_group_attributes=(layout=(1,3),colgap=16,halign=:center),
         guide_spacing=(rowgap=14,colgap=16))
-    guide=p.addon_state.guides[(:colorbars,nothing)]
+    guide=p.plot_state.guides[(:colorbars,nothing)]
     bars=copy(p.colorbars)
     axis=only(p.axes)
     limits!(axis,-.024,.032,-.028,.028)

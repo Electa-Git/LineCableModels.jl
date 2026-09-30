@@ -127,7 +127,7 @@ function surface_impedances(formula::Union{InternalImpedanceFormulation,
         r_in, r_ex, rho, mu_r, jω; workspace)
 end
 
-"""Evaluate required surfaces, preparing shared state once per conductor and frequency."""
+"""Evaluate required surfaces, constructing shared state once per conductor and frequency."""
 @inline function surface_impedances(formula::InternalImpedanceFormulation, ::Val{Kinds},
         r_in, r_ex, rho, mu_r, jω; workspace=nothing) where {Kinds}
     functor = formula(r_in, r_ex, rho, mu_r, jω)

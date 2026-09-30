@@ -63,12 +63,12 @@ export solid, shell, wires, layers, assembly
 export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
 export @at, @hflat, @vflat, @trefoil
 export @distribute
-export make_stranded, make_screened, WireEstimate
+export estimate_stranding, estimate_screen, WireEstimate
 
 public Gridpoint
 
 # Materialised results, reusable designs, and presentation:
-export CableDesign, LineCableSystem, DatasheetInfo, catalogue
+export CableDesign, LineCableSystem, DatasheetInfo, datasheet
 export CableGeometry, PlacedRegion
 export CableConstants, CableConstantsProblem, CableConstantsFormulation,
        LineParametersProblem, LineParameters, CablesLibrary
@@ -78,7 +78,7 @@ export preview, show_material_scale
 export Formulation, LineParametersFormulation, CableConstantsFormulation,
        LineCableModelsCoaxial,
        LineCableModelsFEM, LineCableModelsFEMError, BoundarySolveError,
-       SeriesImpedance, ShuntAdmittance, kronify,
+       SeriesImpedance, ShuntAdmittance, kron_reduce,
        LineParameters, PhaseDomain, ModalDomain
 export ModalAnalysisProblem, ModalAnalysisFormulation,
        LineCableModelsModal, ModalOperators, operators, Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc,
@@ -160,7 +160,7 @@ using .Earth: AbstractEarthModel, AbstractEarthLayer, AbstractEarthMaterial,
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
-                  LineCableSystem, DatasheetInfo, catalogue,
+                  LineCableSystem, DatasheetInfo, datasheet,
                   CablesLibrary, ncables, nphases,
                   AbstractShape, AbstractPrimitive,
                   Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell,
@@ -178,7 +178,7 @@ using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
 include("engine/Engine.jl")
 using .Engine: LineParameters, LineParametersProblem, CableConstants,
                CableConstantsProblem, CableConstantsFormulation, SeriesImpedance,
-               ShuntAdmittance, kronify, Formulation,
+               ShuntAdmittance, kron_reduce, Formulation,
                LineParametersFormulation, LineCableModelsCoaxial,
                LineCableModelsFEM,
                LineCableModelsFEMError, BoundarySolveError,
@@ -206,7 +206,7 @@ using .ParametricBuilder:
                           filler, pipe, duct, solid, shell, wires, layers,
                           assembly,
                           at, trefoil, hflat, vflat,
-                          WireEstimate, make_stranded, make_screened
+                          WireEstimate, estimate_stranding, estimate_screen
 using .ParametricBuilder: Semiconductor
 using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,
                           @duct, @at, @hflat, @vflat, @trefoil, @distribute

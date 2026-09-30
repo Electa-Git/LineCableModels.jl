@@ -35,7 +35,7 @@ function Base.getindex(
 end
 
 """
-Return whether a scalar type carries explicit numerical uncertainty.
+Return whether a scalar type encodes explicit numerical uncertainty.
 """
 has_uncertainty_type(::Type) = false
 

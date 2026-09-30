@@ -16,7 +16,7 @@
         @test RB.tabulate(definition,observed) !== nothing
         @test which(report,(typeof(definition),typeof(observed))).module === RB
     end
-    benchmark=report(RB.BenchmarkTableDefinition(bands=(:all,)),(reference=line,candidate=line))
+    benchmark=report(RB.BenchmarkTableDefinition(bands=(:all,)),(reference=line,result=line))
     @test RB.tabulate(RB.BenchmarkTableDefinition(bands=(:all,)),benchmark.observed;reference=benchmark.reference) !== nothing
     # Selection and tabulation are required; the remaining stages have explicit defaults.
     struct UnimplementedReport <: RB.AbstractReportDefinition end

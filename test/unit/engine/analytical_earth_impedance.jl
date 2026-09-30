@@ -130,7 +130,7 @@ end
                 @test Y(actual)[:, :, k] ≈ Y(reference)[:, :, 1]
             end
         end
-        # One Unified quantity still prepares its complete system when the other
+        # One Unified quantity still constructs its complete system when the other
         # quantity uses a direct equation. Compare each quantity to its full run.
         full=compute(problem, Formulation(; options))
         unified_Z=compute(problem, Formulation(earth_impedance = :unified,

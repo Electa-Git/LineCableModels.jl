@@ -18,7 +18,7 @@
     enclosure = Enclosure(:duct, member; at=pose, primitive=Disk(10e-3),
         fill=Region(:bedding, Disk(10e-3), dielectric),
         wall=insulation(dielectric; t=1e-3))
-    catalogue_record = DatasheetInfo(U0=76.0, U=132.0,
+    datasheet_record = DatasheetInfo(U0=76.0, U=132.0,
         conductor_cross_section=630.0, screen_cross_section=35.0,
         armor_cross_section=50.0, resistance=0.0283, capacitance=0.2,
         inductance=0.3, description="Reference construction")
@@ -33,7 +33,7 @@
         Helix(LayRatio(12); dir=-1, φ0=pi/6),
         Helix(Pitch(0.25); dir=-1, φ0=pi/6),
         Helix(LayAngle(pi/12); dir=-1, φ0=pi/6),
-        DM.EmptyBoundary(), DM.EnclosureBoundary(), catalogue_record,
+        DM.EmptyBoundary(), DM.EnclosureBoundary(), datasheet_record,
     )
     physical_objects = (
         wire, Stack(wire), patterned, Group(:single, wire), bounded,
@@ -57,12 +57,12 @@
     @test occursin("capacity()", sprint(show, Ring(capacity())))
     @test occursin("at=", sprint(show, DM.resolve(pose, Disk(1e-3))))
     @test occursin("−1", sprint(show, Helix(Pitch(0.25); dir=-1)))
-    @test occursin("mm²", sprint(show, catalogue_record))
-    @test occursin("Ω/km", sprint(show, catalogue_record))
-    @test occursin("μF/km", sprint(show, catalogue_record))
-    @test occursin("mH/km", sprint(show, catalogue_record))
-    @test occursin("kV", sprint(show, catalogue_record))
-    @test occursin("Reference construction", sprint(show, catalogue_record))
+    @test occursin("mm²", sprint(show, datasheet_record))
+    @test occursin("Ω/km", sprint(show, datasheet_record))
+    @test occursin("μF/km", sprint(show, datasheet_record))
+    @test occursin("mH/km", sprint(show, datasheet_record))
+    @test occursin("kV", sprint(show, datasheet_record))
+    @test occursin("Reference construction", sprint(show, datasheet_record))
     @test occursin("2 explicit members", sprint(show, MIME"text/plain"(), explicit))
     @test occursin("250 mm", sprint(show, MIME"text/plain"(), repeated))
     @test occursin("FillFactor", sprint(show, MIME"text/plain"(), patterned;

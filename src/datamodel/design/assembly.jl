@@ -39,10 +39,10 @@ support(shape::AssemblyShape) = maximum(support, shape.members)
 function centroid(shape::AssemblyShape)
     areas = map(area, shape.members)
     total = sum(areas)
-    centres = map(centroid, shape.members)
+    centers = map(centroid, shape.members)
     return (
-        sum(index -> areas[index] * centres[index][1], eachindex(areas)) / total,
-        sum(index -> areas[index] * centres[index][2], eachindex(areas)) / total
+        sum(index -> areas[index] * centers[index][1], eachindex(areas)) / total,
+        sum(index -> areas[index] * centers[index][2], eachindex(areas)) / total
     )
 end
 

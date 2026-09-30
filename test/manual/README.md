@@ -26,14 +26,14 @@ provide GLMakie.
 
 | Script | Manual purpose |
 | --- | --- |
-| `performance/benchmark_local_shunt.jl` | Inspect local-shunt preparation, allocation, and selected saved references. |
+| `performance/benchmark_local_shunt.jl` | Inspect local-shunt coefficient construction, allocation, and selected saved references. |
 | `performance/benchmark_shunt_models.jl` | Compare warmed public-API shunt-model timings. |
 | `calculations/gridspace.jl` | Inspect a small constructed `Gridspace`. |
-| `calculations/run_line_parameters.jl` | Run one editable catalogue case through the analytical or FEM backend and export PSCAD input. |
+| `calculations/run_line_parameters.jl` | Run one editable datasheet case through the analytical or FEM backend and export PSCAD input. |
 | `calculations/run_two_bare_wires.jl` | Compare two analytical earth-property formulations interactively. |
 | `calculations/run_two_bare_wires_fem.jl` | Sweep the two-wire FEM case and inspect CSV/XLSX/plot output. |
 | `calculations/modal_analysis.jl` | Direct REPL study of nine-terminal armored cables through phase, modal, segment, observation, report, and interactive GLMakie APIs. |
-| `fem/run_18kv_trefoil_fem.jl` | Run the current 18 kV catalogue case through quasi-TEM FEM. |
+| `fem/run_18kv_trefoil_fem.jl` | Run the current 18 kV datasheet case through quasi-TEM FEM. |
 | `fem/run_quasi_full.jl` | Exercise the disposable quasi-full GetDP formulation directly. |
 | `fem/run_three_bare_wires_baseline.jl` | Capture analytical/FEM baseline data for human comparison. |
 | `prototypes/prototype_wire_screen.jl` | Investigate the disposable wire-screen boundary model. |
@@ -43,7 +43,7 @@ provide GLMakie.
 
 The remaining plotting scripts are described in `plotting/README.md`.
 
-## Output policy
+## Output locations
 
 Generated output does not belong in the versioned tree. Scripts that explicitly
 write reports or images default outside the checkout, under

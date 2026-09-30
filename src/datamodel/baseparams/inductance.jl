@@ -53,7 +53,7 @@ r_g=r_w\\exp(-\\mu_r/4).
 """
 function strand_gmr(coordinates, wire_radius::Real, mu_r::Real)
     isempty(coordinates) && throw(ArgumentError(
-        "strand GMR requires at least one centre coordinate"
+        "strand GMR requires at least one center coordinate"
     ))
     wire, permeability = promote(float(wire_radius), float(mu_r))
     wire > zero(wire) || throw(DomainError(
@@ -71,7 +71,7 @@ function strand_gmr(coordinates, wire_radius::Real, mu_r::Real)
                 coordinates[left][2] - coordinates[right][2]
             )
             distance > zero(distance) || throw(ArgumentError(
-                "strand centres must be distinct"
+                "strand centers must be distinct"
             ))
             logarithmic_sum += 2log(distance)
         end

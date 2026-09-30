@@ -9,7 +9,7 @@
     function model(; radius=0.004, rho=1.72e-8, soil=100.0, temperature=20.0,
             frequency=10.0 .^ range(-1, 5; length=101))
         # Materialize the system at the problem's numeric type; this test targets
-        # PSCAD numeric preparation, not the shared constructor's conversion methods.
+        # PSCAD numeric input construction, not the shared constructor's conversion methods.
         T = promote_type(typeof(radius), typeof(rho), typeof(soil), typeof(temperature), eltype(frequency))
         design = build(CableDesign, "numeric-preflight", terminal(:core,
             solid(Material(:conductor, convert(T,rho), 1.0), Disk(convert(T,radius))),
@@ -73,7 +73,7 @@ end
         remote = P.RemoteConfig("fixture", "shared", "scratch", "julia", "python";
             local_root=directory, transport=:deadline_probe)
         started = time()
-        @test_throws r"transport exceeded its timeout" P._run_remote(remote, "unused"; timeout_seconds=0.5)
+        @test_throws r"transport exceeded its timeout" P._run_remote(remote, "unused"; timeout=0.5)
         @test time() - started < 10
     end
 end

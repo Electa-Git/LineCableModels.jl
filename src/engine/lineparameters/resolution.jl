@@ -173,7 +173,7 @@ end
 $(TYPEDSIGNATURES)
 
 Classify an owned line observation in native units, using original complex
-components for polar requests. This operation never reads a prepared table.
+components for polar requests. This operation never reads a report table.
 """
 function observation_resolution(source::Union{AbstractCoreResult,SeriesImpedance,ShuntAdmittance},
         request;atol=nothing,frequencies=nothing)

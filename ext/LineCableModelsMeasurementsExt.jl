@@ -306,13 +306,13 @@ function Engine.internal_shunt_response(selected::Engine.ShuntModel.Formula{:bou
     return (; C = reshape(lifted, size(result.C)),
         diagnostic = result.diagnostic, state = nothing)
 end
-# The archive context spans all atomic points and a separate report reference.
-function ImportExport.encode_observation(value::Measurements.Measurement,context)
+# The archive source table spans all atomic points and a separate report reference.
+function ImportExport.encode_observation(value::Measurements.Measurement,source_table)
     contributions=NamedTuple[]
     for source in keys(uncertainty_components(value))
-        index=get!(context.indices,source) do
-            push!(context.sources,(nominal=source[1],sigma=source[2]))
-            length(context.sources)
+        index=get!(source_table.indices,source) do
+            push!(source_table.sources,(nominal=source[1],sigma=source[2]))
+            length(source_table.sources)
         end
         push!(contributions,(source=index,sensitivity=derivative(value,source)))
     end
@@ -325,11 +325,11 @@ end
 function ImportExport.observation_sources(records::AbstractVector,::Val{:measurements})
     return [Measurements.measurement(record.nominal,record.sigma) for record in records]
 end
-function ImportExport.decode_observation_measurement(record,context)
+function ImportExport.decode_observation_measurement(record,sources)
     center=deserialize_value(record["nominal"])
     value=Measurements.measurement(center,zero(center))
     for entry in deserialize_value(record["contributions"])
-        source=context[entry.source]
+        source=sources[entry.source]
         value+=entry.sensitivity*(source-nominal(source))
     end
     expected=deserialize_value(record["uncertainty"])

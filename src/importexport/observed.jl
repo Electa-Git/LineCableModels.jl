@@ -1,55 +1,55 @@
-# Each archive owns one uncertainty-source context spanning all points and the
+# Each archive owns one uncertainty-source table spanning all points and the
 # reference. No process-global source registry or behavior-generation tag exists.
 _observed_encoding() = (indices=Dict{Any,Int}(),sources=Any[])
 """
 $(TYPEDSIGNATURES)
 
-Encode detached values using one archive-wide uncertainty-source context.
-Extensions register independent sources in `context.sources` and reuse their
-indices in `context.indices`, preserving dependencies across all observations.
+Encode detached values using one archive-wide uncertainty-source table.
+Extensions register independent sources in `source_table.sources` and reuse their
+indices in `source_table.indices`, preserving dependencies across all observations.
 """
-encode_observation(value,context) = serialize_value(value,Val(:scientific))
-function encode_observation(value::NamedTuple,context)
+encode_observation(value,source_table) = serialize_value(value,Val(:scientific))
+function encode_observation(value::NamedTuple,source_table)
     Dict("__type__"=>"NamedTuple","names"=>string.(collect(keys(value))),
-        "values"=>[encode_observation(item,context) for item in values(value)])
+        "values"=>[encode_observation(item,source_table) for item in values(value)])
 end
-encode_observation(value::Tuple,context) = Dict("__type__"=>"Tuple",
-    "values"=>[encode_observation(item,context) for item in value])
-encode_observation(value::AbstractArray,context) = Dict("__type__"=>"Array","size"=>collect(size(value)),
-    "values"=>[encode_observation(item,context) for item in vec(value)])
-encode_observation(value::AbstractDict,context) = Dict("__type__"=>"Dictionary",
-    "entries"=>[encode_observation((key,item),context) for (key,item) in value])
-encode_observation(value::Complex,context) = Dict("__type__"=>"Complex",
-    "re"=>encode_observation(real(value),context),"im"=>encode_observation(imag(value),context))
-encode_observation(value::Grammar.ObservedResult,context) = Dict("__type__"=>"ObservedResult",
-    "fields"=>encode_observation((value.gridpoint,value.quantities,value.errors,value.timings),context))
+encode_observation(value::Tuple,source_table) = Dict("__type__"=>"Tuple",
+    "values"=>[encode_observation(item,source_table) for item in value])
+encode_observation(value::AbstractArray,source_table) = Dict("__type__"=>"Array","size"=>collect(size(value)),
+    "values"=>[encode_observation(item,source_table) for item in vec(value)])
+encode_observation(value::AbstractDict,source_table) = Dict("__type__"=>"Dictionary",
+    "entries"=>[encode_observation((key,item),source_table) for (key,item) in value])
+encode_observation(value::Complex,source_table) = Dict("__type__"=>"Complex",
+    "re"=>encode_observation(real(value),source_table),"im"=>encode_observation(imag(value),source_table))
+encode_observation(value::Grammar.ObservedResult,source_table) = Dict("__type__"=>"ObservedResult",
+    "fields"=>encode_observation((value.gridpoint,value.quantities,value.errors,value.timings),source_table))
 
 function serialize_value(value::Union{Grammar.ObservedResult,AbstractVector{<:Grammar.ObservedResult}})
     return serialize_value(value,Val(:observed))
 end
 function serialize_value(value,::Val{:observed})
-    context=_observed_encoding()
-    payload=encode_observation(value,context)
+    source_table=_observed_encoding()
+    payload=encode_observation(value,source_table)
     return Dict("__type__"=>"ObservedArchive","payload"=>payload,
-        "sources"=>serialize_value(context.sources,Val(:scientific)))
+        "sources"=>serialize_value(source_table.sources,Val(:scientific)))
 end
 function serialize_value(artifact::ReportBuilder.ReportArtifact)
     return serialize_value((observed=artifact.observed,reference=artifact.reference),Val(:observed))
 end
 
-_decode_observed(value,context) = deserialize_value(value)
-function _decode_observed(value::AbstractDict,context)
+_decode_observed(value,sources) = deserialize_value(value)
+function _decode_observed(value::AbstractDict,sources)
     marker=get(value,"__type__",nothing)
     if marker=="ObservedResult"
-        return Grammar.ObservedResult(_decode_observed(value["fields"],context)...)
+        return Grammar.ObservedResult(_decode_observed(value["fields"],sources)...)
     elseif marker=="ObservedMeasurement"
-        return decode_observation_measurement(value,context)
+        return decode_observation_measurement(value,sources)
     elseif marker=="NamedTuple"
-        return NamedTuple{Tuple(Symbol.(value["names"]))}(Tuple(_decode_observed(item,context) for item in value["values"]))
+        return NamedTuple{Tuple(Symbol.(value["names"]))}(Tuple(_decode_observed(item,sources) for item in value["values"]))
     elseif marker=="Tuple"
-        return Tuple(_decode_observed(item,context) for item in value["values"])
+        return Tuple(_decode_observed(item,sources) for item in value["values"])
     elseif marker=="Array"
-        elements=map(item -> _decode_observed(item,context),value["values"])
+        elements=map(item -> _decode_observed(item,sources),value["values"])
         if !isempty(elements)
             T=typeof(first(elements))
             if all(item -> item isa T,elements)
@@ -61,9 +61,9 @@ function _decode_observed(value::AbstractDict,context)
         end
         return reshape(elements,Tuple(Int.(value["size"])))
     elseif marker=="Dictionary"
-        return Dict(_decode_observed(entry,context) for entry in value["entries"])
+        return Dict(_decode_observed(entry,sources) for entry in value["entries"])
     elseif marker=="Complex"
-        return complex(_decode_observed(value["re"],context),_decode_observed(value["im"],context))
+        return complex(_decode_observed(value["re"],sources),_decode_observed(value["im"],sources))
     end
     return deserialize_value(value)
 end
@@ -71,9 +71,9 @@ end
 """Restore one uncertain scalar from its archived sensitivities and shared sources."""
 function decode_observation_measurement end
 function deserialize_extension(::Val{:ObservedArchive},record)
-    sources=deserialize_value(record["sources"])
-    context=isempty(sources) ? () : observation_sources(sources,Val(:measurements))
-    return _decode_observed(record["payload"],context)
+    records=deserialize_value(record["sources"])
+    sources=isempty(records) ? () : observation_sources(records,Val(:measurements))
+    return _decode_observed(record["payload"],sources)
 end
 """Restore the archive's independent uncertainty sources once, before its values."""
 function observation_sources(records,::Val{:measurements})
@@ -119,7 +119,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Save current observed data as JSON or a native Julia archive. One source context
+Save current observed data as JSON or a native Julia archive. One shared source table
 preserves shared uncertainties across quantities, points, and a report reference;
 BigFloat values retain their precision. Report tables and figures are rebuilt
 from these observations after loading, rather than persisted as competing data.

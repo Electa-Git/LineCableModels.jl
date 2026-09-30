@@ -94,14 +94,14 @@ Label ordered formulation selections without interpreting their representation.
 
 # Keywords
 
-- `roles`: One `:reference`, `:candidate`, or `:none` role per source.
+- `roles`: One `:reference`, `:result`, or `:none` role per source.
 - `quantity`: Physical quantity selected through the observation grammar, or
   `nothing` for all equation choices.
 - `compact=true`: Use the short owned names for both root and child selections.
 
 # Returns
 
-- One text label per source, in input order, without candidate numbering.
+- One text label per source, in input order, without result numbering.
   Consumers select unique quantity-relevant formulations before presentation.
 
 # Notes
@@ -113,27 +113,27 @@ text through `description`. This formatter only decides common-field omission
 and reference prefixes. Unsupported owner methods are not caught.
 """
 function description(sources::AbstractVector;
-        roles=fill(:candidate,length(sources)),
+        roles=fill(:result,length(sources)),
         quantity=nothing, compact::Bool=true)
     length(roles)==length(sources) ||
         throw(DimensionMismatch("one role is required per formulation"))
-    all(in((:reference,:candidate,:none)),roles) ||
-        throw(ArgumentError("description roles must be reference, candidate, or none"))
+    all(in((:reference,:result,:none)),roles) ||
+        throw(ArgumentError("description roles must be reference, result, or none"))
     isempty(sources) && return String[]
     retained(value) = value isa Pair ? last(value) : (;)
     selections=[ismissing(source) ? Pair[] : collect(pairs((source isa Pair ? Tuple(source) : (source,))...; quantity)) for source in sources]
     complete=[ismissing(source) ? Pair[] : collect(pairs((source isa Pair ? Tuple(source) : (source,))...)) for source in sources]
-    candidates=findall(!=(:reference),roles)
+    formulation_indices=findall(!=(:reference),roles)
     # Scientific comparisons use owner-scoped identifiers, never display text.
-    scopes=unique([scope for index in candidates for (scope,_) in complete[index]
+    scopes=unique([scope for index in formulation_indices for (scope,_) in complete[index]
         if !isempty(last(scope))])
     varying=filter(scopes) do scope
         values=[[(formula_id(value),retained(value)) for (key,value) in complete[index]
-            if key==scope] for index in candidates]
+            if key==scope] for index in formulation_indices]
         !all(value -> isequal(value,first(values)),values)
     end
     identities=[[scope for (scope,_) in entries if isempty(last(scope))] for entries in complete]
-    candidate_owners=unique(first(ids) for ids in identities[candidates] if !isempty(ids))
+    formulation_owners=unique(first(ids) for ids in identities[formulation_indices] if !isempty(ids))
     inner_owners=unique(last(ids) for ids in identities if length(ids)>1)
     return map(eachindex(sources)) do index
         prefix=roles[index]===:reference ? "Reference" : ""
@@ -142,7 +142,7 @@ function description(sources::AbstractVector;
             if isempty(last(scope))
                 position=findfirst(==(scope),identities[index])
                 show_identity=position==1 ?
-                    (roles[index]!==:candidate || length(identities[index])>1 || length(candidate_owners)>1) :
+                    (roles[index]!==:result || length(identities[index])>1 || length(formulation_owners)>1) :
                     length(inner_owners)>1
                 show_identity && push!(parts,description(value;compact))
                 controls=retained(value)

@@ -1,7 +1,7 @@
 """
     LineCableModels.ParametricBuilder.WirePatterns
 
-Estimate deterministic wire patterns and retain ranked candidates with their
+Estimate deterministic wire patterns and retain ranked patterns with their
 geometric packing limits.
 """
 module WirePatterns
@@ -15,7 +15,7 @@ Return the maximum wire count admitted by one estimate geometry.
 """
 function maxfill end
 
-export WireEstimate, make_stranded, make_screened
+export WireEstimate, estimate_stranding, estimate_screen
 public HexaPattern, ScreenPattern
 
 include("types.jl")

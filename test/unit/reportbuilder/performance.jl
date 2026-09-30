@@ -9,7 +9,7 @@
         reference = (backend = :pscad,
             timing = (scope = :compute_call_wall, seconds = 12.0, source_timings = source),
             reused = true, execution_wall_seconds = 0.01),
-        candidate = (backend = :fem,
+        result = (backend = :fem,
             timing = (scope = :compute_call_wall, seconds = 4.0,
                 source_timings = (backend = :getdp, scope = :worker_sum,
                     solve_seconds = 7.0, recovered_columns = 2))))
@@ -17,13 +17,11 @@
         observations = [(
             seconds = 10.0, bytes = 0, reused = false, source_timings = source)],
         environment = (threads = 1, workers = 2, instrumented = false),
-        calculation = (input = "reference workload", trials = 512),
-        policy = (progress = false, callbacks = false, allocation_scope = :julia,
-            allocation_statistic = :maximum, warmup = :owned_call))
+        calculation = (input = "reference workload", trials = 512))
     performance=(reference = measure,
-        candidate = merge(
+        result = merge(
             measure, (median_seconds = 1.0,
-                calculation = (input = "candidate workload", trials = 0))),
+                calculation = (input = "result workload", trials = 0))),
         speedup = 10.0, comparable = false,
         settings = (samples = 3, seconds = 20.0))
     tables=LineCableModels.ReportBuilder._timing_tables(
@@ -36,14 +34,16 @@
     @test tables.source_timings.solve_seconds[2]==7.0
     @test tables.performance.samples==[1, 1]
     @test all(iszero, tables.performance.allocated_bytes)
-    @test all(==(:maximum), tables.performance.allocation_statistic)
+    @test :allocation_statistic ∉ propertynames(tables.performance)
+    @test :allocation_scope ∉ propertynames(tables.performance)
+    @test :performance_policy ∉ keys(tables)
     @test all(ismissing,tables.performance.checksum_verified)
     @test all(==(true),tables.performance.workload_verified)
     @test tables.performance.session_id==["original","original"]
-    @test only(tables.performance_comparison.reference_over_candidate)==10.0
+    @test only(tables.performance_comparison.reference_over_result)==10.0
     @test !only(tables.performance_comparison.comparable)
     @test propertynames(tables.performance_comparison)==
-        [:reference_over_candidate,:comparable,:requested_samples,:time_budget_seconds]
+        [:reference_over_result,:comparable,:requested_samples,:time_budget_seconds]
     @test only(tables.performance_comparison.requested_samples)==3
     @test size(tables.performance_samples, 1)==2
     # Counts retain their measurement meaning: timed repetitions, not MC trials.
@@ -55,14 +55,14 @@
     parameters=LineParameters(reshape(ComplexF64[1,2],1,1,2),
         reshape(ComplexF64[1im,2im],1,1,2),[1.,100.];details=ComputationDetails(;coordinates=["core"],))
     artifact=report(BenchmarkTableDefinition((R,);bands=(:all,:dc)),
-        (reference=parameters,candidate=parameters,
+        (reference=parameters,result=parameters,
             measurements=(;execution,performance)))
     overview=artifact.tables.overview
     @test overview.performance.median_seconds==[10.,1.]
     @test overview.performance.samples==[1,1]
     @test overview.execution.seconds==[12.,4.]
     @test overview.execution.reused[1]===true
-    @test only(overview.timing_ratio.reference_over_candidate)==10.
+    @test only(overview.timing_ratio.reference_over_result)==10.
     @test !only(overview.timing_ratio.comparable)
     @test overview.coverage.band==[:all,:dc]
     @test overview.coverage.frequency_count==[2,2]

@@ -19,7 +19,7 @@ Raw conveniences accept line, series, shunt, cable-constant, parametric, and UQ
 results, ordinary supported tuples/vectors, named collections, and report
 artifacts. Standalone series/shunt inputs also accept a frequency vector before
 the selection. Raw references become separate atomic observations. Report
-artifacts forward their observed candidates and their observed reference.
+artifacts forward their observed results and their observed reference.
 
 Raw-only acquisition keywords are `clip`, `atol`, and `frequencies`. Single
 primary requests use the observation owner's pair completion; statistical
@@ -32,7 +32,7 @@ operation re-expresses compatible units once before drawing; omitted options
 preserve recorded units, masks, errors, timings, and uncertainty dependencies.
 `freq_unit` is a spelling of `frequency_unit`; supplying both is an error.
 For example, `plot(report; ydata=(R,), length_unit=:base)` displays its retained
-candidate and reference curves per meter without rebuilding the report.
+result and reference curves per meter without rebuilding the report.
 
 `problem` and `formulations` select original recorded identities. `band` selects
 saved comparison samples through the observation owner, retaining each trace's
@@ -85,7 +85,7 @@ lengths require separate calls.
 - `series_labels`, `reference`, and `series_attributes` control the overlaid
   trace identity and native appearance. Attributes accept one NamedTuple or an
   aligned tuple/vector.
-  Candidate slots are assigned before filtering; a separate reference does not
+  Result slots are assigned before filtering; a separate reference does not
   shift them. References default to black solid curves and hollow circles.
 - `errorbar_sampling` defaults to `:staggered` for multiple displayed series and
   `:all` for one. Full uncertainty support still controls limits. Explicit curve

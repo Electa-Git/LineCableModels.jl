@@ -171,7 +171,7 @@ end
 _observe_request(source, request::Function) = observe(source, request)
 _observe_request(source, request::Tuple) = observe(source, request...)
 
-function _override_candidates(request, overrides)
+function _unit_override_keys(request, overrides)
     identity = request_identity(request)
     indices=request_indices(request)
     selector=identity isa Tuple ? first(identity) : identity
@@ -199,12 +199,12 @@ function _unit_override(overrides, request)
     overrides isa Union{NamedTuple, AbstractDict} || throw(ArgumentError(
         "unit overrides must be a prefix, UnitExpr, keyed collection, or nothing",
     ))
-    for candidate in _override_candidates(request,overrides)
+    for override_key in _unit_override_keys(request,overrides)
         if overrides isa NamedTuple
-            candidate isa Symbol && haskey(overrides, candidate) &&
-                return overrides[candidate]
-        elseif haskey(overrides, candidate)
-            return overrides[candidate]
+            override_key isa Symbol && haskey(overrides, override_key) &&
+                return overrides[override_key]
+        elseif haskey(overrides, override_key)
+            return overrides[override_key]
         end
     end
     return nothing

@@ -32,7 +32,7 @@ mutable struct UIPlot{F, C}
     "Status observable shared with the native shell and managed callbacks."
     status::Any
     "Private Makie objects, callback subscriptions, and presentation state."
-    addon_state::Any
+    plot_state::Any
     "Default base filename used by [`export_svg`](@ref)."
     export_name::String
     "Default SVG theme."
@@ -50,7 +50,7 @@ function UIPlot(
         panel_legends = Dict{Any, Any}(),
         colorbars = (),
         status = nothing,
-        addon_state = nothing,
+        plot_state = nothing,
         export_name::AbstractString = "linecablemodels_plot",
         export_theme::Symbol = :default,
         open_export::Bool = true
@@ -71,7 +71,7 @@ function UIPlot(
         Dict{Any, Any}(panel_legends),
         Any[colorbars...],
         status,
-        addon_state,
+        plot_state,
         String(export_name),
         export_theme,
         open_export

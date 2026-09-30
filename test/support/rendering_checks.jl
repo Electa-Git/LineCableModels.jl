@@ -21,8 +21,8 @@ function check_scene(name,handles)
             # degrees. Derive that conversion explicitly from radian phase.
             name=="line_zy_polar" ? (abs.(Z(parameters)),abs.(Y(parameters)),180/pi.*angle.(Z(parameters)),180/pi.*angle.(Y(parameters))) : (R(parameters),)
         for (handle,array) in zip(handles,arrays)
-            @assert Set(keys(handle.addon_state.panel_data))==Set(((1,1),(1,2),(2,1),(2,2)))
-            for ((i,j),panel) in handle.addon_state.panel_data
+            @assert Set(keys(handle.plot_state.panel_data))==Set(((1,1),(1,2),(2,1),(2,2)))
+            for ((i,j),panel) in handle.plot_state.panel_data
                 curves=filter(plot->plot isa Makie.Lines,panel.axis.scene.plots)
                 @assert length(curves)==(name=="uncertainty_intervals" ? 3 : 1) "wrong series count"
                 for curve in curves
@@ -97,8 +97,8 @@ function check_scene(name,handles)
         @assert length(only(handles).colorbars)==3 "missing material/property category"
     elseif name in ("formulation_comparison","uq_comparison")
         handle=only(handles)
-        @assert length(handle.addon_state.order)>=2 "comparison lost an operand"
-        @assert length(unique(values(handle.addon_state.labels)))>=2 "comparison lost candidate identity"
+        @assert length(handle.plot_state.order)>=2 "comparison lost an operand"
+        @assert length(unique(values(handle.plot_state.labels)))>=2 "comparison lost result identity"
         @assert length(handle.axes)==4
     elseif name=="custom_layout"
         @assert length(only(handles).axes)==2

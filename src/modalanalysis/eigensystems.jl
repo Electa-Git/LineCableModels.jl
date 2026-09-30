@@ -51,10 +51,10 @@ function _orient!(vector::AbstractVector)
     pivot = firstindex(vector)
     magnitude = abs(vector[pivot])
     @inbounds for index in Iterators.drop(eachindex(vector), 1)
-        candidate = abs(vector[index])
-        if candidate > magnitude
+        component_magnitude = abs(vector[index])
+        if component_magnitude > magnitude
             pivot = index
-            magnitude = candidate
+            magnitude = component_magnitude
         end
     end
     iszero(magnitude) && return false
@@ -126,28 +126,28 @@ function hungarian_assignment!(cost::AbstractMatrix{R},work) where {R <: Real}
             matched_row = matching[column]
             delta = R(Inf)
             next_column = 0
-            for candidate in 2:(n + 1)
-                used[candidate] && continue
-                reduced = cost[matched_row, candidate - 1] -
-                          u[matched_row + 1] - v[candidate]
-                if reduced < minimums[candidate]
-                    minimums[candidate] = reduced
-                    way[candidate] = column
+            for column_slot in 2:(n + 1)
+                used[column_slot] && continue
+                reduced = cost[matched_row, column_slot - 1] -
+                          u[matched_row + 1] - v[column_slot]
+                if reduced < minimums[column_slot]
+                    minimums[column_slot] = reduced
+                    way[column_slot] = column
                 end
-                if minimums[candidate] < delta
-                    delta = minimums[candidate]
-                    next_column = candidate
+                if minimums[column_slot] < delta
+                    delta = minimums[column_slot]
+                    next_column = column_slot
                 end
             end
             isfinite(delta) || throw(ArgumentError(
                 "modal assignment cost must be finite"
             ))
-            for candidate in 1:(n + 1)
-                if used[candidate]
-                    u[matching[candidate] + 1] += delta
-                    v[candidate] -= delta
-                elseif candidate > 1
-                    minimums[candidate] -= delta
+            for column_slot in 1:(n + 1)
+                if used[column_slot]
+                    u[matching[column_slot] + 1] += delta
+                    v[column_slot] -= delta
+                elseif column_slot > 1
+                    minimums[column_slot] -= delta
                 end
             end
             column = next_column

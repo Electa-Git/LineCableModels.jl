@@ -51,9 +51,9 @@ function _run_remote(
         stderr_path::Union{Nothing, AbstractString} = nothing,
         stream::Bool = false,
         on_interrupt::Function = () -> nothing,
-        timeout_seconds::Real = config.timeout_seconds
+        timeout::Real = config.timeout
 )
-    isfinite(timeout_seconds) && timeout_seconds > 0 || throw(ArgumentError(
+    isfinite(timeout) && timeout > 0 || throw(ArgumentError(
         "PSCAD transport timeout must be positive and finite"))
     stdout_path === nothing || mkpath(dirname(stdout_path))
     stderr_path === nothing || mkpath(dirname(stderr_path))
@@ -90,9 +90,9 @@ function _run_remote(
     interrupted = nothing
     try
         finished = timedwait(() -> process_exited(process) && istaskdone(output_task) && istaskdone(error_task),
-            timeout_seconds; pollint = min(0.1, timeout_seconds / 10))
+            timeout; pollint = min(0.1, timeout / 10))
         finished === :ok || throw(ErrorException(
-            "PSCAD transport exceeded its timeout of $timeout_seconds seconds"))
+            "PSCAD transport exceeded its timeout of $timeout seconds"))
         wait(process)
     catch error
         interrupted = error
@@ -166,7 +166,7 @@ function _supervisor_command(
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
             "-PSCADVersion $(_ps_quote(config.pscad_version))",
             "-Verbosity $(_ps_quote(string(verbosity)))",
-            "-TimeoutSeconds $(_ps_quote(string(config.timeout_seconds)))"
+            "-TimeoutSeconds $(_ps_quote(string(config.timeout)))"
         ),
         ' ')
 end
@@ -199,7 +199,7 @@ function _cancel_remote(
         verbosity::Integer = 0
 )
     _run_remote(config, _cancel_command(remote_case); stream = verbosity >= 2,
-        timeout_seconds = min(config.timeout_seconds, 30))
+        timeout = min(config.timeout, 30))
     return nothing
 end
 
@@ -328,7 +328,7 @@ function run_remote_pscad(
         output_stem,
         verbosity
     )
-    verbosity >= 2 && @debug "Executing PSCAD frequency scan" host=config.host run_id formulation=only(description([formulation];roles=[:none])) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
+    verbosity >= 2 && @debug "Executing PSCAD frequency scan" host=config.host run_id formulation=only(description([formulation];roles=[:none])) frequencies=length(frequencies_value) timeout=config.timeout
     execution_error = try
         _run_remote(
             config,
@@ -336,7 +336,7 @@ function run_remote_pscad(
             stdout_path = transport_stdout,
             stderr_path = transport_stderr,
             stream = verbosity >= 2,
-            timeout_seconds = config.timeout_seconds + 60,
+            timeout = config.timeout + 60,
             on_interrupt = () -> _cancel_remote(config, remote_case; verbosity)
         )
         nothing

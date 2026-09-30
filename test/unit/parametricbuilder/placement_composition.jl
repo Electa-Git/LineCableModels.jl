@@ -89,10 +89,10 @@ end
         grouped = (placed[1:2], placed[3:3])
         assembled = build(LineCableSystem, grouped; environment=soil,
             system_id="placed-system", line_length=250.0)
-        for candidate in (problem.system, assembled), property in (
+        for built_system in (problem.system, assembled), property in (
                 :system_id, :line_length, :designs, :positions, :connections,
                 :environment, :terminal_order, :terminal_map, :connection_order)
-            @test getproperty(candidate, property) == getproperty(system, property)
+            @test getproperty(built_system, property) == getproperty(system, property)
         end
         direct = LineParametersProblem(assembled; earth_props=soil,
             frequencies=problem.frequencies, temperature=problem.temperature)

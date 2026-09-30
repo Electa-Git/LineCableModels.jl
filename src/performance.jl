@@ -27,7 +27,7 @@ No additional stopwatch surrounds the callable.
 Owned scans retain wall, GC, compilation, and recompilation durations in seconds,
 and Julia allocation volume in bytes. Native scans retain caller wall time and
 their backend measurements in seconds. These describe complete frequency scans,
-excluding batch-shared preparation, measurement attachment, and callbacks.
+excluding shared input construction, measurement attachment, and callbacks.
 The callable controls verbosity, seeds, callbacks, and reuse. No options are changed.
 
 # Errors

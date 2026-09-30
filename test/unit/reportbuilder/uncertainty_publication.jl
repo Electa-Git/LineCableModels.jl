@@ -95,7 +95,7 @@
     @test uncertainty(real(only(restored).Y[1])-2real(only(restored).Z[1])) == 0
 
     definition=RB.BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std),(statistics,B,mean));bands=(:all,))
-    artifact=RB.report(definition,(reference=source,candidate=source))
+    artifact=RB.report(definition,(reference=source,result=source))
     @test length(artifact.tables.features)==3
     @test names(first(artifact.tables.features).relative)==["formula","all"]
     @test size(artifact.tables.sampling,1)==2

@@ -7,7 +7,7 @@ function earth!(workspace::LineParametersWorkspace, frequency::Int,
     return workspace
 end
 
-# One fixed sequence: prepare formula state, evaluate indexed coefficients,
+# One fixed sequence: construct formula state, evaluate indexed coefficients,
 # convert the complete matrix when required, then select physical outputs.
 function earth!(binding::NamedTuple, materials::NamedTuple, workspace, frequency::Int)
     calculation = binding.selection(materials, binding, workspace, frequency)
@@ -48,9 +48,9 @@ $(TYPEDSIGNATURES)
 
 Evaluate bound indexed earth equations and distribute their scalar coefficients
 into aligned matrices. The binding retains `EarthPair` geometry, source/target
-layer dispatch, exact-input candidates, and selected equation controls.
+layer dispatch, earlier interactions with matching inputs, and selected equation controls.
 
-Candidates share values only when all declared invariant inputs and current
+Interactions share values only when all declared invariant inputs and current
 material values agree under `same_physical_state`. Default bindings include
 destination indices, preserving equations that use an index numerically.
 Every logical integral and warning retains its receiving row and source column.
@@ -74,18 +74,18 @@ function earth!(destinations, selection, group, binding, state, materials, works
     for index in group.indices
         interaction = binding.interactions[index]
         pair = interaction.pair
-        candidate = binding.previous[index]
-        while candidate != 0
-            same = let candidate = candidate
+        previous_interaction = binding.previous[index]
+        while previous_interaction != 0
+            same = let previous_interaction = previous_interaction
                 all(
                     values -> same_physical_state(@view(values[:, index]),
-                        @view(values[:, candidate])),
+                        @view(values[:, previous_interaction])),
                     (materials.rho, materials.epsilon, materials.mu))
             end
             same && break
-            candidate = binding.previous[candidate]
+            previous_interaction = binding.previous[previous_interaction]
         end
-        if candidate == 0
+        if previous_interaction == 0
             work.representatives[index] = index
             first_integral = observations === nothing ? 1 : length(observations)+1
             first_warning = length(work.warnings)+1
@@ -101,7 +101,7 @@ function earth!(destinations, selection, group, binding, state, materials, works
                                                           length(observations))
             work.warning_ranges[index] = first_warning:length(work.warnings)
         else
-            representative = work.representatives[candidate]
+            representative = work.representatives[previous_interaction]
             work.representatives[index] = representative
             previous_pair = binding.interactions[representative].pair
             for destination in destinations

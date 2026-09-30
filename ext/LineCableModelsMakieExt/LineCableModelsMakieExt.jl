@@ -78,7 +78,7 @@ function preview(
         controls::Bool = true,
         kwargs...
 )
-    return _addon_preview(
+    return _preview(
         design;
         backend,
         display_plot,
@@ -97,7 +97,7 @@ function preview(
         controls::Bool = true,
         kwargs...
 )
-    return _addon_preview(
+    return _preview(
         designs;
         backend,
         display_plot,
@@ -113,7 +113,7 @@ function preview(
         controls::Bool = true,
         kwargs...
 )
-    return _addon_preview(
+    return _preview(
         system;
         backend,
         display_plot,
@@ -128,7 +128,7 @@ function show_material_scale(
         controls::Bool = true,
         kwargs...
 )
-    return _addon_material_scale(;
+    return _material_scale(;
         backend,
         display_plot,
         controls,

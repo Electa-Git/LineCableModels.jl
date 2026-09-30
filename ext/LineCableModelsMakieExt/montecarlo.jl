@@ -51,7 +51,7 @@ function _distribution_plot(observed::Grammar.ObservedResult,request,kind;
     end
     abscissa=(values=x,quantity=product.quantity,unit=product.unit)
     heading=title===nothing ? "$(Units.symbol(product.quantity)) $(kind)" : String(title)
-    return _addon_statistical_plot(abscissa,ordinate;title=heading,fig_size,backend,
+    return _statistical_plot(abscissa,ordinate;title=heading,fig_size,backend,
             display_plot,controls,export_theme,open_export,kwargs...) do axis,groups,order,labels,series
         plot=if kind===:histogram
             edges=distribution.edges

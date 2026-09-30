@@ -40,7 +40,7 @@ function deserialize_value(::Val{:formulation},record::NamedTuple)
         backend in (:pscad,:PSCAD,"pscad","PSCAD") ? LineCableModels.PSCAD.PSCADFormulation :
         backend in (:modal,"modal") ? LineCableModels.ModalAnalysis.ModalAnalysisFormulation : nothing
     owner===nothing && return missing
-    # Child families, order and relevance are supplied by the owner, not a reader catalogue.
+    # The owner supplies child families, their order and their relevance.
     declared=get(record,:requested,nothing)
     declared===nothing && return missing
     selected_fields=get(record,:methods,declared)
@@ -151,8 +151,8 @@ function _decode_float(type_name::AbstractString, value::AbstractDict)
         special == "NaN" && return T(NaN)
         throw(ArgumentError("unknown special floating-point value '$special'"))
     end
-    payload = _required(value, "value", type_name)
-    return T === BigFloat ? parse(BigFloat, String(payload);precision=get(value,"precision",precision(BigFloat))) : convert(T, payload)
+    stored_value = _required(value, "value", type_name)
+    return T === BigFloat ? parse(BigFloat, String(stored_value);precision=get(value,"precision",precision(BigFloat))) : convert(T, stored_value)
 end
 
 function _decode_material_record(value)

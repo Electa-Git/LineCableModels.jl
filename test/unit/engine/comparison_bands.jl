@@ -56,7 +56,7 @@
         details = ComputationDetails(;comparison_unsupported = (G = "Dielectric conduction not represented",),))
     @test only(compare(declared, b, G).details.data.status) === :unsupported
     @test only(compare(declared, b).Y.details.data.status) === :compared
-    # Numerical-zero policy is local to the selected band, not the full sweep.
+    # Numerical-zero classification is local to the selected band, not the full sweep.
     tiny = fill(1e-15+1e-15im, 1, 1, length(f))
     signal = copy(tiny)
     signal[1, 1, end] = 1.0
@@ -129,8 +129,8 @@ end
         ([2, -3, 0.1im], :sample_below_tolerance))
     for normalization in (:reference_rms, :pointwise), (values, suffix) in cases
         quiet = tensor(values)
-        for (reference, candidate, role) in ((signal, quiet, :candidate), (quiet, signal, :reference))
-            error = compare(reference, candidate; normalization, atol=tolerance)
+        for (reference, result, role) in ((signal, quiet, :result), (quiet, signal, :reference))
+            error = compare(reference, result; normalization, atol=tolerance)
             @test ismissing(only(error.relative))
             @test ismissing(only(error.absolute))
             @test only(error.details.data.status) === Symbol(role, :_, suffix)
@@ -148,16 +148,16 @@ end
     end
     @test signal == original
 
-    # A quiet candidate invalidates only bands containing its quiet samples.
+    # A quiet result invalidates only bands containing its quiet samples.
     f = [1.0, 50.0, 1e3, 1e7]
     z = ones(ComplexF64, 1, 1, length(f))
     y = tensor(2π .* f .* 1e-8im)
     tiny_y = tensor(2π .* f .* 1e-17im)
     reference = LineParameters(PhaseDomain, z, y, f)
-    candidate = LineParameters(PhaseDomain, z, tiny_y, f)
-    @test only(compare(reference, candidate, Y).details.data.status) === :candidate_below_tolerance
-    @test ismissing(only(compare(reference, candidate, C).relative))
-    @test only(compare(reference, candidate, Y; atol=(C=1e-18, G=0)).relative) ≈ 1-1e-9
+    result = LineParameters(PhaseDomain, z, tiny_y, f)
+    @test only(compare(reference, result, Y).details.data.status) === :result_below_tolerance
+    @test ismissing(only(compare(reference, result, C).relative))
+    @test only(compare(reference, result, Y; atol=(C=1e-18, G=0)).relative) ≈ 1-1e-9
     mixed_y = copy(y)
     mixed_y[1, 1, 1] = tiny_y[1, 1, 1]
     mixed = LineParameters(PhaseDomain, z, mixed_y, f)
@@ -165,7 +165,7 @@ end
         for band in (:all, :dc)
             error = compare(reference, mixed, Y; band, normalization)
             @test ismissing(only(error.relative))
-            @test only(error.details.data.status) === :candidate_sample_below_tolerance
+            @test only(error.details.data.status) === :result_sample_below_tolerance
             @test ismissing(only(error.absolute))
         end
         for band in (:harmonic, :narrow, :wide)
@@ -175,7 +175,7 @@ end
         end
     end
     @test reference.Y.values == y
-    @test candidate.Y.values == tiny_y
+    @test result.Y.values == tiny_y
 end
 
 @testitem "Engine / lossless conductance normalization preserves measured differences" tags=[:unit] begin
@@ -185,8 +185,8 @@ end
     y = fill(1e-4im, 2, 2, 2)
     y[2, 2, :] .+= 1e-6
     reference = LineParameters(PhaseDomain, z, y, frequencies)
-    candidate = LineParameters(PhaseDomain, z, y .+ 1e-14, frequencies)
-    conductance = compare(reference, candidate, G)
+    result = LineParameters(PhaseDomain, z, y .+ 1e-14, frequencies)
+    conductance = compare(reference, result, G)
     @test ismissing(conductance.relative[1, 1])
     @test ismissing(conductance.absolute[1, 1])
     @test conductance.details.data.status[1, 1] === :reference_below_tolerance
@@ -194,6 +194,6 @@ end
     @test conductance.relative[2, 2] ≈ 1e-8
     @test conductance.absolute[2, 2] ≈ 1e-14
     @test conductance.details.data.normalization_reason[2, 2] === nothing
-    @test all(!ismissing, compare(reference, candidate).Y.relative)
+    @test all(!ismissing, compare(reference, result).Y.relative)
     @test reference.Y.values == y
 end

@@ -25,7 +25,7 @@ fem = Formulation(
 
 parameters = compute(problem, fem;
     options = (
-        mesh_policy = :reuse,
+        mesh_mode = :reuse,
         gmsh_verbosity = 2,
         getdp_verbosity = 2,
         frequency_workers = 2,
@@ -230,7 +230,7 @@ displayed mesh; every frequency-specific mesh is reused by all of that
 frequency's terminal excitations. Cable topology is constructed once: successive
 meshes retain its vertices and surfaces while updating the exterior circles and
 mesh-size fields. Only one native geometry/mesh is retained in memory. After
-preparing all meshes, Julia launches
+generating all meshes, Julia launches
 up to `frequency_workers` standalone GetDP processes concurrently. Each process
 handles one frequency: it assembles and factors the system for its first
 requested terminal, then updates the right-hand side and reuses those factors
@@ -354,14 +354,14 @@ before Gmsh is touched where possible.
 
 ## Mesh lifecycle and diagnostics
 
-`mesh_policy=:reuse` first validates an explicit highest-frequency `mesh_path`,
+`mesh_mode=:reuse` first validates an explicit highest-frequency `mesh_path`,
 then checks the fingerprinted repository-local cache for each frequency, and
 otherwise generates the missing frequency-specific mesh.
 Compatibility checks cover mesh dimension, terminal count, material and
 terminal physical groups, physical names, complete boundary incidence, material
 areas (with curved-boundary discretization allowances), and conductor ownership.
 Owned MSH 4.1 files retain all boundary elements, including same-material seams;
-explicit mesh files must retain these elements too. `mesh_policy=:remesh` always
+explicit mesh files must retain these elements too. `mesh_mode=:remesh` always
 regenerates and atomically refreshes the matching cache. The fingerprint
 includes the serialized problem, stable physical metadata, every local and
 exterior mesh size, the physical mesh frequency, transformation radii, growth

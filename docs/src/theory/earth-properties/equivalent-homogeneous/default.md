@@ -11,7 +11,7 @@
 **Description.** `:default` routes to the explicit `:bottommost` rule.
 The bottommost soil layer supplies the equivalent
 homogeneous resistivity, relative permittivity, and relative permeability.
-This is a package policy, not an author-named implementation.
+This selection rule is package-defined, not an author-named implementation.
 
 **Assumptions.**
 

@@ -4,11 +4,11 @@
     const IE = LineCableModels.ImportExport
     copper = Material(kind=:conductor, rho=1.72e-8)
     dielectric = Material(kind=:insulator, rho=Inf, eps_r=2.3)
-    centre, strand = Disk(0.2e-3), Rectangle(0.3e-3,0.1e-3)
-    exact = sqrt(centre.r^2 + 33area(strand)/pi)
+    center, strand = Disk(0.2e-3), Rectangle(0.3e-3,0.1e-3)
+    exact = sqrt(center.r^2 + 33area(strand)/pi)
     for limit in (0.59e-3, exact, exact/sqrt(1-1e-6), exact/sqrt(1-3e-6),
                   exact/sqrt(1-6e-6), 0.6e-3)
-        body = stranded(copper; center=centre, shape=strand, boundary=Disk(limit),
+        body = stranded(copper; center=center, shape=strand, boundary=Disk(limit),
             lay=LayRatio(12), fill=dielectric)
         @test body isa Group
         @test body.boundary == Disk(limit)
@@ -32,7 +32,7 @@
         @test all(r -> r.source.tag !== :stranded_fill, insulated.geometry.regions)
     end
     # Explicit enclosures remain physical even for sub-micrometre layers.
-    body = stranded(copper;center=centre,shape=strand,boundary=Disk(0.6e-3))
+    body = stranded(copper;center=center,shape=strand,boundary=Disk(0.6e-3))
     for thickness in (1e-9, 4e-6)
         wrapped = build(CableDesign,"explicit-wrap",Enclosure(:paper,
             terminal(:core,body);primitive=Disk(exact+thickness),fill=dielectric))
@@ -42,11 +42,11 @@
         @test layer.primitive.ri ≈ exact
         @test DM.thickness(layer.primitive) ≈ thickness
     end
-    rectangles = stranded(copper;center=centre,
+    rectangles = stranded(copper;center=center,
         shape=Rectangle(Grid((0.3e-3,0.31e-3)),0.1e-3),boundary=Disk(0.6e-3))
     @test rectangles isa Gridspace{Group}
     @test all(part -> part isa Group, rectangles)
-    mixed = stranded(copper;center=centre,
+    mixed = stranded(copper;center=center,
         shape=Grid((strand,Disk(0.1e-3))),boundary=Disk(0.6e-3))
     @test first(mixed) isa Group
     @test last(collect(mixed)) isa Enclosure

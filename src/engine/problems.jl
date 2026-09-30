@@ -362,7 +362,7 @@ $(TYPEDSIGNATURES)
 Select the complete physical-method bundle for a line-parameter calculation.
 
 `shunt_model=:default` (or `:coaxial`) selects annular local shunt geometry.
-`:boundary` explicitly prepares a lossless wire/tape boundary correction.
+`:boundary` explicitly computes a lossless wire/tape boundary correction.
 This choice is independent of `insulation_admittance` and `semicon_admittance`,
 which select material constitutive laws. Boundary numerical controls and an
 explicit fallback belong to `formula(:boundary; options, parameters)`.

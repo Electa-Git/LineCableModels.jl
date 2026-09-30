@@ -81,40 +81,40 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
         sort!(selected;
             by = index -> findfirst(==(observed[index].gridpoint.id.formulation_index), formulations))
     end
-    candidates=observed[selected]
-    requests=Grammar.observation_selection(first(candidates), _plot_ydata(selection, ydata, ()))
-    requests=Grammar.observation_requests(first(candidates), requests).displayed
+    points=observed[selected]
+    requests=Grammar.observation_selection(first(points), _plot_ydata(selection, ydata, ()))
+    requests=Grammar.observation_requests(first(points), requests).displayed
     if reference!==nothing && !(reference isa Grammar.ObservedResult)
         reference isa _PrimarySource ||
             throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
         reference=Grammar.ObservedResult(reference, requests; complete_pairs = true)
     end
     if !isempty(display_units)
-        candidates=[Grammar.ObservedResult(point, requests; display_units...)
-                    for point in candidates]
+        points=[Grammar.ObservedResult(point, requests; display_units...)
+                    for point in points]
         reference===nothing ||
             (reference=Grammar.ObservedResult(reference, requests; display_units...))
     end
-    sources=reference===nothing ? Tuple(candidates) : (Tuple(candidates)..., reference)
+    sources=reference===nothing ? Tuple(points) : (Tuple(points)..., reference)
     input_point_count=length(observed)+(reference===nothing ? 0 : 1)
     displayed=reference===nothing ? selected : [selected; input_point_count]
     slots=reference===nothing ? selected : [selected; 0]
     reference_id=reference===nothing ? nothing : get(reference.gridpoint, :id, nothing)
     products=map(request -> Grammar.observation_product(sources, request; band, reference_id), requests)
-    published=map(eachindex(sources)) do index
-        _prepare_line_observations(Tuple(records[index] for records in products))
+    plot_data=map(eachindex(sources)) do index
+        _line_plot_data(Tuple(records[index] for records in products))
     end
     # The selected cardinality includes an explicit reference and precedes
     # equivalence grouping. The grouping only changes gridpoint curves.
     orientations=map(eachindex(requests)) do index
-        kind=first(published).observations[index].coordinates.kind
+        kind=first(plot_data).observations[index].coordinates.kind
         overlay===:rows && kind!==:matrix && throw(ArgumentError(
             "overlay=:rows requires matrix observations; select matrix quantities in a separate call"))
         overlay===:auto ?
         (kind===:vector && length(sources)==1 &&
          (layout===nothing || layout==(1, 1)) ? :coordinates : :gridpoints) : overlay
     end
-    groups=map(request -> Grammar.observation_groups(candidates; request), requests)
+    groups=map(request -> Grammar.observation_groups(points; request), requests)
     retained=map(eachindex(requests)) do index
         indices=orientations[index]!==:gridpoints ? collect(eachindex(sources)) :
                 [group.representative for group in groups[index]]
@@ -123,17 +123,17 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
         indices
     end
     coordinate_identities=map(eachindex(requests)) do index
-        first(published).observations[index].coordinates.kind===:assemblies ?
+        first(plot_data).observations[index].coordinates.kind===:assemblies ?
         unique(vcat((source.observations[index].coordinates.labels[
                          source.observations[index].coordinates.assemblies]
-        for source in published)...)) : nothing
+        for source in plot_data)...)) : nothing
     end
     coordinate_labels=map(eachindex(requests)) do index
         coordinate_identities[index]===nothing ?
-        _coordinate_labels(first(published).observations[index],
-            first(published).coordinates[index], orientations[index]) :
+        _coordinate_labels(first(plot_data).observations[index],
+            first(plot_data).coordinates[index], orientations[index]) :
         unique(vcat((_coordinate_labels(source.observations[index],
-                         source.coordinates[index], orientations[index]) for source in published)...))
+                         source.coordinates[index], orientations[index]) for source in plot_data)...))
     end
     # Positional overrides bind to the overlaid dimension. Preflight every
     # family before constructing the first native figure.
@@ -146,13 +146,13 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
             "positional series overrides span figure families with different overlaid dimensions; use separate plot calls"))
     end
     explicit_labels=series_labels!==nothing
-    candidate_labels=explicit_labels && reference!==nothing &&
+    result_labels=explicit_labels && reference!==nothing &&
                      all(==(:gridpoints), orientations) &&
                      length(series_labels)==length(observed)
     labels=explicit_labels && any(==(:gridpoints), orientations) ?
-           Tuple(_comparison_labels(series_labels, candidate_labels ? input_point_count-1 :
+           Tuple(_comparison_labels(series_labels, result_labels ? input_point_count-1 :
                                                    input_point_count)[i]
-    for i in (candidate_labels ? selected : displayed)) : nothing
+    for i in (result_labels ? selected : displayed)) : nothing
     attributes=any(==(:gridpoints), orientations) ?
                _series_attributes(series_attributes, input_point_count)[displayed] : nothing
     coordinate_attributes=map(eachindex(requests)) do index
@@ -170,9 +170,9 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
             result=explicit_labels ? Any[labels...] :
                    Grammar.observation_labels(sources; request,
                 fallback = length(sources)==1 ? "" : nothing)
-            candidate_labels && push!(result,
+            result_labels && push!(result,
                 last(Grammar.observation_labels(sources; request)))
-            (!explicit_labels || candidate_labels) && reference!==nothing &&
+            (!explicit_labels || result_labels) && reference!==nothing &&
                 (result[end]*=" (reference)")
             result
         end
@@ -184,18 +184,18 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
                 length(coordinate_labels[index])))
         end
     end
-    facets=_addon_observation_facets(
-        published, requests, orientations, retained, slots, input_point_count,
+    facets=_observation_facets(
+        plot_data, requests, orientations, retained, slots, input_point_count,
         request_labels, coordinate_labels, coordinate_identities; explicit_labels)
     capacities=map(eachindex(requests)) do index
         selected_facets=filter(f -> f.request_index==index, facets)
         matrix=first(selected_facets).kind===:matrix && orientations[index]===:gridpoints ?
                [[(f.row, f.column) for f in selected_facets]] : ()
         panel_count=orientations[index]===:rows ?
-                    length(first(published).coordinates[index][2]) : length(selected_facets)
-        _addon_capacity(layout, matrix, (panel_count,))
+                    length(first(plot_data).coordinates[index][2]) : length(selected_facets)
+        _page_capacity(layout, matrix, (panel_count,))
     end
-    pages=_addon_observation_pages(facets, capacities; automatic = layout===nothing)
+    pages=_observation_pages(facets, capacities; automatic = layout===nothing)
     if panel_titles isa Union{Tuple, AbstractVector}
         length(panel_titles)==length(facets) ||
             throw(DimensionMismatch("panel_titles must contain one title per selected panel before pagination"))
@@ -203,16 +203,16 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
         for (f, label) in zip(facets, panel_titles))
     end
     identities=Set(f.panel_identity for f in facets)
-    all(pair -> _addon_panel_identity(first(pair)) in identities, _addon_panel_legend_pairs(panel_legends)) ||
+    all(pair -> _panel_identity(first(pair)) in identities, _panel_legend_pairs(panel_legends)) ||
         throw(ArgumentError("panel legend identity is absent from the selected panels"))
-    legend_cap=_addon_legend_fraction(legend_cap)
+    legend_cap=_legend_fraction(legend_cap)
     errorbar_sampling===nothing || errorbar_sampling in (:staggered, :all) ||
         throw(ArgumentError("errorbar_sampling must be :staggered or :all"))
     if figure_title isa Union{Tuple, AbstractVector}
         length(figure_title)==length(pages) || throw(DimensionMismatch(
             "figure_title must contain one entry per generated figure"))
     end
-    _addon_activate_backend(backend)
+    _activate_plot_backend(backend)
     built=LineCableModels.UIPlot[]
     for (page_index, page) in enumerate(pages)
         request_index=first(page.facets).request_index
@@ -222,7 +222,7 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
         series_count=coordinate_overlay ? length(coordinate_labels[request_index]) :
                      length(observed)
         series_indices=[curve.slot for curve in curves]
-        styles=_addon_comparison_styles(series_indices,
+        styles=_comparison_styles(series_indices,
             [curve.role for curve in curves], series_count)
         page_attributes=coordinate_overlay ?
                         [coordinate_attributes[request_index][curve.position]
@@ -241,45 +241,45 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
         visible_title=figure_title isa Union{Tuple, AbstractVector} ?
                       figure_title[page_index] : figure_title
         push!(built,
-            with_theme(_addon_theme(export_theme = export_theme)) do
-                _addon_line_page(
-                    published, page;
+            with_theme(_plot_theme(export_theme = export_theme)) do
+                _line_page(
+                    plot_data, page;
                     series_indices,
                     errorbar_sampling = sampling, series_defaults = styles,
                     series_attributes = page_attributes, title = page_title,
                     figure_title = visible_title, title_attributes, panel_titles,
-                    fig_size = _addon_figure_size(fig_size, page.capacity),
+                    fig_size = _figure_size(fig_size, page.capacity),
                     xscale, yscale,
                     legend_position = position, legend_title, legend_attributes, legend_cap, panel_legends,
                     controls, display_plot = false, export_theme, open_export, kwargs...)
             end)
-        last(built).addon_state=merge(last(built).addon_state,
+        last(built).plot_state=merge(last(built).plot_state,
             (observed = sources,
                 display_groups = ((
                     request = requests[request_index], groups = groups[request_index]),),
                 displayed_indices = orientations[request_index]===:rows ?
                                     [first(page.facets).source_index] : retained[request_index],
                 nominal_capacity = page.capacity))
-        _addon_frame_budget(last(built), page.capacity)
+        _frame_budget(last(built), page.capacity)
     end
     if layout===nothing
         for index in eachindex(requests)
             family=findall(page -> first(page.facets).request_index==index, pages)
-            _addon_calibrate_frames!(built[family], capacities[index])
+            _calibrate_frames!(built[family], capacities[index])
         end
     else
-        _addon_calibrate_frames!(built, first(capacities))
+        _calibrate_frames!(built, first(capacities))
     end
     if layout===nothing
         for (p, page) in zip(built, pages)
             (first(page.facets).orientation===:rows ||
              first(page.facets).kind in (:diagonal, :vector) &&
              first(page.facets).orientation===:gridpoints) &&
-                _addon_responsive_axis_grid!(p)
+                _responsive_axis_grid!(p)
         end
     end
     if display_plot
-        foreach(page -> _addon_display!(page.figure, page.export_name), built)
+        foreach(page -> _display_figure!(page.figure, page.export_name), built)
     end
     return length(built)==1 ? only(built) : built
 end

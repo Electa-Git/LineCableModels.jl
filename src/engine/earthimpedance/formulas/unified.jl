@@ -4,7 +4,7 @@ end
 
 function description(::Type{<:Formula{:unified}}; compact::Bool = false)
     compact ? "Unified" :
-    "Unified circumferential earth impedance with full current closure"
+    "Unified circumferential earth impedance with complete enclosed-current normalization"
 end
 
 function description(::Type{<:Formula{:unified}}, ::Val{:Γ}, value::Number; compact::Bool = false)

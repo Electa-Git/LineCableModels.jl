@@ -6,7 +6,7 @@ Store completed cable placements and their global terminal state.
 `designs`, `input_positions`, `connections`, and `environment` are declarations.
 `positions` contains the resolved poses after automatic exterior-clearance
 adjustment. Touching cables are separated by at least 1 μm plus the propagated
-uncertainty reserve; genuinely overlapping nominal designs are rejected.
+uncertainty reserve; nominal designs overlapping beyond the roundoff allowance are rejected.
 Global geometry, terminal order, terminal indices, and the flattened
 connection order are derived by the constructor.
 
@@ -98,17 +98,17 @@ function interface_clearance(system::LineCableSystem)
     reference = system.input_positions
     context = _CLEARANCE_CONTEXT[]
     sampling = context !== nothing && context.sampling[]
-    reference_centres = sampling ? get(context.references, system.clearances, nothing) :
+    reference_centers = sampling ? get(context.references, system.clearances, nothing) :
                         nothing
     positions, _, displacement = clearance_geometry(system.designs, system.positions;
-        required = system.clearances, reference, reference_centres, interface = true, sampling)
+        required = system.clearances, reference, reference_centers, interface = true, sampling)
     iszero(displacement) && return system
     result = build(LineCableSystem, system.designs, positions, system.connections,
         system.environment, system.system_id, system.line_length;
         _clearances = system.clearances, _input_positions = system.input_positions,
         _interface = true, _rebuild = true)
-    sampling && reference_centres !== nothing &&
-        (context.references[result.clearances] = reference_centres)
+    sampling && reference_centers !== nothing &&
+        (context.references[result.clearances] = reference_centers)
     _record_clearance_adjustment(system.system_id, displacement)
     return result
 end
@@ -316,7 +316,7 @@ function build(
     context = _CLEARANCE_CONTEXT[]
     sampling = context !== nothing && context.sampling[]
     reference = _rebuild ? poses : original_poses
-    reference_centres = nothing
+    reference_centers = nothing
     if context !== nothing && !_rebuild && sampling
         context.cursor[] += 1
         context.cursor[] <= length(context.records) || throw(ArgumentError(
@@ -327,16 +327,16 @@ function build(
             throw(ArgumentError("sampled cable-system layout differs from its declaration"))
         _clearances = record.clearances
         reference = record.positions
-        reference_centres = record.centres
+        reference_centers = record.centers
     end
     poses, clearances, displacement = clearance_geometry(declared_designs, poses;
-        required = _clearances, reference, reference_centres, interface = _interface, sampling)
+        required = _clearances, reference, reference_centers, interface = _interface, sampling)
     if context !== nothing && !_rebuild && !sampling
         push!(context.records,
             (system_id = identifier,
                 cables = getproperty.(declared_designs, :cable_id),
                 clearances = nominal.(clearances), positions = original_poses,
-                centres = getproperty.(_clearance_exterior.(declared_designs, original_poses), :centre)))
+                centers = getproperty.(_clearance_exterior.(declared_designs, original_poses), :center)))
     end
 
     # 2. Establish global primitive and terminal order while retaining cable
@@ -448,7 +448,7 @@ function build(
         clearances
     )
     if sampling && !_rebuild
-        context.references[system.clearances] = reference_centres
+        context.references[system.clearances] = reference_centers
     end
     _record_clearance_adjustment(identifier, displacement)
     return system

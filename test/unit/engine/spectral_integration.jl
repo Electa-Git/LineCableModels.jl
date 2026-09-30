@@ -150,12 +150,12 @@ end
 @testitem "Engine / explicit numerical points resolve displaced narrow peaks" tags=[:unit] begin
     const E=LineCableModels.Engine
     controls=(rtol = 1e-7, atol = 0.0, maxevals = 1000000)
-    for centre in (0.371, 9.001), amplitude in (1.0, 1e-8)
+    for center in (0.371, 9.001), amplitude in (1.0, 1e-8)
 
-        width=centre<1 ? 0.003 : 0.0001
-        points=[0.0; centre .+ width .* [-8, -2, -1, 0, 1, 2, 8]; 1.0]
-        integral=E.SpectralIntegral(x->complex(amplitude)*exp(-((x-centre)/width)^2-x))
-        expected=amplitude*sqrt(pi)*width*exp(-centre+width^2/4)
+        width=center<1 ? 0.003 : 0.0001
+        points=[0.0; center .+ width .* [-8, -2, -1, 0, 1, 2, 8]; 1.0]
+        integral=E.SpectralIntegral(x->complex(amplitude)*exp(-((x-center)/width)^2-x))
+        expected=amplitude*sqrt(pi)*width*exp(-center+width^2/4)
         actual, _=E.integrate(Val(:quad), integral, controls; points)
         @test actual≈expected rtol=1e-6
     end

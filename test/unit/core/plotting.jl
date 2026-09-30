@@ -14,14 +14,14 @@
     controls=Dict{Symbol, Any}(:reset=>:native_button)
     legend=Ref(:native_legend)
     colorbars=(Ref(:native_colorbar),)
-    addon_state=(semantic_groups = (:a, :b),)
+    plot_state=(semantic_groups = (:a, :b),)
     plot_handle=UIPlot(
         figure,
         axes;
         controls,
         legend,
         colorbars,
-        addon_state,
+        plot_state,
         export_name = "native",
         open_export = false
     )
@@ -32,7 +32,7 @@
     @test plot_handle.legend === legend
     @test isempty(plot_handle.panel_legends)
     @test only(plot_handle.colorbars) === only(colorbars)
-    @test plot_handle.addon_state === addon_state
+    @test plot_handle.plot_state === plot_state
 
     design=TestFixtures.coaxial_design()
     placed=first(design.geometry.regions)

@@ -142,7 +142,7 @@ function validate(design::CableDesign)
                              for (peer_index, peer) in pairs(design.geometry.regions)
                              if begin
                                  peer_entries = findall(
-                                     candidate -> candidate.pattern isa BoundedPlacement,
+                                     member -> member.pattern isa BoundedPlacement,
                                      peer.placement.patterns
                                  )
                                  if length(peer_entries) != 1
@@ -166,7 +166,7 @@ function validate(design::CableDesign)
             begin
                 peer = design.geometry.regions[peer_index]
                 peer_entry = findfirst(
-                    candidate -> candidate.pattern isa BoundedPlacement,
+                    member -> member.pattern isa BoundedPlacement,
                     peer.placement.patterns
                 )
                 peer.placement.patterns[peer_entry].member
@@ -229,7 +229,7 @@ It performs no formulation calculation.
 - `CableDesign`: Completed target type.
 - `cable_id`: Stable cable identifier.
 - `parts`: Physical `Region`, `Stack`, `Group`, `Assembly`, or `Enclosure` declarations.
-- `nominal_data`: Descriptive catalogue data, or `nothing`.
+- `nominal_data`: Descriptive nominal_data data, or `nothing`.
 
 # Keywords
 
@@ -259,8 +259,8 @@ function build(
     ))
     identifier = String(cable_id)
     isempty(identifier) && throw(ArgumentError("cable_id cannot be empty"))
-    catalogue = nominal_data === nothing ? (;) : nominal_data
-    catalogue isa NamedTuple || throw(ArgumentError(
+    nominal_data = nominal_data === nothing ? (;) : nominal_data
+    nominal_data isa NamedTuple || throw(ArgumentError(
         "nominal_data must be a named tuple or nothing"
     ))
 
@@ -301,10 +301,10 @@ function build(
         (eltype(placed.primitive) for placed in geometry.regions)...,
         (eltype(placed.source.material) for placed in geometry.regions)...
     )
-    return CableDesign{T, typeof(normalized), typeof(geometry), typeof(catalogue)}(
+    return CableDesign{T, typeof(normalized), typeof(geometry), typeof(nominal_data)}(
         identifier,
         normalized,
-        catalogue,
+        nominal_data,
         geometry,
         terminal_order,
         terminal_map

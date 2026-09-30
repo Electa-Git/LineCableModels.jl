@@ -381,7 +381,7 @@ end
         selected, 0.0, 0.01, 1.7e-8, 1.0, 100im)) == (:outer,)
     @test_throws ArgumentError II.surface_impedances(
         selected, 0.008, 0.01, 1.7e-8, 1.0, 100im)
-    empty!(selected.preparations)
+    empty!(selected.state_inputs)
     empty!(selected.evaluations)
     copper=Material(kind = :conductor, rho = 1.7e-8)
     dielectric=Material(kind = :insulator, rho = Inf, eps_r = 2.3)
@@ -392,29 +392,29 @@ end
     result=compute(problem, Formulation(internal_impedance = selected))
     @test all(isfinite, result.Z.values)
     @test keys(details(result).data.formulations.methods.internal_impedance.options)==(:outer,)
-    @test length(selected.preparations)==1
+    @test length(selected.state_inputs)==1
     @test only(selected.evaluations)[2] === Val(:outer)
 end
 
-@testitem "Engine / each metal prepares shared surface state once per frequency" tags=[:unit] setup=[
+@testitem "Engine / each metal constructs shared surface state once per frequency" tags=[:unit] setup=[
     TestFixtures, FormulaFixtures] begin
     selected=FormulaFixtures.SurfaceLaw()
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 100.0])
     result=compute(problem, Formulation(internal_impedance = selected))
     expected=sum(length(design.terminal_order)
     for design in problem.system.designs)*length(problem.frequencies)
-    @test length(selected.preparations)==expected
+    @test length(selected.state_inputs)==expected
     @test allunique(selected.evaluations)
     @test count(record -> record[2] === Val(:outer), selected.evaluations)==expected
     @test any(record -> record[2] === Val(:inner), selected.evaluations)
     @test any(record -> record[2] === Val(:transfer), selected.evaluations)
     @test all(isfinite, result.Z.values)
-    empty!(selected.preparations)
+    empty!(selected.state_inputs)
     empty!(selected.evaluations)
     composite=compute(problem,
         Formulation(internal_impedance =
         (inner = selected, outer = selected, transfer = selected)))
-    @test length(selected.preparations)==expected
+    @test length(selected.state_inputs)==expected
     @test allunique(selected.evaluations)
     @test Z(composite)==Z(result) && Y(composite)==Y(result)
 end
@@ -429,9 +429,9 @@ end
     problem=CableConstantsProblem(design)
     first=M.SurfaceLaw()
     result=compute(problem, CableConstantsFormulation(internal_impedance = first))
-    @test length(first.preparations) == 1
+    @test length(first.state_inputs) == 1
     @test Set(last.(first.evaluations)) == Set((Val(:inner), Val(:outer), Val(:transfer)))
-    @test only(first.preparations)[1] == 0.008
+    @test only(first.state_inputs)[1] == 0.008
     changed=M.SurfaceLaw(coefficients = (
         inner = 100+20im, outer = 2+1im, transfer = 40+30im))
     other=compute(problem, CableConstantsFormulation(internal_impedance = changed))

@@ -1,4 +1,4 @@
-function _addon_preview_axis!(
+function _preview_axis!(
         shell,
         position,
         title,
@@ -13,7 +13,7 @@ function _addon_preview_axis!(
 )
     unit = Units.units(:base, :meter)
     unit_label = Units.label(unit)
-    panel = _addon_panel!(shell, position)
+    panel = _panel!(shell, position)
     axis = Axis(
         panel.content;
         merge(
@@ -89,7 +89,7 @@ function _addon_preview_axis!(
         polygon.label === nothing || (group_labels[polygon.group] = polygon.label)
     end
     limits === nothing || haskey(shell.axis_attributes, :limits) || (axis.limits[] = limits)
-    reset! = _addon_reset!(axis)
+    reset! = _reset!(axis)
     if !isempty(earth_spans)
         # HSpan owns full-width coverage. This scene-owned callback clips only
         # the physical vertical extents, keeping infinite coordinates out of
@@ -117,7 +117,7 @@ function _addon_preview_axis!(
     return axis, reset!, panel
 end
 
-function _addon_preview_finish!(
+function _preview_finish!(
         shell,
         axes,
         resets,
@@ -145,7 +145,7 @@ function _addon_preview_finish!(
         export_theme,
         open_export
 )
-    return _addon_finish!(
+    return _finish_plot!(
         shell,
         axes,
         resets,
@@ -174,7 +174,7 @@ function _addon_preview_finish!(
     )
 end
 
-function _addon_preview(
+function _preview(
         design::DataModel.CableDesign;
         x_offset::Real = 0.0,
         y_offset::Real = 0.0,
@@ -205,14 +205,14 @@ function _addon_preview(
         open_export::Bool = true,
         kwargs...
 )
-    _addon_activate_backend(backend)
+    _activate_plot_backend(backend)
     isfinite(x_offset) && isfinite(y_offset) || throw(ArgumentError(
         "preview offsets must be finite",
     ))
     display_title = title === nothing ?
                     _native_cable_title(display_id, design) :
                     String(title)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, 1; defaults = (display_title,))
+    resolved_panel_titles = _panel_titles(panel_titles, 1; defaults = (display_title,))
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     polygons = _native_design_shapes(
@@ -227,13 +227,13 @@ function _addon_preview(
         legend_labels
     )
     color_scales = _material_schemes(DataModel.material_property_ranges(design))
-    return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls, guide_gap, kwargs...)
+    return with_theme(_plot_theme(export_theme = export_theme)) do
+        shell = _figure_layout(; size, controls, guide_gap, kwargs...)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, Any}()
         axis, reset!,
-        panel = _addon_preview_axis!(
+        panel = _preview_axis!(
             shell,
             (1, 1),
             panel_title,
@@ -244,7 +244,7 @@ function _addon_preview(
             order,
             labels
         )
-        _addon_preview_finish!(
+        _preview_finish!(
             shell,
             Any[axis],
             Function[reset!],
@@ -274,7 +274,7 @@ function _addon_preview(
     end
 end
 
-function _addon_preview(
+function _preview(
         designs::AbstractVector{<:DataModel.CableDesign};
         layout = nothing,
         display_dielectric_pattern::Bool = true,
@@ -303,24 +303,24 @@ function _addon_preview(
         open_export::Bool = true,
         kwargs...
 )
-    _addon_activate_backend(backend)
+    _activate_plot_backend(backend)
     isempty(designs) &&
         throw(ArgumentError("a cable collection preview requires at least one design"))
-    capacity=_addon_capacity(layout, (), (length(designs),))
-    pages=_addon_flow_pages(collect(eachindex(designs)), capacity)
-    for (identity, _) in _addon_panel_legend_pairs(panel_legends)
+    capacity=_page_capacity(layout, (), (length(designs),))
+    pages=_flow_pages(collect(eachindex(designs)), capacity)
+    for (identity, _) in _panel_legend_pairs(panel_legends)
         identity isa Integer && !(identity isa Bool) && identity in eachindex(designs) ||
             throw(ArgumentError("preview panel identities are original collection indices"))
     end
     color_scales = _material_schemes(DataModel.material_property_ranges(designs))
     display_title = title === nothing ? "Cable design previews" : String(title)
-    resolved_panel_titles = _addon_panel_titles(
+    resolved_panel_titles = _panel_titles(
         panel_titles, length(designs); defaults = [design.cable_id for design in designs])
     built=LineCableModels.UIPlot[]
     for page in pages
-        rendered=with_theme(_addon_theme(export_theme = export_theme)) do
+        rendered=with_theme(_plot_theme(export_theme = export_theme)) do
             rows, columns=page.dimensions
-            shell = _addon_shell(; size,
+            shell = _figure_layout(; size,
                 controls, guide_gap, kwargs...)
             axes = Any[]
             panels = Any[]
@@ -340,7 +340,7 @@ function _addon_preview(
                     legend_labels
                 )
                 axis, reset!,
-                panel = _addon_preview_axis!(
+                panel = _preview_axis!(
                     shell,
                     position,
                     resolved_panel_titles === nothing ?
@@ -362,7 +362,7 @@ function _addon_preview(
             for column in 1:columns
                 colsize!(shell.canvas, column, Relative(1 / columns))
             end
-            _addon_preview_finish!(
+            _preview_finish!(
                 shell,
                 axes,
                 resets,
@@ -374,7 +374,7 @@ function _addon_preview(
                 title_attributes,
                 panels,
                 panel_legends = Tuple(pair
-                for pair in _addon_panel_legend_pairs(panel_legends)
+                for pair in _panel_legend_pairs(panel_legends)
                 if first(pair) in page.facets),
                 display_legend = display_legend ||
                                  (legend_position!==_omitted && legend_position!==nothing),
@@ -394,21 +394,21 @@ function _addon_preview(
                 open_export
             )
         end
-        rendered.addon_state=merge(rendered.addon_state,
+        rendered.plot_state=merge(rendered.plot_state,
             (nominal_capacity = capacity,
                 panel_page = (index = page.index, dimensions = page.dimensions,
                     coordinates = Tuple(page.facets))))
         push!(built, rendered)
-        _addon_frame_budget(rendered, capacity)
+        _frame_budget(rendered, capacity)
     end
     # Material meaning is computed once above and shared by every actual page.
-    _addon_calibrate_frames!(built, capacity)
-    layout===nothing && foreach(_addon_responsive_axis_grid!, built)
-    display_plot && foreach(p -> _addon_display!(p.figure, display_title), built)
+    _calibrate_frames!(built, capacity)
+    layout===nothing && foreach(_responsive_axis_grid!, built)
+    display_plot && foreach(p -> _display_figure!(p.figure, display_title), built)
     return length(built)==1 ? only(built) : built
 end
 
-function _addon_preview(
+function _preview(
         system::DataModel.LineCableSystem;
         earth_model = nothing,
         zoom_factor = nothing,
@@ -440,12 +440,12 @@ function _addon_preview(
         open_export::Bool = true,
         kwargs...
 )
-    _addon_activate_backend(backend)
+    _activate_plot_backend(backend)
     limits = _native_system_limits(system, zoom_factor)
     polygons,
     references = _native_system_shapes(
         system,
-        display_legend || !isempty(_addon_panel_legend_pairs(panel_legends));
+        display_legend || !isempty(_panel_legend_pairs(panel_legends));
         display_dielectric_pattern,
         legend_group,
         legend_labels
@@ -454,16 +454,16 @@ function _addon_preview(
     display_title = title === nothing ?
                     _native_system_title(display_id, system) :
                     String(title)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, 1; defaults = (display_title,))
+    resolved_panel_titles = _panel_titles(panel_titles, 1; defaults = (display_title,))
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
-    return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls, guide_gap, kwargs...)
+    return with_theme(_plot_theme(export_theme = export_theme)) do
+        shell = _figure_layout(; size, controls, guide_gap, kwargs...)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, Any}()
         axis, reset!,
-        panel = _addon_preview_axis!(
+        panel = _preview_axis!(
             shell,
             (1, 1),
             panel_title,
@@ -476,7 +476,7 @@ function _addon_preview(
             earth_model,
             display_surface_gradient
         )
-        _addon_preview_finish!(
+        _preview_finish!(
             shell,
             Any[axis],
             Function[reset!],
@@ -506,7 +506,7 @@ function _addon_preview(
     end
 end
 
-function _addon_material_scale(;
+function _material_scale(;
         size::Tuple{Int, Int} = (800, 400),
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
@@ -519,11 +519,11 @@ function _addon_material_scale(;
         open_export::Bool = true,
         kwargs...
 )
-    _addon_activate_backend(backend)
+    _activate_plot_backend(backend)
     title = "Material property colour scale"
-    return with_theme(_addon_theme(export_theme = export_theme)) do
-        shell = _addon_shell(; size, controls, kwargs...)
-        _addon_finish!(
+    return with_theme(_plot_theme(export_theme = export_theme)) do
+        shell = _figure_layout(; size, controls, kwargs...)
+        _finish_plot!(
             shell,
             Any[],
             Function[],

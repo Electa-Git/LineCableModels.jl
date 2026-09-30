@@ -3,7 +3,7 @@ $(TYPEDEF)
 
 Retain detached scientific products for one completed gridpoint. Collections
 are ordinary vectors of these objects. No result source, parent collection,
-construction closure, or flattened table is retained.
+construction function, or flattened table is retained.
 
 $(TYPEDFIELDS)
 """
@@ -12,7 +12,7 @@ struct ObservedResult
     gridpoint::NamedTuple
     "Requested numerical products, coordinates, units, and availability records."
     quantities::Vector{NamedTuple}
-    "Completed comparisons with candidate and separate reference identities."
+    "Completed comparisons with result and separate reference identities."
     errors::Vector{NamedTuple}
     "Completed execution and performance measurements in their original scopes."
     timings::NamedTuple
@@ -24,11 +24,11 @@ struct ObservedResult
         _observed_fields(gridpoint,(:id,),"gridpoint")
         id=gridpoint.id
         id===nothing || _validate_observed_id(id)
-        haskey(timings,:candidate_id) && timings.candidate_id!=id &&
-            throw(ArgumentError("recorded timings must identify this candidate"))
-        all(row -> row isa NamedTuple && haskey(row,:candidate_id) &&
-            haskey(row,:reference_id) && id!==nothing && row.candidate_id==id,errors) ||
-            throw(ArgumentError("completed comparisons must identify this candidate and a separate reference"))
+        haskey(timings,:result_id) && timings.result_id!=id &&
+            throw(ArgumentError("recorded timings must identify this result"))
+        all(row -> row isa NamedTuple && haskey(row,:result_id) &&
+            haskey(row,:reference_id) && id!==nothing && row.result_id==id,errors) ||
+            throw(ArgumentError("completed comparisons must identify this result and a separate reference"))
         foreach(_validate_observed_comparison,errors)
         allunique((row.reference_id,row.request,row.band,row.normalization) for row in errors) ||
             throw(ArgumentError("completed comparisons must be distinct"))
@@ -147,10 +147,12 @@ collects timings, or evaluates a problem.
 
 # Keywords
 
-- `comparisons=()`: Completed records identifying this candidate and its reference.
+- `comparisons=()`: Completed records identifying this result and its reference.
 - `timings=(;)`: Recorded measurements; absent evidence stays absent.
 - `gridpoint=nothing`: Explicit description for an external numerical source.
-- `clip=true`, `atol=nothing`: Engineering recentering and native-unit cutoffs.
+- `clip=true`, `atol=nothing`: Replace assessed values at or below the native-unit
+  cutoffs with exact zero, including zero uncertainty. Unresolved phase is
+  unavailable. Source results and values outside the cutoffs are unchanged.
 - `length_unit=:kilo`, `frequency_unit=:base`: Display-unit prefixes.
 - `units=()`, `quantity_units=nothing`: Aligned or quantity-keyed unit overrides.
 - `frequencies=nothing`: Frequency context \\[Hz\\] for standalone numerical tensors.
@@ -223,17 +225,17 @@ $(TYPEDSIGNATURES)
 
 Lift atomic observation over an ordinary collection. Completed comparisons and
 point timings are joined by original identities before detachment, so filtering
-and reordering cannot associate a candidate with another point's evidence.
+and reordering cannot associate a result with another point's evidence.
 """
 function observables(sources::Union{AbstractVector,Tuple,AbstractResultSpace},requests::Tuple=();
         comparisons=nothing,timings=nothing,kwargs...)
     return map(collect(sources)) do source
         id=get(observation_gridpoint(source),:id,nothing)
         errors=comparisons===nothing ? (source isa ObservedResult ? source.errors : ()) :
-            filter(record -> record.candidate_id==id,comparisons)
+            filter(record -> record.result_id==id,comparisons)
         recorded=timings===nothing ? (source isa ObservedResult ? source.timings : (;)) : timings isa NamedTuple ? timings : begin
-            matches=filter(record -> record.candidate_id==id,timings)
-            length(matches)<=1 || throw(ArgumentError("multiple timing records for one candidate identity"))
+            matches=filter(record -> record.result_id==id,timings)
+            length(matches)<=1 || throw(ArgumentError("multiple timing records for one result identity"))
             isempty(matches) ? (;) : only(matches)
         end
         ObservedResult(source,requests;comparisons=errors,timings=recorded,kwargs...)
@@ -351,7 +353,7 @@ function observation_groups(observed;request,band=nothing,normalization=nothing,
             row=only(matches)
             (quantity=row.quantity,statistic=row.statistic,coordinates=row.coordinates,
                 basis=get(row.settings,:basis,nothing),unit=row.absolute_unit,
-                thresholds=(reference=get(row.settings,:atol,nothing),candidate=get(row.settings,:candidate_atol,nothing)),
+                thresholds=(reference=get(row.settings,:atol,nothing),result=get(row.settings,:result_atol,nothing)),
                 available=get(row.settings,:status,nothing),engineering_zero=nothing,
                 assumptions=get(row,:assumptions,nothing),values=(absolute=row.absolute,relative=row.relative),
                 interpretation=get(row.settings,:estimators,nothing))

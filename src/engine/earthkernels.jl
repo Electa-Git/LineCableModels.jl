@@ -290,12 +290,12 @@ function earth_spectral_points!(arrays, state, height, separation, radius, angle
 end
 
 function earth_spectral_neighbourhood!(points::Vector{R}, location) where {R}
-    centre=R(real(location))
+    center=R(real(location))
     width=R(abs(imag(location)))
-    centre>0 || return points
-    width=max(width, 64eps(R)*centre)
+    center>0 || return points
+    width=max(width, 64eps(R)*center)
     for offset in (-4, -1, 0, 1, 4)
-        point=centre+offset*width
+        point=center+offset*width
         point>0&&isfinite(point) && push!(points, point)
     end
     return points

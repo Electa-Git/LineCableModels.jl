@@ -92,7 +92,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Prepare one validated indexed interaction at fixed angular frequency. Material
+Construct one validated indexed interaction at fixed angular frequency. Material
 vectors use physical indices for a stratified equation and exactly `(air,soil)`
 for a homogeneous equation. Explicit reduction and its physical/effective
 mapping are owned by the computation workspace.

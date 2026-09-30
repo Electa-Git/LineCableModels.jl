@@ -5,11 +5,11 @@
     U=LineCableModels.Units
     shared=measurement(1.,0.1)
     line=LineParameters(fill(complex(shared,2shared),2,2,3),fill(3.0+4im,2,2,3),[10.,100.,1000.])
-    candidate=retain_gridpoint(line,gridpoint_id())
+    result=retain_gridpoint(line,gridpoint_id())
     reference=retain_gridpoint(line,gridpoint_id())
-    comparisons=compare(reference,candidate,[R];bands=(:all,))
-    timings=(candidate_id=LineCableModels.Grammar.observation_gridpoint(candidate).id,seconds=0.5)
-    observed=ObservedResult(candidate;comparisons,timings)
+    comparisons=compare(reference,result,[R];bands=(:all,))
+    timings=(result_id=LineCableModels.Grammar.observation_gridpoint(result).id,seconds=0.5)
+    observed=ObservedResult(result;comparisons,timings)
     repeated=observables(observed)
     @test isequal(repeated.quantities,observed.quantities)
     @test repeated.quantities[1].values!==observed.quantities[1].values

@@ -449,7 +449,7 @@ macro vflat(design, assignments...)
 end
 
 """
-Insert the deferred `n = capacity()` policy into a repeated-member call.
+Insert the deferred `n = capacity()` count into a repeated-member call.
 """
 macro distribute(call)
     call isa Expr && call.head === :call || throw(ArgumentError(

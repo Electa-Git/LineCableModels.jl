@@ -27,7 +27,7 @@
             @test before.color[] == after.color[]
         end
     end
-    @test length(patterned.addon_state.groups) == length(plain.addon_state.groups)
+    @test length(patterned.plot_state.groups) == length(plain.plot_state.groups)
     @test !isempty(Makie.colorbuffer(patterned.figure))
     figurelegend!(patterned; position = :top)
     @test length(only(patterned.axes).scene.plots) == length(pattern_plots)
@@ -130,7 +130,7 @@ end
         backend = :cairo, display_plot = false, controls = false, open_export = false)
     plotted = preview(system; earth_model = earth, options...)
     axis = only(plotted.axes)
-    layers = [only(plotted.addon_state.groups[Symbol("earth_$i")]) for i in 1:3]
+    layers = [only(plotted.plot_state.groups[Symbol("earth_$i")]) for i in 1:3]
     scene_plots = copy(axis.scene.plots)
     washes = filter(p -> p isa Makie.HSpan && p ∉ layers, scene_plots)
     @test length(washes) == 1
@@ -179,7 +179,7 @@ end
     finite_axis = only(finite.axes)
     limits!(finite_axis, -1, 1, -1, 1)
     Makie.colorbuffer(finite.figure)
-    finite_layer = only(finite.addon_state.groups[:earth_1])
+    finite_layer = only(finite.plot_state.groups[:earth_1])
     @test finite_layer[1][] == -0.5
     @test finite_layer[2][] == 0.0
     flat = preview(system; earth_model = earth, display_surface_gradient = false, options...)
@@ -187,13 +187,13 @@ end
 
     # The sky tint grows from transparency near z=0 to blue at the top.
     flat_axis = only(flat.axes)
-    for candidate in (axis, flat_axis)
+    for preview_axis in (axis, flat_axis)
         # Equal fractional widths at different layout origins can round to
         # different pixel widths. Match integer-sized frames for pixel checks.
-        candidate.width[] = 500
-        candidate.height[] = 500
-        limits!(candidate, -1, 1, -1, 1)
-        hidedecorations!(candidate)
+        preview_axis.width[] = 500
+        preview_axis.height[] = 500
+        limits!(preview_axis, -1, 1, -1, 1)
+        hidedecorations!(preview_axis)
     end
     with_sky = Makie.colorbuffer(axis; include_decorations = false)
     without_sky = Makie.colorbuffer(flat_axis; include_decorations = false)
@@ -209,8 +209,8 @@ end
     @test Makie.blue(middle) > Makie.red(middle) + 0.03
     @test Makie.blue(top) > Makie.red(top) + 0.10
     @test soil == without_sky[rows[4], column]
-    for candidate in (axis, flat_axis)
-        limits!(candidate, -1, 1, -0.5, -0.02)
+    for preview_axis in (axis, flat_axis)
+        limits!(preview_axis, -1, 1, -0.5, -0.02)
     end
     @test Makie.colorbuffer(axis; include_decorations = false) ==
           Makie.colorbuffer(flat_axis; include_decorations = false)
@@ -235,7 +235,7 @@ end
     Makie.colorbuffer(controlled.figure)
     resized = controlled_axis.finallimits[]
     for index in 1:3
-        span = only(controlled.addon_state.groups[Symbol("earth_$index")])
+        span = only(controlled.plot_state.groups[Symbol("earth_$index")])
         bounds = Makie.boundingbox(only(span.plots))
         @test bounds.origin[1] ≈ resized.origin[1]
         @test bounds.widths[1] ≈ resized.widths[1]

@@ -24,18 +24,18 @@
         )
     end
 
-    options = computation_options(LineCableModelsFEM, ComputationOptions((;mesh_policy = :remesh,
+    options = computation_options(LineCableModelsFEM, ComputationOptions((;mesh_mode = :remesh,
         keep_run_directory = true,
         gmsh_verbosity = 0,
         getdp_verbosity = 5)))
-    @test options.data.mesh_policy === :remesh
+    @test options.data.mesh_mode === :remesh
     @test options.data.keep_run_directory
     @test options.data.getdp_verbosity == 5
     @test options.data.frequency_workers == 2
     @test options.data.solver_threads == 1
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;frequency_workers = 0)))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;solver_threads = -1)))
-    @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;mesh_policy = :invalid)))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;mesh_mode = :invalid)))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;getdp_verbosity = 6)))
     resume_options = computation_options(LineCableModelsFEM, ComputationOptions((trace = true, resume_run_directory = :latest)))
     @test resume_options.data.trace === Val(true)
@@ -356,7 +356,7 @@ end
 
     matrix = Material(kind = :insulator, rho = Inf, eps_r = 1.0)
     sector_core = Stack(
-        Group(:core, Region(:core_centre, Disk(0.001), copper)),
+        Group(:core, Region(:core_center, Disk(0.001), copper)),
         Group(
             :core,
             Region(
@@ -803,7 +803,7 @@ end
                 remesh = Formulation(
                     :LineCableModelsFEM;
                     options = (ideal_transposition = false,))
-                remesh_controls = (mesh_policy = :remesh, gmsh_verbosity = 0)
+                remesh_controls = (mesh_mode = :remesh, gmsh_verbosity = 0)
                 third_run = extension_module._create_run(runtime_root)
                 third_geometry = extension_module._build_geometry!(model, "fem-mesh-third")
                 third_mesh = extension_module._select_mesh!(
@@ -833,7 +833,7 @@ end
                             getdp_verbosity = 0
                         )
                     failure_run = extension_module._create_run(runtime_root)
-                    extension_module._prepare_run_inputs!(failure_run, model)
+                    extension_module._write_run_inputs!(failure_run, model)
                     extension_module._write_json_atomic(
                         joinpath(failure_run.path, "input", "computation.json"),
                         extension_module._fem_input_record(model, failing_formulation, computation_options(LineCableModelsFEM, ComputationOptions(failing_formulation_controls))))

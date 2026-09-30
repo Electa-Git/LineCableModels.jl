@@ -216,8 +216,8 @@ fill_holes(::Enclosure, contents::CableGeometry) = (boundary(contents),)
 function fill_holes(group::Group, contents::CableGeometry)
     if group.boundary isa Disk && last(contents.regions).source.primitive isa Rectangle
         outer = boundary(contents)
-        centre = first(contents.regions).primitive
-        if centre isa Disk && centre.at.x == outer.at.x && centre.at.y == outer.at.y
+        center = first(contents.regions).primitive
+        if center isa Disk && center.at.x == outer.at.x && center.at.y == outer.at.y
             # The formation already resolved its exact occupied disk.
             return (outer,)
         end

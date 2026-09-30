@@ -95,12 +95,12 @@ end
         resize!(plot.figure, 700, 650)
         @test Tuple(plot.figure.scene.viewport[].widths)==(700, 650)
         if position in (:top, :bottom) && !vertical
-            group=plot.addon_state.guides[(:colorbars, nothing)].layout[]
+            group=plot.plot_state.guides[(:colorbars, nothing)].layout[]
             @test group.layoutobservables.autosize[][1]>700
             @test colorbar.ticklabelsize[]==20
             @test colorbar.ticklabelrotation[]≈pi/8
             extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
-            extension._addon_export_presentation!(plot, :default) do
+            extension._export_presentation!(plot, :default) do
                 @test ticklabels_fit(plot) # temporary fit includes complete content
             end
             @test Tuple(plot.figure.scene.viewport[].widths)==(700, 650)
@@ -187,7 +187,7 @@ end
     @test stacked_complex isa Vector{UIPlot}
     @test [only(page.axes).title[] for page in stacked_complex] ==
           ["Self resistance", "Self reactance"]
-    @test all(Set(keys(page.addon_state.panel_data))==Set(((1, 1),))
+    @test all(Set(keys(page.plot_state.panel_data))==Set(((1, 1),))
     for page in stacked_complex)
 
     individual=Makie.plot(
@@ -220,7 +220,7 @@ end
         layout = (2, 1)
     )
     @test length(stacked_all) == 8
-    @test all(Set(keys(page.addon_state.panel_data))==Set((
+    @test all(Set(keys(page.plot_state.panel_data))==Set((
                   (1, mod1(index, 2)), (2, mod1(index, 2))))
     for (index, page) in enumerate(stacked_all))
 
@@ -252,7 +252,7 @@ end
         parameters,
         parameters,
         self_impedance_request;
-        series_labels = ("reference", "candidate"),
+        series_labels = ("reference", "result"),
         backend = :cairo,
         display_plot = false,
         controls = false
@@ -260,9 +260,9 @@ end
     @test compared_self isa Vector{UIPlot}
     @test length(compared_self) == 2
     @test all(length(page.axes) == 1 for page in compared_self)
-    @test all(legend_labels(page.legend) == ["reference", "candidate"]
+    @test all(legend_labels(page.legend) == ["reference", "result"]
     for page in compared_self)
-    @test all(Set(keys(page.addon_state.groups)) == Set((:result_1, :result_2))
+    @test all(Set(keys(page.plot_state.groups)) == Set((:result_1, :result_2))
     for page in compared_self)
 
     three_sources=Makie.plot(
@@ -270,13 +270,13 @@ end
         parameters,
         parameters,
         self_impedance_request;
-        series_labels = ("reference", "candidate A", "candidate B"),
+        series_labels = ("reference", "result A", "result B"),
         backend = :cairo,
         display_plot = false,
         controls = false
     )
     @test all(legend_labels(page.legend) ==
-              ["reference", "candidate A", "candidate B"] for page in three_sources)
+              ["reference", "result A", "result B"] for page in three_sources)
 
     different_frequency=TestFixtures.two_conductor_results(
         ;
@@ -295,7 +295,7 @@ end
     for page in asynchronous)
 
     combined=Makie.plot(
-        (; reference = parameters, candidate = parameters),
+        (; reference = parameters, result = parameters),
         (R,);
         backend = :cairo,
         display_plot = false,
@@ -310,7 +310,7 @@ end
         axis -> axis.yticklabelsvisible[] && axis.yticksvisible[] &&
                 axis.ylabelvisible[], combined.axes)
     @test combined.legend.orientation[] == :horizontal
-    @test legend_labels(combined.legend) == ["reference", "candidate"]
+    @test legend_labels(combined.legend) == ["reference", "result"]
 
     for (position,
         orientation) in (
@@ -322,7 +322,7 @@ end
             parameters,
             parameters,
             (R,);
-            series_labels = ("reference", "candidate"),
+            series_labels = ("reference", "result"),
             backend = :cairo,
             display_plot = false,
             legend_position = position,
@@ -336,7 +336,7 @@ end
         parameters,
         parameters,
         ((R, 1, 1:2, :),);
-        series_labels = ("reference", "candidate"),
+        series_labels = ("reference", "result"),
         backend = :cairo,
         display_plot = false,
         controls = false,
@@ -354,8 +354,8 @@ end
     @test first(only(titled_inside.legend.entrygroups[])) == "Result set"
     @test titled_inside.legend.halign[] == :left
     @test titled_inside.legend.valign[] == :top
-    @test legend_labels(titled_inside.legend) == ["reference", "candidate"]
-    canvas_bounds=titled_inside.addon_state.shell.canvas.layoutobservables.computedbbox[]
+    @test legend_labels(titled_inside.legend) == ["reference", "result"]
+    canvas_bounds=titled_inside.plot_state.shell.canvas.layoutobservables.computedbbox[]
     legend_bounds=titled_inside.legend.layoutobservables.computedbbox[]
     @test legend_bounds.origin[1] >= canvas_bounds.origin[1]
     @test legend_bounds.origin[2] >= canvas_bounds.origin[2]
@@ -378,7 +378,7 @@ end
         max_fraction = 0.5
     )
     @test first(only(titled_inside.legend.entrygroups[])) == "Renamed results"
-    @test legend_labels(titled_inside.legend) == ["baseline", "candidate"]
+    @test legend_labels(titled_inside.legend) == ["baseline", "result"]
     figurelegend!(
         titled_inside;
         position = :inside,
@@ -394,7 +394,7 @@ end
         position = :inside,
         halign = :left, valign = :bottom,
         title = "Resistance results",
-        legend_labels = ("base R", "candidate R"),
+        legend_labels = ("base R", "result R"),
         max_fraction = 0.5
     )
     Makie.colorbuffer(titled_inside.figure)
@@ -402,12 +402,12 @@ end
     @test first(only(panel_inside.entrygroups[])) == "Resistance results"
     @test panel_inside.halign[] == :left
     @test panel_inside.valign[] == :bottom
-    @test legend_labels(panel_inside) == ["base R", "candidate R"]
+    @test legend_labels(panel_inside) == ["base R", "result R"]
     first_panel_entry=first(last(first(panel_inside.entrygroups[])))
     Makie.toggle_visibility!(first_panel_entry)
     @test all(plot -> !plot.visible[],
-        titled_inside.addon_state.panel_data[(1, 1)].groups[:result_1])
-    @test titled_inside.addon_state.shell.status[] ==
+        titled_inside.plot_state.panel_data[(1, 1)].groups[:result_1])
+    @test titled_inside.plot_state.shell.status[] ==
           "Axis limits fitted to visible series"
     Makie.toggle_visibility!(first_panel_entry)
     panellegend!(titled_inside, (1, 1); position = :right, max_fraction = 0.5)
@@ -445,7 +445,7 @@ end
     @test all(length(page.axes)==2 for page in small_capacity)
 
     compared=Makie.plot(
-        (; reference = parameters, candidate = parameters),
+        (; reference = parameters, result = parameters),
         (R, X, G, B);
         backend = :cairo,
         display_plot = false,
@@ -454,7 +454,7 @@ end
     )
     @test length(compared) == 4
     @test all(plot -> length(plot.axes) == 4, compared)
-    @test all(plot -> legend_labels(plot.legend) == ["reference", "candidate"], compared)
+    @test all(plot -> legend_labels(plot.legend) == ["reference", "result"], compared)
 
     first_axis=first(automatic_page.axes)
     first_axis.title[]="caller-owned title"
@@ -616,7 +616,7 @@ end
     @test report_plot isa UIPlot
     @test length(report_plot.axes) == 4
     @test occursin("Frequency", sprint(show, last(report_plot.axes).xlabel[]))
-    @test length(report_plot.addon_state.groups) == 1
+    @test length(report_plot.plot_state.groups) == 1
 
     extension=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     root=combined.figure.layout
@@ -625,7 +625,7 @@ end
     background_before=combined.figure.scene.backgroundcolor[]
     font_before=combined.figure.scene.theme[:fonts][:regular][]
     reset_visible_before=combined.controls[:reset].blockscene.visible[]
-    extension._addon_export_presentation!(combined, :publication) do
+    extension._export_presentation!(combined, :publication) do
         @test !combined.controls[:reset].blockscene.visible[]
         publication_font=Makie.to_font(combined.figure.scene.theme[:fonts], :regular)
         @test occursin("NewComputerModern", sprint(show, publication_font))

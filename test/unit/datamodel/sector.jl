@@ -63,10 +63,10 @@
 
     pose=Pose2(.02,-.03,pi/6)
     placed=DM.resolve(pose, shape)
-    local_centre=DM.centroid(shape)
+    local_center=DM.centroid(shape)
     expected=(
-        pose.x + cos(pose.φ) * local_centre[1] - sin(pose.φ) * local_centre[2],
-        pose.y + sin(pose.φ) * local_centre[1] + cos(pose.φ) * local_centre[2]
+        pose.x + cos(pose.φ) * local_center[1] - sin(pose.φ) * local_center[2],
+        pose.y + sin(pose.φ) * local_center[1] + cos(pose.φ) * local_center[2]
     )
     @test collect(DM.centroid(placed)) ≈ collect(expected)
     @test primitive == shape.primitive == placed.primitive
@@ -87,15 +87,15 @@
 
     inner_area=DM.area(shell.inner)
     outer_area=DM.area(shell.outer)
-    inner_centre=DM.centroid(shell.inner)
-    outer_centre=DM.centroid(shell.outer)
-    expected_shell_centre=(
-        (outer_area * outer_centre[1] - inner_area * inner_centre[1]) /
+    inner_center=DM.centroid(shell.inner)
+    outer_center=DM.centroid(shell.outer)
+    expected_shell_center=(
+        (outer_area * outer_center[1] - inner_area * inner_center[1]) /
         (outer_area - inner_area),
-        (outer_area * outer_centre[2] - inner_area * inner_centre[2]) /
+        (outer_area * outer_center[2] - inner_area * inner_center[2]) /
         (outer_area - inner_area)
     )
-    @test collect(DM.centroid(shell)) ≈ collect(expected_shell_centre)
+    @test collect(DM.centroid(shell)) ≈ collect(expected_shell_center)
 
     second=DM.resolve(DM.boundary(shell), Shell(0.25e-3))
     @test second.inner == shell.outer

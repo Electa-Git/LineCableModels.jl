@@ -163,14 +163,14 @@ copying the cable designs.
 
 ## Wire-pattern estimates
 
-[`make_stranded`](@ref) and [`make_screened`](@ref) search deterministic wire
+[`estimate_stranding`](@ref) and [`estimate_screen`](@ref) search deterministic wire
 patterns and return a [`WireEstimate`](@ref). An infeasible estimate retains
-ranked candidates and states which limits were not met.
+ranked patterns and states which limits were not met.
 
 ```julia
-estimate = make_stranded(1000.0)
-closest = estimate[:match]
-fewest_layers = estimate[:layers]
+estimate = estimate_stranding(1000.0)
+closest = estimate[:closest_area]
+fewest_layers = estimate[:fewest_layers]
 ```
 
 ## VDE designation parsing

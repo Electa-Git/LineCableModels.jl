@@ -11,7 +11,7 @@ struct XLSXReportDefinition <: AbstractReportDefinition
     file_name::Union{Nothing,String}
     "Optional system name used only when constructing output filenames."
     system_id::Union{Nothing,String}
-    "Engineering recentering for raw-input construction."
+    "Set unresolved observed values to exact zero, including zero uncertainty."
     clip::Bool
     "Allow replacing existing destination files after complete preflight."
     overwrite::Bool

@@ -92,7 +92,7 @@ function _write_voltage_paths(path, mesh, plan, model; endpoints=nothing, shell_
         allpoints = NTuple{4,Float64}[]
         starts, counts = Int[], Int[]
         ri, ro = plan.domain_radius, plan.shell_outer_radius
-        cx, cy = model.centre
+        cx, cy = model.center
         for (x, y) in endpoints
             hypot(x-cx, y-cy) < ri || error("Voltage endpoint must lie in the finite field domain")
             dx = x-cx
@@ -129,9 +129,9 @@ end
 _voltage_path_file(run::FEMRun, frequency::Int) =
     joinpath(run.path, "input", @sprintf("paths-f%04d.pro", frequency))
 
-function _prepare_voltage_paths!(run, model, formulation, mesh_paths)
+function _write_run_voltage_paths!(run, model, formulation, mesh_paths)
     _quasi_full(formulation.options.data.physics) || return nothing
-    @debug "Preparing quasi-full voltage paths" frequencies=length(mesh_paths)
+    @debug "Writing quasi-full voltage paths" frequencies=length(mesh_paths)
     for (mesh, plan) in zip(mesh_paths, model.mesh_plans)
         _write_voltage_paths(_voltage_path_file(run, plan.frequency_index), mesh, plan, model)
     end

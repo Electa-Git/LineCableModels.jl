@@ -1,4 +1,4 @@
-@testitem "UQ / retries preserve accepted trials, source identities and seeded replay" tags=[:integration] setup=[TestFixtures] begin
+@testitem "UQ / resampling preserves accepted trials, source identities and seeded replay" tags=[:integration] setup=[TestFixtures] begin
     using Measurements
     using Statistics
     design = TestFixtures.coaxial_design()
@@ -15,7 +15,7 @@
     inner = CableConstantsFormulation()
     formulation = MonteCarlo(inner; trials=4, seed=71, distribution=:uniform,
         return_samples=true, return_histograms=true, bins=2,
-        options=(on_error=:retry, retain_details=true, max_failures=3))
+        options=(on_error=:resample, retain_details=true, max_failures=3))
     sampled = compute(ParametricProblem(space), formulation)
     @test length(sampled) == 2
     @test sampled.trial_counts == [4, 4]
@@ -71,13 +71,13 @@
 
 end
 
-@testitem "UQ / retries do not hide non-domain errors or run past their limit" tags=[:integration] begin
+@testitem "UQ / resampling does not hide non-domain errors or run past its limit" tags=[:integration] begin
     using Measurements
     inner = CableConstantsFormulation()
-    for (injected, policy, expected_attempts) in (
+    for (injected, on_error, expected_attempts) in (
         (DomainError(-1, "invalid input marker"), :fail, 1),
-        (ArgumentError("programming error marker"), :retry, 1),
-        (DomainError(-1, "unrecoverable input marker"), :retry, 3),
+        (ArgumentError("programming error marker"), :resample, 1),
+        (DomainError(-1, "unrecoverable input marker"), :resample, 3),
     )
         attempts = Ref(0)
         space = Gridspace{CableConstantsProblem}(
@@ -88,7 +88,7 @@ end
             (Grid((1.0,)),),
         )
         formulation = MonteCarlo(inner; trials=2, seed=71,
-            options=(on_error=policy, retain_details=true, max_failures=3))
+            options=(on_error=on_error, retain_details=true, max_failures=3))
         failure = try
             compute(ParametricProblem(space), formulation)
         catch exception
@@ -100,16 +100,16 @@ end
         else
             @test failure isa ErrorException
             message = sprint(showerror, failure)
-            @test occursin("retry limit of 3", message)
+            @test occursin("resampling limit of 3", message)
             @test occursin("3 attempts (0 accepted)", message)
             @test occursin("during build", message)
             @test occursin("unrecoverable input marker", message)
         end
     end
-    @test_throws ArgumentError MonteCarlo(inner; options=(on_error=:retry,))
+    @test_throws ArgumentError MonteCarlo(inner; options=(on_error=:resample,))
 end
 
-@testitem "UQ / negative physical radius / failure and retry records" tags=[:integration] begin
+@testitem "UQ / negative physical radius / failure and resampling records" tags=[:integration] begin
     using Measurements
     attempts=Float64[]
     function physical_problem(radius)
@@ -132,7 +132,7 @@ end
     empty!(attempts)
     failure=try
         compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=negative,
-            on_error=:retry,max_failures=3,retain_details=true))
+            on_error=:resample,max_failures=3,retain_details=true))
     catch error
         error
     end
@@ -141,7 +141,7 @@ end
     @test occursin("3 attempts (0 accepted)",sprint(showerror,failure))
     @test occursin("physical radius must be positive",sprint(showerror,failure))
     # This deterministic control tests conditioning and source records only; no claim
-    # is made that accepted retries follow an unconditioned input law.
+    # is made that accepted draws follow an unconditioned input law.
     calls=Ref(0)
     alternating=(_rng,mean,_sigma)->begin
         calls[]+=1
@@ -149,7 +149,7 @@ end
     end
     empty!(attempts)
     sampled=compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=alternating,
-        on_error=:retry,max_failures=3,retain_details=true,return_samples=true))
+        on_error=:resample,max_failures=3,retain_details=true,return_samples=true))
     @test sampled.trial_counts==[2]
     @test attempts==[-.005,.005,-.005,.005,.005]
     @test only(sampled.values).details.data.inputs.interpretation===:nominal_declaration

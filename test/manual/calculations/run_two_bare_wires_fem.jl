@@ -88,7 +88,7 @@ fem_formulation = Formulation(
 )
 fem_options = (
     ui = false,
-    mesh_policy = :remesh,
+    mesh_mode = :remesh,
     resume_run_directory = nothing,
     keep_run_directory = true,
     trace = true,

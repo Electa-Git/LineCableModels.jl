@@ -7,7 +7,7 @@ by the insulation and semiconductor constitutive selections.
 $(TYPEDFIELDS)
 """
 struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: ShuntModelFormulation
-    "Explicit model fallback policy."
+    "Requested fallback model."
     parameters::P
     "Boundary discretization, quadrature, and optional audit controls."
     options::O
@@ -99,8 +99,8 @@ function Formula(::Val{:boundary}; parameters::NamedTuple = (;),
         integration = (rtol = Float64(integration.rtol),
             atol = Float64(integration.atol), maxevals = Int(integration.maxevals)),
         audit)
-    policy = (; fallback)
-    return Formula{:boundary, typeof(policy), typeof(normalized)}(policy, normalized)
+    parameters = (; fallback)
+    return Formula{:boundary, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
 """Describe the equivalent annular local shunt approximation."""

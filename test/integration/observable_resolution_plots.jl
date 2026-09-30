@@ -6,23 +6,23 @@
     z = fill(1.0 + im, 1, 1, 3)
     y = fill(1e-13 + 1e-18im, 1, 1, 3)
     reference = LineParameters(PhaseDomain, z, y, f; details=ComputationDetails(;coordinates=["a"],))
-    candidate = LineParameters(PhaseDomain, 2z, 2y, f; details=ComputationDetails(;coordinates=["a"],))
+    result = LineParameters(PhaseDomain, 2z, 2y, f; details=ComputationDetails(;coordinates=["a"],))
     using LineCableModels.Engine: retain_gridpoint
     using LineCableModels.Grammar: gridpoint_id
     reference=retain_gridpoint(reference,gridpoint_id())
-    candidate=retain_gridpoint(candidate,gridpoint_id())
+    result=retain_gridpoint(result,gridpoint_id())
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     curves(page)=filter(plot -> plot isa Makie.Lines,only(page.axes).scene.plots)
     ordinates(page)=[last.(curve[1][]) for curve in curves(page)]
     publication=report(BenchmarkTableDefinition(quantities=(G,B,X),clip=true),
-        (;reference,candidate);observation_options=(length_unit=:base,quantity_units=:base))
+        (;reference,result);observation_options=(length_unit=:base,quantity_units=:base))
     ordinary=LineCableModels.plot(reference;ydata=(G,),length_unit=:base,options...)
     clean=LineCableModels.plot(publication;ydata=(G,),options...)
     @test all(iszero,only(ordinates(ordinary)))
     @test length(curves(clean))==2
     @test all(values -> all(iszero,values),ordinates(clean))
     @test_throws ArgumentError LineCableModels.plot(publication;ydata=(G,),clip=false,options...)
-    raw=report(BenchmarkTableDefinition(quantities=(G,),clip=false),(;reference,candidate);
+    raw=report(BenchmarkTableDefinition(quantities=(G,),clip=false),(;reference,result);
         observation_options=(length_unit=:base,quantity_units=:base))
     rawpage=LineCableModels.plot(raw;ydata=(G,),options...)
     @test first(ordinates(rawpage))≈2vec(Float32.(real.(y)))
@@ -43,7 +43,7 @@
     @test all(iszero, only(ordinates(standalone)))
 end
 
-@testitem "Makie / uncertainty publication removes residue without changing raw curves" tags=[:visual] begin
+@testitem "Makie / clipping removes nominal residue and uncertainty without changing raw curves" tags=[:visual] begin
     using CairoMakie, Measurements, Logging
     f = 10.0 .^ range(-1, 7; length=13)
     omega = reshape(2pi .* f, 1, 1, :)
@@ -51,12 +51,12 @@ end
         length_unit=:base, quantity_units=:base, open_export=false,
         errorbar_sampling=:all,fig_size=(900,500))
     # Independent means/spreads reproduce the noisy-zero and finite-baseline
-    # failures. Real uncertainty at zero must still produce correctly centred bars.
+    # failures. Clipped values have zero uncertainty; raw curves retain their bars.
     for (means, spreads, clean_means, clean_spreads) in (
-            (range(-1e-27, 2e-27; length=13), fill(4e-27, 13), zeros(13), fill(4e-27,13)),
+            (range(-1e-27, 2e-27; length=13), fill(4e-27, 13), zeros(13), zeros(13)),
             (fill(-7e-10, 13) .+ (0:12) .* 1e-25,
                 fill(3e-25, 13), nothing, fill(3e-25,13)),
-            (fill(1e-27, 13), fill(4e-10, 13), zeros(13), fill(4e-10, 13)))
+            (fill(1e-27, 13), fill(4e-10, 13), zeros(13), zeros(13)))
         c = reshape(measurement.(means, spreads), 1, 1, :)
         source = LineParameters(one.(c) .+ im .* one.(c), im .* omega .* c, f)
         before = deepcopy((Z(source), Y(source), frequencies(source)))

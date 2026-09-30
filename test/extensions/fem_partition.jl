@@ -81,12 +81,12 @@ end
                 vertices = unique(gmsh.model.get_boundary([(1,c) for c in curves],false,false,true))
                 @test all(vertices) do (dim,tag)
                     p = gmsh.model.get_value(dim,tag,Float64[])
-                    hypot(p[1]-model.centre[1],p[2]) ≈ radius
+                    hypot(p[1]-model.center[1],p[2]) ≈ radius
                 end
                 @test all(curves) do curve
                     lower, upper = gmsh.model.get_parametrization_bounds(1, curve)
                     p = gmsh.model.get_value(1, curve, (lower + upper) / 2)
-                    hypot(p[1]-model.centre[1],p[2]) ≈ radius
+                    hypot(p[1]-model.center[1],p[2]) ≈ radius
                 end
             end
             FEM._configure_mesh!(model, geometry, plan)

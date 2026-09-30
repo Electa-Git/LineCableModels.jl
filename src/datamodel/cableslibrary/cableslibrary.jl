@@ -13,7 +13,7 @@ mutable struct CablesLibrary <: AbstractDict{String, CableDesign}
     "Cable designs indexed by `cable_id`."
     data::Dict{String, CableDesign}
     "Catalog records indexed by `cable_id`."
-    catalogues::Dict{String, DatasheetInfo}
+    datasheets::Dict{String, DatasheetInfo}
 
     @doc """
      $(TYPEDSIGNATURES)
@@ -51,7 +51,7 @@ Add a cable design under its `cable_id`.
 
 # Keywords
 
-- `catalogue=design.nominal_data`: Datasheet information stored beside the
+- `datasheet=design.nominal_data`: Datasheet information stored beside the
   design. A named tuple is normalized to [`DatasheetInfo`](@ref).
 
 # Returns
@@ -65,23 +65,23 @@ Add a cable design under its `cable_id`.
 function add!(
         library::CablesLibrary,
         design::CableDesign;
-        catalogue::Union{DatasheetInfo, NamedTuple} = design.nominal_data
+        datasheet::Union{DatasheetInfo, NamedTuple} = design.nominal_data
 )
     haskey(library, design.cable_id) && throw(ArgumentError(
         "cable design '$(design.cable_id)' already exists",
     ))
-    candidate = validate(design)
-    record = catalogue isa DatasheetInfo ? catalogue : DatasheetInfo(catalogue)
-    library.data[design.cable_id] = candidate
-    library.catalogues[design.cable_id] = record
+    validate(design)
+    record = datasheet isa DatasheetInfo ? datasheet : DatasheetInfo(datasheet)
+    library.data[design.cable_id] = design
+    library.datasheets[design.cable_id] = record
     return library
 end
 
 """
 Return the catalog record associated with `cable_id`.
 """
-catalogue(library::CablesLibrary, cable_id::AbstractString) =
-    library.catalogues[String(cable_id)]
+datasheet(library::CablesLibrary, cable_id::AbstractString) =
+    library.datasheets[String(cable_id)]
 
 include("base.jl")
 include("vdeparse.jl")

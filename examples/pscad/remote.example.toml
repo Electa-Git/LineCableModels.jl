@@ -7,7 +7,7 @@ remote_root = 'C:\LCM\scratch'
 julia_executable = 'C:\Julia\bin\julia.exe'
 python_executable = 'C:\Python\python.exe'
 pscad_version = "5.1.0"
-timeout_seconds = 1800
+timeout = 1800
 transport = "ssh"
 
 # For direct Windows execution, use transport = "local", host = "localhost",

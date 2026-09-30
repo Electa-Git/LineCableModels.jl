@@ -196,24 +196,24 @@ function conductor_zone(
     ))
     coordinates = Tuple{T, T}[convert.(T, centroid(item.primitive))
                               for item in zone]
-    centre = conductor_zone_position(zone)
-    centre_radius = hypot(
-        first(coordinates)[1] - centre[1],
-        first(coordinates)[2] - centre[2]
+    center = conductor_zone_position(zone)
+    center_radius = hypot(
+        first(coordinates)[1] - center[1],
+        first(coordinates)[2] - center[2]
     )
     circular_locus = all(
         point -> isapprox(
-            hypot(point[1] - centre[1], point[2] - centre[2]),
-            centre_radius
+            hypot(point[1] - center[1], point[2] - center[2]),
+            center_radius
         ), coordinates)
     element_area = (one(T) * pi) * radius^2
     zone_area = length(zone) * element_area
     zone_r_in,
-    zone_r_ex = if length(zone) == 1 && iszero(centre_radius)
+    zone_r_ex = if length(zone) == 1 && iszero(center_radius)
         zero(T), radius
     elseif !circular_locus
         outer_radius = maximum(coordinates) do point
-            hypot(point[1] - centre[1], point[2] - centre[2]) + radius
+            hypot(point[1] - center[1], point[2] - center[2]) + radius
         end
         expected_outer = expected_inner + 2radius
         isapprox(outer_radius, expected_outer) || throw(ArgumentError(
@@ -222,7 +222,7 @@ function conductor_zone(
         ))
         expected_inner, outer_radius
     else
-        declared_inner = centre_radius - radius
+        declared_inner = center_radius - radius
         isapprox(declared_inner, expected_inner) || throw(ArgumentError(
             "disk strand layer does not begin at the preceding radial boundary"
         ))
@@ -248,7 +248,7 @@ function conductor_zone(
     gmr = patterned ?
           (circular_locus ?
            strand_gmr(
-        centre_radius,
+        center_radius,
         length(zone),
         radius,
         material.mu_r
@@ -266,7 +266,7 @@ function conductor_zone(
         element_radius = radius,
         element_area,
         coordinates,
-        position = centre,
+        position = center,
         material,
         pairwise_gmd = patterned
     )
@@ -284,7 +284,7 @@ function conductor_zone(
     ))
     source = only(zone)
     material = convert(Material{T}, source.source.material)
-    centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
+    center = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     zone_r_in = convert(T, primitive.ri)
     zone_r_ex = convert(T, primitive.ro)
     zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
@@ -306,8 +306,8 @@ function conductor_zone(
         gmr = tubular_gmr(zone_r_ex, zone_r_in, material.mu_r),
         element_radius = zone_r_ex,
         element_area = zone_area,
-        coordinates = Tuple{T, T}[centre],
-        position = centre,
+        coordinates = Tuple{T, T}[center],
+        position = center,
         material,
         pairwise_gmd = false
     )
@@ -325,7 +325,7 @@ function conductor_zone(
     ))
     source = only(zone)
     material = convert(Material{T}, source.source.material)
-    centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
+    center = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     zone_r_in = convert(T, primitive.ri)
     zone_r_ex = convert(T, primitive.ro)
     isapprox(zone_r_in, expected_inner) || throw(ArgumentError(
@@ -350,8 +350,8 @@ function conductor_zone(
         gmr = tubular_gmr(zone_r_ex, zone_r_in, material.mu_r),
         element_radius = zone_r_ex,
         element_area = zone_area,
-        coordinates = Tuple{T, T}[centre],
-        position = centre,
+        coordinates = Tuple{T, T}[center],
+        position = center,
         material,
         pairwise_gmd = false
     )
@@ -374,7 +374,7 @@ function conductor_zone(
     material = convert(Material{T}, source.source.material)
     zone_area = convert(T, area(primitive))
     equivalent_radius = sqrt(zone_area / (one(T) * pi))
-    centre = convert.(T, centroid(primitive))
+    center = convert.(T, centroid(primitive))
     return (
         r_in = zero(T),
         r_ex = equivalent_radius,
@@ -385,8 +385,8 @@ function conductor_zone(
         gmr = equivalent_radius * exp(-material.mu_r / 4),
         element_radius = equivalent_radius,
         element_area = zone_area,
-        coordinates = Tuple{T, T}[centre],
-        position = centre,
+        coordinates = Tuple{T, T}[center],
+        position = center,
         material,
         pairwise_gmd = false
     )
@@ -420,7 +420,7 @@ function dielectric_layer(
     isempty(source.paths) || throw(ArgumentError(
         "flatten does not support helical dielectric layers"
     ))
-    centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
+    center = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     material = source.source.material
     material.kind === :conductor && throw(ArgumentError(
         "a dielectric interval cannot contain a conductor material"
@@ -428,7 +428,7 @@ function dielectric_layer(
     return (
         r_in = convert(T, r_in(source.primitive)),
         r_ex = convert(T, r_ex(source.primitive)),
-        position = centre,
+        position = center,
         material
     )
 end
@@ -453,11 +453,11 @@ function dielectric_layer(
     outer_area = convert(T, area(primitive.outer))
     inner_radius = sqrt(inner_area / (one(T) * pi))
     outer_radius = sqrt(outer_area / (one(T) * pi))
-    centre = convert.(T, centroid(primitive.inner))
+    center = convert.(T, centroid(primitive.inner))
     return (
         r_in = inner_radius,
         r_ex = outer_radius,
-        position = centre,
+        position = center,
         material
     )
 end
@@ -488,27 +488,27 @@ function member_resistance(definition::Rectangle, material)
     return strip_resistance(definition.h, definition.w, material.rho)
 end
 
-function radial_extent(shape::Disk, centre)
-    return hypot(shape.at.x - centre[1], shape.at.y - centre[2]) + shape.r
+function radial_extent(shape::Disk, center)
+    return hypot(shape.at.x - center[1], shape.at.y - center[2]) + shape.r
 end
 
-function radial_extent(shape::Annulus, centre)
-    return hypot(shape.at.x - centre[1], shape.at.y - centre[2]) + shape.ro
+function radial_extent(shape::Annulus, center)
+    return hypot(shape.at.x - center[1], shape.at.y - center[2]) + shape.ro
 end
 
-function radial_extent(shape::Polygon, centre)
+function radial_extent(shape::Polygon, center)
     cosine = cos(shape.at.φ)
     sine = sin(shape.at.φ)
     return maximum(shape.points) do point
         x = shape.at.x + cosine * point[1] - sine * point[2]
         y = shape.at.y + sine * point[1] + cosine * point[2]
-        hypot(x - centre[1], y - centre[2])
+        hypot(x - center[1], y - center[2])
     end
 end
 
-function radial_extent(shape::BentStrip, centre)
-    dx = shape.at.x - centre[1]
-    dy = shape.at.y - centre[2]
+function radial_extent(shape::BentStrip, center)
+    dx = shape.at.x - center[1]
+    dy = shape.at.y - center[2]
     offset = hypot(dx, dy)
     iszero(offset) && return shape.ro
     direction = atan(dy, dx)
@@ -522,7 +522,7 @@ function radial_extent(shape::BentStrip, centre)
     ))
 end
 
-function radial_extent(shape::Rectangle, centre)
+function radial_extent(shape::Rectangle, center)
     cosine = cos(shape.at.φ)
     sine = sin(shape.at.φ)
     half_width = shape.w / 2
@@ -533,7 +533,7 @@ function radial_extent(shape::Rectangle, centre)
     ) do point
         x = shape.at.x + cosine * point[1] - sine * point[2]
         y = shape.at.y + sine * point[1] + cosine * point[2]
-        hypot(x - centre[1], y - centre[2])
+        hypot(x - center[1], y - center[2])
     end
 end
 
@@ -569,8 +569,8 @@ for arbitrary deformed strands.
 - `ArgumentError`: Coincident centroids without an enclosing annular section.
 """
 function geometric_mean_distance(left::AbstractShape, right::AbstractShape)
-    left_centre, right_centre = centroid(left), centroid(right)
-    distance = hypot(left_centre[1] - right_centre[1], left_centre[2] - right_centre[2])
+    left_center, right_center = centroid(left), centroid(right)
+    distance = hypot(left_center[1] - right_center[1], left_center[2] - right_center[2])
     distance > zero(distance) || throw(ArgumentError(
         "nested conductor members must have distinct centroids unless one is an enclosing annulus"
     ))
@@ -632,7 +632,7 @@ function nested_conductor_zone(
     ))
     equivalent_radii = sqrt.(areas ./ (one(T) * π))
     total_area = sum(areas)
-    centre = convert.(T, conductor_zone_position(sources))
+    center = convert.(T, conductor_zone_position(sources))
     resistances = T[path_corrected_resistance(
                         member_resistance(
                             sources[index].source.primitive,
@@ -691,7 +691,7 @@ function nested_conductor_zone(
         sqrt(convert(T, area(envelope)) / (one(T) * π))
     else
         maximum(
-            index -> radial_extent(sources[index].primitive, centre),
+            index -> radial_extent(sources[index].primitive, center),
             eachindex(sources)
         )
     end
@@ -703,12 +703,12 @@ function nested_conductor_zone(
         r_ex = outer,
         cross_section = total_area,
         num_wires = length(sources),
-        num_turns = turns,
+        turns_per_length = turns,
         resistance,
         alpha,
         gmr = exp(log_gmr),
         reference_temperature = reference,
-        position = centre
+        position = center
     )
 end
 
@@ -782,11 +782,11 @@ function conductor_zone_position(sources)
     end
     length(sources) == 1 && return centroid(only(sources).primitive)
     areas = map(source -> area(source.primitive), sources)
-    centres = map(source -> centroid(source.primitive), sources)
+    centers = map(source -> centroid(source.primitive), sources)
     total = sum(areas)
     return (
-        sum(index -> areas[index] * centres[index][1], eachindex(sources)) / total,
-        sum(index -> areas[index] * centres[index][2], eachindex(sources)) / total
+        sum(index -> areas[index] * centers[index][1], eachindex(sources)) / total,
+        sum(index -> areas[index] * centers[index][2], eachindex(sources)) / total
     )
 end
 
@@ -829,7 +829,7 @@ function initialize_conductor(zone)
         r_ex = zone.r_ex,
         cross_section = zone.area,
         num_wires = zone.wires,
-        num_turns = zone.turns,
+        turns_per_length = zone.turns,
         resistance = zone.resistance,
         alpha = zone.material.alpha,
         gmr = zone.gmr,
@@ -852,15 +852,15 @@ Combine the strand-count-weighted turns per unit length of two conductor
 zones \\[1/m\\]. A zone without explicit wires leaves the accumulated value
 unchanged.
 """
-function equivalent_turns(
+function equivalent_turns_per_length(
         num_wires::Integer,
-        num_turns::Real,
+        turns_per_length::Real,
         added_wires::Integer,
         added_turns::Real
 )
-    iszero(added_wires) && return num_turns
+    iszero(added_wires) && return turns_per_length
     total_wires = num_wires + added_wires
-    return (num_wires * num_turns + added_wires * added_turns) / total_wires
+    return (num_wires * turns_per_length + added_wires * added_turns) / total_wires
 end
 
 """
@@ -872,7 +872,7 @@ updated from the properties of the two zones.
 """
 function add_conductor_zone(conductor, zone)
     same_radial_position(zone.position, conductor.position) || throw(ArgumentError(
-        "conductor zones must share one radial centre"
+        "conductor zones must share one radial center"
     ))
     isapprox(zone.r_in, conductor.r_ex) || throw(ArgumentError(
         "conductor zones must be radially contiguous"
@@ -905,9 +905,9 @@ function add_conductor_zone(conductor, zone)
         r_ex = zone.r_ex,
         cross_section = conductor.cross_section + zone.area,
         num_wires = conductor.num_wires + zone.wires,
-        num_turns = equivalent_turns(
+        turns_per_length = equivalent_turns_per_length(
             conductor.num_wires,
-            conductor.num_turns,
+            conductor.turns_per_length,
             zone.wires,
             zone.turns
         ),
@@ -1017,7 +1017,7 @@ innermost layer.
 """
 function initialize_dielectric(layer, conductor)
     same_radial_position(layer.position, conductor.position) || throw(ArgumentError(
-        "dielectric layers must share the conductor radial centre"
+        "dielectric layers must share the conductor radial center"
     ))
     isapprox(layer.r_in, conductor.r_ex) || throw(ArgumentError(
         "the first dielectric layer must begin at the conductor boundary"
@@ -1043,7 +1043,7 @@ Add one radial dielectric layer to a frequency-independent radial description.
 """
 function add_dielectric_layer(dielectric, layer)
     same_radial_position(layer.position, dielectric.position) || throw(ArgumentError(
-        "dielectric layers must share the conductor radial centre"
+        "dielectric layers must share the conductor radial center"
     ))
     isapprox(layer.r_in, dielectric.r_ex) || throw(ArgumentError(
         "dielectric layers must be radially contiguous"
@@ -1133,13 +1133,13 @@ function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol,
     )
     relative_mu = equivalent_dielectric_permeability(
         dielectric.layers,
-        conductor.num_turns,
+        conductor.turns_per_length,
         conductor.r_ex,
         dielectric.r_ex
     )
     isfinite(relative_mu) || throw(ArgumentError(
         "dielectric reduction produced a non-finite permeability " *
-        "for terminal :$terminal (turns=$(conductor.num_turns), " *
+        "for terminal :$terminal (turns_per_length=$(conductor.turns_per_length), " *
         "r_con=$(conductor.r_ex), r_ins=$(dielectric.r_ex))"
     ))
     dc_conductance = inv(sum(dielectric.layers) do layer
@@ -1243,7 +1243,7 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
         Tuple{T, T, Material{T}}
     }
     ConductorInput = NamedTuple{
-        (:r_in, :r_ex, :cross_section, :num_wires, :num_turns,
+        (:r_in, :r_ex, :cross_section, :num_wires, :turns_per_length,
             :resistance, :alpha, :gmr, :position, :material),
         Tuple{T, T, T, Int, T, T, T, T, Tuple{T, T}, Material{T}}
     }
@@ -1398,7 +1398,7 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
                     r_ex = conductor.r_ex,
                     cross_section = conductor.cross_section,
                     num_wires = conductor.num_wires,
-                    num_turns = conductor.num_turns,
+                    turns_per_length = conductor.turns_per_length,
                     resistance = conductor.resistance,
                     alpha = conductor.alpha,
                     gmr = conductor.gmr,
@@ -1615,7 +1615,7 @@ function homogenize(
                             [layer.material for layer in dielectric.layers],
                             [log(layer.r_ex / layer.r_in) for layer in dielectric.layers];
                             mu_r = equivalent_dielectric_permeability(dielectric.layers,
-                                conductor.num_turns, conductor.r_ex, dielectric.r_ex))
+                                conductor.turns_per_length, conductor.r_ex, dielectric.r_ex))
                     ))
             end
         end

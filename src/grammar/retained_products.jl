@@ -161,7 +161,7 @@ function _retained_band_samples(points,request,band,reference_id)
     matching=map(points) do point
         id=get(point.gridpoint,:id,nothing)
         filter(point.errors) do row
-            isequal(row.candidate_id,id) && isequal(row.band,band) &&
+            isequal(row.result_id,id) && isequal(row.band,band) &&
                 request_identity(row.request)==request_identity(request) &&
                 (reference_id===nothing || isequal(row.reference_id,reference_id))
         end

@@ -122,12 +122,12 @@ end
     @test sum(area, getproperty.(natural_conductors, :primitive)) ≈
           19pi * disk.r^2
 
-    strand_centres=centroid.(getproperty.(
+    strand_centers=centroid.(getproperty.(
         natural_conductors,
         :primitive
     ))
-    @test hypot(first(strand_centres)...) <= 1e-15
-    @test length(unique(strand_centres)) == 19
+    @test hypot(first(strand_centers)...) <= 1e-15
+    @test length(unique(strand_centers)) == 19
     @test [last(region.placement.patterns).member
            for region in natural_conductors] == collect(1:19)
     flattened_circular=only(LineCableModels.DataModel.flatten(
@@ -140,13 +140,13 @@ end
                      init = 1.0
                  ) for region in natural_conductors]
     weights=inv.(resistances) ./ sum(inv, resistances)
-    log_gmr=sum(eachindex(strand_centres)) do left
+    log_gmr=sum(eachindex(strand_centers)) do left
         value=weights[left]^2 * log(disk.r * exp(-copper.mu_r / 4))
-        for right in (left + 1):length(strand_centres)
+        for right in (left + 1):length(strand_centers)
             value += 2weights[left] * weights[right] *
                      log(hypot(
-                         strand_centres[left][1] - strand_centres[right][1],
-                         strand_centres[left][2] - strand_centres[right][2]
+                         strand_centers[left][1] - strand_centers[right][1],
+                         strand_centers[left][2] - strand_centers[right][2]
                      ))
         end
         value

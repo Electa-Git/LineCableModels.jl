@@ -66,12 +66,12 @@ function compare_three_bare_wires_baseline(attempt)
         rows = map(path -> split.(readlines(path)[2:end], ','), paths)
         @assert length(rows[1]) == length(rows[2]) == 81
         values = map(rs -> [complex(parse(Float64, r[4]), parse(Float64, r[5])) for r in rs], rows)
-        candidate, reference = values
+        result, reference = values
         near_zero = eps(Float64)*maximum(abs, reference)
         relative(delta, ref) = abs(ref) <= near_zero ? NaN : abs(delta)/abs(ref)
-        errors = abs.(candidate-reference)
+        errors = abs.(result-reference)
         worst = argmax(errors)
-        relative_errors = [relative(c-r, r) for (c, r) in zip(candidate, reference)]
+        relative_errors = [relative(c-r, r) for (c, r) in zip(result, reference)]
         resolved_relative = filter(isfinite, relative_errors)
         worst_relative = isempty(resolved_relative) ? nothing :
                          argmax([isfinite(x) ? x : -Inf for x in relative_errors])
@@ -94,7 +94,7 @@ function compare_three_bare_wires_baseline(attempt)
         open(joinpath(attempt, name, "$(quantity)-differences.csv"), "w") do io
             println(io,
                 "frequency_hz,response_terminal,basis_terminal,absolute_error,relative_error,real_absolute_error,real_relative_error,imaginary_absolute_error,imaginary_relative_error,real_reference_near_zero,imaginary_reference_near_zero")
-            for (i, (c, r)) in enumerate(zip(candidate, reference))
+            for (i, (c, r)) in enumerate(zip(result, reference))
                 @assert rows[1][i][1:3] == rows[2][i][1:3]
                 d = c-r
                 @printf(io, "%s,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%s,%s\n",
@@ -148,7 +148,7 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
         "fem" => (
             Formulation(:LineCableModelsFEM;
                 options = merge((physics = :quasi_fw,), reductions)),
-            (ui = false, mesh_policy = :remesh, resume_run_directory = nothing,
+            (ui = false, mesh_mode = :remesh, resume_run_directory = nothing,
                 keep_run_directory = true, trace = true, output_basis = :pul,
                 verbosity = (default = 1,), gmsh_verbosity = 2, getdp_verbosity = 4,
                 frequency_workers = 2, solver_threads = 4, plot_field_maps = false)))

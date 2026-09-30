@@ -35,7 +35,7 @@ end
     IO=LineCableModels.ImportExport
 
     # Equal text must not become an identity, and a new leaf must reach the real
-    # report without being added to a reader or plotting catalogue.
+    # report without being added to a reader or plotting lookup table.
     struct TestEarthLeaf{ID} <: E.EarthImpedanceFormulation end
     formula_id(::TestEarthLeaf{ID}) where {ID} = ID
     description(::Type{<:TestEarthLeaf{ID}};compact::Bool=false) where {ID} =
@@ -63,7 +63,7 @@ end
     for value in (normal,LineCableModelsFEM(),Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
         @test description(typeof(value))==description(value)
     end
-    labels=description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:candidate])
+    labels=description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:result])
     @test labels == ["Reference · Monte Carlo", "LEP"]
     @test all(label->!occursin("earth Z",label),labels)
     explicit_default=Formulation(earth_impedance=:unified)
@@ -82,8 +82,8 @@ end
         fields=E.completed_formulation(selection))
     points=[completed(LineParameters(scale*z,y,f;details=ComputationDetails(;coordinates=ports,)),choices[index],index)
         for (index,scale) in enumerate((1.1,1.2,1.3))]
-    candidates=ParametricResult(nothing,points,(problems=[:one],formulations=choices), ComputationDetails((;)))
-    source=(reference=ref,candidate=candidates)
+    results=ParametricResult(nothing,points,(problems=[:one],formulations=choices), ComputationDetails((;)))
+    source=(reference=ref,result=results)
     result=report(BenchmarkTableDefinition((R,X,G,B);bands=(:all,:dc,:harmonic,:narrow,:wide)),source)
     @test any(contains("TestAlpha"),result.tables.formulations.label)
     @test any(contains("TestBeta"),result.tables.formulations.label)
@@ -110,8 +110,8 @@ end
     saved_pair=[IO.deserialize_value(Val(:formulation),NamedTuple(method)) for method in
         (MonteCarlo(normal),LinearError(normal))]
     # Ordinary collection promotion must not erase a retained method's owner.
-    @test description(saved_pair;roles=[:reference,:candidate])==
-        description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:candidate])
+    @test description(saved_pair;roles=[:reference,:result])==
+        description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:result])
     for order in (:before,:after)
         native=Formulation(earth_impedance=formula(:carson1926;
             equivalent_earth=formula(:default;order)))
@@ -153,15 +153,15 @@ end
     routed_result=ParametricResult(nothing,[completed(points[1],routed,1),completed(points[2],normal,2)],
         (problems=[:one],formulations=[routed,normal]), ComputationDetails((;)))
     routed_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
-        (reference=ref,candidate=routed_result))
+        (reference=ref,result=routed_result))
     @test any(contains("earth Z(air)=Carson"),first(routed_report.tables.features).relative.formula)
     @test haskey(first(routed_report.observed).gridpoint.formulations.methods.internal_impedance,:inner)
-    @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
+    @test isempty(selected_inner.evaluations) && isempty(selected_inner.state_inputs)
     single=Formulation(insulation_admittance=FormulaFixtures.InsulationLaw())
     single_data=ParametricResult(nothing,[completed(points[1],single,1)],
         (problems=[:one],formulations=[single]), ComputationDetails((;)))
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
-        (reference=ref,candidate=single_data))
+        (reference=ref,result=single_data))
     single_label=only(last(single_report.tables.features).relative.formula)
     @test occursin(description(single.methods.insulation_admittance;compact=true),single_label)
     @test !occursin("scale",single_label) # a constant control is not a legend difference
@@ -170,7 +170,7 @@ end
     @test !occursin("insulation Y",only(first(single_report.tables.features).relative.formula))
     @test description([single];quantity=B)==description([
         IO.deserialize_value(Val(:formulation),NamedTuple(single))];quantity=B)
-    @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
+    @test isempty(selected_inner.evaluations) && isempty(selected_inner.state_inputs)
     fem_labels=description([LineCableModelsFEM(),LineCableModelsFEM(options=(physics=:quasi_fw,))];
         roles=[:reference,:reference])
     @test occursin("quasi-tem",first(fem_labels)) && occursin("quasi-fw",last(fem_labels))
@@ -202,11 +202,11 @@ end
         normal.options,merge(normal.definitions,(earth_impedance=BrokenEarthLeaf(),)))
     bad=ParametricResult(nothing,[points[1]],(problems=[:one],formulations=[broken]), ComputationDetails((;)))
     @test_throws r"test-owned description failed" E.completed_formulation(broken)
-    @test only(report(BenchmarkTableDefinition(),(reference=ref,candidate=bad)).observed).gridpoint.formulations==NamedTuple(choices[1])
+    @test only(report(BenchmarkTableDefinition(),(reference=ref,result=bad)).observed).gridpoint.formulations==NamedTuple(choices[1])
 
     # Compare retained values and coordinates, not merely dimensions or file bytes.
     for point in result.observed,row in point.errors
-        selected=filter(term -> term.candidate_id==row.candidate_id && term.request==row.request &&
+        selected=filter(term -> term.result_id==row.result_id && term.request==row.request &&
             term.band==row.band && term.normalization==row.normalization,eachrow(result.tables.terms))
         for term in selected
             @test term.response==ports[term.row] && term.excitation==ports[term.column]
@@ -216,7 +216,7 @@ end
     end
     @test Z(ref)==z && Y(ref)==y && frequencies(ref)==f
     for row in eachrow(result.tables.maxima)
-        evidence=filter(term -> term.candidate_id==row.candidate_id && term.request==row.request && term.band==row.band && term.normalization==row.normalization,eachrow(result.tables.terms))
+        evidence=filter(term -> term.result_id==row.result_id && term.request==row.request && term.band==row.band && term.normalization==row.normalization,eachrow(result.tables.terms))
         largest=only(filter(term -> term.response==row.absolute_term_response &&
             term.excitation==row.absolute_term_excitation,evidence))
         @test row.maximum_absolute_rms==largest.absolute_rms

@@ -34,7 +34,7 @@ $(TYPEDEF)
 
 Filter ordinary Julia log records by execution verbosity and forward accepted
 records to the caller's logger. The parent logger retains its filtering and
-exception policy. This filter owns no progress counters or output resources.
+exception handling. This filter owns no progress counters or output resources.
 
 $(TYPEDFIELDS)
 """

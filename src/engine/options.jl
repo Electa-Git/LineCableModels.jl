@@ -102,7 +102,7 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 - `options`: Caller-supplied named tuple. Supported keys and defaults are:
   - `ui=false`: Open the Gmsh graphical interface.
   - `plot_field_maps=false`: Emit spatial field maps for every solve.
-  - `mesh_policy=:reuse`: Reuse compatible meshes; `:remesh` regenerates them.
+  - `mesh_mode=:reuse`: Reuse compatible meshes; `:remesh` regenerates them.
   - `mesh_path=nothing`: Optional existing `.msh` path.
   - `domain_skin_depths=2.0`: Minimum finite earth-domain radius in conductive
     skin depths \\[dimensionless\\]; the layout can require a larger radius.
@@ -115,7 +115,9 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `solver_threads=1`: BLAS and OpenMP threads per solver process.
   - `verbosity=(default=0,)`: Julia logging levels from 0 through 2.
   - `output_basis=:pul`: Per-unit-length matrices; `:total` scales by line length.
-  - `trace=false`: Retain primitive matrices.
+  - `trace=false`: Retain `Z_primitive`, `P_primitive` and a copied `phase_map`
+    under `details(result).data.fem.primitive`. The primitive arrays refer to the
+    completed FEM scan arrays.
   - `timing=false`: Retain fresh complete-scan measurements in result details.
   - `on_result=nothing`: Optional callback `(problem, index, result)`.
   - `log_file=nothing`: Optional Julia log path.
@@ -132,7 +134,7 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 """
 function computation_options(::Type{LineCableModelsFEM}, record::ComputationOptions)::ComputationOptions
     options = record.data
-    defaults = (ui=false, plot_field_maps=false, mesh_policy=:reuse,
+    defaults = (ui=false, plot_field_maps=false, mesh_mode=:reuse,
         mesh_path=nothing, domain_skin_depths=2.0,
         keep_run_directory=false, getdp_executable=nothing,
         gmsh_verbosity=2, getdp_verbosity=2, frequency_workers=2, solver_threads=1,
@@ -148,8 +150,8 @@ function computation_options(::Type{LineCableModelsFEM}, record::ComputationOpti
     for name in (:ui, :plot_field_maps, :keep_run_directory)
         getproperty(normalized, name) isa Bool || throw(ArgumentError("$name must be Bool"))
     end
-    normalized.mesh_policy in (:reuse, :remesh) || throw(ArgumentError(
-        "mesh_policy must be :reuse or :remesh"))
+    normalized.mesh_mode in (:reuse, :remesh) || throw(ArgumentError(
+        "mesh_mode must be :reuse or :remesh"))
     radius_factor = normalized.domain_skin_depths
     radius_factor isa Real && !(radius_factor isa Bool) &&
         isfinite(radius_factor) && 0 < radius_factor <= floatmax(Float64) &&
@@ -176,7 +178,7 @@ function computation_options(::Type{LineCableModelsFEM}, record::ComputationOpti
         throw(ArgumentError("resume_run_directory must be nothing, :latest, or a nonempty path string"))
     return ComputationOptions(; standard.data...,
         ui=normalized.ui, plot_field_maps=normalized.plot_field_maps,
-        mesh_policy=normalized.mesh_policy,
+        mesh_mode=normalized.mesh_mode,
         mesh_path=normalized.mesh_path === nothing ? nothing : String(normalized.mesh_path),
         domain_skin_depths=Float64(radius_factor),
         keep_run_directory=normalized.keep_run_directory,

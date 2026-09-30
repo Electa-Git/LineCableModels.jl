@@ -47,18 +47,18 @@ function _matching_point_key(registry::FEMLoopRegistry, point)
     tolerance = 64eps(scale)
     for x in floor(Int, (key[1] - tolerance) / registry.mesh_size):floor(Int, (key[1] + tolerance) / registry.mesh_size),
         y in floor(Int, (key[2] - tolerance) / registry.mesh_size):floor(Int, (key[2] + tolerance) / registry.mesh_size)
-        for candidate in get(registry.point_buckets, (x, y), ())
-            abs(candidate[1] - key[1]) <= tolerance &&
-                abs(candidate[2] - key[2]) <= tolerance && return candidate
+        for stored_point in get(registry.point_buckets, (x, y), ())
+            abs(stored_point[1] - key[1]) <= tolerance &&
+                abs(stored_point[2] - key[2]) <= tolerance && return stored_point
         end
     end
     return key
 end
 
-function _circle_key(centre, radius)
+function _circle_key(center, radius)
     return (
-        _coordinate_key(centre[1]),
-        _coordinate_key(centre[2]),
+        _coordinate_key(center[1]),
+        _coordinate_key(center[2]),
         _coordinate_key(radius)
     )
 end
@@ -80,12 +80,12 @@ end
 
 function _register_circle_break!(
         registry::FEMLoopRegistry,
-        centre,
+        center,
         radius,
         angle;
         point = nothing
 )
-    key = _circle_key(centre, radius)
+    key = _circle_key(center, radius)
     breaks = get!(registry.circle_breaks, key) do
         Set{Float64}()
     end
@@ -103,9 +103,9 @@ function _register_circle_break!(
     return stored
 end
 
-function _register_full_circle_breaks!(registry::FEMLoopRegistry, centre, radius)
+function _register_full_circle_breaks!(registry::FEMLoopRegistry, center, radius)
     foreach(
-        angle -> _register_circle_break!(registry, centre, radius, angle),
+        angle -> _register_circle_break!(registry, center, radius, angle),
         (0.0, π / 2, π, 3π / 2)
     )
     return nothing
@@ -118,7 +118,7 @@ function _tangent_circular_fill_plan(shape)
     isempty(shape.holes) && return nothing
     iszero(outer.ri) && return nothing
 
-    centre = (Float64(outer.at.x), Float64(outer.at.y))
+    center = (Float64(outer.at.x), Float64(outer.at.y))
     disks = filter(hole -> hole isa DataModel.Disk, shape.holes)
     cutouts = filter(hole -> !(hole isa DataModel.Disk), shape.holes)
     isempty(disks) && return nothing
@@ -126,8 +126,8 @@ function _tangent_circular_fill_plan(shape)
     entries = Tuple{Float64, Any}[]
     outer_contacts = Float64[]
     for hole in disks
-        dx = Float64(hole.at.x) - centre[1]
-        dy = Float64(hole.at.y) - centre[2]
+        dx = Float64(hole.at.x) - center[1]
+        dy = Float64(hole.at.y) - center[2]
         distance = hypot(dx, dy)
         radius = Float64(hole.r)
         scale = max(Float64(outer.ro), distance, radius, 1.0)
@@ -172,9 +172,9 @@ function _tangent_circular_fill_plan(shape)
     ) || return nothing
 
     for cutout in cutouts
-        isapprox(Float64(cutout.at.x), centre[1]; rtol = 0, atol = tolerance) ||
+        isapprox(Float64(cutout.at.x), center[1]; rtol = 0, atol = tolerance) ||
             return nothing
-        isapprox(Float64(cutout.at.y), centre[2]; rtol = 0, atol = tolerance) ||
+        isapprox(Float64(cutout.at.y), center[2]; rtol = 0, atol = tolerance) ||
             return nothing
         isapprox(
             Float64(cutout.ri), tangent_outer_radius;
@@ -203,7 +203,7 @@ function _tangent_circular_fill_plan(shape)
         minimum(separations) > FEM_BOUNDARY_ANGLE_TOLERANCE || return nothing
     end
     return (
-        centre = centre,
+        center = center,
         inner_radius = Float64(outer.ri),
         outer_radius = tangent_outer_radius,
         shell_outer_radius = Float64(outer.ro),
@@ -250,16 +250,16 @@ function _complementary_sector_spans(cutouts)
     return spans
 end
 
-function _radial_point(centre, radius, angle)
+function _radial_point(center, radius, angle)
     return (
-        centre[1] + radius * cos(angle),
-        centre[2] + radius * sin(angle)
+        center[1] + radius * cos(angle),
+        center[2] + radius * sin(angle)
     )
 end
 
 function _annular_sector_surface!(
         registry::FEMLoopRegistry,
-        centre,
+        center,
         inner_radius,
         outer_radius,
         start_angle,
@@ -268,21 +268,21 @@ function _annular_sector_surface!(
 )
     if isapprox(span, 2π; rtol = 0, atol = FEM_BOUNDARY_ANGLE_TOLERANCE)
         outer = _circle_loop!(
-            registry, centre, outer_radius; mesh_size
+            registry, center, outer_radius; mesh_size
         )
         inner = _circle_loop!(
-            registry, centre, inner_radius; mesh_size
+            registry, center, inner_radius; mesh_size
         )
         return gmsh.model.geo.add_plane_surface([outer.ccw, inner.cw])
     end
 
-    outer_start_point = _radial_point(centre, outer_radius, start_angle)
+    outer_start_point = _radial_point(center, outer_radius, start_angle)
     outer_stop_point = _radial_point(
-        centre, outer_radius, start_angle + span
+        center, outer_radius, start_angle + span
     )
-    inner_start_point = _radial_point(centre, inner_radius, start_angle)
+    inner_start_point = _radial_point(center, inner_radius, start_angle)
     inner_stop_point = _radial_point(
-        centre, inner_radius, start_angle + span
+        center, inner_radius, start_angle + span
     )
     outer_start = _point!(registry, outer_start_point; mesh_size)
     outer_stop = _point!(registry, outer_stop_point; mesh_size)
@@ -290,7 +290,7 @@ function _annular_sector_surface!(
     inner_stop = _point!(registry, inner_stop_point; mesh_size)
     curves = _circle_arc_path!(
         registry,
-        centre,
+        center,
         outer_radius,
         start_angle,
         span;
@@ -302,7 +302,7 @@ function _annular_sector_surface!(
     append!(curves,
         _circle_arc_path!(
             registry,
-            centre,
+            center,
             inner_radius,
             start_angle + span,
             -span;
@@ -319,47 +319,47 @@ function _register_tangent_fill_contacts!(registry::FEMLoopRegistry, shape)
     plan = _tangent_circular_fill_plan(shape)
     plan === nothing && return nothing
     for (angle, hole) in zip(plan.angles, plan.holes)
-        outer_point = _radial_point(plan.centre, plan.outer_radius, angle)
-        inner_point = _radial_point(plan.centre, plan.inner_radius, angle)
-        hole_centre = (Float64(hole.at.x), Float64(hole.at.y))
+        outer_point = _radial_point(plan.center, plan.outer_radius, angle)
+        inner_point = _radial_point(plan.center, plan.inner_radius, angle)
+        hole_center = (Float64(hole.at.x), Float64(hole.at.y))
         hole_radius = Float64(hole.r)
         _register_circle_break!(
             registry,
-            plan.centre,
+            plan.center,
             plan.outer_radius,
             angle;
             point = outer_point
         )
         _register_circle_break!(
             registry,
-            plan.centre,
+            plan.center,
             plan.inner_radius,
             angle;
             point = inner_point
         )
         _register_circle_break!(
             registry,
-            hole_centre,
+            hole_center,
             hole_radius,
             angle;
             point = outer_point
         )
         _register_circle_break!(
             registry,
-            hole_centre,
+            hole_center,
             hole_radius,
             angle + π;
             point = inner_point
         )
         _register_circle_break!(
             registry,
-            hole_centre,
+            hole_center,
             hole_radius,
             angle + π / 2
         )
         _register_circle_break!(
             registry,
-            hole_centre,
+            hole_center,
             hole_radius,
             angle - π / 2
         )
@@ -381,21 +381,21 @@ function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Dis
 end
 
 function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Annulus)
-    centre = (shape.at.x, shape.at.y)
-    _register_full_circle_breaks!(registry, centre, shape.ri)
-    _register_full_circle_breaks!(registry, centre, shape.ro)
+    center = (shape.at.x, shape.at.y)
+    _register_full_circle_breaks!(registry, center, shape.ri)
+    _register_full_circle_breaks!(registry, center, shape.ro)
     return nothing
 end
 
 function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.BentStrip)
-    centre = (shape.at.x, shape.at.y)
+    center = (shape.at.x, shape.at.y)
     start_angle = shape.at.φ - shape.span / 2
     stop_angle = shape.at.φ + shape.span / 2
-    _register_circle_break!(registry, centre, shape.ro, start_angle)
-    _register_circle_break!(registry, centre, shape.ro, stop_angle)
+    _register_circle_break!(registry, center, shape.ro, start_angle)
+    _register_circle_break!(registry, center, shape.ro, stop_angle)
     if !iszero(shape.ri)
-        _register_circle_break!(registry, centre, shape.ri, start_angle)
-        _register_circle_break!(registry, centre, shape.ri, stop_angle)
+        _register_circle_break!(registry, center, shape.ri, start_angle)
+        _register_circle_break!(registry, center, shape.ri, stop_angle)
     end
     return nothing
 end
@@ -411,9 +411,9 @@ function _register_shape_breaks!(
         shape.contacts.arcs.upper
     )
         iszero(arc.radius) && continue
-        centre = _transform_point(arc.center, shape.at)
-        _register_circle_break!(registry, centre, arc.radius, shape.at.φ + arc.start)
-        _register_circle_break!(registry, centre, arc.radius, shape.at.φ + arc.stop)
+        center = _transform_point(arc.center, shape.at)
+        _register_circle_break!(registry, center, arc.radius, shape.at.φ + arc.start)
+        _register_circle_break!(registry, center, arc.radius, shape.at.φ + arc.stop)
     end
     return nothing
 end
@@ -453,14 +453,14 @@ function _register_circle_contacts!(registry::FEMLoopRegistry)
     end
     for first_index in eachindex(circles)
         first = circles[first_index]
-        first_centre = (first[1], first[2])
+        first_center = (first[1], first[2])
         first_radius = first[3]
         for second_index in (first_index + 1):length(circles)
             second = circles[second_index]
-            second_centre = (second[1], second[2])
+            second_center = (second[1], second[2])
             second_radius = second[3]
-            dx = second_centre[1] - first_centre[1]
-            dy = second_centre[2] - first_centre[2]
+            dx = second_center[1] - first_center[1]
+            dy = second_center[2] - first_center[2]
             distance = hypot(dx, dy)
             scale = max(first_radius, second_radius, distance, 1.0)
             tolerance = 1e-12 * scale
@@ -487,8 +487,8 @@ function _register_circle_contacts!(registry::FEMLoopRegistry)
             height = tangent ? 0.0 : sqrt(max(height_squared, 0.0))
             unit_x = dx / distance
             unit_y = dy / distance
-            base_x = first_centre[1] + along * unit_x
-            base_y = first_centre[2] + along * unit_y
+            base_x = first_center[1] + along * unit_x
+            base_y = first_center[2] + along * unit_y
             contacts = height <= tolerance ?
                        ((base_x, base_y),) :
                        (
@@ -498,21 +498,21 @@ function _register_circle_contacts!(registry::FEMLoopRegistry)
             for contact in contacts
                 _register_circle_break!(
                     registry,
-                    first_centre,
+                    first_center,
                     first_radius,
                     atan(
-                        contact[2] - first_centre[2],
-                        contact[1] - first_centre[1]
+                        contact[2] - first_center[2],
+                        contact[1] - first_center[1]
                     );
                     point = contact
                 )
                 _register_circle_break!(
                     registry,
-                    second_centre,
+                    second_center,
                     second_radius,
                     atan(
-                        contact[2] - second_centre[2],
-                        contact[1] - second_centre[1]
+                        contact[2] - second_center[2],
+                        contact[1] - second_center[1]
                     );
                     point = contact
                 )
@@ -531,14 +531,14 @@ function _transform_point(point, at)
     )
 end
 
-function _circle_point(centre, radius, angle)
+function _circle_point(center, radius, angle)
     cosine = cos(angle)
     sine = sin(angle)
     isapprox(cosine, 0; rtol = 0, atol = 128eps(Float64)) && (cosine = 0.0)
     isapprox(sine, 0; rtol = 0, atol = 128eps(Float64)) && (sine = 0.0)
     return (
-        centre[1] + radius * cosine,
-        centre[2] + radius * sine
+        center[1] + radius * cosine,
+        center[2] + radius * sine
     )
 end
 
@@ -636,7 +636,12 @@ function _signed_area(points)
     end / 2
 end
 
-function _canonical_points(points)
+"""
+Remove an approximately repeated closing vertex, orient the polygon
+counterclockwise and start at the least coordinate key. Coordinates use Float64;
+the closing-point distance tolerance is 1e-14 m.
+"""
+function _normalize_polygon_vertices(points)
     values = [(Float64(point[1]), Float64(point[2])) for point in points]
     if length(values) > 1
         first_point = first(values)
@@ -654,7 +659,7 @@ function _canonical_points(points)
 end
 
 function _polygon_loop!(registry::FEMLoopRegistry, points; mesh_size = registry.mesh_size)
-    values = _canonical_points(points)
+    values = _normalize_polygon_vertices(points)
     key = (:polygon,
         Tuple(
             (_coordinate_key(point[1]), _coordinate_key(point[2])) for point in values
@@ -672,17 +677,17 @@ end
 
 function _circle_loop!(
         registry::FEMLoopRegistry,
-        centre,
+        center,
         radius;
         mesh_size = registry.mesh_size
 )
-    key = (:circle, _circle_key(centre, radius))
+    key = (:circle, _circle_key(center, radius))
     loop = get!(registry.loops, key) do
-        _register_full_circle_breaks!(registry, centre, radius)
-        first_point = (centre[1] + radius, centre[2])
+        _register_full_circle_breaks!(registry, center, radius)
+        first_point = (center[1] + radius, center[2])
         curves = _circle_arc_path!(
             registry,
-            centre,
+            center,
             radius,
             0.0,
             2π;
@@ -711,8 +716,8 @@ function _ellipse_loop!(
         _coordinate_key(shape.b)
     )
     loop = get!(registry.loops, key) do
-        centre = (shape.at.x, shape.at.y)
-        centre_tag = _point!(registry, centre; mesh_size)
+        center = (shape.at.x, shape.at.y)
+        center_tag = _point!(registry, center; mesh_size)
         local_points = (
             (shape.a, 0.0),
             (0.0, shape.b),
@@ -729,7 +734,7 @@ function _ellipse_loop!(
         for index in 1:4
             next_index = mod1(index + 1, 4)
             curve = gmsh.model.geo.add_ellipse_arc(
-                point_tags[index], centre_tag, major_tag, point_tags[next_index]
+                point_tags[index], center_tag, major_tag, point_tags[next_index]
             )
             registry.curve_points[curve] = (
                 point_tags[index], point_tags[next_index]
@@ -759,7 +764,7 @@ end
 
 function _circle_arc_path!(
         registry::FEMLoopRegistry,
-        centre,
+        center,
         radius,
         start_angle,
         span;
@@ -777,10 +782,10 @@ function _circle_arc_path!(
     # Every consumer of a circular interface must use the same subdivision.
     # Span-relative subdivisions create overlapping curves when another
     # material traverses the same interface over a different angular range.
-    _register_full_circle_breaks!(registry, centre, radius)
-    _register_circle_break!(registry, centre, radius, start_angle)
-    _register_circle_break!(registry, centre, radius, start_angle + value_span)
-    circle_key = _circle_key(centre, radius)
+    _register_full_circle_breaks!(registry, center, radius)
+    _register_circle_break!(registry, center, radius, start_angle)
+    _register_circle_break!(registry, center, radius, start_angle + value_span)
+    circle_key = _circle_key(center, radius)
     tolerance = FEM_BOUNDARY_ANGLE_TOLERANCE
     distances = Float64[0.0, distance]
     for angle in registry.circle_breaks[circle_key]
@@ -794,11 +799,11 @@ function _circle_arc_path!(
     angles = Float64(start_angle) .+ direction .* distances
     points = [something(
                   _circle_break_point(registry, circle_key, angle),
-                  _circle_point(centre, radius, angle)
+                  _circle_point(center, radius, angle)
               ) for angle in angles]
     first_point === nothing || (points[1] = first_point)
     last_point === nothing || (points[end] = last_point)
-    centre_tag = _point!(registry, centre; mesh_size)
+    center_tag = _point!(registry, center; mesh_size)
     point_tags = [_point!(registry, point; mesh_size) for point in points]
     return [begin
                 first_tag = point_tags[index]
@@ -808,7 +813,7 @@ function _circle_arc_path!(
                 stored_last = get!(registry.circle_arcs, key) do
                     (
                         gmsh.model.geo.add_circle_arc(
-                            first_tag, centre_tag, last_tag
+                            first_tag, center_tag, last_tag
                         ),
                         first_tag,
                         last_tag
@@ -818,7 +823,7 @@ function _circle_arc_path!(
                 get!(registry.curve_samples, tag) do
                     a = first_tag == stored_first ? angles[index] : angles[index + 1]
                     b = first_tag == stored_first ? angles[index + 1] : angles[index]
-                    [_circle_point(centre, radius, a + fraction * (b - a))
+                    [_circle_point(center, radius, a + fraction * (b - a))
                      for fraction in (0.0, 1e-6, ((1:15) ./ 16)..., 1 - 1e-6, 1.0)]
                 end
                 first_tag == stored_first && last_tag == stored_last ? tag : -tag
@@ -870,10 +875,10 @@ function _sector_loop!(
                 )]
                 continue
             end
-            centre = _transform_point(arc.center, shape.at)
+            center = _transform_point(arc.center, shape.at)
             arc_curves[name] = _circle_arc_path!(
                 registry,
-                centre,
+                center,
                 arc.radius,
                 shape.at.φ + arc.start,
                 arc.stop - arc.start;
@@ -901,31 +906,31 @@ function _bent_strip_loop!(
         shape::DataModel.BentStrip;
         mesh_size = registry.mesh_size
 )
-    centre = (shape.at.x, shape.at.y)
+    center = (shape.at.x, shape.at.y)
     if iszero(shape.ri) && isapprox(
             shape.span, 2π; rtol = 0, atol = FEM_BOUNDARY_ANGLE_TOLERANCE
     )
-        return _circle_loop!(registry, centre, shape.ro; mesh_size)
+        return _circle_loop!(registry, center, shape.ro; mesh_size)
     end
     start_angle = shape.at.φ - shape.span / 2
     stop_angle = shape.at.φ + shape.span / 2
     key = (
         :bent_strip,
-        _coordinate_key(centre[1]),
-        _coordinate_key(centre[2]),
+        _coordinate_key(center[1]),
+        _coordinate_key(center[2]),
         _coordinate_key(start_angle),
         _coordinate_key(shape.span),
         _coordinate_key(shape.ri),
         _coordinate_key(shape.ro)
     )
     loop = get!(registry.loops, key) do
-        outer_start_point = _circle_point(centre, shape.ro, start_angle)
-        outer_stop_point = _circle_point(centre, shape.ro, stop_angle)
+        outer_start_point = _circle_point(center, shape.ro, start_angle)
+        outer_stop_point = _circle_point(center, shape.ro, stop_angle)
         outer_start = _point!(registry, outer_start_point; mesh_size)
         outer_stop = _point!(registry, outer_stop_point; mesh_size)
         curves = _circle_arc_path!(
             registry,
-            centre,
+            center,
             shape.ro,
             start_angle,
             shape.span;
@@ -934,19 +939,19 @@ function _bent_strip_loop!(
             last_point = outer_stop_point
         )
         if iszero(shape.ri)
-            centre_point = _point!(registry, centre; mesh_size)
-            push!(curves, _line!(registry, outer_stop, centre_point))
-            push!(curves, _line!(registry, centre_point, outer_start))
+            center_point = _point!(registry, center; mesh_size)
+            push!(curves, _line!(registry, outer_stop, center_point))
+            push!(curves, _line!(registry, center_point, outer_start))
         else
-            inner_start_point = _circle_point(centre, shape.ri, start_angle)
-            inner_stop_point = _circle_point(centre, shape.ri, stop_angle)
+            inner_start_point = _circle_point(center, shape.ri, start_angle)
+            inner_stop_point = _circle_point(center, shape.ri, stop_angle)
             inner_start = _point!(registry, inner_start_point; mesh_size)
             inner_stop = _point!(registry, inner_stop_point; mesh_size)
             push!(curves, _line!(registry, outer_stop, inner_stop))
             append!(curves,
                 _circle_arc_path!(
                     registry,
-                    centre,
+                    center,
                     shape.ri,
                     stop_angle,
                     -shape.span;
@@ -1122,10 +1127,10 @@ function _material_faces!(registry::FEMLoopRegistry, boundaries)
     for edge in edges
         step = steps[endpoints[edge][2]]
         backwards = direction(-edge, step)
-        candidates = get(outgoing, endpoints[edge][2], Int[])
-        isempty(candidates) && throw(ArgumentError("open FEM material boundary"))
-        successors[edge] = candidates[argmin(map(candidates) do candidate
-            mod(backwards - direction(candidate, step), 2π)
+        outgoing_edges = get(outgoing, endpoints[edge][2], Int[])
+        isempty(outgoing_edges) && throw(ArgumentError("open FEM material boundary"))
+        successors[edge] = outgoing_edges[argmin(map(outgoing_edges) do edge_index
+            mod(backwards - direction(edge_index, step), 2π)
         end)]
     end
     length(unique(Base.values(successors))) == length(edges) || throw(ArgumentError(
@@ -1187,23 +1192,23 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
         span <= FEM_BOUNDARY_ANGLE_TOLERANCE && (span = 2π)
         hole = plan.holes[index]
         next_hole = plan.holes[next_index]
-        hole_centre = (Float64(hole.at.x), Float64(hole.at.y))
-        next_hole_centre = (
+        hole_center = (Float64(hole.at.x), Float64(hole.at.y))
+        next_hole_center = (
             Float64(next_hole.at.x), Float64(next_hole.at.y)
         )
-        outer_point = _radial_point(plan.centre, plan.outer_radius, angle)
+        outer_point = _radial_point(plan.center, plan.outer_radius, angle)
         next_outer_point = _radial_point(
-            plan.centre, plan.outer_radius, next_angle
+            plan.center, plan.outer_radius, next_angle
         )
-        inner_point = _radial_point(plan.centre, plan.inner_radius, angle)
+        inner_point = _radial_point(plan.center, plan.inner_radius, angle)
         next_inner_point = _radial_point(
-            plan.centre, plan.inner_radius, next_angle
+            plan.center, plan.inner_radius, next_angle
         )
         curves = Int[]
         append!(curves,
             _circle_arc_path!(
                 registry,
-                plan.centre,
+                plan.center,
                 plan.outer_radius,
                 angle,
                 span;
@@ -1214,7 +1219,7 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
         append!(curves,
             _circle_arc_path!(
                 registry,
-                next_hole_centre,
+                next_hole_center,
                 Float64(next_hole.r),
                 next_angle,
                 -π;
@@ -1225,7 +1230,7 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
         append!(curves,
             _circle_arc_path!(
                 registry,
-                plan.centre,
+                plan.center,
                 plan.inner_radius,
                 next_angle,
                 -span;
@@ -1236,7 +1241,7 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
         append!(curves,
             _circle_arc_path!(
                 registry,
-                hole_centre,
+                hole_center,
                 Float64(hole.r),
                 angle + π,
                 -π;
@@ -1253,7 +1258,7 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
         push!(surfaces,
             _annular_sector_surface!(
                 registry,
-                plan.centre,
+                plan.center,
                 plan.outer_radius,
                 plan.shell_outer_radius,
                 start_angle,
@@ -1316,15 +1321,15 @@ function _validate_material_interfaces!(model::FEMResolvedModel, material_surfac
 end
 
 function _interface_mesh_sizes(model::FEMResolvedModel, mesh_plan::FEMMeshPlan)
-    centre_x = model.centre[1]
+    center_x = model.center[1]
     sizes = Dict{Float64, Float64}()
     function register(x, size)
         key = _coordinate_key(x)
         sizes[key] = min(get(sizes, key, Inf), Float64(size))
     end
-    register(centre_x, mesh_plan.interface_mesh_size)
+    register(center_x, mesh_plan.interface_mesh_size)
     for offset in (-2.0, 2.0)
-        register(centre_x + offset, mesh_plan.domain_mesh_size)
+        register(center_x + offset, mesh_plan.domain_mesh_size)
     end
     for (index, position) in enumerate(model.problem.system.positions)
         register(position.x, mesh_plan.cable_interface_mesh_sizes[index])
@@ -1380,45 +1385,45 @@ function _build_geometry!(
     # Keep exterior bookkeeping separate so frequency changes never recreate
     # or transform the authoritative cable geometry.
     registry = FEMLoopRegistry(model.fine_mesh_size)
-    centre_x, _ = model.centre
+    center_x, _ = model.center
     radius = mesh_plan.domain_radius
     shell_radius = mesh_plan.shell_outer_radius
     inner = _circle_loop!(
         registry,
-        (centre_x, 0.0),
+        (center_x, 0.0),
         radius;
         mesh_size = mesh_plan.domain_mesh_size
     )
     outer = _circle_loop!(
         registry,
-        (centre_x, 0.0),
+        (center_x, 0.0),
         shell_radius;
         mesh_size = mesh_plan.infinite_mesh_size
     )
     inner_left = _point!(
         registry,
-        (centre_x - radius, 0.0);
+        (center_x - radius, 0.0);
         mesh_size = mesh_plan.domain_mesh_size
     )
     inner_right = _point!(
         registry,
-        (centre_x + radius, 0.0);
+        (center_x + radius, 0.0);
         mesh_size = mesh_plan.domain_mesh_size
     )
     outer_left = _point!(
         registry,
-        (centre_x - shell_radius, 0.0);
+        (center_x - shell_radius, 0.0);
         mesh_size = mesh_plan.infinite_mesh_size
     )
     outer_right = _point!(
         registry,
-        (centre_x + shell_radius, 0.0);
+        (center_x + shell_radius, 0.0);
         mesh_size = mesh_plan.infinite_mesh_size
     )
     interface_sizes = _interface_mesh_sizes(model, mesh_plan)
     interface_points = Int[inner_left]
     for (x, mesh_size) in sort!(collect(interface_sizes); by = first)
-        centre_x - radius < x < centre_x + radius || continue
+        center_x - radius < x < center_x + radius || continue
         push!(interface_points, _point!(registry, (x, 0.0); mesh_size))
     end
     push!(interface_points, inner_right)

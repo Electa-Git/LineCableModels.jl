@@ -22,7 +22,7 @@
         @test record.methods.earth_properties.parameters.beta === beta
     end
     artifact=report(BenchmarkTableDefinition(), (
-        reference = results[1], candidate = results[2]))
+        reference = results[1], result = results[2]))
     @test artifact.reference.gridpoint.formulations !=
           artifact.observed.gridpoint.formulations
     @test artifact.tables.formulations.label[1] != artifact.tables.formulations.label[2]
@@ -35,7 +35,7 @@
     # missing instead of comparing the retained availability mask.
     @test isequal(
         report(BenchmarkTableDefinition(), (
-            reference = restored[1], candidate = restored[2])).tables.formulations,
+            reference = restored[1], result = restored[2])).tables.formulations,
         artifact.tables.formulations)
     custom=FormulaFixtures.DispersiveEarth()
     selected=Formulation(earth_properties = custom)

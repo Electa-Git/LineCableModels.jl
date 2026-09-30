@@ -108,7 +108,7 @@ function _pscad_basis(
     )
 end
 
-function _prepare_pscad(problem::LineParametersProblem, formulation::PSCADFormulation, blueprints)
+function _pscad_inputs(problem::LineParametersProblem, formulation::PSCADFormulation, blueprints)
     _pscad_deterministic(eltype(problem), typeof(formulation.options.data.base_frequency))
     setting = pscad_setting(formulation, problem, blueprints)
     frequency = formulation.options.data.base_frequency
@@ -136,11 +136,11 @@ function _prepare_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     return (; setting, project, native_order, permutation, coordinates, dielectric_losses)
 end
 
-function _stage_pscad_project(prepared, work_root::AbstractString)
+function _stage_pscad_project(inputs, work_root::AbstractString)
     root = mktempdir(mkpath(abspath(work_root)); prefix = "run-", cleanup = false)
     @debug "Exporting PSCAD computation project"
     staged = joinpath(root, "generated.pscx")
-    write(staged, prepared.project)
+    write(staged, inputs.project)
     return (; root, staged)
 end
 
@@ -151,12 +151,12 @@ _pscad_digest(record::AbstractDict) =
     bytes2hex(sha256(sprint(io -> TOML.print(io, record; sorted = true))))
 
 function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormulation,
-        execution_options, prepared)
+        execution_options, inputs)
     config = execution_options.data.remote
-    setting = prepared.setting
+    setting = inputs.setting
     input = Dict{String, Any}(
         "schema_version" => 4,
-        "project_sha256" => bytes2hex(sha256(prepared.project)),
+        "project_sha256" => bytes2hex(sha256(inputs.project)),
         "frequencies" => Float64.(problem.frequencies),
         "matrix_size" => collect(_pscad_size(problem)),
         "native_settings" => Dict(string(component) => Dict(string(field) => Dict(
@@ -207,18 +207,18 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             isfile(path) && bytes2hex(open(sha256, path)) == get(record["outputs"], name, nothing) ||
                 throw(ArgumentError("PSCAD completed-run output integrity check failed: $path"))
         end
-        candidate_identity = _validate_solver_identity(
+        stored_solver_identity = _validate_solver_identity(
             TOML.parsefile(joinpath(candidate, "outputs", "solver.toml")), config)
-        candidate_identity == get(record, "observed_solver", nothing) || throw(ArgumentError(
+        stored_solver_identity == get(record, "observed_solver", nothing) || throw(ArgumentError(
             "PSCAD completed run has no matching solver attestation: $candidate"))
         station_identity === nothing && (station_identity = identify(config))
         expected === nothing || expected == station_identity || throw(ArgumentError(
             "PSCAD station does not match the expected solver identity"))
-        if candidate_identity != station_identity
+        if stored_solver_identity != station_identity
             resume === :latest && continue
             throw(ArgumentError("PSCAD completed run belongs to a different solver installation: $candidate"))
         end
-        source_root, actual = candidate, candidate_identity
+        source_root, actual = candidate, stored_solver_identity
         break
     end
     reused = source_root !== nothing
@@ -229,7 +229,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             stdout_path = joinpath(output, "stdout.txt"), stderr_path = joinpath(output, "stderr.txt"),
             console_path = joinpath(output, "pscad-console.txt"), output_dir = output)
     else
-        root, staged = _stage_pscad_project(prepared, parent)
+        root, staged = _stage_pscad_project(inputs, parent)
         source_root = root
         open(joinpath(root, "computation.toml"), "w") do io
             TOML.print(io, input; sorted = true)
@@ -284,8 +284,8 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     return (; parameters, native_readback, files, execution, compile_call_seconds=source_elapsed)
 end
 
-function _pscad_result(problem, formulation, options, prepared, native; batch_reuse = false)
-    permutation = prepared.permutation
+function _pscad_result(problem, formulation, options, inputs, native; batch_reuse = false)
+    permutation = inputs.permutation
     parameters = LineParameters(PhaseDomain,
         Z(native.parameters)[permutation, permutation, :], Y(native.parameters)[permutation, permutation, :],
         copy(frequencies(native.parameters)); details = details(native.parameters))
@@ -296,13 +296,13 @@ function _pscad_result(problem, formulation, options, prepared, native; batch_re
         "completed PSCAD shunt admittance must contain only finite entries"))
     execution = native.execution
     batch_reuse && (execution=merge(execution, (reused=true,)))
-    retained = (files = deepcopy(native.files), coordinates = copy(prepared.coordinates),
-        native_terminal_order = copy(prepared.native_order), requested_frequencies = copy(problem.frequencies),
-        formulations = computation_details(formulation).data, native_setting = prepared.setting,
+    retained = (files = deepcopy(native.files), coordinates = copy(inputs.coordinates),
+        native_terminal_order = copy(inputs.native_order), requested_frequencies = copy(problem.frequencies),
+        formulations = computation_details(formulation).data, native_setting = inputs.setting,
         base_frequency = formulation.options.data.base_frequency, loss_tangent_limit = 10.0,
         aerial_shunt_conductance = 1e-38, native_readback = deepcopy(native.native_readback),
         native_frequencies = copy(details(native.parameters).data.native_frequencies),
-        dielectric_losses = deepcopy(prepared.dielectric_losses), exported_project = prepared.project,
+        dielectric_losses = deepcopy(inputs.dielectric_losses), exported_project = inputs.project,
         execution = deepcopy(execution))
     if options.data.timing
         timing = execution.reused ? (;) : (compile_call_seconds=native.compile_call_seconds,)
@@ -335,15 +335,15 @@ function compute(problem::LineParametersProblem, formulations::AbstractVector{<:
     _validate_frequencies(problem.frequencies)
     _pscad_size(problem)
     blueprints = _pscad_blueprints(problem.system)
-    prepared = [_prepare_pscad(problem, formulation, blueprints) for formulation in formulations]
+    inputs = [_pscad_inputs(problem, formulation, blueprints) for formulation in formulations]
     logger = LineCableModels.VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
     return Logging.with_logger(logger) do
-        _compute_pscad(problem, formulations, execution, prepared)
+        _compute_pscad(problem, formulations, execution, inputs)
     end
 end
 
 function _compute_pscad(problem::LineParametersProblem,
-        formulations::AbstractVector{<:PSCADFormulation}, execution::ComputationOptions, prepared)
+        formulations::AbstractVector{<:PSCADFormulation}, execution::ComputationOptions, inputs)
     progress = verbosity(execution, :progress) > 0
     started = progress ? time_ns() : UInt64(0)
     last_log = started
@@ -353,14 +353,14 @@ function _compute_pscad(problem::LineParametersProblem,
     physical_inputs = Engine.completed_inputs(problem)
     source_id = gridpoint_id().source_id
     keys = [(project = value.project, setting = value.setting[(:ground, :frequency, :configuration)])
-            for value in prepared]
+            for value in inputs]
     # Include native execution, readback, and final result construction, but
-    # exclude batch preparation, measurement attachment, and callbacks.
+    # exclude batch input construction, measurement attachment, and callbacks.
     scan_started = execution.data.timing ? time_ns() : UInt64(0)
-    native = _compute_pscad(problem, first(formulations), execution, first(prepared))
+    native = _compute_pscad(problem, first(formulations), execution, first(inputs))
     execution = ComputationOptions(merge(execution.data, (solver_identity = native.execution.solver_identity,)))
     first_result = Engine.retain_gridpoint(_pscad_result(problem, first(formulations), execution,
-        first(prepared), native), gridpoint_id(; source_id);
+        first(inputs), native), gridpoint_id(; source_id);
         fields = merge(Engine.completed_formulation(first(formulations)), (inputs = physical_inputs,)))
     if execution.data.timing && !isempty(first_result.details.data.timing)
         wall_seconds = (time_ns() - scan_started) * 1e-9
@@ -387,9 +387,9 @@ function _compute_pscad(problem::LineParametersProblem,
             @debug "PSCAD reuses identical exported inputs" formulation=index
             completed[keys[index]]
         else
-            _compute_pscad(problem, formulations[index], execution, prepared[index])
+            _compute_pscad(problem, formulations[index], execution, inputs[index])
         end
-        value = _pscad_result(problem, formulations[index], execution, prepared[index], native; batch_reuse = shared)
+        value = _pscad_result(problem, formulations[index], execution, inputs[index], native; batch_reuse = shared)
         value = Engine.retain_gridpoint(value,
             gridpoint_id(; source_id, formulation_index = index);
             fields = merge(Engine.completed_formulation(formulations[index]), (inputs = physical_inputs,)))

@@ -17,7 +17,7 @@
     benchmark=EN.compare(parameters, parameters)
     constants=CableConstants(1e-4, 2e-7, 3e-10, 4e-12)
     backend=LineCableModelsFEM(options = (physics = :quasi_fw,))
-    backend_options=computation_options(LineCableModelsFEM, ComputationOptions((mesh_policy=:remesh,)))
+    backend_options=computation_options(LineCableModelsFEM, ComputationOptions((mesh_mode=:remesh,)))
     blueprints=EN.CableBlueprint{eltype(line_problem)}[EN.flatten(LineCableModelsCoaxial(),
                                                            design, eltype(line_problem))
                                                        for design in line_problem.system.designs]
@@ -91,14 +91,14 @@ end
 
 @testitem "TextDisplay / wire estimates expose feasibility and physical dimensions" tags=[:unit] begin
     estimates = (
-        make_stranded(1000.0),
-        make_stranded(1.0e12; nmin = 40, nmax = 40),
-        make_screened(35.0, 60.0; coverage_min_pct = 85.0),
-        make_screened(35.0, 60.0; coverage_min_pct = 99.0, coverage_max_pct = 99.0)
+        estimate_stranding(1000.0),
+        estimate_stranding(1.0e12; awg_min = 40, awg_max = 40),
+        estimate_screen(35.0, 60.0; coverage_min = 85.0),
+        estimate_screen(35.0, 60.0; coverage_min = 99.0, coverage_max = 99.0)
     )
     for estimate in estimates
-        candidates = collect(estimate)
-        @test occursin("$(length(estimate)) candidates", sprint(summary, estimate))
+        patterns = collect(estimate)
+        @test occursin("$(length(estimate)) patterns", sprint(summary, estimate))
         @test occursin(string(estimate.status), sprint(show, estimate))
         @test LineCableModels.TextDisplay.name(typeof(estimate)) == "WireEstimate"
         @test sprint(show, MIME"text/plain"(), estimate; context = :compact=>true) ==
@@ -106,24 +106,24 @@ end
         shown = sprint(show, MIME"text/plain"(), estimate;
             context = IOContext(IOBuffer(), :limit=>false, :displaysize=>(80, 160)))
         @test occursin("target", shown)
-        @test occursin("candidates", shown)
+        @test occursin("patterns", shown)
         @test occursin(string(estimate.status), shown)
         for reason in estimate.reasons
             @test occursin(reason, shown)
         end
-        # Candidates share their display method; the ranked endpoints suffice.
-        for candidate in (first(candidates), last(candidates))
-            @test occursin("$(candidate.wires) wires", sprint(summary, candidate))
-            compact = sprint(show, candidate)
-            @test occursin("wires=$(candidate.wires)", compact)
+        # Patterns share their display method; the ranked endpoints suffice.
+        for pattern in (first(patterns), last(patterns))
+            @test occursin("$(pattern.wires) wires", sprint(summary, pattern))
+            compact = sprint(show, pattern)
+            @test occursin("wires=$(pattern.wires)", compact)
             @test occursin("d=", compact)
-            @test sprint(show, MIME"text/plain"(), candidate) == compact
-            if hasproperty(candidate, :coverage_pct)
+            @test sprint(show, MIME"text/plain"(), pattern) == compact
+            if hasproperty(pattern, :coverage)
                 @test occursin("coverage=", compact)
                 @test occursin("%", compact)
             end
         end
-        @test collect(estimate) == candidates
+        @test collect(estimate) == patterns
     end
 end
 

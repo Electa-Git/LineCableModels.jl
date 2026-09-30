@@ -48,7 +48,7 @@ Radius or thickness selection, repetition, and variation use explicit
 materialize the same action through `Gridspace`. Completed objects therefore
 contain one resolved geometry and cannot drift from their declarations.
 
-Mutable libraries validate a complete candidate before changing owned state.
+Mutable libraries validate a complete library replacement before changing owned state.
 Earth models, cable designs, and line systems are immutable descriptions;
 rebuild the authoritative declaration when it changes.
 
@@ -72,12 +72,12 @@ Declare dependent dimensions with a joint builder and justify feasibility over
 its complete support. A few successful draws are a useful regression check,
 not a support proof. Arbitrary callbacks and independent unbounded normal
 inputs cannot be certified from marginal means and standard uncertainties.
-`MonteCarlo(...; on_error=:retry, retain_details=true)` explicitly conditions on
+`MonteCarlo(...; on_error=:resample, retain_details=true)` explicitly conditions on
 successful construction and calculation; it does not preserve the original law.
 
-The existing exterior cable-clearance policy is separate. System construction
+The existing exterior cable-clearance rule is separate. System construction
 may adjust practically touching cable placements with a warning, retaining its
-propagated uncertainty reserve across Monte Carlo draws. That policy does not
+propagated uncertainty reserve across Monte Carlo draws. That rule does not
 authorize internal geometric or statistical repairs. Gmsh's tolerances are not
 used as manufacturing clearances.
 
@@ -91,7 +91,7 @@ LineCableModels.validate
 
 `observables(...; clip=true)` and `compare` share declared, quantity-aware
 resolution in native physical units. No dimensionless epsilon is applied after
-unit conversion. This policy is independent of matrix blocks, selected
+unit conversion. This reporting rule is independent of matrix blocks, selected
 formulations and visible plot ranges. It is a reporting cutoff, not a certified
 bound on solver error or physical uncertainty.
 

@@ -4,15 +4,15 @@
     f=[0.1,10.,50.,1e3,1e6,1e7]
     reference=LineParameters(fill(1.0+1im,1,1,6),zeros(ComplexF64,1,1,6),f;
         details=ComputationDetails(;coordinates=["core"],))
-    candidate=LineParameters(fill(1.2+1im,1,1,6),zeros(ComplexF64,1,1,6),f;
+    result=LineParameters(fill(1.2+1im,1,1,6),zeros(ComplexF64,1,1,6),f;
         details=ComputationDetails(;coordinates=["core"],))
-    artifact=report(BenchmarkTableDefinition((R,G);bands=(:all,:dc,:harmonic,:narrow,:wide)),(;reference,candidate))
+    artifact=report(BenchmarkTableDefinition((R,G);bands=(:all,:dc,:harmonic,:narrow,:wide)),(;reference,result))
     @test artifact[R]===artifact.tables.quantities[1].Z.R
     @test artifact[1,R]===artifact[R]
     @test artifact.reference!==nothing
     original_id=artifact.observed.gridpoint.id
     reference_id=artifact.reference.gridpoint.id
-    @test all(row -> row.candidate_id==original_id && row.reference_id==reference_id,
+    @test all(row -> row.result_id==original_id && row.reference_id==reference_id,
         artifact.observed.errors)
     before=deepcopy(artifact.tables)
     errors=deepcopy(artifact.observed.errors)

@@ -44,7 +44,7 @@ function _shunt_concentric(shape, x, y, scale)
 end
 
 # Preserve ordering and dependency information. Nominal values decide ordering;
-# coincident interfaces/centres must also have matching uncertain dependencies.
+# coincident interfaces/centers must also have matching uncertain dependencies.
 function _shunt_layers(regions, inner, outer, x, y, ::Type{T}) where {T}
     layers = ShuntLayer{T}[]
     _shunt_same(inner, outer, outer) && return layers

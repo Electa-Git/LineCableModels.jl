@@ -109,7 +109,7 @@ observe(parameters, Z, angle, 1, 1, Colon())
 The [`@observe`](@ref) macro constructs detached requests or immediately
 extracts indexed values.
 
-[`observables`](@ref) prepares detached values for tables and plots. Requests
+[`observables`](@ref) constructs detached values for tables and plots. Requests
 are positional:
 
 ```julia
@@ -179,7 +179,7 @@ MonteCarlo(
     trials=1000,
     options=(
         retain_details=true,
-        on_error=:retry,
+        on_error=:resample,
         max_failures=100,
     ),
 )

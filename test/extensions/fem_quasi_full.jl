@@ -87,7 +87,7 @@ end
     end
 end
 
-@testitem "Gmsh FEM / voltage path preparation preserves the caller session" tags=[:extension] begin
+@testitem "Gmsh FEM / voltage path file writing preserves the caller session" tags=[:extension] begin
     using LineCableModels, Gmsh
     FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     wire = build(CableDesign, "bare", terminal(:core,
@@ -100,7 +100,7 @@ end
     fem = Formulation(:LineCableModelsFEM;
         options = (physics = :quasi_fw, reduce_bundle = false,
             kron_reduction = false, ideal_transposition = false))
-    fem_controls = (gmsh_verbosity = 0, getdp_verbosity = 3, mesh_policy = :remesh)
+    fem_controls = (gmsh_verbosity = 0, getdp_verbosity = 3, mesh_mode = :remesh)
     model = FEM._resolved_fem_model(FEM._preflight_fem_problem(problem), fem)
     mktempdir() do root
         info = FEM._create_run(root)
@@ -115,7 +115,7 @@ end
                     computation_options(LineCableModelsFEM, ComputationOptions(fem_controls)),
                     root))
                 # Exercise a caller model whose name collides with the mesh
-                # basename; path preparation must preserve both its identity
+                # basename; file writing must preserve both its identity
                 # and its contents rather than opening another "model".
                 gmsh.model.add(splitext(basename(mesh))[1])
                 caller_model = gmsh.model.get_current()

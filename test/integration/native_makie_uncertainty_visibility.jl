@@ -82,17 +82,17 @@ end
     z = reshape(complex.(measurement.(resistance, errors), 0.1), 1, 1, :)
     reference = LineParameters(z, z .* 1e-6, measurement.(f, 0.01))
     other_z = reshape(complex.(measurement.(1.05 .* resistance, 0.02), 0.1), 1, 1, :)
-    candidate = LineParameters(other_z, other_z .* 1e-6, measurement.(f, 0.02))
+    compared_result = LineParameters(other_z, other_z .* 1e-6, measurement.(f, 0.02))
     axes = (problems = [:one], formulations = [NamedTuple(Formulation())])
-    result = ParametricResult(nothing, [candidate], axes, ComputationDetails((;)))
-    before = deepcopy((Z(reference), Y(reference), frequencies(reference), Z(candidate)))
+    result = ParametricResult(nothing, [compared_result], axes, ComputationDetails((;)))
+    before = deepcopy((Z(reference), Y(reference), frequencies(reference), Z(compared_result)))
     options = (; backend = :cairo, display_plot = false, open_export = false,
         ydata = ((R, 1, 1, :),), reference, length_unit = :base, quantity_units = :base,
         freq_unit = :base, clip = false, fig_size = (1000, 650))
     page = LineCableModels.plot(result; options...)
     axis = only(page.axes)
-    for (key, source) in zip(page.addon_state.order, (candidate, reference))
-        group = page.addon_state.groups[key]
+    for (key, source) in zip(page.plot_state.order, (compared_result, reference))
+        group = page.plot_state.groups[key]
         line = only(filter(p -> p isa Makie.Lines, group))
         marker = only(filter(p -> p isa Makie.Scatter, group))
         bars = filter(p -> p isa Makie.Errorbars, group)
@@ -110,7 +110,7 @@ end
         @test all(p -> p in line[1][], marker[1][])
         @test all(bar -> Makie.to_color(bar.color[]) == Makie.to_color(line.color[]), bars)
     end
-    reference_group = page.addon_state.groups[last(page.addon_state.order)]
+    reference_group = page.plot_state.groups[last(page.plot_state.order)]
     reference_bar = only(filter(p -> p isa Makie.Errorbars && p.direction[] === :y, reference_group))
     @test first(f) ∉ first.(reference_bar[1][])
     @test axis.finallimits[].origin[2] <= resistance[1] - errors[1]
@@ -142,9 +142,9 @@ end
     end
 
     for n in (1, 2)
-        short = ParametricResult(nothing, [candidate[1:n]], axes, ComputationDetails((;)))
+        short = ParametricResult(nothing, [compared_result[1:n]], axes, ComputationDetails((;)))
         plot = LineCableModels.plot(short; options..., reference = reference[1:n])
-        for group in values(plot.addon_state.groups)
+        for group in values(plot.plot_state.groups)
             marker = only(filter(p -> p isa Makie.Scatter, group))
             bars = filter(p -> p isa Makie.Errorbars, group)
             @test all(!isempty(bar[1][]) for bar in bars)
@@ -155,7 +155,7 @@ end
     end
     overridden = LineCableModels.plot(result; options..., errorbar_sampling = :all,
         series_attributes = (marker = :diamond, color = :magenta, whiskerwidth = 12))
-    for group in values(overridden.addon_state.groups)
+    for group in values(overridden.plot_state.groups)
         marker = only(filter(p -> p isa Makie.Scatter, group))
         @test length(marker[1][]) == length(f)
         @test marker.marker[] == Makie.to_spritemarker(:diamond)
@@ -164,7 +164,7 @@ end
     end
     @test_throws r"errorbar_sampling" LineCableModels.plot(result; options..., errorbar_sampling = :invalid)
     @test isequal(before, (
-        Z(reference), Y(reference), frequencies(reference), Z(candidate)))
+        Z(reference), Y(reference), frequencies(reference), Z(compared_result)))
 end
 
 @testitem "Makie addons / uncertainty legend actions preserve complete series" tags=[:visual] begin

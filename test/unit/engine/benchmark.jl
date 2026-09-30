@@ -19,13 +19,13 @@
     @test identical.Y.absolute == zeros(2, 2)
     @test identical.Y.relative == zeros(2, 2)
 
-    candidate=LineParameters(
+    result=LineParameters(
         PhaseDomain,
         impedance .+ reshape(ComplexF64[1, 2, 3, 4], 2, 2, 1),
         admittance .+ reshape(ComplexF64[2im, 3im, 4im, 5im], 2, 2, 1),
         frequencies_value
     )
-    comparison=compare(reference, candidate)
+    comparison=compare(reference, result)
     comparison_observables=observables(
         comparison,
         (
@@ -64,7 +64,7 @@
         frequencies_value
     )
     @test all(ismissing, compare(zero_reference, zero_reference).Z.relative)
-    @test all(ismissing, compare(zero_reference, candidate).Z.relative)
+    @test all(ismissing, compare(zero_reference, result).Z.relative)
 
     different_frequency=LineParameters(
         PhaseDomain, impedance, admittance, [1.0, 11.0]

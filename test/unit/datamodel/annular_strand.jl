@@ -4,8 +4,8 @@
     const IE = LineCableModels.ImportExport
     copper = Material(:conductor, 1.72e-8, 1.0, 1.0)
     strand = Rectangle(0.3e-3, 0.1e-3)
-    centre = Disk(0.2e-3)
-    body = stranded(copper; shape=strand, center=centre,
+    center = Disk(0.2e-3)
+    body = stranded(copper; shape=strand, center=center,
         boundary=Disk(0.6e-3), lay=LayRatio(12))
     design = build(CableDesign, "annular-last-strip", terminal(:core, body))
     metal = filter(region -> region.source.material.kind === :conductor,
@@ -48,8 +48,8 @@
     row = only(blueprint.conductors)
     @test row.r_ex == outer_radius(design)
     @test row.num_wires == length(metal)
-    @test row.cross_section ≈ area(centre) + 33area(strand)
-    expected_resistance = copper.rho / (area(centre) + 33area(strand) / sqrt(1 + (pi / 12)^2))
+    @test row.cross_section ≈ area(center) + 33area(strand)
+    expected_resistance = copper.rho / (area(center) + 33area(strand) / sqrt(1 + (pi / 12)^2))
     @test row.resistance ≈ expected_resistance
     @test isfinite(row.gmr) && 0 < row.gmr < row.r_ex
 
@@ -58,10 +58,10 @@
     shifted_row = only(EN.flatten(LineCableModelsCoaxial(), shifted, Float64).conductors)
     @test shifted_row.resistance ≈ row.resistance
     @test shifted_row.gmr ≈ row.gmr
-    @test shifted_row.num_turns ≈ row.num_turns
+    @test shifted_row.turns_per_length ≈ row.turns_per_length
 
     designs = build(CableDesign, "annular-grid", terminal(:core,
-        stranded(copper; shape=strand, center=centre,
+        stranded(copper; shape=strand, center=center,
             boundary=Disk(Grid((0.59e-3, 0.6e-3))), lay=LayRatio(12))))
     @test designs isa Gridspace{CableDesign}
     @test length(designs) == 2
@@ -91,8 +91,8 @@ end
     @test_throws ArgumentError DM.geometric_mean_distance(Disk(0.4e-3), Disk(0.4e-3))
     for T in (Float32, Float64)
         annulus = Annulus(T(1e-3), T(1.0001e-3))
-        centre = Disk(T(0.5e-3))
-        distance = @inferred DM.geometric_mean_distance(annulus, centre)
+        center = Disk(T(0.5e-3))
+        distance = @inferred DM.geometric_mean_distance(annulus, center)
         @test distance isa T
         @test annulus.ri <= distance <= annulus.ro
         reference = setprecision(BigFloat, 256) do
@@ -107,14 +107,14 @@ end
 @testitem "DataModel / disk plus a uniform annular strand equals a solid conductor" tags=[:unit] begin
     const EN = LineCableModels.Engine
     copper = Material(:conductor, 1.72e-8, 1.0, 1.0)
-    centre = Disk(0.2e-3)
+    center = Disk(0.2e-3)
     strand = Rectangle(1.4e-3, 0.1e-3)
-    radius = sqrt(centre.r^2 + area(strand) / pi)
+    radius = sqrt(center.r^2 + area(strand) / pi)
     design = build(CableDesign, "one-annular-strand", terminal(:core,
-        stranded(copper; shape=strand, center=centre, boundary=Disk(radius))))
+        stranded(copper; shape=strand, center=center, boundary=Disk(radius))))
     row = only(EN.flatten(LineCableModelsCoaxial(), design, Float64).conductors)
     # Independent uniform-current limiting case: there is no material or
-    # current-density discontinuity between the centre and its one full ring.
+    # current-density discontinuity between the center and its one full ring.
     @test row.num_wires == 2
     @test row.cross_section ≈ pi * radius^2
     @test row.resistance ≈ copper.rho / (pi * radius^2)

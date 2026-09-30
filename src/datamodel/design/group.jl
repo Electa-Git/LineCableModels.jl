@@ -78,8 +78,8 @@ end
 function _resolved_path_radius(
         compact, pattern, pose, primitive::Union{Polygon, BentStrip}
 )
-    centre = centroid(primitive)
-    return hypot(centre...)
+    center = centroid(primitive)
+    return hypot(center...)
 end
 function _resolved_path_radius(::FillFactor, pattern, pose, primitive::Annulus)
     (r_in(primitive) + r_ex(primitive)) / 2
@@ -128,22 +128,22 @@ end
 
 function circular_members(boundary_shape::Disk, parts, compact::Bool)
     length(parts) == 2 || throw(ArgumentError(
-        "a circular stranded core requires centre and outer strand declarations"
+        "a circular stranded core requires center and outer strand declarations"
     ))
-    centre_part, strand_part = parts
-    centre = centre_part.item.primitive
+    center_part, strand_part = parts
+    center = center_part.item.primitive
     strand = strand_part.item.primitive
-    centre isa Disk || throw(ArgumentError(
-        "a circular stranded core requires a Disk centre wire"
+    center isa Disk || throw(ArgumentError(
+        "a circular stranded core requires a Disk center wire"
     ))
     strand isa Disk || throw(ArgumentError(
         "circular strand packing requires Disk source wires"
     ))
-    centre.r <= boundary_shape.r || throw(DomainError(
-        centre.r, "the centre wire exceeds the circular core boundary"
+    center.r <= boundary_shape.r || throw(DomainError(
+        center.r, "the center wire exceeds the circular core boundary"
     ))
 
-    outer = circular_courses(boundary_shape, centre, strand, compact)
+    outer = circular_courses(boundary_shape, center, strand, compact)
     sites = [(
         site = (boundary_shape.at.x, boundary_shape.at.y),
         course = 0,
@@ -152,18 +152,18 @@ function circular_members(boundary_shape::Disk, parts, compact::Bool)
     ); outer]
     maximum_course = maximum(getproperty.(sites, :course))
     members = NamedTuple[]
-    for (member, candidate) in enumerate(sites)
-        source = member == 1 ? centre_part.item : strand_part.item
+    for (member, placement) in enumerate(sites)
+        source = member == 1 ? center_part.item : strand_part.item
         path = member == 1 ? nothing :
-               strand_path(strand_part.path, candidate.course, maximum_course)
-        angle = candidate.angle
+               strand_path(strand_part.path, placement.course, maximum_course)
+        angle = placement.angle
         push!(members, (;
             source,
-            candidate.course,
+            placement.course,
             member,
             path,
             angle,
-            candidate.site
+            placement.site
         ))
     end
     primitives = compact ? deform_disk_members(boundary_shape, members) :
@@ -174,7 +174,7 @@ end
 
 function sector_members(boundary_shape::SectorShape, parts)
     length(parts) == 1 || throw(ArgumentError(
-        "a sector stranded core uses one declaration for its centre and course wires"
+        "a sector stranded core uses one declaration for its center and course wires"
     ))
     part = only(parts)
     wire = part.item.primitive
@@ -184,12 +184,12 @@ function sector_members(boundary_shape::SectorShape, parts)
     courses, primitives, maximum_course = sector_courses(boundary_shape, wire)
     members = [(
                    source = part.item,
-                   candidate.course,
+                   placement.course,
                    member,
-                   path = strand_path(part.path, candidate.course, maximum_course),
-                   candidate.angle,
-                   candidate.site
-               ) for (member, candidate) in enumerate(courses)]
+                   path = strand_path(part.path, placement.course, maximum_course),
+                   placement.angle,
+                   placement.site
+               ) for (member, placement) in enumerate(courses)]
     return members, primitives
 end
 
@@ -198,21 +198,21 @@ function rectangular_members(boundary_shape::Disk, parts, compact::Bool)
         "rectangular strands require area-preserving bending"
     ))
     length(parts) == 2 || throw(ArgumentError(
-        "a rectangular stranded core requires centre and strand declarations"
+        "a rectangular stranded core requires center and strand declarations"
     ))
-    centre_part, strand_part = parts
-    centre = centre_part.item.primitive
+    center_part, strand_part = parts
+    center = center_part.item.primitive
     strand = strand_part.item.primitive
-    centre isa Disk || throw(ArgumentError(
-        "a rectangular stranded core requires a Disk centre wire"
+    center isa Disk || throw(ArgumentError(
+        "a rectangular stranded core requires a Disk center wire"
     ))
     strand isa Rectangle || throw(ArgumentError(
         "rectangular strand packing requires Rectangle source strands"
     ))
-    strips = rectangular_strands(boundary_shape, centre, strand)
+    strips = rectangular_strands(boundary_shape, center, strand)
     maximum_course = maximum(getproperty.(strips, :course))
     members = NamedTuple[(
-        source = centre_part.item,
+        source = center_part.item,
         course = 0,
         member = 1,
         path = nothing,
@@ -220,7 +220,7 @@ function rectangular_members(boundary_shape::Disk, parts, compact::Bool)
         site = (boundary_shape.at.x, boundary_shape.at.y)
     )]
     primitives = AbstractShape[
-        resolve(Pose2(boundary_shape.at.x, boundary_shape.at.y, boundary_shape.at.φ), centre)
+        resolve(Pose2(boundary_shape.at.x, boundary_shape.at.y, boundary_shape.at.φ), center)
     ]
     for strip in strips
         push!(members, (
@@ -294,10 +294,10 @@ function resolve_bounded(group::Group)
     length(primitives) == length(members) || throw(DimensionMismatch(
         "bounded resolution must preserve the inferred strand count"
     ))
-    formation_centre = centroid(outer)
+    formation_center = centroid(outer)
     regions = PlacedRegion[]
     for (formation_member, (member, primitive)) in enumerate(zip(members, primitives))
-        absolute_centre = centroid(primitive)
+        absolute_center = centroid(primitive)
         pose = bounded_pose(member.site, group.at, member.angle)
         patterns = ((
             owner = Group,
@@ -310,8 +310,8 @@ function resolve_bounded(group::Group)
                     path = member.path,
                     radius = _path_radius(
                         nothing,
-                        Pose2(absolute_centre[1] - formation_centre[1],
-                            absolute_centre[2] - formation_centre[2]),
+                        Pose2(absolute_center[1] - formation_center[1],
+                            absolute_center[2] - formation_center[2]),
                         primitive
                     )
                 ),)
@@ -422,14 +422,14 @@ function _resolve_group(
             patterns = map(placed.placement.patterns) do entry
                 entry.owner === Assembly ? merge(entry, (owner = Group,)) : entry
             end
-            centre = centroid(source.primitive)
+            center = centroid(source.primitive)
             paths = group.path === nothing ? source.paths :
                     (source.paths...,
                 (
                     path = group.path,
                     radius = _path_radius(
                         nothing,
-                        Pose2(centre[1], centre[2], 0),
+                        Pose2(center[1], center[2], 0),
                         source.primitive
                     )
                 ))

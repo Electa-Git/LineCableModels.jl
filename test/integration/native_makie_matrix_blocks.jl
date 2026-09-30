@@ -12,14 +12,14 @@
         panel_legends=(5,5)=>(position=:inside, max_fraction=0.5))
     @test length(pages) == 6
     @test [length(page.axes) for page in pages] == [6,4,6,4,3,2]
-    @test [page.addon_state.panel_page.index for page in pages] ==
+    @test [page.plot_state.panel_page.index for page in pages] ==
         [(1,1),(1,2),(2,1),(2,2),(3,1),(3,2)]
     seen = Tuple{Int,Int}[]
     for page in pages
-        @test page.addon_state.nominal_capacity == (2,3)
+        @test page.plot_state.nominal_capacity == (2,3)
         @test count(block -> block isa Makie.Axis, page.figure.content) == length(page.axes)
         @test all(>(0),page.figure.scene.viewport[].widths)
-        for (coordinate, panel) in page.addon_state.panel_data
+        for (coordinate, panel) in page.plot_state.panel_data
             push!(seen, coordinate)
             i,j = coordinate
             curve = only(filter(plot -> plot isa Makie.Lines, panel.axis.scene.plots))
@@ -49,13 +49,13 @@
     # Selections retain their original slots, not a packed/renumbered submatrix.
     sparse = LineCableModels.plot(parameters; ydata=((R,[1,5],[2,5],:),),
         layout=(2,3), options...)
-    @test [page.addon_state.panel_page.index for page in sparse] == [(1,1),(1,2),(3,1),(3,2)]
-    @test Set(coordinate for page in sparse for coordinate in keys(page.addon_state.panel_data)) ==
+    @test [page.plot_state.panel_page.index for page in sparse] == [(1,1),(1,2),(3,1),(3,2)]
+    @test Set(coordinate for page in sparse for coordinate in keys(page.plot_state.panel_data)) ==
         Set(((1,2),(1,5),(5,2),(5,5)))
     small = LineParameters(z[1:2,1:2,:], z[1:2,1:2,:].*1e-6, frequency)
     full = LineCableModels.plot(small; ydata=(R,), options...)
     @test full isa UIPlot && length(full.axes) == 4
-    @test full.addon_state.panel_page.dimensions==(2,2)
+    @test full.plot_state.panel_page.dimensions==(2,2)
     one = LineCableModels.plot(small; ydata=(R,), layout=(3,4), title="Example", options...)
     @test one isa UIPlot && length(one.axes) == 4
     @test one.export_name=="Example"
@@ -112,8 +112,8 @@ end
     page = LineCableModels.plot(result; ydata=(R,),reference,options...)
     axis = only(page.axes)
     curves = filter(plot -> plot isa Makie.Lines,axis.scene.plots)
-    markers = [only(filter(plot -> plot isa Makie.Scatter,page.addon_state.groups[group]))
-        for group in page.addon_state.order]
+    markers = [only(filter(plot -> plot isa Makie.Scatter,page.plot_state.groups[group]))
+        for group in page.plot_state.order]
     @test length(curves) == length(markers) == 6
     @test all(curve -> curve.linestyle[] == Makie.to_linestyle(:solid),curves)
     @test all(curve -> curve[1][] == first(curves)[1][],curves)
@@ -139,8 +139,8 @@ end
 
     filtered = LineCableModels.plot(result; ydata=(R,),reference,formulations=[5,2],options...)
     filtered_curves = filter(plot -> plot isa Makie.Lines,only(filtered.axes).scene.plots)
-    filtered_markers = [only(filter(plot -> plot isa Makie.Scatter,filtered.addon_state.groups[group]))
-        for group in filtered.addon_state.order]
+    filtered_markers = [only(filter(plot -> plot isa Makie.Scatter,filtered.plot_state.groups[group]))
+        for group in filtered.plot_state.order]
     @test [curve.color[] for curve in filtered_curves] == [curves[i].color[] for i in [5,2,6]]
     @test [marker.marker[] for marker in filtered_markers] == [markers[i].marker[] for i in [5,2,6]]
     @test [marker[1][] for marker in filtered_markers] == [markers[i][1][] for i in [5,2,6]]
@@ -151,9 +151,9 @@ end
     short_result = ParametricResult(nothing,[point[1:2] for point in completed],result.axes, ComputationDetails((;)))
     short = LineCableModels.plot(short_result; ydata=(R,),reference=short_reference,options...)
     @test all(group -> any(plot -> plot isa Makie.Scatter && !isempty(plot[1][]),group),
-        values(short.addon_state.groups))
+        values(short.plot_state.groups))
     short_markers = only(filter(plot -> plot isa Makie.Scatter,
-        short.addon_state.groups[last(short.addon_state.order)]))
+        short.plot_state.groups[last(short.plot_state.order)]))
     @test length(short_markers[1][]) == 2
     moved = figurelegend!(page;position=:top,max_fraction=0.5)
     Makie.toggle_visibility!(first(last(only(moved.entrygroups[]))))
@@ -172,7 +172,7 @@ end
     @test all(occursin('\n',entry.label[]) for entry in long_entries[1:(end-1)])
     @test long.legend.layoutobservables.autosize[][2] <= 0.5only(long.axes).scene.viewport[].widths[2]+1
     @test long.legend.layoutobservables.autosize[][1] <= long.figure.scene.viewport[].widths[1]
-    @test Set(values(long.addon_state.labels)) == Set(long_labels)
+    @test Set(values(long.plot_state.labels)) == Set(long_labels)
     for size in ((700,500),(1400,900),(1000,650))
         resize!(page.figure,size...)
         @test !isempty(Makie.colorbuffer(page.figure))
@@ -196,7 +196,7 @@ end
         controls=false,display_plot=false,backend=:cairo,clip=false)
     @test length(pages)==8
     @test [length(p.axes) for p in pages]==[4,2,2,1,4,2,2,1]
-    @test [p.addon_state.panel_page.dimensions for p in pages[1:4]]==[(2,2),(2,1),(1,2),(1,1)]
+    @test [p.plot_state.panel_page.dimensions for p in pages[1:4]]==[(2,2),(2,1),(1,2),(1,1)]
     frames=[Tuple(axis.layoutobservables.computedbbox[].widths) for p in pages for axis in p.axes]
     @test all(frame -> all(isapprox.(frame,first(frames);atol=1)),frames)
     sizes=[Tuple(p.figure.scene.viewport[].widths) for p in pages]
@@ -205,7 +205,7 @@ end
     for p in pages[1:2]
         before=Tuple(p.figure.scene.viewport[].widths)
         for _ in 1:3
-            ext._addon_edit_presentation!(() -> nothing,p)
+            ext._update_figure_layout!(() -> nothing,p)
             @test Tuple(p.figure.scene.viewport[].widths)==before
         end
     end
@@ -225,7 +225,7 @@ end
     oldsize=Tuple(p.figure.scene.viewport[].widths)
     Makie.resize!(p.figure,oldsize[1]+150,oldsize[2]-100)
     @test length(p.axes)==4
-    @test p.addon_state.panel_page.dimensions==(2,2)
+    @test p.plot_state.panel_page.dimensions==(2,2)
     @test [axis.targetlimits[] for axis in p.axes]==views
     @test_throws ArgumentError LineCableModels.plot(raw;ydata=(R,),blocks=(2,2),display_plot=false)
 
@@ -234,8 +234,8 @@ end
         display_plot=false,backend=:cairo,controls=false,panel_titles=("one","two","three","four"))
     @test length(previews)==2
     @test [length(p.axes) for p in previews]==[2,2]
-    @test Set(keys(previews[1].addon_state.panel_data))==Set((1,2))
-    @test Set(keys(previews[2].addon_state.panel_data))==Set((3,4))
+    @test Set(keys(previews[1].plot_state.panel_data))==Set((1,2))
+    @test Set(keys(previews[2].plot_state.panel_data))==Set((3,4))
     @test [axis.title[] for p in previews for axis in p.axes]==["one","two","three","four"]
     @test all(length(p.colorbars)==3 for p in previews)
     strip=preview(fill(design,4);layout=(1,4),size=(1200,600),
@@ -260,11 +260,11 @@ end
             legend_position=:inside,legend_attributes=(halign=:right,valign=:bottom))
         @test length(pages)==2 # quantities remain separate families
         for p in pages
-            @test p.addon_state.nominal_capacity==(1,1)
-            @test p.addon_state.panel_page.dimensions==(1,1)
-            @test p.addon_state.panel_page.origin==coordinate
-            @test Set(keys(p.addon_state.page_cells))==Set([(1,1)])
-            @test Set(keys(p.addon_state.panel_data))==Set([coordinate])
+            @test p.plot_state.nominal_capacity==(1,1)
+            @test p.plot_state.panel_page.dimensions==(1,1)
+            @test p.plot_state.panel_page.origin==coordinate
+            @test Set(keys(p.plot_state.page_cells))==Set([(1,1)])
+            @test Set(keys(p.plot_state.panel_data))==Set([coordinate])
             axis=only(p.axes)
             frame=axis.scene.viewport[]
             legend=p.legend.layoutobservables.computedbbox[]
@@ -276,31 +276,31 @@ end
     end
     selected=LineCableModels.plot(raw,(R,2,2:3,:);options...)
     @test selected isa UIPlot
-    @test selected.addon_state.nominal_capacity==(1,2)
-    @test selected.addon_state.panel_page.origin==(2,2)
-    @test selected.addon_state.panel_page.dimensions==(1,2)
+    @test selected.plot_state.nominal_capacity==(1,2)
+    @test selected.plot_state.panel_page.origin==(2,2)
+    @test selected.plot_state.panel_page.dimensions==(1,2)
     split=LineCableModels.plot(raw,(R,2,2:3,:);options...,layout=(1,2))
-    @test [p.addon_state.panel_page.index for p in split]==[(2,1),(2,2)]
-    @test all(p -> p.addon_state.panel_page.dimensions==(1,1),split)
-    @test [p.addon_state.panel_page.origin for p in split]==[(2,2),(2,3)]
+    @test [p.plot_state.panel_page.index for p in split]==[(2,1),(2,2)]
+    @test all(p -> p.plot_state.panel_page.dimensions==(1,1),split)
+    @test [p.plot_state.panel_page.origin for p in split]==[(2,2),(2,3)]
     sparse=LineCableModels.plot(raw,(R,[1,3],[1,3],:);options...)
     @test length(sparse.axes)==4
-    @test sparse.addon_state.panel_page.dimensions==(3,3)
-    @test length(sparse.addon_state.page_cells)==9 # internal holes are intentional
-    geometry=only(ext._addon_matrix_pages([(1,1),(3,3)],(3,4),(3,4)))
+    @test sparse.plot_state.panel_page.dimensions==(3,3)
+    @test length(sparse.plot_state.page_cells)==9 # internal holes are intentional
+    geometry=only(ext._matrix_pages([(1,1),(3,3)],(3,4),(3,4)))
     @test geometry.dimensions==(3,3)
     @test geometry.positions==((1,1),(3,3))
     explicit=LineCableModels.plot(raw,(R,2,2,:);options...,layout=(1,2))
     full=LineCableModels.plot(raw,(R,2,1:2,:);options...,layout=(1,2))
-    @test explicit.addon_state.panel_page.index==(2,1)
-    @test explicit.addon_state.panel_page.origin==(2,2)
-    @test explicit.addon_state.panel_page.dimensions==(1,1)
+    @test explicit.plot_state.panel_page.index==(2,1)
+    @test explicit.plot_state.panel_page.origin==(2,2)
+    @test explicit.plot_state.panel_page.dimensions==(1,1)
     @test all(isapprox.(only(explicit.axes).scene.viewport[].widths,
         first(full.axes).scene.viewport[].widths;atol=1))
     @test explicit.figure.scene.viewport[].widths[1]<full.figure.scene.viewport[].widths[1]
-    cells=copy(explicit.addon_state.page_cells)
-    for group in values(explicit.addon_state.groups), primitive in group
+    cells=copy(explicit.plot_state.page_cells)
+    for group in values(explicit.plot_state.groups), primitive in group
         primitive.visible[]=false
     end
-    @test explicit.addon_state.page_cells==cells
+    @test explicit.plot_state.page_cells==cells
 end

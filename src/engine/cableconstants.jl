@@ -346,7 +346,7 @@ inputs return one [`CableConstantsFormulation`](@ref); varying inputs return a
 - `internal_impedance`: Conductor surface-impedance recipe.
 - `insulation_impedance`: Longitudinal insulation-impedance recipe.
 - `shunt_model`: Local geometry model; `:default`/`:coaxial` uses annuli,
-  `:boundary` explicitly prepares lossless open-screen coupling.
+  `:boundary` explicitly computes lossless open-screen coupling.
 - `insulation_admittance`: Insulation constitutive relation.
 - `semicon_admittance`: Semiconducting-layer constitutive relation.
 - `pipe_impedance`: Pipe-type selection; the coaxial pipe implementation is not
@@ -511,7 +511,7 @@ function _solve!(
         factor = @view buffers.factor[1:(count - 1), 1:(count - 1)]
         coupling = @view buffers.coupling[:, 1:(count - 1)]
         right_hand_side = @view buffers.right_hand_side[1:(count - 1), :]
-        kronify!(
+        kron_reduce!(
             Z,
             keep,
             eliminate,

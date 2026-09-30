@@ -251,7 +251,7 @@
         (50.0, constants),
         (60.0, sixty_hertz)
     ))
-        local_Z=kronify(
+        local_Z=kron_reduce(
             Matrix(primitive.Zin[:, :, frequency_index]),
             [1, 0]
         )[1, 1]

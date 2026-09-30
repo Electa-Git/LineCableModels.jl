@@ -23,7 +23,7 @@ module DataModel
 # Export public API
 export CableDesign, CableGeometry, PlacedRegion, LineCableSystem
 export build, homogenize
-export CablesLibrary, DatasheetInfo, catalogue
+export CablesLibrary, DatasheetInfo, datasheet
 export trefoil_formation, flat_formation, outer_radius
 export AbstractShape, AbstractPrimitive
 export AbstractCablePart, Region, Stack
@@ -111,7 +111,7 @@ public PreviewShape, material_property_ranges
 public flatten
 
 # Construction interfaces shared with Engine and UQ; not modelling options.
-public clearance_geometry, interface_clearance, prepare_clearance, with_clearance
+public clearance_geometry, interface_clearance, collect_clearance_requirements, with_clearance
 public clearance_summary, warn_clearance_summary, realize_clearance
 
 end # module DataModel

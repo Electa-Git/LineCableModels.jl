@@ -1197,7 +1197,7 @@
         "cable_id",
         "nominal_data",
         "origin",
-        "catalogue"
+        "datasheet"
       ],
       "properties": {
         "kind": {
@@ -1213,7 +1213,7 @@
         "origin": {
           "$ref": "#/$defs/part"
         },
-        "catalogue": {
+        "datasheet": {
           "type": "object"
         }
       },

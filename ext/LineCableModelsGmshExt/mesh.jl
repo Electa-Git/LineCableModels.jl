@@ -35,7 +35,7 @@ function _mesh_fingerprint(
         regions = model.region_plans,
         cable_boundaries = model.cable_boundaries,
         cable_hosts = model.cable_hosts,
-        centre = model.centre,
+        center = model.center,
         terminal_ids = model.terminal_ids,
         material_tags = getproperty.(model.material_plans, :physical_tag),
         material_names = getproperty.(model.material_plans, :physical_name),
@@ -519,7 +519,7 @@ function _select_mesh!(
 
     selected = nothing
     source = :generated
-    if execution.data.mesh_policy === :reuse && isfile(run_mesh) && isfile(run_metadata)
+    if execution.data.mesh_mode === :reuse && isfile(run_mesh) && isfile(run_metadata)
         try
             metadata = JSON3.read(read(run_metadata, String))
             String(metadata.fingerprint) == fingerprint || error("fingerprint mismatch")
@@ -530,13 +530,13 @@ function _select_mesh!(
             @warn "Ignoring an invalid retained FEM mesh" run_mesh exception
         end
     end
-    if selected === nothing && displayed && execution.data.mesh_policy === :reuse &&
+    if selected === nothing && displayed && execution.data.mesh_mode === :reuse &&
        execution.data.mesh_path !== nothing
         explicit = abspath(execution.data.mesh_path)
         _validate_mesh_file(model, explicit)
         selected = explicit
         source = :explicit
-    elseif selected === nothing && execution.data.mesh_policy === :reuse &&
+    elseif selected === nothing && execution.data.mesh_mode === :reuse &&
            isfile(cache_mesh) && isfile(cache_metadata)
         try
             metadata = JSON3.read(read(cache_metadata, String))

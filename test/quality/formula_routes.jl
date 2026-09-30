@@ -1,4 +1,4 @@
-@testitem "Quality / native equation bindings and closed built-in catalogues" tags=[:quality] setup=[FormulaFixtures] begin
+@testitem "Quality / native equation bindings and closed built-in formula lists" tags=[:quality] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     const FM=LineCableModels.FormulaMethod
@@ -65,7 +65,7 @@
             (EP.FrequencyDependent,M.DispersiveEarth()),
             (EP.EquivalentHomogeneous,M.MeanEarth()),
             (LineCableModels.Materials.TemperatureDependent,M.ConstantResistivity(1e-8)),
-            (E.ShuntModel,M.UserCoaxialShunt()),(E.PipeImpedance,M.CoaxialPipePolicy()))
+            (E.ShuntModel,M.UserCoaxialShunt()),(E.PipeImpedance,M.UserCoaxialPipe()))
         @test owner.Formula(custom) === custom
         @test formula_id(custom) ∉ owner.formulas()
     end
@@ -75,16 +75,16 @@ end
 @testitem "Quality / user-owned shunt and pipe selections reach blueprint and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures] begin
     M=FormulaFixtures
     shunt=M.UserCoaxialShunt()
-    selected=Formulation(shunt_model=shunt,pipe_impedance=M.CoaxialPipePolicy())
+    selected=Formulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe())
     problem=TestFixtures.line_parameters_problem(frequencies=[50.0,500.0])
     actual=compute(problem,selected)
     expected=compute(problem,Formulation())
     @test Z(actual)==Z(expected) && Y(actual)==Y(expected)
-    @test shunt.preparations[]==length(problem.system.designs)
+    @test shunt.response_count[]==length(problem.system.designs)
     @test details(actual).data.formulations.methods.shunt_model.identifier === :UserCoaxialShunt
-    @test details(actual).data.formulations.methods.pipe_impedance.identifier === :CoaxialPipePolicy
+    @test details(actual).data.formulations.methods.pipe_impedance.identifier === :UserCoaxialPipe
     constants=CableConstantsProblem(first(problem.system.designs);frequency=50.0)
-    @test compute(constants,CableConstantsFormulation(shunt_model=shunt,pipe_impedance=M.CoaxialPipePolicy()))==
+    @test compute(constants,CableConstantsFormulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe()))==
         compute(constants,CableConstantsFormulation())
     source=TestFixtures.two_conductor_results()
     # Modal selections are admitted through the modal action, not a callback bag.

@@ -67,10 +67,10 @@ entries. Coupled equations may require the complete physical system, even when
 only a subset of its output entries is selected. Joint methods determine whether
 impedance and potential selections can use one calculation; `nothing` requires
 separate calculations. Engine records each calculation once with explicit
-impedance and potential output indices. Its material preparation and indexed
+impedance and potential output indices. Its material evaluation and indexed
 equation traversal execute once per frequency.
 
-After scalar promotion and geometry preparation, `earth_bindings(selection,
+After scalar promotion and geometry construction, `earth_bindings(selection,
 binding, geometry)` declares the invariant arithmetic inputs used for exact reuse.
 All selections execute their bound indexed equations through the same traversal.
 The default includes destination indices; an equation may omit those only when
@@ -217,7 +217,7 @@ function validate(pair::EarthPair)
             throw(ArgumentError("a mutual interaction has no self radius"))
         iszero(pair.separation) && pair.heights[1] == pair.heights[2] &&
             throw(DomainError((pair.heights, pair.separation),
-                "distinct earth-return conductors cannot have coincident centres"))
+                "distinct earth-return conductors cannot have coincident centers"))
     end
     return pair
 end

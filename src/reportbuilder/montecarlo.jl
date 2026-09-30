@@ -10,7 +10,7 @@ struct MonteCarloTableDefinition{U} <: AbstractReportDefinition
     length_unit::Symbol
     "Optional quantity-unit overrides."
     quantity_units::U
-    "Engineering recentering for primary quantities."
+    "Set unresolved primary quantities to exact zero, including zero uncertainty."
     clip::Bool
 end
 MonteCarloTableDefinition(length_unit::Symbol=:kilo,quantity_units=nothing) =
@@ -31,7 +31,7 @@ end
 
 function _sampling_tables(points,reference)
     sampling=NamedTuple[];precision=NamedTuple[];statistics=NamedTuple[]
-    operands=reference===nothing ? ((:candidate,points),) : ((:candidate,points),(:reference,[reference]))
+    operands=reference===nothing ? ((:result,points),) : ((:result,points),(:reference,[reference]))
     for (role,observations) in operands,point in observations
         id=point.gridpoint.id
         for quantity in point.quantities

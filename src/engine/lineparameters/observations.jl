@@ -168,7 +168,7 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
     resolved=broadcast(values,mask,available) do value,unresolved,valid
         !valid && return missing
         clip && phase && unresolved && return missing
-        clip && unresolved ? value-nominal(value) : value
+        clip && unresolved ? zero(value) : value
     end
     reasons=broadcast(available,mask,exact_origin) do valid,unresolved,origin
         !valid ? (polar && !phase && origin ? :undefined_first_order_magnitude : phase && origin ? :undefined_phase :
@@ -223,7 +223,7 @@ function Grammar.observation_quantity(source::CableConstants,request;
     else
         broadcast(values, resolution.unresolved, resolution.available) do value, unresolved, available
             available || return missing
-            return unresolved ? value - nominal(value) : value
+            return unresolved ? zero(value) : value
         end
     end
     q=Units.quantity(selector)

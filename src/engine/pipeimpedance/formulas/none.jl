@@ -5,10 +5,9 @@ $(TYPEDSIGNATURES)
 
 **Expression.** Ordinary coaxial assemblies require no additional pipe term.
 An eccentric or multicore conductive enclosure requires a pipe formulation:
-the coaxial backend has none yet.
+the coaxial formulation supplies none.
 
-**Reference.** Backend applicability policy; no author-labeled pipe equation
-or numerical approximation is introduced by this selector.
+**Applicability.** This selector adds no author-labeled pipe equation or numerical approximation.
 """
 description(::Type{<:Formula{:none}}; compact::Bool=false) = compact ? "No additional pipe term" : "No additional pipe impedance for coaxial geometry"
 

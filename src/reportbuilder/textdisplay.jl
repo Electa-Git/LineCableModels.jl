@@ -280,7 +280,7 @@ function _show_observed_benchmark(io,mime,artifact;metric=:relative,problem=noth
         name===:source_timings && !native_timings && continue
         isempty(table) && continue
         heading(replace(string(name),'_'=>' '))
-        shown=DataFrames.select(table,Not(intersect(propertynames(table),[:session_id,:checksum_verified,:workload_verified,:candidate_source,:reference_source])))
+        shown=DataFrames.select(table,Not(intersect(propertynames(table),[:session_id,:checksum_verified,:workload_verified,:result_source,:reference_source])))
         show(IOContext(io,:limit=>false),mime,shown;summary=false,eltypes=false,table_options...)
         println(io)
     end

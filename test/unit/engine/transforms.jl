@@ -160,9 +160,9 @@ end
     reduction_map=[1, 2, 0]
     expected=matrix[1:2, 1:2]-matrix[1:2, 3:3]*
                               inv(matrix[3:3, 3:3])*matrix[3:3, 1:2]
-    @test TestNumerics.isapprox_scaled(kronify(matrix, reduction_map), expected)
+    @test TestNumerics.isapprox_scaled(kron_reduce(matrix, reduction_map), expected)
     destination=zeros(ComplexF64, 2, 2)
-    @test Engine.kronify!(matrix, reduction_map, destination) === nothing
+    @test Engine.kron_reduce!(matrix, reduction_map, destination) === nothing
     @test TestNumerics.isapprox_scaled(destination, expected)
 
     # Complex asymmetric entries and ordered, noncontiguous indices expose
@@ -172,21 +172,21 @@ end
                             1 3+im 10+2im 2; 4im 1-im 3+im 11]
         keep, eliminate = [4, 1], [3, 2]
         reduced = zeros(Complex{T}, 2, 2)
-        actual = Engine.kronify!(ordered, keep, eliminate, reduced,
+        actual = Engine.kron_reduce!(ordered, keep, eliminate, reduced,
             similar(reduced), similar(reduced), similar(reduced))
         expected_ordered = ordered[keep, keep] - ordered[keep, eliminate] *
             (ordered[eliminate, eliminate] \ ordered[eliminate, keep])
         @test actual === reduced
         @test actual ≈ expected_ordered
-        @test kronify(ordered, [2, 0, 3, 0]) ≈ ordered[[1, 3], [1, 3]] -
+        @test kron_reduce(ordered, [2, 0, 3, 0]) ≈ ordered[[1, 3], [1, 3]] -
             ordered[[1, 3], [2, 4]] * (ordered[[2, 4], [2, 4]] \ ordered[[2, 4], [1, 3]])
-        @test kronify(ordered, [1, 2, 3, 4]) == ordered
+        @test kron_reduce(ordered, [1, 2, 3, 4]) == ordered
         aliased = copy(ordered)
-        @test Engine.kronify!(aliased, [1, 2, 3, 4], aliased) === nothing
+        @test Engine.kron_reduce!(aliased, [1, 2, 3, 4], aliased) === nothing
         @test aliased == ordered
     end
-    @test_throws SingularException kronify(ComplexF64[1 2; 3 0], [1, 0])
-    @test_throws DimensionMismatch kronify(matrix, [1, 0])
+    @test_throws SingularException kron_reduce(ComplexF64[1 2; 3 0], [1, 0])
+    @test_throws DimensionMismatch kron_reduce(matrix, [1, 0])
 
     bundled, merged_map=Engine.merge_bundles!(copy(matrix), [1, 1, 0])
     @test merged_map == [1, 0, 0]
@@ -248,7 +248,7 @@ end
             excitation=Matrix{ComplexF64}(I,3,3)[:,1:2]
             currents=matrix\excitation
             expected=inv(currents[1:2,:])
-            @test kronify(matrix,[1,2,0]) ≈ expected rtol=1e-10 atol=0
+            @test kron_reduce(matrix,[1,2,0]) ≈ expected rtol=1e-10 atol=0
         end
         options=FormulationOptions(reduce_bundle=false,kron_reduction=true,ideal_transposition=false)
         reduced=E.reduce_primitive_matrices(reshape(z,3,3,1),reshape(p,3,3,1),[1,2,0],options)

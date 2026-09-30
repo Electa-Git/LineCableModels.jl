@@ -1,7 +1,6 @@
 # Disposable public-API timings. Uses the active environment; never activates,
 # installs, updates, exports, or writes Gauntlet campaign artifacts.
-# Before: catalogue dependencies had to be in the active project. Now the local
-# Gauntlet environment supplies them through LOAD_PATH without replacing it.
+# The local Gauntlet environment supplies study dependencies through LOAD_PATH.
 gauntlet_project = normpath(joinpath(@__DIR__, "..", "..", "..", "gauntlet"))
 gauntlet_project in LOAD_PATH || push!(LOAD_PATH, gauntlet_project)
 using LineCableModels, LinearAlgebra

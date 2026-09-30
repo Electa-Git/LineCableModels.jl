@@ -5,7 +5,7 @@
     running
     completed
     failed
-    cancelled
+    canceled
     not_executed
 end
 
@@ -69,7 +69,7 @@ struct FEMResolvedModel{T <: Real, P <: LineParametersProblem}
     cable_boundaries::Vector{Any}
     cable_hosts::Vector{Symbol}
     tags::NamedTuple
-    centre::Tuple{T, T}
+    center::Tuple{T, T}
     domain_radius::T
     shell_outer_radius::T
     fine_mesh_size::T
@@ -365,7 +365,7 @@ end
 function _fem_mesh_plans(
         problem::LineParametersProblem{T},
         earth_materials::Vector{Earth.EarthMaterial{T}},
-        centre_x::T,
+        center_x::T,
         layout_radius::T,
         cable_outer_mesh_sizes::Vector{T},
         growth_factor::T,
@@ -449,7 +449,7 @@ function _formations(regions, terminal_map, object_id)
         member_ids = Int[]
         for (peer_index, peer) in pairs(regions)
             peer_entry_index = findfirst(
-                candidate -> candidate.pattern isa DataModel.BoundedPlacement,
+                region -> region.pattern isa DataModel.BoundedPlacement,
                 peer.placement.patterns
             )
             peer_entry_index === nothing && continue
@@ -507,9 +507,9 @@ function _formations(regions, terminal_map, object_id)
                 "member has the same terminal owner"
             )
         else
-            filled = any(regions) do candidate
-                shape = candidate.primitive
-                candidate.source.material.kind === :conductor && return false
+            filled = any(regions) do region
+                shape = region.primitive
+                region.source.material.kind === :conductor && return false
                 if shape isa DataModel.Annulus && boundary isa DataModel.Disk
                     concentric = isapprox(shape.at.x, boundary.at.x) &&
                                  isapprox(shape.at.y, boundary.at.y)
@@ -796,7 +796,7 @@ function _resolved_fem_model(
             )
         end
     end
-    centre_x = convert(T, sum(position.x for position in system.positions) /
+    center_x = convert(T, sum(position.x for position in system.positions) /
                           length(system.positions))
     maximum_cable_distance = maximum(
         (
@@ -809,7 +809,7 @@ function _resolved_fem_model(
         );
         init = zero(T))
     envelope_radius = maximum(
-        hypot(position.x - centre_x, position.y) +
+        hypot(position.x - center_x, position.y) +
         LineCableModels.outer_radius(design)
     for (design, position) in zip(system.designs, system.positions)
     )
@@ -828,7 +828,7 @@ function _resolved_fem_model(
     mesh_plans = _fem_mesh_plans(
         problem,
         earth_materials,
-        centre_x,
+        center_x,
         layout_radius,
         cable_outer_mesh_sizes,
         mesh_growth_factor,
@@ -865,7 +865,7 @@ function _resolved_fem_model(
         cable_boundaries,
         cable_hosts,
         tags,
-        (centre_x, zero(T)),
+        (center_x, zero(T)),
         domain_radius,
         shell_outer_radius,
         fine_mesh_size,

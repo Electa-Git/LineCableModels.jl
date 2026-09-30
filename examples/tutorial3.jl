@@ -231,14 +231,14 @@ equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 ## Saving the cable design
 
 Load an existing [`CablesLibrary`](@ref) or create one, then add the design and
-its catalogue information. This saves the physical declaration for reuse; it
+its datasheet information. This saves the physical declaration for reuse; it
 does not save a plotting recipe or a computed frequency scan.
 =#
 
 library = CablesLibrary()
 library_file = fullfile("cables_library.json")
 isfile(library_file) && load!(library; file_name = library_file);
-add!(library, cable_design; catalogue = datasheet_info);
+add!(library, cable_design; datasheet = datasheet_info);
 library
 
 # Write the library:

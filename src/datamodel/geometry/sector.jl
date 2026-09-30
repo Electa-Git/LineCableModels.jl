@@ -130,7 +130,7 @@ when that magnitude is zero.
 # Returns
 
 - A nonnegative numerical allowance in the same units. Physical uncertainty
-  is not included in this roundoff policy.
+  is not included in this roundoff allowance.
 """
 function geometry_tolerance(value)
     scale = abs(_geometry_scalar(value))
@@ -341,21 +341,21 @@ end
 
 function _angle_in_arc(angle, arc)
     period = oftype(angle, 2π)
-    candidate = angle + ceil((arc.start - angle) / period) * period
+    shifted_angle = angle + ceil((arc.start - angle) / period) * period
     tolerance = geometry_tolerance(arc.stop - arc.start)
-    return _geometry_scalar(candidate - arc.stop) <= tolerance
+    return _geometry_scalar(shifted_angle - arc.stop) <= tolerance
 end
 
 function _local_support(shape::SectorShape, angle::Real)
     cosine = cos(angle)
     sine = sin(angle)
     projection(point) = point[1] * cosine + point[2] * sine
-    candidates = [projection(point) for point in values(shape.contacts.points)]
+    support_values = [projection(point) for point in values(shape.contacts.points)]
     for arc in values(shape.contacts.arcs)
         _angle_in_arc(angle, arc) || continue
-        push!(candidates, projection(arc.center) + arc.radius)
+        push!(support_values, projection(arc.center) + arc.radius)
     end
-    return maximum(candidates)
+    return maximum(support_values)
 end
 
 function support(shape::SectorShape, angle::Real)

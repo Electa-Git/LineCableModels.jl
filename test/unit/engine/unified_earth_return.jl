@@ -1,4 +1,4 @@
-# Closure identities establish current algebra and conventions; independent
+# Enclosed-current matrix identities check algebra and conventions; independent
 # cylindrical controls below provide physical validation for equal media.
 @testitem "Engine / unified retains five-layout FEM baseline agreement" tags=[:unit] setup=[TestFixtures] begin
     root=joinpath(pkgdir(LineCableModels), "test/fixtures/reference/three_bare_wires",
@@ -26,7 +26,7 @@
             actual=[values[i, j, k] for k in 1:9 for i in 1:3 for j in 1:3]
             @test length(actual)==length(old)==length(fem)==81
             # Preserve the observed worst discrepancy; this does not claim
-            # exact FEM agreement or impose a solver-side acceptance policy.
+            # exact FEM agreement or impose a solver-side acceptance test.
             roundoff=64eps(Float64)*max(maximum(abs, old), maximum(abs, fem))
             @test maximum(abs.(actual-fem))<=maximum(abs.(old-fem))+roundoff
             # With Γ=0 the reference correction does not change Z.
@@ -35,7 +35,7 @@
     end
 end
 
-@testitem "Engine / full earth / current closure across layouts" tags=[:unit] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / full earth / enclosed-current matrix identities across layouts" tags=[:unit] setup=[UnifiedFormulaFixtures] begin
     using LinearAlgebra
     const E=LineCableModels.Engine
     layouts=([(0.0, -1.0)], [(0.0, 1.0), (0.4, 1.5)],
@@ -182,7 +182,7 @@ end
     @test !haskey(details(quiet).data, :trace)
 end
 
-@testitem "Engine / public earth defaults preserve uncertainty and share matching preparations" tags=[:unit] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / public earth defaults preserve uncertainty and reuse matching earth states" tags=[:unit] setup=[UnifiedFormulaFixtures] begin
     using Measurements, LinearAlgebra
     const E=LineCableModels.Engine
     radius=measurement(0.0425, 0.0001)
@@ -233,7 +233,7 @@ end
     @test !E.same_physical_state(rho, measurement(0.1, 0.001))
     @test E.same_physical_state(rho, 2rho-rho)
     # Check the propagated physical derivatives against independent central
-    # perturbations of the material/geometry inputs to the complete closure.
+    # perturbations of the material/geometry inputs to the earth-return calculation.
     function perturbed(values)
         rho, r, h, d=values
         geometry=(horizontal = [0.0, d], height = [-h, -h], radius = [r, r])
@@ -385,7 +385,7 @@ end
            maximum(abs, F)*eK+maximum(eF)*(norminf(K)+eK)+roundoff(L)
         inverseL=norminf(inv(L));
         eta=inverseL*eL
-        eta<1||error("inconclusive cylindrical closure conditioning")
+        eta<1||error("inconclusive conditioning of the cylindrical current matrix")
         eZe=(eK+norminf(Ze)*eL)*inverseL/(1-eta)+roundoff(Ze)
         ePe=(eH+norminf(Pe)*eL)*inverseL/(1-eta)+roundoff(Pe)
         inverseP=norminf(inv(Pe));

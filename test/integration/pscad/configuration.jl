@@ -16,7 +16,7 @@
         @test station.shared_root == fields["shared_root"]
         @test station.remote_root == fields["remote_root"]
         @test station.transport === :ssh
-        @test station.timeout_seconds == 1800
+        @test station.timeout == 1800
         @test isempty(station.command)
         relative = cd(dirname(directory)) do
             P.RemoteConfig(joinpath(basename(directory), basename(filename)))
@@ -46,7 +46,7 @@
         save()
         @test collect(P.remote_command(P.RemoteConfig(filename), powershell))[1:4] ==
             ["wrapper path", fields["host"], "literal-{host}", "\$(literal)"]
-        for (key, value) in (("unknown", 1), ("timeout_seconds", true),
+        for (key, value) in (("unknown", 1), ("timeout", true),
                 ("host", 42), ("local_root", ""), ("transport", 1),
                 ("command", "ts ssh"), ("command", [1]), ("command", String[]))
             saved = copy(fields)

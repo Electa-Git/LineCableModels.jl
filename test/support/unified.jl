@@ -15,8 +15,8 @@
     end
 
     # Build a real public problem and workspace. Independent equal-medium controls
-    # replace completed material values after normal material preparation; their
-    # artificial air conductivity is deliberately not a second EarthModel policy.
+    # replace completed material values after material evaluation;
+    # their artificial air conductivity is confined to this test fixture.
     function workspace(geometry,
             state,
             integration = E.formulation_options(E.SpectralIntegral, (

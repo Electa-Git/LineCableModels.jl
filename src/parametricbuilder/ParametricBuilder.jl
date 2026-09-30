@@ -42,7 +42,7 @@ export at, trefoil, hflat, vflat, layer, homogeneous, EarthLayer, EarthModel
 export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
 export @at, @hflat, @vflat, @trefoil
 export @distribute
-export WireEstimate, make_stranded, make_screened
+export WireEstimate, estimate_stranding, estimate_screen
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 import Random
@@ -94,7 +94,7 @@ include("traversal.jl")
 include("comparisons.jl")
 
 include("wirepatterns/WirePatterns.jl")
-using .WirePatterns: WireEstimate, make_stranded, make_screened
+using .WirePatterns: WireEstimate, estimate_stranding, estimate_screen
 
 include("textdisplay.jl")
 

@@ -55,7 +55,7 @@ function ws_geometry(design)
     all(r -> r.primitive isa Annulus, [inner; outer]) ||
         error("Concentric layers required.")
     all(r -> r.primitive.at.x == r.primitive.at.y == 0, [inner; outer]) ||
-        error("Off-centre dielectric layers are outside this prototype.")
+        error("Off-center dielectric layers are outside this prototype.")
     layer(r) = (ri = r.primitive.ri, ro = r.primitive.ro, epsilon = r.source.material.eps_r)
     left, right = layer.(inner), layer.(outer)
     @assert last(left).ro ≈ host.ri
@@ -239,10 +239,10 @@ ws_core_voltage(z, g) = 1-(g.Rleft+log(abs(z)/g.a)/g.epsilon)/g.Rtotal
 function ws_points(g, nw, fraction; shift = 0.0)
     targets, sources = ComplexF64[], ComplexF64[]
     for wire in g.wires
-        centre = complex(wire.at.x, wire.at.y)
+        center = complex(wire.at.x, wire.at.y)
         for j in 0:(nw - 1)
-            push!(targets, centre + wire.r*cis(2pi*(j+shift)/nw))
-            push!(sources, centre + fraction*wire.r*cis(2pi*j/nw))
+            push!(targets, center + wire.r*cis(2pi*(j+shift)/nw))
+            push!(sources, center + fraction*wire.r*cis(2pi*j/nw))
         end
     end
     (; targets, sources)
@@ -393,10 +393,10 @@ if ws_make_plots
     @eval using GLMakie
     # Before: a fabricated ParametricResult supplied plot labels. Now ordinary
     # completed-result collections delegate through observation construction.
-    ws_candidates = [ws_baseline, ws_result]
-    ws_plots = LineCableModels.plot(ws_candidates; reference = ws_reference,
+    ws_patterns = [ws_baseline, ws_result]
+    ws_plots = LineCableModels.plot(ws_patterns; reference = ws_reference,
         ydata = (G, B), layout = (3, 3), length_unit = :base,
-        # Before: reference-first labels. Now candidates precede the separate reference.
+        # Before: reference-first labels. Now results precede the separate reference.
         series_labels = ("Saved annular", "Four-face tape", "Saved FEM"))
 end
 nothing

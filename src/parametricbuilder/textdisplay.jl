@@ -156,21 +156,21 @@ end
 
 TextDisplay.name(::Type{<:WireEstimate}) = "WireEstimate"
 function Base.summary(io::IO, estimate::WireEstimate)
-    print(io, "Wire estimate with $(length(estimate)) candidates")
+    print(io, "Wire estimate with $(length(estimate)) patterns")
 end
 function Base.show(io::IO, estimate::WireEstimate)
-    print(io, "WireEstimate(", estimate.status, "; candidates=", length(estimate), ")")
+    print(io, "WireEstimate(", estimate.status, "; patterns=", length(estimate), ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", estimate::WireEstimate)
     get(io, :compact, false) && return show(io, estimate)
-    candidates = Tuple((
-        label = sprint(show, candidate; context = :compact => true, sizehint = 96),
-        noun = "candidates",
-    ) for candidate in estimate.candidates)
+    patterns = Tuple((
+        label = sprint(show, pattern; context = :compact => true, sizehint = 96),
+        noun = "patterns",
+    ) for pattern in estimate.patterns)
     children = Any[
-        (label = "target      $(TextDisplay.value(estimate.target))", noun = "fields"),
+        (label = "target      $(TextDisplay.value(estimate.target_area))", noun = "fields"),
         (label = "status      $(estimate.status)", noun = "fields"),
-        (label = "candidates", children = candidates, noun = "candidates"),
+        (label = "patterns", children = patterns, noun = "patterns"),
     ]
     isempty(estimate.reasons) || push!(children, (
         label = "reasons",
@@ -185,7 +185,7 @@ function Base.summary(io::IO, pattern::WirePatterns.HexaPattern)
 end
 function Base.show(io::IO, pattern::WirePatterns.HexaPattern)
     print(io, "StrandPattern(layers=", pattern.layers, ", wires=", pattern.wires,
-        ", d=", TextDisplay.engineering(pattern.wire_diameter_m, :meter), ")")
+        ", d=", TextDisplay.engineering(pattern.wire_diameter, :meter), ")")
 end
 Base.show(io::IO, ::MIME"text/plain", pattern::WirePatterns.HexaPattern) = show(io, pattern)
 
@@ -194,7 +194,7 @@ function Base.summary(io::IO, pattern::WirePatterns.ScreenPattern)
 end
 function Base.show(io::IO, pattern::WirePatterns.ScreenPattern)
     print(io, "ScreenPattern(wires=", pattern.wires,
-        ", d=", TextDisplay.engineering(pattern.wire_diameter_m, :meter),
-        ", coverage=", TextDisplay.value(pattern.coverage_pct), " %)")
+        ", d=", TextDisplay.engineering(pattern.wire_diameter, :meter),
+        ", coverage=", TextDisplay.value(pattern.coverage), " %)")
 end
 Base.show(io::IO, ::MIME"text/plain", pattern::WirePatterns.ScreenPattern) = show(io, pattern)

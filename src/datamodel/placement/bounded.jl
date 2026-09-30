@@ -114,7 +114,7 @@ end
 function support(shape::BentStrip, φ::Real)
     direction = φ - shape.at.φ
     half = shape.span / 2
-    candidates = (
+    endpoint_projections = (
         shape.ro * cos(direction - half),
         shape.ro * cos(direction + half),
         shape.ri * cos(direction - half),
@@ -122,7 +122,7 @@ function support(shape::BentStrip, φ::Real)
     )
     period = oftype(direction, 2pi)
     wrapped = mod(direction + pi, period) - pi
-    radial = abs(wrapped) <= half ? shape.ro : maximum(candidates)
+    radial = abs(wrapped) <= half ? shape.ro : maximum(endpoint_projections)
     return shape.at.x * cos(φ) + shape.at.y * sin(φ) + radial
 end
 
@@ -160,9 +160,9 @@ function boundary_polygon(shape::Disk; points::Integer = 512)
     points >= 16 || throw(ArgumentError(
         "a disk boundary polygon requires at least 16 points"
     ))
-    centre = (shape.at.x, shape.at.y)
+    center = (shape.at.x, shape.at.y)
     angles = range(zero(shape.r), oftype(shape.r, 2π); length = Int(points) + 1)
-    polygon = [(centre[1] + shape.r * cos(angle), centre[2] + shape.r * sin(angle))
+    polygon = [(center[1] + shape.r * cos(angle), center[2] + shape.r * sin(angle))
                for angle in Iterators.drop(angles, 1)]
     return polygon
 end
@@ -198,7 +198,7 @@ function polygon_centroid(points)
     return (xmoment / (6signed_area), ymoment / (6signed_area))
 end
 
-function normalize_polygon_area(points, target_area::Real, centre)
+function normalize_polygon_area(points, target_area::Real, center)
     polygon = signed_polygon_area(points) < 0 ? reverse(points) : points
     current_area = signed_polygon_area(polygon)
     current_area > zero(current_area) || throw(ArgumentError(
@@ -207,8 +207,8 @@ function normalize_polygon_area(points, target_area::Real, centre)
     factor = sqrt(target_area / current_area)
     return [
         (
-            centre[1] + factor * (point[1] - centre[1]),
-            centre[2] + factor * (point[2] - centre[2])
+            center[1] + factor * (point[1] - center[1]),
+            center[2] + factor * (point[2] - center[2])
         ) for point in polygon
     ]
 end
@@ -445,26 +445,26 @@ function course_count(available_area, strand_area)
     return courses
 end
 
-function circular_courses(shape::Disk, centre::Disk, wire::Disk, compact::Bool)
+function circular_courses(shape::Disk, center::Disk, wire::Disk, compact::Bool)
     courses = if compact
-        course_count(area(shape) - area(centre), area(wire))
+        course_count(area(shape) - area(center), area(wire))
     else
-        ratio = nominal((shape.r - centre.r) / (2wire.r))
+        ratio = nominal((shape.r - center.r) / (2wire.r))
         floor(Int, ratio + 64eps(float(ratio)))
     end
     courses >= 1 || throw(DomainError(
         wire.r, "the disk boundary admits no complete six-wire course"
     ))
-    source_area = area(centre) + 3courses * (courses + 1) * area(wire)
+    source_area = area(center) + 3courses * (courses + 1) * area(wire)
     sites = NamedTuple[]
     for course in 1:courses
         count = 6course
         radius = if compact
-            area_before = area(centre) + 3(course - 1) * course * area(wire)
+            area_before = area(center) + 3(course - 1) * course * area(wire)
             area_middle = area_before + 3course * area(wire)
             shape.r * sqrt(area_middle / source_area)
         else
-            centre.r + (2course - 1) * wire.r
+            center.r + (2course - 1) * wire.r
         end
         phase = isodd(course) ? zero(radius) : π / count
         for member in 1:count
@@ -483,18 +483,18 @@ function circular_courses(shape::Disk, centre::Disk, wire::Disk, compact::Bool)
     return sites
 end
 
-function rectangular_strands(shape::Disk, centre::Disk, strand::Rectangle)
-    remaining_area = area(shape) - area(centre)
+function rectangular_strands(shape::Disk, center::Disk, strand::Rectangle)
+    remaining_area = area(shape) - area(center)
     remaining_area > zero(remaining_area) || throw(DomainError(
-        centre.r, "the centre wire leaves no area for rectangular strands"
+        center.r, "the center wire leaves no area for rectangular strands"
     ))
     count = floor(Int, nominal(remaining_area / area(strand)) +
                        64eps(float(nominal(remaining_area / area(strand)))))
     count > 0 || throw(DomainError(
-        area(strand), "one rectangular strand does not fit outside the centre wire"
+        area(strand), "one rectangular strand does not fit outside the center wire"
     ))
     result = NamedTuple[]
-    inner = centre.r
+    inner = center.r
     remaining = count
     course = 0
     while remaining > 0
@@ -530,11 +530,11 @@ function rectangular_strands(shape::Disk, centre::Disk, strand::Rectangle)
     return result
 end
 
-function clearance(shape::SectorShape, centre)
+function clearance(shape::SectorShape, center)
     cosine = cos(shape.at.φ)
     sine = sin(shape.at.φ)
-    dx = centre[1] - shape.at.x
-    dy = centre[2] - shape.at.y
+    dx = center[1] - shape.at.x
+    dy = center[2] - shape.at.y
     point = (cosine * dx + sine * dy, -sine * dx + cosine * dy)
     distance = oftype(shape.primitive.r_back, Inf)
 
@@ -569,11 +569,11 @@ function clearance(shape::SectorShape, centre)
     return distance
 end
 
-function accommodates(shape::SectorShape, centre, radius::Real)
+function accommodates(shape::SectorShape, center, radius::Real)
     tolerance = 256 * geometry_tolerance(
         max(shape.primitive.r_back, radius)
     )
-    return _geometry_scalar(clearance(shape, centre) + tolerance - radius) >= 0
+    return _geometry_scalar(clearance(shape, center) + tolerance - radius) >= 0
 end
 
 function sector_polygon(shape::SectorShape; points::Integer = 17)
@@ -589,14 +589,14 @@ function sector_polygon(shape::SectorShape; points::Integer = 17)
             for index in eachindex(polygon)]
 end
 
-function fan_measure(polygon, centre)
+function fan_measure(polygon, center)
     areas = map(eachindex(polygon)) do index
         next = mod1(index + 1, length(polygon))
         first_point = polygon[index]
         last_point = polygon[next]
         abs(
-            (first_point[1] - centre[1]) * (last_point[2] - centre[2]) -
-            (last_point[1] - centre[1]) * (first_point[2] - centre[2])
+            (first_point[1] - center[1]) * (last_point[2] - center[2]) -
+            (last_point[1] - center[1]) * (first_point[2] - center[2])
         ) / 2
     end
     total = sum(areas)
@@ -661,9 +661,9 @@ function sector_courses(shape::SectorShape, wire::Disk)
         ))
         polygon = sector_polygon(shape; points)
     end
-    centre = polygon_centroid(polygon)
-    measure = fan_measure(polygon, centre)
-    members = [(site = centre, course = 0, member = 1, angle = zero(shape.at.φ))]
+    center = polygon_centroid(polygon)
+    measure = fan_measure(polygon, center)
+    members = [(site = center, course = 0, member = 1, angle = zero(shape.at.φ))]
     for course in 1:courses
         count = 6course
         scale = sqrt((1 + 3course^2) / total_count)
@@ -671,14 +671,14 @@ function sector_courses(shape::SectorShape, wire::Disk)
         for member in 1:count
             point = fan_point(polygon, measure, (member - 1 + phase) / count)
             site = (
-                centre[1] + scale * (point[1] - centre[1]),
-                centre[2] + scale * (point[2] - centre[2])
+                center[1] + scale * (point[1] - center[1]),
+                center[2] + scale * (point[2] - center[2])
             )
             push!(members, (
                 site,
                 course,
                 member,
-                angle = atan(site[2] - centre[2], site[1] - centre[1])
+                angle = atan(site[2] - center[2], site[1] - center[1])
             ))
         end
     end
@@ -748,15 +748,15 @@ function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 
     target <= cell_area * (1 + 4.0e-6) || throw(DomainError(
         source_area, "a source strand does not fit inside its allocated cell"
     ))
-    centre = polygon_centroid(cell)
+    center = polygon_centroid(cell)
     if target >= cell_area * (1 - 64eps(float(cell_area)))
-        return normalize_polygon_area(cell, source_area, centre)
+        return normalize_polygon_area(cell, source_area, center)
     end
 
     # Solve at unit area to avoid coordinate-scale tolerances and cancellation.
     scale = sqrt(source_area)
-    local_cell = [((point[1] - centre[1]) / scale,
-                   (point[2] - centre[2]) / scale) for point in cell]
+    local_cell = [((point[1] - center[1]) / scale,
+                   (point[2] - center[2]) / scale) for point in cell]
     directions = [(cos(angle + 2pi * index / points),
                    sin(angle + 2pi * index / points)) for index in 0:(points - 1)]
     lower = inv(sqrt(pi))
@@ -800,20 +800,20 @@ function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 
         radius += (residual - nominal(residual)) / derivative
         strand = clipped_disk!(buffer_t, scratch_t, local_cell, radius, directions)
     end
-    return [(centre[1] + scale * point[1], centre[2] + scale * point[2])
+    return [(center[1] + scale * point[1], center[2] + scale * point[2])
             for point in strand]
 end
 
 function resolved_polygon(points, angle)
-    centre = polygon_centroid(points)
+    center = polygon_centroid(points)
     cosine = cos(angle)
     sine = sin(angle)
     local_points = map(points) do point
-        dx = point[1] - centre[1]
-        dy = point[2] - centre[2]
+        dx = point[1] - center[1]
+        dy = point[2] - center[2]
         return (cosine * dx + sine * dy, -sine * dx + cosine * dy)
     end
-    return _polygon(local_points, Pose2(centre[1], centre[2], angle))
+    return _polygon(local_points, Pose2(center[1], center[2], angle))
 end
 
 function deform_disk_members(boundary_shape, members)

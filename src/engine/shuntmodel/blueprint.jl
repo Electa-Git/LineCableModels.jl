@@ -4,8 +4,8 @@ const ShuntDomainReport = NamedTuple{
     (:design, :terminals, :requested, :effective, :reason, :message),
     Tuple{Int, UnitRange{Int}, Symbol, Symbol, Symbol, String}}
 
-# The local model owns its blueprint dependency closure. Other shunt models
-# retain the supplied dielectric selections unless they declare a narrower set.
+# Each shunt model selects the formulations needed to construct its blueprint.
+# The coaxial model omits the dielectric selections handled during the solve.
 function blueprint_dependencies(::ShuntModelFormulation, methods)
     methods[(:shunt_model, :insulation_admittance, :semicon_admittance)]
 end

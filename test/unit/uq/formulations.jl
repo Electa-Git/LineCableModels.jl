@@ -25,7 +25,7 @@
     plain = (trials=Int16(8), confidence=0.9f0, cdf_tol=0.1f0,
         distribution=:uniform, seed=Int16(42), return_samples=true,
         return_histograms=true, bins=Int16(2), retain_details=true,
-        on_error=:retry, max_failures=Int16(5))
+        on_error=:resample, max_failures=Int16(5))
     normalized = @inferred normalize(MonteCarlo, ComputationOptions(plain))
     @test normalized.data.trials === 8
     @test normalized.data.seed === UInt64(42)
@@ -39,7 +39,7 @@
           (@inferred MonteCarlo(inner; options=(trials=8, seed=42))).options
     @test_throws ArgumentError MonteCarlo(inner; trials=8, options=(trials=8,))
     @test_throws ArgumentError MonteCarlo(inner; unused=true)
-    @test_throws ArgumentError normalize(MonteCarlo, ComputationOptions((on_error=:retry,)))
+    @test_throws ArgumentError normalize(MonteCarlo, ComputationOptions((on_error=:resample,)))
     @test_throws ArgumentError normalize(MonteCarlo, ComputationOptions((on_error=:ignore,)))
     @test_throws ArgumentError normalize(MonteCarlo, ComputationOptions((distribution=:unsupported,)))
 

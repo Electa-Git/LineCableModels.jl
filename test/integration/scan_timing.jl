@@ -173,7 +173,7 @@
         (Grid(0.005, AbsoluteError(0.01)),))
     retried=compute(ParametricProblem(rejected_space, ComputationOptions(timing = true)),
         MonteCarlo(formulation; trials = 4, seed = 19, retain_details = true,
-            on_error = :retry, max_failures = 50))
+            on_error = :resample, max_failures = 50))
     @test !isempty(only(details(retried).data.failures))
     @test length(only(details(retried).data.timing)) == only(retried.trial_counts) == 4
     function replace_details(value, retained)

@@ -85,8 +85,8 @@
         @test [details(result).data.gridpoint.formulation_index for result in batch] == [1,2]
         @test details(batch[2]).data.formulations.requested.earth_impedance.identifier === :pollaczek1926
         near = [Formulation(:pscad;options=(base_frequency=f,)) for f in (50.000001,50.000002)]
-        preparations = [P._prepare_pscad(permuted,f,P._pscad_blueprints(permuted.system)) for f in near]
-        @test preparations[1].project == preparations[2].project
+        project_inputs = [P._pscad_inputs(permuted,f,P._pscad_blueprints(permuted.system)) for f in near]
+        @test project_inputs[1].project == project_inputs[2].project
         distinct = compute(permuted,near;options=(;remote))
         @test launches[] == 5
         @test !any(r->details(r).data.execution.reused,distinct)

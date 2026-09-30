@@ -96,7 +96,7 @@ behavioral tests do not establish that every method body has been inspected.
 The native FEM environment uses pinned GetDP 3.5.0. Keep tests of its actual
 execution, extraction, terminal identity, material/option transport and resume
 behavior. Physical cross-backend accuracy and domain-convergence acceptance
-belong to explicit research work under the testing policy below. See the
+belong to explicit research work under the testing requirements below. See the
 [test commands](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for the implementation checks and their
 execution environments.
 
@@ -110,7 +110,7 @@ execution environments.
 - [Conventions](conventions.md) defines placement, dispatch, naming, and
   docstring rules.
 
-## Testing policy
+## Testing requirements
 
 ### Release status and regressions
 
@@ -211,7 +211,7 @@ The inspected external accesses have these dispositions:
 | `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api); renderer only. |
 | `Makie.get_ticks`, `Makie.get_tickvalues` | Documented [axis extension hooks](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
 | `Makie.pseudolog10` | Documented [axis scale](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
-| `Makie.inverse_transform` | Documented [custom axis scale interface](https://docs.makie.org/stable/reference/blocks/axis.html#xscale); the renderer applies axis margins to full uncertainty bounds in the selected scale, then maps them back without a second inverse-scale registry. |
+| `Makie.inverse_transform` | Documented [custom axis scale interface](https://docs.makie.org/stable/reference/blocks/axis.html#xscale); the renderer applies axis margins to full uncertainty bounds in the selected scale, then maps them back without a second inverse-scale mapping. |
 | `Makie.CategoricalConversion` | Documented [categorical axis conversion](https://docs.makie.org/stable/reference/generic/dimensional/); renderer assembly axes only. |
 | `Makie.defaultlimits` | The documented native scale-default hook named by Makie's Axis attributes; the renderer queries it only when an empty axis changes scale, so the native scale supplies its valid interval. |
 | `Makie.attribute_names` | Removed. Axis uses its `propertynames` interface plus the native `palette` keyword; Scatter uses the exported [`default_theme`](https://docs.makie.org/v0.24/explanations/recipes) method. |

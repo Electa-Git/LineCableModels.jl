@@ -73,7 +73,7 @@ function _panel_title(panel_titles, facet)
     panel_titles isa Function && return panel_titles(facet)
     if panel_titles isa AbstractDict
         quantity_symbol = Symbol(Units.symbol(facet.quantity))
-        candidates = (
+        panel_title_keys = (
             (facet.identity, facet.panel_identity),
             facet.panel_identity,
             (facet.identity, facet.row, facet.column),
@@ -82,15 +82,15 @@ function _panel_title(panel_titles, facet)
             facet.identity,
             quantity_symbol
         )
-        for candidate in candidates
-            haskey(panel_titles, candidate) && return panel_titles[candidate]
+        for title_key in panel_title_keys
+            haskey(panel_titles, title_key) && return panel_titles[title_key]
         end
         return _quantity_panel_title(facet)
     end
     throw(ArgumentError("panel_titles must be a dictionary, function, or nothing"))
 end
 
-function _addon_line_page(
+function _line_page(
         published,
         page,
         ;
@@ -116,7 +116,7 @@ function _addon_line_page(
         open_export,
         kwargs...
 )
-    shell = _addon_shell(; size = fig_size, controls, kwargs...)
+    shell = _figure_layout(; size = fig_size, controls, kwargs...)
     shell.canvas.default_rowgap = Fixed(24)
     shell.canvas.default_colgap = Fixed(48)
     rowgap!(shell.canvas, 24)
@@ -125,7 +125,7 @@ function _addon_line_page(
     cells=Dict{Tuple{Int, Int}, Any}()
     for row in 1:page.dimensions[1], column in 1:page.dimensions[2]
 
-        cell=_addon_panel!(shell, (row, column))
+        cell=_panel!(shell, (row, column))
         rowsize!(shell.canvas, row, Auto(false, 1))
         colsize!(shell.canvas, column, Auto(false, 1))
         cells[(row, column)]=cell
@@ -185,7 +185,7 @@ function _addon_line_page(
                                 "Undefined phase" : "Unavailable quantity",))
             end
         end
-        axis, scales = _addon_axis!(
+        axis, scales = _axis!(
             panel.content,
             xobservation,
             yobservation;
@@ -213,7 +213,7 @@ function _addon_line_page(
             group = curve_identity.group
             curve_label = curve_identity.label
             interval_support=Dict{Makie.Plot, Any}()
-            draw! = facet.kind in (:assemblies, :array) ? _addon_points! : _addon_line!
+            draw! = facet.kind in (:assemblies, :array) ? _points! : _line!
             plots = draw!(
                 axis,
                 record.x,
@@ -244,13 +244,13 @@ function _addon_line_page(
                 plots
             )
             support(dimension) = begin
-                values=_addon_visible_values((binding,), dimension; include_uncertainty = true)
+                values=_visible_values((binding,), dimension; include_uncertainty = true)
                 isempty(values) ? () : extrema(values)
             end
             push!(series, merge(binding, (full_support = (
                 x = support(:x), y = support(:y)),)))
         end
-        reset! = _addon_reset!(axis, series)
+        reset! = _reset!(axis, series)
         push!(axes, axis)
         push!(axis_series, series)
         push!(panels, panel)
@@ -260,8 +260,8 @@ function _addon_line_page(
     end
     selected=Set(facet.panel_identity for facet in page.facets)
     local_panel_legends=Tuple(pair
-    for pair in _addon_panel_legend_pairs(panel_legends) if first(pair) in selected)
-    built = _addon_finish!(
+    for pair in _panel_legend_pairs(panel_legends) if first(pair) in selected)
+    built = _finish_plot!(
         shell, axes, resets, groups, group_order, group_labels;
         requested_scales, axis_series,
         dependent_plots,
@@ -284,7 +284,7 @@ function _addon_line_page(
         export_theme,
         open_export
     )
-    built.addon_state=merge(built.addon_state,
+    built.plot_state=merge(built.plot_state,
         (
             panel_page = (;
                 index = page.index, dimensions = page.dimensions, origin = get(page, :origin, nothing),

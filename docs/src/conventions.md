@@ -96,7 +96,7 @@ owned_action(::Val{:example}, args...; kwargs...) = ...
 Use an explicit no-op method only when doing nothing is a valid stage result.
 Reject unsupported definition/source pairs through required stage dispatch
 before partial work. Introduce a mutable context only when several stages
-genuinely share buffers, resources, or evolving state. CI checks the fixed
+share buffers, resources, or evolving state. CI checks the fixed
 actions listed in [Grammar invariants](developers.md) directly; runtime
 metadata that merely repeats their method definitions is not part of the
 grammar.
@@ -220,21 +220,21 @@ quantity leaf such as `ReportBuilder.tabulate(observed, R)`. `ObservedResult` is
 not a Tables.jl table. CableConstants quantity tables have one operating-frequency
 row and a named column per assembly. XLSX writes one numeric values/std workbook per point and quantity;
 native observation persistence preserves precision and uncertainty dependencies
-across the complete candidate/reference archive. XLSX preflights all destinations
+across the complete result/reference archive. XLSX preflights all destinations
 and worksheet sizes before writing; existing files require `overwrite=true`.
 
 Explicit benchmark comparison precedes construction:
 
 ```julia
-completed = compare(reference, candidates, [R, L]; bands=(:all,))
-points = observables(candidates; comparisons=completed, timings=recorded_timings)
+completed = compare(reference, results, [R, L]; bands=(:all,))
+points = observables(results; comparisons=completed, timings=recorded_timings)
 reference_point = ObservedResult(reference)
 artifact = report(BenchmarkTableDefinition(), points; reference=reference_point)
 plot(artifact; ydata=(R,))
 ```
 
-Comparison records join by original candidate identities. A reference remains
-outside the candidate collection. External data needs explicit retained identity
+Comparison records join by original result identities. A reference remains
+outside the result collection. External data needs explicit retained identity
 for a benchmark; absent physical descriptions remain explicitly absent. Arithmetic
 checks cover coordinates, dimensions, units, basis, and frequency agreement.
 Scientific comparability is the caller's responsibility; no interpolation occurs.
@@ -260,8 +260,9 @@ X and B use 2πf times their L and C cutoffs. Total quantities scale by a retain
 physical length or require explicit cutoffs. L/C are unavailable at DC. No inferred
 `eps`, matrix-norm, largest-coefficient, or uncertainty contribution is added.
 Complex zero requires both Cartesian components to be zero. Polar products come
-from the original complex values. Recentring preserves uncertainty dependencies
-and every spread. Undefined first-order magnitude retains its components and zero
+from the original complex values. Clipped values become exact zero, including
+their uncertainty. Unclipped values and source calculations preserve their
+uncertainty dependencies. Undefined first-order magnitude retains its components and zero
 nominal magnitude with an explicit reason; its value and phase remain missing.
 
 Comparison classifies original operands first. Any ineligible sample makes both
@@ -270,14 +271,14 @@ applies to original values. Small and zero errors remain valid; operand cutoffs
 are never applied to errors. Actual cutoffs, units, selections, settings, and
 missing reasons are retained.
 
-Recorded timings remain associated with the original candidate and separate
+Recorded timings remain associated with the original result and separate
 reference in report tables. Equal elapsed times do not identify a shared event.
 A measurement for a whole calculation retains that scope when several observed
 points carry it; reporting does not invent per-point timings.
 
 Intentional changes replace current internal behavior. Persistence and consumer
 dependencies do not require generations of that behavior. Do not introduce a
-renamed policy counter, code fingerprint, compatibility branch, or maintenance
+renamed behavior-version counter, code fingerprint, compatibility branch, or maintenance
 instruction to recreate that obligation. File checksums and source revisions
 retain their actual integrity and source-identification meanings.
 
@@ -287,9 +288,9 @@ retain their actual integrity and source-identification meanings.
 | Flattened publication columns | Explicit quantity, basis, units, coordinates, cutoffs, availability, and reasons in each quantity record |
 | Raw source references in observation records | Captured inputs, formulations, original identities, sampling information, and completed measurements in the four observation sections |
 | GetDP source metadata | `getdp_selection` in FEM completion, retained details, recovery, and their tests |
-| Resolution revision and policy-generation checks | Deleted; actual applied numerical settings are retained |
+| Resolution and behavior-version checks | Deleted; actual applied numerical settings are retained |
 | `ReportArtifact.published` / `.table` | `.observed`, separate `.reference`, and `.tables`; no compatibility getters |
-| Raw result-specific report/renderer preparation | Constructor conveniences delegate to the common observed workflow |
+| Raw result-specific report/renderer construction | Constructor conveniences delegate to the common observed workflow |
 
 ## Text display and tables
 
@@ -453,16 +454,16 @@ fix(engine): reject unsupported formulation options
 ```
 
 Every change includes tests at the closest relevant scope. Core tests do not
-load optional packages. Rendering activation and dependency installation are distinct. CairoMakie is a current
-package dependency; its rendering extensions activate when loaded. Rendering and other
-extension paths also run in their dedicated test environments. Public examples should be executable and self-contained.
+load optional packages. CairoMakie is an optional dependency; its rendering extension activates when
+CairoMakie and Makie are loaded. Rendering and other extension paths run in their
+dedicated test environments. Public examples should be executable and self-contained.
 
-## Testing policy
+## Testing requirements
 
-The [developer testing policy](developers.md#testing-policy) is authoritative for
+The [developer testing requirements](developers.md#testing-requirements) is authoritative for
 release status, regression terminology, test scope, architecture and the unchanged
 95% coverage gate. Everything currently on `main`, including `0.1.0`, is unreleased.
 The harness checks implementation correctness and architectural conformance;
 scientific acceptance is outside it. User-selected numerical snapshots are
-deferred until after the first stable publication. Do not duplicate that policy
+deferred until after the first stable publication. Do not duplicate those requirements
 as a separate validation or baseline-approval scheme.

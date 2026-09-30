@@ -15,18 +15,18 @@
                 (2mean_diameter, 2pitch_length, overlength)))
             @test BP.helix(inner, outer, zero(T)) == (mean_diameter, zero(T), one(T))
 
-            centre = (T(0.02), T(-0.03))
-            positions = BP.wire_coordinates(6, radius, radius; C=centre)
+            center = (T(0.02), T(-0.03))
+            positions = BP.wire_coordinates(6, radius, radius; C=center)
             @test eltype(positions) === Tuple{T,T}
             @test length(positions) == 6
-            @test all(position -> hypot(position[1] - centre[1], position[2] - centre[2]) ≈ 2radius,
+            @test all(position -> hypot(position[1] - center[1], position[2] - center[2]) ≈ 2radius,
                 positions)
             for index in eachindex(positions)
                 neighbour = positions[mod1(index + 1, length(positions))]
                 @test norm(collect(positions[index]) - collect(neighbour)) ≈ 2radius
             end
-            @test BP.wire_coordinates(6, radius, radius, centre) == positions
-            @test BP.wire_coordinates(1, radius, inner; C=centre) == [centre]
+            @test BP.wire_coordinates(6, radius, radius, center) == positions
+            @test BP.wire_coordinates(1, radius, inner; C=center) == [center]
             @test isempty(BP.wire_coordinates(0, radius, inner))
             @test BP.wire_coordinates(6, radius, radius)[1] == (2radius, zero(T))
 

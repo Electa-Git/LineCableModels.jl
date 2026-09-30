@@ -104,7 +104,7 @@
         "julia",
         "python"; local_root=mktempdir(),
         transport = :ssh,
-        timeout_seconds = 60
+        timeout = 60
     )
     owner=harness.PSCADFormulation
     @test LineCableModels.formulation_options(owner, FormulationOptions()) == overhead.options
@@ -157,7 +157,7 @@
     @test LineCableModels.computation_options(owner, ComputationOptions((remote=config,work_root=joinpath(root,"any","depth")))).data.work_root == joinpath(root,"any","depth")
     @test_throws ArgumentError LineCableModels.computation_options(owner, ComputationOptions((remote=config,work_root=dirname(root))))
     @test_throws ArgumentError harness.RemoteConfig(
-        "host", "shared", "remote", "julia", "python"; local_root=mktempdir(), timeout_seconds = 0
+        "host", "shared", "remote", "julia", "python"; local_root=mktempdir(), timeout = 0
     )
     verbosity_error=try
         harness.RemoteConfig(
@@ -256,8 +256,8 @@
         end
         completed=harness._wait_output(
             [directory], "_zm.out", 2;
-            timeout_seconds = 1,
-            poll_seconds = 0.01
+            timeout = 1,
+            poll_interval = 0.01
         )
         wait(writer)
         @test completed == realpath(partial)
@@ -269,8 +269,8 @@
         error=try
             harness._wait_output(
                 [directory], "_zm.out", 2;
-                timeout_seconds = 0.05,
-                poll_seconds = 0.01
+                timeout = 0.05,
+                poll_interval = 0.01
             )
             nothing
         catch caught

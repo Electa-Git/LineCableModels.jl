@@ -197,7 +197,7 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     if String(run_state.state) == string(completed)
         inputs.getdp_identity === nothing && return false
         inputs.execution.ui && return false
-        inputs.execution.mesh_policy === :remesh && return false
+        inputs.execution.mesh_mode === :remesh && return false
         isfile(joinpath(path, "raw", "checksums.json")) || return false
     end
     expected = ImportExport.serialize_value(model.problem)
@@ -229,7 +229,7 @@ function _resume_run(
     runs = joinpath(runtime_root, "runs")
     mkpath(runs)
     runs_path = realpath(runs)
-    candidate = if requested === :latest
+    run_directory = if requested === :latest
         directories = filter(isdir, readdir(runs_path; join = true))
         sort!(directories; by = path -> stat(path).mtime, rev = true)
         index = findfirst(
@@ -252,8 +252,8 @@ function _resume_run(
             "resume_run_directory must be nothing, :latest, or a path string",
         ))
     end
-    candidate === nothing && return _create_run(runtime_root)
-    path = realpath(candidate)
+    run_directory === nothing && return _create_run(runtime_root)
+    path = realpath(run_directory)
     dirname(path) == runs_path || throw(ArgumentError(
         "resume_run_directory must be an immediate child of $runs_path",
     ))
@@ -311,7 +311,7 @@ function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     return state
 end
 
-function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel)
+function _write_run_inputs!(run::FEMRun, model::FEMResolvedModel)
     asset_directory = joinpath(run.path, "input", "getdp")
     mkpath(asset_directory)
     for (name, path) in pairs(_getdp_assets(asset_directory))
@@ -360,8 +360,8 @@ function _headless_solve!(
     )
     _transition!(run, mesh_ready, "mesh ready")
     @debug "FEM mesh ready" source=run.mesh_source fingerprint=run.mesh_fingerprint
-    model_data_path = _prepare_run_inputs!(run, model)
-    _prepare_voltage_paths!(run, model, formulation, mesh_paths)
+    model_data_path = _write_run_inputs!(run, model)
+    _write_run_voltage_paths!(run, model, formulation, mesh_paths)
     _publish_transport!(
         run, model, model_data_path, last(mesh_paths), formulation, execution
     )
@@ -434,8 +434,8 @@ function _ui_solve!(
             mesh_paths = _select_meshes!(
                 run, model, geometry, execution, runtime_root
             )
-            model_data_path = _prepare_run_inputs!(run, model)
-            _prepare_voltage_paths!(run, model, formulation, mesh_paths)
+            model_data_path = _write_run_inputs!(run, model)
+            _write_run_voltage_paths!(run, model, formulation, mesh_paths)
             _publish_transport!(
                 run, model, model_data_path, last(mesh_paths), formulation, execution
             )
@@ -518,7 +518,7 @@ function _compute_fem(
     end
     ownership = _claim_run(run)
     parameters = try
-        # Another coordinator can finish between candidate selection and our
+        # Another coordinator can finish between run_directory selection and our
         # lock acquisition. Refresh counters/state while holding ownership,
         # and preserve a now-completed run as a read-only result.
         if isfile(joinpath(run.path, "input", "computation.json")) &&
@@ -560,7 +560,7 @@ function _compute_owned_fem(
     catch exception
         LineCableModels.verbosity(execution, :progress) > 0 &&
             @info "FEM computation failed" _group=:progress run_directory=run.path exception
-        if run.state ∉ (not_executed, cancelled)
+        if run.state ∉ (not_executed, canceled)
             _transition!(run, failed, sprint(showerror, exception))
         end
         if exception isa LineCableModelsFEMError
@@ -728,7 +728,7 @@ function _compute_fem(
         previous = get(completed, keys[index], nothing)
         scan_started = execution.data.timing ? time_ns() : UInt64(0)
         value = if previous === nothing || execution.data.ui ||
-                   execution.data.mesh_policy === :remesh
+                   execution.data.mesh_mode === :remesh
             _compute_fem(problem, formulation, execution, models[index])
         else
             source = values[previous]

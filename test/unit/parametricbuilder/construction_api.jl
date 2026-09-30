@@ -623,14 +623,14 @@ end
     @test only(bounded_fills).source.material != copper
     @test sum(DM.area, bounded_design.geometry.regions) ≈
           DM.area(bounded_design.geometry.outer)
-    sector_centre = DM.centroid(resolved_sector)
+    sector_center = DM.centroid(resolved_sector)
     @test isempty(first(bounded_conductors).paths)
     @test all(Iterators.drop(bounded_conductors, 1)) do region
         radius = only(region.paths).radius
-        centre = DM.centroid(region.primitive)
+        center = DM.centroid(region.primitive)
         radius ≈ hypot(
-            centre[1] - sector_centre[1],
-            centre[2] - sector_centre[2]
+            center[1] - sector_center[1],
+            center[2] - sector_center[2]
         )
     end
     bounded_component = only(DM.flatten(bounded_design, 50.0))
@@ -844,11 +844,11 @@ end
         milliken_design.geometry.regions
     )
     @test length(milliken_conductors) > 7
-    centre_wire = only(filter(milliken_conductors) do region
+    center_wire = only(filter(milliken_conductors) do region
         region.primitive isa Disk &&
             hypot(DM.centroid(region.primitive)...) < 1e-12
     end)
-    segment_wires = filter(!=(centre_wire), milliken_conductors)
+    segment_wires = filter(!=(center_wire), milliken_conductors)
     function inner_distance(region)
         primitive = region.primitive
         cosine = cos(primitive.at.φ)
@@ -877,9 +877,9 @@ end
         end
     end
     inner_distances = inner_distance.(segment_wires)
-    @test centre_wire.primitive.r ≈ minimum(inner_distances)
+    @test center_wire.primitive.r ≈ minimum(inner_distances)
     @test count(
-        distance -> isapprox(distance, centre_wire.primitive.r),
+        distance -> isapprox(distance, center_wire.primitive.r),
         inner_distances
     ) >= 6
     milliken_fills = filter(

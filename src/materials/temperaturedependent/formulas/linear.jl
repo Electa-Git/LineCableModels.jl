@@ -7,7 +7,7 @@ $(TYPEDSIGNATURES)
 temperature in °C and ``\\alpha`` in K⁻¹. Each reference material supplies its
 own calibration. Infinite passive resistivity remains infinite.
 
-**Applicability.** The existing model policy requires ``|T-T_0|<150`` K and a
+**Applicability.** The applicability limit is ``|T-T_0|<150`` K and a
 finite positive correction factor. This is a restriction of this approximation,
 not a thermal-rating or material operating-temperature limit.
 

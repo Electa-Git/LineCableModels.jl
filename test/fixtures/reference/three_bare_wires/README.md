@@ -7,8 +7,8 @@ and Gmsh available; the script does not activate or install an environment.
 Each additive `capture-*` directory retains five complete nine-frequency scans
 for current unified and FEM (`quasi_tem`), or the actual failure for each scan.
 CSV files contain every ordered entry of phase-domain Z [Ω/m] and Y [S/m] with
-round-trip Float64 precision. The manifest records inputs, source provenance,
-timings, failures and checksums. FEM artifacts remain at the recorded persistent
+round-trip Float64 precision. The manifest records inputs, source revisions,
+timings, failures and file hashes. FEM artifacts remain at the recorded persistent
 run directories under `.linecablemodels/fem`; preserve those directories with
 the capture. Nothing here silently approves a reference or sets tolerances.
 

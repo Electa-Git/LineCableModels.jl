@@ -27,7 +27,7 @@ function plot(results::LineCableModels.AbstractUncertaintyResult,selection=nothi
     return plot(retained;ydata=requests,reference,presentation...)
 end
 
-"""Render a report's retained candidates and separate observed reference."""
+"""Render a report's retained observations and separate observed reference."""
 function plot(artifact::ReportArtifact,selection=nothing;ydata=nothing,title_prefix=nothing,reference=artifact.reference,kwargs...)
     point=artifact.observed isa Grammar.ObservedResult ? artifact.observed : first(artifact.observed)
     prefix=title_prefix===nothing ? get(get(point.timings,:context,(;)),:id,nothing) : title_prefix

@@ -164,7 +164,7 @@ recorded units when these options are omitted. Raw-only `clip`, `atol`, and
 A separate atomic `reference` is retained without computing comparisons.
 `illustration=true` or a callable explicitly requests a plot; its options belong
 in `plot_options`, and its `ydata` selection must agree with the report's `values`.
-The illustration receives the prepared observations. Default reporting returns
+The illustration receives the retained observations. Default reporting returns
 in-memory tables without loading a plotting backend or writing files.
 
 Explicit snapshots are useful for saving detached scientific products. Report

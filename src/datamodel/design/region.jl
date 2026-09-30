@@ -46,7 +46,7 @@ end
 $(TYPEDEF)
 
 Pair one physical region with its resolved primitive, retained terminal, and
-backend-neutral placement and path declarations.
+resolved placement and path declarations.
 
 Each placement retains its physical scope through the existing owner type.
 `Assembly` placements preserve independent terminals and are not strand courses.

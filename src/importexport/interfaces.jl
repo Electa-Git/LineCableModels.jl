@@ -1,11 +1,11 @@
 """
 $(TYPEDSIGNATURES)
 
-Export LineCableModels data in the format selected by `backend`.
+Export LineCableModels data in the format selected by `format`.
 
 # Arguments
 
-- `backend`: Format selector.
+- `format`: Format selector.
 - `args`: Inputs required by the selected format.
 
 # Keywords
@@ -20,8 +20,8 @@ Export LineCableModels data in the format selected by `backend`.
 
 $(METHODLIST)
 """
-function export_data(backend::Symbol, args...; kwargs...)
-    return export_data(Val(backend), args...; kwargs...)
+function export_data(format::Symbol, args...; kwargs...)
+    return export_data(Val(format), args...; kwargs...)
 end
 
 function export_data(
@@ -41,11 +41,11 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Import data in the format selected by `backend`.
+Import data in the format selected by `format`.
 
 # Arguments
 
-- `backend`: Format selector.
+- `format`: Format selector.
 - `args`: Inputs required by the selected format.
 
 # Keywords
@@ -60,6 +60,6 @@ Import data in the format selected by `backend`.
 
 $(METHODLIST)
 """
-function import_data(backend::Symbol, args...; kwargs...)
-    return import_data(Val(backend), args...; kwargs...)
+function import_data(format::Symbol, args...; kwargs...)
+    return import_data(Val(format), args...; kwargs...)
 end
