@@ -9,8 +9,19 @@ Pkg.test()
 ```
 
 Format maintained Julia files with `JuliaFormatter.format(".")`.
-Use a scoped Conventional Commit with a lowercase
-imperative description of no more than 72 characters.
+Use `type(scope): description` for commit subjects, with a lowercase imperative
+description. Keep the complete subject within 72 characters. A breaking change
+may use `type(scope)!: description`. Commit bodies are optional.
+
+Install Gitlint and enable its native commit hook once per clone:
+
+```bash
+uv tool install gitlint-core
+gitlint install-hook
+```
+
+The hook checks messages against `.gitlint` before creating a commit.
+Gitlint keeps its default exemptions for merge, revert and fixup commits.
 
 Keep pull requests focused. Add tests for changed behavior and update public
 documentation when an API changes. Optional plotting integrations must remain
@@ -22,8 +33,7 @@ The Documentation job checks writing after the documentation build and before
 deployment. It installs Vale 3.23.0 and cspell 10.3.6 into runner storage, with
 Node 24 for cspell. Vale downloads `ai-tells` 1.37.0 and the separate `STE.zip`
 from Syntaf's 0.1.0 release. The Slop style is excluded. These checks require
-neither a local installation nor QAT. Python and Julia project dependencies
-are unnecessary for the writing checks.
+no local installation, Python dependencies or Julia project dependencies.
 
 CI checks the complete maintained input on each workflow run. Git selects
 tracked files, including tracked prose under ignored directories. All documentation
@@ -65,6 +75,12 @@ reviewed vocabulary in `.github/prose/words.txt`. Add a word only after checking
 its spelling and its use in the package. Use exact identifier exclusions when
 an established identifier has a spelling that would be wrong in ordinary prose.
 The spelling dictionary has no effect on Vale's rules.
+
+cspell infers each file's language from its filename. The empty `languageId`
+override prevents the bundled Julia configuration from treating every file under
+a `LineCableModels.jl` checkout directory as Julia. Keep the regression that
+checks shell comments, JavaScript comments, Markdown and Julia docstrings under
+that directory layout.
 
 Preserve licenses, copyright notices, published titles and verbatim external
 quotations. Use an exact passage or a reviewed phrase in the relevant rule,

@@ -41,6 +41,56 @@ Append `--list` to inspect selection without executing bodies. Empty selections
 and unknown options fail. The runner prints item starts, selected files and items,
 elapsed time and completion or failure. A started item is not necessarily completed.
 
+## Advisory source diagnostics
+
+`tag:quality` also runs Fatou and three repository-owned ReLint rules against every
+Julia source file under `src/` and `ext/`, including PSCAD. These items read source
+without importing LineCableModels or starting external solvers. Ordinary runs
+exclude them, and `--list` executes neither scanner.
+
+Resolve the test project as described above to install ReLint at revision
+`61079427d9fc91cb3ead8f5b287aa3ae9b2269cb` (0.9.0) and Argus 0.4.2. Install
+Fatou **0.22.0** separately and place it on `PATH`. For Linux or macOS, use the
+same pinned installer as CI:
+
+```sh
+curl --fail --location \
+  https://raw.githubusercontent.com/jolars/fatou-action/6b6a66a1f28fce0d1ff31048c609e63b7006136e/scripts/install-fatou.sh \
+  --output /tmp/install-lcm-fatou.sh
+FATOU_VERSION=v0.22.0 FATOU_VERIFY_CHECKSUM=true \
+  FATOU_INSTALL_DIR="$HOME/.local/bin" sh /tmp/install-lcm-fatou.sh
+export PATH="$HOME/.local/bin:$PATH"
+fatou --version
+
+julia --project=test test/runtests.jl tag:quality --list
+julia --project=test test/runtests.jl quality/fatou.jl quality/relint.jl
+julia --project=test test/runtests.jl tag:quality
+```
+
+Windows binaries are available from the
+[Fatou 0.22.0 release](https://github.com/jolars/fatou/releases/tag/v0.22.0).
+Tests never install tools. A missing or wrong Fatou version fails setup.
+
+All selected source findings are **advisory**, regardless of their count.
+`fatou.toml` selects 15 rules explicitly and sets their severity to `warning`.
+ReLint runs only `runtime-eval`, `constant-catch-result`, and `private-forwarder`.
+Typed forwarding methods can appear as candidates; the scanner does not establish
+whether their dispatch purpose is useful. Inert quotations and the documented
+syntactic exclusions are exercised by controls in each test item.
+
+Invalid configuration, unreadable source, parse failures, malformed output,
+unexpected termination, and failed controls fail the quality job. Fatou's
+findings-only exit status is accepted after validating its diagnostics. A passing
+item establishes that its controls and scan completed; it does not establish the
+absence of findings or certify architecture or scientific behavior.
+
+Each scanner prints every finding and per-rule counts. Fatou also prints its
+native JSON, including parse diagnostics. CI retains the complete quality log in
+the `quality-test-report` artifact, including failed runs that produced a log.
+Source-file counts do not contribute to the production line-coverage requirement.
+No automatic repairs, formatting, suppression additions, or promotion to blocking
+source rules are part of these checks.
+
 ## Additional execution environments
 
 | Command | What it executes |

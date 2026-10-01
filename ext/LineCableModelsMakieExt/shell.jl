@@ -778,19 +778,17 @@ function _axis_format!(axis)
                 else
                     nothing
                 end
-                if owned_format
-                    if mode != installed_mode[] || current_format === Makie.automatic
-                        installed_format[] = if mode === nothing
-                            Makie.automatic
-                        elseif first(mode) === :linear
-                            _linear_tickformat(exponent)
-                        else
-                            _scientific_tickformat
-                        end
-                        installed_mode[] = mode
-                        tickformat[] === installed_format[] ||
-                            (tickformat[] = installed_format[])
+                if owned_format && (mode != installed_mode[] || current_format === Makie.automatic)
+                    installed_format[] = if mode === nothing
+                        Makie.automatic
+                    elseif first(mode) === :linear
+                        _linear_tickformat(exponent)
+                    else
+                        _scientific_tickformat
                     end
+                    installed_mode[] = mode
+                    tickformat[] === installed_format[] ||
+                        (tickformat[] = installed_format[])
                 end
                 formatted = owned_format && mode !== nothing && first(mode) === :linear ?
                             _axis_label(raw_label[], exponent, :linear) : raw_label[]
@@ -1629,11 +1627,7 @@ function _legend!(
 end
 
 function _plot_belongs_to_axis(plot, axis)
-    return try
-        getproperty(plot, :parent) === axis.scene
-    catch
-        false
-    end
+    return plot.parent === axis.scene
 end
 
 function _panel_legend_data(

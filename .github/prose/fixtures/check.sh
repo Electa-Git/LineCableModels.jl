@@ -121,6 +121,34 @@ grep -Fq 'prosezztypo' "$scratch/spelling.log"
 printf '# Compute the admittance with GetDP.\n' > "$scratch/science.jl"
 cspell "${cspell_args[@]}" "$scratch/science.jl"
 
+# GitHub places this repository under directories ending in .jl. The bundled
+# Julia override must not replace the language inferred from each filename.
+checkout="$scratch/LineCableModels.jl/LineCableModels.jl"
+mkdir -p "$checkout"
+cat > "$checkout/example.sh" <<'SHELL'
+#!/usr/bin/env bash
+case value in
+    value) ;;
+esac
+SHELL
+printf 'document.addEventListener("mouseout", () => {});\n' > "$checkout/example.js"
+printf 'Read the [execution report](../local/validation-refoundation/report.md).\n' > "$checkout/example.md"
+cspell "${cspell_args[@]}" "$checkout/example.sh" "$checkout/example.js" "$checkout/example.md"
+
+# Language dictionaries and Markdown link handling must preserve prose checks.
+printf '# prosezztypo\n' >> "$checkout/example.sh"
+printf '// prosezztypo\n' >> "$checkout/example.js"
+printf '\nA prosezztypo.\n' >> "$checkout/example.md"
+cp "$scratch/unpublished.jl" "$checkout/unpublished.jl"
+if cspell "${cspell_args[@]}" "$checkout/example.sh" "$checkout/example.js" \
+    "$checkout/example.md" "$checkout/unpublished.jl" > "$scratch/languages.log" 2>&1; then
+    echo 'cspell skipped prose under a Julia checkout directory.' >&2
+    exit 1
+else
+    test "$?" -eq 1
+fi
+test "$(grep -c 'Unknown word (prosezztypo)' "$scratch/languages.log")" -eq 4
+
 # A tracked README remains checked even when Git ignores its directory.
 git init --quiet "$scratch/repository"
 mkdir -p "$scratch/repository/test/fixtures/reference" "$scratch/repository/docs/src/tutorials" "$scratch/repository/docs/build"

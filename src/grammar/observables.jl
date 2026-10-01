@@ -168,9 +168,6 @@ function validate_observables(
     return map(request -> observation_request(source, request).identity, requests)
 end
 
-_observe_request(source, request::Function) = observe(source, request)
-_observe_request(source, request::Tuple) = observe(source, request...)
-
 function _unit_override_keys(request, overrides)
     identity = request_identity(request)
     indices=request_indices(request)
@@ -256,6 +253,8 @@ detach(value::Number, factor) = value * factor
 detach(value::AbstractFloat, factor::Real) = value * oftype(value, factor)
 detach(value::Complex{T}, factor::Real) where {T<:AbstractFloat} = value * T(factor)
 detach(value::Missing, factor) = missing
+detach(value::Nothing, factor) = nothing
+detach(values::NamedTuple, factor) = map(value -> detach(value, factor), values)
 detach(values::AbstractArray, factor) = map(value -> detach(value, factor), values)
 
 """

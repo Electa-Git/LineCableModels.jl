@@ -369,8 +369,11 @@ function _check_scan_checksums(run::FEMRun, scan::FEMScan)
     path = joinpath(run.path, "raw", "checksums.json")
     checksums = try
         JSON3.read(read(path, String))
-    catch
-        nothing
+    catch exception
+        exception isa Union{SystemError, Base.IOError, ArgumentError} || rethrow()
+        _fem_error(:results, "completed scan", :checksum,
+            "cannot read checksum manifest $path: $(sprint(showerror, exception))";
+            run_directory=run.path)
     end
     paths = [joinpath(run.path, "raw", name)
         for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")]

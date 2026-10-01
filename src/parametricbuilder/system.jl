@@ -193,31 +193,7 @@ function Engine.LineParametersProblem(
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
     return Gridspace{Engine.LineParametersProblem}(
-        _declared_line_problem, sources; combine
-    )
-end
-
-function _declared_line_problem(
-        designs,
-        placements,
-        connections,
-        environment,
-        system_id,
-        line_length,
-        temperature,
-        earth_props,
-        frequencies
-)
-    return Engine.LineParametersProblem(
-        designs,
-        placements,
-        connections,
-        environment,
-        system_id,
-        line_length,
-        temperature,
-        earth_props,
-        frequencies
+        Engine.LineParametersProblem, sources; combine
     )
 end
 

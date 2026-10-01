@@ -163,7 +163,7 @@ function _line_page(
             values = xvalues))
         yobservation = merge(observation, (; values = yvalues))
         panel=merge(cells[position], (; logical_position = facet.panel_identity))
-        row, column = position
+        row, _ = position
         bottom_row = maximum(first, page.positions)
         attributes = (;
             xlabelvisible = row == bottom_row,
@@ -178,12 +178,10 @@ function _line_page(
             curve -> begin
                 resolution=published[curve.source_index].resolutions[facet.request_index]
                 resolution.clip && resolution.kind===:declared_floor
-            end, facet.curves)
-            if all(ismissing, yvalues)
-                attributes = merge(attributes,
-                    (subtitle = facet.identity isa Tuple && angle in facet.identity ?
-                                "Undefined phase" : "Unavailable quantity",))
-            end
+            end, facet.curves) && all(ismissing, yvalues)
+            attributes = merge(attributes,
+                (subtitle = facet.identity isa Tuple && angle in facet.identity ?
+                            "Undefined phase" : "Unavailable quantity",))
         end
         axis, scales = _axis!(
             panel.content,

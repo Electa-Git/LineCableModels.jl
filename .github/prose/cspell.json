@@ -26,6 +26,10 @@
   ],
   "overrides": [
     {
+      "filename": "**/*",
+      "languageId": ""
+    },
+    {
       "filename": [
         "**/src/datamodel/placement/bounded.jl",
         "**/test/unit/datamodel/baseparams/geometry.jl"

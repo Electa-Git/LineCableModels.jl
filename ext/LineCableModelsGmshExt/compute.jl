@@ -128,19 +128,25 @@ function _finish_gmsh(session::FEMGmshSession)
     for tag in setdiff(Set(Int.(gmsh.view.get_tags())), session.initial_views)
         try
             gmsh.view.remove(tag)
-        catch
+        catch exception
+            @warn "Failed to remove a backend-created Gmsh view" view = tag exception = (
+                exception, catch_backtrace())
         end
     end
     for name in setdiff(Set(String.(gmsh.model.list())), session.initial_models)
         try
             gmsh.model.set_current(name)
             gmsh.model.remove()
-        catch
+        catch exception
+            @warn "Failed to remove a backend-created Gmsh model" model = name exception = (
+                exception, catch_backtrace())
         end
     end
     isempty(session.previous_model) || try
         gmsh.model.set_current(session.previous_model)
-    catch
+    catch exception
+        @warn "Failed to restore the caller's current Gmsh model" model = session.previous_model exception = (
+            exception, catch_backtrace())
     end
     gmsh.option.set_number("General.Terminal", session.terminal_option)
     gmsh.option.set_number("General.Verbosity", session.verbosity_option)
@@ -189,9 +195,14 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     existing, recorded, run_state = try
         (JSON3.read(read(snapshot, String)), JSON3.read(read(computation, String)),
             JSON3.read(read(state, String)))
-    catch
+    catch exception
+        exception isa Union{SystemError, Base.IOError, ArgumentError} || rethrow()
         return false
     end
+    existing isa AbstractDict && recorded isa AbstractDict && run_state isa AbstractDict ||
+        return false
+    get(run_state, :state, nothing) isa AbstractString &&
+        get(recorded, :execution, nothing) isa AbstractDict || return false
     # External Gmsh sessions can include arbitrary caller-owned meshing settings.
     inputs.owned_gmsh || return false
     if String(run_state.state) == string(completed)
@@ -216,7 +227,7 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
         pop!(record, "getdp_selection", nothing)
     end
     return _resume_value_matches(existing, expected) &&
-           _resume_value_matches(comparable, requested)
+           isequal(comparable, requested)
 end
 
 function _resume_run(
@@ -262,31 +273,37 @@ function _resume_run(
             "resume_run_directory is missing $directory/: $path",
         ))
     end
+    state_path = joinpath(path, "run.json")
     document = try
-        JSON3.read(read(joinpath(path, "run.json"), String))
-    catch
-        nothing
+        JSON3.read(read(state_path, String))
+    catch exception
+        exception isa Union{SystemError, Base.IOError, ArgumentError} || rethrow()
+        _fem_error(:execution, model.problem.system.system_id, :resume_run_directory,
+            "cannot read selected run metadata $state_path: $(sprint(showerror, exception))";
+            run_directory=path)
     end
-    mesh_source = document === nothing ? :none :
-                  Symbol(String(document.mesh_source))
-    mesh_fingerprint = document === nothing ? "" :
-                       String(document.mesh_fingerprint)
+    document isa AbstractDict &&
+        all(key -> get(document, key, nothing) isa AbstractString,
+            (:state, :mesh_source, :mesh_fingerprint)) &&
+        all((:getdp_invocations, :completed_columns, :completed_frequencies)) do key
+            value = get(document, key, key === :getdp_invocations ? nothing : 0)
+            value isa Integer && !(value isa Bool) && 0 <= value <= typemax(Int)
+        end || _fem_error(:execution, model.problem.system.system_id, :resume_run_directory,
+            "invalid selected run metadata in $state_path"; run_directory=path)
     run = FEMRun(
         path,
         created,
         "resuming interrupted run",
-        mesh_source,
-        mesh_fingerprint,
-        document === nothing ? 0 : Int(document.getdp_invocations)
+        Symbol(String(document.mesh_source)),
+        String(document.mesh_fingerprint),
+        Int(document.getdp_invocations)
     )
-    if document !== nothing
-        run.completed_columns = Int(get(document, :completed_columns, 0))
-        run.completed_frequencies = Int(get(document, :completed_frequencies, 0))
-        if String(document.state) == string(completed)
-            run.state = completed
-            run.message = "reading completed run"
-            return run
-        end
+    run.completed_columns = Int(get(document, :completed_columns, 0))
+    run.completed_frequencies = Int(get(document, :completed_frequencies, 0))
+    if String(document.state) == string(completed)
+        run.state = completed
+        run.message = "reading completed run"
+        return run
     end
     @debug "Resuming compatible FEM run" run_directory=path
     return run

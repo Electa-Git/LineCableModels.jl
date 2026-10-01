@@ -580,3 +580,28 @@ end
     @test_throws ArgumentError IE._json_path("library.archive")
     @test endswith(IE._json_path("library"), "library.json")
 end
+
+@testitem "ImportExport / shared material references use the declaration encoder" tags=[:unit] begin
+    import LineCableModels.ImportExport as IE
+    copper = Material(kind=:conductor, rho=1.72e-8)
+    dielectric = Material(kind=:insulator, rho=Inf, eps_r=2.3)
+    wire = Region(:wire, Disk(0.001), copper)
+    group = Group(:core, wire; pattern=Ring(3; r=0.01))
+    design = build(CableDesign, "material-references", group)
+    material_name(material) = material === copper ? "copper" : "dielectric"
+    encoded = IE.serialize_value(design; material_name)
+    @test encoded["origin"]["item"]["material"] == "copper"
+    @test IE.serialize_value(design)["origin"]["item"]["material"] == IE.serialize_value(copper)
+    enclosure = duct(terminal(:core, wire); shape=Ellipse(0.01, 0.008),
+        fill=dielectric, wall=insulation(dielectric; t=0.001))
+    enclosed = IE.serialize_value(enclosure; material_name)
+    @test enclosed["fill"] == "dielectric"
+    @test enclosed["wall"]["material"] == "dielectric"
+    @test only(enclosed["item"]["item"]["items"])["material"] == "copper"
+    library = CablesLibrary()
+    add!(library, design)
+    document = IE._json_document(library)
+    reference = document["root"]["cables"][design.cable_id]["origin"]["item"]["material"]
+    @test document["materials"][reference] == IE._material_record(copper)
+    @test length(document["materials"]) == 1
+end

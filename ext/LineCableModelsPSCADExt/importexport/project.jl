@@ -244,7 +244,6 @@ function _pscad_hierarchy!(project, namespace::AbstractString)
 end
 
 function _pscad_part_parameters(component, index::Int, angular_frequency)
-    names = ("C", "S", "A", "O")
     radii = (("R1", "R2", "R3"), ("R4", "R4", "R5"),
         ("R6", "R6", "R7"), ("R8", "R8", "R9"))
     resistivities = ("RHOC", "RHOS", "RHOA", "RHOO")

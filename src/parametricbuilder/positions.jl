@@ -1,51 +1,15 @@
-_pose(x, y, φ) = DataModel.Pose2(x, y, φ)
-
 struct _ConnectionsAbsent end
 
 const _CONNECTIONS_ABSENT = _ConnectionsAbsent()
 
 _parameter_type(value) = typeof(value)
-_parameter_type(::DeterministicGrid{Values}) where {Values} = eltype(Values)
+_parameter_type(grid::DeterministicGrid) = eltype(grid)
 _parameter_type(::Union{RelativeGrid, AbsoluteGrid}) = Real
 _parameter_type(::Gridspace{Target}) where {Target} = Target
-
-function _at_kind(left, right, connections)
-    left_type = _parameter_type(left)
-    right_type = _parameter_type(right)
-    (left_type === Union{} || right_type === Union{}) && throw(ArgumentError(
-        "at does not accept an empty finite source"
-    ))
-    return _at_kind(left_type, right_type, connections)
-end
-
-_at_kind(::Type{<:Real}, ::Type{<:Real}, ::_ConnectionsAbsent) = Val(:pose)
-function _at_kind(
-        ::Type{<:DataModel.AbstractCablePart},
-        ::Type{<:DataModel.Pose2},
-        ::_ConnectionsAbsent
-)
-    Val(:member)
-end
-function _at_kind(
-        ::Type{<:DataModel.CableDesign},
-        ::Type{<:DataModel.Pose2},
-        connections
-)
-    Val(:design)
-end
-function _at_kind(
-        ::Type{<:Union{Tuple, AbstractVector}},
-        ::Type{<:DataModel.Pose2},
-        ::_ConnectionsAbsent
-)
-    Val(:collection)
-end
 
 at(; x = 0, y = 0, φ = 0, combine::Symbol = :product) = at(x, y; φ, combine)
 
 at(pose::DataModel.Pose2) = pose
-
-_placed_member(part, pose) = DataModel.AssemblyMember(part, pose)
 
 function _placed_design(design, pose, connections)
     (
@@ -55,15 +19,14 @@ function _placed_design(design, pose, connections)
     )
 end
 
-_compose_pose(outer::DataModel.Pose2, inner::DataModel.Pose2) = outer * inner
 function _compose_member(outer, member::DataModel.AssemblyMember)
-    DataModel.AssemblyMember(member.item, _compose_pose(outer, member.at))
+    DataModel.AssemblyMember(member.item, outer * member.at)
 end
-_compose_member(outer, pose::DataModel.Pose2) = _compose_pose(outer, pose)
+_compose_member(outer, pose::DataModel.Pose2) = outer * pose
 function _compose_member(outer, placement::NamedTuple)
     merge(
         placement,
-        (pose = _compose_pose(outer, placement.pose),)
+        (pose = outer * placement.pose,)
     )
 end
 
@@ -79,24 +42,27 @@ _collection_target(::AbstractVector) = Vector
 _collection_target(::Gridspace{Target}) where {Target} = Target <: Tuple ? Tuple : Vector
 
 function _at_pair(
-        ::Val{:pose}, x, y, φ, ::_ConnectionsAbsent, combine::Symbol
+        ::Type{<:Real}, ::Type{<:Real},
+        x, y, φ, ::_ConnectionsAbsent, combine::Symbol
 )
-    return parameterize(DataModel.Pose2, _pose, (x, y, φ); combine)
+    return parameterize(DataModel.Pose2, DataModel.Pose2, (x, y, φ); combine)
 end
 
 function _at_pair(
-        ::Val{:member}, part, pose, φ, ::_ConnectionsAbsent, combine::Symbol
+        ::Type{<:DataModel.AbstractCablePart}, ::Type{<:DataModel.Pose2},
+        part, pose, φ, ::_ConnectionsAbsent, combine::Symbol
 )
     iszero(φ) || throw(ArgumentError(
         "at(part, pose) does not accept a second rotation"
     ))
     return parameterize(
-        DataModel.AssemblyMember, _placed_member, (part, pose); combine
+        DataModel.AssemblyMember, DataModel.AssemblyMember, (part, pose); combine
     )
 end
 
 function _at_pair(
-        ::Val{:design}, design, pose, φ, connections, combine::Symbol
+        ::Type{<:DataModel.CableDesign}, ::Type{<:DataModel.Pose2},
+        design, pose, φ, connections, combine::Symbol
 )
     connections isa _ConnectionsAbsent && throw(ArgumentError(
         "at(design, pose) requires connections"
@@ -110,7 +76,8 @@ function _at_pair(
 end
 
 function _at_pair(
-        ::Val{:collection}, placements, pose, φ, ::_ConnectionsAbsent,
+        ::Type{<:Union{Tuple, AbstractVector}}, ::Type{<:DataModel.Pose2},
+        placements, pose, φ, ::_ConnectionsAbsent,
         combine::Symbol
 )
     iszero(φ) || throw(ArgumentError(
@@ -157,8 +124,12 @@ function at(
         connections = _CONNECTIONS_ABSENT,
         combine::Symbol = :product
 )
-    kind = _at_kind(left, right, connections)
-    return _at_pair(kind, left, right, φ, connections, combine)
+    left_type = _parameter_type(left)
+    right_type = _parameter_type(right)
+    (left_type === Union{} || right_type === Union{}) && throw(ArgumentError(
+        "at does not accept an empty finite source"
+    ))
+    return _at_pair(left_type, right_type, left, right, φ, connections, combine)
 end
 
 function at(

@@ -59,6 +59,14 @@ for b in bases:
             end
             write(config,JSON3.write((delay=0.02,fail=false)))
             run=fresh()
+            # Resume identity checks accept the same executable and reject a
+            # changed identity before starting a worker.
+            @test E._resolve_getdp(execution_options, run) == realpath(executable)
+            input_path = joinpath(run.path, "input/computation.json")
+            changed_identity = merge(inputs.getdp_identity, (sha256="changed",))
+            E._write_json_atomic(input_path, merge(inputs, (getdp_identity=changed_identity,)))
+            @test_throws LineCableModelsFEMError E._resolve_getdp(execution_options, run)
+            E._write_json_atomic(input_path, inputs)
             owner=E._claim_run(run)
             @test_throws LineCableModelsFEMError E._claim_run(run)
             lock_probe=raw"""
@@ -82,6 +90,18 @@ with open(sys.argv[1],'a+') as f:
             @test !E._valid_column_checkpoint(run.path,1,50.0,2,2,false,"different mesh")
             @test !E._valid_column_checkpoint(run.path,1,50.0,2,2,true,digest)
             paths=E._column_paths(run.path,1,2,false)
+            checkpoint = read(paths.checkpoint, String)
+            record = Dict(pairs(JSON3.read(checkpoint)))
+            for malformed in ("{", "{}", "[]", "null", "1",
+                    (JSON3.write(merge(record, Dict(pairs(patch)))) for patch in (
+                        (frequency_hz="50",), (frequency_hz=nothing,), (frequency_index=true,),
+                        (protocol=2.5,), (checksums=nothing,), (checksums=[],),
+                        (plot_field_maps=0,), (mesh_digest=nothing,)))...)
+                write(paths.checkpoint, malformed)
+                @test !E._valid_column_checkpoint(run.path,1,50.0,2,2,false,digest)
+            end
+            write(paths.checkpoint, checkpoint)
+            @test E._valid_column_checkpoint(run.path,1,50.0,2,2,false,digest)
             before=read(paths.Z)
             write(paths.Z,"broken\n")
             @test !E._valid_column_checkpoint(run.path,1,50.0,2,2,false,digest)

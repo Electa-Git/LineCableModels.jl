@@ -11,13 +11,19 @@
     @test at(inner) === inner
     member = at(part, inner)
     local_placements = (member, inner)
-    transformed = at(local_placements, outer)
+    transformed = @inferred at(local_placements, outer)
     @test transformed isa Tuple
     @test transformed[1].item === part
     @test transformed[1].at == outer * inner
     @test transformed[2] == outer * inner
     @test at(collect(local_placements), outer) == collect(transformed)
     @test member.at == inner
+    placed_design = at(design, inner; connections=(phase=1,))
+    transformed_design = @inferred at((placed_design,), outer)
+    @test only(transformed_design).design === design
+    @test only(transformed_design).pose == outer * inner
+    @test only(transformed_design).connections === placed_design.connections
+    @test (@inferred at([inner, outer], outer)) == [outer * inner, outer * outer]
 
     poses = (inner, at(-0.01, 0.02; φ=-0.4))
     tuple_space = Gridspace{Tuple}(pose -> (at(part, pose), pose), (Grid(poses),))
@@ -112,4 +118,36 @@ end
     @test_throws ArgumentError build(LineCableSystem, ())
     @test_throws ArgumentError build(LineCableSystem, ((),))
     @test_throws ArgumentError build(LineCableSystem, ((design=design, pose=Pose2(0.0, -1.0)),))
+end
+
+@testitem "ParametricBuilder / placement dispatch keeps target types without evaluating sources" tags=[:unit] begin
+    part = terminal(:core, core(Material(kind=:conductor, rho=1.72e-8); r=0.001))
+    design = build(CableDesign, "lazy-placement", part)
+    calls = Ref(0)
+    poses = Gridspace{Pose2}(x -> begin
+        calls[] += 1
+        Pose2(x, -1.0)
+    end, (Grid((0.0, 1.0)),))
+    # Lazy sources retain their declared target; the constructor's inferred
+    # Gridspace type need not fix its eventual iterator element type.
+    members = at(part, poses)
+    designs = at(design, poses; connections=(core=1,))
+    @test calls[] == 0
+    @test members isa Gridspace{LineCableModels.DataModel.AssemblyMember}
+    @test designs isa Gridspace{NamedTuple}
+    @test first(members).item === part
+    @test calls[] == 1
+    placed = first(designs)
+    @test placed.design === design
+    @test placed.connections === (core=1,)
+    @test calls[] == 2
+    @test (@inferred at(1.0f0, 2.0f0; φ=0.0f0)) isa Pose2{Float32}
+    @test (@inferred at(part, Pose2(1.0, 2.0))).item === part
+    @test (@inferred at(design, Pose2(1.0, 2.0); connections=(core=1,))).design === design
+    @test_throws ArgumentError at(Grid(()), 0.0)
+    @test_throws ArgumentError at(0.0, Grid(()))
+    @test_throws ArgumentError at(design, Pose2(0.0, 0.0))
+    @test_throws ArgumentError at(part, Pose2(0.0, 0.0); φ=1.0)
+    @test_throws ArgumentError at(design, Pose2(0.0, 0.0); φ=1.0, connections=(core=1,))
+    @test_throws ArgumentError at((Pose2(0.0, 0.0),), Pose2(0.0, 0.0); φ=1.0)
 end

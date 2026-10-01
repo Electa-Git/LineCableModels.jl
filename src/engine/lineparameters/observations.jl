@@ -140,10 +140,6 @@ function line_coordinates(source,request,frequencies)
         extent=dimensions,labels,domain=source isa LineParameters ? nameof(domain(source)) : :unspecified)
 end
 
-_scaled_thresholds(value::Nothing,factor) = nothing
-_scaled_thresholds(value::NamedTuple,factor) = map(x -> _scaled_thresholds(x,factor),value)
-_scaled_thresholds(value,factor) = Grammar.detach(value,factor)
-
 function _line_observation_quantity(source::_ObservedLineSource,request;
         unit=nothing,clip=true,atol=nothing,frequencies=nothing)
     identity=request_identity(request)
@@ -191,7 +187,7 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
     return (request,quantity=q,family=Symbol(nameof(_primary_family(selector))),statistic=:value,
         values=Grammar.detach(resolved isa AbstractArray && ndims(resolved)==0 ? only(resolved) : resolved,factor),unit=target,basis=basis(source),coordinates,
         assumptions=observation_assumptions(source,selector),
-        thresholds=(kind=resolution.kind,values=_scaled_thresholds(resolution.atol,threshold_factor),
+        thresholds=(kind=resolution.kind,values=Grammar.detach(resolution.atol,threshold_factor),
             unit=phase ? threshold_unit : target),available,engineering_zero=mask,clipped=clip,
         missing_reason=reasons,unavailable_components=components)
 end
@@ -233,6 +229,6 @@ function Grammar.observation_quantity(source::CableConstants,request;
     return (request,quantity=q,family=:constants,statistic=:value,values=Grammar.detach(resolved,factor),
         unit=target,basis=:pul,coordinates=(kind=:assemblies,indices=(index,),assemblies=selected,
             labels=copy(source.cores),frequencies=[source.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(source),1)),
-        thresholds=(kind=resolution.kind,values=_scaled_thresholds(resolution.atol,factor),unit=target),
+        thresholds=(kind=resolution.kind,values=Grammar.detach(resolution.atol,factor),unit=target),
         available=resolution.available,engineering_zero=resolution.unresolved,clipped=clip,missing_reason=nothing)
 end

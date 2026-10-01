@@ -8,7 +8,7 @@ source_files="$reports/source-files.txt"
 : > "$source_files"
 while IFS= read -r -d '' file; do
     case "$file" in
-        LICENSE|.qat*|*/Manifest.toml|Manifest.toml) continue ;;
+        LICENSE|*/Manifest.toml|Manifest.toml|.github/prose/package-lock.json) continue ;;
         .github/prose/fixtures/*|.github/prose/styles/config/*|.github/prose/words.txt) continue ;;
         test/fixtures/reference/*/capture-*/*) continue ;;
         test/fixtures/reference/*)

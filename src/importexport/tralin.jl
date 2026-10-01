@@ -25,7 +25,6 @@ function export_data(::Val{:tralin},
                     joinpath(@__DIR__, dir, prefixed_fname)
     end
 
-    num_phases = length(cable_system.designs)
     freqs = map(f -> nominal(f), _freqs(freq))
     # TRALIN defines this explicit radial homogenization choice. The choice is not stored
     # on CableDesign. Unsupported physical geometry fails at the local

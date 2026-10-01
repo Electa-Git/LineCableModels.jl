@@ -78,6 +78,19 @@ The architecture that the quality, core and integration tests protect requires:
 A new definition must satisfy these standards. Native interface and import checks
 and tests through actual composed consumers provide the protection. A universal source analysis of every method or forwarding wrapper is outside this suite.
 
+The quality selection also runs advisory source diagnostics. Fatou applies the
+explicit rules in `fatou.toml`; ReLint identifies runtime-evaluation spellings,
+empty or constant-result catches, and unchanged private forwarding methods.
+These scans read all Julia files under `src/` and `ext/` without executing them.
+They report candidates for review, including typed forwarding methods whose
+dispatch purpose has not been determined. Macro expansion, arbitrary binding
+ownership, and global architectural redundancy are outside their analysis.
+Source findings do not fail the job. Tool setup errors, incomplete scans, and
+failed integration controls do. The scans perform no repairs or formatting and
+do not contribute executed-code coverage. See the
+[test instructions](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md#advisory-source-diagnostics)
+for pinned tool installation, commands, and the retained CI report.
+
 Integration tests also count actual blueprint lowering calls: one per selected
 design point, shared across its formulation alternatives and frequency sweep.
 They check material evaluation before local calculations, paired exterior
@@ -190,7 +203,7 @@ The following external interfaces are used by the package:
 | Access | Supported use |
 | --- | --- |
 | `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html). Cairo adapter only. |
-| `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/). Renderer export error handling only. |
+| `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/). Renderer export errors and FEM file/process recovery. |
 | `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by Engine's allocating Kron entry point to preserve source and destination aliasing. The workspace path uses separate preallocated buffers. |
 | `Base.get_extension` | Identifies the loaded Cairo extension. Its public `CairoMakie` binding supplies the native save backend. |
 | `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api). Renderer only. |

@@ -51,7 +51,7 @@ function _matrix_pages(positions, extent, capacity; origin = (1, 1))
 end
 
 function _flow_pages(items, capacity)
-    rows, columns=capacity
+    _, columns=capacity
     pages=NamedTuple[]
     for start in 1:prod(capacity):length(items)
         selected=items[start:min(start + prod(capacity) - 1, length(items))]

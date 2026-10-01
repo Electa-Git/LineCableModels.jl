@@ -185,7 +185,7 @@ function _resolve_getdp(execution::ComputationOptions, run::FEMRun)
     pop!(recorded_identity, "path", nothing) # schema 4 compatibility
     expected_identity = Dict(String(key)=>value
     for (key, value) in pairs(JSON3.read(JSON3.write(identity))))
-    _resume_value_matches(recorded_identity, expected_identity) ||
+    isequal(recorded_identity, expected_identity) ||
         _fem_error(:getdp, "GetDP", :getdp_executable,
             "GetDP executable identity changed after writing the run inputs; start a new run";
             run_directory = run.path)

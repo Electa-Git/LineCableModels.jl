@@ -9,6 +9,7 @@
     end
     renderer = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     cairo = Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt)
+    extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     @test renderer !== nothing
     @test cairo !== nothing
     import Logging, JSON3
@@ -48,13 +49,12 @@
             :defaultlimits, :fast_string_boundingboxes) && return true
         consumer === renderer && owner === CairoMakie.Makie.GridLayoutBase &&
             name === :remove_from_gridlayout! && return true
-        consumer === renderer && owner === Base && name === :IOError && return true
+        consumer in (renderer, extension) && owner === Base && name === :IOError && return true
         return false
     end
 
     # All other ExplicitImports checks remain unchanged, including ownership.
     test_explicit_imports(LineCableModels; all_qualified_accesses_are_public=false)
-    extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     unexpected = String[]
     for (consumer, accesses) in improper_qualified_accesses(
             LineCableModels; skip=(), allow_internal_accesses=false)

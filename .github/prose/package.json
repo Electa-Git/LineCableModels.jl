@@ -1,0 +1,7 @@
+{
+  "name": "linecablemodels-prose-tools",
+  "private": true,
+  "dependencies": {
+    "cspell": "10.3.6"
+  }
+}

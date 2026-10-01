@@ -67,9 +67,14 @@ function _engineering_exponent(number::Real)
     iszero(number) && return 0
     magnitude = try
         abs(Float64(number))
-    catch
+    catch exception
+        exception isa InexactError ||
+            (exception isa MethodError && exception.f === Float64 &&
+                length(exception.args) == 1 && only(exception.args) === number) ||
+            rethrow()
         return 0
     end
+    iszero(magnitude) && return 0
     isfinite(magnitude) || return 0
     exponent = 3 * floor(Int, log10(magnitude) / 3)
     return clamp(exponent, first(first(_ENGINEERING_PREFIX)), first(last(_ENGINEERING_PREFIX)))
@@ -230,8 +235,6 @@ function _tree_state(io::IO)
     )
 end
 
-_tree_label(node::NamedTuple) = String(node.label)
-_tree_label(node) = string(node)
 _tree_children(node::NamedTuple) = get(node, :children, ())
 _tree_children(node) = ()
 _tree_noun(node::NamedTuple) = String(get(node, :noun, "items"))
@@ -259,7 +262,8 @@ function _write_tree_children!(io::IO, nodes, prefix, level, state)
         children = collect(_tree_children(node))
         has_following = index < visible_count || omitted_by_count > 0
         connector = has_following ? "├─ " : "└─ "
-        _write_tree_line(io, prefix, connector, _tree_label(node))
+        label = node isa NamedTuple ? String(node.label) : string(node)
+        _write_tree_line(io, prefix, connector, label)
         state.remaining[] -= 1
 
         isempty(children) && continue

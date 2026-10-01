@@ -90,26 +90,42 @@ function _valid_column_checkpoint(
         physics::Symbol=Symbol("quasi-tem"))
     paths = _column_paths(root, frequency_index, basis, maps; physics)
     isfile(paths.checkpoint) || return false
+    record = try
+        JSON3.read(read(paths.checkpoint, String))
+    catch exception
+        exception isa Union{SystemError, Base.IOError, ArgumentError} || rethrow()
+        return false
+    end
+    record isa AbstractDict || return false
+    for (key, expected) in pairs((protocol=2, frequency_index=frequency_index,
+            basis=basis, terminals=terminals))
+        value = get(record, key, nothing)
+        value isa Integer && !(value isa Bool) && value == expected || return false
+    end
+    get(record, :physics, "quasi-tem") == String(physics) &&
+        get(record, :plot_field_maps, nothing) === maps &&
+        get(record, :mesh_digest, nothing) == mesh_digest || return false
+    recorded_frequency = get(record, :frequency_hz, nothing)
+    recorded_frequency isa Real && !(recorded_frequency isa Bool) &&
+        isfinite(recorded_frequency) &&
+        isapprox(recorded_frequency, frequency; rtol = 16eps(Float64), atol = 0) ||
+        return false
+    checksums = get(record, :checksums, nothing)
+    checksums isa AbstractDict || return false
     return try
-        record = JSON3.read(read(paths.checkpoint, String))
-        record.protocol == 2 && record.frequency_index == frequency_index &&
-        record.basis == basis && record.terminals == terminals &&
-        get(record, :physics, "quasi-tem") == String(physics) &&
-        record.plot_field_maps == maps && record.mesh_digest == mesh_digest &&
-        isapprox(record.frequency_hz, frequency; rtol = 16eps(Float64), atol = 0) ||
-            return false
         _valid_job_raw(paths.Z, terminals, frequency_index, frequency, basis) &&
         _valid_job_raw(paths.P, terminals, frequency_index, frequency, basis) ||
             return false
         _column_timing(paths.timing, frequency_index, basis) === nothing && return false
         files = _column_files(paths)
-        length(record.checksums) == length(files) || return false
+        length(checksums) == length(files) || return false
         all(files) do file
             key = relpath(file, root)
-            isfile(file) && haskey(record.checksums, key) &&
-                record.checksums[key] == bytes2hex(open(sha256, file))
+            isfile(file) && haskey(checksums, key) &&
+                checksums[key] == bytes2hex(open(sha256, file))
         end
-    catch
+    catch exception
+        exception isa Union{SystemError, Base.IOError} || rethrow()
         false
     end
 end
@@ -218,28 +234,31 @@ function _start_worker!(run, job, execution)
         close(log)
         rethrow()
     end
-    pid = try
-        Int(getpid(process))
-    catch
-        0 # A process can exit before its handle's PID is queried.
-    end
-    process_token = _process_token(pid)
-    worker = FEMActiveWorker(
-        job, process, pid, process_token, log, started_at, start_tick, Set(job.bases))
     try
+        pid = try
+            Int(getpid(process))
+        catch exception
+            exception isa Base.IOError &&
+                unsafe_string(ccall(:uv_err_name, Cstring, (Cint,), exception.code)) == "ESRCH" ||
+                rethrow()
+            0 # A process can exit before its handle's PID is queried.
+        end
+        process_token = _process_token(pid)
+        worker = FEMActiveWorker(
+            job, process, pid, process_token, log, started_at, start_tick, Set(job.bases))
         _write_json_atomic(joinpath(job.directory, "attempt.json"),
             _attempt_record(
                 job; state = "running", pid, process_token, started_unix_seconds = started_at,
                 solver_threads = execution.data.solver_threads))
         run.getdp_invocations += 1
         _transition!(run, running, "frequency $(job.frequency_index) launched")
+        return worker
     catch
         process_running(process) && kill(process, 9) # SIGKILL, accepted by the public kill(process, signal) API
         wait(process)
         close(log)
         rethrow()
     end
-    return worker
 end
 
 function _record_progress!(run, valid)
@@ -320,12 +339,15 @@ end
 # so a later unrelated process does not prevent recovery of this attempt.
 function _process_token(pid::Integer)
     pid > 0 && Sys.islinux() || return nothing
-    return try
-        fields = split(last(split(read("/proc/$pid/stat", String), ") "; limit = 2)))
-        strip(read("/proc/sys/kernel/random/boot_id", String)) * ":" * fields[20]
-    catch
-        nothing
+    stat, boot = try
+        (read("/proc/$pid/stat", String), read("/proc/sys/kernel/random/boot_id", String))
+    catch exception
+        exception isa Union{SystemError, Base.IOError} || rethrow()
+        return nothing
     end
+    fields = split(last(split(stat, ") "; limit = 2)))
+    length(fields) >= 20 && !isempty(strip(boot)) || return nothing
+    return strip(boot) * ":" * fields[20]
 end
 
 function _assert_no_live_attempts(run)

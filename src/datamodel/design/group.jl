@@ -334,12 +334,13 @@ function _radial_half_extent(definition::AbstractPrimitive)
     support(resolve(EmptyBoundary(), definition))
 end
 
-function _contextual_ring(
+_contextual_pattern(pattern, item, child, compact, context) = pattern
+function _contextual_pattern(
         pattern::Ring,
-        item::AbstractCablePart,
-        child::CableGeometry,
+        item,
+        child,
         compact,
-        context::Union{EmptyBoundary, AbstractShape}
+        context
 )
     definition = _member_definition(item)
     inner = context isa EmptyBoundary ? zero(support(boundary(child))) : support(context)
@@ -370,13 +371,6 @@ function _contextual_ring(
     )
 end
 
-_contextual_pattern(pattern, item, child, compact, context) = pattern
-function _contextual_pattern(
-        pattern::Ring, item, child, compact, context
-)
-    _contextual_ring(pattern, item, child, compact, context)
-end
-
 function _group_placements(pattern, item, child, compact, context)
     concrete = _contextual_pattern(pattern, item, child, compact, context)
     subject = _member_definition(item)
@@ -384,16 +378,11 @@ function _group_placements(pattern, item, child, compact, context)
     return concrete, placements(concrete, subject, compact)
 end
 
-function _minimum_radius(primitive::Annulus)
+function _minimum_radius(primitive::Union{Annulus, BentStrip})
     iszero(primitive.at.x) && iszero(primitive.at.y) && return r_in(primitive)
-    return _minimum_radius_general(primitive)
+    return invoke(_minimum_radius, Tuple{AbstractShape}, primitive)
 end
-function _minimum_radius(primitive::BentStrip)
-    iszero(primitive.at.x) && iszero(primitive.at.y) && return primitive.ri
-    return _minimum_radius_general(primitive)
-end
-_minimum_radius(primitive::AbstractShape) = _minimum_radius_general(primitive)
-function _minimum_radius_general(primitive::AbstractShape)
+function _minimum_radius(primitive::AbstractShape)
     center = centroid(primitive)
     center_radius = hypot(center...)
     iszero(center_radius) && return zero(eltype(primitive))

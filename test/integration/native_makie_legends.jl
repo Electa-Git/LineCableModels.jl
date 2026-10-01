@@ -21,6 +21,12 @@
     @test plot.plot_state.guides[(:legend, (1, 1))].position[] == :right
     @test plot.panel_legends[(1, 1)].orientation[] == :vertical
 
+    extension = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
+    # A malformed plot must fail instead of silently disappearing from a legend.
+    @test_throws ErrorException extension._panel_legend_data(
+        [(logical_position=(1, 1),)], [first(plot.axes)],
+        Dict(:broken => [nothing]), [:broken], Dict(:broken => "broken"))
+
     local_labels = ("local baseline", "local alternative")
     inside = Makie.plot(sources, requests; options...,
         panel_legends = (

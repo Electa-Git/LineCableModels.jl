@@ -22,13 +22,13 @@ mutable struct LineParametersWorkspace{
     B <: NamedTuple,
     C
 }
-    "Immutable numerical input derived from the problem and formulation."
+    # Immutable numerical input derived from the problem and formulation.
     const input::N
-    "Physical values and index maps invariant across the frequency loop."
+    # Physical values and index maps invariant across the frequency loop.
     const invariants::P
-    "Mutable numerical storage allocated once for the calculation."
+    # Mutable numerical storage allocated once for the calculation.
     const buffers::B
-    "Optional retained diagnostic arrays, or `nothing`."
+    # Optional retained diagnostic arrays, or `nothing`.
     const capture::C
 
     function LineParametersWorkspace{T, N, P, B, C}(
@@ -157,7 +157,6 @@ function lineinput(
     length(cable.terminals) == n_phases || throw(DimensionMismatch(
         "DataModel terminal order differs from the cable blueprint count"
     ))
-    n_layers = length(cable.dielectric_materials)
     n_cables = length(cable.assemblies)
 
     freq = copy(problem.frequencies)

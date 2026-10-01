@@ -49,7 +49,7 @@ function special_besselix(order::Integer, value::Complex{BigFloat})
         count=max(8, ceil(Int, abs(imag(value))+order))
         points=collect(range(zero(BigFloat), BigFloat(π); length = count+1))
         f=θ->exp(value*cos(θ)-abs(real(value)))*cos(order*θ)
-        result, error=quadgk(f, points; rtol = sqrt(eps(BigFloat)))
+        result, _=quadgk(f, points; rtol = sqrt(eps(BigFloat)))
         return result/BigFloat(π)
     end
     half = value / BigFloat(2)
@@ -81,7 +81,7 @@ function special_besselkx(order::Integer, value::Complex{BigFloat})
     f=u->exp(-u*u)*u^(2order)*(1+u*u/(2value))^exponent
     feature=min(sqrt(abs(value)), BigFloat(1)/2)
     result,
-    error=quadgk(f, zero(BigFloat), feature, one(BigFloat), BigFloat(Inf);
+    _=quadgk(f, zero(BigFloat), feature, one(BigFloat), BigFloat(Inf);
         rtol = sqrt(eps(BigFloat)))
     return 2sqrt(BigFloat(π)/(2value))/SpecialFunctions.gamma(BigFloat(order)+BigFloat(1)/2)*result
 end

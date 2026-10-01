@@ -104,6 +104,6 @@ function impedance!(
             end
         end
     end
-    _stash!(_capture_target(capture, :Z), frequency, destination)
+    _stash!(capture, :Z, frequency, destination)
     return destination
 end

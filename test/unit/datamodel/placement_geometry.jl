@@ -95,6 +95,27 @@ end
         placements(pattern, Disk(support(boundary(geometry))), nothing)
 end
 
+@testitem "DataModel / contextual ring dispatch preserves inferred geometry" tags=[:unit] begin
+    const DM = LineCableModels.DataModel
+    copper = Material(kind=:conductor, rho=1.72e-8)
+    for T in (Float32, Float64, BigFloat)
+        part = DM.Region(:wire, DM.Disk(T(0.001)), copper)
+        child = DM.resolve(DM.EmptyBoundary(), part)
+        for context in (DM.EmptyBoundary(), DM.Disk(T(0.01)))
+            fixed = Ring(6; r=T(0.02))
+            resolved = @inferred DM._contextual_pattern(fixed, part, child, nothing, context)
+            @test resolved.n == 6
+            @test resolved.r == fixed.r
+            available = Ring(capacity(); r=T(0.02))
+            filled = @inferred DM._contextual_pattern(available, part, child, nothing, context)
+            @test filled.n == capacity(available, part.primitive, nothing)
+            derived = @inferred DM._contextual_pattern(Ring(6), part, child, nothing, context)
+            @test derived.r == (context isa DM.EmptyBoundary ? zero(T) : support(context)) + part.primitive.r
+        end
+        @test (@inferred DM._contextual_pattern(nothing, part, child, nothing, DM.EmptyBoundary())) === nothing
+    end
+end
+
 @testitem "DataModel / polar placement preserves explicit radial and angular intent" tags=[:unit] begin
     wire = Disk(0.1e-3)
     for origin in (0.0, 0.5e-3), span in (pi, 2pi)
@@ -116,4 +137,17 @@ end
         @test all(hypot(a.x - b.x, a.y - b.y) >= 2wire.r - 1e-12
             for (index, a) in enumerate(poses) for b in poses[(index + 1):end])
     end
+end
+
+@testitem "DataModel / minimum radius distinguishes centered holes from displaced boundaries" tags=[:unit] begin
+    const DM = LineCableModels.DataModel
+    for shape in (Annulus(1.0, 2.0), DM.BentStrip(1.0, 2.0, 0.5))
+        @test (@inferred DM._minimum_radius(shape)) == 1.0
+    end
+    for moved in (Disk(1.0, Pose2(3.0, 0.0)), Ellipse(1.0, 0.5, Pose2(3.0, 0.0)),
+            Annulus(0.5, 1.0, Pose2(3.0, 0.0)))
+        @test (@inferred DM._minimum_radius(moved)) ≈ 2.0
+    end
+    @test (@inferred DM._minimum_radius(Disk(1.0))) == 0.0
+    @test r_in(Disk(1.0, Pose2(3.0, 0.0))) == 0.0
 end

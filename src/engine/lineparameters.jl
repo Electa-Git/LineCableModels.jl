@@ -1,13 +1,12 @@
 # LineParameters computation remains independent from CableConstants.
 
-@inline function _stash!(destination, frequency::Int, source::AbstractMatrix)
-    destination === nothing && return nothing
+@inline _stash!(::Nothing, ::Symbol, ::Int, ::AbstractMatrix) = nothing
+
+@inline function _stash!(capture::NamedTuple, name::Symbol, frequency::Int, source::AbstractMatrix)
+    destination = getproperty(capture, name)
     @views copyto!(destination[:, :, frequency], source)
     return nothing
 end
-
-_capture_target(::Nothing, ::Symbol) = nothing
-_capture_target(capture, name::Symbol) = getproperty(capture, name)
 
 @inline function _reorder_into!(destination, source, permutation)
     @inbounds for column in eachindex(permutation), row in eachindex(permutation)
@@ -79,11 +78,11 @@ function _solve!(
             formulation.methods, input.jω[frequency]; workspace)
         cable_potential!(Pprimitive, input.cable, buffers.dielectric_admittivity,
             input.jω[frequency], buffers.layer_coefficients, buffers.coefficients, buffers.tails)
-        _stash!(_capture_target(workspace.capture, :Zin), frequency, Zprimitive)
-        _stash!(_capture_target(workspace.capture, :Pin), frequency, Pprimitive)
+        _stash!(workspace.capture, :Zin, frequency, Zprimitive)
+        _stash!(workspace.capture, :Pin, frequency, Pprimitive)
         earth!(workspace, frequency, earth_calculations, earth_materials)
-        _stash!(_capture_target(workspace.capture, :Zg), frequency, buffers.Zearth)
-        _stash!(_capture_target(workspace.capture, :Pg), frequency, buffers.Pearth)
+        _stash!(workspace.capture, :Zg, frequency, buffers.Zearth)
+        _stash!(workspace.capture, :Pg, frequency, buffers.Pearth)
         impedance!(Zprimitive, workspace, frequency)
         admittance!(Pprimitive, workspace, frequency)
         _reorder_into!(Zbuffer, Zprimitive, permutation)

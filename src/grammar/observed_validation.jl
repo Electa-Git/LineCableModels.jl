@@ -3,8 +3,6 @@ function _observed_fields(record,fields,what)
     record isa NamedTuple && all(key -> haskey(record,key),fields) ||
         throw(ArgumentError("$what requires fields $(fields)"))
 end
-_observed_length(value::AbstractArray)=length(value)
-_observed_length(value)=1
 
 function _observed_indices(indices,extent,name)
     indices isa AbstractVector && allunique(indices) && all(i -> i isa Integer && !(i isa Bool) && 1<=i<=extent,indices) ||
@@ -113,7 +111,7 @@ function _validate_observed_quantity(product)
     end
     values=product.values
     values isa Union{Number,Missing,AbstractArray} || throw(ArgumentError("numerical products require scalar or array values"))
-    _observed_length(values)==prod(dims) || throw(DimensionMismatch("value count differs from retained coordinates"))
+    (values isa AbstractArray ? length(values) : 1)==prod(dims) || throw(DimensionMismatch("value count differs from retained coordinates"))
     actual=values isa AbstractArray ? size(values) : ()
     reduced=length(c.indices)==length(dims) ? Tuple(n for (n,i) in zip(dims,c.indices) if !(i isa Integer)) : dims
     actual in (dims,reduced) || throw(DimensionMismatch("value shape differs from retained coordinate axes"))

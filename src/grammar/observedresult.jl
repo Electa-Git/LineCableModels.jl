@@ -125,7 +125,13 @@ owners extend this operation to describe their tensor coordinates and apply
 their numerical resolution. The fallback provides ordinary array coordinates.
 """
 function observation_quantity(source,request;unit=nothing,clip=true,atol=nothing,frequencies=nothing)
-    values=_observe_request(source,request)
+    values=if request isa Function
+        observe(source,request)
+    elseif request isa Tuple
+        observe(source,request...)
+    else
+        throw(ArgumentError("observable requests must be selector functions or nonempty tuples"))
+    end
     q=request_quantity(request)
     native=native_unit(q,basis(source))
     displayed=unit===nothing ? display_unit(q,basis(source)) : unit
@@ -314,13 +320,12 @@ end
 
 # Numeric equality also checks the uncertainty graph. For a dependency-aware
 # number, equal marginal deviations alone do not make the difference certain.
-_same_observed_number(a::Number,b::Number) = isequal(nominal(a),nominal(b)) &&
+_same_observed_values(a::Number,b::Number) = isequal(nominal(a),nominal(b)) &&
     isequal(uncertainty(a),uncertainty(b)) && iszero(uncertainty(a-b))
-_same_observed_number(a,b) = isequal(a,b)
-_same_observed_values(a::AbstractArray,b::AbstractArray) = size(a)==size(b) && all(_same_observed_number.(a,b))
+_same_observed_values(a::AbstractArray,b::AbstractArray) = size(a)==size(b) && all(_same_observed_values.(a,b))
 _same_observed_values(a::Tuple,b::Tuple) = length(a)==length(b) && all(_same_observed_values(x,y) for (x,y) in zip(a,b))
 _same_observed_values(a::NamedTuple,b::NamedTuple) = keys(a)==keys(b) && all(_same_observed_values(x,y) for (x,y) in zip(values(a),values(b)))
-_same_observed_values(a,b) = _same_observed_number(a,b)
+_same_observed_values(a,b) = isequal(a,b)
 
 _same_observed_dependencies(a::Number,b::Number) = iszero(uncertainty(a-b))
 _same_observed_dependencies(a::AbstractArray,b::AbstractArray) = size(a)==size(b) && all(_same_observed_dependencies.(a,b))

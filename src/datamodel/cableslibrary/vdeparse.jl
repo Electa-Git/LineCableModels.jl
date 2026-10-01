@@ -207,31 +207,25 @@ function vdeparse(code::AbstractString)::Dict{Symbol, String}
     end
 
     # parse tail in anchored passes
-    if !isempty(tail)
-        if (mm = match(RX_CORES_X_CSA, tail)) !== nothing
-            out[:cores] = mm.captures[1]
-            out[:conductor_cross_section] = mm.captures[2]
-            if mm.captures[3] !== nothing
-                out[:metallic_screen_cross_section] = mm.captures[3]
-            end
-            tail = strip(tail[(length(mm.match) + 1):end])
+    if !isempty(tail) && (mm = match(RX_CORES_X_CSA, tail)) !== nothing
+        out[:cores] = mm.captures[1]
+        out[:conductor_cross_section] = mm.captures[2]
+        if mm.captures[3] !== nothing
+            out[:metallic_screen_cross_section] = mm.captures[3]
         end
+        tail = strip(tail[(length(mm.match) + 1):end])
     end
 
-    if !isempty(tail)
-        if (mm = match(RX_VOLTAGE, tail)) !== nothing
-            out[:voltage] = "$(mm.captures[1])/$(mm.captures[2]) kV"
-            tail = strip(tail[(length(mm.match) + 1):end])
-        end
+    if !isempty(tail) && (mm = match(RX_VOLTAGE, tail)) !== nothing
+        out[:voltage] = "$(mm.captures[1])/$(mm.captures[2]) kV"
+        tail = strip(tail[(length(mm.match) + 1):end])
     end
 
-    if !isempty(tail)
-        if (mm = match(RX_TYPE, tail)) !== nothing
-            raw = mm.captures[1]
-            has_compact = occursin(r"/\s*V\b", mm.match)
-            out[:conductor_type] = decode_type(raw; has_compact = has_compact)
-            tail = strip(tail[(length(mm.match) + 1):end])
-        end
+    if !isempty(tail) && (mm = match(RX_TYPE, tail)) !== nothing
+        raw = mm.captures[1]
+        has_compact = occursin(r"/\s*V\b", mm.match)
+        out[:conductor_type] = decode_type(raw; has_compact = has_compact)
+        tail = strip(tail[(length(mm.match) + 1):end])
     end
 
     if !isempty(tail)

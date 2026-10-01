@@ -14,6 +14,11 @@
 
     @test TD.engineering(0.00183245, :meter) == "1.83245 mm"
     @test TD.engineering(1.7241e-8, :ohm_meter) == "17.241 nΩ·m"
+    for number in (big"1e-400", big"-1e-400", big"1e400")
+        rendered, unit = split(TD.engineering(number, :meter))
+        @test parse(BigFloat, rendered) ≈ number
+        @test unit == "m"
+    end
     @test TD.value(Inf) == "∞"
     @test TD.value(-Inf) == "−∞"
     @test TD.angle(2π) == "2π"
@@ -49,6 +54,43 @@
     @test !occursin("α", inactive_text)
     @test !occursin("tanδ", inactive_text)
     @test !endswith(inactive_text, '\n')
+end
+
+@testitem "TextDisplay / tree labels preserve structured and string children" tags=[:unit] begin
+    const TD = LineCableModels.TextDisplay
+    structured = ((label="branch", children=((label="leaf",),)),)
+    strings = ((label="branch", children=("leaf",)),)
+    for children in (structured, strings)
+        io = IOBuffer()
+        @test (@inferred TD.tree(io, "root", children)) === nothing
+        @test String(take!(io)) == "root\n└─ branch\n   └─ leaf"
+    end
+    io = IOBuffer()
+    @test (@inferred TD.tree(io, "root", ("first", "second"))) === nothing
+    @test String(take!(io)) == "root\n├─ first\n└─ second"
+end
+
+@testitem "TextDisplay / engineering conversion only recovers unsupported values" tags=[:unit] begin
+    const TD = LineCableModels.TextDisplay
+    struct Unconvertible <: Real end
+    Base.iszero(::Unconvertible) = false
+    @test TD._engineering_exponent(Unconvertible()) == 0
+
+    struct ConversionFailure{E} <: Real
+        exception::E
+    end
+    Base.iszero(::ConversionFailure) = false
+    Base.Float64(value::ConversionFailure) = throw(value.exception)
+    @test TD._engineering_exponent(ConversionFailure(InexactError(:Float64, Float64, 1))) == 0
+    for exception in (InterruptException(), ErrorException("conversion bug"),
+            MethodError(sin, (nothing,)))
+        caught = try
+            TD._engineering_exponent(ConversionFailure(exception))
+        catch error
+            error
+        end
+        @test caught === exception
+    end
 end
 
 @testitem "TextDisplay / scientific values preserve signs and physical units" tags=[:unit] begin

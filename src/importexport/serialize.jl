@@ -40,7 +40,6 @@ end
 function serialize_value(value::Union{AbstractVector, Tuple})
     [serialize_value(item) for item in value]
 end
-serialize_value(value) = _serialize_object(value)
 
 function _node(kind::AbstractString; fields...)
     Dict{String, Any}(
@@ -72,17 +71,17 @@ function _material_record(value::RadialDielectric)
         "mu_r" => serialize_value(value.mu_r))
 end
 
-function _serialize_object(value::AbstractMaterial)
+function serialize_value(value::AbstractMaterial)
     Dict(
         "type" => "material",
         "value" => _material_record(value)
     )
 end
 
-_serialize_object(value::Disk) = _node("disk"; r = value.r)
-_serialize_object(value::Rectangle) = _node("rectangle"; w = value.w, h = value.h)
-_serialize_object(value::Ellipse) = _node("ellipse"; a = value.a, b = value.b)
-function _serialize_object(value::Sector)
+serialize_value(value::Disk) = _node("disk"; r = value.r)
+serialize_value(value::Rectangle) = _node("rectangle"; w = value.w, h = value.h)
+serialize_value(value::Ellipse) = _node("ellipse"; a = value.a, b = value.b)
+function serialize_value(value::Sector)
     return _node(
         "sector";
         span = value.span,
@@ -91,12 +90,12 @@ function _serialize_object(value::Sector)
         fillet = value.fillet
     )
 end
-_serialize_object(value::Annulus) = _node("annulus"; ri = value.ri, ro = value.ro)
-_serialize_object(value::Shell) = _node("shell"; t = value.t)
-_serialize_object(value::Polygon) = _node("polygon"; points = value.points)
-_serialize_object(value::Pose2) = _node("pose2"; x = value.x, y = value.y, φ = value.φ)
+serialize_value(value::Annulus) = _node("annulus"; ri = value.ri, ro = value.ro)
+serialize_value(value::Shell) = _node("shell"; t = value.t)
+serialize_value(value::Polygon) = _node("polygon"; points = value.points)
+serialize_value(value::Pose2) = _node("pose2"; x = value.x, y = value.y, φ = value.φ)
 
-function _serialize_object(value::EarthLayer)
+function serialize_value(value::EarthLayer)
     return _node(
         "earth_layer";
         rho = value.rho,
@@ -105,7 +104,7 @@ function _serialize_object(value::EarthLayer)
         thickness = value.thickness
     )
 end
-function _serialize_object(value::EarthModel)
+function serialize_value(value::EarthModel)
     return _node(
         "earth_model";
         vertical_layers = value.vertical_layers,
@@ -113,30 +112,30 @@ function _serialize_object(value::EarthModel)
     )
 end
 
-function _serialize_object(value::Ring)
+function serialize_value(value::Ring)
     return _node("ring"; n = value.n, r = value.r, φ0 = value.φ0,
         span = value.span, gap_frac = value.gap_frac)
 end
-function _serialize_object(value::Polar)
+function serialize_value(value::Polar)
     return _node("polar"; nr = value.nr, nφ = value.nφ, r0 = value.r0,
         dr = value.dr, φ0 = value.φ0, span = value.span)
 end
-function _serialize_object(value::Fill)
+function serialize_value(value::Fill)
     _node("fill"; r = value.r, φ = value.φ, φ0 = value.φ0, span = value.span)
 end
-function _serialize_object(value::Lattice)
+function serialize_value(value::Lattice)
     _node("lattice"; nx = value.nx, ny = value.ny, dx = value.dx, dy = value.dy)
 end
-_serialize_object(value::FillFactor) = _node("fill_factor"; η = value.η)
-_serialize_object(::typeof(capacity())) = _node("capacity")
-_serialize_object(value::LayRatio) = _node("lay_ratio"; q = value.q)
-_serialize_object(value::Pitch) = _node("pitch"; p = value.p)
-_serialize_object(value::LayAngle) = _node("lay_angle"; α = value.α)
-function _serialize_object(value::Helix)
+serialize_value(value::FillFactor) = _node("fill_factor"; η = value.η)
+serialize_value(::typeof(capacity())) = _node("capacity")
+serialize_value(value::LayRatio) = _node("lay_ratio"; q = value.q)
+serialize_value(value::Pitch) = _node("pitch"; p = value.p)
+serialize_value(value::LayAngle) = _node("lay_angle"; α = value.α)
+function serialize_value(value::Helix)
     _node("helix"; lay = value.lay, dir = value.dir, φ0 = value.φ0)
 end
 
-function _serialize_part(value::Region, material_name)
+function serialize_value(value::Region; material_name = nothing)
     material = material_name === nothing ? serialize_value(value.material) :
                String(material_name(value.material))
     return Dict(
@@ -146,69 +145,67 @@ function _serialize_part(value::Region, material_name)
         "material" => material
     )
 end
-function _serialize_part(value::Stack, material_name)
+function serialize_value(value::Stack; material_name = nothing)
     return Dict(
         "kind" => "stack",
-        "items" => [_serialize_part(item, material_name) for item in value.items]
+        "items" => [serialize_value(item; material_name) for item in value.items]
     )
 end
-function _serialize_part(value::Group, material_name)
+function serialize_value(value::Group; material_name = nothing)
     return Dict(
         "kind" => "group",
         "name" => String(value.name),
         "at" => serialize_value(value.at),
-        "item" => _serialize_part(value.item, material_name),
+        "item" => serialize_value(value.item; material_name),
         "pattern" => serialize_value(value.pattern),
         "path" => serialize_value(value.path),
         "compact" => serialize_value(value.compact),
         "boundary" => serialize_value(value.boundary)
     )
 end
-function _serialize_part(
-        value::Assembly{<:Any, <:AbstractCablePart},
-        material_name
+function serialize_value(
+        value::Assembly{<:Any, <:AbstractCablePart};
+        material_name = nothing
 )
     names = value.names === nothing ? nothing : String.(value.names)
     return Dict(
         "kind" => "assembly",
         "at" => serialize_value(value.at),
-        "item" => _serialize_part(value.item, material_name),
+        "item" => serialize_value(value.item; material_name),
         "pattern" => serialize_value(value.pattern),
         "path" => serialize_value(value.path),
         "compact" => serialize_value(value.compact),
         "names" => names
     )
 end
-function _serialize_part(value::Assembly{<:Any, <:Tuple}, material_name)
+function serialize_value(value::Assembly{<:Any, <:Tuple}; material_name = nothing)
     return Dict(
         "kind" => "assembly",
         "at" => serialize_value(value.at),
         "members" => [Dict(
              "at" => serialize_value(member.at),
-             "item" => _serialize_part(member.item, material_name)
+             "item" => serialize_value(member.item; material_name)
          ) for member in value.item]
     )
 end
-function _serialize_part(value::Enclosure, material_name)
+function serialize_value(value::Enclosure; material_name = nothing)
     fill = value.fill isa Material ?
            (material_name === nothing ? serialize_value(value.fill) :
             String(material_name(value.fill))) :
-           _serialize_part(value.fill, material_name)
-    wall = value.wall === nothing ? nothing : _serialize_part(value.wall, material_name)
+           serialize_value(value.fill; material_name)
+    wall = value.wall === nothing ? nothing : serialize_value(value.wall; material_name)
     return Dict(
         "kind" => "enclosure",
         "tag" => String(value.tag),
         "at" => serialize_value(value.at),
         "primitive" => serialize_value(value.primitive),
-        "item" => _serialize_part(value.item, material_name),
+        "item" => serialize_value(value.item; material_name),
         "fill" => fill,
         "wall" => wall
     )
 end
 
-_serialize_object(value::AbstractCablePart) = _serialize_part(value, nothing)
-
-function _serialize_design(value::CableDesign, material_name = nothing)
+function serialize_value(value::CableDesign; material_name = nothing)
     return Dict(
         "kind" => "cable_design",
         "cable_id" => value.cable_id,
@@ -216,17 +213,16 @@ function _serialize_design(value::CableDesign, material_name = nothing)
              "name" => String(name),
              "value" => serialize_value(item)
          ) for (name, item) in pairs(value.nominal_data)],
-        "origin" => _serialize_part(value.origin, material_name)
+        "origin" => serialize_value(value.origin; material_name)
     )
 end
-_serialize_object(value::CableDesign) = _serialize_design(value)
 
-function _serialize_object(value::LineCableSystem)
+function serialize_value(value::LineCableSystem)
     return Dict(
         "kind" => "line_cable_system",
         "system_id" => value.system_id,
         "line_length" => serialize_value(value.line_length),
-        "designs" => [_serialize_design(design) for design in value.designs],
+        "designs" => [serialize_value(design) for design in value.designs],
         "positions" => serialize_value(value.positions),
         "input_positions" => serialize_value(value.input_positions),
         "clearances" =>
@@ -236,7 +232,7 @@ function _serialize_object(value::LineCableSystem)
     )
 end
 
-function _serialize_object(value::Engine.LineParametersProblem)
+function serialize_value(value::Engine.LineParametersProblem)
     return Dict(
         "kind" => "line_parameters_problem",
         "system" => serialize_value(value.system),
@@ -246,16 +242,16 @@ function _serialize_object(value::Engine.LineParametersProblem)
     )
 end
 
-function _serialize_object(grid::DeterministicGrid)
+function serialize_value(grid::DeterministicGrid)
     return Dict("grid" => serialize_value(collect(grid.vals)))
 end
-function _serialize_object(grid::RelativeGrid)
+function serialize_value(grid::RelativeGrid)
     return Dict(
         "grid" => serialize_value(collect(grid.vals)),
         "rel" => serialize_value(collect(grid.rel_err))
     )
 end
-function _serialize_object(grid::AbsoluteGrid)
+function serialize_value(grid::AbsoluteGrid)
     return Dict(
         "grid" => serialize_value(collect(grid.vals)),
         "abs" => serialize_value(collect(grid.abs_err))
@@ -329,7 +325,7 @@ function _json_document(library::CablesLibrary)
             "kind" => "cable_library",
             "cables" => Dict(
                 cable_id => merge(
-                    _serialize_design(library.data[cable_id], material_name),
+                    serialize_value(library.data[cable_id]; material_name),
                     Dict("datasheet" => Dict(
                         String(name) => serialize_value(item)
                     for (name, item) in pairs(library.datasheets[cable_id])

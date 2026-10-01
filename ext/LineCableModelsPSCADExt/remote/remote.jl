@@ -89,10 +89,13 @@ function _run_remote(
     end
     interrupted = nothing
     try
-        finished = timedwait(() -> process_exited(process) && istaskdone(output_task) && istaskdone(error_task),
+        finished = timedwait(() -> istaskfailed(output_task) || istaskfailed(error_task) ||
+            (process_exited(process) && istaskdone(output_task) && istaskdone(error_task)),
             timeout; pollint = min(0.1, timeout / 10))
         finished === :ok || throw(ErrorException(
             "PSCAD transport exceeded its timeout of $timeout seconds"))
+        istaskfailed(output_task) && wait(output_task)
+        istaskfailed(error_task) && wait(error_task)
         wait(process)
     catch error
         interrupted = error
@@ -109,23 +112,40 @@ function _run_remote(
         end
         try
             wait(process)
-        catch
+        catch wait_error
+            @warn "PSCAD transport wait failed during cleanup" exception = (
+                wait_error, catch_backtrace())
         end
     finally
         if interrupted !== nothing
             close(output)
             close(errors)
         end
-        try
-            wait(output_task)
-        catch
+        for (stream_name, reader) in ((:stdout, output_task), (:stderr, error_task))
+            try
+                wait(reader)
+            catch reader_error
+                if interrupted === nothing
+                    interrupted = reader_error
+                elseif !(interrupted isa TaskFailedException && interrupted.task === reader)
+                    @warn "PSCAD output reader failed during cleanup" stream = stream_name exception = (
+                        reader_error, catch_backtrace())
+                end
+            end
         end
-        try
-            wait(error_task)
-        catch
+        for (stream_name, file) in ((:stdout, output_file), (:stderr, error_file))
+            file === nothing && continue
+            try
+                close(file)
+            catch close_error
+                if interrupted === nothing
+                    interrupted = close_error
+                else
+                    @warn "PSCAD output log could not be closed" stream = stream_name exception = (
+                        close_error, catch_backtrace())
+                end
+            end
         end
-        output_file === nothing || close(output_file)
-        error_file === nothing || close(error_file)
     end
     stdout_value = String(take!(output_buffer))
     stderr_value = String(take!(error_buffer))

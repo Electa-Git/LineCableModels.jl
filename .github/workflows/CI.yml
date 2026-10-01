@@ -5,6 +5,7 @@ on:
     branches: [main]
     tags: ["*"]
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
 concurrency:
@@ -27,19 +28,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        julia: ["1.12", "pre"]
+        julia: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.draft && '["1.12"]' || '["1.12", "pre"]') }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
           version: ${{ matrix.julia }}
-      - uses: julia-actions/cache@v3
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
         with:
           cache-compiled: ${{ matrix.julia != 'pre' }}
           save-always: "false"
           delete-old-caches: "false"
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
+      - uses: julia-actions/julia-buildpkg@e3eb439fad4f9aba7da2667e7510e4a46ebc46e1 # v1.7.0
+      - uses: julia-actions/julia-runtest@6e050c8013b833b1195105ff2fce9cd802f53271 # v1.12.0
 
   fem-numerical:
     name: Native FEM execution and tests / GetDP 3.5.0
@@ -48,11 +51,13 @@ jobs:
     env:
       DISPLAY: ""
     steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
           version: "1.12"
-      - uses: julia-actions/cache@v3
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
         with:
           delete-old-caches: "false"
       - name: Run FEM execution tests (headless)
@@ -63,7 +68,7 @@ jobs:
             include("test/runtests.jl")
           '
       - name: Name FEM coverage traces independently of runner process IDs
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
         shell: julia --startup-file=no {0}
         run: |
           for directory in ("src", "ext")
@@ -72,8 +77,8 @@ jobs:
               mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".fem.cov")))
             end
           end
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
         with:
           name: fem-production-coverage
           path: |
@@ -89,20 +94,38 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
           version: "1.12"
-      - uses: julia-actions/cache@v3
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
         with:
           delete-old-caches: "false"
+      - name: Install Fatou
+        uses: jolars/fatou-action@6b6a66a1f28fce0d1ff31048c609e63b7006136e
+        with:
+          version: v0.22.0
+          format: "false"
+          lint: "false"
+          verify-checksum: "true"
       - name: Enforce package and architecture tests
+        shell: bash
         run: |
+          set -o pipefail
           julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=test --color=yes -e '
             push!(ARGS, "tag:quality")
             include("test/runtests.jl")
-          '
+          ' 2>&1 | tee "$RUNNER_TEMP/quality-tests.log"
+      - name: Retain complete quality results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: quality-test-report
+          path: ${{ runner.temp }}/quality-tests.log
+          if-no-files-found: ignore
 
   coverage:
     name: Merged production coverage
@@ -112,11 +135,13 @@ jobs:
     env:
       LINECABLEMODELS_TEST_PLOTTING: "true"
     steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
           version: "1.12"
-      - uses: julia-actions/cache@v3
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
         with:
           delete-old-caches: "false"
       - name: Instantiate coverage tools
@@ -124,6 +149,8 @@ jobs:
       - name: Remove stale coverage traces
         run: julia --project=test/coverage --color=yes test/coverage.jl clean
       - name: Collect core and non-graphical extension coverage
+        # Drafts already run this suite in the ordinary Julia 1.12 job.
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
         run: julia --project=. --color=yes -e 'using Pkg; Pkg.test(coverage = true)'
       - name: Collect core-only loading coverage
         if: ${{ !cancelled() }}
@@ -179,22 +206,23 @@ jobs:
         run: |
           julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes test/integration/pscad/remote_runner_protocol.jl
-      - uses: actions/download-artifact@v4
-        if: ${{ !cancelled() }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
         with:
           name: fem-production-coverage
           path: .
       - name: Enforce source-amended 95% coverage
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
         run: julia --project=test/coverage --color=yes test/coverage.jl check
       - name: Retain the coverage report, including failed checks
-        if: always() && hashFiles('lcov.info') != ''
-        uses: actions/upload-artifact@v4
+        if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) && hashFiles('lcov.info') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: production-coverage-report
           path: lcov.info
           if-no-files-found: error
-      - uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -209,11 +237,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
           version: "1.12"
-      - uses: julia-actions/cache@v3
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
         with:
           delete-old-caches: "false"
       - name: Run Aqua independently
@@ -231,8 +261,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
           version: "1.12"
       - name: Install core into an empty depot
@@ -263,11 +295,13 @@ jobs:
       contents: write
       statuses: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
           version: "1.12"
-      - uses: julia-actions/cache@v3
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
         with:
           cache-compiled: "false"
           save-always: "false"
@@ -277,7 +311,7 @@ jobs:
       - name: Generate package-server usage map
         run: julia --project=docs --color=yes docs/package_stats.jl
       - name: Upload package-server usage map
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: package-server-usage-map
           path: docs/src/assets/user-statistics.svg
@@ -286,9 +320,10 @@ jobs:
       - name: Build documentation
         id: docs_build
         run: julia --project=docs --color=yes docs/make.jl
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "24"
+          package-manager-cache: false
       - name: Install writing tools
         id: prose_tools
         shell: bash
@@ -303,7 +338,8 @@ jobs:
           test -n "$expected"
           echo "$expected  $tools/vale.tar.gz" | sha256sum --check
           tar -xzf "$tools/vale.tar.gz" -C "$tools"
-          npm install --prefix "$tools" --no-save --package-lock=false cspell@10.3.6
+          cp .github/prose/package{,-lock}.json "$tools/"
+          npm ci --prefix "$tools"
           echo "$tools" >> "$GITHUB_PATH"
           echo "$tools/node_modules/.bin" >> "$GITHUB_PATH"
           "$tools/vale" sync --no-global --config=.github/prose/vale.ini
@@ -332,7 +368,7 @@ jobs:
           cspell lint --config=.github/prose/cspell.json --no-progress --no-cache "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/cspell.log"
       - name: Retain writing reports
         if: ${{ !cancelled() && steps.docs_build.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: writing-reports
           path: ${{ runner.temp }}/prose-reports

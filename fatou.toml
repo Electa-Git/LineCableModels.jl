@@ -1,0 +1,36 @@
+# Source findings are advisory. The quality item separately rejects incomplete scans.
+[lint]
+select = [
+    "duplicate-argument",
+    "duplicate-keyword-argument",
+    "duplicate-method",
+    "kwarg-default-mismatch",
+    "missing-include-file",
+    "include-cycle",
+    "julia-version-compat",
+    "misnamed-suppression",
+    "blanket-suppression",
+    "unused-binding",
+    "unused-type-parameter",
+    "unreachable-code",
+    "duplicate-include",
+    "redundant-boolean",
+    "unnecessary-nesting",
+]
+
+[lint.severity]
+duplicate-argument = "warning"
+duplicate-keyword-argument = "warning"
+duplicate-method = "warning"
+kwarg-default-mismatch = "warning"
+missing-include-file = "warning"
+include-cycle = "warning"
+julia-version-compat = "warning"
+misnamed-suppression = "warning"
+blanket-suppression = "warning"
+unused-binding = "warning"
+unused-type-parameter = "warning"
+unreachable-code = "warning"
+duplicate-include = "warning"
+redundant-boolean = "warning"
+unnecessary-nesting = "warning"

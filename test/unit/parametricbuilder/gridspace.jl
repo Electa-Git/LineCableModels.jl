@@ -89,7 +89,7 @@ end
         tuple,
         (PB.Grid((1, 2, 3)), PB.Grid((10, 20)))
     )
-    @test collect(product_space) == [
+    @test (@inferred collect(product_space)) == [
         (1, 10), (2, 10), (3, 10),
         (1, 20), (2, 20), (3, 20)
     ]
@@ -138,7 +138,14 @@ end
         combine = :zip
     )) == [((1, 10), :a), ((2, 20), :b)]
 
-    @test collect(PB.Gridspace{Tuple}(tuple, ())) == [()]
+    zero_argument_product = PB.Gridspace{Tuple}(tuple, ())
+    @test (@inferred LineCableModels._combinations(zero_argument_product)) == ((),)
+    @test (@inferred collect(zero_argument_product)) == [()]
+    zero_argument_zip = PB.Gridspace{Tuple}(tuple, (); combine=:zip)
+    @test (@inferred LineCableModels._combinations(zero_argument_zip)) == ((),)
+    @test (@inferred collect(zero_argument_zip)) == [()]
+    @test (@inferred collect(zip_space)) == [(1, 10, :fixed), (2, 20, :fixed), (3, 30, :fixed)]
+    @test (@inferred collect(child)) == [(1, 10), (2, 20)]
     @test isempty(PB.Gridspace{Tuple}(tuple, (PB.Grid(()),)))
     empty_space=PB.Gridspace{Tuple}(tuple, (PB.Grid(()),))
     @test eltype(empty_space) === Any

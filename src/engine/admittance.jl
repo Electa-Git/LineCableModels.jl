@@ -280,6 +280,6 @@ function admittance!(
             end
         end
     end
-    _stash!(_capture_target(capture, :P), frequency, destination)
+    _stash!(capture, :P, frequency, destination)
     return destination
 end

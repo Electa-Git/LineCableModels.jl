@@ -328,11 +328,15 @@ function _validate_mesh_file(model::FEMResolvedModel, mesh_path::String)
     finally
         try
             gmsh.model.remove()
-        catch
+        catch exception
+            @warn "Failed to remove the Gmsh mesh-validation model" model = validation_name mesh = mesh_path exception = (
+                exception, catch_backtrace())
         end
         isempty(current) || try
             gmsh.model.set_current(current)
-        catch
+        catch exception
+            @warn "Failed to restore the caller's Gmsh model after mesh validation" model = current mesh = mesh_path exception = (
+                exception, catch_backtrace())
         end
     end
     return nothing

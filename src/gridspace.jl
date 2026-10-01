@@ -153,11 +153,6 @@ end
 points(grid::AbstractGrid) = grid
 points(result::AbstractResultSpace) = result
 
-_product_combinations(::Tuple{}) = ((),)
-function _product_combinations(grids::Tuple)
-    Iterators.product(map(points, grids)...)
-end
-
 _zip_length(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}, <:Any}) = 1
 function _zip_length(space::Gridspace{<:Any, <:Any, <:Tuple, Val{:zip}, <:Any})
     counts = map(length, space.grids)
@@ -176,8 +171,8 @@ function _zip_source(source, target_count::Int)
     return points(source)
 end
 
-_zip_combinations(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}, <:Any}) = ((),)
-function _zip_combinations(
+_combinations(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}, <:Any}) = ((),)
+function _combinations(
         space::Gridspace{<:Any, <:Any, <:Tuple, Val{:zip}, <:Any}
 )
     target_count = _zip_length(space)
@@ -185,13 +180,11 @@ function _zip_combinations(
     return Iterators.zip(iterators...)
 end
 
+_combinations(::Gridspace{<:Any, <:Any, Tuple{}, Val{:product}, <:Any}) = ((),)
 function _combinations(
         space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, <:Any}
 )
-    _product_combinations(space.grids)
-end
-function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any})
-    _zip_combinations(space)
+    Iterators.product(map(points, space.grids)...)
 end
 
 _indexed_source(::AbstractGrid) = Val(false)
