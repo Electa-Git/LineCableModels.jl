@@ -25,9 +25,8 @@ import ..Engine: InternalImpedanceFormulation, Formulation, formula_id, formulat
 import ...LineCableModels: FormulaDefinition, FormulaMethod
 import ..Engine: description, conductivity
 import ..Engine: special_besselix, special_besselkx
+using ...Commons: vacuum_permeability
 #! explicit-imports: on
-
-vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
 include("interface.jl")
 

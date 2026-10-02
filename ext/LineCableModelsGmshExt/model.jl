@@ -376,7 +376,7 @@ function _fem_mesh_plans(
         earth = earth_materials[frequency_index]
         earth_skin_depth = sqrt(
             earth.rho /
-            (convert(T, π) * frequency * earth.mu_r * convert(T, 4π * 1e-7))
+            (convert(T, π) * frequency * earth.mu_r * vacuum_permeability(T))
         )
         isfinite(earth_skin_depth) && earth_skin_depth > zero(T) || _fem_error(
             :unsupported, problem.system.system_id, :earth_properties,
@@ -395,9 +395,9 @@ function _fem_mesh_plans(
         omega = convert(T, 2π) * frequency
         wave_numbers = map(((zero(T), air.eps_r, air.mu_r),
             (inv(earth.rho), earth.eps_r, earth.mu_r))) do (sigma, eps_r, mu_r)
-            sqrt(complex(-omega^2 * (mu_r * convert(T, 4π * 1e-7)) *
-                (eps_r * convert(T, 8.8541878128e-12)),
-                omega * (mu_r * convert(T, 4π * 1e-7)) * sigma))
+            sqrt(complex(-omega^2 * (mu_r * vacuum_permeability(T)) *
+                (eps_r * vacuum_permittivity(T)),
+                omega * (mu_r * vacuum_permeability(T)) * sigma))
         end
         wave_mesh_sizes = map(q -> min(domain_mesh_size, inv(8abs(q))), wave_numbers)
         wave_decay_radii = map(q -> min(2resolution_radius, 6 / real(q)), wave_numbers)
@@ -710,7 +710,7 @@ function _resolved_fem_model(
                         formulation.methods.temperature_dependence, material, problem.temperature))
                     isfinite(inv(rho)) && inv(rho) > 0 || throw(DomainError(rho,
                         "conductor conductivity must be positive and finite"))
-                    epsilon = convert(T, material.eps_r * 8.8541878128e-12)
+                    epsilon = convert(T, material.eps_r) * vacuum_permittivity(T)
                     Complex{T}[complex(inv(rho) + 2π * f * epsilon * material.tan_delta,
                         2π * f * epsilon) for f in problem.frequencies]
                 else

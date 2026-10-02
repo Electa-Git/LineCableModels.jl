@@ -346,48 +346,8 @@
 "validate_observables | vocabulary" = 1
 
 [vocabulary]
-"ext/LineCableModelsPSCADExt/importexport/import.jl | _PSCAD_EPSILON_0" = 1
-"ext/LineCableModelsPSCADExt/importexport/project.jl | epsilon0" = 1
-"src/datamodel/baseparams/dielectrics.jl | _epsilon0" = 1
-"src/earth/frequencydependent/interface.jl | vacuum_permittivity" = 1
-"src/engine/earthadmittance/formulas/ideal.jl | ε0" = 2
-"src/engine/earthimpedance/formulas/gary1976.jl | μ0" = 2
-"src/engine/earthimpedance/formulas/lucca1994.jl | μ0" = 1
-"src/engine/earthimpedance/formulas/saad1996.jl | μ0" = 2
-"src/engine/insulationadmittance/formulas/lossless.jl | ε₀" = 1
-"src/engine/insulationadmittance/formulas/lossy.jl | ε₀" = 1
-"src/engine/insulationimpedance/formulas/ametani1980.jl | μ0" = 1
-"src/engine/internalimpedance/InternalImpedance.jl | vacuum_permeability" = 1
-"src/engine/lineparameters.jl | epsilon0" = 2
-"src/engine/lineparameters.jl | mu0" = 2
-"src/engine/semiconadmittance/formulas/lossless.jl | ε₀" = 1
-"src/engine/semiconadmittance/formulas/lossy.jl | ε₀" = 1
-"src/modalanalysis/formulas/chrysochos2014.jl | epsilon0" = 1
-"src/modalanalysis/formulas/chrysochos2014.jl | mu0" = 1
-"src/modalanalysis/formulas/vieira2026.jl | epsilon0" = 1
-"src/modalanalysis/formulas/vieira2026.jl | mu0" = 1
 
 [fingerprints]
-"ext/LineCableModelsGmshExt/getdp.jl" = 5
-"ext/LineCableModelsGmshExt/model.jl" = 5
-"ext/LineCableModelsPSCADExt/importexport/import.jl" = 1
-"ext/LineCableModelsPSCADExt/importexport/project.jl" = 1
-"src/datamodel/baseparams/dielectrics.jl" = 1
-"src/earth/frequencydependent/interface.jl" = 1
-"src/engine/earthadmittance/formulas/ideal.jl" = 2
-"src/engine/earthimpedance/formulas/gary1976.jl" = 2
-"src/engine/earthimpedance/formulas/lucca1994.jl" = 1
-"src/engine/earthimpedance/formulas/saad1996.jl" = 2
-"src/engine/insulationadmittance/formulas/lossless.jl" = 1
-"src/engine/insulationadmittance/formulas/lossy.jl" = 1
-"src/engine/insulationimpedance/formulas/ametani1980.jl" = 1
-"src/engine/internalimpedance/InternalImpedance.jl" = 1
-"src/engine/lineparameters.jl" = 4
-"src/engine/semiconadmittance/formulas/lossless.jl" = 1
-"src/engine/semiconadmittance/formulas/lossy.jl" = 1
-"src/engine/shuntmodel/charge_collocation.jl" = 5
-"src/modalanalysis/formulas/chrysochos2014.jl" = 2
-"src/modalanalysis/formulas/vieira2026.jl" = 2
 
 [clones]
 
@@ -430,7 +390,6 @@
 "src/engine/cableconstants.jl" = 1
 "src/engine/formulations.jl" = 1
 "src/engine/input.jl" = 1
-"src/engine/internalimpedance/InternalImpedance.jl" = 1
 "src/engine/lineparameters.jl" = 1
 "src/engine/problems.jl" = 1
 "src/engine/shuntmodel/charge_collocation.jl" = 2

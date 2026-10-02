@@ -1,7 +1,3 @@
-@inline function _epsilon0(value)
-    return one(value) * 88541878128 * (one(value) * 10)^(-22)
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -20,7 +16,7 @@ function shunt_capacitance(r_in::Real, r_ex::Real, eps_r::Real)
     permittivity >= zero(permittivity) || throw(DomainError(
         permittivity, "relative permittivity must be nonnegative"
     ))
-    return 2 * (one(rin) * π) * _epsilon0(rin) * permittivity / log(rex / rin)
+    return 2 * (one(rin) * π) * vacuum_permittivity(typeof(rin)) * permittivity / log(rex / rin)
 end
 
 """
@@ -108,7 +104,7 @@ function equivalent_eps(capacitance::Real, r_ex::Real, r_in::Real)
     rin > zero(rin) && rex > rin || throw(DomainError(
         (rin, rex), "equivalent permittivity requires 0 < r_in < r_ex"
     ))
-    return value * log(rex / rin) / (2 * (one(rin) * π) * _epsilon0(rin))
+    return value * log(rex / rin) / (2 * (one(rin) * π) * vacuum_permittivity(typeof(rin)))
 end
 
 """

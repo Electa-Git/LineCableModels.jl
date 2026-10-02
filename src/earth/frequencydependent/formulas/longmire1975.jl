@@ -64,7 +64,7 @@ function earth_material(
     relative_permittivity = convert(T, values.epsilon_infinity) + permittivity_sum
     conductivity = conductivity_reference +
                    2 * (one(frequency) * π) * frequency *
-                   vacuum_permittivity(frequency) * conductivity_sum
+                   vacuum_permittivity(typeof(frequency)) * conductivity_sum
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 

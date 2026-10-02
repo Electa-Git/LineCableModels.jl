@@ -43,7 +43,7 @@ Evaluate lossless cable-insulation admittivity:
         ::Formula{:lossless}, material::Material{T}, frequency::T,
         temperature::T, values::NamedTuple, options::FormulationOptions, workspace
 ) where {T <: Real}
-    ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
+    ε₀ = vacuum_permittivity(T)
     ω = 2 * (one(T) * π) * frequency
     return complex(zero(T), ω) * ε₀ * material.eps_r
 end

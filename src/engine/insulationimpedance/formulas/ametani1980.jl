@@ -65,7 +65,7 @@ Implements Ametani (1980) as reproduced in Ametani, Ohno, and Nagaoka
        isapprox(r_in, r_ex; atol = eps(T))
         return zero(Complex{T})
     end
-    μ0 = one(r_in) * 4 * (one(r_in) * π) * (one(r_in) * 10)^(-7)
+    μ0 = vacuum_permeability(typeof(r_in))
     return s * μ0 * mu_r / (2 * (one(r_in) * π)) * log(r_ex / r_in)
 end
 

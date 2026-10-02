@@ -32,6 +32,7 @@ using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
 import ..Commons: AbstractCoreResult
 import ..Engine
 import ..Commons
+using ..Commons: vacuum_permittivity, vacuum_permeability
 import ..Units
 import ..TextDisplay
 #! explicit-imports: on

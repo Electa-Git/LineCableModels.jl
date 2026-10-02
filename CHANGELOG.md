@@ -37,6 +37,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   best-effort candidates for feasible search inputs that cannot meet every limit.
 - Consolidated shared problem, formulation, and result roots plus the common
   action generics under `LineCableModels.Commons`.
+- Defined the vacuum constants once as `Commons.vacuum_permittivity(T)` and
+  `Commons.vacuum_permeability(T)`. The FEM input writer, PSCAD import, and boundary
+  shunt model now use the shared Float64 permittivity, one ulp below the former
+  `8.8541878128e-12` literal.
 - Replaced the prototype parameter and uncertainty paths with typed `Grid` and
   inferred `Gridspace` construction from the public declarative builders.
 - Converged calculation ownership around `Commons` action generics,

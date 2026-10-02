@@ -15,6 +15,7 @@ export solenoid_factor, equivalent_rho, equivalent_eps
 export equivalent_conductivity
 
 using DocStringExtensions: TYPEDSIGNATURES
+using ...Commons: vacuum_permittivity
 
 include("geometry.jl")
 include("resistance.jl")

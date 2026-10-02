@@ -51,7 +51,7 @@ function earth_material(
     million = convert(T, 1e6)
     conductivity_reference = thousand / material.rho
     dispersion = scale * conductivity_reference^conductivity_exponent
-    epsilon0 = vacuum_permittivity(frequency)
+    epsilon0 = vacuum_permittivity(typeof(frequency))
     relative_permittivity = epsilon_infinity +
                             tan((one(frequency) * π) * gamma / 2) *
                             convert(T, 1e-3) * conductivity_reference * dispersion *

@@ -41,9 +41,6 @@ function assumptions end
 """Return the default physical parameters of a formula identifier."""
 assumptions(::Val{ID}) where {ID} = (;)
 
-"Return vacuum permittivity represented in the scalar type of `value` \\[F/m\\]."
-@inline vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
-
 """
 Evaluate one formula-owned frequency-dependent earth material relation.
 """

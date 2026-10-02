@@ -50,16 +50,14 @@ PSCAD 5.1 help, *Deriving System Y and Z Matrices*, Eq. (8-25), and
 function earth_potential_coefficient(
         ::Formula{:ideal}, ::Val{:self}, ::Val{1}, ::Val{1},
         functor, pair, workspace)
-    ε0 = one(real(functor.state.jω)) * 88541878128 *
-         (one(real(functor.state.jω)) * 10)^(-22)
+    ε0 = vacuum_permittivity(typeof(real(functor.state.jω)))
     return log(2 * pair.heights[1] / pair.radius) / (2 * (one(ε0) * π) * ε0)
 end
 
 function earth_potential_coefficient(
         ::Formula{:ideal}, ::Val{:mutual}, ::Val{1}, ::Val{1},
         functor, pair, workspace)
-    ε0 = one(real(functor.state.jω)) * 88541878128 *
-         (one(real(functor.state.jω)) * 10)^(-22)
+    ε0 = vacuum_permittivity(typeof(real(functor.state.jω)))
     hi, hj = pair.heights
     D = hypot(pair.separation, hi + hj)
     d = hypot(pair.separation, hi - hj)

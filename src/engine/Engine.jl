@@ -69,6 +69,7 @@ import ..Commons: AbstractProblemDefinition, AbstractFormulation,
 
 using ..Units
 import ..Commons
+using ..Commons: vacuum_permittivity, vacuum_permeability
 using ..Materials
 using ..Materials: TemperatureDependent
 import ..Earth

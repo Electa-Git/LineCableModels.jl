@@ -37,6 +37,7 @@ import ..Engine: formulation_options
 import ..Engine: AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
                  earth_spectral_points!, earth_contour_angle, earth_direct,
                  outgoing_root, bessel_i0m1, bessel_current_ratio
+using ...Commons: vacuum_permittivity
 #! explicit-imports: on
 
 public Functor, source_potential_coefficient, earth!

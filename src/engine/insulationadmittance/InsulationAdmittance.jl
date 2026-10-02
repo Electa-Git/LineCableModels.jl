@@ -28,6 +28,7 @@ import ...LineCableModels: FormulaDefinition, FormulaMethod
 using ...Materials: Material
 #! explicit-imports: off
 import ..Engine: description, conductivity
+using ...Commons: vacuum_permittivity
 #! explicit-imports: on
 
 include("interface.jl")

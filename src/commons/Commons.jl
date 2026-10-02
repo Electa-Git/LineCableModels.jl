@@ -4,6 +4,11 @@
 Define calculation supertypes and functions shared by Engine,
 ParametricBuilder, UQ, and external implementations.
 
+# Physical constants
+
+- `vacuum_permittivity` and `vacuum_permeability` return the vacuum constants in
+  a requested scalar type.
+
 # Public actions
 
 - `formulation_options` and `computation_options` normalize owner-specific options.
@@ -32,6 +37,7 @@ import Random
 import ..Units
 using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
 
+include("consts.jl")
 include("types.jl")
 include("base.jl")
 include("results.jl")
@@ -44,6 +50,7 @@ include("observed_validation.jl")
 include("observedresult.jl")
 include("retained_products.jl")
 
+public vacuum_permittivity, vacuum_permeability
 public check_core_result
 public FormulaDefinition, FormulaMethod
 public validate_observables, unit_targets, detach

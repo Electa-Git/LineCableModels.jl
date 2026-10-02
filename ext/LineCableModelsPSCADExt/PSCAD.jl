@@ -13,6 +13,7 @@ import Logging
 using LineCableModels
 using LineCableModels.DataModel: LineCableSystem
 using LineCableModels.Earth: EarthModel
+using LineCableModels.Commons: vacuum_permittivity
 using LineCableModels.Engine
 using LineCableModels.ImportExport
 import LineCableModels: description, parameterize, computation_details, validate,

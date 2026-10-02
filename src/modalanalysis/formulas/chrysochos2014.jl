@@ -313,8 +313,8 @@ function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
         mul!(admittance_impedance_product,Yslice,Zslice)
         unit = one(frequency)
         omega = 2*(unit*π)*frequency
-        epsilon0 = unit*88541878128*(unit*10)^(-22)
-        mu0 = unit*4*(unit*π)*(unit*10)^(-7)
+        epsilon0 = vacuum_permittivity(typeof(frequency))
+        mu0 = vacuum_permeability(typeof(frequency))
         scale = -(omega^2)*epsilon0*mu0
         normalized_shifted_eigenproblem .= admittance_impedance_product ./ scale
         for mode in 1:n

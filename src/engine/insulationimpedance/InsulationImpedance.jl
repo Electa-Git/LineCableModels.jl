@@ -24,6 +24,7 @@ import ..Engine: InsulationImpedanceFormulation, formula_id
 import ...LineCableModels: FormulaDefinition, FormulaMethod
 #! explicit-imports: off
 import ..Engine: description
+using ...Commons: vacuum_permeability
 #! explicit-imports: on
 
 include("interface.jl")
