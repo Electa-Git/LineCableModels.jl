@@ -188,7 +188,9 @@ jobs:
           '
       - name: Collect native FEM UI lifecycle coverage
         if: ${{ !cancelled() }}
-        run: xvfb-run -a julia --project=test --code-coverage=@. test/runtests.jl extensions/fem_ui.jl
+        run: |
+          julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
+          xvfb-run -a julia --project=test --code-coverage=@. test/runtests.jl extensions/fem_ui.jl
       - name: Collect WGLMakie loading coverage
         if: ${{ !cancelled() }}
         run: |
