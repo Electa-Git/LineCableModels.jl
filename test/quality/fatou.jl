@@ -174,7 +174,7 @@
             println("Fatou requested source files: ", length(files))
             result = run_fatou(`$executable --config $config lint --julia-version $target --output json $files`)
             # Retain native output too, including parse failures and suggested
-            # fixes. Suggestions are data only; no fix option is ever invoked.
+            # fixes. Suggestions are data only. The scanner never invokes a fix option.
             println("Fatou native diagnostics: ", result.stdout)
             print(result.stderr)
             fatou_diagnostics(result, selected; io=stdout, root)

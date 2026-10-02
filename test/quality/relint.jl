@@ -127,8 +127,8 @@
         target = syntax_name(body[1])
         isempty(target) && return false
         last(target) == only(name) && return false
-        # Known conversion spellings and built-in type constructors are outside
-        # the initial pattern; this does not resolve arbitrary source aliases.
+        # This pattern excludes known conversion spellings and built-in type
+        # constructors without resolving arbitrary source aliases.
         last(target) in (:convert, :oftype, :reinterpret, :cconvert, :unsafe_convert) && return false
         if length(target) == 1 || first(target) in (:Base, :Core)
             any(owner -> isdefined(owner, last(target)) && getfield(owner, last(target)) isa Type,

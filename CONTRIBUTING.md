@@ -44,8 +44,9 @@ descriptions and workflow names are also checked. Edit Literate sources in
 
 ### Rule levels
 
-Vale errors and cspell findings block deployment. Vale warnings and suggestions
-remain visible in the uploaded `writing-reports` artifact. Both checkers run
+Vale errors and known misspellings reported by cspell block deployment.
+Vale warnings and suggestions remain visible in the uploaded `writing-reports`
+artifact. Both checkers run
 after successful setup and input selection, even if another writing check fails.
 Missing inputs, invalid configuration and failed tool downloads also fail CI.
 
@@ -70,10 +71,13 @@ cases beside their rule definitions.
 ### Exclusions and spelling
 
 Keep code and identifiers formatted as code. Vale excludes code and mathematics.
-cspell checks whole Julia files with US English, its Julia dictionary and the
-reviewed vocabulary in `.github/prose/words.txt`. Add a word only after checking
-its spelling and its use in the package. Use exact identifier exclusions when
-an established identifier has a spelling that would be wrong in ordinary prose.
+cspell checks whole source files using `unknownWords: "report-common-typos"`.
+Only known misspellings and explicitly flagged words are reported. Unfamiliar
+tool names, scientific terms and code identifiers pass without dictionary entries.
+This mode deliberately leaves unknown words without a known correction unreported.
+
+US English, the Julia dictionary and `.github/prose/words.txt` remain configured.
+Use an exact identifier exclusion if a valid identifier matches a known misspelling.
 The spelling dictionary has no effect on Vale's rules.
 
 cspell infers each file's language from its filename. The empty `languageId`

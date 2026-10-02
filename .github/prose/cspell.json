@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
   "version": "0.2",
   "language": "en-US",
+  "unknownWords": "report-common-typos",
   "dictionaries": [
     "julia",
     "project"

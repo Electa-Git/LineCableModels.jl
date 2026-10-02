@@ -48,7 +48,7 @@ Julia source file under `src/` and `ext/`, including PSCAD. These items read sou
 without importing LineCableModels or starting external solvers. Ordinary runs
 exclude them, and `--list` executes neither scanner.
 
-Resolve the test project as described above to install ReLint at revision
+Resolve and instantiate the test project to install ReLint at revision
 `61079427d9fc91cb3ead8f5b287aa3ae9b2269cb` (0.9.0) and Argus 0.4.2. Install
 Fatou **0.22.0** separately and place it on `PATH`. For Linux or macOS, use the
 same pinned installer as CI:
@@ -74,14 +74,14 @@ Tests never install tools. A missing or wrong Fatou version fails setup.
 All selected source findings are **advisory**, regardless of their count.
 `fatou.toml` selects 15 rules explicitly and sets their severity to `warning`.
 ReLint runs only `runtime-eval`, `constant-catch-result`, and `private-forwarder`.
-Typed forwarding methods can appear as candidates; the scanner does not establish
+The scanner can report typed forwarding methods as candidates without determining
 whether their dispatch purpose is useful. Inert quotations and the documented
 syntactic exclusions are exercised by controls in each test item.
 
 Invalid configuration, unreadable source, parse failures, malformed output,
 unexpected termination, and failed controls fail the quality job. Fatou's
 findings-only exit status is accepted after validating its diagnostics. A passing
-item establishes that its controls and scan completed; it does not establish the
+item establishes that its controls and scan completed. It does not establish the
 absence of findings or certify architecture or scientific behavior.
 
 Each scanner prints every finding and per-rule counts. Fatou also prints its

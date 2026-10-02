@@ -128,7 +128,7 @@ end
         calls[] += 1
         Pose2(x, -1.0)
     end, (Grid((0.0, 1.0)),))
-    # Lazy sources retain their declared target; the constructor's inferred
+    # Lazy sources retain their declared target. The constructor's inferred
     # Gridspace type need not fix its eventual iterator element type.
     members = at(part, poses)
     designs = at(design, poses; connections=(core=1,))

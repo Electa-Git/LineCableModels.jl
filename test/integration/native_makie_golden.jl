@@ -3,7 +3,8 @@
     include(joinpath(pkgdir(LineCableModels),"test/support/golden_fixtures.jl"))
     using .GoldenFixtures
     @test_throws ArgumentError scene("unknown-scene")
-    # Test-support controls for save/decode orientation and blank-frame detection.
+    # Test-support controls for image orientation after saving and decoding,
+    # and for blank-frame detection.
     # Owned plotting and export behavior is checked by the other visual items.
     figure=Figure(size=(120,80),backgroundcolor=:white)
     axis=Axis(figure[1,1];limits=(0,2,0,2))

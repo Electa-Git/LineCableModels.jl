@@ -110,16 +110,39 @@ fi
 grep -Fq '"Match": "provenance"' "$scratch/modern-function.json"
 grep -Fq '"Line": 12' "$scratch/modern-function.json"
 
-printf '"""A prosezztypo in an unpublished docstring."""\nf() = 1\n' > "$scratch/unpublished.jl"
+# Known misspellings fail; unfamiliar names and identifiers are accepted.
+printf '"""Read and recieve the result."""\nf() = 1\n' > "$scratch/unpublished.jl"
 if cspell "${cspell_args[@]}" "$scratch/unpublished.jl" > "$scratch/spelling.log" 2>&1; then
     echo 'cspell missed an unpublished docstring.' >&2
     exit 1
 else
     test "$?" -eq 1
 fi
-grep -Fq 'prosezztypo' "$scratch/spelling.log"
+grep -Fq 'Unknown word (recieve)' "$scratch/spelling.log"
+grep -Fq 'receive' "$scratch/spelling.log"
 printf '# Compute the admittance with GetDP.\n' > "$scratch/science.jl"
 cspell "${cspell_args[@]}" "$scratch/science.jl"
+
+cat > "$scratch/names.md" <<'MARKDOWN'
+Fatou and Quorvexium check source files.
+The names jolars, fatou, kwarg, badconfig, numchildren, cconvert and relint are accepted.
+An unknown word such as prosezztypo has no known correction.
+MARKDOWN
+cat > "$scratch/names.jl" <<'JULIA'
+using Fatou
+badconfig = kwarg(numchildren(node), cconvert(value))
+relint(badconfig)
+JULIA
+cat > "$scratch/names.yml" <<'YAML'
+- name: Install Fatou
+  uses: jolars/fatou-action
+YAML
+cat > "$scratch/names.toml" <<'TOML'
+[lint]
+select = ["kwarg-default-mismatch"]
+TOML
+cspell "${cspell_args[@]}" "$scratch/names.md" "$scratch/names.jl" \
+    "$scratch/names.yml" "$scratch/names.toml"
 
 # GitHub places this repository under directories ending in .jl. The bundled
 # Julia override must not replace the language inferred from each filename.
@@ -136,9 +159,9 @@ printf 'Read the [execution report](../local/validation-refoundation/report.md).
 cspell "${cspell_args[@]}" "$checkout/example.sh" "$checkout/example.js" "$checkout/example.md"
 
 # Language dictionaries and Markdown link handling must preserve prose checks.
-printf '# prosezztypo\n' >> "$checkout/example.sh"
-printf '// prosezztypo\n' >> "$checkout/example.js"
-printf '\nA prosezztypo.\n' >> "$checkout/example.md"
+printf '# Read and recieve the result.\n' >> "$checkout/example.sh"
+printf '// Read and recieve the result.\n' >> "$checkout/example.js"
+printf '\nRead and recieve the result.\n' >> "$checkout/example.md"
 cp "$scratch/unpublished.jl" "$checkout/unpublished.jl"
 if cspell "${cspell_args[@]}" "$checkout/example.sh" "$checkout/example.js" \
     "$checkout/example.md" "$checkout/unpublished.jl" > "$scratch/languages.log" 2>&1; then
@@ -147,13 +170,13 @@ if cspell "${cspell_args[@]}" "$checkout/example.sh" "$checkout/example.js" \
 else
     test "$?" -eq 1
 fi
-test "$(grep -c 'Unknown word (prosezztypo)' "$scratch/languages.log")" -eq 4
+test "$(grep -c 'Unknown word (recieve)' "$scratch/languages.log")" -eq 4
 
 # A tracked README remains checked even when Git ignores its directory.
 git init --quiet "$scratch/repository"
 mkdir -p "$scratch/repository/test/fixtures/reference" "$scratch/repository/docs/src/tutorials" "$scratch/repository/docs/build"
 printf 'test/fixtures/reference/\n' > "$scratch/repository/.gitignore"
-printf 'Maintained prosezztypo.\n' > "$scratch/repository/test/fixtures/reference/README.md"
+printf 'Read and recieve the result.\n' > "$scratch/repository/test/fixtures/reference/README.md"
 printf 'License CONTRACT\n' > "$scratch/repository/LICENSE"
 printf 'Generated prose.\n' > "$scratch/repository/docs/src/tutorials/example.md"
 printf '<p>Generated prose.</p>\n' > "$scratch/repository/docs/build/index.html"
@@ -168,7 +191,7 @@ if cspell "${cspell_args[@]}" "$scratch/repository/test/fixtures/reference/READM
     echo 'cspell skipped a tracked file under an ignored directory.' >&2
     exit 1
 fi
-grep -Fq prosezztypo "$scratch/ignored.log"
+grep -Fq 'Unknown word (recieve)' "$scratch/ignored.log"
 
 # Both native reports remain readable after independent checker failures.
 test -s "$scratch/invalid.json"
@@ -181,8 +204,19 @@ if vale --no-global --config="$scratch/missing.ini" "$scratch/advisory.md" > "$s
     echo 'Vale accepted a missing configuration.' >&2
     exit 1
 fi
-if cspell lint --config="$scratch/missing.json" "$scratch/science.jl" >> "$scratch/bad-config.log" 2>&1; then
+if cspell "${cspell_args[@]}" --config="$scratch/missing.json" "$scratch/science.jl" >> "$scratch/bad-config.log" 2>&1; then
     echo 'cspell accepted a missing configuration.' >&2
+    exit 1
+fi
+grep -Fq 'Configuration Error' "$scratch/bad-config.log"
+printf '{broken json\n' > "$scratch/malformed.json"
+if cspell "${cspell_args[@]}" --config="$scratch/malformed.json" "$scratch/science.jl" > "$scratch/malformed.log" 2>&1; then
+    echo 'cspell accepted a malformed configuration.' >&2
+    exit 1
+fi
+grep -Fq 'Configuration Error' "$scratch/malformed.log"
+if cspell "${cspell_args[@]}" "$scratch/missing.md" > "$scratch/missing-input.log" 2>&1; then
+    echo 'cspell accepted a missing input.' >&2
     exit 1
 fi
 
