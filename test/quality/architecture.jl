@@ -42,7 +42,15 @@
         :vacuum_permittivity =>
             r"(?i)^_*(\w+_)?(vacuum_permittivity|eps(ilon)?_?[0₀]|[εϵ]_?[0₀])$",
         :vacuum_permeability =>
-            r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$")
+            r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$",
+        :ideal_transposition! => r"transpos",
+        :kron_reduce! => r"kron",
+        :merge_bundles! => r"merge_bundle",
+        :bundle_operations => r"^_*bundle_(operations|pairs)$",
+        :reorder_indices => r"^_*reorder(_|$)",
+        :ReductionPlan => r"(?i)^_*reduction_?(plan|map)$",
+        :ReductionBuffers => r"(?i)^_*reduction_?buffers$",
+        :reduce_line_matrices! => r"^_*reduce_(line|primitive)_matrices")
     const SHINGLE = 8
     const CLONE_TOKENS = 30
     const CLONE_SHARE = 0.75
@@ -535,16 +543,20 @@
         return found
     end
 
-    # The function or type whose method `m` is.
+    # The function or type whose method `m` is. A keyword sorter belongs to its
+    # function, and a closure method to the closure type.
     function method_subject(m::Method)
-        F = Base.unwrap_unionall(Base.unwrap_unionall(m.sig).parameters[1])
+        signature = Base.unwrap_unionall(m.sig).parameters
+        F = Base.unwrap_unionall(signature[1])
         F isa DataType || return nothing
+        F === typeof(Core.kwcall) && length(signature) >= 3 &&
+            (F = Base.unwrap_unionall(signature[3]); F isa DataType || return nothing)
         if F.name === Type.body.name
             T = F.parameters[1]
             T = Base.unwrap_unionall(T isa TypeVar ? T.ub : T)
             return T isa DataType ? T.name.wrapper : nothing
         end
-        return isdefined(F, :instance) ? F.instance : nothing
+        return isdefined(F, :instance) ? F.instance : F.name.wrapper
     end
 
     # The root module, a top-level core submodule or a top-level extension module.
@@ -603,16 +615,20 @@
         defined = definitions(C)
         hooks, api = commons_roles(methods, tree, C, defined)
         name_of = IdDict{Any, Symbol}(value => name for (name, value) in defined)
-        users = Dict(name => Set{Module}() for name in keys(defined))
-        referrers = Dict(name => Set{Symbol}() for name in keys(defined))
+        # Owners of every Commons value, closures and keyword bodies included.
+        owners = IdDict{Any, Set{Module}}(value => Set{Module}() for value in values(defined))
+        # The Commons values that each Commons method subject references.
+        references = IdDict{Any, Base.IdSet{Any}}()
+        unnamed(value) = !haskey(name_of, value) && (value isa Function &&
+            within(parentmodule(typeof(value)), C, tree.root) ||
+            value isa Type && value <: Function && within(parentmodule(value), C, tree.root))
         function use!(M::Module, @nospecialize(subject), @nospecialize(value))
-            name = get(name_of, value, nothing)
-            name === nothing && return
+            haskey(name_of, value) || unnamed(value) || return
             if within(M, C, tree.root)
-                user = get(name_of, subject, nothing)
-                user === nothing || user === name || push!(referrers[name], user)
-            else
-                push!(users[name], top_owner(tree, M))
+                subject === nothing || subject === value ||
+                    push!(get!(Base.IdSet{Any}, references, subject), value)
+            elseif haskey(name_of, value)
+                push!(owners[value], top_owner(tree, M))
             end
         end
         # Loops instead of closures: a closure compiles once per type it receives.
@@ -665,15 +681,23 @@
             end
         end
         public = Set(name for name in keys(defined) if Base.ispublic(C, name))
+        # Public definitions pass their owners to what they use, also through
+        # their closures and keyword bodies. Private definitions pass none.
         changed = true
         while changed
             changed = false
-            for (name, through) in referrers, user in through
-                user in public && !issubset(users[user], users[name]) || continue
-                union!(users[name], users[user])
-                changed = true
+            for (subject, targets) in references
+                haskey(name_of, subject) && name_of[subject] ∉ public && continue
+                from = get!(Set{Module}, owners, subject)
+                for target in targets
+                    to = get!(Set{Module}, owners, target)
+                    issubset(from, to) && continue
+                    union!(to, from)
+                    changed = true
+                end
             end
         end
+        users = Dict(name => owners[value] for (name, value) in defined)
         tests = test_sources(joinpath(tree.directory, COMMONS_TESTS))
         for name in keys(defined)
             for (criterion, met) in (("public", name in public),
@@ -1364,7 +1388,8 @@ end
 
     vocabulary = Dict{Symbol, Regex}(:shared => r"^_*shared$", :lonely => r"^_*lonely$",
         :undocumented => r"^_*undocumented$", :untested => r"^_*untested$",
-        :ideal_transposition! => r"transpos",
+        :ideal_transposition! => r"transpos", :inner_only => r"^_*inner_only$",
+        :kernel => r"^_*kernel$", :scale_of => r"^_*scale_of$", :front => r"^_*front$",
         :vacuum_permittivity => A.VOCABULARY[:vacuum_permittivity],
         :vacuum_permeability => A.VOCABULARY[:vacuum_permeability])
     matrixops = """
@@ -1403,7 +1428,10 @@ end
         "src/commons/Commons.jl" => """
             module Commons
             export shared, lonely, undocumented, untested, unreserved, ideal_transposition!
-            export welcome, extended
+            export welcome, extended, inner_only
+            "Reached only through the closure of a private wrapper."
+            inner_only(x) = x + 7
+            hidden_wrapper(values) = map(value -> inner_only(value), values)
             "User API that no test names."
             welcome(x) = x
             "A hook extended by one owner."
@@ -1426,7 +1454,8 @@ end
             module Alpha
             import ..Commons
             uses(m) = Commons.shared(1) + Commons.lonely(1) + Commons.undocumented(1) +
-                Commons.untested(1) + Commons.unreserved(1) + Commons.ideal_transposition!(m)[1]
+                Commons.untested(1) + Commons.unreserved(1) + Commons.ideal_transposition!(m)[1] +
+                Commons.hidden_wrapper([1])[1]
             const EPS0 = 8.8541878128e-12
             transposed!(m) = m
             function permeability(T)
@@ -1442,7 +1471,8 @@ end
             module Beta
             import ..Commons
             uses(m) = Commons.shared(1) + Commons.undocumented(1) + Commons.untested(1) +
-                Commons.unreserved(1) + Commons.ideal_transposition!(m)[1]
+                Commons.unreserved(1) + Commons.ideal_transposition!(m)[1] +
+                Commons.hidden_wrapper([1])[1]
             c0() = 299792458
             mu(T) = 4 * (one(T) * π) * (one(T) * 10)^(-7)
             function average_cyclic!(values::AbstractMatrix)
@@ -1466,7 +1496,7 @@ end
             end
             """,
         "test/unit/commons/commons.jl" =>
-            "shared, lonely, undocumented, unreserved, ideal_transposition!, extended\n",
+            "shared, lonely, undocumented, unreserved, ideal_transposition!, extended, inner_only\n",
         # Guard sources name definitions without testing them.
         "test/quality/guards.jl" => "_tiny, _forward\n")
     planted_expected = Dict{String, Any}(
@@ -1474,7 +1504,9 @@ end
             "untested | tests" => 1, "unreserved | vocabulary" => 1,
             "hidden | public" => 1, "hidden | docstring" => 1, "hidden | owners" => 1,
             "hidden | tests" => 1, "hidden | vocabulary" => 1,
-            "welcome | tests" => 1, "extended | owners" => 1),
+            "welcome | tests" => 1, "extended | owners" => 1, "inner_only | owners" => 1,
+            "hidden_wrapper | public" => 1, "hidden_wrapper | docstring" => 1,
+            "hidden_wrapper | tests" => 1, "hidden_wrapper | vocabulary" => 1),
         "vocabulary" => Dict("src/alpha/Alpha.jl | EPS0" => 1,
             "src/alpha/Alpha.jl | transposed!" => 1, "src/alpha/Alpha.jl | μ0" => 1),
         "fingerprints" => Dict("src/alpha/Alpha.jl" => 2, "src/beta/Beta.jl" => 2),
@@ -1497,7 +1529,17 @@ end
         "src/commons/Commons.jl" => """
             module Commons
             export shared, vacuum_permittivity, ideal_transposition!, greet, accumulate_into!
+            export front, kernel, scale_of
             public declared
+            "Applied inside the closure of `front`."
+            kernel(x) = x + 1
+            "Applied inside the keyword body of `front`."
+            scale_of(x) = 2x
+            "Used by two owners. Its closure and keyword body use the other two."
+            function front(values; factor = 1)
+                weight = scale_of(factor)
+                return map(value -> kernel(value) * weight, values)
+            end
             "Used by two owners."
             shared(x) = x + 1
             "User API that no owner uses."
@@ -1531,6 +1573,7 @@ end
                 return Commons.shared(ε0) * Commons.ideal_transposition!(m)[1] * tolerance
             end
             phase(x) = 2π * x
+            front_use(values) = Commons.front(values; factor = 2)
             "The vacuum permittivity is 8.8541878128e-12 F/m."
             documented(x) = x
             _tested(x) = x + 1
@@ -1561,10 +1604,12 @@ end
             admittance(m, T) = Commons.shared(1) * Commons.vacuum_permittivity(T) *
                 Commons.ideal_transposition!(m)[1]
             Commons.accumulate_into!(values::Vector{Float64}) = values
+            front_use(values) = Commons.front(values; factor = 3)
             end
             """,
         "test/unit/commons/commons.jl" =>
-            "shared, vacuum_permittivity, ideal_transposition!, greet, declared, accumulate_into!\n",
+            "shared, vacuum_permittivity, ideal_transposition!, greet, declared, accumulate_into!, " *
+            "front, kernel, scale_of\n",
         "test/unit/alpha.jl" => "_tested\n")
 
     planted = A.probe_inventory(planted_files, "CommonsProbePlanted"; vocabulary,

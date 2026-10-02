@@ -1,74 +1,3 @@
-"""
-Invert each reduced quasi-TEM potential-coefficient slice to obtain shunt
-admittance directly:
-
-```math
-Y(f) = P(f)^{-1}.
-```
-
-No additional ``j\\omega`` factor is applied. Each solve is checked with the
-infinity-norm residual ``\\lVert P Y-I\\rVert_\\infty`` and its matrix condition
-number.
-
-# Arguments
-
-- `P`: reduced inverse-admittance scan \\[m/S\\], with dimensions
-  `(terminal, terminal, frequency)`.
-
-This FEM coefficient differs from the analytical engine's charge-based
-coefficient ``p=sY^{-1}`` in m/F. For the same admittance and reference,
-``p=sP``, where ``s=jω`` in sinusoidal evaluation.
-
-# Keywords
-
-- `diagnostics=false`: also return residuals and condition numbers.
-
-# Returns
-
-- The shunt-admittance scan \\[S/m\\], or a named tuple containing `Y`,
-  `residuals`, and `condition_numbers` when diagnostics are requested.
-
-# Errors
-
-- `ArgumentError`: a physical input or computed admittance contains nonfinite
-  values. Actual factorization and solve failures propagate. An unavailable condition
-  estimate or unmet inversion-residual target produces a warning, not rejection
-  or a replacement solve.
-"""
-function potential_to_admittance(
-        P::Array{Complex{T}, 3};
-        diagnostics::Bool = false
-) where {T <: Real}
-    n = size(P, 1)
-    size(P, 2) == n || throw(DimensionMismatch("P must be square"))
-    identity_matrix = Matrix{Complex{T}}(I, n, n)
-    Y = similar(P)
-    residuals = Vector{T}(undef, size(P, 3))
-    condition_numbers = similar(residuals)
-    for frequency in axes(P, 3)
-        coefficient = Matrix(@view P[:, :, frequency])
-        all(isfinite, coefficient) || throw(ArgumentError(
-            "P contains non-finite values at frequency index $frequency",
-        ))
-        condition_number = cond(coefficient)
-        isfinite(condition_number) || @warn "FEM inverse-admittance condition estimate is not finite" frequency condition_number
-        inverse = lu(coefficient) \ identity_matrix
-        all(isfinite, inverse) || throw(ArgumentError(
-            "computed Y contains non-finite values at frequency index $frequency"))
-        residual = convert(T, norm(coefficient * inverse - identity_matrix, Inf))
-        tolerance = max(
-            sqrt(eps(T)),
-            convert(T, 32n * eps(T) * max(one(T), condition_number))
-        )
-        isfinite(residual) && residual <= tolerance ||
-            @warn "FEM inverse-admittance residual target was not met" frequency residual tolerance condition_number
-        @views Y[:, :, frequency] .= inverse
-        residuals[frequency] = residual
-        condition_numbers[frequency] = condition_number
-    end
-    return diagnostics ? (; Y, residuals, condition_numbers) : Y
-end
-
 const FEM_RAW_HEADER = [
     "frequency_index",
     "frequency_hz",
@@ -396,15 +325,26 @@ function _line_parameters(
         inputs::NamedTuple;
         reused::Bool=false
 ) where {T <: Real}
-    reduced = Engine.reduce_primitive_matrices(
-        scan.Z,
-        scan.P,
-        model.problem.system.connection_order,
-        formulation.options
-    )
-    inversion = potential_to_admittance(reduced.P; diagnostics = true)
-    Z = reduced.Z
-    Y = inversion.Y
+    options = formulation.options.data
+    plan = ReductionPlan(model.problem.system.connection_order; options.reduce_bundle,
+        options.kron_reduction, options.ideal_transposition)
+    buffers = ReductionBuffers{Complex{T}}(plan)
+    retained = length(plan.keep)
+    frequency_count = length(model.problem.frequencies)
+    Z = Array{Complex{T}, 3}(undef, retained, retained, frequency_count)
+    Y = similar(Z)
+    residuals = Vector{T}(undef, frequency_count)
+    condition_numbers = similar(residuals)
+    for (index, frequency) in pairs(model.problem.frequencies)
+        # The extracted coefficient is P = 1/y in m/S; the shared reduction takes
+        # the charge-based p = sP in m/F and returns y = s/p.
+        s = Complex{T}(im * (2 * (one(T) * π) * frequency))
+        diagnostics = reduce_line_matrices!(view(Z, :, :, index), view(Y, :, :, index),
+            view(scan.Z, :, :, index), s .* view(scan.P, :, :, index), s, plan, buffers,
+            Val(true))
+        residuals[index] = diagnostics.residual
+        condition_numbers[index] = diagnostics.condition_number
+    end
     basis = :pul
     if execution.data.output_basis === Val(:total)
         Z = Z .* model.problem.system.line_length
@@ -439,7 +379,7 @@ function _line_parameters(
         source=joinpath(directory,name),sha256=bytes2hex(open(sha256,joinpath(directory,name))))
         for (directory,_,names) in walkdir(run.path) for name in sort(names)] : NamedTuple[]
     names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in model.problem.system.terminal_order]
-    coordinates=map(reduced.indices) do index
+    coordinates=map(plan.indices) do index
         phase=model.problem.system.connection_order[index]
         members=findall(==(phase),model.problem.system.connection_order)
         formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
@@ -452,9 +392,9 @@ function _line_parameters(
         run = record,
         inputs,
         terminal_ids = copy(model.terminal_ids),
-        reduced_phase_map = reduced.phase_map,
-        inversion_residuals = inversion.residuals,
-        condition_numbers = inversion.condition_numbers,
+        reduced_phase_map = plan.phase_map,
+        inversion_residuals = residuals,
+        condition_numbers,
         primitive = trace
     ),
     )

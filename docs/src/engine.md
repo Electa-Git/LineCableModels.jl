@@ -1053,8 +1053,11 @@ formulation_options(LineParametersFormulation, FormulationOptions(reduce_bundle=
 
 The default line-parameter formulation owns:
 
-- bundle and Kron reduction.
-- ideal transposition.
+- bundle and Kron reduction, `reduce_bundle=true` and `kron_reduction=true` by
+  default.
+- ideal transposition, `ideal_transposition=false` by default. When selected, the
+  retained ``Z`` and potential-coefficient matrix ``P`` are averaged over cyclic
+  transposition, and ``Y`` is the inverse of the averaged ``P`` times ``j\omega``.
 
 The normalized `FormulationOptions` record is stored in
 `LineParametersFormulation.options`. Read its payload through `.data`.

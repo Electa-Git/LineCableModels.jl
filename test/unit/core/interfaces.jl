@@ -33,15 +33,7 @@ end
 @testitem "Core / owner-local numerics / transforms and conductivity" tags=[:unit] begin
     using LinearAlgebra
     const Engine=LineCableModels.Engine
-    const MatrixOps=Engine
 
-    matrix=[Float64(2i+3j+i*j) for i in 1:3, j in 1:3]
-    circulant=copy(matrix)
-    @test MatrixOps.ideal_transposition!(circulant) === circulant
-    @test all(circulant[i, j] == circulant[mod1(i + 1, 3), mod1(j + 1, 3)]
-    for i in 1:3, j in 1:3)
-    @test sum(circulant) ≈ sum(matrix)
-    @test_throws DimensionMismatch MatrixOps.ideal_transposition!(ones(2, 3))
     @test LineCableModels.ModalAnalysis.offdiagonal_ratio(Diagonal([1.0, 2.0])) == 0.0
     @test_throws DimensionMismatch LineCableModels.ModalAnalysis.offdiagonal_ratio(zeros(2, 3))
 

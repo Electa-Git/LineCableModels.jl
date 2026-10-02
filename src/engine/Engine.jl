@@ -29,8 +29,7 @@ export LineParametersProblem, CableConstantsProblem,
        series_impedance, shunt_admittance,
        resistance, reactance, inductance,
        conductance, susceptance, capacitance,
-       frequencies, nconductors, nfrequencies, basis,
-       kron_reduce
+       frequencies, nconductors, nfrequencies, basis
 export AbstractFormulation, LineParametersFormulation, CableConstantsFormulation,
        Formulation
 export LineCableModelsCoaxial, LineCableModelsFEM,
@@ -44,7 +43,7 @@ export ShuntModel, BoundarySolveError
 export compute
 
 # Module-specific dependencies
-using LinearAlgebra: I, checksquare, diag, ldiv!, lu!, mul!
+using LinearAlgebra: diag
 import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, line_length, build, R, L, C,
@@ -70,6 +69,7 @@ import ..Commons: AbstractProblemDefinition, AbstractFormulation,
 using ..Units
 import ..Commons
 using ..Commons: vacuum_permittivity, vacuum_permeability
+using ..Commons: kron_reduce!, ReductionPlan, ReductionBuffers, reduce_line_matrices!
 using ..Materials
 using ..Materials: TemperatureDependent
 import ..Earth
@@ -98,7 +98,6 @@ include("lineparameters/lineparameters.jl")
 include("lineparameters/quantities.jl")
 include("lineparameters/resolution.jl")
 include("lineparameters/benchmark.jl")
-include("matrixops.jl")
 
 # Submodule `InternalImpedance`
 include("internalimpedance/InternalImpedance.jl")
@@ -136,7 +135,6 @@ include("earthreturn.jl")
 include("impedance.jl")
 include("admittance.jl")
 include("lineparameters.jl")
-include("reduction.jl")
 include("cableconstants.jl")
 include("observed_inputs.jl")
 include("lineparameters/observations.jl")
@@ -164,7 +162,6 @@ public InternalImpedanceFormulation, InsulationImpedanceFormulation,
        EarthImpedanceFormulation, InsulationAdmittanceFormulation,
        SemiconAdmittanceFormulation,
        EarthAdmittanceFormulation, ShuntModelFormulation
-public reduce_primitive_matrices
 public layer_admittance
 public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten, lineinput,
        earth_pairs

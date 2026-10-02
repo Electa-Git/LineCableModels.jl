@@ -10,7 +10,6 @@ using Logging: AbstractLogger, SimpleLogger, @debug, @info,
                @warn, with_logger
 using Printf: @sprintf
 using SHA: sha256
-using LinearAlgebra: I, cond, lu, norm
 
 import LineCableModels
 import LineCableModels: compute
@@ -21,6 +20,7 @@ import LineCableModels.Engine
 import LineCableModels.ImportExport
 using LineCableModels.Commons: computation_options, ComputationOptions, ComputationDetails
 using LineCableModels.Commons: vacuum_permittivity, vacuum_permeability
+using LineCableModels.Commons: ReductionPlan, ReductionBuffers, reduce_line_matrices!
 using LineCableModels: LineCableModelsFEM, LineCableModelsFEMError,
                        LineParametersProblem, LineParameters,
                        SeriesImpedance, ShuntAdmittance, PhaseDomain

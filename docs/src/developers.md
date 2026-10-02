@@ -299,7 +299,7 @@ The following external interfaces are used by the package:
 | --- | --- |
 | `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html). Cairo adapter only. |
 | `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/). Renderer export errors and FEM recovery from file and process errors. |
-| `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by Engine's allocating Kron entry point to preserve source and destination aliasing. The workspace path uses separate preallocated buffers. |
+| `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by the allocating Kron entry point in `Commons` to preserve source and destination aliasing. The reduction path uses separate preallocated buffers. |
 | `Base.get_extension` | Identifies the loaded Cairo extension. Its public `CairoMakie` binding supplies the native save backend. |
 | `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api). Renderer only. |
 | `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api). Renderer only. |

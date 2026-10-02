@@ -8,40 +8,6 @@
     return nothing
 end
 
-@inline function _reorder_into!(destination, source, permutation)
-    @inbounds for column in eachindex(permutation), row in eachindex(permutation)
-
-        destination[row, column] = source[permutation[row], permutation[column]]
-    end
-    return destination
-end
-
-function _reduction_map(phase_map, formulation)
-    permutation = reorder_indices(phase_map)
-    reordered = phase_map[permutation]
-    reduced = copy(reordered)
-    seen = Set{Int}()
-    @inbounds for (index, phase) in pairs(reordered)
-        if phase > 0 && phase in seen
-            reduced[index] = 0
-        elseif phase > 0
-            push!(seen, phase)
-        end
-    end
-    kron_map = if formulation.options.data.reduce_bundle
-        if formulation.options.data.kron_reduction
-            reduced
-        else
-            map(eachindex(reduced)) do index
-                reordered[index] == 0 ? -1 : reduced[index]
-            end
-        end
-    else
-        formulation.options.data.kron_reduction ? reordered : nothing
-    end
-    return permutation, reordered, kron_map
-end
-
 function _solve!(
         workspace::LineParametersWorkspace{T},
         formulation::LineParametersFormulation,
@@ -52,23 +18,10 @@ function _solve!(
     invariants = workspace.invariants
     buffers = workspace.buffers
     workspace.capture===nothing || empty!(workspace.capture.integrals)
-    Zbuffer = buffers.Zbuffer
-    Pbuffer = buffers.Pbuffer
     Zprimitive = buffers.Zprimitive
     Pprimitive = buffers.Pprimitive
-    Pinverse = buffers.Pinverse
-    reduced = buffers.reduced
-    reduced_inverse = buffers.reduced_inverse
-    kron_factor = buffers.kron_factor
-    kron_coupling = buffers.kron_coupling
-    kron_rhs = buffers.kron_rhs
     Zout = buffers.Zout
     Yout = buffers.Yout
-    permutation = invariants.permutation
-    bundle_pairs = invariants.bundle_pairs
-    kron_map = invariants.kron_map
-    keep_indices = invariants.keep_indices
-    eliminate_indices = invariants.eliminate_indices
 
     materials!(workspace, formulation)
     @debug "Starting line parameters computation"
@@ -85,51 +38,8 @@ function _solve!(
         _stash!(workspace.capture, :Pg, frequency, buffers.Pearth)
         impedance!(Zprimitive, workspace, frequency)
         admittance!(Pprimitive, workspace, frequency)
-        _reorder_into!(Zbuffer, Zprimitive, permutation)
-        _reorder_into!(Pbuffer, Pprimitive, permutation)
-        if formulation.options.data.reduce_bundle
-            merge_bundles!(Zbuffer, bundle_pairs)
-            merge_bundles!(Pbuffer, bundle_pairs)
-        end
-
-        if kron_map === nothing
-            formulation.options.data.ideal_transposition && ideal_transposition!(Zbuffer)
-            @views Zout[:, :, frequency] .= Zbuffer
-
-            factorization = lu!(Pbuffer)
-            ldiv!(Pinverse, factorization, buffers.identity_full)
-            Pinverse .*= input.jω[frequency]
-            formulation.options.data.ideal_transposition && ideal_transposition!(Pinverse)
-            @views Yout[:, :, frequency] .= Pinverse
-        else
-            kron_reduce!(
-                Zbuffer,
-                keep_indices,
-                eliminate_indices,
-                reduced,
-                kron_factor,
-                kron_coupling,
-                kron_rhs
-            )
-            formulation.options.data.ideal_transposition && ideal_transposition!(reduced)
-            @views Zout[:, :, frequency] .= reduced
-
-            kron_reduce!(
-                Pbuffer,
-                keep_indices,
-                eliminate_indices,
-                reduced,
-                kron_factor,
-                kron_coupling,
-                kron_rhs
-            )
-            factorization = lu!(reduced)
-            ldiv!(reduced_inverse, factorization, buffers.identity_reduced)
-            reduced_inverse .*= input.jω[frequency]
-            formulation.options.data.ideal_transposition &&
-                ideal_transposition!(reduced_inverse)
-            @views Yout[:, :, frequency] .= reduced_inverse
-        end
+        reduce_line_matrices!(view(Zout, :, :, frequency), view(Yout, :, :, frequency),
+            Zprimitive, Pprimitive, input.jω[frequency], invariants.plan, buffers.reduction)
     end
 
     return workspace
@@ -184,10 +94,7 @@ function _finish(
     retained = _retained_details(workspace)
     names=["cable:$(terminal.cable):$(terminal.terminal)"
            for terminal in problem.system.terminal_order]
-    permutation=workspace.invariants.permutation
-    indices=workspace.invariants.kron_map === nothing ? permutation :
-            permutation[workspace.invariants.keep_indices]
-    coordinates=map(indices) do index
+    coordinates=map(workspace.invariants.plan.indices) do index
         phase=problem.system.connection_order[index]
         members=findall(==(phase), problem.system.connection_order)
         formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
