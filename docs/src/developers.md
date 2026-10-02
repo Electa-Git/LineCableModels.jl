@@ -147,12 +147,50 @@ package method and parse every Julia file under `src/` and `ext/`.
   calls, `@eval` calls, and comparisons of a `kind` field against symbols, negated
   comparisons included. These counts can decrease and never increase.
 
-Each guard is a function of its inputs. The negative controls (A8) apply each guard
-to a probe package with planted violations and to a clean probe package. A guard
-reports exactly the planted violations and nothing in the clean probe.
+`Commons` holds only what is defined once and used by several owners. An owner is
+the root module, a top-level submodule or a package extension. Six guards keep
+helpers from accumulating elsewhere.
+
+- Commons admission (C1). Each function, type and constant defined in `Commons` is
+  exported or declared `public`, has a docstring and is named in a test file under
+  `test/unit/commons/`. A hook is a `Commons` function with a method defined outside
+  `Commons`. The user API is the `Commons` names that the root module exports or
+  declares `public`. Unless a name is user API, methods of at least two owners
+  outside `Commons` use it. Unless it is a hook or user API, it has an entry in the
+  reserved vocabulary of C2. A use is a reference in lowered code, a method
+  signature, a method extension, a supertype or a field type. Uses by a public
+  `Commons` definition count for the definitions it uses. A definition with one
+  remaining owner moves to that owner. Algorithm-local helpers are nested functions
+  inside the public definition.
+- Reserved vocabulary (C2). `VOCABULARY` maps each `Commons` public name to the
+  definition names it reserves. Outside `src/commons/`, no function, constant or
+  assigned local takes a reserved name. A local assigned from a call to the
+  reserving definition is exempt, as in `μ0 = vacuum_permeability(T)`.
+- Literal fingerprints (C3). Outside `src/commons/consts.jl`, no numeric literal
+  contains the digits `8854187` or `299792458`, and no statement that names `π`
+  contains `1e-7` or a power of a base containing 10 with exponent `-7`.
+- Clones (C4). Function bodies are tokenized with each identifier replaced by its
+  role (call, field or name), and compared through runs of 8 tokens. Statements of
+  the form `x || throw(...)` or `x && throw(...)`, with `throw`, `rethrow` or
+  `error`, are left out. No function body under `src/` or `ext/` contains 75 % of the
+  runs of a `Commons` public function body of at least 30 tokens. Hooks are not
+  compared.
+- Tiny helpers (C5). A tiny helper is a module-level function that is neither
+  exported nor public, has one method, has at most three body statements, is
+  referenced by exactly one method and is named in no test file. Files under
+  `test/quality/` and `test/tools/` are not test files here. An exact forwarder,
+  whose body is one call that passes its own arguments unchanged and in order,
+  keywords included, counts whatever its references. Inline a new tiny helper,
+  import the owner's definition, or test it directly.
+- Root freeze (C6). The number of functions, types and constants defined by the root
+  module does not grow. New shared definitions go to `Commons` under C1.
+
+Each guard is a function of its inputs. The negative controls (A8 and C7) apply each
+guard to a probe package with planted violations and to a clean probe package. A
+guard reports exactly the planted violations and nothing in the clean probe.
 
 `test/quality/architecture_baseline.toml` records the violations present when the
-guards were introduced, with one table per guard. Keys contain no line numbers. An
+guards were introduced, with one table per guard. A table that no guard owns fails. Keys contain no line numbers. An
 unlisted violation or a count above its entry fails. A listed entry without a live
 violation, or a count below it, also fails. A change that removes a violation deletes
 or lowers its entry. `test/tools/architecture_inventory.jl` prints the live inventory
@@ -164,7 +202,9 @@ the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull reques
 base or the previous push. An added entry or a raised count fails the job. The
 ratchet first applies to the earlier keys the file renames that git detects, and the
 module renames of renamed entry files `<Module>.jl` that declare their module. A key
-renamed without a matching git rename counts as added. Run
+renamed without a matching git rename counts as added. A table absent from the
+earlier baseline belongs to a guard introduced since, and the ratchet lists it
+without comparing its keys. Run
 `julia test/tools/baseline_ratchet.jl HEAD` to compare local changes with the last
 commit.
 
