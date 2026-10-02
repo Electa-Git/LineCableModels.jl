@@ -155,8 +155,6 @@ end
     ]
     automatic_page=first(automatic)
     @test automatic_page.figure isa Makie.Figure
-    @test !hasproperty(automatic_page, :context)
-    @test !hasproperty(automatic_page, :panels)
     @test :legend ∉ keys(automatic_page.controls)
 
     self_impedance_request=@observe Z[1, 1, :]

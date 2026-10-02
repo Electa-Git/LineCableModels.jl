@@ -58,9 +58,6 @@ end
 @testitem "Engine / prescribed propagation is a unified formulation option" tags=[:unit] setup=[TestFixtures] begin
     const E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
-    @test_throws MethodError LineParametersProblem(problem.system;
-        earth_props = problem.earth_props, frequencies = problem.frequencies, Γ = [
-            0im, 0im])
     options=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
     make(gamma)=Formulation(
         earth_impedance = formula(:unified; options = (Γ = gamma,)),
@@ -238,7 +235,6 @@ end
     value=custom(rho, epsilon, mu, 100.0im, pair; thickness = [Inf, Inf])()
     @test isfinite(value)
     @test formula_id(custom) !== formula_id(external.selection)
-    @test formulation_options(external).data.integration.method === :quad
 end
 
 @testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit] setup=[
@@ -330,23 +326,41 @@ end
     @test all(isfinite, resistance(local_result))
 end
 
-@testitem "Engine / surface current basis reproduces concentric wall contributions" tags=[:unit] begin
+@testitem "Engine / surface current basis reproduces concentric wall contributions" tags=[:unit] setup=[
+    TestFixtures, FormulaFixtures] begin
     using LinearAlgebra
-    const II = LineCableModels.Engine.InternalImpedance
+    const E = LineCableModels.Engine
+    const II = E.InternalImpedance
+    declared = (inner = 7.0+3im, outer = 11.0+5im, transfer = 2.0+1im)
+    selected = FormulaFixtures.SurfaceLaw(coefficients = declared)
+    formulation = Formulation(internal_impedance = selected,
+        insulation_impedance = FormulaFixtures.InsulationReactance(0))
+    cable = E.LocalCableData(E.flatten(LineCableModelsCoaxial(), TestFixtures.coaxial_design()))
+    actual = zeros(ComplexF64, 2, 2)
+    E.cable_impedance!(actual, cable, fill(2e-8, 2), formulation.methods, 100pi*im)
+    # Surface currents are (-contained, contained + wall). The solid core's
+    # outer impedance is an additional contribution to its own terminal.
+    B = [-1.0 1.0; 0.0 1.0]
+    declared_matrix = [declared.inner declared.transfer; declared.transfer declared.outer]
+    expected = B * declared_matrix * transpose(B) + Diagonal([declared.outer, 0im])
+    @test actual ≈ expected
+
     selected = II.Formula(:default)
+    builtin = Formulation(insulation_impedance = FormulaFixtures.InsulationReactance(0))
     for frequency in (1e-4, 50.0, 1e5)
         coefficients = II.surface_impedances(selected, 0.008, 0.01, 1.7241e-8, 1.0,
             complex(0.0, 2pi*frequency))
         W = [coefficients.inner coefficients.transfer;
              coefficients.transfer coefficients.outer]
-        # Terminal currents are (contained metal, enclosing wall). Surface
-        # currents are (-contained, contained + wall), exactly the current map.
-        B = [-1.0 1.0; 0.0 1.0]
         lifted = B * W * transpose(B)
-        @test lifted[1, 1] ≈
-              coefficients.inner - 2coefficients.transfer + coefficients.outer
-        @test lifted[1, 2] ≈ coefficients.outer - coefficients.transfer
-        @test lifted[2, 2] == coefficients.outer
+        s = complex(0.0, 2pi*frequency)
+        wall = II.surface_impedances(selected, cable.r_in[2], cable.r_ext[2],
+            2e-8, cable.mu_r_cond[2], s)
+        solid = II.surface_impedances(selected, cable.r_in[1], cable.r_ext[1],
+            2e-8, cable.mu_r_cond[1], s)
+        E.cable_impedance!(actual, cable, fill(2e-8, 2), builtin.methods, s)
+        wall_matrix = [wall.inner wall.transfer; wall.transfer wall.outer]
+        @test actual ≈ B * wall_matrix * transpose(B) + Diagonal([solid.outer, 0im])
         if frequency == 1e-4
             resistance = 1.7241e-8 / (pi * (0.01^2 - 0.008^2))
             @test real(lifted[2, 2]) ≈ resistance rtol=1e-10

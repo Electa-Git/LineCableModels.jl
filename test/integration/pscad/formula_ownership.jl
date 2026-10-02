@@ -1,9 +1,7 @@
 @testitem "PSCAD / Engine owns scientific selections and explicit defaults" tags=[:integration] begin
     const E = LineCableModels.Engine
-    const P = LineCableModels.PSCAD
     const FM = LineCableModels.FormulaMethod
     selected = Formulation(:pscad)
-    @test !isdefined(P, :NativeFormula)
     @test selected.methods.internal_impedance isa E.InternalImpedance.Formula{:wedepohl1973}
     @test selected.methods.insulation_impedance isa E.InsulationImpedance.Formula{:ametani1980}
     @test selected.methods.earth_admittance isa E.EarthAdmittance.Formula{:ideal}
@@ -14,19 +12,12 @@
         earth_impedance=(air=:default, earth=:default, mixed=:default)).methods.earth_impedance) == choices
     @test keys(Formulation(:pscad; earth_impedance=(mixed=:default,)).methods.earth_impedance) == (:mixed,)
     @test Formulation(:pscad; earth_impedance=(mixed=nothing,)).methods.earth_impedance.mixed === nothing
-    for (slot, obsolete) in ((:earth_impedance,:direct_lucca), (:earth_admittance,:coupled),
-            (:internal_impedance,:cable_coax), (:insulation_impedance,:cable_coax))
-        @test_throws ArgumentError Formulation(:pscad; NamedTuple{(slot,)}((obsolete,))...)
-    end
-    for owner in (E.InternalImpedance, E.InsulationImpedance, E.EarthImpedance, E.EarthAdmittance)
-        @test isempty(intersect(owner.formulas(), (:direct_lucca, :coupled, :cable_coax)))
-    end
     record = NamedTuple(selected)
     @test map(value -> value.identifier, record.methods.earth_impedance) == choices
     @test record.methods.earth_admittance.identifier === :ideal
     label = description(selected, Z)
     @test all(occursin(text, label) for text in ("air", "earth", "mixed", "Carson", "Pollaczek", "Lucca", "Wedepohl"))
-    @test !any(occursin(text, label) for text in ("Direct/Lucca", "Cable_Coax", "not yet implemented"))
+    @test !occursin("not yet implemented", label)
     @test occursin("Ideal", description(selected, Y))
     for kind in (:inner,:outer,:transfer)
         binding = FM(selected.methods.internal_impedance, E.InternalImpedance.internal_impedance, Val(kind))

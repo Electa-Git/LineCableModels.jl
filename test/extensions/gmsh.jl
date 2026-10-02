@@ -51,7 +51,6 @@
         options = (ideal_transposition = false,))
     @test formulation isa LineCableModels.LineCableModelsFEM
     @test !formulation.options.data.ideal_transposition
-    @test !hasproperty(formulation, :execution)
 
     transition = extension_module._ui_transition
     @test transition(:geometry_ready, :run_model) === :mesh_required
@@ -250,13 +249,6 @@ end
     @test only(promoted.system.designs).geometry.regions[1].primitive.r ===
           Float64(0.005f0)
 
-    @test_throws MethodError LineParametersProblem(
-        system;
-        temperature = measurement(35.0, 0.5),
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [measurement(50.0, 0.25)],
-        Γ = [complex(measurement(0.0, 0.0), measurement(1.0e-12, 1.0e-14))]
-    )
     @test !Bool(gmsh.is_initialized())
     @test (isdir(runs) ? sort(readdir(runs)) : nothing) == before
 end
@@ -537,12 +529,6 @@ end
     @test partition_error.category === :adaptation
     @test partition_error.field === :material_partition
 
-    @test_throws MethodError LineParametersProblem(
-        system;
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [50.0],
-        Γ = [1.0e-12im]
-    )
 
     vertical_problem = LineParametersProblem(
         system;
@@ -1043,7 +1029,6 @@ end
                 plan.shape.outer isa DM.Disk,
         sector_model.region_plans
     ))
-    @test matrix_plan.shape isa DM.DifferenceShape
     @test count(
         hole -> hole isa DM.SectorShape,
         matrix_plan.shape.holes

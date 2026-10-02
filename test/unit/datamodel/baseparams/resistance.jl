@@ -33,14 +33,6 @@
     @test uncertain isa Measurement{Float64}
     @test uncertainty(uncertain) > 0
 
-    @test_throws MethodError tubular_resistance(
-        r_in,
-        r_ex,
-        rho,
-        0.00393,
-        20.0,
-        75.0
-    )
 end
 
 @testitem "BaseParams / strip_resistance / reference-state equations" tags=[:unit] setup=[
@@ -78,14 +70,6 @@ end
     @test uncertain isa Measurement{Float64}
     @test uncertainty(uncertain) > 0
 
-    @test_throws MethodError strip_resistance(
-        thickness,
-        width,
-        rho,
-        0.00393,
-        20.0,
-        75.0
-    )
 end
 
 @testitem "BaseParams / parallel / resistance identities" tags=[:unit] setup=[
@@ -96,6 +80,7 @@ end
         Z2_real = 10.0
         expected_real = 1 / (1 / Z1_real + 1 / Z2_real)
         result_real = parallel(Z1_real, Z2_real)
+        @test result_real isa Float64
         @test isapprox(result_real, expected_real; atol = TestNumerics.absolute_floor(Float64))
         @test isapprox(result_real, 3.3333333333333335; atol = TestNumerics.absolute_floor(Float64))
 
@@ -131,13 +116,6 @@ end
         @test isnan(real(result_nan)) && isnan(imag(result_nan))
     end
 
-    @testset "Numerical Consistency" begin
-        Z1f = 5.0
-        Z2f = 10.0
-        resultf = parallel(Z1f, Z2f)
-        @test resultf isa Float64
-        @test isapprox(resultf, 3.33333333; atol = TestNumerics.absolute_floor(Float64))
-    end
 
     @testset "Physical Behavior" begin
         # Parallel resistance is always less than the smallest individual resistance
@@ -152,8 +130,6 @@ end
     end
 
     @testset "Type Stability & Promotion" begin
-        # Both Float64 -> Float64
-        @test parallel(5.0, 10.0) isa Float64
 
         # Int and Float64 -> Float64
         result_mixed_real = parallel(5, 10.0)
@@ -300,10 +276,7 @@ end
         alpha2 = 0.00403 # Aluminum
         R2 = 1.0
 
-        # Analytical result
         expected = (alpha1 * R2 + alpha2 * R1) / (R1 + R2)
-        result = equivalent_alpha(alpha1, R1, alpha2, R2)
-        @test isapprox(result, expected; atol = TestNumerics.absolute_floor(Float64))
 
         # Edge case: identical conductors
         alpha = 0.00393

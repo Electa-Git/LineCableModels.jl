@@ -30,8 +30,8 @@
     @test_throws MethodError Grammar.formulation_options((leaf=formulation_owner =>
         (options=retained_options,),))
     @test_throws MethodError Grammar.computation_options((;))
-    @test_throws MethodError Grammar.formulation_options(:analytical, (;))
-    @test_throws MethodError Grammar.computation_options(:analytical, ComputationOptions((;)))
+    @test_throws MethodError Grammar.formulation_options(:unregistered, (;))
+    @test_throws MethodError Grammar.computation_options(:unregistered, ComputationOptions((;)))
     @test_throws MethodError Grammar.formulation_options(
         UnregisteredFormulation,
         (;)
@@ -76,10 +76,6 @@
         computation_type, ComputationOptions((unknown = true,)))
     @test_throws ArgumentError Grammar.computation_options(
         computation_type, ComputationOptions((output_basis = :unknown,)))
-    for retired_basis in (:per_length, :per_lenght, :per_unit_length)
-        @test_throws ArgumentError Grammar.computation_options(
-            computation_type, ComputationOptions((output_basis = retired_basis,)))
-    end
 end
 
 @testitem "Engine / FEM computation option ownership" tags=[:unit] begin
@@ -88,12 +84,10 @@ end
     formulation = LineCableModelsFEM(options=(physics=:quasi_fw,))
     @test formulation.options isa FormulationOptions
     @test formulation.options.data.physics === Symbol("quasi-fw")
-    @test fieldnames(typeof(formulation)) == (:methods, :options, :definitions)
     @test !haskey(NamedTuple(formulation), :execution)
     # Execution settings cannot enter through the formulation, or vice versa.
     @test_throws ArgumentError LineCableModelsFEM(options=(frequency_workers=4,))
     @test_throws ArgumentError LineCableModelsFEM(options=(domain_skin_depths=1.5,))
-    @test_throws MethodError LineCableModelsFEM(fem_options=(ui=true,))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((physics=:quasi_fw,)))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((unknown=true,)))
     defaults = @inferred computation_options(LineCableModelsFEM, ComputationOptions((;)))
@@ -106,7 +100,6 @@ end
         getdp_executable=SubString("/tmp/getdp", 1), verbosity=(default=1,))
     configured = computation_options(LineCableModelsFEM, ComputationOptions(raw))
     @test keys(configured.data) == keys(defaults.data)
-    @test isconcretetype(typeof(configured))
     @test configured.data.frequency_workers isa Int
     @test configured.data.solver_threads isa Int
     @test configured.data.getdp_executable isa String

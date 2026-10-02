@@ -9,14 +9,11 @@
     @test deterministic[2] == 3
     @test extrema(deterministic) == (1, 3)
     @test size(deterministic) == (3,)
-    @test fieldnames(typeof(deterministic)) == (:vals,)
 
     relative=PB.Grid((-10.0, 20.0), (5.0, 10.0))
     absolute=PB.Grid((10.0, 20.0), PB.AbsoluteError((0.5, 2.0)))
     @test length(relative) == 4
     @test relative[4] isa PB.UncertainValue
-    @test fieldnames(typeof(relative)) == (:vals, :rel_err)
-    @test fieldnames(typeof(absolute)) == (:vals, :abs_err)
     @test extrema(relative) == (-11.0, 22.0)
     @test extrema(absolute) == (8.0, 22.0)
     @test_throws BoundsError relative[0]
@@ -183,7 +180,6 @@ end
         rho = Float32(1.7e-8)
     )
     @test space isa PB.Gridspace{LineCableModels.Materials.Material}
-    @test isconcretetype(typeof(space.build))
     @test eltype(space) === LineCableModels.Materials.Material{Float32}
     @test Base.IteratorEltype(typeof(space)) isa Base.HasEltype
     @test @inferred(first(space)) isa LineCableModels.Materials.Material{Float32}

@@ -152,7 +152,6 @@ end
 @testitem "Quality / local shunt formulations" tags = [:quality] begin
     const owner = LineCableModels.Engine.ShuntModel
     @test owner.formulas() == (:default, :coaxial, :boundary)
-    @test allunique(owner.formulas())
     for identifier in owner.formulas()
         selected = owner.Formula(identifier)
         @test formula_id(selected) === (identifier === :default ? :coaxial : identifier)

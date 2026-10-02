@@ -131,16 +131,8 @@
     @test_throws ArgumentError ShuntAdmittance(admittance; basis = :invalid)
     @test_throws ArgumentError SeriesImpedance{ComplexF64, 1}(impedance)
     @test_throws ArgumentError ShuntAdmittance{ComplexF64, 1}(admittance)
-    for retired_basis in (:per_length, :per_lenght, :per_unit_length)
-        @test_throws ArgumentError SeriesImpedance(impedance; basis = retired_basis)
-        @test_throws ArgumentError ShuntAdmittance(admittance; basis = retired_basis)
-        @test_throws ArgumentError LineParameters(
-            impedance,
-            admittance,
-            frequency;
-            basis = retired_basis
-        )
-    end
+    @test_throws ArgumentError LineParameters(
+        impedance, admittance, frequency; basis = :invalid)
     @test_throws ArgumentError LineParameters(
         SeriesImpedance(impedance; basis = :total),
         ShuntAdmittance(admittance; basis = :pul),
@@ -175,7 +167,6 @@
     @test names(subset_table)==["frequency","[2,1]"]
     @test subset_table.frequency==frequency[2:3]
     @test subset_table[!,2]==resistance_values[2,1,2:3]
-    @test_throws Exception DataFrame(parameters)
     @test_throws DimensionMismatch ObservedResult(parameters,((R,1,1,:),(L,2,1,:));atol=(R=0.,L=0.,G=0.,C=0.))
 
     zero_frequency=LineParameters(

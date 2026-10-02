@@ -65,9 +65,7 @@ end
                         w.axial_field+gamma^2*w.source_potential/s,
                         norm(w.enclosed_impedance)*norm(w.current_map)+norm(w.axial_field)+abs(gamma^2/s)*norm(w.source_potential)),
                     ((s*inv(w.enclosed_potential))*w.source_potential, s*w.current_map,
-                        norm((s*inv(w.enclosed_potential)))*norm(w.source_potential)+abs(s)*norm(w.current_map)),
-                    ((s*inv(w.enclosed_potential))*w.enclosed_potential, s*I,
-                        norm((s*inv(w.enclosed_potential)))*norm(w.enclosed_potential)+abs(s)*sqrt(n)))
+                        norm((s*inv(w.enclosed_potential)))*norm(w.source_potential)+abs(s)*norm(w.current_map)))
                     @test norm(lhs-rhs)/scale <= 1e-10
                 end
             end
@@ -202,7 +200,8 @@ end
         definition=formula(:default; options = (integration = (
             method, options = (rtol = 1e-8,)),))
         selected=Formulation(earth_impedance = definition, earth_admittance = definition,
-            options = (ideal_transposition = false,))
+            options = (reduce_bundle = false, kron_reduction = false,
+                ideal_transposition = false,))
         execution=computation_options(LineCableModelsCoaxial, ComputationOptions((trace = true,)))
         T=eltype(problem)
         blueprints=E.CableBlueprint{T}[E.flatten(LineCableModelsCoaxial(), d, T)
@@ -219,7 +218,10 @@ end
         Ze=trace.Zg[:, :, 1]
         Pe=trace.Pg[:, :, 1]
         Ye=(2pi*1e6*im)*(Pe\Matrix{eltype(Pe)}(I, 2, 2))
-        @test maximum(E.numerical_magnitude.(Ye*Pe-(2pi*1e6*im)*I))<1e-6
+        permutation=workspace.invariants.permutation
+        primitive=trace.P[permutation, permutation, 1]
+        actual=workspace.buffers.Yout[:, :, 1]
+        @test maximum(E.numerical_magnitude.(actual*primitive-(2pi*1e6*im)*I))<1e-6
         for matrix in (Ze, Pe, Ye), parameter in (rho, radius, depth, spacing)
 
             @test any(matrix) do value

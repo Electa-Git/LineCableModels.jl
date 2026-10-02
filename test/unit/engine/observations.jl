@@ -101,7 +101,6 @@ end
     constants=CableConstants([:a,:b],[1e-4,2e-4],[3e-7,4e-7],[5e-10,6e-10],[7e-9,8e-9],50.)
     observed=observables(constants;length_unit=:base,quantity_units=:base)
     @test !Tables.istable(typeof(observed))
-    @test !hasproperty(observed,:columns)
     @test length(observed.quantities)==4
     @test collect(tabulate(observed,R)[1,2:end])==constants.R
     @test collect(tabulate(observed,L)[1,2:end])==constants.L

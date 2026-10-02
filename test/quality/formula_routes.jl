@@ -15,13 +15,10 @@
             LineCableModels.Materials.TemperatureDependent.temperature_resistivity)
     for owner in owners, identifier in owner.formulas()
         selected=owner.Formula(identifier)
-        @test !hasfield(typeof(selected), :hooks)
-        @test !hasfield(typeof(selected), :binding)
         @test fieldtype(typeof(selected), :options) <: FormulationOptions
         @test formulation_options(selected) === selected.options
         @test formula_id(selected) !== :default
         @test owner.Formula(selected) === selected
-        @test_throws MethodError owner.Formula(identifier; hooks=(;))
         routes = if owner in (E.EarthImpedance,E.EarthAdmittance)
             bindings=FM[]
             for kind in (:self,:mutual), source in 1:2, target in 1:2
@@ -36,7 +33,6 @@
                 # by the execution tests, not a reflected coverage list.
                 push!(bindings,binding)
             end
-            @test !isempty(bindings)
             bindings
         elseif owner === E.InternalImpedance
             Tuple(FM(selected,owner.internal_impedance,Val(kind)) for kind in (:inner,:outer,:transfer))
@@ -69,7 +65,6 @@
         @test owner.Formula(custom) === custom
         @test formula_id(custom) ∉ owner.formulas()
     end
-    @test_throws MethodError formula(:default;hooks=(;))
 end
 
 @testitem "Quality / user-owned shunt and pipe selections reach blueprint and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures] begin

@@ -50,7 +50,6 @@
               :DispersiveEarth
         @test details(result).data.formulations.methods.earth_impedance.equivalent_earth.rule.identifier ===
               :SquaredBottomEarth
-        @test !hasproperty(details(result).data.formulations, :modified)
     end
 end
 

@@ -1,10 +1,10 @@
-@testitem "Makie / current rendering / asymmetric pixels and provisional export" tags=[:visual] begin
+@testitem "Test support / PNG decoding and asymmetric pixel controls" tags=[:visual] begin
     using CairoMakie
     include(joinpath(pkgdir(LineCableModels),"test/support/golden_fixtures.jl"))
     using .GoldenFixtures
     @test_throws ArgumentError scene("unknown-scene")
-    # A fresh four-corner graphic fixes the save and decode convention and rejects
-    # reflection and blank frames. View acceptance needs separate calibration.
+    # Test-support controls for save/decode orientation and blank-frame detection.
+    # Owned plotting and export behavior is checked by the other visual items.
     figure=Figure(size=(120,80),backgroundcolor=:white)
     axis=Axis(figure[1,1];limits=(0,2,0,2))
     hidedecorations!(axis); hidespines!(axis)

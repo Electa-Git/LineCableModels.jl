@@ -14,7 +14,6 @@
         @test system.line_length == 1.0
         @test problem.temperature == 20.0
         @test problem.frequencies == [0.1, 1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6, 1e7]
-        @test !hasproperty(problem, :Γ)
         @test problem.earth_props.layers[2].rho == 0.1
         @test problem.earth_props.layers[2].eps_r == 1.0
         @test problem.earth_props.layers[2].mu_r == 1.0

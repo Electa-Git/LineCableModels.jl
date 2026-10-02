@@ -93,7 +93,6 @@ end
     @test length(observed_labels)==length(result.observed)
     @test length(result.observed)==3
     @test result.observed[1].gridpoint.formulations==NamedTuple(choices[1])
-    @test all(leaf -> occursin("Test-owned explanation",description(leaf;compact=false)),leaves)
     labels=description(choices[[3,1]];quantity=R)
     @test occursin("earth Z=Unified",labels[1]) && occursin("earth Z=Display-TestAlpha",labels[2])
     @test all(label->!occursin("internal Z",label),labels)

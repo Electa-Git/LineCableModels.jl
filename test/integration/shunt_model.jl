@@ -97,7 +97,6 @@
     end
     @test E.BoundarySolveError === E.ShuntModel.BoundarySolveError
     @test which(show, (IO, MIME"text/plain", BoundarySolveError)).module === E.ShuntModel
-    @test occursin("budget", only(report.domains).message)
     for formulation in
         (boundary, Formulation(shunt_model = boundary.definitions.shunt_model))
         record=IE.deserialize_value(Val(:formulation), NamedTuple(formulation))

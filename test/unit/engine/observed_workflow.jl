@@ -4,7 +4,6 @@
     using LineCableModels.Grammar: observation_requests
     line=LineParameters(reshape(ComplexF64.(1:12),2,2,3),fill(3.0+4im,2,2,3),[0.,1.,2.])
     observed=ObservedResult(line)
-    @test fieldnames(ObservedResult)==(:gridpoint,:quantities,:errors,:timings)
     @test_throws ArgumentError ObservedResult(line,(R,))
     @test_throws ArgumentError ObservedResult(line,(X,L))
     @test_throws DimensionMismatch ObservedResult(line,((R,1,1,:),(X,2,2,:)))

@@ -512,7 +512,6 @@ end
     zero_result=compute(base, Formulation(earth_impedance = zero_selection, earth_admittance = zero_selection))
     @test Z(zero_result)==Z(ordinary)
     @test Y(zero_result)==Y(ordinary)
-    @test !hasproperty(details(ordinary).data.formulations, :modified)
     @test_throws DimensionMismatch compute(
         base, Formulation(
             earth_impedance = formula(:unified; options = (Γ = [0.0],))))

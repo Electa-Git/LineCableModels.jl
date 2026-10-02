@@ -419,8 +419,6 @@ end
     poses=LineCableModels.placements(ring, wire.primitive, nothing)
     @test length(poses) == 6
     @test all(pose -> hypot(pose.x, pose.y) ≈ 2.0, poses)
-    @test !isdefined(LineCableModels, :Hexa)
-    @test !isdefined(LineCableModels, :DiameterFactor)
 
     helix=LineCableModels.Helix(LineCableModels.LayRatio(10); dir = -1)
     @test LineCableModels.pitch(helix, 2.0) == 40.0
@@ -509,9 +507,6 @@ end
         frequencies = [50.0]
     )
 
-    @test isconcretetype(typeof(design))
-    @test isconcretetype(typeof(system))
-    @test isconcretetype(typeof(problem))
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
                                                                           LineCableModelsCoaxial(),

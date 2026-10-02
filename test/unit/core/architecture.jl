@@ -32,8 +32,7 @@ end
     ).module === WirePatterns
 
     @test Engine.Formulation() isa Engine.LineParametersFormulation
-    @test_throws MethodError Engine.Formulation(:analytical)
-    @test_throws MethodError Engine.Formulation(:line_cable_models)
+    @test_throws MethodError Engine.Formulation(:unregistered)
     @test_throws MethodError ImportExport.export_data(:unregistered, nothing)
     @test_throws MethodError ImportExport.import_data(:unregistered, nothing)
 end

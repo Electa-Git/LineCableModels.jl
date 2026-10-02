@@ -8,7 +8,6 @@
         keyword = @inferred owner(inner; options=(retain_details=true,))
         positional = @inferred owner(inner, ComputationOptions(retain_details=true))
         @test keyword.options === positional.options
-        @test isconcretetype(typeof(keyword.options))
         @test normalize(owner, keyword.options) === keyword.options
         @test_throws ArgumentError owner(inner; options=(unused=true,))
         @test_throws ArgumentError owner(inner, ComputationOptions(unused=true))

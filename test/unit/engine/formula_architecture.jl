@@ -47,7 +47,7 @@
     @test_throws ArgumentError FM(EI.Formula(:carson1926), soil)(nothing, soil, nothing)
 end
 
-@testitem "Engine / common earth functors contain evaluated materials, not uncertainty propagation controls" tags=[:unit] begin
+@testitem "Engine / common earth functors retain evaluated material values" tags=[:unit] begin
     const E=LineCableModels.Engine
     μ0, ε0=4pi*1e-7, 8.8541878128e-12
     rho, epsilon, mu=[Inf, 100.0], [ε0, 10ε0], [μ0, μ0]
@@ -57,21 +57,13 @@ end
         selected=owner.Formula(:default)
         functor=selected(rho, epsilon, mu, jω, pair)
         @test functor.binding.equation.selection === selected
-        for name in (:segments, :tolerance, :formula, :Γ, :gamma_squared)
-            @test !hasproperty(functor.state, name)
-        end
-        @test !hasfield(typeof(functor), :hooks)
         @test functor.state.mu === mu
         @test functor.state.epsilon === epsilon
         @test functor.state.sigma == Tuple(inv.(rho))
-        @test_throws MethodError selected(rho, epsilon, mu, jω, pair; Γ = 1e-4im)
         @test_throws ArgumentError owner.Formula(:default; parameters = (unknown = 1,))
         @test_throws DimensionMismatch selected(
             [Inf, 100.0, 999.0], [ε0, 10ε0, 20ε0], [μ0, μ0, μ0], jω, pair)
     end
-    carson=E.EarthImpedance.Formula(:carson1926)
-    air=E.EarthPair(1, 2, (1.0, 2.0), 1.0, (1, 1))
-    @test_throws MethodError carson(rho, epsilon, mu, jω, air; Γ = 1e-4im)
     @test LineCableModels.ComputationOptions === LineCableModels.Grammar.ComputationOptions
     @test !(ComputationOptions() isa NamedTuple)
 end
@@ -98,11 +90,6 @@ end
             @test functor.state.mu === mu
             @test functor.state.epsilon === epsilon
             @test functor.state.sigma == Tuple(inv.(rho))
-            @test !hasproperty(functor.state, :gamma)
-            for medium in (Val(:air), Val(:earth))
-                @test !applicable(
-                    constitutive, selected, medium, s, mu[2], inv(rho[2]), epsilon[2])
-            end
         end
     end
     @test mu == 4pi * 1e-7 .* [1.25, 2.5]
@@ -158,7 +145,6 @@ end
     workspace=E.LineParametersWorkspace(problem, formulation, execution, blueprints)
     @test length(fd_calls) == 4 # Allocation did not reevaluate material laws.
     @test workspace.buffers.quadrature !== nothing
-    @test !hasproperty(workspace.buffers, :unified)
     @test length(M.calls) == 36
     for (_, _, row, column, layers, geometry, rho, physical) in M.calls
         @test layers == (column, row)

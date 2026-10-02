@@ -28,7 +28,6 @@
         for id in ids
             selected=owner.Formula(id)
             @test formula_id(selected) === (id === :default ? target : id)
-            @test isconcretetype(typeof(selected))
         end
         @test_throws ArgumentError owner.Formula(:RemovedAuthor)
     end

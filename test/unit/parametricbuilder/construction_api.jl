@@ -139,16 +139,6 @@ end
     public_names = Set(names(LineCableModels))
     @test all(name -> name in public_names, required)
 
-    forbidden = (
-        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil,
-        :RoundedSector, :Hexa, :DiameterFactor, :TabulatedCompaction,
-        :AffineCompaction, :distribute, :strand,
-        Symbol("@design"), Symbol("@core"),
-        Symbol("@insulation"), Symbol("@strand"), Symbol("@rope"),
-        Symbol("@armor"), Symbol("@screen"), Symbol("@shell"),
-        Symbol("@wire"), Symbol("@fill")
-    )
-    @test all(name -> !(name in public_names), forbidden)
     @test LineCableModels.Earth isa Module
     @test parentmodule(EarthModel) === LineCableModels.Earth
     @test Base.ispublic(DM, :BentStrip)
@@ -156,8 +146,6 @@ end
     @test Base.ispublic(DM, :EnclosureBoundary)
     @test Base.ispublic(DM, :EllipseOffset)
     @test LineCableModels.build === DM.build === PB.build
-    @test all(name -> name in public_names,
-        (:Disk, :Rectangle, :Ellipse, :Sector, :Annulus, :Polygon))
 
     expansions = (
         :(@cable "x" nominal_data=metadata combine=:zip begin
@@ -678,9 +666,6 @@ end
         shape = Disk(0.5e-3),
         boundary = sector_boundary
     )
-    @test_throws MethodError stranded(
-        copper; shape = Disk(0.5e-3), layers = 1, boundary = sector_boundary
-    )
 
     invalid_sector_space = stranded(
         copper;
@@ -729,7 +714,6 @@ end
     @test length(sector_formation_space) == 32
     sector_formations = collect(sector_formation_space)
     @test all(formation -> formation isa Enclosure, sector_formations)
-    @test all(formation -> isconcretetype(typeof(formation)), sector_formations)
 
     uncertain_sector_space = stranded(
         copper;
@@ -902,12 +886,6 @@ end
             fillet = 0.15e-3
         ),
         segments = 6
-    )
-    @test_throws MethodError milliken(
-        copper;
-        shape = Disk(0.3e-3),
-        segment = Sector(pi / 3, 0.65e-3, 4.0e-3, 0.15e-3),
-        compact = true
     )
 
     compacted = stranded(

@@ -6,9 +6,6 @@
     system=TestFixtures.three_phase_system()
     @test hasfield(typeof(design), :origin)
     @test hasproperty(design, :origin)
-    @test !hasfield(typeof(design), :root)
-    @test !hasproperty(design, :root)
-    @test_throws FieldError getproperty(design, :root)
     @test build(CableDesign, design.cable_id, design.origin;
         nominal_data=design.nominal_data) == design
 
@@ -32,7 +29,6 @@
     @test contains(design_display, design.cable_id)
     @test contains(design_display, "regions    $(length(design.geometry.regions))")
     @test contains(design_display, "origin     ")
-    @test !contains(design_display, "root       ")
     system_display=sprint(show, MIME("text/plain"), system)
     @test contains(system_display, system.system_id)
     @test contains(system_display, "cables")
@@ -87,7 +83,6 @@
     @test_throws ArgumentError add!(library, design)
     @test_throws ArgumentError setindex!(library, design, "wrong-id")
     @test setindex!(library, design, design.cable_id) === library
-    @test (library[design.cable_id] = design) === design
     @test datasheet(library, design.cable_id) == DatasheetInfo(design.nominal_data)
     @test delete!(library, "missing") === library
     @test delete!(library, :missing) === library

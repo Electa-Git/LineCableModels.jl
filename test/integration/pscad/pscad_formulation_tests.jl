@@ -53,7 +53,6 @@
         space=Formulation(:pscad; selection...)
         @test space isa Gridspace{P.PSCADFormulation}
         @test length(space) == 2
-        @test all(item -> isconcretetype(typeof(item)), space)
     end
     product=Formulation(:pscad; earth_impedance = Grid((:default, :saad1996)),
         insulation_admittance = Grid((:default, :lossy)))

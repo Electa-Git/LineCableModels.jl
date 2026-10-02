@@ -7,13 +7,6 @@
         r_back = .008,
         fillet = .0005
     )
-    @test fieldnames(typeof(primitive)) == (:span, :r_base, :r_back, :fillet)
-    for forbidden in (
-        :material, :terminal, :n_sectors, :d_insulation, :at,
-        :vertices, :centroid, :area, :resistance, :gmr
-    )
-        @test forbidden ∉ fieldnames(typeof(primitive))
-    end
 
     shape=DM.resolve(DM.EmptyBoundary(), primitive)
     @test shape isa DM.SectorShape

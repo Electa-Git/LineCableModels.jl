@@ -201,7 +201,6 @@ end
     @test occursin("normalized", sprint(show, MIME"text/plain"(), histogram))
     @test occursin("default", sprint(show, earth_definition))
     @test occursin("before", sprint(show, earth_definition))
-    @test !occursin("hooks", sprint(show, earth_definition))
     @test occursin("tolerance", sprint(show, soil_definition))
     @test !occursin("{", sprint(show, Grid((earth_definition, soil_definition))))
 end

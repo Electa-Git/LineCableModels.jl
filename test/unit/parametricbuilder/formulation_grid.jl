@@ -126,7 +126,6 @@
         space=Formulation(:LineCableModelsFEM; keyword...)
         @test space isa Gridspace{LineCableModelsFEM}
         @test length(space) == 2
-        @test all(value -> isconcretetype(typeof(value)), space)
         if name!==:options
             @test all(value -> haskey(value.definitions, name), space)
         end

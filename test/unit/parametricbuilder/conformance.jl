@@ -86,7 +86,6 @@
     )
     @test materializations[] == 0
 
-    @test_throws MethodError PB.Grid((1, 2); key = :shared)
     @test_throws ArgumentError PB.Gridspace{Tuple}(tuple, ((1, 2),))
     @test !applicable(getindex, product, 1)
     @test rand(Random.Xoshiro(0x1234), product) in collect(product)

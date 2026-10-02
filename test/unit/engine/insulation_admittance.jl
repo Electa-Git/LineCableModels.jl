@@ -65,14 +65,27 @@
     second_eps=5.0
     first_material=Material(:semicon, rho, eps_r, 1.0, 20.0, 0.0)
     second_material=Material(:insulator, second_rho, second_eps, 1.0, 20.0, 0.0)
-    first_layer=LineCableModels.Engine.potential_coefficient(
-        r_in, r_mid, semicon(first_material, 50.0, 20.0), s)
-    second_layer=LineCableModels.Engine.potential_coefficient(
-        r_mid, r_ex, formulation(second_material, 50.0, 20.0), s)
-    first_admittance=s/first_layer
-    second_admittance=s/second_layer
+    # Independent radial-current integration supplies the series expectation.
+    first_admittance=2π*(inv(rho)+s*epsilon0*eps_r)/log(r_mid/r_in)
+    second_admittance=2π*(inv(second_rho)+s*epsilon0*second_eps)/log(r_ex/r_mid)
     series_admittance=inv(inv(first_admittance)+inv(second_admittance))
-    @test s / (first_layer + second_layer) ≈ series_admittance
+    E=LineCableModels.Engine
+    design=build(CableDesign, "series-dielectric", Stack(
+        terminal(:core, core(Material(:conductor, 1.7241e-8); r = r_in)),
+        Region(:screen, Annulus(r_in, r_mid), first_material),
+        Region(:insulation, Annulus(r_mid, r_ex), second_material)))
+    input=E.LocalCableData(E.flatten(LineCableModelsCoaxial(), design))
+    methods=Formulation(insulation_admittance = formulation,
+        semicon_admittance = semicon).methods
+    admittivity=zeros(ComplexF64, 2)
+    E.dielectric!(admittivity, input, methods, 50.0, 20.0)
+    layers=zeros(ComplexF64, 2)
+    potential, admittance=zeros(ComplexF64, 1, 1), zeros(ComplexF64, 1, 1)
+    E.cable_potential!(potential, input, admittivity, s, layers,
+        zeros(ComplexF64, 1), zeros(ComplexF64, 1))
+    E.cable_admittance!(admittance, input, admittivity, s, layers)
+    @test only(potential) ≈ s/series_admittance
+    @test only(admittance) ≈ series_admittance
 
     lossless_κ=lossless(material, 50.0, 20.0)
     @test iszero(real(lossless_κ))
@@ -214,9 +227,6 @@ end
         problem, formulation, execution, blueprints)
     input=workspace.input
     cable=input.cable
-    @test !hasproperty(input, :rho_ins)
-    @test !hasproperty(input, :eps_ins)
-    @test !hasproperty(input, :tan_ins)
     @test getproperty.(cable.dielectric_materials, :kind) ==
           [:semicon, :insulator, :insulator]
     @test cable.semicon_indices == [1]
@@ -408,7 +418,6 @@ end
     @test std(only(samples(sampled)).C[1, 1, 1, :]) > 0
 
     retained=samples(sampled)
-    @test !applicable(Measurements.measurement, sampled)
     sample_matrix=vcat(
         reshape(only(retained).R, :, 12),
         reshape(only(retained).L, :, 12),

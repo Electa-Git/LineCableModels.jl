@@ -54,7 +54,6 @@
     @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:carson1926).methods.earth_impedance, Val(:mutual), Val(1), Val(1), Val(:pscad)).EarthForm2.value == 2
     @test harness.earth_impedance(Formulation(:pscad; earth_impedance=:pollaczek1926).methods.earth_impedance, Val(:mutual), Val(2), Val(2), Val(:pscad)).EarthForm.value == 2
     @test_throws ArgumentError harness.earth_impedance(Formulation(:pscad; earth_impedance=:pollaczek1926).methods.earth_impedance, Val(:mutual), Val(1), Val(1), Val(:pscad))
-    @test_throws ArgumentError harness.earth_impedance(Formulation(:pscad; earth_impedance=:DirectNumericalIntegration).methods.earth_impedance, Val(:mutual), Val(1), Val(2), Val(:pscad))
 
     mktempdir() do directory
         frequency=[10.0, 100.0]
@@ -139,8 +138,6 @@
             output_stem = "benchmark_525kV_1600mm2_bipole_pscad",
             remote = config
         )))
-    @test_throws MethodError LineCableModels.computation_options(
-        Val(:pscad), ComputationOptions((remote = config,)))
     powershell="[IO.Directory]::CreateDirectory('C:\\pscad') | Out-Null"
     command=harness.remote_command(config, powershell)
     @test command.exec[1] == "ssh"

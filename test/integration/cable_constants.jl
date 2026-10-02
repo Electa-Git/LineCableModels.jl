@@ -130,13 +130,8 @@
     @test blueprint isa LineCableModels.Engine.CableBlueprint{Float64}
     @test blueprint.assembly_ranges == [1:length(design.terminal_order)]
     @test getproperty.(blueprint.conductors, :terminal) == design.terminal_order
-    @test fieldnames(typeof(blueprint)) == (
-        :cable_id, :conductors, :dielectrics, :dielectric_ranges,
-        :assembly_ranges, :shunt, :shunt_details
-    )
     @test isempty(blueprint.shunt)
     @test blueprint.shunt_details.solves == 0
-    @test :frequency ∉ fieldnames(typeof(blueprint))
     @test compute(problem, formulation) == constants
     @test @inferred(compute(problem, formulation)) == constants
     @test_throws ArgumentError compute(problem, formulation; options = (trace = true,))

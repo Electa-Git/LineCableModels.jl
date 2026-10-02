@@ -26,8 +26,6 @@
         [mapping(2)[terminal] for terminal in design.terminal_order]
     )
     @test length(system.geometry) == 2 * length(design.geometry.regions)
-    @test !hasproperty(system, :num_cables)
-    @test !hasproperty(system, :num_phases)
     @test validate(system) === system
 
     neutral=build(

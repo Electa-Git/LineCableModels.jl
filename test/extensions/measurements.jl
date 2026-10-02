@@ -210,8 +210,6 @@ end
     extension_module=Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt)
     @test extension_module !== nothing
     uncertain=measurement(-20.0, 1.0)
-    @test value(uncertain) == -20.0
-    @test uncertainty(uncertain) == 1.0
     @test LineCableModels.nominal(uncertain) == -20.0
     @test LineCableModels.uncertainty(uncertain) == 1.0
 
@@ -330,7 +328,6 @@ end
         UInt64(9), UInt64[9], [3]
     )
 
-    @test !applicable(Measurements.measurement, completed)
     struct ConstantsProblem<:AbstractProblemDefinition
         constants::CableConstants
     end

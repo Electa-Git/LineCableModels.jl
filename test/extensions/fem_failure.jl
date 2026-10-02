@@ -36,6 +36,9 @@
                 exception
             end
             @test failure isa LineCableModelsFEMError
+            if failure isa LineCableModelsFEMError
+                @test failure.run_directory !== nothing
+            end
             if failure isa LineCableModelsFEMError && failure.run_directory !== nothing
                 run_path = failure.run_directory
                 try

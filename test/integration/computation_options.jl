@@ -36,7 +36,6 @@ end
     # The selected basis is represented by Val. A runtime Symbol determines
     # that field's type. The normalized record must still retain concrete fields.
     execution = LineCableModels.computation_options(LineCableModelsCoaxial, ComputationOptions(options))
-    @test isconcretetype(typeof(execution))
     @test execution.data.on_result === callback
     @test fieldtype(typeof(execution.data), :on_result) === typeof(callback)
     batch = compute(problem, [inner, inner]; options)

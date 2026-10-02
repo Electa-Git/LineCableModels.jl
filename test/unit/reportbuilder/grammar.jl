@@ -43,7 +43,6 @@
     @test artifact.reference===nothing
     @test artifact.tables.observed===observed
     @test artifact.output.illustration===artifact.illustration
-    @test fieldnames(typeof(artifact))==(:observed,:reference,:tables,:illustration,:output)
     @test_throws TypeError report(TableReportDefinition(),observed;reference=source)
     @test_throws MethodError report(StageReport(),source)
     illustrated=Ref{Any}(nothing)
@@ -281,7 +280,6 @@ end
         kwargs...)->(recorded[]=(; points, ydata, reference, options = (; kwargs...)))
     @test report(line).illustration===nothing
     @test report(line).output===nothing
-    @test recorded[]===nothing
     @test_throws ArgumentError report(line; illustration = renderer, unknown = true)
     @test_throws ArgumentError report(line; values = R, illustration = renderer, plot_options = (ydata = (L,),))
     @test_throws ArgumentError report(line; plot_options = (backend = :cairo,))

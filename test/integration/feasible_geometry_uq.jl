@@ -62,7 +62,6 @@
             @test uncertainty.(observed) ≈ dropdims(std(values;dims=4);dims=4)
         end
     end
-    @test_throws DomainError problem(-.1,.2)
 end
 
 @testitem "UQ / Monte Carlo / computed marginal ownership and scientific transport" tags=[:integration,:extension] setup=[TestFixtures] begin

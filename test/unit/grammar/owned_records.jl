@@ -1,4 +1,4 @@
-@testitem "Grammar / owned records / exact storage and value semantics" tags=[:unit] begin
+@testitem "Grammar / owned records / payload identity and value semantics" tags=[:unit] begin
     payload = (rtol=1e-8, nested=(enabled=true,), values=[1.0, 2.0], data=:field)
     @test (@inferred FormulationOptions(payload)).data === payload
     @test (@inferred ComputationOptions(payload)).data === payload
@@ -10,7 +10,6 @@
     for Record in (FormulationOptions, ComputationOptions, ComputationDetails)
         value = Record(payload)
         @test !(value isa NamedTuple)
-        @test fieldnames(typeof(value)) == (:data,)
         @test fieldtype(typeof(value), :data) === typeof(payload)
         @test value.data === payload
         @test value.data.values === payload.values
@@ -24,8 +23,8 @@
         @test_throws MethodError Record{NamedTuple}(payload)
         @test_throws MethodError Record(value)
         for Other in (FormulationOptions, ComputationOptions, ComputationDetails)
-            @test_throws MethodError Record(Other(payload))
             Other === Record && continue
+            @test_throws MethodError Record(Other(payload))
             @test value != Other(payload)
             @test !isequal(value, Other(payload))
         end

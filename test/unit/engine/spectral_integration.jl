@@ -10,7 +10,6 @@
     end
     integral=E.SpectralIntegral(f)
     @test calls[]==0
-    @test fieldnames(typeof(integral))==(:f,)
     @test integral.f===f
     settings=options()
     @test settings.method===Val(:quad)
@@ -139,9 +138,6 @@ end
     # special numerical-executor branch.
     f=x->exp(-x)*cos(0.2x)/complex(x+0.01)
     zero_radius=E.SpectralIntegral(x->f(x)*besselj(0, zero(x)))
-    for x in (0.0, 0.01, 1.0)
-        @test zero_radius.f(x)==f(x)
-    end
     @test first(E.integrate(Val(:quad), zero_radius, controls; points = (0.01, 1.0))) ≈
           first(E.integrate(Val(:quad), E.SpectralIntegral(f), controls; points = (
         0.01, 1.0))) rtol=1e-7

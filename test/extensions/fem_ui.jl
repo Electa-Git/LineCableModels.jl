@@ -1,13 +1,17 @@
 @testitem "Gmsh FEM / UI maps and cancellation preserve session ownership" tags=[:extension,:fem_numerical] begin
     using Gmsh, JSON3
-    if isempty(get(ENV,"DISPLAY",""))
+    if isempty(get(ENV,"DISPLAY","")) &&
+            !(Sys.islinux() && get(ENV,"LINECABLEMODELS_FEM_UI_CASE","") == "unavailable_display")
         @test_skip "An accessible display is required for UI execution"
     elseif !haskey(ENV,"LINECABLEMODELS_FEM_UI_CASE")
         # FLTK/Gmsh retain native GUI state after finalize. Exercise each window closure
         # scenario in a fresh process, including when other tests used the GUI.
-        for action in ("before_mesh","before_solve","during_solve","complete")
+        actions=("before_mesh","before_solve","during_solve","complete")
+        Sys.islinux() && (actions=(actions...,"unavailable_display"))
+        for action in actions
             runner=joinpath(pkgdir(LineCableModels),"test","runtests.jl")
             command=`$(Base.julia_cmd()) --startup-file=no --project=$(dirname(Base.active_project())) $runner extensions/fem_ui.jl`
+            action == "unavailable_display" && (command=addenv(command,"DISPLAY"=>""))
             @test success(addenv(command,"LINECABLEMODELS_FEM_UI_CASE"=>action))
         end
     else
@@ -34,6 +38,33 @@
         end
         for action in (Symbol(ENV["LINECABLEMODELS_FEM_UI_CASE"]),)
             run_path=Ref("")
+            if action === :unavailable_display
+                failure=try
+                    compute(problem,form;options=form_controls)
+                catch exception
+                    exception
+                end
+                @test failure isa LineCableModelsFEMError
+                if failure isa LineCableModelsFEMError
+                    @test failure.category === :execution
+                    @test failure.field === :backend
+                    @test failure.run_directory !== nothing
+                end
+                if failure isa LineCableModelsFEMError && failure.run_directory !== nothing
+                    path=failure.run_directory
+                    try
+                        state=JSON3.read(read(joinpath(path,"run.json"),String))
+                        @test state.state == "failed"
+                        @test state.getdp_invocations == 0
+                        @test occursin(path,sprint(showerror,failure))
+                    finally
+                        @assert realpath(dirname(path)) == realpath(joinpath(E._runtime_root(),"runs"))
+                        rm(path;recursive=true)
+                    end
+                end
+                @test !Bool(gmsh.is_initialized())
+                continue
+            end
             Gmsh.initialize()
             gmsh.model.add("caller-owned-ui-model")
             gmsh.onelab.set_string("caller-owned-parameter",["preserve me"])

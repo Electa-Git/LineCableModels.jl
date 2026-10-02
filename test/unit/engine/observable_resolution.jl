@@ -31,7 +31,6 @@
     for q in (R,X,L,G,B,C,Z,Y)
         comparison=compare(source,source,q)
         @test comparison.details.data.resolution.unit==LineCableModels.Units.native_unit(q,:pul)
-        @test !haskey(comparison.details.data.resolution,:revision)
     end
     @test compare(source,source,B).details.data.atol≈2π.*f.*compare(source,source,C).details.data.atol
     @test compare(source,source,X).details.data.atol≈2π.*f.*compare(source,source,L).details.data.atol
