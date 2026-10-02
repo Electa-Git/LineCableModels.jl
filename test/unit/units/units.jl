@@ -110,12 +110,12 @@ end
     @test scale_factor(R, :pul, display_unit(R, :pul)) == 1_000.0
 end
 
-@testitem "Grammar / observable unit targets / aligned normalization" tags=[:unit] begin
-    const Grammar=LineCableModels.Grammar
+@testitem "Commons / observable unit targets / aligned normalization" tags=[:unit] begin
+    const Commons=LineCableModels.Commons
     const U=LineCableModels.Units
 
     requests=(R, (Z, angle), C)
-    targets=Grammar.unit_targets(
+    targets=Commons.unit_targets(
         requests,
         :pul;
         length_prefix = :base,
@@ -124,7 +124,7 @@ end
             Z = U.units(:base, :radian)
         )
     )
-    tupled=Grammar.unit_targets(
+    tupled=Commons.unit_targets(
         requests,
         :pul;
         length_prefix = :base,
@@ -138,8 +138,8 @@ end
     @test targets[1] == U.units(:milli, :ohm; per = (:base, :meter))
     @test targets[2] == U.units(:base, :radian)
     @test targets[3] == U.units(:micro, :farad; per = (:base, :meter))
-    @test Base.ispublic(Grammar, :unit_targets)
-    @test_throws ArgumentError Grammar.unit_targets((R,), :pul; overrides = 1)
+    @test Base.ispublic(Commons, :unit_targets)
+    @test_throws ArgumentError Commons.unit_targets((R,), :pul; overrides = 1)
 end
 
 @testitem "Units / transforms and angular conversion" tags = [:unit] begin

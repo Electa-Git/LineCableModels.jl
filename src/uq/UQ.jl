@@ -24,17 +24,17 @@ import ..LineCableModels: verbosity, VerbosityLogger
 import Logging
 import ..DataModel
 import ..Engine
-import ..Grammar
-import ..Grammar: compute, computation_options, computation_details, details,
+import ..Commons
+import ..Commons: compute, computation_options, computation_details, details,
                   observe, observables, check_core_result,
                   detach, request_identity, request_indices,
                   observation_indices, observation_resolution, observation_request
-using ..Grammar: request_quantity
+using ..Commons: request_quantity
 import ..ParametricBuilder
 import ..ParametricBuilder: traverse
 import ..Units
 import ..TextDisplay
-using ..Grammar:
+using ..Commons:
                  AbstractFormulation, AbstractUncertaintyResult,
                  ComputationOptions, ComputationDetails
 using ..ParametricBuilder:

@@ -1,7 +1,7 @@
 @testitem "ObservedResult / grouping requires physical identity and owned assumptions" tags=[:visual] begin
     using CairoMakie,Measurements
     using LineCableModels.Engine: retain_gridpoint,compare
-    using LineCableModels.Grammar: gridpoint_id,observation_groups,observation_labels
+    using LineCableModels.Commons: gridpoint_id,observation_groups,observation_labels
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition,tabulate
     source_id=gridpoint_id().source_id
     base=LineParameters(fill(1.0+2im,1,1,3),fill(3.0+4im,1,1,3),[1.,10.,100.])

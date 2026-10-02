@@ -1,7 +1,7 @@
 @testitem "PlotBuilder / row overlays separate gridpoints and retain physical columns" tags=[:visual] begin
     using CairoMakie
     import LineCableModels.Engine as E
-    import LineCableModels.Grammar as G
+    import LineCableModels.Commons as G
 
     f=[10.0,20.0,40.0,80.0]
     voltage=[complex(i+2j+k/10, i-j+k/5) for i in 1:3,j in 1:3,k in eachindex(f)]
@@ -171,7 +171,7 @@ end
 
     # A band selects saved comparison samples. It is not a new plotting-side
     # frequency filter. The same retained selection works with row overlays.
-    reference=LineCableModels.Engine.retain_gridpoint(source,LineCableModels.Grammar.gridpoint_id())
+    reference=LineCableModels.Engine.retain_gridpoint(source,LineCableModels.Commons.gridpoint_id())
     comparisons=LineCableModels.Engine.compare(reference,source,[R];bands=((20.0,40.0),))
     retained=observables(source,(R,X);comparisons,length_unit=:base,clip=false)
     band_page=LineCableModels.plot(retained;ydata=(R,),overlay=:rows,band=(20.0,40.0),

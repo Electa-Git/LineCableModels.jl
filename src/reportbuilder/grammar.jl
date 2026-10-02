@@ -52,14 +52,14 @@ function _reported_tables(artifact::ReportArtifact)
 end
 
 function _reported_table(artifact,groups,request,index)
-    identity=Grammar.normalize_observation_selector(request_identity(request))
+    identity=Commons.normalize_observation_selector(request_identity(request))
     indices=request_indices(request)
     tables=collect(DataFrame,Iterators.flatten(group.tables for group in groups
         if group.point_index==index))
     matches=filter(tables) do table
         retained=metadata(table,"request",nothing)
         retained===nothing && return false
-        isequal(Grammar.normalize_observation_selector(request_identity(retained)),identity) &&
+        isequal(Commons.normalize_observation_selector(request_identity(retained)),identity) &&
             (isempty(indices) || isequal(request_indices(retained),indices))
     end
     length(matches)==1 && return only(matches)
@@ -168,8 +168,8 @@ select(definition::AbstractReportDefinition,observed::AbstractVector{<:ObservedR
 
 function select(definition::TableReportDefinition,observed::ObservedResult;reference=nothing)
     isempty(definition.requests) && return observed.quantities
-    return [Grammar.observation_product(observed,request)
-        for request in Grammar.observation_requests(observed,definition.requests).retained]
+    return [Commons.observation_product(observed,request)
+        for request in Commons.observation_requests(observed,definition.requests).retained]
 end
 
 tabulate(definition::AbstractReportDefinition,observed;reference=nothing) =
@@ -251,9 +251,9 @@ function _report_plot_options(source, requests, illustration, options::NamedTupl
             throw(ArgumentError("select report and illustration quantities with values"))
     end
     if haskey(options, :ydata)
-        selected=Grammar.observation_selection(source, options.ydata)
-        expected=Grammar.observation_requests(source, requests; complete_pairs = true).displayed
-        Grammar.observation_requests(source, selected; complete_pairs = true).displayed==expected ||
+        selected=Commons.observation_selection(source, options.ydata)
+        expected=Commons.observation_requests(source, requests; complete_pairs = true).displayed
+        Commons.observation_requests(source, selected; complete_pairs = true).displayed==expected ||
             throw(ArgumentError("plot_options.ydata conflicts with the report's values selection"))
     end
     return (; (key=>value for (key, value) in pairs(options) if key!==:ydata)...)
@@ -312,22 +312,22 @@ report(line_parameters; values=@observe(R[1, 1, 1:12]))
 ```
 """
 function report(
-        source::Union{Grammar.AbstractCoreResult, Grammar.AbstractResultSpace,
+        source::Union{Commons.AbstractCoreResult, Commons.AbstractResultSpace,
             Engine.SeriesImpedance, Engine.ShuntAdmittance, AbstractVector, Tuple};
         values = nothing, reference = nothing, illustration = nothing,
         plot_options::NamedTuple = (;), kwargs...)
-    collection=source isa Union{AbstractVector, Tuple, Grammar.AbstractParametricResult}
+    collection=source isa Union{AbstractVector, Tuple, Commons.AbstractParametricResult}
     collection && isempty(source) &&
         throw(ArgumentError("report requires at least one result"))
     acquisition=_report_observation_options(kwargs;
         retained = collection && any(point -> point isa ObservedResult, source))
     point=collection ? first(source) : source
-    requests=Grammar.observation_selection(point, values)
+    requests=Commons.observation_selection(point, values)
     displayed=isempty(requests) ? () :
-              Grammar.observation_requests(point, requests; complete_pairs = true).displayed
+              Commons.observation_requests(point, requests; complete_pairs = true).displayed
     options=_report_plot_options(point, displayed, illustration, plot_options)
     reference===nothing ||
-        reference isa Union{ObservedResult, Grammar.AbstractCoreResult,
+        reference isa Union{ObservedResult, Commons.AbstractCoreResult,
             Engine.SeriesImpedance, Engine.ShuntAdmittance} ||
         throw(ArgumentError(
             "reference must be an atomic result or ObservedResult"))
@@ -352,8 +352,8 @@ function report(observed::Union{ObservedResult, AbstractVector{<:ObservedResult}
     observed isa AbstractVector && isempty(observed) &&
         throw(ArgumentError("report requires at least one observation"))
     point=observed isa ObservedResult ? observed : first(observed)
-    requests=Grammar.observation_selection(point, values)
-    displayed=Grammar.observation_requests(point, requests).displayed
+    requests=Commons.observation_selection(point, values)
+    displayed=Commons.observation_requests(point, requests).displayed
     options=_report_plot_options(point, displayed, illustration, plot_options)
     if !isempty(display_units)
         observed=observables(observed, requests; display_units...)
@@ -367,7 +367,7 @@ function report(observed::Union{ObservedResult, AbstractVector{<:ObservedResult}
 end
 
 function report(
-        source::Union{Grammar.AbstractCoreResult, Grammar.AbstractResultSpace,
+        source::Union{Commons.AbstractCoreResult, Commons.AbstractResultSpace,
             Engine.SeriesImpedance, Engine.ShuntAdmittance, ObservedResult, AbstractVector, Tuple},
         selection; kwargs...)
     haskey(kwargs, :values) &&

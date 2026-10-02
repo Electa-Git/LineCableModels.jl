@@ -30,10 +30,10 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
 import ..LineCableModels: build, validate, nominal, parameterize
 import ..LineCableModels
-import ..Grammar
+import ..Commons
 import ..Units
 import UUIDs
-import ..Grammar: observe, FormulationOptions, ComputationOptions, ComputationDetails
+import ..Commons: observe, FormulationOptions, ComputationOptions, ComputationDetails
 import ..ReportBuilder
 using ..Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
 using ..Earth: EarthLayer, EarthModel

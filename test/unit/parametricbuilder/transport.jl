@@ -1,18 +1,18 @@
 @testitem "ParametricBuilder / result transport / owned result spaces" tags=[:unit] begin
-    const Grammar=LineCableModels.Grammar
+    const Commons=LineCableModels.Commons
     const PB=LineCableModels.ParametricBuilder
     const UQ=LineCableModels.UQ
 
-    struct TransportResult <: Grammar.AbstractCoreResult
+    struct TransportResult <: Commons.AbstractCoreResult
         value::Float64
     end
 
-    struct DownstreamProblem <: Grammar.AbstractProblemDefinition
+    struct DownstreamProblem <: Commons.AbstractProblemDefinition
         source::TransportResult
     end
     LineCableModels.validate(problem::DownstreamProblem) = problem
 
-    struct TransportFormulation <: Grammar.AbstractFormulation end
+    struct TransportFormulation <: Commons.AbstractFormulation end
 
     values=TransportResult[TransportResult(1.0), TransportResult(2.0)]
     combinatorial=PB.Combinatorial(TransportFormulation())

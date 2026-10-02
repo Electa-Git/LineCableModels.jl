@@ -58,7 +58,7 @@ function serialize_value(selector::Base.Fix2{typeof(Statistics.quantile)})
 end
 function serialize_value(selector::Base.Fix2{F}) where {F<:Union{typeof(ModalAnalysis.Zc),
         typeof(ModalAnalysis.Yc),typeof(ModalAnalysis.H)}}
-    selector in Grammar.observables(ModalAnalysis.PropagationParameters) ||
+    selector in Commons.observables(ModalAnalysis.PropagationParameters) ||
         throw(ArgumentError("unsupported modal representation selector"))
     return Dict("__type__"=>"ModalRepresentation",
         "selector"=>string(nameof(selector.f)),

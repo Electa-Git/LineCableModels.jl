@@ -76,7 +76,7 @@ if shunt_compute_sweep
     # the captured physical inputs and original point identity. Capture once here,
     # just as the engine does, to exclude input capture from the loop timing.
     shunt_inputs = shunt_engine.completed_inputs(shunt_problem)
-    shunt_id = LineCableModels.Grammar.gridpoint_id()
+    shunt_id = LineCableModels.Commons.gridpoint_id()
     shunt_loop_trial = @benchmark shunt_engine._compute(LineCableModelsCoaxial(),
         $shunt_problem,$(first(shunt_formulations)),$shunt_loop_options,$shunt_loop_input,
         $shunt_inputs,$shunt_id) samples=3 evals=1

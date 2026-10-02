@@ -20,18 +20,18 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: FormulaMethod, nominal, FormulaDefinition, formula, parameterize, validate
 import ..LineCableModels: line_length
 import ..LineCableModels
-import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
+import ..Commons: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions, ComputationDetails,
                   compute, computation_options, computation_details, formulation_options, details
-import ..Grammar: observe, observables, request_identity, request_indices, observation_indices
+import ..Commons: observe, observables, request_identity, request_indices, observation_indices
 import ..Engine: LineParameters, LineParametersFormulation, PhaseDomain, ModalDomain,
                  SeriesImpedance, ShuntAdmittance, basis, frequencies,
                  description, formula_id, selectdomain, selectdetails, initialize_buffers
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
                      eigen!, issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd!, svdvals!
-import ..Grammar: AbstractCoreResult
+import ..Commons: AbstractCoreResult
 import ..Engine
-import ..Grammar
+import ..Commons
 import ..Units
 import ..TextDisplay
 #! explicit-imports: on

@@ -10,7 +10,7 @@ $(IMPORTS)
 
 """
 module InternalImpedance
-import ...Grammar: FormulationOptions
+import ...Commons: FormulationOptions
 
 # Export public API
 export Formula, formula_id, formulas, internal_impedance, surface_impedances

@@ -102,12 +102,12 @@ end
     design=TestFixtures.coaxial_design()
     completed=CableConstants(design)
     single=report(completed;values=R)
-    owner_label=only(LineCableModels.Grammar.observation_labels(single.observed))
+    owner_label=only(LineCableModels.Commons.observation_labels(single.observed))
     @test sprint(summary,single)=="Report · 1 table"
     @test owner_label==description(CableConstantsFormulation();compact=true)
     other_observed=ObservedResult(CableConstants(design;temperature=40.))
     with_reference=report(single.observed;values=R,reference=other_observed)
-    comparison_labels=LineCableModels.Grammar.observation_labels([single.observed,other_observed])
+    comparison_labels=LineCableModels.Commons.observation_labels([single.observed,other_observed])
     single_table=single[R]
     table_before=copy(single_table)
     for artifact in (single,with_reference), mime in (MIME"text/plain"(),MIME"text/html"())
@@ -128,7 +128,7 @@ end
 
     points=[single.observed,other_observed]
     study=report(points;values=R)
-    labels=LineCableModels.Grammar.observation_labels(points)
+    labels=LineCableModels.Commons.observation_labels(points)
     @test sprint(summary,study)=="Report · 2 gridpoints · 2 tables"
     for mime in (MIME"text/plain"(),MIME"text/html"())
         rendered=sprint(show,mime,study;context=normal)

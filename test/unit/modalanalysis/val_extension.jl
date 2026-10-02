@@ -1,6 +1,6 @@
 @testitem "ModalAnalysis / complete Val formula extension" tags=[:unit] begin
     import LineCableModels.Engine: initialize_buffers, description
-    import LineCableModels.Grammar: formulation_options, FormulationOptions
+    import LineCableModels.Commons: formulation_options, FormulationOptions
     import LineCableModels.ModalAnalysis: decompose!, Formula
     import LineCableModels: FormulaMethod
 

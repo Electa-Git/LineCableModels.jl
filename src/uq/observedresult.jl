@@ -3,12 +3,12 @@
 _is_uq_product(request) = request_identity(request) isa Tuple &&
     first(request_identity(request)) in (statistics,samples,histograms)
 
-function Grammar.observation_requests(source::Union{MonteCarloResult,LinearErrorResult},
+function Commons.observation_requests(source::Union{MonteCarloResult,LinearErrorResult},
         requests::Tuple;point::Integer=firstindex(source),complete_pairs::Bool=false)
     primary=Tuple(filter(!_is_uq_product,requests))
     products=Tuple(filter(_is_uq_product,requests))
     normalized=isempty(requests) || !isempty(primary) ?
-        Grammar.observation_requests(source[point],primary;complete_pairs) : (retained=(),displayed=())
+        Commons.observation_requests(source[point],primary;complete_pairs) : (retained=(),displayed=())
     expanded=Tuple[]
     for request in products
         identity=request_identity(request)
@@ -41,10 +41,10 @@ function _uq_coordinates(core::Engine.CableConstants,selector,indices)
         labels=copy(core.cores),frequencies=[core.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(core),1))
 end
 
-function Grammar.observation_quantity(source::Union{MonteCarloResult,LinearErrorResult},
+function Commons.observation_quantity(source::Union{MonteCarloResult,LinearErrorResult},
         point::Integer,request;unit=nothing,clip=true,atol=nothing,frequencies=nothing)
     core=source[point]
-    _is_uq_product(request) || return Grammar.observation_quantity(core,request;unit,clip,atol,frequencies)
+    _is_uq_product(request) || return Commons.observation_quantity(core,request;unit,clip,atol,frequencies)
     identity=request_identity(request)
     product,selector=identity[1:2]
     indices=request_indices(request)
@@ -122,14 +122,14 @@ omit the point index because `point` already identifies the atomic observation.
 `(histograms,R,1,2,3,20)` retains a marginal distribution with up to twenty bins.
 Primary requests follow the ordinary primary-result pair rules.
 """
-function Grammar.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult},point::Integer,
+function Commons.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult},point::Integer,
         requests::Tuple=();comparisons=(),timings=(;),gridpoint=nothing,clip::Bool=true,
         atol=nothing,units::Tuple=(),length_unit::Symbol=:kilo,frequency_unit::Symbol=:base,
         quantity_units=nothing,frequencies=nothing,complete_pairs::Bool=false)
-    selected=Grammar.observation_requests(source,requests;point,complete_pairs).retained
+    selected=Commons.observation_requests(source,requests;point,complete_pairs).retained
     isempty(units) || length(units)==length(selected) || throw(DimensionMismatch("units must align with retained requests"))
     targets = if isempty(units)
-        Grammar.unit_targets(selected, basis(source);
+        Commons.unit_targets(selected, basis(source);
             length_prefix=length_unit, overrides=quantity_units)
     else
         map(selected, units) do request, unit
@@ -137,7 +137,7 @@ function Grammar.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult
                 length_prefix=length_unit)
         end
     end
-    description=gridpoint===nothing ? Grammar.observation_gridpoint(source[point]) : gridpoint
+    description=gridpoint===nothing ? Commons.observation_gridpoint(source[point]) : gridpoint
     sampling=source isa MonteCarloResult ? merge(confidence(source,point),
         (frequencies=source[point] isa Engine.LineParameters ? detach(Engine.frequencies(source[point])) :
             [source[point].frequency],basis=basis(source))) : nothing
@@ -148,7 +148,7 @@ function Grammar.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult
     quantities=map(eachindex(selected)) do index
         request=selected[index]
         unit=targets[index]
-        record=Grammar.observation_quantity(source,point,request;unit,clip,atol,frequencies)
+        record=Commons.observation_quantity(source,point,request;unit,clip,atol,frequencies)
         if record.coordinates.frequencies!==nothing
             f=record.coordinates.frequencies
             target=Units.units(frequency_unit,:hertz)
@@ -157,19 +157,19 @@ function Grammar.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult
         end
         record
     end
-    return Grammar.ObservedResult(description,quantities,collect(comparisons),timings)
+    return Commons.ObservedResult(description,quantities,collect(comparisons),timings)
 end
 
 function observables(source::Union{MonteCarloResult,LinearErrorResult},requests::Tuple=();
         comparisons=(),timings=(;),kwargs...)
     return [begin
-        id=Grammar.observation_gridpoint(source[point]).id
+        id=Commons.observation_gridpoint(source[point]).id
         errors=filter(record -> record.result_id==id,comparisons)
         recorded=timings isa NamedTuple ? timings : begin
             matched=filter(record -> record.result_id==id,timings)
             length(matched)<=1 || throw(ArgumentError("duplicate point timings"))
             isempty(matched) ? (;) : only(matched)
         end
-        Grammar.ObservedResult(source,point,requests;comparisons=errors,timings=recorded,kwargs...)
+        Commons.ObservedResult(source,point,requests;comparisons=errors,timings=recorded,kwargs...)
     end for point in eachindex(source)]
 end

@@ -213,19 +213,19 @@ end
     @test LineCableModels.nominal(uncertain) == -20.0
     @test LineCableModels.uncertainty(uncertain) == 1.0
 
-    clipped=LineCableModels.Grammar.detach(
+    clipped=LineCableModels.Commons.detach(
         measurement(eps(Float64)/2, eps(Float64)/4),
         1.0
     )
     @test value(clipped) == eps(Float64)/2
     @test uncertainty(clipped) == eps(Float64)/4
-    clipped_array=LineCableModels.Grammar.detach(
+    clipped_array=LineCableModels.Commons.detach(
         [measurement(eps(Float64)/2, eps(Float64)/4)],
         1.0
     )
     @test value(only(clipped_array)) == eps(Float64)/2
     @test uncertainty(only(clipped_array)) == eps(Float64)/4
-    retained=LineCableModels.Grammar.detach(
+    retained=LineCableModels.Commons.detach(
         measurement(2.0, 0.25),
         1.0
     )

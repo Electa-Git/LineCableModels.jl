@@ -16,13 +16,13 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import Statistics
 import DataFrames
 import DataFrames: DataFrame, metadata, metadata!, Not
-import ..Grammar: observables
-import ..Grammar: ObservedResult
-import ..Grammar
+import ..Commons: observables
+import ..Commons: ObservedResult
+import ..Commons
 import ..Units
 import ..DataModel
 import ..Engine
-import ..Grammar: AbstractUncertaintyResult, request_identity, request_quantity, request_indices
+import ..Commons: AbstractUncertaintyResult, request_identity, request_quantity, request_indices
 import ..LineCableModels: validate, description
 import ..LineCableModels
 import ..PlotBuilder

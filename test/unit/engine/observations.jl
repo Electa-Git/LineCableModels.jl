@@ -30,10 +30,10 @@
           (Z, abs, Colon(), Colon(), Colon())
     @test @observe((Z, angle)[:, :, :]) ==
           (Z, angle, Colon(), Colon(), Colon())
-    @test LineCableModels.Grammar.request_identity(@observe(R[:, :, :])) === R
-    @test LineCableModels.Grammar.request_indices(@observe(R[:, :, :])) ==
+    @test LineCableModels.Commons.request_identity(@observe(R[:, :, :])) === R
+    @test LineCableModels.Commons.request_indices(@observe(R[:, :, :])) ==
           (Colon(), Colon(), Colon())
-    @test LineCableModels.Grammar.request_identity(@observe((Z, abs)[:, :, :])) ==
+    @test LineCableModels.Commons.request_identity(@observe((Z, abs)[:, :, :])) ==
           (Z, abs)
     @test @observe(parameters, Z[1, 1, :]) == impedance[1, 1, :]
     @test @observe(parameters, (Z, abs)[1, 1, :]) == abs.(impedance[1, 1, :])
@@ -66,8 +66,8 @@
     @test observe(polar,Z,angle)≈rad2deg.(angle.(impedance[1,1,:]))
     prefixed=ObservedResult(parameters,requests;quantity_units=(R=:micro,))
     @test first(prefixed.quantities).unit==U.units(:micro,:ohm;per=(:kilo,:meter))
-    @test LineCableModels.Grammar.validate_observables(parameters,requests)==(R,X)
-    @test Base.ispublic(LineCableModels.Grammar,:validate_observables)
+    @test LineCableModels.Commons.validate_observables(parameters,requests)==(R,X)
+    @test Base.ispublic(LineCableModels.Commons,:validate_observables)
     @test !isdefined(LineCableModels,:validate_observables)
     first(observed.quantities).values[1]=0
     first(observed.quantities).coordinates.frequencies[1]=0
@@ -78,7 +78,7 @@
     @test_throws MethodError observables(parameters,(invalid=identity,))
     @test_throws DimensionMismatch observables(parameters,requests;units=(target,))
     @test_throws ArgumentError observables(parameters,requests;quantity_units=(R=U.units(:base,:farad),))
-    @test LineCableModels.Grammar.detach(eps(Float64)/2,1.0)==eps(Float64)/2
+    @test LineCableModels.Commons.detach(eps(Float64)/2,1.0)==eps(Float64)/2
 
     series=SeriesImpedance(impedance)
     shunt=ShuntAdmittance(admittance)
@@ -97,7 +97,7 @@ end
 @testitem "Engine / observations / detached records and explicit tables" tags=[:unit] begin
     using DataFrames, Tables
     using LineCableModels.ReportBuilder: tabulate
-    const GR=LineCableModels.Grammar
+    const GR=LineCableModels.Commons
     constants=CableConstants([:a,:b],[1e-4,2e-4],[3e-7,4e-7],[5e-10,6e-10],[7e-9,8e-9],50.)
     observed=observables(constants;length_unit=:base,quantity_units=:base)
     @test !Tables.istable(typeof(observed))

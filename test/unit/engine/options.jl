@@ -1,63 +1,63 @@
 @testitem "Engine / option grammar / owner dispatch" tags=[:unit] setup=[
     UseEngineSupport
 ] begin
-    const Grammar=LineCableModels.Grammar
+    const Commons=LineCableModels.Commons
     const Engine=LineCableModels.Engine
 
-    struct UnregisteredFormulation<:Grammar.AbstractFormulation end
+    struct UnregisteredFormulation<:Commons.AbstractFormulation end
 
-    @test LineCableModels.FormulationOptions === Grammar.FormulationOptions !== NamedTuple
-    @test LineCableModels.ComputationOptions === Grammar.ComputationOptions !== NamedTuple
-    @test LineCableModels.formulation_options === Grammar.formulation_options
-    @test LineCableModels.computation_options === Grammar.computation_options
-    @test parentmodule(Grammar.formulation_options) === Grammar
-    @test parentmodule(Grammar.computation_options) === Grammar
+    @test LineCableModels.FormulationOptions === Commons.FormulationOptions !== NamedTuple
+    @test LineCableModels.ComputationOptions === Commons.ComputationOptions !== NamedTuple
+    @test LineCableModels.formulation_options === Commons.formulation_options
+    @test LineCableModels.computation_options === Commons.computation_options
+    @test parentmodule(Commons.formulation_options) === Commons
+    @test parentmodule(Commons.computation_options) === Commons
 
     formulation_owner=LineParametersFormulation
     computation_type=LineCableModelsCoaxial
     @test hasmethod(
-        Grammar.formulation_options,
+        Commons.formulation_options,
         Tuple{Type{LineParametersFormulation}, FormulationOptions}
     )
     @test hasmethod(
-        Grammar.computation_options,
+        Commons.computation_options,
         Tuple{Type{LineCableModelsCoaxial}, ComputationOptions}
     )
     # Passive selections cannot invoke live normalization by accident.
-    @test_throws MethodError Grammar.formulation_options((;))
+    @test_throws MethodError Commons.formulation_options((;))
     retained_options = (reduce_bundle=false, kron_reduction=true,
         ideal_transposition=false)
-    @test_throws MethodError Grammar.formulation_options((leaf=formulation_owner =>
+    @test_throws MethodError Commons.formulation_options((leaf=formulation_owner =>
         (options=retained_options,),))
-    @test_throws MethodError Grammar.computation_options((;))
-    @test_throws MethodError Grammar.formulation_options(:unregistered, (;))
-    @test_throws MethodError Grammar.computation_options(:unregistered, ComputationOptions((;)))
-    @test_throws MethodError Grammar.formulation_options(
+    @test_throws MethodError Commons.computation_options((;))
+    @test_throws MethodError Commons.formulation_options(:unregistered, (;))
+    @test_throws MethodError Commons.computation_options(:unregistered, ComputationOptions((;)))
+    @test_throws MethodError Commons.formulation_options(
         UnregisteredFormulation,
         (;)
     )
-    @test_throws MethodError Grammar.computation_options(
+    @test_throws MethodError Commons.computation_options(
         UnregisteredFormulation, ComputationOptions((;)))
-    @test_throws MethodError Grammar.formulation_options(
+    @test_throws MethodError Commons.formulation_options(
         formulation_owner, Dict{Symbol, Any}())
-    @test_throws MethodError Grammar.computation_options(
+    @test_throws MethodError Commons.computation_options(
         computation_type, Dict{Symbol, Any}())
-    @test_throws MethodError Grammar.computation_options(computation_type, nothing)
+    @test_throws MethodError Commons.computation_options(computation_type, nothing)
 
-    formulation=@inferred Grammar.formulation_options(formulation_owner, FormulationOptions())
+    formulation=@inferred Commons.formulation_options(formulation_owner, FormulationOptions())
     @test formulation.data == (
         reduce_bundle = true,
         kron_reduction = true,
         ideal_transposition = true
     )
-    @test_throws ArgumentError Grammar.formulation_options(
+    @test_throws ArgumentError Commons.formulation_options(
         formulation_owner, FormulationOptions(unknown = true))
 
-    default_execution=@inferred Grammar.computation_options(computation_type, ComputationOptions((;)))
+    default_execution=@inferred Commons.computation_options(computation_type, ComputationOptions((;)))
     @test default_execution.data.output_basis == Val(:pul)
     @test default_execution.data.trace == Val(false)
     @test default_execution.data.on_result === nothing
-    execution=Grammar.computation_options(
+    execution=Commons.computation_options(
         computation_type, ComputationOptions((
             verbosity = (default = 1, NLsolve = 0),
             output_basis = :total,
@@ -72,9 +72,9 @@
     )
     @test Engine.verbosity(execution, :NLsolve) == 0
     @test Engine.verbosity(execution, :unlisted) == 1
-    @test_throws ArgumentError Grammar.computation_options(
+    @test_throws ArgumentError Commons.computation_options(
         computation_type, ComputationOptions((unknown = true,)))
-    @test_throws ArgumentError Grammar.computation_options(
+    @test_throws ArgumentError Commons.computation_options(
         computation_type, ComputationOptions((output_basis = :unknown,)))
 end
 

@@ -237,14 +237,14 @@ function _quantity_table(product; gridpoint_id=nothing)
     coordinate_columns=coordinates.kind===:samples ? Tuple(filter(!=(:value),propertynames(table))) :
         coordinates.kind in (:matrix,:diagonal,:vector,:assemblies,:array) ? (first(propertynames(table)),) : ()
     metadata!(table,"coordinate_columns",coordinate_columns;style=:note)
-    metadata!(table,"coordinates",Grammar.detach(coordinates);style=:note)
+    metadata!(table,"coordinates",Commons.detach(coordinates);style=:note)
     metadata!(table,"quantity",product.quantity;style=:note)
-    metadata!(table,"request",Grammar.detach(product.request);style=:note)
-    metadata!(table,"statistic",Grammar.detach(product.statistic);style=:note)
+    metadata!(table,"request",Commons.detach(product.request);style=:note)
+    metadata!(table,"statistic",Commons.detach(product.statistic);style=:note)
     metadata!(table,"family",product.family;style=:note)
     metadata!(table,"unit",product.unit;style=:note)
     metadata!(table,"basis",product.basis;style=:note)
-    metadata!(table,"missing_reason",Grammar.detach(product.missing_reason);style=:note)
+    metadata!(table,"missing_reason",Commons.detach(product.missing_reason);style=:note)
     gridpoint_id===nothing || metadata!(table,"gridpoint_id",gridpoint_id;style=:note)
     return table
 end
@@ -266,13 +266,13 @@ end
 tabulate(observed::ObservedResult) = _quantity_tables(observed.quantities;gridpoint_id=observed.gridpoint.id)
 
 """Build one table from a retained quantity request."""
-tabulate(observed::ObservedResult,request) = _quantity_table(Grammar.observation_product(observed,request);gridpoint_id=observed.gridpoint.id)
+tabulate(observed::ObservedResult,request) = _quantity_table(Commons.observation_product(observed,request);gridpoint_id=observed.gridpoint.id)
 tabulate(observed::AbstractVector{<:ObservedResult}) = map(tabulate,observed)
 
 select(::CableConstantsTableDefinition,observed::ObservedResult;reference=nothing) = observed.quantities
 function select(definition::LineParametersTableDefinition,observed::ObservedResult;reference=nothing)
-    return [Grammar.observation_product(observed,request)
-        for request in Grammar.observation_requests(observed,definition.requests).retained]
+    return [Commons.observation_product(observed,request)
+        for request in Commons.observation_requests(observed,definition.requests).retained]
 end
 function tabulate(::Union{TableReportDefinition,CableConstantsTableDefinition,LineParametersTableDefinition},
         observed,selected;reference=nothing)

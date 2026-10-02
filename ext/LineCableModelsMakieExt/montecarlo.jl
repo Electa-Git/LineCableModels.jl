@@ -3,7 +3,7 @@ function _observed_distribution(result::LineCableModels.MonteCarloResult,request
     selector=request isa Function ? request : first(request)
     indices=request isa Function ? (1,) : Base.tail(request)
     retained=(LineCableModels.histograms,selector,indices...,bins)
-    return Grammar.ObservedResult(result,point,(retained,);kwargs...)
+    return Commons.ObservedResult(result,point,(retained,);kwargs...)
 end
 
 function _distribution_product(observed,request)
@@ -16,7 +16,7 @@ function _distribution_product(observed,request)
     return only(products)
 end
 
-function _distribution_plot(observed::Grammar.ObservedResult,request,kind;
+function _distribution_plot(observed::Commons.ObservedResult,request,kind;
         normalization=:none,qqline=:identity,title=nothing,fig_size=(800,400),
         backend=nothing,display_plot=true,controls=true,export_theme=:default,open_export=true,kwargs...)
     for key in (:point,:bins,:clip,:atol,:units,:length_unit,:quantity_units,:frequency_unit,:freq_unit,:frequencies,:complete_pairs)
@@ -75,11 +75,11 @@ function _distribution_plot(observed::Grammar.ObservedResult,request,kind;
     end
 end
 
-Makie.hist(observed::Grammar.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:histogram;kwargs...)
-Makie.stairs(observed::Grammar.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:density;kwargs...)
-Makie.ecdfplot(observed::Grammar.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:empirical;kwargs...)
-Makie.lines(observed::Grammar.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:cdf;kwargs...)
-Makie.qqplot(observed::Grammar.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:qq;kwargs...)
+Makie.hist(observed::Commons.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:histogram;kwargs...)
+Makie.stairs(observed::Commons.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:density;kwargs...)
+Makie.ecdfplot(observed::Commons.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:empirical;kwargs...)
+Makie.lines(observed::Commons.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:cdf;kwargs...)
+Makie.qqplot(observed::Commons.ObservedResult,request=nothing;kwargs...) = _distribution_plot(observed,request,:qq;kwargs...)
 
 function Makie.hist(source::LineCableModels.MonteCarloResult,request=LineCableModels.R;
         point=1,bins=nothing,kwargs...)

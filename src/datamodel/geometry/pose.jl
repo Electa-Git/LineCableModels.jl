@@ -53,5 +53,5 @@ function Base.:*(parent::Pose2, child::Pose2)
     )
 end
 
-Grammar.input_fields(::Type{<:Pose2}) = (x=(name="horizontal position",unit="m"),
+Commons.input_fields(::Type{<:Pose2}) = (x=(name="horizontal position",unit="m"),
     y=(name="vertical position",unit="m"),φ=(name="rotation",unit="rad"))

@@ -4,7 +4,7 @@
     using Serialization
     import LineCableModels.ModalAnalysis as MA
     import LineCableModels.Engine as E
-    import LineCableModels.Grammar as G
+    import LineCableModels.Commons as G
 
     struct FixedModal <: AbstractFormulation
         voltage::Array{ComplexF64,3}

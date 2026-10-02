@@ -1,4 +1,4 @@
-# Grammar invariants
+# Commons invariants
 
 LineCableModels has three global calculation roles: a complete problem and a formulation that selects how to calculate it, followed by a completed result. Package
 modules may add concrete types below these roots, but they do not add parallel
@@ -54,7 +54,7 @@ Plotting is deliberately not such an action: the optional Makie extension
 constructs native figures directly from published observations.
 
 Observation uses a different structure. Result owners add `observe` methods.
-Grammar owns one `observables(source, requests::Tuple; ...)` publication
+Commons owns one `observables(source, requests::Tuple; ...)` publication
 method. Standalone arrays and external result types do not need a shared
 abstract observation type.
 
@@ -67,7 +67,7 @@ The architecture that the quality, core and integration tests protect requires:
 - every fixed stage to remain visible in the declared action.
 - every package-owned concrete definition to implement its required stages.
 - every package-owned definition to remain below its declared root.
-- one Grammar-owned observation publication method with positional requests.
+- one Commons-owned observation publication method with positional requests.
 - wide scientific tables whose quantity and unit metadata remain attached to
   their columns.
 - no calls to another package module's private functions or types, including
@@ -126,7 +126,7 @@ package method and parse every Julia file under `src/` and `ext/`.
 - Placement (A2). No core method is defined in a file under `ext/`. The home of a
   module is the directory that holds its `<ModuleName>.jl` file. The nearest home
   around a method's file belongs to the method's module or one of its ancestors.
-- Direction (A3). The submodules have the order Units, Grammar, TextDisplay,
+- Direction (A3). The submodules have the order Units, Commons, TextDisplay,
   InputValidation, PlotBuilder, Materials, Earth, DataModel, Engine, ModalAnalysis,
   ParametricBuilder, UQ, ReportBuilder, ImportExport, PSCAD. The lowered code of a
   submodule method references earlier submodules, the ancestors and descendants of
@@ -161,7 +161,10 @@ baseline.
 
 Entries can be deleted or lowered, and none can be added or raised. Before the tests,
 the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull request
-base or the previous push. An added entry or a raised count fails the job. Run
+base or the previous push. An added entry or a raised count fails the job. The
+ratchet first applies to the earlier keys the file renames that git detects, and the
+module renames of renamed entry files `<Module>.jl` that declare their module. A key
+renamed without a matching git rename counts as added. Run
 `julia test/tools/baseline_ratchet.jl HEAD` to compare local changes with the last
 commit.
 

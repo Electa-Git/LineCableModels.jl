@@ -1,7 +1,7 @@
 @testitem "ModalAnalysis / retained finite quantities render with completed formulations" tags=[:visual] begin
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint, completed_formulation
-    using LineCableModels.Grammar: gridpoint_id, observation_labels
+    using LineCableModels.Commons: gridpoint_id, observation_labels
 
     z=reshape(ComplexF64[1+im,2+im,3+im],1,1,3)
     y=reshape(ComplexF64[1e-6im,2e-6im,3e-6im],1,1,3)
@@ -71,7 +71,7 @@ end
     using CairoMakie
     using LinearAlgebra
     import LineCableModels.Engine as E
-    import LineCableModels.Grammar as G
+    import LineCableModels.Commons as G
 
     f=[10.0,20.0,40.0]
     roots=ComplexF64[1+2im 3+4im 5+6im;2+3im 4+5im 6+7im].*1e-3

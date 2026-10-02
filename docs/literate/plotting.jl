@@ -506,7 +506,7 @@ standalone_admittance[2].figure #hide
 # ### Exact observation requests and modal coordinates
 
 # An `@observe` request is the precise extension point for matrix coordinates.
-# It passes through `Grammar.observation_request`, so selection rules stay shared
+# It passes through `Commons.observation_request`, so selection rules stay shared
 # by plotting, tables, and reports. This example keeps only one diagonal entry
 # from each quantity.
 

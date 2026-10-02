@@ -134,7 +134,7 @@ does not replace a broadband modal model.
 ```julia
 using LineCableModels
 import LineCableModels.Engine: initialize_buffers, description
-import LineCableModels.Grammar: formulation_options, FormulationOptions
+import LineCableModels.Commons: formulation_options, FormulationOptions
 import LineCableModels.ModalAnalysis: decompose!, Formula
 import LineCableModels: FormulaMethod
 
@@ -219,11 +219,11 @@ checks the completed value directly and returns it unchanged.
 LineCableModels.InputValidation
 ```
 
-## Grammar, observations, and units
+## Commons, observations, and units
 
 ```@autodocs
 Modules = [
-    LineCableModels.Grammar,
+    LineCableModels.Commons,
     LineCableModels.Units,
 ]
 Order = [:module, :constant, :type, :function, :macro]

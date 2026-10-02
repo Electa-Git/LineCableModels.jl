@@ -467,8 +467,8 @@ function centroid(primitive::DifferenceShape)
     return (xmoment / total_area, ymoment / total_area)
 end
 
-Grammar.input_fields(::Type{<:Disk}) = (r=(name="radius",unit="m"),)
-Grammar.input_fields(::Type{<:Rectangle}) = (w=(name="width",unit="m"),h=(name="height",unit="m"))
-Grammar.input_fields(::Type{<:Ellipse}) = (a=(name="semi-axis a",unit="m"),b=(name="semi-axis b",unit="m"))
-Grammar.input_fields(::Type{<:Annulus}) = (ri=(name="inner radius",unit="m"),ro=(name="outer radius",unit="m"))
-Grammar.input_fields(::Type{<:Polygon}) = (points=(name="vertex",unit="m"),)
+Commons.input_fields(::Type{<:Disk}) = (r=(name="radius",unit="m"),)
+Commons.input_fields(::Type{<:Rectangle}) = (w=(name="width",unit="m"),h=(name="height",unit="m"))
+Commons.input_fields(::Type{<:Ellipse}) = (a=(name="semi-axis a",unit="m"),b=(name="semi-axis b",unit="m"))
+Commons.input_fields(::Type{<:Annulus}) = (ri=(name="inner radius",unit="m"),ro=(name="outer radius",unit="m"))
+Commons.input_fields(::Type{<:Polygon}) = (points=(name="vertex",unit="m"),)

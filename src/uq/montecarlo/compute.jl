@@ -279,7 +279,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             physical_inputs=merge(Engine.completed_inputs(declaration),(interpretation=:nominal_declaration,))
         end
         physical_inputs=merge(physical_inputs,(uncertain_arguments=_uncertain_arguments(point),))
-        representation=Engine.retain_gridpoint(aggregate.representation,Grammar.gridpoint_id();
+        representation=Engine.retain_gridpoint(aggregate.representation,Commons.gridpoint_id();
             fields=merge(Engine.completed_formulation(formulation.inner),(inputs=physical_inputs,
                 uncertainty=(estimator=:empirical,representation=:marginal_mean_std),
                 uncertainty_descriptions=_uncertainty_descriptions(MonteCarlo))))
@@ -423,7 +423,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     previous = started
     last_log = started
     average_seconds = 0.0
-    source_id=Grammar.gridpoint_id().source_id
+    source_id=Commons.gridpoint_id().source_id
     Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing &&
         throw(ArgumentError("MonteCarlo requires the Measurements extension to construct its result; " *
             "load it with `using Measurements` before compute"))
@@ -465,7 +465,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     retained = formulation.options.data.retain_details ?
                Vector{typeof(first_aggregate.details)}(undef, point_count) : nothing
 
-    values[1] = Engine.retain_gridpoint(first_aggregate.representation,Grammar.gridpoint_id(;source_id))
+    values[1] = Engine.retain_gridpoint(first_aggregate.representation,Commons.gridpoint_id(;source_id))
     stats_values[1] = first_aggregate.statistics
     sample_values === nothing || (sample_values[1] = first_aggregate.samples)
     histogram_values === nothing ||
@@ -508,7 +508,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
             "Monte Carlo points produced incompatible statistics product types",
         ))
         values[index] = Engine.retain_gridpoint(aggregate.representation,
-            Grammar.gridpoint_id(;source_id,problem_index=index))
+            Commons.gridpoint_id(;source_id,problem_index=index))
         stats_values[index] = aggregate.statistics
         if sample_values !== nothing
             typeof(aggregate.samples) === eltype(sample_values) || throw(ArgumentError(

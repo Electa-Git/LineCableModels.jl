@@ -1,5 +1,5 @@
-@testitem "Grammar / fallback observations preserve inferred values and scalar counts" tags=[:unit] begin
-    const G = LineCableModels.Grammar
+@testitem "Commons / fallback observations preserve inferred values and scalar counts" tags=[:unit] begin
+    const G = LineCableModels.Commons
     struct ObservationSource{T}
         values::T
     end
@@ -39,9 +39,9 @@
     @test_throws BoundsError G.observation_quantity(source, (R, 3))
 end
 
-@testitem "Grammar / detached thresholds retain precision and uncertainty dependencies" tags=[:unit] begin
+@testitem "Commons / detached thresholds retain precision and uncertainty dependencies" tags=[:unit] begin
     using Measurements
-    const G = LineCableModels.Grammar
+    const G = LineCableModels.Commons
     shared = measurement(0.5, 0.01)
     cutoffs = (real=Float32[0.25, 0.5], imaginary=(value=shared, absent=nothing),
         unavailable=missing, complex=ComplexF32(0.25, 0.5))
@@ -57,9 +57,9 @@ end
     @test cutoffs.real[1] == 0.25f0
 end
 
-@testitem "Grammar / observation equality retains uncertainty identity and collection shape" tags=[:unit] begin
+@testitem "Commons / observation equality retains uncertainty identity and collection shape" tags=[:unit] begin
     using Measurements
-    const G = LineCableModels.Grammar
+    const G = LineCableModels.Commons
     shared = measurement(1.0, 0.1)
     independent = measurement(1.0, 0.1)
     @test isequal(shared, independent)

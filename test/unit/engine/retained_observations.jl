@@ -1,6 +1,6 @@
 @testitem "ObservedResult / retained re-expression preserves scientific records" tags=[:unit] begin
     using Measurements
-    using LineCableModels.Grammar: observation_product,gridpoint_id
+    using LineCableModels.Commons: observation_product,gridpoint_id
     using LineCableModels.Engine: retain_gridpoint,compare
     U=LineCableModels.Units
     shared=measurement(1.,0.1)
@@ -8,12 +8,12 @@
     result=retain_gridpoint(line,gridpoint_id())
     reference=retain_gridpoint(line,gridpoint_id())
     comparisons=compare(reference,result,[R];bands=(:all,))
-    timings=(result_id=LineCableModels.Grammar.observation_gridpoint(result).id,seconds=0.5)
+    timings=(result_id=LineCableModels.Commons.observation_gridpoint(result).id,seconds=0.5)
     observed=ObservedResult(result;comparisons,timings)
     repeated=observables(observed)
     @test isequal(repeated.quantities,observed.quantities)
     @test repeated.quantities[1].values!==observed.quantities[1].values
-    @test LineCableModels.Grammar.observation_quantity(observed,R)==first(observed.quantities)
+    @test LineCableModels.Commons.observation_quantity(observed,R)==first(observed.quantities)
     @test repeated.errors==observed.errors
     @test repeated.timings==observed.timings
     @test only(observables([observed])).timings==timings
@@ -64,7 +64,7 @@
 end
 
 @testitem "ObservedResult / constructor rejects malformed scientific records" tags=[:unit] begin
-    using LineCableModels.Grammar: observation_product
+    using LineCableModels.Commons: observation_product
     using LineCableModels.ReportBuilder: tabulate
     source=ObservedResult(LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.]))
     q=first(source.quantities)
@@ -95,7 +95,7 @@ end
 end
 
 @testitem "ObservedResult / coordinate and unit interpretation is shared" tags=[:unit] begin
-    using LineCableModels.Grammar: observation_product
+    using LineCableModels.Commons: observation_product
     z=reshape(complex.(1.:12.,101.:112.),2,2,3)
     line=LineParameters(z,2z,[1.,10.,100.])
     a=ObservedResult(line;length_unit=:base)
@@ -140,7 +140,7 @@ end
 end
 
 @testitem "ObservedResult / structured labels and equivalence conflicts" tags=[:unit] setup=[TestFixtures] begin
-    using LineCableModels.Grammar: observation_labels,observation_groups,gridpoint_id
+    using LineCableModels.Commons: observation_labels,observation_groups,gridpoint_id
     using LineCableModels.Engine: retain_gridpoint,completed_inputs,completed_formulation
     problem=TestFixtures.line_parameters_problem()
     inputs=completed_inputs(problem)

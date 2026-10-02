@@ -4,7 +4,7 @@
     using XLSX
     using Measurements
     import LineCableModels.Engine as E
-    import LineCableModels.Grammar as G
+    import LineCableModels.Commons as G
     import LineCableModels.Units as U
 
     function finite_modal(::Type{T}; roots=Complex{T}[1+2im 3+4im 5+6im;

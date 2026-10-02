@@ -21,10 +21,10 @@ encode_observation(value::AbstractDict,source_table) = Dict("__type__"=>"Diction
     "entries"=>[encode_observation((key,item),source_table) for (key,item) in value])
 encode_observation(value::Complex,source_table) = Dict("__type__"=>"Complex",
     "re"=>encode_observation(real(value),source_table),"im"=>encode_observation(imag(value),source_table))
-encode_observation(value::Grammar.ObservedResult,source_table) = Dict("__type__"=>"ObservedResult",
+encode_observation(value::Commons.ObservedResult,source_table) = Dict("__type__"=>"ObservedResult",
     "fields"=>encode_observation((value.gridpoint,value.quantities,value.errors,value.timings),source_table))
 
-function serialize_value(value::Union{Grammar.ObservedResult,AbstractVector{<:Grammar.ObservedResult}})
+function serialize_value(value::Union{Commons.ObservedResult,AbstractVector{<:Commons.ObservedResult}})
     return serialize_value(value,Val(:observed))
 end
 function serialize_value(value,::Val{:observed})
@@ -41,7 +41,7 @@ _decode_observed(value,sources) = deserialize_value(value)
 function _decode_observed(value::AbstractDict,sources)
     marker=get(value,"__type__",nothing)
     if marker=="ObservedResult"
-        return Grammar.ObservedResult(_decode_observed(value["fields"],sources)...)
+        return Commons.ObservedResult(_decode_observed(value["fields"],sources)...)
     elseif marker=="ObservedMeasurement"
         return decode_observation_measurement(value,sources)
     elseif marker=="NamedTuple"
@@ -124,7 +124,7 @@ preserves shared uncertainties across quantities, points, and a report reference
 BigFloat values retain their precision. Report tables and figures are rebuilt
 from these observations after loading.
 """
-function save(value::Union{Grammar.ObservedResult,AbstractVector{<:Grammar.ObservedResult},ReportBuilder.ReportArtifact},path::AbstractString)
+function save(value::Union{Commons.ObservedResult,AbstractVector{<:Commons.ObservedResult},ReportBuilder.ReportArtifact},path::AbstractString)
     encoded=serialize_value(value)
     extension=lowercase(splitext(path)[2])
     extension in (".json",".jls") || throw(ArgumentError("observed archives require .json or .jls"))

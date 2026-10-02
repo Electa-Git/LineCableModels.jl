@@ -2,7 +2,7 @@ const _PrimarySource = Union{
     LineCableModels.LineParameters, LineCableModels.SeriesImpedance,
     LineCableModels.ShuntAdmittance, LineCableModels.CableConstants,
     LineCableModels.PropagationParameters}
-const _PlotSource = Union{_PrimarySource, Grammar.ObservedResult}
+const _PlotSource = Union{_PrimarySource, Commons.ObservedResult}
 
 function _plot_ydata(positional, keyword, default)
     keyword===nothing && return positional===nothing ? default : positional
@@ -11,7 +11,7 @@ function _plot_ydata(positional, keyword, default)
     return keyword
 end
 
-# Split only public keyword ownership. Scientific normalization stays in Grammar.
+# Split only public keyword ownership. Scientific normalization stays in Commons.
 function _plot_observation_options(kwargs; retained = false)
     haskey(kwargs, :complete_pairs) &&
         throw(ArgumentError("complete_pairs is owned by observation construction"))
@@ -42,11 +42,11 @@ function plot(source::Union{SeriesImpedance, ShuntAdmittance},
 end
 Makie.plot(source::_PrimarySource, args...; kwargs...) = plot(source, args...; kwargs...)
 
-function plot(observed::Grammar.ObservedResult, selection = nothing; kwargs...)
+function plot(observed::Commons.ObservedResult, selection = nothing; kwargs...)
     return plot([observed], selection; kwargs...)
 end
 
-function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = nothing;
+function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = nothing;
         ydata = nothing, reference = nothing,
         series_labels = nothing, series_attributes = nothing, problem = nothing,
         formulations = nothing, band = nothing,
@@ -82,25 +82,25 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
             by = index -> findfirst(==(observed[index].gridpoint.id.formulation_index), formulations))
     end
     points=observed[selected]
-    requests=Grammar.observation_selection(first(points), _plot_ydata(selection, ydata, ()))
-    requests=Grammar.observation_requests(first(points), requests).displayed
-    if reference!==nothing && !(reference isa Grammar.ObservedResult)
+    requests=Commons.observation_selection(first(points), _plot_ydata(selection, ydata, ()))
+    requests=Commons.observation_requests(first(points), requests).displayed
+    if reference!==nothing && !(reference isa Commons.ObservedResult)
         reference isa _PrimarySource ||
             throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
-        reference=Grammar.ObservedResult(reference, requests; complete_pairs = true)
+        reference=Commons.ObservedResult(reference, requests; complete_pairs = true)
     end
     if !isempty(display_units)
-        points=[Grammar.ObservedResult(point, requests; display_units...)
+        points=[Commons.ObservedResult(point, requests; display_units...)
                     for point in points]
         reference===nothing ||
-            (reference=Grammar.ObservedResult(reference, requests; display_units...))
+            (reference=Commons.ObservedResult(reference, requests; display_units...))
     end
     sources=reference===nothing ? Tuple(points) : (Tuple(points)..., reference)
     input_point_count=length(observed)+(reference===nothing ? 0 : 1)
     displayed=reference===nothing ? selected : [selected; input_point_count]
     slots=reference===nothing ? selected : [selected; 0]
     reference_id=reference===nothing ? nothing : get(reference.gridpoint, :id, nothing)
-    products=map(request -> Grammar.observation_product(sources, request; band, reference_id), requests)
+    products=map(request -> Commons.observation_product(sources, request; band, reference_id), requests)
     plot_data=map(eachindex(sources)) do index
         _line_plot_data(Tuple(records[index] for records in products))
     end
@@ -114,7 +114,7 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
         (kind===:vector && length(sources)==1 &&
          (layout===nothing || layout==(1, 1)) ? :coordinates : :gridpoints) : overlay
     end
-    groups=map(request -> Grammar.observation_groups(points; request), requests)
+    groups=map(request -> Commons.observation_groups(points; request), requests)
     retained=map(eachindex(requests)) do index
         indices=orientations[index]!==:gridpoints ? collect(eachindex(sources)) :
                 [group.representative for group in groups[index]]
@@ -162,16 +162,16 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
     request_labels=map(eachindex(requests)) do index
         request=requests[index]
         if orientations[index]!==:gridpoints
-            result=Grammar.observation_labels(sources; request, fallback = "")
+            result=Commons.observation_labels(sources; request, fallback = "")
             reference!==nothing &&
                 (result[end]*=isempty(result[end]) ? "Reference" : " (reference)")
             result
         else
             result=explicit_labels ? Any[labels...] :
-                   Grammar.observation_labels(sources; request,
+                   Commons.observation_labels(sources; request,
                 fallback = length(sources)==1 ? "" : nothing)
             result_labels && push!(result,
-                last(Grammar.observation_labels(sources; request)))
+                last(Commons.observation_labels(sources; request)))
             (!explicit_labels || result_labels) && reference!==nothing &&
                 (result[end]*=" (reference)")
             result
@@ -283,10 +283,10 @@ function plot(observed::AbstractVector{<:Grammar.ObservedResult}, selection = no
     end
     return length(built)==1 ? only(built) : built
 end
-function Makie.plot(source::Grammar.ObservedResult, args...; kwargs...)
+function Makie.plot(source::Commons.ObservedResult, args...; kwargs...)
     plot(source, args...; kwargs...)
 end
-function Makie.plot(source::AbstractVector{<:Grammar.ObservedResult}, args...; kwargs...)
+function Makie.plot(source::AbstractVector{<:Commons.ObservedResult}, args...; kwargs...)
     plot(source, args...; kwargs...)
 end
 
@@ -294,28 +294,28 @@ function plot(sources::Union{AbstractVector{<:_PlotSource}, Tuple{Vararg{_PlotSo
         selection = nothing;
         ydata = nothing, reference = nothing, kwargs...)
     isempty(sources) && throw(ArgumentError("plot requires at least one result"))
-    if all(source -> source isa Grammar.ObservedResult, sources)
+    if all(source -> source isa Commons.ObservedResult, sources)
         return plot(
-            Grammar.ObservedResult[sources...], selection; ydata, reference, kwargs...)
+            Commons.ObservedResult[sources...], selection; ydata, reference, kwargs...)
     end
     acquisition, presentation=_plot_observation_options(kwargs)
-    requests=Grammar.observation_selection(first(sources), _plot_ydata(selection, ydata, ()))
-    normalized=Grammar.observation_requests(first(sources), requests; complete_pairs = true)
+    requests=Commons.observation_selection(first(sources), _plot_ydata(selection, ydata, ()))
+    normalized=Commons.observation_requests(first(sources), requests; complete_pairs = true)
     retained_units=(;
         (key=>value
     for (key, value) in pairs(acquisition)
     if key in
        (:units, :length_unit, :quantity_units, :frequency_unit))...)
-    observed=Grammar.ObservedResult[source isa Grammar.ObservedResult ?
+    observed=Commons.ObservedResult[source isa Commons.ObservedResult ?
                                     (isempty(retained_units) ? source :
-                                     Grammar.ObservedResult(source, normalized.displayed; retained_units...)) :
-                                    Grammar.ObservedResult(source, requests;
+                                     Commons.ObservedResult(source, normalized.displayed; retained_units...)) :
+                                    Commons.ObservedResult(source, requests;
                                         complete_pairs = true, acquisition...)
                                     for source in sources]
-    if reference!==nothing && !(reference isa Grammar.ObservedResult)
+    if reference!==nothing && !(reference isa Commons.ObservedResult)
         reference isa _PrimarySource ||
             throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
-        reference=Grammar.ObservedResult(reference, requests; complete_pairs = true, acquisition...)
+        reference=Commons.ObservedResult(reference, requests; complete_pairs = true, acquisition...)
     end
     return plot(observed; ydata = normalized.displayed, reference, presentation...)
 end

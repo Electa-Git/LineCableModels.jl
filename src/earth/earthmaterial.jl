@@ -79,5 +79,5 @@ function Base.convert(
     material
 end
 
-Grammar.input_fields(::Type{<:EarthMaterial}) = (rho=(name="electrical resistivity",unit="Ω·m"),
+Commons.input_fields(::Type{<:EarthMaterial}) = (rho=(name="electrical resistivity",unit="Ω·m"),
     eps_r=(name="relative permittivity",unit=""),mu_r=(name="relative permeability",unit=""))

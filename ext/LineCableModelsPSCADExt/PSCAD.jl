@@ -23,7 +23,7 @@ import LineCableModels.Engine.InternalImpedance: internal_impedance
 import LineCableModels.Engine.InsulationImpedance: insulation_impedance
 import LineCableModels.Engine: Formulation,
                                LineParametersProblem
-import LineCableModels.Grammar: AbstractFormulation, ComputationOptions, ComputationDetails,
+import LineCableModels.Commons: AbstractFormulation, ComputationOptions, ComputationDetails,
                                 FormulationOptions, computation_options, compute,
                                 formulation_options, gridpoint_id
 using DocStringExtensions: TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS

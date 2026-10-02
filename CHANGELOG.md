@@ -36,10 +36,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Wire-pattern searches return typed `WireEstimate` results, including ranked
   best-effort candidates for feasible search inputs that cannot meet every limit.
 - Consolidated shared problem, formulation, and result roots plus the common
-  action generics under `LineCableModels.Grammar`.
+  action generics under `LineCableModels.Commons`.
 - Replaced the prototype parameter and uncertainty paths with typed `Grid` and
   inferred `Gridspace` construction from the public declarative builders.
-- Converged calculation ownership around `Grammar` action generics,
+- Converged calculation ownership around `Commons` action generics,
   `ParametricBuilder` deterministic traversal, `UQ` uncertainty propagation,
   and complete native execution in `Engine`.
 - Reduced Gridspace to explicit finite `Grid` sources, local product or zip
@@ -113,9 +113,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Removed PlotBuilder pages, recipes, rendering contexts, backend registration,
   and fixed legend and colorbar docks. Plotting backends are selected per call or
   inherited from Makie's active backend.
-- Removed `Commons`, `Utils`, package scalar-union aliases, coercion macros,
-  operating-temperature cable fields, `EMTWorkspace`, intermediate-storage options, file
-  logging, and the constructor proxy types `MaxFill` and `WireArray`.
+- Removed the former `Commons` and `Utils` utility modules, package scalar-union aliases,
+  coercion macros, operating-temperature cable fields, `EMTWorkspace`,
+  intermediate-storage options, file logging, and the constructor proxy types `MaxFill`
+  and `WireArray`.
 - Retired unversioned and legacy JSON loading. The error identifies commit
   `a71bdfe1ac832f27a0c88b1d02596194aac46ec7` as the last snapshot able to migrate those
   files.

@@ -10,7 +10,7 @@ $(IMPORTS)
 
 """
 module EarthAdmittance
-import ...Grammar: FormulationOptions
+import ...Commons: FormulationOptions
 
 # Export public API
 export Formula, formula_id, earth_potential_coefficient, assumptions, formulas

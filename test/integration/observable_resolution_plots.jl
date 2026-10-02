@@ -8,7 +8,7 @@
     reference = LineParameters(PhaseDomain, z, y, f; details=ComputationDetails(;coordinates=["a"],))
     result = LineParameters(PhaseDomain, 2z, 2y, f; details=ComputationDetails(;coordinates=["a"],))
     using LineCableModels.Engine: retain_gridpoint
-    using LineCableModels.Grammar: gridpoint_id
+    using LineCableModels.Commons: gridpoint_id
     reference=retain_gridpoint(reference,gridpoint_id())
     result=retain_gridpoint(result,gridpoint_id())
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)

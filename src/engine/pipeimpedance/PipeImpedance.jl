@@ -5,7 +5,7 @@ Own pipe-type formula selections and backend applicability. No analytical
 pipe-type implementation is supplied yet.
 """
 module PipeImpedance
-import ...Grammar: FormulationOptions
+import ...Commons: FormulationOptions
 import ...LineCableModels: FormulaDefinition
 
 export Formula, formula_id, formulas

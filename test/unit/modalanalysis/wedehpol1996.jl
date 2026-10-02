@@ -76,7 +76,7 @@ end
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
     import LineCableModels.Engine as E
-    import LineCableModels.Grammar as G
+    import LineCableModels.Commons as G
     # A 60-degree scalar catches the supplied routine's second application of the angle.
     for R in (Float32, Float64)
         T=Complex{R}

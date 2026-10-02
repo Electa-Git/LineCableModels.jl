@@ -5,7 +5,7 @@ Compare one reference with every result while retaining the problem and
 formulation axes. The returned ParametricResult contains per-term RMSError
 values in the same order as the input results. No formulation is evaluated.
 """
-function compare(reference::Grammar.AbstractCoreResult, result::ParametricResult,
+function compare(reference::Commons.AbstractCoreResult, result::ParametricResult,
         quantity::Union{Function,Tuple}; kwargs...)
     isempty(result.axes) && throw(ArgumentError("comparison requires retained problem/formulation axes"))
     errors=[compare(reference, value, quantity::Union{Function,Tuple}; kwargs...) for value in result]

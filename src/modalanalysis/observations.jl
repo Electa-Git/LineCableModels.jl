@@ -222,10 +222,10 @@ function observables(::Type{<:PropagationParameters})
     return (selectors...,alpha,beta,velocity,_modal_transform_requests(selectors)...)
 end
 
-Grammar.normalize_observation_selector(::typeof(alpha)) = (gamma,real)
-Grammar.normalize_observation_selector(::typeof(beta)) = (gamma,imag)
-Grammar.normalize_observation_selector(::Val{:alpha}) = Grammar.normalize_observation_selector(alpha)
-Grammar.normalize_observation_selector(::Val{:beta}) = Grammar.normalize_observation_selector(beta)
+Commons.normalize_observation_selector(::typeof(alpha)) = (gamma,real)
+Commons.normalize_observation_selector(::typeof(beta)) = (gamma,imag)
+Commons.normalize_observation_selector(::Val{:alpha}) = Commons.normalize_observation_selector(alpha)
+Commons.normalize_observation_selector(::Val{:beta}) = Commons.normalize_observation_selector(beta)
 
 function _normalize_modal_request(source,request)
     identity=request_identity(request)
@@ -246,7 +246,7 @@ function _normalize_modal_request(source,request)
     return (prefix...,indices...)
 end
 
-function Grammar.observation_requests(source::_ModalLineParameters,requests::Tuple;complete_pairs::Bool=false)
+function Commons.observation_requests(source::_ModalLineParameters,requests::Tuple;complete_pairs::Bool=false)
     selected=isempty(requests) ? (Engine.Z,Engine.Y,gamma,Zc,Yc,Tv,Ti) : requests
     primary=Tuple(filter(request -> begin
         identity=request_identity(request)
@@ -255,7 +255,7 @@ function Grammar.observation_requests(source::_ModalLineParameters,requests::Tup
     end,selected))
     derived=Tuple(filter(request -> request ∉ primary,selected))
     normalized_primary=isempty(primary) ? () :
-        invoke(Grammar.observation_requests,
+        invoke(Commons.observation_requests,
             Tuple{LineParameters,Tuple},
             source,primary;complete_pairs).retained
     normalized_derived=_modal_component_requests(source,derived;complete_pairs)
@@ -264,7 +264,7 @@ function Grammar.observation_requests(source::_ModalLineParameters,requests::Tup
     return (retained=retained,displayed=selected)
 end
 
-function Grammar.observation_requests(source::PropagationParameters,requests::Tuple;complete_pairs::Bool=false)
+function Commons.observation_requests(source::PropagationParameters,requests::Tuple;complete_pairs::Bool=false)
     selected=isempty(requests) ? (gamma,Zc,Yc,H,Tv,Ti,velocity) : requests
     normalized=_modal_component_requests(source,selected;complete_pairs)
     allunique(normalized) || throw(ArgumentError("observation requests must be distinct"))
@@ -276,7 +276,7 @@ function _modal_component_requests(source,selected;complete_pairs)
     complex_selectors=(gamma,Zc,Yc,H,Tv,Ti,_phase_Zc,_phase_Yc,_voltage_H,_current_H)
     for request in selected
         item=_normalize_modal_request(source,request)
-        identity=Grammar.normalize_observation_selector(request_identity(item))
+        identity=Commons.normalize_observation_selector(request_identity(item))
         prefix=identity isa Tuple ? identity : (identity,)
         item=(prefix...,request_indices(item)...)
         if identity in complex_selectors
@@ -352,7 +352,7 @@ function _modal_observation_quantity(source,request;unit=nothing,clip=true,atol=
             at_magnitude_origin ? :undefined_first_order_magnitude : :nonfinite_value
     end
     resolved=broadcast((value,valid)->valid ? value : missing,values,available)
-    q=Grammar.request_quantity(request)
+    q=Commons.request_quantity(request)
     native=Units.native_unit(q,basis(source))
     target=unit===nothing ? Units.display_unit(q,basis(source)) : unit
     T=typeof(float(real(nominal(zero(eltype(raw))))))
@@ -360,11 +360,11 @@ function _modal_observation_quantity(source,request;unit=nothing,clip=true,atol=
     assumptions=Engine.observation_assumptions(source,selector)
     undefined=any(x -> x===:undefined_first_order_magnitude,
         reasons isa AbstractArray ? reasons : (reasons,))
-    components=undefined ? (nominal_magnitude=Grammar.detach(abs.(nominal.(original))),
-        real=Grammar.detach(real.(original)),imaginary=Grammar.detach(imag.(original)),
+    components=undefined ? (nominal_magnitude=Commons.detach(abs.(nominal.(original))),
+        real=Commons.detach(real.(original)),imaginary=Commons.detach(imag.(original)),
         unit=Units.native_unit(selector isa Base.Fix2 ? selector.f : selector,basis(source))) : nothing
     return (request,quantity=q,family=Symbol(nameof(selector isa Base.Fix2 ? selector.f : selector)),
-        statistic=:value,values=Grammar.detach(resolved,factor),unit=target,
+        statistic=:value,values=Commons.detach(resolved,factor),unit=target,
         basis=basis(source),coordinates=_modal_coordinates(source,request,raw),
         assumptions,thresholds=nothing,available,engineering_zero=false,clipped=false,
         missing_reason=reasons,unavailable_components=components)
@@ -380,21 +380,21 @@ function Engine.observation_assumptions(
          modal=get(modal,:effective,nothing),rotate=get(modal,:rotate,nothing))
 end
 
-function Grammar.observation_quantity(source::_ModalLineParameters,request;kwargs...)
+function Commons.observation_quantity(source::_ModalLineParameters,request;kwargs...)
     identity=request_identity(request)
     selector=first(identity isa Tuple ? identity : (identity,))
     if selector in (Engine.Z,Engine.Y,Engine.R,Engine.X,Engine.L,Engine.G,Engine.B,Engine.C)
-        return invoke(Grammar.observation_quantity,
+        return invoke(Commons.observation_quantity,
             Tuple{LineParameters,Any},
             source,request;kwargs...)
     end
     return _modal_observation_quantity(source,request;kwargs...)
 end
-Grammar.observation_quantity(source::PropagationParameters,request;kwargs...) =
+Commons.observation_quantity(source::PropagationParameters,request;kwargs...) =
     _modal_observation_quantity(source,request;kwargs...)
 
-function Grammar.observation_gridpoint(source::PropagationParameters)
-    original=Grammar.observation_gridpoint(source.parameters)
+function Commons.observation_gridpoint(source::PropagationParameters)
+    original=Commons.observation_gridpoint(source.parameters)
     inputs=original.inputs===nothing ? (segment=(line_length=source.line_length,),) :
         merge(original.inputs,(segment=(line_length=source.line_length,),))
     return merge(original,(id=get(source.details.data,:gridpoint,nothing),

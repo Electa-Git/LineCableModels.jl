@@ -95,7 +95,7 @@ Use an explicit no-op method only when doing nothing is a valid stage result.
 Reject unsupported definition and source pairs through required stage dispatch
 before partial work. Introduce a mutable context only when several stages
 share buffers, resources, or changing state. CI checks the fixed
-actions listed in [Grammar invariants](developers.md) directly. Runtime
+actions listed in [Commons invariants](developers.md) directly. Runtime
 metadata that merely repeats their method definitions is not part of the
 grammar.
 
@@ -165,7 +165,7 @@ completed numerical result + completed comparisons + recorded timings
 ```
 
 The result owner implements `observation_quantity` and declares its requests.
-`Grammar.observation_gridpoint` reads the description captured in completed result
+`Commons.observation_gridpoint` reads the description captured in completed result
 storage. Completion captures actual physical inputs, formulation selections and
 controls, coordinates, and original point identity. Basic descriptions are always
 retained. Observation and presentation never reconstruct a problem from lazy axes.
@@ -184,7 +184,7 @@ reapply native-unit scaling or clipping. Comparison and timing associations
 survive selection. The atomic constructor validates coordinates, dimensions,
 units, masks, and completed-comparison records, including during archive loading.
 
-The shared `Grammar.observation_product(points, request)` operation aligns matrix
+The shared `Commons.observation_product(points, request)` operation aligns matrix
 coefficients by original indices and converts compatible units for overlays.
 Each trace retains its original frequency samples without interpolation. Z and Y
 products may retain different frequency selections.

@@ -70,7 +70,7 @@ function _bind_segment(parameters::LineParameters{T, U, D}, line_length) where {
     source_length = LineCableModels.line_length(parameters)
     source_gridpoint = get(parameters.details.data, :gridpoint, nothing)
     segment_gridpoint = isequal(segment_length, source_length) ? source_gridpoint :
-                        Grammar.gridpoint_id()
+                        Commons.gridpoint_id()
     source_record=(;
         (key=>value
     for (key, value) in pairs(parameters.details.data)
@@ -97,7 +97,7 @@ function _bind_segment(source::PropagationParameters, line_length)
     for (key, value) in pairs(source.details.data)
     if key ∉ (:timing, :comparison_unsupported))...)
     segment_details = merge(source_record,
-        (gridpoint = Grammar.gridpoint_id(),
+        (gridpoint = Commons.gridpoint_id(),
             source_gridpoint = get(source.details.data, :gridpoint, nothing),
             segment = merge(source.details.data.segment, (line_length = segment_length,))))
     return PropagationParameters(source.parameters, segment_length, ComputationDetails(segment_details))

@@ -2,7 +2,7 @@
     using CairoMakie,Measurements,Statistics
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     using LineCableModels.Engine: retain_gridpoint
-    using LineCableModels.Grammar: gridpoint_id
+    using LineCableModels.Commons: gridpoint_id
     f=collect(range(2.,8.;length=7))
     omega=reshape(2pi.*f,1,1,:)
     include(joinpath(pkgdir(LineCableModels),"test/support/scenarios.jl"))
@@ -35,7 +35,7 @@
     recorded=first(artifact.observed)
     undescribed=ObservedResult(merge(recorded.gridpoint,(uncertainty_descriptions=nothing,)),
         recorded.quantities,recorded.errors,recorded.timings)
-    @test_throws ArgumentError LineCableModels.Grammar.observation_labels([undescribed];request=R)
+    @test_throws ArgumentError LineCableModels.Commons.observation_labels([undescribed];request=R)
     curves=filter(p -> p isa Makie.Lines,axis.scene.plots)
     bars=filter(p -> p isa Makie.Errorbars,axis.scene.plots)
     @test length(curves)==length(bars)==2

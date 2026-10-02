@@ -22,7 +22,7 @@
                                                            design, eltype(line_problem))
                                                        for design in line_problem.system.designs]
     workspaces=map((false, true)) do trace
-        execution=LineCableModels.Grammar.computation_options(LineCableModelsCoaxial, ComputationOptions((;
+        execution=LineCableModels.Commons.computation_options(LineCableModelsCoaxial, ComputationOptions((;
             trace)))
         EN.LineParametersWorkspace(line_problem, formulation, execution, blueprints)
     end

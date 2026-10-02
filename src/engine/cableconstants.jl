@@ -56,7 +56,7 @@ struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
             "cable constants must be finite"
         ))
         retained=haskey(details.data,:gridpoint) ? details :
-            completion_details(merge(details.data,(gridpoint=Grammar.gridpoint_id(),)))
+            completion_details(merge(details.data,(gridpoint=Commons.gridpoint_id(),)))
         return new{T, typeof(retained)}(cores, R, L, C, G, frequency, retained)
     end
 end
@@ -478,7 +478,7 @@ function _solve!(
         workspace::CableConstantsWorkspace{T},
         problem::CableConstantsProblem{T},
         formulation::CableConstantsFormulation;
-        physical_inputs=completed_inputs(problem), gridpoint=Grammar.gridpoint_id()
+        physical_inputs=completed_inputs(problem), gridpoint=Commons.gridpoint_id()
 ) where {T <: Real}
     buffers = workspace.buffers
     ω = 2 * (one(T) * π) * problem.frequency
@@ -631,11 +631,11 @@ function compute(
                       LocalCableData(blueprints[index]))
     end
     physical_inputs = completed_inputs(problem)
-    source_id = Grammar.gridpoint_id().source_id
+    source_id = Commons.gridpoint_id().source_id
     return map(formulations, cables, eachindex(formulations)) do formulation, cable, index
         workspace = CableConstantsWorkspace(problem, formulation, cable)
         _solve!(workspace, problem, formulation; physical_inputs,
-            gridpoint=Grammar.gridpoint_id(;source_id,formulation_index=index))
+            gridpoint=Commons.gridpoint_id(;source_id,formulation_index=index))
     end
 end
 

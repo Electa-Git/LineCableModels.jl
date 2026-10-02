@@ -77,7 +77,7 @@ end
 Base.NamedTuple(value::Formula) = (identifier=formula_id(value),parameters=(;),options=(;))
 
 # Identity-only dispatch also describes retained selections without constructors.
-import ...Grammar: formulation_options
+import ...Commons: formulation_options
 description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
 
 """Iterate the independently selectable child slots admitted by this formula family."""

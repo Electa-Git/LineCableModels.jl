@@ -1,11 +1,11 @@
-@testitem "Grammar / owned records / payload identity and value semantics" tags=[:unit] begin
+@testitem "Commons / owned records / payload identity and value semantics" tags=[:unit] begin
     payload = (rtol=1e-8, nested=(enabled=true,), values=[1.0, 2.0], data=:field)
     @test (@inferred FormulationOptions(payload)).data === payload
     @test (@inferred ComputationOptions(payload)).data === payload
     @test (@inferred ComputationDetails(payload)).data === payload
     @test FormulationOptions !== ComputationOptions !== ComputationDetails
-    @test LineCableModels.FormulaDefinition === LineCableModels.Grammar.FormulaDefinition
-    @test LineCableModels.FormulaMethod === LineCableModels.Grammar.FormulaMethod
+    @test LineCableModels.FormulaDefinition === LineCableModels.Commons.FormulaDefinition
+    @test LineCableModels.FormulaMethod === LineCableModels.Commons.FormulaMethod
 
     for Record in (FormulationOptions, ComputationOptions, ComputationDetails)
         value = Record(payload)
@@ -47,8 +47,8 @@
     @test retained.data.values[1] == 7.0
 end
 
-@testitem "Grammar / owned records / owner-specific option normalization" tags=[:unit] begin
-    using LineCableModels.Grammar: formulation_options, computation_options
+@testitem "Commons / owned records / owner-specific option normalization" tags=[:unit] begin
+    using LineCableModels.Commons: formulation_options, computation_options
     resolved = @inferred formulation_options(LineParametersFormulation, FormulationOptions())
     @test resolved isa FormulationOptions
     @test resolved.data == (reduce_bundle=true, kron_reduction=true, ideal_transposition=true)
@@ -66,7 +66,7 @@ end
     @test_throws TypeError formula(:default; options=ComputationDetails())
 end
 
-@testitem "Grammar / owned records / explicit transport and passive persistence" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Commons / owned records / explicit transport and passive persistence" tags=[:unit] setup=[TestFixtures] begin
     using Serialization
     const IO = LineCableModels.ImportExport
     payload = (resolution=(enabled=true,), values=[1.0, 2.0])

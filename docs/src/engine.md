@@ -875,7 +875,7 @@ belong to the detached records. No raw result, lazy builder, or parent collectio
 is retained. Physical inputs and actual formulation descriptions are captured
 when the calculation completes, independently of optional tracing.
 
-`Grammar.observation_requests` owns request normalization. Primary line results
+`Commons.observation_requests` owns request normalization. Primary line results
 retain one complete representation per available family. The series choices are
 `R/X`, magnitude and angle of Z, or R/L. The shunt choices are G/B, magnitude
 and angle of Y, or G/C. An atomic request for R alone
@@ -883,8 +883,8 @@ fails. Raw plotting and table conveniences complete the pair through that same
 operation and display the requested selection. Observed-input methods only select
 retained quantities. Frequency is a coordinate of each product.
 
-`Grammar.observation_quantity` owns acquisition, unit conversion, and resolution.
-`Grammar.observation_groups` establishes display groups from the original
+`Commons.observation_quantity` owns acquisition, unit conversion, and resolution.
+`Commons.observation_groups` establishes display groups from the original
 physical identity, relevant formulation controls, statistical meaning, output
 coordinates, and uncertainty dependencies. Both reporting and plotting consume
 that decision. All individual observations and quantity tables remain available.

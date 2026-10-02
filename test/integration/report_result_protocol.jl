@@ -1,6 +1,6 @@
 @testitem "ObservedResult / independent primary owner reuses tables and plotting" tags=[:integration] begin
     using CairoMakie, DataFrames
-    using LineCableModels.Grammar: observation_quantity
+    using LineCableModels.Commons: observation_quantity
     const reads=Ref(0)
     struct IndependentResult
         values::Array{Float64,3}
@@ -8,7 +8,7 @@
     end
     LineCableModels.basis(::IndependentResult)=:pul
     LineCableModels.observables(::Type{IndependentResult})=(R,)
-    function LineCableModels.Grammar.observation_quantity(result::IndependentResult,request;
+    function LineCableModels.Commons.observation_quantity(result::IndependentResult,request;
             unit=nothing,clip=true,atol=nothing,frequencies=nothing)
         reads[]+=1
         n,m,k=size(result.values)

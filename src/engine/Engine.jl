@@ -57,7 +57,7 @@ import ..LineCableModels: verbosity, VerbosityLogger
 #! explicit-imports: off
 import ..LineCableModels: description
 #! explicit-imports: on
-import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
+import ..Commons: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, AbstractCoreResult,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
@@ -68,7 +68,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   request_identity, request_indices
 
 using ..Units
-import ..Grammar
+import ..Commons
 using ..Materials
 using ..Materials: TemperatureDependent
 import ..Earth
