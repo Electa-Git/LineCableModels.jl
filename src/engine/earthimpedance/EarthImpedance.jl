@@ -31,6 +31,7 @@ import ...LineCableModels: FormulaDefinition, FormulaMethod
 import ..Engine: description, conductivity, media, special_besselk
 import ..Engine: formulation_options
 import ..Engine: earth_spectral_term, earth_direct
+using ...Commons: vacuum_permeability
 #! explicit-imports: on
 
 public Functor, axial_field_coefficient

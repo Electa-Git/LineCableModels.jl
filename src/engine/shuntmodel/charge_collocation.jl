@@ -641,7 +641,7 @@ function _shunt_values(domain::InternalShuntDomain{T}, methods) where {T}
         law = material.kind === :semicon ? methods.semicon_admittance :
               methods.insulation_admittance
         kappa = law(material, reference_frequency, material.T0)
-        imag(kappa)/(2pi*reference_frequency*(one(T)*8.8541878128e-12))
+        imag(kappa)/(2pi*reference_frequency*vacuum_permittivity(T))
     end
     values = T[domain.a, domain.b, epsilon(domain.material)]
     for layers in (domain.left, domain.right), layer in layers
@@ -844,8 +844,8 @@ function _shunt_capacitance(g, ::Val{retain}; level = DEFAULT_RESOLUTION,
     scaled_coefficients = factor\rhs
     coefficients = scaled_coefficients ./ scales
     charge = _shunt_charge_map(g, sources, faces, level)
-    C = (2pi*8.8541878128e-12) .* (charge*coefficients)
-    C[1, 1] += 2pi*8.8541878128e-12/g.Rtotal
+    C = (2pi*vacuum_permittivity(Float64)) .* (charge*coefficients)
+    C[1, 1] += 2pi*vacuum_permittivity(Float64)/g.Rtotal
     all(isfinite, C) ||
         throw(BoundarySolveError(:nonfinite, (;), "nonfinite terminal capacitance"))
     audit_result = audit ?
@@ -978,9 +978,9 @@ function _shunt_tangent(values, direction, domain, state, step)
     delta ./= state.scales
     charge_delta = (_shunt_charge_map(plus, sp, dp.faces, state.level) -
                     _shunt_charge_map(minus, sm, dm.faces, state.level)) ./ (2step)
-    result = (2pi*8.8541878128e-12) .*
+    result = (2pi*vacuum_permittivity(Float64)) .*
              (charge_delta*state.coefficients + state.charge*delta)
-    result[1, 1] += 2pi*8.8541878128e-12*(inv(plus.Rtotal)-inv(minus.Rtotal))/(2step)
+    result[1, 1] += 2pi*vacuum_permittivity(Float64)*(inv(plus.Rtotal)-inv(minus.Rtotal))/(2step)
     return result
 end
 

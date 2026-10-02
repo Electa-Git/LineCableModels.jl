@@ -28,6 +28,7 @@ import ...Commons: AbstractFormulation
 import ...LineCableModels: FormulaMethod, constitutive, formula_id, validate
 #! explicit-imports: off
 import ...LineCableModels: description
+using ...Commons: vacuum_permittivity
 #! explicit-imports: on
 
 include("interface.jl")

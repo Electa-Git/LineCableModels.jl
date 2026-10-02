@@ -19,6 +19,7 @@ using DocStringExtensions: IMPORTS
 import ..Engine: ShuntModelFormulation
 import ...LineCableModels: FormulaDefinition, formula_id, description
 import ...Commons: formulation_options
+using ...Commons: vacuum_permittivity
 import ...Materials: Material
 import ...DataModel: CableDesign
 import ...DataModel

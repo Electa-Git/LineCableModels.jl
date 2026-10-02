@@ -503,9 +503,8 @@ function materials!(
 end
 
 @inline function _media!(destination, column::Int, air, earth)
-    unit = one(earth.rho)
-    epsilon0 = unit * 88541878128 * (unit * 10)^(-22)
-    mu0 = unit * 4 * (unit * π) * (unit * 10)^(-7)
+    epsilon0 = vacuum_permittivity(typeof(earth.rho))
+    mu0 = vacuum_permeability(typeof(earth.rho))
     destination.rho[1, column] = air.rho
     destination.rho[2, column] = earth.rho
     destination.epsilon[1, column] = epsilon0 * air.eps_r
@@ -550,9 +549,8 @@ end
 # Reuse layerwise FrequencyDependent values already evaluated during input construction.
 function layers!(destination, evaluated::NamedTuple,
         model::EarthModel, frequency::Integer, interactions)
-    unit=one(eltype(destination.rho))
-    epsilon0=unit*88541878128*(unit*10)^(-22)
-    mu0=unit*4*(unit*π)*(unit*10)^(-7)
+    epsilon0=vacuum_permittivity(eltype(destination.rho))
+    mu0=vacuum_permeability(eltype(destination.rho))
     for row in eachindex(model.layers)
         destination.thickness[row]=model.layers[row].thickness
         for interaction in interactions

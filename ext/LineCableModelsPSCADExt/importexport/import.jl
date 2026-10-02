@@ -1,4 +1,3 @@
-const _PSCAD_EPSILON_0 = 8.8541878128e-12
 
 const _PSCAD_PART_FIELDS = (
     (
@@ -174,7 +173,7 @@ function _pscad_dielectric(values, fields, frequency; eps_r = _pscad_number(valu
     0 <= loss <= 10 || throw(DomainError(
         loss, "PSCAD loss tangent must be between zero and ten"
     ))
-    conductivity = 2π * frequency * _PSCAD_EPSILON_0 * eps_r * loss
+    conductivity = 2π * frequency * vacuum_permittivity(typeof(eps_r)) * eps_r * loss
     rho = iszero(conductivity) ? Inf : inv(conductivity)
     return _pscad_material(:insulator, rho, eps_r, mu_r)
 end
@@ -312,7 +311,7 @@ function _pscad_simplified_eps(values, fields, r_in, r_ex)
     ))
     mode == 1 && return _pscad_number(values, fields.eps)
     capacitance = _pscad_number(values, fields.capacitance) * 1e-9
-    return capacitance * log(r_ex / r_in) / (2π * _PSCAD_EPSILON_0)
+    return capacitance * log(r_ex / r_in) / (2π * vacuum_permittivity(typeof(capacitance)))
 end
 
 function _pscad_simplified_design(values, cable_number::Int, frequency)

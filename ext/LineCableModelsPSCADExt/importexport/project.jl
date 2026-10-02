@@ -310,7 +310,7 @@ end
 function _pscad_components(blueprint::Engine.CableBlueprint, frequency, formulation, temperature)
     T = eltype(blueprint)
     omega = 2 * (one(T) * pi) * convert(T, frequency)
-    epsilon0 = one(T) * 88541878128 * (one(T) * 10)^(-22)
+    epsilon0 = vacuum_permittivity(T)
     return map(eachindex(blueprint.conductors)) do index
         conductor = blueprint.conductors[index]
         material = conductor.material

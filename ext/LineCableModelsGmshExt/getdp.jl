@@ -30,7 +30,9 @@ function _write_problem_snapshot(path::String, problem::LineParametersProblem)
     return path
 end
 
-function _write_model_data(path::String, model::FEMResolvedModel)
+function _write_model_data(path::String, model::FEMResolvedModel{T}) where {T}
+    ε0 = vacuum_permittivity(T)
+    μ0 = vacuum_permeability(T)
     air = model.problem.earth_props.layers[1]
     earth = model.earth_materials
     materials = model.material_plans
@@ -65,7 +67,7 @@ function _write_model_data(path::String, model::FEMResolvedModel)
                         for material in materials]),
             ";")
         println(io, "MaterialMu() = ",
-            _pro_array([material.mu_r * 4π * 1e-7 for material in materials]), ";")
+            _pro_array([material.mu_r * μ0 for material in materials]), ";")
         for (index, material) in pairs(materials)
             println(io, "MaterialSigma_", index, "() = ",
                 _pro_array(real.(material.admittivity)), ";")
@@ -75,11 +77,10 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         end
         println(io, "EarthSigma() = ", _pro_array([inv(state.rho) for state in earth]), ";")
         println(
-            io, "EarthEpsilon() = ", _pro_array([state.eps_r * 8.8541878128e-12
-                                                 for state in earth]), ";")
-        println(io, "EarthMu() = ", _pro_array([state.mu_r * 4π * 1e-7 for state in earth]), ";")
-        println(io, "AirEpsilon = ", _pro_number(air.eps_r * 8.8541878128e-12), ";")
-        println(io, "AirMu = ", _pro_number(air.mu_r * 4π * 1e-7), ";")
+            io, "EarthEpsilon() = ", _pro_array([state.eps_r * ε0 for state in earth]), ";")
+        println(io, "EarthMu() = ", _pro_array([state.mu_r * μ0 for state in earth]), ";")
+        println(io, "AirEpsilon = ", _pro_number(air.eps_r * ε0), ";")
+        println(io, "AirMu = ", _pro_number(air.mu_r * μ0), ";")
         println(io, "DomainRadius = ", _pro_number(model.domain_radius), ";")
         println(io, "ShellOuterRadius = ", _pro_number(model.shell_outer_radius), ";")
         println(io, "Xcenter = ", _pro_number(model.center[1]), ";")

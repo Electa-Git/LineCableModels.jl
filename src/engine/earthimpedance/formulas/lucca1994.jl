@@ -59,7 +59,7 @@ function earth_impedance(
         functor, pair, workspace
 )
     s = functor.state.jω
-    μ0 = 4 * (one(real(s)) * π) * (one(real(s)) * 10)^(-7)
+    μ0 = vacuum_permeability(typeof(real(s)))
     he = inv(sqrt(s * μ0 * functor.state.sigma[2]))
     vertical = abs(pair.heights[1]) + abs(pair.heights[2])
     x = pair.separation

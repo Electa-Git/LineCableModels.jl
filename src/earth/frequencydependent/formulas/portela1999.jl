@@ -43,7 +43,7 @@ function earth_material(
     relative_permittivity = fitted_scale *
                             tan((one(frequency) * π) * exponent / 2) *
                             angular_frequency^(exponent - one(exponent)) /
-                            vacuum_permittivity(frequency)
+                            vacuum_permittivity(typeof(frequency))
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 

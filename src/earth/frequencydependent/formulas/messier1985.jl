@@ -36,7 +36,7 @@ function earth_material(
 ) where {T <: Real}
     conductivity_reference = inv(material.rho)
     epsilon_infinity = convert(T, values.epsilon_infinity)
-    epsilon0 = vacuum_permittivity(frequency)
+    epsilon0 = vacuum_permittivity(typeof(frequency))
     pi_typed = one(frequency) * π
     relative_permittivity = epsilon_infinity + sqrt(
         conductivity_reference * epsilon_infinity / (pi_typed * frequency * epsilon0)

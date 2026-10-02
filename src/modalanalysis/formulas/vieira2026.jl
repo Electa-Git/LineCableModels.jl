@@ -289,8 +289,8 @@ function decompose!(::Val{:vieira2026}, workspace::ModalAnalysisWorkspace,
     T = eltype(workspace.Ti)
     R = typeof(real(zero(T)))
     unit = one(R)
-    epsilon0 = unit * 88541878128 * (unit * 10)^(-22)
-    mu0 = unit * 4 * (unit * π) * (unit * 10)^(-7)
+    epsilon0 = vacuum_permittivity(R)
+    mu0 = vacuum_permeability(R)
     for frequency in 1:nf
         copyto!(work.Zslice, @view(input.Z[:, :, frequency]))
         copyto!(work.Yslice, @view(input.Y[:, :, frequency]))

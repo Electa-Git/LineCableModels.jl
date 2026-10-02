@@ -115,7 +115,7 @@ function surface_impedance_state(
     isfinite(rho_c) && rho_c > zero(T) && isfinite(mur_c) && mur_c > zero(T) ||
         throw(DomainError((rho_c, mur_c), "conductor resistivity and permeability must be positive and finite"))
     isfinite(jω) && !iszero(jω) || throw(DomainError(jω, "jω must be finite and nonzero"))
-    mu_c = vacuum_permeability(r_in) * mur_c
+    mu_c = vacuum_permeability(typeof(r_in)) * mur_c
     sigma_c = conductivity(rho_c)
     m = sqrt(jω * mu_c * sigma_c)
     w_ex = m * r_ex

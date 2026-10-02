@@ -67,7 +67,7 @@ function earth_impedance(
         functor, pair, workspace
 )
     s = functor.state.jω
-    μ0 = 4 * (one(real(s)) * π) * (one(real(s)) * 10)^(-7)
+    μ0 = vacuum_permeability(typeof(real(s)))
     he = inv(sqrt(s * μ0 * functor.state.sigma[2]))
     return s * μ0 / (2 * (one(real(s)) * π)) * log(2 * (pair.heights[1] + he) / pair.radius)
 end
@@ -77,7 +77,7 @@ function earth_impedance(
         functor, pair, workspace
 )
     s = functor.state.jω
-    μ0 = 4 * (one(real(s)) * π) * (one(real(s)) * 10)^(-7)
+    μ0 = vacuum_permeability(typeof(real(s)))
     he = inv(sqrt(s * μ0 * functor.state.sigma[2]))
     hi, hj = pair.heights
     x = pair.separation
