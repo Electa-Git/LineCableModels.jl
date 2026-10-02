@@ -26,7 +26,7 @@ end
 
 function export_data(
         ::Val{:xlsx},
-        line_parameters::Union{LineParameters,Grammar.ObservedResult,AbstractVector{<:Grammar.ObservedResult}};
+        line_parameters::Union{LineParameters,Commons.ObservedResult,AbstractVector{<:Commons.ObservedResult}};
         file_name::Union{String, Nothing} = nothing,
         cable_system::Union{LineCableSystem, Nothing} = nothing,
         overwrite::Bool = false

@@ -16,10 +16,10 @@ import LineCableModels
 import LineCableModels: compute
 import LineCableModels.DataModel
 import LineCableModels.Earth
-import LineCableModels.Grammar
+import LineCableModels.Commons
 import LineCableModels.Engine
 import LineCableModels.ImportExport
-using LineCableModels.Grammar: computation_options, ComputationOptions, ComputationDetails
+using LineCableModels.Commons: computation_options, ComputationOptions, ComputationDetails
 using LineCableModels: LineCableModelsFEM, LineCableModelsFEMError,
                        LineParametersProblem, LineParameters,
                        SeriesImpedance, ShuntAdmittance, PhaseDomain

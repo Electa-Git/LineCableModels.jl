@@ -153,7 +153,7 @@ end
 
 @testitem "ReportBuilder / source-first quantity tables" tags=[:unit] setup=[TestFixtures] begin
     using DataFrames, Statistics, Measurements
-    using LineCableModels.Grammar: observation_product, observation_gridpoint, gridpoint_id
+    using LineCableModels.Commons: observation_product, observation_gridpoint, gridpoint_id
     using LineCableModels.Engine: retain_gridpoint
     RB=LineCableModels.ReportBuilder
     @test LineCableModels.report===RB.report
@@ -240,7 +240,7 @@ end
 
 @testitem "ReportBuilder / source-first retained units and illustration" tags=[:unit] setup=[TestFixtures] begin
     using DataFrames
-    using LineCableModels.Grammar: observation_product
+    using LineCableModels.Commons: observation_product
     line=TestFixtures.two_conductor_results()
     quantities=(R, L, G, C)
     unit_options=(length_unit = :base, quantity_units = :base, frequency_unit = :kilo)
@@ -313,7 +313,7 @@ end
 
 @testitem "ReportBuilder / direct reported quantity access" tags=[:unit] setup=[TestFixtures] begin
     using DataFrames, Statistics, Measurements
-    using LineCableModels.Grammar: gridpoint_id
+    using LineCableModels.Commons: gridpoint_id
     const RB=LineCableModels.ReportBuilder
     constants=CableConstants(1e-4,2e-7,3e-10,4e-12;frequency=50)
     r=report(constants;values=(R,L,G,C),length_unit=:kilo,

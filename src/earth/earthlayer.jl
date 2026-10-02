@@ -118,6 +118,6 @@ function EarthMaterial(layer::EarthLayer{T}) where {T <: Real}
     EarthMaterial{T}(layer.rho, layer.eps_r, layer.mu_r)
 end
 
-Grammar.input_fields(::Type{<:EarthLayer}) = (rho=(name="electrical resistivity",unit="Ω·m"),
+Commons.input_fields(::Type{<:EarthLayer}) = (rho=(name="electrical resistivity",unit="Ω·m"),
     eps_r=(name="relative permittivity",unit=""),mu_r=(name="relative permeability",unit=""),
     thickness=(name="layer thickness",unit="m"))

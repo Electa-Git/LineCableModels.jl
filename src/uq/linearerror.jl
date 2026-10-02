@@ -11,7 +11,7 @@ function compute(problem::ParametricProblem, formulation::LinearError)
             @info "Linear error computation started" _group=:progress problems=length(problem.space)
         traversed = traverse(problem, formulation)
         values=map(traversed.values) do value
-            id=get(Grammar.observation_gridpoint(value), :id, nothing)
+            id=get(Commons.observation_gridpoint(value), :id, nothing)
             Engine.retain_gridpoint(value, id;
                 fields = (
                     uncertainty = (

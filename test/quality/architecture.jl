@@ -12,7 +12,7 @@
 
     # A module may reference only earlier modules, its ancestors and its
     # descendants. The root module and package extensions are exempt.
-    const ORDER = (:Units, :Grammar, :TextDisplay, :InputValidation, :PlotBuilder,
+    const ORDER = (:Units, :Commons, :TextDisplay, :InputValidation, :PlotBuilder,
         :Materials, :Earth, :DataModel, :Engine, :ModalAnalysis, :ParametricBuilder,
         :UQ, :ReportBuilder, :ImportExport, :PSCAD)
     const EXTENSIONS = (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
@@ -819,5 +819,51 @@ end
         # The rendered baseline parses back to the inventory it was printed from.
         @test A.TOML.parse(A.render(planted)) == planted
         @test A.TOML.parse(A.render(clean)) == clean
+    end
+end
+
+@testitem "Quality / architecture / baseline ratchet follows git renames" tags=[:quality] begin
+    ratchet = Module(:BaselineRatchet)
+    Base.include(ratchet, joinpath(pkgdir(LineCableModels), "test", "tools", "baseline_ratchet.jl"))
+    mktempdir() do repository
+        git(arguments...) = run(pipeline(Base.invokelatest(ratchet.git, repository,
+            "-c", "user.name=Probe", "-c", "user.email=probe@example.invalid",
+            arguments...); stdout = devnull, stderr = devnull))
+        definitions = join(("f$i(x) = x + $i" for i in 1:20), "\n")
+        function write_file(path, text)
+            mkpath(dirname(joinpath(repository, path)))
+            write(joinpath(repository, path), text)
+        end
+        baseline(rows...) = write_file(ratchet.BASELINE,
+            "[ownership]\n" * join(("\"$key\" = $n" for (key, n) in rows), "\n") * "\n")
+        grown() = Base.invokelatest(ratchet.grown, repository, "HEAD")
+
+        git("init", "-q")
+        write_file("src/early/Early.jl", "module Early\n$definitions\nend\n")
+        write_file("src/early/part.jl", definitions * "\n")
+        baseline("Early | Early.f1 | src/early/part.jl" => 2,
+            "Late | Early.f2 | src/late/Late.jl" => 1)
+        git("add", "-A")
+        git("commit", "-q", "--no-verify", "--no-gpg-sign", "-m", "start")
+        # The folder and the entry file move, and the module is renamed with them.
+        git("mv", "src/early", "src/first")
+        git("mv", "src/first/Early.jl", "src/first/First.jl")
+        write_file("src/first/First.jl", "module First\n$definitions\nend\n")
+
+        baseline("First | First.f1 | src/first/part.jl" => 2,
+            "Late | First.f2 | src/late/Late.jl" => 1)
+        @test grown() == String[]
+        baseline("First | First.f1 | src/first/part.jl" => 3)
+        @test grown() == ["ownership | First | First.f1 | src/first/part.jl: 3 (2 at HEAD)"]
+        # Keys renamed without a matching git rename are added keys.
+        baseline("First | First.f1 | src/other/part.jl" => 2,
+            "Other | First.f2 | src/late/Late.jl" => 1)
+        @test grown() == [
+            "ownership | First | First.f1 | src/other/part.jl: 2 (absent at HEAD)",
+            "ownership | Other | First.f2 | src/late/Late.jl: 1 (absent at HEAD)"]
+        # A renamed file that is not a module entry file renames no module.
+        git("mv", "src/first/part.jl", "src/first/Piece.jl")
+        baseline("Piece | First.f1 | src/first/Piece.jl" => 2)
+        @test grown() == ["ownership | Piece | First.f1 | src/first/Piece.jl: 2 (absent at HEAD)"]
     end
 end

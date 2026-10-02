@@ -440,7 +440,7 @@ _comparison_cutoffs(value::AbstractVector,indices) = value[indices]
 _comparison_cutoffs(value::NamedTuple,indices) = map(item -> _comparison_cutoffs(item,indices),value)
 _comparison_cutoffs(::Nothing,indices) = throw(ArgumentError("comparison requires explicit applicable operand cutoffs"))
 
-_comparison_primary(source::Grammar.AbstractResultSpace,index) = source[index]
+_comparison_primary(source::Commons.AbstractResultSpace,index) = source[index]
 _comparison_primary(source::AbstractVector,index) = source[index]
 _comparison_primary(source,index) = index==1 ? source : throw(BoundsError(source,index))
 
@@ -469,7 +469,7 @@ function compare(reference,result,requests::AbstractVector;
     allunique(requests) && allunique(bands) && allunique(normalizations) ||
         throw(ArgumentError("comparison selections must be distinct"))
     if reference isa AbstractCoreResult && pairing!==nothing
-        count=result isa Union{AbstractVector,Grammar.AbstractResultSpace} ? length(result) : 1
+        count=result isa Union{AbstractVector,Commons.AbstractResultSpace} ? length(result) : 1
         all(pair -> first(pair)==1,pairing) && sort(last.(collect(pairing)))==collect(1:count) ||
             throw(ArgumentError("a scalar reference requires reference index 1 for every result"))
         pairing=nothing
@@ -482,8 +482,8 @@ function compare(reference,result,requests::AbstractVector;
             reference_index=pairing===nothing ? 1 : first(only(filter(pair -> last(pair)==result_index,pairing)))
             left=_comparison_primary(reference,reference_index)
             right=_comparison_primary(result,result_index)
-            reference_id=Grammar.observation_gridpoint(left).id
-            result_id=Grammar.observation_gridpoint(right).id
+            reference_id=Commons.observation_gridpoint(left).id
+            result_id=Commons.observation_gridpoint(right).id
             reference_id===nothing && throw(ArgumentError("the reference needs an explicit retained gridpoint identity"))
             result_id===nothing && throw(ArgumentError("the result needs an explicit retained gridpoint identity"))
             absolute=observe(error,absolute_error)
@@ -492,9 +492,9 @@ function compare(reference,result,requests::AbstractVector;
             identity=request_identity(request)
             statistic=identity isa Tuple && first(identity)!==Z && first(identity)!==Y ?
                 (last(identity) isa Base.Fix2 ? Symbol("quantile_",last(identity).x) : nameof(last(identity))) : :value
-            unit=Units.native_unit(Grammar.request_quantity(request),basis(right))
-            push!(completed,Grammar.detach((result_id,reference_id,request,
-                quantity=Grammar.request_quantity(request),statistic,band,normalization,
+            unit=Units.native_unit(Commons.request_quantity(request),basis(right))
+            push!(completed,Commons.detach((result_id,reference_id,request,
+                quantity=Commons.request_quantity(request),statistic,band,normalization,
                 absolute,relative,absolute_unit=unit,relative_unit=Units.units(:base,:dimensionless),
                 coordinates=get(details(right).data,:coordinates,string.(1:size(absolute,1))),
                 assumptions=observation_assumptions(right,identity isa Function ? identity : identity[2]),

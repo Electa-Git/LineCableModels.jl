@@ -34,7 +34,7 @@ end
     segment=PropagationParameters(modal;line_length=1.0)
     voltage_H=Base.Fix2(H,(domain=PhaseDomain,field=:voltage))
     observed=ObservedResult(segment,((voltage_H,abs,1,2,:),);complete_pairs=true)
-    product=LineCableModels.Grammar.observation_product(observed,(voltage_H,abs,1,2,:))
+    product=LineCableModels.Commons.observation_product(observed,(voltage_H,abs,1,2,:))
     @test product.values[1]===missing
     @test product.available[1]==false
     @test product.missing_reason[1]===:undefined_first_order_magnitude

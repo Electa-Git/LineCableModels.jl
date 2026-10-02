@@ -9,8 +9,8 @@ $(IMPORTS)
 
 """
 module InsulationImpedance
-import ...Grammar: FormulationOptions
-import ...Grammar: formulation_options
+import ...Commons: FormulationOptions
+import ...Commons: formulation_options
 
 # Export public API
 export Formula, formula_id, formulas

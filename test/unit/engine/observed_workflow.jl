@@ -1,7 +1,7 @@
 @testitem "ObservedResult / primary representations and quantity tables" tags=[:unit] begin
     using DataFrames, LinearAlgebra, Measurements
     using LineCableModels.ReportBuilder: tabulate
-    using LineCableModels.Grammar: observation_requests
+    using LineCableModels.Commons: observation_requests
     line=LineParameters(reshape(ComplexF64.(1:12),2,2,3),fill(3.0+4im,2,2,3),[0.,1.,2.])
     observed=ObservedResult(line)
     @test_throws ArgumentError ObservedResult(line,(R,))
@@ -39,7 +39,7 @@ end
 
 @testitem "ObservedResult / benchmark association survives filtering" tags=[:unit] begin
     using LineCableModels.Engine: compare, retain_gridpoint
-    using LineCableModels.Grammar: gridpoint_id, observation_groups
+    using LineCableModels.Commons: gridpoint_id, observation_groups
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     base=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.])
     reference=retain_gridpoint(base,gridpoint_id())
@@ -47,7 +47,7 @@ end
     results=[retain_gridpoint(LineParameters(base.Z.*factor,base.Y,[1.,2.,3.]),
         gridpoint_id(source_id=source,problem_index=index)) for (index,factor) in enumerate((1.1,1.2))]
     errors=compare(reference,results,[R,L];bands=(:all,))
-    timings=[(result_id=LineCableModels.Grammar.observation_gridpoint(result).id,seconds=index)
+    timings=[(result_id=LineCableModels.Commons.observation_gridpoint(result).id,seconds=index)
         for (index,result) in enumerate(results)]
     observed=observables(reverse(results);comparisons=errors,timings)
     @test length(observed)==2
@@ -81,7 +81,7 @@ end
 @testitem "ObservedResult / UQ products and archive-wide dependencies" tags=[:unit] begin
     using Statistics, Measurements
     using LineCableModels.ReportBuilder: tabulate
-    using LineCableModels.Grammar: gridpoint_id
+    using LineCableModels.Commons: gridpoint_id
     f=[1.,2.,3.]
     base=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),f)
     trials=(R=reshape(collect(1.:60.),2,2,3,5),L=fill(0.001,2,2,3,5),C=fill(1e-9,2,2,3,5),G=fill(1e-6,2,2,3,5))

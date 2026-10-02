@@ -97,9 +97,9 @@ function _line_observation_requests(source::_ObservedLineSource,requests::Tuple;
     end
     return (retained=Tuple(retained),displayed=Tuple(expanded))
 end
-Grammar.observation_requests(source::LineParameters,requests::Tuple;complete_pairs::Bool=false) =
+Commons.observation_requests(source::LineParameters,requests::Tuple;complete_pairs::Bool=false) =
     _line_observation_requests(source,requests;complete_pairs)
-Grammar.observation_requests(source::Union{SeriesImpedance,ShuntAdmittance},requests::Tuple;complete_pairs::Bool=false) =
+Commons.observation_requests(source::Union{SeriesImpedance,ShuntAdmittance},requests::Tuple;complete_pairs::Bool=false) =
     _line_observation_requests(source,requests;complete_pairs)
 
 """
@@ -171,7 +171,7 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
             selector in (L,C) ? :unavailable_proxy : :nonfinite_value) :
             clip && phase && unresolved ? :engineering_zero_phase : nothing
     end
-    q=Grammar.request_quantity(request)
+    q=Commons.request_quantity(request)
     native=Units.native_unit(q,basis(source))
     target=unit===nothing ? Units.display_unit(q,basis(source)) : unit
     T=typeof(float(real(nominal(zero(Base.nonmissingtype(eltype(original)))))))
@@ -182,27 +182,27 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
         reasons isa AbstractArray ? reasons : (reasons,))
     # Components are retained only for the undefined first-order polar value.
     # They are scientific values, never a reference back to the source tensor.
-    components=undefined ? (nominal_magnitude=Grammar.detach(abs.(nominal.(original))),real=Grammar.detach(real.(original)),imaginary=Grammar.detach(imag.(original)),
+    components=undefined ? (nominal_magnitude=Commons.detach(abs.(nominal.(original))),real=Commons.detach(real.(original)),imaginary=Commons.detach(imag.(original)),
         unit=Units.native_unit(selector,basis(source))) : nothing
     return (request,quantity=q,family=Symbol(nameof(_primary_family(selector))),statistic=:value,
-        values=Grammar.detach(resolved isa AbstractArray && ndims(resolved)==0 ? only(resolved) : resolved,factor),unit=target,basis=basis(source),coordinates,
+        values=Commons.detach(resolved isa AbstractArray && ndims(resolved)==0 ? only(resolved) : resolved,factor),unit=target,basis=basis(source),coordinates,
         assumptions=observation_assumptions(source,selector),
-        thresholds=(kind=resolution.kind,values=Grammar.detach(resolution.atol,threshold_factor),
+        thresholds=(kind=resolution.kind,values=Commons.detach(resolution.atol,threshold_factor),
             unit=phase ? threshold_unit : target),available,engineering_zero=mask,clipped=clip,
         missing_reason=reasons,unavailable_components=components)
 end
-Grammar.observation_quantity(source::LineParameters,request;kwargs...) =
+Commons.observation_quantity(source::LineParameters,request;kwargs...) =
     _line_observation_quantity(source,request;kwargs...)
-Grammar.observation_quantity(source::Union{SeriesImpedance,ShuntAdmittance},request;kwargs...) =
+Commons.observation_quantity(source::Union{SeriesImpedance,ShuntAdmittance},request;kwargs...) =
     _line_observation_quantity(source,request;kwargs...)
 
-function Grammar.observation_requests(source::CableConstants,requests::Tuple;complete_pairs::Bool=false)
+function Commons.observation_requests(source::CableConstants,requests::Tuple;complete_pairs::Bool=false)
     selected=isempty(requests) ? (R,L,G,C) : requests
-    Grammar.validate_observables(source,selected,())
+    Commons.validate_observables(source,selected,())
     return (retained=selected,displayed=selected)
 end
 
-function Grammar.observation_quantity(source::CableConstants,request;
+function Commons.observation_quantity(source::CableConstants,request;
         unit=nothing,clip=true,atol=nothing,frequencies=nothing)
     frequencies===nothing || frequencies==[source.frequency] || throw(ArgumentError("frequency differs from cable constants"))
     indices=request_indices(request)
@@ -226,9 +226,9 @@ function Grammar.observation_quantity(source::CableConstants,request;
     target=unit===nothing ? Units.display_unit(q,:pul) : unit
     T=typeof(float(nominal(zero(eltype(values)))))
     factor=Units.scale_factor(Units.native_unit(q,:pul),target,T)
-    return (request,quantity=q,family=:constants,statistic=:value,values=Grammar.detach(resolved,factor),
+    return (request,quantity=q,family=:constants,statistic=:value,values=Commons.detach(resolved,factor),
         unit=target,basis=:pul,coordinates=(kind=:assemblies,indices=(index,),assemblies=selected,
             labels=copy(source.cores),frequencies=[source.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(source),1)),
-        thresholds=(kind=resolution.kind,values=Grammar.detach(resolution.atol,factor),unit=target),
+        thresholds=(kind=resolution.kind,values=Commons.detach(resolution.atol,factor),unit=target),
         available=resolution.available,engineering_zero=resolution.unresolved,clipped=clip,missing_reason=nothing)
 end

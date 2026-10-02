@@ -1,5 +1,5 @@
 """
-    LineCableModels.Grammar
+    LineCableModels.Commons
 
 Define calculation supertypes and functions shared by Engine,
 ParametricBuilder, UQ, and external implementations.
@@ -15,7 +15,7 @@ ParametricBuilder, UQ, and external implementations.
 - `validate_observables` and `unit_targets` align publication requests and
   display units for presentation consumers.
 """
-module Grammar
+module Commons
 
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
@@ -55,4 +55,4 @@ public observation_groups, observation_labels, observation_product, gridpoint_id
 public observation_selection
 public request_identity, request_quantity, request_indices
 public normalize_observation_selector
-end # module Grammar
+end # module Commons

@@ -102,22 +102,22 @@ include("units/Units.jl")
 using .Units: quantity, native_unit, display_unit, scale_factor, label, symbol
 
 # Package-local shared calculation grammar.
-include("grammar/Grammar.jl")
-using .Grammar:
+include("commons/Commons.jl")
+using .Commons:
                 AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
                 AbstractCoreResult, AbstractResultSpace,
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
                 observe, @observe, observables, ObservedResult
-import .Grammar: compute
-using .Grammar: FormulaDefinition, FormulaMethod
+import .Commons: compute
+using .Commons: FormulaDefinition, FormulaMethod
 include("logging.jl")
 include("formulas.jl")
 
 # Bounded text formatting consumes the completed shared declaration grammar.
 include("textdisplay/TextDisplay.jl")
-import .Grammar: nominal, uncertainty
+import .Commons: nominal, uncertainty
 
 # Submodule `InputValidation`
 include("inputvalidation/InputValidation.jl")

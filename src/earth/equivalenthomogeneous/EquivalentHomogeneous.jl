@@ -13,8 +13,8 @@ order through dispatch.
 $(IMPORTS)
 """
 module EquivalentHomogeneous
-import ...Grammar: FormulationOptions
-import ...Grammar: formulation_options
+import ...Commons: FormulationOptions
+import ...Commons: formulation_options
 import ...LineCableModels: validate
 
 export Formula, AfterFD, BeforeFD
@@ -24,7 +24,7 @@ export formula_id, formulas, rule
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 using ..Earth: EarthMaterial, EarthModel
-import ...Grammar: AbstractFormulation
+import ...Commons: AbstractFormulation
 import ...LineCableModels: FormulaDefinition, FormulaMethod, formula_id
 #! explicit-imports: off
 import ...LineCableModels: description

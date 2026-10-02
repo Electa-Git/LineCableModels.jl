@@ -157,7 +157,7 @@ end
 Base.NamedTuple(value::Formula) = (identifier=formula_id(value),
     parameters=value.parameters, options=value.options.data)
 
-import ...Grammar: formulation_options
+import ...Commons: formulation_options
 description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((inner=Formula, outer=Formula, transfer=Formula))
 formula_id(::Type{<:Formula{ID}}) where {ID} = ID

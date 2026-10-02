@@ -224,7 +224,7 @@ function Base.pairs(::Type{LineParametersFormulation}; quantity=nothing)
         pipe_impedance=PipeImpedance.Formula,
         temperature_dependence=TemperatureDependent.Formula)
     quantity===nothing && return pairs(selected)
-    q=quantity isa Units.Quantity ? quantity : Grammar.request_quantity(quantity)
+    q=quantity isa Units.Quantity ? quantity : Commons.request_quantity(quantity)
     series=q in (Units.quantity(Z),Units.quantity(R),Units.quantity(X),Units.quantity(L),
         Units.quantity(Z,abs),Units.quantity(Z,angle))
     shunt=q in (Units.quantity(Y),Units.quantity(G),Units.quantity(B),Units.quantity(C),

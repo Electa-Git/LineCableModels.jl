@@ -30,8 +30,8 @@
             @test q.coordinates.samples==selected[3]
             @test q.coordinates.frequencies==frequencies[selected[3]]./1000
             @test U.label(q.coordinates.frequency_unit)=="kHz"
-            selector=LineCableModels.Grammar.request_identity(q.request)[2]
-            transform=LineCableModels.Grammar.request_identity(q.request)[3]
+            selector=LineCableModels.Commons.request_identity(q.request)[2]
+            transform=LineCableModels.Commons.request_identity(q.request)[3]
             expected=observe(source,statistics,selector,transform,1,indices...)
             factor=selector===C ? 1e9 : 1.
             @test q.values≈factor.*expected

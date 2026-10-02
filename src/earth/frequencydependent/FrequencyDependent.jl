@@ -13,8 +13,8 @@ registered identifiers implement literature-based frequency-dispersive laws.
 $(IMPORTS)
 """
 module FrequencyDependent
-import ...Grammar: FormulationOptions
-import ...Grammar: formulation_options
+import ...Commons: FormulationOptions
+import ...Commons: formulation_options
 import ...LineCableModels: FormulaDefinition
 
 export Formula, formula_id, formulas, assumptions
@@ -24,7 +24,7 @@ public FrequencyDependentFormulation, earth_material
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 using ..Earth: EarthMaterial
-import ...Grammar: AbstractFormulation
+import ...Commons: AbstractFormulation
 import ...LineCableModels: FormulaMethod, constitutive, formula_id, validate
 #! explicit-imports: off
 import ...LineCableModels: description

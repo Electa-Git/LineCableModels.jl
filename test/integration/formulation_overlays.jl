@@ -1,7 +1,7 @@
 @testitem "Makie addons / completed overlays preserve matrices, identities and exports" tags=[:visual] begin
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint, completed_formulation
-    using LineCableModels.Grammar: gridpoint_id, observation_labels
+    using LineCableModels.Commons: gridpoint_id, observation_labels
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f=[1.,10.,100.]
     z=reshape(complex.(collect(1.:12.),collect(21.:32.)),2,2,3)
@@ -84,7 +84,7 @@ end
 @testitem "Makie addons / grouping retains independent uncertainty interpretations" tags=[:visual] begin
     using CairoMakie,Measurements
     using LineCableModels.Engine: retain_gridpoint,completed_formulation
-    using LineCableModels.Grammar: gridpoint_id,observation_groups
+    using LineCableModels.Commons: gridpoint_id,observation_groups
     source_id=gridpoint_id().source_id
     shared=measurement(1.,.1)
     values=(shared,shared,measurement(1.,.1),measurement(1.,.4))
@@ -104,7 +104,7 @@ end
 @testitem "Makie addons / quantity assumptions share report and plot grouping" tags=[:visual] begin
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint,completed_formulation
-    using LineCableModels.Grammar: gridpoint_id,observation_groups
+    using LineCableModels.Commons: gridpoint_id,observation_groups
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     source_id=gridpoint_id().source_id
     choices=[Formulation(earth_impedance=z,earth_admittance=y) for (z,y) in

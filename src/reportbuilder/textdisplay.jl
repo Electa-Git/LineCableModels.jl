@@ -172,7 +172,7 @@ function _show_quantity_report(io,mime,artifact)
     # One final line remains available for honest omission counts.
     remaining=limited ? max(rows-2,0) : typemax(Int)
     points=collect(_observed_points(artifact.observed))
-    labels=Grammar.observation_labels(artifact.reference===nothing ? points : [points;artifact.reference];fallback="")
+    labels=Commons.observation_labels(artifact.reference===nothing ? points : [points;artifact.reference];fallback="")
     if artifact.reference!==nothing && remaining>0
         _report_line(io,mime,isempty(last(labels)) ? "Reference" : "Reference · $(last(labels))")
         remaining-=1

@@ -1,6 +1,6 @@
 @testitem "ObservedResult / operand eligibility precedes RMS" tags=[:unit] begin
     using LineCableModels.Engine: compare
-    using LineCableModels.Grammar: observation_resolution
+    using LineCableModels.Commons: observation_resolution
     using LinearAlgebra: norm
     for T in (Float32,Float64,BigFloat)
         cutoff=T(1//10^10)
@@ -44,7 +44,7 @@
 end
 
 @testitem "ObservedResult / declared inputs survive completion without tracing" tags=[:unit] setup=[TestFixtures] begin
-    using LineCableModels.Grammar: observation_gridpoint,observation_labels
+    using LineCableModels.Commons: observation_gridpoint,observation_labels
     problem=TestFixtures.line_parameters_problem()
     scalar=compute(problem)
     retained=observation_gridpoint(scalar)

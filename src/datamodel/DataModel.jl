@@ -52,7 +52,7 @@ using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..Units
-import ..Grammar
+import ..Commons
 import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal, uncertainty
 import ..LineCableModels: line_length

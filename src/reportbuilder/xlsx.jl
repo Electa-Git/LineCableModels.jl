@@ -73,7 +73,7 @@ function _numeric_sheet(definition,table,name,transform)
     coordinate_columns=DataFrames.metadata(table,"coordinate_columns",())
     for j in 1:size(table,2),i in 1:size(table,1)
         value=table[i,j]
-        cells[i+1,j]=ismissing(value) ? missing : encode_cell(definition,propertynames(table)[j] in coordinate_columns ? Grammar.nominal(value) : transform(value))
+        cells[i+1,j]=ismissing(value) ? missing : encode_cell(definition,propertynames(table)[j] in coordinate_columns ? Commons.nominal(value) : transform(value))
     end
     return XLSXSheet(name,cells)
 end
@@ -107,8 +107,8 @@ function encode(definition::XLSXReportDefinition,observed,tables,illustration;re
         for (i,(key,value)) in enumerate(pairs(entries))
             cells[i,1]=string(key); cells[i,2]=value
         end
-        sheets=[_numeric_sheet(definition,table,"values",Grammar.nominal),
-            _numeric_sheet(definition,table,"std",Grammar.uncertainty),XLSXSheet("metadata",cells)]
+        sheets=[_numeric_sheet(definition,table,"values",Commons.nominal),
+            _numeric_sheet(definition,table,"std",Commons.uncertainty),XLSXSheet("metadata",cells)]
         push!(workbooks,XLSXWorkbook(destination,sheets))
     end
     validate(definition,workbooks)

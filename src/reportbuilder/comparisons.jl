@@ -28,7 +28,7 @@ function _selected_errors(definition,point,reference)
     return rows
 end
 
-function _point_information(points,role,labels=Grammar.observation_labels(points))
+function _point_information(points,role,labels=Commons.observation_labels(points))
     calculations=NamedTuple[]
     formulations=NamedTuple[]
     formula_details=NamedTuple[]
@@ -58,7 +58,7 @@ function tabulate(definition::BenchmarkTableDefinition,
         observed::Union{ObservedResult,AbstractVector{<:ObservedResult}},selected;reference=nothing)
     points=collect(_observed_points(observed))
     population=reference===nothing ? points : [points;reference]
-    labels=Grammar.observation_labels(population)
+    labels=Commons.observation_labels(population)
     rows=NamedTuple[];terms=NamedTuple[];maxima=NamedTuple[]
     selected_errors=observed isa ObservedResult ? (selected,) : selected
     for (index,point) in enumerate(points),error in selected_errors[index]
@@ -75,8 +75,8 @@ function tabulate(definition::BenchmarkTableDefinition,
         relative=error.relative.*100
         status=get(settings,:status,fill(:not_recorded,size(absolute)))
         reasons=get(settings,:normalization_reason,fill(get(settings,:reason,nothing),size(absolute)))
-        push!(rows,merge(identity,(absolute_rms=Grammar.detach(absolute),relative_rms_percent=relative,
-            status=Grammar.detach(status),reason=Grammar.detach(reasons),settings)))
+        push!(rows,merge(identity,(absolute_rms=Commons.detach(absolute),relative_rms_percent=relative,
+            status=Commons.detach(status),reason=Commons.detach(reasons),settings)))
         for i in axes(absolute,1),j in axes(absolute,2)
             push!(terms,merge(identity,(row=i,column=j,response=error.coordinates[i],excitation=error.coordinates[j],
                 absolute_rms=absolute[i,j],relative_rms_percent=relative[i,j],status=status[i,j],reason=reasons[i,j])))
@@ -99,10 +99,10 @@ function tabulate(definition::BenchmarkTableDefinition,
         selected=filter(row -> row.request==request && row.normalization==normalization && row.reference_id==reference_id && row.problem_index==problem_index,maxima)
         bands=unique(row.band for row in selected)
         active=unique(row.result_point for row in selected)
-        display_groups=[Grammar.observation_groups(points[active];request,band,normalization,reference=reference_id) for band in bands]
+        display_groups=[Commons.observation_groups(points[active];request,band,normalization,reference=reference_id) for band in bands]
         representatives=sort(unique(vcat(([active[group.representative] for group in entries] for entries in display_groups)...)))
         push!(groups,(request,normalization,reference_id,bands,groups=display_groups,points=active))
-        quantity_labels=Grammar.observation_labels(population;request)
+        quantity_labels=Commons.observation_labels(population;request)
         absolute=DataFrame(formula=quantity_labels[representatives]);relative=copy(absolute)
         for band in bands
             name=band isa Symbol ? band : Symbol(string(band))
@@ -124,15 +124,15 @@ function tabulate(definition::BenchmarkTableDefinition,
     sampling=_sampling_tables(points,reference)
     coverage=DataFrame([(result_source=string(row.result_id.source_id),reference_source=string(row.reference_id.source_id),
         point=row.problem_index,formulation_index=row.formulation_index,band=row.band isa Tuple ? string(row.band) : row.band,
-        frequency_count=row.samples,first_Hz=row.actual_bounds_Hz===nothing ? missing : Grammar.nominal(first(row.actual_bounds_Hz)),
-        last_Hz=row.actual_bounds_Hz===nothing ? missing : Grammar.nominal(last(row.actual_bounds_Hz))) for row in maxima])
+        frequency_count=row.samples,first_Hz=row.actual_bounds_Hz===nothing ? missing : Commons.nominal(first(row.actual_bounds_Hz)),
+        last_Hz=row.actual_bounds_Hz===nothing ? missing : Commons.nominal(last(row.actual_bounds_Hz))) for row in maxima])
     coverage=unique(coverage)
     overview=(coverage,execution=timing.execution,performance=timing.performance,
         timing_ratio=timing.performance_comparison,source_timings=timing.source_timings,
         sampling=sampling.sampling,cdf_precision=isempty(sampling.sampling) ? DataFrame() : DataFrames.select(sampling.sampling,
             :role,:point,:method,:trials,:confidence,:marginal_count,:target_cdf,:cdf_bound,:target_supported,:scope))
     maxima_table=DataFrame(maxima)
-    metadata!(maxima_table,"comparison_records",Grammar.detach(maxima);style=:note)
+    metadata!(maxima_table,"comparison_records",Commons.detach(maxima);style=:note)
     return merge(info,(quantities=map(tabulate,points),comparisons=DataFrame(rows),terms=DataFrame(terms),
         maxima=maxima_table,summary=copy(maxima_table),features,groups),timing,sampling,(;overview))
 end

@@ -12,7 +12,7 @@ export validate
 
 using DocStringExtensions: TYPEDSIGNATURES
 using RequiredInterfaces: @required
-import ..Grammar: AbstractProblemDefinition
+import ..Commons: AbstractProblemDefinition
 
 """
 $(TYPEDSIGNATURES)

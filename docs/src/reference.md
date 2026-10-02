@@ -9,7 +9,7 @@ Convenience functions and extension interfaces have separate references.
 ```@autodocs
 Modules = [
     LineCableModels,
-    LineCableModels.Grammar,
+    LineCableModels.Commons,
     LineCableModels.Units,
 ]
 Order = [:module, :constant, :type, :function, :macro]

@@ -64,7 +64,7 @@ end
         @test_throws DimensionMismatch selected(
             [Inf, 100.0, 999.0], [ε0, 10ε0, 20ε0], [μ0, μ0, μ0], jω, pair)
     end
-    @test LineCableModels.ComputationOptions === LineCableModels.Grammar.ComputationOptions
+    @test LineCableModels.ComputationOptions === LineCableModels.Commons.ComputationOptions
     @test !(ComputationOptions() isa NamedTuple)
 end
 

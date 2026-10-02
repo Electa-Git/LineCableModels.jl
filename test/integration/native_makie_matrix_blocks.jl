@@ -99,9 +99,9 @@ end
     reference = LineParameters(z,z.*1e-6,frequency)
     records = [Formulation(earth_impedance=id)
         for id in (:xue2018,:default,:pollaczek1926,:saad1996,:wedepohl1973)]
-    source_id = LineCableModels.Grammar.gridpoint_id().source_id
+    source_id = LineCableModels.Commons.gridpoint_id().source_id
     completed = [LineCableModels.Engine.retain_gridpoint(reference,
-        LineCableModels.Grammar.gridpoint_id(;source_id,formulation_index=index);
+        LineCableModels.Commons.gridpoint_id(;source_id,formulation_index=index);
         fields=merge(LineCableModels.Engine.completed_formulation(formula),
             (inputs=(resistivity=100.,),coordinates=["core"])))
         for (index,formula) in enumerate(records)]

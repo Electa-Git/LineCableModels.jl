@@ -37,7 +37,7 @@ function _sampling_tables(points,reference)
         for quantity in point.quantities
             quantity.family===:statistics || continue
             push!(statistics,(role,identity=id,request=quantity.request,statistic=quantity.statistic,
-                unit=quantity.unit,values=Grammar.detach(quantity.values)))
+                unit=quantity.unit,values=Commons.detach(quantity.values)))
         end
         record=get(point.gridpoint,:sampling,nothing)
         record===nothing && continue
@@ -45,15 +45,15 @@ function _sampling_tables(points,reference)
             for (key,value) in pairs(record) if !(key in (:mean_standard_error,:frequencies,:basis)))...)
         push!(sampling,merge(scalar,(role,point=id===nothing ? record.point : id.problem_index,
             formulation_index=id===nothing ? missing : id.formulation_index,
-            method=only(Grammar.observation_labels([point])),std_sampling_precision=missing)))
+            method=only(Commons.observation_labels([point])),std_sampling_precision=missing)))
         for (quantity,values) in pairs(record.mean_standard_error),index in CartesianIndices(values)
             coordinates=Tuple(index)
             unit=Units.native_unit(Units.quantity(getfield(Engine,quantity)),record.basis)
             push!(precision,(role,identity=id,point=id===nothing ? record.point : id.problem_index,
                 formulation_index=id===nothing ? missing : id.formulation_index,
-                method=only(Grammar.observation_labels([point])),quantity,index=coordinates,
+                method=only(Commons.observation_labels([point])),quantity,index=coordinates,
                 row=first(coordinates),column=length(coordinates)==3 ? coordinates[2] : missing,
-                frequency_Hz=Grammar.nominal(record.frequencies[length(coordinates)==3 ? last(coordinates) : 1]),
+                frequency_Hz=Commons.nominal(record.frequencies[length(coordinates)==3 ? last(coordinates) : 1]),
                 standard_error=values[index],unit=Units.label(unit)))
         end
     end

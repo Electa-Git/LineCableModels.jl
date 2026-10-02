@@ -150,7 +150,7 @@ end
 @testitem "Makie addons / automatic difference labels and chromatic result prefix" tags=[:visual] begin
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint,completed_formulation
-    using LineCableModels.Grammar: gridpoint_id,observation_labels
+    using LineCableModels.Commons: gridpoint_id,observation_labels
     ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     source_id=gridpoint_id().source_id

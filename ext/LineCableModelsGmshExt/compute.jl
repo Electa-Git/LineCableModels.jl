@@ -699,7 +699,7 @@ function _compute_fem(
     average_seconds = 0.0
     progress && @info "FEM computation started" _group=:progress total=length(formulations)
     physical_inputs=Engine.completed_inputs(problem)
-    source_id=Grammar.gridpoint_id().source_id
+    source_id=Commons.gridpoint_id().source_id
     # Resolve and validate all requests before opening Gmsh or starting GetDP.
     models = [_resolved_fem_model(problem, formulation, execution)
               for formulation in formulations]
@@ -720,7 +720,7 @@ function _compute_fem(
     scan_started = execution.data.timing ? time_ns() : UInt64(0)
     first_result = Engine.retain_gridpoint(
         _compute_fem(problem, first(formulations), execution, first(models)),
-        Grammar.gridpoint_id(; source_id);
+        Commons.gridpoint_id(; source_id);
         fields = completion_fields(first(formulations)))
     if execution.data.timing && !isempty(first_result.details.data.timing)
         wall_seconds = (time_ns() - scan_started) * 1e-9
@@ -764,7 +764,7 @@ function _compute_fem(
                 copy(source.f), metadata)
         end
         value=Engine.retain_gridpoint(value,
-            Grammar.gridpoint_id(; source_id, formulation_index = index);
+            Commons.gridpoint_id(; source_id, formulation_index = index);
             fields = completion_fields(formulations[index]))
         if execution.data.timing && !isempty(value.details.data.timing)
             wall_seconds = (time_ns() - scan_started) * 1e-9

@@ -1,7 +1,7 @@
 @testitem "Engine / physical cutoffs shared by observations and comparisons" tags=[:unit] begin
     using LinearAlgebra: diag
     using LineCableModels.Engine: compare
-    const GR=LineCableModels.Grammar
+    const GR=LineCableModels.Commons
     f=[1.,1e3,1e7]
     z=fill(1.0+im,2,2,3)
     y=fill(1e-13+1e-18im,2,2,3)
@@ -39,7 +39,7 @@ end
 
 @testitem "Engine / cutoff boundaries and unassessed components" tags=[:unit] begin
     using LineCableModels.Engine: compare
-    const GR=LineCableModels.Grammar
+    const GR=LineCableModels.Commons
     for T in (Float32,Float64,BigFloat)
         cutoff=T(1e-12)
         f=T[1,1e3,1e7]
@@ -101,7 +101,7 @@ end
 
 @testitem "UQ / clipping zeros uncertainty only for unresolved values" tags=[:extension] begin
     using Measurements
-    using LineCableModels.Grammar: detach,observation_resolution
+    using LineCableModels.Commons: detach,observation_resolution
     summary=LineCableModels.UQ.SampleSummary([1e-18,2e-18,3e-18])
     detached=detach(summary,1000.)
     @test detached.std==1000summary.std>0

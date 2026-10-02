@@ -169,7 +169,7 @@ function _finish(
         formulation::LineParametersFormulation,
         ::Val{Basis};
         physical_inputs=completed_inputs(problem),
-        gridpoint=Grammar.gridpoint_id()
+        gridpoint=Commons.gridpoint_id()
 ) where {Basis}
     impedance = copy(workspace.buffers.Zout)
     admittance = copy(workspace.buffers.Yout)
@@ -261,7 +261,7 @@ function _compute(
         @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
             max_frequency=maximum(problem.frequencies),)
     physical_inputs = completed_inputs(problem)
-    source_id = Grammar.gridpoint_id().source_id
+    source_id = Commons.gridpoint_id().source_id
     T = eltype(problem)
     blueprints = flatten(engine, problem.system.designs, T, formulations)
     inputs = [lineinput(problem, first(blueprints))]
@@ -271,7 +271,7 @@ function _compute(
                       lineinput(problem, blueprints[index]))
     end
     values = map(formulations, inputs, eachindex(formulations)) do formulation, input, index
-        gridpoint = Grammar.gridpoint_id(; source_id, formulation_index=index)
+        gridpoint = Commons.gridpoint_id(; source_id, formulation_index=index)
         # Measure a full scan from workspace creation through the solve and result validation.
         # Shared input and workspace construction, attachment, callbacks and progress are excluded.
         value = if timing isa Val{true}

@@ -14,7 +14,7 @@ function _input_record(value::Union{DataModel.AbstractCablePart,DataModel.Abstra
         Materials.AbstractMaterial,Earth.AbstractEarthModel,Earth.AbstractEarthLayer,
         Earth.AbstractEarthMaterial})
     fields = fieldnames(typeof(value))
-    return merge((kind=nameof(typeof(value)),field_descriptions=Grammar.input_fields(typeof(value))),
+    return merge((kind=nameof(typeof(value)),field_descriptions=Commons.input_fields(typeof(value))),
         NamedTuple{fields}(map(name -> _input_record(getfield(value,name)), fields)))
 end
 
@@ -23,7 +23,7 @@ _input_record(design::CableDesign) = (cable_id=design.cable_id,
     terminal_order=copy(design.terminal_order))
 
 function _input_record(system::LineCableSystem)
-    return (system_id=system.system_id, field_descriptions=Grammar.input_fields(typeof(system)), line_length=system.line_length,
+    return (system_id=system.system_id, field_descriptions=Commons.input_fields(typeof(system)), line_length=system.line_length,
         designs=_input_record(system.designs), positions=_input_record(system.positions),
         input_positions=_input_record(system.input_positions), clearances=copy(system.clearances),
         connections=_input_record(system.connections), environment=_input_record(system.environment),
@@ -68,7 +68,7 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
             else
                 text=key === :equivalent_earth ? description(Val(key),value;compact=true) :
                     description(owner,Val(key),value;compact=true)
-                push!(captured,(scope=route,value=Grammar.detach(value),text))
+                push!(captured,(scope=route,value=Commons.detach(value),text))
             end
         end
         return captured
@@ -79,7 +79,7 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
             owner,route=scope
             name=isempty(route) ? "" : description(owner,Val(first(route));compact=true)
             length(route)>1 && (name *= "("*join(string.(Base.tail(route)),",")*")")
-            controls=selected isa Pair ? Grammar.detach(last(selected)) : (;)
+            controls=selected isa Pair ? Commons.detach(last(selected)) : (;)
             # The description compares applied controls, including defaults.
             # Keep the original selection identity used by scientific grouping.
             effective=get(declaration,:methods,nothing)
@@ -120,10 +120,10 @@ function completion_details(record::NamedTuple{names,T}) where {names,T}
     return ComputationDetails(NamedTuple{names,Tuple{types...}}(values(record)))
 end
 
-function Grammar.observation_gridpoint(source::Union{LineParameters,CableConstants})
+function Commons.observation_gridpoint(source::Union{LineParameters,CableConstants})
     retained=details(source).data
     inputs=get(retained,:inputs,nothing)
-    return Grammar.detach((id=get(retained,:gridpoint,nothing), inputs,
+    return Commons.detach((id=get(retained,:gridpoint,nothing), inputs,
         source_gridpoint=get(retained,:source_gridpoint,nothing),
         formulations=get(retained,:formulations,nothing),formulation_fields=get(retained,:formulation_fields,(;)),
         coordinates=get(retained,:coordinates,source isa CableConstants ? source.cores : nothing),

@@ -24,7 +24,7 @@
 end
 
 @testitem "ModalAnalysis / derived request acquisition and retained identity" tags=[:unit] begin
-    import LineCableModels.Grammar as G
+    import LineCableModels.Commons as G
     import LineCableModels.Engine as E
     import LineCableModels.Units as U
     impedance=reshape(ComplexF64[2+im],1,1,1)
@@ -122,7 +122,7 @@ end
 @testitem "ModalAnalysis / custom passive controls survive retained labels" tags=[:unit] begin
     import LineCableModels.ModalAnalysis as MA
     import LineCableModels.Engine as E
-    import LineCableModels.Grammar as G
+    import LineCableModels.Commons as G
 
     struct ScaleModal <: AbstractFormulation
         scale::Float64

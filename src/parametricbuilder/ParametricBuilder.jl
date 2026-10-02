@@ -53,10 +53,10 @@ import ..LineCableModels: UncertainValue, Gridspace, has_uncertainty
 import ..LineCableModels: parameterize, materialize, points
 import ..LineCableModels: verbosity, VerbosityLogger
 import Logging
-import ..Grammar
-import ..Grammar: compute, computation_options, computation_details, details,
+import ..Commons
+import ..Commons: compute, computation_options, computation_details, details,
                   nominal, uncertainty, check_core_result
-using ..Grammar:
+using ..Commons:
                  AbstractProblemDefinition, AbstractFormulation, AbstractResultSpace,
                  AbstractParametricResult,
                  ComputationOptions, ComputationDetails

@@ -148,7 +148,7 @@ end
 
 @testitem "ObservedResult / retained band associations and sample intersections" begin
     using LineCableModels.Engine: retain_gridpoint,compare
-    using LineCableModels.Grammar: gridpoint_id,observation_product
+    using LineCableModels.Commons: gridpoint_id,observation_product
     base=LineParameters(reshape(complex.([1.,2.,3.],[2.,3.,4.]),1,1,3),fill(1+2im,1,1,3),[1.,10.,100.])
     reference=retain_gridpoint(base,gridpoint_id())
     results=[retain_gridpoint(base,gridpoint_id()) for _ in 1:2]
@@ -194,7 +194,7 @@ end
 @testitem "Makie / public conveniences re-express retained display units" tags=[:visual] begin
     using CairoMakie, Measurements
     using LineCableModels.Engine: retain_gridpoint,completed_formulation,compare
-    using LineCableModels.Grammar: gridpoint_id,observation_product
+    using LineCableModels.Commons: gridpoint_id,observation_product
     using LineCableModels.ReportBuilder: ReportArtifact,BenchmarkTableDefinition
     U=LineCableModels.Units
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
