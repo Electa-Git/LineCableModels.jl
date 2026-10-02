@@ -1,0 +1,211 @@
+# Architecture violations present when the guards in
+# `test/quality/architecture.jl` were introduced. Delete or lower entries only.
+# Print the live inventory with `test/tools/architecture_inventory.jl`.
+
+[ownership]
+"Earth.EquivalentHomogeneous | LineCableModels.description | src/earth/equivalenthomogeneous/interface.jl" = 2
+"Earth.FrequencyDependent | LineCableModels.constitutive | src/earth/frequencydependent/interface.jl" = 1
+"Engine | Grammar.formulation_options | src/engine/integration.jl" = 1
+"Engine | Grammar.observation_resolution | src/engine/lineparameters/resolution.jl" = 1
+"Engine | InputValidation.validate | src/engine/formulations.jl" = 2
+"Engine | LineCableModels.constitutive | src/engine/admittance.jl" = 1
+"Engine | LineCableModels.line_length | src/engine/observed_inputs.jl" = 2
+"Engine | Units.quantity | src/engine/lineparameters/quantities.jl" = 3
+"Engine.EarthAdmittance | Engine.EarthAdmittanceFormulation | src/engine/earthadmittance/interface.jl" = 4
+"Engine.EarthAdmittance | Engine.EarthImpedance.Formula | src/engine/earthadmittance/formulas/unified.jl" = 1
+"Engine.EarthAdmittance | Engine.earth! | src/engine/earthadmittance/interface.jl" = 1
+"Engine.EarthAdmittance | Engine.media | src/engine/earthadmittance/interface.jl" = 1
+"Engine.EarthAdmittance | Grammar.FormulaMethod | src/engine/earthadmittance/interface.jl" = 1
+"Engine.EarthImpedance | Engine.EarthImpedanceFormulation | src/engine/earthimpedance/interface.jl" = 4
+"Engine.EarthImpedance | Engine.earth! | src/engine/earthimpedance/interface.jl" = 1
+"Engine.EarthImpedance | Engine.media | src/engine/earthimpedance/interface.jl" = 1
+"Engine.EarthImpedance | Grammar.FormulaMethod | src/engine/earthimpedance/interface.jl" = 1
+"Engine.InsulationAdmittance | Engine.InsulationAdmittanceFormulation | src/engine/insulationadmittance/interface.jl" = 2
+"Engine.InsulationImpedance | Engine.InsulationImpedanceFormulation | src/engine/insulationimpedance/interface.jl" = 1
+"Engine.PipeImpedance | Engine.Formulation | src/engine/pipeimpedance/interface.jl" = 2
+"Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
+"Engine.ShuntModel | Engine.blueprint_dependencies | src/engine/shuntmodel/blueprint.jl" = 1
+"Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
+"Grammar | LineCableModels.description | src/grammar/formulas.jl" = 5
+"Grammar | LineCableModels.formula_id | src/grammar/formulas.jl" = 1
+"ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
+"Materials.TemperatureDependent | LineCableModels.constitutive | src/materials/temperaturedependent/interface.jl" = 1
+"ModalAnalysis | Engine.initialize_buffers | src/modalanalysis/formulas/chrysochos2014.jl" = 1
+"ModalAnalysis | Engine.initialize_buffers | src/modalanalysis/formulas/vieira2026.jl" = 1
+"ModalAnalysis | Engine.initialize_buffers | src/modalanalysis/formulas/wedehpol1996.jl" = 1
+"ModalAnalysis | Engine.selectdetails | src/modalanalysis/interfaces.jl" = 1
+"ModalAnalysis | Engine.selectdomain | src/modalanalysis/interfaces.jl" = 1
+"ModalAnalysis | Grammar.normalize_observation_selector | src/modalanalysis/observations.jl" = 2
+"ModalAnalysis | Grammar.observables | src/modalanalysis/observations.jl" = 1
+"ModalAnalysis | Grammar.observation_quantity | src/modalanalysis/observations.jl" = 1
+"ModalAnalysis | Grammar.observation_requests | src/modalanalysis/observations.jl" = 1
+"ModalAnalysis | Units.display_unit | src/modalanalysis/observations.jl" = 51
+"ModalAnalysis | Units.label | src/modalanalysis/observations.jl" = 51
+"ModalAnalysis | Units.native_unit | src/modalanalysis/observations.jl" = 51
+"ModalAnalysis | Units.symbol | src/modalanalysis/observations.jl" = 51
+"PSCAD | Engine.EarthAdmittance.earth_potential_coefficient | ext/LineCableModelsPSCADExt/formulations.jl" = 5
+"PSCAD | Engine.EarthImpedance.earth_impedance | ext/LineCableModelsPSCADExt/formulations.jl" = 10
+"PSCAD | Engine.Formulation | ext/LineCableModelsPSCADExt/formulations.jl" = 3
+"PSCAD | Engine.InsulationImpedance.insulation_impedance | ext/LineCableModelsPSCADExt/formulations.jl" = 2
+"PSCAD | Engine.InternalImpedance.internal_impedance | ext/LineCableModelsPSCADExt/formulations.jl" = 2
+"PSCAD | ImportExport.export_data | ext/LineCableModelsPSCADExt/importexport/pscad.jl" = 1
+"PSCAD | ImportExport.import_data | ext/LineCableModelsPSCADExt/importexport/import.jl" = 1
+"PSCAD | InputValidation.validate | ext/LineCableModelsPSCADExt/formulations.jl" = 1
+"PSCAD | InputValidation.validate | ext/LineCableModelsPSCADExt/validate.jl" = 1
+"ParametricBuilder | DataModel.Annulus | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Assembly | src/parametricbuilder/physicaltree.jl" = 1
+"ParametricBuilder | DataModel.Disk | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Ellipse | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Enclosure | src/parametricbuilder/physicaltree.jl" = 1
+"ParametricBuilder | DataModel.Group | src/parametricbuilder/physicaltree.jl" = 1
+"ParametricBuilder | DataModel.Polygon | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Pose2 | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Rectangle | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Region | src/parametricbuilder/physicaltree.jl" = 11
+"ParametricBuilder | DataModel.Sector | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Shell | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Stack | src/parametricbuilder/physicaltree.jl" = 1
+"ParametricBuilder | Engine.CableConstants | src/parametricbuilder/engine/cableconstants.jl" = 1
+"ParametricBuilder | Engine.CableConstantsProblem | src/parametricbuilder/engine/cableconstants.jl" = 1
+"ParametricBuilder | Engine.LineParametersProblem | src/parametricbuilder/system.jl" = 6
+"ParametricBuilder | Grammar.compute | src/parametricbuilder/traversal.jl" = 4
+"ParametricBuilder | LineCableModels.Gridspace | src/parametricbuilder/results.jl" = 1
+"ParametricBuilder | LineCableModels.add! | src/parametricbuilder/material.jl" = 1
+"ParametricBuilder | LineCableModels.build | src/parametricbuilder/physicaltree.jl" = 2
+"ParametricBuilder | LineCableModels.build | src/parametricbuilder/system.jl" = 2
+"ParametricBuilder | Materials.Material | src/parametricbuilder/material.jl" = 4
+"ParametricBuilder | TextDisplay.name | src/parametricbuilder/textdisplay.jl" = 6
+"UQ | LineCableModels.materialize | src/uq/results.jl" = 2
+"UQ | LineCableModels.realize | src/uq/montecarlo/compute.jl" = 1
+"UQ | Units.display_unit | src/uq/observations.jl" = 1
+"UQ | Units.label | src/uq/observations.jl" = 4
+"UQ | Units.native_unit | src/uq/observations.jl" = 1
+"UQ | Units.symbol | src/uq/observations.jl" = 4
+
+[placement]
+"ext/LineCableModelsPSCADExt/compute.jl | PSCAD" = 27
+"ext/LineCableModelsPSCADExt/formulations.jl | PSCAD" = 73
+"ext/LineCableModelsPSCADExt/importexport/import.jl | PSCAD" = 31
+"ext/LineCableModelsPSCADExt/importexport/project.jl | PSCAD" = 18
+"ext/LineCableModelsPSCADExt/importexport/pscad.jl | PSCAD" = 3
+"ext/LineCableModelsPSCADExt/importexport/schema.jl | PSCAD" = 17
+"ext/LineCableModelsPSCADExt/remote/configuration.jl | PSCAD" = 7
+"ext/LineCableModelsPSCADExt/remote/files.jl | PSCAD" = 6
+"ext/LineCableModelsPSCADExt/remote/remote.jl | PSCAD" = 35
+"ext/LineCableModelsPSCADExt/results.jl | PSCAD" = 11
+"ext/LineCableModelsPSCADExt/validate.jl | PSCAD" = 7
+"src/modalanalysis/delegation.jl | LineCableModels" = 9
+"src/textdisplay/TextDisplay.jl | DataModel" = 104
+"src/textdisplay/TextDisplay.jl | Earth" = 8
+"src/textdisplay/TextDisplay.jl | Engine" = 32
+"src/textdisplay/TextDisplay.jl | Materials.TemperatureDependent" = 4
+"src/textdisplay/TextDisplay.jl | UQ" = 4
+
+[direction]
+"Engine -> ModalAnalysis | src/engine/lineparameters.jl" = 3
+"ImportExport -> PSCAD | src/importexport/deserialize.jl" = 1
+
+[names]
+"Functor" = 3
+"Shell" = 4
+"_line!" = 2
+"_transform_point" = 2
+"assumptions" = 3
+"flatten" = 2
+"formulas" = 13
+"quantity" = 2
+
+[shadowing]
+"DataModel.flatten -> DataFrames" = 1
+"Engine.flatten -> DataFrames" = 1
+"Grammar.detach -> Base" = 1
+"ModalAnalysis.transform -> DataFrames" = 1
+"ReportBuilder.select -> DataFrames" = 1
+"ReportBuilder.write -> Base" = 1
+"TextDisplay.angle -> Base" = 1
+
+[validate]
+"src/earth/equivalenthomogeneous/interface.jl" = 2
+"src/engine/earthadmittance/formulas/unified.jl" = 1
+"src/engine/formulations.jl" = 3
+"src/engine/lineparameters/benchmark.jl" = 1
+"src/materials/temperaturedependent/interface.jl" = 1
+"src/reportbuilder/xlsx.jl" = 1
+
+[reserved_verbs]
+"ext/LineCableModelsGmshExt/geometry.jl | _validate_material_interfaces!" = 1
+"ext/LineCableModelsGmshExt/mesh.jl | _validate_mesh_file" = 1
+"ext/LineCableModelsGmshExt/model.jl | _validate_fem_shape" = 5
+"ext/LineCableModelsGmshExt/model.jl | _validate_material" = 1
+"ext/LineCableModelsGmshExt/model.jl | _validate_material_partition" = 1
+"ext/LineCableModelsGmshExt/results.jl | _check_scan_checksums" = 1
+"ext/LineCableModelsGmshExt/results.jl | _validate_completion" = 1
+"ext/LineCableModelsGmshExt/results.jl | _validate_maps" = 1
+"ext/LineCableModelsGmshExt/workers.jl | _assert_no_live_attempts" = 1
+"ext/LineCableModelsMakieExt/guides.jl | _validate_native_guide" = 1
+"ext/LineCableModelsPSCADExt/remote/remote.jl | _validate_solver_identity" = 1
+"ext/LineCableModelsPSCADExt/remote/runner.jl | _verify_retained_ports" = 1
+"ext/LineCableModelsPSCADExt/validate.jl | _validate_frequencies" = 1
+"src/datamodel/placement/patterns.jl | _check_ring_clearance" = 1
+"src/engine/interfaces.jl | validate_domain" = 2
+"src/engine/interfaces.jl | validate_modal_operators" = 1
+"src/engine/lineparameters/lineparameters.jl | _check_basis" = 1
+"src/engine/lineparameters/resolution.jl | _validate_resolution_atol" = 1
+"src/grammar/observables.jl | validate_observables" = 1
+"src/grammar/observed_validation.jl | _validate_observed_comparison" = 1
+"src/grammar/observed_validation.jl | _validate_observed_cutoff" = 1
+"src/grammar/observed_validation.jl | _validate_observed_id" = 1
+"src/grammar/observed_validation.jl | _validate_observed_quantity" = 1
+"src/grammar/results.jl | check_core_result" = 1
+"src/grid.jl | _validate_errors" = 1
+"src/grid.jl | _validate_uncertainty" = 1
+"src/modalanalysis/compute.jl | _check_operators" = 1
+"src/modalanalysis/eigensystems.jl | check_eigenpairs!" = 1
+"src/modalanalysis/interfaces.jl | validate_modal_operators" = 1
+"src/modalanalysis/observations.jl | _validate_phase_selector" = 1
+"src/parametricbuilder/physicaltree.jl | _require_material" = 1
+"src/uq/formulations.jl | _validate_fixed_shunt_model" = 2
+"src/uq/results.jl | _validate_cable_products" = 1
+"src/uq/results.jl | _validate_failure_record" = 1
+"src/uq/results.jl | _validate_failure_summary" = 1
+"src/uq/results.jl | _validate_line_products" = 1
+"src/uq/results.jl | _validate_monte_carlo_details" = 1
+"src/uq/results.jl | _validate_monte_carlo_products" = 2
+
+[switches]
+"ext/LineCableModelsGmshExt/geometry.jl" = { applicable = 0, eval = 0, kind = 2 }
+"ext/LineCableModelsGmshExt/getdp.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsGmshExt/mesh.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsGmshExt/model.jl" = { applicable = 0, eval = 0, kind = 5 }
+"ext/LineCableModelsGmshExt/voltage_paths.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsMakieExt/guides.jl" = { applicable = 0, eval = 0, kind = 11 }
+"ext/LineCableModelsMakieExt/layout.jl" = { applicable = 0, eval = 0, kind = 8 }
+"ext/LineCableModelsMakieExt/material_colors.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsMakieExt/montecarlo.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsMakieExt/plot.jl" = { applicable = 0, eval = 0, kind = 3 }
+"ext/LineCableModelsMakieExt/recipes/line_data.jl" = { applicable = 0, eval = 0, kind = 5 }
+"ext/LineCableModelsMakieExt/recipes/line_facets.jl" = { applicable = 0, eval = 0, kind = 13 }
+"ext/LineCableModelsPSCADExt/importexport/project.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, kind = 4 }
+"src/datamodel/design/group.jl" = { applicable = 0, eval = 0, kind = 3 }
+"src/datamodel/flatten.jl" = { applicable = 0, eval = 0, kind = 4 }
+"src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/datamodel/preview/geometry.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/earth/equivalenthomogeneous/interface.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/engine/admittance.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/engine/blueprint.jl" = { applicable = 0, eval = 0, kind = 4 }
+"src/engine/pipeimpedance/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, kind = 5 }
+"src/grammar/observables.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/grammar/observed_validation.jl" = { applicable = 0, eval = 0, kind = 13 }
+"src/grammar/observedresult.jl" = { applicable = 1, eval = 0, kind = 9 }
+"src/grammar/retained_products.jl" = { applicable = 0, eval = 0, kind = 10 }
+"src/importexport/deserialize.jl" = { applicable = 2, eval = 0, kind = 2 }
+"src/materials/radialdielectric.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/modalanalysis/formulations.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }
+"src/parametricbuilder/physicaltree.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/reportbuilder/tables.jl" = { applicable = 0, eval = 0, kind = 7 }
