@@ -23,10 +23,29 @@
     # Per-family formula selections are the only name shared across modules.
     const SHARED_NAMES = (:Formula,)
     const RESERVED_VERB = r"^_*(validate|check|require|assert|verify|ensure)_"
-    const TABLES = ("ownership", "placement", "direction", "names", "shadowing",
+    # Tables of the structural guards (A) and of the Commons and helper guards (C).
+    const A_TABLES = ("ownership", "placement", "direction", "names", "shadowing",
         "validate", "reserved_verbs", "switches")
+    const C_TABLES = ("commons", "vocabulary", "fingerprints", "clones", "helpers", "root")
+    const TABLES = (A_TABLES..., C_TABLES...)
     const SWITCHES = ("applicable", "eval", "kind")
     const BASELINE = joinpath(@__DIR__, "architecture_baseline.toml")
+
+    const COMMONS = :Commons
+    const COMMONS_DIRECTORY = "src/commons"
+    const CONSTANTS_FILE = "src/commons/consts.jl"
+    const COMMONS_TESTS = "test/unit/commons"
+    # Directories under `test/` whose files name definitions without testing them.
+    const NOT_TESTS = ("quality", "tools")
+    # Each Commons public name and the definition names it reserves outside Commons.
+    const VOCABULARY = Dict{Symbol, Regex}(
+        :vacuum_permittivity =>
+            r"(?i)^_*(\w+_)?(vacuum_permittivity|eps(ilon)?_?[0₀]|[εϵ]_?[0₀])$",
+        :vacuum_permeability =>
+            r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$")
+    const SHINGLE = 8
+    const CLONE_TOKENS = 30
+    const CLONE_SHARE = 0.75
 
     # The core modules, the loaded extension modules and the repository
     # directory that holds `src/` and `ext/`.
@@ -129,7 +148,7 @@
         return parentmodule(F)
     end
 
-    function mentioned!(found::Set{DataType}, T)
+    function mentioned!(found::Base.IdSet{DataType}, @nospecialize(T))
         if T isa TypeVar
             mentioned!(found, T.lb)
             mentioned!(found, T.ub)
@@ -143,7 +162,9 @@
             isdefined(T, :T) && mentioned!(found, T.T)
         elseif T isa DataType && T ∉ found
             push!(found, T)
-            foreach(p -> mentioned!(found, p), T.parameters)
+            for p in T.parameters
+                mentioned!(found, p)
+            end
         end
         return found
     end
@@ -159,7 +180,7 @@
             F = function_owner(m)
             (F isa Module && F in tree.modules) || continue
             within(F, M, tree.root) && continue
-            types = Set{DataType}()
+            types = Base.IdSet{DataType}()
             foreach(p -> mentioned!(types, p), Base.unwrap_unionall(m.sig).parameters[2:end])
             any(T -> within(parentmodule(T), M, tree.root), types) && continue
             count!(found, string(module_name(tree, M), " | ", module_name(tree, F), ".",
@@ -187,6 +208,16 @@
         return homes
     end
 
+    function nearest_home(homes, file)
+        nearest = nothing
+        for directory in keys(homes)
+            inside(file, directory) || continue
+            (nearest === nothing || length(directory) > length(nearest)) &&
+                (nearest = directory)
+        end
+        return nearest
+    end
+
     # A2. No core method is defined under `ext/`. The nearest home directory
     # around a method's file belongs to its module or one of its ancestors.
     function placement(methods, tree::PackageTree, homes)
@@ -198,12 +229,7 @@
             path === nothing && continue
             file = normpath(string(m.file))
             misplaced = M in tree.core && inside(file, extensions)
-            nearest = nothing
-            for directory in keys(homes)
-                inside(file, directory) || continue
-                (nearest === nothing || length(directory) > length(nearest)) &&
-                    (nearest = directory)
-            end
+            nearest = nearest_home(homes, file)
             misplaced |= nearest === nothing ||
                 !any(owner -> is_descendant(M, owner), homes[nearest])
             misplaced && count!(found, string(path, " | ", module_name(tree, M)))
@@ -490,18 +516,479 @@
         return found
     end
 
-    function inventory(tree::PackageTree; order = ORDER, dependencies = DEPENDENCIES)
+    type_name(T) = (T = Base.unwrap_unionall(T); T isa DataType ? nameof(T) : nothing)
+
+    # The functions, types and constants that a module defines, by name.
+    function definitions(M::Module)
+        found = Dict{Symbol, Any}()
+        for name in names(M; all = true)
+            (startswith(string(name), "#") || name in (:eval, :include) ||
+                name === nameof(M)) && continue
+            isdefined(M, name) || continue
+            value = getfield(M, name)
+            value isa Module && continue
+            owner = value isa Function ? value_owner(value) :
+                value isa Type && type_name(value) === name ? type_owner(value) :
+                isconst(M, name) ? Base.binding_module(M, name) : nothing
+            owner === M && (found[name] = value)
+        end
+        return found
+    end
+
+    # The function or type whose method `m` is.
+    function method_subject(m::Method)
+        F = Base.unwrap_unionall(Base.unwrap_unionall(m.sig).parameters[1])
+        F isa DataType || return nothing
+        if F.name === Type.body.name
+            T = F.parameters[1]
+            T = Base.unwrap_unionall(T isa TypeVar ? T.ub : T)
+            return T isa DataType ? T.name.wrapper : nothing
+        end
+        return isdefined(F, :instance) ? F.instance : nothing
+    end
+
+    # The root module, a top-level core submodule or a top-level extension module.
+    function top_owner(tree::PackageTree, m::Module)
+        while m !== tree.root && parentmodule(m) !== m && parentmodule(m) !== tree.root &&
+                parentmodule(m) in tree.modules
+            m = parentmodule(m)
+        end
+        return m
+    end
+
+    # The `.jl` files under `directory`, except those under `excluded` subdirectories.
+    function test_sources(directory; excluded = ())
+        texts = String[]
+        isdir(directory) || return texts
+        for (path, _, names) in walkdir(directory), name in names
+            file = joinpath(path, name)
+            endswith(name, ".jl") &&
+                !any(x -> inside(file, joinpath(directory, x)), excluded) &&
+                push!(texts, read(file, String))
+        end
+        return texts
+    end
+
+    named(texts, name) = (pattern = Regex("(?<![\\w!@])\\Q" * string(name) * "\\E(?![\\w!])");
+        any(text -> occursin(pattern, text), texts))
+
+    commons_module(tree::PackageTree) = (C = isdefined(tree.root, COMMONS) ?
+        getfield(tree.root, COMMONS) : nothing; C isa Module ? C : nothing)
+
+    # Hooks are Commons functions with a method defined outside Commons. The
+    # user API is the Commons names that the root module exports or declares public.
+    function commons_roles(methods, tree::PackageTree, C::Module, defined)
+        functions = IdDict{Any, Symbol}(value => name for (name, value) in defined
+            if value isa Function)
+        hooks = Set{Symbol}()
+        for m in methods
+            within(m.module, C, tree.root) && continue
+            name = get(functions, method_subject(m), nothing)
+            name === nothing || push!(hooks, name)
+        end
+        api = Set(name for (name, value) in defined if Base.ispublic(tree.root, name) &&
+            isdefined(tree.root, name) && getfield(tree.root, name) === value)
+        return hooks, api
+    end
+
+    # C1. Each Commons name is public, documented and named in a Commons unit
+    # test. Unless it is user API, methods of at least two owners outside
+    # Commons use it, directly or through public Commons definitions. Unless it
+    # is a hook or user API, it has a vocabulary entry. Macros are used where
+    # source code calls them.
+    function commons_admission(methods, tree::PackageTree, homes, vocabulary)
+        found = Dict{String, Int}()
+        C = commons_module(tree)
+        C === nothing && return found
+        defined = definitions(C)
+        hooks, api = commons_roles(methods, tree, C, defined)
+        name_of = IdDict{Any, Symbol}(value => name for (name, value) in defined)
+        users = Dict(name => Set{Module}() for name in keys(defined))
+        referrers = Dict(name => Set{Symbol}() for name in keys(defined))
+        function use!(M::Module, @nospecialize(subject), @nospecialize(value))
+            name = get(name_of, value, nothing)
+            name === nothing && return
+            if within(M, C, tree.root)
+                user = get(name_of, subject, nothing)
+                user === nothing || user === name || push!(referrers[name], user)
+            else
+                push!(users[name], top_owner(tree, M))
+            end
+        end
+        # Loops instead of closures: a closure compiles once per type it receives.
+        for m in methods
+            subject = method_subject(m)
+            use!(m.module, subject, subject)
+            types = Base.IdSet{DataType}()
+            for p in Base.unwrap_unionall(m.sig).parameters[2:end]
+                mentioned!(types, p)
+            end
+            for T in types
+                use!(m.module, subject, T.name.wrapper)
+            end
+            code = lowered_code(m)
+            code === nothing && continue
+            for value in referenced_values(code)
+                use!(m.module, subject, value)
+            end
+        end
+        # Supertypes and field types of every package type.
+        for M in tree.modules, value in values(definitions(M))
+            T = value isa Type ? Base.unwrap_unionall(value) : nothing
+            T isa DataType || continue
+            related = Base.IdSet{DataType}()
+            S = supertype(T)
+            while S !== Any
+                push!(related, S)
+                S = supertype(S)
+            end
+            if isstructtype(T)
+                for F in Base.datatype_fieldtypes(T)
+                    mentioned!(related, F)
+                end
+            end
+            for S in related
+                use!(M, value, S.name.wrapper)
+            end
+        end
+        macros = Set(name for name in keys(defined) if startswith(string(name), "@"))
+        for file in source_files(tree.directory)
+            isempty(macros) && break
+            home = nearest_home(homes, file)
+            home === nothing && continue
+            M = first(homes[home])
+            visit(parse_source(file)) do node
+                kind(node) == K"macrocall" && numchildren(node) > 0 || return true
+                name = syntax_name(node[1])
+                !isempty(name) && last(name) in macros && use!(M, nothing, defined[last(name)])
+                return true
+            end
+        end
+        public = Set(name for name in keys(defined) if Base.ispublic(C, name))
+        changed = true
+        while changed
+            changed = false
+            for (name, through) in referrers, user in through
+                user in public && !issubset(users[user], users[name]) || continue
+                union!(users[name], users[user])
+                changed = true
+            end
+        end
+        tests = test_sources(joinpath(tree.directory, COMMONS_TESTS))
+        for name in keys(defined)
+            for (criterion, met) in (("public", name in public),
+                    ("docstring", Base.Docs.hasdoc(C, name)),
+                    ("owners", name in api || length(users[name]) >= 2),
+                    ("tests", named(tests, name)),
+                    ("vocabulary", name in hooks || name in api || haskey(vocabulary, name)))
+                met || (found[string(name, " | ", criterion)] = 1)
+            end
+        end
+        return found
+    end
+
+    function reserving(vocabulary, name)
+        for (owner, pattern) in vocabulary
+            occursin(pattern, string(name)) && return owner
+        end
+        return nothing
+    end
+
+    function calls(node, owner)
+        kind(node) == K"call" && is_prefix_call(node) || return false
+        name = syntax_name(node[1])
+        return name == (owner,) || (length(name) >= 2 && name[end-1:end] == (COMMONS, owner))
+    end
+
+    # `=` under these kinds binds a keyword, a default or a field.
+    const NOT_ASSIGNED = (K"call", K"dotcall", K"parameters", K"tuple", K"vect", K"braces",
+        K"curly", K"ref")
+
+    function assigned_names(target)
+        kind(target) == K"Identifier" && return [target.val]
+        kind(target) == K"::" && numchildren(target) == 2 && return assigned_names(target[1])
+        kind(target) == K"tuple" && return reduce(vcat, map(assigned_names, children(target));
+            init = Symbol[])
+        return Symbol[]
+    end
+
+    # C2. Outside Commons, no function, constant or assigned local takes a
+    # name reserved by a Commons definition. A local assigned from a call to
+    # the reserving definition is exempt.
+    function reserved_vocabulary(files, directory, vocabulary)
+        found = Dict{String, Int}()
+        commons = joinpath(directory, COMMONS_DIRECTORY)
+        for file in files
+            inside(file, commons) && continue
+            path = relative(file, directory)
+            visit(parse_source(file)) do node
+                if kind(node) == K"function"
+                    name = definition_name(node)
+                    name isa Symbol && reserving(vocabulary, name) !== nothing &&
+                        count!(found, string(path, " | ", name))
+                elseif kind(node) == K"=" && numchildren(node) == 2 &&
+                        !(node.parent !== nothing && kind(node.parent) in NOT_ASSIGNED)
+                    for name in assigned_names(node[1])
+                        owner = reserving(vocabulary, name)
+                        owner === nothing || calls(node[2], owner) ||
+                            count!(found, string(path, " | ", name))
+                    end
+                end
+                return true
+            end
+        end
+        return found
+    end
+
+    any_node(predicate, node) = predicate(node) ||
+        (!is_leaf(node) && any(child -> any_node(predicate, child), children(node)))
+
+    # The innermost statement around a node.
+    function statement(node)
+        while node.parent !== nothing && !(kind(node.parent) in (K"block", K"toplevel"))
+            node = node.parent
+        end
+        return node
+    end
+
+    is_pi(node) = kind(node) == K"Identifier" && node.val in (:π, :pi)
+    is_number(node) = kind(node) in (K"Integer", K"Float", K"Float32", K"HexInt", K"OctInt",
+        K"BinInt")
+
+    # `base ^ -7` with a literal 10 in `base`.
+    function minus_seventh_power(node)
+        kind(node) == K"call" && numchildren(node) == 3 || return false
+        operator, base, exponent = is_prefix_call(node) ?
+            (node[1], node[2], node[3]) : (node[2], node[1], node[3])
+        return syntax_name(operator) == (:^,) && kind(exponent) == K"Integer" &&
+            exponent.val == -7 && any_node(n -> kind(n) == K"Integer" && n.val == 10, base)
+    end
+
+    function fingerprint(node)
+        if is_number(node)
+            digits = filter(isdigit, JuliaSyntax.sourcetext(node))
+            (occursin("8854187", digits) || occursin("299792458", digits)) && return true
+            value = node.val
+            value isa AbstractFloat && value == oftype(value, 1e-7) || return false
+        else
+            minus_seventh_power(node) || return false
+        end
+        return any_node(is_pi, statement(node))
+    end
+
+    # C3. Numeric fingerprints of the Commons constants appear only in the
+    # constants file: digits of ε₀ or c₀, and 10⁻⁷ in a statement with π.
+    function fingerprints(files, directory)
+        found = Dict{String, Int}()
+        for file in files
+            path = relative(file, directory)
+            path == CONSTANTS_FILE && continue
+            visit(parse_source(file)) do node
+                fingerprint(node) && count!(found, path)
+                return true
+            end
+        end
+        return found
+    end
+
+    # A statement `x || throw(...)` or `x && throw(...)`, chains included.
+    function throw_guard(node)
+        kind(node) in (K"||", K"&&") || return false
+        while kind(node) in (K"||", K"&&") && numchildren(node) > 0
+            node = last_child(node)
+        end
+        return kind(node) == K"call" && is_prefix_call(node) && syntax_name(node[1]) in THROWS
+    end
+
+    # A body's tokens, without throw guards, with each identifier replaced by
+    # its role.
+    function body_tokens(body)
+        bytes = Vector{UInt8}(JuliaSyntax.sourcetext(body))
+        offset = first(JuliaSyntax.byte_range(body)) - 1
+        visit(body) do node
+            statement = node === body ||
+                (node.parent !== nothing && kind(node.parent) in (K"block", K"toplevel"))
+            statement && throw_guard(node) || return true
+            bytes[JuliaSyntax.byte_range(node) .- offset] .= UInt8(' ')
+            return false
+        end
+        text = String(bytes)
+        raw = [(kind(t), JuliaSyntax.untokenize(t, text)) for t in JuliaSyntax.tokenize(text)
+            if !(kind(t) in (K"Whitespace", K"NewlineWs", K"Comment"))]
+        tokens = String[]
+        for (i, (k, token)) in enumerate(raw)
+            if k == K"Identifier" && !Base.isoperator(Symbol(token))
+                previous = i > 1 ? raw[i-1][2] : ""
+                next = i < length(raw) ? raw[i+1][2] : ""
+                token = previous == "." ? "FIELD" : next == "(" ? "CALL" : "NAME"
+            end
+            push!(tokens, token)
+        end
+        return tokens
+    end
+
+    shingles(tokens) = Set(join(view(tokens, i:i+SHINGLE-1), '\x1f')
+        for i in 1:length(tokens)-SHINGLE+1)
+
+    function function_bodies(trees)
+        found = Tuple{String, Any, Any}[]
+        for (path, tree) in trees
+            visit(tree) do node
+                kind(node) == K"function" && numchildren(node) == 2 &&
+                    push!(found, (path, node, node[2]))
+                return true
+            end
+        end
+        return found
+    end
+
+    # C4. No function body contains `CLONE_SHARE` of the token shingles of a
+    # Commons public function body of at least `CLONE_TOKENS` tokens. Hooks are
+    # not references.
+    function clones(files, methods, tree::PackageTree; share = CLONE_SHARE)
+        found = Dict{String, Int}()
+        C = commons_module(tree)
+        C === nothing && return found
+        hooks, _ = commons_roles(methods, tree, C, definitions(C))
+        public = Set(name for name in names(C; all = true)
+            if Base.ispublic(C, name) && name ∉ hooks)
+        trees = [(relative(file, tree.directory), parse_source(file)) for file in files]
+        bodies = [(path, node, shingles(body_tokens(body)))
+            for (path, node, body) in function_bodies(trees)]
+        commons = COMMONS_DIRECTORY * "/"
+        for (path, reference, body) in function_bodies(trees)
+            startswith(path, commons) && definition_name(reference) in public || continue
+            tokens = body_tokens(body)
+            length(tokens) >= CLONE_TOKENS || continue
+            expected = shingles(tokens)
+            for (candidate_path, candidate, candidate_shingles) in bodies
+                candidate === reference && continue
+                count(in(candidate_shingles), expected) >= share * length(expected) &&
+                    count!(found, string(candidate_path, " | ",
+                        something(definition_name(candidate), "anonymous"), " ~ ",
+                        definition_name(reference)))
+            end
+        end
+        return found
+    end
+
+    function definition_node(trees, file, line, name)
+        tree = get!(() -> parse_source(file), trees, file)
+        found = nothing
+        visit(tree) do node
+            kind(node) == K"function" && JuliaSyntax.source_line(node) == line &&
+                definition_name(node) === name && (found = node)
+            return found === nothing
+        end
+        return found
+    end
+
+    function body_statements(node)
+        body = node[2]
+        return kind(body) == K"block" ? numchildren(body) : 1
+    end
+
+    function argument_name(node)
+        kind(node) == K"Identifier" && return node.val
+        kind(node) in (K"::", K"=") && numchildren(node) == 2 && return argument_name(node[1])
+        kind(node) == K"..." && numchildren(node) == 1 &&
+            (name = argument_name(node[1]); return name === nothing ? nothing : (name, :...))
+        return nothing
+    end
+
+    function forwarded_name(node)
+        kind(node) == K"=" && numchildren(node) == 2 && kind(node[2]) == K"Identifier" &&
+            argument_name(node[1]) === node[2].val && return node[2].val
+        kind(node) == K"..." && numchildren(node) == 1 &&
+            (name = forwarded_name(node[1]); return name === nothing ? nothing : (name, :...))
+        return kind(node) == K"Identifier" ? node.val : nothing
+    end
+
+    # Positional and keyword argument names of a call, by `name`.
+    function call_arguments(call, name)
+        positional, keywords = Any[], Any[]
+        for argument in children(call)[2:end]
+            if kind(argument) == K"parameters"
+                append!(keywords, map(name, children(argument)))
+            else
+                push!(positional, name(argument))
+            end
+        end
+        return positional, keywords
+    end
+
+    # A body that is one call passing the definition's own arguments, unchanged,
+    # in order and keywords included.
+    function forwards(node)
+        signature = signature_call(node)
+        signature === nothing && return false
+        body = node[2]
+        kind(body) == K"block" && numchildren(body) == 1 && (body = body[1])
+        kind(body) == K"return" && numchildren(body) == 1 && (body = body[1])
+        kind(body) == K"call" && is_prefix_call(body) || return false
+        own = call_arguments(signature, argument_name)
+        passed = call_arguments(body, forwarded_name)
+        return !isempty(own[1]) && !any(isnothing, own[1]) && !any(isnothing, own[2]) &&
+            own == passed
+    end
+
+    # C5. A tiny helper is a private module-level function with one method and
+    # at most three body statements that exactly one method references and no
+    # test file names. An exact forwarder is one whatever its references.
+    function tiny_helpers(methods, tree::PackageTree, tests)
+        callers = IdDict{Any, Set{Method}}()
+        for m in methods
+            code = lowered_code(m)
+            code === nothing && continue
+            for value in referenced_values(code)
+                value isa Function && push!(get!(Set{Method}, callers, value), m)
+            end
+        end
+        trees = Dict{String, Any}()
+        found = Dict{String, Int}()
+        for M in tree.modules, (name, value) in definitions(M)
+            value isa Function && !startswith(string(name), "@") &&
+                !Base.ispublic(M, name) && length(Base.methods(value)) == 1 || continue
+            m = only(Base.methods(value))
+            path = source_path(tree, m.file)
+            path === nothing && continue
+            node = definition_node(trees, normpath(string(m.file)), m.line, name)
+            (node !== nothing && body_statements(node) <= 3) || continue
+            named(tests, name) && continue
+            references = length(setdiff(get(callers, value, Set{Method}()), (m,)))
+            (references == 1 || forwards(node)) && count!(found, path)
+        end
+        return found
+    end
+
+    # C6. The number of functions, types and constants the root module defines.
+    function root_definitions(tree::PackageTree)
+        n = length(definitions(tree.root))
+        return n == 0 ? Dict{String, Int}() : Dict(module_name(tree, tree.root) => n)
+    end
+
+    function inventory(tree::PackageTree; order = ORDER, dependencies = DEPENDENCIES,
+            vocabulary = VOCABULARY, tables = TABLES)
         methods = package_methods(tree)
         files = source_files(tree.directory)
-        return Dict{String, Any}(
-            "ownership" => ownership(methods, tree),
-            "placement" => placement(methods, tree, home_directories(tree)),
-            "direction" => direction(methods, tree, order),
-            "names" => shared_names(tree),
-            "shadowing" => shadowing(tree, dependencies),
-            "validate" => validate_returns(files, tree.directory),
-            "reserved_verbs" => reserved_verbs(files, tree.directory),
-            "switches" => switches(files, tree.directory))
+        homes = home_directories(tree)
+        guards = Dict{String, Function}(
+            "ownership" => () -> ownership(methods, tree),
+            "placement" => () -> placement(methods, tree, homes),
+            "direction" => () -> direction(methods, tree, order),
+            "names" => () -> shared_names(tree),
+            "shadowing" => () -> shadowing(tree, dependencies),
+            "validate" => () -> validate_returns(files, tree.directory),
+            "reserved_verbs" => () -> reserved_verbs(files, tree.directory),
+            "switches" => () -> switches(files, tree.directory),
+            "commons" => () -> commons_admission(methods, tree, homes, vocabulary),
+            "vocabulary" => () -> reserved_vocabulary(files, tree.directory, vocabulary),
+            "fingerprints" => () -> fingerprints(files, tree.directory),
+            "clones" => () -> clones(files, methods, tree),
+            "helpers" => () -> tiny_helpers(methods, tree,
+                test_sources(joinpath(tree.directory, "test"); excluded = NOT_TESTS)),
+            "root" => () -> root_definitions(tree))
+        return Dict{String, Any}(table => guards[table]() for table in tables)
     end
 
     function live_tree()
@@ -512,6 +999,25 @@
         end
         return PackageTree(LineCableModels, extensions, pkgdir(LineCableModels))
     end
+
+    # Writes a probe package into a temporary directory, loads it and returns
+    # its inventory.
+    function probe_inventory(files, name; extension = nothing, options...)
+        mktempdir() do directory
+            for (path, text) in files
+                mkpath(dirname(joinpath(directory, path)))
+                write(joinpath(directory, path), text)
+            end
+            root = Base.include(Main, joinpath(directory, "src", name * ".jl"))
+            extensions = extension === nothing ? Module[] :
+                [Base.include(Main, joinpath(directory, "ext", extension * ".jl"))]
+            tree = Base.invokelatest(PackageTree, root, extensions, directory)
+            Base.invokelatest(inventory, tree; options...)
+        end
+    end
+
+    # Baseline tables that no guard owns.
+    unknown_tables(document) = sort!([table for table in keys(document) if table ∉ TABLES])
 
     const LIVE = Dict{String, Any}()
     live() = isempty(LIVE) ? merge!(LIVE, inventory(live_tree())) : LIVE
@@ -553,6 +1059,7 @@
         println(io, "# `test/quality/architecture.jl` were introduced. Delete or lower entries only.")
         println(io, "# Print the live inventory with `test/tools/architecture_inventory.jl`.")
         for table in TABLES
+            haskey(inventory, table) || continue
             println(io, "\n[", table, "]")
             entries = inventory[table]
             for key in sort!(collect(keys(entries)))
@@ -780,24 +1287,12 @@ end
             generate(x) = eval(x)
             """)
 
-    function probe_inventory(files, name, extension, order)
-        mktempdir() do directory
-            for (path, text) in files
-                mkpath(dirname(joinpath(directory, path)))
-                write(joinpath(directory, path), text)
-            end
-            root = Base.include(Main, joinpath(directory, "src", name * ".jl"))
-            extensions = extension === nothing ? Module[] :
-                [Base.include(Main, joinpath(directory, "ext", extension * ".jl"))]
-            tree = Base.invokelatest(A.PackageTree, root, extensions, directory)
-            Base.invokelatest(A.inventory, tree; order, dependencies = (Base,))
-        end
-    end
-    planted = probe_inventory(planted_files, "ArchitectureProbePlanted", nothing,
-        (:Early, :Late, :Consumer))
-    clean = probe_inventory(clean_files, "ArchitectureProbeClean",
-        "ArchitectureProbeCleanExt", (:Early, :Late))
-    for table in A.TABLES
+    planted = A.probe_inventory(planted_files, "ArchitectureProbePlanted";
+        order = (:Early, :Late, :Consumer), dependencies = (Base,), tables = A.A_TABLES)
+    clean = A.probe_inventory(clean_files, "ArchitectureProbeClean";
+        extension = "ArchitectureProbeCleanExt", order = (:Early, :Late),
+        dependencies = (Base,), tables = A.A_TABLES)
+    for table in A.A_TABLES
         @testset "$table" begin
             @test planted[table] == planted_expected[table]
             @test isempty(clean[table])
@@ -822,6 +1317,282 @@ end
     end
 end
 
+@testitem "Quality / architecture / C1 Commons admission" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("commons")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
+@testitem "Quality / architecture / C2 reserved vocabulary" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("vocabulary")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
+@testitem "Quality / architecture / C3 literal fingerprints" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("fingerprints")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
+@testitem "Quality / architecture / C4 clones of Commons bodies" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("clones")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
+@testitem "Quality / architecture / C5 tiny private helpers" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("helpers")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
+@testitem "Quality / architecture / C6 root freeze" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("root")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
+@testitem "Quality / architecture / baseline tables belong to guards" tags=[:quality] setup=[ArchitectureGuards] begin
+    A = ArchitectureGuards
+    @test A.unknown_tables(A.baseline()) == String[]
+    @test A.unknown_tables(Dict("ownership" => Dict(), "retired" => Dict())) == ["retired"]
+end
+
+@testitem "Quality / architecture / C7 negative controls" tags=[:quality] setup=[ArchitectureGuards] begin
+    A = ArchitectureGuards
+
+    vocabulary = Dict{Symbol, Regex}(:shared => r"^_*shared$", :lonely => r"^_*lonely$",
+        :undocumented => r"^_*undocumented$", :untested => r"^_*untested$",
+        :ideal_transposition! => r"transpos",
+        :vacuum_permittivity => A.VOCABULARY[:vacuum_permittivity],
+        :vacuum_permeability => A.VOCABULARY[:vacuum_permeability])
+    matrixops = """
+        "Average a square matrix over its cyclic diagonals."
+        function ideal_transposition!(matrix::AbstractMatrix)
+            n = checksquare(matrix)
+            coefficients = similar(diag(matrix))
+            @inbounds for offset in 0:(n - 1)
+                total = zero(eltype(matrix))
+                for row in 1:n
+                    total += matrix[row, 1 + mod(row - 1 + offset, n)]
+                end
+                coefficients[offset + 1] = total / n
+            end
+            @inbounds for row in 1:n, column in 1:n
+                matrix[row, column] = coefficients[mod1(column - row + 1, n)]
+            end
+            return matrix
+        end
+        """
+
+    # Commons has one definition failing each C1 criterion and `hidden`
+    # failing all. `Alpha` and `Beta` plant C2 to C5, the root plants C6.
+    planted_files = Dict(
+        "src/CommonsProbePlanted.jl" => """
+            module CommonsProbePlanted
+            include("commons/Commons.jl")
+            using .Commons: welcome
+            export welcome
+            include("alpha/Alpha.jl")
+            include("beta/Beta.jl")
+            root_helper() = 1
+            const ROOT_LIMIT = 2
+            end
+            """,
+        "src/commons/Commons.jl" => """
+            module Commons
+            export shared, lonely, undocumented, untested, unreserved, ideal_transposition!
+            export welcome, extended
+            "User API that no test names."
+            welcome(x) = x
+            "A hook extended by one owner."
+            function extended end
+            "Used by two owners."
+            shared(x) = x + 1
+            "Used by one owner."
+            lonely(x) = x + 2
+            undocumented(x) = x + 3
+            "Named in no Commons test."
+            untested(x) = x + 4
+            "Reserves no vocabulary."
+            unreserved(x) = x + 5
+            hidden(x) = x + 6
+            include("matrixops.jl")
+            end
+            """,
+        "src/commons/matrixops.jl" => matrixops,
+        "src/alpha/Alpha.jl" => """
+            module Alpha
+            import ..Commons
+            uses(m) = Commons.shared(1) + Commons.lonely(1) + Commons.undocumented(1) +
+                Commons.untested(1) + Commons.unreserved(1) + Commons.ideal_transposition!(m)[1]
+            const EPS0 = 8.8541878128e-12
+            transposed!(m) = m
+            function permeability(T)
+                μ0 = 4π * 1e-7
+                return T(μ0)
+            end
+            _tiny(x) = x + 1
+            twice(x) = 2 * _tiny(x)
+            Commons.extended(x::Int) = x
+            end
+            """,
+        "src/beta/Beta.jl" => """
+            module Beta
+            import ..Commons
+            uses(m) = Commons.shared(1) + Commons.undocumented(1) + Commons.untested(1) +
+                Commons.unreserved(1) + Commons.ideal_transposition!(m)[1]
+            c0() = 299792458
+            mu(T) = 4 * (one(T) * π) * (one(T) * 10)^(-7)
+            function average_cyclic!(values::AbstractMatrix)
+                size = checksquare(values)
+                sums = similar(diag(values))
+                @inbounds for shift in 0:(size - 1)
+                    accumulator = zero(eltype(values))
+                    for i in 1:size
+                        accumulator += values[i, 1 + mod(i - 1 + shift, size)]
+                    end
+                    sums[shift + 1] = accumulator / size
+                end
+                @inbounds for i in 1:size, j in 1:size
+                    values[i, j] = sums[mod1(j - i + 1, size)]
+                end
+                return values
+            end
+            _forward(x; scale = 1) = Commons.shared(x; scale = scale)
+            first_use(x) = _forward(x) + 1
+            second_use(x) = _forward(x; scale = 2) + 1
+            end
+            """,
+        "test/unit/commons/commons.jl" =>
+            "shared, lonely, undocumented, unreserved, ideal_transposition!, extended\n",
+        # Guard sources name definitions without testing them.
+        "test/quality/guards.jl" => "_tiny, _forward\n")
+    planted_expected = Dict{String, Any}(
+        "commons" => Dict("lonely | owners" => 1, "undocumented | docstring" => 1,
+            "untested | tests" => 1, "unreserved | vocabulary" => 1,
+            "hidden | public" => 1, "hidden | docstring" => 1, "hidden | owners" => 1,
+            "hidden | tests" => 1, "hidden | vocabulary" => 1,
+            "welcome | tests" => 1, "extended | owners" => 1),
+        "vocabulary" => Dict("src/alpha/Alpha.jl | EPS0" => 1,
+            "src/alpha/Alpha.jl | transposed!" => 1, "src/alpha/Alpha.jl | μ0" => 1),
+        "fingerprints" => Dict("src/alpha/Alpha.jl" => 2, "src/beta/Beta.jl" => 2),
+        "clones" => Dict("src/beta/Beta.jl | average_cyclic! ~ ideal_transposition!" => 1),
+        "helpers" => Dict("src/alpha/Alpha.jl" => 1, "src/beta/Beta.jl" => 1),
+        "root" => Dict("CommonsProbePlanted" => 2))
+
+    # Every Commons definition qualifies. The near misses do not count.
+    clean_files = Dict(
+        "src/CommonsProbeClean.jl" => """
+            module CommonsProbeClean
+            include("commons/Commons.jl")
+            using .Commons: greet, declared
+            export greet
+            public declared
+            include("alpha/Alpha.jl")
+            include("beta/Beta.jl")
+            end
+            """,
+        "src/commons/Commons.jl" => """
+            module Commons
+            export shared, vacuum_permittivity, ideal_transposition!, greet, accumulate_into!
+            public declared
+            "Used by two owners."
+            shared(x) = x + 1
+            "User API that no owner uses."
+            greet(x) = x
+            "User API that the root declares public."
+            declared(x) = x
+            "A hook whose default method a hook method of `Alpha` repeats."
+            function accumulate_into!(values::AbstractVector)
+                total = zero(eltype(values))
+                for index in eachindex(values)
+                    total += values[index]
+                    values[index] = total
+                end
+                return values
+            end
+            include("consts.jl")
+            include("matrixops.jl")
+            end
+            """,
+        "src/commons/consts.jl" => """
+            "Vacuum permittivity in F/m."
+            vacuum_permittivity(::Type{T}) where {T} = T(88541878128) / T(10)^22
+            """,
+        "src/commons/matrixops.jl" => matrixops,
+        "src/alpha/Alpha.jl" => """
+            module Alpha
+            import ..Commons
+            function capacitance(m, T)
+                ε0 = Commons.vacuum_permittivity(T)
+                tolerance = 1e-7
+                return Commons.shared(ε0) * Commons.ideal_transposition!(m)[1] * tolerance
+            end
+            phase(x) = 2π * x
+            "The vacuum permittivity is 8.8541878128e-12 F/m."
+            documented(x) = x
+            _tested(x) = x + 1
+            calls_tested(x) = _tested(x) * 2
+            function _long(x)
+                a = x + 1
+                b = a * 2
+                c = b - 3
+                return c
+            end
+            calls_long(x) = _long(x) + 1
+            _reorder(x, y) = Commons.shared(y, x)
+            first_reorder(x) = _reorder(x, 1)
+            second_reorder(x) = _reorder(1, x)
+            function Commons.accumulate_into!(values::Vector{Int})
+                total = zero(eltype(values))
+                for index in eachindex(values)
+                    total += values[index]
+                    values[index] = total
+                end
+                return values
+            end
+            end
+            """,
+        "src/beta/Beta.jl" => """
+            module Beta
+            import ..Commons
+            admittance(m, T) = Commons.shared(1) * Commons.vacuum_permittivity(T) *
+                Commons.ideal_transposition!(m)[1]
+            Commons.accumulate_into!(values::Vector{Float64}) = values
+            end
+            """,
+        "test/unit/commons/commons.jl" =>
+            "shared, vacuum_permittivity, ideal_transposition!, greet, declared, accumulate_into!\n",
+        "test/unit/alpha.jl" => "_tested\n")
+
+    planted = A.probe_inventory(planted_files, "CommonsProbePlanted"; vocabulary,
+        tables = A.C_TABLES)
+    clean = A.probe_inventory(clean_files, "CommonsProbeClean"; vocabulary,
+        tables = A.C_TABLES)
+    for table in A.C_TABLES
+        @testset "$table" begin
+            @test planted[table] == planted_expected[table]
+            @test isempty(clean[table])
+        end
+    end
+    @test A.TOML.parse(A.render(planted)) == planted
+
+    # Throw guards are not shingled; other `||` statements are.
+    body = A.JuliaSyntax.parseall(A.SyntaxNode, """
+        function guarded(x)
+            x > 0 || throw(ArgumentError("x must be positive"))
+            isempty(x) && error("x is empty")
+            x === nothing || isfinite(x) || Base.throw(DomainError(x))
+            y = f(x) || g(x)
+            return y
+        end
+        """)[1][2]
+    @test A.body_tokens(body) == ["NAME", "=", "CALL", "(", "NAME", ")", "||", "CALL", "(",
+        "NAME", ")", "return", "NAME"]
+end
+
 @testitem "Quality / architecture / baseline ratchet follows git renames" tags=[:quality] begin
     ratchet = Module(:BaselineRatchet)
     Base.include(ratchet, joinpath(pkgdir(LineCableModels), "test", "tools", "baseline_ratchet.jl"))
@@ -834,9 +1605,9 @@ end
             mkpath(dirname(joinpath(repository, path)))
             write(joinpath(repository, path), text)
         end
-        baseline(rows...) = write_file(ratchet.BASELINE,
-            "[ownership]\n" * join(("\"$key\" = $n" for (key, n) in rows), "\n") * "\n")
-        grown() = Base.invokelatest(ratchet.grown, repository, "HEAD")
+        baseline(rows...; table = "ownership") = write_file(ratchet.BASELINE,
+            "[$table]\n" * join(("\"$key\" = $n" for (key, n) in rows), "\n") * "\n")
+        grown() = Base.invokelatest(ratchet.grown, repository, "HEAD").lines
 
         git("init", "-q")
         write_file("src/early/Early.jl", "module Early\n$definitions\nend\n")
@@ -865,5 +1636,10 @@ end
         git("mv", "src/first/part.jl", "src/first/Piece.jl")
         baseline("Piece | First.f1 | src/first/Piece.jl" => 2)
         @test grown() == ["ownership | Piece | First.f1 | src/first/Piece.jl: 2 (absent at HEAD)"]
+        # A table absent at the reference belongs to a new guard.
+        baseline("src/first/Piece.jl" => 1; table = "helpers")
+        result = Base.invokelatest(ratchet.grown, repository, "HEAD")
+        @test result.lines == String[]
+        @test result.tables == ["helpers"]
     end
 end

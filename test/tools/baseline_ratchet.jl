@@ -1,7 +1,7 @@
 # Compare the architecture baseline with its version at a git revision. Run
 # `julia test/tools/baseline_ratchet.jl REF`. A key added or a count raised since
 # `REF` fails. Deleted keys and lowered counts pass. The check passes when `REF`
-# has no baseline file. File renames that git detects between `REF` and the working
+# has no baseline file, and a table absent at `REF` is not compared. File renames that git detects between `REF` and the working
 # tree, and the module renames they imply, are applied to the keys at `REF` first.
 using TOML
 
@@ -62,8 +62,9 @@ function rename_key(key, renamed)
     return join(parts, " | ")
 end
 
-# Lines naming each key added or raised since `reference`, or nothing when
-# `reference` has no baseline.
+# The keys added or raised since `reference`, as lines, and the tables new since
+# `reference`, or nothing when `reference` has no baseline. A new table belongs
+# to a guard introduced after `reference`, and its keys are not compared.
 function grown(repository, reference)
     success(pipeline(git(repository, "rev-parse", "--verify", "--quiet",
         reference * "^{commit}"); stdout = devnull)) ||
@@ -71,30 +72,35 @@ function grown(repository, reference)
     success(pipeline(git(repository, "cat-file", "-e", "$reference:$BASELINE");
         stderr = devnull)) || return nothing
     renamed = renames(repository, reference)
+    document = TOML.parse(read(git(repository, "show", "$reference:$BASELINE"), String))
     before = Dict{String, Any}()
-    for (key, value) in entries(TOML.parse(read(git(repository, "show",
-            "$reference:$BASELINE"), String)))
+    for (key, value) in entries(document)
         mergewith!(+, before, Dict(rename_key(key, renamed) => value))
     end
-    after = entries(TOML.parsefile(joinpath(repository, BASELINE)))
-    return sort!([haskey(before, key) ?
+    current = TOML.parsefile(joinpath(repository, BASELINE))
+    tables = sort!([table for table in keys(current) if !haskey(document, table)])
+    lines = sort!([haskey(before, key) ?
         string(key, ": ", value, " (", before[key], " at ", reference, ")") :
         string(key, ": ", value, " (absent at ", reference, ")")
-        for (key, value) in after if !haskey(before, key) || value > before[key]])
+        for (key, value) in entries(current)
+        if first(split(key, " | ")) ∉ tables && (!haskey(before, key) || value > before[key])])
+    return (; lines, tables)
 end
 
 function main(arguments)
     length(arguments) == 1 || error("Usage: julia test/tools/baseline_ratchet.jl REF")
     reference = only(arguments)
-    lines = grown(REPOSITORY, reference)
-    if lines === nothing
+    result = grown(REPOSITORY, reference)
+    if result === nothing
         println("No architecture baseline at $reference. Nothing to compare.")
         return 0
     end
-    if !isempty(lines)
+    isempty(result.tables) || println("Tables introduced since ", reference, ": ",
+        join(result.tables, ", "), ".")
+    if !isempty(result.lines)
         println(stderr, "The architecture baseline may only shrink. Entries added or raised since ",
             reference, ":")
-        foreach(line -> println(stderr, "  ", line), lines)
+        foreach(line -> println(stderr, "  ", line), result.lines)
         return 1
     end
     count = length(entries(TOML.parsefile(joinpath(REPOSITORY, BASELINE))))
