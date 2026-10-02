@@ -75,8 +75,9 @@ The architecture that the quality, core and integration tests protect requires:
   arguments to the same package-owned function. Owner-local numerical kernels
   and type-dispatch branches remain valid.
 
-A new definition must satisfy these standards. Native interface and import checks
-and tests through actual composed consumers provide the protection. A universal source analysis of every method or forwarding wrapper is outside this suite.
+A new definition must satisfy these standards. Native interface and import checks,
+tests through actual composed consumers and the structural guards below provide the
+protection. Unchanged forwarding wrappers remain an advisory ReLint finding.
 
 The quality selection also runs advisory source diagnostics. Fatou applies the
 explicit rules in `fatou.toml`. ReLint identifies runtime-evaluation spellings,
@@ -109,6 +110,60 @@ behavior. Physical cross-backend accuracy and domain-convergence acceptance
 belong to explicit research work under the testing requirements below. See the
 [test commands](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for the implementation checks and their
 execution environments.
+
+### Structural guards
+
+`test/quality/architecture.jl` enforces one rule: each concept has one owner, one
+name and one implementation, and each name has one meaning. The guards load the
+package with the extensions that `explicit_imports.jl` loads. They enumerate every
+package method and parse every Julia file under `src/` and `ext/`.
+
+- Ownership (A1). A core method that extends a function owned by another package
+  module mentions a type owned by its own module or a descendant. For a constructor,
+  the function owner is the owner of the constructed type. For methods of the root
+  module, functions and types of its submodules count as owned by another module.
+  Extension methods are exempt.
+- Placement (A2). No core method is defined in a file under `ext/`. The home of a
+  module is the directory that holds its `<ModuleName>.jl` file. The nearest home
+  around a method's file belongs to the method's module or one of its ancestors.
+- Direction (A3). The submodules have the order Units, Grammar, TextDisplay,
+  InputValidation, PlotBuilder, Materials, Earth, DataModel, Engine, ModalAnalysis,
+  ParametricBuilder, UQ, ReportBuilder, ImportExport, PSCAD. The lowered code of a
+  submodule method references earlier submodules, the ancestors and descendants of
+  its own module, and no later submodule. Each top-level submodule has a position in
+  the order. The root module and the extensions are exempt.
+- Names (A4). Functions and types owned by different package modules have distinct
+  names. The per-family `Formula` types are exempt. A public package name that Base,
+  DataFrames, LinearAlgebra, Statistics, Random, Dates or Logging also exports
+  refers to the same object as the exported name.
+- `validate` (A5). Each `validate` definition names its first positional argument.
+  Each path through its body returns that argument or calls `throw`, `rethrow` or
+  `error`. The guard reads source code. A path that it cannot classify counts as a
+  violation.
+- Reserved verbs (A6). No function name starts with `validate_`, `check_`,
+  `require_`, `assert_`, `verify_` or `ensure_`, after any leading `_` characters.
+  `validate` is the input-check verb.
+- Symbol switches and probes (A7). Each source file has counts of `applicable`
+  calls, `@eval` calls, and comparisons of a `kind` field against symbols, negated
+  comparisons included. These counts can decrease and never increase.
+
+Each guard is a function of its inputs. The negative controls (A8) apply each guard
+to a probe package with planted violations and to a clean probe package. A guard
+reports exactly the planted violations and nothing in the clean probe.
+
+`test/quality/architecture_baseline.toml` records the violations present when the
+guards were introduced, with one table per guard. Keys contain no line numbers. An
+unlisted violation or a count above its entry fails. A listed entry without a live
+violation, or a count below it, also fails. A change that removes a violation deletes
+or lowers its entry. `test/tools/architecture_inventory.jl` prints the live inventory
+in the baseline format. Fix a new violation in the source. Never add it to the
+baseline.
+
+Entries can be deleted or lowered, and none can be added or raised. Before the tests,
+the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull request
+base or the previous push. An added entry or a raised count fails the job. Run
+`julia test/tools/baseline_ratchet.jl HEAD` to compare local changes with the last
+commit.
 
 ## Developer paths
 
@@ -178,10 +233,7 @@ failures from execution errors or unavailable verification.
 Architectural tests protect current responsibilities through real behavior and
 native method and interface checks: owner-local dispatch, fixed report stages,
 observation and table owners, validated inputs, optional integrations and
-caller-owned state. A conforming new leaf must work through the actual composed
-consumer. Unrelated old helper names, private storage layouts and incidental
-source expressions are not substitutes for these checks. Keep the standards
-in this guide and the conventions. Do not invent a second architecture framework.
+caller-owned state. A conforming new leaf must work through the actual composed consumer.
 
 The existing source-amended production line-coverage gate remains at 95%, with
 its current `src/` and `ext/` inventory. Measure executed code, then cover actual

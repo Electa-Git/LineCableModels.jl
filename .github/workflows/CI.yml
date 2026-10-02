@@ -110,6 +110,18 @@ jobs:
           format: "false"
           lint: "false"
           verify-checksum: "true"
+      - name: Reject added or raised architecture baseline entries
+        shell: bash
+        env:
+          BASELINE_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASELINE_REVISION" ] || [ "$BASELINE_REVISION" = "0000000000000000000000000000000000000000" ]; then
+            echo "No earlier revision to compare with the architecture baseline."
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$BASELINE_REVISION"
+          julia --startup-file=no --color=yes test/tools/baseline_ratchet.jl "$BASELINE_REVISION"
       - name: Enforce package and architecture tests
         shell: bash
         run: |
