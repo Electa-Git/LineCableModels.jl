@@ -294,7 +294,7 @@ end
     physics=[Formulation(:LineCableModelsFEM;options=(physics=choice,)) for choice in (:quasi_tem,:quasi_fw)]
     @test observation_labels([point(f,i) for (i,f) in enumerate(physics)];request=B)==[
         description(LineCableModelsFEM,Val(:physics),f.options.data.physics;compact=true) for f in physics]
-    reordered=Formulation(options=(ideal_transposition=true,kron_reduction=true,reduce_bundle=true))
+    reordered=Formulation(options=(ideal_transposition=false,kron_reduction=true,reduce_bundle=true))
     @test observation_labels([point(a,1),point(reordered,2)];request=R)==fill(description(a.methods.earth_impedance;compact=true),2)
 
     layer(rho)=(rho=rho,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),))

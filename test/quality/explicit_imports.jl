@@ -40,7 +40,7 @@
     # workaround is explicitly recommended by its upstream maintainer. It is
     # not a general permission to consume Makie or package-owned internals.
     function supported_external_access(consumer, owner, name)
-        consumer === LineCableModels.Engine && owner === Base && name === :unalias &&
+        consumer === LineCableModels.Commons && owner === Base && name === :unalias &&
             Base.Docs.hasdoc(Base, :unalias) && return true
         consumer === cairo && owner === CairoMakie && name === :activate! && return true
         consumer === renderer && owner === CairoMakie.Makie && name in (
@@ -101,7 +101,8 @@ end
     @test supported_external_access(renderer, CairoMakie.Makie, :inverse_transform)
     @test supported_external_access(renderer, CairoMakie.Makie, :CategoricalConversion)
     @test supported_external_access(renderer, CairoMakie.Makie, :defaultlimits)
-    @test supported_external_access(LineCableModels.Engine, Base, :unalias)
+    @test supported_external_access(LineCableModels.Commons, Base, :unalias)
+    @test !supported_external_access(LineCableModels.Engine, Base, :unalias)
     @test !supported_external_access(renderer, Base, :unalias)
     @test !supported_external_access(LineCableModels.Engine, CairoMakie.Makie, :inverse_transform)
     @test !supported_external_access(LineCableModels.Engine, CairoMakie.Makie, :get_ticks)

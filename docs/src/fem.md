@@ -253,11 +253,14 @@ frequency and terminal order and publishes the scan completion marker. Validatio
 checks headers, row counts, identities, frequencies and finite values.
 
 The primitive matrices have dimensions
-`(nterminal, nterminal, nfrequency)`. The shared LineCableModels reduction path
-applies terminal ordering, bundle merging, Kron reduction, and ideal
-transposition to both ``Z`` and the potential-coefficient matrix ``P``. The
-backend then obtains ``Y`` by a condition-checked direct solve of
-``P Y = I``-there is no additional ``j\omega`` factor.
+`(nterminal, nterminal, nfrequency)`. The extracted coefficient is
+``P_{\mathrm{FEM}} = Y^{-1}`` in Ω·m. The backend passes the charge-based
+coefficient ``p = j\omega P_{\mathrm{FEM}}`` in m/F to the reduction shared with the
+analytical engine. It applies terminal ordering, bundle merging and Kron reduction
+to ``Z`` and ``p``. With `ideal_transposition=true` (the default is `false`), it
+averages the retained ``Z`` and ``p`` over cyclic transposition. It then obtains
+``Y = j\omega p^{-1}`` by a condition-checked direct solve, with the residual and
+condition number of each frequency in the result details.
 
 The returned value is the package-native `LineParameters` in `PhaseDomain`,
 with ``Z`` in Ω/m, ``Y`` in S/m, and the exact input frequency vector in Hz.

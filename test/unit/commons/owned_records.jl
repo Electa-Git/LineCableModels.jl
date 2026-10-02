@@ -51,7 +51,7 @@ end
     using LineCableModels.Commons: formulation_options, computation_options
     resolved = @inferred formulation_options(LineParametersFormulation, FormulationOptions())
     @test resolved isa FormulationOptions
-    @test resolved.data == (reduce_bundle=true, kron_reduction=true, ideal_transposition=true)
+    @test resolved.data == (reduce_bundle=true, kron_reduction=true, ideal_transposition=false)
     execution = @inferred computation_options(LineCableModelsCoaxial, ComputationOptions())
     @test execution isa ComputationOptions
     @test execution.data.trace === Val(false)

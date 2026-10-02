@@ -275,28 +275,10 @@ function LineParametersWorkspace(
         end
         (selection = selected, cases = cases)
     end
-    permutation, reordered_map, kron_map = _reduction_map(phase_map, formulation)
-    bundle_pairs = bundle_operations(reordered_map)
-    keep_indices = kron_map === nothing ? Int[] : findall(!=(0), kron_map)
-    eliminate_indices = kron_map === nothing ? Int[] : findall(==(0), kron_map)
-    Invariants = NamedTuple{
-        (:cable_indices, :permutation, :reordered_map, :bundle_pairs, :kron_map,
-            :keep_indices, :eliminate_indices),
-        Tuple{
-            Vector{Vector{Int}},
-            Vector{Int}, Vector{Int}, Vector{Tuple{Int, Int}},
-            Union{Nothing, Vector{Int}}, Vector{Int}, Vector{Int}
-        }
-    }
-    invariants = Invariants((
-        cable_indices,
-        permutation,
-        reordered_map,
-        bundle_pairs,
-        kron_map,
-        keep_indices,
-        eliminate_indices
-    ))
+    options = formulation.options.data
+    plan = ReductionPlan(phase_map; options.reduce_bundle, options.kron_reduction,
+        options.ideal_transposition)
+    invariants = (; cable_indices, plan)
 
     scalar = foldl(values(bindings); init = T) do current, bound
         bound.selection isa NamedTuple ||
@@ -324,8 +306,7 @@ function LineParametersWorkspace{T}(
     n_phases, n_cables, n_frequencies = input.n_phases, input.n_cables, input.n_frequencies
     n_layers = length(cable.dielectric_materials)
     cable_indices = invariants.cable_indices
-    eliminate_indices = invariants.eliminate_indices
-    nkeep = invariants.kron_map === nothing ? n_phases : length(invariants.keep_indices)
+    nkeep = length(invariants.plan.keep)
     geometry = (
         radius = _outer_radii(input.cable_map, cable.r_ext, cable.r_ins_ext),
         layers = invariants.geometry.layers)
@@ -378,19 +359,9 @@ function LineParametersWorkspace{T}(
     rho_cond = Vector{T}(undef, length(cable.conductor_materials))
     earth = _earth_data(input, bindings)
 
-    Zbuffer = Matrix{Complex{T}}(undef, n_phases, n_phases)
-    Pbuffer = similar(Zbuffer)
-    Zprimitive = similar(Zbuffer)
-    Pprimitive = similar(Zbuffer)
-    Pinverse = similar(Zbuffer)
-    reduced = Matrix{Complex{T}}(undef, nkeep, nkeep)
-    reduced_inverse = similar(reduced)
-    neliminate = length(eliminate_indices)
-    kron_factor = Matrix{Complex{T}}(undef, neliminate, neliminate)
-    kron_coupling = Matrix{Complex{T}}(undef, nkeep, neliminate)
-    kron_rhs = Matrix{Complex{T}}(undef, neliminate, nkeep)
-    identity_full = Matrix{Complex{T}}(I, n_phases, n_phases)
-    identity_reduced = Matrix{Complex{T}}(I, nkeep, nkeep)
+    Zprimitive = Matrix{Complex{T}}(undef, n_phases, n_phases)
+    Pprimitive = similar(Zprimitive)
+    reduction = ReductionBuffers{Complex{T}}(invariants.plan)
     Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, n_frequencies)
     Yout = similar(Zout)
     Zearth = Matrix{Complex{T}}(undef, n_cables, n_cables)
@@ -419,18 +390,9 @@ function LineParametersWorkspace{T}(
         rho_cond,
         earth,
         dielectric_admittivity,
-        Zbuffer,
-        Pbuffer,
         Zprimitive,
         Pprimitive,
-        Pinverse,
-        reduced,
-        reduced_inverse,
-        kron_factor,
-        kron_coupling,
-        kron_rhs,
-        identity_full,
-        identity_reduced,
+        reduction,
         Zout,
         Yout,
         Zearth,

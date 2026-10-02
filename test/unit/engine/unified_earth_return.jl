@@ -218,7 +218,7 @@ end
         Ze=trace.Zg[:, :, 1]
         Pe=trace.Pg[:, :, 1]
         Ye=(2pi*1e6*im)*(Pe\Matrix{eltype(Pe)}(I, 2, 2))
-        permutation=workspace.invariants.permutation
+        permutation=workspace.invariants.plan.permutation
         primitive=trace.P[permutation, permutation, 1]
         actual=workspace.buffers.Yout[:, :, 1]
         @test maximum(E.numerical_magnitude.(actual*primitive-(2pi*1e6*im)*I))<1e-6

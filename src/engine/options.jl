@@ -1,3 +1,13 @@
+"""
+$(TYPEDSIGNATURES)
+
+Normalize the line-parameter reductions. `reduce_bundle=true` merges the
+conductors of each active phase, `kron_reduction=true` eliminates conductors with
+phase zero, and `ideal_transposition=false` leaves the retained matrices
+untransposed. With `ideal_transposition=true`, the retained ``Z`` and
+potential-coefficient matrix ``P`` are averaged over cyclic transposition before
+``P`` is inverted to ``Y``. `LineCableModelsFEM` shares these options.
+"""
 function formulation_options(
         ::Type{LineParametersFormulation},
         record::FormulationOptions
@@ -16,7 +26,7 @@ function formulation_options(
         (
             reduce_bundle = true,
             kron_reduction = true,
-            ideal_transposition = true
+            ideal_transposition = false
         ),
         options
     )

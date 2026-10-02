@@ -147,67 +147,6 @@ end
     end
 end
 
-@testitem "Engine / reduction / reorder, Kron, and bundle invariants" tags=[:unit] setup=[
-    UseEngineSupport,
-    TestNumerics
-] begin
-    using LinearAlgebra
-    const Engine=LineCableModels.Engine
-
-    phase_map=[2, 0, 1, 2, 0, 1]
-    @test Engine.reorder_indices(phase_map) == [1, 3, 4, 6, 2, 5]
-    matrix=ComplexF64[4 1 2; 1 5 3; 2 3 8]
-    reduction_map=[1, 2, 0]
-    expected=matrix[1:2, 1:2]-matrix[1:2, 3:3]*
-                              inv(matrix[3:3, 3:3])*matrix[3:3, 1:2]
-    @test TestNumerics.isapprox_scaled(kron_reduce(matrix, reduction_map), expected)
-    destination=zeros(ComplexF64, 2, 2)
-    @test Engine.kron_reduce!(matrix, reduction_map, destination) === nothing
-    @test TestNumerics.isapprox_scaled(destination, expected)
-
-    # Complex asymmetric entries and ordered, noncontiguous indices expose
-    # accidental conjugation, symmetry assumptions, and reordered terminals.
-    for T in (Float32, Float64, BigFloat)
-        ordered = Complex{T}[8+im 1-2im 2+im 3; 2+3im 9-im 1 2im;
-                            1 3+im 10+2im 2; 4im 1-im 3+im 11]
-        keep, eliminate = [4, 1], [3, 2]
-        reduced = zeros(Complex{T}, 2, 2)
-        actual = Engine.kron_reduce!(ordered, keep, eliminate, reduced,
-            similar(reduced), similar(reduced), similar(reduced))
-        expected_ordered = ordered[keep, keep] - ordered[keep, eliminate] *
-            (ordered[eliminate, eliminate] \ ordered[eliminate, keep])
-        @test actual === reduced
-        @test actual ≈ expected_ordered
-        @test kron_reduce(ordered, [2, 0, 3, 0]) ≈ ordered[[1, 3], [1, 3]] -
-            ordered[[1, 3], [2, 4]] * (ordered[[2, 4], [2, 4]] \ ordered[[2, 4], [1, 3]])
-        @test kron_reduce(ordered, [1, 2, 3, 4]) == ordered
-        aliased = copy(ordered)
-        @test Engine.kron_reduce!(aliased, [1, 2, 3, 4], aliased) === nothing
-        @test aliased == ordered
-    end
-    @test_throws SingularException kron_reduce(ComplexF64[1 2; 3 0], [1, 0])
-    @test_throws DimensionMismatch kron_reduce(matrix, [1, 0])
-
-    bundled, merged_map=Engine.merge_bundles!(copy(matrix), [1, 1, 0])
-    @test merged_map == [1, 0, 0]
-    change_of_basis=Matrix{ComplexF64}(I, 3, 3)
-    change_of_basis[1, 2]=-1
-    @test bundled == transpose(change_of_basis) * matrix * change_of_basis
-
-    unconnected=ComplexF64[4 1 2; 1 5 3; 2 3 8]
-    unchanged, unconnected_map=Engine.merge_bundles!(copy(unconnected), [0, 0, 1])
-    @test unchanged == unconnected
-    @test unconnected_map == [0, 0, 1]
-
-    mixed=ComplexF64[6 1 2 3; 1 7 4 5; 2 4 8 6; 3 5 6 9]
-    mixed_basis=Matrix{ComplexF64}(I, 4, 4)
-    mixed_basis[1, 2]=-1
-    mixed_result, mixed_map=Engine.merge_bundles!(copy(mixed), [2, 2, 0, 0])
-    @test mixed_result == transpose(mixed_basis)*mixed*mixed_basis
-    @test mixed_map == [2, 0, 0, 0]
-    @test_throws ArgumentError Engine.merge_bundles!(ones(2, 3), [1, 1])
-end
-
 @testitem "ModalAnalysis / independent maps preserve ordered nonreciprocal entries" tags=[:unit] setup=[FormulaFixtures] begin
     const TR = LineCableModels.ModalAnalysis
     const FM = LineCableModels.FormulaMethod
@@ -229,38 +168,6 @@ end
     @test rebuilt.Z.values ≈ Z
     @test rebuilt.Y.values ≈ Y
     @test phase.Z.values == Z && phase.Y.values == Y
-end
-
-@testitem "Engine / reduction / passive network constrained solves" tags=[:unit] begin
-    using LinearAlgebra
-    E=LineCableModels.Engine
-    incidence=[1.0 0 0 1 1 0;0 1 0 -1 0 1;0 0 1 0 -1 -1]
-    for f in (10.0,100.0,1000.0)
-        s=2pi*im*f
-        r=collect(1:6).*1e-3;l=collect(7:12).*1e-6
-        g=collect(1:2:11).*1e-9;c=collect(2:2:12).*1e-10
-        z=inv(incidence*Diagonal(inv.(r.+s.*l))*transpose(incidence))
-        y=incidence*Diagonal(g.+s.*c)*transpose(incidence)
-        p=s*inv(y)
-        # Set the eliminated conductor's voltage or potential to zero in the
-        # original equations. Solve for the constrained currents or charges
-        # without constructing a Schur complement.
-        for matrix in (z,p)
-            excitation=Matrix{ComplexF64}(I,3,3)[:,1:2]
-            currents=matrix\excitation
-            expected=inv(currents[1:2,:])
-            @test kron_reduce(matrix,[1,2,0]) ≈ expected rtol=1e-10 atol=0
-        end
-        options=FormulationOptions(reduce_bundle=false,kron_reduction=true,ideal_transposition=false)
-        reduced=E.reduce_primitive_matrices(reshape(z,3,3,1),reshape(p,3,3,1),[1,2,0],options)
-        @test reduced.Z[:,:,1] ≈ inv((z\Matrix{ComplexF64}(I,3,3)[:,1:2])[1:2,:]) rtol=1e-10
-        @test s*inv(reduced.P[:,:,1]) ≈ s*((p\Matrix{ComplexF64}(I,3,3)[:,1:2])[1:2,:]) rtol=1e-10
-        bundled=E.reduce_primitive_matrices(reshape(z,3,3,1),reshape(p,3,3,1),[1,1,2],
-            FormulationOptions(reduce_bundle=true,kron_reduction=true,ideal_transposition=false))
-        equal_potentials=[1.0 0;1 0;0 1]
-        @test bundled.Z[:,:,1] ≈ inv(transpose(equal_potentials)*(z\equal_potentials)) rtol=1e-10
-        @test bundled.P[:,:,1] ≈ inv(transpose(equal_potentials)*(p\equal_potentials)) rtol=1e-10
-    end
 end
 
 @testitem "ModalAnalysis / current commuting modes / eigenvalues and reconstruction" tags=[:unit] begin

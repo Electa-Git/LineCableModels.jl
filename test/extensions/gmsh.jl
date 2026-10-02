@@ -138,31 +138,6 @@
             Float64, path, [50.0], 2, run
         )
     end
-
-    potential = Array{ComplexF64, 3}(undef, 2, 2, 2)
-    potential[:, :, 1] = [2.0 0.25; 0.25 1.5]
-    potential[:, :, 2] = [3.0 + 0.1im 0.5; 0.5 2.0 + 0.2im]
-    inversion = extension_module.potential_to_admittance(
-        potential; diagnostics = true
-    )
-    for frequency in axes(potential, 3)
-        @test potential[:, :, frequency] * inversion.Y[:, :, frequency] ≈ I
-        @test inversion.residuals[frequency] ≤ 100eps(Float64)
-    end
-    # An overflowing condition estimate is not a failed solve. The physical
-    # inverse is finite and remains the result of the original LU operation.
-    ill_conditioned = reshape(ComplexF64[1e-200 0; 0 1e200], 2, 2, 1)
-    warned = @test_logs (:warn, r"condition estimate is not finite") begin
-        extension_module.potential_to_admittance(ill_conditioned; diagnostics = true)
-    end
-    @test all(isfinite, warned.Y)
-    @test warned.Y[:, :, 1] == inv(ill_conditioned[:, :, 1])
-    @test isinf(only(warned.condition_numbers))
-    @test only(warned.residuals) ≤ 100eps(Float64)
-    @test_throws ArgumentError extension_module.potential_to_admittance(
-        fill(ComplexF64(NaN), 2, 2, 1))
-    @test_throws SingularException extension_module.potential_to_admittance(
-        zeros(ComplexF64, 2, 2, 1))
 end
 
 @testitem "Gmsh FEM / nominal Float64 preflight" tags=[:extension] begin

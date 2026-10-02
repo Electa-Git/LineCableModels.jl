@@ -19,7 +19,7 @@ export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables
-export ObservedResult
+export ObservedResult, kron_reduce
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 export basis, line_length, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
@@ -76,7 +76,7 @@ export preview, show_material_scale
 export Formulation, LineParametersFormulation, CableConstantsFormulation,
        LineCableModelsCoaxial,
        LineCableModelsFEM, LineCableModelsFEMError, BoundarySolveError,
-       SeriesImpedance, ShuntAdmittance, kron_reduce,
+       SeriesImpedance, ShuntAdmittance,
        LineParameters, PhaseDomain, ModalDomain
 export ModalAnalysisProblem, ModalAnalysisFormulation,
        LineCableModelsModal, ModalOperators, operators, Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc,
@@ -109,7 +109,7 @@ using .Commons:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                observe, @observe, observables, ObservedResult
+                observe, @observe, observables, ObservedResult, kron_reduce
 import .Commons: compute
 using .Commons: FormulaDefinition, FormulaMethod
 include("logging.jl")
@@ -176,7 +176,7 @@ using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
 include("engine/Engine.jl")
 using .Engine: LineParameters, LineParametersProblem, CableConstants,
                CableConstantsProblem, CableConstantsFormulation, SeriesImpedance,
-               ShuntAdmittance, kron_reduce, Formulation,
+               ShuntAdmittance, Formulation,
                LineParametersFormulation, LineCableModelsCoaxial,
                LineCableModelsFEM,
                LineCableModelsFEMError, BoundarySolveError,

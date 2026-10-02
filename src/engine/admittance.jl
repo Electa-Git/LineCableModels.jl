@@ -28,9 +28,9 @@ zero inner radius or zero-thickness annulus contributes zero.
 
 Here `r_in` and `r_ex` are the dielectric radii in meters, `κ` is complex
 admittivity in S/m, and `s` is complex frequency in s⁻¹. For sinusoidal
-evaluation, ``s=jω``. This definition gives ``y=s/p``. The FEM reduction
-accepts an inverse-admittance coefficient ``P=1/y`` in m/S.
-For the same admittance and reference, ``p=sP``.
+evaluation, ``s=jω``. This definition gives ``y=s/p``. The FEM backend extracts
+the inverse-admittance coefficient ``P=1/y`` in m/S and passes ``p=sP`` to
+[`reduce_line_matrices!`](@ref LineCableModels.Commons.reduce_line_matrices!).
 """
 @inline function potential_coefficient(
         r_in::T,

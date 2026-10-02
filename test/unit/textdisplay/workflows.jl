@@ -29,8 +29,8 @@
     for workspace in workspaces
         # Scratch storage is intentionally uninitialized until compute. Give
         # the two primitive buffers sentinels before checking display purity.
-        fill!(workspace.buffers.Zbuffer, 123+im)
-        fill!(workspace.buffers.Pbuffer, -456+2im)
+        fill!(workspace.buffers.Zprimitive, 123+im)
+        fill!(workspace.buffers.Pprimitive, -456+2im)
     end
     objects=(
         problem, line_problem, formulation, cable_formulation, constants,
@@ -57,8 +57,8 @@
     @test parent(parameters.Z) == before[1]
     @test parent(parameters.Y) == before[2]
     for (index, workspace) in enumerate(workspaces)
-        @test all(==(123 + im), workspace.buffers.Zbuffer)
-        @test all(==(-456 + 2im), workspace.buffers.Pbuffer)
+        @test all(==(123 + im), workspace.buffers.Zprimitive)
+        @test all(==(-456 + 2im), workspace.buffers.Pprimitive)
         @test occursin("frequencies=3", sprint(show, workspace))
         @test occursin(index == 1 ? "disabled" : "enabled",
             sprint(show, MIME"text/plain"(), workspace))

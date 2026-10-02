@@ -48,7 +48,7 @@
     @test formulation.data == (
         reduce_bundle = true,
         kron_reduction = true,
-        ideal_transposition = true
+        ideal_transposition = false
     )
     @test_throws ArgumentError Commons.formulation_options(
         formulation_owner, FormulationOptions(unknown = true))
