@@ -1100,19 +1100,19 @@
     end
 end
 
-@testitem "Quality / architecture / Ownership" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / ownership" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("ownership")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Placement" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / placement" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("placement")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Direction" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / direction" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
     # Each top-level submodule has a position in the declared order.
     top = Set(nameof(m) for m in A.live_tree().core
@@ -1123,13 +1123,13 @@ end
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Names" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / names" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("names")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Shadowing" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / shadowing" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("shadowing")
     @test result.added == String[]
     @test result.stale == String[]
@@ -1141,13 +1141,13 @@ end
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Reserved verbs" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / reserved verbs" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("reserved_verbs")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Symbol switches and probes" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / symbol switches and probes" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("switches")
     @test result.added == String[]
     @test result.stale == String[]
@@ -1351,31 +1351,31 @@ end
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Reserved vocabulary" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / reserved vocabulary" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("vocabulary")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Literal fingerprints" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / literal fingerprints" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("fingerprints")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Clones of Commons bodies" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / clones of Commons bodies" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("clones")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Tiny private helpers" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / tiny private helpers" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("helpers")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / Root freeze" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / root freeze" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("root")
     @test result.added == String[]
     @test result.stale == String[]
