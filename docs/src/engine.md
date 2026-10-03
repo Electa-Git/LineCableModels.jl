@@ -19,7 +19,7 @@ the equations without determining their software names.
 | Earth admittance | `:default`, `:unified`, `:ideal`, `:pollaczek1926`, `:wise1948`, `:xue2018` |
 | Frequency-dependent soil properties | `:default`, `:constant`, `:alipio2014`, `:cigre2019`, `:datsios2019`, `:longmire1975`, `:messier1985`, `:portela1999`, `:scott1967`, `:visacro1987`, `:visacro2012` |
 | Equivalent earth | `:default`, `:bottommost` |
-| Modal transformation | `:default`, `:chrysochos2014` |
+| Modal transformation | `:default`, `:chrysochos2014`, `:vieira2026`, `:wedepohl1996` |
 | Temperature-dependent resistivity | `:default`, `:linear` |
 
 The internal default and `:schelkunoff1934` retain Schelkunoff's tubular

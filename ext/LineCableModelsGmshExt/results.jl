@@ -336,7 +336,7 @@ function _line_parameters(
     residuals = Vector{T}(undef, frequency_count)
     condition_numbers = similar(residuals)
     for (index, frequency) in pairs(model.problem.frequencies)
-        # The extracted coefficient is P = 1/y in m/S; the shared reduction takes
+        # The extracted coefficient is P = 1/y in m/S. The shared reduction takes
         # the charge-based p = sP in m/F and returns y = s/p.
         s = Complex{T}(im * (2 * (one(T) * π) * frequency))
         diagnostics = reduce_line_matrices!(view(Z, :, :, index), view(Y, :, :, index),

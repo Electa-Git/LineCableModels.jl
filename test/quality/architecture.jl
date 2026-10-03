@@ -544,7 +544,7 @@
     end
 
     # The function or type whose method `m` is. A keyword sorter belongs to its
-    # function, and a closure method to the closure type.
+    # function, and a method of a nested function to the type of that function.
     function method_subject(m::Method)
         signature = Base.unwrap_unionall(m.sig).parameters
         F = Base.unwrap_unionall(signature[1])
@@ -615,7 +615,7 @@
         defined = definitions(C)
         hooks, api = commons_roles(methods, tree, C, defined)
         name_of = IdDict{Any, Symbol}(value => name for (name, value) in defined)
-        # Owners of every Commons value, closures and keyword bodies included.
+        # Owners of every Commons value, nested functions and keyword bodies included.
         owners = IdDict{Any, Set{Module}}(value => Set{Module}() for value in values(defined))
         # The Commons values that each Commons method subject references.
         references = IdDict{Any, Base.IdSet{Any}}()
@@ -631,7 +631,8 @@
                 push!(owners[value], top_owner(tree, M))
             end
         end
-        # Loops instead of closures: a closure compiles once per type it receives.
+        # Loops instead of anonymous functions: an anonymous function compiles once
+        # per type it receives.
         for m in methods
             subject = method_subject(m)
             use!(m.module, subject, subject)
@@ -682,7 +683,7 @@
         end
         public = Set(name for name in keys(defined) if Base.ispublic(C, name))
         # Public definitions pass their owners to what they use, also through
-        # their closures and keyword bodies. Private definitions pass none.
+        # their nested functions and keyword bodies. Private definitions pass none.
         changed = true
         while changed
             changed = false
@@ -956,9 +957,9 @@
             own == passed
     end
 
-    # C5. A tiny helper is a private module-level function with one method and
-    # at most three body statements that exactly one method references and no
-    # test file names. An exact forwarder is one whatever its references.
+    # C5. Private module-level functions with one method and at most three body
+    # statements, referenced by exactly one method and named in no test file, are
+    # tiny helpers. Exact forwarders count whatever their references.
     function tiny_helpers(methods, tree::PackageTree, tests)
         callers = IdDict{Any, Set{Method}}()
         for m in methods
@@ -1514,7 +1515,7 @@ end
         "helpers" => Dict("src/alpha/Alpha.jl" => 1, "src/beta/Beta.jl" => 1),
         "root" => Dict("CommonsProbePlanted" => 2))
 
-    # Every Commons definition qualifies. The near misses do not count.
+    # Every Commons definition qualifies, and none of the near misses counts.
     clean_files = Dict(
         "src/CommonsProbeClean.jl" => """
             module CommonsProbeClean
@@ -1624,7 +1625,7 @@ end
     end
     @test A.TOML.parse(A.render(planted)) == planted
 
-    # Throw guards are not shingled; other `||` statements are.
+    # Throw guards are left out of the shingles. Other `||` statements stay in.
     body = A.JuliaSyntax.parseall(A.SyntaxNode, """
         function guarded(x)
             x > 0 || throw(ArgumentError("x must be positive"))
