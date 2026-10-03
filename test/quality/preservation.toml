@@ -1,11 +1,17 @@
 # Preservation locks, checked by `test/quality/preservation.jl`. Each table declares
 # its direction: a floor may only rise and a ceiling may only fall, which
 # `test/tools/baseline_ratchet.jl REF` checks across commits. The quality checks
-# require the tables to equal the live counts.
+# require the counts to equal the live counts.
+
+# The measured ceilings ([jet], [allocations]) hold for this Julia version only. An
+# increase in them is accepted only together with a change of this version.
+[environment]
+julia = "1.12.7"
 
 [directions]
 inferred = "floor"
 jet = "ceiling"
+allocations = "ceiling"
 
 # Floor: `@inferred` uses per test file.
 [inferred]
@@ -69,3 +75,46 @@ jet = "ceiling"
 "decompose! wedepohl1996" = 0
 "earth!" = 1
 "reduce_line_matrices!" = 0
+
+# Ceiling: allocations of the preservation corpus (`CurrentScenarios.preservation_corpus`),
+# printed by `test/tools/allocations.jl`. `allocations` counts the allocated objects of one
+# warmed-up `compute` call, identical on every call; `bytes` is the minimum over three
+# calls and may grow by at most 512 B before the check fails. Re-record a row's bytes
+# whenever its counts are re-recorded.
+[allocations]
+"coaxial | 2 frequencies | allocations" = 7280
+"coaxial | 2 frequencies | bytes" = 424624
+"overhead | 2 frequencies | allocations" = 5812
+"overhead | 2 frequencies | bytes" = 328832
+"buried | 2 frequencies | allocations" = 5836
+"buried | 2 frequencies | bytes" = 331520
+"modal | 2 frequencies | allocations" = 8202
+"modal | 2 frequencies | bytes" = 484464
+"cable_constants | 2 frequencies | allocations" = 2424
+"cable_constants | 2 frequencies | bytes" = 126080
+"product | 2 frequencies | allocations" = 59066
+"product | 2 frequencies | bytes" = 3318960
+"zip | 2 frequencies | allocations" = 29604
+"zip | 2 frequencies | bytes" = 1663824
+"linear_error | 2 frequencies | allocations" = 630971
+"linear_error | 2 frequencies | bytes" = 30567872
+"monte_carlo | 2 frequencies | allocations" = 48059
+"monte_carlo | 2 frequencies | bytes" = 2792656
+"coaxial | 4 frequencies | allocations" = 7328
+"coaxial | 4 frequencies | bytes" = 430336
+"overhead | 4 frequencies | allocations" = 5828
+"overhead | 4 frequencies | bytes" = 331536
+"buried | 4 frequencies | allocations" = 5876
+"buried | 4 frequencies | bytes" = 336912
+"modal | 4 frequencies | allocations" = 8362
+"modal | 4 frequencies | bytes" = 507264
+"cable_constants | 4 frequencies | allocations" = 2424
+"cable_constants | 4 frequencies | bytes" = 126080
+"product | 4 frequencies | allocations" = 59450
+"product | 4 frequencies | bytes" = 3364592
+"zip | 4 frequencies | allocations" = 29796
+"zip | 4 frequencies | bytes" = 1686640
+"linear_error | 4 frequencies | allocations" = 1231018
+"linear_error | 4 frequencies | bytes" = 59381904
+"monte_carlo | 4 frequencies | allocations" = 48915
+"monte_carlo | 4 frequencies | bytes" = 2859136

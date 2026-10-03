@@ -1,7 +1,9 @@
 # Preservation locks. `preservation.toml` records counts per key, in tables that
-# declare their direction: `[inferred]` is a floor and `[jet]` a ceiling. A check fails
-# when a live count passes its limit, and also when the live count improves on the
-# table, so the table always records the current state. `test/tools/baseline_ratchet.jl
+# declare their direction: `[inferred]` is a floor, `[jet]` and `[allocations]` are
+# ceilings. A check fails when a live count passes its limit, and also when the live
+# count improves on the table, so the table always records the current state; recorded
+# bytes are the exception and fail only on increases beyond `HEADROOM`. The measured
+# ceilings hold for the Julia version in `[environment]`. `test/tools/baseline_ratchet.jl
 # REF` checks that floors only rise and ceilings only fall across commits.
 @testmodule PreservationLocks begin
     using TestItemRunner, TOML
@@ -26,6 +28,31 @@
     end
 
     report(lines) = (foreach(println, lines); lines)
+
+    # The measured tables hold for the recorded Julia version only.
+    function check_version(recorded = TOML.parsefile(TABLES)["environment"]["julia"],
+            running = string(VERSION))
+        recorded == running || error(
+            "recorded on $recorded, running $running: re-record [jet] and [allocations]")
+        return nothing
+    end
+
+    # L2. Allocation counts are strict in both directions. Bytes fail only above the
+    # recorded minimum plus `HEADROOM`, because the runtime's byte accounting varies.
+    const HEADROOM = 512
+    function compare_allocations(live, recorded)
+        counts(d) = Dict(k => v for (k, v) in d if endswith(k, "| allocations"))
+        result = compare(counts(live), counts(recorded); floor = false)
+        for key in sort!(collect(union(keys(live), keys(recorded))))
+            endswith(key, "| bytes") || continue
+            now, limit = get(live, key, 0), get(recorded, key, 0)
+            now > limit + HEADROOM &&
+                push!(result.broken, "$key: $now (recorded $limit + $HEADROOM)")
+        end
+        return result
+    end
+
+    const ALLOCATIONS = joinpath(REPOSITORY, "test", "tools", "allocations.jl")
 
     # L1. The `@inferred` uses in a Julia source, qualified or not.
     function inferred_uses(text, filename = "none")
@@ -68,6 +95,7 @@ end
 @testitem "Quality / preservation / JET ceilings on the frequency-loop kernels" tags=[:quality] setup=[PreservationLocks] begin
     using JET
     P = PreservationLocks
+    P.check_version()
     E, M, C = LineCableModels.Engine, LineCableModels.ModalAnalysis, LineCableModels.Commons
     include(joinpath(P.REPOSITORY, "test", "support", "scenarios.jl"))
     using .CurrentScenarios: line_parameters_problem, three_phase_system
@@ -119,6 +147,28 @@ end
     # A kernel above its ceiling has a new optimization report.
     @test P.report(result.broken) == String[]
     # A kernel below its ceiling lowers the ceiling in the same change.
+    @test P.report(result.stale) == String[]
+end
+
+@testitem "Quality / preservation / L2 allocation ceilings" tags=[:quality] setup=[PreservationLocks] begin
+    using TOML
+    P = PreservationLocks
+    P.check_version()
+    # A fresh process runs the corpus in a fixed order: the counts depend on what the
+    # process computed before.
+    output, errors = IOBuffer(), IOBuffer()
+    command = `$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) $(P.ALLOCATIONS)`
+    process = run(pipeline(ignorestatus(command); stdout = output, stderr = errors))
+    text = String(take!(output))
+    print(text)
+    # A nonzero exit reports allocation counts that varied across calls.
+    success(process) || print(String(take!(errors)))
+    @test success(process)
+    live = Dict{String, Int}(TOML.parse(text)["allocations"])
+    result = P.compare_allocations(live, P.table("allocations"))
+    # A row above its ceiling allocates more.
+    @test P.report(result.broken) == String[]
+    # A row whose counts fell lowers its ceiling, and re-records its bytes, in the same change.
     @test P.report(result.stale) == String[]
 end
 
@@ -179,5 +229,49 @@ end
         @test moved() == String[]
         locks(["test/b.jl" => 3], ["kernel" => 2]; directions = "inferred = \"floor\"\n")
         @test_throws ErrorException moved()
+        # A measured ceiling may rise only together with the recorded Julia version.
+        function measured(jet, allocations, julia)
+            write(joinpath(repository, ratchet.PRESERVATION),
+                "[environment]\njulia = \"$julia\"\n[directions]\ninferred = \"floor\"\n" *
+                "jet = \"ceiling\"\nallocations = \"ceiling\"\n[inferred]\n\"test/b.jl\" = 3\n" *
+                "[jet]\nkernel = $jet\n[allocations]\n\"s | 2 frequencies | allocations\" = $allocations\n")
+        end
+        measured(2, 10, "1.12.7")
+        git("add", "-A")
+        git("commit", "-q", "--no-verify", "--no-gpg-sign", "-m", "measured")
+        measured(3, 11, "1.12.7")
+        @test moved() == ["allocations | s | 2 frequencies | allocations: 11 (10 at HEAD)",
+            "jet | kernel: 3 (2 at HEAD)"]
+        measured(3, 11, "1.12.8")
+        @test moved() == String[]
+        # A floor stays a floor across a version change.
+        write(joinpath(repository, ratchet.PRESERVATION),
+            replace(read(joinpath(repository, ratchet.PRESERVATION), String),
+                "\"test/b.jl\" = 3" => "\"test/b.jl\" = 2"))
+        @test moved() == ["inferred | test/b.jl: 2 (3 at HEAD)"]
     end
+
+    # The measured tables refuse another Julia version.
+    @test P.check_version("1.12.7", "1.12.7") === nothing
+    @test_throws ErrorException("recorded on 1.12.7, running 1.12.8: re-record [jet] and [allocations]") P.check_version("1.12.7", "1.12.8")
+
+    # Allocation counts are strict both ways; bytes fail only beyond the headroom.
+    recorded = Dict("s | 2 frequencies | allocations" => 10, "s | 2 frequencies | bytes" => 1000)
+    row(n, b) = Dict("s | 2 frequencies | allocations" => n, "s | 2 frequencies | bytes" => b)
+    @test P.compare_allocations(row(10, 1000 + P.HEADROOM), recorded) == (; broken = String[], stale = String[])
+    @test P.compare_allocations(row(10, 900), recorded) == (; broken = String[], stale = String[])
+    @test P.compare_allocations(row(10, 1001 + P.HEADROOM), recorded).broken ==
+        ["s | 2 frequencies | bytes: 1513 (recorded 1000 + 512)"]
+    @test P.compare_allocations(row(11, 1000), recorded).broken == ["s | 2 frequencies | allocations: 11 (recorded 10)"]
+    @test P.compare_allocations(row(9, 1000), recorded).stale == ["s | 2 frequencies | allocations: 9 (recorded 10)"]
+
+    # The allocation tool reports object counts that vary across calls, and records the
+    # minimum bytes.
+    tool = Module(:AllocationTool)
+    Base.include(tool, P.ALLOCATIONS)
+    rows(objects, bytes) = Base.invokelatest(tool.scenario_rows, "s", 2, (; objects, bytes))
+    @test rows([5, 5, 5], [12, 10, 11]) ==
+        (["s | 2 frequencies | allocations" => 5, "s | 2 frequencies | bytes" => 10], nothing)
+    @test last(rows([5, 6, 5], [10, 10, 10])) ==
+        "s | 2 frequencies: allocations [5, 6, 5] across calls"
 end

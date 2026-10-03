@@ -3,7 +3,7 @@
 module CurrentScenarios
     export conductor_material, coaxial_design, three_phase_system, two_wire_system,
         line_parameters_problem, channel_value, two_conductor_results, cable_monte_carlo_result,
-        three_bare_wires_problem, three_bare_wires_layouts
+        three_bare_wires_problem, three_bare_wires_layouts, preservation_corpus
     using LineCableModels
     using LineCableModels.DocStringExtensions: TYPEDSIGNATURES
     using Statistics: mean
@@ -121,5 +121,48 @@ module CurrentScenarios
             return_samples=true,return_histograms=true)
         return MonteCarloResult(formulation,[representation],[statistics],
             [samples],[histograms],UInt64(2027),UInt64[2039],[4])
+    end
+
+    # Parametric study: earth resistivity and spacing, combined as `combine` asks, crossed
+    # with two insulation admittance formulations.
+    study_space(frequencies, combine) = Gridspace{LineParametersProblem}(
+        (rho, spacing) -> LineParametersProblem(three_phase_system(; spacing);
+            temperature=20.0, earth_props=homogeneous(; rho, eps_r=10.0, mu_r=1.0),
+            frequencies), (Grid((100.0, 1000.0)), Grid((0.08, 0.1))); combine)
+    study_formulations() = Formulation(insulation_admittance=Grid((:default, :lossy)))
+
+    # One uncertain cable spacing [m]; its evaluation requires the Measurements extension.
+    uncertain_space(frequencies) = Gridspace{LineParametersProblem}(
+        spacing -> line_parameters_problem(three_phase_system(; spacing); frequencies),
+        (Grid(0.08, AbsoluteError(0.002)),))
+
+    """
+    $(TYPEDSIGNATURES)
+
+    The preservation corpus: one scenario per calculation shape, shared by the
+    allocation ceiling (L2), the timing comparison (L3) and the equivalence check (L4).
+    Each scenario is the tuple of positional arguments of `compute`, with `n` analysis
+    frequencies between 10 Hz and 100 kHz. The CableConstants problem has its own
+    single frequency. LinearError and MonteCarlo require the Measurements extension.
+    """
+    function preservation_corpus(n::Integer)
+        frequencies = collect(10.0 .^ range(1, 5; length=n))
+        coaxial = line_parameters_problem(three_phase_system(); frequencies)
+        return (
+            coaxial=(coaxial, Formulation()),
+            overhead=(three_bare_wires_problem(;
+                heights=three_bare_wires_layouts.all_air, frequencies), Formulation()),
+            buried=(three_bare_wires_problem(;
+                heights=three_bare_wires_layouts.all_earth, frequencies), Formulation()),
+            modal=(coaxial, Formulation(), ModalAnalysisFormulation(:default)),
+            cable_constants=(CableConstantsProblem(coaxial_design()), CableConstantsFormulation()),
+            product=(ParametricProblem(study_space(frequencies, :product)),
+                Combinatorial(study_formulations())),
+            zip=(ParametricProblem(study_space(frequencies, :zip)),
+                Combinatorial(study_formulations())),
+            linear_error=(ParametricProblem(uncertain_space(frequencies)),
+                LinearError(Formulation())),
+            monte_carlo=(ParametricProblem(uncertain_space(frequencies)),
+                MonteCarlo(Formulation(); trials=4, seed=2027)))
     end
 end

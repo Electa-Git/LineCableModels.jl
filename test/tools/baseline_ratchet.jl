@@ -2,7 +2,9 @@
 # a git revision. Run `julia test/tools/baseline_ratchet.jl REF`. Every table of the
 # baseline is a ceiling; `preservation.toml` declares the direction of each table in
 # `[directions]`. A ceiling key added or raised since `REF` fails, and a floor key
-# removed or lowered since `REF` fails; moves the other way pass. The check passes for
+# removed or lowered since `REF` fails; moves the other way pass. The measured ceilings
+# `[jet]` and `[allocations]` may also rise in a change of `[environment] julia`, the
+# version they were recorded on. The check passes for
 # a file absent at `REF`, and a table absent at `REF` is not compared. File renames that
 # git detects between `REF` and the working tree, and the module renames they imply,
 # are applied to the keys at `REF` first.
@@ -10,6 +12,10 @@ using TOML
 
 const BASELINE = "test/quality/architecture_baseline.toml"
 const PRESERVATION = "test/quality/preservation.toml"
+# Tables of the preservation file that describe it rather than hold counts.
+const METADATA = ("directions", "environment")
+# Ceilings measured on one Julia version.
+const MEASURED = ("jet", "allocations")
 const REPOSITORY = normpath(joinpath(@__DIR__, "..", ".."))
 
 git(repository, arguments::AbstractString...) = Cmd(["git", "-C", repository, arguments...])
@@ -71,7 +77,7 @@ function directions(file, document)
     file == BASELINE && return Dict(table => "ceiling" for table in keys(document))
     declared = Dict{String, String}(get(document, "directions", Dict{String, Any}()))
     for table in keys(document)
-        table == "directions" || haskey(declared, table) ||
+        table in METADATA || haskey(declared, table) ||
             error("$file declares no direction for [$table]")
     end
     all(in(("floor", "ceiling")), values(declared)) ||
@@ -93,20 +99,23 @@ function moved(repository, reference, file)
     document = TOML.parse(read(git(repository, "show", "$reference:$file"), String))
     current = TOML.parsefile(joinpath(repository, file))
     direction = merge(directions(file, document), directions(file, current))
+    julia(d) = get(get(d, "environment", Dict{String, Any}()), "julia", nothing)
+    rerecorded = file == PRESERVATION && julia(document) != julia(current)
     values_of(d) = Dict(key => value for (key, value) in entries(d)
-        if first(split(key, " | ")) != "directions")
+        if first(split(key, " | ")) ∉ METADATA)
     before = Dict{String, Any}()
     for (key, value) in values_of(document)
         mergewith!(+, before, Dict(rename_key(key, renamed) => value))
     end
     now = values_of(current)
     tables = sort!([table for table in keys(current)
-        if table != "directions" && !haskey(document, table)])
+        if table ∉ METADATA && !haskey(document, table)])
     lines = String[]
     for key in sort!(collect(union(keys(now), keys(before))))
         table = first(split(key, " | "))
         table in tables && continue
         if direction[table] == "ceiling"
+            rerecorded && table in MEASURED && continue
             haskey(now, key) || continue
             haskey(before, key) ||
                 (push!(lines, string(key, ": ", now[key], " (absent at ", reference, ")")); continue)
