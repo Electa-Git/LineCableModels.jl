@@ -1,0 +1,15 @@
+extends: STE.Dictionary
+swap-:
+  - component
+  - equivalent
+  - identical
+  - objective
+  - optimum
+  - remainder
+tests:
+  - name: ordinary wording
+    input: "Commence the calculation."
+    contains: Project.Dictionary
+  - name: mathematical terms
+    input: "The component is equivalent. The identical objective has an optimum and a remainder."
+    want: ""

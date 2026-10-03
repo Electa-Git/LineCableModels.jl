@@ -1,0 +1,15 @@
+extends: ai-tells.MotionMetaphors
+exceptions+:
+  # A stranded conductor consists of multiple physical wires.
+  - '(?i)stranded[-\s]+(?:conductors?|cores?|cables?|wires?|bundles?|constructions?|assembl(?:y|ies)|geometry|layouts?|regions?|designs?|sectors?|aluminum|copper|coaxials?|metallic)'
+  - '(?i)(?:wire|rectangular|circular|source|tangent|twisted|segment|clipped|disk-bounded)\s+strands'
+  - '(?i)(?:wire|sector)\s+stranding'
+  - '(?i)circular,\s+tubular,\s+stranded,\s+and\s+noncircular\s+terminal\s+geometries'
+  - '(?i)solid,\s+tubular,\s+stranded,\s+screened,\s+and\s+armored\s+cable\s+models'
+tests:
+  - name: physical wires
+    input: "Use stranded conductors."
+    want: ""
+  - name: metaphor
+    input: "The default is baked into the code."
+    contains: Project.MotionMetaphors

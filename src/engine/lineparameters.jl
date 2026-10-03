@@ -1,0 +1,542 @@
+# LineParameters computation remains independent from CableConstants.
+
+@inline _stash!(::Nothing, ::Symbol, ::Int, ::AbstractMatrix) = nothing
+
+@inline function _stash!(capture::NamedTuple, name::Symbol, frequency::Int, source::AbstractMatrix)
+    destination = getproperty(capture, name)
+    @views copyto!(destination[:, :, frequency], source)
+    return nothing
+end
+
+function _solve!(
+        workspace::LineParametersWorkspace{T},
+        formulation::LineParametersFormulation,
+        earth_calculations::Tuple = workspace.invariants.earth_calculations,
+        earth_materials::Tuple = workspace.buffers.earth_materials
+) where {T <: Real}
+    input = workspace.input
+    invariants = workspace.invariants
+    buffers = workspace.buffers
+    workspace.capture===nothing || empty!(workspace.capture.integrals)
+    Zprimitive = buffers.Zprimitive
+    Pprimitive = buffers.Pprimitive
+    Zout = buffers.Zout
+    Yout = buffers.Yout
+
+    materials!(workspace, formulation)
+    @debug "Starting line parameters computation"
+    for frequency in 1:input.n_frequencies
+        materials!(workspace, formulation, frequency, earth_calculations, earth_materials)
+        cable_impedance!(Zprimitive, input.cable, buffers.rho_cond,
+            formulation.methods, input.jω[frequency]; workspace)
+        cable_potential!(Pprimitive, input.cable, buffers.dielectric_admittivity,
+            input.jω[frequency], buffers.layer_coefficients, buffers.coefficients, buffers.tails)
+        _stash!(workspace.capture, :Zin, frequency, Zprimitive)
+        _stash!(workspace.capture, :Pin, frequency, Pprimitive)
+        earth!(workspace, frequency, earth_calculations, earth_materials)
+        _stash!(workspace.capture, :Zg, frequency, buffers.Zearth)
+        _stash!(workspace.capture, :Pg, frequency, buffers.Pearth)
+        impedance!(Zprimitive, workspace, frequency)
+        admittance!(Pprimitive, workspace, frequency)
+        reduce_line_matrices!(view(Zout, :, :, frequency), view(Yout, :, :, frequency),
+            Zprimitive, Pprimitive, input.jω[frequency], invariants.plan, buffers.reduction)
+    end
+
+    return workspace
+end
+
+function _retained_details(workspace::LineParametersWorkspace{
+        <:Real, <:NamedTuple, <:NamedTuple,
+        <:NamedTuple, Nothing})
+    # Local model diagnostics vary with geometry and selection, not the result type.
+    ComputationDetails(NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,)))
+end
+
+function _retained_details(workspace::LineParametersWorkspace)
+    capture = workspace.capture
+    shunt = NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,))
+    capture === nothing && return ComputationDetails(shunt)
+    input = workspace.input
+    return ComputationDetails(merge(shunt,
+        (
+            trace = (
+            phase_map = copy(input.phase_map),
+            cable_map = copy(input.cable_map),
+            Zin = copy(capture.Zin),
+            Pin = copy(capture.Pin),
+            Zg = copy(capture.Zg),
+            Pg = copy(capture.Pg),
+            Z = copy(capture.Z),
+            P = copy(capture.P),
+            integrals = copy(capture.integrals)
+        ),
+        )))
+end
+
+function _finish(
+        workspace::LineParametersWorkspace,
+        problem::LineParametersProblem,
+        formulation::LineParametersFormulation,
+        ::Val{Basis};
+        physical_inputs=completed_inputs(problem),
+        gridpoint=Commons.gridpoint_id()
+) where {Basis}
+    impedance = copy(workspace.buffers.Zout)
+    admittance = copy(workspace.buffers.Yout)
+    if Basis === :total
+        impedance .*= workspace.input.line_length
+        admittance .*= workspace.input.line_length
+    end
+    all(isfinite, impedance) || throw(DomainError(impedance,
+        "completed series impedance must contain only finite entries"))
+    all(isfinite, admittance) || throw(DomainError(admittance,
+        "completed shunt admittance must contain only finite entries"))
+    retained = _retained_details(workspace)
+    names=["cable:$(terminal.cable):$(terminal.terminal)"
+           for terminal in problem.system.terminal_order]
+    coordinates=map(workspace.invariants.plan.indices) do index
+        phase=problem.system.connection_order[index]
+        members=findall(==(phase), problem.system.connection_order)
+        formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
+        "bundle:[" * join(names[members], ",") * "]" : names[index]
+    end
+    result = LineParameters(PhaseDomain,
+        SeriesImpedance{eltype(impedance), Basis}(impedance),
+        ShuntAdmittance{eltype(admittance), Basis}(admittance),
+        workspace.input.freq,
+        completion_details(merge(retained.data,
+            completed_formulation(formulation),
+            NamedTuple{(:inputs,:gridpoint,:coordinates),Tuple{NamedTuple,NamedTuple,Vector{String}}}(
+                (physical_inputs,gridpoint,coordinates)))))
+    return result
+end
+
+function _compute(
+        engine::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        formulation::LineParametersFormulation,
+        execution::ComputationOptions,
+        input::NamedTuple,
+        physical_inputs::NamedTuple,
+        gridpoint::NamedTuple
+)
+    workspace = LineParametersWorkspace(problem, formulation, execution, input)
+    _solve!(workspace, formulation)
+    return _finish(workspace, problem, formulation, execution.data.output_basis;
+        physical_inputs, gridpoint)
+end
+
+function _compute(
+        engine::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        formulation::LineParametersFormulation,
+        execution::ComputationOptions,
+        timing::Val
+)
+    values = _compute(
+        engine,
+        problem,
+        typeof(formulation)[formulation],
+        execution,
+        timing
+    )
+    return first(values)
+end
+
+function _compute(
+        engine::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        formulations::AbstractVector{<:LineParametersFormulation},
+        execution::ComputationOptions,
+        timing::Val
+)
+    isempty(formulations) && throw(ArgumentError(
+        "line-parameter formulation collections cannot be empty",
+    ))
+    progress = verbosity(execution, :progress) > 0
+    started = progress ? time_ns() : UInt64(0)
+    last_log = started
+    previous_completion = started
+    average_seconds = 0.0
+    progress && @info "Line parameters computation started" _group=:progress total=length(formulations)
+    validate(problem)
+    for design in problem.system.designs, formulation in formulations
+
+        Formulation(engine, formulation.methods.pipe_impedance, design)
+    end
+    maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
+        @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
+            max_frequency=maximum(problem.frequencies),)
+    physical_inputs = completed_inputs(problem)
+    source_id = Commons.gridpoint_id().source_id
+    T = eltype(problem)
+    blueprints = flatten(engine, problem.system.designs, T, formulations)
+    inputs = [lineinput(problem, first(blueprints))]
+    for index in 2:length(blueprints)
+        previous = findfirst(other -> other === blueprints[index], blueprints)
+        push!(inputs, previous < index ? inputs[previous] :
+                      lineinput(problem, blueprints[index]))
+    end
+    values = map(formulations, inputs, eachindex(formulations)) do formulation, input, index
+        gridpoint = Commons.gridpoint_id(; source_id, formulation_index=index)
+        # Measure a full scan from workspace creation through the solve and result validation.
+        # Shared input and workspace construction, attachment, callbacks and progress are excluded.
+        value = if timing isa Val{true}
+            measured = Base.@timed _compute(engine, problem, formulation, execution,
+                input, physical_inputs, gridpoint)
+            retain_gridpoint(measured.value, gridpoint; fields=(timing=(
+                wall_seconds=measured.time, bytes=measured.bytes,
+                gc_seconds=measured.gctime, compile_seconds=measured.compile_time,
+                recompile_seconds=measured.recompile_time),))
+        else
+            _compute(
+            engine,
+            problem,
+            formulation,
+            execution,
+            input,
+            physical_inputs,
+            gridpoint
+        )
+        end
+        execution.data.on_result === nothing ||
+            execution.data.on_result(problem, index, value)
+        if progress
+            now = time_ns()
+            interval = (now - previous_completion) * 1e-9
+            average_seconds = index == 1 ? interval : 0.2 * interval + 0.8 * average_seconds
+            previous_completion = now
+            if now - last_log >= 5_000_000_000
+                @info "Line parameters progress" _group=:progress completed=index total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-index)*average_seconds/3600
+                last_log = now
+            end
+        end
+        value
+    end
+    progress && @info "Line parameters computation completed successfully" _group=:progress completed=length(values) total=length(formulations) elapsed_seconds=(time_ns()-started)*1e-9
+    return values
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute line parameters with the coaxial backend and default formulation.
+
+# Arguments
+
+- `problem`: completed line-parameter problem.
+
+# Keywords
+
+- `options`: coaxial-backend computation options.
+
+# Returns
+
+- One [`LineParameters`](@ref) result.
+"""
+Base.@constprop :aggressive function compute(
+        problem::LineParametersProblem;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
+)
+    options = options isa NamedTuple ? ComputationOptions(options) : options
+    modal===nothing || return compute(problem,Formulation(),
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
+    return compute(LineCableModelsCoaxial(), problem, Formulation(); options)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute frequency-dependent line parameters with the coaxial backend.
+
+The completed data model supplies the equivalent concentric representation
+used for series impedance and ordinary radial dielectric intervals. Eligible
+open wire and tape domains retain their physical geometry for the explicitly selected
+`shunt_model=:boundary` calculation. The default uses annular geometry. The
+physical system is normalized once into a backend-owned
+workspace, and all reusable numerical storage is allocated before the frequency
+loop. `trace=true` copies `Zin`, `Pin`, `Zg`, `Pg`, `Z`, `P`, `phase_map`,
+`cable_map` and the integration records into `details(result).data.trace`.
+These arrays remain available after the workspace is reused. The result type
+remains unchanged.
+
+# Arguments
+
+- `problem`: completed line-parameter problem.
+- `formulation`: selected line-parameter physical methods.
+
+# Keywords
+
+- `options`: named tuple containing `verbosity`, `output_basis`, `trace`, and
+  `on_result`. The optional callable `on_result(problem, index, result)` runs
+  synchronously after each completed formulation and
+  before the next calculation. `index` is local to the formulation collection
+  (`1` for a scalar call). Its return value is ignored. Exceptions propagate.
+  The callback must not mutate the problem or result. The default is `nothing`.
+  The compute call constructs the selected local shunt coefficients in the
+  cable blueprints without an additional execution option.
+
+# Returns
+
+- One [`LineParameters`](@ref) result.
+"""
+Base.@constprop :aggressive function compute(
+        problem::LineParametersProblem,
+        formulation::LineParametersFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
+)
+    options = options isa NamedTuple ? ComputationOptions(options) : options
+    modal===nothing || return compute(problem,formulation,
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
+    return compute(LineCableModelsCoaxial(), problem, formulation; options)
+end
+
+function compute(
+        problem::LineParametersProblem,
+        formulations::AbstractVector{<:LineParametersFormulation};
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
+)
+    options = options isa NamedTuple ? ComputationOptions(options) : options
+    modal===nothing || return compute(problem,formulations,
+        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
+    return compute(LineCableModelsCoaxial(), problem, formulations; options)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute line parameters through an explicit coaxial backend tag.
+
+The tag owns execution dispatch while `formulation.methods` retains the
+selected physical recipes. Ordinary callers can omit the tag and use the
+two-argument `compute` method.
+"""
+Base.@constprop :aggressive function compute(
+        engine::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        formulation::LineParametersFormulation = Formulation();
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
+)
+    options = options isa NamedTuple ? ComputationOptions(options) : options
+    execution = computation_options(LineCableModelsCoaxial, options)
+    # Timing changes the retained detail schema. Carry this finite choice through
+    # the caller's dynamically typed logger without widening the default result.
+    timing = execution.data.timing ? Val(true) : Val(false)
+    logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
+    return with_logger(logger) do
+        _compute(engine, problem, formulation, execution, timing)
+    end
+end
+
+Base.@constprop :aggressive function compute(
+        engine::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        formulations::AbstractVector{<:LineParametersFormulation};
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
+)
+    options = options isa NamedTuple ? ComputationOptions(options) : options
+    execution = computation_options(LineCableModelsCoaxial, options)
+    timing = execution.data.timing ? Val(true) : Val(false)
+    logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
+    return with_logger(logger) do
+        _compute(engine, problem, formulations, execution, timing)
+    end
+end
+
+function computation_details(
+        ::Type{<:LineParametersFormulation},
+        result::LineParameters
+)::ComputationDetails
+    return details(result)
+end
+
+function computation_details(
+        ::Type{<:LineCableModelsFEM},
+        result::LineParameters
+)::ComputationDetails
+    return details(result)
+end
+
+function materials!(
+        destination::NamedTuple,
+        relation,
+        model::EarthModel{T},
+        frequencies::AbstractVector{T}; workspace = nothing
+) where {T <: Real}
+    rho, eps_r, mu_r = destination.rho, destination.eps_r, destination.mu_r
+    @inbounds for row in eachindex(model.layers)
+        static = EarthMaterial(model.layers[row])
+        for column in eachindex(frequencies)
+            material = row == firstindex(model.layers) ?
+                       static :
+                       constitutive(relation, static, frequencies[column]; workspace)
+            rho[row, column] = material.rho
+            eps_r[row, column] = material.eps_r
+            mu_r[row, column] = material.mu_r
+        end
+    end
+    return destination
+end
+
+function materials!(workspace::LineParametersWorkspace, formulation::LineParametersFormulation)
+    input, buffers = workspace.input, workspace.buffers
+    for (index, material) in pairs(input.cable.conductor_materials)
+        buffers.rho_cond[index] = constitutive(formulation.methods.temperature_dependence,
+            material, input.temperature; workspace)
+    end
+    buffers.earth.evaluated === nothing || materials!(buffers.earth.evaluated,
+        formulation.methods.earth_properties, input.earth, input.freq; workspace)
+    return workspace
+end
+
+function materials!(
+        workspace::LineParametersWorkspace, formulation::LineParametersFormulation,
+        frequency::Int,
+        earth_calculations::Tuple = workspace.invariants.earth_calculations,
+        earth_materials::Tuple = workspace.buffers.earth_materials)
+    homogenize!(workspace, frequency, formulation, earth_calculations, earth_materials)
+    dielectric!(workspace.buffers.dielectric_admittivity, workspace.input.cable,
+        formulation.methods, workspace.input.freq[frequency], workspace.input.temperature; workspace)
+    return workspace
+end
+
+@inline function _media!(destination, column::Int, air, earth)
+    epsilon0 = vacuum_permittivity(typeof(earth.rho))
+    mu0 = vacuum_permeability(typeof(earth.rho))
+    destination.rho[1, column] = air.rho
+    destination.rho[2, column] = earth.rho
+    destination.epsilon[1, column] = epsilon0 * air.eps_r
+    destination.epsilon[2, column] = epsilon0 * earth.eps_r
+    destination.mu[1, column] = mu0 * air.mu_r
+    destination.mu[2, column] = mu0 * earth.mu_r
+    return nothing
+end
+
+function homogenize!(
+        workspace::LineParametersWorkspace,
+        frequency::Int,
+        formulation::LineParametersFormulation,
+        calculations::Tuple = workspace.invariants.earth_calculations,
+        materials::Tuple = workspace.buffers.earth_materials
+)
+    foreach(calculations, materials) do calculation, destination
+        homogenize!(destination, calculation, workspace, frequency,
+            formulation.methods.earth_properties)
+    end
+    return materials
+end
+
+function homogenize!(destination,
+        binding::NamedTuple,
+        workspace::LineParametersWorkspace, frequency_index::Int, relation)
+    state = workspace.buffers.earth
+    model = workspace.input.earth
+    frequency = workspace.input.freq[frequency_index]
+    selected = binding.selection
+    if media(selected) === Val(:stratified)
+        layers!(destination, state.evaluated, model, frequency_index, binding.interactions)
+    else
+        data = selected.equivalent_earth isa EquivalentHomogeneous.BeforeFD ?
+               state.static : state.evaluated
+        homogenize!(destination, selected.equivalent_earth, relation, data, model,
+            binding.interactions, frequency, frequency_index, binding.reductions; workspace)
+    end
+    return destination
+end
+
+# Reuse layerwise FrequencyDependent values already evaluated during input construction.
+function layers!(destination, evaluated::NamedTuple,
+        model::EarthModel, frequency::Integer, interactions)
+    epsilon0=vacuum_permittivity(eltype(destination.rho))
+    mu0=vacuum_permeability(eltype(destination.rho))
+    for row in eachindex(model.layers)
+        destination.thickness[row]=model.layers[row].thickness
+        for interaction in interactions
+            column = interaction.index
+            destination.rho[row, column]=evaluated.rho[row, frequency]
+            destination.epsilon[row, column]=epsilon0*evaluated.eps_r[row, frequency]
+            destination.mu[row, column]=mu0*evaluated.mu_r[row, frequency]
+        end
+    end
+    return destination
+end
+
+function homogenize!(
+        destination,
+        sequence::EquivalentHomogeneous.AfterFD,
+        relation,
+        evaluated,
+        model::EarthModel,
+        interactions,
+        frequency,
+        frequency_index::Int,
+        bindings; workspace = nothing
+)
+    rho = @view evaluated.rho[:, frequency_index]
+    eps_r = @view evaluated.eps_r[:, frequency_index]
+    mu_r = @view evaluated.mu_r[:, frequency_index]
+    air = EarthMaterial(rho[1], eps_r[1], mu_r[1])
+    @inbounds for (index, interaction) in enumerate(interactions)
+        pair = interaction.physical_pair
+        earth = sequence.rule(
+            rho, eps_r, mu_r, model, pair, frequency; binding = bindings[index], workspace
+        )
+        _media!(destination, interaction.index, air, earth)
+    end
+    return destination
+end
+
+function homogenize!(
+        destination,
+        sequence::EquivalentHomogeneous.BeforeFD,
+        relation,
+        static,
+        model::EarthModel,
+        interactions,
+        frequency,
+        frequency_index::Int,
+        bindings; workspace = nothing
+)
+    air = EarthMaterial(static.rho[1], static.eps_r[1], static.mu_r[1])
+    @inbounds for (index, interaction) in enumerate(interactions)
+        pair = interaction.physical_pair
+        reconstructed = sequence.rule(
+            static.rho, static.eps_r, static.mu_r,
+            model, pair, frequency; binding = bindings[index], workspace
+        )
+        earth = constitutive(relation, reconstructed, frequency; workspace)
+        _media!(destination, interaction.index, air, earth)
+    end
+    return destination
+end
+
+function homogenize!(
+        destination,
+        ::Nothing,
+        relation,
+        evaluated,
+        model::EarthModel,
+        interactions,
+        frequency,
+        frequency_index::Int,
+        bindings; workspace = nothing
+)
+    rho = @view evaluated.rho[:, frequency_index]
+    eps_r = @view evaluated.eps_r[:, frequency_index]
+    mu_r = @view evaluated.mu_r[:, frequency_index]
+    air = EarthMaterial(rho[1], eps_r[1], mu_r[1])
+    earth = EarthMaterial(rho[2], eps_r[2], mu_r[2])
+    @inbounds for interaction in interactions
+        _media!(destination, interaction.index, air, earth)
+    end
+    return destination
+end

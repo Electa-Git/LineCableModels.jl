@@ -1,0 +1,73 @@
+engine: tree-sitter
+scopes:
+  # Builder directives contain no prose.
+  - expr: |
+      ((line_comment)+ @comment
+       (#not-match? @comment "^#(?:hide|src|md|nb) *$"))
+    type: md
+  - expr: (block_comment) @comment
+    type: md
+  - expr: |
+      ([
+        (ERROR (string_literal) @docstring . [(abstract_definition) (assignment) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (macro_argument_list (string_literal) @docstring . [(function_definition) (struct_definition)])
+        (source_file (string_literal) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (module_definition (string_literal) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (function_definition (string_literal) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (macro_definition (string_literal) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (struct_definition (string_literal) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (compound_statement (string_literal) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (let_statement (string_literal) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (quote_statement (string_literal) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+      ]
+      (#not-match? @docstring "^\"\"\"\n\\$\\((TYPEDSIGNATURES|SIGNATURES|TYPEDEF|TYPEDFIELDS|FIELDS|IMPORTS|EXPORTS)\\)"))
+    type: md
+  - expr: |
+      ([
+        (source_file (prefixed_string_literal prefix: (identifier) @_prefix) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (module_definition (prefixed_string_literal prefix: (identifier) @_prefix) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (function_definition (prefixed_string_literal prefix: (identifier) @_prefix) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (macro_definition (prefixed_string_literal prefix: (identifier) @_prefix) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (struct_definition (prefixed_string_literal prefix: (identifier) @_prefix) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (compound_statement (prefixed_string_literal prefix: (identifier) @_prefix) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (let_statement (prefixed_string_literal prefix: (identifier) @_prefix) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+        (quote_statement (prefixed_string_literal prefix: (identifier) @_prefix) @docstring . [(abstract_definition) (assignment) (call_expression) (const_statement) (function_definition) (identifier) (macro_definition) (macrocall_expression) (module_definition) (primitive_definition) (struct_definition) (typed_expression)])
+      ]
+      (#eq? @_prefix "raw"))
+    type: md
+  - expr: |
+      ((macrocall_expression (macro_identifier) @_macro
+       (macro_argument_list (string_literal) @docstring))
+       (#eq? @_macro "@doc")
+       (#not-match? @docstring "^\"\"\"\n\\$\\((TYPEDSIGNATURES|SIGNATURES|TYPEDEF|TYPEDFIELDS|FIELDS|IMPORTS|EXPORTS)\\)"))
+    type: md
+  # The bundled grammar attaches a docstring after an @inline definition to
+  # that macro's arguments. The following declaration still identifies it.
+  - expr: |
+      ((_ (macrocall_expression
+           (macro_argument_list
+             [(function_definition) (assignment)] . (string_literal) @docstring .))
+         . [(function_definition) (assignment) (struct_definition) (macrocall_expression)])
+       (#not-match? @docstring "^\"\"\"\n\\$\\((TYPEDSIGNATURES|SIGNATURES|TYPEDEF|TYPEDFIELDS|FIELDS|IMPORTS|EXPORTS)\\)"))
+    type: md
+  # DocStringExtensions marks documentation even when newer Julia syntax
+  # produces an error node in Vale's bundled grammar.
+  - expr: |
+      ((string_literal) @docstring
+       (#match? @docstring "^\"\"\"\n\\$\\((TYPEDSIGNATURES|SIGNATURES|TYPEDEF|TYPEDFIELDS|FIELDS|IMPORTS|EXPORTS)\\)"))
+    type: md
+  - expr: |
+      ((_ (macrocall_expression
+            (macro_argument_list
+              [(function_definition) (assignment)] .
+              (prefixed_string_literal prefix: (identifier) @_prefix) @docstring .))
+          . [(function_definition) (assignment) (struct_definition) (macrocall_expression)])
+       (#eq? @_prefix "raw"))
+    type: md
+  - expr: |
+      ((macrocall_expression (macro_identifier) @_macro
+        (macro_argument_list
+          (prefixed_string_literal prefix: (identifier) @_prefix) @docstring))
+       (#eq? @_macro "@doc")
+       (#eq? @_prefix "raw"))
+    type: md

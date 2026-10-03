@@ -1,0 +1,4 @@
+engine: tree-sitter
+scopes:
+  - expr: (comment)+ @comment
+    type: md

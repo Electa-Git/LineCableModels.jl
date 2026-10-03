@@ -1,0 +1,9 @@
+extends: ai-tells.Metacommentary
+scope: text
+tests:
+  - name: filler explanation
+    input: "This matters because the file exists."
+    contains: Project.Metacommentary
+  - name: literal code
+    input: '`println("This matters because the file exists.")`'
+    want: ""

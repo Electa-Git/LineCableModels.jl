@@ -1,0 +1,286 @@
+struct _ConnectionsAbsent end
+
+const _CONNECTIONS_ABSENT = _ConnectionsAbsent()
+
+_parameter_type(value) = typeof(value)
+_parameter_type(grid::DeterministicGrid) = eltype(grid)
+_parameter_type(::Union{RelativeGrid, AbsoluteGrid}) = Real
+_parameter_type(::Gridspace{Target}) where {Target} = Target
+
+at(; x = 0, y = 0, φ = 0, combine::Symbol = :product) = at(x, y; φ, combine)
+
+at(pose::DataModel.Pose2) = pose
+
+function _placed_design(design, pose, connections)
+    (
+        design = design,
+        pose = pose,
+        connections = connections
+    )
+end
+
+function _compose_member(outer, member::DataModel.AssemblyMember)
+    DataModel.AssemblyMember(member.item, outer * member.at)
+end
+_compose_member(outer, pose::DataModel.Pose2) = outer * pose
+function _compose_member(outer, placement::NamedTuple)
+    merge(
+        placement,
+        (pose = outer * placement.pose,)
+    )
+end
+
+function _compose_collection(placements, pose)
+    placements isa Union{Tuple, AbstractVector} || throw(ArgumentError(
+        "outer placement requires a tuple or vector"
+    ))
+    return map(member -> _compose_member(pose, member), placements)
+end
+
+_collection_target(::Tuple) = Tuple
+_collection_target(::AbstractVector) = Vector
+_collection_target(::Gridspace{Target}) where {Target} = Target <: Tuple ? Tuple : Vector
+
+function _at_pair(
+        ::Type{<:Real}, ::Type{<:Real},
+        x, y, φ, ::_ConnectionsAbsent, combine::Symbol
+)
+    return parameterize(DataModel.Pose2, DataModel.Pose2, (x, y, φ); combine)
+end
+
+function _at_pair(
+        ::Type{<:DataModel.AbstractCablePart}, ::Type{<:DataModel.Pose2},
+        part, pose, φ, ::_ConnectionsAbsent, combine::Symbol
+)
+    iszero(φ) || throw(ArgumentError(
+        "at(part, pose) does not accept a second rotation"
+    ))
+    return parameterize(
+        DataModel.AssemblyMember, DataModel.AssemblyMember, (part, pose); combine
+    )
+end
+
+function _at_pair(
+        ::Type{<:DataModel.CableDesign}, ::Type{<:DataModel.Pose2},
+        design, pose, φ, connections, combine::Symbol
+)
+    connections isa _ConnectionsAbsent && throw(ArgumentError(
+        "at(design, pose) requires connections"
+    ))
+    iszero(φ) || throw(ArgumentError(
+        "at(design, pose) does not accept a second rotation"
+    ))
+    return parameterize(
+        NamedTuple, _placed_design, (design, pose, connections); combine
+    )
+end
+
+function _at_pair(
+        ::Type{<:Union{Tuple, AbstractVector}}, ::Type{<:DataModel.Pose2},
+        placements, pose, φ, ::_ConnectionsAbsent,
+        combine::Symbol
+)
+    iszero(φ) || throw(ArgumentError(
+        "at(placements, pose) does not accept a second rotation"
+    ))
+    return parameterize(
+        _collection_target(placements),
+        _compose_collection,
+        (placements, pose);
+        combine
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a pose, place a local cable part, place a completed cable with its
+connections, or compose an outer transform onto a placement collection.
+
+# Arguments
+
+- `x`: horizontal translation \\[m\\].
+- `y`: vertical translation \\[m\\].
+- `subject`: physical part, completed design or placement collection.
+- `pose`: existing `Pose2` declaration.
+
+# Keywords
+
+- `φ=0`: counter-clockwise rotation \\[rad\\].
+- `connections`: terminal-to-active-phase declaration required for a completed
+  cable design. Use one-based active phase IDs and `0` for a grounded or eliminated
+  conductor.
+- `combine=:product`: gridspace composition rule.
+
+# Returns
+
+- A `Pose2`, placed member, placed-design record, transformed collection, or
+  the corresponding `Gridspace` when a direct argument varies.
+"""
+function at(
+        left,
+        right;
+        φ = 0,
+        connections = _CONNECTIONS_ABSENT,
+        combine::Symbol = :product
+)
+    left_type = _parameter_type(left)
+    right_type = _parameter_type(right)
+    (left_type === Union{} || right_type === Union{}) && throw(ArgumentError(
+        "at does not accept an empty finite source"
+    ))
+    return _at_pair(left_type, right_type, left, right, φ, connections, combine)
+end
+
+function at(
+        subject,
+        x,
+        y;
+        φ = 0,
+        connections = _CONNECTIONS_ABSENT,
+        combine::Symbol = :product
+)
+    pose = at(x, y; φ, combine)
+    return at(subject, pose; connections, combine)
+end
+
+function _connection_for_member(connections::NamedTuple, member::Int, count::Int)
+    resolved = map(Base.values(connections)) do value
+        if value isa Union{Tuple, AbstractVector}
+            length(value) == count || throw(DimensionMismatch(
+                "connection schedules must contain $count values"
+            ))
+            return value[member]
+        end
+        return value
+    end
+    return NamedTuple{keys(connections)}(resolved)
+end
+
+function _connection_for_member(connections::AbstractDict, member::Int, count::Int)
+    return Dict(key => begin
+                    if value isa Union{Tuple, AbstractVector}
+                        length(value) == count || throw(DimensionMismatch(
+                            "connection schedules must contain $count values"
+                        ))
+                        value[member]
+                    else
+                        value
+                    end
+                end for (key, value) in connections)
+end
+
+function _connection_for_member(connections::Union{Tuple, AbstractVector}, member, count)
+    length(connections) == count || throw(DimensionMismatch(
+        "formation connections must contain $count declarations"
+    ))
+    return connections[member]
+end
+
+function _formation(design, local_poses, center, connections)
+    count = length(local_poses)
+    return [_placed_design(
+                design,
+                center * pose,
+                _connection_for_member(connections, member, count)
+            )
+            for (member, pose) in enumerate(local_poses)]
+end
+
+function _trefoil(design, center, spacing, connections, φ0)
+    spacing > zero(spacing) || throw(DomainError(
+        spacing, "trefoil spacing must be positive"
+    ))
+    coordinates = DataModel.trefoil_formation(0, 0, spacing / 2)
+    poses = DataModel.Pose2[DataModel.Pose2(coordinates[index], coordinates[index + 1], 0)
+                            for index in 1:2:6]
+    origin = center * DataModel.Pose2(0, 0, φ0)
+    return _formation(design, poses, origin, connections)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Place three copies of one completed cable in an equilateral trefoil formation.
+
+# Arguments
+
+- `design`: completed cable design reused by all three members.
+
+# Keywords
+
+- `center=at(0, 0)`: formation-center pose \\[m, m, rad\\].
+- `spacing`: cable center-to-center distance \\[m\\].
+- `connections`: scalar or three-member terminal connection schedules.
+- `φ0=0`: formation rotation \\[rad\\].
+- `combine=:product`: gridspace composition rule.
+
+# Returns
+
+- Three placed-design records, or a `Gridspace{Vector}` when a direct argument
+  varies.
+"""
+function trefoil(
+        design;
+        center = at(0, 0),
+        spacing,
+        connections,
+        φ0 = 0,
+        combine::Symbol = :product
+)
+    values = (design, center, spacing, connections, φ0)
+    return parameterize(Vector, _trefoil, values; combine)
+end
+
+function _flat(design, center, spacing, connections, vertical::Bool)
+    spacing > zero(spacing) || throw(DomainError(
+        spacing, "flat-formation spacing must be positive"
+    ))
+    offsets = (-spacing, zero(spacing), spacing)
+    poses = DataModel.Pose2[vertical ? DataModel.Pose2(0, -offset, 0) :
+                            DataModel.Pose2(offset, 0, 0)
+                            for offset in offsets]
+    return _formation(design, poses, center, connections)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Place three copies of one completed cable in a horizontal flat formation.
+
+`spacing` is the adjacent center-to-center distance \\[m\\]. Scalar connection
+entries apply to every cable. Three-element entries distribute by member.
+"""
+function hflat(
+        design;
+        center = at(0, 0),
+        spacing,
+        connections,
+        combine::Symbol = :product
+)
+    caller = (resolved...) -> _flat(resolved..., false)
+    return parameterize(
+        Vector, caller, (design, center, spacing, connections); combine
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Place three copies of one completed cable in a vertical flat formation.
+
+`spacing` is the adjacent center-to-center distance \\[m\\]. Scalar connection
+entries apply to every cable. Three-element entries distribute by member.
+"""
+function vflat(
+        design;
+        center = at(0, 0),
+        spacing,
+        connections,
+        combine::Symbol = :product
+)
+    caller = (resolved...) -> _flat(resolved..., true)
+    return parameterize(
+        Vector, caller, (design, center, spacing, connections); combine
+    )
+end

@@ -1,91 +1,395 @@
 name: CI
+
 on:
   push:
-    branches:
-      - main
-    tags: ['*']
+    branches: [main]
+    tags: ["*"]
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
   workflow_dispatch:
+
 concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+permissions:
+  contents: read
+
+env:
+  JULIA_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+
 jobs:
-  test:
-    if: ${{ !contains(github.event.head_commit.message, 'skip ci') }}
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
-      actions: write
-      contents: read
+  core:
+    name: Ordinary tests / Julia ${{ matrix.julia }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1.12'
-          - 'pre'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
+        julia: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.draft && '["1.12"]' || '["1.12", "pre"]') }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v3
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
-          # Prerelease Julia builds change often, making compiled caches poor value.
-          cache-compiled: ${{ matrix.version != 'pre' }}
-          # Do not publish incomplete depots from failed test runs.
-          save-always: 'false'
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
-      - uses: julia-actions/julia-processcoverage@v1
-        if: matrix.version == '1.12'
-      - uses: codecov/codecov-action@v7
-        if: matrix.version == '1.12'
+          version: ${{ matrix.julia }}
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
+        with:
+          cache-compiled: ${{ matrix.julia != 'pre' }}
+          save-always: "false"
+          delete-old-caches: "false"
+      - uses: julia-actions/julia-buildpkg@e3eb439fad4f9aba7da2667e7510e4a46ebc46e1 # v1.7.0
+      - uses: julia-actions/julia-runtest@6e050c8013b833b1195105ff2fce9cd802f53271 # v1.12.0
+
+  fem-numerical:
+    name: Native FEM execution and tests / GetDP 3.5.0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DISPLAY: ""
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
+        with:
+          delete-old-caches: "false"
+      - name: Run FEM execution tests (headless)
+        run: |
+          julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
+          julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e '
+            push!(ARGS, "tag:fem_numerical")
+            include("test/runtests.jl")
+          '
+      - name: Name FEM coverage traces independently of runner process IDs
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+        shell: julia --startup-file=no {0}
+        run: |
+          for directory in ("src", "ext")
+            for (root, _, files) in walkdir(directory), file in files
+              endswith(file, ".cov") || continue
+              mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".fem.cov")))
+            end
+          end
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+        with:
+          name: fem-production-coverage
+          path: |
+            src/**/*.fem.cov
+            ext/**/*.fem.cov
+          if-no-files-found: error
+      - name: Remove coverage traces after workers and uploads finish
+        if: always()
+        run: julia --startup-file=no test/coverage.jl traces
+
+  quality:
+    name: Quality tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
+        with:
+          delete-old-caches: "false"
+      - name: Install Fatou
+        uses: jolars/fatou-action@6b6a66a1f28fce0d1ff31048c609e63b7006136e
+        with:
+          version: v0.22.0
+          format: "false"
+          lint: "false"
+          verify-checksum: "true"
+      - name: Reject added or raised architecture baseline entries
+        shell: bash
+        env:
+          BASELINE_REVISION: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASELINE_REVISION" ] || [ "$BASELINE_REVISION" = "0000000000000000000000000000000000000000" ]; then
+            echo "No earlier revision to compare with the architecture baseline."
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$BASELINE_REVISION"
+          julia --startup-file=no --color=yes test/tools/baseline_ratchet.jl "$BASELINE_REVISION"
+      - name: Enforce package and architecture tests
+        shell: bash
+        run: |
+          set -o pipefail
+          julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
+          julia --project=test --color=yes -e '
+            push!(ARGS, "tag:quality")
+            include("test/runtests.jl")
+          ' 2>&1 | tee "$RUNNER_TEMP/quality-tests.log"
+      - name: Retain complete quality results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: quality-test-report
+          path: ${{ runner.temp }}/quality-tests.log
+          if-no-files-found: ignore
+
+  coverage:
+    name: Merged production coverage
+    needs: [fem-numerical]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      LINECABLEMODELS_TEST_PLOTTING: "true"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
+        with:
+          delete-old-caches: "false"
+      - name: Instantiate coverage tools
+        run: julia --project=test/coverage --color=yes -e 'using Pkg; Pkg.instantiate()'
+      - name: Remove stale coverage traces
+        run: julia --project=test/coverage --color=yes test/coverage.jl clean
+      - name: Collect core and non-graphical extension coverage
+        # Drafts already run this suite in the ordinary Julia 1.12 job.
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+        run: julia --project=. --color=yes -e 'using Pkg; Pkg.test(coverage = true)'
+      - name: Collect core-only loading coverage
+        if: ${{ !cancelled() }}
+        run: |
+          julia --project=test/core --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
+          julia --project=test/core --code-coverage=@. --color=yes -e '
+            push!(ARGS, "tag:core_only")
+            include("test/runtests.jl")
+          '
+      - name: Collect Cairo and visual coverage
+        if: ${{ !cancelled() }}
+        run: |
+          julia --project=test/visual --compiled-modules=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
+          julia --project=test/visual --compiled-modules=no --code-coverage=@. --color=yes -e '
+            push!(ARGS, "tag:visual")
+            include("test/runtests.jl")
+          '
+      - name: Collect Cairo activation coverage
+        if: ${{ !cancelled() }}
+        run: julia --project=test/visual --code-coverage=@. test/runtests.jl "loaded extension activation"
+      - name: Collect GLMakie loading coverage
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes xvfb xauth libgl1-mesa-dri
+          xvfb-run -a julia --startup-file=no --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            Pkg.add(PackageSpec(name = "GLMakie", version = "0.13"))
+            Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
+            push!(ARGS, "loaded extension activation")
+            include(joinpath(pwd(), "test", "runtests.jl"))
+          '
+      - name: Collect native FEM UI lifecycle coverage
+        if: ${{ !cancelled() }}
+        run: |
+          julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
+          xvfb-run -a julia --project=test --code-coverage=@. test/runtests.jl extensions/fem_ui.jl
+      - name: Collect WGLMakie loading coverage
+        if: ${{ !cancelled() }}
+        run: |
+          julia --project=. --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            Pkg.add(PackageSpec(name = "WGLMakie", version = "0.13"))
+            Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
+            push!(ARGS, "loaded extension activation")
+            include(joinpath(pwd(), "test", "runtests.jl"))
+          '
+      - name: Collect remote PSCAD runner coverage
+        if: ${{ !cancelled() }}
+        run: |
+          julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
+          julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes test/integration/pscad/remote_runner_protocol.jl
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+        with:
+          name: fem-production-coverage
+          path: .
+      - name: Enforce source-amended 95% coverage
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+        run: julia --project=test/coverage --color=yes test/coverage.jl check
+      - name: Retain the coverage report, including failed checks
+        if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) && hashFiles('lcov.info') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: production-coverage-report
+          path: lcov.info
+          if-no-files-found: error
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+
+      - name: Remove coverage traces after workers and uploads finish
+        if: always()
+        run: julia --startup-file=no test/coverage.jl traces
+
+  aqua:
+    name: Aqua
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
+        with:
+          delete-old-caches: "false"
+      - name: Run Aqua independently
+        shell: julia --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.activate(; temp = true)
+          Pkg.develop(PackageSpec(path = pwd()))
+          Pkg.add(["Aqua", "TestItemRunner"])
+          push!(ARGS, "tag:aqua")
+          include(joinpath(pwd(), "test", "runtests.jl"))
+
+  clean-install:
+    name: Clean installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
+        with:
+          version: "1.12"
+      - name: Install core into an empty depot
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JULIA_DEPOT_PATH
+          JULIA_DEPOT_PATH="$(mktemp -d)"
+          julia --startup-file=no --color=yes -e '
+            using Pkg
+            using TOML
+            package_dependencies = TOML.parsefile(joinpath(pwd(), "Project.toml"))["deps"]
+            @assert !haskey(package_dependencies, "Pluto")
+            @assert !haskey(package_dependencies, "PlutoUI")
+            @assert !haskey(package_dependencies, "CairoMakie")
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            using LineCableModels
+            @assert Base.get_extension(LineCableModels, :LineCableModelsMakieExt) === nothing
+            @assert !any(info -> info.name == "CairoMakie", values(Pkg.dependencies()))
+          '
+
   docs:
-    if: ${{ !contains(github.event.head_commit.message, 'skip ci') }}
     name: Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
-      actions: write # needed to allow julia-actions/cache to proactively delete old caches that it has created
       contents: write
       statuses: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: julia-actions/setup-julia@v3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          version: '1.12'
-      - uses: julia-actions/cache@v3
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
         with:
-          # Documentation is rebuilt once per run, so compiled caches consume
-          # substantial storage without enough reuse to justify their size.
-          cache-compiled: 'false'
-          save-always: 'false'
-      - name: Configure doc environment
-        shell: julia --project=docs --color=yes {0}
-        run: |
-          using Pkg
-          Pkg.develop(PackageSpec(path=pwd()))
-          Pkg.instantiate()
-      - uses: julia-actions/julia-buildpkg@v1
+          version: "1.12"
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
+        with:
+          cache-compiled: "false"
+          save-always: "false"
+          delete-old-caches: "false"
+      - name: Instantiate documentation
+        run: julia --project=docs --color=yes docs/instantiate.jl
+      - name: Generate package-server usage map
+        run: julia --project=docs --color=yes docs/package_stats.jl
+      - name: Upload package-server usage map
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-server-usage-map
+          path: docs/src/assets/user-statistics.svg
       - name: Run doctests
-        shell: julia --project=docs --color=yes {0}
+        run: julia --project=docs --color=yes docs/doctest.jl
+      - name: Build documentation
+        id: docs_build
+        run: julia --project=docs --color=yes docs/make.jl
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Install writing tools
+        id: prose_tools
+        shell: bash
         run: |
-          using Documenter: DocMeta, doctest
-          using LineCableModels
-          DocMeta.setdocmeta!(LineCableModels, :DocTestSetup, :(using LineCableModels); recursive=true)
-          doctest(LineCableModels)
-      - uses: julia-actions/julia-docdeploy@v1
+          set -euo pipefail
+          tools="$RUNNER_TEMP/prose-tools"
+          mkdir -p "$tools" "$RUNNER_TEMP/prose-reports"
+          release=https://github.com/vale-cli/vale/releases/download/v3.23.0
+          curl --fail --location --retry 3 "$release/vale_3.23.0_Linux_64-bit.tar.gz" -o "$tools/vale.tar.gz"
+          curl --fail --location --retry 3 "$release/vale_3.23.0_checksums.txt" -o "$tools/checksums.txt"
+          expected=$(awk '$2 == "vale_3.23.0_Linux_64-bit.tar.gz" {print $1}' "$tools/checksums.txt")
+          test -n "$expected"
+          echo "$expected  $tools/vale.tar.gz" | sha256sum --check
+          tar -xzf "$tools/vale.tar.gz" -C "$tools"
+          cp .github/prose/package{,-lock}.json "$tools/"
+          npm ci --prefix "$tools"
+          echo "$tools" >> "$GITHUB_PATH"
+          echo "$tools/node_modules/.bin" >> "$GITHUB_PATH"
+          "$tools/vale" sync --no-global --config=.github/prose/vale.ini
+      - name: Select all maintained writing
+        id: prose_inputs
+        run: bash .github/prose/files.sh "$RUNNER_TEMP/prose-reports"
+      - name: Verify writing rules and exclusions
+        shell: bash
+        run: |
+          set -euo pipefail
+          vale test --no-global --config=.github/prose/vale.ini --coverage .github/prose/styles/Project .github/prose/fixtures | tee "$RUNNER_TEMP/prose-reports/rules.log"
+          bash .github/prose/fixtures/check.sh | tee "$RUNNER_TEMP/prose-reports/checks.log"
+      - name: Check prose with Vale
+        if: ${{ !cancelled() && steps.prose_tools.outcome == 'success' && steps.prose_inputs.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/prose-reports/vale-files.txt"
+          vale --no-global --config=.github/prose/vale.ini --no-color "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/vale.log"
+      - name: Check spelling with cspell
+        if: ${{ !cancelled() && steps.prose_tools.outcome == 'success' && steps.prose_inputs.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/prose-reports/cspell-files.txt"
+          cspell lint --config=.github/prose/cspell.json --no-progress --no-cache "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/cspell.log"
+      - name: Retain writing reports
+        if: ${{ !cancelled() && steps.docs_build.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: writing-reports
+          path: ${{ runner.temp }}/prose-reports
+          if-no-files-found: error
+      - name: Deploy documentation
+        if: ${{ success() && github.event_name == 'push' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+        run: julia --project=docs --color=yes docs/deploy.jl

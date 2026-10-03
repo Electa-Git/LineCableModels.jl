@@ -1,0 +1,6 @@
+[general]
+contrib = CT1
+ignore = body-max-line-length,body-min-length,body-is-missing
+
+[title-match-regex]
+regex = ^[a-z]+\([^()]+\)!?: [a-z].*$

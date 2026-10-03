@@ -1,0 +1,6 @@
+engine: dasel
+scopes:
+  - expr: search($key == "description")
+    type: md
+  - expr: search($key == "title")
+    type: md

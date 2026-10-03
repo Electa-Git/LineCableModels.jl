@@ -1,0 +1,11 @@
+extends: ai-tells.FillerIntensifier
+exceptions:
+  # Singular means a noninvertible matrix in this numerical iteration.
+  - '(?i)A\s+singular\s+iteration'
+tests:
+  - name: singular matrix
+    input: "A singular iteration fails."
+    want: ""
+  - name: filler
+    input: "A single call works."
+    contains: Project.FillerIntensifier

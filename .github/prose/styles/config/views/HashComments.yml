@@ -1,0 +1,9 @@
+engine: textfsm
+template: |
+  Value List Comment ([^!].*)
+
+  Start
+    ^\s*#\s?${Comment}
+scopes:
+  - expr: Comment
+    type: md
