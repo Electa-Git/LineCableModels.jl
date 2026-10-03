@@ -37,6 +37,12 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   best-effort candidates for feasible search inputs that cannot meet every limit.
 - Consolidated shared problem, formulation, and result roots plus the common
   action generics under `LineCableModels.Commons`.
+- The coaxial and FEM backends share one matrix reduction,
+  `Commons.reduce_line_matrices!`. Ideal transposition now averages the
+  potential-coefficient matrix ``P`` before inverting it to ``Y`` in every backend.
+  The coaxial engine previously averaged ``Y`` after the inversion.
+- `ideal_transposition` now defaults to `false` for line-parameter and FEM
+  formulations.
 - Defined the vacuum constants once as `Commons.vacuum_permittivity(T)` and
   `Commons.vacuum_permeability(T)`. The FEM input writer, PSCAD import, and boundary
   shunt model now use the shared Float64 permittivity, one ulp below the former

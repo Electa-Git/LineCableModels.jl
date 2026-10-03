@@ -156,3 +156,22 @@ end
     @test_throws SingularException Commons.reduce_line_matrices!(Zr, Yr, ill_conditioned,
         zeros(ComplexF64, 2, 2), s, plan, buffers, Val(true))
 end
+
+@testitem "Commons / matrix reductions / ideal transposition averages P before inversion" tags=[:unit] begin
+    using LinearAlgebra
+    const Commons=LineCableModels.Commons
+    # Symmetric and not circulant. Its cyclic diagonals have the means 5, 2 and 2.
+    P=ComplexF64[6 2 1; 2 5 3; 1 3 4]
+    averaged=ComplexF64[5 2 2; 2 5 2; 2 2 5]
+    s=2pi*50im
+    plan=Commons.ReductionPlan([1, 2, 3]; reduce_bundle=false, kron_reduction=false,
+        ideal_transposition=true)
+    Zr, Yr=zeros(ComplexF64, 3, 3), zeros(ComplexF64, 3, 3)
+    Commons.reduce_line_matrices!(Zr, Yr, P, P, s, plan, Commons.ReductionBuffers{ComplexF64}(plan))
+    @test Zr == averaged
+    # inv(averaged) = [7 -2 -2; -2 7 -2; -2 -2 7] / 27.
+    @test Yr ≈ s*ComplexF64[7 -2 -2; -2 7 -2; -2 -2 7]/27
+    @test Yr ≈ s*inv(averaged)
+    # Averaging Y after the inversion is the convention this test rejects.
+    @test !isapprox(Yr, Commons.ideal_transposition!(s*inv(P)); rtol=1e-2)
+end
