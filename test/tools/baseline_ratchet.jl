@@ -1,11 +1,15 @@
-# Compare the architecture baseline with its version at a git revision. Run
-# `julia test/tools/baseline_ratchet.jl REF`. A key added or a count raised since
-# `REF` fails. Deleted keys and lowered counts pass. The check passes when `REF`
-# has no baseline file, and a table absent at `REF` is not compared. File renames that git detects between `REF` and the working
-# tree, and the module renames they imply, are applied to the keys at `REF` first.
+# Compare the architecture baseline and the preservation locks with their versions at
+# a git revision. Run `julia test/tools/baseline_ratchet.jl REF`. Every table of the
+# baseline is a ceiling; `preservation.toml` declares the direction of each table in
+# `[directions]`. A ceiling key added or raised since `REF` fails, and a floor key
+# removed or lowered since `REF` fails; moves the other way pass. The check passes for
+# a file absent at `REF`, and a table absent at `REF` is not compared. File renames that
+# git detects between `REF` and the working tree, and the module renames they imply,
+# are applied to the keys at `REF` first.
 using TOML
 
 const BASELINE = "test/quality/architecture_baseline.toml"
+const PRESERVATION = "test/quality/preservation.toml"
 const REPOSITORY = normpath(joinpath(@__DIR__, "..", ".."))
 
 git(repository, arguments::AbstractString...) = Cmd(["git", "-C", repository, arguments...])
@@ -62,51 +66,88 @@ function rename_key(key, renamed)
     return join(parts, " | ")
 end
 
-# The keys added or raised since `reference`, as lines, and the tables new since
-# `reference`, or nothing when `reference` has no baseline. A new table belongs
-# to a guard introduced after `reference`, and its keys are not compared.
-function grown(repository, reference)
+# The direction, "floor" or "ceiling", of each table of `document`, a version of `file`.
+function directions(file, document)
+    file == BASELINE && return Dict(table => "ceiling" for table in keys(document))
+    declared = Dict{String, String}(get(document, "directions", Dict{String, Any}()))
+    for table in keys(document)
+        table == "directions" || haskey(declared, table) ||
+            error("$file declares no direction for [$table]")
+    end
+    all(in(("floor", "ceiling")), values(declared)) ||
+        error("Each direction in $file is \"floor\" or \"ceiling\"")
+    return declared
+end
+
+# The entries of `file` that moved against their table's direction since `reference`,
+# as lines, and the tables new since `reference`, or nothing when `reference` has no
+# `file`. A new table belongs to a lock introduced after `reference`, and its keys are
+# not compared.
+function moved(repository, reference, file)
     success(pipeline(git(repository, "rev-parse", "--verify", "--quiet",
         reference * "^{commit}"); stdout = devnull)) ||
         error("Unknown git revision: $reference")
-    success(pipeline(git(repository, "cat-file", "-e", "$reference:$BASELINE");
+    success(pipeline(git(repository, "cat-file", "-e", "$reference:$file");
         stderr = devnull)) || return nothing
     renamed = renames(repository, reference)
-    document = TOML.parse(read(git(repository, "show", "$reference:$BASELINE"), String))
+    document = TOML.parse(read(git(repository, "show", "$reference:$file"), String))
+    current = TOML.parsefile(joinpath(repository, file))
+    direction = merge(directions(file, document), directions(file, current))
+    values_of(d) = Dict(key => value for (key, value) in entries(d)
+        if first(split(key, " | ")) != "directions")
     before = Dict{String, Any}()
-    for (key, value) in entries(document)
+    for (key, value) in values_of(document)
         mergewith!(+, before, Dict(rename_key(key, renamed) => value))
     end
-    current = TOML.parsefile(joinpath(repository, BASELINE))
-    tables = sort!([table for table in keys(current) if !haskey(document, table)])
-    lines = sort!([haskey(before, key) ?
-        string(key, ": ", value, " (", before[key], " at ", reference, ")") :
-        string(key, ": ", value, " (absent at ", reference, ")")
-        for (key, value) in entries(current)
-        if first(split(key, " | ")) ∉ tables && (!haskey(before, key) || value > before[key])])
+    now = values_of(current)
+    tables = sort!([table for table in keys(current)
+        if table != "directions" && !haskey(document, table)])
+    lines = String[]
+    for key in sort!(collect(union(keys(now), keys(before))))
+        table = first(split(key, " | "))
+        table in tables && continue
+        if direction[table] == "ceiling"
+            haskey(now, key) || continue
+            haskey(before, key) ||
+                (push!(lines, string(key, ": ", now[key], " (absent at ", reference, ")")); continue)
+        else
+            haskey(before, key) || continue
+            haskey(now, key) ||
+                (push!(lines, string(key, ": removed (", before[key], " at ", reference, ")")); continue)
+        end
+        (direction[table] == "ceiling" ? now[key] > before[key] : now[key] < before[key]) &&
+            push!(lines, string(key, ": ", now[key], " (", before[key], " at ", reference, ")"))
+    end
     return (; lines, tables)
 end
+
+# The architecture baseline keys added or raised since `reference`.
+grown(repository, reference) = moved(repository, reference, BASELINE)
 
 function main(arguments)
     length(arguments) == 1 || error("Usage: julia test/tools/baseline_ratchet.jl REF")
     reference = only(arguments)
-    result = grown(REPOSITORY, reference)
-    if result === nothing
-        println("No architecture baseline at $reference. Nothing to compare.")
-        return 0
+    status = 0
+    for file in (BASELINE, PRESERVATION)
+        result = moved(REPOSITORY, reference, file)
+        if result === nothing
+            println("No $file at $reference. Nothing to compare.")
+            continue
+        end
+        isempty(result.tables) || println(file, ": tables introduced since ", reference, ": ",
+            join(result.tables, ", "), ".")
+        if isempty(result.lines)
+            count = length(entries(TOML.parsefile(joinpath(REPOSITORY, file))))
+            println(file, ": ", count, " entries, none moved against its direction since ",
+                reference, ".")
+        else
+            println(stderr, file, ": ceilings may only fall and floors only rise. ",
+                "Entries moved against their direction since ", reference, ":")
+            foreach(line -> println(stderr, "  ", line), result.lines)
+            status = 1
+        end
     end
-    isempty(result.tables) || println("Tables introduced since ", reference, ": ",
-        join(result.tables, ", "), ".")
-    if !isempty(result.lines)
-        println(stderr, "The architecture baseline may only shrink. Entries added or raised since ",
-            reference, ":")
-        foreach(line -> println(stderr, "  ", line), result.lines)
-        return 1
-    end
-    count = length(entries(TOML.parsefile(joinpath(REPOSITORY, BASELINE))))
-    println("Architecture baseline: ", count, " entries, none added or raised since ",
-        reference, ".")
-    return 0
+    return status
 end
 
 abspath(PROGRAM_FILE) == (@__FILE__) && exit(main(ARGS))

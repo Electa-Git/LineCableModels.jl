@@ -105,3 +105,39 @@
         @test occursin("Invalid test discovery keys", output)
     end
 end
+
+@testitem "Core / changed: runs quality in a fresh process" tags=[:unit, :units, :slow] begin
+    root = pkgdir(LineCableModels)
+    # Before quality runs, the parent process gains a method inside a package module,
+    # defined from a test file (this one), as `test/integration/pscad/parser_tests.jl`
+    # does. A2 reports such a method when it shares the process; in the fresh process
+    # it passes.
+    runner = joinpath(root, "test", "support", "runner.jl")
+    planted = joinpath(root, "test", "unit", "core", "test_harness.jl")
+    program = """
+        using TestItemRunner
+        include($(repr(runner)))
+        import LineCableModels
+        include_string(LineCableModels.PSCAD, "planted_probe(::Val{:planted}) = 1", $(repr(planted)))
+        method = only(methods(LineCableModels.PSCAD.planted_probe))
+        println("PLANTED ", String(method.file))
+        ValidationTestRunner.run_changed($(repr(root)),
+            Set([("test/unit/units/units.jl", "Units / locked public vocabulary")]);
+            quality = ["Quality / architecture / A2 placement"])
+        println("CHANGED RUN PASSED")
+        """
+    output = IOBuffer()
+    command = `$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) -e $program`
+    process = run(pipeline(ignorestatus(command); stdout = output, stderr = output); wait = false)
+    status = timedwait(() -> process_exited(process), 600.0; pollint = 0.1)
+    status === :timed_out && kill(process)
+    wait(process)
+    text = String(take!(output))
+    @test status === :ok
+    @test success(process)
+    @test occursin("PLANTED $planted", text)
+    @test count("Selected 1 maintained test items in 1 files; run completed", text) == 2
+    @test occursin("Quality items in a fresh process: Quality / architecture / A2 placement", text)
+    @test occursin("CHANGED RUN PASSED", text)
+    success(process) || println(text)
+end

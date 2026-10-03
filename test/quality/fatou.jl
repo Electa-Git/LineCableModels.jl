@@ -1,4 +1,9 @@
-@testitem "Quality / Fatou / advisory source diagnostics" tags=[:quality] default_imports=false begin
+# Without Fatou on PATH, a local run records this item as skipped. CI requires Fatou.
+@testitem "Quality / Fatou / advisory source diagnostics" tags=[:quality] default_imports=false skip=begin
+    absent = Sys.which("fatou") === nothing && get(ENV, "CI", "") != "true"
+    absent && println("Fatou is not on PATH: the Fatou item was not run locally; CI runs it.")
+    absent
+end begin
     using Test, TOML, JSON3
 
     root = normpath(joinpath(@__DIR__, "..", ".."))

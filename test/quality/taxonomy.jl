@@ -197,8 +197,8 @@ end
     # A change under `test/support/` selects every non-slow item and every item under
     # `test/unit/core/`, so a planted change to the runner selects the harness test.
     support = select("test/support/runner.jl")
-    harness = only(i for i in items if i.file == "test/unit/core/test_harness.jl")
-    @test :slow in harness.tags && key(harness) in support
+    harness = [i for i in items if i.file == "test/unit/core/test_harness.jl"]
+    @test length(harness) == 2 && all(i -> :slow in i.tags && key(i) in support, harness)
     @test support == union(quality, Set(key(i) for i in items if !environment(i) &&
         (:slow ∉ i.tags || startswith(i.file, "test/unit/core/"))))
 
@@ -227,40 +227,4 @@ end
     @test_throws ErrorException T.changed_reference(["changed:HEAD", "tag:unit"])
     @test_throws ErrorException T.changed_reference(["changed:"])
     @test_throws ErrorException T.selection(["changed:HEAD"], joinpath(G.REPOSITORY, "test"))
-end
-
-@testitem "Quality / taxonomy / changed: runs quality in a fresh process" tags=[:quality] setup=[TaxonomyGuards] begin
-    G = TaxonomyGuards
-    # Before quality runs, the parent process gains a method inside a package module,
-    # defined from a test file (this one), as `test/integration/pscad/parser_tests.jl`
-    # does. A2 reports such a method when it shares the process; in the fresh process
-    # it passes.
-    runner = joinpath(G.REPOSITORY, "test", "support", "runner.jl")
-    planted = joinpath(G.REPOSITORY, "test", "quality", "taxonomy.jl")
-    program = """
-        using TestItemRunner
-        include($(repr(runner)))
-        import LineCableModels
-        include_string(LineCableModels.PSCAD, "planted_probe(::Val{:planted}) = 1", $(repr(planted)))
-        method = only(methods(LineCableModels.PSCAD.planted_probe))
-        println("PLANTED ", String(method.file))
-        ValidationTestRunner.run_changed($(repr(G.REPOSITORY)),
-            Set([("test/unit/units/units.jl", "Units / locked public vocabulary")]);
-            quality = ["Quality / architecture / A2 placement"])
-        println("CHANGED RUN PASSED")
-        """
-    output = IOBuffer()
-    command = `$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) -e $program`
-    process = run(pipeline(ignorestatus(command); stdout = output, stderr = output); wait = false)
-    status = timedwait(() -> process_exited(process), 600.0; pollint = 0.1)
-    status === :timed_out && kill(process)
-    wait(process)
-    text = String(take!(output))
-    @test status === :ok
-    @test success(process)
-    @test occursin("PLANTED $planted", text)
-    @test count("Selected 1 maintained test items in 1 files; run completed", text) == 2
-    @test occursin("Quality items in a fresh process: Quality / architecture / A2 placement", text)
-    @test occursin("CHANGED RUN PASSED", text)
-    success(process) || println(text)
 end
