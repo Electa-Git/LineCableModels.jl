@@ -24,18 +24,18 @@ Adapted from `eig_newton` in the supplied UniversalLineModel `modal.jl`, based o
 L. M. Wedepohl, H. V. Nguyen and G. D. Irwin, *Frequency-dependent transformation
 matrices for untransposed transmission lines using Newton-Raphson method*,
 IEEE Transactions on Power Systems 11(3), 1538–1546 (1996),
-DOI: 10.1109/59.535695. The selection identifier is `:wedehpol1996`.
+DOI: 10.1109/59.535695. The selection identifier is `:wedepohl1996`.
 """
-function description(::Type{<:Formula{:wedehpol1996}}; compact::Bool = false)
+function description(::Type{<:Formula{:wedepohl1996}}; compact::Bool = false)
     compact ? "Wedepohl" :
     "Wedepohl–Nguyen–Irwin Newton–Raphson modal transformation (1996)"
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:wedehpol1996}, typeof(decompose!)})
+function formulation_options(::FormulaMethod{<:Formula{:wedepohl1996}, typeof(decompose!)})
     FormulationOptions((iteration = (convergence = 1e-9, max_iterations = 60),))
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:wedehpol1996}, typeof(decompose!)},
+function formulation_options(::FormulaMethod{<:Formula{:wedepohl1996}, typeof(decompose!)},
         ::Val{:iteration}, defaults::NamedTuple, supplied::NamedTuple)
     isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown modal iteration controls"))
@@ -50,7 +50,7 @@ function formulation_options(::FormulaMethod{<:Formula{:wedehpol1996}, typeof(de
 end
 
 function initialize_buffers(
-        ::Val{:wedehpol1996}, ::Type{T}, input, invariants, buffers) where {T <: Complex}
+        ::Val{:wedepohl1996}, ::Type{T}, input, invariants, buffers) where {T <: Complex}
     n=invariants.n
     R=typeof(real(zero(T)))
     return merge(buffers,
@@ -90,7 +90,7 @@ function newton_eigenpair!(
     return work.x[end], valid && correction<=R(options.convergence), iterations
 end
 
-function decompose!(::Val{:wedehpol1996}, workspace::ModalAnalysisWorkspace,
+function decompose!(::Val{:wedepohl1996}, workspace::ModalAnalysisWorkspace,
         parameters::NamedTuple, options::FormulationOptions)
     work=workspace.buffers
     input=workspace.input
@@ -187,8 +187,8 @@ function decompose!(::Val{:wedehpol1996}, workspace::ModalAnalysisWorkspace,
         copyto!(work.previous_eigenvalues, work.eigenvalues)
     end
     isempty(diagnostics.missed_frequencies) ||
-        @warn ":wedehpol1996 missed numerical targets" frequencies=copy(diagnostics.missed_frequencies) fallback_count=length(diagnostics.fallback_frequencies)
+        @warn ":wedepohl1996 missed numerical targets" frequencies=copy(diagnostics.missed_frequencies) fallback_count=length(diagnostics.fallback_frequencies)
     return workspace
 end
 
-:wedehpol1996
+:wedepohl1996

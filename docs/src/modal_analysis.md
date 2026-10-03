@@ -120,12 +120,12 @@ formula description.
 
 ## Newton–Raphson implementation
 
-Select `:wedehpol1996` for the Newton–Raphson eigenpair continuation adapted
+Select `:wedepohl1996` for the Newton–Raphson eigenpair continuation adapted
 from `eig_newton` in the supplied UniversalLineModel implementation of
 Wedepohl, Nguyen and Irwin (1996), DOI: 10.1109/59.535695:
 
 ```julia
-selected = ModalAnalysisFormulation(:wedehpol1996; options=(
+selected = ModalAnalysisFormulation(:wedepohl1996; options=(
     iteration=(convergence=1e-9, max_iterations=60),))
 modal = compute(ModalAnalysisProblem(phase), selected)
 ```
@@ -137,8 +137,6 @@ convergence target bounds the largest absolute correction in this normalized
 problem. A singular iteration, missed target or duplicate eigenpair causes
 same-frequency direct eigendecomposition and greedy correlation matching.
 These events remain warning diagnostics. No physical samples are reevaluated.
-The identifier is spelled `:wedehpol1996` as selected for this package. The
-bibliographic author is Wedepohl.
 
 ## Shared basis rotation and sign continuity
 
@@ -153,7 +151,7 @@ and the decomposition's tracking history are unchanged.
 
 ```julia
 modal = compute(ModalAnalysisProblem(phase), selected; options=(rotate=false,))
-modal = compute(line_problem, line_formulation; modal=:wedehpol1996,
+modal = compute(line_problem, line_formulation; modal=:wedepohl1996,
     modal_options=(rotate=false,))
 ```
 

@@ -1,6 +1,5 @@
 # Reviewed scientific terms, author and product names, SI prefixes,
 # and established Julia, Makie, GetDP, PSCAD, and operating-system identifiers.
-# wedehpol is the existing formula identifier, not the author spelling.
 abstractarray
 addedcolgaps
 addedrowgaps
@@ -696,7 +695,6 @@ waveconal
 wavenumber
 weakdeps
 wechselstromdurchflossenen
-wedehpol
 WEDEPOHL
 whiskerwidth
 Wideband

@@ -4,7 +4,7 @@
     for R in (Float32, Float64)
         T=Complex{R}
         phase, expected=ModalTrackingExamples.phase_scan(R)
-        selected=ModalAnalysisFormulation(:wedehpol1996)
+        selected=ModalAnalysisFormulation(:wedepohl1996)
         modal=@inferred compute(ModalAnalysisProblem(phase), selected)
         @test eltype(Ti(modal))===T
         @test gamma(modal)≈expected[[3, 2, 1], :]
@@ -41,7 +41,7 @@
     z=cat(Matrix{ComplexF64}(I, 2, 2), ComplexF64[2 -1; -1 2]; dims = 3)
     y=cat(Matrix{ComplexF64}(I, 2, 2), Matrix{ComplexF64}(I, 2, 2); dims = 3)
     collapsed=compute(ModalAnalysisProblem(LineParameters(z, y, [1.0, 2.0])),
-        ModalAnalysisFormulation(:wedehpol1996))
+        ModalAnalysisFormulation(:wedepohl1996))
     diagnostics=details(collapsed).data.modal.diagnostics
     @test diagnostics.fallback_frequencies==[2]
     @test diagnostics.missed_frequencies==[2]
@@ -50,7 +50,7 @@
     @test rank(Ti(collapsed)[:, :, 2])==2
     phase, _=ModalTrackingExamples.phase_scan(; angle_step = 0.4)
     limited=compute(ModalAnalysisProblem(phase),
-        ModalAnalysisFormulation(:wedehpol1996;
+        ModalAnalysisFormulation(:wedepohl1996;
             options = (iteration = (max_iterations = 1,),)))
     @test !isempty(details(limited).data.modal.diagnostics.fallback_frequencies)
     for k in eachindex(phase.f)
@@ -61,15 +61,15 @@
     zero_product=compute(
         ModalAnalysisProblem(LineParameters(ones(ComplexF64, 1, 1, 2),
             zeros(ComplexF64, 1, 1, 2), [1.0, 2.0])),
-        ModalAnalysisFormulation(:wedehpol1996))
+        ModalAnalysisFormulation(:wedepohl1996))
     @test iszero(gamma(zero_product))
     @test H(PropagationParameters(zero_product; line_length = 10.0))==ones(ComplexF64, 1, 2)
     for invalid in ((convergence = 0,), (convergence = NaN,), (max_iterations = 0,),
         (max_iterations = true,), (max_iterations = 1.5,), (unused = 1,))
-        @test_throws ArgumentError ModalAnalysisFormulation(:wedehpol1996; options = (iteration = invalid,))
+        @test_throws ArgumentError ModalAnalysisFormulation(:wedepohl1996; options = (iteration = invalid,))
     end
     @test formula_id(ModalAnalysisFormulation().formula)===:chrysochos2014
-    @test :wedehpol1996 in M.formulas()
+    @test :wedepohl1996 in M.formulas()
 end
 
 @testitem "ModalAnalysis / shared paired rotation and sign continuity" tags=[:unit] begin
@@ -183,7 +183,7 @@ end
     ModalTrackingExamples, TestFixtures] begin
     using Measurements, LinearAlgebra
     phase, _=ModalTrackingExamples.phase_scan()
-    selected=ModalAnalysisFormulation(:wedehpol1996)
+    selected=ModalAnalysisFormulation(:wedepohl1996)
     source=ParametricResult(Combinatorial(selected), [phase, phase])
     results=compute(Gridspace{ModalAnalysisProblem}(source), selected; options = (rotate = false,))
     @test length(results)==2 && isconcretetype(eltype(results))
@@ -206,7 +206,7 @@ end
     direct=compute(ModalAnalysisProblem(phase), selected; options = (rotate = false,))
     upstream=Ref(0)
     downstream=Ref(0)
-    combined=compute(problem, Formulation(); modal = :wedehpol1996,
+    combined=compute(problem, Formulation(); modal = :wedepohl1996,
         options = (on_result = (args...)->(upstream[]+=1),),
         modal_options = (rotate = false, on_result = (args...)->(downstream[]+=1)))
     @test upstream[]==downstream[]==1

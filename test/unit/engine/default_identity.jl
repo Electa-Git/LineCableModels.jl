@@ -20,7 +20,7 @@
         (
             EP.EquivalentHomogeneous, (:default, :bottommost), :bottommost),
         (LineCableModels.ModalAnalysis,
-            (:default, :chrysochos2014, :vieira2026, :wedehpol1996), :chrysochos2014),
+            (:default, :chrysochos2014, :vieira2026, :wedepohl1996), :chrysochos2014),
         (LineCableModels.Materials.TemperatureDependent, (:default, :linear), :linear),
         (E.ShuntModel, (:default, :coaxial, :boundary), :coaxial))
     for (owner, ids, target) in expected

@@ -36,7 +36,7 @@
 "ModalAnalysis | Commons.observation_requests | src/modalanalysis/observations.jl" = 1
 "ModalAnalysis | Engine.initialize_buffers | src/modalanalysis/formulas/chrysochos2014.jl" = 1
 "ModalAnalysis | Engine.initialize_buffers | src/modalanalysis/formulas/vieira2026.jl" = 1
-"ModalAnalysis | Engine.initialize_buffers | src/modalanalysis/formulas/wedehpol1996.jl" = 1
+"ModalAnalysis | Engine.initialize_buffers | src/modalanalysis/formulas/wedepohl1996.jl" = 1
 "ModalAnalysis | Engine.selectdetails | src/modalanalysis/interfaces.jl" = 1
 "ModalAnalysis | Engine.selectdomain | src/modalanalysis/interfaces.jl" = 1
 "ModalAnalysis | Units.display_unit | src/modalanalysis/observations.jl" = 51
