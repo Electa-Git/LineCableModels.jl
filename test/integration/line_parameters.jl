@@ -447,8 +447,7 @@ end
         temperature_dependence = nothing,
         options = (
             reduce_bundle = true,
-            kron_reduction = false,
-            ideal_transposition = true
+            kron_reduction = false
         )
     )
     duplicate_result=@inferred compute(duplicate_problem, bundle_only)
@@ -489,14 +488,41 @@ end
         temperature_dependence = nothing,
         options = (
             reduce_bundle = false,
-            kron_reduction = false,
-            ideal_transposition = true
+            kron_reduction = false
         )
     )
     singleton_result=compute(singleton_problem, unreduced)
     @test size(singleton_result.Z) == (1, 1, 1)
     @test real(singleton_result.Z[1, 1, 1]) > 0
     @test imag(singleton_result.Y[1, 1, 1]) > 0
+end
+
+@testitem "Engine / ideal transposition / averaged Z and P of three-wire lines" tags=[:integration] begin
+    using LinearAlgebra
+    include(joinpath(pkgdir(LineCableModels), "test", "support", "scenarios.jl"))
+    using .CurrentScenarios
+    # Entry (i, j) of the cyclic average is the mean of its cyclic diagonal.
+    average(M) = (n = size(M, 1);
+        [sum(M[k, mod1(k + j - i, n)] for k in 1:n) / n for i in 1:n, j in 1:n])
+    frequencies = [50.0, 1e3, 1e5, 1e6]
+    layouts = (overhead = (heights = (10.0, 10.0, 10.0), horizontal = (0.0, 4.0, 8.0)),
+        buried = (heights = (-1.0, -1.0, -1.0), horizontal = (0.0, 4.0, 8.0)))
+    for (name, layout) in pairs(layouts)
+        @testset "$name" begin
+            problem = three_bare_wires_problem(; layout..., rho = 100.0, frequencies)
+            plain = compute(problem, Formulation(options = (ideal_transposition = false,)))
+            transposed = compute(problem, Formulation(options = (ideal_transposition = true,)))
+            for (k, f) in pairs(frequencies)
+                jω = im * 2π * f
+                Zu, Yu = Z(plain)[:, :, k], Y(plain)[:, :, k]
+                @test Z(transposed)[:, :, k] ≈ average(Zu) rtol = 1e-12
+                expected = jω * inv(average(jω * inv(Yu)))
+                @test Y(transposed)[:, :, k] ≈ expected rtol = 1e-10
+                # Averaging the inverted admittance instead gives a different matrix.
+                @test !isapprox(Y(transposed)[:, :, k], average(Yu); rtol = 1e-4)
+            end
+        end
+    end
 end
 
 @testitem "Engine / indexed restrictions and formula-owned Γ reach public compute" tags=[:integration] setup=[
