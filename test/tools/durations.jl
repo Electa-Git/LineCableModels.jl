@@ -1,9 +1,8 @@
-# Per-item durations from the logs of complete test runs. Run from the repository root:
-#
-#     julia --project=test test/tools/durations.jl LOG...
+# Per-item durations from the logs of complete test runs. Run
+# `julia --project=test test/tools/durations.jl LOG...` from the repository root.
 #
 # The runner prints `Starting [t s] NAME` as each item starts and the elapsed time
-# at the end. An item lasts until the next one starts, so its duration includes
+# at the end. An item lasts until the next one starts. Its duration includes
 # compilation and the effects of the items run before it. The report lists the
 # items above 10 s without the `slow` tag, the `slow` items below 5 s and the
 # minutes per owner tag. Findings are reported, never applied. Run it on the full

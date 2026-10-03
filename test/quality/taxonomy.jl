@@ -1,5 +1,5 @@
-# Taxonomy guards. Each guard takes the item inventory as an argument; the controls
-# apply it to probe items. The taxonomy is defined in `test/support/taxonomy.jl`.
+# Taxonomy guards. Each guard takes the item inventory as an argument, and the controls
+# apply it to probe items. `test/support/taxonomy.jl` defines the taxonomy.
 @testmodule TaxonomyGuards begin
     using TestItemRunner
     include(joinpath(@__DIR__, "..", "support", "runner.jl"))
@@ -9,9 +9,9 @@
 
     label(item) = string(item.file, " | ", item.name)
 
-    # T1. An item outside `quality` carries exactly one owner tag and a `quality` item
-    # none. Every item carries a kind tag, and every tag is known.
-    function t1(items)
+    # Owner and kind tags. An item outside `quality` has exactly one owner tag, and a
+    # `quality` item has none. Each item has a kind tag and only known tags.
+    function owner_and_kind_tags(items)
         found = String[]
         for item in items
             owners = count(in(T.OWNERS), item.tags)
@@ -26,8 +26,9 @@
         return found
     end
 
-    # T2. An item under `test/unit/<dir>/` carries the owner of `src/<dir>` or a later one.
-    function t2(items, owners)
+    # Unit directories bound the owner. An item under `test/unit/<dir>/` has the owner of
+    # `src/<dir>` or a later one.
+    function unit_directory_owners(items, owners)
         found = String[]
         for item in items
             parts = split(item.file, '/')
@@ -47,7 +48,7 @@ end
 @testitem "Quality / taxonomy / single definition" tags=[:quality] setup=[TaxonomyGuards] begin
     T = TaxonomyGuards.T
     @test allunique(T.OWNERS) && allunique(T.KINDS)
-    # Module owners follow load order and name every core owner.
+    # Module owners follow load order, and each core owner covers at least one module.
     ranks = map(T.rank, values(T.MODULE_OWNERS))
     @test all(>(0), ranks) && issorted(ranks)
     @test Set(values(T.MODULE_OWNERS)) == Set(T.OWNERS[1:T.rank(:pscad)])
@@ -63,15 +64,15 @@ end
     end
 end
 
-@testitem "Quality / taxonomy / T1 owner and kind tags" tags=[:quality] setup=[TaxonomyGuards] begin
+@testitem "Quality / taxonomy / owner and kind tags" tags=[:quality] setup=[TaxonomyGuards] begin
     G = TaxonomyGuards
-    @test G.report(G.t1(G.T.inventory(G.REPOSITORY).items)) == String[]
+    @test G.report(G.owner_and_kind_tags(G.T.inventory(G.REPOSITORY).items)) == String[]
 end
 
-@testitem "Quality / taxonomy / T2 unit directories bound the owner" tags=[:quality] setup=[TaxonomyGuards] begin
+@testitem "Quality / taxonomy / unit directories bound the owner" tags=[:quality] setup=[TaxonomyGuards] begin
     G = TaxonomyGuards
     owners = G.T.loaded_owners(G.REPOSITORY)
-    @test G.report(G.t2(G.T.inventory(G.REPOSITORY).items, owners)) == String[]
+    @test G.report(G.unit_directory_owners(G.T.inventory(G.REPOSITORY).items, owners)) == String[]
 end
 
 @testitem "Quality / taxonomy / negative controls" tags=[:quality] setup=[TaxonomyGuards] begin
@@ -79,24 +80,24 @@ end
     T = G.T
     item(file, name, tags...) = (; file, name, tags = collect(Symbol, tags), setups = Symbol[])
 
-    # T1 reports each planted defect once and accepts the valid items.
+    # The owner and kind check reports each planted defect once and accepts the valid items.
     valid = [item("test/unit/engine/a.jl", "valid", :unit, :engine),
         item("test/quality/q.jl", "quality", :quality),
         item("test/extensions/x.jl", "slow extension", :extension, :fem_numerical, :fem, :slow)]
-    @test G.t1(valid) == String[]
+    @test G.owner_and_kind_tags(valid) == String[]
     planted = [item("test/unit/engine/a.jl", "no owner", :unit),
         item("test/unit/engine/a.jl", "two owners", :unit, :engine, :uq),
         item("test/quality/q.jl", "quality owner", :quality, :engine),
         item("test/unit/engine/a.jl", "no kind", :engine),
         item("test/unit/engine/a.jl", "unknown", :unit, :engine, :slwo)]
-    found = G.t1(planted)
+    found = G.owner_and_kind_tags(planted)
     @test length(found) == 5
     for (probe, text) in zip(planted, ("0 owner tags", "2 owner tags", "1 owner tags",
         "no kind tag", "unknown tags slwo"))
         @test count(f -> startswith(f, G.label(probe)) && occursin(text, f), found) == 1
     end
 
-    # T2 bounds owners under `test/unit/<dir>/` by the earliest owner loaded from `src/<dir>`.
+    # Owners under `test/unit/<dir>/` are bounded by the earliest owner loaded from `src/<dir>`.
     owners = Dict("src/units/Units.jl" => :units, "src/engine/Engine.jl" => :engine,
         "src/engine/late.jl" => :uq)
     accepted = [item("test/unit/engine/a.jl", "same", :unit, :engine),
@@ -104,14 +105,14 @@ end
         item("test/unit/core/a.jl", "no source directory", :unit, :units),
         item("test/integration/a.jl", "not a unit directory", :integration, :units),
         item("test/unit/a.jl", "top level", :unit, :units)]
-    @test G.t2(accepted, owners) == String[]
+    @test G.unit_directory_owners(accepted, owners) == String[]
     early = item("test/unit/engine/a.jl", "earlier", :unit, :commons)
-    @test G.t2([early], owners) ==
+    @test G.unit_directory_owners([early], owners) ==
         ["$(G.label(early)): commons is earlier than engine, the owner of src/engine"]
 
-    # Files are owned at their load position: a root file takes the owner of the last
-    # module included before it, a module entry behind a docstring counts, and a file
-    # the package does not load takes the earliest owner of its directory.
+    # Files are owned at their load position. A root file takes the owner of the last
+    # module included before it. A module entry behind a docstring counts as a module. A
+    # file that the package does not load takes the earliest owner of its directory.
     mktempdir() do repository
         files = Dict(
             "src/LineCableModels.jl" => """
@@ -186,7 +187,7 @@ end
     @test all(k -> k in quality || owner(only(i for i in items if key(i) == k)) in (:fem, :makie), fem)
 
     # A changed test file selects all its items, slow ones too, and the files that use
-    # a setup it defines. Its environment items stay excluded.
+    # a setup it defines. Its environment items remain excluded.
     file = "test/unit/engine/unified_earth_return.jl"
     @test any(i -> i.file == file && :slow in i.tags, items)
     @test select(file) == union(quality, Set(key(i) for i in items if i.file == file))

@@ -110,8 +110,8 @@ end
     root = pkgdir(LineCableModels)
     # Before quality runs, the parent process gains a method inside a package module,
     # defined from a test file (this one), as `test/integration/pscad/parser_tests.jl`
-    # does. A2 reports such a method when it shares the process; in the fresh process
-    # it passes.
+    # does. The placement guard reports such a method when it shares the process. In the
+    # fresh process, the guard passes.
     runner = joinpath(root, "test", "support", "runner.jl")
     planted = joinpath(root, "test", "unit", "core", "test_harness.jl")
     program = """

@@ -8,7 +8,7 @@ include(joinpath(@__DIR__, "taxonomy.jl"))
 # selectors can reach every item, including those excluded from ordinary runs.
 const ORDINARY_EXCLUDED_TAGS = Set((:quality, :aqua, :visual, :core_only,
     :fem_numerical, :pscad_native))
-# The tags of the additional environments; `changed:REF` excludes them too.
+# The tags of the additional environments. `changed:REF` excludes them too.
 const ENVIRONMENT_TAGS = setdiff(ORDINARY_EXCLUDED_TAGS, (:quality,))
 
 # The paths changed since the git revision `reference`: modified, added, deleted and
@@ -27,14 +27,14 @@ source_owner(paths, owners) =
     earliest(Symbol[owner for owner in (path_owner(owners, p) for p in paths) if owner !== nothing])
 
 # The items that changes to `paths` can affect, as (file, name) pairs:
-# - every `quality` item;
+# - every `quality` item.
 # - every non-slow item whose owner is the earliest owner of a changed `src/` or `ext/`
-#   path, or a later owner;
+#   path, or a later owner.
 # - every item of a changed test file, slow or not, and of the files that use a setup
-#   defined in a changed test file;
+#   defined in a changed test file.
 # - after a change under `test/support/`, every non-slow item and every item under
 #   `test/unit/core/`, which checks the runner.
-# Items with an environment tag stay excluded, as in ordinary runs.
+# Items with an environment tag remain excluded, as in ordinary runs.
 function changed_items(paths, items, setups, owners)
     floor = source_owner(paths, owners)
     support = any(startswith("test/support/"), paths)

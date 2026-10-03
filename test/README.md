@@ -27,6 +27,7 @@ julia --project=test test/runtests.jl
 julia --project=test test/runtests.jl unit/importexport/atp
 julia --project=test test/runtests.jl integration/feasible_geometry_uq
 julia --project=test test/runtests.jl tag:quality
+julia --project=test test/runtests.jl changed:HEAD
 ```
 
 Use a file selection while editing. The unfiltered command is the full sweep.
@@ -40,6 +41,80 @@ alternatives. Multiple tags are alternatives. Both groups must match when combin
 Append `--list` to inspect selection without executing bodies. Empty selections
 and unknown options fail. The runner prints item starts, selected files and items,
 elapsed time and completion or failure. A started item is not necessarily completed.
+
+`changed:REF` selects the items that the changes since the git revision `REF` can
+affect, untracked files included. It takes no other selector. The runner uses the
+test taxonomy below to choose them:
+
+- every item whose owner tag is the owner of a changed file under `src/` or `ext/`,
+  or a later owner. `slow` items are left out.
+- every item of a changed test file, `slow` or not, and every item that uses a setup
+  defined in a changed test file.
+- after a change under `test/support/`, every item that is not `slow`, and every item
+  under `test/unit/core/`, which checks the runner itself.
+- every `quality` item.
+
+Items with an environment tag stay out, as in an ordinary run. The selected items
+outside `quality` run in the current process. The `quality` items then run in a new
+process, exactly as `tag:quality` runs alone, because the architecture guards read the
+live method table that earlier items can extend. The run fails when either part fails.
+`--list` lists both parts.
+
+## Test taxonomy
+
+Each item outside `quality` has exactly one owner tag. The owner tag is the latest layer,
+in load order, whose code the item exercises. A change in one layer can affect only that
+layer and the layers loaded after it. `changed:REF` relies on this order. The owner tags
+in load order are `units`, `commons`, `materials`, `earth`, `datamodel`, `engine`,
+`modal`, `parametric`, `uq`, `report`, `importexport` and `pscad`. The extension owners
+follow them: `measurements`, `distributions`, `xlsx`, `fem` and `makie`. `quality`
+items have no owner tag.
+
+`test/support/taxonomy.jl` defines the owner tags, the package module that each owner
+covers and the kind tags. The runner, the architecture guards and the tools read it.
+It also gives each source file the owner of its load position. A file that
+`src/LineCableModels.jl` includes directly takes the owner of the last module included
+before it, so `src/gridspace.jl` belongs to `commons` and
+`src/modalanalysis/delegation.jl` to `parametric`. TextDisplay, InputValidation and
+PlotBuilder belong to `commons`.
+
+Each item also has at least one kind tag: `unit`, `integration`, `extension`,
+`visual`, `quality` or `aqua`. The environment tags `visual`, `fem_numerical`,
+`pscad_native`, `core_only` and `aqua` keep items out of ordinary runs. `slow` marks
+items that took more than 10 s in the last full run.
+
+The quality items check the taxonomy. An item outside `quality` has one owner tag and a
+`quality` item has none. Each item has a kind tag and only known tags. An item under
+`test/unit/<dir>/` has the owner of `src/<dir>` or a later one.
+
+Give a new item the owner of the latest layer it reaches. To check the choice, record
+the code that each item runs and compare it with the tags:
+
+```sh
+julia --project=test --code-coverage=@$PWD --code-coverage=/tmp/trace.info test/tools/owners.jl record DIR
+julia --project=test test/tools/owners.jl report DIR
+```
+
+The report lists every item whose owner tag is earlier than the code it runs.
+
+At the end of a track, run `test/tools/durations.jl` on the log of the full run and of
+each environment run. It derives the duration of each item from the `Starting` lines.
+It lists the items above 10 s without `slow`, the `slow` items below 5 s and the minutes
+per owner tag. It reports these findings and leaves the tags unchanged.
+
+```sh
+julia --project=test test/tools/durations.jl full-suite.log visual.log fem_numerical.log
+```
+
+## Cadence
+
+During a change, run `changed:REF` from the commit that the step starts from. At the end
+of a track, before a push, run the full suite including `slow` items. Also run the
+extension and visual environments that the change touches, the documentation build, and
+Vale and cspell with the versions that CI uses. Finally, run `test/tools/durations.jl`
+on the new logs and the timing comparison and equivalence check that the
+[developer guide](../docs/src/developers.md#preservation-locks) describes. Tests are
+deferred to the end of a track, never skipped.
 
 ## Advisory source diagnostics
 
@@ -69,7 +144,9 @@ julia --project=test test/runtests.jl tag:quality
 
 Windows binaries are available from the
 [Fatou 0.22.0 release](https://github.com/jolars/fatou/releases/tag/v0.22.0).
-Tests never install tools. A missing or wrong Fatou version fails setup.
+Tests never install tools. A wrong Fatou version fails the item. A missing Fatou
+fails the item in CI, which sets `CI=true`. A local run without Fatou records the item
+as skipped and prints a message.
 
 All selected source findings are **advisory**, regardless of their count.
 `fatou.toml` selects 15 rules explicitly and sets their severity to `warning`.

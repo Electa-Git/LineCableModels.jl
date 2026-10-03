@@ -24,8 +24,8 @@ versions(project) = Dict(split(line, '\t') for line in eachline(IOBuffer(output(
 
 # Runs `f(project)` with the test project of `reference` in a temporary worktree. Its
 # environment starts from this repository's `Manifest.toml`, resolved again for
-# `reference`; the dependency versions that then differ from the working tree are
-# printed. The worktree is removed afterwards.
+# `reference`. The tool prints the dependency versions that then differ from the working
+# tree. The worktree is removed afterwards.
 function at_revision(f, reference)
     success(pipeline(git("rev-parse", "--verify", "--quiet", reference * "^{commit}");
         stdout = devnull)) || error("Unknown git revision: $reference")
@@ -51,7 +51,7 @@ function at_revision(f, reference)
 end
 
 # The revision's own copy of the file `relative` when it has one (containing `marker`
-# when given), otherwise the working tree's copy; `own` tells which.
+# when given), otherwise the working tree's copy. `own` tells which.
 function own_copy(directory, relative; marker = nothing)
     path = joinpath(directory, relative)
     own = isfile(path) && (marker === nothing || occursin(marker, read(path, String)))

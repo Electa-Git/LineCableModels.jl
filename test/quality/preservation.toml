@@ -62,10 +62,10 @@ allocations = "ceiling"
 "test/unit/uq/formulations.jl" = 9
 # Ceiling: JET optimization reports per frequency-loop kernel, with
 # `target_modules = (LineCableModels,)` on the default coaxial calculation of a
-# three-phase cable system and on each modal formula. The three reports are the known
-# boxing of earth-return records: the abstract `earth_calculations` tuple dispatches
-# at the `_solve!` barrier and in the equivalent homogeneous earth below it, and
-# `earth!` recurses over the record tuple.
+# three-phase cable system and on each modal formula. The current reports come from the
+# known boxing of earth-return records. The abstract `earth_calculations` tuple dispatches
+# at the `_solve!` barrier and in the equivalent homogeneous earth below it, and `earth!`
+# recurses over the record tuple.
 [jet]
 "cable_impedance!" = 0
 "cable_potential!" = 0
@@ -78,9 +78,9 @@ allocations = "ceiling"
 
 # Ceiling: allocations of the preservation corpus (`CurrentScenarios.preservation_corpus`),
 # printed by `test/tools/allocations.jl`. `allocations` counts the allocated objects of one
-# warmed-up `compute` call, identical on every call; `bytes` is the minimum over three
-# calls and may grow by at most 512 B before the check fails. Re-record a row's bytes
-# whenever its counts are re-recorded.
+# warmed-up `compute` call, which repeat exactly on every call. `bytes` is the minimum over
+# three calls and may grow by at most 512 B before the check fails. Record a row's bytes
+# again whenever its counts change.
 [allocations]
 "coaxial | 2 frequencies | allocations" = 7280
 "coaxial | 2 frequencies | bytes" = 424624

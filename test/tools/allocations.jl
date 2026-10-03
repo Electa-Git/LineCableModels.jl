@@ -1,16 +1,15 @@
-# Allocation counts and bytes of the preservation corpus (L2). Run in a fresh process,
-# from the repository root:
-#
-#     julia --project=test test/tools/allocations.jl
+# Allocation counts and bytes of the preservation corpus, for the allocation ceilings in
+# `test/quality/preservation.toml`. Run `julia --project=test test/tools/allocations.jl`
+# in a fresh process from the repository root.
 #
 # It prints the `[allocations]` rows of `test/quality/preservation.toml`. For each
 # scenario and frequency count, each `compute` call is warmed up twice and then measured
 # three times inside a function. `allocations` is the number of allocated objects (pool,
-# big and malloc'd), which must be identical across the measured calls; `bytes` is the
-# minimum over them, because the runtime's byte accounting of malloc'd buffers adds a few
-# bytes on some calls. The counts depend on what the process computed before, so the
+# big and allocated by `malloc`), which must be identical across the measured calls.
+# `bytes` is the minimum over them, because the runtime's byte accounting of buffers from
+# `malloc` adds a few bytes on some calls. The counts depend on what the process computed before, so the
 # corpus always runs in the same order in a fresh process. The quality item
-# `Quality / preservation / L2 allocation ceilings` runs this file.
+# `Quality / preservation / allocation ceilings` runs this file.
 using LineCableModels, Measurements
 
 Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "scenarios.jl"))

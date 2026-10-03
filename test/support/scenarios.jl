@@ -123,7 +123,7 @@ module CurrentScenarios
             [samples],[histograms],UInt64(2027),UInt64[2039],[4])
     end
 
-    # Counters of the equivalence check (L4): `materialized()` runs once per point a
+    # Counters of the equivalence check: `materialized()` runs once per point a
     # parametric scenario realizes, and `nominal_data` reaches its cable designs.
     const NO_COUNTERS = (materialized=Returns(nothing), nominal_data=nothing)
 
@@ -136,7 +136,7 @@ module CurrentScenarios
                 frequencies)), (Grid((100.0, 1000.0)), Grid((0.08, 0.1))); combine)
     study_formulations() = Formulation(insulation_admittance=Grid((:default, :lossy)))
 
-    # One uncertain cable spacing [m]; its evaluation requires the Measurements extension.
+    # One uncertain cable spacing [m]. Its evaluation requires the Measurements extension.
     uncertain_space(frequencies, counters) = Gridspace{LineParametersProblem}(
         spacing -> (counters.materialized(); line_parameters_problem(
             three_phase_system(; spacing, counters.nominal_data); frequencies)),
@@ -145,8 +145,8 @@ module CurrentScenarios
     """
     $(TYPEDSIGNATURES)
 
-    The preservation corpus: one scenario per calculation shape, shared by the
-    allocation ceiling (L2), the timing comparison (L3) and the equivalence check (L4).
+    The preservation corpus has one scenario per calculation shape. The allocation
+    ceilings, the timing comparison and the equivalence check share it.
     Each scenario is the tuple of positional arguments of `compute`, with `n` analysis
     frequencies between 10 Hz and 100 kHz. The CableConstants problem has its own
     single frequency. LinearError and MonteCarlo require the Measurements extension.

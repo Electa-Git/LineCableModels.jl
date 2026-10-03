@@ -129,7 +129,9 @@ package method and parse every Julia file under `src/` and `ext/`.
   around a method's file belongs to the method's module or one of its ancestors.
 - Direction (A3). The submodules have the order Units, Commons, TextDisplay,
   InputValidation, PlotBuilder, Materials, Earth, DataModel, Engine, ModalAnalysis,
-  ParametricBuilder, UQ, ReportBuilder, ImportExport, PSCAD. The lowered code of a
+  ParametricBuilder, UQ, ReportBuilder, ImportExport, PSCAD. `MODULE_OWNERS` in
+  `test/support/taxonomy.jl` defines this order once, for the guards and for the test
+  runner. The lowered code of a
   submodule method references earlier submodules, the ancestors and descendants of
   its own module, and no later submodule. Each top-level submodule has a position in
   the order. The root module and the extensions are exempt.
@@ -201,7 +203,9 @@ baseline.
 
 Entries can be deleted or lowered, and none can be added or raised. Before the tests,
 the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull request
-base or the previous push. An added entry or a raised count fails the job. The
+base or the previous push. An added entry or a raised count fails the job. The same
+ratchet checks `test/quality/preservation.toml`, described below, in the direction that
+each of its tables declares. The
 ratchet first applies to the earlier keys the file renames that git detects, and the
 module renames of renamed entry files `<Module>.jl` that declare their module. A key
 renamed without a matching git rename counts as added. A table absent from the
@@ -209,6 +213,83 @@ earlier baseline belongs to a guard introduced since, and the ratchet lists it
 without comparing its keys. Run
 `julia test/tools/baseline_ratchet.jl HEAD` to compare local changes with the last
 commit.
+
+### Preservation locks
+
+A refactor keeps type stability, allocations, speed and results. Quality checks and
+local tools protect them. `test/quality/preservation.toml` records the counts
+of the quality checks. Each table declares its direction in `[directions]`. The
+`@inferred` table is a floor, which may only rise. The JET and allocation tables are
+ceilings, which may only fall. A quality check fails when a count passes its limit. It
+also fails when a count improves on the table, so the table always records the current
+state. A change that improves a count updates the table in the same commit.
+`test/tools/baseline_ratchet.jl` rejects a lowered floor or a raised ceiling against
+the earlier revision.
+
+- `@inferred` floor. The number of `@inferred` uses in each test file. Deleting a
+  failing inference test lowers the floor and fails.
+- JET ceilings. `JET.report_opt` with `target_modules = (LineCableModels,)` analyses the
+  frequency-loop kernels with the concrete arguments of the default coaxial calculation
+  of a three-phase cable system: `_solve!`, `cable_impedance!`, `cable_potential!`,
+  `earth!`, `reduce_line_matrices!` and the modal `decompose!` of each formula. The
+  table counts the reports of each kernel. The current reports all come from the boxed
+  earth-return records.
+- Allocation ceilings. `preservation_corpus(n)` in `test/support/scenarios.jl` defines one
+  scenario per calculation shape. Each scenario lists the positional arguments of
+  `compute` for a coaxial cable system, three bare wires in air and in earth, a modal
+  composition, CableConstants, a product and a zip parametric study, LinearError and
+  MonteCarlo with a fixed seed. `test/tools/allocations.jl` runs the corpus at 2 and at 4
+  frequencies in a new process and prints the table rows. A row records the allocation
+  count of one warmed-up call, which must repeat exactly on each call, and the smallest
+  byte total of three calls. The runtime's byte accounting adds a few bytes on some
+  calls. A byte total fails only above the recorded total plus 512 B. The counts depend
+  on what the process computed before. New scenarios go at the end of the corpus. A change that reorders or edits a scenario records again every row from that
+  scenario onward.
+
+The JET and allocation tables hold for the Julia version in `[environment]`, and the CI
+quality job uses that version. On another version, both checks fail with a request to
+record the tables again. A JET or allocation ceiling may rise only in a change that
+also changes that version.
+
+The local tools compare the working tree with a git revision `REF`. Each checks out
+`REF` in a temporary git worktree. That test environment starts from the repository
+`Manifest.toml`, so both sides use the same dependency versions where `REF` allows
+them. Each side runs its own revision's corpus. A revision without one uses the working
+tree's copy, and the report says which copy each side used.
+
+The timing comparison is `julia --project=test test/tools/performance.jl REF`. One worker
+process per side holds its corpus. Both workers run on the same logical CPU, a
+performance core on a hybrid machine. Only one of them runs at any moment. Each
+scenario runs in 6 rounds of 0.5 s per side, and the side that goes first alternates.
+Machine load only adds time. Each side keeps its fastest sample. When the fastest
+samples of the rounds on one side differ by more than 2 %, the scenario is unstable and
+has no verdict. Separate builds of identical code differ by up to about 4 % on the
+development machine, because each worktree builds its own package image. That is the
+noise floor of the tool. A scenario more than 10 % slower fails with exit status 1. A
+scenario 5 to 10 % slower is a possible slowdown below the resolution of the tool, and
+an unstable scenario also gives exit status 2. Exit status 2 asks for a rerun on an idle
+machine. It does not report a regression. A possible slowdown that repeats over three
+runs goes to a person as a likely regression. The result is valid only on an otherwise
+idle machine. The exact performance checks are the `@inferred` floor and the JET and
+allocation ceilings. The timing comparison catches large algorithmic slowdowns.
+
+The equivalence check is `julia --project=test test/tools/equivalence.jl REF [ALLOWED]`.
+On each side, `test/tools/fingerprint.jl` records every node of the inputs and the result
+of each scenario. A node record gives the type and the bits of the value. A type name is
+written as the module that defines it followed by the name. The recording also counts
+the points that each parametric scenario materializes and the blueprint lowerings of its
+designs. The optional `ALLOWED` file declares the expected differences, one per line:
+
+```text
+rename | Old => New
+scenario | path prefix | value
+```
+
+Renames apply to whole identifiers in the type names, path segments and Symbol values
+recorded at `REF`. Each declaration states one kind of difference: `value`, `type` or
+`path`. An empty prefix declares the whole scenario. A `value` declaration covers
+different values under the same type and never hides a changed type. Any undeclared
+difference fails. The report lists renames and declarations that match no difference.
 
 ## Developer paths
 

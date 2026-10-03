@@ -1,25 +1,26 @@
-# The recording program of the equivalence check (`equivalence.jl`, L4). It records the
-# preservation corpus of the revision it belongs to, so it travels with that revision:
-#
-#     julia --project=test test/tools/fingerprint.jl DESTINATION
+# The recording program of the equivalence check (`equivalence.jl`). It records the
+# preservation corpus of the revision that contains it. Each revision records with its
+# own version of this file.
+# Run `julia --project=test test/tools/fingerprint.jl DESTINATION`.
 #
 # For each scenario of `preservation_corpus(2)` it writes one line per node of the
-# inputs and the result: scenario, path, type and value. Numbers are written as their
-# bits, a Measurement as value and error. Each type name is written as `Owner.Name`,
-# `Owner` being the module that defines it directly, whatever Main imports; Base and Core
-# types are bare, closures are `var"#closure"` (their numbers change when unrelated source
-# changes) and no type alias is used. Random identities (UUIDs) are numbered by first
-# appearance within a scenario, which keeps which nodes share one; dictionaries are walked
-# in sorted key order; an object met again records the path where it was first met.
-# A last pass counts, per parametric scenario, the points it materializes and the
-# blueprint lowerings of its designs.
+# inputs and the result, with the scenario, the path, the type and the value. Numbers are
+# written as their bits, a Measurement as value and error. Each type name is written as
+# `Owner.Name`, where `Owner` is the module that defines it directly, whatever Main
+# imports. Base and Core types are bare. Anonymous functions are written as
+# `var"#closure"`, because their numbers change when unrelated source changes, and no
+# type alias is used. Random identities (UUIDs) are numbered by first appearance within
+# a scenario, which keeps which nodes share one. Dictionaries are walked in sorted key
+# order. An object met again records the path where it was first met. A last pass
+# counts, per parametric scenario, the points it materializes and the blueprint lowerings
+# of its designs.
 using LineCableModels, Measurements
 import LineCableModels.Engine as EN
 
 Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "scenarios.jl"))
 using .CurrentScenarios: preservation_corpus
 
-# Counts blueprint lowerings of designs that carry it as nominal data, then runs the
+# Counts blueprint lowerings of designs whose nominal data is a counter, then runs the
 # production lowering, as `test/integration/formulation_grid.jl` does.
 struct LoweringCounter
     calls::Base.RefValue{Int}
@@ -39,7 +40,7 @@ const CLOSURE = "var" * QUOTE * "#closure" * QUOTE
 
 bare(m::Module) = Base.moduleroot(m) in (Base, Core)
 
-# A type parameter that is a value, not a type.
+# A type parameter that is a value, such as a Symbol or a tuple.
 parameter(x) = x isa Type || x isa TypeVar ? typename(x) :
     x isa Tuple ? string("(", join(parameter.(x), ", "), length(x) == 1 ? ",)" : ")") :
     repr(x)
@@ -67,7 +68,7 @@ end
 bits(x) = bytes2hex(reinterpret(UInt8, [x]))
 flat(text) = replace(text, r"\s+" => " ")
 
-# `state.seen` maps each mutable object met to its first path; `state.uuids` numbers the
+# `state.seen` maps each mutable object met to its first path. `state.uuids` numbers the
 # random identities (gridpoint source ids) by first appearance.
 function walk!(io, path, x, state)
     line(value) = println(io, path, '\t', typename(typeof(x)), '\t', value)

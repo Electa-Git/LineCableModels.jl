@@ -1,7 +1,7 @@
 # The test taxonomy, defined once. `test/support/runner.jl`, the architecture guards
 # and the tools under `test/tools/` include this file. It uses only Base.
 #
-# Every item outside `quality` carries exactly one owner tag: the latest layer, in
+# Each item outside `quality` has exactly one owner tag, the latest layer, in
 # load order, whose code the item exercises. A change in one layer can affect only
 # that layer and the layers loaded after it.
 
@@ -24,7 +24,7 @@ const EXTENSION_OWNERS = (LineCableModelsMeasurementsExt = :measurements,
     LineCableModelsCairoMakieExt = :makie, LineCableModelsGLMakieExt = :makie,
     LineCableModelsWGLMakieExt = :makie)
 
-# Every item carries at least one kind tag.
+# Each item has at least one kind tag.
 const KINDS = (:unit, :integration, :extension, :visual, :quality, :aqua)
 
 # A path relative to `directory`, with `/` separators on every platform.
@@ -59,9 +59,9 @@ function declared_module(path)
 end
 
 # Each Julia file the package loads, relative to `repository`, with the owner of its
-# load position. `src/LineCableModels.jl` includes the core modules in load order; a
-# file it includes directly takes the owner of the last module included before it,
-# or the first owner. Extensions take their own owners.
+# load position. `src/LineCableModels.jl` includes the core modules in load order. A file
+# it includes directly takes the owner of the last module included before it, or the
+# first owner. Extensions take their own owners.
 function loaded_owners(repository)
     found = Dict{String, Symbol}()
     function load!(path, owner)

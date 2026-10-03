@@ -1,26 +1,23 @@
-# L4. Behaviour of the preservation corpus at a git revision and on the working tree,
-# compared bitwise. Run from the repository root:
-#
-#     julia --project=test test/tools/equivalence.jl REF [ALLOWED]
+# Equivalence check of the preservation corpus at a git revision and on the working
+# tree, compared bitwise. Run
+# `julia --project=test test/tools/equivalence.jl REF [ALLOWED]` from the repository root.
 #
 # REF is prepared as for `performance.jl`. Each side records its own revision's corpus
-# with its own recording program, `test/tools/fingerprint.jl`, in a fresh process; a
+# with its own recording program, `test/tools/fingerprint.jl`, in a fresh process. A
 # revision without that program uses the working tree's program and corpus, and the
-# report says which copy each side used. The recording holds every node of the inputs
-# and the result of each scenario, with its type and the bits of its value, and the
-# laziness counts of the parametric scenarios (see `fingerprint.jl`).
+# report says which copy each side used. The recording lists every node of the inputs
+# and the result of each scenario, with its type and the bits of its value. It ends with
+# the laziness counts of the parametric scenarios, as `fingerprint.jl` describes.
 #
-# `ALLOWED` is an optional file of declarations, one per line (`#` starts a comment):
-#
-#     rename | Old => New
-#     scenario | path prefix | value, type or path
-#
-# A rename is applied to REF's type names, path segments and Symbol values, matching
-# whole identifiers only, before comparing. A difference changes a value under the same
-# type, changes a type, or exists on one side only (path); a declaration covers the
-# differences of its kind whose path starts with its prefix, and an empty prefix covers the
-# whole scenario. Declared differences pass; renames and declarations that match nothing
-# are reported; any other difference fails. Not run in CI.
+# `ALLOWED` is an optional file of declarations, one per line, where `#` starts a
+# comment. A line `rename | Old => New` renames whole identifiers in the type names,
+# path segments and Symbol values recorded at REF before the comparison. A line
+# `scenario | path prefix | kind` declares the differences of one kind under a path
+# prefix, and an empty prefix declares the whole scenario. The kind is `value` for a
+# changed value under the same type, `type` for a changed type and `path` for a node
+# found on one side only. Declared differences pass. The report lists renames and
+# declarations that match no difference. Any other difference fails. CI does not run
+# this tool.
 const REPOSITORY = dirname(dirname(@__DIR__))
 const RECORDER = joinpath("test", "tools", "fingerprint.jl")
 const KINDS = (:value, :type, :path)
@@ -68,7 +65,7 @@ function declarations(file)
     return (; renames, declared)
 end
 
-# `text` with every rename applied to whole identifiers; `used[i]` records a match.
+# `text` with every rename applied to whole identifiers. `used[i]` records a match.
 function renamed(text, renames, used)
     for (i, (old, new)) in enumerate(renames)
         pattern = Regex("(?<![\\w!])\\Q" * old * "\\E(?![\\w!])")
@@ -80,7 +77,7 @@ function renamed(text, renames, used)
 end
 
 # Nodes whose value is a type name (an `eltype` row or a type met in the walk) or a
-# Symbol: renames reach their values too.
+# Symbol. Renames change their values too.
 const NAMED = ("Type", "DataType", "UnionAll", "Union", "TypeofBottom", "Symbol")
 
 # REF's nodes with the renames applied to paths, type names and Symbol values.
@@ -97,8 +94,8 @@ function differences(old, new)
         for path in paths if get(before, path, nothing) != get(after, path, nothing)]
 end
 
-# A difference changes a value under the same type, changes the type, or exists on one
-# side only.
+# The kind of a difference is `:value` for a changed value under the same type, `:type`
+# for a changed type and `:path` for a node on one side only.
 kind((_, a, b)) = a === nothing || b === nothing ? :path : a[1] == b[1] ? :value : :type
 
 covers(declaration, scenario, change) = declaration.scenario == scenario &&

@@ -1,10 +1,10 @@
-# Preservation locks. `preservation.toml` records counts per key, in tables that
-# declare their direction: `[inferred]` is a floor, `[jet]` and `[allocations]` are
-# ceilings. A check fails when a live count passes its limit, and also when the live
-# count improves on the table, so the table always records the current state; recorded
-# bytes are the exception and fail only on increases beyond `HEADROOM`. The measured
-# ceilings hold for the Julia version in `[environment]`. `test/tools/baseline_ratchet.jl
-# REF` checks that floors only rise and ceilings only fall across commits.
+# The preservation locks record counts per key in `preservation.toml`. Each table
+# declares its direction. `[inferred]` is a floor, and `[jet]` and `[allocations]` are
+# ceilings. A check fails when a live count passes its limit. It also fails when the
+# live count improves on the table, so that the table records the current state. Recorded
+# bytes fail only on increases beyond `HEADROOM`. The measured ceilings hold for the Julia
+# version in `[environment]`. Across commits, `test/tools/baseline_ratchet.jl` checks
+# that floors only rise and ceilings only fall.
 @testmodule PreservationLocks begin
     using TestItemRunner, TOML
     Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "runner.jl"))
@@ -37,7 +37,7 @@
         return nothing
     end
 
-    # L2. Allocation counts are strict in both directions. Bytes fail only above the
+    # Allocation ceilings: counts are strict in both directions. Bytes fail only above the
     # recorded minimum plus `HEADROOM`, because the runtime's byte accounting varies.
     const HEADROOM = 512
     function compare_allocations(live, recorded)
@@ -54,7 +54,7 @@
 
     const ALLOCATIONS = joinpath(REPOSITORY, "test", "tools", "allocations.jl")
 
-    # L1. The `@inferred` uses in a Julia source, qualified or not.
+    # The `@inferred` floor: the `@inferred` uses in a Julia source, qualified or not.
     function inferred_uses(text, filename = "none")
         uses = Ref(0)
         visit(x) = if x isa Expr
@@ -82,7 +82,7 @@
     end
 end
 
-@testitem "Quality / preservation / L1 @inferred floor" tags=[:quality] setup=[PreservationLocks] begin
+@testitem "Quality / preservation / @inferred floor" tags=[:quality] setup=[PreservationLocks] begin
     P = PreservationLocks
     result = P.compare(P.inferred_counts(P.REPOSITORY), P.table("inferred");
         floor = P.isfloor("inferred"))
@@ -150,7 +150,7 @@ end
     @test P.report(result.stale) == String[]
 end
 
-@testitem "Quality / preservation / L2 allocation ceilings" tags=[:quality] setup=[PreservationLocks] begin
+@testitem "Quality / preservation / allocation ceilings" tags=[:quality] setup=[PreservationLocks] begin
     using TOML
     P = PreservationLocks
     P.check_version()
@@ -185,7 +185,7 @@ end
     @test P.inferred_uses(source) == 3
     @test P.inferred_uses("x = 1") == 0
 
-    # A floor breaks below its limit and a ceiling above it; improvements are stale.
+    # A floor breaks below its limit and a ceiling above it. Improvements are stale.
     floor = P.compare(Dict("a" => 2, "b" => 5, "new" => 1), Dict("a" => 3, "b" => 4, "gone" => 1);
         floor = true)
     @test floor.broken == ["a: 2 (recorded 3)", "gone: 0 (recorded 1)"]
@@ -255,7 +255,7 @@ end
     @test P.check_version("1.12.7", "1.12.7") === nothing
     @test_throws ErrorException("recorded on 1.12.7, running 1.12.8: re-record [jet] and [allocations]") P.check_version("1.12.7", "1.12.8")
 
-    # Allocation counts are strict both ways; bytes fail only beyond the headroom.
+    # Allocation counts are strict both ways. Bytes fail only beyond the headroom.
     recorded = Dict("s | 2 frequencies | allocations" => 10, "s | 2 frequencies | bytes" => 1000)
     row(n, b) = Dict("s | 2 frequencies | allocations" => n, "s | 2 frequencies | bytes" => b)
     @test P.compare_allocations(row(10, 1000 + P.HEADROOM), recorded) == (; broken = String[], stale = String[])
@@ -275,58 +275,94 @@ end
     @test last(rows([5, 6, 5], [10, 10, 10])) ==
         "s | 2 frequencies: allocations [5, 6, 5] across calls"
 
-    # The equivalence tool (L4): declarations, renames, kinds and the revision's own files.
+    # The equivalence check reads declarations and renames, classifies differences by kind
+    # and finds the revision's own files.
     equivalence = Module(:EquivalenceTool)
     Base.include(equivalence, joinpath(P.REPOSITORY, "test", "tools", "equivalence.jl"))
-    E(f, arguments...; keywords...) =
+    in_equivalence(f, arguments...; keywords...) =
         Base.invokelatest(getfield(equivalence, f), arguments...; keywords...)
     mktempdir() do directory
         file = joinpath(directory, "allowed")
         write(file, "# Declared differences\nrename | Grammar => Commons\ncoaxial | | value\n" *
             "modal | result.Z | type  # a path prefix\n\n")
-        @test E(:declarations, file) == (; renames = ["Grammar" => "Commons"], declared = [
+        @test in_equivalence(:declarations, file) == (; renames = ["Grammar" => "Commons"], declared = [
             (; scenario = "coaxial", prefix = "", kind = :value),
             (; scenario = "modal", prefix = "result.Z", kind = :type)])
         for malformed in ("coaxial | result", "coaxial | result | values", "rename | Grammar",
                 "rename | Grammar => Commons.Types")
             write(file, malformed * "\n")
-            @test_throws ErrorException E(:declarations, file)
+            @test_throws ErrorException in_equivalence(:declarations, file)
         end
     end
-    # A rename reaches type names, path segments and Symbol values, whole identifiers only.
+    # A rename changes whole identifiers in type names, path segments and Symbol values.
     nodes = ["result.Grammar.x" => ("Grammar.FormulaDefinition{:Grammar}", ""),
         "result.y" => ("Symbol", ":Grammar"), "result.z" => ("String", "\"Grammar\""),
         "result.w" => ("MyGrammar.GrammarX", ""), "result.eltype" => ("Type", "Grammar.Point")]
     used = falses(2)
-    @test E(:renamed, nodes, ["Grammar" => "Commons", "Absent" => "Present"], used) == [
+    @test in_equivalence(:renamed, nodes, ["Grammar" => "Commons", "Absent" => "Present"], used) == [
         "result.Commons.x" => ("Commons.FormulaDefinition{:Commons}", ""),
         "result.y" => ("Symbol", ":Commons"), "result.z" => ("String", "\"Grammar\""),
         "result.w" => ("MyGrammar.GrammarX", ""), "result.eltype" => ("Type", "Commons.Point")]
-    # The second rename matches nothing, and the report says so.
+    # The second rename is unused, and the report says so.
     @test used == [true, false]
-    # Differences are found in recorded order and classified; a declaration covers its kind only.
+    # Differences come in recorded order with their kind. A declaration covers its kind only.
     before = ["a" => ("Float64", "01"), "b" => ("Int64", "1"), "gone" => ("Int64", "1")]
     after = ["a" => ("Float64", "02"), "b" => ("Int32", "1"), "added" => ("Int64", "1")]
-    changes = E(:differences, before, after)
+    changes = in_equivalence(:differences, before, after)
     @test first.(changes) == ["a", "b", "added", "gone"]
-    @test [E(:kind, c) for c in changes] == [:value, :type, :path, :path]
-    @test isempty(E(:differences, before, before))
+    @test [in_equivalence(:kind, c) for c in changes] == [:value, :type, :path, :path]
+    @test isempty(in_equivalence(:differences, before, before))
     value = (; scenario = "s", prefix = "", kind = :value)
-    @test E(:covers, value, "s", changes[1])
-    @test !E(:covers, value, "s", changes[2])
-    @test E(:covers, (; scenario = "s", prefix = "b", kind = :type), "s", changes[2])
-    @test !E(:covers, value, "other", changes[1])
+    @test in_equivalence(:covers, value, "s", changes[1])
+    @test !in_equivalence(:covers, value, "s", changes[2])
+    @test in_equivalence(:covers, (; scenario = "s", prefix = "b", kind = :type), "s", changes[2])
+    @test !in_equivalence(:covers, value, "other", changes[1])
+    # The timing comparison pins both workers to one performance core of a hybrid machine,
+    # never CPU 0 or its sibling. It grades each scenario and sets its exit status.
+    timing = Module(:TimingTool)
+    Base.include(timing, joinpath(P.REPOSITORY, "test", "tools", "performance.jl"))
+    in_timing(f, arguments...; keywords...) =
+        Base.invokelatest(getfield(timing, f), arguments...; keywords...)
+    @test in_timing(:cpu_list, "0-3,8\n") == [0, 1, 2, 3, 8]
+    mktempdir() do directory
+        performance, siblings = joinpath(directory, "cpus"), joinpath(directory, "siblings")
+        write(performance, "0-15\n")
+        write(siblings, "0-1\n")
+        @test in_timing(:shared_cpu; taskset = "taskset", performance, siblings, cpus = 32) == 2
+        @test in_timing(:shared_cpu; taskset = "taskset", performance = joinpath(directory, "none"),
+            siblings = joinpath(directory, "none"), cpus = 4) == 1
+        @test in_timing(:shared_cpu; taskset = nothing, performance, siblings, cpus = 32) === nothing
+        write(performance, "0-1\n")
+        @test in_timing(:shared_cpu; taskset = "taskset", performance, siblings, cpus = 32) === nothing
+    end
+    @test in_timing(:spread, [100.0, 101.0, 102.0]) ≈ 0.02
+    # A stable scenario more than 10 % slower is a slowdown, one 5 to 10 % slower a possible
+    # slowdown below the tool's resolution. A round spread above 2 % makes it unstable.
+    stable = (0.01, 0.015)
+    @test in_timing(:verdict, 0.11, stable) === :slower
+    @test in_timing(:verdict, 0.07, stable) === :possible
+    @test in_timing(:verdict, 0.05, stable) === :same
+    @test in_timing(:verdict, -0.2, stable) === :same
+    @test in_timing(:verdict, 0.2, (0.021, 0.01)) === :unstable
+    # Exit 1 for a slowdown or a failure, otherwise 2 for a possible slowdown or an
+    # unstable scenario, otherwise 0.
+    @test in_timing(:status, [:same, :slower, :unstable]) == 1
+    @test in_timing(:status, [:same, :failed]) == 1
+    @test in_timing(:status, [:same, :possible]) == 2
+    @test in_timing(:status, [:same, :unstable]) == 2
+    @test in_timing(:status, [:same, :same]) == 0
+
     # A revision without its own copy uses the working tree's.
     mktempdir() do revision
         corpus = joinpath("test", "support", "scenarios.jl")
         working = joinpath(P.REPOSITORY, corpus)
         marker = "function preservation_corpus("
-        @test E(:own_copy, revision, corpus; marker) == (; path = working, own = false)
+        @test in_equivalence(:own_copy, revision, corpus; marker) == (; path = working, own = false)
         mkpath(dirname(joinpath(revision, corpus)))
         write(joinpath(revision, corpus), "module CurrentScenarios end\n")
-        @test E(:own_copy, revision, corpus; marker) == (; path = working, own = false)
+        @test in_equivalence(:own_copy, revision, corpus; marker) == (; path = working, own = false)
         write(joinpath(revision, corpus), "function preservation_corpus(n) end\n")
-        @test E(:own_copy, revision, corpus; marker) ==
+        @test in_equivalence(:own_copy, revision, corpus; marker) ==
             (; path = joinpath(revision, corpus), own = true)
     end
 end

@@ -1,8 +1,8 @@
 # Compare the architecture baseline and the preservation locks with their versions at
 # a git revision. Run `julia test/tools/baseline_ratchet.jl REF`. Every table of the
-# baseline is a ceiling; `preservation.toml` declares the direction of each table in
+# baseline is a ceiling. `preservation.toml` declares the direction of each table in
 # `[directions]`. A ceiling key added or raised since `REF` fails, and a floor key
-# removed or lowered since `REF` fails; moves the other way pass. The measured ceilings
+# removed or lowered since `REF` fails. Moves the other way pass. The measured ceilings
 # `[jet]` and `[allocations]` may also rise in a change of `[environment] julia`, the
 # version they were recorded on. The check passes for
 # a file absent at `REF`, and a table absent at `REF` is not compared. File renames that

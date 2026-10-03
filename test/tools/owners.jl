@@ -1,25 +1,22 @@
 # Derive the owner of each test item from the `src/` and `ext/` code it executes.
 #
 # Record a selection under coverage, from the repository root, once per environment:
-#
-#     julia --project=test --code-coverage=@$PWD --code-coverage=/tmp/trace.info \
-#         test/tools/owners.jl record DIR [SELECTORS...]
+# `julia --project=test --code-coverage=@$PWD --code-coverage=/tmp/trace.info test/tools/owners.jl record DIR [SELECTORS...]`.
 #
 # Each item start dumps and clears the coverage counters, so `DIR/items.tsv` holds one
 # line per item: name, test file and the executed files with their executed line counts.
 # The package is loaded before the first item, so loading is not attributed to it. A
 # `@testmodule` is evaluated once, by the first item that uses it, and its executions
 # count for that item only. The `--code-coverage=FILE.info` flag keeps Julia from
-# writing `.cov` files next to the sources at exit. Then report:
-#
-#     julia --project=test test/tools/owners.jl report DIR...
+# writing `.cov` files next to the sources at exit. Then report with
+# `julia --project=test test/tools/owners.jl report DIR...`.
 #
 # Each executed file counts at its load position (`path_owner` in
-# `test/support/taxonomy.jl`); the item's executed owner is the latest of them. The
+# `test/support/taxonomy.jl`). The item's executed owner is the latest of them. The
 # report lists every recorded item with its executed owner, its owner tag and the
 # executed files at that owner, then the items whose owner tag is earlier than the
-# code they execute. Items that run code only in child processes record nothing.
-# The report never changes tags; it is optional at a track end.
+# code they execute. Items that run code only in child processes have an empty record.
+# The report never changes tags. Running it at a track end is optional.
 using TestItemRunner
 include(joinpath(@__DIR__, "..", "support", "runner.jl"))
 
