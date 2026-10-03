@@ -49,7 +49,7 @@ include("compute.jl")
 const FORMULAS = (
     include("formulas/chrysochos2014.jl"),
     include("formulas/vieira2026.jl"),
-    include("formulas/wedehpol1996.jl"),
+    include("formulas/wedepohl1996.jl"),
     include("formulas/default.jl"),
 )
 #! explicit-imports: on
