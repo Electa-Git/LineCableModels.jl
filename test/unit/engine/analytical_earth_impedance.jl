@@ -1,4 +1,4 @@
-@testitem "Engine / analytical earth impedances / source equations and scalar types" tags=[:unit] begin
+@testitem "Engine / analytical earth impedances / source equations and scalar types" tags=[:unit, :engine] begin
     const E = LineCableModels.Engine
     # Independently evaluated with mpmath at 80 decimal digits from Saad (5)/(6),
     # Wedepohl-Wilcox (7)/(8), and PSCAD (8-28)/(8-34). All lengths are in m.
@@ -50,7 +50,7 @@
     @test self(0.02)-self(0.01) ≈ -s*μ0/(2pi)*log(2) rtol=5e-14
 end
 
-@testitem "Engine / analytical earth impedances / uncertainty dependencies" tags=[:unit] begin
+@testitem "Engine / analytical earth impedances / uncertainty dependencies" tags=[:unit, :measurements] begin
     using Measurements
     const E = LineCableModels.Engine
     μ0, ε0, s = 4pi*1e-7, 8.8541878128e-12, 100pi*im
@@ -85,7 +85,7 @@ end
     @test Measurements.derivative(imag(z), rho) ≈ imag(sensitivity) rtol=2e-13
 end
 
-@testitem "Engine / analytical earth impedances / public calculations and material transport" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / analytical earth impedances / public calculations and material transport" tags=[:unit, :parametric, :slow] setup=[FormulaFixtures] begin
     using LinearAlgebra
     const E=LineCableModels.Engine
     metal=Material(:conductor, 1.72e-8, 1.0)

@@ -1,4 +1,4 @@
-@testitem "TextDisplay / calculation intent and numerical results" tags=[:unit] setup=[
+@testitem "TextDisplay / calculation intent and numerical results" tags=[:unit, :parametric] setup=[
     TestFixtures,
 ] begin
     const EN=LineCableModels.Engine
@@ -88,7 +88,7 @@
     @test occursin("Modal domain", sprint(summary, modal.domain))
 end
 
-@testitem "TextDisplay / wire estimates expose feasibility and physical dimensions" tags=[:unit] begin
+@testitem "TextDisplay / wire estimates expose feasibility and physical dimensions" tags=[:unit, :parametric] begin
     estimates = (
         estimate_stranding(1000.0),
         estimate_stranding(1.0e12; awg_min = 40, awg_max = 40),
@@ -126,7 +126,7 @@ end
     end
 end
 
-@testitem "TextDisplay / lazy parametric and uncertainty intent" tags=[:unit] setup=[
+@testitem "TextDisplay / lazy parametric and uncertainty intent" tags=[:unit, :distributions] setup=[
     TestFixtures,
 ] begin
     using Measurements
@@ -205,7 +205,7 @@ end
     @test !occursin("{", sprint(show, Grid((earth_definition, soil_definition))))
 end
 
-@testitem "TextDisplay / report definitions do not publish or write" tags=[:unit] begin
+@testitem "TextDisplay / report definitions do not publish or write" tags=[:unit, :report] begin
     using DataFrames
     const RB = LineCableModels.ReportBuilder
     calls = Ref(0)

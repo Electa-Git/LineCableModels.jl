@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / public API, strict parsing, and UI transitions" tags=[:extension] begin
+@testitem "Gmsh FEM / public API, strict parsing, and UI transitions" tags=[:extension, :fem] begin
     import LineCableModels
     using Gmsh
     using LinearAlgebra
@@ -140,7 +140,7 @@
     end
 end
 
-@testitem "Gmsh FEM / nominal Float64 preflight" tags=[:extension] begin
+@testitem "Gmsh FEM / nominal Float64 preflight" tags=[:extension, :fem] begin
     using Gmsh
     using LineCableModels
     using Measurements
@@ -228,7 +228,7 @@ end
     @test (isdir(runs) ? sort(readdir(runs)) : nothing) == before
 end
 
-@testitem "Gmsh FEM / deterministic geometry and mesh lifecycle" tags=[:extension] begin
+@testitem "Gmsh FEM / deterministic geometry and mesh lifecycle" tags=[:extension, :fem] begin
     using LineCableModels
     using Gmsh
 
@@ -839,7 +839,9 @@ end
 end
 
 @testitem "Gmsh FEM / bounded formations and complete material ownership" tags=[
-    :extension
+    :extension,
+    :fem,
+    :slow
 ] begin
     using Gmsh
     using LineCableModels
@@ -1184,7 +1186,9 @@ end
 @testitem "Gmsh FEM / optional real GetDP multi-frequency scan" tags=[
     :extension,
     :integration,
-    :fem_numerical
+    :fem_numerical,
+    :fem,
+    :slow
 ] begin
     using LineCableModels
     using Gmsh

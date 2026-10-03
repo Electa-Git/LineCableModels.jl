@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / Grid / finite sources" tags=[:unit] setup=[
+@testitem "ParametricBuilder / Grid / finite sources" tags=[:unit, :parametric] setup=[
     UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
@@ -43,7 +43,7 @@
     @test_throws ArgumentError PB.Grid(:symbol, PB.AbsoluteError(1.0))
 end
 
-@testitem "ParametricBuilder / joint input identity and bounded covariance" tags=[:unit, :extension] begin
+@testitem "ParametricBuilder / joint input identity and bounded covariance" tags=[:unit, :extension, :measurements] begin
     using Measurements, Random, Statistics
     source = Grid(1.,10.)
     joint = Gridspace{NamedTuple{(:inner,:outer)}}(s->(inner=0.01s,outer=0.012s),(source,))
@@ -77,7 +77,7 @@ end
         0.01*0.01*0.012 rtol=0.06
 end
 
-@testitem "ParametricBuilder / Gridspace / product and zip" tags=[:unit] setup=[
+@testitem "ParametricBuilder / Gridspace / product and zip" tags=[:unit, :parametric] setup=[
     UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
@@ -166,7 +166,7 @@ end
     )
 end
 
-@testitem "ParametricBuilder / Material / invariant class and scalar precision" tags=[:unit] setup=[
+@testitem "ParametricBuilder / Material / invariant class and scalar precision" tags=[:unit, :parametric] setup=[
     UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
@@ -235,7 +235,7 @@ end
     )
 end
 
-@testitem "ParametricBuilder / Gridspace / recursive point resolution" tags=[:unit] setup=[
+@testitem "ParametricBuilder / Gridspace / recursive point resolution" tags=[:unit, :measurements] setup=[
     UseEngineSupport, TestNumerics] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
@@ -259,7 +259,7 @@ end
     @test_throws MethodError PB.Gridspace(MissingGridspaceDefinition())
 end
 
-@testitem "ParametricBuilder / macros / strict and lifted construction" tags=[:unit] setup=[
+@testitem "ParametricBuilder / macros / strict and lifted construction" tags=[:unit, :parametric] setup=[
     UseEngineSupport] begin
     import LineCableModels.ParametricBuilder as PB
 

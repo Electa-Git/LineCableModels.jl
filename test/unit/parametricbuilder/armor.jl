@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / armor grids retain course area and helical resistance" tags=[:unit] begin
+@testitem "ParametricBuilder / armor grids retain course area and helical resistance" tags=[:unit, :parametric] begin
     const DM = LineCableModels.DataModel
     copper = Material(kind=:conductor, rho=1.72e-8)
     steel = Material(kind=:conductor, rho=1.5e-7, mu_r=80.0)

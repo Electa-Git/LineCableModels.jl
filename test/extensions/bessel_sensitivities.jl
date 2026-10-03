@@ -1,4 +1,4 @@
-@testitem "Measurements / Bessel derivatives at small complex arguments and scaling branches" tags=[:extension] begin
+@testitem "Measurements / Bessel derivatives at small complex arguments and scaling branches" tags=[:extension, :measurements] begin
     using Measurements, SpecialFunctions
     for magnitude in (1e-8,1e-6,1e-4)
         x=measurement(magnitude,magnitude/100)

@@ -1,4 +1,4 @@
-@testitem "DataModel / reusable three bare wire placements" tags=[:unit] setup=[TestFixtures] begin
+@testitem "DataModel / reusable three bare wire placements" tags=[:unit, :importexport] setup=[TestFixtures] begin
     layouts = TestFixtures.three_bare_wires_layouts
     @test length(layouts) == 5
     for (name, heights) in pairs(layouts)

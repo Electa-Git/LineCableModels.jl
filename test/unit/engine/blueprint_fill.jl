@@ -1,4 +1,4 @@
-@testitem "Blueprint / finite-resistivity interstitial fill" tags=[:unit] begin
+@testitem "Blueprint / finite-resistivity interstitial fill" tags=[:unit, :parametric] begin
     import LineCableModels.Engine as Engine
     import LineCableModels.DataModel as DM
 

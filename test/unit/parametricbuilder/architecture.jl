@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / v1 direct target materialization" tags=[:unit] setup=[
+@testitem "ParametricBuilder / v1 direct target materialization" tags=[:unit, :parametric] setup=[
     UseEngineSupport
 ] begin
     import LineCableModels.ParametricBuilder as PB
@@ -135,7 +135,7 @@
     @test resolution_count[] == 2
 end
 
-@testitem "ParametricBuilder / v1 physical conveniences preserve one grammar" tags=[:unit] begin
+@testitem "ParametricBuilder / v1 physical conveniences preserve one grammar" tags=[:unit, :parametric] begin
     using LineCableModels
     import LineCableModels.ParametricBuilder as PB
 

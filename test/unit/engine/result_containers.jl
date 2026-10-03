@@ -1,4 +1,4 @@
-@testitem "Engine / result containers / numeric and selector behavior" tags=[:unit] setup=[
+@testitem "Engine / result containers / numeric and selector behavior" tags=[:unit, :report] setup=[
     UseEngineSupport, TestNumerics, TestFixtures] begin
     using DataFrames
 
@@ -207,7 +207,7 @@
     )
 end
 
-@testitem "UQ / result products / statistical invariants" tags=[:unit] setup=[
+@testitem "UQ / result products / statistical invariants" tags=[:unit, :distributions] setup=[
     UseEngineSupport, TestNumerics, TestFixtures] begin
     using Measurements
     using Distributions

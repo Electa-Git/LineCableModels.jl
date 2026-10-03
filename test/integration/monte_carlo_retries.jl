@@ -1,4 +1,4 @@
-@testitem "UQ / resampling preserves accepted trials, source identities and seeded replay" tags=[:integration] setup=[TestFixtures] begin
+@testitem "UQ / resampling preserves accepted trials, source identities and seeded replay" tags=[:integration, :measurements] setup=[TestFixtures] begin
     using Measurements
     using Statistics
     design = TestFixtures.coaxial_design()
@@ -71,7 +71,7 @@
 
 end
 
-@testitem "UQ / resampling does not hide non-domain errors or run past its limit" tags=[:integration] begin
+@testitem "UQ / resampling does not hide non-domain errors or run past its limit" tags=[:integration, :measurements] begin
     using Measurements
     inner = CableConstantsFormulation()
     for (injected, on_error, expected_attempts) in (
@@ -109,7 +109,7 @@ end
     @test_throws ArgumentError MonteCarlo(inner; options=(on_error=:resample,))
 end
 
-@testitem "UQ / negative physical radius / failure and resampling records" tags=[:integration] begin
+@testitem "UQ / negative physical radius / failure and resampling records" tags=[:integration, :measurements] begin
     using Measurements
     attempts=Float64[]
     function physical_problem(radius)

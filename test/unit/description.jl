@@ -1,4 +1,4 @@
-@testitem "Descriptions / partial recipes retain only declared ordered children" tags=[:unit] begin
+@testitem "Descriptions / partial recipes retain only declared ordered children" tags=[:unit, :importexport] begin
     E = LineCableModels.Engine
     IE = LineCableModels.ImportExport
     for selected in (
@@ -27,7 +27,7 @@
     @test_throws ArgumentError pairs(LineParametersFormulation, malformed)
 end
 
-@testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit, :pscad, :slow] setup=[FormulaFixtures] begin
     using DataFrames, Statistics
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     import LineCableModels: description, formula_id, formulation_options
@@ -225,7 +225,7 @@ end
     @test all(leaf->occursin(description(leaf;compact=true),rendered),leaves)
 end
 
-@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit, :pscad] setup=[FormulaFixtures] begin
     IO=LineCableModels.ImportExport
     a=Formulation(earth_impedance=:saad1996)
     b=Formulation(earth_impedance=:xue2018)
@@ -259,7 +259,7 @@ end
         "shunt geometry=coaxial; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
 end
 
-@testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit] begin
+@testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit, :importexport, :slow] begin
     import LineCableModels: description,formula_id,formulation_options
     using LineCableModels.Engine: completed_formulation,retain_gridpoint
     using LineCableModels.Commons: gridpoint_id,observation_labels,observation_groups

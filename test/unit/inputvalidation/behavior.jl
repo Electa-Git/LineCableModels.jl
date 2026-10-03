@@ -1,4 +1,4 @@
-@testitem "InputValidation / materialized inputs / actionable failures" tags=[:unit] setup=[
+@testitem "InputValidation / materialized inputs / actionable failures" tags=[:unit, :parametric] setup=[
     TestFixtures
 ] begin
     using RequiredInterfaces

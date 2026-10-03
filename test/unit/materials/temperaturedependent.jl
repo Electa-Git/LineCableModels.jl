@@ -1,4 +1,4 @@
-@testitem "Materials / temperature law / equations, types and reference calibration" tags=[:unit] begin
+@testitem "Materials / temperature law / equations, types and reference calibration" tags=[:unit, :measurements] begin
     using Measurements
     const TD = LineCableModels.Materials.TemperatureDependent
     selected = TD.Formula(formula(:default))
@@ -35,7 +35,7 @@
     @test uncertainty(uncertain_material.rho) == 1e-10
 end
 
-@testitem "Materials / temperature law / custom selections and applicability" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Materials / temperature law / custom selections and applicability" tags=[:unit, :modal] setup=[FormulaFixtures] begin
     const TD=LineCableModels.Materials.TemperatureDependent
     const M=FormulaFixtures
     selected=M.ConstantResistivity(2e-8)

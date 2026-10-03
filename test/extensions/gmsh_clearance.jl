@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / exterior clearance / touching trefoil mesh" tags=[:extension] begin
+@testitem "Gmsh FEM / exterior clearance / touching trefoil mesh" tags=[:extension, :fem] begin
     using Gmsh
     using Measurements: measurement
     using LineCableModels

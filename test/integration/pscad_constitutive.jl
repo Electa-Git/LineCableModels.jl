@@ -1,4 +1,4 @@
-@testitem "ImportExport / PSCAD / selected constitutive laws and operating temperature" tags=[:integration] begin
+@testitem "ImportExport / PSCAD / selected constitutive laws and operating temperature" tags=[:integration, :pscad] begin
     using EzXML
     const IE = LineCableModels.ImportExport
     copper = Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)

@@ -1,4 +1,4 @@
-@testitem "ImportExport / CablesLibrary / versioned JSON and trusted JLS" tags=[:integration] setup=[
+@testitem "ImportExport / CablesLibrary / versioned JSON and trusted JLS" tags=[:integration, :importexport] setup=[
     UseEngineSupport,
     TestFixtures
 ] begin
@@ -24,7 +24,7 @@
     end
 end
 
-@testitem "ImportExport / CablesLibrary / failures are atomic" tags=[:integration] setup=[
+@testitem "ImportExport / CablesLibrary / failures are atomic" tags=[:integration, :importexport] setup=[
     UseEngineSupport,
     TestFixtures
 ] begin

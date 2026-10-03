@@ -1,4 +1,4 @@
-@testitem "UQ / scalar products preserve populations, units and eligibility" tags=[:unit] begin
+@testitem "UQ / scalar products preserve populations, units and eligibility" tags=[:unit, :measurements, :slow] begin
     using Statistics, Measurements, DataFrames, Random
     using LineCableModels.Engine: compare, absolute_error, relative_error
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition

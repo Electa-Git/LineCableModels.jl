@@ -1,4 +1,4 @@
-@testitem "Engine / internal shunt / geometry and local operator" tags=[:unit] begin
+@testitem "Engine / internal shunt / geometry and local operator" tags=[:unit, :parametric] begin
     using LinearAlgebra
     E = LineCableModels.Engine
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
@@ -83,7 +83,7 @@
     @test @allocated(E._shunt_admittance!(y, local_shunt, 100pi*im)) == 0
 end
 
-@testitem "Engine / internal shunt / nested shields and reduction" tags=[:unit] begin
+@testitem "Engine / internal shunt / nested shields and reduction" tags=[:unit, :engine] begin
     using LinearAlgebra
     E = LineCableModels.Engine
     # 2 local domains share a closed shield (terminal 3). The outer domain's
@@ -107,7 +107,7 @@ end
     @test minimum(eigvals(Symmetric(imag.(bundled)))) > 0
 end
 
-@testitem "Engine / internal shunt / multiple independent open terminals" tags=[:unit] begin
+@testitem "Engine / internal shunt / multiple independent open terminals" tags=[:unit, :parametric] begin
     using LinearAlgebra
     E = LineCableModels.Engine
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))

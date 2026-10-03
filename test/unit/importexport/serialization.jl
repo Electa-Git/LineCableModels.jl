@@ -1,4 +1,4 @@
-@testitem "ImportExport / v1 scalar and Grid encoding" tags=[:unit] setup=[
+@testitem "ImportExport / v1 scalar and Grid encoding" tags=[:unit, :importexport] setup=[
     UseImportExportSupport
 ] begin
     import LineCableModels.ImportExport as IE
@@ -46,7 +46,7 @@
     ))
 end
 
-@testitem "ImportExport / resolved formulation records survive scientific JSON transport" tags=[:unit] begin
+@testitem "ImportExport / resolved formulation records survive scientific JSON transport" tags=[:unit, :importexport] begin
     using JSON3
     import LineCableModels.ImportExport as IE
     selected = Formulation(earth_impedance=formula(:carson1926;
@@ -72,7 +72,7 @@ end
     end
 end
 
-@testitem "ImportExport / physical declarations survive JSON transport" tags=[:unit] begin
+@testitem "ImportExport / physical declarations survive JSON transport" tags=[:unit, :importexport] begin
     using JSON3
     import LineCableModels.ImportExport as IE
 
@@ -111,7 +111,7 @@ end
     @test_throws KeyError IE.deserialize_value(missing_material)
 end
 
-@testitem "ImportExport / enclosed assemblies retain geometry and material ownership" tags=[:unit] begin
+@testitem "ImportExport / enclosed assemblies retain geometry and material ownership" tags=[:unit, :importexport] begin
     using JSON3
     import LineCableModels.ImportExport as IE
 
@@ -156,7 +156,7 @@ end
     end
 end
 
-@testitem "ImportExport / v1 declaration round trip excludes derived state" tags=[:unit] setup=[
+@testitem "ImportExport / v1 declaration round trip excludes derived state" tags=[:unit, :importexport, :slow] setup=[
     UseImportExportSupport,
     TestFixtures
 ] begin
@@ -419,7 +419,7 @@ end
     end
 end
 
-@testitem "ImportExport / Draft 2020-12 cable document" tags=[:unit] setup=[
+@testitem "ImportExport / Draft 2020-12 cable document" tags=[:unit, :importexport] setup=[
     UseImportExportSupport,
     TestFixtures
 ] begin
@@ -581,7 +581,7 @@ end
     @test endswith(IE._json_path("library"), "library.json")
 end
 
-@testitem "ImportExport / shared material references use the declaration encoder" tags=[:unit] begin
+@testitem "ImportExport / shared material references use the declaration encoder" tags=[:unit, :importexport] begin
     import LineCableModels.ImportExport as IE
     copper = Material(kind=:conductor, rho=1.72e-8)
     dielectric = Material(kind=:insulator, rho=Inf, eps_r=2.3)

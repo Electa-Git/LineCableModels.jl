@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / complete strand envelopes preserve enclosing material" tags=[:extension] begin
+@testitem "Gmsh FEM / complete strand envelopes preserve enclosing material" tags=[:extension, :fem] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel
@@ -49,7 +49,7 @@
     @test length(source_fill.holes) == 7
 end
 
-@testitem "Gmsh FEM / disjoint assembly boundaries retain terminal and mesh ownership" tags=[:extension] begin
+@testitem "Gmsh FEM / disjoint assembly boundaries retain terminal and mesh ownership" tags=[:extension, :fem] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel

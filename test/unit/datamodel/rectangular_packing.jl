@@ -1,4 +1,4 @@
-@testitem "DataModel / rectangular packing hands off its occupied boundary" tags=[:unit] begin
+@testitem "DataModel / rectangular packing hands off its occupied boundary" tags=[:unit, :importexport] begin
     const DM = LineCableModels.DataModel
     const EN = LineCableModels.Engine
     const IE = LineCableModels.ImportExport
@@ -52,7 +52,7 @@
     @test last(collect(mixed)) isa Enclosure
 end
 
-@testitem "DataModel / filled circular courses continue rectangular cores" tags=[:unit] begin
+@testitem "DataModel / filled circular courses continue rectangular cores" tags=[:unit, :parametric] begin
     const DM = LineCableModels.DataModel
     const EN = LineCableModels.Engine
     copper = Material(kind=:conductor,rho=1.72e-8)
@@ -107,7 +107,7 @@ end
             fill=Region(:specified_fill,Annulus(limit,limit+2wire_radius),matrix)))
 end
 
-@testitem "DataModel / rectangular occupied boundaries reconstruct under uncertainty" tags=[:extension] begin
+@testitem "DataModel / rectangular occupied boundaries reconstruct under uncertainty" tags=[:extension, :measurements] begin
     using Measurements, Random
     const DM = LineCableModels.DataModel
     copper = Material(kind=:conductor,rho=1.72e-8)

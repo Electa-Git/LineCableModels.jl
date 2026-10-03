@@ -1,4 +1,4 @@
-@testitem "Engine / earth binding tuples preserve equation types across layouts" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / earth binding tuples preserve equation types across layouts" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     design=build(CableDesign, "typed earth equations", terminal(:core,
         core(Material(:conductor, 1.72e-8); r=0.004),
@@ -37,7 +37,7 @@
     end
 end
 
-@testitem "Engine / fixed public options retain phase and modal result types" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Engine / fixed public options retain phase and modal result types" tags=[:unit, :parametric] setup=[TestFixtures] begin
     function fixed_options(problem, selected, ::Val{Basis}, ::Val{Trace}, ::Val{Timing}) where {Basis, Trace, Timing}
         compute(problem, selected;
             options=(output_basis=Basis, trace=Trace, timing=Timing, verbosity=(default=0,)))

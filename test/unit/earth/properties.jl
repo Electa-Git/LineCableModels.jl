@@ -2,7 +2,7 @@
     const EP = LineCableModels.Earth
 end
 
-@testitem "Earth / ephemeral material validation and promotion" tags=[:unit] setup=[
+@testitem "Earth / ephemeral material validation and promotion" tags=[:unit, :measurements] setup=[
     current_earth,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
@@ -29,7 +29,7 @@ end
     @test_throws DomainError EP.EarthMaterial(100.0, 10.0, Inf)
 end
 
-@testitem "Earth / static layer validation and promotion" tags=[:unit] setup=[
+@testitem "Earth / static layer validation and promotion" tags=[:unit, :measurements] setup=[
     current_earth,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
@@ -63,7 +63,7 @@ end
     @test_throws DomainError EP.EarthLayer(100.0, 10.0, 1.0, 0.0)
 end
 
-@testitem "Earth / immutable static model ownership" tags=[:unit] setup=[
+@testitem "Earth / immutable static model ownership" tags=[:unit, :measurements] setup=[
     current_earth,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
@@ -120,7 +120,7 @@ end
     )
 end
 
-@testitem "Earth / concise display" tags=[:unit] setup=[current_earth] begin
+@testitem "Earth / concise display" tags=[:unit, :earth] setup=[current_earth] begin
     model=build(EP.EarthModel, (
         EP.EarthLayer(100.0, 10.0, 1.0, 20.0),
         EP.EarthLayer(500.0, 20.0, 1.0)
@@ -135,7 +135,7 @@ end
     @test !contains(shown, "frequency")
 end
 
-@testitem "Earth / static constitutive pass-through" tags=[:unit] setup=[
+@testitem "Earth / static constitutive pass-through" tags=[:unit, :measurements] setup=[
     current_earth,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value

@@ -2,7 +2,7 @@
 # Lowering and reuse counts run through compute in integration/formulation_grid.jl
 # and integration/line_parameters.jl. Source spelling, directory layout and
 # absence of superseded helpers are not current architecture requirements.
-@testitem "Core / architecture / earth models are immutable values" tags=[:unit] begin
+@testitem "Core / architecture / earth models are immutable values" tags=[:unit, :parametric] begin
     earth=@earth begin
         layer(rho = 100.0, thickness = 5.0)
         layer(rho = 500.0)
@@ -17,7 +17,7 @@
     @test_throws MethodError setindex!(earth.layers, earth_layer, 2)
 end
 
-@testitem "Core / selectors / owner-local symbol facades" tags=[:unit] begin
+@testitem "Core / selectors / owner-local symbol facades" tags=[:unit, :importexport] begin
     const Engine=LineCableModels.Engine
     const ImportExport=LineCableModels.ImportExport
     const WirePatterns=LineCableModels.ParametricBuilder.WirePatterns

@@ -1,6 +1,7 @@
 @testitem "Extensions / Makie / unavailable graphics fail explicitly" tags=[
     :extension,
-    :core_only
+    :core_only,
+    :commons
 ] begin
     import LineCableModels
 

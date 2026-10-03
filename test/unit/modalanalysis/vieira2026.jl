@@ -23,7 +23,7 @@
     end
 end
 
-@testitem "ModalAnalysis / Vieira complex residual, Jacobian and minimum-norm steps" tags=[:unit] begin
+@testitem "ModalAnalysis / Vieira complex residual, Jacobian and minimum-norm steps" tags=[:unit, :modal] begin
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
     selector = Val(:vieira2026)
@@ -84,7 +84,7 @@ end
     @test M.greedy_assignment!(assignment, cost) == [1, 2]
 end
 
-@testitem "ModalAnalysis / Vieira tracked modes, ordering and clustered subspaces" tags=[:unit] setup=[ModalTrackingExamples] begin
+@testitem "ModalAnalysis / Vieira tracked modes, ordering and clustered subspaces" tags=[:unit, :modal, :slow] setup=[ModalTrackingExamples] begin
     using LinearAlgebra
     for R in (Float32, Float64), clustered in (false, true)
 
@@ -131,7 +131,7 @@ end
     end
 end
 
-@testitem "ModalAnalysis / Vieira same-sample fallback and numerical controls" tags=[:unit] setup=[ModalTrackingExamples] begin
+@testitem "ModalAnalysis / Vieira same-sample fallback and numerical controls" tags=[:unit, :modal] setup=[ModalTrackingExamples] begin
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
     phase, roots=ModalTrackingExamples.phase_scan(; angle_step = 0.4)
@@ -169,7 +169,7 @@ end
           im
 end
 
-@testitem "ModalAnalysis / Vieira public selection, propagation, observations and uncertainty" tags=[:unit] setup=[ModalTrackingExamples] begin
+@testitem "ModalAnalysis / Vieira public selection, propagation, observations and uncertainty" tags=[:unit, :measurements, :slow] setup=[ModalTrackingExamples] begin
     using Measurements, LinearAlgebra
     phase, roots=ModalTrackingExamples.phase_scan()
     selected=ModalAnalysisFormulation(:vieira2026)
@@ -225,7 +225,7 @@ end
           [:chrysochos2014, :chrysochos2014, :vieira2026, :vieira2026]
 end
 
-@testitem "ModalAnalysis / Vieira convenience computation preserves completed upstream results" tags=[:unit] setup=[TestFixtures] begin
+@testitem "ModalAnalysis / Vieira convenience computation preserves completed upstream results" tags=[:unit, :parametric] setup=[TestFixtures] begin
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 80.0])
     formulation=Formulation()
     phase=compute(problem, formulation)

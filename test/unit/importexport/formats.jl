@@ -1,4 +1,4 @@
-@testitem "ImportExport / VDE parser / ordered tokens and residue" tags=[:unit] setup=[
+@testitem "ImportExport / VDE parser / ordered tokens and residue" tags=[:unit, :importexport] setup=[
     UseDataModelSupport
 ] begin
     parser=LineCableModels.DataModel.vdeparse
@@ -50,7 +50,7 @@
     end
 end
 
-@testitem "ImportExport / MaterialsLibrary / versioned JSON and trusted JLS" tags=[:integration] setup=[
+@testitem "ImportExport / MaterialsLibrary / versioned JSON and trusted JLS" tags=[:integration, :importexport] setup=[
     UseImportExportSupport
 ] begin
     using JSON3
@@ -120,7 +120,7 @@ end
     end
 end
 
-@testitem "ImportExport / TRALIN / export and parser behavior" tags=[:integration] setup=[
+@testitem "ImportExport / TRALIN / export and parser behavior" tags=[:integration, :importexport] setup=[
     UseImportExportSupport,
     TestFixtures
 ] begin

@@ -1,4 +1,4 @@
-@testitem "Engine / ideal external potential / images, zero cases and types" tags=[:unit] begin
+@testitem "Engine / ideal external potential / images, zero cases and types" tags=[:unit, :engine] begin
     const E = LineCableModels.Engine
     function evaluate(functor)
         return @inferred functor()
@@ -30,7 +30,7 @@
     end
 end
 
-@testitem "Engine / ideal potential / geometric uncertainty" tags=[:unit] begin
+@testitem "Engine / ideal potential / geometric uncertainty" tags=[:unit, :measurements] begin
     using Measurements
     const E=LineCableModels.Engine
     ε0, μ0=8.8541878128e-12, 4pi*1e-7

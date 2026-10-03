@@ -1,4 +1,4 @@
-@testitem "Engine / option grammar / owner dispatch" tags=[:unit] setup=[
+@testitem "Engine / option grammar / owner dispatch" tags=[:unit, :engine] setup=[
     UseEngineSupport
 ] begin
     const Commons=LineCableModels.Commons
@@ -78,7 +78,7 @@
         computation_type, ComputationOptions((output_basis = :unknown,)))
 end
 
-@testitem "Engine / FEM computation option ownership" tags=[:unit] begin
+@testitem "Engine / FEM computation option ownership" tags=[:unit, :engine] begin
     using LineCableModels
 
     formulation = LineCableModelsFEM(options=(physics=:quasi_fw,))

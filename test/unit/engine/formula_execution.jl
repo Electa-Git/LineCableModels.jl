@@ -1,4 +1,4 @@
-@testitem "Engine / explicit equation recipes are complete only for required cases" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Engine / explicit equation recipes are complete only for required cases" tags=[:unit, :parametric] setup=[TestFixtures] begin
     const E=LineCableModels.Engine
     omitted=Formulation()
     absent=Formulation(earth_impedance = nothing, earth_admittance = nothing,
@@ -33,7 +33,7 @@
     @test disabled.methods.temperature_dependence === nothing
 end
 
-@testitem "Engine / unimplemented earth equations are explicit numerical stubs" tags=[:unit] begin
+@testitem "Engine / unimplemented earth equations are explicit numerical stubs" tags=[:unit, :engine] begin
     const E = LineCableModels.Engine
     for (owner, operation) in ((E.EarthImpedance, E.EarthImpedance.earth_impedance),
         (E.EarthAdmittance, E.EarthAdmittance.earth_potential_coefficient))
@@ -55,7 +55,7 @@ end
     end
 end
 
-@testitem "Engine / prescribed propagation is a unified formulation option" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Engine / prescribed propagation is a unified formulation option" tags=[:unit, :measurements, :slow] setup=[TestFixtures] begin
     const E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
     options=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
@@ -117,7 +117,7 @@ end
     end
 end
 
-@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit] setup=[
+@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit, :measurements] setup=[
     TestFixtures, FormulaFixtures] begin
     using Measurements
     E, IE=LineCableModels.Engine, LineCableModels.ImportExport
@@ -158,7 +158,7 @@ end
     @test uncertainty(retained.methods.earth_impedance.parameters.scale-rho) == 0
 end
 
-@testitem "Engine / prescribed options govern coupled sharing without entering physical UQ" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Engine / prescribed options govern coupled sharing without entering physical UQ" tags=[:unit, :measurements, :slow] setup=[TestFixtures] begin
     using Measurements
     E=LineCableModels.Engine
     prescribed=[1e-4+2e-4im, 3e-4-1e-4im]
@@ -204,7 +204,7 @@ end
     @test selected.methods.earth_impedance.options.data.Γ == prescribed
 end
 
-@testitem "Engine / numerical declarations follow selected types and indexed equations" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / numerical declarations follow selected types and indexed equations" tags=[:unit, :modal] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     const II=E.InternalImpedance
     const EI=E.EarthImpedance
@@ -237,7 +237,7 @@ end
     @test formula_id(custom) !== formula_id(external.selection)
 end
 
-@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit] setup=[
+@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit, :parametric] setup=[
     TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     const M=FormulaFixtures
@@ -266,7 +266,7 @@ end
     @test !isempty(numerical.segments)
 end
 
-@testitem "Engine / formula initialization preserves another owner's buffer identity" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / formula initialization preserves another owner's buffer identity" tags=[:unit, :modal] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     buffers=(destination = zeros(ComplexF64, 2, 2),)
     @test E.initialize_buffers((nothing,), Float64, (;), (;), buffers) === buffers
@@ -275,7 +275,7 @@ end
         Float64, (;), (;), buffers)
 end
 
-@testitem "Engine / public internal surfaces consume spectral options and initialized workspace" tags=[:unit] setup=[
+@testitem "Engine / public internal surfaces consume spectral options and initialized workspace" tags=[:unit, :parametric] setup=[
     TestFixtures, FormulaFixtures] begin
     using QuadGK
     const E=LineCableModels.Engine
@@ -326,7 +326,7 @@ end
     @test all(isfinite, resistance(local_result))
 end
 
-@testitem "Engine / surface current basis reproduces concentric wall contributions" tags=[:unit] setup=[
+@testitem "Engine / surface current basis reproduces concentric wall contributions" tags=[:unit, :parametric] setup=[
     TestFixtures, FormulaFixtures] begin
     using LinearAlgebra
     const E = LineCableModels.Engine
@@ -370,7 +370,7 @@ end
     end
 end
 
-@testitem "Earth / artificial material values are distinct from source restrictions" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Earth / artificial material values are distinct from source restrictions" tags=[:unit, :modal] setup=[FormulaFixtures] begin
     const M=FormulaFixtures
     material=M.EP.EarthMaterial(100.0, -10.0, 1.0)
     @test material.eps_r == -10
@@ -388,7 +388,7 @@ end
         M.E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 2)))
 end
 
-@testitem "Engine / internal consumers request only their actual surface kinds" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / internal consumers request only their actual surface kinds" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
     const II=LineCableModels.Engine.InternalImpedance
     selected=FormulaFixtures.SurfaceLaw(kinds = (:outer,))
     @test keys(II.surface_impedances(
@@ -410,7 +410,7 @@ end
     @test only(selected.evaluations)[2] === Val(:outer)
 end
 
-@testitem "Engine / each metal constructs shared surface state once per frequency" tags=[:unit] setup=[
+@testitem "Engine / each metal constructs shared surface state once per frequency" tags=[:unit, :parametric] setup=[
     TestFixtures, FormulaFixtures] begin
     selected=FormulaFixtures.SurfaceLaw()
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 100.0])
@@ -433,7 +433,7 @@ end
     @test Z(composite)==Z(result) && Y(composite)==Y(result)
 end
 
-@testitem "Engine / first tubular primitive requests all surfaces without extra assembly terms" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / first tubular primitive requests all surfaces without extra assembly terms" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
     M=FormulaFixtures
     copper=Material(kind = :conductor, rho = 1.7e-8)
     dielectric=Material(kind = :insulator, rho = Inf, eps_r = 2.3)
@@ -455,7 +455,7 @@ end
         CableConstantsFormulation(internal_impedance = (outer = M.SurfaceLaw(kinds = (:outer,)),)))
 end
 
-@testitem "Engine / unused tubular surface declarations allocate and evaluate nothing" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / unused tubular surface declarations allocate and evaluate nothing" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
     M=FormulaFixtures
     copper=Material(kind = :conductor, rho = 1.7e-8)
     dielectric=Material(kind = :insulator, rho = Inf, eps_r = 2.3)

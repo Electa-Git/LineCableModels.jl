@@ -1,4 +1,4 @@
-@testitem "Engine / formulation grids / exact batched calculations" tags=[:integration] setup=[
+@testitem "Engine / formulation grids / exact batched calculations" tags=[:integration, :parametric, :slow] setup=[
     UseEngineSupport,
     TestFixtures, FormulaFixtures
 ] begin
@@ -181,7 +181,7 @@
     @test size.(gamma.(modal_run))==fill((size(phase.Z,1),length(phase.f)),length(modal_run))
 end
 
-@testitem "Engine / formulation grids / one lowering per selected design" tags=[:integration] begin
+@testitem "Engine / formulation grids / one lowering per selected design" tags=[:integration, :parametric, :slow] begin
     import LineCableModels.Engine as EN
 
     # Specialize only designs bearing a test-owned nominal-data type. invoke

@@ -1,4 +1,4 @@
-@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration] setup=[FormulaFixtures] begin
+@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration, :pscad] setup=[FormulaFixtures] begin
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e7,2.3,1,20,-0.003;tan_delta=0.025)
     function cable_with(metal, passive)
@@ -57,7 +57,7 @@
     @test all(isfinite,compute(hot,selected).Z)
 end
 
-@testitem "UQ / current AC cable / actual sampling and independently recomputed statistics" tags=[:integration] setup=[TestFixtures] begin
+@testitem "UQ / current AC cable / actual sampling and independently recomputed statistics" tags=[:integration, :measurements] setup=[TestFixtures] begin
     using Random
     design=TestFixtures.coaxial_design()
     temperatures=(20.0,60.0)

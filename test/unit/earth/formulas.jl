@@ -1,4 +1,4 @@
-@testitem "Earth / static and user-owned frequency-dependent relations" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Earth / static and user-owned frequency-dependent relations" tags=[:unit, :measurements] setup=[FormulaFixtures] begin
     using Measurements: measurement,uncertainty
     const EP=LineCableModels.Earth
     relation=EP.FrequencyDependent.Formula(:default)
@@ -16,7 +16,7 @@
     @test_throws ArgumentError EP.FrequencyDependent.Formula(:default;parameters=(unknown=1,))
 end
 
-@testitem "Earth / soil coefficients are checked at construction" tags=[:unit] begin
+@testitem "Earth / soil coefficients are checked at construction" tags=[:unit, :earth] begin
     const FD=LineCableModels.Earth.FrequencyDependent
     for id in FD.formulas()
         selected=FD.Formula(id)
@@ -33,7 +33,7 @@ end
     end
 end
 
-@testitem "Earth / published dispersive relations match numerical references" tags=[:unit] begin
+@testitem "Earth / published dispersive relations match numerical references" tags=[:unit, :earth] begin
     const EP=LineCableModels.Earth
     const FD=EP.FrequencyDependent
     material=EP.EarthMaterial(100.0,10.0,1.0)

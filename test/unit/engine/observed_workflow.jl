@@ -1,4 +1,4 @@
-@testitem "ObservedResult / primary representations and quantity tables" tags=[:unit] begin
+@testitem "ObservedResult / primary representations and quantity tables" tags=[:unit, :measurements] begin
     using DataFrames, LinearAlgebra, Measurements
     using LineCableModels.ReportBuilder: tabulate
     using LineCableModels.Commons: observation_requests
@@ -37,7 +37,7 @@
     @test_throws ArgumentError observe(observed,L)
 end
 
-@testitem "ObservedResult / benchmark association survives filtering" tags=[:unit] begin
+@testitem "ObservedResult / benchmark association survives filtering" tags=[:unit, :report] begin
     using LineCableModels.Engine: compare, retain_gridpoint
     using LineCableModels.Commons: gridpoint_id, observation_groups
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
@@ -78,7 +78,7 @@ end
     @test length(observation_groups(observed;request=R))==2
 end
 
-@testitem "ObservedResult / UQ products and archive-wide dependencies" tags=[:unit] begin
+@testitem "ObservedResult / UQ products and archive-wide dependencies" tags=[:unit, :measurements, :slow] begin
     using Statistics, Measurements
     using LineCableModels.ReportBuilder: tabulate
     using LineCableModels.Commons: gridpoint_id

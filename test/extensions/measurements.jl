@@ -1,6 +1,7 @@
 @testitem "Extensions / Measurements / unloaded uncertainty APIs fail explicitly" tags=[
     :extension,
-    :core_only
+    :core_only,
+    :importexport
 ] begin
     program=raw"""
     using Test
@@ -59,7 +60,7 @@
     @test success(process)
 end
 
-@testitem "Measurements / scientific UQ records preserve signed shared sources" tags=[:extension] begin
+@testitem "Measurements / scientific UQ records preserve signed shared sources" tags=[:extension, :measurements] begin
     using Measurements, JSON3, Statistics
     IE=LineCableModels.ImportExport
     q=measurement(2.0,0.25)
@@ -112,7 +113,7 @@ end
     end
 end
 
-@testitem "Measurements / natural promotion preserves covariance" tags=[:extension] setup=[
+@testitem "Measurements / natural promotion preserves covariance" tags=[:extension, :measurements] setup=[
     UseDataModelSupport, TestNumerics] begin
     using Measurements
     import Measurements: derivative
@@ -150,7 +151,7 @@ end
     end
 end
 
-@testitem "DataModel / Measurements / covariance through complete assembly" tags=[:extension] setup=[
+@testitem "DataModel / Measurements / covariance through complete assembly" tags=[:extension, :measurements] setup=[
     UseDataModelSupport, TestNumerics] begin
     using Measurements
     import Measurements: derivative
@@ -200,7 +201,7 @@ end
     @test derivative(assembled_radius, semicon_thickness) ≈ 1.0
 end
 
-@testitem "Measurements / retained values and numerical kernels" tags=[:extension] setup=[
+@testitem "Measurements / retained values and numerical kernels" tags=[:extension, :measurements] setup=[
     UseEngineSupport, TestNumerics] begin
     using Measurements
     using Statistics
@@ -254,7 +255,7 @@ end
 
 end
 
-@testitem "Measurements / Bessel sensitivities preserve complex covariance" tags=[:extension] begin
+@testitem "Measurements / Bessel sensitivities preserve complex covariance" tags=[:extension, :measurements] begin
     using Measurements
     using SpecialFunctions
     import Measurements: value
@@ -304,7 +305,7 @@ end
     end
 end
 
-@testitem "Measurements / Monte Carlo / stored values and Gridspace transport" tags=[:extension] setup=[
+@testitem "Measurements / Monte Carlo / stored values and Gridspace transport" tags=[:extension, :measurements] setup=[
     UseEngineSupport, TestNumerics] begin
     using Measurements
     using Statistics

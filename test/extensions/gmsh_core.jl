@@ -1,6 +1,7 @@
 @testitem "Gmsh FEM / core package remains Gmsh-independent" tags=[
     :core_only,
-    :extension
+    :extension,
+    :engine
 ] begin
     import LineCableModels
 

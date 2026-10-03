@@ -1,4 +1,4 @@
-@testitem "Makie addons / matrix selections preserve numerical observations" tags=[:visual] begin
+@testitem "Makie addons / matrix selections preserve numerical observations" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using LinearAlgebra: diag
 
@@ -84,7 +84,7 @@
     @test frequencies(parameters) == frequency
 end
 
-@testitem "Makie addons / SVG retains interactive preview zoom and pan" tags=[:visual] begin
+@testitem "Makie addons / SVG retains interactive preview zoom and pan" tags=[:visual, :makie] begin
     using CairoMakie
 
     copper = Material(kind=:conductor, rho=1.72e-8)
@@ -150,7 +150,7 @@ end
     end
 end
 
-@testitem "Makie addons / SVG exports preserve live state and existing files" tags=[:visual] begin
+@testitem "Makie addons / SVG exports preserve live state and existing files" tags=[:visual, :makie] begin
     using CairoMakie
 
     copper = Material(kind=:conductor, rho=1.7241e-8)

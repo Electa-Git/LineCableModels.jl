@@ -1,4 +1,4 @@
-@testitem "DataModel / a complete bent strip retains annular geometry and lay" tags=[:unit] begin
+@testitem "DataModel / a complete bent strip retains annular geometry and lay" tags=[:unit, :importexport] begin
     const DM = LineCableModels.DataModel
     const EN = LineCableModels.Engine
     const IE = LineCableModels.ImportExport
@@ -72,7 +72,7 @@
     @test last(rows).gmr ≈ row.gmr
 end
 
-@testitem "DataModel / annular mutual GMD uses area integration, not centroid distance" tags=[:unit] begin
+@testitem "DataModel / annular mutual GMD uses area integration, not centroid distance" tags=[:unit, :datamodel] begin
     using QuadGK
     const DM = LineCableModels.DataModel
     outer = Annulus(1e-3, 2e-3)
@@ -104,7 +104,7 @@ end
     end
 end
 
-@testitem "DataModel / disk plus a uniform annular strand equals a solid conductor" tags=[:unit] begin
+@testitem "DataModel / disk plus a uniform annular strand equals a solid conductor" tags=[:unit, :parametric] begin
     const EN = LineCableModels.Engine
     copper = Material(:conductor, 1.72e-8, 1.0, 1.0)
     center = Disk(0.2e-3)

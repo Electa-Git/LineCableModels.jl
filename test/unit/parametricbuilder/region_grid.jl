@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / Region finite inputs preserve targets and product/zip semantics" tags=[:unit] begin
+@testitem "ParametricBuilder / Region finite inputs preserve targets and product/zip semantics" tags=[:unit, :parametric] begin
     const EN = LineCableModels.Engine
     tags = (:wire_a, :wire_b)
     radii = (1e-3, 2e-3)

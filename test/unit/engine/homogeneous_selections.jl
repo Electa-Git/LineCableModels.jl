@@ -1,4 +1,4 @@
-@testitem "Engine / homogeneous selections retain each indexed formula through assembly" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / homogeneous selections retain each indexed formula through assembly" tags=[:unit, :parametric, :slow] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     # Manufactured potential coefficients isolate the selection-routing check.
     potential=FormulaFixtures.selection(E.EarthAdmittance; layers = 2:2)
@@ -71,7 +71,7 @@
     @test independent_y.Z.values==custom.Z.values
 end
 
-@testitem "Engine / scalar and homogeneous shorthand preserve numerical values and model selections" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Engine / scalar and homogeneous shorthand preserve numerical values and model selections" tags=[:unit, :parametric] setup=[TestFixtures] begin
     const E=LineCableModels.Engine
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     scalar=compute(problem, Formulation())

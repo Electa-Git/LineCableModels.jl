@@ -1,4 +1,4 @@
-@testitem "PSCAD / deterministic numeric validation precedes staging and transport" tags=[:integration] begin
+@testitem "PSCAD / deterministic numeric validation precedes staging and transport" tags=[:integration, :measurements] begin
     using Measurements, Calculus, Serialization
     const P = LineCableModels.PSCAD
     const contacts = Ref(0)
@@ -64,7 +64,7 @@
     end
 end
 
-@testitem "PSCAD / caller deadline terminates a silent transport" tags=[:integration] begin
+@testitem "PSCAD / caller deadline terminates a silent transport" tags=[:integration, :pscad] begin
     const P = LineCableModels.PSCAD
     function P.remote_command(::Val{:deadline_probe}, ::P.RemoteConfig, ::AbstractString)
         `$(Base.julia_cmd()) --startup-file=no --handle-signals=no --project=@stdlib -e 'sleep(30)'`

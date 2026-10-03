@@ -1,4 +1,4 @@
-@testitem "Makie / retained units coordinates and ragged frequencies" tags=[:visual] begin
+@testitem "Makie / retained units coordinates and ragged frequencies" tags=[:visual, :makie] begin
     using CairoMakie
     z=reshape(complex.(1.:12.,101.:112.),2,2,3)
     a=ObservedResult(LineParameters(z,2z,[1.,10.,100.]);length_unit=:base)
@@ -26,7 +26,7 @@
     @test b.quantities[1].coordinates.frequency_unit==LineCableModels.Units.units(:kilo,:hertz)
 end
 
-@testitem "Makie / quantity capacity and original modal panel identities" tags=[:visual] begin
+@testitem "Makie / quantity capacity and original modal panel identities" tags=[:visual, :makie, :slow] begin
     using CairoMakie,LinearAlgebra
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     z=fill(0.0+0im,3,3,2)
@@ -67,7 +67,7 @@ end
     @test any(p -> p isa Makie.Scatter && length(p[1][])==1,only(single.axes).scene.plots)
 end
 
-@testitem "Makie / retained assembly unions and element-index points" tags=[:visual] begin
+@testitem "Makie / retained assembly unions and element-index points" tags=[:visual, :makie, :slow] begin
     using CairoMakie,Measurements
     options=(backend=:cairo,display_plot=false,controls=true,open_export=false)
     a=CableConstants([:core,:sheath],[1.,2.],[.1,.2],[.01,.02],[.001,.002],50.)
@@ -146,7 +146,7 @@ end
     @test_throws ArgumentError LineCableModels.plot(indexed(ones(2,2));options...)
 end
 
-@testitem "ObservedResult / retained band associations and sample intersections" begin
+@testitem "ObservedResult / retained band associations and sample intersections" tags=[:integration, :engine] begin
     using LineCableModels.Engine: retain_gridpoint,compare
     using LineCableModels.Commons: gridpoint_id,observation_product
     base=LineParameters(reshape(complex.([1.,2.,3.],[2.,3.,4.]),1,1,3),fill(1+2im,1,1,3),[1.,10.,100.])
@@ -174,7 +174,7 @@ end
     @test only(observation_product((ambiguous,),R;band=(10.,100.),reference_id=ref.gridpoint.id)).coordinates.samples==[3]
 end
 
-@testitem "Makie / observed public forwarding preserves native array dispatch" tags=[:visual] begin
+@testitem "Makie / observed public forwarding preserves native array dispatch" tags=[:visual, :makie] begin
     using CairoMakie
     extension=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
     @test LineCableModels.plot===LineCableModels.PlotBuilder.plot
@@ -191,7 +191,7 @@ end
     end
 end
 
-@testitem "Makie / public conveniences re-express retained display units" tags=[:visual] begin
+@testitem "Makie / public conveniences re-express retained display units" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Measurements
     using LineCableModels.Engine: retain_gridpoint,completed_formulation,compare
     using LineCableModels.Commons: gridpoint_id,observation_product

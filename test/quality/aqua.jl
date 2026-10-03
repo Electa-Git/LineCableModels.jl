@@ -1,4 +1,4 @@
-@testitem "Quality / Aqua / package hygiene" tags = [:aqua] begin
+@testitem "Quality / Aqua / package hygiene" tags = [:aqua, :pscad] begin
     using Aqua
     # Pkg is imported by LineCableModelsGmshExt, so the root-module
     # stale-dependency inspection cannot observe its use there.

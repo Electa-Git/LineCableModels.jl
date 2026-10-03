@@ -1,4 +1,4 @@
-@testitem "Earth / explicit reduction validates inputs and admits a user-owned rule" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Earth / explicit reduction validates inputs and admits a user-owned rule" tags=[:unit, :modal] setup=[FormulaFixtures] begin
     const EP = LineCableModels.Earth
     const EH = EP.EquivalentHomogeneous
     const E = LineCableModels.Engine

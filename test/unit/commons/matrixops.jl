@@ -1,4 +1,4 @@
-@testitem "Commons / matrix reductions / reorder, Kron, bundle and transposition invariants" tags=[:unit] setup=[
+@testitem "Commons / matrix reductions / reorder, Kron, bundle and transposition invariants" tags=[:unit, :commons] setup=[
     UseEngineSupport,
     TestNumerics
 ] begin
@@ -86,7 +86,7 @@
     @test_throws DimensionMismatch Commons.ideal_transposition!(ones(2, 3))
 end
 
-@testitem "Commons / matrix reductions / passive network constrained solves" tags=[:unit] begin
+@testitem "Commons / matrix reductions / passive network constrained solves" tags=[:unit, :commons] begin
     using LinearAlgebra
     const Commons=LineCableModels.Commons
     incidence=[1.0 0 0 1 1 0;0 1 0 -1 0 1;0 0 1 0 -1 -1]
@@ -123,7 +123,7 @@ end
     end
 end
 
-@testitem "Commons / matrix reductions / admittance inversion diagnostics" tags=[:unit] begin
+@testitem "Commons / matrix reductions / admittance inversion diagnostics" tags=[:unit, :commons] begin
     using LinearAlgebra
     const Commons=LineCableModels.Commons
     plan=Commons.ReductionPlan([1, 2]; reduce_bundle=false, kron_reduction=false,
@@ -157,7 +157,7 @@ end
         zeros(ComplexF64, 2, 2), s, plan, buffers, Val(true))
 end
 
-@testitem "Commons / matrix reductions / ideal transposition averages P before inversion" tags=[:unit] begin
+@testitem "Commons / matrix reductions / ideal transposition averages P before inversion" tags=[:unit, :commons] begin
     using LinearAlgebra
     const Commons=LineCableModels.Commons
     # Symmetric and not circulant. Its cyclic diagonals have the means 5, 2 and 2.

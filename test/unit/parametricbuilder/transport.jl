@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / result transport / owned result spaces" tags=[:unit] begin
+@testitem "ParametricBuilder / result transport / owned result spaces" tags=[:unit, :uq] begin
     const Commons=LineCableModels.Commons
     const PB=LineCableModels.ParametricBuilder
     const UQ=LineCableModels.UQ

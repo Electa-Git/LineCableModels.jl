@@ -1,4 +1,4 @@
-@testitem "ObservedResult / operand eligibility precedes RMS" tags=[:unit] begin
+@testitem "ObservedResult / operand eligibility precedes RMS" tags=[:unit, :engine, :slow] begin
     using LineCableModels.Engine: compare
     using LineCableModels.Commons: observation_resolution
     using LinearAlgebra: norm
@@ -43,7 +43,7 @@
     @test only(compare(a,a,R;band=(1.,1.)).absolute)==0
 end
 
-@testitem "ObservedResult / declared inputs survive completion without tracing" tags=[:unit] setup=[TestFixtures] begin
+@testitem "ObservedResult / declared inputs survive completion without tracing" tags=[:unit, :parametric] setup=[TestFixtures] begin
     using LineCableModels.Commons: observation_gridpoint,observation_labels
     problem=TestFixtures.line_parameters_problem()
     scalar=compute(problem)
@@ -87,7 +87,7 @@ end
     @test observation_gridpoint(constants).inputs.design.origin.items[1].item.items[1].primitive.r==0.005
 end
 
-@testitem "ObservedResult / clipping gives exact zero without uncertainty" tags=[:unit] begin
+@testitem "ObservedResult / clipping gives exact zero without uncertainty" tags=[:unit, :measurements] begin
     using Measurements, Calculus
     shared=Measurements.measurement(5e-13,1e-20)
     x=[shared,2shared]

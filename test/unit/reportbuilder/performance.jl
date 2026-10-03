@@ -1,4 +1,4 @@
-@testitem "ReportBuilder / recorded performance has explicit scopes and no collection" tags=[:unit] begin
+@testitem "ReportBuilder / recorded performance has explicit scopes and no collection" tags=[:unit, :report] begin
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition, tabulate
     using DataFrames
     definition=BenchmarkTableDefinition()

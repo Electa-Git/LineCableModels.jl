@@ -1,4 +1,4 @@
-@testitem "Core / interfaces / domain and deterministic uncertainty fallbacks" tags=[:unit] begin
+@testitem "Core / interfaces / domain and deterministic uncertainty fallbacks" tags=[:unit, :engine] begin
     @test domain(Int) === nothing
     @test domain(1) === nothing
     @test PhaseDomain() isa LineCableModels.LineParamsDomain
@@ -13,7 +13,7 @@
     @test_throws MethodError validate(value)
 end
 
-@testitem "Core / docstrings / sanitized method-list origins" tags=[:unit] begin
+@testitem "Core / docstrings / sanitized method-list origins" tags=[:unit, :engine] begin
     using DocStringExtensions
 
     method=which(LineCableModels.domain, (Int,))
@@ -30,7 +30,7 @@ end
     @test !occursin(pkgdir(LineCableModels), rendered)
 end
 
-@testitem "Core / owner-local numerics / transforms and conductivity" tags=[:unit] begin
+@testitem "Core / owner-local numerics / transforms and conductivity" tags=[:unit, :modal] begin
     using LinearAlgebra
     const Engine=LineCableModels.Engine
 

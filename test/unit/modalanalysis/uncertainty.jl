@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / fixed nominal branch retains first-order scalar dependencies" tags=[:unit] begin
+@testitem "ModalAnalysis / fixed nominal branch retains first-order scalar dependencies" tags=[:unit, :measurements] begin
     using Measurements
     import Measurements: derivative
 
@@ -17,7 +17,7 @@
     @test uncertainty(factor)>0
 end
 
-@testitem "ModalAnalysis / undefined first-order magnitude is unavailable" tags=[:unit] begin
+@testitem "ModalAnalysis / undefined first-order magnitude is unavailable" tags=[:unit, :measurements] begin
     using Measurements
     import LineCableModels.Engine as E
     x=measurement(1.0,0.1)

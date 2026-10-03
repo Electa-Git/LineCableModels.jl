@@ -1,6 +1,7 @@
 @testitem "Extensions / Distributions / unloaded sampler fails explicitly" tags=[
     :extension,
-    :core_only
+    :core_only,
+    :commons
 ] begin
     using Random
     import LineCableModels
@@ -16,7 +17,8 @@
 end
 
 @testitem "Extensions / Distributions adapter / normalized sampling and density laws" tags=[
-    :extension
+    :extension,
+    :distributions
 ] begin
     using Distributions
     using Random

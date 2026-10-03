@@ -1,4 +1,4 @@
-@testitem "DataModel / stranding / complete-course capacity at roundoff boundaries" tags=[:unit] begin
+@testitem "DataModel / stranding / complete-course capacity at roundoff boundaries" tags=[:unit, :parametric] begin
     import LineCableModels.DataModel as DM
 
     for F in (Float32, Float64), courses in 1:12, strand_area in F.((1e-8, 1.0, 1e8))
@@ -37,7 +37,7 @@
     @test all(region -> DM.support(region.primitive) <= boundary.r * (1 + 5e-6), wires)
 end
 
-@testitem "DataModel / stranding / clipped disks conserve area inside cells" tags=[:unit] begin
+@testitem "DataModel / stranding / clipped disks conserve area inside cells" tags=[:unit, :measurements] begin
     using Measurements: measurement, value, uncertainty
     import LineCableModels.DataModel as DM
 
@@ -65,7 +65,7 @@ end
     @test uncertainty(propagated) ≈ uncertainty(target) rtol=1e-6
 end
 
-@testitem "DataModel / stranding / sector bundle identity, containment and symmetry" tags=[:unit] begin
+@testitem "DataModel / stranding / sector bundle identity, containment and symmetry" tags=[:unit, :datamodel] begin
     import LineCableModels.DataModel as DM
 
     function vertices(shape)

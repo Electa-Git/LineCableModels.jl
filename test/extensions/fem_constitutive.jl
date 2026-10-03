@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension] setup=[FormulaFixtures] begin
+@testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension, :fem] setup=[FormulaFixtures] begin
     using Gmsh, Measurements
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const FD = LineCableModels.Earth.FrequencyDependent
@@ -59,7 +59,7 @@
     @test_throws LineCableModelsFEMError FEM._resolved_fem_model(conducting_limit,LineCableModelsFEM())
 end
 
-@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical] setup=[FormulaFixtures] begin
+@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical,:fem,:slow] setup=[FormulaFixtures] begin
     using Gmsh, LinearAlgebra
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e14,2.3)
@@ -102,7 +102,7 @@ end
     @test result.Y.values ≈ reference.Y.values rtol=2e-9
 end
 
-@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical] setup=[FormulaFixtures] begin
+@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical,:fem,:slow] setup=[FormulaFixtures] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const FD = LineCableModels.Earth.FrequencyDependent

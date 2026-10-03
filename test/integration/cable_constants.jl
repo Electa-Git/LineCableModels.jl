@@ -1,4 +1,4 @@
-@testitem "Engine / cable constants / earth-free assemblies and physical invariants" tags=[:integration] setup=[
+@testitem "Engine / cable constants / earth-free assemblies and physical invariants" tags=[:integration, :measurements, :slow] setup=[
     UseEngineSupport,
     TestFixtures,
     TestNumerics
@@ -457,7 +457,7 @@
     @test keys(only(statistics(sampled))) == (:R, :L, :C, :G)
 end
 
-@testitem "Fixtures / factories / mutable state is never shared" tags=[:integration] setup=[
+@testitem "Fixtures / factories / mutable state is never shared" tags=[:integration, :measurements] setup=[
     TestFixtures,
 ] begin
     using Measurements

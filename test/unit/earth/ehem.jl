@@ -1,4 +1,4 @@
-@testitem "Earth / explicit reduction and FrequencyDependent order through public compute" tags=[:unit] setup=[
+@testitem "Earth / explicit reduction and FrequencyDependent order through public compute" tags=[:unit, :parametric, :slow] setup=[
     TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
@@ -53,7 +53,7 @@
     end
 end
 
-@testitem "Earth / missing equivalent equation fails on evaluation, not declaration" tags=[:unit] begin
+@testitem "Earth / missing equivalent equation fails on evaluation, not declaration" tags=[:unit, :engine] begin
     const EH = LineCableModels.Earth.EquivalentHomogeneous
     struct UnimplementedReduction <: EH.AbstractRule
         parameters::NamedTuple

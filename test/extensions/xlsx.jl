@@ -1,4 +1,4 @@
-@testitem "Extensions / XLSX / unloaded writer is absent" tags=[:extension,:core_only] begin
+@testitem "Extensions / XLSX / unloaded writer is absent" tags=[:extension,:core_only,:report] begin
     const RB=LineCableModels.ReportBuilder
     @test Base.get_extension(LineCableModels,:LineCableModelsXLSXExt)===nothing
     observed=ObservedResult(LineParameters(fill(1.0+2im,2,2,1),fill(3.0+4im,2,2,1),[50.]))
@@ -16,7 +16,7 @@
     @test_throws MethodError report(definition,observed)
 end
 
-@testitem "Extensions / XLSX writer / explicit activation" tags=[:extension] begin
+@testitem "Extensions / XLSX writer / explicit activation" tags=[:extension, :xlsx] begin
     using XLSX
     extension=Base.get_extension(LineCableModels,:LineCableModelsXLSXExt)
     @test extension!==nothing

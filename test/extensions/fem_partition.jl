@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / polygon contacts preserve complete material partitions" tags=[:extension] begin
+@testitem "Gmsh FEM / polygon contacts preserve complete material partitions" tags=[:extension, :fem] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel
@@ -51,7 +51,7 @@
     end
 end
 
-@testitem "Gmsh FEM / Milliken filler coverage and invariant scan topology" tags=[:extension] begin
+@testitem "Gmsh FEM / Milliken filler coverage and invariant scan topology" tags=[:extension, :fem] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel

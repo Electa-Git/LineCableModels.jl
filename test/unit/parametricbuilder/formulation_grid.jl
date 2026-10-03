@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit] setup=[
+@testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit, :uq, :slow] setup=[
     UseEngineSupport,FormulaFixtures,
 ] begin
     internal=FormulaFixtures.SurfaceLaw()

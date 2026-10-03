@@ -1,4 +1,4 @@
-@testitem "Commons / owned records / payload identity and value semantics" tags=[:unit] begin
+@testitem "Commons / owned records / payload identity and value semantics" tags=[:unit, :commons] begin
     payload = (rtol=1e-8, nested=(enabled=true,), values=[1.0, 2.0], data=:field)
     @test (@inferred FormulationOptions(payload)).data === payload
     @test (@inferred ComputationOptions(payload)).data === payload
@@ -47,7 +47,7 @@
     @test retained.data.values[1] == 7.0
 end
 
-@testitem "Commons / owned records / owner-specific option normalization" tags=[:unit] begin
+@testitem "Commons / owned records / owner-specific option normalization" tags=[:unit, :engine] begin
     using LineCableModels.Commons: formulation_options, computation_options
     resolved = @inferred formulation_options(LineParametersFormulation, FormulationOptions())
     @test resolved isa FormulationOptions
@@ -66,7 +66,7 @@ end
     @test_throws TypeError formula(:default; options=ComputationDetails())
 end
 
-@testitem "Commons / owned records / explicit transport and passive persistence" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Commons / owned records / explicit transport and passive persistence" tags=[:unit, :measurements] setup=[TestFixtures] begin
     using Serialization
     const IO = LineCableModels.ImportExport
     payload = (resolution=(enabled=true,), values=[1.0, 2.0])

@@ -1,4 +1,4 @@
-@testitem "Makie addons / per-series markers and dashes reach plots and legends" tags=[:visual] begin
+@testitem "Makie addons / per-series markers and dashes reach plots and legends" tags=[:visual, :makie] begin
     using CairoMakie
     using LineCableModels
 
@@ -39,7 +39,7 @@
     end
 end
 
-@testitem "Makie addons / large style sets retain original slots and palette" tags=[:visual] begin
+@testitem "Makie addons / large style sets retain original slots and palette" tags=[:visual, :makie] begin
     using CairoMakie
     ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
     prefix=copy(ext._CURVE_COLORS)
@@ -83,7 +83,7 @@ end
     @test_throws ArgumentError ext._series_attributes(((color=:red,),),324)
 end
 
-@testitem "Makie addons / shared series attributes cover every plot family" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / shared series attributes cover every plot family" tags=[:visual, :makie, :slow] setup=[TestFixtures] begin
     using CairoMakie
     using LineCableModels
     using Measurements
@@ -147,7 +147,7 @@ end
     @test !isempty(Makie.colorbuffer(page.figure))
 end
 
-@testitem "Makie addons / automatic difference labels and chromatic result prefix" tags=[:visual] begin
+@testitem "Makie addons / automatic difference labels and chromatic result prefix" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint,completed_formulation
     using LineCableModels.Commons: gridpoint_id,observation_labels

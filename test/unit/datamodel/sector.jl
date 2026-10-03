@@ -1,4 +1,4 @@
-@testitem "DataModel / Sector / exact geometry and conformal shells" tags=[:unit] begin
+@testitem "DataModel / Sector / exact geometry and conformal shells" tags=[:unit, :parametric, :slow] begin
     const DM=LineCableModels.DataModel
 
     primitive=Sector(
@@ -98,7 +98,7 @@
     @test_throws DomainError Sector(span = 0.2, r_base = 0.0, r_back = 1.0, fillet = 0.95)
 end
 
-@testitem "DataModel / Sector / terminal assembly and Gridspace" tags=[:unit] begin
+@testitem "DataModel / Sector / terminal assembly and Gridspace" tags=[:unit, :parametric] begin
     const DM=LineCableModels.DataModel
 
     copper=Material(kind = :conductor, rho = 1.7241e-8, mu_r = 0.999994,
@@ -217,7 +217,7 @@ end
     @test all(design -> design.origin isa DM.Group, designs)
 end
 
-@testitem "DataModel / Sector / member-local equivalent-area flattening" tags=[:unit] begin
+@testitem "DataModel / Sector / member-local equivalent-area flattening" tags=[:unit, :importexport] begin
     const DM=LineCableModels.DataModel
 
     copper=Material(kind = :conductor, rho = 1.7241e-8, mu_r = 0.999994,

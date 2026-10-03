@@ -1,4 +1,4 @@
-@testitem "Makie addons / completed overlays preserve matrices, identities and exports" tags=[:visual] begin
+@testitem "Makie addons / completed overlays preserve matrices, identities and exports" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint, completed_formulation
     using LineCableModels.Commons: gridpoint_id, observation_labels
@@ -81,7 +81,7 @@
     end
 end
 
-@testitem "Makie addons / grouping retains independent uncertainty interpretations" tags=[:visual] begin
+@testitem "Makie addons / grouping retains independent uncertainty interpretations" tags=[:visual, :makie, :slow] begin
     using CairoMakie,Measurements
     using LineCableModels.Engine: retain_gridpoint,completed_formulation
     using LineCableModels.Commons: gridpoint_id,observation_groups
@@ -101,7 +101,7 @@ end
     @test count(item -> item isa Makie.Errorbars,only(page.axes).scene.plots)==3
 end
 
-@testitem "Makie addons / quantity assumptions share report and plot grouping" tags=[:visual] begin
+@testitem "Makie addons / quantity assumptions share report and plot grouping" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint,completed_formulation
     using LineCableModels.Commons: gridpoint_id,observation_groups

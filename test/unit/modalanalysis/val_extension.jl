@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / complete Val formula extension" tags=[:unit] begin
+@testitem "ModalAnalysis / complete Val formula extension" tags=[:unit, :modal] begin
     import LineCableModels.Engine: initialize_buffers, description
     import LineCableModels.Commons: formulation_options, FormulationOptions
     import LineCableModels.ModalAnalysis: decompose!, Formula

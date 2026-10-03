@@ -1,4 +1,4 @@
-@testitem "ReportBuilder / formulation axes, five bands and unavailable relative RMS" tags=[:integration] setup=[TestFixtures, FormulaFixtures] begin
+@testitem "ReportBuilder / formulation axes, five bands and unavailable relative RMS" tags=[:integration, :report, :slow] setup=[TestFixtures, FormulaFixtures] begin
     using LineCableModels.Engine: compare
     using LineCableModels.ReportBuilder
     using DataFrames

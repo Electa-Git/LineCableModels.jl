@@ -1,4 +1,4 @@
-@testitem "UQ / histogram bins preserve finite constant and narrow populations" tags=[:unit] begin
+@testitem "UQ / histogram bins preserve finite constant and narrow populations" tags=[:unit, :uq] begin
     using Statistics
     for values in ([3.0,3.0,3.0], [1.0,1.0,nextfloat(1.0)],
             [1.0,nextfloat(1.0),nextfloat(1.0,2)],

@@ -1,4 +1,4 @@
-@testitem "Engine / callable-only QuadGK integration and scalar behavior" tags=[:unit] begin
+@testitem "Engine / callable-only QuadGK integration and scalar behavior" tags=[:unit, :engine] begin
     const E=LineCableModels.Engine
     options(;
         controls...)=E.formulation_options(E.SpectralIntegral,
@@ -39,7 +39,7 @@
     @test_throws DomainError E.integrate(Val(:quad), E.SpectralIntegral(x->NaN), settings.options)
 end
 
-@testitem "Engine / real-only callable struct and complete transformed integrands" tags=[:unit] begin
+@testitem "Engine / real-only callable struct and complete transformed integrands" tags=[:unit, :engine] begin
     const E=LineCableModels.Engine
     struct RealKernel
         rate::Float64
@@ -59,7 +59,7 @@ end
     end
 end
 
-@testitem "Engine / QuadGK reports an unmet target without retry or rejection" tags=[:unit] begin
+@testitem "Engine / QuadGK reports an unmet target without retry or rejection" tags=[:unit, :engine] begin
     using QuadGK: quadgk
     const E=LineCableModels.Engine
     calls=Ref(0)
@@ -83,7 +83,7 @@ end
     @test last(actual)>controls.rtol*abs(first(actual))
 end
 
-@testitem "Engine / complete contour integrands preserve half-line endpoints" tags=[:unit] begin
+@testitem "Engine / complete contour integrands preserve half-line endpoints" tags=[:unit, :engine] begin
     const E=LineCableModels.Engine
     controls=(rtol = 1e-10, atol = 0.0, maxevals = 100000)
     # The rational map has a nonzero limiting value at the infinite endpoint.
@@ -97,7 +97,7 @@ end
     end
 end
 
-@testitem "Engine / quadrature normalizes numerical points and reuses storage" tags=[:unit] begin
+@testitem "Engine / quadrature normalizes numerical points and reuses storage" tags=[:unit, :engine] begin
     const E=LineCableModels.Engine
     for T in (Float32, Float64, BigFloat)
         controls=(rtol = T===Float32 ? 1e-5 : 1e-9, atol = 0.0, maxevals = 100000)
@@ -122,7 +122,7 @@ end
     end
 end
 
-@testitem "Engine / complete oscillatory and Bessel integrands" tags=[:unit] begin
+@testitem "Engine / complete oscillatory and Bessel integrands" tags=[:unit, :engine] begin
     using SpecialFunctions: besselj
     const E=LineCableModels.Engine
     controls=(rtol = 1e-7, atol = 0.0, maxevals = 1000000)
@@ -143,7 +143,7 @@ end
         0.01, 1.0))) rtol=1e-7
 end
 
-@testitem "Engine / explicit numerical points resolve displaced narrow peaks" tags=[:unit] begin
+@testitem "Engine / explicit numerical points resolve displaced narrow peaks" tags=[:unit, :engine] begin
     const E=LineCableModels.Engine
     controls=(rtol = 1e-7, atol = 0.0, maxevals = 1000000)
     for center in (0.371, 9.001), amplitude in (1.0, 1e-8)

@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / uncertain matrices / inferred round trip" tags=[:unit] setup=[
+@testitem "ModalAnalysis / uncertain matrices / inferred round trip" tags=[:unit, :measurements] setup=[
     UseEngineSupport,
     TestNumerics
 ] begin
@@ -37,7 +37,7 @@
     @test any(!iszero, Measurements.uncertainty.(real.(H(segment))))
 end
 
-@testitem "ModalAnalysis / tracked eigensystems / numerical invariants" tags=[:unit] setup=[
+@testitem "ModalAnalysis / tracked eigensystems / numerical invariants" tags=[:unit, :modal] setup=[
     UseEngineSupport,
     TestNumerics,
     TestAssertions
@@ -147,7 +147,7 @@ end
     end
 end
 
-@testitem "ModalAnalysis / independent maps preserve ordered nonreciprocal entries" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "ModalAnalysis / independent maps preserve ordered nonreciprocal entries" tags=[:unit, :modal] setup=[FormulaFixtures] begin
     const TR = LineCableModels.ModalAnalysis
     const FM = LineCableModels.FormulaMethod
     Z = reshape(ComplexF64[2+3im 0.2+0.1im; 0.7+0.3im 4+5im], 2, 2, 1)
@@ -170,7 +170,7 @@ end
     @test phase.Z.values == Z && phase.Y.values == Y
 end
 
-@testitem "ModalAnalysis / current commuting modes / eigenvalues and reconstruction" tags=[:unit] begin
+@testitem "ModalAnalysis / current commuting modes / eigenvalues and reconstruction" tags=[:unit, :modal] begin
     using LinearAlgebra
     f=[10.0,100.0,1000.0];theta=pi/6
     q=[cos(theta) -sin(theta);sin(theta) cos(theta)]

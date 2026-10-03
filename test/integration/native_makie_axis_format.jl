@@ -11,7 +11,7 @@
     end
 end
 
-@testitem "Makie addons / narrow log values and native constructors share the shell" tags=[:visual] begin
+@testitem "Makie addons / narrow log values and native constructors share the shell" tags=[:visual, :makie] begin
     using CairoMakie, Measurements, Logging
     f = collect(range(2.0,8.0;length=9))
     r = reshape(measurement.(reverse(f),0.02),1,1,:)
@@ -115,7 +115,7 @@ end
     @test isequal(before,(Z(source),Y(source),frequencies(source)))
 end
 
-@testitem "Makie addons / current visible extents control log eligibility" tags=[:visual] begin
+@testitem "Makie addons / current visible extents control log eligibility" tags=[:visual, :makie] begin
     using CairoMakie
     page = LineCableModels.plotwindow(;title="Native",backend=:cairo,
         display_plot=false,open_export=false) do layout
@@ -144,7 +144,7 @@ end
     @test 1.8 < low < 2 < high < 2.2
 end
 
-@testitem "Makie addons / signed log separates small conductances in displayed units" tags=[:visual] setup=[ScientificTickLabels] begin
+@testitem "Makie addons / signed log separates small conductances in displayed units" tags=[:visual, :makie] setup=[ScientificTickLabels] begin
     using CairoMakie
     f = 10.0 .^ range(-1, 6; length=8)
     conductance = -10.0 .^ range(-27, -6; length=8)
@@ -207,7 +207,7 @@ end
     @test Y(source) == admittance
 end
 
-@testitem "Makie addons / signed and positive axes share scientific notation" tags=[:visual] setup=[ScientificTickLabels] begin
+@testitem "Makie addons / signed and positive axes share scientific notation" tags=[:visual, :makie] setup=[ScientificTickLabels] begin
     using CairoMakie
     samples=([1.0, 1.5, 2.0] .* 1e-6, [-1.0, -1.5, -2.0] .* 1e-6,
         [-3.7e-6, -3.7e-10, 0.0, 3.7e-10, 3.7e-6], [3.7e-10, 3.7e-6])
@@ -308,7 +308,7 @@ end
     end
 end
 
-@testitem "Makie addons / signed reference follows native samples and interval endpoints" tags=[:visual] begin
+@testitem "Makie addons / signed reference follows native samples and interval endpoints" tags=[:visual, :makie] begin
     using CairoMakie
     magnitude = 1e-6
     endpoint = magnitude - prevfloat(magnitude)
@@ -356,7 +356,7 @@ end
     @test axis.yscale[](1.) ≈ log10(2)
 end
 
-@testitem "Makie addons / signed reference includes undrawn uncertainty endpoints" tags=[:visual] begin
+@testitem "Makie addons / signed reference includes undrawn uncertainty endpoints" tags=[:visual, :makie] begin
     using CairoMakie, Measurements
     f = collect(1.:101.)
     conductance = fill(1e-6, length(f))
@@ -384,7 +384,7 @@ end
     @test isequal(Y(source), admittance)
 end
 
-@testitem "Makie addons / native override precedence and custom transforms" tags=[:visual] begin
+@testitem "Makie addons / native override precedence and custom transforms" tags=[:visual, :makie] begin
     using CairoMakie
     source = LineParameters(reshape(ComplexF64[2,4,8],1,1,:),ones(ComplexF64,1,1,3),[2.0,4.0,8.0])
     page = LineCableModels.plot(source; ydata=R,backend=:cairo,display_plot=false,
@@ -423,7 +423,7 @@ end
     @test !isempty(Makie.colorbuffer(native.figure))
 end
 
-@testitem "Makie addons / axis multipliers follow the displayed range" tags=[:visual] begin
+@testitem "Makie addons / axis multipliers follow the displayed range" tags=[:visual, :makie] begin
     using CairoMakie
 
     frequency = [1.0, 10.0, 100.0]
@@ -468,7 +468,7 @@ end
     @test occursin("−9", repr(published_axis.ylabel[]))
 end
 
-@testitem "Makie addons / near-constant views and stable signed scales share the lifecycle" tags=[:visual] begin
+@testitem "Makie addons / near-constant views and stable signed scales share the lifecycle" tags=[:visual, :makie] begin
     using CairoMakie, Logging
     options = (backend=:cairo, display_plot=false, controls=true, open_export=false,
         length_unit=:base, quantity_units=:base, clip=false)
@@ -528,7 +528,7 @@ end
     @test vec(real.(Z(source))) == response
 end
 
-@testitem "Makie addons / rendered benchmark axes share scale and limit behavior" tags=[:visual] begin
+@testitem "Makie addons / rendered benchmark axes share scale and limit behavior" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Statistics, Measurements
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f = 10.0 .^ range(-1, 7; length=101)
@@ -598,7 +598,7 @@ end
     @test isequal(observe(lep, statistics, R, std, 1), sqrt(2) * 0.1 .* r)
 end
 
-@testitem "Makie addons / live native overrides and requested limits survive" tags=[:visual] begin
+@testitem "Makie addons / live native overrides and requested limits survive" tags=[:visual, :makie] begin
     using CairoMakie
     page = LineCableModels.plotwindow(; title="Live overrides", backend=:cairo,
         display_plot=false, controls=true, open_export=false) do layout
@@ -631,7 +631,7 @@ end
     @test axis.limits[] == ((1e6, 4e6), (nothing, 0.8))
 end
 
-@testitem "Makie addons / scale changes validate the page and preserve orthogonal views" tags=[:visual] begin
+@testitem "Makie addons / scale changes validate the page and preserve orthogonal views" tags=[:visual, :makie] begin
     using CairoMakie
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f = [1.0, 10.0, 100.0]
@@ -682,7 +682,7 @@ end
         axis.yscale[](-1e-18) < 0, signed.axes)
 end
 
-@testitem "Makie addons / native axis density responds to size without losing precision" tags=[:visual] begin
+@testitem "Makie addons / native axis density responds to size without losing precision" tags=[:visual, :makie] begin
     using CairoMakie
     page = LineCableModels.plotwindow(; title="Numeric ranges", backend=:cairo,
         display_plot=false, controls=false, open_export=false, size=(1200, 600)) do layout
@@ -735,7 +735,7 @@ end
     end
 end
 
-@testitem "Makie addons / plain mantissas and relative constant limits" tags=[:visual] begin
+@testitem "Makie addons / plain mantissas and relative constant limits" tags=[:visual, :makie] begin
     using CairoMakie
     using Measurements: measurement
     extension = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
@@ -770,7 +770,7 @@ end
     end
 end
 
-@testitem "Makie addons / native conversions and visible uncertainty retain ownership" tags=[:visual] begin
+@testitem "Makie addons / native conversions and visible uncertainty retain ownership" tags=[:visual, :makie] begin
     using CairoMakie, Dates, Measurements
     for input in (Makie.Categorical(["first", "second", "third"]),
             [Date(2026, 1, 1), Date(2026, 2, 1), Date(2026, 3, 1)])
@@ -815,7 +815,7 @@ end
     @test isequal(Z(data), z)
 end
 
-@testitem "Makie addons / scale controls and visibility keep multipliers synchronized" tags=[:visual] begin
+@testitem "Makie addons / scale controls and visibility keep multipliers synchronized" tags=[:visual, :makie] begin
     using CairoMakie
     frequency = [1.0, 10.0, 100.0]
     small = LineParameters(fill(1e-14 + 1.0im, 1, 1, 3), fill(1.0im, 1, 1, 3), frequency)
@@ -847,7 +847,7 @@ end
     end
 end
 
-@testitem "Makie addons / scientific formatting respects native customization" tags=[:visual] begin
+@testitem "Makie addons / scientific formatting respects native customization" tags=[:visual, :makie] begin
     using CairoMakie
     custom = values -> fill("custom", length(values))
     plot = LineCableModels.plotwindow(; title="Native customization", backend=:cairo,
@@ -888,7 +888,7 @@ end
     @test length(findall("× 10", repr(axis.ylabel[]))) == 1
 end
 
-@testitem "Makie addons / previews and statistical plots share live multipliers" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / previews and statistical plots share live multipliers" tags=[:visual, :makie, :slow] setup=[TestFixtures] begin
     using CairoMakie, Measurements
     copper = Material(kind=:conductor, rho=1.7241e-8)
     design = @cable "axis-preview" begin
@@ -914,7 +914,7 @@ end
     end
 end
 
-@testitem "Makie addons / native plot windows share axis formatting" tags=[:visual] begin
+@testitem "Makie addons / native plot windows share axis formatting" tags=[:visual, :makie] begin
     using CairoMakie
 
     plot = LineCableModels.plotwindow(; title="Axis formatting", backend=:cairo,

@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / production edge paths / affine field and Stokes controls" tags=[:extension] begin
+@testitem "Gmsh FEM / production edge paths / affine field and Stokes controls" tags=[:extension, :fem] begin
     using Gmsh
     FEM=Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     triangles=[((0.0, 0.0), (2.0, 0.0), (2.0, 1.0)), ((0.0, 0.0), (2.0, 1.0), (0.0, 1.0))]
@@ -19,7 +19,9 @@
 end
 
 @testitem "Gmsh FEM / physics selection, native maps, and resume isolation" tags=[
-    :extension, :integration, :fem_numerical] begin
+    :extension, :integration, :fem_numerical,
+    :fem,
+    :slow] begin
     using LineCableModels, Gmsh, LinearAlgebra, JSON3
     FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     @test formulation_options(LineCableModelsFEM, FormulationOptions()).data.physics ===
@@ -87,7 +89,7 @@ end
     end
 end
 
-@testitem "Gmsh FEM / voltage path file writing preserves the caller session" tags=[:extension] begin
+@testitem "Gmsh FEM / voltage path file writing preserves the caller session" tags=[:extension, :fem] begin
     using LineCableModels, Gmsh
     FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     wire = build(CableDesign, "bare", terminal(:core,

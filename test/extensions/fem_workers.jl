@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / isolated workers, checkpoints and recovery" tags=[:extension] begin
+@testitem "Gmsh FEM / isolated workers, checkpoints and recovery" tags=[:extension, :fem] begin
     using Gmsh, JSON3, SHA
     E = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     python = Sys.which("python3")

@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / touching armour wires retain every filler face" tags=[:extension] begin
+@testitem "Gmsh FEM / touching armour wires retain every filler face" tags=[:extension, :fem, :slow] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const gmsh = Gmsh.gmsh
@@ -53,7 +53,7 @@
     end
 end
 
-@testitem "Gmsh FEM / partial and separated armour rings preserve physical gaps" tags=[:extension] begin
+@testitem "Gmsh FEM / partial and separated armour rings preserve physical gaps" tags=[:extension, :fem] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const gmsh = Gmsh.gmsh
@@ -92,7 +92,7 @@ end
     end
 end
 
-@testitem "Gmsh FEM / touching armour filler reaches GetDP" tags=[:extension,:integration,:fem_numerical] begin
+@testitem "Gmsh FEM / touching armour filler reaches GetDP" tags=[:extension,:integration,:fem_numerical,:fem,:slow] begin
     using Gmsh
     copper = Material(kind=:conductor,rho=1.72e-8)
     dielectric = Material(kind=:insulator,rho=Inf,eps_r=2.3)

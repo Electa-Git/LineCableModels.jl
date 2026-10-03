@@ -1,4 +1,4 @@
-@testitem "Engine / homogeneous dielectric retains constitutive selection across frequency" tags=[:unit] begin
+@testitem "Engine / homogeneous dielectric retains constitutive selection across frequency" tags=[:unit, :measurements] begin
     using Test
     using LineCableModels
     using Measurements: measurement, value, uncertainty
@@ -156,7 +156,7 @@
     @test_throws DimensionMismatch RadialDielectric([dielectric], [1.0, 2.0])
 end
 
-@testitem "ImportExport / homogeneous dielectric library retains constituent laws" tags=[:unit] begin
+@testitem "ImportExport / homogeneous dielectric library retains constituent laws" tags=[:unit, :importexport] begin
     using JSON3
     using JSONSchema
     const IE = LineCableModels.ImportExport
@@ -199,7 +199,7 @@ end
     end
 end
 
-@testitem "Gmsh FEM / homogeneous dielectric constitutive response retains constituent kinds" tags=[:extension] begin
+@testitem "Gmsh FEM / homogeneous dielectric constitutive response retains constituent kinds" tags=[:extension, :fem] begin
     using Gmsh
     using LineCableModels
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)

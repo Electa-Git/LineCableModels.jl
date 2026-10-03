@@ -1,4 +1,4 @@
-@testitem "DataModel / v1 geometry / primitive and resolved geometry" tags=[:unit] begin
+@testitem "DataModel / v1 geometry / primitive and resolved geometry" tags=[:unit, :parametric] begin
     const DM=LineCableModels.DataModel
 
     @test DM.Disk(2) isa DM.AbstractPrimitive{Float64}
@@ -85,7 +85,7 @@
     @test converted.w === 4.0f0
 end
 
-@testitem "DataModel / v1 geometry / pose and Gridspace materialization" tags=[:unit] begin
+@testitem "DataModel / v1 geometry / pose and Gridspace materialization" tags=[:unit, :parametric] begin
     using Random
     const DM=LineCableModels.DataModel
     const PB=LineCableModels.ParametricBuilder
@@ -118,7 +118,7 @@ end
           [DM.Rectangle(1.0, 3.0), DM.Rectangle(2.0, 3.0)]
 end
 
-@testitem "DataModel / geometry / independent SI primitive controls" tags=[:unit] begin
+@testitem "DataModel / geometry / independent SI primitive controls" tags=[:unit, :datamodel] begin
     using QuadGK
     DM=LineCableModels.DataModel
     pose=Pose2(.02,-.03,pi/6)

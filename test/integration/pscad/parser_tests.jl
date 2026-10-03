@@ -1,4 +1,4 @@
-@testitem "PSCAD / parser and fixed mappings" tags=[:integration] begin
+@testitem "PSCAD / parser and fixed mappings" tags=[:integration, :pscad] begin
     using Base64: base64decode
     using Test
     import LineCableModels

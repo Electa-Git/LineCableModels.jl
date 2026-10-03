@@ -1,4 +1,4 @@
-@testitem "Engine / observations / complex, diagonal, and frequency selections" tags=[:unit] begin
+@testitem "Engine / observations / complex, diagonal, and frequency selections" tags=[:unit, :engine] begin
     using LinearAlgebra: diag
     frequency = [0.1, 50.0, 1e6]
     order = reshape(collect(1.0:12.0), 2, 2, 3)

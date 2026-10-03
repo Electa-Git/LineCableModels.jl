@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / retained finite quantities render with completed formulations" tags=[:visual] begin
+@testitem "ModalAnalysis / retained finite quantities render with completed formulations" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint, completed_formulation
     using LineCableModels.Commons: gridpoint_id, observation_labels
@@ -29,7 +29,7 @@
     @test any(page -> !isempty(page.axes),primary_pages)
 end
 
-@testitem "PlotBuilder / full transformation overlays retain 324 coefficients" tags=[:visual] begin
+@testitem "PlotBuilder / full transformation overlays retain 324 coefficients" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     n=18
     f=10.0 .^ range(1,5;length=321)
@@ -67,7 +67,7 @@ end
     end
 end
 
-@testitem "PlotBuilder / multimode vector orientation and physical matrix coefficients" tags=[:visual] begin
+@testitem "PlotBuilder / multimode vector orientation and physical matrix coefficients" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using LinearAlgebra
     import LineCableModels.Engine as E

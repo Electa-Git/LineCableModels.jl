@@ -1,4 +1,4 @@
-@testitem "Analytical selections / explicit earth reduction preserves formula and indexed geometry" tags=[:unit] begin
+@testitem "Analytical selections / explicit earth reduction preserves formula and indexed geometry" tags=[:unit, :parametric] begin
     const EP = LineCableModels.Earth
     copper = Material(:conductor, 1.72e-8, 1.0)
     design = build(CableDesign, "explicit-reduction", terminal(:core,

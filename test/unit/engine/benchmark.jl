@@ -1,4 +1,4 @@
-@testitem "Engine / line parameters / RMS benchmark" tags=[:unit] setup=[] begin
+@testitem "Engine / line parameters / RMS benchmark" tags=[:unit, :report] setup=[] begin
     using Test
     using DataFrames
     using LineCableModels

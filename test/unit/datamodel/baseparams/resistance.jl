@@ -1,4 +1,4 @@
-@testitem "BaseParams / tubular_resistance / reference-state equations" tags=[:unit] setup=[
+@testitem "BaseParams / tubular_resistance / reference-state equations" tags=[:unit, :measurements] setup=[
     UseBaseParamsSupport, TestNumerics] begin
     using Measurements
 
@@ -35,7 +35,7 @@
 
 end
 
-@testitem "BaseParams / strip_resistance / reference-state equations" tags=[:unit] setup=[
+@testitem "BaseParams / strip_resistance / reference-state equations" tags=[:unit, :measurements] setup=[
     UseBaseParamsSupport, TestNumerics] begin
     using Measurements
 
@@ -72,7 +72,7 @@ end
 
 end
 
-@testitem "BaseParams / parallel / resistance identities" tags=[:unit] setup=[
+@testitem "BaseParams / parallel / resistance identities" tags=[:unit, :measurements] setup=[
     UseBaseParamsSupport, TestNumerics] begin
     @testset "Basic Functionality" begin
         # Test with real numbers (Float64)
@@ -201,7 +201,7 @@ end
             uncertainty(imag(expected_cplx_meas)); atol = TestNumerics.absolute_floor(Float64))
     end
 end
-@testitem "BaseParams / equivalent_alpha / temperature identity" tags=[:unit] setup=[
+@testitem "BaseParams / equivalent_alpha / temperature identity" tags=[:unit, :measurements] setup=[
     UseBaseParamsSupport, TestNumerics] begin
     @testset "equivalent_alpha: Basic Functionality (Copper & Aluminum)" begin
         alpha1 = 0.00393  # Copper
@@ -332,7 +332,7 @@ end
             (1e-3 * 2e6 + 2e-3 * 1e6) / (1e6 + 2e6); atol = TestNumerics.absolute_floor(Float64))
     end
 end # End of test file
-@testitem "BaseParams / equivalent_rho / resistivity identity" tags=[:unit] setup=[
+@testitem "BaseParams / equivalent_rho / resistivity identity" tags=[:unit, :measurements] setup=[
     UseBaseParamsSupport, TestNumerics] begin
     @testset "Basic Functionality" begin
         # Example from docstring: `R=0.01` Ω, `r_ext=0.02` m, `r_in=0.01` m

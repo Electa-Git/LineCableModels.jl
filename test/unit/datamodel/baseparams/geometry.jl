@@ -1,4 +1,4 @@
-@testitem "BaseParams / geometry / ring and helical invariants" tags=[:unit] begin
+@testitem "BaseParams / geometry / ring and helical invariants" tags=[:unit, :datamodel] begin
     const BP = LineCableModels.DataModel.BaseParams
     using LinearAlgebra: norm
 

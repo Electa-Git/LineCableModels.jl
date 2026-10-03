@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / finite observable components and vector retention" tags=[:unit] begin
+@testitem "ModalAnalysis / finite observable components and vector retention" tags=[:unit, :xlsx, :slow] begin
     using LinearAlgebra
     using DataFrames
     using XLSX

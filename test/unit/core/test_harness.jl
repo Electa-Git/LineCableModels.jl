@@ -1,4 +1,4 @@
-@testitem "Core / test discovery rejects excluded setups malformed source and empty selection" tags=[:unit] begin
+@testitem "Core / test discovery rejects excluded setups malformed source and empty selection" tags=[:unit, :units, :slow] begin
     helper = joinpath(pkgdir(LineCableModels), "test", "support", "runner.jl")
     include(helper)
     directory = joinpath(pkgdir(LineCableModels), "test")

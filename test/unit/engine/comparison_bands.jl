@@ -1,4 +1,4 @@
-@testitem "Engine / RMS bands slice stored frequencies and retain comparison meaning" tags=[:unit] begin
+@testitem "Engine / RMS bands slice stored frequencies and retain comparison meaning" tags=[:unit, :engine] begin
     using Test
     using LineCableModels
     using LineCableModels.Engine: compare, RMSError, LineParametersBenchmark
@@ -88,7 +88,7 @@
     @test (a.Z.values, a.Y.values, b.Z.values, b.Y.values) == original
 end
 
-@testitem "Engine / RMS normalization retains ordered operands and every sample" tags=[:unit] begin
+@testitem "Engine / RMS normalization retains ordered operands and every sample" tags=[:unit, :engine] begin
     using LineCableModels.Engine: compare
     function parameters(values)
         tensor = reshape(ComplexF64.(values), 1, 1, :)
@@ -117,7 +117,7 @@ end
     @test_throws ArgumentError compare(a, b; normalization = :unknown)
 end
 
-@testitem "Engine / both RMS metrics require two significant operands at every selected sample" tags=[:unit] begin
+@testitem "Engine / both RMS metrics require two significant operands at every selected sample" tags=[:unit, :engine] begin
     using LineCableModels.Engine: compare
     tensor(values) = reshape(ComplexF64.(values), 1, 1, :)
     signal = tensor([2.0, -3.0, 4im])
@@ -178,7 +178,7 @@ end
     @test result.Y.values == tiny_y
 end
 
-@testitem "Engine / lossless conductance normalization preserves measured differences" tags=[:unit] begin
+@testitem "Engine / lossless conductance normalization preserves measured differences" tags=[:unit, :engine] begin
     using LineCableModels.Engine: compare
     frequencies = [50.0, 500.0]
     z = ones(ComplexF64, 2, 2, 2)

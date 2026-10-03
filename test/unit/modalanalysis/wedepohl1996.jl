@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / Newton eigenpair corrections and same-sample fallback" tags=[:unit] setup=[ModalTrackingExamples] begin
+@testitem "ModalAnalysis / Newton eigenpair corrections and same-sample fallback" tags=[:unit, :modal] setup=[ModalTrackingExamples] begin
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
     for R in (Float32, Float64)
@@ -72,7 +72,7 @@
     @test :wedepohl1996 in M.formulas()
 end
 
-@testitem "ModalAnalysis / shared paired rotation and sign continuity" tags=[:unit] begin
+@testitem "ModalAnalysis / shared paired rotation and sign continuity" tags=[:unit, :importexport] begin
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
     import LineCableModels.Engine as E
@@ -179,7 +179,7 @@ end
     end
 end
 
-@testitem "ModalAnalysis / Newton collection, convenience and uncertain consumers" tags=[:unit] setup=[
+@testitem "ModalAnalysis / Newton collection, convenience and uncertain consumers" tags=[:unit, :measurements] setup=[
     ModalTrackingExamples, TestFixtures] begin
     using Measurements, LinearAlgebra
     phase, _=ModalTrackingExamples.phase_scan()

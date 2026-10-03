@@ -1,4 +1,4 @@
-@testitem "Engine / internal shunt / independent Green and integrated-face controls" tags=[:unit] begin
+@testitem "Engine / internal shunt / independent Green and integrated-face controls" tags=[:unit, :engine] begin
     using LinearAlgebra
     E = LineCableModels.Engine
     # Independent Dirichlet-annulus separated solution, not the reflection form.

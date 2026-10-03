@@ -2,6 +2,8 @@ module ValidationTestRunner
 
 using TestItemRunner, TOML, Test
 
+include(joinpath(@__DIR__, "taxonomy.jl"))
+
 # Tags describe purpose or environment, never the observed outcome. Explicit
 # selectors can reach every item, including those excluded from ordinary runs.
 const ORDINARY_EXCLUDED_TAGS = Set((:quality, :aqua, :visual, :core_only,

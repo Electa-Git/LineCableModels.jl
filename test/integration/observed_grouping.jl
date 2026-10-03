@@ -1,4 +1,4 @@
-@testitem "ObservedResult / grouping requires physical identity and owned assumptions" tags=[:visual] begin
+@testitem "ObservedResult / grouping requires physical identity and owned assumptions" tags=[:visual, :makie, :slow] begin
     using CairoMakie,Measurements
     using LineCableModels.Engine: retain_gridpoint,compare
     using LineCableModels.Commons: gridpoint_id,observation_groups,observation_labels

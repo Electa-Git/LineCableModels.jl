@@ -1,4 +1,4 @@
-@testitem "PSCAD / real station repair acceptance" tags=[:pscad_native] begin
+@testitem "PSCAD / real station repair acceptance" tags=[:pscad_native, :integration, :makie] begin
     using TOML, SHA, CairoMakie, LinearAlgebra
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     const P = LineCableModels.PSCAD
@@ -135,7 +135,7 @@
         (first_timing.time,next_timing.time,reuse_timing.time))
 end
 
-@testitem "PSCAD / real station expected identity precedes compilation" tags=[:pscad_native] begin
+@testitem "PSCAD / real station expected identity precedes compilation" tags=[:pscad_native, :integration, :pscad] begin
     const P = LineCableModels.PSCAD
     remote = P.RemoteConfig(ENV["LINECABLEMODELS_PSCAD_CONFIG"])
     expected = P.identify(remote)

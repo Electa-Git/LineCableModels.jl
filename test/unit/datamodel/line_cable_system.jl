@@ -1,4 +1,4 @@
-@testitem "DataModel / LineCableSystem / completed immutable state" tags=[:unit] setup=[
+@testitem "DataModel / LineCableSystem / completed immutable state" tags=[:unit, :parametric] setup=[
     UseDataModelSupport,
     TestFixtures
 ] begin

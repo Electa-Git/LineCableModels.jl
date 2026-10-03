@@ -32,7 +32,7 @@
     end
 end
 
-@testitem "PSCAD / reader failures propagate and cancellation retains secondary diagnostics" tags=[:integration] default_imports=false setup=[PSCADReaderFailures] begin
+@testitem "PSCAD / reader failures propagate and cancellation retains secondary diagnostics" tags=[:integration, :pscad] default_imports=false setup=[PSCADReaderFailures] begin
     using Test, Logging
     const P=PSCADReaderFailures
     for stream in ("stdout", "stderr")

@@ -1,4 +1,4 @@
-@testitem "PSCAD / transport failure retains diagnostics and interruption cancels" tags=[:integration] begin
+@testitem "PSCAD / transport failure retains diagnostics and interruption cancels" tags=[:integration, :pscad] begin
     const P = LineCableModels.PSCAD
     using Logging
     function P.remote_command(::Val{:local_failure_probe}, config::P.RemoteConfig, command::AbstractString)
@@ -75,7 +75,7 @@
     end
 end
 
-@testitem "PSCAD / completion verbosity and compile-call timing scope" tags=[:integration] begin
+@testitem "PSCAD / completion verbosity and compile-call timing scope" tags=[:integration, :pscad] begin
     using Logging
     const P = LineCableModels.PSCAD
     function P.remote_command(::Val{:local_completion_probe}, config::P.RemoteConfig, command::AbstractString)
@@ -113,7 +113,7 @@ end
     end
 end
 
-@testitem "PSCAD / unsupported indexed equations fail without fallback" tags=[:integration] begin
+@testitem "PSCAD / unsupported indexed equations fail without fallback" tags=[:integration, :pscad] begin
     const P = LineCableModels.PSCAD
     selected = Formulation(:pscad).methods
     for (equation, selection) in ((P.earth_impedance, selected.earth_impedance.air),
@@ -140,7 +140,7 @@ end
     @test_throws ArgumentError Formulation(Val(:pscad), pipe, Val(:pipe))
 end
 
-@testitem "PSCAD / mixed native equations survive coaxial author withdrawal" tags=[:integration] begin
+@testitem "PSCAD / mixed native equations survive coaxial author withdrawal" tags=[:integration, :pscad, :slow] begin
     const E = LineCableModels.Engine
     const P = LineCableModels.PSCAD
     selected = E.EarthImpedance.Formula(:ametani2009)

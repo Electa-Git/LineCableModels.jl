@@ -1,4 +1,4 @@
-@testitem "ObservedResult / independent primary owner reuses tables and plotting" tags=[:integration] begin
+@testitem "ObservedResult / independent primary owner reuses tables and plotting" tags=[:integration, :makie] begin
     using CairoMakie, DataFrames
     using LineCableModels.Commons: observation_quantity
     const reads=Ref(0)

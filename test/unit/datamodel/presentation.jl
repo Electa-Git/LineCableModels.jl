@@ -1,4 +1,4 @@
-@testitem "DataModel / v1 presentation / model display and result table" tags=[:unit] setup=[
+@testitem "DataModel / v1 presentation / model display and result table" tags=[:unit, :report] setup=[
     UseDataModelSupport,
     TestFixtures
 ] begin

@@ -1,4 +1,4 @@
-@testitem "Engine / insulation formulations / analytical limits across precision" tags=[:unit] setup=[
+@testitem "Engine / insulation formulations / analytical limits across precision" tags=[:unit, :modal] setup=[
     UseEngineSupport,
     TestNumerics,
     FormulaFixtures
@@ -74,7 +74,7 @@
     @test_throws ArgumentError InsulationAdmittance.Formula(:lossy; parameters = (bad = true,))
 end
 
-@testitem "Engine / internal impedance / passivity and solid-conductor limits" tags=[:unit] setup=[
+@testitem "Engine / internal impedance / passivity and solid-conductor limits" tags=[:unit, :modal] setup=[
     UseEngineSupport,FormulaFixtures
 ] begin
     formulation=InternalImpedance.Formula(:default)

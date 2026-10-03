@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] setup=[FormulaFixtures] begin
+@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension, :fem, :slow] setup=[FormulaFixtures] begin
     using Gmsh
     using LineCableModels
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)

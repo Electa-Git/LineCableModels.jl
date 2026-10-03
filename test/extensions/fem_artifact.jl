@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / GetDP installs and executes from an empty artifact cache" tags=[:extension,:fem_numerical] begin
+@testitem "Gmsh FEM / GetDP installs and executes from an empty artifact cache" tags=[:extension,:fem_numerical,:fem,:slow] begin
     # Resolve the real package artifact in a child process whose artifact depot
     # starts empty. Existing Julia packages load before the depot is replaced.
     for mode in ("yes","no")

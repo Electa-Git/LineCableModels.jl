@@ -1,4 +1,4 @@
-@testitem "PlotBuilder / row overlays separate gridpoints and retain physical columns" tags=[:visual] begin
+@testitem "PlotBuilder / row overlays separate gridpoints and retain physical columns" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     import LineCableModels.Engine as E
     import LineCableModels.Commons as G
@@ -145,7 +145,7 @@
     foreach(page -> empty!(page.figure),kept)
 end
 
-@testitem "PlotBuilder / row overlays retain nonmodal quantities and uncertainty" tags=[:visual] begin
+@testitem "PlotBuilder / row overlays retain nonmodal quantities and uncertainty" tags=[:visual, :makie] begin
     using CairoMakie, Measurements
     f=[10.0,20.0,40.0]
     z=[complex(measurement(i+2j+k/10,.05i),measurement(j-i,.02))

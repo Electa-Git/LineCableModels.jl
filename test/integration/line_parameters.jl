@@ -1,4 +1,4 @@
-@testitem "Engine / solver / multicable reciprocity and modal transformation" tags=[:integration] setup=[
+@testitem "Engine / solver / multicable reciprocity and modal transformation" tags=[:integration, :parametric] setup=[
     UseEngineSupport,
     TestFixtures,
     TestNumerics
@@ -127,7 +127,7 @@
           complete_workspace.buffers.axial_field
 end
 
-@testitem "Engine / Gridpoint / selected line problem reaches scalar compute" tags=[:integration] setup=[
+@testitem "Engine / Gridpoint / selected line problem reaches scalar compute" tags=[:integration, :parametric] setup=[
     UseEngineSupport,
     TestFixtures
 ] begin
@@ -151,7 +151,7 @@ end
     @test size(result.Y) == (3, 3, 1)
 end
 
-@testitem "Engine / coaxial choreography / material evaluation precedes local and earth calculations" tags=[:integration] setup=[
+@testitem "Engine / coaxial choreography / material evaluation precedes local and earth calculations" tags=[:integration, :parametric] setup=[
     UseEngineSupport,
     TestFixtures, FormulaFixtures
 ] begin
@@ -204,7 +204,7 @@ end
     @test sweep.Y.values[:, :, 2] == result.Y.values[:, :, 1]
 end
 
-@testitem "Engine / transform / symmetric two-cable system retains two modes" tags=[:integration] setup=[
+@testitem "Engine / transform / symmetric two-cable system retains two modes" tags=[:integration, :parametric] setup=[
     UseEngineSupport,
     TestFixtures,
     TestNumerics
@@ -257,7 +257,7 @@ end
     @test size(@observe(modal, (C, diag)[:, :])) == (2, 2)
 end
 
-@testitem "Engine / formulation support / physical geometry precedes backend support" tags=[:integration] setup=[
+@testitem "Engine / formulation support / physical geometry precedes backend support" tags=[:integration, :parametric] setup=[
     UseEngineSupport
 ] begin
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
@@ -309,7 +309,7 @@ end
     )
 end
 
-@testitem "Engine / coaxial profile / explicit radial support boundary" tags=[:integration] setup=[
+@testitem "Engine / coaxial profile / explicit radial support boundary" tags=[:integration, :parametric] setup=[
     UseEngineSupport
 ] begin
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
@@ -422,7 +422,7 @@ end
         ))
 end
 
-@testitem "Engine / solver / bundle-only and singleton reduction policies" tags=[:integration] setup=[
+@testitem "Engine / solver / bundle-only and singleton reduction policies" tags=[:integration, :parametric] setup=[
     UseEngineSupport,
     TestFixtures
 ] begin
@@ -497,7 +497,7 @@ end
     @test imag(singleton_result.Y[1, 1, 1]) > 0
 end
 
-@testitem "Engine / ideal transposition / averaged Z and P of three-wire lines" tags=[:integration] begin
+@testitem "Engine / ideal transposition / averaged Z and P of three-wire lines" tags=[:integration, :parametric] begin
     using LinearAlgebra
     include(joinpath(pkgdir(LineCableModels), "test", "support", "scenarios.jl"))
     using .CurrentScenarios
@@ -525,7 +525,7 @@ end
     end
 end
 
-@testitem "Engine / indexed restrictions and formula-owned Γ reach public compute" tags=[:integration] setup=[
+@testitem "Engine / indexed restrictions and formula-owned Γ reach public compute" tags=[:integration, :parametric, :slow] setup=[
     UseEngineSupport, TestFixtures
 ] begin
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
@@ -551,7 +551,7 @@ end
     @test_throws ArgumentError compute(problem, Formulation(earth_impedance = :xue2018))
 end
 
-@testitem "Engine / frequency-dependent earth relation reaches coaxial solve" tags=[:integration] setup=[
+@testitem "Engine / frequency-dependent earth relation reaches coaxial solve" tags=[:integration, :parametric] setup=[
     UseEngineSupport,
     TestFixtures, FormulaFixtures
 ] begin

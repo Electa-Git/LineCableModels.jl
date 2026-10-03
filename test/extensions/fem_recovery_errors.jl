@@ -64,7 +64,7 @@
     end
 end
 
-@testitem "Gmsh FEM / recovery rejects invalid files and propagates unexpected failures" tags=[:extension] setup=[FEMRecoveryFaults] begin
+@testitem "Gmsh FEM / recovery rejects invalid files and propagates unexpected failures" tags=[:extension, :fem] setup=[FEMRecoveryFaults] begin
     using JSON3
     const F = FEMRecoveryFaults
     model = (problem=(system=(system_id="recovery-fixture",),),)
@@ -187,7 +187,7 @@ end
     end
 end
 
-@testitem "Gmsh FEM / PID lookup only recovers exited children and cleans up failures" tags=[:extension] setup=[FEMRecoveryFaults] begin
+@testitem "Gmsh FEM / PID lookup only recovers exited children and cleans up failures" tags=[:extension, :fem] setup=[FEMRecoveryFaults] begin
     const F = FEMRecoveryFaults
     mktempdir() do root
         run = F.E._create_run(root)

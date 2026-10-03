@@ -1,4 +1,4 @@
-@testitem "PSCAD / user-owned TOML and transport arguments" tags=[:integration] begin
+@testitem "PSCAD / user-owned TOML and transport arguments" tags=[:integration, :pscad] begin
     using TOML, Base64
     const P = LineCableModels.PSCAD
     mktempdir() do directory

@@ -1,4 +1,4 @@
-@testitem "Engine / internal shunt / explicit boundary workflow and reuse" tags=[:integration] begin
+@testitem "Engine / internal shunt / explicit boundary workflow and reuse" tags=[:integration, :parametric, :slow] begin
     using LinearAlgebra
     E = LineCableModels.Engine
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))

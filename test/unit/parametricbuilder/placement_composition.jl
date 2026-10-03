@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / placement composition preserves geometry and connections" tags=[:unit] begin
+@testitem "ParametricBuilder / placement composition preserves geometry and connections" tags=[:unit, :parametric] begin
     copper = Material(kind=:conductor, rho=1.72e-8)
     part = @terminal :phase begin
         core(copper; r=1e-3)
@@ -66,7 +66,7 @@
     end
 end
 
-@testitem "ParametricBuilder / placed formations build systems and scalar problems consistently" tags=[:unit] begin
+@testitem "ParametricBuilder / placed formations build systems and scalar problems consistently" tags=[:unit, :parametric] begin
     copper = Material(kind=:conductor, rho=1.72e-8)
     design = @cable "placed-problem" begin
         @terminal :core begin
@@ -120,7 +120,7 @@ end
     @test_throws ArgumentError build(LineCableSystem, ((design=design, pose=Pose2(0.0, -1.0)),))
 end
 
-@testitem "ParametricBuilder / placement dispatch keeps target types without evaluating sources" tags=[:unit] begin
+@testitem "ParametricBuilder / placement dispatch keeps target types without evaluating sources" tags=[:unit, :parametric] begin
     part = terminal(:core, core(Material(kind=:conductor, rho=1.72e-8); r=0.001))
     design = build(CableDesign, "lazy-placement", part)
     calls = Ref(0)

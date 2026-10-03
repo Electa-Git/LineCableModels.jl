@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / UI maps and cancellation preserve session ownership" tags=[:extension,:fem_numerical] begin
+@testitem "Gmsh FEM / UI maps and cancellation preserve session ownership" tags=[:extension,:fem_numerical,:fem] begin
     using Gmsh, JSON3
     if isempty(get(ENV,"DISPLAY","")) &&
             !(Sys.islinux() && get(ENV,"LINECABLEMODELS_FEM_UI_CASE","") == "unavailable_display")

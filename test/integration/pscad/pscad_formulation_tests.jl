@@ -1,4 +1,4 @@
-@testitem "PSCAD / shared grammar and constitutive export" tags=[:integration] begin
+@testitem "PSCAD / shared grammar and constitutive export" tags=[:integration, :pscad] begin
     using LineCableModels
     const P=LineCableModels.PSCAD
     copper=Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
@@ -96,7 +96,7 @@
     @test computation_details(typeof(Formulation(:pscad)), result) === details(result)
 end
 
-@testitem "PSCAD / supported formula list follows native setting dispatch" tags=[:integration] begin
+@testitem "PSCAD / supported formula list follows native setting dispatch" tags=[:integration, :pscad] begin
     const P=LineCableModels.PSCAD
     const EI=LineCableModels.Engine.EarthImpedance
     for owner in (EI, LineCableModels.Engine.EarthAdmittance)
@@ -122,7 +122,7 @@ end
 
 end
 
-@testitem "PSCAD / consumes complete homogeneous choices and preserves export settings" tags=[:integration] begin
+@testitem "PSCAD / consumes complete homogeneous choices and preserves export settings" tags=[:integration, :pscad] begin
     using EzXML
     const P = LineCableModels.PSCAD
     const E = LineCableModels.Engine

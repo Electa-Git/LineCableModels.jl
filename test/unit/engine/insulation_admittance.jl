@@ -1,4 +1,4 @@
-@testitem "Engine / dielectric admittance / analytical layer and lossless limit" tags=[:unit] setup=[
+@testitem "Engine / dielectric admittance / analytical layer and lossless limit" tags=[:unit, :parametric] setup=[
     UseEngineSupport, TestNumerics] begin
     formulation=InsulationAdmittance.Formula(:lossy)
     lossless=InsulationAdmittance.Formula(:default)
@@ -98,7 +98,7 @@
     )
 end
 
-@testitem "Engine / dielectric laws promote inputs and enforce composable output" tags=[:unit] setup=[FormulaFixtures] begin
+@testitem "Engine / dielectric laws promote inputs and enforce composable output" tags=[:unit, :measurements] setup=[FormulaFixtures] begin
     using Measurements: measurement, uncertainty
     const E=LineCableModels.Engine
     const M=FormulaFixtures
@@ -144,7 +144,7 @@ end
     end
 end
 
-@testitem "Engine / dielectric admittance / strict layers reach direct computation" tags=[:unit] setup=[
+@testitem "Engine / dielectric admittance / strict layers reach direct computation" tags=[:unit, :measurements] setup=[
     UseEngineSupport, TestNumerics] begin
     using LinearAlgebra
 
@@ -329,7 +329,7 @@ end
     @test total.Y.values ≈ problem.system.line_length .* parameters.Y.values
 end
 
-@testitem "Engine / lossy dielectric / Gridspace Monte Carlo samples before assembly" tags=[:unit] setup=[
+@testitem "Engine / lossy dielectric / Gridspace Monte Carlo samples before assembly" tags=[:unit, :measurements] setup=[
     UseEngineSupport, TestNumerics] begin
     using Statistics
     import LineCableModels.ParametricBuilder as PB

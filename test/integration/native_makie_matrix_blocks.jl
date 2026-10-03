@@ -1,4 +1,4 @@
-@testitem "Makie addons / matrix pages retain coordinates and residual axis dimensions" tags=[:visual] begin
+@testitem "Makie addons / matrix pages retain coordinates and residual axis dimensions" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using LineCableModels
 
@@ -90,7 +90,7 @@
     @test Z(parameters) == z
 end
 
-@testitem "Makie addons / stable sparse comparison markers and measured legend grid" tags=[:visual] begin
+@testitem "Makie addons / stable sparse comparison markers and measured legend grid" tags=[:visual, :makie] begin
     using CairoMakie
     using LineCableModels
 
@@ -187,7 +187,7 @@ end
     @test Z(reference) == z
 end
 
-@testitem "Makie addons / nominal capacity calibrates frames and compact residuals" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / nominal capacity calibrates frames and compact residuals" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     f=[1.,10.,100.]
     z=[complex(i+j+k,i-j+k) for i in 1:3,j in 1:3,k in 1:3]
@@ -246,7 +246,7 @@ end
     @test all(axis.scene.viewport[].widths[1]>60 for axis in strip.axes)
 end
 
-@testitem "Makie addons / selected matrix footprints preserve original coordinates" tags=[:visual] begin
+@testitem "Makie addons / selected matrix footprints preserve original coordinates" tags=[:visual, :makie] begin
     using CairoMakie
     using LineCableModels
     ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)

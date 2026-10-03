@@ -1,4 +1,4 @@
-@testitem "Engine / observations / native selectors and detached publication" tags=[:unit] setup=[
+@testitem "Engine / observations / native selectors and detached publication" tags=[:unit, :uq] setup=[
     UseEngineSupport
 ] begin
     using LinearAlgebra: diag
@@ -94,7 +94,7 @@
     @test_throws DomainError observe(shunt, C, [50.0, 0.0])
 end
 
-@testitem "Engine / observations / detached records and explicit tables" tags=[:unit] begin
+@testitem "Engine / observations / detached records and explicit tables" tags=[:unit, :report] begin
     using DataFrames, Tables
     using LineCableModels.ReportBuilder: tabulate
     const GR=LineCableModels.Commons

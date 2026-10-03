@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / wire patterns / stranded estimates" tags = [:unit] begin
+@testitem "ParametricBuilder / wire patterns / stranded estimates" tags = [:unit, :parametric] begin
     const Wires = LineCableModels.ParametricBuilder.WirePatterns
 
     for awg in (-3, 0, 12, 40)
@@ -45,7 +45,7 @@
     @test_throws ArgumentError estimate[:unknown]
 end
 
-@testitem "ParametricBuilder / wire patterns / screened estimates" tags = [:unit] begin
+@testitem "ParametricBuilder / wire patterns / screened estimates" tags = [:unit, :parametric] begin
     const Wires = LineCableModels.ParametricBuilder.WirePatterns
 
     target_area = 35.0

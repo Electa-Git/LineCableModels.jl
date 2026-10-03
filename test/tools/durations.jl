@@ -5,9 +5,9 @@
 # The runner prints `Starting [t s] NAME` as each item starts and the elapsed time
 # at the end. An item lasts until the next one starts, so its duration includes
 # compilation and the effects of the items run before it. The report lists the
-# items above 10 s without the `slow` tag and the `slow` items below 5 s.
-# Findings are reported, never applied. Run it on the full ordinary log and on the
-# environment logs at every track end.
+# items above 10 s without the `slow` tag, the `slow` items below 5 s and the
+# minutes per owner tag. Findings are reported, never applied. Run it on the full
+# ordinary log and on the environment logs at every track end.
 using TestItemRunner
 include(joinpath(@__DIR__, "..", "support", "runner.jl"))
 
@@ -65,6 +65,17 @@ function report(logs)
     tagged = [name for name in known if measured[name] < FAST && :slow in items[name].tags]
     println("\n`slow` below $(Int(FAST)) s (", length(tagged), "):")
     foreach(name -> println(row(name)), tagged)
+    println("\nMinutes per owner tag, `slow` items and the others:")
+    owner(name) = something(ValidationTestRunner.owner_tag(items[name].tags), :none)
+    for tag in (ValidationTestRunner.OWNERS..., :none)
+        names = [name for name in known if owner(name) === tag]
+        isempty(names) && continue
+        slow = [name for name in names if :slow in items[name].tags]
+        println(rpad(tag, 14), lpad(length(names), 4), " items  ", lpad(length(slow), 3),
+            " slow  ", lpad(minutes(sum((measured[name] for name in slow); init = 0.0)), 5),
+            " min  ", lpad(minutes(sum((measured[name] for name in setdiff(names, slow));
+                init = 0.0)), 5), " min")
+    end
     return 0
 end
 

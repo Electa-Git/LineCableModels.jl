@@ -1,4 +1,4 @@
-@testitem "Engine / explicit lossless defaults and lossy radial admittance" tags=[:unit] begin
+@testitem "Engine / explicit lossless defaults and lossy radial admittance" tags=[:unit, :parametric] begin
     using Test
     using LineCableModels
     const E = LineCableModels.Engine

@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / data-only GetDP input transport" tags=[:extension] begin
+@testitem "Gmsh FEM / data-only GetDP input transport" tags=[:extension, :fem] begin
     using LineCableModels, Gmsh
 
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)

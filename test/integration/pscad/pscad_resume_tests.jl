@@ -1,4 +1,4 @@
-@testitem "PSCAD / verified completed-run reuse" tags=[:integration] begin
+@testitem "PSCAD / verified completed-run reuse" tags=[:integration, :pscad, :slow] begin
     using LineCableModels
     using TOML, SHA, Logging
     const P=LineCableModels.PSCAD

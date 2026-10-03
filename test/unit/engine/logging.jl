@@ -1,4 +1,4 @@
-@testitem "Logging / verbosity respects module ancestry and caller logging controls" tags=[:unit] begin
+@testitem "Logging / verbosity respects module ancestry and caller logging controls" tags=[:unit, :engine] begin
     using Logging
     const LCM = LineCableModels
     @test LCM.verbosity((default = 0, progress = 1, Engine = 2)) ==
@@ -49,7 +49,7 @@
     end
 end
 
-@testitem "Logging / FEM file destination does not bypass the parent threshold" tags=[:extension] begin
+@testitem "Logging / FEM file destination does not bypass the parent threshold" tags=[:extension, :fem] begin
     using Gmsh, Logging
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     parent = Test.TestLogger(min_level = Logging.Warn, respect_maxlog = false)

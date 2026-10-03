@@ -1,4 +1,4 @@
-@testitem "DataModel / implicit power-cell and strand derivatives" tags=[:unit, :extension] begin
+@testitem "DataModel / implicit power-cell and strand derivatives" tags=[:unit, :extension, :measurements] begin
     using Measurements
     const DM = LineCableModels.DataModel
     derivative(v, z) = v isa Measurement ? Measurements.derivative(v, z) : 0.0
@@ -78,7 +78,7 @@
     @test DM.course_count(18+1e-5,1.) == 2
 end
 
-@testitem "DataModel / bounded construction retains scale pose and fillet derivatives" tags=[:unit, :extension] begin
+@testitem "DataModel / bounded construction retains scale pose and fillet derivatives" tags=[:unit, :extension, :measurements] begin
     using Measurements
     const DM = LineCableModels.DataModel
     derivative(v,z) = v isa Measurement ? Measurements.derivative(v,z) : 0.0

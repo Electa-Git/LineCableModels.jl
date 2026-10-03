@@ -1,4 +1,4 @@
-@testitem "Comparison / indexed observations retain numerical-zero unavailability" tags=[:unit] begin
+@testitem "Comparison / indexed observations retain numerical-zero unavailability" tags=[:unit, :engine] begin
     using LineCableModels.Engine: absolute_error, relative_error
     a = reshape(ComplexF64[1, 2, 3, 4], 2, 2, 1)
     z = zeros(ComplexF64, 2, 2, 1)

@@ -1,4 +1,4 @@
-@testitem "Test support / PNG decoding and asymmetric pixel controls" tags=[:visual] begin
+@testitem "Test support / PNG decoding and asymmetric pixel controls" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     include(joinpath(pkgdir(LineCableModels),"test/support/golden_fixtures.jl"))
     using .GoldenFixtures

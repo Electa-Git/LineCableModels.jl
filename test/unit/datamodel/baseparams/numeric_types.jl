@@ -1,4 +1,4 @@
-@testitem "BaseParams / numeric matrix / precision and exactness" tags=[:unit] setup=[
+@testitem "BaseParams / numeric matrix / precision and exactness" tags=[:unit, :datamodel] setup=[
     UseBaseParamsSupport,
     TestNumerics
 ] begin
@@ -40,7 +40,7 @@
     @test normalized isa BigFloat
 end
 
-@testitem "BaseParams / numeric matrix / cross-precision convergence" tags=[:unit] setup=[
+@testitem "BaseParams / numeric matrix / cross-precision convergence" tags=[:unit, :datamodel] setup=[
     UseBaseParamsSupport
 ] begin
     # Independent electrostatic Dirichlet solution v=log(b/r)/log(b/a):

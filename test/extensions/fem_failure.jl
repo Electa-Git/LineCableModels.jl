@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / public solver failure retains log and run evidence" tags=[:extension] begin
+@testitem "Gmsh FEM / public solver failure retains log and run evidence" tags=[:extension, :fem, :slow] begin
     using Gmsh
     using JSON3
 

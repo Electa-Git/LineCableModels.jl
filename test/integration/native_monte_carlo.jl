@@ -1,4 +1,4 @@
-@testitem "Makie addons / native Monte Carlo verbs" tags=[:visual] setup=[
+@testitem "Makie addons / native Monte Carlo verbs" tags=[:visual, :makie] setup=[
     UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
@@ -40,7 +40,7 @@
     )
 end
 
-@testitem "Makie addons / histogram bin requests reach the retained marginal" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / histogram bin requests reach the retained marginal" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie, Measurements
     result = TestFixtures.cable_monte_carlo_result()
     retained = observe(result, histograms, R, 1, 1)

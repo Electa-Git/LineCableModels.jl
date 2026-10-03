@@ -1,4 +1,4 @@
-@testitem "Makie addons / responsive native legend and visible-series limits" tags=[:visual] setup=[
+@testitem "Makie addons / responsive native legend and visible-series limits" tags=[:visual, :makie] setup=[
     UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
@@ -98,7 +98,7 @@
     @test all(p -> only(p.axes).xlabelvisible[], tall)
 end
 
-@testitem "Makie addons / numeric legend limits preserve data and native resizing" tags=[:visual] begin
+@testitem "Makie addons / numeric legend limits preserve data and native resizing" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     f=[1.0, 10.0, 100.0]
     z=ComplexF64[complex(i+j+k, 1) for i in 1:6, j in 1:6, k in eachindex(f)]
@@ -166,7 +166,7 @@ end
     empty!(panel.figure)
 end
 
-@testitem "Makie addons / legend fitting ignores unchanged bounds and retains native edits" tags=[:visual] begin
+@testitem "Makie addons / legend fitting ignores unchanged bounds and retains native edits" tags=[:visual, :makie] begin
     using CairoMakie
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     f=[1.0, 10.0, 100.0]
@@ -211,7 +211,7 @@ end
     empty!(p.figure)
 end
 
-@testitem "Makie addons / compact preview and material scheme geometry" tags=[:visual] setup=[
+@testitem "Makie addons / compact preview and material scheme geometry" tags=[:visual, :makie] setup=[
     UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
@@ -340,7 +340,7 @@ end
     @test length(unique(vertical_positions)) == 3
 end
 
-@testitem "Makie / local native edits and flow identities preserve frames" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie / local native edits and flow identities preserve frames" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     options=(backend = :cairo, display_plot = false, open_export = false)
     raw=TestFixtures.two_conductor_results()
@@ -390,7 +390,7 @@ end
     @test [Makie.GridLayoutBase.gridcontent(axis).parent for axis in canvas.axes]==parent
 end
 
-@testitem "Makie addons / fitting preserves physical frames and native resize allocations" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / fitting preserves physical frames and native resize allocations" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     design=TestFixtures.coaxial_design()
@@ -440,7 +440,7 @@ end
     for (axis, frame) in zip(p.axes, resized))
 end
 
-@testitem "Makie addons / native axis sizing constraints survive content fitting" tags=[:visual] begin
+@testitem "Makie addons / native axis sizing constraints survive content fitting" tags=[:visual, :makie] begin
     using CairoMakie
     using LineCableModels
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)

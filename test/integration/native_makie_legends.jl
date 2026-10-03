@@ -1,4 +1,4 @@
-@testitem "Makie addons / construction-time panel legends preserve source ownership" tags=[:visual] begin
+@testitem "Makie addons / construction-time panel legends preserve source ownership" tags=[:visual, :makie] begin
     using CairoMakie
 
     frequency = [1.0, 10.0, 100.0]
@@ -107,7 +107,7 @@
         panel_legends = (2, 1) => :right)
 end
 
-@testitem "Makie addons / independent scale arrangement and sibling spacing" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / independent scale arrangement and sibling spacing" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
     options=(backend = :cairo, display_plot = false, controls = false, size = (1200, 850),
@@ -143,7 +143,7 @@ end
     end
 end
 
-@testitem "Makie addons / guide restoration retains native edits and common placement" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / guide restoration retains native edits and common placement" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
     p=preview(design; backend = :cairo, display_plot = false, controls = false,
@@ -204,7 +204,7 @@ end
     @test only(q.axes).title[]===label
 end
 
-@testitem "Makie addons / guide creation order shares complete scale geometry" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / guide creation order shares complete scale geometry" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
     options=(backend = :cairo, display_plot = false, controls = false, size = (1000, 650),
@@ -242,7 +242,7 @@ end
     @test isapprox(bounds.origin[2], frame.origin[2]+0.25*(frame.widths[2]-bounds.widths[2]); atol = 2)
 end
 
-@testitem "Makie addons / guide arrangement packing and option validation" tags=[:visual] begin
+@testitem "Makie addons / guide arrangement packing and option validation" tags=[:visual, :makie] begin
     using CairoMakie
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     for (extents, gap, span, fractions) in (([20.0, 30.0], 12.0, 62.0, [0.5, 0.5]),
@@ -275,7 +275,7 @@ end
     end
 end
 
-@testitem "Makie addons / guide arrangement reflows retained complete items" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / guide arrangement reflows retained complete items" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     design=TestFixtures.coaxial_design()
@@ -405,7 +405,7 @@ end
     @test !isempty(Makie.colorbuffer(p.figure))
 end
 
-@testitem "Makie addons / guide arrangement measures visible scales and independent gaps" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / guide arrangement measures visible scales and independent gaps" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
     options=(backend = :cairo, display_plot = false, controls = false, size = (1500, 1100),
@@ -498,7 +498,7 @@ end
     end
 end
 
-@testitem "Makie addons / scale bars share edges and baselines independently of labels" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / scale bars share edges and baselines independently of labels" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
     options=(backend = :cairo, display_plot = false, controls = false,
@@ -562,7 +562,7 @@ end
     @test length(guide.subscriptions)==listeners
 end
 
-@testitem "Makie addons / guide arrangement membership native edits and export" tags=[:visual] setup=[TestFixtures] begin
+@testitem "Makie addons / guide arrangement membership native edits and export" tags=[:visual, :makie, :slow] setup=[TestFixtures] begin
     using CairoMakie
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     design=TestFixtures.coaxial_design()

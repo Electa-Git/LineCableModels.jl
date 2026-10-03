@@ -1,4 +1,4 @@
-@testitem "Engine / spectral quadrature preserves correlated physical uncertainty" tags=[:unit] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / spectral quadrature preserves correlated physical uncertainty" tags=[:unit, :measurements] setup=[UnifiedFormulaFixtures] begin
     using Measurements
     const E=LineCableModels.Engine
     a=measurement(2.0, 0.02)

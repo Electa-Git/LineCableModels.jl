@@ -24,7 +24,7 @@
     end
 end
 
-@testitem "DataModel / exterior clearance / touching, overlap and reconstruction" tags=[:unit] setup=[ClearanceFixtures] begin
+@testitem "DataModel / exterior clearance / touching, overlap and reconstruction" tags=[:unit, :importexport] setup=[ClearanceFixtures] begin
     using LineCableModels
     import LineCableModels.ImportExport as IE
     fixture=ClearanceFixtures
@@ -77,7 +77,7 @@ end
     @test only(fixture.gaps(small_precision)) >= 1e-6
 end
 
-@testitem "DataModel / exterior clearance / propagated radii and correlated at coordinates" tags=[:extension] setup=[ClearanceFixtures] begin
+@testitem "DataModel / exterior clearance / propagated radii and correlated at coordinates" tags=[:extension, :measurements] setup=[ClearanceFixtures] begin
     using LineCableModels
     using Measurements: measurement, derivative
     fixture=ClearanceFixtures
@@ -130,7 +130,7 @@ end
     @test nominal(compensated_system.clearances[1, 2]) ≈ 1e-6 + uncertainty(radius)
 end
 
-@testitem "UQ / exterior clearance / retained budgets, extreme draws and bounded warnings" tags=[:integration] setup=[ClearanceFixtures] begin
+@testitem "UQ / exterior clearance / retained budgets, extreme draws and bounded warnings" tags=[:integration, :measurements] setup=[ClearanceFixtures] begin
     using LineCableModels
     using Measurements
     using Random

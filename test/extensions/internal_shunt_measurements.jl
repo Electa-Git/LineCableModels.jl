@@ -1,4 +1,4 @@
-@testitem "Measurements / internal shunt / correlated implicit sensitivities" tags=[:extension] begin
+@testitem "Measurements / internal shunt / correlated implicit sensitivities" tags=[:extension, :measurements, :slow] begin
     using Measurements, LinearAlgebra, Random, Statistics
     E = LineCableModels.Engine
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
@@ -70,7 +70,9 @@
 end
 
 @testitem "Measurements / internal shunt / public parametric studies" tags=[
-    :extension, :integration] begin
+    :extension, :integration,
+    :measurements,
+    :slow] begin
     using Measurements, Statistics
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
     space = Gridspace{CableConstantsProblem}(

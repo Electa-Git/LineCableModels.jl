@@ -1,4 +1,4 @@
-@testitem "UQ / histogram observations / explicit binning and retention" tags=[:unit] setup=[TestFixtures] begin
+@testitem "UQ / histogram observations / explicit binning and retention" tags=[:unit, :measurements] setup=[TestFixtures] begin
     using Measurements
     cable = TestFixtures.cable_monte_carlo_result()
     frequency = [50.0, 1000.0]

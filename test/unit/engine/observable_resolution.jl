@@ -1,4 +1,4 @@
-@testitem "Engine / physical cutoffs shared by observations and comparisons" tags=[:unit] begin
+@testitem "Engine / physical cutoffs shared by observations and comparisons" tags=[:unit, :engine, :slow] begin
     using LinearAlgebra: diag
     using LineCableModels.Engine: compare
     const GR=LineCableModels.Commons
@@ -37,7 +37,7 @@
     @test (z,y,f)==saved
 end
 
-@testitem "Engine / cutoff boundaries and unassessed components" tags=[:unit] begin
+@testitem "Engine / cutoff boundaries and unassessed components" tags=[:unit, :engine, :slow] begin
     using LineCableModels.Engine: compare
     const GR=LineCableModels.Commons
     for T in (Float32,Float64,BigFloat)
@@ -99,7 +99,7 @@ end
     @test all(iszero,observe(ObservedResult(single;atol=(G=1e100,)),G))
 end
 
-@testitem "UQ / clipping zeros uncertainty only for unresolved values" tags=[:extension] begin
+@testitem "UQ / clipping zeros uncertainty only for unresolved values" tags=[:extension, :measurements, :slow] begin
     using Measurements
     using LineCableModels.Commons: detach,observation_resolution
     summary=LineCableModels.UQ.SampleSummary([1e-18,2e-18,3e-18])

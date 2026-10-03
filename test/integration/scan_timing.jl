@@ -1,4 +1,4 @@
-@testitem "Scan timing / stage ownership, progress, composition and persistence" tags=[:integration] setup=[TestFixtures] begin
+@testitem "Scan timing / stage ownership, progress, composition and persistence" tags=[:integration, :measurements, :slow] setup=[TestFixtures] begin
     using Logging, Measurements, JSON3, Serialization
     const E=LineCableModels.Engine
     const IE=LineCableModels.ImportExport
@@ -196,7 +196,7 @@
     @test_throws ArgumentError compute(ParametricProblem(space, ComputationOptions(timing = 1)), mc)
 end
 
-@testitem "Scan timing / benchmark repeats completed projections" tags=[:integration] setup=[TestFixtures] begin
+@testitem "Scan timing / benchmark repeats completed projections" tags=[:integration, :measurements] setup=[TestFixtures] begin
     using Measurements
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
     formulation=Formulation()

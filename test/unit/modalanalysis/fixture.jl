@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / armored study fixture declares nine independent terminals" tags=[:unit] setup=[ModalStudyFixtures] begin
+@testitem "ModalAnalysis / armored study fixture declares nine independent terminals" tags=[:unit, :parametric] setup=[ModalStudyFixtures] begin
     using LineCableModels
     for layout in (:trefoil,:horizontal)
         fixture=ModalStudyFixtures.study_problem(layout;frequencies=[50.0])

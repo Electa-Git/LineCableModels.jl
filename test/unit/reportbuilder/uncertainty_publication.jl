@@ -1,4 +1,4 @@
-@testitem "UQ / publication / selected matrix coordinates retain axes and units" tags=[:unit] begin
+@testitem "UQ / publication / selected matrix coordinates retain axes and units" tags=[:unit, :measurements, :slow] begin
     using DataFrames
     using Statistics
     using Measurements

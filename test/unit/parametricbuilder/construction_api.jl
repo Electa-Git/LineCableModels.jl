@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / construction API / lowering and terminal ownership" tags=[:unit] begin
+@testitem "ParametricBuilder / construction API / lowering and terminal ownership" tags=[:unit, :parametric] begin
     using LineCableModels
     import LineCableModels.DataModel as DM
 
@@ -114,7 +114,7 @@
     @test separate_screen.terminal_order == [:phase, :screen]
 end
 
-@testitem "ParametricBuilder / construction API / public surface and macro lowering" tags=[:unit] begin
+@testitem "ParametricBuilder / construction API / public surface and macro lowering" tags=[:unit, :parametric] begin
     using LineCableModels
     import LineCableModels.DataModel as DM
     import LineCableModels.ParametricBuilder as PB
@@ -268,7 +268,7 @@ end
     @test evaluations[:line_length] == 1
 end
 
-@testitem "ParametricBuilder / construction API / earth grammar" tags=[:unit] begin
+@testitem "ParametricBuilder / construction API / earth grammar" tags=[:unit, :parametric] begin
     using LineCableModels
 
     earth = @earth begin
@@ -311,7 +311,7 @@ end
     )
 end
 
-@testitem "ParametricBuilder / construction API / macro arguments evaluate once" tags=[:unit] begin
+@testitem "ParametricBuilder / construction API / macro arguments evaluate once" tags=[:unit, :parametric] begin
     using LineCableModels
 
     copper = Material(kind = :conductor, rho = 1.72e-8)
@@ -358,7 +358,7 @@ end
     @test all(==(1), values(counts))
 end
 
-@testitem "ParametricBuilder / construction API / enclosures and macro transparency" tags=[:unit] begin
+@testitem "ParametricBuilder / construction API / enclosures and macro transparency" tags=[:unit, :parametric] begin
     using LineCableModels
     import LineCableModels.DataModel as DM
 
@@ -497,7 +497,7 @@ This literal is documentation, not a cable part.
     @test length(expanded.args) == 4
 end
 
-@testitem "ParametricBuilder / construction API / repetition and compaction" tags=[:unit] begin
+@testitem "ParametricBuilder / construction API / repetition and compaction" tags=[:unit, :measurements, :slow] begin
     using LineCableModels
     using Measurements: Measurement, uncertainty
     import LineCableModels.DataModel as DM
@@ -1027,7 +1027,7 @@ end
     )
 end
 
-@testitem "ParametricBuilder / construction API / placement, macros, and Gridspace" tags=[:unit] begin
+@testitem "ParametricBuilder / construction API / placement, macros, and Gridspace" tags=[:unit, :parametric] begin
     using LineCableModels
     import LineCableModels.DataModel as DM
 

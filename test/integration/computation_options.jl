@@ -1,4 +1,4 @@
-@testitem "Execution options / inner owner validation through traversal" tags=[:integration] setup=[TestFixtures] begin
+@testitem "Execution options / inner owner validation through traversal" tags=[:integration, :measurements] setup=[TestFixtures] begin
     using Measurements
     inner = CableConstantsFormulation()
     @test isempty(computation_options(CableConstantsFormulation, ComputationOptions()).data)
@@ -19,7 +19,7 @@
     end
 end
 
-@testitem "Execution options / callbacks and output basis survive all traversal paths" tags=[:integration] setup=[TestFixtures] begin
+@testitem "Execution options / callbacks and output basis survive all traversal paths" tags=[:integration, :measurements] setup=[TestFixtures] begin
     using Measurements
     problem = TestFixtures.line_parameters_problem()
     inner = Formulation()
@@ -54,7 +54,7 @@ end
     end
 end
 
-@testitem "Execution options / completed tensors and callback precede success notification" tags=[:integration] setup=[TestFixtures] begin
+@testitem "Execution options / completed tensors and callback precede success notification" tags=[:integration, :parametric] setup=[TestFixtures] begin
     using Logging
     E = LineCableModels.Engine
     problem = TestFixtures.three_bare_wires_problem(frequencies=[1e7], line_length=floatmax(Float64))
@@ -110,7 +110,7 @@ end
     end
 end
 
-@testitem "UQ / tuple and shorthand controls produce identical seeded calculations" tags=[:integration] setup=[TestFixtures] begin
+@testitem "UQ / tuple and shorthand controls produce identical seeded calculations" tags=[:integration, :distributions] setup=[TestFixtures] begin
     using Measurements
     using Distributions
     using Random

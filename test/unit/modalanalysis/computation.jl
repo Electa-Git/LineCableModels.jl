@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / retained directions, finite responses, transport, and diagnostics" tags=[:unit] begin
+@testitem "ModalAnalysis / retained directions, finite responses, transport, and diagnostics" tags=[:unit, :importexport, :slow] begin
     using Test
     using LinearAlgebra
     using Serialization

@@ -1,4 +1,4 @@
-@testitem "DataModel / v1 physical tree / Region and Stack" tags=[:unit] begin
+@testitem "DataModel / v1 physical tree / Region and Stack" tags=[:unit, :parametric] begin
     const DM=LineCableModels.DataModel
     const PB=LineCableModels.ParametricBuilder
     copper_props=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)
@@ -39,7 +39,7 @@
     @test DM.r_ex(DM.boundary(DM.resolve(DM.EmptyBoundary(), first(spaces)))) == 0.015
 end
 
-@testitem "DataModel / v1 physical tree / primitive extension is local dispatch" tags=[:unit] begin
+@testitem "DataModel / v1 physical tree / primitive extension is local dispatch" tags=[:unit, :parametric] begin
     import LineCableModels.DataModel as DM
 
     struct CapsuleDefinition{T <: Real} <: DM.AbstractPrimitive{T}
@@ -77,7 +77,7 @@ end
     @test design.terminal_order == [:core]
 end
 
-@testitem "DataModel / v1 physical tree / natural and compacted circular strands" tags=[:unit] begin
+@testitem "DataModel / v1 physical tree / natural and compacted circular strands" tags=[:unit, :parametric] begin
     copper=Material(kind = :conductor, rho = 1.7241e-8)
     disk=Disk(0.5e-3)
     natural_boundary=Disk(5disk.r)
@@ -172,7 +172,7 @@ end
     ) isa Group
 end
 
-@testitem "DataModel / v1 physical tree / Enclosure and class conveniences" tags=[:unit] begin
+@testitem "DataModel / v1 physical tree / Enclosure and class conveniences" tags=[:unit, :parametric] begin
     const DM=LineCableModels.DataModel
     copper=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)
     oil=LineCableModels.Material(kind = :insulator, rho = 1.0e12, eps_r = 2.2)
@@ -234,7 +234,7 @@ end
     @test DM.support(DM.boundary(DM.resolve(DM.EmptyBoundary(), nested))) == 5.0
 end
 
-@testitem "DataModel / v1 physical tree / Enclosure material occupancy" tags=[:unit] begin
+@testitem "DataModel / v1 physical tree / Enclosure material occupancy" tags=[:unit, :importexport] begin
     const DM=LineCableModels.DataModel
     copper=Material(kind = :conductor, rho = 1.7241e-8)
     matrix=Material(kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 1.0)
@@ -410,7 +410,7 @@ end
     @test wound.conductor.resistance > reduced.conductor.resistance
 end
 
-@testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit] begin
+@testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit, :parametric] begin
     const DM=LineCableModels.DataModel
     copper=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)
     wire=LineCableModels.Region(:wire, LineCableModels.Disk(0.5), copper)
@@ -483,7 +483,7 @@ end
     )
 end
 
-@testitem "DataModel / construction / concrete boundaries" tags=[:unit] begin
+@testitem "DataModel / construction / concrete boundaries" tags=[:unit, :parametric] begin
     using LineCableModels
 
     conductor=Material(kind = :conductor, rho = 1.7241e-8)

@@ -1,4 +1,4 @@
-@testitem "DataModel / explicit placement geometry and area constraints" tags=[:unit] begin
+@testitem "DataModel / explicit placement geometry and area constraints" tags=[:unit, :datamodel] begin
     # A placement is a geometry operation: the caller retains its primitives.
     ellipse = Ellipse(0.2e-3, 0.1e-3)
     ring = Ring(5; r=2e-3, φ0=0.27, span=pi)
@@ -62,7 +62,7 @@
     @test capacity(Ring(capacity(); r=0), strip, FillFactor(0.8)) == 0
 end
 
-@testitem "DataModel / contextual capacity respects resolved member extents" tags=[:unit] begin
+@testitem "DataModel / contextual capacity respects resolved member extents" tags=[:unit, :parametric] begin
     sector = Sector(span=2pi / 3, r_base=0.6e-3, r_back=5e-3, fillet=0.2e-3)
     @test capacity(Ring(capacity(); r=0), sector, nothing) == 3
     origins = placements(Ring(3; r=0), sector, nothing)
@@ -95,7 +95,7 @@ end
         placements(pattern, Disk(support(boundary(geometry))), nothing)
 end
 
-@testitem "DataModel / contextual ring dispatch preserves inferred geometry" tags=[:unit] begin
+@testitem "DataModel / contextual ring dispatch preserves inferred geometry" tags=[:unit, :datamodel] begin
     const DM = LineCableModels.DataModel
     copper = Material(kind=:conductor, rho=1.72e-8)
     for T in (Float32, Float64, BigFloat)
@@ -116,7 +116,7 @@ end
     end
 end
 
-@testitem "DataModel / polar placement preserves explicit radial and angular intent" tags=[:unit] begin
+@testitem "DataModel / polar placement preserves explicit radial and angular intent" tags=[:unit, :datamodel] begin
     wire = Disk(0.1e-3)
     for origin in (0.0, 0.5e-3), span in (pi, 2pi)
         pattern = Polar(; nr=3, nφ=6, r0=origin, dr=1e-3, φ0=0.27, span)
@@ -139,7 +139,7 @@ end
     end
 end
 
-@testitem "DataModel / minimum radius distinguishes centered holes from displaced boundaries" tags=[:unit] begin
+@testitem "DataModel / minimum radius distinguishes centered holes from displaced boundaries" tags=[:unit, :datamodel] begin
     const DM = LineCableModels.DataModel
     for shape in (Annulus(1.0, 2.0), DM.BentStrip(1.0, 2.0, 0.5))
         @test (@inferred DM._minimum_radius(shape)) == 1.0

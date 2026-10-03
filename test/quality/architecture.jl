@@ -11,10 +11,10 @@
     import Measurements, Distributions, Gmsh, Calculus, XLSX, CairoMakie
 
     # A module may reference only earlier modules, its ancestors and its
-    # descendants. The root module and package extensions are exempt.
-    const ORDER = (:Units, :Commons, :TextDisplay, :InputValidation, :PlotBuilder,
-        :Materials, :Earth, :DataModel, :Engine, :ModalAnalysis, :ParametricBuilder,
-        :UQ, :ReportBuilder, :ImportExport, :PSCAD)
+    # descendants. The root module and package extensions are exempt. The load
+    # order is defined once, in the test taxonomy.
+    Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "taxonomy.jl"))
+    const ORDER = keys(MODULE_OWNERS)
     const EXTENSIONS = (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
         :LineCableModelsGmshExt, :LineCableModelsXLSXExt, :LineCableModelsMakieExt,
         :LineCableModelsCairoMakieExt)

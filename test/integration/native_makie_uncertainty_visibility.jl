@@ -1,4 +1,4 @@
-@testitem "Makie addons / coincident uncertainty intervals retain nested native glyphs" tags=[:visual] begin
+@testitem "Makie addons / coincident uncertainty intervals retain nested native glyphs" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Measurements
 
     f = measurement.([1.0, 10.0, 100.0], [0.1, 0.2, 0.3])
@@ -72,7 +72,7 @@
     @test isequal(before, (Z(source), Y(source), frequencies(source)))
 end
 
-@testitem "Makie addons / staggered comparisons retain complete uncertainty bounds" tags=[:visual] begin
+@testitem "Makie addons / staggered comparisons retain complete uncertainty bounds" tags=[:visual, :makie] begin
     using CairoMakie, Measurements
 
     f = collect(1.0:101.0)
@@ -167,7 +167,7 @@ end
         Z(reference), Y(reference), frequencies(reference), Z(compared_result)))
 end
 
-@testitem "Makie addons / uncertainty legend actions preserve complete series" tags=[:visual] begin
+@testitem "Makie addons / uncertainty legend actions preserve complete series" tags=[:visual, :makie] begin
     using CairoMakie, Measurements
 
     f = [1.0, 10.0, 100.0]
@@ -205,7 +205,7 @@ end
     @test all(entry -> ==(Makie.get_n_visible(entry)...), entries)
 end
 
-@testitem "Makie addons / uncertainty coordinates and visibility survive every axis mode" tags=[:visual] begin
+@testitem "Makie addons / uncertainty coordinates and visibility survive every axis mode" tags=[:visual, :makie] begin
     using CairoMakie, Measurements
 
     f = [1.0, 10.0, 100.0]
@@ -287,7 +287,7 @@ end
     end
 end
 
-@testitem "Makie addons / uncertainty legends survive recreation and publication" tags=[:visual] begin
+@testitem "Makie addons / uncertainty legends survive recreation and publication" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Measurements
 
     f = [1.0, 10.0, 100.0]
@@ -361,7 +361,7 @@ end
     end
 end
 
-@testitem "Makie addons / uncertainty legend shading follows owners after relayout" tags=[:visual] begin
+@testitem "Makie addons / uncertainty legend shading follows owners after relayout" tags=[:visual, :makie] begin
     using CairoMakie, Measurements
 
     f = [1.0, 10.0, 100.0]
@@ -404,7 +404,7 @@ end
     @test axis.targetlimits[] == view
 end
 
-@testitem "Makie addons / overflowing uncertainty entries retain their owners" tags=[:visual] begin
+@testitem "Makie addons / overflowing uncertainty entries retain their owners" tags=[:visual, :makie] begin
     using CairoMakie, Measurements
     f = [1.0, 10.0, 100.0]
     sources = Tuple(LineParameters(fill(measurement(Float64(i), 0.1)+im, 1, 1, 3),
@@ -435,7 +435,7 @@ end
     for p in axis.scene.plots if p isa Union{Makie.Lines, Makie.Errorbars})
 end
 
-@testitem "Makie / native data edits invalidate display support without source acquisition" tags=[:visual] begin
+@testitem "Makie / native data edits invalidate display support without source acquisition" tags=[:visual, :makie] begin
     using CairoMakie, Measurements
     frequency=collect(1.0:20.0)
     values=measurement.(fill(2.0, 20), [fill(0.1, 19); 20.0])

@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / rectangular boundaries and filled ring ownership" tags=[:extension] begin
+@testitem "Gmsh FEM / rectangular boundaries and filled ring ownership" tags=[:extension, :fem] begin
     using Gmsh
     const FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel
@@ -61,7 +61,7 @@
     end
 end
 
-@testitem "Gmsh FEM / rectangular core capacitance uses occupied radius" tags=[:extension,:integration,:fem_numerical] begin
+@testitem "Gmsh FEM / rectangular core capacitance uses occupied radius" tags=[:extension,:integration,:fem_numerical,:fem] begin
     using Gmsh
     copper = Material(kind=:conductor,rho=1.72e-8)
     dielectric = Material(kind=:insulator,rho=Inf,eps_r=2.3)

@@ -1,4 +1,4 @@
-@testitem "Core / InputValidation / owned inputs validate without mutation" tags=[:unit] setup=[TestFixtures] begin
+@testitem "Core / InputValidation / owned inputs validate without mutation" tags=[:unit, :parametric] setup=[TestFixtures] begin
     using RequiredInterfaces, Serialization
     const IV=LineCableModels.InputValidation
     const E=LineCableModels.Engine

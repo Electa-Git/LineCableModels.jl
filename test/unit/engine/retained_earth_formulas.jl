@@ -1,7 +1,7 @@
 # Scientific real-axis controls survive withdrawal of the built-in author
 # implementations. They exercise the generic callable integration service, not
 # a substitute formula implementation or regenerated reference expectation.
-@testitem "Engine / callable integration / independent Wise real-axis control" tags=[:unit] begin
+@testitem "Engine / callable integration / independent Wise real-axis control" tags=[:unit, :engine] begin
     using QuadGK
     const E=LineCableModels.Engine
     controls=(; rtol = 1e-9, atol = 0.0, maxevals = 10^6)
@@ -57,7 +57,7 @@
     end
 end
 
-@testitem "Engine / callable integration / independent Carson real-axis control" tags=[:unit] begin
+@testitem "Engine / callable integration / independent Carson real-axis control" tags=[:unit, :engine] begin
     using QuadGK
     const E=LineCableModels.Engine
     controls=(; rtol = 1e-9, atol = 0.0, maxevals = 10^6)

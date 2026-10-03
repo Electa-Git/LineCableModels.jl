@@ -1,4 +1,4 @@
-@testitem "Units / immutable expressions and compatible conversion" tags = [:unit] begin
+@testitem "Units / immutable expressions and compatible conversion" tags = [:unit, :units] begin
     const U = LineCableModels.Units
 
     per_meter = U.units(:base, :ohm; per = (:base, :meter))
@@ -27,7 +27,7 @@
     )
 end
 
-@testitem "Units / comparison errors preserve dimensions and normalization" tags=[:unit] begin
+@testitem "Units / comparison errors preserve dimensions and normalization" tags=[:unit, :engine] begin
     const U = LineCableModels.Units
     const EN = LineCableModels.Engine
     for (selector, unit_symbol) in ((Z, "Ω"), (Y, "S"))
@@ -62,7 +62,7 @@ end
     @test symbol(Y, abs) == "|Y|"
 end
 
-@testitem "Units / quantity metadata and basis" tags = [:unit] begin
+@testitem "Units / quantity metadata and basis" tags = [:unit, :engine] begin
     const U = LineCableModels.Units
 
     expected = (
@@ -110,7 +110,7 @@ end
     @test scale_factor(R, :pul, display_unit(R, :pul)) == 1_000.0
 end
 
-@testitem "Commons / observable unit targets / aligned normalization" tags=[:unit] begin
+@testitem "Commons / observable unit targets / aligned normalization" tags=[:unit, :engine] begin
     const Commons=LineCableModels.Commons
     const U=LineCableModels.Units
 
@@ -142,7 +142,7 @@ end
     @test_throws ArgumentError Commons.unit_targets((R,), :pul; overrides = 1)
 end
 
-@testitem "Units / transforms and angular conversion" tags = [:unit] begin
+@testitem "Units / transforms and angular conversion" tags = [:unit, :engine] begin
     const U = LineCableModels.Units
 
     z_magnitude = U.quantity(Z, abs)
@@ -173,7 +173,7 @@ end
     @test_throws MethodError U.quantity(identity)
 end
 
-@testitem "Units / selector metadata / extension locality" tags = [:unit] begin
+@testitem "Units / selector metadata / extension locality" tags = [:unit, :units] begin
     const U = LineCableModels.Units
 
     profile_response() = nothing
@@ -199,7 +199,7 @@ end
     @test_throws MethodError display_unit(unregistered_selector, :pul)
 end
 
-@testitem "Units / locked public vocabulary" tags = [:unit] begin
+@testitem "Units / locked public vocabulary" tags = [:unit, :units] begin
     const U = LineCableModels.Units
 
     for name in (
@@ -218,7 +218,7 @@ end
         @test name ∉ names(LineCableModels)
     end
 end
-@testitem "Units / statistical report axes keep counts and probabilities dimensionless" tags=[:unit] begin
+@testitem "Units / statistical report axes keep counts and probabilities dimensionless" tags=[:unit, :uq] begin
     const U = LineCableModels.Units
     for (name, caption, symbol) in ((:sample_count, "Count", "n"),
             (:probability, "Probability", "p"),

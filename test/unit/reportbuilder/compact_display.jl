@@ -1,4 +1,4 @@
-@testitem "ReportBuilder / compact views preserve values, missing masks and quantities" tags=[:unit] begin
+@testitem "ReportBuilder / compact views preserve values, missing masks and quantities" tags=[:unit, :report] begin
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     using DataFrames
     f=[0.1,10.,50.,1e3,1e6,1e7]
@@ -67,7 +67,7 @@
     @test !occursin("test <formula>",html)
 end
 
-@testitem "ReportBuilder / ordinary scientific display and bounded previews" tags=[:unit] setup=[TestFixtures] begin
+@testitem "ReportBuilder / ordinary scientific display and bounded previews" tags=[:unit, :measurements, :slow] setup=[TestFixtures] begin
     using DataFrames, Measurements, Statistics
     const RB=LineCableModels.ReportBuilder
     const U=LineCableModels.Units

@@ -1,4 +1,4 @@
-@testitem "UQ / current joint radial scale and spacing / actual line sampling and aggregation" tags=[:integration,:extension] begin
+@testitem "UQ / current joint radial scale and spacing / actual line sampling and aggregation" tags=[:integration,:extension,:measurements,:slow] begin
     using Measurements,Random,Statistics
     function problem(scale,spacing)
         scale>0 || throw(DomainError(scale,"radial dimensions must be positive"))
@@ -64,7 +64,7 @@
     end
 end
 
-@testitem "UQ / Monte Carlo / computed marginal ownership and scientific transport" tags=[:integration,:extension] setup=[TestFixtures] begin
+@testitem "UQ / Monte Carlo / computed marginal ownership and scientific transport" tags=[:integration,:extension,:measurements] setup=[TestFixtures] begin
     using Measurements, Statistics, JSON3
     IE=LineCableModels.ImportExport
     design=TestFixtures.coaxial_design()
@@ -123,7 +123,7 @@ end
     end
 end
 
-@testitem "UQ / linear propagation / affine means variances and covariance" tags=[:integration,:extension] begin
+@testitem "UQ / linear propagation / affine means variances and covariance" tags=[:integration,:extension,:measurements] begin
     using Measurements
     struct AffineProblem{T} <: AbstractProblemDefinition
         x::T

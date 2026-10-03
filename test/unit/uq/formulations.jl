@@ -1,4 +1,4 @@
-@testitem "UQ / computation options / validated constructors and concrete tuples" tags=[:unit] begin
+@testitem "UQ / computation options / validated constructors and concrete tuples" tags=[:unit, :uq] begin
     using Random
     inner = CableConstantsFormulation()
     normalize = LineCableModels.computation_options

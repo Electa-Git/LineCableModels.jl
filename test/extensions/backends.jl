@@ -1,4 +1,4 @@
-@testitem "Extensions / backend dispatch / loaded extension activation" tags=[:extension] begin
+@testitem "Extensions / backend dispatch / loaded extension activation" tags=[:extension, :makie, :slow] begin
     import LineCableModels
     using TOML
 
@@ -47,7 +47,7 @@
     end
 end
 
-@testitem "Extensions / backend dispatch / explicit Cairo sugar" tags=[:visual] setup=[
+@testitem "Extensions / backend dispatch / explicit Cairo sugar" tags=[:visual, :makie, :slow] setup=[
     TestFixtures
 ] begin
     using CairoMakie

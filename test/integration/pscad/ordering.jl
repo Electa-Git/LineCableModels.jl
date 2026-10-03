@@ -1,4 +1,4 @@
-@testitem "PSCAD / matrix coordinates and complete native reuse keys" tags=[:integration] begin
+@testitem "PSCAD / matrix coordinates and complete native reuse keys" tags=[:integration, :measurements, :slow] begin
     using TOML, SHA, Measurements
     const P = LineCableModels.PSCAD
     const launches = Ref(0)

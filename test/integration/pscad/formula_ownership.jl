@@ -1,4 +1,4 @@
-@testitem "PSCAD / Engine owns scientific selections and explicit defaults" tags=[:integration] begin
+@testitem "PSCAD / Engine owns scientific selections and explicit defaults" tags=[:integration, :pscad] begin
     const E = LineCableModels.Engine
     const FM = LineCableModels.FormulaMethod
     selected = Formulation(:pscad)
@@ -34,7 +34,7 @@
         earth_admittance=formula(:ideal; options=(integration=(method=:quad,),)))
 end
 
-@testitem "PSCAD / ideal potential registration and native selection limits" tags=[:integration] begin
+@testitem "PSCAD / ideal potential registration and native selection limits" tags=[:integration, :pscad] begin
     const E = LineCableModels.Engine
     const P = LineCableModels.PSCAD
     metal = Material(:conductor, 1.72e-8, 1.0)

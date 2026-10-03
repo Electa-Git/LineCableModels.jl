@@ -1,4 +1,4 @@
-@testitem "ReportBuilder / explicit retained selections and concrete empty-band errors" tags=[:integration] begin
+@testitem "ReportBuilder / explicit retained selections and concrete empty-band errors" tags=[:integration, :report, :slow] begin
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     using LineCableModels.Engine: compare
     using DataFrames
@@ -29,7 +29,7 @@
     @test errors[2].details.data.actual_bounds == (1f7,2f7)
 end
 
-@testitem "ReportBuilder / two-sided RMS eligibility survives tables and explicit reanalysis" tags=[:integration] begin
+@testitem "ReportBuilder / two-sided RMS eligibility survives tables and explicit reanalysis" tags=[:integration, :report] begin
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     using LineCableModels.Engine: RMSError
     using DataFrames

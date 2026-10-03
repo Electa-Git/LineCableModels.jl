@@ -1,4 +1,4 @@
-@testitem "ReportBuilder / observations and fixed stage order" tags=[:unit] begin
+@testitem "ReportBuilder / observations and fixed stage order" tags=[:unit, :report] begin
     const RB=LineCableModels.ReportBuilder
     source=LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.])
     observed=ObservedResult(source)
@@ -54,7 +54,7 @@
     @test report(TableReportDefinition(),source).observed isa ObservedResult
 end
 
-@testitem "ReportBuilder / XLSX numeric quantities and complete matrices" tags=[:integration] begin
+@testitem "ReportBuilder / XLSX numeric quantities and complete matrices" tags=[:integration, :xlsx] begin
     using XLSX, Measurements, LinearAlgebra
     const RB=LineCableModels.ReportBuilder
     impedance=reshape(ComplexF64.(1:8),2,2,2)
@@ -102,7 +102,7 @@ end
     @test Base.ispublic(RB,:XLSXWorkbook)
 end
 
-@testitem "ReportBuilder / completed result conveniences use observations" tags=[:unit] setup=[TestFixtures] begin
+@testitem "ReportBuilder / completed result conveniences use observations" tags=[:unit, :measurements] setup=[TestFixtures] begin
     using DataFrames, Measurements, Tables
     const RB=LineCableModels.ReportBuilder
     constants=CableConstants(1.,2.,3.)
@@ -123,7 +123,7 @@ end
     end
 end
 
-@testitem "ReportBuilder / XLSX destinations are preflighted before writes" tags=[:integration] begin
+@testitem "ReportBuilder / XLSX destinations are preflighted before writes" tags=[:integration, :xlsx] begin
     using XLSX
     RB=LineCableModels.ReportBuilder
     observed=ObservedResult(LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.]))
@@ -151,7 +151,7 @@ end
     end
 end
 
-@testitem "ReportBuilder / source-first quantity tables" tags=[:unit] setup=[TestFixtures] begin
+@testitem "ReportBuilder / source-first quantity tables" tags=[:unit, :measurements, :slow] setup=[TestFixtures] begin
     using DataFrames, Statistics, Measurements
     using LineCableModels.Commons: observation_product, observation_gridpoint, gridpoint_id
     using LineCableModels.Engine: retain_gridpoint
@@ -238,7 +238,7 @@ end
     @test_throws ArgumentError DataFrame(artifact.observed)
 end
 
-@testitem "ReportBuilder / source-first retained units and illustration" tags=[:unit] setup=[TestFixtures] begin
+@testitem "ReportBuilder / source-first retained units and illustration" tags=[:unit, :report] setup=[TestFixtures] begin
     using DataFrames
     using LineCableModels.Commons: observation_product
     line=TestFixtures.two_conductor_results()
@@ -311,7 +311,7 @@ end
         line).tables==report(line; values = quantities).tables
 end
 
-@testitem "ReportBuilder / direct reported quantity access" tags=[:unit] setup=[TestFixtures] begin
+@testitem "ReportBuilder / direct reported quantity access" tags=[:unit, :measurements] setup=[TestFixtures] begin
     using DataFrames, Statistics, Measurements
     using LineCableModels.Commons: gridpoint_id
     const RB=LineCableModels.ReportBuilder

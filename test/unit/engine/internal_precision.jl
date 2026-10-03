@@ -1,4 +1,4 @@
-@testitem "Engine / internal impedance / radial diffusion implementation" tags=[:unit] begin
+@testitem "Engine / internal impedance / radial diffusion implementation" tags=[:unit, :engine, :slow] begin
     include(joinpath(pkgdir(LineCableModels),"test/support/radial_control.jl"))
     const II=LineCableModels.Engine.InternalImpedance
     selected=II.Formula(:default)
@@ -47,7 +47,7 @@
 end
 
 
-@testitem "Engine / internal impedance / Float32 input compatibility" tags=[:unit] begin
+@testitem "Engine / internal impedance / Float32 input compatibility" tags=[:unit, :engine] begin
     const II=LineCableModels.Engine.InternalImpedance
     selected=II.Formula(:default)
     # Float32 is an supported input type, with no extra accuracy target.

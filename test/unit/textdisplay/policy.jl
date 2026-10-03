@@ -1,4 +1,4 @@
-@testitem "TextDisplay / engineering values and target summaries" tags=[:unit] begin
+@testitem "TextDisplay / engineering values and target summaries" tags=[:unit, :engine] begin
     const TD=LineCableModels.TextDisplay
     const EP=LineCableModels.Earth
 
@@ -56,7 +56,7 @@
     @test !endswith(inactive_text, '\n')
 end
 
-@testitem "TextDisplay / tree labels preserve structured and string children" tags=[:unit] begin
+@testitem "TextDisplay / tree labels preserve structured and string children" tags=[:unit, :commons] begin
     const TD = LineCableModels.TextDisplay
     structured = ((label="branch", children=((label="leaf",),)),)
     strings = ((label="branch", children=("leaf",)),)
@@ -70,7 +70,7 @@ end
     @test String(take!(io)) == "root\n├─ first\n└─ second"
 end
 
-@testitem "TextDisplay / engineering conversion only recovers unsupported values" tags=[:unit] begin
+@testitem "TextDisplay / engineering conversion only recovers unsupported values" tags=[:unit, :commons] begin
     const TD = LineCableModels.TextDisplay
     struct Unconvertible <: Real end
     Base.iszero(::Unconvertible) = false
@@ -93,7 +93,7 @@ end
     end
 end
 
-@testitem "TextDisplay / scientific values preserve signs and physical units" tags=[:unit] begin
+@testitem "TextDisplay / scientific values preserve signs and physical units" tags=[:unit, :engine] begin
     const TD = LineCableModels.TextDisplay
     const U = LineCableModels.Units
 
@@ -164,7 +164,7 @@ end
     @test TD.name(typeof(formula(:default))) == "FormulaDefinition"
 end
 
-@testitem "TextDisplay / bounded structural families" tags=[:unit] setup=[
+@testitem "TextDisplay / bounded structural families" tags=[:unit, :measurements] setup=[
     TestFixtures
 ] begin
     using Measurements

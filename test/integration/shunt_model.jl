@@ -1,4 +1,4 @@
-@testitem "Engine / shunt model / selection, fallback and blueprint coefficients" tags=[:integration] begin
+@testitem "Engine / shunt model / selection, fallback and blueprint coefficients" tags=[:integration, :importexport, :slow] begin
     using Logging
     E = LineCableModels.Engine
     IE = LineCableModels.ImportExport

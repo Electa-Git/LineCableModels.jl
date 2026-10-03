@@ -1,4 +1,4 @@
-@testitem "Commons / vacuum constants are evaluated in the requested type" tags=[:unit] begin
+@testitem "Commons / vacuum constants are evaluated in the requested type" tags=[:unit, :commons] begin
     using LineCableModels.Commons: vacuum_permittivity, vacuum_permeability
 
     # Rational arithmetic keeps the decimal definition exact.

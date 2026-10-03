@@ -4,7 +4,7 @@ end
 
 # TODO: test if serialization works properly if uncertain types are used (Measurements)
 
-@testitem "ImportExport / ATP / LineCableSystem LCC export" tags=[:integration] setup=[
+@testitem "ImportExport / ATP / LineCableSystem LCC export" tags=[:integration, :importexport] setup=[
     UseImportExportSupport, TestNumerics,
     TestFixtures, CableSystemFixture, deps_export_atp] begin
 
@@ -99,7 +99,7 @@ end
     end
 end
 
-@testitem "ImportExport / ATP / LineParameters ZY export" tags=[:integration] setup=[
+@testitem "ImportExport / ATP / LineParameters ZY export" tags=[:integration, :importexport] setup=[
     TestFixtures, deps_export_atp] begin
     source=TestFixtures.two_conductor_results()
     z,y=copy(Z(source)),copy(Y(source))

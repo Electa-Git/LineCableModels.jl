@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / Gridspace / composition conformance" tags=[:unit] setup=[
+@testitem "ParametricBuilder / Gridspace / composition conformance" tags=[:unit, :parametric] setup=[
     UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
@@ -91,7 +91,7 @@
     @test rand(Random.Xoshiro(0x1234), product) in collect(product)
 end
 
-@testitem "ParametricBuilder / Gridspace / structural realization" tags=[:unit] setup=[
+@testitem "ParametricBuilder / Gridspace / structural realization" tags=[:unit, :measurements] setup=[
     UseEngineSupport] begin
     using Random
     using Measurements
@@ -138,7 +138,7 @@ end
     @test iszero(Measurements.cov(reused_values...))
 end
 
-@testitem "ParametricBuilder / Gridspace / inference and allocation checks" tags=[:unit] setup=[
+@testitem "ParametricBuilder / Gridspace / inference and allocation checks" tags=[:unit, :parametric] setup=[
     UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB

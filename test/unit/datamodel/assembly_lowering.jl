@@ -1,4 +1,4 @@
-@testitem "DataModel / assembly placement preserves local conductor lowering" tags=[:unit] begin
+@testitem "DataModel / assembly placement preserves local conductor lowering" tags=[:unit, :importexport, :slow] begin
     const DM = LineCableModels.DataModel
     const EN = LineCableModels.Engine
     const IE = LineCableModels.ImportExport
@@ -89,7 +89,7 @@
     @test all(row -> row.resistance ≈ base.resistance * overlength(helix, 0.01), wound)
 end
 
-@testitem "Engine / repeated coaxials agree with explicit placements and remain Gridable" tags=[:integration] begin
+@testitem "Engine / repeated coaxials agree with explicit placements and remain Gridable" tags=[:integration, :parametric] begin
     const DM = LineCableModels.DataModel
     const EN = LineCableModels.Engine
     copper = Material(:conductor, 1.72e-8, 1.0, 1.0)
@@ -134,7 +134,7 @@ end
         for wire in wires, radius in radii, angle in angles)
 end
 
-@testitem "Gmsh FEM / assembly placement does not coarsen solid-core mesh size" tags=[:extension] begin
+@testitem "Gmsh FEM / assembly placement does not coarsen solid-core mesh size" tags=[:extension, :fem] begin
     using Gmsh
     const DM = LineCableModels.DataModel
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)

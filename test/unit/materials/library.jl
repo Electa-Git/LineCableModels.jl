@@ -1,4 +1,4 @@
-@testitem "Materials / Material / numeric normalization and conversion" tags=[:unit] setup=[
+@testitem "Materials / Material / numeric normalization and conversion" tags=[:unit, :measurements] setup=[
     UseDataModelSupport
 ] begin
     ordinary=Material(
@@ -32,7 +32,7 @@
     @test_throws ArgumentError Material(Symbol(""), 1.0)
 end
 
-@testitem "Materials / MaterialsLibrary / dictionary and presentation behavior" tags=[:unit] setup=[
+@testitem "Materials / MaterialsLibrary / dictionary and presentation behavior" tags=[:unit, :materials] setup=[
     UseDataModelSupport
 ] begin
     empty_library=MaterialsLibrary(add_defaults = false)
@@ -96,7 +96,7 @@ end
     @test occursin("nΩ·m", sprint(show, MIME("text/plain"), defaults["copper"]))
 end
 
-@testitem "Materials / presentation / bounded collection summaries" tags=[:unit] setup=[
+@testitem "Materials / presentation / bounded collection summaries" tags=[:unit, :materials] setup=[
     UseDataModelSupport
 ] begin
     library=MaterialsLibrary(add_defaults = false)

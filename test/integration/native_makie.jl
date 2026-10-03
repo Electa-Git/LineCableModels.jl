@@ -1,4 +1,4 @@
-@testitem "Makie addons / material colors dispatch on owned types" tags=[:visual] begin
+@testitem "Makie addons / material colors dispatch on owned types" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using Measurements
     using LineCableModels
@@ -49,7 +49,7 @@
     @test length(plot.axes) == 1
 end
 
-@testitem "Makie addons / colorbar endpoint labels stay inside the figure" tags=[:visual] setup=[
+@testitem "Makie addons / colorbar endpoint labels stay inside the figure" tags=[:visual, :makie] setup=[
     UseNativePlotSupport
 ] begin
     using CairoMakie
@@ -121,7 +121,7 @@ end
     @test scale.alignmode[] isa Inside
 end
 
-@testitem "Makie addons / native figures, layouts, docks, widgets, and export" tags=[:visual] setup=[
+@testitem "Makie addons / native figures, layouts, docks, widgets, and export" tags=[:visual, :makie, :slow] setup=[
     UseNativePlotSupport, TestFixtures
 ] begin
     get(ENV,

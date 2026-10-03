@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / structural state and forward imaginary branch" tags=[:unit] begin
+@testitem "ModalAnalysis / structural state and forward imaginary branch" tags=[:unit, :modal] begin
     import LineCableModels.Engine as E
     impedance=reshape(ComplexF64[-im],1,1,1)
     phase=LineParameters(impedance,copy(impedance),[50.0])
@@ -23,7 +23,7 @@
     @test line_length(PropagationParameters(bound;line_length=20.0))==20.0
 end
 
-@testitem "ModalAnalysis / derived request acquisition and retained identity" tags=[:unit] begin
+@testitem "ModalAnalysis / derived request acquisition and retained identity" tags=[:unit, :importexport, :slow] begin
     import LineCableModels.Commons as G
     import LineCableModels.Engine as E
     import LineCableModels.Units as U
@@ -119,7 +119,7 @@ end
     end
 end
 
-@testitem "ModalAnalysis / custom passive controls survive retained labels" tags=[:unit] begin
+@testitem "ModalAnalysis / custom passive controls survive retained labels" tags=[:unit, :modal] begin
     import LineCableModels.ModalAnalysis as MA
     import LineCableModels.Engine as E
     import LineCableModels.Commons as G

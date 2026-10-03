@@ -1,4 +1,4 @@
-@testitem "Makie addons / observed UQ overlays retain uncertainty and reference styles" tags=[:visual] begin
+@testitem "Makie addons / observed UQ overlays retain uncertainty and reference styles" tags=[:visual, :makie, :slow] begin
     using CairoMakie,Measurements,Statistics
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     using LineCableModels.Engine: retain_gridpoint
@@ -76,7 +76,7 @@
     end
 end
 
-@testitem "Makie addons / detached UQ statistics retain matrix coordinates and bands" tags=[:visual] begin
+@testitem "Makie addons / detached UQ statistics retain matrix coordinates and bands" tags=[:visual, :makie, :slow] begin
     using CairoMakie,Statistics,Measurements,DataFrames
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f=10. .^ range(-1,7;length=13)

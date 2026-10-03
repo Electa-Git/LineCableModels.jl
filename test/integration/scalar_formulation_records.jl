@@ -1,4 +1,4 @@
-@testitem "ReportBuilder / scalar results retain physical and native formula choices" tags=[:integration] setup=[FormulaFixtures] begin
+@testitem "ReportBuilder / scalar results retain physical and native formula choices" tags=[:integration, :importexport, :slow] setup=[FormulaFixtures] begin
     using LinearAlgebra, Serialization
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     copper=Material(MaterialsLibrary(add_defaults = true), :copper)

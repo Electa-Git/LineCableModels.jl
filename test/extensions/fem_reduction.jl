@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / P/(jω) through the FEM call site gives the coaxial admittance" tags=[:extension] begin
+@testitem "Gmsh FEM / P/(jω) through the FEM call site gives the coaxial admittance" tags=[:extension, :fem, :slow] begin
     using Gmsh
     include(joinpath(pkgdir(LineCableModels), "test", "support", "scenarios.jl"))
     using .CurrentScenarios

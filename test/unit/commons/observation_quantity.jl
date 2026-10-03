@@ -1,4 +1,4 @@
-@testitem "Commons / fallback observations preserve inferred values and scalar counts" tags=[:unit] begin
+@testitem "Commons / fallback observations preserve inferred values and scalar counts" tags=[:unit, :commons] begin
     const G = LineCableModels.Commons
     struct ObservationSource{T}
         values::T
@@ -39,7 +39,7 @@
     @test_throws BoundsError G.observation_quantity(source, (R, 3))
 end
 
-@testitem "Commons / detached thresholds retain precision and uncertainty dependencies" tags=[:unit] begin
+@testitem "Commons / detached thresholds retain precision and uncertainty dependencies" tags=[:unit, :measurements] begin
     using Measurements
     const G = LineCableModels.Commons
     shared = measurement(0.5, 0.01)
@@ -57,7 +57,7 @@ end
     @test cutoffs.real[1] == 0.25f0
 end
 
-@testitem "Commons / observation equality retains uncertainty identity and collection shape" tags=[:unit] begin
+@testitem "Commons / observation equality retains uncertainty identity and collection shape" tags=[:unit, :measurements] begin
     using Measurements
     const G = LineCableModels.Commons
     shared = measurement(1.0, 0.1)

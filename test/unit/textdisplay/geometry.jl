@@ -1,4 +1,4 @@
-@testitem "TextDisplay / physical declarations retain units and placement origins" tags=[:unit] begin
+@testitem "TextDisplay / physical declarations retain units and placement origins" tags=[:unit, :parametric] begin
     const DM = LineCableModels.DataModel
     const TD = LineCableModels.TextDisplay
     copper = Material(:conductor, 1.7241e-8)

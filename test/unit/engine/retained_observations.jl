@@ -1,4 +1,4 @@
-@testitem "ObservedResult / retained re-expression preserves scientific records" tags=[:unit] begin
+@testitem "ObservedResult / retained re-expression preserves scientific records" tags=[:unit, :measurements] begin
     using Measurements
     using LineCableModels.Commons: observation_product,gridpoint_id
     using LineCableModels.Engine: retain_gridpoint,compare
@@ -63,7 +63,7 @@
     @test_throws ArgumentError ObservedResult(radians.gridpoint,[malformed],[],(;))
 end
 
-@testitem "ObservedResult / constructor rejects malformed scientific records" tags=[:unit] begin
+@testitem "ObservedResult / constructor rejects malformed scientific records" tags=[:unit, :importexport] begin
     using LineCableModels.Commons: observation_product
     using LineCableModels.ReportBuilder: tabulate
     source=ObservedResult(LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.]))
@@ -94,7 +94,7 @@ end
     @test_throws ArgumentError LineCableModels.ImportExport.deserialize_value(encoded)
 end
 
-@testitem "ObservedResult / coordinate and unit interpretation is shared" tags=[:unit] begin
+@testitem "ObservedResult / coordinate and unit interpretation is shared" tags=[:unit, :engine] begin
     using LineCableModels.Commons: observation_product
     z=reshape(complex.(1.:12.,101.:112.),2,2,3)
     line=LineParameters(z,2z,[1.,10.,100.])
@@ -113,7 +113,7 @@ end
     @test_throws DimensionMismatch observation_product((a,incompatible),R)
 end
 
-@testitem "ObservedResult / table definitions retain one hierarchy" tags=[:unit] begin
+@testitem "ObservedResult / table definitions retain one hierarchy" tags=[:unit, :report] begin
     using DataFrames
     using LineCableModels.ReportBuilder: tabulate,LineParametersTableDefinition
     source=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.])
@@ -139,7 +139,7 @@ end
     @test collect(table[1,:])==[60.,1.,2.]
 end
 
-@testitem "ObservedResult / structured labels and equivalence conflicts" tags=[:unit] setup=[TestFixtures] begin
+@testitem "ObservedResult / structured labels and equivalence conflicts" tags=[:unit, :parametric] setup=[TestFixtures] begin
     using LineCableModels.Commons: observation_labels,observation_groups,gridpoint_id
     using LineCableModels.Engine: retain_gridpoint,completed_inputs,completed_formulation
     problem=TestFixtures.line_parameters_problem()
@@ -181,7 +181,7 @@ end
     @test length(observation_groups(points;request=R))==2
 end
 
-@testitem "ObservedResult / re-expression preserves retained arbitrary precision" tags=[:unit] begin
+@testitem "ObservedResult / re-expression preserves retained arbitrary precision" tags=[:unit, :engine] begin
     U=LineCableModels.Units
     original=setprecision(BigFloat,384) do
         source=LineParameters(fill(complex(big"1.234567890123456789012345678901",big"2"),1,1,2),

@@ -1,4 +1,4 @@
-@testitem "ImportExport / PSCAD / simplified physical inputs and circuits" tags=[:integration] begin
+@testitem "ImportExport / PSCAD / simplified physical inputs and circuits" tags=[:integration, :pscad] begin
     using EzXML
     const DM = LineCableModels.DataModel
     epsilon0 = 8.8541878128e-12

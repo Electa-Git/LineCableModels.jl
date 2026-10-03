@@ -38,7 +38,7 @@
     end
 end
 
-@testitem "Gmsh FEM / cleanup reports failures and preserves the primary exception" tags=[:extension] default_imports=false setup=[GmshCleanupFailures] begin
+@testitem "Gmsh FEM / cleanup reports failures and preserves the primary exception" tags=[:extension, :fem] default_imports=false setup=[GmshCleanupFailures] begin
     using Test, Logging
     const G = GmshCleanupFailures
     session = (owned=false, previous_model="caller", initial_models=Set(["caller"]),

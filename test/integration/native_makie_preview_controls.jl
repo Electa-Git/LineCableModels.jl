@@ -1,4 +1,4 @@
-@testitem "Makie addons / preview grouping and late horizontal legend retain geometry" tags=[:visual] begin
+@testitem "Makie addons / preview grouping and late horizontal legend retain geometry" tags=[:visual, :makie] begin
     using CairoMakie
 
     copper = Material(kind=:conductor, rho=1.72e-8)
@@ -43,7 +43,7 @@
     end
 end
 
-@testitem "Makie addons / constant positive observations retain logarithmic limits" tags=[:visual] begin
+@testitem "Makie addons / constant positive observations retain logarithmic limits" tags=[:visual, :makie] begin
     using CairoMakie
 
     frequency = [10.0, 100.0, 1000.0]
@@ -65,7 +65,7 @@ end
     @test parameters.Y.values == admittance
 end
 
-@testitem "Makie / callable controls own subscriptions and preserve retained figures" tags=[:visual] begin
+@testitem "Makie / callable controls own subscriptions and preserve retained figures" tags=[:visual, :makie] begin
     using CairoMakie
     calls=Ref(0)
     constructions=Ref(0)
@@ -139,7 +139,7 @@ end
     @test resetview!(canvas;panel=1)===canvas
 end
 
-@testitem "Makie / composite widget destruction and SVG share native lifetime" tags=[:visual] begin
+@testitem "Makie / composite widget destruction and SVG share native lifetime" tags=[:visual, :makie] begin
     using CairoMakie
     p=LineCableModels.plotwindow(;title="Composite controls",backend=:cairo,display_plot=false) do grid
         axis=Axis(grid[1,1]);lines!(axis,[1.,2.,3.],[2.,4.,8.])
