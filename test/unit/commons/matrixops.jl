@@ -169,7 +169,7 @@ end
     Zr, Yr=zeros(ComplexF64, 3, 3), zeros(ComplexF64, 3, 3)
     Commons.reduce_line_matrices!(Zr, Yr, P, P, s, plan, Commons.ReductionBuffers{ComplexF64}(plan))
     @test Zr == averaged
-    # inv(averaged) = [7 -2 -2; -2 7 -2; -2 -2 7] / 27.
+    # The inverse of `averaged` is `[7 -2 -2; -2 7 -2; -2 -2 7] / 27`.
     @test Yr ≈ s*ComplexF64[7 -2 -2; -2 7 -2; -2 -2 7]/27
     @test Yr ≈ s*inv(averaged)
     # Averaging Y after the inversion is the convention this test rejects.

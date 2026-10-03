@@ -113,8 +113,9 @@ execution environments.
 
 ### Structural guards
 
-`test/quality/architecture.jl` enforces one rule: each concept has one owner, one
-name and one implementation, and each name has one meaning. The guards load the
+`test/quality/architecture.jl` enforces the ownership rule stated in `AGENTS.md`,
+which assigns one owner, one name and one implementation to a concept and one
+meaning to a name. The guards load the
 package with the extensions that `explicit_imports.jl` loads. They enumerate every
 package method and parse every Julia file under `src/` and `ext/`.
 
@@ -147,8 +148,8 @@ package method and parse every Julia file under `src/` and `ext/`.
   calls, `@eval` calls, and comparisons of a `kind` field against symbols, negated
   comparisons included. These counts can decrease and never increase.
 
-`Commons` holds only what is defined once and used by several owners. An owner is
-the root module, a top-level submodule or a package extension. Six guards keep
+`Commons` contains only definitions that several owners use. An owner is the root
+module, a top-level submodule or a package extension. The guards C1 to C6 stop
 helpers from accumulating elsewhere.
 
 - Commons admission (C1). Each function, type and constant defined in `Commons` is
@@ -175,13 +176,13 @@ helpers from accumulating elsewhere.
   `error`, are left out. No function body under `src/` or `ext/` contains 75 % of the
   runs of a `Commons` public function body of at least 30 tokens. Hooks are not
   compared.
-- Tiny helpers (C5). A tiny helper is a module-level function that is neither
-  exported nor public, has one method, has at most three body statements, is
-  referenced by exactly one method and is named in no test file. Files under
-  `test/quality/` and `test/tools/` are not test files here. An exact forwarder,
-  whose body is one call that passes its own arguments unchanged and in order,
-  keywords included, counts whatever its references. Inline a new tiny helper,
-  import the owner's definition, or test it directly.
+- Tiny helpers (C5). A tiny helper is a private module-level function with one
+  method and at most three body statements. Exactly one method references it, and
+  no test file names it. Files under `test/quality/` and `test/tools/` are not test
+  files here. An exact forwarder counts as a tiny helper for any number of
+  references. Its body is one call with the forwarder's own arguments,
+  unchanged and in order, keywords included. Inline a new tiny helper, import the
+  owner's definition, or test it directly.
 - Root freeze (C6). The number of functions, types and constants defined by the root
   module does not grow. New shared definitions go to `Commons` under C1.
 
@@ -190,7 +191,8 @@ guard to a probe package with planted violations and to a clean probe package. A
 guard reports exactly the planted violations and nothing in the clean probe.
 
 `test/quality/architecture_baseline.toml` records the violations present when the
-guards were introduced, with one table per guard. A table that no guard owns fails. Keys contain no line numbers. An
+guards were introduced, with one table per guard. Every table name must appear in
+`TABLES`, or the architecture test fails. Keys contain no line numbers. An
 unlisted violation or a count above its entry fails. A listed entry without a live
 violation, or a count below it, also fails. A change that removes a violation deletes
 or lowers its entry. `test/tools/architecture_inventory.jl` prints the live inventory

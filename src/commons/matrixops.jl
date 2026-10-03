@@ -1,5 +1,5 @@
 # Matrix reductions shared by the line-parameter backends. Primitive matrices are
-# ordered by terminal; a `ReductionPlan` fixes the index operations once.
+# ordered by terminal. A `ReductionPlan` fixes the index operations once.
 
 """
 $(TYPEDSIGNATURES)
@@ -236,8 +236,8 @@ end
 $(TYPEDSIGNATURES)
 
 Apply the bundle change of basis of the pairs from [`bundle_operations`](@ref) to
-`matrix` in place: each duplicate column, then each duplicate row, loses its first
-conductor's column or row. Return `matrix`.
+`matrix` in place, and return `matrix`. Each duplicate column loses the column of
+its first conductor. Each duplicate row then loses the row of its first conductor.
 """
 function merge_bundles!(
         matrix::AbstractMatrix{T},
@@ -294,8 +294,7 @@ end
 $(TYPEDEF)
 
 Fix the index operations that reduce primitive matrices, ordered by terminal, to the
-matrices of the retained phases: terminal reorder, bundle change of basis, Kron
-elimination and ideal transposition.
+matrices of the retained phases. The fields below apply in their listed order.
 
 $(TYPEDFIELDS)
 """
