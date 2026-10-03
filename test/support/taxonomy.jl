@@ -27,6 +27,9 @@ const EXTENSION_OWNERS = (LineCableModelsMeasurementsExt = :measurements,
 # Every item carries at least one kind tag.
 const KINDS = (:unit, :integration, :extension, :visual, :quality, :aqua)
 
+# A path relative to `directory`, with `/` separators on every platform.
+relative(path, directory) = join(splitpath(relpath(path, directory)), "/")
+
 rank(owner::Symbol) = something(findfirst(==(owner), OWNERS), 0)
 # The first owner tag among `tags`, or nothing.
 owner_tag(tags) = (i = findfirst(in(OWNERS), tags); i === nothing ? nothing : tags[i])
@@ -62,13 +65,13 @@ end
 function loaded_owners(repository)
     found = Dict{String, Symbol}()
     function load!(path, owner)
-        file = relpath(path, repository)
+        file = relative(path, repository)
         haskey(found, file) && error("$file is included more than once")
         found[file] = owner
         foreach(p -> load!(p, owner), included(path))
     end
     entry = joinpath(repository, "src", "LineCableModels.jl")
-    found[relpath(entry, repository)] = first(OWNERS)
+    found[relative(entry, repository)] = first(OWNERS)
     owner = first(OWNERS)
     for path in included(entry)
         name = declared_module(path)

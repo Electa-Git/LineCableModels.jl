@@ -31,7 +31,7 @@ function executed(tracefile)
     file = nothing
     for line in eachline(tracefile)
         if startswith(line, "SF:")
-            path = relpath(normpath(line[4:end]), REPOSITORY)
+            path = ValidationTestRunner.relative(normpath(line[4:end]), REPOSITORY)
             file = startswith(path, "src/") || startswith(path, "ext/") ? path : nothing
         elseif file !== nothing && startswith(line, "DA:")
             hits = parse(Int, split(line[4:end], ',')[2])
@@ -64,7 +64,8 @@ function record(directory, selectors)
     select = ValidationTestRunner.selection(selectors, joinpath(REPOSITORY, "test"))
     filter = item -> begin
         accepted = select(item)
-        accepted && (files[String(item.name)] = relpath(item.filename, REPOSITORY))
+        accepted && (files[String(item.name)] =
+            ValidationTestRunner.relative(item.filename, REPOSITORY))
         accepted
     end
     dump()
@@ -104,13 +105,16 @@ function report(directories)
     tagged = Dict(item.name => ValidationTestRunner.owner_tag(item.tags) for item in items)
     label(owner) = owner === nothing ? "-" : String(owner)
     evidence(record) = join(["$path=$count" for (path, count) in first(record.evidence, 3)], ", ")
-    row(name, record) = string(rpad(label(record.owner), 14), rpad(label(get(tagged, name, nothing)), 14),
-        record.file, " | ", name, isempty(record.evidence) ? "" : "  [" * evidence(record) * "]")
+    row(name, record) = string(rpad(label(record.owner), 14),
+        rpad(label(get(tagged, name, nothing)), 14), record.file, " | ", name,
+        isempty(record.evidence) ? "" : "  [" * evidence(record) * "]")
     names = sort!(collect(keys(recorded)); by = name -> (recorded[name].file, name))
-    println("Recorded items (", length(names), "): executed owner, owner tag, file | name  [executed files at that owner]")
+    println("Recorded items (", length(names), "): executed owner, owner tag, ",
+        "file | name  [executed files at that owner]")
     foreach(name -> println(row(name, recorded[name])), names)
     unknown = [name for name in names if !haskey(tagged, name)]
-    isempty(unknown) || println("\nNot in the test files (renamed or removed): ", join(unknown, "; "))
+    isempty(unknown) ||
+        println("\nNot in the test files (renamed or removed): ", join(unknown, "; "))
     earlier = [name for name in names if haskey(tagged, name) && recorded[name].owner !== nothing &&
         ValidationTestRunner.rank(something(tagged[name], :none)) <
         ValidationTestRunner.rank(recorded[name].owner)]

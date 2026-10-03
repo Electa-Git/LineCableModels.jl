@@ -103,7 +103,6 @@
     end
 
     inside(path, directory) = startswith(path, joinpath(directory, ""))
-    relative(path, directory) = join(splitpath(relpath(path, directory)), "/")
 
     # Methods generated in `boot.jl` and similar report a relative file.
     function source_path(tree::PackageTree, file)

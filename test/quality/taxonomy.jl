@@ -153,3 +153,114 @@ end
         @test_throws ErrorException T.loaded_owners(repository)
     end
 end
+
+@testitem "Quality / taxonomy / changed: selection controls" tags=[:quality] setup=[TaxonomyGuards] begin
+    G = TaxonomyGuards
+    T = G.T
+    (; items, setups) = T.inventory(G.REPOSITORY)
+    owners = T.loaded_owners(G.REPOSITORY)
+    select(paths...) = T.changed_items(collect(String, paths), items, setups, owners)
+    key(item) = (item.file, item.name)
+    environment(item) = any(in(T.ENVIRONMENT_TAGS), item.tags)
+    quality = Set(key(i) for i in items if :quality in i.tags)
+    owner(item) = T.owner_tag(item.tags)
+
+    # A clean tree, or a change outside `src/`, `ext/` and `test/`, selects only quality.
+    @test select() == quality
+    @test select("docs/src/developers.md", "Project.toml") == quality
+
+    # A change in `src/engine/` selects the non-slow items owned by engine or later.
+    engine = select("src/engine/lineparameters.jl")
+    expected = Set(key(i) for i in items if !environment(i) && :slow ∉ i.tags &&
+        owner(i) !== nothing && T.rank(owner(i)) >= T.rank(:engine))
+    @test engine == union(quality, expected)
+    @test any(i -> key(i) in engine && owner(i) === :engine, items)
+    @test any(i -> key(i) in engine && owner(i) === :makie, items)
+    @test !any(i -> key(i) in engine && owner(i) === :datamodel, items)
+    @test !any(i -> key(i) in engine && :slow in i.tags, items)
+    # Root files and extensions count at their load position.
+    @test select("src/performance.jl") == select("src/uq/UQ.jl")
+    @test select("src/modalanalysis/delegation.jl") == select("src/parametricbuilder/ParametricBuilder.jl")
+    @test select("src/engine/lineparameters.jl", "src/uq/UQ.jl") == engine
+    fem = select("ext/LineCableModelsGmshExt/LineCableModelsGmshExt.jl")
+    @test all(k -> k in quality || owner(only(i for i in items if key(i) == k)) in (:fem, :makie), fem)
+
+    # A changed test file selects all its items, slow ones too, and the files that use
+    # a setup it defines. Its environment items stay excluded.
+    file = "test/unit/engine/unified_earth_return.jl"
+    @test any(i -> i.file == file && :slow in i.tags, items)
+    @test select(file) == union(quality, Set(key(i) for i in items if i.file == file))
+    tracking = select("test/unit/modalanalysis/vieira2026.jl")
+    @test any(k -> first(k) == "test/unit/modalanalysis/wedepohl1996.jl", tracking)
+    @test select("test/extensions/fem_artifact.jl") == quality
+
+    # A change under `test/support/` selects every non-slow item and every item under
+    # `test/unit/core/`, so a planted change to the runner selects the harness test.
+    support = select("test/support/runner.jl")
+    harness = only(i for i in items if i.file == "test/unit/core/test_harness.jl")
+    @test :slow in harness.tags && key(harness) in support
+    @test support == union(quality, Set(key(i) for i in items if !environment(i) &&
+        (:slow ∉ i.tags || startswith(i.file, "test/unit/core/"))))
+
+    # The changed paths come from git: tracked changes, deletions and untracked files.
+    mktempdir() do repository
+        git(arguments...) = run(pipeline(Cmd(["git", "-C", repository, arguments...]);
+            stdout = devnull, stderr = devnull))
+        git("init", "--quiet")
+        git("config", "user.email", "probe@example.invalid")
+        git("config", "user.name", "probe")
+        mkpath(joinpath(repository, "src", "engine"))
+        foreach(f -> write(joinpath(repository, f), "x"), ("src/engine/a.jl", "src/b.jl", "c.md"))
+        git("add", "--all")
+        git("commit", "--quiet", "-m", "probe")
+        @test T.changed_paths("HEAD", repository) == String[]
+        write(joinpath(repository, "src", "engine", "a.jl"), "y")
+        rm(joinpath(repository, "src", "b.jl"))
+        write(joinpath(repository, "d.jl"), "z")
+        git("mv", "c.md", "e.md")
+        @test T.changed_paths("HEAD", repository) == ["c.md", "d.jl", "e.md", "src/b.jl", "src/engine/a.jl"]
+        @test_throws ErrorException T.changed_paths("no-such-revision", repository)
+    end
+    # `changed:REF` takes no other selector and runs only through `execute`.
+    @test T.changed_reference(["changed:HEAD", "--list"]) == "HEAD"
+    @test T.changed_reference(["tag:unit", "--list"]) === nothing
+    @test_throws ErrorException T.changed_reference(["changed:HEAD", "tag:unit"])
+    @test_throws ErrorException T.changed_reference(["changed:"])
+    @test_throws ErrorException T.selection(["changed:HEAD"], joinpath(G.REPOSITORY, "test"))
+end
+
+@testitem "Quality / taxonomy / changed: runs quality in a fresh process" tags=[:quality] setup=[TaxonomyGuards] begin
+    G = TaxonomyGuards
+    # Before quality runs, the parent process gains a method inside a package module,
+    # defined from a test file (this one), as `test/integration/pscad/parser_tests.jl`
+    # does. A2 reports such a method when it shares the process; in the fresh process
+    # it passes.
+    runner = joinpath(G.REPOSITORY, "test", "support", "runner.jl")
+    planted = joinpath(G.REPOSITORY, "test", "quality", "taxonomy.jl")
+    program = """
+        using TestItemRunner
+        include($(repr(runner)))
+        import LineCableModels
+        include_string(LineCableModels.PSCAD, "planted_probe(::Val{:planted}) = 1", $(repr(planted)))
+        method = only(methods(LineCableModels.PSCAD.planted_probe))
+        println("PLANTED ", String(method.file))
+        ValidationTestRunner.run_changed($(repr(G.REPOSITORY)),
+            Set([("test/unit/units/units.jl", "Units / locked public vocabulary")]);
+            quality = ["Quality / architecture / A2 placement"])
+        println("CHANGED RUN PASSED")
+        """
+    output = IOBuffer()
+    command = `$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) -e $program`
+    process = run(pipeline(ignorestatus(command); stdout = output, stderr = output); wait = false)
+    status = timedwait(() -> process_exited(process), 600.0; pollint = 0.1)
+    status === :timed_out && kill(process)
+    wait(process)
+    text = String(take!(output))
+    @test status === :ok
+    @test success(process)
+    @test occursin("PLANTED $planted", text)
+    @test count("Selected 1 maintained test items in 1 files; run completed", text) == 2
+    @test occursin("Quality items in a fresh process: Quality / architecture / A2 placement", text)
+    @test occursin("CHANGED RUN PASSED", text)
+    success(process) || println(text)
+end
