@@ -29,6 +29,34 @@ function selection(arguments, directory; excluded=ORDINARY_EXCLUDED_TAGS)
     end
 end
 
+# The items and setups under `root/test`, read without running them. Each item
+# has its file relative to `root`, name, tags and setups. `setups` maps each setup
+# name to the file that defines it.
+function inventory(root)
+    root = abspath(root)
+    prefix = joinpath(root, "test", "")
+    items = @NamedTuple{file::String, name::String, tags::Vector{Symbol},
+        setups::Vector{Symbol}}[]
+    setups = Dict{Symbol, String}()
+    for file in TestItemRunner.find_test_files(root)
+        startswith(abspath(file), prefix) || continue
+        tree = TestItemRunner.JuliaSyntax.parseall(TestItemRunner.JuliaSyntax.SyntaxNode,
+            read(file, String); filename=file)
+        found, defined, errors = [], [], []
+        TestItemRunner.TestItemDetection.find_test_detail!(tree, found, defined, errors)
+        isempty(errors) || error("Invalid test item or setup definition in $file")
+        path = relpath(file, root)
+        for item in found
+            push!(items, (; file=path, name=String(item.name), tags=item.option_tags,
+                setups=item.option_setup))
+        end
+        for setup in defined
+            setups[Symbol(setup.name)] = path
+        end
+    end
+    return (; items, setups)
+end
+
 function validate_config(path)
     isfile(path) || return
     document = TOML.parsefile(path)
@@ -45,7 +73,9 @@ function validate_config(path)
     return
 end
 
-function run_tests(root; filter=(_ -> true), verbose=true, list=false)
+# `on_start` receives each item name as the item starts.
+# `test/tools/owners.jl` uses it to record coverage per item.
+function run_tests(root; filter=(_ -> true), verbose=true, list=false, on_start=(_ -> nothing))
     started = time_ns()
     root = abspath(root)
     validate_config(joinpath(root, "JuliaTestItems.toml"))
@@ -75,6 +105,7 @@ function run_tests(root; filter=(_ -> true), verbose=true, list=false)
             println("Starting [", round((time_ns() - started) / 1e9; digits=2),
                 "s] ", description)
             flush(stdout)
+            on_start(description)
         end
         Test.DefaultTestSet(description; verbose)
     end
