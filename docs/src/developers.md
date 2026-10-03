@@ -119,78 +119,79 @@ meaning to a name. The guards load the
 package with the extensions that `explicit_imports.jl` loads. They enumerate every
 package method and parse every Julia file under `src/` and `ext/`.
 
-- Ownership (A1). A core method that extends a function owned by another package
+- Ownership (`ownership`). A core method that extends a function owned by another package
   module mentions a type owned by its own module or a descendant. For a constructor,
   the function owner is the owner of the constructed type. For methods of the root
   module, functions and types of its submodules count as owned by another module.
   Extension methods are exempt.
-- Placement (A2). No core method is defined in a file under `ext/`. The home of a
+- Placement (`placement`). No core method is defined in a file under `ext/`. The home of a
   module is the directory that holds its `<ModuleName>.jl` file. The nearest home
   around a method's file belongs to the method's module or one of its ancestors.
-- Direction (A3). The submodules have the order Units, Commons, TextDisplay,
+- Direction (`direction`). The submodules have the order Units, Commons, TextDisplay,
   InputValidation, PlotBuilder, Materials, Earth, DataModel, Engine, ModalAnalysis,
   ParametricBuilder, UQ, ReportBuilder, ImportExport, PSCAD. `MODULE_OWNERS` in
   `test/support/taxonomy.jl` defines this order once, for the guards and for the test
-  runner. The lowered code of a
-  submodule method references earlier submodules, the ancestors and descendants of
-  its own module, and no later submodule. Each top-level submodule has a position in
+  runner. The lowered code of a submodule method references earlier submodules, the
+  ancestors and descendants of its own module, and no later submodule. Each top-level submodule has a position in
   the order. The root module and the extensions are exempt.
-- Names (A4). Functions and types owned by different package modules have distinct
-  names. The per-family `Formula` types are exempt. A public package name that Base,
-  DataFrames, LinearAlgebra, Statistics, Random, Dates or Logging also exports
-  refers to the same object as the exported name.
-- `validate` (A5). Each `validate` definition names its first positional argument.
-  Each path through its body returns that argument or calls `throw`, `rethrow` or
-  `error`. The guard reads source code. A path that it cannot classify counts as a
+- Names (`names`). Functions and types owned by different package modules have
+  distinct names. The per-family `Formula` types are exempt.
+- Shadowing (`shadowing`). A public package name that Base, DataFrames, LinearAlgebra,
+  Statistics, Random, Dates or Logging also exports refers to the same object as the
+  exported name.
+- validate returns its subject (`validate`). Each `validate` definition names its first
+  positional argument. Each path through its body returns that argument or calls
+  `throw`, `rethrow` or `error`. The guard reads source code. A path that it cannot classify counts as a
   violation.
-- Reserved verbs (A6). No function name starts with `validate_`, `check_`,
+- Reserved verbs (`reserved_verbs`). No function name starts with `validate_`, `check_`,
   `require_`, `assert_`, `verify_` or `ensure_`, after any leading `_` characters.
   `validate` is the input-check verb.
-- Symbol switches and probes (A7). Each source file has counts of `applicable`
+- Symbol switches and probes (`switches`). Each source file has counts of `applicable`
   calls, `@eval` calls, and comparisons of a `kind` field against symbols, negated
   comparisons included. These counts can decrease and never increase.
 
 `Commons` contains only definitions that several owners use. An owner is the root
-module, a top-level submodule or a package extension. The guards C1 to C6 stop
+module, a top-level submodule or a package extension. The Commons guards stop
 helpers from accumulating elsewhere.
 
-- Commons admission (C1). Each function, type and constant defined in `Commons` is
+- Commons admission (`commons`). Each function, type and constant defined in `Commons` is
   exported or declared `public`, has a docstring and is named in a test file under
   `test/unit/commons/`. A hook is a `Commons` function with a method defined outside
   `Commons`. The user API is the `Commons` names that the root module exports or
   declares `public`. Unless a name is user API, methods of at least two owners
   outside `Commons` use it. Unless it is a hook or user API, it has an entry in the
-  reserved vocabulary of C2. A use is a reference in lowered code, a method
+  reserved vocabulary. A use is a reference in lowered code, a method
   signature, a method extension, a supertype or a field type. Uses by a public
   `Commons` definition count for the definitions it uses. A definition with one
   remaining owner moves to that owner. Algorithm-local helpers are nested functions
   inside the public definition.
-- Reserved vocabulary (C2). `VOCABULARY` maps each `Commons` public name to the
+- Reserved vocabulary (`vocabulary`). `VOCABULARY` maps each `Commons` public name to the
   definition names it reserves. Outside `src/commons/`, no function, constant or
   assigned local takes a reserved name. A local assigned from a call to the
   reserving definition is exempt, as in `μ0 = vacuum_permeability(T)`.
-- Literal fingerprints (C3). Outside `src/commons/consts.jl`, no numeric literal
+- Literal fingerprints (`fingerprints`). Outside `src/commons/consts.jl`, no numeric literal
   contains the digits `8854187` or `299792458`, and no statement that names `π`
   contains `1e-7` or a power of a base containing 10 with exponent `-7`.
-- Clones (C4). Function bodies are tokenized with each identifier replaced by its
+- Clones of Commons bodies (`clones`). Function bodies are tokenized with each identifier replaced by its
   role (call, field or name), and compared through runs of 8 tokens. Statements of
   the form `x || throw(...)` or `x && throw(...)`, with `throw`, `rethrow` or
   `error`, are left out. No function body under `src/` or `ext/` contains 75 % of the
   runs of a `Commons` public function body of at least 30 tokens. Hooks are not
   compared.
-- Tiny helpers (C5). A tiny helper is a private module-level function with one
+- Tiny private helpers (`helpers`). A tiny helper is a private module-level function with one
   method and at most three body statements. Exactly one method references it, and
   no test file names it. Files under `test/quality/` and `test/tools/` are not test
   files here. An exact forwarder counts as a tiny helper for any number of
   references. Its body is one call with the forwarder's own arguments,
   unchanged and in order, keywords included. Inline a new tiny helper, import the
   owner's definition, or test it directly.
-- Root freeze (C6). The number of functions, types and constants defined by the root
-  module does not grow. New shared definitions go to `Commons` under C1.
+- Root freeze (`root`). The number of functions, types and constants defined by the root
+  module does not grow. New shared definitions go to `Commons` under Commons admission.
 
-Each guard is a function of its inputs. The negative controls (A8 and C7) apply each
-guard to a probe package with planted violations and to a clean probe package. A
-guard reports exactly the planted violations and nothing in the clean probe.
+Each guard is a function of its inputs. The negative controls of the architecture
+guards and the negative controls of the Commons guards apply each guard to a probe
+package with planted violations and to a clean probe package. A guard reports exactly
+the planted violations and nothing in the clean probe.
 
 `test/quality/architecture_baseline.toml` records the violations present when the
 guards were introduced, with one table per guard. Every table name must appear in

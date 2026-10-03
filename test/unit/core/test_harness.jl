@@ -123,7 +123,7 @@ end
         println("PLANTED ", String(method.file))
         ValidationTestRunner.run_changed($(repr(root)),
             Set([("test/unit/units/units.jl", "Units / locked public vocabulary")]);
-            quality = ["Quality / architecture / A2 placement"])
+            quality = ["Quality / architecture / Placement"])
         println("CHANGED RUN PASSED")
         """
     output = IOBuffer()
@@ -137,7 +137,7 @@ end
     @test success(process)
     @test occursin("PLANTED $planted", text)
     @test count("Selected 1 maintained test items in 1 files; run completed", text) == 2
-    @test occursin("Quality items in a fresh process: Quality / architecture / A2 placement", text)
+    @test occursin("Quality items in a fresh process: Quality / architecture / Placement", text)
     @test occursin("CHANGED RUN PASSED", text)
     success(process) || println(text)
 end

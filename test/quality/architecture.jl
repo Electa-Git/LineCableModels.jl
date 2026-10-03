@@ -176,7 +176,7 @@
         return found
     end
 
-    # A1. A core method that extends a function owned by another package
+    # Ownership. A core method that extends a function owned by another package
     # module mentions a type owned by its own module or a descendant.
     function ownership(methods, tree::PackageTree)
         found = Dict{String, Int}()
@@ -225,7 +225,7 @@
         return nearest
     end
 
-    # A2. No core method is defined under `ext/`. The nearest home directory
+    # Placement. No core method is defined under `ext/`. The nearest home directory
     # around a method's file belongs to its module or one of its ancestors.
     function placement(methods, tree::PackageTree, homes)
         found = Dict{String, Int}()
@@ -291,7 +291,7 @@
         return found
     end
 
-    # A3. No method body of a core submodule references a value owned by a
+    # Direction. No method body of a core submodule references a value owned by a
     # module in a later position of `order`.
     function direction(methods, tree::PackageTree, order)
         found = Dict{String, Int}()
@@ -317,7 +317,7 @@
         return found
     end
 
-    # A4a. Distinct functions or types, owned by different package modules,
+    # Names. Distinct functions or types, owned by different package modules,
     # that share a name. The value is the number of modules that define the name.
     function shared_names(tree::PackageTree; exceptions = SHARED_NAMES)
         owners = Dict{Symbol, Vector{Module}}()
@@ -333,7 +333,7 @@
             for (name, modules) in owners if length(modules) > 1 && name ∉ exceptions)
     end
 
-    # A4b. A public package-owned name that a dependency exports for a
+    # Shadowing. A public package-owned name that a dependency exports for a
     # different object.
     function shadowing(tree::PackageTree, dependencies)
         found = Dict{String, Int}()
@@ -445,7 +445,7 @@
         syntax_name(node[1]) in ((Symbol("@required"),),
             (:RequiredInterfaces, Symbol("@required")))
 
-    # A5. Every `validate` method names its first positional argument and
+    # validate returns its subject. Every `validate` method names its first positional argument and
     # returns it on every path, or throws.
     function validate_returns(files, directory)
         found = Dict{String, Int}()
@@ -461,7 +461,7 @@
         return found
     end
 
-    # A6. No function name spells an input check with a reserved verb prefix.
+    # Reserved verbs. No function name spells an input check with a reserved verb prefix.
     function reserved_verbs(files, directory)
         found = Dict{String, Int}()
         for file in files
@@ -500,7 +500,7 @@
             kind_field(left) && symbol_operand(right)
     end
 
-    # A7. Per file, calls to `applicable`, `@eval` calls and comparisons of a
+    # Symbol switches and probes. Per file, calls to `applicable`, `@eval` calls and comparisons of a
     # `kind` field against symbols, including negated comparisons.
     function switches(files, directory)
         found = Dict{String, Dict{String, Int}}()
@@ -602,7 +602,7 @@
         return hooks, api
     end
 
-    # C1. Each Commons name is public, documented and named in a Commons unit
+    # Commons admission. Each Commons name is public, documented and named in a Commons unit
     # test. Unless it is user API, methods of at least two owners outside
     # Commons use it, directly or through public Commons definitions. Unless it
     # is a hook or user API, it has a vocabulary entry. Macros are used where
@@ -736,7 +736,7 @@
         return Symbol[]
     end
 
-    # C2. Outside Commons, no function, constant or assigned local takes a
+    # Reserved vocabulary. Outside Commons, no function, constant or assigned local takes a
     # name reserved by a Commons definition. A local assigned from a call to
     # the reserving definition is exempt.
     function reserved_vocabulary(files, directory, vocabulary)
@@ -800,7 +800,7 @@
         return any_node(is_pi, statement(node))
     end
 
-    # C3. Numeric fingerprints of the Commons constants appear only in the
+    # Literal fingerprints. Numeric fingerprints of the Commons constants appear only in the
     # constants file: digits of ε₀ or c₀, and 10⁻⁷ in a statement with π.
     function fingerprints(files, directory)
         found = Dict{String, Int}()
@@ -866,7 +866,7 @@
         return found
     end
 
-    # C4. No function body contains `CLONE_SHARE` of the token shingles of a
+    # Clones of Commons bodies. No function body contains `CLONE_SHARE` of the token shingles of a
     # Commons public function body of at least `CLONE_TOKENS` tokens. Hooks are
     # not references.
     function clones(files, methods, tree::PackageTree; share = CLONE_SHARE)
@@ -956,7 +956,7 @@
             own == passed
     end
 
-    # C5. Private module-level functions with one method and at most three body
+    # Tiny private helpers. Private module-level functions with one method and at most three body
     # statements, referenced by exactly one method and named in no test file, are
     # tiny helpers. Exact forwarders count whatever their references.
     function tiny_helpers(methods, tree::PackageTree, tests)
@@ -985,7 +985,7 @@
         return found
     end
 
-    # C6. The number of functions, types and constants the root module defines.
+    # Root freeze. The number of functions, types and constants the root module defines.
     function root_definitions(tree::PackageTree)
         n = length(definitions(tree.root))
         return n == 0 ? Dict{String, Int}() : Dict(module_name(tree, tree.root) => n)
@@ -1100,19 +1100,19 @@
     end
 end
 
-@testitem "Quality / architecture / A1 ownership" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Ownership" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("ownership")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / A2 placement" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Placement" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("placement")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / A3 direction" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Direction" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
     # Each top-level submodule has a position in the declared order.
     top = Set(nameof(m) for m in A.live_tree().core
@@ -1123,33 +1123,37 @@ end
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / A4 names" tags=[:quality] setup=[ArchitectureGuards] begin
-    for table in ("names", "shadowing")
-        result = ArchitectureGuards.check(table)
-        @test result.added == String[]
-        @test result.stale == String[]
-    end
+@testitem "Quality / architecture / Names" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("names")
+    @test result.added == String[]
+    @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / A5 validate returns its subject" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Shadowing" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("shadowing")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
+@testitem "Quality / architecture / validate returns its subject" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("validate")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / A6 reserved verbs" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Reserved verbs" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("reserved_verbs")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / A7 symbol switches and probes" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Symbol switches and probes" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("switches")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / A8 negative controls" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / negative controls of the architecture guards" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
 
     # The planted package has one or two violations for each guard. `Late` is
@@ -1341,37 +1345,37 @@ end
     end
 end
 
-@testitem "Quality / architecture / C1 Commons admission" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Commons admission" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("commons")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / C2 reserved vocabulary" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Reserved vocabulary" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("vocabulary")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / C3 literal fingerprints" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Literal fingerprints" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("fingerprints")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / C4 clones of Commons bodies" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Clones of Commons bodies" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("clones")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / C5 tiny private helpers" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Tiny private helpers" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("helpers")
     @test result.added == String[]
     @test result.stale == String[]
 end
 
-@testitem "Quality / architecture / C6 root freeze" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / Root freeze" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("root")
     @test result.added == String[]
     @test result.stale == String[]
@@ -1383,7 +1387,7 @@ end
     @test A.unknown_tables(Dict("ownership" => Dict(), "retired" => Dict())) == ["retired"]
 end
 
-@testitem "Quality / architecture / C7 negative controls" tags=[:quality] setup=[ArchitectureGuards] begin
+@testitem "Quality / architecture / negative controls of the Commons guards" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
 
     vocabulary = Dict{Symbol, Regex}(:shared => r"^_*shared$", :lonely => r"^_*lonely$",
@@ -1411,8 +1415,9 @@ end
         end
         """
 
-    # Commons has one definition failing each C1 criterion and `hidden`
-    # failing all. `Alpha` and `Beta` plant C2 to C5, the root plants C6.
+    # Commons has one definition failing each Commons admission criterion and `hidden`
+    # failing all. `Alpha` and `Beta` plant violations of the reserved vocabulary, the
+    # literal fingerprints, the clones and the tiny helpers. The root breaks the root freeze.
     planted_files = Dict(
         "src/CommonsProbePlanted.jl" => """
             module CommonsProbePlanted

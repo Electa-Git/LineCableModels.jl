@@ -35,8 +35,7 @@ function EN.flatten(engine::LineCableModelsCoaxial,
         engine, design, S, methods, solutions, design_index)
 end
 
-const QUOTE = Char(0x22)
-const CLOSURE = "var" * QUOTE * "#closure" * QUOTE
+const CLOSURE = "var\"#closure\""
 
 bare(m::Module) = Base.moduleroot(m) in (Base, Core)
 
