@@ -55,17 +55,17 @@ module CurrentScenarios
     conductor_material() = Material(kind=:conductor, rho=2e-8, eps_r=1.0,
         mu_r=1.0, T0=20.0, alpha=0.004)
 
-    function coaxial_design(; scale=1.0, name="concentric-control")
+    function coaxial_design(; scale=1.0, name="concentric-control", nominal_data=nothing)
         dielectric = Material(kind=:insulator, rho=1e8, eps_r=3.0, mu_r=1.0)
         return build(CableDesign, name, Stack(
             terminal(:core, Region(:metal, Disk(0.005scale), conductor_material())),
             Region(:dielectric, Shell(0.005scale), dielectric),
             terminal(:sheath, Region(:return, Shell(0.001scale), conductor_material())),
-            Region(:cover, Shell(0.001scale), dielectric)))
+            Region(:cover, Shell(0.001scale), dielectric)); nominal_data)
     end
 
-    function three_phase_system(; line_length=600.0, spacing=0.08)
-        designs = [coaxial_design(; name="phase-$phase") for phase in 1:3]
+    function three_phase_system(; line_length=600.0, spacing=0.08, nominal_data=nothing)
+        designs = [coaxial_design(; name="phase-$phase", nominal_data) for phase in 1:3]
         return build(LineCableSystem, designs,
             [(-spacing, -1.0), (0.0, -1.0-spacing), (spacing, -1.0)];
             system_id="current-three-phase", line_length,
@@ -123,17 +123,23 @@ module CurrentScenarios
             [samples],[histograms],UInt64(2027),UInt64[2039],[4])
     end
 
+    # Counters of the equivalence check (L4): `materialized()` runs once per point a
+    # parametric scenario realizes, and `nominal_data` reaches its cable designs.
+    const NO_COUNTERS = (materialized=Returns(nothing), nominal_data=nothing)
+
     # Parametric study: earth resistivity and spacing, combined as `combine` asks, crossed
     # with two insulation admittance formulations.
-    study_space(frequencies, combine) = Gridspace{LineParametersProblem}(
-        (rho, spacing) -> LineParametersProblem(three_phase_system(; spacing);
-            temperature=20.0, earth_props=homogeneous(; rho, eps_r=10.0, mu_r=1.0),
-            frequencies), (Grid((100.0, 1000.0)), Grid((0.08, 0.1))); combine)
+    study_space(frequencies, combine, counters) = Gridspace{LineParametersProblem}(
+        (rho, spacing) -> (counters.materialized();
+            LineParametersProblem(three_phase_system(; spacing, counters.nominal_data);
+                temperature=20.0, earth_props=homogeneous(; rho, eps_r=10.0, mu_r=1.0),
+                frequencies)), (Grid((100.0, 1000.0)), Grid((0.08, 0.1))); combine)
     study_formulations() = Formulation(insulation_admittance=Grid((:default, :lossy)))
 
     # One uncertain cable spacing [m]; its evaluation requires the Measurements extension.
-    uncertain_space(frequencies) = Gridspace{LineParametersProblem}(
-        spacing -> line_parameters_problem(three_phase_system(; spacing); frequencies),
+    uncertain_space(frequencies, counters) = Gridspace{LineParametersProblem}(
+        spacing -> (counters.materialized(); line_parameters_problem(
+            three_phase_system(; spacing, counters.nominal_data); frequencies)),
         (Grid(0.08, AbsoluteError(0.002)),))
 
     """
@@ -144,8 +150,11 @@ module CurrentScenarios
     Each scenario is the tuple of positional arguments of `compute`, with `n` analysis
     frequencies between 10 Hz and 100 kHz. The CableConstants problem has its own
     single frequency. LinearError and MonteCarlo require the Measurements extension.
+    New scenarios are appended, never inserted: the allocation counts depend on what a
+    process computed before. `counters` instruments the parametric scenarios for the
+    equivalence check and leaves their results unchanged.
     """
-    function preservation_corpus(n::Integer)
+    function preservation_corpus(n::Integer; counters=NO_COUNTERS)
         frequencies = collect(10.0 .^ range(1, 5; length=n))
         coaxial = line_parameters_problem(three_phase_system(); frequencies)
         return (
@@ -156,13 +165,13 @@ module CurrentScenarios
                 heights=three_bare_wires_layouts.all_earth, frequencies), Formulation()),
             modal=(coaxial, Formulation(), ModalAnalysisFormulation(:default)),
             cable_constants=(CableConstantsProblem(coaxial_design()), CableConstantsFormulation()),
-            product=(ParametricProblem(study_space(frequencies, :product)),
+            product=(ParametricProblem(study_space(frequencies, :product, counters)),
                 Combinatorial(study_formulations())),
-            zip=(ParametricProblem(study_space(frequencies, :zip)),
+            zip=(ParametricProblem(study_space(frequencies, :zip, counters)),
                 Combinatorial(study_formulations())),
-            linear_error=(ParametricProblem(uncertain_space(frequencies)),
+            linear_error=(ParametricProblem(uncertain_space(frequencies, counters)),
                 LinearError(Formulation())),
-            monte_carlo=(ParametricProblem(uncertain_space(frequencies)),
+            monte_carlo=(ParametricProblem(uncertain_space(frequencies, counters)),
                 MonteCarlo(Formulation(); trials=4, seed=2027)))
     end
 end

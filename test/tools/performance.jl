@@ -6,15 +6,17 @@
 # REF is checked out in a temporary git worktree. Its test environment starts from this
 # repository's `Manifest.toml`, resolved again for REF's projects, so both sides use the
 # same dependency versions wherever REF allows them; the report lists any that differ.
-# Each side runs the working tree's corpus (`preservation_corpus` in
-# `test/support/scenarios.jl`, `N` frequencies, default 4) in a fresh process: one
-# warm-up call, then BenchmarkTools samples for `S` seconds per scenario (default 3).
+# Each side runs its own revision's corpus (`preservation_corpus` in
+# `test/support/scenarios.jl`, `N` frequencies, default 4) in a fresh process; a
+# revision without one uses the working tree's, and the report says which copy each side
+# used and whether the two corpus files differ. Each scenario gets one warm-up call, then
+# BenchmarkTools samples for `S` seconds (default 3).
 # The report gives the median time per scenario and its change. A slowdown above 5 % in
 # any scenario fails, and so does a scenario that fails on the working tree; a scenario
 # that cannot run at REF is reported as not comparable. Not run in CI: timings belong to
 # one machine.
 const REPOSITORY = dirname(dirname(@__DIR__))
-const CORPUS = joinpath(REPOSITORY, "test", "support", "scenarios.jl")
+const CORPUS = joinpath("test", "support", "scenarios.jl")
 const THRESHOLD = 0.05
 
 # Each side prints one line per scenario: name, median, minimum [ns] and sample count,
@@ -52,31 +54,13 @@ end
 main(n, seconds)
 """
 
-const VERSIONS = raw"""
-using Pkg
-for (_, p) in Pkg.dependencies()
-    p.version === nothing || println(p.name, "\t", p.version)
-end
-"""
-
-git(arguments...) = Cmd(["git", "-C", REPOSITORY, arguments...])
-julia(project, program, arguments...) =
-    `$(Base.julia_cmd()) --startup-file=no --project=$project -e $program $arguments`
-
-function output(command)
-    out, err = IOBuffer(), IOBuffer()
-    process = run(pipeline(ignorestatus(command); stdout = out, stderr = err))
-    success(process) || error("Command failed: $(command)\n$(String(take!(err)))")
-    return String(take!(out))
-end
-
-versions(project) = Dict(split(line, '\t') for line in eachline(IOBuffer(output(julia(project, VERSIONS)))))
+Base.include(@__MODULE__, joinpath(@__DIR__, "worktree.jl"))
 
 # Scenario => (median, minimum, samples) in ns, or the error text of a failed scenario,
 # in corpus order.
-function timings(project, n, seconds)
+function timings(project, corpus, n, seconds)
     found = Pair{String, Any}[]
-    for line in eachline(IOBuffer(output(julia(project, PROGRAM, CORPUS, n, seconds))))
+    for line in eachline(IOBuffer(output(julia(project, PROGRAM, corpus, n, seconds))))
         fields = split(line, '\t')
         push!(found, String(fields[1]) => (fields[2] == "failed" ? String(fields[3]) :
             (parse(Float64, fields[2]), parse(Float64, fields[3]), parse(Int, fields[4]))))
@@ -84,37 +68,20 @@ function timings(project, n, seconds)
     return found
 end
 
-function worktree(f, reference)
-    directory = mktempdir()
-    run(pipeline(git("worktree", "add", "--detach", "--quiet", directory, reference);
-        stderr = devnull))
-    try
-        return f(directory)
-    finally
-        run(pipeline(git("worktree", "remove", "--force", directory); stderr = devnull))
-    end
-end
-
 milliseconds(t) = string(round(t / 1e6; sigdigits = 4), " ms")
 
 function compare(reference; n = 4, seconds = 3.0)
-    success(pipeline(git("rev-parse", "--verify", "--quiet", reference * "^{commit}");
-        stdout = devnull)) || error("Unknown git revision: $reference")
     working = joinpath(REPOSITORY, "test")
-    return worktree(reference) do directory
-        manifest = joinpath(REPOSITORY, "Manifest.toml")
-        isfile(manifest) && cp(manifest, joinpath(directory, "Manifest.toml"))
-        project = joinpath(directory, "test")
-        println("Preparing $reference in a temporary worktree...")
-        output(julia(project, "using Pkg; Pkg.resolve(); Pkg.instantiate()"))
-        before, after = versions(project), versions(working)
-        differing = sort!([name for name in keys(after)
-            if haskey(before, name) && before[name] != after[name]])
-        println(isempty(differing) ? "Dependency versions: identical on both sides." :
-            "Dependency versions that differ at $reference: " *
-            join(["$name $(before[name]) (working tree $(after[name]))" for name in differing], ", "))
+    return at_revision(reference) do project
+        corpus = own_copy(dirname(project), CORPUS; marker = "function preservation_corpus(")
+        println(reference, ": ", corpus.own ? "its own corpus" :
+            "the working tree's corpus ($reference has no preservation corpus)")
+        println("working tree: its own corpus")
+        corpus.own && read(corpus.path) != read(joinpath(REPOSITORY, CORPUS)) &&
+            println("Notice: the corpus file differs between the two sides.")
         println("Timing $n frequencies, $(seconds) s per scenario: $reference, then the working tree.")
-        old, new = Dict(timings(project, n, seconds)), timings(working, n, seconds)
+        old = Dict(timings(project, corpus.path, n, seconds))
+        new = timings(working, joinpath(REPOSITORY, CORPUS), n, seconds)
         slower = String[]
         println(rpad("scenario", 17), lpad(reference, 14), lpad("working", 14), lpad("change", 10))
         for (name, measured) in new

@@ -274,4 +274,59 @@ end
         (["s | 2 frequencies | allocations" => 5, "s | 2 frequencies | bytes" => 10], nothing)
     @test last(rows([5, 6, 5], [10, 10, 10])) ==
         "s | 2 frequencies: allocations [5, 6, 5] across calls"
+
+    # The equivalence tool (L4): declarations, renames, kinds and the revision's own files.
+    equivalence = Module(:EquivalenceTool)
+    Base.include(equivalence, joinpath(P.REPOSITORY, "test", "tools", "equivalence.jl"))
+    E(f, arguments...; keywords...) =
+        Base.invokelatest(getfield(equivalence, f), arguments...; keywords...)
+    mktempdir() do directory
+        file = joinpath(directory, "allowed")
+        write(file, "# Declared differences\nrename | Grammar => Commons\ncoaxial | | value\n" *
+            "modal | result.Z | type  # a path prefix\n\n")
+        @test E(:declarations, file) == (; renames = ["Grammar" => "Commons"], declared = [
+            (; scenario = "coaxial", prefix = "", kind = :value),
+            (; scenario = "modal", prefix = "result.Z", kind = :type)])
+        for malformed in ("coaxial | result", "coaxial | result | values", "rename | Grammar",
+                "rename | Grammar => Commons.Types")
+            write(file, malformed * "\n")
+            @test_throws ErrorException E(:declarations, file)
+        end
+    end
+    # A rename reaches type names, path segments and Symbol values, whole identifiers only.
+    nodes = ["result.Grammar.x" => ("Grammar.FormulaDefinition{:Grammar}", ""),
+        "result.y" => ("Symbol", ":Grammar"), "result.z" => ("String", "\"Grammar\""),
+        "result.w" => ("MyGrammar.GrammarX", ""), "result.eltype" => ("Type", "Grammar.Point")]
+    used = falses(2)
+    @test E(:renamed, nodes, ["Grammar" => "Commons", "Absent" => "Present"], used) == [
+        "result.Commons.x" => ("Commons.FormulaDefinition{:Commons}", ""),
+        "result.y" => ("Symbol", ":Commons"), "result.z" => ("String", "\"Grammar\""),
+        "result.w" => ("MyGrammar.GrammarX", ""), "result.eltype" => ("Type", "Commons.Point")]
+    # The second rename matches nothing, and the report says so.
+    @test used == [true, false]
+    # Differences are found in recorded order and classified; a declaration covers its kind only.
+    before = ["a" => ("Float64", "01"), "b" => ("Int64", "1"), "gone" => ("Int64", "1")]
+    after = ["a" => ("Float64", "02"), "b" => ("Int32", "1"), "added" => ("Int64", "1")]
+    changes = E(:differences, before, after)
+    @test first.(changes) == ["a", "b", "added", "gone"]
+    @test [E(:kind, c) for c in changes] == [:value, :type, :path, :path]
+    @test isempty(E(:differences, before, before))
+    value = (; scenario = "s", prefix = "", kind = :value)
+    @test E(:covers, value, "s", changes[1])
+    @test !E(:covers, value, "s", changes[2])
+    @test E(:covers, (; scenario = "s", prefix = "b", kind = :type), "s", changes[2])
+    @test !E(:covers, value, "other", changes[1])
+    # A revision without its own copy uses the working tree's.
+    mktempdir() do revision
+        corpus = joinpath("test", "support", "scenarios.jl")
+        working = joinpath(P.REPOSITORY, corpus)
+        marker = "function preservation_corpus("
+        @test E(:own_copy, revision, corpus; marker) == (; path = working, own = false)
+        mkpath(dirname(joinpath(revision, corpus)))
+        write(joinpath(revision, corpus), "module CurrentScenarios end\n")
+        @test E(:own_copy, revision, corpus; marker) == (; path = working, own = false)
+        write(joinpath(revision, corpus), "function preservation_corpus(n) end\n")
+        @test E(:own_copy, revision, corpus; marker) ==
+            (; path = joinpath(revision, corpus), own = true)
+    end
 end
