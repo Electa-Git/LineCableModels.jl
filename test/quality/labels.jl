@@ -6,6 +6,7 @@
 # numbers are domain notation.
 @testmodule LabelCheck begin
     using JuliaSyntax: JuliaSyntax, @K_str
+    Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "taxonomy.jl"))
 
     const REPOSITORY = dirname(dirname(@__DIR__))
     const DIRECTORIES = ("test/quality", "test/tools", "test/support")
@@ -84,12 +85,10 @@
 
     function scope(root = REPOSITORY)
         files = String[]
-        for directory in DIRECTORIES, (path, _, names) in walkdir(joinpath(root, directory))
-            for name in names
-                file = relpath(joinpath(path, name), root)
-                endswith(name, ".jl") || endswith(name, ".toml") || continue
-                endswith(name, "Manifest.toml") || file in EXCLUDED || push!(files, file)
-            end
+        for directory in DIRECTORIES, path in repository_files(joinpath(root, directory))
+            file = relpath(path, root)
+            endswith(file, ".jl") || endswith(file, ".toml") || continue
+            endswith(file, "Manifest.toml") || file in EXCLUDED || push!(files, file)
         end
         return sort!(append!(files, DOCUMENTS))
     end

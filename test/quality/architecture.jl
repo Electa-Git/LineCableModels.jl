@@ -125,11 +125,7 @@
     function source_files(directory::AbstractString)
         files = String[]
         for base in ("src", "ext")
-            root = joinpath(directory, base)
-            isdir(root) || continue
-            for (path, _, names) in walkdir(root), name in names
-                endswith(name, ".jl") && push!(files, joinpath(path, name))
-            end
+            append!(files, filter(endswith(".jl"), repository_files(joinpath(directory, base))))
         end
         return sort!(files)
     end
@@ -567,13 +563,12 @@
         return m
     end
 
-    # The `.jl` files under `directory`, except those under `excluded` subdirectories.
+    # The texts of the checkout's `.jl` files under `directory`, except those under
+    # `excluded` subdirectories.
     function test_sources(directory; excluded = ())
         texts = String[]
-        isdir(directory) || return texts
-        for (path, _, names) in walkdir(directory), name in names
-            file = joinpath(path, name)
-            endswith(name, ".jl") &&
+        for file in repository_files(directory)
+            endswith(file, ".jl") &&
                 !any(x -> inside(file, joinpath(directory, x)), excluded) &&
                 push!(texts, read(file, String))
         end

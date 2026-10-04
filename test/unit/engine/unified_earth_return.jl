@@ -524,3 +524,38 @@ end
         end
     end
 end
+
+@testitem "Engine / earth kernels keep J0 - 1 accurate and the decaying cosine finite" tags=[:unit, :engine] begin
+    const E=LineCableModels.Engine
+    # J₀(z)-1 from its power series in 256-bit arithmetic: an independent reference.
+    function j0m1(z)
+        z = big(z)
+        term = one(z)
+        result = zero(z)
+        for k in 1:400
+            term *= -(z/2)^2/k^2
+            result += term
+        end
+        return result
+    end
+    for z in (1e-8, 1e-3, 0.3, 2.5, 0.4 + 0.3im, 3.0 - 2.0im, 1e-6im)
+        reference = j0m1(z)
+        @test abs(E.bessel_j0m1(z) - reference) <= 4eps()*abs(reference)
+    end
+    # Near zero, J₀ - 1 computed as a difference would lose every digit.
+    @test E.bessel_j0m1(1e-8) ≈ -2.5e-17 rtol=1e-12
+
+    # e^{-hλ}cos(sλ), with the decay and the oscillation in one exponential.
+    height, separation = 1.0, 2.0
+    for λ in (0.7, 3.0 + 0.5im, 0.2 - 1.5im)
+        @test E.earth_cosine(height, separation, λ) ≈
+            exp(-height*λ)*cos(separation*λ) rtol=1e-14
+    end
+    # Far along a complex ray, cos(sλ) alone overflows. The combined form is finite there.
+    λ = 400.0 - 400.0im
+    @test !isfinite(cos(separation*λ))
+    combined = E.earth_cosine(height, separation, λ)
+    reference = exp(-height*big(λ))*cos(separation*big(λ))
+    @test isfinite(combined)
+    @test abs(combined - reference) <= 1e-12*abs(reference)
+end

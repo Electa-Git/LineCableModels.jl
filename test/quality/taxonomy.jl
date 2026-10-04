@@ -56,11 +56,9 @@ end
     @test isempty(intersect(Set(T.OWNERS), union(Set(T.KINDS), T.ORDINARY_EXCLUDED_TAGS)))
     # Every Julia file under `src/` and `ext/` has an owner.
     owners = T.loaded_owners(TaxonomyGuards.REPOSITORY)
-    for base in ("src", "ext"), (directory, _, names) in walkdir(joinpath(TaxonomyGuards.REPOSITORY, base))
-        for name in names
-            path = relpath(joinpath(directory, name), TaxonomyGuards.REPOSITORY)
-            @test T.path_owner(owners, path) in T.OWNERS
-        end
+    for base in ("src", "ext"), file in T.repository_files(joinpath(TaxonomyGuards.REPOSITORY, base))
+        path = relpath(file, TaxonomyGuards.REPOSITORY)
+        @test T.path_owner(owners, path) in T.OWNERS
     end
 end
 
@@ -152,6 +150,26 @@ end
         write(joinpath(repository, "src/LineCableModels.jl"),
             "module LineCableModels\ninclude(\"twice.jl\")\ninclude(\"twice.jl\")\nend\n")
         @test_throws ErrorException T.loaded_owners(repository)
+    end
+
+    # The guards read the tracked files and the new files that git would add, never the
+    # ignored ones. Outside a git work tree, they read every file.
+    mktempdir() do repository
+        git(arguments...) = run(pipeline(Cmd(["git", "-C", repository, arguments...]);
+            stdout = devnull, stderr = devnull))
+        for (path, text) in ("test/tracked.jl" => "", "test/new.jl" => "",
+            "test/captured/old.jl" => "", ".gitignore" => "captured/\n")
+            mkpath(dirname(joinpath(repository, path)))
+            write(joinpath(repository, path), text)
+        end
+        directory = joinpath(repository, "test")
+        @test T.repository_files(directory) == joinpath.(directory,
+            ["captured/old.jl", "new.jl", "tracked.jl"])
+        git("init", "-q")
+        git("add", "test/tracked.jl", ".gitignore")
+        @test T.repository_files(directory) == joinpath.(directory, ["new.jl", "tracked.jl"])
+        rm(joinpath(directory, "tracked.jl"))
+        @test T.repository_files(directory) == [joinpath(directory, "new.jl")]
     end
 end
 

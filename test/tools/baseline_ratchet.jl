@@ -3,9 +3,9 @@
 # baseline is a ceiling. `preservation.toml` declares the direction of each table in
 # `[directions]`. A ceiling key added or raised since `REF` fails, and a floor key
 # removed or lowered since `REF` fails. Moves the other way pass. The measured ceilings
-# `[jet]` and `[allocations]` may also rise in a change of `[environment] julia`, the
-# version they were recorded on. The check passes for
-# a file absent at `REF`, and a table absent at `REF` is not compared. File renames that
+# `[jet]` and `[allocations]` may also rise in a change of `[environment]`, the Julia
+# version and `Manifest.toml` they were recorded with. The check passes for a file
+# absent at `REF`, and a table absent at `REF` is not compared. File renames that
 # git detects between `REF` and the working tree, and the module renames they imply,
 # are applied to the keys at `REF` first.
 using TOML
@@ -14,7 +14,7 @@ const BASELINE = "test/quality/architecture_baseline.toml"
 const PRESERVATION = "test/quality/preservation.toml"
 # Tables of the preservation file that describe it rather than hold counts.
 const METADATA = ("directions", "environment")
-# Ceilings measured on one Julia version.
+# Ceilings measured in one environment.
 const MEASURED = ("jet", "allocations")
 const REPOSITORY = normpath(joinpath(@__DIR__, "..", ".."))
 
@@ -99,8 +99,8 @@ function moved(repository, reference, file)
     document = TOML.parse(read(git(repository, "show", "$reference:$file"), String))
     current = TOML.parsefile(joinpath(repository, file))
     direction = merge(directions(file, document), directions(file, current))
-    julia(d) = get(get(d, "environment", Dict{String, Any}()), "julia", nothing)
-    rerecorded = file == PRESERVATION && julia(document) != julia(current)
+    environment(d) = get(d, "environment", Dict{String, Any}())
+    rerecorded = file == PRESERVATION && environment(document) != environment(current)
     values_of(d) = Dict(key => value for (key, value) in entries(d)
         if first(split(key, " | ")) ∉ METADATA)
     before = Dict{String, Any}()

@@ -30,6 +30,21 @@ const KINDS = (:unit, :integration, :extension, :visual, :quality, :aqua)
 # A path relative to `directory`, with `/` separators on every platform.
 relative(path, directory) = join(splitpath(relpath(path, directory)), "/")
 
+# The files under `directory` that belong to the checkout: the files git tracks and the
+# new files it would add, never ignored ones such as local captures under
+# `test/fixtures/`. A local run and CI then read the same files. Outside a git work tree,
+# every file under `directory`.
+function repository_files(directory)
+    isdir(directory) || return String[]
+    listing = IOBuffer()
+    command = `git -C $directory ls-files --cached --others --exclude-standard -z`
+    if success(pipeline(command; stdout = listing, stderr = devnull))
+        names = split(String(take!(listing)), '\0'; keepempty = false)
+        return sort!(filter(isfile, [joinpath(directory, name) for name in names]))
+    end
+    return sort!([joinpath(path, name) for (path, _, names) in walkdir(directory) for name in names])
+end
+
 rank(owner::Symbol) = something(findfirst(==(owner), OWNERS), 0)
 # The first owner tag among `tags`, or nothing.
 owner_tag(tags) = (i = findfirst(in(OWNERS), tags); i === nothing ? nothing : tags[i])

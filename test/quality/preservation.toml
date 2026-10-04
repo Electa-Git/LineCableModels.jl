@@ -1,12 +1,14 @@
 # Preservation locks, checked by `test/quality/preservation.jl`. Each table declares
 # its direction: a floor may only rise and a ceiling may only fall, which
 # `test/tools/baseline_ratchet.jl REF` checks across commits. The quality checks
-# require the counts to equal the live counts.
+# require the counts to equal the live counts, within the tolerance of [allocations].
 
-# The measured ceilings ([jet], [allocations]) hold for this Julia version only. An
-# increase in them is accepted only together with a change of this version.
+# The measured ceilings ([jet], [allocations]) hold for this Julia version and the
+# committed `Manifest.toml` with this SHA-256 only. An increase in them is accepted only
+# together with a change of this environment.
 [environment]
 julia = "1.12.7"
+manifest = "5ecf11c9fd831e437ae143e2840cfd570f5108949b804048957067e9453f76cd"
 
 [directions]
 inferred = "floor"
@@ -78,9 +80,11 @@ allocations = "ceiling"
 
 # Ceiling: allocations of the preservation corpus (`CurrentScenarios.preservation_corpus`),
 # printed by `test/tools/allocations.jl`. `allocations` counts the allocated objects of one
-# warmed-up `compute` call, which repeat exactly on every call. `bytes` is the minimum over
-# three calls and may grow by at most 512 B before the check fails. Record a row's bytes
-# again whenever its counts change.
+# warmed-up `compute` call, which repeat exactly on every call. A count may differ from its
+# row by 0.01 % of it, rounded down, because last-bit floating-point differences between
+# CPUs decide a few allocations of the large scenarios. `bytes` is the minimum over three
+# calls and may grow by at most the larger of 512 B and 0.01 % before the check fails.
+# Record a row's bytes again whenever its counts change.
 [allocations]
 "coaxial | 2 frequencies | allocations" = 7280
 "coaxial | 2 frequencies | bytes" = 424624

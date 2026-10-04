@@ -1,12 +1,13 @@
 # The preservation locks record counts per key in `preservation.toml`. Each table
 # declares its direction. `[inferred]` is a floor, and `[jet]` and `[allocations]` are
 # ceilings. A check fails when a live count passes its limit. It also fails when the
-# live count improves on the table, so that the table records the current state. Recorded
-# bytes fail only on increases beyond `HEADROOM`. The measured ceilings hold for the Julia
-# version in `[environment]`. Across commits, `test/tools/baseline_ratchet.jl` checks
-# that floors only rise and ceilings only fall.
+# live count improves on the table, so that the table records the current state.
+# Allocation counts may differ from the table within `TOLERANCE`, and recorded bytes fail
+# only on increases beyond their headroom. The measured ceilings hold for the Julia
+# version and the `Manifest.toml` recorded in `[environment]`. Across commits,
+# `test/tools/baseline_ratchet.jl` checks that floors only rise and ceilings only fall.
 @testmodule PreservationLocks begin
-    using TestItemRunner, TOML
+    using TestItemRunner, TOML, SHA
     Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "runner.jl"))
     const T = ValidationTestRunner
     const REPOSITORY = dirname(dirname(@__DIR__))
@@ -29,27 +30,44 @@
 
     report(lines) = (foreach(println, lines); lines)
 
-    # The measured tables hold for the recorded Julia version only.
-    function check_version(recorded = TOML.parsefile(TABLES)["environment"]["julia"],
-            running = string(VERSION))
-        recorded == running || error(
-            "recorded on $recorded, running $running: re-record [jet] and [allocations]")
+    # The environment of the measured tables: the Julia version and the committed
+    # `Manifest.toml`, which the CI quality job instantiates.
+    const MANIFEST = joinpath(REPOSITORY, "Manifest.toml")
+    environment() = Dict("julia" => string(VERSION),
+        "manifest" => isfile(MANIFEST) ? bytes2hex(sha256(read(MANIFEST))) : "absent")
+    describe(e) = "Julia $(e["julia"]) and Manifest $(first(e["manifest"], 12))"
+
+    # The measured tables hold for the recorded environment only.
+    function check_environment(recorded = TOML.parsefile(TABLES)["environment"],
+            running = environment())
+        recorded == running || error("recorded with $(describe(recorded)), running " *
+            "$(describe(running)): re-record [jet] and [allocations]")
         return nothing
     end
 
-    # Allocation ceilings: counts are strict in both directions. Bytes fail only above the
-    # recorded minimum plus `HEADROOM`, because the runtime's byte accounting varies.
+    # Allocation ceilings. A count may differ from the table by `TOLERANCE` of it, rounded
+    # down. For small counts, that margin is zero. On another CPU, last-bit floating-point
+    # differences change a few allocations of the large scenarios, because Measurements
+    # drops each partial derivative that is exactly zero. Bytes fail only above the
+    # recorded minimum plus the larger of `HEADROOM` and `TOLERANCE`, because the
+    # runtime's byte accounting adds a few bytes on some calls.
+    const TOLERANCE = 1e-4
     const HEADROOM = 512
+    band(limit) = floor(Int, TOLERANCE*limit)
     function compare_allocations(live, recorded)
-        counts(d) = Dict(k => v for (k, v) in d if endswith(k, "| allocations"))
-        result = compare(counts(live), counts(recorded); floor = false)
+        broken, stale = String[], String[]
         for key in sort!(collect(union(keys(live), keys(recorded))))
-            endswith(key, "| bytes") || continue
             now, limit = get(live, key, 0), get(recorded, key, 0)
-            now > limit + HEADROOM &&
-                push!(result.broken, "$key: $now (recorded $limit + $HEADROOM)")
+            if endswith(key, "| allocations")
+                line = "$key: $now (recorded $limit ± $(band(limit)))"
+                now > limit + band(limit) && push!(broken, line)
+                now < limit - band(limit) && push!(stale, line)
+            elseif endswith(key, "| bytes")
+                margin = max(HEADROOM, band(limit))
+                now > limit + margin && push!(broken, "$key: $now (recorded $limit + $margin)")
+            end
         end
-        return result
+        return (; broken, stale)
     end
 
     const ALLOCATIONS = joinpath(REPOSITORY, "test", "tools", "allocations.jl")
@@ -95,7 +113,7 @@ end
 @testitem "Quality / preservation / JET ceilings on the frequency-loop kernels" tags=[:quality] setup=[PreservationLocks] begin
     using JET
     P = PreservationLocks
-    P.check_version()
+    P.check_environment()
     E, M, C = LineCableModels.Engine, LineCableModels.ModalAnalysis, LineCableModels.Commons
     include(joinpath(P.REPOSITORY, "test", "support", "scenarios.jl"))
     using .CurrentScenarios: line_parameters_problem, three_phase_system
@@ -153,7 +171,7 @@ end
 @testitem "Quality / preservation / allocation ceilings" tags=[:quality] setup=[PreservationLocks] begin
     using TOML
     P = PreservationLocks
-    P.check_version()
+    P.check_environment()
     # A fresh process runs the corpus in a fixed order: the counts depend on what the
     # process computed before.
     output, errors = IOBuffer(), IOBuffer()
@@ -229,10 +247,11 @@ end
         @test moved() == String[]
         locks(["test/b.jl" => 3], ["kernel" => 2]; directions = "inferred = \"floor\"\n")
         @test_throws ErrorException moved()
-        # A measured ceiling may rise only together with the recorded Julia version.
-        function measured(jet, allocations, julia)
+        # A measured ceiling may rise only together with its recorded environment.
+        function measured(jet, allocations, julia; manifest = "a")
             write(joinpath(repository, ratchet.PRESERVATION),
-                "[environment]\njulia = \"$julia\"\n[directions]\ninferred = \"floor\"\n" *
+                "[environment]\njulia = \"$julia\"\nmanifest = \"$manifest\"\n" *
+                "[directions]\ninferred = \"floor\"\n" *
                 "jet = \"ceiling\"\nallocations = \"ceiling\"\n[inferred]\n\"test/b.jl\" = 3\n" *
                 "[jet]\nkernel = $jet\n[allocations]\n\"s | 2 frequencies | allocations\" = $allocations\n")
         end
@@ -244,6 +263,8 @@ end
             "jet | kernel: 3 (2 at HEAD)"]
         measured(3, 11, "1.12.8")
         @test moved() == String[]
+        measured(3, 11, "1.12.7"; manifest = "b")
+        @test moved() == String[]
         # A floor stays a floor across a version change.
         write(joinpath(repository, ratchet.PRESERVATION),
             replace(read(joinpath(repository, ratchet.PRESERVATION), String),
@@ -251,19 +272,34 @@ end
         @test moved() == ["inferred | test/b.jl: 2 (3 at HEAD)"]
     end
 
-    # The measured tables refuse another Julia version.
-    @test P.check_version("1.12.7", "1.12.7") === nothing
-    @test_throws ErrorException("recorded on 1.12.7, running 1.12.8: re-record [jet] and [allocations]") P.check_version("1.12.7", "1.12.8")
+    # The measured tables refuse another Julia version or another Manifest.
+    recorded = Dict("julia" => "1.12.7", "manifest" => "0123456789abcdef")
+    @test P.check_environment(recorded, copy(recorded)) === nothing
+    @test_throws ErrorException("recorded with Julia 1.12.7 and Manifest 0123456789ab, running " *
+        "Julia 1.12.8 and Manifest 0123456789ab: re-record [jet] and [allocations]") P.check_environment(
+        recorded, merge(recorded, Dict("julia" => "1.12.8")))
+    @test_throws ErrorException P.check_environment(recorded, merge(recorded, Dict("manifest" => "fedcba")))
 
-    # Allocation counts are strict both ways. Bytes fail only beyond the headroom.
+    # Small counts are exact, large ones may move within the tolerance, in both
+    # directions. Bytes fail only beyond the headroom.
     recorded = Dict("s | 2 frequencies | allocations" => 10, "s | 2 frequencies | bytes" => 1000)
     row(n, b) = Dict("s | 2 frequencies | allocations" => n, "s | 2 frequencies | bytes" => b)
     @test P.compare_allocations(row(10, 1000 + P.HEADROOM), recorded) == (; broken = String[], stale = String[])
     @test P.compare_allocations(row(10, 900), recorded) == (; broken = String[], stale = String[])
     @test P.compare_allocations(row(10, 1001 + P.HEADROOM), recorded).broken ==
         ["s | 2 frequencies | bytes: 1513 (recorded 1000 + 512)"]
-    @test P.compare_allocations(row(11, 1000), recorded).broken == ["s | 2 frequencies | allocations: 11 (recorded 10)"]
-    @test P.compare_allocations(row(9, 1000), recorded).stale == ["s | 2 frequencies | allocations: 9 (recorded 10)"]
+    @test P.compare_allocations(row(11, 1000), recorded).broken == ["s | 2 frequencies | allocations: 11 (recorded 10 ± 0)"]
+    @test P.compare_allocations(row(9, 1000), recorded).stale == ["s | 2 frequencies | allocations: 9 (recorded 10 ± 0)"]
+    large = Dict("s | 2 frequencies | allocations" => 630_971, "s | 2 frequencies | bytes" => 30_000_000)
+    @test P.band(630_971) == 63
+    @test P.compare_allocations(row(630_971 - 63, 30_003_000), large) == (; broken = String[], stale = String[])
+    @test P.compare_allocations(row(630_971 + 63, 30_000_000), large) == (; broken = String[], stale = String[])
+    @test P.compare_allocations(row(630_971 + 64, 30_000_000), large).broken ==
+        ["s | 2 frequencies | allocations: 631035 (recorded 630971 ± 63)"]
+    @test P.compare_allocations(row(630_971 - 64, 30_000_000), large).stale ==
+        ["s | 2 frequencies | allocations: 630907 (recorded 630971 ± 63)"]
+    @test P.compare_allocations(row(630_971, 30_003_001), large).broken ==
+        ["s | 2 frequencies | bytes: 30003001 (recorded 30000000 + 3000)"]
 
     # The allocation tool reports object counts that vary across calls, and records the
     # minimum bytes.

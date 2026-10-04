@@ -242,15 +242,23 @@ the earlier revision.
   MonteCarlo with a fixed seed. `test/tools/allocations.jl` runs the corpus at 2 and at 4
   frequencies in a new process and prints the table rows. A row records the allocation
   count of one warmed-up call, which must repeat exactly on each call, and the smallest
-  byte total of three calls. The runtime's byte accounting adds a few bytes on some
-  calls. A byte total fails only above the recorded total plus 512 B. The counts depend
-  on what the process computed before. New scenarios go at the end of the corpus. A change that reorders or edits a scenario records again every row from that
-  scenario onward.
+  byte total of three calls. A count may differ from its row by 0.01 % of the row,
+  rounded down. For the small scenarios, that margin is zero. On another CPU, last-bit
+  floating-point differences change a few allocations of the large scenarios, because
+  Measurements drops each partial derivative that is exactly zero. The runtime's byte
+  accounting adds a few bytes on some calls. A byte total fails only above the
+  recorded total plus the larger of 512 B and 0.01 %. The counts depend on what the
+  process computed before. New scenarios go at the end of the corpus. A change that
+  reorders or edits a scenario records again every row from that scenario onward.
 
-The JET and allocation tables hold for the Julia version in `[environment]`, and the CI
-quality job uses that version. On another version, both checks fail with a request to
-record the tables again. A JET or allocation ceiling may rise only in a change that
-also changes that version.
+The JET and allocation tables hold for the environment in `[environment]`: the Julia
+version and the SHA-256 of the committed `Manifest.toml`. The CI quality job uses that
+version and instantiates that Manifest. The other CI jobs delete the Manifest and
+resolve the newest compatible versions. In another environment, both checks fail with
+a request to record the tables again. A dependency update records both tables again in
+the same change as the new `Manifest.toml`, with the counts of
+`test/tools/allocations.jl` and of the JET check. A JET or allocation ceiling may rise only in a change that also changes
+`[environment]`.
 
 The local tools compare the working tree with a git revision `REF`. Each checks out
 `REF` in a temporary git worktree. That test environment starts from the repository

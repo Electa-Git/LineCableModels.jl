@@ -25,6 +25,10 @@ docs/src/tutorials/
 # environment.
 Manifest.toml
 */Manifest.toml
+# The workspace Manifest is committed: the CI quality job measures the allocation and JET
+# counts of `test/quality/preservation.toml` with exactly these versions. Every other CI
+# job deletes it and resolves afresh.
+!/Manifest.toml
 !showcase/bonito/Manifest.toml
 !ext/LineCableModelsPSCADExt/remote/Manifest.toml
 
