@@ -23,10 +23,10 @@ to subtype [`AbstractCoreResult`](@ref).
   [`AbstractResultSpace`](@ref).
 """
 function validate(element::Type{T}, ::Type{<:AbstractResultSpace}) where {T}
-    isconcretetype(T) || throw(ArgumentError(
-        "result-space element type must be concrete; got $T",
+    isconcretetype(element) || throw(ArgumentError(
+        "result-space element type must be concrete; got $element",
     ))
-    T <: AbstractResultSpace && throw(ArgumentError(
+    element <: AbstractResultSpace && throw(ArgumentError(
         "a result space cannot contain another result-space envelope",
     ))
     return element

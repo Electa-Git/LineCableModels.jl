@@ -7,8 +7,30 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `Commons.bindings` binds each interaction of a formula to its equation and normalized
+  options. Earth formulas and equivalent-earth reductions extend it.
+- `Engine.AbstractModalOperators` is the supertype of modal-to-phase operator bases.
+  `ModalOperators` subtypes it and implements `size`.
+
 ### Changed
 
+- `validate` is owned by `Commons`; `LineCableModels.validate` and
+  `import LineCableModels: validate` are unchanged. Every `validate` method takes the
+  checked input first and returns it unchanged or throws. Further arguments say what the
+  input is checked for. Changed signatures: `validate(settings, compare)` replaces
+  `validate(compare; settings...)`; `validate(workbooks, definition)` checks XLSX
+  workbooks; the dielectric and temperature law checks take the law result first and no
+  longer convert it; the Unified check is `validate(Γ, formula type)`; the earth checks
+  take the earth model, the layer count or the resistivity first; a custom
+  equivalent-earth reduction is admitted with `validate(reduction, equation)`; PSCAD
+  checks take `PSCADFormulation` instead of `Val(:pscad)`; result-space element types are
+  checked with `validate(T, result space)`.
+- Earth formulas and equivalent-earth reductions resolve their equations with `bindings`
+  instead of `validate(formula, pairs)`. One `formulation_options(formula, equations)`
+  projection serves every formula family and reports an unused option as
+  `unused formulation options (...) for :id`.
 - Normalized author-formula identifiers to lowercase main-author-year symbols
   and made their compact descriptions readable author names.
 - Renamed the dielectric constitutive choices to `:lossy` and `:lossless`,
@@ -137,6 +159,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   passive forwarding definitions from the parametric construction path.
 - Removed the `mode=:ZY`/`:RLCG` and `coord=:cart`/`:polar` keywords from
   line-parameter presentation.
+- Removed the `InputValidation` module; `Commons` owns `validate`.
+- Removed `Commons.check_core_result`; use `validate(T, AbstractResultSpace)`.
+- Removed `Engine.validate_modal_operators`; modal operators subtype
+  `AbstractModalOperators` and implement `size`.
 
 ## [0.2.0] - 2026-08-13
 

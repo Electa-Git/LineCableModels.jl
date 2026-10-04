@@ -431,18 +431,63 @@
         return true
     end
 
+    # The occurrences of `name` that a body returns: its tail values and the values of
+    # its `return` statements outside nested functions.
+    function returned!(found, node, name)
+        k = kind(node)
+        if k == K"Identifier"
+            node.val === name && push!(found, node)
+        elseif k in (K"block", K"let", K"parens")
+            numchildren(node) > 0 && returned!(found, last_child(node), name)
+        elseif k == K"return"
+            numchildren(node) == 1 && returned!(found, node[1], name)
+        elseif k in (K"if", K"elseif", K"?")
+            foreach(child -> returned!(found, child, name), children(node)[2:end])
+        elseif k == K"try"
+            foreach(child -> returned!(found, child, name), children(node))
+        end
+        return found
+    end
+
+    function early_returned!(found, node, name)
+        is_leaf(node) && return found
+        for child in children(node)
+            kind(child) in (K"function", K"->", K"do", K"macro", K"quote") && continue
+            kind(child) == K"return" && returned!(found, child, name)
+            early_returned!(found, child, name)
+        end
+        return found
+    end
+
+    # Whether a body uses `name` other than by returning it. A body that only returns
+    # `name` is an identity method: its consumer imposes no restriction.
+    function uses_subject(body, name)
+        kind(body) == K"Identifier" && return true
+        kind(body) == K"block" && numchildren(body) == 1 &&
+            kind(body[1]) in (K"Identifier", K"return") && return true
+        found = early_returned!(returned!(Base.IdSet{SyntaxNode}(), body, name), body, name)
+        used = false
+        visit(body) do node
+            kind(node) == K"Identifier" && node.val === name && node ∉ found && (used = true)
+            return !used
+        end
+        return used
+    end
+
     function validate_returns_subject(node)
         name = first_argument(signature_call(node))
         name === nothing && return false
-        return returns_subject(node[2], name) && early_returns_subject(node[2], name)
+        body = node[2]
+        return returns_subject(body, name) && early_returns_subject(body, name) &&
+            uses_subject(body, name)
     end
 
     is_required_block(node) = kind(node) == K"macrocall" && numchildren(node) > 0 &&
         syntax_name(node[1]) in ((Symbol("@required"),),
             (:RequiredInterfaces, Symbol("@required")))
 
-    # validate returns its subject. Every `validate` method names its first positional argument and
-    # returns it on every path, or throws.
+    # validate returns its subject. Every `validate` method names its first positional argument,
+    # returns it on every path, or throws, and uses it in its work unless it only returns it.
     function validate_returns(files, directory)
         found = Dict{String, Int}()
         for file in files
@@ -1206,6 +1251,10 @@ end
                 return x
             end
             Owner.validate(x::Char) = normalize(x)
+            function validate(x::Vector, context)
+                validate(context)
+                return x
+            end
             _check_input(x) = x
             function ensure_ready end
             Owner.require_kind(x) = x
@@ -1224,7 +1273,7 @@ end
         "direction" => Dict("Early -> Late | src/early/Early.jl" => 1),
         "names" => Dict("quantity" => 2),
         "shadowing" => Dict("Consumer.filter -> Base" => 1),
-        "validate" => Dict("src/sources.jl" => 5),
+        "validate" => Dict("src/sources.jl" => 6),
         "reserved_verbs" => Dict(
             "src/sources.jl | _check_input" => 1, "src/sources.jl | ensure_ready" => 1,
             "src/sources.jl | require_kind" => 1, "src/sources.jl | __validate_shape" => 1),
@@ -1290,11 +1339,13 @@ end
             end
             function validate(x::Char)
                 try
+                    isvalid(x) || throw(ArgumentError("invalid"))
                     x
                 catch
                     rethrow()
                 end
             end
+            validate(x::Float32, ::Type{Int}) = x
             function validate end
             @required Abstract begin
                 validate(::Abstract)

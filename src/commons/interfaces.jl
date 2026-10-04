@@ -1,8 +1,15 @@
 """
-$(TYPEDSIGNATURES)
+    validate(subject, context...)
 
-Check that a materialized input satisfies the invariants of its concrete type
-and return that same input unchanged.
+Reject an invalid input before its consumer uses it. Return `subject`, the first
+positional argument, unchanged.
+
+`subject` is user input or an input derived from it. The optional context says what the
+subject is checked for: its consumer, such as the problem, formulation, physical model or
+result being built, or, for the result of a law or record, the function that produced it.
+Data that the check needs follows the context. A method never converts or resolves its
+subject and never builds a new record. A method whose consumer imposes no restriction
+returns its subject without a check. `validate` is the only verb for input checks.
 
 # Errors
 
