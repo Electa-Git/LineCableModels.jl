@@ -276,8 +276,8 @@ allocation ceilings. The timing comparison catches large algorithmic slowdowns.
 
 The equivalence check is `julia --project=test test/tools/equivalence.jl REF [ALLOWED]`.
 On each side, `test/tools/fingerprint.jl` records every node of the inputs and the result
-of each scenario. A node record gives the type and the bits of the value. A type name is
-written as the module that defines it followed by the name. The recording also counts
+of each scenario, with the type of the node and the bits of its value. Type names consist
+of the module that defines them followed by the name. The recording also counts
 the points that each parametric scenario materializes and the blueprint lowerings of its
 designs. The optional `ALLOWED` file declares the expected differences, one per line:
 
