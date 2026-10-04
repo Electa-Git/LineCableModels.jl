@@ -6,23 +6,22 @@ end
 $(TYPEDSIGNATURES)
 
 Validate Unified's prescribed longitudinal wavenumber Γ \\[1/m\\]. A scalar
-applies at every frequency. A nonempty vector follows the frequency order.
+applies at every frequency. A nonempty vector follows the frequency order. Return `Γ`.
 """
-function validate(::Type{<:Union{EarthImpedance.Formula{:unified}, Formula{:unified}}},
-        ::Val{:Γ}, argument)
-    argument isa Union{Number, AbstractVector} || throw(ArgumentError(
+function validate(Γ, ::Type{<:Union{EarthImpedance.Formula{:unified}, Formula{:unified}}})
+    Γ isa Union{Number, AbstractVector} || throw(ArgumentError(
         "unified Γ must be a scalar or frequency-aligned vector [1/m]"))
-    values = argument isa Number ? (argument,) : argument
+    values = Γ isa Number ? (Γ,) : Γ
     !isempty(values) &&
     all(value -> value isa Number && !(value isa Bool) && isfinite(value), values) ||
         throw(ArgumentError("unified Γ must be a finite scalar or nonempty finite vector [1/m]"))
-    return argument
+    return Γ
 end
 
 function formulation_options(
         owner::Type{<:Union{EarthImpedance.Formula{:unified}, Formula{:unified}}},
         options::FormulationOptions)
-    argument = validate(owner, Val(:Γ), get(options.data, :Γ, 0))
+    argument = validate(get(options.data, :Γ, 0), owner)
     return FormulationOptions(merge(options.data,
         (; Γ = argument isa AbstractVector ? copy(argument) : argument)))
 end
@@ -31,7 +30,7 @@ function formulation_options(
         binding::FormulaMethod{<:Union{
             EarthImpedance.Formula{:unified}, Formula{:unified}}},
         ::Val{:Γ}, default, supplied)
-    return validate(typeof(binding.selection), Val(:Γ), supplied)
+    return validate(supplied, typeof(binding.selection))
 end
 
 function description(::Type{<:Formula{:unified}}; compact::Bool = false)
@@ -49,7 +48,7 @@ end
 function computation_type(::Type{T},
         selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
         frequencies) where {T <: Real}
-    argument = validate(typeof(selected), Val(:Γ), selected.options.data.Γ)
+    argument = validate(selected.options.data.Γ, typeof(selected))
     argument isa AbstractVector && length(argument) != length(frequencies) &&
         throw(DimensionMismatch("unified Γ must contain one value per frequency sample"))
     argument isa Number &&
@@ -155,10 +154,9 @@ function formulation_options(::FormulaMethod{<:Formula{:unified},
     return FormulationOptions((Γ = 0, integration = (method = :quad, options = (;))))
 end
 
-function validate(
-        binding::FormulaMethod{<:Formula{:unified}, typeof(source_potential_coefficient)},
-        ::EquivalentHomogeneous.Formula{:bottommost})
-    binding
+function validate(reduction::EquivalentHomogeneous.Formula{:bottommost},
+        ::FormulaMethod{<:Formula{:unified}, typeof(source_potential_coefficient)})
+    return reduction
 end
 
 function earth_bindings(
@@ -238,9 +236,9 @@ function (selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}})(
     longitudinal isa Number && isfinite(longitudinal) ||
         throw(ArgumentError("Γ must be one finite scalar [1/m]"))
     for column in axes(materials.rho, 2)
-        validate(
-            selected, @view(materials.rho[:, column]), @view(materials.epsilon[:, column]),
-            @view(materials.mu[:, column]), materials.thickness)
+        validate(@view(materials.rho[:, column]), selected,
+            @view(materials.epsilon[:, column]), @view(materials.mu[:, column]),
+            materials.thickness)
     end
     for values in (materials.rho, materials.epsilon, materials.mu)
         for column in axes(values, 2), row in axes(values, 1)

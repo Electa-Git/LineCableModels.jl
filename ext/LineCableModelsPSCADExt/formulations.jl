@@ -69,7 +69,7 @@ function _pscad_default(selected::NamedTuple, default)
 end
 
 function validate(selected::Union{InternalImpedance.Formula, InsulationImpedance.Formula,
-        EarthImpedance.Formula, EarthAdmittance.Formula}, ::Val{:pscad})
+        EarthImpedance.Formula, EarthAdmittance.Formula}, ::Type{<:PSCADFormulation})
     empty_controls = selected isa InternalImpedance.Formula ?
         all(isempty, values(selected.options.data)) : isempty(selected.options.data)
     isempty(selected.parameters) && empty_controls || throw(ArgumentError(
@@ -100,7 +100,7 @@ function _pscad_formulation(internal_impedance, insulation_impedance, earth_impe
                 _pscad_default(requested, defaults[name]) : requested)
             if haskey(defaults, name)
                 for leaf in (selected isa NamedTuple ? values(selected) : (selected,))
-                    leaf === nothing || validate(leaf, Val(:pscad))
+                    leaf === nothing || validate(leaf, PSCADFormulation)
                 end
             end
             selected
@@ -274,7 +274,7 @@ end
 function pscad_setting(formulation::PSCADFormulation, problem::LineParametersProblem, blueprints)
     validate(problem)
     model = problem.earth_props
-    validate(model, Val(:pscad))
+    validate(model, PSCADFormulation)
     relation = formulation.methods.earth_properties
     (relation === nothing ||
      relation === LineCableModels.Earth.FrequencyDependent.Formula(:default)) ||
@@ -293,7 +293,7 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
         input.horz_sep, problem.earth_props)
     settings = Dict{Symbol, NamedTuple}()
     interactions = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selection
-        selection isa NamedTuple && validate(selection, problem.earth_props)
+        selection isa NamedTuple && validate(problem.earth_props)
         records = NamedTuple{
             (:formula, :kind, :source, :target), Tuple{Symbol, Symbol, Int, Int}}[]
         for pair in pairs
@@ -302,7 +302,7 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             binding = FormulaMethod(selected, pair)
             # Registration and physical validity belong to the equation owner.
             # Execution availability is selected by the native binding.
-            validate(selected, pair)
+            bindings(selected, (pair,))
             record = (formula = formula_id(selected),
                 kind = pair.row == pair.column ? :self : :mutual,
                 source = pair.layers[1], target = pair.layers[2])

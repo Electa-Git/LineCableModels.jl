@@ -111,8 +111,7 @@ function encode(definition::XLSXReportDefinition,observed,tables,illustration;re
             _numeric_sheet(definition,table,"std",Commons.uncertainty),XLSXSheet("metadata",cells)]
         push!(workbooks,XLSXWorkbook(destination,sheets))
     end
-    validate(definition,workbooks)
-    return workbooks
+    return validate(workbooks,definition)
 end
 
 function _xlsx_sheet_size(rows,columns)
@@ -121,7 +120,7 @@ function _xlsx_sheet_size(rows,columns)
     return nothing
 end
 
-function validate(definition::XLSXReportDefinition,workbooks::AbstractVector{<:XLSXWorkbook})
+function validate(workbooks::AbstractVector{<:XLSXWorkbook},definition::XLSXReportDefinition)
     destinations=[abspath(book.destination) for book in workbooks]
     allunique(destinations) || throw(ArgumentError("duplicate workbook destination"))
     for book in workbooks
@@ -132,5 +131,5 @@ function validate(definition::XLSXReportDefinition,workbooks::AbstractVector{<:X
             _xlsx_sheet_size(size(sheet.cells)...)
         end
     end
-    return nothing
+    return workbooks
 end

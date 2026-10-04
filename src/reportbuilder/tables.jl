@@ -137,9 +137,9 @@ function validate(definition::BenchmarkTableDefinition)
     !isempty(settings.normalizations) && allunique(settings.normalizations) ||
         throw(ArgumentError("benchmark needs distinct RMS normalizations"))
     for band in settings.bands, normalization in settings.normalizations
-        validate(Engine.compare; band, normalization, atol=settings.atol,
-            fundamental=settings.fundamental, harmonics=settings.harmonics,
-            unsupported=settings.unsupported)
+        validate((; normalization, band, fundamental=settings.fundamental,
+            harmonics=settings.harmonics, atol=settings.atol,
+            unsupported=settings.unsupported), Engine.compare)
     end
     return definition
 end

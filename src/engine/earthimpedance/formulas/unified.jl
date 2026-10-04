@@ -84,10 +84,9 @@ function formulation_options(::FormulaMethod{<:Formula{:unified},
     return FormulationOptions((Γ = 0, integration = (method = :quad, options = (;))))
 end
 
-function validate(
-        binding::FormulaMethod{<:Formula{:unified}, typeof(axial_field_coefficient)},
-        ::EquivalentHomogeneous.Formula{:bottommost})
-    return binding
+function validate(reduction::EquivalentHomogeneous.Formula{:bottommost},
+        ::FormulaMethod{<:Formula{:unified}, typeof(axial_field_coefficient)})
+    return reduction
 end
 
 :unified

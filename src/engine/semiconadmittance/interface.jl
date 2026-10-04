@@ -62,7 +62,7 @@ end
     ))
     value = semicon_material(
         formula, material, frequency, temperature, formula.parameters, formula.options, workspace)
-    return validate(formula, T, value)
+    return convert(Complex{T}, validate(value, formula, T))
 end
 
 function (formula::SemiconAdmittanceFormulation)(

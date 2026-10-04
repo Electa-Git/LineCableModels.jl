@@ -26,7 +26,7 @@ import LineCableModels.Engine: Formulation,
                                LineParametersProblem
 import LineCableModels.Commons: AbstractFormulation, ComputationOptions, ComputationDetails,
                                 FormulationOptions, computation_options, compute,
-                                formulation_options, gridpoint_id
+                                formulation_options, gridpoint_id, bindings
 using DocStringExtensions: TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 import LineCableModels: constitutive
 import LineCableModels.DataModel

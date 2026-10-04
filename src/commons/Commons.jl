@@ -19,6 +19,7 @@ ParametricBuilder, UQ, and external implementations.
 # Public actions
 
 - `formulation_options` and `computation_options` normalize owner-specific options.
+- `bindings` binds each interaction of a formula to its equation and options.
 - `computation_details` normalizes supplemental output from a registered
   computation owner, and `details` reads retained supplemental output.
 - `compute` evaluates a problem through a selected formulation.
@@ -64,7 +65,7 @@ public ideal_transposition!, reorder_indices, kron_reduce, kron_reduce!,
        bundle_operations, merge_bundles!
 public ReductionPlan, ReductionBuffers, reduce_line_matrices!
 public check_core_result
-public FormulaDefinition, FormulaMethod
+public FormulaDefinition, FormulaMethod, bindings
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation
 public observation_resolution

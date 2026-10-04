@@ -269,7 +269,7 @@ function LineParametersWorkspace(
         for leaf in unique(leaves)
             # Validate the selected material inventory while binding it, not
             # by reconstructing selections in a later workspace preflight.
-            validate(leaf, leaf.equivalent_earth === nothing ? problem.earth_props : 2)
+            validate(leaf.equivalent_earth === nothing ? problem.earth_props : 2, leaf)
             indices = findall(value -> value === leaf, leaves)
             push!(cases, earth_bindings(leaf, physical_pairs, homogeneous_pairs, indices))
         end
@@ -439,13 +439,13 @@ function earth_bindings(
         selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
         physical::AbstractVector{<:EarthPair}, homogeneous, indices)
     pairs = selected.equivalent_earth === nothing ? physical[indices] : homogeneous[indices]
-    declarations = validate(selected, pairs)
+    declarations = bindings(selected, pairs)
     reductions = if selected.equivalent_earth === nothing
         nothing
     else
         rule = EquivalentHomogeneous.rule(selected.equivalent_earth)
-        foreach(declaration -> validate(declaration.equation, rule), declarations)
-        validate(rule, physical[indices])
+        foreach(declaration -> validate(rule, declaration.equation), declarations)
+        bindings(rule, physical[indices])
     end
     interactions = [(index = position, pair = pairs[position],
                         physical_pair = physical[index])

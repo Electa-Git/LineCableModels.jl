@@ -128,16 +128,17 @@ end
         for temperature in (Inf, NaN)
             @test_throws DomainError constitutive(selected, material, 50.0, temperature)
         end
-        # Both dielectric implementations use the same validation checks.
-        @test validate(selected, Float64, 1+2im) === 1.0+2.0im
-        @test validate(selected, Float64, 1.0f0+2.0f0im) === 1.0+2.0im
-        @test_throws ArgumentError validate(selected, Float32, 1.0+2.0im)
-        @test_throws ArgumentError validate(selected, Float64, big"1.0"+big"2.0"*im)
+        # Both dielectric implementations use the same validation checks. The check
+        # returns the law's value; the formula call converts it to Complex{T} above.
+        @test validate(1+2im, selected, Float64) === 1+2im
+        @test validate(1.0f0+2.0f0im, selected, Float64) === 1.0f0+2.0f0im
+        @test_throws ArgumentError validate(1.0+2.0im, selected, Float32)
+        @test_throws ArgumentError validate(big"1.0"+big"2.0"*im, selected, Float64)
         uncertain=complex(measurement(1.0, 0.1), measurement(2.0, 0.2))
-        @test_throws ArgumentError validate(selected, Float64, uncertain)
-        @test uncertainty(real(validate(selected, typeof(real(uncertain)), uncertain)))==0.1
+        @test_throws ArgumentError validate(uncertain, selected, Float64)
+        @test uncertainty(real(validate(uncertain, selected, typeof(real(uncertain)))))==0.1
         for invalid in (NaN, Inf, true, [1.0], "bad")
-            @test_throws DomainError validate(selected, Float64, invalid)
+            @test_throws DomainError validate(invalid, selected, Float64)
         end
         @test material.rho === 100.0f0
         @test material.eps_r === 2.3f0

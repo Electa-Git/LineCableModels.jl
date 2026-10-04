@@ -311,7 +311,7 @@ function compare(reference::AbstractCoreResult, result::AbstractCoreResult,
         normalization::Symbol = :reference_rms,
         band = :all, fundamental::Real = 50.0, harmonics::Integer = 50,
         atol = nothing, unsupported::NamedTuple = (;))
-    validate(compare; normalization, band, fundamental, harmonics, atol, unsupported)
+    validate((; normalization, band, fundamental, harmonics, atol, unsupported), compare)
     left_coordinates=get(details(reference).data, :coordinates, nothing)
     right_coordinates=get(details(result).data, :coordinates, nothing)
     if left_coordinates !== nothing && right_coordinates !== nothing
@@ -346,7 +346,7 @@ function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::Abstract
         reference_resolution=nothing, result_resolution=nothing,
         normalization::Symbol=:reference_rms, band=:all, fundamental::Real=50.0,
         harmonics::Integer=50, atol=nothing, unsupported::NamedTuple=(;))
-    validate(compare; normalization, band, fundamental, harmonics, atol, unsupported)
+    validate((; normalization, band, fundamental, harmonics, atol, unsupported), compare)
     _check_basis(result_basis)
     quantity in _LINE_RESOLUTION_QUANTITIES || throw(ArgumentError("unsupported physical RMS quantity"))
     f = frequencies
@@ -507,12 +507,13 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Validate RMS comparison controls before accessing results or starting a calculation.
-Frequency bounds and `fundamental` use Hz. Absolute tolerances use the units of
-the selected quantities. Numerical calculation is outside this method.
+Validate the RMS comparison settings of `compare` before accessing results or
+starting a calculation. `settings` holds `normalization`, `band`, `fundamental`,
+`harmonics`, `atol` and `unsupported`. Frequency bounds and `fundamental` use Hz. Absolute
+tolerances use the units of the selected quantities. Return `settings`.
 """
-function validate(::typeof(compare); normalization = :reference_rms, band = :all,
-        fundamental = 50.0, harmonics = 50, atol = nothing, unsupported = (;))
+function validate(settings::NamedTuple, ::typeof(compare))
+    (; normalization, band, fundamental, harmonics, atol, unsupported) = settings
     normalization in (:reference_rms, :pointwise) || throw(ArgumentError(
         "normalization must be :reference_rms or :pointwise"))
     fundamental isa Real && isfinite(fundamental) && fundamental > 0 ||
@@ -532,5 +533,5 @@ function validate(::typeof(compare); normalization = :reference_rms, band = :all
         throw(ArgumentError("unsupported must name Z, Y, R, X, L, G, B, or C"))
     all(reason -> reason isa AbstractString && !isempty(reason), unsupported) ||
         throw(ArgumentError("unsupported comparisons require nonempty explanatory strings"))
-    return nothing
+    return settings
 end

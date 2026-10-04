@@ -10,7 +10,7 @@ $(IMPORTS)
 
 """
 module EarthImpedance
-import ...Commons: FormulationOptions
+import ...Commons: FormulationOptions, bindings
 
 # Export public API
 export Formula, formula_id, earth_impedance, assumptions, formulas

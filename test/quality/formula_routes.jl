@@ -37,7 +37,7 @@
         elseif owner === E.InternalImpedance
             Tuple(FM(selected,owner.internal_impedance,Val(kind)) for kind in (:inner,:outer,:transfer))
         elseif owner === EP.EquivalentHomogeneous
-            (validate(selected,E.EarthPair(1,1,(1.0,1.0),0.0,(1,1);radius=0.01)).equation,)
+            (only(LineCableModels.Commons.bindings(selected,(E.EarthPair(1,1,(1.0,1.0),0.0,(1,1);radius=0.01),))).equation,)
         else
             operation=only(last(entry) for entry in scalar_operations if first(entry) === owner)
             (FM(selected,operation),)

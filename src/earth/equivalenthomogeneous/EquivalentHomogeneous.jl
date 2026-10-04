@@ -14,7 +14,7 @@ $(IMPORTS)
 """
 module EquivalentHomogeneous
 import ...Commons: FormulationOptions
-import ...Commons: formulation_options
+import ...Commons: formulation_options, bindings
 import ...LineCableModels: validate
 
 export Formula, AfterFD, BeforeFD

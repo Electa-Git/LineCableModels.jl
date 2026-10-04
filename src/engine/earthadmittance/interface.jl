@@ -114,12 +114,12 @@ function (formula::EarthAdmittanceFormulation)(
         permeability::AbstractVector{T}, jω::Complex{T}, pair::EarthPair;
         thickness = nothing, physical_pair = pair
 ) where {T <: Real}
-    selected = validate(formula, pair)
+    selected = only(bindings(formula, (pair,)))
     return formula(resistivity, permittivity, permeability, jω, pair, selected;
         thickness, physical_pair)
 end
 
-# Evaluate a declaration already bound by validate() before the frequency loop.
+# Evaluate a declaration already bound by bindings() before the frequency loop.
 function (formula::EarthAdmittanceFormulation)(
         resistivity::AbstractVector{T}, permittivity::AbstractVector{T},
         permeability::AbstractVector{T}, jω::Complex{T}, pair::EarthPair, selected;
@@ -127,7 +127,7 @@ function (formula::EarthAdmittanceFormulation)(
 ) where {T <: Real}
     isfinite(jω) && !iszero(jω) || throw(DomainError(jω, "jω must be finite and nonzero"))
     options = selected.options
-    validate(formula, resistivity, permittivity, permeability, thickness)
+    validate(resistivity, formula, permittivity, permeability, thickness)
     thickness === nothing || validate(pair, thickness)
     layers = media(formula) === Val(:homogeneous) ? (1, 2) : eachindex(permeability)
     σ = map(layer -> conductivity(resistivity[layer]), layers)

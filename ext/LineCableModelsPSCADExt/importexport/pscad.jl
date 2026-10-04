@@ -57,7 +57,7 @@ function export_data(
     isfinite(base_freq) && base_freq > zero(base_freq) || throw(DomainError(
         base_freq, "PSCAD base frequency must be positive and finite"
     ))
-    validate(earth, Val(:pscad))
+    validate(earth, PSCADFormulation)
     path = _pscad_output_path(system, file_name)
     #! explicit-imports: off
     # EzXML does not mark XMLError public, but this exporter preserves the

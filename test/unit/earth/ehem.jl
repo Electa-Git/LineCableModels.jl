@@ -65,7 +65,7 @@ end
     rule = UnimplementedReduction((;), FormulationOptions())
     pair = LineCableModels.Engine.EarthPair(1, 1, (-1.0, -1.0), 0.0, (2, 2); radius=0.01)
     model = homogeneous(rho=100.0, eps_r=10.0)
-    binding = validate(rule, pair)
+    binding = only(LineCableModels.Commons.bindings(rule, (pair,)))
     @test binding.equation.selection === rule
     @test_throws r"equivalent_material :UnimplementedReduction.*source in layer 2 and target in layer 2" rule(
         [Inf, 100.0], [1.0, 10.0], [1.0, 1.0], model, pair, 50.0; binding)

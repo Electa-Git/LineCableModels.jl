@@ -107,7 +107,7 @@ end
         mu_r::AbstractVector,
         model::EarthModel,
         pair,
-        frequency::Real; binding = validate(formula, pair), workspace = nothing
+        frequency::Real; binding = only(bindings(formula, (pair,))), workspace = nothing
 )
     length(rho) == length(eps_r) == length(mu_r) == length(model.layers) ||
         throw(DimensionMismatch("EquivalentHomogeneous properties must align with the complete physical model"))
@@ -146,26 +146,23 @@ function equivalent_material(selected::AbstractRule, ::Val{Kind}, ::Val{S}, ::Va
     throw(ArgumentError("equivalent_material :$(formula_id(selected)) ($Kind): formula not implemented for source in layer $S and target in layer $T"))
 end
 
-validate(formula::AbstractRule, pair) = only(validate(formula, (pair,)))
+"""
+$(TYPEDSIGNATURES)
 
-function validate(formula::AbstractRule, pairs::Union{Tuple, AbstractVector})
+Bind each conductor interaction to the `equivalent_material` equation that the reduction
+declares for its kind and layers, with the equation's normalized options. Return
+`(equation, options)` records.
+"""
+function bindings(formula::AbstractRule, pairs::Union{Tuple, AbstractVector})
     equations = map(pairs) do pair
         kind = pair.row == pair.column ? :self : :mutual
         FormulaMethod(formula, equivalent_material, Val(kind), Val.(pair.layers)...)
     end
-    identities = unique(equations)
-    defaults = map(identities) do binding
-        formulation_options(binding)
+    projected = formulation_options(formula, equations)
+    records = map(projected.equations, projected.options) do equation, options
+        (equation = equation, options = options)
     end
-    admitted = union((keys(value.data) for value in defaults)...)
-    isempty(setdiff(keys(formula.options.data), admitted)) ||
-        throw(ArgumentError("unused equivalent-earth numerical sections"))
-    resolved = map(identities, defaults) do binding, declared
-        names = Tuple(intersect(keys(formula.options.data), keys(declared.data)))
-        (equation = binding,
-            options = formulation_options(binding, declared, FormulationOptions(formula.options.data[names])))
-    end
-    return map(equation -> resolved[findfirst(==(equation), identities)], equations)
+    return map(equation -> records[findfirst(==(equation), projected.equations)], equations)
 end
 
 """Expose the reduction rule, model parameters and numerical options as a native record."""

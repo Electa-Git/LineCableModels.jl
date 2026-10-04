@@ -4,7 +4,7 @@ $(TYPEDSIGNATURES)
 Check the physical earth inventory accepted by PSCAD model export and execution.
 The supported model consists of air and one infinite horizontal soil half-space.
 """
-function validate(model::EarthModel, ::Val{:pscad})
+function validate(model::EarthModel, ::Type{<:PSCADFormulation})
     _pscad_deterministic(eltype(model))
     validate(model)
     !model.vertical_layers && length(model.layers) == 2 &&

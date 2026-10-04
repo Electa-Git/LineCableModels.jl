@@ -61,7 +61,7 @@ import ..Commons: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details, details,
-                  compute, observe, observables,
+                  bindings, compute, observe, observables,
                   observation_indices, observation_resolution,
                   uncertainty,
                   request_identity, request_indices

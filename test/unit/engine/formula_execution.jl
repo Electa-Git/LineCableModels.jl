@@ -223,12 +223,12 @@ end
     # not a changed implementation of the built-in's claimed scientific identity.
     custom=M.selection(EI; layers = 2:2)
     pair=E.EarthPair(1, 2, (-1.0, -1.0), 1.0, (2, 2))
-    bound=validate(custom, pair)
+    bound=only(LineCableModels.Commons.bindings(custom, (pair,)))
     @test bound.equation.selection === custom
     @test isempty(bound.options.data)
-    @test_throws ArgumentError validate(
+    @test_throws ArgumentError LineCableModels.Commons.bindings(
         M.selection(EI; layers = 2:2,
-            options = (integration = (method = :quad,),)), pair)
+            options = (integration = (method = :quad,),)), (pair,))
     rho=[Inf, 100.0]
     epsilon=8.8541878128e-12 .* [1, 10]
     mu=fill(4pi*1e-7, 2)

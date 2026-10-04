@@ -3,6 +3,7 @@
     const EI = E.EarthImpedance
     const EA = E.EarthAdmittance
     const FM = LineCableModels.FormulaMethod
+    using LineCableModels.Commons: bindings
     air = E.EarthPair(1, 2, (10.0, 12.0), 1.0, (1, 1))
     soil = E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2))
     mixed = E.EarthPair(1, 2, (10.0, -2.0), 1.0, (1, 2))
@@ -17,32 +18,32 @@
     @test_throws ArgumentError validate(E.EarthPair(1, 2, (1.0, 2.0), 1.0, (2, 2)))
     for owner in (EI, EA)
         selected = owner.Formula(:default)
-        @test validate(selected, air).equation.arguments[2:3] == (Val(1), Val(1))
-        @test validate(selected, soil).equation.arguments[2:3] == (Val(2), Val(2))
-        @test validate(selected, self).kind === :self
-        @test validate(selected, soil).kind === :mutual
-        @test validate(selected, mixed).kind === :mutual
-        @test_throws ArgumentError validate(selected, E.EarthPair(
-            1, 2, (-1.0, -2.0), 1.0, (2, 3)))
-        @test_throws DimensionMismatch validate(selected, 3)
-        @test validate(selected, 2) === selected
+        @test only(bindings(selected, (air,))).equation.arguments[2:3] == (Val(1), Val(1))
+        @test only(bindings(selected, (soil,))).equation.arguments[2:3] == (Val(2), Val(2))
+        @test only(bindings(selected, (self,))).kind === :self
+        @test only(bindings(selected, (soil,))).kind === :mutual
+        @test only(bindings(selected, (mixed,))).kind === :mutual
+        @test_throws ArgumentError bindings(selected, (E.EarthPair(
+            1, 2, (-1.0, -2.0), 1.0, (2, 3)),))
+        @test_throws DimensionMismatch validate(3, selected)
+        @test validate(2, selected) === 2
         author=owner.Formula(:xue2018)
         @test_throws ArgumentError FM(author, mixed)(nothing, mixed, nothing)
-        @test validate(selected, air).equation isa FM
-        @test validate(selected, air).equation.selection === selected
+        @test only(bindings(selected, (air,))).equation isa FM
+        @test only(bindings(selected, (air,))).equation.selection === selected
     end
     for id in (:ametani2009, :lucca1994)
         selected = EI.Formula(id)
-        @test validate(selected, mixed).kind === :mutual
+        @test only(bindings(selected, (mixed,))).kind === :mutual
         @test_throws ArgumentError FM(selected, air)(nothing, air, nothing)
         @test_throws ArgumentError FM(selected, soil)(nothing, soil, nothing)
         @test_throws ArgumentError FM(selected, self)(nothing, self, nothing)
     end
     vertical=E.EarthPair(1, 2, (-1.0, -2.0), 0.0, (2, 2))
-    @test validate(EI.Formula(:saad1996), vertical).kind === :mutual
-    @test validate(EI.Formula(:saad1996), self).kind === :self
-    @test validate(EI.Formula(:wedepohl1973), vertical).kind === :mutual
-    @test validate(EI.Formula(:wedepohl1973), self).kind === :self
+    @test only(bindings(EI.Formula(:saad1996), (vertical,))).kind === :mutual
+    @test only(bindings(EI.Formula(:saad1996), (self,))).kind === :self
+    @test only(bindings(EI.Formula(:wedepohl1973), (vertical,))).kind === :mutual
+    @test only(bindings(EI.Formula(:wedepohl1973), (self,))).kind === :self
     @test_throws ArgumentError FM(EI.Formula(:pollaczek1926), air)(nothing, air, nothing)
     @test_throws ArgumentError FM(EI.Formula(:carson1926), soil)(nothing, soil, nothing)
 end
@@ -103,17 +104,18 @@ end
     const EI=M.EI
     const EA=M.EA
     const EP=M.EP
+    using LineCableModels.Commons: bindings
     empty!(M.calls)
     inventories=(EI.formulas(), EA.formulas())
     selected=M.selection(EI; options = (integration = (method = :quad, options = (;)),))
     heights=(2.0, -0.25, -1.5)
     pairs=[E.EarthPair(t, s, (heights[s], heights[t]), s==t ? 0.0 : 1.0,
                (s, t); radius = s==t ? 0.01 : nothing) for s in 1:3 for t in 1:3]
-    bound=validate(selected, pairs)
+    bound=bindings(selected, pairs)
     @test isempty(M.calls) # Structural preflight does not execute kernels.
     @test count(case -> haskey(case.options.data, :integration), bound) == 1
     @test bound[1].options.data.integration.method === Val(:quad)
-    @test_throws ArgumentError validate(selected, pairs[2:end]) # Unconsumed integral controls.
+    @test_throws ArgumentError bindings(selected, pairs[2:end]) # Unconsumed integral controls.
     absent=E.EarthPair(1, 2, (-2.0, -3.0), 1.0, (3, 4))
     @test_throws ArgumentError LineCableModels.FormulaMethod(selected, absent)(nothing, absent, nothing)
     # A numerical specialization alone cannot admit a missing required formula case.

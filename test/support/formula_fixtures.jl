@@ -353,9 +353,8 @@
     end
     LineCableModels.formulation_options(::FM{
         <:SquaredBottomEarth, typeof(EH.equivalent_material)}) = FormulationOptions()
-    LineCableModels.validate(
-        binding::FM{<:Union{EI.Formula{:unified}, EA.Formula{:unified}}},
-        ::SquaredBottomEarth) = binding
+    LineCableModels.validate(reduction::SquaredBottomEarth,
+        ::FM{<:Union{EI.Formula{:unified}, EA.Formula{:unified}}}) = reduction
 
     struct FixedModalMaps{P, O} <: LineCableModels.AbstractFormulation
         parameters::P

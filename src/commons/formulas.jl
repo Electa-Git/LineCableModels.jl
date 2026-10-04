@@ -35,6 +35,41 @@ function formulation_options(binding::FormulaMethod, ::Val{Section}, defaults,
         supplied) where {Section}
     throw(ArgumentError("no formulation-option constructor for :$Section of $binding with $(typeof(supplied))"))
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Project the options supplied to `formula` onto the equations it declares. Each supplied
+section must be consumed by at least one equation. Each distinct equation receives the
+sections its defaults declare, normalized by its own constructor. Return the distinct
+equations in order of first appearance and their `FormulationOptions`, as
+`(equations, options)`.
+"""
+function formulation_options(formula::AbstractFormulation,
+        equations::Union{Tuple, AbstractVector{<:FormulaMethod}})
+    supplied = formula.options.data
+    identities = unique(equations)
+    defaults = map(formulation_options, identities)
+    admitted = union((keys(value.data) for value in defaults)...)
+    unknown = setdiff(keys(supplied), admitted)
+    isempty(unknown) || throw(ArgumentError(
+        "unused formulation options $(Tuple(unknown)) for :$(formula_id(formula))"))
+    normalized = map(eachindex(identities)) do index
+        declared = defaults[index]
+        names = Tuple(intersect(keys(supplied), keys(declared.data)))
+        formulation_options(identities[index], declared, FormulationOptions(supplied[names]))
+    end
+    return (equations = identities, options = normalized)
+end
+
+"""
+    bindings(formula, interactions)
+
+Bind each interaction to the equation that `formula` declares for it, together with that
+equation's normalized formulation options. Return one record per interaction, in order.
+A formula family extends this function for its own formulas and interactions.
+"""
+function bindings end
 import ..LineCableModels: description, formula_id
 
 """Read a declaration's actual formulation-owned inputs without resolving them."""

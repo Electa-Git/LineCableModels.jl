@@ -242,18 +242,18 @@ the potential coefficients to shunt admittance [S/m].
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 
 """
-Validate a dielectric law's admittivity [S/m] at its material boundary and
-represent it as `Complex{T}` for radial aggregation. A result requiring a wider
-scalar type is rejected instead of silently discarding precision or uncertainty.
+Validate the admittivity [S/m] that a dielectric law returns, before radial aggregation
+represents it as `Complex{T}`. A result requiring a wider scalar type than `T` is rejected
+instead of silently discarding precision or uncertainty. Return `value`.
 """
-function validate(::Union{InsulationAdmittanceFormulation, SemiconAdmittanceFormulation},
-        ::Type{T}, value) where {T <: Real}
+function validate(value, ::Union{InsulationAdmittanceFormulation, SemiconAdmittanceFormulation},
+        ::Type{T}) where {T <: Real}
     value isa Number && !(value isa Bool) && isfinite(value) || throw(DomainError(
         value, "a dielectric material law must return a finite scalar admittivity [S/m]"))
     promote_type(T, typeof(real(value))) === T || throw(ArgumentError(
         "dielectric admittivity requires scalar type $(typeof(real(value))); " *
         "use a material and problem scalar type that preserves its precision and uncertainty"))
-    return convert(Complex{T}, value)
+    return value
 end
 
 """
@@ -320,17 +320,14 @@ function Formulation(::NamedTuple, ::Val{S}, ::Val{T}) where {S, T}
         "homogeneous selection is not defined for source in layer $S and target in layer $T"))
 end
 
-function validate(selected::NamedTuple, earth::EarthModel)
-    validate(earth)
-    return selected
-end
+"""
+$(TYPEDSIGNATURES)
 
-function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-        pair::EarthPair)
-    return only(validate(formula, (pair,)))
-end
-
-function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+Bind each earth-return interaction to the equation that `formula` declares for its
+kind and layers, with the equation's normalized options. Each pair and each equation's
+geometric restrictions are validated first. Return `(equation, kind, options)` records.
+"""
+function bindings(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
         pairs::Union{Tuple, AbstractVector{<:EarthPair}})
     equations = map(pairs) do pair
         validate(pair)
@@ -338,47 +335,37 @@ function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormu
         validate(pair, equation)
         equation
     end
-    identities = unique(equations)
-    bindings = map(identities) do equation
-        defaults = formulation_options(equation)
+    projected = formulation_options(formula, equations)
+    records = map(projected.equations, projected.options) do equation, options
         (equation = equation, kind = typeof(first(equation.arguments)).parameters[1],
-            defaults = defaults)
+            options = options)
     end
-    admitted = union((keys(binding.defaults.data) for binding in bindings)...)
-    unknown = setdiff(keys(formula.options.data), admitted)
-    isempty(unknown) || throw(ArgumentError(
-        "unused formulation options $(Tuple(unknown)) for required cases of :$(formula_id(formula))"))
-    resolved = map(bindings) do binding
-        names = Tuple(intersect(keys(formula.options.data), keys(binding.defaults.data)))
-        options = formulation_options(binding.equation, binding.defaults,
-            FormulationOptions(formula.options.data[names]))
-        (equation = binding.equation, kind = binding.kind, options = options)
-    end
-    return map(equation -> resolved[findfirst(==(equation), identities)], equations)
+    return map(equation -> records[findfirst(==(equation), projected.equations)], equations)
 end
 
 # Equation-specific geometric restrictions extend the existing validation protocol.
 validate(pair::EarthPair, ::FormulaMethod) = pair
 
-function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}, count::Integer)
+function validate(count::Integer, formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})
     count in formula.assumptions.layers || throw(DimensionMismatch(
         "formula :$(formula_id(formula)) requires $(formula.assumptions.layers) media including air; received $count"))
-    return formula
+    return count
 end
 
-function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}, earth::EarthModel)
+function validate(earth::EarthModel, formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})
     validate(earth)
     earth.vertical_layers &&
         throw(ArgumentError("earth-return equations require horizontal interfaces or an explicit EquivalentHomogeneous reduction"))
-    validate(formula, length(earth.layers))
-    return formula
+    validate(length(earth.layers), formula)
+    return earth
 end
 
-function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-        rho::AbstractVector, epsilon::AbstractVector, mu::AbstractVector, thickness)
+function validate(rho::AbstractVector,
+        formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        epsilon::AbstractVector, mu::AbstractVector, thickness)
     length(rho) == length(epsilon) == length(mu) ||
         throw(DimensionMismatch("material vectors must align"))
-    validate(formula, length(rho))
+    validate(length(rho), formula)
     all(x -> x > 0 && !isnan(x), rho) ||
         throw(DomainError(rho, "resistivities must be positive, including infinite air resistivity"))
     all(x -> isfinite(x) && !iszero(x), epsilon) && all(x -> isfinite(x) && x > 0, mu) ||
@@ -404,7 +391,7 @@ function validate(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormu
         media(formula) === Val(:homogeneous) && length(thickness) != 2 &&
             throw(DimensionMismatch("homogeneous equations have no internal soil interfaces"))
     end
-    return formula
+    return rho
 end
 
 """
@@ -484,7 +471,9 @@ function LineCableModelsFEM(; kwargs...)
     return Formulation(Val(:LineCableModelsFEM); kwargs...)
 end
 
-function validate(binding::FormulaMethod, reduction::EquivalentHomogeneous.AbstractRule)
+# An earth equation admits an equivalent-earth reduction only through its own method.
+function validate(reduction::EquivalentHomogeneous.AbstractRule,
+        binding::FormulaMethod{<:Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}})
     throw(ArgumentError("$binding does not admit equivalent-earth reduction :$(formula_id(reduction))"))
 end
 

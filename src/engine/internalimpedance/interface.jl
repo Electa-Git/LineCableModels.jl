@@ -54,19 +54,11 @@ function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTupl
     options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("internal impedance :$ID has no model parameters"))
     kinds = (:inner, :outer, :transfer)
-    supplied = keys(options.data)
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
-    declarations = map(kinds) do kind
-        binding = FormulaMethod(selected, internal_impedance, Val(kind))
-        formulation_options(binding)
-    end
-    admitted = union((keys(value.data) for value in declarations)...)
-    isempty(setdiff(supplied, admitted)) || throw(ArgumentError(
-        "unused internal-impedance numerical sections"))
-    normalized = FormulationOptions(NamedTuple{kinds}(map(kinds, declarations) do kind, defaults
-        binding = FormulaMethod(selected, internal_impedance, Val(kind))
-        names = Tuple(intersect(supplied, keys(defaults.data)))
-        formulation_options(binding, defaults, FormulationOptions(options.data[names])).data
+    equations = map(kind -> FormulaMethod(selected, internal_impedance, Val(kind)), kinds)
+    projected = formulation_options(selected, equations)
+    normalized = FormulationOptions(NamedTuple{kinds}(map(equations) do equation
+        projected.options[findfirst(==(equation), projected.equations)].data
     end))
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end

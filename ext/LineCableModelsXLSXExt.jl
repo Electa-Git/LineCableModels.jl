@@ -13,7 +13,7 @@ function ReportBuilder.write(
         definition::ReportBuilder.XLSXReportDefinition,
         encoded::ReportBuilder.XLSXWorkbook
 )
-    validate(definition,[encoded])
+    validate([encoded],definition)
     XLSX.openxlsx(encoded.destination, mode = "w") do workbook
         for (index, sheet) in enumerate(encoded.sheets)
             worksheet = if index == 1
@@ -33,7 +33,7 @@ function ReportBuilder.write(
 end
 
 function ReportBuilder.write(definition::ReportBuilder.XLSXReportDefinition, books::AbstractVector{<:ReportBuilder.XLSXWorkbook})
-    validate(definition,books)
+    validate(books,definition)
     return [ReportBuilder.write(definition,book) for book in books]
 end
 
