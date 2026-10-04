@@ -299,8 +299,9 @@ end
 
 placements(::Nothing, item, ::Nothing) = Pose2[Pose2(0, 0, 0)]
 
-function _check_ring_clearance(pattern::Ring, tangential_width::Real)
-    pattern.n == 1 && return nothing
+# Ring members of this tangential width keep the requested gap along the ring.
+function validate(pattern::Ring, tangential_width::Real)
+    pattern.n == 1 && return pattern
     interval_count = isapprox(pattern.span, oftype(pattern.span, 2π)) ?
                      pattern.n : pattern.n - 1
     chord = 2pattern.r * sin(pattern.span / interval_count / 2)
@@ -316,7 +317,7 @@ function _check_ring_clearance(pattern::Ring, tangential_width::Real)
         "available chord=$(nominal(chord)) m, " *
         "deficit=$(nominal(required - chord)) m"
     ))
-    return nothing
+    return pattern
 end
 
 function _tangential_width(definition::AbstractPrimitive)
@@ -335,7 +336,7 @@ function placements(
     pattern.r === nothing && throw(ArgumentError(
         "a contextual ring radius requires placement inside a physical tree"
     ))
-    _check_ring_clearance(pattern, _tangential_width(item))
+    validate(pattern, _tangential_width(item))
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
@@ -346,7 +347,7 @@ function placements(pattern::Ring, item::Disk, ::Nothing)
     pattern.r === nothing && throw(ArgumentError(
         "a contextual ring radius requires placement inside a physical tree"
     ))
-    _check_ring_clearance(pattern, 2item.r)
+    validate(pattern, 2item.r)
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
@@ -390,7 +391,7 @@ function placements(pattern::Ring, item::Sector, ::Nothing)
             resolve(EmptyBoundary(), item)
         )
     end
-    _check_ring_clearance(pattern, _tangential_width(item))
+    validate(pattern, _tangential_width(item))
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
@@ -402,7 +403,7 @@ function placements(pattern::Ring, item::CableGeometry, ::Nothing)
         "a contextual ring radius requires placement inside a physical tree"
     ))
     iszero(pattern.r) && return _origin_ring_poses(pattern, item)
-    _check_ring_clearance(pattern, 2support(boundary(item)))
+    validate(pattern, 2support(boundary(item)))
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 

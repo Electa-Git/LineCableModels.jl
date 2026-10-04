@@ -1,12 +1,3 @@
-_validate_fixed_shunt_model(::AbstractFormulation) = nothing
-function _validate_fixed_shunt_model(inner::Union{Engine.LineParametersFormulation,Engine.CableConstantsFormulation})
-    selected = inner.methods.shunt_model
-    if selected isa Engine.ShuntModel.Formula{:boundary} && selected.parameters.fallback !== :error
-        throw(ArgumentError("uncertainty propagation requires a fixed shunt model; select strict :boundary or :coaxial, without automatic fallback"))
-    end
-    return nothing
-end
-
 """
 $(TYPEDEF)
 
@@ -28,7 +19,7 @@ struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: Abstrac
     options::O
 
     function LinearError(inner::AbstractFormulation, options::ComputationOptions)
-        _validate_fixed_shunt_model(inner)
+        validate(inner, LinearError)
         normalized = computation_options(LinearError, options)
         return new{typeof(inner), typeof(normalized)}(inner, normalized)
     end
@@ -118,10 +109,21 @@ struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <:
     options::O
 
     function MonteCarlo(inner::AbstractFormulation, options::ComputationOptions)
-        _validate_fixed_shunt_model(inner)
+        validate(inner, MonteCarlo)
         normalized = computation_options(MonteCarlo, options)
         return new{typeof(inner), typeof(normalized)}(inner, normalized)
     end
+end
+
+# Uncertainty propagation accepts an inner formulation whose shunt model is fixed.
+validate(inner::AbstractFormulation, ::Type{<:Union{LinearError, MonteCarlo}}) = inner
+function validate(inner::Union{Engine.LineParametersFormulation, Engine.CableConstantsFormulation},
+        ::Type{<:Union{LinearError, MonteCarlo}})
+    selected = inner.methods.shunt_model
+    if selected isa Engine.ShuntModel.Formula{:boundary} && selected.parameters.fallback !== :error
+        throw(ArgumentError("uncertainty propagation requires a fixed shunt model; select strict :boundary or :coaxial, without automatic fallback"))
+    end
+    return inner
 end
 
 """Identify Monte Carlo propagation without sampling or configuring a solver."""

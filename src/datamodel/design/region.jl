@@ -26,6 +26,18 @@ struct Region{P, M} <: AbstractCablePart
     end
 end
 
+# A material for the cable part of `role` in a region, restricted to the `allowed` kinds.
+function validate(material, ::Type{Region}, role::Symbol, allowed::Tuple)
+    material isa AbstractMaterial || throw(ArgumentError(
+        "$role material must resolve to AbstractMaterial"
+    ))
+    material.kind in allowed || throw(ArgumentError(
+        "$role material must have kind $(join(string.(allowed), " or ")); " *
+        "got :$(material.kind)"
+    ))
+    return material
+end
+
 function Base.:(==)(left::Region, right::Region)
     left.tag == right.tag &&
         left.primitive == right.primitive &&

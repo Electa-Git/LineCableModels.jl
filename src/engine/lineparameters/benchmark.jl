@@ -60,7 +60,7 @@ function LineParametersBenchmark(
         admittance::RMSError{T};
         basis::Symbol = :pul
 ) where {T <: Real}
-    _check_basis(basis)
+    validate(basis, LineParameters)
     return LineParametersBenchmark{T, basis, typeof(impedance), typeof(admittance)}(impedance, admittance)
 end
 
@@ -347,7 +347,7 @@ function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::Abstract
         normalization::Symbol=:reference_rms, band=:all, fundamental::Real=50.0,
         harmonics::Integer=50, atol=nothing, unsupported::NamedTuple=(;))
     validate((; normalization, band, fundamental, harmonics, atol, unsupported), compare)
-    _check_basis(result_basis)
+    validate(result_basis, LineParameters)
     quantity in _LINE_RESOLUTION_QUANTITIES || throw(ArgumentError("unsupported physical RMS quantity"))
     f = frequencies
     !isempty(f) && issorted(f) && all(value -> isfinite(value) && value >= 0, f) ||

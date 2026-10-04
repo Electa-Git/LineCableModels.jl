@@ -1,12 +1,5 @@
 const LINE_PARAMETER_BASES = (:pul, :total)
 
-@inline function _check_basis(value::Symbol)
-    value in LINE_PARAMETER_BASES || throw(
-        ArgumentError("basis must be :pul or :total; got :$value"),
-    )
-    return value
-end
-
 """
     SeriesImpedance{T, Basis}
 
@@ -21,7 +14,7 @@ struct SeriesImpedance{T, Basis} <: AbstractArray{T, 3}
         Basis isa Symbol || throw(
             ArgumentError("basis must be :pul or :total; got $(repr(Basis))"),
         )
-        _check_basis(Basis)
+        validate(Basis, LineParameters)
         return new{T, Basis}(values)
     end
 end
@@ -40,18 +33,18 @@ struct ShuntAdmittance{T, Basis} <: AbstractArray{T, 3}
         Basis isa Symbol || throw(
             ArgumentError("basis must be :pul or :total; got $(repr(Basis))"),
         )
-        _check_basis(Basis)
+        validate(Basis, LineParameters)
         return new{T, Basis}(values)
     end
 end
 
 function SeriesImpedance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
-    _check_basis(basis)
+    validate(basis, LineParameters)
     return SeriesImpedance{T, basis}(Array(A))
 end
 
 function ShuntAdmittance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
-    _check_basis(basis)
+    validate(basis, LineParameters)
     return ShuntAdmittance{T, basis}(Array(A))
 end
 
@@ -113,6 +106,23 @@ struct LineParameters{
     end
 end
 
+# Line-parameter quantities are per unit length (`:pul`) or for the total line length.
+@inline function validate(basis::Symbol, ::Type{LineParameters})
+    basis in LINE_PARAMETER_BASES || throw(
+        ArgumentError("basis must be :pul or :total; got :$basis"),
+    )
+    return basis
+end
+
+# The phase domain imposes no restriction on the coefficients.
+validate(domain::LineParamsDomain, ::LineParameters) = domain
+
+function validate(domain::ModalDomain, parameters::LineParameters)
+    size(domain.operators)==size(parameters.Z.values) || throw(DimensionMismatch(
+        "modal operators must align with line-parameter coefficients"))
+    return domain
+end
+
 function validate(parameters::LineParameters{T, U, D, Basis}) where {T, U, D, Basis}
     Basis in LINE_PARAMETER_BASES || throw(ArgumentError(
         "LineParameters basis must be :pul or :total; received $(repr(Basis))"
@@ -131,7 +141,7 @@ function validate(parameters::LineParameters{T, U, D, Basis}) where {T, U, D, Ba
         "LineParameters.f must contain one value per matrix frequency plane; " *
         "received $(length(parameters.f)) values for $(size(parameters.Z, 3)) planes"
     ))
-    validate_domain(parameters.domain,size(parameters.Z.values))
+    validate(parameters.domain, parameters)
     all(isfinite, parameters.f) || throw(ArgumentError(
         "LineParameters.f must contain only finite frequencies; received " *
         repr(parameters.f)
@@ -193,7 +203,7 @@ function LineParameters(
         TY <: Complex,
         U <: Real
 }
-    _check_basis(basis)
+    validate(basis, LineParameters)
     element_type = promote_type(TZ, TY)
     return LineParameters(
         domain,

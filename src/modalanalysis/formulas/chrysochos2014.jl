@@ -349,8 +349,8 @@ function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
             for mode in 1:n
                 propagation_eigenvalues[mode] = (eigenvalues[mode]+one(T))*scale
             end
-            if failed_mode != 0 || !check_eigenpairs!(admittance_impedance_product,
-                    propagation_eigenvalues,eigenvectors,validation_tolerance,
+            if failed_mode != 0 || !diagonalizes!(eigenvectors,
+                    propagation_eigenvalues,admittance_impedance_product,validation_tolerance,
                     work.eigenpair_assignment.residual)
                 push!(missed, frequency_index)
                 if iteration_options.fallback === :matched

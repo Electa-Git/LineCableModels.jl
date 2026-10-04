@@ -260,17 +260,6 @@ function terminal(name, parts...; combine::Symbol = :product)
     return parameterize(DataModel.Group, _terminal, (name, parts...); combine)
 end
 
-function _require_material(material, role::Symbol, allowed::Tuple)
-    material isa Materials.AbstractMaterial || throw(ArgumentError(
-        "$role material must resolve to AbstractMaterial"
-    ))
-    material.kind in allowed || throw(ArgumentError(
-        "$role material must have kind $(join(string.(allowed), " or ")); " *
-        "got :$(material.kind)"
-    ))
-    return material
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -346,7 +335,7 @@ function core(material, primitive; tag = :core, combine::Symbol = :product)
         resolved_tag) -> DataModel.Region(
         resolved_tag,
         resolved_primitive,
-        _require_material(resolved_material, :core, (:conductor,))
+        validate(resolved_material, DataModel.Region, :core, (:conductor,))
     )
     return parameterize(
         DataModel.Region, caller, (material, primitive, tag); combine
@@ -361,7 +350,7 @@ function _role_shell(role::Symbol, allowed, material, t, tag)
     return DataModel.Region(
         tag,
         DataModel.Shell(t),
-        _require_material(material, role, allowed)
+        validate(material, DataModel.Region, role, allowed)
     )
 end
 
@@ -422,9 +411,7 @@ function filler(material, primitive; tag = :filler, combine::Symbol = :product)
         resolved_tag) -> DataModel.Region(
         resolved_tag,
         resolved_primitive,
-        _require_material(
-            resolved_material, :filler, (:insulator,)
-        )
+        validate(resolved_material, DataModel.Region, :filler, (:insulator,))
     )
     return parameterize(
         DataModel.Region, caller, (material, primitive, tag); combine
@@ -441,7 +428,7 @@ function _wires(
     source = DataModel.Region(
         tag,
         shape,
-        _require_material(material, :wires, (:conductor,))
+        validate(material, DataModel.Region, :wires, (:conductor,))
     )
     return DataModel.Group(
         tag, DataModel.Pose2(0, 0, 0), source, pattern, path, compact
@@ -600,8 +587,8 @@ function _stranded(
         prescribed_boundary,
         fill
 )
-    material = _require_material(material, :stranded, (:conductor,))
-    fill = _require_material(fill, :stranded_fill, (:insulator, :semicon))
+    material = validate(material, DataModel.Region, :stranded, (:conductor,))
+    fill = validate(fill, DataModel.Region, :stranded_fill, (:insulator, :semicon))
     prescribed_boundary isa Union{DataModel.Disk, DataModel.Sector} ||
         throw(ArgumentError(
             "stranded requires a nonhollow Disk or Sector boundary"
@@ -817,7 +804,7 @@ function _milliken(
         φ0,
         fill
 )
-    material = _require_material(material, :milliken, (:conductor,))
+    material = validate(material, DataModel.Region, :milliken, (:conductor,))
     shape isa DataModel.Disk || throw(ArgumentError(
         "milliken segment strands must be circular Disk wires"
     ))
@@ -831,7 +818,7 @@ function _milliken(
         segment.span,
         "milliken segment span must equal its angular pitch $pitch"
     ))
-    fill = _require_material(fill, :milliken_fill, (:insulator, :semicon))
+    fill = validate(fill, DataModel.Region, :milliken_fill, (:insulator, :semicon))
 
     segment_part = _stranded(
         material,
@@ -1095,7 +1082,7 @@ function armor(
         source = DataModel.Region(
             resolved_tag,
             resolved_shape,
-            _require_material(resolved_material, :armor, (:conductor,))
+            validate(resolved_material, DataModel.Region, :armor, (:conductor,))
         )
         return DataModel.Group(
             resolved_tag,

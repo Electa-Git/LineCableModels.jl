@@ -46,41 +46,6 @@ function _validated_product(product, expected_keys::Tuple, name::AbstractString)
     return product
 end
 
-function _validate_cable_products(
-        value::Engine.CableConstants,
-        statistics_product,
-        sample_product,
-        histogram_product,
-        trials::Int
-)
-    count = length(value)
-    all(field -> field isa AbstractVector && length(field) == count,
-        Base.values(statistics_product)) || throw(DimensionMismatch(
-        "cable-constant summaries must match the assembly count",
-    ))
-    all(summary -> summary isa SampleSummary && summary.n == trials,
-        Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
-        "cable-constant summaries must contain the Monte Carlo trial count",
-    ))
-    if sample_product !== nothing
-        all(sample -> sample isa AbstractMatrix && size(sample) == (count, trials),
-            Base.values(sample_product)) || throw(DimensionMismatch(
-            "cable-constant samples must contain assembly and trial dimensions",
-        ))
-    end
-    if histogram_product !== nothing
-        all(field -> field isa AbstractVector && length(field) == count,
-            Base.values(histogram_product)) || throw(DimensionMismatch(
-            "cable-constant histograms must match the assembly count",
-        ))
-        all(histogram -> histogram isa HistogramDensity,
-            Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
-            "cable-constant histograms must contain HistogramDensity values",
-        ))
-    end
-    return nothing
-end
-
 function _line_product_shape(product, expected_shape, name::AbstractString)
     all(field -> field isa AbstractArray && size(field) == expected_shape,
         Base.values(product)) || throw(DimensionMismatch(
@@ -89,192 +54,6 @@ function _line_product_shape(product, expected_shape, name::AbstractString)
     return nothing
 end
 
-function _validate_line_products(
-        value::Engine.LineParameters,
-        statistics_product,
-        sample_product,
-        histogram_product,
-        trials::Int
-)
-    core_shape = size(observe(value, Engine.Z))
-    _line_product_shape(statistics_product, core_shape, "summaries")
-    all(summary -> summary isa SampleSummary && summary.n == trials,
-        Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
-        "line-parameter summaries must contain the Monte Carlo trial count",
-    ))
-    if sample_product !== nothing
-        sample_shape = (core_shape..., trials)
-        _line_product_shape(sample_product, sample_shape, "samples")
-    end
-    if histogram_product !== nothing
-        _line_product_shape(histogram_product, core_shape, "histograms")
-        all(histogram -> histogram isa HistogramDensity,
-            Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
-            "line-parameter histograms must contain HistogramDensity values",
-        ))
-    end
-    return nothing
-end
-
-function _validate_monte_carlo_products(
-        values::Vector{T},
-        statistics_products,
-        sample_products,
-        histogram_products,
-        trial_counts
-) where {T <: Union{Engine.CableConstants, Engine.LineParameters}}
-    Engine.has_uncertainty_type(eltype(observe(first(values),R))) || throw(ArgumentError(
-        "MonteCarloResult requires stored uncertainty-bearing cores; materialize the empirical summaries before construction"))
-    expected_keys = _monte_carlo_keys(T)
-    for point in eachindex(values)
-        trials = trial_counts[point]
-        trials > 0 || throw(ArgumentError("Monte Carlo trial counts must be positive"))
-        statistics_product = _validated_product(
-            statistics_products[point], expected_keys, "statistics products")
-        sample_product = sample_products === nothing ? nothing : _validated_product(
-            sample_products[point], expected_keys, "sample products")
-        histogram_product = histogram_products === nothing ? nothing : _validated_product(
-            histogram_products[point], expected_keys, "histogram products")
-        if values[point] isa Engine.CableConstants
-            _validate_cable_products(
-                values[point], statistics_product, sample_product,
-                histogram_product, trials)
-        else
-            _validate_line_products(
-                values[point], statistics_product, sample_product, histogram_product, trials)
-        end
-    end
-    return nothing
-end
-
-function _validate_monte_carlo_products(
-        ::Vector,
-        statistics_products,
-        sample_products,
-        histogram_products,
-        trial_counts
-)
-    all(>(0), trial_counts) || throw(ArgumentError(
-        "Monte Carlo trial counts must be positive",
-    ))
-    return nothing
-end
-
-function _validate_failure_record(record)
-    record isa NamedTuple &&
-        keys(record) == (:attempt, :target_trial, :stage, :sample, :error) ||
-        throw(ArgumentError(
-        "Monte Carlo failure records must contain attempt, target_trial, stage, sample, and error",
-    ))
-    record.attempt isa Int && record.attempt > 0 || throw(ArgumentError(
-        "Monte Carlo failure attempts must be positive integers",
-    ))
-    record.target_trial isa Int && record.target_trial > 0 || throw(ArgumentError(
-        "Monte Carlo failure target trials must be positive integers",
-    ))
-    record.stage in (:sample, :build, :compute) || throw(ArgumentError(
-        "Monte Carlo failure stages must be :sample, :build, or :compute",
-    ))
-    error = record.error
-    error isa NamedTuple && keys(error) == (:type, :message, :stack) || throw(
-        ArgumentError(
-            "Monte Carlo failure errors must contain type, message, and stack",
-        ),
-    )
-    error.type isa String && error.message isa String || throw(ArgumentError(
-        "Monte Carlo failure type and message summaries must be strings",
-    ))
-    error.stack isa AbstractVector || throw(ArgumentError(
-        "Monte Carlo failure stacks must be vectors",
-    ))
-    all(error.stack) do frame
-        frame isa NamedTuple &&
-            keys(frame) == (:function_name, :file, :line) &&
-            frame.function_name isa String && frame.file isa String && frame.line isa Int
-    end || throw(ArgumentError(
-        "Monte Carlo failure stack frames must contain function_name, file, and line",
-    ))
-    return nothing
-end
-
-function _validate_failure_summary(summary, failures, accepted::Int)
-    summary isa NamedTuple && keys(summary) == (
-        :attempts, :accepted, :failed, :acceptance_rate, :by_type, :by_stage
-    ) || throw(ArgumentError(
-        "Monte Carlo failure summaries have an invalid schema",
-    ))
-    summary.attempts isa Int && summary.attempts > 0 || throw(ArgumentError(
-        "Monte Carlo failure-summary attempts must be positive integers",
-    ))
-    summary.accepted == accepted || throw(DimensionMismatch(
-        "Monte Carlo failure-summary accepted counts must match trial counts",
-    ))
-    summary.failed == length(failures) || throw(DimensionMismatch(
-        "Monte Carlo failure-summary failed counts must match retained failures",
-    ))
-    summary.attempts == summary.accepted + summary.failed || throw(DimensionMismatch(
-        "Monte Carlo failure-summary attempts must equal accepted plus failed trials",
-    ))
-    summary.acceptance_rate == summary.accepted / summary.attempts || throw(
-        ArgumentError(
-            "Monte Carlo failure-summary acceptance rates are inconsistent",
-        ),
-    )
-    return nothing
-end
-
-function _validate_monte_carlo_details(details::ComputationDetails, values, trial_counts)
-    isempty(details.data) && return nothing
-    fields = Tuple(key for key in keys(details.data) if key !== :timing)
-    fields in ((), (:trials, :failures, :failure_summary),
-        (:trials, :failures, :failure_summary, :clearance)) || throw(ArgumentError(
-        "MonteCarloResult details must contain timing, the full trial/failure bundle, or both",
-    ))
-    point_count = length(values)
-    if haskey(details.data, :timing)
-        details.data.timing isa AbstractVector || throw(ArgumentError(
-            "Monte Carlo timing must be a vector of population vectors"))
-    end
-    all(length(product) == point_count
-    for product in Base.values(details.data)) ||
-        throw(DimensionMismatch(
-        "retained Monte Carlo details must contain one entry per Gridspace point",
-    ))
-    if haskey(details.data, :timing)
-        timing = details.data.timing
-        for point in eachindex(values)
-            records = timing[point]
-            records isa AbstractVector && all(record -> record isa NamedTuple, records) ||
-                throw(ArgumentError("Monte Carlo timing must contain vectors of named tuples"))
-            length(records) == trial_counts[point] || throw(DimensionMismatch(
-                "Monte Carlo timing must contain one record per accepted trial"))
-        end
-    end
-    isempty(fields) && return nothing
-    for point in eachindex(values)
-        records = details.data.trials[point]
-        failures = details.data.failures[point]
-        summary = details.data.failure_summary[point]
-        length(records) == trial_counts[point] || throw(DimensionMismatch(
-            "retained details must contain one entry per accepted Monte Carlo trial",
-        ))
-        failures isa AbstractVector || throw(ArgumentError(
-            "retained Monte Carlo failures must be stored in vectors",
-        ))
-        foreach(_validate_failure_record, failures)
-        _validate_failure_summary(summary, failures, trial_counts[point])
-        if haskey(details.data, :clearance)
-            clearance = details.data.clearance[point]
-            keys(clearance) == (:adjustments, :max_displacement_m) &&
-                clearance.adjustments isa Int &&
-                clearance.adjustments >= 0 &&
-                isfinite(clearance.max_displacement_m) &&
-                clearance.max_displacement_m >= 0 || throw(ArgumentError(
-                "Monte Carlo clearance diagnostics must contain a nonnegative count and displacement"))
-        end
-    end
-    return nothing
-end
 
 """
 $(TYPEDEF)
@@ -317,51 +96,7 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
             trial_counts::Vector{Int},
             details::D
     ) where {T, F, ST <: AbstractVector, S, H, D <: ComputationDetails}
-        validate(T, MonteCarloResult)
-        isempty(values) && throw(ArgumentError(
-            "MonteCarloResult requires at least one core result",
-        ))
-        isconcretetype(eltype(stats)) || throw(ArgumentError(
-            "Monte Carlo statistics must use a concrete product type",
-        ))
-        length(stats) == length(values) || throw(DimensionMismatch(
-            "Monte Carlo statistics must contain one entry per core result",
-        ))
-        length(point_seeds) == length(values) || throw(DimensionMismatch(
-            "Monte Carlo seeds must contain one entry per core result",
-        ))
-        length(trial_counts) == length(values) || throw(DimensionMismatch(
-            "Monte Carlo trial counts must contain one entry per core result",
-        ))
-        sample_values === nothing || length(sample_values) == length(values) ||
-            throw(DimensionMismatch(
-                "retained samples must contain one entry per core result",
-            ))
-        histogram_values === nothing || length(histogram_values) == length(values) ||
-            throw(DimensionMismatch(
-                "retained histograms must contain one entry per core result",
-            ))
-        sample_values === nothing || sample_values isa AbstractVector || throw(
-            ArgumentError("retained samples must be stored in a vector"),
-        )
-        histogram_values === nothing || histogram_values isa AbstractVector || throw(
-            ArgumentError("retained histograms must be stored in a vector"),
-        )
-        sample_values === nothing || isconcretetype(eltype(sample_values)) || throw(
-            ArgumentError("retained samples must use a concrete product type"),
-        )
-        histogram_values === nothing || isconcretetype(eltype(histogram_values)) || throw(
-            ArgumentError("retained histograms must use a concrete product type"),
-        )
-        _validate_monte_carlo_products(
-            values,
-            stats,
-            sample_values,
-            histogram_values,
-            trial_counts
-        )
-        _validate_monte_carlo_details(details, values, trial_counts)
-        return new{T, F, ST, S, H, D}(
+        return validate(new{T, F, ST, S, H, D}(
             formulation,
             values,
             stats,
@@ -371,8 +106,224 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
             point_seeds,
             trial_counts,
             details
-        )
+        ))
     end
+end
+
+# Checks the stored cores, the empirical products of each point against its core result,
+# and the retained trial, failure and timing details.
+function validate(result::MonteCarloResult{T}) where {T}
+    (; values, stats, sample_values, histogram_values, point_seeds, trial_counts, details) =
+        result
+    validate(T, MonteCarloResult)
+    isempty(values) && throw(ArgumentError(
+        "MonteCarloResult requires at least one core result",
+    ))
+    isconcretetype(eltype(stats)) || throw(ArgumentError(
+        "Monte Carlo statistics must use a concrete product type",
+    ))
+    length(stats) == length(values) || throw(DimensionMismatch(
+        "Monte Carlo statistics must contain one entry per core result",
+    ))
+    length(point_seeds) == length(values) || throw(DimensionMismatch(
+        "Monte Carlo seeds must contain one entry per core result",
+    ))
+    length(trial_counts) == length(values) || throw(DimensionMismatch(
+        "Monte Carlo trial counts must contain one entry per core result",
+    ))
+    sample_values === nothing || length(sample_values) == length(values) ||
+        throw(DimensionMismatch(
+            "retained samples must contain one entry per core result",
+        ))
+    histogram_values === nothing || length(histogram_values) == length(values) ||
+        throw(DimensionMismatch(
+            "retained histograms must contain one entry per core result",
+        ))
+    sample_values === nothing || sample_values isa AbstractVector || throw(
+        ArgumentError("retained samples must be stored in a vector"),
+    )
+    histogram_values === nothing || histogram_values isa AbstractVector || throw(
+        ArgumentError("retained histograms must be stored in a vector"),
+    )
+    sample_values === nothing || isconcretetype(eltype(sample_values)) || throw(
+        ArgumentError("retained samples must use a concrete product type"),
+    )
+    histogram_values === nothing || isconcretetype(eltype(histogram_values)) || throw(
+        ArgumentError("retained histograms must use a concrete product type"),
+    )
+    if T <: Union{Engine.CableConstants, Engine.LineParameters}
+        Engine.has_uncertainty_type(eltype(observe(first(values),R))) || throw(ArgumentError(
+            "MonteCarloResult requires stored uncertainty-bearing cores; materialize the empirical summaries before construction"))
+        expected_keys = _monte_carlo_keys(T)
+        for point in eachindex(values)
+            trials = trial_counts[point]
+            trials > 0 || throw(ArgumentError("Monte Carlo trial counts must be positive"))
+            statistics_product = _validated_product(
+                stats[point], expected_keys, "statistics products")
+            sample_product = sample_values === nothing ? nothing : _validated_product(
+                sample_values[point], expected_keys, "sample products")
+            histogram_product = histogram_values === nothing ? nothing : _validated_product(
+                histogram_values[point], expected_keys, "histogram products")
+            value = values[point]
+            if value isa Engine.CableConstants
+                count = length(value)
+                all(field -> field isa AbstractVector && length(field) == count,
+                    Base.values(statistics_product)) || throw(DimensionMismatch(
+                    "cable-constant summaries must match the assembly count",
+                ))
+                all(summary -> summary isa SampleSummary && summary.n == trials,
+                    Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
+                    "cable-constant summaries must contain the Monte Carlo trial count",
+                ))
+                if sample_product !== nothing
+                    all(sample -> sample isa AbstractMatrix && size(sample) == (count, trials),
+                        Base.values(sample_product)) || throw(DimensionMismatch(
+                        "cable-constant samples must contain assembly and trial dimensions",
+                    ))
+                end
+                if histogram_product !== nothing
+                    all(field -> field isa AbstractVector && length(field) == count,
+                        Base.values(histogram_product)) || throw(DimensionMismatch(
+                        "cable-constant histograms must match the assembly count",
+                    ))
+                    all(histogram -> histogram isa HistogramDensity,
+                        Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
+                        "cable-constant histograms must contain HistogramDensity values",
+                    ))
+                end
+            else
+                core_shape = size(observe(value, Engine.Z))
+                _line_product_shape(statistics_product, core_shape, "summaries")
+                all(summary -> summary isa SampleSummary && summary.n == trials,
+                    Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
+                    "line-parameter summaries must contain the Monte Carlo trial count",
+                ))
+                if sample_product !== nothing
+                    sample_shape = (core_shape..., trials)
+                    _line_product_shape(sample_product, sample_shape, "samples")
+                end
+                if histogram_product !== nothing
+                    _line_product_shape(histogram_product, core_shape, "histograms")
+                    all(histogram -> histogram isa HistogramDensity,
+                        Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
+                        "line-parameter histograms must contain HistogramDensity values",
+                    ))
+                end
+            end
+        end
+    else
+        all(>(0), trial_counts) || throw(ArgumentError(
+            "Monte Carlo trial counts must be positive",
+        ))
+    end
+    if !isempty(details.data)
+        fields = Tuple(key for key in keys(details.data) if key !== :timing)
+        fields in ((), (:trials, :failures, :failure_summary),
+            (:trials, :failures, :failure_summary, :clearance)) || throw(ArgumentError(
+            "MonteCarloResult details must contain timing, the full trial/failure bundle, or both",
+        ))
+        point_count = length(values)
+        if haskey(details.data, :timing)
+            details.data.timing isa AbstractVector || throw(ArgumentError(
+                "Monte Carlo timing must be a vector of population vectors"))
+        end
+        all(length(product) == point_count
+        for product in Base.values(details.data)) ||
+            throw(DimensionMismatch(
+            "retained Monte Carlo details must contain one entry per Gridspace point",
+        ))
+        if haskey(details.data, :timing)
+            timing = details.data.timing
+            for point in eachindex(values)
+                records = timing[point]
+                records isa AbstractVector && all(record -> record isa NamedTuple, records) ||
+                    throw(ArgumentError("Monte Carlo timing must contain vectors of named tuples"))
+                length(records) == trial_counts[point] || throw(DimensionMismatch(
+                    "Monte Carlo timing must contain one record per accepted trial"))
+            end
+        end
+        if !isempty(fields)
+            for point in eachindex(values)
+                records = details.data.trials[point]
+                failures = details.data.failures[point]
+                summary = details.data.failure_summary[point]
+                length(records) == trial_counts[point] || throw(DimensionMismatch(
+                    "retained details must contain one entry per accepted Monte Carlo trial",
+                ))
+                failures isa AbstractVector || throw(ArgumentError(
+                    "retained Monte Carlo failures must be stored in vectors",
+                ))
+                for record in failures
+                    record isa NamedTuple &&
+                        keys(record) == (:attempt, :target_trial, :stage, :sample, :error) ||
+                        throw(ArgumentError(
+                        "Monte Carlo failure records must contain attempt, target_trial, stage, sample, and error",
+                    ))
+                    record.attempt isa Int && record.attempt > 0 || throw(ArgumentError(
+                        "Monte Carlo failure attempts must be positive integers",
+                    ))
+                    record.target_trial isa Int && record.target_trial > 0 || throw(ArgumentError(
+                        "Monte Carlo failure target trials must be positive integers",
+                    ))
+                    record.stage in (:sample, :build, :compute) || throw(ArgumentError(
+                        "Monte Carlo failure stages must be :sample, :build, or :compute",
+                    ))
+                    error = record.error
+                    error isa NamedTuple && keys(error) == (:type, :message, :stack) || throw(
+                        ArgumentError(
+                            "Monte Carlo failure errors must contain type, message, and stack",
+                        ),
+                    )
+                    error.type isa String && error.message isa String || throw(ArgumentError(
+                        "Monte Carlo failure type and message summaries must be strings",
+                    ))
+                    error.stack isa AbstractVector || throw(ArgumentError(
+                        "Monte Carlo failure stacks must be vectors",
+                    ))
+                    all(error.stack) do frame
+                        frame isa NamedTuple &&
+                            keys(frame) == (:function_name, :file, :line) &&
+                            frame.function_name isa String && frame.file isa String && frame.line isa Int
+                    end || throw(ArgumentError(
+                        "Monte Carlo failure stack frames must contain function_name, file, and line",
+                    ))
+                end
+                accepted = trial_counts[point]
+                summary isa NamedTuple && keys(summary) == (
+                    :attempts, :accepted, :failed, :acceptance_rate, :by_type, :by_stage
+                ) || throw(ArgumentError(
+                    "Monte Carlo failure summaries have an invalid schema",
+                ))
+                summary.attempts isa Int && summary.attempts > 0 || throw(ArgumentError(
+                    "Monte Carlo failure-summary attempts must be positive integers",
+                ))
+                summary.accepted == accepted || throw(DimensionMismatch(
+                    "Monte Carlo failure-summary accepted counts must match trial counts",
+                ))
+                summary.failed == length(failures) || throw(DimensionMismatch(
+                    "Monte Carlo failure-summary failed counts must match retained failures",
+                ))
+                summary.attempts == summary.accepted + summary.failed || throw(DimensionMismatch(
+                    "Monte Carlo failure-summary attempts must equal accepted plus failed trials",
+                ))
+                summary.acceptance_rate == summary.accepted / summary.attempts || throw(
+                    ArgumentError(
+                        "Monte Carlo failure-summary acceptance rates are inconsistent",
+                    ),
+                )
+                if haskey(details.data, :clearance)
+                    clearance = details.data.clearance[point]
+                    keys(clearance) == (:adjustments, :max_displacement_m) &&
+                        clearance.adjustments isa Int &&
+                        clearance.adjustments >= 0 &&
+                        isfinite(clearance.max_displacement_m) &&
+                        clearance.max_displacement_m >= 0 || throw(ArgumentError(
+                        "Monte Carlo clearance diagnostics must contain a nonnegative count and displacement"))
+                end
+            end
+        end
+    end
+    return result
 end
 
 function MonteCarloResult(

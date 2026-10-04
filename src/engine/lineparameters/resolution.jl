@@ -102,7 +102,7 @@ separate. Physical standard uncertainty never contributes to a reporting floor.
 function observation_resolution(values::Union{Number,AbstractArray}, selector::Function;
         atol=nothing, frequencies=nothing, result_basis::Symbol=:pul, line_length=nothing)
     _validate_resolution_atol(atol)
-    _check_basis(result_basis)
+    validate(result_basis, LineParameters)
     selector in _LINE_RESOLUTION_QUANTITIES ||
         return observation_resolution(nothing,selector;atol,frequencies)
     if frequencies isa Real

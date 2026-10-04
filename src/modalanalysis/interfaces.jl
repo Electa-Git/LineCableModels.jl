@@ -15,7 +15,7 @@ For every frequency sample, `Tv` and `Ti` satisfy `Vₚ = Tv Vₘ` and
 
 $(TYPEDFIELDS)
 """
-struct ModalOperators{V <: AbstractArray, I <: AbstractArray}
+struct ModalOperators{V <: AbstractArray, I <: AbstractArray} <: Engine.AbstractModalOperators
     "Modal-to-phase voltage tensor."
     Tv::V
     "Modal-to-phase current tensor."
@@ -41,7 +41,7 @@ struct ModalOperators{V <: AbstractArray, I <: AbstractArray}
     end
 end
 
-Engine.validate_modal_operators(maps::ModalOperators) = size(maps.Tv)
+Base.size(maps::ModalOperators) = size(maps.Tv)
 
 """
 Return the modal operators stored in modal-domain line parameters.

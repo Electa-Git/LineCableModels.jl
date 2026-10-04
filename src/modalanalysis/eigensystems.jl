@@ -204,21 +204,37 @@ function _match!(
     end
     return assignment
 end
-function check_eigenpairs!(
-        matrix::AbstractMatrix{T},
-        values::AbstractVector{T},
-        vectors::AbstractMatrix{T},
+"""
+$(TYPEDSIGNATURES)
+
+Accept the tracked modes of one frequency: return whether the columns `t` of `Ti` and
+the values `γ²` diagonalize `YZ`. Three conditions must hold:
+
+- every value and every entry of `Ti` is finite;
+- `Ti` is invertible within √eps: its condition number is at most `1/√eps`;
+- each pair satisfies `YZ·t = γ²·t` within `tolerance`, relative to `‖YZ‖∞` and never
+  tighter than √eps.
+
+`residual` is the work vector of the last condition. When the test fails, the caller
+records the frequency as a missed numerical target. With `fallback = :matched` it then
+replaces the tracked modes by directly decomposed eigenpairs matched to the previous
+frequency.
+"""
+function diagonalizes!(
+        Ti::AbstractMatrix{T},
+        γ²::AbstractVector{T},
+        YZ::AbstractMatrix{T},
         tolerance::Real,residual::AbstractVector{T}
 ) where {T <: Complex}
-    all(isfinite, values) && all(isfinite, vectors) || return false
+    all(isfinite, γ²) && all(isfinite, Ti) || return false
     R = typeof(real(zero(T)))
-    condition = cond(vectors)
+    condition = cond(Ti)
     isfinite(condition) && condition <= inv(sqrt(eps(R))) || return false
-    scale = max(norm(matrix, Inf), eps(R))
+    scale = max(norm(YZ, Inf), eps(R))
     limit = max(convert(R, tolerance), sqrt(eps(R))) * scale
-    @inbounds for mode in eachindex(values)
-        mul!(residual, matrix, @view(vectors[:, mode]))
-        residual .-= values[mode] .* @view(vectors[:, mode])
+    @inbounds for mode in eachindex(γ²)
+        mul!(residual, YZ, @view(Ti[:, mode]))
+        residual .-= γ²[mode] .* @view(Ti[:, mode])
         norm(residual, Inf) <= limit || return false
     end
     return true

@@ -145,7 +145,7 @@ include("textdisplay.jl")
 
 public completion_details, completed_inputs, completed_formulation, retain_gridpoint
 public selectdetails
-public validate_modal_operators
+public AbstractModalOperators
 public SpectralIntegral, integrate, integration_workspace
 public AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
        earth_spectral_points!, earth_contour_angle, earth_direct,

@@ -264,6 +264,13 @@ Tag line parameters expressed in the physical phase domain.
 """
 struct PhaseDomain <: LineParamsDomain end
 """
+Supertype of the modal-to-phase voltage and current bases of a modal transformation.
+A concrete subtype implements `Base.size`, which returns the
+`(modes, modes, frequencies)` dimensions of its operator tensors.
+"""
+abstract type AbstractModalOperators end
+
+"""
 Store the coordinate system of a calculated modal transformation.
 
 The operator tensor type parameterizes the domain because inverse transforms
@@ -278,25 +285,19 @@ struct ModalDomain{O, G} <: LineParamsDomain
     gamma::G
 
     function ModalDomain(operators::O, gamma::G) where {O, G}
-        gamma isa AbstractMatrix || throw(DimensionMismatch(
-            "modal roots must be a mode×frequency matrix"))
-        dimensions=validate_modal_operators(operators)
-        size(gamma)==(dimensions[2], dimensions[3]) || throw(DimensionMismatch(
-            "modal roots must align with operator modes and frequency samples"))
-        return new{O, G}(operators, gamma)
+        return validate(new{O, G}(operators, gamma))
     end
 end
 
-function validate_modal_operators(_)
-    throw(ArgumentError(
+function validate(domain::ModalDomain)
+    domain.gamma isa AbstractMatrix || throw(DimensionMismatch(
+        "modal roots must be a mode×frequency matrix"))
+    domain.operators isa AbstractModalOperators || throw(ArgumentError(
         "modal domain requires a validated ModalOperators value"))
-end
-
-validate_domain(::LineParamsDomain, _) = nothing
-function validate_domain(domain::ModalDomain, dimensions)
-    validate_modal_operators(domain.operators)==dimensions || throw(DimensionMismatch(
-        "modal operators must align with line-parameter coefficients"))
-    return nothing
+    dimensions=size(domain.operators)
+    size(domain.gamma)==(dimensions[2], dimensions[3]) || throw(DimensionMismatch(
+        "modal roots must align with operator modes and frequency samples"))
+    return domain
 end
 
 """
