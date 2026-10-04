@@ -120,9 +120,7 @@
             joinpath(directory, "run.json"), String
         ))
         missing_completion = try
-            extension_module._validate_completion(
-                joinpath(directory, "missing.tsv"), 1, 2, run
-            )
+            validate(joinpath(directory, "missing.tsv"), run, 1, 2)
             nothing
         catch exception
             exception
@@ -750,7 +748,7 @@ end
                 @test sort!(unique([first_geometry.outer_air_curves;
                                     first_geometry.outer_earth_curves])) ==
                       first_geometry.outer_curves
-                extension_module._validate_mesh_file(model, first_mesh)
+                validate(first_mesh, model)
 
                 second_run = extension_module._create_run(runtime_root)
                 second_geometry = extension_module._build_geometry!(model, "fem-mesh-second")

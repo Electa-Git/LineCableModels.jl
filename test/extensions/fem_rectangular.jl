@@ -39,7 +39,7 @@
             mktempdir() do directory
                 mesh = joinpath(directory,"model.msh")
                 gmsh.write(mesh)
-                @test isnothing(FEM._validate_mesh_file(model,mesh))
+                @test validate(mesh,model) === mesh
             end
         end
         # An explicitly declared thin layer is not absorbed into the conductor,

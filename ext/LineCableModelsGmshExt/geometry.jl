@@ -1293,7 +1293,8 @@ function _entity_boundary(surfaces)
     for (dim, tag) in gmsh.model.get_boundary(dimtags, true, false, false) if dim == 1))
 end
 
-function _validate_material_interfaces!(model::FEMResolvedModel, material_surfaces)
+# Material surfaces of the FEM model: disjoint, and each interface between exactly two.
+function validate(material_surfaces::AbstractVector, model::FEMResolvedModel)
     surfaces = collect(Iterators.flatten(material_surfaces))
     length(unique(surfaces)) == length(surfaces) || _fem_error(
         :geometry,
@@ -1317,7 +1318,7 @@ function _validate_material_interfaces!(model::FEMResolvedModel, material_surfac
         "material interfaces must have exactly two adjacent surfaces; " *
         "invalid curves: $(join(offending, ", "))"
     )
-    return nothing
+    return material_surfaces
 end
 
 function _interface_mesh_sizes(model::FEMResolvedModel, mesh_plan::FEMMeshPlan)
@@ -1468,7 +1469,7 @@ function _build_geometry!(
     _apply_point_mesh_sizes!(registry)
     gmsh.model.geo.synchronize()
 
-    _validate_material_interfaces!(model, material_surfaces)
+    validate(material_surfaces, model)
 
     for (index, material) in enumerate(model.material_plans)
         _physical_group(

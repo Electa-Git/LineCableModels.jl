@@ -51,7 +51,8 @@ function computation_options(
     identity = normalized.solver_identity
     (identity === nothing || identity isa AbstractDict{String, String}) ||
         throw(ArgumentError("PSCAD solver_identity must be the record returned by identify(remote)"))
-    identity = identity === nothing ? nothing : _validate_solver_identity(identity, options.remote)
+    identity = identity === nothing ? nothing :
+               Dict{String, String}(validate(identity, options.remote))
     options.remote.transport === :local && !Sys.iswindows() && throw(ArgumentError(
         "PSCAD local transport requires a Windows caller"))
     work_root = abspath(normalized.work_root)
@@ -207,8 +208,8 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             isfile(path) && bytes2hex(open(sha256, path)) == get(record["outputs"], name, nothing) ||
                 throw(ArgumentError("PSCAD completed-run output integrity check failed: $path"))
         end
-        stored_solver_identity = _validate_solver_identity(
-            TOML.parsefile(joinpath(candidate, "outputs", "solver.toml")), config)
+        stored_solver_identity = Dict{String, String}(validate(
+            TOML.parsefile(joinpath(candidate, "outputs", "solver.toml")), config))
         stored_solver_identity == get(record, "observed_solver", nothing) || throw(ArgumentError(
             "PSCAD completed run has no matching solver attestation: $candidate"))
         station_identity === nothing && (station_identity = identify(config))
@@ -238,7 +239,8 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         execution = run_remote_pscad(config, staged, joinpath(root, "outputs"),
             formulation, problem.frequencies; output_stem = execution_options.data.output_stem,
             verbosity = verbosity(execution_options, :PSCAD))
-        actual = _validate_solver_identity(TOML.parsefile(joinpath(execution.output_dir, "solver.toml")), config)
+        actual = Dict{String, String}(validate(
+            TOML.parsefile(joinpath(execution.output_dir, "solver.toml")), config))
         expected === nothing || actual == expected || throw(ArgumentError(
             "PSCAD result does not match the expected solver identity: $root"))
     end
@@ -332,7 +334,7 @@ function compute(problem::LineParametersProblem, formulations::AbstractVector{<:
         throw(ArgumentError("modal_options require a modal formulation"))
     execution = computation_options(PSCADFormulation, options)
     _pscad_deterministic(eltype(problem))
-    _validate_frequencies(problem.frequencies)
+    validate(problem.frequencies, PSCADFormulation)
     _pscad_size(problem)
     blueprints = _pscad_blueprints(problem.system)
     inputs = [_pscad_inputs(problem, formulation, blueprints) for formulation in formulations]

@@ -52,14 +52,16 @@
         return E._valid_job_raw(arguments...)
     end
 
-    # Isolate file and process faults without changing package or Base methods.
-    for (file, names) in (("compute.jl", (:_resume_inputs_match, :_resume_run)),
-            ("results.jl", (:_check_scan_checksums,)),
+    # Isolate file and process faults without changing package or Base methods. A name
+    # selects every definition of that function; a signature selects one method.
+    for (file, selected) in (("compute.jl", (:_resume_inputs_match, :_resume_run)),
+            ("results.jl", (:(validate(scan::FEMScan, run::FEMRun)),)),
             ("workers.jl", (:_valid_column_checkpoint, :_process_token, :_start_worker!)))
         Base.include(@__MODULE__, joinpath(@__DIR__, "../../ext/LineCableModelsGmshExt", file)) do expression
             expression isa Expr && expression.head === :function &&
                 expression.args[1] isa Expr && expression.args[1].head === :call &&
-                expression.args[1].args[1] in names ? expression : nothing
+                (expression.args[1].args[1] in selected || expression.args[1] in selected) ?
+                expression : nothing
         end
     end
 end
@@ -138,7 +140,7 @@ end
         F.fault_path[] = joinpath(run.path, "raw", "checksums.json")
         for fault in (SystemError("checksum file disappeared", 2), "{")
             F.read_fault[] = fault
-            exception = caught(() -> F._check_scan_checksums(run, (map_paths=String[],)))
+            exception = caught(() -> F.validate((map_paths=String[],), run))
             @test exception isa LineCableModelsFEMError
             @test exception.field === :checksum
             @test occursin(F.fault_path[], exception.message)
@@ -146,7 +148,7 @@ end
         end
         for exception in unexpected
             F.read_fault[] = exception
-            @test caught(() -> F._check_scan_checksums(run, (map_paths=String[],))) === exception
+            @test caught(() -> F.validate((map_paths=String[],), run)) === exception
         end
 
         paths = F._column_paths(run.path, 1, 1, false)

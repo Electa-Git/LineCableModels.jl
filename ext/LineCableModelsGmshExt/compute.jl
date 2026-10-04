@@ -528,7 +528,7 @@ function _compute_fem(
         # Reuse only reads the completed run. Do not start Gmsh, reset scratch
         # files, append logs, change run state or clean up its files.
         scan = _parse_scan(run, model, formulation, execution)
-        _check_scan_checksums(run, scan)
+        validate(scan, run)
         @debug "FEM reuses completed resolved inputs" run_directory=run.path
         return _line_parameters(
             run, model, formulation, execution, scan, inputs; reused = true)
@@ -543,12 +543,15 @@ function _compute_fem(
             run = _resume_run(runtime_root, run.path, model, inputs)
             if run.state === completed
                 scan = _parse_scan(run, model, formulation, execution)
-                _check_scan_checksums(run, scan)
+                validate(scan, run)
                 return _line_parameters(
                     run, model, formulation, execution, scan, inputs; reused = true)
             end
         end
-        _assert_no_live_attempts(run)
+        attempt = _live_attempt(run)
+        attempt === nothing || _fem_error(:execution, "GetDP", :ownership,
+            "cannot resume while a previous GetDP process is still alive (PID $(attempt.pid), attempt $(attempt.directory))";
+            run_directory = run.path)
         _compute_owned_fem(
             problem, formulation, execution, model, run, runtime_root, inputs)
     finally

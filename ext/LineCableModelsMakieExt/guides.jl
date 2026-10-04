@@ -123,7 +123,8 @@ function _native_guide_attributes!(object,attributes)
     return object
 end
 
-function _validate_native_guide(type,attributes)
+# Native attributes of the Makie Legend or Colorbar that a guide builds.
+function validate(attributes,type::Type{<:Union{Legend,Colorbar}})
     _guide_attributes(attributes)
     for (key,attribute) in pairs(attributes)
         key in propertynames(type) || throw(ArgumentError("unsupported native guide attribute $key"))
@@ -622,7 +623,7 @@ function _update_legend!(p,panel;position=_omitted,title=_omitted,max_fraction=_
     resolved=position===_omitted ? (guide===nothing ? :right : guide.position[]) : position
     _guide_position(resolved;legend=true)
     fraction=_legend_fraction(max_fraction===_omitted ? (guide===nothing ? 0.5 : guide.max_fraction[]) : max_fraction)
-    attributes=_validate_native_guide(Legend,(;kwargs...))
+    attributes=validate((;kwargs...),Legend)
     haskey(attributes,:anchor) && throw(ArgumentError("anchor was removed; use native halign and valign"))
     previous_guard=p.plot_state.composing_guides[]
     p.plot_state.composing_guides[]=true
@@ -676,7 +677,7 @@ function LineCableModels.figurelegend!(p::LineCableModels.UIPlot;guide_spacing=_
     spacing=guide_spacing===_omitted ? state.guide_spacing[] : _guide_spacing(guide_spacing,state.guide_spacing[])
     # Validate native options and placement before changing the shared setting.
     native=(; (key=>value for (key,value) in kwargs if key ∉ (:position,:title,:max_fraction,:legend_labels))...)
-    _validate_native_guide(Legend,native)
+    validate(native,Legend)
     haskey(kwargs,:position) && _guide_position(kwargs[:position];legend=true)
     haskey(kwargs,:max_fraction) && _legend_fraction(kwargs[:max_fraction])
     previous=state.guide_spacing[]
@@ -704,7 +705,7 @@ function LineCableModels.figurecolorbars!(p::LineCableModels.UIPlot;position=_om
     group=_colorbar_group_attributes(group_attributes===_omitted ? state.colorbar_group_attributes[] :
         merge(state.colorbar_group_attributes[],group_attributes),length(state.color_scales))
     spacing=guide_spacing===_omitted ? state.guide_spacing[] : _guide_spacing(guide_spacing,state.guide_spacing[])
-    attributes=_validate_native_guide(Colorbar,(;kwargs...))
+    attributes=validate((;kwargs...),Colorbar)
     previous=(position=guide.position[],attributes=guide.attributes[],group=state.colorbar_group_attributes[],
         spacing=state.guide_spacing[],size=Tuple(p.figure.scene.viewport[].widths),
         native=guide.layout[]===nothing ? nothing : (; (key=>to_value(getproperty(guide.layout[],key)) for key in

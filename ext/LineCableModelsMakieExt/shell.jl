@@ -1908,7 +1908,7 @@ function _finish_plot!(
         open_export
 )
     _colorbar_group_attributes(shell.colorbar_group_attributes, length(color_scales))
-    _validate_native_guide(Colorbar, merge(colorbar_attributes, shell.colorbar_attributes))
+    validate(merge(colorbar_attributes, shell.colorbar_attributes), Colorbar)
     isempty(axes) && !isempty(shell.axis_attributes) &&
         throw(ArgumentError(
             "native Axis attributes require a figure containing an Axis"))

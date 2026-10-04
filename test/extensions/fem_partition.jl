@@ -31,7 +31,7 @@
             mktempdir() do directory
                 path = joinpath(directory, "polygon-contacts.msh")
                 gmsh.write(path)
-                @test isnothing(FEM._validate_mesh_file(model, path))
+                @test validate(path, model) === path
             end
             # A nonempty but incomplete filler must be rejected, including on
             # import. The former validator accepted exactly this situation.
@@ -43,7 +43,7 @@
             mktempdir() do directory
                 path = joinpath(directory, "partial.msh")
                 gmsh.write(path)
-                @test_throws LineCableModelsFEMError FEM._validate_mesh_file(model, path)
+                @test_throws LineCableModelsFEMError validate(path, model)
             end
         end
     finally

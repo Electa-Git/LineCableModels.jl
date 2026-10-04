@@ -34,7 +34,7 @@ import LineCableModels.UQ
 import Makie.GridLayoutBase
 using Makie.GridLayoutBase: nrows, offsets, with_updates_suspended
 import LineCableModels.Commons:
-                                request_identity
+                                request_identity, validate
 
 struct _Omitted end
 const _omitted = _Omitted()

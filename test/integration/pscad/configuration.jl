@@ -34,7 +34,7 @@
         @test local_station.transport === :local
         @test collect(P.remote_command(local_station, powershell)) == P._powershell_argv(powershell)
         @test !ispath(local_station.local_root)
-        @test_throws ArgumentError P._validate_solver_identity(Dict("version"=>5), station)
+        @test_throws ArgumentError validate(Dict("version"=>5), station)
         fields["transport"] = "command"
         fields["command"] = ["ts", "ssh", "{host}", "--direct", "-o", "ServerAliveInterval=15", "--"]
         save()

@@ -112,7 +112,7 @@
                     @test result.category== (action===:during_solve ? :canceled : :not_executed)
                     state=JSON3.read(read(joinpath(run_path[],"run.json"),String))
                     @test state.state== (action===:during_solve ? "canceled" : "not_executed")
-                    @test E._assert_no_live_attempts(E.FEMRun(run_path[],E.canceled,"test",:none,""))===nothing
+                    @test E._live_attempt(E.FEMRun(run_path[],E.canceled,"test",:none,""))===nothing
                 end
             finally
                 Gmsh.finalize()

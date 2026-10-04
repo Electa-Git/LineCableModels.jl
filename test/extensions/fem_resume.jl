@@ -171,11 +171,11 @@
         @test retained.state === extension.completed
         @test retained.path == run.path
         @test read(joinpath(run.path, "run.json")) == preserved
-        @test extension._check_scan_checksums(retained, scan) === nothing
+        @test validate(scan, retained) === scan
         write(joinpath(run.path, "raw", "Z.tsv"), "corrupted numerical payload")
-        @test_throws LineCableModelsFEMError extension._check_scan_checksums(retained, scan)
+        @test_throws LineCableModelsFEMError validate(scan, retained)
         write(joinpath(run.path, "raw", "checksums.json"), "broken JSON")
-        @test_throws LineCableModelsFEMError extension._check_scan_checksums(retained, scan)
+        @test_throws LineCableModelsFEMError validate(scan, retained)
         changed = merge(retained_inputs, (;
             adapter_sources = Dict("geometry.jl"=>"different implementation")))
         @test !extension._resume_inputs_match(run.path, model, changed)

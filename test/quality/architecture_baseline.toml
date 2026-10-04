@@ -124,19 +124,6 @@
 [validate]
 
 [reserved_verbs]
-"ext/LineCableModelsGmshExt/geometry.jl | _validate_material_interfaces!" = 1
-"ext/LineCableModelsGmshExt/mesh.jl | _validate_mesh_file" = 1
-"ext/LineCableModelsGmshExt/model.jl | _validate_fem_shape" = 5
-"ext/LineCableModelsGmshExt/model.jl | _validate_material" = 1
-"ext/LineCableModelsGmshExt/model.jl | _validate_material_partition" = 1
-"ext/LineCableModelsGmshExt/results.jl | _check_scan_checksums" = 1
-"ext/LineCableModelsGmshExt/results.jl | _validate_completion" = 1
-"ext/LineCableModelsGmshExt/results.jl | _validate_maps" = 1
-"ext/LineCableModelsGmshExt/workers.jl | _assert_no_live_attempts" = 1
-"ext/LineCableModelsMakieExt/guides.jl | _validate_native_guide" = 1
-"ext/LineCableModelsPSCADExt/remote/remote.jl | _validate_solver_identity" = 1
-"ext/LineCableModelsPSCADExt/remote/runner.jl | _verify_retained_ports" = 1
-"ext/LineCableModelsPSCADExt/validate.jl | _validate_frequencies" = 1
 "src/commons/observables.jl | validate_observables" = 1
 "src/commons/observed_validation.jl | _validate_observed_comparison" = 1
 "src/commons/observed_validation.jl | _validate_observed_cutoff" = 1

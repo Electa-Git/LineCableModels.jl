@@ -29,7 +29,7 @@
     end
 
     # Load the actual cleanup methods against a local Gmsh API fixture.
-    for (file, name) in (("compute.jl", :_finish_gmsh), ("mesh.jl", :_validate_mesh_file))
+    for (file, name) in (("compute.jl", :_finish_gmsh), ("mesh.jl", :validate))
         Base.include(@__MODULE__, joinpath(@__DIR__, "../../ext/LineCableModelsGmshExt", file)) do expression
             expression isa Expr && expression.head === :function &&
                 expression.args[1] isa Expr && expression.args[1].head === :call &&
@@ -75,12 +75,12 @@ end
             logger = Test.TestLogger(min_level=Logging.Warn)
             result = with_logger(logger) do
                 try
-                    G._validate_mesh_file((;), path)
+                    G.validate(path, (;))
                 catch exception
                     exception
                 end
             end
-            @test result === (fails ? G.primary : nothing)
+            @test result === (fails ? G.primary : path)
             @test G.calls[end-1:end] == [:remove_model, (:set_current, "caller")]
             @test length(logger.logs) == 2
             @test startswith(logger.logs[1].kwargs[:model], "LineCableModelsFEM-validation-")

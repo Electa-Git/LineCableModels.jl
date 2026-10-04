@@ -52,7 +52,8 @@ function _disabled(value)
         "0", "NO", "FALSE", "DISABLE", "DISABLED", "RETAIN", "NONE")
 end
 
-function _verify_retained_ports(components)
+# The generated PSCAD project retains every requested cable port.
+function validate(components)
     cables = filter(
         component -> _definition(component) == "master:cable_coax",
         components
@@ -72,7 +73,7 @@ function _verify_retained_ports(components)
             ))
         end
     end
-    return nothing
+    return components
 end
 
 function _messages(project)
@@ -226,7 +227,7 @@ function main(arguments)
             2,
             "Applied frequency range $fs Hz to $fe Hz and formulation $formulation"
         )
-        _verify_retained_ports(components)
+        validate(components)
         _report(console, verbosity, 2, "Verified that all cable terminals are retained")
         project.save()
         _record_diagnostics(console, project, verbosity, "PSCAD diagnostics before calculation")

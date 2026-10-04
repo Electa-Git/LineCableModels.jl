@@ -26,7 +26,8 @@ function _pscad_blueprints(system::LineCableSystem)
         Engine.flatten(LineCableModelsCoaxial(), design, T) for design in system.designs]
 end
 
-function _validate_frequencies(values::AbstractVector)
+# Calculation frequencies of the PSCAD phase-scan adapter.
+function validate(values::AbstractVector, ::Type{<:PSCADFormulation})
     _pscad_deterministic(eltype(values))
     isempty(values) && throw(ArgumentError("PSCAD requires calculation frequencies"))
     invalid = findall(value -> !isfinite(value) || value < 0.1, values)
@@ -46,7 +47,7 @@ end
 
 function validate(problem::LineParametersProblem, formulation::PSCADFormulation)
     _pscad_deterministic(eltype(problem), typeof(formulation.options.data.base_frequency))
-    _validate_frequencies(problem.frequencies)
+    validate(problem.frequencies, PSCADFormulation)
     _pscad_size(problem)
     _pscad_inputs(problem, formulation, _pscad_blueprints(problem.system))
     return problem

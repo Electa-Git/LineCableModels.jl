@@ -155,12 +155,8 @@ function _parse_raw_matrix(
     return matrix
 end
 
-function _validate_completion(
-        path::String,
-        frequency_count::Int,
-        terminal_count::Int,
-        run::FEMRun
-)
+# The completion marker of a run reports a complete scan of every frequency and terminal pair.
+function validate(path::String, run::FEMRun, frequency_count::Int, terminal_count::Int)
     lines = _nonempty_lines(path, run)
     length(lines) == 2 || _fem_error(
         :results,
@@ -197,7 +193,7 @@ function _validate_completion(
         "completion marker reports an incomplete or failed scan: $values";
         run_directory = run.path
     )
-    return nothing
+    return path
 end
 
 function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::Int;
@@ -212,16 +208,9 @@ function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::
             for quantity in _field_quantities(physics)]
 end
 
-function _validate_maps(
-        run::FEMRun,
-        frequency_count::Int,
-        terminal_count::Int,
-        enabled::Bool;
-        physics::Symbol=Symbol("quasi-tem")
-)
-    expected = enabled ? _expected_map_paths(run, frequency_count, terminal_count; physics) :
-               String[]
-    missing = filter(!isfile, expected)
+# The field maps of a run: every expected map exists, and none is emitted when disabled.
+function validate(maps::Vector{String}, run::FEMRun, enabled::Bool)
+    missing = filter(!isfile, maps)
     isempty(missing) || _fem_error(
         :results,
         "field_maps",
@@ -243,7 +232,7 @@ function _validate_maps(
             run_directory = run.path
         )
     end
-    return expected
+    return maps
 end
 
 function _parse_scan(
@@ -255,12 +244,7 @@ function _parse_scan(
     raw = joinpath(run.path, "raw")
     terminal_count = length(model.terminal_ids)
     frequency_count = length(model.problem.frequencies)
-    _validate_completion(
-        joinpath(raw, "scan_complete.tsv"),
-        frequency_count,
-        terminal_count,
-        run
-    )
+    validate(joinpath(raw, "scan_complete.tsv"), run, frequency_count, terminal_count)
     Z = _parse_raw_matrix(
         T,
         joinpath(raw, "Z.tsv"),
@@ -275,13 +259,9 @@ function _parse_scan(
         terminal_count,
         run
     )
-    maps = _validate_maps(
-        run,
-        frequency_count,
-        terminal_count,
-        execution.data.plot_field_maps;
-        physics=formulation.options.data.physics
-    )
+    enabled = execution.data.plot_field_maps
+    maps = validate(enabled ? _expected_map_paths(run, frequency_count, terminal_count;
+            physics = formulation.options.data.physics) : String[], run, enabled)
     return FEMScan(Z, P, maps)
 end
 
@@ -294,7 +274,8 @@ function _write_scan_checksums(run::FEMRun, scan::FEMScan)
     return nothing
 end
 
-function _check_scan_checksums(run::FEMRun, scan::FEMScan)
+# The raw files of a completed scan match the checksum manifest of its run.
+function validate(scan::FEMScan, run::FEMRun)
     path = joinpath(run.path, "raw", "checksums.json")
     checksums = try
         JSON3.read(read(path, String))
@@ -313,7 +294,7 @@ function _check_scan_checksums(run::FEMRun, scan::FEMScan)
     end || _fem_error(:results, "completed scan", :checksum,
         "completed FEM raw results failed their checksum check; preserved run: $(run.path)";
         run_directory=run.path)
-    return nothing
+    return scan
 end
 
 function _line_parameters(

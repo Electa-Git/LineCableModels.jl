@@ -300,7 +300,8 @@ function _inspect_material_coverage(model::FEMResolvedModel, mesh_path::String)
     return nothing
 end
 
-function _validate_mesh_file(model::FEMResolvedModel, mesh_path::String)
+# A mesh file that covers the FEM model: it exists and Gmsh reads it as this model.
+function validate(mesh_path::String, model::FEMResolvedModel)
     isfile(mesh_path) || _fem_error(
         :mesh,
         model.problem.system.system_id,
@@ -339,7 +340,7 @@ function _validate_mesh_file(model::FEMResolvedModel, mesh_path::String)
                 exception, catch_backtrace())
         end
     end
-    return nothing
+    return mesh_path
 end
 
 function _configure_mesh!(
@@ -527,7 +528,7 @@ function _select_mesh!(
         try
             metadata = JSON3.read(read(run_metadata, String))
             String(metadata.fingerprint) == fingerprint || error("fingerprint mismatch")
-            _validate_mesh_file(model, run_mesh)
+            validate(run_mesh, model)
             selected = run_mesh
             source = :resume
         catch exception
@@ -537,7 +538,7 @@ function _select_mesh!(
     if selected === nothing && displayed && execution.data.mesh_mode === :reuse &&
        execution.data.mesh_path !== nothing
         explicit = abspath(execution.data.mesh_path)
-        _validate_mesh_file(model, explicit)
+        validate(explicit, model)
         selected = explicit
         source = :explicit
     elseif selected === nothing && execution.data.mesh_mode === :reuse &&
@@ -545,7 +546,7 @@ function _select_mesh!(
         try
             metadata = JSON3.read(read(cache_metadata, String))
             String(metadata.fingerprint) == fingerprint || error("fingerprint mismatch")
-            _validate_mesh_file(model, cache_mesh)
+            validate(cache_mesh, model)
             selected = cache_mesh
             source = :cache
         catch exception

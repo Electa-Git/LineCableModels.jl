@@ -350,7 +350,9 @@ function _process_token(pid::Integer)
     return strip(boot) * ":" * fields[20]
 end
 
-function _assert_no_live_attempts(run)
+# The first attempt of `run` whose GetDP process is still alive, as `(pid, directory)`,
+# or `nothing`.
+function _live_attempt(run)
     root = joinpath(run.path, "attempts")
     isdir(root) || return nothing
     for directory in filter(isdir, readdir(root; join = true))
@@ -370,9 +372,7 @@ function _assert_no_live_attempts(run)
         token = get(record, :process_token, nothing)
         current = _process_token(Int(pid))
         alive && (token === nothing || current === nothing || token == current) || continue
-        _fem_error(:execution, "GetDP", :ownership,
-            "cannot resume while a previous GetDP process is still alive (PID $pid, attempt $directory)";
-            run_directory = run.path)
+        return (; pid, directory)
     end
     return nothing
 end

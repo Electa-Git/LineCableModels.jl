@@ -115,7 +115,7 @@ with open(sys.argv[1],'a+') as f:
                 mkpath(directory)
                 write(joinpath(directory,"attempt.json"),content)
             end
-            @test E._assert_no_live_attempts(run)===nothing
+            @test E._live_attempt(run)===nothing
             # Lose both the completed frequency column and its completed attempt marker.
             rm(paths.checkpoint)
             for attempt in filter(isdir,readdir(joinpath(run.path,"attempts");join=true))
@@ -141,7 +141,7 @@ with open(sys.argv[1],'a+') as f:
             @test_throws LineCableModelsFEMError E._run_getdp!(broken,model,form, execution_options,meshes)
             @test isfile(E._column_paths(broken.path,1,1,false).checkpoint)
             @test !isfile(E._column_paths(broken.path,1,2,false).checkpoint)
-            @test E._assert_no_live_attempts(broken)===nothing
+            @test E._live_attempt(broken)===nothing
             write(config,JSON3.write((delay=0.0,fail=false)))
             E._run_getdp!(broken,model,form, execution_options,meshes)
             @test E._parse_scan(broken,model,form, execution_options).Z==scan.Z
@@ -154,22 +154,22 @@ with open(sys.argv[1],'a+') as f:
             end
             @test failure isa LineCableModelsFEMError
             @test failure.field===:capability
-            @test E._assert_no_live_attempts(unsupported)===nothing
+            @test E._live_attempt(unsupported)===nothing
             # Cancellation kills and reaps workers and does not report completion.
             stopped=fresh();write(config,JSON3.write((delay=2.0,fail=false)))
             @test_throws LineCableModelsFEMError E._run_getdp!(stopped,model,form, execution_options,meshes;
                 pump=()->stopped.getdp_invocations==0)
             @test stopped.state===E.canceled
-            @test E._assert_no_live_attempts(stopped)===nothing
+            @test E._live_attempt(stopped)===nothing
             @test_throws LineCableModelsFEMError E._parse_scan(stopped,model,form, execution_options)
             # A surviving child from a crashed coordinator blocks retry.
             orphan=joinpath(stopped.path,"attempts","orphan");mkpath(orphan)
             E._write_json_atomic(joinpath(orphan,"attempt.json"),
                 (state="running",pid=getpid(),process_token=E._process_token(getpid())))
-            @test_throws LineCableModelsFEMError E._assert_no_live_attempts(stopped)
+            @test E._live_attempt(stopped) !== nothing
             E._write_json_atomic(joinpath(orphan,"attempt.json"),
                 (state="running",pid=getpid(),process_token="old boot or reused PID"))
-            Sys.islinux() && @test E._assert_no_live_attempts(stopped)===nothing
+            Sys.islinux() && @test E._live_attempt(stopped)===nothing
         end
     else
         @test_skip "The worker process fixture requires Unix and python3"

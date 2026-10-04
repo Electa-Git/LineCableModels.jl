@@ -28,7 +28,7 @@
                 @test isfile(mesh)
                 @test run.mesh_source === :generated
                 @test !isempty(first(Gmsh.gmsh.model.mesh.get_nodes()))
-                ext._validate_mesh_file(model, mesh)
+                validate(mesh, model)
             end
         finally
             ext._finish_gmsh(session)

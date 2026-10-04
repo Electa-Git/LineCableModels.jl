@@ -44,7 +44,7 @@
                 mktempdir() do directory
                     mesh = joinpath(directory,"armour.msh")
                     gmsh.write(mesh)
-                    @test isnothing(FEM._validate_mesh_file(model,mesh))
+                    @test validate(mesh,model) === mesh
                 end
             end
         end

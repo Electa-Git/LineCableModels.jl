@@ -176,16 +176,16 @@
         output_stem = "pscad",
         verbosity = 2
     )
-    @test_throws ArgumentError harness._validate_frequencies(
-        collect(10.0 .^ range(0, stop = 6, length = 61))
+    @test_throws ArgumentError validate(
+        collect(10.0 .^ range(0, stop = 6, length = 61)), harness.PSCADFormulation
     )
     frequency_probe=collect(10.0 .^ range(0, stop = 6, length = 101))
-    @test harness._validate_frequencies(frequency_probe) === frequency_probe
+    @test validate(frequency_probe, harness.PSCADFormulation) === frequency_probe
     minimum_frequency_probe=collect(10.0 .^ range(-1, stop = 6, length = 101))
-    @test harness._validate_frequencies(minimum_frequency_probe) ===
+    @test validate(minimum_frequency_probe, harness.PSCADFormulation) ===
           minimum_frequency_probe
-    @test_throws DomainError harness._validate_frequencies(
-        collect(10.0 .^ range(-2, stop = 6, length = 101))
+    @test_throws DomainError validate(
+        collect(10.0 .^ range(-2, stop = 6, length = 101)), harness.PSCADFormulation
     )
     supervisor_command=harness._supervisor_command(
         config,
@@ -333,7 +333,7 @@
 
     for count in (101,201,501,1001), T in (Float32,Float64)
         f=T.(10.0.^range(-1,6;length=count))
-        @test harness._validate_frequencies(f) === f
+        @test validate(f, harness.PSCADFormulation) === f
     end
-    @test_throws ArgumentError harness._validate_frequencies(collect(range(.1,1e6;length=201)))
+    @test_throws ArgumentError validate(collect(range(.1,1e6;length=201)), harness.PSCADFormulation)
 end

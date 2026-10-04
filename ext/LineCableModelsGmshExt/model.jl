@@ -219,7 +219,9 @@ function _preflight_fem_problem(problem::LineParametersProblem)
     return normalized
 end
 
-function _validate_material(material, object_id::String)
+# A cable material that the FEM model being built can represent.
+function validate(material::LineCableModels.AbstractMaterial, ::Type{FEMResolvedModel},
+        object_id::String)
     material.kind === :conductor && !isfinite(material.rho) &&
         _fem_error(
             :adaptation,
@@ -234,16 +236,17 @@ function _validate_material(material, object_id::String)
         :adaptation, object_id, :mu_r, "relative permeability must be finite"
     )
     if material isa LineCableModels.RadialDielectric
-        foreach(m -> _validate_material(m, object_id), material.materials)
+        foreach(m -> validate(m, FEMResolvedModel, object_id), material.materials)
     else
         isfinite(material.tan_delta) || _fem_error(
             :adaptation, object_id, :tan_delta, "loss tangent must be finite"
         )
     end
-    return nothing
+    return material
 end
 
-function _validate_fem_shape(
+# A resolved shape that the geo kernel of the FEM model being built can represent.
+function validate(
         shape::Union{
             DataModel.Disk,
             DataModel.Rectangle,
@@ -253,38 +256,42 @@ function _validate_fem_shape(
             DataModel.Polygon,
             DataModel.BentStrip,
             DataModel.SectorShape},
+        ::Type{FEMResolvedModel},
         object_id::String
 )
-    return nothing
+    return shape
 end
 
-function _validate_fem_shape(shape::DataModel.ShellShape, object_id::String)
-    _validate_fem_shape(shape.inner, object_id)
-    _validate_fem_shape(shape.outer, object_id)
-    return nothing
+function validate(shape::DataModel.ShellShape, ::Type{FEMResolvedModel}, object_id::String)
+    validate(shape.inner, FEMResolvedModel, object_id)
+    validate(shape.outer, FEMResolvedModel, object_id)
+    return shape
 end
 
-function _validate_fem_shape(shape::DataModel.DifferenceShape, object_id::String)
-    _validate_fem_shape(shape.outer, object_id)
-    foreach(hole -> _validate_fem_shape(hole, object_id), shape.holes)
-    return nothing
+function validate(shape::DataModel.DifferenceShape, ::Type{FEMResolvedModel},
+        object_id::String)
+    validate(shape.outer, FEMResolvedModel, object_id)
+    foreach(hole -> validate(hole, FEMResolvedModel, object_id), shape.holes)
+    return shape
 end
 
-function _validate_fem_shape(shape::DataModel.AssemblyShape, object_id::String)
-    foreach(member -> _validate_fem_shape(member, object_id), shape.members)
-    return nothing
+function validate(shape::DataModel.AssemblyShape, ::Type{FEMResolvedModel},
+        object_id::String)
+    foreach(member -> validate(member, FEMResolvedModel, object_id), shape.members)
+    return shape
 end
 
-function _validate_fem_shape(shape, object_id::String)
-    _fem_error(
+function validate(shape, ::Type{FEMResolvedModel}, object_id::String)
+    throw(LineCableModelsFEMError(
         :unsupported,
         object_id,
         :primitive,
         "resolved shape $(typeof(shape)) has no built-in geo-kernel adaptation"
-    )
+    ))
 end
 
-function _validate_material_partition(design)
+# The resolved cross-section of a cable design partitions its envelope into materials.
+function validate(design::DataModel.CableDesign, ::Type{FEMResolvedModel})
     envelope_area = LineCableModels.area(design.geometry.outer)
     declared_area = sum(
         region -> LineCableModels.area(region.primitive),
@@ -306,7 +313,7 @@ function _validate_material_partition(design)
         "$(envelope_area); represent interstitial media explicitly with " *
         "Enclosure"
     )
-    return nothing
+    return design
 end
 
 function _fem_region_mesh_size(region::DataModel.PlacedRegion)
@@ -659,7 +666,7 @@ function _resolved_fem_model(
     material_plans = FEMMaterialPlan{T}[]
     global_region = 0
     for (cable_index, design) in enumerate(system.designs)
-        _validate_material_partition(design)
+        validate(design, FEMResolvedModel)
         count = length(design.geometry.regions)
         first_global = global_region + 1
         last_global = global_region + count
@@ -686,7 +693,7 @@ function _resolved_fem_model(
                 design.cable_id,
                 source.tag,
                 local_region)
-            _validate_material(source.material, object_id)
+            validate(source.material, FEMResolvedModel, object_id)
             terminal_index = system.terminal_map[global_region]
             if source.material.kind === :conductor
                 terminal_index > 0 || _fem_error(
@@ -736,7 +743,7 @@ function _resolved_fem_model(
                     formation.boundary
             mesh_size = formation === nothing ?
                         _fem_region_mesh_size(placed) : formation.mesh_size
-            _validate_fem_shape(shape, object_id)
+            validate(shape, FEMResolvedModel, object_id)
             # Geometric regions and terminal ownership remain independent of
             # constitutive identity. Equal evaluated laws share one physical
             # material group, even across disconnected strand surfaces.
@@ -776,7 +783,7 @@ function _resolved_fem_model(
     cable_boundaries = Any[LineCableModels.resolve(position, design.geometry.outer)
                            for (design, position) in zip(system.designs, system.positions)]
     for (index, boundary) in enumerate(cable_boundaries)
-        _validate_fem_shape(boundary, @sprintf("cable_%04d/%s", index,
+        validate(boundary, FEMResolvedModel, @sprintf("cable_%04d/%s", index,
             system.designs[index].cable_id))
     end
     cable_hosts = Symbol[]

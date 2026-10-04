@@ -167,7 +167,7 @@ function _supervisor_command(
         output_stem::AbstractString,
         verbosity::Integer = 0
 )
-    _validate_frequencies(frequencies_value)
+    validate(frequencies_value, PSCADFormulation)
     label = only(description([formulation];roles=[:none]))
     increments = length(frequencies_value) - 1
     shared_supervisor = _remote_path(shared_case, "toolkit", "supervisor.ps1")
@@ -271,10 +271,11 @@ function identify(config::RemoteConfig)
     finally
         rm(directory; recursive = true)
     end
-    return _validate_solver_identity(result, config)
+    return Dict{String, String}(validate(result, config))
 end
 
-function _validate_solver_identity(result::AbstractDict, config::RemoteConfig)
+# The solver identity that a PSCAD station reports for the requested configuration.
+function validate(result::AbstractDict, config::RemoteConfig)
     all(pair -> first(pair) isa AbstractString && last(pair) isa AbstractString, result) ||
         throw(ArgumentError("PSCAD solver identity must contain string fields"))
     get(result, "version", nothing) == config.pscad_version || throw(ArgumentError(
@@ -283,7 +284,7 @@ function _validate_solver_identity(result::AbstractDict, config::RemoteConfig)
     all(name -> occursin(r"^[0-9a-f]{64}$", get(result, name * "_sha256", "")),
         ("pscad", "line_constants", "master_library")) || throw(ArgumentError(
         "PSCAD station returned an incomplete solver identity"))
-    return Dict{String, String}(result)
+    return result
 end
 
 function _stage_toolkit(local_project::AbstractString, local_output::AbstractString)
@@ -321,7 +322,7 @@ function run_remote_pscad(
         verbosity::Integer = 0
 )
     verbosity in 0:2 || throw(ArgumentError("PSCAD verbosity must be 0, 1, or 2"))
-    _validate_frequencies(frequencies_value)
+    validate(frequencies_value, PSCADFormulation)
     isdir(local_output) && !isempty(readdir(local_output)) &&
         throw(ArgumentError(
             "PSCAD output directory is not empty; select a new run directory: $local_output"))

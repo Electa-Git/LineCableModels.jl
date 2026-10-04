@@ -12,7 +12,7 @@ using Printf: @sprintf
 using SHA: sha256
 
 import LineCableModels
-import LineCableModels: compute
+import LineCableModels: compute, validate
 import LineCableModels.DataModel
 import LineCableModels.Earth
 import LineCableModels.Commons
