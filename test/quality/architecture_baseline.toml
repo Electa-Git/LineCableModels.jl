@@ -121,6 +121,8 @@
 "ReportBuilder.write -> Base" = 1
 "TextDisplay.angle -> Base" = 1
 
+[validate]
+
 [reserved_verbs]
 "src/commons/observables.jl | validate_observables" = 1
 "src/commons/observed_validation.jl | _validate_observed_comparison" = 1

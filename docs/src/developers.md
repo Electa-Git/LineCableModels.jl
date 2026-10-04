@@ -143,8 +143,8 @@ package method and parse every Julia file under `src/` and `ext/`.
   positional argument. Each path through its body returns that argument or calls
   `throw`, `rethrow` or `error`. A body that does more than return the argument also uses
   it in that work, so an identity method passes and a check of another argument fails. The
-  guard reads source code. A path that it cannot classify counts as a violation. The
-  guard has no baseline table.
+  guard reads source code. A path that it cannot classify counts as a violation. Its
+  baseline table is empty.
 - Reserved verbs (`reserved_verbs`). No function name starts with `validate_`, `check_`,
   `require_`, `assert_`, `verify_` or `ensure_`, after any leading `_` characters.
   `validate` is the input-check verb.
@@ -195,15 +195,15 @@ guards and the negative controls of the Commons guards apply each guard to a pro
 package with planted violations and to a clean probe package. A guard reports exactly
 the planted violations and nothing in the clean probe.
 
-`test/quality/architecture_baseline.toml` records the violations present when the
-guards were introduced, with one table per guard. The table of a guard without remaining
-violations is deleted, and that guard then fails on any violation. Every table name must
-appear in `TABLES`, or the architecture test fails. Keys contain no line numbers. An
-unlisted violation or a count above its entry fails. A listed entry without a live
-violation, or a count below it, also fails. A change that removes a violation deletes
-or lowers its entry. `test/tools/architecture_inventory.jl` prints the live inventory
-in the baseline format. Fix a new violation in the source. Never add it to the
-baseline.
+`test/quality/architecture_baseline.toml` records the violations present when the guards
+were introduced, with one table per guard. A table whose violations are all removed
+stays in the file, empty. The ratchet keeps comparing it, and its guard fails on any
+violation. Every table name must appear in `TABLES`, or the architecture test fails.
+Keys contain no line numbers. An unlisted violation or a count above its entry fails. A
+listed entry without a live violation, or a count below it, also fails. A change that
+removes a violation deletes or lowers its entry. `test/tools/architecture_inventory.jl`
+prints the live inventory in the baseline format. Fix a new violation in the source.
+Never add it to the baseline.
 
 Entries can be deleted or lowered, and none can be added or raised. Before the tests,
 the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull request

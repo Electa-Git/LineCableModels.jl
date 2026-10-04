@@ -53,7 +53,7 @@
     end
 
     # Isolate file and process faults without changing package or Base methods. A name
-    # selects every definition of that function; a signature selects one method.
+    # selects every definition of that function. A signature selects one method.
     for (file, selected) in (("compute.jl", (:_resume_inputs_match, :_resume_run)),
             ("results.jl", (:(validate(scan::FEMScan, run::FEMRun)),)),
             ("workers.jl", (:_valid_column_checkpoint, :_process_token, :_start_worker!)))

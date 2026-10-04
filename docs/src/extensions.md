@@ -214,7 +214,7 @@ end
 
 Constructors normalize their admitted grammar. The owning `validate` method
 checks the completed value directly and returns it unchanged. [`validate`](@ref)
-documents the shared contract.
+documents the rules that every method follows.
 
 ## Commons, observations, and units
 

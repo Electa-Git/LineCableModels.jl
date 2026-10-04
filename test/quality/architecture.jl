@@ -460,7 +460,7 @@
     end
 
     # Whether a body uses `name` other than by returning it. A body that only returns
-    # `name` is an identity method: its consumer imposes no restriction.
+    # `name` is an identity method: its consumer does not restrict the subject.
     function uses_subject(body, name)
         kind(body) == K"Identifier" && return true
         kind(body) == K"block" && numchildren(body) == 1 &&

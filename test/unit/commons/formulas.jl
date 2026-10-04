@@ -5,7 +5,7 @@
     soil = E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2))
     self = E.EarthPair(1, 1, (-1.0, -1.0), 0.0, (2, 2); radius = 0.01)
 
-    # One record per interaction, in order; equal equations share their options.
+    # One record per interaction, in order. Equal equations share their options.
     selected = E.EarthImpedance.Formula(:default;
         options = (integration = (method = :quad, options = (;)),))
     records = bindings(selected, [self, soil, self])
@@ -19,7 +19,7 @@
     end
     @test bindings(selected, (self, soil)) isa Tuple
 
-    # A supplied section that no equation consumes names the formula.
+    # An unused supplied section raises an error with the formula identifier.
     unused = E.EarthImpedance.Formula(:default; options = (unknown = 1,))
     @test_throws "unused formulation options (:unknown,) for :$(formula_id(unused))" bindings(
         unused, (soil,))

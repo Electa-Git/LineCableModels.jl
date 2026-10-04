@@ -208,10 +208,10 @@ end
 $(TYPEDSIGNATURES)
 
 Accept the tracked modes of one frequency: return whether the columns `t` of `Ti` and
-the values `γ²` diagonalize `YZ`. Three conditions must hold:
+the values `γ²` diagonalize `YZ`. The test returns `true` when:
 
-- every value and every entry of `Ti` is finite;
-- `Ti` is invertible within √eps: its condition number is at most `1/√eps`;
+- every value and every entry of `Ti` is finite,
+- `Ti` is invertible within √eps, with a condition number of at most `1/√eps`,
 - each pair satisfies `YZ·t = γ²·t` within `tolerance`, relative to `‖YZ‖∞` and never
   tighter than √eps.
 

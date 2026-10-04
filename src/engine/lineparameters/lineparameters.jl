@@ -114,7 +114,7 @@ end
     return basis
 end
 
-# The phase domain imposes no restriction on the coefficients.
+# The phase domain does not restrict the coefficients.
 validate(domain::LineParamsDomain, ::LineParameters) = domain
 
 function validate(domain::ModalDomain, parameters::LineParameters)

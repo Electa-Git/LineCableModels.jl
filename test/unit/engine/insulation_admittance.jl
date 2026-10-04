@@ -129,7 +129,7 @@ end
             @test_throws DomainError constitutive(selected, material, 50.0, temperature)
         end
         # Both dielectric implementations use the same validation checks. The check
-        # returns the law's value; the formula call converts it to Complex{T} above.
+        # returns the law's value. The formula call converts it to Complex{T} above.
         @test validate(1+2im, selected, Float64) === 1+2im
         @test validate(1.0f0+2.0f0im, selected, Float64) === 1.0f0+2.0f0im
         @test_throws ArgumentError validate(1.0+2.0im, selected, Float32)

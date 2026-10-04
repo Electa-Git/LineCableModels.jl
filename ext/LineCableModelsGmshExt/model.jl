@@ -245,7 +245,7 @@ function validate(material::LineCableModels.AbstractMaterial, ::Type{FEMResolved
     return material
 end
 
-# A resolved shape that the geo kernel of the FEM model being built can represent.
+# The geo kernel of the FEM model being built adapts these resolved geometry types.
 function validate(
         shape::Union{
             DataModel.Disk,
