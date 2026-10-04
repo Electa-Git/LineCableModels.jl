@@ -100,7 +100,7 @@ phase-to-modal result transport without another geometry lowering. The visual
 suite applies the ownership checks to the loaded Makie extensions and verifies
 that material colors consume `Material` or `EarthLayer` objects directly.
 
-InputValidation tests check owner dispatch, required interfaces, unchanged valid
+The `validate` tests check owner dispatch, required interfaces, unchanged valid
 inputs and rejection of damaged inputs through validation and computation. The
 standards require checks to remain with the defining validator. Inspection of every method body requires a separate review beyond representative behavioral tests.
 
@@ -128,8 +128,8 @@ package method and parse every Julia file under `src/` and `ext/`.
   module is the directory that holds its `<ModuleName>.jl` file. The nearest home
   around a method's file belongs to the method's module or one of its ancestors.
 - Direction (`direction`). The submodules have the order Units, Commons, TextDisplay,
-  InputValidation, PlotBuilder, Materials, Earth, DataModel, Engine, ModalAnalysis,
-  ParametricBuilder, UQ, ReportBuilder, ImportExport, PSCAD. `MODULE_OWNERS` in
+  PlotBuilder, Materials, Earth, DataModel, Engine, ModalAnalysis, ParametricBuilder, UQ,
+  ReportBuilder, ImportExport, PSCAD. `MODULE_OWNERS` in
   `test/support/taxonomy.jl` defines this order once, for the guards and for the test
   runner. The lowered code of a submodule method references earlier submodules, the
   ancestors and descendants of its own module, and no later submodule. Each top-level submodule has a position in

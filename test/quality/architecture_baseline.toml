@@ -206,7 +206,6 @@
 "AbstractCoreResult | tests" = 1
 "AbstractFormulation | tests" = 1
 "AbstractParametricResult | tests" = 1
-"AbstractProblemDefinition | tests" = 1
 "AbstractProblemResult | tests" = 1
 "AbstractResultSpace | tests" = 1
 "AbstractUncertaintyResult | tests" = 1

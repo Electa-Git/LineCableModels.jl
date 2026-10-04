@@ -109,7 +109,7 @@ using .Commons:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                observe, @observe, observables, ObservedResult, kron_reduce
+                observe, @observe, observables, ObservedResult, kron_reduce, validate
 import .Commons: compute
 using .Commons: FormulaDefinition, FormulaMethod
 include("logging.jl")
@@ -118,10 +118,6 @@ include("formulas.jl")
 # Bounded text formatting consumes the completed shared declaration grammar.
 include("textdisplay/TextDisplay.jl")
 import .Commons: nominal, uncertainty
-
-# Submodule `InputValidation`
-include("inputvalidation/InputValidation.jl")
-using .InputValidation: validate
 
 # Root-owned finite parameter grammar. These primitives are loaded before the
 # domain modules so every constructor enters the same scalar-or-Gridspace path

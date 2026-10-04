@@ -1,4 +1,23 @@
 """
+$(TYPEDSIGNATURES)
+
+Check that a materialized input satisfies the invariants of its concrete type
+and return that same input unchanged.
+
+# Errors
+
+- Throws a native exception identifying the invalid field, value, and required
+  condition.
+- Throws `RequiredInterfaces.NotImplementedError` when a concrete problem type
+  does not implement input validation.
+"""
+function validate end
+
+@required AbstractProblemDefinition begin
+    validate(::AbstractProblemDefinition)
+end
+
+"""
 $(SIGNATURES)
 
 Validate and normalize the options owned by a formulation type.

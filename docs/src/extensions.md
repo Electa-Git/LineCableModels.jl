@@ -213,11 +213,8 @@ end
 ```
 
 Constructors normalize their admitted grammar. The owning `validate` method
-checks the completed value directly and returns it unchanged.
-
-```@docs
-LineCableModels.InputValidation
-```
+checks the completed value directly and returns it unchanged. [`validate`](@ref)
+documents the shared contract.
 
 ## Commons, observations, and units
 

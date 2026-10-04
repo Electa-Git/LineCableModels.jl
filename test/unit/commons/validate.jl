@@ -1,9 +1,7 @@
-@testitem "InputValidation / materialized inputs / actionable failures" tags=[:unit, :parametric] setup=[
+@testitem "Commons / validate / materialized inputs / actionable failures" tags=[:unit, :parametric] setup=[
     TestFixtures
 ] begin
     using RequiredInterfaces
-
-    const IV=LineCableModels.InputValidation
 
     material=Material(
         kind = :conductor,
@@ -14,7 +12,7 @@
         alpha = 0.00393
     )
     @test validate(material) === material
-    @test parentmodule(validate) === IV
+    @test parentmodule(validate) === LineCableModels.Commons
     @test_throws MethodError validate((answer = 42,))
 
     struct UnvalidatedEarthDescription<:AbstractEarthModel end

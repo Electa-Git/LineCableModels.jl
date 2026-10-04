@@ -22,6 +22,8 @@ ParametricBuilder, UQ, and external implementations.
 - `bindings` binds each interaction of a formula to its equation and options.
 - `computation_details` normalizes supplemental output from a registered
   computation owner, and `details` reads retained supplemental output.
+- `validate` checks a materialized input before its consumer uses it and returns it
+  unchanged.
 - `compute` evaluates a problem through a selected formulation.
 - `observe` and `@observe` read native numerical values from completed results.
 - `observables` publishes explicitly requested scientific values.
@@ -35,10 +37,11 @@ export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
-export compute, observe, @observe, observables
+export compute, observe, @observe, observables, validate
 export nominal, uncertainty
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
+using RequiredInterfaces: @required
 import ..LineCableModels: basis
 import UUIDs
 import Random

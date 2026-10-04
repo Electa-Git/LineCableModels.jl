@@ -13,8 +13,8 @@ const OWNERS = (:units, :commons, :materials, :earth, :datamodel, :engine, :moda
 # The core modules in load order, each with its owner tag. Modules without a tag of
 # their own take the tag of the preceding owner.
 const MODULE_OWNERS = (Units = :units, Commons = :commons, TextDisplay = :commons,
-    InputValidation = :commons, PlotBuilder = :commons, Materials = :materials,
-    Earth = :earth, DataModel = :datamodel, Engine = :engine, ModalAnalysis = :modal,
+    PlotBuilder = :commons, Materials = :materials, Earth = :earth,
+    DataModel = :datamodel, Engine = :engine, ModalAnalysis = :modal,
     ParametricBuilder = :parametric, UQ = :uq, ReportBuilder = :report,
     ImportExport = :importexport, PSCAD = :pscad)
 

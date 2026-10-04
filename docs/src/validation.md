@@ -80,12 +80,6 @@ may adjust practically touching cable placements with a warning, retaining its
 propagated uncertainty reserve across Monte Carlo draws. Internal geometric and statistical repairs remain prohibited. Gmsh's tolerances are not
 used as manufacturing clearances.
 
-## Reference
-
-```@docs
-LineCableModels.validate
-```
-
 ## Observable resolution and comparison
 
 `observables(...; clip=true)` and `compare` share declared, quantity-aware

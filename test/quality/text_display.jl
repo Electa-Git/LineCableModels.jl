@@ -6,7 +6,6 @@
     # ReportBuilder/TextDisplay tests, not inferred from source tokens.
     owner_modules=(
         LineCableModels.Units,
-        LineCableModels.InputValidation,
         LineCableModels.Materials,
         LineCableModels.Earth,
         LineCableModels.DataModel,

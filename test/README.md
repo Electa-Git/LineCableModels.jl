@@ -75,8 +75,8 @@ covers and the kind tags. The runner, the architecture guards and the tools read
 It also gives each source file the owner of its load position. A file that
 `src/LineCableModels.jl` includes directly takes the owner of the last module included
 before it, so `src/gridspace.jl` belongs to `commons` and
-`src/modalanalysis/delegation.jl` to `parametric`. TextDisplay, InputValidation and
-PlotBuilder belong to `commons`.
+`src/modalanalysis/delegation.jl` to `parametric`. TextDisplay and PlotBuilder belong
+to `commons`.
 
 Each item also has at least one kind tag: `unit`, `integration`, `extension`,
 `visual`, `quality` or `aqua`. The environment tags `visual`, `fem_numerical`,
