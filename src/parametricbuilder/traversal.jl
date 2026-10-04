@@ -52,7 +52,7 @@ function compute(
         "a formulation collection must contain at least one formulation",
     ))
     first_result = compute(problem, first(formulations); options)
-    check_core_result(typeof(first_result))
+    validate(typeof(first_result), AbstractResultSpace)
     values = Vector{typeof(first_result)}(undef, length(formulations))
     values[1] = first_result
     for index in 2:length(formulations)
@@ -111,7 +111,7 @@ function traverse(problem::ParametricProblem, formulation)
         "batched computation did not return one result per formulation",
     ))
     first_result = first(first_batch)
-    check_core_result(typeof(first_result))
+    validate(typeof(first_result), ParametricResult)
     values = Vector{typeof(first_result)}(
         undef,
         point_count * formulation_count

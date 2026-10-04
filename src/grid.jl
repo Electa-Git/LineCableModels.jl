@@ -89,8 +89,7 @@ struct RelativeGrid{V <: Tuple, P <: Tuple} <: AbstractUncertainGrid
     rel_err::P
 
     function RelativeGrid(vals::V, rel_err::P) where {V <: Tuple, P <: Tuple}
-        _validate_uncertainty(vals, rel_err, "relative")
-        return new{V, P}(vals, rel_err)
+        return validate(new{V, P}(vals, rel_err))
     end
 end
 
@@ -110,8 +109,7 @@ struct AbsoluteGrid{V <: Tuple, P <: Tuple} <: AbstractUncertainGrid
     abs_err::P
 
     function AbsoluteGrid(vals::V, abs_err::P) where {V <: Tuple, P <: Tuple}
-        _validate_uncertainty(vals, abs_err, "absolute")
-        return new{V, P}(vals, abs_err)
+        return validate(new{V, P}(vals, abs_err))
     end
 end
 
@@ -128,7 +126,7 @@ struct AbsoluteError{T <: Tuple}
     vals::T
 
     function AbsoluteError(vals::T) where {T <: Tuple}
-        _validate_errors(vals, "absolute")
+        validate(vals, AbsoluteError)
         return new{T}(vals)
     end
 end
@@ -137,7 +135,10 @@ _grid_values(value::Tuple) = value
 _grid_values(value::AbstractArray) = Tuple(value)
 _grid_values(value) = (value,)
 
-function _validate_errors(errors::Tuple, kind::AbstractString)
+# Standard uncertainties of the record being built. Relative uncertainties are percentages.
+function validate(errors::Tuple,
+        ::Type{R}) where {R <: Union{AbsoluteError, AbsoluteGrid, RelativeGrid}}
+    kind = R <: RelativeGrid ? "relative" : "absolute"
     isempty(errors) && throw(ArgumentError("$kind uncertainty cannot be empty"))
     for error in errors
         error isa Real ||
@@ -146,13 +147,16 @@ function _validate_errors(errors::Tuple, kind::AbstractString)
         error >= zero(error) ||
             throw(ArgumentError("$kind errors must be nonnegative; got $error"))
     end
-    return nothing
+    return errors
 end
 
-function _validate_uncertainty(values::Tuple, errors::Tuple, kind::AbstractString)
+function validate(grid::Union{RelativeGrid, AbsoluteGrid})
+    kind, errors = grid isa RelativeGrid ? ("relative", grid.rel_err) :
+                   ("absolute", grid.abs_err)
+    values = grid.vals
     isempty(values) &&
         throw(ArgumentError("$kind uncertainty cannot have an empty nominal source"))
-    _validate_errors(errors, kind)
+    validate(errors, typeof(grid))
     for value in values
         value isa Real || throw(ArgumentError(
             "$kind uncertainty requires real nominal values; got $(typeof(value))",
@@ -160,7 +164,7 @@ function _validate_uncertainty(values::Tuple, errors::Tuple, kind::AbstractStrin
         isfinite(value) ||
             throw(ArgumentError("$kind nominal values must be finite; got $value"))
     end
-    return nothing
+    return grid
 end
 
 AbsoluteError(value) = AbsoluteError(_grid_values(value))

@@ -18,7 +18,7 @@ struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyRe
             values::Vector{T},
             details::D
     ) where {T, F, D <: ComputationDetails}
-        check_core_result(T)
+        validate(T, LinearErrorResult)
         isempty(details.data) || keys(details.data) == (:points,) ||
             throw(ArgumentError(
                 "LinearErrorResult details must be empty or contain only points",
@@ -317,7 +317,7 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
             trial_counts::Vector{Int},
             details::D
     ) where {T, F, ST <: AbstractVector, S, H, D <: ComputationDetails}
-        check_core_result(T)
+        validate(T, MonteCarloResult)
         isempty(values) && throw(ArgumentError(
             "MonteCarloResult requires at least one core result",
         ))

@@ -55,7 +55,7 @@ import ..LineCableModels: verbosity, VerbosityLogger
 import Logging
 import ..Commons
 import ..Commons: compute, computation_options, computation_details, details,
-                  nominal, uncertainty, check_core_result
+                  nominal, uncertainty
 using ..Commons:
                  AbstractProblemDefinition, AbstractFormulation, AbstractResultSpace,
                  AbstractParametricResult,

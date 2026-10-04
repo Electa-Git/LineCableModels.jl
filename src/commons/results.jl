@@ -1,7 +1,7 @@
 """
 $(TYPEDSIGNATURES)
 
-Check whether `T` can be the element type of a result space.
+Validate `element` as the element type of the result space being built.
 
 The element type must be concrete and cannot itself be a result-space
 envelope. Concrete external result types are accepted without requiring them
@@ -9,25 +9,27 @@ to subtype [`AbstractCoreResult`](@ref).
 
 # Arguments
 
-- `T`: proposed result-space element type.
+- `element`: proposed result-space element type.
+- The result-space type being built, or `AbstractResultSpace` for a collection of
+  results.
 
 # Returns
 
-- `nothing` when `T` satisfies the result-space invariant.
+- `element` when it satisfies the result-space invariant.
 
 # Errors
 
-- `ArgumentError`: `T` is abstract, is `Any` or subtypes
+- `ArgumentError`: `element` is abstract, is `Any` or subtypes
   [`AbstractResultSpace`](@ref).
 """
-function check_core_result(::Type{T}) where {T}
+function validate(element::Type{T}, ::Type{<:AbstractResultSpace}) where {T}
     isconcretetype(T) || throw(ArgumentError(
         "result-space element type must be concrete; got $T",
     ))
     T <: AbstractResultSpace && throw(ArgumentError(
         "a result space cannot contain another result-space envelope",
     ))
-    return nothing
+    return element
 end
 
 #! explicit-imports: off

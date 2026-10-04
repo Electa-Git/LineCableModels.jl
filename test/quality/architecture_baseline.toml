@@ -142,14 +142,11 @@
 "src/commons/observed_validation.jl | _validate_observed_cutoff" = 1
 "src/commons/observed_validation.jl | _validate_observed_id" = 1
 "src/commons/observed_validation.jl | _validate_observed_quantity" = 1
-"src/commons/results.jl | check_core_result" = 1
 "src/datamodel/placement/patterns.jl | _check_ring_clearance" = 1
 "src/engine/interfaces.jl | validate_domain" = 2
 "src/engine/interfaces.jl | validate_modal_operators" = 1
 "src/engine/lineparameters/lineparameters.jl | _check_basis" = 1
 "src/engine/lineparameters/resolution.jl | _validate_resolution_atol" = 1
-"src/grid.jl | _validate_errors" = 1
-"src/grid.jl | _validate_uncertainty" = 1
 "src/modalanalysis/compute.jl | _check_operators" = 1
 "src/modalanalysis/eigensystems.jl | check_eigenpairs!" = 1
 "src/modalanalysis/interfaces.jl | validate_modal_operators" = 1
@@ -286,8 +283,6 @@
 "_validate_observed_quantity | docstring" = 1
 "_validate_observed_quantity | public" = 1
 "_validate_observed_quantity | vocabulary" = 1
-"check_core_result | tests" = 1
-"check_core_result | vocabulary" = 1
 "computation_details | tests" = 1
 "gridpoint_id | tests" = 1
 "gridpoint_id | vocabulary" = 1
@@ -389,4 +384,4 @@
 "src/uq/results.jl" = 2
 
 [root]
-"LineCableModels" = 67
+"LineCableModels" = 65

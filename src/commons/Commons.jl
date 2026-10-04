@@ -67,7 +67,6 @@ public vacuum_permittivity, vacuum_permeability
 public ideal_transposition!, reorder_indices, kron_reduce, kron_reduce!,
        bundle_operations, merge_bundles!
 public ReductionPlan, ReductionBuffers, reduce_line_matrices!
-public check_core_result
 public FormulaDefinition, FormulaMethod, bindings
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation

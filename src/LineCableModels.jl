@@ -109,8 +109,8 @@ using .Commons:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                observe, @observe, observables, ObservedResult, kron_reduce, validate
-import .Commons: compute
+                observe, @observe, observables, ObservedResult, kron_reduce
+import .Commons: compute, validate
 using .Commons: FormulaDefinition, FormulaMethod
 include("logging.jl")
 include("formulas.jl")

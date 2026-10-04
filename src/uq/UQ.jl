@@ -26,7 +26,7 @@ import ..DataModel
 import ..Engine
 import ..Commons
 import ..Commons: compute, computation_options, computation_details, details,
-                  observe, observables, check_core_result,
+                  observe, observables, validate,
                   detach, request_identity, request_indices,
                   observation_indices, observation_resolution, observation_request
 using ..Commons: request_quantity

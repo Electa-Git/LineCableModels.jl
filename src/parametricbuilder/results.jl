@@ -148,7 +148,7 @@ struct ParametricResult{T, F, A <: NamedTuple, D <: ComputationDetails} <:
             axes::A,
             details::D
     ) where {T, F, A <: NamedTuple, D <: ComputationDetails}
-        check_core_result(T)
+        validate(T, ParametricResult)
         if !isempty(axes)
             keys(axes) == (:problems, :formulations) || throw(ArgumentError(
                 "ParametricResult axes must contain problems and formulations",

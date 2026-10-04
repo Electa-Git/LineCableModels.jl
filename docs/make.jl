@@ -20,7 +20,6 @@ const PLOTTING_SOURCE = joinpath(@__DIR__, "literate", "plotting.jl")
 const CONVENIENCE_API_OBJECTS = ()
 
 const EXTENSION_API_OBJECTS = (
-    LineCableModels.Commons.check_core_result,
     LineCableModels.Commons.validate_observables,
     LineCableModels.Commons.unit_targets,
     LineCableModels.Commons.detach,
