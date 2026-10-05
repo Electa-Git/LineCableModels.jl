@@ -24,8 +24,9 @@ versions(project) = Dict(split(line, '\t') for line in eachline(IOBuffer(output(
 
 # Runs `f(project)` with the test project of `reference` in a temporary worktree. Its
 # environment starts from this repository's `Manifest.toml`, resolved again for
-# `reference`. The tool prints the dependency versions that then differ from the working
-# tree. The worktree is removed afterwards.
+# `reference`. This copy overwrites a `Manifest.toml` that `reference` commits. The tool
+# prints the dependency versions that then differ from the working tree. The worktree
+# is removed afterwards.
 function at_revision(f, reference)
     success(pipeline(git("rev-parse", "--verify", "--quiet", reference * "^{commit}");
         stdout = devnull)) || error("Unknown git revision: $reference")
@@ -34,7 +35,7 @@ function at_revision(f, reference)
         stderr = devnull))
     try
         manifest = joinpath(REPOSITORY, "Manifest.toml")
-        isfile(manifest) && cp(manifest, joinpath(directory, "Manifest.toml"))
+        isfile(manifest) && cp(manifest, joinpath(directory, "Manifest.toml"); force = true)
         project = joinpath(directory, "test")
         println("Preparing $reference in a temporary worktree...")
         output(julia(project, "using Pkg; Pkg.resolve(); Pkg.instantiate()"))
