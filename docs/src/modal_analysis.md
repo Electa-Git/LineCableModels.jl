@@ -33,6 +33,18 @@ modal = compute(line_problem, line_formulation;
     modal_options=(offdiagonal_tolerance=1e-6,))
 ```
 
+The native, FEM and PSCAD line-parameter calls and the parametric studies accept the
+`modal` keyword. The positional form takes a `ModalAnalysisFormulation` and composes any
+formulation whose `compute(problem, formulation; options)` returns `LineParameters`. A
+user-owned formulation composes too:
+
+```julia
+modal = compute(line_problem, user_formulation, ModalAnalysisFormulation(:default))
+```
+
+A problem `Gridspace`, one of its grid points and a `ParametricProblem` compose in the
+same way. Cable constants are not line parameters and do not compose with modal analysis.
+
 `modal_options` controls the modal action only. A nonempty value requires
 `modal`. The upstream solver, including its selected backend and batched path,
 completes before modal analysis begins. Upstream `on_result`, progress, and

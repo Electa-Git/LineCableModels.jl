@@ -141,6 +141,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A direct complex `Z` or `Y` coordinate request expands to a paired component
   page. Matrix coordinates identify semantic subplots, while legends identify
   overlaid result containers through `series_labels`.
+- The PSCAD sources moved from the extensions directory to `src/pscad/`, and its remote
+  runner project to `src/pscad/remote/`. `LineCableModels.PSCAD` is unchanged.
 
 ### Removed
 
@@ -172,6 +174,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   element, as `nominal` does.
 - `uncertainty` of a deterministic number is the zero of its type. Values that are not
   numbers throw a `MethodError`.
+- The methods that `TextDisplay.@showfields` defines record their call site, so `@which`,
+  `methods` and stack traces show the caller.
 
 ## [0.2.0] - 2026-08-13
 
