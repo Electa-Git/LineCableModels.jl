@@ -37,7 +37,7 @@ for b in bases:
     for q in ('Z','P','Pscalar'):
         text=''.join(f'{f}\t{hz:.17g}\t{r}\t{b}\t{100*f+10*r+b}\t{r-b}\n' for r in (1,2))
         pathlib.Path(str(stem)+f'-{q}.tsv').write_text(text)
-    obs=[f,hz,9.,0,0,0,0,9.,9.,9.,9.,0,0,48,48,48,1.,1.,0.,0,0,0.,0]
+    obs=[f,hz,9.,0,0,0,0,9.,9.,9.,9.,0,48,48,48,1.,1.,0.,0,0.,0,0,0,0]
     (stem.parent/f'pml-f{f:04d}.tsv').write_text('\t'.join(map(str,obs))+'\n')
     pathlib.Path(str(stem)+'-timing.tsv').write_text(f'{f}\t{b}\t0\t0\t0\t0\t{int(b==bases[0])}\n')
     if control.get('fail') and f==1 and b==2:
@@ -168,5 +168,28 @@ with open(sys.argv[1],'a+') as f:
         end
     else
         @test_skip "The worker process fixture requires Unix and python3"
+    end
+end
+
+@testitem "FEM / passive native PML observations retain extent and cutoff flags" tags=[:extension] begin
+    using Gmsh
+    FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+    mktempdir() do directory
+        path = joinpath(directory,"pml.tsv")
+        values = [1., .1, 3.45, 1., 0., 0., 0., 0., 10., 0., 10., 1.,
+            16., 16., 16., 0., 0., 0., 0., 0., 0., 1., 1., 0.]
+        write(path,join(values,'\t')*"\n")
+        observation = FEM._pml_observation(path,1,.1)
+        @test observation !== nothing
+        @test observation.quasi_static_cap_flags == (true,true,false)
+        @test observation.net_top_exponent == 0
+        @test !hasproperty(observation,:g_not_qualified)
+        @test !hasproperty(observation,:attenuation_below_target)
+        values[6] = 1
+        values[19] = 1
+        write(path,join(values,'\t')*"\n")
+        observation = FEM._pml_observation(path,1,.1)
+        @test observation.cutoff_flags == (true,false)
+        @test observation.earth_sizing_ceiling_active
     end
 end

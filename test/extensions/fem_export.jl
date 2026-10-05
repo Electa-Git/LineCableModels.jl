@@ -166,12 +166,14 @@ end
         # Check the ordered mesh/save/solve events, not just existence of
         # result files that could have been left by an earlier case.
         events = collect(eachmatch(r"Writing '[^\n]*study\.msh'|Print -> '[^\n]*completed\.txt'",log))
-        @test length(events) == 4
-        if length(events) == 4
+        # Automatic check writes an initial mesh before the two compute steps.
+        @test length(events) == 5
+        if length(events) == 5
             @test startswith(events[1].match,"Writing")
-            @test occursin("f0001-",events[2].match)
-            @test startswith(events[3].match,"Writing")
-            @test occursin("f0002-",events[4].match)
+            @test startswith(events[2].match,"Writing")
+            @test occursin("f0001-",events[3].match)
+            @test startswith(events[4].match,"Writing")
+            @test occursin("f0002-",events[5].match)
         end
         for (i,f) in enumerate(problem.frequencies)
             result = run_dir(i,physics)
@@ -190,7 +192,7 @@ end
         @test occursin("f0002-helmholtz-b0000/completed.txt",log)
         @test !occursin("f0001-helmholtz-b0000/completed.txt",log)
         log = read(`$command -setnumber RunFrequencyScan 1 -setnumber RunAction 0`,String)
-        @test count(r"Writing '[^\n]*study\.msh'",log) == 2
+        @test count(r"Writing '[^\n]*study\.msh'",log) == 3 # Check plus two mesh-only compute steps.
         @test !occursin("Print -> '",log)
         @test all(!isfile(joinpath(run_dir(i,"helmholtz"),"completed.txt")) for i in 1:2)
         singleton = LineParametersProblem(system;frequencies=[50.],earth_props=problem.earth_props)
@@ -329,7 +331,7 @@ end
         reference = compute(problem,selected;options)
         record = details(reference).data.fem
         for index in eachindex(problem.frequencies)
-            mesh = joinpath(record.run.run_directory,"mesh",index==length(problem.frequencies) ? "model.msh" : "frequency_0001.msh")
+            mesh = joinpath(record.run.run_directory,"mesh","frequency_$(lpad(index,4,'0')).msh")
             command = `$getdp $entry -solve LineCableModelsFEM -msh $mesh -setnumber Physics $code -setnumber FrequencyIndex $index -v 2`
             @test success(addenv(Cmd(command;dir=root),"PATH"=>mktempdir(root)))
             run = joinpath(bundle,"results","f"*lpad(index,4,'0')*"-"*replace(String(physics),'_'=>'-')*"-b0000")
@@ -344,5 +346,58 @@ end
 
         end
         @test all(bytes2hex(open(sha256,joinpath(bundle,file)))==hash for (file,hash) in before)
+    end
+end
+
+@testitem "Gmsh FEM / checked meshes publish the selected frequency" tags=[:extension] setup=[NativeFEMFixtures] begin
+    using Gmsh, SHA
+    N=NativeFEMFixtures;g=Gmsh.gmsh
+    base=N.problem(;frequency=.1,rho=.1,eps_r=1.,radius=.0425,positions=[(0.,1.),(1.,1.)])
+    problem=LineParametersProblem(base.system;temperature=20.,frequencies=[.1,1e6],earth_props=base.earth_props)
+    N.bundle(problem) do directory,entry
+        g.initialize(String[],false,false)
+        try
+            g.option.set_number("General.Terminal",0)
+            g.onelab.set_string("Gmsh/Action",["check"])
+            hashes=String[];counts=Int[];widths=Float64[]
+            for index in (1,2,1)
+                g.onelab.set_number("Inputs/01Frequency case",[Float64(index)])
+                g.open(replace(entry,r"\.pro$"=>".geo"))
+                @test g.option.get_number("Solver.AutoCheck")==1
+                @test g.onelab.get_string("Mesh/Current mesh/00Status")==["Generated"]
+                @test g.onelab.get_number("Mesh/Current mesh/01Case index")==[Float64(index)]
+                @test g.onelab.get_number("Mesh/Current mesh/02Frequency [Hz]")==[problem.frequencies[index]]
+                push!(widths,only(g.parser.get_number("DomainHalfwidth")))
+                push!(counts,sum(length,g.model.mesh.get_elements(2)[2]))
+                push!(hashes,bytes2hex(open(sha256,replace(entry,r"\.pro$"=>".msh"))))
+            end
+            @test all(>(0),counts)
+            @test widths[1]==widths[3]>widths[2]
+            @test hashes[1]!=hashes[2]
+            # A failed save must not publish the newly meshed case.
+            geometry=replace(entry,r"\.pro$"=>".geo")
+            script=read(geometry,String)
+            write(geometry,replace(script,"Save StrCat(CurrentDirectory, \"model.msh\")"=>
+                "Save StrCat(CurrentDirectory, \"missing-directory/model.msh\")"))
+            @test_throws Exception g.open(geometry)
+            @test g.onelab.get_string("Mesh/Current mesh/00Status")==["No mesh"]
+            @test g.onelab.get_number("Mesh/Current mesh/01Case index")==[0.]
+            write(geometry,script)
+            # Test parsing failure in a fresh native session after the save error.
+            Gmsh.finalize()
+            g.initialize(String[],false,false)
+            g.option.set_number("General.Terminal",0)
+            g.onelab.set_string("Gmsh/Action",["check"])
+            g.open(geometry)
+            @test g.onelab.get_string("Mesh/Current mesh/00Status")==["Generated"]
+            # A failed reparse must invalidate the preceding mesh label.
+            write(joinpath(directory,"geometry/physical.geo"),"Include \"missing-geometry.geo\";")
+            @test_throws Exception g.open(replace(entry,r"\.pro$"=>".geo"))
+            @test g.onelab.get_string("Mesh/Current mesh/00Status")==["No mesh"]
+            @test g.onelab.get_number("Mesh/Current mesh/01Case index")==[0.]
+            @test g.onelab.get_number("Mesh/Current mesh/02Frequency [Hz]")==[0.]
+        finally
+            Gmsh.finalize()
+        end
     end
 end

@@ -402,11 +402,14 @@ function _mesh_metadata(model, fingerprint, gmsh_version, source, execution,
         frequency_index, native_values)
     metadata = Dict{String,Any}(String(key)=>value for (key,value) in pairs(native_values))
     merge!(metadata,Dict(
-        "schema"=>"LineCableModels.FEMMesh", "version"=>2, "fingerprint"=>fingerprint,
+        "schema"=>"LineCableModels.FEMMesh", "version"=>3, "fingerprint"=>fingerprint,
         "gmsh_version"=>gmsh_version, "source"=>String(source), "mesh_dimension"=>2,
         "terminal_count"=>length(model.terminal_ids), "terminal_ids"=>model.terminal_ids,
         "physical_groups"=>[(dimension=dim,tag,name) for (dim,tag,name) in _expected_physical_groups(model)],
         "frequency_index"=>frequency_index, "frequency_hz"=>model.problem.frequencies[frequency_index],
+        "earth_inputs"=>ImportExport.serialize_value((rho=model.earth_materials[frequency_index].rho,
+            eps_r=model.earth_materials[frequency_index].eps_r, mu_r=model.earth_materials[frequency_index].mu_r)),
+        "gamma"=>ImportExport.serialize_value(model.prescribed_gamma[frequency_index]),
         "pml_element_family"=>String(execution.data.pml_element_family),
         "pml_layers"=>execution.data.pml_layers, "pml_grading"=>execution.data.pml_grading))
     return metadata
@@ -459,7 +462,7 @@ function _select_mesh!(run::FEMRun,model::FEMResolvedModel,
     cache_directory = joinpath(runtime_root,"meshes",fingerprint)
     cache_mesh = joinpath(cache_directory,"model.msh")
     cache_metadata = joinpath(cache_directory,"mesh.json")
-    stem = reference_mesh ? "model" : @sprintf("frequency_%04d",frequency_index)
+    stem = @sprintf("frequency_%04d",frequency_index)
     run_mesh = joinpath(run.path,"mesh",stem*".msh")
     run_metadata = joinpath(run.path,"mesh",stem*".json")
     selected=nothing; source=:generated; native_values=Dict{String,Any}()
@@ -501,6 +504,10 @@ function _select_mesh!(run::FEMRun,model::FEMResolvedModel,
     elseif selected != run_mesh
         metadata=_mesh_metadata(model,fingerprint,gmsh_version,source,execution,frequency_index,native_values)
         _copy_mesh_snapshot!(selected,run_mesh,run_metadata,metadata)
+    end
+    if selected == run_mesh
+        metadata=_mesh_metadata(model,fingerprint,gmsh_version,source,execution,frequency_index,native_values)
+        _write_json_atomic(run_metadata,metadata)
     end
     reference_mesh && (run.mesh_source=source)
     return run_mesh

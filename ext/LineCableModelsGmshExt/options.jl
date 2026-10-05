@@ -57,7 +57,7 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `pml_thickness_factor=1.0`: Positive relative thickness
     \\[dimensionless\\], or a `(side, top, bottom)` tuple. Each thickness is
     the native frequency-dependent physical half-width times this factor.
-  - `pml_layers=48`: Minimum positive normal interval count, or a
+  - `pml_layers=16`: Minimum positive normal interval count, or a
     `(side, top, bottom)` tuple. The native wave bound may raise each count to
     `max(Nmin, ceil(max(PPW_m*Phi_m)/(2*pi)))`. Gmsh uses one more node per curve.
     The native `PPW_m = 10*clamp(sqrt(0.1*abs(q_m)/real(q_m)),1,3)`
@@ -71,8 +71,11 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `pml_grading=log(20)`: Nonnegative exponent \\[dimensionless\\], or a
     `(side, top, bottom)` tuple. Native ratio is `exp(g/N)` with the effective
     interval count.  Zero is uniform.
-  - `pml_reflection=1e-10`: Nominal normal-wave round-trip amplitude target
+  - `pml_reflection=1e-3`: Nominal normal-wave round-trip amplitude target
     \\[dimensionless\\], strictly between zero and one.  Not an error bound on Y.
+    Near DC, the added real stretch is limited to 100 domain half-widths.
+    Where the air field is quasi-static over that whole extent, the stretch
+    is purely real. Read-only ONELAB values identify active directions.
   - `mesh_size_factor=1.0`: Positive physical-region mesh-size multiplier
     \\[dimensionless\\], independent of the normal PML grading.
   - `exterior_mesh_size_factor=1.0`: Maximum remote-to-central bulk element-size
@@ -84,8 +87,9 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
     values retain more interface refinement in both air and soil. Local wave
     sizes and transition distances retain their frequency, material and Γ dependence.
   - `volume_quadrature=12`: Points for volume integration in triangles (4, 7, 12 or 13).
-  - `physical_volume_quadrature=nothing`: Override triangle integration in
-    physical materials with 3, 4, 7, 12 or 13 points. `nothing` inherits
+  - `physical_volume_quadrature=3`: Override triangle integration in
+    physical materials with 3, 4, 7, 12 or 13 points. Three points integrate
+    first-order field products exactly for piecewise-constant materials. `nothing` inherits
     `volume_quadrature`. Triangular PML keeps `volume_quadrature` independently.
   - `pml_element_family=:quadrangle`: PML cells, either `:triangle` or
     `:quadrangle`. Quadrangles recombine the same native transfinite grid.
@@ -161,11 +165,11 @@ function computation_options(::Type{LineCableModelsFEM}, record::ComputationOpti
     options = record.data
     defaults = (plot_field_maps=false, mesh_policy=:reuse,
         mesh_path=nothing, domain_size_factor=2.0,
-        pml_thickness_factor=1.0, pml_layers=48,
-        pml_grading=log(20), pml_reflection=1e-10,
+        pml_thickness_factor=1.0, pml_layers=16,
+        pml_grading=log(20), pml_reflection=1e-3,
         mesh_size_factor=1.0, exterior_mesh_size_factor=1.0,
         interface_refinement_factor=1.0, volume_quadrature=12,
-        physical_volume_quadrature=nothing, pml_element_family=:quadrangle,
+        physical_volume_quadrature=3, pml_element_family=:quadrangle,
         pml_quadrature=4,
         conductor_geometry_tolerance=1e-3, conductor_skin_depth_elements=6.0,
         conductor_mesh_growth=sqrt(1.25), conductor_skin_depths=5.0,

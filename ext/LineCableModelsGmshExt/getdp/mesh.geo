@@ -48,16 +48,25 @@ For medium In {0:1}
     FEMDistance = FEMNextField; FEMNextField += 1; Field[FEMDistance] = Distance;
     Field[FEMDistance].CurvesList = {FEMCableCurves()}; Field[FEMDistance].Sampling = 200;
     FEMSources() = {FEMDistance};
+    // The interface layer replaces the earth footprint wave-zone sources.
+    If(medium == 0 || !FEMEarthLayerActive)
     For cable In {0:NumCables-1}
       FEMFootprint = FEMNextField; FEMNextField += 1; Field[FEMFootprint] = MathEval;
       Field[FEMFootprint].F = Sprintf("Sqrt(y^2+Max(Abs(x-(%.17g))-(%.17g),0)^2)",CableX(cable),FEMCableWaveFootprint~{cable});
       FEMSources() += {FEMFootprint};
     EndFor
+    EndIf
     FEMDistance = FEMNextField; FEMNextField += 1; Field[FEMDistance] = Min; Field[FEMDistance].FieldsList = {FEMSources()};
+    // Grow the lossy-earth exterior wave target geometrically with distance.
+    If(medium == 1 && FEMRootA~{1} > 0)
+    FEMWaveField = FEMNextField; FEMNextField += 1; Field[FEMWaveField] = MathEval;
+    Field[FEMWaveField].F = Sprintf("Min(%.17g,%.17g*Exp(F%g*%.17g/2))",FEMRemote,FEMWave,FEMDistance,FEMRootA~{1});
+    Else
     FEMWaveField = FEMNextField; FEMNextField += 1; Field[FEMWaveField] = Threshold;
     Field[FEMWaveField].InField = FEMDistance; Field[FEMWaveField].SizeMin = FEMWave;
     Field[FEMWaveField].SizeMax = FEMRemote; Field[FEMWaveField].DistMin = FEMDecay;
     Field[FEMWaveField].DistMax = 2*FEMDecay;
+    EndIf
     FEMMeasurementSources~{medium}() += {FEMWaveField};
     FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Restrict; Field[FEMField].InField = FEMWaveField;
     Field[FEMField].IncludeBoundary = 1; Field[FEMField].SurfacesList = {FEMSurfaces()}; FEMBackground() += {FEMField};

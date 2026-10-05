@@ -78,6 +78,42 @@ function errors(actual,reference)
         reciprocity=maximum(abs,actual-transpose(actual))/maximum(abs,diag(actual)))
 end
 
+# Engineering budgets are reference-scaled; tiny conductances remain visible but ungated.
+function budget_metrics(actual_y, reference_y, actual_z, reference_z, case, native_mesh)
+    scale=maximum(abs,diag(reference_y))
+    delta=actual_y-reference_y
+    conductance=[(row=i,column=j,relative_error=abs(real(delta[i,j]))/abs(real(reference_y[i,j])))
+        for i in axes(reference_y,1),j in axes(reference_y,2)
+        if abs(real(reference_y[i,j])) >= 1e-3*scale]
+    sign_canaries=[(row=i,column=j,agrees=sign(real(actual_y[i,j]))==sign(real(reference_y[i,j])))
+        for i in axes(reference_y,1),j in axes(reference_y,2)
+        if abs(real(reference_y[i,j])) >= 1e-6*scale]
+    reciprocity(a)=maximum(abs,a-transpose(a))/maximum(abs,diag(a))
+    roots=native_mesh["transverse_roots"]
+    receiver_sizes=[case.radius*hypot(roots[2m+1],roots[2m+2])
+        for m in (case.problem.system.positions[i].y > 0 ? 0 : 1 for i in axes(reference_y,1))]
+    air=first(case.problem.earth_props.layers)
+    k0=2pi*only(case.problem.frequencies)*sqrt((4pi*1e-7*air.mu_r)*(8.8541878128e-12*air.eps_r))
+    scope_reasons=String[]
+    !iszero(case.gamma) && imag(case.gamma)<k0 && push!(scope_reasons,"prescribed wave faster than an air plane wave")
+    any(>(.1),receiver_sizes) && push!(scope_reasons,"receiver transverse size exceeds mean-field scope")
+    any(iszero,hypot(roots[2m+1],roots[2m+2]) for m in 0:1) && push!(scope_reasons,"exact transverse cutoff")
+    reference_reciprocity=reciprocity(reference_y)
+    excess=reciprocity(actual_y)-reference_reciprocity
+    (e_Z=reference_z===nothing ? nothing : maximum(abs,actual_z-reference_z)/maximum(abs,diag(reference_z)),
+        e_Y=maximum(abs,delta)/scale,
+        worst_Y_entry=Tuple(argmax(abs.(delta))),
+        worst_Z_entry=reference_z===nothing ? nothing : Tuple(argmax(abs.(actual_z-reference_z))),
+        conductance_gate_pass=all(e.relative_error<=.05 for e in conductance),
+        conductance_entries=conductance,conductance_failures=filter(e->e.relative_error>.05,conductance),
+        significant_G_signs=sign_canaries,sign_canary_flag=any(!e.agrees for e in sign_canaries),
+        ungated_G_sign_agreement=count(e.G_sign_agrees for e in errors(actual_y,reference_y).entries),
+        ungated_G_sign_entries=length(reference_y),reference_reciprocity,
+        fem_reciprocity=reciprocity(actual_y),reciprocity_excess_percentage_points=100excess,
+        reciprocity_canary_flag=excess>.003,in_reference_scope=isempty(scope_reasons),scope_reasons,
+        receiver_transverse_sizes=receiver_sizes)
+end
+
 function run_case(case,output,mesh_options,settings)
     directory=joinpath(output,case.name);mkpath(directory)
     form=Formulation(:LineCableModelsFEM;options=(;REDUCTIONS...,Γ=case.gamma))
@@ -93,7 +129,7 @@ function run_case(case,output,mesh_options,settings)
     end
     source_root=joinpath(pkgdir(LineCableModels),"ext","LineCableModelsGmshExt")
     current_sources=join([read(joinpath(dir,file),String) for (dir,_,files) in walkdir(source_root) for file in sort(files) if endswith(file,".jl") || endswith(file,".pro") || endswith(file,".geo")],"\n")
-    identity=bytes2hex(sha256(JSON3.write(settings) * current_sources * join([read(joinpath(dir,file),String) for (dir,_,files) in walkdir(bundle) for file in sort(files) if (endswith(file,".pro") || endswith(file,".geo"))],"\n")))
+    identity=bytes2hex(sha256(JSON3.write(settings) * read(@__FILE__,String) * read(joinpath(@__DIR__,"closed_forms.jl"),String) * current_sources * join([read(joinpath(dir,file),String) for (dir,_,files) in walkdir(bundle) for file in sort(files) if (endswith(file,".pro") || endswith(file,".geo"))],"\n")))
     recordpath=joinpath(directory,"result.json")
     if isfile(recordpath)
         saved=JSON3.read(read(recordpath,String));saved.source_identity==identity || error("Saved inputs differ: $(case.name)")
@@ -107,6 +143,14 @@ function run_case(case,output,mesh_options,settings)
         Y(result)[:,:,1]
     else
         medium=case.medium
+        # Read the exported conductor material facts, including temperature evaluation.
+        data=read(joinpath(bundle,"model_data.pro"),String)
+        scalar(name)=parse(Float64,match(Regex("(?m)^"*name*" = ([^;]+);"),data)[1])
+        array(name)=parse(Float64,first(split(match(Regex("(?m)^"*name*"\\(\\) = \\{([^}]+)\\};"),data)[1],',')))
+        impedance_reference=reshape([cylinder_impedance(only(case.problem.frequencies),case.radius,
+            medium.sigma,medium.epsilon,medium.mu,case.gamma,
+            array("Material_1_conductor_Sigma"),array("Material_1_conductor_Epsilon"),scalar("Material_1_conductor_Mu");
+            reference_distance=case.reference_distance)],1,1)
         reshape([cylinder_admittance(only(case.problem.frequencies),case.radius,medium.sigma,
             medium.epsilon,medium.mu,case.gamma;reference_distance=case.reference_distance)],1,1)
     end
@@ -117,7 +161,7 @@ function run_case(case,output,mesh_options,settings)
     mesh=joinpath(directory,"mesh.msh");valuespath=joinpath(directory,"mesh-values.txt")
     mesh_run=call_native(`$(Gmsh.gmsh_jll.gmsh()) $(replace(entry,r"\.pro$"=>".geo")) -setstring MeshMetadataPath $valuespath -2 -o $mesh -v 3 -nt 1`,joinpath(directory,"mesh.log"))
     status=mesh_run.success ? "meshed" : "mesh failed"
-    observations=nothing;metrics=nothing;impedance_metrics=nothing;solve_run=nothing;preprocess_run=nothing;dofs=nothing
+    budget=nothing;observations=nothing;metrics=nothing;impedance_metrics=nothing;solve_run=nothing;preprocess_run=nothing;dofs=nothing
     if mesh_run.success
         controls=FEM.computation_options(FEM.LineCableModelsFEM,ComputationOptions())
         getdp=FEM._getdp_selection(controls).path
@@ -131,7 +175,7 @@ function run_case(case,output,mesh_options,settings)
             record=(;name=case.name,status,source_identity=identity,frequency_hz=only(case.problem.frequencies),
                 gamma=(real=real(case.gamma),imag=imag(case.gamma)),radius_m=case.radius,
                 reference=case.reference,mesh_options,mesh_run,preprocess_run,solve_run,dofs,observations,metrics,impedance_metrics,native_mesh,
-                material_override=case.reference===:closed && case.medium.sigma!=0 ? case.medium : nothing)
+                budget,material_override=case.reference===:closed && case.medium.sigma!=0 ? case.medium : nothing)
             open(recordpath,"w") do io;JSON3.pretty(io,record);end
             return record
         end
@@ -151,16 +195,17 @@ function run_case(case,output,mesh_options,settings)
                     end
                 end
             end
+            budget=budget_metrics(actual,reference,impedance,impedance_reference,case,FEM._read_native_mesh_values(valuespath))
             observations=FEM._pml_observation(joinpath(raw,"raw/jobs/pml-f0001.tsv"),1,only(case.problem.frequencies))
             observations===nothing && error("Missing native observations: $(case.name)")
-            observations.g_not_qualified && (status="solved, unqualified")
+            observations.earth_sizing_ceiling_active && (status="solved, unqualified")
         end
     end
     native_mesh=isfile(valuespath) ? FEM._read_native_mesh_values(valuespath) : nothing
     record=(;name=case.name,status,source_identity=identity,frequency_hz=only(case.problem.frequencies),
         gamma=(real=real(case.gamma),imag=imag(case.gamma)),radius_m=case.radius,
         reference=case.reference,mesh_options,mesh_run,preprocess_run,solve_run,dofs,observations,metrics,impedance_metrics,native_mesh,
-        material_override=case.reference===:closed && case.medium.sigma!=0 ? case.medium : nothing)
+        budget,material_override=case.reference===:closed && case.medium.sigma!=0 ? case.medium : nothing)
     open(recordpath,"w") do io;JSON3.pretty(io,record);end
     record
 end

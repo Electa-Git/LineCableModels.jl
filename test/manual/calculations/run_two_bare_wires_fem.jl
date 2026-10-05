@@ -79,7 +79,7 @@ function build_two_bare_wires_problem(
     system = build(
         LineCableSystem,
         [design, design],
-        [Pose2(0.0, vert), Pose2(1.0, vert)];
+        [Pose2(0.0, vert), Pose2(1.0, -vert)];
         connections = [Dict(:core => 1), Dict(:core => 2)],
         system_id = "two_bare_wires",
         line_length = line_length
@@ -361,6 +361,8 @@ inspect_frequency_index = length(frequency_grid)  # highest frequency
 inspect_problem = build_two_bare_wires_problem(
     fixed_external_radius, first(soil_resistivity_grid), frequency_grid)
 mesh = import_data(:msh, inspect_run; frequency_index = inspect_frequency_index)
+println("Mesh run: ", mesh.provenance.run_directory,
+    "; frequency: ", mesh.provenance.frequency_hz, " Hz (index ", mesh.provenance.frequency_index, ")")
 mesh_plot = LineCableModels.plot(
     mesh; color_by = :physical, inspect = :element, backend = :gl);
 mesh_preview = preview(inspect_problem.system; mesh, mesh_color_by = :physical,
@@ -368,10 +370,11 @@ mesh_preview = preview(inspect_problem.system; mesh, mesh_color_by = :physical,
 
 # Field maps: <quantity>_f<frequency>_b<excited terminal>.pos under maps/.
 if plot_field_maps
-    field = import_data(:pos, joinpath(inspect_run, "maps",
-        @sprintf("e_f%04d_b0001.pos", inspect_frequency_index)))
+    field = import_data(:pos,
+        joinpath(inspect_run, "maps",
+            @sprintf("e_f%04d_b0001.pos", inspect_frequency_index)))
     field_plot = LineCableModels.plot(field; part = :magnitude, colorscale = log10,
-        geometry = inspect_problem.system, mesh, backend = :gl);
+        geometry = inspect_problem.system, mesh, backend = :gl)
 end
 
 if save_tables

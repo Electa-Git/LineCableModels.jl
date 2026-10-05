@@ -378,21 +378,14 @@ Macro FEMScan
       CreateDir[RawJobDirectory];
       CreateDir[MapDirectory];
       // Native observations accompany every frequency's retained columns.
-      Print[{FrequencyIndex,FrequencyHz,FEMPmlTarget,
-        FEMPmlFloorActive~{0},FEMPmlFloorActive~{1},FEMCutoff~{0},FEMCutoff~{1},
-        FEMPmlSideNetAttenuation~{0},FEMPmlSideNetAttenuation~{1},
-        FEMPmlTopNetAttenuation,FEMPmlBottomNetAttenuation,
-        FEMPmlBelowTarget,FEMPmlFloorUsed,FEMPmlSideLayers,FEMPmlTopLayers,FEMPmlBottomLayers,
-        PmlSideEta,PmlTopEta,PmlBottomEta,FEMPmlGNotQualified,FEMEarthSizingCeilingActive,FEMEarthLayerThickness,FEMEarthLayerClippedOrOmitted},
-        Format "%g	%.17g	%.17g	%g	%g	%g	%g	%.17g	%.17g	%.17g	%.17g	%g	%g	%g	%g	%g	%.17g	%.17g	%.17g	%g	%g	%.17g	%g",
+      Print[{FrequencyIndex,FrequencyHz,FEMPmlTarget,FEMPmlFloorActive~{0},FEMPmlFloorActive~{1},FEMCutoff~{0},FEMCutoff~{1},FEMPmlSideNetAttenuation~{0},FEMPmlSideNetAttenuation~{1},FEMPmlTopNetAttenuation,FEMPmlBottomNetAttenuation,FEMPmlFloorUsed,FEMPmlSideLayers,FEMPmlTopLayers,FEMPmlBottomLayers,PmlSideEta,PmlTopEta,PmlBottomEta,FEMEarthSizingCeilingActive,FEMEarthLayerThickness,FEMEarthLayerClippedOrOmitted,FEMCapActive(0),FEMCapActive(1),FEMCapActive(2)},
+        Format "%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g",
         File StrCat[RawJobDirectory,Sprintf["/pml-f%04g.tsv",FrequencyIndex]]];
       If(FEMEarthSizingCeilingActive)
         Print[{FrequencyHz},Format "FEM warning: earth too resistive for FEM domain sizing; results not qualified (f=%.17g Hz)"];
       EndIf
-      If(FEMPmlBelowTarget)
-        Print[{FrequencyHz},Format "PML warning: attenuation below target; G not qualified (f=%.17g Hz)"];
-      ElseIf(FEMCutoff~{0} || FEMCutoff~{1})
-        Print[{FrequencyHz},Format "PML warning: exact cutoff; G not qualified (f=%.17g Hz)"];
+      If(FEMCutoff~{0} || FEMCutoff~{1})
+        Print[{FrequencyHz},Format "FEM warning: exact transverse cutoff; the transverse problem is singular (f=%.17g Hz)"];
       EndIf
       If(FEMPmlFloorUsed)
         Print[{FrequencyHz},Format "PML sizing floor active (informational; f=%.17g Hz)"];

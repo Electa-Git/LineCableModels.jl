@@ -13,6 +13,9 @@
     solver = (mumps_ordering=0,petsc_prealloc=256)
     configured = computation_options(LineCableModelsFEM,ComputationOptions(;solver_threads=2,solver...))
     defaults = computation_options(LineCableModelsFEM,ComputationOptions())
+    @test defaults.data.pml_reflection == 1e-3
+    @test defaults.data.physical_volume_quadrature == 3
+    @test defaults.data.pml_layers == (16,16,16)
     model = FEM._resolved_fem_model(problem,form)
     mktempdir() do root
         run = FEM._create_run(root)
@@ -34,11 +37,16 @@
         entry = export_data(:onelab,problem,form;file_name=joinpath(root,"bundle","study.pro"),
             mesh_options=(pml_layers=8,),solver_options=solver)
         data = read(joinpath(dirname(entry),"study_data.pro"),String)
+        @test occursin("PhysicalVolumeQuadrature = {3,",data)
         @test occursin("GetDPThreads = {1,",data)
         @test occursin("MumpsOrdering = {0,",data)
         @test occursin("PetscPrealloc = {256,",data)
         native = read(joinpath(dirname(entry),"formulations/helmholtz.pro"),String)*
             read(joinpath(dirname(entry),"formulations/solver.pro"),String)
+        @test occursin("the transverse problem is singular",native)
+        @test !occursin("G not qualified",native)
+        parameters = read(joinpath(dirname(entry),"formulations/parameters.pro"),String)
+        @test !occursin("G not qualified",parameters)
         @test occursin("SetGlobalSolverOptions[FEMSolverOptions]",native)
         @test occursin("-mat_mumps_icntl_7",native)
         @test occursin("-petsc_prealloc",native)

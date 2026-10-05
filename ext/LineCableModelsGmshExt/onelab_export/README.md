@@ -20,7 +20,11 @@ There is no additional driver, environment installation or executable setting.
 Select a frequency case, formulation, basis and mesh settings, then Run. Basis
 zero computes the complete matrices; a positive terminal index computes only
 its diagnostic columns. Run action also offers mesh-only execution. Check
-parses inputs without solving. Gmsh's Stop controls its native GetDP process.
+rebuilds geometry and generates the selected case's mesh without solving.
+Automatic checks are enabled, so changing a frequency or mesh input replaces
+both the displayed geometry and mesh. The read-only `Mesh/Current mesh` group
+shows the generated case index and frequency [Hz] after meshing and saving
+succeed; `No mesh` means no current mesh has been generated. Gmsh's Stop controls its native GetDP process.
 The GetDP thread control sets GetDP's native `-nt` option; linked numerical
 libraries can have their own threading settings.
 
@@ -88,7 +92,7 @@ requires regenerating the mesh. `MeshSizeFactor` is the Julia `mesh_size_factor`
 exported values. Changing them updates the local size fields, floating measurement
 lines and PML tangential divisions on the next mesh. The exterior factor only
 coarsens the remote buffer; it retains the conductor and central bulk targets.
-The `Boundary` panel supplies `DomainSizeFactor`, `PmlReflection` and directional
+The `Boundary` panel supplies `DomainSizeFactor`, `PmlReflection` (default `1e-3`) and directional
 `PmlSide/Top/BottomThicknessFactor`, `Layers` and `Grading`. These are the native
 counterparts of Julia's relative thickness, interval and exponent controls.
 Dimensions, strengths, roots and physical mesh targets are reevaluated together
@@ -149,22 +153,23 @@ selected case's conductivity, permittivity and permeability when appropriate.
 strengths, domain dimensions and physical mesh targets. The stretch has a cubic
 real part and degree-eight imaginary part. Air conductivity is retained in both
 roots and equations, and air and soil permeabilities are independent. The sizing-rate
-floor at 0.1*b0 is a numerical crash guard. Near-cutoff G remains unqualified. Each medium uses Im(q)≥0 when Im(Γ)<b0_m, otherwise Re(q)≥0.
+floor at 0.1*b0 is a numerical crash guard. Each medium uses Im(q)≥0 when Im(Γ)<b0_m, otherwise Re(q)≥0.
 For b>0, its imaginary-stretch need is clamp((b−a)/b,0,1); for b≤0 it is zero.
 Each direction uses the maximum need of its participating media, capped by
 the existing negative-b eta bound. Side eta is shared by air and earth. The read-only net exponents Re(q·x̃_end), with
 x̃_end=D+L(1+A/4−jηA/4), include the physical domain and PML thickness. A
 non-positive net exponent outside exact cutoff rejects an unsupported Γ
-prescription. Exact cutoff solves like its neighbours and warns “attenuation
-below target; G not qualified”. Sizing-floor activation is informational. G is unqualified when
-any net exponent is below (1−1e−9)T, at exact cutoff, or when the resistive sizing ceiling binds. Each frequency writes its native flags, target and exponents to
-`raw/jobs/pml-fNNNN.tsv`; managed Julia retains these observations in
-`details(result).data.fem.pml_observations` and warns once per run.
+prescription, except for deliberately capped real maps with zero attenuation.
+Exact cutoff solves and warns that the transverse problem is singular.
+Sizing-floor activation and below-target attenuation remain informational;
+the earth-resistive sizing ceiling retains its qualification warning.
+Each frequency writes exponents, etas, interval counts, cap and cutoff flags,
+earth-ceiling and earth-layer values to `raw/jobs/pml-fNNNN.tsv`; managed
+Julia retains these in `details(result).data.fem.pml_observations`.
 The observations also retain `pml_eta` and `effective_pml_layers` (side, top, bottom),
 published as read-only derived ONELAB values and in mesh metadata.
-Near-cutoff G (approximately |c−1|≤1e-3 for Γ=c·j·k0) is unqualified; exact-
-cutoff accuracy and the analytical reference's branch convention require
-separate user decisions. All native geometry and mesh files consume the
+Exact transverse cutoff is singular. Incoming-sheet analytical references
+are excluded from accuracy comparisons. All native geometry and mesh files consume the
 selected case's current values.
 A prescribed Gamma can be non-passive. Native prescriptions whose net exponent
 is nonpositive outside cutoff are unsupported. The analytical reference's root
@@ -173,7 +178,7 @@ convention is unchanged. Its mean-field single-line-source receiver requires
 are outside its declared scope. Exact air cutoff is singular.
 Remote/far sizes, including PML tangential sizes, use a medium's wave cap only
 when the physical box lies inside its decay footprint at the outer boundary; its fine wave target
-inside that footprint is unchanged. Native soil frame and voltage-path counts respect the existing wave target
+near the cable contour is retained, with lossy-earth growth described below. Native soil frame and edge counts respect the existing wave target
 when its refinement footprint covers the physical box. The footprint width is
 computed once in `parameters.pro` and reused by `mesh.geo` as a read-only derived value. The physical half-width is
 `D=max(layout_radius,domain_size_factor*L*abs(q0_e)/max(abs(q0_e),abs(q_e)))`.
@@ -264,3 +269,10 @@ completion marker. The ONELAB Results status distinguishes full and diagnostic
 completion. A rerun replaces the derived outputs for that selection.
 "Not completed" means the current run has not published a successful result.
 It also remains the state after Stop or a solver failure.
+
+Physical-region triangle integration defaults to 3 points; PML quadrature is unchanged.
+
+The minimum PML normal interval count defaults to 16.
+
+Earth wave-distance fields omit projected footprint sources while the earth interface layer is active; cable-contour sources remain.
+In lossy earth, where the wave target is below the remote target, the exterior size is `min(MeshRemoteEarth, MeshWaveEarth*exp(d*Re(q_earth)/2))` on the native distance field. Conductor and air targets remain unchanged.

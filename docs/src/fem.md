@@ -229,14 +229,21 @@ T=-\log(\mathrm{pml\_reflection})/2,\qquad
 A_d=\frac{4T}{L_d\min_{m\in M_d}\widehat d_{m,d}}.
 ```
 
-The default reflection target is ``10^{-10}``. The `0.1*b0` sizing-rate floor
+The default reflection target is ``10^{-3}``. The `0.1*b0` sizing-rate floor
 caps the numerical strength to prevent factorization failure. The physical
 root and terminal-conductance accuracy criterion remain unchanged. Floor activation is informational.
 The flag uses ``d<(1-10^{-9})0.1b_0`` to ignore last-bit rounding.
 
+Near DC, the added real stretch is limited to 100 domain half-widths.
+Where the air field is quasi-static over that whole extent, the stretch is
+purely real and ends at the homogeneous Dirichlet boundary. Read-only ONELAB
+values identify directions where this extent cap is active. Near-DC
+conductance signs are reported without an accuracy gate under this extent limit.
+The original layer thickness adds to the capped stretched increment.
+
 ## Loss-aware PML intervals
 
-`pml_layers=48` supplies minimum normal interval counts, rather than fixed
+`pml_layers=16` supplies minimum normal interval counts, rather than fixed
 counts. With ``X_d=L_d(1+A_d/4-j\eta_d A_d/4)`` for the layer alone and
 ``E_{m,d}=\Re(q_mX_d)``, the native bound is
 
@@ -272,11 +279,24 @@ triangular; the PML grid is transfinite.
 
 The bulk target is `mesh_size_factor*max(layout_radius,L)/20`. A medium's wave
 target is `min(MeshBulk,mesh_size_factor/(8*abs(q_m)))`. Its decay footprint is
-at most `min(2*resolution_radius,6/a_m)` for positive ``a_m``. Fine wave targets
-apply inside that footprint. The wave cap constrains remote sizes and PML
+at most `min(2*resolution_radius,6/a_m)` for positive ``a_m``. Air retains its
+fine wave target inside that footprint; lossy-earth exterior growth is
+described below. The wave cap constrains remote sizes and PML
 tangential counts only when the physical box boundary lies inside the footprint;
 remote sizes otherwise follow the bulk size and growth law. This does not remove the
 fine target near a conductor or the interface.
+
+When the earth interface layer is active, the earth wave-distance field
+uses cable contours without the projected footprint sources. Air distance
+sources and all conductor targets are unchanged.
+For lossy earth with a wave target below the remote target, the exterior
+size grows geometrically with the native distance ``d``:
+
+```math
+h(d)=\min(\mathrm{MeshRemoteEarth},\mathrm{MeshWaveEarth}\exp(a_{\rm earth}d/2)).
+```
+
+The distance retains footprint sources when the interface layer is inactive.
 
 An earth-only triangular BoundaryLayer field on the physical interface has
 first size `MeshWaveEarth` and growth ratio 1.4. Its effective thickness is
@@ -307,22 +327,20 @@ interface segments. Measurement endpoints are not interface mesh seeds.
 The per-medium net exponent is
 ``\Re(q_m[D+L_d(1+A_d/4-j\eta_d A_d/4)])``. A nonpositive exponent outside
 exact cutoff rejects the unsupported prescription with an explicit native
-error. Exact cutoff solves with its zero exponent published. Net attenuation
-below ``(1-10^{-9})T`` or exact cutoff triggers
-“attenuation below target; G not qualified”. Results also remain unqualified when the resistive sizing ceiling binds.
-Floor activation alone is informational.
+error. Deliberately capped real maps permit zero net attenuation. Exact
+cutoff solves with its zero exponent published and warns that the transverse
+problem is singular. Below-target attenuation and sizing-floor activation
+are observations, not qualification warnings. The earth-resistive sizing
+ceiling still warns that results are not qualified.
 
 Managed execution reads frequency-aligned native observations into
 `details(result).data.fem.pml_observations` and warns once per run, including
-completed-run replay. The observations retain effective intervals, roots,
-directional η, strengths, cutoff and floor flags, target and net exponents,
-sizing-ceiling flag, and earth-layer thickness and clipping status. A false qualification
-flag is not a certification of accuracy; physical mesh and voltage measurement
-still require convergence checks.
+completed-run replay. The observations retain effective intervals, directional η, cap, cutoff and
+floor flags, target and net exponents, the sizing-ceiling flag, and earth-layer
+thickness and clipping status. Physical mesh and voltage measurement still
+require convergence checks.
 
-Exact air cutoff is singular. Conductance near air cutoff, roughly
-``|c-1|\lesssim10^{-3}`` for ``\Gamma=cjk_0``, is not qualified by the crash
-guard. A prescribed Γ can be non-passive; supplying it does not guarantee a
+Exact air cutoff is singular. A prescribed Γ can be non-passive; supplying it does not guarantee a
 passive forward mode. Prescriptions that produce a nonpositive net exponent
 outside cutoff are unsupported. The analytical `:unified` root convention is
 unchanged; an incoming-sheet reference is excluded from accuracy comparisons.
@@ -349,14 +367,14 @@ aliases for removed domain or mesh-planner keywords.
 |---|---|---|
 | `domain_size_factor` | `2.0` | Multiplier of the earth sizing length after ceiling and prescribed-Γ adjustment |
 | `pml_thickness_factor` | `1.0` | Directional thickness relative to physical half-width |
-| `pml_layers` | `48` | Minimum normal interval count; native loss-aware bound may raise it |
+| `pml_layers` | `16` | Minimum normal interval count; native loss-aware bound may raise it |
 | `pml_grading` | `log(20)` | Grading exponent; scalar or side, top and bottom tuple |
-| `pml_reflection` | `1e-10` | Normal-wave strength calibration |
+| `pml_reflection` | `1e-3` | Normal-wave strength calibration |
 | `mesh_size_factor` | `1.0` | Physical local and bulk size factor |
 | `exterior_mesh_size_factor` | `1.0` | Remote-buffer factor, at least one |
 | `interface_refinement_factor` | `1.0` | Cable-projected interface footprint factor, at least one |
 | `volume_quadrature` | `12` | Triangle quadrature: 4, 7, 12 or 13 points |
-| `physical_volume_quadrature` | `nothing` | Inherit triangle rule; explicit 3, 4, 7, 12 or 13 points |
+| `physical_volume_quadrature` | `3` | Three points integrate first-order field products exactly for piecewise-constant materials; `nothing` inherits the triangle rule |
 | `pml_element_family` | `:quadrangle` | Quadrangles or triangles in the same PML grid |
 | `pml_quadrature` | `4` | Quadrangle quadrature: 4, 9, 16 or 25 points |
 | `conductor_geometry_tolerance` | `1e-3` | Relative circular area error |
@@ -461,9 +479,14 @@ plot("e_f0001_b0001.pos"; component=2, part=:real)
 
 `frequency_index` follows the result's frequency order, starting at one.
 Pass a saved run directory, its `mesh` directory, or a mesh-file path within
-that directory. The importer resolves the saved filename, including the final
-frequency stored as `model.msh`. Omitting the index reads the specified file;
-for a directory input, it reads the highest-frequency mesh. Direct standalone
+that directory. Every frequency has a `frequency_XXXX.msh` file and matching
+JSON sidecar; existing retained filenames are resolved from their metadata.
+Omitting the index reads the specified file; for a run directory, it reads the
+last frequency in the saved order. `mesh.provenance` retains the run directory,
+frequency index, frequency [Hz], terminal identifiers, evaluated earth inputs
+and prescribed Γ. Older sidecars without earth inputs or Γ report those values
+as `nothing`. The mesh plot and preview show the run name, index and Hz in their
+overview. Direct standalone
 `.msh` import remains available without run metadata:
 
 ```julia
@@ -580,3 +603,10 @@ FEM.FEMElementBlock
 FEM.FEMFieldMap
 FEM.FEMFieldBlock
 ```
+
+The detached ONELAB export enables automatic checks. Changing the selected
+frequency or a geometry/mesh input rebuilds the geometry and generates and saves
+the selected mesh without a field solve. `Mesh/Current mesh` publishes the case
+index and frequency [Hz] only after mesh generation and saving succeed; its
+status is `No mesh` during input checking or after a failed rebuild. Run uses the
+same native geometry and mesh prescription before solving.

@@ -54,22 +54,22 @@ function _pml_observation(path, frequency_index, frequency)
     rows = readlines(path)
     length(rows) == 1 || return nothing
     values = tryparse.(Float64, split(only(rows), '\t'))
-    length(values) == 23 && all(v -> v !== nothing && isfinite(v), values) || return nothing
+    length(values) == 24 && all(v -> v !== nothing && isfinite(v), values) || return nothing
     values[1] == frequency_index && isapprox(values[2], frequency; rtol=16eps(Float64), atol=0) || return nothing
-    values[3] > 0 && all(v -> v in (0,1), values[[4,5,6,7,12,13,20,21,23]]) || return nothing
-    all(v -> 1 <= v <= typemax(Int) && isinteger(v), values[14:16]) || return nothing
-    all(v -> 0 <= v <= 1, values[17:19]) && values[22] >= 0 || return nothing
+    values[3] > 0 && all(v -> v in (0,1), values[[4,5,6,7,12,19,21,22,23,24]]) || return nothing
+    all(v -> 1 <= v <= typemax(Int) && isinteger(v), values[13:15]) || return nothing
+    all(v -> 0 <= v <= 1, values[16:18]) && values[20] >= 0 || return nothing
     return (frequency_index=frequency_index, frequency_hz=values[2],
         target_exponent=values[3], sizing_floor_flags=(Bool(values[4]),Bool(values[5])),
         cutoff_flags=(Bool(values[6]),Bool(values[7])),
         net_side_exponents=(values[8],values[9]), net_top_exponent=values[10],
-        net_bottom_exponent=values[11], attenuation_below_target=Bool(values[12]),
-        sizing_floor_active=Bool(values[13]), g_not_qualified=Bool(values[20]),
-        earth_sizing_ceiling_active=Bool(values[21]),
-        earth_layer_thickness_m=values[22],
-        earth_layer_clipped_or_omitted=Bool(values[23]),
-        pml_eta=(values[17],values[18],values[19]),
-        effective_pml_layers=(Int(values[14]),Int(values[15]),Int(values[16])))
+        net_bottom_exponent=values[11], sizing_floor_active=Bool(values[12]),
+        earth_sizing_ceiling_active=Bool(values[19]),
+        earth_layer_thickness_m=values[20],
+        earth_layer_clipped_or_omitted=Bool(values[21]),
+        pml_eta=(values[16],values[17],values[18]),
+        effective_pml_layers=(Int(values[13]),Int(values[14]),Int(values[15])),
+        quasi_static_cap_flags=(Bool(values[22]),Bool(values[23]),Bool(values[24])))
 end
 
 function _valid_column_marker(path, frequency_index, frequency, basis, terminals, maps)

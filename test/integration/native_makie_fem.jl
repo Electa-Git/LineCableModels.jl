@@ -167,7 +167,7 @@ end
     # Lower-dimensional mesh files use the same native metadata/color contract.
     Engine = LineCableModels.Engine
     lines = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates,
-        filter(b -> b.dimension==1, mesh.blocks), mesh.physical_names)
+        filter(b -> b.dimension==1, mesh.blocks), mesh.physical_names, mesh.provenance)
     lineplot = LineCableModels.plot(lines; color_by=:physical, inspect=:element, settings...)
     lineview = lineplot.addon_state.mesh_inspection.view
     @test lineview.categories[].labels == ["1-D #8: bottom boundary"]
@@ -176,7 +176,7 @@ end
     Makie.colorbuffer(lineplot.figure)
     points = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates,
         [Base.get_extension(LineCableModels,:LineCableModelsGmshExt).FEMElementBlock(15,0,0,1,71,[8],UInt64[808],reshape([1],1,1))],
-        Dict((0,8)=>"terminal point"))
+        Dict((0,8)=>"terminal point"), mesh.provenance)
     pointplot = LineCableModels.plot(points; color_by=:physical, inspect=:element, settings...)
     pointview = pointplot.addon_state.mesh_inspection.view
     ext._fem_mesh_select!(pointview, (:element,1))
@@ -186,7 +186,7 @@ end
 
     blocks = [Base.get_extension(LineCableModels,:LineCableModelsGmshExt).FEMElementBlock(2,2,1,3,i,[i],UInt64[10000+i],reshape([1,2,3],3,1)) for i in 1:25]
     names = Dict((2,i)=>repeat("long name $i ",12) for i in 1:25)
-    many = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates, blocks, names)
+    many = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates, blocks, names, mesh.provenance)
     paged = LineCableModels.plot(many; color_by=:physical, settings...)
     pv = paged.addon_state.mesh_inspection.view
     sidebar = paged.addon_state.mesh_inspection.sidebar
@@ -237,5 +237,29 @@ end
                 end
             end
         end
+    end
+end
+
+@testitem "Makie FEM / saved mesh frequency remains visible in plot and preview" tags=[:visual] begin
+    using CairoMakie, Gmsh
+    E=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    mesh=import_data(:msh,joinpath(pkgdir(LineCableModels),"test/fixtures/data/fem/sparse.msh"))
+    provenance=(run_directory="/retained/run-example",frequency_index=3,frequency_hz=1000.,
+        terminal_ids=["core"],earth_inputs=(rho=100.,eps_r=1.,mu_r=1.),gamma=0im)
+    saved=E.FEMMesh(mesh.source,mesh.node_tags,mesh.coordinates,mesh.blocks,mesh.physical_names,provenance)
+    copper=Material(kind=:conductor,rho=1.72e-8)
+    design=build(CableDesign,"wire",terminal(:core,Region(:metal,Disk(.01),copper)))
+    system=build(LineCableSystem,[design],[Pose2(0.,1.)];connections=[Dict(:core=>1)])
+    settings=(backend=:cairo,display_plot=false,open_export=false)
+    for p in (LineCableModels.plot(saved;settings...),preview(system;mesh=saved,settings...))
+        view=p.addon_state.mesh_inspection.view
+        for text in (view.details[],p.axes[1].title[])
+            @test occursin("run-example",text)
+            @test occursin("frequency 3",text)
+            @test occursin("1000.0 Hz",text)
+        end
+        Base.get_extension(LineCableModels,:LineCableModelsGmshMakieExt)._fem_mesh_select!(view,(:node,1))
+        @test occursin("1000.0 Hz",p.axes[1].title[])
+        Makie.colorbuffer(p.figure)
     end
 end

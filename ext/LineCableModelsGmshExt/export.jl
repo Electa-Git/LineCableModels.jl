@@ -170,6 +170,11 @@ function _write_export_bundle(root, stem, model, formulation, controls)
         end
     end
     write(joinpath(root,stem*".geo"), """
+    // Invalidate the displayed mesh identity before parsing any case inputs.
+    MeshPublished = DefineString["No mesh", Name "Mesh/Current mesh/00Status", ReadOnly 1];
+    MeshPublishedCase = DefineNumber[0, Name "Mesh/Current mesh/01Case index", ReadOnly 1];
+    MeshPublishedFrequency = DefineNumber[0, Name "Mesh/Current mesh/02Frequency [Hz]", ReadOnly 1];
+    Solver.AutoCheck = 1;
     Include "$(stem)_data.pro";
     Include "formulations/parameters.pro";
     Include "geometry/physical.geo";
@@ -179,11 +184,14 @@ function _write_export_bundle(root, stem, model, formulation, controls)
     If(!StrCmp(OnelabAction, "check") || !StrCmp(OnelabAction, "compute"))
       Include "views.geo";
     EndIf
-    // ONELAB Run and explicit CLI BuildMesh use the same native mesh operations.
+    // ONELAB Check/Run and explicit CLI BuildMesh use the same native mesh operations.
     Solver.AutoMesh = -1;
-    If(!StrCmp(OnelabAction, "compute") || Exists(BuildMesh))
+    If(!StrCmp(OnelabAction, "check") || !StrCmp(OnelabAction, "compute") || Exists(BuildMesh))
       Mesh 2;
       Save StrCat(CurrentDirectory, "$(stem).msh");
+      MeshPublishedCase = DefineNumber[FrequencyIndex, Name "Mesh/Current mesh/01Case index", ReadOnly 1];
+      MeshPublishedFrequency = DefineNumber[FrequencyHz, Name "Mesh/Current mesh/02Frequency [Hz]", ReadOnly 1];
+      MeshPublished = DefineString["Generated", Name "Mesh/Current mesh/00Status", ReadOnly 1];
     EndIf
     """)
     write(joinpath(root,stem*".pro"), """

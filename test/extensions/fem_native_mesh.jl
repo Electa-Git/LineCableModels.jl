@@ -74,7 +74,7 @@ end
                     q=complex(a["a_"*m],a["b_"*m]);E=real(q*X)
                     a["ppw_"*m]*abs(q)*abs(X)*(E>0 ? min(1,a["target"]/E) : 1)
                 end
-                @test a[d*"_N"]==max(48,ceil(maximum(phases)/(2pi)))
+                @test a[d*"_N"]==max(16,ceil(maximum(phases)/(2pi)))
             end
         end
     end

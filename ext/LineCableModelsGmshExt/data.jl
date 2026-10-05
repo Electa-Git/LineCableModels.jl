@@ -46,6 +46,8 @@ struct FEMMesh
     blocks::Vector{FEMElementBlock}
     "Physical names keyed by (dimension, physical tag)."
     physical_names::Dict{Tuple{Int, Int}, String}
+    "Passive saved-run case metadata, or `nothing` for a standalone mesh."
+    provenance::Union{Nothing,NamedTuple}
 end
 
 """

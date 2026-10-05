@@ -27,7 +27,7 @@
     model = extension._resolved_fem_model(problem, formulation)
     inputs = extension._fem_input_record(model, formulation, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)))
     @test inputs.schema_version == 10
-    @test inputs.execution.pml_layers == (48,48,48)
+    @test inputs.execution.pml_layers == (16,16,16)
     @test inputs.execution.pml_grading == ntuple(_ -> log(20),3)
     @test inputs.getdp_selection.source === :explicit
     @test inputs.getdp_selection.artifact_hash === nothing
@@ -127,7 +127,7 @@
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
         @test extension._resume_inputs_match(run.path, model, other_inputs)
         tuple_controls = computation_options(LineCableModelsFEM,ComputationOptions(;
-            formulation_controls...,pml_layers=(48,48,48),
+            formulation_controls...,pml_layers=(16,16,16),
             pml_grading=ntuple(_ -> log(20),3)))
         tuple_model = extension._resolved_fem_model(problem,formulation)
         tuple_inputs = extension._fem_input_record(tuple_model,formulation,tuple_controls)

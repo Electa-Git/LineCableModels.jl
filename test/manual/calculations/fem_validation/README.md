@@ -35,7 +35,8 @@ above `max_dofs`. For independent processes sharing an output directory,
 `case_indices` selects one-based entries from the full case list and `record_file`
 names each process's result ledger; keep the selections disjoint. `list_only` emits the requested cases without references, meshes
 or solves. Saved results are reused only when the exported numerical inputs
-and native sources match. Use a fresh output directory after source changes.
+and native sources, comparison formulas and budget calculations match. Use a
+fresh output directory after source changes.
 
 Each case keeps its exported bundle, mesh and native logs, reference CSV, derived
 native mesh values, qualification flags and result JSON. Errors include signed
@@ -47,9 +48,28 @@ For homogeneous earth, only the scratch bundle's native air conductivity,
 permittivity and permeability are changed to match the earth. Native source
 files remain unchanged. Homogeneous-air checks use the public lossless-earth
 input. The overhead closed form uses the interface voltage reference and the
-buried closed form the reference at infinity. The tool reports only admittance for the overhead closed form.
+buried closed form the reference at infinity. The overhead impedance reference uses the voltage-reference correction
+`Gamma^2 * (1/Y_h - 1/Y_deep)` from the native impedance chain.
 
 The analytical comparison uses a mean-field, single-line-source receiver and
 is within its declared scope for `abs(kappa_m*r_p)` about or below 0.1.
 Thick receivers near an interface, non-passive prescribed propagation, exact
 cutoff and incoming-sheet references require separate interpretation.
+
+
+Engineering error budgets use `e_Z = max(abs(Z-Z_ref))/max(abs(diag(Z_ref)))`
+and the corresponding `e_Y`. For conductance entries at least 0.001 times the
+largest reference admittance diagonal, the conductance gate is a 5% relative
+error; smaller entries remain reported without a gate. Sign canaries use a
+0.000001 diagonal-scale threshold. All-entry sign agreement is also retained.
+A reciprocity excess above the reference of 0.3 percentage points is a canary.
+Nonzero prescribed propagation with `imag(Gamma) < k0`, where
+`k0 = 2*pi*f*sqrt(mu_air*epsilon_air)`, is a fast-wave robustness check,
+reported without an accuracy gate. Zero prescribed propagation remains in scope.
+Receiver transverse sizes above 0.1 and exact transverse cutoff are reported
+outside the reference scope, rather than used for acceptance. Budget fields
+are measurements; selecting a candidate remains a separate comparison against
+the production baseline. The homogeneous checks include both impedance and admittance references, using
+the exported conductor material values for the internal impedance.
+
+Native observations retain attenuation exponents, directional absorption, interval counts, extent-cap and cutoff flags, and earth sizing/layer values. Exact transverse cutoff warns that the transverse problem is singular. Only the earth-resistive sizing ceiling marks results unqualified; below-target PML attenuation does not emit a qualification warning.

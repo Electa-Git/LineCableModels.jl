@@ -10,6 +10,7 @@
         mesh = import_data(:msh, mesh_path)
         @test !Bool(gmsh.is_initialized())
         @test mesh isa Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh
+        @test mesh.provenance === nothing
         @test mesh.node_tags == [7, 23, 64, 105]
         @test mesh.coordinates == [0 1 0 1; 0 0 1 1; 0 0 0 0]
         block = only(mesh.blocks)
@@ -93,5 +94,46 @@
             Gmsh.finalize()
         end
         @test only(scalar.blocks).values[1, 1, 1, 1] == 1
+    end
+end
+
+@testitem "FEM files / saved meshes retain per-frequency provenance" tags=[:extension] setup=[NativeFEMFixtures] begin
+    using Gmsh, JSON3
+    N=NativeFEMFixtures;E=N.FEM
+    base=N.problem(;frequency=50.,rho=100.,eps_r=12.)
+    problem=LineParametersProblem(base.system;temperature=20.,frequencies=[50.,1e6],earth_props=base.earth_props)
+    gamma=[.01+.02im,.03+.04im]
+    form=Formulation(:LineCableModelsFEM;options=(Γ=gamma,
+        reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
+    model=E._resolved_fem_model(problem,form)
+    options=E.computation_options(E.LineCableModelsFEM,ComputationOptions())
+    fixture=joinpath(pkgdir(LineCableModels),"test/fixtures/data/fem/sparse.msh")
+    mktempdir() do run
+        directory=joinpath(run,"mesh");mkpath(directory)
+        for index in 1:2
+            stem="frequency_$(lpad(index,4,'0'))"
+            cp(fixture,joinpath(directory,stem*".msh"))
+            record=E._mesh_metadata(model,"fixture","fixture",:generated,options,index,Dict())
+            JSON3.write(joinpath(directory,stem*".json"),record)
+        end
+        for index in 1:2
+            mesh=import_data(:msh,run;frequency_index=index)
+            p=mesh.provenance
+            @test p.run_directory==run
+            @test p.frequency_index==index
+            @test p.frequency_hz==problem.frequencies[index]
+            @test p.terminal_ids==model.terminal_ids
+            @test p.earth_inputs==Dict("rho"=>100.,"eps_r"=>12.,"mu_r"=>1.)
+            @test p.gamma==gamma[index]
+            @test basename(mesh.source)=="frequency_$(lpad(index,4,'0')).msh"
+        end
+        @test import_data(:msh,run).provenance.frequency_index==2
+        @test import_data(:msh,directory).provenance.frequency_hz==1e6
+        @test_throws ArgumentError import_data(:msh,run;frequency_index=3)
+        # Existing retained filenames are selected by metadata, not guessed.
+        mv(joinpath(directory,"frequency_0002.json"),joinpath(directory,"model.json"))
+        mv(joinpath(directory,"frequency_0002.msh"),joinpath(directory,"model.msh"))
+        @test basename(import_data(:msh,run;frequency_index=2).source)=="model.msh"
+        @test import_data(:msh,run).provenance.gamma==gamma[2]
     end
 end

@@ -21,7 +21,7 @@ function _fem_coordinate_scale(value)
     return Float64(value)
 end
 
-function _read_fem_mesh(path, coordinate_scale)
+function _read_fem_mesh(path, coordinate_scale, provenance=nothing)
     tags, xyz, _ = gmsh.model.mesh.get_nodes()
     isempty(tags) && throw(ArgumentError("mesh contains no nodes: $path"))
     allunique(tags) || throw(ArgumentError("mesh contains duplicate node tags: $path"))
@@ -48,14 +48,17 @@ function _read_fem_mesh(path, coordinate_scale)
     coordinates = reshape(xyz .* coordinate_scale, 3, :)
     all(isfinite, coordinates) ||
         throw(ArgumentError("scaled mesh coordinates must be finite"))
-    return FEMMesh(path, UInt64.(tags), coordinates, blocks, names)
+    return FEMMesh(path, UInt64.(tags), coordinates, blocks, names, provenance)
 end
 
 """
 $(TYPEDSIGNATURES)
 
 Read a native Gmsh mesh into a detached `FEMMesh`. Retain all element blocks,
-node tags, coordinates, and physical groups. Load Gmsh before calling this method.
+node tags, coordinates, and physical groups. Saved-run imports also retain
+passive provenance: run directory, frequency index and frequency \\[Hz\\],
+terminal identifiers, evaluated earth inputs and prescribed Γ \\[1/m\\].
+Older sidecars without earth inputs or Γ retain `nothing` for those values. Load Gmsh before calling this method.
 
 # Arguments
 
@@ -65,9 +68,10 @@ node tags, coordinates, and physical groups. Load Gmsh before calling this metho
 
 - `frequency_index=nothing`: Select a one-based frequency index from a saved
   FEM run. A file path locates that file's mesh directory. Selection uses the
-  runner's `model.json` metadata and requires a retained mesh for the index.
-  With `nothing`, read the supplied file, or `model.msh` for a directory input.
-  In a saved run, `model.msh` corresponds to the last (highest) frequency.
+  run's per-frequency sidecars and requires a retained mesh for the index.
+  Every saved frequency uses `frequency_XXXX.msh`. With `nothing`, read the
+  supplied file, or the last saved frequency for a directory input.
+  Existing retained filenames are resolved by their sidecars.
 - `coordinate_scale=1`: Convert file lengths to meters. Use `1e-3` for
   millimeter coordinates; LineCableModels files already use meters.
 
@@ -98,29 +102,50 @@ function ImportExport.import_data(::Val{:msh}, path::AbstractString;
         (frequency_index isa Integer && !(frequency_index isa Bool) && frequency_index > 0) ||
         throw(ArgumentError("frequency_index must be a positive one-based integer or nothing"))
     filename = abspath(path)
-    if isdir(filename)
-        directory = isdir(joinpath(filename, "mesh")) ? joinpath(filename, "mesh") : filename
-        filename = joinpath(directory, "model.msh")
+    directory_input = isdir(filename)
+    directory = directory_input ?
+        (isdir(joinpath(filename, "mesh")) ? joinpath(filename, "mesh") : filename) : dirname(filename)
+    provenance = nothing
+    records = Pair{String,Any}[]
+    if isdir(directory) && (directory_input || frequency_index !== nothing || basename(directory) == "mesh")
+        for name in readdir(directory)
+            occursin(r"^(frequency_[0-9]+|model)\.json$", name) || continue
+            record = JSON3.read(read(joinpath(directory,name),String))
+            get(record,:schema,nothing) == "LineCableModels.FEMMesh" || continue
+            index = get(record,:frequency_index,nothing)
+            index isa Integer && !(index isa Bool) && index > 0 || throw(ArgumentError(
+                "invalid saved FEM mesh frequency index in $(joinpath(directory,name))"))
+            push!(records, replace(name,r"\.json$"=>".msh") => record)
+        end
     end
-    if frequency_index !== nothing
-        directory = dirname(filename)
-        metadata_path = joinpath(directory, "model.json")
-        isfile(metadata_path) || throw(ArgumentError(
-            "frequency_index requires saved FEM mesh metadata: $metadata_path"))
-        metadata = JSON3.read(read(metadata_path, String))
-        reference_index = metadata isa AbstractDict &&
-            get(metadata, :schema, nothing) == "LineCableModels.FEMMesh" ?
-            get(metadata, :frequency_index, nothing) : nothing
-        reference_index isa Integer && !(reference_index isa Bool) && reference_index > 0 ||
-            throw(ArgumentError("invalid saved FEM mesh frequency index in $metadata_path"))
-        frequency_index <= reference_index || throw(ArgumentError(
-            "frequency_index must be in 1:$reference_index for this saved FEM run"))
-        stem = frequency_index == reference_index ? "model" :
-            "frequency_$(lpad(string(frequency_index), 4, '0'))"
-        filename = joinpath(directory, "$stem.msh")
+    if frequency_index !== nothing && isempty(records)
+        throw(ArgumentError("frequency_index requires saved FEM mesh metadata: $directory"))
     end
+    if !isempty(records)
+        selected = frequency_index === nothing ?
+            (directory_input ? maximum(r.second.frequency_index for r in records) : nothing) : frequency_index
+        matches = selected === nothing ? filter(r->r.first==basename(filename),records) :
+            filter(r->r.second.frequency_index==selected,records)
+        length(matches) <= 1 || throw(ArgumentError("ambiguous saved FEM mesh frequency in $directory"))
+        if selected !== nothing && isempty(matches)
+            throw(ArgumentError("no retained FEM mesh for frequency_index=$selected in $directory"))
+        end
+        if !isempty(matches)
+            name,record = only(matches)
+            filename = joinpath(directory,name)
+            frequency_hz = get(record,:frequency_hz,nothing)
+            frequency_hz isa Real && !(frequency_hz isa Bool) && isfinite(frequency_hz) && frequency_hz > 0 ||
+                throw(ArgumentError("invalid saved FEM mesh frequency in $filename"))
+            provenance = (run_directory=basename(directory)=="mesh" ? dirname(directory) : directory,
+                frequency_index=Int(record.frequency_index), frequency_hz=Float64(frequency_hz),
+                terminal_ids=String.(get(record,:terminal_ids,String[])),
+                earth_inputs=ImportExport.deserialize_value(get(record,:earth_inputs,nothing)),
+                gamma=ImportExport.deserialize_value(get(record,:gamma,nothing)))
+        end
+    end
+    directory_input && provenance === nothing && (filename=joinpath(directory,"model.msh"))
     return _read_fem_file(filename) do selected, _
-        _read_fem_mesh(selected, scale)
+        _read_fem_mesh(selected, scale, provenance)
     end
 end
 

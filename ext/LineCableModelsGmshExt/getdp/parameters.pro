@@ -115,12 +115,47 @@ For direction In {0:2}
     If(direction == 0 || (direction == 1 && medium == 0) || (direction == 2 && medium == 1))
       FEMPmlRate~{direction}~{medium} = (FEMRootA~{medium}+FEMPmlEtas(direction)*FEMRootB~{medium})/FEMCalibration~{medium};
       FEMPmlSizingRate~{direction}~{medium} = Max[FEMPmlRate~{direction}~{medium},PmlSizingFloor*FEMBaseB~{medium}];
+    EndIf
+  EndFor
+EndFor
+FEMPmlTarget = -Log[PmlReflection]/2;
+
+// Quasi-static engineering extent cap. The specified rate floor caps added stretch;
+// the original geometrical layer thickness remains part of its full length.
+FEMCapFactor = 100;
+FEMCapRate = FEMPmlTarget/(FEMCapFactor*DomainHalfwidth);
+FEMCapQuasistatic = FEMBaseMagnitude~{0}*FEMCapFactor*DomainHalfwidth <= .1;
+FEMCapActive() = {0,0,0};
+FEMCapThicknesses() = {PmlSideThickness,PmlTopThickness,PmlBottomThickness};
+For direction In {0:2}
+  FEMCapOldRate = 1e300;
+  For medium In {0:1}
+    If(direction == 0 || (direction == 1 && medium == 0) || (direction == 2 && medium == 1))
+      FEMCapOldRate = Min[FEMCapOldRate,FEMPmlSizingRate~{direction}~{medium}];
+    EndIf
+  EndFor
+  FEMCapActive(direction) = FEMCapQuasistatic && FEMCapOldRate < FEMCapRate;
+  If(FEMCapActive(direction))
+    FEMPmlEtas(direction) = 0;
+    For medium In {0:1}
+      If(direction == 0 || (direction == 1 && medium == 0) || (direction == 2 && medium == 1))
+        FEMPmlRate~{direction}~{medium} = FEMRootA~{medium}/FEMCalibration~{medium};
+        FEMPmlSizingRate~{direction}~{medium} = Max[FEMCapRate,Max[FEMPmlRate~{direction}~{medium},PmlSizingFloor*FEMBaseB~{medium}]];
+      EndIf
+    EndFor
+  EndIf
+EndFor
+PmlSideEta = FEMPmlEtas(0); PmlTopEta = FEMPmlEtas(1); PmlBottomEta = FEMPmlEtas(2);
+For direction In {0:2}
+  For medium In {0:1}
+    If(direction == 0 || (direction == 1 && medium == 0) || (direction == 2 && medium == 1))
       FEMPmlFloorActive~{direction}~{medium} = FEMPmlRate~{direction}~{medium} < (1 - 1e-9)*PmlSizingFloor*FEMBaseB~{medium};
       FEMPmlFloorActive~{medium} = FEMPmlFloorActive~{medium} || FEMPmlFloorActive~{direction}~{medium};
     EndIf
   EndFor
 EndFor
-FEMPmlTarget = -Log[PmlReflection]/2;
+
+
 PmlSideStrength = 4*FEMPmlTarget/(PmlSideThickness*Min[FEMPmlSizingRate~{0}~{0},FEMPmlSizingRate~{0}~{1}]);
 PmlTopStrength = 4*FEMPmlTarget/(PmlTopThickness*FEMPmlSizingRate~{1}~{0});
 PmlBottomStrength = 4*FEMPmlTarget/(PmlBottomThickness*FEMPmlSizingRate~{2}~{1});
@@ -133,9 +168,7 @@ FEMPmlTopAttenuation = PmlTopThickness*PmlTopStrength*(FEMRootA~{0}+PmlTopEta*FE
 FEMPmlBottomAttenuation = PmlBottomThickness*PmlBottomStrength*(FEMRootA~{1}+PmlBottomEta*FEMRootB~{1})/4;
 FEMPmlTopNetAttenuation = (DomainHalfwidth+PmlTopThickness)*FEMRootA~{0}+FEMPmlTopAttenuation;
 FEMPmlBottomNetAttenuation = (DomainHalfwidth+PmlBottomThickness)*FEMRootA~{1}+FEMPmlBottomAttenuation;
-FEMPmlBelowTarget = FEMPmlSideNetAttenuation~{0} < (1 - 1e-9)*FEMPmlTarget || FEMPmlSideNetAttenuation~{1} < (1 - 1e-9)*FEMPmlTarget || FEMPmlTopNetAttenuation < (1 - 1e-9)*FEMPmlTarget || FEMPmlBottomNetAttenuation < (1 - 1e-9)*FEMPmlTarget;
 FEMPmlFloorUsed = FEMPmlFloorActive~{0} || FEMPmlFloorActive~{1};
-FEMPmlGNotQualified = FEMPmlBelowTarget || FEMCutoff~{0} || FEMCutoff~{1} || FEMEarthSizingCeilingActive;
 
 // Resolve the stretched layer until its field has decayed by the target T.
 // Native calibrated medium weighting. prescribed interval floors are unchanged.
@@ -275,8 +308,6 @@ FEMBoundaryValue = DefineNumber[FEMPmlTopNetAttenuation, Name "Boundary/Derived/
 SetNumber["Boundary/Derived/12Net top normal exponent",FEMPmlTopNetAttenuation];
 FEMBoundaryValue = DefineNumber[FEMPmlBottomNetAttenuation, Name "Boundary/Derived/13Net bottom normal exponent", ReadOnly 1];
 SetNumber["Boundary/Derived/13Net bottom normal exponent",FEMPmlBottomNetAttenuation];
-FEMBoundaryValue = DefineNumber[FEMPmlGNotQualified, Name "Boundary/Derived/14G not qualified", ReadOnly 1];
-SetNumber["Boundary/Derived/14G not qualified",FEMPmlGNotQualified];
 FEMBoundaryValue = DefineNumber[FEMPmlSideLayers, Name "Boundary/Derived/15Effective side intervals", ReadOnly 1];
 SetNumber["Boundary/Derived/15Effective side intervals",FEMPmlSideLayers];
 FEMBoundaryValue = DefineNumber[FEMPmlTopLayers, Name "Boundary/Derived/16Effective top intervals", ReadOnly 1];
@@ -307,14 +338,14 @@ EndFor
 // Exact q=0 is allowed to solve. Its zero exponent is below target and G is
 // explicitly unqualified. floor activation alone is informational.
 For medium In {0:1}
-  If(FEMPmlSideNetAttenuation~{medium} <= 0 && !FEMCutoff~{medium})
+  If(FEMPmlSideNetAttenuation~{medium} <= 0 && !FEMCutoff~{medium} && !(FEMCapActive(0) && FEMPmlSideNetAttenuation~{medium} == 0))
     Error(Sprintf["PML failure: medium %g net side exponent %.17g is non-positive (f=%.17g, Gamma=%.17g+j*%.17g)",medium,FEMPmlSideNetAttenuation~{medium},FrequencyHz,GammaRe,GammaIm]);
   EndIf
 EndFor
-If(FEMPmlTopNetAttenuation <= 0 && !FEMCutoff~{0})
+If(FEMPmlTopNetAttenuation <= 0 && !FEMCutoff~{0} && !(FEMCapActive(1) && FEMPmlTopNetAttenuation == 0))
   Error(Sprintf["PML failure: air net top exponent %.17g is non-positive (f=%.17g, Gamma=%.17g+j*%.17g)",FEMPmlTopNetAttenuation,FrequencyHz,GammaRe,GammaIm]);
 EndIf
-If(FEMPmlBottomNetAttenuation <= 0 && !FEMCutoff~{1})
+If(FEMPmlBottomNetAttenuation <= 0 && !FEMCutoff~{1} && !(FEMCapActive(2) && FEMPmlBottomNetAttenuation == 0))
   Error(Sprintf["PML failure: earth net bottom exponent %.17g is non-positive (f=%.17g, Gamma=%.17g+j*%.17g)",FEMPmlBottomNetAttenuation,FrequencyHz,GammaRe,GammaIm]);
 EndIf
 
@@ -329,3 +360,13 @@ FEMBoundaryValue = DefineNumber[FEMEarthLayerThickness, Name "Mesh/Derived/01Ear
 SetNumber["Mesh/Derived/01Earth interface layer thickness [m]",FEMEarthLayerThickness];
 FEMBoundaryValue = DefineNumber[FEMEarthLayerClippedOrOmitted, Name "Mesh/Derived/02Earth layer clipped or omitted", ReadOnly 1];
 SetNumber["Mesh/Derived/02Earth layer clipped or omitted",FEMEarthLayerClippedOrOmitted];
+
+
+FEMBoundaryValue = DefineNumber[FEMCapActive(0), Name "Boundary/Derived/24Side quasi-static extent cap active", ReadOnly 1];
+SetNumber["Boundary/Derived/24Side quasi-static extent cap active",FEMCapActive(0)];
+
+FEMBoundaryValue = DefineNumber[FEMCapActive(1), Name "Boundary/Derived/25Top quasi-static extent cap active", ReadOnly 1];
+SetNumber["Boundary/Derived/25Top quasi-static extent cap active",FEMCapActive(1)];
+
+FEMBoundaryValue = DefineNumber[FEMCapActive(2), Name "Boundary/Derived/26Bottom quasi-static extent cap active", ReadOnly 1];
+SetNumber["Boundary/Derived/26Bottom quasi-static extent cap active",FEMCapActive(2)];

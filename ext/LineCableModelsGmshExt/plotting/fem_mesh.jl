@@ -45,6 +45,12 @@ function _fem_mesh_memberships(mesh, dimension, tags)
     end for tag in sort(tags)], "; ")
 end
 
+function _fem_mesh_label(mesh)
+    mesh.provenance === nothing && return basename(mesh.source)
+    record = mesh.provenance
+    return "$(basename(record.run_directory)) — frequency $(record.frequency_index): $(record.frequency_hz) Hz"
+end
+
 function _fem_mesh_overview(mesh)
     counts = Dict{Tuple{Int, Int}, Int}()
     for block in mesh.blocks
@@ -53,7 +59,9 @@ function _fem_mesh_overview(mesh)
     end
     groups = Set((b.dimension, tag) for b in mesh.blocks for tag in b.physical_tags)
     rows = ["$d-D, type $t: $(counts[(d,t)])" for (d,t) in sort!(collect(keys(counts)))]
-    return join([basename(mesh.source), "Nodes: $(length(mesh.node_tags))", rows...,
+    identity = _fem_mesh_label(mesh)
+    mesh.provenance === nothing || (identity *= "\n" * basename(mesh.source))
+    return join([identity, "Nodes: $(length(mesh.node_tags))", rows...,
         "Physical groups: $(length(groups))", "Click an element or node to inspect it.",
         "Mesh x/y = displayed y/z [m]."], '\n')
 end
@@ -251,6 +259,10 @@ function _spatial_layer!(axis, mesh::FEMMesh;
         color_by=:uniform, inspect=:none, depth=0)
     inspect in (:none, :element, :node) || throw(ArgumentError("inspect must be :none, :element, or :node"))
     _fem_mesh_categories(mesh, color_by)
+    if mesh.provenance !== nothing
+        title = axis.title[]
+        axis.title[] = isempty(title) ? _fem_mesh_label(mesh) : title * "\n" * _fem_mesh_label(mesh)
+    end
     drawing = _fem_mesh_drawing(mesh)
     segments = [_fem_mesh_point(mesh, n) for edge in drawing.edges for n in edge]
     wire_color = maximum(b.dimension for b in mesh.blocks) < 2 ?

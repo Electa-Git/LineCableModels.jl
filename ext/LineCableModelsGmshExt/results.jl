@@ -423,13 +423,13 @@ function _line_parameters(
             "missing or invalid native PML observations at frequency index $index";run_directory=run.path)
         observation
     end
-    affected = filter(observation -> observation.g_not_qualified, pml_observations)
-    if !isempty(affected)
-        message = any(observation -> observation.earth_sizing_ceiling_active, affected) ?
-            "earth too resistive for FEM domain sizing; results not qualified" :
-            any(observation -> observation.attenuation_below_target, affected) ?
-            "PML attenuation below target; G not qualified" : "PML exact cutoff; G not qualified"
-        @warn message frequency_indices=[observation.frequency_index for observation in affected] pml_observations=affected
+    ceiling = filter(observation -> observation.earth_sizing_ceiling_active, pml_observations)
+    if !isempty(ceiling)
+        @warn "earth too resistive for FEM domain sizing; results not qualified" frequency_indices=[observation.frequency_index for observation in ceiling] pml_observations=ceiling
+    end
+    cutoff = filter(observation -> any(observation.cutoff_flags), pml_observations)
+    if !isempty(cutoff)
+        @warn "exact transverse cutoff; the transverse problem is singular" frequency_indices=[observation.frequency_index for observation in cutoff] pml_observations=cutoff
     end
     record = (
         state=completed,
@@ -473,7 +473,7 @@ function _line_parameters(
         condition_numbers = inversion.condition_numbers,
         pml_observations,
         measurement_line_max_size_ratios = map(eachindex(model.problem.frequencies)) do index
-            stem = index == length(model.problem.frequencies) ? "model" : @sprintf("frequency_%04d",index)
+            stem = @sprintf("frequency_%04d",index)
             mesh_record = JSON3.read(read(joinpath(run.path,"mesh",stem*".json"),String))
             Float64.(mesh_record.measurement_line_max_size_ratios)
         end,
