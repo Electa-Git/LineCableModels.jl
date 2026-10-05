@@ -27,7 +27,7 @@
     const RESERVED_VERB = r"^_*(validate|check|require|assert|verify|ensure)_"
     # Tables of the structural guards (A) and of the Commons and helper guards (C).
     const A_TABLES = ("ownership", "placement", "direction", "names", "shadowing",
-        "validate", "reserved_verbs", "switches")
+        "validate", "reserved_verbs", "switches", "storage")
     const C_TABLES = ("commons", "vocabulary", "fingerprints", "clones", "helpers", "root")
     const TABLES = (A_TABLES..., C_TABLES...)
     const SWITCHES = ("applicable", "eval", "kind")
@@ -567,6 +567,121 @@
         return found
     end
 
+    const WORKSPACE_FIELDS = (:input, :plan, :buffers)
+    const STORAGE_NAMES = (:work, :scratch, :storage, :cache)
+    const STORAGE_TYPE = r"(Buffer|Storage|Scratch|Cache)$"
+    const STORAGE_FUNCTION = r"_(workspace|storage|buffers)!?$"
+
+    # The name of a struct, abstract or primitive type definition.
+    function declared_name(node)
+        head = node[1]
+        while kind(head) in (K"<:", K"curly") && numchildren(head) > 0
+            head = head[1]
+        end
+        return kind(head) == K"Identifier" ? head.val : nothing
+    end
+
+    # The names that a parameter, an assignment target or a loop variable binds.
+    function bound_names(node)
+        k = kind(node)
+        k == K"Identifier" && return [node.val]
+        (k == K"::" && numchildren(node) == 2 || k in (K"=", K"...")) &&
+            return bound_names(node[1])
+        k in (K"tuple", K"parameters") &&
+            return reduce(vcat, map(bound_names, children(node)); init = Symbol[])
+        return Symbol[]
+    end
+
+    # The field that one entry of a struct body declares, or nothing.
+    function field_name(node)
+        k = kind(node)
+        k == K"Identifier" && return node.val
+        k == K"doc" && return field_name(last_child(node))
+        k in (K"::", K"const", K"=") && numchildren(node) > 0 && return field_name(node[1])
+        return nothing
+    end
+
+    # The keys of a named tuple literal.
+    function tuple_keys(node)
+        keys = Symbol[]
+        for child in children(node)
+            if kind(child) == K"=" && kind(child[1]) == K"Identifier"
+                push!(keys, child[1].val)
+            elseif kind(child) == K"parameters"
+                for entry in children(child)
+                    kind(entry) == K"Identifier" && push!(keys, entry.val)
+                    kind(entry) == K"=" && kind(entry[1]) == K"Identifier" &&
+                        push!(keys, entry[1].val)
+                end
+            end
+        end
+        return keys
+    end
+
+    in_struct_body(node) = node.parent !== nothing && kind(node.parent) == K"block" &&
+        node.parent.parent !== nothing && kind(node.parent.parent) == K"struct"
+
+    # Storage vocabulary. A `*Workspace` struct has exactly the fields `input`, `plan` and
+    # `buffers`, and optionally `trace`. Its entry counts the missing and the other fields.
+    # No function name ends in `_workspace` or `_storage`, and only `initialize_buffers`
+    # ends in `_buffers`. Only Commons defines a `*Buffers` struct, and no type name ends
+    # in `Buffer`, `Storage`, `Scratch` or `Cache`. No field, named tuple key, parameter,
+    # local or loop variable takes the name `work`, `scratch`, `storage` or `cache`.
+    function storage_vocabulary(files, directory)
+        found = Dict{String, Int}()
+        commons = joinpath(directory, COMMONS_DIRECTORY)
+        for file in files
+            path = relative(file, directory)
+            entry(name, n = 1) = n > 0 && (found[string(path, " | ", name)] =
+                get(found, string(path, " | ", name), 0) + n)
+            names!(names) = foreach(name -> name in STORAGE_NAMES && entry(name), names)
+            visit(parse_source(file)) do node
+                k = kind(node)
+                if k == K"struct"
+                    name = declared_name(node)
+                    name === nothing && return true
+                    text = string(name)
+                    fields = filter(!isnothing, map(field_name, children(node[2])))
+                    names!(fields)
+                    if endswith(text, "Workspace")
+                        entry(name, count(!in(fields), WORKSPACE_FIELDS) +
+                            count(!in((WORKSPACE_FIELDS..., :trace)), fields))
+                    end
+                    endswith(text, "Buffers") && !inside(file, commons) && entry(name)
+                    occursin(STORAGE_TYPE, text) && entry(name)
+                elseif k in (K"abstract", K"primitive")
+                    name = declared_name(node)
+                    name !== nothing && occursin(STORAGE_TYPE, string(name)) && entry(name)
+                elseif k == K"function"
+                    name = definition_name(node)
+                    name isa Symbol && name !== :initialize_buffers &&
+                        occursin(STORAGE_FUNCTION, string(name)) && entry(name)
+                    call = signature_call(node)
+                    call === nothing || names!(reduce(vcat, map(bound_names,
+                        children(call)[2:end]); init = Symbol[]))
+                elseif k in (K"->", K"do") && numchildren(node) > 0
+                    names!(bound_names(node[1]))
+                elseif k == K"in" && node.parent !== nothing &&
+                        kind(node.parent) == K"iteration"
+                    names!(bound_names(node[1]))
+                elseif k == K"tuple" &&
+                       !(node.parent !== nothing && kind(node.parent) in (K"->", K"do"))
+                    names!(tuple_keys(node))
+                elseif k == K"=" && numchildren(node) == 2 && !in_struct_body(node) &&
+                        !(node.parent !== nothing &&
+                          kind(node.parent) in (NOT_ASSIGNED..., K"const"))
+                    names!(assigned_names(node[1]))
+                elseif k == K"local"
+                    for child in children(node)
+                        kind(child) == K"Identifier" && names!([child.val])
+                    end
+                end
+                return true
+            end
+        end
+        return found
+    end
+
     type_name(T) = (T = Base.unwrap_unionall(T); T isa DataType ? nameof(T) : nothing)
 
     # The functions, types and constants that a module defines, by name.
@@ -1048,6 +1163,7 @@
             "validate" => () -> validate_returns(files, tree.directory),
             "reserved_verbs" => () -> reserved_verbs(files, tree.directory),
             "switches" => () -> switches(files, tree.directory),
+            "storage" => () -> storage_vocabulary(files, tree.directory),
             "commons" => () -> commons_admission(methods, tree, homes, vocabulary),
             "vocabulary" => () -> reserved_vocabulary(files, tree.directory, vocabulary),
             "fingerprints" => () -> fingerprints(files, tree.directory),
@@ -1196,6 +1312,12 @@ end
     @test result.stale == String[]
 end
 
+@testitem "Quality / architecture / storage vocabulary" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("storage")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
 @testitem "Quality / architecture / negative controls of the architecture guards" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
 
@@ -1274,6 +1396,39 @@ end
             switch(x) = x.kind === :a || x.kind == :b || x.kind in (:c, :d) || in(x.kind, [:e])
             negated(x) = x.kind !== :a && x.kind != :b && x.kind ∉ (:c, :d)
             """)
+    # Each storage vocabulary rule has a planted violation. `TracedWorkspace` and
+    # `initialize_buffers` conform, and `cache_mesh` is not one of the reserved names.
+    planted_files["src/storage.jl"] = raw"""
+        struct ProbeWorkspace
+            input
+            invariants
+            buffers
+        end
+        mutable struct TracedWorkspace
+            const input::Int
+            const plan::Int
+            const buffers::Int
+            const trace::Int
+        end
+        struct FormulaBuffers end
+        struct KernelCache end
+        abstract type AbstractStorage end
+        struct Table
+            cache::Int
+        end
+        sample_storage(n) = zeros(n)
+        function kernel_workspace(n)
+            return n
+        end
+        trace_buffers(n) = n
+        initialize_buffers(selected, T, input, plan, buffers) = buffers
+        function solve(work, n; scratch = nothing)
+            storage = zeros(n)
+            for cache in 1:n
+            end
+            return (; work = n, cache_mesh = n)
+        end
+        """
     planted_expected = Dict{String, Any}(
         "ownership" => Dict(
             "Consumer | Early.extend | src/consumer/Consumer.jl" => 1,
@@ -1286,7 +1441,14 @@ end
         "reserved_verbs" => Dict(
             "src/sources.jl | _check_input" => 1, "src/sources.jl | ensure_ready" => 1,
             "src/sources.jl | require_kind" => 1, "src/sources.jl | __validate_shape" => 1),
-        "switches" => Dict("src/sources.jl" => Dict("applicable" => 2, "eval" => 2, "kind" => 7)))
+        "switches" => Dict("src/sources.jl" => Dict("applicable" => 2, "eval" => 2, "kind" => 7)),
+        "storage" => Dict(
+            "src/storage.jl | ProbeWorkspace" => 2, "src/storage.jl | FormulaBuffers" => 1,
+            "src/storage.jl | KernelCache" => 1, "src/storage.jl | AbstractStorage" => 1,
+            "src/storage.jl | sample_storage" => 1, "src/storage.jl | kernel_workspace" => 1,
+            "src/storage.jl | trace_buffers" => 1, "src/storage.jl | work" => 2,
+            "src/storage.jl | scratch" => 1, "src/storage.jl | storage" => 1,
+            "src/storage.jl | cache" => 2))
 
     # A clean package with the same modules and one extension method.
     clean_files = Dict(
@@ -1373,6 +1535,29 @@ end
             """)
 
     @test Base.isexported(A.DataFrames, :transform) && A.DataFrames ∉ A.DEPENDENCIES
+    # These storage names conform. Each workspace has exactly its fields, and Commons defines
+    # the shared `*Buffers` type. Field reads, call keywords, symbols and longer names define
+    # no storage name.
+    clean_files["src/storage.jl"] = raw"""
+        struct TracedWorkspace
+            input::Int
+            plan::Int
+            buffers::Int
+            trace::Int
+        end
+        struct PlainWorkspace
+            input::Int
+            plan::Int
+            buffers::Int
+        end
+        initialize_buffers(selected, T, input, plan, buffers) = merge(buffers, (; kernel = plan))
+        function solve(buffers, n; cache_mesh = nothing)
+            local quadrature = buffers.cache
+            configure(; scratch = n, cache = :cache)
+            return (; plan = n, storage_size = quadrature)
+        end
+        """
+    clean_files["src/commons/buffers.jl"] = "struct SharedBuffers end\n"
     planted = A.probe_inventory(planted_files, "ArchitectureProbePlanted";
         order = (:Early, :Late, :Consumer), tables = A.A_TABLES)
     clean = A.probe_inventory(clean_files, "ArchitectureProbeClean";

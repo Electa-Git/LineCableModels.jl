@@ -143,6 +143,10 @@
 "src/pscad/importexport/project.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/reportbuilder/tables.jl" = { applicable = 0, eval = 0, kind = 7 }
 
+[storage]
+"src/engine/cableconstants.jl | CableConstantsWorkspace" = 4
+"src/modalanalysis/compute.jl | ModalAnalysisWorkspace" = 8
+
 [commons]
 "@observe | tests" = 1
 "AbstractCoreResult | tests" = 1
