@@ -18,7 +18,9 @@
     const EXTENSIONS = (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
         :LineCableModelsGmshExt, :LineCableModelsXLSXExt, :LineCableModelsMakieExt,
         :LineCableModelsCairoMakieExt)
-    const DEPENDENCIES = (Base, DataFrames, LinearAlgebra, Statistics, Random,
+    # Base and the standard libraries whose exported names share a user's scope with
+    # the names that the root module exports.
+    const DEPENDENCIES = (Base, LinearAlgebra, Statistics, Random,
         Base.require(LineCableModels, :Dates), Logging)
     # Per-family formula selections are the only name shared across modules.
     const SHARED_NAMES = (:Formula,)
@@ -329,13 +331,14 @@
             for (name, modules) in owners if length(modules) > 1 && name ∉ exceptions)
     end
 
-    # Shadowing. A public package-owned name that a dependency exports for a
-    # different object.
+    # Shadowing. A package-owned name that the root module exports, and so `using`
+    # brings into scope, and that a dependency exports for a different object. A name
+    # that only a submodule exports stays in that namespace.
     function shadowing(tree::PackageTree, dependencies)
         found = Dict{String, Int}()
-        for M in tree.modules, name in names(M)
-            isdefined(M, name) || continue
-            value = getfield(M, name)
+        for name in names(tree.root)
+            Base.isexported(tree.root, name) && isdefined(tree.root, name) || continue
+            value = getfield(tree.root, name)
             value isa Function || value isa Type || continue
             owner = value_owner(value)
             (owner isa Module && owner in tree.modules) || continue
@@ -1197,13 +1200,17 @@ end
     A = ArchitectureGuards
 
     # The planted package has one or two violations for each guard. `Late` is
-    # declared first in the source and has the second position in the order.
+    # declared first in the source and has the second position in the order. The root
+    # exports `filter`, which Base exports, and `transform`, which only DataFrames
+    # exports. `Consumer` also exports `count`, which Base exports, but the root does not.
     planted_files = Dict(
         "src/ArchitectureProbePlanted.jl" => """
             module ArchitectureProbePlanted
             include("late/Late.jl")
             include("early/Early.jl")
             include("consumer/Consumer.jl")
+            using .Consumer: filter, transform
+            export filter, transform
             end
             """,
         "src/late/Late.jl" => """
@@ -1224,11 +1231,13 @@ end
         "src/consumer/Consumer.jl" => """
             module Consumer
             import ..Early
-            export filter
+            export filter, count, transform
             struct Local end
             struct Formula end
             function quantity end
             function filter end
+            function count end
+            function transform end
             filter(::Local) = 1
             Early.extend(::Int) = 1
             Early.Item(::Int) = Early.Item()
@@ -1285,6 +1294,8 @@ end
             module ArchitectureProbeClean
             include("early/Early.jl")
             include("late/Late.jl")
+            using .Late: sum
+            export sum
             end
             """,
         "src/early/Early.jl" => """
@@ -1361,11 +1372,12 @@ end
             generate(x) = eval(x)
             """)
 
+    @test Base.isexported(A.DataFrames, :transform) && A.DataFrames ∉ A.DEPENDENCIES
     planted = A.probe_inventory(planted_files, "ArchitectureProbePlanted";
-        order = (:Early, :Late, :Consumer), dependencies = (Base,), tables = A.A_TABLES)
+        order = (:Early, :Late, :Consumer), tables = A.A_TABLES)
     clean = A.probe_inventory(clean_files, "ArchitectureProbeClean";
         extension = "ArchitectureProbeCleanExt", order = (:Early, :Late),
-        dependencies = (Base,), tables = A.A_TABLES)
+        tables = A.A_TABLES)
     for table in A.A_TABLES
         @testset "$table" begin
             @test planted[table] == planted_expected[table]

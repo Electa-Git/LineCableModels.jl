@@ -96,13 +96,6 @@
 "quantity" = 2
 
 [shadowing]
-"Commons.detach -> Base" = 1
-"DataModel.flatten -> DataFrames" = 1
-"Engine.flatten -> DataFrames" = 1
-"ModalAnalysis.transform -> DataFrames" = 1
-"ReportBuilder.select -> DataFrames" = 1
-"ReportBuilder.write -> Base" = 1
-"TextDisplay.angle -> Base" = 1
 
 [validate]
 
