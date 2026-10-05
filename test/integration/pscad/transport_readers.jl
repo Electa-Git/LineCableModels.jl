@@ -25,7 +25,7 @@
 
     # Execute the production transport method with isolated IO fault injection.
     Base.include(@__MODULE__,
-        joinpath(@__DIR__, "../../../ext/LineCableModelsPSCADExt/remote/remote.jl")) do expression
+        joinpath(@__DIR__, "../../../src/pscad/remote/remote.jl")) do expression
         expression isa Expr && expression.head === :function &&
         expression.args[1] isa Expr && expression.args[1].head === :call &&
         expression.args[1].args[1] === :_run_remote ? expression : nothing

@@ -4,7 +4,7 @@ using TOML
 
 const REPOSITORY_ROOT=normpath(joinpath(@__DIR__,"..","..",".."))
 const REMOTE_ROOT=joinpath(
-    REPOSITORY_ROOT,"ext","LineCableModelsPSCADExt","remote")
+    REPOSITORY_ROOT,"src","pscad","remote")
 
 include(joinpath(REMOTE_ROOT,"runner.jl"))
 

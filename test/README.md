@@ -179,7 +179,7 @@ source rules are part of these checks.
 | `julia --project=test test/runtests.jl tag:pscad_native` | Real PSCAD acceptance. Set `LINECABLEMODELS_PSCAD_CONFIG` to your private TOML filename. Requires the configured live station. |
 | `julia --project=test test/runtests.jl tag:aqua` | Aqua in a fresh Julia process. |
 | `julia --project=docs docs/doctest.jl` and `julia --project=docs docs/make.jl` | Docstrings and documentation build. Instantiate with `docs/instantiate.jl`. |
-| `julia --project=ext/LineCableModelsPSCADExt/remote test/integration/pscad/remote_runner_protocol.jl` | Remote-runner protocol against a mocked Python automation interface. Does not execute PSCAD or validate solver numerics. |
+| `julia --project=src/pscad/remote test/integration/pscad/remote_runner_protocol.jl` | Remote-runner protocol against a mocked Python automation interface. Does not execute PSCAD or validate solver numerics. |
 
 Ordinary exclusions are `quality`, `aqua`, `visual`, `core_only`, `fem_numerical` and `pscad_native`.
 These tags describe purpose and environment, never outcome.

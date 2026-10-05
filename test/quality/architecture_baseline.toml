@@ -42,13 +42,13 @@
 "ModalAnalysis | Units.label | src/modalanalysis/observations.jl" = 51
 "ModalAnalysis | Units.native_unit | src/modalanalysis/observations.jl" = 51
 "ModalAnalysis | Units.symbol | src/modalanalysis/observations.jl" = 51
-"PSCAD | Engine.EarthAdmittance.earth_potential_coefficient | ext/LineCableModelsPSCADExt/formulations.jl" = 5
-"PSCAD | Engine.EarthImpedance.earth_impedance | ext/LineCableModelsPSCADExt/formulations.jl" = 10
-"PSCAD | Engine.Formulation | ext/LineCableModelsPSCADExt/formulations.jl" = 3
-"PSCAD | Engine.InsulationImpedance.insulation_impedance | ext/LineCableModelsPSCADExt/formulations.jl" = 2
-"PSCAD | Engine.InternalImpedance.internal_impedance | ext/LineCableModelsPSCADExt/formulations.jl" = 2
-"PSCAD | ImportExport.export_data | ext/LineCableModelsPSCADExt/importexport/pscad.jl" = 1
-"PSCAD | ImportExport.import_data | ext/LineCableModelsPSCADExt/importexport/import.jl" = 1
+"PSCAD | Engine.EarthAdmittance.earth_potential_coefficient | src/pscad/formulations.jl" = 5
+"PSCAD | Engine.EarthImpedance.earth_impedance | src/pscad/formulations.jl" = 10
+"PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 3
+"PSCAD | Engine.InsulationImpedance.insulation_impedance | src/pscad/formulations.jl" = 2
+"PSCAD | Engine.InternalImpedance.internal_impedance | src/pscad/formulations.jl" = 2
+"PSCAD | ImportExport.export_data | src/pscad/importexport/pscad.jl" = 1
+"PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
 "ParametricBuilder | Commons.compute | src/parametricbuilder/traversal.jl" = 4
 "ParametricBuilder | DataModel.Annulus | src/parametricbuilder/geometry.jl" = 1
 "ParametricBuilder | DataModel.Assembly | src/parametricbuilder/physicaltree.jl" = 1
@@ -80,17 +80,6 @@
 "UQ | Units.symbol | src/uq/observations.jl" = 4
 
 [placement]
-"ext/LineCableModelsPSCADExt/compute.jl | PSCAD" = 27
-"ext/LineCableModelsPSCADExt/formulations.jl | PSCAD" = 73
-"ext/LineCableModelsPSCADExt/importexport/import.jl | PSCAD" = 31
-"ext/LineCableModelsPSCADExt/importexport/project.jl | PSCAD" = 18
-"ext/LineCableModelsPSCADExt/importexport/pscad.jl | PSCAD" = 3
-"ext/LineCableModelsPSCADExt/importexport/schema.jl | PSCAD" = 17
-"ext/LineCableModelsPSCADExt/remote/configuration.jl | PSCAD" = 7
-"ext/LineCableModelsPSCADExt/remote/files.jl | PSCAD" = 6
-"ext/LineCableModelsPSCADExt/remote/remote.jl | PSCAD" = 35
-"ext/LineCableModelsPSCADExt/results.jl | PSCAD" = 11
-"ext/LineCableModelsPSCADExt/validate.jl | PSCAD" = 7
 "src/modalanalysis/delegation.jl | LineCableModels" = 9
 
 [direction]
@@ -140,7 +129,6 @@
 "ext/LineCableModelsMakieExt/plot.jl" = { applicable = 0, eval = 0, kind = 3 }
 "ext/LineCableModelsMakieExt/recipes/line_data.jl" = { applicable = 0, eval = 0, kind = 5 }
 "ext/LineCableModelsMakieExt/recipes/line_facets.jl" = { applicable = 0, eval = 0, kind = 13 }
-"ext/LineCableModelsPSCADExt/importexport/project.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/commons/observables.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/commons/observed_validation.jl" = { applicable = 0, eval = 0, kind = 13 }
 "src/commons/observedresult.jl" = { applicable = 1, eval = 0, kind = 9 }
@@ -163,6 +151,7 @@
 "src/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }
 "src/parametricbuilder/physicaltree.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/pscad/importexport/project.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/reportbuilder/tables.jl" = { applicable = 0, eval = 0, kind = 7 }
 
 [commons]
@@ -310,11 +299,6 @@
 "ext/LineCableModelsMakieExt/recipes/preview_data.jl" = 2
 "ext/LineCableModelsMakieExt/recipes/preview_render.jl" = 1
 "ext/LineCableModelsMakieExt/shell.jl" = 5
-"ext/LineCableModelsPSCADExt/compute.jl" = 1
-"ext/LineCableModelsPSCADExt/importexport/import.jl" = 2
-"ext/LineCableModelsPSCADExt/importexport/project.jl" = 2
-"ext/LineCableModelsPSCADExt/importexport/schema.jl" = 1
-"ext/LineCableModelsPSCADExt/results.jl" = 3
 "src/commons/observables.jl" = 1
 "src/commons/observed_validation.jl" = 1
 "src/datamodel/cableslibrary/vdeparse.jl" = 2
@@ -344,6 +328,11 @@
 "src/parametricbuilder/results.jl" = 1
 "src/parametricbuilder/system.jl" = 1
 "src/parametricbuilder/wirepatterns/gauges.jl" = 1
+"src/pscad/compute.jl" = 1
+"src/pscad/importexport/import.jl" = 2
+"src/pscad/importexport/project.jl" = 2
+"src/pscad/importexport/schema.jl" = 1
+"src/pscad/results.jl" = 3
 "src/textdisplay/TextDisplay.jl" = 2
 "src/units/scaling.jl" = 1
 "src/units/units.jl" = 2

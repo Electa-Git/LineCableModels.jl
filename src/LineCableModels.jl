@@ -230,7 +230,7 @@ include("importexport/ImportExport.jl")
 using .ImportExport: export_data, import_data, load!, save
 
 # External-tool integration. Native execution is deferred until compute.
-include("../ext/LineCableModelsPSCADExt/PSCAD.jl")
+include("pscad/PSCAD.jl")
 export PSCAD
 
 end
