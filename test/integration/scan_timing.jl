@@ -1,4 +1,6 @@
 @testitem "Scan timing / owned boundaries, progress, composition and persistence" tags=[:integration] setup=[TestFixtures] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using Logging, Measurements, JSON3, Serialization
     const E=LineCableModels.Engine
     const IE=LineCableModels.ImportExport

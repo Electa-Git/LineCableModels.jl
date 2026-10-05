@@ -64,9 +64,9 @@ function _addon_preview_axis!(
     end
     mesh_inspection = nothing
     if mesh !== nothing
-        rendered = _fem_layer!(axis, mesh; color=mesh_color, linewidth=mesh_linewidth,
+        rendered = _spatial_layer!(axis, mesh; color=mesh_color, linewidth=mesh_linewidth,
             color_by=mesh_color_by, inspect=mesh_inspect, depth=-10)
-        sidebar = _fem_mesh_sidebar!(shell, panel, rendered.mesh_view;
+        sidebar = _mesh_sidebar!(shell, panel, rendered.mesh_view;
             controls=!isempty(shell.chrome))
         mesh_inspection = (; view=rendered.mesh_view, sidebar)
         groups[:mesh] = rendered.layers
@@ -468,7 +468,7 @@ function _addon_preview(
 )
     _addon_activate_backend(backend)
     limits = _native_system_limits(system, zoom_factor)
-    loaded_mesh = mesh === nothing ? nothing : _fem_mesh_input(mesh)
+    loaded_mesh = mesh === nothing ? nothing : _mesh_input(mesh)
     polygons,
     references = _native_system_shapes(
         system,
@@ -534,7 +534,7 @@ function _addon_preview(
             export_theme,
             open_export
         )
-        mesh_inspection === nothing || _fem_mesh_controls!(p, mesh_inspection.view, mesh_inspection.sidebar)
+        mesh_inspection === nothing || _mesh_controls!(p, mesh_inspection.view, mesh_inspection.sidebar)
         display_plot && _addon_display!(p.figure, display_title)
         p
     end

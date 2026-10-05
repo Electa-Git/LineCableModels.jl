@@ -3,6 +3,14 @@ Decode an extension-owned tagged value from the v1 JSON format.
 """
 function deserialize_extension end
 
+# Retained backend identities are resolved through owner dispatch. Optional
+# backends add methods when their extension loads.
+deserialize_value(::Val{:formulation}, ::Val) = nothing
+deserialize_value(::Val{:formulation}, ::Val{:coaxial}) = Engine.LineParametersFormulation
+deserialize_value(::Val{:formulation}, ::Val{:cable_constants}) = Engine.CableConstantsFormulation
+deserialize_value(::Val{:formulation}, ::Union{Val{:pscad},Val{:PSCAD}}) = LineCableModels.PSCAD.PSCADFormulation
+deserialize_value(::Val{:formulation}, ::Val{:modal}) = LineCableModels.Transforms.ModalTransformationFormulation
+
 """
 $(TYPEDSIGNATURES)
 
@@ -34,11 +42,8 @@ function deserialize_value(::Val{:formulation},record::NamedTuple)
         return owner => retained
     end
     backend=get(record,:backend,nothing)
-    owner=backend in (:coaxial,"coaxial") ? Engine.LineParametersFormulation :
-        backend in (:cable_constants,"cable_constants") ? Engine.CableConstantsFormulation :
-        backend in (:fem,:LineCableModelsFEM,"fem","LineCableModelsFEM") ? Engine.LineCableModelsFEM :
-        backend in (:pscad,:PSCAD,"pscad","PSCAD") ? LineCableModels.PSCAD.PSCADFormulation :
-        backend in (:modal,"modal") ? LineCableModels.Transforms.ModalTransformationFormulation : nothing
+    owner=backend isa Union{Symbol,AbstractString} ?
+        deserialize_value(Val(:formulation), Val(Symbol(backend))) : nothing
     owner===nothing && return missing
     # Child families, order and relevance are supplied by the owner, not a reader catalogue.
     declared=get(record,:requested,nothing)

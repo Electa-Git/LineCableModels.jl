@@ -2,6 +2,9 @@ using Documenter
 using DocumenterCitations
 using CairoMakie
 using LineCableModels
+using Gmsh
+const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+const LineCableModelsGmshExt = FEM
 using Literate
 using TOML
 
@@ -155,16 +158,19 @@ DocMeta.setdocmeta!(
     :DocTestSetup,
     quote
         using LineCableModels
+        using Gmsh
+        const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+const LineCableModelsGmshExt = FEM
         using LineCableModels.DataModel.BaseParams
     end;
     recursive = true
 )
 
 bibliography = CitationBibliography(joinpath(DOCS_SRC_DIR, "bibliography.bib"); style = :numeric)
-owned_doc_links = OwnedDocLinks.OwnedDocLinker(LineCableModels)
+owned_doc_links = OwnedDocLinks.OwnedDocLinker(LineCableModels, FEM)
 
 makedocs(;
-    modules = [LineCableModels],
+    modules = [LineCableModels, FEM],
     authors = metadata.authors,
     sitename = "$(metadata.name).jl",
     format = Documenter.HTML(;

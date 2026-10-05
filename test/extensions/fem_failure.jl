@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / public solver failure retains log and run evidence" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     using JSON3
 
     if Sys.isunix()
@@ -47,11 +49,11 @@
                     @test state.getdp_invocations == 1
                     @test occursin("GetDP", state.message)
                     @test isfile(joinpath(run_path, "input", "problem.json"))
-                    @test isfile(joinpath(run_path, "input", "getdp", "quasi-full.pro"))
+                    @test isfile(joinpath(run_path, "input", "getdp", "helmholtz.pro"))
                     @test isfile(joinpath(run_path, "logs", "getdp.log"))
                     @test !isfile(joinpath(run_path, "raw", "checksums.json"))
                     messages = read(log_file, String)
-                    @test occursin("FEM geometry ready", messages)
+                    @test occursin("FEM geometry inputs ready", messages)
                     @test occursin("FEM mesh ready", messages)
                     @test occursin("Starting isolated GetDP", messages)
                     @test !occursin("FEM scan completed successfully", messages)

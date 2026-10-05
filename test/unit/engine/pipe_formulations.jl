@@ -1,4 +1,6 @@
 @testitem "Engine / pipe selections / backend applicability before lowering" tags=[:unit] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using LineCableModels
     const E = LineCableModels.Engine
     copper = Material(:conductor, 1.72e-8)

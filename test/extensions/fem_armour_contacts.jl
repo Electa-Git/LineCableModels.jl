@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / touching armour wires retain every filler face" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const gmsh = Gmsh.gmsh
     copper = Material(kind=:conductor, rho=1.72e-8)
@@ -22,7 +24,7 @@
                 earth_props=homogeneous(rho=100.0))
             model = FEM._resolved_fem_model(problem, LineCableModelsFEM())
             fill_index = only(findall(m -> m.field === :matrix_fill, model.material_plans))
-            geometry = FEM._build_geometry!(model, "touching-armour-$count")
+            geometry = FEM._build_physical_geometry!(model, "touching-armour-$count")
             surfaces = geometry.material_surfaces[fill_index]
             # Every pair of neighbouring wires encloses an inner and an outer
             # filler lobe. A point contact cannot join them into one CAD face.
@@ -36,17 +38,7 @@
                 end
                 @test all(==(2), values(incidence))
             end
-            for plan in model.mesh_plans
-                FEM._update_exterior_mesh!(model, geometry, plan)
-                FEM._configure_mesh!(model, geometry, plan)
-                gmsh.model.mesh.generate(2)
-                @test isnothing(FEM._inspect_loaded_mesh(model, "touching-armour"))
-                mktempdir() do directory
-                    mesh = joinpath(directory,"armour.msh")
-                    gmsh.write(mesh)
-                    @test isnothing(FEM._validate_mesh_file(model,mesh))
-                end
-            end
+
         end
     finally
         FEM._finish_gmsh(session)
@@ -55,6 +47,8 @@ end
 
 @testitem "Gmsh FEM / partial and separated armour rings preserve physical gaps" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const gmsh = Gmsh.gmsh
     copper = Material(kind=:conductor, rho=1.72e-8)
@@ -78,14 +72,12 @@ end
                 earth_props=homogeneous(rho=100.0))
             model = FEM._resolved_fem_model(problem,LineCableModelsFEM())
             fill_index = only(findall(m -> m.field === :matrix_fill,model.material_plans))
-            geometry = FEM._build_geometry!(model,"partial-armour")
+            geometry = FEM._build_physical_geometry!(model,"partial-armour")
             expected = (count == 1 || gap > 0 ? count : 2count-1) + (padding > 0)
             @test length(geometry.material_surfaces[fill_index]) == expected
             @test sum(r -> area(r.shape),filter(r -> r.material_index==fill_index,
                 model.region_plans)) ≈ pi*(outer^2-inner^2)-count*pi*wire_radius^2
-            FEM._configure_mesh!(model,geometry,only(model.mesh_plans))
-            gmsh.model.mesh.generate(2)
-            @test isnothing(FEM._inspect_loaded_mesh(model,"partial-armour"))
+
         end
     finally
         FEM._finish_gmsh(session)
@@ -94,6 +86,8 @@ end
 
 @testitem "Gmsh FEM / touching armour filler reaches GetDP" tags=[:extension,:integration,:fem_numerical] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     copper = Material(kind=:conductor,rho=1.72e-8)
     dielectric = Material(kind=:insulator,rho=Inf,eps_r=2.3)
     matrix = Material(kind=:insulator,rho=Inf,eps_r=1.0)

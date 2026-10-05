@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / complete strand envelopes preserve enclosing material" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel
     copper = Material(kind=:conductor, rho=1.72e-8)
@@ -51,6 +53,8 @@ end
 
 @testitem "Gmsh FEM / disjoint assembly boundaries retain terminal and mesh ownership" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel
     copper = Material(kind=:conductor, rho=1.72e-8)
@@ -68,7 +72,6 @@ end
         @test length(only(model.cable_boundaries).members) == 2
         @test model.cable_hosts == [height > 0 ? :air : :earth]
         @test getproperty.(model.region_plans, :terminal_index) == [1, 2]
-        @test only(model.cable_outer_mesh_sizes) == minimum(plan -> plan.mesh_size, model.region_plans)
         @test sum(plan -> area(plan.shape), model.region_plans) ≈ pi * (0.5e-3^2 + 0.8e-3^2)
         boundary_shape = only(model.cable_boundaries)
         @test boundary(boundary_shape) === boundary_shape

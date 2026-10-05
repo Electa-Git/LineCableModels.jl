@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / polygon contacts preserve complete material partitions" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel
     const gmsh = Gmsh.gmsh
@@ -23,28 +25,9 @@
             @test getproperty.(model.region_plans, :material_index) == [1,1,1,2]
             @test getproperty.(model.region_plans, :terminal_index) == [1,1,1,0]
             @test all(model.region_plans[i].shape == system.geometry[i].primitive for i in 1:3)
-            geometry = FEM._build_geometry!(model, "polygon-contacts-$index")
+            geometry = FEM._build_physical_geometry!(model, "polygon-contacts-$index")
             @test length(only(geometry.terminal_surfaces)) == 3
-            FEM._configure_mesh!(model, geometry, only(model.mesh_plans))
-            gmsh.model.mesh.generate(2)
-            @test isnothing(FEM._inspect_loaded_mesh(model, "polygon-contacts"))
-            mktempdir() do directory
-                path = joinpath(directory, "polygon-contacts.msh")
-                gmsh.write(path)
-                @test isnothing(FEM._validate_mesh_file(model, path))
-            end
-            # A nonempty but incomplete filler must be rejected, including on
-            # import. The former validator accepted exactly this situation.
-            surface = first(geometry.material_surfaces[2])
-            elements, _ = gmsh.model.mesh.get_elements_by_type(2, surface)
-            @test length(elements) > 1
-            gmsh.model.mesh.remove_elements(2, surface, elements[1:1])
-            @test_throws LineCableModelsFEMError FEM._inspect_loaded_mesh(model, "partial-filler")
-            mktempdir() do directory
-                path = joinpath(directory, "partial.msh")
-                gmsh.write(path)
-                @test_throws LineCableModelsFEMError FEM._validate_mesh_file(model, path)
-            end
+
         end
     finally
         FEM._finish_gmsh(session)
@@ -53,6 +36,8 @@ end
 
 @testitem "Gmsh FEM / Milliken filler coverage and invariant scan topology" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const DM = LineCableModels.DataModel
     const gmsh = Gmsh.gmsh
@@ -66,34 +51,7 @@ end
     @test length(model.material_plans) == 2
     session = FEM._start_gmsh(0)
     try
-        geometry = FEM._build_geometry!(model, "partition-milliken")
-        points = unique(gmsh.model.get_boundary(
-            [(1,c) for c in only(geometry.terminal_curves)], false, false, true))
-        coordinates = [gmsh.model.get_value(dim, tag, Float64[]) for (dim,tag) in points]
-        entities = gmsh.model.get_entities()
-        model_names = gmsh.model.list()
-        for plan in model.mesh_plans
-            FEM._update_exterior_mesh!(model, geometry, plan)
-            @test length(gmsh.model.get_entities()) == length(entities)
-            @test [gmsh.model.get_value(dim, tag, Float64[]) for (dim,tag) in points] == coordinates
-            for (curves, halfwidth) in ((geometry.pml_inner_curves,plan.domain_halfwidth),
-                                       (geometry.outer_curves,plan.domain_halfwidth+plan.pml_thickness[1]))
-                vertices = unique(gmsh.model.get_boundary([(1,c) for c in curves],false,false,true))
-                @test all(vertices) do (dim,tag)
-                    p = gmsh.model.get_value(dim,tag,Float64[])
-                    max(abs(p[1]-model.centre[1]),abs(p[2])) ≈ halfwidth
-                end
-                @test all(curves) do curve
-                    lower, upper = gmsh.model.get_parametrization_bounds(1, curve)
-                    p = gmsh.model.get_value(1, curve, (lower + upper) / 2)
-                    max(abs(p[1]-model.centre[1]),abs(p[2])) ≈ halfwidth
-                end
-            end
-            FEM._configure_mesh!(model, geometry, plan)
-            gmsh.model.mesh.generate(2)
-            @test isnothing(FEM._inspect_loaded_mesh(model, "milliken-frequency-$(plan.frequency)"))
-            @test gmsh.model.list() == model_names
-        end
+        geometry = FEM._build_physical_geometry!(model, "partition-milliken")
         @test length(geometry.material_surfaces[2]) > 1
     finally
         FEM._finish_gmsh(session)

@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / native matrix reductions and runtime complex inversion" tags=[:extension,:fem_numerical] begin
     using Gmsh, DelimitedFiles, LinearAlgebra
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     FEM=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     Engine=LineCableModels.Engine
     getdp=FEM._getdp_selection(computation_options(LineCableModelsFEM,ComputationOptions())).path
@@ -23,7 +25,7 @@
             maps=n==4 ? [[1,2,3,4],[2,1,2,0]] : [collect(1:n)]
             for connections in maps, bundle in (false,true), kron in (false,true), transposed in (false,true)
                 case=connections==[2,1,2,0] ? 1 : 0
-                cmd=`$getdp $model -msh $mesh -solve Matrices -name $(joinpath(dir,"algebra")) -setstring AlgebraPath $algebra -setnumber NumTerminals $n -setnumber ConnectionCase $case -setnumber ReduceBundle $(Int(bundle)) -setnumber KronReduction $(Int(kron)) -setnumber IdealTransposition $(Int(transposed)) -v 2`
+                cmd=`$getdp $model -msh $mesh -solve Matrices -name $(joinpath(dir,"algebra")) -setnumber LinearSolver 0 -setstring AlgebraPath $algebra -setnumber NumTerminals $n -setnumber ConnectionCase $case -setnumber ReduceBundle $(Int(bundle)) -setnumber KronReduction $(Int(kron)) -setnumber IdealTransposition $(Int(transposed)) -v 2`
                 success(pipeline(Cmd(cmd;dir),stdout=joinpath(dir,"getdp.log"),stderr=joinpath(dir,"getdp-errors.log"))) ||
                     error(read(joinpath(dir,"getdp.log"),String)*read(joinpath(dir,"getdp-errors.log"),String))
                 rows=readdlm(joinpath(dir,"matrices.tsv"))
@@ -46,7 +48,7 @@
                 end
             end
         end
-        singular=`$getdp $model -msh $mesh -solve Matrices -name $(joinpath(dir,"algebra")) -setstring AlgebraPath $algebra -setnumber Singular 1 -v 2`
+        singular=`$getdp $model -msh $mesh -solve Matrices -name $(joinpath(dir,"algebra")) -setnumber LinearSolver 0 -setstring AlgebraPath $algebra -setnumber Singular 1 -v 2`
         @test !success(pipeline(Cmd(singular;dir),stdout=joinpath(dir,"singular.log"),stderr=joinpath(dir,"singular-errors.log")))
     end
 end

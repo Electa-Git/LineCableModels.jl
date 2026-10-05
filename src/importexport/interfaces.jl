@@ -63,11 +63,3 @@ $(METHODLIST)
 function import_data(backend::Symbol, args...; kwargs...)
     return import_data(Val(backend), args...; kwargs...)
 end
-
-function import_data(::Union{Val{:msh},Val{:pos}}, path::AbstractString; kwargs...)
-    throw(ArgumentError("Native FEM file import is optional. Load Gmsh before calling import_data."))
-end
-
-function export_data(::Val{:onelab}, args...; kwargs...)
-    throw(ArgumentError("Detached FEM export requires Gmsh. Load Gmsh and pass a LineParametersProblem or LineCableSystem and a LineCableModelsFEM formulation."))
-end

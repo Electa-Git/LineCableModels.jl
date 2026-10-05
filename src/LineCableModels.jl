@@ -77,7 +77,7 @@ export preview, show_material_scale
 # Engine:
 export Formulation, LineParametersFormulation, CableConstantsFormulation,
        LineCableModelsCoaxial,
-       LineCableModelsFEM, LineCableModelsFEMError, BoundarySolveError,
+       BoundarySolveError,
        SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
 export ModalTransformationProblem, ModalTransformationFormulation,
@@ -178,16 +178,13 @@ using .Engine: LineParameters, LineParametersProblem, CableConstants,
                CableConstantsProblem, CableConstantsFormulation, SeriesImpedance,
                ShuntAdmittance, kronify, Formulation,
                LineParametersFormulation, LineCableModelsCoaxial,
-               LineCableModelsFEM,
-               LineCableModelsFEMError, BoundarySolveError,
+               BoundarySolveError,
                domain, frequencies, nconductors, nfrequencies,
                Z, Y, X, G, B, series_impedance, shunt_admittance,
                reactance, conductance, susceptance,
                LineParamsDomain, PhaseDomain, ModalDomain
 
 public LineParamsDomain
-using .Engine: FEMMesh, FEMFieldMap
-public FEMMesh, FEMFieldMap
 
 # Submodule `Transforms`
 include("transforms/Transforms.jl")

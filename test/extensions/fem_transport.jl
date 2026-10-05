@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / data-only GetDP input transport" tags=[:extension] begin
     using LineCableModels, Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
 
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     copper = Material(kind = :conductor, rho = 1.72e-8, mu_r = 0.999994)
@@ -21,7 +23,7 @@
             model = extension._resolved_fem_model(problem, formulation)
             mktempdir() do directory
                 path = joinpath(directory, "model_data.pro")
-                @test extension._write_model_data(path, model) == path
+                @test extension._write_model_data(path, model, computation_options(LineCableModelsFEM, ComputationOptions()).data) == path
                 @test readdir(directory) == ["model_data.pro"]
                 text = read(path, String)
                 push!(line_counts, length(readlines(path)))
@@ -40,7 +42,7 @@
                         @test parse.(Float64, split(entry[1], ',')) == expected
                     end
                 end
-                @test extension._write_model_data(path, model) == path
+                @test extension._write_model_data(path, model, computation_options(LineCableModelsFEM, ComputationOptions()).data) == path
                 @test read(path, String) == text
             end
         end

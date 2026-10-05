@@ -1,4 +1,6 @@
 @testitem "PSCAD / shared grammar and constitutive export" tags=[:integration] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using LineCableModels
     const P=LineCableModels.PSCAD
     copper=Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)

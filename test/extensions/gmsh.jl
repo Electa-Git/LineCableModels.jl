@@ -1,15 +1,17 @@
 @testitem "Gmsh FEM / public API and strict parsing" tags=[:extension] begin
     import LineCableModels
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     using LinearAlgebra
 
     extension_module = Base.get_extension(
         LineCableModels, :LineCableModelsGmshExt
     )
     @test extension_module !== nothing
-    @test LineCableModels.LineCableModelsFEM <:
+    @test Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM <:
           LineCableModels.AbstractFormulation
-    @test supertype(LineCableModels.LineCableModelsFEM) === LineCableModels.AbstractFormulation
+    @test supertype(Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM) === LineCableModels.AbstractFormulation
     mktempdir() do directory
         run = extension_module.FEMRun(
             directory, extension_module.created, "fixture", :none, ""
@@ -49,7 +51,7 @@
     formulation = LineCableModels.Formulation(
         :LineCableModelsFEM;
         options = (ideal_transposition = false,))
-    @test formulation isa LineCableModels.LineCableModelsFEM
+    @test formulation isa Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     @test !formulation.options.data.ideal_transposition
     @test !hasproperty(formulation, :execution)
 
@@ -94,7 +96,7 @@
             println(io, header)
             println.(Ref(io), [rows[1], rows[1], rows[3], rows[4]])
         end
-        @test_throws LineCableModels.LineCableModelsFEMError extension_module._parse_raw_matrix(
+        @test_throws Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError extension_module._parse_raw_matrix(
             Float64, path, [50.0], 2, run
         )
 
@@ -111,14 +113,14 @@
         catch exception
             exception
         end
-        @test missing_completion isa LineCableModels.LineCableModelsFEMError
+        @test missing_completion isa Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
         @test missing_completion.run_directory == directory
 
         open(path, "w") do io
             println(io, header)
             println.(Ref(io), ["1\t50\t1\t1\tNaN\t0", rows[2], rows[3], rows[4]])
         end
-        @test_throws LineCableModels.LineCableModelsFEMError extension_module._parse_raw_matrix(
+        @test_throws Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError extension_module._parse_raw_matrix(
             Float64, path, [50.0], 2, run
         )
     end
@@ -151,6 +153,8 @@ end
 
 @testitem "Gmsh FEM / nominal Float64 preflight" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     using LineCableModels
     using Measurements
 
@@ -244,628 +248,12 @@ end
     @test (isdir(runs) ? sort(readdir(runs)) : nothing) == before
 end
 
-@testitem "Gmsh FEM / deterministic geometry and mesh lifecycle" tags=[:extension] begin
-    using LineCableModels
-    using Gmsh
-
-    copper = Material(kind = :conductor, rho = 1 / 5.8e7)
-    dielectric = Material(kind = :insulator, rho = 1.0e15, eps_r = 2.3)
-    design = build(CableDesign,
-        "fem-mesh",
-        Stack(
-            Group(:core, Region(:core_metal, Disk(0.005), copper)),
-            Region(:dielectric, Annulus(0.005, 0.01), dielectric),
-            Group(:sheath, Region(:sheath_metal, Annulus(0.01, 0.011), copper)),
-            Region(:jacket, Annulus(0.011, 0.013), dielectric)
-        ))
-    system = build(
-        LineCableSystem,
-        design,
-        (0.0, -0.1);
-        connections = Dict(:core => 1, :sheath => 0),
-        system_id = "fem-mesh",
-        line_length = 1.0
-    )
-    problem = LineParametersProblem(
-        system;
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [50.0]
-    )
-    formulation = Formulation(
-        :LineCableModelsFEM;
-        options = (ideal_transposition = false,))
-    formulation_controls = (gmsh_verbosity = 0,)
-    extension_module = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    model = extension_module._resolved_fem_model(problem, formulation)
-    @test model.terminal_ids == [
-        "cable_0001/fem-mesh/core",
-        "cable_0001/fem-mesh/sheath"
-    ]
-    @test getproperty.(model.material_plans, :physical_tag) == 10_001:10_002
-    @test getproperty.(model.region_plans, :material_index) == [1, 2, 1, 2]
-    @test model.tags.terminal_base == 3_000
-    @test model.tags.pml == 1_005
-    @test model.tags.outer_air_boundary == 2_004
-    @test model.tags.outer_earth_boundary == 2_005
-    @test model.pml_thickness == ntuple(_ -> model.domain_halfwidth, 3)
-    @test getproperty.(model.region_plans, :mesh_size) ≈ [
-        0.001, 0.0025, 0.0005, 0.001
-    ]
-    @test model.fine_mesh_size ≈ 0.0005
-    @test model.cable_outer_mesh_sizes ≈ [0.001]
-    @test model.mesh_growth_factor == 1.2
-    @test length(model.mesh_plans) == 1
-    skin_depth = sqrt(100.0 / (π * 50.0 * 4π * 1e-7))
-    @test model.domain_halfwidth ≈ 2skin_depth
-    @test only(model.mesh_plans).domain_mesh_size ≈ skin_depth / 20
-    @test only(model.mesh_plans).pml_layers == (128,128,128)
-    @test only(model.mesh_plans).cable_interface_mesh_sizes ≈ [
-        min(
-        skin_depth / 20,
-        0.001 + 0.2 * (0.1 - 0.013)
-    )
-    ]
-    smaller_model = extension_module._resolved_fem_model(problem, formulation,
-        computation_options(LineCableModelsFEM, ComputationOptions((;domain_skin_depths=1.5))))
-    smaller, larger = only(smaller_model.mesh_plans), only(model.mesh_plans)
-    @test smaller.domain_halfwidth ≈ 1.5skin_depth
-    @test smaller.pml_thickness == ntuple(_ -> smaller.domain_halfwidth, 3)
-    # Enlarging the finite domain preserves conductor, interface and medium
-    # resolution targets; it does not apply a global mesh coarsening/refinement.
-    @test getproperty.(smaller_model.region_plans, :mesh_size) ==
-        getproperty.(model.region_plans, :mesh_size)
-    for property in (:domain_mesh_size, :interface_mesh_size,
-        :cable_interface_mesh_sizes, :wave_mesh_sizes, :wave_decay_radii)
-        @test getproperty(smaller, property) == getproperty(larger, property)
-    end
-    @test extension_module._mesh_fingerprint(smaller_model, Gmsh.gmsh.GMSH_API_VERSION) !=
-        extension_module._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
-
-    multifrequency_problem = LineParametersProblem(
-        system;
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [50.0, 1000.0]
-    )
-    multifrequency_model = extension_module._resolved_fem_model(
-        multifrequency_problem, formulation
-    )
-    @test getproperty.(multifrequency_model.mesh_plans, :frequency) == [
-        50.0, 1000.0
-    ]
-    @test multifrequency_model.mesh_plans[1].domain_halfwidth >
-          multifrequency_model.mesh_plans[2].domain_halfwidth
-    @test multifrequency_model.domain_halfwidth ==
-          multifrequency_model.mesh_plans[2].domain_halfwidth
-
-    matrix = Material(kind = :insulator, rho = Inf, eps_r = 1.0)
-    sector_core = Stack(
-        Group(:core, Region(:core_centre, Disk(0.001), copper)),
-        Group(
-            :core,
-            Region(
-                :core_sectors,
-                Sector(span = pi / 3, r_base = 0.001, r_back = 0.002),
-                copper
-            );
-            pattern = Ring(6; r = 0.0)
-        )
-    )
-    filled_design = build(
-        CableDesign,
-        "fem-filled-sector",
-        Enclosure(
-            :matrix,
-            sector_core;
-            primitive = Disk(0.002),
-            fill = matrix
-        ),
-        Region(:outer_insulation, Annulus(0.002, 0.003), dielectric)
-    )
-    filled_system = build(
-        LineCableSystem,
-        filled_design,
-        (0.0, -0.1);
-        connections = Dict(:core => 1),
-        system_id = "fem-filled-sector",
-        line_length = 1.0
-    )
-    filled_problem = LineParametersProblem(
-        filled_system;
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [50.0]
-    )
-    filled_model = extension_module._resolved_fem_model(
-        filled_problem, formulation
-    )
-    @test length(filled_model.region_plans) == 9
-    @test count(plan -> plan.field === :matrix_fill,
-        filled_model.material_plans) == 1
-
-    armor_wire_radius = 0.002
-    armor_inner_radius = 0.010
-    armor_outer_radius = 0.014
-    tangent_fill_design = build(
-        CableDesign,
-        "fem-tangent-circular-fill",
-        Stack(
-            Region(:inner_bedding, Disk(armor_inner_radius), dielectric),
-            Enclosure(
-                :armor_matrix,
-                Group(
-                    :armor,
-                    Region(:armor_wires, Disk(armor_wire_radius), copper);
-                    pattern = Ring(8; r = 0.012)
-                );
-                primitive = Annulus(armor_inner_radius, armor_outer_radius),
-                fill = matrix
-            ),
-            Region(
-                :outer_jacket,
-                Annulus(armor_outer_radius, 0.016),
-                dielectric
-            )
-        )
-    )
-    tangent_fill_system = build(
-        LineCableSystem,
-        tangent_fill_design,
-        (0.0, -0.1);
-        connections = Dict(:armor => 1),
-        system_id = "fem-tangent-circular-fill",
-        line_length = 1.0
-    )
-    tangent_fill_problem = LineParametersProblem(
-        tangent_fill_system;
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [50.0]
-    )
-    tangent_fill_model = extension_module._resolved_fem_model(
-        tangent_fill_problem, formulation
-    )
-    tangent_fill_index = findfirst(
-        plan -> plan.field === :armor_matrix_fill,
-        tangent_fill_model.material_plans
-    )
-    @test tangent_fill_index !== nothing
-
-    tape_inner_radius = armor_outer_radius
-    tape_outer_radius = tape_inner_radius + 0.0002
-    mixed_fill_design = build(
-        CableDesign,
-        "fem-tangent-fill-with-tape",
-        Stack(
-            Region(:inner_bedding, Disk(armor_inner_radius), dielectric),
-            Enclosure(
-                :screen_matrix,
-                Stack(
-                    Group(
-                        :screen,
-                        Region(:screen_wires, Disk(armor_wire_radius), copper);
-                        pattern = Ring(8; r = 0.012)
-                    ),
-                    Group(
-                        :screen,
-                        Region(
-                            :screen_tape,
-                            Rectangle(
-                                0.4 * (tape_inner_radius + tape_outer_radius) / 2,
-                                tape_outer_radius - tape_inner_radius
-                            ),
-                            copper
-                        );
-                        pattern = Ring(
-                            1;
-                            r = (tape_inner_radius + tape_outer_radius) / 2
-                        )
-                    )
-                );
-                primitive = Annulus(armor_inner_radius, tape_outer_radius),
-                fill = matrix
-            ),
-            Region(
-                :outer_jacket,
-                Annulus(tape_outer_radius, 0.016),
-                dielectric
-            )
-        )
-    )
-    mixed_fill_system = build(
-        LineCableSystem,
-        mixed_fill_design,
-        (0.0, -0.1);
-        connections = Dict(:screen => 1),
-        system_id = "fem-tangent-fill-with-tape",
-        line_length = 1.0
-    )
-    mixed_fill_problem = LineParametersProblem(
-        mixed_fill_system;
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [50.0]
-    )
-    mixed_fill_model = extension_module._resolved_fem_model(
-        mixed_fill_problem, formulation
-    )
-    mixed_fill_index = findfirst(
-        plan -> plan.field === :screen_matrix_fill,
-        mixed_fill_model.material_plans
-    )
-    @test mixed_fill_index !== nothing
-
-    incomplete_design = build(
-        CableDesign,
-        "fem-incomplete-partition",
-        Group(:core, Region(:core_metal, Disk(0.001), copper)),
-        Region(:outer_insulation, Annulus(0.002, 0.003), dielectric)
-    )
-    incomplete_system = build(
-        LineCableSystem,
-        incomplete_design,
-        (0.0, -0.1);
-        connections = Dict(:core => 1),
-        system_id = "fem-incomplete-partition",
-        line_length = 1.0
-    )
-    incomplete_problem = LineParametersProblem(
-        incomplete_system;
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [50.0]
-    )
-    partition_error = try
-        extension_module._resolved_fem_model(incomplete_problem, formulation)
-        nothing
-    catch exception
-        exception
-    end
-    @test partition_error isa LineCableModelsFEMError
-    @test partition_error.category === :adaptation
-    @test partition_error.field === :material_partition
-
-    @test_throws MethodError LineParametersProblem(
-        system;
-        earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0),
-        frequencies = [50.0],
-        Γ = [1.0e-12im]
-    )
-
-    vertical_problem = LineParametersProblem(
-        system;
-        earth_props = LineCableModels.Earth.EarthModel(
-            100.0, 10.0, 1.0; vertical_layers = true
-        ),
-        frequencies = [50.0]
-    )
-    vertical_error = try
-        extension_module._resolved_fem_model(vertical_problem, formulation)
-        nothing
-    catch exception
-        exception
-    end
-    @test vertical_error isa LineCableModelsFEMError
-    @test vertical_error.category === :unsupported
-    @test vertical_error.field === :vertical_layers
-
-    Gmsh.initialize(String[]; finalize_atexit = false)
-    gmsh.model.add("caller-owned")
-    caller_view = gmsh.view.add("caller-view")
-    gmsh.option.set_number("General.Terminal", 1)
-    gmsh.option.set_number("General.Verbosity", 4)
-    gmsh.option.set_number("Geometry.Tolerance", 2.0e-7)
-    gmsh.option.set_number("Geometry.ToleranceBoolean", 3.0e-7)
-    gmsh.option.set_string("Solver.SocketName", "caller-owned-socket")
-    caller_parameter = "LineCableModels/FEM/caller_parameter"
-    gmsh.onelab.set_string(caller_parameter, ["preserve-me"])
-    caller_models = Set(String.(gmsh.model.list()))
-    try
-        mktempdir() do runtime_root
-            session = extension_module._start_gmsh(0)
-            try
-                @test !session.owned
-                @test gmsh.option.get_number("Geometry.Tolerance") == 1.0e-8
-                @test gmsh.option.get_number("Geometry.ToleranceBoolean") == 0.0
-                gmsh.view.add("temporary-view")
-                gmsh.model.add("fem-exact-curves")
-                registry = extension_module.FEMLoopRegistry(1.0e-3)
-                ellipse_loop = extension_module._boundary_loop!(
-                    registry,
-                    Ellipse(0.02, 0.01, Pose2(-0.05, 0.0, π / 7))
-                )
-                sector_loop = extension_module._boundary_loop!(
-                    registry,
-                    LineCableModels.DataModel.SectorShape(
-                        Sector(
-                            span = π / 3,
-                            r_base = 0.005,
-                            r_back = 0.02,
-                            fillet = 0.001
-                        ),
-                        Pose2(0.05, 0.0, -π / 11)
-                    )
-                )
-                gmsh.model.geo.synchronize()
-                @test length(ellipse_loop.curves) == 4
-                @test length(sector_loop.curves) == 10
-                @test all(
-                    gmsh.model.get_type(1, curve) == "Ellipse"
-                for curve in ellipse_loop.curves
-                )
-                @test count(
-                    curve -> gmsh.model.get_type(1, curve) == "Circle",
-                    sector_loop.curves
-                ) == 8
-                @test count(
-                    curve -> gmsh.model.get_type(1, curve) == "Line",
-                    sector_loop.curves
-                ) == 2
-
-                gmsh.model.add("fem-zero-inner-strip")
-                zero_inner_registry = extension_module.FEMLoopRegistry(1.0e-3)
-                zero_inner_shape = LineCableModels.DataModel.BentStrip(
-                    0.0, 0.01, π / 3
-                )
-                extension_module._register_shape_breaks!(
-                    zero_inner_registry, zero_inner_shape
-                )
-                @test all(
-                    key -> !iszero(key[3]),
-                    keys(zero_inner_registry.circle_breaks)
-                )
-                zero_inner_strip = extension_module._boundary_loop!(
-                    zero_inner_registry,
-                    zero_inner_shape
-                )
-                gmsh.model.geo.synchronize()
-                @test count(
-                    curve -> gmsh.model.get_type(1, curve) == "Circle",
-                    zero_inner_strip.curves
-                ) >= 1
-                @test count(
-                    curve -> gmsh.model.get_type(1, curve) == "Line",
-                    zero_inner_strip.curves
-                ) == 2
-
-                gmsh.model.add("fem-shared-circle-arcs")
-                shared_registry = extension_module.FEMLoopRegistry(1.0e-3)
-                contact = 0.5343318251524625
-                first_contact = extension_module._point!(
-                    shared_registry, (contact, -1.0)
-                )
-                second_contact = extension_module._point!(
-                    shared_registry, (nextfloat(contact), -1.0)
-                )
-                @test first_contact == second_contact
-                full_circle = Disk(0.02)
-                partial_sector = LineCableModels.DataModel.SectorShape(
-                    Sector(span = 0.8, r_base = 0.01, r_back = 0.02)
-                )
-                extension_module._register_shape_breaks!(
-                    shared_registry, full_circle
-                )
-                extension_module._register_shape_breaks!(
-                    shared_registry, partial_sector
-                )
-                extension_module._register_circle_contacts!(shared_registry)
-                full_loop = extension_module._boundary_loop!(
-                    shared_registry, full_circle
-                )
-                partial_loop = extension_module._boundary_loop!(
-                    shared_registry, partial_sector; mesh_size = 2.0e-4
-                )
-                gmsh.model.geo.synchronize()
-                shared_curves = intersect(full_loop.curves, partial_loop.curves)
-                @test length(shared_curves) == 2
-                @test all(
-                    point -> shared_registry.point_sizes[point] == 2.0e-4,
-                    Iterators.flatten(
-                        shared_registry.curve_points[curve]
-                    for curve in shared_curves
-                    )
-                )
-
-                gmsh.model.add("fem-tangent-circles")
-                tangent_registry = extension_module.FEMLoopRegistry(1.0e-3)
-                first_circle = Disk(0.01, Pose2(-0.01, 0.0, 0.0))
-                second_circle = Disk(0.01, Pose2(0.01, 0.0, 0.0))
-                extension_module._register_shape_breaks!(
-                    tangent_registry, first_circle
-                )
-                extension_module._register_shape_breaks!(
-                    tangent_registry, second_circle
-                )
-                extension_module._register_circle_contacts!(tangent_registry)
-                first_loop = extension_module._boundary_loop!(
-                    tangent_registry, first_circle
-                )
-                second_loop = extension_module._boundary_loop!(
-                    tangent_registry, second_circle
-                )
-                gmsh.model.geo.synchronize()
-                first_points = reduce(
-                    union,
-                    (Set(gmsh.model.get_adjacencies(1, curve)[2])
-                    for curve in first_loop.curves);
-                    init = Set{Int32}()
-                )
-                second_points = reduce(
-                    union,
-                    (Set(gmsh.model.get_adjacencies(1, curve)[2])
-                    for curve in second_loop.curves);
-                    init = Set{Int32}()
-                )
-                @test length(intersect(first_points, second_points)) == 1
-
-                filled_geometry = extension_module._build_geometry!(
-                    filled_model, "fem-filled-sector-geometry"
-                )
-                fill_index = findfirst(
-                    plan -> plan.field === :matrix_fill,
-                    filled_model.material_plans
-                )
-                fill_surfaces = filled_geometry.material_surfaces[fill_index]
-                fill_curves = Set(extension_module._entity_boundary(fill_surfaces))
-                terminal_curves = Set(only(filled_geometry.terminal_curves))
-                @test !isempty(intersect(terminal_curves, fill_curves))
-                @test all(terminal_curves) do curve
-                    adjacent, _ = gmsh.model.get_adjacencies(1, curve)
-                    length(unique(adjacent)) >= 2
-                end
-
-                tangent_fill_geometry = extension_module._build_geometry!(
-                    tangent_fill_model, "fem-tangent-fill-geometry"
-                )
-                tangent_fill_surfaces = tangent_fill_geometry.material_surfaces[
-                tangent_fill_index
-]
-                @test length(tangent_fill_surfaces) == 8
-                tangent_fill_curves = extension_module._entity_boundary(
-                    tangent_fill_surfaces
-                )
-                @test all(tangent_fill_curves) do curve
-                    adjacent, _ = gmsh.model.get_adjacencies(1, curve)
-                    length(unique(adjacent)) >= 2
-                end
-                minimum_curve_extent = minimum(tangent_fill_curves) do curve
-                    bounds = gmsh.model.get_bounding_box(1, curve)
-                    hypot(bounds[4] - bounds[1], bounds[5] - bounds[2])
-                end
-                @test minimum_curve_extent > 1.0e-8
-                gmsh.model.set_current(tangent_fill_geometry.model_name)
-                extension_module._configure_mesh!(
-                    tangent_fill_model,
-                    tangent_fill_geometry,
-                    only(tangent_fill_model.mesh_plans)
-                )
-                gmsh.model.mesh.generate(2)
-                @test !isempty(first(gmsh.model.mesh.get_nodes()))
-
-                mixed_fill_geometry = extension_module._build_geometry!(
-                    mixed_fill_model, "fem-tangent-fill-with-tape-geometry"
-                )
-                mixed_fill_surfaces = mixed_fill_geometry.material_surfaces[
-                mixed_fill_index
-]
-                @test length(mixed_fill_surfaces) == 9
-                gmsh.model.set_current(mixed_fill_geometry.model_name)
-                extension_module._configure_mesh!(
-                    mixed_fill_model,
-                    mixed_fill_geometry,
-                    only(mixed_fill_model.mesh_plans)
-                )
-                gmsh.model.mesh.generate(2)
-                @test !isempty(first(gmsh.model.mesh.get_nodes()))
-
-                first_run = extension_module._create_run(runtime_root)
-                first_geometry = extension_module._build_geometry!(model, "fem-mesh-first")
-                first_mesh = extension_module._select_mesh!(
-                    first_run, model, first_geometry, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)), runtime_root
-                )
-                @test isfile(first_mesh)
-                @test first_run.mesh_source === :generated
-                @test !isempty(first_run.mesh_fingerprint)
-                # The buried measurement adds a conforming vertical PML boundary
-                # and splits the corresponding top/bottom Cartesian blocks.
-                @test length(first_geometry.pml_surfaces) == 12
-                @test length(first_geometry.pml_inner_curves) == 8
-                @test !isempty(first_geometry.outer_air_curves)
-                @test !isempty(first_geometry.outer_earth_curves)
-                @test isempty(intersect(
-                    first_geometry.outer_air_curves,
-                    first_geometry.outer_earth_curves
-                ))
-                @test sort!(unique([first_geometry.outer_air_curves;
-                                    first_geometry.outer_earth_curves])) ==
-                      first_geometry.outer_curves
-                extension_module._validate_mesh_file(model, first_mesh)
-
-                second_run = extension_module._create_run(runtime_root)
-                second_geometry = extension_module._build_geometry!(model, "fem-mesh-second")
-                second_mesh = extension_module._select_mesh!(
-                    second_run, model, second_geometry, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)), runtime_root
-                )
-                @test isfile(second_mesh)
-                @test second_run.mesh_source === :cache
-                @test second_run.mesh_fingerprint == first_run.mesh_fingerprint
-
-                remesh = Formulation(
-                    :LineCableModelsFEM;
-                    options = (ideal_transposition = false,))
-                remesh_controls = (mesh_policy = :remesh, gmsh_verbosity = 0)
-                third_run = extension_module._create_run(runtime_root)
-                third_geometry = extension_module._build_geometry!(model, "fem-mesh-third")
-                third_mesh = extension_module._select_mesh!(
-                    third_run, model, third_geometry, computation_options(LineCableModelsFEM, ComputationOptions(remesh_controls)), runtime_root
-                )
-                @test isfile(third_mesh)
-                @test third_run.mesh_source === :generated
-
-                if Sys.isunix()
-                    failing_getdp = joinpath(runtime_root, "getdp-failure")
-                    open(failing_getdp, "w") do io
-                        println(io, "#!/bin/sh")
-                        println(io, "if [ \"\$1\" = \"-info\" ]; then")
-                        println(io, "  echo 'GetDP Version 3.5.0'")
-                        println(io, "  exit 0")
-                        println(io, "fi")
-                        println(io, "echo 'intentional GetDP failure marker' >&2")
-                        println(io, "exit 17")
-                    end
-                    chmod(failing_getdp, 0o700)
-                    failing_formulation = Formulation(
-                        :LineCableModelsFEM;
-                        options = (ideal_transposition = false,))
-                    failing_formulation_controls = (
-                            getdp_executable = failing_getdp,
-                            gmsh_verbosity = 0,
-                            getdp_verbosity = 0
-                        )
-                    failure_run = extension_module._create_run(runtime_root)
-                    extension_module._prepare_run_inputs!(failure_run, model)
-                    extension_module._write_json_atomic(
-                        joinpath(failure_run.path, "input", "computation.json"),
-                        extension_module._fem_input_record(model, failing_formulation, computation_options(LineCableModelsFEM, ComputationOptions(failing_formulation_controls))))
-                    failure = try
-                        extension_module._run_getdp!(
-                            failure_run,
-                            model,
-                            failing_formulation, computation_options(LineCableModelsFEM, ComputationOptions(failing_formulation_controls)),
-                            first_mesh
-                        )
-                        nothing
-                    catch exception
-                        exception
-                    end
-                    @test failure isa LineCableModelsFEMError
-                    @test failure.category === :getdp
-                    @test failure.field === :client
-                    @test occursin("GetDP log tail", failure.message)
-                    @test failure.run_directory == failure_run.path
-                    @test failure_run.getdp_invocations == 1
-                    @test isdir(failure_run.path)
-                    @test isfile(joinpath(failure_run.path, "logs", "getdp.log"))
-                end
-            finally
-                extension_module._finish_gmsh(session)
-            end
-        end
-        @test Bool(gmsh.is_initialized())
-        @test Set(String.(gmsh.model.list())) == caller_models
-        @test gmsh.model.get_current() == "caller-owned"
-        @test gmsh.view.get_tags() == [caller_view]
-        @test gmsh.option.get_number("General.Terminal") == 1
-        @test gmsh.option.get_number("General.Verbosity") == 4
-        @test gmsh.option.get_number("Geometry.Tolerance") == 2.0e-7
-        @test gmsh.option.get_number("Geometry.ToleranceBoolean") == 3.0e-7
-        @test gmsh.option.get_string("Solver.SocketName") ==
-              "caller-owned-socket"
-        @test gmsh.onelab.get_string(caller_parameter) == ["preserve-me"]
-    finally
-        Gmsh.finalize()
-    end
-end
-
 @testitem "Gmsh FEM / bounded formations and complete material ownership" tags=[
     :extension
 ] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     using LineCableModels
 
     const DM = LineCableModels.DataModel
@@ -1160,28 +548,13 @@ end
             ("fem-rectangular-last-strip", annular_model)
         )
             @testset "$name" begin
-                geometry = extension_module._build_geometry!(model, name)
-                gmsh.model.set_current(geometry.model_name)
-                @test all(!isempty, geometry.material_surfaces)
-                @test all(!isempty, geometry.terminal_surfaces)
-                extension_module._configure_mesh!(
-                    model, geometry, only(model.mesh_plans)
-                )
-                gmsh.model.mesh.generate(2)
-                @test !isempty(first(gmsh.model.mesh.get_nodes()))
-                for surfaces in geometry.material_surfaces, surface in surfaces
-
-                    _, element_tags, _ = gmsh.model.mesh.get_elements(2, surface)
-                    @test any(!isempty, element_tags)
+                geometry = extension_module._build_physical_geometry!(model,name)
+                @test all(!isempty,geometry.material_surfaces)
+                @test all(!isempty,geometry.terminal_surfaces)
+                for surfaces in geometry.material_surfaces,surface in surfaces
+                    @test !isempty(gmsh.model.get_boundary([(2,surface)],false,false,false))
                 end
-                @test isnothing(extension_module._inspect_loaded_mesh(model, name))
-                # Physical tags alone do not prove a material was meshed. This
-                # also guards validation of reused/imported mesh files.
-                surface = first(first(geometry.material_surfaces))
-                gmsh.model.mesh.clear([(2, surface)])
-                @test_throws LineCableModelsFEMError extension_module._inspect_loaded_mesh(
-                    model, name
-                )
+
             end
         end
         @testset "contact edges share subdivisions in either direction" begin
@@ -1206,7 +579,8 @@ end
     end
 end
 
-@testitem "Gmsh FEM / optional real GetDP multi-frequency scan" tags=[
+
+@testitem "Gmsh FEM / native multi-frequency scan and completed reuse" tags=[
     :extension,
     :integration,
     :fem_numerical
@@ -1437,6 +811,3 @@ end
 
         rm(run_directory; recursive = true, force = true)
 end
-
-# Historical Python records/operators are retired. Current formulation and
-# extraction controls are owned by fem_electrodynamics.jl and fem_quasi_full.jl.

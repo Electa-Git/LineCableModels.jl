@@ -36,6 +36,8 @@
 end
 
 @testitem "Materials / temperature law / custom selections and applicability" tags=[:unit] setup=[FormulaContractModels] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const TD=LineCableModels.Materials.TemperatureDependent
     const M=FormulaContractModels
     selected=M.ConstantResistivity(2e-8)

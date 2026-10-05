@@ -1,16 +1,7 @@
-// Native detached entry. ModelDataPath and ProjectDirectory are set by study.pro.
+// Native detached entry. The exported entry sets ModelDataPath and ProjectDirectory.
 ExportLineParameters = 1;
 If(!Exists(Physics)) Physics = 1; EndIf
-If(!Exists(MumpsOrdering)) MumpsOrdering = -1; EndIf
-If(!Exists(PetscPrealloc)) PetscPrealloc = 0; EndIf
-FEMSolverOptions = "-ksp_diagonal_scale -ksp_diagonal_scale_fix";
-If(MumpsOrdering >= 0)
-  FEMSolverOptions = StrCat[FEMSolverOptions,Sprintf[" -mat_mumps_icntl_7 %g",MumpsOrdering]];
-EndIf
-If(PetscPrealloc > 0)
-  FEMSolverOptions = StrCat[FEMSolverOptions,Sprintf[" -petsc_prealloc %g",PetscPrealloc]];
-EndIf
-PhysicsName = "quasi-fw";
+PhysicsName = "helmholtz";
 ResultRoot = StrCat[ProjectDirectory,"results/"];
 RunDirectory = StrCat[ResultRoot,Sprintf["f%04g-",FrequencyIndex],PhysicsName,Sprintf["-b%04g",BasisTerminal]];
 MatrixDirectory = StrCat[RunDirectory,"/matrices"];
@@ -31,21 +22,10 @@ EndIf
 If(UnitSource == 0)
   Error("Current normalization must be nonzero");
 EndIf
-FrequencyHz = Frequencies(FrequencyIndex-1);
-GammaRe = GammaReValues(FrequencyIndex-1);
-GammaIm = GammaImValues(FrequencyIndex-1);
+Include "parameters.pro";
 If(Physics != 1)
-  Error("Physics must be 1 (quasi-fw)");
+  Error("Physics must be 1 (Helmholtz)");
 EndIf
-DomainHalfwidth = DomainHalfwidths(FrequencyIndex-1);
-If(!Exists(VolumeQuadrature)) VolumeQuadrature = VolumeQuadratures(FrequencyIndex-1); EndIf
-PmlSideThickness = PmlSideThicknessValues(FrequencyIndex-1);
-PmlTopThickness = PmlTopThicknessValues(FrequencyIndex-1);
-PmlBottomThickness = PmlBottomThicknessValues(FrequencyIndex-1);
-PmlSideStrength = PmlSideStrengthValues(FrequencyIndex-1);
-PmlTopStrength = PmlTopStrengthValues(FrequencyIndex-1);
-PmlBottomStrength = PmlBottomStrengthValues(FrequencyIndex-1);
-PmlSlope = PmlSlopeValues(FrequencyIndex-1);
 If(BasisTerminal == 0) RequestedBases() = {1:NumTerminals};
 Else RequestedBases() = {BasisTerminal}; EndIf
 FEMPublishedText = DefineString[Str[RunDirectory], Name "Results/01Directory", ReadOnly 1];
@@ -85,13 +65,11 @@ Resolution {
         CreateDir[RunDirectory]; CreateDir[MatrixDirectory];
         // A map-disabled rerun must not leave maps from an older solution.
         For t In {1:NumTerminals}
-          For q In {0:#FieldMapsFw()-1}
-            DeleteFile[StrCat[MapDirectory,"/",Str[FieldMapsFw(q)],Sprintf["_f%04g_b%04g.pos",FrequencyIndex,t]]];
+          For q In {0:#FieldMapsHelmholtz()-1}
+            DeleteFile[StrCat[MapDirectory,"/",Str[FieldMapsHelmholtz(q)],Sprintf["_f%04g_b%04g.pos",FrequencyIndex,t]]];
           EndFor
         EndFor
         Evaluate[SetNumberRunTime[1]{"Results/00Status"}];
-        // Match the direct Julia worker's solver scaling in native syntax.
-        SetGlobalSolverOptions[FEMSolverOptions];
         Call FEMScan;
         If(BasisTerminal == 0)
           Call FEMInitializeMatrices;

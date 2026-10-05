@@ -47,6 +47,7 @@ LineCableModelsCairoMakieExt = ["Makie", "CairoMakie"]
 LineCableModelsDistributionsExt = "Distributions"
 LineCableModelsGLMakieExt = ["Makie", "GLMakie"]
 LineCableModelsGmshExt = "Gmsh"
+LineCableModelsGmshMakieExt = ["Gmsh", "Makie", "Colors"]
 LineCableModelsMakieExt = ["Makie", "Colors"]
 LineCableModelsMeasurementsExt = ["Measurements", "Calculus"]
 LineCableModelsWGLMakieExt = ["Makie", "WGLMakie"]

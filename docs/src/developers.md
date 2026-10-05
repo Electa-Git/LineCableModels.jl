@@ -54,6 +54,14 @@ admits that form. Optional stages have an explicit no-op at the abstract root.
 Plotting is deliberately not such an action: the optional Makie extension
 constructs native figures directly from published observations.
 
+FEM definitions, controls and data types belong to `LineCableModelsGmshExt`.
+It extends core computation, description and import and export dispatch; core does
+not retrieve the extension. `LineCableModelsGmshMakieExt` adds spatial recipes
+only when Gmsh and Makie are loaded. It imports the renderer's declared shell,
+layout and control operations and extends its mesh-drawing operations. This
+keeps figure ownership in the renderer and FEM data ownership in Gmsh without
+loading graphics for headless computation.
+
 Observation uses a different structure. Result owners add `observe` methods.
 Grammar owns one `observables(source, requests::Tuple; ...)` publication
 method. Standalone arrays and external result types do not need a shared
@@ -93,10 +101,9 @@ inputs and rejection of damaged inputs through validation and computation. The
 standards require checks to remain with the owning validator; representative
 behavioral tests do not establish that every method body has been inspected.
 
-The native FEM environment uses pinned GetDP 3.5.0. Keep tests of its actual
-execution, extraction, terminal identity, material/option transport and resume
-behavior. Physical cross-backend accuracy and domain-convergence acceptance
-belong to explicit research work under the testing policy below. See the
+The native FEM backend uses pinned GetDP 3.5.0. Physical cross-backend accuracy
+and domain-convergence acceptance belong to the researcher. The FEM
+investigation tests and qualification campaigns have been removed. See the
 [test commands](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for the implementation checks and their
 execution environments.
 
@@ -207,7 +214,7 @@ The inspected external accesses have these dispositions:
 | `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/); renderer export error handling only. |
 | `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by Engine's allocating Kron entry point to preserve source/destination aliasing; the workspace path uses separate preallocated buffers. |
 | `Base.require` | Removed from the renderer. `Base.get_extension` identifies the loaded Cairo extension, whose public `CairoMakie` binding supplies the native save backend. Export never loads packages. |
-| `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api); renderer only. |
+| `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api); renderer and spatial recipes only. |
 | `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api); renderer only. |
 | `Makie.get_ticks`, `Makie.get_tickvalues` | Documented [axis extension hooks](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
 | `Makie.pseudolog10` | Documented [axis scale](https://docs.makie.org/stable/reference/blocks/axis.html); renderer only. |
@@ -218,7 +225,7 @@ The inspected external accesses have these dispositions:
 | `Makie.get_plots` | Removed. Legend glyphs use the `plots` vector required by the [LegendElement extension contract](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/makielayout/types.jl). This is the documented source association, not arbitrary private-field inspection. |
 | `Makie.get_plot_visibilities` | Removed. Native `on`/`off` and the documented [`ObserverFunction.observable`](https://juliagizmos.github.io/Observables.jl/stable/#Observables.ObserverFunction) supply the notification target without changing visibility. |
 | `Makie.fast_string_boundingboxes_obs` | Removed. Public attribute subscriptions query the documented [`fast_string_boundingboxes(Text)`](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/basic_recipes/text.jl) result, preserving marker-space extents without the internal observable helper. The exact documented query is allowed for the renderer. |
-| `GridLayoutBase.remove_from_gridlayout!` | Retained as the [maintainer-prescribed nested-layout removal](https://discourse.julialang.org/t/makie-removing-gridlayouts/103935) workaround. It is not an exported stable API. Only this renderer call is admitted; existing legend recreation/layout tests protect it. |
+| `GridLayoutBase.remove_from_gridlayout!` | Retained as the [maintainer-prescribed nested-layout removal](https://discourse.julialang.org/t/makie-removing-gridlayouts/103935) workaround. It is not an exported stable API. Only this renderer call is admitted. existing legend recreation/layout tests protect it. |
 
 These integration contracts are scoped to the supported Makie 0.24 family.
 The layout workaround needs review when that compatibility range changes.

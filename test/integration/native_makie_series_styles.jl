@@ -104,6 +104,8 @@ end
 end
 
 @testitem "Makie addons / automatic difference labels and chromatic candidate prefix" tags=[:visual] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using CairoMakie
     using LineCableModels.Engine: retain_gridpoint,completed_formulation
     using LineCableModels.Grammar: gridpoint_id,observation_labels

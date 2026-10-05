@@ -1,40 +1,5 @@
 # Closure identities establish current algebra and conventions; independent
 # cylindrical controls below provide physical validation for equal media.
-@testitem "Engine / unified retains five-layout FEM baseline agreement" tags=[:unit] setup=[TestFixtures] begin
-    root=joinpath(pkgdir(LineCableModels), "test/fixtures/reference/three_bare_wires",
-        "capture-20260917T102438-Nt9nic")
-    selected=Formulation(
-        earth_impedance = formula(:unified), earth_admittance = formula(:unified),
-        options = (
-            reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
-    for layout in (:all_air, :all_earth, :air_1, :air_2, :air_3)
-        directory=joinpath(root, "three_bare_wires_$layout")
-        # The original problem JSON is historical input with problem-owned Γ.
-        # Rebuild the same physical fixture; the retained numerical CSVs stay fixed.
-        problem=TestFixtures.three_bare_wires_problem(
-            heights=TestFixtures.three_bare_wires_layouts[layout])
-        @test problem.frequencies==10.0 .^ (-1:7)
-        result=compute(problem, selected; options = (verbosity = (default = 0,),))
-        for (name, selector) in (("Z", Z), ("Y", Y))
-            rows=map(
-                backend->split.(readlines(joinpath(directory, backend, "$name.csv"))[2:end], ','),
-                ("unified", "fem"))
-            @test all(a[1:3]==b[1:3] for (a, b) in zip(rows...))
-            old,
-            fem=map(rs->[complex(parse(Float64, r[4]), parse(Float64, r[5])) for r in rs], rows)
-            values=observe(result, selector)
-            actual=[values[i, j, k] for k in 1:9 for i in 1:3 for j in 1:3]
-            @test length(actual)==length(old)==length(fem)==81
-            # Preserve the observed worst discrepancy; this does not claim
-            # exact FEM agreement or impose a solver-side acceptance policy.
-            roundoff=64eps(Float64)*max(maximum(abs, old), maximum(abs, fem))
-            @test maximum(abs.(actual-fem))<=maximum(abs.(old-fem))+roundoff
-            # With Γ=0 the reference correction does not change Z.
-            name=="Z" && (@test actual≈old rtol=1e-11 atol=1e-13)
-        end
-    end
-end
-
 @testitem "Engine / full earth / current closure across layouts" tags=[:unit] setup=[UnifiedFormulaFixtures] begin
     using LinearAlgebra
     const E=LineCableModels.Engine

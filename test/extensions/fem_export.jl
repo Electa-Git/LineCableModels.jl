@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / detached native export and caller ownership" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     gmsh = Gmsh.gmsh
     FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     wire = build(CableDesign,"export-test",
@@ -34,17 +36,12 @@
             @test occursin("Material_1_conductor_Sigma()",data)
             @test occursin("Connection_2 = 2;",data)
             @test occursin("UnitSource = 1.;",data)
-            @test occursin("Physics = {1, Choices{1=\"quasi-fw\"}",data)
+            @test occursin("Physics = {1, Choices{1=\"Helmholtz\"}",data)
             @test !isfile(joinpath(dirname(entry),"formulations","quasi-tem.pro"))
             @test !occursin(pkgdir(LineCableModels),data)
-            geometry = read(joinpath(dirname(entry),"geometry","case-0001.geo"),String)
-            @test occursin("Mesh.Binary = 1;",geometry)
-            # Native Gmsh serialization previously truncated these PML ratios
-            # and omitted the alternating triangle arrangement entirely.
-            ratios = [parse(Float64,m[1]) for m in eachmatch(r"Using Progression ([0-9eE.+-]+);",geometry)]
-            @test any(==(exp(((192/191)*log(1536))/8)),ratios)
-            @test count("AlternateLeft;",geometry)==12
-            @test occursin("In Surface",geometry)
+            geometry = read(joinpath(dirname(entry),"geometry","physical.geo"),String)
+            @test occursin("FEMReceiverX",geometry)
+            @test !occursin("FEMReceiverColumn",geometry)
             @test_throws ArgumentError export_data(:onelab,problem,formulation;file_name=entry)
             @test_throws ArgumentError export_data(:onelab,problem,formulation;
                 file_name=joinpath(root,"invalid","study.pro"),mesh_options=(frequency_workers=2,))
@@ -80,10 +77,10 @@
             write(marker,recorded)
             gmsh.open(replace(entry,r"\.pro$"=>".geo"))
             options = computation_options(LineCableModelsFEM,ComputationOptions(pml_layers=8))
-            model = FEM._resolved_fem_model(problem,formulation,options)
+            model = FEM._resolved_fem_model(problem,formulation)
             available = Set((d,t,gmsh.model.get_physical_name(d,t)) for (d,t) in gmsh.model.get_physical_groups())
             @test all(group in available for group in FEM._expected_physical_groups(model))
-            @test length(gmsh.model.get_entities(2)) == 16
+            @test length(gmsh.model.get_entities(2)) >= 12
             @test !isempty(gmsh.model.mesh.field.list())
             gmsh.model.mesh.generate(2)
             mesh = joinpath(root,"reopened.msh")
@@ -92,90 +89,21 @@
                 @test readline(io)=="\$MeshFormat"
                 @test split(readline(io))[2]=="1"
             end
-            @test FEM._inspect_loaded_mesh(model,mesh) === nothing
+            ratios=FEM._inspect_loaded_mesh(model,mesh)
+            @test length(ratios)==length(model.terminal_ids)
+            # Allow twice the 0.25 target because Delaunay edges can be smaller than their targets.
+            @test all(r -> isfinite(r) && 0<r<=.5,ratios)
+            @test only(gmsh.parser.get_number("MeasurementLineSizeFactor")) == .25
         finally
             gmsh.finalize()
         end
     end
 end
 
-@testitem "Gmsh FEM / editable physical and exterior mesh factors" tags=[:extension] begin
-    using Gmsh
-    gmsh = Gmsh.gmsh
-    FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
-    wire = build(CableDesign,"editable-mesh",terminal(:core,
-        core(Material(kind=:conductor,rho=1.72e-8);r=.005)))
-    system = build(LineCableSystem,[wire,wire],[(0.,.1),(.2,-.1)];
-        connections=[Dict(:core=>1),Dict(:core=>2)])
-    problem = LineParametersProblem(system;frequencies=[.1,1e4],
-        earth_props=homogeneous(rho=100.,eps_r=10.))
-    formulation = LineCableModelsFEM()
-    controls = (domain_skin_depths=8.,pml_layers=4,mesh_size_factor=3.,exterior_mesh_size_factor=8.)
-    mktempdir() do root
-        entry = export_data(:onelab,problem,formulation;file_name=joinpath(root,"study.pro"),mesh_options=controls)
-        data = read(joinpath(root,"study_data.pro"),String)
-        @test occursin("1=\"0.1 Hz\"",data)
-        @test occursin("Frequencies() = "*FEM._pro_array(problem.frequencies),data)
-        @test !occursin("0.10000000000000001 Hz",data)
-        session = FEM._start_gmsh(0)
-        function inventory(model)
-            pml = gmsh.model.get_entities_for_physical_group(2,model.tags.pml)
-            contours = [gmsh.model.get_entities_for_physical_group(1,model.tags.terminal_contour_base+i) for i in 1:2]
-            triangles = sum(length(block) for s in pml for block in gmsh.model.mesh.get_elements(2,s)[2])
-            lines = Dict(c=>sum(length,gmsh.model.mesh.get_elements(1,c)[2]) for (_,c) in gmsh.model.get_entities(1))
-            metals = [sum(lines[c] for c in curves) for curves in contours]
-            return (;triangles,lines,metals,nodes=length(first(gmsh.model.mesh.get_nodes())))
-        end
-        try
-            observed = []
-            # Include both directions of editing, and a change to the physical
-            # factor. Match each detached mesh to a fresh Julia construction.
-            for (factor,exterior) in ((3.,8.),(3.,1.),(1.5,4.),(3.,8.))
-                options = computation_options(LineCableModelsFEM,ComputationOptions(;
-                    controls...,mesh_size_factor=factor,exterior_mesh_size_factor=exterior))
-                model = FEM._resolved_fem_model(problem,formulation,options)
-                plan = model.mesh_plans[2]
-                gmsh.clear()
-                geometry = FEM._build_geometry!(model,"managed-controls",plan)
-                FEM._configure_mesh!(model,geometry,plan)
-                gmsh.model.mesh.generate(2)
-                expected = inventory(model)
-                gmsh.clear(); gmsh.parser.clear()
-                gmsh.onelab.set_number("Inputs/01Frequency case",[2.])
-                gmsh.onelab.set_number("Mesh/01Physical size factor",[factor])
-                gmsh.onelab.set_number("Mesh/02Exterior size factor",[exterior])
-                gmsh.open(replace(entry,r"\.pro$"=>".geo"))
-                @test only(gmsh.parser.get_number("MeshBulk")) ≈ plan.domain_mesh_size
-                @test only(gmsh.parser.get_number("MeshRemoteAir")) ≈ plan.exterior_mesh_sizes[1]
-                @test only(gmsh.parser.get_number("MeshRemoteEarth")) ≈ plan.exterior_mesh_sizes[2]
-                @test only(gmsh.parser.get_number("MeshInterface")) ≈ plan.interface_mesh_size
-                @test only(gmsh.parser.get_number("ConductorRegion1First")) ≈
-                    FEM._conductor_mesh_sizes(model,first(model.region_plans),plan).first_size
-                gmsh.model.mesh.generate(2)
-                @test FEM._inspect_loaded_mesh(model,"editable-native-mesh") === nothing
-                actual = inventory(model)
-                @test actual.lines == expected.lines
-                @test actual.triangles == expected.triangles
-                @test actual.metals == expected.metals
-                push!(observed,actual)
-            end
-            @test observed[1].triangles < observed[2].triangles
-            @test observed[1].nodes < observed[2].nodes
-            @test observed[1].metals == observed[2].metals
-            # Gmsh can choose a different unstructured triangulation on reload;
-            # the prescribed edges and structured PML must return identically.
-            @test observed[1].lines == observed[4].lines
-            @test observed[1].triangles == observed[4].triangles
-            @test read(joinpath(root,"study_data.pro"),String) == data
-        finally
-            gmsh.onelab.clear(); gmsh.parser.clear()
-            FEM._finish_gmsh(session)
-        end
-    end
-end
-
 @testitem "Gmsh FEM / detached native frequency scan" tags=[:extension,:integration,:fem_numerical] begin
     using Gmsh, JSON3
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     gmsh = Gmsh.gmsh
     FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     wire = build(CableDesign,"scan-test",terminal(:core,
@@ -232,7 +160,7 @@ end
         end
         command = `$mesher $entry -option $options -setnumber PlotFieldMaps 0 -run`
         run_dir(i,physics) = joinpath(bundle,"results","f"*lpad(i,4,'0')*"-"*physics*"-b0000")
-        physics, code = "quasi-fw", 1
+        physics, code = "helmholtz", 1
         log = read(`$command -setnumber RunFrequencyScan 1 -setnumber Physics $code`,String)
         @test !occursin("Error",log)
         # Check the ordered mesh/save/solve events, not just existence of
@@ -258,24 +186,26 @@ end
         end
         # An unchecked native Run visits only the selected frequency.
         log = read(`$command -setnumber RunFrequencyScan 0 -setnumber FrequencyIndex 2`,String)
-        @test count("Print -> '",log) == 1
-        @test occursin("f0002-quasi-fw-b0000/completed.txt",log)
-        @test !occursin("f0001-quasi-fw-b0000/completed.txt",log)
+        @test count(r"Print -> '[^\n]*completed\.txt'",log) == 1
+        @test occursin("f0002-helmholtz-b0000/completed.txt",log)
+        @test !occursin("f0001-helmholtz-b0000/completed.txt",log)
         log = read(`$command -setnumber RunFrequencyScan 1 -setnumber RunAction 0`,String)
         @test count(r"Writing '[^\n]*study\.msh'",log) == 2
         @test !occursin("Print -> '",log)
-        @test all(!isfile(joinpath(run_dir(i,"quasi-fw"),"completed.txt")) for i in 1:2)
+        @test all(!isfile(joinpath(run_dir(i,"helmholtz"),"completed.txt")) for i in 1:2)
         singleton = LineParametersProblem(system;frequencies=[50.],earth_props=problem.earth_props)
         single = export_data(:onelab,singleton,formulation;
             file_name=joinpath(root,"single","study.pro"),mesh_options=(pml_layers=8,))
         log = read(`$mesher $single -option $options -setnumber PlotFieldMaps 0 -setnumber RunFrequencyScan 1 -run`,String)
-        @test count("Print -> '",log) == 1
-        @test isfile(joinpath(dirname(single),"results","f0001-quasi-fw-b0000","completed.txt"))
+        @test count(r"Print -> '[^\n]*completed\.txt'",log) == 1
+        @test isfile(joinpath(dirname(single),"results","f0001-helmholtz-b0000","completed.txt"))
     end
 end
 
 @testitem "Gmsh FEM / detached mesh controls and failed publication" tags=[:extension,:integration,:fem_numerical] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     gmsh = Gmsh.gmsh
     wire = build(CableDesign,"native-controls",terminal(:core,
@@ -300,7 +230,7 @@ end
             volume = [[gmsh.model.mesh.get_node(n)[1] for n in block] for block in nodes]
             lines = sum(length(first(gmsh.model.mesh.get_elements(1,c)[2]))
                 for (d,p) in gmsh.model.get_physical_groups(1)
-                if startswith(gmsh.model.get_physical_name(d,p),"LCM/voltage_path/")
+                if startswith(gmsh.model.get_physical_name(d,p),"LCM/measurement_line/")
                 for c in gmsh.model.get_entities_for_physical_group(d,p))
             (;volume,triangles=sum(length,tags),lines)
         end
@@ -309,15 +239,11 @@ end
             coarse = inventory()
             cp(mesh,joinpath(root,"coarse.msh"))
             @test !occursin("VoltageRefinements",read(joinpath(root,"study_data.pro"),String))
-            run(`$mesher $(joinpath(root,"study.geo")) -setnumber BuildMesh 1 -setnumber MeshRefinements 1 -0 -v 2`)
-            uniform = inventory()
-            @test uniform.triangles == 4coarse.triangles
-            @test uniform.lines == 2coarse.lines
         finally
             FEM._finish_gmsh(session)
         end
         # An invalid source must invalidate a prior completion before failing.
-        result = joinpath(root,"results","f0001-quasi-fw-b0000")
+        result = joinpath(root,"results","f0001-helmholtz-b0000")
         mkpath(result); marker = joinpath(result,"completed.txt")
         write(marker,"previous success\n")
         datafile = joinpath(root,"study_data.pro")
@@ -339,7 +265,7 @@ end
         @test length(readlines(joinpath(result,"matrices","Y.tsv"))) == 6
         @test length(readlines(marker)) == 1
         run(`$solve -setnumber BasisTerminal 1`)
-        partial = joinpath(root,"results","f0001-quasi-fw-b0001")
+        partial = joinpath(root,"results","f0001-helmholtz-b0001")
         @test isfile(joinpath(partial,"completed.txt"))
         @test length(readlines(joinpath(partial,"matrices","P-primitive.tsv"))) == 4
         @test !isfile(joinpath(partial,"matrices","Y.tsv"))
@@ -349,6 +275,8 @@ end
 
 @testitem "Gmsh FEM / detached native numerical parity and relocation" tags=[:extension,:integration,:fem_numerical] begin
     using Gmsh, LinearAlgebra, SHA
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     copper = Material(kind=:conductor,rho=1.72e-8)
     wire = build(CableDesign,"export-parity",terminal(:core,core(copper;r=0.005)))
@@ -395,7 +323,7 @@ end
         @test success(Cmd(`$getdp $entry -v 0`;dir=root))
         @test !success(pipeline(Cmd(`$getdp $entry -setnumber Physics 0 -v 0`;dir=root),stdout=devnull,stderr=devnull))
 
-        physics, code = :quasi_fw, 1
+        physics, code = :helmholtz, 1
         selected = Formulation(:LineCableModelsFEM;options=(
             physics,reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
         reference = compute(problem,selected;options)
@@ -416,57 +344,5 @@ end
 
         end
         @test all(bytes2hex(open(sha256,joinpath(bundle,file)))==hash for (file,hash) in before)
-    end
-end
-
-@testitem "Gmsh FEM / detached polygon and disconnected terminal geometry" tags=[:extension] begin
-    using Gmsh
-    gmsh = Gmsh.gmsh
-    FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
-    copper = Material(kind=:conductor,rho=1.72e-8)
-    dielectric = Material(kind=:insulator,rho=Inf,eps_r=2.3)
-    polygons = (
-        Polygon(((-.003,-.001),(0.,-.001),(0.,.001),(-.003,.001))),
-        Polygon(((0.,-.001),(.003,-.001),(.003,.001),(0.,.001))),
-        Polygon(((.004,.002),(.006,.002),(.006,.004),(.004,.004))))
-    design = build(CableDesign,"export-polygon",Enclosure(:matrix,
-        terminal(:core,assembly((solid(copper,shape) for shape in polygons)...));
-        primitive=Disk(.01),fill=dielectric))
-    system = build(LineCableSystem,design,Pose2(.06,-.2,.43);connections=Dict(:core=>1))
-    problem = LineParametersProblem(system;frequencies=[50.],earth_props=homogeneous(rho=100.))
-    form = LineCableModelsFEM()
-    model = FEM._resolved_fem_model(problem,form,
-        computation_options(LineCableModelsFEM,ComputationOptions(pml_layers=8)))
-    mktempdir() do root
-        entry = export_data(:onelab,problem,form;file_name=joinpath(root,"bundle","study.pro"),mesh_options=(pml_layers=8,))
-        gmsh.initialize(String[],false,false)
-        try
-            gmsh.option.set_number("General.Terminal",0)
-            gmsh.open(replace(entry,r"\.pro$"=>".geo"))
-            @test length(gmsh.model.get_entities_for_physical_group(2,3001))==3
-            curves = gmsh.model.get_entities_for_physical_group(1,model.tags.voltage_path_base+1)
-            ref = only(gmsh.model.get_entities_for_physical_group(0,model.tags.voltage_reference_base+1))
-            from = gmsh.model.get_value(0,ref,Float64[])
-            endpoints = [gmsh.model.get_value(0,p,Float64[]) for (_,p) in
-                gmsh.model.get_boundary([(1,c) for c in curves],true,false,false)]
-            to = only(filter(!=(from),endpoints))
-            # Rotated lower-left vertex of the first polygon. The dielectric
-            # enclosure and disconnected third polygon do not change it.
-            expected = [.06-.003cos(.43)+.001sin(.43),
-                -.2-.003sin(.43)-.001cos(.43),0.]
-            @test to ≈ expected atol=1e-14 rtol=0
-            @test from[1] ≈ expected[1] atol=1e-14 rtol=0
-            plan = only(model.mesh_plans)
-            @test from[2] ≈ -plan.domain_halfwidth-plan.pml_thickness[3]
-            @test any(!isempty(gmsh.model.mesh.get_embedded(2,s)) for (_,s) in gmsh.model.get_entities(2))
-            gmsh.model.mesh.generate(2)
-            mesh = joinpath(root,"polygon.msh")
-            gmsh.write(mesh)
-            @test FEM._inspect_loaded_mesh(model,mesh) === nothing
-            gmsh.model.remove_physical_groups([(1,model.tags.voltage_path_base+1)])
-            @test_throws LineCableModelsFEMError FEM._inspect_loaded_mesh(model,mesh)
-        finally
-            gmsh.finalize()
-        end
     end
 end

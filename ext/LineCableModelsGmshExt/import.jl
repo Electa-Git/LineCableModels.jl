@@ -27,7 +27,7 @@ function _read_fem_mesh(path, coordinate_scale)
     allunique(tags) || throw(ArgumentError("mesh contains duplicate node tags: $path"))
     all(isfinite, xyz) || throw(ArgumentError("mesh coordinates must be finite: $path"))
     indices = Dict(tag => i for (i, tag) in enumerate(tags))
-    blocks = Engine.FEMElementBlock[]
+    blocks = FEMElementBlock[]
     for (dim, entity) in gmsh.model.get_entities()
         physical = Int.(gmsh.model.get_physical_groups_for_entity(dim, entity))
         kinds, elements, nodes = gmsh.model.mesh.get_elements(dim, entity)
@@ -38,7 +38,7 @@ function _read_fem_mesh(path, coordinate_scale)
                 throw(ArgumentError("invalid element connectivity in $path"))
             connectivity = reshape([indices[tag] for tag in node_tags], count, :)
             push!(blocks,
-                Engine.FEMElementBlock(kind, dimension, order, primary,
+                FEMElementBlock(kind, dimension, order, primary,
                     entity, copy(physical), UInt64.(element_tags), connectivity))
         end
     end
@@ -48,22 +48,79 @@ function _read_fem_mesh(path, coordinate_scale)
     coordinates = reshape(xyz .* coordinate_scale, 3, :)
     all(isfinite, coordinates) ||
         throw(ArgumentError("scaled mesh coordinates must be finite"))
-    return Engine.FEMMesh(path, UInt64.(tags), coordinates, blocks, names)
+    return FEMMesh(path, UInt64.(tags), coordinates, blocks, names)
 end
 
 """
-    import_data(:msh, path; coordinate_scale=1)
+$(TYPEDSIGNATURES)
 
 Read a native Gmsh mesh into a detached `FEMMesh`. Retain all element blocks,
-node tags, coordinates, and physical groups. `coordinate_scale` converts file
-lengths to meters (use `1e-3` for millimeter coordinates). LineCableModels files
-already use meters. No mesh generation or solver is invoked.
-Load Gmsh before calling this method.
+node tags, coordinates, and physical groups. Load Gmsh before calling this method.
+
+# Arguments
+
+- `path`: A mesh file or a saved FEM run, including its `mesh` directory.
+
+# Keywords
+
+- `frequency_index=nothing`: Select a one-based frequency index from a saved
+  FEM run. A file path locates that file's mesh directory. Selection uses the
+  runner's `model.json` metadata and requires a retained mesh for the index.
+  With `nothing`, read the supplied file, or `model.msh` for a directory input.
+  In a saved run, `model.msh` corresponds to the last (highest) frequency.
+- `coordinate_scale=1`: Convert file lengths to meters. Use `1e-3` for
+  millimeter coordinates; LineCableModels files already use meters.
+
+# Returns
+
+- A `FEMMesh` whose `source` is the absolute path of the selected mesh.
+
+# Notes
+
+Frequency selection reads saved files. It does not generate a mesh or run a
+solver. A standalone mesh is independent of sidecar metadata when the index is omitted.
+
+# Errors
+
+- `ArgumentError`: Invalid frequency index, missing or invalid saved frequency
+  metadata, missing mesh, or invalid coordinate scale.
+
+# Examples
+
+```julia
+mesh = import_data(:msh, run_directory; frequency_index=3)
+```
 """
-function ImportExport.import_data(::Val{:msh}, path::AbstractString; coordinate_scale = 1)
+function ImportExport.import_data(::Val{:msh}, path::AbstractString;
+        frequency_index = nothing, coordinate_scale = 1)
     scale = _fem_coordinate_scale(coordinate_scale)
-    return _read_fem_file(path) do filename, _
-        _read_fem_mesh(filename, scale)
+    frequency_index === nothing ||
+        (frequency_index isa Integer && !(frequency_index isa Bool) && frequency_index > 0) ||
+        throw(ArgumentError("frequency_index must be a positive one-based integer or nothing"))
+    filename = abspath(path)
+    if isdir(filename)
+        directory = isdir(joinpath(filename, "mesh")) ? joinpath(filename, "mesh") : filename
+        filename = joinpath(directory, "model.msh")
+    end
+    if frequency_index !== nothing
+        directory = dirname(filename)
+        metadata_path = joinpath(directory, "model.json")
+        isfile(metadata_path) || throw(ArgumentError(
+            "frequency_index requires saved FEM mesh metadata: $metadata_path"))
+        metadata = JSON3.read(read(metadata_path, String))
+        reference_index = metadata isa AbstractDict &&
+            get(metadata, :schema, nothing) == "LineCableModels.FEMMesh" ?
+            get(metadata, :frequency_index, nothing) : nothing
+        reference_index isa Integer && !(reference_index isa Bool) && reference_index > 0 ||
+            throw(ArgumentError("invalid saved FEM mesh frequency index in $metadata_path"))
+        frequency_index <= reference_index || throw(ArgumentError(
+            "frequency_index must be in 1:$reference_index for this saved FEM run"))
+        stem = frequency_index == reference_index ? "model" :
+            "frequency_$(lpad(string(frequency_index), 4, '0'))"
+        filename = joinpath(directory, "$stem.msh")
+    end
+    return _read_fem_file(filename) do selected, _
+        _read_fem_mesh(selected, scale)
     end
 end
 
@@ -87,7 +144,7 @@ function _read_fem_view(path, tag, representation, coordinate_scale)
     encoding === :complex && steps != 2 &&
         throw(ArgumentError(
             "complex field representation requires exactly two real/imaginary steps"))
-    blocks = Engine.FEMFieldBlock[]
+    blocks = FEMFieldBlock[]
     for (kind, count, raw) in zip(kinds, counts, data)
         count == 0 && continue
         length(kind) == 2 && haskey(_POS_ELEMENT_TYPES, kind[2]) ||
@@ -111,11 +168,11 @@ function _read_fem_view(path, tag, representation, coordinate_scale)
         coordinates .*= coordinate_scale
         all(isfinite, coordinates) ||
             throw(ArgumentError("field coordinates must be finite"))
-        push!(blocks, Engine.FEMFieldBlock(element, coordinates, values))
+        push!(blocks, FEMFieldBlock(element, coordinates, values))
     end
     isempty(blocks) &&
         throw(ArgumentError("field view contains no sampled elements: $path"))
-    return Engine.FEMFieldMap(path, label, blocks, times, encoding)
+    return FEMFieldMap(path, label, blocks, times, encoding)
 end
 
 """
@@ -128,7 +185,7 @@ Preserve element-local values, native output-step times, and the original label,
 including any physical units. No GetDP process or graphical interface is used.
 
 `representation=:auto` recognizes the explicit `phasor=real,imag` label emitted
-by this FEM backend; other views retain independent real steps. Pass
+by this FEM backend. other views retain independent real steps. Pass
 `representation=:complex` for older harmonic maps with two known real/imaginary
 steps, or `:real` for independent steps. Merely having two steps never identifies
 a complex field. Load Gmsh before importing.

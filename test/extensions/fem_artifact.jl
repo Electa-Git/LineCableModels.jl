@@ -9,6 +9,8 @@
             write(script,raw"""
                 using Pkg
                 using LineCableModels, Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
                 extension=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
                 cache=only(ARGS)
                 @assert isempty(readdir(cache))

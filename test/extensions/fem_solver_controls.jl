@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / native solver controls in managed and detached execution" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     wire = build(CableDesign,"solver-controls",
         terminal(:core,core(Material(kind=:conductor,rho=1.72e-8);r=.005)))
@@ -11,20 +13,21 @@
     solver = (mumps_ordering=0,petsc_prealloc=256)
     configured = computation_options(LineCableModelsFEM,ComputationOptions(;solver_threads=2,solver...))
     defaults = computation_options(LineCableModelsFEM,ComputationOptions())
-    model = FEM._resolved_fem_model(problem,form,configured)
+    model = FEM._resolved_fem_model(problem,form)
     mktempdir() do root
         run = FEM._create_run(root)
         for options in (defaults,configured)
             dir = mktempdir(root)
             command = FEM._getdp_command("getdp","model.pro","mesh.msh",run,
-                form,options,only(model.mesh_plans),[1,2],dir)
+                form,options,1,[1,2],dir)
             args = command.exec
-            @test "-ksp_diagonal_scale_fix" in args
-            @test ("-mat_mumps_icntl_7" in args) == (options===configured)
-            @test ("-petsc_prealloc" in args) == (options===configured)
+            @test "-setnumber" in args
+            @test "LinearSolver" in args
+            @test ("MumpsOrdering" in args) 
+            @test ("PetscPrealloc" in args) 
             if options===configured
-                @test args[findfirst(==("-mat_mumps_icntl_7"),args)+1] == "0"
-                @test args[findfirst(==("-petsc_prealloc"),args)+1] == "256"
+                @test args[findfirst(==("MumpsOrdering"),args)+1] == "0"
+                @test args[findfirst(==("PetscPrealloc"),args)+1] == "256"
                 @test "OPENBLAS_NUM_THREADS=2" in command.env
             end
         end
@@ -34,10 +37,11 @@
         @test occursin("GetDPThreads = {1,",data)
         @test occursin("MumpsOrdering = {0,",data)
         @test occursin("PetscPrealloc = {256,",data)
-        native = read(joinpath(dirname(entry),"formulations/onelab.pro"),String)
+        native = read(joinpath(dirname(entry),"formulations/helmholtz.pro"),String)*
+            read(joinpath(dirname(entry),"formulations/solver.pro"),String)
         @test occursin("SetGlobalSolverOptions[FEMSolverOptions]",native)
-        @test occursin("-mat_mumps_icntl_7 %g",native)
-        @test occursin("-petsc_prealloc %g",native)
+        @test occursin("-mat_mumps_icntl_7",native)
+        @test occursin("-petsc_prealloc",native)
         @test_throws ArgumentError export_data(:onelab,problem,form;
             file_name=joinpath(root,"bad","study.pro"),solver_options=(frequency_workers=2,))
         @test !isdir(joinpath(root,"bad"))

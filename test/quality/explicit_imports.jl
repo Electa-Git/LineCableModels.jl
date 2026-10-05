@@ -9,8 +9,10 @@
     end
     renderer = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     cairo = Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt)
+    spatial = Base.get_extension(LineCableModels, :LineCableModelsGmshMakieExt)
     @test renderer !== nothing
     @test cairo !== nothing
+    @test spatial !== nothing
     import Logging, JSON3
 
     # Gmsh's generated API deliberately uses qualified calls without export/
@@ -42,8 +44,10 @@
         consumer === LineCableModels.Engine && owner === Base && name === :unalias &&
             Base.Docs.hasdoc(Base, :unalias) && return true
         consumer === cairo && owner === CairoMakie && name === :activate! && return true
+        consumer in (renderer, spatial) && owner === CairoMakie.Makie &&
+            name === :automatic && return true
         consumer === renderer && owner === CairoMakie.Makie && name in (
-            :automatic, :current_backend, :get_ticks, :get_tickvalues,
+            :current_backend, :get_ticks, :get_tickvalues,
             :pseudolog10, :inverse_transform, :CategoricalConversion,
             :defaultlimits, :fast_string_boundingboxes) && return true
         consumer === renderer && owner === CairoMakie.Makie.GridLayoutBase &&

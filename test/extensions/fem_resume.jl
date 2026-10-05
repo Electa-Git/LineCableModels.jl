@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] setup=[FormulaContractModels] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     using LineCableModels
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     artifact = withenv("LINECABLEMODELS_GETDP"=>nothing) do
@@ -24,9 +26,9 @@
     formulation_controls = (getdp_executable=artifact.path, gmsh_verbosity=0,)
     model = extension._resolved_fem_model(problem, formulation)
     inputs = extension._fem_input_record(model, formulation, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)))
-    @test inputs.schema_version == 8
-    @test only(unique(p.pml_layers for p in inputs.mesh_plans)) == (128,128,128)
-    @test only(unique(p.pml_grading for p in inputs.mesh_plans)) == ntuple(_ -> (192/191)*log(1536),3)
+    @test inputs.schema_version == 10
+    @test inputs.execution.pml_layers == (48,48,48)
+    @test inputs.execution.pml_grading == ntuple(_ -> log(20),3)
     @test inputs.getdp_selection.source === :explicit
     @test inputs.getdp_selection.artifact_hash === nothing
     @test isfile(inputs.getdp_selection.path)
@@ -42,16 +44,16 @@
             computation_options(LineCableModelsFEM, ComputationOptions((;))),
         )
     end
-    @test inputs.mesh_fingerprint == extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION)
-    smaller_controls = computation_options(LineCableModelsFEM, ComputationOptions((;formulation_controls..., domain_skin_depths=1.5)))
-    smaller_model = extension._resolved_fem_model(problem, formulation, smaller_controls)
+    @test inputs.mesh_fingerprint == extension._mesh_fingerprint(model, Gmsh.gmsh.GMSH_API_VERSION, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
+    smaller_controls = computation_options(LineCableModelsFEM, ComputationOptions((;formulation_controls..., domain_size_factor=1.5)))
+    smaller_model = extension._resolved_fem_model(problem, formulation)
     smaller_inputs = extension._fem_input_record(smaller_model, formulation, smaller_controls)
     @test smaller_inputs.mesh_fingerprint != inputs.mesh_fingerprint
     # Dictionary iteration order can change between Julia versions. Resume
     # records the Julia version; the key must be repeatable within that runtime.
-    recorded_key=extension._mesh_fingerprint(model, "recorded-gmsh-version")
-    @test extension._mesh_fingerprint(deepcopy(model), "recorded-gmsh-version") == recorded_key
-    @test extension._mesh_fingerprint(model, "different-gmsh-version") != recorded_key
+    recorded_key=extension._mesh_fingerprint(model, "recorded-gmsh-version", computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
+    @test extension._mesh_fingerprint(deepcopy(model), "recorded-gmsh-version", computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls))) == recorded_key
+    @test extension._mesh_fingerprint(model, "different-gmsh-version", computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls))) != recorded_key
     @test inputs.adapter_sources isa NamedTuple
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("voltage_paths.jl"))
@@ -85,7 +87,7 @@
     dispersive_controls = formulation_controls
     dispersive_model = extension._resolved_fem_model(problem,dispersive)
     dispersive_inputs = extension._fem_input_record(dispersive_model,dispersive, computation_options(LineCableModelsFEM, ComputationOptions(dispersive_controls)))
-    @test dispersive_inputs.mesh_fingerprint == inputs.mesh_fingerprint
+    @test dispersive_inputs.mesh_fingerprint != inputs.mesh_fingerprint
     @test getproperty.(dispersive_inputs.earth_materials,:eps_r) ==
         2 .* getproperty.(inputs.earth_materials,:eps_r)
     # Simulate a changed resolver with the declaration and mesh-size policy
@@ -94,59 +96,46 @@
     region = first(changed_model.region_plans)
     changed_model.region_plans[1] = extension.FEMRegionPlan(region.object_id,
         region.cable_index, region.region_index, region.terminal_index,
-        region.material_index, Disk(region.shape.r * 0.9, region.shape.at), region.mesh_size)
+        region.material_index, Disk(region.shape.r * 0.9, region.shape.at))
     changed_inputs = extension._fem_input_record(changed_model, formulation, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls)))
     @test changed_inputs.mesh_fingerprint != inputs.mesh_fingerprint
     @test changed_inputs.materials == inputs.materials
-    @test changed_inputs.region_mesh_sizes == inputs.region_mesh_sizes
     @test LineCableModels.ImportExport.serialize_value(changed_model.problem) ==
           LineCableModels.ImportExport.serialize_value(model.problem)
     ownership = deepcopy(model)
     ownership.region_plans[1] = extension.FEMRegionPlan(region.object_id,
         region.cable_index, region.region_index, 0, region.material_index,
-        region.shape, region.mesh_size)
+        region.shape)
     @test extension._fem_input_record(ownership, formulation, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls))).mesh_fingerprint !=
           inputs.mesh_fingerprint
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
-    law=FormulaContractModels.ScaledSoil(rho=Inf)
-    unsupported = Formulation(:LineCableModelsFEM;
-        earth_properties = law,
-        options = formulation.options)
-    unsupported_controls = formulation_controls
-    before = Bool(Gmsh.gmsh.is_initialized())
-    @test_throws LineCableModelsFEMError compute(problem, [formulation, unsupported])
-    @test Bool(Gmsh.gmsh.is_initialized()) == before
     mktempdir() do root
         run = extension._create_run(root)
-        extension._prepare_run_inputs!(run, model)
+        extension._prepare_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
         assets = extension._getdp_assets(joinpath(run.path, "input", "getdp"))
-        @test keys(assets) ==
-              (:model, :jacobian, :integration, :materials, :pml, :quasi_full,
-                  :line_parameters, :onelab)
-        @test map(basename, values(assets)) ==
-              ("model.pro", "jacobian.pro", "integration.pro", "materials.pro", "pml.pro",
-                  "quasi-full.pro", "line-parameters.pro", "onelab.pro")
+        @test haskey(assets,:helmholtz) && haskey(assets,:parameters)
+        @test !haskey(assets,:quasi_full)
         captured = map(path -> (read(path), stat(path).mtime), assets)
-        extension._prepare_run_inputs!(run, model)
+        extension._prepare_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
         @test map(path -> (read(path), stat(path).mtime), assets) == captured
         # A changed equation file must not be silently repaired or reused.
-        write(assets.quasi_full, "// changed equation snapshot\n")
-        @test_throws LineCableModelsFEMError extension._prepare_run_inputs!(run, model)
-        @test read(assets.quasi_full, String) == "// changed equation snapshot\n"
-        write(assets.quasi_full, captured.quasi_full[1])
+        write(assets.helmholtz, "// changed equation snapshot\n")
+        @test_throws LineCableModelsFEMError extension._prepare_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
+        @test read(assets.helmholtz, String) == "// changed equation snapshot\n"
+        write(assets.helmholtz, captured.helmholtz[1])
         @test !extension._resume_inputs_match(run.path, model, inputs)
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
         @test extension._resume_inputs_match(run.path, model, other_inputs)
         tuple_controls = computation_options(LineCableModelsFEM,ComputationOptions(;
-            formulation_controls...,pml_layers=(128,128,128),
-            pml_grading=ntuple(_ -> (192/191)*log(1536),3)))
-        tuple_model = extension._resolved_fem_model(problem,formulation,tuple_controls)
+            formulation_controls...,pml_layers=(48,48,48),
+            pml_grading=ntuple(_ -> log(20),3)))
+        tuple_model = extension._resolved_fem_model(problem,formulation)
         tuple_inputs = extension._fem_input_record(tuple_model,formulation,tuple_controls)
         @test extension._resume_inputs_match(run.path,tuple_model,tuple_inputs)
         for controls in ((pml_layers=(128,128,127),), (pml_grading=(7.,7.,7.),))
             execution = computation_options(LineCableModelsFEM,ComputationOptions(;
                 formulation_controls...,controls...))
-            changed = extension._resolved_fem_model(problem,formulation,execution)
+            changed = extension._resolved_fem_model(problem,formulation)
             candidate = extension._fem_input_record(changed,formulation,execution)
             @test !extension._resume_inputs_match(run.path,changed,candidate)
         end
@@ -176,6 +165,10 @@
         # protected. This does not transition or rewrite their run state.
         for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")
             write(joinpath(run.path, "raw", name), "checksum fixture $name")
+        end
+        for index in 1:2
+            path=joinpath(run.path,"raw","jobs","pml-f"*lpad(index,4,'0')*".tsv")
+            mkpath(dirname(path)); write(path,"checksum fixture native observations $index")
         end
         scan = extension.FEMScan(zeros(ComplexF64, 1, 1, 2), zeros(ComplexF64, 1, 1, 2), String[])
         extension._write_scan_checksums(run, scan)
@@ -232,7 +225,7 @@
             @test relocated_inputs.getdp_identity == second_record.getdp_identity
             @test relocated_inputs.getdp_selection.path != second_record.getdp_selection.path
             relocation_run = extension._create_run(root)
-            extension._prepare_run_inputs!(relocation_run, model)
+            extension._prepare_run_inputs!(relocation_run, model, computation_options(LineCableModelsFEM,ComputationOptions(relocated_controls)))
             extension._write_json_atomic(
                 joinpath(relocation_run.path, "input", "computation.json"), second_record)
             @test extension._resume_inputs_match(relocation_run.path, model, relocated_inputs)

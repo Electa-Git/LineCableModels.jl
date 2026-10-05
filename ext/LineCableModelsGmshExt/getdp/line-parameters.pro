@@ -135,6 +135,11 @@ EndIf
 Return
 
 Macro FEMComputeMatrices
+// These small terminal systems implement matrix inversion and reduction, as in
+// Julia. Field-system GMRES tolerances must not truncate those operations.
+If(LinearSolver == 1)
+  SetGlobalSolverOptions["-ksp_type preonly -ksp_norm_type none -ksp_pc_side left -mat_mumps_icntl_10 0 -mat_mumps_icntl_11 0"];
+EndIf
 For i In {1:NumTerminals}
   row = FEMPermutation(i-1);
   For j In {1:NumTerminals}

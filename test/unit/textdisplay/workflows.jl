@@ -1,6 +1,8 @@
 @testitem "TextDisplay / calculation intent and numerical results" tags=[:unit] setup=[
     TestFixtures,
 ] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const EN=LineCableModels.Engine
     design=TestFixtures.coaxial_design()
     problem=CableConstantsProblem(design; temperature = 60.0, frequency = 60.0)
@@ -16,7 +18,7 @@
     modal=compute(ModalTransformationProblem(parameters), ModalTransformationFormulation())
     benchmark=EN.compare(parameters, parameters)
     constants=CableConstants(1e-4, 2e-7, 3e-10, 4e-12)
-    backend=LineCableModelsFEM(options = (physics = :quasi_fw,))
+    backend=LineCableModelsFEM(options = (physics = :helmholtz,))
     backend_options=computation_options(LineCableModelsFEM, ComputationOptions((mesh_policy=:remesh,)))
     blueprints=EN.CableBlueprint{eltype(line_problem)}[EN.flatten(LineCableModelsCoaxial(),
                                                            design, eltype(line_problem))

@@ -11,7 +11,6 @@ using LineCableModels: EarthLayer, Material, RadialDielectric,
                        observables, outer_radius
 import Makie
 import GeometryBasics
-import InteractiveUtils
 using Makie: Auto, Axis, Button, Colorbar, DataAspect, Figure,
              Fixed, GridLayout, Label, Legend, LineElement,
              Mixed,
@@ -31,7 +30,6 @@ import LineCableModels.Units
 import LineCableModels.Engine
 import LineCableModels.DataModel
 import LineCableModels.Grammar
-import LineCableModels.ImportExport
 import LineCableModels.UQ
 import Makie.GridLayoutBase
 using Makie.GridLayoutBase: nrows, offsets, with_updates_suspended
@@ -60,6 +58,19 @@ include("controls.jl")
 include("guides.jl")
 include("layout.jl")
 include("recipes/line_facets.jl")
+# Optional spatial-data adapters extend these preview operations.
+function _mesh_input end
+function _spatial_layer! end
+function _mesh_sidebar! end
+function _mesh_controls! end
+
+# Renderer operations shared with optional recipe extensions. The renderer
+# manages the figure lifecycle; those extensions own their data and drawing methods.
+public _mesh_input, _spatial_layer!, _mesh_sidebar!, _mesh_controls!,
+       _addon_activate_backend, _addon_compose_guides!, _addon_detach!, _addon_display!, _addon_finish!,
+       _addon_panel!, _addon_release_frames!, _addon_reset!, _addon_shell,
+       _addon_theme, _addon_widget!, _native_system_shapes
+
 include("recipes/preview_render.jl")
 include("montecarlo.jl")
 include("export_presentation.jl")
@@ -366,7 +377,7 @@ end
 
 # The public extension method consumes backend/display choices and forwards the
 # remaining preview options unchanged. DataModel retains only detached geometry
-# and material attributes; Makie objects and backend state stay here.
+# and material attributes. Makie objects and backend state stay here.
 function preview(
         designs::AbstractVector{<:DataModel.CableDesign};
         backend = nothing,
@@ -412,7 +423,4 @@ function show_material_scale(
         kwargs...
     )
 end
-
-include("recipes/fem.jl")
-
 end # module LineCableModelsMakieExt

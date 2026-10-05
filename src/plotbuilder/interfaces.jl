@@ -133,41 +133,6 @@ d = plot(ObservedResult(raw, pair); ydata=pair, layout=(1,1))
 
 `c` and `d` each contain separate R and L figures.
 
-# Spatial FEM files
-
-`plot(mesh::FEMMesh)` and `plot(field::FEMFieldMap)` draw detached spatial data
-using the same native shell. `plot("mesh.msh")` and `plot("field.pos")` import
-through Gmsh first; they do not start a solver. File inputs accept
-`coordinate_scale=1` to convert file lengths to meters. Multi-view POS files
-require `view=<index>`; older known harmonic output accepts
-`representation=:complex` to identify its two real/imaginary steps explicitly.
-
-Meshes accept `color_by=:uniform` (default), `:physical`, or `:entity` and
-`inspect=:none` (default), `:element`, or `:node`. Physical colors identify the
-complete physical-group membership of each surface entity. Native toolbar
-menus switch modes; clicking retains the original tag and mesh metadata in a
-sidebar. Node records include coordinates \\[m\\] and incident entities/elements;
-element records include connectivity, all physical groups, and geometric
-lengths \\[m\\] and areas \\[m²\\]. Copy details copies the complete selected record.
-Interactive picking requires an interactive Makie backend; Cairo supports static
-colors and legends. Inspection reports retained mesh data, without solver state.
-
-Fields accept `part=:real`, `:imag`, `:magnitude`, or `:phase`, and a one-based
-`component`. Vector phase requires a component; magnitude without one uses the
-Euclidean vector norm. Independent real output selects `step=1`. Component 1
-is horizontal, 2 vertical, and 3 axial. Phase is in radians; other units remain
-those in the native field label, with no RMS conversion.
-
-`colormap`, `colorrange`, and `colorscale` configure field colors. Undefined
-values and nonpositive logarithmic samples are left uncolored and counted in
-the status. `mesh` adds mesh edges and `geometry=system` adds geometry outlines.
-`arrows=true` adds transverse vectors for a real/imaginary part; `arrow_stride=1`
-selects every element. `arrow_attributes=(;)` forwards native Makie arrow options;
-for direction glyphs use `(normalize=true, lengthscale=0.005)` to draw 5 mm arrows.
-Without normalization, `lengthscale` converts field-value magnitudes to plotted
-lengths. Retained samples are unchanged. Element-side values remain distinct at material interfaces.
-Spatial rendering currently supports first-order planar mesh elements and
-triangle/quadrangle field samples; unsupported geometry fails explicitly.
 """
 function plot end
 
@@ -197,9 +162,8 @@ a loaded Makie backend.
   decoration does not encode a material property.
 - `zoom_factor=nothing`: Initial system-view span multiplier. The reset
   control restores that initial view.
-- `mesh=nothing`: For a system preview, draw an imported `FEMMesh` or a saved
-  `.msh` file under the geometry. File input requires Gmsh, but never generates
-  a mesh or invokes GetDP. `mesh_color=(:black,0.3)` and `mesh_linewidth=0.5`
+- `mesh=nothing`: For a system preview, draw an imported mesh or a saved
+  mesh file under the geometry through its optional spatial adapter. `mesh_color=(:black,0.3)` and `mesh_linewidth=0.5`
   configure edges. Solver x/y coordinates map to the existing preview y/z axes.
   `mesh_color_by=:physical` or `:entity` adds categorical mesh colors;
   `mesh_inspect=:element` or `:node` enables click diagnostics. Their defaults

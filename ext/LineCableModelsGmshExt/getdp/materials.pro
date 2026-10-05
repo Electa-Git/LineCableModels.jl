@@ -19,6 +19,9 @@ Group {
   DomainC = Region[{ConductorMaterialRegions, Earth, EarthPml}];
   DomainCC = Region[{Air, AirPml, PassiveMaterialRegions}];
   DomainLoss = Region[{DomainC, LossyMaterialRegions}];
+  If(AirSigma != 0)
+    DomainLoss += Region[{Air, AirPml}];
+  EndIf
   Domain_Mag = Region[{DomainC, DomainCC}];
 }
 

@@ -200,7 +200,7 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     requested = Dict(String(key)=>value
     for (key, value) in pairs(JSON3.read(JSON3.write(inputs))))
     # A solver-input schema change is an intentional restart boundary.
-    get(comparable, "schema_version", 0) == inputs.schema_version == 8 || return false
+    get(comparable, "schema_version", 0) == inputs.schema_version == 10 || return false
     get(comparable, "solver_protocol", 0) == inputs.solver_protocol == 3 || return false
     # Scheduling and executable location do not change the numerical problem.
     for record in (comparable, requested)
@@ -306,7 +306,7 @@ function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     return state
 end
 
-function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel)
+function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel, execution::ComputationOptions)
     asset_directory = joinpath(run.path, "input", "getdp")
     mkpath(asset_directory)
     for (name, path) in pairs(_getdp_assets(asset_directory))
@@ -323,7 +323,7 @@ function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel)
     problem_path = joinpath(run.path, "input", "problem.json")
     model_data_path = joinpath(run.path, "input", "model_data.pro")
     _write_problem_snapshot(problem_path, model.problem)
-    _write_model_data(model_data_path, model)
+    _write_model_data(model_data_path, model, execution.data)
     mkpath(joinpath(run.path, "raw", "jobs"))
     open(joinpath(run.path, "raw", "Z.tsv"), "w") do io
         println(io, join(FEM_RAW_HEADER, '\t'))
@@ -345,17 +345,15 @@ function _headless_solve!(
         runtime_root::String,
         inputs::NamedTuple
 )
-    geometry = _build_geometry!(
-        model, "LineCableModelsFEM-$(basename(run.path))"
-    )
-    _transition!(run, geometry_ready, "geometry ready")
-    @debug "FEM geometry ready" run_directory=run.path
-    mesh_paths = _select_meshes!(
-        run, model, geometry, execution, runtime_root
-    )
-    _transition!(run, mesh_ready, "mesh ready")
+    _prepare_run_inputs!(run,model,execution)
+    physical = _build_physical_geometry!(model,"LineCableModelsFEM-$(basename(run.path))")
+    _write_physical_geometry(joinpath(run.path,"input","physical.geo"),model,physical)
+    _write_native_mesh_entry(joinpath(run.path,"input","model.geo"),"model_data.pro","physical.geo","getdp")
+    _transition!(run,geometry_ready,"native geometry inputs ready")
+    @debug "FEM geometry inputs ready" run_directory=run.path
+    mesh_paths = _select_meshes!(run,model,execution,runtime_root)
+    _transition!(run,mesh_ready,"mesh ready")
     @debug "FEM mesh ready" source=run.mesh_source fingerprint=run.mesh_fingerprint
-    _prepare_run_inputs!(run, model)
     _transition!(run, running, "GetDP frequency batches running")
     @debug "Starting isolated GetDP frequency batches" workers=execution.data.frequency_workers
     _run_getdp!(run, model, formulation, execution, mesh_paths)
@@ -384,7 +382,7 @@ function _compute_fem(
         problem::LineParametersProblem{Float64},
         formulation::LineCableModelsFEM,
         execution::ComputationOptions,
-        model::FEMResolvedModel = _resolved_fem_model(problem, formulation, execution)
+        model::FEMResolvedModel = _resolved_fem_model(problem, formulation)
 )
     runtime_root = _runtime_root()
     inputs = _fem_input_record(model, formulation, execution)
@@ -466,7 +464,7 @@ function _compute_owned_fem(
     end
 end
 
-const FEM_ADAPTER_SOURCES = let files = ("model.jl", "pml_mesh.jl", "geometry.jl", "mesh.jl",
+const FEM_ADAPTER_SOURCES = let files = ("model.jl", "geometry.jl", "mesh.jl", "options.jl", "export.jl",
         "getdp.jl", "workers.jl", "results.jl", "compute.jl")
     digests = map(files) do file
         path = joinpath(@__DIR__, file)
@@ -483,21 +481,19 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
     getdp_selection = selection
     mesh_path = execution.data.mesh_path
     return (
-        schema_version = 8,
+        schema_version = 10,
         solver_protocol = 3,
-        mesh_fingerprint = _mesh_fingerprint(model, gmsh.GMSH_API_VERSION),
+        mesh_fingerprint = _mesh_fingerprint(model, gmsh.GMSH_API_VERSION, execution),
         materials = [(kind = material.kind, tag = material.physical_tag,
                          mu_r = material.mu_r, sigma = real.(material.admittivity),
                          omega_epsilon = imag.(material.admittivity))
                      for material in model.material_plans],
-        earth_materials = [(rho = state.rho, eps_r = state.eps_r, mu_r = state.mu_r)
+        earth_materials = [(rho = ImportExport.serialize_value(state.rho), eps_r = state.eps_r, mu_r = state.mu_r)
                            for state in model.earth_materials],
-        air = (eps_r = model.problem.earth_props.layers[1].eps_r,
+        air = (sigma = inv(model.problem.earth_props.layers[1].rho),
+            eps_r = model.problem.earth_props.layers[1].eps_r,
             mu_r = model.problem.earth_props.layers[1].mu_r),
-        mesh_plans = model.mesh_plans,
-        region_mesh_sizes = getproperty.(model.region_plans, :mesh_size),
-        cable_outer_mesh_sizes = model.cable_outer_mesh_sizes,
-        mesh_growth_factor = model.mesh_growth_factor,
+        prescribed_gamma = model.prescribed_gamma,
         options = formulation.options.data,
         execution = (;
             (key => value
@@ -566,7 +562,7 @@ function _compute_fem(
     physical_inputs=Engine.completed_inputs(problem)
     source_id=Grammar.gridpoint_id().source_id
     # Resolve and validate all requests before opening Gmsh or starting GetDP.
-    models = [_resolved_fem_model(problem, formulation, execution)
+    models = [_resolved_fem_model(problem, formulation)
               for formulation in formulations]
     # The problem and loaded solver source are common to this batch. Only actual
     # material/mesh inputs and execution settings distinguish its calculations.

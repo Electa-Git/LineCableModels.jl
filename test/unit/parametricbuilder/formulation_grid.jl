@@ -1,6 +1,8 @@
 @testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit] setup=[
     UseEngineSupport,FormulaContractModels,
 ] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     internal=FormulaContractModels.SurfaceLaw()
     insulation=FormulaContractModels.InsulationReactance(0)
     selections=(
@@ -109,8 +111,8 @@
 
     fem=LineCableModelsFEM(
         options = Grid((
-        (; physics = :quasi_fw, Γ = 0.),
-        (; physics = :quasi_fw, Γ = .01im)
+        (; physics = :helmholtz, Γ = 0.),
+        (; physics = :helmholtz, Γ = .01im)
     )),
     )
     @test fem isa Gridspace{LineCableModelsFEM}

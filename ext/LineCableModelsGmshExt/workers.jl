@@ -32,7 +32,7 @@ end
 _column_stem(frequency::Int, basis::Int) = @sprintf("getdp-f%04d-b%04d", frequency, basis)
 
 function _column_paths(root::String, frequency::Int, basis::Int, maps::Bool;
-        physics::Symbol=Symbol("quasi-fw"))
+        physics::Symbol=:helmholtz)
     stem = _column_stem(frequency, basis)
     raw = _job_raw_paths(root, stem)
     return (; raw...,
@@ -40,13 +40,37 @@ function _column_paths(root::String, frequency::Int, basis::Int, maps::Bool;
         timing = joinpath(root, "raw", "jobs", "$stem-timing.tsv"),
         marker = joinpath(root, "raw", "jobs", "$stem.done"),
         checkpoint = joinpath(root, "raw", "jobs", "$stem.json"),
+        pml = joinpath(root, "raw", "jobs", @sprintf("pml-f%04d.tsv", frequency)),
         maps = maps ?
                [joinpath(root, "maps",
                     @sprintf("%s_f%04d_b%04d.pos", quantity, frequency, basis))
                 for quantity in _field_quantities(physics)] : String[])
 end
 
-_column_files(paths) = [paths.Z, paths.P, paths.timing, paths.maps..., paths.diagnostics...]
+_column_files(paths) = [paths.Z, paths.P, paths.timing, paths.pml, paths.maps..., paths.diagnostics...]
+
+function _pml_observation(path, frequency_index, frequency)
+    isfile(path) || return nothing
+    rows = readlines(path)
+    length(rows) == 1 || return nothing
+    values = tryparse.(Float64, split(only(rows), '\t'))
+    length(values) == 23 && all(v -> v !== nothing && isfinite(v), values) || return nothing
+    values[1] == frequency_index && isapprox(values[2], frequency; rtol=16eps(Float64), atol=0) || return nothing
+    values[3] > 0 && all(v -> v in (0,1), values[[4,5,6,7,12,13,20,21,23]]) || return nothing
+    all(v -> 1 <= v <= typemax(Int) && isinteger(v), values[14:16]) || return nothing
+    all(v -> 0 <= v <= 1, values[17:19]) && values[22] >= 0 || return nothing
+    return (frequency_index=frequency_index, frequency_hz=values[2],
+        target_exponent=values[3], sizing_floor_flags=(Bool(values[4]),Bool(values[5])),
+        cutoff_flags=(Bool(values[6]),Bool(values[7])),
+        net_side_exponents=(values[8],values[9]), net_top_exponent=values[10],
+        net_bottom_exponent=values[11], attenuation_below_target=Bool(values[12]),
+        sizing_floor_active=Bool(values[13]), g_not_qualified=Bool(values[20]),
+        earth_sizing_ceiling_active=Bool(values[21]),
+        earth_layer_thickness_m=values[22],
+        earth_layer_clipped_or_omitted=Bool(values[23]),
+        pml_eta=(values[17],values[18],values[19]),
+        effective_pml_layers=(Int(values[14]),Int(values[15]),Int(values[16])))
+end
 
 function _valid_column_marker(path, frequency_index, frequency, basis, terminals, maps)
     isfile(path) || return false
@@ -84,7 +108,7 @@ end
 
 function _valid_column_checkpoint(
         root, frequency_index, frequency, basis, terminals, maps, mesh_digest;
-        physics::Symbol=Symbol("quasi-fw"))
+        physics::Symbol=:helmholtz)
     paths = _column_paths(root, frequency_index, basis, maps; physics)
     isfile(paths.checkpoint) || return false
     return try
@@ -99,6 +123,7 @@ function _valid_column_checkpoint(
         _valid_job_raw(paths.P, terminals, frequency_index, frequency, basis) ||
             return false
         _column_timing(paths.timing, frequency_index, basis) === nothing && return false
+        _pml_observation(paths.pml, frequency_index, frequency) === nothing && return false
         files = _column_files(paths)
         length(record.checksums) == length(files) || return false
         all(files) do file
@@ -124,7 +149,7 @@ end
 
 function _adopt_column!(
         run, source, frequency_index, frequency, basis, terminals, maps, mesh_digest;
-        physics::Symbol=Symbol("quasi-fw"))
+        physics::Symbol=:helmholtz)
     paths = _column_paths(source, frequency_index, basis, maps; physics)
     _valid_column_marker(
         paths.marker, frequency_index, frequency, basis, terminals, maps) || return false
@@ -134,6 +159,7 @@ function _adopt_column!(
         paths.diagnostics) || return false
     timing = _column_timing(paths.timing, frequency_index, basis)
     timing === nothing && return false
+    _pml_observation(paths.pml, frequency_index, frequency) === nothing && return false
     all(_complete_map, paths.maps) || return false
     destination = _column_paths(run.path, frequency_index, basis, maps; physics)
     for (input, output) in zip(_column_files(paths), _column_files(destination))
@@ -148,7 +174,7 @@ function _adopt_column!(
     return true
 end
 
-function _getdp_command(executable, model_path, mesh_path, run, formulation, execution, mesh_plan,
+function _getdp_command(executable, model_path, mesh_path, run, formulation, execution, frequency_index,
         bases, directory; reuse_factorization = true)
     basis_path = joinpath(directory, "bases.pro")
     write(basis_path, "RequestedBases() = $(_pro_array(bases));\n")
@@ -160,32 +186,19 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, exe
         "-setstring", "ModelDataPath", joinpath(run.path, "input", "model_data.pro"),
         "-setstring", "RunDirectory", directory,
         "-setstring", "BasisListPath", basis_path,
-        "-setnumber", "FrequencyIndex", string(mesh_plan.frequency_index),
-        "-setnumber", "FrequencyHz", _pro_number(mesh_plan.frequency),
-        "-setnumber", "GammaRe", _pro_number(real(mesh_plan.Γ)),
-        "-setnumber", "GammaIm", _pro_number(imag(mesh_plan.Γ)),
-        "-setnumber", "DomainHalfwidth", _pro_number(mesh_plan.domain_halfwidth),
-        "-setnumber", "PmlSideThickness", _pro_number(mesh_plan.pml_thickness[1]),
-        "-setnumber", "PmlTopThickness", _pro_number(mesh_plan.pml_thickness[2]),
-        "-setnumber", "PmlBottomThickness", _pro_number(mesh_plan.pml_thickness[3]),
-        "-setnumber", "PmlSideStrength", _pro_number(mesh_plan.pml_strength[1]),
-        "-setnumber", "PmlTopStrength", _pro_number(mesh_plan.pml_strength[2]),
-        "-setnumber", "PmlBottomStrength", _pro_number(mesh_plan.pml_strength[3]),
-        "-setnumber", "PmlSlope", _pro_number(mesh_plan.pml_slope),
-        "-setnumber", "VolumeQuadrature", string(mesh_plan.volume_quadrature),
-        "-setnumber", "PhysicalVolumeQuadrature", string(something(mesh_plan.physical_volume_quadrature, 0)),
-        "-setnumber", "PmlQuadrature", string(mesh_plan.pml_quadrature),
-        "-setnumber", "PmlQuadrangles", string(Int(mesh_plan.pml_element_family === :quadrangle)),
+        "-setnumber", "FrequencyIndex", string(frequency_index),
         "-setnumber", "PlotFieldMaps", string(Int(execution.data.plot_field_maps)),
         "-setnumber", "ReuseFactorization", string(Int(reuse_factorization)),
-        # The mixed potentials and low-frequency PML have very different
-        # coefficient scales. Restore A and b after each solve so residuals
-        # and subsequent right-hand sides retain their original units.
-        "-ksp_diagonal_scale", "-ksp_diagonal_scale_fix"]
-    execution.data.mumps_ordering === nothing ||
-        append!(arguments, ["-mat_mumps_icntl_7", string(execution.data.mumps_ordering)])
-    execution.data.petsc_prealloc === nothing ||
-        append!(arguments, ["-petsc_prealloc", string(execution.data.petsc_prealloc)])
+        "-setnumber", "LinearSolver", string(Int(execution.data.linear_solver === :gmres)),
+        "-setnumber", "GmresIterationsMax", string(execution.data.gmres_iterations_max),
+        "-setnumber", "GmresRelativeTolerance", _pro_number(execution.data.gmres_relative_tolerance),
+        "-setnumber", "GmresAbsoluteTolerance", _pro_number(execution.data.gmres_absolute_tolerance),
+        "-setnumber", "MumpsOrdering", string(something(execution.data.mumps_ordering, -1)),
+        "-setnumber", "PetscPrealloc", string(something(execution.data.petsc_prealloc, 0)),
+        "-setnumber", "MumpsErrorAnalysis", string(execution.data.mumps_error_analysis),
+        "-setnumber", "MumpsRefinementMax", string(execution.data.mumps_refinement_max),
+        "-setnumber", "MumpsBackwardErrorTolerance", _pro_number(execution.data.mumps_backward_error_tolerance),
+        "-setnumber", "MumpsForwardErrorTolerance", _pro_number(execution.data.mumps_forward_error_tolerance)]
     if verbosity >= 4
         append!(arguments, [
             "-cpu", "-ksp_view", "-log_view", ":" * joinpath(directory, "petsc.log")])
@@ -208,11 +221,10 @@ function _frequency_job(
     for subdirectory in ("raw/jobs", "maps")
         mkpath(joinpath(directory, subdirectory))
     end
-    plan = model.mesh_plans[frequency_index]
     command = _getdp_command(
         executable, _getdp_assets(joinpath(run.path, "input", "getdp")).model,
-        mesh, run, formulation, execution, plan, bases, directory; reuse_factorization)
-    return FEMFrequencyJob(frequency_index, Float64(plan.frequency), collect(bases),
+        mesh, run, formulation, execution, frequency_index, bases, directory; reuse_factorization)
+    return FEMFrequencyJob(frequency_index, Float64(model.problem.frequencies[frequency_index]), collect(bases),
         directory, mesh_digest, command)
 end
 
@@ -262,7 +274,7 @@ function _record_progress!(run, valid)
         "$(run.completed_columns)/$(length(valid)) terminal columns validated")
 end
 
-function _collect_worker_columns!(run, worker, valid, maps; physics::Symbol=Symbol("quasi-fw"))
+function _collect_worker_columns!(run, worker, valid, maps; physics::Symbol=:helmholtz)
     job = worker.job
     for basis in sort!(collect(worker.pending))
         if _adopt_column!(run, job.directory, job.frequency_index, job.frequency,
@@ -274,12 +286,110 @@ function _collect_worker_columns!(run, worker, valid, maps; physics::Symbol=Symb
     end
 end
 
+# Read PETSc's native post-solve MUMPS view, not GetDP's original-coordinate
+# residual. Missing/changed diagnostic output never rejects a computed column.
+function _solver_diagnostics(text::AbstractString, ::Val{:mumps})
+    return map(eachmatch(r"(?ms)^KSP Object:.*?(?=^KSP Object:|\z)", text)) do block
+        number(pattern) = begin
+            found = match(pattern, block.match)
+            found === nothing ? nothing : tryparse(Float64, found[1])
+        end
+        analysis = number(r"ICNTL\(11\)\s*\(error analysis\):\s*(\S+)")
+        backward = match(r"RINFOG\(7\),\s*RINFOG\(8\)\s*\(backward error est\):\s*([^,\s]+),\s*(\S+)", block.match)
+        omega1 = backward === nothing ? nothing : tryparse(Float64, backward[1])
+        omega2 = backward === nothing ? nothing : tryparse(Float64, backward[2])
+        conditions = analysis == 1 ? match(
+            r"RINFOG\(10\),\s*RINFOG\(11\)\s*\(condition numbers\):\s*([^,\s]+),\s*(\S+)", block.match) : nothing
+        return (linear_solver=:mumps, error_analysis=analysis,
+            refinement_steps=number(r"INFOG\(15\)\s*\(number of steps of iterative refinement after solution\):\s*(\S+)"),
+            omega1, omega2,
+            backward_error=omega1 === nothing || omega2 === nothing ? nothing : omega1 + omega2,
+            scaled_residual=number(r"RINFOG\(6\)\s*\(inf norm of residual\):\s*(\S+)"),
+            forward_error=analysis == 1 ? number(r"RINFOG\(9\)\s*\(error estimate\):\s*(\S+)") : nothing,
+            cond1=conditions === nothing ? nothing : tryparse(Float64, conditions[1]),
+            cond2=conditions === nothing ? nothing : tryparse(Float64, conditions[2]))
+    end
+end
+
+function _solver_diagnostics(text::AbstractString, ::Val{:gmres})
+    # PETSc's iteration-zero monitor begins each RHS even at GetDP verbosity 0.
+    # GetDP's original-coordinate residual is optional at higher verbosity.
+    # MUMPS RINFOG values here would describe a preconditioner application.
+    return map(eachmatch(r"(?ms)^[ \t]*0 KSP unpreconditioned resid norm.*?(?=^[ \t]*0 KSP unpreconditioned resid norm|\z)", text)) do block
+        reason = match(r"Linear solve (?:did not converge|converged) due to (\S+) iterations (\d+)", block.match)
+        original = match(r"FEM algebraic residual: frequency=\d+ basis=\d+ residual=(\S+) rhs=(\S+)", block.match)
+        monitors = collect(eachmatch(r"KSP unpreconditioned resid norm\s+(\S+) true resid norm\s+(\S+) \|\|r\(i\)\|\|/\|\|b\|\|\s+(\S+)", block.match))
+        last_monitor = isempty(monitors) ? nothing : last(monitors)
+        return (linear_solver=:gmres,
+            iterations=reason === nothing ? nothing : tryparse(Int, reason[2]),
+            convergence_reason=reason === nothing ? nothing : String(reason[1]),
+            estimated_residual_norm=last_monitor === nothing ? nothing : tryparse(Float64, last_monitor[1]),
+            scaled_residual_norm=last_monitor === nothing ? nothing : tryparse(Float64, last_monitor[2]),
+            scaled_relative_residual=last_monitor === nothing ? nothing : tryparse(Float64, last_monitor[3]),
+            original_residual_norm=original === nothing ? nothing : tryparse(Float64, original[1]),
+            original_rhs_norm=original === nothing ? nothing : tryparse(Float64, original[2]))
+    end
+end
+
+function _warn_solver_diagnostics(diagnostic, controls, ::Val{:mumps}; frequency_hz, basis, log)
+    if diagnostic.error_analysis != controls.mumps_error_analysis ||
+            diagnostic.backward_error === nothing || diagnostic.refinement_steps === nothing
+        @warn "MUMPS diagnostics unavailable or inconsistent with requested analysis; inspect native log" frequency_hz basis log
+        return nothing
+    end
+    error = diagnostic.backward_error
+    target = controls.mumps_backward_error_tolerance
+    steps = diagnostic.refinement_steps
+    if !isfinite(error) || error > target
+        @warn "MUMPS backward-error target not met; result retained" frequency_hz basis backward_error=error target refinement_steps=steps log
+    end
+    if controls.mumps_error_analysis == 1
+        estimate = diagnostic.forward_error
+        target = controls.mumps_forward_error_tolerance
+        if estimate === nothing
+            @warn "MUMPS forward-error estimate unavailable; inspect native log" frequency_hz basis log
+        elseif !isfinite(estimate) || estimate > target
+            @warn "MUMPS estimated scaled-solution sensitivity exceeds budget; not an error estimate for terminal G/Y; result retained" frequency_hz basis forward_error=estimate target refinement_steps=steps log
+        end
+    end
+    return nothing
+end
+
+function _warn_solver_diagnostics(diagnostic, controls, ::Val{:gmres}; frequency_hz, basis, log)
+    reason, iterations = diagnostic.convergence_reason, diagnostic.iterations
+    residual, relative = diagnostic.scaled_residual_norm, diagnostic.scaled_relative_residual
+    if reason === nothing || iterations === nothing || residual === nothing || relative === nothing
+        @warn "GMRES diagnostics unavailable; inspect native log" frequency_hz basis log
+        return nothing
+    end
+    rtol, atol = controls.gmres_relative_tolerance, controls.gmres_absolute_tolerance
+    target_met = isfinite(residual) &&
+        (residual <= atol || isfinite(relative) && relative <= rtol)
+    if !startswith(reason, "CONVERGED_") || !target_met
+        @warn "GMRES convergence or recomputed residual target not met; result retained" frequency_hz basis iterations reason scaled_residual_norm=residual scaled_relative_residual=relative relative_tolerance=rtol absolute_tolerance=atol log
+    end
+    return nothing
+end
+
 function _finish_worker!(run, worker, execution; stopped = false)
     wait(worker.process)
     isopen(worker.log) && close(worker.log)
     elapsed = (time_ns() - worker.started_ns) / 1e9
     status = stopped ? "stopped" :
              success(worker.process) && isempty(worker.pending) ? "complete" : "failed"
+    if !stopped && (execution.data.linear_solver === :gmres || execution.data.mumps_error_analysis != 0)
+        solver = Val(execution.data.linear_solver)
+        log = joinpath(worker.job.directory, "getdp.log")
+        records = _solver_diagnostics(read(log, String), solver)
+        if length(records) == length(worker.job.bases)
+            for (basis, diagnostic) in zip(worker.job.bases, records)
+                frequency_hz = worker.job.frequency
+                _warn_solver_diagnostics(diagnostic, execution.data, solver; frequency_hz, basis, log)
+            end
+        else
+            @warn "FEM solver diagnostics incomplete; inspect native log" linear_solver=execution.data.linear_solver frequency_hz=worker.job.frequency expected=length(worker.job.bases) reported=length(records) log
+        end
+    end
     _write_json_atomic(joinpath(worker.job.directory, "attempt.json"),
         _attempt_record(worker.job; state = status, pid = worker.pid,
             process_token = worker.process_token,
@@ -368,7 +478,7 @@ function _assert_no_live_attempts(run)
     return nothing
 end
 
-function _recover_columns!(run, model, maps, mesh_digests; physics::Symbol=Symbol("quasi-fw"))
+function _recover_columns!(run, model, maps, mesh_digests; physics::Symbol=:helmholtz)
     valid = falses(length(model.terminal_ids), length(model.problem.frequencies))
     for frequency in axes(valid, 2), basis in axes(valid, 1)
 

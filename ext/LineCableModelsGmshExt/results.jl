@@ -272,7 +272,7 @@ function _validate_completion(
 end
 
 function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::Int;
-        physics::Symbol=Symbol("quasi-fw"))
+        physics::Symbol=:helmholtz)
     return [joinpath(
                 run.path,
                 "maps",
@@ -288,7 +288,7 @@ function _validate_maps(
         frequency_count::Int,
         terminal_count::Int,
         enabled::Bool;
-        physics::Symbol=Symbol("quasi-fw")
+        physics::Symbol=:helmholtz
 )
     expected = enabled ? _expected_map_paths(run, frequency_count, terminal_count; physics) :
                String[]
@@ -359,6 +359,8 @@ end
 function _write_scan_checksums(run::FEMRun, scan::FEMScan)
     paths = [joinpath(run.path, "raw", name)
         for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")]
+    append!(paths, [joinpath(run.path,"raw","jobs",@sprintf("pml-f%04d.tsv",index))
+        for index in axes(scan.Z,3)])
     append!(paths, scan.map_paths)
     checksums = Dict(relpath(path, run.path) => bytes2hex(open(sha256, path)) for path in paths)
     _write_json_atomic(joinpath(run.path, "raw", "checksums.json"), checksums)
@@ -374,6 +376,8 @@ function _check_scan_checksums(run::FEMRun, scan::FEMScan)
     end
     paths = [joinpath(run.path, "raw", name)
         for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")]
+    append!(paths, [joinpath(run.path,"raw","jobs",@sprintf("pml-f%04d.tsv",index))
+        for index in axes(scan.Z,3)])
     append!(paths, scan.map_paths)
     checksums isa AbstractDict && length(checksums) == length(paths) && all(paths) do file
         key = relpath(file, run.path)
@@ -412,6 +416,21 @@ function _line_parameters(
     timing_path = joinpath(run.path, "timing-summary.json")
     native_timing = isfile(timing_path) ? JSON3.read(read(timing_path, String), NamedTuple) : (;)
     recovered_columns = get(native_timing, :recovered_columns, 0)
+    pml_observations = map(eachindex(model.problem.frequencies)) do index
+        path = joinpath(run.path,"raw","jobs",@sprintf("pml-f%04d.tsv",index))
+        observation = _pml_observation(path,index,model.problem.frequencies[index])
+        observation === nothing && _fem_error(:results,"PML observations",:raw_output,
+            "missing or invalid native PML observations at frequency index $index";run_directory=run.path)
+        observation
+    end
+    affected = filter(observation -> observation.g_not_qualified, pml_observations)
+    if !isempty(affected)
+        message = any(observation -> observation.earth_sizing_ceiling_active, affected) ?
+            "earth too resistive for FEM domain sizing; results not qualified" :
+            any(observation -> observation.attenuation_below_target, affected) ?
+            "PML attenuation below target; G not qualified" : "PML exact cutoff; G not qualified"
+        @warn message frequency_indices=[observation.frequency_index for observation in affected] pml_observations=affected
+    end
     record = (
         state=completed,
         reused,
@@ -452,6 +471,14 @@ function _line_parameters(
         reduced_phase_map = reduced.phase_map,
         inversion_residuals = inversion.residuals,
         condition_numbers = inversion.condition_numbers,
+        pml_observations,
+        measurement_line_max_size_ratios = map(eachindex(model.problem.frequencies)) do index
+            stem = index == length(model.problem.frequencies) ? "model" : @sprintf("frequency_%04d",index)
+            mesh_record = JSON3.read(read(joinpath(run.path,"mesh",stem*".json"),String))
+            Float64.(mesh_record.measurement_line_max_size_ratios)
+        end,
+        solver_diagnostics = execution.data.linear_solver === :mumps && execution.data.mumps_error_analysis == 0 ? NamedTuple[] :
+            _retained_solver_diagnostics(run.path, model, Val(execution.data.linear_solver)),
         primitive = trace
     ),
     )
@@ -471,4 +498,39 @@ function _line_parameters(
         model.problem.frequencies,
         details
     )
+end
+
+# Select diagnostics from the attempts that supplied the adopted columns,
+# including resumed scans. Do not include abandoned attempts or duplicate RHSs.
+function _retained_solver_diagnostics(root, model, solver::Val)
+    attempts = Dict{String,Any}()
+    diagnostics = NamedTuple[]
+    for fi in eachindex(model.problem.frequencies), basis in eachindex(model.terminal_ids)
+        checkpoint = _column_paths(root, fi, basis, false).checkpoint
+        isfile(checkpoint) || continue
+        column = JSON3.read(read(checkpoint, String))
+        path = joinpath(root, column.attempt, "attempt.json")
+        records = get!(attempts, path) do
+            isfile(path) || return NamedTuple[]
+            record = JSON3.read(read(path, String))
+            log = joinpath(dirname(path), "getdp.log")
+            isfile(log) || return NamedTuple[]
+            values = _solver_diagnostics(read(log, String), solver)
+            length(values) == length(record.requested_bases) || return NamedTuple[]
+            [(; frequency_hz=record.frequency_hz, basis=b, value...)
+                for (b, value) in zip(record.requested_bases, values)]
+        end
+        for diagnostic in records
+            diagnostic.basis == basis || continue
+            push!(diagnostics, (; frequency_index=fi, pairs(diagnostic)...))
+        end
+    end
+    return diagnostics
+end
+
+function computation_details(
+        ::Type{<:LineCableModelsFEM},
+        result::LineParameters
+)::ComputationDetails
+    return details(result)
 end

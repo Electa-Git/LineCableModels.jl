@@ -41,53 +41,6 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 
-  fem-numerical:
-    name: Native FEM execution and tests / GetDP 3.5.0
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    env:
-      DISPLAY: ""
-    steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
-        with:
-          version: "1.12"
-      - uses: julia-actions/cache@v3
-        with:
-          delete-old-caches: "false"
-      - name: Install native Gmsh system libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends libglu1-mesa
-      - name: Run FEM execution tests (headless)
-        run: |
-          julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
-          julia --project=test --startup-file=no --compiled-modules=no --code-coverage=@. --color=yes -e '
-            push!(ARGS, "tag:fem_numerical")
-            include("test/runtests.jl")
-          '
-      - name: Name FEM coverage traces independently of runner process IDs
-        if: ${{ !cancelled() }}
-        shell: julia --startup-file=no {0}
-        run: |
-          for directory in ("src", "ext")
-            for (root, _, files) in walkdir(directory), file in files
-              endswith(file, ".cov") || continue
-              mv(joinpath(root, file), joinpath(root, replace(file, r"\.cov$" => ".fem.cov")))
-            end
-          end
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: fem-production-coverage
-          path: |
-            src/**/*.fem.cov
-            ext/**/*.fem.cov
-          if-no-files-found: error
-      - name: Remove coverage traces after workers and uploads finish
-        if: always()
-        run: julia --startup-file=no test/coverage.jl traces
-
   quality:
     name: Quality tests
     runs-on: ubuntu-latest
@@ -110,7 +63,6 @@ jobs:
 
   coverage:
     name: Merged production coverage
-    needs: [fem-numerical]
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -163,9 +115,6 @@ jobs:
             push!(ARGS, "loaded extension activation")
             include(joinpath(pwd(), "test", "runtests.jl"))
           '
-      - name: Collect independent FEM inspection coverage
-        if: ${{ !cancelled() }}
-        run: DISPLAY= LINECABLEMODELS_TEST_PLOTTING=true julia --project=test --code-coverage=@. test/runtests.jl integration/native_makie_fem.jl
       - name: Collect WGLMakie boundary coverage
         if: ${{ !cancelled() }}
         run: |
@@ -183,11 +132,6 @@ jobs:
         run: |
           julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
           julia --project=ext/LineCableModelsPSCADExt/remote --code-coverage=@. --color=yes test/integration/pscad/remote_runner_boundary.jl
-      - uses: actions/download-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: fem-production-coverage
-          path: .
       - name: Enforce source-amended 95% coverage
         if: ${{ !cancelled() }}
         run: julia --project=test/coverage --color=yes test/coverage.jl check

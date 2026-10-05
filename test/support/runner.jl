@@ -5,7 +5,7 @@ using TestItemRunner, TOML, Test
 # Tags describe purpose or environment, never the observed outcome. Explicit
 # selectors can reach every item, including those excluded from ordinary runs.
 const ORDINARY_EXCLUDED_TAGS = Set((:quality, :aqua, :visual, :core_only,
-    :fem_numerical, :pscad_native))
+    :pscad_native))
 
 function selection(arguments, directory; excluded=ORDINARY_EXCLUDED_TAGS)
     queries = filter(!=("--list"), arguments)

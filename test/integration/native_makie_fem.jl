@@ -1,5 +1,7 @@
 @testitem "Makie FEM / independent mesh and field inspection" tags=[:visual] begin
     using CairoMakie, Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     fixtures = joinpath(pkgdir(LineCableModels), "test", "fixtures", "data", "fem")
     meshfile = joinpath(fixtures, "sparse.msh")
     fieldfile = joinpath(fixtures, "discontinuous.pos")
@@ -21,7 +23,7 @@
         colors = only(q.addon_state.groups[:field]).color[]
         @test colors == [1, 2, 3, 9, 10, 11] # Shared corners keep both element-side values.
         @test q.addon_state.spatial_data === scalar
-        @test occursin("[V]", only(q.colorbars).label[])
+        @test only(q.colorbars).label[] == "Real part"
         imag = LineCableModels.plot(fieldfile; view = 1, part = :imag, settings...)
         @test only(imag.addon_state.groups[:field]).color[] == [4, 5, 6, 12, 13, 14]
         magnitude = LineCableModels.plot(last(fields); part = :magnitude, settings...)
@@ -65,6 +67,8 @@ end
 
 @testitem "Makie FEM / Copy details sends the current complete record" tags=[:visual] begin
     using CairoMakie, Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     if Sys.islinux()
         # Exercise the native button and Julia's clipboard API, replacing only
         # the OS utilities so this test needs no display or user clipboard access.
@@ -81,7 +85,7 @@ end
                 mesh = import_data(:msh, fixture)
                 p = LineCableModels.plot(mesh; color_by=:physical, inspect=:element,
                     backend=:cairo, display_plot=false, open_export=false)
-                ext = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
+                ext = Base.get_extension(LineCableModels, :LineCableModelsGmshMakieExt)
                 view = p.addon_state.mesh_inspection.view
                 quad = findfirst(view.drawing.elements) do (b,c)
                     mesh.blocks[b].element_tags[c] == 305
@@ -106,7 +110,9 @@ end
 
 @testitem "Makie FEM / physical groups and native diagnostics" tags=[:visual] begin
     using CairoMakie, Gmsh
-    ext = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
+    ext = Base.get_extension(LineCableModels, :LineCableModelsGmshMakieExt)
     fixtures = joinpath(pkgdir(LineCableModels), "test", "fixtures", "data", "fem")
     mesh = import_data(:msh, joinpath(fixtures, "inspection.msh"))
     original = deepcopy(mesh)
@@ -160,7 +166,7 @@ end
 
     # Lower-dimensional mesh files use the same native metadata/color contract.
     Engine = LineCableModels.Engine
-    lines = Engine.FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates,
+    lines = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates,
         filter(b -> b.dimension==1, mesh.blocks), mesh.physical_names)
     lineplot = LineCableModels.plot(lines; color_by=:physical, inspect=:element, settings...)
     lineview = lineplot.addon_state.mesh_inspection.view
@@ -168,8 +174,8 @@ end
     lineplot.controls[:mesh_color_by].i_selected[] = 1
     lineplot.controls[:mesh_color_by].i_selected[] = 2
     Makie.colorbuffer(lineplot.figure)
-    points = Engine.FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates,
-        [Engine.FEMElementBlock(15,0,0,1,71,[8],UInt64[808],reshape([1],1,1))],
+    points = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates,
+        [Base.get_extension(LineCableModels,:LineCableModelsGmshExt).FEMElementBlock(15,0,0,1,71,[8],UInt64[808],reshape([1],1,1))],
         Dict((0,8)=>"terminal point"))
     pointplot = LineCableModels.plot(points; color_by=:physical, inspect=:element, settings...)
     pointview = pointplot.addon_state.mesh_inspection.view
@@ -178,9 +184,9 @@ end
     @test pointview.marker.visible[]
     Makie.colorbuffer(pointplot.figure)
 
-    blocks = [Engine.FEMElementBlock(2,2,1,3,i,[i],UInt64[10000+i],reshape([1,2,3],3,1)) for i in 1:25]
+    blocks = [Base.get_extension(LineCableModels,:LineCableModelsGmshExt).FEMElementBlock(2,2,1,3,i,[i],UInt64[10000+i],reshape([1,2,3],3,1)) for i in 1:25]
     names = Dict((2,i)=>repeat("long name $i ",12) for i in 1:25)
-    many = Engine.FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates, blocks, names)
+    many = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh(mesh.source, mesh.node_tags, mesh.coordinates, blocks, names)
     paged = LineCableModels.plot(many; color_by=:physical, settings...)
     pv = paged.addon_state.mesh_inspection.view
     sidebar = paged.addon_state.mesh_inspection.sidebar
@@ -220,7 +226,7 @@ end
         for (name, plot) in (("mesh", p), ("preview", geometry), ("static", static))
             file = export_svg(plot; path=joinpath(directory,name*".svg"), open_file=false)
             @test isfile(file) && filesize(file)>0
-            ext._addon_export_presentation!(plot, :default) do
+            Base.get_extension(LineCableModels,:LineCableModelsMakieExt)._addon_export_presentation!(plot, :default) do
                 Makie.colorbuffer(plot.figure)
                 viewport = plot.figure.scene.viewport[]
                 sidebar = plot.addon_state.mesh_inspection.sidebar

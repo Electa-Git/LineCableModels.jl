@@ -28,6 +28,8 @@
 end
 
 @testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit] setup=[FormulaContractModels] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using DataFrames, Statistics
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     import LineCableModels: description, formula_id, formulation_options
@@ -141,7 +143,7 @@ end
         earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
         earth_admittance=formula(:default;options=(integration=(method=:quad,options=(rtol=1e-9,)),)))
     for native in (routed,MonteCarlo(routed),LinearError(routed),
-            LineCableModelsFEM(options=(physics=:quasi_fw,)),
+            LineCableModelsFEM(options=(physics=:helmholtz,)),
             Formulation(:pscad;options=(base_frequency=60.0,)))
         saved=IO.deserialize_value(Val(:formulation),NamedTuple(native))
         for quantity in (R,B)
@@ -173,7 +175,7 @@ end
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
     fem_labels=description([LineCableModelsFEM(),LineCableModelsFEM(options=(Γ=.01im,))];
         roles=[:reference,:reference])
-    @test all(label -> occursin("quasi-fw",label) && occursin("Γ",label),fem_labels) && occursin("0.01",last(fem_labels))
+    @test all(label -> occursin("helmholtz",label) && occursin("Γ",label),fem_labels) && occursin("0.01",last(fem_labels))
     @test ismissing(IO.deserialize_value(Val(:formulation),(backend=:unknown,)))
     @test description([missing];roles=[:reference])==["Reference · method unavailable"]
     unknown_inner=IO.deserialize_value(Val(:formulation),
@@ -227,6 +229,8 @@ end
 end
 
 @testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] setup=[FormulaContractModels] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     IO=LineCableModels.ImportExport
     a=Formulation(earth_impedance=:saad1996)
     b=Formulation(earth_impedance=:xue2018)
@@ -261,6 +265,8 @@ end
 end
 
 @testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit] begin
+    using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     import LineCableModels: description,formula_id,formulation_options
     using LineCableModels.Engine: completed_formulation,retain_gridpoint
     using LineCableModels.Grammar: gridpoint_id,observation_labels,observation_groups

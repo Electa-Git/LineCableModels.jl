@@ -435,12 +435,6 @@ function computation_details(
     return details(result)
 end
 
-function computation_details(
-        ::Type{<:LineCableModelsFEM},
-        result::LineParameters
-)::ComputationDetails
-    return details(result)
-end
 
 function materials!(
         destination::NamedTuple,

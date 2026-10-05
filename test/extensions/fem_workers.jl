@@ -1,5 +1,7 @@
 @testitem "Gmsh FEM / isolated workers, checkpoints and recovery" tags=[:extension] begin
     using Gmsh, JSON3, SHA
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     E = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     python = Sys.which("python3")
     if Sys.isunix() && python !== nothing
@@ -23,7 +25,8 @@ control=json.loads(pathlib.Path(control_path).read_text())
 if control.get('unsupported'):
     print('Unknown operation GenerateRHSGroup',flush=True);sys.exit(2)
 root=pathlib.Path(settings['RunDirectory'])
-f=int(settings['FrequencyIndex']); hz=float(settings['FrequencyHz'])
+f=int(settings['FrequencyIndex']); data=pathlib.Path(settings['ModelDataPath']).read_text()
+hz=float(re.search(r'Frequencies\(\) = \{([^}]*)\}',data)[1].split(',')[f-1])
 bases=[int(x) for x in re.search(r'\{([^}]*)\}',pathlib.Path(settings['BasisListPath']).read_text())[1].split(',')]
 assert os.getcwd()==str(root)
 assert all(os.environ[x]=='1' for x in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS'))
@@ -34,6 +37,8 @@ for b in bases:
     for q in ('Z','P','Pscalar'):
         text=''.join(f'{f}\t{hz:.17g}\t{r}\t{b}\t{100*f+10*r+b}\t{r-b}\n' for r in (1,2))
         pathlib.Path(str(stem)+f'-{q}.tsv').write_text(text)
+    obs=[f,hz,9.,0,0,0,0,9.,9.,9.,9.,0,0,48,48,48,1.,1.,0.,0,0,0.,0]
+    (stem.parent/f'pml-f{f:04d}.tsv').write_text('\t'.join(map(str,obs))+'\n')
     pathlib.Path(str(stem)+'-timing.tsv').write_text(f'{f}\t{b}\t0\t0\t0\t0\t{int(b==bases[0])}\n')
     if control.get('fail') and f==1 and b==2:
         print('deliberate failure after partial column',flush=True); sys.exit(17)
@@ -54,7 +59,7 @@ for b in bases:
             function fresh()
                 run=E._create_run(root)
                 E._write_json_atomic(joinpath(run.path,"input/computation.json"),inputs)
-                E._prepare_run_inputs!(run,model)
+                E._prepare_run_inputs!(run,model,execution_options)
                 run
             end
             write(config,JSON3.write((delay=0.02,fail=false)))

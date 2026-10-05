@@ -358,6 +358,7 @@ macro showfields(type_expression, semantic_name, mapping)
 end
 
 public name, value, engineering, angle, quantity, fields, tree
+public @showfields
 
 Base.summary(io::IO, unit::Units.Unit) = print(io, "Physical unit ", Units.label(unit))
 Base.show(io::IO, unit::Units.Unit) = print(io, Units.label(unit))

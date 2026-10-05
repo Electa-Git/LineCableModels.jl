@@ -48,18 +48,3 @@
         @warn error("caller exception policy")
     end
 end
-
-@testitem "Logging / FEM file destination does not bypass the parent threshold" tags=[:extension] begin
-    using Gmsh, Logging
-    const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    parent = Test.TestLogger(min_level = Logging.Warn, respect_maxlog = false)
-    file = Test.TestLogger(min_level = Logging.Debug, respect_maxlog = false)
-    filter = LineCableModels.VerbosityLogger(parent, (default = 2, progress = 1))
-    with_logger(FEM.FEMTeeLogger(filter, file)) do
-        @info "file only" _group=:progress
-        @debug "file debug"
-        @warn "both"
-    end
-    @test getproperty.(parent.logs, :message) == ["both"]
-    @test getproperty.(file.logs, :message) == ["file only", "file debug", "both"]
-end

@@ -5,18 +5,10 @@
     import LineCableModels
 
     @test Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
-    @test_throws r"Load Gmsh" import_data(:msh, "saved.msh")
-    @test_throws r"Load Gmsh" import_data(:pos, "saved.pos")
-    @test_throws r"Load Gmsh" export_data(:onelab)
-    @test LineCableModels.LineCableModelsFEM <:
-          LineCableModels.AbstractFormulation
-    @test supertype(LineCableModels.LineCableModelsFEM) === LineCableModels.AbstractFormulation
-
-    formulation = LineCableModels.Formulation(
-        :LineCableModelsFEM;
-        options = (ideal_transposition = false,))
-    execution = computation_options(LineCableModelsFEM, ComputationOptions())
-    @test execution isa ComputationOptions
-    @test formulation isa LineCableModels.LineCableModelsFEM
+    @test_throws MethodError import_data(:msh, "saved.msh")
+    @test_throws MethodError import_data(:pos, "saved.pos")
+    @test_throws MethodError export_data(:onelab)
+    @test !isdefined(LineCableModels, :LineCableModelsFEM)
+    @test_throws MethodError Formulation(:LineCableModelsFEM)
     @test Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
 end

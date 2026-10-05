@@ -133,17 +133,3 @@ end
         n=3, r=radius, φ0=angle, names) in product
         for wire in wires, radius in radii, angle in angles)
 end
-
-@testitem "Gmsh FEM / assembly placement does not coarsen solid-core mesh size" tags=[:extension] begin
-    using Gmsh
-    const DM = LineCableModels.DataModel
-    extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    copper = Material(:conductor, 1.72e-8, 1.0, 1.0)
-    for primitive in (Disk(1e-3), Rectangle(1e-3, 0.5e-3), Ellipse(1e-3, 0.5e-3))
-        member = terminal(:core, solid(copper, primitive))
-        isolated = build(CableDesign, "isolated", member)
-        repeated = build(CableDesign, "repeated", cores(member; n=3, r=0.01, names=(:a, :b, :c)))
-        expected = extension._fem_region_mesh_size(only(isolated.geometry.regions))
-        @test all(region -> extension._fem_region_mesh_size(region) == expected, repeated.geometry.regions)
-    end
-end

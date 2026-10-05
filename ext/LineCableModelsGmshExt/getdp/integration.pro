@@ -1,7 +1,7 @@
 // Prescribed rules only. Zero means inherit the existing triangle rule.
 If(!Exists(VolumeQuadrature)) VolumeQuadrature = 12; EndIf
 If(!Exists(PhysicalVolumeQuadrature)) PhysicalVolumeQuadrature = 0; EndIf
-If(!Exists(PmlQuadrature)) PmlQuadrature = 9; EndIf
+If(!Exists(PmlQuadrature)) PmlQuadrature = 4; EndIf
 If(!Exists(PmlQuadrangles)) PmlQuadrangles = 0; EndIf
 PhysicalTrianglePoints = PhysicalVolumeQuadrature;
 If(PhysicalTrianglePoints == 0) PhysicalTrianglePoints = VolumeQuadrature; EndIf

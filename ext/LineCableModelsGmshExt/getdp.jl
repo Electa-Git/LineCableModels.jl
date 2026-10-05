@@ -25,7 +25,7 @@ function _write_problem_snapshot(path::String, problem::LineParametersProblem)
     return path
 end
 
-function _write_model_data(path::String, model::FEMResolvedModel)
+function _write_model_data(path::String, model::FEMResolvedModel, controls::NamedTuple)
     air = model.problem.earth_props.layers[1]
     earth = model.earth_materials
     materials = model.material_plans
@@ -34,9 +34,33 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         println(io, "NumTerminals = ", length(model.terminal_ids), ";")
         println(io, "NumCables = ", length(model.problem.system.designs), ";")
         println(io, "NumMaterialRegions = ", length(materials), ";")
+        println(io,"CADGeometryTolerance = ",_pro_number(_GMSH_GEOMETRY_TOLERANCE),";")
         println(io, "FrequencyCount = ", length(model.problem.frequencies), ";")
-        println(io, "GammaReValues() = ", _pro_array(real.([plan.Γ for plan in model.mesh_plans])), ";")
-        println(io, "GammaImValues() = ", _pro_array(imag.([plan.Γ for plan in model.mesh_plans])), ";")
+        println(io, "Frequencies() = ", _pro_array(model.problem.frequencies), ";")
+        println(io, "GammaReValues() = ", _pro_array(real.(model.prescribed_gamma)), ";")
+        println(io, "GammaImValues() = ", _pro_array(imag.(model.prescribed_gamma)), ";")
+        for (direction, name) in enumerate(("Side", "Top", "Bottom"))
+            factors = controls.pml_thickness_factor
+            factor = factors isa Tuple ? factors[direction] : factors
+            println(io, "Pml", name, "ThicknessFactor = ", _pro_number(factor), ";")
+            println(io, "Pml", name, "Layers = ", controls.pml_layers[direction], ";")
+            println(io, "Pml", name, "Grading = ", _pro_number(controls.pml_grading[direction]), ";")
+        end
+        println(io, "DomainSizeFactor = ", _pro_number(controls.domain_size_factor), ";")
+        println(io, "MeshSizeFactor = ", _pro_number(controls.mesh_size_factor), ";")
+        println(io, "ExteriorMeshSizeFactor = ", _pro_number(controls.exterior_mesh_size_factor), ";")
+        println(io, "InterfaceRefinementFactor = ", _pro_number(controls.interface_refinement_factor), ";")
+        println(io, "PmlQuadrangles = ", Int(controls.pml_element_family === :quadrangle), ";")
+        println(io,"VolumeQuadrature = ",controls.volume_quadrature,";")
+        println(io,"PhysicalVolumeQuadrature = ",something(controls.physical_volume_quadrature,0),";")
+        println(io,"PmlQuadrature = ",controls.pml_quadrature,";")
+        for (name,key) in (("ConductorGeometryTolerance",:conductor_geometry_tolerance),
+            ("ConductorSkinDepthElements",:conductor_skin_depth_elements),("ConductorMeshGrowth",:conductor_mesh_growth),
+            ("ConductorSkinDepths",:conductor_skin_depths),("ConductorThicknessElements",:conductor_thickness_elements))
+            println(io,name," = ",_pro_number(getproperty(controls,key)),";")
+        end
+        _write_native_geometry_data(io, model)
+        println(io, "PmlReflection = ", _pro_number(controls.pml_reflection), ";")
         println(io, "AIR_EM = ", model.tags.air, ";")
         println(io, "EARTH_EM = ", model.tags.earth, ";")
         println(io, "AIR_PML = ", model.tags.air_pml, ";")
@@ -49,8 +73,7 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         println(io, "INNER_PML_BND = ", model.tags.pml_inner_boundary, ";")
         println(io, "TERMINAL = ", model.tags.terminal_base + 1, ";")
         println(io, "TERMINAL_CONTOUR = ", model.tags.terminal_contour_base + 1, ";")
-        println(io, "VOLTAGE_PATH = ", model.tags.voltage_path_base + 1, ";")
-        println(io, "VOLTAGE_REFERENCE = ", model.tags.voltage_reference_base + 1, ";")
+        println(io, "MEASUREMENT_LINE = ", model.tags.measurement_line_base + 1, ";")
         println(io, "ReceiverInAir() = ", _pro_array([
             model.cable_hosts[t.cable] === :air for t in model.problem.system.terminal_order]), ";")
         println(io, "CABLE_CONTOUR = ", model.tags.cable_contour_base + 1, ";")
@@ -79,6 +102,7 @@ function _write_model_data(path::String, model::FEMResolvedModel)
             io, "EarthEpsilon() = ", _pro_array([state.eps_r * 8.8541878128e-12
                                                  for state in earth]), ";")
         println(io, "EarthMu() = ", _pro_array([state.mu_r * 4π * 1e-7 for state in earth]), ";")
+        println(io, "AirSigma = ", _pro_number(inv(air.rho)), ";")
         println(io, "AirEpsilon = ", _pro_number(air.eps_r * 8.8541878128e-12), ";")
         println(io, "AirMu = ", _pro_number(air.mu_r * 4π * 1e-7), ";")
         println(io, "Xcenter = ", _pro_number(model.centre[1]), ";")
@@ -91,11 +115,15 @@ end
 function _getdp_assets(root::AbstractString = joinpath(@__DIR__, "getdp"))
     return (
         model = joinpath(root, "model.pro"),
+        parameters = joinpath(root, "parameters.pro"),
+        geometry = joinpath(root, "geometry.geo"),
+        mesh = joinpath(root, "mesh.geo"),
         jacobian = joinpath(root, "jacobian.pro"),
         integration = joinpath(root, "integration.pro"),
+        solver = joinpath(root, "solver.pro"),
         materials = joinpath(root, "materials.pro"),
         pml = joinpath(root, "pml.pro"),
-        quasi_full = joinpath(root, "quasi-full.pro"),
+        helmholtz = joinpath(root, "helmholtz.pro"),
         line_parameters = joinpath(root, "line-parameters.pro"),
         onelab = joinpath(root, "onelab.pro")
     )

@@ -1,5 +1,7 @@
 @testitem "FEM files / detached mesh and fields preserve native identities and caller state" tags=[:extension] begin
     using Gmsh
+    const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
+    const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     gmsh = Gmsh.gmsh
     fixtures = joinpath(pkgdir(LineCableModels), "test", "fixtures", "data", "fem")
     mesh_path = joinpath(fixtures, "sparse.msh")
@@ -7,7 +9,7 @@
     withenv("LINECABLEMODELS_GETDP" => "/unavailable/getdp", "DISPLAY" => "") do
         mesh = import_data(:msh, mesh_path)
         @test !Bool(gmsh.is_initialized())
-        @test mesh isa LineCableModels.FEMMesh
+        @test mesh isa Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FEMMesh
         @test mesh.node_tags == [7, 23, 64, 105]
         @test mesh.coordinates == [0 1 0 1; 0 0 1 1; 0 0 0 0]
         block = only(mesh.blocks)
