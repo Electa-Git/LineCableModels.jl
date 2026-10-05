@@ -274,7 +274,8 @@ sectorized = @cable "three-core-sector" begin
 end
 ```
 
-`resolve` derives exact arc contacts and composes each `Pose2`. `area`,
+`resolve` derives exact arc contacts and composes each `Pose2`. A pose applied to a
+point, `pose(point)`, rotates the point and then translates it. `area`,
 `perimeter`, `centroid`, and `support` use the exact geometric boundary. `tessellate`
 returns ordinary coordinate tuples solely for renderers and mesh adapters.
 Resolving `Shell(t)` against one sector produces its exact parallel boundary.

@@ -111,6 +111,14 @@ belong to explicit research work under the testing requirements below. See the
 [test commands](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for the implementation checks and their
 execution environments.
 
+The workspace provides the buffers, and formulas use them.
+`Commons.initialize_buffers` is the one action that builds buffers, for every formula and
+every part of the workflow. A formula or shared component builds its own buffers in its
+`initialize_buffers` method, usually as a named tuple of preallocated arrays. The method
+returns them in the workspace's `buffers` record. A named `*Buffers` type exists only for a
+component that several owners share, in `Commons`, such as `ReductionBuffers`. The
+storage vocabulary guard below checks the names.
+
 ### Structural guards
 
 `test/quality/architecture.jl` enforces the ownership rule stated in `AGENTS.md`,
@@ -136,9 +144,11 @@ package method and parse every Julia file under `src/` and `ext/`.
   the order. The root module and the extensions are exempt.
 - Names (`names`). Functions and types owned by different package modules have
   distinct names. The per-family `Formula` types are exempt.
-- Shadowing (`shadowing`). A public package name that Base, DataFrames, LinearAlgebra,
-  Statistics, Random, Dates or Logging also exports refers to the same object as the
-  exported name.
+- Shadowing (`shadowing`). Each name that the root module exports is in scope after
+  `using LineCableModels`. It refers to the same object as the name that Base,
+  LinearAlgebra, Statistics, Random, Dates or Logging exports. A name that only a
+  submodule exports stays in that namespace, and a name that DataFrames also exports
+  does not conflict.
 - validate returns its subject (`validate`). Each `validate` definition names its first
   positional argument. Each path through its body returns that argument or calls
   `throw`, `rethrow` or `error`. A body that does more than return the argument also uses
@@ -151,6 +161,14 @@ package method and parse every Julia file under `src/` and `ext/`.
 - Symbol switches and probes (`switches`). Each source file has counts of `applicable`
   calls, `@eval` calls, and comparisons of a `kind` field against symbols, negated
   comparisons included. These counts can decrease and never increase.
+- Storage vocabulary (`storage`). A `*Workspace` struct has exactly the fields `input`,
+  `plan` and `buffers`, and optionally `trace`. No function name ends in `_workspace` or
+  `_storage`, and only `initialize_buffers` ends in `_buffers`. Only `Commons` defines a
+  `*Buffers` struct, and no type name ends in `Buffer`, `Storage`, `Scratch` or `Cache`.
+  No field, named tuple key, parameter, local or loop variable takes the name `work`,
+  `scratch`, `storage` or `cache`. The guard reads source code. The modal and
+  cable-constant workspaces keep other fields until their restructuring, and the
+  baseline lists them.
 
 `Commons` contains only definitions that several owners use. An owner is the root
 module, a top-level submodule or a package extension. The Commons guards stop
@@ -209,10 +227,13 @@ Entries can be deleted or lowered, and none can be added or raised. Before the t
 the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull request
 base or the previous push. An added entry or a raised count fails the job. The same
 ratchet checks `test/quality/preservation.toml`, described below, in the direction that
-each of its tables declares. The
-ratchet first applies to the earlier keys the file renames that git detects, and the
-module renames of renamed entry files `<Module>.jl` that declare their module. A key
-renamed without a matching git rename counts as added. A table absent from the
+each of its tables declares.
+
+The ratchet first applies to the earlier keys the file renames that git detects, and the
+module renames of renamed entry files `<Module>.jl` that declare their module. An
+ownership key has the form `defining module | Owner.function | file`. A change of `Owner`
+alone, the module that defines the extended function, keeps the entry and its count.
+Any other key renamed without a matching git rename counts as added. A table absent from the
 earlier baseline belongs to a guard introduced since, and the ratchet lists it
 without comparing its keys. Run
 `julia test/tools/baseline_ratchet.jl HEAD` to compare local changes with the last

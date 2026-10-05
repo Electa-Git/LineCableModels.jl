@@ -61,10 +61,10 @@ valid material objects. Field formulas receive completed material properties.
 Their wave numbers and mathematical approximations do not replace those values.
 Boundary-shunt coefficients remain blueprint-time quantities.
 
-The workspace input and invariants retain geometric tables and bind equations
-to their inputs and outputs. Its buffers retain evaluated material tables, local coefficients,
+The workspace input and plan retain geometric tables and bind equations
+to their inputs and outputs. Its buffers hold evaluated material tables, local coefficients,
 separate exterior Z/P destinations, primitive and reduction matrices, QuadGK storage
-and any numerical scratch arrays required by the selected equations. Trace
+and any numerical arrays that the selected equations build in `initialize_buffers`. Trace
 storage is optional. Mutable calculation buffers belong to each independent computation.
 
 Ordinary earth equations evaluate their indexed cases. A coupled equation may
@@ -72,7 +72,7 @@ require full-system inputs even when only some of its entries are selected.
 Those inputs and compatible Z/P consumers are bound during initialization.
 Compatible consumers calculate one response per frequency. Different
 configurations calculate separately and publish their selected entries before
-reusing scratch. The binding records the correspondence between inputs and
+reusing buffers. The binding records the correspondence between inputs and
 selected output entries. Each call evaluates a fresh response.
 
 ## Internal shunt geometry
@@ -409,7 +409,7 @@ for aerial self and mutual, `:saad1996` or `:wedepohl1973` for buried self and m
 and `:lucca1994` for both mixed directions. The `:ideal` potential selection
 uses electrostatic images for aerial pairs and zero external potential whenever
 either conductor is buried. Insulation contributions remain in the total matrix.
-Earth-kernel quadrature and extra scratch are unnecessary for these methods.
+Earth-kernel quadrature and extra buffers are unnecessary for these methods.
 The following selection combines their impedance and potential equations:
 
 ```julia
@@ -547,8 +547,8 @@ over the full spectral interval. Its controls are:
 integration = (method = :quad, options = (rtol = 1e-8, atol = 0.0, maxevals = 10^7))
 ```
 
-`SpectralIntegral(f)` stores only the complete callable integrated over
-`[0, Inf)`. A formula includes its weights, any admissible contour and the
+`SpectralIntegral(f)`, the formulation of a Sommerfeld-type integral over the spatial
+Fourier variable, stores only the complete callable integrated over `[0, Inf)`. A formula includes its weights, any admissible contour and the
 coordinate Jacobian in `f`, and supplies numerical subdivision points to
 `integrate`. Engine knows none of those physical choices. Its half-line map
 has no finite cutoff. Algebraic cases omit both integration calls and
@@ -964,9 +964,10 @@ used when a lossy homogeneous export representation is requested.
 The workspace separates four owned concerns:
 
 - `input`: immutable numerical input derived from the problem.
-- `invariants`: reusable physical values and index maps.
+- `plan`: index maps, geometry, bound earth calculations and the reduction plan, fixed
+  before the frequency loop.
 - `buffers`: mutable storage reused while solving each frequency.
-- `capture`: optional diagnostic matrices allocated before the loop.
+- `trace`: optional diagnostic matrices allocated before the loop.
 
 The ordinary result is always `LineParameters`. Requesting
 `options=(trace=true,)` retains completed diagnostic arrays under
@@ -1007,7 +1008,7 @@ rerunning the decomposition.
 The retained modal formula is selected by `ModalAnalysisFormulation()`.
 Explicit controls use `formula(:default; options=(iteration=(convergence=1e-8,),))`.
 A custom decomposition is a completed formulation implementing
-`Engine.initialize_buffers(selected, T, input, invariants, common)` and
+`Commons.initialize_buffers(selected, T, input, plan, common)` and
 `ModalAnalysis.decompose!(selected, workspace, parameters, options)`.
 The latter fills `workspace.Tv`, `workspace.Ti`, and `workspace.roots`.
 `ModalAnalysisFormulation` retains its
@@ -1225,7 +1226,7 @@ The coaxial backend accepts:
 )
 ```
 
-`trace=true` preallocates diagnostic capture with the workspace and attaches
+`trace=true` preallocates the workspace's trace record and attaches
 the retained matrices to `details(result).data.trace` after computation.
 
 Coaxial, FEM, and PSCAD computations accept an optional callable

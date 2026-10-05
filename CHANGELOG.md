@@ -13,6 +13,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   options. Earth formulas and equivalent-earth reductions extend it.
 - `Engine.AbstractModalOperators` is the supertype of modal-to-phase operator bases.
   `ModalOperators` subtypes it and implements `size`.
+- `Pose2` is callable. `pose(point)` rotates a point by the pose's orientation and
+  translates it by the pose's position.
+- `initialize_buffers(reduction::ReductionPlan, T, input, plan, buffers)` adds
+  `reduction`, the `ReductionBuffers` of a reduction plan, to a buffer record.
 
 ### Changed
 
@@ -143,6 +147,16 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   overlaid result containers through `series_labels`.
 - The PSCAD sources moved from the extensions directory to `src/pscad/`, and its remote
   runner project to `src/pscad/remote/`. `LineCableModels.PSCAD` is unchanged.
+- `Commons` owns `initialize_buffers`, which builds every buffer of a calculation.
+  Each formula and shared component extends `Commons.initialize_buffers(selected, T,
+  input, plan, buffers)` and shapes its own buffers, usually as a named tuple of arrays.
+  The fourth argument, formerly `invariants`, is the calculation plan.
+- The coaxial workspace fields are `input`, `plan`, `buffers` and `trace`, formerly
+  `invariants` and `capture` for the second and fourth.
+- `SpectralIntegral` is a formulation, a subtype of `AbstractFormulation`, and
+  `integrate` takes it first: `integrate(integral, Val(:quad), controls, buffers)`. The
+  buffers are the record that `initialize_buffers(SpectralIntegral, Val(:quad), T, input,
+  plan, buffers)` extends with `quadrature`.
 
 ### Removed
 
@@ -167,6 +181,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Removed `Commons.check_core_result`. Use `validate(T, AbstractResultSpace)`.
 - Removed `Engine.validate_modal_operators`. Modal operators subtype
   `AbstractModalOperators` and implement `size`.
+- Removed `TextDisplay.quantity`, which no package code used. `show` of a
+  `Units.Quantity` displays the quantity identity.
+- Removed the `ParametricBuilder.Conductor`, `Insulator` and `Semiconductor` modules and
+  their root exports. Each of their constructions forwarded to a public builder with a
+  `tag`: `Conductor.Solid` to `core`, `Conductor.Shell` to `sheath`, `Conductor.Wires` to
+  `wires`, `Conductor.Strip` to `tape` within `terminal`, `Conductor.Tubular` to `core`
+  within `Group`, `Insulator.Shell` to `insulation` and `Semiconductor.Shell` to `screen`.
+- Removed `Engine.integration_workspace`. `initialize_buffers(SpectralIntegral, Val(:quad),
+  T, input, plan, buffers)` builds the quadrature buffers.
 
 ### Fixed
 

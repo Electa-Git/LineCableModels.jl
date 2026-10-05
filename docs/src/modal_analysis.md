@@ -62,13 +62,13 @@ uses the selected modal approximation when coupling remains.
 The built-in formula selects paired voltage and current eigenvectors and
 retains a forward root with nonnegative real part, or nonnegative imaginary
 part for a purely imaginary root. The modal workspace supplies impedance and
-admittance slices, coordinate conversion scratch, the admittance-impedance
-product, eigenpair history and voltage-vector scratch. The built-in formula
+admittance slices, coordinate conversion buffers, the admittance-impedance
+product, eigenpair history and voltage-vector buffers. The built-in formula
 tracks eigenvalues of its normalized, shifted eigenproblem. Multiplying
 `eigenvalue + 1` by the scale gives an eigenvalue of the physical product,
-distinct from a propagation root. The selected formula allocates its
-normalized eigenproblem, Hungarian assignment work and Levenberg–Marquardt
-least-squares work through `initialize_buffers`. Its arithmetic remains in
+distinct from a propagation root. The selected formula builds the buffers of its
+normalized eigenproblem, Hungarian assignment and Levenberg–Marquardt least squares
+in its `initialize_buffers` method. Its arithmetic remains in
 `decompose!(::Val{:chrysochos2014}, ...)`. `Tv`
 and `Ti` map modal coordinates to phase coordinates. Total source coefficients
 are normalized by their declared source length before the line segment is
@@ -125,9 +125,9 @@ is ultimately returned. The reported eigen-residual describes that returned pair
 
 This adaptation uses `s=j2πf` and the package's vacuum permittivity
 `8.8541878128e-12 F/m`. The supplied `EigTrack.jl` used `8.854187817e-12 F/m` and
-also supported complex-frequency reevaluation. The formula allocates its complex
-least-squares, predictor and assignment work through the existing allocator and
-reuses common modal storage. The detailed method attribution is attached to its
+also supported complex-frequency reevaluation. The formula builds its complex
+least-squares, predictor and assignment buffers in its `initialize_buffers` method and
+reuses the common modal buffers. The detailed method attribution is attached to its
 formula description.
 
 ## Newton–Raphson implementation

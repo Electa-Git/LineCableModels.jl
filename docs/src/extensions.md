@@ -72,9 +72,13 @@ and explicit convention conversions are documented with the Unified equations.
 
 Coaxial equations and material laws receive the defining computation workspace,
 or `nothing` for a standalone evaluation that does not require it. Numerical arrays are in
-`workspace.buffers`. The workspace input and bindings remain the authority for
-geometry and material mappings. An allocation method is unnecessary for an algebraic equation.
-For an equation that needs scratch, extend
+`workspace.buffers`. The workspace input and bindings remain the authority for geometry
+and material mappings.
+
+The workspace provides the buffers, and formulas use them. `initialize_buffers` is the
+one action that builds buffers. Each equation builds its own in its method, usually as a
+named tuple of preallocated arrays, without a storage type of its own. An allocation
+method is unnecessary for an algebraic equation. For an equation that needs buffers, extend
 `Commons.initialize_buffers(selected, T, input, plan, buffers)` to return
 the record extended with owned arrays only. Only selections reached by the
 required indexed calls participate in initialization, before evaluating materials
@@ -125,8 +129,8 @@ not reconstruct executable methods. See the [temperature-law example](engine.md#
 ### A Val-dispatched modal equation
 
 The following complete one-mode example implements a custom modal equation.
-The modal workspace supplies common slices, coordinate conversion scratch, the
-admittance-impedance product, eigenpair history and voltage-vector scratch.
+The modal workspace supplies common slices, coordinate conversion buffers, the
+admittance-impedance product, eigenpair history and voltage-vector buffers.
 `initialize_buffers` extends that record only for additional numerical work.
 It assumes a completed one-mode phase scan named `phase`, with nonzero
 diagonal coefficients and known source length. The example is algebraic. It
@@ -177,7 +181,7 @@ size(H(segment)) == size(gamma(modal))
 ```
 
 Only the selected equation's `initialize_buffers` method runs. The common
-workspace supplies per-frequency normalization and coordinate scratch. The
+workspace supplies per-frequency normalization and coordinate buffers. The
 equation owns `diagonal_product`. It writes phase-row by mode-column bases
 and mode-by-frequency roots. The owner checks structural shape and finite arithmetic before computing intrinsic coefficients. It then copies the returned arrays and records diagnostics. Numerical targets are reported as warnings and facts,
 without becoming result-admission rules.
