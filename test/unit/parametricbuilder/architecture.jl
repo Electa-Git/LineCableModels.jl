@@ -13,7 +13,7 @@
     @test length(conductor) == 2
     @test all(material -> material.kind === :conductor, conductor)
 
-    wire=PB.Conductor.Solid(:wire, conductor; r = 0.01)
+    wire=PB.core(conductor; r = 0.01, tag = :wire)
     terminal=PB.Group(:core, wire)
     design=build(CableDesign, "parametric", terminal)
     @test design isa Gridspace{CableDesign}
@@ -141,8 +141,8 @@ end
 
     copper=Material(kind = :conductor, rho = 1.7e-8)
     xlpe=Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
-    core=PB.Conductor.Solid(:core, copper; r = 0.01)
-    insulation=PB.Insulator.Shell(:insulation, xlpe; t = Grid((0.003, 0.004)))
+    core=PB.core(copper; r = 0.01, tag = :core)
+    insulation=PB.insulation(xlpe; t = Grid((0.003, 0.004)), tag = :insulation)
     roots=PB.Stack(PB.Group(:core, core), insulation)
     @test roots isa Gridspace{Stack}
 

@@ -39,8 +39,7 @@ export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
-export AbstractMaterial, Material, RadialDielectric, MaterialsLibrary, Conductor, Insulator,
-       Semiconductor
+export AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
 export AbstractShape, AbstractPrimitive
 export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell
 export Pose2
@@ -194,14 +193,12 @@ include("parametricbuilder/ParametricBuilder.jl")
 using .ParametricBuilder:
                           @gridspace,
                           Combinatorial, ParametricProblem, ParametricResult,
-                          Conductor, Insulator,
                           terminal, core, stranded, milliken, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,
                           filler, pipe, duct, solid, shell, wires, layers,
                           assembly,
                           at, trefoil, hflat, vflat,
                           WireEstimate, estimate_stranding, estimate_screen
-using .ParametricBuilder: Semiconductor
 using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,
                           @duct, @at, @hflat, @vflat, @trefoil, @distribute
 

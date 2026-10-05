@@ -146,22 +146,6 @@ function angle(radians::Real; sigdigits::Integer = 6)
 end
 
 """
-Format a result quantity using the units already owned by `Units`.
-"""
-function quantity(
-        observed,
-        scientific_quantity::Units.Quantity,
-        basis::Symbol = :pul;
-        sigdigits::Integer = 6
-)
-    native = Units.native_unit(scientific_quantity, basis)
-    displayed = Units.display_unit(scientific_quantity, basis)
-    converted = observed * Units.scale_factor(native, displayed)
-    unit = replace(Units.label(displayed), "." => "·")
-    return _append_unit(value(converted; sigdigits), unit)
-end
-
-"""
     truncate_text(text::AbstractString, width::Integer)
 
 Return text occupying at most `width` display columns, appending an ellipsis
@@ -372,7 +356,7 @@ macro showfields(type_expression, semantic_name, mapping)
     end)
 end
 
-public name, value, engineering, angle, quantity, fields, tree
+public name, value, engineering, angle, fields, tree
 public truncate_text, @showfields
 
 Base.summary(io::IO, unit::Units.Unit) = print(io, "Physical unit ", Units.label(unit))

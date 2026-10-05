@@ -27,7 +27,7 @@ export build
 
 export Combinatorial, ParametricProblem, ParametricResult
 
-export Material, Conductor, Insulator, Semiconductor
+export Material
 export CableDesign, LineCableSystem
 export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell, Pose2
 export Region, Stack
@@ -82,9 +82,6 @@ include("results.jl")
 include("material.jl")
 include("geometry.jl")
 include("physicaltree.jl")
-include("conductor/Conductor.jl")
-include("insulator/Insulator.jl")
-include("semiconductor/Semiconductor.jl")
 include("positions.jl")
 include("construction_macros.jl")
 include("system.jl")

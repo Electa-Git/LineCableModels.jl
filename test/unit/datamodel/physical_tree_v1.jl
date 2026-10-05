@@ -178,9 +178,9 @@ end
     oil=LineCableModels.Material(kind = :insulator, rho = 1.0e12, eps_r = 2.2)
     semicon=LineCableModels.Material(kind = :semicon, rho = 1000.0, eps_r = 1000.0)
 
-    core_region=LineCableModels.Conductor.Solid(:core_metal, copper; r = 1.0)
+    core_region=LineCableModels.core(copper; r = 1.0, tag = :core_metal)
     core=LineCableModels.Group(:core, core_region)
-    wall=LineCableModels.Conductor.Shell(:pipe_wall, copper; t = 0.5)
+    wall=LineCableModels.sheath(copper; t = 0.5, tag = :pipe_wall)
     pipe=LineCableModels.Enclosure(
         :pipe,
         core;
@@ -195,13 +195,13 @@ end
     @test DM.support(DM.boundary(resolved)) == 3.5
     @test resolved.regions[2].primitive == DM.Annulus(1.0, 3.0)
 
-    insulation=LineCableModels.Insulator.Shell(:insulation, oil; t = 0.2)
-    screen=LineCableModels.Semiconductor.Shell(:screen, semicon; t = 0.1)
+    insulation=LineCableModels.insulation(oil; t = 0.2, tag = :insulation)
+    screen=LineCableModels.screen(semicon; t = 0.1, tag = :screen)
     @test insulation.material.kind === :insulator
     @test screen.material.kind === :semicon
-    @test_throws ArgumentError LineCableModels.Conductor.Solid(:bad, oil; r = 1.0)
-    @test_throws ArgumentError LineCableModels.Insulator.Shell(:bad, copper; t = 1.0)
-    @test_throws ArgumentError LineCableModels.Semiconductor.Shell(:bad, oil; t = 1.0)
+    @test_throws ArgumentError LineCableModels.core(oil; r = 1.0, tag = :bad)
+    @test_throws ArgumentError LineCableModels.insulation(copper; t = 1.0, tag = :bad)
+    @test_throws ArgumentError LineCableModels.screen(oil; t = 1.0, tag = :bad)
 
     fill=LineCableModels.filler(
         oil,
@@ -220,7 +220,7 @@ end
     ) == [:core_metal, :fill]
 
     materials=LineCableModels.Grid((copper, oil))
-    varying=LineCableModels.Conductor.Solid(:varying, materials; r = 1.0)
+    varying=LineCableModels.core(materials; r = 1.0, tag = :varying)
     @test varying isa LineCableModels.Gridspace{DM.Region}
     @test first(varying).material === copper
     @test_throws ArgumentError collect(varying)

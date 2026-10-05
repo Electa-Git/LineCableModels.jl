@@ -131,25 +131,6 @@ end
     @test TD.angle(-2pi) == "-2π"
     @test TD.angle(pi / 6) == "30°"
 
-    # These independent unit expectations prevent a report from changing only
-    # its caption while retaining values on the wrong per-length scale.
-    for (observed, selector, basis, expected) in (
-        (1e-4, R, :pul, "0.1 Ω/km"),
-        (0.1, R, :total, "0.1 Ω"),
-        (2e-7, L, :pul, "0.2 mH/km"),
-        (2e-4, L, :total, "0.2 mH"),
-        (3e-10, C, :pul, "0.3 μF/km"),
-        (3e-7, C, :total, "0.3 μF"),
-        (4e-9, G, :pul, "4.0e-6 S/km"),
-        (0.001 + 0.002im, Z, :pul, "1 + 2im Ω/km"),
-        (0.003 - 0.004im, Y, :total, "0.003 − 0.004im S")
-    )
-        @test TD.quantity(observed, U.quantity(selector), basis) == expected
-    end
-    @test TD.quantity(pi / 2, U.quantity(Z, angle)) == "90°"
-    @test TD.quantity(0.25, U.Quantity{:dimensionless}()) == "0.25"
-    @test_throws ArgumentError TD.quantity(1.0, U.quantity(R), :unknown)
-
     for (object, compact, summary_text) in (
         (U.Unit(:ohm, :milli), "mΩ", "Physical unit mΩ"),
         (U.units(:micro, :farad; per = (:kilo, :meter)), "μF/km", "Unit expression μF/km"),

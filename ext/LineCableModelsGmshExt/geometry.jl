@@ -411,7 +411,7 @@ function _register_shape_breaks!(
         shape.contacts.arcs.upper
     )
         iszero(arc.radius) && continue
-        center = _transform_point(arc.center, shape.at)
+        center = shape.at(arc.center)
         _register_circle_break!(registry, center, arc.radius, shape.at.φ + arc.start)
         _register_circle_break!(registry, center, arc.radius, shape.at.φ + arc.stop)
     end
@@ -520,15 +520,6 @@ function _register_circle_contacts!(registry::FEMLoopRegistry)
         end
     end
     return nothing
-end
-
-function _transform_point(point, at)
-    cosine = cos(at.φ)
-    sine = sin(at.φ)
-    return (
-        at.x + cosine * point[1] - sine * point[2],
-        at.y + sine * point[1] + cosine * point[2]
-    )
 end
 
 function _circle_point(center, radius, angle)
@@ -724,11 +715,11 @@ function _ellipse_loop!(
             (-shape.a, 0.0),
             (0.0, -shape.b)
         )
-        point_tags = [_point!(registry, _transform_point(point, shape.at); mesh_size)
+        point_tags = [_point!(registry, shape.at(point); mesh_size)
                       for point in local_points]
         major_point = shape.a >= shape.b ? local_points[1] : local_points[2]
         major_tag = _point!(
-            registry, _transform_point(major_point, shape.at); mesh_size
+            registry, shape.at(major_point); mesh_size
         )
         curves = Int[]
         for index in 1:4
@@ -745,7 +736,7 @@ function _ellipse_loop!(
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
         for (index, curve) in enumerate(curves)
             registry.curve_samples[curve] = [
-                _transform_point((shape.a * cos(angle), shape.b * sin(angle)), shape.at)
+                shape.at((shape.a * cos(angle), shape.b * sin(angle)))
                 for angle in range((index - 1) * π / 2, index * π / 2; length = 17)
             ]
         end
@@ -839,7 +830,7 @@ function _sector_loop!(
     contacts = shape.contacts
     points = contacts.points
     transformed = map(
-        point -> _transform_point(point, shape.at),
+        shape.at,
         (
             points.base_upper,
             points.base_lower,
@@ -875,7 +866,7 @@ function _sector_loop!(
                 )]
                 continue
             end
-            center = _transform_point(arc.center, shape.at)
+            center = shape.at(arc.center)
             arc_curves[name] = _circle_arc_path!(
                 registry,
                 center,
@@ -971,7 +962,7 @@ end
 function _shape_points(shape::DataModel.Rectangle)
     half_width = shape.w / 2
     half_height = shape.h / 2
-    return [_transform_point(point, shape.at)
+    return [shape.at(point)
             for point in (
         (-half_width, -half_height),
         (half_width, -half_height),
@@ -981,7 +972,7 @@ function _shape_points(shape::DataModel.Rectangle)
 end
 
 function _shape_points(shape::DataModel.Polygon)
-    return [_transform_point(point, shape.at) for point in shape.points]
+    return [shape.at(point) for point in shape.points]
 end
 
 function _shape_points(shape::DataModel.SectorShape)

@@ -94,7 +94,7 @@ function tessellate(shape::Ellipse; points_per_arc::Integer = 128)
     local_points = [
         (shape.a * cos(angle), shape.b * sin(angle)) for angle in angles
     ]
-    return [_transform_point(point, shape.at) for point in local_points]
+    return [shape.at(point) for point in local_points]
 end
 
 function tessellate(shape::EllipseOffset; points_per_arc::Integer = 128)
@@ -111,5 +111,5 @@ function tessellate(shape::EllipseOffset; points_per_arc::Integer = 128)
             shape.b * sine + shape.t * shape.a * sine / normalizer
         )
     end
-    return [_transform_point(point, shape.at) for point in local_points]
+    return [shape.at(point) for point in local_points]
 end

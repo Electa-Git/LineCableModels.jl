@@ -53,5 +53,19 @@ function Base.:*(parent::Pose2, child::Pose2)
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Rotate `point` by the orientation of `pose`, then translate it by its position.
+"""
+function (pose::Pose2)(point)
+    cosine = cos(pose.φ)
+    sine = sin(pose.φ)
+    return (
+        pose.x + cosine * point[1] - sine * point[2],
+        pose.y + sine * point[1] + cosine * point[2]
+    )
+end
+
 Commons.input_fields(::Type{<:Pose2}) = (x=(name="horizontal position",unit="m"),
     y=(name="vertical position",unit="m"),φ=(name="rotation",unit="rad"))

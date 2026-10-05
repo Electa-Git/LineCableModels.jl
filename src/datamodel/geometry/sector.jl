@@ -321,22 +321,13 @@ function perimeter(shape::SectorShape)
     return arc_length + line_length
 end
 
-function _transform_point(point, at::Pose2)
-    cosine = cos(at.φ)
-    sine = sin(at.φ)
-    return (
-        at.x + cosine * point[1] - sine * point[2],
-        at.y + sine * point[1] + cosine * point[2]
-    )
-end
-
 function centroid(shape::SectorShape)
     moments = _sector_moments(shape)
     local_centroid = (
         moments.xmoment / moments.area,
         moments.ymoment / moments.area
     )
-    return _transform_point(local_centroid, shape.at)
+    return shape.at(local_centroid)
 end
 
 function _angle_in_arc(angle, arc)
@@ -436,7 +427,7 @@ function tessellate(shape::SectorShape; points_per_arc::Integer = 32)
     append!(points, _arc_points(contacts.arcs.lower, Int(points_per_arc))[2:end])
     append!(points, _arc_points(contacts.arcs.back, Int(points_per_arc))[2:end])
     append!(points, _arc_points(contacts.arcs.upper, Int(points_per_arc))[2:end])
-    return [_transform_point(point, shape.at) for point in points]
+    return [shape.at(point) for point in points]
 end
 
 function tessellate(shape::ShellShape; points_per_arc::Integer = 128)

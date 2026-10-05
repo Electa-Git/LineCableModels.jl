@@ -51,8 +51,8 @@ copper = Material(; kind=:conductor, rho=1.7241e-8)
 xlpe = Material(; kind=:insulator, rho=1.97e14, eps_r=2.5)
 
 origin = Stack(
-    Group(:core, Conductor.Solid(:core_metal, copper; r=10e-3)),
-    Insulator.Shell(:insulation, xlpe; t=8e-3),
+    Group(:core, core(copper; r=10e-3, tag=:core_metal)),
+    insulation(xlpe; t=8e-3),
 )
 design = build(CableDesign, "example", origin)
 

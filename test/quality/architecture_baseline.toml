@@ -87,13 +87,10 @@
 
 [names]
 "Functor" = 3
-"Shell" = 4
 "_line!" = 2
-"_transform_point" = 2
 "assumptions" = 3
 "flatten" = 2
 "formulas" = 13
-"quantity" = 2
 
 [shadowing]
 

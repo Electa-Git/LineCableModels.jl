@@ -96,6 +96,10 @@ end
     @test composed.x ≈ 1.0
     @test composed.y ≈ 5.0
     @test composed.φ ≈ π
+    # A pose rotates a local point, then translates it.
+    @test parent((0.0, 0.0)) == (1.0, 2.0)
+    @test collect(parent((1.0, 0.0))) ≈ [1.0, 3.0]
+    @test collect(composed((2.0, -1.0))) ≈ collect(parent(child((2.0, -1.0))))
 
     placed=DM.resolve(parent, DM.Rectangle(4, 2))
     @test DM.area(placed) == 8.0
