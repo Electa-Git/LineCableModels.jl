@@ -344,7 +344,11 @@ macro showfields(type_expression, semantic_name, mapping)
     body = mapping.args[2]
     name_ref = GlobalRef(@__MODULE__, :name)
     fields_ref = GlobalRef(@__MODULE__, :fields)
-    return quote
+    # The generated methods record the caller's file and line, so `@which` and stack
+    # traces point to the call. Line numbers inside escaped caller code are unchanged.
+    located(x) = x isa LineNumberNode ? __source__ :
+                 x isa Expr && x.head !== :escape ? Expr(x.head, map(located, x.args)...) : x
+    return located(quote
         $name_ref(::Type{<:$(esc(type_expression))}) = $(esc(semantic_name))
         function Base.summary(io::IO, value::$(esc(type_expression)))
             print(io, $name_ref(typeof(value)))
@@ -365,7 +369,7 @@ macro showfields(type_expression, semantic_name, mapping)
             end
             $fields_ref(io, $name_ref(typeof(value)), displayed; multiline = true)
         end
-    end
+    end)
 end
 
 public name, value, engineering, angle, quantity, fields, tree

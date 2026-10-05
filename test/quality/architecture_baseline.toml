@@ -92,11 +92,6 @@
 "ext/LineCableModelsPSCADExt/results.jl | PSCAD" = 11
 "ext/LineCableModelsPSCADExt/validate.jl | PSCAD" = 7
 "src/modalanalysis/delegation.jl | LineCableModels" = 9
-"src/textdisplay/TextDisplay.jl | DataModel" = 104
-"src/textdisplay/TextDisplay.jl | Earth" = 8
-"src/textdisplay/TextDisplay.jl | Engine" = 32
-"src/textdisplay/TextDisplay.jl | Materials.TemperatureDependent" = 4
-"src/textdisplay/TextDisplay.jl | UQ" = 4
 
 [direction]
 "Engine -> ModalAnalysis | src/engine/lineparameters.jl" = 3
