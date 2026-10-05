@@ -241,6 +241,24 @@ end
         locks(Pair{String, Int}[], ["kernel" => 3, "other" => 1])
         @test moved() == ["inferred | test/a.jl: removed (3 at HEAD)",
             "jet | kernel: 3 (2 at HEAD)", "jet | other: 1 (absent at HEAD)"]
+        # An `@inferred` floor can fall when its lines move to another file, unchanged
+        # apart from indentation. A deleted line, an edited line, a line re-indented in the
+        # same file and a drop beyond the moved lines fail.
+        source, target = joinpath(repository, "test", "a.jl"), joinpath(repository, "test", "c.jl")
+        write(source, "")
+        write(target, "    @inferred f()\n")
+        locks(["test/a.jl" => 2, "test/c.jl" => 1], ["kernel" => 2])
+        @test moved() == String[]
+        locks(["test/c.jl" => 1], ["kernel" => 2])
+        @test moved() == ["inferred | test/a.jl: removed (3 at HEAD)"]
+        locks(["test/a.jl" => 2, "test/c.jl" => 1], ["kernel" => 2])
+        write(target, "@inferred f(1)\n")
+        @test moved() == ["inferred | test/a.jl: 2 (3 at HEAD)"]
+        rm(target)
+        @test moved() == ["inferred | test/a.jl: 2 (3 at HEAD)"]
+        write(source, "    @inferred f()\n")
+        @test moved() == ["inferred | test/a.jl: 2 (3 at HEAD)"]
+        write(source, "@inferred f()\n")
         # A floor key follows a file renamed by git.
         git("mv", "test/a.jl", "test/b.jl")
         locks(["test/b.jl" => 3], ["kernel" => 2])

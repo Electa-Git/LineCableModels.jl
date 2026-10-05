@@ -254,6 +254,10 @@ the earlier revision.
   process computed before. New scenarios go at the end of the corpus. A change that
   reorders or edits a scenario records again every row from that scenario onward.
 
+A test that moves to another file keeps its `@inferred` uses. The ratchet accepts a
+lower `@inferred` floor when the removed `@inferred` lines appear again in another file,
+unchanged apart from indentation, and cover the difference.
+
 The JET and allocation tables hold for the environment in `[environment]`: the Julia
 version and the SHA-256 of the committed `Manifest.toml`. The CI quality job uses that
 version and instantiates that Manifest. The other CI jobs delete the Manifest and

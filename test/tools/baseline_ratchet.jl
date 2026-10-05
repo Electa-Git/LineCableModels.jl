@@ -8,6 +8,10 @@
 # absent at `REF`, and a table absent at `REF` is not compared. File renames that
 # git detects between `REF` and the working tree, and the module renames they imply,
 # are applied to the keys at `REF` first.
+#
+# An `[inferred]` floor can fall when `@inferred` lines move to other files. Each removed
+# line appears again in another file, unchanged apart from indentation, and these lines
+# cover the drop.
 using TOML
 
 const BASELINE = "test/quality/architecture_baseline.toml"
@@ -16,6 +20,9 @@ const PRESERVATION = "test/quality/preservation.toml"
 const METADATA = ("directions", "environment")
 # Ceilings measured in one environment.
 const MEASURED = ("jet", "allocations")
+# Floors that count, per test file, the lines that contain a marker. These lines can move
+# to another file.
+const RELOCATABLE = Dict("inferred" => "@inferred")
 const REPOSITORY = normpath(joinpath(@__DIR__, "..", ".."))
 
 git(repository, arguments::AbstractString...) = Cmd(["git", "-C", repository, arguments...])
@@ -72,6 +79,53 @@ function rename_key(key, renamed)
     return join(parts, " | ")
 end
 
+# The lines removed from each file since `reference` and the lines added to each file,
+# without indentation. An untracked file counts as added in full.
+function changed_lines(repository, reference)
+    removed, added = Dict{String, Vector{String}}(), Dict{String, Vector{String}}()
+    record!(lines, file, line) =
+        push!(get!(Vector{String}, lines, file), String(lstrip(line)))
+    path(line, prefix) =
+        (name = line[5:end]; name == "/dev/null" ? "" : chopprefix(name, prefix))
+    old, new, hunk = "", "", false
+    for line in eachline(git(repository, "diff", "-M", "--unified=0", "--no-color",
+            "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", reference))
+        if startswith(line, "diff --git ")
+            hunk = false
+        elseif hunk
+            startswith(line, '-') && record!(removed, isempty(new) ? old : new, line[2:end])
+            startswith(line, '+') && record!(added, new, line[2:end])
+        elseif startswith(line, "--- ")
+            old = path(line, "a/")
+        elseif startswith(line, "+++ ")
+            new = path(line, "b/")
+        elseif startswith(line, "@@")
+            hunk = true
+        end
+    end
+    untracked = git(repository, "ls-files", "--others", "--exclude-standard", "-z")
+    for name in split(read(untracked, String), '\0'; keepempty = false)
+        file = joinpath(repository, name)
+        isfile(file) && foreach(line -> record!(added, String(name), line), eachline(file))
+    end
+    return (; removed, added)
+end
+
+# Whether each line with `marker` removed from `file` appears again as an added line of
+# another file. Each added line matches one removed line, and the matched lines contain
+# `marker` at least `drop` times. `unmatched` counts the available added lines per file.
+function relocated!(unmatched, removed, file, marker, drop)
+    found, files = 0, sort!(collect(keys(unmatched)))
+    for line in get(removed, file, String[])
+        occursin(marker, line) || continue
+        index = findfirst(name -> name != file && get(unmatched[name], line, 0) > 0, files)
+        index === nothing && return false
+        unmatched[files[index]][line] -= 1
+        found += count(marker, line)
+    end
+    return found >= drop
+end
+
 # The direction, "floor" or "ceiling", of each table of `document`, a version of `file`.
 function directions(file, document)
     file == BASELINE && return Dict(table => "ceiling" for table in keys(document))
@@ -111,8 +165,21 @@ function moved(repository, reference, file)
     tables = sort!([table for table in keys(current)
         if table ∉ METADATA && !haskey(document, table)])
     lines = String[]
+    changes = nothing
+    unmatched = Dict{String, Dict{String, Int}}()
+    function relocated(table, path, drop)
+        haskey(RELOCATABLE, table) || return false
+        if changes === nothing
+            changes = changed_lines(repository, reference)
+            for (name, added) in changes.added, line in added
+                counts = get!(Dict{String, Int}, unmatched, name)
+                counts[line] = get(counts, line, 0) + 1
+            end
+        end
+        return relocated!(unmatched, changes.removed, path, RELOCATABLE[table], drop)
+    end
     for key in sort!(collect(union(keys(now), keys(before))))
-        table = first(split(key, " | "))
+        table, entry = split(key, " | "; limit = 2)
         table in tables && continue
         if direction[table] == "ceiling"
             rerecorded && table in MEASURED && continue
@@ -121,6 +188,8 @@ function moved(repository, reference, file)
                 (push!(lines, string(key, ": ", now[key], " (absent at ", reference, ")")); continue)
         else
             haskey(before, key) || continue
+            drop = before[key] - get(now, key, 0)
+            drop > 0 && relocated(table, entry, drop) && continue
             haskey(now, key) ||
                 (push!(lines, string(key, ": removed (", before[key], " at ", reference, ")")); continue)
         end
