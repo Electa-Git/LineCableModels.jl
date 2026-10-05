@@ -396,7 +396,7 @@ function _numeric_values(values)
     # Undefined observations remain missing in retained products. Makie's numeric
     # line data uses NaN gaps, including an entirely undefined phase trace.
     nominal_values = map(value -> ismissing(value) ? NaN : LineCableModels.nominal(value), values)
-    errors = LineCableModels.uncertainty.(values)
+    errors = map(value -> ismissing(value) ? 0.0 : LineCableModels.uncertainty(value), values)
     return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
 end
 

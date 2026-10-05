@@ -166,6 +166,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Removed `Engine.validate_modal_operators`. Modal operators subtype
   `AbstractModalOperators` and implement `size`.
 
+### Fixed
+
+- `uncertainty` of a complex value or an array gives the uncertainty of each part or
+  element, as `nominal` does.
+- `uncertainty` of a deterministic number is the zero of its type. Values that are not
+  numbers throw a `MethodError`.
+
 ## [0.2.0] - 2026-08-13
 
 ### Added

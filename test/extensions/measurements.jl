@@ -213,6 +213,8 @@ end
     uncertain=measurement(-20.0, 1.0)
     @test LineCableModels.nominal(uncertain) == -20.0
     @test LineCableModels.uncertainty(uncertain) == 1.0
+    @test LineCableModels.uncertainty(complex(1.0 ± 0.1, 2.0 ± 0.2)) == complex(0.1, 0.2)
+    @test LineCableModels.uncertainty([1.0 ± 0.1, 2.0 ± 0.2]) == [0.1, 0.2]
 
     clipped=LineCableModels.Commons.detach(
         measurement(eps(Float64)/2, eps(Float64)/4),
