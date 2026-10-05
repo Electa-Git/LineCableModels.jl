@@ -199,7 +199,7 @@ end
     @test !any(i -> key(i) in engine && :slow in i.tags, items)
     # Root files and extensions count at their load position.
     @test select("src/performance.jl") == select("src/uq/UQ.jl")
-    @test select("src/modalanalysis/delegation.jl") == select("src/parametricbuilder/ParametricBuilder.jl")
+    @test select("src/gridspace.jl") == select("src/commons/Commons.jl")
     @test select("src/engine/lineparameters.jl", "src/uq/UQ.jl") == engine
     fem = select("ext/LineCableModelsGmshExt/LineCableModelsGmshExt.jl")
     @test all(k -> k in quality || owner(only(i for i in items if key(i) == k)) in (:fem, :makie), fem)

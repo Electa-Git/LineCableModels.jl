@@ -1,20 +1,15 @@
-# A third positional argument composes two completed public computations.
-# Each upstream wrapper keeps its original no-modal execution path.
+# A third positional argument composes a line-parameter computation with modal
+# analysis of its result, whatever formulation computed it. Each upstream wrapper
+# keeps its original no-modal execution path.
 const _ModalSelection=Union{ModalAnalysisFormulation,
     Gridspace{<:ModalAnalysisFormulation}}
 
-function compute(problem,formulation,modal::_ModalSelection;
+function compute(problem::Union{LineParametersProblem,
+            Gridspace{<:LineParametersProblem},Gridpoint{<:LineParametersProblem}},
+        formulation,modal::_ModalSelection;
         options::Union{NamedTuple,ComputationOptions}=ComputationOptions(),
         modal_options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
     phase=compute(problem,formulation;options)
-    return _modal_results(phase,modal,modal_options)
-end
-
-function compute(problem::ParametricProblem,
-        formulation::Union{Combinatorial,Gridspace{<:AbstractFormulation}},
-        modal::_ModalSelection;
-        modal_options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
-    phase=compute(problem,formulation)
     return _modal_results(phase,modal,modal_options)
 end
 

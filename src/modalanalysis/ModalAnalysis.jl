@@ -19,13 +19,15 @@ export formula_id, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: FormulaMethod, nominal, FormulaDefinition, formula, parameterize, validate
 import ..LineCableModels: line_length
+import ..LineCableModels: Grid, Gridpoint, Gridspace
 import ..LineCableModels
 import ..Commons: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions, ComputationDetails,
                   compute, computation_options, computation_details, formulation_options, details
+import ..Commons: AbstractResultSpace
 import ..Commons: observe, observables, request_identity, request_indices, observation_indices
-import ..Engine: LineParameters, LineParametersFormulation, PhaseDomain, ModalDomain,
-                 SeriesImpedance, ShuntAdmittance, basis, frequencies,
+import ..Engine: LineParameters, LineParametersFormulation, LineParametersProblem,
+                 PhaseDomain, ModalDomain, SeriesImpedance, ShuntAdmittance, basis, frequencies,
                  description, formula_id, selectdomain, selectdetails, initialize_buffers
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
                      eigen!, issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd!, svdvals!
@@ -44,6 +46,7 @@ include("formulations.jl")
 public decompose!
 include("eigensystems.jl")
 include("compute.jl")
+include("composition.jl")
 
 #! explicit-imports: off
 const FORMULAS = (

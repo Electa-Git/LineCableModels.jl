@@ -310,3 +310,15 @@ function compute(
         throw(ArgumentError("modal_options require a modal formulation"))
     return compute(problem, Combinatorial(formulations))
 end
+
+# A third positional argument composes a parametric study with modal analysis of
+# each completed line-parameter result.
+function compute(problem::ParametricProblem,
+        formulation::Union{Combinatorial,Gridspace{<:AbstractFormulation}},
+        modal::Union{LineCableModels.ModalAnalysisFormulation,
+            Gridspace{<:LineCableModels.ModalAnalysisFormulation}};
+        modal_options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
+    phase=compute(problem,formulation)
+    return compute(Gridspace{LineCableModels.ModalAnalysisProblem}(phase),modal;
+        options=modal_options)
+end

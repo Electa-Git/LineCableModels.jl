@@ -205,8 +205,6 @@ using .ParametricBuilder: Semiconductor
 using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,
                           @duct, @at, @hflat, @vflat, @trefoil, @distribute
 
-include("modalanalysis/delegation.jl")
-
 # Submodule `UQ`
 include("uq/UQ.jl")
 using .UQ:

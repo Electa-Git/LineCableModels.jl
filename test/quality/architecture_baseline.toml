@@ -80,7 +80,6 @@
 "UQ | Units.symbol | src/uq/observations.jl" = 4
 
 [placement]
-"src/modalanalysis/delegation.jl | LineCableModels" = 9
 
 [direction]
 "Engine -> ModalAnalysis | src/engine/lineparameters.jl" = 3
@@ -340,4 +339,4 @@
 "src/uq/results.jl" = 2
 
 [root]
-"LineCableModels" = 65
+"LineCableModels" = 63

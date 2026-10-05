@@ -608,8 +608,9 @@ The implementation is split across:
   Gridspace lifting for `@gridspace`.
 - material, cable, position, and system files: scalar construction and lifting
   rules and concrete callable algorithms.
-- `src/parametricbuilder/traversal.jl`: combinatorial traversal.
-- `src/modalanalysis/delegation.jl`: public phase-to-modal composition.
+- `src/parametricbuilder/traversal.jl`: combinatorial traversal and the
+  phase-to-modal composition of a `ParametricProblem`.
+- `src/modalanalysis/composition.jl`: public phase-to-modal composition.
   `src/modalanalysis/problems.jl`, `compute.jl`, and `propagation.jl` own
   modal scalar computation and line segment binding.
 - `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and
