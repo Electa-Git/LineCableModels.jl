@@ -18,7 +18,7 @@ using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 import ..Engine: ShuntModelFormulation
 import ...LineCableModels: FormulaDefinition, formula_id, description
-import ...Commons: formulation_options
+import ...Commons: formulation_options, initialize_buffers
 using ...Commons: vacuum_permittivity
 import ...Materials: Material
 import ...DataModel: CableDesign

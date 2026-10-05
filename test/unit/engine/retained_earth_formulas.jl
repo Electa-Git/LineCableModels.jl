@@ -44,8 +44,9 @@
         scale=sqrt(g1-g0)
         kernel=E.SpectralIntegral(lambda ->
             exp(-H*lambda)*cos(y*lambda)/(ratio*lambda+sqrt(lambda^2+g1-g0)))
-        for numerical in (nothing, E.integration_workspace(Float64, ComplexF64))
-            value, estimate=E.integrate(Val(:quad), kernel, controls, numerical;
+        for numerical in (nothing, LineCableModels.Commons.initialize_buffers(
+            E.SpectralIntegral, Val(:quad), Float64, (;), (;), (;)))
+            value, estimate=E.integrate(kernel, Val(:quad), controls, numerical;
                 points=(abs(scale/ratio), abs(scale), inv(H)))
             actual=(log(hypot(y,H)/distance)+2value)/(2pi*epsilon[1])
             for component in (real, imag)
@@ -94,8 +95,9 @@ end
         k2=s*mu[2]/rho[2]
         kernel=E.SpectralIntegral(lambda ->
             exp(-h*lambda)*cos(y*lambda)/(lambda+sqrt(lambda^2+k2)))
-        for numerical in (nothing, E.integration_workspace(Float64, ComplexF64))
-            value, estimate=E.integrate(Val(:quad), kernel, controls, numerical;
+        for numerical in (nothing, LineCableModels.Commons.initialize_buffers(
+            E.SpectralIntegral, Val(:quad), Float64, (;), (;), (;)))
+            value, estimate=E.integrate(kernel, Val(:quad), controls, numerical;
                 points=(abs(sqrt(k2)), inv(h)))
             actual=s*mu[1]/(2pi)*(log(image_distance/distance)+2value)
             for component in (real, imag)

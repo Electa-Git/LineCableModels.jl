@@ -2,8 +2,8 @@
 
 @inline _stash!(::Nothing, ::Symbol, ::Int, ::AbstractMatrix) = nothing
 
-@inline function _stash!(capture::NamedTuple, name::Symbol, frequency::Int, source::AbstractMatrix)
-    destination = getproperty(capture, name)
+@inline function _stash!(trace::NamedTuple, name::Symbol, frequency::Int, source::AbstractMatrix)
+    destination = getproperty(trace, name)
     @views copyto!(destination[:, :, frequency], source)
     return nothing
 end
@@ -11,13 +11,13 @@ end
 function _solve!(
         workspace::LineParametersWorkspace{T},
         formulation::LineParametersFormulation,
-        earth_calculations::Tuple = workspace.invariants.earth_calculations,
+        earth_calculations::Tuple = workspace.plan.earth_calculations,
         earth_materials::Tuple = workspace.buffers.earth_materials
 ) where {T <: Real}
     input = workspace.input
-    invariants = workspace.invariants
+    plan = workspace.plan
     buffers = workspace.buffers
-    workspace.capture===nothing || empty!(workspace.capture.integrals)
+    workspace.trace===nothing || empty!(workspace.trace.integrals)
     Zprimitive = buffers.Zprimitive
     Pprimitive = buffers.Pprimitive
     Zout = buffers.Zout
@@ -31,15 +31,15 @@ function _solve!(
             formulation.methods, input.jω[frequency]; workspace)
         cable_potential!(Pprimitive, input.cable, buffers.dielectric_admittivity,
             input.jω[frequency], buffers.layer_coefficients, buffers.coefficients, buffers.tails)
-        _stash!(workspace.capture, :Zin, frequency, Zprimitive)
-        _stash!(workspace.capture, :Pin, frequency, Pprimitive)
+        _stash!(workspace.trace, :Zin, frequency, Zprimitive)
+        _stash!(workspace.trace, :Pin, frequency, Pprimitive)
         earth!(workspace, frequency, earth_calculations, earth_materials)
-        _stash!(workspace.capture, :Zg, frequency, buffers.Zearth)
-        _stash!(workspace.capture, :Pg, frequency, buffers.Pearth)
+        _stash!(workspace.trace, :Zg, frequency, buffers.Zearth)
+        _stash!(workspace.trace, :Pg, frequency, buffers.Pearth)
         impedance!(Zprimitive, workspace, frequency)
         admittance!(Pprimitive, workspace, frequency)
         reduce_line_matrices!(view(Zout, :, :, frequency), view(Yout, :, :, frequency),
-            Zprimitive, Pprimitive, input.jω[frequency], invariants.plan, buffers.reduction)
+            Zprimitive, Pprimitive, input.jω[frequency], plan.reduction, buffers.reduction)
     end
 
     return workspace
@@ -53,22 +53,22 @@ function _retained_details(workspace::LineParametersWorkspace{
 end
 
 function _retained_details(workspace::LineParametersWorkspace)
-    capture = workspace.capture
+    trace = workspace.trace
     shunt = NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,))
-    capture === nothing && return ComputationDetails(shunt)
+    trace === nothing && return ComputationDetails(shunt)
     input = workspace.input
     return ComputationDetails(merge(shunt,
         (
             trace = (
             phase_map = copy(input.phase_map),
             cable_map = copy(input.cable_map),
-            Zin = copy(capture.Zin),
-            Pin = copy(capture.Pin),
-            Zg = copy(capture.Zg),
-            Pg = copy(capture.Pg),
-            Z = copy(capture.Z),
-            P = copy(capture.P),
-            integrals = copy(capture.integrals)
+            Zin = copy(trace.Zin),
+            Pin = copy(trace.Pin),
+            Zg = copy(trace.Zg),
+            Pg = copy(trace.Pg),
+            Z = copy(trace.Z),
+            P = copy(trace.P),
+            integrals = copy(trace.integrals)
         ),
         )))
 end
@@ -94,7 +94,7 @@ function _finish(
     retained = _retained_details(workspace)
     names=["cable:$(terminal.cable):$(terminal.terminal)"
            for terminal in problem.system.terminal_order]
-    coordinates=map(workspace.invariants.plan.indices) do index
+    coordinates=map(workspace.plan.reduction.indices) do index
         phase=problem.system.connection_order[index]
         members=findall(==(phase), problem.system.connection_order)
         formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
@@ -401,7 +401,7 @@ end
 function materials!(
         workspace::LineParametersWorkspace, formulation::LineParametersFormulation,
         frequency::Int,
-        earth_calculations::Tuple = workspace.invariants.earth_calculations,
+        earth_calculations::Tuple = workspace.plan.earth_calculations,
         earth_materials::Tuple = workspace.buffers.earth_materials)
     homogenize!(workspace, frequency, formulation, earth_calculations, earth_materials)
     dielectric!(workspace.buffers.dielectric_admittivity, workspace.input.cable,
@@ -425,7 +425,7 @@ function homogenize!(
         workspace::LineParametersWorkspace,
         frequency::Int,
         formulation::LineParametersFormulation,
-        calculations::Tuple = workspace.invariants.earth_calculations,
+        calculations::Tuple = workspace.plan.earth_calculations,
         materials::Tuple = workspace.buffers.earth_materials
 )
     foreach(calculations, materials) do calculation, destination
@@ -438,15 +438,15 @@ end
 function homogenize!(destination,
         binding::NamedTuple,
         workspace::LineParametersWorkspace, frequency_index::Int, relation)
-    state = workspace.buffers.earth
+    earth = workspace.buffers.earth
     model = workspace.input.earth
     frequency = workspace.input.freq[frequency_index]
     selected = binding.selection
     if media(selected) === Val(:stratified)
-        layers!(destination, state.evaluated, model, frequency_index, binding.interactions)
+        layers!(destination, earth.evaluated, model, frequency_index, binding.interactions)
     else
         data = selected.equivalent_earth isa EquivalentHomogeneous.BeforeFD ?
-               state.static : state.evaluated
+               earth.static : earth.evaluated
         homogenize!(destination, selected.equivalent_earth, relation, data, model,
             binding.interactions, frequency, frequency_index, binding.reductions; workspace)
     end

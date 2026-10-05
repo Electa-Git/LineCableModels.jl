@@ -23,12 +23,13 @@ import ..LineCableModels: Grid, Gridpoint, Gridspace
 import ..LineCableModels
 import ..Commons: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions, ComputationDetails,
-                  compute, computation_options, computation_details, formulation_options, details
+                  compute, computation_options, computation_details, formulation_options, details,
+                  initialize_buffers
 import ..Commons: AbstractResultSpace
 import ..Commons: observe, observables, request_identity, request_indices, observation_indices
 import ..Engine: LineParameters, LineParametersFormulation, LineParametersProblem,
                  PhaseDomain, ModalDomain, SeriesImpedance, ShuntAdmittance, basis, frequencies,
-                 description, formula_id, selectdomain, selectdetails, initialize_buffers
+                 description, formula_id, selectdomain, selectdetails
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
                      eigen!, issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd!, svdvals!
 import ..Commons: AbstractCoreResult

@@ -19,12 +19,12 @@
     LineCableModels.formula_id(::FixedModal)=:fixed_modal
     Base.NamedTuple(::FixedModal)=(identifier=:fixed_modal,)
     G.formulation_options(::FixedModal)=FormulationOptions()
-    function E.initialize_buffers(selected::FixedModal,::Type{T},input,invariants,buffers) where {T}
+    function G.initialize_buffers(selected::FixedModal,::Type{T},input,plan,buffers) where {T}
         selected.allocations[]+=1
-        @test size(buffers.admittance_impedance_product)==(invariants.n,invariants.n)
+        @test size(buffers.admittance_impedance_product)==(plan.n,plan.n)
         @test eltype(buffers.admittance_impedance_product)==T
         selected.common[]=buffers
-        return merge(buffers,(fixed=zeros(ComplexF64,invariants.n,invariants.n),))
+        return merge(buffers,(fixed=zeros(ComplexF64,plan.n,plan.n),))
     end
     function MA.decompose!(selected::FixedModal,workspace,parameters,options)
         selected.calculations[]+=1

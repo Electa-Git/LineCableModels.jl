@@ -692,7 +692,7 @@ function sector_courses(shape::SectorShape, wire::Disk)
     return members, primitives, courses
 end
 
-function clipped_disk!(points, scratch, cell, radius, directions)
+function clipped_disk!(points, clipped, cell, radius, directions)
     empty!(points)
     for point in directions
         push!(points, (radius * point[1], radius * point[2]))
@@ -702,8 +702,8 @@ function clipped_disk!(points, scratch, cell, radius, directions)
         first_point, last_point = cell[index], cell[next]
         normal = (last_point[2] - first_point[2], first_point[1] - last_point[1])
         offset = normal[1] * first_point[1] + normal[2] * first_point[2]
-        clip_halfplane!(scratch, points, normal, offset)
-        points, scratch = scratch, points
+        clip_halfplane!(clipped, points, normal, offset)
+        points, clipped = clipped, points
     end
     return points
 end
@@ -764,13 +764,13 @@ function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 
     upper = maximum(point -> hypot(point...), nominal_cell) / cos(pi / points)
     radius = lower
     buffer = similar(nominal_directions, 0)
-    scratch = similar(buffer)
+    clipped = similar(buffer)
     sizehint!(buffer, points + length(cell))
-    sizehint!(scratch, points + length(cell))
+    sizehint!(clipped, points + length(cell))
     strand = buffer
     for _ in 1:64
         radius = (lower + upper) / 2
-        strand = clipped_disk!(buffer, scratch, nominal_cell, radius, nominal_directions)
+        strand = clipped_disk!(buffer, clipped, nominal_cell, radius, nominal_directions)
         value = signed_polygon_area(strand)
         abs(value - 1) <= 64eps(float(value)) && break
         value < 1 ? (lower = radius) : (upper = radius)
@@ -782,10 +782,10 @@ function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 
        !iszero(uncertainty(angle))
         step = cbrt(eps(float(radius))) * radius
         area_plus = signed_polygon_area(
-            clipped_disk!(buffer, scratch, nominal_cell, radius + step, nominal_directions)
+            clipped_disk!(buffer, clipped, nominal_cell, radius + step, nominal_directions)
         )
         area_minus = signed_polygon_area(
-            clipped_disk!(buffer, scratch, nominal_cell, radius - step, nominal_directions)
+            clipped_disk!(buffer, clipped, nominal_cell, radius - step, nominal_directions)
         )
         derivative = (area_plus - area_minus) / (2step)
         isfinite(derivative) && derivative > 0 || throw(DomainError(
@@ -793,11 +793,11 @@ function area_preserving_strand(cell, source_area; angle = 0, points::Integer = 
         ))
         T = promote_type(typeof(first(local_cell)[1]), typeof(first(local_cell)[2]),
             typeof(angle), typeof(radius))
-        buffer_t, scratch_t = Tuple{T,T}[], Tuple{T,T}[]
-        fixed = clipped_disk!(buffer_t, scratch_t, local_cell, radius, directions)
+        buffer_t, clipped_t = Tuple{T,T}[], Tuple{T,T}[]
+        fixed = clipped_disk!(buffer_t, clipped_t, local_cell, radius, directions)
         residual = 1 - signed_polygon_area(fixed)
         radius += (residual - nominal(residual)) / derivative
-        strand = clipped_disk!(buffer_t, scratch_t, local_cell, radius, directions)
+        strand = clipped_disk!(buffer_t, clipped_t, local_cell, radius, directions)
     end
     return [(center[1] + scale * point[1], center[2] + scale * point[2])
             for point in strand]

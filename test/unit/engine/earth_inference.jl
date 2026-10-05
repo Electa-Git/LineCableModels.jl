@@ -17,7 +17,7 @@
         blueprints=only(E.flatten(LineCableModelsCoaxial(), problem.system.designs,
             Float64, [selected]))
         workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
-        calculations=workspace.invariants.earth_calculations
+        calculations=workspace.plan.earth_calculations
         materials=workspace.buffers.earth_materials
         @test calculations isa Tuple
         @test materials isa Tuple

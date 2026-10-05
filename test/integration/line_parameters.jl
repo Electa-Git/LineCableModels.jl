@@ -77,15 +77,10 @@
     @test workspace.input.phase_map == problem.system.connection_order
     @test workspace.input.cable_map ==
           [entry.cable for entry in problem.system.terminal_order]
-    @test workspace.invariants.cable_indices ==
+    @test workspace.plan.cable_indices ==
           [findall(entry -> entry.cable == cable, problem.system.terminal_order)
            for cable in 1:ncables(problem.system)]
-    capture_allocations(input)=@allocated LineCableModels.Engine._capture_buffers(
-        Float64, input, Val(false))
-    capture_allocations(workspace.input)
-    @test capture_allocations(workspace.input) <= 1024
-    @test LineCableModels.Engine._capture_buffers(Float64, workspace.input, Val(false)) ===
-          nothing
+    @test workspace.trace === nothing
 
     function solve_without_logging(workspace, formulation)
         return with_logger(NullLogger()) do
@@ -104,7 +99,7 @@
     solve_without_logging(complete_workspace, complete_formulation)
     solve_without_logging(complete_workspace, complete_formulation)
     @test (@allocated solve_without_logging(complete_workspace, complete_formulation))<=32_768
-    shared=only(complete_workspace.invariants.earth_calculations)
+    shared=only(complete_workspace.plan.earth_calculations)
     @test shared.impedance_indices == shared.potential_indices
     @test !isempty(shared.impedance_indices)
     @test length(complete_workspace.buffers.earth_materials) == 1
@@ -116,7 +111,7 @@
         options = (
             reduce_bundle = true, kron_reduction = true, ideal_transposition = false))
     distinct_workspace=LineParametersWorkspace(problem, distinct_formulation, execution, blueprints)
-    impedance, potential=distinct_workspace.invariants.earth_calculations
+    impedance, potential=distinct_workspace.plan.earth_calculations
     @test !isempty(impedance.impedance_indices) && isempty(impedance.potential_indices)
     @test isempty(potential.impedance_indices) && !isempty(potential.potential_indices)
     @test distinct_workspace.buffers.earth_materials[1].rho !==

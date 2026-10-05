@@ -82,9 +82,9 @@ function impedance!(
         frequency::Int
 ) where {T <: Real}
     input = workspace.input
-    indices = workspace.invariants.cable_indices
+    indices = workspace.plan.cable_indices
     earth_matrix = workspace.buffers.Zearth
-    capture = workspace.capture
+    trace = workspace.trace
 
     @inbounds for cable in 1:input.n_cables
         conductors = indices[cable]
@@ -104,6 +104,6 @@ function impedance!(
             end
         end
     end
-    _stash!(capture, :Z, frequency, destination)
+    _stash!(trace, :Z, frequency, destination)
     return destination
 end

@@ -26,7 +26,8 @@ import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthAdmittanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
-import ..Engine: earth_bindings, initialize_buffers, earth!, same_physical_state
+import ..Engine: earth_bindings, earth!, same_physical_state
+import ...Commons: initialize_buffers
 import ..Engine: computation_type, EarthImpedanceFormulation, special_besselix,
                  SpectralIntegral, integrate
 using LinearAlgebra: lu!, ldiv!

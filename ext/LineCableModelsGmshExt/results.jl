@@ -309,7 +309,7 @@ function _line_parameters(
     options = formulation.options.data
     plan = ReductionPlan(model.problem.system.connection_order; options.reduce_bundle,
         options.kron_reduction, options.ideal_transposition)
-    buffers = ReductionBuffers{Complex{T}}(plan)
+    buffers = initialize_buffers(plan, Complex{T}, nothing, plan, (;))
     retained = length(plan.keep)
     frequency_count = length(model.problem.frequencies)
     Z = Array{Complex{T}, 3}(undef, retained, retained, frequency_count)
@@ -321,8 +321,8 @@ function _line_parameters(
         # the charge-based p = sP in m/F and returns y = s/p.
         s = Complex{T}(im * (2 * (one(T) * π) * frequency))
         diagnostics = reduce_line_matrices!(view(Z, :, :, index), view(Y, :, :, index),
-            view(scan.Z, :, :, index), s .* view(scan.P, :, :, index), s, plan, buffers,
-            Val(true))
+            view(scan.Z, :, :, index), s .* view(scan.P, :, :, index), s, plan,
+            buffers.reduction, Val(true))
         residuals[index] = diagnostics.residual
         condition_numbers[index] = diagnostics.condition_number
     end

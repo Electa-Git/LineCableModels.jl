@@ -99,20 +99,11 @@ function _seed(matrix::AbstractMatrix{T}) where {T <: Complex}
 end
 
 # Minimum-cost square assignment by the O(n³) Hungarian algorithm.
-function _assignment_workspace(::Type{T},n) where {T<:Complex}
-    R=typeof(real(zero(T)))
-    return (cost=Matrix{R}(undef,n,n),u=zeros(R,n+1),v=zeros(R,n+1),
-        matching=zeros(Int,n+1),way=zeros(Int,n+1),minimums=Vector{R}(undef,n+1),
-        used=falses(n+1),assignment=Vector{Int}(undef,n),
-        ordered_values=Vector{T}(undef,n),ordered_vectors=Matrix{T}(undef,n,n),
-        residual=Vector{T}(undef,n))
-end
-
-function hungarian_assignment!(cost::AbstractMatrix{R},work) where {R <: Real}
+function hungarian_assignment!(cost::AbstractMatrix{R},buffers) where {R <: Real}
     n = checksquare(cost)
     n == 0 && return Int[]
-    u,v,matching,way,minimums,used=work.u,work.v,work.matching,
-        work.way,work.minimums,work.used
+    u,v,matching,way,minimums,used=buffers.u,buffers.v,buffers.matching,
+        buffers.way,buffers.minimums,buffers.used
     fill!(u,zero(R));fill!(v,zero(R))
     fill!(matching,0);fill!(way,0)
 
@@ -161,7 +152,7 @@ function hungarian_assignment!(cost::AbstractMatrix{R},work) where {R <: Real}
         end
     end
 
-    assignment = work.assignment
+    assignment = buffers.assignment
     @inbounds for column in 1:n
         assignment[matching[column + 1]] = column
     end
@@ -171,7 +162,7 @@ function _match!(
         values::AbstractVector{T},
         vectors::AbstractMatrix{T},
         previous_values::AbstractVector{T},
-        previous_vectors::AbstractMatrix{T},work
+        previous_vectors::AbstractMatrix{T},buffers
 ) where {T <: Complex}
     n = length(values)
     length(previous_values) == n || throw(DimensionMismatch(
@@ -181,7 +172,7 @@ function _match!(
         DimensionMismatch("eigenvector matrices must be n×n")
     )
     R = typeof(real(zero(T)))
-    cost = work.cost
+    cost = buffers.cost
     @inbounds for previous in 1:n, current in 1:n
         denominator = norm(@view(previous_vectors[:, previous])) *
                       norm(@view(vectors[:, current]))
@@ -192,9 +183,9 @@ function _match!(
         )) / denominator
         cost[previous, current] = one(R) - overlap
     end
-    assignment = hungarian_assignment!(cost,work)
-    ordered_values = work.ordered_values
-    ordered_vectors = work.ordered_vectors
+    assignment = hungarian_assignment!(cost,buffers)
+    ordered_values = buffers.ordered_values
+    ordered_vectors = buffers.ordered_vectors
     copyto!(ordered_values,values)
     copyto!(ordered_vectors,vectors)
     @inbounds for mode in 1:n
@@ -242,10 +233,10 @@ end
 function recompute_matched_eigenpairs!(
         matrix::AbstractMatrix{T},
         previous_values::AbstractVector{T},
-        previous_vectors::AbstractMatrix{T},work
+        previous_vectors::AbstractMatrix{T},buffers
 ) where {T <: Complex}
     values, vectors = _seed(matrix)
-    _match!(values, vectors, previous_values, previous_vectors,work)
+    _match!(values, vectors, previous_values, previous_vectors,buffers)
     @inbounds for mode in eachindex(values)
         _align!(@view(vectors[:, mode]), @view(previous_vectors[:, mode]))
     end

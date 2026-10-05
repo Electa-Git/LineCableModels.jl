@@ -1,16 +1,14 @@
 @testmodule UnifiedFormulaFixtures begin
     using LineCableModels
     const E=LineCableModels.Engine
+    const G=LineCableModels.Commons
 
     # Numerical controls use the production allocator. There is no second array layout.
     function buffers(geometry)
         T=eltype(geometry.radius)
-        R=typeof(float(LineCableModels.nominal(one(T))))
-        interactions=E.initialize_buffers(E.earth!, length(geometry.radius)^2)
-        quadrature=merge(E.integration_workspace(R, Complex{T}; size = 0),
-            (warnings = interactions.warnings,))
-        base=(; quadrature, observations = nothing, earth_interactions = interactions)
-        return E.initialize_buffers(
+        base=G.initialize_buffers(E.earth!, T, (; n_cables = length(geometry.radius)),
+            (; geometry), (; observations = nothing))
+        return G.initialize_buffers(
             E.EarthImpedance.Formula(:unified), T, (;), (; geometry), base)
     end
 
@@ -70,7 +68,7 @@
 
     function field_state(geometry, state)
         work=workspace(geometry, state)
-        binding=only(work.invariants.earth_calculations)
+        binding=only(work.plan.earth_calculations)
         materials=only(work.buffers.earth_materials)
         calculation=binding.selection(materials, binding, work, 1)
         return merge(calculation.state, (radial_current = work.buffers.radial_current,))

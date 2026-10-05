@@ -52,7 +52,7 @@ explicit implementation before physical validation or computation.
 | Soil frequency dependence | `Earth.FrequencyDependent.FrequencyDependentFormulation`. `earth_material(selected, material, frequency, parameters, options, workspace)` |
 | Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation`. `temperature_resistivity(selected, material, temperature, parameters, options, workspace)` |
 | Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule`. `equivalent_material(selected, Val(kind), Val(source), Val(target), rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` |
-| Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation`. `Engine.initialize_buffers(selected, T, input, invariants, common)` and `ModalAnalysis.decompose!(selected, workspace, parameters, options)` |
+| Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation`. `Commons.initialize_buffers(selected, T, input, plan, common)` and `ModalAnalysis.decompose!(selected, workspace, parameters, options)` |
 | Local shunt geometry | `Engine.ShuntModelFormulation`. `Engine.internal_shunt_response(selected, design, geometry, T, material_selections, solutions, design_index)` during blueprint construction |
 | Pipe applicability | `Engine.PipeImpedanceFormulation`. `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
 
@@ -75,20 +75,21 @@ or `nothing` for a standalone evaluation that does not require it. Numerical arr
 `workspace.buffers`. The workspace input and bindings remain the authority for
 geometry and material mappings. An allocation method is unnecessary for an algebraic equation.
 For an equation that needs scratch, extend
-`Engine.initialize_buffers(selected, T, input, invariants, buffers)` to return
+`Commons.initialize_buffers(selected, T, input, plan, buffers)` to return
 the record extended with owned arrays only. Only selections reached by the
 required indexed calls participate in initialization, before evaluating materials
 or equations. Unused recipe branches remain unallocated.
 The default uses only existing storage. Existing arrays may not be replaced.
 Numerical formulas provision the common quadrature storage through
-`Engine.initialize_buffers(Val(:quad), T, input, invariants, buffers)`. An
+`Commons.initialize_buffers(SpectralIntegral, Val(:quad), T, input, plan, buffers)`. An
 integration option is not a capability declaration. Cable constants uses this
-same buffer-initialization method with its local numerical input and no earth invariants.
+same buffer-initialization method with its local numerical input and an empty plan.
 
 Each formula defines its complete integrand, transformations, Jacobians, branch
-choices and physical subdivision hints. `SpectralIntegral` contains only that
-callable. `integrate` passes it and the supplied numeric subdivision points to
-QuadGK. Physical expressions and subdivision choices belong to each formula.
+choices and physical subdivision hints. `SpectralIntegral` selects a Sommerfeld-type
+integral over the spatial Fourier variable and contains only that callable.
+`integrate(integral, Val(:quad), controls, buffers)` passes it and the supplied numeric
+subdivision points to QuadGK. Physical expressions and subdivision choices belong to each formula.
 
 `ShuntModel` owns conductor and dielectric geometry extraction, numerical coefficients and the requested fallback
 model. Its `blueprint_dependencies` methods identify the actual local selections
@@ -133,8 +134,8 @@ does not replace a broadband modal model.
 
 ```julia
 using LineCableModels
-import LineCableModels.Engine: initialize_buffers, description
-import LineCableModels.Commons: formulation_options, FormulationOptions
+import LineCableModels.Engine: description
+import LineCableModels.Commons: formulation_options, FormulationOptions, initialize_buffers
 import LineCableModels.ModalAnalysis: decompose!, Formula
 import LineCableModels: FormulaMethod
 
@@ -144,19 +145,19 @@ formulation_options(::FormulaMethod{<:Formula{:diagonal_example},typeof(decompos
     FormulationOptions()
 
 function initialize_buffers(::Val{:diagonal_example}, ::Type{T}, input,
-        invariants, common) where {T<:Complex}
-    invariants.n == 1 || throw(DimensionMismatch("diagonal example requires one mode"))
-    return merge(common, (diagonal_product=Vector{T}(undef,invariants.nf),))
+        plan, common) where {T<:Complex}
+    plan.n == 1 || throw(DimensionMismatch("diagonal example requires one mode"))
+    return merge(common, (diagonal_product=Vector{T}(undef,plan.nf),))
 end
 
 function decompose!(::Val{:diagonal_example}, workspace,
         parameters::NamedTuple, options::FormulationOptions)
-    scratch=workspace.buffers.diagonal_product
-    for k in eachindex(scratch)
+    product=workspace.buffers.diagonal_product
+    for k in eachindex(product)
         z=workspace.input.Z[1,1,k]/workspace.input.root_scale
         y=workspace.input.Y[1,1,k]/workspace.input.root_scale
-        scratch[k]=z*y
-        root=sqrt(scratch[k])
+        product[k]=z*y
+        root=sqrt(product[k])
         (real(root)<0 || (iszero(real(root)) && imag(root)<0)) && (root=-root)
         workspace.roots[1,k]=root*workspace.input.root_scale
         workspace.Tv[1,1,k]=one(root)

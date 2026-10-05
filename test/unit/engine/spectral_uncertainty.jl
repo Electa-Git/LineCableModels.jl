@@ -10,7 +10,7 @@
         controls=E.formulation_options(E.SpectralIntegral, (
             method, options = (rtol = 1e-9,)))
         value,
-        error=E.integrate(controls.method, integral, controls.options; points = (0.0, 1.0))
+        error=E.integrate(integral, controls.method, controls.options; points = (0.0, 1.0))
         @test value isa Complex{Measurement{Float64}}
         @test error isa Float64
         @test E.numerical_magnitude(value-exact)<1e-9*E.numerical_magnitude(exact)
@@ -27,7 +27,7 @@
         controls=E.formulation_options(E.SpectralIntegral, (
             method, options = (rtol = 1e-8,)))
         actual,
-        _=E.integrate(controls.method, zero_mean, controls.options; points = (0.0, 1.0))
+        _=E.integrate(zero_mean, controls.method, controls.options; points = (0.0, 1.0))
         expected=complex(perturbation)/(2+im)
         @test E.numerical_magnitude(actual-expected)<1e-9
     end

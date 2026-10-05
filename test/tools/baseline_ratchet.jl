@@ -9,6 +9,10 @@
 # git detects between `REF` and the working tree, and the module renames they imply,
 # are applied to the keys at `REF` first.
 #
+# An ownership key has the form `defining module | Owner.function | file`. When only
+# `Owner`, the module that defines the extended function, changes and the count stays the
+# same, the ratchet treats the key as renamed.
+#
 # An `[inferred]` floor can fall when `@inferred` lines move to other files. Each removed
 # line appears again in another file, unchanged apart from indentation, and these lines
 # cover the drop.
@@ -77,6 +81,34 @@ function rename_key(key, renamed)
         return part
     end
     return join(parts, " | ")
+end
+
+# The ceiling keys at the reference whose only change is `Owner`, the module that defines the
+# extended function, mapped to their current keys. The table, the defining module, the function
+# name, the file and the count are unchanged.
+function owner_renames(before, now)
+    function parts(key)
+        fields = split(key, " | ")
+        length(fields) == 4 && occursin('.', fields[3]) || return nothing
+        owner, name = rsplit(fields[3], '.'; limit = 2)
+        return (; fields = fields[[1, 2, 4]], owner, name)
+    end
+    renamed = Dict{String, String}()
+    for key in sort!(collect(keys(now)))
+        haskey(before, key) && continue
+        current = parts(key)
+        current === nothing && continue
+        for old in sort!(collect(keys(before)))
+            (haskey(now, old) || haskey(renamed, old)) && continue
+            previous = parts(old)
+            previous === nothing && continue
+            previous.fields == current.fields && previous.name == current.name &&
+                previous.owner != current.owner && before[old] == now[key] || continue
+            renamed[old] = key
+            break
+        end
+    end
+    return renamed
 end
 
 # The lines removed from each file since `reference` and the lines added to each file,
@@ -162,6 +194,11 @@ function moved(repository, reference, file)
         mergewith!(+, before, Dict(rename_key(key, renamed) => value))
     end
     now = values_of(current)
+    ceilings = Dict(key => value for (key, value) in before
+        if direction[first(split(key, " | "))] == "ceiling")
+    for (old, new) in owner_renames(ceilings, now)
+        before[new] = pop!(before, old)
+    end
     tables = sort!([table for table in keys(current)
         if table ∉ METADATA && !haskey(document, table)])
     lines = String[]

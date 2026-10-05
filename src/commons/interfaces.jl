@@ -47,6 +47,38 @@ raises `MethodError`.
 function formulation_options end
 
 """
+$(TYPEDSIGNATURES)
+
+Allocate a selected formula's reusable arrays during computation initialization.
+The arguments are the resolved selection, scalar type, completed numerical input,
+plan of fixed indices and geometry, and existing buffer record. Return the extended
+record without replacing another owner's storage. Array blocks contain no copied
+geometry, material model, selection or validity state. The default uses the existing storage. No material law or integrand is evaluated here.
+"""
+function initialize_buffers end
+
+function initialize_buffers(
+        ::Union{AbstractFormulation, Nothing}, ::Type, input, plan, buffers)
+    buffers
+end
+
+function initialize_buffers(
+        selections::Union{NamedTuple, Tuple}, ::Type{T}, input, plan, buffers) where {T}
+    return foldl(values(selections); init = buffers) do accumulated, selected
+        initialized = initialize_buffers(selected, T, input, plan, accumulated)
+        # Extension methods may append arrays but cannot replace another owner's
+        # storage.
+        retained = map(values(accumulated),
+            values(initialized[keys(accumulated)])) do before, after
+            before === after
+        end
+        all(retained) || throw(ArgumentError(
+            "buffer initialization replaced existing storage :$(keys(accumulated)[findfirst(!, retained)])"))
+        initialized
+    end
+end
+
+"""
 $(SIGNATURES)
 
 Validate and normalize the options owned by one computation.

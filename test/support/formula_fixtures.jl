@@ -1,6 +1,7 @@
 @testmodule FormulaFixtures begin
     using LineCableModels
     const E = LineCableModels.Engine
+    const G = LineCableModels.Commons
     const II = E.InternalImpedance
     const EI = E.EarthImpedance
     const EA = E.EarthAdmittance
@@ -14,7 +15,7 @@
     const calls = Tuple[]
 
     struct BufferReplacement <: E.AbstractFormulation end
-    E.initialize_buffers(::BufferReplacement, ::Type, input, invariants,
+    G.initialize_buffers(::BufferReplacement, ::Type, input, plan,
         buffers) = merge(buffers, (destination = copy(buffers.destination),))
 
     # These scientific selections belong to the consumer and leave built-in
@@ -44,9 +45,9 @@
                 if haskey(functor.options.data, :integration)
                     integral = E.SpectralIntegral(λ -> complex(exp(-2λ)))
                     value,
-                    _ = E.integrate(functor.options.data.integration.method,
-                        integral, functor.options.data.integration.options,
-                        workspace.buffers.quadrature)
+                    _ = E.integrate(integral,
+                        functor.options.data.integration.method, functor.options.data.integration.options,
+                        workspace.buffers)
                     coefficient *= 2value
                 end
                 return selected.parameters.scale *
@@ -62,15 +63,16 @@
                    Tuple{Union{Val{:self}, Val{:mutual}}, Val{1},
         Val{1}}} = FormulationOptions(integration = (method = :quad, options = (;)))
 
-    function E.initialize_buffers(
-            selected::LayerImpedance, ::Type{T}, input, invariants, buffers) where {T}
+    function G.initialize_buffers(
+            selected::LayerImpedance, ::Type{T}, input, plan, buffers) where {T}
         layers = [E.layer_index(interaction.pair)
-                  for call in invariants.earth_calculations
+                  for call in plan.earth_calculations
                   if call.selection === selected for interaction in call.interactions]
         initialized = (1, 1) in layers ?
-                      E.initialize_buffers(Val(:quad), T, input, invariants, buffers) :
+                      G.initialize_buffers(
+                          E.SpectralIntegral, Val(:quad), T, input, plan, buffers) :
                       buffers
-        push!(selected.initialized, (layers, initialized.quadrature))
+        push!(selected.initialized, (layers, get(initialized, :quadrature, nothing)))
         return initialized
     end
 
@@ -99,9 +101,9 @@
         (;), FormulationOptions(), nothing, ComplexF64[])
     LineCableModels.formulation_options(::FM{
         <:CoupledImpedance, typeof(EI.earth_impedance)}) = FormulationOptions()
-    function E.initialize_buffers(
-            ::CoupledImpedance, ::Type{T}, input, invariants, buffers) where {T}
-        geometry=invariants.geometry
+    function G.initialize_buffers(
+            ::CoupledImpedance, ::Type{T}, input, plan, buffers) where {T}
+        geometry=plan.geometry
         return merge(buffers,
             (coupled = Matrix{Complex{T}}(undef,
                 length(geometry.radius), length(geometry.radius)),))
@@ -121,7 +123,7 @@
         kind in (source==target ? (:self, :mutual) : (:mutual,))
         @eval function EI.earth_impedance(::CoupledImpedance, ::Val{$(QuoteNode(kind))},
                 ::Val{$source}, ::Val{$target}, functor, pair, workspace)
-            n=length(workspace.invariants.geometry.radius)
+            n=length(workspace.plan.geometry.radius)
             return functor.state.jω*1e-6*(pair.row+2pair.column+(pair.row==pair.column ? n :
                                                                  0))
         end
@@ -169,10 +171,11 @@
             FormulationOptions(integration = (method = method,)))
         return SpectralSurface((;), FormulationOptions(outer = outer.data), seed.seen)
     end
-    function E.initialize_buffers(
-            selected::SpectralSurface, ::Type{T}, input, invariants, buffers) where {T}
+    function G.initialize_buffers(
+            selected::SpectralSurface, ::Type{T}, input, plan, buffers) where {T}
         push!(selected.seen, (:initialize, buffers))
-        return E.initialize_buffers(Val(:quad), T, input, invariants, buffers)
+        return G.initialize_buffers(
+            E.SpectralIntegral, Val(:quad), T, input, plan, buffers)
     end
     (selected::SpectralSurface)(
         r_in, r_ex, rho, mu_r, jω) = II.Functor(selected, (jω = jω,), selected.options)
@@ -184,9 +187,9 @@
         push!(selected.seen, (functor.options.data.integration.method, workspace))
         integral=E.SpectralIntegral(λ->complex(exp(-2λ)))
         value,
-        _=E.integrate(functor.options.data.integration.method, integral,
+        _=E.integrate(integral, functor.options.data.integration.method,
             functor.options.data.integration.options,
-            workspace===nothing ? nothing : workspace.buffers.quadrature)
+            workspace===nothing ? nothing : workspace.buffers)
         return value*1e-4
     end
     LineCableModels.description(::Type{<:SpectralSurface}, ::Val{:method},

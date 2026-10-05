@@ -25,50 +25,29 @@ mutable struct LineParametersWorkspace{
     # Immutable numerical input derived from the problem and formulation.
     const input::N
     # Physical values and index maps invariant across the frequency loop.
-    const invariants::P
+    const plan::P
     # Mutable numerical storage allocated once for the calculation.
     const buffers::B
     # Optional retained diagnostic arrays, or `nothing`.
-    const capture::C
+    const trace::C
 
     function LineParametersWorkspace{T, N, P, B, C}(
             input::N,
-            invariants::P,
+            plan::P,
             buffers::B,
-            capture::C
+            trace::C
     ) where {T <: Real, N <: NamedTuple, P <: NamedTuple, B <: NamedTuple, C}
         return validate(new{T, N, P, B, C}(
             input,
-            invariants,
+            plan,
             buffers,
-            capture
+            trace
         ))
     end
 end
 
 Base.eltype(::LineParametersWorkspace{T}) where {T} = T
 Base.eltype(::Type{<:LineParametersWorkspace{T}}) where {T} = T
-
-@inline _capture_buffers(::Type, ::Any, ::Val{false}) = nothing
-
-function _capture_buffers(
-        ::Type{T},
-        input::NamedTuple,
-        ::Val{true}
-) where {T <: Real}
-    n = input.n_phases
-    nc = input.n_cables
-    nf = input.n_frequencies
-    return (
-        Zin = Array{Complex{T}, 3}(undef, n, n, nf),
-        Pin = Array{Complex{T}, 3}(undef, n, n, nf),
-        Zg = Array{Complex{T}, 3}(undef, nc, nc, nf),
-        Pg = Array{Complex{T}, 3}(undef, nc, nc, nf),
-        Z = Array{Complex{T}, 3}(undef, n, n, nf),
-        P = Array{Complex{T}, 3}(undef, n, n, nf),
-        integrals = NamedTuple[]
-    )
-end
 
 function validate(workspace::LineParametersWorkspace)
     input = workspace.input
@@ -109,10 +88,10 @@ function validate(workspace::LineParametersWorkspace)
     size(input.horz_sep) == (n, n) || throw(DimensionMismatch(
         "horizontal separation matrix must be $n×$n"
     ))
-    length(workspace.invariants.cable_indices) == input.n_cables || throw(
+    length(workspace.plan.cable_indices) == input.n_cables || throw(
         DimensionMismatch("cable indices must align with the cable count")
     )
-    all(!isempty, workspace.invariants.cable_indices) || throw(ArgumentError(
+    all(!isempty, workspace.plan.cable_indices) || throw(ArgumentError(
         "every cable must contain one retained primitive conductor"
     ))
     size(workspace.buffers.Zprimitive) == (n, n) || throw(DimensionMismatch(
@@ -276,9 +255,9 @@ function LineParametersWorkspace(
         (selection = selected, cases = cases)
     end
     options = formulation.options.data
-    plan = ReductionPlan(phase_map; options.reduce_bundle, options.kron_reduction,
+    reduction = ReductionPlan(phase_map; options.reduce_bundle, options.kron_reduction,
         options.ideal_transposition)
-    invariants = (; cable_indices, plan)
+    plan = (; cable_indices, reduction)
 
     scalar = foldl(values(bindings); init = T) do current, bound
         bound.selection isa NamedTuple ||
@@ -291,7 +270,7 @@ function LineParametersWorkspace(
                           for pair in physical_pairs
                           if pair.row == pair.column],)
     return LineParametersWorkspace{scalar}(problem, formulation, execution,
-        lineinput(scalar, input), merge(invariants, (; geometry)), bindings)
+        lineinput(scalar, input), merge(plan, (; geometry)), bindings)
 end
 
 function LineParametersWorkspace{T}(
@@ -299,17 +278,17 @@ function LineParametersWorkspace{T}(
         formulation::LineParametersFormulation,
         execution::ComputationOptions,
         input::NamedTuple,
-        invariants::NamedTuple,
+        plan::NamedTuple,
         bindings::NamedTuple
 ) where {T <: Real}
     cable = input.cable
     n_phases, n_cables, n_frequencies = input.n_phases, input.n_cables, input.n_frequencies
     n_layers = length(cable.dielectric_materials)
-    cable_indices = invariants.cable_indices
-    nkeep = length(invariants.plan.keep)
+    cable_indices = plan.cable_indices
+    nkeep = length(plan.reduction.keep)
     geometry = (
         radius = _outer_radii(input.cable_map, cable.r_ext, cable.r_ins_ext),
-        layers = invariants.geometry.layers)
+        layers = plan.geometry.layers)
     # Resolve shared physical outputs once. These temporary lists are not used
     # by the frequency loop. Each completed calculation has its concrete type.
     calculations = NamedTuple[]
@@ -353,7 +332,7 @@ function LineParametersWorkspace{T}(
     end
     # The workspace layout is independent of the required layer signatures.
     # _solve! specializes once on these concrete tuples before its frequency loop.
-    invariants = merge(invariants,
+    plan = merge(plan,
         NamedTuple{(:earth_calculations, :geometry), Tuple{Tuple, typeof(geometry)}}(
             (earth_calculations, geometry)))
     rho_cond = Vector{T}(undef, length(cable.conductor_materials))
@@ -361,26 +340,32 @@ function LineParametersWorkspace{T}(
 
     Zprimitive = Matrix{Complex{T}}(undef, n_phases, n_phases)
     Pprimitive = similar(Zprimitive)
-    reduction = ReductionBuffers{Complex{T}}(invariants.plan)
     Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, n_frequencies)
     Yout = similar(Zout)
     Zearth = Matrix{Complex{T}}(undef, n_cables, n_cables)
     Pearth = similar(Zearth)
-    MaterialStorage = NamedTuple{(:rho, :epsilon, :mu, :thickness),
+    MaterialBuffers = NamedTuple{(:rho, :epsilon, :mu, :thickness),
         Tuple{Matrix{T}, Matrix{T}, Matrix{T}, Union{Nothing, Vector{T}}}}
     earth_materials = map(earth_calculations) do calculation
         stratified = media(calculation.selection) === Val(:stratified)
         count = stratified ? length(problem.earth_props.layers) : 2
         columns = length(calculation.interactions)
-        MaterialStorage((Matrix{T}(undef, count, columns),
+        MaterialBuffers((Matrix{T}(undef, count, columns),
             Matrix{T}(undef, count, columns), Matrix{T}(undef, count, columns),
             stratified ? Vector{T}(undef, count) : nothing))
     end
-    capture = _capture_buffers(T, input, execution.data.trace)
-    observations = capture === nothing ? nothing : capture.integrals
-    R = typeof(float(nominal(one(T))))
-    # Concrete formulas provision numerical storage, never option-key inspection.
-    quadrature = integration_workspace(R, Complex{T}; size = 0)
+    trace = if execution.data.trace isa Val{true}
+        (Zin = Array{Complex{T}, 3}(undef, n_phases, n_phases, n_frequencies),
+            Pin = Array{Complex{T}, 3}(undef, n_phases, n_phases, n_frequencies),
+            Zg = Array{Complex{T}, 3}(undef, n_cables, n_cables, n_frequencies),
+            Pg = Array{Complex{T}, 3}(undef, n_cables, n_cables, n_frequencies),
+            Z = Array{Complex{T}, 3}(undef, n_phases, n_phases, n_frequencies),
+            P = Array{Complex{T}, 3}(undef, n_phases, n_phases, n_frequencies),
+            integrals = NamedTuple[])
+    else
+        nothing
+    end
+    observations = trace === nothing ? nothing : trace.integrals
     largest_cable = maximum(length, cable_indices)
     coefficients = Vector{Complex{T}}(undef, largest_cable)
     tails = similar(coefficients)
@@ -392,18 +377,17 @@ function LineParametersWorkspace{T}(
         dielectric_admittivity,
         Zprimitive,
         Pprimitive,
-        reduction,
         Zout,
         Yout,
         Zearth,
         Pearth,
-        earth_interactions = initialize_buffers(earth!, n_cables^2),
-        quadrature,
         observations,
         layer_coefficients,
         coefficients,
         tails
     )
+    buffers = initialize_buffers(plan.reduction, Complex{T}, input, plan, buffers)
+    buffers = initialize_buffers(earth!, T, input, plan, buffers)
     buffers = merge(buffers,
         NamedTuple{(:earth_materials,), Tuple{Tuple}}((earth_materials,)))
     # Allocation consumes the same active selections as indexed execution.
@@ -419,19 +403,20 @@ function LineParametersWorkspace{T}(
     else
         selected_internal
     end
+    # Concrete formulas provision numerical storage, never option-key inspection.
     allocations = merge(formulation.methods, external, (internal_impedance = internal,))
-    buffers = initialize_buffers(allocations, T, input, invariants, buffers)
+    buffers = initialize_buffers(allocations, T, input, plan, buffers)
     # Earth traversal clears this shared warning scratch before and after each use.
-    buffers = merge(buffers,
-        (quadrature = merge(buffers.quadrature,
-            (warnings = buffers.earth_interactions.warnings,)),))
+    buffers = haskey(buffers, :quadrature) ?
+              merge(buffers, (quadrature = merge(buffers.quadrature,
+        (warnings = buffers.earth_interactions.warnings,)),)) : buffers
     workspace = LineParametersWorkspace{
         T,
         typeof(input),
-        typeof(invariants),
+        typeof(plan),
         typeof(buffers),
-        typeof(capture)
-    }(input, invariants, buffers, capture)
+        typeof(trace)
+    }(input, plan, buffers, trace)
     return workspace
 end
 
@@ -467,38 +452,9 @@ function earth_bindings(::Union{EarthImpedanceFormulation, EarthAdmittanceFormul
     return merge(binding, (reuse_inputs = inputs,))
 end
 function initialize_buffers(
-        ::Union{AbstractFormulation, Nothing}, ::Type, input, invariants, buffers)
-    buffers
-end
-
-function initialize_buffers(
         selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-        ::Type{T}, input, invariants, buffers) where {T}
-    return initialize_buffers(selected.equivalent_earth, T, input, invariants, buffers)
-end
-
-function initialize_buffers(selected::EquivalentHomogeneous.AbstractSequence,
-        ::Type{T}, input, invariants, buffers) where {T}
-    return initialize_buffers(
-        EquivalentHomogeneous.rule(selected), T, input, invariants, buffers)
-end
-
-function initialize_buffers(
-        selections::Union{NamedTuple, Tuple}, ::Type{T}, input, invariants, buffers) where {T}
-    return foldl(values(selections); init = buffers) do accumulated, selected
-        initialized = initialize_buffers(selected, T, input, invariants, accumulated)
-        # Extension methods may append arrays but cannot replace another owner's
-        # storage. Only initially empty QuadGK capacity may be provisioned.
-        provision = haskey(accumulated, :quadrature) &&
-                    isempty(accumulated.quadrature.segments)
-        retained = map(keys(accumulated), values(accumulated),
-            values(initialized[keys(accumulated)])) do name, before, after
-            (name === :quadrature && provision) || before === after
-        end
-        all(retained) || throw(ArgumentError(
-            "buffer initialization replaced existing storage :$(keys(accumulated)[findfirst(!, retained)])"))
-        initialized
-    end
+        ::Type{T}, input, plan, buffers) where {T}
+    return initialize_buffers(selected.equivalent_earth, T, input, plan, buffers)
 end
 
 function _earth_data(input::NamedTuple, bindings::NamedTuple)

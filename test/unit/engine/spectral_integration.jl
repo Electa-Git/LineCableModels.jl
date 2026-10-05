@@ -13,7 +13,7 @@
     @test integral.f===f
     settings=options()
     @test settings.method===Val(:quad)
-    actual, error=E.integrate(settings.method, integral, settings.options)
+    actual, error=E.integrate(integral, settings.method, settings.options)
     exact=(1+im)*(1.5+im)/((1.5+im)^2+1)
     @test actual≈exact rtol=1e-8
     @test error>=0 && isfinite(error)
@@ -30,13 +30,13 @@
         scalar_integral=E.SpectralIntegral(x->complex(exp(-2x)*cos(x)))
         scalar_value,
         scalar_error=E.integrate(
-            scalar_settings.method, scalar_integral, scalar_settings.options;
+            scalar_integral, scalar_settings.method, scalar_settings.options;
             coordinate_type = T, points = T[1])
         @test scalar_value isa Complex{T}
         @test scalar_error isa T
         @test scalar_value≈T(2)/T(5) rtol=2e-5
     end
-    @test_throws DomainError E.integrate(Val(:quad), E.SpectralIntegral(x->NaN), settings.options)
+    @test_throws DomainError E.integrate(E.SpectralIntegral(x->NaN), Val(:quad), settings.options)
 end
 
 @testitem "Engine / real-only callable struct and complete transformed integrands" tags=[:unit, :engine] begin
@@ -46,14 +46,14 @@ end
     end
     (k::RealKernel)(x::Real)=exp(-k.rate*x)
     controls=(rtol = 1e-10, atol = 0.0, maxevals = 100000)
-    value, error=E.integrate(Val(:quad), E.SpectralIntegral(RealKernel(2.0)), controls)
+    value, error=E.integrate(E.SpectralIntegral(RealKernel(2.0)), Val(:quad), controls)
     @test value isa Float64
     @test value≈0.5 rtol=1e-10
     @test error<=controls.rtol*abs(value)
     for c in (0.1, 2.0, 3cis(0.2))
         f=t->c*exp(-2c*t)
         transformed,
-        estimate=E.integrate(Val(:quad), E.SpectralIntegral(f), controls; points = (1.0,))
+        estimate=E.integrate(E.SpectralIntegral(f), Val(:quad), controls; points = (1.0,))
         @test transformed≈0.5 rtol=1e-10
         @test estimate<=controls.rtol*abs(transformed)
     end
@@ -69,7 +69,7 @@ end
     end
     controls=(rtol = 1e-13, atol = 0.0, maxevals = 15)
     actual=@test_logs (:warn, r"QuadGK returned an estimated error") E.integrate(
-        Val(:quad), E.SpectralIntegral(f), controls; points = (1.0,))
+        E.SpectralIntegral(f), Val(:quad), controls; points = (1.0,))
     work=calls[]
     calls[]=0
     mapped=t->begin
@@ -91,7 +91,7 @@ end
 
         c=cis(angle)
         integral=E.SpectralIntegral(t->c/(1+c*t)^2)
-        value, error=E.integrate(Val(:quad), integral, controls; points)
+        value, error=E.integrate(integral, Val(:quad), controls; points)
         @test value≈1 rtol=1e-10
         @test abs(value-1)<=error+4eps(Float64)
     end
@@ -104,20 +104,21 @@ end
         points=T[2, 0, 1, 2, 1]
         retained=copy(points)
         integral=E.SpectralIntegral(x->complex(exp(-x)))
-        workspace=E.integration_workspace(T, Complex{T})
-        expected=E.integrate(Val(:quad), integral, controls; points, coordinate_type = T)
+        buffers=LineCableModels.Commons.initialize_buffers(
+            E.SpectralIntegral, Val(:quad), T, (;), (;), (;))
+        expected=E.integrate(integral, Val(:quad), controls; points, coordinate_type = T)
         for _ in 1:2
-            value, error=E.integrate(Val(:quad), integral, controls, workspace; points)
+            value, error=E.integrate(integral, Val(:quad), controls, buffers; points)
             @test value isa Complex{T}
             @test value≈one(T) rtol=controls.rtol
             @test value≈first(expected) rtol=controls.rtol
             @test error<=controls.rtol*abs(value)
-            @test workspace.points==T[0, 1, 2]
+            @test buffers.quadrature.points==T[0, 1, 2]
         end
         @test points==retained
         for invalid in (T[-1], T[Inf], T[NaN], [1im])
             @test_throws DomainError E.integrate(
-                Val(:quad), integral, controls, workspace; points = invalid)
+                integral, Val(:quad), controls, buffers; points = invalid)
         end
     end
 end
@@ -127,19 +128,19 @@ end
     const E=LineCableModels.Engine
     controls=(rtol = 1e-7, atol = 0.0, maxevals = 1000000)
     oscillatory=E.SpectralIntegral(x->complex(exp(-x)*cos(50x)))
-    value, error=E.integrate(Val(:quad), oscillatory, controls; points = (1.0,))
+    value, error=E.integrate(oscillatory, Val(:quad), controls; points = (1.0,))
     exact=complex(inv(1+50.0^2))
     @test value≈exact rtol=1e-7
     @test error<=controls.rtol*abs(value)
     @test abs(value-exact)<=max(error, 8eps(Float64)*abs(exact))
     bessel=E.SpectralIntegral(x->complex(exp(-x)*besselj(0, 0.3x)))
-    @test first(E.integrate(Val(:quad), bessel, controls))≈inv(sqrt(1+0.3^2)) rtol=1e-7
+    @test first(E.integrate(bessel, Val(:quad), controls))≈inv(sqrt(1+0.3^2)) rtol=1e-7
     # The zero-radius identity belongs to the supplied expression, not to a
     # special numerical-executor branch.
     f=x->exp(-x)*cos(0.2x)/complex(x+0.01)
     zero_radius=E.SpectralIntegral(x->f(x)*besselj(0, zero(x)))
-    @test first(E.integrate(Val(:quad), zero_radius, controls; points = (0.01, 1.0))) ≈
-          first(E.integrate(Val(:quad), E.SpectralIntegral(f), controls; points = (
+    @test first(E.integrate(zero_radius, Val(:quad), controls; points = (0.01, 1.0))) ≈
+          first(E.integrate(E.SpectralIntegral(f), Val(:quad), controls; points = (
         0.01, 1.0))) rtol=1e-7
 end
 
@@ -152,12 +153,12 @@ end
         points=[0.0; center .+ width .* [-8, -2, -1, 0, 1, 2, 8]; 1.0]
         integral=E.SpectralIntegral(x->complex(amplitude)*exp(-((x-center)/width)^2-x))
         expected=amplitude*sqrt(pi)*width*exp(-center+width^2/4)
-        actual, _=E.integrate(Val(:quad), integral, controls; points)
+        actual, _=E.integrate(integral, Val(:quad), controls; points)
         @test actual≈expected rtol=1e-6
     end
     # A vanishing endpoint is not a license to discard a nonzero integral.
     value,
-    _=E.integrate(Val(:quad), E.SpectralIntegral(x->complex(x)*exp(-2x)),
+    _=E.integrate(E.SpectralIntegral(x->complex(x)*exp(-2x)), Val(:quad),
         controls; points = (0.0, 1.0, 2.0))
     @test value≈0.25 rtol=1e-5
 end

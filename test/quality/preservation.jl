@@ -129,7 +129,7 @@ end
     workspace = E.LineParametersWorkspace(problem, formulation, execution,
         E.lineinput(problem, blueprint))
     E._solve!(workspace, formulation)
-    buffers, invariants, input = workspace.buffers, workspace.invariants, workspace.input
+    buffers, plan, input = workspace.buffers, workspace.plan, workspace.input
     jω = input.jω[1]
     found = Dict{String, Vector{Any}}()
     found["coaxial _solve!"] = JET.get_reports(
@@ -143,11 +143,11 @@ end
             buffers.coefficients, buffers.tails))
     found["earth!"] = JET.get_reports(
         @report_opt target_modules=(LineCableModels,) E.earth!(workspace, 1,
-            invariants.earth_calculations, buffers.earth_materials))
+            plan.earth_calculations, buffers.earth_materials))
     found["reduce_line_matrices!"] = JET.get_reports(
         @report_opt target_modules=(LineCableModels,) C.reduce_line_matrices!(
             view(buffers.Zout, :, :, 1), view(buffers.Yout, :, :, 1), buffers.Zprimitive,
-            buffers.Pprimitive, jω, invariants.plan, buffers.reduction))
+            buffers.Pprimitive, jω, plan.reduction, buffers.reduction))
     phase = compute(problem, formulation)
     for id in (:chrysochos2014, :vieira2026, :wedepohl1996)
         selected = ModalAnalysisFormulation(id).formula

@@ -1,6 +1,6 @@
 @testitem "ModalAnalysis / complete Val formula extension" tags=[:unit, :modal] begin
-    import LineCableModels.Engine: initialize_buffers, description
-    import LineCableModels.Commons: formulation_options, FormulationOptions
+    import LineCableModels.Engine: description
+    import LineCableModels.Commons: formulation_options, FormulationOptions, initialize_buffers
     import LineCableModels.ModalAnalysis: decompose!, Formula
     import LineCableModels: FormulaMethod
 
@@ -10,21 +10,21 @@
         compact ? "diagonal example" : "one-mode diagonal example"
     formulation_options(::FormulaMethod{<:Formula{:diagonal_example},typeof(decompose!)}) =
         FormulationOptions()
-    function initialize_buffers(::Val{:diagonal_example},::Type{T},input,invariants,
+    function initialize_buffers(::Val{:diagonal_example},::Type{T},input,plan,
             common) where {T<:Complex}
         allocations[]+=1
-        invariants.n==1 || throw(DimensionMismatch("diagonal example requires one mode"))
-        return merge(common,(diagonal_product=Vector{T}(undef,invariants.nf),))
+        plan.n==1 || throw(DimensionMismatch("diagonal example requires one mode"))
+        return merge(common,(diagonal_product=Vector{T}(undef,plan.nf),))
     end
     function decompose!(::Val{:diagonal_example},workspace,parameters::NamedTuple,
             options::FormulationOptions)
         calculations[]+=1
-        scratch=workspace.buffers.diagonal_product
-        for k in eachindex(scratch)
+        product=workspace.buffers.diagonal_product
+        for k in eachindex(product)
             z=workspace.input.Z[1,1,k]/workspace.input.root_scale
             y=workspace.input.Y[1,1,k]/workspace.input.root_scale
-            scratch[k]=z*y
-            root=sqrt(scratch[k])
+            product[k]=z*y
+            root=sqrt(product[k])
             (real(root)<0 || (iszero(real(root)) && imag(root)<0)) && (root=-root)
             workspace.roots[1,k]=root*workspace.input.root_scale
             workspace.Tv[1,1,k]=one(root)

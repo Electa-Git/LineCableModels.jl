@@ -251,12 +251,12 @@ end
     @test isempty(unused.initialized)
     required, numerical=only(active.initialized)
     @test required == fill((2, 2), 9)
-    @test isempty(numerical.segments)
+    @test numerical === nothing
     saved=copy(Z(first_result))
     second_result=compute(buried, selected)
     @test Z(first_result) == saved == Z(second_result)
     @test length(active.initialized)==2
-    @test active.initialized[2][2].segments !== numerical.segments
+    @test active.initialized[2][2] === nothing
     @test isempty(unused.initialized)
     # The same concrete formula needs numerical storage for its (1,1) equation.
     overhead=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
@@ -264,13 +264,16 @@ end
     required, numerical=last(active.initialized)
     @test required == fill((1, 1), 9)
     @test !isempty(numerical.segments)
+    # Each computation provisions its own storage.
+    compute(overhead, Formulation(earth_impedance = active, earth_admittance = potential))
+    @test last(active.initialized)[2].segments !== numerical.segments
 end
 
 @testitem "Engine / formula initialization preserves another owner's buffer identity" tags=[:unit, :engine] setup=[FormulaFixtures] begin
-    const E=LineCableModels.Engine
+    const G=LineCableModels.Commons
     buffers=(destination = zeros(ComplexF64, 2, 2),)
-    @test E.initialize_buffers((nothing,), Float64, (;), (;), buffers) === buffers
-    @test_throws ArgumentError E.initialize_buffers(
+    @test G.initialize_buffers((nothing,), Float64, (;), (;), buffers) === buffers
+    @test_throws ArgumentError G.initialize_buffers(
         (FormulaFixtures.BufferReplacement(),),
         Float64, (;), (;), buffers)
 end
@@ -282,7 +285,8 @@ end
     const II=E.InternalImpedance
     const M=FormulaFixtures
     @test_throws ArgumentError II.Formula(:default; options = (integration = (method = :quad,),))
-    standalone_workspace=(buffers = (quadrature = E.integration_workspace(Float64, ComplexF64),),)
+    standalone_workspace=(buffers = LineCableModels.Commons.initialize_buffers(
+        E.SpectralIntegral, Val(:quad), Float64, (;), (;), (;)),)
     base=II.Formula(:default)
     args=(0.008, 0.01, 1.7241e-8, 1.0, 100.0im)
     reference=II.surface_impedances(base, args...)

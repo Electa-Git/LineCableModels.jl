@@ -1,6 +1,7 @@
 @testitem "Engine / internal shunt / geometry and local operator" tags=[:unit, :parametric] begin
     using LinearAlgebra
     E = LineCableModels.Engine
+    boundary = E.ShuntModel.Formula(:boundary)
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
     design = internal_shunt_test_design()
     domain, bp = internal_shunt_test_domain(design)
@@ -30,8 +31,8 @@
     @test E.ShuntModel._shunt_host_domain(design, bp, duplicated, 1, 0, Float64) === nothing
     g = @inferred E.ShuntModel._shunt_data(values, domain)
     level = (wire = 32, order = 16, quadrature = 128, modes = 256)
-    result = @inferred E.ShuntModel._shunt_capacitance(g; level, audit = true)
-    production = E.ShuntModel._shunt_capacitance(g; level)
+    result = @inferred E.ShuntModel._shunt_capacitance(boundary, g; level, audit = true)
+    production = E.ShuntModel._shunt_capacitance(boundary, g; level)
     @test production.C == result.C
     @test production.diagnostic.boundary_residual === nothing
     @test result.C ≈ transpose(result.C) rtol=1e-5
@@ -47,7 +48,7 @@
             left = [merge(l, (epsilon = 2l.epsilon,)) for l in g.left],
             right = [merge(l, (epsilon = 2l.epsilon,)) for l in g.right],
             Rleft = g.Rleft/2, Rright = g.Rright/2, Rtotal = g.Rtotal/2))
-    @test E.ShuntModel._shunt_capacitance(doubled; level).C ≈ 2result.C rtol=1e-8
+    @test E.ShuntModel._shunt_capacitance(boundary, doubled; level).C ≈ 2result.C rtol=1e-8
     rotation = 0.317
     rotated = merge(g,
         (
@@ -55,8 +56,8 @@
                          (x = w.x*cos(rotation)-w.y*sin(rotation),
                              y = w.x*sin(rotation)+w.y*cos(rotation))) for w in g.wires],
             tapes = [merge(t, (phi = t.phi+rotation,)) for t in g.tapes]))
-    @test E.ShuntModel._shunt_capacitance(rotated; level).C ≈ result.C rtol=2e-4
-    @test_throws BoundarySolveError E.ShuntModel._shunt_capacitance(g;
+    @test E.ShuntModel._shunt_capacitance(boundary, rotated; level).C ≈ result.C rtol=2e-4
+    @test_throws BoundarySolveError E.ShuntModel._shunt_capacitance(boundary, g;
         level = (wire = 100000, order = 16, quadrature = 128, modes = 1))
     formulation=Formulation(shunt_model = formula(:boundary; options = (resolution = level,)))
     blueprints = only(E.flatten(LineCableModelsCoaxial(), [design, renamed], Float64, [formulation]))
@@ -110,6 +111,7 @@ end
 @testitem "Engine / internal shunt / multiple independent open terminals" tags=[:unit, :parametric] begin
     using LinearAlgebra
     E = LineCableModels.Engine
+    boundary = E.ShuntModel.Formula(:boundary)
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
     original, _ = internal_shunt_test_domain(internal_shunt_test_design(tapes = false))
     # Independent test of the numerical terminal map, not permission to bypass
@@ -122,7 +124,7 @@ end
     @test domain.terminals == 1:4
     @test sort(unique(getproperty.(domain.wires, :terminal))) == [2, 3]
     g = E.ShuntModel._shunt_data(E.ShuntModel._shunt_values(domain, Formulation().methods), domain)
-    result = E.ShuntModel._shunt_capacitance(g; level = (
+    result = E.ShuntModel._shunt_capacitance(boundary, g; level = (
         wire = 32, order = 16, quadrature = 128, modes = 256))
     @test size(result.C) == (3, 3)
     @test result.C ≈ transpose(result.C) rtol=1e-6

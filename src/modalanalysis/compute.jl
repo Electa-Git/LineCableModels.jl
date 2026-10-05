@@ -80,7 +80,7 @@ function ModalAnalysisWorkspace(source::LineParameters, selected::AbstractFormul
     S = promote_type(eltype(source.Z.values), eltype(Tv))
     Zm = Array{S,3}(undef, n, n, nf)
     Ym = similar(Zm)
-    invariants = (; n, nf)
+    plan = (; n, nf)
     common = (Zslice=Matrix{T}(undef,n,n),Yslice=Matrix{T}(undef,n,n),
         coordinate_product=Matrix{S}(undef,n,n),
         coordinate_factor=Matrix{T}(undef,n,n),
@@ -88,7 +88,7 @@ function ModalAnalysisWorkspace(source::LineParameters, selected::AbstractFormul
         previous_eigenvalues=Vector{T}(undef,n),eigenvalues=Vector{T}(undef,n),
         previous_eigenvectors=Matrix{T}(undef,n,n),eigenvectors=Matrix{T}(undef,n,n),
         propagation_eigenvalues=Vector{T}(undef,n),voltage_vector=Vector{T}(undef,n))
-    buffers = initialize_buffers(allocation_selector(selected), T, input, invariants, common)
+    buffers = initialize_buffers(allocation_selector(selected), T, input, plan, common)
     R=typeof(real(zero(T)))
     residual=Matrix{Union{Nothing,R}}(undef,n,nf)
     iteration_counts=Matrix{Union{Nothing,Int}}(undef,n,nf)

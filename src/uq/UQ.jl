@@ -28,7 +28,8 @@ import ..Commons
 import ..Commons: compute, computation_options, computation_details, details,
                   observe, observables, validate,
                   detach, request_identity, request_indices,
-                  observation_indices, observation_resolution, observation_request
+                  observation_indices, observation_resolution, observation_request,
+                  initialize_buffers
 using ..Commons: request_quantity
 import ..ParametricBuilder
 import ..ParametricBuilder: traverse

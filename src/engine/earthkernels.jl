@@ -341,8 +341,8 @@ function earth_spectral_term(
     points ./= scale
     push!(points, one(scale))
     value,
-    _ = integrate(method, integral, controls,
-        numerical.quadrature;
+    _ = integrate(integral, method, controls,
+        numerical;
         points = points, coordinate_type = R, context = merge(context, (term = Kind,)),
         observations = numerical.observations)
     return value

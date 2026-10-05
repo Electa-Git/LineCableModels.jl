@@ -387,13 +387,14 @@ end
     impedance=fill(1.0e-4+2.0e-4im, 2, 2, 2)
     admittance=fill(3.0e-8+4.0e-8im, 2, 2, 2)
     parameters=LineParameters(impedance, admittance, frequency)
-    storage=LineCableModels.UQ._sample_storage(parameters, 2)
-    LineCableModels.UQ._record_sample!(storage, parameters, 1, frequency)
-    LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)
-    @test @allocated(LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)) ==
+    sample_values=LineCableModels.Commons.initialize_buffers(MonteCarlo(Formulation()), Float64,
+        parameters, (; trials = 2), (;))
+    LineCableModels.UQ._record_sample!(sample_values, parameters, 1, frequency)
+    LineCableModels.UQ._record_sample!(sample_values, parameters, 2, frequency)
+    @test @allocated(LineCableModels.UQ._record_sample!(sample_values, parameters, 2, frequency)) ==
           0
-    @test storage.R[1, 1, 1, :] == fill(1.0e-4, 2)
-    @test storage.L[1, 1, 1, :] ==
+    @test sample_values.R[1, 1, 1, :] == fill(1.0e-4, 2)
+    @test sample_values.L[1, 1, 1, :] ==
           fill(2.0e-4 / (2π * frequency[1]), 2)
 
     line_summary=fill(SampleSummary([1.0, 2.0]), size(impedance))
@@ -405,7 +406,7 @@ end
         complete.formulation,
         [LineCableModels.materialize(parameters,line_statistics)],
         [line_statistics],
-        [storage],
+        [sample_values],
         [line_histograms],
         complete.root_seed,
         complete.point_seeds,
@@ -416,8 +417,8 @@ end
     line_observed=ObservedResult(line_result,1)
     @test first(line_observed.quantities).coordinates.frequencies==frequency
     @test first(line_observed.quantities).coordinates.frequency_unit==LineCableModels.Units.units(:base,:hertz)
-    malformed_samples=(R = storage.R[:, :, 1:1, :], L = storage.L,
-        C = storage.C, G = storage.G)
+    malformed_samples=(R = sample_values.R[:, :, 1:1, :], L = sample_values.L,
+        C = sample_values.C, G = sample_values.G)
     @test_throws DimensionMismatch MonteCarloResult(
         complete.formulation,
         line_result.values,

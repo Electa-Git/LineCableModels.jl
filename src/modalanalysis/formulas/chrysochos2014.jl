@@ -99,33 +99,12 @@ function levenberg_marquardt_jacobian!(
     return jacobian
 end
 
-function levenberg_marquardt_workspace(
-        ::Val{:chrysochos2014},
-        ::Type{R},
-        n::Integer
-) where {R <: Real}
-    order = 2n + 2
-    return (
-        x = Vector{R}(undef, order),
-        candidate = Vector{R}(undef, order),
-        residual = Vector{R}(undef, order),
-        candidate_residual = Vector{R}(undef, order),
-        jacobian = Matrix{R}(undef, order, order),
-        gradient = Vector{R}(undef, order),
-        hessian = Matrix{R}(undef, order, order),
-        system = Matrix{R}(undef, order, order),
-        step = Vector{R}(undef, order),
-        real_matrix = Matrix{R}(undef, n, n),
-        imaginary_matrix = Matrix{R}(undef, n, n)
-    )
-end
-
 function levenberg_marquardt_step!(
         ::Val{:chrysochos2014},
         vector::AbstractVector{T},
         value::T,
         iteration_options::NamedTuple,
-        work
+        buffers
 ) where {T <: Complex}
     n = length(vector)
     R = typeof(real(zero(T)))
@@ -144,11 +123,11 @@ function levenberg_marquardt_step!(
 
     normalize_bilinear!(vector) || _unit!(vector) || return value, false, 0
     @inbounds for index in 1:n
-        work.x[index] = real(vector[index])
-        work.x[n + index] = imag(vector[index])
+        buffers.x[index] = real(vector[index])
+        buffers.x[n + index] = imag(vector[index])
     end
-    work.x[2n + 1] = real(value)
-    work.x[2n + 2] = imag(value)
+    buffers.x[2n + 1] = real(value)
+    buffers.x[2n + 2] = imag(value)
 
     converged = false
     performed = 0
@@ -157,60 +136,60 @@ function levenberg_marquardt_step!(
         performed=iteration
         levenberg_marquardt_residual!(
             Val(:chrysochos2014),
-            work.residual,
-            work.x,
-            work.real_matrix,
-            work.imaginary_matrix
+            buffers.residual,
+            buffers.x,
+            buffers.real_matrix,
+            buffers.imaginary_matrix
         )
-        residual_norm = norm(work.residual, Inf)
+        residual_norm = norm(buffers.residual, Inf)
         if residual_norm <= tolerance
             converged = true
             break
         end
         levenberg_marquardt_jacobian!(
             Val(:chrysochos2014),
-            work.jacobian,
-            work.x,
-            work.real_matrix,
-            work.imaginary_matrix
+            buffers.jacobian,
+            buffers.x,
+            buffers.real_matrix,
+            buffers.imaginary_matrix
         )
-        mul!(work.gradient, transpose(work.jacobian), work.residual)
-        norm(work.gradient, Inf) <= tolerance && (converged = true; break)
-        mul!(work.hessian, transpose(work.jacobian), work.jacobian)
-        copyto!(work.system, work.hessian)
+        mul!(buffers.gradient, transpose(buffers.jacobian), buffers.residual)
+        norm(buffers.gradient, Inf) <= tolerance && (converged = true; break)
+        mul!(buffers.hessian, transpose(buffers.jacobian), buffers.jacobian)
+        copyto!(buffers.system, buffers.hessian)
         diagonal_scale = one(R)
-        @inbounds for index in axes(work.hessian, 1)
+        @inbounds for index in axes(buffers.hessian, 1)
             diagonal_scale = max(
                 diagonal_scale,
-                abs(work.hessian[index, index])
+                abs(buffers.hessian[index, index])
             )
         end
         floor = eps(R) * diagonal_scale
-        @inbounds for index in axes(work.system, 1)
-            work.system[index, index] += damping *
-                                         max(work.hessian[index, index], floor)
+        @inbounds for index in axes(buffers.system, 1)
+            buffers.system[index, index] += damping *
+                                         max(buffers.hessian[index, index], floor)
         end
-        copyto!(work.step, work.gradient)
-        work.step .*= -one(R)
-        factorization = lu!(work.system; check = false)
+        copyto!(buffers.step, buffers.gradient)
+        buffers.step .*= -one(R)
+        factorization = lu!(buffers.system; check = false)
         issuccess(factorization) || return value, false, performed
-        ldiv!(factorization, work.step)
-        all(isfinite, work.step) || return value, false, performed
-        work.candidate .= work.x .+ work.step
+        ldiv!(factorization, buffers.step)
+        all(isfinite, buffers.step) || return value, false, performed
+        buffers.candidate .= buffers.x .+ buffers.step
         levenberg_marquardt_residual!(
             Val(:chrysochos2014),
-            work.candidate_residual,
-            work.candidate,
-            work.real_matrix,
-            work.imaginary_matrix
+            buffers.candidate_residual,
+            buffers.candidate,
+            buffers.real_matrix,
+            buffers.imaginary_matrix
         )
-        old_cost = dot(work.residual, work.residual)
-        new_cost = dot(work.candidate_residual, work.candidate_residual)
+        old_cost = dot(buffers.residual, buffers.residual)
+        new_cost = dot(buffers.candidate_residual, buffers.candidate_residual)
         if isfinite(new_cost) && new_cost < old_cost
-            copyto!(work.x, work.candidate)
+            copyto!(buffers.x, buffers.candidate)
             damping = max(damping / R(3), eps(R))
-            if norm(work.step, Inf) <= tolerance *
-                                       (tolerance + norm(work.x, Inf))
+            if norm(buffers.step, Inf) <= tolerance *
+                                       (tolerance + norm(buffers.x, Inf))
                 converged = true
                 break
             end
@@ -221,10 +200,10 @@ function levenberg_marquardt_step!(
     end
 
     @inbounds for index in 1:n
-        vector[index] = complex(work.x[index], work.x[n + index])
+        vector[index] = complex(buffers.x[index], buffers.x[n + index])
     end
     _unit!(vector) || return value, false, performed
-    return complex(work.x[2n + 1], work.x[2n + 2]), converged, performed
+    return complex(buffers.x[2n + 1], buffers.x[2n + 2]), converged, performed
 end
 
 """
@@ -268,13 +247,29 @@ Using the Levenberg–Marquardt Method*, IEEE Transactions on Power Delivery,
 29(4), 2014. DOI: 10.1109/TPWRD.2013.2284504.
 """
 function initialize_buffers(::Val{:chrysochos2014}, ::Type{T}, input,
-        invariants, buffers) where {T <: Complex}
-    n = invariants.n
+        plan, buffers) where {T <: Complex}
+    n = plan.n
     R = typeof(real(zero(T)))
+    order = 2n + 2
     return merge(buffers,(
         normalized_shifted_eigenproblem=Matrix{T}(undef,n,n),
-        least_squares=levenberg_marquardt_workspace(Val(:chrysochos2014),R,n),
-        eigenpair_assignment=_assignment_workspace(T,n)))
+        least_squares=(
+            x = Vector{R}(undef, order),
+            candidate = Vector{R}(undef, order),
+            residual = Vector{R}(undef, order),
+            candidate_residual = Vector{R}(undef, order),
+            jacobian = Matrix{R}(undef, order, order),
+            gradient = Vector{R}(undef, order),
+            hessian = Matrix{R}(undef, order, order),
+            system = Matrix{R}(undef, order, order),
+            step = Vector{R}(undef, order),
+            real_matrix = Matrix{R}(undef, n, n),
+            imaginary_matrix = Matrix{R}(undef, n, n)),
+        eigenpair_assignment=(cost=Matrix{R}(undef,n,n),u=zeros(R,n+1),v=zeros(R,n+1),
+            matching=zeros(Int,n+1),way=zeros(Int,n+1),minimums=Vector{R}(undef,n+1),
+            used=falses(n+1),assignment=Vector{Int}(undef,n),
+            ordered_values=Vector{T}(undef,n),ordered_vectors=Matrix{T}(undef,n,n),
+            residual=Vector{T}(undef,n))))
 end
 
 function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
@@ -286,15 +281,15 @@ function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
     n, _, nfrequencies = size(impedance)
     T = eltype(workspace.Ti)
     R = typeof(real(zero(T)))
-    work = workspace.buffers
-    admittance_impedance_product = work.admittance_impedance_product
-    normalized_shifted_eigenproblem = work.normalized_shifted_eigenproblem
-    least_squares = work.least_squares
-    previous_eigenvalues = work.previous_eigenvalues
-    previous_eigenvectors = work.previous_eigenvectors
-    eigenvalues = work.eigenvalues
-    eigenvectors = work.eigenvectors
-    propagation_eigenvalues = work.propagation_eigenvalues
+    buffers = workspace.buffers
+    admittance_impedance_product = buffers.admittance_impedance_product
+    normalized_shifted_eigenproblem = buffers.normalized_shifted_eigenproblem
+    least_squares = buffers.least_squares
+    previous_eigenvalues = buffers.previous_eigenvalues
+    previous_eigenvectors = buffers.previous_eigenvectors
+    eigenvalues = buffers.eigenvalues
+    eigenvectors = buffers.eigenvectors
+    propagation_eigenvalues = buffers.propagation_eigenvalues
     convergence = convert(R, iteration_options.convergence)
     validation_tolerance = max(R(100)*eps(R), convergence^2)
     missed = workspace.diagnostics.missed_frequencies
@@ -351,13 +346,13 @@ function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
             end
             if failed_mode != 0 || !diagonalizes!(eigenvectors,
                     propagation_eigenvalues,admittance_impedance_product,validation_tolerance,
-                    work.eigenpair_assignment.residual)
+                    buffers.eigenpair_assignment.residual)
                 push!(missed, frequency_index)
                 if iteration_options.fallback === :matched
                     push!(fallback, frequency_index)
                     fallback_values, fallback_vectors = recompute_matched_eigenpairs!(
                         admittance_impedance_product,previous_eigenvalues,
-                        previous_eigenvectors,work.eigenpair_assignment)
+                        previous_eigenvectors,buffers.eigenpair_assignment)
                     for mode in 1:n
                         eigenvalues[mode] = fallback_values[mode]/scale-one(T)
                     end
@@ -371,19 +366,19 @@ function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
         for mode in 1:n
             vector = @view workspace.Ti[:,mode,frequency_index]
             _unit!(vector) || throw(ArgumentError("current eigenvector has zero norm"))
-            mul!(work.voltage_vector,Zslice,vector)
-            divisor = norm(work.voltage_vector)
+            mul!(buffers.voltage_vector,Zslice,vector)
+            divisor = norm(buffers.voltage_vector)
             isfinite(divisor) && !iszero(divisor) ||
                 throw(ArgumentError("voltage eigenvector has zero or undefined norm"))
-            @views workspace.Tv[:,mode,frequency_index] .= work.voltage_vector ./ divisor
+            @views workspace.Tv[:,mode,frequency_index] .= buffers.voltage_vector ./ divisor
             root = sqrt((previous_eigenvalues[mode]+one(T))*scale)
             (real(root)<0 || (iszero(real(root)) && imag(root)<0)) && (root=-root)
             workspace.roots[mode,frequency_index] = root*workspace.input.root_scale
             eigenvalue=(previous_eigenvalues[mode]+one(T))*scale
-            mul!(work.eigenpair_assignment.residual,admittance_impedance_product,vector)
-            work.eigenpair_assignment.residual .-= eigenvalue .* vector
+            mul!(buffers.eigenpair_assignment.residual,admittance_impedance_product,vector)
+            buffers.eigenpair_assignment.residual .-= eigenvalue .* vector
             denominator=(norm(admittance_impedance_product,Inf)+abs(eigenvalue))*norm(vector,Inf)
-            numerator=norm(work.eigenpair_assignment.residual,Inf)
+            numerator=norm(buffers.eigenpair_assignment.residual,Inf)
             workspace.diagnostics.eigen_residual[mode,frequency_index]=
                 iszero(denominator) ? (iszero(numerator) ? zero(R) : R(Inf)) :
                 numerator/denominator

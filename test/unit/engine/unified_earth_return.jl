@@ -175,7 +175,7 @@ end
     w=E.LineParametersWorkspace(problem, Formulation(), execution, blueprints)
     E._solve!(w, Formulation());
     E._solve!(w, Formulation())
-    @test length(w.capture.integrals)==18
+    @test length(w.trace.integrals)==18
     quiet=compute(problem; options = (trace = false, verbosity = (default = 0,)))
     @test !haskey(details(quiet).data, :trace)
 end
@@ -207,18 +207,18 @@ end
         blueprints=E.CableBlueprint{T}[E.flatten(LineCableModelsCoaxial(), d, T)
                                        for d in problem.system.designs]
         workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
-        shared=only(workspace.invariants.earth_calculations)
+        shared=only(workspace.plan.earth_calculations)
         @test !isempty(shared.impedance_indices) && !isempty(shared.potential_indices)
         @test length(workspace.buffers.earth_materials) == 1
         @test (@inferred E._solve!(workspace, selected)) === workspace
         @test all(isfinite, workspace.buffers.enclosed_impedance)
-        @test !isempty(workspace.capture.integrals)
+        @test !isempty(workspace.trace.integrals)
         @test eltype(workspace.buffers.Zout)===Complex{Measurement{Float64}}
-        trace=workspace.capture
+        trace=workspace.trace
         Ze=trace.Zg[:, :, 1]
         Pe=trace.Pg[:, :, 1]
         Ye=(2pi*1e6*im)*(Pe\Matrix{eltype(Pe)}(I, 2, 2))
-        permutation=workspace.invariants.plan.permutation
+        permutation=workspace.plan.reduction.permutation
         primitive=trace.P[permutation, permutation, 1]
         actual=workspace.buffers.Yout[:, :, 1]
         @test maximum(E.numerical_magnitude.(actual*primitive-(2pi*1e6*im)*I))<1e-6
@@ -516,7 +516,7 @@ end
             points=E.earth_spectral_points!(
                 UnifiedFormulaFixtures.buffers(geometry).earth_spectrum, state, 2.0, 1.0, 0.0, 0.0)
             push!(points, 1.0)
-            real_axis, _=E.integrate(Val(:quad), integral, controls; points)
+            real_axis, _=E.integrate(integral, Val(:quad), controls; points)
             rotated=E.earth_spectral_term(
                 Val(kind), Val(P), Val(Q), state, 1.0, 1.0, 1.0, 0.0, 0.0,
                 Val(:quad), controls, UnifiedFormulaFixtures.buffers(geometry))

@@ -98,9 +98,10 @@ end
     @test size(Yc(modal))==size(roots)
     @test size(Zc(modal,PhaseDomain))==size(impedance)
     @test size(Yc(modal,PhaseDomain))==size(impedance)
-    assignment_work=ModalAnalysis._assignment_workspace(ComplexF64,3)
+    assignment=LineCableModels.Commons.initialize_buffers(Val(:chrysochos2014),
+        ComplexF64,(;),(; n = 3, nf = 1),(;)).eigenpair_assignment
     @test ModalAnalysis.hungarian_assignment!(
-        [4.0 1.0 3.0; 2.0 0.0 5.0; 3.0 2.0 2.0],assignment_work) ==
+        [4.0 1.0 3.0; 2.0 0.0 5.0; 3.0 2.0 2.0],assignment) ==
           [2, 1, 3]
 
     smooth_frequencies=collect(10.0 .^ range(1, 4; length = 17))

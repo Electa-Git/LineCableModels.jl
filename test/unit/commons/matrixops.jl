@@ -175,3 +175,17 @@ end
     # Averaging Y after the inversion is the convention this test rejects.
     @test !isapprox(Yr, Commons.ideal_transposition!(s*inv(P)); rtol=1e-2)
 end
+
+@testitem "Commons / matrix reductions / buffers extend the calculation record" tags=[:unit, :commons] begin
+    const Commons=LineCableModels.Commons
+    plan=Commons.ReductionPlan([1, 2, 2, 0]; reduce_bundle=true, kron_reduction=true,
+        ideal_transposition=false)
+    existing=(destination = zeros(ComplexF64, 2, 2),)
+    buffers=Commons.initialize_buffers(plan, ComplexF64, (;), (;), existing)
+    @test keys(buffers) == (:destination, :reduction)
+    @test buffers.destination === existing.destination
+    @test buffers.reduction isa Commons.ReductionBuffers{ComplexF64}
+    @test size(buffers.reduction.ordered) == (4, 4)
+    @test size(buffers.reduction.potential) == (length(plan.keep), length(plan.keep))
+    @test size(buffers.reduction.factor) == (length(plan.eliminate), length(plan.eliminate))
+end

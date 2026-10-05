@@ -62,6 +62,11 @@ Return the rule stored by an EquivalentHomogeneous composition.
 """
 rule(sequence::AbstractSequence) = sequence.rule
 
+function initialize_buffers(sequence::AbstractSequence, ::Type{T}, input, plan,
+        buffers) where {T}
+    return initialize_buffers(rule(sequence), T, input, plan, buffers)
+end
+
 """
 Return the stable formula identifier of an EquivalentHomogeneous formula.
 """

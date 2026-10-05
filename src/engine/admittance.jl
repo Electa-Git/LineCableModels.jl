@@ -259,9 +259,9 @@ function admittance!(
         frequency::Int
 ) where {T <: Real}
     input = workspace.input
-    indices = workspace.invariants.cable_indices
+    indices = workspace.plan.cable_indices
     earth_matrix = workspace.buffers.Pearth
-    capture = workspace.capture
+    trace = workspace.trace
 
     @inbounds for cable in 1:input.n_cables
         self = earth_matrix[cable, cable]
@@ -280,6 +280,6 @@ function admittance!(
             end
         end
     end
-    _stash!(capture, :P, frequency, destination)
+    _stash!(trace, :P, frequency, destination)
     return destination
 end

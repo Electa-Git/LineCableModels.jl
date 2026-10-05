@@ -1,6 +1,7 @@
 @testmodule EarthInteractionFixtures begin
     using LineCableModels
     const E=LineCableModels.Engine
+    const G=LineCableModels.Commons
     const EI, EA=E.EarthImpedance, E.EarthAdmittance
     const FM=LineCableModels.FormulaMethod
 
@@ -37,7 +38,7 @@
             @eval function $operation_name(selected::$name, ::Val{$(QuoteNode(kind))},
                     ::Val{$layer}, ::Val{$layer}, functor, pair, workspace)
                 push!(selected.calls, (pair.row, pair.column))
-                radii=workspace.invariants.geometry.radius
+                radii=workspace.plan.geometry.radius
                 coefficient=10(pair.row==pair.column) + abs(pair.heights[2]) +
                             2abs(pair.heights[1]) +
                             pair.separation + radii[pair.row] + 3radii[pair.column] +
@@ -80,18 +81,19 @@
             frequency = imag(functor.state.jω)/(2pi), term = :test) :
                 selected.parameters.description
         value,
-        _=E.integrate(Val(:quad), integral, (rtol = 1e-14, atol = 0.0, maxevals = 15),
-            workspace.buffers.quadrature; observations = workspace.buffers.observations, context)
+        _=E.integrate(integral, Val(:quad), (rtol = 1e-14, atol = 0.0, maxevals = 15),
+            workspace.buffers; observations = workspace.buffers.observations, context)
         return value
     end
     E.earth_bindings(::IntegralImpedance,
         binding::NamedTuple,
         geometry::NamedTuple) = merge(binding, (reuse_inputs = fill((), length(binding.interactions)),))
-    E.initialize_buffers(::IntegralImpedance,
+    G.initialize_buffers(::IntegralImpedance,
         ::Type{T},
         input,
-        invariants,
-        buffers) where {T} = E.initialize_buffers(Val(:quad), T, input, invariants, buffers)
+        plan,
+        buffers) where {T} =
+        G.initialize_buffers(E.SpectralIntegral, Val(:quad), T, input, plan, buffers)
 
     function workspace(problem, impedance = PairImpedance(); trace = false)
         selected=Formulation(

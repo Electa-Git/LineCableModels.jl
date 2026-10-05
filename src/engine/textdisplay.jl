@@ -328,6 +328,6 @@ function Base.show(io::IO, ::MIME"text/plain", workspace::LineParametersWorkspac
         (label = "phases       $(input.n_phases)", noun = "fields"),
         (label = "cables       $(input.n_cables)", noun = "fields"),
         (label = "frequencies  $(input.n_frequencies)", noun = "fields"),
-        (label = "capture      $(workspace.capture === nothing ? "disabled" : "enabled")", noun = "fields"),
+        (label = "trace        $(workspace.trace === nothing ? "disabled" : "enabled")", noun = "fields"),
     ))
 end

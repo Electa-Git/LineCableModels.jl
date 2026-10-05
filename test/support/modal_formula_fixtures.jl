@@ -24,8 +24,8 @@
     LineCableModels.description(
         ::Type{<:FixedModalMaps}, ::Val{:current}, value::AbstractArray;
         compact::Bool = false) = "current map="*sprint(show, value)
-    LineCableModels.Engine.initialize_buffers(
-        ::FixedModalMaps, ::Type, input, invariants, buffers) = buffers
+    LineCableModels.Commons.initialize_buffers(
+        ::FixedModalMaps, ::Type, input, plan, buffers) = buffers
     function LineCableModels.ModalAnalysis.decompose!(selected::FixedModalMaps,
             workspace, parameters, options)
         copyto!(workspace.Tv, selected.parameters.voltage)

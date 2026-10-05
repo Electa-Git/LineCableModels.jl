@@ -72,23 +72,11 @@ function formulation_options(::FormulaMethod{<:Formula{:vieira2026}, typeof(deco
     return options
 end
 
-function levenberg_marquardt_workspace(::Val{:vieira2026}, ::Type{R}, n::Integer) where {R <:
-                                                                                         Real}
-    T = Complex{R}
-    order = n + 1
-    return (
-        x = Vector{T}(undef, order), candidate = Vector{T}(undef, order),
-        residual = Vector{T}(undef, order), candidate_residual = Vector{T}(undef, order),
-        jacobian = Matrix{T}(undef, order, order),
-        system = Matrix{T}(undef, 2order, order), rhs = Vector{T}(undef, 2order),
-        column_norms = Vector{R}(undef, order), step = Vector{T}(undef, order),
-        projection = Vector{T}(undef, order))
-end
-
 function initialize_buffers(
-        ::Val{:vieira2026}, ::Type{T}, input, invariants, buffers) where {T <: Complex}
-    n = invariants.n
+        ::Val{:vieira2026}, ::Type{T}, input, plan, buffers) where {T <: Complex}
+    n = plan.n
     R = typeof(real(zero(T)))
+    order = n + 1
     return merge(buffers,
         (
             normalized_shifted_eigenproblem = Matrix{T}(undef, n, n),
@@ -96,7 +84,14 @@ function initialize_buffers(
             prediction = (older_vectors = Matrix{T}(undef, n, n),
                 older_values = Vector{T}(undef, n), vectors = Matrix{T}(undef, n, n),
                 values = Vector{T}(undef, n)),
-            least_squares = levenberg_marquardt_workspace(Val(:vieira2026), R, n),
+            least_squares = (
+                x = Vector{T}(undef, order), candidate = Vector{T}(undef, order),
+                residual = Vector{T}(undef, order),
+                candidate_residual = Vector{T}(undef, order),
+                jacobian = Matrix{T}(undef, order, order),
+                system = Matrix{T}(undef, 2order, order), rhs = Vector{T}(undef, 2order),
+                column_norms = Vector{R}(undef, order), step = Vector{T}(undef, order),
+                projection = Vector{T}(undef, order)),
             eigenpair_assignment = (
                 cost = Matrix{R}(undef, n, n), assignment = Vector{Int}(undef, n),
                 labels = Vector{Int}(undef, n), stack = Vector{Int}(undef, n),
@@ -129,130 +124,130 @@ function minimum_norm!(solution, matrix::AbstractMatrix{T}, rhs, projection) whe
 end
 
 function levenberg_marquardt_step!(::Val{:vieira2026}, vector::AbstractVector{T},
-        value::T, matrix, options, work) where {T <: Complex}
+        value::T, matrix, options, buffers) where {T <: Complex}
     n = length(vector)
     order = n + 1
     R = typeof(real(zero(T)))
     tolerance = convert(R, options.convergence)
-    copyto!(@view(work.x[1:n]), vector)
-    work.x[end] = value
-    eigenpair_residual!(work.residual, work.x, matrix)
-    cost = real(dot(work.residual, work.residual))
+    copyto!(@view(buffers.x[1:n]), vector)
+    buffers.x[end] = value
+    eigenpair_residual!(buffers.residual, buffers.x, matrix)
+    cost = real(dot(buffers.residual, buffers.residual))
     damping = zero(R)
     iterations = 0
     for iteration in 1:options.max_iterations
         sqrt(cost) < tolerance && break
         iterations = iteration
-        eigenpair_jacobian!(work.jacobian, work.x, matrix)
+        eigenpair_jacobian!(buffers.jacobian, buffers.x, matrix)
         for column in 1:order
-            work.column_norms[column] = norm(@view(work.jacobian[:, column]))
+            buffers.column_norms[column] = norm(@view(buffers.jacobian[:, column]))
         end
         candidate_cost = cost
         while true
             rows = iszero(damping) ? order : 2order
-            copyto!(@view(work.system[1:order, :]), work.jacobian)
-            @views work.rhs[1:order] .= -work.residual
+            copyto!(@view(buffers.system[1:order, :]), buffers.jacobian)
+            @views buffers.rhs[1:order] .= -buffers.residual
             if !iszero(damping)
-                fill!(@view(work.system[(order + 1):end, :]), zero(T))
-                fill!(@view(work.rhs[(order + 1):end]), zero(T))
+                fill!(@view(buffers.system[(order + 1):end, :]), zero(T))
+                fill!(@view(buffers.rhs[(order + 1):end]), zero(T))
                 for column in 1:order
-                    work.system[order + column, column] = sqrt(damping) *
-                                                          work.column_norms[column]
+                    buffers.system[order + column, column] = sqrt(damping) *
+                                                          buffers.column_norms[column]
                 end
             end
-            minimum_norm!(work.step, @view(work.system[1:rows, :]),
-                @view(work.rhs[1:rows]), work.projection)
-            work.candidate .= work.x .+ work.step
-            eigenpair_residual!(work.candidate_residual, work.candidate, matrix)
-            candidate_cost = real(dot(work.candidate_residual, work.candidate_residual))
+            minimum_norm!(buffers.step, @view(buffers.system[1:rows, :]),
+                @view(buffers.rhs[1:rows]), buffers.projection)
+            buffers.candidate .= buffers.x .+ buffers.step
+            eigenpair_residual!(buffers.candidate_residual, buffers.candidate, matrix)
+            candidate_cost = real(dot(buffers.candidate_residual, buffers.candidate_residual))
             (candidate_cost < cost || damping > R(1e8)) && break
             damping = iszero(damping) ? R(1e-6) : 10damping
         end
         candidate_cost < cost || break
-        copyto!(work.x, work.candidate)
-        copyto!(work.residual, work.candidate_residual)
+        copyto!(buffers.x, buffers.candidate)
+        copyto!(buffers.residual, buffers.candidate_residual)
         cost = candidate_cost
         damping = damping <= R(1e-6) ? zero(R) : damping / 10
     end
-    copyto!(vector, @view(work.x[1:n]))
-    return work.x[end], sqrt(cost) < tolerance, iterations
+    copyto!(vector, @view(buffers.x[1:n]))
+    return buffers.x[end], sqrt(cost) < tolerance, iterations
 end
 
 function refine_eigenpairs!(::Val{:vieira2026}, values, vectors, previous_vectors,
-        prediction, eigensystem, options, work)
+        prediction, eigensystem, options, buffers)
     n = length(values)
-    R = eltype(work.cost)
+    R = eltype(buffers.cost)
     @inbounds for column in 1:n, row in 1:n
 
-        work.cost[row, column] = abs(values[row] - eigensystem.values[column])
+        buffers.cost[row, column] = abs(values[row] - eigensystem.values[column])
     end
-    greedy_assignment!(work.assignment, work.cost)
+    greedy_assignment!(buffers.assignment, buffers.cost)
     eigenvalue_limit = R(options.eigenvalue_tolerance) *
                        max(one(R), maximum(abs, eigensystem.values))
     any(
-        row -> abs(values[row] - eigensystem.values[work.assignment[row]]) >
+        row -> abs(values[row] - eigensystem.values[buffers.assignment[row]]) >
                eigenvalue_limit, 1:n) &&
         return false
 
-    fill!(work.labels, 0)
+    fill!(buffers.labels, 0)
     clusters = 0
     for seed in 1:n
-        work.labels[seed] == 0 || continue
+        buffers.labels[seed] == 0 || continue
         clusters += 1
-        work.labels[seed] = clusters
+        buffers.labels[seed] = clusters
         pending = 1
-        work.stack[pending] = seed
+        buffers.stack[pending] = seed
         while pending > 0
-            row = work.stack[pending]
+            row = buffers.stack[pending]
             pending -= 1
             for column in 1:n
-                work.labels[column] == 0 || continue
+                buffers.labels[column] == 0 || continue
                 gap = abs(eigensystem.values[row] - eigensystem.values[column])
                 limit = R(options.cluster_tolerance) *
                         max(abs(1 + eigensystem.values[row]),
                     abs(1 + eigensystem.values[column]), R(1e-3))
                 if gap < limit
-                    work.labels[column] = clusters
+                    buffers.labels[column] = clusters
                     pending += 1
-                    work.stack[pending] = column
+                    buffers.stack[pending] = column
                 end
             end
         end
     end
     @inbounds for mode in 1:n
-        values[mode] = eigensystem.values[work.assignment[mode]]
+        values[mode] = eigensystem.values[buffers.assignment[mode]]
     end
-    fill!(work.isolated, true)
+    fill!(buffers.isolated, true)
     for cluster in 1:clusters
         count = 0
         tracks = 0
         for mode in 1:n
-            if work.labels[mode] == cluster
+            if buffers.labels[mode] == cluster
                 count += 1
-                work.columns[count] = mode
+                buffers.columns[count] = mode
             end
-            if work.labels[work.assignment[mode]] == cluster
+            if buffers.labels[buffers.assignment[mode]] == cluster
                 tracks += 1
-                work.tracks[tracks] = mode
+                buffers.tracks[tracks] = mode
             end
         end
         count == 1 && continue
         for column in 1:count
-            track = work.tracks[column]
-            work.isolated[track] = false
-            copyto!(@view(work.system[:, column]), @view(previous_vectors[:, track]))
-            copyto!(@view(work.rhs[:, column]), @view(eigensystem.vectors[:, work.columns[column]]))
+            track = buffers.tracks[column]
+            buffers.isolated[track] = false
+            copyto!(@view(buffers.system[:, column]), @view(previous_vectors[:, track]))
+            copyto!(@view(buffers.rhs[:, column]), @view(eigensystem.vectors[:, buffers.columns[column]]))
         end
-        coefficients = @view work.coefficients[1:count, 1:count]
-        minimum_norm!(coefficients, @view(work.system[:, 1:count]),
-            @view(work.rhs[:, 1:count]), @view(work.projection[1:count, 1:count]))
-        cost = @view work.cost[1:count, 1:count]
+        coefficients = @view buffers.coefficients[1:count, 1:count]
+        minimum_norm!(coefficients, @view(buffers.system[:, 1:count]),
+            @view(buffers.rhs[:, 1:count]), @view(buffers.projection[1:count, 1:count]))
+        cost = @view buffers.cost[1:count, 1:count]
         cost .= .-abs.(coefficients)
-        assignment = @view work.cluster_assignment[1:count]
+        assignment = @view buffers.cluster_assignment[1:count]
         greedy_assignment!(assignment, cost)
         for column in 1:count
-            track = work.tracks[column]
-            source = work.columns[assignment[column]]
+            track = buffers.tracks[column]
+            source = buffers.columns[assignment[column]]
             copyto!(@view(vectors[:, track]), @view(eigensystem.vectors[:, source]))
             values[track] = eigensystem.values[source]
         end
@@ -262,7 +257,7 @@ function refine_eigenpairs!(::Val{:vieira2026}, values, vectors, previous_vector
         value_change = abs(values[mode] - prediction.values[mode]) /
                        max(abs(prediction.values[mode]), R(1e-3))
         largest_change = max(largest_change, value_change)
-        if work.isolated[mode]
+        if buffers.isolated[mode]
             change = zero(R)
             magnitude = zero(R)
             for row in 1:n
@@ -278,13 +273,13 @@ end
 
 function decompose!(::Val{:vieira2026}, workspace::ModalAnalysisWorkspace,
         parameters::NamedTuple, options::FormulationOptions)
-    work = workspace.buffers
+    buffers = workspace.buffers
     input = workspace.input
     diagnostics = workspace.diagnostics
     iteration = options.data.iteration
     tracking = options.data.tracking
-    prediction = work.prediction
-    assignment = work.eigenpair_assignment
+    prediction = buffers.prediction
+    assignment = buffers.eigenpair_assignment
     n, _, nf = size(workspace.Ti)
     T = eltype(workspace.Ti)
     R = typeof(real(zero(T)))
@@ -292,65 +287,65 @@ function decompose!(::Val{:vieira2026}, workspace::ModalAnalysisWorkspace,
     epsilon0 = vacuum_permittivity(R)
     mu0 = vacuum_permeability(R)
     for frequency in 1:nf
-        copyto!(work.Zslice, @view(input.Z[:, :, frequency]))
-        copyto!(work.Yslice, @view(input.Y[:, :, frequency]))
-        work.Zslice ./= input.root_scale
-        work.Yslice ./= input.root_scale
-        mul!(work.admittance_impedance_product, work.Yslice, work.Zslice)
+        copyto!(buffers.Zslice, @view(input.Z[:, :, frequency]))
+        copyto!(buffers.Yslice, @view(input.Y[:, :, frequency]))
+        buffers.Zslice ./= input.root_scale
+        buffers.Yslice ./= input.root_scale
+        mul!(buffers.admittance_impedance_product, buffers.Yslice, buffers.Zslice)
         omega = 2 * (unit * π) * R(input.f[frequency])
         scale = -(omega^2) * epsilon0 * mu0
-        matrix = work.normalized_shifted_eigenproblem
-        matrix .= work.admittance_impedance_product ./ scale
+        matrix = buffers.normalized_shifted_eigenproblem
+        matrix .= buffers.admittance_impedance_product ./ scale
         for mode in 1:n
             matrix[mode, mode] -= one(T)
         end
-        copyto!(work.spectral_factor, matrix)
-        eigensystem = eigen!(work.spectral_factor)
+        copyto!(buffers.spectral_factor, matrix)
+        eigensystem = eigen!(buffers.spectral_factor)
         for mode in 1:n
             vector = @view eigensystem.vectors[:, mode]
             vector ./= sqrt(sum(value -> value * value, vector))
         end
         if frequency == 1
-            copyto!(work.eigenvalues, eigensystem.values)
-            copyto!(work.eigenvectors, eigensystem.vectors)
+            copyto!(buffers.eigenvalues, eigensystem.values)
+            copyto!(buffers.eigenvectors, eigensystem.vectors)
         else
             coefficient = frequency == 2 ? zero(R) :
                           clamp(
                 R(input.f[frequency] - input.f[frequency - 1]) /
                 R(input.f[frequency - 1] - input.f[frequency - 2]), -one(R), one(R))
             if frequency == 2
-                copyto!(prediction.vectors, work.previous_eigenvectors)
-                copyto!(prediction.values, work.previous_eigenvalues)
+                copyto!(prediction.vectors, buffers.previous_eigenvectors)
+                copyto!(prediction.values, buffers.previous_eigenvalues)
             else
-                prediction.vectors .= work.previous_eigenvectors .+
-                                      coefficient .* (work.previous_eigenvectors .-
+                prediction.vectors .= buffers.previous_eigenvectors .+
+                                      coefficient .* (buffers.previous_eigenvectors .-
                                        prediction.older_vectors)
-                prediction.values .= work.previous_eigenvalues .+
+                prediction.values .= buffers.previous_eigenvalues .+
                                      coefficient .*
-                                     (work.previous_eigenvalues .- prediction.older_values)
+                                     (buffers.previous_eigenvalues .- prediction.older_values)
             end
-            copyto!(work.eigenvectors, prediction.vectors)
+            copyto!(buffers.eigenvectors, prediction.vectors)
             for mode in 1:n
                 value, converged, iterations = levenberg_marquardt_step!(Val(:vieira2026),
-                    @view(work.eigenvectors[:, mode]), prediction.values[mode], matrix,
-                    iteration, work.least_squares)
-                work.eigenvalues[mode] = value
+                    @view(buffers.eigenvectors[:, mode]), prediction.values[mode], matrix,
+                    iteration, buffers.least_squares)
+                buffers.eigenvalues[mode] = value
                 diagnostics.iterations[mode, frequency] = iterations
                 diagnostics.converged[mode, frequency] = converged
             end
-            matched = refine_eigenpairs!(Val(:vieira2026), work.eigenvalues,
-                work.eigenvectors, work.previous_eigenvectors, prediction, eigensystem, tracking, assignment)
+            matched = refine_eigenpairs!(Val(:vieira2026), buffers.eigenvalues,
+                buffers.eigenvectors, buffers.previous_eigenvectors, prediction, eigensystem, tracking, assignment)
             if !matched
                 # Preserve the reference's square correlation solve and greedy assignment.
-                copyto!(assignment.system, work.previous_eigenvectors)
+                copyto!(assignment.system, buffers.previous_eigenvectors)
                 copyto!(assignment.coefficients, eigensystem.vectors)
                 ldiv!(lu!(assignment.system), assignment.coefficients)
                 assignment.cost .= .-abs.(assignment.coefficients)
                 greedy_assignment!(assignment.assignment, assignment.cost)
                 for mode in 1:n
                     source = assignment.assignment[mode]
-                    copyto!(@view(work.eigenvectors[:, mode]), @view(eigensystem.vectors[:, source]))
-                    work.eigenvalues[mode] = eigensystem.values[source]
+                    copyto!(@view(buffers.eigenvectors[:, mode]), @view(eigensystem.vectors[:, source]))
+                    buffers.eigenvalues[mode] = eigensystem.values[source]
                 end
                 push!(diagnostics.fallback_frequencies, frequency)
             end
@@ -358,55 +353,55 @@ function decompose!(::Val{:vieira2026}, workspace::ModalAnalysisWorkspace,
                 push!(diagnostics.missed_frequencies, frequency)
             end
             for mode in 1:n
-                real(dot(@view(work.previous_eigenvectors[:, mode]),
-                    @view(work.eigenvectors[:, mode]))) < 0 &&
-                    (@views work.eigenvectors[:, mode] .*= -one(T))
+                real(dot(@view(buffers.previous_eigenvectors[:, mode]),
+                    @view(buffers.eigenvectors[:, mode]))) < 0 &&
+                    (@views buffers.eigenvectors[:, mode] .*= -one(T))
             end
-            copyto!(prediction.older_vectors, work.previous_eigenvectors)
-            copyto!(prediction.older_values, work.previous_eigenvalues)
+            copyto!(prediction.older_vectors, buffers.previous_eigenvectors)
+            copyto!(prediction.older_values, buffers.previous_eigenvalues)
         end
-        copyto!(work.previous_eigenvectors, work.eigenvectors)
-        copyto!(work.previous_eigenvalues, work.eigenvalues)
-        work.propagation_eigenvalues .= (work.eigenvalues .+ one(T)) .* scale
+        copyto!(buffers.previous_eigenvectors, buffers.eigenvectors)
+        copyto!(buffers.previous_eigenvalues, buffers.eigenvalues)
+        buffers.propagation_eigenvalues .= (buffers.eigenvalues .+ one(T)) .* scale
         for mode in 1:n
             vector = @view workspace.Ti[:, mode, frequency]
-            copyto!(vector, @view(work.eigenvectors[:, mode]))
+            copyto!(vector, @view(buffers.eigenvectors[:, mode]))
             _unit!(vector) ||
                 throw(ArgumentError("current eigenvector has zero or undefined norm"))
-            mul!(work.voltage_vector, work.Zslice, vector)
-            divisor = norm(work.voltage_vector)
+            mul!(buffers.voltage_vector, buffers.Zslice, vector)
+            divisor = norm(buffers.voltage_vector)
             isfinite(divisor) && !iszero(divisor) ||
                 throw(ArgumentError("voltage eigenvector has zero or undefined norm"))
-            @views workspace.Tv[:, mode, frequency] .= work.voltage_vector ./ divisor
-            eigenvalue = work.propagation_eigenvalues[mode]
+            @views workspace.Tv[:, mode, frequency] .= buffers.voltage_vector ./ divisor
+            eigenvalue = buffers.propagation_eigenvalues[mode]
             root = sqrt(eigenvalue)
             (real(root) < 0 || (iszero(real(root)) && imag(root) < 0)) && (root = -root)
             workspace.roots[mode, frequency] = root * input.root_scale
-            mul!(work.eigen_residual, work.admittance_impedance_product, vector)
-            work.eigen_residual .-= eigenvalue .* vector
-            denominator = (norm(work.admittance_impedance_product, Inf) + abs(eigenvalue)) *
+            mul!(buffers.eigen_residual, buffers.admittance_impedance_product, vector)
+            buffers.eigen_residual .-= eigenvalue .* vector
+            denominator = (norm(buffers.admittance_impedance_product, Inf) + abs(eigenvalue)) *
                           norm(vector, Inf)
-            numerator = norm(work.eigen_residual, Inf)
+            numerator = norm(buffers.eigen_residual, Inf)
             diagnostics.eigen_residual[mode, frequency] = iszero(denominator) ?
                                                           (iszero(numerator) ? zero(R) :
                                                            R(Inf)) : numerator / denominator
         end
     end
     if tracking.order_by_velocity
-        order = work.mode_order
+        order = buffers.mode_order
         sortperm!(order.indices, @view(workspace.roots[:, end]); by = value -> -imag(value))
         for frequency in 1:nf
-            copyto!(work.eigenvectors, @view(workspace.Ti[:, :, frequency]))
-            copyto!(work.previous_eigenvectors, @view(workspace.Tv[:, :, frequency]))
-            copyto!(work.eigenvalues, @view(workspace.roots[:, frequency]))
+            copyto!(buffers.eigenvectors, @view(workspace.Ti[:, :, frequency]))
+            copyto!(buffers.previous_eigenvectors, @view(workspace.Tv[:, :, frequency]))
+            copyto!(buffers.eigenvalues, @view(workspace.roots[:, frequency]))
             copyto!(order.residual, @view(diagnostics.eigen_residual[:, frequency]))
             copyto!(order.iterations, @view(diagnostics.iterations[:, frequency]))
             copyto!(order.converged, @view(diagnostics.converged[:, frequency]))
             for mode in 1:n
                 source = order.indices[mode]
-                copyto!(@view(workspace.Ti[:, mode, frequency]), @view(work.eigenvectors[:, source]))
-                copyto!(@view(workspace.Tv[:, mode, frequency]), @view(work.previous_eigenvectors[:, source]))
-                workspace.roots[mode, frequency] = work.eigenvalues[source]
+                copyto!(@view(workspace.Ti[:, mode, frequency]), @view(buffers.eigenvectors[:, source]))
+                copyto!(@view(workspace.Tv[:, mode, frequency]), @view(buffers.previous_eigenvectors[:, source]))
+                workspace.roots[mode, frequency] = buffers.eigenvalues[source]
                 diagnostics.eigen_residual[mode, frequency] = order.residual[source]
                 diagnostics.iterations[mode, frequency] = order.iterations[source]
                 diagnostics.converged[mode, frequency] = order.converged[source]

@@ -93,17 +93,6 @@ validated by their scientific owner against `frequencies`.
 """
 computation_type(::Type{T}, ::AbstractFormulation, frequencies) where {T <: Real} = T
 
-"""
-$(TYPEDSIGNATURES)
-
-Allocate a selected formula's reusable arrays during computation initialization.
-The arguments are the resolved selection, scalar type, completed numerical input,
-fixed index and geometry invariants, and existing buffer record. Return the extended
-record without replacing another owner's storage. Array blocks contain no copied
-geometry, material model, selection or validity state. The default uses the existing storage. No material law or integrand is evaluated here.
-"""
-function initialize_buffers end
-
 """Identify the local formula selections that determine blueprint coefficients."""
 function blueprint_dependencies end
 

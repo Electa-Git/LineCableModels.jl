@@ -457,7 +457,6 @@ function CableConstantsWorkspace(
         L = Vector{T}(undef, length(cable.assemblies)),
         C = Vector{T}(undef, length(cable.assemblies)),
         G = Vector{T}(undef, length(cable.assemblies)),
-        quadrature = integration_workspace(typeof(float(nominal(one(T)))), Complex{T}; size = 0),
         observations = nothing
     )
     selected_internal = formulation.methods.internal_impedance

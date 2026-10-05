@@ -20,6 +20,8 @@ ParametricBuilder, UQ, and external implementations.
 
 - `formulation_options` and `computation_options` normalize owner-specific options.
 - `bindings` binds each interaction of a formula to its equation and options.
+- `initialize_buffers` builds the reusable arrays of a calculation into its buffer
+  record, one method per formula or shared component.
 - `computation_details` normalizes supplemental output from a registered
   computation owner, and `details` reads retained supplemental output.
 - `validate` checks a materialized input before its consumer uses it and returns it
@@ -66,7 +68,7 @@ include("retained_products.jl")
 public vacuum_permittivity, vacuum_permeability
 public ideal_transposition!, reorder_indices, kron_reduce, kron_reduce!,
        bundle_operations, merge_bundles!
-public ReductionPlan, ReductionBuffers, reduce_line_matrices!
+public ReductionPlan, ReductionBuffers, reduce_line_matrices!, initialize_buffers
 public FormulaDefinition, FormulaMethod, bindings
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation

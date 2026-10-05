@@ -129,8 +129,8 @@ function source_potential_coefficient(source::Val{S}, ::Val{1}, u, hp, hq, y,
         points ./= scale
         push!(points, one(scale))
         value,
-        _=integrate(integration.method, integral, integration.options,
-            numerical.quadrature; points, coordinate_type = R,
+        _=integrate(integral, integration.method, integration.options,
+            numerical; points, coordinate_type = R,
             context = merge(context, (term = :air_voltage,)), observations = numerical.observations)
         return u.jω/πT*value+u.jω/(2πT*u.sh[1])*direct
     end
@@ -208,12 +208,12 @@ end
 
 function initialize_buffers(
         selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
-        ::Type{T}, input, invariants, buffers) where {T}
-    buffers=initialize_buffers(selected.equivalent_earth, T, input, invariants, buffers)
-    buffers=initialize_buffers(Val(:quad), T, input, invariants, buffers)
+        ::Type{T}, input, plan, buffers) where {T}
+    buffers=initialize_buffers(selected.equivalent_earth, T, input, plan, buffers)
+    buffers=initialize_buffers(SpectralIntegral, Val(:quad), T, input, plan, buffers)
     haskey(buffers, :current_map) && return buffers
     R=typeof(float(nominal(one(T))))
-    n=length(invariants.geometry.radius)
+    n=length(plan.geometry.radius)
     axial_field=Matrix{Complex{T}}(undef, n, n)
     return merge(buffers,
         (
@@ -253,20 +253,20 @@ function (selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}})(
     gamma=ntuple(m->sqrt(s*mu[m]*sh[m]), 2)
     k2=ntuple(m->gamma[m]^2-Γ^2, 2)
     k=map(outgoing_root, k2)
-    work=workspace.buffers
-    geometry=workspace.invariants.geometry
-    for i in eachindex(work.radial_argument)
+    buffers=workspace.buffers
+    geometry=workspace.plan.geometry
+    for i in eachindex(buffers.radial_argument)
         medium=binding.layers[i]
-        work.radial_argument[i]=k[medium]*geometry.radius[i]
-        work.source_logscale[i]=abs(real(work.radial_argument[i]))
-        work.circumference_average[i]=special_besselix(0, work.radial_argument[i])
-        work.radial_current[i]=2 * (one(s)*π) * sh[medium] * geometry.radius[i]^2 *
-                               bessel_current_ratio(work.radial_argument[i])
+        buffers.radial_argument[i]=k[medium]*geometry.radius[i]
+        buffers.source_logscale[i]=abs(real(buffers.radial_argument[i]))
+        buffers.circumference_average[i]=special_besselix(0, buffers.radial_argument[i])
+        buffers.radial_current[i]=2 * (one(s)*π) * sh[medium] * geometry.radius[i]^2 *
+                               bessel_current_ratio(buffers.radial_argument[i])
     end
     state=(jω = s, Γ, sh, mu, k2, k, radius = geometry.radius,
-        radial_argument = work.radial_argument, source_logscale = work.source_logscale,
-        circumference_average = work.circumference_average)
-    return (coefficients = (work.axial_field, work.source_potential), state)
+        radial_argument = buffers.radial_argument, source_logscale = buffers.source_logscale,
+        circumference_average = buffers.circumference_average)
+    return (coefficients = (buffers.axial_field, buffers.source_potential), state)
 end
 
 function (selected::EarthImpedance.Formula{:unified})(state::NamedTuple, interaction::NamedTuple, declaration)
@@ -314,24 +314,24 @@ User-supplied manuscript, *Unified circumferentially averaged framework for
 overhead, buried, and mixed conductor systems*, current and charge maps.
 """
 function earth!(::Union{EarthImpedance.Formula{:unified}, Formula{:unified}}, calculation, workspace)
-    work=workspace.buffers
+    buffers=workspace.buffers
     u=calculation.state
-    for column in axes(work.axial_field, 2), row in axes(work.axial_field, 1)
+    for column in axes(buffers.axial_field, 2), row in axes(buffers.axial_field, 1)
 
-        work.current_map[row, column]=(row==column ? inv(work.circumference_average[row]) :
+        buffers.current_map[row, column]=(row==column ? inv(buffers.circumference_average[row]) :
                                        zero(u.jω))-
-        work.radial_current[row]*work.axial_field[row, column]
+        buffers.radial_current[row]*buffers.axial_field[row, column]
     end
-    copyto!(work.current_factor, transpose(work.current_map))
-    factor=lu!(work.current_factor)
-    copyto!(work.current_rhs, transpose(work.source_potential))
-    ldiv!(factor, work.current_rhs)
-    copyto!(work.enclosed_potential, transpose(work.current_rhs))
-    @. work.enclosed_impedance=work.axial_field+u.Γ^2/u.jω*work.source_potential
-    copyto!(work.current_rhs, transpose(work.enclosed_impedance))
-    ldiv!(factor, work.current_rhs)
-    copyto!(work.enclosed_impedance, transpose(work.current_rhs))
-    return (impedance = work.enclosed_impedance, potential = work.enclosed_potential)
+    copyto!(buffers.current_factor, transpose(buffers.current_map))
+    factor=lu!(buffers.current_factor)
+    copyto!(buffers.current_rhs, transpose(buffers.source_potential))
+    ldiv!(factor, buffers.current_rhs)
+    copyto!(buffers.enclosed_potential, transpose(buffers.current_rhs))
+    @. buffers.enclosed_impedance=buffers.axial_field+u.Γ^2/u.jω*buffers.source_potential
+    copyto!(buffers.current_rhs, transpose(buffers.enclosed_impedance))
+    ldiv!(factor, buffers.current_rhs)
+    copyto!(buffers.enclosed_impedance, transpose(buffers.current_rhs))
+    return (impedance = buffers.enclosed_impedance, potential = buffers.enclosed_potential)
 end
 
 function earth_bindings(z::EarthImpedance.Formula{:unified}, p::Formula{:unified}, impedance, admittance)

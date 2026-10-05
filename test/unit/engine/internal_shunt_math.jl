@@ -1,6 +1,7 @@
 @testitem "Engine / internal shunt / independent Green and integrated-face controls" tags=[:unit, :engine] begin
     using LinearAlgebra
     E = LineCableModels.Engine
+    boundary = E.ShuntModel.Formula(:boundary)
     # Independent Dirichlet-annulus separated solution, not the reflection form.
     h = (; a = 1.0, b = 3.0, epsilon = 1.0, Rleft = 0.0, Rright = 0.0,
         Rtotal = log(3.0), left = NamedTuple[], right = NamedTuple[])
@@ -39,12 +40,12 @@
             E.ShuntModel._shunt_kernel_coefficients(h2, 256)) ≈
               E.ShuntModel._shunt_kernel(1.4cis(0.2), 2.1cis(1.1), h, k)/2
         targets, sources = [1.3cis(0.2), 1.4cis(2.1)], [2.1cis(1.1), 2.5cis(-0.4)]
-        @test E.ShuntModel._shunt_kernel_matrix(targets, sources, h, k) ≈
+        @test E.ShuntModel._shunt_kernel_matrix(boundary, targets, sources, h, k) ≈
               [E.ShuntModel._shunt_kernel(z, s, h, k) for z in targets, s in sources]
-        regular = E.ShuntModel._shunt_kernel_matrix(targets, sources, h, k; regular = true)
+        regular = E.ShuntModel._shunt_kernel_matrix(boundary, targets, sources, h, k; regular = true)
         @test regular ≈ [E.ShuntModel._shunt_kernel(z, s, h, k; regular = true)
                for z in targets, s in sources]
-        @test E.ShuntModel._shunt_kernel_matrix(targets, sources, h, k) ≈
+        @test E.ShuntModel._shunt_kernel_matrix(boundary, targets, sources, h, k) ≈
               regular-[log(abs(z-s)) for z in targets, s in sources]
         @test isfinite(E.ShuntModel._shunt_kernel(
             2cis(0.3), 2cis(0.3), h, k; regular = true))
@@ -58,7 +59,7 @@
         theta = 2pi .* (0:255) ./ 256
         targets = [1.8cis.(theta); 2.2cis.(theta)]
         sources = [1.98cis.(theta); 2.02cis.(theta)]
-        kernel = E.ShuntModel._shunt_kernel_matrix(targets, sources, h, k)
+        kernel = E.ShuntModel._shunt_kernel_matrix(boundary, targets, sources, h, k)
         q = kernel \
             hcat(-E.ShuntModel._shunt_core_voltage.(targets, Ref(h)), ones(length(targets)))
         screen = vec(sum(q; dims = 1))
@@ -120,12 +121,12 @@
         # The charge measure contains no extra face-length Jacobian. Scaling all
         # radii and target-source positions leaves the potential columns unchanged.
         targets = [1.4cis(0.1), 2.5cis(0.3)]
-        original = E.ShuntModel._shunt_tape_columns(targets, [face], h, k).columns
+        original = E.ShuntModel._shunt_tape_columns(boundary, targets, [face], h, k).columns
         scaled_h = merge(h, (a = 10h.a, b = 10h.b,
             right = [(ri = 30.0, ro = 40.0, epsilon = 4.0)]))
         scaled_face = merge(face, (
             mid = 10face.mid, half = 10face.half, points = 10face.points))
-        scaled = E.ShuntModel._shunt_tape_columns(10targets, [scaled_face], scaled_h,
+        scaled = E.ShuntModel._shunt_tape_columns(boundary, 10targets, [scaled_face], scaled_h,
             E.ShuntModel._shunt_kernel_coefficients(scaled_h, 512)).columns
         @test scaled ≈ original atol=1e-12
     end

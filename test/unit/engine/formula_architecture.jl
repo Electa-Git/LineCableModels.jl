@@ -205,14 +205,13 @@ end
                 for d in problem.system.designs]
     workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     @test workspace.buffers.coupled isa Matrix{ComplexF64}
-    @test all(isempty, workspace.buffers.quadrature[(
-        :segments, :seeds, :seed, :points, :mapped)])
+    @test !haskey(workspace.buffers, :quadrature)
     @test isempty(selected.methods.earth_impedance.solves)
     @test (@inferred E._solve!(workspace, selected)) === workspace
     @test length(selected.methods.earth_impedance.solves)==3
-    @test isempty(workspace.capture.integrals)
+    @test isempty(workspace.trace.integrals)
     for k in 1:3, p in 1:3, q in 1:3
-        @test workspace.capture.Zg[p, q, k]≈2π * im * problem.frequencies[k] * 1e-6 *
+        @test workspace.trace.Zg[p, q, k]≈2π * im * problem.frequencies[k] * 1e-6 *
                                             (6+p+2q+(p==q ? 3 : 0))
     end
     E._solve!(workspace, selected)
@@ -248,7 +247,7 @@ end
     @test typeof(two_wire_workspace) === typeof(first(workspaces))
     for (w, problem) in zip(workspaces, problems)
         @test length(w.buffers.earth_materials) == 1
-        calculation=only(w.invariants.earth_calculations)
+        calculation=only(w.plan.earth_calculations)
         @test calculation.impedance_indices == calculation.potential_indices
         # Poison only numerical buffers. Identity matrices and geometry are inputs.
         for array in (w.buffers.Zearth, w.buffers.Pearth, w.buffers.Zprimitive,
@@ -273,23 +272,23 @@ end
         @test Z[:, :, 1] == Z[:, :, 2] && Y[:, :, 1] == Y[:, :, 2]
         # Γ=0: one Z and one voltage integral per ordered interaction. A second
         # solve for the potential consumer would double this observed work.
-        @test length(w.capture.integrals) == 2*3^2*3
+        @test length(w.trace.integrals) == 2*3^2*3
         fill!(w.buffers.Zearth, NaN)
         fill!(w.buffers.Pearth, NaN)
         E._solve!(w, selection)
         @test w.buffers.Zout == Z && w.buffers.Yout == Y
         @test first_result.Z.values == Z && first_result.Y.values == Y
         @test first_result.Z.values !== w.buffers.Zout
-        @test details(first_result).data.trace.Zg !== w.capture.Zg
-        @test details(first_result).data.trace.integrals !== w.capture.integrals
-        @test length(w.capture.integrals) == 2*3^2*3 # Trace belongs to this solve only.
+        @test details(first_result).data.trace.Zg !== w.trace.Zg
+        @test details(first_result).data.trace.integrals !== w.trace.integrals
+        @test length(w.trace.integrals) == 2*3^2*3 # Trace belongs to this solve only.
         # Public scans remain sorted. Revisit the actual material-earth stages
         # in reverse index order to expose any prior-frequency readiness state.
         for frequency in (3, 2, 1)
             E.materials!(w, selection, frequency)
             E.earth!(w, frequency)
-            @test w.buffers.Zearth == w.capture.Zg[:, :, frequency]
-            @test w.buffers.Pearth == w.capture.Pg[:, :, frequency]
+            @test w.buffers.Zearth == w.trace.Zg[:, :, frequency]
+            @test w.buffers.Pearth == w.trace.Pg[:, :, frequency]
         end
     end
     first, second=workspaces[1:2]
@@ -313,7 +312,7 @@ end
     materials=only(w.buffers.earth_materials)
     materials.rho[2, 1]=-1
     @test_throws DomainError E.earth!(w, 1)
-    @test isempty(w.capture.integrals)
+    @test isempty(w.trace.integrals)
     @test all(isnan, w.buffers.axial_field)
 end
 

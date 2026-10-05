@@ -135,7 +135,7 @@ end
         "Basis scale $(value.scale)"
     LineCableModels.description(::Type{ScaleModal},::Val{:scale},value::Real;
         compact::Bool=false)="scale=$(value)"
-    E.initialize_buffers(::ScaleModal,::Type,input,invariants,buffers)=buffers
+    G.initialize_buffers(::ScaleModal,::Type,input,plan,buffers)=buffers
     function MA.decompose!(selected::ScaleModal,workspace,parameters,options)
         workspace.Tv[1,1,1]=selected.scale
         workspace.Ti[1,1,1]=1

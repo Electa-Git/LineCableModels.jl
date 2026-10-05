@@ -1744,6 +1744,14 @@ end
         git("mv", "src/first/part.jl", "src/first/Piece.jl")
         baseline("Piece | First.f1 | src/first/Piece.jl" => 2)
         @test grown() == ["ownership | Piece | First.f1 | src/first/Piece.jl: 2 (absent at HEAD)"]
+        # A function that moves to another owner keeps its entries when the defining
+        # module, the function name, the file and the count are unchanged.
+        baseline("Late | Other.f2 | src/late/Late.jl" => 1)
+        @test grown() == String[]
+        baseline("Late | Other.f2 | src/late/Late.jl" => 2)
+        @test grown() == ["ownership | Late | Other.f2 | src/late/Late.jl: 2 (absent at HEAD)"]
+        baseline("Late | Other.f3 | src/late/Late.jl" => 1)
+        @test grown() == ["ownership | Late | Other.f3 | src/late/Late.jl: 1 (absent at HEAD)"]
         # A table absent at the reference belongs to a new guard.
         baseline("src/first/Piece.jl" => 1; table = "helpers")
         result = Base.invokelatest(ratchet.grown, repository, "HEAD")

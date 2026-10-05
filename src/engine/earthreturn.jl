@@ -1,5 +1,5 @@
 function earth!(workspace::LineParametersWorkspace, frequency::Int,
-        calculations::Tuple = workspace.invariants.earth_calculations,
+        calculations::Tuple = workspace.plan.earth_calculations,
         materials::Tuple = workspace.buffers.earth_materials)
     foreach(calculations, materials) do calculation, material
         earth!(calculation, material, workspace, frequency)
@@ -33,14 +33,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Allocate representative indices and diagnostic ranges for `count` earth
-interactions. Each traversal clears its warning records and overwrites the
-representatives. Numerical contributions stay in the coefficient matrices.
+Extend `buffers` with `earth_interactions`, the representative indices and diagnostic
+ranges of the `input.n_cables^2` earth interactions. Each traversal clears its warning
+records and overwrites the representatives. Numerical contributions stay in the
+coefficient matrices.
 """
-function initialize_buffers(::typeof(earth!), count::Integer)
-    return (representatives = zeros(Int, count),
+function initialize_buffers(::typeof(earth!), ::Type, input, plan, buffers)
+    count = input.n_cables^2
+    return merge(buffers, (earth_interactions = (representatives = zeros(Int, count),
         integral_ranges = Vector{UnitRange{Int}}(undef, count),
-        warning_ranges = Vector{UnitRange{Int}}(undef, count), warnings = NamedTuple[])
+        warning_ranges = Vector{UnitRange{Int}}(undef, count), warnings = NamedTuple[]),))
 end
 
 """
@@ -57,19 +59,19 @@ Every logical integral and warning retains its receiving row and source column.
 """
 function earth!(destinations::Tuple{Vararg{AbstractMatrix}}, binding::NamedTuple,
         state::NamedTuple, materials::NamedTuple, workspace)
-    work = workspace.buffers.earth_interactions
-    length(work.representatives) >= length(binding.interactions) ||
+    earth_interactions = workspace.buffers.earth_interactions
+    length(earth_interactions.representatives) >= length(binding.interactions) ||
         throw(DimensionMismatch("earth interaction scratch is too small"))
-    empty!(work.warnings)
+    empty!(earth_interactions.warnings)
     foreach(binding.equations) do group
         earth!(destinations, binding.selection, group, binding, state, materials, workspace)
     end
-    empty!(work.warnings)
+    empty!(earth_interactions.warnings)
     return destinations
 end
 
 function earth!(destinations, selection, group, binding, state, materials, workspace)
-    work = workspace.buffers.earth_interactions
+    earth_interactions = workspace.buffers.earth_interactions
     observations = workspace.buffers.observations
     for index in group.indices
         interaction = binding.interactions[index]
@@ -86,9 +88,9 @@ function earth!(destinations, selection, group, binding, state, materials, works
             previous_interaction = binding.previous[previous_interaction]
         end
         if previous_interaction == 0
-            work.representatives[index] = index
+            earth_interactions.representatives[index] = index
             first_integral = observations === nothing ? 1 : length(observations)+1
-            first_warning = length(work.warnings)+1
+            first_warning = length(earth_interactions.warnings)+1
             functor = selection(state, interaction, group.declaration)
             result = functor(workspace)
             values = result isa Number ? (result,) : result
@@ -97,27 +99,27 @@ function earth!(destinations, selection, group, binding, state, materials, works
             foreach(destinations, values) do destination, value
                 destination[pair.row, pair.column] = value
             end
-            work.integral_ranges[index] = first_integral:(observations === nothing ? 0 :
+            earth_interactions.integral_ranges[index] = first_integral:(observations === nothing ? 0 :
                                                           length(observations))
-            work.warning_ranges[index] = first_warning:length(work.warnings)
+            earth_interactions.warning_ranges[index] = first_warning:length(earth_interactions.warnings)
         else
-            representative = work.representatives[previous_interaction]
-            work.representatives[index] = representative
+            representative = earth_interactions.representatives[previous_interaction]
+            earth_interactions.representatives[index] = representative
             previous_pair = binding.interactions[representative].pair
             for destination in destinations
                 destination[pair.row, pair.column] = destination[previous_pair.row, previous_pair.column]
             end
             context = (receiver = pair.row, source = pair.column)
             if observations !== nothing
-                for position in work.integral_ranges[representative]
+                for position in earth_interactions.integral_ranges[representative]
                     record = observations[position]
                     integral_context = record.context isa NamedTuple ?
                                        merge(record.context, context) : record.context
                     push!(observations, merge(record, (context = integral_context,)))
                 end
             end
-            for position in work.warning_ranges[representative]
-                record = work.warnings[position]
+            for position in earth_interactions.warning_ranges[representative]
+                record = earth_interactions.warnings[position]
                 integral_context = record.context isa NamedTuple ?
                                    merge(record.context, context) : record.context
                 record_integral!(nothing, nothing, record.value, record.estimated_error,

@@ -20,7 +20,7 @@ import LineCableModels.Engine
 import LineCableModels.ImportExport
 using LineCableModels.Commons: computation_options, ComputationOptions, ComputationDetails
 using LineCableModels.Commons: vacuum_permittivity, vacuum_permeability
-using LineCableModels.Commons: ReductionPlan, ReductionBuffers, reduce_line_matrices!
+using LineCableModels.Commons: ReductionPlan, reduce_line_matrices!, initialize_buffers
 using LineCableModels: LineCableModelsFEM, LineCableModelsFEMError,
                        LineParametersProblem, LineParameters,
                        SeriesImpedance, ShuntAdmittance, PhaseDomain

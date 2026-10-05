@@ -116,7 +116,7 @@ end
     LineCableModels.formula_id(::FixedOrientation) = :fixed_orientation
     Base.NamedTuple(::FixedOrientation) = (identifier = :fixed_orientation,)
     G.formulation_options(::FixedOrientation) = FormulationOptions()
-    E.initialize_buffers(::FixedOrientation, ::Type, input, invariants, buffers) = buffers
+    G.initialize_buffers(::FixedOrientation, ::Type, input, plan, buffers) = buffers
     function M.decompose!(selected::FixedOrientation, workspace, parameters, options)
         copyto!(workspace.Tv, selected.voltage)
         copyto!(workspace.Ti, selected.current)

@@ -11,18 +11,26 @@ function _observable_count(value::Engine.LineParameters)
     return 2 * n * (n + 1) * length(observe(value, Engine.frequencies))
 end
 
-function _sample_storage(first_result::Engine.CableConstants, trials::Int)
-    T = eltype(observe(first_result, R))
-    return (
-        R = Matrix{T}(undef, length(first_result), trials),
-        L = Matrix{T}(undef, length(first_result), trials),
-        C = Matrix{T}(undef, length(first_result), trials),
-        G = Matrix{T}(undef, length(first_result), trials)
-    )
+"""
+$(TYPEDSIGNATURES)
+
+Extend `buffers` with the `R`, `L`, `C` and `G` samples of `plan.trials` realizations,
+one row per assembly of `input`, the first accepted result. The samples keep the scalar
+type of that result.
+"""
+function initialize_buffers(::MonteCarlo, ::Type, input::Engine.CableConstants, plan,
+        buffers)
+    T = eltype(observe(input, R))
+    return merge(buffers, (
+        R = Matrix{T}(undef, length(input), plan.trials),
+        L = Matrix{T}(undef, length(input), plan.trials),
+        C = Matrix{T}(undef, length(input), plan.trials),
+        G = Matrix{T}(undef, length(input), plan.trials)
+    ))
 end
 
 function _record_sample!(
-        storage::NamedTuple{(:R, :L, :C, :G)},
+        buffers::NamedTuple{(:R, :L, :C, :G)},
         value::Engine.CableConstants,
         trial::Int,
         expected_axis
@@ -33,11 +41,11 @@ function _record_sample!(
     value.frequency == expected_axis.frequency || throw(DimensionMismatch(
         "Monte Carlo cable-constant realizations produced incompatible frequencies",
     ))
-    storage.R[:, trial] .= observe(value, R)
-    storage.L[:, trial] .= observe(value, L)
-    storage.C[:, trial] .= observe(value, C)
-    storage.G[:, trial] .= observe(value, Engine.G)
-    return storage
+    buffers.R[:, trial] .= observe(value, R)
+    buffers.L[:, trial] .= observe(value, L)
+    buffers.C[:, trial] .= observe(value, C)
+    buffers.G[:, trial] .= observe(value, Engine.G)
+    return buffers
 end
 
 function _sample_axis(value::Engine.CableConstants)
@@ -88,24 +96,30 @@ function _aggregate(
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
 
-function _sample_storage(first_result::Engine.LineParameters, trials::Int)
-    first_impedance = observe(first_result, Engine.Z)
-    dimensions = (size(first_impedance)..., trials)
-    Rs = Array{Float64}(undef, dimensions)
+"""
+$(TYPEDSIGNATURES)
+
+Extend `buffers` with the `R`, `L`, `C` and `G` samples of `plan.trials` realizations, in
+the phase and frequency layout of `input`, the first accepted result, with scalar type `T`.
+"""
+function initialize_buffers(::MonteCarlo, ::Type{T}, input::Engine.LineParameters, plan,
+        buffers) where {T}
+    dimensions = (size(observe(input, Engine.Z))..., plan.trials)
+    Rs = Array{T}(undef, dimensions)
     Ls = similar(Rs)
     Cs = similar(Rs)
     Gs = similar(Rs)
-    return (; R = Rs, L = Ls, C = Cs, G = Gs)
+    return merge(buffers, (; R = Rs, L = Ls, C = Cs, G = Gs))
 end
 
 function _record_sample!(
-        storage::NamedTuple{(:R, :L, :C, :G)},
+        buffers::NamedTuple{(:R, :L, :C, :G)},
         value::Engine.LineParameters,
         trial::Int,
         expected_frequencies
 )
     impedance = observe(value, Engine.Z)
-    size(impedance) == size(storage.R)[1:3] || throw(DimensionMismatch(
+    size(impedance) == size(buffers.R)[1:3] || throw(DimensionMismatch(
         "Monte Carlo realizations produced incompatible impedance dimensions",
     ))
     observe(value, Engine.frequencies) == expected_frequencies || throw(DimensionMismatch(
@@ -113,12 +127,12 @@ function _record_sample!(
     ))
     for index in CartesianIndices(size(impedance))
         i, j, k = index.I
-        storage.R[i, j, k, trial] = observe(value, R, i, j, k)
-        storage.L[i, j, k, trial] = observe(value, L, i, j, k)
-        storage.G[i, j, k, trial] = observe(value, Engine.G, i, j, k)
-        storage.C[i, j, k, trial] = observe(value, C, i, j, k)
+        buffers.R[i, j, k, trial] = observe(value, R, i, j, k)
+        buffers.L[i, j, k, trial] = observe(value, L, i, j, k)
+        buffers.G[i, j, k, trial] = observe(value, Engine.G, i, j, k)
+        buffers.C[i, j, k, trial] = observe(value, C, i, j, k)
     end
-    return storage
+    return buffers
 end
 
 function _map_samples(function_value, sample_values::Array{<:Real, 4})
@@ -289,108 +303,86 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     end
 end
 
+# Draw the arguments, build the problem inside the clearance scope and compute it, once.
+# After a failure that the study resamples, add its record to `failures` and return
+# `nothing`. `stage` and `drawn` keep the stage and the drawn arguments for that record.
+function _attempt(rng, sampler, attempts::Int, accepted::Int)
+    (; point, formulation, clearance, child_options, failures, stage, drawn) = sampler
+    stage[] = :sample
+    drawn[] = nothing
+    try
+        realization = DataModel.with_clearance(clearance) do
+            arguments = realize_arguments(rng, point, formulation.options.data.distribution)
+            drawn[] = arguments
+            stage[] = :build
+            realize(point, arguments)
+        end
+        stage[] = :compute
+        return compute(realization, formulation.inner; options=child_options)
+    catch exception
+        backtrace = catch_backtrace()
+        formulation.options.data.on_error === :resample && exception isa DomainError ||
+            rethrow()
+        push!(failures, _failure_record(
+            attempts,
+            accepted + 1,
+            stage[],
+            drawn[],
+            exception,
+            backtrace
+        ))
+        length(failures) < formulation.options.data.max_failures ||
+            _resampling_limit_error(
+                failures,
+                accepted,
+                attempts,
+                formulation.options.data.max_failures
+            )
+        return nothing
+    end
+end
+
 function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options, clearance)
     rng = Random.Xoshiro(seed)
     failures = NamedTuple[]
-    attempts = 0
-    accepted = 0
-    ntrials = formulation.options.data.trials
-    first_result = nothing
-    sample_values = nothing
-    sample_axis = nothing
-    retained = nothing
     timing = get(options.data, :timing, false)
     timing isa Bool || throw(ArgumentError("timing must be Bool"))
     trial_timings = timing ? NamedTuple[] : nothing
     progress = point isa Gridpoint{<:Engine.LineParametersProblem} && verbosity(options, :progress) > 0
     started = progress ? time_ns() : UInt64(0)
-    previous = started
-    last_log = started
-    average_seconds = 0.0
+    sampler = (; point, formulation, clearance, child_options, failures,
+        stage = Ref(:sample), drawn = Ref{Any}(nothing))
 
-    while ntrials === nothing || accepted < ntrials
+    # Pilot: draw until the first accepted realization.
+    attempts = 0
+    pilot = nothing
+    while pilot === nothing
         attempts += 1
-        target_trial = accepted + 1
-        sample = nothing
-        stage = :sample
-        value = nothing
-        succeeded = false
-        try
-            realization = DataModel.with_clearance(clearance) do
-                sample = realize_arguments(rng, point, formulation.options.data.distribution)
-                stage = :build
-                realize(point, sample)
-            end
-            stage = :compute
-            value = compute(realization, formulation.inner; options=child_options)
-            succeeded = true
-        catch exception
-            backtrace = catch_backtrace()
-            formulation.options.data.on_error === :resample && exception isa DomainError ||
-                rethrow()
-            push!(failures, _failure_record(
-                attempts,
-                target_trial,
-                stage,
-                sample,
-                exception,
-                backtrace
-            ))
-            length(failures) < formulation.options.data.max_failures ||
-                _resampling_limit_error(
-                    failures,
-                    accepted,
-                    attempts,
-                    formulation.options.data.max_failures
-                )
-        end
-        succeeded || continue
-
-        record = formulation.options.data.retain_details ?
-                 computation_details(details_owner, value) : nothing
-        if accepted == 0
-            first_result = value
-            ntrials = something(
-                ntrials,
-                _dkw_trials(
-                    _observable_count(first_result),
-                    formulation.options.data.confidence,
-                    formulation.options.data.cdf_tol
-                )
-            )
-            sample_values = _sample_storage(first_result, ntrials)
-            sample_axis = _sample_axis(first_result)
-            if formulation.options.data.retain_details
-                retained = Vector{typeof(record)}(undef, ntrials)
-            end
-        else
-            _sample_shunt_model(value) == _sample_shunt_model(first_result) || throw(ArgumentError(
-                "Monte Carlo realizations changed shunt-model coverage; select a fixed geometry model for this study"))
-            typeof(value) === typeof(first_result) || throw(ArgumentError(
-                "Monte Carlo realizations produced incompatible result types",
-            ))
-            if retained !== nothing
-                typeof(record) === eltype(retained) || throw(ArgumentError(
-                    "Monte Carlo trials produced incompatible details record types",
-                ))
-            end
-        end
-
-        accepted = target_trial
-        _record_sample!(sample_values, value, accepted, sample_axis)
-        retained === nothing || (retained[accepted] = record)
-        timing && push!(trial_timings, details(value).data.timing)
-        if progress
-            now = time_ns()
-            interval = (now - previous) * 1e-9
-            average_seconds = accepted == 1 ? interval : 0.2 * interval + 0.8 * average_seconds
-            previous = now
-            if now - last_log >= 5_000_000_000
-                @info "Monte Carlo sampling progress" _group=:progress accepted trials=ntrials attempts rejected=length(failures) elapsed_seconds=(now-started)*1e-9 eta_hours=(ntrials-accepted)*average_seconds/3600
-                last_log = now
-            end
-        end
+        pilot = _attempt(rng, sampler, attempts, 0)
     end
+    first_result = something(pilot)
+
+    # The storage of every trial, allocated once from the pilot result.
+    record = formulation.options.data.retain_details ?
+             computation_details(details_owner, first_result) : nothing
+    ntrials = something(
+        formulation.options.data.trials,
+        _dkw_trials(
+            _observable_count(first_result),
+            formulation.options.data.confidence,
+            formulation.options.data.cdf_tol
+        )
+    )
+    sample_values = initialize_buffers(formulation, Float64, first_result,
+        (; trials = ntrials), (;))
+    sample_axis = _sample_axis(first_result)
+    retained = formulation.options.data.retain_details ?
+               Vector{typeof(record)}(undef, ntrials) : nothing
+
+    trials = _trials!(rng, first_result, sample_values, retained, record, sampler,
+        details_owner, sample_axis, trial_timings, attempts, ntrials, progress, started)
+    attempts = trials.attempts
+    accepted = ntrials
 
     failure_summary = _failure_summary(failures, accepted, attempts)
     retained_details = retained === nothing ? nothing :
@@ -404,12 +396,62 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     aggregate = _aggregate(sample_values, first_result, formulation)
     if progress
         now = time_ns()
-        if now - last_log >= 5_000_000_000
+        if now - trials.last_log >= 5_000_000_000
             @info "Monte Carlo aggregation completed" _group=:progress accepted trials=ntrials attempts rejected=length(failures) aggregation_seconds=(now-aggregation_started)*1e-9 elapsed_seconds=(now-started)*1e-9
         end
     end
     return merge(aggregate,
         (; trials = ntrials, seed, details = retained_details, timing=trial_timings))
+end
+
+# Record the pilot result in `buffers`, then draw and record further trials until the study
+# accepts `ntrials` of them. Return `attempts` and the time of the last progress message.
+function _trials!(rng, first_result::R, buffers, retained, record, sampler, details_owner,
+        sample_axis, trial_timings, attempts::Int, ntrials::Int, progress::Bool,
+        started::UInt64) where {R}
+    formulation = sampler.formulation
+    failures = sampler.failures
+    previous = started
+    last_log = started
+    average_seconds = 0.0
+    accepted = 0
+    value = first_result
+    while true
+        accepted += 1
+        _record_sample!(buffers, value, accepted, sample_axis)
+        retained === nothing || (retained[accepted] = record)
+        trial_timings === nothing || push!(trial_timings, details(value).data.timing)
+        if progress
+            now = time_ns()
+            interval = (now - previous) * 1e-9
+            average_seconds = accepted == 1 ? interval : 0.2 * interval + 0.8 * average_seconds
+            previous = now
+            if now - last_log >= 5_000_000_000
+                @info "Monte Carlo sampling progress" _group=:progress accepted trials=ntrials attempts rejected=length(failures) elapsed_seconds=(now-started)*1e-9 eta_hours=(ntrials-accepted)*average_seconds/3600
+                last_log = now
+            end
+        end
+        accepted < ntrials || break
+        result = nothing
+        while result === nothing
+            attempts += 1
+            result = _attempt(rng, sampler, attempts, accepted)
+        end
+        record = formulation.options.data.retain_details ?
+                 computation_details(details_owner, result) : nothing
+        _sample_shunt_model(result) == _sample_shunt_model(first_result) || throw(ArgumentError(
+            "Monte Carlo realizations changed shunt-model coverage; select a fixed geometry model for this study"))
+        result isa R || throw(ArgumentError(
+            "Monte Carlo realizations produced incompatible result types",
+        ))
+        if retained !== nothing
+            typeof(record) === eltype(retained) || throw(ArgumentError(
+                "Monte Carlo trials produced incompatible details record types",
+            ))
+        end
+        value = result
+    end
+    return (; attempts, last_log)
 end
 
 function compute(problem::ParametricProblem, formulation::MonteCarlo)

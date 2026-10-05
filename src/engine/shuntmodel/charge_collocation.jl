@@ -181,18 +181,29 @@ function _shunt_kernel(z, source, g, k; regular = false, split_images = false)
     result
 end
 
-function _shunt_kernel_storage(rows, columns, modes; quadrature = 0)
-    return (ta = Vector{ComplexF64}(undef, rows), tb = Vector{ComplexF64}(undef, rows),
-        sa = Vector{ComplexF64}(undef, columns), sb = Vector{ComplexF64}(undef, columns),
-        tpa = Vector{ComplexF64}(undef, rows), tpb = Vector{ComplexF64}(undef, rows),
-        spa = Vector{ComplexF64}(undef, columns), spb = Vector{ComplexF64}(undef, columns),
-        U = Matrix{Float64}(undef, rows, 4min(64, modes)),
-        V = Matrix{Float64}(undef, columns, 4min(64, modes)),
-        tape = Matrix{Float64}(undef, rows, quadrature))
+"""
+$(TYPEDSIGNATURES)
+
+Extend `buffers` with the kernel storage of one shunt assembly. It holds `plan.rows`
+targets, `plan.columns` sources, Fourier blocks of at most 64 of the `plan.modes` modes,
+and tape kernels with `plan.quadrature` nodes per face.
+"""
+function initialize_buffers(::Formula{:boundary}, ::Val{:kernel}, ::Type{T}, input, plan,
+        buffers) where {T}
+    (; rows, columns, modes, quadrature) = plan
+    return merge(buffers,
+        (ta = Vector{Complex{T}}(undef, rows), tb = Vector{Complex{T}}(undef, rows),
+            sa = Vector{Complex{T}}(undef, columns), sb = Vector{Complex{T}}(undef, columns),
+            tpa = Vector{Complex{T}}(undef, rows), tpb = Vector{Complex{T}}(undef, rows),
+            spa = Vector{Complex{T}}(undef, columns),
+            spb = Vector{Complex{T}}(undef, columns),
+            U = Matrix{T}(undef, rows, 4min(64, modes)),
+            V = Matrix{T}(undef, columns, 4min(64, modes)),
+            tape = Matrix{T}(undef, rows, quadrature)))
 end
 
 function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
-        split_images = false, scratch = nothing)
+        split_images = false, buffers)
     # Same Green function, batched into small Fourier blocks for BLAS. No dense
     # N-by-modes cache: working storage is only 4*64 columns per geometric boundary set.
     zero_modes = merge(k, (; A = (), B = (), D = ()))
@@ -201,13 +212,11 @@ function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
         matrix[i, j] = _shunt_kernel(
             targets[i], sources[j], g, zero_modes; regular, split_images)
     end
-    storage = scratch === nothing ?
-              _shunt_kernel_storage(length(targets), length(sources), length(k.A)) : scratch
     nr, nc = length(targets), length(sources)
-    ta, tb = @view(storage.ta[1:nr]), @view(storage.tb[1:nr])
-    sa, sb = @view(storage.sa[1:nc]), @view(storage.sb[1:nc])
-    tpa, tpb = @view(storage.tpa[1:nr]), @view(storage.tpb[1:nr])
-    spa, spb = @view(storage.spa[1:nc]), @view(storage.spb[1:nc])
+    ta, tb = @view(buffers.ta[1:nr]), @view(buffers.tb[1:nr])
+    sa, sb = @view(buffers.sa[1:nc]), @view(buffers.sb[1:nc])
+    tpa, tpb = @view(buffers.tpa[1:nr]), @view(buffers.tpb[1:nr])
+    spa, spb = @view(buffers.spa[1:nc]), @view(buffers.spb[1:nc])
     ta .= g.a ./ conj.(targets);
     tb .= targets ./ g.b
     sa .= g.a ./ conj.(sources);
@@ -216,7 +225,7 @@ function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
     fill!(tpb, 1);
     fill!(spa, 1);
     fill!(spb, 1)
-    U, V = @view(storage.U[1:nr, :]), @view(storage.V[1:nc, :])
+    U, V = @view(buffers.U[1:nr, :]), @view(buffers.V[1:nc, :])
     for first_mode in 1:64:length(k.A)
         modes = first_mode:min(first_mode + 63, length(k.A))
         for (column, m) in enumerate(modes)
@@ -246,9 +255,13 @@ function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
     matrix
 end
 
-function _shunt_kernel_matrix(targets, sources, g, k; kwargs...)
+function _shunt_kernel_matrix(selected::Formula{:boundary}, targets, sources, g, k;
+        kwargs...)
+    buffers = initialize_buffers(selected, Val(:kernel), Float64, nothing,
+        (rows = length(targets), columns = length(sources), modes = length(k.A),
+            quadrature = 0), (;))
     return _shunt_kernel_matrix!(Matrix{Float64}(undef, length(targets), length(sources)),
-        targets, sources, g, k; kwargs...)
+        targets, sources, g, k; buffers, kwargs...)
 end
 
 _shunt_core_voltage(z, g) = 1-(g.Rleft+log(abs(z)/g.a)/g.epsilon)/g.Rtotal
@@ -565,16 +578,14 @@ function _shunt_log_moments(z, face; rtol = 1e-10, atol = 0.01rtol,
 end
 
 function _shunt_tape_columns!(columns, targets, faces, g, k; log_rtol = 1e-10,
-        integration = (rtol = log_rtol, atol = 0.01log_rtol, maxevals = 100_000), scratch = nothing)
+        integration = (rtol = log_rtol, atol = 0.01log_rtol, maxevals = 100_000), buffers)
     estimated_error = 0.0
     offset = 0
     for face in faces
         block = @view columns[:, (offset + 1):(offset + face.p + 1)]
-        kernel = scratch === nothing ?
-                 Matrix{Float64}(undef, length(targets), length(face.points)) :
-                 @view scratch.tape[1:length(targets), 1:length(face.points)]
+        kernel = @view buffers.tape[1:length(targets), 1:length(face.points)]
         _shunt_kernel_matrix!(
-            kernel, targets, face.points, g, k; split_images = true, scratch)
+            kernel, targets, face.points, g, k; split_images = true, buffers)
         mul!(block, kernel, face.weighted)
         result = zeros(face.p+1)
         segments = alloc_segbuf(Float64, Vector{Float64}, Float64; size = 32)
@@ -600,9 +611,13 @@ function _shunt_tape_columns!(columns, targets, faces, g, k; log_rtol = 1e-10,
     (; columns, log_moment_error = estimated_error)
 end
 
-function _shunt_tape_columns(targets, faces, g, k; kwargs...)
+function _shunt_tape_columns(selected::Formula{:boundary}, targets, faces, g, k; kwargs...)
+    nodes = maximum(face -> length(face.points), faces; init = 0)
+    buffers = initialize_buffers(selected, Val(:kernel), Float64, nothing,
+        (rows = length(targets), columns = nodes, modes = length(k.A), quadrature = nodes),
+        (;))
     columns = Matrix{Float64}(undef, length(targets), sum(f.p+1 for f in faces; init = 0))
-    return _shunt_tape_columns!(columns, targets, faces, g, k; kwargs...)
+    return _shunt_tape_columns!(columns, targets, faces, g, k; buffers, kwargs...)
 end
 
 function _shunt_face_targets(faces, n; validation = false)
@@ -717,12 +732,12 @@ function _shunt_rhs!(rhs, points, terminals, g)
 end
 
 function _shunt_matrix!(matrix, points, sources, faces, g, k;
-        integration = DEFAULT_INTEGRATION, scratch = nothing, stage = :assembly)
+        integration = DEFAULT_INTEGRATION, buffers, stage = :assembly)
     count = length(sources)
     try
-        _shunt_kernel_matrix!(@view(matrix[:, 1:count]), points, sources, g, k; scratch)
+        _shunt_kernel_matrix!(@view(matrix[:, 1:count]), points, sources, g, k; buffers)
         tape = _shunt_tape_columns!(
-            @view(matrix[:, (count + 1):end]), points, faces, g, k; integration, scratch)
+            @view(matrix[:, (count + 1):end]), points, faces, g, k; integration, buffers)
         return tape.log_moment_error
     catch exception
         exception isa BoundarySolveError || rethrow()
@@ -764,6 +779,7 @@ moments, not by symmetrizing the answer.
 
 # Arguments
 
+- `selected`: the boundary shunt formula, which builds the kernel buffers.
 - `g`: local radii and positions \\[m\\] and relative dielectric permittivities.
 
 # Keywords
@@ -796,12 +812,14 @@ Memory-budget failures, degenerate charge columns and nonfinite capacitance are
 its samples on them. Estimated rank, reciprocity, passivity and sampled geometric boundary
 quality are reported as warnings without substituting a different calculation.
 """
-Base.@constprop :aggressive function _shunt_capacitance(g; level = DEFAULT_RESOLUTION,
-        retain = false, integration = DEFAULT_INTEGRATION, audit = false)
-    return _shunt_capacitance(g, Val(retain); level, integration, audit)
+Base.@constprop :aggressive function _shunt_capacitance(selected::Formula{:boundary}, g;
+        level = DEFAULT_RESOLUTION, retain = false, integration = DEFAULT_INTEGRATION,
+        audit = false)
+    return _shunt_capacitance(selected, g, Val(retain); level, integration, audit)
 end
 
-function _shunt_capacitance(g, ::Val{retain}; level = DEFAULT_RESOLUTION,
+function _shunt_capacitance(selected::Formula{:boundary}, g, ::Val{retain};
+        level = DEFAULT_RESOLUTION,
         integration = DEFAULT_INTEGRATION, audit = false) where {retain}
     estimated_unknowns = length(g.wires)*level.wire + 4length(g.tapes)*(level.order+1)
     estimated_rows = 2length(g.wires)*level.wire +
@@ -822,11 +840,11 @@ function _shunt_capacitance(g, ::Val{retain}; level = DEFAULT_RESOLUTION,
             "boundary matrix exceeds the $(INTERNAL_SHUNT_MATRIX_BYTES÷1024^2) MiB storage budget"))
     k = _shunt_kernel_coefficients(g, level.modes)
     matrix = Matrix{Float64}(undef, m, n)
-    kernel_storage = _shunt_kernel_storage(
-        max(m, 192), max(length(sources), level.quadrature),
-        level.modes; quadrature = isempty(faces) ? 0 : level.quadrature)
+    buffers = initialize_buffers(selected, Val(:kernel), Float64, nothing,
+        (rows = max(m, 192), columns = max(length(sources), level.quadrature),
+            modes = level.modes, quadrature = isempty(faces) ? 0 : level.quadrature), (;))
     moment_error = _shunt_matrix!(
-        matrix, points, sources, faces, g, k; integration, scratch = kernel_storage)
+        matrix, points, sources, faces, g, k; integration, buffers)
     rhs = _shunt_rhs!(zeros(m, g.ports), points, terminals, g)
     scales = Vector{Float64}(undef, n)
     @inbounds for j in 1:n
@@ -850,7 +868,7 @@ function _shunt_capacitance(g, ::Val{retain}; level = DEFAULT_RESOLUTION,
         throw(BoundarySolveError(:nonfinite, (;), "nonfinite terminal capacitance"))
     audit_result = audit ?
                    _shunt_audit(
-        g, level, sources, k, coefficients, n, kernel_storage, integration) : nothing
+        g, level, sources, k, coefficients, n, buffers, integration) : nothing
     boundary = audit_result === nothing ? nothing : audit_result.boundary
     common = audit_result === nothing ? nothing : audit_result.common
     wire_residual = audit_result === nothing ? nothing : audit_result.wire_residual
@@ -878,20 +896,20 @@ function _shunt_capacitance(g, ::Val{retain}; level = DEFAULT_RESOLUTION,
     return (; C, diagnostic, state)
 end
 
-function _shunt_audit(g, level, sources, k, coefficients, n, kernel_storage, integration)
+function _shunt_audit(g, level, sources, k, coefficients, n, buffers, integration)
     checks = _shunt_discretization(g, level; validation = true)
-    scratch = Matrix{Float64}(undef, min(192, length(checks.points)), n)
-    errors = zeros(size(scratch, 1), g.ports)
+    matrix = Matrix{Float64}(undef, min(192, length(checks.points)), n)
+    errors = zeros(size(matrix, 1), g.ports)
     boundary = common = wire_residual = tape_residual = 0.0
     moment_error = 0.0
     for start in 1:192:length(checks.points)
         stop = min(start+191, length(checks.points))
         rows = 1:(stop - start + 1)
-        block = @view scratch[rows, :]
+        block = @view matrix[rows, :]
         selected = @view checks.points[start:stop]
         moment_error = max(moment_error,
             _shunt_matrix!(block, selected, sources, checks.faces, g, k;
-                integration, scratch = kernel_storage, stage = :audit))
+                integration, buffers, stage = :audit))
         residual = @view errors[rows, :]
         _shunt_rhs!(residual, selected, @view(checks.terminals[start:stop]), g)
         mul!(residual, block, coefficients, 1.0, -1.0)
@@ -931,7 +949,7 @@ units. The direction parameter and `step` are dimensionless.
 
 - Directional derivative of terminal capacitance \\[F/m\\].
 """
-function _shunt_tangent(values, direction, domain, state, step)
+function _shunt_tangent(selected::Formula{:boundary}, values, direction, domain, state, step)
     plus = _shunt_data(values .+ step .* direction, domain)
     minus = _shunt_data(values .- step .* direction, domain)
     dp,
@@ -946,17 +964,19 @@ function _shunt_tangent(values, direction, domain, state, step)
     matrix_p, matrix_m = Matrix{Float64}(undef, count, n), Matrix{Float64}(undef, count, n)
     bp, bm = zeros(count, plus.ports), zeros(count, plus.ports)
     drive, stationarity = zeros(m, plus.ports), zeros(n, plus.ports)
-    scratch = _shunt_kernel_storage(count, max(length(sp), state.level.quadrature),
-        state.level.modes; quadrature = isempty(dp.faces) ? 0 : state.level.quadrature)
+    buffers = initialize_buffers(selected, Val(:kernel), Float64, nothing,
+        (rows = count, columns = max(length(sp), state.level.quadrature),
+            modes = state.level.modes,
+            quadrature = isempty(dp.faces) ? 0 : state.level.quadrature), (;))
     for start in 1:192:m
         stop = min(start+191, m)
         rows = 1:(stop - start + 1)
         ap, am = @view(matrix_p[rows, :]), @view(matrix_m[rows, :])
         xp, xm = @view(dp.points[start:stop]), @view(dm.points[start:stop])
         _shunt_matrix!(ap, xp, sp, dp.faces, plus, kp;
-            integration = state.integration, scratch, stage = :derivative)
+            integration = state.integration, buffers, stage = :derivative)
         _shunt_matrix!(am, xm, sm, dm.faces, minus, km;
-            integration = state.integration, scratch, stage = :derivative)
+            integration = state.integration, buffers, stage = :derivative)
         ap .-= am
         ap ./= 2step
         rp, rm = @view(bp[rows, :]), @view(bm[rows, :])
@@ -1013,12 +1033,12 @@ without introducing uncertain scalars into dense numerical workspaces.
   With `directions`, also return checked implicit capacitance derivatives.
 """
 function internal_shunt_response(
-        ::Formula{:boundary}, values::AbstractVector{<:Real}, domain;
+        selected::Formula{:boundary}, values::AbstractVector{<:Real}, domain;
         level = DEFAULT_RESOLUTION, retain = false, directions = nothing,
         integration = DEFAULT_INTEGRATION, audit = false)
     numerical = Float64.(values)
     result = try
-        _shunt_capacitance(_shunt_data(numerical, domain); level, integration, audit,
+        _shunt_capacitance(selected, _shunt_data(numerical, domain); level, integration, audit,
             retain = retain || directions !== nothing)
     catch exception
         exception isa BoundarySolveError || rethrow()
@@ -1038,11 +1058,11 @@ function internal_shunt_response(
         end
         iszero(relative) && (derivatives[column, :] .= 0; continue)
         step = cbrt(eps(Float64))/relative
-        fine = _shunt_tangent(numerical, direction, domain, result.state, step/2)
+        fine = _shunt_tangent(selected, numerical, direction, domain, result.state, step/2)
         all(isfinite, fine) || throw(BoundarySolveError(:derivative,
             (; design = domain.design, terminals = domain.terminals, column), "nonfinite sensitivity"))
         if audit
-            coarse = _shunt_tangent(numerical, direction, domain, result.state, step)
+            coarse = _shunt_tangent(selected, numerical, direction, domain, result.state, step)
             discrepancy = norm(fine-coarse)
             tolerance = 0.02max(norm(fine), norm(coarse)) +
                         256eps(Float64)*norm(result.C)/step

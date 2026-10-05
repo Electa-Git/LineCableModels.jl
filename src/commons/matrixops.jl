@@ -396,6 +396,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Extend `buffers` with `reduction`, the storage of [`reduce_line_matrices!`](@ref) for
+`reduction` with elements of type `T`.
+"""
+function initialize_buffers(reduction::ReductionPlan, ::Type{T}, input, plan,
+        buffers) where {T <: Number}
+    return merge(buffers, (reduction = ReductionBuffers{T}(reduction),))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Reduce one frequency of primitive line matrices to the retained phases of `plan`.
 
 `Zprimitive` \\[Ω/m\\] and `Pprimitive` \\[m/F\\] are ordered by terminal. Both are

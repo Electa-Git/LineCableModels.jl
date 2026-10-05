@@ -57,13 +57,14 @@ end
         M.minimum_norm!(solution, zeros(T, 3, 2), b, projection)
         @test iszero(solution)
 
-        work = M.levenberg_marquardt_workspace(selector, R, 2)
+        least_squares = LineCableModels.Commons.initialize_buffers(
+            selector, T, (;), (; n = 2, nf = 1), (;)).least_squares
         vector = T[1, 0.1im]
         matrix = Matrix(Diagonal(T[1 + 0.2im, 3 + 0.7im]))
         tolerance = R === Float64 ? 1e-11 : 1e-5
         value, converged, iterations = M.levenberg_marquardt_step!(selector,
             vector, T(0.9+0.1im), matrix,
-            (convergence = tolerance, max_iterations = 100), work)
+            (convergence = tolerance, max_iterations = 100), least_squares)
         @test converged
         @test iterations > 0
         @test value ≈ matrix[1, 1]
@@ -71,11 +72,11 @@ end
         @test norm(matrix*vector-value*vector) < tolerance
         # An exact eigenpair does not need iterations. A stationary non-root stalls.
         value, converged, iterations = M.levenberg_marquardt_step!(selector,
-            T[1, 0], matrix[1, 1], matrix, (convergence = tolerance, max_iterations = 100), work)
+            T[1, 0], matrix[1, 1], matrix, (convergence = tolerance, max_iterations = 100), least_squares)
         @test converged && iterations == 0
         vector = zeros(T, 2)
         _, converged, iterations = M.levenberg_marquardt_step!(selector,
-            vector, zero(T), matrix, (convergence = tolerance, max_iterations = 2), work)
+            vector, zero(T), matrix, (convergence = tolerance, max_iterations = 2), least_squares)
         @test !converged && iterations == 1
         @test iszero(vector)
     end

@@ -10,7 +10,7 @@
         heights = (-1.0, -1.0, -1.0), frequencies = [50.0], rho = 100.0)
     selected=F.PairImpedance()
     work=F.workspace(problem, selected)
-    binding=first(work.invariants.earth_calculations)
+    binding=first(work.plan.earth_calculations)
     @test count(iszero, binding.previous)==3
     E.earth!(work, 1)
     @test length(selected.calls)==3
@@ -40,7 +40,7 @@
         heights = (-1.0, -1.0, -1.0), frequencies = [50.0], rho = measurement(100.0),
         radius = measurement(0.0425))
     uncertain=F.workspace(uncertain_problem)
-    selected=first(uncertain.invariants.earth_calculations).selection
+    selected=first(uncertain.plan.earth_calculations).selection
     materials=first(uncertain.buffers.earth_materials)
     rho=measurement(100.0, 1.0)
     independent=measurement(100.0, 1.0)
@@ -62,7 +62,7 @@
         heights = (height, independent_height, height), frequencies = [50.0], rho = 100.0,
         radius = measurement(0.0425))
     geometry_work=F.workspace(geometry_problem)
-    geometry_binding=first(geometry_work.invariants.earth_calculations)
+    geometry_binding=first(geometry_work.plan.earth_calculations)
     @test geometry_binding.previous[5]==0
     @test geometry_binding.previous[9]==1
 end
@@ -79,9 +79,9 @@ end
             epsilon = (8.8541878128e-12, 10*8.8541878128e-12), mu = (4pi*1e-7, 4pi*1e-7))
         reused=UnifiedFormulaFixtures.workspace(geometry, state, controls)
         separate=UnifiedFormulaFixtures.workspace(geometry, state, controls)
-        binding=only(reused.invariants.earth_calculations)
+        binding=only(reused.plan.earth_calculations)
         @test count(iszero, binding.previous)==27
-        fill!(only(separate.invariants.earth_calculations).previous, 0)
+        fill!(only(separate.plan.earth_calculations).previous, 0)
         E.earth!(reused, 1)
         E.earth!(separate, 1)
         @test length(unique(reused.buffers.earth_interactions.representatives))==27
@@ -142,7 +142,7 @@ end
             @test all(record->record.kwargs[:context]===description, logger.logs)
         end
         trace||continue
-        records=work.capture.integrals
+        records=work.trace.integrals
         @test length(records)==9
         @test all(record->record.value==work.buffers.Zearth[1], records)
         if positions

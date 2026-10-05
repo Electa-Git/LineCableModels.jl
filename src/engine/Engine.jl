@@ -69,7 +69,8 @@ import ..Commons: AbstractProblemDefinition, AbstractFormulation,
 using ..Units
 import ..Commons
 using ..Commons: vacuum_permittivity, vacuum_permeability
-using ..Commons: kron_reduce!, ReductionPlan, ReductionBuffers, reduce_line_matrices!
+using ..Commons: kron_reduce!, ReductionPlan, reduce_line_matrices!
+import ..Commons: initialize_buffers
 using ..Materials
 using ..Materials: TemperatureDependent
 import ..Earth
@@ -146,11 +147,11 @@ include("textdisplay.jl")
 public completion_details, completed_inputs, completed_formulation, retain_gridpoint
 public selectdetails
 public AbstractModalOperators
-public SpectralIntegral, integrate, integration_workspace
+public SpectralIntegral, integrate
 public AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
        earth_spectral_points!, earth_contour_angle, earth_direct,
        outgoing_root, bessel_i0m1, bessel_current_ratio, special_besselix
-public earth_bindings, initialize_buffers, earth!, materials!, homogenize!,
+public earth_bindings, earth!, materials!, homogenize!,
        same_physical_state, layer_index, computation_type
 public has_uncertainty_type, numerical_magnitude
 public resolution_available
