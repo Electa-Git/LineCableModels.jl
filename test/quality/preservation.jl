@@ -2,8 +2,8 @@
 # declares its direction. `[inferred]` is a floor, and `[jet]` and `[allocations]` are
 # ceilings. A check fails when a live count passes its limit. It also fails when the
 # live count improves on the table, so that the table records the current state.
-# Allocation counts may differ from the table within `TOLERANCE`, and recorded bytes fail
-# only on increases beyond their headroom. The measured ceilings hold for the Julia
+# Allocation counts may differ from the table by their allowance, and recorded bytes fail
+# only on increases beyond their margin. The measured ceilings hold for the Julia
 # version and the `Manifest.toml` recorded in `[environment]`. Across commits,
 # `test/tools/baseline_ratchet.jl` checks that floors only rise and ceilings only fall.
 @testmodule PreservationLocks begin
@@ -45,25 +45,25 @@
         return nothing
     end
 
-    # Allocation ceilings. A count may differ from the table by `TOLERANCE` of it, rounded
-    # down. For small counts, that margin is zero. On another CPU, last-bit floating-point
-    # differences change a few allocations of the large scenarios, because Measurements
-    # drops each partial derivative that is exactly zero. Bytes fail only above the
-    # recorded minimum plus the larger of `HEADROOM` and `TOLERANCE`, because the
-    # runtime's byte accounting adds a few bytes on some calls.
-    const TOLERANCE = 1e-4
+    # Allocation ceilings. Measurements stores a partial derivative only when it is
+    # nonzero, but whether a round-off derivative is exactly zero depends on the machine's
+    # last bits. So a count may differ from the table by the scenario's allowance, the number of
+    # uncertain real scalars that its result publishes. The allocation tool computes it
+    # live. A plain-number scenario has allowance zero and compares exactly. Bytes fail
+    # above the recorded minimum plus `HEADROOM` for the runtime's byte accounting and the
+    # allowance times the bytes of one derivative entry.
     const HEADROOM = 512
-    band(limit) = floor(Int, TOLERANCE*limit)
-    function compare_allocations(live, recorded)
+    function compare_allocations(live, recorded, allowances, derivative)
         broken, stale = String[], String[]
         for key in sort!(collect(union(keys(live), keys(recorded))))
             now, limit = get(live, key, 0), get(recorded, key, 0)
+            allowance = get(allowances, first(rsplit(key, " | "; limit = 2)), 0)
             if endswith(key, "| allocations")
-                line = "$key: $now (recorded $limit ± $(band(limit)))"
-                now > limit + band(limit) && push!(broken, line)
-                now < limit - band(limit) && push!(stale, line)
+                line = "$key: $now (recorded $limit ± $allowance)"
+                now > limit + allowance && push!(broken, line)
+                now < limit - allowance && push!(stale, line)
             elseif endswith(key, "| bytes")
-                margin = max(HEADROOM, band(limit))
+                margin = HEADROOM + allowance*derivative
                 now > limit + margin && push!(broken, "$key: $now (recorded $limit + $margin)")
             end
         end
@@ -182,8 +182,10 @@ end
     # A nonzero exit reports allocation counts that varied across calls.
     success(process) || print(String(take!(errors)))
     @test success(process)
-    live = Dict{String, Int}(TOML.parse(text)["allocations"])
-    result = P.compare_allocations(live, P.table("allocations"))
+    measured = TOML.parse(text)
+    live = Dict{String, Int}(measured["allocations"])
+    result = P.compare_allocations(live, P.table("allocations"),
+        Dict{String, Int}(measured["allowances"]), measured["derivative"]["bytes"])
     # A row above its ceiling allocates more.
     @test P.report(result.broken) == String[]
     # A row whose counts fell lowers its ceiling, and re-records its bytes, in the same change.
@@ -298,26 +300,30 @@ end
         recorded, merge(recorded, Dict("julia" => "1.12.8")))
     @test_throws ErrorException P.check_environment(recorded, merge(recorded, Dict("manifest" => "fedcba")))
 
-    # Small counts are exact, large ones may move within the tolerance, in both
-    # directions. Bytes fail only beyond the headroom.
+    # A scenario without uncertain results compares exactly in both directions. A scenario
+    # with uncertain results can move by its allowance in objects. In bytes, it can exceed
+    # the headroom by the allowance times one derivative entry.
     recorded = Dict("s | 2 frequencies | allocations" => 10, "s | 2 frequencies | bytes" => 1000)
     row(n, b) = Dict("s | 2 frequencies | allocations" => n, "s | 2 frequencies | bytes" => b)
-    @test P.compare_allocations(row(10, 1000 + P.HEADROOM), recorded) == (; broken = String[], stale = String[])
-    @test P.compare_allocations(row(10, 900), recorded) == (; broken = String[], stale = String[])
-    @test P.compare_allocations(row(10, 1001 + P.HEADROOM), recorded).broken ==
+    exact, derivative = Dict("s | 2 frequencies" => 0), 48
+    compare(n, b, allowances = exact) = P.compare_allocations(row(n, b), recorded, allowances, derivative)
+    @test compare(10, 1000 + P.HEADROOM) == (; broken = String[], stale = String[])
+    @test compare(10, 900) == (; broken = String[], stale = String[])
+    @test compare(10, 1001 + P.HEADROOM).broken ==
         ["s | 2 frequencies | bytes: 1513 (recorded 1000 + 512)"]
-    @test P.compare_allocations(row(11, 1000), recorded).broken == ["s | 2 frequencies | allocations: 11 (recorded 10 ± 0)"]
-    @test P.compare_allocations(row(9, 1000), recorded).stale == ["s | 2 frequencies | allocations: 9 (recorded 10 ± 0)"]
-    large = Dict("s | 2 frequencies | allocations" => 630_971, "s | 2 frequencies | bytes" => 30_000_000)
-    @test P.band(630_971) == 63
-    @test P.compare_allocations(row(630_971 - 63, 30_003_000), large) == (; broken = String[], stale = String[])
-    @test P.compare_allocations(row(630_971 + 63, 30_000_000), large) == (; broken = String[], stale = String[])
-    @test P.compare_allocations(row(630_971 + 64, 30_000_000), large).broken ==
-        ["s | 2 frequencies | allocations: 631035 (recorded 630971 ± 63)"]
-    @test P.compare_allocations(row(630_971 - 64, 30_000_000), large).stale ==
-        ["s | 2 frequencies | allocations: 630907 (recorded 630971 ± 63)"]
-    @test P.compare_allocations(row(630_971, 30_003_001), large).broken ==
-        ["s | 2 frequencies | bytes: 30003001 (recorded 30000000 + 3000)"]
+    @test compare(11, 1000).broken == ["s | 2 frequencies | allocations: 11 (recorded 10 ± 0)"]
+    @test compare(9, 1000).stale == ["s | 2 frequencies | allocations: 9 (recorded 10 ± 0)"]
+    # A scenario that the allowances do not list compares exactly.
+    @test P.compare_allocations(row(11, 1000), recorded, Dict{String, Int}(), derivative).broken ==
+        ["s | 2 frequencies | allocations: 11 (recorded 10 ± 0)"]
+    uncertain = Dict("s | 2 frequencies" => 3)
+    margin = P.HEADROOM + 3*derivative
+    @test compare(13, 1000 + margin, uncertain) == (; broken = String[], stale = String[])
+    @test compare(7, 1000, uncertain) == (; broken = String[], stale = String[])
+    @test compare(14, 1000, uncertain).broken == ["s | 2 frequencies | allocations: 14 (recorded 10 ± 3)"]
+    @test compare(6, 1000, uncertain).stale == ["s | 2 frequencies | allocations: 6 (recorded 10 ± 3)"]
+    @test compare(10, 1001 + margin, uncertain).broken ==
+        ["s | 2 frequencies | bytes: $(1001 + margin) (recorded 1000 + $margin)"]
 
     # The allocation tool reports object counts that vary across calls, and records the
     # minimum bytes.
@@ -328,6 +334,15 @@ end
         (["s | 2 frequencies | allocations" => 5, "s | 2 frequencies | bytes" => 10], nothing)
     @test last(rows([5, 6, 5], [10, 10, 10])) ==
         "s | 2 frequencies: allocations [5, 6, 5] across calls"
+    # An allowance counts uncertain real and imaginary parts by type. An exact uncertain
+    # value counts, and so does a plain entry that an uncertain array promotes. One
+    # derivative entry takes a positive number of bytes.
+    in_tool(f, arguments...) = Base.invokelatest(getfield(tool, f), arguments...)
+    exact_uncertain = in_tool(:measurement, 1.0, 0.0)
+    @test in_tool(:allowance, complex(exact_uncertain, exact_uncertain)) == 2
+    @test in_tool(:allowance, [complex(exact_uncertain, exact_uncertain), 1.0 + 2.0im]) == 4
+    @test in_tool(:allowance, zeros(ComplexF64, 3)) == 0
+    @test in_tool(:derivative_bytes) > 0
 
     # The equivalence check reads declarations and renames, classifies differences by kind
     # and finds the revision's own files.

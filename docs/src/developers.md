@@ -266,12 +266,14 @@ the earlier revision.
   MonteCarlo with a fixed seed. `test/tools/allocations.jl` runs the corpus at 2 and at 4
   frequencies in a new process and prints the table rows. A row records the allocation
   count of one warmed-up call, which must repeat exactly on each call, and the smallest
-  byte total of three calls. A count may differ from its row by 0.01 % of the row,
-  rounded down. For the small scenarios, that margin is zero. On another CPU, last-bit
-  floating-point differences change a few allocations of the large scenarios, because
-  Measurements drops each partial derivative that is exactly zero. The runtime's byte
-  accounting adds a few bytes on some calls. A byte total fails only above the
-  recorded total plus the larger of 512 B and 0.01 %. The counts depend on what the
+  byte total of three calls. Measurements stores a partial derivative only when it is
+  nonzero. Whether a round-off derivative is exactly zero depends on the machine's last
+  bits. So a count may differ from its row by the scenario's allowance, the number of
+  uncertain real scalars that its result publishes. Real and imaginary parts count
+  separately. The tool computes the allowances from the live results and does not record
+  them. A scenario of plain numbers has allowance zero and compares exactly. A byte total
+  fails above the recorded total plus 512 B for byte accounting and the allowance times
+  one derivative entry. The counts depend on what the
   process computed before. New scenarios go at the end of the corpus. A change that
   reorders or edits a scenario records again every row from that scenario onward.
 

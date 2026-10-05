@@ -80,11 +80,12 @@ allocations = "ceiling"
 
 # Ceiling: allocations of the preservation corpus (`CurrentScenarios.preservation_corpus`),
 # printed by `test/tools/allocations.jl`. `allocations` counts the allocated objects of one
-# warmed-up `compute` call, which repeat exactly on every call. A count may differ from its
-# row by 0.01 % of it, rounded down, because last-bit floating-point differences between
-# CPUs decide a few allocations of the large scenarios. `bytes` is the minimum over three
-# calls and may grow by at most the larger of 512 B and 0.01 % before the check fails.
-# Record a row's bytes again whenever its counts change.
+# warmed-up `compute` call, which repeat exactly on every call. Measurements stores a
+# partial derivative only when it is nonzero, and whether a round-off derivative is exactly
+# zero depends on the machine. A count may differ from its row by the scenario's allowance,
+# the uncertain real scalars of its result, which the tool computes and this table does not
+# record. `bytes` is the minimum over three calls and may grow by 512 B plus the allowance
+# times one derivative entry. Record a row's bytes again whenever its counts change.
 [allocations]
 "coaxial | 2 frequencies | allocations" = 7231
 "coaxial | 2 frequencies | bytes" = 422448
