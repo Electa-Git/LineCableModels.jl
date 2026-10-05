@@ -35,7 +35,7 @@
     @test uncertainty(uncertain_material.rho) == 1e-10
 end
 
-@testitem "Materials / temperature law / custom selections and applicability" tags=[:unit, :modal] setup=[FormulaFixtures] begin
+@testitem "Materials / temperature law / custom selections and applicability" tags=[:unit, :engine] setup=[FormulaFixtures] begin
     const TD=LineCableModels.Materials.TemperatureDependent
     const M=FormulaFixtures
     selected=M.ConstantResistivity(2e-8)

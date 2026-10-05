@@ -277,32 +277,24 @@
         @test occursin("0 of 2 rows", sprint(showerror, error))
     end
 
-    Core.eval(
-        harness,
-        :(function remote_command(
-                ::Val{:fixture_fail}, config::RemoteConfig, powershell::AbstractString
-        )
-            Cmd(["julia", "--startup-file=no", "-e", "exit(7)"])
-        end)
+    function harness.remote_command(
+            ::Val{:fixture_fail}, config::harness.RemoteConfig, powershell::AbstractString
     )
-    Core.eval(
-        harness,
-        quote
-            function remote_command(
-                    ::Val{:fixture_logs},
-                    config::RemoteConfig,
-                    powershell::AbstractString
-            )
-                executable=Base.julia_cmd().exec[1]
-                return Cmd([
-                    executable,
-                    "--startup-file=no",
-                    "-e",
-                    "println(\"runner output\"); println(stderr, \"runner error\")"
-                ])
-            end
-        end
+        Cmd(["julia", "--startup-file=no", "-e", "exit(7)"])
+    end
+    function harness.remote_command(
+            ::Val{:fixture_logs},
+            config::harness.RemoteConfig,
+            powershell::AbstractString
     )
+        executable=Base.julia_cmd().exec[1]
+        return Cmd([
+            executable,
+            "--startup-file=no",
+            "-e",
+            "println(\"runner output\"); println(stderr, \"runner error\")"
+        ])
+    end
     failed_config=harness.RemoteConfig(
         "host", "shared", raw"C:\pscad", "julia", "python"; local_root=mktempdir(),
         transport = :fixture_fail

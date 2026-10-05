@@ -356,37 +356,6 @@
     LineCableModels.validate(reduction::SquaredBottomEarth,
         ::FM{<:Union{EI.Formula{:unified}, EA.Formula{:unified}}}) = reduction
 
-    struct FixedModalMaps{P, O} <: LineCableModels.AbstractFormulation
-        parameters::P
-        options::O
-    end
-    FixedModalMaps(voltage::AbstractArray{<:Number, 3},
-        current::AbstractArray{<:Number, 3}) = FixedModalMaps(
-        (voltage = voltage, current = current), FormulationOptions())
-    LineCableModels.formulation_options(::FixedModalMaps) = FormulationOptions()
-    LineCableModels.formula_id(::FixedModalMaps) = :FixedModalMaps
-    Base.NamedTuple(::FixedModalMaps) = (identifier = :FixedModalMaps,)
-    LineCableModels.description(
-        ::Type{<:FixedModalMaps}, ::Val{:voltage}, value::AbstractArray;
-        compact::Bool = false) = "voltage map="*sprint(show, value)
-    LineCableModels.description(
-        ::Type{<:FixedModalMaps}, ::Val{:current}, value::AbstractArray;
-        compact::Bool = false) = "current map="*sprint(show, value)
-    LineCableModels.Engine.initialize_buffers(
-        ::FixedModalMaps, ::Type, input, invariants, buffers) = buffers
-    function LineCableModels.ModalAnalysis.decompose!(selected::FixedModalMaps,
-            workspace, parameters, options)
-        copyto!(workspace.Tv, selected.parameters.voltage)
-        copyto!(workspace.Ti, selected.parameters.current)
-        for frequency in axes(workspace.roots, 2), mode in axes(workspace.roots, 1)
-
-            workspace.roots[mode, frequency] = sqrt((workspace.input.Y[
-                :, :, frequency] * workspace.input.Z[:, :, frequency])[
-                mode, mode])*workspace.input.root_scale
-        end
-        return workspace
-    end
-
     struct UserCoaxialShunt{P, O} <: E.ShuntModelFormulation
         parameters::P
         options::O
@@ -481,7 +450,7 @@
         (LayerImpedance, LayerPotential, CoupledImpedance, SurfaceLaw, SpectralSurface,
         DispersiveEarth, InsulationReactance, ConstantResistivity, ScaledResistivity,
         ExponentialResistivity, DispersiveSoil, ScaledSoil, OhmicDielectric, InsulationLaw, SemiconLaw,
-        MeanEarth, SquaredBottomEarth, FixedModalMaps, UserCoaxialShunt, UserCoaxialPipe,
+        MeanEarth, SquaredBottomEarth, UserCoaxialShunt, UserCoaxialPipe,
         CountedInsulationZ, CountedInsulationY,
         CountedSemiconY, CountedEarthZ, CountedEarthP)
         id=Symbol(nameof(selected_type))

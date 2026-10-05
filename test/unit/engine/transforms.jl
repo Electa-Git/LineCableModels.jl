@@ -147,14 +147,14 @@ end
     end
 end
 
-@testitem "ModalAnalysis / independent maps preserve ordered nonreciprocal entries" tags=[:unit, :modal] setup=[FormulaFixtures] begin
+@testitem "ModalAnalysis / independent maps preserve ordered nonreciprocal entries" tags=[:unit, :modal] setup=[ModalFormulaFixtures] begin
     const TR = LineCableModels.ModalAnalysis
     const FM = LineCableModels.FormulaMethod
     Z = reshape(ComplexF64[2+3im 0.2+0.1im; 0.7+0.3im 4+5im], 2, 2, 1)
     Y = reshape(ComplexF64[2+6im -0.4-0.5im; -0.2-0.1im 3+8im] .* 1e-9, 2, 2, 1)
     A = ComplexF64[1 0.3; 0.1im 2]
     B = ComplexF64[2 0.2im; 0.4 1]
-    selected=FormulaFixtures.FixedModalMaps(reshape(copy(A),2,2,1),reshape(copy(B),2,2,1))
+    selected=ModalFormulaFixtures.FixedModalMaps(reshape(copy(A),2,2,1),reshape(copy(B),2,2,1))
     phase = LineParameters(PhaseDomain, Z, Y, [50.0])
     modal = compute(ModalAnalysisProblem(phase),
         ModalAnalysisFormulation(selected);

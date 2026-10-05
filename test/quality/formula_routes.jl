@@ -67,7 +67,7 @@
     end
 end
 
-@testitem "Quality / user-owned shunt and pipe selections reach blueprint and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures] begin
+@testitem "Quality / user-owned shunt and pipe selections reach blueprint and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures,ModalFormulaFixtures] begin
     M=FormulaFixtures
     shunt=M.UserCoaxialShunt()
     selected=Formulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe())
@@ -84,7 +84,7 @@ end
     source=TestFixtures.two_conductor_results()
     # Modal selections are admitted through the modal action, not a callback bag.
     maps=operators(compute(ModalAnalysisProblem(source),ModalAnalysisFormulation()))
-    custom=M.FixedModalMaps(maps.Tv,maps.Ti)
+    custom=ModalFormulaFixtures.FixedModalMaps(maps.Tv,maps.Ti)
     action=ModalAnalysisFormulation(custom)
     @test action.formula === custom
     @test action.definition === custom

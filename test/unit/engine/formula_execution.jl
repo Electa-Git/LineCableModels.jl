@@ -204,7 +204,7 @@ end
     @test selected.methods.earth_impedance.options.data.Γ == prescribed
 end
 
-@testitem "Engine / numerical declarations follow selected types and indexed equations" tags=[:unit, :modal] setup=[FormulaFixtures] begin
+@testitem "Engine / numerical declarations follow selected types and indexed equations" tags=[:unit, :engine] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     const II=E.InternalImpedance
     const EI=E.EarthImpedance
@@ -266,7 +266,7 @@ end
     @test !isempty(numerical.segments)
 end
 
-@testitem "Engine / formula initialization preserves another owner's buffer identity" tags=[:unit, :modal] setup=[FormulaFixtures] begin
+@testitem "Engine / formula initialization preserves another owner's buffer identity" tags=[:unit, :engine] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     buffers=(destination = zeros(ComplexF64, 2, 2),)
     @test E.initialize_buffers((nothing,), Float64, (;), (;), buffers) === buffers
@@ -370,7 +370,7 @@ end
     end
 end
 
-@testitem "Earth / artificial material values are distinct from source restrictions" tags=[:unit, :modal] setup=[FormulaFixtures] begin
+@testitem "Earth / artificial material values are distinct from source restrictions" tags=[:unit, :engine] setup=[FormulaFixtures] begin
     const M=FormulaFixtures
     material=M.EP.EarthMaterial(100.0, -10.0, 1.0)
     @test material.eps_r == -10

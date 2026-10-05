@@ -245,7 +245,6 @@
 "materialize_observation | owners" = 1
 "materialize_observation | tests" = 1
 "materialize_observation | vocabulary" = 1
-"nominal | tests" = 1
 "normalize_observation_selector | tests" = 1
 "observables | tests" = 1
 "observation_gridpoint | tests" = 1

@@ -62,7 +62,7 @@
     {
       "filename": [
         "**/src/datamodel/cableslibrary/vdeparse.jl",
-        "**/test/unit/importexport/formats.jl"
+        "**/test/unit/datamodel/vdeparse.jl"
       ],
       "words": [
         "aluminium",

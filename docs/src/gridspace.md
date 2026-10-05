@@ -593,9 +593,9 @@ product and zip iterators. The implementation guarantees:
   loop run without heap allocation.
 - Allocations during full cable and line construction are limited to the requirements of existing vectors and domain constructors, the Engine computation and the requested result storage.
 
-The conformance suite in `test/unit/parametricbuilder/conformance.jl` checks
-these properties, exact structural reuse, explicit variation, and scalar public
-construction.
+The conformance tests in `test/unit/commons/gridspace.jl` and
+`test/unit/parametricbuilder/conformance.jl` check these properties, exact structural
+reuse, explicit variation, and scalar public construction.
 
 ## Implementation map
 

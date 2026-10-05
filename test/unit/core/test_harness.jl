@@ -109,9 +109,8 @@ end
 @testitem "Core / changed: runs quality in a fresh process" tags=[:unit, :units, :slow] begin
     root = pkgdir(LineCableModels)
     # Before quality runs, the parent process gains a method inside a package module,
-    # defined from a test file (this one), as `test/integration/pscad/parser_tests.jl`
-    # does. The placement guard reports such a method when it shares the process. In the
-    # fresh process, the guard passes.
+    # defined from a test file (this one). The placement guard reports such a method when
+    # it shares the process. In the fresh process, the guard passes.
     runner = joinpath(root, "test", "support", "runner.jl")
     planted = joinpath(root, "test", "unit", "core", "test_harness.jl")
     program = """
