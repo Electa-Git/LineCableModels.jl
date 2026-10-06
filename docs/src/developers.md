@@ -271,9 +271,9 @@ the earlier revision.
   bits. So a count may differ from its row by the scenario's allowance, the number of
   uncertain real scalars that its result publishes. Real and imaginary parts count
   separately. The tool computes the allowances from the live results and does not record
-  them. A scenario of plain numbers has allowance zero and compares exactly. A byte total
-  fails above the recorded total plus 512 B for byte accounting and the allowance times
-  one derivative entry. The counts depend on what the
+  them. Scenarios of plain numbers have allowance zero and compare exactly. Byte totals
+  fail above the recorded total plus 512 B for byte accounting and the allowance times one
+  derivative entry. The counts depend on what the
   process computed before. New scenarios go at the end of the corpus. A change that
   reorders or edits a scenario records again every row from that scenario onward.
 
