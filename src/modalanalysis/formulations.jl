@@ -15,21 +15,13 @@ struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: AbstractFormulat
     options::O
 end
 
-formula_id(::Formula{ID}) where {ID} = ID
-formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
-Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
-
 """
 $(TYPEDSIGNATURES)
 
 Construct a modal decomposition with model parameters and numerical controls.
 Custom formulations extend `initialize_buffers` and `decompose!`.
 """
-Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(selected::Formula) = selected
-
-function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
     options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("modal :$ID has no physical parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
@@ -37,17 +29,27 @@ function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTupl
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::Formula) = selected
+
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
     selection.equivalent_earth === nothing || throw(ArgumentError(
         "modal formulas cannot consume equivalent_earth"))
-    return Formula(Val(ID); parameters=selection.parameters, options=selection.options)
+    return Formula{ID}(; parameters=selection.parameters, options=selection.options)
 end
+
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
 
 """Expose a selected modal equation and its model and numerical controls."""
 Base.NamedTuple(value::Formula) = (identifier=formula_id(value),
     parameters=value.parameters, options=value.options.data)
-formulation_options(value::Formula) = value.options
+
+Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
 
 """
 $(TYPEDEF)
@@ -108,9 +110,7 @@ description(::Type{<:ModalAnalysisFormulation}; compact::Bool=false) = "modal"
 description(::ModalAnalysisFormulation; compact::Bool=false) = "modal"
 description(::Type{ModalAnalysisFormulation}, ::Val{:transformation}; compact::Bool=false) = "modal operators"
 description(::Type{ModalAnalysisFormulation},selected::AbstractFormulation;
-    compact::Bool=false,quantity=nothing) =
-    applicable(description,selected) ? description(selected;compact) :
-    string(formula_id(selected))
+    compact::Bool=false,quantity=nothing) = description(selected;compact)
 description(::Type{ModalAnalysisFormulation},selected::Pair{<:AbstractFormulation,<:NamedTuple};
     compact::Bool=false,quantity=nothing) =
     description(ModalAnalysisFormulation,first(selected);compact,quantity)

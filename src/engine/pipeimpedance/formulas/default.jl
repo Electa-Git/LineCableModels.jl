@@ -7,6 +7,6 @@ No numerical equation is owned by `:default`.
 description(::Type{<:Formula{:default}}; compact::Bool=false) =
     compact ? "Default" : "Default routing to :none"
 
-Formula(::Val{:default}; kwargs...) = Formula(Val(:none); kwargs...)
+Formula{:default}(; kwargs...) = Formula{:none}(; kwargs...)
 
 :default

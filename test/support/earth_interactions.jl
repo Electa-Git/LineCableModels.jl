@@ -10,16 +10,12 @@
         ((:PairImpedance, E.EarthImpedanceFormulation, EI.earth_impedance, 1e-4+1e-3im),
         (:PairPotential, E.EarthAdmittanceFormulation, EA.earth_potential_coefficient, 1e9))
         @eval struct $name <: $parent
-            assumptions::NamedTuple{(:media, :layers, :permittivity),
-                Tuple{Val{:homogeneous}, UnitRange{Int}, Symbol}}
             parameters::NamedTuple{(), Tuple{}}
             options::FormulationOptions{NamedTuple{(), Tuple{}}}
             equivalent_earth::Nothing
             calls::Vector{Tuple{Int, Int}}
         end
-        @eval $name()=$name(
-            (media = Val(:homogeneous), layers = 2:2, permittivity = :positive),
-            (;), FormulationOptions(), nothing, Tuple{Int, Int}[])
+        @eval $name()=$name((;), FormulationOptions(), nothing, Tuple{Int, Int}[])
         @eval LineCableModels.formulation_options(::FM{
             <:$name, typeof($operation)})=FormulationOptions()
         @eval begin
@@ -29,7 +25,7 @@
             LineCableModels.description(::Type{$name}; compact::Bool = false)=$(string(name))
             LineCableModels.formulation_options(selected::$name)=selected.options
             Base.NamedTuple(selected::$name)=(identifier = formula_id(selected),
-                assumptions = selected.assumptions, parameters = selected.parameters,
+                parameters = selected.parameters,
                 options = selected.options.data, equivalent_earth = nothing)
         end
         operation_name=GlobalRef(parentmodule(operation), nameof(operation))
@@ -58,8 +54,6 @@
     end
 
     struct IntegralImpedance{P} <: E.EarthImpedanceFormulation
-        assumptions::NamedTuple{(:media, :layers, :permittivity),
-            Tuple{Val{:homogeneous}, UnitRange{Int}, Symbol}}
         parameters::P
         options::FormulationOptions{NamedTuple{(), Tuple{}}}
         equivalent_earth::Nothing
@@ -67,7 +61,6 @@
     end
     IntegralImpedance(description;
         positions = false)=IntegralImpedance(
-        (media = Val(:homogeneous), layers = 2:2, permittivity = :positive),
         (; description, positions), FormulationOptions(), nothing, Ref(0))
     LineCableModels.formulation_options(::FM{
         <:IntegralImpedance, typeof(EI.earth_impedance)})=FormulationOptions()

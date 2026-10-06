@@ -19,11 +19,6 @@ struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: SemiconAdmittanc
 end
 
 """
-Return the stable identifier of a semicon-admittance formula.
-"""
-formula_id(::Formula{ID}) where {ID} = ID
-
-"""
 Evaluate one formula-owned semiconducting-material constitutive relation.
 """
 function semicon_material end
@@ -35,10 +30,7 @@ Construct a selected formulation with model parameters and numerical controls.
 Custom formulations extend `semicon_material` on their own concrete selection type.
 Unknown controls fail before numerical evaluation.
 """
-Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(selected::SemiconAdmittanceFormulation) = selected
-
-function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
     options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("formula :$ID has no configurable model parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
@@ -82,13 +74,26 @@ function (formula::SemiconAdmittanceFormulation)(
     )
 end
 
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::SemiconAdmittanceFormulation) = selected
+
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
     selection.equivalent_earth === nothing || throw(ArgumentError(
         "equivalent_earth applies only to external earth formulas"))
-    return Formula(Val(ID); parameters = selection.parameters,
+    return Formula{ID}(; parameters = selection.parameters,
         options = selection.options)
 end
+
+"""
+Return the stable identifier of a semicon-admittance formula.
+"""
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+# Identity-only dispatch also describes retained selections without constructors.
+description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
 
 """
 $(TYPEDSIGNATURES)
@@ -99,11 +104,5 @@ function Base.NamedTuple(value::Formula)
     return (identifier=formula_id(value), parameters=value.parameters, options=value.options.data)
 end
 
-# Identity-only dispatch also describes retained selections without constructors.
-import ...Commons: formulation_options
-description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
-
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
-formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = value.options

@@ -6,8 +6,8 @@
     selections=(Formulation(),
         Formulation(earth_impedance=(air=:gary1976, earth=:saad1996, mixed=:lucca1994),
             earth_admittance=:ideal),
-        Formulation(earth_impedance=FormulaFixtures.selection(E.EarthImpedance; layers=2:2),
-            earth_admittance=FormulaFixtures.selection(E.EarthAdmittance; layers=2:2)))
+        Formulation(earth_impedance=FormulaFixtures.selection(E.EarthImpedance),
+            earth_admittance=FormulaFixtures.selection(E.EarthAdmittance)))
     execution=E.computation_options(LineCableModelsCoaxial, ComputationOptions())
     for selected in selections, heights in ((1.0, 1.0, 1.0), (1.0, -1.0, -2.0))
         system=build(LineCableSystem, fill(design, 3),

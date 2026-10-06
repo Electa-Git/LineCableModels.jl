@@ -1,5 +1,10 @@
-"Return the dry-soil parameter of the Datsios-Mikropoulos relation."
-assumptions(::Val{:datsios2019}) = (dry_permittivity = 3.5,)
+# Construct `:datsios2019` with the dry-soil parameter of the Datsios-Mikropoulos relation
+# as parameter defaults.
+function Formula{:datsios2019}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    defaults = (dry_permittivity = 3.5,)
+    return Formula{:datsios2019}(defaults, parameters, options)
+end
 
 """
 $(TYPEDSIGNATURES)

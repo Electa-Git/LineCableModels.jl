@@ -13,11 +13,11 @@ registered identifiers implement literature-based frequency-dispersive laws.
 $(IMPORTS)
 """
 module FrequencyDependent
-import ...Commons: FormulationOptions
+import ...Commons: FormulationOptions, formulas
 import ...Commons: formulation_options
 import ...LineCableModels: FormulaDefinition
 
-export Formula, formula_id, formulas, assumptions
+export Formula, formula_id, formulas
 public FrequencyDependentFormulation, earth_material
 
 #! explicit-imports: off
@@ -52,6 +52,6 @@ const FORMULAS = (
 """
 Return the built-in frequency-dependent earth-material formula identifiers.
 """
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module FrequencyDependent

@@ -294,7 +294,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         end
         physical_inputs=merge(physical_inputs,(uncertain_arguments=_uncertain_arguments(point),))
         representation=Engine.retain_gridpoint(aggregate.representation,Commons.gridpoint_id();
-            fields=merge(Engine.completed_formulation(formulation.inner),(inputs=physical_inputs,
+            fields=merge(aggregate.completion,(inputs=physical_inputs,
                 uncertainty=(estimator=:empirical,representation=:marginal_mean_std),
                 uncertainty_descriptions=_uncertainty_descriptions(MonteCarlo))))
         return merge(aggregate,(;representation))
@@ -400,8 +400,11 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             @info "Monte Carlo aggregation completed" _group=:progress accepted trials=ntrials attempts rejected=length(failures) aggregation_seconds=(now-aggregation_started)*1e-9 elapsed_seconds=(now-started)*1e-9
         end
     end
+    # The trials computed with `formulation.inner` and completed it. The completed record
+    # includes the equivalent earth that each earth formula consumed.
+    completion = details(first_result).data[(:formulations, :selections, :formulation_fields)]
     return merge(aggregate,
-        (; trials = ntrials, seed, details = retained_details, timing=trial_timings))
+        (; trials = ntrials, seed, details = retained_details, timing=trial_timings, completion))
 end
 
 # Record the pilot result in `buffers`, then draw and record further trials until the study

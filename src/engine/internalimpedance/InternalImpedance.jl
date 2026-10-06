@@ -10,7 +10,7 @@ $(IMPORTS)
 
 """
 module InternalImpedance
-import ...Commons: FormulationOptions
+import ...Commons: FormulationOptions, formulas
 
 # Export public API
 export Formula, formula_id, formulas, internal_impedance, surface_impedances
@@ -41,6 +41,6 @@ const FORMULAS = (
 """
 Return the built-in internal-impedance formula identifiers.
 """
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module InternalImpedance

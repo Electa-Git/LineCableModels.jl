@@ -24,7 +24,7 @@
         (LineCableModels.Materials.TemperatureDependent, (:default, :linear), :linear),
         (E.ShuntModel, (:default, :coaxial, :boundary), :coaxial))
     for (owner, ids, target) in expected
-        @test Set(owner.formulas()) == Set(ids)
+        @test Set(owner.formulas(owner.Formula)) == Set(ids)
         for id in ids
             selected=owner.Formula(id)
             @test formula_id(selected) === (id === :default ? target : id)

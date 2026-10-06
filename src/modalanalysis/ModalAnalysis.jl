@@ -24,7 +24,7 @@ import ..LineCableModels
 import ..Commons: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions, ComputationDetails,
                   compute, computation_options, computation_details, formulation_options, details,
-                  initialize_buffers
+                  initialize_buffers, formulas
 import ..Commons: AbstractResultSpace
 import ..Commons: observe, observables, request_identity, request_indices, observation_indices
 import ..Engine: LineParameters, LineParametersFormulation, LineParametersProblem,
@@ -61,7 +61,7 @@ const FORMULAS = (
 """
 Return the built-in modal-transformation formula identifiers.
 """
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 include("quantities.jl")
 include("propagation.jl")

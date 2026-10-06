@@ -1,12 +1,12 @@
-"Return the fitted parameters recommended by CIGRE Technical Brochure 781."
-assumptions(::Val{:cigre2019}) = (
-    epsilon_infinity = 12.0,
-    epsilon_scale = 9.5e4,
-    epsilon_conductivity_exponent = 0.27,
-    epsilon_frequency_exponent = -0.46,
-    conductivity_scale = 4.7e-6,
-    conductivity_frequency_exponent = 0.54
-)
+# Construct `:cigre2019` with the fitted parameters recommended by CIGRE Technical
+# Brochure 781 as parameter defaults.
+function Formula{:cigre2019}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    defaults = (epsilon_infinity = 12.0, epsilon_scale = 9.5e4,
+        epsilon_conductivity_exponent = 0.27, epsilon_frequency_exponent = -0.46,
+        conductivity_scale = 4.7e-6, conductivity_frequency_exponent = 0.54)
+    return Formula{:cigre2019}(defaults, parameters, options)
+end
 
 """
 $(TYPEDSIGNATURES)

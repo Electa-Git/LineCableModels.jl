@@ -1,7 +1,3 @@
-function assumptions(::Val{:unified})
-    (media = :homogeneous, layers = 2:2, permittivity = :positive)
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -85,8 +81,8 @@ User-supplied manuscript, *Unified circumferentially averaged framework for
 overhead, buried, and mixed conductor systems*, voltage and source-charge maps.
 """
 function source_potential_coefficient(::Union{Formula{:unified}, Val{:unified}},
-        kind::Union{Val{:self}, Val{:mutual}}, source::Val{S}, target::Val{T},
-        functor, pair, workspace) where {S, T}
+        kind::Union{Val{:self}, Val{:mutual}}, source::Union{Val{1}, Val{2}},
+        target::Union{Val{1}, Val{2}}, functor, pair, workspace)
     u=functor.state
     row, column=pair.row, pair.column
     hp, hq=abs(pair.heights[2]), abs(pair.heights[1])
@@ -161,11 +157,11 @@ end
 
 function earth_bindings(
         selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
-        physical::AbstractVector{<:EarthPair}, homogeneous, indices)
+        model::EarthModel, physical::AbstractVector{<:EarthPair}, homogeneous, indices)
     binding=invoke(earth_bindings,
         Tuple{Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-            AbstractVector{<:EarthPair}, Any, Any},
-        selected, physical, homogeneous, collect(eachindex(physical)))
+            EarthModel, AbstractVector{<:EarthPair}, Any, Any},
+        selected, model, physical, homogeneous, collect(eachindex(physical)))
     options=first(binding.equations).declaration.options
     all(group->isequal(group.declaration.options, options), binding.equations) ||
         throw(ArgumentError("the unified earth-return calculation requires common formulation options for all conductor pairs"))

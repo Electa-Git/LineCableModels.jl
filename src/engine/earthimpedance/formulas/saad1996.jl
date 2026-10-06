@@ -1,7 +1,3 @@
-function assumptions(::Val{:saad1996})
-    (media = :homogeneous, layers = 2:2, permittivity = :positive)
-end
-
 function description(::Type{<:Formula{:saad1996}}; compact::Bool = false)
     compact ? "Saad" : "Saad underground closed form (1996)"
 end

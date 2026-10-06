@@ -66,12 +66,11 @@ allocations = "ceiling"
 # `target_modules = (LineCableModels,)` on the default coaxial calculation of a
 # three-phase cable system and on each modal formula. The current reports come from the
 # known boxing of earth-return records. The abstract `earth_calculations` tuple dispatches
-# at the `_solve!` barrier and in the equivalent homogeneous earth below it, and `earth!`
-# recurses over the record tuple.
+# at the `_solve!` barrier, and `earth!` recurses over the record tuple.
 [jet]
 "cable_impedance!" = 0
 "cable_potential!" = 0
-"coaxial _solve!" = 2
+"coaxial _solve!" = 1
 "decompose! chrysochos2014" = 0
 "decompose! vieira2026" = 0
 "decompose! wedepohl1996" = 0
@@ -87,39 +86,39 @@ allocations = "ceiling"
 # record. `bytes` is the minimum over three calls and may grow by 512 B plus the allowance
 # times one derivative entry. Record a row's bytes again whenever its counts change.
 [allocations]
-"coaxial | 2 frequencies | allocations" = 7231
-"coaxial | 2 frequencies | bytes" = 422448
-"overhead | 2 frequencies | allocations" = 5763
-"overhead | 2 frequencies | bytes" = 326656
-"buried | 2 frequencies | allocations" = 5787
-"buried | 2 frequencies | bytes" = 329344
-"modal | 2 frequencies | allocations" = 8153
-"modal | 2 frequencies | bytes" = 482288
+"coaxial | 2 frequencies | allocations" = 7230
+"coaxial | 2 frequencies | bytes" = 406096
+"overhead | 2 frequencies | allocations" = 5762
+"overhead | 2 frequencies | bytes" = 310624
+"buried | 2 frequencies | allocations" = 5786
+"buried | 2 frequencies | bytes" = 312992
+"modal | 2 frequencies | allocations" = 8152
+"modal | 2 frequencies | bytes" = 465936
 "cable_constants | 2 frequencies | allocations" = 2419
 "cable_constants | 2 frequencies | bytes" = 125920
-"product | 2 frequencies | allocations" = 58701
-"product | 2 frequencies | bytes" = 3302704
-"zip | 2 frequencies | allocations" = 29435
-"zip | 2 frequencies | bytes" = 1656272
-"linear_error | 2 frequencies | allocations" = 630919
-"linear_error | 2 frequencies | bytes" = 30565568
-"monte_carlo | 2 frequencies | allocations" = 47856
-"monte_carlo | 2 frequencies | bytes" = 2784144
-"coaxial | 4 frequencies | allocations" = 7279
-"coaxial | 4 frequencies | bytes" = 428160
-"overhead | 4 frequencies | allocations" = 5779
-"overhead | 4 frequencies | bytes" = 329360
-"buried | 4 frequencies | allocations" = 5827
-"buried | 4 frequencies | bytes" = 334736
-"modal | 4 frequencies | allocations" = 8313
-"modal | 4 frequencies | bytes" = 505088
+"product | 2 frequencies | allocations" = 58693
+"product | 2 frequencies | bytes" = 3169776
+"zip | 2 frequencies | allocations" = 29431
+"zip | 2 frequencies | bytes" = 1589520
+"linear_error | 2 frequencies | allocations" = 630899
+"linear_error | 2 frequencies | bytes" = 30556112
+"monte_carlo | 2 frequencies | allocations" = 44631
+"monte_carlo | 2 frequencies | bytes" = 2569280
+"coaxial | 4 frequencies | allocations" = 7278
+"coaxial | 4 frequencies | bytes" = 411456
+"overhead | 4 frequencies | allocations" = 5778
+"overhead | 4 frequencies | bytes" = 313296
+"buried | 4 frequencies | allocations" = 5826
+"buried | 4 frequencies | bytes" = 318032
+"modal | 4 frequencies | allocations" = 8312
+"modal | 4 frequencies | bytes" = 488384
 "cable_constants | 4 frequencies | allocations" = 2419
 "cable_constants | 4 frequencies | bytes" = 125920
-"product | 4 frequencies | allocations" = 59085
-"product | 4 frequencies | bytes" = 3348336
-"zip | 4 frequencies | allocations" = 29627
-"zip | 4 frequencies | bytes" = 1679088
-"linear_error | 4 frequencies | allocations" = 1230966
-"linear_error | 4 frequencies | bytes" = 59379600
-"monte_carlo | 4 frequencies | allocations" = 48712
-"monte_carlo | 4 frequencies | bytes" = 2850624
+"product | 4 frequencies | allocations" = 59077
+"product | 4 frequencies | bytes" = 3212592
+"zip | 4 frequencies | allocations" = 29623
+"zip | 4 frequencies | bytes" = 1610928
+"linear_error | 4 frequencies | allocations" = 1230946
+"linear_error | 4 frequencies | bytes" = 59370944
+"monte_carlo | 4 frequencies | allocations" = 45487
+"monte_carlo | 4 frequencies | bytes" = 2634352

@@ -2,7 +2,7 @@
     using Measurements
     const TD = LineCableModels.Materials.TemperatureDependent
     selected = TD.Formula(formula(:default))
-    @test Set(TD.formulas()) == Set((:default,:linear))
+    @test Set(TD.formulas(TD.Formula)) == Set((:default,:linear))
     @test formula_id(selected) === :linear
     for T in (Float32, Float64, BigFloat)
         material = Material(:conductor, T(1.72e-8), one(T), one(T), T(20), T(0.004))

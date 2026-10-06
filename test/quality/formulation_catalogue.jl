@@ -1,81 +1,21 @@
-@testitem "Quality / documentation / formula source ownership" tags = [:quality] begin
+@testitem "Quality / documentation / formula source ownership" tags = [:quality] setup = [FormulaFamilies] begin
     using Base.Docs: Binding, DocStr, meta
     using DocStringExtensions: TypedMethodSignatures
     using LineCableModels
 
-    root = pkgdir(LineCableModels)
-
-    categories = (
-        (
-            module_owner = LineCableModels.Materials.TemperatureDependent,
-            registry = LineCableModels.Materials.TemperatureDependent.formulas(),
-            path = ("materials", "temperaturedependent", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Engine.PipeImpedance,
-            registry = LineCableModels.Engine.PipeImpedance.formulas(),
-            path = ("engine", "pipeimpedance", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Engine.InternalImpedance,
-            registry = LineCableModels.Engine.InternalImpedance.formulas(),
-            path = ("engine", "internalimpedance", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Engine.InsulationImpedance,
-            registry = LineCableModels.Engine.InsulationImpedance.formulas(),
-            path = ("engine", "insulationimpedance", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Engine.InsulationAdmittance,
-            registry = LineCableModels.Engine.InsulationAdmittance.formulas(),
-            path = ("engine", "insulationadmittance", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Engine.SemiconAdmittance,
-            registry = LineCableModels.Engine.SemiconAdmittance.formulas(),
-            path = ("engine", "semiconadmittance", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Engine.EarthImpedance,
-            registry = LineCableModels.Engine.EarthImpedance.formulas(),
-            path = ("engine", "earthimpedance", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Engine.EarthAdmittance,
-            registry = LineCableModels.Engine.EarthAdmittance.formulas(),
-            path = ("engine", "earthadmittance", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.ModalAnalysis,
-            registry = LineCableModels.ModalAnalysis.formulas(),
-            path = ("modalanalysis", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Earth.FrequencyDependent,
-            registry = LineCableModels.Earth.FrequencyDependent.formulas(),
-            path = ("earth", "frequencydependent", "formulas"),
-            default = :default
-        ),
-        (
-            module_owner = LineCableModels.Earth.EquivalentHomogeneous,
-            registry = LineCableModels.Earth.EquivalentHomogeneous.formulas(),
-            path = ("earth", "equivalenthomogeneous", "formulas"),
-            default = :default
-        )
-    )
+    # Every registered family whose formulas each live in a file of the `formulas`
+    # directory beside the module that registers them.
+    categories = map(FormulaFamilies.families()) do family
+        registration = which(LineCableModels.Commons.formulas, Tuple{Type{family.Formula}})
+        (module_owner = family,
+            registry = LineCableModels.Commons.formulas(family.Formula),
+            directory = joinpath(dirname(String(registration.file)), "formulas"))
+    end
+    filter!(category -> isdir(category.directory), categories)
+    @test length(categories) == 11
 
     for category in categories
-        directory = joinpath(root, "src", category.path...)
+        directory = category.directory
         formula_files = sort(filter(
             file -> endswith(file, ".jl"),
             readdir(directory)
@@ -151,8 +91,8 @@ end
 
 @testitem "Quality / local shunt formulations" tags = [:quality] begin
     const owner = LineCableModels.Engine.ShuntModel
-    @test owner.formulas() == (:default, :coaxial, :boundary)
-    for identifier in owner.formulas()
+    @test LineCableModels.Commons.formulas(owner.Formula) == (:default, :coaxial, :boundary)
+    for identifier in LineCableModels.Commons.formulas(owner.Formula)
         selected = owner.Formula(identifier)
         @test formula_id(selected) === (identifier === :default ? :coaxial : identifier)
         @test NamedTuple(selected).identifier === formula_id(selected)

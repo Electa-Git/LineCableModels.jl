@@ -44,11 +44,11 @@
                 reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
         execution=E.computation_options(LineCableModelsCoaxial, ComputationOptions())
         blueprints=only(E.flatten(LineCableModelsCoaxial(), problem.system.designs, T, [selected]))
-        work=E.LineParametersWorkspace(problem, selected, execution, blueprints)
-        E.materials!(work, selected)
-        E.materials!(work, selected, 1)
-        work.input.jω[1]=state.jω
-        for materials in work.buffers.earth_materials
+        prepared=E.LineParametersWorkspace(problem, selected, execution, blueprints)
+        E.materials!(prepared, selected)
+        E.materials!(prepared, selected, 1)
+        prepared.input.jω[1]=state.jω
+        for materials in prepared.buffers.earth_materials
             for column in axes(materials.rho, 2), layer in 1:2
 
                 materials.rho[layer, column]=iszero(state.sigma[layer]) ? T(Inf) :
@@ -57,20 +57,20 @@
                 materials.mu[layer, column]=state.mu[layer]
             end
         end
-        return work
+        return prepared
     end
 
     function calculate(geometry, state, integration)
-        work=workspace(geometry, state, integration)
-        E.earth!(work, 1)
-        return work.buffers
+        prepared=workspace(geometry, state, integration)
+        E.earth!(prepared, 1)
+        return prepared.buffers
     end
 
     function field_state(geometry, state)
-        work=workspace(geometry, state)
-        binding=only(work.plan.earth_calculations)
-        materials=only(work.buffers.earth_materials)
-        calculation=binding.selection(materials, binding, work, 1)
-        return merge(calculation.state, (radial_current = work.buffers.radial_current,))
+        prepared=workspace(geometry, state)
+        binding=only(prepared.plan.earth_calculations)
+        materials=only(prepared.buffers.earth_materials)
+        calculation=binding.selection(materials, binding, prepared, 1)
+        return merge(calculation.state, (radial_current = prepared.buffers.radial_current,))
     end
 end

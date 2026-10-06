@@ -18,7 +18,7 @@ end
 
 @testitem "Earth / soil coefficients are checked at construction" tags=[:unit, :earth] begin
     const FD=LineCableModels.Earth.FrequencyDependent
-    for id in FD.formulas()
+    for id in FD.formulas(FD.Formula)
         selected=FD.Formula(id)
         for name in keys(selected.parameters), value in ("bad",true,NaN,Inf,1+im)
             @test_throws ArgumentError FD.Formula(id;parameters=NamedTuple{(name,)}((value,)))

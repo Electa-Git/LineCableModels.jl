@@ -26,22 +26,6 @@ struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <:
 end
 
 """
-Return the stable formula identifier of an earth-property formula.
-"""
-formula_id(::Formula{ID}) where {ID} = ID
-
-"""
-Return the resolved physical parameters of a frequency-dependent earth formula.
-"""
-assumptions(formula::FrequencyDependentFormulation) = formula.parameters
-
-"""Return the default physical parameters for a registered earth formula."""
-function assumptions end
-
-"""Return the default physical parameters of a formula identifier."""
-assumptions(::Val{ID}) where {ID} = (;)
-
-"""
 Evaluate one formula-owned frequency-dependent earth material relation.
 """
 function earth_material end
@@ -51,15 +35,23 @@ $(TYPEDSIGNATURES)
 
 Construct a selected formulation with model parameters and numerical controls.
 Custom formulations extend `earth_material` on their own concrete selection type.
-Unknown controls fail before numerical evaluation.
+Unknown controls fail before numerical evaluation. A formula with model parameters
+defines its own identity constructor, which holds their defaults.
 """
-Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(selected::FrequencyDependentFormulation) = selected
-
-function Formula(::Val{ID}; parameters::NamedTuple = (;),
+function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+    return Formula{ID}((;), parameters, options)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Complete the supplied model `parameters` with a formula's `defaults`, check every
+coefficient and the formula's coefficient domains, and normalize its numerical controls.
+"""
+function Formula{ID}(defaults::NamedTuple, parameters::NamedTuple,
+        options::Union{NamedTuple, FormulationOptions}) where {ID}
     options = options isa NamedTuple ? FormulationOptions(options) : options
-    defaults = assumptions(Val(ID))
     unknown = setdiff(keys(parameters), keys(defaults))
     isempty(unknown) || throw(ArgumentError(
         "unknown parameters for earth-property formula :$ID: $(collect(unknown))"))
@@ -116,13 +108,26 @@ function constitutive(
     formula(material, frequency; workspace)
 end
 
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::FrequencyDependentFormulation) = selected
+
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
     selection.equivalent_earth === nothing || throw(ArgumentError(
         "equivalent_earth applies only to external earth formulas"))
-    return Formula(Val(ID); parameters = selection.parameters,
+    return Formula{ID}(; parameters = selection.parameters,
         options = selection.options)
 end
+
+"""
+Return the stable formula identifier of an earth-property formula.
+"""
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+# Identity-only dispatch also describes retained selections without constructors.
+description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
 
 """
 $(TYPEDSIGNATURES)
@@ -134,11 +139,5 @@ function Base.NamedTuple(value::Formula)
         parameters = value.parameters, options = value.options.data)
 end
 
-# Identity-only dispatch also describes retained selections without constructors.
-import ...Commons: formulation_options
-description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
-
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))
-formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = value.options

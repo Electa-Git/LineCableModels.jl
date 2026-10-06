@@ -119,12 +119,6 @@ Field equations consume these completed quantities without reevaluating them.
 """
 function materials! end
 
-function earth_parameters(::Val{ID}, parameters::NamedTuple) where {ID}
-    isempty(parameters) ||
-        throw(ArgumentError("earth formula :$ID has no configurable physical parameters"))
-    return parameters
-end
-
 """
 Abstract tag for the physical domain represented by line-parameter matrices.
 """

@@ -154,7 +154,7 @@ end
                 tracking = (eigenvalue_tolerance = 1e-15,))))
     @test !isempty(details(strict_match).data.modal.diagnostics.fallback_frequencies)
     @test formula_id(ModalAnalysisFormulation().formula) === :chrysochos2014
-    @test :vieira2026 in M.formulas()
+    @test :vieira2026 in M.formulas(M.Formula)
     for controls in ((convergence = 0,), (convergence = NaN,), (max_iterations = 0,),
         (max_iterations = true,), (max_iterations = 1.5,), (unused = 1,))
         @test_throws ArgumentError ModalAnalysisFormulation(:vieira2026; options = (iteration = controls,))

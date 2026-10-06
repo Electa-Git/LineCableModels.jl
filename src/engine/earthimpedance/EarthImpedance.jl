@@ -10,10 +10,10 @@ $(IMPORTS)
 
 """
 module EarthImpedance
-import ...Commons: FormulationOptions, bindings
+import ...Commons: FormulationOptions, bindings, formulas
 
 # Export public API
-export Formula, formula_id, earth_impedance, assumptions, formulas
+export Formula, formula_id, earth_impedance, formulas
 
 # Module-specific dependencies
 #! explicit-imports: off
@@ -21,14 +21,14 @@ export Formula, formula_id, earth_impedance, assumptions, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: validate
-import ..Engine: EarthPair, earth_parameters, layer_index
+import ..Engine: EarthPair, layer_index
 import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthImpedanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
 import ..Engine: earth!
 import ...LineCableModels: FormulaDefinition, FormulaMethod
-import ..Engine: description, conductivity, media, special_besselk
+import ..Engine: description, conductivity, special_besselk
 import ..Engine: formulation_options
 import ..Engine: earth_spectral_term, earth_direct
 using ...Commons: vacuum_permeability
@@ -57,6 +57,6 @@ const FORMULAS = (
 """
 Return registered earth-impedance identities, including unimplemented equations.
 """
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module EarthImpedance

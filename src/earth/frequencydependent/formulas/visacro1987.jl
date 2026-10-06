@@ -1,5 +1,10 @@
-"Return the normalization parameter of the Visacro-Portela soil relation."
-assumptions(::Val{:visacro1987}) = (normalization_frequency = 100.0,)
+# Construct `:visacro1987` with the normalization parameter of the Visacro-Portela soil
+# relation as parameter defaults.
+function Formula{:visacro1987}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    defaults = (normalization_frequency = 100.0,)
+    return Formula{:visacro1987}(defaults, parameters, options)
+end
 
 function validate(selected::Formula{:visacro1987})
     selected.parameters.normalization_frequency > 0 || throw(ArgumentError(

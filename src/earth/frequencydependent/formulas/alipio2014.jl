@@ -1,10 +1,11 @@
-"Return the fitted parameters of the Alipio-Visacro causal soil model."
-assumptions(::Val{:alipio2014}) = (
-    exponent = 0.54,
-    epsilon_infinity = 12.0,
-    scale = 1.26,
-    conductivity_exponent = -0.73
-)
+# Construct `:alipio2014` with the fitted parameters of the Alipio-Visacro causal soil
+# model as parameter defaults.
+function Formula{:alipio2014}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    defaults = (exponent = 0.54, epsilon_infinity = 12.0, scale = 1.26,
+        conductivity_exponent = -0.73)
+    return Formula{:alipio2014}(defaults, parameters, options)
+end
 
 function validate(selected::Formula{:alipio2014})
     exponent = selected.parameters.exponent

@@ -9,7 +9,7 @@ reference calibration and a selected constitutive equation.
 $(IMPORTS)
 """
 module TemperatureDependent
-import ...Commons: FormulationOptions
+import ...Commons: FormulationOptions, formulas
 
 export Formula, formula_id, formulas
 public temperature_resistivity
@@ -39,6 +39,6 @@ const FORMULAS = (
 #! explicit-imports: on
 
 """Return the registered electrical-resistivity temperature laws."""
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module TemperatureDependent

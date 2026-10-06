@@ -14,7 +14,7 @@ $(IMPORTS)
 """
 module EquivalentHomogeneous
 import ...Commons: FormulationOptions
-import ...Commons: formulation_options, bindings, initialize_buffers
+import ...Commons: formulation_options, bindings, initialize_buffers, formulas
 import ...LineCableModels: validate
 
 export Formula, AfterFD, BeforeFD
@@ -44,6 +44,6 @@ const FORMULAS = (
 """
 Return the built-in equivalent homogeneous-earth formula identifiers.
 """
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module EquivalentHomogeneous

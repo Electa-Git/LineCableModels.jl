@@ -10,10 +10,10 @@ $(IMPORTS)
 
 """
 module EarthAdmittance
-import ...Commons: FormulationOptions, bindings
+import ...Commons: FormulationOptions, bindings, formulas
 
 # Export public API
-export Formula, formula_id, earth_potential_coefficient, assumptions, formulas
+export Formula, formula_id, earth_potential_coefficient, formulas
 
 # Module-specific dependencies
 #! explicit-imports: off
@@ -21,19 +21,20 @@ export Formula, formula_id, earth_potential_coefficient, assumptions, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: validate
-import ..Engine: EarthPair, earth_parameters, layer_index
+import ..Engine: EarthPair, layer_index
 import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthAdmittanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
 import ..Engine: earth_bindings, earth!, same_physical_state
+using ...Earth: EarthModel
 import ...Commons: initialize_buffers
 import ..Engine: computation_type, EarthImpedanceFormulation, special_besselix,
                  SpectralIntegral, integrate
 using LinearAlgebra: lu!, ldiv!
 import ..EarthImpedance
 import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
-import ..Engine: description, conductivity, media
+import ..Engine: description, conductivity
 import ..Engine: formulation_options
 import ..Engine: AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
                  earth_spectral_points!, earth_contour_angle, earth_direct,
@@ -59,6 +60,6 @@ const FORMULAS = (
 """
 Return registered earth-admittance identities, including unimplemented equations.
 """
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module EarthAdmittance

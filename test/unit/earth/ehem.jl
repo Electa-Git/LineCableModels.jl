@@ -6,11 +6,13 @@
     earth=build(EP.EarthModel, (
         EP.EarthLayer(100.0, 10.0, 1.0, 0.5), EP.EarthLayer(500.0, 20.0, 1.0)))
     problem=LineParametersProblem(system; earth_props = earth, frequencies = [50.0])
-    @test_throws DimensionMismatch compute(problem, Formulation())
     reduced=compute(problem,
         Formulation(
             earth_impedance = formula(:default; equivalent_earth = formula(:default)),
             earth_admittance = formula(:default; equivalent_earth = formula(:default))))
+    # A homogeneous formula on a layered earth uses the `:default` reduction unless one is given.
+    unspecified=compute(problem, Formulation())
+    @test unspecified.Z.values == reduced.Z.values && unspecified.Y.values == reduced.Y.values
     homogeneous_problem=LineParametersProblem(
         system; earth_props = homogeneous(rho = 500.0, eps_r = 20.0), frequencies = [50.0])
     @test reduced.Z.values ≈ compute(homogeneous_problem, Formulation()).Z.values

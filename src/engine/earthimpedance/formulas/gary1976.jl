@@ -1,7 +1,3 @@
-function assumptions(::Val{:gary1976})
-    (media = :homogeneous, layers = 2:2, permittivity = :positive)
-end
-
 function description(::Type{<:Formula{:gary1976}}; compact::Bool = false)
     compact ? "Gary" : "Gary complex-depth approximation (1976)"
 end

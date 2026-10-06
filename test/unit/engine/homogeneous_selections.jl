@@ -1,7 +1,7 @@
 @testitem "Engine / homogeneous selections retain each indexed formula through assembly" tags=[:unit, :parametric, :slow] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     # Manufactured potential coefficients isolate the selection-routing check.
-    potential=FormulaFixtures.selection(E.EarthAdmittance; layers = 2:2)
+    potential=FormulaFixtures.selection(E.EarthAdmittance)
     material=Material(kind = :conductor, rho = 1.7241e-8)
     dielectric=Material(kind = :insulator, rho = 1e14, eps_r = 2.3)
     design=build(CableDesign,
@@ -17,9 +17,9 @@
     # Different parameterizations of one native type remain distinct selections.
     M=FormulaFixtures
     empty!(M.calls)
-    native_choices=(air=M.selection(E.EarthImpedance;layers=2:2,scale=1.0),
-        earth=M.selection(E.EarthImpedance;layers=2:2,scale=2.0),
-        mixed=M.selection(E.EarthImpedance;layers=2:2,scale=3.0))
+    native_choices=(air=M.selection(E.EarthImpedance;scale=1.0),
+        earth=M.selection(E.EarthImpedance;scale=2.0),
+        mixed=M.selection(E.EarthImpedance;scale=3.0))
     custom=compute(problem,Formulation(earth_impedance=native_choices,
         earth_admittance=potential,options=(ideal_transposition=false,));options=(trace=true,))
     impedance_calls=filter(record->record[1] === :EarthImpedance,M.calls)
@@ -53,9 +53,9 @@
     # Potential coefficients use the same selection syntax for air, earth
     # and mixed conductor pairs.
     empty!(M.calls)
-    potential_choices=(air=M.selection(E.EarthAdmittance;layers=2:2,scale=1.0),
-        earth=M.selection(E.EarthAdmittance;layers=2:2,scale=2.0),
-        mixed=M.selection(E.EarthAdmittance;layers=2:2,scale=3.0))
+    potential_choices=(air=M.selection(E.EarthAdmittance;scale=1.0),
+        earth=M.selection(E.EarthAdmittance;scale=2.0),
+        mixed=M.selection(E.EarthAdmittance;scale=3.0))
     independent_y=compute(problem,Formulation(earth_impedance=native_choices,
         earth_admittance=potential_choices,options=(ideal_transposition=false,));options=(trace=true,))
     potential_calls=filter(record->record[1] === :EarthAdmittance,M.calls)
@@ -98,8 +98,13 @@ end
         connections = [Dict(:core=>i, :sheath=>0)
                        for i in eachindex(problem.system.designs)])
     overhead_layered=LineParametersProblem(air_system; earth_props = model, frequencies = [50.0])
-    @test_throws DimensionMismatch compute(overhead_layered,
+    # A homogeneous formula on a layered earth uses the `:default` reduction unless one is given.
+    unspecified=compute(overhead_layered,
         Formulation(earth_impedance = same, earth_admittance = same))
+    explicit=formula(:default; equivalent_earth = formula(:default))
+    expected=compute(overhead_layered,
+        Formulation(earth_impedance = explicit, earth_admittance = explicit))
+    @test unspecified.Z.values == expected.Z.values && unspecified.Y.values == expected.Y.values
     # Scalar EHEM remains explicit and can consume the full physical soil inventory.
     reduced=compute(layered,
         Formulation(

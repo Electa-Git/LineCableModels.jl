@@ -30,7 +30,7 @@
     )
     formulation_space=Formulation(
         earth_impedance = Grid(Tuple(FormulaFixtures.selection(
-            LineCableModels.Engine.EarthImpedance; layers=2:2, scale)
+            LineCableModels.Engine.EarthImpedance; scale)
             for scale in (1.0, 2.0))),
     )
     problems=collect(problem_space)

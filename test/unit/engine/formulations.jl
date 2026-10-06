@@ -11,9 +11,9 @@
     @test occursin("lossless", lowercase(description(admittance_formulation)))
     @test formula_id(impedance_formulation) === :ametani1980
     @test formula_id(admittance_formulation) === :lossless
-    @test :default in InsulationImpedance.formulas()
-    @test all(in(InsulationAdmittance.formulas()), (:lossless, :lossy, :default))
-    @test all(in(SemiconAdmittance.formulas()), (:lossless, :lossy, :default))
+    @test :default in InsulationImpedance.formulas(InsulationImpedance.Formula)
+    @test all(in(InsulationAdmittance.formulas(InsulationAdmittance.Formula)), (:lossless, :lossy, :default))
+    @test all(in(SemiconAdmittance.formulas(SemiconAdmittance.Formula)), (:lossless, :lossy, :default))
     # Current lossless radial fields: `H=I/(2pi*r)` and
     # `E=V/(r*log(b/a))`. Integrate their magnetic and electric energy.
     for T in (Float32, Float64, BigFloat)
@@ -80,7 +80,7 @@ end
     formulation=InternalImpedance.Formula(:default)
     @test occursin("Schelkunoff", description(formulation))
     @test InternalImpedance.formula_id(formulation) === :schelkunoff1934
-    @test :default in InternalImpedance.formulas()
+    @test :default in InternalImpedance.formulas(InternalImpedance.Formula)
 
     r_in=0.005
     r_ex=0.01

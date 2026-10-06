@@ -1,5 +1,10 @@
-"Return the high-frequency permittivity parameter of the Messier relation."
-assumptions(::Val{:messier1985}) = (epsilon_infinity = 8.0,)
+# Construct `:messier1985` with the high-frequency permittivity parameter of the Messier
+# relation as parameter defaults.
+function Formula{:messier1985}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    defaults = (epsilon_infinity = 8.0,)
+    return Formula{:messier1985}(defaults, parameters, options)
+end
 
 function validate(selected::Formula{:messier1985})
     selected.parameters.epsilon_infinity >= 0 || throw(ArgumentError(

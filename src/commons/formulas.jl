@@ -63,6 +63,15 @@ function formulation_options(formula::AbstractFormulation,
 end
 
 """
+    formulas(family)
+
+Return the identifiers that a formula family registers, in registration order. `family` is
+the family's `Formula` type, such as `EarthImpedance.Formula`. Each family adds one
+method on its own `Formula` type.
+"""
+function formulas end
+
+"""
     bindings(formula, interactions)
 
 Bind each interaction to the equation that `formula` declares for it, together with that

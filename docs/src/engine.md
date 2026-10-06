@@ -37,7 +37,8 @@ material's supplied polarization losses. The FrequencyDependent `:default`
 routes to `:constant`, which preserves static properties. Its explicit
 literature relations model measured soil dispersion. Their references remain
 attached to the equations without determining their software names.
-EquivalentHomogeneous selects the basement when explicitly requested, and the
+EquivalentHomogeneous selects the basement when explicitly requested, or when a
+homogeneous earth formula meets an earth model with more than two layers, and the
 modal default performs Levenberg–Marquardt tracking. The EquivalentHomogeneous
 default is a package-defined selection rather than an author equation.
 
@@ -307,8 +308,8 @@ selected-formulation dispatch.
 
 Custom types implement the existing family operation and expose `parameters`
 and `options` records. Internal selections expose per-surface options.
-Earth selections expose `assumptions` and
-`equivalent_earth`. Constructors own parameter checking and option normalization.
+Earth selections expose `equivalent_earth`. Constructors own parameter checking and
+option normalization.
 Implement `formula_id`, `description`, `NamedTuple`, and `formulation_options`
 for scientific inspection and persistence. A saved declaration is not executable
 code. Unknown saved leaf identities remain passive identities.
@@ -397,10 +398,19 @@ uncertainty sources remain distinct. Each invocation overwrites representative
 indices and diagnostic ranges. The calculation starts afresh at each frequency. Geometry
 changes require a new workspace. Numerical types and tolerances are preserved.
 
-The medium inventory is a separate physical restriction. A homogeneous formula
-consumes exactly air and one soil half-space. A finite-layer model consumes its
-whole declared inventory and interfaces. Explicit `Val(S), Val(T)` methods describe
-its cases. Arbitrary-layer Green-function generation remains deferred. Buried
+The source and target layers in the signatures of a formula's methods declare the
+media it handles. Layer 1 is air and layer 2 the first earth layer. A formula admits a
+layer when one of its methods accepts it as source or target, whatever the types of
+the other arguments. On an earth model with more layers, a formula that admits layers
+1 and 2 at most consumes its explicit `equivalent_earth` reduction. Without one, it
+consumes the EquivalentHomogeneous `:default` reduction. Any admitted layer from 3 to
+the deepest layer of the model gives the formula the whole layered earth and its
+interfaces.
+
+The computation checks before the frequency loop that the formula has a method for
+each interaction. Its `ArgumentError` states the number of earth layers and the
+highest of them that the formula admits. Arbitrary-layer
+Green-function generation remains deferred. Buried
 placement in a vertical multilayer earth is rejected because its physical layer
 indexing has no defined origin in the present geometry definition.
 
@@ -430,8 +440,8 @@ earth or an explicitly globally consistent equivalent earth. Indexed dispatch
 for arbitrary layer numbers is required for extension methods. It does not implement
 new multilayer Unified equations.
 
-Unified binds the [averaged axial-field coefficient](@ref LineCableModels.Engine.EarthImpedance.axial_field_coefficient(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Val, ::Val, ::Any, ::Any, ::Any))
-and the [referenced source-potential coefficient](@ref LineCableModels.Engine.EarthAdmittance.source_potential_coefficient(::Union{LineCableModels.Engine.EarthAdmittance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Val, ::Val, ::Any, ::Any, ::Any)).
+Unified binds the [averaged axial-field coefficient](@ref LineCableModels.Engine.EarthImpedance.axial_field_coefficient(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Union{Val{1}, Val{2}}, ::Union{Val{1}, Val{2}}, ::Any, ::Any, ::Any))
+and the [referenced source-potential coefficient](@ref LineCableModels.Engine.EarthAdmittance.source_potential_coefficient(::Union{LineCableModels.Engine.EarthAdmittance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Union{Val{1}, Val{2}}, ::Union{Val{1}, Val{2}}, ::Any, ::Any, ::Any)).
 These actual numerical methods use the same indexed traversal as ordinary
 impedance and potential equations. Both coefficients are required by either
 selected physical output and are calculated from the selected Unified formulation.
@@ -476,7 +486,7 @@ properties, model, pair and frequency. Its runtime suffix is
 `(rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` and
 its result is one `EarthMaterial`. It defines its numerical sections independently
 of the external equation. The consuming source explicitly admits compatible
-reductions. A consumer that requires the full multilayer model rejects reductions.
+reductions. An explicit reduction applies to every consumer, a layered formula included.
 
 The default selects the deepest soil layer. Martins-Britto et al.
 [Martins-BrittoLopes2020](@cite) found that deep-layer conductivity predominated

@@ -1,11 +1,45 @@
-@testitem "Quality / native equation bindings and closed built-in formula lists" tags=[:quality] setup=[FormulaFixtures] begin
+@testitem "Quality / formula registry / every registered identity constructs through each route" tags=[:quality] setup=[FormulaFamilies] begin
+    const C=LineCableModels.Commons
+    families=FormulaFamilies.families()
+    @test length(families) == 12
+    for family in families
+        F=family.Formula
+        registered=C.formulas(F)
+        @test allunique(registered)
+        @test :default in registered
+        installed=formula_id(F(:default))
+        @test installed in registered && installed !== :default
+        for identifier in registered
+            selected=F(identifier)
+            # The convenience routes and a passive definition construct the same formula type.
+            @test typeof(F(Val(identifier))) === typeof(selected)
+            @test typeof(F(formula(identifier))) === typeof(selected)
+            @test typeof(F{identifier}()) === typeof(selected)
+            @test formula_id(selected) === (identifier === :default ? installed : identifier)
+            @test F(selected) === selected
+            @test formula_id(typeof(selected)) === formula_id(selected)
+            @test NamedTuple(selected).identifier === formula_id(selected)
+        end
+        @test_throws ArgumentError F(:UnregisteredIdentity)
+    end
+    # An unspecified slot of a backend resolves through its family's `:default`.
+    for (backend, formulation) in ((LineParametersFormulation, Formulation()),
+            (CableConstantsFormulation, CableConstantsFormulation()))
+        for (slot, F) in pairs(backend)
+            @test isequal(getproperty(formulation.methods, slot), F(:default))
+        end
+    end
+    @test isequal(ModalAnalysisFormulation().formula, LineCableModels.ModalAnalysis.Formula(:default))
+end
+
+@testitem "Quality / native equation bindings and closed built-in formula lists" tags=[:quality] setup=[FormulaFixtures,FormulaFamilies] begin
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     const FM=LineCableModels.FormulaMethod
-    owners=(E.InternalImpedance,E.InsulationImpedance,E.EarthImpedance,
-        E.InsulationAdmittance,E.SemiconAdmittance,E.EarthAdmittance,
-        EP.FrequencyDependent,EP.EquivalentHomogeneous,LineCableModels.ModalAnalysis,
-        LineCableModels.Materials.TemperatureDependent)
+    # The expression routes below cover the families whose formulas have options and run
+    # in the frequency loop. PipeImpedance formulas have no options, and ShuntModel
+    # formulas run at blueprint time.
+    owners=filter(family -> family ∉ (E.PipeImpedance, E.ShuntModel), FormulaFamilies.families())
     scalar_operations=(E.InsulationImpedance=>E.InsulationImpedance.insulation_impedance,
         E.InsulationAdmittance=>E.InsulationAdmittance.insulation_material,
         E.SemiconAdmittance=>E.SemiconAdmittance.semicon_material,
@@ -13,7 +47,7 @@
         LineCableModels.ModalAnalysis=>LineCableModels.ModalAnalysis.decompose!,
         LineCableModels.Materials.TemperatureDependent=>
             LineCableModels.Materials.TemperatureDependent.temperature_resistivity)
-    for owner in owners, identifier in owner.formulas()
+    for owner in owners, identifier in owner.formulas(owner.Formula)
         selected=owner.Formula(identifier)
         @test fieldtype(typeof(selected), :options) <: FormulationOptions
         @test formulation_options(selected) === selected.options
@@ -63,7 +97,7 @@
             (LineCableModels.Materials.TemperatureDependent,M.ConstantResistivity(1e-8)),
             (E.ShuntModel,M.UserCoaxialShunt()),(E.PipeImpedance,M.UserCoaxialPipe()))
         @test owner.Formula(custom) === custom
-        @test formula_id(custom) ∉ owner.formulas()
+        @test formula_id(custom) ∉ owner.formulas(owner.Formula)
     end
 end
 

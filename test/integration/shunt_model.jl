@@ -90,7 +90,7 @@
     changed = CableConstantsProblem(internal_shunt_test_design(count = 4, epsilon = 4.0))
     @test compute(changed, boundary).C != first_result.C
     @test compute(problem, default) == nominal
-    for id in E.ShuntModel.formulas()
+    for id in E.ShuntModel.formulas(E.ShuntModel.Formula)
         selected = E.ShuntModel.Formula(id)
         @test occursin("id=" * string(formula_id(selected)), sprint(show, selected))
         @test occursin(string(formula_id(selected)), sprint(show, MIME"text/plain"(), selected))

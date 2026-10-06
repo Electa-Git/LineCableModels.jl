@@ -1,7 +1,3 @@
-function assumptions(::Val{:pollaczek1926})
-    (media = :homogeneous, layers = 2:2, permittivity = :positive)
-end
-
 """
 $(TYPEDSIGNATURES)
 

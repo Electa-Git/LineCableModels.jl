@@ -108,6 +108,46 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
         (all=fields(nothing),Z=fields(Z),Y=fields(Y))))
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Complete `formulation` as the line-parameter computation of `workspace` applied it. Each
+earth formula records the equivalent earth that the plan stored for its calculation. A
+reduction that the plan resolved through `:default` appears as that formula's
+`equivalent_earth`, as an explicit one does. The requested selections remain as declared.
+"""
+function completed_formulation(formulation::LineParametersFormulation,
+        workspace::LineParametersWorkspace)
+    declaration = NamedTuple(formulation)
+    length(workspace.input.earth.layers) > 2 ||
+        return completed_formulation(formulation, declaration)
+    slots = (:earth_impedance, :earth_admittance)
+    # Each formula without an explicit `equivalent_earth` that the plan reduced, with the
+    # reduction stored in its calculation.
+    reduced = Pair[]
+    for calculation in workspace.plan.earth_calculations
+        calculation.earth isa EarthModel && continue
+        layers = Val.(layer_index(first(calculation.interactions).physical_pair))
+        for (slot, outputs) in zip(slots,
+                (calculation.impedance_indices, calculation.potential_indices))
+            isempty(outputs) && continue
+            selected = Formulation(formulation.methods[slot], layers...)
+            selected.equivalent_earth === nothing &&
+                push!(reduced, selected => calculation.earth)
+        end
+    end
+    function record(selected, retained)
+        selected isa NamedTuple && return map(record, selected, retained)
+        index = findfirst(entry -> first(entry) === selected, reduced)
+        index === nothing && return retained
+        return merge(retained, (equivalent_earth = NamedTuple(last(reduced[index])),))
+    end
+    recorded = merge(declaration.methods,
+        map(record, formulation.methods[slots], declaration.methods[slots]))
+    return completed_formulation(formulation,
+        typeof(declaration)((declaration.backend, declaration.requested, recorded, declaration.options)))
+end
+
 # Description contents and runtime geometry do not specialize the result type.
 """
 $(TYPEDSIGNATURES)

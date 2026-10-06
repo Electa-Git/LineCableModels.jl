@@ -11,7 +11,7 @@ conversion to shunt admittance. A multiconductor admittance matrix requires matr
 scalar reciprocals. Geometry, voltage reference, and
 propagation assumptions remain those of each source.
 
-- [Default two-half-space source-potential coefficients](@ref source_potential_coefficient(::Union{Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Val, ::Val, ::Any, ::Any, ::Any))
+- [Default two-half-space source-potential coefficients](@ref source_potential_coefficient(::Union{Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Union{Val{1}, Val{2}}, ::Union{Val{1}, Val{2}}, ::Any, ::Any, ::Any))
 - [Ideal-earth electrostatic image potential coefficients](@ref earth_potential_coefficient(::Formula{:ideal}, ::Val{:self}, ::Val{1}, ::Val{1}, ::Any, ::Any, ::Any))
 - [Pollaczek underground earth-return admittance](external-admittance/1926/homogeneous-earth-generalized-induction-green-function/Pollaczek1926.md)
 - [Wise homogeneous-earth overhead potential coefficient](external-admittance/1948/homogeneous-earth-overhead-potential-coefficient/Wise1948.md)

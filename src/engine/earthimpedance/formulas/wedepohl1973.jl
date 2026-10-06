@@ -1,7 +1,3 @@
-function assumptions(::Val{:wedepohl1973})
-    (media = :homogeneous, layers = 2:2, permittivity = :positive)
-end
-
 function description(::Type{<:Formula{:wedepohl1973}}; compact::Bool = false)
     compact ? "Wedepohl" : "Wedepohl-Wilcox low-frequency underground approximation (1973)"
 end

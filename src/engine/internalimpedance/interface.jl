@@ -30,9 +30,6 @@ struct Functor{F, S, O <: FormulationOptions}
     options::O
 end
 
-"""Return the stable identifier of a selected internal-impedance formulation."""
-formula_id(::Formula{ID}) where {ID} = ID
-
 """Evaluate a selected cylindrical surface coefficient in Ω/m."""
 function internal_impedance end
 
@@ -47,10 +44,8 @@ onto its surface equations. Unknown numerical sections are rejected.
 Custom formulations subtype `InternalImpedanceFormulation`, supply their
 shared-state constructor, and extend `internal_impedance` on their own type.
 """
-Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-
-function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
-    ID in formulas() || throw(ArgumentError("unknown internal-impedance formula :$ID"))
+function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+    ID in formulas(Formula) || throw(ArgumentError("unknown internal-impedance formula :$ID"))
     options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("internal impedance :$ID has no model parameters"))
     kinds = (:inner, :outer, :transfer)
@@ -61,15 +56,6 @@ function Formula(::Val{ID}; parameters::NamedTuple=(;), options::Union{NamedTupl
         projected.options[findfirst(==(equation), projected.equations)].data
     end))
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
-end
-
-Formula(selected::InternalImpedanceFormulation) = selected
-
-function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
-    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
-    selection.equivalent_earth === nothing || throw(ArgumentError(
-        "equivalent_earth applies only to external earth formulas"))
-    return Formula(Val(ID); parameters=selection.parameters, options=selection.options)
 end
 
 function internal_impedance(selected::InternalImpedanceFormulation, ::Val{Kind},
@@ -145,12 +131,25 @@ end
         second_functor(Val(Kinds[2]),workspace), third_functor(Val(Kinds[3]),workspace)))
 end
 
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::InternalImpedanceFormulation) = selected
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    selection.equivalent_earth === nothing || throw(ArgumentError(
+        "equivalent_earth applies only to external earth formulas"))
+    return Formula{ID}(; parameters=selection.parameters, options=selection.options)
+end
+
+"""Return the stable identifier of a selected internal-impedance formulation."""
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
+
 """Expose the selected identity, model parameters and numerical controls."""
 Base.NamedTuple(value::Formula) = (identifier=formula_id(value),
     parameters=value.parameters, options=value.options.data)
 
-import ...Commons: formulation_options
-description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
 Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((inner=Formula, outer=Formula, transfer=Formula))
-formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = value.options

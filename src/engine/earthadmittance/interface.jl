@@ -2,16 +2,16 @@
 $(TYPEDEF)
 
 Own one earth potential coefficient formulation, its indexed equation declarations and explicit
-controls. `assumptions` contains scientific restrictions. Each interaction
-is selected by its explicit kind and source-layer and target-layer equation signature.
-`parameters` stores model data. `options` stores formulation choices and numerical controls.
+controls. Each interaction is selected by its explicit kind and source-layer and
+target-layer equation signature. The layers in the signatures of its
+`earth_potential_coefficient` methods declare the media it handles: methods up to layer 2 treat air
+and one homogeneous earth. `parameters` stores model data. `options` stores formulation
+choices and numerical controls.
 
 $(TYPEDFIELDS)
 """
-struct Formula{ID, A <: NamedTuple, P <: NamedTuple, O <: FormulationOptions, E} <:
+struct Formula{ID, P <: NamedTuple, O <: FormulationOptions, E} <:
        EarthAdmittanceFormulation
-    "Model class and supported physical medium inventory."
-    assumptions::A
     "Explicit physical model parameters."
     parameters::P
     "Formulation options. Projected onto required indexed equations during initialization."
@@ -38,24 +38,10 @@ struct Functor{B, S, O <: FormulationOptions}
     options::O
 end
 
-formula_id(::Formula{ID}) where {ID} = ID
-assumptions(formula::EarthAdmittanceFormulation) = formula.assumptions
-media(formula::EarthAdmittanceFormulation) = formula.assumptions.media
-
-"""
-Declare model inventory and physical restrictions, without callable behavior.
-"""
-function assumptions end
-
-function assumptions(::Val{ID}) where {ID}
-    throw(ArgumentError("unknown earthadmittance formula :$ID"))
-end
 """
 Evaluate one source-owned earth potential coefficient equation.
 """
 function earth_potential_coefficient end
-
-Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
 """
 $(TYPEDSIGNATURES)
@@ -66,13 +52,13 @@ before equation execution.
 Formula-specific arguments are normalized by their selected owner.
 A missing physical case is unsupported.
 """
-function Formula(::Val{ID}; parameters::NamedTuple = (;),
+function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions(), equivalent_earth = nothing) where {ID}
     options = options isa NamedTuple ? FormulationOptions(options) : options
     options = formulation_options(Formula{ID}, options)
-    parameters = earth_parameters(Val(ID), parameters)
-    declared_constraints = assumptions(Val(ID))
-    constraints = merge(declared_constraints, (media = Val(declared_constraints.media),))
+    isempty(parameters) ||
+        throw(ArgumentError("earth formula :$ID has no configurable physical parameters"))
+    ID in formulas(Formula) || throw(ArgumentError("unknown earthadmittance formula :$ID"))
     reduction = if equivalent_earth === nothing
         nothing
     elseif equivalent_earth isa EquivalentHomogeneous.AbstractSequence
@@ -82,19 +68,16 @@ function Formula(::Val{ID}; parameters::NamedTuple = (;),
     else
         throw(ArgumentError("equivalent_earth must be a formula definition or explicit reduction sequence"))
     end
-    reduction !== nothing && constraints.media !== Val(:homogeneous) &&
-        throw(ArgumentError("a full multilayer formula cannot consume an equivalent homogeneous reduction"))
-    return Formula{ID, typeof(constraints), typeof(parameters),
-        typeof(options), typeof(reduction)}(
-        constraints, parameters, options, reduction)
+    return Formula{ID, typeof(parameters), typeof(options), typeof(reduction)}(
+        parameters, options, reduction)
 end
 
 """
 $(TYPEDSIGNATURES)
 
 Construct one validated indexed interaction at fixed angular frequency. Material
-vectors use physical indices for a stratified equation and exactly `(air,soil)`
-for a homogeneous equation. Explicit reduction and its physical and effective
+vectors list air and every physical earth layer when layer thicknesses are given,
+and exactly `(air,soil)` otherwise. Explicit reduction and its physical and effective
 mapping are owned by the computation workspace.
 
 # Arguments
@@ -107,7 +90,7 @@ mapping are owned by the computation workspace.
 
 # Keywords
 
-- `thickness`: aligned layer thicknesses [m] for a stratified model.
+- `thickness`: aligned layer thicknesses [m] for a layered earth.
 """
 function (formula::EarthAdmittanceFormulation)(
         resistivity::AbstractVector{T}, permittivity::AbstractVector{T},
@@ -129,7 +112,7 @@ function (formula::EarthAdmittanceFormulation)(
     options = selected.options
     validate(resistivity, formula, permittivity, permeability, thickness)
     thickness === nothing || validate(pair, thickness)
-    layers = media(formula) === Val(:homogeneous) ? (1, 2) : eachindex(permeability)
+    layers = thickness === nothing ? (1, 2) : eachindex(permeability)
     σ = map(layer -> conductivity(resistivity[layer]), layers)
     materials = (rho = resistivity, epsilon = permittivity,
         mu = permeability, sigma = σ)
@@ -152,8 +135,7 @@ function (functor::Functor)(workspace = nothing)
 end
 
 function (selected::EarthAdmittanceFormulation)(materials, binding, workspace, frequency::Int)
-    state = (jω = workspace.input.jω[frequency], materials,
-        thickness = media(selected) === Val(:stratified) ? materials.thickness : nothing)
+    state = (jω = workspace.input.jω[frequency], materials, thickness = materials.thickness)
     return (coefficients = (workspace.buffers.Pearth,), state)
 end
 
@@ -169,49 +151,43 @@ function earth!(::EarthAdmittanceFormulation, calculation, workspace)
     (potential = only(calculation.coefficients),)
 end
 
-function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
-    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
-    return Formula(Val(ID); parameters = selection.parameters,
-        options = selection.options, equivalent_earth = selection.equivalent_earth)
-end
-
-Formula(selected::EarthAdmittanceFormulation) = selected
-
 function FormulaMethod(formula::EarthAdmittanceFormulation, pair::EarthPair)
     return FormulaMethod(formula, earth_potential_coefficient,
         Val(pair.row == pair.column ? :self : :mutual), Val.(layer_index(pair))...)
 end
 
-function earth_potential_coefficient(
-        selected::EarthAdmittanceFormulation, ::Val{Kind}, ::Val{S}, ::Val{T},
-        functor, pair, workspace) where {Kind, S, T}
-    throw(ArgumentError(
-        "earth_potential_coefficient :$(formula_id(selected)) ($Kind): formula not implemented for source in layer $S and target in layer $T"))
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::EarthAdmittanceFormulation) = selected
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    return Formula{ID}(; parameters = selection.parameters,
+        options = selection.options, equivalent_earth = selection.equivalent_earth)
 end
+
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+# Identity-only dispatch also describes retained selections without constructors.
+description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
+# Indexed numerical controls remain deferred to their consuming equations.
+formulation_options(::Type{<:Formula}, options::FormulationOptions) = options
 
 """
 $(TYPEDSIGNATURES)
 
-Expose the selected identity, scientific restrictions, model and numerical
-controls, and explicit equivalent-earth reduction as a native record.
+Expose the selected identity, model and numerical controls, and explicit
+equivalent-earth reduction as a native record.
 """
 function Base.NamedTuple(value::Formula)
-    return (identifier = formula_id(value), assumptions = value.assumptions,
+    return (identifier = formula_id(value),
         parameters = value.parameters, options = value.options.data,
         equivalent_earth = value.equivalent_earth === nothing ? nothing :
                            NamedTuple(value.equivalent_earth))
 end
 
-# Identity-only dispatch also describes retained selections without constructors.
-import ...Commons: formulation_options
-description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
-
 """Iterate the independently selectable child slots admitted by this formula family."""
 function Base.pairs(::Type{<:Formula}; quantity = nothing)
     pairs((air = Formula, earth = Formula, mixed = Formula))
 end
-formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = value.options
-
-# Indexed numerical controls remain deferred to their consuming equations.
-formulation_options(::Type{<:Formula}, options::FormulationOptions) = options

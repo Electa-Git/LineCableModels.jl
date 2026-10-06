@@ -68,11 +68,6 @@ function initialize_buffers(sequence::AbstractSequence, ::Type{T}, input, plan,
 end
 
 """
-Return the stable formula identifier of an EquivalentHomogeneous formula.
-"""
-formula_id(::Formula{ID}) where {ID} = ID
-
-"""
 Construct one formula-owned equivalent homogeneous-earth material.
 """
 function equivalent_material end
@@ -83,18 +78,10 @@ $(TYPEDSIGNATURES)
 Construct an equivalent-earth rule with model parameters and numerical controls.
 Custom rules subtype `AbstractRule` and extend `equivalent_material` on their
 own concrete type. The selected sequence defines its position relative to the
-frequency-dependent material law.
+frequency-dependent material law. Each registered rule defines its own identity
+constructor. Any other identifier is unknown.
 """
-Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(selected::AbstractRule) = selected
-
-function Formula(::Val{:bottommost}; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
-    options = options isa NamedTuple ? FormulationOptions(options) : options
-    isempty(parameters) || throw(ArgumentError("bottommost earth has no configurable model parameters"))
-    return Formula{:bottommost, typeof(parameters), typeof(options)}(parameters, options)
-end
-
-Formula(::Val{ID}; kwargs...) where {ID} = throw(ArgumentError("unknown equivalent-earth rule :$ID"))
+Formula{ID}(; kwargs...) where {ID} = throw(ArgumentError("unknown equivalent-earth rule :$ID"))
 
 AfterFD(identifier::Symbol; kwargs...) = AfterFD(Formula(identifier; kwargs...))
 BeforeFD(identifier::Symbol; kwargs...) = BeforeFD(Formula(identifier; kwargs...))
@@ -128,18 +115,10 @@ end
     return material
 end
 
-function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
-    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
-    selection.equivalent_earth === nothing ||
-        throw(ArgumentError("a reduction cannot contain another reduction"))
-    return Formula(Val(ID); parameters = selection.parameters,
-        options = selection.options)
-end
-
 function AbstractSequence(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     selection.equivalent_earth === nothing ||
         throw(ArgumentError("a reduction cannot contain another reduction"))
-    rule = Formula(Val(ID); parameters = selection.parameters,
+    rule = Formula{ID}(; parameters = selection.parameters,
         options = selection.options)
     return Order === :before ? BeforeFD(rule) : AfterFD(rule)
 end
@@ -181,22 +160,37 @@ function Base.NamedTuple(value::AbstractSequence)
     return (order=nameof(typeof(value)), rule=NamedTuple(value.rule))
 end
 
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::AbstractRule) = selected
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    selection.equivalent_earth === nothing ||
+        throw(ArgumentError("a reduction cannot contain another reduction"))
+    return Formula{ID}(; parameters = selection.parameters,
+        options = selection.options)
+end
+
+"""
+Return the stable formula identifier of an EquivalentHomogeneous formula.
+"""
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
 # Identity-only dispatch also describes retained selections without constructors.
-import ...Commons: formulation_options
-description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
+description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
 
 """Iterate the independently selectable child slots admitted by this formula family."""
-Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
-formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = value.options
+Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))
 
 """Describe an explicit equivalent-earth rule and its requested material-law order."""
 description(slot::Val{:equivalent_earth},value::FormulaDefinition;compact::Bool=true) =
     description(slot,NamedTuple(value);compact)
 function description(::Val{:equivalent_earth},value::NamedTuple;compact::Bool=true)
     record=get(value,:rule,value)
-    selected=Formula{record.identifier}
-    text=applicable(description,selected) ? description(selected;compact) : string(record.identifier)
+    text=record.identifier in formulas(Formula) ? description(Formula{record.identifier};compact) :
+         string(record.identifier)
     order=get(value,:order,:default)
     order=order===:BeforeFD ? :before : order===:AfterFD ? :after : order
     order===:default || (text *= " "*string(order)*" FrequencyDependent")

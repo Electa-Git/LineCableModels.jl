@@ -3,12 +3,13 @@ const LONGMIRE_SMITH_COEFFICIENTS = (
     1.25e1, 4.8, 2.17, 0.98, 0.392, 0.173
 )
 
-"Return the high-frequency and relaxation parameters of Longmire-Smith."
-assumptions(::Val{:longmire1975}) = (
-    epsilon_infinity = 5.0,
-    corner_scale = 125.0,
-    corner_exponent = 0.8312
-)
+# Construct `:longmire1975` with the high-frequency and relaxation parameters of
+# Longmire-Smith as parameter defaults.
+function Formula{:longmire1975}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    defaults = (epsilon_infinity = 5.0, corner_scale = 125.0, corner_exponent = 0.8312)
+    return Formula{:longmire1975}(defaults, parameters, options)
+end
 
 function validate(selected::Formula{:longmire1975})
     selected.parameters.corner_scale > 0 || throw(ArgumentError(

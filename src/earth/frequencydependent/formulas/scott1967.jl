@@ -1,6 +1,3 @@
-"Return the fixed assumptions of the Scott-Carroll-Cunningham soil fit."
-assumptions(::Val{:scott1967}) = (;)
-
 """
 $(TYPEDSIGNATURES)
 

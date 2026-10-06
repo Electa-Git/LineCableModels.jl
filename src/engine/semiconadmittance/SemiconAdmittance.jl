@@ -9,7 +9,7 @@ $(IMPORTS)
 
 """
 module SemiconAdmittance
-import ...Commons: FormulationOptions
+import ...Commons: FormulationOptions, formulas
 import ...Commons: formulation_options
 
 export Formula, formula_id, formulas
@@ -40,6 +40,6 @@ const FORMULAS = (
 """
 Return the built-in semicon-admittance formula identifiers.
 """
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module SemiconAdmittance

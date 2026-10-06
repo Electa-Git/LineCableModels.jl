@@ -257,11 +257,6 @@ function validate(value, ::Union{InsulationAdmittanceFormulation, SemiconAdmitta
 end
 
 """
-Return whether an earth formulation consumes homogeneous or stratified media.
-"""
-function media end
-
-"""
 Resolve scalar or named selections through the child slots declared by their formula owner.
 """
 function Formulation(::Type{F},
@@ -346,17 +341,65 @@ end
 # Equation-specific geometric restrictions extend the existing validation protocol.
 validate(pair::EarthPair, ::FormulaMethod) = pair
 
-function validate(count::Integer, formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})
-    count in formula.assumptions.layers || throw(DimensionMismatch(
-        "formula :$(formula_id(formula)) requires $(formula.assumptions.layers) media including air; received $count"))
-    return count
+# Whether the formula of `expression` admits earth layer `k`. It does when a method of its
+# operation accepts `Val{k}` in the source or the target position, whatever the types of the
+# other arguments. A layer left generic, such as `::Val{S}`, admits every layer.
+function _admits_layer(expression::FormulaMethod, k::Int)
+    F = typeof(expression.selection)
+    return !isempty(methods(expression.method, Tuple{F, Any, Val{k}, Any, Any, Any, Any})) ||
+           !isempty(methods(expression.method, Tuple{F, Any, Any, Val{k}, Any, Any, Any}))
+end
+
+# The equivalent earth that an earth formula consumes on `model`. An explicit
+# `equivalent_earth` applies. Without one, a formula that does not admit any layer from 3 to
+# N gets the EquivalentHomogeneous `:default` reduction on a model with N > 2 layers. Otherwise the
+# result is `nothing`, the layered earth. `pair` is any earth interaction. The decision reads
+# the operation of the formula's expression for it and ignores the layers of the pair.
+function _equivalent_earth(selected, model::EarthModel, pair::EarthPair)
+    selected.equivalent_earth === nothing || return selected.equivalent_earth
+    layers = length(model.layers)
+    layers > 2 || return nothing
+    expression = FormulaMethod(selected, pair)
+    any(k -> _admits_layer(expression, k), 3:layers) && return nothing
+    return EquivalentHomogeneous.AbstractSequence(formula(:default))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check that the formula of `expression` defines it for the layers of an earth `model`, before
+the frequency loop evaluates it. The signatures of a formula's methods declare the earth
+layers it handles, whatever the types of their runtime arguments. Return `expression`.
+
+# Errors
+
+- Throws `ArgumentError` with the layer count N of `model` and the highest layer up to N
+  that the formula admits.
+
+When the formula admits layer N + 1, the message reads "defined for every layer" instead.
+"""
+function validate(expression::FormulaMethod{<:Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}},
+        model::EarthModel)
+    selected = expression.selection
+    signature = Tuple{typeof(selected), map(typeof, expression.arguments)..., Any, Any, Any}
+    hasmethod(expression.method, signature) && return expression
+    # A method with typed runtime arguments defines the expression too.
+    isempty(methods(expression.method, signature)) || return expression
+    layers = length(model.layers)
+    defined = _admits_layer(expression, layers + 1) ? "defined for every layer" :
+              "defined up to layer $(something(findlast(k -> _admits_layer(expression, k), 1:layers), 0))"
+    interaction(::Val{K}, ::Val{S}, ::Val{T}) where {K, S, T} =
+        "a $K interaction from layer $S to layer $T"
+    throw(ArgumentError(
+        "the earth model has $layers layers and formula " *
+        ":$(formula_id(selected)) is $defined; it has no expression " *
+        "for $(interaction(expression.arguments...))"))
 end
 
 function validate(earth::EarthModel, formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})
     validate(earth)
     earth.vertical_layers &&
         throw(ArgumentError("earth-return equations require horizontal interfaces or an explicit EquivalentHomogeneous reduction"))
-    validate(length(earth.layers), formula)
     return earth
 end
 
@@ -365,22 +408,18 @@ function validate(rho::AbstractVector,
         epsilon::AbstractVector, mu::AbstractVector, thickness)
     length(rho) == length(epsilon) == length(mu) ||
         throw(DimensionMismatch("material vectors must align"))
-    validate(length(rho), formula)
     all(x -> x > 0 && !isnan(x), rho) ||
         throw(DomainError(rho, "resistivities must be positive, including infinite air resistivity"))
     all(x -> isfinite(x) && !iszero(x), epsilon) && all(x -> isfinite(x) && x > 0, mu) ||
         throw(DomainError((epsilon, mu),
             "permittivities must be nonzero and finite; permeabilities positive and finite"))
     epsilon[1] > 0 || throw(DomainError(epsilon[1], "air permittivity must be positive"))
-    restriction = formula.assumptions.permittivity
-    restriction in (:positive, :nonzero) ||
-        throw(ArgumentError("unknown source permittivity restriction"))
-    restriction === :positive && !all(>(0), epsilon) &&
+    all(>(0), epsilon) ||
         throw(DomainError(epsilon,
             "formula :$(formula_id(formula)) requires positive permittivity; the earth-material data type permits artificial negative values"))
     if thickness === nothing
-        media(formula) === Val(:stratified) && length(rho) > 2 &&
-            throw(DimensionMismatch("stratified equations require aligned physical layer thicknesses"))
+        length(rho) == 2 || throw(DimensionMismatch(
+            "material vectors without layer thicknesses describe air and one earth medium"))
     else
         length(thickness) == length(rho) ||
             throw(DimensionMismatch("layer thicknesses must align with materials"))
@@ -388,8 +427,6 @@ function validate(rho::AbstractVector,
         all(x -> isfinite(x) && x > 0, @view(thickness[2:(end - 1)])) ||
             throw(DomainError(thickness,
                 "air and bottom half-spaces must be infinite; internal layers positive and finite"))
-        media(formula) === Val(:homogeneous) && length(thickness) != 2 &&
-            throw(DimensionMismatch("homogeneous equations have no internal soil interfaces"))
     end
     return rho
 end

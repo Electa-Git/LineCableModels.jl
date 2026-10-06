@@ -1,5 +1,10 @@
-"Return the fitted parameters of the Portela soil-dispersion relation."
-assumptions(::Val{:portela1999}) = (beta = 0.1, exponent = 0.72)
+# Construct `:portela1999` with the fitted parameters of the Portela soil-dispersion
+# relation as parameter defaults.
+function Formula{:portela1999}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    defaults = (beta = 0.1, exponent = 0.72)
+    return Formula{:portela1999}(defaults, parameters, options)
+end
 
 function validate(selected::Formula{:portela1999})
     exponent = selected.parameters.exponent

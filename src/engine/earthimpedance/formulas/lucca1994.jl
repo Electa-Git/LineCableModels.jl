@@ -1,7 +1,3 @@
-function assumptions(::Val{:lucca1994})
-    (media = :homogeneous, layers = 2:2, permittivity = :positive)
-end
-
 function description(::Type{<:Formula{:lucca1994}}; compact::Bool = false)
     compact ? "Lucca" : "Lucca mixed-pair homogeneous-earth impedance (1994)"
 end

@@ -16,6 +16,9 @@
     @test_throws ArgumentError validate(E.EarthPair(
         1, 1, (-1.0, -2.0), 0.0, (2, 2); radius = 0.01))
     @test_throws ArgumentError validate(E.EarthPair(1, 2, (1.0, 2.0), 1.0, (2, 2)))
+    # The signatures of a formula's methods are its only declaration of the earth layers
+    # it handles. A missing expression fails before the frequency loop.
+    earth = homogeneous(rho = 100.0)
     for owner in (EI, EA)
         selected = owner.Formula(:default)
         @test only(bindings(selected, (air,))).equation.arguments[2:3] == (Val(1), Val(1))
@@ -25,27 +28,141 @@
         @test only(bindings(selected, (mixed,))).kind === :mutual
         @test_throws ArgumentError bindings(selected, (E.EarthPair(
             1, 2, (-1.0, -2.0), 1.0, (2, 3)),))
-        @test_throws DimensionMismatch validate(3, selected)
-        @test validate(2, selected) === 2
+        for pair in (air, soil, mixed, self)
+            expression = FM(selected, pair)
+            @test validate(expression, earth) === expression
+        end
         author=owner.Formula(:xue2018)
-        @test_throws ArgumentError FM(author, mixed)(nothing, mixed, nothing)
+        @test_throws "the earth model has 2 layers and formula :xue2018 is defined up to layer 2; it has no expression for a mutual interaction from layer 1 to layer 2" validate(
+            FM(author, mixed), earth)
         @test only(bindings(selected, (air,))).equation isa FM
         @test only(bindings(selected, (air,))).equation.selection === selected
     end
     for id in (:ametani2009, :lucca1994)
         selected = EI.Formula(id)
         @test only(bindings(selected, (mixed,))).kind === :mutual
-        @test_throws ArgumentError FM(selected, air)(nothing, air, nothing)
-        @test_throws ArgumentError FM(selected, soil)(nothing, soil, nothing)
-        @test_throws ArgumentError FM(selected, self)(nothing, self, nothing)
+        @test validate(FM(selected, mixed), earth) isa FM
+        @test_throws ArgumentError validate(FM(selected, air), earth)
+        @test_throws ArgumentError validate(FM(selected, soil), earth)
+        @test_throws ArgumentError validate(FM(selected, self), earth)
     end
     vertical=E.EarthPair(1, 2, (-1.0, -2.0), 0.0, (2, 2))
     @test only(bindings(EI.Formula(:saad1996), (vertical,))).kind === :mutual
     @test only(bindings(EI.Formula(:saad1996), (self,))).kind === :self
     @test only(bindings(EI.Formula(:wedepohl1973), (vertical,))).kind === :mutual
     @test only(bindings(EI.Formula(:wedepohl1973), (self,))).kind === :self
-    @test_throws ArgumentError FM(EI.Formula(:pollaczek1926), air)(nothing, air, nothing)
-    @test_throws ArgumentError FM(EI.Formula(:carson1926), soil)(nothing, soil, nothing)
+    @test_throws ArgumentError validate(FM(EI.Formula(:pollaczek1926), air), earth)
+    @test_throws "formula :carson1926 is defined up to layer 1" validate(
+        FM(EI.Formula(:carson1926), soil), earth)
+end
+
+@testitem "Engine / the plan reads an earth formula's media from its expression signatures" tags=[:unit, :engine] setup=[FormulaFixtures] begin
+    const M=FormulaFixtures
+    const E=M.E
+    const EP=M.EP
+    const EH=M.EH
+    material=Material(kind = :conductor, rho = 1.7241e-8)
+    design=build(CableDesign, "media-decision",
+        Stack(Group(:phase, Region(:core, Disk(0.01), material))))
+    two=homogeneous(rho = 100.0, eps_r = 10.0)
+    three=build(EP.EarthModel, (
+        EP.EarthLayer(100.0, 10.0, 1.0, 0.5), EP.EarthLayer(200.0, 20.0, 1.0)))
+    four=build(EP.EarthModel, (EP.EarthLayer(100.0, 10.0, 1.0, 0.5),
+        EP.EarthLayer(200.0, 20.0, 1.0, 0.5), EP.EarthLayer(300.0, 30.0, 1.0)))
+    execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
+    function plan(heights, earth, formulation)
+        system=build(LineCableSystem, fill(design, length(heights)),
+            [(Float64(i), h) for (i, h) in enumerate(heights)];
+            connections = [(phase = i,) for i in eachindex(heights)])
+        problem=LineParametersProblem(system; earth_props = earth, frequencies = [50.0])
+        blueprints=E.CableBlueprint{Float64}[E.flatten(LineCableModelsCoaxial(), d, Float64)
+                                             for d in problem.system.designs]
+        workspace=E.LineParametersWorkspace(problem, formulation, execution, blueprints)
+        return workspace.plan.earth_calculations, workspace.buffers.earth_materials
+    end
+    overhead, buried, deep=(10.0, 12.0), (-0.25, -0.3), (-0.25, -1.5)
+    # A formula whose expressions stop at layer 2 sees a two-layer earth as it is.
+    calculations, materials=plan(overhead, two, Formulation())
+    @test only(calculations).earth isa EP.EarthModel
+    @test size(only(materials).rho, 1) == 2 && only(materials).thickness === nothing
+    # On more layers it consumes the `:default` reduction unless the formula specifies one.
+    calculations, materials=plan(overhead, three, Formulation())
+    @test only(calculations).earth isa EH.AfterFD
+    @test formula_id(EH.rule(only(calculations).earth)) === :bottommost
+    @test size(only(materials).rho, 1) == 2 && only(materials).thickness === nothing
+    explicit=formula(:default; equivalent_earth = formula(:default; order = :before))
+    calculations, _=plan(overhead, two,
+        Formulation(earth_impedance = explicit, earth_admittance = explicit))
+    @test only(calculations).earth isa EH.BeforeFD
+    # A formula with an expression above layer 2 consumes the layered earth.
+    layered=Formulation(earth_impedance = M.selection(M.EI), earth_admittance = M.selection(M.EA))
+    calculations, materials=plan(deep, three, layered)
+    @test all(calculation -> calculation.earth isa EP.EarthModel, calculations)
+    @test all(buffer -> size(buffer.rho, 1) == 3 && buffer.thickness == [Inf, 0.5, Inf],
+        materials)
+    _, materials=plan(overhead, two, layered)
+    @test all(buffer -> size(buffer.rho, 1) == 2 && buffer.thickness === nothing, materials)
+    # Beyond its highest layer, a layered formula has no expression.
+    @test_throws "the earth model has 4 layers and formula :LayerImpedance is defined up to layer 3" plan(
+        (-0.25, -0.75, -1.5), four, layered)
+    # The plan rejects a missing expression or an unadmitted reduction before the frequency loop.
+    @test_throws "the earth model has 2 layers and formula :saad1996 is defined up to layer 2; it has no expression for a self interaction from layer 1 to layer 1" plan(
+        overhead, two, Formulation(earth_impedance = formula(:saad1996)))
+    @test_throws "does not admit equivalent-earth reduction :bottommost" plan(
+        buried, three, Formulation(earth_impedance = formula(:saad1996)))
+end
+
+@testitem "Engine / a layered earth formula is never reduced without an explicit reduction" tags=[:unit, :engine] setup=[FormulaFixtures] begin
+    const M=FormulaFixtures
+    const EP=M.EP
+    const EH=M.EH
+    material=Material(kind = :conductor, rho = 1.7241e-8)
+    design=build(CableDesign, "layered-safety",
+        Stack(Group(:phase, Region(:core, Disk(0.01), material))))
+    # Conductors in air, in the first earth layer and in the second.
+    system=build(LineCableSystem, fill(design, 3), [(1.0, 2.0), (2.0, -0.25), (3.0, -1.5)];
+        connections = [(phase = i,) for i in 1:3])
+    three=build(EP.EarthModel, (
+        EP.EarthLayer(100.0, 10.0, 1.0, 0.5), EP.EarthLayer(200.0, 20.0, 1.0)))
+    problem=LineParametersProblem(system; earth_props = three, frequencies = [50.0])
+    recorded(result, slot)=getproperty(details(result).data.formulations.methods, slot).equivalent_earth
+    requested(result, slot)=get(getproperty(details(result).data.formulations.requested, slot),
+        :equivalent_earth, nothing)
+    potential=M.selection(M.EA)
+    # The layered fixture sees all three media, as do a formula with typed runtime arguments
+    # and a formula with generic layers. The record of each keeps `equivalent_earth` at
+    # `nothing`.
+    typed, generic=M.TypedLayerImpedance(), M.GenericLayerImpedance()
+    empty!(M.calls)
+    for impedance in (M.selection(M.EI), typed, generic)
+        result=compute(problem, Formulation(earth_impedance = impedance, earth_admittance = potential))
+        @test all(isfinite, result.Z.values) && all(isfinite, result.Y.values)
+        @test recorded(result, :earth_impedance) === nothing
+        @test recorded(result, :earth_admittance) === nothing
+    end
+    @test !isempty(M.calls) && all(call -> length(call[7]) == 3, M.calls)
+    @test !isempty(typed.media) && all(==(3), typed.media)
+    @test !isempty(generic.media) && all(==(3), generic.media)
+    # A homogeneous formula on the same earth consumes the `:default` reduction and records
+    # it as an explicit one would. The requested selection stays as declared.
+    unspecified=compute(problem, Formulation())
+    explicit=formula(:default; equivalent_earth = formula(:default))
+    given=compute(problem, Formulation(earth_impedance = explicit, earth_admittance = explicit))
+    @test unspecified.Z.values == given.Z.values && unspecified.Y.values == given.Y.values
+    for slot in (:earth_impedance, :earth_admittance)
+        @test recorded(unspecified, slot).order === :AfterFD
+        @test recorded(unspecified, slot).rule.identifier === :bottommost
+        @test recorded(unspecified, slot) == recorded(given, slot)
+        @test requested(unspecified, slot) === nothing
+    end
+    # An explicit reduction on a layered formula applies, and the record shows it.
+    empty!(M.calls)
+    reduced=M.selection(M.EI; equivalent_earth = EH.AfterFD(:default))
+    result=compute(problem, Formulation(earth_impedance = reduced, earth_admittance = potential))
+    @test recorded(result, :earth_impedance).rule.identifier === :bottommost
+    @test recorded(result, :earth_admittance) === nothing
+    impedance_calls=filter(call -> call[1] === :EarthImpedance, M.calls)
+    @test !isempty(impedance_calls) && all(call -> length(call[7]) == 2, impedance_calls)
 end
 
 @testitem "Engine / common earth functors retain evaluated material values" tags=[:unit, :engine] begin
@@ -106,7 +223,7 @@ end
     const EP=M.EP
     using LineCableModels.Commons: bindings
     empty!(M.calls)
-    inventories=(EI.formulas(), EA.formulas())
+    inventories=(EI.formulas(EI.Formula), EA.formulas(EA.Formula))
     selected=M.selection(EI; options = (integration = (method = :quad, options = (;)),))
     heights=(2.0, -0.25, -1.5)
     pairs=[E.EarthPair(t, s, (heights[s], heights[t]), s==t ? 0.0 : 1.0,
@@ -117,11 +234,10 @@ end
     @test bound[1].options.data.integration.method === Val(:quad)
     @test_throws ArgumentError bindings(selected, pairs[2:end]) # Unconsumed integral controls.
     absent=E.EarthPair(1, 2, (-2.0, -3.0), 1.0, (3, 4))
-    @test_throws ArgumentError LineCableModels.FormulaMethod(selected, absent)(nothing, absent, nothing)
-    # A numerical specialization alone cannot admit a missing required formula case.
-    EI.earth_impedance(::M.LayerImpedance, ::Val{:mutual}, ::Val{3}, ::Val{4},
-        f::Float64, pair, workspace)=0
-    @test_throws ArgumentError LineCableModels.FormulaMethod(selected, absent)(nothing, absent, nothing)
+    four=build(EP.EarthModel, (EP.EarthLayer(100.0, 10.0, 1.0, 0.5),
+        EP.EarthLayer(200.0, 20.0, 1.0, 0.5), EP.EarthLayer(300.0, 30.0, 1.0)))
+    message="the earth model has 4 layers and formula :LayerImpedance is defined up to layer 3; it has no expression for a mutual interaction from layer 3 to layer 4"
+    @test_throws message E.validate(LineCableModels.FormulaMethod(selected, absent), four)
     @test isempty(M.calls)
 
     material=Material(kind = :conductor, rho = 1.7241e-8)
@@ -187,7 +303,7 @@ end
         @test details(value).data.formulations.methods.earth_admittance.equivalent_earth.order ===
               (order === :before ? :BeforeFD : :AfterFD)
     end
-    @test (EI.formulas(), EA.formulas()) === inventories
+    @test (EI.formulas(EI.Formula), EA.formulas(EA.Formula)) === inventories
 end
 
 @testitem "Engine / unrelated coupled formula calculates in the main workspace without quadrature" tags=[:unit, :parametric] setup=[
@@ -197,7 +313,7 @@ end
     problem=TestFixtures.three_bare_wires_problem(heights = (-1.0, -1.0, -1.0),
         frequencies = [50.0, 50.0, 500.0])
     selected=Formulation(earth_impedance = M.CoupledImpedance(),
-        earth_admittance = M.selection(M.EA; layers = 2:2),
+        earth_admittance = M.selection(M.EA),
         options = (
             reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions(trace = true))
@@ -406,7 +522,7 @@ end
         s=complex(zero(T), T(2)*T(pi)*T(50))
         for owner in (E.EarthImpedance, E.EarthAdmittance), method in (:quad,)
 
-            selected=FormulaFixtures.selection(owner; layers = 2:2, scale = one(T))
+            selected=FormulaFixtures.selection(owner; scale = one(T))
             functor=selected(rho, epsilon, mu, s, pair)
             @test functor.state.jω isa Complex{T}
             result=functor()
@@ -420,7 +536,7 @@ end
     s=complex(measurement(0.0, 0.0), measurement(2pi*50, 0.0))
     pair=E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2))
     for owner in (E.EarthImpedance, E.EarthAdmittance)
-        value=FormulaFixtures.selection(owner; layers = 2:2, scale = rho[2])(
+        value=FormulaFixtures.selection(owner; scale = rho[2])(
             rho, epsilon, mu, s, pair)()
         @test value isa Complex{Measurement{Float64}}
         @test isfinite(value)

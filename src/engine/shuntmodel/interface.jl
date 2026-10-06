@@ -19,18 +19,7 @@ const DEFAULT_RESOLUTION = (wire = 64, order = 32, quadrature = 256, modes = 102
 const DEFAULT_INTEGRATION = (rtol = 1e-8, atol = 1e-10, maxevals = 100_000)
 
 "Return the available local shunt model identifiers."
-formulas() = (:default, :coaxial, :boundary)
-formula_id(::Formula{ID}) where {ID} = ID
-formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-Formula(value::ShuntModelFormulation) = value
-Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(::Val{:default}; kwargs...) = Formula(Val(:coaxial); kwargs...)
-
-function Formula(value::FormulaDefinition{ID, Order}) where {ID, Order}
-    Order === :default && value.equivalent_earth === nothing || throw(ArgumentError(
-        "shunt_model does not accept equivalent-earth reductions or ordering"))
-    return Formula(Val(ID); parameters = value.parameters, options = value.options)
-end
+formulas(::Type{<:Formula}) = (:default, :coaxial, :boundary)
 
 """
 $(TYPEDSIGNATURES)
@@ -53,7 +42,7 @@ domains before frequency evaluation.
 
 - A concrete shunt model selection.
 """
-function Formula(::Val{ID}; parameters::NamedTuple = (;),
+function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
     options = options isa NamedTuple ? FormulationOptions(options) : options
     ID === :coaxial || throw(ArgumentError("unknown shunt model :$ID"))
@@ -62,7 +51,9 @@ function Formula(::Val{ID}; parameters::NamedTuple = (;),
     return Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
 end
 
-function Formula(::Val{:boundary}; parameters::NamedTuple = (;),
+Formula{:default}(; kwargs...) = Formula{:coaxial}(; kwargs...)
+
+function Formula{:boundary}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
     options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(setdiff(keys(parameters), (:fallback,))) || throw(ArgumentError(
@@ -117,10 +108,23 @@ function description(::Type{<:Formula{:boundary}}; compact::Bool = false)
     compact ? "boundary" :
     "Lossless wire/tape boundary shunt geometry"
 end
+
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(value::ShuntModelFormulation) = value
+
+function Formula(value::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default && value.equivalent_earth === nothing || throw(ArgumentError(
+        "shunt_model does not accept equivalent-earth reductions or ordering"))
+    return Formula{ID}(; parameters = value.parameters, options = value.options)
+end
+
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
 description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
-Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))
 formulation_options(value::Formula) = value.options
 function Base.NamedTuple(value::Formula)
     (identifier = formula_id(value),
         parameters = value.parameters, options = value.options.data)
 end
+Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))

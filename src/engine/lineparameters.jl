@@ -105,7 +105,7 @@ function _finish(
         ShuntAdmittance{eltype(admittance), Basis}(admittance),
         workspace.input.freq,
         completion_details(merge(retained.data,
-            completed_formulation(formulation),
+            completed_formulation(formulation, workspace),
             NamedTuple{(:inputs,:gridpoint,:coordinates),Tuple{NamedTuple,NamedTuple,Vector{String}}}(
                 (physical_inputs,gridpoint,coordinates)))))
     return result
@@ -435,36 +435,40 @@ function homogenize!(
     return materials
 end
 
+# The plan decided once which earth the formula's expressions see: the layered earth or
+# a reduction. The loop dispatches on that decision.
 function homogenize!(destination,
         binding::NamedTuple,
         workspace::LineParametersWorkspace, frequency_index::Int, relation)
     earth = workspace.buffers.earth
     model = workspace.input.earth
     frequency = workspace.input.freq[frequency_index]
-    selected = binding.selection
-    if media(selected) === Val(:stratified)
-        layers!(destination, earth.evaluated, model, frequency_index, binding.interactions)
-    else
-        data = selected.equivalent_earth isa EquivalentHomogeneous.BeforeFD ?
-               earth.static : earth.evaluated
-        homogenize!(destination, selected.equivalent_earth, relation, data, model,
-            binding.interactions, frequency, frequency_index, binding.reductions; workspace)
-    end
+    data = binding.earth isa EquivalentHomogeneous.BeforeFD ? earth.static : earth.evaluated
+    homogenize!(destination, binding.earth, relation, data, model,
+        binding.interactions, frequency, frequency_index; workspace)
     return destination
 end
 
-# Reuse layerwise FrequencyDependent values already evaluated during input construction.
-function layers!(destination, evaluated::NamedTuple,
-        model::EarthModel, frequency::Integer, interactions)
+# The layered earth reuses the layerwise FrequencyDependent values already evaluated
+# during input construction. Its thicknesses were set when the buffers were allocated.
+function homogenize!(
+        destination,
+        ::EarthModel,
+        relation,
+        evaluated,
+        model::EarthModel,
+        interactions,
+        frequency,
+        frequency_index::Int; workspace = nothing
+)
     epsilon0=vacuum_permittivity(eltype(destination.rho))
     mu0=vacuum_permeability(eltype(destination.rho))
-    for row in eachindex(model.layers)
-        destination.thickness[row]=model.layers[row].thickness
+    for row in axes(destination.rho, 1)
         for interaction in interactions
             column = interaction.index
-            destination.rho[row, column]=evaluated.rho[row, frequency]
-            destination.epsilon[row, column]=epsilon0*evaluated.eps_r[row, frequency]
-            destination.mu[row, column]=mu0*evaluated.mu_r[row, frequency]
+            destination.rho[row, column]=evaluated.rho[row, frequency_index]
+            destination.epsilon[row, column]=epsilon0*evaluated.eps_r[row, frequency_index]
+            destination.mu[row, column]=mu0*evaluated.mu_r[row, frequency_index]
         end
     end
     return destination
@@ -478,17 +482,16 @@ function homogenize!(
         model::EarthModel,
         interactions,
         frequency,
-        frequency_index::Int,
-        bindings; workspace = nothing
+        frequency_index::Int; workspace = nothing
 )
     rho = @view evaluated.rho[:, frequency_index]
     eps_r = @view evaluated.eps_r[:, frequency_index]
     mu_r = @view evaluated.mu_r[:, frequency_index]
     air = EarthMaterial(rho[1], eps_r[1], mu_r[1])
-    @inbounds for (index, interaction) in enumerate(interactions)
+    @inbounds for interaction in interactions
         pair = interaction.physical_pair
         earth = sequence.rule(
-            rho, eps_r, mu_r, model, pair, frequency; binding = bindings[index], workspace
+            rho, eps_r, mu_r, model, pair, frequency; binding = interaction.reduction, workspace
         )
         _media!(destination, interaction.index, air, earth)
     end
@@ -503,39 +506,16 @@ function homogenize!(
         model::EarthModel,
         interactions,
         frequency,
-        frequency_index::Int,
-        bindings; workspace = nothing
+        frequency_index::Int; workspace = nothing
 )
     air = EarthMaterial(static.rho[1], static.eps_r[1], static.mu_r[1])
-    @inbounds for (index, interaction) in enumerate(interactions)
+    @inbounds for interaction in interactions
         pair = interaction.physical_pair
         reconstructed = sequence.rule(
             static.rho, static.eps_r, static.mu_r,
-            model, pair, frequency; binding = bindings[index], workspace
+            model, pair, frequency; binding = interaction.reduction, workspace
         )
         earth = constitutive(relation, reconstructed, frequency; workspace)
-        _media!(destination, interaction.index, air, earth)
-    end
-    return destination
-end
-
-function homogenize!(
-        destination,
-        ::Nothing,
-        relation,
-        evaluated,
-        model::EarthModel,
-        interactions,
-        frequency,
-        frequency_index::Int,
-        bindings; workspace = nothing
-)
-    rho = @view evaluated.rho[:, frequency_index]
-    eps_r = @view evaluated.eps_r[:, frequency_index]
-    mu_r = @view evaluated.mu_r[:, frequency_index]
-    air = EarthMaterial(rho[1], eps_r[1], mu_r[1])
-    earth = EarthMaterial(rho[2], eps_r[2], mu_r[2])
-    @inbounds for interaction in interactions
         _media!(destination, interaction.index, air, earth)
     end
     return destination

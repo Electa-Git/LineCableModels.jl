@@ -1,5 +1,10 @@
-"Return the lower frequency limit of the Visacro-Alipio soil relation."
-assumptions(::Val{:visacro2012}) = (frequency_boundary = 100.0,)
+# Construct `:visacro2012` with the lower frequency limit of the Visacro-Alipio soil
+# relation as parameter defaults.
+function Formula{:visacro2012}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
+    defaults = (frequency_boundary = 100.0,)
+    return Formula{:visacro2012}(defaults, parameters, options)
+end
 
 function validate(selected::Formula{:visacro2012})
     selected.parameters.frequency_boundary > 0 || throw(ArgumentError(

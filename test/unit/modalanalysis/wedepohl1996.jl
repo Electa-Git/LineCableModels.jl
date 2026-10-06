@@ -69,7 +69,7 @@
         @test_throws ArgumentError ModalAnalysisFormulation(:wedepohl1996; options = (iteration = invalid,))
     end
     @test formula_id(ModalAnalysisFormulation().formula)===:chrysochos2014
-    @test :wedepohl1996 in M.formulas()
+    @test :wedepohl1996 in M.formulas(M.Formula)
 end
 
 @testitem "ModalAnalysis / shared paired rotation and sign continuity" tags=[:unit, :importexport] begin
@@ -114,6 +114,7 @@ end
         roots::Matrix{ComplexF64}
     end
     LineCableModels.formula_id(::FixedOrientation) = :fixed_orientation
+    LineCableModels.description(::FixedOrientation; compact::Bool = false) = "fixed_orientation"
     Base.NamedTuple(::FixedOrientation) = (identifier = :fixed_orientation,)
     G.formulation_options(::FixedOrientation) = FormulationOptions()
     G.initialize_buffers(::FixedOrientation, ::Type, input, plan, buffers) = buffers

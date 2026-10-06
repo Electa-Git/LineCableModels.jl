@@ -106,10 +106,10 @@ end
                 (:self, 2, 2), (:mutual, 2, 2), (:mutual, 1, 2), (:mutual, 2, 1))
             identifiers = P.formulas(owner, Val(kind), Val(source), Val(target))
             @test allunique(identifiers)
-            @test all(in(owner.formulas()), identifiers)
+            @test all(in(owner.formulas(owner.Formula)), identifiers)
             owner === EI || @test identifiers == (:ideal,)
             @test :default ∉ identifiers
-            for identifier in owner.formulas()
+            for identifier in owner.formulas(owner.Formula)
                 @test (identifier in identifiers) == (which(equation,
                     Tuple{owner.Formula{identifier}, Val{kind}, Val{source}, Val{target}, Val{:pscad}}) !== fallback)
             end

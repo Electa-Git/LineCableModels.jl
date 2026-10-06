@@ -7,6 +7,6 @@ No numerical equation is owned by `:default`.
 description(::Type{<:Formula{:default}}; compact::Bool=false) =
     compact ? "Default" : "Default routing to :ametani1980"
 
-Formula(::Val{:default}; kwargs...) = Formula(Val(:ametani1980); kwargs...)
+Formula{:default}(; kwargs...) = Formula{:ametani1980}(; kwargs...)
 
 :default

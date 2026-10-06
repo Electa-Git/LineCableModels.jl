@@ -7,6 +7,6 @@ No numerical equation is owned by `:default`.
 description(::Type{<:Formula{:default}}; compact::Bool=false) =
     compact ? "Default" : "Default routing to :linear"
 
-Formula(::Val{:default}; kwargs...) = Formula(Val(:linear); kwargs...)
+Formula{:default}(; kwargs...) = Formula{:linear}(; kwargs...)
 
 :default

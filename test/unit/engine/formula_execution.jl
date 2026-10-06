@@ -42,15 +42,22 @@ end
                       (
             :default, :unified, :saad1996, :wedepohl1973, :gary1976, :lucca1994) :
                       (:default, :unified, :ideal)
-        for identifier in setdiff(owner.formulas(), implemented)
+        earth = homogeneous(rho = 100.0)
+        for identifier in setdiff(owner.formulas(owner.Formula), implemented)
             selected = owner.Formula(identifier)
             @test formula_id(selected) === identifier
             @test !isempty(description(selected))
-            # Stubs fail before reading a functor or executing any numerics.
-            @test_throws ArgumentError operation(selected, Val(:mutual), Val(1), Val(1),
-                nothing, nothing, nothing)
-            @test_throws ArgumentError operation(selected, Val(:mutual), Val(2), Val(2),
-                nothing, nothing, nothing)
+            # Stubs fail before reading a functor or executing any numerics: a declared
+            # stub when called, an undeclared case when the plan checks the earth model.
+            for pair in (E.EarthPair(1, 2, (1.0, 2.0), 1.0, (1, 1)),
+                    E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2)))
+                expression = LineCableModels.FormulaMethod(selected, pair)
+                @test expression.method === operation
+                @test_throws ArgumentError begin
+                    validate(expression, earth)
+                    expression(nothing, nothing, nothing)
+                end
+            end
         end
     end
 end
@@ -152,7 +159,7 @@ end
         @test Z(retained) == first_Z && Y(retained) == first_Y
     end
     rho=measurement(1.0, 0.01)
-    custom=FormulaFixtures.selection(E.EarthImpedance; layers = 2:2, scale = rho)
+    custom=FormulaFixtures.selection(E.EarthImpedance; scale = rho)
     retained=NamedTuple(Formulation(earth_impedance = custom))
     @test retained.methods.earth_impedance.parameters.scale === rho
     @test uncertainty(retained.methods.earth_impedance.parameters.scale-rho) == 0
@@ -221,14 +228,13 @@ end
         LineCableModelsCoaxial, ComputationOptions((integration_method = :quad,)))
     # The custom selection uses existing admission and equation generics. It is
     # not a changed implementation of the built-in's claimed scientific identity.
-    custom=M.selection(EI; layers = 2:2)
+    custom=M.selection(EI)
     pair=E.EarthPair(1, 2, (-1.0, -1.0), 1.0, (2, 2))
     bound=only(LineCableModels.Commons.bindings(custom, (pair,)))
     @test bound.equation.selection === custom
     @test isempty(bound.options.data)
     @test_throws ArgumentError LineCableModels.Commons.bindings(
-        M.selection(EI; layers = 2:2,
-            options = (integration = (method = :quad,),)), (pair,))
+        M.selection(EI; options = (integration = (method = :quad,),)), (pair,))
     rho=[Inf, 100.0]
     epsilon=8.8541878128e-12 .* [1, 10]
     mu=fill(4pi*1e-7, 2)
@@ -242,10 +248,9 @@ end
     const E=LineCableModels.Engine
     const M=FormulaFixtures
     buried=TestFixtures.three_bare_wires_problem(heights = (-1.0, -1.0, -1.0), frequencies = [50.0])
-    active=M.selection(E.EarthImpedance; layers = 2:2)
-    unused=M.selection(E.EarthImpedance; layers = 3:3,
-        options = (integration = (method = :quad,),))
-    potential=M.selection(E.EarthAdmittance; layers = 2:2)
+    active=M.selection(E.EarthImpedance)
+    unused=M.selection(E.EarthImpedance; options = (integration = (method = :quad,),))
+    potential=M.selection(E.EarthAdmittance)
     selected=Formulation(earth_impedance = (air = unused, earth = active), earth_admittance = potential)
     first_result=compute(buried, selected)
     @test isempty(unused.initialized)

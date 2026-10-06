@@ -17,6 +17,7 @@
     FixedModal(voltage,current,roots,allocations,calculations) =
         FixedModal(voltage,current,roots,allocations,calculations,Ref{Any}(nothing))
     LineCableModels.formula_id(::FixedModal)=:fixed_modal
+    LineCableModels.description(::FixedModal; compact::Bool=false)="fixed_modal"
     Base.NamedTuple(::FixedModal)=(identifier=:fixed_modal,)
     G.formulation_options(::FixedModal)=FormulationOptions()
     function G.initialize_buffers(selected::FixedModal,::Type{T},input,plan,buffers) where {T}

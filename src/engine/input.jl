@@ -246,11 +246,9 @@ function LineParametersWorkspace(
                   for pair in physical_pairs]
         cases = NamedTuple[]
         for leaf in unique(leaves)
-            # Validate the selected material inventory while binding it, not
-            # by reconstructing selections in a later workspace preflight.
-            validate(leaf.equivalent_earth === nothing ? problem.earth_props : 2, leaf)
             indices = findall(value -> value === leaf, leaves)
-            push!(cases, earth_bindings(leaf, physical_pairs, homogeneous_pairs, indices))
+            push!(cases, earth_bindings(leaf, problem.earth_props, physical_pairs,
+                homogeneous_pairs, indices))
         end
         (selection = selected, cases = cases)
     end
@@ -326,7 +324,7 @@ function LineParametersWorkspace{T}(
                 end
             end
         end
-        layers = calculation.selection.equivalent_earth === nothing ? geometry.layers :
+        layers = calculation.earth isa EarthModel ? geometry.layers :
                  [layer == 1 ? 1 : 2 for layer in geometry.layers]
         merge(earth_binding, (equations = Tuple(earth_binding.equations), previous, layers))
     end
@@ -344,15 +342,14 @@ function LineParametersWorkspace{T}(
     Yout = similar(Zout)
     Zearth = Matrix{Complex{T}}(undef, n_cables, n_cables)
     Pearth = similar(Zearth)
-    MaterialBuffers = NamedTuple{(:rho, :epsilon, :mu, :thickness),
-        Tuple{Matrix{T}, Matrix{T}, Matrix{T}, Union{Nothing, Vector{T}}}}
+    # The layered earth keeps every physical layer, and its thicknesses when it has
+    # interior layers. A reduction keeps air and one equivalent medium.
     earth_materials = map(earth_calculations) do calculation
-        stratified = media(calculation.selection) === Val(:stratified)
-        count = stratified ? length(problem.earth_props.layers) : 2
+        count = calculation.earth isa EarthModel ? length(input.earth.layers) : 2
         columns = length(calculation.interactions)
-        MaterialBuffers((Matrix{T}(undef, count, columns),
-            Matrix{T}(undef, count, columns), Matrix{T}(undef, count, columns),
-            stratified ? Vector{T}(undef, count) : nothing))
+        thickness = count > 2 ? T[layer.thickness for layer in input.earth.layers] : nothing
+        (rho = Matrix{T}(undef, count, columns), epsilon = Matrix{T}(undef, count, columns),
+            mu = Matrix{T}(undef, count, columns), thickness)
     end
     trace = if execution.data.trace isa Val{true}
         (Zin = Array{Complex{T}, 3}(undef, n_phases, n_phases, n_frequencies),
@@ -420,26 +417,45 @@ function LineParametersWorkspace{T}(
     return workspace
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Bind the interactions `physical[indices]` of an earth `model` to the earth formula
+`selected`, and decide once, from the signatures of its expressions, which earth they see.
+An explicit `equivalent_earth` reduction always applies. Without one, a formula that does
+not admit any layer from 3 to N consumes the `:default` reduction of a model with N > 2
+layers. Every other formula sees the layered earth. The record's `earth` holds the decision:
+the `EarthModel` or the reduction. Each reduced interaction stores the binding of the
+reduction's equation.
+"""
 function earth_bindings(
         selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-        physical::AbstractVector{<:EarthPair}, homogeneous, indices)
-    pairs = selected.equivalent_earth === nothing ? physical[indices] : homogeneous[indices]
+        model::EarthModel, physical::AbstractVector{<:EarthPair}, homogeneous, indices)
+    reduction = _equivalent_earth(selected, model, physical[first(indices)])
+    reduction === nothing && validate(model, selected)
+    pairs = reduction === nothing ? physical[indices] : homogeneous[indices]
     declarations = bindings(selected, pairs)
-    reductions = if selected.equivalent_earth === nothing
-        nothing
-    else
-        rule = EquivalentHomogeneous.rule(selected.equivalent_earth)
-        foreach(declaration -> validate(rule, declaration.equation), declarations)
-        bindings(rule, physical[indices])
+    distinct = unique(declarations)
+    for declaration in distinct
+        validate(declaration.equation, model)
     end
-    interactions = [(index = position, pair = pairs[position],
-                        physical_pair = physical[index])
-                    for (position, index) in enumerate(indices)]
+    # A reduced interaction also stores the binding of the reduction's own equation.
+    interactions = if reduction === nothing
+        [(index = position, pair = pairs[position], physical_pair = physical[index])
+         for (position, index) in enumerate(indices)]
+    else
+        rule = EquivalentHomogeneous.rule(reduction)
+        foreach(declaration -> validate(rule, declaration.equation), declarations)
+        reductions = bindings(rule, physical[indices])
+        [(index = position, pair = pairs[position], physical_pair = physical[index],
+             reduction = reductions[position])
+         for (position, index) in enumerate(indices)]
+    end
     equations = [(declaration = declaration,
                      indices = findall(==(declaration), declarations))
-                 for declaration in unique(declarations)]
-    return (selection = selected, equations, interactions, reductions,
-        output_indices = collect(eachindex(interactions)))
+                 for declaration in distinct]
+    return (selection = selected, earth = reduction === nothing ? model : reduction,
+        equations, interactions, output_indices = collect(eachindex(interactions)))
 end
 
 earth_bindings(::EarthImpedanceFormulation, ::EarthAdmittanceFormulation, z, p) = nothing
@@ -462,8 +478,7 @@ function _earth_data(input::NamedTuple, bindings::NamedTuple)
         eps_r = collect(getproperty.(input.earth.layers, :eps_r)),
         mu_r = collect(getproperty.(input.earth.layers, :mu_r)))
     needed = any(
-        bound -> any(
-            case -> !(case.selection.equivalent_earth isa EquivalentHomogeneous.BeforeFD), bound.cases),
+        bound -> any(case -> !(case.earth isa EquivalentHomogeneous.BeforeFD), bound.cases),
         bindings)
     evaluated = needed ?
                 map(

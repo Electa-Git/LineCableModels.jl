@@ -16,11 +16,9 @@
 "Engine.EarthAdmittance | Engine.EarthAdmittanceFormulation | src/engine/earthadmittance/interface.jl" = 4
 "Engine.EarthAdmittance | Engine.EarthImpedance.Formula | src/engine/earthadmittance/formulas/unified.jl" = 1
 "Engine.EarthAdmittance | Engine.earth! | src/engine/earthadmittance/interface.jl" = 1
-"Engine.EarthAdmittance | Engine.media | src/engine/earthadmittance/interface.jl" = 1
 "Engine.EarthImpedance | Commons.FormulaMethod | src/engine/earthimpedance/interface.jl" = 1
 "Engine.EarthImpedance | Engine.EarthImpedanceFormulation | src/engine/earthimpedance/interface.jl" = 4
 "Engine.EarthImpedance | Engine.earth! | src/engine/earthimpedance/interface.jl" = 1
-"Engine.EarthImpedance | Engine.media | src/engine/earthimpedance/interface.jl" = 1
 "Engine.InsulationAdmittance | Engine.InsulationAdmittanceFormulation | src/engine/insulationadmittance/interface.jl" = 2
 "Engine.InsulationImpedance | Engine.InsulationImpedanceFormulation | src/engine/insulationimpedance/interface.jl" = 1
 "Engine.PipeImpedance | Engine.Formulation | src/engine/pipeimpedance/interface.jl" = 2
@@ -88,9 +86,8 @@
 [names]
 "Functor" = 3
 "_line!" = 2
-"assumptions" = 3
 "flatten" = 2
-"formulas" = 13
+"formulas" = 2
 
 [shadowing]
 
@@ -128,7 +125,6 @@
 "src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/datamodel/preview/geometry.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
-"src/earth/equivalenthomogeneous/interface.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/engine/admittance.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/engine/blueprint.jl" = { applicable = 0, eval = 0, kind = 4 }
 "src/engine/pipeimpedance/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
@@ -136,7 +132,6 @@
 "src/importexport/deserialize.jl" = { applicable = 2, eval = 0, kind = 2 }
 "src/materials/radialdielectric.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
-"src/modalanalysis/formulations.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }
 "src/parametricbuilder/physicaltree.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }

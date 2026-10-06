@@ -7,6 +7,6 @@ No numerical equation is owned by `:default`.
 description(::Type{<:Formula{:default}}; compact::Bool=false) =
     compact ? "Default" : "Default routing to :lossless"
 
-Formula(::Val{:default}; kwargs...) = Formula(Val(:lossless); kwargs...)
+Formula{:default}(; kwargs...) = Formula{:lossless}(; kwargs...)
 
 :default

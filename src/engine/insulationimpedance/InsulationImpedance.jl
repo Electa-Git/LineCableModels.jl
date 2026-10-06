@@ -9,7 +9,7 @@ $(IMPORTS)
 
 """
 module InsulationImpedance
-import ...Commons: FormulationOptions
+import ...Commons: FormulationOptions, formulas
 import ...Commons: formulation_options
 
 # Export public API
@@ -41,6 +41,6 @@ const FORMULAS = (
 """
 Return the built-in insulation-impedance formula identifiers.
 """
-formulas() = FORMULAS
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module InsulationImpedance

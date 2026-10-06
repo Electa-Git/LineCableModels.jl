@@ -33,3 +33,14 @@
     @test reduced.equation.method === EH.equivalent_material
     @test reduced.options == formulation_options(reduced.equation)
 end
+
+@testitem "Commons / formula registry / a family lists its identifiers by its Formula type" tags=[:unit, :engine] begin
+    using LineCableModels.Commons: formulas
+    const EI = LineCableModels.Engine.EarthImpedance
+    registered = formulas(EI.Formula)
+    @test registered isa Tuple{Vararg{Symbol}}
+    @test :default in registered && :unified in registered
+    # Any member type of the family lists the same identifiers.
+    @test formulas(typeof(EI.Formula(:unified))) === registered
+    @test_throws MethodError formulas(LineParametersFormulation)
+end

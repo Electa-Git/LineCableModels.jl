@@ -1,7 +1,3 @@
-function assumptions(::Val{:ideal})
-    (media = :homogeneous, layers = 2:2, permittivity = :positive)
-end
-
 function description(::Type{<:Formula{:ideal}}; compact::Bool = false)
     compact ? "Ideal earth" : "Ideal-earth electrostatic image potential coefficients"
 end

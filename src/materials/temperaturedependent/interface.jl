@@ -20,9 +20,6 @@ struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <:
     options::O
 end
 
-"""Return the stable identifier of a temperature-dependent resistivity law."""
-formula_id(::Formula{ID}) where {ID} = ID
-
 TextDisplay.@showfields Formula "Formula" selected -> (
     id = formula_id(selected),)
 
@@ -36,10 +33,7 @@ Construct a temperature-dependent resistivity law with model parameters and
 numerical controls. Custom formulations extend `temperature_resistivity`
 on their own concrete selection type.
 """
-Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
-Formula(selected::TemperatureDependentFormulation) = selected
-
-function Formula(::Val{ID}; parameters::NamedTuple = (;),
+function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
     options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) ||
@@ -48,14 +42,6 @@ function Formula(::Val{ID}; parameters::NamedTuple = (;),
     binding = FormulaMethod(selected, temperature_resistivity)
     normalized = formulation_options(binding, options)
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
-end
-
-function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
-    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
-    selection.equivalent_earth === nothing || throw(ArgumentError(
-        "equivalent_earth applies only to external earth formulas"))
-    return Formula(Val(ID); parameters = selection.parameters,
-        options = selection.options)
 end
 
 """
@@ -105,6 +91,25 @@ function constitutive(::Nothing, material::Material, temperature::Real; workspac
     validate(material.rho, nothing, material, temperature)
 end
 
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::TemperatureDependentFormulation) = selected
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    selection.equivalent_earth === nothing || throw(ArgumentError(
+        "equivalent_earth applies only to external earth formulas"))
+    return Formula{ID}(; parameters = selection.parameters,
+        options = selection.options)
+end
+
+"""Return the stable identifier of a temperature-dependent resistivity law."""
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+# Identity-only dispatch also describes retained selections without constructors.
+description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
+
 """
 $(TYPEDSIGNATURES)
 
@@ -115,11 +120,5 @@ function Base.NamedTuple(value::Formula)
         parameters = value.parameters, options = value.options.data)
 end
 
-# Identity-only dispatch also describes retained selections without constructors.
-import ...Commons: formulation_options
-description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
-
 """Iterate the independently selectable child slots admitted by this formula family."""
 Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))
-formula_id(::Type{<:Formula{ID}}) where {ID} = ID
-formulation_options(value::Formula) = value.options

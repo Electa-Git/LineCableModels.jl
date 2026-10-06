@@ -20,11 +20,12 @@
 
     # These scientific selections belong to the consumer and leave built-in
     # Formula registrations and private constructors unchanged. The built-in formula lists remain closed.
+    # This formula has expressions up to layer 3. Its expression signatures alone declare
+    # the media it handles.
     for (name, parent, owner, operation) in (
         (:LayerImpedance, E.EarthImpedanceFormulation, EI, EI.earth_impedance),
         (:LayerPotential, E.EarthAdmittanceFormulation, EA, EA.earth_potential_coefficient))
-        @eval struct $name{A, P, O, R} <: $parent
-            assumptions::A
+        @eval struct $name{P, O, R} <: $parent
             parameters::P
             options::O
             equivalent_earth::R
@@ -78,27 +79,73 @@
 
     function selection(
             owner; options::Union{NamedTuple, FormulationOptions} = FormulationOptions(),
-            layers = 3:3, scale = 1.0)
+            scale = 1.0, equivalent_earth = nothing)
         options = options isa NamedTuple ? FormulationOptions(options) : options
-        physical = (media = Val(:stratified), layers = layers,
-            permittivity = :nonzero)
         selected_type = owner === EI ? LayerImpedance : LayerPotential
-        return selected_type(physical, (scale = scale,), options, nothing, Tuple[])
+        return selected_type((scale = scale,), options, equivalent_earth, Tuple[])
+    end
+
+    # The layered formula admits the deepest-layer reduction when the selection names it.
+    LineCableModels.validate(rule::EH.Formula{:bottommost},
+        ::FM{<:Union{LayerImpedance, LayerPotential}}) = rule
+
+    # Two more layered earth-impedance formulas. One declares its expressions up to layer 3
+    # with typed runtime arguments, the other for every layer with generic `Val{S}`
+    # positions. Each records the number of media its expressions receive.
+    struct TypedLayerImpedance{P, O} <: E.EarthImpedanceFormulation
+        parameters::P
+        options::O
+        equivalent_earth::Nothing
+        media::Vector{Int}
+    end
+    TypedLayerImpedance() = TypedLayerImpedance((;), FormulationOptions(), nothing, Int[])
+    for s in 1:3, t in 1:3, kind in (s == t ? (:self, :mutual) : (:mutual,))
+        @eval function EI.earth_impedance(selected::TypedLayerImpedance,
+                ::Val{$(QuoteNode(kind))}, ::Val{$s}, ::Val{$t},
+                functor::EI.Functor, pair::E.EarthPair, workspace)
+            push!(selected.media, length(functor.state.rho))
+            return (1e-4 + 1e-3im) * (pair.row == pair.column ? 10 : 1)
+        end
+    end
+
+    struct GenericLayerImpedance{P, O} <: E.EarthImpedanceFormulation
+        parameters::P
+        options::O
+        equivalent_earth::Nothing
+        media::Vector{Int}
+    end
+    GenericLayerImpedance() = GenericLayerImpedance((;), FormulationOptions(), nothing, Int[])
+    function EI.earth_impedance(selected::GenericLayerImpedance,
+            ::Union{Val{:self}, Val{:mutual}}, ::Val{S}, ::Val{T},
+            functor, pair, workspace) where {S, T}
+        push!(selected.media, length(functor.state.rho))
+        return (1e-4 + 1e-3im) * (pair.row == pair.column ? 10 : 1)
+    end
+
+    for selected_type in (TypedLayerImpedance, GenericLayerImpedance)
+        @eval LineCableModels.formulation_options(::FM{
+            <:$selected_type, typeof(EI.earth_impedance)}) = FormulationOptions()
+    end
+
+    # The layered formula admits nonzero permittivities of either sign.
+    function LineCableModels.validate(rho::AbstractVector, ::Union{LayerImpedance, LayerPotential},
+            epsilon::AbstractVector, mu::AbstractVector, thickness)
+        length(rho) == length(epsilon) == length(mu) ||
+            throw(DimensionMismatch("material vectors must align"))
+        all(x -> isfinite(x) && !iszero(x), epsilon) || throw(DomainError(epsilon,
+            "the layered formula requires nonzero finite permittivities"))
+        return rho
     end
 
     # An algebraic coupled equation uses the same main workspace and explicit
     # calculation action without any formula-owned lifecycle.
-    struct CoupledImpedance{A, P, O} <: E.EarthImpedanceFormulation
-        assumptions::A
+    struct CoupledImpedance{P, O} <: E.EarthImpedanceFormulation
         parameters::P
         options::O
         equivalent_earth::Nothing
         solves::Vector{ComplexF64}
     end
-    CoupledImpedance() = CoupledImpedance(
-        (media = Val(:homogeneous), layers = 2:2,
-            permittivity = :positive),
-        (;), FormulationOptions(), nothing, ComplexF64[])
+    CoupledImpedance() = CoupledImpedance((;), FormulationOptions(), nothing, ComplexF64[])
     LineCableModels.formulation_options(::FM{
         <:CoupledImpedance, typeof(EI.earth_impedance)}) = FormulationOptions()
     function G.initialize_buffers(
@@ -424,16 +471,14 @@
         (:CountedEarthZ, E.EarthImpedanceFormulation, EI, EI.earth_impedance, :earth_z),
         (:CountedEarthP, E.EarthAdmittanceFormulation,
             EA, EA.earth_potential_coefficient, :earth_y))
-        @eval struct $name{A, P, O} <: $parent
-            assumptions::A
+        @eval struct $name{P, O} <: $parent
             parameters::P
             options::O
             equivalent_earth::Nothing
             events::Vector{Symbol}
         end
         @eval function $name(events)
-            $name((media = Val(:homogeneous), layers = 2:2, permittivity = :positive),
-                (;), FormulationOptions(), nothing, events)
+            $name((;), FormulationOptions(), nothing, events)
         end
         op=GlobalRef(owner, nameof(operation))
         @eval function $op(selected::$name, kind::Union{Val{:self}, Val{:mutual}},
@@ -450,7 +495,8 @@
     end
 
     for selected_type in
-        (LayerImpedance, LayerPotential, CoupledImpedance, SurfaceLaw, SpectralSurface,
+        (LayerImpedance, LayerPotential, TypedLayerImpedance, GenericLayerImpedance,
+        CoupledImpedance, SurfaceLaw, SpectralSurface,
         DispersiveEarth, InsulationReactance, ConstantResistivity, ScaledResistivity,
         ExponentialResistivity, DispersiveSoil, ScaledSoil, OhmicDielectric, InsulationLaw, SemiconLaw,
         MeanEarth, SquaredBottomEarth, UserCoaxialShunt, UserCoaxialPipe,
@@ -466,7 +512,7 @@
         end
         if selected_type <: Union{E.EarthImpedanceFormulation, E.EarthAdmittanceFormulation}
             @eval Base.NamedTuple(selected::$selected_type) = (
-                identifier = formula_id(selected), assumptions = selected.assumptions,
+                identifier = formula_id(selected),
                 parameters = selected.parameters, options = selected.options.data,
                 equivalent_earth = selected.equivalent_earth === nothing ? nothing :
                                    NamedTuple(selected.equivalent_earth))

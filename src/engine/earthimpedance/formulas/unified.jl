@@ -1,7 +1,3 @@
-function assumptions(::Val{:unified})
-    (media = :homogeneous, layers = 2:2, permittivity = :positive)
-end
-
 function description(::Type{<:Formula{:unified}}; compact::Bool = false)
     compact ? "Unified" :
     "Unified circumferential earth impedance with complete enclosed-current normalization"
@@ -44,8 +40,9 @@ overhead, buried, and mixed conductor systems*, complete-field current relation.
 """
 function axial_field_coefficient(
         ::Union{Formula{:unified}, Val{:unified}}, kind::Union{Val{:self}, Val{:mutual}},
-        source::Val{S}, target::Val{T}, functor, pair, workspace) where {S, T}
+        source::Union{Val{1}, Val{2}}, target::Union{Val{1}, Val{2}}, functor, pair, workspace)
     u=functor.state
+    medium=target === Val(1) ? 1 : 2
     hp, hq=abs(pair.heights[2]), abs(pair.heights[1])
     row, column=pair.row, pair.column
     r=u.radius[row]
@@ -60,13 +57,13 @@ function axial_field_coefficient(
     z=u.jω/πT*average*earth_spectral_term(Val(:Z), target, source, u,
         hp, hq, pair.separation, zero(r), sp+sq,
         integration.method, integration.options, workspace.buffers; context)
-    z+=u.jω*u.mu[T]/(2πT)*direct
+    z+=u.jω*u.mu[medium]/(2πT)*direct
     phi=zero(z)
     if !iszero(u.Γ)
         phi=u.jω/πT*average*earth_spectral_term(Val(:phi), target, source, u,
             hp, hq, pair.separation, zero(r), sp+sq,
             integration.method, integration.options, workspace.buffers; context)
-        phi+=u.jω/(2πT*u.sh[T])*direct
+        phi+=u.jω/(2πT*u.sh[medium])*direct
     end
     return z-u.Γ^2/u.jω*phi
 end

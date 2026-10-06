@@ -257,7 +257,7 @@ function formulas(owner::Module, kind::Val, source::Val, target::Val)
         "indexed PSCAD formula discovery requires EarthImpedance or EarthAdmittance"))
     fallback = which(equation, Tuple{owner.Formula, Val, Val, Val, Val{:pscad}})
     return Tuple(id
-    for id in owner.formulas()
+    for id in Commons.formulas(owner.Formula)
     if
     which(equation, Tuple{
         owner.Formula{id}, typeof(kind), typeof(source), typeof(target), Val{:pscad}}) !== fallback)

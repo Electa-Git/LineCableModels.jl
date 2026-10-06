@@ -10,7 +10,7 @@ resolves eligible open wires and tapes inside a closed circular shield.
 $(IMPORTS)
 """
 module ShuntModel
-import ...Commons: FormulationOptions
+import ...Commons: FormulationOptions, formulas
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: off
 # Expanded in the module docstring, outside this module's analyzed expressions.
