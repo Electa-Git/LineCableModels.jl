@@ -120,17 +120,17 @@
         keyword=NamedTuple{(name,)}((getproperty(selections, name),))
         if name in (:internal_impedance, :insulation_impedance, :earth_impedance,
                 :earth_admittance, :pipe_impedance)
-            @test_throws MethodError Formulation(:LineCableModelsFEM; keyword...)
+            @test_throws MethodError Formulation(:fem; keyword...)
             continue
         end
-        space=Formulation(:LineCableModelsFEM; keyword...)
+        space=Formulation(:fem; keyword...)
         @test space isa Gridspace{LineCableModelsFEM}
         @test length(space) == 2
         if name!==:options
             @test all(value -> haskey(value.definitions, name), space)
         end
     end
-    fem_zipped=Formulation(:LineCableModelsFEM;
+    fem_zipped=Formulation(:fem;
         insulation_admittance = Grid((:default, :lossy)),
         semicon_admittance = Grid((:default, :lossy)), combine = :zip)
     @test length(fem_zipped) == 2

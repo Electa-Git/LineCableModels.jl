@@ -44,7 +44,7 @@ end
         earth_props = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0))
     reductions = (
         reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
-    formulations = [Formulation(:LineCableModelsFEM; options = (; reductions..., physics))
+    formulations = [Formulation(:fem; options = (; reductions..., physics))
                     for physics in (:quasi_tem, :quasi_fw)]
     controls = (gmsh_verbosity = 0, getdp_verbosity = 0,
         keep_run_directory = true, plot_field_maps = true)
@@ -99,7 +99,7 @@ end
         connections = [Dict(:core=>1), Dict(:core=>2)], line_length = 1.0)
     problem = LineParametersProblem(system; frequencies = [1e4],
         earth_props = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0))
-    fem = Formulation(:LineCableModelsFEM;
+    fem = Formulation(:fem;
         options = (physics = :quasi_fw, reduce_bundle = false,
             kron_reduction = false, ideal_transposition = false))
     fem_controls = (gmsh_verbosity = 0, getdp_verbosity = 3, mesh_mode = :remesh)

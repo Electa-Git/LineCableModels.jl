@@ -10,7 +10,7 @@ using LineCableModels
 using Gmsh
 
 fem = Formulation(
-    :LineCableModelsFEM;
+    :fem;
     insulation_admittance = formula(:default),
     semicon_admittance = formula(:default),
     earth_properties = formula(:default),
@@ -81,7 +81,7 @@ accepted. Julia requires `Symbol("quasi-fw")` for a hyphenated symbol.
 `:quasi-fw` is parsed as subtraction.
 
 ```julia
-fem = Formulation(:LineCableModelsFEM; options=(physics=:quasi_fw,))
+fem = Formulation(:fem; options=(physics=:quasi_fw,))
 parameters = compute(problem, fem)
 ```
 
@@ -433,7 +433,7 @@ retaining separate selection calculation records and independent result arrays.
 The UI displays the model, fields, and solver diagnostics:
 
 ```julia
-interactive_fem = Formulation(:LineCableModelsFEM)
+interactive_fem = Formulation(:fem)
 parameters = compute(problem, interactive_fem;
     options = (
         ui = true,

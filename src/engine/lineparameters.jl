@@ -162,7 +162,7 @@ function _compute(
     validate(problem)
     for design in problem.system.designs, formulation in formulations
 
-        Formulation(engine, formulation.methods.pipe_impedance, design)
+        validate(design, formulation.methods.pipe_impedance, engine)
     end
     maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
         @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",

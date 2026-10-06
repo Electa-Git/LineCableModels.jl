@@ -16,7 +16,7 @@
     @test source_fill isa DM.DifferenceShape
     @test length(source_fill.holes) == 7
     for dielectric_formula in (:default, :lossy)
-        formulation = Formulation(:LineCableModelsFEM;
+        formulation = Formulation(:fem;
             insulation_admittance=dielectric_formula)
         models = map(designs) do design
             system = build(LineCableSystem, design, Pose2(0.0, -0.1);

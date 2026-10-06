@@ -425,7 +425,9 @@
         options::O
     end
     UserCoaxialPipe() = UserCoaxialPipe((;), FormulationOptions())
-    E.Formulation(::LineCableModelsCoaxial, ::UserCoaxialPipe, ::Val{:coaxial}) = nothing
+    # It admits coaxial topology, as the built-in formula without a pipe term does.
+    LineCableModels.validate(design::CableDesign, ::UserCoaxialPipe, backend) =
+        LineCableModels.validate(design, E.PipeImpedance.Formula(:none), backend)
 
     # Counter-bearing native types observe choreography without replacing any
     # package method or attaching executable values to a selection record.

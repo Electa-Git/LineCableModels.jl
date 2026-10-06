@@ -117,3 +117,32 @@ end
     @test experimental.transfer==transfer
 
 end
+
+@testitem "Engine / a backend formulation is built and read back by its identity" tags=[:unit, :pscad] begin
+    const IO = LineCableModels.ImportExport
+    backends = (coaxial = LineParametersFormulation, cable_constants = CableConstantsFormulation,
+        fem = LineCableModelsFEM, pscad = PSCAD.PSCADFormulation)
+    for (tag, backend) in pairs(backends)
+        built = Formulation(tag)
+        @test built isa backend && formula_id(built) === tag
+        # A saved record stores the same identity in `backend`, as a symbol or a string.
+        record = NamedTuple(built)
+        @test first(IO.deserialize_value(Val(:formulation), record)) === backend
+        @test first(IO.deserialize_value(Val(:formulation),
+            merge(record, (backend = string(tag),)))) === backend
+    end
+    # `Formulation` passes its keywords to the backend's constructor.
+    @test Formulation(:coaxial; earth_impedance = :carson1926).methods.earth_impedance isa
+          LineCableModels.Engine.EarthImpedance.Formula{:carson1926}
+    # `ModalAnalysisFormulation` builds a modal analysis. `Formulation` does not.
+    @test first(IO.deserialize_value(Val(:formulation),
+        NamedTuple(ModalAnalysisFormulation()))) === ModalAnalysisFormulation
+    # Each backend has one identity.
+    for tag in (:LineCableModelsFEM, :PSCAD, :modal, :unknown)
+        @test_throws ArgumentError("unknown backend formulation :$tag") Formulation(tag)
+    end
+    for tag in (:LineCableModelsFEM, :PSCAD, :unknown)
+        @test ismissing(IO.deserialize_value(Val(:formulation),
+            (backend = tag, requested = NamedTuple(Formulation()).requested)))
+    end
+end

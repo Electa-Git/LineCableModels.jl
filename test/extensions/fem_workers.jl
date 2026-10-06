@@ -40,7 +40,7 @@ for b in bases:
     pathlib.Path(str(stem)+'.done').write_text(f'2\t{f}\t{hz:.17g}\t{b}\t2\t0\n')
 """)
             chmod(executable,0o700)
-            form = Formulation(:LineCableModelsFEM; options=(ideal_transposition=false,))
+            form = Formulation(:fem; options=(ideal_transposition=false,))
             form_controls = (getdp_executable=executable,frequency_workers=2,solver_threads=1,gmsh_verbosity=0)
             execution_options = computation_options(LineCableModelsFEM, ComputationOptions(form_controls))
             model=E._resolved_fem_model(problem,form)
@@ -132,7 +132,7 @@ with open(sys.argv[1],'a+') as f:
             @test E._resume_inputs_match(run.path,model,one)
             @test !E._resume_inputs_match(run.path,model,threads)
             serial=fresh()
-            serial_form=Formulation(:LineCableModelsFEM;options=form.options)
+            serial_form=Formulation(:fem;options=form.options)
             serial_form_controls = merge(execution,(frequency_workers=1,))
             E._run_getdp!(serial,model,serial_form, computation_options(LineCableModelsFEM, ComputationOptions(serial_form_controls)),meshes)
             @test E._parse_scan(serial,model,serial_form, computation_options(LineCableModelsFEM, ComputationOptions(serial_form_controls))).Z==scan.Z

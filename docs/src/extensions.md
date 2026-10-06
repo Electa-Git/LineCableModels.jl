@@ -54,7 +54,7 @@ explicit implementation before physical validation or computation.
 | Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule`. `equivalent_material(selected, Val(kind), Val(source), Val(target), rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` |
 | Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation`. `Commons.initialize_buffers(selected, T, input, plan, common)` and `ModalAnalysis.decompose!(selected, workspace, parameters, options)` |
 | Local shunt geometry | `Engine.ShuntModelFormulation`. `Engine.internal_shunt_response(selected, design, geometry, T, material_selections, solutions, design_index)` during blueprint construction |
-| Pipe applicability | `Engine.PipeImpedanceFormulation`. `Formulation(backend, selected, Val(topology))`. No analytical pipe equation is supplied. |
+| Pipe applicability | `Engine.PipeImpedanceFormulation`. `validate(design, selected, backend)` admits the topology of `design` or throws. No analytical pipe equation is supplied. |
 
 `parameters` are model data and `options` are formulation-owned physical choices
 and numerical controls. Custom constructors validate and normalize their own `FormulationOptions`.

@@ -47,7 +47,7 @@
     )
 
     formulation = LineCableModels.Formulation(
-        :LineCableModelsFEM;
+        :fem;
         options = (ideal_transposition = false,))
     @test formulation isa LineCableModels.LineCableModelsFEM
     @test !formulation.options.data.ideal_transposition
@@ -254,7 +254,7 @@ end
         frequencies = [50.0]
     )
     formulation = Formulation(
-        :LineCableModelsFEM;
+        :fem;
         options = (ideal_transposition = false,))
     formulation_controls = (gmsh_verbosity = 0,)
     extension_module = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
@@ -760,7 +760,7 @@ end
                 @test second_run.mesh_fingerprint == first_run.mesh_fingerprint
 
                 remesh = Formulation(
-                    :LineCableModelsFEM;
+                    :fem;
                     options = (ideal_transposition = false,))
                 remesh_controls = (mesh_mode = :remesh, gmsh_verbosity = 0)
                 third_run = extension_module._create_run(runtime_root)
@@ -784,7 +784,7 @@ end
                     end
                     chmod(failing_getdp, 0o700)
                     failing_formulation = Formulation(
-                        :LineCableModelsFEM;
+                        :fem;
                         options = (ideal_transposition = false,))
                     failing_formulation_controls = (
                             getdp_executable = failing_getdp,
@@ -847,7 +847,7 @@ end
     const DM = LineCableModels.DataModel
     extension_module = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     formulation = Formulation(
-        :LineCableModelsFEM; options = (ideal_transposition = false,)
+        :fem; options = (ideal_transposition = false,)
     )
     copper = Material(
         kind = :conductor, rho = 1.72e-8, eps_r = 1.0, mu_r = 1.0
@@ -1218,14 +1218,14 @@ end
             frequencies = [50.0, 1000.0]
         )
         formulation = Formulation(
-            :LineCableModelsFEM;
+            :fem;
             options = (ideal_transposition = false,))
         formulation_controls = (
                 getdp_verbosity = 0,
                 gmsh_verbosity = 0,
                 keep_run_directory = true, timing = true
             )
-        formulation_space = Formulation(:LineCableModelsFEM;
+        formulation_space = Formulation(:fem;
             earth_properties = Grid((formula(:default), nothing)),
             insulation_admittance = Grid((:default, :lossy)),
             options = formulation.options)
@@ -1369,7 +1369,7 @@ end
                 path, expected = ARGS
                 problem = LineCableModels.ImportExport.deserialize_value(
                     JSON3.read(read(joinpath(path, "input", "problem.json"), String)))
-                formulation = Formulation(:LineCableModelsFEM; earth_properties=nothing,
+                formulation = Formulation(:fem; earth_properties=nothing,
                     options=(ideal_transposition=false,))
                 formulation_controls = (getdp_verbosity=0, gmsh_verbosity=0,
                         keep_run_directory=true)

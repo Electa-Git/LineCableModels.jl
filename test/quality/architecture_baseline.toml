@@ -21,7 +21,6 @@
 "Engine.EarthImpedance | Engine.earth! | src/engine/earthimpedance/interface.jl" = 1
 "Engine.InsulationAdmittance | Engine.InsulationAdmittanceFormulation | src/engine/insulationadmittance/interface.jl" = 2
 "Engine.InsulationImpedance | Engine.InsulationImpedanceFormulation | src/engine/insulationimpedance/interface.jl" = 1
-"Engine.PipeImpedance | Engine.Formulation | src/engine/pipeimpedance/interface.jl" = 2
 "Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
 "Engine.ShuntModel | Engine.blueprint_dependencies | src/engine/shuntmodel/blueprint.jl" = 1
 "Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
@@ -40,11 +39,7 @@
 "ModalAnalysis | Units.label | src/modalanalysis/observations.jl" = 51
 "ModalAnalysis | Units.native_unit | src/modalanalysis/observations.jl" = 51
 "ModalAnalysis | Units.symbol | src/modalanalysis/observations.jl" = 51
-"PSCAD | Engine.EarthAdmittance.earth_potential_coefficient | src/pscad/formulations.jl" = 5
-"PSCAD | Engine.EarthImpedance.earth_impedance | src/pscad/formulations.jl" = 10
-"PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 3
-"PSCAD | Engine.InsulationImpedance.insulation_impedance | src/pscad/formulations.jl" = 2
-"PSCAD | Engine.InternalImpedance.internal_impedance | src/pscad/formulations.jl" = 2
+"PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 1
 "PSCAD | ImportExport.export_data | src/pscad/importexport/pscad.jl" = 1
 "PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
 "ParametricBuilder | Commons.compute | src/parametricbuilder/traversal.jl" = 4
@@ -87,7 +82,6 @@
 "Functor" = 3
 "_line!" = 2
 "flatten" = 2
-"formulas" = 2
 
 [shadowing]
 

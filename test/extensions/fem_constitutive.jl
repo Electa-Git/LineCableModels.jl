@@ -41,7 +41,7 @@
     @test record.methods.temperature_dependence.parameters.scale==1000.0
     @test record.methods.semicon_admittance.identifier === :lossless
     for name in (:internal_impedance,:insulation_impedance,:earth_impedance,:earth_admittance,:pipe_impedance)
-        @test_throws MethodError Formulation(:LineCableModelsFEM; NamedTuple{(name,)}((formula(:default),))...)
+        @test_throws MethodError Formulation(:fem; NamedTuple{(name,)}((formula(:default),))...)
     end
     @test_throws ArgumentError LineCableModelsFEM(earth_properties=formula(:default; equivalent_earth=:default))
     @test_throws MethodError LineCableModelsFEM(earth_properties=LineCableModels.Earth.EquivalentHomogeneous.Formula(:default))

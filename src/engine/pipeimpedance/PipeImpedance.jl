@@ -5,7 +5,7 @@ Own pipe-type formula selections and backend applicability. No analytical
 pipe-type implementation is supplied yet.
 """
 module PipeImpedance
-import ...Commons: FormulationOptions, formulas, formulation_options
+import ...Commons: FormulationOptions, formulas, formulation_options, validate
 import ...LineCableModels: FormulaDefinition
 
 export Formula, formula_id, formulas
@@ -15,11 +15,10 @@ using DocStringExtensions: TYPEDEF
 # Expanded in the docstrings of the included formula files.
 using DocStringExtensions: TYPEDSIGNATURES
 #! explicit-imports: on
-import ..Engine: PipeImpedanceFormulation, Formulation
+import ..Engine: PipeImpedanceFormulation
 import ...LineCableModels: formula_id
 #! explicit-imports: off
 # These bindings are consumed by the formula definitions below.
-import ..Engine: LineCableModelsCoaxial
 import ...LineCableModels: description
 #! explicit-imports: on
 import ...DataModel

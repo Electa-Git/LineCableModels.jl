@@ -24,7 +24,6 @@ import LineCableModels.Engine.InternalImpedance: internal_impedance
 import LineCableModels.Engine.InsulationImpedance: insulation_impedance
 import LineCableModels.Engine: Formulation,
                                LineParametersProblem
-import LineCableModels.Commons
 import LineCableModels.Commons: AbstractFormulation, ComputationOptions, ComputationDetails,
                                 FormulationOptions, computation_options, compute,
                                 formulation_options, gridpoint_id, bindings
@@ -38,7 +37,7 @@ using EzXML: ElementNode, XMLDocument, addelement!, nodename,
              readxml, root, setroot!
 
 export PSCADFormulation, RemoteConfig,
-       read_pscad_result, remote_command, run_remote_pscad, formulas, identify
+       read_pscad_result, remote_command, run_remote_pscad, identify
 public pscad_setting
 
 include("formulations.jl")

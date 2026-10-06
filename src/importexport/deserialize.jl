@@ -36,8 +36,8 @@ function deserialize_value(::Val{:formulation},record::NamedTuple)
     backend=get(record,:backend,nothing)
     owner=backend in (:coaxial,"coaxial") ? Engine.LineParametersFormulation :
         backend in (:cable_constants,"cable_constants") ? Engine.CableConstantsFormulation :
-        backend in (:fem,:LineCableModelsFEM,"fem","LineCableModelsFEM") ? Engine.LineCableModelsFEM :
-        backend in (:pscad,:PSCAD,"pscad","PSCAD") ? LineCableModels.PSCAD.PSCADFormulation :
+        backend in (:fem,"fem") ? Engine.LineCableModelsFEM :
+        backend in (:pscad,"pscad") ? LineCableModels.PSCAD.PSCADFormulation :
         backend in (:modal,"modal") ? LineCableModels.ModalAnalysis.ModalAnalysisFormulation : nothing
     owner===nothing && return missing
     # The owner supplies child families, their order and their relevance.

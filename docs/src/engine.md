@@ -594,12 +594,13 @@ equivalent-earth choice and order. Unspecified numerical defaults remain owned b
 the selected equation.
 Absence of an equivalent-earth selection remains `nothing`.
 
-PSCAD extends the same equation generics with a `Val(:pscad)` execution payload:
+PSCAD extends the same equation generics with a variant that takes the PSCAD
+formulation in place of the runtime arguments:
 
 ```julia
-earth_impedance(selection::EarthImpedance.Formula, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
-earth_potential_coefficient(selection::EarthAdmittance.Formula, ::Val{Kind}, ::Val{S}, ::Val{T}, ::Val{:pscad})
-internal_impedance(selection::InternalImpedance.Formula, ::Val{Kind}, ::Val{:pscad})
+earth_impedance(selection::EarthImpedance.Formula, ::Val{Kind}, ::Val{S}, ::Val{T}, pscad::PSCADFormulation)
+earth_potential_coefficient(selection::EarthAdmittance.Formula, ::Val{Kind}, ::Val{S}, ::Val{T}, pscad::PSCADFormulation)
+internal_impedance(selection::InternalImpedance.Formula, ::Val{Kind}, pscad::PSCADFormulation)
 ```
 
 These methods compile native settings. Each actual ordered pair is validated

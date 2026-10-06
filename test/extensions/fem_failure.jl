@@ -25,7 +25,7 @@
                 """)
             chmod(executable, 0o700)
             log_file = joinpath(directory, "logs", "computation.log")
-            formulation = Formulation(:LineCableModelsFEM;
+            formulation = Formulation(:fem;
                 options = (ideal_transposition = false,))
             formulation_controls = (getdp_executable = executable, gmsh_verbosity = 0,
                     getdp_verbosity = 0, keep_run_directory = true)

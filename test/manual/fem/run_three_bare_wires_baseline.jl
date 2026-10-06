@@ -146,7 +146,7 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
                 options = reductions), (trace = true, output_basis = :pul)))
     fem && push!(selections,
         "fem" => (
-            Formulation(:LineCableModelsFEM;
+            Formulation(:fem;
                 options = merge((physics = :quasi_fw,), reductions)),
             (ui = false, mesh_mode = :remesh, resume_run_directory = nothing,
                 keep_run_directory = true, trace = true, output_basis = :pul,

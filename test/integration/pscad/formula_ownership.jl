@@ -21,7 +21,7 @@
     @test occursin("Ideal", description(selected, Y))
     for kind in (:inner,:outer,:transfer)
         binding = FM(selected.methods.internal_impedance, E.InternalImpedance.internal_impedance, Val(kind))
-        @test binding(Val(:pscad)) == (;)
+        @test binding(selected) == (;)
         @test_throws r"not yet implemented" binding(nothing, nothing)
     end
     @test_throws r"not yet implemented" E.InternalImpedance.surface_impedances(
@@ -55,15 +55,16 @@ end
         @test Set((row.formula,row.kind,row.source,row.target) for row in settings.interactions.earth_admittance) == expected
         for row in settings.interactions.earth_admittance
             @test P.earth_potential_coefficient(selected.methods.earth_admittance,
-                Val(row.kind),Val(row.source),Val(row.target),Val(:pscad)) == (;)
+                Val(row.kind),Val(row.source),Val(row.target),selected) == (;)
         end
     end
     ideal = E.EarthAdmittance.Formula(:ideal)
-    @test_throws ArgumentError P.earth_potential_coefficient(ideal,Val(:self),Val(1),Val(2),Val(:pscad))
-    @test_throws ArgumentError P.earth_potential_coefficient(ideal,Val(:mutual),Val(2),Val(3),Val(:pscad))
+    pscad = Formulation(:pscad)
+    @test_throws ArgumentError P.earth_potential_coefficient(ideal,Val(:self),Val(1),Val(2),pscad)
+    @test_throws ArgumentError P.earth_potential_coefficient(ideal,Val(:mutual),Val(2),Val(3),pscad)
     @test_throws ArgumentError P.pscad_setting(Formulation(:pscad; earth_admittance=:pollaczek1926),problem)
     @test_throws ArgumentError P.pscad_setting(Formulation(:pscad; internal_impedance=:schelkunoff1934),problem)
     for id in (:ametani2009,:lucca1994), (kind,s,t) in ((:self,1,1),(:mutual,1,1),(:self,2,2),(:mutual,2,2),(:self,1,2))
-        @test_throws ArgumentError P.earth_impedance(E.EarthImpedance.Formula(id),Val(kind),Val(s),Val(t),Val(:pscad))
+        @test_throws ArgumentError P.earth_impedance(E.EarthImpedance.Formula(id),Val(kind),Val(s),Val(t),pscad)
     end
 end

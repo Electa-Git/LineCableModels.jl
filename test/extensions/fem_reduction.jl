@@ -16,7 +16,7 @@
         for (k, f) in pairs(frequencies)
             extracted[:, :, k] = trace.P[:, :, k] / (im * 2π * f)
         end
-        formulation = Formulation(:LineCableModelsFEM; options)
+        formulation = Formulation(:fem; options)
         model = FEM._resolved_fem_model(problem, formulation)
         run = FEM._create_run(mktempdir())
         # The input record only enters the result details.

@@ -273,7 +273,7 @@ end
         ObservedResult(retain_gridpoint(raw,gridpoint_id(;source_id,problem_index=problem,formulation_index=index);fields))
     end
     a=Formulation(earth_impedance=:unified,earth_admittance=:unified)
-    fem=Formulation(:LineCableModelsFEM)
+    fem=Formulation(:fem)
     points=[point(a,1),point(fem,2)]
     for request in (R,X,G,B)
         method=request in (R,X) ? a.methods.earth_impedance : a.methods.earth_admittance
@@ -291,7 +291,7 @@ end
     reductions=[point(Formulation(options=(kron_reduction=choice,)),i) for (i,choice) in enumerate((false,true))]
     @test observation_labels(reductions;request=R)==[
         description(LineParametersFormulation,Val(:kron_reduction),v;compact=true) for v in (false,true)]
-    physics=[Formulation(:LineCableModelsFEM;options=(physics=choice,)) for choice in (:quasi_tem,:quasi_fw)]
+    physics=[Formulation(:fem;options=(physics=choice,)) for choice in (:quasi_tem,:quasi_fw)]
     @test observation_labels([point(f,i) for (i,f) in enumerate(physics)];request=B)==[
         description(LineCableModelsFEM,Val(:physics),f.options.data.physics;compact=true) for f in physics]
     reordered=Formulation(options=(ideal_transposition=false,kron_reduction=true,reduce_bundle=true))

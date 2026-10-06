@@ -17,7 +17,7 @@ system = problem.system
 
 # Keep core, wire screen and aluminum foil as separate terminals on each cable.
 # Explicitly selects quasi-tem.pro, NOT the coupled quasi-full.pro.
-fem_formulation = Formulation(:LineCableModelsFEM;
+fem_formulation = Formulation(:fem;
     options=(
         physics=:quasi_tem,
         reduce_bundle=false,

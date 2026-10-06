@@ -22,16 +22,15 @@
     composite=Formulation(:pscad;internal_impedance=(transfer=:default,inner=:default,outer=:default))
     @test keys(composite.methods.internal_impedance)==(:inner,:outer,:transfer)
     @test P.pscad_setting(composite,underground)==P.pscad_setting(Formulation(:pscad),underground)
-    @test Formulation(Val(:pscad),underground,composite)===composite
     @test map(value -> value.identifier,
         LineCableModels.computation_details(composite).data.methods.internal_impedance)==
         (inner=:wedepohl1973,outer=:wedepohl1973,transfer=:wedepohl1973)
     rejected=Formulation(:pscad;internal_impedance=(inner=:default,
         outer=:schelkunoff1934,transfer=:default))
-    @test_throws ArgumentError Formulation(Val(:pscad),underground,rejected)
+    @test_throws ArgumentError P.pscad_setting(rejected,underground)
     @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
     for selected_problem in (overhead, underground)
-        resolved=Formulation(Val(:pscad), selected_problem, Formulation(:pscad))
+        resolved=Formulation(:pscad)
         @test map(formula_id, resolved.methods.earth_impedance) ==
             (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
         @test formula_id(resolved.definitions.earth_impedance) === :default
@@ -39,12 +38,12 @@
     end
     @test only(P.pscad_setting(Formulation(:pscad), overhead).interactions.earth_impedance).source == 1
     @test only(P.pscad_setting(Formulation(:pscad), underground).interactions.earth_impedance).source == 2
-    @test_throws ArgumentError Formulation(Val(:pscad), underground,
-        Formulation(:pscad; earth_impedance = :gary1976))
-    @test_throws ArgumentError Formulation(Val(:pscad), underground,
-        Formulation(:pscad; earth_impedance = :carson1926))
-    @test_throws ArgumentError Formulation(Val(:pscad), underground,
-        Formulation(:pscad; earth_properties = :cigre2019))
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_impedance = :gary1976), underground)
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_impedance = :carson1926), underground)
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_properties = :cigre2019), underground)
     @test_throws r"not yet implemented" compute(underground, Formulation(earth_impedance = :pollaczek1926))
     @test P.pscad_setting(Formulation(:pscad; earth_impedance=:pollaczek1926), underground).ground ==
           P.pscad_setting(Formulation(:pscad), underground).ground
@@ -67,7 +66,7 @@
     requested=(Formulation(:pscad),
         Formulation(:pscad; earth_impedance = :pollaczek1926),
         Formulation(:pscad; insulation_admittance = :lossy))
-    resolved=map(value->Formulation(Val(:pscad), underground, value), requested)
+    resolved=requested
     root=mktempdir()
     staged_projects=[P._stage_pscad_project(P._pscad_inputs(underground, value, P._pscad_blueprints(underground.system)), root) for value in resolved]
     try
@@ -96,30 +95,38 @@
     @test computation_details(typeof(Formulation(:pscad)), result) === details(result)
 end
 
-@testitem "PSCAD / supported formula list follows native setting dispatch" tags=[:integration, :pscad] begin
+@testitem "PSCAD / native settings exist for the supported formulas only" tags=[:integration, :pscad] begin
     const P=LineCableModels.PSCAD
     const EI=LineCableModels.Engine.EarthImpedance
-    for owner in (EI, LineCableModels.Engine.EarthAdmittance)
-        equation = owner === EI ? P.earth_impedance : P.earth_potential_coefficient
-        fallback = which(equation, Tuple{owner.Formula, Val, Val, Val, Val{:pscad}})
-        for (kind, source, target) in ((:self, 1, 1), (:mutual, 1, 1),
-                (:self, 2, 2), (:mutual, 2, 2), (:mutual, 1, 2), (:mutual, 2, 1))
-            identifiers = P.formulas(owner, Val(kind), Val(source), Val(target))
-            @test allunique(identifiers)
-            @test all(in(owner.formulas(owner.Formula)), identifiers)
-            owner === EI || @test identifiers == (:ideal,)
-            @test :default ∉ identifiers
-            for identifier in owner.formulas(owner.Formula)
-                @test (identifier in identifiers) == (which(equation,
-                    Tuple{owner.Formula{identifier}, Val{kind}, Val{source}, Val{target}, Val{:pscad}}) !== fallback)
-            end
+    const EA=LineCableModels.Engine.EarthAdmittance
+    pscad=Formulation(:pscad)
+    # The registered formulas that PSCAD supports for each interaction.
+    supported=(
+        (EI, P.earth_impedance, (:self, 1, 1), (:carson1926, :gary1976)),
+        (EI, P.earth_impedance, (:mutual, 1, 1), (:carson1926, :gary1976)),
+        (EI, P.earth_impedance, (:self, 2, 2), (:pollaczek1926, :saad1996, :wedepohl1973)),
+        (EI, P.earth_impedance, (:mutual, 2, 2), (:pollaczek1926, :saad1996, :wedepohl1973)),
+        (EI, P.earth_impedance, (:mutual, 1, 2), (:ametani2009, :lucca1994)),
+        (EI, P.earth_impedance, (:mutual, 2, 1), (:ametani2009, :lucca1994)),
+        (EI, P.earth_impedance, (:self, 1, 2), ()),
+        (EI, P.earth_impedance, (:mutual, 2, 3), ()),
+        (EA, P.earth_potential_coefficient, (:self, 1, 1), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:mutual, 1, 1), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:self, 2, 2), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:mutual, 2, 2), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:mutual, 1, 2), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:mutual, 2, 1), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:self, 1, 2), ()),
+        (EA, P.earth_potential_coefficient, (:mutual, 2, 3), ()))
+    for (owner, equation, (kind, source, target), expected) in supported,
+            identifier in owner.formulas(owner.Formula)
+        selectors=(Val(kind), Val(source), Val(target))
+        if identifier in expected
+            @test equation(owner.Formula(identifier), selectors..., pscad) isa NamedTuple
+        else
+            @test_throws ArgumentError equation(owner.Formula(identifier), selectors..., pscad)
         end
-        @test isempty(P.formulas(owner, Val(:self), Val(1), Val(2)))
-        @test isempty(P.formulas(owner, Val(:mutual), Val(2), Val(3)))
     end
-    @test :gary1976 in P.formulas(EI, Val(:mutual), Val(1), Val(1))
-    @test :pollaczek1926 in P.formulas(EI, Val(:self), Val(2), Val(2))
-
 end
 
 @testitem "PSCAD / consumes complete homogeneous choices and preserves export settings" tags=[:integration, :pscad] begin
@@ -135,25 +142,24 @@ end
         earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
     choices = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)
     selected = Formulation(:pscad; earth_impedance = choices)
-    @test Formulation(Val(:pscad), problem, selected) === selected
     setting = P.pscad_setting(selected, problem)
     @test map(control -> control.value, setting.ground) == (EarthForm2 = 0, EarthForm = 3, EarthForm3 = 2)
     @test Set((r.formula, r.kind, r.source, r.target) for r in setting.interactions.earth_impedance) ==
         Set(((:gary1976, :self, 1, 1), (:saad1996, :self, 2, 2),
             (:lucca1994, :mutual, 1, 2), (:lucca1994, :mutual, 2, 1)))
-    @test_throws ArgumentError Formulation(Val(:pscad), problem,
-        Formulation(:pscad; earth_impedance = :lucca1994))
-    @test_throws ArgumentError Formulation(Val(:pscad), problem,
-        Formulation(:pscad; earth_admittance = :pollaczek1926))
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_impedance = :lucca1994), problem)
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_admittance = :pollaczek1926), problem)
     for invalid_choices in ((air = :pollaczek1926, earth = :saad1996, mixed = :lucca1994),
             (air = :gary1976, earth = :carson1926, mixed = :lucca1994))
-        @test_throws ArgumentError Formulation(Val(:pscad), problem,
-            Formulation(:pscad; earth_impedance = invalid_choices))
+        @test_throws ArgumentError P.pscad_setting(
+            Formulation(:pscad; earth_impedance = invalid_choices), problem)
     end
-    @test_throws ArgumentError Formulation(Val(:pscad), problem,
+    @test_throws ArgumentError P.pscad_setting(
         Formulation(:pscad; earth_impedance = (
             air = formula(:gary1976; options = (integration = (method = :quad,),)),
-            earth = :saad1996, mixed = :lucca1994)))
+            earth = :saad1996, mixed = :lucca1994)), problem)
     staged = P._stage_pscad_project(P._pscad_inputs(problem, selected, P._pscad_blueprints(problem.system)), mktempdir())
     try
         document = EzXML.readxml(staged.staged)

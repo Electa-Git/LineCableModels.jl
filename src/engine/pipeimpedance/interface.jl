@@ -17,39 +17,42 @@ struct Formula{ID} <: PipeImpedanceFormulation
     end
 end
 
-function Formulation(backend, selected::PipeImpedanceFormulation, design::CableDesign)
+"""
+$(TYPEDSIGNATURES)
+
+Check that `backend` can compute `design` with the pipe-impedance formula `selected`.
+The check compares the conductor axes with each conductive enclosure: a design whose
+enclosure is eccentric or contains several cores has pipe topology. Because the built-in
+formulas do not add a pipe term, they admit coaxial topology only. A backend or formula
+that implements pipe topology adds its own method. Return `design`.
+
+# Errors
+
+- Throws `ArgumentError` for a pipe topology.
+"""
+function validate(design::CableDesign, selected::Formula, backend)
+    pipe() = throw(ArgumentError("Pipe-type cable formulation is not yet implemented for " *
+        "the $(description(backend)) backend. No pipe formulation is available."))
     # Compare conductor axes, not wire positions. A concentric sheath remains
     # ordinary coaxial geometry even when declared through pipe(...).
-    topology = Val(:coaxial)
     for wall in design.geometry.regions
         wall.source.material.kind === :conductor || continue
         annular_wall = wall.primitive isa DataModel.Annulus && wall.primitive.ri > 0
         enclosed_wall = any(entry -> entry.pattern isa DataModel.EnclosureBoundary,
             wall.placement.patterns)
         annular_wall || enclosed_wall || continue
-        if !(wall.primitive isa DataModel.Annulus)
-            topology = Val(:pipe)
-            break
-        end
+        wall.primitive isa DataModel.Annulus || pipe()
         axis = DataModel.radial_position(wall)
         for terminal in design.terminal_order
             terminal === wall.terminal && continue
             sources = filter(region -> region.terminal === terminal, design.geometry.regions)
             center = DataModel.conductor_zone_position(sources)
             distance = hypot(center[1] - axis[1], center[2] - axis[2])
-            if distance < wall.primitive.ri && !DataModel.same_radial_position(center, axis)
-                topology = Val(:pipe)
-                break
-            end
+            distance < wall.primitive.ri && !DataModel.same_radial_position(center, axis) &&
+                pipe()
         end
-        topology === Val(:pipe) && break
     end
-    return Formulation(backend, selected, topology)
-end
-
-function Formulation(backend, selected::PipeImpedanceFormulation, ::Val{Topology}) where {Topology}
-    throw(ArgumentError(
-        "pipe-impedance :$(formula_id(selected)) is not yet implemented for $Topology topology on $(nameof(typeof(backend)))"))
+    return design
 end
 
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)

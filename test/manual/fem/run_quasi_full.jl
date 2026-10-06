@@ -12,7 +12,7 @@ system = build(LineCableSystem, [wire, wire], positions;
     connections=[Dict(:core=>1), Dict(:core=>2)], line_length=1.0)
 problem = LineParametersProblem(system; frequencies,
     earth_props=homogeneous(rho=0.1, eps_r=1.0, mu_r=1.0))
-formulation = Formulation(:LineCableModelsFEM;
+formulation = Formulation(:fem;
     options=(physics=:quasi_fw, reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
 execution = computation_options(LineCableModelsFEM, ComputationOptions(;mesh_mode=:remesh, gmsh_verbosity=2, getdp_verbosity=3,
         plot_field_maps=false, solver_threads=1, keep_run_directory=true))

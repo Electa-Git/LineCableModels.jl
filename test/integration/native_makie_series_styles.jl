@@ -155,7 +155,7 @@ end
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     source_id=gridpoint_id().source_id
     analytical=Formulation(earth_impedance=:unified,earth_admittance=:unified)
-    fem=Formulation(:LineCableModelsFEM)
+    fem=Formulation(:fem)
     z=reshape(complex.(1.:12.,21.:32.),2,2,3)
     function point(formulation,index;rho=100.,problem=1)
         inputs=(rho=rho,radius=.0425,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),radius=(name="radius",unit="m")))

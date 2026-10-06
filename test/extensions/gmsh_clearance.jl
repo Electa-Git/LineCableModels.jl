@@ -4,7 +4,7 @@
     using LineCableModels
     ext = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     copper = Material(kind = :conductor, rho = 1.7e-8)
-    formulation = Formulation(:LineCableModelsFEM;
+    formulation = Formulation(:fem;
         options = (ideal_transposition = false,))
     execution = computation_options(LineCableModelsFEM, ComputationOptions((mesh_mode=:remesh, gmsh_verbosity=0,)))
     for radius in (0.01, measurement(0.01, 1e-4))

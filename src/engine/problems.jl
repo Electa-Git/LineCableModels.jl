@@ -295,27 +295,6 @@ function LineParametersFormulation(methods::NamedTuple, options::FormulationOpti
     LineParametersFormulation(methods, options, methods)
 end
 
-function LineParametersFormulation(;
-        internal_impedance::Union{InternalImpedanceFormulation, NamedTuple},
-        insulation_impedance::InsulationImpedanceFormulation,
-        earth_impedance::Union{EarthImpedanceFormulation, NamedTuple},
-        insulation_admittance::InsulationAdmittanceFormulation,
-        semicon_admittance::SemiconAdmittanceFormulation,
-        earth_admittance::Union{EarthAdmittanceFormulation, NamedTuple},
-        shunt_model::ShuntModelFormulation = ShuntModel.Formula(:default),
-        earth_properties,
-        pipe_impedance::PipeImpedanceFormulation,
-        temperature_dependence::Union{Nothing, TemperatureDependent.TemperatureDependentFormulation} = TemperatureDependent.Formula(:default),
-        options::FormulationOptions
-)
-    methods = (;
-        internal_impedance, insulation_impedance, earth_impedance, shunt_model,
-        insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
-        pipe_impedance, temperature_dependence
-    )
-    return LineParametersFormulation(methods, options)
-end
-
 function _line_formulation(
         internal_impedance,
         insulation_impedance,
@@ -329,7 +308,7 @@ function _line_formulation(
         temperature_dependence,
         options::FormulationOptions
 )
-    selected = LineParametersFormulation(;
+    selected = LineParametersFormulation((;
         internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
         earth_impedance = Formulation(EarthImpedance.Formula, earth_impedance),
@@ -341,9 +320,8 @@ function _line_formulation(
                            Earth.FrequencyDependent.Formula(earth_properties),
         pipe_impedance = PipeImpedance.Formula(pipe_impedance),
         temperature_dependence = temperature_dependence === nothing ? nothing :
-                                 TemperatureDependent.Formula(temperature_dependence),
-        options = formulation_options(LineParametersFormulation, options)
-    )
+                                 TemperatureDependent.Formula(temperature_dependence)),
+        formulation_options(LineParametersFormulation, options))
     definitions = (; internal_impedance = internal_impedance isa NamedTuple ?
             NamedTuple{keys(selected.methods.internal_impedance)}(internal_impedance) : internal_impedance,
         insulation_impedance,
@@ -360,6 +338,7 @@ end
 $(TYPEDSIGNATURES)
 
 Select the complete physical-method bundle for a line-parameter calculation.
+`Formulation(; kwargs...)` and `Formulation(:coaxial; kwargs...)` call it.
 
 `shunt_model=:default` (or `:coaxial`) selects annular local shunt geometry.
 `:boundary` explicitly computes a lossless wire and tape boundary correction.
@@ -400,7 +379,7 @@ singletons. This composition is independent of the Cartesian product between
 problem points and formulation points performed by
 [`Combinatorial`](@ref LineCableModels.ParametricBuilder.Combinatorial).
 """
-function Formulation(;
+function LineParametersFormulation(;
         internal_impedance = formula(:default),
         insulation_impedance = formula(:default),
         earth_impedance = formula(:default),
@@ -434,6 +413,15 @@ function Formulation(;
         combine
     )
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the coaxial formulation, [`LineParametersFormulation`](@ref), from the same keywords.
+"""
+Formulation(; kwargs...) = LineParametersFormulation(; kwargs...)
+
+Formulation(::Val{:coaxial}; kwargs...) = LineParametersFormulation(; kwargs...)
 
 """
 $(TYPEDSIGNATURES)

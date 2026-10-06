@@ -115,12 +115,13 @@ end
 
 @testitem "PSCAD / unsupported indexed equations fail without fallback" tags=[:integration, :pscad] begin
     const P = LineCableModels.PSCAD
-    selected = Formulation(:pscad).methods
+    pscad = Formulation(:pscad)
+    selected = pscad.methods
     for (equation, selection) in ((P.earth_impedance, selected.earth_impedance.air),
             (P.earth_potential_coefficient, selected.earth_admittance)),
             (kind, s, t) in ((:self, 1, 2), (:mutual, 2, 3), (:self, 3, 3))
         caught = try
-            equation(selection, Val(kind), Val(s), Val(t), Val(:pscad))
+            equation(selection, Val(kind), Val(s), Val(t), pscad)
             nothing
         catch error
             error
@@ -128,16 +129,26 @@ end
         @test caught isa ArgumentError
         @test occursin("source in layer $s and target in layer $t", sprint(showerror, caught))
     end
-    @test_throws ArgumentError P.internal_impedance(selected.internal_impedance, Val(:invalid), Val(:pscad))
+    @test_throws ArgumentError P.internal_impedance(selected.internal_impedance, Val(:invalid), pscad)
     @test_throws ArgumentError Formulation(:pscad; insulation_impedance=:not_registered)
     for (s, t) in ((1, 2), (2, 1))
-        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:ametani2009).methods.earth_impedance, Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
+        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:ametani2009).methods.earth_impedance, Val(:mutual), Val(s), Val(t), pscad) ==
             (EarthForm3 = (value = 0, readback = "AMETANIL"),)
-        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:lucca1994).methods.earth_impedance, Val(:mutual), Val(s), Val(t), Val(:pscad)) ==
+        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:lucca1994).methods.earth_impedance, Val(:mutual), Val(s), Val(t), pscad) ==
             (EarthForm3 = (value = 2, readback = "LUCCA"),)
     end
-    const pipe = LineCableModels.Engine.PipeImpedance.Formula(:default)
-    @test_throws ArgumentError Formulation(Val(:pscad), pipe, Val(:pipe))
+    # PSCAD's coaxial cable admits coaxial topology only.
+    copper = Material(:conductor, 1.72e-8)
+    dielectric = Material(:insulator, 1e14, 2.3)
+    conductors = [terminal(name, solid(copper, Disk(0.005)), insulation(dielectric; t = 0.002))
+                  for name in (:a, :b)]
+    wall = terminal(:pipe, sheath(copper; t = 0.001), insulation(dielectric; t = 0.002))
+    enclosed = build(CableDesign, "pscad-pipe", pipe(at(conductors[1], -0.01, 0),
+        at(conductors[2], 0.01, 0); shape = Disk(0.025), fill = Material(:insulator, Inf, 1.0), wall))
+    coaxial = build(CableDesign, "pscad-coaxial", first(conductors))
+    none = LineCableModels.Engine.PipeImpedance.Formula(:default)
+    @test validate(coaxial, none, pscad) === coaxial
+    @test_throws "not yet implemented for the PSCAD backend" validate(enclosed, none, pscad)
 end
 
 @testitem "PSCAD / mixed native equations survive coaxial author withdrawal" tags=[:integration, :pscad, :slow] begin
@@ -145,11 +156,12 @@ end
     const P = LineCableModels.PSCAD
     selected = E.EarthImpedance.Formula(:ametani2009)
     @test occursin("mixed", description(selected))
-    native = Formulation(:pscad; earth_impedance=:ametani2009).methods.earth_impedance
+    pscad = Formulation(:pscad; earth_impedance=:ametani2009)
+    native = pscad.methods.earth_impedance
     for (s,t) in ((1,2), (2,1))
         @test_throws r"not yet implemented" E.EarthImpedance.earth_impedance(
             selected, Val(:mutual), Val(s), Val(t), nothing, nothing, nothing)
-        @test P.earth_impedance(native, Val(:mutual), Val(s), Val(t), Val(:pscad)).EarthForm3.readback == "AMETANIL"
+        @test P.earth_impedance(native, Val(:mutual), Val(s), Val(t), pscad).EarthForm3.readback == "AMETANIL"
     end
     copper = Material(:conductor, 1.72e-8, 1.0)
     design = build(CableDesign, "mixed-order", terminal(:core,

@@ -78,7 +78,7 @@ function make_problem_space(radius_values, earth_rho_values, frequencies; vert)
 end
 
 fem_formulation = Formulation(
-    :LineCableModelsFEM;
+    :fem;
     options = (
         physics = :quasi_fw,
         reduce_bundle = false,

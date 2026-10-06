@@ -11,7 +11,7 @@
     @test supertype(LineCableModels.LineCableModelsFEM) === LineCableModels.AbstractFormulation
 
     formulation = LineCableModels.Formulation(
-        :LineCableModelsFEM;
+        :fem;
         options = (ideal_transposition = false,))
     execution = computation_options(LineCableModelsFEM, ComputationOptions((ui=false,)))
     @test execution isa ComputationOptions

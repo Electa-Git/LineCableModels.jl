@@ -19,7 +19,7 @@
         connections = Dict(:core=>1), system_id = "fem-resume-inputs")
     problem = LineParametersProblem(system; frequencies = [50.0, 1000.0],
         earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0))
-    formulation = Formulation(:LineCableModelsFEM;
+    formulation = Formulation(:fem;
         options=(ideal_transposition=false,))
     formulation_controls = (getdp_executable=artifact.path, gmsh_verbosity=0,)
     model = extension._resolved_fem_model(problem, formulation)
@@ -53,12 +53,12 @@
     @test inputs.adapter_sources isa NamedTuple
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("formulations.jl"))
-    other = Formulation(:LineCableModelsFEM; earth_properties = nothing,
+    other = Formulation(:fem; earth_properties = nothing,
         options = formulation.options)
     other_controls = formulation_controls
     other_model = extension._resolved_fem_model(problem, other)
     other_inputs = extension._fem_input_record(other_model, other, computation_options(LineCableModelsFEM, ComputationOptions(other_controls)))
-    lossy = Formulation(:LineCableModelsFEM; insulation_admittance = :lossy,
+    lossy = Formulation(:fem; insulation_admittance = :lossy,
         options = formulation.options)
     lossy_controls = formulation_controls
     lossy_model = extension._resolved_fem_model(problem, lossy)
@@ -106,7 +106,7 @@
           inputs.mesh_fingerprint
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
     law=FormulaFixtures.ScaledSoil(rho=Inf)
-    unsupported = Formulation(:LineCableModelsFEM;
+    unsupported = Formulation(:fem;
         earth_properties = law,
         options = formulation.options)
     unsupported_controls = formulation_controls
@@ -192,7 +192,7 @@
             executable = joinpath(root, "getdp-identity")
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture A'\n")
             chmod(executable, 0o700)
-            configured = Formulation(:LineCableModelsFEM; options=formulation.options)
+            configured = Formulation(:fem; options=formulation.options)
             configured_controls = (getdp_executable=executable, gmsh_verbosity=0,)
             first_record = extension._fem_input_record(model, configured, computation_options(LineCableModelsFEM, ComputationOptions(configured_controls)))
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture B'\n")
@@ -205,7 +205,7 @@
             environment = joinpath(root, "getdp-environment")
             cp(executable, environment)
             chmod(environment, 0o700)
-            relocated = Formulation(:LineCableModelsFEM; options=formulation.options)
+            relocated = Formulation(:fem; options=formulation.options)
             relocated_controls = (getdp_executable=environment, gmsh_verbosity=0,)
             relocated_inputs = extension._fem_input_record(model, relocated, computation_options(LineCableModelsFEM, ComputationOptions(relocated_controls)))
             @test relocated_inputs.getdp_identity == second_record.getdp_identity

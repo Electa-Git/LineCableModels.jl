@@ -201,7 +201,8 @@ and implement `InternalImpedance.internal_impedance` for their supported
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
 """
 Select the pipe contribution and its backend and topology applicability. Concrete
-subtypes extend `Formulation(backend, selected, Val(topology))`. An impedance equation must be supplied separately from admission.
+subtypes extend `validate(design, selected, backend)`, which admits the topology of
+`design` or throws. An impedance equation must be supplied separately from admission.
 """
 abstract type PipeImpedanceFormulation <: AbstractImpedanceFormulation end
 """
@@ -432,9 +433,20 @@ function validate(rho::AbstractVector,
 end
 
 """
-Route an explicit external formulation tag to its `Val` dispatch method.
+$(TYPEDSIGNATURES)
+
+Build the backend formulation whose identity is `tag`: `:coaxial`, `:cable_constants`,
+`:fem` or `:pscad`. `Formulation(::Val{tag}; kwargs...)` forwards `kwargs` to the
+backend's constructor. PSCAD defines its own method.
+
+# Errors
+
+- Throws `ArgumentError` for an unknown `tag`.
 """
-Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
+Formulation(tag::Symbol; kwargs...) = Formulation(Val(tag); kwargs...)
+
+Formulation(::Val{tag}; kwargs...) where {tag} =
+    throw(ArgumentError("unknown backend formulation :$tag"))
 
 function _fem_formulation(
         insulation_admittance, semicon_admittance, earth_properties, temperature_dependence,
@@ -485,8 +497,7 @@ scalar or an explicit `Grid`/`Gridspace`. Varying inputs return a
 Analytical impedance and admittance kernel keywords are rejected. Supported enclosure
 geometry is represented directly in the FEM domain.
 """
-function Formulation(
-        ::Val{:LineCableModelsFEM};
+function LineCableModelsFEM(;
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:default),
         earth_properties = formula(:default),
@@ -504,9 +515,7 @@ function Formulation(
     )
 end
 
-function LineCableModelsFEM(; kwargs...)
-    return Formulation(Val(:LineCableModelsFEM); kwargs...)
-end
+Formulation(::Val{:fem}; kwargs...) = LineCableModelsFEM(; kwargs...)
 
 # An earth equation admits an equivalent-earth reduction only through its own method.
 function validate(reduction::EquivalentHomogeneous.AbstractRule,

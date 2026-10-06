@@ -220,7 +220,7 @@ end
         earth_props = homogeneous(rho = 100.0, eps_r = 10.0))
     for ins in (:default, :lossy), semi in (:default, :lossy), correction in (false, true)
         formulation = Formulation(
-            :LineCableModelsFEM; insulation_admittance = ins, semicon_admittance = semi,
+            :fem; insulation_admittance = ins, semicon_admittance = semi,
             temperature_dependence = correction ? formula(:default) : nothing, options = (ideal_transposition = false,))
         model = FEM._resolved_fem_model(problem, formulation)
         passive = only(filter(m -> m.kind === :insulator, model.material_plans))

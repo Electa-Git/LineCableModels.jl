@@ -49,7 +49,7 @@ export_file = export_data(:pscad, system, earth, file_name = output_file);
 
 if run_fem
     # FEM field-model choices. Execution controls belong to compute(.... Options).
-    fem_formulation = Formulation(:LineCableModelsFEM;
+    fem_formulation = Formulation(:fem;
         options = (
             physics = :quasi_tem,
             reduce_bundle = false,

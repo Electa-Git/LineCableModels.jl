@@ -386,6 +386,8 @@ function CableConstantsFormulation(;
     )
 end
 
+Formulation(::Val{:cable_constants}; kwargs...) = CableConstantsFormulation(; kwargs...)
+
 function computation_options(
         ::Type{<:CableConstantsFormulation},
         options::ComputationOptions
@@ -620,7 +622,7 @@ function compute(
     ))
     validate(problem)
     for formulation in formulations
-        Formulation(engine, formulation.methods.pipe_impedance, problem.design)
+        validate(problem.design, formulation.methods.pipe_impedance, engine)
     end
     blueprints = flatten(engine, [problem.design], eltype(problem), formulations)
     cables = [LocalCableData(first(blueprints))]
