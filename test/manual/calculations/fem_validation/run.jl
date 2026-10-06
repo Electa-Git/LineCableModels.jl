@@ -179,7 +179,7 @@ function run_case(case,output,options,settings)
             open(recordpath,"w") do io;JSON3.pretty(io,record);end
             return record
         end
-        solve_run=call_native(`$getdp $entry -msh $mesh -solve LineCableModelsFEM -name $(joinpath(directory,"solver")) -setnumber FrequencyIndex 1 -setnumber GetDPThreads 1 -v 4 -nt 1`,joinpath(directory,"native.log");timeout=Float64(get(settings,"timeout_seconds",2700.)))
+        solve_run=call_native(`$getdp $entry -msh $mesh -cal -name $(joinpath(directory,"solver")) -setnumber FrequencyIndex 1 -setnumber GetDPThreads 1 -v 4 -nt 1`,joinpath(directory,"native.log");timeout=Float64(get(settings,"timeout_seconds",2700.)))
         log=read(joinpath(directory,"native.log"),String);matches=collect(eachmatch(r"N:\s+(\d+)",log));isempty(matches) || (dofs=maximum(parse(Int,m[1]) for m in matches))
         status=solve_run.timed_out ? "timeout" : solve_run.success ? "solved" : "native failed"
         raw=joinpath(bundle,"results","f0001-helmholtz-b0000")

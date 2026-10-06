@@ -126,6 +126,14 @@ end
         try
             gmsh.open(geo)
             @test gmsh.onelab.get_number("Inputs/00Run frequency scan") == [0.]
+            for (name,label) in (("Inputs/Air/01Sigma","Sigma [S/m]"),
+                    ("Inputs/Air/02Epsilon","Epsilon [F/m]"),("Inputs/Air/03Mu","Mu [H/m]"),
+                    ("Inputs/Cases/0001/02Gamma real","Gamma real [1/m]"),
+                    ("Inputs/Cases/0001/04Soil sigma","Soil sigma [S/m]"),
+                    ("Boundary/Derived/Medium 0/01Root real","Root real [1/m]"))
+                @test JSON3.read(gmsh.onelab.get(name)).label==label
+            end
+            @test !any(name->occursin(r"\[[^]]*/[^]]*\]",name),gmsh.onelab.get_names())
             gmsh.onelab.set_number("Inputs/01Frequency case",[2.])
             # Reparse in one server session, as ONELAB does after a UI edit.
             # Hidden counters let the declaration control Loop even after it
@@ -184,7 +192,17 @@ end
             # the same numerical output as the corresponding scan step.
             run(`$mesher $geo -setnumber BuildMesh 1 -setnumber FrequencyIndex $i -0 -v 2`)
             run(`$getdp $entry -msh $(joinpath(bundle,"study.msh")) -solve LineCableModelsFEM -setnumber FrequencyIndex $i -setnumber Physics $code -setnumber PlotFieldMaps 0 -v 2`)
-            @test read.(tables,String) == scan_tables
+            # Gmsh can reorder a mesh when the metadata path length changes; compare numbers at 1e-9 scaled.
+            for (actual,expected) in zip(read.(tables,String),scan_tables)
+                rows=split.(split(chomp(actual),'\n'),'\t')
+                reference=split.(split(chomp(expected),'\n'),'\t')
+                @test rows[1:2]==reference[1:2]
+                @test [r[1:4] for r in rows[3:end]]==[r[1:4] for r in reference[3:end]]
+                values=[complex(parse(Float64,r[5]),parse(Float64,r[6])) for r in rows[3:end]]
+                target=[complex(parse(Float64,r[5]),parse(Float64,r[6])) for r in reference[3:end]]
+                scale=maximum(abs(target[k]) for (k,r) in enumerate(reference[3:end]) if r[1]==r[2])
+                @test maximum(abs.(values.-target))<=1e-9*scale
+            end
         end
         # An unchecked native Run visits only the selected frequency.
         log = read(`$command -setnumber RunFrequencyScan 0 -setnumber FrequencyIndex 2`,String)

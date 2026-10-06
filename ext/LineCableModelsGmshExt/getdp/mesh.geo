@@ -226,6 +226,7 @@ If(Exists(MeshMetadataPath))
   Printf("minimum_mesh_size_m %.17g",Mesh.MeshSizeMin) >> MeshMetadataPath;
   Printf("domain_mesh_size_m %.17g",MeshBulk) >> MeshMetadataPath;
   Printf("earth_interface_layer %.17g %g",FEMEarthLayerThickness,FEMEarthLayerClippedOrOmitted) >> MeshMetadataPath;
+  Printf("air_excited %g",FEMAirExcited) >> MeshMetadataPath;
   Printf("interface_mesh_size_m %.17g",MeshInterface) >> MeshMetadataPath;
   Printf("exterior_mesh_sizes_m %.17g %.17g",MeshRemoteAir,MeshRemoteEarth) >> MeshMetadataPath;
   Printf("exterior_start_radius_m %.17g",MeshExteriorStart) >> MeshMetadataPath;

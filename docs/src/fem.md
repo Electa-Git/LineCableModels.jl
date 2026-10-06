@@ -279,15 +279,24 @@ triangular; the PML grid is transfinite.
 
 The bulk target is `mesh_size_factor*max(layout_radius,L)/20`. A medium's wave
 target is `min(MeshBulk,mesh_size_factor/(8*abs(q_m)))`. Its decay footprint is
-at most `min(2*resolution_radius,6/a_m)` for positive ``a_m``. Air retains its
+at most `min(2*resolution_radius,6/a_m)` for positive ``a_m``. Excited air retains its
 fine wave target inside that footprint; lossy-earth exterior growth is
 described below. The wave cap constrains remote sizes and PML
 tangential counts only when the physical box boundary lies inside the footprint;
 remote sizes otherwise follow the bulk size and growth law. This does not remove the
 fine target near a conductor or the interface.
 
+Air is excited when any cable exterior extends into air, when the earth has
+zero transverse decay rate, or when a buried cable's exterior lies within
+`6/Re(q_earth)` of the interface. Otherwise, air sizes follow the bulk and remote
+growth law without air wave sources or a wave cap on the physical box. Air also
+leaves the top and side PML wave-resolution bounds: the top retains its interval
+minimum, and the side uses earth alone. Root selection and stretch calibration
+remain unchanged. The read-only ONELAB value and native observations report
+whether air is excited.
+
 When the earth interface layer is active, the earth wave-distance field
-uses cable contours without the projected footprint sources. Air distance
+uses cable contours without the projected footprint sources. Excited-air distance
 sources and all conductor targets are unchanged.
 For lossy earth with a wave target below the remote target, the exterior
 size grows geometrically with the native distance ``d``:

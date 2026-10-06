@@ -102,6 +102,15 @@ For medium In {0:1}
   FEMBaseMagnitude~{medium} = Sqrt[FEMBaseA~{medium}^2+FEMBaseB~{medium}^2];
   FEMRootMagnitude~{medium} = Sqrt[FEMRootA~{medium}^2+FEMRootB~{medium}^2];
 EndFor
+// Resolve air waves only when cable fields can reach the interface.
+FEMAirExcited = FEMRootA~{1} == 0;
+For cable In {0:NumCables-1}
+  If(CableY(cable)+CableRadius(cable) > 0)
+    FEMAirExcited = 1;
+  ElseIf(FEMRootA~{1} > 0)
+    If(-CableY(cable)-CableRadius(cable) < 6/FEMRootA~{1}) FEMAirExcited = 1; EndIf
+  EndIf
+EndFor
 // Earth base-root length: true decay length or one wavelength, whichever is shorter.
 FEMEarthBaseLength = 2*Pi/FEMBaseMagnitude~{1};
 If(FEMBaseA~{1} > 0)
@@ -206,7 +215,7 @@ For direction In {0:2}
   FEMPmlXAbs = Sqrt[FEMPmlXRe^2+FEMPmlXIm^2];
   FEMPmlMaxPhase = 0;
   For medium In {0:1}
-    If(direction == 0 || (direction == 1 && medium == 0) || (direction == 2 && medium == 1))
+    If((medium != 0 || FEMAirExcited) && (direction == 0 || (direction == 1 && medium == 0) || (direction == 2 && medium == 1)))
       FEMPmlLayerExponent = FEMRootA~{medium}*FEMPmlXRe-FEMRootB~{medium}*FEMPmlXIm;
       FEMPmlPhase = FEMRootMagnitude~{medium}*FEMPmlXAbs;
       If(FEMPmlLayerExponent > 0)
@@ -245,13 +254,14 @@ For cable In {0:NumCables-1}
   FEMWaveBoxRadius = Min[FEMWaveBoxRadius,Sqrt[DomainHalfwidth^2+FEMWaveBoxHorizontal^2]];
 EndFor
 MeshRemoteAir = ExteriorMeshSizeFactor == 1 ? MeshBulk : MeshRemote;
-If(FEMWaveBoxRadius <= MeshDecayAir)
+If(FEMAirExcited && FEMWaveBoxRadius <= MeshDecayAir)
   MeshRemoteAir = Min[MeshRemoteAir,MeshWaveAir];
 EndIf
 MeshRemoteEarth = MeshRemote;
 If(FEMWaveBoxRadius <= MeshDecayEarth)
   MeshRemoteEarth = Min[MeshRemoteEarth,MeshWaveEarth];
 EndIf
+If(!FEMAirExcited) MeshWaveAir = MeshRemoteAir; EndIf
 MeshRemoteMax = Max[MeshBulk,Max[MeshRemoteAir,MeshRemoteEarth]];
 MeshFine = 1e300;
 For region In {0:NumPhysicalRegions-1}
@@ -338,10 +348,10 @@ SetNumber["Boundary/Derived/18PPW clamp minimum",PmlPPWClampMin];
 FEMBoundaryValue = DefineNumber[PmlPPWClampMax, Name "Boundary/Derived/19PPW clamp maximum", ReadOnly 1];
 SetNumber["Boundary/Derived/19PPW clamp maximum",PmlPPWClampMax];
 For medium In {0:1}
-  FEMBoundaryValue = DefineNumber[FEMRootA~{medium}, Name Sprintf["Boundary/Derived/Medium %g/01Root real [1/m]",medium], ReadOnly 1];
-  SetNumber[Sprintf["Boundary/Derived/Medium %g/01Root real [1/m]",medium],FEMRootA~{medium}];
-  FEMBoundaryValue = DefineNumber[FEMRootB~{medium}, Name Sprintf["Boundary/Derived/Medium %g/02Root imag [1/m]",medium], ReadOnly 1];
-  SetNumber[Sprintf["Boundary/Derived/Medium %g/02Root imag [1/m]",medium],FEMRootB~{medium}];
+  FEMBoundaryValue = DefineNumber[FEMRootA~{medium}, Name Sprintf["Boundary/Derived/Medium %g/01Root real",medium], Label "Root real [1/m]", ReadOnly 1];
+  SetNumber[Sprintf["Boundary/Derived/Medium %g/01Root real",medium],FEMRootA~{medium}];
+  FEMBoundaryValue = DefineNumber[FEMRootB~{medium}, Name Sprintf["Boundary/Derived/Medium %g/02Root imag",medium], Label "Root imag [1/m]", ReadOnly 1];
+  SetNumber[Sprintf["Boundary/Derived/Medium %g/02Root imag",medium],FEMRootB~{medium}];
   FEMBoundaryValue = DefineNumber[FEMCutoff~{medium}, Name Sprintf["Boundary/Derived/Medium %g/03Exact-cutoff flag",medium], ReadOnly 1];
   SetNumber[Sprintf["Boundary/Derived/Medium %g/03Exact-cutoff flag",medium],FEMCutoff~{medium}];
   FEMBoundaryValue = DefineNumber[FEMPmlFloorActive~{medium}, Name Sprintf["Boundary/Derived/Medium %g/04Sizing-floor flag",medium], ReadOnly 1];
@@ -389,3 +399,6 @@ SetNumber["Boundary/Derived/25Top quasi-static extent cap active",FEMCapActive(1
 
 FEMBoundaryValue = DefineNumber[FEMCapActive(2), Name "Boundary/Derived/26Bottom quasi-static extent cap active", ReadOnly 1];
 SetNumber["Boundary/Derived/26Bottom quasi-static extent cap active",FEMCapActive(2)];
+
+FEMBoundaryValue = DefineNumber[FEMAirExcited, Name "Mesh/Derived/03Air excited", ReadOnly 1];
+SetNumber["Mesh/Derived/03Air excited",FEMAirExcited];

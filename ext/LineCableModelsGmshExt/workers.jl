@@ -54,9 +54,9 @@ function _pml_observation(path, frequency_index, frequency)
     rows = readlines(path)
     length(rows) == 1 || return nothing
     values = tryparse.(Float64, split(only(rows), '\t'))
-    length(values) == 24 && all(v -> v !== nothing && isfinite(v), values) || return nothing
+    length(values) == 25 && all(v -> v !== nothing && isfinite(v), values) || return nothing
     values[1] == frequency_index && isapprox(values[2], frequency; rtol=16eps(Float64), atol=0) || return nothing
-    values[3] > 0 && all(v -> v in (0,1), values[[4,5,6,7,12,19,21,22,23,24]]) || return nothing
+    values[3] > 0 && all(v -> v in (0,1), values[[4,5,6,7,12,19,21,22,23,24,25]]) || return nothing
     all(v -> 1 <= v <= typemax(Int) && isinteger(v), values[13:15]) || return nothing
     all(v -> 0 <= v <= 1, values[16:18]) && values[20] >= 0 || return nothing
     return (frequency_index=frequency_index, frequency_hz=values[2],
@@ -69,7 +69,8 @@ function _pml_observation(path, frequency_index, frequency)
         earth_layer_clipped_or_omitted=Bool(values[21]),
         pml_eta=(values[16],values[17],values[18]),
         effective_pml_layers=(Int(values[13]),Int(values[14]),Int(values[15])),
-        quasi_static_cap_flags=(Bool(values[22]),Bool(values[23]),Bool(values[24])))
+        quasi_static_cap_flags=(Bool(values[22]),Bool(values[23]),Bool(values[24])),
+        air_excited=Bool(values[25]))
 end
 
 function _valid_column_marker(path, frequency_index, frequency, basis, terminals, maps)

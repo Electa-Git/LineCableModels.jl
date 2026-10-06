@@ -33,11 +33,11 @@ function _write_export_data(path, model, formulation, controls)
         for (name,label) in (("Frequencies","01Frequency [Hz]"),("GammaReValues","02Gamma real [1/m]"),
                 ("GammaImValues","03Gamma imag [1/m]"),("EarthSigma","04Soil sigma [S/m]"),
                 ("EarthEpsilon","05Soil epsilon [F/m]"),("EarthMu","06Soil mu [H/m]"))
-            println(io,"  ",name,"(FEMCase) = DefineNumber[",name,"(FEMCase), Name Sprintf[\"Inputs/Cases/%04g/",label,"\",FEMCase+1]];")
+            println(io,"  ",name,"(FEMCase) = DefineNumber[",name,"(FEMCase), Name Sprintf[\"Inputs/Cases/%04g/",replace(label,r" \[[^]]*/[^]]*\]"=>""),"\",FEMCase+1], Label \"",label[3:end],"\"];")
         end
         println(io,"EndFor")
         for (name,label) in (("AirSigma","01Sigma [S/m]"),("AirEpsilon","02Epsilon [F/m]"),("AirMu","03Mu [H/m]"))
-            println(io,name," = DefineNumber[",name,", Name \"Inputs/Air/",label,"\"];")
+            println(io,name," = DefineNumber[",name,", Name \"Inputs/Air/",replace(label,r" \[[^]]*/[^]]*\]"=>""),"\", Label \"",label[3:end],"\"];")
         end
         println(io,"FieldMapsHelmholtz() = Str[",
             join(_pro_string.(_field_quantities(formulation.options.data.physics)),", "),"];")
@@ -56,10 +56,10 @@ function _write_export_data(path, model, formulation, controls)
             println(io, name, "_Mu = ", _pro_number(m.mu_r*4π*1e-7), "; // H/m")
             println(io, name, "_Sigma() = ", _pro_array(real.(m.admittivity)), "; // S/m, by frequency")
             println(io, name, "_Epsilon() = ", _pro_array(imag.(m.admittivity)./(2π.*model.problem.frequencies)), "; // F/m")
-            println(io,name,"_Mu = DefineNumber[",name,"_Mu, Name \"Materials/",name,"/01Mu [H/m]\"];")
+            println(io,name,"_Mu = DefineNumber[",name,"_Mu, Name \"Materials/",name,"/01Mu\", Label \"Mu [H/m]\"];")
             println(io,"For FEMCase In {0:FrequencyCount-1}")
             for (coefficient,label) in (("Sigma","02Sigma [S/m]"),("Epsilon","03Epsilon [F/m]"))
-                println(io,"  ",name,"_",coefficient,"(FEMCase) = DefineNumber[",name,"_",coefficient,"(FEMCase), Name Sprintf[\"Materials/",name,"/Cases/%04g/",label,"\",FEMCase+1]];")
+                println(io,"  ",name,"_",coefficient,"(FEMCase) = DefineNumber[",name,"_",coefficient,"(FEMCase), Name Sprintf[\"Materials/",name,"/Cases/%04g/",replace(label,r" \[[^]]*/[^]]*\]"=>""),"\",FEMCase+1], Label \"",label[3:end],"\"];")
             end
             println(io,"EndFor")
             println(io, "MaterialSigma_", i, "() = ", name, "_Sigma();")

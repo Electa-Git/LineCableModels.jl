@@ -325,3 +325,28 @@ end
         rm(fem_test_runtime_directory;recursive=true)
     end
 end
+
+@testitem "FEM / buried air excitation controls wave sizes and PML counts" tags=[:extension] setup=[NativeFEMFixtures] begin
+    N=NativeFEMFixtures
+    expressions=["excited"=>"FEMAirExcited", "wave"=>"MeshWaveAir",
+        "remote"=>"MeshRemoteAir", "bulk"=>"MeshBulk",
+        "side"=>"FEMPmlSideLayers", "top"=>"FEMPmlTopLayers",
+        "side_min"=>"PmlSideLayers", "top_min"=>"PmlTopLayers"]
+    for (rho,expected) in ((.1,0.),(1000.,1.))
+        problem=N.problem(;frequency=1e8,rho,eps_r=1.,radius=.0425,
+            positions=[(0.,-1.),(2.,-1.)])
+        N.parameters(problem;expressions) do gmsh,getdp
+            @test isequal(gmsh,getdp)
+            @test gmsh["excited"]==expected
+            if expected==0
+                @test gmsh["wave"]==gmsh["remote"]==gmsh["bulk"]
+                @test gmsh["side"]==gmsh["side_min"]
+                @test gmsh["top"]==gmsh["top_min"]
+            else
+                @test gmsh["wave"]<gmsh["bulk"]
+                @test gmsh["side"]>gmsh["side_min"]
+                @test gmsh["top"]>gmsh["top_min"]
+            end
+        end
+    end
+end

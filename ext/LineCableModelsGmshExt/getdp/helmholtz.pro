@@ -378,8 +378,8 @@ Macro FEMScan
       CreateDir[RawJobDirectory];
       If(PlotFieldMaps) CreateDir[MapDirectory]; EndIf
       // Native observations accompany every frequency's retained columns.
-      Print[{FrequencyIndex,FrequencyHz,FEMPmlTarget,FEMPmlFloorActive~{0},FEMPmlFloorActive~{1},FEMCutoff~{0},FEMCutoff~{1},FEMPmlSideNetAttenuation~{0},FEMPmlSideNetAttenuation~{1},FEMPmlTopNetAttenuation,FEMPmlBottomNetAttenuation,FEMPmlFloorUsed,FEMPmlSideLayers,FEMPmlTopLayers,FEMPmlBottomLayers,PmlSideEta,PmlTopEta,PmlBottomEta,FEMEarthSizingCeilingActive,FEMEarthLayerThickness,FEMEarthLayerClippedOrOmitted,FEMCapActive(0),FEMCapActive(1),FEMCapActive(2)},
-        Format "%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g",
+      Print[{FrequencyIndex,FrequencyHz,FEMPmlTarget,FEMPmlFloorActive~{0},FEMPmlFloorActive~{1},FEMCutoff~{0},FEMCutoff~{1},FEMPmlSideNetAttenuation~{0},FEMPmlSideNetAttenuation~{1},FEMPmlTopNetAttenuation,FEMPmlBottomNetAttenuation,FEMPmlFloorUsed,FEMPmlSideLayers,FEMPmlTopLayers,FEMPmlBottomLayers,PmlSideEta,PmlTopEta,PmlBottomEta,FEMEarthSizingCeilingActive,FEMEarthLayerThickness,FEMEarthLayerClippedOrOmitted,FEMCapActive(0),FEMCapActive(1),FEMCapActive(2),FEMAirExcited},
+        Format "%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g",
         File StrCat[RawJobDirectory,Sprintf["/pml-f%04g.tsv",FrequencyIndex]]];
       If(FEMEarthSizingCeilingActive)
         Print[{FrequencyHz},Format "FEM warning: earth too resistive for FEM domain sizing; results not qualified (f=%.17g Hz)"];
