@@ -149,3 +149,101 @@ end
         end
     end
 end
+
+@testitem "FEM / mesh fields avoid MathEval reentry and mesh with a deadline" tags=[:extension] setup=[NativeFEMFixtures] begin
+    using Gmsh
+    N=NativeFEMFixtures
+    # Inspect dependencies without evaluating fields: MathEval's lock is non-reentrant.
+    for (f,rho,positions) in ((17_782_794.100389227,1000.,[(0.,1.),(1.,-1.)]),
+            (1e6,.1,[(0.,1.),(1.,-1.)]),(50.,1000.,[(0.,-1.),(1.,-1.)]))
+        p=N.problem(;frequency=f,rho,eps_r=1.,radius=.0425,positions)
+        N.geometry(p;options=(mesh_size_factor=1.,)) do g,log
+            fields=g.model.mesh.field
+            types=Dict(Int(tag)=>fields.get_type(tag) for tag in fields.list())
+            dependencies=Dict{Int,Vector{Int}}()
+            for (tag,kind) in types
+                dependencies[tag]=if kind=="MathEval"
+                    [parse(Int,m.captures[1]) for m in eachmatch(r"\bF(\d+)\b",fields.get_string(tag,"F"))]
+                elseif kind in ("Min","Max")
+                    Int.(fields.get_numbers(tag,"FieldsList"))
+                elseif kind in ("Threshold","Restrict")
+                    [Int(fields.get_number(tag,"InField"))]
+                else
+                    Int[]
+                end
+            end
+            for (tag,kind) in types
+                kind=="MathEval" || continue
+                pending=copy(dependencies[tag]);visited=Set{Int}()
+                while !isempty(pending)
+                    dependency=pop!(pending)
+                    dependency in visited && continue
+                    push!(visited,dependency)
+                    @test types[dependency]!="MathEval"
+                    append!(pending,dependencies[dependency])
+                end
+            end
+            if f==17_782_794.100389227
+                @test only(g.parser.get_number("FEMEarthLayerActive"))==0
+                @test only(g.parser.get_number("MeshWaveEarth"))<only(g.parser.get_number("MeshRemoteEarth"))
+            end
+        end
+    end
+    p=N.problem(;frequency=17_782_794.100389227,rho=1000.,eps_r=1.,
+        radius=.0425,positions=[(0.,1.),(1.,-1.)])
+    N.bundle(p;options=(mesh_size_factor=1.,)) do directory,entry
+        geo=replace(entry,r"\.pro$"=>".geo");mesh=joinpath(directory,"deadline.msh")
+        open(joinpath(directory,"mesh.log"),"w") do io
+            command=`$(Gmsh.gmsh_jll.gmsh()) $geo -2 -o $mesh -nt 1 -v 2`
+            process=run(pipeline(command;stdout=io,stderr=io);wait=false)
+            completed=timedwait(() -> process_exited(process),120.;pollint=.1)===:ok
+            if !completed
+                kill(process,Base.SIGKILL)
+            end
+            wait(process)
+            @test completed
+            @test success(process)
+            @test isfile(mesh) && filesize(mesh)>0
+        end
+    end
+end
+
+@testitem "FEM / parallel mesh launches preserve sequential mesh snapshots" tags=[:extension] setup=[NativeFEMFixtures] begin
+    using SHA, JSON3
+    N=NativeFEMFixtures;E=N.FEM
+    seed=N.problem(;frequency=.1,rho=.1,eps_r=1.,positions=[(0.,1.),(1.,-1.)])
+    form=Formulation(:LineCableModelsFEM;options=(reduce_bundle=false,
+        kron_reduction=false,ideal_transposition=false))
+    mktempdir() do root
+        for (label,frequencies,policy) in (("distinct",[.1,.2],:remesh),("shared",[.1,.1],:reuse),
+                ("shared-remesh",[.1,.1],:remesh))
+            problem=LineParametersProblem(seed.system;frequencies,
+                temperature=seed.temperature,earth_props=seed.earth_props)
+            records=[]
+            for workers in (1,2)
+                directory=joinpath(root,label,string(workers));run=E._create_run(directory)
+                execution=E.computation_options(E.LineCableModelsFEM,ComputationOptions(;
+                    frequency_workers=workers,mesh_policy=policy,gmsh_verbosity=0))
+                model=E._resolved_fem_model(problem,form);session=E._start_gmsh(0)
+                try
+                    E._prepare_run_inputs!(run,model,execution)
+                    physical=E._build_physical_geometry!(model,"parallel-mesh-test")
+                    E._write_physical_geometry(joinpath(run.path,"input","physical.geo"),model,physical)
+                    E._write_native_mesh_entry(joinpath(run.path,"input","model.geo"),"model_data.pro","physical.geo","getdp")
+                    paths=E._select_meshes!(run,model,execution,directory)
+                    push!(records,(meshes=[bytes2hex(open(sha256,path)) for path in paths],
+                        sidecars=[read(replace(path,".msh"=>".json"),String) for path in paths]))
+                    @test isempty(filter(name->!startswith(name,"frequency_"),readdir(joinpath(run.path,"mesh"))))
+                    if startswith(label,"shared")
+                        @test records[end].meshes[1]==records[end].meshes[2]
+                        @test JSON3.read(records[end].sidecars[2]).source==(policy===:reuse ? "cache" : "generated")
+                    end
+                finally
+                    E._finish_gmsh(session)
+                end
+            end
+            @test records[1].meshes==records[2].meshes
+            @test records[1].sidecars==records[2].sidecars
+        end
+    end
+end

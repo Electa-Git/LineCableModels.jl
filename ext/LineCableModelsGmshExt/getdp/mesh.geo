@@ -60,7 +60,19 @@ For medium In {0:1}
     // Grow the lossy-earth exterior wave target geometrically with distance.
     If(medium == 1 && FEMRootA~{1} > 0)
     FEMWaveField = FEMNextField; FEMNextField += 1; Field[FEMWaveField] = MathEval;
-    Field[FEMWaveField].F = Sprintf("Min(%.17g,%.17g*Exp(F%g*%.17g/2))",FEMRemote,FEMWave,FEMDistance,FEMRootA~{1});
+    // MathEval is not reentrant: inline footprints instead of evaluating their fields.
+    If(FEMEarthLayerActive)
+      // This minimum contains only the cable Distance field.
+      Field[FEMWaveField].F = Sprintf("Min(%.17g,%.17g*Exp(F%g*%.17g/2))",FEMRemote,FEMWave,FEMDistance,FEMRootA~{1});
+    Else
+      FEMWaveDistanceExpression = Sprintf("F%g",FEMSources(0));
+      For cable In {0:NumCables-1}
+        FEMWaveDistanceExpression = StrCat["Min(",FEMWaveDistanceExpression,
+          Sprintf(",Sqrt(y^2+Max(Abs(x-(%.17g))-(%.17g),0)^2))",CableX(cable),FEMCableWaveFootprint~{cable})];
+      EndFor
+      Field[FEMWaveField].F = StrCat[Sprintf("Min(%.17g,%.17g*Exp((",FEMRemote,FEMWave),
+        FEMWaveDistanceExpression,Sprintf(")*%.17g/2))",FEMRootA~{1})];
+    EndIf
     Else
     FEMWaveField = FEMNextField; FEMNextField += 1; Field[FEMWaveField] = Threshold;
     Field[FEMWaveField].InField = FEMDistance; Field[FEMWaveField].SizeMin = FEMWave;

@@ -114,7 +114,9 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `getdp_executable=nothing`: Executable override. Otherwise resolve the
     environment override, package artifact, or unsupported-platform `PATH` fallback.
   - `gmsh_verbosity=2`, `getdp_verbosity=2`: Native message levels from 0 through 5.
-  - `frequency_workers=2`: Maximum concurrent frequency solver processes.
+  - `frequency_workers=clamp(Sys.CPU_THREADS ÷ 4, 1, 8)`: Maximum concurrent
+    frequency solver processes. Very large meshes may require fewer workers
+    to bound memory use.
   - `solver_threads=1`: BLAS and OpenMP threads per solver process.
   - `linear_solver=:mumps`: Native direct MUMPS or `:gmres`. GMRES starts
     from zero with fixed LU/MUMPS preconditioning and no MUMPS refinement.
@@ -123,7 +125,7 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
     and absolute residual targets for the PETSc-scaled system in GMRES mode.
     The relative target is positive. Zero disables the absolute threshold.
     Native convergence and the explicitly recomputed residual are reported.
-  - `mumps_ordering=nothing`: Optional native MUMPS `ICNTL(7)` ordering code:
+  - `mumps_ordering=0`: Native MUMPS `ICNTL(7)` ordering code, defaulting to AMD:
     0 (AMD), 2 (AMF), 3 (Scotch), 4 (PORD), 5 (METIS), 6 (QAMD), or 7
     (automatic). Availability depends on the GetDP/MUMPS build. `nothing`
     leaves the solver default unchanged. No alternative ordering is retried.
@@ -175,10 +177,10 @@ function computation_options(::Type{LineCableModelsFEM}, record::ComputationOpti
         conductor_mesh_growth=sqrt(1.25), conductor_skin_depths=5.0,
         conductor_thickness_elements=4,
         keep_run_directory=false, getdp_executable=nothing,
-        gmsh_verbosity=2, getdp_verbosity=2, frequency_workers=2, solver_threads=1,
+        gmsh_verbosity=2, getdp_verbosity=2, frequency_workers=clamp(Sys.CPU_THREADS ÷ 4, 1, 8), solver_threads=1,
         linear_solver=:mumps, gmres_iterations_max=20,
         gmres_relative_tolerance=1e-12, gmres_absolute_tolerance=0.0,
-        mumps_ordering=nothing, petsc_prealloc=nothing,
+        mumps_ordering=0, petsc_prealloc=nothing,
         mumps_error_analysis=2, mumps_refinement_max=2,
         mumps_backward_error_tolerance=1e-12, mumps_forward_error_tolerance=0.01,
         log_file=nothing, resume_run_directory=nothing)

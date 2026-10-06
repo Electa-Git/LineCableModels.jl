@@ -432,7 +432,15 @@ function _copy_mesh_snapshot!(
         metadata
 )
     mkpath(dirname(run_mesh))
-    _copy_or_link_mesh(source, run_mesh)
+    if !isfile(run_mesh) || !Base.Filesystem.samefile(source,run_mesh)
+        temporary = tempname(dirname(run_mesh))
+        try
+            _copy_or_link_mesh(source, temporary)
+            mv(temporary,run_mesh;force=true)
+        finally
+            rm(temporary;force=true)
+        end
+    end
     _write_json_atomic(metadata_path, metadata)
     return run_mesh
 end
@@ -451,20 +459,20 @@ function _cache_mesh!(
     return cache_mesh
 end
 
-function _select_mesh!(run::FEMRun,model::FEMResolvedModel,
+function _resolve_mesh(run::FEMRun,model::FEMResolvedModel,
         execution::ComputationOptions,runtime_root::String,frequency_index::Int)
     gmsh_version = _gmsh_version()
     cad = joinpath(run.path,"input","physical.geo")
     fingerprint = _mesh_fingerprint(model,gmsh_version,execution,frequency_index;
         physical_geometry=bytes2hex(open(sha256,cad)))
     reference_mesh = frequency_index == length(model.problem.frequencies)
-    reference_mesh && (run.mesh_fingerprint=fingerprint)
     cache_directory = joinpath(runtime_root,"meshes",fingerprint)
     cache_mesh = joinpath(cache_directory,"model.msh")
     cache_metadata = joinpath(cache_directory,"mesh.json")
     stem = @sprintf("frequency_%04d",frequency_index)
     run_mesh = joinpath(run.path,"mesh",stem*".msh")
     run_metadata = joinpath(run.path,"mesh",stem*".json")
+    mkpath(dirname(run_mesh))
     selected=nothing; source=:generated; native_values=Dict{String,Any}()
     if execution.data.mesh_policy === :reuse
         for (candidate,record,origin) in ((run_mesh,run_metadata,:resume),(cache_mesh,cache_metadata,:cache))
@@ -484,36 +492,136 @@ function _select_mesh!(run::FEMRun,model::FEMResolvedModel,
             native_values["measurement_line_max_size_ratios"]=_validate_mesh_file(model,selected)
         end
     end
-    if selected === nothing
-        entry=joinpath(run.path,"input","model.geo")
-        native_record=joinpath(run.path,"mesh",stem*"-native.txt")
-        log_path=joinpath(run.path,"logs",stem*"-gmsh.log")
-        mkpath(dirname(run_mesh))
-        command=`$(Gmsh.gmsh_jll.gmsh()) $entry -setnumber FrequencyIndex $frequency_index -setstring MeshMetadataPath $native_record -2 -o $run_mesh -v $(max(1,execution.data.gmsh_verbosity))`
-        process=open(log_path,"w") do log
-            Base.run(pipeline(ignorestatus(command);stdout=log,stderr=log))
+    return (; frequency_index, gmsh_version, fingerprint, reference_mesh, cache_mesh,
+        cache_metadata, run_mesh, run_metadata, stem, selected, source, native_values)
+end
+
+function _launch_mesh(run, plan, execution, temporary_mesh, temporary_native)
+    entry=joinpath(run.path,"input","model.geo")
+    log_path=joinpath(run.path,"logs",plan.stem*"-gmsh.log")
+    command=`$(Gmsh.gmsh_jll.gmsh()) $entry -setnumber FrequencyIndex $(plan.frequency_index) -setstring MeshMetadataPath $temporary_native -2 -o $temporary_mesh -v $(max(1,execution.data.gmsh_verbosity))`
+    return open(log_path,"w") do log
+        Base.run(pipeline(ignorestatus(command);stdout=log,stderr=log);wait=false)
+    end
+end
+
+function _mesh_launch_error(run, model, plan)
+    log_path=joinpath(run.path,"logs",plan.stem*"-gmsh.log")
+    _fem_error(:mesh,model.problem.system.system_id,:native_geometry,
+        "native Gmsh failed; see $log_path";run_directory=run.path)
+end
+
+function _publish_mesh!(run, model, execution, plan; temporary_mesh=nothing,
+        temporary_native=nothing, owner=nothing)
+    (;frequency_index,gmsh_version,fingerprint,reference_mesh,cache_mesh,cache_metadata,
+        run_mesh,run_metadata,selected,source,native_values)=plan
+    if owner !== nothing
+        selected=owner.run_mesh
+        source=execution.data.mesh_policy === :remesh ? :generated : :cache
+        record=JSON3.read(read(owner.run_metadata,String))
+        if execution.data.mesh_policy === :remesh
+            native_values=_read_native_mesh_values(joinpath(run.path,"mesh",owner.stem*"-native.txt"))
+            native_values["measurement_line_max_size_ratios"]=record.measurement_line_max_size_ratios
+        else
+            native_values=record
         end
-        success(process) || _fem_error(:mesh,model.problem.system.system_id,:native_geometry,
-            "native Gmsh failed; see $log_path";run_directory=run.path)
-        ratios=_validate_mesh_file(model,run_mesh)
-        native_values=_read_native_mesh_values(native_record)
+    end
+    if selected === nothing
+        ratios=_validate_mesh_file(model,temporary_mesh)
+        native_values=_read_native_mesh_values(temporary_native)
         native_values["measurement_line_max_size_ratios"]=ratios
         metadata=_mesh_metadata(model,fingerprint,gmsh_version,:generated,execution,frequency_index,native_values)
         _write_json_atomic(run_metadata,metadata)
-        _cache_mesh!(run_mesh,cache_mesh,cache_metadata,metadata)
+        _cache_mesh!(temporary_mesh,cache_mesh,cache_metadata,metadata)
+        mv(temporary_mesh,run_mesh;force=true)
+        mv(temporary_native,joinpath(run.path,"mesh",plan.stem*"-native.txt");force=true)
     elseif selected != run_mesh
         metadata=_mesh_metadata(model,fingerprint,gmsh_version,source,execution,frequency_index,native_values)
         _copy_mesh_snapshot!(selected,run_mesh,run_metadata,metadata)
+        if owner !== nothing && execution.data.mesh_policy === :remesh
+            _write_json_atomic(cache_metadata,metadata)
+            cp(joinpath(run.path,"mesh",owner.stem*"-native.txt"),temporary_native)
+            mv(temporary_native,joinpath(run.path,"mesh",plan.stem*"-native.txt");force=true)
+        end
     end
     if selected == run_mesh
         metadata=_mesh_metadata(model,fingerprint,gmsh_version,source,execution,frequency_index,native_values)
         _write_json_atomic(run_metadata,metadata)
     end
-    reference_mesh && (run.mesh_source=source)
+    if reference_mesh
+        run.mesh_fingerprint=fingerprint
+        run.mesh_source=source
+    end
     return run_mesh
+end
+
+function _stop_mesh_processes!(processes)
+    for process in processes
+        process === nothing || !process_running(process) || kill(process)
+    end
+    for process in processes
+        process === nothing && continue
+        if timedwait(() -> process_exited(process),2.;pollint=.02) === :timed_out
+            kill(process,9)
+        end
+        wait(process)
+    end
 end
 
 function _select_meshes!(run::FEMRun,model::FEMResolvedModel,
         execution::ComputationOptions,runtime_root::String)
-    return [_select_mesh!(run,model,execution,runtime_root,index) for index in eachindex(model.problem.frequencies)]
+    # Resolve shared-session Gmsh operations before any external process starts.
+    plans=[_resolve_mesh(run,model,execution,runtime_root,index)
+        for index in eachindex(model.problem.frequencies)]
+    owners=Dict{String,Int}(); owner_indices=zeros(Int,length(plans)); pending=Int[]
+    for (index,plan) in pairs(plans)
+        plan.selected === nothing || continue
+        owner_indices[index]=get!(owners,plan.fingerprint,index)
+        owner_indices[index]==index && push!(pending,index)
+    end
+    temporary_meshes=[tempname(dirname(plan.run_mesh)) * ".msh" for plan in plans]
+    temporary_native=[tempname(dirname(plan.run_mesh)) * ".txt" for plan in plans]
+    processes=Vector{Union{Nothing,Base.Process}}(nothing,length(plans))
+    launch_error=Ref{Any}(nothing); aborted=Ref(false)
+    try
+        asyncmap(pending;ntasks=min(execution.data.frequency_workers,length(pending))) do index
+            aborted[] && return
+            try
+                process=_launch_mesh(run,plans[index],execution,
+                    temporary_meshes[index],temporary_native[index])
+                processes[index]=process
+                aborted[] && process_running(process) && kill(process)
+                wait(process)
+                if !success(process) && !aborted[]
+                    _mesh_launch_error(run,model,plans[index])
+                end
+            catch exception
+                if !aborted[]
+                    launch_error[]=(index,exception)
+                    aborted[]=true
+                    _stop_mesh_processes!(processes)
+                end
+            end
+        end
+        if launch_error[] !== nothing
+            index,exception=launch_error[]
+            # Normal nonzero exits are failures; killed siblings are not.
+            first_failed=findfirst(process -> process !== nothing &&
+                !success(process) && process.termsignal==0,processes)
+            if first_failed !== nothing && first_failed<index
+                _mesh_launch_error(run,model,plans[first_failed])
+            end
+            throw(exception)
+        end
+        # Publication and validation use the caller's Gmsh session sequentially.
+        return [ _publish_mesh!(run,model,execution,plan;
+            temporary_mesh=temporary_meshes[index],temporary_native=temporary_native[index],
+            owner=owner_indices[index] in (0,index) ? nothing : plans[owner_indices[index]])
+            for (index,plan) in pairs(plans)]
+    finally
+        aborted[]=true
+        _stop_mesh_processes!(processes)
+        foreach(path -> rm(path;force=true),temporary_meshes)
+        foreach(path -> rm(path;force=true),temporary_native)
+    end
 end

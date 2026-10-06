@@ -13,6 +13,8 @@
     solver = (mumps_ordering=0,petsc_prealloc=256)
     configured = computation_options(LineCableModelsFEM,ComputationOptions(;solver_threads=2,solver...))
     defaults = computation_options(LineCableModelsFEM,ComputationOptions())
+    @test defaults.data.mumps_ordering == 0
+    @test defaults.data.frequency_workers == clamp(Sys.CPU_THREADS ÷ 4, 1, 8)
     @test defaults.data.pml_reflection == 1e-3
     @test defaults.data.physical_volume_quadrature == 3
     @test defaults.data.pml_layers == (16,16,16)
@@ -28,14 +30,17 @@
             @test "LinearSolver" in args
             @test ("MumpsOrdering" in args) 
             @test ("PetscPrealloc" in args) 
+            @test args[findfirst(==("MumpsOrdering"),args)+1] == "0"
             if options===configured
-                @test args[findfirst(==("MumpsOrdering"),args)+1] == "0"
                 @test args[findfirst(==("PetscPrealloc"),args)+1] == "256"
                 @test "OPENBLAS_NUM_THREADS=2" in command.env
             end
         end
         entry = export_data(:onelab,problem,form;file_name=joinpath(root,"bundle","study.pro"),
             mesh_options=(pml_layers=8,),solver_options=solver)
+        default_entry = export_data(:onelab,problem,form;
+            file_name=joinpath(root,"default-bundle","study.pro"))
+        @test occursin("MumpsOrdering = {0,",read(joinpath(dirname(default_entry),"study_data.pro"),String))
         data = read(joinpath(dirname(entry),"study_data.pro"),String)
         @test occursin("PhysicalVolumeQuadrature = {3,",data)
         @test occursin("GetDPThreads = {1,",data)

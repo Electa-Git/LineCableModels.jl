@@ -33,7 +33,8 @@
     @test options.data.mesh_policy === :remesh
     @test options.data.keep_run_directory
     @test options.data.getdp_verbosity == 5
-    @test options.data.frequency_workers == 2
+    @test options.data.frequency_workers == clamp(Sys.CPU_THREADS ÷ 4, 1, 8)
+    @test options.data.mumps_ordering == 0
     @test options.data.solver_threads == 1
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;frequency_workers = 0)))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;solver_threads = -1)))

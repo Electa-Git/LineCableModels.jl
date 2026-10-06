@@ -32,7 +32,7 @@ realpath(pkgdir(LineCableModels)) == realpath(script_checkout) || error(
 println("LineCableModels source: ", pkgdir(LineCableModels))
 
 # All dimensions below are SI units. Frequencies span 0.1 Hz to 1 MHz.
-frequency_grid = collect(10.0 .^ range(-1.0, 6.0, length = 10))
+frequency_grid = collect(10.0 .^ range(-1.0, 8.0, length = 181))
 soil_relative_permittivity = 1.0
 soil_relative_permeability = 1.0
 line_length = 1.0
@@ -58,7 +58,7 @@ fixed_soil_resistivity = 0.1
 external_radius_grid = Grid([0.1e-2, 1.0e-2, 8.5e-2])
 # external_radius_grid = Grid([8.5e-2])
 
-installation_z = 1.0
+installation_z = -1.0
 
 function build_two_bare_wires_problem(
         external_radius, earth_rho, frequencies; vert = installation_z
@@ -79,7 +79,7 @@ function build_two_bare_wires_problem(
     system = build(
         LineCableSystem,
         [design, design],
-        [Pose2(0.0, vert), Pose2(1.0, -vert)];
+        [Pose2(0.0, vert), Pose2(1.0, vert)];
         connections = [Dict(:core => 1), Dict(:core => 2)],
         system_id = "two_bare_wires",
         line_length = line_length
@@ -127,7 +127,7 @@ fem_options = (
     verbosity = (default = 1,),
     gmsh_verbosity = 0,
     getdp_verbosity = 0,
-    frequency_workers = 4,
+    frequency_workers = 12,
     solver_threads = 1
 )
 

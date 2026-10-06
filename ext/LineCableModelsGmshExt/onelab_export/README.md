@@ -237,7 +237,7 @@ absolute tolerance and 0.1 times local size, with a hard short-segment check.
 ## Solver controls
 
 The **Numerics** controls include MUMPS ordering and sparse row allocation.
-Ordering −1 retains the solver default. 0 requests AMD. Codes 2–7 are native
+Ordering defaults to 0 (AMD). −1 retains the solver default. Codes 2–7 are native
 MUMPS alternatives whose availability depends on the build. Row allocation 0
 retains GetDP's default. Positive values set `-petsc_prealloc`. Larger estimates
 can reduce reallocations while increasing memory use. These controls prescribe

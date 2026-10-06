@@ -391,7 +391,7 @@ them. `mesh_path` selects a compatible existing mesh.
 | Solver/execution option | Default | Meaning |
 |---|---|---|
 | `linear_solver` | `:mumps` | Direct MUMPS or right-LU-preconditioned `:gmres` |
-| `mumps_ordering` | `nothing` | Native default; explicit MUMPS ordering code |
+| `mumps_ordering` | `0` | AMD (`ICNTL(7)=0`); explicit native ordering code |
 | `petsc_prealloc` | `nothing` | Native sparse row allocation |
 | `mumps_error_analysis` | `2` | Backward-error estimates; `1` also condition and forward-error estimates |
 | `mumps_refinement_max` | `2` | Native refinement limit |
@@ -400,13 +400,18 @@ them. `mesh_path` selects a compatible existing mesh.
 | `gmres_iterations_max` | `20` | Total iteration limit |
 | `gmres_relative_tolerance` | `1e-12` | Relative residual target |
 | `gmres_absolute_tolerance` | `0.0` | Absolute residual target; zero disables it |
-| `frequency_workers` | `2` | Concurrent native frequency jobs |
+| `frequency_workers` | `clamp(Sys.CPU_THREADS ÷ 4, 1, 8)` | Concurrent native frequency jobs |
 | `solver_threads` | `1` | Native threads per job |
 | `getdp_executable` | `nothing` | Explicit executable; otherwise environment or artifact selection |
 | `gmsh_verbosity`, `getdp_verbosity` | `2` | Native log detail |
 | `plot_field_maps` | `false` | Save physical and normalized field maps |
 | `keep_run_directory` | `false` | Keep successful run artifacts |
 | `resume_run_directory` | `nothing` | Replay or resume matching saved inputs |
+
+The default worker count uses one quarter of the available CPU threads, bounded
+between one and eight. Very large meshes may need fewer workers to bound memory
+use. MUMPS uses AMD ordering by default; `mumps_ordering=nothing` retains the
+native solver default.
 
 MUMPS diagnostics and GMRES residuals are reported without automatic solver
 switches or refinement studies. Failed and interrupted runs retain their logs.
