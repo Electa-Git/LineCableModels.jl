@@ -65,7 +65,7 @@ end
     @test parameters.Y.values == admittance
 end
 
-@testitem "Makie / callable controls own subscriptions and preserve retained figures" tags=[:visual, :makie] begin
+@testitem "Makie / callable controls own subscriptions and preserve retained figures" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     calls=Ref(0)
     constructions=Ref(0)

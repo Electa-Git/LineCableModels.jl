@@ -72,7 +72,7 @@
     @test isequal(before, (Z(source), Y(source), frequencies(source)))
 end
 
-@testitem "Makie addons / staggered comparisons retain complete uncertainty bounds" tags=[:visual, :makie] begin
+@testitem "Makie addons / staggered comparisons retain complete uncertainty bounds" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Measurements
 
     f = collect(1.0:101.0)
@@ -205,7 +205,7 @@ end
     @test all(entry -> ==(Makie.get_n_visible(entry)...), entries)
 end
 
-@testitem "Makie addons / uncertainty coordinates and visibility survive every axis mode" tags=[:visual, :makie] begin
+@testitem "Makie addons / uncertainty coordinates and visibility survive every axis mode" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Measurements
 
     f = [1.0, 10.0, 100.0]

@@ -11,7 +11,7 @@
     end
 end
 
-@testitem "Makie addons / narrow log values and native constructors share the shell" tags=[:visual, :makie] begin
+@testitem "Makie addons / narrow log values and native constructors share the shell" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Measurements, Logging
     f = collect(range(2.0,8.0;length=9))
     r = reshape(measurement.(reverse(f),0.02),1,1,:)
@@ -144,7 +144,7 @@ end
     @test 1.8 < low < 2 < high < 2.2
 end
 
-@testitem "Makie addons / signed log separates small conductances in displayed units" tags=[:visual, :makie] setup=[ScientificTickLabels] begin
+@testitem "Makie addons / signed log separates small conductances in displayed units" tags=[:visual, :makie, :slow] setup=[ScientificTickLabels] begin
     using CairoMakie
     f = 10.0 .^ range(-1, 6; length=8)
     conductance = -10.0 .^ range(-27, -6; length=8)
@@ -384,7 +384,7 @@ end
     @test isequal(Y(source), admittance)
 end
 
-@testitem "Makie addons / native override precedence and custom transforms" tags=[:visual, :makie] begin
+@testitem "Makie addons / native override precedence and custom transforms" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     source = LineParameters(reshape(ComplexF64[2,4,8],1,1,:),ones(ComplexF64,1,1,3),[2.0,4.0,8.0])
     page = LineCableModels.plot(source; ydata=R,backend=:cairo,display_plot=false,
@@ -631,7 +631,7 @@ end
     @test axis.limits[] == ((1e6, 4e6), (nothing, 0.8))
 end
 
-@testitem "Makie addons / scale changes validate the page and preserve orthogonal views" tags=[:visual, :makie] begin
+@testitem "Makie addons / scale changes validate the page and preserve orthogonal views" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f = [1.0, 10.0, 100.0]

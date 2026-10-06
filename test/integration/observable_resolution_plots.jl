@@ -43,7 +43,7 @@
     @test all(iszero, only(ordinates(standalone)))
 end
 
-@testitem "Makie / clipping removes nominal residue and uncertainty without changing raw curves" tags=[:visual, :makie] begin
+@testitem "Makie / clipping removes nominal residue and uncertainty without changing raw curves" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Measurements, Logging
     f = 10.0 .^ range(-1, 7; length=13)
     omega = reshape(2pi .* f, 1, 1, :)

@@ -68,7 +68,7 @@
     end
 end
 
-@testitem "Makie addons / dielectric pattern clips holes and concavities in rendered output" tags=[:visual, :makie] begin
+@testitem "Makie addons / dielectric pattern clips holes and concavities in rendered output" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     extension = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     material = Material(kind = :insulator, rho = Inf, eps_r = 2.3)
@@ -118,7 +118,7 @@ end
     end
 end
 
-@testitem "Makie addons / earth spans follow the viewport and retain physical depths" tags=[:visual, :makie] begin
+@testitem "Makie addons / earth spans follow the viewport and retain physical depths" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     copper = Material(kind = :conductor, rho = 1.72e-8)
     design = build(CableDesign, "earth-viewport", terminal(:core, core(copper; r = 0.01)))

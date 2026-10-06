@@ -1,4 +1,4 @@
-@testitem "Makie addons / construction-time panel legends preserve source ownership" tags=[:visual, :makie] begin
+@testitem "Makie addons / construction-time panel legends preserve source ownership" tags=[:visual, :makie, :slow] begin
     using CairoMakie
 
     frequency = [1.0, 10.0, 100.0]
@@ -275,7 +275,7 @@ end
     end
 end
 
-@testitem "Makie addons / guide arrangement reflows retained complete items" tags=[:visual, :makie] setup=[TestFixtures] begin
+@testitem "Makie addons / guide arrangement reflows retained complete items" tags=[:visual, :makie, :slow] setup=[TestFixtures] begin
     using CairoMakie
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     design=TestFixtures.coaxial_design()
@@ -405,7 +405,7 @@ end
     @test !isempty(Makie.colorbuffer(p.figure))
 end
 
-@testitem "Makie addons / guide arrangement measures visible scales and independent gaps" tags=[:visual, :makie] setup=[TestFixtures] begin
+@testitem "Makie addons / guide arrangement measures visible scales and independent gaps" tags=[:visual, :makie, :slow] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
     options=(backend = :cairo, display_plot = false, controls = false, size = (1500, 1100),

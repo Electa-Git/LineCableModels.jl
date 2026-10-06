@@ -49,7 +49,7 @@
     @test length(plot.axes) == 1
 end
 
-@testitem "Makie addons / colorbar endpoint labels stay inside the figure" tags=[:visual, :makie] setup=[
+@testitem "Makie addons / colorbar endpoint labels stay inside the figure" tags=[:visual, :makie, :slow] setup=[
     UseNativePlotSupport
 ] begin
     using CairoMakie
