@@ -23,7 +23,7 @@
             models,views = gmsh.model.list(),gmsh.view.get_tags()
             withenv("LINECABLEMODELS_GETDP"=>"/not/a/solver","DISPLAY"=>"") do
                 @test export_data(:onelab,problem,formulation;
-                    file_name=entry,mesh_options=(pml_layers=8,)) == entry
+                    file_name=entry,options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),)) == entry
             end
             @test gmsh.model.get_current() == "caller-owned"
             @test gmsh.model.list() == models
@@ -44,11 +44,11 @@
             @test !occursin("FEMReceiverColumn",geometry)
             @test_throws ArgumentError export_data(:onelab,problem,formulation;file_name=entry)
             @test_throws ArgumentError export_data(:onelab,problem,formulation;
-                file_name=joinpath(root,"invalid","study.pro"),mesh_options=(frequency_workers=2,))
+                file_name=joinpath(root,"invalid","study.pro"),options=(frequency_workers=2,))
             @test !isdir(joinpath(root,"invalid"))
             second = export_data(:onelab,system,formulation;earth_props=earth,
                 frequencies=problem.frequencies,file_name=joinpath(root,"system","study.pro"),
-                mesh_options=(pml_layers=8,))
+                options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),))
             @test read(joinpath(dirname(second),"study_data.pro"),String)==data
             write(joinpath(dirname(entry),"user-notes.txt"),"keep me")
             write(joinpath(dirname(entry),"formulations/quasi-tem.pro"),"owned old asset")
@@ -56,7 +56,7 @@
                 println(io,"formulations/quasi-tem.pro")
             end
             export_data(:onelab,problem,formulation;file_name=entry,
-                mesh_options=(pml_layers=8,),overwrite=true)
+                options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),),overwrite=true)
             @test read(joinpath(dirname(entry),"user-notes.txt"),String)=="keep me"
             @test !isfile(joinpath(dirname(entry),"formulations/quasi-tem.pro"))
             marker = joinpath(dirname(entry),".onelab-export-files")
@@ -64,7 +64,7 @@
             write(marker,replace(recorded,"README.md\n"=>""))
             before = read(entry,String)
             @test_throws ArgumentError export_data(:onelab,problem,formulation;
-                file_name=entry,mesh_options=(pml_layers=8,),overwrite=true)
+                file_name=entry,options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),),overwrite=true)
             @test read(entry,String)==before
             @test !any(startswith(".onelab-export-"),readdir(root))
             @test gmsh.model.get_current()=="caller-owned"
@@ -73,10 +73,10 @@
             write(marker,recorded)
             write(marker,recorded*"../outside.txt\n")
             @test_throws ArgumentError export_data(:onelab,problem,formulation;
-                file_name=entry,mesh_options=(pml_layers=8,),overwrite=true)
+                file_name=entry,options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),),overwrite=true)
             write(marker,recorded)
             gmsh.open(replace(entry,r"\.pro$"=>".geo"))
-            options = computation_options(LineCableModelsFEM,ComputationOptions(pml_layers=8))
+            options = computation_options(LineCableModelsFEM,ComputationOptions(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,)))
             model = FEM._resolved_fem_model(problem,formulation)
             available = Set((d,t,gmsh.model.get_physical_name(d,t)) for (d,t) in gmsh.model.get_physical_groups())
             @test all(group in available for group in FEM._expected_physical_groups(model))
@@ -118,7 +118,7 @@ end
     mesher = Gmsh.gmsh_jll.gmsh()
     mktempdir() do root
         entry = export_data(:onelab,problem,formulation;
-            file_name=joinpath(root,"scan with spaces","study.pro"),mesh_options=(pml_layers=8,))
+            file_name=joinpath(root,"scan with spaces","study.pro"),options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),))
         bundle = dirname(entry)
         geo = joinpath(bundle,"study.geo")
         data = joinpath(bundle,"study_data.pro")
@@ -197,7 +197,7 @@ end
         @test all(!isfile(joinpath(run_dir(i,"helmholtz"),"completed.txt")) for i in 1:2)
         singleton = LineParametersProblem(system;frequencies=[50.],earth_props=problem.earth_props)
         single = export_data(:onelab,singleton,formulation;
-            file_name=joinpath(root,"single","study.pro"),mesh_options=(pml_layers=8,))
+            file_name=joinpath(root,"single","study.pro"),options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),))
         log = read(`$mesher $single -option $options -setnumber PlotFieldMaps 0 -setnumber RunFrequencyScan 1 -run`,String)
         @test count(r"Print -> '[^\n]*completed\.txt'",log) == 1
         @test isfile(joinpath(dirname(single),"results","f0001-helmholtz-b0000","completed.txt"))
@@ -222,7 +222,7 @@ end
     mesher = Gmsh.gmsh_jll.gmsh()
     mktempdir() do root
         entry = export_data(:onelab,problem,formulation;
-            file_name=joinpath(root,"study.pro"),mesh_options=(pml_layers=8,))
+            file_name=joinpath(root,"study.pro"),options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),))
         mesh = joinpath(root,"study.msh")
         session = FEM._start_gmsh(0)
         function inventory()
@@ -275,10 +275,12 @@ end
     end
 end
 
-@testitem "Gmsh FEM / detached native numerical parity and relocation" tags=[:extension,:integration,:fem_numerical] begin
+@testitem "Gmsh FEM / detached native numerical parity and relocation" tags=[:extension,:integration,:fem_numerical] setup=[TemporaryFEMRuntime] begin
     using Gmsh, LinearAlgebra, SHA
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
+    cd(fem_test_runtime_directory)
+    try
     FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     copper = Material(kind=:conductor,rho=1.72e-8)
     wire = build(CableDesign,"export-parity",terminal(:core,core(copper;r=0.005)))
@@ -286,8 +288,7 @@ end
         connections=[Dict(:core=>1),Dict(:core=>2)])
     problem = LineParametersProblem(system;frequencies=[50.,10000.],
         earth_props=homogeneous(rho=100.,eps_r=10.))
-    options = (pml_layers=(8,6,4),pml_grading=(3.,2.,1.),frequency_workers=1,solver_threads=1,
-        mumps_ordering=0,petsc_prealloc=256,
+    options = (overrides=(PmlSideLayers=8,PmlTopLayers=6,PmlBottomLayers=4,PmlSideGrading=3.,PmlTopGrading=2.,PmlBottomGrading=1.,MumpsOrdering=0,PetscPrealloc=256),frequency_workers=1,solver_threads=1,
         mesh_policy=:remesh,keep_run_directory=true,trace=true,
         gmsh_verbosity=0,getdp_verbosity=0)
     function read_matrix(path)
@@ -312,8 +313,7 @@ end
         formulation = Formulation(:LineCableModelsFEM;options=(
             reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
         export_data(:onelab,problem,formulation;file_name=joinpath(root,"original","study.pro"),
-            mesh_options=(pml_layers=(8,6,4),pml_grading=(3.,2.,1.)),
-            solver_options=(mumps_ordering=0,petsc_prealloc=256))
+            options=(overrides=(PmlSideLayers=8,PmlTopLayers=6,PmlBottomLayers=4,PmlSideGrading=3.,PmlTopGrading=2.,PmlBottomGrading=1.,MumpsOrdering=0,PetscPrealloc=256),))
         bundle = joinpath(root,"relocated bundle with spaces")
         mv(joinpath(root,"original"),bundle)
         entry = joinpath(bundle,"study.pro")
@@ -347,6 +347,11 @@ end
         end
         @test all(bytes2hex(open(sha256,joinpath(bundle,file)))==hash for (file,hash) in before)
     end
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
+    end
+
 end
 
 @testitem "Gmsh FEM / checked meshes publish the selected frequency" tags=[:extension] setup=[NativeFEMFixtures] begin

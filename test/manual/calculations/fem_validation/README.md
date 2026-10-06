@@ -20,7 +20,7 @@ An optional third argument is a JSON settings file:
 
 ```json
 {
-  "mesh_options": {"mesh_size_factor": 2.5},
+  "options": {"mesh_size_factor": 2.5},
   "frequencies": [50, 10000],
   "earth": [{"rho": 100, "eps_r": 12}],
   "timeout_seconds": 2700,

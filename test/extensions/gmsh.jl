@@ -185,7 +185,7 @@ end
     )
 
     runtime_root = extension_module._runtime_root()
-    runs = joinpath(runtime_root, "runs")
+    runs = extension_module._system_run_root(runtime_root,problem.system.system_id)
     before = isdir(runs) ? sort(readdir(runs)) : nothing
     @test !Bool(gmsh.is_initialized())
 
@@ -585,12 +585,14 @@ end
     :extension,
     :integration,
     :fem_numerical
-] begin
+] setup=[TemporaryFEMRuntime] begin
     using LineCableModels
     using Gmsh
     using SHA
     using Serialization, JSON3, Logging
 
+    cd(fem_test_runtime_directory)
+    try
         copper = Material(kind = :conductor, rho = 1 / 5.8e7)
         dielectric = Material(kind = :insulator, rho = 1.0e8, eps_r = 2.3,
             tan_delta = 0.025)
@@ -709,7 +711,7 @@ end
                         length(problem.frequencies) *
                         length(result.details.data.fem.terminal_ids)^2
         for filename in ("Z.tsv", "P.tsv")
-            content = read(joinpath(run_directory, "raw", filename), String)
+            content = read(joinpath(run_directory, "results", filename), String)
             @test !occursin("\n\n", content)
             @test length(readlines(IOBuffer(content))) == expected_rows
         end
@@ -797,7 +799,7 @@ end
         paths = extension._column_paths(run_directory, 1, 1, false)
         rm(paths.checkpoint)
         rm(paths.marker; force=true)
-        for attempt in readdir(joinpath(run_directory, "attempts"); join=true)
+        for attempt in (isdir(joinpath(run_directory,"work")) ? readdir(joinpath(run_directory,"work");join=true) : String[])
             marker = extension._column_paths(attempt, 1, 1, false).marker
             rm(marker; force=true)
         end
@@ -811,4 +813,9 @@ end
         rm(lossy.details.data.fem.run.run_directory; recursive = true, force = true)
 
         rm(run_directory; recursive = true, force = true)
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
+    end
+
 end

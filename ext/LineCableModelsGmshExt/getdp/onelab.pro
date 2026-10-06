@@ -32,7 +32,11 @@ FEMPublishedText = DefineString[Str[RunDirectory], Name "Results/01Directory", R
 FEMPublished = DefineNumber[FrequencyHz, Name "Results/02Frequency [Hz]", ReadOnly 1];
 SetString["GetDP/1ResolutionChoices", "LineCableModelsFEM"];
 SetString["GetDP/2PostOperationChoices", ""];
-SetString["GetDP/9ComputeCommand", StrChoice[RunAction == 0, "-v 3", Sprintf["-solve -v 4 -nt %g",GetDPThreads]]];
+If(GetDPVerbosity < -1 || GetDPVerbosity > 5 || Floor[GetDPVerbosity] != GetDPVerbosity)
+  Error("GetDPVerbosity must be -1 (stage default) or an integer from zero through five");
+EndIf
+FEMGetDPVerbosity = GetDPVerbosity >= 0 ? GetDPVerbosity : (RunAction == 0 ? 3 : 4);
+SetString["GetDP/9ComputeCommand", StrChoice[RunAction == 0, Sprintf["-v %g",FEMGetDPVerbosity], Sprintf["-solve -v %g -nt %g",FEMGetDPVerbosity,GetDPThreads]]];
 If(RunAction == 0 && !StrCmp[OnelabAction,"compute"])
   SetNumber["Results/00Status",4];
 EndIf

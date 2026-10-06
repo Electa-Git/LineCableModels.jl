@@ -3,7 +3,7 @@
     inventories=[]
     for (family,physical,quadrature) in ((:triangle,3,9),(:quadrangle,3,9),(:quadrangle,12,16))
         N.geometry(N.problem(;frequency=1e6,rho=100.);
-                options=(pml_element_family=family,physical_volume_quadrature=physical,pml_quadrature=quadrature),mesh=true) do g,log
+                options=(overrides=(PmlQuadrangles=Int(family===:quadrangle),PhysicalVolumeQuadrature=physical,PmlQuadrature=quadrature),),mesh=true) do g,log
             @test only(g.parser.get_number("PhysicalVolumeQuadrature"))==physical
             @test only(g.parser.get_number("PmlQuadrature"))==quadrature
             pml=g.model.get_entities_for_physical_group(2,1005)

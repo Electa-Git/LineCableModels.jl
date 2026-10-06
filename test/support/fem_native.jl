@@ -20,7 +20,7 @@
             form=Formulation(:LineCableModelsFEM;options=(Γ=gamma,
                 reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
             entry=export_data(:onelab,problem,form;
-                file_name=joinpath(directory,"model.pro"),mesh_options=options)
+                file_name=joinpath(directory,"model.pro"),options)
             f(directory,entry)
         end
     end

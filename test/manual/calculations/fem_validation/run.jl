@@ -114,11 +114,11 @@ function budget_metrics(actual_y, reference_y, actual_z, reference_z, case, nati
         receiver_transverse_sizes=receiver_sizes)
 end
 
-function run_case(case,output,mesh_options,settings)
+function run_case(case,output,options,settings)
     directory=joinpath(output,case.name);mkpath(directory)
     form=Formulation(:LineCableModelsFEM;options=(;REDUCTIONS...,Γ=case.gamma))
     bundle=joinpath(directory,"bundle");entry=joinpath(bundle,"model.pro")
-    isfile(entry) || export_data(:onelab,case.problem,form;file_name=entry,mesh_options)
+    isfile(entry) || export_data(:onelab,case.problem,form;file_name=entry,options=options)
     # Homogeneous-medium controls edit numerical material facts only, in the bundle.
     if case.reference===:closed && case.medium.sigma!=0
         data=joinpath(bundle,"model_data.pro");text=read(data,String)
@@ -174,7 +174,7 @@ function run_case(case,output,mesh_options,settings)
             native_mesh=isfile(valuespath) ? FEM._read_native_mesh_values(valuespath) : nothing
             record=(;name=case.name,status,source_identity=identity,frequency_hz=only(case.problem.frequencies),
                 gamma=(real=real(case.gamma),imag=imag(case.gamma)),radius_m=case.radius,
-                reference=case.reference,mesh_options,mesh_run,preprocess_run,solve_run,dofs,observations,metrics,impedance_metrics,native_mesh,
+                reference=case.reference,options,mesh_run,preprocess_run,solve_run,dofs,observations,metrics,impedance_metrics,native_mesh,
                 budget,material_override=case.reference===:closed && case.medium.sigma!=0 ? case.medium : nothing)
             open(recordpath,"w") do io;JSON3.pretty(io,record);end
             return record
@@ -204,7 +204,7 @@ function run_case(case,output,mesh_options,settings)
     native_mesh=isfile(valuespath) ? FEM._read_native_mesh_values(valuespath) : nothing
     record=(;name=case.name,status,source_identity=identity,frequency_hz=only(case.problem.frequencies),
         gamma=(real=real(case.gamma),imag=imag(case.gamma)),radius_m=case.radius,
-        reference=case.reference,mesh_options,mesh_run,preprocess_run,solve_run,dofs,observations,metrics,impedance_metrics,native_mesh,
+        reference=case.reference,options,mesh_run,preprocess_run,solve_run,dofs,observations,metrics,impedance_metrics,native_mesh,
         budget,material_override=case.reference===:closed && case.medium.sigma!=0 ? case.medium : nothing)
     open(recordpath,"w") do io;JSON3.pretty(io,record);end
     record
@@ -214,7 +214,7 @@ function main(arguments)
     length(arguments) in (2,3) || error("Usage: run.jl OUTPUT main|homogeneous|all [SETTINGS.json]")
     output=abspath(arguments[1]);group=arguments[2];group in ("main","homogeneous","all") || error("Unknown comparison group")
     settings=length(arguments)==3 ? JSON3.read(read(arguments[3],String)) : Dict{String,Any}()
-    options=get(settings,"mesh_options",Dict{String,Any}());mesh_options=NamedTuple(Symbol(k)=>v for (k,v) in pairs(options))
+    options=get(settings,"options",Dict{String,Any}());options=NamedTuple(Symbol(k)=>(k=="overrides" ? NamedTuple(Symbol(n)=>x for (n,x) in pairs(v)) : v) for (k,v) in pairs(options))
     requests=cases(group,settings);mkpath(output)
     if get(settings,"list_only",false)
         open(joinpath(output,"cases.json"),"w") do io;JSON3.pretty(io,[(name=c.name,reference=c.reference,gamma=c.gamma) for c in requests]);end
@@ -227,7 +227,7 @@ function main(arguments)
         case=requests[Int(i)]
         println("Starting ",i,"/",length(requests),": ",case.name);flush(stdout)
         record=try
-            run_case(case,output,mesh_options,settings)
+            run_case(case,output,options,settings)
         catch exception
             directory=joinpath(output,case.name);mkpath(directory)
             message=sprint(showerror,exception,catch_backtrace())

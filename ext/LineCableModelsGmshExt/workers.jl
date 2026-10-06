@@ -36,11 +36,11 @@ function _column_paths(root::String, frequency::Int, basis::Int, maps::Bool;
     stem = _column_stem(frequency, basis)
     raw = _job_raw_paths(root, stem)
     return (; raw...,
-        diagnostics = [joinpath(root, "raw", "jobs", "$stem-Pscalar.tsv")],
-        timing = joinpath(root, "raw", "jobs", "$stem-timing.tsv"),
-        marker = joinpath(root, "raw", "jobs", "$stem.done"),
-        checkpoint = joinpath(root, "raw", "jobs", "$stem.json"),
-        pml = joinpath(root, "raw", "jobs", @sprintf("pml-f%04d.tsv", frequency)),
+        diagnostics = [joinpath(root, "results", "jobs", "$stem-Pscalar.tsv")],
+        timing = joinpath(root, "results", "jobs", "$stem-timing.tsv"),
+        marker = joinpath(root, "results", "jobs", "$stem.done"),
+        checkpoint = joinpath(root, "results", "jobs", "$stem.json"),
+        pml = joinpath(root, "results", "jobs", @sprintf("pml-f%04d.tsv", frequency)),
         maps = maps ?
                [joinpath(root, "maps",
                     @sprintf("%s_f%04d_b%04d.pos", quantity, frequency, basis))
@@ -185,6 +185,7 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, exe
         "-v", string(verbosity),
         "-setstring", "ModelDataPath", joinpath(run.path, "input", "model_data.pro"),
         "-setstring", "RunDirectory", directory,
+        "-setstring", "RawDirectory", joinpath(directory,"results"),
         "-setstring", "BasisListPath", basis_path,
         "-setnumber", "FrequencyIndex", string(frequency_index),
         "-setnumber", "PlotFieldMaps", string(Int(execution.data.plot_field_maps)),
@@ -193,12 +194,11 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, exe
         "-setnumber", "GmresIterationsMax", string(execution.data.gmres_iterations_max),
         "-setnumber", "GmresRelativeTolerance", _pro_number(execution.data.gmres_relative_tolerance),
         "-setnumber", "GmresAbsoluteTolerance", _pro_number(execution.data.gmres_absolute_tolerance),
-        "-setnumber", "MumpsOrdering", string(something(execution.data.mumps_ordering, -1)),
-        "-setnumber", "PetscPrealloc", string(something(execution.data.petsc_prealloc, 0)),
+        "-setnumber", "MumpsOrdering", string(execution.data.mumps_ordering),
+        "-setnumber", "PetscPrealloc", string(execution.data.petsc_prealloc),
         "-setnumber", "MumpsErrorAnalysis", string(execution.data.mumps_error_analysis),
         "-setnumber", "MumpsRefinementMax", string(execution.data.mumps_refinement_max),
-        "-setnumber", "MumpsBackwardErrorTolerance", _pro_number(execution.data.mumps_backward_error_tolerance),
-        "-setnumber", "MumpsForwardErrorTolerance", _pro_number(execution.data.mumps_forward_error_tolerance)]
+        "-setnumber", "MumpsBackwardErrorTolerance", _pro_number(execution.data.mumps_backward_error_tolerance)]
     if verbosity >= 4
         append!(arguments, [
             "-cpu", "-ksp_view", "-log_view", ":" * joinpath(directory, "petsc.log")])
@@ -215,12 +215,16 @@ function _frequency_job(
     isempty(bases) && throw(ArgumentError("a frequency job requires at least one terminal"))
     all(b -> b in eachindex(model.terminal_ids), bases) && allunique(bases) ||
         throw(ArgumentError("frequency job terminal indices must be distinct and in range"))
-    root = joinpath(run.path, "attempts")
+    root = joinpath(run.path, "work")
     mkpath(root)
-    directory = mktempdir(root; prefix = @sprintf("f%04d-", frequency_index), cleanup = false)
-    for subdirectory in ("raw/jobs", "maps")
-        mkpath(joinpath(directory, subdirectory))
+    directory = joinpath(root,@sprintf("frequency_%04d",frequency_index))
+    if ispath(directory) || ispath(joinpath(run.path,"logs",basename(directory)))
+        directory = mktempdir(root;prefix=@sprintf("frequency_%04d-",frequency_index),cleanup=false)
+    else
+        mkdir(directory)
     end
+    mkpath(joinpath(directory,"results","jobs"))
+    execution.data.plot_field_maps && mkpath(joinpath(directory,"maps"))
     command = _getdp_command(
         executable, _getdp_assets(joinpath(run.path, "input", "getdp")).model,
         mesh, run, formulation, execution, frequency_index, bases, directory; reuse_factorization)
@@ -345,7 +349,7 @@ function _warn_solver_diagnostics(diagnostic, controls, ::Val{:mumps}; frequency
     end
     if controls.mumps_error_analysis == 1
         estimate = diagnostic.forward_error
-        target = controls.mumps_forward_error_tolerance
+        target = FEM_MUMPS_FORWARD_ERROR_BUDGET
         if estimate === nothing
             @warn "MUMPS forward-error estimate unavailable; inspect native log" frequency_hz basis log
         elseif !isfinite(estimate) || estimate > target
@@ -452,7 +456,7 @@ function _process_token(pid::Integer)
 end
 
 function _assert_no_live_attempts(run)
-    root = joinpath(run.path, "attempts")
+    root = joinpath(run.path, "work")
     isdir(root) || return nothing
     for directory in filter(isdir, readdir(root; join = true))
         record = try
@@ -485,7 +489,7 @@ function _recover_columns!(run, model, maps, mesh_digests; physics::Symbol=:helm
         valid[basis, frequency] = _valid_column_checkpoint(run.path, frequency,
             model.problem.frequencies[frequency], basis, size(valid, 1), maps, mesh_digests[frequency]; physics)
     end
-    root = joinpath(run.path, "attempts")
+    root = joinpath(run.path, "work")
     if isdir(root)
         for directory in sort!(filter(isdir, readdir(root; join = true)))
             manifest = joinpath(directory, "attempt.json")
@@ -512,7 +516,7 @@ end
 
 function _assemble_columns!(run, model)
     for quantity in (:Z, :P)
-        destination = joinpath(run.path, "raw", "$quantity.tsv")
+        destination = joinpath(run.path, "results", "$quantity.tsv")
         temporary = tempname(dirname(destination))
         try
             open(temporary, "w") do io
@@ -530,6 +534,34 @@ function _assemble_columns!(run, model)
         end
     end
     _write_scan_completion!(run, model)
+    return nothing
+end
+
+# Keep diagnostic evidence after adopted solver scratch is removed.
+function _retain_worker_logs!(run, directory)
+    destination=joinpath(run.path,"logs",basename(directory))
+    for name in ("attempt.json","getdp.log","petsc.log")
+        source=joinpath(directory,name)
+        isfile(source) && _copy_column_file(source,joinpath(destination,name))
+    end
+    previous=relpath(directory,run.path)
+    manifest=try
+        JSON3.read(read(joinpath(directory,"attempt.json"),String))
+    catch
+        nothing
+    end
+    if manifest isa AbstractDict && get(manifest,:frequency_index,nothing) isa Integer
+        frequency=manifest.frequency_index
+        for basis in get(manifest,:requested_bases,Int[])
+            path=_column_paths(run.path,frequency,Int(basis),false).checkpoint
+            isfile(path) || continue
+            record=JSON3.read(read(path,String),Dict{String,Any})
+            get(record,"attempt",nothing)==previous || continue
+            record["attempt"]=relpath(destination,run.path)
+            _write_json_atomic(path,record)
+        end
+    end
+    rm(directory;recursive=true,force=true)
     return nothing
 end
 
@@ -599,6 +631,7 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
                         "(exit $(worker.process.exitcode)); missing columns $(sort!(collect(worker.pending))). " *
                         "Attempt: $(worker.job.directory)\nGetDP log tail:\n$tail"; run_directory = run.path)
                 end
+                _retain_worker_logs!(run,worker.job.directory)
             end
             if progress && run.completed_columns > previous_columns
                 now = time_ns()
@@ -633,7 +666,7 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
     totals=map((:constraint_seconds,:assembly_seconds,:solve_seconds,:output_seconds)) do key
         sum(getproperty(timing,key) for timing in timings)
     end
-    _write_json_atomic(joinpath(run.path,"timing-summary.json"),
+    _write_json_atomic(joinpath(run.path,"results","timing-summary.json"),
         (;schema=1,backend="getdp",scope="accumulated native worker wall time; not elapsed scan time",
             constraint_seconds=totals[1],assembly_seconds=totals[2],solve_seconds=totals[3],
             output_seconds=totals[4],columns=length(timings),recovered_columns,

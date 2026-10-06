@@ -84,10 +84,12 @@ end
     end
 end
 
-@testitem "Gmsh FEM / touching armour filler reaches GetDP" tags=[:extension,:integration,:fem_numerical] begin
+@testitem "Gmsh FEM / touching armour filler reaches GetDP" tags=[:extension,:integration,:fem_numerical] setup=[TemporaryFEMRuntime] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
+    cd(fem_test_runtime_directory)
+    try
     copper = Material(kind=:conductor,rho=1.72e-8)
     dielectric = Material(kind=:insulator,rho=Inf,eps_r=2.3)
     matrix = Material(kind=:insulator,rho=Inf,eps_r=1.0)
@@ -106,4 +108,9 @@ end
     @test all(isfinite,result.Z)
     @test all(isfinite,result.Y)
     @test all(real(z)>0 for z in result.Z)
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
+    end
+
 end

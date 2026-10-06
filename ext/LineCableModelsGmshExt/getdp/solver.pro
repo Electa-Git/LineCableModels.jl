@@ -8,7 +8,6 @@ If(!Exists(PetscPrealloc)) PetscPrealloc = 0; EndIf
 If(!Exists(MumpsErrorAnalysis)) MumpsErrorAnalysis = 2; EndIf
 If(!Exists(MumpsRefinementMax)) MumpsRefinementMax = 2; EndIf
 If(!Exists(MumpsBackwardErrorTolerance)) MumpsBackwardErrorTolerance = 1.e-12; EndIf
-If(!Exists(MumpsForwardErrorTolerance)) MumpsForwardErrorTolerance = 0.01; EndIf
 If(LinearSolver != 0 && LinearSolver != 1)
   Error("LinearSolver must be 0 (MUMPS) or 1 (GMRES)");
 EndIf
@@ -25,9 +24,14 @@ EndIf
 If(MumpsRefinementMax < 0 || MumpsRefinementMax > 2147483647 || Floor[MumpsRefinementMax] != MumpsRefinementMax)
   Error("MumpsRefinementMax must be a nonnegative Cint-representable integer");
 EndIf
-If(!(MumpsBackwardErrorTolerance > 0 && MumpsBackwardErrorTolerance <= 1.7976931348623157e308) ||
-   !(MumpsForwardErrorTolerance > 0 && MumpsForwardErrorTolerance <= 1.7976931348623157e308))
+If(!(MumpsBackwardErrorTolerance > 0 && MumpsBackwardErrorTolerance <= 1.7976931348623157e308))
   Error("MUMPS error tolerances must be finite and positive");
+EndIf
+If(MumpsOrdering != -1 && MumpsOrdering != 0 && MumpsOrdering != 2 && MumpsOrdering != 3 && MumpsOrdering != 4 && MumpsOrdering != 5 && MumpsOrdering != 6 && MumpsOrdering != 7)
+  Error("MumpsOrdering must be -1, 0, 2, 3, 4, 5, 6 or 7");
+EndIf
+If(PetscPrealloc < 0 || PetscPrealloc > 2147483647 || Floor[PetscPrealloc] != PetscPrealloc)
+  Error("PetscPrealloc must be a nonnegative Cint-representable integer");
 EndIf
 // Restore A and b after each solve so original-coordinate residuals and
 // subsequent right-hand sides retain their physical units.

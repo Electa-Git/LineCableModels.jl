@@ -1,7 +1,7 @@
 @testitem "FEM / directional PML progression and interval nodes" tags=[:extension] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     N.geometry(N.problem(;frequency=1e6,rho=100.);
-            options=(pml_layers=(16,24,48),pml_grading=(1.,2.,3.),pml_thickness_factor=(1.,2.,3.)),mesh=true) do g,log
+            options=(overrides=(PmlSideLayers=16,PmlTopLayers=24,PmlBottomLayers=48,PmlSideGrading=1.,PmlTopGrading=2.,PmlBottomGrading=3.,PmlSideThicknessFactor=1.,PmlTopThicknessFactor=2.,PmlBottomThicknessFactor=3.),),mesh=true) do g,log
         for (name,grading) in (("Side",1.),("Top",2.),("Bottom",3.))
             @test only(g.parser.get_number("Pml$(name)Grading"))==grading
             @test only(g.parser.get_number("FEMPml$(name)Layers"))>=Dict("Side"=>16,"Top"=>24,"Bottom"=>48)[name]

@@ -1,10 +1,4 @@
-// Prescribed rules only. Zero means inherit the existing triangle rule.
-If(!Exists(VolumeQuadrature)) VolumeQuadrature = 12; EndIf
-If(!Exists(PhysicalVolumeQuadrature)) PhysicalVolumeQuadrature = 3; EndIf
-If(!Exists(PmlQuadrature)) PmlQuadrature = 4; EndIf
-If(!Exists(PmlQuadrangles)) PmlQuadrangles = 0; EndIf
-PhysicalTrianglePoints = PhysicalVolumeQuadrature;
-If(PhysicalTrianglePoints == 0) PhysicalTrianglePoints = VolumeQuadrature; EndIf
+// Quadrature controls are supplied by the native model data.
 Function {
   VolumeRule[All] = 0;
   VolumeRule[Region[{AIR_PML, EARTH_PML}]] = 1;
@@ -16,7 +10,7 @@ Integration {
         Case {
           { GeoElement Point; NumberOfPoints 1; }
           { GeoElement Line; NumberOfPoints 4; }
-          { GeoElement Triangle; NumberOfPoints PhysicalTrianglePoints; }
+          { GeoElement Triangle; NumberOfPoints PhysicalVolumeQuadrature; }
           { GeoElement Quadrangle; NumberOfPoints 4; }
           { GeoElement Triangle2; NumberOfPoints 7; }
         }

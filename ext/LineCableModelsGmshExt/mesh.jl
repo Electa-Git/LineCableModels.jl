@@ -37,8 +37,7 @@ function _mesh_fingerprint(model::FEMResolvedModel, gmsh_version::String,
         air=(sigma=inv(model.problem.earth_props.layers[1].rho),
             epsilon_r=model.problem.earth_props.layers[1].eps_r,
             mu_r=model.problem.earth_props.layers[1].mu_r),
-        controls=(; (key=>getproperty(execution.data,key) for key in FEM_EXPORT_MESH_OPTIONS
-            if key ∉ (:volume_quadrature,:physical_volume_quadrature,:pml_quadrature))...),
+        controls=(; (key=>getproperty(execution.data,key) for key in FEM_MESH_CONTROL_FIELDS)...),
         native_sources=(; (key=>bytes2hex(sha256(Vector{UInt8}(codeunits(getproperty(FEM_GETDP_SOURCES,key)))))
             for key in (:parameters,:geometry,:mesh))...),
         physical_geometry, gmsh_version,
@@ -410,7 +409,7 @@ function _mesh_metadata(model, fingerprint, gmsh_version, source, execution,
         "earth_inputs"=>ImportExport.serialize_value((rho=model.earth_materials[frequency_index].rho,
             eps_r=model.earth_materials[frequency_index].eps_r, mu_r=model.earth_materials[frequency_index].mu_r)),
         "gamma"=>ImportExport.serialize_value(model.prescribed_gamma[frequency_index]),
-        "pml_element_family"=>String(execution.data.pml_element_family),
+        "pml_element_family"=>execution.data.pml_element_family == 1 ? "quadrangle" : "triangle",
         "pml_layers"=>execution.data.pml_layers, "pml_grading"=>execution.data.pml_grading))
     return metadata
 end
@@ -445,37 +444,20 @@ function _copy_mesh_snapshot!(
     return run_mesh
 end
 
-function _cache_mesh!(
-        source::String,
-        cache_mesh::String,
-        cache_metadata::String,
-        metadata
-)
-    mkpath(dirname(cache_mesh))
-    temporary_mesh = tempname(dirname(cache_mesh))
-    _copy_or_link_mesh(source, temporary_mesh)
-    mv(temporary_mesh, cache_mesh; force = true)
-    _write_json_atomic(cache_metadata, metadata)
-    return cache_mesh
-end
-
 function _resolve_mesh(run::FEMRun,model::FEMResolvedModel,
-        execution::ComputationOptions,runtime_root::String,frequency_index::Int)
+        execution::ComputationOptions,frequency_index::Int)
     gmsh_version = _gmsh_version()
     cad = joinpath(run.path,"input","physical.geo")
     fingerprint = _mesh_fingerprint(model,gmsh_version,execution,frequency_index;
         physical_geometry=bytes2hex(open(sha256,cad)))
     reference_mesh = frequency_index == length(model.problem.frequencies)
-    cache_directory = joinpath(runtime_root,"meshes",fingerprint)
-    cache_mesh = joinpath(cache_directory,"model.msh")
-    cache_metadata = joinpath(cache_directory,"mesh.json")
     stem = @sprintf("frequency_%04d",frequency_index)
     run_mesh = joinpath(run.path,"mesh",stem*".msh")
     run_metadata = joinpath(run.path,"mesh",stem*".json")
     mkpath(dirname(run_mesh))
     selected=nothing; source=:generated; native_values=Dict{String,Any}()
     if execution.data.mesh_policy === :reuse
-        for (candidate,record,origin) in ((run_mesh,run_metadata,:resume),(cache_mesh,cache_metadata,:cache))
+        for (candidate,record,origin) in ((run_mesh,run_metadata,:resume),)
             isfile(candidate) && isfile(record) || continue
             try
                 metadata=JSON3.read(read(record,String))
@@ -487,13 +469,31 @@ function _resolve_mesh(run::FEMRun,model::FEMResolvedModel,
                 @warn "Ignoring an invalid retained FEM mesh" candidate exception
             end
         end
-        if selected === nothing && reference_mesh && execution.data.mesh_path !== nothing
-            selected=abspath(execution.data.mesh_path); source=:explicit
-            native_values["measurement_line_max_size_ratios"]=_validate_mesh_file(model,selected)
+        if selected === nothing && execution.data.mesh_path !== nothing
+            path=abspath(execution.data.mesh_path)
+            if isdir(path)
+                for record in readdir(joinpath(path,"mesh");join=true)
+                    occursin(r"^frequency_\d{4,}\.json$",basename(record)) || continue
+                    candidate=replace(record,r"\.json$"=>".msh")
+                    try
+                        metadata=JSON3.read(read(record,String))
+                        String(metadata.fingerprint)==fingerprint || continue
+                        _validate_mesh_file(model,candidate)
+                        selected=candidate; source=:previous_run
+                        native_values=Dict{String,Any}(String(key)=>value for (key,value) in pairs(metadata))
+                        native_values["source_mesh"]=candidate
+                        break
+                    catch exception
+                        @warn "Ignoring an invalid retained FEM mesh" candidate exception
+                    end
+                end
+            elseif reference_mesh
+                selected=path; source=:explicit
+                native_values["measurement_line_max_size_ratios"]=_validate_mesh_file(model,selected)
+            end
         end
     end
-    return (; frequency_index, gmsh_version, fingerprint, reference_mesh, cache_mesh,
-        cache_metadata, run_mesh, run_metadata, stem, selected, source, native_values)
+    return (; frequency_index, gmsh_version, fingerprint, reference_mesh, run_mesh, run_metadata, stem, selected, source, native_values)
 end
 
 function _launch_mesh(run, plan, execution, temporary_mesh, temporary_native)
@@ -513,18 +513,12 @@ end
 
 function _publish_mesh!(run, model, execution, plan; temporary_mesh=nothing,
         temporary_native=nothing, owner=nothing)
-    (;frequency_index,gmsh_version,fingerprint,reference_mesh,cache_mesh,cache_metadata,
+    (;frequency_index,gmsh_version,fingerprint,reference_mesh,
         run_mesh,run_metadata,selected,source,native_values)=plan
     if owner !== nothing
         selected=owner.run_mesh
-        source=execution.data.mesh_policy === :remesh ? :generated : :cache
-        record=JSON3.read(read(owner.run_metadata,String))
-        if execution.data.mesh_policy === :remesh
-            native_values=_read_native_mesh_values(joinpath(run.path,"mesh",owner.stem*"-native.txt"))
-            native_values["measurement_line_max_size_ratios"]=record.measurement_line_max_size_ratios
-        else
-            native_values=record
-        end
+        source=:shared
+        native_values=JSON3.read(read(owner.run_metadata,String))
     end
     if selected === nothing
         ratios=_validate_mesh_file(model,temporary_mesh)
@@ -532,17 +526,10 @@ function _publish_mesh!(run, model, execution, plan; temporary_mesh=nothing,
         native_values["measurement_line_max_size_ratios"]=ratios
         metadata=_mesh_metadata(model,fingerprint,gmsh_version,:generated,execution,frequency_index,native_values)
         _write_json_atomic(run_metadata,metadata)
-        _cache_mesh!(temporary_mesh,cache_mesh,cache_metadata,metadata)
         mv(temporary_mesh,run_mesh;force=true)
-        mv(temporary_native,joinpath(run.path,"mesh",plan.stem*"-native.txt");force=true)
     elseif selected != run_mesh
         metadata=_mesh_metadata(model,fingerprint,gmsh_version,source,execution,frequency_index,native_values)
         _copy_mesh_snapshot!(selected,run_mesh,run_metadata,metadata)
-        if owner !== nothing && execution.data.mesh_policy === :remesh
-            _write_json_atomic(cache_metadata,metadata)
-            cp(joinpath(run.path,"mesh",owner.stem*"-native.txt"),temporary_native)
-            mv(temporary_native,joinpath(run.path,"mesh",plan.stem*"-native.txt");force=true)
-        end
     end
     if selected == run_mesh
         metadata=_mesh_metadata(model,fingerprint,gmsh_version,source,execution,frequency_index,native_values)
@@ -569,18 +556,23 @@ function _stop_mesh_processes!(processes)
 end
 
 function _select_meshes!(run::FEMRun,model::FEMResolvedModel,
-        execution::ComputationOptions,runtime_root::String)
+        execution::ComputationOptions)
     # Resolve shared-session Gmsh operations before any external process starts.
-    plans=[_resolve_mesh(run,model,execution,runtime_root,index)
+    plans=[_resolve_mesh(run,model,execution,index)
         for index in eachindex(model.problem.frequencies)]
     owners=Dict{String,Int}(); owner_indices=zeros(Int,length(plans)); pending=Int[]
+    # A retained sibling can supply a missing mesh during resume.
+    for (index,plan) in pairs(plans)
+        plan.selected==plan.run_mesh && get!(owners,plan.fingerprint,index)
+    end
     for (index,plan) in pairs(plans)
         plan.selected === nothing || continue
         owner_indices[index]=get!(owners,plan.fingerprint,index)
         owner_indices[index]==index && push!(pending,index)
     end
-    temporary_meshes=[tempname(dirname(plan.run_mesh)) * ".msh" for plan in plans]
-    temporary_native=[tempname(dirname(plan.run_mesh)) * ".txt" for plan in plans]
+    work=joinpath(run.path,"work"); mkpath(work)
+    temporary_meshes=[tempname(work) * ".msh" for plan in plans]
+    temporary_native=[tempname(work) * ".txt" for plan in plans]
     processes=Vector{Union{Nothing,Base.Process}}(nothing,length(plans))
     launch_error=Ref{Any}(nothing); aborted=Ref(false)
     try

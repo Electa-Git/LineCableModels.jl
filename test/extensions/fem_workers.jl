@@ -33,7 +33,7 @@ assert all(os.environ[x]=='1' for x in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS'
 (root/'observed.json').write_text(json.dumps({'frequency':f,'bases':bases,'pid':os.getpid()}))
 for b in bases:
     time.sleep(control.get('delay',0.0)*(3-f))
-    stem=root/'raw'/'jobs'/f'getdp-f{f:04d}-b{b:04d}'
+    stem=root/'results'/'jobs'/f'getdp-f{f:04d}-b{b:04d}'
     for q in ('Z','P','Pscalar'):
         text=''.join(f'{f}\t{hz:.17g}\t{r}\t{b}\t{100*f+10*r+b}\t{r-b}\n' for r in (1,2))
         pathlib.Path(str(stem)+f'-{q}.tsv').write_text(text)
@@ -57,7 +57,7 @@ for b in bases:
                 path
             end
             function fresh()
-                run=E._create_run(root)
+                run=E._create_run(root,problem.system.system_id)
                 E._write_json_atomic(joinpath(run.path,"input/computation.json"),inputs)
                 E._prepare_run_inputs!(run,model,execution_options)
                 run
@@ -90,26 +90,28 @@ with open(sys.argv[1],'a+') as f:
             before=read(paths.Z)
             write(paths.Z,"broken\n")
             @test !E._valid_column_checkpoint(run.path,1,50.0,2,2,false,digest)
-            # The intact attempt is adopted, without starting another solver.
+            # Successful scratch is deleted; a corrupt adopted column is solved again.
             E._run_getdp!(run,model,form, execution_options,meshes)
-            @test run.getdp_invocations==2
+            @test run.getdp_invocations==3
             @test read(paths.Z)==before
             # A corrupt manifest cannot prevent adopting other attempts.
             for (kind,content) in (("object","{}"),("array","[]"),("scalar","1"))
-                directory=joinpath(run.path,"attempts","malformed_"*kind)
+                directory=joinpath(run.path,"work","malformed_"*kind)
                 mkpath(directory)
                 write(joinpath(directory,"attempt.json"),content)
             end
             @test E._assert_no_live_attempts(run)===nothing
             # Lose both the canonical column and its completed attempt marker.
             rm(paths.checkpoint)
-            for attempt in filter(isdir,readdir(joinpath(run.path,"attempts");join=true))
+            for attempt in filter(isdir,readdir(joinpath(run.path,"work");join=true))
                 rm(E._column_paths(attempt,1,2,false).marker;force=true)
             end
             E._run_getdp!(run,model,form, execution_options,meshes)
-            @test run.getdp_invocations==3
-            attempts=filter(isfile,[joinpath(d,"observed.json") for d in readdir(joinpath(run.path,"attempts");join=true)])
-            @test any(p->JSON3.read(read(p,String)).bases==[2],attempts)
+            @test run.getdp_invocations==4
+            @test !any(name->startswith(name,"frequency_"),readdir(joinpath(run.path,"work")))
+            records=[JSON3.read(read(joinpath(d,"attempt.json"),String)) for d in
+                filter(isdir,readdir(joinpath(run.path,"logs");join=true))]
+            @test any(record->record.requested_bases==[2],records)
             @test E._parse_scan(run,model,form, execution_options).Z==scan.Z
             # Concurrency is scheduling metadata; thread count is numerical provenance.
             one=merge(inputs,(execution=merge(execution,(frequency_workers=1,)),))
@@ -118,7 +120,7 @@ with open(sys.argv[1],'a+') as f:
             @test !E._resume_inputs_match(run.path,model,threads)
             serial=fresh()
             serial_form=Formulation(:LineCableModelsFEM;options=form.options)
-            serial_form_controls = merge(execution,(frequency_workers=1,))
+            serial_form_controls = merge(form_controls,(frequency_workers=1,))
             E._run_getdp!(serial,model,serial_form, computation_options(LineCableModelsFEM, ComputationOptions(serial_form_controls)),meshes)
             @test E._parse_scan(serial,model,serial_form, computation_options(LineCableModelsFEM, ComputationOptions(serial_form_controls))).Z==scan.Z
             # A failed basis does not get a checkpoint and must be retried.
@@ -158,7 +160,7 @@ with open(sys.argv[1],'a+') as f:
             @test E._assert_no_live_attempts(stopped)===nothing
             @test_throws LineCableModelsFEMError E._parse_scan(stopped,model,form, execution_options)
             # A surviving child from a crashed coordinator blocks retry.
-            orphan=joinpath(stopped.path,"attempts","orphan");mkpath(orphan)
+            orphan=joinpath(stopped.path,"work","orphan");mkpath(orphan)
             E._write_json_atomic(joinpath(orphan,"attempt.json"),
                 (state="running",pid=getpid(),process_token=E._process_token(getpid())))
             @test_throws LineCableModelsFEMError E._assert_no_live_attempts(stopped)

@@ -87,6 +87,7 @@ EndFor
 If(ConductorGeometryTolerance <= 0 || ConductorSkinDepthElements <= 0 || ConductorMeshGrowth < 1 || ConductorSkinDepths <= 0 || ConductorThicknessElements < 1 || ConductorThicknessElements != Floor(ConductorThicknessElements))
   Error("Conductor mesh controls must be positive; growth must be at least one");
 EndIf
+// One resolution scale also controls angular, first-normal and interior targets.
 FEMCircleSegments = 12*2^Max(0,Ceil(Log(Sqrt(2*Pi^2/(3*ConductorGeometryTolerance))/12)/Log(2)));
 For region In {0:NumPhysicalRegions-1}
   If(FEMConductor~{region})
@@ -103,12 +104,12 @@ For region In {0:NumPhysicalRegions-1}
     FEMContourSize = RegionSize~{region};
     FEMDivisions = FEMConductorKind~{region} == 2 ? ConductorThicknessElements : 5;
     FEMFraction = FEMConductorKind~{region} == 1 ? .8 : (FEMConductorKind~{region} == 2 ? .45 : .9);
-    FEMCap = FEMWidth/FEMDivisions; FEMBulk = Min(RegionSize~{region},FEMCap);
-    If(FEMDecay*FEMWidth <= ConductorSkinDepths && FEMPhase > 0) FEMBulk = Min(FEMBulk,2*Pi/(12*FEMPhase)); EndIf
+    FEMCap = MeshSizeFactor*FEMWidth/FEMDivisions; FEMBulk = Min(RegionSize~{region},FEMCap);
+    If(FEMDecay*FEMWidth <= ConductorSkinDepths && FEMPhase > 0) FEMBulk = Min(FEMBulk,MeshSizeFactor*2*Pi/(12*FEMPhase)); EndIf
     FEMExtent = Min(ConductorSkinDepths*FEMDelta,FEMFraction*FEMWidth);
-    FEMFirst = Min(FEMDelta/ConductorSkinDepthElements,FEMCap);
+    FEMFirst = Min(MeshSizeFactor*FEMDelta/ConductorSkinDepthElements,FEMCap);
     If(FEMConductorSector~{region})
-      FEMBulk = Min(FEMBulk,FEMWidth/30); FEMSegments = 2*FEMCircleSegments; FEMDepth = FEMSectorDepth~{region};
+      FEMBulk = Min(FEMBulk,MeshSizeFactor*FEMWidth/30); FEMSegments = 2*FEMCircleSegments; FEMDepth = FEMSectorDepth~{region};
       If(ConductorMeshGrowth == 1) FEMLayers = Ceil(FEMDepth/FEMFirst);
       Else FEMLayers = Ceil(Log(1+(ConductorMeshGrowth-1)*FEMDepth/FEMFirst)/Log(ConductorMeshGrowth)); EndIf
       For arc In {0:#FEMSectorOuter~{region}()-1}

@@ -60,10 +60,12 @@
     @test_throws LineCableModelsFEMError FEM._resolved_fem_model(conducting_limit,LineCableModelsFEM())
 end
 
-@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels] begin
+@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
     using Gmsh, LinearAlgebra
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
+    cd(fem_test_runtime_directory)
+    try
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e14,2.3)
     air = Material(:insulator,Inf,1.0)
@@ -106,14 +108,21 @@ end
         options=selected.options);options=(trace=true,))
     @test z ≈ reference.details.data.fem.primitive.Z_primitive[:,:,1] rtol=2e-9
     @test result.Y.values ≈ reference.Y.values rtol=2e-9
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
+    end
+
 end
 
-@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels] begin
+@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const FD = LineCableModels.Earth.FrequencyDependent
+    cd(fem_test_runtime_directory)
+    try
     copper = Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
     dielectric = Material(:insulator, 1e8, 2.3, 1, 20, -0.003; tan_delta=0.025)
     function system_for(metal, passive)
@@ -173,4 +182,9 @@ end
     declared_air = compute(LineParametersProblem(overhead;frequencies=[50.0],earth_props=earth),selected; options=selected_controls)
     vacuum_air = compute(LineParametersProblem(overhead;frequencies=[50.0],earth_props=vacuum.earth_props),selected; options=selected_controls)
     @test !isapprox(declared_air.Y.values,vacuum_air.Y.values;rtol=1e-5)
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
+    end
+
 end

@@ -70,7 +70,7 @@ EndIf
 If(!Exists(PlotFieldMaps))
   PlotFieldMaps = 0;
 EndIf
-RawDirectory = StrCat[RunDirectory, "/raw"];
+If(!Exists(RawDirectory)) RawDirectory = StrCat[RunDirectory, "/raw"]; EndIf
 RawJobDirectory = StrCat[RawDirectory, "/jobs"];
 MapDirectory = StrCat[RunDirectory, "/maps"];
 
@@ -367,7 +367,7 @@ Return
 Macro FEMScan
       SetGlobalSolverOptions[FEMSolverOptions];
       If(LinearSolver == 0 && MumpsErrorAnalysis)
-        Print[{MumpsBackwardErrorTolerance,MumpsForwardErrorTolerance},
+        Print[{MumpsBackwardErrorTolerance,FEMMumpsForwardErrorBudget},
           Format "MUMPS targets: backward error %.6g; scaled-solution forward estimate %.6g (full analysis only; not terminal accuracy)"];
       EndIf
       If(LinearSolver == 1)
@@ -376,7 +376,7 @@ Macro FEMScan
       EndIf
       CreateDir[RawDirectory];
       CreateDir[RawJobDirectory];
-      CreateDir[MapDirectory];
+      If(PlotFieldMaps) CreateDir[MapDirectory]; EndIf
       // Native observations accompany every frequency's retained columns.
       Print[{FrequencyIndex,FrequencyHz,FEMPmlTarget,FEMPmlFloorActive~{0},FEMPmlFloorActive~{1},FEMCutoff~{0},FEMCutoff~{1},FEMPmlSideNetAttenuation~{0},FEMPmlSideNetAttenuation~{1},FEMPmlTopNetAttenuation,FEMPmlBottomNetAttenuation,FEMPmlFloorUsed,FEMPmlSideLayers,FEMPmlTopLayers,FEMPmlBottomLayers,PmlSideEta,PmlTopEta,PmlBottomEta,FEMEarthSizingCeilingActive,FEMEarthLayerThickness,FEMEarthLayerClippedOrOmitted,FEMCapActive(0),FEMCapActive(1),FEMCapActive(2)},
         Format "%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g	%.17g",

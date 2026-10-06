@@ -1,9 +1,11 @@
-@testitem "Gmsh FEM / public solver failure retains log and run evidence" tags=[:extension] begin
+@testitem "Gmsh FEM / public solver failure retains log and run evidence" tags=[:extension] setup=[TemporaryFEMRuntime] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     using JSON3
 
+    cd(fem_test_runtime_directory)
+    try
     if Sys.isunix()
         extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
         copper = Material(kind = :conductor, rho = 1.72e-8)
@@ -51,7 +53,7 @@
                     @test isfile(joinpath(run_path, "input", "problem.json"))
                     @test isfile(joinpath(run_path, "input", "getdp", "helmholtz.pro"))
                     @test isfile(joinpath(run_path, "logs", "getdp.log"))
-                    @test !isfile(joinpath(run_path, "raw", "checksums.json"))
+                    @test !isfile(joinpath(run_path, "results", "checksums.json"))
                     messages = read(log_file, String)
                     @test occursin("FEM geometry inputs ready", messages)
                     @test occursin("FEM mesh ready", messages)
@@ -60,11 +62,16 @@
                 finally
                     # Remove only this fixture's precisely identified failed run.
                     @assert realpath(dirname(run_path)) ==
-                            realpath(joinpath(extension._runtime_root(), "runs"))
+                            realpath(extension._system_run_root(extension._runtime_root(),problem.system.system_id))
                     rm(run_path; recursive = true)
                 end
             end
             @test !Bool(Gmsh.gmsh.is_initialized())
         end
     end
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
+    end
+
 end

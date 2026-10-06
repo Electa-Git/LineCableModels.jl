@@ -40,8 +40,7 @@ function _write_model_data(path::String, model::FEMResolvedModel, controls::Name
         println(io, "GammaReValues() = ", _pro_array(real.(model.prescribed_gamma)), ";")
         println(io, "GammaImValues() = ", _pro_array(imag.(model.prescribed_gamma)), ";")
         for (direction, name) in enumerate(("Side", "Top", "Bottom"))
-            factors = controls.pml_thickness_factor
-            factor = factors isa Tuple ? factors[direction] : factors
+            factor = controls.pml_thickness_factor[direction]
             println(io, "Pml", name, "ThicknessFactor = ", _pro_number(factor), ";")
             println(io, "Pml", name, "Layers = ", controls.pml_layers[direction], ";")
             println(io, "Pml", name, "Grading = ", _pro_number(controls.pml_grading[direction]), ";")
@@ -50,9 +49,10 @@ function _write_model_data(path::String, model::FEMResolvedModel, controls::Name
         println(io, "MeshSizeFactor = ", _pro_number(controls.mesh_size_factor), ";")
         println(io, "ExteriorMeshSizeFactor = ", _pro_number(controls.exterior_mesh_size_factor), ";")
         println(io, "InterfaceRefinementFactor = ", _pro_number(controls.interface_refinement_factor), ";")
-        println(io, "PmlQuadrangles = ", Int(controls.pml_element_family === :quadrangle), ";")
+        println(io, "PmlQuadrangles = ", controls.pml_element_family, ";")
         println(io,"VolumeQuadrature = ",controls.volume_quadrature,";")
-        println(io,"PhysicalVolumeQuadrature = ",something(controls.physical_volume_quadrature,0),";")
+        println(io,"PhysicalVolumeQuadrature = ",controls.physical_volume_quadrature,";")
+        println(io,"FEMMumpsForwardErrorBudget = ",_pro_number(FEM_MUMPS_FORWARD_ERROR_BUDGET),";")
         println(io,"PmlQuadrature = ",controls.pml_quadrature,";")
         for (name,key) in (("ConductorGeometryTolerance",:conductor_geometry_tolerance),
             ("ConductorSkinDepthElements",:conductor_skin_depth_elements),("ConductorMeshGrowth",:conductor_mesh_growth),
@@ -222,8 +222,8 @@ function _resolve_getdp(execution::ComputationOptions, run::FEMRun)
 end
 
 function _job_raw_paths(root::AbstractString, job_name::String)
-    return (Z = joinpath(root, "raw", "jobs", "$job_name-Z.tsv"),
-        P = joinpath(root, "raw", "jobs", "$job_name-P.tsv"))
+    return (Z = joinpath(root, "results", "jobs", "$job_name-Z.tsv"),
+        P = joinpath(root, "results", "jobs", "$job_name-P.tsv"))
 end
 
 _job_raw_paths(run::FEMRun, job_name::String) = _job_raw_paths(run.path, job_name)
@@ -271,7 +271,7 @@ function _write_scan_completion!(run::FEMRun, model::FEMResolvedModel)
     frequency_count = length(model.problem.frequencies)
     terminal_count = length(model.terminal_ids)
     expected_rows = frequency_count * terminal_count * terminal_count
-    path = joinpath(run.path, "raw", "scan_complete.tsv")
+    path = joinpath(run.path, "results", "scan_complete.tsv")
     temporary = tempname(dirname(path))
     open(temporary, "w") do io
         println(io, join(FEM_COMPLETE_HEADER, '\t'))

@@ -10,8 +10,8 @@
     problem = LineParametersProblem(system;frequencies=[50.],
         earth_props=homogeneous(rho=100.,eps_r=10.))
     form = Formulation(:LineCableModelsFEM)
-    solver = (mumps_ordering=0,petsc_prealloc=256)
-    configured = computation_options(LineCableModelsFEM,ComputationOptions(;solver_threads=2,solver...))
+    solver = (MumpsOrdering=0,PetscPrealloc=256)
+    configured = computation_options(LineCableModelsFEM,ComputationOptions(;solver_threads=2,overrides=solver))
     defaults = computation_options(LineCableModelsFEM,ComputationOptions())
     @test defaults.data.mumps_ordering == 0
     @test defaults.data.frequency_workers == clamp(Sys.CPU_THREADS ÷ 4, 1, 8)
@@ -20,7 +20,7 @@
     @test defaults.data.pml_layers == (16,16,16)
     model = FEM._resolved_fem_model(problem,form)
     mktempdir() do root
-        run = FEM._create_run(root)
+        run = FEM._create_run(root,problem.system.system_id)
         for options in (defaults,configured)
             dir = mktempdir(root)
             command = FEM._getdp_command("getdp","model.pro","mesh.msh",run,
@@ -37,7 +37,7 @@
             end
         end
         entry = export_data(:onelab,problem,form;file_name=joinpath(root,"bundle","study.pro"),
-            mesh_options=(pml_layers=8,),solver_options=solver)
+            options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,solver...),))
         default_entry = export_data(:onelab,problem,form;
             file_name=joinpath(root,"default-bundle","study.pro"))
         @test occursin("MumpsOrdering = {0,",read(joinpath(dirname(default_entry),"study_data.pro"),String))
@@ -56,7 +56,7 @@
         @test occursin("-mat_mumps_icntl_7",native)
         @test occursin("-petsc_prealloc",native)
         @test_throws ArgumentError export_data(:onelab,problem,form;
-            file_name=joinpath(root,"bad","study.pro"),solver_options=(frequency_workers=2,))
+            file_name=joinpath(root,"bad","study.pro"),options=(frequency_workers=2,))
         @test !isdir(joinpath(root,"bad"))
     end
 end

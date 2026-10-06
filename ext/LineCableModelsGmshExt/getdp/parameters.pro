@@ -17,6 +17,25 @@ GammaIm = GammaImValues(FrequencyIndex-1);
 If(FrequencyHz <= 0 || DomainSizeFactor <= 0 || MeshSizeFactor <= 0 || ExteriorMeshSizeFactor < 1 || InterfaceRefinementFactor < 1)
   Error("Frequency and physical mesh controls must be positive; exterior/interface factors must be at least one");
 EndIf
+// Guard CLI and ONELAB edits as well as Julia-generated controls.
+If(PhysicalVolumeQuadrature < 3 || (PhysicalVolumeQuadrature != 3 && PhysicalVolumeQuadrature != 4 && PhysicalVolumeQuadrature != 7 && PhysicalVolumeQuadrature != 12 && PhysicalVolumeQuadrature != 13))
+  Error("PhysicalVolumeQuadrature must be 3, 4, 7, 12 or 13 (at least 3)");
+EndIf
+If(VolumeQuadrature != 4 && VolumeQuadrature != 7 && VolumeQuadrature != 12 && VolumeQuadrature != 13)
+  Error("VolumeQuadrature must be 4, 7, 12 or 13");
+EndIf
+If(PmlQuadrature != 4 && PmlQuadrature != 9 && PmlQuadrature != 16)
+  Error("PmlQuadrature must be 4, 9 or 16");
+EndIf
+If(PmlQuadrangles != 0 && PmlQuadrangles != 1) Error("PmlQuadrangles must be 0 or 1"); EndIf
+FEMPositiveFactors() = {DomainSizeFactor,MeshSizeFactor,ExteriorMeshSizeFactor,InterfaceRefinementFactor,
+  PmlSideThicknessFactor,PmlTopThicknessFactor,PmlBottomThicknessFactor,
+  ConductorGeometryTolerance,ConductorSkinDepthElements,ConductorMeshGrowth,ConductorSkinDepths};
+For FEMFactor In {0:#FEMPositiveFactors()-1}
+  If(!(FEMPositiveFactors(FEMFactor) > 0 && FEMPositiveFactors(FEMFactor) <= 1.7976931348623157e308))
+    Error("Native mesh factors must be finite and positive");
+  EndIf
+EndFor
 FEMOmega = 2*Pi*FrequencyHz;
 FEMLayoutRadius = 5;
 For cable In {0:NumCables-1}
@@ -29,7 +48,7 @@ For direction In {0:2}
   FEMLayers() = {PmlSideLayers,PmlTopLayers,PmlBottomLayers};
   FEMGrading() = {PmlSideGrading,PmlTopGrading,PmlBottomGrading};
   FEMThicknessFactor() = {PmlSideThicknessFactor,PmlTopThicknessFactor,PmlBottomThicknessFactor};
-  If(FEMLayers(direction) < 1 || FEMLayers(direction) != Floor[FEMLayers(direction)] || FEMGrading(direction) < 0 || FEMThicknessFactor(direction) <= 0)
+  If(FEMLayers(direction) < 1 || FEMLayers(direction) > 2147483646 || FEMLayers(direction) != Floor[FEMLayers(direction)] || !(FEMGrading(direction) >= 0 && FEMGrading(direction) <= 1.7976931348623157e308) || FEMThicknessFactor(direction) <= 0)
     Error("PML intervals must be positive integers; grading nonnegative and relative thickness positive");
   EndIf
 EndFor
@@ -177,7 +196,7 @@ PmlPPWClampMin = 1; PmlPPWClampMax = 3;
 For medium In {0:1}
   FEMPmlPPWFactor~{medium} = PmlPPWClampMax;
   If(FEMRootA~{medium} > 0) FEMPmlPPWFactor~{medium} = Min[PmlPPWClampMax,Max[PmlPPWClampMin,Sqrt[.1*FEMRootMagnitude~{medium}/FEMRootA~{medium}]]]; EndIf
-  FEMPmlPPW~{medium} = PmlPointsPerWavelength*FEMPmlPPWFactor~{medium};
+  FEMPmlPPW~{medium} = PmlPointsPerWavelength*FEMPmlPPWFactor~{medium}/MeshSizeFactor;
 EndFor
 For direction In {0:2}
   FEMPmlStrengths() = {PmlSideStrength,PmlTopStrength,PmlBottomStrength};
@@ -204,7 +223,7 @@ FEMPmlBottomLayers = FEMPmlEffectiveLayers~{2};
 
 // Physical mesh targets: one native law for managed and detached execution.
 MeshBulk = MeshSizeFactor*FEMResolutionRadius/20;
-MeshGrowth = 1.2; MeshGrowthSlope = MeshGrowth-1;
+MeshGrowth = 1.2; MeshGrowthSlope = MeshSizeFactor*(MeshGrowth-1);
 MeshExteriorStart = 2*FEMResolutionRadius;
 MeshRemote = Min[ExteriorMeshSizeFactor*MeshBulk,MeshBulk+MeshGrowthSlope*Max[0,DomainHalfwidth-MeshExteriorStart]];
 For medium In {0:1}

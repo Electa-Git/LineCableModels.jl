@@ -108,8 +108,9 @@ end
     model=E._resolved_fem_model(problem,form)
     options=E.computation_options(E.LineCableModelsFEM,ComputationOptions())
     fixture=joinpath(pkgdir(LineCableModels),"test/fixtures/data/fem/sparse.msh")
-    mktempdir() do run
-        directory=joinpath(run,"mesh");mkpath(directory)
+    mktempdir() do root
+        run=E._create_run(root,problem.system.system_id).path
+        directory=joinpath(run,"mesh")
         for index in 1:2
             stem="frequency_$(lpad(index,4,'0'))"
             cp(fixture,joinpath(directory,stem*".msh"))

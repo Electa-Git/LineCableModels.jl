@@ -147,16 +147,45 @@ function _finish_gmsh(session::FEMGmshSession)
 end
 
 function _runtime_root()
-    return joinpath(pkgdir(LineCableModels), ".linecablemodels", "fem")
+    return joinpath(pwd(), ".linecablemodels", "fem")
 end
 
-function _create_run(runtime_root::String)
-    runs = joinpath(runtime_root, "runs")
-    mkpath(runs)
-    path = mktempdir(runs; prefix = "run-", cleanup = false)
-    for directory in ("input", "mesh", "raw", "maps", "logs")
-        mkpath(joinpath(path, directory))
+function _system_run_root(runtime_root,system_id)
+    name=strip(replace(String(system_id),r"[^A-Za-z0-9_-]+"=>"_"),'_')
+    # Reserve the obsolete global directories without inspecting them.
+    name in ("runs","meshes") && (name="_"*name)
+    return joinpath(runtime_root,isempty(name) ? "system" : name)
+end
+
+function _create_run(runtime_root::String,system_id::AbstractString;maps=false,mkdir_run=mkdir)
+    directory=_system_run_root(runtime_root,system_id)
+    path=""
+    vanished_retries=0
+    while true
+        candidate=""
+        try
+            mkpath(directory)
+            dirname(realpath(directory))==realpath(runtime_root) || error("system run directory escapes the runtime root")
+            suffix=String(rand(RandomDevice(),[collect('a':'z');collect('0':'9')],4))
+            candidate=joinpath(directory,Dates.format(now(),"yyyymmdd-HHMMSS")*"-"*suffix)
+            mkdir_run(candidate)
+            path=candidate
+            break
+        catch err
+            if err isa Base.IOError && err.code==Base.UV_ENOENT && isdir(runtime_root)
+                vanished_retries+=1
+                vanished_retries<=8 || throw(ArgumentError("FEM system run directory $directory was repeatedly removed during run creation"))
+                continue
+            end
+            err isa Base.IOError && err.code==Base.UV_EEXIST && !isempty(candidate) && continue
+            err isa Base.IOError || err isa SystemError || rethrow()
+            throw(ArgumentError("FEM runtime root $runtime_root is not writable: $(sprint(showerror,err))"))
+        end
     end
+    for child in ("input", "mesh", "results", "logs", "work")
+        mkdir(joinpath(path,child))
+    end
+    maps && mkdir(joinpath(path,"maps"))
     run = FEMRun(path, created, "run created", :none, "")
     _transition!(run, created, "run created")
     return run
@@ -193,7 +222,7 @@ function _resume_inputs_match(path::String, model::FEMResolvedModel, inputs::Nam
     if String(run_state.state) == string(completed)
         inputs.getdp_identity === nothing && return false
         inputs.execution.mesh_policy === :remesh && return false
-        isfile(joinpath(path, "raw", "checksums.json")) || return false
+        isfile(joinpath(path, "results", "checksums.json")) || return false
     end
     expected = ImportExport.serialize_value(model.problem)
     comparable = Dict(String(key)=>value for (key, value) in pairs(recorded))
@@ -220,10 +249,11 @@ function _resume_run(
         model::FEMResolvedModel,
         inputs::NamedTuple
 )
-    requested === nothing && return _create_run(runtime_root)
-    runs = joinpath(runtime_root, "runs")
+    requested === nothing && return _create_run(runtime_root,model.problem.system.system_id;maps=inputs.execution.plot_field_maps)
+    runs = _system_run_root(runtime_root,model.problem.system.system_id)
     mkpath(runs)
     runs_path = realpath(runs)
+    dirname(runs_path)==realpath(runtime_root) || throw(ArgumentError("system run directory escapes the runtime root"))
     candidate = if requested === :latest
         directories = filter(isdir, readdir(runs_path; join = true))
         sort!(directories; by = path -> stat(path).mtime, rev = true)
@@ -236,6 +266,8 @@ function _resume_run(
         isdir(path) || throw(ArgumentError(
             "resume_run_directory does not exist: $path",
         ))
+        dirname(realpath(path))==runs_path || throw(ArgumentError(
+            "resume_run_directory must be an immediate child of $runs_path"))
         _resume_inputs_match(path, model, inputs) || throw(ArgumentError(
             "resume_run_directory needs matching problem, constitutive inputs, " *
             "solver and adapter identities, and backend-owned meshing settings: $path; " *
@@ -247,12 +279,12 @@ function _resume_run(
             "resume_run_directory must be nothing, :latest, or a path string",
         ))
     end
-    candidate === nothing && return _create_run(runtime_root)
+    candidate === nothing && return _create_run(runtime_root,model.problem.system.system_id;maps=inputs.execution.plot_field_maps)
     path = realpath(candidate)
     dirname(path) == runs_path || throw(ArgumentError(
         "resume_run_directory must be an immediate child of $runs_path",
     ))
-    for directory in ("input", "mesh", "raw", "maps", "logs")
+    for directory in ("input", "mesh", "results", "logs")
         isdir(joinpath(path, directory)) || throw(ArgumentError(
             "resume_run_directory is missing $directory/: $path",
         ))
@@ -324,14 +356,14 @@ function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel, execution::C
     model_data_path = joinpath(run.path, "input", "model_data.pro")
     _write_problem_snapshot(problem_path, model.problem)
     _write_model_data(model_data_path, model, execution.data)
-    mkpath(joinpath(run.path, "raw", "jobs"))
-    open(joinpath(run.path, "raw", "Z.tsv"), "w") do io
+    mkpath(joinpath(run.path, "results", "jobs"))
+    open(joinpath(run.path, "results", "Z.tsv"), "w") do io
         println(io, join(FEM_RAW_HEADER, '\t'))
     end
-    open(joinpath(run.path, "raw", "P.tsv"), "w") do io
+    open(joinpath(run.path, "results", "P.tsv"), "w") do io
         println(io, join(FEM_RAW_HEADER, '\t'))
     end
-    open(joinpath(run.path, "raw", "scan_complete.tsv"), "w") do io
+    open(joinpath(run.path, "results", "scan_complete.tsv"), "w") do io
         println(io, join(FEM_COMPLETE_HEADER, '\t'))
     end
     return model_data_path
@@ -342,7 +374,6 @@ function _headless_solve!(
         model::FEMResolvedModel,
         formulation::LineCableModelsFEM,
         execution::ComputationOptions,
-        runtime_root::String,
         inputs::NamedTuple
 )
     _prepare_run_inputs!(run,model,execution)
@@ -351,7 +382,7 @@ function _headless_solve!(
     _write_native_mesh_entry(joinpath(run.path,"input","model.geo"),"model_data.pro","physical.geo","getdp")
     _transition!(run,geometry_ready,"native geometry inputs ready")
     @debug "FEM geometry inputs ready" run_directory=run.path
-    mesh_paths = _select_meshes!(run,model,execution,runtime_root)
+    mesh_paths = _select_meshes!(run,model,execution)
     _transition!(run,mesh_ready,"mesh ready")
     @debug "FEM mesh ready" source=run.mesh_source fingerprint=run.mesh_fingerprint
     _transition!(run, running, "GetDP frequency batches running")
@@ -359,6 +390,11 @@ function _headless_solve!(
     _run_getdp!(run, model, formulation, execution, mesh_paths)
     scan = _parse_scan(run, model, formulation, execution)
     _write_scan_checksums(run, scan)
+    work=joinpath(run.path,"work")
+    for directory in filter(isdir,readdir(work;join=true))
+        _retain_worker_logs!(run,directory)
+    end
+    rm(work;recursive=true,force=true)
     _transition!(run, completed, "results validated")
     parameters = _line_parameters(run, model, formulation, execution, scan, inputs)
     return parameters
@@ -382,9 +418,9 @@ function _compute_fem(
         problem::LineParametersProblem{Float64},
         formulation::LineCableModelsFEM,
         execution::ComputationOptions,
-        model::FEMResolvedModel = _resolved_fem_model(problem, formulation)
+        model::FEMResolvedModel = _resolved_fem_model(problem, formulation);
+        runtime_root::String = _runtime_root()
 )
-    runtime_root = _runtime_root()
     inputs = _fem_input_record(model, formulation, execution)
     run = _resume_run(
         runtime_root, execution.data.resume_run_directory, model, inputs
@@ -415,27 +451,35 @@ function _compute_fem(
         end
         _assert_no_live_attempts(run)
         _compute_owned_fem(
-            problem, formulation, execution, model, run, runtime_root, inputs)
+            problem, formulation, execution, model, run, inputs)
     finally
         _release_run(ownership)
     end
     if !execution.data.keep_run_directory
-        expected_parent = realpath(joinpath(runtime_root, "runs"))
+        expected_parent = realpath(_system_run_root(runtime_root,model.problem.system.system_id))
+        dirname(expected_parent)==realpath(runtime_root) &&
         realpath(dirname(run.path)) == expected_parent || error(
             "refusing to remove FEM run outside the runtime root")
         rm(run.path; recursive = true, force = true)
+        # Non-recursive removal preserves runs created concurrently for this system.
+        try
+            rm(expected_parent)
+        catch err
+            isdir(expected_parent) && !isempty(readdir(expected_parent)) ||
+                !ispath(expected_parent) || rethrow(err)
+        end
     end
     return parameters
 end
 
 function _compute_owned_fem(
-        problem, formulation, execution, model, run, runtime_root, inputs)
+        problem, formulation, execution, model, run, inputs)
     _write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
     session = nothing
     try
         session = _start_gmsh(execution.data.gmsh_verbosity)
         parameters = _headless_solve!(
-            run, model, formulation, execution, runtime_root, inputs)
+            run, model, formulation, execution, inputs)
         return parameters
     catch exception
         LineCableModels.verbosity(execution, :progress) > 0 &&
@@ -551,6 +595,7 @@ function _compute_fem(
         formulations::AbstractVector{<:LineCableModelsFEM},
         execution::ComputationOptions
 )
+    runtime_root = _runtime_root()
     isempty(formulations) && throw(ArgumentError(
         "FEM formulation collections cannot be empty"))
     progress = LineCableModels.verbosity(execution, :progress) > 0
@@ -580,7 +625,7 @@ function _compute_fem(
     # native worker durations remain separate, never Julia allocation estimates.
     scan_started = execution.data.timing ? time_ns() : UInt64(0)
     first_result = Engine.retain_gridpoint(
-        _compute_fem(problem, first(formulations), execution, first(models)),
+        _compute_fem(problem, first(formulations), execution, first(models); runtime_root),
         Grammar.gridpoint_id(; source_id);
         fields = completion_fields(first(formulations)))
     if execution.data.timing && !isempty(first_result.details.data.timing)
@@ -608,7 +653,7 @@ function _compute_fem(
         scan_started = execution.data.timing ? time_ns() : UInt64(0)
         value = if previous === nothing ||
                    execution.data.mesh_policy === :remesh
-            _compute_fem(problem, formulation, execution, models[index])
+            _compute_fem(problem, formulation, execution, models[index]; runtime_root)
         else
             source = values[previous]
             @debug "FEM reuses identical resolved inputs" formulation=index source_formulation=previous

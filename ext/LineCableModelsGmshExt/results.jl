@@ -323,7 +323,7 @@ function _parse_scan(
         formulation::LineCableModelsFEM,
         execution::ComputationOptions
 ) where {T <: Real}
-    raw = joinpath(run.path, "raw")
+    raw = joinpath(run.path, "results")
     terminal_count = length(model.terminal_ids)
     frequency_count = length(model.problem.frequencies)
     _validate_completion(
@@ -357,26 +357,26 @@ function _parse_scan(
 end
 
 function _write_scan_checksums(run::FEMRun, scan::FEMScan)
-    paths = [joinpath(run.path, "raw", name)
+    paths = [joinpath(run.path, "results", name)
         for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")]
-    append!(paths, [joinpath(run.path,"raw","jobs",@sprintf("pml-f%04d.tsv",index))
+    append!(paths, [joinpath(run.path,"results","jobs",@sprintf("pml-f%04d.tsv",index))
         for index in axes(scan.Z,3)])
     append!(paths, scan.map_paths)
     checksums = Dict(relpath(path, run.path) => bytes2hex(open(sha256, path)) for path in paths)
-    _write_json_atomic(joinpath(run.path, "raw", "checksums.json"), checksums)
+    _write_json_atomic(joinpath(run.path, "results", "checksums.json"), checksums)
     return nothing
 end
 
 function _check_scan_checksums(run::FEMRun, scan::FEMScan)
-    path = joinpath(run.path, "raw", "checksums.json")
+    path = joinpath(run.path, "results", "checksums.json")
     checksums = try
         JSON3.read(read(path, String))
     catch
         nothing
     end
-    paths = [joinpath(run.path, "raw", name)
+    paths = [joinpath(run.path, "results", name)
         for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")]
-    append!(paths, [joinpath(run.path,"raw","jobs",@sprintf("pml-f%04d.tsv",index))
+    append!(paths, [joinpath(run.path,"results","jobs",@sprintf("pml-f%04d.tsv",index))
         for index in axes(scan.Z,3)])
     append!(paths, scan.map_paths)
     checksums isa AbstractDict && length(checksums) == length(paths) && all(paths) do file
@@ -413,11 +413,11 @@ function _line_parameters(
         basis = :total
     end
     keep_run = execution.data.keep_run_directory
-    timing_path = joinpath(run.path, "timing-summary.json")
+    timing_path = joinpath(run.path, "results", "timing-summary.json")
     native_timing = isfile(timing_path) ? JSON3.read(read(timing_path, String), NamedTuple) : (;)
     recovered_columns = get(native_timing, :recovered_columns, 0)
     pml_observations = map(eachindex(model.problem.frequencies)) do index
-        path = joinpath(run.path,"raw","jobs",@sprintf("pml-f%04d.tsv",index))
+        path = joinpath(run.path,"results","jobs",@sprintf("pml-f%04d.tsv",index))
         observation = _pml_observation(path,index,model.problem.frequencies[index])
         observation === nothing && _fem_error(:results,"PML observations",:raw_output,
             "missing or invalid native PML observations at frequency index $index";run_directory=run.path)

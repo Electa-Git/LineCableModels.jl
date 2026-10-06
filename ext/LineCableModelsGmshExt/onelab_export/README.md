@@ -25,14 +25,18 @@ Automatic checks are enabled, so changing a frequency or mesh input replaces
 both the displayed geometry and mesh. The read-only `Mesh/Current mesh` group
 shows the generated case index and frequency [Hz] after meshing and saving
 succeed; `No mesh` means no current mesh has been generated. Gmsh's Stop controls its native GetDP process.
+Omitted native verbosity options preserve Gmsh's caller verbosity and GetDP's
+stage defaults (3 for mesh-only, 4 for solving). Explicit `gmsh_verbosity` and
+`getdp_verbosity` values from zero through five are honored; -1 in the native
+diagnostics group means inherit those defaults.
 The GetDP thread control sets GetDP's native `-nt` option; linked numerical
 libraries can have their own threading settings.
 
-The Numerics panel selects direct MUMPS (the default) or GMRES with LU/MUMPS
-preconditioning. In direct mode it includes native MUMPS error analysis
-(0 off, 1 full, 2 backward errors), maximum refinement iterations,
-backward-error target, and a forward-error comparison budget. Julia defaults
-are 2, 2, 1e-12, and 0.01; exported values follow the caller's solver options.
+The Solver group selects direct MUMPS (the default) or GMRES with LU/MUMPS
+preconditioning. All expert parameters are in the Expert group, using their
+native names. MUMPS error analysis, refinement steps and backward-error target
+default to 2, 2 and 1e-12. The managed Julia forward-error warning budget is
+fixed at 0.01, rather than an editable native control.
 Refinement reuses the LU factors and may stop before the prescribed maximum.
 Set analysis and refinement steps to zero to disable both. No regularization,
 automatic remeshing or result rejection is introduced.
@@ -88,28 +92,28 @@ Select another exported case with
 `-setnumber BasisTerminal 1`, and `-setnumber PlotFieldMaps 0`. An existing
 compatible mesh can be selected with GetDP's `-msh` option. Mesh refinement
 requires regenerating the mesh. `MeshSizeFactor` is the Julia `mesh_size_factor`;
-`ExteriorMeshSizeFactor` is `exterior_mesh_size_factor`. Both start at the
-exported values. Changing them updates the local size fields, floating measurement
-lines and PML tangential divisions on the next mesh. The exterior factor only
-coarsens the remote buffer; it retains the conductor and central bulk targets.
-The `Boundary` panel supplies `DomainSizeFactor`, `PmlReflection` (default `1e-3`) and directional
-`PmlSide/Top/BottomThicknessFactor`, `Layers` and `Grading`. These are the native
-counterparts of Julia's relative thickness, interval and exponent controls.
-Dimensions, strengths, roots and physical mesh targets are reevaluated together
-for the selected frequency/Γ/material case. The physical conductor CAD stays
-fixed. `InterfaceRefinementFactor` matches Julia's interface footprint control;
-its native distance fields use the current transverse wave and decay scales.
-There is no uniform-refinement or factorization-reuse UI switch. Field-map
-output defaults to false.
+`DomainSizeFactor` and `PmlReflection` (default `1e-3`) complete the Physics
+group. Export accepts one `options` named tuple, validated like compute; managed
+workers, retention, resume, callbacks and logging are rejected. `solver_threads`,
+`plot_field_maps` and `output_basis` are accepted. Expert overrides are numeric,
+with declared types and ranges; no free-form native expressions are accepted.
 
-The Mesh panel also exposes conductor geometry tolerance, elements per skin
-depth, normal growth, graded skin depths and wall divisions. These prescribe
-local sizes for disks, annuli and convex cable sectors, including individual round screen wires.
-The default minimum circle resolution is 96 segments; normal layers start at no more
-than one sixth of the material's skin depth. Local characteristic lengths also
-cap round-conductor edge lengths, which can add edges on thin foil. `MeshSizeFactor`
-scales this local cap and the extension of boundary sizes into passive cable
-media; it does not relax the angular bound or the normal skin-depth spacing.
+Expert parameters include `ExteriorMeshSizeFactor`, `InterfaceRefinementFactor`,
+the five `Conductor` controls, directional PML thicknesses, minimum intervals
+and grading exponents, quadrature and MUMPS controls. Their defaults are the
+managed defaults. Invalid native edits raise a clear Error; physical-volume
+quadrature requires at least three points, interval minima at least one,
+reflection strictly between zero and one, and size factors positive.
+
+Dimensions, strengths, roots and physical mesh targets are reevaluated for the
+selected frequency, Γ and materials. Physical conductor CAD stays fixed.
+`MeshSizeFactor` scales all resolution targets, including angular and normal
+conductor sizes except the geometric-tolerance circle count, wave and interface-layer sizes, floating measurement lines
+and the PML points-per-wavelength bound. Larger factors coarsen them; fixed
+minimum circle segments and PML interval floors stay fixed. At factor one the
+circle resolution starts at 96 segments and normal layers at no more than one
+sixth of conductor skin depth; local characteristic lengths can add contour
+edges. The exterior factor only coarsens the remote buffer.
 The extension is restricted to the cable's passive surfaces. There is no
 automatic convergence test or refinement loop.
 Sectors use native triangular transfinite strips around a 0.1-scale core, with
@@ -189,7 +193,7 @@ The rho=1e5 ohm m reference ceiling publishes an active flag and warns
 `earth too resistive for FEM domain sizing; results not qualified` when binding.
 a larger transverse-root magnitude shortens its numerical scale.
 
-`pml_layers` sets minimum normal interval counts. Native coefficients raise
+The directional `PmlSideLayers`, `PmlTopLayers` and `PmlBottomLayers` set minimum normal interval counts. Native coefficients raise
 each count with the fixed constant `PmlPointsPerWavelength=10`:
 
 ```text
@@ -197,7 +201,7 @@ X_d = L_d*(1+A_d/4-j*eta_d*A_d/4)         # layer only, excluding D
 E_m,d = Re(q_m*X_d)
 Phi_m,d = |q_m|*|X_d|*min(1,T/E_m,d)   # if E_m,d > 0
 Phi_m,d = |q_m|*|X_d|                 # otherwise
-PPW_m = 10*clamp(sqrt(0.1*|q_m|/Re(q_m)),1,3) # Re(q_m)<=0 -> 30
+PPW_m = 10/MeshSizeFactor*clamp(sqrt(0.1*|q_m|/Re(q_m)),1,3) # Re(q_m)<=0 -> 30/MeshSizeFactor
 N_d = max(N_min,d, ceil(max_m(PPW_m*Phi_m,d)/(2*pi)))
 T = -log(pml_reflection)/2
 ```
@@ -205,7 +209,7 @@ T = -log(pml_reflection)/2
 Side uses both media, top uses air and bottom uses earth. The decay factor
 restricts the interval bound to the stretched-layer portion before attenuation T, so
 an already attenuated medium cannot demand excessive counts. Exact cutoff
-gives Phi=0. The interval floor remains 48. PPW clamp bounds are read-only
+gives Phi=0. The interval floor remains 16. PPW clamp bounds are read-only
 ONELAB values. Effective counts control both
 transfinite divisions and `exp(g/N)`. The grading exponent is unchanged.
 Named coefficient and constraint edits are read on the next run. Execution

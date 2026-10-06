@@ -1,8 +1,10 @@
-@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] setup=[FormulaContractModels] begin
+@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     using LineCableModels
+    cd(fem_test_runtime_directory)
+    try
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     artifact = withenv("LINECABLEMODELS_GETDP"=>nothing) do
         extension._getdp_selection(computation_options(LineCableModelsFEM, ComputationOptions((;))))
@@ -110,7 +112,7 @@
           inputs.mesh_fingerprint
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
     mktempdir() do root
-        run = extension._create_run(root)
+        run = extension._create_run(root,problem.system.system_id)
         extension._prepare_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
         assets = extension._getdp_assets(joinpath(run.path, "input", "getdp"))
         @test haskey(assets,:helmholtz) && haskey(assets,:parameters)
@@ -127,12 +129,12 @@
         extension._write_json_atomic(joinpath(run.path, "input", "computation.json"), inputs)
         @test extension._resume_inputs_match(run.path, model, other_inputs)
         tuple_controls = computation_options(LineCableModelsFEM,ComputationOptions(;
-            formulation_controls...,pml_layers=(16,16,16),
-            pml_grading=ntuple(_ -> log(20),3)))
+            formulation_controls...,overrides=(PmlSideLayers=16,PmlTopLayers=16,PmlBottomLayers=16,
+            PmlSideGrading=log(20),PmlTopGrading=log(20),PmlBottomGrading=log(20))))
         tuple_model = extension._resolved_fem_model(problem,formulation)
         tuple_inputs = extension._fem_input_record(tuple_model,formulation,tuple_controls)
         @test extension._resume_inputs_match(run.path,tuple_model,tuple_inputs)
-        for controls in ((pml_layers=(128,128,127),), (pml_grading=(7.,7.,7.),))
+        for controls in ((overrides=(PmlSideLayers=128,PmlTopLayers=128,PmlBottomLayers=127,),), (overrides=(PmlSideGrading=7.,PmlTopGrading=7.,PmlBottomGrading=7.,),))
             execution = computation_options(LineCableModelsFEM,ComputationOptions(;
                 formulation_controls...,controls...))
             changed = extension._resolved_fem_model(problem,formulation)
@@ -164,10 +166,10 @@
         # Completed results can be read only when their numerical files are
         # protected. This does not transition or rewrite their run state.
         for name in ("Z.tsv", "P.tsv", "scan_complete.tsv")
-            write(joinpath(run.path, "raw", name), "checksum fixture $name")
+            write(joinpath(run.path, "results", name), "checksum fixture $name")
         end
         for index in 1:2
-            path=joinpath(run.path,"raw","jobs","pml-f"*lpad(index,4,'0')*".tsv")
+            path=joinpath(run.path,"results","jobs","pml-f"*lpad(index,4,'0')*".tsv")
             mkpath(dirname(path)); write(path,"checksum fixture native observations $index")
         end
         scan = extension.FEMScan(zeros(ComplexF64, 1, 1, 2), zeros(ComplexF64, 1, 1, 2), String[])
@@ -182,9 +184,9 @@
         @test retained.path == run.path
         @test read(joinpath(run.path, "run.json")) == preserved
         @test extension._check_scan_checksums(retained, scan) === nothing
-        write(joinpath(run.path, "raw", "Z.tsv"), "corrupted numerical payload")
+        write(joinpath(run.path, "results", "Z.tsv"), "corrupted numerical payload")
         @test_throws LineCableModelsFEMError extension._check_scan_checksums(retained, scan)
-        write(joinpath(run.path, "raw", "checksums.json"), "broken JSON")
+        write(joinpath(run.path, "results", "checksums.json"), "broken JSON")
         @test_throws LineCableModelsFEMError extension._check_scan_checksums(retained, scan)
         changed = merge(retained_inputs, (;
             adapter_sources = Dict("geometry.jl"=>"different implementation")))
@@ -224,7 +226,7 @@
             relocated_inputs = extension._fem_input_record(model, relocated, computation_options(LineCableModelsFEM, ComputationOptions(relocated_controls)))
             @test relocated_inputs.getdp_identity == second_record.getdp_identity
             @test relocated_inputs.getdp_selection.path != second_record.getdp_selection.path
-            relocation_run = extension._create_run(root)
+            relocation_run = extension._create_run(root,problem.system.system_id)
             extension._prepare_run_inputs!(relocation_run, model, computation_options(LineCableModelsFEM,ComputationOptions(relocated_controls)))
             extension._write_json_atomic(
                 joinpath(relocation_run.path, "input", "computation.json"), second_record)
@@ -243,5 +245,100 @@
             @test !extension._resume_inputs_match(relocation_run.path, model,
                 extension._fem_input_record(model, relocated, computation_options(LineCableModelsFEM, ComputationOptions(relocated_controls))))
         end
+    end
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
+    end
+
+end
+
+@testitem "FEM / self-contained working-directory run layout" tags=[:extension] begin
+    using Gmsh, Random
+    E=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    mktempdir() do directory
+        cd(directory) do
+            root=E._runtime_root()
+            blocked=joinpath(directory,"not-a-directory")
+            write(blocked,"blocked runtime root")
+            err=try E._create_run(blocked,"system");catch err;err;end
+            @test err isa ArgumentError
+            @test occursin(blocked,sprint(showerror,err))
+            @test occursin("not writable",sprint(showerror,err))
+            if Sys.isunix()
+                readonly=mkpath(joinpath(directory,"readonly"))
+                chmod(readonly,0o500)
+                try
+                    err=try E._create_run(readonly,"system");catch err;err;end
+                    @test err isa ArgumentError
+                    @test occursin(readonly,sprint(showerror,err))
+                finally
+                    chmod(readonly,0o700)
+                end
+            end
+            @test root==joinpath(directory,".linecablemodels","fem")
+            runs=[E._create_run(root,"layout / shared") for _ in 1:12]
+            @test allunique(getproperty.(runs,:path))
+            @test length(unique(first(basename(run.path),15) for run in runs))<length(runs)
+            @test all(run->dirname(run.path)==joinpath(root,"layout_shared"),runs)
+            @test all(run->occursin(r"^\d{8}-\d{6}-[a-z0-9]{4}$",basename(run.path)),runs)
+            @test all(run->Set(readdir(run.path))==Set(["input","mesh","results","logs","work","run.json"]),runs)
+            @test !ispath(joinpath(root,"runs"))
+            @test !ispath(joinpath(root,"meshes"))
+            @test E._system_run_root(root,"runs")==joinpath(root,"_runs")
+            @test E._system_run_root(root,"meshes")==joinpath(root,"_meshes")
+            Random.seed!(4321); expected=rand(UInt64)
+            Random.seed!(4321); E._create_run(root,"random-independent")
+            @test rand(UInt64)==expected
+            mapped=E._create_run(root,"mapped";maps=true)
+            @test isdir(joinpath(mapped.path,"maps"))
+        end
+    end
+end
+
+@testitem "FEM / run creation retries a disappearing system directory" tags=[:extension] begin
+    using Gmsh
+    E=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    mktempdir() do root
+        calls=Ref(0)
+        function disappearing_mkdir(path)
+            calls[]+=1
+            calls[]==1 && rm(dirname(path))
+            mkdir(path)
+        end
+        run=E._create_run(root,"concurrent-system";mkdir_run=disappearing_mkdir)
+        @test calls[]==2
+        @test isdir(run.path)
+        @test isfile(joinpath(run.path,"run.json"))
+        @test dirname(run.path)==E._system_run_root(root,"concurrent-system")
+        calls[]=0
+        function reappearing_mkdir(path)
+            calls[]+=1
+            if calls[]==1
+                rm(dirname(path))
+                try
+                    mkdir(path)
+                catch
+                    # Another creator can restore the parent before we handle ENOENT.
+                    mkpath(dirname(path))
+                    rethrow()
+                end
+            end
+            mkdir(path)
+        end
+        run=E._create_run(root,"reappearing-system";mkdir_run=reappearing_mkdir)
+        @test calls[]==2
+        @test isdir(run.path)
+        calls[]=0
+        function always_disappearing_mkdir(path)
+            calls[]+=1
+            rm(dirname(path))
+            mkdir(path)
+        end
+        err=try E._create_run(root,"persistent-race";mkdir_run=always_disappearing_mkdir);catch err;err;end
+        @test calls[]==9
+        @test err isa ArgumentError
+        @test occursin("repeatedly removed",sprint(showerror,err))
+        @test !occursin("not writable",sprint(showerror,err))
     end
 end

@@ -221,7 +221,7 @@ end
                 temperature=seed.temperature,earth_props=seed.earth_props)
             records=[]
             for workers in (1,2)
-                directory=joinpath(root,label,string(workers));run=E._create_run(directory)
+                directory=joinpath(root,label,string(workers));run=E._create_run(directory,problem.system.system_id)
                 execution=E.computation_options(E.LineCableModelsFEM,ComputationOptions(;
                     frequency_workers=workers,mesh_policy=policy,gmsh_verbosity=0))
                 model=E._resolved_fem_model(problem,form);session=E._start_gmsh(0)
@@ -230,13 +230,25 @@ end
                     physical=E._build_physical_geometry!(model,"parallel-mesh-test")
                     E._write_physical_geometry(joinpath(run.path,"input","physical.geo"),model,physical)
                     E._write_native_mesh_entry(joinpath(run.path,"input","model.geo"),"model_data.pro","physical.geo","getdp")
-                    paths=E._select_meshes!(run,model,execution,directory)
+                    paths=E._select_meshes!(run,model,execution)
                     push!(records,(meshes=[bytes2hex(open(sha256,path)) for path in paths],
                         sidecars=[read(replace(path,".msh"=>".json"),String) for path in paths]))
-                    @test isempty(filter(name->!startswith(name,"frequency_"),readdir(joinpath(run.path,"mesh"))))
+                    @test Set(readdir(joinpath(run.path,"mesh")))==Set(["frequency_$(lpad(i,4,'0')).$ext" for i in 1:2 for ext in ("msh","json")])
+                    @test !ispath(joinpath(directory,"meshes"))
                     if startswith(label,"shared")
                         @test records[end].meshes[1]==records[end].meshes[2]
-                        @test JSON3.read(records[end].sidecars[2]).source==(policy===:reuse ? "cache" : "generated")
+                        @test JSON3.read(records[end].sidecars[2]).source=="shared"
+                        if policy===:reuse && workers==2
+                            retained=read(paths[2])
+                            log=joinpath(run.path,"logs","frequency_0001-gmsh.log")
+                            previous_log=stat(log).mtime
+                            rm(paths[1]); rm(replace(paths[1],".msh"=>".json"))
+                            reopened=E._select_meshes!(run,model,execution)
+                            @test read(reopened[1])==retained
+                            @test stat(log).mtime==previous_log
+                            @test JSON3.read(read(replace(reopened[1],".msh"=>".json"),String)).source=="shared"
+                            @test JSON3.read(read(replace(reopened[2],".msh"=>".json"),String)).source=="resume"
+                        end
                     end
                 finally
                     E._finish_gmsh(session)
@@ -245,5 +257,71 @@ end
             @test records[1].meshes==records[2].meshes
             @test records[1].sidecars==records[2].sidecars
         end
+    end
+end
+
+@testitem "FEM / supplied run meshes match fingerprints independently of frequency order" tags=[:extension] setup=[NativeFEMFixtures,TemporaryFEMRuntime] begin
+    using Gmsh, JSON3
+    N=NativeFEMFixtures
+    cd(fem_test_runtime_directory)
+    try
+        seed=N.problem(;frequency=50.,rho=100.,eps_r=1.,radius=.005)
+        problem(frequencies)=LineParametersProblem(seed.system;temperature=20.,frequencies,
+            earth_props=seed.earth_props)
+        form=Formulation(:LineCableModelsFEM;options=(reduce_bundle=false,
+            kron_reduction=false,ideal_transposition=false))
+        function run(frequencies;kwargs...)
+            result=compute(problem(frequencies),form;options=(keep_run_directory=true,
+                frequency_workers=2,verbosity=(default=0,),gmsh_verbosity=0,getdp_verbosity=0,kwargs...))
+            record=details(result).data.fem
+            path=record.run.run_directory
+            sidecars=[JSON3.read(read(joinpath(path,"mesh","frequency_$(lpad(i,4,'0')).json"),String))
+                for i in eachindex(frequencies)]
+            meshes=[read(joinpath(path,"mesh","frequency_$(lpad(i,4,'0')).msh"))
+                for i in eachindex(frequencies)]
+            (;result,record,path,sidecars,meshes)
+        end
+        original=run([50.,1000.])
+        for extension in ("msh","json")
+            first=joinpath(original.path,"mesh","frequency_0001.$extension")
+            second=joinpath(original.path,"mesh","frequency_0002.$extension")
+            first_bytes=read(first); second_bytes=read(second)
+            write(first,second_bytes); write(second,first_bytes)
+        end
+        reused=run([50.,1000.];mesh_path=original.path,overrides=(PetscPrealloc=128,))
+        @test all(s->s.source=="previous_run",reused.sidecars)
+        @test reused.meshes==original.meshes
+        @test Y(reused.result)==Y(original.result)
+        @test all(s->dirname(dirname(String(s.source_mesh)))==original.path,reused.sidecars)
+        coarser=run([50.,1000.];mesh_path=original.path,mesh_size_factor=2.)
+        @test all(s->s.source=="generated",coarser.sidecars)
+        @test all(coarser.meshes[i]!=original.meshes[i] for i in 1:2)
+        reordered=run([10.,50.,1000.];mesh_path=original.path)
+        @test [String(s.source) for s in reordered.sidecars]==["generated","previous_run","previous_run"]
+        @test reordered.meshes[2:3]==original.meshes
+        @test Y(reordered.result)[:,:,2:3]==Y(original.result)
+        subset=run([1000.];mesh_path=original.path)
+        @test only(subset.sidecars).source=="previous_run"
+        @test only(subset.meshes)==original.meshes[2]
+        rm(original.path;recursive=true)
+        for adopted in (reused,reordered,subset),i in eachindex(adopted.meshes)
+            @test read(joinpath(adopted.path,"mesh","frequency_$(lpad(i,4,'0')).msh"))==adopted.meshes[i]
+        end
+        empty_run=mktempdir(); mkpath(joinpath(empty_run,"mesh"))
+        for path in (joinpath(fem_test_runtime_directory,"missing-run"),mktempdir(),empty_run)
+            err=try
+                N.FEM.computation_options(N.FEM.LineCableModelsFEM,ComputationOptions(mesh_path=path))
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test occursin(path,sprint(showerror,err))
+            isdir(path) && rm(path;recursive=true)
+        end
+        @test_throws ArgumentError N.FEM.computation_options(N.FEM.LineCableModelsFEM,
+            ComputationOptions(mesh_path=reused.path,mesh_policy=:remesh))
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
     end
 end

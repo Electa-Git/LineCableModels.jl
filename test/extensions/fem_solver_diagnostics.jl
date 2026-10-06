@@ -5,24 +5,24 @@
         ComputationOptions(; kwargs...)).data
     c = controls()
     @test (c.mumps_error_analysis, c.mumps_refinement_max,
-        c.mumps_backward_error_tolerance, c.mumps_forward_error_tolerance) ==
+        c.mumps_backward_error_tolerance, E.FEM_MUMPS_FORWARD_ERROR_BUDGET) ==
         (2, 2, 1e-12, 0.01)
     @test (c.linear_solver, c.gmres_iterations_max,
         c.gmres_relative_tolerance, c.gmres_absolute_tolerance) == (:mumps, 20, 1e-12, 0.0)
     for (key, values) in (
-        :mumps_error_analysis => (-1, 3, true, :full),
-        :mumps_refinement_max => (-2, 1.5, true, big(typemax(Cint)) + 1),
-        :mumps_backward_error_tolerance => (0, -1, Inf, NaN, true),
+        :MumpsErrorAnalysis => (-1, 3, true, :full),
+        :MumpsRefinementMax => (-2, 1.5, true, big(typemax(Cint)) + 1),
+        :MumpsBackwardErrorTolerance => (0, -1, Inf, NaN, true),
         :mumps_forward_error_tolerance => (0, -1, Inf, NaN, true),
         :linear_solver => (:cg, "gmres", true),
         :gmres_iterations_max => (0, -1, 1.5, true, big(typemax(Cint)) + 1),
         :gmres_relative_tolerance => (0, -1, Inf, NaN, true),
         :gmres_absolute_tolerance => (-1, Inf, NaN, true))
         for value in values
-            @test_throws ArgumentError controls(; key => value)
+            @test_throws ArgumentError (startswith(string(key),"Mumps") ? controls(overrides=(;key=>value)) : controls(; key => value))
         end
     end
-    @test controls(mumps_error_analysis=0, mumps_refinement_max=0).mumps_refinement_max == 0
+    @test controls(overrides=(MumpsErrorAnalysis=0, MumpsRefinementMax=0)).mumps_refinement_max == 0
     @test controls(linear_solver=:gmres, gmres_absolute_tolerance=1e-10).linear_solver === :gmres
     @test_throws ArgumentError controls(mumps_refinement_steps=2)
 
@@ -51,7 +51,7 @@
     @test full.cond1 == 2.45993e8
     @test full.forward_error == 0.4
     @test_logs (:warn, r"scaled-solution sensitivity exceeds budget") E._warn_solver_diagnostics(
-        full, controls(mumps_error_analysis=1), Val(:mumps); frequency_hz=0.1, basis=1, log="native.log")
+        full, controls(overrides=(MumpsErrorAnalysis=1,)), Val(:mumps); frequency_hz=0.1, basis=1, log="native.log")
     bad = only(E._solver_diagnostics(native(2, "nan", "inf", 0, 2), Val(:mumps)))
     @test !isfinite(bad.backward_error)
     @test_logs (:warn, r"backward-error target not met") E._warn_solver_diagnostics(
@@ -99,7 +99,7 @@
     # its cached per-attempt records or lose the second excitation.
     mktempdir() do root
         model = (problem=(frequencies=[0.1],), terminal_ids=["one", "two"])
-        for (basis, directory) in ((1, "attempts/old"), (2, "attempts/new"))
+        for (basis, directory) in ((1, "logs/old"), (2, "logs/new"))
             path = joinpath(root, directory)
             mkpath(path)
             write(joinpath(path, "getdp.log"), native(2, basis*1e-13, 0, 0, basis-1))
@@ -114,7 +114,7 @@
         @test getproperty.(retained, :frequency_index) == [1, 1]
         @test retained[2].backward_error == 2e-13
         for dir in ("old", "new")
-            write(joinpath(root,"attempts",dir,"getdp.log"),gmres("CONVERGED_RTOL",2,1e-13,1e-13))
+            write(joinpath(root,"logs",dir,"getdp.log"),gmres("CONVERGED_RTOL",2,1e-13,1e-13))
         end
         retained = E._retained_solver_diagnostics(root,model,Val(:gmres))
         @test length(retained) == 2

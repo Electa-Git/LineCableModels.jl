@@ -192,7 +192,7 @@ D=\max\left(R_{\rm layout},\ mL\frac{|q_{0,e}|}
 is 2. A larger prescribed transverse root can shorten the domain, while a
 small or cutoff root cannot enlarge it. The layout bound includes the existing
 5 m minimum and cable clearances. Each PML thickness is D times its directional
-`pml_thickness_factor`. When the ceiling binds, the native flag is published
+the native directional thickness factors. When the ceiling binds, the native flag is published
 and managed execution warns
 “earth too resistive for FEM domain sizing; results not qualified”.
 
@@ -243,7 +243,7 @@ The original layer thickness adds to the capped stretched increment.
 
 ## Loss-aware PML intervals
 
-`pml_layers=16` supplies minimum normal interval counts, rather than fixed
+`PmlSideLayers`, `PmlTopLayers` and `PmlBottomLayers` (default 16) supplies minimum normal interval counts, rather than fixed
 counts. With ``X_d=L_d(1+A_d/4-j\eta_d A_d/4)`` for the layer alone and
 ``E_{m,d}=\Re(q_mX_d)``, the native bound is
 
@@ -257,7 +257,7 @@ N_d=\max\left(N_{\min,d},
 
 The fixed base coefficient is `PmlPointsPerWavelength=10`.
 For positive ``a_m``,
-`PPW_m=10*clamp(sqrt(0.1*abs(q_m)/a_m),1,3)`; for nonpositive ``a_m``, it is 30.
+`PPW_m=10/MeshSizeFactor*clamp(sqrt(0.1*abs(q_m)/a_m),1,3)`; for nonpositive ``a_m``, it is `30/MeshSizeFactor`.
 The clamp bounds are read-only ONELAB values. The decay factor restricts the interval bound to the part of the stretched
 layer before attenuation T. Exact cutoff has
 ``|q_m|=0`` and contributes zero to the bound.
@@ -316,7 +316,7 @@ and the flag for a clipped or omitted layer; clipping alone does not warn.
 
 Vertical box and side-PML edges grade from
 `min(existing_last_size,MeshBulk,medium_wave_size)` with the existing native
-edge law. `interface_refinement_factor=1` retains the cable footprint law.
+edge law. `InterfaceRefinementFactor=1` retains the cable footprint law.
 Interface mesh seeds come from one cable-centre source plus the central seeds.
 They are merged within `max(1e-9,1e-12*domain_span)` metres, and also within
 0.1 times the smaller local target. A native hard check rejects shorter
@@ -355,80 +355,81 @@ The analytical EarthModel keeps its requirement of infinite air resistivity.
 
 ## Options
 
-Scientific selections belong to the formulation. `physics=:helmholtz`, Γ,
-`reduce_bundle`, `kron_reduction` and `ideal_transposition` are formulation
-options; current formula selections are insulation and semiconductor admittance,
-earth properties and temperature dependence. Execution options belong to
-`compute(...; options=(...))`; detached `mesh_options`/`solver_options` expose
-the same native controls. Unknown options fail; there are no compatibility
-aliases for removed domain or mesh-planner keywords.
+Scientific selections (`physics=:helmholtz`, prescribed Γ and reductions)
+belong to the formulation. Computation and detached export share one validator.
+Unknown options fail. Removed expert keywords report the native override to use.
 
-| Mesh option | Default | Meaning |
+| Group | Options and defaults |
+|---|---|
+| Physics | `mesh_size_factor=1.0`, `domain_size_factor=2.0`, `pml_reflection=1e-3` |
+| Workflow | `mesh_policy=:reuse`, `mesh_path=nothing`, `keep_run_directory=false`, `resume_run_directory=nothing`, `getdp_executable=nothing`, `output_basis=:pul`, `on_result=nothing` |
+| Resources | `frequency_workers=clamp(Sys.CPU_THREADS ÷ 4, 1, 8)`, `solver_threads=1` |
+| Solver | `linear_solver=:mumps` (also `:gmres`), `gmres_iterations_max=20`, `gmres_relative_tolerance=1e-12`, `gmres_absolute_tolerance=0.0` |
+| Diagnostics | `plot_field_maps=false`, `verbosity=(default=0,)`, `gmsh_verbosity=2`, `getdp_verbosity=2`, `log_file=nothing`, `trace=false`, `timing=false` |
+| Expert | `overrides=(;)`, a named tuple of numeric native parameters |
+
+`mesh_size_factor` is one resolution scale: larger values coarsen conductor
+angular spacing, first normal step and bulk sizes, wave and earth-layer targets,
+measurement-line sizes and the PML points-per-wavelength bound. Minimum circle
+segments and the minimum PML interval counts stay fixed. Factor one preserves
+the default mesh. The circle segment count set by geometric area tolerance is
+independent of `mesh_size_factor`. It does not change physical decay lengths or domain extent.
+`domain_size_factor` multiplies the physical earth sizing length after its
+resistive ceiling and prescribed-Γ adjustment. `pml_reflection` sets nominal
+normal-wave attenuation. Near DC the added real stretch is limited to 100
+domain half-widths and becomes purely real where the air field is quasi-static
+throughout that extent; native observations report activation.
+
+`mesh_policy=:reuse` reuses compatible meshes within a run; `:remesh`
+regenerates them. Supplying `mesh_path` with `:remesh` raises `ArgumentError`.
+Very large meshes may require fewer frequency workers to bound memory.
+
+Expert overrides are validated against one declaration of types and ranges.
+The native guards also reject invalid CLI and ONELAB edits. The exported
+`Expert` group uses the same native parameter names and defaults.
+
+| Native override | Default | Allowed values or meaning |
 |---|---|---|
-| `domain_size_factor` | `2.0` | Multiplier of the earth sizing length after ceiling and prescribed-Γ adjustment |
-| `pml_thickness_factor` | `1.0` | Directional thickness relative to physical half-width |
-| `pml_layers` | `16` | Minimum normal interval count; native loss-aware bound may raise it |
-| `pml_grading` | `log(20)` | Grading exponent; scalar or side, top and bottom tuple |
-| `pml_reflection` | `1e-3` | Normal-wave strength calibration |
-| `mesh_size_factor` | `1.0` | Physical local and bulk size factor |
-| `exterior_mesh_size_factor` | `1.0` | Remote-buffer factor, at least one |
-| `interface_refinement_factor` | `1.0` | Cable-projected interface footprint factor, at least one |
-| `volume_quadrature` | `12` | Triangle quadrature: 4, 7, 12 or 13 points |
-| `physical_volume_quadrature` | `3` | Three points integrate first-order field products exactly for piecewise-constant materials; `nothing` inherits the triangle rule |
-| `pml_element_family` | `:quadrangle` | Quadrangles or triangles in the same PML grid |
-| `pml_quadrature` | `4` | Quadrangle quadrature: 4, 9, 16 or 25 points |
-| `conductor_geometry_tolerance` | `1e-3` | Relative circular area error |
-| `conductor_skin_depth_elements` | `6.0` | Normal elements per conductor skin depth |
-| `conductor_mesh_growth` | `sqrt(1.25)` | Conductor normal growth |
-| `conductor_skin_depths` | `5.0` | Graded depth, bounded by available conductor width |
-| `conductor_thickness_elements` | `4` | Minimum wall divisions |
+| `PmlSideThicknessFactor`, `PmlTopThicknessFactor`, `PmlBottomThicknessFactor` | `1.0` | Positive relative thickness |
+| `PmlSideLayers`, `PmlTopLayers`, `PmlBottomLayers` | `16` | Positive minimum interval counts; native wave bound may raise them |
+| `PmlSideGrading`, `PmlTopGrading`, `PmlBottomGrading` | `log(20)` | Nonnegative grading exponents |
+| `ExteriorMeshSizeFactor` | `1.0` | Remote-buffer factor, at least one |
+| `InterfaceRefinementFactor` | `1.0` | Cable-projected interface footprint factor, at least one |
+| `ConductorGeometryTolerance` | `1e-3` | Positive relative circular area error |
+| `ConductorSkinDepthElements` | `6.0` | Positive normal divisions per conductor skin depth |
+| `ConductorMeshGrowth` | `sqrt(1.25)` | Normal growth, at least one |
+| `ConductorSkinDepths` | `5.0` | Positive graded depth, limited by conductor width |
+| `ConductorThicknessElements` | `4` | Positive integer wall divisions |
+| `VolumeQuadrature` | `12` | Triangle points: 4, 7, 12 or 13 |
+| `PhysicalVolumeQuadrature` | `3` | Triangle points: 3, 4, 7, 12 or 13 |
+| `PmlQuadrangles` | `1` | 1 for quadrangles, 0 for triangles |
+| `PmlQuadrature` | `4` | Quadrangle points: 4, 9 or 16 |
+| `MumpsOrdering` | `0` | AMD; -1 retains solver default, other codes: 2, 3, 4, 5, 6, 7 |
+| `PetscPrealloc` | `0` | 0 retains solver default; otherwise positive row allocation |
+| `MumpsErrorAnalysis` | `2` | 0 off, 1 full, 2 backward errors |
+| `MumpsRefinementMax` | `2` | Nonnegative refinement limit |
+| `MumpsBackwardErrorTolerance` | `1e-12` | Positive backward-error target |
 
-Thickness and interval controls accept a scalar or side, top and bottom tuple.
-Native `MeasurementLineSizeFactor` is fixed at 0.25 and is not a second Julia
-mesh option. `mesh_policy=:reuse` reuses compatible meshes; `:remesh` regenerates
-them. `mesh_path` selects a compatible existing mesh.
-
-| Solver/execution option | Default | Meaning |
-|---|---|---|
-| `linear_solver` | `:mumps` | Direct MUMPS or right-LU-preconditioned `:gmres` |
-| `mumps_ordering` | `0` | AMD (`ICNTL(7)=0`); explicit native ordering code |
-| `petsc_prealloc` | `nothing` | Native sparse row allocation |
-| `mumps_error_analysis` | `2` | Backward-error estimates; `1` also condition and forward-error estimates |
-| `mumps_refinement_max` | `2` | Native refinement limit |
-| `mumps_backward_error_tolerance` | `1e-12` | Managed diagnostic warning target |
-| `mumps_forward_error_tolerance` | `0.01` | Managed full-analysis sensitivity warning target |
-| `gmres_iterations_max` | `20` | Total iteration limit |
-| `gmres_relative_tolerance` | `1e-12` | Relative residual target |
-| `gmres_absolute_tolerance` | `0.0` | Absolute residual target; zero disables it |
-| `frequency_workers` | `clamp(Sys.CPU_THREADS ÷ 4, 1, 8)` | Concurrent native frequency jobs |
-| `solver_threads` | `1` | Native threads per job |
-| `getdp_executable` | `nothing` | Explicit executable; otherwise environment or artifact selection |
-| `gmsh_verbosity`, `getdp_verbosity` | `2` | Native log detail |
-| `plot_field_maps` | `false` | Save physical and normalized field maps |
-| `keep_run_directory` | `false` | Keep successful run artifacts |
-| `resume_run_directory` | `nothing` | Replay or resume matching saved inputs |
-
-The default worker count uses one quarter of the available CPU threads, bounded
-between one and eight. Very large meshes may need fewer workers to bound memory
-use. MUMPS uses AMD ordering by default; `mumps_ordering=nothing` retains the
-native solver default.
-
-MUMPS diagnostics and GMRES residuals are reported without automatic solver
-switches or refinement studies. Failed and interrupted runs retain their logs.
-Mesh identity includes physical inputs, Γ, sizing controls and native sources;
-changing quadrature alone does not change the mesh prescription. Source and
-column checksums prevent incompatible resume. The Gmsh session is restored to
-the caller, including its current model and views. Saved mesh and field readers
-remain independent of GetDP and of active computations.
+Three physical quadrature points integrate first-order field products exactly
+for piecewise-constant materials. PML quadrature remains separate.
+The MUMPS forward-error warning budget is a fixed 0.01. Diagnostics do not
+trigger automatic solver switches or refinement studies. Failed and interrupted
+runs retain their logs. Mesh identity includes physical inputs, Γ, mesh controls
+and native sources; quadrature alone does not change the mesh prescription.
 
 ## Export a detached ONELAB project
 
 ```julia
 export_data(:onelab, problem, fem;
     file_name="onelab_model/model.pro",
-    mesh_options=(domain_size_factor=2.0, pml_layers=48),
-    solver_options=(mumps_ordering=0,))
+    options=(domain_size_factor=2.0, overrides=(PmlSideLayers=48, PmlTopLayers=48, PmlBottomLayers=48, MumpsOrdering=0),))
 ```
+
+Detached `options` accepts physics, overrides, solver controls, `solver_threads`,
+`plot_field_maps`, `output_basis` and native verbosity. When verbosity is omitted,
+Gmsh inherits its caller setting and GetDP retains its existing stage verbosity
+(3 for mesh-only, 4 for solving). Managed workers,
+retention, resume, callbacks and logging options are rejected.
 
 The exported entry, physical CAD, evaluated material values and native sources
 are self-contained. Managed Julia runs use these same sources.
@@ -466,9 +467,39 @@ parameters = compute(problem, Formulation(:LineCableModelsFEM);
 run = details(parameters).data.fem.run
 ```
 
-The retained run contains frequency-specific meshes under `mesh/` and native
-field maps under `maps/`. Successful runs are otherwise removed according to
-`keep_run_directory`; plotting cannot recover deleted files.
+The runtime root is `.linecablemodels/fem` under the working directory captured
+when computation starts. Each system has its own directory, and each run has an
+exclusively created `YYYYmmdd-HHMMSS-xxxx` directory. System identifiers are
+sanitized for filenames; the four-character suffix distinguishes runs created
+in the same second. A retained run is self-contained:
+
+```text
+.linecablemodels/fem/<system_id>/<timestamp>-<suffix>/
+    input/
+    mesh/       frequency_XXXX.msh and frequency_XXXX.json
+    results/    adopted matrices, column checkpoints and timing
+    logs/       mesh and solver diagnostics
+    maps/       only when field maps are requested
+    work/       only retained after interruption or failure
+    run.json
+    coordinator.lock
+```
+
+Native mesh observations are folded into each mesh's JSON sidecar. There is no
+cross-run mesh cache: `mesh_policy=:reuse` shares equal fingerprints within the
+run and reuses valid meshes when resuming it. Repeated computations generate new
+meshes unless `mesh_path` supplies a `.msh` file or a previous managed run directory.
+For a supplied run, each frequency matches the fingerprints in its mesh sidecars;
+matching meshes are linked or copied into the new run and validated, while unmatched
+frequencies mesh normally. The new run remains intact if the source run is deleted.
+A missing run directory or one without mesh sidecars is rejected. `resume_run_directory=:latest` selects the newest compatible run
+for the same system. Explicit resume paths must be inside that system’s runtime
+directory. Successful solver scratch is removed after adoption;
+failed scratch remains available for resume. Because adopted solver scratch is
+deleted, a corrupted result column is solved again on resume. A successful run is deleted unless
+`keep_run_directory=true`. A failed run is retained and its path is included in
+the error. Deleting its directory removes all files produced by that run.
+Plotting cannot recover deleted files.
 
 Load Gmsh and a Makie backend to inspect saved files independently:
 

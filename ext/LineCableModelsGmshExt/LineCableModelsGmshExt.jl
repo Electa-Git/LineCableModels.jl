@@ -8,6 +8,8 @@ using Base.BinaryPlatforms: HostPlatform, triplet
 using Pkg.Artifacts: artifact_hash, ensure_artifact_installed
 using Logging: AbstractLogger, SimpleLogger, @debug, @info,
                @warn, with_logger
+using Dates: Dates, now
+using Random: RandomDevice, rand
 using Printf: @sprintf
 using SHA: sha256
 using LinearAlgebra: I, cond, lu, norm
