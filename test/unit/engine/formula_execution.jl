@@ -53,8 +53,8 @@ end
                 expression = LineCableModels.Expression(selected, pair)
                 @test expression.method === operation
                 @test_throws ArgumentError begin
-                    validate(expression, earth)
-                    expression(nothing, nothing, nothing)
+                    validate(expression, earth.layers)
+                    expression(nothing, nothing)
                 end
             end
         end
@@ -229,15 +229,16 @@ end
     # not a changed implementation of the built-in's claimed scientific identity.
     custom=M.selection(EI)
     pair=E.EarthPair(1, 2, (-1.0, -1.0), 1.0, (2, 2))
-    bound=only(LineCableModels.Commons.bindings(custom, (pair,)))
-    @test bound.expression.selection === custom
-    @test isempty(bound.options.data)
-    @test_throws ArgumentError LineCableModels.Commons.bindings(
-        M.selection(EI; options = (integration = (method = :quad,),)), (pair,))
+    expression=Expression(custom, pair)
+    @test expression.selection === custom
+    @test isempty(only(formulation_options(custom, (expression,)).options).data)
+    integrating=M.selection(EI; options = (integration = (method = :quad,),))
+    @test_throws ArgumentError formulation_options(integrating,
+        (Expression(integrating, pair),))
     rho=[Inf, 100.0]
     epsilon=8.8541878128e-12 .* [1, 10]
     mu=fill(4pi*1e-7, 2)
-    value=custom(rho, epsilon, mu, 100.0im, pair; thickness = [Inf, Inf])()
+    value=custom(rho, epsilon, mu, 100.0im, pair; thickness = [Inf, Inf])
     @test isfinite(value)
     @test formula_id(custom) !== formula_id(external.selection)
 end
@@ -383,7 +384,7 @@ end
     mu=fill(4pi*1e-7, 3)
     pair=M.E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 3))
     @test isfinite(M.selection(M.EI)(rho, epsilon, mu, 100.0im, pair;
-        thickness = [Inf, 0.5, Inf])())
+        thickness = [Inf, 0.5, Inf]))
     @test_throws DomainError M.EI.Formula(:default)(
         rho[1:2], epsilon[1:2], mu[1:2], 100.0im,
         M.E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 2)))

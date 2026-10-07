@@ -10,7 +10,7 @@ $(IMPORTS)
 
 """
 module EarthAdmittance
-import ...Commons: FormulationOptions, bindings, formulas
+import ...Commons: FormulationOptions, formulas
 
 # Export public API
 export Formula, formula_id, earth_potential_coefficient, formulas
@@ -20,13 +20,14 @@ export Formula, formula_id, earth_potential_coefficient, formulas
 # These abbreviations are expanded in this module docstring and included files.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
-import ...LineCableModels: validate
-import ..Engine: EarthPair
 import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthAdmittanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
-import ..Engine: earth_bindings, earth!, same_physical_state, layer_index
+import ...LineCableModels: validate
+import ...Commons: Functor
+import ..Engine: EarthPair
+import ..Engine: EarthPlan, earth!, same_physical_state, layer_index
 using ...Earth: EarthModel
 import ...Commons: initialize_buffers
 import ..Engine: computation_type, EarthImpedanceFormulation, special_besselix,
@@ -42,7 +43,7 @@ import ..Engine: AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
 using ...Commons: vacuum_permittivity
 #! explicit-imports: on
 
-public Functor, source_potential_coefficient, earth!
+public source_potential_coefficient, earth!
 
 include("interface.jl")
 

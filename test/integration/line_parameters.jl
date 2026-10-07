@@ -99,10 +99,10 @@
     solve_without_logging(complete_workspace, complete_formulation)
     solve_without_logging(complete_workspace, complete_formulation)
     @test (@allocated solve_without_logging(complete_workspace, complete_formulation))<=32_768
-    shared=only(complete_workspace.plan.earth_calculations)
-    @test shared.impedance_indices == shared.potential_indices
-    @test !isempty(shared.impedance_indices)
-    @test length(complete_workspace.buffers.earth_materials) == 1
+    shared=only(complete_workspace.plan.earth.calculations)
+    @test shared.impedance.pairs == shared.admittance.pairs
+    @test !isempty(shared.impedance.pairs)
+    @test length(complete_workspace.buffers.earth.calculations) == 1
     # Distinct configurations use separate calculations and material tables.
     # The main numerical arrays are reused after publishing selected entries.
     distinct_formulation=Formulation(
@@ -111,11 +111,11 @@
         options = (
             reduce_bundle = true, kron_reduction = true, ideal_transposition = false))
     distinct_workspace=LineParametersWorkspace(problem, distinct_formulation, execution, blueprints)
-    impedance, potential=distinct_workspace.plan.earth_calculations
-    @test !isempty(impedance.impedance_indices) && isempty(impedance.potential_indices)
-    @test isempty(potential.impedance_indices) && !isempty(potential.potential_indices)
-    @test distinct_workspace.buffers.earth_materials[1].rho !==
-          distinct_workspace.buffers.earth_materials[2].rho
+    impedance, potential=distinct_workspace.plan.earth.calculations
+    @test !isempty(impedance.impedance.pairs) && impedance.admittance === nothing
+    @test potential.impedance === nothing && !isempty(potential.admittance.pairs)
+    @test distinct_workspace.buffers.earth.calculations[1].rho !==
+          distinct_workspace.buffers.earth.calculations[2].rho
     @test distinct_workspace.buffers.quadrature.segments !==
           complete_workspace.buffers.quadrature.segments
     @test distinct_workspace.buffers.axial_field !==

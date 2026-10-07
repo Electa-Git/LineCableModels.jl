@@ -292,97 +292,42 @@ function Expression(recipe::NamedTuple, pair::EarthPair)
     return Expression(selected, pair)
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Bind each earth-return interaction to the expression that `formula` declares for its
-kind and layers, with the expression's normalized options. Each pair and each expression's
-geometric restrictions are validated first. Return `(expression, kind, options)` records.
-"""
-function bindings(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-        pairs::Union{Tuple, AbstractVector{<:EarthPair}})
-    expressions = map(pairs) do pair
-        validate(pair)
-        expression = Expression(formula, pair)
-        validate(pair, expression)
-        expression
-    end
-    projected = formulation_options(formula, expressions)
-    records = map(projected.expressions, projected.options) do expression, options
-        (expression = expression, kind = typeof(first(expression.arguments)).parameters[1],
-            options = options)
-    end
-    return map(expression -> records[findfirst(==(expression), projected.expressions)],
-        expressions)
-end
-
 # Equation-specific geometric restrictions extend the existing validation protocol.
 validate(pair::EarthPair, ::Expression) = pair
 
 # Whether the formula of `expression` admits earth layer `k`. It does when a method of its
-# operation accepts `Val{k}` in the source or the target position, whatever the types of the
-# other arguments. A layer left generic, such as `::Val{S}`, admits every layer.
+# operation accepts `Val{k}` in the source or the target position, with the `Functor` and the
+# workspace that the evaluation passes, whatever the types of the other arguments. A layer
+# left generic, such as `::Val{S}`, admits every layer. The earth decision, the error message
+# of `validate(expression, layers)` and the standalone formula call read the layers here.
 function _admits_layer(expression::Expression, k::Int)
     F = typeof(expression.selection)
-    return !isempty(methods(expression.method, Tuple{F, Any, Val{k}, Any, Any, Any, Any})) ||
-           !isempty(methods(expression.method, Tuple{F, Any, Any, Val{k}, Any, Any, Any}))
-end
-
-# The equivalent earth that an earth formula consumes on `model`. An explicit
-# `equivalent_earth` applies. Without one, a formula that does not admit any layer from 3 to
-# N gets the EquivalentHomogeneous `:default` reduction on a model with N > 2 layers. Otherwise the
-# result is `nothing`, the layered earth. `pair` is any earth interaction. The decision reads
-# the operation of the formula's expression for it and ignores the layers of the pair.
-function _equivalent_earth(selected, model::EarthModel, pair::EarthPair)
-    selected.equivalent_earth === nothing || return selected.equivalent_earth
-    layers = length(model.layers)
-    layers > 2 || return nothing
-    expression = Expression(selected, pair)
-    any(k -> _admits_layer(expression, k), 3:layers) && return nothing
-    return EquivalentHomogeneous.AbstractSequence(formula(:default))
-end
-
-# The equivalent earth of an earth recipe, decided once for its slot. A recipe describes a
-# homogeneous earth, so each of its formulas stops at layer 2. On more layers the slot takes
-# the explicit reduction that its formulas agree on, or else the `:default` reduction.
-function _equivalent_earth(recipe::NamedTuple, model::EarthModel, pair::EarthPair)
-    selected = Tuple(leaf for leaf in recipe if leaf !== nothing)
-    layers = length(model.layers)
-    for leaf in selected
-        expression = Expression(leaf, pair)
-        any(k -> _admits_layer(expression, k), 3:max(3, layers)) &&
-            throw(ArgumentError("a multilayer formula is used alone"))
-    end
-    explicit = unique(leaf.equivalent_earth for leaf in selected
-        if leaf.equivalent_earth !== nothing)
-    length(explicit) > 1 && throw(ArgumentError(
-        "the formulas of an earth recipe give different equivalent earths"))
-    isempty(explicit) || return only(explicit)
-    layers > 2 || return nothing
-    return EquivalentHomogeneous.AbstractSequence(formula(:default))
+    return !isempty(methods(expression.method, Tuple{F, Any, Val{k}, Any, Functor, Any})) ||
+           !isempty(methods(expression.method, Tuple{F, Any, Any, Val{k}, Functor, Any}))
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Check that the formula of `expression` defines it for the layers of an earth `model`, before
-the frequency loop evaluates it. The signatures of a formula's methods declare the earth
-layers it handles, whatever the types of their runtime arguments. In layers that the formula
-admits, `validate(expression)` checks the expression. Return `expression`.
+Check that the formula of `expression` defines it for an earth with one entry of `layers` per
+medium, before evaluating it: the layers of an earth model, or the resistivities of the
+standalone formula call. The signatures of a formula's methods declare the earth layers it
+handles, whatever the types of their runtime arguments. In layers that the formula admits,
+`validate(expression)` checks the expression. Return `expression`.
 
 # Errors
 
-- Throws `ArgumentError` with the layer count N of `model` and the highest layer up to N
-  that the formula admits, when the formula does not admit the source or target layer.
+- Throws `ArgumentError` with the layer count N and the highest layer up to N that the
+  formula admits, when the formula does not admit the source or target layer.
 - Throws the `ArgumentError` of `validate(expression)` for a missing expression in layers
   that the formula admits.
 
-When the formula admits layer N + 1, the message reads "defined for every layer" instead.
+When the formula admits layer N + 1, the message reads "defined beyond layer N" instead.
 """
 function validate(expression::Expression{<:Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}},
-        model::EarthModel)
+        layers::Union{Tuple, AbstractVector})
     selected = expression.selection
-    signature = Tuple{typeof(selected), map(typeof, expression.arguments)..., Any, Any, Any}
+    signature = Tuple{typeof(selected), map(typeof, expression.arguments)..., Functor, Any}
     hasmethod(expression.method, signature) && return expression
     interaction(::Val{K}, ::Val{S}, ::Val{T}) where {K, S, T} = (K, S, T)
     kind, source, target = interaction(expression.arguments...)
@@ -390,11 +335,11 @@ function validate(expression::Expression{<:Union{EarthImpedanceFormulation, Eart
         validate(expression)
         return expression
     end
-    layers = length(model.layers)
-    defined = _admits_layer(expression, layers + 1) ? "defined for every layer" :
-              "defined up to layer $(something(findlast(k -> _admits_layer(expression, k), 1:layers), 0))"
+    N = length(layers)
+    defined = _admits_layer(expression, N + 1) ? "defined beyond layer $N" :
+              "defined up to layer $(something(findlast(k -> _admits_layer(expression, k), 1:N), 0))"
     throw(ArgumentError(
-        "the earth model has $layers layers and formula " *
+        "the earth model has $N layers and formula " *
         ":$(formula_id(selected)) is $defined; it has no expression " *
         "for a $kind interaction from layer $source to layer $target"))
 end
@@ -432,6 +377,90 @@ function validate(rho::AbstractVector,
                 "air and bottom half-spaces must be infinite; internal layers positive and finite"))
     end
     return rho
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of an earth calculation of the impedance formula `formula` at one
+frequency, whose parts write the impedance coefficients of each conductor pair into `Zearth`
+of the workspace buffers, with an empty state.
+"""
+function Functor(formula::EarthImpedanceFormulation, input::NamedTuple; workspace)
+    return Functor(formula, merge(input, (destinations = (workspace.buffers.Zearth,),)), (;))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of an earth calculation of the admittance formula `formula` at one
+frequency, whose parts write the potential coefficients of each conductor pair into `Pearth`
+of the workspace buffers, with an empty state.
+"""
+function Functor(formula::EarthAdmittanceFormulation, input::NamedTuple; workspace)
+    return Functor(formula, merge(input, (destinations = (workspace.buffers.Pearth,),)), (;))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check the input of one conductor pair before an earth formula evaluates it: a finite nonzero
+`jω`, the aligned material vectors of the pair, and, on a layered earth, the pair's heights
+against the layer thicknesses. Return `input`.
+"""
+function validate(input::NamedTuple,
+        formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})
+    isfinite(input.jω) && !iszero(input.jω) ||
+        throw(DomainError(input.jω, "jω must be finite and nonzero"))
+    validate(input.rho, formula, input.epsilon, input.mu, input.thickness)
+    input.thickness === nothing || validate(input.pair, input.thickness)
+    return input
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate the earth coefficient of one indexed conductor pair at fixed angular frequency.
+Material vectors list air and every physical earth layer when layer thicknesses are given,
+and exactly `(air,soil)` otherwise. The call runs the checks of a computation: the pair and
+its geometry, the expression for its kind and layers on an earth with these media, the
+formula's options for that expression, and the pair's input. Return the coefficient as
+`Complex{T}`.
+
+# Arguments
+
+- `resistivity`: aligned resistivities [Ω·m].
+- `permittivity`: absolute permittivities [F/m].
+- `permeability`: absolute permeabilities [H/m].
+- `jω`: imaginary angular frequency [1/s].
+- `pair`: indexed conductor interaction. Lengths [m].
+
+# Keywords
+
+- `thickness`: aligned layer thicknesses [m] for a layered earth.
+- `physical_pair`: the physical pair before an equivalent-earth reduction.
+- `workspace`: the computation workspace, when the expression reads its buffers.
+"""
+function (formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})(
+        resistivity::AbstractVector{T}, permittivity::AbstractVector{T},
+        permeability::AbstractVector{T}, jω::Complex{T}, pair::EarthPair;
+        thickness = nothing, physical_pair = pair, workspace = nothing
+) where {T <: Real}
+    validate(pair)
+    expression = Expression(formula, pair)
+    validate(pair, expression)
+    validate(expression, resistivity)
+    options = only(formulation_options(formula, (expression,)).options)
+    # One pair does not need destinations. The plain constructor gives the empty state of a
+    # formula that does not share values. Unified, whose state is its whole system, runs only in
+    # a computation.
+    functor = Functor(formula, (; jω, thickness, pair, physical = physical_pair,
+        rho = resistivity, epsilon = permittivity, mu = permeability, options), (;))
+    validate(functor.input, formula)
+    value = expression(functor, workspace)
+    value isa Number && isfinite(value) ||
+        throw(DomainError((value,), "earth coefficients must be finite scalars"))
+    return oftype(jω, value)
 end
 
 """

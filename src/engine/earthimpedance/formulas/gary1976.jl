@@ -60,21 +60,23 @@ Deri-Semlyen.
 """
 function earth_impedance(
         ::Formula{:gary1976}, ::Val{:self}, ::Val{1}, ::Val{1},
-        functor, pair, workspace
+        functor, workspace
 )
-    s = functor.state.jω
+    pair = functor.input.pair
+    s = functor.input.jω
     μ0 = vacuum_permeability(typeof(real(s)))
-    he = inv(sqrt(s * μ0 * functor.state.sigma[2]))
+    he = inv(sqrt(s * μ0 * conductivity(functor.input.rho[2])))
     return s * μ0 / (2 * (one(real(s)) * π)) * log(2 * (pair.heights[1] + he) / pair.radius)
 end
 
 function earth_impedance(
         ::Formula{:gary1976}, ::Val{:mutual}, ::Val{1}, ::Val{1},
-        functor, pair, workspace
+        functor, workspace
 )
-    s = functor.state.jω
+    pair = functor.input.pair
+    s = functor.input.jω
     μ0 = vacuum_permeability(typeof(real(s)))
-    he = inv(sqrt(s * μ0 * functor.state.sigma[2]))
+    he = inv(sqrt(s * μ0 * conductivity(functor.input.rho[2])))
     hi, hj = pair.heights
     x = pair.separation
     S = sqrt((hi + hj + 2he)^2 + x^2)

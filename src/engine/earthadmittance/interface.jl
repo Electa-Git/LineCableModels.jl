@@ -21,24 +21,6 @@ struct Formula{ID, P <: NamedTuple, O <: FormulationOptions, E} <:
 end
 
 """
-$(TYPEDEF)
-
-Bind one indexed interaction to evaluated physical state. Formulation options and
-evaluated material quantities remain distinct. The main computation workspace is passed
-when evaluating an equation that needs reusable numerical buffers.
-
-$(TYPEDFIELDS)
-"""
-struct Functor{B, S, O <: FormulationOptions}
-    "Selected equation and its exact source-target geometry."
-    binding::B
-    "Evaluated material quantities and angular frequency."
-    state::S
-    "Normalized formulation options of the selected equation."
-    options::O
-end
-
-"""
 Evaluate one source-owned earth potential coefficient equation.
 """
 function earth_potential_coefficient end
@@ -70,85 +52,6 @@ function Formula{ID}(; parameters::NamedTuple = (;),
     end
     return Formula{ID, typeof(parameters), typeof(options), typeof(reduction)}(
         parameters, options, reduction)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Construct one validated indexed interaction at fixed angular frequency. Material
-vectors list air and every physical earth layer when layer thicknesses are given,
-and exactly `(air,soil)` otherwise. Explicit reduction and its physical and effective
-mapping are owned by the computation workspace.
-
-# Arguments
-
-- `resistivity`: aligned resistivities [Ω·m].
-- `permittivity`: absolute permittivities [F/m].
-- `permeability`: absolute permeabilities [H/m].
-- `jω`: imaginary angular frequency [1/s].
-- `pair`: indexed conductor interaction. Lengths [m].
-
-# Keywords
-
-- `thickness`: aligned layer thicknesses [m] for a layered earth.
-"""
-function (formula::EarthAdmittanceFormulation)(
-        resistivity::AbstractVector{T}, permittivity::AbstractVector{T},
-        permeability::AbstractVector{T}, jω::Complex{T}, pair::EarthPair;
-        thickness = nothing, physical_pair = pair
-) where {T <: Real}
-    selected = only(bindings(formula, (pair,)))
-    return formula(resistivity, permittivity, permeability, jω, pair, selected;
-        thickness, physical_pair)
-end
-
-# Evaluate a declaration already bound by bindings() before the frequency loop.
-function (formula::EarthAdmittanceFormulation)(
-        resistivity::AbstractVector{T}, permittivity::AbstractVector{T},
-        permeability::AbstractVector{T}, jω::Complex{T}, pair::EarthPair, selected;
-        thickness = nothing, physical_pair = pair
-) where {T <: Real}
-    isfinite(jω) && !iszero(jω) || throw(DomainError(jω, "jω must be finite and nonzero"))
-    options = selected.options
-    validate(resistivity, formula, permittivity, permeability, thickness)
-    thickness === nothing || validate(pair, thickness)
-    layers = thickness === nothing ? (1, 2) : eachindex(permeability)
-    σ = map(layer -> conductivity(resistivity[layer]), layers)
-    materials = (rho = resistivity, epsilon = permittivity,
-        mu = permeability, sigma = σ)
-    state = merge(materials, (; jω, thickness))
-    binding = (pair = pair, physical_pair = physical_pair,
-        kind = selected.kind, expression = selected.expression)
-    return Functor(binding, state, options)
-end
-
-function (functor::Functor)(workspace = nothing)
-    pair = functor.binding.pair
-    expression = functor.binding.expression
-    values = expression isa Tuple ?
-             map(method -> method(functor, pair, workspace), expression) :
-             (expression(functor, pair, workspace),)
-    all(value -> value isa Number && isfinite(value), values) || throw(DomainError(values,
-        "earth coefficients must be finite scalars"))
-    converted = map(value -> oftype(functor.state.jω, value), values)
-    return expression isa Tuple ? converted : only(converted)
-end
-
-function (selected::EarthAdmittanceFormulation)(materials, binding, workspace, frequency::Int)
-    state = (jω = workspace.input.jω[frequency], materials, thickness = materials.thickness)
-    return (coefficients = (workspace.buffers.Pearth,), state)
-end
-
-function (selected::EarthAdmittanceFormulation)(state::NamedTuple, interaction::NamedTuple, declaration)
-    index = interaction.index
-    return selected(@view(state.materials.rho[:, index]),
-        @view(state.materials.epsilon[:, index]), @view(state.materials.mu[:, index]),
-        state.jω, interaction.pair, declaration; thickness = state.thickness,
-        physical_pair = interaction.physical_pair)
-end
-
-function earth!(::EarthAdmittanceFormulation, calculation, workspace)
-    (potential = only(calculation.coefficients),)
 end
 
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)

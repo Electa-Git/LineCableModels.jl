@@ -26,7 +26,7 @@ end
 
 function earth_impedance(
         ::Formula{:carson1926}, kind::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
-        functor, pair, workspace
+        functor, workspace
 )
     throw(ArgumentError("earth_impedance :carson1926 ($kind), source layer 1, target layer 1: not yet implemented for the coaxial backend"))
 end

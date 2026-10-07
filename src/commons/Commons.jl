@@ -70,7 +70,7 @@ public vacuum_permittivity, vacuum_permeability
 public ideal_transposition!, reorder_indices, kron_reduce, kron_reduce!,
        bundle_operations, merge_bundles!
 public ReductionPlan, ReductionBuffers, reduce_line_matrices!, initialize_buffers
-public FormulaDefinition, Expression, bindings, formulas
+public FormulaDefinition, Expression, Functor, bindings, formulas
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation
 public observation_resolution

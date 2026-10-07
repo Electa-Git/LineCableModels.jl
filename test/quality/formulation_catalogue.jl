@@ -79,7 +79,7 @@
         (LineCableModels.Engine.EarthAdmittance,
             :earth_potential_coefficient, :ideal, :self, 1, 1))
         signature = Tuple{owner.Formula{identifier}, Val{kind},
-            Val{first_layer}, Val{second_layer}, Any, Any, Any}
+            Val{first_layer}, Val{second_layer}, Any, Any}
         docstring = meta(owner)[Binding(owner, name)].docs[signature]
         @test basename(String(docstring.data[:path])) == string(identifier, ".jl")
         @test !any(

@@ -143,7 +143,7 @@ end
             buffers.coefficients, buffers.tails))
     found["earth!"] = JET.get_reports(
         @report_opt target_modules=(LineCableModels,) E.earth!(workspace, 1,
-            plan.earth_calculations, buffers.earth_materials))
+            plan.earth.calculations, buffers.earth.calculations))
     found["reduce_line_matrices!"] = JET.get_reports(
         @report_opt target_modules=(LineCableModels,) C.reduce_line_matrices!(
             view(buffers.Zout, :, :, 1), view(buffers.Yout, :, :, 1), buffers.Zprimitive,

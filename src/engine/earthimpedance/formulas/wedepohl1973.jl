@@ -56,10 +56,11 @@ Eqs. (8-31)-(8-32).
 """
 function earth_impedance(
         ::Formula{:wedepohl1973}, ::Val{:self}, ::Val{2}, ::Val{2},
-        functor, pair, workspace
+        functor, workspace
 )
-    s, μ = functor.state.jω, functor.state.mu[2]
-    m = sqrt(s * μ / functor.state.rho[2])
+    pair = functor.input.pair
+    s, μ = functor.input.jω, functor.input.mu[2]
+    m = sqrt(s * μ / functor.input.rho[2])
     ec = one(real(m)) * 17811 / 10000
     return s * μ / (2 * (one(real(s)) * π)) *
            (-log(ec * m * pair.radius / 2) + one(m) / 2 - 4m * abs(pair.heights[1]) / 3)
@@ -67,10 +68,11 @@ end
 
 function earth_impedance(
         ::Formula{:wedepohl1973}, ::Val{:mutual}, ::Val{2}, ::Val{2},
-        functor, pair, workspace
+        functor, workspace
 )
-    s, μ = functor.state.jω, functor.state.mu[2]
-    m = sqrt(s * μ / functor.state.rho[2])
+    pair = functor.input.pair
+    s, μ = functor.input.jω, functor.input.mu[2]
+    m = sqrt(s * μ / functor.input.rho[2])
     ec = one(real(m)) * 17811 / 10000
     hi, hj = abs.(pair.heights)
     d = hypot(pair.separation, hi - hj)

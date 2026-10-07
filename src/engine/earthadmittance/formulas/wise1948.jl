@@ -30,7 +30,7 @@ end
 
 function earth_potential_coefficient(
         ::Formula{:wise1948}, kind::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{1},
-        functor, pair, workspace
+        functor, workspace
 )
     throw(ArgumentError("earth_potential_coefficient :wise1948 ($kind), source layer 1, target layer 1: not yet implemented for the coaxial backend"))
 end

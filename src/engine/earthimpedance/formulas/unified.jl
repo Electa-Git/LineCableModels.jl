@@ -22,9 +22,10 @@ caller-prescribed Γ \\[1/m\\] give
 ```
 
 Source columns include exp(abs(real(κⱼrⱼ))) scaling, shared with the source-potential
-and enclosed-current matrices. `pair` retains source-target geometry \\[m\\].
-`functor` contains evaluated media and circumferential factors. The complete
-current map converts these coefficients to physical series impedance.
+and enclosed-current matrices. `functor.input.pair` retains source-target geometry \\[m\\].
+`functor.state` contains the evaluated media of the system, and the workspace buffers hold
+the circumferential factors. The complete current map converts these coefficients to
+physical series impedance.
 
 The electric scalar-potential contribution is retained when Γ is nonzero.
 Quadrature estimates remain diagnostic warnings.
@@ -40,29 +41,31 @@ overhead, buried, and mixed conductor systems*, complete-field current relation.
 """
 function axial_field_coefficient(
         ::Union{Formula{:unified}, Val{:unified}}, kind::Union{Val{:self}, Val{:mutual}},
-        source::Union{Val{1}, Val{2}}, target::Union{Val{1}, Val{2}}, functor, pair, workspace)
+        source::Union{Val{1}, Val{2}}, target::Union{Val{1}, Val{2}}, functor, workspace)
     u=functor.state
+    pair=functor.input.pair
+    buffers=workspace.buffers
     medium=target === Val(1) ? 1 : 2
     hp, hq=abs(pair.heights[2]), abs(pair.heights[1])
     row, column=pair.row, pair.column
-    r=u.radius[row]
-    average=u.circumference_average[row]
-    sp, sq=u.source_logscale[row], u.source_logscale[column]
+    r=workspace.plan.geometry.radius[row]
+    average=buffers.circumference_average[row]
+    sp, sq=buffers.source_logscale[row], buffers.source_logscale[column]
     πT=one(u.jω)*π
-    integration=functor.options.data.integration
+    integration=functor.input.options.data.integration
     context=(
         formula = :unified, frequency = imag(u.jω)/(2π), receiver = row, source = column)
     direct=earth_direct(
-        kind, source, target, u, pair, r, average, u.radial_argument[row], sp, sq)
+        kind, source, target, u, pair, r, average, buffers.radial_argument[row], sp, sq)
     z=u.jω/πT*average*earth_spectral_term(Val(:Z), target, source, u,
         hp, hq, pair.separation, zero(r), sp+sq,
-        integration.method, integration.options, workspace.buffers; context)
+        integration.method, integration.options, buffers; context)
     z+=u.jω*u.mu[medium]/(2πT)*direct
     phi=zero(z)
     if !iszero(u.Γ)
         phi=u.jω/πT*average*earth_spectral_term(Val(:phi), target, source, u,
             hp, hq, pair.separation, zero(r), sp+sq,
-            integration.method, integration.options, workspace.buffers; context)
+            integration.method, integration.options, buffers; context)
         phi+=u.jω/(2πT*u.sh[medium])*direct
     end
     return z-u.Γ^2/u.jω*phi

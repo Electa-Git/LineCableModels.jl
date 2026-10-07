@@ -32,14 +32,14 @@ end
 
 function earth_impedance(
         ::Formula{:ametani2009}, kind::Val{:mutual}, ::Val{1}, ::Val{2},
-        functor, pair, workspace
+        functor, workspace
 )
     throw(ArgumentError("earth_impedance :ametani2009 ($kind), source layer 1, target layer 2: not yet implemented for the coaxial backend"))
 end
 
 function earth_impedance(
         ::Formula{:ametani2009}, kind::Val{:mutual}, ::Val{2}, ::Val{1},
-        functor, pair, workspace
+        functor, workspace
 )
     throw(ArgumentError("earth_impedance :ametani2009 ($kind), source layer 2, target layer 1: not yet implemented for the coaxial backend"))
 end

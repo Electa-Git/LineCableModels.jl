@@ -103,11 +103,12 @@ The transcription was checked against the original publication's page images.
 """
 function earth_impedance(
         ::Formula{:saad1996}, ::Val{:self}, ::Val{2}, ::Val{2},
-        functor, pair, workspace
+        functor, workspace
 )
-    s = functor.state.jω
+    pair = functor.input.pair
+    s = functor.input.jω
     μ0 = vacuum_permeability(typeof(real(s)))
-    m = sqrt(s * μ0 / functor.state.rho[2])
+    m = sqrt(s * μ0 / functor.input.rho[2])
     h, r = abs(pair.heights[1]), pair.radius
     return s * μ0 / (2 * (one(real(s)) * π)) *
            (special_besselk(0, m * r) + 2exp(-2m * h) / (4 + (m * r)^2))
@@ -115,11 +116,12 @@ end
 
 function earth_impedance(
         ::Formula{:saad1996}, ::Val{:mutual}, ::Val{2}, ::Val{2},
-        functor, pair, workspace
+        functor, workspace
 )
-    s = functor.state.jω
+    pair = functor.input.pair
+    s = functor.input.jω
     μ0 = vacuum_permeability(typeof(real(s)))
-    m = sqrt(s * μ0 / functor.state.rho[2])
+    m = sqrt(s * μ0 / functor.input.rho[2])
     hi, hj = abs.(pair.heights)
     x = pair.separation
     d = hypot(x, hi - hj)

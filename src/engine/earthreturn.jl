@@ -1,125 +1,128 @@
 function earth!(workspace::LineParametersWorkspace, frequency::Int,
-        calculations::Tuple = workspace.plan.earth_calculations,
-        materials::Tuple = workspace.buffers.earth_materials)
+        calculations::Tuple = workspace.plan.earth.calculations,
+        materials::Tuple = workspace.buffers.earth.calculations)
     foreach(calculations, materials) do calculation, material
         earth!(calculation, material, workspace, frequency)
     end
     return workspace
 end
 
-# Construct formula state, evaluate indexed coefficients,
-# convert the complete matrix when required, then select physical outputs.
-function earth!(binding::NamedTuple, materials::NamedTuple, workspace, frequency::Int)
-    calculation = binding.selection(materials, binding, workspace, frequency)
-    earth!(calculation.coefficients, binding, calculation.state, materials, workspace)
-    physical = earth!(binding.selection, calculation, workspace)
-    if !isempty(binding.impedance_indices) && physical.impedance !== workspace.buffers.Zearth
+# Build the calculation's Functor at the frequency, evaluate its parts into the destinations,
+# convert them when the formula requires it, then publish each served quantity's pairs.
+function earth!(calculation::NamedTuple, materials::NamedTuple, workspace, frequency::Int)
+    formula = something(calculation.impedance, calculation.admittance).formula
+    functor = Functor(formula, (; jω = workspace.input.jω[frequency], frequency,
+        materials.rho, materials.epsilon, materials.mu, materials.thickness,
+        calculation.media); workspace)
+    earth!(functor.input.destinations, calculation, functor, workspace)
+    physical = earth!(formula, functor, workspace)
+    if calculation.impedance !== nothing && haskey(physical, :impedance)
         destination = workspace.buffers.Zearth
-        for index in binding.impedance_indices
-            pair = binding.interactions[index].pair
+        for index in calculation.impedance.pairs
+            pair = calculation.pairs[index].pair
             destination[pair.row, pair.column] = physical.impedance[pair.row, pair.column]
         end
     end
-    if !isempty(binding.potential_indices) && physical.potential !== workspace.buffers.Pearth
+    if calculation.admittance !== nothing && haskey(physical, :admittance)
         destination = workspace.buffers.Pearth
-        for index in binding.potential_indices
-            pair = binding.interactions[index].pair
-            destination[pair.row, pair.column] = physical.potential[pair.row, pair.column]
+        for index in calculation.admittance.pairs
+            pair = calculation.pairs[index].pair
+            destination[pair.row, pair.column] = physical.admittance[pair.row, pair.column]
         end
     end
     return workspace
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Extend `buffers` with `earth_interactions`, the representative indices and diagnostic
-ranges of the `input.n_cables^2` earth interactions. Each traversal clears its warning
-records and overwrites the representatives. Numerical contributions stay in the
-coefficient matrices.
-"""
-function initialize_buffers(::typeof(earth!), ::Type, input, plan, buffers)
-    count = input.n_cables^2
-    return merge(buffers, (earth_interactions = (representatives = zeros(Int, count),
-        integral_ranges = Vector{UnitRange{Int}}(undef, count),
-        warning_ranges = Vector{UnitRange{Int}}(undef, count), warnings = NamedTuple[]),))
-end
+# The parts of a formula that does not solve a whole system wrote the physical coefficients
+# into `Zearth` or `Pearth`, so the conversion does not return any matrix.
+earth!(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}, ::Functor, workspace) = (;)
 
 """
 $(TYPEDSIGNATURES)
 
-Evaluate bound indexed earth equations and distribute their scalar coefficients
-into aligned matrices. The binding retains `EarthPair` geometry, source-target
-layer dispatch, earlier interactions with matching inputs, and selected equation controls.
+Evaluate the parts of an earth calculation at the frequency of `functor` and distribute their
+scalar coefficients into the aligned matrices `destinations`. A part gives its expressions and
+options. The calculation's pairs give each pair's source-target geometry and the earlier pair
+with the same inputs, `reuse_from`.
 
-Interactions share values only when all declared invariant inputs and current
-material values agree under `same_physical_state`. Default bindings include
-destination indices, preserving equations that use an index numerically.
-Every logical integral and warning retains its receiving row and source column.
+A pair takes the value of that earlier pair only when their current media agree under
+`same_physical_state`. `buffers.earth.pairs` records, at each frequency, the pair whose
+computed value each pair took. Every logical integral and warning retains its receiving row
+and source column.
 """
-function earth!(destinations::Tuple{Vararg{AbstractMatrix}}, binding::NamedTuple,
-        state::NamedTuple, materials::NamedTuple, workspace)
-    earth_interactions = workspace.buffers.earth_interactions
-    length(earth_interactions.representatives) >= length(binding.interactions) ||
+function earth!(destinations::Tuple{Vararg{AbstractMatrix}}, calculation::NamedTuple,
+        functor::Functor, workspace)
+    computed = workspace.buffers.earth.pairs
+    length(computed.representatives) >= length(calculation.pairs) ||
         throw(DimensionMismatch("earth interaction scratch is too small"))
-    empty!(earth_interactions.warnings)
-    foreach(binding.equations) do group
-        earth!(destinations, binding.selection, group, binding, state, materials, workspace)
+    empty!(computed.warnings)
+    foreach(calculation.parts) do part
+        earth!(destinations, part, calculation, functor, workspace)
     end
-    empty!(earth_interactions.warnings)
+    empty!(computed.warnings)
     return destinations
 end
 
-function earth!(destinations, selection, group, binding, state, materials, workspace)
-    earth_interactions = workspace.buffers.earth_interactions
+function earth!(destinations, part, calculation, functor, workspace)
+    computed = workspace.buffers.earth.pairs
     observations = workspace.buffers.observations
-    for index in group.indices
-        interaction = binding.interactions[index]
-        pair = interaction.pair
-        previous_interaction = binding.previous[index]
-        while previous_interaction != 0
-            same = let previous_interaction = previous_interaction
+    materials = (functor.input.rho, functor.input.epsilon, functor.input.mu)
+    for index in part.pairs
+        entry = calculation.pairs[index]
+        pair = entry.pair
+        # Follow the earlier pairs with the same inputs until one whose media agree.
+        current = index
+        source = entry.reuse_from
+        while source != current
+            same = let source = source
                 all(
                     values -> same_physical_state(@view(values[:, index]),
-                        @view(values[:, previous_interaction])),
-                    (materials.rho, materials.epsilon, materials.mu))
+                        @view(values[:, source])),
+                    materials)
             end
             same && break
-            previous_interaction = binding.previous[previous_interaction]
+            current = source
+            source = calculation.pairs[source].reuse_from
         end
-        if previous_interaction == 0
-            earth_interactions.representatives[index] = index
+        if source == current
+            computed.representatives[index] = index
             first_integral = observations === nothing ? 1 : length(observations)+1
-            first_warning = length(earth_interactions.warnings)+1
-            functor = selection(state, interaction, group.declaration)
-            result = functor(workspace)
-            values = result isa Number ? (result,) : result
-            length(values) == length(destinations) ||
+            first_warning = length(computed.warnings)+1
+            point = Functor(functor, (; pair, entry.physical,
+                rho = @view(functor.input.rho[:, index]),
+                epsilon = @view(functor.input.epsilon[:, index]),
+                mu = @view(functor.input.mu[:, index]), part.options))
+            validate(point.input, functor.formula)
+            values = map(expression -> expression(point, workspace), part.expressions)
+            all(value -> value isa Number && isfinite(value), values) || throw(DomainError(
+                values, "earth coefficients must be finite scalars"))
+            converted = map(value -> oftype(functor.input.jω, value), values)
+            length(converted) == length(destinations) ||
                 throw(DimensionMismatch("earth coefficients must match their destinations"))
-            foreach(destinations, values) do destination, value
+            foreach(destinations, converted) do destination, value
                 destination[pair.row, pair.column] = value
             end
-            earth_interactions.integral_ranges[index] = first_integral:(observations === nothing ? 0 :
-                                                          length(observations))
-            earth_interactions.warning_ranges[index] = first_warning:length(earth_interactions.warnings)
+            computed.integral_ranges[index] = first_integral:(observations === nothing ? 0 :
+                                                           length(observations))
+            computed.warning_ranges[index] = first_warning:length(computed.warnings)
         else
-            representative = earth_interactions.representatives[previous_interaction]
-            earth_interactions.representatives[index] = representative
-            previous_pair = binding.interactions[representative].pair
+            representative = computed.representatives[source]
+            computed.representatives[index] = representative
+            previous_pair = calculation.pairs[representative].pair
             for destination in destinations
                 destination[pair.row, pair.column] = destination[previous_pair.row, previous_pair.column]
             end
             context = (receiver = pair.row, source = pair.column)
             if observations !== nothing
-                for position in earth_interactions.integral_ranges[representative]
+                for position in computed.integral_ranges[representative]
                     record = observations[position]
                     integral_context = record.context isa NamedTuple ?
                                        merge(record.context, context) : record.context
                     push!(observations, merge(record, (context = integral_context,)))
                 end
             end
-            for position in earth_interactions.warning_ranges[representative]
-                record = earth_interactions.warnings[position]
+            for position in computed.warning_ranges[representative]
+                record = computed.warnings[position]
                 integral_context = record.context isa NamedTuple ?
                                    merge(record.context, context) : record.context
                 record_integral!(nothing, nothing, record.value, record.estimated_error,

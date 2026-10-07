@@ -3,7 +3,6 @@
     const EI = E.EarthImpedance
     const EA = E.EarthAdmittance
     const Expression = LineCableModels.Expression
-    using LineCableModels.Commons: bindings
     air = E.EarthPair(1, 2, (10.0, 12.0), 1.0, (1, 1))
     soil = E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2))
     mixed = E.EarthPair(1, 2, (10.0, -2.0), 1.0, (1, 2))
@@ -21,39 +20,40 @@
     earth = homogeneous(rho = 100.0)
     for owner in (EI, EA)
         selected = owner.Formula(:default)
-        @test only(bindings(selected, (air,))).expression.arguments[2:3] == (Val(1), Val(1))
-        @test only(bindings(selected, (soil,))).expression.arguments[2:3] == (Val(2), Val(2))
-        @test only(bindings(selected, (self,))).kind === :self
-        @test only(bindings(selected, (soil,))).kind === :mutual
-        @test only(bindings(selected, (mixed,))).kind === :mutual
-        @test_throws ArgumentError bindings(selected, (E.EarthPair(
-            1, 2, (-1.0, -2.0), 1.0, (2, 3)),))
+        @test Expression(selected, air).arguments[2:3] == (Val(1), Val(1))
+        @test Expression(selected, soil).arguments[2:3] == (Val(2), Val(2))
+        @test first(Expression(selected, self).arguments) === Val(:self)
+        @test first(Expression(selected, soil).arguments) === Val(:mutual)
+        @test first(Expression(selected, mixed).arguments) === Val(:mutual)
+        # A layer without declared options does not have an expression either.
+        @test_throws ArgumentError formulation_options(selected, (Expression(selected,
+            E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 3))),))
         for pair in (air, soil, mixed, self)
             expression = Expression(selected, pair)
-            @test validate(expression, earth) === expression
+            @test validate(expression, earth.layers) === expression
         end
         author=owner.Formula(:xue2018)
         @test_throws "the earth model has 2 layers and formula :xue2018 is defined up to layer 2; it has no expression for a mutual interaction from layer 1 to layer 2" validate(
-            Expression(author, mixed), earth)
-        @test only(bindings(selected, (air,))).expression isa Expression
-        @test only(bindings(selected, (air,))).expression.selection === selected
+            Expression(author, mixed), earth.layers)
+        @test Expression(selected, air) isa Expression
+        @test Expression(selected, air).selection === selected
     end
     for id in (:ametani2009, :lucca1994)
         selected = EI.Formula(id)
-        @test only(bindings(selected, (mixed,))).kind === :mutual
-        @test validate(Expression(selected, mixed), earth) isa Expression
-        @test_throws ArgumentError validate(Expression(selected, air), earth)
-        @test_throws ArgumentError validate(Expression(selected, soil), earth)
-        @test_throws ArgumentError validate(Expression(selected, self), earth)
+        @test first(Expression(selected, mixed).arguments) === Val(:mutual)
+        @test validate(Expression(selected, mixed), earth.layers) isa Expression
+        @test_throws ArgumentError validate(Expression(selected, air), earth.layers)
+        @test_throws ArgumentError validate(Expression(selected, soil), earth.layers)
+        @test_throws ArgumentError validate(Expression(selected, self), earth.layers)
     end
     vertical=E.EarthPair(1, 2, (-1.0, -2.0), 0.0, (2, 2))
-    @test only(bindings(EI.Formula(:saad1996), (vertical,))).kind === :mutual
-    @test only(bindings(EI.Formula(:saad1996), (self,))).kind === :self
-    @test only(bindings(EI.Formula(:wedepohl1973), (vertical,))).kind === :mutual
-    @test only(bindings(EI.Formula(:wedepohl1973), (self,))).kind === :self
-    @test_throws ArgumentError validate(Expression(EI.Formula(:pollaczek1926), air), earth)
+    @test first(Expression(EI.Formula(:saad1996), vertical).arguments) === Val(:mutual)
+    @test first(Expression(EI.Formula(:saad1996), self).arguments) === Val(:self)
+    @test first(Expression(EI.Formula(:wedepohl1973), vertical).arguments) === Val(:mutual)
+    @test first(Expression(EI.Formula(:wedepohl1973), self).arguments) === Val(:self)
+    @test_throws ArgumentError validate(Expression(EI.Formula(:pollaczek1926), air), earth.layers)
     @test_throws "formula :carson1926 is defined up to layer 1" validate(
-        Expression(EI.Formula(:carson1926), soil), earth)
+        Expression(EI.Formula(:carson1926), soil), earth.layers)
 end
 
 @testitem "Engine / the plan reads an earth formula's media from its expression signatures" tags=[:unit, :engine] setup=[FormulaFixtures] begin
@@ -78,7 +78,7 @@ end
         blueprints=E.CableBlueprint{Float64}[E.flatten(LineCableModelsCoaxial(), d, Float64)
                                              for d in problem.system.designs]
         workspace=E.LineParametersWorkspace(problem, formulation, execution, blueprints)
-        return workspace.plan.earth_calculations, workspace.buffers.earth_materials
+        return workspace.plan.earth.calculations, workspace.buffers.earth.calculations
     end
     overhead, buried, deep=(10.0, 12.0), (-0.25, -0.3), (-0.25, -1.5)
     # A formula whose expressions stop at layer 2 sees a two-layer earth as it is.
@@ -171,13 +171,19 @@ end
     rho, epsilon, mu=[Inf, 100.0], [ε0, 10ε0], [μ0, μ0]
     jω=complex(0.0, 2pi*50)
     pair=E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2))
-    for owner in (E.EarthImpedance, E.EarthAdmittance)
-        selected=owner.Formula(:default)
-        functor=selected(rho, epsilon, mu, jω, pair)
-        @test functor.binding.expression.selection === selected
-        @test functor.state.mu === mu
-        @test functor.state.epsilon === epsilon
-        @test functor.state.sigma == Tuple(inv.(rho))
+    for (owner, id) in ((E.EarthImpedance, :wedepohl1973), (E.EarthAdmittance, :ideal))
+        selected=owner.Formula(id)
+        # The Functor of an earth calculation keeps its input as given, adds its family's
+        # destination matrix and has an empty state.
+        matrices=(Zearth = zeros(ComplexF64, 2, 2), Pearth = zeros(ComplexF64, 2, 2))
+        functor=LineCableModels.Functor(selected, (; rho, epsilon, mu, jω);
+            workspace = (buffers = matrices,))
+        @test functor.formula === selected
+        @test functor.input.mu === mu && functor.input.epsilon === epsilon
+        @test only(functor.input.destinations) ===
+              (owner === E.EarthImpedance ? matrices.Zearth : matrices.Pearth)
+        @test isempty(functor.state)
+        @test isfinite(selected(rho, epsilon, mu, jω, pair))
         @test_throws ArgumentError owner.Formula(:default; parameters = (unknown = 1,))
         @test_throws DimensionMismatch selected(
             [Inf, 100.0, 999.0], [ε0, 10ε0, 20ε0], [μ0, μ0, μ0], jω, pair)
@@ -203,11 +209,13 @@ end
         pair = E.EarthPair(1, 2, heights, 0.4, layers)
         for id in ids
             selected = owner.Formula(id)
-            functor = selected(rho, epsilon, mu, s, pair)
-            @test functor.state.rho === rho
-            @test functor.state.mu === mu
-            @test functor.state.epsilon === epsilon
-            @test functor.state.sigma == Tuple(inv.(rho))
+            # Unified solves the whole system and runs only in a computation.
+            id === :unified && continue
+            if id in (:gary1976, :saad1996, :wedepohl1973, :lucca1994)
+                @test isfinite(selected(rho, epsilon, mu, s, pair))
+            else
+                @test_throws "not yet implemented" selected(rho, epsilon, mu, s, pair)
+            end
         end
     end
     @test mu == 4pi * 1e-7 .* [1.25, 2.5]
@@ -221,23 +229,25 @@ end
     const EI=M.EI
     const EA=M.EA
     const EP=M.EP
-    using LineCableModels.Commons: bindings
+    const Expression=LineCableModels.Expression
     empty!(M.calls)
     inventories=(EI.formulas(EI.Formula), EA.formulas(EA.Formula))
     selected=M.selection(EI; options = (integration = (method = :quad, options = (;)),))
     heights=(2.0, -0.25, -1.5)
     pairs=[E.EarthPair(t, s, (heights[s], heights[t]), s==t ? 0.0 : 1.0,
                (s, t); radius = s==t ? 0.01 : nothing) for s in 1:3 for t in 1:3]
-    bound=bindings(selected, pairs)
+    projected=formulation_options(selected, [Expression(selected, pair) for pair in pairs])
     @test isempty(M.calls) # Structural preflight does not execute kernels.
-    @test count(case -> haskey(case.options.data, :integration), bound) == 1
-    @test bound[1].options.data.integration.method === Val(:quad)
-    @test_throws ArgumentError bindings(selected, pairs[2:end]) # Unconsumed integral controls.
+    @test count(options -> haskey(options.data, :integration), projected.options) == 1
+    @test projected.options[1].data.integration.method === Val(:quad)
+    # Unconsumed integral controls.
+    @test_throws ArgumentError formulation_options(selected,
+        [Expression(selected, pair) for pair in pairs[2:end]])
     absent=E.EarthPair(1, 2, (-2.0, -3.0), 1.0, (3, 4))
     four=build(EP.EarthModel, (EP.EarthLayer(100.0, 10.0, 1.0, 0.5),
         EP.EarthLayer(200.0, 20.0, 1.0, 0.5), EP.EarthLayer(300.0, 30.0, 1.0)))
     message="the earth model has 4 layers and formula :LayerImpedance is defined up to layer 3; it has no expression for a mutual interaction from layer 3 to layer 4"
-    @test_throws message E.validate(LineCableModels.Expression(selected, absent), four)
+    @test_throws message E.validate(Expression(selected, absent), four.layers)
     @test isempty(M.calls)
 
     material=Material(kind = :conductor, rho = 1.7241e-8)
@@ -362,9 +372,9 @@ end
         execution, two_wire_blueprints)
     @test typeof(two_wire_workspace) === typeof(first(workspaces))
     for (w, problem) in zip(workspaces, problems)
-        @test length(w.buffers.earth_materials) == 1
-        calculation=only(w.plan.earth_calculations)
-        @test calculation.impedance_indices == calculation.potential_indices
+        @test length(w.buffers.earth.calculations) == 1
+        calculation=only(w.plan.earth.calculations)
+        @test calculation.impedance.pairs == calculation.admittance.pairs
         # Poison only numerical buffers. Identity matrices and geometry are inputs.
         for array in (w.buffers.Zearth, w.buffers.Pearth, w.buffers.Zprimitive,
             w.buffers.Pprimitive, w.buffers.rho_cond, w.buffers.dielectric_admittivity,
@@ -378,7 +388,7 @@ end
             w.buffers.circumference_average, w.buffers.radial_current, w.buffers.earth_spectrum...)
             fill!(array, NaN)
         end
-        for materials in w.buffers.earth_materials
+        for materials in w.buffers.earth.calculations
             foreach(a->fill!(a, NaN), (materials.rho, materials.epsilon, materials.mu))
         end
         E._solve!(w, selection)
@@ -425,7 +435,7 @@ end
     E.materials!(w, selected)
     E.materials!(w, selected, 1)
     fill!(w.buffers.axial_field, NaN)
-    materials=only(w.buffers.earth_materials)
+    materials=only(w.buffers.earth.calculations)
     materials.rho[2, 1]=-1
     @test_throws DomainError E.earth!(w, 1)
     @test isempty(w.trace.integrals)
@@ -523,9 +533,7 @@ end
         for owner in (E.EarthImpedance, E.EarthAdmittance), method in (:quad,)
 
             selected=FormulaFixtures.selection(owner; scale = one(T))
-            functor=selected(rho, epsilon, mu, s, pair)
-            @test functor.state.jω isa Complex{T}
-            result=functor()
+            result=selected(rho, epsilon, mu, s, pair)
             @test result isa Complex{T}
             @test isfinite(result)
         end
@@ -537,7 +545,7 @@ end
     pair=E.EarthPair(1, 2, (-1.0, -2.0), 0.75, (2, 2))
     for owner in (E.EarthImpedance, E.EarthAdmittance)
         value=FormulaFixtures.selection(owner; scale = rho[2])(
-            rho, epsilon, mu, s, pair)()
+            rho, epsilon, mu, s, pair)
         @test value isa Complex{Measurement{Float64}}
         @test isfinite(value)
         @test uncertainty(real(value)) > 0

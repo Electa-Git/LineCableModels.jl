@@ -32,25 +32,25 @@
         for layer in (1, 2), kind in (:self, :mutual)
 
             @eval function $operation_name(selected::$name, ::Val{$(QuoteNode(kind))},
-                    ::Val{$layer}, ::Val{$layer}, functor, pair, workspace)
+                    ::Val{$layer}, ::Val{$layer}, functor, workspace)
+                pair=functor.input.pair
                 push!(selected.calls, (pair.row, pair.column))
                 radii=workspace.plan.geometry.radius
                 coefficient=10(pair.row==pair.column) + abs(pair.heights[2]) +
                             2abs(pair.heights[1]) +
                             pair.separation + radii[pair.row] + 3radii[pair.column] +
-                            functor.state.rho[2]/100 + imag(functor.state.jω)/(2pi*1000)
+                            functor.input.rho[2]/100 + imag(functor.input.jω)/(2pi*1000)
                 return $multiplier*coefficient
             end
         end
     end
 
-    function E.earth_bindings(::Union{PairImpedance, PairPotential}, binding::NamedTuple, geometry::NamedTuple)
-        inputs=map(binding.interactions) do interaction
-            pair=interaction.pair
-            (pair.row==pair.column, pair.layers, pair.heights, pair.separation,
-                geometry.radius[pair.row], geometry.radius[pair.column])
-        end
-        return merge(binding, (reuse_inputs = inputs,))
+    # The arithmetic reads the pair's geometry and the conductor radii, not its indices.
+    function E.same_physical_state(::Union{PairImpedance, PairPotential}, a::E.EarthPair,
+            b::E.EarthPair, geometry::NamedTuple)
+        inputs(pair)=(pair.row==pair.column, pair.layers, pair.heights, pair.separation,
+            geometry.radius[pair.row], geometry.radius[pair.column])
+        return E.same_physical_state(inputs(a), inputs(b))
     end
 
     struct IntegralImpedance{P} <: E.EarthImpedanceFormulation
@@ -66,21 +66,23 @@
         <:IntegralImpedance, typeof(EI.earth_impedance)})=FormulationOptions()
     function EI.earth_impedance(
             selected::IntegralImpedance, ::Union{Val{:self}, Val{:mutual}},
-            ::Val{2}, ::Val{2}, functor, pair, workspace)
+            ::Val{2}, ::Val{2}, functor, workspace)
+        pair=functor.input.pair
         selected.calls[]+=1
         integral=E.SpectralIntegral(x->complex(exp(-x)*cos(20x)))
         context=selected.parameters.positions ?
                 (receiver = pair.row, source = pair.column,
-            frequency = imag(functor.state.jω)/(2pi), term = :test) :
+            frequency = imag(functor.input.jω)/(2pi), term = :test) :
                 selected.parameters.description
         value,
         _=E.integrate(integral, Val(:quad), (rtol = 1e-14, atol = 0.0, maxevals = 15),
             workspace.buffers; observations = workspace.buffers.observations, context)
         return value
     end
-    E.earth_bindings(::IntegralImpedance,
-        binding::NamedTuple,
-        geometry::NamedTuple) = merge(binding, (reuse_inputs = fill((), length(binding.interactions)),))
+    # The arithmetic does not read any pair input, so every pair with the same media takes one
+    # value.
+    E.same_physical_state(::IntegralImpedance, a::E.EarthPair, b::E.EarthPair,
+        geometry::NamedTuple) = true
     G.initialize_buffers(::IntegralImpedance,
         ::Type{T},
         input,

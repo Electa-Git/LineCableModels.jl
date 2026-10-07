@@ -108,7 +108,7 @@ end
     end
     # A multilayer formula is used alone, and the formulas of a recipe agree on its reduction.
     multilayer=merge(same, (earth = FormulaFixtures.selection(E.EarthImpedance),))
-    @test_throws "a multilayer formula is used alone" compute(layered,
+    @test_throws "formula :LayerImpedance is multilayer and is used alone" compute(layered,
         Formulation(earth_impedance = multilayer))
     conflicting=merge(same, (
         air = formula(:default; equivalent_earth = formula(:default; order = :before)),

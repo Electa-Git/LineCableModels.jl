@@ -207,9 +207,9 @@ end
         blueprints=E.CableBlueprint{T}[E.flatten(LineCableModelsCoaxial(), d, T)
                                        for d in problem.system.designs]
         workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
-        shared=only(workspace.plan.earth_calculations)
-        @test !isempty(shared.impedance_indices) && !isempty(shared.potential_indices)
-        @test length(workspace.buffers.earth_materials) == 1
+        shared=only(workspace.plan.earth.calculations)
+        @test !isempty(shared.impedance.pairs) && !isempty(shared.admittance.pairs)
+        @test length(workspace.buffers.earth.calculations) == 1
         @test (@inferred E._solve!(workspace, selected)) === workspace
         @test all(isfinite, workspace.buffers.enclosed_impedance)
         @test !isempty(workspace.trace.integrals)

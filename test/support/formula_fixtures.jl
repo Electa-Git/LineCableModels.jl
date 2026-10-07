@@ -37,19 +37,21 @@
         for s in 1:layers, t in 1:layers, kind in (s == t ? (:self, :mutual) : (:mutual,))
             @eval function $operation_name(
                     selected::$name, ::Val{$(QuoteNode(kind))},
-                    ::Val{$s}, ::Val{$t}, functor, pair, workspace)
+                    ::Val{$s}, ::Val{$t}, functor, workspace)
+                input = functor.input
+                pair = input.pair
                 push!(calls,
-                    ($(QuoteNode(nameof(owner))), functor.state.jω,
+                    ($(QuoteNode(nameof(owner))), input.jω,
                         pair.row, pair.column, pair.layers, pair.heights,
-                        copy(functor.state.rho), functor.binding.physical_pair))
+                        copy(input.rho), input.physical))
                 coefficient = 11 * $s + 17 * $t + 3 * pair.row + 5 * pair.column +
-                              real(functor.state.jω / (2pi*im)) / 100 +
+                              real(input.jω / (2pi*im)) / 100 +
                               (pair.row == pair.column ? 101 : 0)
-                if haskey(functor.options.data, :integration)
+                if haskey(input.options.data, :integration)
                     integral = E.SpectralIntegral(λ -> complex(exp(-2λ)))
                     value,
                     _ = E.integrate(integral,
-                        functor.options.data.integration.method, functor.options.data.integration.options,
+                        input.options.data.integration.method, input.options.data.integration.options,
                         workspace.buffers)
                     coefficient *= 2value
                 end
@@ -70,9 +72,10 @@
     function G.initialize_buffers(
             selected::Union{LayerImpedance, HalfSpaceImpedance}, ::Type{T}, input, plan,
             buffers) where {T}
-        layers = [E.layer_index(interaction.pair)
-                  for call in plan.earth_calculations
-                  if call.selection === selected for interaction in call.interactions]
+        layers = [E.layer_index(entry.pair)
+                  for calculation in plan.earth.calculations
+                  if something(calculation.impedance, calculation.admittance).formula === selected
+                  for entry in calculation.pairs]
         initialized = (1, 1) in layers ?
                       G.initialize_buffers(
                           E.SpectralIntegral, Val(:quad), T, input, plan, buffers) :
@@ -107,8 +110,9 @@
     for s in 1:3, t in 1:3, kind in (s == t ? (:self, :mutual) : (:mutual,))
         @eval function EI.earth_impedance(selected::TypedLayerImpedance,
                 ::Val{$(QuoteNode(kind))}, ::Val{$s}, ::Val{$t},
-                functor::EI.Functor, pair::E.EarthPair, workspace)
-            push!(selected.media, length(functor.state.rho))
+                functor::G.Functor, workspace)
+            push!(selected.media, length(functor.input.rho))
+            pair = functor.input.pair
             return (1e-4 + 1e-3im) * (pair.row == pair.column ? 10 : 1)
         end
     end
@@ -122,8 +126,9 @@
     GenericLayerImpedance() = GenericLayerImpedance((;), FormulationOptions(), nothing, Int[])
     function EI.earth_impedance(selected::GenericLayerImpedance,
             ::Union{Val{:self}, Val{:mutual}}, ::Val{S}, ::Val{T},
-            functor, pair, workspace) where {S, T}
-        push!(selected.media, length(functor.state.rho))
+            functor, workspace) where {S, T}
+        push!(selected.media, length(functor.input.rho))
+        pair = functor.input.pair
         return (1e-4 + 1e-3im) * (pair.row == pair.column ? 10 : 1)
     end
 
@@ -161,23 +166,24 @@
             (coupled = Matrix{Complex{T}}(undef,
                 length(geometry.radius), length(geometry.radius)),))
     end
-    function (selected::CoupledImpedance)(materials, binding, workspace, frequency::Int)
-        state=(jω = workspace.input.jω[frequency], materials, thickness = nothing)
-        return (coefficients = (workspace.buffers.coupled,), state)
+    # The parts write into the formula's own matrix, which its conversion completes.
+    function G.Functor(selected::CoupledImpedance, input::NamedTuple; workspace)
+        return G.Functor(selected, merge(input, (destinations = (workspace.buffers.coupled,),)), (;))
     end
-    function E.earth!(selected::CoupledImpedance, calculation, workspace)
-        values=only(calculation.coefficients)
+    function E.earth!(selected::CoupledImpedance, functor::G.Functor, workspace)
+        values=only(functor.input.destinations)
         # Complete-system coupling adds the sum over all source conductors.
-        values .+= calculation.state.jω*1e-6*sum(axes(values, 2))
-        push!(selected.solves, calculation.state.jω)
+        values .+= functor.input.jω*1e-6*sum(axes(values, 2))
+        push!(selected.solves, functor.input.jω)
         return (impedance = values,)
     end
     for source in 1:2, target in 1:2,
         kind in (source==target ? (:self, :mutual) : (:mutual,))
         @eval function EI.earth_impedance(::CoupledImpedance, ::Val{$(QuoteNode(kind))},
-                ::Val{$source}, ::Val{$target}, functor, pair, workspace)
+                ::Val{$source}, ::Val{$target}, functor, workspace)
             n=length(workspace.plan.geometry.radius)
-            return functor.state.jω*1e-6*(pair.row+2pair.column+(pair.row==pair.column ? n :
+            pair=functor.input.pair
+            return functor.input.jω*1e-6*(pair.row+2pair.column+(pair.row==pair.column ? n :
                                                                  0))
         end
     end
@@ -496,8 +502,9 @@
         op=GlobalRef(owner, nameof(operation))
         @eval function $op(selected::$name, kind::Union{Val{:self}, Val{:mutual}},
                 s::Val{2}, t::Val{2},
-                functor, pair, workspace)
+                functor, workspace)
             push!(selected.events, $(QuoteNode(event)))
+            pair = functor.input.pair
             # Manufactured coefficients with diagonal dominance test the stage order,
             # independently of any built-in author's numerical implementation.
             return $(owner === EI ? :(1e-4 + 1e-3im) : :(1e9)) *

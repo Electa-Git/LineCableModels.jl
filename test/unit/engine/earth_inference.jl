@@ -1,4 +1,4 @@
-@testitem "Engine / earth binding tuples preserve equation types across layouts" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
+@testitem "Engine / earth calculation tuples preserve part types across layouts" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     design=build(CableDesign, "typed earth equations", terminal(:core,
         core(Material(:conductor, 1.72e-8); r=0.004),
@@ -17,18 +17,18 @@
         blueprints=only(E.flatten(LineCableModelsCoaxial(), problem.system.designs,
             Float64, [selected]))
         workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
-        calculations=workspace.plan.earth_calculations
-        materials=workspace.buffers.earth_materials
+        calculations=workspace.plan.earth.calculations
+        materials=workspace.buffers.earth.calculations
         @test calculations isa Tuple
         @test materials isa Tuple
         @test length(calculations)==length(materials)
         @test all(isconcretetype, fieldtypes(typeof(calculations)))
         for calculation in calculations
-            @test calculation.equations isa Tuple
-            @test all(isconcretetype, fieldtypes(typeof(calculation.equations)))
-            for group in calculation.equations
-                @test isconcretetype(fieldtype(typeof(group), :declaration))
-                @test isconcretetype(fieldtype(typeof(group.declaration), :expression))
+            @test calculation.parts isa Tuple
+            @test all(isconcretetype, fieldtypes(typeof(calculation.parts)))
+            for part in calculation.parts
+                @test isconcretetype(fieldtype(typeof(part), :expressions))
+                @test all(isconcretetype, fieldtypes(fieldtype(typeof(part), :expressions)))
             end
         end
         @test (@inferred E._solve!(workspace, selected, calculations, materials)) === workspace

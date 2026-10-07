@@ -112,7 +112,7 @@ end
 $(TYPEDSIGNATURES)
 
 Complete `formulation` as the line-parameter computation of `workspace` applied it. Each
-earth formula records the equivalent earth that the plan stored for its calculation. A
+earth formula records the equivalent earth that its calculation in the plan consumed. A
 reduction that the plan resolved through `:default` appears as that formula's
 `equivalent_earth`, as an explicit one does. The requested selections remain as declared.
 """
@@ -123,17 +123,13 @@ function completed_formulation(formulation::LineParametersFormulation,
         return completed_formulation(formulation, declaration)
     slots = (:earth_impedance, :earth_admittance)
     # Each formula without an explicit `equivalent_earth` that the plan reduced, with the
-    # reduction stored in its calculation.
+    # reduction its calculation consumed.
     reduced = Pair[]
-    for calculation in workspace.plan.earth_calculations
+    for calculation in workspace.plan.earth.calculations
         calculation.earth isa EarthModel && continue
-        pair = first(calculation.interactions).pair
-        for (slot, outputs) in zip(slots,
-                (calculation.impedance_indices, calculation.potential_indices))
-            isempty(outputs) && continue
-            selected = Expression(formulation.methods[slot], pair).selection
-            selected.equivalent_earth === nothing &&
-                push!(reduced, selected => calculation.earth)
+        for entry in (calculation.impedance, calculation.admittance)
+            entry === nothing || entry.formula.equivalent_earth !== nothing ||
+                push!(reduced, entry.formula => calculation.earth)
         end
     end
     function record(selected, retained)

@@ -165,3 +165,42 @@ end
 @inline function (expression::Expression)(arguments...)
     return expression.method(expression.selection, expression.arguments..., arguments...)
 end
+
+"""
+$(TYPEDEF)
+
+Hold a formula resolved at one evaluation point: the formula, the input of that point and the
+values that the formula's expressions share there. `expression(functor, workspace)` evaluates
+an expression of the formula at that point. The state holds plain values. Arrays come from
+the buffers of the workspace.
+
+$(TYPEDFIELDS)
+"""
+struct Functor{F, I <: NamedTuple, S <: NamedTuple}
+    "Formula whose expressions this Functor evaluates."
+    formula::F
+    "Inputs of the evaluation point, with the options of the expression evaluated there."
+    input::I
+    "Plain values that the expressions of the formula share at that point."
+    state::S
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of `formula` at the point that `input` describes. A formula without a method
+of its own does not share values, and its state is empty. A family or a formula that checks its
+input, shares values or reads arrays from the buffers of `workspace` adds a method on its own
+type.
+"""
+Functor(formula, input::NamedTuple; workspace = nothing) = Functor(formula, input, (;))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the Functor of the same formula and state at a point whose input extends
+`functor.input` with `extension`, such as one conductor pair of an earth calculation.
+"""
+function Functor(functor::Functor, extension::NamedTuple)
+    return Functor(functor.formula, merge(functor.input, extension), functor.state)
+end

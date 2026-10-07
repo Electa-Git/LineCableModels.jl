@@ -21,10 +21,14 @@
             "0.000048694756966967542207217998198776082068243035825963", "0.00027361164043745607069020182417817933205189613540840"),
         (:lucca1994, :mutual, (-2, 10), 0.75, (2, 1), 1,
             "0.000048694756966967542207217998198776082068243035825963", "0.00027361164043745607069020182417817933205189613540840"))
-    function evaluate(functor)
-        value = @inferred functor()
-        expression = functor.binding.expression
-        @test (@inferred expression(functor, functor.binding.pair, nothing)) == value
+    # The standalone call and the expression evaluated on the pair's Functor agree.
+    function evaluate(selected, rho, epsilon, mu, s, pair)
+        value = @inferred selected(rho, epsilon, mu, s, pair)
+        expression = LineCableModels.Expression(selected, pair)
+        options = only(formulation_options(selected, (expression,)).options)
+        functor = LineCableModels.Functor(selected, (; jω = s, thickness = nothing, pair,
+            physical = pair, rho, epsilon, mu, options), (;))
+        @test (@inferred expression(functor, nothing)) == value
         return value
     end
     for T in (Float32, Float64, BigFloat),
@@ -35,9 +39,8 @@
         s = complex(zero(T), 100T(pi))
         pair = E.EarthPair(1, kind === :self ? 1 : 2, T.(heights), T(x), layers;
             radius = kind === :self ? T(1)/100 : nothing)
-        functor = E.EarthImpedance.Formula(id)(T[Inf, 100], [ε0, 10ε0],
+        value = evaluate(E.EarthImpedance.Formula(id), T[Inf, 100], [ε0, 10ε0],
             [μ0, T(μr)*μ0], s, pair)
-        value = evaluate(functor)
         @test value isa Complex{T}
         @test isfinite(value)
         T === Float32 || (@test value ≈ complex(parse(T, re), parse(T, im)) rtol=5e-14)
@@ -46,7 +49,7 @@
     μ0, ε0, s = 4pi*1e-7, 8.8541878128e-12, 100pi*im
     gary = E.EarthImpedance.Formula(:gary1976)
     self(r) = gary([Inf, 100.0], [ε0, 10ε0], [μ0, μ0], s,
-        E.EarthPair(1, 1, (10.0, 10.0), 0.0, (1, 1); radius = r))()
+        E.EarthPair(1, 1, (10.0, 10.0), 0.0, (1, 1); radius = r))
     @test self(0.02)-self(0.01) ≈ -s*μ0/(2pi)*log(2) rtol=5e-14
 end
 
@@ -59,8 +62,7 @@ end
         id === :lucca1994 && (pair = E.EarthPair(1, 2, heights, 0.75, layers))
         selected = E.EarthImpedance.Formula(id)
         T = typeof(rho)
-        functor = selected(T[Inf, rho], T[ε0, 10ε0], T[μ0, μ0], Complex{T}(s), pair)
-        return @inferred functor()
+        return @inferred selected(T[Inf, rho], T[ε0, 10ε0], T[μ0, μ0], Complex{T}(s), pair)
     end
     rho = measurement(100.0, 2.0)
     for (id, heights, layers) in ((:saad1996, (-1.0, -1.0), (2, 2)),

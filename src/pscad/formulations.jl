@@ -272,7 +272,8 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             selected = expression.selection
             # Registration and physical validity belong to the equation owner.
             # Execution availability is selected by the native expression.
-            bindings(selected, (pair,))
+            validate(pair, expression)
+            formulation_options(selected, (expression,))
             record = (formula = formula_id(selected),
                 kind = pair.row == pair.column ? :self : :mutual,
                 source = pair.layers[1], target = pair.layers[2])

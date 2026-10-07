@@ -94,7 +94,7 @@ import Logging
 include("docstrings.jl")
 include("interfaces.jl")
 
-public FormulaDefinition, Expression
+public FormulaDefinition, Expression, Functor
 
 # Submodule `Units`
 include("units/Units.jl")
@@ -110,7 +110,7 @@ using .Commons:
                 formulation_options, computation_options, computation_details, details,
                 observe, @observe, observables, ObservedResult, kron_reduce
 import .Commons: compute, validate
-using .Commons: FormulaDefinition, Expression
+using .Commons: FormulaDefinition, Expression, Functor
 include("logging.jl")
 include("formulas.jl")
 

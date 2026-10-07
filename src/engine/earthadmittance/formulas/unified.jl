@@ -82,21 +82,23 @@ overhead, buried, and mixed conductor systems*, voltage and source-charge maps.
 """
 function source_potential_coefficient(::Union{Formula{:unified}, Val{:unified}},
         kind::Union{Val{:self}, Val{:mutual}}, source::Union{Val{1}, Val{2}},
-        target::Union{Val{1}, Val{2}}, functor, pair, workspace)
+        target::Union{Val{1}, Val{2}}, functor, workspace)
     u=functor.state
+    pair=functor.input.pair
+    buffers=workspace.buffers
     row, column=pair.row, pair.column
     hp, hq=abs(pair.heights[2]), abs(pair.heights[1])
-    r=u.radius[row]
-    average=u.circumference_average[row]
-    sp, sq=u.source_logscale[row], u.source_logscale[column]
-    integration=functor.options.data.integration
+    r=workspace.plan.geometry.radius[row]
+    average=buffers.circumference_average[row]
+    sp, sq=buffers.source_logscale[row], buffers.source_logscale[column]
+    integration=functor.input.options.data.integration
     context=(
         formula = :unified, frequency = imag(u.jω)/(2π), receiver = row, source = column)
     direct=earth_direct(
-        kind, source, target, u, pair, r, average, u.radial_argument[row], sp, sq)
+        kind, source, target, u, pair, r, average, buffers.radial_argument[row], sp, sq)
     return source_potential_coefficient(source, target, u, hp, hq, pair.separation,
-        r, average, u.radial_argument[row], sp, sq,
-        direct, integration, workspace.buffers; context)
+        r, average, buffers.radial_argument[row], sp, sq,
+        direct, integration, buffers; context)
 end
 
 function source_potential_coefficient(source::Val{S}, ::Val{2}, u, hp, hq, y,
@@ -155,35 +157,23 @@ function validate(reduction::EquivalentHomogeneous.Formula{:bottommost},
     return reduction
 end
 
-function earth_bindings(
-        selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
-        model::EarthModel, reduction, physical::AbstractVector{<:EarthPair}, homogeneous,
-        indices)
-    binding=invoke(earth_bindings,
+# The unified calculation computes the whole system, every conductor pair, even when its slot
+# publishes some of them, and both coefficients of each pair: either output needs both. Its
+# formulation options are common to all pairs, and the exterior circumferences must lie in one
+# half-space and must not overlap.
+function EarthPlan(formula::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
+        earth, model::EarthModel, physical::AbstractVector{<:EarthPair}, indices,
+        geometry::NamedTuple)
+    whole=invoke(EarthPlan,
         Tuple{Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-            EarthModel, Any, AbstractVector{<:EarthPair}, Any, Any},
-        selected, model, reduction, physical, homogeneous, collect(eachindex(physical)))
-    options=first(binding.equations).declaration.options
-    all(group->isequal(group.declaration.options, options), binding.equations) ||
+            Any, EarthModel, AbstractVector{<:EarthPair}, Any, NamedTuple},
+        formula, earth, model, physical, eachindex(physical), geometry)
+    calculation=only(whole.calculations)
+    options=first(calculation.parts).options
+    all(part->isequal(part.options, options), calculation.parts) ||
         throw(ArgumentError("the unified earth-return calculation requires common formulation options for all conductor pairs"))
-    groups=map(binding.equations) do group
-        declaration=group.declaration
-        primary=declaration.expression
-        # Both coefficients are mathematical dependencies of either selected output.
-        axial=primary.method === EarthImpedance.axial_field_coefficient ? primary :
-              Expression(Val(:unified), EarthImpedance.axial_field_coefficient, primary.arguments...)
-        potential=primary.method === source_potential_coefficient ? primary :
-                  Expression(Val(:unified), source_potential_coefficient, primary.arguments...)
-        (declaration = merge(declaration, (expression = (axial, potential),)),
-            indices = group.indices)
-    end
-    return merge(binding, (equations = groups, output_indices = collect(indices)))
-end
-
-function earth_bindings(::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
-        binding::NamedTuple, geometry::NamedTuple)
-    inputs=map(binding.interactions) do interaction
-        pair=interaction.pair
+    for entry in calculation.pairs
+        pair=entry.pair
         target_radius=geometry.radius[pair.row]
         source_radius=geometry.radius[pair.column]
         # Physical shapes can be disjoint while their equivalent circles overlap.
@@ -197,10 +187,32 @@ function earth_bindings(::Union{EarthImpedance.Formula{:unified}, Formula{:unifi
             target_radius+source_radius || throw(DomainError((pair.row, pair.column),
                 "exterior circumferences must not overlap"))
         end
-        (pair.row==pair.column, pair.layers, pair.heights, pair.separation,
-            target_radius, source_radius)
     end
-    return merge(binding, (reuse_inputs = inputs,))
+    parts=map(calculation.parts) do part
+        primary=only(part.expressions)
+        axial=primary.method === EarthImpedance.axial_field_coefficient ? primary :
+              Expression(Val(:unified), EarthImpedance.axial_field_coefficient, primary.arguments...)
+        potential=primary.method === source_potential_coefficient ? primary :
+                  Expression(Val(:unified), source_potential_coefficient, primary.arguments...)
+        (expressions = (axial, potential), options = part.options, pairs = part.pairs)
+    end
+    quantity=(; formula, pairs = collect(indices))
+    return EarthPlan((merge(calculation, (; quantity, parts)),))
+end
+
+# Unified's arithmetic reads the pair's geometry and the conductor radii, not its indices.
+function same_physical_state(::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
+        a::EarthPair, b::EarthPair, geometry::NamedTuple)
+    inputs(pair)=(pair.row==pair.column, pair.layers, pair.heights, pair.separation,
+        geometry.radius[pair.row], geometry.radius[pair.column])
+    return same_physical_state(inputs(a), inputs(b))
+end
+
+# An impedance and an admittance formula of Unified share one calculation when their model
+# parameters and requested equivalent earths agree: they solve the same system.
+function same_physical_state(z::EarthImpedance.Formula{:unified}, p::Formula{:unified})
+    return same_physical_state(z.parameters, p.parameters) &&
+           same_physical_state(z.equivalent_earth, p.equivalent_earth)
 end
 
 function initialize_buffers(
@@ -223,21 +235,23 @@ function initialize_buffers(
                 scales = sizehint!(R[], 16))))
 end
 
-# Formula-state construction consumes completed materials and engine-resolved layers.
-function (selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}})(
-        materials, binding, workspace, frequency::Int)
-    s=workspace.input.jω[frequency]
+# The Functor of the calculation at one frequency. Its state is the system that every pair
+# shares, as plain values. The per-conductor arrays go to Unified's buffers, and the parts
+# write the source coefficients into Unified's own two matrices.
+function Functor(formula::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
+        input::NamedTuple; workspace)
+    s=input.jω
     isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
-    prescribed=first(binding.equations).declaration.options.data.Γ
-    longitudinal=prescribed isa Number ? prescribed : prescribed[frequency]
+    prescribed=formula.options.data.Γ
+    longitudinal=prescribed isa Number ? prescribed : prescribed[input.frequency]
     longitudinal isa Number && isfinite(longitudinal) ||
         throw(ArgumentError("Γ must be one finite scalar [1/m]"))
-    for column in axes(materials.rho, 2)
-        validate(@view(materials.rho[:, column]), selected,
-            @view(materials.epsilon[:, column]), @view(materials.mu[:, column]),
-            materials.thickness)
+    for column in axes(input.rho, 2)
+        validate(@view(input.rho[:, column]), formula,
+            @view(input.epsilon[:, column]), @view(input.mu[:, column]),
+            input.thickness)
     end
-    for values in (materials.rho, materials.epsilon, materials.mu)
+    for values in (input.rho, input.epsilon, input.mu)
         for column in axes(values, 2), row in axes(values, 1)
 
             same_physical_state(values[row, column], values[row, 1]) ||
@@ -245,36 +259,24 @@ function (selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}})(
         end
     end
     Γ=oftype(s, longitudinal)
-    sh=ntuple(m->conductivity(materials.rho[m, 1])+s*materials.epsilon[m, 1], 2)
-    mu=ntuple(m->materials.mu[m, 1], 2)
+    sh=ntuple(m->conductivity(input.rho[m, 1])+s*input.epsilon[m, 1], 2)
+    mu=ntuple(m->input.mu[m, 1], 2)
     gamma=ntuple(m->sqrt(s*mu[m]*sh[m]), 2)
     k2=ntuple(m->gamma[m]^2-Γ^2, 2)
     k=map(outgoing_root, k2)
     buffers=workspace.buffers
     geometry=workspace.plan.geometry
     for i in eachindex(buffers.radial_argument)
-        medium=binding.layers[i]
+        medium=input.media[i]
         buffers.radial_argument[i]=k[medium]*geometry.radius[i]
         buffers.source_logscale[i]=abs(real(buffers.radial_argument[i]))
         buffers.circumference_average[i]=special_besselix(0, buffers.radial_argument[i])
         buffers.radial_current[i]=2 * (one(s)*π) * sh[medium] * geometry.radius[i]^2 *
                                bessel_current_ratio(buffers.radial_argument[i])
     end
-    state=(jω = s, Γ, sh, mu, k2, k, radius = geometry.radius,
-        radial_argument = buffers.radial_argument, source_logscale = buffers.source_logscale,
-        circumference_average = buffers.circumference_average)
-    return (coefficients = (buffers.axial_field, buffers.source_potential), state)
-end
-
-function (selected::EarthImpedance.Formula{:unified})(state::NamedTuple, interaction::NamedTuple, declaration)
-    binding=(pair = interaction.pair, physical_pair = interaction.physical_pair,
-        kind = declaration.kind, expression = declaration.expression)
-    return EarthImpedance.Functor(binding, state, declaration.options)
-end
-function (selected::Formula{:unified})(state::NamedTuple, interaction::NamedTuple, declaration)
-    binding=(pair = interaction.pair, physical_pair = interaction.physical_pair,
-        kind = declaration.kind, expression = declaration.expression)
-    return Functor(binding, state, declaration.options)
+    state=(jω = s, Γ, sh, mu, k2, k)
+    destinations=(buffers.axial_field, buffers.source_potential)
+    return Functor(formula, merge(input, (; destinations)), state)
 end
 
 """
@@ -303,16 +305,18 @@ reductions before calculating total Y=jωP⁻¹ \\[S/m\\].
 
 # Returns
 
-- Named tuple of physical `impedance` and `potential` matrices.
+- Named tuple of the physical `impedance` and `admittance` matrices: the impedance \\[Ω/m\\]
+  and the potential coefficients \\[m/F\\].
 
 # Reference
 
 User-supplied manuscript, *Unified circumferentially averaged framework for
 overhead, buried, and mixed conductor systems*, current and charge maps.
 """
-function earth!(::Union{EarthImpedance.Formula{:unified}, Formula{:unified}}, calculation, workspace)
+function earth!(::Union{EarthImpedance.Formula{:unified}, Formula{:unified}}, functor::Functor,
+        workspace)
     buffers=workspace.buffers
-    u=calculation.state
+    u=functor.state
     for column in axes(buffers.axial_field, 2), row in axes(buffers.axial_field, 1)
 
         buffers.current_map[row, column]=(row==column ? inv(buffers.circumference_average[row]) :
@@ -328,15 +332,7 @@ function earth!(::Union{EarthImpedance.Formula{:unified}, Formula{:unified}}, ca
     copyto!(buffers.current_rhs, transpose(buffers.enclosed_impedance))
     ldiv!(factor, buffers.current_rhs)
     copyto!(buffers.enclosed_impedance, transpose(buffers.current_rhs))
-    return (impedance = buffers.enclosed_impedance, potential = buffers.enclosed_potential)
-end
-
-function earth_bindings(z::EarthImpedance.Formula{:unified}, p::Formula{:unified}, impedance, admittance)
-    same_physical_state(z.parameters, p.parameters) &&
-    same_physical_state(z.equivalent_earth, p.equivalent_earth) &&
-    same_physical_state(first(impedance.equations).declaration.options.data,
-        first(admittance.equations).declaration.options.data) || return nothing
-    return (; impedance, admittance)
+    return (impedance = buffers.enclosed_impedance, admittance = buffers.enclosed_potential)
 end
 
 :unified

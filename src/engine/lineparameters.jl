@@ -11,8 +11,8 @@ end
 function _solve!(
         workspace::LineParametersWorkspace{T},
         formulation::LineParametersFormulation,
-        earth_calculations::Tuple = workspace.plan.earth_calculations,
-        earth_materials::Tuple = workspace.buffers.earth_materials
+        calculations::Tuple = workspace.plan.earth.calculations,
+        materials::Tuple = workspace.buffers.earth.calculations
 ) where {T <: Real}
     input = workspace.input
     plan = workspace.plan
@@ -26,14 +26,14 @@ function _solve!(
     materials!(workspace, formulation)
     @debug "Starting line parameters computation"
     for frequency in 1:input.n_frequencies
-        materials!(workspace, formulation, frequency, earth_calculations, earth_materials)
+        materials!(workspace, formulation, frequency, calculations, materials)
         cable_impedance!(Zprimitive, input.cable, buffers.rho_cond,
             formulation.methods, input.jω[frequency]; workspace)
         cable_potential!(Pprimitive, input.cable, buffers.dielectric_admittivity,
             input.jω[frequency], buffers.layer_coefficients, buffers.coefficients, buffers.tails)
         _stash!(workspace.trace, :Zin, frequency, Zprimitive)
         _stash!(workspace.trace, :Pin, frequency, Pprimitive)
-        earth!(workspace, frequency, earth_calculations, earth_materials)
+        earth!(workspace, frequency, calculations, materials)
         _stash!(workspace.trace, :Zg, frequency, buffers.Zearth)
         _stash!(workspace.trace, :Pg, frequency, buffers.Pearth)
         impedance!(Zprimitive, workspace, frequency)
@@ -401,9 +401,9 @@ end
 function materials!(
         workspace::LineParametersWorkspace, formulation::LineParametersFormulation,
         frequency::Int,
-        earth_calculations::Tuple = workspace.plan.earth_calculations,
-        earth_materials::Tuple = workspace.buffers.earth_materials)
-    homogenize!(workspace, frequency, formulation, earth_calculations, earth_materials)
+        calculations::Tuple = workspace.plan.earth.calculations,
+        materials::Tuple = workspace.buffers.earth.calculations)
+    homogenize!(workspace, frequency, formulation, calculations, materials)
     dielectric!(workspace.buffers.dielectric_admittivity, workspace.input.cable,
         formulation.methods, workspace.input.freq[frequency], workspace.input.temperature; workspace)
     return workspace
@@ -425,8 +425,8 @@ function homogenize!(
         workspace::LineParametersWorkspace,
         frequency::Int,
         formulation::LineParametersFormulation,
-        calculations::Tuple = workspace.plan.earth_calculations,
-        materials::Tuple = workspace.buffers.earth_materials
+        calculations::Tuple = workspace.plan.earth.calculations,
+        materials::Tuple = workspace.buffers.earth.calculations
 )
     foreach(calculations, materials) do calculation, destination
         homogenize!(destination, calculation, workspace, frequency,
@@ -438,14 +438,14 @@ end
 # The plan decided once which earth the formula's expressions see: the layered earth or
 # a reduction. The loop dispatches on that decision.
 function homogenize!(destination,
-        binding::NamedTuple,
+        calculation::NamedTuple,
         workspace::LineParametersWorkspace, frequency_index::Int, relation)
     earth = workspace.buffers.earth
     model = workspace.input.earth
     frequency = workspace.input.freq[frequency_index]
-    data = binding.earth isa EquivalentHomogeneous.BeforeFD ? earth.static : earth.evaluated
-    homogenize!(destination, binding.earth, relation, data, model,
-        binding.interactions, frequency, frequency_index; workspace)
+    data = calculation.earth isa EquivalentHomogeneous.BeforeFD ? earth.static : earth.evaluated
+    homogenize!(destination, calculation.earth, relation, data, model,
+        calculation.pairs, frequency, frequency_index; workspace)
     return destination
 end
 
@@ -457,15 +457,14 @@ function homogenize!(
         relation,
         evaluated,
         model::EarthModel,
-        interactions,
+        pairs,
         frequency,
         frequency_index::Int; workspace = nothing
 )
     epsilon0=vacuum_permittivity(eltype(destination.rho))
     mu0=vacuum_permeability(eltype(destination.rho))
     for row in axes(destination.rho, 1)
-        for interaction in interactions
-            column = interaction.index
+        for column in eachindex(pairs)
             destination.rho[row, column]=evaluated.rho[row, frequency_index]
             destination.epsilon[row, column]=epsilon0*evaluated.eps_r[row, frequency_index]
             destination.mu[row, column]=mu0*evaluated.mu_r[row, frequency_index]
@@ -480,7 +479,7 @@ function homogenize!(
         relation,
         evaluated,
         model::EarthModel,
-        interactions,
+        pairs,
         frequency,
         frequency_index::Int; workspace = nothing
 )
@@ -488,12 +487,12 @@ function homogenize!(
     eps_r = @view evaluated.eps_r[:, frequency_index]
     mu_r = @view evaluated.mu_r[:, frequency_index]
     air = EarthMaterial(rho[1], eps_r[1], mu_r[1])
-    @inbounds for interaction in interactions
-        pair = interaction.physical_pair
+    @inbounds for (column, entry) in enumerate(pairs)
         earth = sequence.rule(
-            rho, eps_r, mu_r, model, pair, frequency; binding = interaction.reduction, workspace
+            rho, eps_r, mu_r, model, entry.physical, frequency; binding = entry.reduction,
+            workspace
         )
-        _media!(destination, interaction.index, air, earth)
+        _media!(destination, column, air, earth)
     end
     return destination
 end
@@ -504,19 +503,18 @@ function homogenize!(
         relation,
         static,
         model::EarthModel,
-        interactions,
+        pairs,
         frequency,
         frequency_index::Int; workspace = nothing
 )
     air = EarthMaterial(static.rho[1], static.eps_r[1], static.mu_r[1])
-    @inbounds for interaction in interactions
-        pair = interaction.physical_pair
+    @inbounds for (column, entry) in enumerate(pairs)
         reconstructed = sequence.rule(
             static.rho, static.eps_r, static.mu_r,
-            model, pair, frequency; binding = interaction.reduction, workspace
+            model, entry.physical, frequency; binding = entry.reduction, workspace
         )
         earth = constitutive(relation, reconstructed, frequency; workspace)
-        _media!(destination, interaction.index, air, earth)
+        _media!(destination, column, air, earth)
     end
     return destination
 end

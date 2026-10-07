@@ -6,10 +6,8 @@
     # Numerical controls use the production allocator. There is no second array layout.
     function buffers(geometry)
         T=eltype(geometry.radius)
-        base=G.initialize_buffers(E.earth!, T, (; n_cables = length(geometry.radius)),
-            (; geometry), (; observations = nothing))
-        return G.initialize_buffers(
-            E.EarthImpedance.Formula(:unified), T, (;), (; geometry), base)
+        return G.initialize_buffers(E.EarthImpedance.Formula(:unified), T, (;), (; geometry),
+            (; observations = nothing))
     end
 
     # Build a real public problem and workspace. Independent equal-medium controls
@@ -48,7 +46,7 @@
         E.materials!(prepared, selected)
         E.materials!(prepared, selected, 1)
         prepared.input.jω[1]=state.jω
-        for materials in prepared.buffers.earth_materials
+        for materials in prepared.buffers.earth.calculations
             for column in axes(materials.rho, 2), layer in 1:2
 
                 materials.rho[layer, column]=iszero(state.sigma[layer]) ? T(Inf) :
@@ -66,11 +64,19 @@
         return prepared.buffers
     end
 
+    # The calculation's state at the frequency, with the per-conductor arrays that its
+    # Functor writes into Unified's buffers.
     function field_state(geometry, state)
         prepared=workspace(geometry, state)
-        binding=only(prepared.plan.earth_calculations)
-        materials=only(prepared.buffers.earth_materials)
-        calculation=binding.selection(materials, binding, prepared, 1)
-        return merge(calculation.state, (radial_current = prepared.buffers.radial_current,))
+        calculation=only(prepared.plan.earth.calculations)
+        materials=only(prepared.buffers.earth.calculations)
+        functor=LineCableModels.Functor(calculation.impedance.formula,
+            (; jω = prepared.input.jω[1], frequency = 1, materials.rho, materials.epsilon,
+                materials.mu, materials.thickness, calculation.media);
+            workspace = prepared)
+        buffers=prepared.buffers
+        return merge(functor.state, (radius = prepared.plan.geometry.radius,
+            buffers.radial_argument, buffers.source_logscale, buffers.circumference_average,
+            buffers.radial_current))
     end
 end

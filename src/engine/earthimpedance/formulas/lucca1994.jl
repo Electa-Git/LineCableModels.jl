@@ -52,11 +52,12 @@ Eq. (8-34), with the geometric definitions immediately below it.
 """
 function earth_impedance(
         ::Formula{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2},
-        functor, pair, workspace
+        functor, workspace
 )
-    s = functor.state.jω
+    pair = functor.input.pair
+    s = functor.input.jω
     μ0 = vacuum_permeability(typeof(real(s)))
-    he = inv(sqrt(s * μ0 * functor.state.sigma[2]))
+    he = inv(sqrt(s * μ0 * conductivity(functor.input.rho[2])))
     vertical = abs(pair.heights[1]) + abs(pair.heights[2])
     x = pair.separation
     H = vertical + 2he
@@ -69,9 +70,9 @@ end
 # The reciprocal mixed coefficient has the same physical distances in either direction.
 function earth_impedance(
         selected::Formula{:lucca1994}, kind::Val{:mutual}, ::Val{2}, ::Val{1},
-        functor, pair, workspace
+        functor, workspace
 )
-    return earth_impedance(selected, kind, Val(1), Val(2), functor, pair, workspace)
+    return earth_impedance(selected, kind, Val(1), Val(2), functor, workspace)
 end
 
 function formulation_options(::Expression{

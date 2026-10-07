@@ -1,7 +1,7 @@
 @testitem "Engine / ideal external potential / images, zero cases and types" tags=[:unit, :engine] begin
     const E = LineCableModels.Engine
-    function evaluate(functor)
-        return @inferred functor()
+    function evaluate(selected, arguments...)
+        return @inferred selected(arguments...)
     end
     for T in (Float32, Float64, BigFloat)
         μ0, ε0 = 4T(pi)*T(10)^(-7), parse(T, "8.8541878128e-12")
@@ -18,7 +18,7 @@
             (:mutual, (-2, 10), 0.75, (2, 1), "0"))
             pair = E.EarthPair(1, kind === :self ? 1 : 2, T.(heights), T(x), layers;
                 radius = kind === :self ? T(1)/100 : nothing)
-            value = evaluate(formula(T[Inf, 100], [ε0, 10ε0], [μ0, μ0], s, pair))
+            value = evaluate(formula, T[Inf, 100], [ε0, 10ε0], [μ0, μ0], s, pair)
             @test value isa Complex{T}
             @test iszero(imag(value))
             if reference == "0"
@@ -37,9 +37,8 @@ end
     function potential(radius)
         T=typeof(radius)
         pair=E.EarthPair(1, 1, (T(10), T(10)), T(0), (1, 1); radius)
-        functor=E.EarthAdmittance.Formula(:ideal)(T[Inf, 100], T[ε0, 10ε0],
+        return @inferred E.EarthAdmittance.Formula(:ideal)(T[Inf, 100], T[ε0, 10ε0],
             T[μ0, μ0], Complex{T}(100pi*im), pair)
-        return @inferred functor()
     end
     radius=measurement(0.01, 0.0001)
     coefficient=potential(radius)

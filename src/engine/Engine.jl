@@ -70,6 +70,7 @@ using ..Units
 import ..Commons
 using ..Commons: vacuum_permittivity, vacuum_permeability
 using ..Commons: kron_reduce!, ReductionPlan, reduce_line_matrices!
+import ..Commons: Functor
 import ..Commons: initialize_buffers
 using ..Materials
 using ..Materials: TemperatureDependent
@@ -86,6 +87,7 @@ using QuadGK: alloc_segbuf, quadgk
 
 include("interfaces.jl")
 include("formulations.jl")
+include("earthplan.jl")
 include("specialfunctions.jl")
 
 # Problem and coaxial formulation definitions
@@ -151,7 +153,7 @@ public SpectralIntegral, integrate
 public AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
        earth_spectral_points!, earth_contour_angle, earth_direct,
        outgoing_root, bessel_i0m1, bessel_current_ratio, special_besselix
-public earth_bindings, earth!, materials!, homogenize!,
+public earth!, materials!, homogenize!,
        same_physical_state, layer_index, computation_type
 public has_uncertainty_type, numerical_magnitude
 public resolution_available

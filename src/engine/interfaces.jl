@@ -60,25 +60,6 @@ function same_physical_state(a::AbstractArray, b::AbstractArray)
 end
 
 """
-$(TYPEDSIGNATURES)
-
-Bind selected earth equations to their required material interactions and output
-entries. Coupled equations may require the complete physical system, even when
-only a subset of its output entries is selected. Joint methods determine whether
-impedance and potential selections can use one calculation. `nothing` requires
-separate calculations. Engine records each calculation once with explicit
-impedance and potential output indices. Its material evaluation and indexed
-equation traversal execute once per frequency.
-
-After scalar promotion and geometry construction, `earth_bindings(selection,
-binding, geometry)` declares the invariant arithmetic inputs used for exact reuse.
-All selections execute their bound indexed equations through the same traversal.
-The default includes destination indices. An equation may omit those only when
-they do not participate in its arithmetic.
-"""
-function earth_bindings end
-
-"""
 Resolve a placed conductor's earth-layer index from the problem and coordinates
 [m], or read `(source, target)` indices from an initialized `EarthPair`. Air is
 layer 1. Subsequent indices retain the physical earth model's layer order.
@@ -92,6 +73,13 @@ Frequency-aligned arguments are
 validated by their scientific owner against `frequencies`.
 """
 computation_type(::Type{T}, ::AbstractFormulation, frequencies) where {T <: Real} = T
+computation_type(::Type{T}, ::Nothing, frequencies) where {T <: Real} = T
+# Each selection of a record, and of a recipe within it, can widen `T`.
+function computation_type(::Type{T}, selections::NamedTuple, frequencies) where {T <: Real}
+    return foldl(values(selections); init = T) do scalar, selected
+        computation_type(scalar, selected, frequencies)
+    end
+end
 
 """Identify the local formula selections that determine blueprint coefficients."""
 function blueprint_dependencies end
@@ -101,11 +89,13 @@ function internal_shunt_response end
 """
 $(TYPEDSIGNATURES)
 
-Calculate both selected earth contributions for a frequency from completed
-material inputs. Ordinary methods evaluate indexed equations. A coupled formula
-may fill both destinations in one calculation. Matrix rows are receivers and
-columns are sources. Impedance
-contributions are \\[Ω/m\\]. Potential-coefficient contributions are \\[m/F\\].
+Calculate the selected earth contributions at one frequency from completed material
+inputs: for every calculation of the earth plan, or for one calculation. Given a formula and
+the Functor of its calculation, return the physical matrices of the calculation after its
+parts, by quantity. A formula whose parts write the physical coefficients returns none. A
+coupled formula converts its parts' coefficients for both quantities in one calculation.
+Matrix rows are receivers and columns are sources. Impedance contributions are \\[Ω/m\\].
+Potential-coefficient contributions are \\[m/F\\].
 """
 function earth! end
 function homogenize! end
@@ -149,6 +139,25 @@ end
 function EarthPair(row::Integer, column::Integer, heights::Tuple{T, T}, separation::T,
         layers::Tuple{Int, Int}; radius = nothing) where {T <: Real}
     return EarthPair{T}(row, column, heights, separation, layers, radius)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `pair` on the earth that its calculation consumes. The layered earth model keeps the
+physical layers.
+"""
+EarthPair(pair::EarthPair, ::EarthModel) = pair
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `pair` on an equivalent homogeneous earth: air stays layer 1, and every earth layer
+becomes layer 2.
+"""
+function EarthPair(pair::EarthPair, ::EquivalentHomogeneous.AbstractSequence)
+    return EarthPair(pair.row, pair.column, pair.heights, pair.separation,
+        map(layer -> layer == 1 ? 1 : 2, pair.layers); radius = pair.radius)
 end
 
 """

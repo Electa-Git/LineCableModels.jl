@@ -10,12 +10,13 @@
         heights = (-1.0, -1.0, -1.0), frequencies = [50.0], rho = 100.0)
     selected=F.PairImpedance()
     work=F.workspace(problem, selected)
-    binding=first(work.plan.earth_calculations)
-    @test count(iszero, binding.previous)==3
+    calculation=first(work.plan.earth.calculations)
+    # A pair that computes its value has `reuse_from` equal to its own index.
+    @test count(((index, entry),) -> entry.reuse_from==index, enumerate(calculation.pairs))==3
     E.earth!(work, 1)
     @test length(selected.calls)==3
     original=copy(work.buffers.Zearth)
-    materials=first(work.buffers.earth_materials)
+    materials=first(work.buffers.earth.calculations)
     # The final diagonal shares geometry with the first two, but its material changes.
     materials.rho[2, 9]=200.0
     empty!(selected.calls)
@@ -40,8 +41,8 @@
         heights = (-1.0, -1.0, -1.0), frequencies = [50.0], rho = measurement(100.0),
         radius = measurement(0.0425))
     uncertain=F.workspace(uncertain_problem)
-    selected=first(uncertain.plan.earth_calculations).selection
-    materials=first(uncertain.buffers.earth_materials)
+    selected=first(uncertain.plan.earth.calculations).impedance.formula
+    materials=first(uncertain.buffers.earth.calculations)
     rho=measurement(100.0, 1.0)
     independent=measurement(100.0, 1.0)
     materials.rho[2, :].=rho
@@ -62,9 +63,9 @@
         heights = (height, independent_height, height), frequencies = [50.0], rho = 100.0,
         radius = measurement(0.0425))
     geometry_work=F.workspace(geometry_problem)
-    geometry_binding=first(geometry_work.plan.earth_calculations)
-    @test geometry_binding.previous[5]==0
-    @test geometry_binding.previous[9]==1
+    geometry_calculation=first(geometry_work.plan.earth.calculations)
+    @test geometry_calculation.pairs[5].reuse_from==5
+    @test geometry_calculation.pairs[9].reuse_from==1
 end
 
 @testitem "Engine / unified shares indexed source coefficients before its complete solve" tags=[:unit, :parametric, :slow] setup=[UnifiedFormulaFixtures] begin
@@ -79,13 +80,18 @@ end
             epsilon = (8.8541878128e-12, 10*8.8541878128e-12), mu = (4pi*1e-7, 4pi*1e-7))
         reused=UnifiedFormulaFixtures.workspace(geometry, state, controls)
         separate=UnifiedFormulaFixtures.workspace(geometry, state, controls)
-        binding=only(reused.plan.earth_calculations)
-        @test count(iszero, binding.previous)==27
-        fill!(only(separate.plan.earth_calculations).previous, 0)
+        calculation=only(reused.plan.earth.calculations)
+        @test count(((index, entry),) -> entry.reuse_from==index,
+            enumerate(calculation.pairs))==27
+        # Every pair of the separate workspace is computed from its own index.
+        pairs=only(separate.plan.earth.calculations).pairs
+        for index in eachindex(pairs)
+            pairs[index]=merge(pairs[index], (reuse_from = index,))
+        end
         E.earth!(reused, 1)
         E.earth!(separate, 1)
-        @test length(unique(reused.buffers.earth_interactions.representatives))==27
-        @test length(unique(separate.buffers.earth_interactions.representatives))==81
+        @test length(unique(reused.buffers.earth.pairs.representatives))==27
+        @test length(unique(separate.buffers.earth.pairs.representatives))==81
         for name in (:axial_field, :source_potential, :current_map,
             :enclosed_impedance, :enclosed_potential)
             @test getproperty(reused.buffers, name)==getproperty(separate.buffers, name)
@@ -134,7 +140,7 @@ end
         @test selected.calls[]==2
         @test all(==(work.buffers.Zearth[1]), work.buffers.Zearth)
         @test length(logger.logs)==9
-        @test isempty(work.buffers.earth_interactions.warnings)
+        @test isempty(work.buffers.earth.pairs.warnings)
         if positions
             @test Set((record.kwargs[:context].receiver, record.kwargs[:context].source)
             for record in logger.logs)==Set(Tuple.(CartesianIndices(work.buffers.Zearth)))
