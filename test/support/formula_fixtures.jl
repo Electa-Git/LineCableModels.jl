@@ -201,10 +201,12 @@
         SurfaceLaw{kinds, typeof(parameters), typeof(options)}(
             parameters, options, Tuple[], Tuple[])
     end
-    function (selected::SurfaceLaw)(r_in, r_ex, rho, mu_r, jω)
+    # The surface impedances share a serial number of the evaluation point.
+    function G.Functor(selected::SurfaceLaw, input::NamedTuple; workspace = nothing)
+        (; r_in, r_ex, rho, mu_r, jω) = input
         push!(selected.state_inputs, (r_in, r_ex, rho, mu_r, jω))
         state = (serial = length(selected.state_inputs), rho = rho, radius = r_ex)
-        return II.Functor(selected, state, selected.options)
+        return G.Functor(selected, input, state)
     end
     # Availability is dispatched by actual surface, not inferred from options.
     for kinds in ((:inner, :outer, :transfer), (:outer,), (:transfer,), (:inner,)),
@@ -236,8 +238,6 @@
         return G.initialize_buffers(
             E.SpectralIntegral, Val(:quad), T, input, plan, buffers)
     end
-    (selected::SpectralSurface)(
-        r_in, r_ex, rho, mu_r, jω) = II.Functor(selected, (jω = jω,), selected.options)
     LineCableModels.formulation_options(::Expression{
         <:SpectralSurface, typeof(II.internal_impedance),
         Tuple{Val{:outer}}}) = FormulationOptions(integration = (
@@ -248,11 +248,11 @@
     LineCableModels.formulation_options(::Expression{<:SpectralSurface, typeof(II.internal_impedance),
         <:Union{Tuple{Val{:inner}}, Tuple{Val{:transfer}}}}) = FormulationOptions()
     function II.internal_impedance(selected::SpectralSurface, ::Val{:outer}, functor, workspace)
-        push!(selected.seen, (functor.options.data.integration.method, workspace))
+        integration=functor.input.options.data.integration
+        push!(selected.seen, (integration.method, workspace))
         integral=E.SpectralIntegral(λ->complex(exp(-2λ)))
         value,
-        _=E.integrate(integral, functor.options.data.integration.method,
-            functor.options.data.integration.options,
+        _=E.integrate(integral, integration.method, integration.options,
             workspace===nothing ? nothing : workspace.buffers)
         return value*1e-4
     end
@@ -285,8 +285,8 @@
         options::O
     end
     InsulationReactance(inductance = 2) = InsulationReactance((inductance = inductance,), FormulationOptions())
-    E.InsulationImpedance.insulation_impedance(::InsulationReactance,
-        r_in, r_ex, mu_r, s, parameters, options, workspace) = parameters.inductance*s
+    E.InsulationImpedance.insulation_impedance(selected::InsulationReactance, functor,
+        workspace) = selected.parameters.inductance*functor.input.jω
     LineCableModels.formulation_options(::Expression{<:InsulationReactance,
         typeof(E.InsulationImpedance.insulation_impedance)}) = FormulationOptions()
 
@@ -360,9 +360,10 @@
         temperatures::Vector{Tuple}
     end
     OhmicDielectric() = OhmicDielectric((;), FormulationOptions(), Tuple[])
-    function IA.insulation_material(selected::OhmicDielectric, m, f, t, p, o, w)
-        push!(selected.temperatures, (m.T0, t))
-        complex(inv(m.rho), 2pi*f*8.8541878128e-12*m.eps_r)
+    function IA.insulation_material(selected::OhmicDielectric, functor, workspace)
+        (; material, frequency, temperature) = functor.input
+        push!(selected.temperatures, (material.T0, temperature))
+        complex(inv(material.rho), 2pi*frequency*8.8541878128e-12*material.eps_r)
     end
     LineCableModels.formulation_options(::Expression{
         <:OhmicDielectric, typeof(IA.insulation_material)}) = FormulationOptions()
@@ -376,10 +377,10 @@
         end
         @eval $name(; scale = 2) = $name((scale = scale,), FormulationOptions())
         operation_name=GlobalRef(parentmodule(operation), nameof(operation))
-        @eval function $operation_name(
-                ::$name, material, frequency, temperature, parameters, options, workspace)
-            return complex(
-                oftype(frequency, parameters.scale)/material.rho, frequency*material.eps_r+temperature)
+        @eval function $operation_name(selected::$name, functor, workspace)
+            (; material, frequency, temperature) = functor.input
+            return complex(oftype(frequency, selected.parameters.scale)/material.rho,
+                frequency*material.eps_r+temperature)
         end
         @eval LineCableModels.formulation_options(::Expression{
             <:$name, typeof($operation)}) = FormulationOptions()
@@ -467,21 +468,10 @@
             $name(base, base.parameters, base.options, events, Any[])
         end
         op=GlobalRef(owner, nameof(operation))
-        if owner === E.InsulationImpedance
-            @eval function $op(
-                    selected::$name, r_in, r_ex, mu_r, s, parameters, options, workspace)
-                push!(selected.events, $(QuoteNode(event)))
-                push!(selected.workspaces, workspace)
-                $op(selected.base, r_in, r_ex, mu_r, s, parameters, options, workspace)
-            end
-        else
-            @eval function $op(selected::$name, material, frequency,
-                    temperature, parameters, options, workspace)
-                push!(selected.events, $(QuoteNode(event)))
-                push!(selected.workspaces, workspace)
-                $op(selected.base, material, frequency,
-                    temperature, parameters, options, workspace)
-            end
+        @eval function $op(selected::$name, functor, workspace)
+            push!(selected.events, $(QuoteNode(event)))
+            push!(selected.workspaces, workspace)
+            $op(selected.base, functor, workspace)
         end
         @eval LineCableModels.formulation_options(::Expression{
             <:$name, typeof($operation)}) = FormulationOptions()

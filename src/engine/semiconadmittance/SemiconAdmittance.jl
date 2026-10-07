@@ -10,6 +10,7 @@ $(IMPORTS)
 """
 module SemiconAdmittance
 import ...Commons: FormulationOptions, formulas
+using ...Commons: Functor
 import ...Commons: formulation_options
 
 export Formula, formula_id, formulas

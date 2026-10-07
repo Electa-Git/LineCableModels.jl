@@ -3,9 +3,9 @@ $(TYPEDEF)
 
 Select one insulation constitutive relation by its stable literature identifier.
 
-Each formula implements `insulation_material(selected, material, frequency,
-temperature, parameters, options, workspace)` on its concrete selection type.
-It returns the material's frequency-evaluated admittivity [S/m]. Geometry and
+Each formula implements `insulation_material(selected, functor, workspace)` on its concrete
+selection type. The input of `functor` holds the material, the frequency, the temperature
+and the options. The method returns the material's frequency-evaluated admittivity [S/m]. Geometry and
 radial series aggregation remain common Engine operations.
 
 $(TYPEDFIELDS)
@@ -43,16 +43,9 @@ end
         frequency::T,
         temperature::T; workspace = nothing
 ) where {T <: Real}
-    isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
-        frequency,
-        "insulation constitutive frequency must be positive and finite"
-    ))
-    isfinite(temperature) || throw(DomainError(
-        temperature,
-        "insulation constitutive temperature must be finite"
-    ))
-    value = insulation_material(
-        formula, material, frequency, temperature, formula.parameters, formula.options, workspace)
+    functor = Functor(formula,
+        (; material, frequency, temperature, options = formula.options); workspace)
+    value = Expression(formula, insulation_material)(functor, workspace)
     return convert(Complex{T}, validate(value, formula, T))
 end
 

@@ -39,12 +39,12 @@ by `material.rho`. The common coaxial operator applies the annular geometry.
 
 # Arguments
 
-- `material`: semiconducting material properties, including resistivity and
-  relative permittivity.
-- `frequency`: evaluation frequency \\[Hz\\].
-- `temperature`: operating temperature \\[°C\\].
-- `values`: explicit physical model parameters.
-- `options`: normalized numerical sections for this contribution.
+- `functor`: the Functor of the evaluation point. Its input holds:
+  - `material`: semiconducting material properties, including resistivity and
+    relative permittivity.
+  - `frequency`: evaluation frequency \\[Hz\\].
+  - `temperature`: operating temperature \\[°C\\].
+  - `options`: the normalized formulation options of the formula.
 - `workspace`: optional computation workspace supplying reusable numerical buffers.
 
 # Returns
@@ -58,13 +58,9 @@ Ametani, Miyamoto, and Nagaoka (2004), DOI
 semiconducting-screen specialization. The constitutive relation itself is
 standard frequency-domain electromagnetism.
 """
-@inline function semicon_material(
-        ::Formula{:lossy},
-        material::Material{T},
-        frequency::T,
-        temperature::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
+@inline function semicon_material(::Formula{:lossy}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
     ε₀ = vacuum_permittivity(T)
     ω = 2 * (one(T) * π) * frequency
     displacement = complex(zero(T), ω) * ε₀ * material.eps_r

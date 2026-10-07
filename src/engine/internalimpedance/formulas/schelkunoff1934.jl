@@ -43,8 +43,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct the exact Schelkunoff surface-impedance evaluator for one solid or
-hollow circular conductor:
+Build the Functor of one solid or hollow circular conductor at one frequency for the exact
+Schelkunoff surface impedances:
 
 ```math
 Z_{is}=\\frac{\\rho m}{2\\pi aD}
@@ -70,18 +70,20 @@ Here ``μ=μ_0μ_r`` is absolute permeability in H/m, and ``I_ν`` and ``K_ν``
 are modified Bessel functions. For ``a=0``, the outer term is evaluated from the solid-cylinder limit
 ``Z_{int}=\\rho m I_0(mb)/(2\\pi b I_1(mb))``.
 
-# Arguments
+# Input
 
 - `r_in`: inner conductor radius ``a`` \\[m\\].
 - `r_ex`: outer conductor radius ``b`` \\[m\\].
-- `rho_c`: conductor resistivity ``\\rho`` \\[Ω·m\\].
-- `mur_c`: relative conductor permeability \\[dimensionless\\].
+- `rho`: conductor resistivity ``\\rho`` \\[Ω·m\\].
+- `mu_r`: relative conductor permeability \\[dimensionless\\].
 - `jω`: complex angular frequency ``j\\omega`` \\[rad/s\\].
 
 # Returns
 
-- A formula functor evaluating inner, outer, and transfer surface impedances
-  \\[Ω/m\\].
+- The Functor of the conductor at that frequency. Its state stores the scaled modified
+  Bessel functions ``I_0``, ``I_1``, ``K_0`` and ``K_1`` at ``ma`` and ``mb``, evaluated once
+  for the inner, outer and transfer surfaces. A solid conductor evaluates only ``I_0(mb)``
+  and ``I_1(mb)``.
 
 # Notes
 
@@ -89,48 +91,38 @@ Implements Schelkunoff's cylindrical surface terms. Ametani (1980) recovered
 these terms for the complete core-sheath-armor impedance assembly performed
 recursively by the Engine.
 """
-function (formula::Formula{:schelkunoff1934})(
-        r_in::T,
-        r_ex::T,
-        rho_c::T,
-        mur_c::T,
-        jω::Complex{T}
-) where {T <: Real}
-    state = surface_impedance_state(
-        Val(:schelkunoff1934), r_in, r_ex, rho_c, mur_c, jω
-    )
-    return Functor(formula, state, formula.options)
-end
-
-function surface_impedance_state(
-        ::Val{:schelkunoff1934},
-        r_in::T,
-        r_ex::T,
-        rho_c::T,
-        mur_c::T,
-        jω::Complex{T}
-) where {T <: Real}
+function Functor(formula::Formula{:schelkunoff1934}, input::NamedTuple; workspace = nothing)
+    (; r_in, r_ex, rho, mu_r, jω) = input
+    T = typeof(r_in)
     isfinite(r_in) && isfinite(r_ex) && zero(T) <= r_in < r_ex ||
         throw(DomainError((r_in, r_ex), "conductor radii must satisfy 0 ≤ r_in < r_ex [m]"))
-    isfinite(rho_c) && rho_c > zero(T) && isfinite(mur_c) && mur_c > zero(T) ||
-        throw(DomainError((rho_c, mur_c), "conductor resistivity and permeability must be positive and finite"))
+    isfinite(rho) && rho > zero(T) && isfinite(mu_r) && mu_r > zero(T) ||
+        throw(DomainError((rho, mu_r), "conductor resistivity and permeability must be positive and finite"))
     isfinite(jω) && !iszero(jω) || throw(DomainError(jω, "jω must be finite and nonzero"))
-    mu_c = vacuum_permeability(typeof(r_in)) * mur_c
-    sigma_c = conductivity(rho_c)
+    mu_c = vacuum_permeability(T) * mu_r
+    sigma_c = conductivity(rho)
     m = sqrt(jω * mu_c * sigma_c)
     w_ex = m * r_ex
-    state = (;
-        r_in,
-        r_ex,
-        rho_c,
-        mur_c,
-        jω,
-        mu_c,
-        sigma_c,
-        m,
-        w_ex
-    )
-    return state
+    w_in = m * r_in
+    i0_ex = special_besselix(0, w_ex)
+    i1_ex = special_besselix(1, w_ex)
+    # A solid conductor has no inner surface, and K at zero would be infinite. Its values
+    # that the outer surface does not read are zero, so the state type does not depend on
+    # the geometry.
+    absent = zero(i0_ex)
+    sc_ex, sc, i0_in, i1_in, k0_in, k1_in, k0_ex, k1_ex =
+        if isapprox(r_in, zero(T); atol = eps(T))
+            ntuple(_ -> absent, 8)
+        else
+            sc_in = exp(abs(real(w_in)) - w_ex)
+            sc_out = exp(abs(real(w_ex)) - w_in)
+            (sc_out, sc_in / sc_out, special_besselix(0, w_in), special_besselix(1, w_in),
+                special_besselkx(0, w_in), special_besselkx(1, w_in),
+                special_besselkx(0, w_ex), special_besselkx(1, w_ex))
+        end
+    state = (; mu_c, sigma_c, m, w_in, w_ex, sc_ex, sc,
+        i0_in, i1_in, k0_in, k1_in, i0_ex, i1_ex, k0_ex, k1_ex)
+    return Functor(formula, input, state)
 end
 
 @inline function internal_impedance(
@@ -138,22 +130,16 @@ end
         ::Val{:inner},
         functor, workspace
 )
-    state = functor.state
-    T = typeof(state.r_in)
-    if isapprox(state.r_in, zero(T); atol = eps(T))
+    input, state = functor.input, functor.state
+    T = typeof(input.r_in)
+    if isapprox(input.r_in, zero(T); atol = eps(T))
         return zero(Complex{T})
     end
 
-    w_in = state.m * state.r_in
-    sc_in = exp(abs(real(w_in)) - state.w_ex)
-    sc_ex = exp(abs(real(state.w_ex)) - w_in)
-    sc = sc_in / sc_ex
-    numerator = special_besselkx(0, w_in) * special_besselix(1, state.w_ex) +
-                sc * special_besselix(0, w_in) * special_besselkx(1, state.w_ex)
-    denominator = special_besselkx(1, w_in) * special_besselix(1, state.w_ex) -
-                  sc * special_besselix(1, w_in) * special_besselkx(1, state.w_ex)
+    numerator = state.k0_in * state.i1_ex + state.sc * state.i0_in * state.k1_ex
+    denominator = state.k1_in * state.i1_ex - state.sc * state.i1_in * state.k1_ex
     return Complex{T}(
-        (state.jω * state.mu_c / 2π) * (1 / w_in) * (numerator / denominator)
+        (input.jω * state.mu_c / 2π) * (1 / state.w_in) * (numerator / denominator)
     )
 end
 
@@ -162,23 +148,17 @@ end
         ::Val{:outer},
         functor, workspace
 )
-    state = functor.state
-    T = typeof(state.r_in)
-    if isapprox(state.r_in, zero(T); atol = eps(T))
-        numerator = special_besselix(0, state.w_ex)
-        denominator = special_besselix(1, state.w_ex)
+    input, state = functor.input, functor.state
+    T = typeof(input.r_in)
+    if isapprox(input.r_in, zero(T); atol = eps(T))
+        numerator = state.i0_ex
+        denominator = state.i1_ex
     else
-        w_in = state.m * state.r_in
-        sc_in = exp(abs(real(w_in)) - state.w_ex)
-        sc_ex = exp(abs(real(state.w_ex)) - w_in)
-        sc = sc_in / sc_ex
-        numerator = special_besselix(0, state.w_ex) * special_besselkx(1, w_in) +
-                    sc * special_besselkx(0, state.w_ex) * special_besselix(1, w_in)
-        denominator = special_besselix(1, state.w_ex) * special_besselkx(1, w_in) -
-                      sc * special_besselkx(1, state.w_ex) * special_besselix(1, w_in)
+        numerator = state.i0_ex * state.k1_in + state.sc * state.k0_ex * state.i1_in
+        denominator = state.i1_ex * state.k1_in - state.sc * state.k1_ex * state.i1_in
     end
     return Complex{T}(
-        (state.jω * state.mu_c / 2π) * (1 / state.w_ex) *
+        (input.jω * state.mu_c / 2π) * (1 / state.w_ex) *
         (numerator / denominator)
     )
 end
@@ -188,21 +168,16 @@ end
         ::Val{:transfer},
         functor, workspace
 )
-    state = functor.state
-    T = typeof(state.r_in)
-    if isapprox(state.r_in, zero(T); atol = eps(T))
+    input, state = functor.input, functor.state
+    T = typeof(input.r_in)
+    if isapprox(input.r_in, zero(T); atol = eps(T))
         return zero(Complex{T})
     end
 
-    w_in = state.m * state.r_in
-    sc_in = exp(abs(real(w_in)) - state.w_ex)
-    sc_ex = exp(abs(real(state.w_ex)) - w_in)
-    sc = sc_in / sc_ex
-    numerator = one(sc_ex) / sc_ex
-    denominator = special_besselix(1, state.w_ex) * special_besselkx(1, w_in) -
-                  sc * special_besselix(1, w_in) * special_besselkx(1, state.w_ex)
+    numerator = one(state.sc_ex) / state.sc_ex
+    denominator = state.i1_ex * state.k1_in - state.sc * state.i1_in * state.k1_ex
     return Complex{T}(
-        (1 / (2π * state.r_in * state.r_ex * state.sigma_c)) *
+        (1 / (2π * input.r_in * input.r_ex * state.sigma_c)) *
         (numerator / denominator)
     )
 end

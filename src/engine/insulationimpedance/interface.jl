@@ -39,13 +39,9 @@ end
         mu_r::T,
         s::Complex{T}; workspace = nothing
 ) where {T <: Real}
-    isfinite(r_in) && isfinite(r_ex) && zero(T) <= r_in <= r_ex ||
-        throw(DomainError((r_in, r_ex), "insulation radii must satisfy 0 ≤ r_in ≤ r_ex [m]"))
-    isfinite(mu_r) && mu_r > zero(T) || throw(DomainError(mu_r,
-        "relative insulation permeability must be positive and finite"))
-    isfinite(s) || throw(DomainError(s, "jω must be finite"))
-    value = insulation_impedance(
-        formula, r_in, r_ex, mu_r, s, formula.parameters, formula.options, workspace)
+    functor = Functor(formula, (; r_in, r_ex, mu_r, jω = s, options = formula.options);
+        workspace)
+    value = Expression(formula, insulation_impedance)(functor, workspace)
     value isa Number && isfinite(value) || throw(DomainError(value,
         "insulation_impedance must return a finite scalar"))
     return value

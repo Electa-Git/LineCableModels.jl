@@ -71,7 +71,6 @@
 "Engine -> ModalAnalysis | src/engine/lineparameters.jl" = 3
 
 [names]
-"Functor" = 2
 "_line!" = 2
 "flatten" = 2
 

@@ -87,11 +87,16 @@ end
     rho=1.7241e-8
     relative_permeability=1.0
     s=ComplexF64(0.0, 2π*50.0)
-    interaction=@inferred formulation(
-        r_in, r_ex, rho, relative_permeability, s)
-    inner=@inferred interaction(Val(:inner))
-    outer=@inferred interaction(Val(:outer))
-    transfer=@inferred interaction(Val(:transfer))
+    args=(r_in, r_ex, rho, relative_permeability, s)
+    surfaces=@inferred InternalImpedance.surface_impedances(formulation,
+        Val((:inner, :outer, :transfer)), args...)
+    inner=(@inferred InternalImpedance.surface_impedances(formulation, Val((:inner,)),
+        args...)).inner
+    outer=(@inferred InternalImpedance.surface_impedances(formulation, Val((:outer,)),
+        args...)).outer
+    transfer=(@inferred InternalImpedance.surface_impedances(formulation, Val((:transfer,)),
+        args...)).transfer
+    @test (inner, outer, transfer) == values(surfaces)
     @test all(isfinite, (inner, outer, transfer))
     @test real(inner) > 0
     @test real(outer) > 0
@@ -99,15 +104,21 @@ end
     @test imag(inner) >= 0
     @test imag(outer) >= 0
 
-    solid=@inferred formulation(
-        0.0, r_ex, rho, relative_permeability, s)
-    @test iszero(solid(Val(:inner)))
-    @test iszero(solid(Val(:transfer)))
-    solid_outer=solid(Val(:outer))
+    solid=@inferred InternalImpedance.surface_impedances(formulation,
+        Val((:inner, :outer, :transfer)), 0.0, r_ex, rho, relative_permeability, s)
+    @test iszero(solid.inner)
+    @test iszero(solid.transfer)
+    solid_outer=solid.outer
     @test isfinite(solid_outer)
     @test real(solid_outer) > 0
+    # The state stores the Bessel values that inner, outer and transfer impedances share.
+    functor=LineCableModels.Functor(formulation,
+        (; r_in, r_ex, rho, mu_r = relative_permeability, jω = s))
+    @test functor.state.i1_ex == LineCableModels.Engine.special_besselix(1, functor.state.w_ex)
+    @test functor.state.i0_in == LineCableModels.Engine.special_besselix(0, functor.state.w_in)
     # An unknown kind has no method. The plan checks the needed kinds before the loop.
-    @test_throws MethodError interaction(:unsupported)
+    @test_throws MethodError InternalImpedance.surface_impedances(formulation,
+        Val((:unsupported,)), args...)
 
 end
 

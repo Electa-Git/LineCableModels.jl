@@ -22,13 +22,13 @@
         observations::Vector{Tuple}
     end
     observed=ObservedSurfaces(scalar,(;),scalar.options,Tuple[])
-    function (leaf::ObservedSurfaces)(args...)
-        surface_functor=leaf.base(args...)
-        II.Functor(leaf,surface_functor.state,leaf.options)
+    # The observed formula shares the values that its base builds for the surfaces.
+    function LineCableModels.Functor(leaf::ObservedSurfaces,input::NamedTuple;workspace=nothing)
+        LineCableModels.Functor(leaf,input,LineCableModels.Functor(leaf.base,input;workspace).state)
     end
     function II.internal_impedance(leaf::ObservedSurfaces,kind::Union{Val{:inner},Val{:outer},Val{:transfer}},
             functor,workspace)
-        push!(leaf.observations,(functor.state,workspace))
+        push!(leaf.observations,(functor.state,workspace,functor.input))
         II.internal_impedance(leaf.base,kind,functor,workspace)
     end
     args32=(0.003f0,0.005f0,2f-8,1f0,20Float32(pi)*im)
@@ -39,8 +39,8 @@
     @test length(observed.observations)==3
     @test all(record->record[2] === workspace,observed.observations)
     @test all(record->record[1] === first(observed.observations)[1],observed.observations)
-    state=first(observed.observations)[1]
-    @test (state.r_in,state.r_ex,state.rho_c,state.mur_c,state.jω) === args32
+    input=first(observed.observations)[3]
+    @test (input.r_in,input.r_ex,input.rho,input.mu_r,input.jω) === args32
 
     problem=TestFixtures.line_parameters_problem(frequencies=[50.,500.])
     original=compute(problem,Formulation())

@@ -10,6 +10,7 @@ $(IMPORTS)
 """
 module InsulationImpedance
 import ...Commons: FormulationOptions, formulas
+using ...Commons: Functor
 import ...Commons: formulation_options
 
 # Export public API

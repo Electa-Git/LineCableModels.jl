@@ -13,23 +13,6 @@ struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: InternalImpedanc
     options::O
 end
 
-"""
-$(TYPEDEF)
-
-Retain a selected formulation and shared state for one conductor and frequency.
-Leaf evaluation uses that selection's equation directly.
-
-$(TYPEDFIELDS)
-"""
-struct Functor{F, S, O <: FormulationOptions}
-    "Selected internal-impedance formulation."
-    selection::F
-    "Shared conductor state at one frequency."
-    state::S
-    "Normalized numerical sections for the surfaces or the current leaf."
-    options::O
-end
-
 """Evaluate a selected cylindrical surface coefficient in Ω/m."""
 function internal_impedance end
 
@@ -41,8 +24,9 @@ $(TYPEDSIGNATURES)
 
 Construct an internal-impedance formulation. Numerical controls are projected
 onto its surface equations. Unknown numerical sections are rejected.
-Custom formulations subtype `InternalImpedanceFormulation`, supply their
-shared-state constructor, and extend `internal_impedance` on their own type.
+Custom formulations subtype `InternalImpedanceFormulation`, build the values that their
+surface impedances share in a `Functor` method on their own type, and extend
+`internal_impedance` on their own type.
 """
 function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
     ID in formulas(Formula) || throw(ArgumentError("unknown internal-impedance formula :$ID"))
@@ -57,17 +41,6 @@ function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, Fo
     end))
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
-
-function (functor::Functor)(::Val{Kind}, workspace=nothing) where {Kind}
-    options = get(functor.options.data, Kind, (;))
-    leaf = Functor(functor.selection, functor.state, FormulationOptions(options))
-    value = internal_impedance(functor.selection, Val(Kind), leaf, workspace)
-    value isa Number && isfinite(value) || throw(DomainError(value,
-        "internal_impedance must return a finite surface coefficient [Ω/m]"))
-    return value
-end
-
-(functor::Functor)(kind::Symbol, workspace=nothing) = functor(Val(kind), workspace)
 
 """
 $(TYPEDSIGNATURES)
@@ -98,14 +71,25 @@ function surface_impedances(formula::InternalImpedanceFormulation, r_in, r_ex, r
         r_in, r_ex, rho, mu_r, jω; workspace)
 end
 
-"""Evaluate required surfaces, constructing shared state once per conductor and frequency."""
+"""
+Evaluate the surface impedances that `Kinds` names. The formula's `Functor` stores the values that the
+surface impedances share, built once per conductor and frequency. Each surface impedance
+evaluates with the options of its own section.
+"""
 @inline function surface_impedances(formula::InternalImpedanceFormulation, ::Val{Kinds},
         r_in, r_ex, rho, mu_r, jω; workspace=nothing) where {Kinds}
-    functor = formula(r_in, r_ex, rho, mu_r, jω)
-    length(Kinds) == 1 && return NamedTuple{Kinds}((functor(Val(Kinds[1]),workspace),))
-    length(Kinds) == 3 || throw(ArgumentError("internal surfaces require one or three kinds"))
-    return NamedTuple{Kinds}((functor(Val(Kinds[1]),workspace),
-        functor(Val(Kinds[2]),workspace), functor(Val(Kinds[3]),workspace)))
+    length(Kinds) in (1, 3) ||
+        throw(ArgumentError("internal surfaces require one or three kinds"))
+    functor = Functor(formula, (; r_in, r_ex, rho, mu_r, jω); workspace)
+    values = map(map(Val, Kinds)) do kind
+        options = formulation_options(formula, kind)
+        value = Expression(formula, internal_impedance, kind)(
+            Functor(functor, (; options)), workspace)
+        value isa Number && isfinite(value) || throw(DomainError(value,
+            "internal_impedance must return a finite surface coefficient [Ω/m]"))
+        value
+    end
+    return NamedTuple{Kinds}(values)
 end
 
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)

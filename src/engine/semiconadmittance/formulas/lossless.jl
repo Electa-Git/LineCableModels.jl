@@ -28,21 +28,20 @@ Evaluate lossless semiconducting-screen admittivity:
 
 # Arguments
 
-- `material`: semiconducting material and relative permittivity.
-- `frequency`: evaluation frequency \\[Hz\\].
-- `temperature`: operating temperature \\[°C\\].
-- `values`: explicit physical model parameters.
-- `options`: normalized numerical sections for this contribution.
+- `functor`: the Functor of the evaluation point. Its input holds:
+  - `material`: semiconducting material and relative permittivity.
+  - `frequency`: evaluation frequency \\[Hz\\].
+  - `temperature`: operating temperature \\[°C\\].
+  - `options`: the normalized formulation options of the formula.
 - `workspace`: optional computation workspace supplying reusable numerical buffers.
 
 # Returns
 
 - Complex lossless admittivity \\[S/m\\].
 """
-@inline function semicon_material(
-        ::Formula{:lossless}, material::Material{T}, frequency::T,
-        temperature::T, values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
+@inline function semicon_material(::Formula{:lossless}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
     ε₀ = vacuum_permittivity(T)
     ω = 2 * (one(T) * π) * frequency
     return complex(zero(T), ω) * ε₀ * material.eps_r

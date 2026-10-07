@@ -11,9 +11,9 @@
                 RadialControl.surfaces(ri,ro,rho,4big(pi)*big"1e-7"*mur,s)
             end
         end
-        evaluator=selected(inputs...)
+        surfaces=II.surface_impedances(selected,Val((:inner,:outer,:transfer)),inputs...)
         @testset "$T $kind ri=$inner f=$f" for kind in (:inner,:outer,:transfer)
-            actual=evaluator(Val(kind))
+            actual=getproperty(surfaces,kind)
             expected=getproperty(last(references),kind)
             bound=last(references).bound+abs(expected-getproperty(first(references),kind))
             @test actual isa Complex{T}
@@ -36,7 +36,7 @@
         reference=setprecision(BigFloat,256) do
             RadialControl.surfaces(big"0",big".005",big"2e-8",4big(pi)*big"1e-7",2big(pi)*im*f)
         end
-        value=selected(0.0,.005,2e-8,1.0,2pi*im*f)(Val(:outer))
+        value=II.surface_impedances(selected,Val((:outer,)),0.0,.005,2e-8,1.0,2pi*im*f).outer
         rdc=2e-8/(pi*.005^2); ldc=4pi*1e-7/(8pi)
         remainder=abs(real(reference.outer)-rdc)+abs(imag(reference.outer)/(2pi*f)-ldc)
         @test remainder<previous[]
@@ -52,9 +52,10 @@ end
     selected=II.Formula(:default)
     # Float32 is an supported input type, with no extra accuracy target.
     for inner in (0f0,.003f0)
-        evaluator=selected(inner,.005f0,2f-8,1f0,20Float32(pi)*im)
+        surfaces=II.surface_impedances(selected,Val((:inner,:outer,:transfer)),
+            inner,.005f0,2f-8,1f0,20Float32(pi)*im)
         for kind in (:inner,:outer,:transfer)
-            value=evaluator(Val(kind))
+            value=getproperty(surfaces,kind)
             @test value isa ComplexF32
             @test isfinite(value)
         end

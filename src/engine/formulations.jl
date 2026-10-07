@@ -193,10 +193,11 @@ Supertype for Engine impedance formulations.
 """
 abstract type AbstractImpedanceFormulation <: AbstractFormulation end
 """
-Select equations for the surface impedance of conductors [Ω/m]. Concrete subtypes construct
-shared state when called with conductor dimensions and material properties,
-and implement `InternalImpedance.internal_impedance` for their supported
-`inner`, `outer`, and `transfer` cases.
+Select equations for the surface impedance of conductors [Ω/m]. Concrete subtypes build, in a
+`Functor` method, the values that inner, outer and transfer surface impedances share, from
+the conductor dimensions and material properties. They implement
+`InternalImpedance.internal_impedance` for their supported `inner`, `outer`, and `transfer`
+cases.
 """
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
 """
@@ -377,6 +378,66 @@ function validate(rho::AbstractVector,
                 "air and bottom half-spaces must be infinite; internal layers positive and finite"))
     end
     return rho
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the normalized options of the surface impedance `kind` of the internal-impedance
+formula `formula`: the section of its options for this kind, or empty options.
+"""
+function formulation_options(formula::InternalImpedanceFormulation, ::Val{Kind}) where {Kind}
+    return FormulationOptions(get(formula.options.data, Kind, (;)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of an insulation-impedance formula for one insulation annulus at one
+frequency, after checking its radii, its relative permeability and `jω`. The state is empty.
+"""
+function Functor(formula::InsulationImpedanceFormulation, input::NamedTuple;
+        workspace = nothing)
+    (; r_in, r_ex, mu_r, jω) = input
+    T = typeof(r_in)
+    isfinite(r_in) && isfinite(r_ex) && zero(T) <= r_in <= r_ex ||
+        throw(DomainError((r_in, r_ex), "insulation radii must satisfy 0 ≤ r_in ≤ r_ex [m]"))
+    isfinite(mu_r) && mu_r > zero(T) || throw(DomainError(mu_r,
+        "relative insulation permeability must be positive and finite"))
+    isfinite(jω) || throw(DomainError(jω, "jω must be finite"))
+    return Functor(formula, input, (;))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of an insulation admittivity law for one material at one frequency and
+temperature, after checking both. The state is empty.
+"""
+function Functor(formula::InsulationAdmittanceFormulation, input::NamedTuple;
+        workspace = nothing)
+    (; frequency, temperature) = input
+    isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
+        frequency, "insulation constitutive frequency must be positive and finite"))
+    isfinite(temperature) || throw(DomainError(
+        temperature, "insulation constitutive temperature must be finite"))
+    return Functor(formula, input, (;))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of a semiconductor admittivity law for one material at one frequency and
+temperature, after checking both. The state is empty.
+"""
+function Functor(formula::SemiconAdmittanceFormulation, input::NamedTuple;
+        workspace = nothing)
+    (; frequency, temperature) = input
+    isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
+        frequency, "semicon constitutive frequency must be positive and finite"))
+    isfinite(temperature) || throw(DomainError(
+        temperature, "semicon constitutive temperature must be finite"))
+    return Functor(formula, input, (;))
 end
 
 """
