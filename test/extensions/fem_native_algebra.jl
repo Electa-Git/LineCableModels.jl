@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / native matrix reductions and runtime complex inversion" tags=[:extension,:fem_numerical] begin
+@testitem "Gmsh FEM / native matrix reductions and runtime complex inversion" tags=[:extension,:fem_numerical, :fem] begin
     using Gmsh, DelimitedFiles, LinearAlgebra
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -31,7 +31,7 @@
                 rows=readdlm(joinpath(dir,"matrices.tsv"))
                 P=[complex((i==j)*5+.1*i+.2*j,.15*i-.07*j) for i in 1:n,j in 1:n]
                 Zp=[complex((i==j)*7+.2*i-.1*j,.12*i+.06*j) for i in 1:n,j in 1:n]
-                options=Formulation(:LineCableModelsFEM;options=(reduce_bundle=bundle,kron_reduction=kron,ideal_transposition=transposed)).options
+                options=Formulation(:fem;options=(reduce_bundle=bundle,kron_reduction=kron,ideal_transposition=transposed)).options
                 for pass in 1:2
                     expected=Engine.reduce_primitive_matrices(reshape(pass*Zp,n,n,1),reshape(pass*P,n,n,1),connections,options)
                     sizeout=size(expected.P,1)

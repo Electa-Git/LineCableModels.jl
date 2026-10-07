@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / detached native export and caller ownership" tags=[:extension] begin
+@testitem "Gmsh FEM / detached native export and caller ownership" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -10,7 +10,7 @@
         connections=[Dict(:core=>1),Dict(:core=>2)])
     earth = homogeneous(rho=100.,eps_r=10.)
     problem = LineParametersProblem(system;frequencies=[50.,10000.],earth_props=earth)
-    formulation = Formulation(:LineCableModelsFEM;options=(
+    formulation = Formulation(:fem;options=(
         reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
     mktempdir() do root
         entry = joinpath(root,"bundle with spaces","study.pro")
@@ -100,7 +100,7 @@
     end
 end
 
-@testitem "Gmsh FEM / detached native frequency scan" tags=[:extension,:integration,:fem_numerical] begin
+@testitem "Gmsh FEM / detached native frequency scan" tags=[:extension,:integration,:fem_numerical, :fem] begin
     using Gmsh, JSON3
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -112,7 +112,7 @@ end
         connections=[Dict(:core=>1),Dict(:core=>2)])
     problem = LineParametersProblem(system;frequencies=[50.,10000.],
         earth_props=homogeneous(rho=100.,eps_r=10.))
-    formulation = Formulation(:LineCableModelsFEM;options=(
+    formulation = Formulation(:fem;options=(
         reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
     getdp = FEM._getdp_selection(computation_options(LineCableModelsFEM,ComputationOptions())).path
     mesher = Gmsh.gmsh_jll.gmsh()
@@ -222,7 +222,7 @@ end
     end
 end
 
-@testitem "Gmsh FEM / detached mesh controls and failed publication" tags=[:extension,:integration,:fem_numerical] begin
+@testitem "Gmsh FEM / detached mesh controls and failed publication" tags=[:extension,:integration,:fem_numerical, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -234,7 +234,7 @@ end
         connections=[Dict(:core=>1),Dict(:core=>2)])
     problem = LineParametersProblem(system;frequencies=[50.],
         earth_props=homogeneous(rho=100.,eps_r=10.))
-    formulation = Formulation(:LineCableModelsFEM;options=(
+    formulation = Formulation(:fem;options=(
         reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
     executable = FEM._getdp_selection(computation_options(LineCableModelsFEM,ComputationOptions())).path
     mesher = Gmsh.gmsh_jll.gmsh()
@@ -293,7 +293,7 @@ end
     end
 end
 
-@testitem "Gmsh FEM / detached native numerical parity and relocation" tags=[:extension,:integration,:fem_numerical] setup=[TemporaryFEMRuntime] begin
+@testitem "Gmsh FEM / detached native numerical parity and relocation" tags=[:extension,:integration,:fem_numerical, :fem] setup=[TemporaryFEMRuntime] begin
     using Gmsh, LinearAlgebra, SHA
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -328,7 +328,7 @@ end
         end
     end
     mktempdir() do root
-        formulation = Formulation(:LineCableModelsFEM;options=(
+        formulation = Formulation(:fem;options=(
             reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
         export_data(:onelab,problem,formulation;file_name=joinpath(root,"original","study.pro"),
             options=(overrides=(PmlSideLayers=8,PmlTopLayers=6,PmlBottomLayers=4,PmlSideGrading=3.,PmlTopGrading=2.,PmlBottomGrading=1.,MumpsOrdering=0,PetscPrealloc=256),))
@@ -344,7 +344,7 @@ end
         @test !success(pipeline(Cmd(`$getdp $entry -setnumber Physics 0 -v 0`;dir=root),stdout=devnull,stderr=devnull))
 
         physics, code = :helmholtz, 1
-        selected = Formulation(:LineCableModelsFEM;options=(
+        selected = Formulation(:fem;options=(
             physics,reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
         reference = compute(problem,selected;options)
         record = details(reference).data.fem
@@ -372,7 +372,7 @@ end
 
 end
 
-@testitem "Gmsh FEM / checked meshes publish the selected frequency" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "Gmsh FEM / checked meshes publish the selected frequency" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     using Gmsh, SHA
     N=NativeFEMFixtures;g=Gmsh.gmsh
     base=N.problem(;frequency=.1,rho=.1,eps_r=1.,radius=.0425,positions=[(0.,1.),(1.,1.)])

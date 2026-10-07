@@ -116,7 +116,7 @@ end
 
 function run_case(case,output,options,settings)
     directory=joinpath(output,case.name);mkpath(directory)
-    form=Formulation(:LineCableModelsFEM;options=(;REDUCTIONS...,Γ=case.gamma))
+    form=Formulation(:fem;options=(;REDUCTIONS...,Γ=case.gamma))
     bundle=joinpath(directory,"bundle");entry=joinpath(bundle,"model.pro")
     isfile(entry) || export_data(:onelab,case.problem,form;file_name=entry,options=options)
     # Homogeneous-medium controls edit numerical material facts only, in the bundle.

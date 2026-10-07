@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
+@testitem "Gmsh FEM / resume requires effective inputs and preserves completed runs" tags=[:extension, :fem] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -23,7 +23,7 @@
         connections = Dict(:core=>1), system_id = "fem-resume-inputs")
     problem = LineParametersProblem(system; frequencies = [50.0, 1000.0],
         earth_props = LineCableModels.Earth.EarthModel(100.0, 10.0, 1.0))
-    formulation = Formulation(:LineCableModelsFEM;
+    formulation = Formulation(:fem;
         options=(ideal_transposition=false,))
     formulation_controls = (getdp_executable=artifact.path, gmsh_verbosity=0,)
     model = extension._resolved_fem_model(problem, formulation)
@@ -60,12 +60,12 @@
     @test haskey(inputs.adapter_sources, Symbol("geometry.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("voltage_paths.jl"))
     @test !haskey(inputs.adapter_sources, Symbol("formulations.jl"))
-    other = Formulation(:LineCableModelsFEM; earth_properties = nothing,
+    other = Formulation(:fem; earth_properties = nothing,
         options = formulation.options)
     other_controls = formulation_controls
     other_model = extension._resolved_fem_model(problem, other)
     other_inputs = extension._fem_input_record(other_model, other, computation_options(LineCableModelsFEM, ComputationOptions(other_controls)))
-    lossy = Formulation(:LineCableModelsFEM; insulation_admittance = :lossy,
+    lossy = Formulation(:fem; insulation_admittance = :lossy,
         options = formulation.options)
     lossy_controls = formulation_controls
     lossy_model = extension._resolved_fem_model(problem, lossy)
@@ -74,7 +74,7 @@
     @test extension.JSON3.write(inputs) != extension.JSON3.write(lossy_inputs)
     temperature_law=FormulaContractModels.ScaledResistivity(1.06)
     soil_law=FormulaContractModels.ScaledSoil(epsilon=2)
-    thermal = LineCableModelsFEM(
+    thermal = Formulation(:fem;
         temperature_dependence=temperature_law,
         options=formulation.options)
     thermal_controls = formulation_controls
@@ -83,7 +83,7 @@
     hot_model = extension._resolved_fem_model(hot_problem,thermal)
     hot_inputs = extension._fem_input_record(hot_model,thermal, computation_options(LineCableModelsFEM, ComputationOptions(thermal_controls)))
     @test first(hot_inputs.materials).sigma ≈ first(inputs.materials).sigma ./ 1.06
-    dispersive = LineCableModelsFEM(
+    dispersive = Formulation(:fem;
         earth_properties=soil_law,
         options=formulation.options)
     dispersive_controls = formulation_controls
@@ -113,16 +113,16 @@
     @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
     mktempdir() do root
         run = extension._create_run(root,problem.system.system_id)
-        extension._prepare_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
+        extension._write_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
         assets = extension._getdp_assets(joinpath(run.path, "input", "getdp"))
         @test haskey(assets,:helmholtz) && haskey(assets,:parameters)
         @test !haskey(assets,:quasi_full)
         captured = map(path -> (read(path), stat(path).mtime), assets)
-        extension._prepare_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
+        extension._write_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
         @test map(path -> (read(path), stat(path).mtime), assets) == captured
         # A changed equation file must not be silently repaired or reused.
         write(assets.helmholtz, "// changed equation snapshot\n")
-        @test_throws LineCableModelsFEMError extension._prepare_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
+        @test_throws LineCableModelsFEMError extension._write_run_inputs!(run, model, computation_options(LineCableModelsFEM,ComputationOptions(formulation_controls)))
         @test read(assets.helmholtz, String) == "// changed equation snapshot\n"
         write(assets.helmholtz, captured.helmholtz[1])
         @test !extension._resume_inputs_match(run.path, model, inputs)
@@ -183,11 +183,11 @@
         @test retained.state === extension.completed
         @test retained.path == run.path
         @test read(joinpath(run.path, "run.json")) == preserved
-        @test extension._check_scan_checksums(retained, scan) === nothing
+        @test extension.validate(scan, retained) === scan
         write(joinpath(run.path, "results", "Z.tsv"), "corrupted numerical payload")
-        @test_throws LineCableModelsFEMError extension._check_scan_checksums(retained, scan)
+        @test_throws LineCableModelsFEMError extension.validate(scan, retained)
         write(joinpath(run.path, "results", "checksums.json"), "broken JSON")
-        @test_throws LineCableModelsFEMError extension._check_scan_checksums(retained, scan)
+        @test_throws LineCableModelsFEMError extension.validate(scan, retained)
         changed = merge(retained_inputs, (;
             adapter_sources = Dict("geometry.jl"=>"different implementation")))
         @test !extension._resume_inputs_match(run.path, model, changed)
@@ -208,7 +208,7 @@
             executable = joinpath(root, "getdp-identity")
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture A'\n")
             chmod(executable, 0o700)
-            configured = Formulation(:LineCableModelsFEM; options=formulation.options)
+            configured = Formulation(:fem; options=formulation.options)
             configured_controls = (getdp_executable=executable, gmsh_verbosity=0,)
             first_record = extension._fem_input_record(model, configured, computation_options(LineCableModelsFEM, ComputationOptions(configured_controls)))
             write(executable, "#!/bin/sh\necho 'GetDP Version 3.6.0 fixture B'\n")
@@ -221,13 +221,13 @@
             environment = joinpath(root, "getdp-environment")
             cp(executable, environment)
             chmod(environment, 0o700)
-            relocated = Formulation(:LineCableModelsFEM; options=formulation.options)
+            relocated = Formulation(:fem; options=formulation.options)
             relocated_controls = (getdp_executable=environment, gmsh_verbosity=0,)
             relocated_inputs = extension._fem_input_record(model, relocated, computation_options(LineCableModelsFEM, ComputationOptions(relocated_controls)))
             @test relocated_inputs.getdp_identity == second_record.getdp_identity
             @test relocated_inputs.getdp_selection.path != second_record.getdp_selection.path
             relocation_run = extension._create_run(root,problem.system.system_id)
-            extension._prepare_run_inputs!(relocation_run, model, computation_options(LineCableModelsFEM,ComputationOptions(relocated_controls)))
+            extension._write_run_inputs!(relocation_run, model, computation_options(LineCableModelsFEM,ComputationOptions(relocated_controls)))
             extension._write_json_atomic(
                 joinpath(relocation_run.path, "input", "computation.json"), second_record)
             @test extension._resume_inputs_match(relocation_run.path, model, relocated_inputs)
@@ -253,7 +253,52 @@
 
 end
 
-@testitem "FEM / self-contained working-directory run layout" tags=[:extension] begin
+@testitem "FEM / managed resume rejects a live GetDP attempt" tags=[:extension, :fem] begin
+    using Gmsh
+    E=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    if Sys.isunix()
+        copper=Material(kind=:conductor,rho=1.72e-8)
+        design=build(CableDesign,"live-attempt",terminal(:core,core(copper;r=0.005)))
+        system=build(LineCableSystem,[design],[(0.0,-0.1)];connections=[Dict(:core=>1)])
+        problem=LineParametersProblem(system;frequencies=[50.0],earth_props=homogeneous(rho=100.0))
+        form=Formulation(:fem)
+        controls=(keep_run_directory=true,frequency_workers=1)
+        execution=computation_options(E.LineCableModelsFEM,ComputationOptions(controls))
+        model=E._resolved_fem_model(problem,form)
+        inputs=E._fem_input_record(model,form,execution)
+        mktempdir() do directory
+            cd(directory) do
+                run=E._create_run(E._runtime_root(),system.system_id)
+                E._write_run_inputs!(run,model,execution)
+                E._write_json_atomic(joinpath(run.path,"input","computation.json"),inputs)
+                attempt=mkpath(joinpath(run.path,"work","frequency_0001"))
+                child=Base.run(`sleep 60`;wait=false)
+                try
+                    pid=getpid(child)
+                    E._write_json_atomic(joinpath(attempt,"attempt.json"),
+                        (state="running",pid=pid,process_token=E._process_token(pid)))
+                    failure=try
+                        compute(problem,form;options=(;controls...,resume_run_directory=run.path))
+                        nothing
+                    catch exception
+                        exception
+                    end
+                    @test failure isa E.LineCableModelsFEMError
+                    @test occursin("cannot resume while a previous GetDP process is still alive",sprint(showerror,failure))
+                    @test failure.run_directory==run.path
+                    @test process_running(child)
+                finally
+                    kill(child)
+                    wait(child)
+                end
+            end
+        end
+    else
+        @test_skip "The live-process fixture requires Unix"
+    end
+end
+
+@testitem "FEM / self-contained working-directory run layout" tags=[:extension, :fem] begin
     using Gmsh, Random
     E=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     mktempdir() do directory
@@ -296,7 +341,7 @@ end
     end
 end
 
-@testitem "FEM / run creation retries a disappearing system directory" tags=[:extension] begin
+@testitem "FEM / run creation retries a disappearing system directory" tags=[:extension, :fem] begin
     using Gmsh
     E=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     mktempdir() do root

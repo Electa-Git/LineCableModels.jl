@@ -1,4 +1,4 @@
-@testitem "FEM / native PML cell families and quadrature transport" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / native PML cell families and quadrature transport" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     inventories=[]
     for (family,physical,quadrature) in ((:triangle,3,9),(:quadrangle,3,9),(:quadrangle,12,16))

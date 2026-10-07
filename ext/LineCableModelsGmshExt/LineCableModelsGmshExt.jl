@@ -16,7 +16,7 @@ using LinearAlgebra: I, cond, lu, norm
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
 import LineCableModels
-import LineCableModels: compute, Formulation, description, formula_id
+import LineCableModels: compute, validate, Formulation, description, formula_id
 using LineCableModels: formula, parameterize
 import LineCableModels.TextDisplay
 import LineCableModels.DataModel

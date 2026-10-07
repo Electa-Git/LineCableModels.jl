@@ -27,7 +27,7 @@
     @test_throws ArgumentError pairs(LineParametersFormulation, malformed)
 end
 
-@testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Descriptions / owner dispatch survives composed reports and saved declarations" tags=[:unit, :fem] setup=[FormulaContractModels] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using DataFrames, Statistics
@@ -51,7 +51,7 @@ end
         normal.options,merge(normal.definitions,(earth_impedance=leaf,))) for leaf in leaves]
     push!(choices,normal)
     @test description(LineCableModelsCoaxial())==description(LineCableModelsCoaxial)=="coaxial"
-    @test description(LineCableModelsFEM())==description(LineCableModelsFEM)=="FEM"
+    @test description(Formulation(:fem))==description(LineCableModelsFEM)=="FEM"
     @test description(Formulation(:pscad))==description(PSCAD.PSCADFormulation)=="PSCAD"
     pscad=Formulation(:pscad;options=(base_frequency=60.0,))
     pscad_capture=E.completed_formulation(pscad)
@@ -62,7 +62,7 @@ end
         first(pscad_capture.formulation_fields.Z).control_fields)
     @test description(PSCAD.PSCADFormulation,Val(:reduce_bundle),false;compact=true)==
         description(LineParametersFormulation,Val(:reduce_bundle),false;compact=true)
-    for value in (normal,LineCableModelsFEM(),Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
+    for value in (normal,Formulation(:fem),Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
         @test description(typeof(value))==description(value)
     end
     labels=description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:candidate])
@@ -77,7 +77,7 @@ end
     z=reshape(complex.(collect(1.:24.),collect(101.:124.)),2,2,6)
     y=reshape(complex.(collect(201.:224.),collect(301.:324.)),2,2,6)*1e-6
     ports=["a","b"]
-    ref=LineParameters(z,y,f;details=ComputationDetails(;coordinates=ports,E.completed_formulation(LineCableModelsFEM())...,))
+    ref=LineParameters(z,y,f;details=ComputationDetails(;coordinates=ports,E.completed_formulation(Formulation(:fem))...,))
     source_id=LineCableModels.Grammar.gridpoint_id().source_id
     completed(value,selection,index)=E.retain_gridpoint(value,
         LineCableModels.Grammar.gridpoint_id(;source_id,formulation_index=index);
@@ -102,7 +102,7 @@ end
     @test all(feature -> !occursin("earth Y",join(feature.relative.formula)),
         filter(feature -> feature.quantity in (:R,:X),result.tables.features))
 
-    for native in (normal,Formulation(earth_impedance=:saad1996),LineCableModelsFEM(),
+    for native in (normal,Formulation(earth_impedance=:saad1996),Formulation(:fem),
             Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
         saved=IO.deserialize_value(Val(:formulation),NamedTuple(native))
         @test description([saved];roles=[:reference])==description([native];roles=[:reference])
@@ -143,7 +143,7 @@ end
         earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
         earth_admittance=formula(:default;options=(integration=(method=:quad,options=(rtol=1e-9,)),)))
     for native in (routed,MonteCarlo(routed),LinearError(routed),
-            LineCableModelsFEM(options=(physics=:helmholtz,)),
+            Formulation(:fem;options=(physics=:helmholtz,)),
             Formulation(:pscad;options=(base_frequency=60.0,)))
         saved=IO.deserialize_value(Val(:formulation),NamedTuple(native))
         for quantity in (R,B)
@@ -173,7 +173,7 @@ end
     @test description([single];quantity=B)==description([
         IO.deserialize_value(Val(:formulation),NamedTuple(single))];quantity=B)
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.preparations)
-    fem_labels=description([LineCableModelsFEM(),LineCableModelsFEM(options=(Γ=.01im,))];
+    fem_labels=description([Formulation(:fem),Formulation(:fem;options=(Γ=.01im,))];
         roles=[:reference,:reference])
     @test all(label -> occursin("helmholtz",label) && occursin("Γ",label),fem_labels) && occursin("0.01",last(fem_labels))
     @test ismissing(IO.deserialize_value(Val(:formulation),(backend=:unknown,)))
@@ -228,7 +228,7 @@ end
     @test all(leaf->occursin(description(leaf;compact=true),rendered),leaves)
 end
 
-@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit] setup=[FormulaContractModels] begin
+@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit, :fem] setup=[FormulaContractModels] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     IO=LineCableModels.ImportExport
@@ -237,7 +237,7 @@ end
     @test formula_id(a,Y)==formula_id(b,Y)
     @test formula_id(a,Z)!=formula_id(b,Z)
     @test formula_id(a,nothing)!=formula_id(b,nothing)
-    for source in (a,b,MonteCarlo(a),LinearError(a),LineCableModelsFEM(),Formulation(:pscad))
+    for source in (a,b,MonteCarlo(a),LinearError(a),Formulation(:fem),Formulation(:pscad))
         saved=IO.deserialize_value(Val(:formulation),NamedTuple(source))
         for quantity in (nothing,R,B)
             @test formula_id(source,quantity)==formula_id(saved,quantity)
@@ -264,7 +264,7 @@ end
         "shunt geometry=coaxial; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
 end
 
-@testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit] begin
+@testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     import LineCableModels: description,formula_id,formulation_options
@@ -280,7 +280,7 @@ end
         ObservedResult(retain_gridpoint(raw,gridpoint_id(;source_id,problem_index=problem,formulation_index=index);fields))
     end
     a=Formulation(earth_impedance=:unified,earth_admittance=:unified)
-    fem=Formulation(:LineCableModelsFEM)
+    fem=Formulation(:fem)
     points=[point(a,1),point(fem,2)]
     for request in (R,X,G,B)
         method=request in (R,X) ? a.methods.earth_impedance : a.methods.earth_admittance
@@ -298,7 +298,7 @@ end
     reductions=[point(Formulation(options=(kron_reduction=choice,)),i) for (i,choice) in enumerate((false,true))]
     @test observation_labels(reductions;request=R)==[
         description(LineParametersFormulation,Val(:kron_reduction),v;compact=true) for v in (false,true)]
-    propagation=[Formulation(:LineCableModelsFEM;options=(Γ=value,)) for value in (0.,.01im)]
+    propagation=[Formulation(:fem;options=(Γ=value,)) for value in (0.,.01im)]
     @test observation_labels([point(f,i) for (i,f) in enumerate(propagation)];request=B)==[
         description(LineCableModelsFEM,Val(:Γ),f.options.data.Γ;compact=true) for f in propagation]
     reordered=Formulation(options=(ideal_transposition=true,kron_reduction=true,reduce_bundle=true))

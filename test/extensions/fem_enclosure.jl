@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / complete strand envelopes preserve enclosing material" tags=[:extension] begin
+@testitem "Gmsh FEM / complete strand envelopes preserve enclosing material" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -18,7 +18,7 @@
     @test source_fill isa DM.DifferenceShape
     @test length(source_fill.holes) == 7
     for dielectric_formula in (:default, :lossy)
-        formulation = Formulation(:LineCableModelsFEM;
+        formulation = Formulation(:fem;
             insulation_admittance=dielectric_formula)
         models = map(designs) do design
             system = build(LineCableSystem, design, Pose2(0.0, -0.1);
@@ -51,7 +51,7 @@
     @test length(source_fill.holes) == 7
 end
 
-@testitem "Gmsh FEM / disjoint assembly boundaries retain terminal and mesh ownership" tags=[:extension] begin
+@testitem "Gmsh FEM / disjoint assembly boundaries retain terminal and mesh ownership" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -67,7 +67,7 @@ end
             connections=Dict(:a=>1, :b=>2))
         problem = LineParametersProblem(system; frequencies=[50.0],
             earth_props=homogeneous(rho=100.0))
-        model = FEM._resolved_fem_model(problem, LineCableModelsFEM())
+        model = FEM._resolved_fem_model(problem, Formulation(:fem))
         @test only(model.cable_boundaries) isa DM.AssemblyShape
         @test length(only(model.cable_boundaries).members) == 2
         @test model.cable_hosts == [height > 0 ? :air : :earth]

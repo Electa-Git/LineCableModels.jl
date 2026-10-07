@@ -105,8 +105,8 @@ function _write_model_data(path::String, model::FEMResolvedModel, controls::Name
         println(io, "AirSigma = ", _pro_number(inv(air.rho)), ";")
         println(io, "AirEpsilon = ", _pro_number(air.eps_r * 8.8541878128e-12), ";")
         println(io, "AirMu = ", _pro_number(air.mu_r * 4π * 1e-7), ";")
-        println(io, "Xcenter = ", _pro_number(model.centre[1]), ";")
-        println(io, "Ycenter = ", _pro_number(model.centre[2]), ";")
+        println(io, "Xcenter = ", _pro_number(model.center[1]), ";")
+        println(io, "Ycenter = ", _pro_number(model.center[2]), ";")
         println(io, "Zcenter = 0.0;")
     end
     return path

@@ -54,7 +54,7 @@ struct FEMResolvedModel{T <: Real, P <: LineParametersProblem}
     cable_boundaries::Vector{Any}
     cable_hosts::Vector{Symbol}
     tags::NamedTuple
-    centre::Tuple{T, T}
+    center::Tuple{T, T}
     cad_scale::T
     prescribed_gamma::Vector{Complex{T}}
 end
@@ -195,7 +195,7 @@ function _preflight_fem_problem(problem::LineParametersProblem)
     return normalized
 end
 
-function _validate_material(material, object_id::String)
+function validate(material::LineCableModels.AbstractMaterial, ::Type{FEMResolvedModel}, object_id::String)
     material.kind === :conductor && !isfinite(material.rho) &&
         _fem_error(
             :adaptation,
@@ -210,16 +210,16 @@ function _validate_material(material, object_id::String)
         :adaptation, object_id, :mu_r, "relative permeability must be finite"
     )
     if material isa LineCableModels.RadialDielectric
-        foreach(m -> _validate_material(m, object_id), material.materials)
+        foreach(m -> validate(m, FEMResolvedModel, object_id), material.materials)
     else
         isfinite(material.tan_delta) || _fem_error(
             :adaptation, object_id, :tan_delta, "loss tangent must be finite"
         )
     end
-    return nothing
+    return material
 end
 
-function _validate_fem_shape(
+function validate(
         shape::Union{
             DataModel.Disk,
             DataModel.Rectangle,
@@ -229,29 +229,30 @@ function _validate_fem_shape(
             DataModel.Polygon,
             DataModel.BentStrip,
             DataModel.SectorShape},
+        ::Type{FEMResolvedModel},
         object_id::String
 )
-    return nothing
+    return shape
 end
 
-function _validate_fem_shape(shape::DataModel.ShellShape, object_id::String)
-    _validate_fem_shape(shape.inner, object_id)
-    _validate_fem_shape(shape.outer, object_id)
-    return nothing
+function validate(shape::DataModel.ShellShape, ::Type{FEMResolvedModel}, object_id::String)
+    validate(shape.inner, FEMResolvedModel, object_id)
+    validate(shape.outer, FEMResolvedModel, object_id)
+    return shape
 end
 
-function _validate_fem_shape(shape::DataModel.DifferenceShape, object_id::String)
-    _validate_fem_shape(shape.outer, object_id)
-    foreach(hole -> _validate_fem_shape(hole, object_id), shape.holes)
-    return nothing
+function validate(shape::DataModel.DifferenceShape, ::Type{FEMResolvedModel}, object_id::String)
+    validate(shape.outer, FEMResolvedModel, object_id)
+    foreach(hole -> validate(hole, FEMResolvedModel, object_id), shape.holes)
+    return shape
 end
 
-function _validate_fem_shape(shape::DataModel.AssemblyShape, object_id::String)
-    foreach(member -> _validate_fem_shape(member, object_id), shape.members)
-    return nothing
+function validate(shape::DataModel.AssemblyShape, ::Type{FEMResolvedModel}, object_id::String)
+    foreach(member -> validate(member, FEMResolvedModel, object_id), shape.members)
+    return shape
 end
 
-function _validate_fem_shape(shape, object_id::String)
+function validate(shape, ::Type{FEMResolvedModel}, object_id::String)
     _fem_error(
         :unsupported,
         object_id,
@@ -260,7 +261,7 @@ function _validate_fem_shape(shape, object_id::String)
     )
 end
 
-function _validate_material_partition(design)
+function validate(design::DataModel.CableDesign, ::Type{FEMResolvedModel})
     envelope_area = LineCableModels.area(design.geometry.outer)
     declared_area = sum(
         region -> LineCableModels.area(region.primitive),
@@ -282,7 +283,7 @@ function _validate_material_partition(design)
         "$(envelope_area); represent interstitial media explicitly with " *
         "Enclosure"
     )
-    return nothing
+    return design
 end
 
 function _formations(regions, terminal_map, object_id)
@@ -301,7 +302,7 @@ function _formations(regions, terminal_map, object_id)
         member_ids = Int[]
         for (peer_index, peer) in pairs(regions)
             peer_entry_index = findfirst(
-                candidate -> candidate.pattern isa DataModel.BoundedPlacement,
+                region -> region.pattern isa DataModel.BoundedPlacement,
                 peer.placement.patterns
             )
             peer_entry_index === nothing && continue
@@ -359,9 +360,9 @@ function _formations(regions, terminal_map, object_id)
                 "member has the same terminal owner"
             )
         else
-            filled = any(regions) do candidate
-                shape = candidate.primitive
-                candidate.source.material.kind === :conductor && return false
+            filled = any(regions) do region
+                shape = region.primitive
+                region.source.material.kind === :conductor && return false
                 if shape isa DataModel.Annulus && boundary isa DataModel.Disk
                     concentric = isapprox(shape.at.x, boundary.at.x) &&
                                  isapprox(shape.at.y, boundary.at.y)
@@ -513,7 +514,7 @@ function _resolved_fem_model(
     material_plans = FEMMaterialPlan{T}[]
     global_region = 0
     for (cable_index, design) in enumerate(system.designs)
-        _validate_material_partition(design)
+        validate(design, FEMResolvedModel)
         count = length(design.geometry.regions)
         first_global = global_region + 1
         last_global = global_region + count
@@ -540,7 +541,7 @@ function _resolved_fem_model(
                 design.cable_id,
                 source.tag,
                 local_region)
-            _validate_material(source.material, object_id)
+            validate(source.material, FEMResolvedModel, object_id)
             terminal_index = system.terminal_map[global_region]
             if source.material.kind === :conductor
                 terminal_index > 0 || _fem_error(
@@ -588,7 +589,7 @@ function _resolved_fem_model(
             shape = formation === nothing ?
                     _coalesce(placed.primitive, formations, object_id) :
                     formation.boundary
-            _validate_fem_shape(shape, object_id)
+            validate(shape, FEMResolvedModel, object_id)
             # Geometric regions and terminal ownership remain independent of
             # constitutive identity. Equal evaluated laws share one physical
             # material group, even across disconnected strand surfaces.
@@ -627,7 +628,7 @@ function _resolved_fem_model(
     cable_boundaries = Any[LineCableModels.resolve(position, design.geometry.outer)
                            for (design, position) in zip(system.designs, system.positions)]
     for (index, boundary) in enumerate(cable_boundaries)
-        _validate_fem_shape(boundary, @sprintf("cable_%04d/%s", index,
+        validate(boundary, FEMResolvedModel, @sprintf("cable_%04d/%s", index,
             system.designs[index].cable_id))
     end
     cable_hosts = Symbol[]
@@ -647,7 +648,7 @@ function _resolved_fem_model(
             )
         end
     end
-    centre_x = convert(T, sum(position.x for position in system.positions) /
+    center_x = convert(T, sum(position.x for position in system.positions) /
                           length(system.positions))
     # A frequency-independent scale for CAD vertex lookup only. Native point
     # sizes replace all provisional CAD sizes before meshing.
@@ -678,7 +679,7 @@ function _resolved_fem_model(
         cable_boundaries,
         cable_hosts,
         tags,
-        (centre_x, zero(T)),
+        (center_x, zero(T)),
         cad_scale,
         prescribed
     )

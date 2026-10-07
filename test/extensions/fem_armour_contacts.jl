@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / touching armour wires retain every filler face" tags=[:extension] begin
+@testitem "Gmsh FEM / touching armour wires retain every filler face" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -22,7 +22,7 @@
             system = build(LineCableSystem, design, pose; connections=Dict(:armour=>1))
             problem = LineParametersProblem(system; frequencies=[0.1,50.0],
                 earth_props=homogeneous(rho=100.0))
-            model = FEM._resolved_fem_model(problem, LineCableModelsFEM())
+            model = FEM._resolved_fem_model(problem, Formulation(:fem))
             fill_index = only(findall(m -> m.field === :matrix_fill, model.material_plans))
             geometry = FEM._build_physical_geometry!(model, "touching-armour-$count")
             surfaces = geometry.material_surfaces[fill_index]
@@ -45,7 +45,7 @@
     end
 end
 
-@testitem "Gmsh FEM / partial and separated armour rings preserve physical gaps" tags=[:extension] begin
+@testitem "Gmsh FEM / partial and separated armour rings preserve physical gaps" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -70,7 +70,7 @@ end
             system = build(LineCableSystem,design,Pose2(0.0,-0.1);connections=Dict(:armour=>1))
             problem = LineParametersProblem(system;frequencies=[50.0],
                 earth_props=homogeneous(rho=100.0))
-            model = FEM._resolved_fem_model(problem,LineCableModelsFEM())
+            model = FEM._resolved_fem_model(problem,Formulation(:fem))
             fill_index = only(findall(m -> m.field === :matrix_fill,model.material_plans))
             geometry = FEM._build_physical_geometry!(model,"partial-armour")
             expected = (count == 1 || gap > 0 ? count : 2count-1) + (padding > 0)
@@ -84,7 +84,7 @@ end
     end
 end
 
-@testitem "Gmsh FEM / touching armour filler reaches GetDP" tags=[:extension,:integration,:fem_numerical] setup=[TemporaryFEMRuntime] begin
+@testitem "Gmsh FEM / touching armour filler reaches GetDP" tags=[:extension,:integration,:fem_numerical, :fem] setup=[TemporaryFEMRuntime] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -103,7 +103,7 @@ end
         Region(:jacket,Shell(0.002),dielectric))
     system = build(LineCableSystem,design,Pose2(0.0,-0.1);connections=Dict(:armour=>1))
     problem = LineParametersProblem(system;frequencies=[0.1,50.0],earth_props=homogeneous(rho=100.0))
-    result = compute(problem,LineCableModelsFEM();options=(gmsh_verbosity=0,getdp_verbosity=0))
+    result = compute(problem,Formulation(:fem);options=(gmsh_verbosity=0,getdp_verbosity=0))
     @test result.f == problem.frequencies
     @test all(isfinite,result.Z)
     @test all(isfinite,result.Y)

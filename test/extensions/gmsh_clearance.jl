@@ -1,4 +1,4 @@
-@testitem "FEM / touching trefoil clearances survive native mesh export" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / touching trefoil clearances survive native mesh export" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     using Gmsh, Measurements
     N=NativeFEMFixtures
     copper=Material(kind=:conductor,rho=1.7e-8)
@@ -10,7 +10,7 @@
         normalized=N.FEM._preflight_fem_problem(p)
         @test normalized.system.clearances≈nominal.(system.clearances)
         N.geometry(normalized;mesh=true) do g,log
-            model=N.FEM._resolved_fem_model(normalized,N.FEM.LineCableModelsFEM())
+            model=N.FEM._resolved_fem_model(normalized,Formulation(:fem))
             ratios=N.FEM._inspect_loaded_mesh(model,"touching trefoil")
             @test length(ratios)==3 && all(isfinite,ratios)
             @test !isempty(first(g.model.mesh.get_nodes()))

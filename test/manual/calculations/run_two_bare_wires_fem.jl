@@ -112,7 +112,7 @@ reductions = (
     ideal_transposition = false
 )
 fem_formulation = Formulation(
-    :LineCableModelsFEM;
+    :fem;
     options = (; physics = :helmholtz, reductions...)
 )
 # Mesh, PML and solver controls keep their production defaults; see the

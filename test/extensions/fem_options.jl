@@ -1,6 +1,12 @@
-@testitem "FEM / intent options and declared native overrides" tags=[:extension] begin
+@testitem "FEM / intent options and declared native overrides" tags=[:extension, :fem] begin
     using Gmsh
     E=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    @test Formulation(:fem) isa E.LineCableModelsFEM
+    @test which(Formulation,Tuple{Val{:fem}}).module === E
+    old_tag=Symbol("LineCableModels"*"FEM")
+    @test_throws MethodError Formulation(old_tag)
+    @test_throws MethodError Formulation(:unknown_backend)
+    @test E.ImportExport.deserialize_value(Val(:formulation),Val(old_tag)) === nothing
     controls(;kwargs...)=computation_options(E.LineCableModelsFEM,ComputationOptions(;kwargs...)).data
     @test (@inferred computation_options(E.LineCableModelsFEM,ComputationOptions())).data.pml_element_family==1
     @test (@inferred computation_options(E.LineCableModelsFEM,ComputationOptions(overrides=(MumpsOrdering=-1,PetscPrealloc=256)))).data.mumps_ordering==-1
@@ -30,7 +36,7 @@
     @test_throws ArgumentError controls(mumps_forward_error_tolerance=.02)
 end
 
-@testitem "FEM / one resolution scale coarsens conductor meshes" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / one resolution scale coarsens conductor meshes" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     records=[]
     for scale in (1.,2.)
@@ -47,7 +53,7 @@ end
     @test records[2][5]==records[1][5]/2
 end
 
-@testitem "FEM / unified detached options and guarded native inputs" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / unified detached options and guarded native inputs" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     using Gmsh
     N=NativeFEMFixtures;E=N.FEM;p=N.problem()
     options=(plot_field_maps=true,solver_threads=2,output_basis=:total,
@@ -69,7 +75,7 @@ end
     end
     for name in (:frequency_workers,:mesh_policy,:mesh_path,:keep_run_directory,:resume_run_directory,:on_result,:log_file,:trace,:timing,:verbosity,:getdp_executable)
         mktempdir() do root
-            @test_throws ArgumentError export_data(:onelab,p,Formulation(:LineCableModelsFEM);file_name=joinpath(root,"bad","model.pro"),options=(;name=>nothing))
+            @test_throws ArgumentError export_data(:onelab,p,Formulation(:fem);file_name=joinpath(root,"bad","model.pro"),options=(;name=>nothing))
             @test !isdir(joinpath(root,"bad"))
         end
     end

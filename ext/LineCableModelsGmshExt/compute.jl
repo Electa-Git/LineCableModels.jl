@@ -254,7 +254,7 @@ function _resume_run(
     mkpath(runs)
     runs_path = realpath(runs)
     dirname(runs_path)==realpath(runtime_root) || throw(ArgumentError("system run directory escapes the runtime root"))
-    candidate = if requested === :latest
+    run_directory = if requested === :latest
         directories = filter(isdir, readdir(runs_path; join = true))
         sort!(directories; by = path -> stat(path).mtime, rev = true)
         index = findfirst(
@@ -279,8 +279,8 @@ function _resume_run(
             "resume_run_directory must be nothing, :latest, or a path string",
         ))
     end
-    candidate === nothing && return _create_run(runtime_root,model.problem.system.system_id;maps=inputs.execution.plot_field_maps)
-    path = realpath(candidate)
+    run_directory === nothing && return _create_run(runtime_root,model.problem.system.system_id;maps=inputs.execution.plot_field_maps)
+    path = realpath(run_directory)
     dirname(path) == runs_path || throw(ArgumentError(
         "resume_run_directory must be an immediate child of $runs_path",
     ))
@@ -338,7 +338,7 @@ function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     return state
 end
 
-function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel, execution::ComputationOptions)
+function _write_run_inputs!(run::FEMRun, model::FEMResolvedModel, execution::ComputationOptions)
     asset_directory = joinpath(run.path, "input", "getdp")
     mkpath(asset_directory)
     for (name, path) in pairs(_getdp_assets(asset_directory))
@@ -376,7 +376,7 @@ function _headless_solve!(
         execution::ComputationOptions,
         inputs::NamedTuple
 )
-    _prepare_run_inputs!(run,model,execution)
+    _write_run_inputs!(run,model,execution)
     physical = _build_physical_geometry!(model,"LineCableModelsFEM-$(basename(run.path))")
     _write_physical_geometry(joinpath(run.path,"input","physical.geo"),model,physical)
     _write_native_mesh_entry(joinpath(run.path,"input","model.geo"),"model_data.pro","physical.geo","getdp")
@@ -429,14 +429,14 @@ function _compute_fem(
         # Read-only reuse: no Gmsh session, scratch reset, log append, state
         # transition, or successful-run cleanup may touch historical evidence.
         scan = _parse_scan(run, model, formulation, execution)
-        _check_scan_checksums(run, scan)
+        validate(scan, run)
         @debug "FEM reuses completed resolved inputs" run_directory=run.path
         return _line_parameters(
             run, model, formulation, execution, scan, inputs; reused = true)
     end
     ownership = _claim_run(run)
     parameters = try
-        # Another coordinator can finish between candidate selection and our
+        # Another coordinator can finish between run directory selection and our
         # lock acquisition. Refresh counters/state while holding ownership,
         # and preserve a now-completed run as a read-only result.
         if isfile(joinpath(run.path, "input", "computation.json")) &&
@@ -444,12 +444,15 @@ function _compute_fem(
             run = _resume_run(runtime_root, run.path, model, inputs)
             if run.state === completed
                 scan = _parse_scan(run, model, formulation, execution)
-                _check_scan_checksums(run, scan)
+                validate(scan, run)
                 return _line_parameters(
                     run, model, formulation, execution, scan, inputs; reused = true)
             end
         end
-        _assert_no_live_attempts(run)
+        attempt = _live_attempt(run)
+        attempt === nothing || _fem_error(:execution, "GetDP", :ownership,
+            "cannot resume while a previous GetDP process is still alive (PID $(attempt.pid), attempt $(attempt.directory))";
+            run_directory = run.path)
         _compute_owned_fem(
             problem, formulation, execution, model, run, inputs)
     finally

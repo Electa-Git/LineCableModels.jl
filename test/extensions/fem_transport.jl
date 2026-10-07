@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / data-only GetDP input transport" tags=[:extension] begin
+@testitem "Gmsh FEM / data-only GetDP input transport" tags=[:extension, :fem] begin
     using LineCableModels, Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -14,7 +14,7 @@
     system = build(LineCableSystem, [design, design], [(0.0, -0.1), (0.1, -0.1)];
         connections = [Dict(:core=>1), Dict(:core=>2)])
     for method in (:default, :lossy)
-        formulation = Formulation(:LineCableModelsFEM; insulation_admittance = method,
+        formulation = Formulation(:fem; insulation_admittance = method,
             options = (ideal_transposition = false,))
         line_counts = Int[]
         for frequencies in ([50.0, 1000.0], collect(10.0 .^ range(-1, 6; length = 101)))

@@ -1,4 +1,4 @@
-@testitem "Engine / pipe selections / backend applicability before lowering" tags=[:unit] begin
+@testitem "Engine / pipe selections / backend applicability before lowering" tags=[:unit, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using LineCableModels
@@ -30,8 +30,8 @@
         @test sprint(showerror, failure) == "ArgumentError: $expected"
     end
     # FEM enclosure support is exercised by its geometry and numerical suites.
-    @test !haskey(LineCableModelsFEM().methods, :pipe_impedance)
-    @test_throws MethodError LineCableModelsFEM(pipe_impedance=formula(:default))
+    @test !haskey(Formulation(:fem).methods, :pipe_impedance)
+    @test_throws MethodError Formulation(:fem;pipe_impedance=formula(:default))
     @test_throws ArgumentError E.PipeImpedance.Formula(:UnimplementedPipe2026)
     @test_throws ArgumentError E.PipeImpedance.Formula(:default; parameters = (invented = true,))
     @test_throws ArgumentError Formulation(pipe_impedance = formula(:default; order = :before))

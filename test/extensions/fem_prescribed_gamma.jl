@@ -1,30 +1,30 @@
-@testitem "Gmsh FEM / prescribed Gamma options and frequency transport" tags=[:extension] begin
+@testitem "Gmsh FEM / prescribed Gamma options and frequency transport" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
     FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    @test Formulation(:LineCableModelsFEM).options.data.Γ == 0
+    @test Formulation(:fem).options.data.Γ == 0
     for Γ in (0, .2, .2+.3im, [0, .2+.3im])
-        f = Formulation(:LineCableModelsFEM; options=(physics=:helmholtz, Γ))
+        f = Formulation(:fem; options=(physics=:helmholtz, Γ))
         @test f.options.data.Γ == Γ
         Γ isa AbstractVector && @test f.options.data.Γ !== Γ
     end
     for Γ in (true, NaN, Inf+im, [], [0, Inf], "zero", [true])
-        @test_throws ArgumentError Formulation(:LineCableModelsFEM; options=(physics=:helmholtz, Γ))
+        @test_throws ArgumentError Formulation(:fem; options=(physics=:helmholtz, Γ))
     end
-    @test Formulation(:LineCableModelsFEM; options=(Γ=.1,)).options.data.Γ == .1
+    @test Formulation(:fem; options=(Γ=.1,)).options.data.Γ == .1
     wire = build(CableDesign,"gamma-input",terminal(:core,
         core(Material(kind=:conductor,rho=2e-8);r=.005)))
     system = build(LineCableSystem,[wire],[(0.,1.)]; connections=[Dict(:core=>1)])
     problem = LineParametersProblem(system;frequencies=[100.,10000.],
         earth_props=homogeneous(rho=100.,eps_r=10.))
-    f = Formulation(:LineCableModelsFEM;options=(physics=:helmholtz,Γ=[0.,.01+.02im]))
+    f = Formulation(:fem;options=(physics=:helmholtz,Γ=[0.,.01+.02im]))
     model = FEM._resolved_fem_model(problem,f)
     @test model.prescribed_gamma == f.options.data.Γ
     @test_throws DimensionMismatch FEM._resolved_fem_model(problem,
-        Formulation(:LineCableModelsFEM;options=(physics=:helmholtz,Γ=[0.])))
+        Formulation(:fem;options=(physics=:helmholtz,Γ=[0.])))
     scalar = FEM._resolved_fem_model(problem,
-        Formulation(:LineCableModelsFEM;options=(physics=:helmholtz,Γ=.01+.02im)))
+        Formulation(:fem;options=(physics=:helmholtz,Γ=.01+.02im)))
     @test all(==(.01+.02im), scalar.prescribed_gamma)
     mktempdir() do dir
         path = joinpath(dir,"model_data.pro")
@@ -35,7 +35,7 @@
 end
 
 
-@testitem "Gmsh FEM / prescribed Gamma manufactured Maxwell fields" tags=[:extension,:fem_numerical] begin
+@testitem "Gmsh FEM / prescribed Gamma manufactured Maxwell fields" tags=[:extension,:fem_numerical, :fem] begin
     using Gmsh, DelimitedFiles
     const LineCableModelsFEM=Base.get_extension(LineCableModels,:LineCableModelsGmshExt).LineCableModelsFEM
     FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)

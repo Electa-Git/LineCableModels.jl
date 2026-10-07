@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit] setup=[
+@testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit, :fem] setup=[
     UseEngineSupport,FormulaContractModels,
 ] begin
     using Gmsh
@@ -109,7 +109,7 @@
     @test [value.formula.options.data.iteration.convergence for value in modal_assumptions] ==
           [1e-4, 1e-8]
 
-    fem=LineCableModelsFEM(
+    fem=Formulation(:fem;
         options = Grid((
         (; physics = :helmholtz, Γ = 0.),
         (; physics = :helmholtz, Γ = .01im)
@@ -122,10 +122,10 @@
         keyword=NamedTuple{(name,)}((getproperty(selections, name),))
         if name in (:internal_impedance, :insulation_impedance, :earth_impedance,
                 :earth_admittance, :pipe_impedance)
-            @test_throws MethodError Formulation(:LineCableModelsFEM; keyword...)
+            @test_throws MethodError Formulation(:fem; keyword...)
             continue
         end
-        space=Formulation(:LineCableModelsFEM; keyword...)
+        space=Formulation(:fem; keyword...)
         @test space isa Gridspace{LineCableModelsFEM}
         @test length(space) == 2
         @test all(value -> isconcretetype(typeof(value)), space)
@@ -133,7 +133,7 @@
             @test all(value -> haskey(value.definitions, name), space)
         end
     end
-    fem_zipped=Formulation(:LineCableModelsFEM;
+    fem_zipped=Formulation(:fem;
         insulation_admittance = Grid((:default, :lossy)),
         semicon_admittance = Grid((:default, :lossy)), combine = :zip)
     @test length(fem_zipped) == 2

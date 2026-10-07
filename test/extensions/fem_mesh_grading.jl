@@ -1,4 +1,4 @@
-@testitem "FEM / directional PML progression and interval nodes" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / directional PML progression and interval nodes" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     N.geometry(N.problem(;frequency=1e6,rho=100.);
             options=(overrides=(PmlSideLayers=16,PmlTopLayers=24,PmlBottomLayers=48,PmlSideGrading=1.,PmlTopGrading=2.,PmlBottomGrading=3.,PmlSideThicknessFactor=1.,PmlTopThicknessFactor=2.,PmlBottomThicknessFactor=3.),),mesh=true) do g,log

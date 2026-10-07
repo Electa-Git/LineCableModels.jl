@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / public solver failure retains log and run evidence" tags=[:extension] setup=[TemporaryFEMRuntime] begin
+@testitem "Gmsh FEM / public solver failure retains log and run evidence" tags=[:extension, :fem] setup=[TemporaryFEMRuntime] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -29,7 +29,7 @@
                 """)
             chmod(executable, 0o700)
             log_file = joinpath(directory, "logs", "computation.log")
-            formulation = Formulation(:LineCableModelsFEM;
+            formulation = Formulation(:fem;
                 options = (ideal_transposition = false,))
             formulation_controls = (getdp_executable = executable, gmsh_verbosity = 0,
                     getdp_verbosity = 0, keep_run_directory = true)

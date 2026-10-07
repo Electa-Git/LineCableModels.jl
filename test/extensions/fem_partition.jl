@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / polygon contacts preserve complete material partitions" tags=[:extension] begin
+@testitem "Gmsh FEM / polygon contacts preserve complete material partitions" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -20,7 +20,7 @@
         for (index, pose) in enumerate((Pose2(0.0,-0.1), Pose2(0.06,-0.2,0.43)))
             system = build(LineCableSystem, design, pose; connections=Dict(:core=>1))
             problem = LineParametersProblem(system; frequencies=[50.0], earth_props=homogeneous(rho=100.0))
-            model = FEM._resolved_fem_model(problem, LineCableModelsFEM())
+            model = FEM._resolved_fem_model(problem, Formulation(:fem))
             @test length(model.material_plans) == 2
             @test getproperty.(model.region_plans, :material_index) == [1,1,1,2]
             @test getproperty.(model.region_plans, :terminal_index) == [1,1,1,0]
@@ -34,7 +34,7 @@
     end
 end
 
-@testitem "Gmsh FEM / Milliken filler coverage and invariant scan topology" tags=[:extension] begin
+@testitem "Gmsh FEM / Milliken filler coverage and invariant scan topology" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -47,7 +47,7 @@ end
     design = build(CableDesign, "partition-milliken", terminal(:core, core))
     system = build(LineCableSystem, design, Pose2(0.0,-0.1); connections=Dict(:core=>1))
     problem = LineParametersProblem(system; frequencies=[0.1,50.0,1e7], earth_props=homogeneous(rho=100.0))
-    model = FEM._resolved_fem_model(problem, LineCableModelsFEM())
+    model = FEM._resolved_fem_model(problem, Formulation(:fem))
     @test length(model.material_plans) == 2
     session = FEM._start_gmsh(0)
     try

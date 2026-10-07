@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / merged arc endpoints do not create a full circle" tags=[:extension] begin
+@testitem "Gmsh FEM / merged arc endpoints do not create a full circle" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -20,7 +20,7 @@
 end
 
 
-@testitem "FEM / native conductor contour and skin controls" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / native conductor contour and skin controls" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     values=[]
     for factor in (2.5,1.25)

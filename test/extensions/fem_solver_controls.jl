@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / native solver controls in managed and detached execution" tags=[:extension] begin
+@testitem "Gmsh FEM / native solver controls in managed and detached execution" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -9,7 +9,7 @@
         connections=[Dict(:core=>1),Dict(:core=>2)])
     problem = LineParametersProblem(system;frequencies=[50.],
         earth_props=homogeneous(rho=100.,eps_r=10.))
-    form = Formulation(:LineCableModelsFEM)
+    form = Formulation(:fem)
     solver = (MumpsOrdering=0,PetscPrealloc=256)
     configured = computation_options(LineCableModelsFEM,ComputationOptions(;solver_threads=2,overrides=solver))
     defaults = computation_options(LineCableModelsFEM,ComputationOptions())

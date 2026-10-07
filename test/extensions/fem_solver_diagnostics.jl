@@ -1,4 +1,4 @@
-@testitem "FEM / native solver diagnostics and warning targets" tags=[:extension] begin
+@testitem "FEM / native solver diagnostics and warning targets" tags=[:extension, :fem] begin
     using Gmsh
     E = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     controls(; kwargs...) = E.computation_options(E.LineCableModelsFEM,

@@ -1,4 +1,4 @@
-@testitem "FEM / measurement anchors stop inside their own metal" tags=[:extension] begin
+@testitem "FEM / measurement anchors stop inside their own metal" tags=[:extension, :fem] begin
     using Gmsh
     copper=Material(kind=:conductor,rho=2e-8,eps_r=1.,mu_r=1.)
     dielectric=Material(kind=:insulator,rho=1e8,eps_r=3.,mu_r=1.)
@@ -10,7 +10,7 @@
         connections=[Dict(:core=>1,:sheath=>2)],system_id="measurement-coax",line_length=1.)
     problem=LineParametersProblem(system;temperature=20.,earth_props=homogeneous(rho=1000.),frequencies=[1e3])
     mktempdir() do dir
-        export_data(:onelab,problem,Formulation(:LineCableModelsFEM);
+        export_data(:onelab,problem,Formulation(:fem);
             file_name=joinpath(dir,"model.pro"))
         source=read(joinpath(dir,"geometry","physical.geo"),String)
         values(name)=parse.(Float64,split(only(match(Regex(name*"\\(\\) = \\{([^}]+)\\};"),source).captures),','))

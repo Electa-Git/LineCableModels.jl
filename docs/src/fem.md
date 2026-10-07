@@ -7,7 +7,7 @@ export. `LineCableModelsGmshExt` imports and extends the main package's interfac
 to provide these definitions, without a dependency from the main package
 on the extension.
 
-Use `Formulation(:LineCableModelsFEM)` after `using Gmsh`. The concrete
+Use `Formulation(:fem)` after `using Gmsh`. The concrete
 formulation, error, mesh and field types are no longer main-package exports.
 For explicit type access, use
 `FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)` and
@@ -21,7 +21,7 @@ using LineCableModels
 using Gmsh
 
 fem = Formulation(
-    :LineCableModelsFEM;
+    :fem;
     insulation_admittance = formula(:default),
     semicon_admittance = formula(:default),
     earth_properties = formula(:default),
@@ -471,7 +471,7 @@ completed checkpoints.
 Write and retain field maps when a later inspection is needed:
 
 ```julia
-parameters = compute(problem, Formulation(:LineCableModelsFEM);
+parameters = compute(problem, Formulation(:fem);
     options=(plot_field_maps=true, keep_run_directory=true))
 run = details(parameters).data.fem.run
 ```

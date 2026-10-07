@@ -1,4 +1,4 @@
-@testitem "FEM / earth sizing length, ceiling and domain option" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / earth sizing length, ceiling and domain option" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     using Gmsh
     N=NativeFEMFixtures
     expressions=["length"=>"FEMEarthBaseLength", "ceiling"=>"FEMEarthSizingCeilingActive",
@@ -28,7 +28,7 @@
     end
 end
 
-@testitem "FEM / long buried measurement lines retain remote grading" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / long buried measurement lines retain remote grading" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     N.geometry(N.problem(;frequency=.1,rho=100.,eps_r=1.,positions=[(0.,-.1)]);
             mesh=true) do g,log
@@ -51,7 +51,7 @@ end
     end
 end
 
-@testitem "FEM / loss-aware PML intervals and native parser parity" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / loss-aware PML intervals and native parser parity" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     expressions=["a_air"=>"FEMRootA~{0}","b_air"=>"FEMRootB~{0}",
         "a_earth"=>"FEMRootA~{1}","b_earth"=>"FEMRootB~{1}","target"=>"FEMPmlTarget",
@@ -80,7 +80,7 @@ end
     end
 end
 
-@testitem "FEM / earth interface layer stays clear of buried cable" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / earth interface layer stays clear of buried cable" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     ex=["thickness"=>"FEMEarthLayerThickness","active"=>"FEMEarthLayerActive",
         "clipped"=>"FEMEarthLayerClippedOrOmitted","decay"=>"MeshDecayEarth",
@@ -98,7 +98,7 @@ end
     end
 end
 
-@testitem "FEM / box edge grading and independent measurement mesh" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / box edge grading and independent measurement mesh" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     using Gmsh
     N=NativeFEMFixtures
     problem=N.problem(;frequency=1e6,rho=.1,eps_r=1.,radius=.01)
@@ -120,7 +120,7 @@ end
         _,_,blocks=g.model.mesh.get_elements(2);nodes=Set(vcat(blocks...))
         lines=g.model.get_entities_for_physical_group(1,Int(only(g.parser.get_number("MEASUREMENT_LINE"))))
         @test !isempty(lines)
-        form=Formulation(:LineCableModelsFEM;options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
+        form=Formulation(:fem;options=(reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
         model=N.FEM._resolved_fem_model(problem,form)
         ratios=N.FEM._inspect_loaded_mesh(model,"native measurement mesh")
         # Allow twice the 0.25 target because Delaunay edges can be smaller than their targets.
@@ -132,7 +132,7 @@ end
     end
 end
 
-@testitem "FEM / interface seeds merge near-duplicate cable abscissae" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / interface seeds merge near-duplicate cable abscissae" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     p=N.problem(;positions=[(0.,1.),(4e-15,1.5)],frequency=1e6,rho=100.)
     N.geometry(p) do g,log
@@ -150,7 +150,7 @@ end
     end
 end
 
-@testitem "FEM / mesh fields avoid MathEval reentry and mesh with a deadline" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / mesh fields avoid MathEval reentry and mesh with a deadline" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     using Gmsh
     N=NativeFEMFixtures
     # Inspect dependencies without evaluating fields: MathEval's lock is non-reentrant.
@@ -208,11 +208,11 @@ end
     end
 end
 
-@testitem "FEM / parallel mesh launches preserve sequential mesh snapshots" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / parallel mesh launches preserve sequential mesh snapshots" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     using SHA, JSON3
     N=NativeFEMFixtures;E=N.FEM
     seed=N.problem(;frequency=.1,rho=.1,eps_r=1.,positions=[(0.,1.),(1.,-1.)])
-    form=Formulation(:LineCableModelsFEM;options=(reduce_bundle=false,
+    form=Formulation(:fem;options=(reduce_bundle=false,
         kron_reduction=false,ideal_transposition=false))
     mktempdir() do root
         for (label,frequencies,policy) in (("distinct",[.1,.2],:remesh),("shared",[.1,.1],:reuse),
@@ -226,7 +226,7 @@ end
                     frequency_workers=workers,mesh_policy=policy,gmsh_verbosity=0))
                 model=E._resolved_fem_model(problem,form);session=E._start_gmsh(0)
                 try
-                    E._prepare_run_inputs!(run,model,execution)
+                    E._write_run_inputs!(run,model,execution)
                     physical=E._build_physical_geometry!(model,"parallel-mesh-test")
                     E._write_physical_geometry(joinpath(run.path,"input","physical.geo"),model,physical)
                     E._write_native_mesh_entry(joinpath(run.path,"input","model.geo"),"model_data.pro","physical.geo","getdp")
@@ -260,7 +260,7 @@ end
     end
 end
 
-@testitem "FEM / supplied run meshes match fingerprints independently of frequency order" tags=[:extension] setup=[NativeFEMFixtures,TemporaryFEMRuntime] begin
+@testitem "FEM / supplied run meshes match fingerprints independently of frequency order" tags=[:extension, :fem] setup=[NativeFEMFixtures,TemporaryFEMRuntime] begin
     using Gmsh, JSON3
     N=NativeFEMFixtures
     cd(fem_test_runtime_directory)
@@ -268,7 +268,7 @@ end
         seed=N.problem(;frequency=50.,rho=100.,eps_r=1.,radius=.005)
         problem(frequencies)=LineParametersProblem(seed.system;temperature=20.,frequencies,
             earth_props=seed.earth_props)
-        form=Formulation(:LineCableModelsFEM;options=(reduce_bundle=false,
+        form=Formulation(:fem;options=(reduce_bundle=false,
             kron_reduction=false,ideal_transposition=false))
         function run(frequencies;kwargs...)
             result=compute(problem(frequencies),form;options=(keep_run_directory=true,
@@ -326,7 +326,7 @@ end
     end
 end
 
-@testitem "FEM / buried air excitation controls wave sizes and PML counts" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / buried air excitation controls wave sizes and PML counts" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     expressions=["excited"=>"FEMAirExcited", "wave"=>"MeshWaveAir",
         "remote"=>"MeshRemoteAir", "bulk"=>"MeshBulk",

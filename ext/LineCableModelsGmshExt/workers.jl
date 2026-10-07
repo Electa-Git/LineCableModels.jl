@@ -24,8 +24,10 @@ struct FEMActiveWorker{P}
     pid::Int
     process_token::Union{Nothing, String}
     log::IOStream
-    started::Float64
-    started_ns::UInt64
+    "Process start timestamp in seconds since the Unix epoch."
+    started_at::Float64
+    "Monotonic process start tick in nanoseconds."
+    start_tick::UInt64
     pending::Set{Int}
 end
 
@@ -241,7 +243,7 @@ end
 
 function _start_worker!(run, job, execution)
     log = open(joinpath(job.directory, "getdp.log"), "w")
-    started, started_ns = time(), time_ns()
+    started_at, start_tick = time(), time_ns()
     process = try
         Base.run(pipeline(job.command; stdout = log, stderr = log); wait = false)
     catch
@@ -255,11 +257,11 @@ function _start_worker!(run, job, execution)
     end
     process_token = _process_token(pid)
     worker = FEMActiveWorker(
-        job, process, pid, process_token, log, started, started_ns, Set(job.bases))
+        job, process, pid, process_token, log, started_at, start_tick, Set(job.bases))
     try
         _write_json_atomic(joinpath(job.directory, "attempt.json"),
             _attempt_record(
-                job; state = "running", pid, process_token, started_unix_seconds = started,
+                job; state = "running", pid, process_token, started_unix_seconds = started_at,
                 solver_threads = execution.data.solver_threads))
         run.getdp_invocations += 1
         _transition!(run, running, "frequency $(job.frequency_index) launched")
@@ -379,7 +381,7 @@ end
 function _finish_worker!(run, worker, execution; stopped = false)
     wait(worker.process)
     isopen(worker.log) && close(worker.log)
-    elapsed = (time_ns() - worker.started_ns) / 1e9
+    elapsed = (time_ns() - worker.start_tick) / 1e9
     status = stopped ? "stopped" :
              success(worker.process) && isempty(worker.pending) ? "complete" : "failed"
     if !stopped && (execution.data.linear_solver === :gmres || execution.data.mumps_error_analysis != 0)
@@ -398,7 +400,7 @@ function _finish_worker!(run, worker, execution; stopped = false)
     _write_json_atomic(joinpath(worker.job.directory, "attempt.json"),
         _attempt_record(worker.job; state = status, pid = worker.pid,
             process_token = worker.process_token,
-            started_unix_seconds = worker.started, elapsed_seconds = elapsed,
+            started_unix_seconds = worker.started_at, elapsed_seconds = elapsed,
             solver_threads = execution.data.solver_threads,
             exit_code = worker.process.exitcode, signal = worker.process.termsignal,
             completed_bases = setdiff(worker.job.bases, collect(worker.pending))))
@@ -456,7 +458,7 @@ function _process_token(pid::Integer)
     end
 end
 
-function _assert_no_live_attempts(run)
+function _live_attempt(run)
     root = joinpath(run.path, "work")
     isdir(root) || return nothing
     for directory in filter(isdir, readdir(root; join = true))
@@ -476,9 +478,7 @@ function _assert_no_live_attempts(run)
         token = get(record, :process_token, nothing)
         current = _process_token(Int(pid))
         alive && (token === nothing || current === nothing || token == current) || continue
-        _fem_error(:execution, "GetDP", :ownership,
-            "cannot resume while a previous GetDP process is still alive (PID $pid, attempt $directory)";
-            run_directory = run.path)
+        return (; pid, directory)
     end
     return nothing
 end

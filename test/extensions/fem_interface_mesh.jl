@@ -1,4 +1,4 @@
-@testitem "FEM / editable interface footprint preserves terminal contours" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / editable interface footprint preserves terminal contours" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     p=N.problem(;frequency=1e6,rho=.1,positions=[(0.,1.),(2.,1.)])
     records=[]
@@ -14,7 +14,7 @@
 end
 
 
-@testitem "FEM / active interface footprint materially refines the mesh" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM / active interface footprint materially refines the mesh" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     p=N.problem(;frequency=17_782_794.100389227,rho=1000.,eps_r=1.,
         radius=.0425,positions=[(0.,1.),(1.,-1.)])

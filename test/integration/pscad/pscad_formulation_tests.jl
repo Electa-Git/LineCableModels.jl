@@ -1,4 +1,4 @@
-@testitem "PSCAD / shared grammar and constitutive export" tags=[:integration] begin
+@testitem "PSCAD / shared grammar and constitutive export" tags=[:integration, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using LineCableModels
@@ -31,7 +31,7 @@
     rejected=Formulation(:pscad;internal_impedance=(inner=:default,
         outer=:schelkunoff1934,transfer=:default))
     @test_throws ArgumentError Formulation(Val(:pscad),underground,rejected)
-    @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
+    @test_throws MethodError Formulation(:fem;internal_impedance=(inner=:default,outer=:default,transfer=:default))
     for selected_problem in (overhead, underground)
         resolved=Formulation(Val(:pscad), selected_problem, Formulation(:pscad))
         @test map(formula_id, resolved.methods.earth_impedance) ==

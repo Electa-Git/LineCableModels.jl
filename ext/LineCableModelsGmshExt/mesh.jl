@@ -337,7 +337,7 @@ function _inspect_material_coverage(model::FEMResolvedModel, mesh_path::String)
     return nothing
 end
 
-function _validate_mesh_file(model::FEMResolvedModel, mesh_path::String)
+function _inspect_mesh_file(mesh_path::String, model::FEMResolvedModel)
     isfile(mesh_path) || _fem_error(
         :mesh,
         model.problem.system.system_id,
@@ -373,6 +373,11 @@ function _validate_mesh_file(model::FEMResolvedModel, mesh_path::String)
         end
     end
     return nothing
+end
+
+function validate(mesh_path::String, model::FEMResolvedModel)
+    _inspect_mesh_file(mesh_path, model)
+    return mesh_path
 end
 
 function _read_native_mesh_values(path)
@@ -462,7 +467,7 @@ function _resolve_mesh(run::FEMRun,model::FEMResolvedModel,
             try
                 metadata=JSON3.read(read(record,String))
                 String(metadata.fingerprint)==fingerprint || error("fingerprint mismatch")
-                _validate_mesh_file(model,candidate)
+                validate(candidate,model)
                 selected=candidate; source=origin; native_values=metadata
                 break
             catch exception
@@ -478,7 +483,7 @@ function _resolve_mesh(run::FEMRun,model::FEMResolvedModel,
                     try
                         metadata=JSON3.read(read(record,String))
                         String(metadata.fingerprint)==fingerprint || continue
-                        _validate_mesh_file(model,candidate)
+                        validate(candidate,model)
                         selected=candidate; source=:previous_run
                         native_values=Dict{String,Any}(String(key)=>value for (key,value) in pairs(metadata))
                         native_values["source_mesh"]=candidate
@@ -489,7 +494,7 @@ function _resolve_mesh(run::FEMRun,model::FEMResolvedModel,
                 end
             elseif reference_mesh
                 selected=path; source=:explicit
-                native_values["measurement_line_max_size_ratios"]=_validate_mesh_file(model,selected)
+                native_values["measurement_line_max_size_ratios"]=_inspect_mesh_file(selected,model)
             end
         end
     end
@@ -521,7 +526,7 @@ function _publish_mesh!(run, model, execution, plan; temporary_mesh=nothing,
         native_values=JSON3.read(read(owner.run_metadata,String))
     end
     if selected === nothing
-        ratios=_validate_mesh_file(model,temporary_mesh)
+        ratios=_inspect_mesh_file(temporary_mesh,model)
         native_values=_read_native_mesh_values(temporary_native)
         native_values["measurement_line_max_size_ratios"]=ratios
         metadata=_mesh_metadata(model,fingerprint,gmsh_version,:generated,execution,frequency_index,native_values)

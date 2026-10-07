@@ -1,4 +1,4 @@
-@testitem "FEM files / detached mesh and fields preserve native identities and caller state" tags=[:extension] begin
+@testitem "FEM files / detached mesh and fields preserve native identities and caller state" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -97,13 +97,13 @@
     end
 end
 
-@testitem "FEM files / saved meshes retain per-frequency provenance" tags=[:extension] setup=[NativeFEMFixtures] begin
+@testitem "FEM files / saved meshes retain per-frequency provenance" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     using Gmsh, JSON3
     N=NativeFEMFixtures;E=N.FEM
     base=N.problem(;frequency=50.,rho=100.,eps_r=12.)
     problem=LineParametersProblem(base.system;temperature=20.,frequencies=[50.,1e6],earth_props=base.earth_props)
     gamma=[.01+.02im,.03+.04im]
-    form=Formulation(:LineCableModelsFEM;options=(Γ=gamma,
+    form=Formulation(:fem;options=(Γ=gamma,
         reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
     model=E._resolved_fem_model(problem,form)
     options=E.computation_options(E.LineCableModelsFEM,ComputationOptions())

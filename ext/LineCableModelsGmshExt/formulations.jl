@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-Select the Julia-native Gmsh/GetDP finite-element backend.
+Select the Gmsh/GetDP finite-element backend with `Formulation(:fem)`.
 
 `options` stores the field-model choice, prescribed Γ and matrix reductions.
 `options=(physics=:helmholtz,)` is the supported field model and the default.
@@ -116,7 +116,7 @@ function description(::LineCableModelsFEM; compact::Bool = false)
 end
 formula_id(::Type{<:LineCableModelsFEM}) = :fem
 formula_id(::LineCableModelsFEM) = :fem
-ImportExport.deserialize_value(::Val{:formulation}, ::Union{Val{:fem},Val{:LineCableModelsFEM}}) = LineCableModelsFEM
+ImportExport.deserialize_value(::Val{:formulation}, ::Val{:fem}) = LineCableModelsFEM
 formulation_options(value::LineCableModelsFEM) = value.options
 function Base.pairs(value::LineCableModelsFEM; quantity = nothing)
     pairs(LineCableModelsFEM,
@@ -239,8 +239,7 @@ scalar or an explicit `Grid`/`Gridspace`. varying inputs return a
 Analytical impedance and admittance kernel keywords are rejected. Supported enclosure
 geometry is represented directly in the FEM domain.
 """
-function Formulation(
-        ::Val{:LineCableModelsFEM};
+function LineCableModelsFEM(;
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:default),
         earth_properties = formula(:default),
@@ -258,9 +257,7 @@ function Formulation(
     )
 end
 
-function LineCableModelsFEM(; kwargs...)
-    return Formulation(Val(:LineCableModelsFEM); kwargs...)
-end
+Formulation(::Val{:fem}; kwargs...) = LineCableModelsFEM(; kwargs...)
 
 """Expose FEM constitutive and admittance selections, field model, and reductions."""
 function Base.NamedTuple(value::LineCableModelsFEM)

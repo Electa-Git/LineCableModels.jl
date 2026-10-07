@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / isolated workers, checkpoints and recovery" tags=[:extension] begin
+@testitem "Gmsh FEM / isolated workers, checkpoints and recovery" tags=[:extension, :fem] begin
     using Gmsh, JSON3, SHA
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -45,7 +45,7 @@ for b in bases:
     pathlib.Path(str(stem)+'.done').write_text(f'2\t{f}\t{hz:.17g}\t{b}\t2\t0\n')
 """)
             chmod(executable,0o700)
-            form = Formulation(:LineCableModelsFEM; options=(ideal_transposition=false,))
+            form = Formulation(:fem; options=(ideal_transposition=false,))
             form_controls = (getdp_executable=executable,frequency_workers=2,solver_threads=1,gmsh_verbosity=0)
             execution_options = computation_options(LineCableModelsFEM, ComputationOptions(form_controls))
             model=E._resolved_fem_model(problem,form)
@@ -59,7 +59,7 @@ for b in bases:
             function fresh()
                 run=E._create_run(root,problem.system.system_id)
                 E._write_json_atomic(joinpath(run.path,"input/computation.json"),inputs)
-                E._prepare_run_inputs!(run,model,execution_options)
+                E._write_run_inputs!(run,model,execution_options)
                 run
             end
             write(config,JSON3.write((delay=0.02,fail=false)))
@@ -100,7 +100,7 @@ with open(sys.argv[1],'a+') as f:
                 mkpath(directory)
                 write(joinpath(directory,"attempt.json"),content)
             end
-            @test E._assert_no_live_attempts(run)===nothing
+            @test E._live_attempt(run)===nothing
             # Lose both the canonical column and its completed attempt marker.
             rm(paths.checkpoint)
             for attempt in filter(isdir,readdir(joinpath(run.path,"work");join=true))
@@ -119,7 +119,7 @@ with open(sys.argv[1],'a+') as f:
             @test E._resume_inputs_match(run.path,model,one)
             @test !E._resume_inputs_match(run.path,model,threads)
             serial=fresh()
-            serial_form=Formulation(:LineCableModelsFEM;options=form.options)
+            serial_form=Formulation(:fem;options=form.options)
             serial_form_controls = merge(form_controls,(frequency_workers=1,))
             E._run_getdp!(serial,model,serial_form, computation_options(LineCableModelsFEM, ComputationOptions(serial_form_controls)),meshes)
             @test E._parse_scan(serial,model,serial_form, computation_options(LineCableModelsFEM, ComputationOptions(serial_form_controls))).Z==scan.Z
@@ -128,7 +128,7 @@ with open(sys.argv[1],'a+') as f:
             @test_throws LineCableModelsFEMError E._run_getdp!(broken,model,form, execution_options,meshes)
             @test isfile(E._column_paths(broken.path,1,1,false).checkpoint)
             @test !isfile(E._column_paths(broken.path,1,2,false).checkpoint)
-            @test E._assert_no_live_attempts(broken)===nothing
+            @test E._live_attempt(broken)===nothing
             write(config,JSON3.write((delay=0.0,fail=false)))
             E._run_getdp!(broken,model,form, execution_options,meshes)
             @test E._parse_scan(broken,model,form, execution_options).Z==scan.Z
@@ -141,7 +141,7 @@ with open(sys.argv[1],'a+') as f:
             end
             @test failure isa LineCableModelsFEMError
             @test failure.field===:capability
-            @test E._assert_no_live_attempts(unsupported)===nothing
+            @test E._live_attempt(unsupported)===nothing
             # Cancellation kills and reaps workers and leaves no completion claim.
             stopped=fresh();write(config,JSON3.write((delay=2.0,fail=false)))
             task = @async try
@@ -157,23 +157,23 @@ with open(sys.argv[1],'a+') as f:
             schedule(task, InterruptException(); error=true)
             @test fetch(task) isa InterruptException
             @test stopped.state===E.cancelled
-            @test E._assert_no_live_attempts(stopped)===nothing
+            @test E._live_attempt(stopped)===nothing
             @test_throws LineCableModelsFEMError E._parse_scan(stopped,model,form, execution_options)
             # A surviving child from a crashed coordinator blocks retry.
             orphan=joinpath(stopped.path,"work","orphan");mkpath(orphan)
             E._write_json_atomic(joinpath(orphan,"attempt.json"),
                 (state="running",pid=getpid(),process_token=E._process_token(getpid())))
-            @test_throws LineCableModelsFEMError E._assert_no_live_attempts(stopped)
+            @test E._live_attempt(stopped) == (pid=getpid(),directory=orphan)
             E._write_json_atomic(joinpath(orphan,"attempt.json"),
                 (state="running",pid=getpid(),process_token="old boot or reused PID"))
-            Sys.islinux() && @test E._assert_no_live_attempts(stopped)===nothing
+            Sys.islinux() && @test E._live_attempt(stopped)===nothing
         end
     else
         @test_skip "The worker process fixture requires Unix and python3"
     end
 end
 
-@testitem "FEM / passive native PML observations retain extent and cutoff flags" tags=[:extension] begin
+@testitem "FEM / passive native PML observations retain extent and cutoff flags" tags=[:extension, :fem] begin
     using Gmsh
     FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     mktempdir() do directory

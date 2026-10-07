@@ -103,7 +103,7 @@ end
     @test !isempty(Makie.colorbuffer(page.figure))
 end
 
-@testitem "Makie addons / automatic difference labels and chromatic candidate prefix" tags=[:visual] begin
+@testitem "Makie addons / automatic difference labels and chromatic candidate prefix" tags=[:visual, :makie] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     using CairoMakie
@@ -113,7 +113,7 @@ end
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     source_id=gridpoint_id().source_id
     analytical=Formulation(earth_impedance=:unified,earth_admittance=:unified)
-    fem=Formulation(:LineCableModelsFEM)
+    fem=Formulation(:fem)
     z=reshape(complex.(1.:12.,21.:32.),2,2,3)
     function point(formulation,index;rho=100.,problem=1)
         inputs=(rho=rho,radius=.0425,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),radius=(name="radius",unit="m")))

@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / public API and strict parsing" tags=[:extension] begin
+@testitem "Gmsh FEM / public API and strict parsing" tags=[:extension, :fem] begin
     import LineCableModels
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
@@ -50,7 +50,7 @@
     )
 
     formulation = LineCableModels.Formulation(
-        :LineCableModelsFEM;
+        :fem;
         options = (ideal_transposition = false,))
     @test formulation isa Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     @test !formulation.options.data.ideal_transposition
@@ -107,8 +107,8 @@
             joinpath(directory, "run.json"), String
         ))
         missing_completion = try
-            extension_module._validate_completion(
-                joinpath(directory, "missing.tsv"), 1, 2, run
+            extension_module.validate(
+                joinpath(directory, "missing.tsv"), run, 1, 2
             )
             nothing
         catch exception
@@ -152,7 +152,7 @@
         zeros(ComplexF64, 2, 2, 1))
 end
 
-@testitem "Gmsh FEM / nominal Float64 preflight" tags=[:extension] begin
+@testitem "Gmsh FEM / nominal Float64 preflight" tags=[:extension, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -251,7 +251,7 @@ end
 
 @testitem "Gmsh FEM / bounded formations and complete material ownership" tags=[
     :extension
-] begin
+, :fem] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -260,7 +260,7 @@ end
     const DM = LineCableModels.DataModel
     extension_module = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     formulation = Formulation(
-        :LineCableModelsFEM; options = (ideal_transposition = false,)
+        :fem; options = (ideal_transposition = false,)
     )
     copper = Material(
         kind = :conductor, rho = 1.72e-8, eps_r = 1.0, mu_r = 1.0
@@ -585,7 +585,7 @@ end
     :extension,
     :integration,
     :fem_numerical
-] setup=[TemporaryFEMRuntime] begin
+, :fem] setup=[TemporaryFEMRuntime] begin
     using LineCableModels
     using Gmsh
     using SHA
@@ -618,14 +618,14 @@ end
             frequencies = [50.0, 1000.0]
         )
         formulation = Formulation(
-            :LineCableModelsFEM;
+            :fem;
             options = (ideal_transposition = false,))
         formulation_controls = (
                 getdp_verbosity = 0,
                 gmsh_verbosity = 0,
                 keep_run_directory = true, timing = true
             )
-        formulation_space = Formulation(:LineCableModelsFEM;
+        formulation_space = Formulation(:fem;
             earth_properties = Grid((formula(:default), nothing)),
             insulation_admittance = Grid((:default, :lossy)),
             options = formulation.options)
@@ -769,7 +769,7 @@ end
                 path, expected = ARGS
                 problem = LineCableModels.ImportExport.deserialize_value(
                     JSON3.read(read(joinpath(path, "input", "problem.json"), String)))
-                formulation = Formulation(:LineCableModelsFEM; earth_properties=nothing,
+                formulation = Formulation(:fem; earth_properties=nothing,
                     options=(ideal_transposition=false,))
                 formulation_controls = (getdp_verbosity=0, gmsh_verbosity=0,
                         keep_run_directory=true)

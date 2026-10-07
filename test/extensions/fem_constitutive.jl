@@ -1,4 +1,4 @@
-@testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension] setup=[FormulaContractModels] begin
+@testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension, :fem] setup=[FormulaContractModels] begin
     using Gmsh, Measurements
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -15,7 +15,7 @@
     soil_law=FormulaContractModels.DispersiveSoil()
     temperature_law=FormulaContractModels.ExponentialResistivity()
     dielectric_law=FormulaContractModels.OhmicDielectric()
-    formulation=LineCableModelsFEM(earth_properties=soil_law,
+    formulation=Formulation(:fem;earth_properties=soil_law,
         temperature_dependence=temperature_law,insulation_admittance=dielectric_law)
     model = FEM._resolved_fem_model(problem, formulation)
     @test soil_law.seen == problem.frequencies
@@ -35,32 +35,32 @@
     record = FEM.formulation_record(formulation)
     @test record.requested == NamedTuple(formulation).requested
     @test record.methods.temperature_dependence == NamedTuple(temperature_law)
-    @test typeof(record) === typeof(FEM.formulation_record(LineCableModelsFEM()))
+    @test typeof(record) === typeof(FEM.formulation_record(Formulation(:fem)))
 
     @test record.methods.temperature_dependence.identifier === :ExponentialResistivity
     @test record.methods.temperature_dependence.parameters.scale==1000.0
     @test !hasproperty(record.methods.temperature_dependence,:replayable)
     @test record.methods.semicon_admittance.identifier === :lossless
     for name in (:internal_impedance,:insulation_impedance,:earth_impedance,:earth_admittance,:pipe_impedance)
-        @test_throws MethodError Formulation(:LineCableModelsFEM; NamedTuple{(name,)}((formula(:default),))...)
+        @test_throws MethodError Formulation(:fem; NamedTuple{(name,)}((formula(:default),))...)
     end
-    @test_throws ArgumentError LineCableModelsFEM(earth_properties=formula(:default; equivalent_earth=:default))
-    @test_throws MethodError LineCableModelsFEM(earth_properties=LineCableModels.Earth.EquivalentHomogeneous.Formula(:default))
+    @test_throws ArgumentError Formulation(:fem;earth_properties=formula(:default; equivalent_earth=:default))
+    @test_throws MethodError Formulation(:fem;earth_properties=LineCableModels.Earth.EquivalentHomogeneous.Formula(:default))
     finite_soil = EarthModel(100.0,10.0,1.0; thickness=5.0)
     finite_problem = LineParametersProblem(system; frequencies=[50.0], earth_props=finite_soil)
-    @test_throws LineCableModelsFEMError FEM._resolved_fem_model(finite_problem, LineCableModelsFEM())
+    @test_throws LineCableModelsFEMError FEM._resolved_fem_model(finite_problem, Formulation(:fem))
     hot = LineParametersProblem(system; temperature=250.0, frequencies=[50.0],
         earth_props=problem.earth_props)
-    @test_throws LineCableModelsFEMError FEM._resolved_fem_model(hot, LineCableModelsFEM())
-    @test FEM._resolved_fem_model(hot, LineCableModelsFEM(temperature_dependence=nothing)) isa FEM.FEMResolvedModel
+    @test_throws LineCableModelsFEMError FEM._resolved_fem_model(hot, Formulation(:fem))
+    @test FEM._resolved_fem_model(hot, Formulation(:fem;temperature_dependence=nothing)) isa FEM.FEMResolvedModel
     @test FEM._fem_float64_scalar(measurement(big"1.25",big"0.01")) === 1.25
     @test_throws OverflowError FEM._fem_float64_scalar(big"1e400")
     conducting_limit = LineParametersProblem(system;frequencies=[50.0],
         earth_props=homogeneous(rho=1e-309))
-    @test_throws LineCableModelsFEMError FEM._resolved_fem_model(conducting_limit,LineCableModelsFEM())
+    @test_throws LineCableModelsFEMError FEM._resolved_fem_model(conducting_limit,Formulation(:fem))
 end
 
-@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
+@testitem "Gmsh FEM / metallic enclosure solves and reduces without a pipe formula" tags=[:extension,:integration,:fem_numerical, :fem] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
     using Gmsh, LinearAlgebra
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -81,7 +81,7 @@ end
     end
     problem = LineParametersProblem(enclosed_system(copper);temperature=80.0,
         frequencies=[50.0],earth_props=homogeneous(rho=100.0))
-    selected = LineCableModelsFEM(options=(ideal_transposition=false,))
+    selected = Formulation(:fem;options=(ideal_transposition=false,))
     selected_controls = (gmsh_verbosity=0,getdp_verbosity=0)
     result = compute(problem,selected; options=merge(selected_controls, (trace=true,)))
     primitive = result.details.data.fem.primitive
@@ -104,7 +104,7 @@ end
     corrected = Material(:conductor,1.72e-8*(1+0.004*60))
     reference_problem = LineParametersProblem(enclosed_system(corrected);
         temperature=80.0,frequencies=[50.0],earth_props=problem.earth_props)
-    reference = compute(reference_problem,LineCableModelsFEM(temperature_dependence=nothing,
+    reference = compute(reference_problem,Formulation(:fem;temperature_dependence=nothing,
         options=selected.options);options=(trace=true,))
     @test z ≈ reference.details.data.fem.primitive.Z_primitive[:,:,1] rtol=2e-9
     @test result.Y.values ≈ reference.Y.values rtol=2e-9
@@ -115,7 +115,7 @@ end
 
 end
 
-@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
+@testitem "Gmsh FEM / real constitutive laws match independent static material solves" tags=[:extension,:integration,:fem_numerical, :fem] setup=[FormulaContractModels,TemporaryFEMRuntime] begin
     using Gmsh
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
     const LineCableModelsFEMError = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEMError
@@ -137,7 +137,7 @@ end
     for law in (:default,:lossy), temperature in (20.0,80.0)
         problem = LineParametersProblem(system; temperature, frequencies=[50.0],
             earth_props=homogeneous(rho=100.0,eps_r=10.0))
-        selected = LineCableModelsFEM(insulation_admittance=law; options)
+        selected = Formulation(:fem,insulation_admittance=law; options)
         selected_controls = execution
         actual = compute(problem,selected; options=selected_controls)
         corrected = map((copper,dielectric)) do material
@@ -147,7 +147,7 @@ end
         end
         reference_problem = LineParametersProblem(system_for(corrected...);
             temperature, frequencies=[50.0],earth_props=problem.earth_props)
-        reference = compute(reference_problem,LineCableModelsFEM(insulation_admittance=law,
+        reference = compute(reference_problem,Formulation(:fem,insulation_admittance=law,
             temperature_dependence=nothing; options);options=execution)
         @test actual.Z.values ≈ reference.Z.values rtol=2e-9
         @test actual.Y.values ≈ reference.Y.values rtol=2e-9
@@ -156,7 +156,7 @@ end
     air = EarthLayer(Inf,1.5,1.2,Inf)
     earth = EarthModel(100.0,10.0,1.0; air_layer=air)
     problem = LineParametersProblem(system; frequencies=[50.0,1000.0],earth_props=earth)
-    selected = LineCableModelsFEM(earth_properties=soil_law;
+    selected = Formulation(:fem,earth_properties=soil_law;
         options)
     selected_controls = execution
     actual = compute(problem,selected; options=merge(selected_controls, (trace=true,)))
@@ -164,7 +164,7 @@ end
         # Explicit published inputs form the reference; no call to the fitted/selected law.
         static = EarthModel(100/(1+f/1000),10*(1+f/2000),1+f/10000; air_layer=air)
         reference_problem = LineParametersProblem(system;frequencies=[f],earth_props=static)
-        reference = compute(reference_problem,LineCableModelsFEM(earth_properties=nothing;
+        reference = compute(reference_problem,Formulation(:fem,earth_properties=nothing;
             options);options=(;execution...,trace=true))
         @test actual.Z.values[:,:,index] ≈ reference.Z.values[:,:,1] rtol=2e-9
         @test actual.Y.values[:,:,index] ≈ reference.Y.values[:,:,1] rtol=2e-9

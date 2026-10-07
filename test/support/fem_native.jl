@@ -17,7 +17,7 @@
 
     function bundle(f,problem; gamma=0., options=(;))
         mktempdir() do directory
-            form=Formulation(:LineCableModelsFEM;options=(Γ=gamma,
+            form=Formulation(:fem;options=(Γ=gamma,
                 reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
             entry=export_data(:onelab,problem,form;
                 file_name=joinpath(directory,"model.pro"),options)
