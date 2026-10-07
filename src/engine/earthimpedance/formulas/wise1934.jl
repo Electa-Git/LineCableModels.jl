@@ -32,7 +32,7 @@ function earth_impedance(
     throw(ArgumentError("earth_impedance :wise1934 ($kind), source layer 1, target layer 1: not yet implemented for the coaxial backend"))
 end
 
-formulation_options(::FormulaMethod{<:Formula{:wise1934}, typeof(earth_impedance)}) =
+formulation_options(::Expression{<:Formula{:wise1934}, typeof(earth_impedance)}) =
     FormulationOptions()
 
 :wise1934

@@ -118,20 +118,20 @@ function (formula::EarthAdmittanceFormulation)(
         mu = permeability, sigma = σ)
     state = merge(materials, (; jω, thickness))
     binding = (pair = pair, physical_pair = physical_pair,
-        kind = selected.kind, equation = selected.equation)
+        kind = selected.kind, expression = selected.expression)
     return Functor(binding, state, options)
 end
 
 function (functor::Functor)(workspace = nothing)
     pair = functor.binding.pair
-    equation = functor.binding.equation
-    values = equation isa Tuple ?
-             map(method -> method(functor, pair, workspace), equation) :
-             (equation(functor, pair, workspace),)
+    expression = functor.binding.expression
+    values = expression isa Tuple ?
+             map(method -> method(functor, pair, workspace), expression) :
+             (expression(functor, pair, workspace),)
     all(value -> value isa Number && isfinite(value), values) || throw(DomainError(values,
         "earth coefficients must be finite scalars"))
     converted = map(value -> oftype(functor.state.jω, value), values)
-    return equation isa Tuple ? converted : only(converted)
+    return expression isa Tuple ? converted : only(converted)
 end
 
 function (selected::EarthAdmittanceFormulation)(materials, binding, workspace, frequency::Int)
@@ -149,11 +149,6 @@ end
 
 function earth!(::EarthAdmittanceFormulation, calculation, workspace)
     (potential = only(calculation.coefficients),)
-end
-
-function FormulaMethod(formula::EarthAdmittanceFormulation, pair::EarthPair)
-    return FormulaMethod(formula, earth_potential_coefficient,
-        Val(pair.row == pair.column ? :self : :mutual), Val.(layer_index(pair))...)
 end
 
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)

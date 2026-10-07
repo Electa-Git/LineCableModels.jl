@@ -48,6 +48,6 @@ Evaluate lossless semiconducting-screen admittivity:
     return complex(zero(T), ω) * ε₀ * material.eps_r
 end
 
-formulation_options(::FormulaMethod{<:Formula{:lossless}, typeof(semicon_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:lossless}, typeof(semicon_material)}) = FormulationOptions()
 
 :lossless

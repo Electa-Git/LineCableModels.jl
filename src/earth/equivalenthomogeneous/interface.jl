@@ -108,7 +108,7 @@ end
         "EquivalentHomogeneous evaluation frequency must be positive and finite"
     ))
     validate(pair, getproperty.(model.layers, :thickness))
-    material = binding.equation(rho, eps_r, mu_r, model, pair, frequency,
+    material = binding.expression(rho, eps_r, mu_r, model, pair, frequency,
         formula.parameters, binding.options, workspace)
     material isa EarthMaterial ||
         throw(ArgumentError("an EquivalentHomogeneous contribution must return EarthMaterial"))
@@ -133,20 +133,21 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Bind each conductor interaction to the `equivalent_material` equation that the reduction
-declares for its kind and layers, with the equation's normalized options. Return
-`(equation, options)` records.
+Bind each conductor interaction to the `equivalent_material` expression that the reduction
+declares for its kind and layers, with the expression's normalized options. Return
+`(expression, options)` records.
 """
 function bindings(formula::AbstractRule, pairs::Union{Tuple, AbstractVector})
-    equations = map(pairs) do pair
+    expressions = map(pairs) do pair
         kind = pair.row == pair.column ? :self : :mutual
-        FormulaMethod(formula, equivalent_material, Val(kind), Val.(pair.layers)...)
+        Expression(formula, equivalent_material, Val(kind), Val.(pair.layers)...)
     end
-    projected = formulation_options(formula, equations)
-    records = map(projected.equations, projected.options) do equation, options
-        (equation = equation, options = options)
+    projected = formulation_options(formula, expressions)
+    records = map(projected.expressions, projected.options) do expression, options
+        (expression = expression, options = options)
     end
-    return map(equation -> records[findfirst(==(equation), projected.equations)], equations)
+    return map(expression -> records[findfirst(==(expression), projected.expressions)],
+        expressions)
 end
 
 """Expose the reduction rule, model parameters and numerical options as a native record."""

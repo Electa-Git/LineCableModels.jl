@@ -72,6 +72,6 @@ electromagnetism.
            displacement
 end
 
-formulation_options(::FormulaMethod{<:Formula{:lossy}, typeof(insulation_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:lossy}, typeof(insulation_material)}) = FormulationOptions()
 
 :lossy

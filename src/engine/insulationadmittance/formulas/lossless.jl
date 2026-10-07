@@ -48,6 +48,6 @@ Evaluate lossless cable-insulation admittivity:
     return complex(zero(T), ω) * ε₀ * material.eps_r
 end
 
-formulation_options(::FormulaMethod{<:Formula{:lossless}, typeof(insulation_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:lossless}, typeof(insulation_material)}) = FormulationOptions()
 
 :lossless

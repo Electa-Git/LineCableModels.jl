@@ -274,9 +274,8 @@ request. A family constructor resolves a symbol or declaration to a concrete
 selection. A completed user-owned selection passes through unchanged. Built-in
 formula lists enumerate the implementations supplied by the package.
 
-A `FormulaMethod(selection, operation, Val(...), ...)` binds the actual selected
-type to the family operation. The first argument of every equation is that
-selection. `formula_id` supplies descriptive metadata. The family constructor
+An `Expression(selection, operation, Val(...), ...)` is one expression of the
+selected formula: the family operation, called with that selection first. `formula_id` supplies descriptive metadata. The family constructor
 resolves `:default` to a concrete implementation before computation.
 
 For the analytical families, the default routes are:
@@ -299,7 +298,7 @@ coaxial geometry, which does not require an additional pipe term. Conductive pip
 require a pipe formulation. `:unified` requires supported earth geometry. PSCAD defines its native selections. FEM defines its field equations and accepts supported
 material selections.
 
-Numerical defaults belong to `formulation_options(::FormulaMethod{<:MySelection,
+Numerical defaults belong to `formulation_options(::Expression{<:MySelection,
 typeof(operation), ...})`. Empty defaults exclude controls. Unknown or unused
 numerical sections are errors. The selected formula provisions QuadGK storage
 through `initialize_buffers` when its required indexed consumers need integration.
@@ -507,11 +506,11 @@ The following declaration sets numerical options for a user-defined outer
 surface equation:
 
 ```julia
-using LineCableModels: FormulaMethod, formulation_options, FormulationOptions
+using LineCableModels: Expression, formulation_options, FormulationOptions
 const II = LineCableModels.Engine.InternalImpedance
 # MyConductor is a concrete InternalImpedanceFormulation owned by the user.
 formulation_options(
-    ::FormulaMethod{<:MyConductor,typeof(II.internal_impedance),Tuple{Val{:outer}}},
+    ::Expression{<:MyConductor,typeof(II.internal_impedance),Tuple{Val{:outer}}},
 ) = FormulationOptions()
 ```
 
@@ -570,8 +569,8 @@ integrand and its numeric subdivision hints. Compatible
 unified consumers share one current calculation per frequency and publish the
 completed entries directly. Independent calculations never share mutable buffers.
 
-Each family explicitly includes its supported formula files. A file returns one identifier. `FormulaMethod` binds a selected formulation and its indexed case to
-the family-owned equation generic.
+Each family explicitly includes its supported formula files. A file returns one identifier. An `Expression` holds a selected formulation, its indexed case and
+the family-owned operation.
 The frequency loop calls the bound methods directly. Register each distinct
 equation under its own identity.
 
@@ -712,7 +711,7 @@ end
 TD.temperature_resistivity(::ExponentialResistivity, m, t, p, o, workspace) =
     m.rho * exp((t-m.T0)/p.scale)
 LineCableModels.formulation_options(
-    ::LineCableModels.FormulaMethod{<:ExponentialResistivity,typeof(TD.temperature_resistivity)}) = FormulationOptions()
+    ::LineCableModels.Expression{<:ExponentialResistivity,typeof(TD.temperature_resistivity)}) = FormulationOptions()
 LineCableModels.formula_id(::ExponentialResistivity) = :exponential_resistivity
 LineCableModels.description(::ExponentialResistivity; compact=false) = "Exponential resistivity"
 Base.NamedTuple(law::ExponentialResistivity) =

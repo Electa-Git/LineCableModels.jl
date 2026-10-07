@@ -50,7 +50,7 @@ end
             # stub when called, an undeclared case when the plan checks the earth model.
             for pair in (E.EarthPair(1, 2, (1.0, 2.0), 1.0, (1, 1)),
                     E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2)))
-                expression = LineCableModels.FormulaMethod(selected, pair)
+                expression = LineCableModels.Expression(selected, pair)
                 @test expression.method === operation
                 @test_throws ArgumentError begin
                     validate(expression, earth)
@@ -84,7 +84,7 @@ end
     end
     @test_throws ArgumentError Formulation(
         earth_impedance = formula(:unified; parameters = (Γ = 1e-4im,)))
-    method=LineCableModels.FormulaMethod(make(0).methods.earth_impedance,
+    method=LineCableModels.Expression(make(0).methods.earth_impedance,
         E.EarthImpedance.axial_field_coefficient, Val(:self), Val(1), Val(1))
     @test formulation_options(method).data.Γ == 0
     @test formulation_options(method, FormulationOptions(Γ = 2e-4im)).data.Γ == 2e-4im
@@ -214,10 +214,10 @@ end
     const E=LineCableModels.Engine
     const II=E.InternalImpedance
     const EI=E.EarthImpedance
-    const FM=LineCableModels.FormulaMethod
+    const Expression=LineCableModels.Expression
     const M=FormulaFixtures
-    internal=FM(II.Formula(:default), II.internal_impedance, Val(:outer))
-    external=FM(
+    internal=Expression(II.Formula(:default), II.internal_impedance, Val(:outer))
+    external=Expression(
         EI.Formula(:default), EI.axial_field_coefficient, Val(:self), Val(1), Val(1))
     @test formulation_options(internal)==FormulationOptions()
     @test formulation_options(external).data.integration.method === :quad
@@ -230,7 +230,7 @@ end
     custom=M.selection(EI)
     pair=E.EarthPair(1, 2, (-1.0, -1.0), 1.0, (2, 2))
     bound=only(LineCableModels.Commons.bindings(custom, (pair,)))
-    @test bound.equation.selection === custom
+    @test bound.expression.selection === custom
     @test isempty(bound.options.data)
     @test_throws ArgumentError LineCableModels.Commons.bindings(
         M.selection(EI; options = (integration = (method = :quad,),)), (pair,))

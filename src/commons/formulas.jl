@@ -1,54 +1,54 @@
 """
-Declare formulation-option defaults for one complete equation binding.
+Declare formulation-option defaults for one expression.
 """
-function formulation_options(binding::FormulaMethod)
-    throw(ArgumentError("missing formulation-option defaults for $binding"))
+function formulation_options(expression::Expression)
+    throw(ArgumentError("missing formulation-option defaults for $expression"))
 end
 
-function formulation_options(binding::FormulaMethod, supplied::FormulationOptions)
-    return formulation_options(binding, formulation_options(binding), supplied)
+function formulation_options(expression::Expression, supplied::FormulationOptions)
+    return formulation_options(expression, formulation_options(expression), supplied)
 end
 
 """
 $(TYPEDSIGNATURES)
 
 Normalize supplied formulation options against defaults declared by the actual
-selected equation. A family with multiple cases projects supplied options to
-each consuming binding before calling this constructor. Empty defaults exclude options. Each option's dispatched
+selected expression. A family with multiple cases projects supplied options to
+each consuming expression before calling this constructor. Empty defaults exclude options. Each option's dispatched
 normalizer defines its value type, including scalar physical choices and structured
 numerical controls.
 """
-function formulation_options(binding::FormulaMethod, defaults::FormulationOptions, supplied::FormulationOptions)
+function formulation_options(expression::Expression, defaults::FormulationOptions, supplied::FormulationOptions)
     default_data, supplied_data = defaults.data, supplied.data
     unknown = filter(name -> !haskey(default_data, name), keys(supplied_data))
     isempty(unknown) || throw(ArgumentError(
-        "unused formulation options $(Tuple(unknown)) for $binding"))
+        "unused formulation options $(Tuple(unknown)) for $expression"))
     sections = map(keys(default_data)) do name
         default = getproperty(default_data, name)
         explicit = get(supplied_data, name, default isa NamedTuple ? (;) : default)
-        formulation_options(binding, Val(name), default, explicit)
+        formulation_options(expression, Val(name), default, explicit)
     end
     return FormulationOptions(NamedTuple{keys(default_data)}(sections))
 end
 
-function formulation_options(binding::FormulaMethod, ::Val{Section}, defaults,
+function formulation_options(expression::Expression, ::Val{Section}, defaults,
         supplied) where {Section}
-    throw(ArgumentError("no formulation-option constructor for :$Section of $binding with $(typeof(supplied))"))
+    throw(ArgumentError("no formulation-option constructor for :$Section of $expression with $(typeof(supplied))"))
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Project the options supplied to `formula` onto the equations it declares. Each supplied
-section must be consumed by at least one equation. Each distinct equation receives the
+Project the options supplied to `formula` onto the expressions it declares. Each supplied
+section must be consumed by at least one expression. Each distinct expression receives the
 sections its defaults declare, normalized by its own constructor. Return the distinct
-equations in order of first appearance and their `FormulationOptions`, as
-`(equations, options)`.
+expressions in order of first appearance and their `FormulationOptions`, as
+`(expressions, options)`.
 """
 function formulation_options(formula::AbstractFormulation,
-        equations::Union{Tuple, AbstractVector{<:FormulaMethod}})
+        expressions::Union{Tuple, AbstractVector{<:Expression}})
     supplied = formula.options.data
-    identities = unique(equations)
+    identities = unique(expressions)
     defaults = map(formulation_options, identities)
     admitted = union((keys(value.data) for value in defaults)...)
     unknown = setdiff(keys(supplied), admitted)
@@ -59,7 +59,7 @@ function formulation_options(formula::AbstractFormulation,
         names = Tuple(intersect(keys(supplied), keys(declared.data)))
         formulation_options(identities[index], declared, FormulationOptions(supplied[names]))
     end
-    return (equations = identities, options = normalized)
+    return (expressions = identities, options = normalized)
 end
 
 """
@@ -74,8 +74,8 @@ function formulas end
 """
     bindings(formula, interactions)
 
-Bind each interaction to the equation that `formula` declares for it, together with that
-equation's normalized formulation options. Return one record per interaction, in order.
+Bind each interaction to the expression that `formula` declares for it, together with that
+expression's normalized formulation options. Return one record per interaction, in order.
 A formula family extends this function for its own formulas and interactions.
 """
 function bindings end
@@ -93,7 +93,7 @@ count. Return `expression`.
 
 - Throws `ArgumentError` naming the formula and the selectors that have no expression.
 """
-function validate(expression::FormulaMethod)
+function validate(expression::Expression)
     F = typeof(expression.selection)
     selectors = map(typeof, expression.arguments)
     hasmethod(expression.method, Tuple{F, selectors..., Any, Any}) && return expression

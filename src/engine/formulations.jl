@@ -257,6 +257,17 @@ function validate(value, ::Union{InsulationAdmittanceFormulation, SemiconAdmitta
     return value
 end
 
+# The expression of an earth formula for one interaction: its kind and its source and target
+# layers.
+function Expression(formula::EarthImpedanceFormulation, pair::EarthPair)
+    return Expression(formula, EarthImpedance.earth_impedance,
+        Val(pair.row == pair.column ? :self : :mutual), Val.(layer_index(pair))...)
+end
+function Expression(formula::EarthAdmittanceFormulation, pair::EarthPair)
+    return Expression(formula, EarthAdmittance.earth_potential_coefficient,
+        Val(pair.row == pair.column ? :self : :mutual), Val.(layer_index(pair))...)
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -269,7 +280,7 @@ are the decided ones: a recipe describes a homogeneous earth.
 - Throws `ArgumentError` when the recipe has no formula for the pair's route, or for another
   layer pair.
 """
-function FormulaMethod(recipe::NamedTuple, pair::EarthPair)
+function Expression(recipe::NamedTuple, pair::EarthPair)
     source, target = layer_index(pair)
     route = (source, target) == (1, 1) ? :air : (source, target) == (2, 2) ? :earth :
             (source, target) in ((1, 2), (2, 1)) ? :mixed :
@@ -278,39 +289,40 @@ function FormulaMethod(recipe::NamedTuple, pair::EarthPair)
     selected = get(recipe, route, nothing)
     selected === nothing &&
         throw(ArgumentError("explicit equation recipe has no requested :$route case"))
-    return FormulaMethod(selected, pair)
+    return Expression(selected, pair)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Bind each earth-return interaction to the equation that `formula` declares for its
-kind and layers, with the equation's normalized options. Each pair and each equation's
-geometric restrictions are validated first. Return `(equation, kind, options)` records.
+Bind each earth-return interaction to the expression that `formula` declares for its
+kind and layers, with the expression's normalized options. Each pair and each expression's
+geometric restrictions are validated first. Return `(expression, kind, options)` records.
 """
 function bindings(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
         pairs::Union{Tuple, AbstractVector{<:EarthPair}})
-    equations = map(pairs) do pair
+    expressions = map(pairs) do pair
         validate(pair)
-        equation = FormulaMethod(formula, pair)
-        validate(pair, equation)
-        equation
+        expression = Expression(formula, pair)
+        validate(pair, expression)
+        expression
     end
-    projected = formulation_options(formula, equations)
-    records = map(projected.equations, projected.options) do equation, options
-        (equation = equation, kind = typeof(first(equation.arguments)).parameters[1],
+    projected = formulation_options(formula, expressions)
+    records = map(projected.expressions, projected.options) do expression, options
+        (expression = expression, kind = typeof(first(expression.arguments)).parameters[1],
             options = options)
     end
-    return map(equation -> records[findfirst(==(equation), projected.equations)], equations)
+    return map(expression -> records[findfirst(==(expression), projected.expressions)],
+        expressions)
 end
 
 # Equation-specific geometric restrictions extend the existing validation protocol.
-validate(pair::EarthPair, ::FormulaMethod) = pair
+validate(pair::EarthPair, ::Expression) = pair
 
 # Whether the formula of `expression` admits earth layer `k`. It does when a method of its
 # operation accepts `Val{k}` in the source or the target position, whatever the types of the
 # other arguments. A layer left generic, such as `::Val{S}`, admits every layer.
-function _admits_layer(expression::FormulaMethod, k::Int)
+function _admits_layer(expression::Expression, k::Int)
     F = typeof(expression.selection)
     return !isempty(methods(expression.method, Tuple{F, Any, Val{k}, Any, Any, Any, Any})) ||
            !isempty(methods(expression.method, Tuple{F, Any, Any, Val{k}, Any, Any, Any}))
@@ -325,7 +337,7 @@ function _equivalent_earth(selected, model::EarthModel, pair::EarthPair)
     selected.equivalent_earth === nothing || return selected.equivalent_earth
     layers = length(model.layers)
     layers > 2 || return nothing
-    expression = FormulaMethod(selected, pair)
+    expression = Expression(selected, pair)
     any(k -> _admits_layer(expression, k), 3:layers) && return nothing
     return EquivalentHomogeneous.AbstractSequence(formula(:default))
 end
@@ -337,7 +349,7 @@ function _equivalent_earth(recipe::NamedTuple, model::EarthModel, pair::EarthPai
     selected = Tuple(leaf for leaf in recipe if leaf !== nothing)
     layers = length(model.layers)
     for leaf in selected
-        expression = FormulaMethod(leaf, pair)
+        expression = Expression(leaf, pair)
         any(k -> _admits_layer(expression, k), 3:max(3, layers)) &&
             throw(ArgumentError("a multilayer formula is used alone"))
     end
@@ -367,7 +379,7 @@ admits, `validate(expression)` checks the expression. Return `expression`.
 
 When the formula admits layer N + 1, the message reads "defined for every layer" instead.
 """
-function validate(expression::FormulaMethod{<:Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}},
+function validate(expression::Expression{<:Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}},
         model::EarthModel)
     selected = expression.selection
     signature = Tuple{typeof(selected), map(typeof, expression.arguments)..., Any, Any, Any}
@@ -509,8 +521,8 @@ Formulation(::Val{:fem}; kwargs...) = LineCableModelsFEM(; kwargs...)
 
 # An earth equation admits an equivalent-earth reduction only through its own method.
 function validate(reduction::EquivalentHomogeneous.AbstractRule,
-        binding::FormulaMethod{<:Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}})
-    throw(ArgumentError("$binding does not admit equivalent-earth reduction :$(formula_id(reduction))"))
+        expression::Expression{<:Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}})
+    throw(ArgumentError("$expression does not admit equivalent-earth reduction :$(formula_id(reduction))"))
 end
 
 """Expose FEM constitutive and admittance selections, field model, and reductions."""

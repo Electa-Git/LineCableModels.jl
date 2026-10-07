@@ -39,8 +39,8 @@ function Formula{ID}(; parameters::NamedTuple = (;),
     isempty(parameters) ||
         throw(ArgumentError("formula :$ID has no configurable model parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
-    binding = FormulaMethod(selected, temperature_resistivity)
-    normalized = formulation_options(binding, options)
+    expression = Expression(selected, temperature_resistivity)
+    normalized = formulation_options(expression, options)
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 

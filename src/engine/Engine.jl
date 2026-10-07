@@ -50,7 +50,7 @@ import ..LineCableModels: basis, line_length, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,
-                          FormulaMethod, FormulaDefinition
+                          Expression, FormulaDefinition
 import ..LineCableModels: parameterize
 import ..LineCableModels: verbosity, VerbosityLogger
 #! explicit-imports: off

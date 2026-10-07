@@ -24,7 +24,7 @@ export Formula, formula_id, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: InsulationAdmittanceFormulation, formula_id, validate
-import ...LineCableModels: FormulaDefinition, FormulaMethod
+import ...LineCableModels: FormulaDefinition, Expression
 using ...Materials: Material
 #! explicit-imports: off
 import ..Engine: description, conductivity

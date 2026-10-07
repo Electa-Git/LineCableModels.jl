@@ -135,14 +135,14 @@ end
 """
 $(TYPEDEF)
 
-Bind a concrete formulation and semantic selectors to its native domain method.
-Calling the binding passes the selection, selectors, and runtime arguments in
-that order.
+Hold the formula object, the operation and the `Val` selectors of one expression of a
+formula. Calling the expression passes the formula, the selectors and the runtime arguments
+to the operation, in that order.
 
 $(TYPEDFIELDS)
 """
-struct FormulaMethod{S, F, A <: Tuple}
-    "Selected formulation whose concrete type owns equation dispatch."
+struct Expression{S, F, A <: Tuple}
+    "Selected formula whose concrete type selects the operation's method."
     selection::S
     "Native domain method accepting the selected formulation first."
     method::F
@@ -153,15 +153,15 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Bind a selected formulation to a native method and optional `Val` selectors.
+Build the expression of `selection` for the operation `method` and optional `Val` selectors.
 Throw `ArgumentError` if a selector is not a `Val` instance.
 """
-function FormulaMethod(selection::S, method::F, arguments...) where {S, F}
+function Expression(selection::S, method::F, arguments...) where {S, F}
     all(argument -> argument isa Val, arguments) || throw(ArgumentError(
-        "FormulaMethod semantic selectors must be Val instances"))
-    return FormulaMethod{S, F, typeof(arguments)}(selection, method, arguments)
+        "Expression semantic selectors must be Val instances"))
+    return Expression{S, F, typeof(arguments)}(selection, method, arguments)
 end
 
-@inline function (bound::FormulaMethod)(arguments...)
-    return bound.method(bound.selection, bound.arguments..., arguments...)
+@inline function (expression::Expression)(arguments...)
+    return expression.method(expression.selection, expression.arguments..., arguments...)
 end

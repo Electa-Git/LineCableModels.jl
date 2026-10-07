@@ -11,7 +11,7 @@
     const EH = EP.EquivalentHomogeneous
     const IA = E.InsulationAdmittance
     const SA = E.SemiconAdmittance
-    const FM = LineCableModels.FormulaMethod
+    const Expression = LineCableModels.Expression
     const calls = Tuple[]
 
     struct BufferReplacement <: E.AbstractFormulation end
@@ -58,10 +58,10 @@
                          :(coefficient * 1e9))
             end
         end
-        @eval LineCableModels.formulation_options(::FM{
+        @eval LineCableModels.formulation_options(::Expression{
             <:$name, typeof($operation)}) = FormulationOptions()
     end
-    LineCableModels.formulation_options(::FM{<:Union{LayerImpedance, HalfSpaceImpedance},
+    LineCableModels.formulation_options(::Expression{<:Union{LayerImpedance, HalfSpaceImpedance},
         typeof(EI.earth_impedance),
         A}) where {A <:
                    Tuple{Union{Val{:self}, Val{:mutual}}, Val{1},
@@ -92,7 +92,7 @@
 
     # These formulas admit the deepest-layer reduction.
     LineCableModels.validate(rule::EH.Formula{:bottommost},
-        ::FM{<:Union{LayerImpedance, LayerPotential, HalfSpaceImpedance, HalfSpacePotential}}) = rule
+        ::Expression{<:Union{LayerImpedance, LayerPotential, HalfSpaceImpedance, HalfSpacePotential}}) = rule
 
     # Two more layered earth-impedance formulas. One declares its expressions up to layer 3
     # with typed runtime arguments, the other for every layer with generic `Val{S}`
@@ -128,7 +128,7 @@
     end
 
     for selected_type in (TypedLayerImpedance, GenericLayerImpedance)
-        @eval LineCableModels.formulation_options(::FM{
+        @eval LineCableModels.formulation_options(::Expression{
             <:$selected_type, typeof(EI.earth_impedance)}) = FormulationOptions()
     end
 
@@ -152,7 +152,7 @@
         solves::Vector{ComplexF64}
     end
     CoupledImpedance() = CoupledImpedance((;), FormulationOptions(), nothing, ComplexF64[])
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:CoupledImpedance, typeof(EI.earth_impedance)}) = FormulationOptions()
     function G.initialize_buffers(
             ::CoupledImpedance, ::Type{T}, input, plan, buffers) where {T}
@@ -210,7 +210,7 @@
             return selected.parameters.coefficients[$(QuoteNode(kind))]
         end
     end
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:SurfaceLaw, typeof(II.internal_impedance)}) = FormulationOptions()
 
     struct SpectralSurface{P, O} <: E.InternalImpedanceFormulation
@@ -220,7 +220,7 @@
     end
     function SpectralSurface(method = :quad)
         seed = SpectralSurface((;), FormulationOptions(outer = (;)), Tuple[])
-        outer = formulation_options(FM(seed, II.internal_impedance, Val(:outer)),
+        outer = formulation_options(Expression(seed, II.internal_impedance, Val(:outer)),
             FormulationOptions(integration = (method = method,)))
         return SpectralSurface((;), FormulationOptions(outer = outer.data), seed.seen)
     end
@@ -232,14 +232,14 @@
     end
     (selected::SpectralSurface)(
         r_in, r_ex, rho, mu_r, jω) = II.Functor(selected, (jω = jω,), selected.options)
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:SpectralSurface, typeof(II.internal_impedance),
         Tuple{Val{:outer}}}) = FormulationOptions(integration = (
         method = :quad, options = (;)))
     # Its inner and transfer surface impedances are fixed coefficients. Only `outer` integrates.
     II.internal_impedance(::SpectralSurface, ::Val{:inner}, functor, workspace) = 3e-5 + 1e-6im
     II.internal_impedance(::SpectralSurface, ::Val{:transfer}, functor, workspace) = 1e-6 + 0im
-    LineCableModels.formulation_options(::FM{<:SpectralSurface, typeof(II.internal_impedance),
+    LineCableModels.formulation_options(::Expression{<:SpectralSurface, typeof(II.internal_impedance),
         <:Union{Tuple{Val{:inner}}, Tuple{Val{:transfer}}}}) = FormulationOptions()
     function II.internal_impedance(selected::SpectralSurface, ::Val{:outer}, functor, workspace)
         push!(selected.seen, (functor.options.data.integration.method, workspace))
@@ -271,7 +271,7 @@
             material.rho/(1+(frequency/parameters.scale)^parameters.exponent),
             material.eps_r, material.mu_r)
     end
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:DispersiveEarth, typeof(FD.earth_material)}) = FormulationOptions()
 
     struct InsulationReactance{P, O} <: E.InsulationImpedanceFormulation
@@ -281,7 +281,7 @@
     InsulationReactance(inductance = 2) = InsulationReactance((inductance = inductance,), FormulationOptions())
     E.InsulationImpedance.insulation_impedance(::InsulationReactance,
         r_in, r_ex, mu_r, s, parameters, options, workspace) = parameters.inductance*s
-    LineCableModels.formulation_options(::FM{<:InsulationReactance,
+    LineCableModels.formulation_options(::Expression{<:InsulationReactance,
         typeof(E.InsulationImpedance.insulation_impedance)}) = FormulationOptions()
 
     struct ConstantResistivity{P, O} <: TD.TemperatureDependentFormulation
@@ -295,7 +295,7 @@
         push!(selected.seen, (material, temperature, workspace))
         return parameters.rho
     end
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:ConstantResistivity, typeof(TD.temperature_resistivity)}) = FormulationOptions()
 
     struct ScaledResistivity{P, O} <: TD.TemperatureDependentFormulation
@@ -309,7 +309,7 @@
         push!(selected.seen, (material, temperature, workspace))
         return parameters.scale*material.rho
     end
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:ScaledResistivity, typeof(TD.temperature_resistivity)}) = FormulationOptions()
 
     struct ExponentialResistivity{P, O} <: TD.TemperatureDependentFormulation
@@ -319,7 +319,7 @@
     ExponentialResistivity(scale = 1000.0) = ExponentialResistivity((scale = scale,), FormulationOptions())
     TD.temperature_resistivity(
         ::ExponentialResistivity, m, t, p, o, w) = m.rho*exp((t-m.T0)/p.scale)
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:ExponentialResistivity, typeof(TD.temperature_resistivity)}) = FormulationOptions()
 
     struct DispersiveSoil{P, O} <: FD.FrequencyDependentFormulation
@@ -334,7 +334,7 @@
         push!(selected.seen, f)
         EP.EarthMaterial(m.rho/(1+f/p.rho_scale), m.eps_r*(1+f/p.epsilon_scale), m.mu_r*(1+f/p.mu_scale))
     end
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:DispersiveSoil, typeof(FD.earth_material)}) = FormulationOptions()
 
     struct ScaledSoil{P, O} <: FD.FrequencyDependentFormulation
@@ -345,7 +345,7 @@
         mu = 1) = ScaledSoil((rho = rho, epsilon = epsilon, mu = mu), FormulationOptions())
     FD.earth_material(::ScaledSoil, m, f, p, o,
         w) = EP.EarthMaterial(m.rho*p.rho, m.eps_r*p.epsilon, m.mu_r*p.mu)
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:ScaledSoil, typeof(FD.earth_material)}) = FormulationOptions()
 
     struct OhmicDielectric{P, O} <: E.InsulationAdmittanceFormulation
@@ -358,7 +358,7 @@
         push!(selected.temperatures, (m.T0, t))
         complex(inv(m.rho), 2pi*f*8.8541878128e-12*m.eps_r)
     end
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:OhmicDielectric, typeof(IA.insulation_material)}) = FormulationOptions()
 
     for (name, parent, operation) in (
@@ -375,7 +375,7 @@
             return complex(
                 oftype(frequency, parameters.scale)/material.rho, frequency*material.eps_r+temperature)
         end
-        @eval LineCableModels.formulation_options(::FM{
+        @eval LineCableModels.formulation_options(::Expression{
             <:$name, typeof($operation)}) = FormulationOptions()
     end
 
@@ -393,7 +393,7 @@
         return EP.EarthMaterial(sum(rho[soils])/length(soils),
             sum(epsilon[soils])/length(soils), sum(mu[soils])/length(soils))
     end
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:MeanEarth, typeof(EH.equivalent_material)}) = FormulationOptions()
 
     struct SquaredBottomEarth{P, O} <: EH.AbstractRule
@@ -412,10 +412,10 @@
         push!(selected.workspaces, workspace)
         return EP.EarthMaterial(last(rho)^2/parameters.scale, last(epsilon), last(mu))
     end
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:SquaredBottomEarth, typeof(EH.equivalent_material)}) = FormulationOptions()
     LineCableModels.validate(reduction::SquaredBottomEarth,
-        ::FM{<:Union{EI.Formula{:unified}, EA.Formula{:unified}}}) = reduction
+        ::Expression{<:Union{EI.Formula{:unified}, EA.Formula{:unified}}}) = reduction
 
     struct UserCoaxialShunt{P, O} <: E.ShuntModelFormulation
         parameters::P
@@ -477,7 +477,7 @@
                     temperature, parameters, options, workspace)
             end
         end
-        @eval LineCableModels.formulation_options(::FM{
+        @eval LineCableModels.formulation_options(::Expression{
             <:$name, typeof($operation)}) = FormulationOptions()
     end
     for (name, parent, owner, operation, event) in (
@@ -503,7 +503,7 @@
             return $(owner === EI ? :(1e-4 + 1e-3im) : :(1e9)) *
                    (pair.row == pair.column ? 10 : 1)
         end
-        @eval LineCableModels.formulation_options(::FM{
+        @eval LineCableModels.formulation_options(::Expression{
             <:$name, typeof($operation)}) = FormulationOptions()
     end
 

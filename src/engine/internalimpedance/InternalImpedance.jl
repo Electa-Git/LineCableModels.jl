@@ -22,7 +22,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: InternalImpedanceFormulation, formula_id, formulation_options
 #! explicit-imports: off
-import ...LineCableModels: FormulaDefinition, FormulaMethod
+import ...LineCableModels: FormulaDefinition, Expression
 import ..Engine: description, conductivity
 import ..Engine: special_besselix, special_besselkx
 using ...Commons: vacuum_permeability

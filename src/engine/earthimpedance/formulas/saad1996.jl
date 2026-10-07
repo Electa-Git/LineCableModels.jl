@@ -127,7 +127,7 @@ function earth_impedance(
            (special_besselk(0, m * d) + 2exp(-m * (hi + hj)) / (4 + (m * x)^2))
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:saad1996}, typeof(earth_impedance)})
+function formulation_options(::Expression{<:Formula{:saad1996}, typeof(earth_impedance)})
     FormulationOptions()
 end
 

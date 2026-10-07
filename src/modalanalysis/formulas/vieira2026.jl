@@ -36,14 +36,14 @@ function description(::Type{<:Formula{:vieira2026}}; compact::Bool = false)
            "Vieira complex Levenberg–Marquardt modal transformation (2026)"
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:vieira2026}, typeof(decompose!)})
+function formulation_options(::Expression{<:Formula{:vieira2026}, typeof(decompose!)})
     return FormulationOptions((
         iteration = (convergence = 1e-13, max_iterations = 100),
         tracking = (predictor_tolerance = 0.25, eigenvalue_tolerance = 1e-5,
             cluster_tolerance = 1e-3, order_by_velocity = true)))
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:vieira2026}, typeof(decompose!)},
+function formulation_options(::Expression{<:Formula{:vieira2026}, typeof(decompose!)},
         ::Val{:iteration}, defaults::NamedTuple, supplied::NamedTuple)
     isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown modal iteration controls"))
@@ -57,7 +57,7 @@ function formulation_options(::FormulaMethod{<:Formula{:vieira2026}, typeof(deco
     return options
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:vieira2026}, typeof(decompose!)},
+function formulation_options(::Expression{<:Formula{:vieira2026}, typeof(decompose!)},
         ::Val{:tracking}, defaults::NamedTuple, supplied::NamedTuple)
     isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown modal tracking controls"))

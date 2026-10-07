@@ -68,12 +68,12 @@ function axial_field_coefficient(
     return z-u.Γ^2/u.jω*phi
 end
 
-function FormulaMethod(selected::Formula{:unified}, pair::EarthPair)
-    return FormulaMethod(selected, axial_field_coefficient,
+function Expression(selected::Formula{:unified}, pair::EarthPair)
+    return Expression(selected, axial_field_coefficient,
         Val(pair.row == pair.column ? :self : :mutual), Val.(layer_index(pair))...)
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:unified},
+function formulation_options(::Expression{<:Formula{:unified},
         typeof(axial_field_coefficient),
         A}) where {
         A <: Tuple{
@@ -82,7 +82,7 @@ function formulation_options(::FormulaMethod{<:Formula{:unified},
 end
 
 function validate(reduction::EquivalentHomogeneous.Formula{:bottommost},
-        ::FormulaMethod{<:Formula{:unified}, typeof(axial_field_coefficient)})
+        ::Expression{<:Formula{:unified}, typeof(axial_field_coefficient)})
     return reduction
 end
 

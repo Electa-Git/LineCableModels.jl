@@ -39,7 +39,7 @@ function earth_potential_coefficient(
     throw(ArgumentError("earth_potential_coefficient :xue2018 ($kind), source layer 2, target layer 2: not yet implemented for the coaxial backend"))
 end
 
-formulation_options(::FormulaMethod{<:Formula{:xue2018}, typeof(earth_potential_coefficient)}) =
+formulation_options(::Expression{<:Formula{:xue2018}, typeof(earth_potential_coefficient)}) =
     FormulationOptions()
 
 :xue2018

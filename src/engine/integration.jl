@@ -154,7 +154,7 @@ function formulation_options(::Type{SpectralIntegral}, values::NamedTuple)
     return (method = Val(method), options = controls)
 end
 
-function formulation_options(::FormulaMethod, ::Val{:integration}, defaults::NamedTuple,
+function formulation_options(::Expression, ::Val{:integration}, defaults::NamedTuple,
         supplied::NamedTuple)
     isempty(setdiff(keys(supplied), (:method, :options))) ||
         throw(ArgumentError("integration accepts only method and options"))

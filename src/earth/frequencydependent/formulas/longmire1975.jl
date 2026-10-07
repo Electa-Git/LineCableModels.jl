@@ -69,6 +69,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-formulation_options(::FormulaMethod{<:Formula{:longmire1975}, typeof(earth_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:longmire1975}, typeof(earth_material)}) = FormulationOptions()
 
 :longmire1975

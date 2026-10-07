@@ -82,7 +82,7 @@ function earth_impedance(
     return s * μ0 / (2 * (one(real(s)) * π)) * log(S / d)
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:gary1976}, typeof(earth_impedance)})
+function formulation_options(::Expression{<:Formula{:gary1976}, typeof(earth_impedance)})
     FormulationOptions()
 end
 

@@ -153,8 +153,8 @@ end
 
 Formulation(::Val{:pscad}; kwargs...) = PSCADFormulation(; kwargs...)
 
-# The Engine defines each selected formula and its kind/s/t binding. These methods
-# translate that binding to PSCAD settings without evaluating the Julia equation.
+# The Engine defines each selected formula and its kind/s/t expression. These methods
+# translate that expression to PSCAD settings without evaluating it in Julia.
 function earth_impedance(
         ::EarthImpedance.Formula{ID}, ::Val{Kind}, ::Val{S}, ::Val{T}, ::PSCADFormulation) where {ID, Kind, S, T}
     throw(ArgumentError("PSCAD earth_impedance :$ID, kind :$Kind: formula not implemented for source in layer $S and target in layer $T"))
@@ -268,17 +268,17 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             (:formula, :kind, :source, :target), Tuple{Symbol, Symbol, Int, Int}}[]
         for pair in pairs
             validate(pair)
-            binding = FormulaMethod(selection, pair)
-            selected = binding.selection
+            expression = Expression(selection, pair)
+            selected = expression.selection
             # Registration and physical validity belong to the equation owner.
-            # Execution availability is selected by the native binding.
+            # Execution availability is selected by the native expression.
             bindings(selected, (pair,))
             record = (formula = formula_id(selected),
                 kind = pair.row == pair.column ? :self : :mutual,
                 source = pair.layers[1], target = pair.layers[2])
             record in records && continue
             push!(records, record)
-            for (field, setting) in Base.pairs(binding(formulation))
+            for (field, setting) in Base.pairs(expression(formulation))
                 haskey(settings, field) && settings[field] != setting &&
                     throw(ArgumentError(
                         "PSCAD field $field has conflicting formula selections"))
@@ -290,10 +290,10 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
     kinds = any(indices -> length(indices) > 1, input.cable.assemblies) ?
             (:inner, :outer, :transfer) : (:outer,)
     for kind in kinds
-        FormulaMethod(formulation.methods.internal_impedance,
+        Expression(formulation.methods.internal_impedance,
             internal_impedance, Val(kind))(formulation)
     end
-    FormulaMethod(formulation.methods.insulation_impedance, insulation_impedance)(formulation)
+    Expression(formulation.methods.insulation_impedance, insulation_impedance)(formulation)
     # Unused native slots are set deterministically and retained too. They do not
     # authorize any additional physical case.
     ground = (

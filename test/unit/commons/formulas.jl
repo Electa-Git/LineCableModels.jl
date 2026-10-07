@@ -15,7 +15,7 @@
     @test records[1].options === records[3].options
     for record in records
         @test record.options.data.integration.method === Val(:quad)
-        @test keys(record.options.data) == keys(formulation_options(record.equation).data)
+        @test keys(record.options.data) == keys(formulation_options(record.expression).data)
     end
     @test bindings(selected, (self, soil)) isa Tuple
 
@@ -30,8 +30,8 @@
     # Equivalent-earth reductions bind their equivalent_material equations.
     rule = EH.Formula(:bottommost)
     reduced = only(bindings(rule, (soil,)))
-    @test reduced.equation.method === EH.equivalent_material
-    @test reduced.options == formulation_options(reduced.equation)
+    @test reduced.expression.method === EH.equivalent_material
+    @test reduced.options == formulation_options(reduced.expression)
 end
 
 @testitem "Commons / formula registry / a family lists its identifiers by its Formula type" tags=[:unit, :engine] begin

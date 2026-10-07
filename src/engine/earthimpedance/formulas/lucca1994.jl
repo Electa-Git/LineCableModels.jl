@@ -74,7 +74,7 @@ function earth_impedance(
     return earth_impedance(selected, kind, Val(1), Val(2), functor, pair, workspace)
 end
 
-function formulation_options(::FormulaMethod{
+function formulation_options(::Expression{
         <:Formula{:lucca1994}, typeof(earth_impedance)})
     FormulationOptions()
 end

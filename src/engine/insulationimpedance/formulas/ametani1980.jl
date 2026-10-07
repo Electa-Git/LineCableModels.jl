@@ -69,6 +69,6 @@ Implements Ametani (1980) as reproduced in Ametani, Ohno, and Nagaoka
     return s * μ0 * mu_r / (2 * (one(r_in) * π)) * log(r_ex / r_in)
 end
 
-formulation_options(::FormulaMethod{<:Formula{:ametani1980}, typeof(insulation_impedance)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:ametani1980}, typeof(insulation_impedance)}) = FormulationOptions()
 
 :ametani1980

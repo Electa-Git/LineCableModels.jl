@@ -388,12 +388,12 @@ function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
     return workspace
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(decompose!)})
+function formulation_options(::Expression{<:Formula{:chrysochos2014}, typeof(decompose!)})
     return FormulationOptions((iteration = (
         convergence = 1e-8, max_iterations = 100, damping = 1e-3, fallback = :matched),))
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:chrysochos2014}, typeof(decompose!)},
+function formulation_options(::Expression{<:Formula{:chrysochos2014}, typeof(decompose!)},
         ::Val{:iteration}, defaults::NamedTuple, supplied::NamedTuple)
     isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown modal iteration controls"))

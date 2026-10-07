@@ -72,6 +72,6 @@ standard frequency-domain electromagnetism.
            displacement
 end
 
-formulation_options(::FormulaMethod{<:Formula{:lossy}, typeof(semicon_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:lossy}, typeof(semicon_material)}) = FormulationOptions()
 
 :lossy

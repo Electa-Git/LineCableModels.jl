@@ -23,8 +23,8 @@
             "0.000048694756966967542207217998198776082068243035825963", "0.00027361164043745607069020182417817933205189613540840"))
     function evaluate(functor)
         value = @inferred functor()
-        equation = functor.binding.equation
-        @test (@inferred equation(functor, functor.binding.pair, nothing)) == value
+        expression = functor.binding.expression
+        @test (@inferred expression(functor, functor.binding.pair, nothing)) == value
         return value
     end
     for T in (Float32, Float64, BigFloat),

@@ -42,6 +42,6 @@ function earth_material(
     material
 end
 
-formulation_options(::FormulaMethod{<:Formula{:constant}, typeof(earth_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:constant}, typeof(earth_material)}) = FormulationOptions()
 
 :constant

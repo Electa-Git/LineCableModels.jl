@@ -35,7 +35,7 @@ end
 @testitem "Quality / native equation bindings and closed built-in formula lists" tags=[:quality] setup=[FormulaFixtures,FormulaFamilies] begin
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
-    const FM=LineCableModels.FormulaMethod
+    const Expression=LineCableModels.Expression
     # The expression routes below cover the families whose formulas have options and run
     # in the frequency loop. PipeImpedance formulas have no options, and ShuntModel
     # formulas run at blueprint time.
@@ -54,27 +54,27 @@ end
         @test formula_id(selected) !== :default
         @test owner.Formula(selected) === selected
         routes = if owner in (E.EarthImpedance,E.EarthAdmittance)
-            bindings=FM[]
+            expressions=Expression[]
             for kind in (:self,:mutual), source in 1:2, target in 1:2
                 kind === :self && source != target && continue
                 pair=E.EarthPair(1,kind === :self ? 1 : 2,
                     (source == 1 ? 1.0 : -1.0,target == 1 ? 1.0 : -1.0),
                     kind === :self ? 0.0 : 1.0,(source,target);
                     radius=kind === :self ? 0.01 : nothing)
-                binding=FM(selected,pair)
+                expression=Expression(selected,pair)
                 # Registration and indexed binding do not claim an implemented
                 # equation. Actual supported, stub and unsupported calls are covered
                 # by the execution tests, not a reflected coverage list.
-                push!(bindings,binding)
+                push!(expressions,expression)
             end
-            bindings
+            expressions
         elseif owner === E.InternalImpedance
-            Tuple(FM(selected,owner.internal_impedance,Val(kind)) for kind in (:inner,:outer,:transfer))
+            Tuple(Expression(selected,owner.internal_impedance,Val(kind)) for kind in (:inner,:outer,:transfer))
         elseif owner === EP.EquivalentHomogeneous
-            (only(LineCableModels.Commons.bindings(selected,(E.EarthPair(1,1,(1.0,1.0),0.0,(1,1);radius=0.01),))).equation,)
+            (only(LineCableModels.Commons.bindings(selected,(E.EarthPair(1,1,(1.0,1.0),0.0,(1,1);radius=0.01),))).expression,)
         else
             operation=only(last(entry) for entry in scalar_operations if first(entry) === owner)
-            (FM(selected,operation),)
+            (Expression(selected,operation),)
         end
         for route in routes
             @test route.selection === selected

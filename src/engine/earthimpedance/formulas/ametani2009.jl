@@ -44,7 +44,7 @@ function earth_impedance(
     throw(ArgumentError("earth_impedance :ametani2009 ($kind), source layer 2, target layer 1: not yet implemented for the coaxial backend"))
 end
 
-formulation_options(::FormulaMethod{<:Formula{:ametani2009}, typeof(earth_impedance)}) =
+formulation_options(::Expression{<:Formula{:ametani2009}, typeof(earth_impedance)}) =
     FormulationOptions()
 
 :ametani2009

@@ -17,7 +17,7 @@ using LineCableModels.Commons: vacuum_permittivity
 using LineCableModels.Engine
 using LineCableModels.ImportExport
 import LineCableModels: description, parameterize, computation_details, validate,
-                        FormulaMethod, verbosity
+                        Expression, verbosity
 import LineCableModels.Engine.EarthImpedance: earth_impedance
 import LineCableModels.Engine.EarthAdmittance: earth_potential_coefficient
 import LineCableModels.Engine.InternalImpedance: internal_impedance

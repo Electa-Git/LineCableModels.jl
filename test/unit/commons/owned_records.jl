@@ -5,7 +5,7 @@
     @test (@inferred ComputationDetails(payload)).data === payload
     @test FormulationOptions !== ComputationOptions !== ComputationDetails
     @test LineCableModels.FormulaDefinition === LineCableModels.Commons.FormulaDefinition
-    @test LineCableModels.FormulaMethod === LineCableModels.Commons.FormulaMethod
+    @test LineCableModels.Expression === LineCableModels.Commons.Expression
 
     for Record in (FormulationOptions, ComputationOptions, ComputationDetails)
         value = Record(payload)

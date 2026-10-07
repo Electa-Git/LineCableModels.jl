@@ -35,7 +35,7 @@ function earth_potential_coefficient(
     throw(ArgumentError("earth_potential_coefficient :wise1948 ($kind), source layer 1, target layer 1: not yet implemented for the coaxial backend"))
 end
 
-formulation_options(::FormulaMethod{<:Formula{:wise1948}, typeof(earth_potential_coefficient)}) =
+formulation_options(::Expression{<:Formula{:wise1948}, typeof(earth_potential_coefficient)}) =
     FormulationOptions()
 
 :wise1948

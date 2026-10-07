@@ -20,7 +20,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using ..Materials: Material
 import ...TextDisplay
 import ...Commons: AbstractFormulation, formulation_options
-import ...LineCableModels: FormulaDefinition, FormulaMethod, constitutive,
+import ...LineCableModels: FormulaDefinition, Expression, constitutive,
                           formula_id, validate
 #! explicit-imports: off
 # Used by the formula files included below.

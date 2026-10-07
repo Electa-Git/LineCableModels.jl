@@ -1,6 +1,6 @@
 @testitem "PSCAD / Engine owns scientific selections and explicit defaults" tags=[:integration, :pscad] begin
     const E = LineCableModels.Engine
-    const FM = LineCableModels.FormulaMethod
+    const Expression = LineCableModels.Expression
     selected = Formulation(:pscad)
     @test selected.methods.internal_impedance isa E.InternalImpedance.Formula{:wedepohl1973}
     @test selected.methods.insulation_impedance isa E.InsulationImpedance.Formula{:ametani1980}
@@ -20,10 +20,10 @@
     @test !occursin("not yet implemented", label)
     @test occursin("Ideal", description(selected, Y))
     for kind in (:inner,:outer,:transfer)
-        binding = FM(selected.methods.internal_impedance, E.InternalImpedance.internal_impedance, Val(kind))
-        @test binding(selected) == (;)
+        expression = Expression(selected.methods.internal_impedance, E.InternalImpedance.internal_impedance, Val(kind))
+        @test expression(selected) == (;)
         # The coaxial engine has no expression for Wedepohl's surfaces.
-        @test_throws "formula :wedepohl1973 has no expression for :$kind" LineCableModels.validate(binding)
+        @test_throws "formula :wedepohl1973 has no expression for :$kind" LineCableModels.validate(expression)
     end
     @test_throws ArgumentError Formulation(:pscad;
         internal_impedance=formula(:wedepohl1973; options=(integration=(method=:quad,),)))

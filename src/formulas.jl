@@ -50,7 +50,7 @@ function formula(identifier::Symbol; order::Symbol = :default,
 end
 
 "Return the selected formulation's identifier."
-formula_id(bound::FormulaMethod) = formula_id(bound.selection)
+formula_id(expression::Expression) = formula_id(expression.selection)
 
 formula_id(::FormulaDefinition{ID}) where {ID} = ID
 

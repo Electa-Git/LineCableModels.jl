@@ -64,6 +64,6 @@ function earth_material(
     return EarthMaterial{T}(thousand / conductivity, relative_permittivity, material.mu_r)
 end
 
-formulation_options(::FormulaMethod{<:Formula{:alipio2014}, typeof(earth_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:alipio2014}, typeof(earth_material)}) = FormulationOptions()
 
 :alipio2014

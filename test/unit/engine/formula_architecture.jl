@@ -2,7 +2,7 @@
     const E = LineCableModels.Engine
     const EI = E.EarthImpedance
     const EA = E.EarthAdmittance
-    const FM = LineCableModels.FormulaMethod
+    const Expression = LineCableModels.Expression
     using LineCableModels.Commons: bindings
     air = E.EarthPair(1, 2, (10.0, 12.0), 1.0, (1, 1))
     soil = E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2))
@@ -21,39 +21,39 @@
     earth = homogeneous(rho = 100.0)
     for owner in (EI, EA)
         selected = owner.Formula(:default)
-        @test only(bindings(selected, (air,))).equation.arguments[2:3] == (Val(1), Val(1))
-        @test only(bindings(selected, (soil,))).equation.arguments[2:3] == (Val(2), Val(2))
+        @test only(bindings(selected, (air,))).expression.arguments[2:3] == (Val(1), Val(1))
+        @test only(bindings(selected, (soil,))).expression.arguments[2:3] == (Val(2), Val(2))
         @test only(bindings(selected, (self,))).kind === :self
         @test only(bindings(selected, (soil,))).kind === :mutual
         @test only(bindings(selected, (mixed,))).kind === :mutual
         @test_throws ArgumentError bindings(selected, (E.EarthPair(
             1, 2, (-1.0, -2.0), 1.0, (2, 3)),))
         for pair in (air, soil, mixed, self)
-            expression = FM(selected, pair)
+            expression = Expression(selected, pair)
             @test validate(expression, earth) === expression
         end
         author=owner.Formula(:xue2018)
         @test_throws "the earth model has 2 layers and formula :xue2018 is defined up to layer 2; it has no expression for a mutual interaction from layer 1 to layer 2" validate(
-            FM(author, mixed), earth)
-        @test only(bindings(selected, (air,))).equation isa FM
-        @test only(bindings(selected, (air,))).equation.selection === selected
+            Expression(author, mixed), earth)
+        @test only(bindings(selected, (air,))).expression isa Expression
+        @test only(bindings(selected, (air,))).expression.selection === selected
     end
     for id in (:ametani2009, :lucca1994)
         selected = EI.Formula(id)
         @test only(bindings(selected, (mixed,))).kind === :mutual
-        @test validate(FM(selected, mixed), earth) isa FM
-        @test_throws ArgumentError validate(FM(selected, air), earth)
-        @test_throws ArgumentError validate(FM(selected, soil), earth)
-        @test_throws ArgumentError validate(FM(selected, self), earth)
+        @test validate(Expression(selected, mixed), earth) isa Expression
+        @test_throws ArgumentError validate(Expression(selected, air), earth)
+        @test_throws ArgumentError validate(Expression(selected, soil), earth)
+        @test_throws ArgumentError validate(Expression(selected, self), earth)
     end
     vertical=E.EarthPair(1, 2, (-1.0, -2.0), 0.0, (2, 2))
     @test only(bindings(EI.Formula(:saad1996), (vertical,))).kind === :mutual
     @test only(bindings(EI.Formula(:saad1996), (self,))).kind === :self
     @test only(bindings(EI.Formula(:wedepohl1973), (vertical,))).kind === :mutual
     @test only(bindings(EI.Formula(:wedepohl1973), (self,))).kind === :self
-    @test_throws ArgumentError validate(FM(EI.Formula(:pollaczek1926), air), earth)
+    @test_throws ArgumentError validate(Expression(EI.Formula(:pollaczek1926), air), earth)
     @test_throws "formula :carson1926 is defined up to layer 1" validate(
-        FM(EI.Formula(:carson1926), soil), earth)
+        Expression(EI.Formula(:carson1926), soil), earth)
 end
 
 @testitem "Engine / the plan reads an earth formula's media from its expression signatures" tags=[:unit, :engine] setup=[FormulaFixtures] begin
@@ -174,7 +174,7 @@ end
     for owner in (E.EarthImpedance, E.EarthAdmittance)
         selected=owner.Formula(:default)
         functor=selected(rho, epsilon, mu, jω, pair)
-        @test functor.binding.equation.selection === selected
+        @test functor.binding.expression.selection === selected
         @test functor.state.mu === mu
         @test functor.state.epsilon === epsilon
         @test functor.state.sigma == Tuple(inv.(rho))
@@ -237,7 +237,7 @@ end
     four=build(EP.EarthModel, (EP.EarthLayer(100.0, 10.0, 1.0, 0.5),
         EP.EarthLayer(200.0, 20.0, 1.0, 0.5), EP.EarthLayer(300.0, 30.0, 1.0)))
     message="the earth model has 4 layers and formula :LayerImpedance is defined up to layer 3; it has no expression for a mutual interaction from layer 3 to layer 4"
-    @test_throws message E.validate(LineCableModels.FormulaMethod(selected, absent), four)
+    @test_throws message E.validate(LineCableModels.Expression(selected, absent), four)
     @test isempty(M.calls)
 
     material=Material(kind = :conductor, rho = 1.7241e-8)

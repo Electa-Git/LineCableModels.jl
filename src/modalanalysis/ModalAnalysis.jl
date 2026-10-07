@@ -17,7 +17,7 @@ export formula_id, formulas
 
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: FormulaMethod, nominal, FormulaDefinition, formula, parameterize, validate
+import ..LineCableModels: Expression, nominal, FormulaDefinition, formula, parameterize, validate
 import ..LineCableModels: line_length
 import ..LineCableModels: Grid, Gridpoint, Gridspace
 import ..LineCableModels

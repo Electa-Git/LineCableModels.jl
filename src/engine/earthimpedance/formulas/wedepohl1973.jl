@@ -78,7 +78,7 @@ function earth_impedance(
            (-log(ec * m * d / 2) + one(m) / 2 - 2m * (hi + hj) / 3)
 end
 
-function formulation_options(::FormulaMethod{
+function formulation_options(::Expression{
         <:Formula{:wedepohl1973}, typeof(earth_impedance)})
     FormulationOptions()
 end

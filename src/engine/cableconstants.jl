@@ -462,7 +462,7 @@ function CableConstantsWorkspace(
     # The internal formula has an expression for each surface impedance that the geometry
     # needs.
     for kind in (any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,))
-        validate(FormulaMethod(formulation.methods.internal_impedance,
+        validate(Expression(formulation.methods.internal_impedance,
             InternalImpedance.internal_impedance, Val(kind)))
     end
     buffers = initialize_buffers(formulation.methods, T, cable, (;), buffers)

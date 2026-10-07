@@ -19,7 +19,7 @@ function description(::Type{<:Formula{:wedepohl1973}}; compact::Bool = false)
     compact ? "Wedepohl" : "Wedepohl-Wilcox round-conductor surface impedances (1973)"
 end
 
-formulation_options(::FormulaMethod{<:Formula{:wedepohl1973}, typeof(internal_impedance)}) =
+formulation_options(::Expression{<:Formula{:wedepohl1973}, typeof(internal_impedance)}) =
     FormulationOptions()
 
 :wedepohl1973

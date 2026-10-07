@@ -21,19 +21,19 @@ export Formula, formula_id, earth_potential_coefficient, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: validate
-import ..Engine: EarthPair, layer_index
+import ..Engine: EarthPair
 import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthAdmittanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
-import ..Engine: earth_bindings, earth!, same_physical_state
+import ..Engine: earth_bindings, earth!, same_physical_state, layer_index
 using ...Earth: EarthModel
 import ...Commons: initialize_buffers
 import ..Engine: computation_type, EarthImpedanceFormulation, special_besselix,
                  SpectralIntegral, integrate
 using LinearAlgebra: lu!, ldiv!
 import ..EarthImpedance
-import ...LineCableModels: FormulaDefinition, FormulaMethod, nominal
+import ...LineCableModels: FormulaDefinition, Expression, nominal
 import ..Engine: description, conductivity
 import ..Engine: formulation_options
 import ..Engine: AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,

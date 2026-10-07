@@ -247,7 +247,7 @@ function LineParametersWorkspace(
         equivalent = _equivalent_earth(selected, problem.earth_props, first(physical_pairs))
         decided = equivalent === nothing ? physical_pairs : homogeneous_pairs
         leaves = selected isa NamedTuple ?
-                 [FormulaMethod(selected, pair).selection for pair in decided] :
+                 [Expression(selected, pair).selection for pair in decided] :
                  fill(selected, length(decided))
         cases = NamedTuple[]
         for leaf in unique(leaves)
@@ -401,7 +401,7 @@ function LineParametersWorkspace{T}(
     # The internal formula has an expression for each surface impedance that the geometry
     # needs.
     for kind in (any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,))
-        validate(FormulaMethod(formulation.methods.internal_impedance,
+        validate(Expression(formulation.methods.internal_impedance,
             InternalImpedance.internal_impedance, Val(kind)))
     end
     # Concrete formulas provision numerical storage, never option-key inspection.
@@ -431,7 +431,7 @@ explicit `equivalent_earth` reduction always applies. Without one, a formula tha
 admit any layer from 3 to N consumes the `:default` reduction of a model with N > 2 layers,
 and every other formula sees the layered earth. The record's `earth` holds the decision:
 the `EarthModel` or the reduction. Each reduced interaction stores the binding of the
-reduction's equation.
+reduction's expression.
 """
 function earth_bindings(
         selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
@@ -442,15 +442,15 @@ function earth_bindings(
     declarations = bindings(selected, pairs)
     distinct = unique(declarations)
     for declaration in distinct
-        validate(declaration.equation, model)
+        validate(declaration.expression, model)
     end
-    # A reduced interaction also stores the binding of the reduction's own equation.
+    # A reduced interaction also stores the binding of the reduction's own expression.
     interactions = if reduction === nothing
         [(index = position, pair = pairs[position], physical_pair = physical[index])
          for (position, index) in enumerate(indices)]
     else
         rule = EquivalentHomogeneous.rule(reduction)
-        foreach(declaration -> validate(rule, declaration.equation), declarations)
+        foreach(declaration -> validate(rule, declaration.expression), declarations)
         reductions = bindings(rule, physical[indices])
         [(index = position, pair = pairs[position], physical_pair = physical[index],
              reduction = reductions[position])

@@ -2,13 +2,13 @@
     import LineCableModels.Engine: description
     import LineCableModels.Commons: formulation_options, FormulationOptions, initialize_buffers
     import LineCableModels.ModalAnalysis: decompose!, Formula
-    import LineCableModels: FormulaMethod
+    import LineCableModels: Expression
 
     allocations=Ref(0)
     calculations=Ref(0)
     description(::Type{<:Formula{:diagonal_example}};compact=false)=
         compact ? "diagonal example" : "one-mode diagonal example"
-    formulation_options(::FormulaMethod{<:Formula{:diagonal_example},typeof(decompose!)}) =
+    formulation_options(::Expression{<:Formula{:diagonal_example},typeof(decompose!)}) =
         FormulationOptions()
     function initialize_buffers(::Val{:diagonal_example},::Type{T},input,plan,
             common) where {T<:Complex}

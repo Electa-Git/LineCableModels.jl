@@ -131,7 +131,7 @@ function completed_formulation(formulation::LineParametersFormulation,
         for (slot, outputs) in zip(slots,
                 (calculation.impedance_indices, calculation.potential_indices))
             isempty(outputs) && continue
-            selected = FormulaMethod(formulation.methods[slot], pair).selection
+            selected = Expression(formulation.methods[slot], pair).selection
             selected.equivalent_earth === nothing &&
                 push!(reduced, selected => calculation.earth)
         end

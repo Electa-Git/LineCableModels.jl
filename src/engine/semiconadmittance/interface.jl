@@ -34,8 +34,8 @@ function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, Fo
     options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("formula :$ID has no configurable model parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
-    binding = FormulaMethod(selected, semicon_material)
-    normalized = formulation_options(binding, options)
+    expression = Expression(selected, semicon_material)
+    normalized = formulation_options(expression, options)
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 

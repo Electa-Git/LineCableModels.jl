@@ -26,6 +26,6 @@ function temperature_resistivity(::Formula{:linear}, material::Material, tempera
     return isinf(material.rho) ? material.rho : material.rho * factor
 end
 
-formulation_options(::FormulaMethod{<:Formula{:linear}, typeof(temperature_resistivity)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:linear}, typeof(temperature_resistivity)}) = FormulationOptions()
 
 :linear

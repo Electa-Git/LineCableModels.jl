@@ -52,6 +52,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-formulation_options(::FormulaMethod{<:Formula{:messier1985}, typeof(earth_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:messier1985}, typeof(earth_material)}) = FormulationOptions()
 
 :messier1985

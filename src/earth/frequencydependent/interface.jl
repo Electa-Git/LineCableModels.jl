@@ -62,8 +62,8 @@ function Formula{ID}(defaults::NamedTuple, parameters::NamedTuple,
     end
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
     validate(selected)
-    binding = FormulaMethod(selected, earth_material)
-    normalized = formulation_options(binding, options)
+    expression = Expression(selected, earth_material)
+    normalized = formulation_options(expression, options)
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 

@@ -42,6 +42,6 @@ function equivalent_material(
     return EarthMaterial(rho[end], eps_r[end], mu_r[end])
 end
 
-formulation_options(::FormulaMethod{<:Formula{:bottommost}, typeof(equivalent_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:bottommost}, typeof(equivalent_material)}) = FormulationOptions()
 
 :bottommost

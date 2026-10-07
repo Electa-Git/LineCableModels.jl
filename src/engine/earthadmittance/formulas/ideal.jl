@@ -78,7 +78,7 @@ function earth_potential_coefficient(
     return zero(functor.state.jω)
 end
 
-function formulation_options(::FormulaMethod{
+function formulation_options(::Expression{
         <:Formula{:ideal}, typeof(earth_potential_coefficient)})
     FormulationOptions()
 end

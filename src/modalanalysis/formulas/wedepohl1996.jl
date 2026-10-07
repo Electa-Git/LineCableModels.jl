@@ -31,11 +31,11 @@ function description(::Type{<:Formula{:wedepohl1996}}; compact::Bool = false)
     "Wedepohl–Nguyen–Irwin Newton–Raphson modal transformation (1996)"
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:wedepohl1996}, typeof(decompose!)})
+function formulation_options(::Expression{<:Formula{:wedepohl1996}, typeof(decompose!)})
     FormulationOptions((iteration = (convergence = 1e-9, max_iterations = 60),))
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:wedepohl1996}, typeof(decompose!)},
+function formulation_options(::Expression{<:Formula{:wedepohl1996}, typeof(decompose!)},
         ::Val{:iteration}, defaults::NamedTuple, supplied::NamedTuple)
     isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown modal iteration controls"))

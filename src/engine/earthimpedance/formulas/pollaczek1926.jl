@@ -31,7 +31,7 @@ function earth_impedance(
     throw(ArgumentError("earth_impedance :pollaczek1926 ($kind), source layer 2, target layer 2: not yet implemented for the coaxial backend"))
 end
 
-formulation_options(::FormulaMethod{<:Formula{:pollaczek1926}, typeof(earth_impedance)}) =
+formulation_options(::Expression{<:Formula{:pollaczek1926}, typeof(earth_impedance)}) =
     FormulationOptions()
 
 :pollaczek1926

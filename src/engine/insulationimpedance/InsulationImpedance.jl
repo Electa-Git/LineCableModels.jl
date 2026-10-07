@@ -21,7 +21,7 @@ export Formula, formula_id, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: InsulationImpedanceFormulation, formula_id
-import ...LineCableModels: FormulaDefinition, FormulaMethod
+import ...LineCableModels: FormulaDefinition, Expression
 #! explicit-imports: off
 import ..Engine: description
 using ...Commons: vacuum_permeability

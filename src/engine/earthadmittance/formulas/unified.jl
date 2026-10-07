@@ -23,10 +23,10 @@ function formulation_options(
 end
 
 function formulation_options(
-        binding::FormulaMethod{<:Union{
+        expression::Expression{<:Union{
             EarthImpedance.Formula{:unified}, Formula{:unified}}},
         ::Val{:Γ}, default, supplied)
-    return validate(supplied, typeof(binding.selection))
+    return validate(supplied, typeof(expression.selection))
 end
 
 function description(::Type{<:Formula{:unified}}; compact::Bool = false)
@@ -137,12 +137,12 @@ function source_potential_coefficient(source::Val{S}, ::Val{1}, u, hp, hq, y,
         zero(r), hq, y, r, sq, integration.method, integration.options, numerical; context)
 end
 
-function FormulaMethod(selected::Formula{:unified}, pair::EarthPair)
-    return FormulaMethod(selected, source_potential_coefficient,
+function Expression(selected::Formula{:unified}, pair::EarthPair)
+    return Expression(selected, source_potential_coefficient,
         Val(pair.row == pair.column ? :self : :mutual), Val.(layer_index(pair))...)
 end
 
-function formulation_options(::FormulaMethod{<:Formula{:unified},
+function formulation_options(::Expression{<:Formula{:unified},
         typeof(source_potential_coefficient),
         A}) where {
         A <: Tuple{
@@ -151,7 +151,7 @@ function formulation_options(::FormulaMethod{<:Formula{:unified},
 end
 
 function validate(reduction::EquivalentHomogeneous.Formula{:bottommost},
-        ::FormulaMethod{<:Formula{:unified}, typeof(source_potential_coefficient)})
+        ::Expression{<:Formula{:unified}, typeof(source_potential_coefficient)})
     return reduction
 end
 
@@ -168,13 +168,13 @@ function earth_bindings(
         throw(ArgumentError("the unified earth-return calculation requires common formulation options for all conductor pairs"))
     groups=map(binding.equations) do group
         declaration=group.declaration
-        primary=declaration.equation
+        primary=declaration.expression
         # Both coefficients are mathematical dependencies of either selected output.
         axial=primary.method === EarthImpedance.axial_field_coefficient ? primary :
-              FormulaMethod(Val(:unified), EarthImpedance.axial_field_coefficient, primary.arguments...)
+              Expression(Val(:unified), EarthImpedance.axial_field_coefficient, primary.arguments...)
         potential=primary.method === source_potential_coefficient ? primary :
-                  FormulaMethod(Val(:unified), source_potential_coefficient, primary.arguments...)
-        (declaration = merge(declaration, (equation = (axial, potential),)),
+                  Expression(Val(:unified), source_potential_coefficient, primary.arguments...)
+        (declaration = merge(declaration, (expression = (axial, potential),)),
             indices = group.indices)
     end
     return merge(binding, (equations = groups, output_indices = collect(indices)))
@@ -268,12 +268,12 @@ end
 
 function (selected::EarthImpedance.Formula{:unified})(state::NamedTuple, interaction::NamedTuple, declaration)
     binding=(pair = interaction.pair, physical_pair = interaction.physical_pair,
-        kind = declaration.kind, equation = declaration.equation)
+        kind = declaration.kind, expression = declaration.expression)
     return EarthImpedance.Functor(binding, state, declaration.options)
 end
 function (selected::Formula{:unified})(state::NamedTuple, interaction::NamedTuple, declaration)
     binding=(pair = interaction.pair, physical_pair = interaction.physical_pair,
-        kind = declaration.kind, equation = declaration.equation)
+        kind = declaration.kind, expression = declaration.expression)
     return Functor(binding, state, declaration.options)
 end
 

@@ -46,6 +46,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-formulation_options(::FormulaMethod{<:Formula{:cigre2019}, typeof(earth_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:cigre2019}, typeof(earth_material)}) = FormulationOptions()
 
 :cigre2019

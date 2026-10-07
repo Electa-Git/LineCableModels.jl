@@ -39,7 +39,7 @@ including PSCAD's native defaults.
 
 Select a concrete type directly in the physical slot, such as
 `Formulation(earth_properties=MySoil(...))`.
-`FormulaMethod(selected, operation, Val(...), ...)` calls the operation with the
+`Expression(selected, operation, Val(...), ...)` calls the operation with the
 selected object first. IDs are for inspection only. `:default` resolves to an
 explicit implementation before physical validation or computation.
 
@@ -61,7 +61,7 @@ and numerical controls. Custom constructors validate and normalize their own `Fo
 Execution controls use `ComputationOptions`. Completed supplemental output uses
 `ComputationDetails`. Read their payloads explicitly through `.data`.
 Indexed families declare numerical defaults for the actual selected type and
-case with `formulation_options(::FormulaMethod{<:MyType,typeof(operation),...})`.
+case with `formulation_options(::Expression{<:MyType,typeof(operation),...})`.
 Earth field equations consume evaluated material properties and define their
 own wave numbers and field approximations. Material-law families implement
 `constitutive` with a valid material argument.
@@ -141,11 +141,11 @@ using LineCableModels
 import LineCableModels.Engine: description
 import LineCableModels.Commons: formulation_options, FormulationOptions, initialize_buffers
 import LineCableModels.ModalAnalysis: decompose!, Formula
-import LineCableModels: FormulaMethod
+import LineCableModels: Expression
 
 description(::Type{<:Formula{:diagonal_example}}; compact=false) =
     compact ? "diagonal example" : "one-mode diagonal example"
-formulation_options(::FormulaMethod{<:Formula{:diagonal_example},typeof(decompose!)}) =
+formulation_options(::Expression{<:Formula{:diagonal_example},typeof(decompose!)}) =
     FormulationOptions()
 
 function initialize_buffers(::Val{:diagonal_example}, ::Type{T}, input,

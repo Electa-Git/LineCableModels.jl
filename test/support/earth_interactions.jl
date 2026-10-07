@@ -3,7 +3,7 @@
     const E=LineCableModels.Engine
     const G=LineCableModels.Commons
     const EI, EA=E.EarthImpedance, E.EarthAdmittance
-    const FM=LineCableModels.FormulaMethod
+    const Expression=LineCableModels.Expression
 
     # The indexed methods calculate the coefficients. The engine supplies reuse.
     for (name, parent, operation, multiplier) in
@@ -16,7 +16,7 @@
             calls::Vector{Tuple{Int, Int}}
         end
         @eval $name()=$name((;), FormulationOptions(), nothing, Tuple{Int, Int}[])
-        @eval LineCableModels.formulation_options(::FM{
+        @eval LineCableModels.formulation_options(::Expression{
             <:$name, typeof($operation)})=FormulationOptions()
         @eval begin
             LineCableModels.formula_id(::$name)=$(QuoteNode(name))
@@ -62,7 +62,7 @@
     IntegralImpedance(description;
         positions = false)=IntegralImpedance(
         (; description, positions), FormulationOptions(), nothing, Ref(0))
-    LineCableModels.formulation_options(::FM{
+    LineCableModels.formulation_options(::Expression{
         <:IntegralImpedance, typeof(EI.earth_impedance)})=FormulationOptions()
     function EI.earth_impedance(
             selected::IntegralImpedance, ::Union{Val{:self}, Val{:mutual}},

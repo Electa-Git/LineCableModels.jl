@@ -87,7 +87,7 @@ end
         mixed = same.mixed, earth = same.earth, air = same.air))
     @test keys(reordered.methods.earth_impedance) === (:air, :earth, :mixed)
     @test keys(reordered.definitions.earth_impedance) === (:air, :earth, :mixed)
-    @test_throws "homogeneous selection is not defined for source in layer 2 and target in layer 3" E.FormulaMethod(
+    @test_throws "homogeneous selection is not defined for source in layer 2 and target in layer 3" E.Expression(
         reordered.methods.earth_impedance, E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 3)))
     model=build(E.EarthModel,
         (LineCableModels.Earth.EarthLayer(100.0, 10.0, 1.0, 0.5),

@@ -49,6 +49,6 @@ function earth_material(
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
-formulation_options(::FormulaMethod{<:Formula{:visacro2012}, typeof(earth_material)}) = FormulationOptions()
+formulation_options(::Expression{<:Formula{:visacro2012}, typeof(earth_material)}) = FormulationOptions()
 
 :visacro2012

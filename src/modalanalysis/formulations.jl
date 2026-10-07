@@ -25,7 +25,7 @@ function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, Fo
     options = options isa NamedTuple ? FormulationOptions(options) : options
     isempty(parameters) || throw(ArgumentError("modal :$ID has no physical parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
-    normalized = formulation_options(FormulaMethod(selected, decompose!), options)
+    normalized = formulation_options(Expression(selected, decompose!), options)
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 

@@ -28,7 +28,7 @@
             @test all(isconcretetype, fieldtypes(typeof(calculation.equations)))
             for group in calculation.equations
                 @test isconcretetype(fieldtype(typeof(group), :declaration))
-                @test isconcretetype(fieldtype(typeof(group.declaration), :equation))
+                @test isconcretetype(fieldtype(typeof(group.declaration), :expression))
             end
         end
         @test (@inferred E._solve!(workspace, selected, calculations, materials)) === workspace

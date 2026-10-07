@@ -25,7 +25,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 using ..Earth: EarthMaterial
 import ...Commons: AbstractFormulation
-import ...LineCableModels: FormulaMethod, constitutive, formula_id, validate
+import ...LineCableModels: Expression, constitutive, formula_id, validate
 #! explicit-imports: off
 import ...LineCableModels: description
 using ...Commons: vacuum_permittivity

@@ -62,13 +62,13 @@ end
         options::FormulationOptions
     end
     LineCableModels.formula_id(::UnimplementedReduction) = :UnimplementedReduction
-    LineCableModels.formulation_options(::LineCableModels.FormulaMethod{
+    LineCableModels.formulation_options(::LineCableModels.Expression{
         UnimplementedReduction, typeof(EH.equivalent_material)}) = FormulationOptions()
     rule = UnimplementedReduction((;), FormulationOptions())
     pair = LineCableModels.Engine.EarthPair(1, 1, (-1.0, -1.0), 0.0, (2, 2); radius=0.01)
     model = homogeneous(rho=100.0, eps_r=10.0)
     binding = only(LineCableModels.Commons.bindings(rule, (pair,)))
-    @test binding.equation.selection === rule
+    @test binding.expression.selection === rule
     @test_throws r"equivalent_material :UnimplementedReduction.*source in layer 2 and target in layer 2" rule(
         [Inf, 100.0], [1.0, 10.0], [1.0, 1.0], model, pair, 50.0; binding)
 end
