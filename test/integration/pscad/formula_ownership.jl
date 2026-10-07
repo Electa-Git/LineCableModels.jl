@@ -22,10 +22,9 @@
     for kind in (:inner,:outer,:transfer)
         binding = FM(selected.methods.internal_impedance, E.InternalImpedance.internal_impedance, Val(kind))
         @test binding(selected) == (;)
-        @test_throws r"not yet implemented" binding(nothing, nothing)
+        # The coaxial engine has no expression for Wedepohl's surfaces.
+        @test_throws "formula :wedepohl1973 has no expression for :$kind" LineCableModels.validate(binding)
     end
-    @test_throws r"not yet implemented" E.InternalImpedance.surface_impedances(
-        selected.methods.internal_impedance, 0.003, 0.004, 1.72e-8, 1.0, 100pi*im)
     @test_throws ArgumentError Formulation(:pscad;
         internal_impedance=formula(:wedepohl1973; options=(integration=(method=:quad,),)))
     @test_throws ArgumentError Formulation(:pscad;

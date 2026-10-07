@@ -127,11 +127,11 @@ function completed_formulation(formulation::LineParametersFormulation,
     reduced = Pair[]
     for calculation in workspace.plan.earth_calculations
         calculation.earth isa EarthModel && continue
-        layers = Val.(layer_index(first(calculation.interactions).physical_pair))
+        pair = first(calculation.interactions).pair
         for (slot, outputs) in zip(slots,
                 (calculation.impedance_indices, calculation.potential_indices))
             isempty(outputs) && continue
-            selected = Formulation(formulation.methods[slot], layers...)
+            selected = FormulaMethod(formulation.methods[slot], pair).selection
             selected.equivalent_earth === nothing &&
                 push!(reduced, selected => calculation.earth)
         end

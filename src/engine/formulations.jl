@@ -258,62 +258,27 @@ function validate(value, ::Union{InsulationAdmittanceFormulation, SemiconAdmitta
 end
 
 """
-Resolve scalar or named selections through the child slots declared by their formula owner.
+$(TYPEDSIGNATURES)
+
+Build the expression of an earth recipe for `pair`: the `air` formula for layers (1, 1), the
+`earth` formula for (2, 2) and the `mixed` formula for (1, 2) and (2, 1). The pair's layers
+are the decided ones: a recipe describes a homogeneous earth.
+
+# Errors
+
+- Throws `ArgumentError` when the recipe has no formula for the pair's route, or for another
+  layer pair.
 """
-function Formulation(::Type{F},
-        selected) where {F <: AbstractFormulation}
-    return F(selected)
-end
-
-function Formulation(::Type{F},
-        selected::NamedTuple) where {F <: AbstractFormulation}
-    children = (; pairs(F)...)
-    all(in(keys(children)), keys(selected)) || throw(ArgumentError(
-        "$F selections admit only $(join(keys(children), ", "))"))
-    names = filter(in(keys(selected)), keys(children))
-    # Within an explicit recipe, a missing or `nothing` leaf supplies
-    # no equation. Only omission of the whole family chooses its default.
-    return NamedTuple{names}(map(names) do name
-        value = selected[name]
-        value === nothing ? nothing : children[name](value)
-    end)
-end
-
-function Formulation(::Type{F}, ::Nothing) where {
-        F <: Union{EarthImpedanceFormulation, EarthAdmittanceFormulation,
-            InternalImpedanceFormulation}}
-    return F(:default)
-end
-
-function Formulation(selected::NamedTuple, ::Val{Kind}) where {Kind}
-    value = get(selected, Kind, nothing)
-    value === nothing && throw(ArgumentError("explicit equation recipe has no requested :$Kind case"))
-    return value
-end
-
-"""
-Resolve the selected formula for exact source and target layer indices.
-"""
-function Formulation(
-        selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-        ::Val{S}, ::Val{T}) where {S, T}
-    selected
-end
-
-Formulation(selected::NamedTuple, ::Val{1}, ::Val{1}) = Formulation(selected, Val(:air))
-function Formulation(selected::NamedTuple, ::Val{2}, ::Val{2})
-    Formulation(selected, Val(:earth))
-end
-function Formulation(selected::NamedTuple, ::Val{1}, ::Val{2})
-    Formulation(selected, Val(:mixed))
-end
-function Formulation(selected::NamedTuple, ::Val{2}, ::Val{1})
-    Formulation(selected, Val(:mixed))
-end
-
-function Formulation(::NamedTuple, ::Val{S}, ::Val{T}) where {S, T}
-    throw(ArgumentError(
-        "homogeneous selection is not defined for source in layer $S and target in layer $T"))
+function FormulaMethod(recipe::NamedTuple, pair::EarthPair)
+    source, target = layer_index(pair)
+    route = (source, target) == (1, 1) ? :air : (source, target) == (2, 2) ? :earth :
+            (source, target) in ((1, 2), (2, 1)) ? :mixed :
+            throw(ArgumentError("homogeneous selection is not defined for source in layer " *
+                "$source and target in layer $target"))
+    selected = get(recipe, route, nothing)
+    selected === nothing &&
+        throw(ArgumentError("explicit equation recipe has no requested :$route case"))
+    return FormulaMethod(selected, pair)
 end
 
 """
@@ -365,16 +330,39 @@ function _equivalent_earth(selected, model::EarthModel, pair::EarthPair)
     return EquivalentHomogeneous.AbstractSequence(formula(:default))
 end
 
+# The equivalent earth of an earth recipe, decided once for its slot. A recipe describes a
+# homogeneous earth, so each of its formulas stops at layer 2. On more layers the slot takes
+# the explicit reduction that its formulas agree on, or else the `:default` reduction.
+function _equivalent_earth(recipe::NamedTuple, model::EarthModel, pair::EarthPair)
+    selected = Tuple(leaf for leaf in recipe if leaf !== nothing)
+    layers = length(model.layers)
+    for leaf in selected
+        expression = FormulaMethod(leaf, pair)
+        any(k -> _admits_layer(expression, k), 3:max(3, layers)) &&
+            throw(ArgumentError("a multilayer formula is used alone"))
+    end
+    explicit = unique(leaf.equivalent_earth for leaf in selected
+        if leaf.equivalent_earth !== nothing)
+    length(explicit) > 1 && throw(ArgumentError(
+        "the formulas of an earth recipe give different equivalent earths"))
+    isempty(explicit) || return only(explicit)
+    layers > 2 || return nothing
+    return EquivalentHomogeneous.AbstractSequence(formula(:default))
+end
+
 """
 $(TYPEDSIGNATURES)
 
 Check that the formula of `expression` defines it for the layers of an earth `model`, before
 the frequency loop evaluates it. The signatures of a formula's methods declare the earth
-layers it handles, whatever the types of their runtime arguments. Return `expression`.
+layers it handles, whatever the types of their runtime arguments. In layers that the formula
+admits, `validate(expression)` checks the expression. Return `expression`.
 
 # Errors
 
 - Throws `ArgumentError` with the layer count N of `model` and the highest layer up to N
+  that the formula admits, when the formula does not admit the source or target layer.
+- Throws the `ArgumentError` of `validate(expression)` for a missing expression in layers
   that the formula admits.
 
 When the formula admits layer N + 1, the message reads "defined for every layer" instead.
@@ -384,17 +372,19 @@ function validate(expression::FormulaMethod{<:Union{EarthImpedanceFormulation, E
     selected = expression.selection
     signature = Tuple{typeof(selected), map(typeof, expression.arguments)..., Any, Any, Any}
     hasmethod(expression.method, signature) && return expression
-    # A method with typed runtime arguments defines the expression too.
-    isempty(methods(expression.method, signature)) || return expression
+    interaction(::Val{K}, ::Val{S}, ::Val{T}) where {K, S, T} = (K, S, T)
+    kind, source, target = interaction(expression.arguments...)
+    if _admits_layer(expression, source) && _admits_layer(expression, target)
+        validate(expression)
+        return expression
+    end
     layers = length(model.layers)
     defined = _admits_layer(expression, layers + 1) ? "defined for every layer" :
               "defined up to layer $(something(findlast(k -> _admits_layer(expression, k), 1:layers), 0))"
-    interaction(::Val{K}, ::Val{S}, ::Val{T}) where {K, S, T} =
-        "a $K interaction from layer $S to layer $T"
     throw(ArgumentError(
         "the earth model has $layers layers and formula " *
         ":$(formula_id(selected)) is $defined; it has no expression " *
-        "for $(interaction(expression.arguments...))"))
+        "for a $kind interaction from layer $source to layer $target"))
 end
 
 function validate(earth::EarthModel, formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})

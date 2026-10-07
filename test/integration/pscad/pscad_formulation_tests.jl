@@ -19,15 +19,13 @@
     overhead, underground=problem(1.0), problem(-1.0)
     @test validate(overhead, Formulation(:pscad)) === overhead
     @test validate(underground, Formulation(:pscad)) === underground
-    composite=Formulation(:pscad;internal_impedance=(transfer=:default,inner=:default,outer=:default))
-    @test keys(composite.methods.internal_impedance)==(:inner,:outer,:transfer)
-    @test P.pscad_setting(composite,underground)==P.pscad_setting(Formulation(:pscad),underground)
-    @test map(value -> value.identifier,
-        LineCableModels.computation_details(composite).data.methods.internal_impedance)==
-        (inner=:wedepohl1973,outer=:wedepohl1973,transfer=:wedepohl1973)
-    rejected=Formulation(:pscad;internal_impedance=(inner=:default,
-        outer=:schelkunoff1934,transfer=:default))
-    @test_throws ArgumentError P.pscad_setting(rejected,underground)
+    # The internal slot takes one formula. PSCAD's default is Wedepohl's.
+    @test_throws MethodError Formulation(:pscad;
+        internal_impedance=(transfer=:default,inner=:default,outer=:default))
+    @test LineCableModels.computation_details(Formulation(:pscad)).data.methods.internal_impedance.identifier ===
+        :wedepohl1973
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad;internal_impedance=:schelkunoff1934),underground)
     @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
     for selected_problem in (overhead, underground)
         resolved=Formulation(:pscad)

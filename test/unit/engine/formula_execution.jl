@@ -11,8 +11,7 @@
     overhead=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
     options=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
     partial=Formulation(earth_impedance = (earth = formula(:unified),),
-        earth_admittance = (earth = formula(:unified),),
-        internal_impedance = (outer = formula(:default),); options)
+        earth_admittance = (earth = formula(:unified),); options)
     expected=compute(buried, Formulation(; options))
     actual=compute(buried, partial)
     @test Z(actual) == Z(expected)
@@ -248,8 +247,8 @@ end
     const E=LineCableModels.Engine
     const M=FormulaFixtures
     buried=TestFixtures.three_bare_wires_problem(heights = (-1.0, -1.0, -1.0), frequencies = [50.0])
-    active=M.selection(E.EarthImpedance)
-    unused=M.selection(E.EarthImpedance; options = (integration = (method = :quad,),))
+    active=M.selection(E.EarthImpedance; layers = 2)
+    unused=M.selection(E.EarthImpedance; options = (integration = (method = :quad,),), layers = 2)
     potential=M.selection(E.EarthAdmittance)
     selected=Formulation(earth_impedance = (air = unused, earth = active), earth_admittance = potential)
     first_result=compute(buried, selected)
@@ -292,24 +291,18 @@ end
     @test_throws ArgumentError II.Formula(:default; options = (integration = (method = :quad,),))
     standalone_workspace=(buffers = LineCableModels.Commons.initialize_buffers(
         E.SpectralIntegral, Val(:quad), Float64, (;), (;), (;)),)
-    base=II.Formula(:default)
     args=(0.008, 0.01, 1.7241e-8, 1.0, 100.0im)
-    reference=II.surface_impedances(base, args...)
     for method in (:quad,)
         selected=M.SpectralSurface(method)
-        surfaces=(inner = base, outer = selected, transfer = base)
-        values=II.surface_impedances(surfaces, args...; workspace = standalone_workspace)
+        values=II.surface_impedances(selected, args...; workspace = standalone_workspace)
         @test values.outer ≈ 5e-5 rtol=3e-6
-        @test values.inner == reference.inner
-        @test values.transfer == reference.transfer
+        @test values.inner == 3e-5 + 1e-6im && values.transfer == 1e-6
         @test last(selected.seen) === (Val(method), standalone_workspace)
     end
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0])
     results=map((:quad,)) do method
         selected=M.SpectralSurface(method)
-        result=compute(problem,
-            Formulation(internal_impedance =
-            (inner = base, outer = selected, transfer = base)))
+        result=compute(problem, Formulation(internal_impedance = selected))
         @test !isempty(selected.seen)
         @test first(selected.seen)[1] === :initialize
         evaluations=filter(record->record[1]===Val(method), selected.seen)
@@ -324,8 +317,7 @@ end
 
     selected=M.SpectralSurface()
     local_problem=CableConstantsProblem(TestFixtures.coaxial_design())
-    local_formulation=CableConstantsFormulation(
-        internal_impedance = (inner = base, outer = selected, transfer = base))
+    local_formulation=CableConstantsFormulation(internal_impedance = selected)
     local_result=compute(local_problem, local_formulation)
     @test first(selected.seen)[1] === :initialize
     local_evaluations=filter(record->record[1]===Val(:quad), selected.seen)
@@ -402,7 +394,8 @@ end
     selected=FormulaFixtures.SurfaceLaw(kinds = (:outer,))
     @test keys(II.surface_impedances(
         selected, 0.0, 0.01, 1.7e-8, 1.0, 100im)) == (:outer,)
-    @test_throws ArgumentError II.surface_impedances(
+    # Called directly, the inner surface impedance has no method for this formula.
+    @test_throws MethodError II.surface_impedances(
         selected, 0.008, 0.01, 1.7e-8, 1.0, 100im)
     empty!(selected.state_inputs)
     empty!(selected.evaluations)
@@ -432,14 +425,6 @@ end
     @test any(record -> record[2] === Val(:inner), selected.evaluations)
     @test any(record -> record[2] === Val(:transfer), selected.evaluations)
     @test all(isfinite, result.Z.values)
-    empty!(selected.state_inputs)
-    empty!(selected.evaluations)
-    composite=compute(problem,
-        Formulation(internal_impedance =
-        (inner = selected, outer = selected, transfer = selected)))
-    @test length(selected.state_inputs)==expected
-    @test allunique(selected.evaluations)
-    @test Z(composite)==Z(result) && Y(composite)==Y(result)
 end
 
 @testitem "Engine / first tubular primitive requests all surfaces without extra assembly terms" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
@@ -460,27 +445,15 @@ end
     other=compute(problem, CableConstantsFormulation(internal_impedance = changed))
     @test other.R == result.R
     @test other.L == result.L
-    @test_throws ArgumentError compute(problem,
-        CableConstantsFormulation(internal_impedance = (outer = M.SurfaceLaw(kinds = (:outer,)),)))
+    # The geometry needs an expression for each surface impedance. A formula that lacks one
+    # fails before the loop evaluates anything.
+    outer_only=M.SurfaceLaw(kinds = (:outer,))
+    @test_throws "formula :SurfaceLaw has no expression for :inner" compute(problem,
+        CableConstantsFormulation(internal_impedance = outer_only))
+    @test_throws "formula :SurfaceLaw has no expression for :inner" compute(
+        LineParametersProblem(build(LineCableSystem, design, Pose2(0.0, -1.0);
+            connections = (wall = 1,)); earth_props = homogeneous(rho = 100.0),
+            frequencies = [50.0]), Formulation(internal_impedance = outer_only))
+    @test isempty(outer_only.state_inputs) && isempty(outer_only.evaluations)
 end
 
-@testitem "Engine / unused tubular surface declarations allocate and evaluate nothing" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
-    M=FormulaFixtures
-    copper=Material(kind = :conductor, rho = 1.7e-8)
-    dielectric=Material(kind = :insulator, rho = Inf, eps_r = 2.3)
-    design=build(CableDesign, "solid-with-excess-recipe",
-        Group(:core, Region(:metal, Disk(0.01), copper)),
-        Region(:insulation, Annulus(0.01, 0.012), dielectric))
-    unused=M.SpectralSurface()
-    outer=M.SurfaceLaw(kinds = (:outer,))
-    selected=(inner = unused, outer = outer, transfer = unused)
-    local_result=compute(CableConstantsProblem(design),
-        CableConstantsFormulation(internal_impedance = selected))
-    @test isempty(unused.seen)
-    system=build(LineCableSystem, design, Pose2(0.0, -1.0); connections = (core = 1,))
-    problem=LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
-    result=compute(problem, Formulation(internal_impedance = selected))
-    @test isempty(unused.seen)
-    @test all(isfinite, result.Z)
-    @test all(isfinite, local_result.R)
-end

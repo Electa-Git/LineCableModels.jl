@@ -129,12 +129,12 @@ end
     @test length(artifact.tables.quantities)==5
     # Full composite descriptions remain captured. A standalone legend uses
     # the compact owner summary rather than dumping all constant branches.
-    physical=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=:default),
+    physical=Formulation(internal_impedance=:default,
         earth_impedance=(air=:default,earth=:pollaczek1926,mixed=:default),
         earth_admittance=(air=:default,earth=:default,mixed=:default))
     observed=ObservedResult(retain_gridpoint(base,gridpoint_id();fields=completed_formulation(physical)))
-    for (request,labels) in ((R,("internal Z(inner)=Schelkunoff","internal Z(outer)=Schelkunoff",
-        "internal Z(transfer)=Schelkunoff","earth Z(air)=Unified","earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
+    for (request,labels) in ((R,("internal Z=Schelkunoff","earth Z(air)=Unified",
+        "earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
         (B,("earth Y(air)=Unified","earth Y(earth)=Unified","earth Y(mixed)=Unified")))
         page=LineCableModels.plot(observed;ydata=(request,),backend=:cairo,display_plot=false,controls=false,open_export=false)
         fields=getproperty(observed.gridpoint.formulation_fields,request===R ? :Z : :Y)

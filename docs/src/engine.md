@@ -528,24 +528,12 @@ own the current-basis transformation and matrix placement. The deferred pipe
 contribution concerns one contained metal and its enclosing pipe. Recursive
 assembly and pipe equations are outside this implementation.
 
-Like the earth selections, internal impedance accepts either one formula or a
-complete named selection:
-
-```julia
-selected = Formulation(internal_impedance=(
-    inner=formula(:default),
-    outer=formula(:default),
-    transfer=formula(:default),
-))
-```
-
-The inner, outer and transfer equations can each use a built-in or user-owned
-formulation, with its own parameters and numerical options. A custom transfer
-selection belongs directly in that leaf, as `transfer=my_transfer_model`.
-Identical complete
-selections share their conductor state. Scalar shorthand retains its
-existing numerical behavior. The internal term is called `transfer`. Earth
-`self`/`mutual` interaction names are unchanged.
+Internal impedance takes one formula, built-in or user-owned. Its inner, outer and
+transfer surfaces are the expressions of that formula, and they share its conductor
+state. Before the frequency loop, the computation checks that the formula has an
+expression for each surface impedance that the geometry needs: all three with a tubular conductor,
+otherwise `outer`. The internal term is called `transfer`. Earth `self`/`mutual`
+interaction names are unchanged.
 
 Equation numerical sections belong to `FormulationOptions`. The existing
 `formulation_options` methods validate and normalize them at the defining stage:

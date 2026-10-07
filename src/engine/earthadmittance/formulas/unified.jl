@@ -157,11 +157,12 @@ end
 
 function earth_bindings(
         selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
-        model::EarthModel, physical::AbstractVector{<:EarthPair}, homogeneous, indices)
+        model::EarthModel, reduction, physical::AbstractVector{<:EarthPair}, homogeneous,
+        indices)
     binding=invoke(earth_bindings,
         Tuple{Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-            EarthModel, AbstractVector{<:EarthPair}, Any, Any},
-        selected, model, physical, homogeneous, collect(eachindex(physical)))
+            EarthModel, Any, AbstractVector{<:EarthPair}, Any, Any},
+        selected, model, reduction, physical, homogeneous, collect(eachindex(physical)))
     options=first(binding.equations).declaration.options
     all(group->isequal(group.declaration.options, options), binding.equations) ||
         throw(ArgumentError("the unified earth-return calculation requires common formulation options for all conductor pairs"))

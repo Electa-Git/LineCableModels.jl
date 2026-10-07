@@ -159,6 +159,18 @@ end
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
 Formula(selected::EarthImpedanceFormulation) = selected
+Formula(::Nothing) = Formula(:default)
+
+# A recipe selects one formula per earth route. Within it, a `nothing` route supplies no
+# expression. Only omitting the whole slot selects the default.
+function Formula(recipe::NamedTuple)
+    routes = (; pairs(Formula)...)
+    all(in(keys(routes)), keys(recipe)) || throw(ArgumentError(
+        "$Formula selections admit only $(join(keys(routes), ", "))"))
+    names = filter(in(keys(recipe)), keys(routes))
+    return NamedTuple{names}(map(name -> recipe[name] === nothing ? nothing :
+        Formula(recipe[name]), names))
+end
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))

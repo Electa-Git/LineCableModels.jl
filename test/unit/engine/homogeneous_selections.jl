@@ -17,9 +17,9 @@
     # Different parameterizations of one native type remain distinct selections.
     M=FormulaFixtures
     empty!(M.calls)
-    native_choices=(air=M.selection(E.EarthImpedance;scale=1.0),
-        earth=M.selection(E.EarthImpedance;scale=2.0),
-        mixed=M.selection(E.EarthImpedance;scale=3.0))
+    native_choices=(air=M.selection(E.EarthImpedance;scale=1.0,layers=2),
+        earth=M.selection(E.EarthImpedance;scale=2.0,layers=2),
+        mixed=M.selection(E.EarthImpedance;scale=3.0,layers=2))
     custom=compute(problem,Formulation(earth_impedance=native_choices,
         earth_admittance=potential,options=(ideal_transposition=false,));options=(trace=true,))
     impedance_calls=filter(record->record[1] === :EarthImpedance,M.calls)
@@ -32,7 +32,7 @@
         @test details(custom).data.trace.Zg[row,column,k] ≈ scale*coefficient*(1e-4+1e-3im)
     end
     @test map(value -> value.identifier, details(custom).data.formulations.methods.earth_impedance)==
-        (air=:LayerImpedance,earth=:LayerImpedance,mixed=:LayerImpedance)
+        (air=:HalfSpaceImpedance,earth=:HalfSpaceImpedance,mixed=:HalfSpaceImpedance)
     @test details(custom).data.formulations.requested.earth_impedance.earth.parameters.scale==2.0
 
     # Partial Unified publication must still use the complete physical system.
@@ -53,9 +53,9 @@
     # Potential coefficients use the same selection syntax for air, earth
     # and mixed conductor pairs.
     empty!(M.calls)
-    potential_choices=(air=M.selection(E.EarthAdmittance;scale=1.0),
-        earth=M.selection(E.EarthAdmittance;scale=2.0),
-        mixed=M.selection(E.EarthAdmittance;scale=3.0))
+    potential_choices=(air=M.selection(E.EarthAdmittance;scale=1.0,layers=2),
+        earth=M.selection(E.EarthAdmittance;scale=2.0,layers=2),
+        mixed=M.selection(E.EarthAdmittance;scale=3.0,layers=2))
     independent_y=compute(problem,Formulation(earth_impedance=native_choices,
         earth_admittance=potential_choices,options=(ideal_transposition=false,));options=(trace=true,))
     potential_calls=filter(record->record[1] === :EarthAdmittance,M.calls)
@@ -71,7 +71,7 @@
     @test independent_y.Z.values==custom.Z.values
 end
 
-@testitem "Engine / scalar and homogeneous shorthand preserve numerical values and model selections" tags=[:unit, :parametric] setup=[TestFixtures] begin
+@testitem "Engine / scalar and homogeneous shorthand preserve numerical values and model selections" tags=[:unit, :parametric] setup=[TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     scalar=compute(problem, Formulation())
@@ -87,12 +87,34 @@ end
         mixed = same.mixed, earth = same.earth, air = same.air))
     @test keys(reordered.methods.earth_impedance) === (:air, :earth, :mixed)
     @test keys(reordered.definitions.earth_impedance) === (:air, :earth, :mixed)
-    @test_throws ArgumentError E.Formulation(reordered.methods.earth_impedance, Val(2), Val(3))
+    @test_throws "homogeneous selection is not defined for source in layer 2 and target in layer 3" E.FormulaMethod(
+        reordered.methods.earth_impedance, E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 3)))
     model=build(E.EarthModel,
         (LineCableModels.Earth.EarthLayer(100.0, 10.0, 1.0, 0.5),
             LineCableModels.Earth.EarthLayer(200.0, 20.0, 1.0)))
     layered=LineParametersProblem(problem.system; earth_props = model, frequencies = [50.0])
-    @test_throws ArgumentError compute(layered, Formulation(earth_impedance = same))
+    # The cables lie about 1 m deep, below the 0.5 m first earth layer: in layer 3. A recipe
+    # describes a homogeneous earth. On more layers its slot takes one equivalent earth,
+    # decided before `air`, `earth` and `mixed` resolve on its layers 1 and 2.
+    recipe=compute(layered, Formulation(earth_impedance = same, earth_admittance = same))
+    explicit=formula(:default; equivalent_earth = formula(:default))
+    single=compute(layered, Formulation(earth_impedance = explicit, earth_admittance = explicit))
+    @test recipe.Z.values == single.Z.values && recipe.Y.values == single.Y.values
+    for slot in (:earth_impedance, :earth_admittance)
+        reductions=map(route -> route.equivalent_earth,
+            getproperty(details(recipe).data.formulations.methods, slot))
+        @test keys(reductions) == (:air, :earth, :mixed)
+        @test allequal(reductions) && first(reductions).rule.identifier === :bottommost
+    end
+    # A multilayer formula is used alone, and the formulas of a recipe agree on its reduction.
+    multilayer=merge(same, (earth = FormulaFixtures.selection(E.EarthImpedance),))
+    @test_throws "a multilayer formula is used alone" compute(layered,
+        Formulation(earth_impedance = multilayer))
+    conflicting=merge(same, (
+        air = formula(:default; equivalent_earth = formula(:default; order = :before)),
+        earth = formula(:default; equivalent_earth = formula(:default; order = :after))))
+    @test_throws "the formulas of an earth recipe give different equivalent earths" compute(
+        layered, Formulation(earth_impedance = conflicting))
     air_system=build(LineCableSystem, problem.system.designs,
         [Pose2(i, 10.0) for i in eachindex(problem.system.designs)];
         connections = [Dict(:core=>i, :sheath=>0)

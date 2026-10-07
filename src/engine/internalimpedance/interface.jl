@@ -58,12 +58,6 @@ function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, Fo
     return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
-function internal_impedance(selected::InternalImpedanceFormulation, ::Val{Kind},
-        functor, workspace) where {Kind}
-    throw(ArgumentError(
-        "internal_impedance :$(formula_id(selected)): formula not implemented for kind :$Kind"))
-end
-
 function (functor::Functor)(::Val{Kind}, workspace=nothing) where {Kind}
     options = get(functor.options.data, Kind, (;))
     leaf = Functor(functor.selection, functor.state, FormulationOptions(options))
@@ -85,7 +79,7 @@ Assemblers own basis transformation and matrix placement.
 
 # Arguments
 
-- `formula`: one formulation or an explicit surface recipe covering the primitive.
+- `formula`: the selected formulation.
 - `r_in`, `r_ex`: inner and outer conductor radii \\[m\\].
 - `rho`: conductor resistivity \\[Ω·m\\].
 - `mu_r`: relative permeability \\[dimensionless\\].
@@ -97,8 +91,7 @@ Assemblers own basis transformation and matrix placement.
 - NamedTuple of `outer` for a solid primitive, or `inner`, `outer`, and
   `transfer` for a tubular primitive \\[Ω/m\\].
 """
-function surface_impedances(formula::Union{InternalImpedanceFormulation,
-        NamedTuple}, r_in, r_ex, rho, mu_r, jω;
+function surface_impedances(formula::InternalImpedanceFormulation, r_in, r_ex, rho, mu_r, jω;
         workspace=nothing)
     return surface_impedances(formula,
         r_in > 0 ? Val((:inner,:outer,:transfer)) : Val((:outer,)),
@@ -115,25 +108,10 @@ end
         functor(Val(Kinds[2]),workspace), functor(Val(Kinds[3]),workspace)))
 end
 
-@inline function surface_impedances(selected::NamedTuple,
-        ::Val{Kinds}, r_in, r_ex, rho, mu_r, jω; workspace=nothing) where {Kinds}
-    if length(Kinds) == 1
-        return surface_impedances(Formulation(selected, Val(first(Kinds))), Val(Kinds),
-            r_in, r_ex, rho, mu_r, jω; workspace)
-    end
-    length(Kinds) == 3 || throw(ArgumentError("internal surfaces require one or three kinds"))
-    a, b, c = map(kind -> Formulation(selected, Val(kind)), Kinds)
-    first_functor = a(r_in, r_ex, rho, mu_r, jω)
-    second_functor = b === a ? first_functor : b(r_in, r_ex, rho, mu_r, jω)
-    third_functor = c === a ? first_functor : c === b ? second_functor :
-                    c(r_in, r_ex, rho, mu_r, jω)
-    return NamedTuple{Kinds}((first_functor(Val(Kinds[1]),workspace),
-        second_functor(Val(Kinds[2]),workspace), third_functor(Val(Kinds[3]),workspace)))
-end
-
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
 Formula(selected::InternalImpedanceFormulation) = selected
+Formula(::Nothing) = Formula(:default)
 
 function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
     Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
@@ -152,4 +130,4 @@ formulation_options(value::Formula) = value.options
 Base.NamedTuple(value::Formula) = (identifier=formula_id(value),
     parameters=value.parameters, options=value.options.data)
 
-Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((inner=Formula, outer=Formula, transfer=Formula))
+Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))

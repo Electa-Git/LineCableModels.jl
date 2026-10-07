@@ -106,15 +106,8 @@ end
     solid_outer=solid(Val(:outer))
     @test isfinite(solid_outer)
     @test real(solid_outer) > 0
-    @test_throws ArgumentError interaction(:unsupported)
-
-    custom_inner=FormulaFixtures.SurfaceLaw(kinds=(:inner,),coefficients=(inner=7+0im,))
-    experiment=(inner=custom_inner,outer=formulation,transfer=formulation)
-    experimental=InternalImpedance.surface_impedances(experiment,
-        r_in,r_ex,rho,relative_permeability,s)
-    @test experimental.inner==7
-    @test experimental.outer==outer
-    @test experimental.transfer==transfer
+    # An unknown kind has no method. The plan checks the needed kinds before the loop.
+    @test_throws MethodError interaction(:unsupported)
 
 end
 

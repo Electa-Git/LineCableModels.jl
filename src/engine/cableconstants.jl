@@ -311,7 +311,7 @@ function _constants_formulation(
         options::FormulationOptions
 )
     methods = (
-        internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
+        internal_impedance = InternalImpedance.Formula(internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
         shunt_model = ShuntModel.Formula(shunt_model),
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
@@ -320,8 +320,6 @@ function _constants_formulation(
         temperature_dependence = temperature_dependence === nothing ? nothing :
                                  TemperatureDependent.Formula(temperature_dependence)
     )
-    internal_impedance isa NamedTuple &&
-        (internal_impedance = NamedTuple{keys(methods.internal_impedance)}(internal_impedance))
     return CableConstantsFormulation(
         methods,
         formulation_options(CableConstantsFormulation, options),
@@ -461,15 +459,13 @@ function CableConstantsWorkspace(
         G = Vector{T}(undef, length(cable.assemblies)),
         observations = nothing
     )
-    selected_internal = formulation.methods.internal_impedance
-    internal = if selected_internal isa NamedTuple
-        kinds = any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,)
-        Tuple(unique(Formulation(selected_internal, Val(kind)) for kind in kinds))
-    else
-        selected_internal
+    # The internal formula has an expression for each surface impedance that the geometry
+    # needs.
+    for kind in (any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,))
+        validate(FormulaMethod(formulation.methods.internal_impedance,
+            InternalImpedance.internal_impedance, Val(kind)))
     end
-    buffers = initialize_buffers(merge(formulation.methods, (internal_impedance = internal,)),
-        T, cable, (;), buffers)
+    buffers = initialize_buffers(formulation.methods, T, cable, (;), buffers)
     return CableConstantsWorkspace{T, typeof(cable), typeof(buffers)}(
         cable, rho, buffers
     )

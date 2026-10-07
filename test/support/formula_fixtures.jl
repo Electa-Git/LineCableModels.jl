@@ -20,11 +20,13 @@
 
     # These scientific selections belong to the consumer and leave built-in
     # Formula registrations and private constructors unchanged. The built-in formula lists remain closed.
-    # This formula has expressions up to layer 3. Its expression signatures alone declare
-    # the media it handles.
-    for (name, parent, owner, operation) in (
-        (:LayerImpedance, E.EarthImpedanceFormulation, EI, EI.earth_impedance),
-        (:LayerPotential, E.EarthAdmittanceFormulation, EA, EA.earth_potential_coefficient))
+    # These formulas have expressions up to layer 3 (`Layer…`) or layer 2 (`HalfSpace…`,
+    # usable in a recipe). Their expression signatures alone declare the media they handle.
+    for (name, parent, owner, operation, layers) in (
+        (:LayerImpedance, E.EarthImpedanceFormulation, EI, EI.earth_impedance, 3),
+        (:LayerPotential, E.EarthAdmittanceFormulation, EA, EA.earth_potential_coefficient, 3),
+        (:HalfSpaceImpedance, E.EarthImpedanceFormulation, EI, EI.earth_impedance, 2),
+        (:HalfSpacePotential, E.EarthAdmittanceFormulation, EA, EA.earth_potential_coefficient, 2))
         @eval struct $name{P, O, R} <: $parent
             parameters::P
             options::O
@@ -32,7 +34,7 @@
             initialized::Vector{Tuple}
         end
         operation_name = GlobalRef(owner, nameof(operation))
-        for s in 1:3, t in 1:3, kind in (s == t ? (:self, :mutual) : (:mutual,))
+        for s in 1:layers, t in 1:layers, kind in (s == t ? (:self, :mutual) : (:mutual,))
             @eval function $operation_name(
                     selected::$name, ::Val{$(QuoteNode(kind))},
                     ::Val{$s}, ::Val{$t}, functor, pair, workspace)
@@ -59,13 +61,15 @@
         @eval LineCableModels.formulation_options(::FM{
             <:$name, typeof($operation)}) = FormulationOptions()
     end
-    LineCableModels.formulation_options(::FM{<:LayerImpedance, typeof(EI.earth_impedance),
+    LineCableModels.formulation_options(::FM{<:Union{LayerImpedance, HalfSpaceImpedance},
+        typeof(EI.earth_impedance),
         A}) where {A <:
                    Tuple{Union{Val{:self}, Val{:mutual}}, Val{1},
         Val{1}}} = FormulationOptions(integration = (method = :quad, options = (;)))
 
     function G.initialize_buffers(
-            selected::LayerImpedance, ::Type{T}, input, plan, buffers) where {T}
+            selected::Union{LayerImpedance, HalfSpaceImpedance}, ::Type{T}, input, plan,
+            buffers) where {T}
         layers = [E.layer_index(interaction.pair)
                   for call in plan.earth_calculations
                   if call.selection === selected for interaction in call.interactions]
@@ -79,15 +83,16 @@
 
     function selection(
             owner; options::Union{NamedTuple, FormulationOptions} = FormulationOptions(),
-            scale = 1.0, equivalent_earth = nothing)
+            scale = 1.0, equivalent_earth = nothing, layers = 3)
         options = options isa NamedTuple ? FormulationOptions(options) : options
-        selected_type = owner === EI ? LayerImpedance : LayerPotential
+        selected_type = layers == 3 ? (owner === EI ? LayerImpedance : LayerPotential) :
+                        (owner === EI ? HalfSpaceImpedance : HalfSpacePotential)
         return selected_type((scale = scale,), options, equivalent_earth, Tuple[])
     end
 
-    # The layered formula admits the deepest-layer reduction when the selection names it.
+    # These formulas admit the deepest-layer reduction.
     LineCableModels.validate(rule::EH.Formula{:bottommost},
-        ::FM{<:Union{LayerImpedance, LayerPotential}}) = rule
+        ::FM{<:Union{LayerImpedance, LayerPotential, HalfSpaceImpedance, HalfSpacePotential}}) = rule
 
     # Two more layered earth-impedance formulas. One declares its expressions up to layer 3
     # with typed runtime arguments, the other for every layer with generic `Val{S}`
@@ -127,8 +132,9 @@
             <:$selected_type, typeof(EI.earth_impedance)}) = FormulationOptions()
     end
 
-    # The layered formula admits nonzero permittivities of either sign.
-    function LineCableModels.validate(rho::AbstractVector, ::Union{LayerImpedance, LayerPotential},
+    # These formulas admit nonzero permittivities of either sign.
+    function LineCableModels.validate(rho::AbstractVector,
+            ::Union{LayerImpedance, LayerPotential, HalfSpaceImpedance, HalfSpacePotential},
             epsilon::AbstractVector, mu::AbstractVector, thickness)
         length(rho) == length(epsilon) == length(mu) ||
             throw(DimensionMismatch("material vectors must align"))
@@ -230,6 +236,11 @@
         <:SpectralSurface, typeof(II.internal_impedance),
         Tuple{Val{:outer}}}) = FormulationOptions(integration = (
         method = :quad, options = (;)))
+    # Its inner and transfer surface impedances are fixed coefficients. Only `outer` integrates.
+    II.internal_impedance(::SpectralSurface, ::Val{:inner}, functor, workspace) = 3e-5 + 1e-6im
+    II.internal_impedance(::SpectralSurface, ::Val{:transfer}, functor, workspace) = 1e-6 + 0im
+    LineCableModels.formulation_options(::FM{<:SpectralSurface, typeof(II.internal_impedance),
+        <:Union{Tuple{Val{:inner}}, Tuple{Val{:transfer}}}}) = FormulationOptions()
     function II.internal_impedance(selected::SpectralSurface, ::Val{:outer}, functor, workspace)
         push!(selected.seen, (functor.options.data.integration.method, workspace))
         integral=E.SpectralIntegral(λ->complex(exp(-2λ)))
@@ -497,7 +508,8 @@
     end
 
     for selected_type in
-        (LayerImpedance, LayerPotential, TypedLayerImpedance, GenericLayerImpedance,
+        (LayerImpedance, LayerPotential, HalfSpaceImpedance, HalfSpacePotential,
+        TypedLayerImpedance, GenericLayerImpedance,
         CoupledImpedance, SurfaceLaw, SpectralSurface,
         DispersiveEarth, InsulationReactance, ConstantResistivity, ScaledResistivity,
         ExponentialResistivity, DispersiveSoil, ScaledSoil, OhmicDielectric, InsulationLaw, SemiconLaw,

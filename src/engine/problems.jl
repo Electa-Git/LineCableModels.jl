@@ -309,22 +309,20 @@ function _line_formulation(
         options::FormulationOptions
 )
     selected = LineParametersFormulation((;
-        internal_impedance = Formulation(InternalImpedance.Formula, internal_impedance),
+        internal_impedance = InternalImpedance.Formula(internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
-        earth_impedance = Formulation(EarthImpedance.Formula, earth_impedance),
+        earth_impedance = EarthImpedance.Formula(earth_impedance),
         shunt_model = ShuntModel.Formula(shunt_model),
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
         semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
-        earth_admittance = Formulation(EarthAdmittance.Formula, earth_admittance),
+        earth_admittance = EarthAdmittance.Formula(earth_admittance),
         earth_properties = earth_properties === nothing ? nothing :
                            Earth.FrequencyDependent.Formula(earth_properties),
         pipe_impedance = PipeImpedance.Formula(pipe_impedance),
         temperature_dependence = temperature_dependence === nothing ? nothing :
                                  TemperatureDependent.Formula(temperature_dependence)),
         formulation_options(LineParametersFormulation, options))
-    definitions = (; internal_impedance = internal_impedance isa NamedTuple ?
-            NamedTuple{keys(selected.methods.internal_impedance)}(internal_impedance) : internal_impedance,
-        insulation_impedance,
+    definitions = (; internal_impedance, insulation_impedance,
         earth_impedance = earth_impedance isa NamedTuple ?
             NamedTuple{keys(selected.methods.earth_impedance)}(earth_impedance) : earth_impedance,
         shunt_model, insulation_admittance, semicon_admittance,
@@ -346,18 +344,19 @@ This choice is independent of `insulation_admittance` and `semicon_admittance`,
 which select material constitutive laws. Geometric boundary numerical controls and an
 explicit fallback belong to `formula(:boundary; options, parameters)`.
 
-`internal_impedance` accepts one formula or an explicit recipe with `inner`,
-`outer`, and `transfer` selections. A solid primitive requests only `outer`, while a tubular primitive requests all three. Required missing cases fail without
-implicit completion. Unused selections are not initialized or evaluated.
+`internal_impedance` accepts one formula. A solid primitive requests only its `outer`
+surface, and a tubular primitive all three. Before the frequency loop, the computation
+checks that the formula has an expression for the surface impedances that it requests.
 
 `earth_impedance` and `earth_admittance` each accept one formula or a NamedTuple
-with the required subset of `air`, `earth`, and `mixed` selections. For a physical horizontal
-air-soil two-half-space model, these select `(s,t)=(1,1)`, `(2,2)`, and the two
-cross-layer mutual directions. Actual kind and source and target method dispatch governs
-equation applicability. Missing cases have no implicit fallback. The shorthand is
-rejected for layered soil. Scalar multilayer and explicit equivalent-earth
-selections retain their own requirements. Model parameters and numerical options remain
-local to each selected entry.
+with the required subset of `air`, `earth`, and `mixed` selections. On air and one
+homogeneous earth, these select `(s,t)=(1,1)`, `(2,2)`, and the two cross-layer mutual
+directions. Actual kind and source and target method dispatch governs equation
+applicability. Missing cases have no implicit fallback. A recipe describes a homogeneous
+earth, so each of its formulas stops at layer 2, and a multilayer formula is used alone. On
+an earth with more layers, the slot takes one equivalent earth: the explicit reduction that
+its formulas agree on, or the `:default` reduction. Its routes then resolve on layers 1 and
+2. Model parameters and numerical options remain local to each selected entry.
 
 `temperature_dependence=formula(:default)` selects the Materials-owned linear
 resistivity law. `nothing` retains reference resistivity. Operating temperature

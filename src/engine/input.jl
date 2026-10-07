@@ -242,12 +242,17 @@ function LineParametersWorkspace(
     )
     homogeneous_pairs = _homogeneous_pairs(physical_pairs)
     bindings = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
-        leaves = [Formulation(selected, Val.(layer_index(pair))...)
-                  for pair in physical_pairs]
+        # The earth is decided once for the slot. A recipe then picks each pair's formula on
+        # the decided layers.
+        equivalent = _equivalent_earth(selected, problem.earth_props, first(physical_pairs))
+        decided = equivalent === nothing ? physical_pairs : homogeneous_pairs
+        leaves = selected isa NamedTuple ?
+                 [FormulaMethod(selected, pair).selection for pair in decided] :
+                 fill(selected, length(decided))
         cases = NamedTuple[]
         for leaf in unique(leaves)
             indices = findall(value -> value === leaf, leaves)
-            push!(cases, earth_bindings(leaf, problem.earth_props, physical_pairs,
+            push!(cases, earth_bindings(leaf, problem.earth_props, equivalent, physical_pairs,
                 homogeneous_pairs, indices))
         end
         (selection = selected, cases = cases)
@@ -393,15 +398,14 @@ function LineParametersWorkspace{T}(
         bound.selection isa NamedTuple ? Tuple(call.selection for call in bound.cases) :
         bound.selection
     end
-    selected_internal = formulation.methods.internal_impedance
-    internal = if selected_internal isa NamedTuple
-        kinds = any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,)
-        Tuple(unique(Formulation(selected_internal, Val(kind)) for kind in kinds))
-    else
-        selected_internal
+    # The internal formula has an expression for each surface impedance that the geometry
+    # needs.
+    for kind in (any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,))
+        validate(FormulaMethod(formulation.methods.internal_impedance,
+            InternalImpedance.internal_impedance, Val(kind)))
     end
     # Concrete formulas provision numerical storage, never option-key inspection.
-    allocations = merge(formulation.methods, external, (internal_impedance = internal,))
+    allocations = merge(formulation.methods, external)
     buffers = initialize_buffers(allocations, T, input, plan, buffers)
     # Earth traversal clears this shared warning scratch before and after each use.
     buffers = haskey(buffers, :quadrature) ?
@@ -421,17 +425,18 @@ end
 $(TYPEDSIGNATURES)
 
 Bind the interactions `physical[indices]` of an earth `model` to the earth formula
-`selected`, and decide once, from the signatures of its expressions, which earth they see.
-An explicit `equivalent_earth` reduction always applies. Without one, a formula that does
-not admit any layer from 3 to N consumes the `:default` reduction of a model with N > 2
-layers. Every other formula sees the layered earth. The record's `earth` holds the decision:
+`selected`, on the earth that its slot decided: `reduction`, or the layered `model` when it
+is `nothing`. The slot decides once, from the signatures of its formulas' expressions. An
+explicit `equivalent_earth` reduction always applies. Without one, a formula that does not
+admit any layer from 3 to N consumes the `:default` reduction of a model with N > 2 layers,
+and every other formula sees the layered earth. The record's `earth` holds the decision:
 the `EarthModel` or the reduction. Each reduced interaction stores the binding of the
 reduction's equation.
 """
 function earth_bindings(
         selected::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
-        model::EarthModel, physical::AbstractVector{<:EarthPair}, homogeneous, indices)
-    reduction = _equivalent_earth(selected, model, physical[first(indices)])
+        model::EarthModel, reduction, physical::AbstractVector{<:EarthPair}, homogeneous,
+        indices)
     reduction === nothing && validate(model, selected)
     pairs = reduction === nothing ? physical[indices] : homogeneous[indices]
     declarations = bindings(selected, pairs)

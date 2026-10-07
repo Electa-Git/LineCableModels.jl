@@ -81,6 +81,29 @@ A formula family extends this function for its own formulas and interactions.
 function bindings end
 import ..LineCableModels: description, formula_id
 
+"""
+$(TYPEDSIGNATURES)
+
+Check that the operation of `expression` has a method for its formula and selectors, before
+any evaluation. An engine expression takes at least its functor and its workspace after the
+selectors, of any type. A backend variant, which takes the backend in their place, does not
+count. Return `expression`.
+
+# Errors
+
+- Throws `ArgumentError` naming the formula and the selectors that have no expression.
+"""
+function validate(expression::FormulaMethod)
+    F = typeof(expression.selection)
+    selectors = map(typeof, expression.arguments)
+    hasmethod(expression.method, Tuple{F, selectors..., Any, Any}) && return expression
+    isempty(methods(expression.method, Tuple{F, selectors..., Any, Any, Vararg{Any}})) ||
+        return expression
+    value(::Val{X}) where {X} = X
+    throw(ArgumentError("formula :$(formula_id(expression.selection)) has no expression for " *
+        join(map(selector -> repr(value(selector)), expression.arguments), ", ")))
+end
+
 """Read a declaration's actual formulation-owned inputs without resolving them."""
 formulation_options(value::FormulaDefinition) = value.options
 formula_id(source::Pair{<:AbstractFormulation,<:NamedTuple}) = formula_id(first(source))

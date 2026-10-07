@@ -1,34 +1,19 @@
-@testitem "Engine / internal selections preserve native transfer dispatch and scalar assembly" tags=[:unit, :importexport, :slow] setup=[TestFixtures,FormulaFixtures] begin
+@testitem "Engine / one internal formula serves its surfaces through native dispatch" tags=[:unit, :importexport, :slow] setup=[TestFixtures,FormulaFixtures] begin
     const II=LineCableModels.Engine.InternalImpedance
     const M=FormulaFixtures
     args=(0.008,0.01,1.7241e-8,1.,100.0im)
     scalar=II.Formula(:default)
-    same=Formulation(II.Formula,(transfer=:default,inner=:default,outer=:default))
-    @test keys(same)==(:inner,:outer,:transfer)
     reference=@inferred II.surface_impedances(scalar,Val((:outer,:transfer,:inner)),args...)
-    @test (@inferred II.surface_impedances(same,Val((:outer,:transfer,:inner)),args...))==reference
-    @test II.surface_impedances(same,args...)==II.surface_impedances(scalar,args...)
+    @test II.surface_impedances(scalar,args...)==reference[(:inner,:outer,:transfer)]
+    # A slot takes one formula. Its surface impedances are that formula's expressions.
+    @test_throws MethodError Formulation(internal_impedance=(inner=:default,outer=:default,transfer=:default))
     coefficients=(inner=11+12im,outer=21+22im,transfer=31+32im)
-    customized=(inner=M.SurfaceLaw(kinds=(:inner,);coefficients),
-        outer=M.SurfaceLaw(kinds=(:outer,);coefficients),
-        transfer=M.SurfaceLaw(kinds=(:transfer,);coefficients))
-    selections=Formulation(II.Formula,customized)
-    @test selections === customized
-    @test II.surface_impedances(selections,args...)==coefficients
-    @test all(length(leaf.evaluations)==1 for leaf in selections)
-    empty!(selections.transfer.evaluations)
-    changed=II.surface_impedances(merge(same,(transfer=selections.transfer,)),args...)
-    @test changed.inner==reference.inner && changed.outer==reference.outer
-    @test changed.transfer==31+32im
-    @test only(selections.transfer.evaluations)[2] === Val(:transfer)
-    @test_throws ArgumentError Formulation(II.Formula,(inner=:default,outer=:default,mutual=:default))
-    partial=Formulation(II.Formula,(outer=:default,))
-    @test keys(partial)==(:outer,)
-    @test_throws ArgumentError II.surface_impedances(partial,args...)
-    @test_throws ArgumentError II.surface_impedances(
-        merge(same,(outer=selections.inner,)),Val((:outer,)),args...)
-    @test II.surface_impedances(selections,Val((:outer,)),args...).outer==coefficients.outer
-    @test keys(II.surface_impedances(same,Val((:outer,)),args...))==(:outer,)
+    custom=M.SurfaceLaw(;coefficients)
+    @test II.surface_impedances(custom,args...)==coefficients
+    @test length(custom.state_inputs)==1 && length(custom.evaluations)==3
+    outer_only=M.SurfaceLaw(kinds=(:outer,);coefficients)
+    @test (@inferred II.surface_impedances(outer_only,Val((:outer,)),args...)).outer==coefficients.outer
+    @test_throws MethodError II.surface_impedances(outer_only,args...)
 
     struct ObservedSurfaces{F,P,O} <: LineCableModels.Engine.InternalImpedanceFormulation
         base::F
@@ -57,31 +42,23 @@
     state=first(observed.observations)[1]
     @test (state.r_in,state.r_ex,state.rho_c,state.mur_c,state.jω) === args32
 
-    alternative=M.SurfaceLaw(kinds=(:transfer,),coefficients=(transfer=41+42im,))
-    distinct=merge(same,(transfer=alternative,))
-    values=II.surface_impedances(distinct,args...)
-    @test values.inner==reference.inner && values.outer==reference.outer
-    @test values.transfer==41+42im && length(alternative.state_inputs)==1
-    @test_throws ArgumentError II.surface_impedances(merge(same,(inner=alternative,)),args...)
-
     problem=TestFixtures.line_parameters_problem(frequencies=[50.,500.])
     original=compute(problem,Formulation())
-    composed=compute(problem,Formulation(internal_impedance=same))
-    @test Z(composed)==Z(original) && Y(composed)==Y(original)
-    @test map(value -> value.identifier, details(composed).data.formulations.methods.internal_impedance)==
-        (inner=:schelkunoff1934,outer=:schelkunoff1934,transfer=:schelkunoff1934)
+    explicit=compute(problem,Formulation(internal_impedance=:default))
+    @test Z(explicit)==Z(original) && Y(explicit)==Y(original)
     cable_problem=CableConstantsProblem(first(problem.system.designs);frequency=50.)
-    @test compute(cable_problem,CableConstantsFormulation())==
-        compute(cable_problem,CableConstantsFormulation(internal_impedance=same))
-    custom=compute(problem,Formulation(internal_impedance=distinct))
-    @test Z(custom)!=Z(original) && Y(custom)==Y(original)
-    @test details(custom).data.formulations.methods.internal_impedance.transfer.identifier === :SurfaceLaw
-    formulations=Formulation(internal_impedance=Grid((formula(:default),customized));combine=:zip)
+    local_default=compute(cable_problem,CableConstantsFormulation())
+    local_explicit=compute(cable_problem,CableConstantsFormulation(internal_impedance=:default))
+    @test local_default.R==local_explicit.R && local_default.L==local_explicit.L
+    changed=compute(problem,Formulation(internal_impedance=M.SurfaceLaw(;coefficients)))
+    @test Z(changed)!=Z(original) && Y(changed)==Y(original)
+    @test details(changed).data.formulations.methods.internal_impedance.identifier === :SurfaceLaw
+    formulations=Formulation(internal_impedance=Grid((formula(:default),custom));combine=:zip)
     @test length(formulations)==2
-    @test collect(formulations)[2].methods.internal_impedance.transfer === customized.transfer
-    native=Formulation(internal_impedance=same)
+    @test collect(formulations)[2].methods.internal_impedance === custom
+    native=Formulation(internal_impedance=:default)
     for source in (native,MonteCarlo(native),LinearError(native))
-        @test occursin("internal Z(transfer)",only(description([source];quantity=R)))
+        @test occursin("internal Z",only(description([source];quantity=R)))
         @test !occursin("internal Z",only(description([source];quantity=B)))
     end
 end

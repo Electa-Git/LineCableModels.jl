@@ -3,10 +3,9 @@
     for selected in (
             Formulation(earth_impedance=(earth=:unified,)),
             Formulation(earth_admittance=(mixed=:unified, air=:unified)),
-            Formulation(internal_impedance=(outer=:default,)),
-            Formulation(earth_impedance=(;), internal_impedance=(outer=nothing,)))
+            Formulation(earth_impedance=(;)))
         record = NamedTuple(selected)
-        for slot in (:earth_impedance, :earth_admittance, :internal_impedance)
+        for slot in (:earth_impedance, :earth_admittance)
             children = getproperty(selected.methods, slot)
             children isa NamedTuple || continue
             routes = [last(scope)[2] for (scope, _) in pairs(selected)
@@ -97,10 +96,7 @@ end
         @test occursin(string(order)*" FrequencyDependent",label)
         @test !occursin("FormulaDefinition{",label)
     end
-    # Inspection retains a native selection without executing its equation.
-    selected_inner=FormulaFixtures.SurfaceLaw(kinds=(:inner,))
     routed=Formulation(
-        internal_impedance=(inner=selected_inner,outer=:default,transfer=:default),
         earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
         earth_admittance=formula(:default;options=(integration=(method=:quad,options=(rtol=1e-9,)),)))
     routed_result=ParametricResult(nothing,[completed(points[1],routed,1),completed(points[2],normal,2)],
@@ -108,9 +104,10 @@ end
     routed_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,result=routed_result))
     @test any(contains("earth Z(air)=Carson"),first(routed_report.tables.features).relative.formula)
-    @test haskey(first(routed_report.observed).gridpoint.formulations.methods.internal_impedance,:inner)
-    @test isempty(selected_inner.evaluations) && isempty(selected_inner.state_inputs)
-    single=Formulation(insulation_admittance=FormulaFixtures.InsulationLaw())
+    # Inspection retains a native selection without executing its equation.
+    selected_inner=FormulaFixtures.SurfaceLaw()
+    single=Formulation(insulation_admittance=FormulaFixtures.InsulationLaw(),
+        internal_impedance=selected_inner)
     single_data=ParametricResult(nothing,[completed(points[1],single,1)],
         (problems=[:one],formulations=[single]), ComputationDetails((;)))
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
@@ -172,8 +169,7 @@ end
     other=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:lucca1994))
     @test formula_id(routed,R)!=formula_id(other,R)
     @test formula_id(routed,B)==formula_id(other,B)
-    selected_transfer=FormulaFixtures.SurfaceLaw(kinds=(:transfer,))
-    internal=Formulation(internal_impedance=(inner=:default,outer=:default,transfer=selected_transfer))
+    internal=Formulation(internal_impedance=FormulaFixtures.SurfaceLaw())
     @test formula_id(internal,R)!=formula_id(Formulation(),R)
     @test formula_id(internal,Y)==formula_id(Formulation(),Y)
     overridden=Formulation(earth_admittance=formula(:default;

@@ -96,7 +96,7 @@ function _pscad_formulation(internal_impedance, insulation_impedance, earth_impe
         if requested === nothing && name in (:earth_properties, :temperature_dependence)
             nothing
         else
-            selected = Formulation(owner, haskey(defaults, name) ?
+            selected = owner(haskey(defaults, name) ?
                 _pscad_default(requested, defaults[name]) : requested)
             if haskey(defaults, name)
                 for leaf in (selected isa NamedTuple ? values(selected) : (selected,))
@@ -268,8 +268,8 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             (:formula, :kind, :source, :target), Tuple{Symbol, Symbol, Int, Int}}[]
         for pair in pairs
             validate(pair)
-            selected = Formulation(selection, Val.(pair.layers)...)
-            binding = FormulaMethod(selected, pair)
+            binding = FormulaMethod(selection, pair)
+            selected = binding.selection
             # Registration and physical validity belong to the equation owner.
             # Execution availability is selected by the native binding.
             bindings(selected, (pair,))
@@ -290,9 +290,7 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
     kinds = any(indices -> length(indices) > 1, input.cable.assemblies) ?
             (:inner, :outer, :transfer) : (:outer,)
     for kind in kinds
-        selection = formulation.methods.internal_impedance
-        selected = selection isa NamedTuple ? selection[kind] : selection
-        FormulaMethod(selected,
+        FormulaMethod(formulation.methods.internal_impedance,
             internal_impedance, Val(kind))(formulation)
     end
     FormulaMethod(formulation.methods.insulation_impedance, insulation_impedance)(formulation)
