@@ -36,16 +36,6 @@
         @test description(selected; compact) ==
             description(EarthImpedance.Formula{identifier}; compact)
     end
-    # Historical identities are descriptions of retained evidence, not aliases
-    # for a current executable selection.
-    for identifier in (:WedepohlWilcox1973, :unavailable_native_formula)
-        selected, controls = LineCableModels.ImportExport.deserialize_value(
-            Val(:formulation), EarthImpedance.Formula,
-            (identifier=identifier,), (identifier=identifier,))
-        @test selected === LineCableModels.FormulaDefinition{identifier}
-        @test description(selected) == string(identifier)
-        @test isempty(controls)
-    end
     @test all(
         id -> Formulation(:pscad; earth_impedance = LineCableModels.formula(id)) isa
               harness.PSCADFormulation,

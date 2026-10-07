@@ -99,8 +99,6 @@
     @test which(show, (IO, MIME"text/plain", BoundarySolveError)).module === E.ShuntModel
     for formulation in
         (boundary, Formulation(shunt_model = boundary.definitions.shunt_model))
-        record=IE.deserialize_value(Val(:formulation), NamedTuple(formulation))
-        @test formula_id(record, C) == formula_id(formulation, C)
         @test occursin("boundary", description(formulation, C))
     end
     for source in (first_result, result)

@@ -3,7 +3,7 @@
 # Print the live inventory with `test/tools/architecture_inventory.jl`.
 
 [ownership]
-"Commons | LineCableModels.description | src/commons/formulas.jl" = 5
+"Commons | LineCableModels.description | src/commons/formulas.jl" = 4
 "Commons | LineCableModels.formula_id | src/commons/formulas.jl" = 1
 "Earth.EquivalentHomogeneous | LineCableModels.description | src/earth/equivalenthomogeneous/interface.jl" = 2
 "Earth.FrequencyDependent | LineCableModels.constitutive | src/earth/frequencydependent/interface.jl" = 1
@@ -76,7 +76,6 @@
 
 [direction]
 "Engine -> ModalAnalysis | src/engine/lineparameters.jl" = 3
-"ImportExport -> PSCAD | src/importexport/deserialize.jl" = 1
 
 [names]
 "Functor" = 3
@@ -123,7 +122,7 @@
 "src/engine/blueprint.jl" = { applicable = 0, eval = 0, kind = 4 }
 "src/engine/pipeimpedance/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, kind = 5 }
-"src/importexport/deserialize.jl" = { applicable = 2, eval = 0, kind = 2 }
+"src/importexport/deserialize.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/materials/radialdielectric.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }

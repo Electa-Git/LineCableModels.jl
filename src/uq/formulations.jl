@@ -149,12 +149,7 @@ function Base.pairs(value::MonteCarlo; quantity = nothing)
 end
 function Base.pairs(owner::Type{<:Union{MonteCarlo, LinearError}}, retained::NamedTuple; quantity = nothing)
     entries=Pair{Tuple, Any}[(owner, ()) => (owner => retained.options)]
-    if ismissing(retained.inner)
-        push!(entries, (owner, (:inner,)) => missing)
-    else
-        append!(entries,
-            pairs((retained.inner isa Pair ? Tuple(retained.inner) : (retained.inner,))...; quantity))
-    end
+    append!(entries, pairs(retained.inner; quantity))
     return entries
 end
 description(::Type{<:Union{MonteCarlo, LinearError}}, ::Val{:inner}; compact::Bool=false) = "inner method"

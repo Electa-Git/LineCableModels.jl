@@ -189,9 +189,9 @@ Describe the selected earth-return methods relevant to `quantity`. This compact
 summary identifies the analytical calculation when compared with another
 backend. Individual constitutive selections remain separately described.
 """
-function description(::Type{LineParametersFormulation}, source::Union{LineParametersFormulation,Pair{<:Type,<:NamedTuple{(:methods,:requested,:options)}}};
+function description(::Type{LineParametersFormulation}, source::LineParametersFormulation;
         quantity=nothing, compact::Bool=false)
-    entries=source isa Pair ? pairs(source...;quantity) : pairs(source;quantity)
+    entries=pairs(source;quantity)
     selected=[(route,value) for ((_,route),value) in entries
         if !isempty(route) && first(route) in (:earth_impedance,:earth_admittance) &&
             value !== nothing && !ismissing(value)]
@@ -255,7 +255,7 @@ formulation_options(value::LineParametersFormulation) = value.options
 $(TYPEDSIGNATURES)
 
 Iterate owner-scoped selections from a formulation's declared child interface.
-`retained.methods` contains typed children (including owner-bound saved leaves).
+`retained.methods` contains typed children.
 `retained.requested` contains their explicit controls. `pairs(owner; quantity)`
 owns child order and relevance. The empty route identifies the owner itself.
 """

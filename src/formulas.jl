@@ -53,10 +53,6 @@ end
 formula_id(bound::FormulaMethod) = formula_id(bound.selection)
 
 formula_id(::FormulaDefinition{ID}) where {ID} = ID
-formula_id(::Type{<:FormulaDefinition{ID}}) where {ID} = ID
-
-"""Describe a retained formula identifier."""
-description(::Type{<:FormulaDefinition{ID}}; compact::Bool=false) where {ID} = string(ID)
 
 """Expose a requested formula identifier and its explicit model and numerical controls."""
 function Base.NamedTuple(value::FormulaDefinition{ID,Order}) where {ID,Order}

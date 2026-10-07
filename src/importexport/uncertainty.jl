@@ -112,45 +112,18 @@ end
 function serialize_value(value::LineParameters)
     Engine.domain(value) === Engine.ModalDomain && throw(ArgumentError(
         "modal LineParameters require Julia Serialization for numerical state"))
-    retained=LineCableModels.details(value).data
-    record = Dict("__type__"=>"LineParameters", "Z"=>serialize_value(observe(value, Z)),
+    return Dict("__type__"=>"LineParameters", "Z"=>serialize_value(observe(value, Z)),
         "Y"=>serialize_value(observe(value, Y)), "frequencies"=>serialize_value(frequencies(value)),
         "basis"=>string(LineCableModels.basis(value)), "domain"=>string(nameof(Engine.domain(value))),
-        "coordinates"=>serialize_value(get(retained, :coordinates, nothing)),
-        "formulations"=>serialize_value(get(retained, :formulations, nothing), Val(:scientific)),
-        "shunt_model"=>serialize_value(get(retained, :shunt_model, nothing),Val(:scientific)),
-        "comparison_unsupported"=>serialize_value(get(retained, :comparison_unsupported, (;))),
-        "gridpoint_description"=>serialize_value((; (key=>retained[key] for key in
-            (:inputs,:gridpoint,:selections,:formulation_fields,:uncertainty,:uncertainty_descriptions,:modal) if haskey(retained,key))...),Val(:scientific)))
-    haskey(retained, :timing) && (record["timing"]=serialize_value(retained.timing, Val(:scientific)))
-    return record
+        "details"=>serialize_value(LineCableModels.details(value).data,Val(:scientific)))
 end
 function deserialize_extension(::Val{:LineParameters}, record)
     record["domain"] in ("PhaseDomain","ModalDomain") ||
         throw(ArgumentError("unsupported saved result domain"))
-    coordinates=deserialize_value(get(record, "coordinates", nothing))
-    unsupported=deserialize_value(get(record, "comparison_unsupported", Dict()))
-    detail=(comparison_unsupported = (; (Symbol(k)=>v for (k, v) in pairs(unsupported))...),)
-    coordinates === nothing || (detail=merge(detail, (; coordinates)))
-    formulations=deserialize_value(get(record, "formulations", nothing))
-    formulations === nothing || (detail=merge(detail,
-        NamedTuple{(:formulations,),Tuple{NamedTuple}}((formulations,))))
-    shunt_model=deserialize_value(get(record,"shunt_model",nothing))
-    shunt_model === nothing || (detail=merge(detail,
-        NamedTuple{(:shunt_model,),Tuple{NamedTuple}}((shunt_model,))))
-    retained_description=deserialize_value(get(record,"gridpoint_description",serialize_value((;),Val(:scientific))))
-    detail=merge(detail,retained_description)
-    haskey(record, "timing") && (detail=merge(detail, (timing=deserialize_value(record["timing"]),)))
-    # Reading a primary result binds its passive selections to their owners.
-    # Capture current compact descriptions here, before any observation exists.
-    # Retained ObservedResult loading and plotting never reopen this path.
-    if formulations !== nothing
-        selected=deserialize_value(Val(:formulation),formulations)
-        ismissing(selected) || (detail=merge(detail,Engine.completed_formulation(selected,formulations)))
-    end
+    retained=deserialize_value(record["details"])
     return LineParameters(
         getfield(Engine,Symbol(record["domain"])), deserialize_value(record["Z"]), deserialize_value(record["Y"]),
-        deserialize_value(record["frequencies"]); basis = Symbol(record["basis"]), details = Engine.completion_details(detail))
+        deserialize_value(record["frequencies"]); basis = Symbol(record["basis"]), details = Engine.completion_details(retained))
 end
 
 function serialize_value(value::Engine.CableConstants)

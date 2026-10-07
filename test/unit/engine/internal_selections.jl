@@ -1,7 +1,6 @@
 @testitem "Engine / internal selections preserve native transfer dispatch and scalar assembly" tags=[:unit, :importexport, :slow] setup=[TestFixtures,FormulaFixtures] begin
     const II=LineCableModels.Engine.InternalImpedance
     const M=FormulaFixtures
-    const IO=LineCableModels.ImportExport
     args=(0.008,0.01,1.7241e-8,1.,100.0im)
     scalar=II.Formula(:default)
     same=Formulation(II.Formula,(transfer=:default,inner=:default,outer=:default))
@@ -82,8 +81,6 @@
     @test collect(formulations)[2].methods.internal_impedance.transfer === customized.transfer
     native=Formulation(internal_impedance=same)
     for source in (native,MonteCarlo(native),LinearError(native))
-        saved=IO.deserialize_value(Val(:formulation),NamedTuple(source))
-        @test description([source];quantity=R)==description([saved];quantity=R)
         @test occursin("internal Z(transfer)",only(description([source];quantity=R)))
         @test !occursin("internal Z",only(description([source];quantity=B)))
     end

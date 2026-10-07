@@ -156,9 +156,8 @@ function Base.NamedTuple(value::Formula)
 end
 
 """Expose the order of material evaluation and the selected equivalent-earth rule."""
-function Base.NamedTuple(value::AbstractSequence)
-    return (order=nameof(typeof(value)), rule=NamedTuple(value.rule))
-end
+Base.NamedTuple(value::AfterFD) = (order = :after, rule = NamedTuple(value.rule))
+Base.NamedTuple(value::BeforeFD) = (order = :before, rule = NamedTuple(value.rule))
 
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
@@ -192,7 +191,6 @@ function description(::Val{:equivalent_earth},value::NamedTuple;compact::Bool=tr
     text=record.identifier in formulas(Formula) ? description(Formula{record.identifier};compact) :
          string(record.identifier)
     order=get(value,:order,:default)
-    order=order===:BeforeFD ? :before : order===:AfterFD ? :after : order
     order===:default || (text *= " "*string(order)*" FrequencyDependent")
     controls=(; (key => record[key] for key in (:parameters, :options)
         if haskey(record,key) && !isempty(record[key]))...)

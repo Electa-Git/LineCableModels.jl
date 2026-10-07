@@ -1,5 +1,5 @@
 @testitem "ReportBuilder / scalar results retain physical and native formula choices" tags=[:integration, :importexport, :slow] setup=[FormulaFixtures] begin
-    using LinearAlgebra, Serialization
+    using LinearAlgebra, Serialization, JSON3
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     copper=Material(MaterialsLibrary(add_defaults = true), :copper)
     design=build(CableDesign, "scalar-records", terminal(:core, solid(copper, Disk(0.0425))))
@@ -45,9 +45,16 @@
     @test details(changed).data.formulations.methods.earth_properties==NamedTuple(custom)
     @test details(changed).data.formulations.methods.earth_properties.identifier === :DispersiveEarth
     @test typeof(changed) === typeof(results[1])
-    retained=LineCableModels.ImportExport.deserialize_value(
-        Val(:formulation), details(changed).data.formulations)
-    @test formula_id(retained, nothing)==formula_id(selected, nothing)
+    # A saved and reloaded result has the details it was saved with, labels included, for a
+    # built-in and for a custom formula. Loading builds no formulation.
+    IE=LineCableModels.ImportExport
+    for saved in (results[1], changed)
+        loaded=IE.deserialize_value(JSON3.read(JSON3.write(IE.serialize_value(saved)), Dict{String,Any}))
+        @test isequal(details(loaded).data, details(saved).data)
+        @test typeof(details(loaded).data) === typeof(details(saved).data)
+        @test details(loaded).data.formulation_fields == details(saved).data.formulation_fields
+        @test Z(loaded) == Z(saved) && Y(loaded) == Y(saved)
+    end
     grid=Formulation(
         earth_properties = Grid([c.definitions.earth_properties for c in choices]);
         combine = :zip)

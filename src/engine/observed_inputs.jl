@@ -74,7 +74,7 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
         return captured
     end
     function fields(quantity)
-        selections=formulation isa Pair ? pairs(formulation...;quantity) : pairs(formulation;quantity)
+        selections=pairs(formulation;quantity)
         map(collect(selections)) do (scope,selected)
             owner,route=scope
             name=isempty(route) ? "" : description(owner,Val(first(route));compact=true)
@@ -91,7 +91,7 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
                     if haskey(effective,key) && effective[key]!==nothing)...))
             owner_name=(Base.fullname(parentmodule(owner))...,nameof(owner))
             leaf=selected isa Pair ? first(selected) : selected
-            control_owner=isempty(route) ? owner : leaf isa Type ? leaf : typeof(leaf)
+            control_owner=isempty(route) ? owner : typeof(leaf)
             # Routes are the scientific slots declared by pairs(owner), shared
             # by backends using the same constitutive meaning. Storage owners
             # remain recorded separately. They are not a commonness criterion.

@@ -1,17 +1,11 @@
 @testitem "Descriptions / partial recipes retain only declared ordered children" tags=[:unit, :importexport] begin
     E = LineCableModels.Engine
-    IE = LineCableModels.ImportExport
     for selected in (
             Formulation(earth_impedance=(earth=:unified,)),
             Formulation(earth_admittance=(mixed=:unified, air=:unified)),
             Formulation(internal_impedance=(outer=:default,)),
             Formulation(earth_impedance=(;), internal_impedance=(outer=nothing,)))
         record = NamedTuple(selected)
-        saved = IE.deserialize_value(Val(:formulation), record)
-        for quantity in (nothing, Z, Y)
-            @test formula_id(selected, quantity) == formula_id(saved, quantity)
-            @test description(selected, quantity) == description(saved, quantity)
-        end
         for slot in (:earth_impedance, :earth_admittance, :internal_impedance)
             children = getproperty(selected.methods, slot)
             children isa NamedTuple || continue
@@ -32,7 +26,6 @@ end
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     import LineCableModels: description, formula_id, formulation_options
     E=LineCableModels.Engine
-    IO=LineCableModels.ImportExport
 
     # Equal text must not become an identity, and a new leaf must appear in the real
     # report without being added to a reader or plotting lookup table.
@@ -53,8 +46,6 @@ end
     @test description(Formulation(:pscad))==description(PSCAD.PSCADFormulation)=="PSCAD"
     pscad=Formulation(:pscad;options=(base_frequency=60.0,))
     pscad_capture=E.completed_formulation(pscad)
-    pscad_saved=IO.deserialize_value(Val(:formulation),NamedTuple(pscad))
-    @test E.completed_formulation(pscad_saved,NamedTuple(pscad)).formulation_fields==pscad_capture.formulation_fields
     @test first(pscad_capture.formulation_fields.Z).value==description(PSCAD.PSCADFormulation;compact=true)
     @test any(control -> control.text==description(PSCAD.PSCADFormulation,Val(:base_frequency),60.0;compact=true),
         first(pscad_capture.formulation_fields.Z).control_fields)
@@ -99,56 +90,19 @@ end
     @test all(feature -> !occursin("earth Y",join(feature.relative.formula)),
         filter(feature -> feature.quantity in (:R,:X),result.tables.features))
 
-    for native in (normal,Formulation(earth_impedance=:saad1996),LineCableModelsFEM(),
-            Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
-        saved=IO.deserialize_value(Val(:formulation),NamedTuple(native))
-        @test description([saved];roles=[:reference])==description([native];roles=[:reference])
-        @test [(scope,formula_id(value)) for (scope,value) in pairs(saved...)]==
-            [(scope,formula_id(value)) for (scope,value) in pairs(native)]
-    end
-    saved_pair=[IO.deserialize_value(Val(:formulation),NamedTuple(method)) for method in
-        (MonteCarlo(normal),LinearError(normal))]
-    # Ordinary collection promotion must not erase a retained method's owner.
-    @test description(saved_pair;roles=[:reference,:result])==
-        description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:result])
     for order in (:before,:after)
         native=Formulation(earth_impedance=formula(:carson1926;
             equivalent_earth=formula(:default;order)))
-        saved=IO.deserialize_value(Val(:formulation),NamedTuple(native))
         label=only(description([native];quantity=R))
         @test occursin(string(order)*" FrequencyDependent",label)
         @test !occursin("FormulaDefinition{",label)
-        @test description([saved];quantity=R)==[label]
-        @test formula_id(saved,R)==formula_id(native,R)
     end
-    # Historical inspection must not call today's declaration constructor or
-    # reject controls that its current live owner would not admit.
-    historical=NamedTuple(Formulation(earth_impedance=formula(:carson1926;
-        equivalent_earth=formula(:bottommost;order=:before))))
-    historical=merge(historical,(requested=merge(historical.requested,
-        (earth_impedance=merge(historical.requested.earth_impedance,
-            (equivalent_earth=(identifier=:ArchivedRule,order=:archived_order,
-                parameters=(saved_parameter=2,),options=(saved_control=true,)),)),)),))
-    saved=IO.deserialize_value(Val(:formulation),historical)
-    label=only(description([saved];quantity=R))
-    @test occursin("ArchivedRule archived_order FrequencyDependent",label)
-    @test occursin("saved_control",label)
     # Inspection retains a native selection without executing its equation.
     selected_inner=FormulaFixtures.SurfaceLaw(kinds=(:inner,))
     routed=Formulation(
         internal_impedance=(inner=selected_inner,outer=:default,transfer=:default),
         earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
         earth_admittance=formula(:default;options=(integration=(method=:quad,options=(rtol=1e-9,)),)))
-    for native in (routed,MonteCarlo(routed),LinearError(routed),
-            LineCableModelsFEM(options=(physics=:quasi_fw,)),
-            Formulation(:pscad;options=(base_frequency=60.0,)))
-        saved=IO.deserialize_value(Val(:formulation),NamedTuple(native))
-        for quantity in (R,B)
-            @test description([native,normal];quantity)==description([saved,normal];quantity)
-        end
-        @test [description(scope,value;compact=false) for (scope,value) in pairs(native)]==
-            [description(scope,value;compact=false) for (scope,value) in pairs(saved...)]
-    end
     routed_result=ParametricResult(nothing,[completed(points[1],routed,1),completed(points[2],normal,2)],
         (problems=[:one],formulations=[routed,normal]), ComputationDetails((;)))
     routed_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
@@ -167,28 +121,11 @@ end
     insulation=only(filter(field -> field.meaning==(:insulation_admittance,),only(single_report.observed).gridpoint.formulation_fields.Y))
     @test any(control -> last(control.scope)===:scale,insulation.control_fields)
     @test !occursin("insulation Y",only(first(single_report.tables.features).relative.formula))
-    @test description([single];quantity=B)==description([
-        IO.deserialize_value(Val(:formulation),NamedTuple(single))];quantity=B)
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.state_inputs)
     fem_labels=description([LineCableModelsFEM(),LineCableModelsFEM(options=(physics=:quasi_fw,))];
         roles=[:reference,:reference])
     @test occursin("quasi-tem",first(fem_labels)) && occursin("quasi-fw",last(fem_labels))
-    @test ismissing(IO.deserialize_value(Val(:formulation),(backend=:unknown,)))
     @test description([missing];roles=[:reference])==["Reference · method unavailable"]
-    unknown_inner=IO.deserialize_value(Val(:formulation),
-        (kind=:monte_carlo,inner=(backend=:unknown,),options=(;)))
-    @test only(description([unknown_inner];roles=[:reference]))=="Reference · Monte Carlo"
-    @test any(occursin("method unavailable",description(scope,value;compact=false))
-        for (scope,value) in pairs(unknown_inner...))
-    # Read retained consumed IDs when present. Never advertise a saved inactive
-    # route as used, or replace an explicit unknown selection with today's default.
-    declared=NamedTuple(normal)
-    consumed=merge(declared,(methods=merge(declared.methods,
-        (earth_impedance=NamedTuple(E.EarthImpedance.Formula(:saad1996)),
-            pipe_impedance=nothing)),))
-    decoded=IO.deserialize_value(Val(:formulation),consumed)
-    @test occursin("earth Z=Saad",only(description([decoded];quantity=R)))
-    @test any(last(scope)==(:pipe_impedance,) && value===nothing for (scope,value) in pairs(decoded...))
 
     # A programming error is not absent metadata. The real composed consumer
     # must execute the owned description and propagate its failure.
@@ -226,18 +163,11 @@ end
 end
 
 @testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit, :pscad] setup=[FormulaFixtures] begin
-    IO=LineCableModels.ImportExport
     a=Formulation(earth_impedance=:saad1996)
     b=Formulation(earth_impedance=:xue2018)
     @test formula_id(a,Y)==formula_id(b,Y)
     @test formula_id(a,Z)!=formula_id(b,Z)
     @test formula_id(a,nothing)!=formula_id(b,nothing)
-    for source in (a,b,MonteCarlo(a),LinearError(a),LineCableModelsFEM(),Formulation(:pscad))
-        saved=IO.deserialize_value(Val(:formulation),NamedTuple(source))
-        for quantity in (nothing,R,B)
-            @test formula_id(source,quantity)==formula_id(saved,quantity)
-        end
-    end
     routed=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:xue2018))
     other=Formulation(earth_impedance=(air=:default,earth=:default,mixed=:lucca1994))
     @test formula_id(routed,R)!=formula_id(other,R)
@@ -252,9 +182,6 @@ end
     @test formula_id(overridden,Z)==formula_id(Formulation(),Z)
     @test formula_id(MonteCarlo(a),Y)!=formula_id(LinearError(a),Y)
     @test ismissing(formula_id(missing,Y))
-    incomplete=IO.deserialize_value(Val(:formulation),
-        (backend=:coaxial,requested=(earth_admittance=(identifier=:default,),)))
-    @test ismissing(formula_id(incomplete,Y))
     @test description([Formulation()];quantity=Y)==[
         "shunt geometry=coaxial; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
 end

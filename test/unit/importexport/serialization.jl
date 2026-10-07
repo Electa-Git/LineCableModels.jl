@@ -58,8 +58,6 @@ end
         transported = JSON3.read(JSON3.write(encoded), Dict{String,Any})
         restored = IE.deserialize_value(transported)
         @test restored == original
-        @test formula_id(IE.deserialize_value(Val(:formulation), restored), Z) ==
-            formula_id(formulation, Z)
     end
     for selector in (Val(:homogeneous), Val(:quad), Val(1), Val((:self, 1, 2)))
         encoded = IE.serialize_value(selector, Val(:scientific))

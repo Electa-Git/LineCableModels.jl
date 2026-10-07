@@ -150,7 +150,7 @@ end
     given=compute(problem, Formulation(earth_impedance = explicit, earth_admittance = explicit))
     @test unspecified.Z.values == given.Z.values && unspecified.Y.values == given.Y.values
     for slot in (:earth_impedance, :earth_admittance)
-        @test recorded(unspecified, slot).order === :AfterFD
+        @test recorded(unspecified, slot).order === :after
         @test recorded(unspecified, slot).rule.identifier === :bottommost
         @test recorded(unspecified, slot) == recorded(given, slot)
         @test requested(unspecified, slot) === nothing
@@ -301,7 +301,7 @@ end
         @test details(value).data.formulations.methods.earth_impedance.equivalent_earth ===
               nothing
         @test details(value).data.formulations.methods.earth_admittance.equivalent_earth.order ===
-              (order === :before ? :BeforeFD : :AfterFD)
+              order
     end
     @test (EI.formulas(EI.Formula), EA.formulas(EA.Formula)) === inventories
 end
