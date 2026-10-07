@@ -35,12 +35,12 @@ function description(::Type{<:Formula{:messier1985}}; compact::Bool=false)
     compact ? "Messier" : "Messier square-root soil dispersion (1985)"
 end
 
-function earth_material(
-        ::Formula{:messier1985}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
+function earth_material(formula::Formula{:messier1985}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
+    parameters = formula.parameters
     conductivity_reference = inv(material.rho)
-    epsilon_infinity = convert(T, values.epsilon_infinity)
+    epsilon_infinity = convert(T, parameters.epsilon_infinity)
     epsilon0 = vacuum_permittivity(typeof(frequency))
     pi_typed = one(frequency) * π
     relative_permittivity = epsilon_infinity + sqrt(

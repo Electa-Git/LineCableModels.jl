@@ -32,16 +32,16 @@ function description(::Type{<:Formula{:visacro1987}}; compact::Bool=false)
     compact ? "Visacro" : "Visacro–Portela empirical soil dispersion (1987)"
 end
 
-function earth_material(
-        ::Formula{:visacro1987}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
+function earth_material(formula::Formula{:visacro1987}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
+    parameters = formula.parameters
     conductivity_reference = inv(material.rho)
     relative_permittivity = convert(T, 2.34e6) *
                             conductivity_reference^convert(T, 0.535) *
                             frequency^convert(T, -0.597)
     conductivity = conductivity_reference *
-                   (frequency / convert(T, values.normalization_frequency))^convert(T, 0.072)
+                   (frequency / convert(T, parameters.normalization_frequency))^convert(T, 0.072)
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 

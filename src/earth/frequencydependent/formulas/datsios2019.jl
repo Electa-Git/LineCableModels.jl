@@ -32,14 +32,14 @@ function description(::Type{<:Formula{:datsios2019}}; compact::Bool=false)
     compact ? "Datsios" : "Datsios–Mikropoulos two-limit soil fit (2019)"
 end
 
-function earth_material(
-        ::Formula{:datsios2019}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
+function earth_material(formula::Formula{:datsios2019}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
+    parameters = formula.parameters
     conductivity_low = convert(T, 1e4) / material.rho
     frequency_low = convert(T, 42)
     frequency_boundary = convert(T, 3000)
-    dry_permittivity = convert(T, values.dry_permittivity)
+    dry_permittivity = convert(T, parameters.dry_permittivity)
 
     permittivity_exponent = convert(T, 0.537) * conductivity_low^convert(T, 0.16)
     dry_permittivity_3khz = convert(T, 2.9) * dry_permittivity - convert(T, 3.8)

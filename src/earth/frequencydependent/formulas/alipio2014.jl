@@ -40,14 +40,14 @@ function description(::Type{<:Formula{:alipio2014}}; compact::Bool=false)
     compact ? "Alipio" : "Alipio–Visacro causal soil dispersion (2014)"
 end
 
-function earth_material(
-        ::Formula{:alipio2014}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
-    gamma = convert(T, values.exponent)
-    epsilon_infinity = convert(T, values.epsilon_infinity)
-    scale = convert(T, values.scale)
-    conductivity_exponent = convert(T, values.conductivity_exponent)
+function earth_material(formula::Formula{:alipio2014}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
+    parameters = formula.parameters
+    gamma = convert(T, parameters.exponent)
+    epsilon_infinity = convert(T, parameters.epsilon_infinity)
+    scale = convert(T, parameters.scale)
+    conductivity_exponent = convert(T, parameters.conductivity_exponent)
     thousand = convert(T, 1000)
     million = convert(T, 1e6)
     conductivity_reference = thousand / material.rho

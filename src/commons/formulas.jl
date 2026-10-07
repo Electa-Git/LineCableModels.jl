@@ -71,14 +71,6 @@ method on its own `Formula` type.
 """
 function formulas end
 
-"""
-    bindings(formula, interactions)
-
-Bind each interaction to the expression that `formula` declares for it, together with that
-expression's normalized formulation options. Return one record per interaction, in order.
-A formula family extends this function for its own formulas and interactions.
-"""
-function bindings end
 import ..LineCableModels: description, formula_id
 
 """

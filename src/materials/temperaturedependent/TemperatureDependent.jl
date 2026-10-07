@@ -19,7 +19,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 using ..Materials: Material
 import ...TextDisplay
-import ...Commons: AbstractFormulation, formulation_options
+import ...Commons: AbstractFormulation, Functor, formulation_options
 import ...LineCableModels: FormulaDefinition, Expression, constitutive,
                           formula_id, validate
 #! explicit-imports: off

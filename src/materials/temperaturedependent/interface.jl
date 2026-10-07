@@ -30,8 +30,9 @@ function temperature_resistivity end
 $(TYPEDSIGNATURES)
 
 Construct a temperature-dependent resistivity law with model parameters and
-numerical controls. Custom formulations extend `temperature_resistivity`
-on their own concrete selection type.
+numerical controls. Custom formulations extend
+`temperature_resistivity(selected, functor, workspace)` on their own concrete selection type.
+The input of `functor` holds the reference material, the temperature and the options.
 """
 function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
@@ -62,13 +63,26 @@ function validate(rho, ::Union{Nothing, TemperatureDependentFormulation}, materi
     return rho
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of a temperature-dependent resistivity law for one reference material at
+one temperature, after checking the temperature. The state is empty.
+"""
+function Functor(formula::TemperatureDependentFormulation, input::NamedTuple;
+        workspace = nothing)
+    (; temperature) = input
+    isfinite(temperature) || throw(DomainError(temperature,
+        "constitutive temperature must be finite"))
+    return Functor(formula, input, (;))
+end
+
 @inline function (formula::TemperatureDependentFormulation)(
         material::Material{T}, temperature::T;
         workspace = nothing) where {T <: Real}
-    isfinite(temperature) || throw(DomainError(temperature,
-        "constitutive temperature must be finite"))
-    rho = temperature_resistivity(
-        formula, material, temperature, formula.parameters, formula.options, workspace)
+    functor = Functor(formula, (; material, temperature, options = formula.options);
+        workspace)
+    rho = Expression(formula, temperature_resistivity)(functor, workspace)
     return validate(rho, formula, material, temperature)
 end
 

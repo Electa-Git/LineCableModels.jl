@@ -1,5 +1,5 @@
 @testitem "Commons / formula options / one option projection for every formula family" tags=[:unit, :engine] begin
-    using LineCableModels.Commons: bindings, formulation_options, Expression
+    using LineCableModels.Commons: formulation_options, Expression
     const E = LineCableModels.Engine
     const EH = LineCableModels.Earth.EquivalentHomogeneous
     soil = E.EarthPair(1, 2, (-1.0, -2.0), 1.0, (2, 2))
@@ -27,11 +27,12 @@
     @test_throws "unused formulation options (:unknown,) for :$(formula_id(internal))" E.InternalImpedance.Formula(
         :default; options = (unknown = 1,))
 
-    # Equivalent-earth reductions bind their equivalent_material equations.
+    # An equivalent-earth reduction declares its equivalent_material expression for a pair.
     rule = EH.Formula(:bottommost)
-    reduced = only(bindings(rule, (soil,)))
-    @test reduced.expression.method === EH.equivalent_material
-    @test reduced.options == formulation_options(reduced.expression)
+    reduced = Expression(rule, soil)
+    @test reduced.method === EH.equivalent_material
+    @test reduced.arguments == (Val(:mutual), Val(2), Val(2))
+    @test only(formulation_options(rule, (reduced,)).options) == formulation_options(reduced)
 end
 
 @testitem "Commons / Functor / one evaluation point of a formula" tags=[:unit, :engine] begin

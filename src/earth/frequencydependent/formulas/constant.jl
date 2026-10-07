@@ -25,21 +25,18 @@ Preserve the supplied static earth properties at the requested frequency.
 
 # Arguments
 
-- `material`: static earth material.
-- `frequency`: evaluation frequency \\[Hz\\].
-- `parameters`: physical parameters of the selected relation.
-- `options`: normalized numerical sections for this contribution.
+- `functor`: the Functor of the evaluation point. Its input holds:
+  - `material`: static earth material.
+  - `frequency`: evaluation frequency \\[Hz\\].
+  - `options`: the normalized formulation options of the formula.
 - `workspace`: optional execution resources.
 
 # Returns
 
 - The unchanged `EarthMaterial`.
 """
-function earth_material(
-        ::Formula{:constant}, material::EarthMaterial, frequency::Real,
-        values::NamedTuple, options::FormulationOptions, workspace
-)
-    material
+function earth_material(::Formula{:constant}, functor, workspace)
+    return functor.input.material
 end
 
 formulation_options(::Expression{<:Formula{:constant}, typeof(earth_material)}) = FormulationOptions()

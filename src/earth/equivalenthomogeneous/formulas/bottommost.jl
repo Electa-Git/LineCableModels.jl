@@ -35,10 +35,10 @@ end
 
 function equivalent_material(
         ::Formula{:bottommost}, ::Union{Val{:self}, Val{:mutual}}, ::Val{S}, ::Val{T},
-        rho, eps_r, mu_r, model, pair, frequency,
-        values, options, workspace
+        functor, workspace
 ) where {S, T}
     S >= 1 && T >= 1 || throw(ArgumentError("physical layer indices must be positive"))
+    (; rho, eps_r, mu_r) = functor.input
     return EarthMaterial(rho[end], eps_r[end], mu_r[end])
 end
 

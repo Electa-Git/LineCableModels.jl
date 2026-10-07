@@ -10,10 +10,9 @@ $(TYPEDEF)
 Select one frequency-dependent earth-material relation by its stable formula
 identifier.
 
-Each formula implements
-`earth_material(selected, material, frequency, parameters, options, workspace) -> EarthMaterial`
-on its concrete selection type. `:default` is a routing
-alias for the explicit `:constant` pass-through.
+Each formula implements `earth_material(selected, functor, workspace) -> EarthMaterial` on
+its concrete selection type. The input of `functor` holds the earth material, the frequency
+and the options. `:default` is a routing alias for the explicit `:constant` pass-through.
 
 $(TYPEDFIELDS)
 """
@@ -70,15 +69,25 @@ end
 """Check model-specific coefficient domains before evaluating a material."""
 validate(selected::Formula) = selected
 
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of a frequency-dependent earth relation for one earth material at one
+frequency, after checking the frequency. The state is empty.
+"""
+function Functor(formula::FrequencyDependentFormulation, input::NamedTuple;
+        workspace = nothing)
+    (; frequency) = input
+    isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
+        frequency, "earth-property evaluation frequency must be positive and finite"))
+    return Functor(formula, input, (;))
+end
+
 @inline function (formula::FrequencyDependentFormulation)(
         material::EarthMaterial{T}, frequency::T; workspace = nothing
 ) where {T <: Real}
-    isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
-        frequency,
-        "earth-property evaluation frequency must be positive and finite"
-    ))
-    evaluated = earth_material(
-        formula, material, frequency, formula.parameters, formula.options, workspace)
+    functor = Functor(formula, (; material, frequency, options = formula.options); workspace)
+    evaluated = Expression(formula, earth_material)(functor, workspace)
     evaluated isa EarthMaterial ||
         throw(ArgumentError("a frequency-dependent earth relation must return EarthMaterial"))
     return evaluated

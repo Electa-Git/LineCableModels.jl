@@ -269,8 +269,9 @@
         exponent = 1,
         events = Symbol[]) = DispersiveEarth(
         (scale = scale, exponent = exponent), FormulationOptions(), Tuple[], events)
-    function FD.earth_material(
-            selected::DispersiveEarth, material, frequency, parameters, options, workspace)
+    function FD.earth_material(selected::DispersiveEarth, functor, workspace)
+        (; material, frequency) = functor.input
+        parameters = selected.parameters
         push!(selected.seen, (material.rho, frequency, workspace))
         push!(selected.events, :fd)
         return EP.EarthMaterial(
@@ -296,10 +297,10 @@
         seen::Vector{Tuple}
     end
     ConstantResistivity(value) = ConstantResistivity((rho = value,), FormulationOptions(), Tuple[])
-    function TD.temperature_resistivity(selected::ConstantResistivity, material,
-            temperature, parameters, options, workspace)
+    function TD.temperature_resistivity(selected::ConstantResistivity, functor, workspace)
+        (; material, temperature) = functor.input
         push!(selected.seen, (material, temperature, workspace))
-        return parameters.rho
+        return selected.parameters.rho
     end
     LineCableModels.formulation_options(::Expression{
         <:ConstantResistivity, typeof(TD.temperature_resistivity)}) = FormulationOptions()
@@ -310,10 +311,10 @@
         seen::Vector{Tuple}
     end
     ScaledResistivity(scale = 2) = ScaledResistivity((scale = scale,), FormulationOptions(), Tuple[])
-    function TD.temperature_resistivity(selected::ScaledResistivity, material,
-            temperature, parameters, options, workspace)
+    function TD.temperature_resistivity(selected::ScaledResistivity, functor, workspace)
+        (; material, temperature) = functor.input
         push!(selected.seen, (material, temperature, workspace))
-        return parameters.scale*material.rho
+        return selected.parameters.scale*material.rho
     end
     LineCableModels.formulation_options(::Expression{
         <:ScaledResistivity, typeof(TD.temperature_resistivity)}) = FormulationOptions()
@@ -323,8 +324,10 @@
         options::O
     end
     ExponentialResistivity(scale = 1000.0) = ExponentialResistivity((scale = scale,), FormulationOptions())
-    TD.temperature_resistivity(
-        ::ExponentialResistivity, m, t, p, o, w) = m.rho*exp((t-m.T0)/p.scale)
+    function TD.temperature_resistivity(selected::ExponentialResistivity, functor, workspace)
+        (; material, temperature) = functor.input
+        return material.rho*exp((temperature-material.T0)/selected.parameters.scale)
+    end
     LineCableModels.formulation_options(::Expression{
         <:ExponentialResistivity, typeof(TD.temperature_resistivity)}) = FormulationOptions()
 
@@ -336,9 +339,12 @@
     DispersiveSoil() = DispersiveSoil(
         (rho_scale = 1000, epsilon_scale = 2000, mu_scale = 10000),
         FormulationOptions(), Float64[])
-    function FD.earth_material(selected::DispersiveSoil, m, f, p, o, w)
-        push!(selected.seen, f)
-        EP.EarthMaterial(m.rho/(1+f/p.rho_scale), m.eps_r*(1+f/p.epsilon_scale), m.mu_r*(1+f/p.mu_scale))
+    function FD.earth_material(selected::DispersiveSoil, functor, workspace)
+        (; material, frequency) = functor.input
+        p = selected.parameters
+        push!(selected.seen, frequency)
+        EP.EarthMaterial(material.rho/(1+frequency/p.rho_scale),
+            material.eps_r*(1+frequency/p.epsilon_scale), material.mu_r*(1+frequency/p.mu_scale))
     end
     LineCableModels.formulation_options(::Expression{
         <:DispersiveSoil, typeof(FD.earth_material)}) = FormulationOptions()
@@ -349,8 +355,11 @@
     end
     ScaledSoil(; rho = 1, epsilon = 1,
         mu = 1) = ScaledSoil((rho = rho, epsilon = epsilon, mu = mu), FormulationOptions())
-    FD.earth_material(::ScaledSoil, m, f, p, o,
-        w) = EP.EarthMaterial(m.rho*p.rho, m.eps_r*p.epsilon, m.mu_r*p.mu)
+    function FD.earth_material(selected::ScaledSoil, functor, workspace)
+        (; material) = functor.input
+        p = selected.parameters
+        return EP.EarthMaterial(material.rho*p.rho, material.eps_r*p.epsilon, material.mu_r*p.mu)
+    end
     LineCableModels.formulation_options(::Expression{
         <:ScaledSoil, typeof(FD.earth_material)}) = FormulationOptions()
 
@@ -393,12 +402,12 @@
     end
     MeanEarth() = MeanEarth((;), FormulationOptions(), Tuple[])
     function EH.equivalent_material(selected::MeanEarth, ::Val{Kind}, ::Val{S}, ::Val{T},
-            rho, epsilon, mu, model, pair, frequency, parameters,
-            options, workspace) where {Kind, S, T}
+            functor, workspace) where {Kind, S, T}
+        (; rho, eps_r, mu_r, pair, frequency) = functor.input
         push!(selected.seen, (copy(rho), pair, frequency, workspace))
         soils=2:length(rho)
         return EP.EarthMaterial(sum(rho[soils])/length(soils),
-            sum(epsilon[soils])/length(soils), sum(mu[soils])/length(soils))
+            sum(eps_r[soils])/length(soils), sum(mu_r[soils])/length(soils))
     end
     LineCableModels.formulation_options(::Expression{
         <:MeanEarth, typeof(EH.equivalent_material)}) = FormulationOptions()
@@ -413,11 +422,11 @@
         (scale = 100,), FormulationOptions(), events, Any[])
     function EH.equivalent_material(
             selected::SquaredBottomEarth, ::Val{Kind}, ::Val{S}, ::Val{T},
-            rho, epsilon, mu, model, pair, frequency, parameters,
-            options, workspace) where {Kind, S, T}
+            functor, workspace) where {Kind, S, T}
+        (; rho, eps_r, mu_r) = functor.input
         push!(selected.events, :ehem)
         push!(selected.workspaces, workspace)
-        return EP.EarthMaterial(last(rho)^2/parameters.scale, last(epsilon), last(mu))
+        return EP.EarthMaterial(last(rho)^2/selected.parameters.scale, last(eps_r), last(mu_r))
     end
     LineCableModels.formulation_options(::Expression{
         <:SquaredBottomEarth, typeof(EH.equivalent_material)}) = FormulationOptions()

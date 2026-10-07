@@ -14,10 +14,12 @@ $(TYPEDEF)
 Select one equivalent homogeneous-earth rule by its stable formula
 identifier.
 
-The rule receives evaluated layer properties, the
-static earth geometry, the interaction pair, and frequency. It returns one
-artificial homogeneous [`EarthMaterial`](@ref). Formula parameters participate
-in the concrete Julia type.
+Each rule implements
+`equivalent_material(selected, Val(kind), Val(source), Val(target), functor, workspace)` for
+the conductor pairs it reduces. The input of `functor` holds the evaluated layer properties
+`rho`, `eps_r` and `mu_r`, the earth `model`, the physical conductor `pair`, the `frequency`
+and the `options`. The method returns one artificial homogeneous [`EarthMaterial`](@ref).
+Formula parameters participate in the concrete Julia type.
 
 The `:default` formula uses the bottommost soil layer as the equivalent
 homogeneous material.
@@ -93,14 +95,27 @@ function description(sequence::BeforeFD;compact::Bool=false)
     "$(description(sequence.rule;compact)) before layerwise FrequencyDependent"
 end
 
-@inline function (formula::AbstractRule)(
-        rho::AbstractVector,
-        eps_r::AbstractVector,
-        mu_r::AbstractVector,
-        model::EarthModel,
-        pair,
-        frequency::Real; binding = only(bindings(formula, (pair,))), workspace = nothing
-)
+"""
+$(TYPEDSIGNATURES)
+
+Return the `equivalent_material` expression that the reduction `rule` declares for the
+conductor pair `pair`: self or mutual by its indices, from the physical layer of its source to
+that of its target.
+"""
+function Expression(rule::AbstractRule, pair)
+    kind = pair.row == pair.column ? :self : :mutual
+    return Expression(rule, equivalent_material, Val(kind), Val.(pair.layers)...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of the reduction `rule` for one physical conductor pair at one frequency. It
+checks that the layer properties align with the layers of the earth model, that the frequency
+is positive and finite, and that the pair's layers belong to the model. The state is empty.
+"""
+function Functor(rule::AbstractRule, input::NamedTuple; workspace = nothing)
+    (; rho, eps_r, mu_r, model, pair, frequency) = input
     length(rho) == length(eps_r) == length(mu_r) == length(model.layers) ||
         throw(DimensionMismatch("EquivalentHomogeneous properties must align with the complete physical model"))
     isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
@@ -108,11 +123,33 @@ end
         "EquivalentHomogeneous evaluation frequency must be positive and finite"
     ))
     validate(pair, getproperty.(model.layers, :thickness))
-    material = binding.expression(rho, eps_r, mu_r, model, pair, frequency,
-        formula.parameters, binding.options, workspace)
+    return Functor(rule, input, (;))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check that the reduction `rule` returned an [`EarthMaterial`](@ref). Return `material`.
+"""
+function validate(material, rule::AbstractRule)
     material isa EarthMaterial ||
         throw(ArgumentError("an EquivalentHomogeneous contribution must return EarthMaterial"))
     return material
+end
+
+@inline function (formula::AbstractRule)(
+        rho::AbstractVector,
+        eps_r::AbstractVector,
+        mu_r::AbstractVector,
+        model::EarthModel,
+        pair,
+        frequency::Real; workspace = nothing
+)
+    expression = validate(Expression(formula, pair))
+    options = only(formulation_options(formula, (expression,)).options)
+    functor = Functor(formula, (; rho, eps_r, mu_r, model, pair, frequency, options);
+        workspace)
+    return validate(expression(functor, workspace), formula)
 end
 
 function AbstractSequence(selection::FormulaDefinition{ID, Order}) where {ID, Order}
@@ -121,33 +158,6 @@ function AbstractSequence(selection::FormulaDefinition{ID, Order}) where {ID, Or
     rule = Formula{ID}(; parameters = selection.parameters,
         options = selection.options)
     return Order === :before ? BeforeFD(rule) : AfterFD(rule)
-end
-
-function equivalent_material(selected::AbstractRule, ::Val{Kind}, ::Val{S}, ::Val{T},
-        rho, eps_r, mu_r, model, pair, frequency, parameters,
-        options, workspace
-) where {Kind, S, T}
-    throw(ArgumentError("equivalent_material :$(formula_id(selected)) ($Kind): formula not implemented for source in layer $S and target in layer $T"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Bind each conductor interaction to the `equivalent_material` expression that the reduction
-declares for its kind and layers, with the expression's normalized options. Return
-`(expression, options)` records.
-"""
-function bindings(formula::AbstractRule, pairs::Union{Tuple, AbstractVector})
-    expressions = map(pairs) do pair
-        kind = pair.row == pair.column ? :self : :mutual
-        Expression(formula, equivalent_material, Val(kind), Val.(pair.layers)...)
-    end
-    projected = formulation_options(formula, expressions)
-    records = map(projected.expressions, projected.options) do expression, options
-        (expression = expression, options = options)
-    end
-    return map(expression -> records[findfirst(==(expression), projected.expressions)],
-        expressions)
 end
 
 """Expose the reduction rule, model parameters and numerical options as a native record."""

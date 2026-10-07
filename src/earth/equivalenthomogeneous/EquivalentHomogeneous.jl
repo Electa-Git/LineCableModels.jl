@@ -14,7 +14,7 @@ $(IMPORTS)
 """
 module EquivalentHomogeneous
 import ...Commons: FormulationOptions
-import ...Commons: formulation_options, bindings, initialize_buffers, formulas
+import ...Commons: formulation_options, initialize_buffers, formulas
 import ...LineCableModels: validate
 
 export Formula, AfterFD, BeforeFD
@@ -24,7 +24,7 @@ export formula_id, formulas, rule
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 using ..Earth: EarthMaterial, EarthModel
-import ...Commons: AbstractFormulation
+import ...Commons: AbstractFormulation, Functor
 import ...LineCableModels: FormulaDefinition, Expression, formula_id
 #! explicit-imports: off
 import ...LineCableModels: description

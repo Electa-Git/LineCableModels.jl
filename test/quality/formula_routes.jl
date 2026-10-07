@@ -71,7 +71,7 @@ end
         elseif owner === E.InternalImpedance
             Tuple(Expression(selected,owner.internal_impedance,Val(kind)) for kind in (:inner,:outer,:transfer))
         elseif owner === EP.EquivalentHomogeneous
-            (only(LineCableModels.Commons.bindings(selected,(E.EarthPair(1,1,(1.0,1.0),0.0,(1,1);radius=0.01),))).expression,)
+            (Expression(selected,E.EarthPair(1,1,(1.0,1.0),0.0,(1,1);radius=0.01)),)
         else
             operation=only(last(entry) for entry in scalar_operations if first(entry) === owner)
             (Expression(selected,operation),)

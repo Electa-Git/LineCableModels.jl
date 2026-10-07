@@ -22,10 +22,9 @@ function description(::Type{<:Formula{:scott1967}}; compact::Bool=false)
     compact ? "Scott" : "Scott–Carroll–Cunningham empirical moist-soil fit (1967)"
 end
 
-function earth_material(
-        ::Formula{:scott1967}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
+function earth_material(::Formula{:scott1967}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
     thousand = convert(T, 1000)
     conductivity_100hz = thousand / material.rho
     conductivity_log = log10(conductivity_100hz)

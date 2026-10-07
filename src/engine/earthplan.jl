@@ -9,17 +9,18 @@ calculation is a record with these fields.
   the conductor pairs whose values it publishes. It is `nothing` when the calculation does
   not serve the quantity.
 - `earth`: the layered earth model or the reduction that its expressions consume.
+- `reductions`: on a reduced earth, each is `(expression, options, pairs)`, one expression of
+  the reduction, its normalized options and the conductor pairs it serves. It is `nothing` on
+  the layered earth.
 - `parts`: each is `(expressions, options, pairs)`, the expressions of one part of the
   formula, their normalized options and the conductor pairs they serve.
-- `pairs`: each is `(pair, physical, reduction, reuse_from)`. It holds the pair on the decided
-  earth and the physical pair. On a reduced earth, `reduction` holds the reduction's expression
-  and options, and `nothing` otherwise. `reuse_from` is the earlier pair with the same inputs
-  whose computed value this pair takes when their media agree, or its own index when the pair
-  is computed.
+- `pairs`: each is `(pair, physical, reuse_from)`. It holds the pair on the decided earth and
+  the physical pair. `reuse_from` is the earlier pair with the same inputs whose computed value
+  this pair takes when their media agree, or its own index when the pair is computed.
 - `media`: the medium of each conductor on the decided earth.
 
-Before the impedance and the admittance plans merge, a calculation holds `quantity`, its
-formula and the pairs it publishes, in place of `impedance` and `admittance`.
+The plan of one slot serves only that slot's quantity. The merge of the impedance and the
+admittance plans gives one calculation both quantities when it can serve them.
 
 $(TYPEDFIELDS)
 """
@@ -34,9 +35,10 @@ $(TYPEDSIGNATURES)
 Build the calculation of the earth formula `formula` for the physical conductor pairs
 `physical[indices]`, on the decided `earth`: the layered earth `model`, or a reduction of it.
 The constructor checks each pair and the geometric restrictions of each expression. It checks
-that `formula` defines its expressions for the layers of `model` and, on a reduction, that the
-reduction admits each expression. The distinct expressions, with the options that `formula`
-declares for each, become the parts.
+that `formula` defines its expressions for the layers of `model`. On a reduction, it checks
+that the reduction admits each expression and defines its own expression for each physical
+pair. The distinct expressions, with the options that `formula` declares for each, become the
+parts.
 `geometry` holds the conductor radii and the physical layer of each conductor.
 
 A formula that computes the whole system adds a method on its own type.
@@ -56,13 +58,18 @@ function EarthPlan(formula::Union{EarthImpedanceFormulation, EarthAdmittanceForm
     for expression in projected.expressions
         validate(expression, model.layers)
     end
-    # The reduction's own expression and options for each physical pair.
+    # The reduction's own expressions, their options and the physical pairs each serves.
     reductions = if earth === model
         nothing
     else
         rule = EquivalentHomogeneous.rule(earth)
         foreach(expression -> validate(rule, expression), expressions)
-        bindings(rule, physical[indices])
+        reduced = [Expression(rule, physical[index]) for index in indices]
+        normalized = formulation_options(rule, reduced)
+        foreach(validate, normalized.expressions)
+        Tuple(map(normalized.expressions, normalized.options) do expression, options
+            (; expression, options, pairs = findall(==(expression), reduced))
+        end)
     end
     # The pairs that each distinct expression serves.
     served = [findall(==(expression), expressions) for expression in projected.expressions]
@@ -81,18 +88,15 @@ function EarthPlan(formula::Union{EarthImpedanceFormulation, EarthAdmittanceForm
     parts = map(projected.expressions, projected.options, served) do expression, options, pairs
         (expressions = (expression,), options, pairs)
     end
-    pairs = if reductions === nothing
-        [(pair = decided[position], physical = physical[index], reduction = nothing,
-             reuse_from = reuse_from[position]) for (position, index) in enumerate(indices)]
-    else
-        [(pair = decided[position], physical = physical[index],
-             reduction = reductions[position], reuse_from = reuse_from[position])
-         for (position, index) in enumerate(indices)]
-    end
+    pairs = [(pair = decided[position], physical = physical[index],
+                 reuse_from = reuse_from[position]) for (position, index) in enumerate(indices)]
     media = earth === model ? geometry.layers :
             [layer == 1 ? 1 : 2 for layer in geometry.layers]
-    calculation = (quantity = (; formula, pairs = collect(eachindex(decided))), earth,
-        parts = Tuple(parts), pairs, media)
+    published = (; formula, pairs = collect(eachindex(decided)))
+    impedance = formula isa EarthImpedanceFormulation ? published : nothing
+    admittance = formula isa EarthAdmittanceFormulation ? published : nothing
+    calculation = (; impedance, admittance, earth, reductions, parts = Tuple(parts), pairs,
+        media)
     return EarthPlan((calculation,))
 end
 
@@ -172,19 +176,19 @@ function EarthPlan(impedance::EarthPlan, admittance::EarthPlan)
     remaining = collect(NamedTuple, admittance.calculations)
     for calculation in impedance.calculations
         index = findfirst(remaining) do candidate
-            same_physical_state(calculation.quantity.formula, candidate.quantity.formula) &&
+            same_physical_state(calculation.impedance.formula, candidate.admittance.formula) &&
                 same_physical_state(first(calculation.parts).options.data,
                     first(candidate.parts).options.data)
         end
-        shared = index === nothing ? nothing : remaining[index].quantity
-        index === nothing || deleteat!(remaining, index)
-        push!(calculations, (impedance = calculation.quantity, admittance = shared,
-            calculation.earth, calculation.parts, calculation.pairs, calculation.media))
+        if index === nothing
+            push!(calculations, calculation)
+        else
+            push!(calculations,
+                merge(calculation, (admittance = remaining[index].admittance,)))
+            deleteat!(remaining, index)
+        end
     end
-    for calculation in remaining
-        push!(calculations, (impedance = nothing, admittance = calculation.quantity,
-            calculation.earth, calculation.parts, calculation.pairs, calculation.media))
-    end
+    append!(calculations, remaining)
     return EarthPlan(Tuple(calculations))
 end
 

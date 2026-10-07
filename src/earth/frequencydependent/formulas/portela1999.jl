@@ -36,12 +36,12 @@ function description(::Type{<:Formula{:portela1999}}; compact::Bool=false)
     compact ? "Portela" : "Portela power-law soil dispersion (1999)"
 end
 
-function earth_material(
-        ::Formula{:portela1999}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
-    beta = convert(T, values.beta)
-    exponent = convert(T, values.exponent)
+function earth_material(formula::Formula{:portela1999}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
+    parameters = formula.parameters
+    beta = convert(T, parameters.beta)
+    exponent = convert(T, parameters.exponent)
     angular_frequency = 2 * (one(frequency) * π) * frequency
     fitted_scale = beta * convert(T, 1e-6)
     conductivity = inv(material.rho) + fitted_scale * angular_frequency^exponent

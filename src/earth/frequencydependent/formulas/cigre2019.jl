@@ -29,20 +29,20 @@ function description(::Type{<:Formula{:cigre2019}}; compact::Bool=false)
     compact ? "CIGRE" : "CIGRE WG C4.33 recommended soil dispersion (2019)"
 end
 
-function earth_material(
-        ::Formula{:cigre2019}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
+function earth_material(formula::Formula{:cigre2019}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
+    parameters = formula.parameters
     conductivity_reference = inv(material.rho)
-    conductivity_exponent = convert(T, values.epsilon_conductivity_exponent)
-    relative_permittivity = convert(T, values.epsilon_infinity) +
-                            convert(T, values.epsilon_scale) *
+    conductivity_exponent = convert(T, parameters.epsilon_conductivity_exponent)
+    relative_permittivity = convert(T, parameters.epsilon_infinity) +
+                            convert(T, parameters.epsilon_scale) *
                             conductivity_reference^conductivity_exponent *
-                            frequency^convert(T, values.epsilon_frequency_exponent)
+                            frequency^convert(T, parameters.epsilon_frequency_exponent)
     conductivity = conductivity_reference +
-                   convert(T, values.conductivity_scale) *
+                   convert(T, parameters.conductivity_scale) *
                    conductivity_reference^conductivity_exponent *
-                   frequency^convert(T, values.conductivity_frequency_exponent)
+                   frequency^convert(T, parameters.conductivity_frequency_exponent)
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 

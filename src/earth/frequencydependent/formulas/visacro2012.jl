@@ -33,11 +33,11 @@ function description(::Type{<:Formula{:visacro2012}}; compact::Bool=false)
     compact ? "Visacro" : "Visacro–Alipio empirical soil dispersion (2012)"
 end
 
-function earth_material(
-        ::Formula{:visacro2012}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
-    frequency_boundary = convert(T, values.frequency_boundary)
+function earth_material(formula::Formula{:visacro2012}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
+    parameters = formula.parameters
+    frequency_boundary = convert(T, parameters.frequency_boundary)
     evaluated_frequency = frequency < frequency_boundary ?
                           frequency_boundary : frequency
     conductivity_reference = inv(material.rho)

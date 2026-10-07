@@ -445,7 +445,7 @@ function homogenize!(destination,
     frequency = workspace.input.freq[frequency_index]
     data = calculation.earth isa EquivalentHomogeneous.BeforeFD ? earth.static : earth.evaluated
     homogenize!(destination, calculation.earth, relation, data, model,
-        calculation.pairs, frequency, frequency_index; workspace)
+        calculation, frequency, frequency_index; workspace)
     return destination
 end
 
@@ -457,14 +457,14 @@ function homogenize!(
         relation,
         evaluated,
         model::EarthModel,
-        pairs,
+        calculation,
         frequency,
         frequency_index::Int; workspace = nothing
 )
     epsilon0=vacuum_permittivity(eltype(destination.rho))
     mu0=vacuum_permeability(eltype(destination.rho))
     for row in axes(destination.rho, 1)
-        for column in eachindex(pairs)
+        for column in eachindex(calculation.pairs)
             destination.rho[row, column]=evaluated.rho[row, frequency_index]
             destination.epsilon[row, column]=epsilon0*evaluated.eps_r[row, frequency_index]
             destination.mu[row, column]=mu0*evaluated.mu_r[row, frequency_index]
@@ -479,7 +479,7 @@ function homogenize!(
         relation,
         evaluated,
         model::EarthModel,
-        pairs,
+        calculation,
         frequency,
         frequency_index::Int; workspace = nothing
 )
@@ -487,12 +487,14 @@ function homogenize!(
     eps_r = @view evaluated.eps_r[:, frequency_index]
     mu_r = @view evaluated.mu_r[:, frequency_index]
     air = EarthMaterial(rho[1], eps_r[1], mu_r[1])
-    @inbounds for (column, entry) in enumerate(pairs)
-        earth = sequence.rule(
-            rho, eps_r, mu_r, model, entry.physical, frequency; binding = entry.reduction,
-            workspace
-        )
-        _media!(destination, column, air, earth)
+    foreach(calculation.reductions) do reduction
+        @inbounds for column in reduction.pairs
+            functor = Functor(sequence.rule, (; rho, eps_r, mu_r, model,
+                pair = calculation.pairs[column].physical, frequency, reduction.options);
+                workspace)
+            earth = validate(reduction.expression(functor, workspace), sequence.rule)
+            _media!(destination, column, air, earth)
+        end
     end
     return destination
 end
@@ -503,18 +505,20 @@ function homogenize!(
         relation,
         static,
         model::EarthModel,
-        pairs,
+        calculation,
         frequency,
         frequency_index::Int; workspace = nothing
 )
     air = EarthMaterial(static.rho[1], static.eps_r[1], static.mu_r[1])
-    @inbounds for (column, entry) in enumerate(pairs)
-        reconstructed = sequence.rule(
-            static.rho, static.eps_r, static.mu_r,
-            model, entry.physical, frequency; binding = entry.reduction, workspace
-        )
-        earth = constitutive(relation, reconstructed, frequency; workspace)
-        _media!(destination, column, air, earth)
+    foreach(calculation.reductions) do reduction
+        @inbounds for column in reduction.pairs
+            functor = Functor(sequence.rule, (; static.rho, static.eps_r, static.mu_r, model,
+                pair = calculation.pairs[column].physical, frequency, reduction.options);
+                workspace)
+            reconstructed = validate(reduction.expression(functor, workspace), sequence.rule)
+            earth = constitutive(relation, reconstructed, frequency; workspace)
+            _media!(destination, column, air, earth)
+        end
     end
     return destination
 end

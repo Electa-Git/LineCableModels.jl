@@ -43,12 +43,12 @@ function description(::Type{<:Formula{:longmire1975}}; compact::Bool=false)
     compact ? "Longmire" : "Longmire–Smith 13-term dielectric relaxation (1975)"
 end
 
-function earth_material(
-        ::Formula{:longmire1975}, material::EarthMaterial{T}, frequency::T,
-        values::NamedTuple, options::FormulationOptions, workspace
-) where {T <: Real}
+function earth_material(formula::Formula{:longmire1975}, functor, workspace)
+    (; material, frequency) = functor.input
+    T = typeof(frequency)
+    parameters = formula.parameters
     conductivity_reference = inv(material.rho)
-    corner = (convert(T, values.corner_scale) * conductivity_reference)^convert(T, values.corner_exponent)
+    corner = (convert(T, parameters.corner_scale) * conductivity_reference)^convert(T, parameters.corner_exponent)
     permittivity_sum = zero(frequency)
     conductivity_sum = zero(frequency)
     decade = one(frequency)
@@ -62,7 +62,7 @@ function earth_material(
         conductivity_sum += typed_coefficient * ratio / denominator
         decade *= ten
     end
-    relative_permittivity = convert(T, values.epsilon_infinity) + permittivity_sum
+    relative_permittivity = convert(T, parameters.epsilon_infinity) + permittivity_sum
     conductivity = conductivity_reference +
                    2 * (one(frequency) * π) * frequency *
                    vacuum_permittivity(typeof(frequency)) * conductivity_sum

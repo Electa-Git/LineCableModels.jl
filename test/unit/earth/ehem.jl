@@ -55,8 +55,10 @@
     end
 end
 
-@testitem "Earth / missing equivalent equation fails on evaluation, not declaration" tags=[:unit, :engine] begin
+@testitem "Earth / missing equivalent equation fails on evaluation, not declaration" tags=[:unit, :engine] setup=[
+    TestFixtures] begin
     const EH = LineCableModels.Earth.EquivalentHomogeneous
+    const E = LineCableModels.Engine
     struct UnimplementedReduction <: EH.AbstractRule
         parameters::NamedTuple
         options::FormulationOptions
@@ -67,8 +69,17 @@ end
     rule = UnimplementedReduction((;), FormulationOptions())
     pair = LineCableModels.Engine.EarthPair(1, 1, (-1.0, -1.0), 0.0, (2, 2); radius=0.01)
     model = homogeneous(rho=100.0, eps_r=10.0)
-    binding = only(LineCableModels.Commons.bindings(rule, (pair,)))
-    @test binding.expression.selection === rule
-    @test_throws r"equivalent_material :UnimplementedReduction.*source in layer 2 and target in layer 2" rule(
-        [Inf, 100.0], [1.0, 10.0], [1.0, 1.0], model, pair, 50.0; binding)
+    expression = LineCableModels.Expression(rule, pair)
+    @test expression.selection === rule
+    message = "formula :UnimplementedReduction has no expression for :self, 2, 2"
+    @test_throws message LineCableModels.validate(expression)
+    @test_throws message rule([Inf, 100.0], [1.0, 10.0], [1.0, 1.0], model, pair, 50.0)
+    # The plan checks the reduction's expressions before the frequency loop.
+    LineCableModels.validate(reduction::UnimplementedReduction, ::LineCableModels.Expression{
+        <:Union{E.EarthImpedance.Formula, E.EarthAdmittance.Formula}}) = reduction
+    problem = LineParametersProblem(TestFixtures.three_phase_system(); earth_props = model,
+        frequencies = [50.0])
+    reduced = formula(:default; equivalent_earth = EH.AfterFD(rule))
+    @test_throws message compute(problem,
+        Formulation(earth_impedance = reduced, earth_admittance = reduced))
 end

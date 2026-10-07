@@ -196,8 +196,10 @@ function EarthPlan(formula::Union{EarthImpedance.Formula{:unified}, Formula{:uni
                   Expression(Val(:unified), source_potential_coefficient, primary.arguments...)
         (expressions = (axial, potential), options = part.options, pairs = part.pairs)
     end
-    quantity=(; formula, pairs = collect(indices))
-    return EarthPlan((merge(calculation, (; quantity, parts)),))
+    published=(; formula, pairs = collect(indices))
+    impedance=formula isa EarthImpedanceFormulation ? published : nothing
+    admittance=formula isa EarthAdmittanceFormulation ? published : nothing
+    return EarthPlan((merge(calculation, (; impedance, admittance, parts)),))
 end
 
 # Unified's arithmetic reads the pair's geometry and the conductor radii, not its indices.
