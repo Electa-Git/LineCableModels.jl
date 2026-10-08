@@ -442,7 +442,7 @@
     function E.internal_shunt_response(selected::UserCoaxialShunt, design::CableDesign,
             geometry, T, methods, solutions, design_index)
         selected.response_count[]+=1
-        response=E.internal_shunt_response(E.ShuntModel.Formula(:coaxial),
+        response=E.internal_shunt_response(E.ShuntModel.Formula(:equivalent),
             design, geometry, T, methods, solutions, design_index)
         merge(response, (details = merge(response.details, (requested = :UserCoaxialShunt,)),))
     end

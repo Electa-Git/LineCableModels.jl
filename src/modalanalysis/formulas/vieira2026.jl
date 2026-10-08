@@ -73,7 +73,7 @@ function formulation_options(::Expression{<:Formula{:vieira2026}, typeof(decompo
 end
 
 function initialize_buffers(
-        ::Val{:vieira2026}, ::Type{T}, input, plan, buffers) where {T <: Complex}
+        ::Formula{:vieira2026}, ::Type{T}, input, plan, buffers) where {T <: Complex}
     n = plan.n
     R = typeof(real(zero(T)))
     order = n + 1
@@ -123,7 +123,7 @@ function minimum_norm!(solution, matrix::AbstractMatrix{T}, rhs, projection) whe
     return solution
 end
 
-function levenberg_marquardt_step!(::Val{:vieira2026}, vector::AbstractVector{T},
+function levenberg_marquardt_step!(::Formula{:vieira2026}, vector::AbstractVector{T},
         value::T, matrix, options, buffers) where {T <: Complex}
     n = length(vector)
     order = n + 1
@@ -173,7 +173,7 @@ function levenberg_marquardt_step!(::Val{:vieira2026}, vector::AbstractVector{T}
     return buffers.x[end], sqrt(cost) < tolerance, iterations
 end
 
-function refine_eigenpairs!(::Val{:vieira2026}, values, vectors, previous_vectors,
+function refine_eigenpairs!(::Formula{:vieira2026}, values, vectors, previous_vectors,
         prediction, eigensystem, options, buffers)
     n = length(values)
     R = eltype(buffers.cost)
@@ -271,7 +271,7 @@ function refine_eigenpairs!(::Val{:vieira2026}, values, vectors, previous_vector
     return largest_change <= R(options.predictor_tolerance)
 end
 
-function decompose!(::Val{:vieira2026}, workspace::ModalAnalysisWorkspace,
+function decompose!(formula::Formula{:vieira2026}, workspace::ModalAnalysisWorkspace,
         parameters::NamedTuple, options::FormulationOptions)
     buffers = workspace.buffers
     input = workspace.input
@@ -326,14 +326,14 @@ function decompose!(::Val{:vieira2026}, workspace::ModalAnalysisWorkspace,
             end
             copyto!(buffers.eigenvectors, prediction.vectors)
             for mode in 1:n
-                value, converged, iterations = levenberg_marquardt_step!(Val(:vieira2026),
+                value, converged, iterations = levenberg_marquardt_step!(formula,
                     @view(buffers.eigenvectors[:, mode]), prediction.values[mode], matrix,
                     iteration, buffers.least_squares)
                 buffers.eigenvalues[mode] = value
                 diagnostics.iterations[mode, frequency] = iterations
                 diagnostics.converged[mode, frequency] = converged
             end
-            matched = refine_eigenpairs!(Val(:vieira2026), buffers.eigenvalues,
+            matched = refine_eigenpairs!(formula, buffers.eigenvalues,
                 buffers.eigenvectors, buffers.previous_eigenvectors, prediction, eigensystem, tracking, assignment)
             if !matched
                 # Preserve the reference's square correlation solve and greedy assignment.

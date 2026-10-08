@@ -121,7 +121,7 @@ function validate(inner::Union{Engine.LineParametersFormulation, Engine.CableCon
         ::Type{<:Union{LinearError, MonteCarlo}})
     selected = inner.methods.shunt_model
     if selected isa Engine.ShuntModel.Formula{:boundary} && selected.parameters.fallback !== :error
-        throw(ArgumentError("uncertainty propagation requires a fixed shunt model; select strict :boundary or :coaxial, without automatic fallback"))
+        throw(ArgumentError("uncertainty propagation requires a fixed shunt model; select strict :boundary or :equivalent, without automatic fallback"))
     end
     return inner
 end

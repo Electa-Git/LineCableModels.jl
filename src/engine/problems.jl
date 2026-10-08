@@ -338,7 +338,8 @@ $(TYPEDSIGNATURES)
 Select the complete physical-method bundle for a line-parameter calculation.
 `Formulation(; kwargs...)` and `Formulation(:coaxial; kwargs...)` call it.
 
-`shunt_model=:default` (or `:coaxial`) selects annular local shunt geometry.
+`shunt_model=:default` (or `:equivalent`) selects the equivalent annular layer as local shunt
+geometry.
 `:boundary` explicitly computes a lossless wire and tape boundary correction.
 This choice is independent of `insulation_admittance` and `semicon_admittance`,
 which select material constitutive laws. Geometric boundary numerical controls and an

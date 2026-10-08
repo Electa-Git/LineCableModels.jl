@@ -558,9 +558,9 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
         shunt,
         shunt_covered,
         (requested,
-            effective = isempty(reports) ? :coaxial :
+            effective = isempty(reports) ? :equivalent :
                         all(r -> r.effective === :boundary, reports) ? :boundary :
-                        all(r -> r.effective === :coaxial, reports) ? :coaxial : :mixed,
+                        all(r -> r.effective === :equivalent, reports) ? :equivalent : :mixed,
             solves = length(solved), domains = reports, diagnostics)
     )
 end

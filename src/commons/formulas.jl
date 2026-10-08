@@ -138,8 +138,8 @@ end
 
 """Render only the explicit controls admitted by a formula declaration."""
 function description(::Type{FormulaDefinition},controls::NamedTuple;compact::Bool=true)
-    return "("*join([string(key)*"="*description(Val(key),value;compact)
+    return "("*join([string(key)*"="*description(FormulaDefinition,Val(key),value;compact)
         for (key,value) in pairs(controls)],", ")*")"
 end
-description(::Union{Val{:parameters},Val{:options}},value;compact::Bool=true) =
-    sprint(show,value;context=:compact=>compact)
+description(::Type{FormulaDefinition},::Union{Val{:parameters},Val{:options}},value::NamedTuple;
+    compact::Bool=true) = sprint(show,value;context=:compact=>compact)

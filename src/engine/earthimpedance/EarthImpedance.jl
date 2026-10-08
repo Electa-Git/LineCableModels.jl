@@ -24,16 +24,11 @@ import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthImpedanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
-import ...LineCableModels: validate
-import ..Engine: EarthPair, layer_index
 import ...LineCableModels: FormulaDefinition, Expression
 import ..Engine: description, conductivity, special_besselk
 import ..Engine: formulation_options
-import ..Engine: earth_spectral_term, earth_direct
 using ...Commons: vacuum_permeability
 #! explicit-imports: on
-
-public axial_field_coefficient
 
 include("interface.jl")
 

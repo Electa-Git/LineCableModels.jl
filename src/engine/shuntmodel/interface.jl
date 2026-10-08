@@ -19,24 +19,24 @@ const DEFAULT_RESOLUTION = (wire = 64, order = 32, quadrature = 256, modes = 102
 const DEFAULT_INTEGRATION = (rtol = 1e-8, atol = 1e-10, maxevals = 100_000)
 
 "Return the available local shunt model identifiers."
-formulas(::Type{<:Formula}) = (:default, :coaxial, :boundary)
+formulas(::Type{<:Formula}) = (:default, :equivalent, :boundary)
 
 """
 $(TYPEDSIGNATURES)
 
-Construct a cable-local shunt model. `:default` and `:coaxial` use annular
-dielectric intervals. `:boundary` resolves eligible lossless open-screen
+Construct a cable-local shunt model. `:default` and `:equivalent` use the equivalent annular
+layer of each dielectric interval. `:boundary` resolves eligible lossless open-screen
 domains before frequency evaluation.
 
 # Keywords
 
 - `parameters=(;)`: geometric boundary `fallback=:error` (default) or explicitly
-  `:coaxial` after an unsupported geometric boundary assumption or numerical failure.
+  `:equivalent` after an unsupported geometric boundary assumption or numerical failure.
   A finite result's quality warning never triggers this fallback.
 - `options=(;)`: geometric boundary `resolution=(wire=64, order=32, quadrature=256,
   modes=1024)`, `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`, and
   `audit=false`. The audit recomputes an independent boundary grid and checks
-  derivative step refinement. Numerical controls are unsupported for coaxial models.
+  derivative step refinement. The equivalent model does not accept numerical controls.
 
 # Returns
 
@@ -45,13 +45,13 @@ domains before frequency evaluation.
 function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
     options = options isa NamedTuple ? FormulationOptions(options) : options
-    ID === :coaxial || throw(ArgumentError("unknown shunt model :$ID"))
+    ID === :equivalent || throw(ArgumentError("unknown shunt model :$ID"))
     isempty(parameters) && isempty(options.data) || throw(ArgumentError(
-        "coaxial shunt models accept no parameters or numerical controls"))
+        "equivalent shunt models accept no parameters or numerical controls"))
     return Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
 end
 
-Formula{:default}(; kwargs...) = Formula{:coaxial}(; kwargs...)
+Formula{:default}(; kwargs...) = Formula{:equivalent}(; kwargs...)
 
 function Formula{:boundary}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
@@ -59,8 +59,8 @@ function Formula{:boundary}(; parameters::NamedTuple = (;),
     isempty(setdiff(keys(parameters), (:fallback,))) || throw(ArgumentError(
         "boundary shunt parameters accept only fallback"))
     fallback = get(parameters, :fallback, :error)
-    fallback in (:error, :coaxial) ||
-        throw(ArgumentError("boundary fallback must be :error or :coaxial"))
+    fallback in (:error, :equivalent) ||
+        throw(ArgumentError("boundary fallback must be :error or :equivalent"))
     isempty(setdiff(keys(options.data), (:resolution, :integration, :audit))) ||
         throw(ArgumentError(
             "boundary shunt options accept resolution, integration, and audit"))
@@ -94,14 +94,14 @@ function Formula{:boundary}(; parameters::NamedTuple = (;),
     return Formula{:boundary, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
-"""Describe the equivalent annular local shunt approximation."""
-function description(::Type{<:Formula{:coaxial}}; compact::Bool = false)
-    compact ? "coaxial" :
-    "Coaxial annular shunt geometry"
+"""Describe the equivalent annular layer local shunt approximation."""
+function description(::Type{<:Formula{:equivalent}}; compact::Bool = false)
+    compact ? "equivalent annular layer" :
+    "Equivalent annular layer shunt geometry"
 end
-"""Describe the default equivalent annular local shunt approximation."""
+"""Describe the default equivalent annular layer local shunt approximation."""
 function description(::Type{<:Formula{:default}}; compact::Bool = false)
-    description(Formula{:coaxial}; compact)
+    description(Formula{:equivalent}; compact)
 end
 """Describe the lossless wire and tape geometric boundary approximation."""
 function description(::Type{<:Formula{:boundary}}; compact::Bool = false)

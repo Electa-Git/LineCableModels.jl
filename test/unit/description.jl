@@ -179,7 +179,7 @@ end
     @test formula_id(MonteCarlo(a),Y)!=formula_id(LinearError(a),Y)
     @test ismissing(formula_id(missing,Y))
     @test description([Formulation()];quantity=Y)==[
-        "shunt geometry=coaxial; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
+        "shunt geometry=equivalent annular layer; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
 end
 
 @testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit, :importexport, :slow] begin

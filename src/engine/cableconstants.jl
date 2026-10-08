@@ -343,8 +343,8 @@ inputs return one [`CableConstantsFormulation`](@ref). Varying inputs return a
 
 - `internal_impedance`: conductor surface-impedance recipe.
 - `insulation_impedance`: longitudinal insulation-impedance recipe.
-- `shunt_model`: local geometry model. `:default`/`:coaxial` uses annuli,
-  `:boundary` explicitly computes lossless open-screen coupling.
+- `shunt_model`: local geometry model. `:default`/`:equivalent` uses the equivalent
+  annular layer, `:boundary` explicitly computes lossless open-screen coupling.
 - `insulation_admittance`: insulation constitutive relation.
 - `semicon_admittance`: semiconducting-layer constitutive relation.
 - `pipe_impedance`: pipe-type selection. The coaxial pipe implementation is not

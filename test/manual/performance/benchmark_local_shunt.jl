@@ -66,8 +66,8 @@ if shunt_compute_sweep
     shunt_results = shunt_sweep.value
     shunt_default = first(shunt_results)
     @assert details(shunt_default).data.shunt_model.solves == shunt_cable_data.shunt_details.solves
-    shunt_coaxial = Formulation(shunt_model=:coaxial;options=shunt_physical)
-    shunt_annular = compute(shunt_problem,shunt_coaxial;options=(trace=true,))
+    shunt_equivalent = Formulation(shunt_model=:equivalent;options=shunt_physical)
+    shunt_annular = compute(shunt_problem,shunt_equivalent;options=(trace=true,))
     @assert observe(shunt_default,Z) == observe(shunt_annular,Z)
     @assert details(shunt_default).data.trace.Pg == details(shunt_annular).data.trace.Pg
     shunt_loop_input = shunt_engine.lineinput(shunt_problem, shunt_cold.value)
@@ -80,7 +80,7 @@ if shunt_compute_sweep
     shunt_loop_trial = @benchmark shunt_engine._compute(LineCableModelsCoaxial(),
         $shunt_problem,$(first(shunt_formulations)),$shunt_loop_options,$shunt_loop_input,
         $shunt_inputs,$shunt_id) samples=3 evals=1
-    shunt_annular_trial = @benchmark compute($shunt_problem,$shunt_coaxial;
+    shunt_annular_trial = @benchmark compute($shunt_problem,$shunt_equivalent;
         options=(trace=true,)) samples=3 evals=1
     display(shunt_loop_trial)
     display(shunt_annular_trial)

@@ -57,30 +57,47 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate the source-charge coefficient of conductor voltage \\[m/F\\] for
-circumferentially averaged fields in two half-spaces. Air targets use the
-interface z=0 as voltage reference. Buried targets use deep earth. With
-source amplitudes q̃ and conductor voltages U,
+Calculate both source coefficients of a conductor pair for circumferentially averaged fields
+in two homogeneous half-spaces: the axial-field coefficient per source current \\[Ω/m\\] and
+the source-charge coefficient of conductor voltage \\[m/F\\]. It takes the Unified formula of
+either earth family. The exp(jωt) convention and caller-prescribed Γ \\[1/m\\]
+give
+
+```math
+\\widetilde K_{ij}=\\mathcal Z_{ij}-\\Gamma^2\\mathcal P_{\\phi,ij}/(j\\omega).
+```
+
+The electric scalar-potential contribution is retained when Γ is nonzero. Air targets use
+the interface z=0 as voltage reference. Buried targets use deep earth. With source
+amplitudes q̃ and conductor voltages U,
 
 ```math
 U=\\widetilde P\\widetilde q,\\qquad P_e T_I=\\widetilde P.
 ```
 
-The coefficient includes the complete-field voltage relation, not just scalar
-potential. Source-column exponential scaling matches the axial-field and
-current-map arrays and cancels in the physical matrix solve. The air endpoint
-and conductor field are combined before quadrature to preserve cancellation.
+The source-potential coefficient includes the complete-field voltage relation, not just
+scalar potential. The air endpoint and conductor field are combined before quadrature to
+preserve cancellation. Source columns include exp(abs(real(κⱼrⱼ))) scaling, shared by both
+coefficients and the enclosed-current matrices, and it cancels in the physical matrix solve.
+`functor.input.pair` retains source-target geometry \\[m\\]. `functor.state` contains the
+evaluated media of the system, and the workspace buffers store the circumferential factors.
+The complete current map converts the axial-field coefficients to physical series impedance.
+The direct-image term is evaluated once for both coefficients. Quadrature estimates remain
+diagnostic warnings.
 
 # Returns
 
-- Scaled source-potential coefficient \\[m/F\\].
+- `(axial, potential)`: the scaled axial-field coefficient \\[Ω/m\\] and the scaled
+  source-potential coefficient \\[m/F\\].
 
 # Reference
 
-User-supplied manuscript, *Unified circumferentially averaged framework for
-overhead, buried, and mixed conductor systems*, voltage and source-charge maps.
+User-supplied manuscript, *Unified circumferentially averaged framework for overhead,
+buried, and mixed conductor systems*: complete-field current relation, voltage and
+source-charge maps.
 """
-function source_potential_coefficient(::Union{Formula{:unified}, Val{:unified}},
+function source_coefficients(
+        formula::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
         kind::Union{Val{:self}, Val{:mutual}}, source::Union{Val{1}, Val{2}},
         target::Union{Val{1}, Val{2}}, functor, workspace)
     u=functor.state
@@ -88,37 +105,46 @@ function source_potential_coefficient(::Union{Formula{:unified}, Val{:unified}},
     buffers=workspace.buffers
     row, column=pair.row, pair.column
     hp, hq=abs(pair.heights[2]), abs(pair.heights[1])
+    y=pair.separation
     r=workspace.plan.geometry.radius[row]
     average=buffers.circumference_average[row]
+    argument=buffers.radial_argument[row]
     sp, sq=buffers.source_logscale[row], buffers.source_logscale[column]
+    πT=one(u.jω)*π
     integration=functor.input.options.data.integration
     context=(
         formula = :unified, frequency = imag(u.jω)/(2π), receiver = row, source = column)
-    direct=earth_direct(
-        kind, source, target, u, pair, r, average, buffers.radial_argument[row], sp, sq)
-    return source_potential_coefficient(source, target, u, hp, hq, pair.separation,
-        r, average, buffers.radial_argument[row], sp, sq,
-        direct, integration, buffers; context)
-end
-
-function source_potential_coefficient(source::Val{S}, ::Val{2}, u, hp, hq, y,
-        r, average, argument, sp, sq, direct, integration, numerical; context) where {S}
-    value=u.jω/(one(u.jω)*π)*average*earth_spectral_term(Val(:voltage), Val(2), source,
-        u, hp, hq, y, zero(r), sp+sq, integration.method,
-        integration.options, numerical; context)
-    return value+u.jω/(2*(one(u.jω)*π)*u.sh[2])*direct
-end
-
-function source_potential_coefficient(source::Val{S}, ::Val{1}, u, hp, hq, y,
-        r, average, argument, sp, sq, direct, integration, numerical; context) where {S}
-    πT=one(u.jω)*π
+    direct=earth_direct(formula, kind, source, target, u, pair, r, average, argument, sp, sq)
+    # The axial field, before the source potential: the integral records keep this order.
+    medium=target === Val(1) ? 1 : 2
+    z=u.jω/πT*average*earth_spectral_term(formula, Val(:Z), target, source, u,
+        hp, hq, y, zero(r), sp+sq,
+        integration.method, integration.options, buffers; context)
+    z+=u.jω*u.mu[medium]/(2πT)*direct
+    phi=zero(z)
+    if !iszero(u.Γ)
+        phi=u.jω/πT*average*earth_spectral_term(formula, Val(:phi), target, source, u,
+            hp, hq, y, zero(r), sp+sq,
+            integration.method, integration.options, buffers; context)
+        phi+=u.jω/(2πT*u.sh[medium])*direct
+    end
+    axial=z-u.Γ^2/u.jω*phi
+    # A buried target takes its voltage from deep earth.
+    if target === Val(2)
+        value=u.jω/(one(u.jω)*π)*average*earth_spectral_term(formula, Val(:voltage), Val(2),
+            source, u, hp, hq, y, zero(r), sp+sq, integration.method,
+            integration.options, buffers; context)
+        return (axial, value+u.jω/(2*(one(u.jω)*π)*u.sh[2])*direct)
+    end
+    # An air target takes its voltage from the interface.
     if abs(real(nominal(argument)))<300
         R=typeof(float(nominal(real(u.jω))))
         padding=hq/2
         angle=min(R(π)/6, atan(R(nominal(hq))/(4max(R(nominal(y+r)), eps(R)))))
         angle=earth_contour_angle(u, angle)
-        points=earth_spectral_points!(numerical.earth_spectrum, u, hq-padding, y, r, angle)
+        points=earth_spectral_points!(buffers.earth_spectrum, u, hq-padding, y, r, angle)
         g=(hp, hq, radius = r, padding, logscale = sq, i0minus = bessel_i0m1(argument))
+        S=source === Val(1) ? 1 : 2
         kernel=AirVoltageSpectrum{S, typeof(u), typeof(g)}(u, g)
         scale=max(R(abs(nominal(u.k[2]))), inv(R(nominal(hq))))
         contour=scale*cis(angle)
@@ -128,24 +154,27 @@ function source_potential_coefficient(source::Val{S}, ::Val{1}, u, hp, hq, y,
         push!(points, one(scale))
         value,
         _=integrate(integral, integration.method, integration.options,
-            numerical; points, coordinate_type = R,
-            context = merge(context, (term = :air_voltage,)), observations = numerical.observations)
-        return u.jω/πT*value+u.jω/(2πT*u.sh[1])*direct
+            buffers; points, coordinate_type = R,
+            context = merge(context, (term = :air_voltage,)), observations = buffers.observations)
+        return (axial, u.jω/πT*value+u.jω/(2πT*u.sh[1])*direct)
     end
-    value=u.jω/πT*average*earth_spectral_term(Val(:voltage), Val(1), source, u,
-        hp, hq, y, zero(r), sp+sq, integration.method, integration.options, numerical; context)
+    value=u.jω/πT*average*earth_spectral_term(formula, Val(:voltage), Val(1), source, u,
+        hp, hq, y, zero(r), sp+sq, integration.method, integration.options, buffers; context)
     value+=u.jω/(2πT*u.sh[1])*direct
-    return value+u.jω/πT*earth_spectral_term(Val(:air_reference), Val(1), source, u,
-        zero(r), hq, y, r, sq, integration.method, integration.options, numerical; context)
+    return (axial, value+u.jω/πT*earth_spectral_term(formula, Val(:air_reference), Val(1),
+        source, u, zero(r), hq, y, r, sq, integration.method, integration.options, buffers;
+        context))
 end
 
-function Expression(selected::Formula{:unified}, pair::EarthPair)
-    return Expression(selected, source_potential_coefficient,
+function Expression(formula::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
+        pair::EarthPair)
+    return Expression(formula, source_coefficients,
         Val(pair.row == pair.column ? :self : :mutual), Val.(layer_index(pair))...)
 end
 
-function formulation_options(::Expression{<:Formula{:unified},
-        typeof(source_potential_coefficient),
+function formulation_options(::Expression{
+        <:Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
+        typeof(source_coefficients),
         A}) where {
         A <: Tuple{
         Union{Val{:self}, Val{:mutual}}, Union{Val{1}, Val{2}}, Union{Val{1}, Val{2}}}}
@@ -153,7 +182,8 @@ function formulation_options(::Expression{<:Formula{:unified},
 end
 
 function validate(reduction::EquivalentHomogeneous.Formula{:bottommost},
-        ::Expression{<:Formula{:unified}, typeof(source_potential_coefficient)})
+        ::Expression{<:Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
+            typeof(source_coefficients)})
     return reduction
 end
 
@@ -188,18 +218,10 @@ function EarthPlan(formula::Union{EarthImpedance.Formula{:unified}, Formula{:uni
                 "exterior circumferences must not overlap"))
         end
     end
-    parts=map(calculation.parts) do part
-        primary=only(part.expressions)
-        axial=primary.method === EarthImpedance.axial_field_coefficient ? primary :
-              Expression(Val(:unified), EarthImpedance.axial_field_coefficient, primary.arguments...)
-        potential=primary.method === source_potential_coefficient ? primary :
-                  Expression(Val(:unified), source_potential_coefficient, primary.arguments...)
-        (expressions = (axial, potential), options = part.options, pairs = part.pairs)
-    end
     published=(; formula, pairs = collect(indices))
     impedance=formula isa EarthImpedanceFormulation ? published : nothing
     admittance=formula isa EarthAdmittanceFormulation ? published : nothing
-    return EarthPlan((merge(calculation, (; impedance, admittance, parts)),))
+    return EarthPlan((merge(calculation, (; impedance, admittance)),))
 end
 
 # Unified's arithmetic reads the pair's geometry and the conductor radii, not its indices.

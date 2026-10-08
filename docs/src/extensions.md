@@ -126,10 +126,10 @@ in m/F, and temperature-law resistivities in Ω·m. Scalar material laws return
 `formulation_options` methods for metadata. Serialized identities and data do
 not reconstruct executable methods. See the [temperature-law example](engine.md#Cable-material-temperature-dependence).
 
-### A Val-dispatched modal equation
+### A custom modal formula
 
-The following complete one-mode example implements a custom modal equation.
-The modal workspace supplies common slices, coordinate conversion buffers, the
+The following complete one-mode example implements a custom modal formula. Its
+methods take the formula object first, `Formula{:diagonal_example}`. The modal workspace supplies common slices, coordinate conversion buffers, the
 admittance-impedance product, eigenpair history and voltage-vector buffers.
 `initialize_buffers` extends that record only for additional numerical work.
 It assumes a completed one-mode phase scan named `phase`, with nonzero
@@ -148,13 +148,13 @@ description(::Type{<:Formula{:diagonal_example}}; compact=false) =
 formulation_options(::Expression{<:Formula{:diagonal_example},typeof(decompose!)}) =
     FormulationOptions()
 
-function initialize_buffers(::Val{:diagonal_example}, ::Type{T}, input,
+function initialize_buffers(::Formula{:diagonal_example}, ::Type{T}, input,
         plan, common) where {T<:Complex}
     plan.n == 1 || throw(DimensionMismatch("diagonal example requires one mode"))
     return merge(common, (diagonal_product=Vector{T}(undef,plan.nf),))
 end
 
-function decompose!(::Val{:diagonal_example}, workspace,
+function decompose!(::Formula{:diagonal_example}, workspace,
         parameters::NamedTuple, options::FormulationOptions)
     product=workspace.buffers.diagonal_product
     for k in eachindex(product)
@@ -173,16 +173,16 @@ function decompose!(::Val{:diagonal_example}, workspace,
     return workspace
 end
 
-selected=ModalAnalysisFormulation(Formula(Val(:diagonal_example)))
+selected=ModalAnalysisFormulation(Formula(:diagonal_example))
 modal=compute(ModalAnalysisProblem(phase),selected)
 segment=PropagationParameters(modal)
 size(gamma(modal)) == (1,length(frequencies(phase)))
 size(H(segment)) == size(gamma(modal))
 ```
 
-Only the selected equation's `initialize_buffers` method runs. The common
+Only the selected formula's `initialize_buffers` method runs. The common
 workspace supplies per-frequency normalization and coordinate buffers. The
-equation owns `diagonal_product`. It writes phase-row by mode-column bases
+formula owns `diagonal_product`. It writes phase-row by mode-column bases
 and mode-by-frequency roots. The owner checks structural shape and finite arithmetic before computing intrinsic coefficients. It then copies the returned arrays and records diagnostics. Numerical targets are reported as warnings and facts,
 without becoming result-admission rules.
 

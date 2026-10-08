@@ -98,7 +98,7 @@ end
     @test size(Yc(modal))==size(roots)
     @test size(Zc(modal,PhaseDomain))==size(impedance)
     @test size(Yc(modal,PhaseDomain))==size(impedance)
-    assignment=LineCableModels.Commons.initialize_buffers(Val(:chrysochos2014),
+    assignment=LineCableModels.Commons.initialize_buffers(ModalAnalysis.Formula(:chrysochos2014),
         ComplexF64,(;),(; n = 3, nf = 1),(;)).eigenpair_assignment
     @test ModalAnalysis.hungarian_assignment!(
         [4.0 1.0 3.0; 2.0 0.0 5.0; 3.0 2.0 2.0],assignment) ==

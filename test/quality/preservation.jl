@@ -154,7 +154,7 @@ end
         modal = M.ModalAnalysisWorkspace(phase, selected)
         found["decompose! $id"] = JET.get_reports(
             @report_opt target_modules=(LineCableModels,) M.decompose!(
-                M.allocation_selector(selected), modal, M.formula_parameters(selected),
+                selected, modal, M.formula_parameters(selected),
                 M.formulation_options(selected)))
     end
     for (kernel, reports) in sort!(collect(found); by = first), report in reports

@@ -50,7 +50,7 @@
     mixed = compute(problem, [first_formula, lossy])
     @test length(mixed) == 2
     @test typeof(mixed[1]) == typeof(mixed[2])
-    @test details(mixed[2]).data.shunt_model.effective === :coaxial
+    @test details(mixed[2]).data.shunt_model.effective === :equivalent
     @test details(mixed[2]).data.shunt_model.solves == 0
     reference_temperature = Formulation(shunt_model = boundary,
         temperature_dependence = nothing; options = physical)

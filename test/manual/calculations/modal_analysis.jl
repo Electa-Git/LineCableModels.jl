@@ -60,7 +60,7 @@ geometry_plot = preview(system; earth_model = earth, backend = :gl,
 # 2 public calculations, followed by the finite line from Table IV.
 phase = @time compute(problem,
     Formulation(earth_impedance = :unified,
-        earth_admittance = :unified, shunt_model = :coaxial, insulation_admittance = :lossy;
+        earth_admittance = :unified, shunt_model = :equivalent, insulation_admittance = :lossy;
         options = (reduce_bundle = false, kron_reduction = false,
             ideal_transposition = false));
     options = phase_options)

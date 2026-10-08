@@ -195,9 +195,10 @@ formulation_options(value::Formula) = value.options
 Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))
 
 """Describe an explicit equivalent-earth rule and its requested material-law order."""
-description(slot::Val{:equivalent_earth},value::FormulaDefinition;compact::Bool=true) =
-    description(slot,NamedTuple(value);compact)
-function description(::Val{:equivalent_earth},value::NamedTuple;compact::Bool=true)
+description(owner::Type{FormulaDefinition},slot::Val{:equivalent_earth},value::FormulaDefinition;
+    compact::Bool=true) = description(owner,slot,NamedTuple(value);compact)
+function description(::Type{FormulaDefinition},::Val{:equivalent_earth},value::NamedTuple;
+        compact::Bool=true)
     record=get(value,:rule,value)
     text=record.identifier in formulas(Formula) ? description(Formula{record.identifier};compact) :
          string(record.identifier)
@@ -208,4 +209,5 @@ function description(::Val{:equivalent_earth},value::NamedTuple;compact::Bool=tr
     isempty(controls) || (text *= " "*description(FormulaDefinition,controls;compact))
     return text
 end
-description(::Val{:equivalent_earth},value::AbstractSequence;compact::Bool=true) = description(value;compact)
+description(::Type{FormulaDefinition},::Val{:equivalent_earth},value::AbstractSequence;
+    compact::Bool=true) = description(value;compact)

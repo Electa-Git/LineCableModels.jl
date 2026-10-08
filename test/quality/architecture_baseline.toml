@@ -3,7 +3,7 @@
 # Print the live inventory with `test/tools/architecture_inventory.jl`.
 
 [ownership]
-"Commons | LineCableModels.description | src/commons/formulas.jl" = 4
+"Commons | LineCableModels.description | src/commons/formulas.jl" = 3
 "Commons | LineCableModels.formula_id | src/commons/formulas.jl" = 1
 "Earth.EquivalentHomogeneous | LineCableModels.description | src/earth/equivalenthomogeneous/interface.jl" = 2
 "Earth.FrequencyDependent | LineCableModels.constitutive | src/earth/frequencydependent/interface.jl" = 1
@@ -19,9 +19,6 @@
 "Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
 "ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
 "Materials.TemperatureDependent | LineCableModels.constitutive | src/materials/temperaturedependent/interface.jl" = 1
-"ModalAnalysis | Commons.initialize_buffers | src/modalanalysis/formulas/chrysochos2014.jl" = 1
-"ModalAnalysis | Commons.initialize_buffers | src/modalanalysis/formulas/vieira2026.jl" = 1
-"ModalAnalysis | Commons.initialize_buffers | src/modalanalysis/formulas/wedepohl1996.jl" = 1
 "ModalAnalysis | Commons.normalize_observation_selector | src/modalanalysis/observations.jl" = 2
 "ModalAnalysis | Commons.observables | src/modalanalysis/observations.jl" = 1
 "ModalAnalysis | Commons.observation_quantity | src/modalanalysis/observations.jl" = 1
@@ -126,6 +123,8 @@
 [storage]
 "src/engine/cableconstants.jl | CableConstantsWorkspace" = 4
 "src/modalanalysis/compute.jl | ModalAnalysisWorkspace" = 8
+
+[dispatch]
 
 [commons]
 "@observe | tests" = 1

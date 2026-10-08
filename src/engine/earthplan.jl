@@ -12,8 +12,10 @@ calculation is a record with these fields.
 - `reductions`: on a reduced earth, each is `(expression, options, pairs)`, one expression of
   the reduction, its normalized options and the conductor pairs it serves. It is `nothing` on
   the layered earth.
-- `parts`: each is `(expressions, options, pairs)`, the expressions of one part of the
-  formula, their normalized options and the conductor pairs they serve.
+- `parts`: each is `(expression, options, pairs)`, one expression of the formula, its
+  normalized options and the conductor pairs it serves. The expression returns one
+  coefficient per destination of the calculation, a number for one destination and a tuple
+  for several.
 - `pairs`: each is `(pair, physical, reuse_from)`. It holds the pair on the decided earth and
   the physical pair. `reuse_from` is the earlier pair with the same inputs whose computed value
   this pair takes when their media agree, or its own index when the pair is computed.
@@ -86,7 +88,7 @@ function EarthPlan(formula::Union{EarthImpedanceFormulation, EarthAdmittanceForm
         end
     end
     parts = map(projected.expressions, projected.options, served) do expression, options, pairs
-        (expressions = (expression,), options, pairs)
+        (; expression, options, pairs)
     end
     pairs = [(pair = decided[position], physical = physical[index],
                  reuse_from = reuse_from[position]) for (position, index) in enumerate(indices)]

@@ -66,7 +66,8 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
             if value isa NamedTuple && key !== :equivalent_earth
                 append!(captured,control_fields(owner,value,route))
             else
-                text=key === :equivalent_earth ? description(Val(key),value;compact=true) :
+                text=key === :equivalent_earth ?
+                     description(FormulaDefinition,Val(key),value;compact=true) :
                     description(owner,Val(key),value;compact=true)
                 push!(captured,(scope=route,value=Commons.detach(value),text))
             end

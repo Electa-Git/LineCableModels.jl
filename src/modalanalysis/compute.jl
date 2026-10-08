@@ -55,8 +55,6 @@ struct ModalAnalysisWorkspace{P,I,V,R,Z,Y,B,D}
     diagnostics::D
 end
 
-allocation_selector(::Formula{ID}) where {ID} = Val(ID)
-allocation_selector(selected::AbstractFormulation) = selected
 formula_parameters(selected::Formula) = selected.parameters
 formula_parameters(::AbstractFormulation) = (;)
 
@@ -88,7 +86,7 @@ function ModalAnalysisWorkspace(source::LineParameters, selected::AbstractFormul
         previous_eigenvalues=Vector{T}(undef,n),eigenvalues=Vector{T}(undef,n),
         previous_eigenvectors=Matrix{T}(undef,n,n),eigenvectors=Matrix{T}(undef,n,n),
         propagation_eigenvalues=Vector{T}(undef,n),voltage_vector=Vector{T}(undef,n))
-    buffers = initialize_buffers(allocation_selector(selected), T, input, plan, common)
+    buffers = initialize_buffers(selected, T, input, plan, common)
     R=typeof(real(zero(T)))
     residual=Matrix{Union{Nothing,R}}(undef,n,nf)
     iteration_counts=Matrix{Union{Nothing,Int}}(undef,n,nf)
@@ -194,7 +192,7 @@ function compute(::LineCableModelsModal,
     parameters=problem.parameters
     selected = formulation.formula
     workspace = ModalAnalysisWorkspace(parameters, selected)
-    decompose!(allocation_selector(selected), workspace, formula_parameters(selected),
+    decompose!(selected, workspace, formula_parameters(selected),
         formulation_options(selected))
     validate(ModalOperators(workspace.Tv, workspace.Ti), parameters)
     orient_modes!(workspace.Tv, workspace.Ti, execution.data.rotate)

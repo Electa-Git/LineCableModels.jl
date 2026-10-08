@@ -11,7 +11,7 @@ structure (homogeneous or layered), and the treatment of displacement current
 and longitudinal propagation. The [matrix formulation](matrix_formulation.md) determines
 where each contribution enters.
 
-- [Default two-half-space axial-field source coefficients](@ref axial_field_coefficient(::Union{Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Union{Val{1}, Val{2}}, ::Union{Val{1}, Val{2}}, ::Any, ::Any, ::Any))
+- [Source coefficients of the default formula in two half-spaces](@ref LineCableModels.Engine.EarthAdmittance.source_coefficients(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, LineCableModels.Engine.EarthAdmittance.Formula{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Union{Val{1}, Val{2}}, ::Union{Val{1}, Val{2}}, ::Any, ::Any))
 - [Carson homogeneous-earth overhead correction integral](external-impedance/1926/homogeneous-earth-overhead-integral/Carson1926.md)
 - [Gary approximation for overhead wires using complex depth](@ref earth_impedance(::Formula{:gary1976}, ::Val{:self}, ::Val{1}, ::Val{1}, ::Any, ::Any, ::Any))
 - [Lucca impedance for a mixed pair in homogeneous earth](@ref earth_impedance(::Formula{:lucca1994}, ::Val{:mutual}, ::Val{1}, ::Val{2}, ::Any, ::Any, ::Any))

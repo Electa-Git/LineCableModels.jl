@@ -50,7 +50,7 @@ function formulation_options(::Expression{<:Formula{:wedepohl1996}, typeof(decom
 end
 
 function initialize_buffers(
-        ::Val{:wedepohl1996}, ::Type{T}, input, plan, buffers) where {T <: Complex}
+        ::Formula{:wedepohl1996}, ::Type{T}, input, plan, buffers) where {T <: Complex}
     n=plan.n
     R=typeof(real(zero(T)))
     return merge(buffers,
@@ -90,7 +90,7 @@ function newton_eigenpair!(
     return buffers.x[end], valid && correction<=R(options.convergence), iterations
 end
 
-function decompose!(::Val{:wedepohl1996}, workspace::ModalAnalysisWorkspace,
+function decompose!(::Formula{:wedepohl1996}, workspace::ModalAnalysisWorkspace,
         parameters::NamedTuple, options::FormulationOptions)
     buffers=workspace.buffers
     input=workspace.input

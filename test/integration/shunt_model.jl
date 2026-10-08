@@ -6,18 +6,18 @@
     design = internal_shunt_test_design(count = 4)
     problem = CableConstantsProblem(design)
     default = CableConstantsFormulation()
-    coaxial = CableConstantsFormulation(shunt_model = :coaxial)
+    equivalent = CableConstantsFormulation(shunt_model = :equivalent)
     nominal = @inferred compute(problem, default)
-    @test nominal == compute(problem, coaxial)
-    @test details(nominal).data.shunt_model.effective === :coaxial
+    @test nominal == compute(problem, equivalent)
+    @test details(nominal).data.shunt_model.effective === :equivalent
     @test details(nominal).data.shunt_model.solves == 0
     @test isempty(details(nominal).data.shunt_model.diagnostics)
     @test only(details(nominal).data.shunt_model.domains).terminals == 1:3
     @test occursin("no boundary extraction or audit",
         only(details(nominal).data.shunt_model.domains).message)
     @test isempty(E.flatten(LineCableModelsCoaxial(), design, default).shunt)
-    @test E.formula_id(default.methods.shunt_model) === :coaxial
-    invalid = (formula(:no_such_model), formula(:coaxial; options = (audit = true,)),
+    @test E.formula_id(default.methods.shunt_model) === :equivalent
+    invalid = (formula(:no_such_model), formula(:equivalent; options = (audit = true,)),
         formula(:boundary; parameters = (fallback = :silent,)),
         formula(:boundary; options = (integration = (rtol = -1.0,),)),
         formula(:boundary; options = (resolution = (wire = 0,),)),
@@ -31,11 +31,11 @@
     strict = CableConstantsFormulation(shunt_model = formula(:boundary; options = budget))
     @test_throws BoundarySolveError compute(problem, strict)
     fallback = CableConstantsFormulation(shunt_model = formula(:boundary;
-        parameters = (fallback = :coaxial,), options = budget))
-    result = @test_logs (:warn, r"replaced by coaxial") compute(problem, fallback)
+        parameters = (fallback = :equivalent,), options = budget))
+    result = @test_logs (:warn, r"replaced by the equivalent annular layer") compute(problem, fallback)
     report = details(result).data.shunt_model
     @test result == nominal
-    @test report.requested === :boundary && report.effective === :coaxial
+    @test report.requested === :boundary && report.effective === :equivalent
     @test only(report.domains).reason === :budget
     @test occursin("budget", only(report.domains).message)
     @test_throws ArgumentError MonteCarlo(fallback; trials = 2)
@@ -55,14 +55,14 @@
     @test details(approximate).data.shunt_model.effective === :boundary
     @test details(approximate).data.shunt_model.solves == 1
     permitted_fallback = CableConstantsFormulation(shunt_model = formula(:boundary;
-        parameters = (fallback = :coaxial,), options = quadrature.definitions.shunt_model.options))
+        parameters = (fallback = :equivalent,), options = quadrature.definitions.shunt_model.options))
     fallback_logger = Test.TestLogger(; min_level = Logging.Warn)
     unchanged = with_logger(fallback_logger) do
         compute(problem, permitted_fallback)
     end
     @test unchanged.C == approximate.C
     @test details(unchanged).data.shunt_model.effective === :boundary
-    @test all(log -> !occursin("replaced by coaxial", log.message), fallback_logger.logs)
+    @test all(log -> !occursin("replaced by the equivalent annular layer", log.message), fallback_logger.logs)
     lossy = CableConstantsFormulation(shunt_model = :boundary, insulation_admittance = :lossy)
     @test_throws BoundarySolveError compute(problem, lossy)
     boundary = CableConstantsFormulation(shunt_model = formula(:boundary;

@@ -55,7 +55,7 @@
 
     function study_formulation()
         return Formulation(earth_impedance=:unified,earth_admittance=:unified,
-            shunt_model=:coaxial,insulation_admittance=:lossy,
+            shunt_model=:equivalent,insulation_admittance=:lossy,
             semicon_admittance=:lossy;
             options=(reduce_bundle=false,kron_reduction=false,
                 ideal_transposition=false))

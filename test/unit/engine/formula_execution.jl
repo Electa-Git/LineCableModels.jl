@@ -85,7 +85,7 @@ end
     @test_throws ArgumentError Formulation(
         earth_impedance = formula(:unified; parameters = (Γ = 1e-4im,)))
     method=LineCableModels.Expression(make(0).methods.earth_impedance,
-        E.EarthImpedance.axial_field_coefficient, Val(:self), Val(1), Val(1))
+        E.EarthAdmittance.source_coefficients, Val(:self), Val(1), Val(1))
     @test formulation_options(method).data.Γ == 0
     @test formulation_options(method, FormulationOptions(Γ = 2e-4im)).data.Γ == 2e-4im
     @test_throws ArgumentError formulation_options(method, FormulationOptions(Γ = NaN))
@@ -218,7 +218,7 @@ end
     const M=FormulaFixtures
     internal=Expression(II.Formula(:default), II.internal_impedance, Val(:outer))
     external=Expression(
-        EI.Formula(:default), EI.axial_field_coefficient, Val(:self), Val(1), Val(1))
+        EI.Formula(:default), E.EarthAdmittance.source_coefficients, Val(:self), Val(1), Val(1))
     @test formulation_options(internal)==FormulationOptions()
     @test formulation_options(external).data.integration.method === :quad
     @test_throws ArgumentError formulation_options(

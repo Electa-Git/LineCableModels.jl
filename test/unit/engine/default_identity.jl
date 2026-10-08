@@ -22,7 +22,7 @@
         (LineCableModels.ModalAnalysis,
             (:default, :chrysochos2014, :vieira2026, :wedepohl1996), :chrysochos2014),
         (LineCableModels.Materials.TemperatureDependent, (:default, :linear), :linear),
-        (E.ShuntModel, (:default, :coaxial, :boundary), :coaxial))
+        (E.ShuntModel, (:default, :equivalent, :boundary), :equivalent))
     for (owner, ids, target) in expected
         @test Set(owner.formulas(owner.Formula)) == Set(ids)
         for id in ids

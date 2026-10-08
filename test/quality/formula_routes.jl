@@ -79,7 +79,10 @@ end
         for route in routes
             @test route.selection === selected
             @test typeof(route).parameters[1] === typeof(selected)
-            @test parentmodule(route.method) === owner
+            # Unified's operation serves both earth families from EarthAdmittance.
+            home = route.method === E.EarthAdmittance.source_coefficients ?
+                   E.EarthAdmittance : owner
+            @test parentmodule(route.method) === home
             @test all(arg->arg isa Val,route.arguments)
             @test formulation_options(route) isa FormulationOptions
             @test_throws MethodError computation_options(route)

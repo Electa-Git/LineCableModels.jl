@@ -27,8 +27,8 @@
             @test calculation.parts isa Tuple
             @test all(isconcretetype, fieldtypes(typeof(calculation.parts)))
             for part in calculation.parts
-                @test isconcretetype(fieldtype(typeof(part), :expressions))
-                @test all(isconcretetype, fieldtypes(fieldtype(typeof(part), :expressions)))
+                @test isconcretetype(fieldtype(typeof(part), :expression))
+                @test fieldtype(typeof(part), :expression) <: LineCableModels.Expression
             end
         end
         @test (@inferred E._solve!(workspace, selected, calculations, materials)) === workspace

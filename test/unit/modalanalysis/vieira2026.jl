@@ -26,7 +26,7 @@ end
 @testitem "ModalAnalysis / Vieira complex residual, Jacobian and minimum-norm steps" tags=[:unit, :modal] begin
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
-    selector = Val(:vieira2026)
+    formula = M.Formula(:vieira2026)
     for R in (Float32, Float64)
         T = Complex{R}
         S = T[1+im 2-im; 0.5im 3+2im]
@@ -58,11 +58,11 @@ end
         @test iszero(solution)
 
         least_squares = LineCableModels.Commons.initialize_buffers(
-            selector, T, (;), (; n = 2, nf = 1), (;)).least_squares
+            formula, T, (;), (; n = 2, nf = 1), (;)).least_squares
         vector = T[1, 0.1im]
         matrix = Matrix(Diagonal(T[1 + 0.2im, 3 + 0.7im]))
         tolerance = R === Float64 ? 1e-11 : 1e-5
-        value, converged, iterations = M.levenberg_marquardt_step!(selector,
+        value, converged, iterations = M.levenberg_marquardt_step!(formula,
             vector, T(0.9+0.1im), matrix,
             (convergence = tolerance, max_iterations = 100), least_squares)
         @test converged
@@ -71,11 +71,11 @@ end
         @test sum(vector .^ 2) ≈ one(T)
         @test norm(matrix*vector-value*vector) < tolerance
         # An exact eigenpair does not need iterations. A stationary non-root stalls.
-        value, converged, iterations = M.levenberg_marquardt_step!(selector,
+        value, converged, iterations = M.levenberg_marquardt_step!(formula,
             T[1, 0], matrix[1, 1], matrix, (convergence = tolerance, max_iterations = 100), least_squares)
         @test converged && iterations == 0
         vector = zeros(T, 2)
-        _, converged, iterations = M.levenberg_marquardt_step!(selector,
+        _, converged, iterations = M.levenberg_marquardt_step!(formula,
             vector, zero(T), matrix, (convergence = tolerance, max_iterations = 2), least_squares)
         @test !converged && iterations == 1
         @test iszero(vector)

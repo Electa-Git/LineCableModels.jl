@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / complete Val formula extension" tags=[:unit, :modal] begin
+@testitem "ModalAnalysis / complete custom formula extension" tags=[:unit, :modal] begin
     import LineCableModels.Engine: description
     import LineCableModels.Commons: formulation_options, FormulationOptions, initialize_buffers
     import LineCableModels.ModalAnalysis: decompose!, Formula
@@ -10,13 +10,13 @@
         compact ? "diagonal example" : "one-mode diagonal example"
     formulation_options(::Expression{<:Formula{:diagonal_example},typeof(decompose!)}) =
         FormulationOptions()
-    function initialize_buffers(::Val{:diagonal_example},::Type{T},input,plan,
+    function initialize_buffers(::Formula{:diagonal_example},::Type{T},input,plan,
             common) where {T<:Complex}
         allocations[]+=1
         plan.n==1 || throw(DimensionMismatch("diagonal example requires one mode"))
         return merge(common,(diagonal_product=Vector{T}(undef,plan.nf),))
     end
-    function decompose!(::Val{:diagonal_example},workspace,parameters::NamedTuple,
+    function decompose!(::Formula{:diagonal_example},workspace,parameters::NamedTuple,
             options::FormulationOptions)
         calculations[]+=1
         product=workspace.buffers.diagonal_product
@@ -39,7 +39,7 @@
     phase=LineParameters(reshape(ComplexF64[2+im,3+im],1,1,2),
         reshape(ComplexF64[1e-6im,2e-6im],1,1,2),[50.0,100.0];
         details=ComputationDetails((inputs=(system=(line_length=10.0,),),)))
-    selected=ModalAnalysisFormulation(Formula(Val(:diagonal_example)))
+    selected=ModalAnalysisFormulation(Formula(:diagonal_example))
     modal=compute(ModalAnalysisProblem(phase),selected)
     segment=PropagationParameters(modal)
     @test allocations[]==1 && calculations[]==1

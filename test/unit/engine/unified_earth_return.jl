@@ -517,7 +517,7 @@ end
                 UnifiedFormulaFixtures.buffers(geometry).earth_spectrum, state, 2.0, 1.0, 0.0, 0.0)
             push!(points, 1.0)
             real_axis, _=E.integrate(integral, Val(:quad), controls; points)
-            rotated=E.earth_spectral_term(
+            rotated=E.earth_spectral_term(E.EarthImpedance.Formula(:unified),
                 Val(kind), Val(P), Val(Q), state, 1.0, 1.0, 1.0, 0.0, 0.0,
                 Val(:quad), controls, UnifiedFormulaFixtures.buffers(geometry))
             @test rotated≈real_axis rtol=1e-7

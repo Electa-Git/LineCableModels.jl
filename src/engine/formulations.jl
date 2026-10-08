@@ -5,7 +5,7 @@ $(TYPEDEF)
 Select the LineCableModels backend for concentric coaxial cable assemblies.
 
 Series impedance uses the equivalent concentric representation supplied by
-DataModel. The default local shunt model uses coaxial annuli. Explicit
+DataModel. The default local shunt model uses the equivalent annular layer. Explicit
 `shunt_model=:boundary` resolves eligible open wires and finite tapes in a
 lossless, radially layered circular shielded domain during blueprint
 construction. Other geometry and material selections retain their

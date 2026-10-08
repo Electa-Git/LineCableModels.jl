@@ -43,7 +43,7 @@ import ..Engine: AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
 using ...Commons: vacuum_permittivity
 #! explicit-imports: on
 
-public source_potential_coefficient, earth!
+public source_coefficients, earth!
 
 include("interface.jl")
 

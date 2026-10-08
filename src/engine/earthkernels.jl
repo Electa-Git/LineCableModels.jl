@@ -184,17 +184,21 @@ function earth_combined_weight(kernel::EarthSpectrum)
     return nominal(g.logscale+(g.hp+g.hq)*maximum(abs, kernel.state.k))>300
 end
 
-# Evaluate the averaged direct-image term with the source-column scaling.
-function earth_direct(::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{2}, state,
+# Evaluate the averaged direct-image term of the Unified formula `formula` with the
+# source-column scaling. Both Unified families call it.
+function earth_direct(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        ::Union{Val{:self}, Val{:mutual}}, ::Val{1}, ::Val{2}, state,
         pair, radius, average, argument, target_scale, source_scale)
     zero(state.jω)
 end
-function earth_direct(::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{1}, state,
+function earth_direct(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        ::Union{Val{:self}, Val{:mutual}}, ::Val{2}, ::Val{1}, state,
         pair, radius, average, argument, target_scale, source_scale)
     zero(state.jω)
 end
 
-function earth_direct(::Val{:self}, ::Val{M}, ::Val{M}, u,
+function earth_direct(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        ::Val{:self}, ::Val{M}, ::Val{M}, u,
         pair::EarthPair, r, average, xp, sp, sq) where {M}
     h=abs(pair.heights[2])+abs(pair.heights[1])
     d=hypot(pair.separation, h)
@@ -210,7 +214,8 @@ function earth_direct(::Val{:self}, ::Val{M}, ::Val{M}, u,
     return direct-image
 end
 
-function earth_direct(::Val{:mutual}, ::Val{M}, ::Val{M}, u,
+function earth_direct(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+        ::Val{:mutual}, ::Val{M}, ::Val{M}, u,
         pair::EarthPair, r, average, xp, sp, sq) where {M}
     h=abs(pair.heights[2])+abs(pair.heights[1])
     d=hypot(pair.separation, h)
@@ -324,7 +329,7 @@ function earth_contour_angle(state, proposed)
     return typeof(proposed)(result)
 end
 
-function earth_spectral_term(
+function earth_spectral_term(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
         kind::Val{Kind}, ::Val{P}, ::Val{Q}, state, hp, hq, y, radius, logscale,
         method, controls, numerical; context = (;)) where {Kind, P, Q}
     R=typeof(float(nominal(real(state.jω))))

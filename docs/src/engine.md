@@ -14,7 +14,7 @@ the equations without determining their software names.
 | Insulation impedance | `:default`, `:ametani1980` |
 | Pipe impedance | `:default`, `:none` |
 | Insulation admittance, semicon admittance | `:default`, `:lossless`, `:lossy` |
-| Local shunt geometry | `:default` (coaxial), `:coaxial`, `:boundary` |
+| Local shunt geometry | `:default` (equivalent annular layer), `:equivalent`, `:boundary` |
 | Earth impedance | `:default`, `:unified`, `:carson1926`, `:pollaczek1926`, `:gary1976`, `:wedepohl1973`, `:saad1996`, `:ametani2009`, `:lucca1994`, `:wise1934`, `:xue2018` |
 | Earth admittance | `:default`, `:unified`, `:ideal`, `:pollaczek1926`, `:wise1948`, `:xue2018` |
 | Frequency-dependent soil properties | `:default`, `:constant`, `:alipio2014`, `:cigre2019`, `:datsios2019`, `:longmire1975`, `:messier1985`, `:portela1999`, `:scott1967`, `:visacro1987`, `:visacro2012` |
@@ -80,8 +80,8 @@ selected output entries. Each call evaluates a fresh response.
 
 `shunt_model` selects the cable-local geometry approximation independently of
 the dielectric material laws. Both `Formulation()` and
-`CableConstantsFormulation()` default to `shunt_model=:default`: ordinary
-coaxial annuli, with no boundary solve. `:coaxial` selects this explicitly.
+`CableConstantsFormulation()` default to `shunt_model=:default`: the equivalent
+annular layer, with no boundary solve. `:equivalent` selects it explicitly.
 
 `insulation_admittance` and `semicon_admittance` select the material
 admittivity κ [S/m]. For one homogeneous annulus,
@@ -115,7 +115,7 @@ shields retain the existing equivalent-coaxial treatment. They are not fed to
 an inapplicable circular Green function. The resolved path currently uses the
 built-in `:lossless` insulation or semicon laws or their `:default` aliases.
 Lossy or custom constitutive selections are unsupported by `:boundary` and raise `BoundarySolveError` for
-eligible domains. Select `:coaxial` to retain their radial calculation without
+eligible domains. Select `:equivalent` to retain their radial calculation without
 losing conductivity or frequency dependence.
 
 Inspect `details(result).data.shunt_model` for requested and effective model, domain
@@ -142,8 +142,8 @@ formulation = Formulation(shunt_model=:boundary)
 result = @time compute(problem, formulation)
 ```
 
-The compute call constructs the selected local shunt model. Default coaxial
-blueprints contain no geometric boundary blocks, extract no geometric boundary domains, and evaluate
+The compute call constructs the selected local shunt model. Blueprints with the default
+equivalent annular layer contain no geometric boundary blocks, extract no geometric boundary domains, and evaluate
 no geometric boundary material law. Their reports describe the concentric assembly ranges.
 No geometric boundary audit is implied.
 Boundary coefficients are independent of the frequency grid and external earth
@@ -178,12 +178,12 @@ the error in an individual terminal coupling.
 See [`BoundarySolveError`](@ref) and [`LineCableModels.Engine.ShuntModel.Formula`](@ref)
 for the failure categories and formula selections.
 
-Actual failures propagate by default. An explicit `parameters=(fallback=:coaxial,)`
-permits annular replacement only after recognized numerical or unsupported-law
+Actual failures propagate by default. An explicit `parameters=(fallback=:equivalent,)`
+permits the equivalent annular layer as replacement only after recognized numerical or unsupported-law
 failures, with a warning and recorded reason. Finite-result quality warnings do
 not trigger that fallback. Invalid inputs and unexpected
 exceptions propagate. UQ wrappers reject automatic fallback. Choose strict
-`:boundary` or `:coaxial` for the whole study. Monte Carlo also checks that
+`:boundary` or `:equivalent` for the whole study. Monte Carlo also checks that
 shunt-model coverage remains fixed across realizations and never retries a
 `BoundarySolveError` as a geometry rejection.
 
@@ -290,7 +290,7 @@ For the analytical families, the default routes are:
 | Equivalent homogeneous earth | `:bottommost` |
 | Temperature-dependent resistivity | `:linear` |
 | Modal transformation | `:chrysochos2014` |
-| Local shunt geometry | `:coaxial` |
+| Local shunt geometry | `:equivalent` |
 | Pipe contribution | `:none` |
 
 Each selected equation enforces its applicability requirements. `:none` accepts
@@ -439,10 +439,12 @@ earth or an explicitly globally consistent equivalent earth. Indexed dispatch
 for arbitrary layer numbers is required for extension methods. It does not implement
 new multilayer Unified equations.
 
-Unified binds the [averaged axial-field coefficient](@ref LineCableModels.Engine.EarthImpedance.axial_field_coefficient(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Union{Val{1}, Val{2}}, ::Union{Val{1}, Val{2}}, ::Any, ::Any, ::Any))
-and the [referenced source-potential coefficient](@ref LineCableModels.Engine.EarthAdmittance.source_potential_coefficient(::Union{LineCableModels.Engine.EarthAdmittance.Formula{:unified}, Val{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Union{Val{1}, Val{2}}, ::Union{Val{1}, Val{2}}, ::Any, ::Any, ::Any)).
-These actual numerical methods use the same indexed traversal as ordinary
-impedance and potential equations. Both coefficients are required by either
+Unified computes the averaged axial-field coefficient and the referenced
+source-potential coefficient of each conductor pair in one expression,
+[`source_coefficients`](@ref LineCableModels.Engine.EarthAdmittance.source_coefficients(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, LineCableModels.Engine.EarthAdmittance.Formula{:unified}}, ::Union{Val{:self}, Val{:mutual}}, ::Union{Val{1}, Val{2}}, ::Union{Val{1}, Val{2}}, ::Any, ::Any)),
+which returns them in that order.
+This expression uses the same indexed traversal as the ordinary impedance and
+potential expressions. Both coefficients are required by either
 selected physical output and are calculated from the selected Unified formulation.
 
 The [complete-current matrix calculation](@ref LineCableModels.Engine.earth!(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, LineCableModels.Engine.EarthAdmittance.Formula{:unified}}, ::Any, ::Any))

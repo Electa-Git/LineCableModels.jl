@@ -27,7 +27,7 @@
     const RESERVED_VERB = r"^_*(validate|check|require|assert|verify|ensure)_"
     # Tables of the structural guards (A) and of the Commons and helper guards (C).
     const A_TABLES = ("ownership", "placement", "direction", "names", "shadowing",
-        "validate", "reserved_verbs", "switches", "storage")
+        "validate", "reserved_verbs", "switches", "storage", "dispatch")
     const C_TABLES = ("commons", "vocabulary", "fingerprints", "clones", "helpers", "root")
     const TABLES = (A_TABLES..., C_TABLES...)
     const SWITCHES = ("applicable", "eval", "kind")
@@ -682,6 +682,74 @@
         return found
     end
 
+    # The types that the first argument of `m` admits: the members of a `Union`, each
+    # bound again by the type variables of `m`. A constructor or a method without
+    # arguments admits none.
+    function first_argument(m::Method)
+        parameters = Base.unwrap_unionall(m.sig).parameters
+        length(parameters) >= 2 || return Any[]
+        F = parameters[1] isa TypeVar ? parameters[1].ub : parameters[1]
+        F = Base.unwrap_unionall(F)
+        F isa DataType && F.name === Type.body.name && return Any[]
+        found = Any[]
+        members!(T) = T isa Union ? (members!(T.a); members!(T.b)) :
+                      T isa TypeVar ? members!(T.ub) :
+                      T isa Core.TypeofVararg ? nothing : push!(found, T)
+        members!(parameters[2])
+        return [Base.rewrap_unionall(T, m.sig) for T in found]
+    end
+
+    # The tag of a `Val` type, or nothing for another type.
+    function tag(T)
+        T = Base.unwrap_unionall(T)
+        return T isa DataType && T.name === Val.body.name ? only(T.parameters) : nothing
+    end
+    is_val(T) = (T = Base.unwrap_unionall(T); T isa DataType && T.name === Val.body.name)
+    is_formula(T) = T !== Union{} && T isa Type && T <: AbstractFormulation
+
+    # The identifiers that the formula families of `tree` register through `formulas`.
+    function registered(methods)
+        registry = typeof(LineCableModels.Commons.formulas)
+        found = Set{Symbol}()
+        for m in methods
+            parameters = Base.unwrap_unionall(m.sig).parameters
+            length(parameters) == 2 && parameters[1] === registry || continue
+            family = Base.unwrap_unionall(parameters[2])
+            family isa DataType && family.name === Type.body.name || continue
+            F = only(family.parameters)
+            F isa TypeVar && (F = F.ub)
+            union!(found, Base.invokelatest(LineCableModels.Commons.formulas, F))
+        end
+        return found
+    end
+
+    # Dispatch convention. A formula method takes the formula object first, and its `Val`
+    # tags follow it. A function with a method whose first argument is a formula, or a
+    # `Union` that contains one, has no method whose first argument is a `Val`, or a `Union`
+    # that contains one. In any function, a first argument `Val{ID}`, or a `Union` that
+    # contains one, where `ID` is a registered formula identifier, passes the formula as its
+    # tag. Type constructors are exempt. An entry counts the methods of one function in one
+    # file.
+    function dispatch(methods, tree::PackageTree)
+        identifiers = registered(methods)
+        functions = Base.IdSet{Any}()
+        for m in methods
+            any(is_formula, first_argument(m)) &&
+                push!(functions, Base.unwrap_unionall(m.sig).parameters[1])
+        end
+        found = Dict{String, Int}()
+        for m in methods
+            startswith(string(m.name), "#") && continue
+            admitted = first_argument(m)
+            examined = Base.unwrap_unionall(m.sig).parameters[1] in functions &&
+                       any(is_val, admitted)
+            tagged = any(T -> tag(T) in identifiers, admitted)
+            (examined || tagged) && count!(found, string(module_name(tree, m.module),
+                " | ", m.name, " | ", source_name(tree, m)))
+        end
+        return found
+    end
+
     type_name(T) = (T = Base.unwrap_unionall(T); T isa DataType ? nameof(T) : nothing)
 
     # The functions, types and constants that a module defines, by name.
@@ -1164,6 +1232,7 @@
             "reserved_verbs" => () -> reserved_verbs(files, tree.directory),
             "switches" => () -> switches(files, tree.directory),
             "storage" => () -> storage_vocabulary(files, tree.directory),
+            "dispatch" => () -> dispatch(methods, tree),
             "commons" => () -> commons_admission(methods, tree, homes, vocabulary),
             "vocabulary" => () -> reserved_vocabulary(files, tree.directory, vocabulary),
             "fingerprints" => () -> fingerprints(files, tree.directory),
@@ -1318,6 +1387,12 @@ end
     @test result.stale == String[]
 end
 
+@testitem "Quality / architecture / dispatch convention" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("dispatch")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
 @testitem "Quality / architecture / negative controls of the architecture guards" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
 
@@ -1353,6 +1428,7 @@ end
         "src/consumer/Consumer.jl" => """
             module Consumer
             import ..Early
+            import LineCableModels
             export filter, count, transform
             struct Local end
             struct Formula end
@@ -1363,6 +1439,15 @@ end
             filter(::Local) = 1
             Early.extend(::Int) = 1
             Early.Item(::Int) = Early.Item()
+            # A formula with the registered identifier `:probe`. A constructor may take
+            # its tag. The other methods with a `Val` first break the dispatch convention.
+            struct Selection <: LineCableModels.AbstractFormulation end
+            LineCableModels.Commons.formulas(::Type{<:Selection}) = (:probe,)
+            Selection(::Val{:probe}) = Selection()
+            kernel(::Selection, ::Val{:part}) = 1
+            kernel(::Val{:part}) = 2
+            mixed(::Union{Selection, Val{:part}}) = 3
+            tagged(::Val{:probe}) = 4
             include("../early/stray.jl")
             include("../../ext/core.jl")
             end
@@ -1448,7 +1533,10 @@ end
             "src/storage.jl | sample_storage" => 1, "src/storage.jl | kernel_workspace" => 1,
             "src/storage.jl | trace_buffers" => 1, "src/storage.jl | work" => 2,
             "src/storage.jl | scratch" => 1, "src/storage.jl | storage" => 1,
-            "src/storage.jl | cache" => 2))
+            "src/storage.jl | cache" => 2),
+        "dispatch" => Dict("Consumer | kernel | src/consumer/Consumer.jl" => 1,
+            "Consumer | mixed | src/consumer/Consumer.jl" => 1,
+            "Consumer | tagged | src/consumer/Consumer.jl" => 1))
 
     # A clean package with the same modules and one extension method.
     clean_files = Dict(
@@ -1481,6 +1569,12 @@ end
             Early.quantity(::Local) = 3
             Early.Item(::Local) = Early.Item()
             downward() = Early.extend(Early.Item())
+            # A formula whose methods take it first, and its constructor by tag.
+            import LineCableModels
+            struct Selection <: LineCableModels.AbstractFormulation end
+            LineCableModels.Commons.formulas(::Type{<:Selection}) = (:clean_probe,)
+            Selection(::Val{:clean_probe}) = Selection()
+            kernel(::Selection, ::Val{:part}) = 1
             include("helpers.jl")
             end
             """,

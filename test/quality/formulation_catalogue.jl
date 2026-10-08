@@ -28,7 +28,7 @@
         formula_docs = DocStr[]
         for (binding, multidoc) in meta(category.module_owner)
             binding.var in (:description, :earth_impedance, :earth_potential_coefficient,
-                :axial_field_coefficient, :source_potential_coefficient) || continue
+                :source_coefficients) || continue
             for docstring in values(multidoc.docs)
                 dirname(String(docstring.data[:path])) == directory || continue
                 push!(formula_docs, docstring)
@@ -91,10 +91,10 @@ end
 
 @testitem "Quality / local shunt formulations" tags = [:quality] begin
     const owner = LineCableModels.Engine.ShuntModel
-    @test LineCableModels.Commons.formulas(owner.Formula) == (:default, :coaxial, :boundary)
+    @test LineCableModels.Commons.formulas(owner.Formula) == (:default, :equivalent, :boundary)
     for identifier in LineCableModels.Commons.formulas(owner.Formula)
         selected = owner.Formula(identifier)
-        @test formula_id(selected) === (identifier === :default ? :coaxial : identifier)
+        @test formula_id(selected) === (identifier === :default ? :equivalent : identifier)
         @test NamedTuple(selected).identifier === formula_id(selected)
         for compact in (false, true)
             @test !isempty(description(selected; compact))

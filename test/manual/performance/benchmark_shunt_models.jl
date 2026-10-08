@@ -21,14 +21,14 @@ for case_id in shunt_benchmark_cases
         variation = Gauntlet.ExactOverrides(
             frequencies = shunt_benchmark_frequencies)).problem
     physical=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
-    coaxial=Formulation(; options = physical)
+    equivalent=Formulation(; options = physical)
     println(
-        "\n", case_id, " | default coaxial | ", length(problem.frequencies), " frequencies")
-    @time compute(problem, coaxial) # Warm-up. Do not mix with the warm timings.
+        "\n", case_id, " | default equivalent annular layer | ", length(problem.frequencies), " frequencies")
+    @time compute(problem, equivalent) # Warm-up. Do not mix with the warm timings.
     for repetition in 1:shunt_benchmark_repeats
-        sample=@timed @time compute(problem, coaxial)
+        sample=@timed @time compute(problem, equivalent)
         push!(shunt_benchmark_rows,
-            (; case_id, model = :coaxial, repetition,
+            (; case_id, model = :equivalent, repetition,
                 seconds = sample.time, MiB = sample.bytes/1024^2))
         @assert details(sample.value).data.shunt_model.solves==0
     end

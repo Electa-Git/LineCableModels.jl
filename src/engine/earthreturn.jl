@@ -41,9 +41,10 @@ earth!(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}, ::Functor
 $(TYPEDSIGNATURES)
 
 Evaluate the parts of an earth calculation at the frequency of `functor` and distribute their
-scalar coefficients into the aligned matrices `destinations`. A part gives its expressions and
-options. The calculation's pairs give each pair's source-target geometry and the earlier pair
-with the same inputs, `reuse_from`.
+scalar coefficients into the aligned matrices `destinations`. A part gives its expression and
+options. The expression returns one coefficient per destination, a number for one destination
+and a tuple for several. The calculation's pairs give each pair's source-target geometry and
+the earlier pair with the same inputs, `reuse_from`.
 
 A pair takes the value of that earlier pair only when their current media agree under
 `same_physical_state`. `buffers.earth.pairs` records, at each frequency, the pair whose
@@ -93,7 +94,8 @@ function earth!(destinations, part, calculation, functor, workspace)
                 epsilon = @view(functor.input.epsilon[:, index]),
                 mu = @view(functor.input.mu[:, index]), part.options))
             validate(point.input, functor.formula)
-            values = map(expression -> expression(point, workspace), part.expressions)
+            coefficients = part.expression(point, workspace)
+            values = coefficients isa Tuple ? coefficients : (coefficients,)
             all(value -> value isa Number && isfinite(value), values) || throw(DomainError(
                 values, "earth coefficients must be finite scalars"))
             converted = map(value -> oftype(functor.input.jω, value), values)

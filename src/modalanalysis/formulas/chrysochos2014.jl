@@ -28,7 +28,7 @@ function description(::Type{<:Formula{:chrysochos2014}}; compact::Bool=false)
 end
 
 function levenberg_marquardt_residual!(
-        ::Val{:chrysochos2014},
+        ::Formula{:chrysochos2014},
         residual::AbstractVector{R},
         x::AbstractVector{R},
         real_matrix::AbstractMatrix{R},
@@ -63,7 +63,7 @@ function levenberg_marquardt_residual!(
 end
 
 function levenberg_marquardt_jacobian!(
-        ::Val{:chrysochos2014},
+        ::Formula{:chrysochos2014},
         jacobian::AbstractMatrix{R},
         x::AbstractVector{R},
         real_matrix::AbstractMatrix{R},
@@ -100,7 +100,7 @@ function levenberg_marquardt_jacobian!(
 end
 
 function levenberg_marquardt_step!(
-        ::Val{:chrysochos2014},
+        formula::Formula{:chrysochos2014},
         vector::AbstractVector{T},
         value::T,
         iteration_options::NamedTuple,
@@ -135,7 +135,7 @@ function levenberg_marquardt_step!(
     for iteration in 1:iterations
         performed=iteration
         levenberg_marquardt_residual!(
-            Val(:chrysochos2014),
+            formula,
             buffers.residual,
             buffers.x,
             buffers.real_matrix,
@@ -147,7 +147,7 @@ function levenberg_marquardt_step!(
             break
         end
         levenberg_marquardt_jacobian!(
-            Val(:chrysochos2014),
+            formula,
             buffers.jacobian,
             buffers.x,
             buffers.real_matrix,
@@ -177,7 +177,7 @@ function levenberg_marquardt_step!(
         all(isfinite, buffers.step) || return value, false, performed
         buffers.candidate .= buffers.x .+ buffers.step
         levenberg_marquardt_residual!(
-            Val(:chrysochos2014),
+            formula,
             buffers.candidate_residual,
             buffers.candidate,
             buffers.real_matrix,
@@ -246,7 +246,7 @@ Calculation of Frequency-Dependent Transmission-Line Transformation Matrices
 Using the Levenberg–Marquardt Method*, IEEE Transactions on Power Delivery,
 29(4), 2014. DOI: 10.1109/TPWRD.2013.2284504.
 """
-function initialize_buffers(::Val{:chrysochos2014}, ::Type{T}, input,
+function initialize_buffers(::Formula{:chrysochos2014}, ::Type{T}, input,
         plan, buffers) where {T <: Complex}
     n = plan.n
     R = typeof(real(zero(T)))
@@ -272,7 +272,7 @@ function initialize_buffers(::Val{:chrysochos2014}, ::Type{T}, input,
             residual=Vector{T}(undef,n))))
 end
 
-function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
+function decompose!(formula::Formula{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
         parameters::NamedTuple, options::FormulationOptions)
     iteration_options = options.data.iteration
     impedance = workspace.input.Z
@@ -330,7 +330,7 @@ function decompose!(::Val{:chrysochos2014}, workspace::ModalAnalysisWorkspace,
             for mode in 1:n
                 reference = @view previous_eigenvectors[:,mode]
                 value, converged, iterations = levenberg_marquardt_step!(
-                    Val(:chrysochos2014), @view(eigenvectors[:,mode]),
+                    formula, @view(eigenvectors[:,mode]),
                     previous_eigenvalues[mode], iteration_options, least_squares)
                 workspace.diagnostics.iterations[mode,frequency_index]=iterations
                 workspace.diagnostics.converged[mode,frequency_index]=converged

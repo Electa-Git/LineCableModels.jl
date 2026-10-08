@@ -5,11 +5,12 @@ const ShuntDomainReport = NamedTuple{
     Tuple{Int, UnitRange{Int}, Symbol, Symbol, Symbol, String}}
 
 # Each shunt model selects the formulations needed to construct its blueprint.
-# The coaxial model omits the dielectric selections handled during the solve.
+# The equivalent annular layer model omits the dielectric selections handled during the
+# solve.
 function blueprint_dependencies(::ShuntModelFormulation, methods)
     methods[(:shunt_model, :insulation_admittance, :semicon_admittance)]
 end
-blueprint_dependencies(::Formula{:coaxial}, methods) = methods[(:shunt_model,)]
+blueprint_dependencies(::Formula{:equivalent}, methods) = methods[(:shunt_model,)]
 
 function internal_shunt_response(selected::ShuntModelFormulation, design,
         geometry, T, methods, solutions, design_index)
@@ -18,15 +19,16 @@ function internal_shunt_response(selected::ShuntModelFormulation, design,
 end
 
 function internal_shunt_response(
-        selected::Formula{:coaxial},
+        selected::Formula{:equivalent},
         design::CableDesign, geometry, ::Type{T}, methods, solutions, design_index) where {T}
     requested = formula_id(selected)
     reports = ShuntDomainReport[(design_index, indices, requested,
-        :coaxial, :selected, "Coaxial annuli; no boundary extraction or audit")
+        :equivalent, :selected,
+        "Equivalent annular layers; no boundary extraction or audit")
         for indices in geometry.assembly_ranges]
     return (blocks = InternalShuntBlock{T}[],
         details =
-        (requested, effective = :coaxial, solves = 0, domains = reports,
+        (requested, effective = :equivalent, solves = 0, domains = reports,
             diagnostics = InternalShuntDiagnostic[]))
 end
 
@@ -65,18 +67,18 @@ function internal_shunt_response(selected::Formula{:boundary},
                 domain.design, domain.terminals, :boundary, :boundary, :resolved, ""))
         catch exception
             exception isa BoundarySolveError || rethrow()
-            selected.parameters.fallback === :coaxial || rethrow()
-            @warn "Boundary shunt replaced by coaxial annuli" design=domain.design terminals=domain.terminals reason=exception.category
+            selected.parameters.fallback === :equivalent || rethrow()
+            @warn "Boundary shunt replaced by the equivalent annular layer" design=domain.design terminals=domain.terminals reason=exception.category
             push!(reports,
                 (domain.design, domain.terminals, :boundary,
-                    :coaxial, exception.category, sprint(showerror, exception)))
+                    :equivalent, exception.category, sprint(showerror, exception)))
         end
     end
     solved = Base.IdSet{Matrix{T}}()
     foreach(block -> push!(solved, block.C), blocks)
-    effective = isempty(reports) ? :coaxial :
+    effective = isempty(reports) ? :equivalent :
                 all(r -> r.effective === :boundary, reports) ? :boundary :
-                all(r -> r.effective === :coaxial, reports) ? :coaxial : :mixed
+                all(r -> r.effective === :equivalent, reports) ? :equivalent : :mixed
     return (blocks,
         details = (requested = :boundary, effective,
             solves = length(solved), domains = reports, diagnostics))

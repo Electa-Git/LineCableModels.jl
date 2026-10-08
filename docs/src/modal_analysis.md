@@ -69,7 +69,7 @@ tracks eigenvalues of its normalized, shifted eigenproblem. Multiplying
 distinct from a propagation root. The selected formula builds the buffers of its
 normalized eigenproblem, Hungarian assignment and Levenberg–Marquardt least squares
 in its `initialize_buffers` method. Its arithmetic remains in
-`decompose!(::Val{:chrysochos2014}, ...)`. `Tv`
+`decompose!(::Formula{:chrysochos2014}, ...)`. `Tv`
 and `Ti` map modal coordinates to phase coordinates. Total source coefficients
 are normalized by their declared source length before the line segment is
 bound.
