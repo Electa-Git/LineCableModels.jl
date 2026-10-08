@@ -66,7 +66,7 @@ Each item outside `quality` has exactly one owner tag. The owner tag is the late
 in load order, whose code the item exercises. A change in one layer can affect only that
 layer and the layers loaded after it. `changed:REF` relies on this order. The owner tags
 in load order are `units`, `commons`, `materials`, `earth`, `datamodel`, `engine`,
-`modal`, `parametric`, `uq`, `report`, `importexport` and `pscad`. The extension owners
+`parametric`, `uq`, `report`, `importexport` and `pscad`. The extension owners
 follow them: `measurements`, `distributions`, `xlsx`, `fem` and `makie`. `quality`
 items have no owner tag.
 
@@ -75,7 +75,8 @@ covers and the kind tags. The runner, the architecture guards and the tools read
 It also gives each source file the owner of its load position. A file that
 `src/LineCableModels.jl` includes directly takes the owner of the last module included
 before it, so `src/gridspace.jl` belongs to `commons` and `src/performance.jl` to
-`uq`. TextDisplay and PlotBuilder belong to `commons`.
+`uq`. TextDisplay and PlotBuilder belong to `commons`. The files of a child module take
+the owner of its parent: the formula families and ModalAnalysis belong to `engine`.
 
 Each item also has at least one kind tag: `unit`, `integration`, `extension`,
 `visual`, `quality` or `aqua`. The environment tags `visual`, `fem_numerical`,

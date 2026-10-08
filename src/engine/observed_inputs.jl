@@ -90,13 +90,11 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
             applied=isempty(route) || !(effective isa NamedTuple) ? controls : merge(controls,
                 (; (key=>effective[key] for key in (:parameters,:options,:equivalent_earth)
                     if haskey(effective,key) && effective[key]!==nothing)...))
-            owner_name=(Base.fullname(parentmodule(owner))...,nameof(owner))
             leaf=selected isa Pair ? first(selected) : selected
             control_owner=isempty(route) ? owner : typeof(leaf)
             # Routes are the scientific slots declared by pairs(owner), shared
-            # by backends using the same constitutive meaning. Storage owners
-            # remain recorded separately. They are not a commonness criterion.
-            (scope=(owner_name,route),meaning=route,
+            # by backends using the same constitutive meaning.
+            (meaning=route,
                 selection=(identifier=formula_id(selected),controls),name,
                 value=isempty(route) ? description(selected;compact=true) : description(owner,selected;compact=true),
                 summary=isempty(route) ? description(owner,formulation;quantity,compact=true) : nothing,

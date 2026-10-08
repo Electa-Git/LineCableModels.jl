@@ -30,7 +30,7 @@ end
     @test !occursin(pkgdir(LineCableModels), rendered)
 end
 
-@testitem "Core / owner-local numerics / transforms and conductivity" tags=[:unit, :modal] begin
+@testitem "Core / owner-local numerics / transforms and conductivity" tags=[:unit, :engine] begin
     using LinearAlgebra
     const Engine=LineCableModels.Engine
 

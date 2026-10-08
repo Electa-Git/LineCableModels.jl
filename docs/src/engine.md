@@ -1015,7 +1015,7 @@ The latter fills `workspace.Tv`, `workspace.Ti`, and `workspace.roots`.
 requested declaration and resolved selection for the common inspection protocol.
 The default tracks eigenpairs with Levenberg–Marquardt iteration, retaining a
 matched conventional eigensolution when iteration fails. Its bibliography stays
-in `src/modalanalysis/formulas/chrysochos2014.jl`.
+in `src/engine/modalanalysis/formulas/chrysochos2014.jl`.
 
 [`ComputationDetails`](@ref) is an immutable record of supplemental computation
 output, parameterized by its named-tuple payload. Access its fields through `.data`.

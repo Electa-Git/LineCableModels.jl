@@ -1,5 +1,5 @@
 """
-    LineCableModels.ModalAnalysis
+    LineCableModels.Engine.ModalAnalysis
 
 Transform fully coupled line-parameter matrices between phase and modal
 coordinate domains independently of the backend that calculated them.
@@ -17,27 +17,27 @@ export formula_id, formulas
 
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: Expression, nominal, FormulaDefinition, formula, parameterize, validate
-import ..LineCableModels: line_length
-import ..LineCableModels: Grid, Gridpoint, Gridspace
-import ..LineCableModels
-import ..Commons: AbstractProblemDefinition, AbstractFormulation,
+import ...LineCableModels: Expression, nominal, FormulaDefinition, formula, parameterize, validate
+import ...LineCableModels: line_length
+import ...LineCableModels: Grid, Gridpoint, Gridspace
+import ...LineCableModels
+import ...Commons: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions, ComputationDetails,
                   compute, computation_options, computation_details, formulation_options, details,
                   initialize_buffers, formulas
-import ..Commons: AbstractResultSpace
-import ..Commons: observe, observables, request_identity, request_indices, observation_indices
+import ...Commons: AbstractResultSpace
+import ...Commons: observe, observables, request_identity, request_indices, observation_indices
 import ..Engine: LineParameters, LineParametersFormulation, LineParametersProblem,
                  PhaseDomain, ModalDomain, SeriesImpedance, ShuntAdmittance, basis, frequencies,
                  description, formula_id, selectdomain, selectdetails
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
                      eigen!, issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd!, svdvals!
-import ..Commons: AbstractCoreResult
+import ...Commons: AbstractCoreResult
 import ..Engine
-import ..Commons
-using ..Commons: vacuum_permittivity, vacuum_permeability
-import ..Units
-import ..TextDisplay
+import ...Commons
+using ...Commons: vacuum_permittivity, vacuum_permeability
+import ...Units
+import ...TextDisplay
 #! explicit-imports: on
 
 include("interfaces.jl")

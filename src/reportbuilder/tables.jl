@@ -150,10 +150,10 @@ LineParametersTableDefinition(requests::Tuple=();frequency_unit::Symbol=:base,
     LineParametersTableDefinition(requests,frequency_unit,length_unit,quantity_units,clip)
 
 _bound_name(selector::Base.Fix2,statistic) =
-    selector.f in (LineCableModels.ModalAnalysis.H,LineCableModels.ModalAnalysis.Zc,
-        LineCableModels.ModalAnalysis.Yc) ?
+    selector.f in (Engine.ModalAnalysis.H,Engine.ModalAnalysis.Zc,
+        Engine.ModalAnalysis.Yc) ?
         string(nameof(selector.f),"_phase",
-            selector.f===LineCableModels.ModalAnalysis.H ? "_$(selector.x.field)" : "") :
+            selector.f===Engine.ModalAnalysis.H ? "_$(selector.x.field)" : "") :
         string(statistic)
 
 _quantity_name(product) = begin

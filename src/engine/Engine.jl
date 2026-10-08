@@ -39,6 +39,7 @@ export verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance, PipeImpedance
 export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 export ShuntModel, BoundarySolveError
+export ModalAnalysis
 
 export compute
 
@@ -145,6 +146,10 @@ include("lineparameters/observations.jl")
 # Line-parameter protocols and observation publication
 include("lineparameters/base.jl")
 include("textdisplay.jl")
+
+# Submodule `ModalAnalysis`
+include("modalanalysis/ModalAnalysis.jl")
+using .ModalAnalysis: ModalAnalysis
 
 public completion_details, completed_inputs, completed_formulation, retain_gridpoint
 public selectdetails

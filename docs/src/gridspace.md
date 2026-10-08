@@ -610,8 +610,8 @@ The implementation is split across:
   rules and concrete callable algorithms.
 - `src/parametricbuilder/traversal.jl`: combinatorial traversal and the
   phase-to-modal composition of a `ParametricProblem`.
-- `src/modalanalysis/composition.jl`: public phase-to-modal composition.
-  `src/modalanalysis/problems.jl`, `compute.jl`, and `propagation.jl` own
+- `src/engine/modalanalysis/composition.jl`: public phase-to-modal composition.
+  `src/engine/modalanalysis/problems.jl`, `compute.jl`, and `propagation.jl` own
   modal scalar computation and line segment binding.
 - `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and
   repeated stochastic traversal.

@@ -1,4 +1,4 @@
-@testitem "Engine / retained defaults and PSCAD comparison inventory" tags=[:unit, :modal] begin
+@testitem "Engine / retained defaults and PSCAD comparison inventory" tags=[:unit, :engine] begin
     @test Formulation() isa LineParametersFormulation
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth

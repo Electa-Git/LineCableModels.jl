@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / repeated eigenvalues preserve the modal subspace" tags=[:unit, :modal] begin
+@testitem "ModalAnalysis / repeated eigenvalues preserve the modal subspace" tags=[:unit, :engine] begin
     using LinearAlgebra
 
     frequencies=[50.0,55.0,60.0,65.0,70.0]
@@ -66,7 +66,7 @@
     @test maps.Ti==current_before
 end
 
-@testitem "ModalAnalysis / limited iteration reports matched and unrecovered results" tags=[:unit, :modal] begin
+@testitem "ModalAnalysis / limited iteration reports matched and unrecovered results" tags=[:unit, :engine] begin
     using LinearAlgebra
     frequencies=[50.0,100.0,200.0,400.0]
     impedance=zeros(ComplexF64,2,2,length(frequencies))

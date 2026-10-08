@@ -6,7 +6,7 @@
 # that layer and the layers loaded after it.
 
 # Owner tags in load order: the core layers, then the extensions.
-const OWNERS = (:units, :commons, :materials, :earth, :datamodel, :engine, :modal,
+const OWNERS = (:units, :commons, :materials, :earth, :datamodel, :engine,
     :parametric, :uq, :report, :importexport, :pscad,
     :measurements, :distributions, :xlsx, :fem, :makie)
 
@@ -14,7 +14,7 @@ const OWNERS = (:units, :commons, :materials, :earth, :datamodel, :engine, :moda
 # their own take the tag of the preceding owner.
 const MODULE_OWNERS = (Units = :units, Commons = :commons, TextDisplay = :commons,
     PlotBuilder = :commons, Materials = :materials, Earth = :earth,
-    DataModel = :datamodel, Engine = :engine, ModalAnalysis = :modal,
+    DataModel = :datamodel, Engine = :engine,
     ParametricBuilder = :parametric, UQ = :uq, ReportBuilder = :report,
     ImportExport = :importexport, PSCAD = :pscad)
 

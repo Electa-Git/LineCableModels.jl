@@ -14,21 +14,21 @@
 "Engine | Units.quantity | src/engine/lineparameters/quantities.jl" = 3
 "Engine.InsulationAdmittance | Engine.InsulationAdmittanceFormulation | src/engine/insulationadmittance/interface.jl" = 2
 "Engine.InsulationImpedance | Engine.InsulationImpedanceFormulation | src/engine/insulationimpedance/interface.jl" = 1
+"Engine.ModalAnalysis | Commons.normalize_observation_selector | src/engine/modalanalysis/observations.jl" = 2
+"Engine.ModalAnalysis | Commons.observables | src/engine/modalanalysis/observations.jl" = 1
+"Engine.ModalAnalysis | Commons.observation_quantity | src/engine/modalanalysis/observations.jl" = 1
+"Engine.ModalAnalysis | Commons.observation_requests | src/engine/modalanalysis/observations.jl" = 1
+"Engine.ModalAnalysis | Engine.selectdetails | src/engine/modalanalysis/interfaces.jl" = 1
+"Engine.ModalAnalysis | Engine.selectdomain | src/engine/modalanalysis/interfaces.jl" = 1
+"Engine.ModalAnalysis | Units.display_unit | src/engine/modalanalysis/observations.jl" = 51
+"Engine.ModalAnalysis | Units.label | src/engine/modalanalysis/observations.jl" = 51
+"Engine.ModalAnalysis | Units.native_unit | src/engine/modalanalysis/observations.jl" = 51
+"Engine.ModalAnalysis | Units.symbol | src/engine/modalanalysis/observations.jl" = 51
 "Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
 "Engine.ShuntModel | Engine.blueprint_dependencies | src/engine/shuntmodel/blueprint.jl" = 1
 "Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
 "ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
 "Materials.TemperatureDependent | LineCableModels.constitutive | src/materials/temperaturedependent/interface.jl" = 1
-"ModalAnalysis | Commons.normalize_observation_selector | src/modalanalysis/observations.jl" = 2
-"ModalAnalysis | Commons.observables | src/modalanalysis/observations.jl" = 1
-"ModalAnalysis | Commons.observation_quantity | src/modalanalysis/observations.jl" = 1
-"ModalAnalysis | Commons.observation_requests | src/modalanalysis/observations.jl" = 1
-"ModalAnalysis | Engine.selectdetails | src/modalanalysis/interfaces.jl" = 1
-"ModalAnalysis | Engine.selectdomain | src/modalanalysis/interfaces.jl" = 1
-"ModalAnalysis | Units.display_unit | src/modalanalysis/observations.jl" = 51
-"ModalAnalysis | Units.label | src/modalanalysis/observations.jl" = 51
-"ModalAnalysis | Units.native_unit | src/modalanalysis/observations.jl" = 51
-"ModalAnalysis | Units.symbol | src/modalanalysis/observations.jl" = 51
 "PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 1
 "PSCAD | ImportExport.export_data | src/pscad/importexport/pscad.jl" = 1
 "PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
@@ -65,7 +65,6 @@
 [placement]
 
 [direction]
-"Engine -> ModalAnalysis | src/engine/lineparameters.jl" = 3
 
 [names]
 "_line!" = 2
@@ -82,7 +81,7 @@
 "src/commons/observed_validation.jl | _validate_observed_id" = 1
 "src/commons/observed_validation.jl | _validate_observed_quantity" = 1
 "src/engine/lineparameters/resolution.jl | _validate_resolution_atol" = 1
-"src/modalanalysis/observations.jl | _validate_phase_selector" = 1
+"src/engine/modalanalysis/observations.jl | _validate_phase_selector" = 1
 
 [switches]
 "ext/LineCableModelsGmshExt/geometry.jl" = { applicable = 0, eval = 0, kind = 2 }
@@ -109,12 +108,12 @@
 "src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/engine/admittance.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/engine/blueprint.jl" = { applicable = 0, eval = 0, kind = 4 }
+"src/engine/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }
 "src/engine/pipeimpedance/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, kind = 5 }
 "src/importexport/deserialize.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/materials/radialdielectric.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
-"src/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }
 "src/parametricbuilder/physicaltree.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/pscad/importexport/project.jl" = { applicable = 0, eval = 0, kind = 1 }
@@ -122,7 +121,7 @@
 
 [storage]
 "src/engine/cableconstants.jl | CableConstantsWorkspace" = 4
-"src/modalanalysis/compute.jl | ModalAnalysisWorkspace" = 8
+"src/engine/modalanalysis/compute.jl | ModalAnalysisWorkspace" = 8
 
 [dispatch]
 

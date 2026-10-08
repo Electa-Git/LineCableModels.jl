@@ -182,9 +182,9 @@ using .Engine: LineParameters, LineParametersProblem, CableConstants,
 
 public LineParamsDomain
 
-# Submodule `ModalAnalysis`
-include("modalanalysis/ModalAnalysis.jl")
-using .ModalAnalysis: ModalAnalysisProblem, ModalAnalysisFormulation,
+# Submodule `Engine.ModalAnalysis`
+using .Engine: ModalAnalysis
+using .Engine.ModalAnalysis: ModalAnalysisProblem, ModalAnalysisFormulation,
                    LineCableModelsModal, ModalOperators, operators,
                    Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc, PropagationParameters, H, transform
 

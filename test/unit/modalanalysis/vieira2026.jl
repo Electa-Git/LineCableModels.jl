@@ -23,7 +23,7 @@
     end
 end
 
-@testitem "ModalAnalysis / Vieira complex residual, Jacobian and minimum-norm steps" tags=[:unit, :modal] begin
+@testitem "ModalAnalysis / Vieira complex residual, Jacobian and minimum-norm steps" tags=[:unit, :engine] begin
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
     formula = M.Formula(:vieira2026)
@@ -85,7 +85,7 @@ end
     @test M.greedy_assignment!(assignment, cost) == [1, 2]
 end
 
-@testitem "ModalAnalysis / Vieira tracked modes, ordering and clustered subspaces" tags=[:unit, :modal, :slow] setup=[ModalTrackingExamples] begin
+@testitem "ModalAnalysis / Vieira tracked modes, ordering and clustered subspaces" tags=[:unit, :engine, :slow] setup=[ModalTrackingExamples] begin
     using LinearAlgebra
     for R in (Float32, Float64), clustered in (false, true)
 
@@ -132,7 +132,7 @@ end
     end
 end
 
-@testitem "ModalAnalysis / Vieira same-sample fallback and numerical controls" tags=[:unit, :modal] setup=[ModalTrackingExamples] begin
+@testitem "ModalAnalysis / Vieira same-sample fallback and numerical controls" tags=[:unit, :engine] setup=[ModalTrackingExamples] begin
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
     phase, roots=ModalTrackingExamples.phase_scan(; angle_step = 0.4)

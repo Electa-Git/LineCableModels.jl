@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / Newton eigenpair corrections and same-sample fallback" tags=[:unit, :modal] setup=[ModalTrackingExamples] begin
+@testitem "ModalAnalysis / Newton eigenpair corrections and same-sample fallback" tags=[:unit, :engine] setup=[ModalTrackingExamples] begin
     using LinearAlgebra
     import LineCableModels.ModalAnalysis as M
     for R in (Float32, Float64)

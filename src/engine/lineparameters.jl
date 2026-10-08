@@ -241,7 +241,7 @@ Base.@constprop :aggressive function compute(
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
     modal===nothing || return compute(problem,Formulation(),
-        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+        ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
     isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     return compute(LineCableModelsCoaxial(), problem, Formulation(); options)
@@ -291,7 +291,7 @@ Base.@constprop :aggressive function compute(
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
     modal===nothing || return compute(problem,formulation,
-        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+        ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
     isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     return compute(LineCableModelsCoaxial(), problem, formulation; options)
@@ -305,7 +305,7 @@ function compute(
 )
     options = options isa NamedTuple ? ComputationOptions(options) : options
     modal===nothing || return compute(problem,formulations,
-        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
+        ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
     isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     return compute(LineCableModelsCoaxial(), problem, formulations; options)
