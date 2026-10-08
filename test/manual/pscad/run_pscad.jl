@@ -1,6 +1,6 @@
 # Include from an IDE/REPL or run with
 # `julia --project=. test/manual/pscad/run_pscad.jl`.
-# Uses the active environment. Each execution starts a fresh PSCAD calculation.
+# Uses the active environment. Each execution starts a fresh PSCAD computation.
 using LineCableModels
 
 # Edit this filename to use another station configuration.

@@ -110,7 +110,7 @@ end
     end
 end
 
-@testitem "UQ / tuple and shorthand controls produce identical seeded calculations" tags=[:integration, :distributions] setup=[TestFixtures] begin
+@testitem "UQ / tuple and shorthand controls produce identical seeded computations" tags=[:integration, :distributions] setup=[TestFixtures] begin
     using Measurements
     using Distributions
     using Random

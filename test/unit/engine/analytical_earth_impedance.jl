@@ -87,7 +87,7 @@ end
     @test Measurements.derivative(imag(z), rho) ≈ imag(sensitivity) rtol=2e-13
 end
 
-@testitem "Engine / analytical earth impedances / public calculations and material transport" tags=[:unit, :parametric, :slow] setup=[FormulaFixtures] begin
+@testitem "Engine / analytical earth impedances / public computations and material transport" tags=[:unit, :parametric, :slow] setup=[FormulaFixtures] begin
     using LinearAlgebra
     const E=LineCableModels.Engine
     metal=Material(:conductor, 1.72e-8, 1.0)

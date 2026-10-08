@@ -42,7 +42,7 @@ function computation_options(::Type{LineCableModelsModal}, record::ComputationOp
         timing, rotate, verbosity=get(options, :verbosity, 0))
 end
 
-"""Store one scalar modal calculation's results, common arrays, selected work, and diagnostics."""
+"""Store one scalar modal computation's results, common arrays, selected work, and diagnostics."""
 struct ModalAnalysisWorkspace{P,I,V,R,Z,Y,B,D}
     source::P
     input::I

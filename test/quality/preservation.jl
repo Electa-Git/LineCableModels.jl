@@ -118,7 +118,7 @@ end
     include(joinpath(P.REPOSITORY, "test", "support", "scenarios.jl"))
     using .CurrentScenarios: line_parameters_problem, three_phase_system
 
-    # The default coaxial calculation on a cable system, run once so that every buffer
+    # The default coaxial computation on a cable system, run once so that every buffer
     # holds the state of the frequency loop. Each kernel is analysed with the concrete
     # arguments of its call in `_solve!`.
     problem = line_parameters_problem(three_phase_system(); frequencies = [50.0, 1000.0])

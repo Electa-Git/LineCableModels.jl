@@ -145,7 +145,7 @@ module CurrentScenarios
     """
     $(TYPEDSIGNATURES)
 
-    The preservation corpus has one scenario per calculation shape. The allocation
+    The preservation corpus has one scenario per computation shape. The allocation
     ceilings, the timing comparison and the equivalence check share it.
     Each scenario is the tuple of positional arguments of `compute`, with `n` analysis
     frequencies between 10 Hz and 100 kHz. The CableConstants problem has its own

@@ -1,7 +1,7 @@
 """
     LineCableModels.Commons
 
-Define calculation supertypes and functions shared by Engine,
+Define computation supertypes and functions shared by Engine,
 ParametricBuilder, UQ, and external implementations.
 
 # Physical constants
@@ -20,7 +20,7 @@ ParametricBuilder, UQ, and external implementations.
 
 - `formulation_options` and `computation_options` normalize owner-specific options.
 - `formulas` lists the identifiers that a formula family registers.
-- `initialize_buffers` builds the reusable arrays of a calculation into its buffer
+- `initialize_buffers` builds the reusable arrays of a computation into its buffer
   record, one method per formula or shared component.
 - `computation_details` normalizes supplemental output from a registered
   computation owner, and `details` reads retained supplemental output.

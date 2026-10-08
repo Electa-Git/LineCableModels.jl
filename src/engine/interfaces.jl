@@ -103,7 +103,7 @@ function homogenize! end
 """
 $(TYPEDSIGNATURES)
 
-Evaluate the material quantities required by a coaxial calculation into its
+Evaluate the material quantities required by a coaxial computation into its
 allocated buffers. Material-law methods receive the original material values.
 Field equations consume these completed quantities without reevaluating them.
 """

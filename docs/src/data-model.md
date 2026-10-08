@@ -41,7 +41,7 @@ Its physical declaration remains authoritative while geometry and terminal
 indices are derived once by `build`.
 
 Place the cable, complete the system declaration, and construct an ordinary
-calculation problem:
+computation problem:
 
 ```julia
 system = @system "example-system" line_length=1.0 begin

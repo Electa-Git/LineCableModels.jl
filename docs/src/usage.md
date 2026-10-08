@@ -5,9 +5,9 @@ and frequency data. A scalar declaration constructs one value. A declaration
 containing [`Grid`](@ref) or [`Gridspace`](@ref) returns a finite space of
 values.
 
-## Calculations
+## Computations
 
-The ordinary calculation form is `problem → compute` with an optional explicit
+The ordinary computation form is `problem → compute` with an optional explicit
 formulation:
 
 ```julia
@@ -51,7 +51,7 @@ run = compute(
 )
 ```
 
-The calculation contains `length(problem_space) * length(formulations)`
+The computation contains `length(problem_space) * length(formulations)`
 results. Each problem point is materialized once and is evaluated against all
 resolved formulations. Use `combine=:product` or `combine=:zip` on the
 formulation constructor only to compose fields inside that formulation. The
@@ -149,9 +149,9 @@ formula_id(run.axes.formulations[formulation_index].methods.earth_impedance)
 ```
 
 Linear storage is column-major in `(problem, formulation)` coordinates, with the problem index varying fastest. Scalar formulations produce a singleton
-formulation axis and preserve the established scalar numerical calculation.
+formulation axis and preserve the established scalar numerical computation.
 
-Use the product accessors for uncertainty calculations:
+Use the product accessors for uncertainty computations:
 
 ```julia
 collect(sampled)
@@ -190,7 +190,7 @@ Only `DomainError` is retryable. Rejected values do not enter samples or
 statistics. `details(result).data.failure_summary` reports attempts, accepted and
 failed counts, acceptance rate, and failure counts by error type and stage.
 The resulting distribution is conditional on successful problem construction
-and calculation.
+and computation.
 
 When `trials=nothing`, Monte Carlo uses a simultaneous
 Dvoretzky-Kiefer-Wolfowitz bound. For `M` scalar marginals and confidence

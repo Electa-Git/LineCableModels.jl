@@ -46,7 +46,7 @@ julia --project=. test/manual/plotting/manual_gl_monte_carlo.jl
 ```
 
 It opens five native Makie views: histogram, density, empirical CDF, model CDF,
-and Q-Q. Its synthetic completed fixture is sufficient without a new Monte Carlo calculation.
+and Q-Q. Its synthetic completed fixture is sufficient without a new Monte Carlo computation.
 
 Resize the gallery windows from their initial size to a tall window and back.
 Confirm that:

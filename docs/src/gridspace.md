@@ -11,7 +11,7 @@ Grid                 declares explicit finite variation
 Gridspace            composes finite sources and selects one point
 callable              invokes the existing complete construction action
 Engine.compute        evaluates one complete core problem
-ParametricBuilder/UQ  collect stored calculation data
+ParametricBuilder/UQ  collect stored computation data
 ```
 
 `DataModel` constructors validate physical invariants. Engine calculates
@@ -334,7 +334,7 @@ count is reached or `n` failures have occurred. This estimates the conditional
 distribution of the output when problem construction and computation
 succeed. The retained failure summary makes the conditioning rate explicit.
 
-For cable-constant Monte Carlo calculations, the representative stored in the
+For cable-constant Monte Carlo computations, the representative stored in the
 result space remains a `CableConstants` core result. Retained samples,
 statistics, and histograms are concrete named tuples with keys `R`, `L`, `C`,
 and `G`. Cable samples have assembly × trial dimensions. Line-parameter
@@ -394,7 +394,7 @@ formulation declarations require an owner-provided codec and fail explicitly
 when no codec exists. They are never changed into a supported law on recovery.
 
 All completed result spaces are one-dimensional finite Julia collections.
-Iteration and indexing return one stored core result per calculation. A
+Iteration and indexing return one stored core result per computation. A
 `ParametricResult` with several formulations contains the Cartesian
 problem-formulation cardinality in its documented storage order. Monte Carlo
 iteration returns the stored uncertainty-bearing
@@ -406,7 +406,7 @@ cardinality and does not perform statistical selection or result transport.
 
 ## Transporting completed result spaces
 
-A completed result space enters another scalar calculation through the target
+A completed result space enters another scalar computation through the target
 `Gridspace` constructor:
 
 ```julia
@@ -482,7 +482,7 @@ function Gridspace{Target}(source::OwnedResultSpace)
 end
 ```
 
-This keeps every scientific calculation scalar. Finite composition recurses
+This keeps every scientific computation scalar. Finite composition recurses
 through the same typed result-to-problem conversion:
 
 ```text

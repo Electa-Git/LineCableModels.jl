@@ -258,7 +258,7 @@ end
     @test_throws ArgumentError HistogramDensity([0.0, Inf], [1.0])
 
     # The explicit inputs to each channel are distinguishable and control publication and retention.
-    # No historical model calculation supplies these expectations.
+    # No historical model computation supplies these expectations.
     raw_samples=(R=reshape([2.0, 3.0, 5.0, 8.0], 1, :),
         L=reshape([11.0, 13.0, 17.0, 19.0].*1e-6, 1, :),
         C=reshape([23.0, 29.0, 31.0, 37.0].*1e-10, 1, :),

@@ -1,7 +1,7 @@
 # Extension API
 
 Extension code adds methods to the owner that defines their meaning. The public
-calculation entry points are `compute`, `observe`, `observables`,
+computation entry points are `compute`, `observe`, `observables`,
 `report`, `plot`, and `preview`.
 
 `PlotBuilder` owns only optional plotting entry points and the live `UIPlot`
@@ -35,26 +35,90 @@ and display text from `description`. The contextual
 `description(owner, selection; compact)` method describes the backend's equations,
 including PSCAD's native defaults.
 
-## User-owned equations
+## User-owned formulas
 
-Select a concrete type directly in the physical slot, such as
-`Formulation(earth_properties=MySoil(...))`.
-`Expression(selected, operation, Val(...), ...)` calls the operation with the
-selected object first. IDs are for inspection only. `:default` resolves to an
-explicit implementation before physical validation or computation.
+A formula is a collection of expressions. A user-owned formula is a concrete type below its
+family's formulation supertype. It stores its model `parameters` and its normalized
+`options`, a `FormulationOptions` record, and the user selects it directly in its physical
+slot, such as `Formulation(earth_properties=MySoil(...))`. Its methods dispatch on its own
+type: the family operation for each of its expressions, `formulation_options` for the
+options of each expression, and the metadata methods `formula_id`, `description` and
+`NamedTuple`. A formula that checks its input or shares values adds a `Functor` method, and
+one that needs arrays adds an `initialize_buffers` method. IDs are for inspection only.
+`:default` resolves to an explicit implementation before physical validation or computation.
 
-| Family | User type and owning operation |
-|---|---|
-| Internal impedance | `Engine.InternalImpedanceFormulation`. `InternalImpedance.internal_impedance(selected, Val(kind), functor, workspace)` |
-| Insulation impedance | `Engine.InsulationImpedanceFormulation`. `InsulationImpedance.insulation_impedance(selected, r_in, r_ex, mu_r, s, parameters, options, workspace)` |
-| Insulation / semicon admittivity | Corresponding `Engine.*AdmittanceFormulation`. `insulation_material` / `semicon_material(selected, material, frequency, temperature, parameters, options, workspace)` |
-| Earth impedance / potential | Corresponding `Engine.Earth*Formulation`. `earth_impedance` / `earth_potential_coefficient(selected, Val(kind), Val(source), Val(target), functor, pair, workspace)` |
-| Soil frequency dependence | `Earth.FrequencyDependent.FrequencyDependentFormulation`. `earth_material(selected, material, frequency, parameters, options, workspace)` |
-| Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation`. `temperature_resistivity(selected, material, temperature, parameters, options, workspace)` |
-| Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule`. `equivalent_material(selected, Val(kind), Val(source), Val(target), rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` |
-| Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation`. `Commons.initialize_buffers(selected, T, input, plan, common)` and `ModalAnalysis.decompose!(selected, workspace, parameters, options)` |
-| Local shunt geometry | `Engine.ShuntModelFormulation`. `Engine.internal_shunt_response(selected, design, geometry, T, material_selections, solutions, design_index)` during blueprint construction |
-| Pipe applicability | `Engine.PipeImpedanceFormulation`. `validate(design, selected, backend)` admits the topology of `design` or throws. No analytical pipe equation is supplied. |
+### Expressions
+
+`Commons.Expression(formula, operation, selectors...)` names one expression of a formula: the
+formula object, the family operation and the `Val` selectors of the part, such as the kind
+and the source and target layers of an earth interaction, or the inner, outer or transfer
+kind of an internal impedance. Calling the expression with a Functor and a workspace evaluates
+`operation(formula, selectors..., functor, workspace)`. The formula object comes first, and
+the selectors follow it.
+
+A formula declares the defaults of each expression with
+`formulation_options(::Expression{<:MyFormula, typeof(operation), ...})`. The family projects
+the options supplied to the formula onto the expressions that consume them. Before the
+frequency loop, `validate(expression)` checks that the operation has a method for the
+formula and its selectors.
+
+### The Functor
+
+`Commons.Functor(formula, input, state)` is a formula at one evaluation point. `input`
+stores the values of that point, such as the material and the frequency, with the options
+of the expression evaluated there. `state` stores plain values that the expressions of the
+formula share at that point, such as Schelkunoff's scaled Bessel values or Unified's
+per-frequency system. Arrays come from `workspace.buffers`, never from the state. Every
+family evaluates its expressions through the same path:
+
+```julia
+functor = Functor(formula, input; workspace)
+value = Expression(formula, operation, selectors...)(functor, workspace)
+# This evaluates operation(formula, selectors..., functor, workspace).
+```
+
+Without a method of its own, a formula gets an empty state. A family or a formula that
+checks its input, shares values or reads buffers adds a method
+`Functor(formula::MyFormula, input::NamedTuple; workspace)` that returns
+`Functor(formula, input, state)`. `Functor(functor, extension)` keeps the formula and the
+state and extends the input, such as with one conductor pair of an earth calculation.
+
+| Family | Formulation supertype | Operation | Functor input |
+|---|---|---|---|
+| Internal impedance | `Engine.InternalImpedanceFormulation` | `InternalImpedance.internal_impedance(formula, Val(kind), functor, workspace)`, with `kind` one of `:inner`, `:outer`, `:transfer` | `r_in`, `r_ex`, `rho`, `mu_r`, `jω` and the `options` of that kind |
+| Insulation impedance | `Engine.InsulationImpedanceFormulation` | `InsulationImpedance.insulation_impedance(formula, functor, workspace)` | `r_in`, `r_ex`, `mu_r`, `jω`, `options` |
+| Insulation and semicon admittivity | `Engine.InsulationAdmittanceFormulation`, `Engine.SemiconAdmittanceFormulation` | `insulation_material` or `semicon_material(formula, functor, workspace)` | `material`, `frequency`, `temperature`, `options` |
+| Earth impedance and potential | `Engine.EarthImpedanceFormulation`, `Engine.EarthAdmittanceFormulation` | `earth_impedance` or `earth_potential_coefficient(formula, Val(kind), Val(source), Val(target), functor, workspace)` | `pair`, `physical`, the pair's columns of `rho`, `epsilon` and `mu`, `thickness`, `jω`, `frequency`, `media`, `options` and the `destinations` |
+| Unified earth return | `EarthImpedance.Formula{:unified}`, `EarthAdmittance.Formula{:unified}` | `EarthAdmittance.source_coefficients(formula, Val(kind), Val(source), Val(target), functor, workspace)`, which returns `(axial, potential)` | as for the earth families, with Unified's per-frequency state |
+| Soil frequency dependence | `Earth.FrequencyDependent.FrequencyDependentFormulation` | `earth_material(formula, functor, workspace)` | `material`, `frequency`, `options` |
+| Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation` | `temperature_resistivity(formula, functor, workspace)` | `material`, `temperature`, `options` |
+| Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule` | `equivalent_material(formula, Val(kind), Val(source), Val(target), functor, workspace)` | `rho`, `eps_r`, `mu_r`, `model`, the physical `pair`, `frequency`, `options` |
+| Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation` | `Commons.initialize_buffers(formula, T, input, plan, common)` and `ModalAnalysis.decompose!(formula, workspace, parameters, options)` | none |
+| Local shunt geometry | `Engine.ShuntModelFormulation` | `Engine.internal_shunt_response(formula, design, geometry, T, material_selections, solutions, design_index)`, during blueprint construction | none |
+| Pipe applicability | `Engine.PipeImpedanceFormulation` | `validate(design, formula, backend)` admits the topology of `design` or throws. No analytical pipe equation is supplied. | none |
+
+An earth expression returns one coefficient per destination of its calculation. It returns a
+number for one destination and a tuple, ordered as the destinations, for several.
+
+### Layered earth
+
+The source and target layers of an earth expression select its method. Layer 1 is air,
+and layer 2 is the first earth layer. Methods written for `Val{1}` and `Val{2}` declare a
+formula for air and one homogeneous earth. On an earth model with more layers, such a
+formula consumes its explicit `equivalent_earth` reduction, or the `:default` reduction
+without one. A layer left as a generic `Val{S}` declares the expression for every layer:
+
+```julia
+function earth_impedance(formula::MyLayeredImpedance, ::Val{:self}, ::Val{S}, ::Val{S},
+        functor, workspace) where {S}
+    # functor.input.thickness holds the thicknesses of the layered earth.
+end
+```
+
+A formula that admits a layer above 2 consumes the whole layered earth and its interfaces.
+Before the frequency loop, the plan checks that the formula has an expression for every
+conductor pair on the earth it consumes. The `ArgumentError` names the number of earth
+layers and the highest layer that the formula admits.
 
 `parameters` are model data and `options` are formulation-owned physical choices
 and numerical controls. Custom constructors validate and normalize their own `FormulationOptions`.
@@ -67,13 +131,13 @@ own wave numbers and field approximations. Material-law families implement
 `constitutive` with a valid material argument.
 Unified's formulation options accept a prescribed longitudinal coefficient Γ
 as a scalar or a frequency-aligned vector. Its precision participates in
-allocation of the calculation's numerical storage. The positive-time convention
+allocation of the computation's numerical storage. The positive-time convention
 and explicit convention conversions are documented with the Unified equations.
 
 Coaxial equations and material laws receive the defining computation workspace,
 or `nothing` for a standalone evaluation that does not require it. Numerical arrays are in
-`workspace.buffers`. The workspace input and bindings remain the authority for geometry
-and material mappings.
+`workspace.buffers`. The workspace input and plan remain the authority for geometry and
+material mappings.
 
 The workspace provides the buffers, and formulas use them. `initialize_buffers` is the
 one action that builds buffers. Each equation builds its own in its method, usually as a
@@ -102,19 +166,19 @@ within one blueprint construction. Completed coefficient blocks are retained
 after construction. The charge-system factorization and workspace are reused
 only during construction.
 
-The existing `Engine.earth_bindings` constructor binds material interactions and
-output entries. A coupled formula can extend its selected-type method to require
-the complete system and its two-selection method to bind compatible Z/P consumers.
-`Engine.earth!` then performs the actual calculation from completed material
-inputs and writes the selected destinations. Unpaired selections use its ordinary
-indexed implementation. Each selection uses the Engine frequency sequence and
-its computation workspace.
+Conductor pairs with the same inputs share one computed value when their media agree.
+By default the pairs' destination indices take part, so distinct pairs are computed
+separately. A formula whose arithmetic does not read the indices declares the inputs it
+reads with `same_physical_state(formula, a::EarthPair, b::EarthPair, geometry)`. A formula
+that computes the whole system at once, such as Unified, adds an `Engine.EarthPlan`
+constructor method on its own type and an `Engine.earth!(formula, functor, workspace)`
+method that converts the coefficients of its parts into the physical matrices. Each
+selection uses the Engine frequency sequence and its computation workspace.
 
-Internal state is constructed once per conductor and frequency through the selected
-type's physical constructor and `InternalImpedance.Functor`. Shunt geometry
-construction runs once before the frequency loop and returns frequency-independent
-blueprint blocks and diagnostics. A consuming earth
-equation explicitly admits a custom equivalent-earth rule using `validate`.
+An internal-impedance formula builds the values that its inner, outer and transfer impedances
+share in its `Functor` method, once per conductor and frequency. Shunt geometry construction runs once before the
+frequency loop and returns frequency-independent blueprint blocks and diagnostics. A
+consuming earth formula explicitly admits a custom equivalent-earth rule using `validate`.
 
 Results use result-type and unit checks for each formula family, including custom types.
 Impedances are in Ω/m, material admittivities in S/m, earth potential coefficients
@@ -234,7 +298,7 @@ Public = true
 Private = false
 ```
 
-## Data model and calculations
+## Data model and computations
 
 ```@autodocs
 Modules = [

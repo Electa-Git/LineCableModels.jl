@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-Define one scalar line-parameter calculation over a completed cable system.
+Define one scalar line-parameter computation over a completed cable system.
 Operating temperature and analysis frequencies are fields of the problem.
 
 $(TYPEDFIELDS)
@@ -162,7 +162,7 @@ end
 """
 $(TYPEDEF)
 
-Store the physical methods selected for a line-parameter calculation.
+Store the physical methods selected for a line-parameter computation.
 
 $(TYPEDFIELDS)
 """
@@ -176,7 +176,7 @@ struct LineParametersFormulation{M <: NamedTuple, O <: FormulationOptions, D <: 
     definitions::D
 end
 
-"""Identify the owned coaxial calculation without report numbering."""
+"""Identify the owned coaxial computation without report numbering."""
 description(::Type{<:LineParametersFormulation}; compact::Bool=false) = description(LineCableModelsCoaxial;compact)
 description(::LineParametersFormulation; compact::Bool=false) = description(LineParametersFormulation;compact)
 formula_id(::Type{<:LineParametersFormulation}) = :coaxial
@@ -186,7 +186,7 @@ formula_id(::LineParametersFormulation) = :coaxial
 $(TYPEDSIGNATURES)
 
 Describe the selected earth-return methods relevant to `quantity`. This compact
-summary identifies the analytical calculation when compared with another
+summary identifies the analytical computation when compared with another
 backend. Individual constitutive selections remain separately described.
 """
 function description(::Type{LineParametersFormulation}, source::LineParametersFormulation;
@@ -335,7 +335,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Select the complete physical-method bundle for a line-parameter calculation.
+Select the complete physical-method bundle for a line-parameter computation.
 `Formulation(; kwargs...)` and `Formulation(:coaxial; kwargs...)` call it.
 
 `shunt_model=:default` (or `:equivalent`) selects the equivalent annular layer as local shunt

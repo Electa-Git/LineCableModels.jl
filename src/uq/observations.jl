@@ -50,7 +50,7 @@ uncertain(value::AbstractUncertaintyResult, point::Integer) = uncertain(value)[p
 """
 $(TYPEDSIGNATURES)
 
-Return the resolved root random seed of a Monte Carlo calculation.
+Return the resolved root random seed of a Monte Carlo computation.
 """
 root_seed(value::MonteCarloResult) = value.root_seed
 
@@ -71,21 +71,21 @@ trial_count(value::MonteCarloResult, index::Integer) = value.trial_counts[index]
 """
 $(TYPEDSIGNATURES)
 
-Return the simultaneous empirical-CDF confidence of a Monte Carlo calculation.
+Return the simultaneous empirical-CDF confidence of a Monte Carlo computation.
 """
 confidence(value::MonteCarloResult) = (value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).confidence
 
 """
 $(TYPEDSIGNATURES)
 
-Return the empirical-CDF tolerance used to size a Monte Carlo calculation.
+Return the empirical-CDF tolerance used to size a Monte Carlo computation.
 """
 cdf_tolerance(value::MonteCarloResult) = (value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).cdf_tol
 
 """
 $(TYPEDSIGNATURES)
 
-Return the sampling distribution of a Monte Carlo calculation.
+Return the sampling distribution of a Monte Carlo computation.
 """
 sampling_distribution(value::MonteCarloResult) = (value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).distribution
 

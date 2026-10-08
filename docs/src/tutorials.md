@@ -1,6 +1,6 @@
 # Tutorials
 
-Each tutorial constructs a cable model and evaluates a supported calculation
+Each tutorial constructs a cable model and runs a supported computation
 with executable Julia code.
 
 ```@contents

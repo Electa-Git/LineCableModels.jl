@@ -225,7 +225,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct a Monte Carlo calculation with execution controls supplied as an
+Construct a Monte Carlo formulation with execution controls supplied as an
 ordinary `options` named tuple or as keyword shorthand. Both forms are
 normalized by `computation_options(MonteCarlo, options)`. A key supplied in
 both places is an error.
@@ -253,7 +253,7 @@ the same names and are merged into `options` before normalization.
 
 # Returns
 
-- A `MonteCarlo` calculation storing normalized `ComputationOptions` in `options`.
+- A `MonteCarlo` formulation storing normalized `ComputationOptions` in `options`.
   The concrete payload type retains the sampler type.
 """
 function MonteCarlo(inner::AbstractFormulation; options::Union{NamedTuple,ComputationOptions} = ComputationOptions(), kwargs...)

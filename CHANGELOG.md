@@ -9,8 +9,6 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `Commons.bindings` binds each interaction of a formula to its equation and normalized
-  options. Earth formulas and equivalent-earth reductions extend it.
 - `Engine.AbstractModalOperators` is the supertype of modal-to-phase operator bases.
   `ModalOperators` subtypes it and implements `size`.
 - `Pose2` is callable. `pose(point)` rotates a point by the pose's orientation and
@@ -29,14 +27,35 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - The dielectric and temperature law checks take the law result first and no longer
     convert it.
   - The Unified check is `validate(Γ, formula type)`.
-  - The earth checks take the earth model, the layer count or the resistivity first.
-  - A custom equivalent-earth reduction is admitted with `validate(reduction, equation)`.
+  - The earth checks take the earth model or the resistivity first.
+  - A custom equivalent-earth reduction is admitted with `validate(reduction, expression)`.
   - PSCAD checks take `PSCADFormulation` instead of `Val(:pscad)`.
   - Result-space element types are checked with `validate(T, result space)`.
-- Earth formulas and equivalent-earth reductions resolve their equations with `bindings`
-  instead of `validate(formula, pairs)`. One `formulation_options(formula, equations)`
-  projection serves every formula family and reports an unused option as
-  `unused formulation options (...) for :id`.
+- `Commons.Expression(formula, operation, selectors...)` is one expression of a formula.
+  Calling it evaluates `operation(formula, selectors..., functor, workspace)`.
+- `Commons.Functor(formula, input, state)` stores the input of one evaluation point and the
+  state of the formula, for every formula family.
+- Formula methods take the formula object first. An expression's operation reads its input
+  from `functor.input`.
+- `Commons.formulas(family)` returns the identifiers that a formula family registers.
+- Earth formulas and equivalent-earth reductions resolve one expression per pair with
+  `Expression(formula, pair)`. A missing expression throws before the frequency loop.
+- One `formulation_options(formula, expressions)` projection serves every formula family and
+  reports an unused option as `unused formulation options (...) for :id`.
+- `Formulation(tag; kwargs...)` builds the backend formulations `:coaxial`,
+  `:cable_constants`, `:fem` and `:pscad`, and throws for an unknown tag.
+- A saved `LineParameters` record keeps its `details` whole and loads them as data.
+- On an earth with more than two layers, an earth formula with no expression beyond layer 2
+  takes the `:default` reduction.
+- `InternalImpedance` takes one formula per slot.
+- The ShuntModel formulas are `:equivalent` and `:boundary`. `:default` resolves to
+  `:equivalent`.
+- Unified's `EarthAdmittance.source_coefficients` returns the axial and potential
+  coefficients of one pair for both earth families.
+- `ModalAnalysis` is a child module of `Engine`. The package root exports it and its public
+  names.
+- The Unified Γ is validated when the formula is built. The `:unified` docstring and the
+  theory page on earth-return impedance state the validity ranges of the formula.
 - Normalized author-formula identifiers to lowercase main-author-year symbols
   and made their compact descriptions readable author names.
 - Renamed the dielectric constitutive choices to `:lossy` and `:lossless`,
@@ -77,7 +96,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `8.8541878128e-12` literal.
 - Replaced the prototype parameter and uncertainty paths with typed `Grid` and
   inferred `Gridspace` construction from the public declarative builders.
-- Converged calculation ownership around `Commons` action generics,
+- Converged computation ownership around `Commons` action generics,
   `ParametricBuilder` deterministic traversal, `UQ` uncertainty propagation,
   and complete native execution in `Engine`.
 - Reduced Gridspace to explicit finite `Grid` sources, local product or zip
@@ -113,11 +132,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Formulation()` as the default line-parameter method bundle, and exposed
   optional trace data through `details(result)`.
 - Replaced nominal author-formula types with stable literature symbols,
-  formula-owned typed functors, overridable leaf routes, deterministic formula
-  discovery, and an explicit longitudinal propagation-constant path.
+  overridable leaf routes, deterministic formula discovery, and an explicit
+  longitudinal propagation-constant path.
 - Ported nine legacy soil-dispersion laws into discovered
   `earth/frequencydependent/formulas/mainauthorYear.jl` files per literature
-  identity, with SI conversion and typed assumptions in place of MATLAB flags
+  identity, with SI conversion and typed parameters in place of MATLAB flags
   and runtime coefficient files.
 - Moved equivalent homogeneous-earth rules to `EarthProps.EHEM`, separated
   before-FD and after-FD composition by dispatch, and evaluated the resulting
@@ -147,10 +166,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   overlaid result containers through `series_labels`.
 - The PSCAD sources moved from the extensions directory to `src/pscad/`, and its remote
   runner project to `src/pscad/remote/`. `LineCableModels.PSCAD` is unchanged.
-- `Commons` owns `initialize_buffers`, which builds every buffer of a calculation.
+- `Commons` owns `initialize_buffers`, which builds every buffer of a computation.
   Each formula and shared component extends `Commons.initialize_buffers(selected, T,
   input, plan, buffers)` and shapes its own buffers, usually as a named tuple of arrays.
-  The fourth argument, formerly `invariants`, is the calculation plan.
+  The fourth argument, formerly `invariants`, is the computation plan.
 - The coaxial workspace fields are `input`, `plan`, `buffers` and `trace`, formerly
   `invariants` and `capture` for the second and fourth.
 - `SpectralIntegral` is a formulation, a subtype of `AbstractFormulation`, and

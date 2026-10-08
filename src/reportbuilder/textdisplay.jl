@@ -271,7 +271,7 @@ function _show_observed_benchmark(io,mime,artifact;metric=:relative,problem=noth
     if isempty(overview.performance)
         note("No controlled performance measurements were recorded.")
     else
-        heading("Controlled calculation measurements")
+        heading("Controlled computation measurements")
         note("Allocated bytes are cumulative Julia allocations, not peak memory.")
         any(==(1),overview.performance.samples) && note("At least one measurement has only one timed call; variability is unavailable.")
         any(!,overview.timing_ratio.comparable) && note("The recorded ratio is not a validated speedup.")

@@ -79,7 +79,7 @@ end
 $(TYPEDEF)
 
 Pair a lazy parameter space with computation options for a higher-order
-calculation. A completed scalar problem is normalized to a singleton
+computation. A completed scalar problem is normalized to a singleton
 target-bearing `Gridspace`. The problem itself need not implement iteration.
 
 $(TYPEDFIELDS)
@@ -133,7 +133,7 @@ $(TYPEDFIELDS)
 """
 struct ParametricResult{T, F, A <: NamedTuple, D <: ComputationDetails} <:
        AbstractParametricResult{T}
-    "Higher-order formulation used for the calculation."
+    "Higher-order formulation used for the computation."
     formulation::F
     "Core results in problem-index-fastest formulation order."
     values::Vector{T}
@@ -248,7 +248,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Expose the formulation, ordered values, resolved axes and calculation details as
+Expose the formulation, ordered values, resolved axes and computation details as
 a native record. Arrays and axes retain their identity. The method returns these retained objects without calculating or copying them.
 """
 function Base.NamedTuple(value::ParametricResult)

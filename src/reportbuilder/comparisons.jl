@@ -29,18 +29,18 @@ function _selected_errors(definition,point,reference)
 end
 
 function _point_information(points,role,labels=Commons.observation_labels(points))
-    calculations=NamedTuple[]
+    computations=NamedTuple[]
     formulations=NamedTuple[]
     formula_details=NamedTuple[]
     for (index,point) in enumerate(points)
         id=point.gridpoint.id
-        push!(calculations,(role,identity=id,label=labels[index],physical_inputs=point.gridpoint.inputs))
+        push!(computations,(role,identity=id,label=labels[index],physical_inputs=point.gridpoint.inputs))
         push!(formulations,(role,identity=id,label=labels[index],selections=point.gridpoint.formulations))
         for (key,value) in pairs(something(point.gridpoint.formulations,(;)))
             push!(formula_details,(role,identity=id,selection=key,value))
         end
     end
-    return (;calculations,formulations,formula_details)
+    return (;computations,formulations,formula_details)
 end
 
 """
@@ -117,7 +117,7 @@ function tabulate(definition::BenchmarkTableDefinition,
             normalization,reference_id,problem_index,absolute_unit=first(selected).absolute_unit,absolute,relative))
     end
     result_info=_point_information(points,:result,labels)
-    reference_info=reference===nothing ? (calculations=NamedTuple[],formulations=NamedTuple[],formula_details=NamedTuple[]) :
+    reference_info=reference===nothing ? (computations=NamedTuple[],formulations=NamedTuple[],formula_details=NamedTuple[]) :
         _point_information([reference],:reference,[last(labels)])
     info=map((a,b) -> DataFrame(vcat(a,b)),result_info,reference_info)
     timing=_timing_tables(points,reference)

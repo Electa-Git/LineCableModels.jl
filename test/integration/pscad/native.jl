@@ -154,7 +154,7 @@ end
     @test !isfile(joinpath(run_directory,"complete.toml"))
     console = read(joinpath(run_directory,"outputs","pscad-console.txt"),String)
     @test count("Launching PSCAD 5.1.0",console) == 1
-    @test !occursin("Starting PSCAD line-constants calculation",console)
+    @test !occursin("Starting PSCAD line-constants computation",console)
     @test !isfile(joinpath(run_directory,"outputs","result_zm.out"))
     println("Native identity rejection evidence: ",run_directory)
 end

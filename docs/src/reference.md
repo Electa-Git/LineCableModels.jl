@@ -1,10 +1,10 @@
 # API reference
 
-This page lists the public calculation API by its defining module. Within each
+This page lists the public computation API by its defining module. Within each
 module, Documenter orders constants, types, functions and methods, then macros.
 Convenience functions and extension interfaces have separate references.
 
-## Calculation grammar
+## Computation grammar
 
 ```@autodocs
 Modules = [
@@ -43,7 +43,7 @@ Public = true
 Private = false
 ```
 
-## Line and cable calculations
+## Line and cable computations
 
 ```@autodocs
 Modules = [

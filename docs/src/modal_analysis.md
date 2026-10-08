@@ -318,7 +318,7 @@ plots
 diagnostic_figure
 ```
 
-The script keeps each calculation and live GLMakie figure in a named REPL
+The script keeps each computation and live GLMakie figure in a named REPL
 variable. Save any retained observation explicitly after inspection if needed. Modal
 order, residual coupling, and conditioning are research diagnostics, not
 acceptance thresholds.

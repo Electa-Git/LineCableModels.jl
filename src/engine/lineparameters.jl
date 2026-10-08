@@ -273,7 +273,7 @@ remains unchanged.
 - `options`: named tuple containing `verbosity`, `output_basis`, `trace`, and
   `on_result`. The optional callable `on_result(problem, index, result)` runs
   synchronously after each completed formulation and
-  before the next calculation. `index` is local to the formulation collection
+  before the next computation. `index` is local to the formulation collection
   (`1` for a scalar call). Its return value is ignored. Exceptions propagate.
   The callback must not mutate the problem or result. The default is `nothing`.
   The compute call constructs the selected local shunt coefficients in the

@@ -13,7 +13,7 @@ equivalent-coaxial treatment.
 """
 struct LineCableModelsCoaxial end
 
-"""Identify the coaxial backend without executing or configuring a calculation."""
+"""Identify the coaxial backend without executing or configuring a computation."""
 description(::Type{LineCableModelsCoaxial}; compact::Bool = false) = "coaxial"
 function description(::LineCableModelsCoaxial; compact::Bool = false)
     description(LineCableModelsCoaxial; compact)

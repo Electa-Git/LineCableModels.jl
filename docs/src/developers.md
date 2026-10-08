@@ -1,8 +1,8 @@
 # Commons invariants
 
-LineCableModels has three global calculation roles: a complete problem and a formulation that selects how to calculate it, followed by a completed result. Package
+LineCableModels has three global computation roles: a complete problem and a formulation that selects how to calculate it, followed by a completed result. Package
 modules may add concrete types below these roots, but they do not add parallel
-calculation entry points.
+computation entry points.
 
 The type trees below are generated from the loaded package during the
 documentation build.
@@ -19,11 +19,11 @@ print(Main.DocumentationTrees.type_tree(AbstractProblemResult))
 ```
 
 `Combinatorial`, `LinearError`, and `MonteCarlo` occupy the same formulation
-tree. UQ uses the same calculation supertypes. Its completed
+tree. UQ uses the same computation supertypes. Its completed
 collections are subtypes of `AbstractUncertaintyResult`, while deterministic finite
 collections are subtypes of `AbstractParametricResult`.
 
-`LineParamsDomain` is independent of this calculation grammar. It tags the
+`LineParamsDomain` is independent of this computation grammar. It tags the
 physical coordinate system of a completed line-parameter matrix:
 
 ```@example grammar_type_trees
@@ -100,6 +100,10 @@ phase-to-modal result transport without another geometry lowering. The visual
 suite applies the ownership checks to the loaded Makie extensions and verifies
 that material colors consume `Material` or `EarthLayer` objects directly.
 
+`validate(subject, context...)` checks an input before its consumer uses it. It throws on
+invalid input and returns its subject. It may warn on input that is computable but
+questionable.
+
 The `validate` tests check owner dispatch, required interfaces, unchanged valid
 inputs and rejection of damaged inputs through validation and computation. The
 standards require checks to remain with the defining validator. Inspection of every method body requires a separate review beyond representative behavioral tests.
@@ -170,6 +174,15 @@ package method and parse every Julia file under `src/` and `ext/`.
   `scratch`, `storage` or `cache`. The guard reads source code. The modal and
   cable-constant workspaces keep other fields until their restructuring, and the
   baseline lists them.
+- Dispatch convention (`dispatch`). A formula method takes the formula object first, and
+  its `Val` tags follow it. The guard examines each function with a method whose first
+  argument is a formula, a subtype of `AbstractFormulation`, or a `Union` that contains
+  one. Another method of that function whose first argument is a `Val`, or a `Union` that
+  contains one, is a violation. In any function, a first argument `Val{ID}`, or a `Union`
+  that contains one, where `ID` is an identifier that a formula family registers through
+  `formulas`, is a violation: it passes the formula as its tag. Type constructors are
+  exempt, such as `Formula(::Val{ID})`. The guard reads the method table. Its baseline
+  table is empty.
 
 `Commons` contains only definitions that several owners use. An owner is the root
 module, a top-level submodule or a package extension. The Commons guards stop
@@ -259,16 +272,19 @@ the earlier revision.
 - `@inferred` floor. The number of `@inferred` uses in each test file. Deleting a
   failing inference test lowers the floor and fails.
 - JET ceilings. `JET.report_opt` with `target_modules = (LineCableModels,)` analyses the
-  frequency-loop kernels with the concrete arguments of the default coaxial calculation
+  frequency-loop kernels with the concrete arguments of the default coaxial computation
   of a three-phase cable system: `_solve!`, `cable_impedance!`, `cable_potential!`,
   `earth!`, `reduce_line_matrices!` and the modal `decompose!` of each formula. The
   table counts the reports of each kernel. The current reports all come from the boxed
   earth-return records.
 - Allocation ceilings. `preservation_corpus(n)` in `test/support/scenarios.jl` defines one
-  scenario per calculation shape. Each scenario lists the positional arguments of
+  scenario per computation shape. Each scenario lists the positional arguments of
   `compute` for a coaxial cable system, three bare wires in air and in earth, a modal
   composition, CableConstants, a product and a zip parametric study, LinearError and
-  MonteCarlo with a fixed seed. `test/tools/allocations.jl` runs the corpus at 2 and at 4
+  MonteCarlo with a fixed seed. Two more put the coaxial system on an earth of three soil
+  layers: `three_layer` with the default formulation, which consumes the `:default`
+  reduction, and `three_layer_before_fd` with a dispersive soil law before the bottommost
+  reduction. `test/tools/allocations.jl` runs the corpus at 2 and at 4
   frequencies in a new process and prints the table rows. A row records the allocation
   count of one warmed-up call, which must repeat exactly on each call, and the smallest
   byte total of three calls. Measurements stores a partial derivative only when it is
@@ -344,7 +360,7 @@ difference fails. The report lists renames and declarations that match no differ
 - [Extension API](extensions.md) lists the equation methods and definition types omitted
   from the user API reference.
 - [Computational engine](engine.md) covers formulations, options, supplemental
-  calculation output, and external implementations.
+  computation output, and external implementations.
 - [Makie plotting](plotting.md) covers the small high-level API and native ownership.
 - [Conventions](conventions.md) defines placement, dispatch, naming, and
   docstring rules.

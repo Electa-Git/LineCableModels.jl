@@ -174,7 +174,7 @@ end
             "configuration"=>Dict{String,Any}(),
         )
         console=read(joinpath(output,"pscad-console.txt"),String)
-        @test occursin("Starting PSCAD line-constants calculation",console)
+        @test occursin("Starting PSCAD line-constants computation",console)
         @test occursin("Collected detailed PSCAD Z and Y outputs",console)
     end
 
@@ -194,7 +194,7 @@ end
             python_environment.pop("LCM_RUNNER_FIXTURE_FAIL",nothing)
         end
         @test caught isa ErrorException
-        @test occursin("line-constants calculation",sprint(showerror,caught))
+        @test occursin("line-constants computation",sprint(showerror,caught))
         @test occursin("synthetic compile failure",read(joinpath(output,"pscad-console.txt"),String))
     end
 end

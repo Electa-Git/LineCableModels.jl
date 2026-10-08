@@ -48,7 +48,7 @@ The workflow is design, system, problem, formulation, then `compute`. Initializa
 flattens the selected designs into blueprint tables. It binds equations to their required inputs and selected output entries before allocating one
 `LineParametersWorkspace`.
 
-The calculation evaluates fixed-temperature conductor properties and required
+The computation evaluates fixed-temperature conductor properties and required
 frequency-dependent earth tables, then follows this order at each frequency:
 
 1. Complete equivalent-earth evaluation and dielectric material admittivities.
@@ -332,20 +332,20 @@ conductor. Distinct conductors in one layer remain mutuals. A self pair has zero
 horizontal separation, with its radius supplied separately. The geometry substitution
 needed by a published self expression occurs at equation evaluation.
 
-The external equation signatures are:
+The external expression signatures are:
 
 ```julia
-earth_impedance(selection::MyEarthImpedance, ::Val{Kind}, ::Val{S}, ::Val{T}, functor, pair, workspace)
-earth_potential_coefficient(selection::MyEarthPotential, ::Val{Kind}, ::Val{S}, ::Val{T}, functor, pair, workspace)
+earth_impedance(formula::MyEarthImpedance, ::Val{Kind}, ::Val{S}, ::Val{T}, functor, workspace)
+earth_potential_coefficient(formula::MyEarthPotential, ::Val{Kind}, ::Val{S}, ::Val{T}, functor, workspace)
 ```
 
 `Kind` is `:self` or `:mutual`. Source `S` is the matrix column, and target `T`
 is the row. Layer 1 is air. Soils occupy layers 2 through N. Required methods
-are invoked through indexed dispatch. Unsupported cases invoke the throwing
-fallback. There is no reflected equation-coverage preflight. Domain-defining
-methods accept the three runtime payloads without extra
-subtype constraints. Numerical specializations can optimize an admitted case.
-Julia method availability determines which equations can be selected.
+are invoked through indexed dispatch. Before the frequency loop, the plan checks
+that the formula has a method for each interaction. Domain-defining methods accept
+the Functor and the workspace without extra subtype constraints. Numerical
+specializations can optimize an admitted case. Julia method availability determines
+which expressions can be selected.
 
 Each earth slot also accepts an explicit NamedTuple recipe:
 
@@ -382,12 +382,12 @@ arrays. The complete scan specializes on those tuples before entering its
 frequency loop, while the workspace type remains independent of conductor layout.
 
 Repeated numerical interactions use the shared `Engine.earth!` traversal of
-bound indexed equations. During workspace construction,
-`earth_bindings(selection, binding, geometry)` supplies the complete invariant
-arithmetic inputs for comparison. The default includes destination indices.
-A formula omits them only when its arithmetic does not use them. These inputs
-serve reuse alone: equations consume the existing `EarthPair` and evaluated
-material data, without a second pair representation or callback interface.
+the parts of each earth calculation. During workspace construction,
+`same_physical_state(formula, a, b, geometry)` compares the invariant arithmetic inputs
+of two conductor pairs. The default compares their destination indices. A formula
+compares the inputs it reads instead only when its arithmetic does not use the indices.
+These inputs serve reuse alone: expressions consume the existing `EarthPair` and
+evaluated material data, without a second pair representation or callback interface.
 
 Earlier interactions belong to the same bound equation and resolved controls. At each
 frequency, Engine uses `same_physical_state` to compare their current material
@@ -482,10 +482,11 @@ selected = Formulation(
 )
 ```
 
-The reduction receives the physical `(kind,s,t)` selectors, all physical layer
-properties, model, pair and frequency. Its runtime suffix is
-`(rho, eps_r, mu_r, model, pair, frequency, parameters, options, workspace)` and
-its result is one `EarthMaterial`. It defines its numerical sections independently
+The reduction's expression
+`equivalent_material(formula, Val(kind), Val(s), Val(t), functor, workspace)` receives the
+physical selectors. The input of its Functor stores all physical layer properties
+(`rho`, `eps_r`, `mu_r`), the model, the physical pair, the frequency and the options. Its
+result is one `EarthMaterial`. It defines its numerical sections independently
 of the external equation. The consuming source explicitly admits compatible
 reductions. An explicit reduction applies to every consumer, a layered formula included.
 
@@ -517,9 +518,9 @@ formulation_options(
 ```
 
 The equation is `II.internal_impedance(selected::MyConductor, ::Val{:outer},
-functor, workspace)`. Its state constructor constructs one `II.Functor` per
-conductor and frequency. The same state is shared by all surface equations using that
-selection. An integral equation declares its own integration section. An
+functor, workspace)`. The formula's `Functor` method builds its state once per
+conductor and frequency, from the input `(r_in, r_ex, rho, mu_r, jω)`. All surface
+equations of that selection share this state. An integral equation declares its own integration section. An
 algebraic equation does not inherit another formula's numerical options.
 
 `InternalImpedance.surface_impedances(resolved_formula, r_in, r_ex, rho, mu_r, jω)`
@@ -563,13 +564,13 @@ tolerance tightening or matrix-error rejection. Invalid inputs, nonfinite values
 and singular physical solves remain errors. The human judges accuracy. Meaningful
 matrix-accuracy assertions belong in tests.
 
-Selected numerical formulas within one calculation share reusable segment storage.
+Selected numerical formulas within one computation share reusable segment storage.
 The main workspace holds formula-owned subdivision and coupled-response arrays.
 `initialize_buffers` allocates storage for both earth and local formulas through
 dispatch on the selected formulation. Each formula supplies the complete
 integrand and its numeric subdivision hints. Compatible
 unified consumers share one current calculation per frequency and publish the
-completed entries directly. Independent calculations never share mutable buffers.
+completed entries directly. Independent computations never share mutable buffers.
 
 Each family explicitly includes its supported formula files. A file returns one identifier. An `Expression` holds a selected formulation, its indexed case and
 the family-owned operation.
@@ -618,11 +619,11 @@ self and mutual pairs, as well as mixed air-buried pairs. Cable insulation contr
 potential coefficients. In this mathematical model, lossless admittance is purely
 imaginary, while capacitance is real.
 
-PSCAD has no independent potential-model selector. Real PSCAD 5.1 calculations
+PSCAD has no independent potential-model selector. Real PSCAD 5.1 computations
 with lossless insulation and direct earth-return integration showed a small
 aerial conductance. At 1 kHz, one diagonal entry had
 `real(Y) = 5.4551e-13 S/m` and `imag(Y) = 5.3337e-8 S/m`, with a raw phase of
-`89.999414°`. The Gary/Wedepohl calculation gave `90°` and agreed with the ideal
+`89.999414°`. The Gary/Wedepohl computation gave `90°` and agreed with the ideal
 image-potential reference. Buried and mixed mutual entries were zero in both.
 A general error bound and an explanation of its internal cause require further investigation.
 The adapter retains `:ideal` as the requested scientific identity, documents this
@@ -690,7 +691,7 @@ resistivity. Its `:default` routes to `:linear`, which implements
 ``\rho(T)=\rho_0[1+\alpha(T-T_0)]`` using each material's reference calibration.
 `temperature_dependence=nothing` retains reference resistivity. The same slot
 is available in `CableConstantsFormulation` and `LineCableModelsFEM`.
-Temperature is prescribed in this electromagnetic calculation. No thermal
+Temperature is prescribed in this electromagnetic computation. No thermal
 rating or temperature-field equation is implied.
 
 Conductors consume the evaluated resistivity. Insulation/semicon constitutive
@@ -710,8 +711,10 @@ function ExponentialResistivity(; scale=1000.0)
     isfinite(scale) && scale > 0 || throw(ArgumentError("scale must be positive [K]"))
     ExponentialResistivity((scale=scale,), FormulationOptions())
 end
-TD.temperature_resistivity(::ExponentialResistivity, m, t, p, o, workspace) =
-    m.rho * exp((t-m.T0)/p.scale)
+function TD.temperature_resistivity(law::ExponentialResistivity, functor, workspace)
+    (; material, temperature) = functor.input
+    return material.rho * exp((temperature - material.T0) / law.parameters.scale)
+end
 LineCableModels.formulation_options(
     ::LineCableModels.Expression{<:ExponentialResistivity,typeof(TD.temperature_resistivity)}) = FormulationOptions()
 LineCableModels.formula_id(::ExponentialResistivity) = :exponential_resistivity
@@ -783,7 +786,7 @@ new registration layer.
 belong to Engine. They reuse the registered internal-impedance,
 insulation-impedance, insulation-admittance, and semicon-admittance formulas,
 and the same earth-free local primitive assemblers used by LineParameters.
-Each calculation has its own solve and reduction methods.
+Each computation has its own solve and reduction methods.
 The default bundle is:
 
 ```julia
@@ -800,7 +803,7 @@ frequency-independent, unreduced `CableBlueprint`. Omitting the formulation
 uses the default annular model. Contiguous components sharing one radial center
 form one concentric assembly. Explicit boundary shunt coefficients are completed
 during flattening. Frequency-dependent constitutive evaluation and conductor
-temperature corrections remain in the calculation. The Engine retains
+temperature corrections remain in the computation. The Engine retains
 each assembly's innermost terminal, grounds every additional outward terminal,
 assembles and reduces the local N-terminal series-impedance matrix, and combines
 the physical dielectric layers in radial series. A one-terminal assembly uses
@@ -873,7 +876,7 @@ The 4 sections are `gridpoint`, `quantities`, `errors`, and `timings`.
 Coordinates, units, cutoffs, availability reasons, and uncertainty dependencies
 belong to the detached records. No raw result, lazy builder, or parent collection
 is retained. Physical inputs and actual formulation descriptions are captured
-when the calculation completes, independently of optional tracing.
+when the computation completes, independently of optional tracing.
 
 `Commons.observation_requests` owns request normalization. Primary line results
 retain one complete representation per available family. The series choices are
@@ -1020,7 +1023,7 @@ in `src/engine/modalanalysis/formulas/chrysochos2014.jl`.
 [`ComputationDetails`](@ref) is an immutable record of supplemental computation
 output, parameterized by its named-tuple payload. Access its fields through `.data`.
 [`computation_details`](@ref) returns the fixed-key details record supplied by the
-formulation's owner. Higher-order calculations dispatch on `typeof(formulation)`
+formulation's owner. Higher-order computations dispatch on `typeof(formulation)`
 when collecting these records. A formulation without a method raises `MethodError`.
 
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
@@ -1034,7 +1037,7 @@ LinearError(formulation; options=(retain_details=true,))
 MonteCarlo(formulation; trials=100, options=(retain_details=true,))
 ```
 
-Parametric and linear calculations retain `ComputationDetails(points=records)`, with one record
+Parametric and linear computations retain `ComputationDetails(points=records)`, with one record
 per core result. Monte Carlo retains `trials`, `failures`, and
 `failure_summary`, each aligned by Gridspace point. `trials` contains one inner
 computation record per accepted trial. Each failure record contains the
@@ -1045,7 +1048,7 @@ and accepted-trial counts remain dedicated result fields.
 ## Formulation options
 
 [`formulation_options`](@ref) validates values that alter the mathematical
-calculation represented by a formulation. Dispatch uses the formulation owner
+computation represented by a formulation. Dispatch uses the formulation owner
 type rather than the public construction selector:
 
 ```julia
@@ -1130,7 +1133,7 @@ result = compute(problem, formulation; options=execution)
 scan = details(result).data.timing
 ```
 
-For a higher-order calculation, keep these controls in
+For a higher-order computation, keep these controls in
 `ParametricProblem(problem_space, execution)`. Cable-constant computations and
 modal actions retain their existing option handling.
 
@@ -1405,7 +1408,7 @@ other stages have optional defaults. In-memory reports have `output === nothing`
 Raw conveniences construct observations before entering this sequence.
 
 For formulation comparisons, ReportBuilder retains unformatted data in
-`artifact.observed` and exposes `summary`, `maxima`, `formulations`, `calculations`,
+`artifact.observed` and exposes `summary`, `maxima`, `formulations`, `computations`,
 `comparisons` and `terms` through `artifact.tables`:
 
 ```julia
@@ -1454,7 +1457,7 @@ The restored observations can be reported or plotted without original sources.
 
 
 
-Scalar calculation selections are retained in `details(result).data.formulations`.
+Scalar computation selections are retained in `details(result).data.formulations`.
 Its `requested` and `methods` fields hold complete requested and resolved records,
 including physical parameters and numerical controls. Formula identifiers are available
 as `record.requested.earth_admittance.identifier` (or through the corresponding

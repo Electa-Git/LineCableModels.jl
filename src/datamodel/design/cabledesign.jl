@@ -221,7 +221,7 @@ $(TYPEDSIGNATURES)
 Build a completed cable design from v1 physical declarations.
 
 The method validates physical invariants before resolving contextual geometry and assigning retained terminals, and freezes the resulting [`CableGeometry`](@ref).
-It does not perform a formulation calculation.
+It does not perform a formulation computation.
 
 # Arguments
 

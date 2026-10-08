@@ -55,7 +55,7 @@
     end
 end
 
-@testitem "Earth / missing equivalent equation fails on evaluation, not declaration" tags=[:unit, :engine] setup=[
+@testitem "Earth / a missing reduction expression fails before any evaluation" tags=[:unit, :engine] setup=[
     TestFixtures] begin
     const EH = LineCableModels.Earth.EquivalentHomogeneous
     const E = LineCableModels.Engine

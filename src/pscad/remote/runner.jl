@@ -230,9 +230,9 @@ function main(arguments)
         validate(components)
         _report(console, verbosity, 2, "Verified that all cable terminals are retained")
         project.save()
-        _record_diagnostics(console, project, verbosity, "PSCAD diagnostics before calculation")
-        phase = "line-constants calculation"
-        _report(console, verbosity, 1, "Starting PSCAD line-constants calculation")
+        _record_diagnostics(console, project, verbosity, "PSCAD diagnostics before computation")
+        phase = "line-constants computation"
+        _report(console, verbosity, 1, "Starting PSCAD line-constants computation")
         started = time_ns()
         line.compile()
         elapsed = (time_ns() - started)*1e-9
@@ -269,7 +269,7 @@ function main(arguments)
         _report(console, verbosity, 1, "Collected detailed PSCAD Z and Y outputs")
         observed = pyconvert(Dict{String, String}, identify(pscad_version, app))
         observed == initial_identity ||
-            error("PSCAD installation changed during calculation")
+            error("PSCAD installation changed during computation")
         open(joinpath(output, "solver.toml"), "w") do io
             TOML.print(io, observed; sorted = true)
         end

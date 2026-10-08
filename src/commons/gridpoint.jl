@@ -34,7 +34,7 @@ observation_gridpoint(source) = (id=nothing, inputs=nothing, formulations=nothin
 """
 $(TYPEDSIGNATURES)
 
-Identify a completed physical point and formulation within one calculation.
+Identify a completed physical point and formulation within one computation.
 The default source UUID uses system randomness independently of scientific RNGs.
 Collection owners share `source_id` and supply the original one-based indices.
 """

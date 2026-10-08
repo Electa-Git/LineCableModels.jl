@@ -50,7 +50,7 @@ parameters = compute(
 ```
 
 GetDP remains an external process, and the bundled executable runs on
-the supported artifact platforms. The first FEM calculation there downloads
+the supported artifact platforms. The first FEM computation there downloads
 the package's lazy, hash-verified GetDP 3.5.0 complex-PETSc artifact. Loading
 LineCableModels or Gmsh alone does not download it. No Python runtime or
 `GetDP.jl` problem generator is used.
@@ -91,7 +91,7 @@ choices `0 = quasi-tem` and `1 = quasi-fw`. It includes `quasi-tem.pro` or
 `-setnumber Physics 0` or `-setnumber Physics 1`. Both use the resolution
 `LineCableModelsFEMScan`. The Julia-managed GUI displays this choice read-only,
 since the numerical inputs of a run are fixed before meshing. Choose physics
-in formulation `options` for a new calculation. Physics is saved with the formulation
+in formulation `options` for a new computation. Physics is saved with the formulation
 inputs and column checkpoints. A run cannot resume under different physics.
 
 The quasi-full option retains ``A_t/\Gamma`` and ``\phi/\Gamma`` in a first-order
@@ -131,7 +131,7 @@ Supported enclosing geometry is represented directly in the field domain.
 resistivity as ``\rho(T)=\rho_0[1+\alpha(T-T_0)]``. `T` comes from
 `problem.temperature`. Reference resistivity, `T0`, and `alpha` come from the
 material. Select `nothing` to retain reference resistivity. This law is shared
-with analytical calculations, cable constants, and PSCAD export.
+with analytical computations, cable constants, and PSCAD export.
 
 The default law requires a positive finite correction factor and
 ``|T-T_0|<150`` K. These are limits of this approximation, independent of thermal
@@ -400,7 +400,7 @@ explicitly, through the environment variable, or on `PATH`. The same external
 selection applies on every other unsupported platform. An explicitly selected
 or environment-selected invalid path is an error. It is never silently
 replaced by another solver. The backend records the resolved source and path
-for calculation records, while
+for computation records, while
 resume compatibility uses the executable SHA-256 and reported build identity
 instead of its filesystem location. See
 [`THIRD_PARTY_NOTICES.md`](https://github.com/Electa-Git/LineCableModels.jl/blob/main/THIRD_PARTY_NOTICES.md)
@@ -426,7 +426,7 @@ preserved comparison artifacts and require a fresh computation. Indexed soil and
 declared-air coefficients use run-input schema 7 and solver protocol 3. Older
 schemas cannot resume. Evaluated cable, soil, and air coefficients participate
 in solve reuse identity. Numerically identical laws can share a solve while
-retaining separate selection calculation records and independent result arrays.
+retaining separate selection computation records and independent result arrays.
 
 ## Optional Gmsh UI
 

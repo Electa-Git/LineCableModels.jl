@@ -508,7 +508,7 @@ end
 $(TYPEDSIGNATURES)
 
 Validate the RMS comparison settings of `compare` before accessing results or
-starting a calculation. `settings` holds `normalization`, `band`, `fundamental`,
+starting a computation. `settings` holds `normalization`, `band`, `fundamental`,
 `harmonics`, `atol` and `unsupported`. Frequency bounds and `fundamental` use Hz. Absolute
 tolerances use the units of the selected quantities. Return `settings`.
 """

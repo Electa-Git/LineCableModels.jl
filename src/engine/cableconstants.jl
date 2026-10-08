@@ -156,10 +156,10 @@ observables(::Type{<:CableConstants}) = (R, L, C, G)
 """
 $(TYPEDEF)
 
-Define one earth-free cable-constant calculation for a completed cable design.
+Define one earth-free cable-constant computation for a completed cable design.
 
 The innermost terminal of every concentric assembly is active and every
-additional outward terminal, when present, is grounded. The calculation is
+additional outward terminal, when present, is grounded. The computation is
 restricted to the 50 Hz or 60 Hz base frequency used by cable datasheets.
 
 $(TYPEDFIELDS)
@@ -235,7 +235,7 @@ end
 $(TYPEDEF)
 
 Select the conductor and dielectric formulas used by a cable-constant
-calculation.
+computation.
 
 $(TYPEDFIELDS)
 """
@@ -400,7 +400,7 @@ end
 $(TYPEDEF)
 
 Own the local cable arrays, corrected resistivities, and reusable matrices for
-one cable-constant calculation. The constructor consumes the completed
+one cable-constant computation. The constructor consumes the completed
 blueprint without retaining a duplicate representation.
 
 $(TYPEDFIELDS)

@@ -100,7 +100,7 @@ public FormulaDefinition, Expression, Functor
 include("units/Units.jl")
 using .Units: quantity, native_unit, display_unit, scale_factor, label, symbol
 
-# Package-local shared calculation grammar.
+# Package-local shared computation grammar.
 include("commons/Commons.jl")
 using .Commons:
                 AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,

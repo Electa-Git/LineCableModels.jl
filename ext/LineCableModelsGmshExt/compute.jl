@@ -707,7 +707,7 @@ function _compute_fem(
     models = [_resolved_fem_model(problem, formulation, execution)
               for formulation in formulations]
     # The problem and loaded solver source are common to this batch. Only actual
-    # material and mesh inputs and execution settings distinguish its calculations.
+    # material and mesh inputs and execution settings distinguish its computations.
     keys = [JSON3.write(_fem_input_record(model, formulation, execution))
             for (model, formulation) in zip(models, formulations)]
     function completion_fields(formulation)

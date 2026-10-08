@@ -1,4 +1,4 @@
-@testitem "TextDisplay / calculation intent and numerical results" tags=[:unit, :parametric] setup=[
+@testitem "TextDisplay / computation intent and numerical results" tags=[:unit, :parametric] setup=[
     TestFixtures,
 ] begin
     const EN=LineCableModels.Engine

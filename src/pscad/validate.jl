@@ -26,13 +26,13 @@ function _pscad_blueprints(system::LineCableSystem)
         Engine.flatten(LineCableModelsCoaxial(), design, T) for design in system.designs]
 end
 
-# Calculation frequencies of the PSCAD phase-scan adapter.
+# Computation frequencies of the PSCAD phase-scan adapter.
 function validate(values::AbstractVector, ::Type{<:PSCADFormulation})
     _pscad_deterministic(eltype(values))
-    isempty(values) && throw(ArgumentError("PSCAD requires calculation frequencies"))
+    isempty(values) && throw(ArgumentError("PSCAD requires computation frequencies"))
     invalid = findall(value -> !isfinite(value) || value < 0.1, values)
     isempty(invalid) || throw(DomainError(values[invalid],
-        "PSCAD calculation frequencies must be finite and at least 0.1 Hz; invalid indices: $invalid"))
+        "PSCAD computation frequencies must be finite and at least 0.1 Hz; invalid indices: $invalid"))
     issorted(values) && allunique(values) || throw(ArgumentError(
         "PSCAD frequencies must be strictly increasing"))
     length(values) - 1 in (100, 200, 500, 1000) || throw(ArgumentError(

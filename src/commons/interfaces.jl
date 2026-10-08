@@ -84,7 +84,7 @@ $(SIGNATURES)
 Validate and normalize the options owned by one computation.
 
 The implementation that owns `OwnerType` defines a method for the type itself.
-`OwnerType` may identify a core solver or another composite calculation owner.
+`OwnerType` may identify a core solver or another composite computation owner.
 Dispatch requires an explicitly supported type. An unregistered owner raises `MethodError`.
 
 # Arguments

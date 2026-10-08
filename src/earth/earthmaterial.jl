@@ -4,7 +4,7 @@ $(TYPEDEF)
 Store the electromagnetic properties of one earth material at one frequency.
 
 `EarthMaterial` is evaluated constitutive state produced from an
-[`EarthLayer`](@ref) for analytical or finite-element calculations. It is not stored in an
+[`EarthLayer`](@ref) for analytical or finite-element computations. It is not stored in an
 [`EarthModel`](@ref) or in a materials library.
 
 $(TYPEDFIELDS)

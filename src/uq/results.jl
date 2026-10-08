@@ -1,12 +1,12 @@
 """
 $(TYPEDEF)
 
-Store ordered core results from a [`LinearError`](@ref) calculation.
+Store ordered core results from a [`LinearError`](@ref) computation.
 
 $(TYPEDFIELDS)
 """
 struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyResult{T}
-    "Higher-order formulation used for the calculation."
+    "Higher-order formulation used for the computation."
     formulation::F
     "Uncertainty-bearing core results in Gridspace traversal order."
     values::Vector{T}
@@ -66,7 +66,7 @@ $(TYPEDFIELDS)
 """
 struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetails} <:
        AbstractUncertaintyResult{T}
-    "Higher-order formulation used for the calculation."
+    "Higher-order formulation used for the computation."
     formulation::F
     "Stored mean ± sample standard deviation core results in Gridspace traversal order."
     values::Vector{T}

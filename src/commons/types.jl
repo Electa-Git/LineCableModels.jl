@@ -1,21 +1,21 @@
 """
 $(TYPEDEF)
 
-Supertype for complete LineCableModels calculation inputs.
+Supertype for complete LineCableModels computation inputs.
 """
 abstract type AbstractProblemDefinition end
 
 """
 $(TYPEDEF)
 
-Supertype for scientific and higher-order calculation selections.
+Supertype for scientific and higher-order computation selections.
 """
 abstract type AbstractFormulation end
 
 """
 $(TYPEDEF)
 
-Supertype for completed LineCableModels calculation results.
+Supertype for completed LineCableModels computation results.
 """
 abstract type AbstractProblemResult end
 
@@ -74,7 +74,7 @@ FormulationOptions(; kwargs...) = FormulationOptions((; kwargs...))
 """
 $(TYPEDEF)
 
-Retain computation-owned inputs. The receiving calculation or backend owns
+Retain computation-owned inputs. The receiving computation or backend owns
 defaults and validation.
 
 $(TYPEDFIELDS)

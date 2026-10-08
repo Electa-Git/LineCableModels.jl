@@ -70,7 +70,7 @@
     # worker times for controlled whole-call measurements, or claim a speedup.
     for mime in (MIME"text/plain"(),MIME"text/html"())
         displayed=sprint(show,mime,artifact)
-        @test occursin("Controlled calculation measurements",displayed)
+        @test occursin("Controlled computation measurements",displayed)
         @test occursin("not a validated speedup",displayed)
         @test occursin("only one timed call",displayed)
         @test occursin("not peak memory",displayed)

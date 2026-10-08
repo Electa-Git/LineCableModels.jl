@@ -22,7 +22,7 @@
     @test artifact.illustration === nothing
     @test nrow(artifact.tables.maxima)==60
     # The 3 shunt quantities share one result. Numerical records for
-    # both completed calculations remain available to the saved-result writer.
+    # both completed computations remain available to the saved-result writer.
     @test length(metadata(artifact.tables.maxima,"comparison_records"))==60
     @test nrow(artifact.tables.comparisons)==60
     @test nrow(artifact.tables.summary)==60

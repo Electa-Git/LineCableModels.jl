@@ -63,7 +63,7 @@ allocations = "ceiling"
 "test/unit/textdisplay/policy.jl" = 2
 "test/unit/uq/formulations.jl" = 9
 # Ceiling: JET optimization reports per frequency-loop kernel, with
-# `target_modules = (LineCableModels,)` on the default coaxial calculation of a
+# `target_modules = (LineCableModels,)` on the default coaxial computation of a
 # three-phase cable system and on each modal formula. The current reports come from the
 # known boxing of earth-return records. The abstract `earth_calculations` tuple dispatches
 # at the `_solve!` barrier, and `earth!` recurses over the record tuple.

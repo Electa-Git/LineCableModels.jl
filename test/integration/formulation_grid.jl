@@ -1,4 +1,4 @@
-@testitem "Engine / formulation grids / exact batched calculations" tags=[:integration, :parametric, :slow] setup=[
+@testitem "Engine / formulation grids / exact batched computations" tags=[:integration, :parametric, :slow] setup=[
     UseEngineSupport,
     TestFixtures, FormulaFixtures
 ] begin

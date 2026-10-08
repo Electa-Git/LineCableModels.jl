@@ -2,7 +2,7 @@
 $(TYPEDEF)
 
 Own the numerical input and reusable storage for one coaxial line-parameter
-calculation.
+computation.
 
 The constructor adapts a completed physical system once and validates the aligned numerical representation. It constructs cable and reduction indices, and
 allocates every matrix used by the frequency loop. Each `compute` call uses an independent workspace. Constant fields fix
@@ -26,7 +26,7 @@ mutable struct LineParametersWorkspace{
     const input::N
     # Physical values and index maps invariant across the frequency loop.
     const plan::P
-    # Mutable numerical storage allocated once for the calculation.
+    # Mutable numerical storage allocated once for the computation.
     const buffers::B
     # Optional retained diagnostic arrays, or `nothing`.
     const trace::C

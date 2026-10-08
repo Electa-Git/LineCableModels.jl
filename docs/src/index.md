@@ -8,12 +8,12 @@ in geometry and material data.
 
 ## Documentation
 
-- [Tutorials](tutorials.md) introduce cable construction and calculation.
-- [Modeling and results](usage.md) covers calculations, result access,
+- [Tutorials](tutorials.md) introduce cable construction and computation.
+- [Modeling and results](usage.md) covers computations, result access,
   uncertainty, tables, and plots.
 - [Gridspace and uncertainty](gridspace.md) specifies finite variation and
   uncertainty realization.
-- [API reference](reference.md) lists the line and cable calculation API.
+- [API reference](reference.md) lists the line and cable computation API.
 - [Conveniences](conveniences.md) covers estimates, scalar formulas, and VDE
   designation parsing.
 - [Developers](developers.md) records grammar invariants, CI checks, extension
@@ -35,7 +35,7 @@ in geometry and material data.
   conductors per phase, with optional Measurements-based direct propagation or
   conditional Monte Carlo analysis.
 - Replace stranded assemblies with equivalent tubular conductors for EMT
-  calculations and export cable data to ATPDraw and PSCAD.
+  computations and export cable data to ATPDraw and PSCAD.
 - Calculate internal impedance for solid, tubular, and multilayer coaxial
   single-core cables with the formulation in [4113884](@cite) or the
   approximations documented by

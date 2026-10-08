@@ -462,7 +462,7 @@ function observation_labels(observed;request=nothing,fallback=nothing)
         parts=String[]
         methods=filter(varies,fields[index])
         for field in methods
-            # When differing child methods already identify the calculation, use
+            # When differing child methods already identify the computation, use
             # the backend itself instead of repeating its method summary.
             text=isempty(field.meaning) && all(other -> isempty(other.meaning),methods) ? field.summary : field.value
             if !isempty(field.name) && count(other -> !isempty(other.meaning),methods)>1

@@ -261,7 +261,7 @@ physical length or require explicit cutoffs. L/C are unavailable at DC. No infer
 `eps`, matrix-norm, largest-coefficient, or uncertainty contribution is added.
 Complex zero requires both Cartesian components to be zero. Polar products come
 from the original complex values. Clipped values become exact zero, including
-their uncertainty. Unclipped values and source calculations preserve their
+their uncertainty. Unclipped values and source computations preserve their
 uncertainty dependencies. Undefined first-order magnitude retains its components and zero
 nominal magnitude with an explicit reason. Its value and phase remain missing.
 
@@ -273,7 +273,7 @@ missing reasons are retained.
 
 Recorded timings remain associated with the original result and separate
 reference in report tables. Matching elapsed times alone are insufficient to identify a shared event.
-A measurement for a whole calculation retains that scope when several observed
+A measurement for a whole computation retains that scope when several observed
 points include it. Reporting does not invent per-point timings.
 
 Each `ObservedResult` stores one point's inputs, selected formulations,
@@ -283,7 +283,7 @@ reasons. `ReportBuilder.tabulate` creates tables from these records on demand.
 `ReportArtifact` retains `.observed`, a separate `.reference`, and `.tables`.
 FEM completion records identify the selected GetDP executable through
 `getdp_selection`. File checksums verify integrity. Source revisions identify
-the code used for the calculation.
+the code used for the computation.
 
 ## Text display and tables
 

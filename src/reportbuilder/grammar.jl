@@ -14,7 +14,7 @@ and written destinations of one completed report.
 Plain and HTML display show the completed quantity tables. `artifact[R]`
 retrieves the reported resistance DataFrame, or an ordered vector of DataFrames
 for a collection. `artifact[i, R]` retrieves the table for result position `i`.
-Lookup and display use completed tables without further observation or calculation.
+Lookup and display use completed tables without further observation or computation.
 
 $(TYPEDFIELDS)
 """
