@@ -231,7 +231,10 @@ each of its tables declares. Its allocation table admits new keys, as the preser
 locks describe.
 
 The ratchet first applies to the earlier keys the file renames that git detects, and the
-module renames of renamed entry files `<Module>.jl` that declare their module. An
+module renames of renamed or moved entry files `<Module>.jl` that declare their module on
+both sides. A module's full name on each side comes from the entry files of the enclosing
+directories, so an entry file that moves into another module's directory takes that
+module's name as a prefix. An
 ownership key has the form `defining module | Owner.function | file`. A change of `Owner`
 alone, the module that defines the extended function, keeps the entry and its count.
 Any other key renamed without a matching git rename counts as added. A table absent from the

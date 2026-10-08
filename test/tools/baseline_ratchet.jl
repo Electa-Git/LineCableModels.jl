@@ -10,7 +10,11 @@
 # still present. A key that appears while another disappears is a rename and fails. The
 # check passes for a file absent at `REF`, and a table absent at `REF` is not compared.
 # File renames that git detects between `REF` and the working tree, and the module
-# renames they imply, are applied to the keys at `REF` first.
+# renames they imply, are applied to the keys at `REF` first. A module is renamed when git
+# renames or moves its entry file `<Module>.jl` and the file declares that module on both
+# sides. Its full name on each side comes from the entry files of the enclosing
+# directories, so an entry file that moves into another module's directory takes that
+# module's name as a prefix.
 #
 # An ownership key has the form `defining module | Owner.function | file`. When only
 # `Owner`, the module that defines the extended function, changes and the count stays the
@@ -48,7 +52,31 @@ end
 
 declares(text, name) = occursin(Regex("(?m)^\\s*(?:bare)?module\\s+" * name * "\\b"), text)
 
-# Renamed files, and the module renames of renamed entry files `<Module>.jl` that
+# The full name of the module that the entry file `path` declares. The modules declared by
+# the entry files of the enclosing directories precede its own name, outermost first. An
+# entry file `<Module>.jl` declares the module of its name. The package root, whose entry file is in
+# `src/`, is not named. `entries(directory)` lists the `.jl` files of a directory and
+# `source(file)` reads one, on one side of the comparison.
+function module_name(path, entries, source)
+    names = [first(splitext(basename(path)))]
+    directory, current = dirname(path), path
+    while !isempty(directory)
+        files = entries(directory)
+        index = findfirst(files) do file
+            file != current && declares(source(file), first(splitext(basename(file))))
+        end
+        if index === nothing
+            directory = dirname(directory)
+        else
+            current = files[index]
+            directory == "src" && break
+            pushfirst!(names, first(splitext(basename(current))))
+        end
+    end
+    return join(names, ".")
+end
+
+# Renamed files, and the module renames of renamed or moved entry files `<Module>.jl` that
 # declare their module on both sides.
 function renames(repository, reference)
     fields = split(read(git(repository, "diff", "-M", "--name-status", "-z", reference),
@@ -63,13 +91,23 @@ function renames(repository, reference)
             i += 2
         end
     end
+    previous(file) = read(git(repository, "show", "$reference:$file"), String)
+    current(file) = read(joinpath(repository, file), String)
+    previous_entries(directory) = filter(endswith(".jl"), split(read(git(repository,
+        "ls-tree", "--name-only", reference, "--", directory * "/"), String), '\n';
+        keepempty = false))
+    current_entries(directory) = isdir(joinpath(repository, directory)) ?
+        [join((directory, file), "/") for file in readdir(joinpath(repository, directory))
+            if endswith(file, ".jl") && isfile(joinpath(repository, directory, file))] :
+        String[]
     modules = Dict{String, String}()
     for (old, new) in files
         (before, extension), after = splitext(basename(old)), first(splitext(basename(new)))
-        extension == ".jl" && before != after || continue
-        declares(read(git(repository, "show", "$reference:$old"), String), before) &&
-            declares(read(joinpath(repository, new), String), after) &&
-            (modules[before] = after)
+        extension == ".jl" && declares(previous(old), before) && declares(current(new), after) ||
+            continue
+        name = module_name(old, previous_entries, previous)
+        renamed = module_name(new, current_entries, current)
+        name == renamed || (modules[name] = renamed)
     end
     return (; files, modules)
 end
@@ -81,7 +119,7 @@ function rename_key(key, renamed)
         haskey(renamed.files, part) && return renamed.files[part]
         occursin('/', part) && return part
         for (old, new) in renamed.modules
-            part = replace(part, Regex("(?<![\\w!])" * old * "(?![\\w!])") => new)
+            part = replace(part, Regex("(?<![\\w!.])\\Q" * old * "\\E(?![\\w!])") => new)
         end
         return part
     end

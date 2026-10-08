@@ -2036,5 +2036,23 @@ end
         result = Base.invokelatest(ratchet.grown, repository, "HEAD")
         @test result.lines == String[]
         @test result.tables == ["helpers"]
+        # An entry file that git moves into another module's directory takes that module's
+        # name as a prefix. The package root in `src/` is not named.
+        write_file("src/Package.jl",
+            "module Package\ninclude(\"host/Host.jl\")\ninclude(\"inner/Inner.jl\")\nend\n")
+        write_file("src/host/Host.jl", "module Host\nend\n")
+        write_file("src/inner/Inner.jl", "module Inner\n$definitions\nend\n")
+        baseline("Inner | Host.f1 | src/inner/Inner.jl" => 1)
+        git("add", "-A")
+        git("commit", "-q", "--no-verify", "--no-gpg-sign", "-m", "nested")
+        # The same keys under the new module name, without a moved entry file, are added.
+        baseline("Host.Inner | Host.f1 | src/inner/Inner.jl" => 1)
+        @test grown() == ["ownership | Host.Inner | Host.f1 | src/inner/Inner.jl: 1 (absent at HEAD)"]
+        git("mv", "src/inner", "src/host/inner")
+        baseline("Host.Inner | Host.f1 | src/host/inner/Inner.jl" => 1)
+        @test grown() == String[]
+        baseline("Host.Inner | Host.f1 | src/host/inner/Inner.jl" => 2)
+        @test grown() ==
+              ["ownership | Host.Inner | Host.f1 | src/host/inner/Inner.jl: 2 (1 at HEAD)"]
     end
 end
