@@ -4,10 +4,13 @@
 # `[directions]`. A ceiling key added or raised since `REF` fails, and a floor key
 # removed or lowered since `REF` fails. Moves the other way pass. The measured ceilings
 # `[jet]` and `[allocations]` may also rise in a change of `[environment]`, the Julia
-# version and `Manifest.toml` they were recorded with. The check passes for a file
-# absent at `REF`, and a table absent at `REF` is not compared. File renames that
-# git detects between `REF` and the working tree, and the module renames they imply,
-# are applied to the keys at `REF` first.
+# version and `Manifest.toml` they were recorded with. A key of `[allocations]` is a
+# scenario of the preservation corpus, and a new scenario cannot hide another scenario's
+# count. So a key absent at `REF` passes there when every `[allocations]` key at `REF` is
+# still present. A key that appears while another disappears is a rename and fails. The
+# check passes for a file absent at `REF`, and a table absent at `REF` is not compared.
+# File renames that git detects between `REF` and the working tree, and the module
+# renames they imply, are applied to the keys at `REF` first.
 #
 # An ownership key has the form `defining module | Owner.function | file`. When only
 # `Owner`, the module that defines the extended function, changes and the count stays the
@@ -24,6 +27,8 @@ const PRESERVATION = "test/quality/preservation.toml"
 const METADATA = ("directions", "environment")
 # Ceilings measured in one environment.
 const MEASURED = ("jet", "allocations")
+# Ceilings keyed by the scenarios of the preservation corpus.
+const CORPUS = ("allocations",)
 # Floors that count, per test file, the lines that contain a marker. These lines can move
 # to another file.
 const RELOCATABLE = Dict("inferred" => "@inferred")
@@ -201,6 +206,9 @@ function moved(repository, reference, file)
     end
     tables = sort!([table for table in keys(current)
         if table ∉ METADATA && !haskey(document, table)])
+    # A corpus table admits new scenarios while it keeps every scenario of `reference`.
+    complete = Dict(table => all(key -> haskey(now, key),
+        (key for key in keys(before) if first(split(key, " | ")) == table)) for table in CORPUS)
     lines = String[]
     changes = nothing
     unmatched = Dict{String, Dict{String, Int}}()
@@ -221,8 +229,11 @@ function moved(repository, reference, file)
         if direction[table] == "ceiling"
             rerecorded && table in MEASURED && continue
             haskey(now, key) || continue
-            haskey(before, key) ||
-                (push!(lines, string(key, ": ", now[key], " (absent at ", reference, ")")); continue)
+            if !haskey(before, key)
+                get(complete, table, false) ||
+                    push!(lines, string(key, ": ", now[key], " (absent at ", reference, ")"))
+                continue
+            end
         else
             haskey(before, key) || continue
             drop = before[key] - get(now, key, 0)

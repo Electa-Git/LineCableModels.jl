@@ -227,7 +227,8 @@ Entries can be deleted or lowered, and none can be added or raised. Before the t
 the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull request
 base or the previous push. An added entry or a raised count fails the job. The same
 ratchet checks `test/quality/preservation.toml`, described below, in the direction that
-each of its tables declares.
+each of its tables declares. Its allocation table admits new keys, as the preservation
+locks describe.
 
 The ratchet first applies to the earlier keys the file renames that git detects, and the
 module renames of renamed entry files `<Module>.jl` that declare their module. An
@@ -275,7 +276,11 @@ the earlier revision.
   fail above the recorded total plus 512 B for byte accounting and the allowance times one
   derivative entry. The counts depend on what the
   process computed before. New scenarios go at the end of the corpus. A change that
-  reorders or edits a scenario records again every row from that scenario onward.
+  reorders or edits a scenario records again every row from that scenario onward. An
+  allocation key is a corpus scenario, and a new scenario cannot hide another scenario's
+  count. So the ratchet accepts a new row when every row of the earlier revision is still
+  present. A row that appears while another disappears is a rename, and the ratchet
+  rejects it.
 
 A test that moves to another file keeps its `@inferred` uses. The ratchet accepts a
 lower `@inferred` floor when the removed `@inferred` lines appear again in another file,

@@ -290,6 +290,19 @@ end
             replace(read(joinpath(repository, ratchet.PRESERVATION), String),
                 "\"test/b.jl\" = 3" => "\"test/b.jl\" = 2"))
         @test moved() == ["inferred | test/b.jl: 2 (3 at HEAD)"]
+        # Each allocation key is a corpus scenario. New scenarios pass while every scenario
+        # at HEAD keeps its key, and a key that replaces another is a rename that fails.
+        function scenarios(rows)
+            write(joinpath(repository, ratchet.PRESERVATION),
+                "[environment]\njulia = \"1.12.7\"\nmanifest = \"a\"\n" *
+                "[directions]\ninferred = \"floor\"\n" *
+                "jet = \"ceiling\"\nallocations = \"ceiling\"\n[inferred]\n\"test/b.jl\" = 3\n" *
+                "[jet]\nkernel = 2\n[allocations]\n" * join(("\"$k\" = $v\n" for (k, v) in rows)))
+        end
+        scenarios(["s | 2 frequencies | allocations" => 10, "t | 2 frequencies | allocations" => 7])
+        @test moved() == String[]
+        scenarios(["t | 2 frequencies | allocations" => 7])
+        @test moved() == ["allocations | t | 2 frequencies | allocations: 7 (absent at HEAD)"]
     end
 
     # The measured tables refuse another Julia version or another Manifest.
