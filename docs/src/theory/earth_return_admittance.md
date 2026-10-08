@@ -17,6 +17,10 @@ propagation assumptions remain those of each source.
 - [Wise homogeneous-earth overhead potential coefficient](external-admittance/1948/homogeneous-earth-overhead-potential-coefficient/Wise1948.md)
 - [Xue underground earth-return admittance](external-admittance/2018/complete-field-and-quasi-tem-underground/Xue2018.md)
 
+The default formula computes both source coefficients of a pair together. The ranges in
+[Validity of the default formula](earth_return_impedance.md#Validity-of-the-default-formula)
+apply to its potential coefficients too.
+
 The default coefficients require the [complete-current matrix calculation](@ref LineCableModels.Engine.earth!(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, LineCableModels.Engine.EarthAdmittance.Formula{:unified}}, ::Any, ::Any)) before selecting physical exterior entries.
 
 [Back to Contents](contents.md)

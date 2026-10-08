@@ -88,7 +88,8 @@ end
         E.EarthAdmittance.source_coefficients, Val(:self), Val(1), Val(1))
     @test formulation_options(method).data.Γ == 0
     @test formulation_options(method, FormulationOptions(Γ = 2e-4im)).data.Γ == 2e-4im
-    @test_throws ArgumentError formulation_options(method, FormulationOptions(Γ = NaN))
+    # The formula's construction validates Γ once. Its expressions take it as supplied.
+    @test_throws ArgumentError E.EarthImpedance.Formula(:unified; options = (Γ = NaN,))
     @test_throws ArgumentError formulation_options(method, FormulationOptions(integration = 1))
     using Measurements
     rho=measurement(0.1, 0.001)

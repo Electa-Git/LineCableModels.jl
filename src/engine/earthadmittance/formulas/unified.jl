@@ -22,11 +22,12 @@ function formulation_options(
         (; Γ = argument isa AbstractVector ? copy(argument) : argument)))
 end
 
+# The formula's construction validated Γ. Its expressions take the value as supplied.
 function formulation_options(
         expression::Expression{<:Union{
             EarthImpedance.Formula{:unified}, Formula{:unified}}},
         ::Val{:Γ}, default, supplied)
-    return validate(supplied, typeof(expression.selection))
+    return supplied
 end
 
 function description(::Type{<:Formula{:unified}}; compact::Bool = false)
@@ -44,7 +45,7 @@ end
 function computation_type(::Type{T},
         selected::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
         frequencies) where {T <: Real}
-    argument = validate(selected.options.data.Γ, typeof(selected))
+    argument = selected.options.data.Γ
     argument isa AbstractVector && length(argument) != length(frequencies) &&
         throw(DimensionMismatch("unified Γ must contain one value per frequency sample"))
     argument isa Number &&
@@ -268,8 +269,6 @@ function Functor(formula::Union{EarthImpedance.Formula{:unified}, Formula{:unifi
     isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
     prescribed=formula.options.data.Γ
     longitudinal=prescribed isa Number ? prescribed : prescribed[input.frequency]
-    longitudinal isa Number && isfinite(longitudinal) ||
-        throw(ArgumentError("Γ must be one finite scalar [1/m]"))
     for column in axes(input.rho, 2)
         validate(@view(input.rho[:, column]), formula,
             @view(input.epsilon[:, column]), @view(input.mu[:, column]),

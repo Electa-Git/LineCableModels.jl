@@ -22,6 +22,36 @@ where each contribution enters.
 - [Xue underground earth-return impedance](external-impedance/2018/complete-field-and-quasi-tem-underground/Xue2018.md)
 - [Ametani mixed-pair exponential-image approximation](external-impedance/2009/homogeneous-earth-mixed-exponential-image/Ametani2009.md)
 
+## Validity of the default formula
+
+The default formula, `:unified`, holds within two ranges.
+
+- **Prescribed Γ.** A nonzero Γ lies between the propagation constants of the two media. It
+  is in range at a frequency where Im γ_air ≤ Im Γ ≤ Im γ_earth and Re Γ ≤ Re γ_earth. Γ = 0,
+  the default, always lies in range.
+- **Thick receiver.** The formula represents each receiving conductor by the mean field on
+  its exterior circumference. A conductor that is thick compared with the transverse
+  wavelength of its medium receives a voltage that departs from the full-field value. The
+  error grows as (κ_m r_p)², where κ_m is the outgoing root of γ_m² − Γ² in the medium of
+  conductor p and r_p is its exterior radius, the jacket for an insulated cable. The range
+  is |κ_m r_p| ≤ 0.1. Emission from a thick conductor is accurate.
+
+The calibration below is indicative. It compares the default formula with a finite-element
+reference for two bare copper conductors buried at 1 m depth and 2 m apart, in earth of
+1000 Ω·m and relative permittivity 12, at 100 MHz with Γ = 0, where |κ_earth| ≈ 7.26 1/m.
+
+| Radii (m) | κr | Scaled Y error | P error, thick receiver | P error, thin receiver |
+| --- | ---: | ---: | ---: | ---: |
+| 0.002 / 0.002 | 0.015 | 0.74 % | none | ≤ 1.0 % (all entries) |
+| 0.01 / 0.01 | 0.073 | 1.08 % | none | not reported |
+| 0.0425 / 0.002 | 0.31 / 0.015 | 1.55 % | 11.0 % (mutual) | 2.0 % (mutual) |
+| 0.0425 / 0.0425 | 0.31 | 5.18 % | 11 % mutual, 4.5 % self | none |
+
+The scaled Y error is max|ΔY| / max|diag Y_ref|. P = jω Y⁻¹, with one row per receiver. The
+reference itself has an error floor of about 0.7 %, the first row. The calibration covers
+buried conductors only. In air at Γ = 0, κ ≈ k₀, so a 20 mm radius reaches κr ≈ 0.13 at
+300 MHz, a regime outside the calibration.
+
 The default coefficients require the [complete-current matrix calculation](@ref LineCableModels.Engine.earth!(::Union{LineCableModels.Engine.EarthImpedance.Formula{:unified}, LineCableModels.Engine.EarthAdmittance.Formula{:unified}}, ::Any, ::Any)) before selecting physical exterior entries.
 
 [Back to Contents](contents.md)
