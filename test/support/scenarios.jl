@@ -157,6 +157,13 @@ module CurrentScenarios
     function preservation_corpus(n::Integer; counters=NO_COUNTERS)
         frequencies = collect(10.0 .^ range(1, 5; length=n))
         coaxial = line_parameters_problem(three_phase_system(); frequencies)
+        # On an earth of three soil layers, the default earth formulas consume an
+        # equivalent earth.
+        layered = LineParametersProblem(three_phase_system(); temperature=20.0,
+            earth_props=build(EarthModel, (layer(rho=100.0, eps_r=10.0, thickness=0.5),
+                layer(rho=500.0, eps_r=20.0, thickness=2.0), layer(rho=50.0, eps_r=15.0))),
+            frequencies)
+        before_fd = formula(:default; equivalent_earth=formula(:bottommost; order=:before))
         return (
             coaxial=(coaxial, Formulation()),
             overhead=(three_bare_wires_problem(;
@@ -172,6 +179,9 @@ module CurrentScenarios
             linear_error=(ParametricProblem(uncertain_space(frequencies, counters)),
                 LinearError(Formulation())),
             monte_carlo=(ParametricProblem(uncertain_space(frequencies, counters)),
-                MonteCarlo(Formulation(); trials=4, seed=2027)))
+                MonteCarlo(Formulation(); trials=4, seed=2027)),
+            three_layer=(layered, Formulation()),
+            three_layer_before_fd=(layered, Formulation(earth_properties=formula(:alipio2014),
+                earth_impedance=before_fd, earth_admittance=before_fd)))
     end
 end
