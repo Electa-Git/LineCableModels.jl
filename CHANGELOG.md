@@ -22,7 +22,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `import LineCableModels: validate` are unchanged. Every `validate` method takes the
   checked input first and returns it unchanged or throws. Further arguments say what the
   input is checked for. These signatures changed:
-  - `validate(settings, compare)` replaces `validate(compare; settings...)`.
+  - `validate(settings, compare)` checks the RMS comparison settings of `compare`.
   - `validate(workbooks, definition)` checks XLSX workbooks.
   - The dielectric and temperature law checks take the law result first and no longer
     convert it.
@@ -169,9 +169,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Commons` owns `initialize_buffers`, which builds every buffer of a computation.
   Each formula and shared component extends `Commons.initialize_buffers(selected, T,
   input, plan, buffers)` and shapes its own buffers, usually as a named tuple of arrays.
-  The fourth argument, formerly `invariants`, is the computation plan.
-- The coaxial workspace fields are `input`, `plan`, `buffers` and `trace`, formerly
-  `invariants` and `capture` for the second and fourth.
+  The fourth argument is the computation plan.
+- The coaxial workspace fields are `input`, `plan`, `buffers` and `trace`.
 - `SpectralIntegral` is a formulation, a subtype of `AbstractFormulation`, and
   `integrate` takes it first: `integrate(integral, Val(:quad), controls, buffers)`. The
   buffers are the record that `initialize_buffers(SpectralIntegral, Val(:quad), T, input,
