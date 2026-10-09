@@ -123,11 +123,10 @@ end
     # arguments of its call in `_solve!`.
     problem = line_parameters_problem(three_phase_system(); frequencies = [50.0, 1000.0])
     formulation = Formulation()
-    blueprint = only(E.flatten(LineCableModelsCoaxial(), problem.system.designs,
-        eltype(problem), [formulation]))
+    blueprints = [E.flatten(LineCableModelsCoaxial(), design, eltype(problem))
+                  for design in problem.system.designs]
     execution = E.computation_options(LineCableModelsCoaxial, ComputationOptions())
-    workspace = E.LineParametersWorkspace(problem, formulation, execution,
-        E.lineinput(problem, blueprint))
+    workspace = E.LineParametersWorkspace(problem, formulation, execution, blueprints)
     E._solve!(workspace, formulation)
     buffers, plan, input = workspace.buffers, workspace.plan, workspace.input
     jω = input.jω[1]
@@ -139,8 +138,8 @@ end
             input.cable, buffers.rho_cond, formulation.methods, jω; workspace))
     found["cable_potential!"] = JET.get_reports(
         @report_opt target_modules=(LineCableModels,) E.cable_potential!(buffers.Pprimitive,
-            input.cable, buffers.dielectric_admittivity, jω, buffers.layer_coefficients,
-            buffers.coefficients, buffers.tails))
+            input.cable, plan.shunt, buffers.dielectric_admittivity, jω,
+            buffers.layer_coefficients, buffers.coefficients, buffers.tails))
     found["earth!"] = JET.get_reports(
         @report_opt target_modules=(LineCableModels,) E.earth!(workspace, 1,
             plan.earth.calculations, buffers.earth.calculations))

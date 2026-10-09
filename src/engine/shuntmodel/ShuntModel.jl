@@ -25,7 +25,7 @@ import ...DataModel: CableDesign
 import ...DataModel
 import ...TextDisplay
 import ..Engine: CableBlueprint, InternalShuntBlock, internal_shunt_response,
-                 blueprint_dependencies, same_physical_state, numerical_magnitude
+                 same_physical_state, numerical_magnitude
 import ..Engine: InsulationAdmittance, SemiconAdmittance
 import ...LineCableModels: nominal
 using LinearAlgebra: eigvals!, norm, I, lu, mul!, qr!, ColumnNorm, eigen,

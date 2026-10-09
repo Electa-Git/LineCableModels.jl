@@ -25,7 +25,6 @@
 "Engine.ModalAnalysis | Units.native_unit | src/engine/modalanalysis/observations.jl" = 51
 "Engine.ModalAnalysis | Units.symbol | src/engine/modalanalysis/observations.jl" = 51
 "Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
-"Engine.ShuntModel | Engine.blueprint_dependencies | src/engine/shuntmodel/blueprint.jl" = 1
 "Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
 "ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
 "Materials.TemperatureDependent | LineCableModels.constitutive | src/materials/temperaturedependent/interface.jl" = 1
@@ -120,7 +119,7 @@
 "src/reportbuilder/tables.jl" = { applicable = 0, eval = 0, kind = 7 }
 
 [storage]
-"src/engine/cableconstants.jl | CableConstantsWorkspace" = 4
+"src/engine/cableconstants.jl | CableConstantsWorkspace" = 3
 "src/engine/modalanalysis/compute.jl | ModalAnalysisWorkspace" = 8
 
 [dispatch]

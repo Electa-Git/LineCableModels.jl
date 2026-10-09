@@ -158,7 +158,8 @@ end
 $(TYPEDSIGNATURES)
 
 Assemble the unreduced cable-internal potential-coefficient matrix from the
-series sum of physical radial dielectric layers.
+series sum of physical radial dielectric layers. The completed `shunt` blocks replace
+the radial intervals that they cover.
 
 # Returns
 
@@ -167,6 +168,7 @@ series sum of physical radial dielectric layers.
 function cable_potential!(
         destination::AbstractMatrix{Complex{T}},
         input::LocalCableData{T},
+        shunt::NamedTuple,
         admittivity::AbstractVector{Complex{T}},
         s::Complex{T},
         layer_coefficients::AbstractVector{Complex{T}},
@@ -179,7 +181,7 @@ function cable_potential!(
     @inbounds for conductors in input.assemblies
         count = length(conductors)
         for component in 1:count
-            coefficients[component] = input.shunt_covered[conductors[component]] ? zero(s) :
+            coefficients[component] = shunt.covered[conductors[component]] ? zero(s) :
                                       radial_coefficient(
                 layer_coefficients,
                 input.dielectric_ranges[conductors[component]]
@@ -194,7 +196,7 @@ function cable_potential!(
             destination[conductors[row], conductors[column]] += tails[max(row, column)]
         end
     end
-    return _shunt_potential!(destination, input.shunt)
+    return _shunt_potential!(destination, shunt.blocks)
 end
 
 """
@@ -206,7 +208,8 @@ concentric assemblies.
 For each conductor-owned radial interval, the physical layer coefficients
 combine in series as ``p=\\sum_k p_k`` and contribute the branch admittance
 ``y=s/p``. An interval outside the last retained conductor terminates at the
-external reference.
+external reference. The completed `shunt` blocks replace the intervals that they
+cover.
 
 # Returns
 
@@ -215,6 +218,7 @@ external reference.
 function cable_admittance!(
         destination::AbstractMatrix{Complex{T}},
         input::LocalCableData{T},
+        shunt::NamedTuple,
         admittivity::AbstractVector{Complex{T}},
         s::Complex{T},
         layer_coefficients::AbstractVector{Complex{T}}
@@ -226,7 +230,7 @@ function cable_admittance!(
         count = length(conductors)
         for position in 1:count
             index = conductors[position]
-            input.shunt_covered[index] && continue
+            shunt.covered[index] && continue
             coefficient = radial_coefficient(
                 layer_coefficients,
                 input.dielectric_ranges[index]
@@ -242,7 +246,7 @@ function cable_admittance!(
             end
         end
     end
-    return _shunt_admittance!(destination, input.shunt, s)
+    return _shunt_admittance!(destination, shunt.blocks, s)
 end
 
 """

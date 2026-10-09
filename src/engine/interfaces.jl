@@ -42,7 +42,14 @@ physical quantities retain their correlations.
 """
 @inline numerical_magnitude(z) = abs(complex(nominal(real(z)), nominal(imag(z))))
 
-# Equality of physical state includes correlation, not just nominal values.
+"""
+    same_physical_state(a, b)
+
+Whether `a` and `b` are the same physical values, including the correlation of uncertain
+values. Uncertain values with equal nominal values and uncertainties differ when their
+sources differ. Tuples, named tuples and arrays compare element by element. A formula's
+method compares the physical inputs that the formula reads.
+"""
 same_physical_state(a, b) = isequal(a, b)
 same_physical_state(a::BigFloat, b::BigFloat) = isequal(a, b)
 function same_physical_state(a::Number, b::Number)
@@ -81,10 +88,7 @@ function computation_type(::Type{T}, selections::NamedTuple, frequencies) where 
     end
 end
 
-"""Identify the local formula selections that determine blueprint coefficients."""
-function blueprint_dependencies end
-
-"""Calculate the selected local shunt response while constructing a blueprint."""
+"""Calculate the selected local shunt response from the flattened cable designs."""
 function internal_shunt_response end
 """
 $(TYPEDSIGNATURES)

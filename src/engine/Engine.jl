@@ -164,7 +164,7 @@ public has_uncertainty_type, numerical_magnitude
 public resolution_available
 public observation_assumptions
 public domain, LineParamsDomain, PhaseDomain, ModalDomain, line_coordinates
-public internal_shunt_response, blueprint_dependencies
+public internal_shunt_response
 public InternalImpedanceFormulation, InsulationImpedanceFormulation,
        PipeImpedanceFormulation,
        EarthImpedanceFormulation, InsulationAdmittanceFormulation,

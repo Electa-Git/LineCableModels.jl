@@ -93,7 +93,7 @@ state and extends the input, such as with one conductor pair of an earth calcula
 | Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation` | `temperature_resistivity(formula, functor, workspace)` | `material`, `temperature`, `options` |
 | Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule` | `equivalent_material(formula, Val(kind), Val(source), Val(target), functor, workspace)` | `rho`, `eps_r`, `mu_r`, `model`, the physical `pair`, `frequency`, `options` |
 | Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation` | `Commons.initialize_buffers(formula, T, input, plan, common)` and `ModalAnalysis.decompose!(formula, workspace, parameters, options)` | none |
-| Local shunt geometry | `Engine.ShuntModelFormulation` | `Engine.internal_shunt_response(formula, design, geometry, T, material_selections, solutions, design_index)`, during blueprint construction | none |
+| Local shunt geometry | `Engine.ShuntModelFormulation` | `Engine.internal_shunt_response(formula, design, blueprint, T, methods, solutions, design_index)`, after flattening | none |
 | Pipe applicability | `Engine.PipeImpedanceFormulation` | `validate(design, formula, backend)` admits the topology of `design` or throws. No analytical pipe equation is supplied. | none |
 
 An earth expression returns one coefficient per destination of its calculation. It returns a
@@ -159,11 +159,11 @@ integral over the spatial Fourier variable and contains only that callable.
 subdivision points to QuadGK. Physical expressions and subdivision choices belong to each formula.
 
 `ShuntModel` owns conductor and dielectric geometry extraction, numerical coefficients and the requested fallback
-model. Its `blueprint_dependencies` methods identify the actual local selections
-that affect those coefficients. Engine uses that dependency record for reuse
-within one blueprint construction. Completed coefficient blocks are retained
-after construction. The charge-system factorization and workspace are reused
-only during construction.
+model. Engine calls each design's `internal_shunt_response` after flattening, once for each
+formulation. Within one compute call, the solves of the `:boundary` model share their
+coefficient matrices when `same_physical_state` finds the same physical inputs and the
+numerical controls are equal. The workspace plan retains the completed coefficient blocks as `plan.shunt`. The
+charge-system factorization and workspace are reused only during one shunt stage.
 
 Conductor pairs with the same inputs share one computed value when their media agree.
 By default the pairs' destination indices take part, so distinct pairs are computed
@@ -175,8 +175,9 @@ method that converts the coefficients of its parts into the physical matrices. E
 selection uses the Engine frequency sequence and its computation workspace.
 
 An internal-impedance formula builds the values that its inner, outer and transfer impedances
-share in its `Functor` method, once per conductor and frequency. Shunt geometry construction runs once before the
-frequency loop and returns frequency-independent blueprint blocks and diagnostics. A
+share in its `Functor` method, once per conductor and frequency. The shunt stage runs once
+before the frequency loop and returns frequency-independent coefficient blocks and
+diagnostics. A
 consuming earth formula explicitly admits a custom equivalent-earth rule using `validate`.
 
 Results use result-type and unit checks for each formula family, including custom types.

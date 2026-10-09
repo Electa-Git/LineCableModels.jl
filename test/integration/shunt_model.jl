@@ -1,4 +1,4 @@
-@testitem "Engine / shunt model / selection, fallback and blueprint coefficients" tags=[:integration, :importexport, :slow] begin
+@testitem "Engine / shunt model / selection, fallback and completed coefficients" tags=[:integration, :importexport, :slow] begin
     using Logging
     E = LineCableModels.Engine
     IE = LineCableModels.ImportExport
@@ -15,7 +15,8 @@
     @test only(details(nominal).data.shunt_model.domains).terminals == 1:3
     @test occursin("no boundary extraction or audit",
         only(details(nominal).data.shunt_model.domains).message)
-    @test isempty(E.flatten(LineCableModelsCoaxial(), design, default).shunt)
+    @test isempty(only(E.internal_shunt_response([design],
+        [E.flatten(LineCableModelsCoaxial(), design)], [default])).blocks)
     @test E.formula_id(default.methods.shunt_model) === :equivalent
     invalid = (formula(:no_such_model), formula(:equivalent; options = (audit = true,)),
         formula(:boundary; parameters = (fallback = :silent,)),
@@ -67,18 +68,20 @@
     @test_throws BoundarySolveError compute(problem, lossy)
     boundary = CableConstantsFormulation(shunt_model = formula(:boundary;
         options = (resolution = (wire = 16, order = 8, quadrature = 64, modes = 128),)))
-    blueprint = @inferred E.flatten(LineCableModelsCoaxial(), design, boundary)
-    @test length(blueprint.shunt) == 1
-    @test blueprint.shunt_details.solves == 1
-    @test E.flatten(LineCableModelsCoaxial(), design, Float32, boundary) isa
-          E.CableBlueprint{Float32}
+    blueprint = @inferred E.flatten(LineCableModelsCoaxial(), design)
+    shunt = only(E.internal_shunt_response([design], [blueprint], [boundary]))
+    @test length(shunt.blocks) == 1
+    @test shunt.details.solves == 1
+    @test only(E.internal_shunt_response([design],
+        [E.flatten(LineCableModelsCoaxial(), design, Float32)], [boundary])).blocks isa
+          Vector{E.InternalShuntBlock{Float32}}
     first_result = compute(problem, boundary)
     explicit_lossless = CableConstantsFormulation(
         shunt_model = boundary.definitions.shunt_model,
         insulation_admittance = :lossless, semicon_admittance = :lossless)
     @test compute(problem, explicit_lossless) == first_result
-    workspace = E.CableConstantsWorkspace(problem, boundary, blueprint)
-    @test workspace.cable.shunt[1].C === blueprint.shunt[1].C
+    workspace = E.CableConstantsWorkspace(problem, boundary, E.LocalCableData(blueprint), shunt)
+    @test workspace.plan.shunt.blocks[1].C === shunt.blocks[1].C
     @test E._solve!(workspace, problem, boundary) == first_result
     @test details(first_result).data.shunt_model.effective === :boundary
     @test only(details(first_result).data.shunt_model.diagnostics).boundary_residual ===

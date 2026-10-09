@@ -30,12 +30,11 @@ struct LoweringCounter
 end
 function EN.flatten(engine::LineCableModelsCoaxial,
         design::CableDesign{T, R, G, NamedTuple{(:counter,), Tuple{LoweringCounter}}},
-        ::Type{S}, methods::NamedTuple, solutions::Vector, design_index::Int) where {
+        ::Type{S}) where {
         T <: Real, R <: AbstractCablePart, G <: LineCableModels.DataModel.CableGeometry, S <: Real}
     design.nominal_data.counter.calls[] += 1
-    return invoke(EN.flatten,
-        Tuple{LineCableModelsCoaxial, CableDesign, Type{S}, NamedTuple, Vector, Int},
-        engine, design, S, methods, solutions, design_index)
+    return invoke(EN.flatten, Tuple{LineCableModelsCoaxial, CableDesign, Type{S}},
+        engine, design, S)
 end
 
 const CLOSURE = "var\"#closure\""

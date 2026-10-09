@@ -93,7 +93,7 @@ do not contribute executed-code coverage. See the
 for pinned tool installation, commands, and the retained CI report.
 
 Integration tests also count actual blueprint lowering calls: one per selected
-design point, shared across its formulation alternatives and frequency sweep.
+design point, shared by every formulation and the frequency sweep.
 They check material evaluation before local calculations, paired exterior
 calculation before assembly and reduction at each frequency and explicit
 phase-to-modal result transport without another geometry lowering. The visual

@@ -222,7 +222,7 @@ abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type AbstractAdmittanceFormulation <: AbstractFormulation end
 """
 Select cable-local shunt geometry, independently of material admittivity.
-Concrete subtypes implement `internal_shunt_response` during blueprint construction.
+Concrete subtypes implement `internal_shunt_response`, which Engine calls after flattening.
 """
 abstract type ShuntModelFormulation <: AbstractAdmittanceFormulation end
 """

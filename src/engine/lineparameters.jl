@@ -29,7 +29,7 @@ function _solve!(
         materials!(workspace, formulation, frequency, calculations, materials)
         cable_impedance!(Zprimitive, input.cable, buffers.rho_cond,
             formulation.methods, input.jω[frequency]; workspace)
-        cable_potential!(Pprimitive, input.cable, buffers.dielectric_admittivity,
+        cable_potential!(Pprimitive, input.cable, plan.shunt, buffers.dielectric_admittivity,
             input.jω[frequency], buffers.layer_coefficients, buffers.coefficients, buffers.tails)
         _stash!(workspace.trace, :Zin, frequency, Zprimitive)
         _stash!(workspace.trace, :Pin, frequency, Pprimitive)
@@ -49,12 +49,12 @@ function _retained_details(workspace::LineParametersWorkspace{
         <:Real, <:NamedTuple, <:NamedTuple,
         <:NamedTuple, Nothing})
     # Local model diagnostics vary with geometry and selection, not the result type.
-    ComputationDetails(NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,)))
+    ComputationDetails(NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.plan.shunt.details,)))
 end
 
 function _retained_details(workspace::LineParametersWorkspace)
     trace = workspace.trace
-    shunt = NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.input.cable.shunt_details,))
+    shunt = NamedTuple{(:shunt_model,), Tuple{NamedTuple}}((workspace.plan.shunt.details,))
     trace === nothing && return ComputationDetails(shunt)
     input = workspace.input
     return ComputationDetails(merge(shunt,
@@ -117,10 +117,11 @@ function _compute(
         formulation::LineParametersFormulation,
         execution::ComputationOptions,
         input::NamedTuple,
+        shunt::NamedTuple,
         physical_inputs::NamedTuple,
         gridpoint::NamedTuple
 )
-    workspace = LineParametersWorkspace(problem, formulation, execution, input)
+    workspace = LineParametersWorkspace(problem, formulation, execution, input, shunt)
     _solve!(workspace, formulation)
     return _finish(workspace, problem, formulation, execution.data.output_basis;
         physical_inputs, gridpoint)
@@ -170,20 +171,17 @@ function _compute(
     physical_inputs = completed_inputs(problem)
     source_id = Commons.gridpoint_id().source_id
     T = eltype(problem)
-    blueprints = flatten(engine, problem.system.designs, T, formulations)
-    inputs = [lineinput(problem, first(blueprints))]
-    for index in 2:length(blueprints)
-        previous = findfirst(other -> other === blueprints[index], blueprints)
-        push!(inputs, previous < index ? inputs[previous] :
-                      lineinput(problem, blueprints[index]))
-    end
-    values = map(formulations, inputs, eachindex(formulations)) do formulation, input, index
+    blueprints = CableBlueprint{T}[flatten(engine, design, T)
+                                   for design in problem.system.designs]
+    input = lineinput(problem, blueprints)
+    shunts = internal_shunt_response(problem.system.designs, blueprints, formulations)
+    values = map(formulations, shunts, eachindex(formulations)) do formulation, shunt, index
         gridpoint = Commons.gridpoint_id(; source_id, formulation_index=index)
         # Measure a full scan from workspace creation through the solve and result validation.
         # Shared input and workspace construction, attachment, callbacks and progress are excluded.
         value = if timing isa Val{true}
             measured = Base.@timed _compute(engine, problem, formulation, execution,
-                input, physical_inputs, gridpoint)
+                input, shunt, physical_inputs, gridpoint)
             retain_gridpoint(measured.value, gridpoint; fields=(timing=(
                 wall_seconds=measured.time, bytes=measured.bytes,
                 gc_seconds=measured.gctime, compile_seconds=measured.compile_time,
@@ -195,6 +193,7 @@ function _compute(
             formulation,
             execution,
             input,
+            shunt,
             physical_inputs,
             gridpoint
         )
@@ -276,8 +275,8 @@ remains unchanged.
   before the next computation. `index` is local to the formulation collection
   (`1` for a scalar call). Its return value is ignored. Exceptions propagate.
   The callback must not mutate the problem or result. The default is `nothing`.
-  The compute call constructs the selected local shunt coefficients in the
-  cable blueprints without an additional execution option.
+  The compute call completes the selected local shunt coefficients after flattening
+  the cable designs, without an additional execution option.
 
 # Returns
 

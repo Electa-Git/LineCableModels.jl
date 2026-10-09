@@ -42,9 +42,9 @@
     constants = @inferred CableConstants(design; frequency = 50.0,
         formulation = CableConstantsFormulation(shunt_model = boundary))
     local_domain, blueprint = internal_shunt_test_domain(design)
-    blueprint = E.flatten(LineCableModelsCoaxial(), design,
-        CableConstantsFormulation(shunt_model = boundary))
-    @test constants.C[1] ≈ blueprint.shunt[1].C[1, 1] rtol=1e-10
+    response = only(E.internal_shunt_response([design], [blueprint],
+        [CableConstantsFormulation(shunt_model = boundary)]))
+    @test constants.C[1] ≈ response.blocks[1].C[1, 1] rtol=1e-10
     @test constants.G[1] == 0
     lossy = Formulation(insulation_admittance = :lossy; options = physical)
     mixed = compute(problem, [first_formula, lossy])
@@ -54,20 +54,22 @@
     @test details(mixed[2]).data.shunt_model.solves == 0
     reference_temperature = Formulation(shunt_model = boundary,
         temperature_dependence = nothing; options = physical)
-    blueprints = E.flatten(LineCableModelsCoaxial(), system.designs, Float64,
+    blueprints = [E.flatten(LineCableModelsCoaxial(), design, Float64)
+                  for design in system.designs]
+    shunts = E.internal_shunt_response(system.designs, blueprints,
         [first_formula, other_formula, lossy, reference_temperature])
-    @test blueprints[1] === blueprints[2]
-    @test blueprints[1] === blueprints[4]
-    @test blueprints[1][1].shunt[1].C === blueprints[1][2].shunt[1].C
-    @test all(bp -> isempty(bp.shunt), blueprints[3])
-    input = E.lineinput(problem, blueprints[1])
-    @test input.cable.shunt[1].terminals == 1:3
-    @test input.cable.shunt[2].terminals == 4:6
-    @test input.cable.shunt[2].C === blueprints[1][2].shunt[1].C
+    # Formulations whose domains have the same physical inputs share one solve.
+    @test all(index -> shunts[index].blocks[1].C === shunts[1].blocks[1].C, (2, 4))
+    @test all(index -> shunts[index].details.solves == 1, (1, 2, 4))
+    @test isempty(shunts[3].blocks)
+    @test shunts[1].blocks[1].terminals == 1:3
+    @test shunts[1].blocks[2].terminals == 4:6
+    @test shunts[1].blocks[1].C === shunts[1].blocks[2].C
+    input = E.lineinput(problem, blueprints)
     execution = computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     @test observe(
         E._compute(
-            LineCableModelsCoaxial(), problem, other_formula, execution, input,
+            LineCableModelsCoaxial(), problem, other_formula, execution, input, shunts[2],
             E.completed_inputs(problem),LineCableModels.Commons.gridpoint_id()), Y) ==
           observe(results[2], Y)
     # The same physical API supports independent translated assemblies inside

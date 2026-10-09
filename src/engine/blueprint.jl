@@ -54,8 +54,8 @@ end
 $(TYPEDEF)
 
 Store one lossless terminal-capacitance block in its owner's conductor indices.
-Blueprint indices are cable-local. Local assembly data remap them to the system.
-`C` is shield-referenced capacitance \\[F/m\\]. `P` is its charge-potential
+A shunt model returns cable-local indices. The shunt stage remaps them to the
+system. `C` is shield-referenced capacitance \\[F/m\\]. `P` is its charge-potential
 inverse \\[m/F\\].
 
 $(TYPEDFIELDS)
@@ -80,12 +80,12 @@ Base.convert(::Type{InternalShuntBlock{T}}, block::InternalShuntBlock{T}) where 
 $(TYPEDEF)
 
 Store the frequency-independent, unreduced numerical description of one cable
-design and its selected local shunt formulation.
+design.
 
 The blueprint is the result of computational flattening. It retains equivalent
-conductor annuli and every physical dielectric layer. An explicitly selected
-boundary shunt model supplies completed lossless terminal coefficients during
-construction. Frequency-dependent constitutive evaluation, conductor temperature
+conductor annuli and every physical dielectric layer, and it depends on the design and
+the scalar type only. The selected shunt model completes its coefficients after
+flattening. Frequency-dependent constitutive evaluation, conductor temperature
 correction, earth return and matrix reductions remain calculation work.
 
 $(TYPEDFIELDS)
@@ -101,28 +101,20 @@ struct CableBlueprint{T <: Real}
     dielectric_ranges::Vector{UnitRange{Int}}
     "Contiguous conductor ranges for independent concentric assemblies."
     assembly_ranges::Vector{UnitRange{Int}}
-    "Completed boundary shunt blocks. Empty for the annular model."
-    shunt::Vector{InternalShuntBlock{T}}
-    "Requested/effective local model, domain outcomes and numerical diagnostics."
-    shunt_details::NamedTuple
 
     function CableBlueprint{T}(
             cable_id::String,
             conductors::Vector{BlueprintConductor{T}},
             dielectrics::Vector{BlueprintDielectric{T}},
             dielectric_ranges::Vector{UnitRange{Int}},
-            assembly_ranges::Vector{UnitRange{Int}},
-            shunt::Vector{InternalShuntBlock{T}},
-            shunt_details::NamedTuple
+            assembly_ranges::Vector{UnitRange{Int}}
     ) where {T <: Real}
         return validate(new{T}(
             cable_id,
             conductors,
             dielectrics,
             dielectric_ranges,
-            assembly_ranges,
-            shunt,
-            shunt_details
+            assembly_ranges
         ))
     end
 end
@@ -258,16 +250,6 @@ function validate(blueprint::CableBlueprint)
             ))
         end
     end
-    for block in blueprint.shunt
-        block.assembly in blueprint.assembly_ranges || throw(ArgumentError(
-            "blueprint shunt block must belong to a conductor assembly"))
-        first(block.terminals) in block.assembly &&
-        last(block.terminals) in block.assembly ||
-            throw(ArgumentError("blueprint shunt terminals must lie in their assembly"))
-        n = length(block.terminals) - 1
-        size(block.C) == size(block.P) == (n, n) || throw(DimensionMismatch(
-            "blueprint shunt coefficients must match the nonreference terminals"))
-    end
     return blueprint
 end
 
@@ -281,30 +263,17 @@ description consumed by the coaxial backend.
 
 - `engine`: coaxial backend identity.
 - `design`: completed physical cable design.
-- `T`: scalar type used by the numerical payload.
-- `formulation`: selected local formulas. Defaults to [`Formulation`](@ref).
+- `T`: scalar type used by the numerical payload. Defaults to `eltype(design)`.
 
 # Returns
 
 - A validated [`CableBlueprint`](@ref) with conductor annuli, physical
-  dielectric layers, assembly partitions and any selected boundary coefficients.
+  dielectric layers and assembly partitions.
 """
-function flatten(
-        engine::LineCableModelsCoaxial,
-        design::CableDesign,
-        ::Type{T},
-        formulation::AbstractFormulation = Formulation()
-) where {T <: Real}
-    return only(only(flatten(engine, [design], T, [formulation])))
-end
-
 function flatten(
         ::LineCableModelsCoaxial,
         design::CableDesign,
-        ::Type{T},
-        methods::NamedTuple,
-        solutions::Vector,
-        design_index::Int
+        ::Type{T}
 ) where {T <: Real}
     components = DataModel.radial_components(design, T)
     ranges = _assembly_ranges(components)
@@ -347,28 +316,17 @@ function flatten(
         end
         dielectric_ranges[index] = first_layer:layer_index
     end
-    geometry = (; conductors, assembly_ranges = ranges)
-    response = internal_shunt_response(methods.shunt_model, design, geometry, T,
-        methods, solutions, design_index)
     return CableBlueprint{T}(
         design.cable_id,
         conductors,
         dielectrics,
         dielectric_ranges,
-        ranges,
-        response.blocks,
-        response.details
+        ranges
     )
 end
 
-function flatten(
-        engine::LineCableModelsCoaxial,
-        design::CableDesign,
-        formulation::AbstractFormulation = Formulation()
-)
-    T = eltype(design)
-    return flatten(engine, design, T, formulation)
-end
+flatten(engine::LineCableModelsCoaxial, design::CableDesign) =
+    flatten(engine, design, eltype(design))
 
 """
 $(TYPEDEF)
@@ -413,16 +371,9 @@ struct LocalCableData{T <: Real}
     insulation_indices::Vector{Int}
     "Indices of dielectric layers classified as semiconducting material."
     semicon_indices::Vector{Int}
-    "Boundary coefficients remapped from cable-local to system conductor indices."
-    shunt::Vector{InternalShuntBlock{T}}
-    "Radial intervals replaced by boundary coefficients."
-    shunt_covered::BitVector
-    "Local-model outcomes in system terminal order."
-    shunt_details::NamedTuple
 end
 
-# Completed blueprint coefficients do not depend on external formula arguments.
-# Widen their representation without recalculating the blueprint or detaching
+# Widen the representation without recalculating the blueprints or detaching
 # correlated material values. Native field conversion retains unchanged indices.
 function Base.convert(::Type{LocalCableData{T}}, cable::LocalCableData) where {T <: Real}
     LocalCableData{T}(map(name -> getfield(cable, name), fieldnames(typeof(cable)))...)
@@ -456,32 +407,11 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     semicon_indices = Int[]
     sizehint!(insulation_indices, layer_count)
     sizehint!(semicon_indices, layer_count)
-    shunt = InternalShuntBlock{T}[]
-    shunt_covered = falses(conductor_count)
-    reports = similar(first(blueprints).shunt_details.domains, 0)
-    diagnostics = similar(first(blueprints).shunt_details.diagnostics, 0)
-    solved = Base.IdSet{Matrix{T}}()
-    requested = first(blueprints).shunt_details.requested
 
     conductor_offset = 0
     layer_offset = 0
     assembly_offset = 0
     @inbounds for (design_index, blueprint) in pairs(blueprints)
-        blueprint.shunt_details.requested === requested || throw(ArgumentError(
-            "local cable blueprints must use the same shunt model"))
-        for block in blueprint.shunt
-            assembly_range = (first(block.assembly) + conductor_offset):(last(block.assembly) + conductor_offset)
-            terminal_range = (first(block.terminals) + conductor_offset):(last(block.terminals) + conductor_offset)
-            push!(shunt, InternalShuntBlock(assembly_range, terminal_range, block.C, block.P))
-            shunt_covered[first(terminal_range):(last(terminal_range) - 1)] .= true
-            push!(solved, block.C)
-        end
-        append!(diagnostics, blueprint.shunt_details.diagnostics)
-        for report in blueprint.shunt_details.domains
-            terminal_range = (first(report.terminals) + conductor_offset):(last(report.terminals) + conductor_offset)
-            push!(reports, merge(report, (;
-                design = design_index, terminals = terminal_range)))
-        end
         for local_range in blueprint.assembly_ranges
             assembly_offset += 1
             assemblies[assembly_offset] = (
@@ -554,14 +484,7 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
         r_layer_ext,
         dielectric_materials,
         insulation_indices,
-        semicon_indices,
-        shunt,
-        shunt_covered,
-        (requested,
-            effective = isempty(reports) ? :equivalent :
-                        all(r -> r.effective === :boundary, reports) ? :boundary :
-                        all(r -> r.effective === :equivalent, reports) ? :equivalent : :mixed,
-            solves = length(solved), domains = reports, diagnostics)
+        semicon_indices
     )
 end
 

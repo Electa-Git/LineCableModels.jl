@@ -45,8 +45,9 @@ default is a package-defined selection rather than an author equation.
 ## Coaxial computation
 
 The workflow is design, system, problem, formulation, then `compute`. Initialization
-flattens the selected designs into blueprint tables. It binds equations to their required inputs and selected output entries before allocating one
-`LineParametersWorkspace`.
+flattens each selected design once into blueprint tables and completes the shunt model of
+each formulation. It binds equations to their required inputs and selected output entries
+before allocating one `LineParametersWorkspace`.
 
 The computation evaluates fixed-temperature conductor properties and required
 frequency-dependent earth tables, then follows this order at each frequency:
@@ -60,7 +61,7 @@ frequency-dependent earth tables, then follows this order at each frequency:
 `BeforeFD` and `AfterFD` retain their distinct ordering. Material-law calls receive
 valid material objects. Field formulas receive completed material properties.
 Their wave numbers and mathematical approximations do not replace those values.
-Boundary-shunt coefficients remain blueprint-time quantities.
+The shunt stage completes the boundary-shunt coefficients before the frequency loop.
 
 The workspace input and plan retain geometric tables and bind equations
 to their inputs and outputs. Its buffers hold evaluated material tables, local coefficients,
@@ -92,8 +93,8 @@ backend, including its equivalent wire-screen geometry.
 Select `shunt_model=:boundary` to resolve eligible open wire and finite-tape
 groups inside a closed circular shield before the frequency sweep. This local
 shunt calculation supplies a coupled terminal operator that retains direct
-coupling across open intermediate screens. The same blueprint construction
-supplies `CableConstants`.
+coupling across open intermediate screens. The same shunt stage supplies
+`CableConstants`.
 
 The resolved local calculation preserves physical filler permittivity, finite
 tape thickness, conductor terminal membership and concentric dielectric layers.
@@ -126,14 +127,16 @@ of them. Numerical grid residuals and small-coupling indicators are not
 certified error bounds. Whole-matrix convergence can conceal substantial
 relative changes in weak individual couplings.
 
-Formulation-aware blueprint construction uses bounded dense storage and
-in-place pivoted QR. The completed `CableBlueprint` owns lossless terminal
-capacitance and potential coefficients, local terminal coverage and numerical
-outcomes. Workspaces consume these coefficients without performing a boundary solve.
-Repeated equivalent domains share coefficient matrices within the same
-construction call. Formulations with identical local selections share blueprints
-even when earth-return choices differ. Independent uncertainty sources prevent
-sharing, and dense geometric boundary matrices are released after construction.
+The shunt stage runs after flattening. It uses bounded dense storage and in-place
+pivoted QR. The workspace plan stores its result in `plan.shunt`: lossless terminal
+capacitance and potential coefficients, the radial intervals that they replace and the
+numerical outcomes. Workspaces consume these coefficients without performing a boundary
+solve.
+
+Domains of the `:boundary` model with the same physical inputs and numerical controls
+share coefficient matrices within the same compute call, also across formulations whose
+earth-return choices differ. Independent uncertainty sources prevent sharing. The stage releases its dense
+geometric boundary matrices when it ends.
 
 Select the formulation and call `compute` directly:
 
@@ -142,15 +145,16 @@ formulation = Formulation(shunt_model=:boundary)
 result = @time compute(problem, formulation)
 ```
 
-The compute call constructs the selected local shunt model. Blueprints with the default
-equivalent annular layer contain no geometric boundary blocks, extract no geometric boundary domains, and evaluate
-no geometric boundary material law. Their reports describe the concentric assembly ranges.
+The compute call completes the selected local shunt model. The default equivalent annular
+layer does not produce geometric boundary blocks, extract geometric boundary domains or
+evaluate a geometric boundary material law. Its reports describe the concentric assembly
+ranges.
 No geometric boundary audit is implied.
 Boundary coefficients are independent of the frequency grid and external earth
 model. They are reused across the frequency sweep, but a fresh `compute` call
-constructs fresh blueprints: there is no process-global or cross-call cache.
+completes fresh coefficients: there is no process-global or cross-call cache.
 Changed geometry and Monte Carlo realizations receive new coefficients.
-Do not mutate coefficient arrays shared by completed blueprints.
+Do not mutate coefficient arrays that completed shunt results share.
 
 Production reports unmet quadrature targets, estimated rank, reciprocity and
 positive-capacitance concerns as warnings. The computed finite result is retained

@@ -74,16 +74,18 @@
         terminal(:core, core(Material(:conductor, 1.7241e-8); r = r_in)),
         Region(:screen, Annulus(r_in, r_mid), first_material),
         Region(:insulation, Annulus(r_mid, r_ex), second_material)))
-    input=E.LocalCableData(E.flatten(LineCableModelsCoaxial(), design))
+    blueprint=E.flatten(LineCableModelsCoaxial(), design)
+    input=E.LocalCableData(blueprint)
+    shunt=only(E.internal_shunt_response([design], [blueprint], [Formulation()]))
     methods=Formulation(insulation_admittance = formulation,
         semicon_admittance = semicon).methods
     admittivity=zeros(ComplexF64, 2)
     E.dielectric!(admittivity, input, methods, 50.0, 20.0)
     layers=zeros(ComplexF64, 2)
     potential, admittance=zeros(ComplexF64, 1, 1), zeros(ComplexF64, 1, 1)
-    E.cable_potential!(potential, input, admittivity, s, layers,
+    E.cable_potential!(potential, input, shunt, admittivity, s, layers,
         zeros(ComplexF64, 1), zeros(ComplexF64, 1))
-    E.cable_admittance!(admittance, input, admittivity, s, layers)
+    E.cable_admittance!(admittance, input, shunt, admittivity, s, layers)
     @test only(potential) ≈ s/series_admittance
     @test only(admittance) ≈ series_admittance
 

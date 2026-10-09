@@ -24,7 +24,7 @@ struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
     "Evaluation frequency [Hz]."
     frequency::T
 
-    "Requested/resolved formulas and blueprint construction diagnostics."
+    "Requested/resolved formulas and shunt-model diagnostics."
     details::D
 
     function CableConstants{T}(
@@ -399,17 +399,19 @@ end
 """
 $(TYPEDEF)
 
-Own the local cable arrays, corrected resistivities, and reusable matrices for
-one cable-constant computation. The constructor consumes the completed
-blueprint without retaining a duplicate representation.
+Own the local cable arrays, corrected resistivities, the completed shunt model and
+reusable matrices for one cable-constant computation. The constructor consumes the
+completed blueprint without retaining a duplicate representation.
 
 $(TYPEDFIELDS)
 """
-struct CableConstantsWorkspace{T <: Real, L, B}
+struct CableConstantsWorkspace{T <: Real, L, P, B}
     "Concrete array payload used by local primitive assemblers."
     cable::L
     "Temperature-corrected conductor resistivities [Ω·m]."
     rho::Vector{T}
+    "Completed shunt model of the cable, in `shunt`."
+    plan::P
     "Reusable primitive, reduction, and result storage."
     buffers::B
 end
@@ -419,17 +421,20 @@ function CableConstantsWorkspace(
         formulation::CableConstantsFormulation,
         blueprint::CableBlueprint{T}
 ) where {T <: Real}
+    shunt = only(internal_shunt_response([problem.design], [blueprint], [formulation]))
     return CableConstantsWorkspace(
         problem,
         formulation,
-        LocalCableData(blueprint)
+        LocalCableData(blueprint),
+        shunt
     )
 end
 
 function CableConstantsWorkspace(
         problem::CableConstantsProblem{T},
         formulation::CableConstantsFormulation,
-        cable::LocalCableData{T}
+        cable::LocalCableData{T},
+        shunt::NamedTuple
 ) where {T <: Real}
     @inbounds for assembly in cable.assemblies
         isempty(cable.dielectric_ranges[first(assembly)]) && throw(ArgumentError(
@@ -465,9 +470,10 @@ function CableConstantsWorkspace(
         validate(Expression(formulation.methods.internal_impedance,
             InternalImpedance.internal_impedance, Val(kind)))
     end
-    buffers = initialize_buffers(formulation.methods, T, cable, (;), buffers)
-    return CableConstantsWorkspace{T, typeof(cable), typeof(buffers)}(
-        cable, rho, buffers
+    plan = (; shunt)
+    buffers = initialize_buffers(formulation.methods, T, cable, plan, buffers)
+    return CableConstantsWorkspace{T, typeof(cable), typeof(plan), typeof(buffers)}(
+        cable, rho, plan, buffers
     )
 end
 
@@ -496,6 +502,7 @@ function _solve!(
     cable_admittance!(
         buffers.Y,
         workspace.cable,
+        workspace.plan.shunt,
         buffers.dielectric_admittivity,
         s,
         buffers.layer_coefficients
@@ -539,7 +546,7 @@ function _solve!(
         ComputationDetails(NamedTuple{
             (:formulations,:selections,:formulation_fields,:shunt_model,:inputs,:gridpoint),
             NTuple{6,NamedTuple}}((values(completed_formulation(formulation))...,
-            workspace.cable.shunt_details,physical_inputs,gridpoint)))
+            workspace.plan.shunt.details,physical_inputs,gridpoint)))
     )
 end
 
@@ -620,17 +627,13 @@ function compute(
     for formulation in formulations
         validate(problem.design, formulation.methods.pipe_impedance, engine)
     end
-    blueprints = flatten(engine, [problem.design], eltype(problem), formulations)
-    cables = [LocalCableData(first(blueprints))]
-    for index in 2:length(blueprints)
-        previous = findfirst(other -> other === blueprints[index], blueprints)
-        push!(cables, previous < index ? cables[previous] :
-                      LocalCableData(blueprints[index]))
-    end
+    blueprint = flatten(engine, problem.design, eltype(problem))
+    cable = LocalCableData(blueprint)
+    shunts = internal_shunt_response([problem.design], [blueprint], formulations)
     physical_inputs = completed_inputs(problem)
     source_id = Commons.gridpoint_id().source_id
-    return map(formulations, cables, eachindex(formulations)) do formulation, cable, index
-        workspace = CableConstantsWorkspace(problem, formulation, cable)
+    return map(formulations, shunts, eachindex(formulations)) do formulation, shunt, index
+        workspace = CableConstantsWorkspace(problem, formulation, cable, shunt)
         _solve!(workspace, problem, formulation; physical_inputs,
             gridpoint=Commons.gridpoint_id(;source_id,formulation_index=index))
     end

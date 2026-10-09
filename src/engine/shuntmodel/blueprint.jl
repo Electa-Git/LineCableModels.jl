@@ -1,16 +1,8 @@
-# Boundary coefficients are completed while constructing coaxial blueprints.
-# The solved-domain inventory lives only for this flattening call.
+# The shunt stage completes the boundary coefficients after flattening, for each
+# formulation. The solved-domain inventory lives only for one shunt stage.
 const ShuntDomainReport = NamedTuple{
     (:design, :terminals, :requested, :effective, :reason, :message),
     Tuple{Int, UnitRange{Int}, Symbol, Symbol, Symbol, String}}
-
-# Each shunt model selects the formulations needed to construct its blueprint.
-# The equivalent annular layer model omits the dielectric selections handled during the
-# solve.
-function blueprint_dependencies(::ShuntModelFormulation, methods)
-    methods[(:shunt_model, :insulation_admittance, :semicon_admittance)]
-end
-blueprint_dependencies(::Formula{:equivalent}, methods) = methods[(:shunt_model,)]
 
 function internal_shunt_response(selected::ShuntModelFormulation, design,
         geometry, T, methods, solutions, design_index)
@@ -42,21 +34,28 @@ function internal_shunt_response(selected::Formula{:boundary},
             _shunt_lossless(methods) || throw(BoundarySolveError(:unsupported,
                 (; design = domain.design, terminals = domain.terminals),
                 "boundary shunt requires the built-in lossless dielectric laws"))
+            # A solve depends on its physical inputs, the terminal of each wire and tape, and
+            # its numerical controls.
+            values = _shunt_values(domain, methods)
+            topology = (length(domain.terminals), length(domain.left), length(domain.right),
+                [wire.terminal for wire in domain.wires],
+                [tape.terminal for tape in domain.tapes])
+            controls = selected.options.data
             previous = findfirst(
-                value -> isequal(value.methods, methods) &&
-                         _shunt_domain_equal(value.domain, domain),
+                solution -> isequal(solution.controls, controls) &&
+                            isequal(solution.topology, topology) &&
+                            same_physical_state(solution.values, values),
                 solutions)
             if previous === nothing
                 # The admitted lossless laws are independent of frequency and
                 # temperature. Their dielectric descriptors retain UQ sources.
-                result = internal_shunt_response(
-                    selected, _shunt_values(domain, methods), domain;
-                    level = selected.options.data.resolution,
-                    integration = selected.options.data.integration, audit = selected.options.data.audit)
+                result = internal_shunt_response(selected, values, domain;
+                    level = controls.resolution, integration = controls.integration,
+                    audit = controls.audit)
                 C = Matrix{T}(result.C)
                 P = lu(C) \ Matrix{T}(I, size(C, 1), size(C, 1))
                 diagnostic = result.diagnostic
-                push!(solutions, (; domain, methods, C, P, diagnostic))
+                push!(solutions, (; values, topology, controls, C, P, diagnostic))
             else
                 source = solutions[previous]
                 C, P, diagnostic = source.C, source.P, source.diagnostic

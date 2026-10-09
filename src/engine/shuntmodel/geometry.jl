@@ -238,25 +238,6 @@ function internal_shunt_domains(
     return domains
 end
 
-function _shunt_domain_equal(a, b)
-    length(a.terminals) == length(b.terminals) || return false
-    for name in (:a, :b)
-        same_physical_state(getproperty(a, name), getproperty(b, name)) || return false
-    end
-    for name in (:left, :right, :wires, :tapes)
-        l, r = getproperty(a, name), getproperty(b, name)
-        length(l) == length(r) || return false
-        if name in (:left, :right)
-            all(same_physical_state((x.ri, x.ro, x.material.eps_r), (
-                    y.ri, y.ro, y.material.eps_r))
-            for (x, y) in zip(l, r)) || return false
-        else
-            all(same_physical_state(x, y) for (x, y) in zip(l, r)) || return false
-        end
-    end
-    return same_physical_state(a.material.eps_r, b.material.eps_r)
-end
-
 _shunt_lossless(::Any) = false
 function _shunt_lossless(::Union{InsulationAdmittance.Formula{:lossless},
         SemiconAdmittance.Formula{:lossless}})

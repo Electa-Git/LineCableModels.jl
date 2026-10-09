@@ -1014,8 +1014,8 @@ without introducing uncertain scalars into dense numerical workspaces.
 # Arguments
 
 - `values`: host and layer radii, wire coordinates and radii and tape dimensions
-  \\[m\\], relative permittivities and tape angles \\[rad\\], in the order
-  supplied during blueprint construction.
+  \\[m\\], relative permittivities and tape angles \\[rad\\], in the shunt
+  stage's order.
 - `domain`: extracted local geometry and terminal ownership.
 
 # Keywords

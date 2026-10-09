@@ -13,8 +13,8 @@
     @test only(domain.right).material.eps_r == 3.0
     renamed = internal_shunt_test_design(suffix = "_renamed")
     other, _ = internal_shunt_test_domain(renamed)
-    @test E.ShuntModel._shunt_domain_equal(domain, other)
     values = E.ShuntModel._shunt_values(domain, Formulation().methods)
+    @test E.same_physical_state(values, E.ShuntModel._shunt_values(other, Formulation().methods))
     @test values[1:3] ≈ [domain.a, domain.b, domain.material.eps_r]
     host = only(filter(
         region->region.primitive isa LineCableModels.DataModel.DifferenceShape &&
@@ -60,21 +60,23 @@
     @test_throws BoundarySolveError E.ShuntModel._shunt_capacitance(boundary, g;
         level = (wire = 100000, order = 16, quadrature = 128, modes = 1))
     formulation=Formulation(shunt_model = formula(:boundary; options = (resolution = level,)))
-    blueprints = only(E.flatten(LineCableModelsCoaxial(), [design, renamed], Float64, [formulation]))
-    @test E.LocalCableData(blueprints).shunt_details.solves == 1
-    @test blueprints[1].shunt[1].C === blueprints[2].shunt[1].C
-    @test isempty(E.flatten(LineCableModelsCoaxial(), design,
-        Formulation(insulation_admittance = :lossy)).shunt)
+    blueprints = [E.flatten(LineCableModelsCoaxial(), d, Float64) for d in (design, renamed)]
+    pair = only(E.internal_shunt_response([design, renamed], blueprints, [formulation]))
+    @test pair.details.solves == 1
+    @test pair.blocks[1].C === pair.blocks[2].C
+    @test isempty(only(E.internal_shunt_response([design], blueprints[1:1],
+        [Formulation(insulation_admittance = :lossy)])).blocks)
     cable = E.LocalCableData(first(blueprints))
+    shunt = only(E.internal_shunt_response([design], blueprints[1:1], [formulation]))
     p, y = zeros(ComplexF64, 3, 3), zeros(ComplexF64, 3, 3)
     layers = zeros(ComplexF64, length(bp.dielectrics))
     coefficients, tails = zeros(ComplexF64, 3), zeros(ComplexF64, 3)
-    local_shunt = cable.shunt
+    local_shunt = shunt.blocks
     admittivity = similar(layers)
     E.dielectric!(admittivity, cable, Formulation().methods, 50.0, 20.0)
-    E.cable_potential!(p, cable, admittivity, 100pi*im,
+    E.cable_potential!(p, cable, shunt, admittivity, 100pi*im,
         layers, coefficients, tails)
-    E.cable_admittance!(y, cable, admittivity, 100pi*im, layers)
+    E.cable_admittance!(y, cable, shunt, admittivity, 100pi*im, layers)
     @test y ≈ 100pi*im*inv(p) rtol=1e-10
     # Warm the measured entry points directly: the enclosing cable calculation
     # may inline them without compiling a standalone call.

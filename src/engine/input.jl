@@ -212,11 +212,13 @@ function LineParametersWorkspace(
         execution::ComputationOptions,
         blueprints::Vector{CableBlueprint{T}}
 ) where {T <: Real}
+    shunt = only(internal_shunt_response(problem.system.designs, blueprints, [formulation]))
     return LineParametersWorkspace(
         problem,
         formulation,
         execution,
-        lineinput(problem, blueprints)
+        lineinput(problem, blueprints),
+        shunt
     )
 end
 
@@ -224,7 +226,8 @@ function LineParametersWorkspace(
         problem::LineParametersProblem{T},
         formulation::LineParametersFormulation,
         execution::ComputationOptions,
-        input::NamedTuple
+        input::NamedTuple,
+        shunt::NamedTuple
 ) where {T <: Real}
     cable = input.cable
     horz = input.horz
@@ -252,7 +255,7 @@ function LineParametersWorkspace(
     options = formulation.options.data
     reduction = ReductionPlan(phase_map; options.reduce_bundle, options.kron_reduction,
         options.ideal_transposition)
-    plan = (; cable_indices, reduction, earth, geometry)
+    plan = (; cable_indices, reduction, earth, geometry, shunt)
     # The earth formulas that the computation uses: each slot's formula, or the formulas of a
     # recipe that a calculation uses, the others `nothing`. They widen the scalar type and
     # provision their arrays.

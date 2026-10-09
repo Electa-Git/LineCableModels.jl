@@ -130,8 +130,10 @@
     @test blueprint isa LineCableModels.Engine.CableBlueprint{Float64}
     @test blueprint.assembly_ranges == [1:length(design.terminal_order)]
     @test getproperty.(blueprint.conductors, :terminal) == design.terminal_order
-    @test isempty(blueprint.shunt)
-    @test blueprint.shunt_details.solves == 0
+    shunt = only(LineCableModels.Engine.internal_shunt_response([design], [blueprint],
+        [formulation]))
+    @test isempty(shunt.blocks)
+    @test shunt.details.solves == 0
     @test compute(problem, formulation) == constants
     @test @inferred(compute(problem, formulation)) == constants
     @test_throws ArgumentError compute(problem, formulation; options = (trace = true,))

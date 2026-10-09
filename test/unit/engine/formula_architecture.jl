@@ -359,15 +359,15 @@ end
             heights, frequencies = [50.0, 50.0, 500.0]),
         layouts)
     workspaces=map(problems) do problem
-        blueprints=only(E.flatten(LineCableModelsCoaxial(), problem.system.designs,
-            Float64, [selection]))
+        blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+                    for design in problem.system.designs]
         E.LineParametersWorkspace(problem, selection, execution, blueprints)
     end
     @test all(w -> typeof(w) === typeof(first(workspaces)), workspaces)
     two_wire_problem=TestFixtures.line_parameters_problem(TestFixtures.two_wire_system();
         frequencies = [50.0])
-    two_wire_blueprints=only(E.flatten(LineCableModelsCoaxial(),
-        two_wire_problem.system.designs, Float64, [selection]))
+    two_wire_blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+                         for design in two_wire_problem.system.designs]
     two_wire_workspace=E.LineParametersWorkspace(two_wire_problem, selection,
         execution, two_wire_blueprints)
     @test typeof(two_wire_workspace) === typeof(first(workspaces))
@@ -430,7 +430,8 @@ end
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
     selected=Formulation()
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions(trace = true))
-    blueprints=only(E.flatten(LineCableModelsCoaxial(), problem.system.designs, Float64, [selected]))
+    blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+                for design in problem.system.designs]
     w=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     E.materials!(w, selected)
     E.materials!(w, selected, 1)
@@ -469,7 +470,8 @@ end
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
     selected=Formulation(temperature_dependence = td, earth_properties = fd)
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions())
-    blueprints=only(E.flatten(LineCableModelsCoaxial(), problem.system.designs, Float64, [selected]))
+    blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+                for design in problem.system.designs]
     w=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     @test isempty(td.seen) && isempty(fd.seen)
     E._solve!(w, selected)

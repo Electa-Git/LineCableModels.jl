@@ -44,11 +44,13 @@
         for f in frequencies
             original,
             reduced = map((source, homogeneous)) do design
-                input = E.LocalCableData(E.flatten(LineCableModelsCoaxial(), design))
+                blueprint = E.flatten(LineCableModelsCoaxial(), design)
+                input = E.LocalCableData(blueprint)
+                shunt = only(E.internal_shunt_response([design], [blueprint], [formulation]))
                 y = zeros(ComplexF64, 1, 1)
                 admittivity = zeros(ComplexF64, length(input.dielectric_materials))
                 E.dielectric!(admittivity, input, formulation.methods, f, 20.0)
-                E.cable_admittance!(y, input, admittivity,
+                E.cable_admittance!(y, input, shunt, admittivity,
                     complex(0.0, 2π*f), zeros(ComplexF64, length(input.dielectric_materials)))
                 only(y)
             end

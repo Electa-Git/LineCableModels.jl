@@ -104,7 +104,7 @@ end
     end
 end
 
-@testitem "Quality / user-owned shunt and pipe selections reach blueprint and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures,ModalFormulaFixtures] begin
+@testitem "Quality / user-owned shunt and pipe selections reach the shunt stage and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures,ModalFormulaFixtures] begin
     M=FormulaFixtures
     shunt=M.UserCoaxialShunt()
     selected=Formulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe())

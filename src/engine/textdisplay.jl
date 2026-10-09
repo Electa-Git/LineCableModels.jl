@@ -42,9 +42,7 @@ TextDisplay.@showfields CableBlueprint "CableBlueprint" blueprint -> (
     cable_id = blueprint.cable_id,
     conductors = length(blueprint.conductors),
     dielectrics = length(blueprint.dielectrics),
-    assemblies = length(blueprint.assembly_ranges),
-    shunt_model = blueprint.shunt_details.requested,
-    boundary_blocks = length(blueprint.shunt)
+    assemblies = length(blueprint.assembly_ranges)
 )
 
 TextDisplay.@showfields LineCableModelsFEMError "LineCableModelsFEMError" error -> (

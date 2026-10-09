@@ -98,7 +98,8 @@ end
     @test getproperty.(lines, :message) == ["callback completed", "callback completed", "Line parameters computation completed successfully"]
     # Exercise both completed tensor checks independently at their numerical entry point.
     execution = computation_options(LineCableModelsCoaxial, ComputationOptions())
-    blueprints = only(E.flatten(LineCableModelsCoaxial(), ordinary.system.designs, Float64, [selected]))
+    blueprints = [E.flatten(LineCableModelsCoaxial(), design, Float64)
+                  for design in ordinary.system.designs]
     workspace = E.LineParametersWorkspace(ordinary, selected, execution, blueprints)
     E._solve!(workspace, selected)
     for field in (:Zout, :Yout)

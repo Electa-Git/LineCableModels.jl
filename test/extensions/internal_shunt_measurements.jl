@@ -25,7 +25,8 @@
     independent,
     _ = internal_shunt_test_domain(internal_shunt_test_design(
         epsilon = measurement(2.5, 0.0025), count = 4))
-    @test !E.ShuntModel._shunt_domain_equal(domain, independent)
+    @test !E.same_physical_state(E.ShuntModel._shunt_values(domain, Formulation().methods),
+        E.ShuntModel._shunt_values(independent, Formulation().methods))
     rng = MersenneTwister(314)
     samples = [deterministic(2.5+0.0025randn(rng))[1, 1] for _ in 1:24]
     # 3 standard errors of the sampled standard deviation. No requirement
@@ -107,15 +108,17 @@ end
     @test_throws BoundarySolveError compute(
         problem, MonteCarlo(strict;
             trials = 2, seed = 314, on_error = :resample, retain_details = true))
-    # Blueprint sharing must not erase independent Measurements sources.
+    # Sharing solved domains must not erase independent Measurements sources.
     independent = CableConstantsProblem(internal_shunt_test_design(
         epsilon = measurement(2.5, 0.0025), tapes = false, count = 4))
     original_problem = first(space)
-    blueprints = only(LineCableModels.Engine.flatten(LineCableModelsCoaxial(),
-        [original_problem.design, independent.design], eltype(original_problem), [inner]))
-    @test blueprints[1].shunt[1].C !== blueprints[2].shunt[1].C
-    @test Measurements.uncertainty(blueprints[1].shunt[1].C[1, 1] -
-                                   blueprints[2].shunt[1].C[1, 1]) > 0
+    designs = [original_problem.design, independent.design]
+    blueprints = [LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design,
+                      eltype(original_problem)) for design in designs]
+    blocks = only(LineCableModels.Engine.internal_shunt_response(designs, blueprints,
+        [inner])).blocks
+    @test blocks[1].C !== blocks[2].C
+    @test Measurements.uncertainty(blocks[1].C[1, 1] - blocks[2].C[1, 1]) > 0
     cap = only(only(linear.values).C)
     @test Measurements.uncertainty(cap) > 0
     @test abs(only(only(sampled.values).C)-Measurements.value(cap)) <

@@ -33,21 +33,21 @@ shunt_blueprints = shunt_engine.flatten.(Ref(LineCableModelsCoaxial()),shunt_pro
 shunt_domains = shunt_engine.ShuntModel.internal_shunt_domains(shunt_problem.system.designs,shunt_blueprints)
 isempty(shunt_domains) && error("No qualified local domains in $shunt_case")
 shunt_selection = formula(:boundary;options=(audit=true,))
-shunt_blueprint() = only(shunt_engine.flatten(LineCableModelsCoaxial(),
-    shunt_problem.system.designs, eltype(shunt_problem), [Formulation(shunt_model=shunt_selection)]))
+shunt_response() = only(shunt_engine.internal_shunt_response(shunt_problem.system.designs,
+    shunt_blueprints, [Formulation(shunt_model=shunt_selection)]))
 
-shunt_cold = @timed shunt_blueprint()
-shunt_cable_data = shunt_engine.LocalCableData(shunt_cold.value)
+shunt_cold = @timed shunt_response()
+shunt_completed = shunt_cold.value
 shunt_measurements = [(pass="cold",seconds=shunt_cold.time,allocated_MiB=shunt_cold.bytes/1024^2,
-    solves=shunt_cable_data.shunt_details.solves)]
+    solves=shunt_completed.details.solves)]
 for repetition in 1:shunt_warm_repeats
-    sample = @timed shunt_blueprint()
+    sample = @timed shunt_response()
     push!(shunt_measurements,(pass="warm $repetition",seconds=sample.time,
-        allocated_MiB=sample.bytes/1024^2,solves=shunt_engine.LocalCableData(sample.value).shunt_details.solves))
+        allocated_MiB=sample.bytes/1024^2,solves=sample.value.details.solves))
 end
 shunt_timing_df = DataFrame(shunt_measurements)
-shunt_diagnostics_df = DataFrame(shunt_cable_data.shunt_details.diagnostics)
-shunt_C = first(shunt_cable_data.shunt).C
+shunt_diagnostics_df = DataFrame(shunt_completed.details.diagnostics)
+shunt_C = first(shunt_completed.blocks).C
 shunt_couplings_df = DataFrame(coupling=["inner-open","inner-reference","open-reference"],
     nF_per_m=[-shunt_C[1,2],sum(shunt_C[1,:]),sum(shunt_C[2,:])].*1e9)
 display(shunt_timing_df)
@@ -65,12 +65,12 @@ if shunt_compute_sweep
     shunt_sweep = @timed compute(shunt_problem,shunt_formulations;options=(trace=true,))
     shunt_results = shunt_sweep.value
     shunt_default = first(shunt_results)
-    @assert details(shunt_default).data.shunt_model.solves == shunt_cable_data.shunt_details.solves
+    @assert details(shunt_default).data.shunt_model.solves == shunt_completed.details.solves
     shunt_equivalent = Formulation(shunt_model=:equivalent;options=shunt_physical)
     shunt_annular = compute(shunt_problem,shunt_equivalent;options=(trace=true,))
     @assert observe(shunt_default,Z) == observe(shunt_annular,Z)
     @assert details(shunt_default).data.trace.Pg == details(shunt_annular).data.trace.Pg
-    shunt_loop_input = shunt_engine.lineinput(shunt_problem, shunt_cold.value)
+    shunt_loop_input = shunt_engine.lineinput(shunt_problem, shunt_blueprints)
     shunt_loop_options = computation_options(LineCableModelsCoaxial, ComputationOptions(trace=true))
     # Before: the private loop accepted five arguments. Now completion also takes
     # the captured physical inputs and original point identity. Capture once here,
@@ -79,7 +79,7 @@ if shunt_compute_sweep
     shunt_id = LineCableModels.Commons.gridpoint_id()
     shunt_loop_trial = @benchmark shunt_engine._compute(LineCableModelsCoaxial(),
         $shunt_problem,$(first(shunt_formulations)),$shunt_loop_options,$shunt_loop_input,
-        $shunt_inputs,$shunt_id) samples=3 evals=1
+        $shunt_completed,$shunt_inputs,$shunt_id) samples=3 evals=1
     shunt_annular_trial = @benchmark compute($shunt_problem,$shunt_equivalent;
         options=(trace=true,)) samples=3 evals=1
     display(shunt_loop_trial)

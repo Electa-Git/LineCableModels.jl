@@ -50,11 +50,13 @@ end
     # Read the admittance of each interval, in S/m, from the nodal matrix of the engine at
     # 20 °C. The permeability and radii of the interval come with it.
     function intervals(design, formulation)
-        input = EN.LocalCableData(EN.flatten(LineCableModelsCoaxial(), design, Float64))
+        blueprint = EN.flatten(LineCableModelsCoaxial(), design, Float64)
+        input = EN.LocalCableData(blueprint)
+        shunt = only(EN.internal_shunt_response([design], [blueprint], [formulation]))
         admittivity = Vector{ComplexF64}(undef, length(input.dielectric_materials))
         EN.dielectric!(admittivity, input, formulation.methods, frequency, 20.0)
         count = length(input.terminals)
-        nodal = EN.cable_admittance!(Matrix{ComplexF64}(undef, count, count), input,
+        nodal = EN.cable_admittance!(Matrix{ComplexF64}(undef, count, count), input, shunt,
             admittivity, s, similar(admittivity))
         admittance = zeros(ComplexF64, count)
         for conductors in input.assemblies, (position, index) in pairs(conductors)
