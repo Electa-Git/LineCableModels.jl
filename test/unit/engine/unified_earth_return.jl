@@ -170,7 +170,7 @@ end
     @test all(isfinite, result.Z.values)&&all(isfinite, result.Y.values)
     execution=computation_options(LineCableModelsCoaxial,
         ComputationOptions(trace = true, verbosity = (default = 0,)))
-    blueprints=[E.flatten(LineCableModelsCoaxial(), d, Float64)
+    blueprints=[LineCableModels.DataModel.flatten(d, Float64)
                 for d in problem.system.designs]
     w=E.LineParametersWorkspace(problem, Formulation(), execution, blueprints)
     E._solve!(w, Formulation());
@@ -204,7 +204,7 @@ end
                 ideal_transposition = false,))
         execution=computation_options(LineCableModelsCoaxial, ComputationOptions((trace = true,)))
         T=eltype(problem)
-        blueprints=E.CableBlueprint{T}[E.flatten(LineCableModelsCoaxial(), d, T)
+        blueprints=LineCableModels.DataModel.CableBlueprint{T}[LineCableModels.DataModel.flatten(d, T)
                                        for d in problem.system.designs]
         workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
         shared=only(workspace.plan.earth.calculations)

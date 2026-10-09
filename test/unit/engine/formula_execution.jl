@@ -338,7 +338,7 @@ end
     selected = FormulaFixtures.SurfaceLaw(coefficients = declared)
     formulation = Formulation(internal_impedance = selected,
         insulation_impedance = FormulaFixtures.InsulationReactance(0))
-    cable = E.LocalCableData(E.flatten(LineCableModelsCoaxial(), TestFixtures.coaxial_design()))
+    cable = E.LocalCableData(LineCableModels.DataModel.flatten(TestFixtures.coaxial_design()))
     actual = zeros(ComplexF64, 2, 2)
     E.cable_impedance!(actual, cable, fill(2e-8, 2), formulation.methods, 100pi*im)
     # Surface currents are (-contained, contained + wall). The solid core's

@@ -16,7 +16,7 @@
     @test occursin("no boundary extraction or audit",
         only(details(nominal).data.shunt_model.domains).message)
     @test isempty(only(E.internal_shunt_response([design],
-        [E.flatten(LineCableModelsCoaxial(), design)], [default])).blocks)
+        [LineCableModels.DataModel.flatten(design)], [default])).blocks)
     @test E.formula_id(default.methods.shunt_model) === :equivalent
     invalid = (formula(:no_such_model), formula(:equivalent; options = (audit = true,)),
         formula(:boundary; parameters = (fallback = :silent,)),
@@ -68,12 +68,12 @@
     @test_throws BoundarySolveError compute(problem, lossy)
     boundary = CableConstantsFormulation(shunt_model = formula(:boundary;
         options = (resolution = (wire = 16, order = 8, quadrature = 64, modes = 128),)))
-    blueprint = @inferred E.flatten(LineCableModelsCoaxial(), design)
+    blueprint = @inferred LineCableModels.DataModel.flatten(design)
     shunt = only(E.internal_shunt_response([design], [blueprint], [boundary]))
     @test length(shunt.blocks) == 1
     @test shunt.details.solves == 1
     @test only(E.internal_shunt_response([design],
-        [E.flatten(LineCableModelsCoaxial(), design, Float32)], [boundary])).blocks isa
+        [LineCableModels.DataModel.flatten(design, Float32)], [boundary])).blocks isa
           Vector{E.InternalShuntBlock{Float32}}
     first_result = compute(problem, boundary)
     explicit_lossless = CableConstantsFormulation(

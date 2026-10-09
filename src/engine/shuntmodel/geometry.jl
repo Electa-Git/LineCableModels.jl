@@ -131,8 +131,9 @@ function _shunt_host_domain(
     assembly = blueprint.assembly_ranges[assembly_index]
     reference in assembly || return nothing
     inner = blueprint.conductors[first_index]
-    _shunt_same(inner.position[1], x, scale) &&
-    _shunt_same(inner.position[2], y, scale) || return nothing
+    center = blueprint.positions[assembly_index]
+    _shunt_same(center[1], x, scale) &&
+    _shunt_same(center[2], y, scale) || return nothing
     # Inner cores keep the existing equivalent-core assumption. Elsewhere an
     # actual closed conductor is needed to separate independently solved gaps.
     first_index == first(assembly) ||

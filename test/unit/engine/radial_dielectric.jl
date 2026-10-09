@@ -24,9 +24,9 @@
     @test getproperty.(material.materials, :kind) == [:semicon, :insulator, :semicon]
     @test !hasproperty(material, :tan_delta)
     @test !hasproperty(material, :frequency)
-    @test @inferred(E.flatten(LineCableModelsCoaxial(), homogeneous, Float64)) isa
-          E.CableBlueprint{Float64}
-    @test length(E.flatten(LineCableModelsCoaxial(), homogeneous).dielectrics) == 3
+    @test @inferred(LineCableModels.DataModel.flatten(homogeneous, Float64)) isa
+          LineCableModels.DataModel.CableBlueprint{Float64}
+    @test length(LineCableModels.DataModel.flatten(homogeneous).dielectrics) == 3
     @test occursin("3 constituents", sprint(show, material))
     @test only(DM.preview_materials(last(homogeneous.geometry.regions))) == material
     @test length(DM.preview_shapes(last(homogeneous.geometry.regions))) == 1
@@ -44,7 +44,7 @@
         for f in frequencies
             original,
             reduced = map((source, homogeneous)) do design
-                blueprint = E.flatten(LineCableModelsCoaxial(), design)
+                blueprint = LineCableModels.DataModel.flatten(design)
                 input = E.LocalCableData(blueprint)
                 shunt = only(E.internal_shunt_response([design], [blueprint], [formulation]))
                 y = zeros(ComplexF64, 1, 1)
@@ -69,7 +69,7 @@
             reduced = compute(CableConstantsProblem(homogeneous; frequency = f), formulation)
             @test reduced.C ≈ original.C rtol=2e-13
             @test reduced.G ≈ original.G rtol=2e-13
-            exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.Engine.flatten(LineCableModelsCoaxial(), homogeneous), f, formulation, 20.0)).dielectric
+            exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.DataModel.flatten(homogeneous), f, formulation, 20.0)).dielectric
             @test exported.shunt_capacitance ≈ only(original.C) rtol=2e-13
             @test exported.shunt_conductance ≈ only(original.G) rtol=2e-13
         end
@@ -121,7 +121,7 @@
             temperature_dependence = correction ?
                                      formulation.methods.temperature_dependence : nothing) /
               sum(weights) ≈ expected rtol=2e-13
-        exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.Engine.flatten(LineCableModelsCoaxial(), homogeneous), f, formulation, 60.0)).dielectric
+        exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.DataModel.flatten(homogeneous), f, formulation, 60.0)).dielectric
         @test exported.shunt_conductance ≈ real(expected) rtol=2e-13
         @test exported.shunt_capacitance ≈ imag(expected)/(2π*f) rtol=2e-13
     end

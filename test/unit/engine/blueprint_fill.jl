@@ -18,7 +18,7 @@
     @test only(fills).source.material == pe
     @test isfinite(only(fills).source.material.rho)
 
-    blueprint = Engine.flatten(LineCableModelsCoaxial(), design, Float64)
+    blueprint = LineCableModels.DataModel.flatten(design, Float64)
     @test getproperty.(blueprint.conductors, :terminal) == [:core, :sheath]
     @test blueprint.assembly_ranges == [1:2]
     @test only(blueprint.dielectrics).material == pe

@@ -60,7 +60,7 @@
     @test_throws BoundarySolveError E.ShuntModel._shunt_capacitance(boundary, g;
         level = (wire = 100000, order = 16, quadrature = 128, modes = 1))
     formulation=Formulation(shunt_model = formula(:boundary; options = (resolution = level,)))
-    blueprints = [E.flatten(LineCableModelsCoaxial(), d, Float64) for d in (design, renamed)]
+    blueprints = [LineCableModels.DataModel.flatten(d, Float64) for d in (design, renamed)]
     pair = only(E.internal_shunt_response([design, renamed], blueprints, [formulation]))
     @test pair.details.solves == 1
     @test pair.blocks[1].C === pair.blocks[2].C

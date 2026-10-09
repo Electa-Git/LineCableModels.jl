@@ -14,7 +14,7 @@
             [Pose2(Float64(i-1), height) for (i, height) in enumerate(heights)];
             connections=[Dict(:core=>i) for i in 1:3])
         problem=LineParametersProblem(system; frequencies=[50.0], earth_props=homogeneous(rho=100.0))
-        blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+        blueprints=[LineCableModels.DataModel.flatten(design, Float64)
                     for design in problem.system.designs]
         workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
         calculations=workspace.plan.earth.calculations

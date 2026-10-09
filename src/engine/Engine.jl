@@ -77,7 +77,7 @@ using ..Materials
 using ..Materials: TemperatureDependent
 import ..Earth
 using ..Earth: EarthMaterial, EarthModel, EquivalentHomogeneous
-using ..DataModel: CableDesign, LineCableSystem, ncables, nphases
+using ..DataModel: CableDesign, CableBlueprint, LineCableSystem, ncables, nphases
 import ..DataModel
 import ..TextDisplay
 import ..LineCableModels: validate
@@ -171,7 +171,6 @@ public InternalImpedanceFormulation, InsulationImpedanceFormulation,
        SemiconAdmittanceFormulation,
        EarthAdmittanceFormulation, ShuntModelFormulation
 public layer_admittance
-public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten, lineinput,
-       earth_pairs
+public lineinput, earth_pairs
 
 end # module Engine

@@ -182,22 +182,20 @@
 end
 
 @testitem "Engine / formulation grids / one lowering per selected design" tags=[:integration, :parametric, :slow] begin
-    import LineCableModels.Engine as EN
+    import LineCableModels.DataModel as DM
 
     # Specialize only designs bearing a test-owned nominal-data type. invoke
     # then runs the unmodified production lowering. Global methods remain unchanged.
     struct LoweringCounter
         calls::Base.RefValue{Int}
     end
-    function EN.flatten(engine::LineCableModelsCoaxial,
+    function DM.flatten(
             design::CableDesign{T, R, G, NamedTuple{(:counter,), Tuple{LoweringCounter}}},
             ::Type{S}) where {
-            T <: Real, R <: AbstractCablePart,
-            G <: LineCableModels.DataModel.CableGeometry, S <: Real
+            T <: Real, R <: AbstractCablePart, G <: DM.CableGeometry, S <: Real
     }
         design.nominal_data.counter.calls[]+=1
-        return invoke(EN.flatten, Tuple{LineCableModelsCoaxial, CableDesign, Type{S}},
-            engine, design, S)
+        return invoke(DM.flatten, Tuple{CableDesign, Type{S}}, design, S)
     end
 
     counter=LoweringCounter(Ref(0))

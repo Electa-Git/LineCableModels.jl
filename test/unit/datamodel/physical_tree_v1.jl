@@ -130,9 +130,7 @@ end
     @test length(unique(strand_centers)) == 19
     @test [last(region.placement.patterns).member
            for region in natural_conductors] == collect(1:19)
-    flattened_circular=only(LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(),
-        natural_design
+    flattened_circular=only(LineCableModels.DataModel.flatten(natural_design
     ).conductors)
     resistances=[copper.rho / area(disk) * prod(
                      entry -> overlength(entry.path, entry.radius),
@@ -151,7 +149,8 @@ end
         end
         value
     end
-    @test flattened_circular.gmr ≈ exp(log_gmr)
+    @test LineCableModels.DataModel.tubular_gmr(flattened_circular.r_ex,
+        flattened_circular.r_in, flattened_circular.material.mu_r) ≈ exp(log_gmr) rtol = 1e-12
     @test_throws DimensionMismatch build(
         CableDesign,
         "wrong-schedule",
@@ -323,8 +322,8 @@ end
         )
     )
     packed_design=build(CableDesign, "packed-bundle", bundle)
-    bare=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), bare_design)
-    reduced=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), packed_design)
+    bare=LineCableModels.DataModel.flatten(bare_design)
+    reduced=LineCableModels.DataModel.flatten(packed_design)
     @test reduced.conductors == bare.conductors
     @test reduced.dielectrics == bare.dielectrics
 
@@ -341,7 +340,7 @@ end
         bundle,
         Region(:insulation, Shell(0.2), insulation_material)
     )
-    blueprint=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), insulated)
+    blueprint=LineCableModels.DataModel.flatten(insulated)
     layers=blueprint.dielectrics[only(blueprint.dielectric_ranges)]
     @test length(layers) == 1
     @test only(layers).r_in ≈ 1.5
@@ -349,8 +348,7 @@ end
 
     nested=Group(:core, bundle; pattern = Ring(2; r = 4.0))
     nested_design=build(CableDesign, "nested-packed", nested)
-    @test only(LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(), nested_design).conductors).num_wires == 14
+    @test count(region -> region.terminal === :core, nested_design.geometry.regions) == 14
 
     lossy=Material(kind = :insulator, rho = 1.0e12, eps_r = 2.3, mu_r = 1.0)
     magnetic=Material(kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 2.0)
@@ -399,19 +397,19 @@ end
         "longitudinal-matrix-path",
         Group(:wound_core, bundle; path = Helix(LayRatio(10.0)))
     )
-    lossy_reduced=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), lossy_design)
+    lossy_reduced=LineCableModels.DataModel.flatten(lossy_design)
     @test lossy_reduced.conductors == bare.conductors
     @test lossy_reduced.dielectrics == bare.dielectrics
     lossy_fill=only(filter(region -> region.primitive isa DM.DifferenceShape,
         lossy_design.geometry.regions))
     @test lossy_fill.source.material == lossy
     @test lossy_fill.source.material.rho == 1.0e12
-    @test_throws ArgumentError LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(), magnetic_design)
-    @test_throws ArgumentError LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(), semiconducting_design)
-    wound=only(DM.radial_components(wound_matrix_design, Float64)).conductor
-    @test wound.resistance > only(reduced.conductors).resistance
+    @test_throws ArgumentError LineCableModels.DataModel.flatten(magnetic_design)
+    @test_throws ArgumentError LineCableModels.DataModel.flatten(semiconducting_design)
+    wound=only(DM.flatten(wound_matrix_design).conductors)
+    packed=only(reduced.conductors)
+    @test DM.tubular_resistance(wound.r_in, wound.r_ex, wound.material.rho) >
+          DM.tubular_resistance(packed.r_in, packed.r_ex, packed.material.rho)
 end
 
 @testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit, :parametric] begin
@@ -512,9 +510,7 @@ end
     )
 
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
-    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
-                                                                          LineCableModelsCoaxial(),
-                                                                          source,
+    blueprints=LineCableModels.DataModel.CableBlueprint{eltype(problem)}[LineCableModels.DataModel.flatten(source,
                                                                           eltype(problem))
                                                                       for source in
                                                                           problem.system.designs]

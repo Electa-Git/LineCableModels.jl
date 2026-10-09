@@ -23,28 +23,6 @@ TextDisplay.@showfields AirVoltageSpectrum "AirVoltageSpectrum" kernel -> (
     radius = TextDisplay.engineering(kernel.geometry.radius, :meter)
 )
 
-TextDisplay.@showfields BlueprintConductor "BlueprintConductor" row -> (
-    terminal = row.terminal,
-    assembly = row.assembly,
-    r_in = TextDisplay.engineering(row.r_in, :meter),
-    r_ex = TextDisplay.engineering(row.r_ex, :meter),
-    kind = row.material.kind
-)
-
-TextDisplay.@showfields BlueprintDielectric "BlueprintDielectric" row -> (
-    conductor = row.conductor,
-    r_in = TextDisplay.engineering(row.r_in, :meter),
-    r_ex = TextDisplay.engineering(row.r_ex, :meter),
-    kind = row.material.kind
-)
-
-TextDisplay.@showfields CableBlueprint "CableBlueprint" blueprint -> (
-    cable_id = blueprint.cable_id,
-    conductors = length(blueprint.conductors),
-    dielectrics = length(blueprint.dielectrics),
-    assemblies = length(blueprint.assembly_ranges)
-)
-
 TextDisplay.@showfields LineCableModelsFEMError "LineCableModelsFEMError" error -> (
     category = error.category,
     object = error.object_id,

@@ -319,12 +319,12 @@ atomic unless wrapped in `Grid`.
 ## Formulation support
 
 A physically valid design may build even when a formulation does not support
-its geometry. `Engine.flatten(LineCableModelsCoaxial(), design)` performs local
-scalar circuit reductions. It combines conductor resistances in parallel and
-calculates GMR recursively. Inverse conversions then give the equivalent conductor
-material. The dielectric layers keep their physical materials, and the design remains
-unchanged. The ATP and TRALIN exporters combine the layer admittances in series at the
-export frequency.
+its geometry. `DataModel.flatten(design)` reduces it to a `CableBlueprint`, with one
+equivalent conductor annulus per retained terminal. It combines conductor resistances
+in parallel and calculates GMR recursively. Inverse conversions then give the
+equivalent conductor material. The dielectric layers keep their physical materials, and
+the design remains unchanged. The ATP and TRALIN exporters combine the layer admittances
+in series at the export frequency.
 
 `homogenize(design)` is an explicit request for a new homogeneous
 `CableDesign`. Independent assembly members are flattened separately. The

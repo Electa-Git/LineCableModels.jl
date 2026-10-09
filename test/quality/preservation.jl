@@ -123,7 +123,7 @@ end
     # arguments of its call in `_solve!`.
     problem = line_parameters_problem(three_phase_system(); frequencies = [50.0, 1000.0])
     formulation = Formulation()
-    blueprints = [E.flatten(LineCableModelsCoaxial(), design, eltype(problem))
+    blueprints = [LineCableModels.DataModel.flatten(design, eltype(problem))
                   for design in problem.system.designs]
     execution = E.computation_options(LineCableModelsCoaxial, ComputationOptions())
     workspace = E.LineParametersWorkspace(problem, formulation, execution, blueprints)

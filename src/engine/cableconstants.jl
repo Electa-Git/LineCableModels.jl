@@ -627,7 +627,7 @@ function compute(
     for formulation in formulations
         validate(problem.design, formulation.methods.pipe_impedance, engine)
     end
-    blueprint = flatten(engine, problem.design, eltype(problem))
+    blueprint = DataModel.flatten(problem.design, eltype(problem))
     cable = LocalCableData(blueprint)
     shunts = internal_shunt_response([problem.design], [blueprint], formulations)
     physical_inputs = completed_inputs(problem)

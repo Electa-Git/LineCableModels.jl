@@ -422,8 +422,9 @@ function dielectric_layer(
     ))
     center = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     material = source.source.material
-    material.kind === :conductor && throw(ArgumentError(
-        "a dielectric interval cannot contain a conductor material"
+    material.kind in (:insulator, :semicon) || throw(ArgumentError(
+        "a dielectric interval must contain an insulator or semicon material; " *
+        "received $(repr(material.kind))"
     ))
     return (
         r_in = convert(T, r_in(source.primitive)),
@@ -446,8 +447,9 @@ function dielectric_layer(
         "flatten does not support a helical sector dielectric"
     ))
     material = source.source.material
-    material.kind === :conductor && throw(ArgumentError(
-        "a dielectric interval cannot contain a conductor material"
+    material.kind in (:insulator, :semicon) || throw(ArgumentError(
+        "a dielectric interval must contain an insulator or semicon material; " *
+        "received $(repr(material.kind))"
     ))
     inner_area = convert(T, area(primitive.inner))
     outer_area = convert(T, area(primitive.outer))
@@ -1118,30 +1120,20 @@ represented by polarization loss tangent, including interfacial polarization
 from heterogeneous layers. The equivalent is a reference-frequency export,
 not a broadband replacement for the original physical layers.
 
-Relative permeability retains the radial material average and the conductor's
+The relative permeability `mu_r` is the interval's `mu_r_ins` in the
+[`CableBlueprint`](@ref): the radial material average with the conductor's
 helical-solenoid correction.
 """
-function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol,
+function equivalent_dielectric_material(dielectric, mu_r, reference_temperature,
         angular_frequency::Real)
     isempty(dielectric.layers) && return Material(
         :insulator,
         oftype(dielectric.r_in, Inf),
         zero(dielectric.r_in),
-        one(dielectric.r_in),
-        conductor.reference_temperature,
+        mu_r,
+        reference_temperature,
         zero(dielectric.r_in)
     )
-    relative_mu = equivalent_dielectric_permeability(
-        dielectric.layers,
-        conductor.turns_per_length,
-        conductor.r_ex,
-        dielectric.r_ex
-    )
-    isfinite(relative_mu) || throw(ArgumentError(
-        "dielectric reduction produced a non-finite permeability " *
-        "for terminal :$terminal (turns_per_length=$(conductor.turns_per_length), " *
-        "r_con=$(conductor.r_ex), r_ins=$(dielectric.r_ex))"
-    ))
     dc_conductance = inv(sum(dielectric.layers) do layer
         inv(shunt_conductance(layer.r_in, layer.r_ex, layer.material.rho))
     end)
@@ -1166,8 +1158,8 @@ function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol,
             dielectric.r_ex,
             dielectric.r_in
         ),
-        relative_mu,
-        conductor.reference_temperature,
+        mu_r,
+        reference_temperature,
         zero(dielectric.r_in);
         tan_delta = loss_tangent
     )
@@ -1205,21 +1197,25 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Reduce each radial terminal section of a completed cable design to equivalent
-conductor geometry and its ordered physical dielectric layers.
+Flatten a completed cable design into its frequency-independent numerical
+description.
 
-The reduction combines the resistance of conductors and GMR and retains each physical
-dielectric layer for subsequent material evaluation.
+Each retained terminal becomes one equivalent conductor annulus. Its material
+reproduces the terminal's parallel resistance and geometric-mean radius. The
+dielectric interval of each conductor keeps its physical layers, with their
+equivalent relative permeability. Conductors that share a center form one
+concentric assembly.
 
 # Arguments
 
 - `design`: completed physical cable design.
+- `T`: scalar type of the numerical description. Defaults to `eltype(design)`.
+
 # Returns
 
-An ordered vector of named tuples containing equivalent conductor fields and
-the uncombined physical dielectric layers for each retained terminal.
+- A validated [`CableBlueprint`](@ref).
 """
-function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
+function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
     regions = _radial_regions(design.geometry.regions)
     terminals = design.terminal_order
     isempty(terminals) && throw(ArgumentError(
@@ -1237,24 +1233,19 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
         "flatten requires nonreappearing radial terminal blocks"
     ))
 
+    # The zone reductions depend on each region's primitive, so their types are known only
+    # inside this loop. Each terminal is stored as a concrete record, and the rows are
+    # written from these records.
     Layer = NamedTuple{
         (:r_in, :r_ex, :material),
         Tuple{T, T, Material{T}}
     }
-    ConductorInput = NamedTuple{
-        (:r_in, :r_ex, :cross_section, :num_wires, :turns_per_length,
-            :resistance, :alpha, :gmr, :position, :material),
-        Tuple{T, T, T, Int, T, T, T, T, Tuple{T, T}, Material{T}}
+    Reduced = NamedTuple{
+        (:terminal, :r_in, :r_ex, :turns_per_length, :position, :material, :r_ins,
+            :layers),
+        Tuple{Symbol, T, T, T, Tuple{T, T}, Material{T}, T, Vector{Layer}}
     }
-    DielectricInput = NamedTuple{
-        (:r_in, :r_ex, :cross_section, :layers),
-        Tuple{T, T, T, Vector{Layer}}
-    }
-    ComponentInput = NamedTuple{
-        (:name, :conductor, :dielectric),
-        Tuple{Symbol, ConductorInput, DielectricInput}
-    }
-    effective = ComponentInput[]
+    reduced = Reduced[]
 
     for (terminal_index, terminal) in enumerate(terminals)
         first_index = terminal_starts[terminal_index]
@@ -1388,45 +1379,84 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
                          add_dielectric_layer(dielectric, layer)
         end
 
-        conductor_material = equivalent_conductor_material(conductor)
-        push!(effective,
+        push!(reduced,
             (
-                name = terminal,
-                conductor = (
-                    r_in = conductor.r_in,
-                    r_ex = conductor.r_ex,
-                    cross_section = conductor.cross_section,
-                    num_wires = conductor.num_wires,
-                    turns_per_length = conductor.turns_per_length,
-                    resistance = conductor.resistance,
-                    alpha = conductor.alpha,
-                    gmr = conductor.gmr,
-                    position = conductor.position,
-                    material = conductor_material
-                ),
-                dielectric = (
-                    r_in = dielectric.r_in,
-                    r_ex = dielectric.r_ex,
-                    cross_section = dielectric.cross_section,
-                    layers = dielectric.layers
-                )
+                terminal = terminal,
+                r_in = conductor.r_in,
+                r_ex = conductor.r_ex,
+                turns_per_length = conductor.turns_per_length,
+                position = conductor.position,
+                material = equivalent_conductor_material(conductor),
+                r_ins = dielectric.r_ex,
+                layers = dielectric.layers
             ))
     end
-    return effective
+
+    terminal_count = length(reduced)
+    conductors = Vector{BlueprintConductor{T}}(undef, terminal_count)
+    dielectrics = Vector{BlueprintDielectric{T}}(
+        undef, sum(item -> length(item.layers), reduced))
+    dielectric_ranges = Vector{UnitRange{Int}}(undef, terminal_count)
+    mu_r_ins = Vector{T}(undef, terminal_count)
+    assembly_starts = Int[]
+    positions = Tuple{T, T}[]
+    layer_index = 0
+    @inbounds for (index, item) in pairs(reduced)
+        if isempty(positions) || !same_radial_position(item.position, last(positions))
+            any(reference -> same_radial_position(item.position, reference), positions) &&
+                throw(ArgumentError(
+                    "a concentric assembly cannot reappear after another assembly"
+                ))
+            push!(positions, item.position)
+            push!(assembly_starts, index)
+        end
+        conductors[index] = BlueprintConductor{T}(
+            item.terminal,
+            length(positions),
+            item.r_in,
+            item.r_ex,
+            item.material
+        )
+        layer_start = layer_index + 1
+        for layer in item.layers
+            layer_index += 1
+            dielectrics[layer_index] = BlueprintDielectric{T}(
+                index,
+                layer.r_in,
+                layer.r_ex,
+                layer.material
+            )
+        end
+        dielectric_ranges[index] = layer_start:layer_index
+        mu_r_ins[index] = isempty(item.layers) ? one(T) :
+                          equivalent_dielectric_permeability(
+            item.layers,
+            item.turns_per_length,
+            item.r_ex,
+            item.r_ins
+        )
+    end
+    assembly_ranges = UnitRange{Int}[
+        start:(index == length(assembly_starts) ? terminal_count :
+               assembly_starts[index + 1] - 1)
+        for (index, start) in pairs(assembly_starts)]
+    return CableBlueprint{T}(
+        design.cable_id,
+        conductors,
+        dielectrics,
+        dielectric_ranges,
+        mu_r_ins,
+        assembly_ranges,
+        positions
+    )
 end
 
-function radial_components(design::CableDesign)
-    T = promote_type(
-        (eltype(region.primitive) for region in design.geometry.regions)...,
-        (eltype(region.source.material) for region in design.geometry.regions)...
-    )
-    return radial_components(design, T)
-end
+flatten(design::CableDesign) = flatten(design, eltype(design))
 
 """
 $(TYPEDSIGNATURES)
 
-Build a homogeneous cable design from locally reduced radial components.
+Build a homogeneous cable design from the [`CableBlueprint`](@ref) of a design.
 
 Each retained terminal becomes one solid or annular conductor followed by one
 homogeneous dielectric interval. The conductor material reproduces the
@@ -1453,34 +1483,13 @@ function homogenize(
         new_id::AbstractString = ""
 )
     target_id = isempty(new_id) ? original.cable_id * "_equivalent" : String(new_id)
-    components = radial_components(original)
-    chains = Vector{typeof(components)}()
-    for component in components
-        if isempty(chains) ||
-           !same_radial_position(
-            first(last(chains)).conductor.position,
-            component.conductor.position
-        )
-            any(
-                chain -> same_radial_position(
-                    first(chain).conductor.position,
-                    component.conductor.position
-                ),
-                chains) && throw(ArgumentError(
-                "a radial assembly member cannot reappear after another member"
-            ))
-            push!(chains, eltype(components)[])
-        end
-        push!(last(chains), component)
-    end
-
+    blueprint = flatten(original)
     flattened_members = AbstractCablePart[]
-    member_positions = Tuple[]
-    for chain in chains
+    for assembly in blueprint.assembly_ranges
         parts = AbstractCablePart[]
-        for component in chain
-            terminal = component.name
-            conductor = component.conductor
+        for index in assembly
+            conductor = blueprint.conductors[index]
+            terminal = conductor.terminal
             conductor_primitive = iszero(conductor.r_in) ?
                                   Disk(conductor.r_ex) :
                                   Annulus(conductor.r_in, conductor.r_ex)
@@ -1499,23 +1508,22 @@ function homogenize(
                     nothing
                 ))
 
-            dielectric = component.dielectric
-            if dielectric.r_ex > dielectric.r_in
+            layers = @view blueprint.dielectrics[blueprint.dielectric_ranges[index]]
+            if !isempty(layers)
                 push!(parts,
                     Region(
                         Symbol(terminal, :_equivalent_dielectric),
-                        Annulus(dielectric.r_in, dielectric.r_ex),
+                        Annulus(first(layers).r_in, last(layers).r_ex),
                         RadialDielectric(
-                            [layer.material for layer in dielectric.layers],
-                            [log(layer.r_ex / layer.r_in) for layer in dielectric.layers];
-                            mu_r = equivalent_dielectric_permeability(dielectric.layers,
-                                conductor.turns_per_length, conductor.r_ex, dielectric.r_ex))
+                            [layer.material for layer in layers],
+                            [log(layer.r_ex / layer.r_in) for layer in layers];
+                            mu_r = blueprint.mu_r_ins[index])
                     ))
             end
         end
         push!(flattened_members, Stack(parts))
-        push!(member_positions, first(chain).conductor.position)
     end
+    member_positions = blueprint.positions
 
     origin = (zero(first(member_positions)[1]), zero(first(member_positions)[2]))
     singleton = length(flattened_members) == 1 &&

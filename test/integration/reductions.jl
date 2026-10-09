@@ -11,26 +11,26 @@
         TestFixtures.internal_shunt_test_design(; tapes = false),
         TestFixtures.internal_shunt_test_design(), TestFixtures.three_core_design())
     for design in designs
-        blueprint = EN.flatten(LineCableModelsCoaxial(), design, Float64)
-        homogenized = DM.radial_components(homogenize(design), Float64)
+        blueprint = LineCableModels.DataModel.flatten(design, Float64)
+        homogenized = DM.flatten(homogenize(design), Float64)
         exported = PS._pscad_components(blueprint, 50.0, Formulation(), nothing)
         @test length(homogenized) == length(exported) == length(blueprint.conductors)
+        @test homogenized.mu_r_ins ≈ blueprint.mu_r_ins rtol = 1e-14
         for (index, row) in pairs(blueprint.conductors)
-            @test row.terminal === homogenized[index].name === exported[index].name
-            h, p = homogenized[index].conductor, exported[index].conductor
+            h, p = homogenized.conductors[index], exported[index].conductor
+            @test row.terminal === h.terminal === exported[index].name
             @test row.r_in == h.r_in == p.r_in
             @test row.r_ex == h.r_ex == p.r_ex
-            @test row.alpha === row.material.alpha
-            @test row.alpha == h.alpha
             @test p.material.rho == row.material.rho
             @test p.material.mu_r == row.material.mu_r
             for field in (:rho, :mu_r, :alpha, :T0)
                 @test getfield(h.material, field) ≈ getfield(row.material, field) rtol = 1e-14
             end
             # The reduction of a homogenized design starts from its equivalent material.
-            for field in (:resistance, :gmr)
-                @test getfield(h, field) ≈ getfield(row, field) rtol = 1e-14
-            end
+            @test DM.tubular_resistance(h.r_in, h.r_ex, h.material.rho) ≈
+                  DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho) rtol = 1e-14
+            @test DM.tubular_gmr(h.r_ex, h.r_in, h.material.mu_r) ≈
+                  DM.tubular_gmr(row.r_ex, row.r_in, row.material.mu_r) rtol = 1e-14
         end
     end
 end
@@ -44,7 +44,7 @@ end
     # Read the admittance of each interval, in S/m, from the nodal matrix of the engine at
     # 20 °C. The permeability and radii of the interval come with it.
     function intervals(design, formulation)
-        blueprint = EN.flatten(LineCableModelsCoaxial(), design, Float64)
+        blueprint = LineCableModels.DataModel.flatten(design, Float64)
         input = EN.LocalCableData(blueprint)
         shunt = only(EN.internal_shunt_response([design], [blueprint], [formulation]))
         admittivity = Vector{ComplexF64}(undef, length(input.dielectric_materials))
@@ -68,7 +68,7 @@ end
         TestFixtures.internal_shunt_test_design(; tapes = false),
         TestFixtures.internal_shunt_test_design(), TestFixtures.three_core_design())
     for design in designs
-        blueprint = EN.flatten(LineCableModelsCoaxial(), design, Float64)
+        blueprint = LineCableModels.DataModel.flatten(design, Float64)
         homogenized = homogenize(design)
         for formulation in (lossless, lossy)
             engine = intervals(design, formulation)
@@ -93,9 +93,7 @@ end
                     shunt_capacitance = circuit.capacitance,
                     shunt_conductance = circuit.conductance)
                 material = DM.equivalent_dielectric_material(interval,
-                    (; conductor.turns_per_length, conductor.r_ex,
-                        reference_temperature = conductor.material.T0),
-                    conductor.terminal, imag(s))
+                    blueprint.mu_r_ins[index], conductor.material.T0, imag(s))
                 @test complex(interval.shunt_conductance,
                     imag(s) * interval.shunt_capacitance) ≈ admittance rtol = 1e-12
                 @test material.eps_r ≈ dielectric.material.eps_r rtol = 1e-12
@@ -112,7 +110,7 @@ end
     const EN = LineCableModels.Engine
     # The screen terminal of the 18 kV cable holds 49 copper wires and an aluminum tape.
     design = TestFixtures.screened_cable_design(tape_material = :aluminum)
-    blueprint = EN.flatten(LineCableModelsCoaxial(), design, Float64)
+    blueprint = LineCableModels.DataModel.flatten(design, Float64)
     row = only(filter(conductor -> conductor.terminal === :sheath, blueprint.conductors))
     members = filter(region -> region.terminal === :sheath, design.geometry.regions)
     alpha = [region.source.material.alpha for region in members]

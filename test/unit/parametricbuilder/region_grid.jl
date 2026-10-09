@@ -72,10 +72,10 @@
             design.geometry.regions))
         @test metal.source.material.rho == resistivities[index]
         @test area(metal.primitive) ≈ pi * radii[index]^2
-        blueprint = @inferred EN.flatten(LineCableModelsCoaxial(), design, Float64)
+        blueprint = @inferred LineCableModels.DataModel.flatten(design, Float64)
         @test length(blueprint.conductors) == 2
-        @test first(blueprint.conductors).cross_section ≈ pi * radii[index]^2
-        @test first(blueprint.conductors).resistance ≈
-            resistivities[index] / (pi * radii[index]^2)
+        conductor = first(blueprint.conductors)
+        @test LineCableModels.DataModel.tubular_resistance(conductor.r_in, conductor.r_ex,
+            conductor.material.rho) ≈ resistivities[index] / (pi * radii[index]^2) rtol = 1e-12
     end
 end

@@ -307,7 +307,7 @@ function _empty_pscad_part(index::Int)
     return parameters
 end
 
-function _pscad_components(blueprint::Engine.CableBlueprint, frequency, formulation, temperature)
+function _pscad_components(blueprint::DataModel.CableBlueprint, frequency, formulation, temperature)
     T = eltype(blueprint)
     omega = 2 * (one(T) * pi) * convert(T, frequency)
     epsilon0 = vacuum_permittivity(T)
@@ -337,10 +337,8 @@ function _pscad_components(blueprint::Engine.CableBlueprint, frequency, formulat
         epsilon = isempty(layers) ? zero(T) :
                   capacitance * log(outer / conductor.r_ex) /
                   (2 * (one(T) * pi) * epsilon0)
-        permeability = isempty(layers) ? one(T) :
-                       DataModel.equivalent_dielectric_permeability(
-            layers, conductor.turns_per_length, conductor.r_ex, outer)
-        dielectric = Material(:insulator, oftype(epsilon, Inf), epsilon, permeability)
+        dielectric = Material(:insulator, oftype(epsilon, Inf), epsilon,
+            blueprint.mu_r_ins[index])
         return (name = conductor.terminal,
             conductor = (r_in = conductor.r_in, r_ex = conductor.r_ex, material = metal),
             dielectric = (r_ex = outer, material = dielectric,

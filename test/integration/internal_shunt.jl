@@ -54,7 +54,7 @@
     @test details(mixed[2]).data.shunt_model.solves == 0
     reference_temperature = Formulation(shunt_model = boundary,
         temperature_dependence = nothing; options = physical)
-    blueprints = [E.flatten(LineCableModelsCoaxial(), design, Float64)
+    blueprints = [LineCableModels.DataModel.flatten(design, Float64)
                   for design in system.designs]
     shunts = E.internal_shunt_response(system.designs, blueprints,
         [first_formula, other_formula, lossy, reference_temperature])
@@ -78,7 +78,7 @@
     right = internal_shunt_test_design(count = 4, suffix = "_right")
     pair = build(CableDesign, "two-local-domains",
         assembly(at(left.origin, -0.01, 0.0), at(right.origin, 0.01, 0.0)))
-    pair_blueprint = E.flatten(LineCableModelsCoaxial(), pair)
+    pair_blueprint = LineCableModels.DataModel.flatten(pair)
     domains = E.ShuntModel.internal_shunt_domains([pair], [pair_blueprint])
     @test length(domains) == 2
     @test getproperty.(domains, :terminals) == [1:3, 4:6]

@@ -41,9 +41,10 @@ export ncables, nphases
 
 public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoundary
 public geometry_tolerance
-public equivalent_dielectric_permeability, radial_components, radial_position,
+public equivalent_dielectric_permeability, radial_position,
        conductor_zone_position, same_radial_position, bounded_members
 public dielectric_circuit, equivalent_dielectric_material
+public flatten, CableBlueprint, BlueprintConductor, BlueprintDielectric
 public DifferenceShape, EllipseOffset, ShellShape, SectorShape
 
 # Module-specific dependencies
@@ -91,6 +92,7 @@ include("baseparams/BaseParams.jl")
 using .BaseParams
 
 include("design/cabledesign.jl")
+include("blueprint.jl")
 include("flatten.jl")
 
 # Library

@@ -58,19 +58,18 @@ function export_data(::Val{:atp},
         frequency = convert(T, float(base_freq))
         frequency > zero(frequency) || throw(DomainError(
             frequency, "dielectric reference frequency must be positive"))
-        blueprint = Engine.flatten(Engine.LineCableModelsCoaxial(), design, T)
+        blueprint = DataModel.flatten(design, T)
         omega = 2 * (one(T) * pi) * frequency
-        return map(blueprint.conductors, blueprint.dielectric_ranges) do conductor, range
-            layers = @view blueprint.dielectrics[range]
+        return map(eachindex(blueprint.conductors)) do index
+            conductor = blueprint.conductors[index]
+            layers = @view blueprint.dielectrics[blueprint.dielectric_ranges[index]]
             circuit = DataModel.dielectric_circuit(layers, omega, T)
             dielectric = (r_in = isempty(layers) ? conductor.r_ex : first(layers).r_in,
                 r_ex = isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
                 shunt_capacitance = circuit.capacitance,
                 shunt_conductance = circuit.conductance)
             material = DataModel.equivalent_dielectric_material(dielectric,
-                (; conductor.turns_per_length, conductor.r_ex,
-                    reference_temperature = conductor.material.T0),
-                conductor.terminal, omega)
+                blueprint.mu_r_ins[index], conductor.material.T0, omega)
             (; conductor, dielectric = merge(dielectric, (; material)))
         end
     end

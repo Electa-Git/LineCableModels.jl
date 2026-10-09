@@ -26,9 +26,10 @@
             terminal(:core,body,insulation(dielectric;t=0.2e-3)))
         @test last(insulated.geometry.regions).primitive.ri == occupied
         @test outer_radius(insulated) ≈ occupied + 0.2e-3
-        row = only(EN.flatten(LineCableModelsCoaxial(),insulated,Float64).conductors)
+        row = only(LineCableModels.DataModel.flatten(insulated,Float64).conductors)
         @test row.r_ex == occupied
-        @test row.cross_section ≈ sum(area,regions)
+        @test sum(area,filter(r -> r.terminal !== nothing,insulated.geometry.regions)) ≈
+            sum(area,regions)
         @test all(r -> r.source.tag !== :stranded_fill, insulated.geometry.regions)
     end
     # Explicit enclosures remain physical even for sub-micrometer layers.
@@ -85,8 +86,11 @@ end
             pi*((limit+2wire_radius)^2-occupied^2)-count*pi*wire_radius^2
         @test sum(area,design.geometry.regions) ≈ area(design.geometry.outer)
         @test all(r -> r.source.tag !== :stranded_fill,design.geometry.regions)
-        row = only(EN.flatten(LineCableModelsCoaxial(),design,Float64).conductors)
-        @test row.cross_section ≈ pi*occupied^2+count*pi*wire_radius^2
+        @test sum(area,filter(r -> r.terminal !== nothing,design.geometry.regions)) ≈
+            pi*occupied^2+count*pi*wire_radius^2
+        row = only(LineCableModels.DataModel.flatten(design,Float64).conductors)
+        @test LineCableModels.DataModel.tubular_resistance(row.r_in,row.r_ex,row.material.rho) ≈
+            copper.rho/(pi*occupied^2+count*pi*wire_radius^2) rtol=1e-12
         # The transfer of geometry also works after a rigid placement of the complete stack.
         shifted = build(CableDesign,"rectangular-ring-placed",
             assembly(at(Stack(core,filled,insulation(dielectric;t=0.1e-3)),

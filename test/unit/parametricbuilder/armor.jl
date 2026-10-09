@@ -22,11 +22,11 @@
         @test all(region -> only(region.paths).radius ≈ 1.6e-3, wires)
         @test design.terminal_order == [:core, :armor]
         @test outer_radius(design) ≈ 1.9e-3
-        blueprint = LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design)
+        blueprint = LineCableModels.DataModel.flatten(design)
         conductor = only(filter(row -> row.terminal === :armor, blueprint.conductors))
-        @test conductor.cross_section ≈ count * pi * (0.1e-3)^2
-        @test conductor.resistance ≈
-            steel.rho * sqrt(1 + (pi / 10)^2) / (count * pi * (0.1e-3)^2)
+        @test sum(region -> area(region.primitive), wires) ≈ count * pi * (0.1e-3)^2
+        @test DM.tubular_resistance(conductor.r_in, conductor.r_ex, conductor.material.rho) ≈
+            steel.rho * sqrt(1 + (pi / 10)^2) / (count * pi * (0.1e-3)^2) rtol = 1e-12
         @test all(region -> region.source.material === steel, wires)
     end
     @test_throws ArgumentError armor(dielectric; shape=Disk(0.1e-3), n=12)

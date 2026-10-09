@@ -41,7 +41,7 @@
             options = (
                 reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
         execution=E.computation_options(LineCableModelsCoaxial, ComputationOptions())
-        blueprints=[E.flatten(LineCableModelsCoaxial(), design, T)
+        blueprints=[LineCableModels.DataModel.flatten(design, T)
                     for design in problem.system.designs]
         prepared=E.LineParametersWorkspace(problem, selected, execution, blueprints)
         E.materials!(prepared, selected)

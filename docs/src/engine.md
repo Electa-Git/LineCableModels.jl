@@ -802,12 +802,11 @@ CableConstantsFormulation(
 )
 ```
 
-`Engine.flatten(LineCableModelsCoaxial(), design, formulation)` supplies a
-frequency-independent, unreduced `CableBlueprint`. Omitting the formulation
-uses the default annular model. Contiguous components sharing one radial center
-form one concentric assembly. Explicit boundary shunt coefficients are completed
-during flattening. Frequency-dependent constitutive evaluation and conductor
-temperature corrections remain in the computation. The Engine retains
+`DataModel.flatten(design)` supplies a frequency-independent, unreduced
+`CableBlueprint` that depends on the design and the scalar type only. Contiguous
+components sharing one radial center form one concentric assembly. The selected shunt
+model completes its coefficients after flattening. Frequency-dependent constitutive
+evaluation and conductor temperature corrections remain in the computation. The Engine retains
 each assembly's innermost terminal, grounds every additional outward terminal,
 assembles and reduces the local N-terminal series-impedance matrix, and combines
 the physical dielectric layers in radial series. A one-terminal assembly uses

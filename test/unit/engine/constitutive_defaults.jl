@@ -64,7 +64,7 @@
         reconstructed = compute(E.CableConstantsProblem(equivalent; frequency), selected)
         @test reconstructed.C ≈ actual.C
         @test reconstructed.G ≈ actual.G
-        blueprint = E.flatten(LineCableModelsCoaxial(), source)
+        blueprint = LineCableModels.DataModel.flatten(source)
         conductor = only(blueprint.conductors)
         layers = blueprint.dielectrics[only(blueprint.dielectric_ranges)]
         omega = 2π * frequency
@@ -73,9 +73,7 @@
             (r_in = first(layers).r_in, r_ex = last(layers).r_ex, layers,
                 shunt_capacitance = circuit.capacitance,
                 shunt_conductance = circuit.conductance),
-            (; conductor.turns_per_length, conductor.r_ex,
-                reference_temperature = conductor.material.T0),
-            conductor.terminal, omega)
+            only(blueprint.mu_r_ins), conductor.material.T0, omega)
         dc_g = inv(log(c / b) * screen.rho / (2π) + log(r0 / c) * polar.rho / (2π))
         @test 2π / (reduced.rho * log(r0 / b)) ≈ dc_g
         @test reduced.tan_delta > 0

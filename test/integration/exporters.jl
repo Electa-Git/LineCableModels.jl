@@ -10,19 +10,18 @@
     end
     # The 50 Hz reduction of the ATP and TRALIN exporters, built from the blueprint.
     function reduced_components(design, frequency)
-        blueprint=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design)
+        blueprint=LineCableModels.DataModel.flatten(design)
         omega=2π*frequency
-        map(blueprint.conductors, blueprint.dielectric_ranges) do conductor, range
-            layers=blueprint.dielectrics[range]
+        map(eachindex(blueprint.conductors)) do index
+            conductor=blueprint.conductors[index]
+            layers=blueprint.dielectrics[blueprint.dielectric_ranges[index]]
             circuit=LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
             dielectric=(r_in=isempty(layers) ? conductor.r_ex : first(layers).r_in,
                 r_ex=isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
                 shunt_capacitance=circuit.capacitance,
                 shunt_conductance=circuit.conductance)
             material=LineCableModels.DataModel.equivalent_dielectric_material(dielectric,
-                (; conductor.turns_per_length, conductor.r_ex,
-                    reference_temperature=conductor.material.T0),
-                conductor.terminal, omega)
+                blueprint.mu_r_ins[index], conductor.material.T0, omega)
             (; name=conductor.terminal, conductor, dielectric=merge(dielectric, (; material)))
         end
     end
@@ -251,19 +250,18 @@ end
 ] begin
     # The 50 Hz reduction of the ATP and TRALIN exporters, built from the blueprint.
     function reduced_components(design, frequency)
-        blueprint=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design)
+        blueprint=LineCableModels.DataModel.flatten(design)
         omega=2π*frequency
-        map(blueprint.conductors, blueprint.dielectric_ranges) do conductor, range
-            layers=blueprint.dielectrics[range]
+        map(eachindex(blueprint.conductors)) do index
+            conductor=blueprint.conductors[index]
+            layers=blueprint.dielectrics[blueprint.dielectric_ranges[index]]
             circuit=LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
             dielectric=(r_in=isempty(layers) ? conductor.r_ex : first(layers).r_in,
                 r_ex=isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
                 shunt_capacitance=circuit.capacitance,
                 shunt_conductance=circuit.conductance)
             material=LineCableModels.DataModel.equivalent_dielectric_material(dielectric,
-                (; conductor.turns_per_length, conductor.r_ex,
-                    reference_temperature=conductor.material.T0),
-                conductor.terminal, omega)
+                blueprint.mu_r_ins[index], conductor.material.T0, omega)
             (; name=conductor.terminal, conductor, dielectric=merge(dielectric, (; material)))
         end
     end

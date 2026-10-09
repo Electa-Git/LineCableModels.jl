@@ -30,7 +30,7 @@ function internal_shunt_test_design(;
 end
 function internal_shunt_test_domain(design)
     owner=LineCableModels.Engine
-    blueprint=owner.flatten(LineCableModelsCoaxial(), design)
+    blueprint=LineCableModels.DataModel.flatten(design)
     domains=owner.ShuntModel.internal_shunt_domains([design], [blueprint])
     length(domains)==1 || error("control requires exactly one resolved open-screen domain")
     return only(domains), blueprint

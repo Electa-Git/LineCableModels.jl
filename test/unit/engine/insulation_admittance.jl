@@ -74,7 +74,7 @@
         terminal(:core, core(Material(:conductor, 1.7241e-8); r = r_in)),
         Region(:screen, Annulus(r_in, r_mid), first_material),
         Region(:insulation, Annulus(r_mid, r_ex), second_material)))
-    blueprint=E.flatten(LineCableModelsCoaxial(), design)
+    blueprint=LineCableModels.DataModel.flatten(design)
     input=E.LocalCableData(blueprint)
     shunt=only(E.internal_shunt_response([design], [blueprint], [Formulation()]))
     methods=Formulation(insulation_admittance = formulation,
@@ -221,9 +221,7 @@ end
     )
     problem=two_terminal_problem()
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
-    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
-                                                                          LineCableModelsCoaxial(),
-                                                                          design,
+    blueprints=LineCableModels.DataModel.CableBlueprint{eltype(problem)}[LineCableModels.DataModel.flatten(design,
                                                                           eltype(problem))
                                                                       for design in problem.system.designs]
     workspace=LineParametersWorkspace(

@@ -113,7 +113,7 @@ end
         epsilon = measurement(2.5, 0.0025), tapes = false, count = 4))
     original_problem = first(space)
     designs = [original_problem.design, independent.design]
-    blueprints = [LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design,
+    blueprints = [LineCableModels.DataModel.flatten(design,
                       eltype(original_problem)) for design in designs]
     blocks = only(LineCableModels.Engine.internal_shunt_response(designs, blueprints,
         [inner])).blocks

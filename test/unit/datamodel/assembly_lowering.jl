@@ -38,16 +38,22 @@
         explicit = build(CableDesign, "explicit", assembly((
             at(terminal(name, body, insulation(dielectric; t=0.5e-3)), pose)
             for (name, pose) in zip(names, poses))...))
-        actual = @inferred EN.flatten(engine, repeated, Float64)
-        expected = @inferred EN.flatten(engine, explicit, Float64)
+        actual = @inferred LineCableModels.DataModel.flatten(repeated, Float64)
+        expected = @inferred LineCableModels.DataModel.flatten(explicit, Float64)
         @test actual.assembly_ranges == expected.assembly_ranges == [i:i for i in 1:count]
         for (left, right) in zip(actual.conductors, expected.conductors)
             @test left.terminal === right.terminal
-            for field in (:r_in, :r_ex, :cross_section, :num_wires, :turns_per_length,
-                    :resistance, :alpha, :gmr, :position)
-                @test all(isapprox.(getproperty(left, field), getproperty(right, field)))
-            end
+            @test left.r_in ≈ right.r_in
+            @test left.r_ex ≈ right.r_ex
+            @test DM.tubular_resistance(left.r_in, left.r_ex, left.material.rho) ≈
+                  DM.tubular_resistance(right.r_in, right.r_ex, right.material.rho) rtol = 1e-12
+            @test DM.tubular_gmr(left.r_ex, left.r_in, left.material.mu_r) ≈
+                  DM.tubular_gmr(right.r_ex, right.r_in, right.material.mu_r) rtol = 1e-12
+            @test left.material.alpha ≈ right.material.alpha
         end
+        @test actual.mu_r_ins ≈ expected.mu_r_ins
+        @test all(all(isapprox.(left, right))
+                  for (left, right) in zip(actual.positions, expected.positions))
         @test actual.dielectrics == expected.dielectrics
         @test IE.deserialize_value(IE.serialize_value(repeated)) == repeated
         @test all(region -> last(region.placement.patterns).owner === DM.Assembly,
@@ -66,7 +72,11 @@
     direct = Group(:core, Region(:solid, wire, copper); pattern)
     merged_design = build(CableDesign, "coalesced", merged)
     direct_design = build(CableDesign, "direct", center, direct)
-    @test DM.radial_components(merged_design, Float64) == DM.radial_components(direct_design, Float64)
+    merged_blueprint = DM.flatten(merged_design, Float64)
+    direct_blueprint = DM.flatten(direct_design, Float64)
+    @test all(field -> getfield(merged_blueprint, field) == getfield(direct_blueprint, field),
+        (:conductors, :dielectrics, :dielectric_ranges, :mu_r_ins, :assembly_ranges,
+            :positions))
     @test all(region -> all(entry -> entry.owner !== DM.Assembly, region.placement.patterns),
         merged_design.geometry.regions)
 
@@ -75,18 +85,20 @@
     helix = Helix(LayRatio(12))
     helical = build(CableDesign, "helical-assemblies", assembly(member;
         pattern=Ring(3; r=0.01), names=(:a, :b, :c), path=helix))
-    rows = EN.flatten(engine, helical, Float64).conductors
-    @test all(row -> row.num_wires == 0, rows)
-    @test all(row -> row.resistance ≈ copper.rho / area(wire) * overlength(helix, 0.01), rows)
+    rows = LineCableModels.DataModel.flatten(helical, Float64).conductors
+    @test all(row -> isapprox(DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho),
+        copper.rho / area(wire) * overlength(helix, 0.01); rtol = 1e-12), rows)
     @test all(region -> only(region.paths).path === helix, helical.geometry.regions)
     @test all(region -> only(region.paths).radius ≈ 0.01, helical.geometry.regions)
     prototype = terminal(:core, bodies[2])
     isolated = build(CableDesign, "stranded", prototype)
     helical_stranded = build(CableDesign, "helical-stranded", assembly(prototype;
         pattern=Ring(3; r=0.01), names=(:a, :b, :c), path=helix))
-    base = only(EN.flatten(engine, isolated, Float64).conductors)
-    wound = EN.flatten(engine, helical_stranded, Float64).conductors
-    @test all(row -> row.resistance ≈ base.resistance * overlength(helix, 0.01), wound)
+    base = only(LineCableModels.DataModel.flatten(isolated, Float64).conductors)
+    wound = LineCableModels.DataModel.flatten(helical_stranded, Float64).conductors
+    base_resistance = DM.tubular_resistance(base.r_in, base.r_ex, base.material.rho)
+    @test all(row -> isapprox(DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho),
+        base_resistance * overlength(helix, 0.01); rtol = 1e-12), wound)
 end
 
 @testitem "Engine / repeated coaxials agree with explicit placements and remain Gridable" tags=[:integration, :parametric] begin
@@ -115,7 +127,7 @@ end
         expected = compute(last(problems))
         @test actual.Z.values == expected.Z.values
         @test actual.Y.values == expected.Y.values
-        @test EN.flatten(LineCableModelsCoaxial(), design, Float64).assembly_ranges == [1:1, 2:2, 3:3]
+        @test LineCableModels.DataModel.flatten(design, Float64).assembly_ranges == [1:1, 2:2, 3:3]
     end
     # Combining the core declaration and placement axes uses the same
     # Gridspace rule, including a zip across the nested Ring declaration.

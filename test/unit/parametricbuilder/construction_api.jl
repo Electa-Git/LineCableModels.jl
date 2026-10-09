@@ -621,11 +621,11 @@ end
             center[2] - sector_center[2]
         )
     end
-    bounded_component = only(LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(), bounded_design).conductors)
+    bounded_blueprint = DM.flatten(bounded_design)
+    bounded_component = only(bounded_blueprint.conductors)
     @test bounded_component.r_ex ≈ sqrt(DM.area(resolved_sector) / pi)
     @test all(isapprox.(
-        bounded_component.position,
+        only(bounded_blueprint.positions),
         DM.centroid(resolved_sector)
     ))
     member_resistances = map(bounded_conductors) do region
@@ -633,7 +633,8 @@ end
                  overlength(only(region.paths).path, only(region.paths).radius)
         copper.rho / DM.area(region.source.primitive) * factor
     end
-    @test bounded_component.resistance ≈ inv(sum(inv, member_resistances))
+    @test DM.tubular_resistance(bounded_component.r_in, bounded_component.r_ex,
+        bounded_component.material.rho) ≈ inv(sum(inv, member_resistances)) rtol = 1e-12
 
     course_members,
     course_shapes = DM.sector_members(
@@ -1006,11 +1007,9 @@ end
         end
     end
     expected_resistance = inv(sum(inv, leaf_resistances))
-    component = only(LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(),
-        nested_design
-    ).conductors)
-    @test component.resistance ≈ expected_resistance
+    component = only(LineCableModels.DataModel.flatten(nested_design).conductors)
+    @test LineCableModels.DataModel.tubular_resistance(component.r_in, component.r_ex,
+        component.material.rho) ≈ expected_resistance rtol = 1e-12
 
     @test_throws DimensionMismatch build(
         CableDesign,

@@ -171,7 +171,7 @@ function _compute(
     physical_inputs = completed_inputs(problem)
     source_id = Commons.gridpoint_id().source_id
     T = eltype(problem)
-    blueprints = CableBlueprint{T}[flatten(engine, design, T)
+    blueprints = CableBlueprint{T}[DataModel.flatten(design, T)
                                    for design in problem.system.designs]
     input = lineinput(problem, blueprints)
     shunts = internal_shunt_response(problem.system.designs, blueprints, formulations)

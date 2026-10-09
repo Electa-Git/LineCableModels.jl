@@ -75,7 +75,7 @@ end
             [(Float64(i), h) for (i, h) in enumerate(heights)];
             connections = [(phase = i,) for i in eachindex(heights)])
         problem=LineParametersProblem(system; earth_props = earth, frequencies = [50.0])
-        blueprints=E.CableBlueprint{Float64}[E.flatten(LineCableModelsCoaxial(), d, Float64)
+        blueprints=LineCableModels.DataModel.CableBlueprint{Float64}[LineCableModels.DataModel.flatten(d, Float64)
                                              for d in problem.system.designs]
         workspace=E.LineParametersWorkspace(problem, formulation, execution, blueprints)
         return workspace.plan.earth.calculations, workspace.buffers.earth.calculations
@@ -268,7 +268,7 @@ end
     @test length(fd_calls) == 4
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
     T=eltype(problem)
-    blueprints=E.CableBlueprint{T}[E.flatten(LineCableModelsCoaxial(), d, T)
+    blueprints=LineCableModels.DataModel.CableBlueprint{T}[LineCableModels.DataModel.flatten(d, T)
                                    for d in problem.system.designs]
     workspace=E.LineParametersWorkspace(problem, formulation, execution, blueprints)
     @test length(fd_calls) == 4 # Allocation did not reevaluate material laws.
@@ -327,7 +327,7 @@ end
         options = (
             reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions(trace = true))
-    blueprints=[E.flatten(LineCableModelsCoaxial(), d, Float64)
+    blueprints=[LineCableModels.DataModel.flatten(d, Float64)
                 for d in problem.system.designs]
     workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     @test workspace.buffers.coupled isa Matrix{ComplexF64}
@@ -359,14 +359,14 @@ end
             heights, frequencies = [50.0, 50.0, 500.0]),
         layouts)
     workspaces=map(problems) do problem
-        blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+        blueprints=[LineCableModels.DataModel.flatten(design, Float64)
                     for design in problem.system.designs]
         E.LineParametersWorkspace(problem, selection, execution, blueprints)
     end
     @test all(w -> typeof(w) === typeof(first(workspaces)), workspaces)
     two_wire_problem=TestFixtures.line_parameters_problem(TestFixtures.two_wire_system();
         frequencies = [50.0])
-    two_wire_blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+    two_wire_blueprints=[LineCableModels.DataModel.flatten(design, Float64)
                          for design in two_wire_problem.system.designs]
     two_wire_workspace=E.LineParametersWorkspace(two_wire_problem, selection,
         execution, two_wire_blueprints)
@@ -430,7 +430,7 @@ end
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
     selected=Formulation()
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions(trace = true))
-    blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+    blueprints=[LineCableModels.DataModel.flatten(design, Float64)
                 for design in problem.system.designs]
     w=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     E.materials!(w, selected)
@@ -470,7 +470,7 @@ end
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
     selected=Formulation(temperature_dependence = td, earth_properties = fd)
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions())
-    blueprints=[E.flatten(LineCableModelsCoaxial(), design, Float64)
+    blueprints=[LineCableModels.DataModel.flatten(design, Float64)
                 for design in problem.system.designs]
     w=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     @test isempty(td.seen) && isempty(fd.seen)

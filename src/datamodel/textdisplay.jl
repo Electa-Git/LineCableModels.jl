@@ -224,6 +224,28 @@ end
 
 TextDisplay.@showfields DatasheetInfo "DatasheetInfo" info -> _datasheet_fields(info)
 
+TextDisplay.@showfields BlueprintConductor "BlueprintConductor" row -> (
+    terminal = row.terminal,
+    assembly = row.assembly,
+    r_in = TextDisplay.engineering(row.r_in, :meter),
+    r_ex = TextDisplay.engineering(row.r_ex, :meter),
+    kind = row.material.kind
+)
+
+TextDisplay.@showfields BlueprintDielectric "BlueprintDielectric" row -> (
+    conductor = row.conductor,
+    r_in = TextDisplay.engineering(row.r_in, :meter),
+    r_ex = TextDisplay.engineering(row.r_ex, :meter),
+    kind = row.material.kind
+)
+
+TextDisplay.@showfields CableBlueprint "CableBlueprint" blueprint -> (
+    cable_id = blueprint.cable_id,
+    conductors = length(blueprint.conductors),
+    dielectrics = length(blueprint.dielectrics),
+    assemblies = length(blueprint.assembly_ranges)
+)
+
 _compact_text(value) = sprint(show, value; context = :compact => true)
 
 function _part_label(region::Region)

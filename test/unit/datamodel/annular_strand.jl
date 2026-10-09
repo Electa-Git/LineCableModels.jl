@@ -44,32 +44,41 @@
     @test outer_radius(design) < 0.6e-3
     @test all(region -> only(region.placement.patterns).pattern.boundary ==
         design.geometry.outer, metal)
-    blueprint = @inferred EN.flatten(LineCableModelsCoaxial(), design, Float64)
+    blueprint = @inferred LineCableModels.DataModel.flatten(design, Float64)
     row = only(blueprint.conductors)
     @test row.r_ex == outer_radius(design)
-    @test row.num_wires == length(metal)
-    @test row.cross_section ≈ area(center) + 33area(strand)
+    @test count(region -> region.terminal === :core, design.geometry.regions) ==
+          length(metal)
+    @test sum(region -> area(region.primitive), metal) ≈ area(center) + 33area(strand)
     expected_resistance = copper.rho / (area(center) + 33area(strand) / sqrt(1 + (pi / 12)^2))
-    @test row.resistance ≈ expected_resistance
-    @test isfinite(row.gmr) && 0 < row.gmr < row.r_ex
+    resistance = DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho)
+    gmr = DM.tubular_gmr(row.r_ex, row.r_in, row.material.mu_r)
+    @test resistance ≈ expected_resistance
+    @test isfinite(gmr) && 0 < gmr < row.r_ex
 
     shifted = build(CableDesign, "shifted-annular-last-strip",
         assembly(at(terminal(:core, body), Pose2(0.002, -0.003, 0.47))))
-    shifted_row = only(EN.flatten(LineCableModelsCoaxial(), shifted, Float64).conductors)
-    @test shifted_row.resistance ≈ row.resistance
-    @test shifted_row.gmr ≈ row.gmr
-    @test shifted_row.turns_per_length ≈ row.turns_per_length
+    shifted_blueprint = DM.flatten(shifted, Float64)
+    shifted_row = only(shifted_blueprint.conductors)
+    @test DM.tubular_resistance(shifted_row.r_in, shifted_row.r_ex,
+        shifted_row.material.rho) ≈ resistance rtol = 1e-12
+    @test DM.tubular_gmr(shifted_row.r_ex, shifted_row.r_in, shifted_row.material.mu_r) ≈
+          gmr rtol = 1e-12
+    @test shifted_blueprint.mu_r_ins ≈ blueprint.mu_r_ins
 
     designs = build(CableDesign, "annular-grid", terminal(:core,
         stranded(copper; shape=strand, center=center,
             boundary=Disk(Grid((0.59e-3, 0.6e-3))), lay=LayRatio(12))))
     @test designs isa Gridspace{CableDesign}
     @test length(designs) == 2
-    rows = [only(EN.flatten(LineCableModelsCoaxial(), selected, Float64).conductors)
+    rows = [only(LineCableModels.DataModel.flatten(selected, Float64).conductors)
         for selected in designs]
-    @test [selected.num_wires for selected in rows] == [33, 34]
-    @test last(rows).resistance ≈ row.resistance
-    @test last(rows).gmr ≈ row.gmr
+    @test [count(region -> region.terminal === :core, selected.geometry.regions)
+           for selected in designs] == [33, 34]
+    @test DM.tubular_resistance(last(rows).r_in, last(rows).r_ex, last(rows).material.rho) ≈
+          resistance rtol = 1e-12
+    @test DM.tubular_gmr(last(rows).r_ex, last(rows).r_in, last(rows).material.mu_r) ≈
+          gmr rtol = 1e-12
 end
 
 @testitem "DataModel / annular mutual GMD uses area integration, not centroid distance" tags=[:unit, :datamodel] begin
@@ -112,16 +121,20 @@ end
     radius = sqrt(center.r^2 + area(strand) / pi)
     design = build(CableDesign, "one-annular-strand", terminal(:core,
         stranded(copper; shape=strand, center=center, boundary=Disk(radius))))
-    row = only(EN.flatten(LineCableModelsCoaxial(), design, Float64).conductors)
+    row = only(LineCableModels.DataModel.flatten(design, Float64).conductors)
     # Independent uniform-current limiting case: there is no material or
     # current-density discontinuity between the center and its one full ring.
-    @test row.num_wires == 2
-    @test row.cross_section ≈ pi * radius^2
-    @test row.resistance ≈ copper.rho / (pi * radius^2)
-    @test row.gmr ≈ radius * exp(-1 / 4) rtol=2e-12
+    @test count(region -> region.terminal === :core, design.geometry.regions) == 2
+    @test sum(region -> area(region.primitive),
+        filter(region -> region.terminal === :core, design.geometry.regions)) ≈
+          pi * radius^2
+    @test LineCableModels.DataModel.tubular_resistance(row.r_in, row.r_ex,
+        row.material.rho) ≈ copper.rho / (pi * radius^2) rtol=1e-12
+    @test LineCableModels.DataModel.tubular_gmr(row.r_ex, row.r_in, row.material.mu_r) ≈
+          radius * exp(-1 / 4) rtol=2e-12
     solid_design = build(CableDesign, "equivalent-solid", terminal(:core,
         solid(copper, Disk(radius))))
-    solid_row = only(EN.flatten(LineCableModelsCoaxial(), solid_design, Float64).conductors)
+    solid_row = only(LineCableModels.DataModel.flatten(solid_design, Float64).conductors)
     @test row.material.rho ≈ solid_row.material.rho
     @test row.material.mu_r ≈ solid_row.material.mu_r rtol=2e-11
 

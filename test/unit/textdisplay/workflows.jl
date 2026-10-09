@@ -18,8 +18,7 @@
     constants=CableConstants(1e-4, 2e-7, 3e-10, 4e-12)
     backend=LineCableModelsFEM(options = (physics = :quasi_fw,))
     backend_options=computation_options(LineCableModelsFEM, ComputationOptions((mesh_mode=:remesh,)))
-    blueprints=EN.CableBlueprint{eltype(line_problem)}[EN.flatten(LineCableModelsCoaxial(),
-                                                           design, eltype(line_problem))
+    blueprints=LineCableModels.DataModel.CableBlueprint{eltype(line_problem)}[LineCableModels.DataModel.flatten(design, eltype(line_problem))
                                                        for design in line_problem.system.designs]
     workspaces=map((false, true)) do trace
         execution=LineCableModels.Commons.computation_options(LineCableModelsCoaxial, ComputationOptions((;

@@ -21,10 +21,10 @@ import ...LineCableModels: FormulaDefinition, formula_id, description
 import ...Commons: formulation_options, initialize_buffers
 using ...Commons: vacuum_permittivity
 import ...Materials: Material
-import ...DataModel: CableDesign
+import ...DataModel: CableDesign, CableBlueprint
 import ...DataModel
 import ...TextDisplay
-import ..Engine: CableBlueprint, InternalShuntBlock, internal_shunt_response,
+import ..Engine: InternalShuntBlock, internal_shunt_response,
                  same_physical_state, numerical_magnitude
 import ..Engine: InsulationAdmittance, SemiconAdmittance
 import ...LineCableModels: nominal

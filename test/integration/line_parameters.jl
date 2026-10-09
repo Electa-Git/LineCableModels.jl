@@ -67,9 +67,7 @@
     end
 
     execution=computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
-    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
-                                                                          LineCableModelsCoaxial(),
-                                                                          design,
+    blueprints=LineCableModels.DataModel.CableBlueprint{eltype(problem)}[LineCableModels.DataModel.flatten(design,
                                                                           eltype(problem))
                                                                       for design in problem.system.designs]
     workspace=LineParametersWorkspace(
@@ -280,8 +278,7 @@ end
         problem,
         Formulation(),
         execution,
-        LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
-                                                                   LineCableModelsCoaxial(), source,
+        LineCableModels.DataModel.CableBlueprint{eltype(problem)}[LineCableModels.DataModel.flatten(source,
                                                                    eltype(problem)
                                                                )
                                                                for source in
@@ -334,8 +331,7 @@ end
         problem,
         formulation,
         execution,
-        LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
-                                                                   LineCableModelsCoaxial(), source,
+        LineCableModels.DataModel.CableBlueprint{eltype(problem)}[LineCableModels.DataModel.flatten(source,
                                                                    eltype(problem)
                                                                )
                                                                for source in problem.system.designs]

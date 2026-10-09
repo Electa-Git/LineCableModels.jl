@@ -22,8 +22,8 @@ end
 function _pscad_blueprints(system::LineCableSystem)
     _pscad_deterministic(eltype(system))
     T = eltype(system)
-    return Engine.CableBlueprint{T}[
-        Engine.flatten(LineCableModelsCoaxial(), design, T) for design in system.designs]
+    return DataModel.CableBlueprint{T}[DataModel.flatten(design, T)
+                                       for design in system.designs]
 end
 
 # Computation frequencies of the PSCAD phase-scan adapter.

@@ -18,7 +18,7 @@
 # counts, per parametric scenario, the points it materializes and the blueprint lowerings
 # of its designs.
 using LineCableModels, Measurements
-import LineCableModels.Engine as EN
+import LineCableModels.DataModel as DM
 
 Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "scenarios.jl"))
 using .CurrentScenarios: preservation_corpus, reduction_corpus
@@ -28,13 +28,11 @@ using .CurrentScenarios: preservation_corpus, reduction_corpus
 struct LoweringCounter
     calls::Base.RefValue{Int}
 end
-function EN.flatten(engine::LineCableModelsCoaxial,
+function DM.flatten(
         design::CableDesign{T, R, G, NamedTuple{(:counter,), Tuple{LoweringCounter}}},
-        ::Type{S}) where {
-        T <: Real, R <: AbstractCablePart, G <: LineCableModels.DataModel.CableGeometry, S <: Real}
+        ::Type{S}) where {T <: Real, R <: AbstractCablePart, G <: DM.CableGeometry, S <: Real}
     design.nominal_data.counter.calls[] += 1
-    return invoke(EN.flatten, Tuple{LineCableModelsCoaxial, CableDesign, Type{S}},
-        engine, design, S)
+    return invoke(DM.flatten, Tuple{CableDesign, Type{S}}, design, S)
 end
 
 const CLOSURE = "var\"#closure\""

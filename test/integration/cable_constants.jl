@@ -71,14 +71,23 @@
         ),
         insulation(packed_dielectric; t = 1e-3)
     )
-    natural_component=only(LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(), natural_design).conductors)
-    compacted_component=only(LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(), compacted_design).conductors)
-    @test natural_component.cross_section == compacted_component.cross_section
-    @test natural_component.resistance == compacted_component.resistance
+    natural_component=only(LineCableModels.DataModel.flatten(natural_design).conductors)
+    compacted_component=only(LineCableModels.DataModel.flatten(compacted_design).conductors)
+    natural_metal=filter(region -> region.terminal !== nothing,
+        natural_design.geometry.regions)
+    compacted_metal=filter(region -> region.terminal !== nothing,
+        compacted_design.geometry.regions)
+    @test sum(region -> area(region.primitive), natural_metal) ≈
+          sum(region -> area(region.primitive), compacted_metal) rtol = 1e-12
+    @test tubular_resistance(natural_component.r_in, natural_component.r_ex,
+        natural_component.material.rho) ≈
+          tubular_resistance(compacted_component.r_in, compacted_component.r_ex,
+        compacted_component.material.rho) rtol = 1e-12
     @test natural_component.r_ex == compacted_component.r_ex
-    @test natural_component.gmr != compacted_component.gmr
+    @test tubular_gmr(natural_component.r_ex, natural_component.r_in,
+        natural_component.material.mu_r) !=
+          tubular_gmr(compacted_component.r_ex, compacted_component.r_in,
+        compacted_component.material.mu_r)
     natural_constants=CableConstants(natural_design; frequency = 50.0)
     compacted_constants=CableConstants(compacted_design; frequency = 50.0)
     @test natural_constants.C == compacted_constants.C
@@ -124,10 +133,9 @@
     problem=CableConstantsProblem(design)
     formulation=CableConstantsFormulation()
     @test problem.design === design
-    blueprint=@inferred LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(), design
+    blueprint=@inferred LineCableModels.DataModel.flatten(design
     )
-    @test blueprint isa LineCableModels.Engine.CableBlueprint{Float64}
+    @test blueprint isa LineCableModels.DataModel.CableBlueprint{Float64}
     @test blueprint.assembly_ranges == [1:length(design.terminal_order)]
     @test getproperty.(blueprint.conductors, :terminal) == design.terminal_order
     shunt = only(LineCableModels.Engine.internal_shunt_response([design], [blueprint],
@@ -143,18 +151,16 @@
     )
 
     homogenized=LineCableModels.homogenize(design)
-    reduced_blueprint=LineCableModels.Engine.flatten(
-        LineCableModelsCoaxial(),
-        homogenized
-    )
+    reduced_blueprint=LineCableModels.DataModel.flatten(homogenized)
     @test getproperty.(reduced_blueprint.conductors, :terminal) ==
           getproperty.(blueprint.conductors, :terminal)
-    source_mu=LineCableModels.Engine.LocalCableData(blueprint).mu_r_ins
-    reduced_mu=LineCableModels.Engine.LocalCableData(reduced_blueprint).mu_r_ins
+    @test reduced_blueprint.mu_r_ins ≈ blueprint.mu_r_ins
     for (index, source, reduced) in zip(eachindex(blueprint.conductors),
         blueprint.conductors, reduced_blueprint.conductors)
-        @test reduced.resistance ≈ source.resistance
-        @test reduced.gmr ≈ source.gmr
+        @test tubular_resistance(reduced.r_in, reduced.r_ex, reduced.material.rho) ≈
+              tubular_resistance(source.r_in, source.r_ex, source.material.rho) rtol = 1e-12
+        @test tubular_gmr(reduced.r_ex, reduced.r_in, reduced.material.mu_r) ≈
+              tubular_gmr(source.r_ex, source.r_in, source.material.mu_r) rtol = 1e-12
         source_circuit=LineCableModels.DataModel.dielectric_circuit(
             blueprint.dielectrics[blueprint.dielectric_ranges[index]], 2π * 50.0, Float64)
         reduced_circuit=LineCableModels.DataModel.dielectric_circuit(
@@ -162,7 +168,6 @@
             2π * 50.0, Float64)
         @test reduced_circuit.capacitance ≈ source_circuit.capacitance
         @test reduced_circuit.conductance ≈ source_circuit.conductance
-        @test reduced_mu[index] ≈ source_mu[index]
     end
     flattening_formulation=CableConstantsFormulation(
         insulation_admittance = formula(:lossy),
