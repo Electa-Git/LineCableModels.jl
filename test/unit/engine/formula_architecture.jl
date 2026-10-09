@@ -56,7 +56,7 @@
         Expression(EI.Formula(:carson1926), soil), earth.layers)
 end
 
-@testitem "Engine / the plan reads an earth formula's media from its expression signatures" tags=[:unit, :engine] setup=[FormulaFixtures] begin
+@testitem "Engine / the plan reads an earth formula's media from its expression signatures" tags=[:unit, :engine, :slow] setup=[FormulaFixtures] begin
     const M=FormulaFixtures
     const E=M.E
     const EP=M.EP
@@ -112,7 +112,7 @@ end
         buried, three, Formulation(earth_impedance = formula(:saad1996)))
 end
 
-@testitem "Engine / a layered earth formula is never reduced without an explicit reduction" tags=[:unit, :engine] setup=[FormulaFixtures] begin
+@testitem "Engine / a layered earth formula is never reduced without an explicit reduction" tags=[:unit, :engine, :slow] setup=[FormulaFixtures] begin
     const M=FormulaFixtures
     const EP=M.EP
     const EH=M.EH

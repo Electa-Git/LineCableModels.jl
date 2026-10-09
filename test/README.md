@@ -111,10 +111,10 @@ julia --project=test test/tools/durations.jl full-suite.log visual.log fem_numer
 During a change, run `changed:REF` from the commit that the step starts from. At the end
 of a track, before a push, run the full suite including `slow` items. Also run the
 extension and visual environments that the change touches, the documentation build, and
-Vale and cspell with the versions that CI uses. Finally, run `test/tools/durations.jl`
-on the new logs and the timing comparison and equivalence check that the
-[developer guide](../docs/src/developers.md#preservation-locks) describes. Tests are
-deferred to the end of a track, never skipped.
+Vale and cspell with the versions that CI uses. Finally, run `test/tools/durations.jl` on
+the new local logs and the equivalence check that the
+[developer guide](../docs/src/developers.md#preservation-locks) describes. The timing
+comparison runs in CI. Tests are deferred to the end of a track, never skipped.
 
 ## Advisory source diagnostics
 

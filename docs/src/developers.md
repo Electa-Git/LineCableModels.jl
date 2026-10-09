@@ -331,11 +331,19 @@ has no verdict. Separate builds of identical code differ by up to about 4 % on t
 development machine, because each worktree builds its own package image. That is the
 noise floor of the tool. A scenario more than 10 % slower fails with exit status 1. A
 scenario 5 to 10 % slower is a possible slowdown below the resolution of the tool, and
-an unstable scenario also gives exit status 2. Exit status 2 asks for a rerun on an idle
-machine. It does not report a regression. A possible slowdown that repeats over three
-runs goes to a person as a likely regression. The result is valid only on an otherwise
-idle machine. The exact performance checks are the `@inferred` floor and the JET and
-allocation ceilings. The timing comparison catches large algorithmic slowdowns.
+an unstable scenario also gives exit status 2. Exit status 2 means no verdict, not a
+regression. A possible slowdown that repeats over three runs goes to a person as a likely
+regression. Both revisions run on the machine that runs the tool, a developer machine or a
+CI runner. Other load on that machine makes scenarios unstable.
+The exact performance checks are the `@inferred` floor and the JET and allocation
+ceilings. The timing comparison catches large algorithmic slowdowns.
+
+The workflow `.github/workflows/timing.yml` runs the timing comparison on a CI runner,
+with the Julia version and the `Manifest.toml` of the quality job. Each push to a pull
+request compares the new head with the previous one. A manual run of the workflow
+compares with the commit given as its `base` input. Exit status 1 fails the run. Exit
+status 2 means no verdict, and the run passes with a warning that lists those scenarios.
+A push never waits for an idle local machine.
 
 The equivalence check is `julia --project=test test/tools/equivalence.jl REF [ALLOWED]`.
 On each side, `test/tools/fingerprint.jl` records every node of the inputs and the result

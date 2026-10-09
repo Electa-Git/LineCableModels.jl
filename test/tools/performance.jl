@@ -28,12 +28,12 @@
 # worktree builds REF's package image again. A stable scenario more than 10 % slower
 # than REF is a slowdown, and one 5 to 10 % slower is a possible slowdown below the
 # resolution of the tool. A slowdown, or a scenario that fails on the working tree, exits
-# with 1. A possible slowdown or an unstable scenario exits with 2, which asks for a rerun
-# on an idle machine. It does not report a regression. Otherwise the tool exits with 0. A
-# scenario that cannot run at REF is reported as not comparable. A failing scenario is
-# never retried. The tool prints the 1-minute load average at the start and the end. The
-# result is valid only on an otherwise idle machine. CI does not run this tool, because
-# timings belong to one machine.
+# with 1. A possible slowdown or an unstable scenario exits with 2: no verdict, and not a
+# regression. Otherwise the tool exits with 0. A scenario that cannot run at REF is
+# reported as not comparable. A failing scenario is never retried. The tool prints the
+# 1-minute load average at the start and the end. Both revisions run on the machine that
+# runs the tool, a developer machine or a CI runner. Other load on that machine makes
+# scenarios unstable. The CI workflow `.github/workflows/timing.yml` runs this tool.
 const REPOSITORY = dirname(dirname(@__DIR__))
 const CORPUS = joinpath("test", "support", "scenarios.jl")
 const POSSIBLE = 0.05
@@ -271,7 +271,7 @@ function main(arguments)
     code = status(last.(verdicts))
     code == 1 && println(stderr, "Slower than ", round(Int, 100SLOWER), " % or failing: ",
         named((:slower, :failed)))
-    code == 2 && println(stderr, "Possible slowdown or unstable, rerun on an idle machine: ",
+    code == 2 && println(stderr, "Possible slowdown or unstable, no verdict: ",
         named((:possible, :unstable)))
     return code
 end
