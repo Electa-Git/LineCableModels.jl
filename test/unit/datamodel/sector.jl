@@ -240,50 +240,52 @@ end
         names = (:a, :b, :c)
     ))
 
-    components=DM.flatten(design, 50.0)
-    @test getproperty.(components, :name) == [:a, :b, :c]
+    blueprint=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design)
+    @test getproperty.(blueprint.conductors, :terminal) == [:a, :b, :c]
     source_shape=first(design.geometry.regions).primitive
     shell_shape=design.geometry.regions[2].primitive
     source_area=DM.area(source_shape)
     equivalent_radius=sqrt(source_area / pi)
     outer_radius=sqrt(DM.area(shell_shape.outer) / pi)
     expected_position=DM.centroid(source_shape)
-    component=first(components)
-    @test component.conductor.cross_section ≈ source_area
-    @test component.conductor.r_in == 0
-    @test component.conductor.r_ex ≈ equivalent_radius
-    @test component.conductor.resistance ≈ copper.rho / source_area
-    @test component.conductor.gmr ≈
+    conductor=first(blueprint.conductors)
+    layer=only(blueprint.dielectrics[first(blueprint.dielectric_ranges)])
+    circuit=DM.dielectric_circuit(layer, 2π * 50.0)
+    @test conductor.cross_section ≈ source_area
+    @test conductor.r_in == 0
+    @test conductor.r_ex ≈ equivalent_radius
+    @test conductor.resistance ≈ copper.rho / source_area
+    @test conductor.gmr ≈
           equivalent_radius * exp(-copper.mu_r / 4)
-    @test collect(component.conductor.position) ≈ collect(expected_position)
-    @test component.dielectric.r_in ≈ equivalent_radius
-    @test component.dielectric.r_ex ≈ outer_radius
-    @test component.dielectric.cross_section ≈ DM.area(shell_shape)
-    @test component.dielectric.shunt_capacitance ≈
+    @test collect(conductor.position) ≈ collect(expected_position)
+    @test layer.r_in ≈ equivalent_radius
+    @test layer.r_ex ≈ outer_radius
+    @test π * (layer.r_ex^2 - layer.r_in^2) ≈ DM.area(shell_shape)
+    @test circuit.capacitance ≈
           DM.shunt_capacitance(equivalent_radius, outer_radius, xlpe.eps_r)
-    @test component.dielectric.shunt_conductance ≈
+    @test circuit.conductance ≈
           DM.shunt_conductance(equivalent_radius, outer_radius, xlpe.rho)
     @test DM.tubular_resistance(
-        component.conductor.r_in,
-        component.conductor.r_ex,
-        component.conductor.material.rho
-    ) ≈ component.conductor.resistance
+        conductor.r_in,
+        conductor.r_ex,
+        conductor.material.rho
+    ) ≈ conductor.resistance
     @test DM.tubular_gmr(
-        component.conductor.r_ex,
-        component.conductor.r_in,
-        component.conductor.material.mu_r
-    ) ≈ component.conductor.gmr
+        conductor.r_ex,
+        conductor.r_in,
+        conductor.material.mu_r
+    ) ≈ conductor.gmr
     @test DM.shunt_capacitance(
-        component.dielectric.r_in,
-        component.dielectric.r_ex,
-        component.dielectric.material.eps_r
-    ) ≈ component.dielectric.shunt_capacitance
+        layer.r_in,
+        layer.r_ex,
+        layer.material.eps_r
+    ) ≈ circuit.capacitance
     @test DM.shunt_conductance(
-        component.dielectric.r_in,
-        component.dielectric.r_ex,
-        component.dielectric.material.rho
-    ) ≈ component.dielectric.shunt_conductance
-    @test component.dielectric.material.mu_r ≈ xlpe.mu_r
+        layer.r_in,
+        layer.r_ex,
+        layer.material.rho
+    ) ≈ circuit.conductance
+    @test LineCableModels.Engine.LocalCableData(blueprint).mu_r_ins[1] ≈ xlpe.mu_r
 
     magnetic_inner=Material(kind = :insulator, rho = 1e12, eps_r = 2.0, mu_r = 1.5)
     magnetic_outer=Material(kind = :insulator, rho = 2e12, eps_r = 3.0, mu_r = 2.5)
@@ -318,7 +320,7 @@ end
     )
     @test all(zip(
         DM.centroid.(getproperty.(flattened_conductors, :primitive)),
-        getproperty.(getproperty.(components, :conductor), :position)
+        getproperty.(blueprint.conductors, :position)
     )) do (actual, expected)
         isapprox(actual[1], expected[1]) && isapprox(actual[2], expected[2])
     end

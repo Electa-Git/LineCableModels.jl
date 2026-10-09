@@ -198,10 +198,11 @@ module CurrentScenarios
 
     Construct the 18/30 kV single-core cable of tutorial 2 (`examples/tutorial2.jl`). A
     compacted stranded aluminum core sits under semiconducting tapes and screens and PE
-    insulation. One terminal holds 49 copper screen wires and a helical copper tape. An
-    aluminum laminate and two PE jackets follow.
+    insulation. One terminal holds 49 copper screen wires and a helical tape of the library
+    material `tape_material`, copper in the tutorial. An aluminum laminate and two PE
+    jackets follow.
     """
-    function screened_cable_design()
+    function screened_cable_design(; tape_material::Symbol = :copper)
         materials = MaterialsLibrary(add_defaults = true)
         aluminum = Material(materials, :aluminum)
         copper = Material(materials, :copper)
@@ -230,8 +231,8 @@ module CurrentScenarios
             @terminal :sheath begin
                 wires(copper; shape = Disk(d_ws / 2), n = 49, r = screen_wire_locus,
                     lay = LayRatio(10), tag = :screen_wire)
-                tape(copper; section = Rectangle(10e-3, 0.1e-3), n = 1, lay = LayRatio(10),
-                    tag = :copper_tape)
+                tape(Material(materials, tape_material); section = Rectangle(10e-3, 0.1e-3),
+                    n = 1, lay = LayRatio(10), tag = Symbol(tape_material, "_", "tape"))
             end
             screen(polyacrylate; t = 0.3e-3)
             @terminal :jacket begin
@@ -353,6 +354,8 @@ module CurrentScenarios
       strip, the 18 kV cable, the 525 kV cable and the three-core assembly. Each cable runs
       as built and after `homogenize`. The open wire screen also runs with the boundary
       shunt model at a coarse resolution.
+    - Temperature. The 18 kV cable with an aluminum tape among its copper screen wires, a
+      terminal of mixed conductor materials, at 90 °C in both computations.
     """
     function reduction_corpus()
         earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
@@ -386,6 +389,13 @@ module CurrentScenarios
                     CableConstantsProblem(built),
                     CableConstantsFormulation(shunt_model = boundary)))
         end
+        mixed = screened_cable_design(tape_material = :aluminum)
+        push!(scenarios,
+            :mixed_screen_line_parameters_90 => (compute, LineParametersProblem(
+                single_cable_system(mixed); temperature = 90.0, earth_props = earth,
+                frequencies), Formulation()),
+            :mixed_screen_cable_constants_90 => (compute,
+                CableConstantsProblem(mixed; temperature = 90.0), CableConstantsFormulation()))
         return NamedTuple(scenarios)
     end
 end

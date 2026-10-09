@@ -22,8 +22,8 @@
         @test all(region -> only(region.paths).radius ≈ 1.6e-3, wires)
         @test design.terminal_order == [:core, :armor]
         @test outer_radius(design) ≈ 1.9e-3
-        layers = DM.flatten(design, 50.0)
-        conductor = only(filter(component -> component.name === :armor, layers)).conductor
+        blueprint = LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design)
+        conductor = only(filter(row -> row.terminal === :armor, blueprint.conductors))
         @test conductor.cross_section ≈ count * pi * (0.1e-3)^2
         @test conductor.resistance ≈
             steel.rho * sqrt(1 + (pi / 10)^2) / (count * pi * (0.1e-3)^2)

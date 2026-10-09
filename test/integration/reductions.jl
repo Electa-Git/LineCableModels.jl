@@ -1,7 +1,7 @@
 # Each consumer reduces a cable design to coaxial layers. The consumers are the engine
-# blueprint, the reduction of the exporters, a homogenized design and the PSCAD components.
-# They compute the same equivalents. These items check that the agreements remain while the
-# reductions converge.
+# blueprint, which the ATP and TRALIN exporters also read, a homogenized design and the
+# PSCAD components. They compute the same equivalents. These items check that the
+# agreements remain while the reductions converge.
 
 @testitem "DataModel / reductions / conductor equivalents agree across consumers" tags=[:integration, :pscad] setup=[TestFixtures] begin
     const DM = LineCableModels.DataModel
@@ -12,29 +12,23 @@
         TestFixtures.internal_shunt_test_design(), TestFixtures.three_core_design())
     for design in designs
         blueprint = EN.flatten(LineCableModelsCoaxial(), design, Float64)
-        reduced = DM.flatten(design, 50.0)
         homogenized = DM.radial_components(homogenize(design), Float64)
         exported = PS._pscad_components(blueprint, 50.0, Formulation(), nothing)
-        @test length(reduced) == length(homogenized) == length(exported) ==
-              length(blueprint.conductors)
+        @test length(homogenized) == length(exported) == length(blueprint.conductors)
         for (index, row) in pairs(blueprint.conductors)
-            @test row.terminal === reduced[index].name === homogenized[index].name ===
-                  exported[index].name
-            d, h, p = reduced[index].conductor, homogenized[index].conductor,
-            exported[index].conductor
-            @test row.r_in == d.r_in == h.r_in == p.r_in
-            @test row.r_ex == d.r_ex == h.r_ex == p.r_ex
-            @test row.alpha == d.alpha == h.alpha
+            @test row.terminal === homogenized[index].name === exported[index].name
+            h, p = homogenized[index].conductor, exported[index].conductor
+            @test row.r_in == h.r_in == p.r_in
+            @test row.r_ex == h.r_ex == p.r_ex
+            @test row.alpha === row.material.alpha
+            @test row.alpha == h.alpha
             @test p.material.rho == row.material.rho
             @test p.material.mu_r == row.material.mu_r
             for field in (:rho, :mu_r, :alpha, :T0)
-                expected = getfield(row.material, field)
-                @test getfield(d.material, field) == expected
-                @test getfield(h.material, field) ≈ expected rtol = 1e-14
+                @test getfield(h.material, field) ≈ getfield(row.material, field) rtol = 1e-14
             end
             # The reduction of a homogenized design starts from its equivalent material.
             for field in (:resistance, :gmr)
-                @test getfield(d, field) == getfield(row, field)
                 @test getfield(h, field) ≈ getfield(row, field) rtol = 1e-14
             end
         end
@@ -75,7 +69,6 @@ end
         TestFixtures.internal_shunt_test_design(), TestFixtures.three_core_design())
     for design in designs
         blueprint = EN.flatten(LineCableModelsCoaxial(), design, Float64)
-        reduced = DM.flatten(design, frequency)
         homogenized = homogenize(design)
         for formulation in (lossless, lossy)
             engine = intervals(design, formulation)
@@ -90,16 +83,56 @@ end
                 @test engine.mu_r[index] ≈ dielectric.material.mu_r rtol = 1e-14
                 @test again.mu_r[index] ≈ dielectric.material.mu_r rtol = 1e-14
                 @test engine.r_ex[index] == dielectric.r_ex
-                # The exporters' reduction combines the layers with the lossy circuit.
+                # The ATP and TRALIN exporters combine the layers with the lossy circuit.
                 formulation === lossy || continue
-                interval = reduced[index].dielectric
+                conductor = blueprint.conductors[index]
+                layers = blueprint.dielectrics[blueprint.dielectric_ranges[index]]
+                circuit = DM.dielectric_circuit(layers, imag(s), Float64)
+                interval = (r_in = isempty(layers) ? conductor.r_ex : first(layers).r_in,
+                    r_ex = isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
+                    shunt_capacitance = circuit.capacitance,
+                    shunt_conductance = circuit.conductance)
+                material = DM.equivalent_dielectric_material(interval,
+                    (; conductor.turns_per_length, conductor.r_ex,
+                        reference_temperature = conductor.material.T0),
+                    conductor.terminal, imag(s))
                 @test complex(interval.shunt_conductance,
                     imag(s) * interval.shunt_capacitance) ≈ admittance rtol = 1e-12
-                @test interval.material.eps_r ≈ dielectric.material.eps_r rtol = 1e-12
-                @test interval.material.mu_r ≈ dielectric.material.mu_r rtol = 1e-14
+                @test material.eps_r ≈ dielectric.material.eps_r rtol = 1e-12
+                @test material.mu_r ≈ dielectric.material.mu_r rtol = 1e-14
                 @test interval.r_in == engine.r_in[index]
                 @test interval.r_ex == engine.r_ex[index]
             end
         end
     end
+end
+
+@testitem "DataModel / reductions / a terminal of mixed materials combines alpha to first order" tags=[:integration, :parametric] setup=[TestFixtures] begin
+    const DM = LineCableModels.DataModel
+    const EN = LineCableModels.Engine
+    # The screen terminal of the 18 kV cable holds 49 copper wires and an aluminum tape.
+    design = TestFixtures.screened_cable_design(tape_material = :aluminum)
+    blueprint = EN.flatten(LineCableModelsCoaxial(), design, Float64)
+    row = only(filter(conductor -> conductor.terminal === :sheath, blueprint.conductors))
+    members = filter(region -> region.terminal === :sheath, design.geometry.regions)
+    alpha = [region.source.material.alpha for region in members]
+    @test length(unique(alpha)) == 2
+    resistance = map(members) do region
+        factor = prod(entry -> overlength(entry.path, entry.radius), region.paths;
+            init = 1.0)
+        region.source.material.rho * factor / DM.area(region.source.primitive)
+    end
+    weights = inv.(resistance) ./ sum(inv, resistance)
+    mean = sum(weights .* alpha)
+    equivalent = row.material.rho / (π * (row.r_ex^2 - row.r_in^2))
+    @test equivalent ≈ inv(sum(inv, resistance)) rtol = 1e-12
+    @test row.material.alpha ≈ mean rtol = 1e-12
+    # The linear law exceeds the parallel of the corrected members by a second-order term.
+    # The weighted variance of the member coefficients times dT^2 bounds this term. A wrong
+    # coefficient changes the result at first order in dT.
+    dT = 90.0 - row.material.T0
+    exact = inv(sum(inv, resistance .* (1 .+ alpha .* dT)))
+    linear = equivalent * (1 + row.material.alpha * dT)
+    variance = sum(weights .* (alpha .- mean) .^ 2)
+    @test -1e-12 <= linear / exact - 1 <= variance * dT^2
 end

@@ -7,6 +7,24 @@ end
 @testitem "ImportExport / ATP / LineCableSystem LCC export" tags=[:integration, :importexport] setup=[
     UseImportExportSupport, TestNumerics,
     TestFixtures, CableSystemFixture, deps_export_atp] begin
+    # The 50 Hz reduction of the ATP and TRALIN exporters, built from the blueprint.
+    function reduced_components(design, frequency)
+        blueprint=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design)
+        omega=2π*frequency
+        map(blueprint.conductors, blueprint.dielectric_ranges) do conductor, range
+            layers=blueprint.dielectrics[range]
+            circuit=LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
+            dielectric=(r_in=isempty(layers) ? conductor.r_ex : first(layers).r_in,
+                r_ex=isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
+                shunt_capacitance=circuit.capacitance,
+                shunt_conductance=circuit.conductance)
+            material=LineCableModels.DataModel.equivalent_dielectric_material(dielectric,
+                (; conductor.turns_per_length, conductor.r_ex,
+                    reference_temperature=conductor.material.T0),
+                conductor.terminal, omega)
+            (; name=conductor.terminal, conductor, dielectric=merge(dielectric, (; material)))
+        end
+    end
 
     # 1. ARRANGE & ACT: run the export in a temporary directory
     mktempdir() do tmpdir
@@ -55,9 +73,7 @@ end
         for (i, cable_node) in enumerate(cable_nodes)
             source_design=cable_system.designs[i]
             source_position=cable_system.positions[i]
-            source_components=LineCableModels.DataModel.flatten(
-                source_design, problem_atp.frequencies[1]
-            )
+            source_components=reduced_components(source_design, problem_atp.frequencies[1])
 
             # Verify position of EACH cable
             @test parse(Float64, cable_node["PosX"]) ≈ source_position.x

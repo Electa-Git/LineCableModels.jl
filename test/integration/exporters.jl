@@ -8,6 +8,24 @@
         Dict(parameter["name"]=>parameter["value"]
         for parameter in findall("./paramlist/param", node))
     end
+    # The 50 Hz reduction of the ATP and TRALIN exporters, built from the blueprint.
+    function reduced_components(design, frequency)
+        blueprint=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design)
+        omega=2π*frequency
+        map(blueprint.conductors, blueprint.dielectric_ranges) do conductor, range
+            layers=blueprint.dielectrics[range]
+            circuit=LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
+            dielectric=(r_in=isempty(layers) ? conductor.r_ex : first(layers).r_in,
+                r_ex=isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
+                shunt_capacitance=circuit.capacitance,
+                shunt_conductance=circuit.conductance)
+            material=LineCableModels.DataModel.equivalent_dielectric_material(dielectric,
+                (; conductor.turns_per_length, conductor.r_ex,
+                    reference_temperature=conductor.material.T0),
+                conductor.terminal, omega)
+            (; name=conductor.terminal, conductor, dielectric=merge(dielectric, (; material)))
+        end
+    end
 
     # A split dielectric with distinct laws exercises the actual multilayer
     # exporter. A generic coaxial recipe need not include this extra scenario.
@@ -78,8 +96,7 @@
             "shntcab" => "0.0"
         )
 
-        expected_components=[LineCableModels.DataModel.flatten(design, 50.0)
-                             for design in system.designs]
+        expected_components=[reduced_components(design, 50.0) for design in system.designs]
         @test any(length(component.dielectric.layers) > 1
         for components in expected_components for component in components)
         outer_radii=("R2", "R4", "R6", "R8")
@@ -232,6 +249,24 @@ end
     UseImportExportSupport,
     TestFixtures
 ] begin
+    # The 50 Hz reduction of the ATP and TRALIN exporters, built from the blueprint.
+    function reduced_components(design, frequency)
+        blueprint=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design)
+        omega=2π*frequency
+        map(blueprint.conductors, blueprint.dielectric_ranges) do conductor, range
+            layers=blueprint.dielectrics[range]
+            circuit=LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
+            dielectric=(r_in=isempty(layers) ? conductor.r_ex : first(layers).r_in,
+                r_ex=isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
+                shunt_capacitance=circuit.capacitance,
+                shunt_conductance=circuit.conductance)
+            material=LineCableModels.DataModel.equivalent_dielectric_material(dielectric,
+                (; conductor.turns_per_length, conductor.r_ex,
+                    reference_temperature=conductor.material.T0),
+                conductor.terminal, omega)
+            (; name=conductor.terminal, conductor, dielectric=merge(dielectric, (; material)))
+        end
+    end
     # A split dielectric with distinct laws exercises the actual multilayer
     # exporter. A generic coaxial recipe need not include this extra scenario.
     metal=TestFixtures.conductor_material()
@@ -282,12 +317,8 @@ end
             @test imported_connections == original_connections
             @test imported_design.cable_id == original_design.cable_id
             @test imported_design.terminal_order == original_design.terminal_order
-            actual_components=LineCableModels.DataModel.flatten(
-                imported_design, 50.0
-            )
-            expected_components=LineCableModels.DataModel.flatten(
-                original_design, 50.0
-            )
+            actual_components=reduced_components(imported_design, 50.0)
+            expected_components=reduced_components(original_design, 50.0)
             for (actual, expected) in zip(actual_components, expected_components)
                 @test actual.conductor.r_in ≈ expected.conductor.r_in rtol=1e-5
                 @test actual.conductor.r_ex ≈ expected.conductor.r_ex rtol=1e-5

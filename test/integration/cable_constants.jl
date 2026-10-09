@@ -71,14 +71,14 @@
         ),
         insulation(packed_dielectric; t = 1e-3)
     )
-    natural_component=only(LineCableModels.DataModel.flatten(natural_design, 50.0))
-    compacted_component=only(LineCableModels.DataModel.flatten(compacted_design, 50.0))
-    @test natural_component.conductor.cross_section ==
-          compacted_component.conductor.cross_section
-    @test natural_component.conductor.resistance ==
-          compacted_component.conductor.resistance
-    @test natural_component.conductor.r_ex == compacted_component.conductor.r_ex
-    @test natural_component.conductor.gmr != compacted_component.conductor.gmr
+    natural_component=only(LineCableModels.Engine.flatten(
+        LineCableModelsCoaxial(), natural_design).conductors)
+    compacted_component=only(LineCableModels.Engine.flatten(
+        LineCableModelsCoaxial(), compacted_design).conductors)
+    @test natural_component.cross_section == compacted_component.cross_section
+    @test natural_component.resistance == compacted_component.resistance
+    @test natural_component.r_ex == compacted_component.r_ex
+    @test natural_component.gmr != compacted_component.gmr
     natural_constants=CableConstants(natural_design; frequency = 50.0)
     compacted_constants=CableConstants(compacted_design; frequency = 50.0)
     @test natural_constants.C == compacted_constants.C
@@ -143,21 +143,26 @@
     )
 
     homogenized=LineCableModels.homogenize(design)
-    source_components=LineCableModels.DataModel.flatten(design, 50.0)
-    reduced_components=LineCableModels.DataModel.flatten(
-        homogenized,
-        50.0
+    reduced_blueprint=LineCableModels.Engine.flatten(
+        LineCableModelsCoaxial(),
+        homogenized
     )
-    @test getproperty.(reduced_components, :name) ==
-          getproperty.(source_components, :name)
-    for (source, reduced) in zip(source_components, reduced_components)
-        @test reduced.conductor.resistance ≈ source.conductor.resistance
-        @test reduced.conductor.gmr ≈ source.conductor.gmr
-        @test reduced.dielectric.shunt_capacitance ≈
-              source.dielectric.shunt_capacitance
-        @test reduced.dielectric.shunt_conductance ≈
-              source.dielectric.shunt_conductance
-        @test reduced.dielectric.material.mu_r ≈ source.dielectric.material.mu_r
+    @test getproperty.(reduced_blueprint.conductors, :terminal) ==
+          getproperty.(blueprint.conductors, :terminal)
+    source_mu=LineCableModels.Engine.LocalCableData(blueprint).mu_r_ins
+    reduced_mu=LineCableModels.Engine.LocalCableData(reduced_blueprint).mu_r_ins
+    for (index, source, reduced) in zip(eachindex(blueprint.conductors),
+        blueprint.conductors, reduced_blueprint.conductors)
+        @test reduced.resistance ≈ source.resistance
+        @test reduced.gmr ≈ source.gmr
+        source_circuit=LineCableModels.DataModel.dielectric_circuit(
+            blueprint.dielectrics[blueprint.dielectric_ranges[index]], 2π * 50.0, Float64)
+        reduced_circuit=LineCableModels.DataModel.dielectric_circuit(
+            reduced_blueprint.dielectrics[reduced_blueprint.dielectric_ranges[index]],
+            2π * 50.0, Float64)
+        @test reduced_circuit.capacitance ≈ source_circuit.capacitance
+        @test reduced_circuit.conductance ≈ source_circuit.conductance
+        @test reduced_mu[index] ≈ source_mu[index]
     end
     flattening_formulation=CableConstantsFormulation(
         insulation_admittance = formula(:lossy),

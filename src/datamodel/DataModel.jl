@@ -43,6 +43,7 @@ public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoun
 public geometry_tolerance
 public equivalent_dielectric_permeability, radial_components, radial_position,
        conductor_zone_position, same_radial_position, bounded_members
+public dielectric_circuit, equivalent_dielectric_material
 public DifferenceShape, EllipseOffset, ShellShape, SectorShape
 
 # Module-specific dependencies
@@ -108,7 +109,6 @@ include("textdisplay.jl")
 
 public preview_shapes, preview_materials
 public PreviewShape, material_property_ranges
-public flatten
 
 # Construction interfaces shared with Engine and UQ. Not modelling options.
 public clearance_geometry, interface_clearance, collect_clearance_requirements, with_clearance

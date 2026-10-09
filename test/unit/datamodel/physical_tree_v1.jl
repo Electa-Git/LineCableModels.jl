@@ -130,10 +130,10 @@ end
     @test length(unique(strand_centers)) == 19
     @test [last(region.placement.patterns).member
            for region in natural_conductors] == collect(1:19)
-    flattened_circular=only(LineCableModels.DataModel.flatten(
-        natural_design,
-        50.0
-    )).conductor
+    flattened_circular=only(LineCableModels.Engine.flatten(
+        LineCableModelsCoaxial(),
+        natural_design
+    ).conductors)
     resistances=[copper.rho / area(disk) * prod(
                      entry -> overlength(entry.path, entry.radius),
                      region.paths;
@@ -323,10 +323,10 @@ end
         )
     )
     packed_design=build(CableDesign, "packed-bundle", bundle)
-    bare=only(DM.flatten(bare_design, 50.0))
-    reduced=only(DM.flatten(packed_design, 50.0))
-    @test reduced.conductor == bare.conductor
-    @test reduced.dielectric == bare.dielectric
+    bare=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), bare_design)
+    reduced=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), packed_design)
+    @test reduced.conductors == bare.conductors
+    @test reduced.dielectrics == bare.dielectrics
 
     IE=LineCableModels.ImportExport
     restored=IE.deserialize_value(IE.serialize_value(packed_design))
@@ -341,14 +341,16 @@ end
         bundle,
         Region(:insulation, Shell(0.2), insulation_material)
     )
-    component=only(DM.flatten(insulated, 50.0))
-    @test length(component.dielectric.layers) == 1
-    @test only(component.dielectric.layers).r_in ≈ 1.5
-    @test only(component.dielectric.layers).r_ex ≈ 1.7
+    blueprint=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), insulated)
+    layers=blueprint.dielectrics[only(blueprint.dielectric_ranges)]
+    @test length(layers) == 1
+    @test only(layers).r_in ≈ 1.5
+    @test only(layers).r_ex ≈ 1.7
 
     nested=Group(:core, bundle; pattern = Ring(2; r = 4.0))
     nested_design=build(CableDesign, "nested-packed", nested)
-    @test only(DM.flatten(nested_design, 50.0)).conductor.num_wires == 14
+    @test only(LineCableModels.Engine.flatten(
+        LineCableModelsCoaxial(), nested_design).conductors).num_wires == 14
 
     lossy=Material(kind = :insulator, rho = 1.0e12, eps_r = 2.3, mu_r = 1.0)
     magnetic=Material(kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 2.0)
@@ -397,17 +399,19 @@ end
         "longitudinal-matrix-path",
         Group(:wound_core, bundle; path = Helix(LayRatio(10.0)))
     )
-    lossy_reduced=only(DM.flatten(lossy_design, 50.0))
-    @test lossy_reduced.conductor == bare.conductor
-    @test lossy_reduced.dielectric == bare.dielectric
+    lossy_reduced=LineCableModels.Engine.flatten(LineCableModelsCoaxial(), lossy_design)
+    @test lossy_reduced.conductors == bare.conductors
+    @test lossy_reduced.dielectrics == bare.dielectrics
     lossy_fill=only(filter(region -> region.primitive isa DM.DifferenceShape,
         lossy_design.geometry.regions))
     @test lossy_fill.source.material == lossy
     @test lossy_fill.source.material.rho == 1.0e12
-    @test_throws ArgumentError DM.flatten(magnetic_design, 50.0)
-    @test_throws ArgumentError DM.flatten(semiconducting_design, 50.0)
-    wound=only(DM.flatten(wound_matrix_design, 50.0))
-    @test wound.conductor.resistance > reduced.conductor.resistance
+    @test_throws ArgumentError LineCableModels.Engine.flatten(
+        LineCableModelsCoaxial(), magnetic_design)
+    @test_throws ArgumentError LineCableModels.Engine.flatten(
+        LineCableModelsCoaxial(), semiconducting_design)
+    wound=only(DM.radial_components(wound_matrix_design, Float64)).conductor
+    @test wound.resistance > only(reduced.conductors).resistance
 end
 
 @testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit, :parametric] begin

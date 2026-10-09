@@ -28,11 +28,29 @@ function export_data(::Val{:tralin},
     freqs = map(f -> nominal(f), _freqs(freq))
     # TRALIN defines this explicit radial homogenization choice. The choice is not stored
     # on CableDesign. Unsupported physical geometry fails at the local
-    # homogenization step.
-    tralin_components(design) = DataModel.flatten(
-        design,
-        first(freqs)
-    )
+    # homogenization step. Each conductor of the blueprint gets the series circuit of its
+    # dielectric interval at the first frequency.
+    function tralin_components(design)
+        T = promote_type(typeof(float(first(freqs))), eltype(design))
+        frequency = convert(T, float(first(freqs)))
+        frequency > zero(frequency) || throw(DomainError(
+            frequency, "dielectric reference frequency must be positive"))
+        blueprint = Engine.flatten(Engine.LineCableModelsCoaxial(), design, T)
+        omega = 2 * (one(T) * pi) * frequency
+        return map(blueprint.conductors, blueprint.dielectric_ranges) do conductor, range
+            layers = @view blueprint.dielectrics[range]
+            circuit = DataModel.dielectric_circuit(layers, omega, T)
+            dielectric = (r_in = isempty(layers) ? conductor.r_ex : first(layers).r_in,
+                r_ex = isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
+                shunt_capacitance = circuit.capacitance,
+                shunt_conductance = circuit.conductance)
+            material = DataModel.equivalent_dielectric_material(dielectric,
+                (; conductor.turns_per_length, conductor.r_ex,
+                    reference_temperature = conductor.material.T0),
+                conductor.terminal, omega)
+            (; name = conductor.terminal, conductor, dielectric = merge(dielectric, (; material)))
+        end
+    end
 
     #  build TRALIN lines
     lines = String[]
