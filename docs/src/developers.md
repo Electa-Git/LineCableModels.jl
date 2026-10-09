@@ -350,7 +350,16 @@ On each side, `test/tools/fingerprint.jl` records every node of the inputs and t
 of each scenario, with the type of the node and the bits of its value. Type names consist
 of the module that defines them followed by the name. The recording also counts
 the points that each parametric scenario materializes and the blueprint lowerings of its
-designs. The optional `ALLOWED` file declares the expected differences, one per line:
+designs. It then records the reduction corpus, `reduction_corpus()` in
+`test/support/scenarios.jl`, with the result of each scenario only:
+
+- the files that the ATP, PSCAD and TRALIN exporters write for the three-phase system, two
+  tutorial cable systems and a three-core assembly.
+- LineParameters and CableConstants for cables with open wire screens, tapes,
+  semiconducting screens, armor and three cores, as built and after `homogenize`.
+
+The allocation ceilings and the timing comparison do not run the reduction corpus. The
+optional `ALLOWED` file declares the expected differences, one per line:
 
 ```text
 rename | Old => New

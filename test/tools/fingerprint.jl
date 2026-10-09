@@ -4,8 +4,11 @@
 # Run `julia --project=test test/tools/fingerprint.jl DESTINATION`.
 #
 # For each scenario of `preservation_corpus(2)` it writes one line per node of the
-# inputs and the result, with the scenario, the path, the type and the value. Numbers are
-# written as their bits, a Measurement as value and error. Each type name is written as
+# inputs and the result, with the scenario, the path, the type and the value. A scenario
+# of `reduction_corpus()` starts with the function to call. For each one, it writes the
+# nodes of the result only. Its inputs are the fixture designs, and their nodes would make
+# the file a hundred times larger. Numbers are written as their bits, a Measurement as
+# value and error. Each type name is written as
 # `Owner.Name`, where `Owner` is the module that defines it directly, whatever Main
 # imports. Base and Core types are bare. Anonymous functions are written as
 # `var"#closure"`, because their numbers change when unrelated source changes, and no
@@ -18,7 +21,7 @@ using LineCableModels, Measurements
 import LineCableModels.Engine as EN
 
 Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "scenarios.jl"))
-using .CurrentScenarios: preservation_corpus
+using .CurrentScenarios: preservation_corpus, reduction_corpus
 
 # Counts blueprint lowerings of designs whose nominal data is a counter, then runs the
 # production lowering, as `test/integration/formulation_grid.jl` does.
@@ -121,27 +124,34 @@ function counted(name)
     return (materialized[], counter.calls[])
 end
 
+# Writes the nodes of the arguments, when `inputs` is true, and of the result of `call` on
+# them, each line led by the scenario name.
+function record(io, name, call, arguments; inputs = true)
+    out = IOBuffer()
+    state = (seen = IdDict{Any, String}(), uuids = Dict{Base.UUID, Int}())
+    try
+        if inputs
+            for (i, argument) in enumerate(arguments)
+                println(out, "inputs[", i, "].eltype\tType\t", typename(eltype(argument)))
+                walk!(out, "inputs[$i]", argument, state)
+            end
+        end
+        result = call(arguments...)
+        println(out, "result.eltype\tType\t", typename(eltype(result)))
+        walk!(out, "result", result, state)
+    catch error
+        println(out, "result\tfailed\t", first(flat(sprint(showerror, error)), 300))
+    end
+    for text in eachline(IOBuffer(take!(out)))
+        println(io, name, '\t', text)
+    end
+end
+
 function main(destination)
     open(destination, "w") do io
         corpus = preservation_corpus(2)
         for name in keys(corpus)
-            arguments = corpus[name]
-            out = IOBuffer()
-            state = (seen = IdDict{Any, String}(), uuids = Dict{Base.UUID, Int}())
-            try
-                for (i, argument) in enumerate(arguments)
-                    println(out, "inputs[", i, "].eltype\tType\t", typename(eltype(argument)))
-                    walk!(out, "inputs[$i]", argument, state)
-                end
-                result = compute(arguments...)
-                println(out, "result.eltype\tType\t", typename(eltype(result)))
-                walk!(out, "result", result, state)
-            catch error
-                println(out, "result\tfailed\t", first(flat(sprint(showerror, error)), 300))
-            end
-            for text in eachline(IOBuffer(take!(out)))
-                println(io, name, '\t', text)
-            end
+            record(io, name, compute, corpus[name])
         end
         # The instrumented pass follows, so it cannot change the recorded values.
         for name in (:product, :zip, :linear_error, :monte_carlo)
@@ -151,6 +161,11 @@ function main(destination)
                 "failed: " * first(flat(sprint(showerror, error)), 300)
             end
             println(io, name, "\tlaziness\tcounts\t", value)
+        end
+        reductions = reduction_corpus()
+        for name in keys(reductions)
+            scenario = reductions[name]
+            record(io, name, first(scenario), Base.tail(scenario); inputs = false)
         end
     end
 end
