@@ -1,0 +1,138 @@
+"""
+Interface for a selected temperature-dependent resistivity law.
+Concrete selections expose model `parameters` and numerical `options` records.
+"""
+abstract type TemperatureDependentFormulation <: AbstractFormulation end
+
+"""
+$(TYPEDEF)
+
+Select a scalar electrical-resistivity law evaluated from reference material
+properties and prescribed temperature. Reference material values are immutable.
+
+$(TYPEDFIELDS)
+"""
+struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <:
+       TemperatureDependentFormulation
+    "Resolved physical model parameters."
+    parameters::P
+    "Normalized numerical sections for this equation."
+    options::O
+end
+
+TextDisplay.@showfields Formula "Formula" selected -> (
+    id = formula_id(selected),)
+
+"""Evaluate a temperature-dependent electrical resistivity in ohm meters."""
+function temperature_resistivity end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a temperature-dependent resistivity law with model parameters and
+numerical controls. Custom formulations extend
+`temperature_resistivity(selected, functor, workspace)` on their own concrete selection type.
+The input of `functor` holds the reference material, the temperature and the options.
+"""
+function Formula{ID}(; parameters::NamedTuple = (;),
+        options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+    options = options isa NamedTuple ? FormulationOptions(options) : options
+    isempty(parameters) ||
+        throw(ArgumentError("formula :$ID has no configurable model parameters"))
+    selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
+    expression = Expression(selected, temperature_resistivity)
+    normalized = formulation_options(expression, options)
+    return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Validate evaluated resistivity \\[Ω·m\\] for a reference material and prescribed
+temperature \\[°C\\]. Resistivity must be real and positive. Conductors require a
+finite value. Passive materials admit infinite resistivity. Return `rho`.
+"""
+function validate(rho, ::Union{Nothing, TemperatureDependentFormulation}, material::Material, temperature::Real)
+    isfinite(temperature) || throw(DomainError(temperature,
+        "constitutive temperature must be finite"))
+    rho isa Real && !isnan(rho) && rho > zero(rho) || throw(DomainError(rho,
+        "temperature law must return positive real resistivity for $(material.kind) at $temperature °C"))
+    material.kind === :conductor && !isfinite(rho) &&
+        throw(DomainError(rho,
+            "conductor resistivity must be finite at $temperature °C"))
+    return rho
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of a temperature-dependent resistivity law for one reference material at
+one temperature, after checking the temperature. The state is empty.
+"""
+function Functor(formula::TemperatureDependentFormulation, input::NamedTuple;
+        workspace = nothing)
+    (; temperature) = input
+    isfinite(temperature) || throw(DomainError(temperature,
+        "constitutive temperature must be finite"))
+    return Functor(formula, input, (;))
+end
+
+@inline function (formula::TemperatureDependentFormulation)(
+        material::Material{T}, temperature::T;
+        workspace = nothing) where {T <: Real}
+    functor = Functor(formula, (; material, temperature, options = formula.options);
+        workspace)
+    rho = Expression(formula, temperature_resistivity)(functor, workspace)
+    return validate(rho, formula, material, temperature)
+end
+
+function (formula::TemperatureDependentFormulation)(
+        material::Material{T}, temperature::Real;
+        workspace = nothing) where {T <: Real}
+    U = promote_type(T, typeof(float(temperature)))
+    return formula(convert(Material{U}, material), convert(U, temperature); workspace)
+end
+
+"""Evaluate a selected resistivity law at prescribed temperature in °C. Return Ω·m."""
+function constitutive(
+        formula::TemperatureDependentFormulation, material::Material, temperature::Real;
+        workspace = nothing)
+    formula(material, temperature; workspace)
+end
+
+"""Retain reference resistivity in Ω·m when no temperature law is selected."""
+function constitutive(::Nothing, material::Material, temperature::Real; workspace = nothing)
+    validate(material.rho, nothing, material, temperature)
+end
+
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::TemperatureDependentFormulation) = selected
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    selection.equivalent_earth === nothing || throw(ArgumentError(
+        "equivalent_earth applies only to external earth formulas"))
+    return Formula{ID}(; parameters = selection.parameters,
+        options = selection.options)
+end
+
+"""Return the stable identifier of a temperature-dependent resistivity law."""
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+# Identity-only dispatch also describes retained selections without constructors.
+description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose the selected identity, model parameters, and numerical options as a native record.
+"""
+function Base.NamedTuple(value::Formula)
+    return (identifier = formula_id(value),
+        parameters = value.parameters, options = value.options.data)
+end
+
+"""Iterate the independently selectable child slots admitted by this formula family."""
+Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))

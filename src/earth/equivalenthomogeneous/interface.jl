@@ -1,0 +1,213 @@
+"""
+Abstract equivalent homogeneous-earth rule.
+"""
+abstract type AbstractRule <: AbstractFormulation end
+
+"""
+Abstract ordering of material frequency dependence and EquivalentHomogeneous reduction.
+"""
+abstract type AbstractSequence <: AbstractFormulation end
+
+"""
+$(TYPEDEF)
+
+Select one equivalent homogeneous-earth rule by its stable formula
+identifier.
+
+Each rule implements
+`equivalent_material(selected, Val(kind), Val(source), Val(target), functor, workspace)` for
+the conductor pairs it reduces. The input of `functor` holds the evaluated layer properties
+`rho`, `eps_r` and `mu_r`, the earth `model`, the physical conductor `pair`, the `frequency`
+and the `options`. The method returns one artificial homogeneous [`EarthMaterial`](@ref).
+Formula parameters participate in the concrete Julia type.
+
+The `:default` formula uses the bottommost soil layer as the equivalent
+homogeneous material.
+
+$(TYPEDFIELDS)
+"""
+struct Formula{ID, A <: NamedTuple, O <: FormulationOptions} <: AbstractRule
+    "Explicit model parameters."
+    parameters::A
+    "Explicit numerical sections owned by the reduction."
+    options::O
+end
+
+"""
+$(TYPEDEF)
+
+Apply material frequency dependence to every physical layer before the EquivalentHomogeneous
+rule constructs an equivalent material.
+
+$(TYPEDFIELDS)
+"""
+struct AfterFD{R <: AbstractRule} <: AbstractSequence
+    "Equivalent homogeneous-earth rule."
+    rule::R
+end
+
+"""
+$(TYPEDEF)
+
+Construct an equivalent material from static layers before applying the
+selected material frequency dependence to that artificial material.
+
+$(TYPEDFIELDS)
+"""
+struct BeforeFD{R <: AbstractRule} <: AbstractSequence
+    "Equivalent homogeneous-earth rule."
+    rule::R
+end
+
+"""
+Return the rule stored by an EquivalentHomogeneous composition.
+"""
+rule(sequence::AbstractSequence) = sequence.rule
+
+function initialize_buffers(sequence::AbstractSequence, ::Type{T}, input, plan,
+        buffers) where {T}
+    return initialize_buffers(rule(sequence), T, input, plan, buffers)
+end
+
+"""
+Construct one formula-owned equivalent homogeneous-earth material.
+"""
+function equivalent_material end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct an equivalent-earth rule with model parameters and numerical controls.
+Custom rules subtype `AbstractRule` and extend `equivalent_material` on their
+own concrete type. The selected sequence defines its position relative to the
+frequency-dependent material law. Each registered rule defines its own identity
+constructor. Any other identifier is unknown.
+"""
+Formula{ID}(; kwargs...) where {ID} = throw(ArgumentError("unknown equivalent-earth rule :$ID"))
+
+AfterFD(identifier::Symbol; kwargs...) = AfterFD(Formula(identifier; kwargs...))
+BeforeFD(identifier::Symbol; kwargs...) = BeforeFD(Formula(identifier; kwargs...))
+
+function description(sequence::AfterFD;compact::Bool=false)
+    "$(description(sequence.rule;compact)) after layerwise FrequencyDependent"
+end
+function description(sequence::BeforeFD;compact::Bool=false)
+    "$(description(sequence.rule;compact)) before layerwise FrequencyDependent"
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the `equivalent_material` expression that the reduction `rule` declares for the
+conductor pair `pair`: self or mutual by its indices, from the physical layer of its source to
+that of its target.
+"""
+function Expression(rule::AbstractRule, pair)
+    kind = pair.row == pair.column ? :self : :mutual
+    return Expression(rule, equivalent_material, Val(kind), Val.(pair.layers)...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the Functor of the reduction `rule` for one physical conductor pair at one frequency. It
+checks that the layer properties align with the layers of the earth model, that the frequency
+is positive and finite, and that the pair's layers belong to the model. The state is empty.
+"""
+function Functor(rule::AbstractRule, input::NamedTuple; workspace = nothing)
+    (; rho, eps_r, mu_r, model, pair, frequency) = input
+    length(rho) == length(eps_r) == length(mu_r) == length(model.layers) ||
+        throw(DimensionMismatch("EquivalentHomogeneous properties must align with the complete physical model"))
+    isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
+        frequency,
+        "EquivalentHomogeneous evaluation frequency must be positive and finite"
+    ))
+    validate(pair, getproperty.(model.layers, :thickness))
+    return Functor(rule, input, (;))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check that the reduction `rule` returned an [`EarthMaterial`](@ref). Return `material`.
+"""
+function validate(material, rule::AbstractRule)
+    material isa EarthMaterial ||
+        throw(ArgumentError("an EquivalentHomogeneous contribution must return EarthMaterial"))
+    return material
+end
+
+@inline function (formula::AbstractRule)(
+        rho::AbstractVector,
+        eps_r::AbstractVector,
+        mu_r::AbstractVector,
+        model::EarthModel,
+        pair,
+        frequency::Real; workspace = nothing
+)
+    expression = validate(Expression(formula, pair))
+    options = only(formulation_options(formula, (expression,)).options)
+    functor = Functor(formula, (; rho, eps_r, mu_r, model, pair, frequency, options);
+        workspace)
+    return validate(expression(functor, workspace), formula)
+end
+
+function AbstractSequence(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    selection.equivalent_earth === nothing ||
+        throw(ArgumentError("a reduction cannot contain another reduction"))
+    rule = Formula{ID}(; parameters = selection.parameters,
+        options = selection.options)
+    return Order === :before ? BeforeFD(rule) : AfterFD(rule)
+end
+
+"""Expose the reduction rule, model parameters and numerical options as a native record."""
+function Base.NamedTuple(value::Formula)
+    return (identifier=formula_id(value), parameters=value.parameters,
+        options=value.options.data)
+end
+
+"""Expose the order of material evaluation and the selected equivalent-earth rule."""
+Base.NamedTuple(value::AfterFD) = (order = :after, rule = NamedTuple(value.rule))
+Base.NamedTuple(value::BeforeFD) = (order = :before, rule = NamedTuple(value.rule))
+
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::AbstractRule) = selected
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    selection.equivalent_earth === nothing ||
+        throw(ArgumentError("a reduction cannot contain another reduction"))
+    return Formula{ID}(; parameters = selection.parameters,
+        options = selection.options)
+end
+
+"""
+Return the stable formula identifier of an EquivalentHomogeneous formula.
+"""
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+# Identity-only dispatch also describes retained selections without constructors.
+description(value::Formula; compact::Bool = false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
+
+"""Iterate the independently selectable child slots admitted by this formula family."""
+Base.pairs(::Type{<:Formula}; quantity = nothing) = pairs((;))
+
+"""Describe an explicit equivalent-earth rule and its requested material-law order."""
+description(owner::Type{FormulaDefinition},slot::Val{:equivalent_earth},value::FormulaDefinition;
+    compact::Bool=true) = description(owner,slot,NamedTuple(value);compact)
+function description(::Type{FormulaDefinition},::Val{:equivalent_earth},value::NamedTuple;
+        compact::Bool=true)
+    record=get(value,:rule,value)
+    text=record.identifier in formulas(Formula) ? description(Formula{record.identifier};compact) :
+         string(record.identifier)
+    order=get(value,:order,:default)
+    order===:default || (text *= " "*string(order)*" FrequencyDependent")
+    controls=(; (key => record[key] for key in (:parameters, :options)
+        if haskey(record,key) && !isempty(record[key]))...)
+    isempty(controls) || (text *= " "*description(FormulaDefinition,controls;compact))
+    return text
+end
+description(::Type{FormulaDefinition},::Val{:equivalent_earth},value::AbstractSequence;
+    compact::Bool=true) = description(value;compact)

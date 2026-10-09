@@ -1,0 +1,15 @@
+extends: STE.Contractions
+tokens-:
+  - '\b\w+[''’](?:re|ve|ll|d|s)\b(?!\s)'
+tokens+:
+  - '\b\w+[''’](?:re|ve|ll|d)\b'
+tests:
+  - name: contraction before whitespace
+    input: "They would've checked it."
+    contains: Project.Contractions
+  - name: possessives
+    input: "This choice is the caller's. Read the conductor’s dimensions."
+    want: ""
+  - name: contraction before punctuation
+    input: "They can't."
+    contains: Project.Contractions

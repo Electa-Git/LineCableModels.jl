@@ -1,0 +1,73 @@
+name: Timing
+
+# The timing comparison of `test/tools/performance.jl`. Each push to a pull request compares
+# the new head with the previous one. A manual run compares with its `base` input and runs
+# only this workflow.
+on:
+  pull_request:
+    types: [synchronize]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Commit that the timing comparison compares with"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  JULIA_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  timing:
+    name: Timing comparison
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.before != '' &&
+      github.event.before != '0000000000000000000000000000000000000000')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          # The pull request head, not the merge commit, because the base is its previous head.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # A manual run may give its base as an abbreviated commit, which needs the whole history.
+          fetch-depth: 0
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3.0.2
+        with:
+          # The version of the quality job. Both sides start from the committed Manifest.toml.
+          version: "1.12.7"
+      - uses: julia-actions/cache@e32267b41e0fa7df82a3d53e8c7273620d52c586 # v3.4.0
+        with:
+          delete-old-caches: "false"
+      - name: Compare the timings of the checkout with the base revision
+        shell: bash
+        env:
+          TIMING_BASE: ${{ inputs.base || github.event.before }}
+        run: |
+          set -euo pipefail
+          if ! base=$(git rev-parse --verify --quiet "$TIMING_BASE^{commit}"); then
+            git fetch --no-tags origin "$TIMING_BASE"
+            base=$(git rev-parse --verify "$TIMING_BASE^{commit}")
+          fi
+          julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
+          status=0
+          julia --project=test --color=yes test/tools/performance.jl "$base" 2>&1 |
+            tee "$RUNNER_TEMP/timing.log" || status=$?
+          # 1 is a slowdown or a failing scenario. 2 is a possible slowdown or an unstable
+          # scenario: no verdict, and not a regression.
+          if [ "$status" -eq 2 ]; then
+            scenarios=$(sed -n 's/^Possible slowdown or unstable, no verdict: //p' "$RUNNER_TEMP/timing.log")
+            echo "::warning title=Timing comparison::No verdict against ${base:0:8} for: ${scenarios:-see the log}"
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi

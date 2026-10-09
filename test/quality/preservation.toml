@@ -1,0 +1,132 @@
+# Preservation locks, checked by `test/quality/preservation.jl`. Each table declares
+# its direction: a floor may only rise and a ceiling may only fall, which
+# `test/tools/baseline_ratchet.jl REF` checks across commits. The quality checks
+# require the counts to equal the live counts, within the tolerance of [allocations].
+
+# The measured ceilings ([jet], [allocations]) hold for this Julia version and the
+# committed `Manifest.toml` with this SHA-256 only. An increase in them is accepted only
+# together with a change of this environment.
+[environment]
+julia = "1.12.7"
+manifest = "5ecf11c9fd831e437ae143e2840cfd570f5108949b804048957067e9453f76cd"
+
+[directions]
+inferred = "floor"
+jet = "ceiling"
+allocations = "ceiling"
+
+# Floor: `@inferred` uses per test file.
+[inferred]
+"test/extensions/measurements.jl" = 2
+"test/integration/cable_constants.jl" = 3
+"test/integration/computation_options.jl" = 1
+"test/integration/internal_shunt.jl" = 1
+"test/integration/line_parameters.jl" = 3
+"test/integration/shunt_model.jl" = 2
+"test/unit/commons/gridspace.jl" = 10
+"test/unit/commons/observation_quantity.jl" = 9
+"test/unit/commons/owned_records.jl" = 7
+"test/unit/datamodel/annular_strand.jl" = 2
+"test/unit/datamodel/assembly_lowering.jl" = 2
+"test/unit/datamodel/baseparams/geometry.jl" = 1
+"test/unit/datamodel/geometry_v1.jl" = 2
+"test/unit/datamodel/physical_tree_v1.jl" = 2
+"test/unit/datamodel/placement_geometry.jl" = 7
+"test/unit/earth/properties.jl" = 2
+"test/unit/engine/analytical_earth_impedance.jl" = 3
+"test/unit/engine/constitutive_defaults.jl" = 2
+"test/unit/engine/earth_inference.jl" = 4
+"test/unit/engine/formula_architecture.jl" = 1
+"test/unit/engine/formulations.jl" = 7
+"test/unit/engine/ideal_earth_potential.jl" = 2
+"test/unit/engine/insulation_admittance.jl" = 2
+"test/unit/engine/internal_selections.jl" = 2
+"test/unit/engine/internal_shunt.jl" = 2
+"test/unit/engine/line_observations.jl" = 5
+"test/unit/engine/observations.jl" = 3
+"test/unit/engine/options.jl" = 4
+"test/unit/engine/pipe_formulations.jl" = 1
+"test/unit/engine/radial_dielectric.jl" = 3
+"test/unit/engine/result_containers.jl" = 3
+"test/unit/engine/transforms.jl" = 2
+"test/unit/engine/unified_earth_return.jl" = 1
+"test/unit/materials/temperaturedependent.jl" = 1
+"test/unit/modalanalysis/vieira2026.jl" = 2
+"test/unit/modalanalysis/wedepohl1996.jl" = 3
+"test/unit/parametricbuilder/architecture.jl" = 2
+"test/unit/parametricbuilder/construction_api.jl" = 1
+"test/unit/parametricbuilder/gridspace.jl" = 4
+"test/unit/parametricbuilder/placement_composition.jl" = 6
+"test/unit/parametricbuilder/region_grid.jl" = 3
+"test/unit/reportbuilder/histogram_observations.jl" = 1
+"test/unit/reportbuilder/uq_comparisons.jl" = 3
+"test/unit/textdisplay/policy.jl" = 2
+"test/unit/uq/formulations.jl" = 9
+# Ceiling: JET optimization reports per frequency-loop kernel, with
+# `target_modules = (LineCableModels,)` on the default coaxial computation of a
+# three-phase cable system and on each modal formula. The current reports come from the
+# known boxing of earth-return records. The abstract `earth_calculations` tuple dispatches
+# at the `_solve!` barrier, and `earth!` recurses over the record tuple.
+[jet]
+"cable_impedance!" = 0
+"cable_potential!" = 0
+"coaxial _solve!" = 1
+"decompose! chrysochos2014" = 0
+"decompose! vieira2026" = 0
+"decompose! wedepohl1996" = 0
+"earth!" = 1
+"reduce_line_matrices!" = 0
+
+# Ceiling: allocations of the preservation corpus (`CurrentScenarios.preservation_corpus`),
+# printed by `test/tools/allocations.jl`. `allocations` counts the allocated objects of one
+# warmed-up `compute` call, which repeat exactly on every call. Measurements stores a
+# partial derivative only when it is nonzero, and whether a round-off derivative is exactly
+# zero depends on the machine. A count may differ from its row by the scenario's allowance,
+# the uncertain real scalars of its result, which the tool computes and this table does not
+# record. `bytes` is the minimum over three calls and may grow by 512 B plus the allowance
+# times one derivative entry. Record a row's bytes again whenever its counts change.
+[allocations]
+"coaxial | 2 frequencies | allocations" = 6886
+"coaxial | 2 frequencies | bytes" = 389408
+"overhead | 2 frequencies | allocations" = 5398
+"overhead | 2 frequencies | bytes" = 292912
+"buried | 2 frequencies | allocations" = 5414
+"buried | 2 frequencies | bytes" = 295152
+"modal | 2 frequencies | allocations" = 7772
+"modal | 2 frequencies | bytes" = 447424
+"cable_constants | 2 frequencies | allocations" = 2311
+"cable_constants | 2 frequencies | bytes" = 120704
+"product | 2 frequencies | allocations" = 55913
+"product | 2 frequencies | bytes" = 3028144
+"zip | 2 frequencies | allocations" = 28041
+"zip | 2 frequencies | bytes" = 1518704
+"linear_error | 2 frequencies | allocations" = 629930
+"linear_error | 2 frequencies | bytes" = 30504480
+"monte_carlo | 2 frequencies | allocations" = 43255
+"monte_carlo | 2 frequencies | bytes" = 2502528
+"three_layer | 2 frequencies | allocations" = 7392
+"three_layer | 2 frequencies | bytes" = 421936
+"three_layer_before_fd | 2 frequencies | allocations" = 7697
+"three_layer_before_fd | 2 frequencies | bytes" = 434272
+"coaxial | 4 frequencies | allocations" = 6924
+"coaxial | 4 frequencies | bytes" = 394608
+"overhead | 4 frequencies | allocations" = 5412
+"overhead | 4 frequencies | bytes" = 295552
+"buried | 4 frequencies | allocations" = 5444
+"buried | 4 frequencies | bytes" = 300032
+"modal | 4 frequencies | allocations" = 7922
+"modal | 4 frequencies | bytes" = 469712
+"cable_constants | 4 frequencies | allocations" = 2311
+"cable_constants | 4 frequencies | bytes" = 120704
+"product | 4 frequencies | allocations" = 56217
+"product | 4 frequencies | bytes" = 3069680
+"zip | 4 frequencies | allocations" = 28193
+"zip | 4 frequencies | bytes" = 1539472
+"linear_error | 4 frequencies | allocations" = 1229385
+"linear_error | 4 frequencies | bytes" = 59291600
+"monte_carlo | 4 frequencies | allocations" = 44071
+"monte_carlo | 4 frequencies | bytes" = 2566960
+"three_layer | 4 frequencies | allocations" = 7458
+"three_layer | 4 frequencies | bytes" = 438880
+"three_layer_before_fd | 4 frequencies | allocations" = 7731
+"three_layer_before_fd | 4 frequencies | bytes" = 437936

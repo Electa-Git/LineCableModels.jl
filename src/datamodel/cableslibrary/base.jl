@@ -1,97 +1,90 @@
 
 # Implement the AbstractDict interface
 Base.length(lib::CablesLibrary) = length(lib.data)
-Base.setindex!(lib::CablesLibrary, value::CableDesign, key::String) = (lib.data[key] = value)
+function Base.setindex!(lib::CablesLibrary, design::CableDesign, key)
+    cable_id = convert(String, key)
+    cable_id == design.cable_id || throw(ArgumentError(
+        "cable key '$cable_id' differs from cable_id '$(design.cable_id)'",
+    ))
+    validate(design)
+    record = DatasheetInfo(design.nominal_data)
+    lib.data[cable_id] = design
+    lib.datasheets[cable_id] = record
+    return lib
+end
 Base.iterate(lib::CablesLibrary, state...) = iterate(lib.data, state...)
 Base.keys(lib::CablesLibrary) = keys(lib.data)
 Base.values(lib::CablesLibrary) = values(lib.data)
-Base.haskey(lib::CablesLibrary, key::String) = haskey(lib.data, key)
-Base.getindex(lib::CablesLibrary, key::String) = getindex(lib.data, key)
+Base.haskey(lib::CablesLibrary, key) = haskey(lib.data, key)
+Base.getindex(lib::CablesLibrary, key) = getindex(lib.data, key)
 
 """
 $(TYPEDSIGNATURES)
 
-Retrieves a cable design from a [`CablesLibrary`](@ref) object by its ID.
+Return the cable design stored under `cable_id`, or `default` when absent.
 
 # Arguments
 
-- `library`: An instance of [`CablesLibrary`](@ref) from which the cable design will be retrieved.
-- `cable_id`: The ID of the cable design to retrieve.
+- `library`: cable-design library.
+- `cable_id`: stored cable identifier.
+- `default`: value returned when `cable_id` is absent.
 
 # Returns
 
-- A [`CableDesign`](@ref) object corresponding to the given `cable_id` if found, otherwise `nothing`.
+- The stored [`CableDesign`](@ref), or `default`.
 
-# Examples
-
-```julia
-library = CablesLibrary()
-design = CableDesign("example", ...) # Initialize a CableDesign
-add!(library, design)
-
-# Retrieve the cable design
-retrieved_design = $(FUNCTIONNAME)(library, "cable1")
-println(retrieved_design.id)  # Prints "example"
-
-# Attempt to retrieve a non-existent design
-missing_design = $(FUNCTIONNAME)(library, "nonexistent_id")
-println(missing_design === nothing)  # Prints true
-```
-
-# See also
-
-- [`CablesLibrary`](@ref)
-- [`CableDesign`](@ref)
-- [`add!`](@ref)
-- [`delete!`](@ref)
 """
-function Base.get(library::CablesLibrary, cable_id::String, default=nothing)
-    if haskey(library, cable_id)
-        @info "Cable design with ID `$cable_id` loaded from the library."
-        return library[cable_id]
-    else
-        @warn "Cable design with ID `$cable_id` not found in the library; returning default."
-        return default
-    end
+function Base.get(library::CablesLibrary, cable_id, default)
+    return get(library.data, cable_id, default)
+end
+
+function Base.get(
+        default::Union{Function, Type}, library::CablesLibrary, cable_id
+)
+    return get(default, library.data, cable_id)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Removes a cable design from a [`CablesLibrary`](@ref) object by its ID.
+Remove the cable design stored under `cable_id`.
 
 # Arguments
 
-- `library`: An instance of [`CablesLibrary`](@ref) from which the cable design will be removed.
-- `cable_id`: The ID of the cable design to remove.
+- `library`: cable-design library.
+- `cable_id`: stored cable identifier.
 
 # Returns
 
-- Nothing. Modifies the `data` field of the [`CablesLibrary`](@ref) object in-place by removing the specified cable design if it exists.
+- The modified `library`.
 
-# Examples
-
-```julia
-library = CablesLibrary()
-design = CableDesign("example", ...) # Initialize a CableDesign
-add!(library, design)
-
-# Remove the cable design
-$(FUNCTIONNAME)(library, "example")
-haskey(library, "example")  # Returns false
-```
-
-# See also
-
-- [`CablesLibrary`](@ref)
-- [`add!`](@ref)
 """
-function Base.delete!(library::CablesLibrary, cable_id::String)
-    if haskey(library, cable_id)
-        delete!(library.data, cable_id)
-        @info "Cable design with ID `$cable_id` removed from the library."
-    else
-        @error "Cable design with ID `$cable_id` not found in the library; cannot delete."
-        throw(KeyError(cable_id))
-    end
+function Base.delete!(library::CablesLibrary, cable_id)
+    delete!(library.data, cable_id)
+    delete!(library.datasheets, cable_id)
+    return library
+end
+
+"""
+Return an empty cable library.
+"""
+Base.empty(::CablesLibrary) = CablesLibrary()
+
+"""
+Remove every cable design and catalog record and return `library`.
+"""
+function Base.empty!(library::CablesLibrary)
+    empty!(library.data)
+    empty!(library.datasheets)
+    return library
+end
+
+"""
+Return a shallow cable-library copy with independent dictionary storage.
+"""
+function Base.copy(library::CablesLibrary)
+    copied = CablesLibrary()
+    copied.data = copy(library.data)
+    copied.datasheets = copy(library.datasheets)
+    return copied
 end

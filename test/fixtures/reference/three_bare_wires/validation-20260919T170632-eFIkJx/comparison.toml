@@ -1,0 +1,133 @@
+baseline = "capture-20260917T102438-Nt9nic"
+criterion = "No material degradation; retain complete entry/component differences; no FEM rerun"
+julia = "1.12.7"
+
+[runs."air_1/Y"]
+after_max_absolute_error = 0.12586656843393867
+after_worst_entry = "1000000,cable:2:core,cable:2:core"
+baseline_csv_sha256 = "c1781a943be20f3d99bdf8a9558ce4e70134f3cd19460da22eca39f526aed6c4"
+before_max_absolute_error = 0.1258665684345085
+before_worst_entry = "1000000,cable:2:core,cable:2:core"
+fem_csv_sha256 = "d2dc753fa5d79c0345fca421b35415d4af68526791a7d58fef044729399276d1"
+first_seconds = 1.511878298
+fresh_warmed_bytes = 203232
+fresh_warmed_seconds = 0.023470093
+max_entry_error_increase = 6.653578463732021e-8
+max_result_change = 2.8526875350369104e-7
+
+[runs."air_1/Z"]
+after_max_absolute_error = 1.8723151853984725
+after_worst_entry = "10000000,cable:1:core,cable:1:core"
+baseline_csv_sha256 = "58f904dc16552619aaffb4bfb00a663eb0f1e76feca62e142c7b1899e6b1fa07"
+before_max_absolute_error = 1.8723151853984727
+before_worst_entry = "10000000,cable:1:core,cable:1:core"
+fem_csv_sha256 = "5fba0d0a60a9196c2ef04b2b2a1cab12f56a0b7a573f229c4d8771698c7c4ff0"
+first_seconds = 1.511878298
+fresh_warmed_bytes = 203232
+fresh_warmed_seconds = 0.023470093
+max_entry_error_increase = 1.4617754467046833e-16
+max_result_change = 2.4097390362987555e-15
+
+[runs."air_2/Y"]
+after_max_absolute_error = 0.12511124689727263
+after_worst_entry = "1000000,cable:1:core,cable:1:core"
+baseline_csv_sha256 = "d942680200138e2bfaf84b60ffce59ca762ad80a65941e8b74d0bb9b6e22e219"
+before_max_absolute_error = 0.12511124689781913
+before_worst_entry = "1000000,cable:1:core,cable:1:core"
+fem_csv_sha256 = "51ff0beb013a2fe9624150538d4b1f14b17520b00fb1823b8b60c3cdab70e4c3"
+first_seconds = 0.189928301
+fresh_warmed_bytes = 203232
+fresh_warmed_seconds = 0.023966455
+max_entry_error_increase = 8.268831008748942e-8
+max_result_change = 2.84600655827909e-7
+
+[runs."air_2/Z"]
+after_max_absolute_error = 1.707148753384576
+after_worst_entry = "10000000,cable:2:core,cable:2:core"
+baseline_csv_sha256 = "47e67a8dc68a2766876a1e1937377c3949ae592904d224542044679412cd3dc6"
+before_max_absolute_error = 1.707148753384576
+before_worst_entry = "10000000,cable:2:core,cable:2:core"
+fem_csv_sha256 = "f2a7eeceef9db641c9218ba816d2c1108f143b37f2a48ec786f39e3d54a36c15"
+first_seconds = 0.189928301
+fresh_warmed_bytes = 203232
+fresh_warmed_seconds = 0.023966455
+max_entry_error_increase = 2.2047132592880117e-15
+max_result_change = 2.3928886547049893e-15
+
+[runs."air_3/Y"]
+after_max_absolute_error = 0.12560262627986038
+after_worst_entry = "1000000,cable:1:core,cable:1:core"
+baseline_csv_sha256 = "d755dd9ecf39ac2edb7a9bd74e040b9421272992ef1a2625c611d932c3d90a06"
+before_max_absolute_error = 0.1256026262798634
+before_worst_entry = "1000000,cable:1:core,cable:1:core"
+fem_csv_sha256 = "6df558e978eb303643fb47203c04e4507cf131309c2ea71c633d9fe721c1ca49"
+first_seconds = 0.023293408
+fresh_warmed_bytes = 203232
+fresh_warmed_seconds = 0.023275569
+max_entry_error_increase = 6.653660214534632e-8
+max_result_change = 2.852687535036917e-7
+
+[runs."air_3/Z"]
+after_max_absolute_error = 2.130821524209557
+after_worst_entry = "10000000,cable:3:core,cable:3:core"
+baseline_csv_sha256 = "a10546be75ece17056a779c6ebd6f154d19b5b4f5404d74121243c5b2e8e5122"
+before_max_absolute_error = 2.130821524209557
+before_worst_entry = "10000000,cable:3:core,cable:3:core"
+fem_csv_sha256 = "a70bba3ce78afdf163876ec11ca3398222b028d45eb2bf46e4c36e012b984276"
+first_seconds = 0.023293408
+fresh_warmed_bytes = 203232
+fresh_warmed_seconds = 0.023275569
+max_entry_error_increase = 1.460781208695619e-16
+max_result_change = 2.4102558251379085e-15
+
+[runs."all_air/Y"]
+after_max_absolute_error = 1.2609414645891618e-5
+after_worst_entry = "10000000,cable:1:core,cable:3:core"
+baseline_csv_sha256 = "9edfe22b78aac77a31505d80e51d1690f5bee7651155533d395f231788970e7d"
+before_max_absolute_error = 1.2609467382028214e-5
+before_worst_entry = "10000000,cable:1:core,cable:3:core"
+fem_csv_sha256 = "2e0d25927c3c7515dffe960d854bd83a2127a03ffe9d6631757f5b52fdea2f7e"
+first_seconds = 22.046257668
+fresh_warmed_bytes = 164992
+fresh_warmed_seconds = 0.027994797
+max_entry_error_increase = 6.930431843153376e-10
+max_result_change = 8.520020319279558e-10
+
+[runs."all_air/Z"]
+after_max_absolute_error = 1.948507230227846
+after_worst_entry = "10000000,cable:2:core,cable:1:core"
+baseline_csv_sha256 = "509fce8b1d62060461705c315d79345f58c20b4703ab9dacf4d9983dc43ed52a"
+before_max_absolute_error = 1.948507230227846
+before_worst_entry = "10000000,cable:2:core,cable:1:core"
+fem_csv_sha256 = "5a3bee66ff67323ba4cd90b27c0fb5ca1d7e94fcea73545144ba7c591be691e9"
+first_seconds = 22.046257668
+fresh_warmed_bytes = 164992
+fresh_warmed_seconds = 0.027994797
+max_entry_error_increase = 2.393918396847994e-16
+max_result_change = 1.0837836292118093e-13
+
+[runs."all_earth/Y"]
+after_max_absolute_error = 0.12638102356686592
+after_worst_entry = "1000000,cable:1:core,cable:1:core"
+baseline_csv_sha256 = "0682607582edc6218ce090a8b55e671e94fbcacd84081c4d2094ef3e880639e8"
+before_max_absolute_error = 0.12638102356686592
+before_worst_entry = "1000000,cable:1:core,cable:1:core"
+fem_csv_sha256 = "6178fb7bb6c30653f628a82279d9637b280f82723f830d8e85297c90cb57fad8"
+first_seconds = 2.154431475
+fresh_warmed_bytes = 164992
+fresh_warmed_seconds = 0.021157815
+max_entry_error_increase = 2.917694280624161e-10
+max_result_change = 6.884368601498597e-10
+
+[runs."all_earth/Z"]
+after_max_absolute_error = 0.01110243513586638
+after_worst_entry = "10000000,cable:3:core,cable:3:core"
+baseline_csv_sha256 = "2191de0b3d3cce5bbae75eec5dee2042c9f65683200cf947c22a31e42bef0b17"
+before_max_absolute_error = 0.01110243513586638
+before_worst_entry = "10000000,cable:3:core,cable:3:core"
+fem_csv_sha256 = "0e7a1341b5dfb48bec0350a353822b8a919460b1bf84d9ce12010b8ab70687a4"
+first_seconds = 2.154431475
+fresh_warmed_bytes = 164992
+fresh_warmed_seconds = 0.021157815
+max_entry_error_increase = 2.39179403821628e-15
+max_result_change = 2.392344588403254e-15

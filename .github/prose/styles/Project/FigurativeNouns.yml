@@ -1,0 +1,13 @@
+extends: ai-tells.FigurativeNouns
+exceptions:
+  # Physical material interfaces and the equations evaluated on them.
+  - '(?i)(?:the|its|each|an\s+explicit)\s+(?:conductor\s+)?surface[-\s]+(?:terms|impedances?|equations?|recipe|current|approximations|designation|and\s+transfer)'
+  - '(?i)(?:its\s+plane|a\s+wire|same\s+separating)\s+surface'
+  - '(?i)the\s+surface\s+z'
+tests:
+  - name: physical interface
+    input: "Compute the surface impedance."
+    want: ""
+  - name: figurative interface
+    input: "This changes the prose surface."
+    contains: Project.FigurativeNouns

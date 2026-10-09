@@ -1,0 +1,311 @@
+# Architecture violations present when the guards in
+# `test/quality/architecture.jl` were introduced. Delete or lower entries only.
+# Print the live inventory with `test/tools/architecture_inventory.jl`.
+
+[ownership]
+"Commons | LineCableModels.description | src/commons/formulas.jl" = 3
+"Commons | LineCableModels.formula_id | src/commons/formulas.jl" = 1
+"Earth.EquivalentHomogeneous | LineCableModels.description | src/earth/equivalenthomogeneous/interface.jl" = 2
+"Earth.FrequencyDependent | LineCableModels.constitutive | src/earth/frequencydependent/interface.jl" = 1
+"Engine | Commons.formulation_options | src/engine/integration.jl" = 1
+"Engine | Commons.observation_resolution | src/engine/lineparameters/resolution.jl" = 1
+"Engine | LineCableModels.constitutive | src/engine/admittance.jl" = 1
+"Engine | LineCableModels.line_length | src/engine/observed_inputs.jl" = 2
+"Engine | Units.quantity | src/engine/lineparameters/quantities.jl" = 3
+"Engine.InsulationAdmittance | Engine.InsulationAdmittanceFormulation | src/engine/insulationadmittance/interface.jl" = 2
+"Engine.InsulationImpedance | Engine.InsulationImpedanceFormulation | src/engine/insulationimpedance/interface.jl" = 1
+"Engine.ModalAnalysis | Commons.normalize_observation_selector | src/engine/modalanalysis/observations.jl" = 2
+"Engine.ModalAnalysis | Commons.observables | src/engine/modalanalysis/observations.jl" = 1
+"Engine.ModalAnalysis | Commons.observation_quantity | src/engine/modalanalysis/observations.jl" = 1
+"Engine.ModalAnalysis | Commons.observation_requests | src/engine/modalanalysis/observations.jl" = 1
+"Engine.ModalAnalysis | Engine.selectdetails | src/engine/modalanalysis/interfaces.jl" = 1
+"Engine.ModalAnalysis | Engine.selectdomain | src/engine/modalanalysis/interfaces.jl" = 1
+"Engine.ModalAnalysis | Units.display_unit | src/engine/modalanalysis/observations.jl" = 51
+"Engine.ModalAnalysis | Units.label | src/engine/modalanalysis/observations.jl" = 51
+"Engine.ModalAnalysis | Units.native_unit | src/engine/modalanalysis/observations.jl" = 51
+"Engine.ModalAnalysis | Units.symbol | src/engine/modalanalysis/observations.jl" = 51
+"Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
+"Engine.ShuntModel | Engine.blueprint_dependencies | src/engine/shuntmodel/blueprint.jl" = 1
+"Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
+"ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
+"Materials.TemperatureDependent | LineCableModels.constitutive | src/materials/temperaturedependent/interface.jl" = 1
+"PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 1
+"PSCAD | ImportExport.export_data | src/pscad/importexport/pscad.jl" = 1
+"PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
+"ParametricBuilder | Commons.compute | src/parametricbuilder/traversal.jl" = 4
+"ParametricBuilder | DataModel.Annulus | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Assembly | src/parametricbuilder/physicaltree.jl" = 1
+"ParametricBuilder | DataModel.Disk | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Ellipse | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Enclosure | src/parametricbuilder/physicaltree.jl" = 1
+"ParametricBuilder | DataModel.Group | src/parametricbuilder/physicaltree.jl" = 1
+"ParametricBuilder | DataModel.Polygon | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Pose2 | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Rectangle | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Region | src/parametricbuilder/physicaltree.jl" = 11
+"ParametricBuilder | DataModel.Sector | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Shell | src/parametricbuilder/geometry.jl" = 1
+"ParametricBuilder | DataModel.Stack | src/parametricbuilder/physicaltree.jl" = 1
+"ParametricBuilder | Engine.CableConstants | src/parametricbuilder/engine/cableconstants.jl" = 1
+"ParametricBuilder | Engine.CableConstantsProblem | src/parametricbuilder/engine/cableconstants.jl" = 1
+"ParametricBuilder | Engine.LineParametersProblem | src/parametricbuilder/system.jl" = 6
+"ParametricBuilder | LineCableModels.Gridspace | src/parametricbuilder/results.jl" = 1
+"ParametricBuilder | LineCableModels.add! | src/parametricbuilder/material.jl" = 1
+"ParametricBuilder | LineCableModels.build | src/parametricbuilder/physicaltree.jl" = 2
+"ParametricBuilder | LineCableModels.build | src/parametricbuilder/system.jl" = 2
+"ParametricBuilder | Materials.Material | src/parametricbuilder/material.jl" = 4
+"ParametricBuilder | TextDisplay.name | src/parametricbuilder/textdisplay.jl" = 6
+"UQ | LineCableModels.materialize | src/uq/results.jl" = 2
+"UQ | LineCableModels.realize | src/uq/montecarlo/compute.jl" = 1
+"UQ | Units.display_unit | src/uq/observations.jl" = 1
+"UQ | Units.label | src/uq/observations.jl" = 4
+"UQ | Units.native_unit | src/uq/observations.jl" = 1
+"UQ | Units.symbol | src/uq/observations.jl" = 4
+
+[placement]
+
+[direction]
+
+[names]
+"_line!" = 2
+"flatten" = 2
+
+[shadowing]
+
+[validate]
+
+[reserved_verbs]
+"src/commons/observables.jl | validate_observables" = 1
+"src/commons/observed_validation.jl | _validate_observed_comparison" = 1
+"src/commons/observed_validation.jl | _validate_observed_cutoff" = 1
+"src/commons/observed_validation.jl | _validate_observed_id" = 1
+"src/commons/observed_validation.jl | _validate_observed_quantity" = 1
+"src/engine/lineparameters/resolution.jl | _validate_resolution_atol" = 1
+"src/engine/modalanalysis/observations.jl | _validate_phase_selector" = 1
+
+[switches]
+"ext/LineCableModelsGmshExt/geometry.jl" = { applicable = 0, eval = 0, kind = 2 }
+"ext/LineCableModelsGmshExt/getdp.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsGmshExt/mesh.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsGmshExt/model.jl" = { applicable = 0, eval = 0, kind = 5 }
+"ext/LineCableModelsGmshExt/voltage_paths.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsMakieExt/guides.jl" = { applicable = 0, eval = 0, kind = 11 }
+"ext/LineCableModelsMakieExt/layout.jl" = { applicable = 0, eval = 0, kind = 8 }
+"ext/LineCableModelsMakieExt/material_colors.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsMakieExt/montecarlo.jl" = { applicable = 0, eval = 0, kind = 1 }
+"ext/LineCableModelsMakieExt/plot.jl" = { applicable = 0, eval = 0, kind = 3 }
+"ext/LineCableModelsMakieExt/recipes/line_data.jl" = { applicable = 0, eval = 0, kind = 5 }
+"ext/LineCableModelsMakieExt/recipes/line_facets.jl" = { applicable = 0, eval = 0, kind = 13 }
+"src/commons/observables.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/commons/observed_validation.jl" = { applicable = 0, eval = 0, kind = 13 }
+"src/commons/observedresult.jl" = { applicable = 1, eval = 0, kind = 9 }
+"src/commons/retained_products.jl" = { applicable = 0, eval = 0, kind = 10 }
+"src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, kind = 4 }
+"src/datamodel/design/group.jl" = { applicable = 0, eval = 0, kind = 3 }
+"src/datamodel/flatten.jl" = { applicable = 0, eval = 0, kind = 4 }
+"src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/datamodel/preview/geometry.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/engine/admittance.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/engine/blueprint.jl" = { applicable = 0, eval = 0, kind = 4 }
+"src/engine/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }
+"src/engine/pipeimpedance/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, kind = 5 }
+"src/importexport/deserialize.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/materials/radialdielectric.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/parametricbuilder/physicaltree.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
+"src/pscad/importexport/project.jl" = { applicable = 0, eval = 0, kind = 1 }
+"src/reportbuilder/tables.jl" = { applicable = 0, eval = 0, kind = 7 }
+
+[storage]
+"src/engine/cableconstants.jl | CableConstantsWorkspace" = 4
+"src/engine/modalanalysis/compute.jl | ModalAnalysisWorkspace" = 8
+
+[dispatch]
+
+[commons]
+"@observe | tests" = 1
+"AbstractCoreResult | tests" = 1
+"AbstractParametricResult | tests" = 1
+"AbstractProblemResult | tests" = 1
+"AbstractResultSpace | tests" = 1
+"AbstractUncertaintyResult | tests" = 1
+"ObservedResult | tests" = 1
+"_description_values! | docstring" = 1
+"_description_values! | owners" = 1
+"_description_values! | public" = 1
+"_description_values! | tests" = 1
+"_description_values! | vocabulary" = 1
+"_observable_declaration | docstring" = 1
+"_observable_declaration | public" = 1
+"_observable_declaration | tests" = 1
+"_observable_declaration | vocabulary" = 1
+"_observe_macro_parts | docstring" = 1
+"_observe_macro_parts | owners" = 1
+"_observe_macro_parts | public" = 1
+"_observe_macro_parts | tests" = 1
+"_observe_macro_parts | vocabulary" = 1
+"_observed_fields | docstring" = 1
+"_observed_fields | public" = 1
+"_observed_fields | tests" = 1
+"_observed_fields | vocabulary" = 1
+"_observed_indices | docstring" = 1
+"_observed_indices | owners" = 1
+"_observed_indices | public" = 1
+"_observed_indices | tests" = 1
+"_observed_indices | vocabulary" = 1
+"_observed_scale | docstring" = 1
+"_observed_scale | owners" = 1
+"_observed_scale | public" = 1
+"_observed_scale | tests" = 1
+"_observed_scale | vocabulary" = 1
+"_reexpress_product | docstring" = 1
+"_reexpress_product | public" = 1
+"_reexpress_product | tests" = 1
+"_reexpress_product | vocabulary" = 1
+"_retained_band_samples | docstring" = 1
+"_retained_band_samples | public" = 1
+"_retained_band_samples | tests" = 1
+"_retained_band_samples | vocabulary" = 1
+"_retained_unit | docstring" = 1
+"_retained_unit | public" = 1
+"_retained_unit | tests" = 1
+"_retained_unit | vocabulary" = 1
+"_same_observed_dependencies | docstring" = 1
+"_same_observed_dependencies | public" = 1
+"_same_observed_dependencies | tests" = 1
+"_same_observed_dependencies | vocabulary" = 1
+"_same_observed_values | docstring" = 1
+"_same_observed_values | public" = 1
+"_same_observed_values | vocabulary" = 1
+"_selected_product | docstring" = 1
+"_selected_product | public" = 1
+"_selected_product | tests" = 1
+"_selected_product | vocabulary" = 1
+"_unit_override | docstring" = 1
+"_unit_override | public" = 1
+"_unit_override | tests" = 1
+"_unit_override | vocabulary" = 1
+"_unit_override_keys | docstring" = 1
+"_unit_override_keys | owners" = 1
+"_unit_override_keys | public" = 1
+"_unit_override_keys | tests" = 1
+"_unit_override_keys | vocabulary" = 1
+"_validate_observed_comparison | docstring" = 1
+"_validate_observed_comparison | public" = 1
+"_validate_observed_comparison | tests" = 1
+"_validate_observed_comparison | vocabulary" = 1
+"_validate_observed_cutoff | docstring" = 1
+"_validate_observed_cutoff | owners" = 1
+"_validate_observed_cutoff | public" = 1
+"_validate_observed_cutoff | tests" = 1
+"_validate_observed_cutoff | vocabulary" = 1
+"_validate_observed_id | docstring" = 1
+"_validate_observed_id | public" = 1
+"_validate_observed_id | tests" = 1
+"_validate_observed_id | vocabulary" = 1
+"_validate_observed_quantity | docstring" = 1
+"_validate_observed_quantity | public" = 1
+"_validate_observed_quantity | vocabulary" = 1
+"computation_details | tests" = 1
+"gridpoint_id | tests" = 1
+"gridpoint_id | vocabulary" = 1
+"input_fields | tests" = 1
+"materialize_observation | owners" = 1
+"materialize_observation | tests" = 1
+"materialize_observation | vocabulary" = 1
+"normalize_observation_selector | tests" = 1
+"observables | tests" = 1
+"observation_gridpoint | tests" = 1
+"observation_groups | tests" = 1
+"observation_groups | vocabulary" = 1
+"observation_indices | tests" = 1
+"observation_indices | vocabulary" = 1
+"observation_labels | tests" = 1
+"observation_labels | vocabulary" = 1
+"observation_product | tests" = 1
+"observation_product | vocabulary" = 1
+"observation_request | tests" = 1
+"observation_request | vocabulary" = 1
+"observation_requests | tests" = 1
+"observation_resolution | tests" = 1
+"observation_selection | tests" = 1
+"observation_selection | vocabulary" = 1
+"request_identity | tests" = 1
+"request_identity | vocabulary" = 1
+"request_indices | tests" = 1
+"request_indices | vocabulary" = 1
+"request_quantity | tests" = 1
+"request_quantity | vocabulary" = 1
+"unit_targets | owners" = 1
+"unit_targets | tests" = 1
+"unit_targets | vocabulary" = 1
+"validate_observables | tests" = 1
+"validate_observables | vocabulary" = 1
+
+[vocabulary]
+
+[fingerprints]
+
+[clones]
+
+[helpers]
+"ext/LineCableModelsGmshExt/compute.jl" = 2
+"ext/LineCableModelsGmshExt/geometry.jl" = 3
+"ext/LineCableModelsGmshExt/getdp.jl" = 2
+"ext/LineCableModelsGmshExt/mesh.jl" = 1
+"ext/LineCableModelsGmshExt/model.jl" = 2
+"ext/LineCableModelsGmshExt/onelab.jl" = 1
+"ext/LineCableModelsGmshExt/results.jl" = 2
+"ext/LineCableModelsGmshExt/workers.jl" = 3
+"ext/LineCableModelsMakieExt/controls.jl" = 1
+"ext/LineCableModelsMakieExt/export_presentation.jl" = 2
+"ext/LineCableModelsMakieExt/layout.jl" = 3
+"ext/LineCableModelsMakieExt/material_colors.jl" = 3
+"ext/LineCableModelsMakieExt/native_export.jl" = 1
+"ext/LineCableModelsMakieExt/recipes/preview_data.jl" = 2
+"ext/LineCableModelsMakieExt/recipes/preview_render.jl" = 1
+"ext/LineCableModelsMakieExt/shell.jl" = 5
+"src/commons/observables.jl" = 1
+"src/commons/observed_validation.jl" = 1
+"src/datamodel/cableslibrary/vdeparse.jl" = 2
+"src/datamodel/flatten.jl" = 6
+"src/datamodel/geometry/pose.jl" = 1
+"src/datamodel/geometry/sector.jl" = 4
+"src/datamodel/linecablesystem/clearance.jl" = 1
+"src/datamodel/placement/compaction.jl" = 1
+"src/datamodel/placement/paths.jl" = 4
+"src/datamodel/placement/patterns.jl" = 1
+"src/datamodel/preview/materials.jl" = 1
+"src/datamodel/textdisplay.jl" = 1
+"src/earth/base.jl" = 2
+"src/earth/earthlayer.jl" = 1
+"src/engine/cableconstants.jl" = 1
+"src/engine/formulations.jl" = 1
+"src/engine/problems.jl" = 1
+"src/engine/shuntmodel/charge_collocation.jl" = 2
+"src/gridspace.jl" = 3
+"src/importexport/deserialize.jl" = 1
+"src/importexport/observed.jl" = 1
+"src/parametricbuilder/engine/cableconstants.jl" = 1
+"src/parametricbuilder/macros.jl" = 3
+"src/parametricbuilder/physicaltree.jl" = 4
+"src/parametricbuilder/positions.jl" = 1
+"src/parametricbuilder/results.jl" = 1
+"src/parametricbuilder/system.jl" = 1
+"src/parametricbuilder/wirepatterns/gauges.jl" = 1
+"src/pscad/compute.jl" = 1
+"src/pscad/importexport/import.jl" = 2
+"src/pscad/importexport/project.jl" = 2
+"src/pscad/importexport/schema.jl" = 1
+"src/pscad/results.jl" = 3
+"src/textdisplay/TextDisplay.jl" = 2
+"src/units/scaling.jl" = 1
+"src/units/units.jl" = 2
+"src/uq/montecarlo/compute.jl" = 4
+"src/uq/results.jl" = 2
+
+[root]
+"LineCableModels" = 63

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+  "version": "0.2",
+  "language": "en-US",
+  "unknownWords": "report-common-typos",
+  "dictionaries": [
+    "julia",
+    "project"
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "project",
+      "path": "words.txt",
+      "addWords": false
+    }
+  ],
+  "useGitignore": false,
+  "noConfigSearch": true,
+  "validateDirectives": true,
+  "ignoreRegExpList": [
+    "/\\$\\$[\\s\\S]*?\\$\\$/g",
+    "/\\\\[A-Za-z]+/g",
+    "/\\[Cc\\]andidate/g",
+    "/Approche complète de la propagation multifilaire en haute fréquence\\s+par utilisation des matrices complexes/g",
+    "/\\bconductivity_micro_siemens_per_centimetre\\b/g",
+    "/\\bearth_spectral_neighbourhood!/g"
+  ],
+  "overrides": [
+    {
+      "filename": "**/*",
+      "languageId": ""
+    },
+    {
+      "filename": [
+        "**/src/datamodel/placement/bounded.jl",
+        "**/test/unit/datamodel/baseparams/geometry.jl"
+      ],
+      "words": ["neighbour"]
+    },
+    {
+      "filename": ["**/*.md", "**/*.markdown"],
+      "ignoreRegExpList": ["/(?<![\\w$])\\$(?![$(])[^$\\n]+\\$(?![\\w$])/g"]
+    },
+    {
+      "filename": [
+        "**/test/unit/engine/options.jl",
+        "**/test/unit/engine/result_containers.jl"
+      ],
+      "words": [
+        "lenght"
+      ]
+    },
+    {
+      "filename": [
+        "**/src/importexport/tralin.jl",
+        "**/test/unit/importexport/formats.jl"
+      ],
+      "words": [
+        "meghoms"
+      ]
+    },
+    {
+      "filename": [
+        "**/src/datamodel/cableslibrary/vdeparse.jl",
+        "**/test/unit/datamodel/vdeparse.jl"
+      ],
+      "words": [
+        "aluminium",
+        "galvanised"
+      ]
+    }
+  ]
+}

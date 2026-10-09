@@ -1,0 +1,188 @@
+@testitem "PSCAD / shared grammar and constitutive export" tags=[:integration, :pscad] begin
+    using LineCableModels
+    const P=LineCableModels.PSCAD
+    copper=Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
+    semicon=Material(:semicon, 1e4, 40; tan_delta = 0.02)
+    dielectric=Material(:insulator, 1e8, 2.3; tan_delta = 0.03)
+    design=build(CableDesign,
+        "pscad-formula-probe",
+        terminal(:core,
+            solid(copper, Disk(0.004)), screen(semicon; t = 0.0005),
+            insulation(dielectric; t = 0.002)))
+    earth=homogeneous(rho = 100.0)
+    problem(height)=LineParametersProblem(
+        build(LineCableSystem, [design], [Pose2(0, height)];
+            connections = [Dict(:core=>1)]);
+        earth_props = earth,
+        temperature = 60,
+        frequencies = collect(10.0 .^ range(-1, 6; length = 101)))
+    overhead, underground=problem(1.0), problem(-1.0)
+    @test validate(overhead, Formulation(:pscad)) === overhead
+    @test validate(underground, Formulation(:pscad)) === underground
+    # The internal slot takes one formula. PSCAD's default is Wedepohl's.
+    @test_throws MethodError Formulation(:pscad;
+        internal_impedance=(transfer=:default,inner=:default,outer=:default))
+    @test LineCableModels.computation_details(Formulation(:pscad)).data.methods.internal_impedance.identifier ===
+        :wedepohl1973
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad;internal_impedance=:schelkunoff1934),underground)
+    @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
+    for selected_problem in (overhead, underground)
+        resolved=Formulation(:pscad)
+        @test map(formula_id, resolved.methods.earth_impedance) ==
+            (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
+        @test formula_id(resolved.definitions.earth_impedance) === :default
+        @test all(control -> control.value == 2, P.pscad_setting(resolved, selected_problem).ground)
+    end
+    @test only(P.pscad_setting(Formulation(:pscad), overhead).interactions.earth_impedance).source == 1
+    @test only(P.pscad_setting(Formulation(:pscad), underground).interactions.earth_impedance).source == 2
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_impedance = :gary1976), underground)
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_impedance = :carson1926), underground)
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_properties = :cigre2019), underground)
+    @test_throws r"not yet implemented" compute(underground, Formulation(earth_impedance = :pollaczek1926))
+    @test P.pscad_setting(Formulation(:pscad; earth_impedance=:pollaczek1926), underground).ground ==
+          P.pscad_setting(Formulation(:pscad), underground).ground
+    for key in keys(Formulation(:pscad).definitions)
+        selection=NamedTuple{(key,)}((Grid((formula(:default), formula(:default))),))
+        space=Formulation(:pscad; selection...)
+        @test space isa Gridspace{P.PSCADFormulation}
+        @test length(space) == 2
+    end
+    product=Formulation(:pscad; earth_impedance = Grid((:default, :saad1996)),
+        insulation_admittance = Grid((:default, :lossy)))
+    zipped=Formulation(:pscad; earth_impedance = Grid((:default, :saad1996)),
+        insulation_admittance = Grid((:default, :lossy)), combine = :zip)
+    @test length(product) == 4
+    @test length(zipped) == 2
+
+    # Native reuse is determined by exported numerical inputs plus solver setting,
+    # not by whether the requested selector happened to be :default.
+    @test_throws ArgumentError compute(underground, P.PSCADFormulation[])
+    requested=(Formulation(:pscad),
+        Formulation(:pscad; earth_impedance = :pollaczek1926),
+        Formulation(:pscad; insulation_admittance = :lossy))
+    resolved=requested
+    root=mktempdir()
+    staged_projects=[P._stage_pscad_project(P._pscad_inputs(underground, value, P._pscad_blueprints(underground.system)), root) for value in resolved]
+    try
+        @test length(unique(getproperty.(staged_projects, :root))) == 3
+        @test all(project -> dirname(project.root) == root,staged_projects)
+        projects=[read(value.staged, String) for value in staged_projects]
+        @test projects[1] == projects[2]
+        @test projects[1] != projects[3]
+        @test P.pscad_setting(resolved[1], underground).ground ==
+              P.pscad_setting(resolved[2], underground).ground
+        @test P.pscad_setting(Formulation(:pscad; earth_impedance = :saad1996), underground) !=
+              P.pscad_setting(resolved[1], underground)
+    finally
+        foreach(value->rm(value.root; recursive = true), staged_projects)
+    end
+
+    @test NamedTuple(Formulation(:pscad)).methods.internal_impedance.identifier === :wedepohl1973
+    baseline=LineCableModels.computation_details(Formulation(:pscad))
+    alternative=LineCableModels.computation_details(Formulation(:pscad;
+        earth_impedance = :saad1996, insulation_admittance = :lossy))
+    @test_throws ArgumentError Formulation(:pscad;
+        earth_impedance = formula(:default; equivalent_earth = formula(:default)))
+    @test typeof(baseline) === typeof(alternative)
+    result=LineParameters(PhaseDomain, zeros(ComplexF64, 1, 1, 1),
+        zeros(ComplexF64, 1, 1, 1), [50.0]; details = ComputationDetails(;formulations = baseline.data,))
+    @test computation_details(typeof(Formulation(:pscad)), result) === details(result)
+end
+
+@testitem "PSCAD / native settings exist for the supported formulas only" tags=[:integration, :pscad] begin
+    const P=LineCableModels.PSCAD
+    const EI=LineCableModels.Engine.EarthImpedance
+    const EA=LineCableModels.Engine.EarthAdmittance
+    pscad=Formulation(:pscad)
+    # The registered formulas that PSCAD supports for each interaction.
+    supported=(
+        (EI, P.earth_impedance, (:self, 1, 1), (:carson1926, :gary1976)),
+        (EI, P.earth_impedance, (:mutual, 1, 1), (:carson1926, :gary1976)),
+        (EI, P.earth_impedance, (:self, 2, 2), (:pollaczek1926, :saad1996, :wedepohl1973)),
+        (EI, P.earth_impedance, (:mutual, 2, 2), (:pollaczek1926, :saad1996, :wedepohl1973)),
+        (EI, P.earth_impedance, (:mutual, 1, 2), (:ametani2009, :lucca1994)),
+        (EI, P.earth_impedance, (:mutual, 2, 1), (:ametani2009, :lucca1994)),
+        (EI, P.earth_impedance, (:self, 1, 2), ()),
+        (EI, P.earth_impedance, (:mutual, 2, 3), ()),
+        (EA, P.earth_potential_coefficient, (:self, 1, 1), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:mutual, 1, 1), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:self, 2, 2), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:mutual, 2, 2), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:mutual, 1, 2), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:mutual, 2, 1), (:ideal,)),
+        (EA, P.earth_potential_coefficient, (:self, 1, 2), ()),
+        (EA, P.earth_potential_coefficient, (:mutual, 2, 3), ()))
+    for (owner, equation, (kind, source, target), expected) in supported,
+            identifier in owner.formulas(owner.Formula)
+        selectors=(Val(kind), Val(source), Val(target))
+        if identifier in expected
+            @test equation(owner.Formula(identifier), selectors..., pscad) isa NamedTuple
+        else
+            @test_throws ArgumentError equation(owner.Formula(identifier), selectors..., pscad)
+        end
+    end
+end
+
+@testitem "PSCAD / consumes complete homogeneous choices and preserves export settings" tags=[:integration, :pscad] begin
+    using EzXML
+    const P = LineCableModels.PSCAD
+    const E = LineCableModels.Engine
+    copper = Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
+    design = build(CableDesign, "mixed-native-fixture", terminal(:core,
+        solid(copper, Disk(0.004)), insulation(Material(:insulator, 1e14, 2.3); t = 0.002)))
+    system = build(LineCableSystem, [design, design], [Pose2(0, 2), Pose2(1, -1)];
+        connections = [Dict(:core => 1), Dict(:core => 2)])
+    problem = LineParametersProblem(system; temperature = 60,
+        earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
+    choices = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)
+    selected = Formulation(:pscad; earth_impedance = choices)
+    setting = P.pscad_setting(selected, problem)
+    @test map(control -> control.value, setting.ground) == (EarthForm2 = 0, EarthForm = 3, EarthForm3 = 2)
+    @test Set((r.formula, r.kind, r.source, r.target) for r in setting.interactions.earth_impedance) ==
+        Set(((:gary1976, :self, 1, 1), (:saad1996, :self, 2, 2),
+            (:lucca1994, :mutual, 1, 2), (:lucca1994, :mutual, 2, 1)))
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_impedance = :lucca1994), problem)
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_admittance = :pollaczek1926), problem)
+    for invalid_choices in ((air = :pollaczek1926, earth = :saad1996, mixed = :lucca1994),
+            (air = :gary1976, earth = :carson1926, mixed = :lucca1994))
+        @test_throws ArgumentError P.pscad_setting(
+            Formulation(:pscad; earth_impedance = invalid_choices), problem)
+    end
+    @test_throws ArgumentError P.pscad_setting(
+        Formulation(:pscad; earth_impedance = (
+            air = formula(:gary1976; options = (integration = (method = :quad,),)),
+            earth = :saad1996, mixed = :lucca1994)), problem)
+    staged = P._stage_pscad_project(P._pscad_inputs(problem, selected, P._pscad_blueprints(problem.system)), mktempdir())
+    try
+        document = EzXML.readxml(staged.staged)
+        ground = only(EzXML.findall("//User[@defn='master:Line_Ground']", document))
+        fields = Dict(node["name"] => node["value"] for node in EzXML.findall("./paramlist/param", ground))
+        @test all(parse(Float64, fields[string(name)]) == control.value for (name, control) in pairs(setting.ground))
+        frequency = only(EzXML.findall("//User[@defn='master:Line_FrePhase_Options']", document))
+        fields = Dict(node["name"] => node["value"] for node in EzXML.findall("./paramlist/param", frequency))
+        @test parse(Float64, fields["enablf"]) == 1
+        for cable in EzXML.findall("//User[@defn='master:Cable_Coax']", document)
+            fields = Dict(node["name"] => node["value"] for node in EzXML.findall("./paramlist/param", cable))
+            @test parse(Float64, fields["RHOC"]) ≈ 1.72e-8 * (1 + 0.004 * 40)
+            @test parse(Float64, fields["LT1"]) == 0
+        end
+    finally
+        rm(staged.root; recursive = true)
+    end
+    record = NamedTuple(selected)
+    @test map(value -> value.identifier,record.requested.earth_impedance) == choices
+    @test record.methods.earth_admittance.identifier === :ideal
+    @test record.requested.earth_impedance.air.identifier === :gary1976
+    vertical = LineParametersProblem(build(LineCableSystem, [design, design],
+        [Pose2(0, -1), Pose2(0, -2)]; connections = [Dict(:core => 1), Dict(:core => 2)]);
+        earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
+    native = P.pscad_setting(Formulation(:pscad; earth_impedance = :wedepohl1973), vertical)
+    @test native.ground.EarthForm.readback == "WEDEPOHL"
+    @test Set(row.kind for row in native.interactions.earth_impedance) == Set((:self, :mutual))
+end

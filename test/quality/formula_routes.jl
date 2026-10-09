@@ -1,0 +1,129 @@
+@testitem "Quality / formula registry / every registered identity constructs through each route" tags=[:quality] setup=[FormulaFamilies] begin
+    const C=LineCableModels.Commons
+    families=FormulaFamilies.families()
+    @test length(families) == 12
+    for family in families
+        F=family.Formula
+        registered=C.formulas(F)
+        @test allunique(registered)
+        @test :default in registered
+        installed=formula_id(F(:default))
+        @test installed in registered && installed !== :default
+        for identifier in registered
+            selected=F(identifier)
+            # The convenience routes and a passive definition construct the same formula type.
+            @test typeof(F(Val(identifier))) === typeof(selected)
+            @test typeof(F(formula(identifier))) === typeof(selected)
+            @test typeof(F{identifier}()) === typeof(selected)
+            @test formula_id(selected) === (identifier === :default ? installed : identifier)
+            @test F(selected) === selected
+            @test formula_id(typeof(selected)) === formula_id(selected)
+            @test NamedTuple(selected).identifier === formula_id(selected)
+        end
+        @test_throws ArgumentError F(:UnregisteredIdentity)
+    end
+    # An unspecified slot of a backend resolves through its family's `:default`.
+    for (backend, formulation) in ((LineParametersFormulation, Formulation()),
+            (CableConstantsFormulation, CableConstantsFormulation()))
+        for (slot, F) in pairs(backend)
+            @test isequal(getproperty(formulation.methods, slot), F(:default))
+        end
+    end
+    @test isequal(ModalAnalysisFormulation().formula, LineCableModels.ModalAnalysis.Formula(:default))
+end
+
+@testitem "Quality / native equation bindings and closed built-in formula lists" tags=[:quality] setup=[FormulaFixtures,FormulaFamilies] begin
+    const E=LineCableModels.Engine
+    const EP=LineCableModels.Earth
+    const Expression=LineCableModels.Expression
+    # The expression routes below cover the families whose formulas have options and run
+    # in the frequency loop. PipeImpedance formulas have no options, and ShuntModel
+    # formulas run at blueprint time.
+    owners=filter(family -> family ∉ (E.PipeImpedance, E.ShuntModel), FormulaFamilies.families())
+    scalar_operations=(E.InsulationImpedance=>E.InsulationImpedance.insulation_impedance,
+        E.InsulationAdmittance=>E.InsulationAdmittance.insulation_material,
+        E.SemiconAdmittance=>E.SemiconAdmittance.semicon_material,
+        EP.FrequencyDependent=>EP.FrequencyDependent.earth_material,
+        LineCableModels.ModalAnalysis=>LineCableModels.ModalAnalysis.decompose!,
+        LineCableModels.Materials.TemperatureDependent=>
+            LineCableModels.Materials.TemperatureDependent.temperature_resistivity)
+    for owner in owners, identifier in owner.formulas(owner.Formula)
+        selected=owner.Formula(identifier)
+        @test fieldtype(typeof(selected), :options) <: FormulationOptions
+        @test formulation_options(selected) === selected.options
+        @test formula_id(selected) !== :default
+        @test owner.Formula(selected) === selected
+        routes = if owner in (E.EarthImpedance,E.EarthAdmittance)
+            expressions=Expression[]
+            for kind in (:self,:mutual), source in 1:2, target in 1:2
+                kind === :self && source != target && continue
+                pair=E.EarthPair(1,kind === :self ? 1 : 2,
+                    (source == 1 ? 1.0 : -1.0,target == 1 ? 1.0 : -1.0),
+                    kind === :self ? 0.0 : 1.0,(source,target);
+                    radius=kind === :self ? 0.01 : nothing)
+                expression=Expression(selected,pair)
+                # Registration and indexed binding do not claim an implemented
+                # equation. Actual supported, stub and unsupported calls are covered
+                # by the execution tests, not a reflected coverage list.
+                push!(expressions,expression)
+            end
+            expressions
+        elseif owner === E.InternalImpedance
+            Tuple(Expression(selected,owner.internal_impedance,Val(kind)) for kind in (:inner,:outer,:transfer))
+        elseif owner === EP.EquivalentHomogeneous
+            (Expression(selected,E.EarthPair(1,1,(1.0,1.0),0.0,(1,1);radius=0.01)),)
+        else
+            operation=only(last(entry) for entry in scalar_operations if first(entry) === owner)
+            (Expression(selected,operation),)
+        end
+        for route in routes
+            @test route.selection === selected
+            @test typeof(route).parameters[1] === typeof(selected)
+            # Unified's operation serves both earth families from EarthAdmittance.
+            home = route.method === E.EarthAdmittance.source_coefficients ?
+                   E.EarthAdmittance : owner
+            @test parentmodule(route.method) === home
+            @test all(arg->arg isa Val,route.arguments)
+            @test formulation_options(route) isa FormulationOptions
+            @test_throws MethodError computation_options(route)
+            @test_throws MethodError formulation_options(route, ComputationOptions())
+        end
+    end
+    M=FormulaFixtures
+    for (owner,custom) in ((E.InternalImpedance,M.SurfaceLaw()),
+            (E.InsulationImpedance,M.InsulationReactance()),
+            (E.InsulationAdmittance,M.InsulationLaw()),(E.SemiconAdmittance,M.SemiconLaw()),
+            (E.EarthImpedance,M.selection(E.EarthImpedance)),
+            (E.EarthAdmittance,M.selection(E.EarthAdmittance)),
+            (EP.FrequencyDependent,M.DispersiveEarth()),
+            (EP.EquivalentHomogeneous,M.MeanEarth()),
+            (LineCableModels.Materials.TemperatureDependent,M.ConstantResistivity(1e-8)),
+            (E.ShuntModel,M.UserCoaxialShunt()),(E.PipeImpedance,M.UserCoaxialPipe()))
+        @test owner.Formula(custom) === custom
+        @test formula_id(custom) ∉ owner.formulas(owner.Formula)
+    end
+end
+
+@testitem "Quality / user-owned shunt and pipe selections reach blueprint and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures,ModalFormulaFixtures] begin
+    M=FormulaFixtures
+    shunt=M.UserCoaxialShunt()
+    selected=Formulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe())
+    problem=TestFixtures.line_parameters_problem(frequencies=[50.0,500.0])
+    actual=compute(problem,selected)
+    expected=compute(problem,Formulation())
+    @test Z(actual)==Z(expected) && Y(actual)==Y(expected)
+    @test shunt.response_count[]==length(problem.system.designs)
+    @test details(actual).data.formulations.methods.shunt_model.identifier === :UserCoaxialShunt
+    @test details(actual).data.formulations.methods.pipe_impedance.identifier === :UserCoaxialPipe
+    constants=CableConstantsProblem(first(problem.system.designs);frequency=50.0)
+    @test compute(constants,CableConstantsFormulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe()))==
+        compute(constants,CableConstantsFormulation())
+    source=TestFixtures.two_conductor_results()
+    # Modal selections are admitted through the modal action, not a callback bag.
+    maps=operators(compute(ModalAnalysisProblem(source),ModalAnalysisFormulation()))
+    custom=ModalFormulaFixtures.FixedModalMaps(maps.Tv,maps.Ti)
+    action=ModalAnalysisFormulation(custom)
+    @test action.formula === custom
+    @test action.definition === custom
+    @test all(isfinite,Z(compute(ModalAnalysisProblem(source),action)))
+end
