@@ -24,9 +24,9 @@ $(TYPEDSIGNATURES)
 
 Construct an internal-impedance formulation. Numerical controls are projected
 onto its surface equations. Unknown numerical sections are rejected.
-Custom formulations subtype `InternalImpedanceFormulation`, build the values that their
-surface impedances share in a `Functor` method on their own type, and extend
-`internal_impedance` on their own type.
+A custom formulation subtypes `InternalImpedanceFormulation` and extends
+`internal_impedance` on its own type. Its `Functor` method builds the values shared by its
+surface impedances.
 """
 function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
     ID in formulas(Formula) || throw(ArgumentError("unknown internal-impedance formula :$ID"))
@@ -72,9 +72,9 @@ function surface_impedances(formula::InternalImpedanceFormulation, r_in, r_ex, r
 end
 
 """
-Evaluate the surface impedances that `Kinds` names. The formula's `Functor` stores the values that the
-surface impedances share, built once per conductor and frequency. Each surface impedance
-evaluates with the options of its own section.
+Evaluate the surface impedances that `Kinds` names. The formula's `Functor` stores the values
+shared by its surface impedances, built once per conductor and frequency. Each surface
+impedance evaluates with the options of its own section.
 """
 @inline function surface_impedances(formula::InternalImpedanceFormulation, ::Val{Kinds},
         r_in, r_ex, rho, mu_r, jω; workspace=nothing) where {Kinds}

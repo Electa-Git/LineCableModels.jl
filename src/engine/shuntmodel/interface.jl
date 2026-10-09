@@ -35,7 +35,7 @@ domains before frequency evaluation.
   A finite result's quality warning never triggers this fallback.
 - `options=(;)`: geometric boundary `resolution=(wire=64, order=32, quadrature=256,
   modes=1024)`, `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`, and
-  `audit=false`. The audit recomputes an independent boundary grid and checks
+  `audit=false`, where the audit recomputes an independent boundary grid to check
   derivative step refinement. The equivalent model does not accept numerical controls.
 
 # Returns

@@ -49,10 +49,9 @@ one that needs arrays adds an `initialize_buffers` method. IDs are for inspectio
 
 ### Expressions
 
-`Commons.Expression(formula, operation, selectors...)` names one expression of a formula: the
-formula object, the family operation and the `Val` selectors of the part, such as the kind
-and the source and target layers of an earth interaction, or the inner, outer or transfer
-kind of an internal impedance. Calling the expression with a Functor and a workspace evaluates
+`Commons.Expression(formula, operation, selectors...)` names one expression of a formula.
+Its `Val` selectors identify the part, such as the kind and the source and target layers of
+an earth interaction, or the inner, outer or transfer kind of an internal impedance. Calling the expression with a Functor and a workspace evaluates
 `operation(formula, selectors..., functor, workspace)`. The formula object comes first, and
 the selectors follow it.
 

@@ -160,7 +160,7 @@ end
     native = pscad.methods.earth_impedance
     for (s,t) in ((1,2), (2,1))
         @test_throws r"not yet implemented" E.EarthImpedance.earth_impedance(
-            selected, Val(:mutual), Val(s), Val(t), nothing, nothing, nothing)
+            selected, Val(:mutual), Val(s), Val(t), nothing, nothing)
         @test P.earth_impedance(native, Val(:mutual), Val(s), Val(t), pscad).EarthForm3.readback == "AMETANIL"
     end
     copper = Material(:conductor, 1.72e-8, 1.0)

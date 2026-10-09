@@ -281,10 +281,10 @@ the earlier revision.
   scenario per computation shape. Each scenario lists the positional arguments of
   `compute` for a coaxial cable system, three bare wires in air and in earth, a modal
   composition, CableConstants, a product and a zip parametric study, LinearError and
-  MonteCarlo with a fixed seed. Two more put the coaxial system on an earth of three soil
-  layers: `three_layer` with the default formulation, which consumes the `:default`
-  reduction, and `three_layer_before_fd` with a dispersive soil law before the bottommost
-  reduction. `test/tools/allocations.jl` runs the corpus at 2 and at 4
+  MonteCarlo with a fixed seed. `three_layer` puts the coaxial system on an earth of three
+  soil layers with the default formulation, which consumes the `:default` reduction.
+  `three_layer_before_fd` uses the same earth with a dispersive soil law before the
+  bottommost reduction. `test/tools/allocations.jl` runs the corpus at 2 and at 4
   frequencies in a new process and prints the table rows. A row records the allocation
   count of one warmed-up call, which must repeat exactly on each call, and the smallest
   byte total of three calls. Measurements stores a partial derivative only when it is
