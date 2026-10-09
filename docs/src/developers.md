@@ -284,7 +284,8 @@ the earlier revision.
   MonteCarlo with a fixed seed. `three_layer` puts the coaxial system on an earth of three
   soil layers with the default formulation, which consumes the `:default` reduction.
   `three_layer_before_fd` uses the same earth with a dispersive soil law before the
-  bottommost reduction. `test/tools/allocations.jl` runs the corpus at 2 and at 4
+  bottommost reduction. `trefoil` computes three cables of tutorial 2, with stranded
+  cores, wire screens, a tape and semiconducting screens. `test/tools/allocations.jl` runs the corpus at 2 and at 4
   frequencies in a new process and prints the table rows. A row records the allocation
   count of one warmed-up call, which must repeat exactly on each call, and the smallest
   byte total of three calls. Measurements stores a partial derivative only when it is

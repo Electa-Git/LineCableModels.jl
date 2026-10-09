@@ -156,7 +156,8 @@ module CurrentScenarios
     Each scenario is the tuple of positional arguments of `compute`, with `n` analysis
     frequencies between 10 Hz and 100 kHz. The CableConstants problem has its own
     single frequency. LinearError and MonteCarlo require the Measurements extension.
-    New scenarios are appended, never inserted: the allocation counts depend on what a
+    `trefoil` is the only scenario with stranded cores, wire screens, a tape and
+    semiconducting screens. New scenarios are appended, never inserted: the allocation counts depend on what a
     process computed before. `counters` instruments the parametric scenarios for the
     equivalence check and leaves their results unchanged.
     """
@@ -188,7 +189,8 @@ module CurrentScenarios
                 MonteCarlo(Formulation(); trials=4, seed=2027)),
             three_layer=(layered, Formulation()),
             three_layer_before_fd=(layered, Formulation(earth_properties=formula(:alipio2014),
-                earth_impedance=before_fd, earth_admittance=before_fd)))
+                earth_impedance=before_fd, earth_admittance=before_fd)),
+            trefoil=(line_parameters_problem(trefoil_system(); frequencies), Formulation()))
     end
 
     """
