@@ -30,6 +30,7 @@ import LineCableModels.Commons: AbstractFormulation, ComputationOptions, Computa
 using DocStringExtensions: TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 import LineCableModels: constitutive
 import LineCableModels.DataModel
+using LineCableModels.DataModel.BaseParams: equivalent_eps
 import LineCableModels.Engine
 import LineCableModels.ImportExport: import_data, export_data
 import EzXML

@@ -102,7 +102,7 @@ end
     end
     blueprint = DM.flatten(centered)
     @test blueprint.assembly_ranges == [1:2]
-    layers = blueprint.dielectrics[blueprint.dielectric_ranges[2]]
+    layers = blueprint[2].layers
     @test all(zip(layers, ((7.5e-3, 8.5e-3), (8.5e-3, 12.0e-3), (12.0e-3, 14.0e-3)))) do (
             layer, radii)
         layer.r_in ≈ radii[1] && layer.r_ex ≈ radii[2]

@@ -31,11 +31,18 @@ it opens the project.
   applied here during export, not in geometric flattening. `nothing` retains
   the material reference temperatures.
 
+Each coaxial group of each design becomes one `Cable_Coax` at the group's position.
+Each conductor writes its resistivity at `temperature`. The exporter evaluates its
+dielectric group at `base_freq` and `temperature`. `EPS` is the group's equivalent
+relative permittivity, and `LT` its ratio G/(ωC) of conductance to susceptance.
+
 !!! note
-    PSCAD uses a reference-frequency equivalent loss tangent, bounded at ten.
-    It does not reproduce an arbitrary broadband constitutive law. Exporting
-    the selected relation matches its radial admittance at `base_freq` before
-    that cap, not necessarily at every frequency in a later PSCAD scan.
+    PSCAD reads the conductance of a group as ωC·LT, and the exporter caps `LT` at
+    ten. Where G/(ωC) exceeds ten, the exporter writes ten, and PSCAD receives
+    10ωC: a fraction 10ωC/G of the group's conductance. This happens only where
+    conduction dominates the group, as in an interval of semicon alone or at very low
+    frequency. Below the bound, the exported group matches the selected laws at
+    `base_freq`, not necessarily at every frequency of a later PSCAD scan.
 
 # Returns
 
@@ -71,9 +78,8 @@ function export_data(
     ))
     #! explicit-imports: on
     blueprints = _pscad_blueprints(system)
-    components = [_pscad_components(blueprint, base_freq, formulation, temperature)
-                  for blueprint in blueprints]
-    document = _pscad_project(system, earth, base_freq, components; native_settings)
+    document = _pscad_project(system, earth, base_freq, blueprints, formulation,
+        temperature; native_settings)
     write(path, document)
     return path
 end

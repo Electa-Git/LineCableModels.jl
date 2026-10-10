@@ -7,22 +7,13 @@ end
 @testitem "ImportExport / ATP / LineCableSystem LCC export" tags=[:integration, :importexport] setup=[
     UseImportExportSupport, TestNumerics,
     TestFixtures, CableSystemFixture, deps_export_atp] begin
-    # The 50 Hz reduction of the ATP and TRALIN exporters, built from the blueprint.
-    function reduced_components(design, frequency)
-        blueprint=LineCableModels.DataModel.flatten(design)
-        omega=2π*frequency
-        map(eachindex(blueprint.conductors)) do index
-            conductor=blueprint.conductors[index]
-            layers=blueprint.dielectrics[blueprint.dielectric_ranges[index]]
-            circuit=LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
-            dielectric=(r_in=isempty(layers) ? conductor.r_ex : first(layers).r_in,
-                r_ex=isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
-                shunt_capacitance=circuit.capacitance,
-                shunt_conductance=circuit.conductance)
-            material=LineCableModels.DataModel.equivalent_dielectric_material(dielectric,
-                blueprint.mu_r_ins[index], conductor.material.T0, omega)
-            (; name=conductor.terminal, conductor, dielectric=merge(dielectric, (; material)))
-        end
+    # The lossless equivalent permittivity of a conductor's dielectric group: its layers in
+    # series, eps_eq = log(b/a) / sum(log(r_ex/r_in) / eps_r).
+    function lossless_permittivity(blueprint, index)
+        layers=blueprint[index].layers
+        isempty(layers) && return 0.0
+        log(last(layers).r_ex/first(layers).r_in)/
+            sum(layer->log(layer.r_ex/layer.r_in)/layer.material.eps_r, layers)
     end
 
     # 1. ARRANGE & ACT: run the export in a temporary directory
@@ -72,43 +63,32 @@ end
         for (i, cable_node) in enumerate(cable_nodes)
             source_design=cable_system.designs[i]
             source_position=cable_system.positions[i]
-            source_components=reduced_components(source_design, problem_atp.frequencies[1])
+            blueprint=LineCableModels.DataModel.flatten(source_design)
 
             # Verify position of EACH cable
             @test parse(Float64, cable_node["PosX"]) ≈ source_position.x
             @test parse(Float64, cable_node["PosY"]) ≈ source_position.y
 
             # Verify the number of conductor components inside this cable
-            num_components=length(source_components)
+            num_components=length(blueprint.conductors)
             @test parse(Int, cable_node["NumCond"]) == num_components
 
             conductor_nodes=findall("conductor", cable_node)
             @test length(conductor_nodes) == num_components
 
-            # Loop through each conductor component within the cable
+            # The default formulation is lossless: the groups have no conductance, and
+            # ATPDraw takes the capacitance from epsI alone.
             for (j, conductor_node) in enumerate(conductor_nodes)
-                source_component=source_components[j]
-                conductor=source_component.conductor
-                dielectric=source_component.dielectric
-
-                expected_radius_in=conductor.r_in
-                expected_radius_ext=conductor.r_ex
-                expected_rho=conductor.material.rho
-                expected_muC=conductor.material.mu_r
-                expected_epsI=dielectric.material.eps_r
-                expected_muI=dielectric.material.mu_r
-                expected_Cext=dielectric.shunt_capacitance
-                expected_Gext=dielectric.shunt_conductance
-
-                # Assert that every attribute matches the expected value
-                @test parse(Float64, conductor_node["Rin"]) ≈ expected_radius_in
-                @test parse(Float64, conductor_node["Rout"]) ≈ expected_radius_ext
-                @test parse(Float64, conductor_node["rho"]) ≈ expected_rho
-                @test parse(Float64, conductor_node["muC"]) ≈ expected_muC
-                @test parse(Float64, conductor_node["muI"]) ≈ expected_muI
-                @test parse(Float64, conductor_node["epsI"]) ≈ expected_epsI
-                @test parse(Float64, conductor_node["Cext"]) ≈ expected_Cext
-                @test parse(Float64, conductor_node["Gext"]) ≈ expected_Gext
+                conductor=blueprint.conductors[j]
+                @test parse(Float64, conductor_node["Rin"]) ≈ conductor.r_in
+                @test parse(Float64, conductor_node["Rout"]) ≈ conductor.r_ex
+                @test parse(Float64, conductor_node["rho"]) ≈ conductor.material.rho
+                @test parse(Float64, conductor_node["muC"]) ≈ conductor.material.mu_r
+                @test parse(Float64, conductor_node["muI"]) ≈ blueprint.mu_r_ins[j]
+                @test parse(Float64, conductor_node["epsI"]) ≈
+                      lossless_permittivity(blueprint, j) rtol=1e-12
+                @test parse(Float64, conductor_node["Cext"]) == 0
+                @test parse(Float64, conductor_node["Gext"]) == 0
             end
         end
     end

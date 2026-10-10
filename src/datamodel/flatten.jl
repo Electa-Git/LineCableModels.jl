@@ -976,44 +976,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate the shunt capacitance \\[F/m\\] and conductance \\[S/m\\] of one radial
-dielectric layer at `angular_frequency` \\[rad/s\\]. Polarization loss tangent
-excludes the conduction already represented by material resistivity.
-"""
-function dielectric_circuit(layer, angular_frequency::Real)
-    capacitance = shunt_capacitance(layer.r_in, layer.r_ex, layer.material.eps_r)
-    return (
-        capacitance = capacitance,
-        conductance = shunt_conductance(
-            layer.r_in,
-            layer.r_ex,
-            layer.material.rho
-        ) + angular_frequency * capacitance * layer.material.tan_delta
-    )
-end
-
-function dielectric_circuit(layers, angular_frequency::Real, ::Type{T}) where {T <: Real}
-    isempty(layers) && return (
-        capacitance = zero(T),
-        conductance = zero(T)
-    )
-    combined = dielectric_circuit(first(layers), angular_frequency)
-    @inbounds for layer in Iterators.drop(layers, 1)
-        circuit = dielectric_circuit(layer, angular_frequency)
-        combined = series_shunt_admittance(
-            combined.conductance,
-            combined.capacitance,
-            circuit.conductance,
-            circuit.capacitance,
-            angular_frequency
-        )
-    end
-    return combined
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Initialize the frequency-independent radial dielectric description from its
 innermost layer.
 """
@@ -1083,61 +1045,6 @@ function empty_dielectric(conductor, ::Type{T}) where {T <: Real}
         position = conductor.position,
         reference_temperature = conductor.reference_temperature,
         layers = Layer[]
-    )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Convert a completed scalar dielectric reduction into a homogeneous material
-that matches its capacitance and conductance at `angular_frequency` \\[rad/s\\].
-Resistivity retains the series DC conduction. The remaining conductance is
-represented by polarization loss tangent, including interfacial polarization
-from heterogeneous layers. The equivalent is a reference-frequency export,
-not a broadband replacement for the original physical layers.
-
-The relative permeability `mu_r` is the interval's `mu_r_ins` in the
-[`CableBlueprint`](@ref): the radial material average with the conductor's
-helical-solenoid correction.
-"""
-function equivalent_dielectric_material(dielectric, mu_r, reference_temperature,
-        angular_frequency::Real)
-    isempty(dielectric.layers) && return Material(
-        :insulator,
-        oftype(dielectric.r_in, Inf),
-        zero(dielectric.r_in),
-        mu_r,
-        reference_temperature,
-        zero(dielectric.r_in)
-    )
-    dc_conductance = inv(sum(dielectric.layers) do layer
-        inv(shunt_conductance(layer.r_in, layer.r_ex, layer.material.rho))
-    end)
-    polarization_conductance = dielectric.shunt_conductance - dc_conductance
-    tolerance = 100 * eps(typeof(float(nominal(dc_conductance)))) *
-                max(abs(dielectric.shunt_conductance), abs(dc_conductance))
-    polarization_conductance >= -tolerance || throw(DomainError(
-        polarization_conductance,
-        "equivalent dielectric conductance must not be smaller than its DC limit"))
-    polarization_conductance = max(zero(polarization_conductance), polarization_conductance)
-    loss_tangent = iszero(polarization_conductance) ? zero(polarization_conductance) :
-                   polarization_conductance / (angular_frequency * dielectric.shunt_capacitance)
-    return Material(
-        :insulator,
-        inv(equivalent_conductivity(
-            dc_conductance,
-            dielectric.r_in,
-            dielectric.r_ex
-        )),
-        equivalent_eps(
-            dielectric.shunt_capacitance,
-            dielectric.r_ex,
-            dielectric.r_in
-        ),
-        mu_r,
-        reference_temperature,
-        zero(dielectric.r_in);
-        tan_delta = loss_tangent
     )
 end
 
@@ -1626,7 +1533,7 @@ function homogenize(
     for assembly in blueprint.assembly_ranges
         parts = AbstractCablePart[]
         for index in assembly
-            conductor = blueprint.conductors[index]
+            (; conductor, layers, mu_r_ins) = blueprint[index]
             terminal = conductor.terminal
             conductor_primitive = iszero(conductor.r_in) ?
                                   Disk(conductor.r_ex) :
@@ -1646,13 +1553,12 @@ function homogenize(
                     nothing
                 ))
 
-            layers = @view blueprint.dielectrics[blueprint.dielectric_ranges[index]]
             isempty(layers) && continue
             # The solenoid factor of the interval: its permeability over the radial mean.
             weights = [log(layer.r_ex / layer.r_in) for layer in layers]
             radial_mu = sum(w * layer.material.mu_r for (w, layer) in zip(weights, layers)) /
                         sum(weights)
-            mu_scale = blueprint.mu_r_ins[index] / radial_mu
+            mu_scale = mu_r_ins / radial_mu
             for (position, layer) in pairs(layers)
                 source = layer.material
                 push!(parts,

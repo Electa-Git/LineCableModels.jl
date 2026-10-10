@@ -243,7 +243,8 @@ function _pscad_hierarchy!(project, namespace::AbstractString)
     return hierarchy
 end
 
-function _pscad_part_parameters(component, index::Int, angular_frequency)
+function _pscad_part_parameters(blueprint::DataModel.CableBlueprint, index::Int, slot::Int,
+        frequency, formulation, temperature)
     radii = (("R1", "R2", "R3"), ("R4", "R4", "R5"),
         ("R6", "R6", "R7"), ("R8", "R8", "R9"))
     resistivities = ("RHOC", "RHOS", "RHOA", "RHOO")
@@ -251,36 +252,52 @@ function _pscad_part_parameters(component, index::Int, angular_frequency)
     dielectric_permittivities = ("EPS1", "EPS2", "EPS3", "EPS4")
     dielectric_permeabilities = ("PERM1", "PERM2", "PERM3", "PERM4")
     loss_tangents = ("LT1", "LT2", "LT3", "LT4")
-    conductor_name = "CONNAM$index"
-    inner_name, outer_name, insulation_name = radii[index]
-    conductor = component.conductor
-    dielectric = component.dielectric
-    capacitance = dielectric.shunt_capacitance
-    conductance = dielectric.shunt_conductance
-    loss = iszero(capacitance) ? zero(capacitance) :
-           conductance / (angular_frequency * capacitance)
+    conductor_name = "CONNAM$slot"
+    inner_name, outer_name, insulation_name = radii[slot]
+    T = eltype(blueprint)
+    methods = formulation.methods
+    (; conductor, layers, mu_r_ins) = blueprint[index]
+    metal = conductor.material
+    operating = temperature === nothing ? nothing : convert(T, temperature)
+    rho = constitutive(methods.temperature_dependence, metal, something(operating, metal.T0))
+    # The group's admittance puts its layers in series, each under the law of its class.
+    # PSCAD reads the capacitance from the equivalent permittivity, and the conductance
+    # from the loss tangent G/(ωC). A conductor without dielectric layers has none.
+    laws = (methods.insulation_admittance, methods.semicon_admittance)
+    omega = 2 * (one(T) * pi) * convert(T, frequency)
+    Y = isempty(layers) ? zero(Complex{T}) :
+        inv(sum(layer -> log(layer.r_ex / layer.r_in) /
+                         (2 * (one(T) * pi) * constitutive(laws, layer.material, frequency,
+            something(operating, layer.material.T0);
+            temperature_dependence = methods.temperature_dependence)), layers))
+    capacitance = imag(Y) / omega
+    outer, eps_eq = isempty(layers) ? (conductor.r_ex, zero(T)) :
+                    (last(layers).r_ex,
+        equivalent_eps(capacitance, last(layers).r_ex, first(layers).r_in))
+    loss = iszero(capacitance) ? zero(T) : real(Y) / (omega * capacitance)
 
     parameters = Pair{String, String}[
-    conductor_name => uppercasefirst(String(component.name)),
+    conductor_name => uppercasefirst(String(conductor.terminal)),
     outer_name => _pscad_value(conductor.r_ex),
-    resistivities[index] => _pscad_value(conductor.material.rho),
-    permeabilities[index] => _pscad_value(conductor.material.mu_r),
-    insulation_name => _pscad_value(dielectric.r_ex),
-    dielectric_permittivities[index] => _pscad_value(dielectric.material.eps_r),
-    dielectric_permeabilities[index] => _pscad_value(dielectric.material.mu_r),
-    loss_tangents[index] => _pscad_value(
+    resistivities[slot] => _pscad_value(rho),
+    permeabilities[slot] => _pscad_value(metal.mu_r),
+    insulation_name => _pscad_value(outer),
+    dielectric_permittivities[slot] => _pscad_value(eps_eq),
+    dielectric_permeabilities[slot] => _pscad_value(mu_r_ins),
+    loss_tangents[slot] => _pscad_value(
         loss; maximum = 10)
 ]
-    index == 1 && pushfirst!(
+    slot == 1 && pushfirst!(
         parameters,
         inner_name => _pscad_value(conductor.r_in)
     )
-    index > 1 && push!(parameters, "elim$(index - 1)" => "0")
-    push!(parameters, "T$(2index + 1)" => "0.0000")
-    index == 1 && append!(parameters, [
+    slot > 1 && push!(parameters, "elim$(slot - 1)" => "0")
+    push!(parameters, "T$(2slot + 1)" => "0.0000")
+    slot == 1 && append!(parameters, [
         "SemiCL" => "0", "SL2" => "0.0000", "SL1" => "0.0000"
     ])
-    return parameters
+    # The loss tangent before the cap, which native runs record.
+    return (; parameters, loss)
 end
 
 function _empty_pscad_part(index::Int)
@@ -307,110 +324,65 @@ function _empty_pscad_part(index::Int)
     return parameters
 end
 
-function _pscad_components(blueprint::DataModel.CableBlueprint, frequency, formulation, temperature)
-    T = eltype(blueprint)
-    omega = 2 * (one(T) * pi) * convert(T, frequency)
-    epsilon0 = vacuum_permittivity(T)
-    return map(eachindex(blueprint.conductors)) do index
-        conductor = blueprint.conductors[index]
-        material = conductor.material
-        operating = temperature === nothing ? material.T0 : convert(T, temperature)
-        rho = constitutive(formulation.methods.temperature_dependence, material, operating)
-        metal = Material(material.kind, rho, material.eps_r, material.mu_r,
-            material.T0, material.alpha; rho_thermal = material.rho_thermal,
-            theta_max = material.theta_max, tan_delta = material.tan_delta,
-            sigma_solar = material.sigma_solar)
-        layers = @view blueprint.dielectrics[blueprint.dielectric_ranges[index]]
-        impedance = zero(Complex{T})
-        for layer in layers
-            source = layer.material
-            operating = temperature === nothing ? source.T0 : convert(T, temperature)
-            kappa = constitutive((formulation.methods.insulation_admittance,
-                    formulation.methods.semicon_admittance), source, frequency, operating;
-                temperature_dependence = formulation.methods.temperature_dependence)
-            impedance += inv(Engine.layer_admittance(layer.r_in, layer.r_ex, kappa))
-        end
-        admittance = isempty(layers) ? zero(Complex{T}) : inv(impedance)
-        capacitance = imag(admittance) / omega
-        outer = isempty(layers) ? conductor.r_ex : last(layers).r_ex
-        epsilon = isempty(layers) ? zero(T) :
-                  capacitance * log(outer / conductor.r_ex) /
-                  (2 * (one(T) * pi) * epsilon0)
-        dielectric = Material(:insulator, oftype(epsilon, Inf), epsilon,
-            blueprint.mu_r_ins[index])
-        return (name = conductor.terminal,
-            conductor = (r_in = conductor.r_in, r_ex = conductor.r_ex, material = metal),
-            dielectric = (r_ex = outer, material = dielectric,
-                shunt_capacitance = capacitance, shunt_conductance = real(admittance)))
-    end
-end
-
 function _pscad_cable_parameters(
         design,
-        components,
+        blueprint::DataModel.CableBlueprint,
+        assembly::Int,
         position,
         connections,
         index::Int,
-        base_frequency
+        base_frequency,
+        formulation,
+        temperature
 )
-    length(components) <= 4 || throw(ArgumentError(
+    conductors = blueprint.assembly_ranges[assembly]
+    length(conductors) <= 4 || throw(ArgumentError(
         "PSCAD Cable_Coax supports at most four concentric components",
     ))
-    length(connections) == length(components) || throw(DimensionMismatch(
-        "PSCAD phase mapping must match the cable component count",
-    ))
+    x, y = position(blueprint.positions[assembly])
     # LL=0 is PSCAD's bare-conductor configuration. LL=1 includes insulation.
-    bare = length(components) == 1 &&
-           only(components).dielectric.r_ex == only(components).conductor.r_ex
+    bare = length(conductors) == 1 && isempty(blueprint[only(conductors)].layers)
     parameters = Pair{String, String}[
-    "CABNUM" => string(index),
-    "Name" => design.cable_id,
-    "X" => _pscad_value(position.x),
-    "OHC" => position.y < 0 ?
-                                                                                                                                                                                                                                                  "0" :
-                                                                                                                                                                                                                                                  "1",
-    "Y" => position.y < 0 ?
-                                                                                                                                                                                                                                                                                                   _pscad_value(abs(position.y)) :
-                                                                                                                                                                                                                                                                                                   "0.0",
-    "Y2" => position.y > 0 ?
-                                                                                                                                                                                                                                                                                                                                                                                 _pscad_value(position.y) :
-                                                                                                                                                                                                                                                                                                                                                                                 "0.0",
-    "ShuntA" => "1.0e-38 [mho/m]",
-    "FLT" => _pscad_value(base_frequency),
-    "RorT" => "0",
-    "LL" => bare ?
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     "0" :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     string(2length(components) - 1),
-    "CROSSBOND" => "0",
-    "GROUPNO" => "1",
-    "CBC1" => "1",
-    "CBC2" => "0",
-    "CBC3" => "0",
-    "CBC4" => "0",
-    "SHRad" => "1",
-    "LC" => "3"
-]
-    angular_frequency = 2 * pi * base_frequency
-    for (component_index, component) in enumerate(components)
+        "CABNUM" => string(index),
+        "Name" => design.cable_id,
+        "X" => _pscad_value(x),
+        "OHC" => y < 0 ? "0" : "1",
+        "Y" => y < 0 ? _pscad_value(abs(y)) : "0.0",
+        "Y2" => y > 0 ? _pscad_value(y) : "0.0",
+        "ShuntA" => "1.0e-38 [mho/m]",
+        "FLT" => _pscad_value(base_frequency),
+        "RorT" => "0",
+        "LL" => bare ? "0" : string(2length(conductors) - 1),
+        "CROSSBOND" => "0",
+        "GROUPNO" => "1",
+        "CBC1" => "1",
+        "CBC2" => "0",
+        "CBC3" => "0",
+        "CBC4" => "0",
+        "SHRad" => "1",
+        "LC" => "3"
+    ]
+    for (slot, conductor) in enumerate(conductors)
         append!(parameters, _pscad_part_parameters(
-            component, component_index, angular_frequency
-        ))
-        if component_index > 1
-            elimination = "elim$(component_index - 1)"
+            blueprint, conductor, slot, base_frequency, formulation, temperature
+        ).parameters)
+        if slot > 1
+            elimination = "elim$(slot - 1)"
             parameter_index = findlast(pair -> first(pair) == elimination, parameters)
-            terminal_index = only(findall(==(component.name), design.terminal_order))
+            terminal_index = only(findall(==(blueprint.conductors[conductor].terminal),
+                design.terminal_order))
             parameters[parameter_index] = elimination => (connections[terminal_index] ==
                                                           0 ? "1" : "0")
         end
     end
-    for component_index in (length(components) + 1):4
-        append!(parameters, _empty_pscad_part(component_index))
+    for slot in (length(conductors) + 1):4
+        append!(parameters, _empty_pscad_part(slot))
     end
     return parameters
 end
 
-function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency, components;
-        native_settings::NamedTuple = (;))
+function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency,
+        blueprints, formulation, temperature; native_settings::NamedTuple = (;))
     isempty(setdiff(keys(native_settings), (:ground, :frequency))) || throw(ArgumentError(
         "PSCAD native settings require ground and frequency fields"))
     document = XMLDocument()
@@ -468,24 +440,31 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
         frequency_parameters; x = 576, y = 180)
     addelement!(schematic, "grouping")
     identifier += 1
-    for (index, (design, position, connections)) in enumerate(zip(
+    # One Cable_Coax for each coaxial group.
+    cable = 0
+    for (design, blueprint, position, connections) in zip(
         system.designs,
+        blueprints,
         system.positions,
         system.connections
-    ))
+    ), assembly in eachindex(blueprint.assembly_ranges)
+        cable += 1
         _pscad_user!(
             schematic,
             identifier,
             _PSCAD_CABLE_BINDING,
             _pscad_cable_parameters(
                 design,
-                components[index],
+                blueprint,
+                assembly,
                 position,
                 connections,
-                index,
-                base_frequency
+                cable,
+                base_frequency,
+                formulation,
+                temperature
             );
-            x = 234 + (index - 1) * 400,
+            x = 234 + (cable - 1) * 400,
             y = 612
         )
         identifier += 1

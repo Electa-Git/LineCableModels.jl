@@ -8,22 +8,17 @@
         Dict(parameter["name"]=>parameter["value"]
         for parameter in findall("./paramlist/param", node))
     end
-    # The 50 Hz reduction of the ATP and TRALIN exporters, built from the blueprint.
-    function reduced_components(design, frequency)
-        blueprint=LineCableModels.DataModel.flatten(design)
-        omega=2π*frequency
-        map(eachindex(blueprint.conductors)) do index
-            conductor=blueprint.conductors[index]
-            layers=blueprint.dielectrics[blueprint.dielectric_ranges[index]]
-            circuit=LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
-            dielectric=(r_in=isempty(layers) ? conductor.r_ex : first(layers).r_in,
-                r_ex=isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
-                shunt_capacitance=circuit.capacitance,
-                shunt_conductance=circuit.conductance)
-            material=LineCableModels.DataModel.equivalent_dielectric_material(dielectric,
-                blueprint.mu_r_ins[index], conductor.material.T0, omega)
-            (; name=conductor.terminal, conductor, dielectric=merge(dielectric, (; material)))
-        end
+    # The shunt admittance of a conductor's dielectric group at the reference temperature:
+    # its layers' admittances in series, each from the law of its own class.
+    function group_admittance(blueprint, index, formulation, frequency)
+        layers=blueprint[index].layers
+        isempty(layers) && return 0.0im
+        laws=(formulation.methods.insulation_admittance,
+            formulation.methods.semicon_admittance)
+        inv(sum(layers) do layer
+            kappa=constitutive(laws, layer.material, frequency, layer.material.T0)
+            log(layer.r_ex/layer.r_in)/(2π*kappa)
+        end)
     end
 
     # A split dielectric with distinct laws exercises the actual multilayer
@@ -44,8 +39,9 @@
 
     mktempdir() do directory
         requested=joinpath(directory, "system.pscx")
+        lossy=Formulation(insulation_admittance=:lossy, semicon_admittance=:lossy)
         output=export_data(:pscad, system, earth; file_name = requested,
-            formulation = Formulation(insulation_admittance=:lossy, semicon_admittance=:lossy))
+            formulation = lossy)
         @test output == joinpath(directory, "$(system.system_id)_system.pscx")
         @test isfile(output)
         @test filesize(output) > 200
@@ -95,9 +91,9 @@
             "shntcab" => "0.0"
         )
 
-        expected_components=[reduced_components(design, 50.0) for design in system.designs]
-        @test any(length(component.dielectric.layers) > 1
-        for components in expected_components for component in components)
+        blueprints=[LineCableModels.DataModel.flatten(design) for design in system.designs]
+        @test any(length(range) > 1
+        for blueprint in blueprints for range in blueprint.dielectric_ranges)
         outer_radii=("R2", "R4", "R6", "R8")
         insulation_radii=("R3", "R5", "R7", "R9")
         resistivities=("RHOC", "RHOS", "RHOA", "RHOO")
@@ -105,43 +101,43 @@
         permittivities=("EPS1", "EPS2", "EPS3", "EPS4")
         insulation_mus=("PERM1", "PERM2", "PERM3", "PERM4")
         losses=("LT1", "LT2", "LT3", "LT4")
-        for (index, (node, design, position, components_for_design)) in enumerate(zip(
+        omega=2π*50.0
+        for (index, (node, design, position, blueprint)) in enumerate(zip(
             cables,
             system.designs,
             system.positions,
-            expected_components
+            blueprints
         ))
             values=parameters(node)
+            conductors=blueprint.conductors
             @test values["CABNUM"] == string(index)
             @test values["Name"] == design.cable_id
             @test parse(Float64, values["X"]) ≈ position.x rtol=1e-5
             @test parse(Float64, values["Y"]) ≈ abs(position.y) rtol=1e-5
             @test values["OHC"] == "0"
-            @test values["LL"] == string(2length(components_for_design) - 1)
-            @test values["CONNAM1"] ==
-                  uppercasefirst(String(first(components_for_design).name))
-            @test parse(Float64, values["R1"]) ≈
-                  first(components_for_design).conductor.r_in rtol=1e-5
-            for (component_index, component) in enumerate(components_for_design)
+            @test values["LL"] == string(2length(conductors) - 1)
+            @test values["CONNAM1"] == uppercasefirst(String(first(conductors).terminal))
+            @test parse(Float64, values["R1"]) ≈ first(conductors).r_in rtol=1e-5
+            for (component_index, conductor) in enumerate(conductors)
+                layers=blueprint[component_index].layers
+                outer=isempty(layers) ? conductor.r_ex : last(layers).r_ex
+                admittance=group_admittance(blueprint, component_index, lossy, 50.0)
+                capacitance=imag(admittance)/omega
                 @test parse(Float64, values[outer_radii[component_index]]) ≈
-                      component.conductor.r_ex rtol=1e-5
+                      conductor.r_ex rtol=1e-5
                 @test parse(Float64, values[insulation_radii[component_index]]) ≈
-                      component.dielectric.r_ex rtol=1e-5
+                      outer rtol=1e-5
                 @test parse(Float64, values[resistivities[component_index]]) ≈
-                      component.conductor.material.rho rtol=1e-5
+                      conductor.material.rho rtol=1e-5
                 @test parse(Float64, values[conductor_mus[component_index]]) ≈
-                      component.conductor.material.mu_r rtol=1e-5
+                      conductor.material.mu_r rtol=1e-5
                 @test parse(Float64, values[permittivities[component_index]]) ≈
-                      component.dielectric.material.eps_r rtol=1e-5
+                      LineCableModels.DataModel.BaseParams.equivalent_eps(capacitance, outer,
+                          conductor.r_ex) rtol=1e-5
                 @test parse(Float64, values[insulation_mus[component_index]]) ≈
-                      component.dielectric.material.mu_r rtol=1e-5
-                capacitance=component.dielectric.shunt_capacitance
+                      blueprint.mu_r_ins[component_index] rtol=1e-5
                 expected_loss=iszero(capacitance) ? 0.0 :
-                              min(
-                    component.dielectric.shunt_conductance/
-                    (2π*50.0*capacitance),
-                    10.0
-                )
+                              min(real(admittance)/(omega*capacitance), 10.0)
                 @test parse(Float64, values[losses[component_index]])≈
                 expected_loss rtol=1e-5 atol=1e-12
             end
@@ -248,22 +244,17 @@ end
     UseImportExportSupport,
     TestFixtures
 ] begin
-    # The 50 Hz reduction of the ATP and TRALIN exporters, built from the blueprint.
-    function reduced_components(design, frequency)
-        blueprint=LineCableModels.DataModel.flatten(design)
-        omega=2π*frequency
-        map(eachindex(blueprint.conductors)) do index
-            conductor=blueprint.conductors[index]
-            layers=blueprint.dielectrics[blueprint.dielectric_ranges[index]]
-            circuit=LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
-            dielectric=(r_in=isempty(layers) ? conductor.r_ex : first(layers).r_in,
-                r_ex=isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
-                shunt_capacitance=circuit.capacitance,
-                shunt_conductance=circuit.conductance)
-            material=LineCableModels.DataModel.equivalent_dielectric_material(dielectric,
-                blueprint.mu_r_ins[index], conductor.material.T0, omega)
-            (; name=conductor.terminal, conductor, dielectric=merge(dielectric, (; material)))
-        end
+    # The shunt admittance of a conductor's dielectric group at the reference temperature:
+    # its layers' admittances in series, each from the law of its own class.
+    function group_admittance(blueprint, index, formulation, frequency)
+        layers=blueprint[index].layers
+        isempty(layers) && return 0.0im
+        laws=(formulation.methods.insulation_admittance,
+            formulation.methods.semicon_admittance)
+        inv(sum(layers) do layer
+            kappa=constitutive(laws, layer.material, frequency, layer.material.T0)
+            log(layer.r_ex/layer.r_in)/(2π*kappa)
+        end)
     end
     # A split dielectric with distinct laws exercises the actual multilayer
     # exporter. A generic coaxial recipe need not include this extra scenario.
@@ -282,11 +273,12 @@ end
     earth=EarthModel(100.0, 10.0, 1.0)
 
     mktempdir() do directory
+        lossy=Formulation(insulation_admittance=:lossy, semicon_admittance=:lossy)
         output=export_data(
             :pscad,
             system,
             earth;
-            formulation = Formulation(insulation_admittance=:lossy, semicon_admittance=:lossy),
+            formulation = lossy,
             file_name = joinpath(directory, "system.pscx")
         )
         imported_earth, imported_system=import_data(:pscad, output)
@@ -315,18 +307,19 @@ end
             @test imported_connections == original_connections
             @test imported_design.cable_id == original_design.cable_id
             @test imported_design.terminal_order == original_design.terminal_order
-            actual_components=reduced_components(imported_design, 50.0)
-            expected_components=reduced_components(original_design, 50.0)
-            for (actual, expected) in zip(actual_components, expected_components)
-                @test actual.conductor.r_in ≈ expected.conductor.r_in rtol=1e-5
-                @test actual.conductor.r_ex ≈ expected.conductor.r_ex rtol=1e-5
-                @test actual.dielectric.r_ex ≈ expected.dielectric.r_ex rtol=1e-5
-                @test actual.conductor.material.rho ≈ expected.conductor.material.rho rtol=1e-5
-                @test actual.conductor.material.mu_r ≈ expected.conductor.material.mu_r rtol=1e-5
-                @test actual.dielectric.material.eps_r ≈ expected.dielectric.material.eps_r rtol=1e-5
-                @test actual.dielectric.material.rho > 0
-                @test actual.dielectric.material.mu_r ≈
-                      expected.dielectric.material.mu_r rtol=1e-5
+            # The import keeps the capacitance and conductance of each group at 50 Hz,
+            # under the laws of the export.
+            actual=LineCableModels.DataModel.flatten(imported_design)
+            expected=LineCableModels.DataModel.flatten(original_design)
+            for (index, (a, e)) in enumerate(zip(actual.conductors, expected.conductors))
+                @test a.r_in ≈ e.r_in rtol=1e-5
+                @test a.r_ex ≈ e.r_ex rtol=1e-5
+                @test a.material.rho ≈ e.material.rho rtol=1e-5
+                @test a.material.mu_r ≈ e.material.mu_r rtol=1e-5
+                @test last(actual[index].layers).r_ex ≈ last(expected[index].layers).r_ex rtol=1e-5
+                @test group_admittance(actual, index, lossy, 50.0) ≈
+                      group_admittance(expected, index, lossy, 50.0) rtol=1e-5
+                @test actual.mu_r_ins[index] ≈ expected.mu_r_ins[index] rtol=1e-5
             end
         end
 

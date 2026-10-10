@@ -45,12 +45,18 @@
     for request in (R,L,C,G)
         @test request(constants) ≈ request(reference_constants) rtol=2e-13
     end
-    const IE = LineCableModels.ImportExport
-    exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.DataModel.flatten(design),50.0,selected,80.0))
-    expected = only(LineCableModels.PSCAD._pscad_components(LineCableModels.DataModel.flatten(reference_design),50.0,identity,80.0))
-    @test exported.conductor.material.rho == expected.conductor.material.rho
-    @test exported.dielectric.shunt_conductance ≈ expected.dielectric.shunt_conductance
-    @test exported.dielectric.shunt_capacitance ≈ expected.dielectric.shunt_capacitance
+    # Each exporter applies the law to the conductor and to the dielectric group.
+    mktempdir() do directory
+        for (format, extension) in ((:atp, ".xml"), (:pscad, ".pscx"), (:tralin, ".f05"))
+            written = map(((system, selected), (system_with(reference_design), identity))) do (
+                    source, formulation)
+                path = export_data(format, source, problem.earth_props; formulation,
+                    temperature = 80.0, file_name = joinpath(directory, "export" * extension))
+                read(path, String)
+            end
+            @test first(written) == last(written)
+        end
+    end
     hot = LineParametersProblem(system;temperature=250.0,frequencies=[50.0],earth_props=problem.earth_props)
     @test_throws DomainError compute(hot,Formulation())
     @test all(isfinite,compute(hot,identity).Z)

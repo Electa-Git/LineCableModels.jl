@@ -1,11 +1,63 @@
 const _TRALIN_COMP = ("CORE", "SHEATH", "ARMOUR")
 
+"""
+$(TYPEDSIGNATURES)
+
+Write a TRALIN input file for a materialized line-cable system.
+
+The file contains one `GROUP` with one `CABLE` for each coaxial group of each design, at
+the group's position, the frequencies and the earth layers. A cable contains at most three
+components: `CORE`, `SHEATH` and `ARMOUR`.
+
+# Arguments
+
+- `::Val{:tralin}`: TRALIN format selector.
+- `cable_system`: positioned cable designs.
+- `earth_props`: earth model: a uniform soil, or horizontal layers.
+
+# Keywords
+
+- `formulation`: line-parameter or cable-constant formulation. Its insulation, semicon
+  and temperature laws evaluate the materials. Default: [`Formulation`](@ref), whose
+  dielectric laws are lossless.
+- `freq`: one frequency or a vector of frequencies \\[Hz\\]. Default: `50.0`.
+- `temperature`: temperature of operation \\[°C\\]. With `nothing`, each material stays at
+  its reference temperature. Default: `nothing`.
+- `file_name`: output path. The basename takes the prefix `tr_`, and a relative path
+  starts beside this exporter. Default: `nothing`, which writes `tr_<system_id>.f05`.
+
+# Returns
+
+- The absolute output path.
+
+# Notes
+
+- Field 5 is the metal resistivity at `temperature`, relative to 1.7241e-8 Ω·m.
+- The exporter evaluates the dielectric group of each component at the first frequency
+  and at `temperature`.
+- With lossy laws, the group is exact at the first frequency only.
+- Field 7 is the group's equivalent conductivity relative to 1e-14 S/m, and field 8 its
+  equivalent relative permittivity.
+- An `INSULATION` subcommand follows each component with a dielectric group.
+- `INSULATION` gives the group's relative permeability, with the helical-solenoid
+  correction. Its resistivity, thickness and permittivity repeat the inline fields.
+- In `INSULATION`, zero resistivity means no insulation.
+- For a conductivity below 1e-20 S/m, the resolution of field 7, `INSULATION` takes
+  1e20 Ω·m.
+- [`nominal`](@ref) removes uncertainty before the exporter writes the values.
+"""
 function export_data(::Val{:tralin},
         cable_system::LineCableSystem,
         earth_props::EarthModel;
+        formulation::Union{Engine.LineParametersFormulation,
+            Engine.CableConstantsFormulation} = Engine.Formulation(),
         freq = 50.0,
+        temperature::Union{Nothing, Real} = nothing,
         file_name::Union{String, Nothing} = nothing
 )::String
+    laws = (formulation.methods.insulation_admittance,
+        formulation.methods.semicon_admittance)
+    temperature_dependence = formulation.methods.temperature_dependence
 
     #  helpers
     _freqs(x) = x isa AbstractVector ? collect(x) : [x]
@@ -26,30 +78,6 @@ function export_data(::Val{:tralin},
     end
 
     freqs = map(f -> nominal(f), _freqs(freq))
-    # TRALIN defines this explicit radial homogenization choice. The choice is not stored
-    # on CableDesign. Unsupported physical geometry fails at the local
-    # homogenization step. Each conductor of the blueprint gets the series circuit of its
-    # dielectric interval at the first frequency.
-    function tralin_components(design)
-        T = promote_type(typeof(float(first(freqs))), eltype(design))
-        frequency = convert(T, float(first(freqs)))
-        frequency > zero(frequency) || throw(DomainError(
-            frequency, "dielectric reference frequency must be positive"))
-        blueprint = DataModel.flatten(design, T)
-        omega = 2 * (one(T) * pi) * frequency
-        return map(eachindex(blueprint.conductors)) do index
-            conductor = blueprint.conductors[index]
-            layers = @view blueprint.dielectrics[blueprint.dielectric_ranges[index]]
-            circuit = DataModel.dielectric_circuit(layers, omega, T)
-            dielectric = (r_in = isempty(layers) ? conductor.r_ex : first(layers).r_in,
-                r_ex = isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
-                shunt_capacitance = circuit.capacitance,
-                shunt_conductance = circuit.conductance)
-            material = DataModel.equivalent_dielectric_material(dielectric,
-                blueprint.mu_r_ins[index], conductor.material.T0, omega)
-            (; name = conductor.terminal, conductor, dielectric = merge(dielectric, (; material)))
-        end
-    end
 
     #  build TRALIN lines
     lines = String[]
@@ -121,59 +149,75 @@ function export_data(::Val{:tralin},
 
     push!(lines, "SYSTEM")
 
-    for (pidx, (design, position, connections)) in enumerate(zip(
+    # One GROUP with one CABLE for each coaxial group, evaluated at the first frequency.
+    cable = 0
+    for (design, position, connections) in zip(
             cable_system.designs,
             cable_system.positions,
             cable_system.connections
-    ))
-        # Phase group position
-        push!(lines, "GROUP,PH-$(pidx),$(_fmt(position.x)),$(_fmt(position.y))")
+    )
+        T = promote_type(typeof(float(first(freqs))), eltype(design))
+        frequency = convert(T, float(first(freqs)))
+        frequency > zero(frequency) || throw(DomainError(
+            frequency, "dielectric reference frequency must be positive"))
+        blueprint = DataModel.flatten(design, T)
+        omega = 2 * (one(T) * pi) * frequency
+        operating = temperature === nothing ? nothing : convert(T, temperature)
+        for (assembly, conductors) in pairs(blueprint.assembly_ranges)
+            cable += 1
+            x, y = position(blueprint.positions[assembly])
+            push!(lines, "GROUP,PH-$(cable),$(_fmt(x)),$(_fmt(y))")
 
-        comps_vec = tralin_components(design)
-        ncomp = length(comps_vec)
-        if ncomp > 3
-            throw(
-                ArgumentError(
-                "TRALIN supports at most 3 concentric components (CORE/SHEATH/ARMOR); got $ncomp for cable index $pidx.",
-            ),
-            )
-        end
-        # Outer radius for CABLE line
-        outer_R = nominal(max(
-            comps_vec[end].conductor.r_ex,
-            comps_vec[end].dielectric.r_ex
-        ))
-        push!(lines, "CABLE,CA-$(pidx),$(_fmt(outer_R))")
+            ncomp = length(conductors)
+            if ncomp > 3
+                throw(
+                    ArgumentError(
+                    "TRALIN supports at most 3 concentric components (CORE/SHEATH/ARMOR); got $ncomp for cable index $cable.",
+                ),
+                )
+            end
+            # Outer radius for CABLE line
+            outermost = blueprint[last(conductors)]
+            outer_R = isempty(outermost.layers) ? outermost.conductor.r_ex :
+                      max(outermost.conductor.r_ex, last(outermost.layers).r_ex)
+            push!(lines, "CABLE,CA-$(cable),$(_fmt(outer_R))")
 
-        # Strict connection vector
-        conn = connections
-        if length(conn) < ncomp
-            throw(
-                ArgumentError(
-                "connection-vector length $(length(conn)) < number of components $ncomp for cable index $pidx.",
-            ),
-            )
-        end
+            # Emit the component lines (same syntax for CORE/SHEATH/ARMOR)
+            for (slot, index) in enumerate(conductors)
+                label = _TRALIN_COMP[slot]
+                (; conductor, layers, mu_r_ins) = blueprint[index]
+                metal = conductor.material
+                rho = constitutive(temperature_dependence, metal, something(operating, metal.T0))
+                # Field 7 holds the group's equivalent conductivity relative to 1e-14 S/m,
+                # and field 8 its equivalent relative permittivity. The group's admittance
+                # puts its layers in series, each under the law of its class.
+                eps_eq, sigma_eq, thickness = if isempty(layers)
+                    zero(T), zero(T), zero(T)
+                else
+                    Y = inv(sum(layer -> log(layer.r_ex / layer.r_in) /
+                                         (2 * (one(T) * pi) * constitutive(laws, layer.material,
+                        frequency, something(operating, layer.material.T0);
+                        temperature_dependence)), layers))
+                    inner, outer = first(layers).r_in, last(layers).r_ex
+                    equivalent_eps(imag(Y) / omega, outer, inner),
+                    equivalent_conductivity(real(Y), inner, outer), outer - inner
+                end
 
-        # Emit COMPONENT lines (same syntax for CORE/SHEATH/ARMOR)
-        for i in 1:ncomp
-            label = _TRALIN_COMP[i]
-            comp = comps_vec[i]
-            comp_id = String(comp.name)
-
-            conn_val = Int(conn[i])  # 0 or 1..N phases
-
-            conductor = comp.conductor
-            dielectric = comp.dielectric
-
-            rin = _fmt(conductor.r_in)
-            rex = _fmt(conductor.r_ex)
-            rho = _fmt(conductor.material.rho / 1.724e-8)
-            muC = _fmt(conductor.material.mu_r)
-            epsI = _fmt(dielectric.material.eps_r)
-
-            # COMPONENT,<id-string>,<conn-int>,<Rout>,<Rin>,<rho>,<mu_r>,0,<eps>
-            push!(lines, "$label,$comp_id,$conn_val,$rex,$rin,$rho,$muC,0,$epsI")
+                # <label>,<id>,<phase>,<Rout>,<Rin>,<rho/rho_ref>,<mu_r>,<sigma/sigma_ref>,<eps_r>
+                push!(lines,
+                    "$label,$(conductor.terminal),$(Int(connections[index]))," *
+                    "$(_fmt(conductor.r_ex)),$(_fmt(conductor.r_in))," *
+                    "$(_fmt(rho / 1.7241e-8)),$(_fmt(metal.mu_r))," *
+                    "$(_fmt(sigma_eq / 1e-14)),$(_fmt(eps_eq))")
+                isempty(layers) && continue
+                # INSULATION gives the relative permeability of the insulation, and its
+                # other fields repeat the inline ones. There, zero resistivity means no
+                # insulation. A conductivity below 1e-20 S/m, the resolution of field 7,
+                # becomes 1e20 ohm-m.
+                push!(lines,
+                    "INSULATION,$(_fmt(inv(max(nominal(sigma_eq), 1e-20))))," *
+                    "$(_fmt(thickness)),$(_fmt(eps_eq)),$(_fmt(mu_r_ins))")
+            end
         end
     end
 

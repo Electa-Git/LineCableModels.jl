@@ -383,11 +383,14 @@ module CurrentScenarios
     Write `system` on `earth` in `format` to a temporary file and return its text in pieces.
     A piece ends after each newline and between adjacent XML elements, and the pieces join
     back to the file. The equivalence check then reports the element that changed. A
-    `temperature` \\[°C\\] other than `nothing` reaches the exporter as its keyword.
+    `temperature` \\[°C\\] or a `formulation` other than `nothing` reaches the exporter as
+    its keyword.
     """
-    function exported_text(format::Symbol, system, earth, temperature = nothing)
+    function exported_text(format::Symbol, system, earth, temperature = nothing,
+            formulation = nothing)
         extension = (atp = ".xml", pscad = ".pscx", tralin = ".f05")[format]
-        keywords = temperature === nothing ? (;) : (; temperature)
+        keywords = merge(temperature === nothing ? (;) : (; temperature),
+            formulation === nothing ? (;) : (; formulation))
         return mktempdir() do directory
             path = with_logger(NullLogger()) do
                 export_data(format, system, earth;
@@ -406,7 +409,8 @@ module CurrentScenarios
 
     - Export files. ATP, PSCAD and TRALIN write the three-phase system of the preservation
       corpus, the 18 kV trefoil, the 525 kV bipole and the three-core assembly. PSCAD also
-      writes the trefoil at 90 °C.
+      writes the trefoil at 90 °C, and the three formats write it at 90 °C under the lossy
+      laws.
     - Computations. LineParameters at two frequencies and CableConstants run with the
       default formulations. The cables are the open wire screen, the same screen with a
       strip, the 18 kV cable, the 525 kV cable and the three-core assembly. Each cable runs
@@ -435,6 +439,11 @@ module CurrentScenarios
         end
         push!(scenarios,
             :pscad_trefoil_90 => (exported_text, :pscad, systems.trefoil, earth, 90.0))
+        lossy = Formulation(insulation_admittance = :lossy, semicon_admittance = :lossy)
+        for format in (:atp, :pscad, :tralin)
+            push!(scenarios, Symbol(format, :_trefoil_lossy_90) =>
+                (exported_text, format, systems.trefoil, earth, 90.0, lossy))
+        end
         for (name, design) in pairs(designs), (suffix, built) in
                 (("", design), ("_homogenized", homogenize(design)))
             problem = line_parameters_problem(single_cable_system(built); frequencies)

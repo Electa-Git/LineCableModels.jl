@@ -145,6 +145,27 @@ end
             ("CORE","SHEATH","ARMOUR")),readlines(three_path))
         @test first.(split.(component_lines,',')) == ["CORE","SHEATH","ARMOUR"]
         @test [parse(Int,split(line,',')[3]) for line in component_lines] == [1,0,0]
+        # Each component writes its metal resistivity relative to 1.7241e-8 ohm-m. Then it
+        # writes the equivalent conductivity of its group relative to 1e-14 S/m, and its
+        # permittivity.
+        # An INSULATION subcommand repeats them and adds the relative permeability.
+        for (formulation, sigma) in ((Formulation(), 0.0),
+            (Formulation(insulation_admittance=:lossy), 1.0e-14))
+            path=export_data(:tralin,three_system,homogeneous;formulation,temperature=60.0,
+                file_name=joinpath(directory,"three-terminal-fields.f05"))
+            lines=readlines(path)
+            core=findfirst(startswith("CORE,"),lines)
+            fields=split(lines[core],',')
+            @test parse(Float64,fields[6]) ≈ 1.7e-8*(1+0.0039*40)/1.7241e-8 rtol=1e-6
+            @test parse(Float64,fields[8]) ≈ sigma/1e-14 atol=1e-6
+            @test parse(Float64,fields[9]) ≈ 2.3 rtol=1e-6
+            insulation=split(lines[core+1],',')
+            @test first(insulation) == "INSULATION"
+            @test parse(Float64,insulation[2]) ≈ inv(max(sigma,1e-20)) rtol=1e-6
+            @test parse(Float64,insulation[3]) ≈ 1.0e-3 rtol=1e-6
+            @test insulation[4] == fields[9]
+            @test parse(Float64,insulation[5]) ≈ 1.0
+        end
 
         oversized_design=build(CableDesign, "oversized", Stack(parts))
         oversized_system=build(

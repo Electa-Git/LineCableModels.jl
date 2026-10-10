@@ -10,7 +10,6 @@ module BaseParams
 export equivalent_alpha, parallel, helix, strip_resistance
 export tubular_resistance, wire_coordinates
 export strand_gmr, tubular_gmr, equivalent_gmr, equivalent_mu
-export shunt_capacitance, shunt_conductance, series_shunt_admittance
 export solenoid_factor, equivalent_rho, equivalent_eps
 export equivalent_conductivity
 

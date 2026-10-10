@@ -113,23 +113,30 @@ function _pscad_inputs(problem::LineParametersProblem, formulation::PSCADFormula
     _pscad_deterministic(eltype(problem), typeof(formulation.options.data.base_frequency))
     setting = pscad_setting(formulation, problem, blueprints)
     frequency = formulation.options.data.base_frequency
-    components = [_pscad_components(blueprint, frequency, formulation, problem.temperature)
-                  for blueprint in blueprints]
-    native_order = [(cable = cable, terminal = component.name)
-                    for (cable, values) in enumerate(components) for component in values]
+    temperature = problem.temperature
+    # PSCAD writes one cable for each coaxial group and numbers its conductors cable by
+    # cable, in the order of the blueprints.
+    groups = [(blueprint, conductors) for blueprint in blueprints
+              for conductors in blueprint.assembly_ranges]
+    native_order = [(cable = design, terminal = conductor.terminal)
+                    for (design, blueprint) in enumerate(blueprints)
+                    for conductor in blueprint.conductors]
+    native_cables = [cable for (cable, (_, conductors)) in enumerate(groups)
+                     for _ in conductors]
     allunique(native_order) && Set(native_order) == Set(problem.system.terminal_order) ||
         throw(ArgumentError("PSCAD equivalent components must represent every terminal exactly once"))
     requested_order = problem.system.terminal_order[sortperm(problem.system.connection_order)]
     permutation = [only(findall(==(terminal), native_order)) for terminal in requested_order]
-    coordinates = ["cable:$(terminal.cable):$(terminal.terminal)" for terminal in requested_order]
-    document = _pscad_project(problem.system, problem.earth_props, frequency, components;
-        native_settings = setting[(:ground, :frequency)])
+    coordinates = ["cable:$(native_cables[index]):$(native_order[index].terminal)"
+                   for index in permutation]
+    document = _pscad_project(problem.system, problem.earth_props, frequency, blueprints,
+        formulation, temperature; native_settings = setting[(:ground, :frequency)])
     project = sprint(print, document)
-    dielectric_losses = map(enumerate(components)) do (cable, values)
-        map(enumerate(values)) do (layer, component)
-            dielectric = component.dielectric
-            requested = iszero(dielectric.shunt_capacitance) ? 0.0 :
-                        dielectric.shunt_conductance / (2pi * frequency * dielectric.shunt_capacitance)
+    # The loss tangent G/(ωC) of each group, as the project writer evaluates it.
+    dielectric_losses = map(enumerate(groups)) do (cable, (blueprint, conductors))
+        map(enumerate(conductors)) do (layer, index)
+            requested = Float64(_pscad_part_parameters(blueprint, index, layer, frequency,
+                formulation, temperature).loss)
             exported = parse(Float64, _pscad_value(requested; maximum = 10))
             (; cable, layer, requested, exported, capped = requested > 10)
         end

@@ -3,8 +3,9 @@ $(TYPEDSIGNATURES)
 
 Write an ATPDraw LCC project for a materialized line-cable system.
 
-The XML contains cable positions, conductor and insulation properties, line
-length, system frequency, and the resistivity of the last earth layer.
+The XML contains one cable for each coaxial group of each design, at the group's position,
+with conductor and insulation properties. It also contains the line length, the system
+frequency and the resistivity of the last earth layer.
 
 # Arguments
 
@@ -14,7 +15,13 @@ length, system frequency, and the resistivity of the last earth layer.
 
 # Keywords
 
-- `base_freq`: ATP system frequency \\[Hz\\]. Default: `50.0`.
+- `formulation`: line-parameter or cable-constant formulation. Its insulation, semicon
+  and temperature laws evaluate the materials. Default: [`Formulation`](@ref), whose
+  dielectric laws are lossless.
+- `base_freq`: ATP system frequency, and the frequency of the dielectric laws \\[Hz\\].
+  Default: `50.0`.
+- `temperature`: temperature of operation \\[°C\\]. With `nothing`, each material stays at
+  its reference temperature. Default: `nothing`.
 - `file_name`: output path. Relative paths are resolved beside this exporter.
   a supplied basename is prefixed with `cable_system.system_id`. Default:
   `nothing`, which writes `<system_id>_export.xml`.
@@ -38,8 +45,13 @@ Units are printed in the XML file according to the ATPDraw specifications:
 
 # Notes
 
-- The exporter writes explicitly adapted equivalent properties at the common material
-  reference state. Operating-temperature correction is excluded from the export.
+- `rho` is the resistivity of the conductor at `temperature`.
+- The exporter evaluates the dielectric group of each conductor at `base_freq` and
+  `temperature`.
+- `epsI` is the group's equivalent relative permittivity, and `Gext` its shunt
+  conductance.
+- ATPDraw adds `Cext` and `Gext` to the admittance it computes from `epsI`. `epsI` already
+  gives the group's capacitance, and `Cext` is zero.
 - [`nominal`](@ref) removes uncertainty before numeric values are written.
 - LineCableSystem construction, rather than export, checks cable overlap.
 
@@ -47,32 +59,15 @@ Units are printed in the XML file according to the ATPDraw specifications:
 function export_data(::Val{:atp},
         cable_system::LineCableSystem,
         earth_props::EarthModel;
+        formulation::Union{Engine.LineParametersFormulation,
+            Engine.CableConstantsFormulation} = Engine.Formulation(),
         base_freq = 50.0,
+        temperature::Union{Nothing, Real} = nothing,
         file_name::Union{String, Nothing} = nothing
 )::String
-    # ATP defines this explicit homogenization choice. The physical design remains
-    # authoritative. Each conductor of the blueprint gets the series circuit of its
-    # dielectric interval at `base_freq`, at the materials' reference temperature.
-    function atp_components(design)
-        T = promote_type(typeof(float(base_freq)), eltype(design))
-        frequency = convert(T, float(base_freq))
-        frequency > zero(frequency) || throw(DomainError(
-            frequency, "dielectric reference frequency must be positive"))
-        blueprint = DataModel.flatten(design, T)
-        omega = 2 * (one(T) * pi) * frequency
-        return map(eachindex(blueprint.conductors)) do index
-            conductor = blueprint.conductors[index]
-            layers = @view blueprint.dielectrics[blueprint.dielectric_ranges[index]]
-            circuit = DataModel.dielectric_circuit(layers, omega, T)
-            dielectric = (r_in = isempty(layers) ? conductor.r_ex : first(layers).r_in,
-                r_ex = isempty(layers) ? conductor.r_ex : last(layers).r_ex, layers,
-                shunt_capacitance = circuit.capacitance,
-                shunt_conductance = circuit.conductance)
-            material = DataModel.equivalent_dielectric_material(dielectric,
-                blueprint.mu_r_ins[index], conductor.material.T0, omega)
-            (; conductor, dielectric = merge(dielectric, (; material)))
-        end
-    end
+    laws = (formulation.methods.insulation_admittance,
+        formulation.methods.semicon_admittance)
+    temperature_dependence = formulation.methods.temperature_dependence
     function _set_attributes!(element, attrs::Dict)
         for (k, v) in attrs
             element[k] = string(v)
@@ -94,7 +89,15 @@ function export_data(::Val{:atp},
         end
     end
 
-    num_phases = length(cable_system.designs)
+    # One cable for each coaxial group.
+    blueprints = map(cable_system.designs) do design
+        T = promote_type(typeof(float(base_freq)), eltype(design))
+        frequency = convert(T, float(base_freq))
+        frequency > zero(frequency) || throw(DomainError(
+            frequency, "dielectric reference frequency must be positive"))
+        DataModel.flatten(design, T)
+    end
+    num_phases = sum(blueprint -> length(blueprint.assembly_ranges), blueprints)
 
     # Create XML Structure and LCC Component
     doc = XMLDocument()
@@ -188,54 +191,57 @@ function export_data(::Val{:atp},
         Dict("InAirGrnd" => 1, "MatrixOutput" => "true", "ExtraCG" => "$(num_phases)")
     )
 
-    for (k, (design, position)) in enumerate(zip(
-            cable_system.designs,
-            cable_system.positions
-    ))
-        cable_node = addelement!(cable_header, "cable")
-
-        components = atp_components(design)
-        num_components = length(components)
-        outermost = last(components)
-        outermost_radius = nominal(max(
-            outermost.conductor.r_ex,
-            outermost.dielectric.r_ex
-        ))
-
-        _set_attributes!(
-            cable_node,
-            Dict(
-                "NumCond" => num_components,
-                "Rout" => outermost_radius,
-                "PosX" => nominal(position.x),
-                "PosY" => nominal(position.y)
-            )
-        )
-
-        for component in components
-            conductor_node = addelement!(cable_node, "conductor")
-
-            conductor = component.conductor
-            dielectric = component.dielectric
-
-            rho_eq = conductor.material.rho
-            mu_r_cond = conductor.material.mu_r
-            mu_r_ins = dielectric.material.mu_r
-            eps_eq = dielectric.material.eps_r
-
+    for (blueprint, position) in zip(blueprints, cable_system.positions)
+        T = eltype(blueprint)
+        frequency = convert(T, float(base_freq))
+        omega = 2 * (one(T) * pi) * frequency
+        operating = temperature === nothing ? nothing : convert(T, temperature)
+        for (assembly, conductors) in pairs(blueprint.assembly_ranges)
+            cable_node = addelement!(cable_header, "cable")
+            outermost = blueprint[last(conductors)]
+            outermost_radius = nominal(isempty(outermost.layers) ? outermost.conductor.r_ex :
+                                       max(outermost.conductor.r_ex,
+                last(outermost.layers).r_ex))
+            x, y = position(blueprint.positions[assembly])
             _set_attributes!(
-                conductor_node,
+                cable_node,
                 Dict(
-                    "Rin" => nominal(conductor.r_in),
-                    "Rout" => nominal(conductor.r_ex),
-                    "rho" => nominal(rho_eq),
-                    "muC" => nominal(mu_r_cond),
-                    "muI" => nominal(mu_r_ins),
-                    "epsI" => nominal(eps_eq),
-                    "Cext" => nominal(dielectric.shunt_capacitance),
-                    "Gext" => nominal(dielectric.shunt_conductance)
+                    "NumCond" => length(conductors),
+                    "Rout" => outermost_radius,
+                    "PosX" => nominal(x),
+                    "PosY" => nominal(y)
                 )
             )
+
+            for index in conductors
+                conductor_node = addelement!(cable_node, "conductor")
+                (; conductor, layers, mu_r_ins) = blueprint[index]
+                metal = conductor.material
+                rho = constitutive(temperature_dependence, metal, something(operating, metal.T0))
+                # The group's admittance puts its layers in series, each under the law of its
+                # class. A conductor without dielectric layers has none.
+                Y = isempty(layers) ? zero(Complex{T}) :
+                    inv(sum(layer -> log(layer.r_ex / layer.r_in) /
+                                     (2 * (one(T) * pi) * constitutive(laws, layer.material,
+                        frequency, something(operating, layer.material.T0);
+                        temperature_dependence)), layers))
+                eps_eq = isempty(layers) ? zero(T) :
+                         equivalent_eps(imag(Y) / omega, last(layers).r_ex, first(layers).r_in)
+
+                _set_attributes!(
+                    conductor_node,
+                    Dict(
+                        "Rin" => nominal(conductor.r_in),
+                        "Rout" => nominal(conductor.r_ex),
+                        "rho" => nominal(rho),
+                        "muC" => nominal(metal.mu_r),
+                        "muI" => nominal(mu_r_ins),
+                        "epsI" => nominal(eps_eq),
+                        "Cext" => zero(nominal(eps_eq)),
+                        "Gext" => nominal(real(Y))
+                    )
+                )
+            end
         end
     end
 

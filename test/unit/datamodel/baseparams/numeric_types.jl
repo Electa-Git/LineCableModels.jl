@@ -13,22 +13,22 @@
                 r_ex,
                 rho
             )
-            capacitance=shunt_capacitance(r_in, r_ex, T(2.3))
-            conductance=shunt_conductance(r_in, r_ex, T(1e9))
+            permittivity=equivalent_eps(T(1e-10), r_ex, r_in)
+            conductivity=equivalent_conductivity(T(1e-9), r_in, r_ex)
 
             @test resistance isa T
-            @test capacitance isa T
-            @test conductance isa T
+            @test permittivity isa T
+            @test conductivity isa T
 
             @test TestNumerics.isapprox_scaled(
                 resistance,
                 rho / (T(π) * (r_ex^2 - r_in^2))
             )
             @test TestNumerics.isapprox_scaled(
-                conductance,
-                T(2) * T(π) / (T(1e9) * log(r_ex / r_in))
+                conductivity,
+                T(1e-9) * log(r_ex / r_in) / (T(2) * T(π))
             )
-            @test capacitance > zero(T)
+            @test permittivity > zero(T)
         end
     end
 
@@ -36,27 +36,28 @@
     complex_result=parallel(ComplexF32(1, 2), ComplexF32(3, 4))
     @test complex_result isa ComplexF32
 
-    normalized=shunt_capacitance(Float32(0.01), 0.02, big"2.3")
+    normalized=equivalent_eps(big"1e-10", 0.02, Float32(0.01))
     @test normalized isa BigFloat
 end
 
 @testitem "BaseParams / numeric matrix / cross-precision convergence" tags=[:unit, :datamodel] setup=[
     UseBaseParamsSupport
 ] begin
-    # Independent electrostatic Dirichlet solution v=log(b/r)/log(b/a):
-    # integrate normal displacement on the inner circular boundary.
-    oracle=setprecision(BigFloat,256) do
+    # Independent electrostatic Dirichlet solution v=log(b/r)/log(b/a): integrate normal
+    # displacement on the inner circular boundary. The capacitance of the interval with
+    # relative permittivity 3 gives back 3.
+    capacitance=setprecision(BigFloat,256) do
         2big(pi)*big"8.8541878128e-12"*3/log(big".01"/big".005")
     end
 
     approximations=(
-        shunt_capacitance(Float32(.005), Float32(.01), Float32(3.0)),
-        shunt_capacitance(.005, .01, 3.0),
+        equivalent_eps(Float32(capacitance), Float32(.01), Float32(.005)),
+        equivalent_eps(Float64(capacitance), .01, .005),
         setprecision(BigFloat, 128) do
-            shunt_capacitance(big".005", big".01", big"3")
+            equivalent_eps(BigFloat(capacitance), big".01", big".005")
         end
     )
-    errors=map(value->abs(BigFloat(value)-oracle)/abs(oracle), approximations)
+    errors=map(value->abs(BigFloat(value)-3)/3, approximations)
     @test errors[2] <= errors[1]
     @test errors[3] <= errors[2]
     @test errors[1] < sqrt(eps(Float32))

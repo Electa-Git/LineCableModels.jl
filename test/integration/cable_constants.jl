@@ -161,13 +161,12 @@
               tubular_resistance(source.r_in, source.r_ex, source.material.rho) rtol = 1e-12
         @test tubular_gmr(reduced.r_ex, reduced.r_in, reduced.material.mu_r) ≈
               tubular_gmr(source.r_ex, source.r_in, source.material.mu_r) rtol = 1e-12
-        source_circuit=LineCableModels.DataModel.dielectric_circuit(
-            blueprint.dielectrics[blueprint.dielectric_ranges[index]], 2π * 50.0, Float64)
-        reduced_circuit=LineCableModels.DataModel.dielectric_circuit(
-            reduced_blueprint.dielectrics[reduced_blueprint.dielectric_ranges[index]],
-            2π * 50.0, Float64)
-        @test reduced_circuit.capacitance ≈ source_circuit.capacitance
-        @test reduced_circuit.conductance ≈ source_circuit.conductance
+        # Each dielectric layer keeps its radii and its electrical properties.
+        for (a, b) in zip(blueprint[index].layers, reduced_blueprint[index].layers)
+            @test (b.r_in, b.r_ex) == (a.r_in, a.r_ex)
+            @test (b.material.kind, b.material.rho, b.material.eps_r, b.material.tan_delta) ==
+                  (a.material.kind, a.material.rho, a.material.eps_r, a.material.tan_delta)
+        end
     end
     flattening_formulation=CableConstantsFormulation(
         insulation_admittance = formula(:lossy),

@@ -155,12 +155,7 @@ function lineinput(
             throw(DimensionMismatch(
                 "blueprint assembly ownership differs from system terminal order"
             ))
-        position = system.positions[design_index]
-        local_x, local_y = cable.positions[index]
-        horz[index] = position.x + cos(position.φ) * local_x -
-                      sin(position.φ) * local_y
-        vert[index] = position.y + sin(position.φ) * local_x +
-                      cos(position.φ) * local_y
+        horz[index], vert[index] = system.positions[design_index](cable.positions[index])
     end
     horizontal_separation!(
         horz_sep,

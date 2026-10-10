@@ -43,7 +43,6 @@ public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoun
 public geometry_tolerance
 public equivalent_dielectric_permeability, radial_position,
        conductor_zone_position, same_radial_position, bounded_members
-public dielectric_circuit, equivalent_dielectric_material
 public flatten, CableBlueprint, BlueprintConductor, BlueprintDielectric
 public DifferenceShape, EllipseOffset, ShellShape, SectorShape
 

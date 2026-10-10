@@ -5,6 +5,27 @@
     const E = LineCableModels.Engine
     const DM = LineCableModels.DataModel
     const IE = LineCableModels.ImportExport
+    using EzXML: findall, readxml
+    using Logging: NullLogger, with_logger
+    # The capacitance and conductance of the core's dielectric group, read back from the
+    # ATP export of a design alone.
+    function exported_group(design, formulation, frequency, temperature)
+        system = build(LineCableSystem, [design], [(0.0, -1.0)];
+            connections = [Dict(:core => 1)])
+        return mktempdir() do directory
+            path = with_logger(NullLogger()) do
+                export_data(:atp, system, EarthModel(100.0, 10.0, 1.0); formulation,
+                    base_freq = frequency, temperature,
+                    file_name = joinpath(directory, "group.xml"))
+            end
+            document = readxml(path)
+            core = first(findall("//conductor", document))
+            outer = parse(Float64, first(findall("//cable", document))["Rout"])
+            (C = 2π * LineCableModels.Commons.vacuum_permittivity(Float64) *
+                 parse(Float64, core["epsI"]) / log(outer / parse(Float64, core["Rout"])),
+                G = parse(Float64, core["Gext"]))
+        end
+    end
     metal = Material(:conductor, 1.72e-8)
     semicon = Material(:semicon, 1e5, 1000.0, 1.0, 20.0, 0.01; tan_delta = 0.02)
     dielectric = Material(:insulator, 2e9, 3.1, 1.0, 20.0, 0.02; tan_delta = 0.04)
@@ -82,9 +103,11 @@
             reduced = compute(CableConstantsProblem(homogeneous; frequency = f), formulation)
             @test reduced.C ≈ original.C rtol=2e-13
             @test reduced.G ≈ original.G rtol=2e-13
-            exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.DataModel.flatten(homogeneous), f, formulation, 20.0)).dielectric
-            @test exported.shunt_capacitance ≈ only(original.C) rtol=2e-13
-            @test exported.shunt_conductance ≈ only(original.G) rtol=2e-13
+            # The complex admittance agrees in its last bits. G alone is its small real
+            # part and carries the absolute error of the whole.
+            exported = exported_group(homogeneous, formulation, f, 20.0)
+            @test complex(exported.G, 2π * f * exported.C) ≈
+                  complex(only(original.G), 2π * f * only(original.C)) rtol=2e-13
         end
     end
 
@@ -109,9 +132,8 @@
         @test only(original.C) ≈ imag(expected)/(2π*f) rtol=2e-13
         @test only(reduced.G) ≈ real(expected) rtol=2e-13
         @test only(reduced.C) ≈ imag(expected)/(2π*f) rtol=2e-13
-        exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.DataModel.flatten(homogeneous), f, formulation, 60.0)).dielectric
-        @test exported.shunt_conductance ≈ real(expected) rtol=2e-13
-        @test exported.shunt_capacitance ≈ imag(expected)/(2π*f) rtol=2e-13
+        exported = exported_group(homogeneous, formulation, f, 60.0)
+        @test complex(exported.G, 2π * f * exported.C) ≈ expected rtol=2e-13
     end
     @test semicon.T0 == dielectric.T0 == 20.0
     other = Material(:insulator, 4e9, 2.5, 1.0, 20.0, 0.02; tan_delta = 0.01)

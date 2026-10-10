@@ -323,8 +323,10 @@ its geometry. `DataModel.flatten(design)` reduces it to a `CableBlueprint`, with
 equivalent conductor annulus per retained terminal. It combines conductor resistances
 in parallel and calculates GMR recursively. Inverse conversions then give the
 equivalent conductor material. The dielectric layers keep their physical materials, and
-the design remains unchanged. The ATP and TRALIN exporters combine the layer admittances
-in series at the export frequency.
+the design remains unchanged. The ATP, PSCAD and TRALIN exporters write one cable for each
+coaxial group, at its position. Each exporter evaluates a material where it writes it,
+with the formulation's laws at the export frequency and temperature. For a conductor, that
+is its resistivity, and for a dielectric group, the admittivity of its layers in series.
 
 `flatten` reads the electrical topology from the resolved geometry, from which
 conductors enclose which. A coaxial group is one center with a chain of conductors, each

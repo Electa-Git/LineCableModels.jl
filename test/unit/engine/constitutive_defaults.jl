@@ -1,6 +1,7 @@
 @testitem "Engine / explicit lossless defaults and lossy radial admittance" tags=[:unit, :parametric] begin
     using Test
     using LineCableModels
+    import EzXML
     const E = LineCableModels.Engine
 
     @test formula(:default) isa LineCableModels.FormulaDefinition
@@ -48,8 +49,8 @@
         @test only(lossless.G) == 0
     end
 
-    # Export equivalencing keeps DC conduction distinct from polarization loss.
-    # Match the original layers at the requested export frequency, not all f.
+    # The exporters evaluate the group's admittivity at the export frequency, where it
+    # matches the original layers, not at every frequency.
     polar = Material(:insulator, 2.0e9, 3.1; tan_delta = 0.04)
     screen = Material(:semicon, 1.0e5, 1000.0; tan_delta = 0.02)
     source = build(CableDesign,
@@ -58,24 +59,22 @@
             solid(Material(:conductor, 1.82e-8), Disk(b)),
             LineCableModels.screen(screen; t = c - b),
             insulation(polar; t = r0 - c)))
+    system = build(LineCableSystem, [source], [(0.0, -1.0)]; connections = [Dict(:core => 1)])
     for frequency in (50.0, 60.0)
         equivalent = homogenize(source)
         actual = compute(E.CableConstantsProblem(source; frequency), selected)
         reconstructed = compute(E.CableConstantsProblem(equivalent; frequency), selected)
         @test reconstructed.C ≈ actual.C
         @test reconstructed.G ≈ actual.G
-        blueprint = LineCableModels.DataModel.flatten(source)
-        conductor = only(blueprint.conductors)
-        layers = blueprint.dielectrics[only(blueprint.dielectric_ranges)]
-        omega = 2π * frequency
-        circuit = LineCableModels.DataModel.dielectric_circuit(layers, omega, Float64)
-        reduced = LineCableModels.DataModel.equivalent_dielectric_material(
-            (r_in = first(layers).r_in, r_ex = last(layers).r_ex, layers,
-                shunt_capacitance = circuit.capacitance,
-                shunt_conductance = circuit.conductance),
-            only(blueprint.mu_r_ins), conductor.material.T0, omega)
-        dc_g = inv(log(c / b) * screen.rho / (2π) + log(r0 / c) * polar.rho / (2π))
-        @test 2π / (reduced.rho * log(r0 / b)) ≈ dc_g
-        @test reduced.tan_delta > 0
+        # The ATP export writes the group's capacitance through epsI and its conductance.
+        epsI, Gext = mktempdir() do directory
+            path = export_data(:atp, system, EarthModel(100.0, 10.0, 1.0);
+                formulation = selected, base_freq = frequency,
+                file_name = joinpath(directory, "polarization.xml"))
+            core = first(EzXML.findall("//conductor", EzXML.readxml(path)))
+            parse(Float64, core["epsI"]), parse(Float64, core["Gext"])
+        end
+        @test 2π * ε0 * epsI / log(r0 / b) ≈ only(actual.C)
+        @test Gext ≈ only(actual.G)
     end
 end

@@ -111,32 +111,30 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
                     blueprint.positions[local_assembly]
             end
         end
-        for local_index in eachindex(blueprint.conductors)
+        for (local_index, row) in enumerate(blueprint)
             index = conductor_offset + local_index
-            conductor = blueprint.conductors[local_index]
+            conductor = row.conductor
             terminals[index] = conductor.terminal
             r_in_values[index] = conductor.r_in
             r_ext_values[index] = conductor.r_ex
             conductor_materials[index] = conductor.material
             mu_r_cond[index] = conductor.material.mu_r
 
-            local_layers = blueprint.dielectric_ranges[local_index]
             first_layer = layer_offset + 1
-            for local_layer in local_layers
+            for layer in row.layers
                 layer_offset += 1
-                layer = blueprint.dielectrics[local_layer]
                 r_layer_in[layer_offset] = layer.r_in
                 r_layer_ext[layer_offset] = layer.r_ex
                 dielectric_materials[layer_offset] = layer.material
             end
             dielectric_ranges[index] = first_layer:layer_offset
-            mu_r_ins[index] = blueprint.mu_r_ins[local_index]
-            if isempty(local_layers)
+            mu_r_ins[index] = row.mu_r_ins
+            if isempty(row.layers)
                 r_ins_in[index] = conductor.r_ex
                 r_ins_ext[index] = conductor.r_ex
             else
-                r_ins_in[index] = blueprint.dielectrics[first(local_layers)].r_in
-                r_ins_ext[index] = blueprint.dielectrics[last(local_layers)].r_ex
+                r_ins_in[index] = first(row.layers).r_in
+                r_ins_ext[index] = last(row.layers).r_ex
             end
         end
         conductor_offset += length(blueprint.conductors)

@@ -250,7 +250,6 @@ end
     expected_position=DM.centroid(source_shape)
     conductor=first(blueprint.conductors)
     layer=only(blueprint.dielectrics[first(blueprint.dielectric_ranges)])
-    circuit=DM.dielectric_circuit(layer, 2π * 50.0)
     @test sum(region -> DM.area(region.primitive),
         filter(region -> region.terminal === :a, design.geometry.regions)) ≈ source_area
     @test conductor.r_in == 0
@@ -263,20 +262,7 @@ end
     @test layer.r_in ≈ equivalent_radius
     @test layer.r_ex ≈ outer_radius
     @test π * (layer.r_ex^2 - layer.r_in^2) ≈ DM.area(shell_shape)
-    @test circuit.capacitance ≈
-          DM.shunt_capacitance(equivalent_radius, outer_radius, xlpe.eps_r)
-    @test circuit.conductance ≈
-          DM.shunt_conductance(equivalent_radius, outer_radius, xlpe.rho)
-    @test DM.shunt_capacitance(
-        layer.r_in,
-        layer.r_ex,
-        layer.material.eps_r
-    ) ≈ circuit.capacitance
-    @test DM.shunt_conductance(
-        layer.r_in,
-        layer.r_ex,
-        layer.material.rho
-    ) ≈ circuit.conductance
+    @test (layer.material.rho, layer.material.eps_r) == (xlpe.rho, xlpe.eps_r)
     @test first(blueprint.mu_r_ins) ≈ xlpe.mu_r
 
     magnetic_inner=Material(kind = :insulator, rho = 1e12, eps_r = 2.0, mu_r = 1.5)

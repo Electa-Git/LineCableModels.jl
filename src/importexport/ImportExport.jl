@@ -29,6 +29,7 @@ using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
 import ..LineCableModels: build, validate, nominal, parameterize
+using ..LineCableModels: constitutive
 import ..LineCableModels
 import ..Commons
 import ..Units
@@ -38,6 +39,7 @@ import ..ReportBuilder
 using ..Materials: AbstractMaterial, Material, MaterialsLibrary
 using ..Earth: EarthLayer, EarthModel
 import ..DataModel
+using ..DataModel.BaseParams: equivalent_eps, equivalent_conductivity
 using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
                    AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
                    Disk, Rectangle, Ellipse,

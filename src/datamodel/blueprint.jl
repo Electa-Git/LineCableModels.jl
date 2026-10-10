@@ -47,6 +47,10 @@ annuli and every physical dielectric layer, and it depends on the design and the
 scalar type only. Frequency-dependent constitutive evaluation, conductor
 temperature correction, earth return and matrix reductions remain calculation work.
 
+`blueprint[i]` returns the row of conductor `i`, `(conductor, layers, mu_r_ins)`, with
+`layers` a view of the dielectric layers of its interval. Iteration gives the rows in
+terminal order. `eltype` stays the scalar type `T`.
+
 $(TYPEDFIELDS)
 """
 struct CableBlueprint{T <: Real}
@@ -89,6 +93,21 @@ end
 Base.eltype(::CableBlueprint{T}) where {T} = T
 Base.eltype(::Type{<:CableBlueprint{T}}) where {T} = T
 Base.length(blueprint::CableBlueprint) = length(blueprint.conductors)
+Base.firstindex(blueprint::CableBlueprint) = firstindex(blueprint.conductors)
+Base.lastindex(blueprint::CableBlueprint) = lastindex(blueprint.conductors)
+Base.eachindex(blueprint::CableBlueprint) = eachindex(blueprint.conductors)
+function Base.getindex(blueprint::CableBlueprint, index::Integer)
+    return (conductor = blueprint.conductors[index],
+        layers = view(blueprint.dielectrics, blueprint.dielectric_ranges[index]),
+        mu_r_ins = blueprint.mu_r_ins[index])
+end
+function Base.iterate(blueprint::CableBlueprint, index::Int = firstindex(blueprint))
+    index > lastindex(blueprint) && return nothing
+    return blueprint[index], index + 1
+end
+# `eltype` is the scalar type, as for a design, and iteration does not declare an element
+# type. `IteratorEltype(Any)` gives the unknown trait through a public name.
+Base.IteratorEltype(::Type{<:CableBlueprint}) = Base.IteratorEltype(Any)
 
 function validate(blueprint::CableBlueprint)
     isempty(blueprint.cable_id) && throw(ArgumentError(
