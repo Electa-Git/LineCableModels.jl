@@ -1070,31 +1070,6 @@ function dielectric_layer(material::Material, inner::T, outer::T) where {T <: Re
     return [(r_in = inner, r_ex = outer, material = convert(Material{T}, material))]
 end
 
-function dielectric_layer(material::RadialDielectric, inner::T, outer::T) where {T <: Real}
-    # Reconstruct virtual radial intervals only for computation. The homogeneous
-    # design still contains one physical shell, not these constituent surfaces.
-    total = convert(T, sum(material.weights))
-    width = log(outer / inner)
-    radial_mu = sum(w * m.mu_r for (w, m) in zip(material.weights, material.materials)) / total
-    mu_scale = material.mu_r / radial_mu
-    accumulated = zero(T)
-    previous = inner
-    layers = NamedTuple{(:r_in, :r_ex, :material), Tuple{T, T, Material{T}}}[]
-    for index in eachindex(material.materials)
-        accumulated += convert(T, material.weights[index])
-        next = index == lastindex(material.materials) ? outer :
-               inner * exp(width * accumulated / total)
-        source = material.materials[index]
-        physical = Material(source.kind, source.rho, source.eps_r, source.mu_r * mu_scale,
-            source.T0, source.alpha; rho_thermal=source.rho_thermal,
-            theta_max=source.theta_max, tan_delta=source.tan_delta, sigma_solar=source.sigma_solar)
-        push!(layers, (r_in = previous, r_ex = next,
-            material = convert(Material{T}, physical)))
-        previous = next
-    end
-    return layers
-end
-
 function empty_dielectric(conductor, ::Type{T}) where {T <: Real}
     Layer = NamedTuple{
         (:r_in, :r_ex, :material),
@@ -1620,12 +1595,12 @@ $(TYPEDSIGNATURES)
 
 Build a homogeneous cable design from the [`CableBlueprint`](@ref) of a design.
 
-Each retained terminal becomes one solid or annular conductor followed by one
-homogeneous dielectric interval. The conductor material reproduces the
-terminal's parallel resistance and geometric-mean radius. The dielectric
-material retains the physical constituents and radial weights in a
-[`RadialDielectric`](@ref). Constitutive laws are selected only during computation
-or explicit reference-frequency export. The source design is not modified.
+Each retained terminal becomes one solid or annular conductor followed by its dielectric
+layers. The conductor material reproduces the terminal's parallel resistance and
+geometric-mean radius. Each dielectric layer keeps its material and radii, with its
+relative permeability scaled by the helical-solenoid factor of the interval. The
+interval's equivalent permeability is then the blueprint's `mu_r_ins`. The source
+design is unchanged.
 
 # Arguments
 
@@ -1671,15 +1646,23 @@ function homogenize(
                 ))
 
             layers = @view blueprint.dielectrics[blueprint.dielectric_ranges[index]]
-            if !isempty(layers)
+            isempty(layers) && continue
+            # The solenoid factor of the interval: its permeability over the radial mean.
+            weights = [log(layer.r_ex / layer.r_in) for layer in layers]
+            radial_mu = sum(w * layer.material.mu_r for (w, layer) in zip(weights, layers)) /
+                        sum(weights)
+            mu_scale = blueprint.mu_r_ins[index] / radial_mu
+            for (position, layer) in pairs(layers)
+                source = layer.material
                 push!(parts,
                     Region(
-                        Symbol(terminal, :_equivalent_dielectric),
-                        Annulus(first(layers).r_in, last(layers).r_ex),
-                        RadialDielectric(
-                            [layer.material for layer in layers],
-                            [log(layer.r_ex / layer.r_in) for layer in layers];
-                            mu_r = blueprint.mu_r_ins[index])
+                        Symbol(terminal, :_dielectric_, position),
+                        Annulus(layer.r_in, layer.r_ex),
+                        Material(source.kind, source.rho, source.eps_r,
+                            source.mu_r * mu_scale, source.T0, source.alpha;
+                            rho_thermal = source.rho_thermal,
+                            theta_max = source.theta_max, tan_delta = source.tan_delta,
+                            sigma_solar = source.sigma_solar)
                     ))
             end
         end

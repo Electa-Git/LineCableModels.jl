@@ -7,9 +7,6 @@
     for material in (
         Material(kind = :conductor, rho = 1.7241e-8),
         Material(kind = :insulator, rho = 1e14, eps_r = 3.5),
-        RadialDielectric(
-        [Material(:insulator, 1e14, 3.5),
-            Material(:semicon, 1e5, 1000.0)], [0.6, 0.1]),
         Material(kind = :semicon, rho = 0.06, eps_r = 1000.0),
         Material(kind = :conductor, rho = 1e-7, mu_r = 100.0),
         layer(rho = 100.0, eps_r = 10.0),

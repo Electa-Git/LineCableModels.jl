@@ -6,7 +6,7 @@ Add compact high-level LineCableModels plotting methods to native Makie.
 module LineCableModelsMakieExt
 
 import LineCableModels
-using LineCableModels: EarthLayer, Material, RadialDielectric,
+using LineCableModels: EarthLayer, Material,
                        SeriesImpedance, ShuntAdmittance, label, nominal,
                        observables, outer_radius
 import Makie

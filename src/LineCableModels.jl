@@ -39,7 +39,7 @@ export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
-export AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
+export AbstractMaterial, Material, MaterialsLibrary
 export AbstractShape, AbstractPrimitive
 export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell
 export Pose2
@@ -141,7 +141,7 @@ public PlotBuilder, plot, plotwindow
 # Submodule `Materials`
 include("materials/Materials.jl")
 import .Materials
-using .Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
+using .Materials: AbstractMaterial, Material, MaterialsLibrary
 
 # Submodule `Earth`
 include("earth/Earth.jl")

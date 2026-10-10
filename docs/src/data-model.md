@@ -347,14 +347,11 @@ operation calculates no mutual coupling, earth return, or line-parameter
 matrix. The selected engine separately validates whether its formulation
 supports the resulting cable topology.
 
-Homogeneous dielectric geometry retains a `RadialDielectric`: the original
-insulation and semicon materials with their logarithmic radius weights.
-In computation, the selected law is evaluated for each constituent at each
-frequency, and the radial responses combine in series.
-`:default` remains lossless before and after homogenization. Explicitly
-selected lossy formulations retain their frequency dependence. The displayed
-resistivity is the DC series value and the displayed permittivity is the
-lossless series value, not a broadband complex-permittivity fit.
+Homogenization reduces only the conductors. Each dielectric layer keeps its material and
+radii, with its relative permeability scaled by the helical-solenoid factor of its
+interval. Computation evaluates the selected law for each layer at each frequency, as for
+the original design. `:default` remains lossless before and after homogenization, and
+explicitly selected lossy formulations keep their frequency dependence.
 
 Scalar exports such as PSCAD select a formulation and a reference frequency
 explicitly. Their native frequency laws remain approximations to the original

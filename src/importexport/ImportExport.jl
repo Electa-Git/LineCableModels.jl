@@ -35,7 +35,7 @@ import ..Units
 import UUIDs
 import ..Commons: observe, FormulationOptions, ComputationOptions, ComputationDetails
 import ..ReportBuilder
-using ..Materials: AbstractMaterial, Material, RadialDielectric, MaterialsLibrary
+using ..Materials: AbstractMaterial, Material, MaterialsLibrary
 using ..Earth: EarthLayer, EarthModel
 import ..DataModel
 using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,

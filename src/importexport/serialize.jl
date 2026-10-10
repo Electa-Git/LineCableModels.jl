@@ -63,14 +63,6 @@ function _material_record(value::Material)
     )
 end
 
-function _material_record(value::RadialDielectric)
-    return Dict{String, Any}(
-        "kind" => "radial_dielectric",
-        "materials" => [_material_record(m) for m in value.materials],
-        "weights" => serialize_value(value.weights),
-        "mu_r" => serialize_value(value.mu_r))
-end
-
 function serialize_value(value::AbstractMaterial)
     Dict(
         "type" => "material",

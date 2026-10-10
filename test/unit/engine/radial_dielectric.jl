@@ -1,4 +1,4 @@
-@testitem "Engine / homogeneous dielectric retains constitutive selection across frequency" tags=[:unit, :measurements] begin
+@testitem "Engine / homogenized dielectric layers retain constitutive selection across frequency" tags=[:unit, :measurements] begin
     using Test
     using LineCableModels
     using Measurements: measurement, value, uncertainty
@@ -17,22 +17,32 @@
             screen(semicon; t = radii[4]-radii[3])
         end
     end
+    # homogenize reduces the conductor and keeps each dielectric layer at its radii.
     homogeneous = homogenize(source)
-    @test length(homogeneous.geometry.regions) == 2
-    material = last(homogeneous.geometry.regions).source.material
-    @test material isa RadialDielectric{Float64}
-    @test getproperty.(material.materials, :kind) == [:semicon, :insulator, :semicon]
-    @test !hasproperty(material, :tan_delta)
-    @test !hasproperty(material, :frequency)
-    @test @inferred(LineCableModels.DataModel.flatten(homogeneous, Float64)) isa
-          LineCableModels.DataModel.CableBlueprint{Float64}
-    @test length(LineCableModels.DataModel.flatten(homogeneous).dielectrics) == 3
-    @test occursin("3 constituents", sprint(show, material))
-    @test only(DM.preview_materials(last(homogeneous.geometry.regions))) == material
+    @test length(homogeneous.geometry.regions) == 4
+    layers = [region.source.material for region in homogeneous.geometry.regions[2:end]]
+    @test all(material -> material isa Material, layers)
+    # A solid core has no lay, and the permeability scale is one up to rounding.
+    for (actual, expected) in zip(layers, (semicon, dielectric, semicon))
+        @test actual.kind === expected.kind
+        for field in (:rho, :eps_r, :T0, :alpha, :tan_delta)
+            @test getproperty(actual, field) == getproperty(expected, field)
+        end
+        @test actual.mu_r ≈ expected.mu_r rtol=1e-15
+    end
+    blueprint = @inferred(LineCableModels.DataModel.flatten(homogeneous, Float64))
+    @test blueprint isa LineCableModels.DataModel.CableBlueprint{Float64}
+    original_blueprint = LineCableModels.DataModel.flatten(source)
+    @test getproperty.(blueprint.dielectrics, :r_in) ==
+          getproperty.(original_blueprint.dielectrics, :r_in)
+    @test getproperty.(blueprint.dielectrics, :r_ex) ==
+          getproperty.(original_blueprint.dielectrics, :r_ex)
+    @test blueprint.mu_r_ins ≈ original_blueprint.mu_r_ins rtol=1e-15
+    @test only(DM.preview_materials(last(homogeneous.geometry.regions))) == last(layers)
     @test length(DM.preview_shapes(last(homogeneous.geometry.regions))) == 1
-    @test IE.deserialize_value(IE.serialize_value(material)) == material
     reconstructed = IE.deserialize_value(IE.serialize_value(homogeneous))
-    @test last(reconstructed.geometry.regions).source.material == material
+    @test [region.source.material for region in reconstructed.geometry.regions[2:end]] ==
+          layers
 
     frequencies = 10.0 .^ range(-1, 6; length = 31)
     for ins in (:default, :lossy), semi in (:default, :lossy)
@@ -56,8 +66,11 @@
             end
             @test imag(reduced) ≈ imag(original) rtol=2e-13
             @test real(reduced) ≈ real(original) rtol=2e-13
-            kappa = @inferred constitutive(relations, material, f, 20.0)
-            y = 2π * kappa / log(last(radii)/first(radii))
+            # The layers in series, each under the law of its class.
+            y = inv(sum(zip(layers, radii[1:(end - 1)], radii[2:end])) do (m, a, b)
+                law = m.kind === :semicon ? last(relations) : first(relations)
+                log(b / a) / (2π * @inferred(constitutive(law, m, f, 20.0)))
+            end)
             @test imag(reduced) ≈ imag(y) rtol=2e-13
             @test real(reduced) ≈ real(y) rtol=2e-13
             if ins === semi === :default
@@ -79,29 +92,6 @@
     ε0 = 8.8541878128e-12
     weights = log.(collect(radii[2:end]) ./ collect(radii[1:(end - 1)]))
     physical = (semicon, dielectric, semicon)
-    lossless = (
-        E.InsulationAdmittance.Formula(:default), E.SemiconAdmittance.Formula(:default))
-    lossy = (E.InsulationAdmittance.Formula(:lossy), E.SemiconAdmittance.Formula(:lossy))
-    for f in (0.1, 50.0, 60.0, 1e3, 1e6)
-        expected = inv(sum(q / (2π * (inv(m.rho) + 2π*f*ε0*m.eps_r*(m.tan_delta+im)))
-        for (q, m) in zip(weights, physical)))
-        actual = 2π * constitutive(lossy, material, f, 20.0) / sum(weights)
-        @test actual ≈ expected rtol=2e-13
-    end
-    changed = RadialDielectric(
-        [Material(m.kind, m.rho*1e4, m.eps_r; tan_delta = m.tan_delta*100)
-         for m in material.materials],
-        material.weights)
-    @test constitutive(lossless, changed, 60.0, 20.0) ==
-          constitutive(lossless, material, 60.0, 20.0)
-    single = RadialDielectric([dielectric], [0.6])
-    subdivided = RadialDielectric([dielectric, dielectric], [0.2, 0.4])
-    for f in frequencies
-        @test constitutive(lossy, single, f, 20.0) ≈
-              constitutive(lossy[1], dielectric, f, 20.0)
-        @test constitutive(lossy, single, f, 20.0) ≈
-              constitutive(lossy, subdivided, f, 20.0)
-    end
     for correction in (false, true), f in (50.0, 60.0)
 
         formulation = CableConstantsFormulation(insulation_admittance = :lossy,
@@ -117,16 +107,15 @@
         for (q, m) in zip(weights, physical)))
         @test only(original.G) ≈ real(expected) rtol=2e-13
         @test only(original.C) ≈ imag(expected)/(2π*f) rtol=2e-13
-        @test 2π * constitutive(lossy, material, f, 60.0;
-            temperature_dependence = correction ?
-                                     formulation.methods.temperature_dependence : nothing) /
-              sum(weights) ≈ expected rtol=2e-13
+        @test only(reduced.G) ≈ real(expected) rtol=2e-13
+        @test only(reduced.C) ≈ imag(expected)/(2π*f) rtol=2e-13
         exported = only(LineCableModels.PSCAD._pscad_components(LineCableModels.DataModel.flatten(homogeneous), f, formulation, 60.0)).dielectric
         @test exported.shunt_conductance ≈ real(expected) rtol=2e-13
         @test exported.shunt_capacitance ≈ imag(expected)/(2π*f) rtol=2e-13
     end
     @test semicon.T0 == dielectric.T0 == 20.0
-    regions = Region(:equivalent, Annulus(0.01, 0.02), Grid((single, subdivided)))
+    other = Material(:insulator, 4e9, 2.5, 1.0, 20.0, 0.02; tan_delta = 0.01)
+    regions = Region(:equivalent, Annulus(0.01, 0.02), Grid((dielectric, other)))
     @test regions isa Gridspace{Region}
     @test length(regions) == 2
     @test isconcretetype(eltype(regions))
@@ -134,7 +123,7 @@
     transported = Gridspace{CableDesign}(homogenize, (Grid((source, source)),))
     @test length(transported) == 2
     @test first(transported) isa CableDesign
-    @test last(first(transported).geometry.regions).source.material == material
+    @test last(first(transported).geometry.regions).source.material == last(layers)
     uncertain = @cable "uncertain-radial-mixture" begin
         @terminal :core begin
             solid(metal, Disk(0.01))
@@ -152,13 +141,9 @@
     replay = compute(CableConstantsProblem(roundtrip), CableConstantsFormulation())
     @test value.(after.C) ≈ value.(replay.C)
     @test uncertainty.(after.C) ≈ uncertainty.(replay.C)
-    @test convert(RadialDielectric{Float32}, single) isa RadialDielectric{Float32}
-    @test_throws ArgumentError RadialDielectric([metal], [1.0])
-    @test_throws ArgumentError RadialDielectric([dielectric], [-1.0])
-    @test_throws DimensionMismatch RadialDielectric([dielectric], [1.0, 2.0])
 end
 
-@testitem "ImportExport / homogeneous dielectric library retains constituent laws" tags=[:unit, :importexport] begin
+@testitem "ImportExport / a homogenized design library retains the dielectric layers" tags=[:unit, :importexport] begin
     using JSON3
     using JSONSchema
     const IE = LineCableModels.ImportExport
@@ -186,9 +171,8 @@ end
         load!(restored; file_name = path)
         actual = restored[design.cable_id]
         @test IE.serialize_value(actual) == IE.serialize_value(design)
-        material = last(actual.geometry.regions).source.material
-        @test material isa RadialDielectric{Float64}
-        @test getproperty.(material.materials, :kind) == [:semicon, :insulator]
+        materials = [region.source.material for region in actual.geometry.regions[2:end]]
+        @test getproperty.(materials, :kind) == [:semicon, :insulator]
         for selector in (:default, :lossy), frequency in (50.0, 60.0)
 
             formulation = CableConstantsFormulation(insulation_admittance = selector,
@@ -197,44 +181,6 @@ end
             replay = compute(CableConstantsProblem(actual; frequency), formulation)
             @test replay.C == expected.C
             @test replay.G == expected.G
-        end
-    end
-end
-
-@testitem "Gmsh FEM / homogeneous dielectric constitutive response retains constituent kinds" tags=[:extension, :fem] begin
-    using Gmsh
-    using LineCableModels
-    const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    const E = LineCableModels.Engine
-    material = RadialDielectric(
-        [Material(:semicon, 1e5, 1000.0, 1.0, 20.0, 0.01; tan_delta = 0.02),
-            Material(:insulator, 2e9, 3.1, 1.0, 20.0, 0.02; tan_delta = 0.04)],
-        [0.2, 0.6])
-    design = @cable "homogeneous-fem" begin
-        @terminal :core begin
-            solid(Material(:conductor, 1.72e-8), Disk(0.01))
-            insulation(material; t = 0.01)
-        end
-    end
-    system = build(LineCableSystem, design, (0.0, -0.2); connections = Dict(:core=>1))
-    problem = LineParametersProblem(
-        system; frequencies = [0.1, 50.0, 60.0, 1e3, 1e6], temperature = 60.0,
-        earth_props = homogeneous(rho = 100.0, eps_r = 10.0))
-    for ins in (:default, :lossy), semi in (:default, :lossy), correction in (false, true)
-        formulation = Formulation(
-            :fem; insulation_admittance = ins, semicon_admittance = semi,
-            temperature_dependence = correction ? formula(:default) : nothing, options = (ideal_transposition = false,))
-        model = FEM._resolved_fem_model(problem, formulation)
-        passive = only(filter(m -> m.kind === :insulator, model.material_plans))
-        @test length(model.material_plans) == 2
-        relations = (formulation.methods.insulation_admittance,
-            formulation.methods.semicon_admittance)
-        @test passive.admittivity ≈ [constitutive(relations, material, f, 60.0;
-                   temperature_dependence = correction ?
-                                            formulation.methods.temperature_dependence :
-                                            nothing) for f in problem.frequencies]
-        if ins === semi === :default
-            @test all(iszero, real.(passive.admittivity))
         end
     end
 end

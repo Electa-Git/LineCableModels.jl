@@ -82,43 +82,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Evaluate a homogeneous radial dielectric from its original constituents.
-`relations` contains the selected insulation and semicon material callables,
-in that order. Each callable returns complex admittivity in S/m at the supplied
-frequency in Hz and temperature in °C. Each constituent loss is added only once.
-
-The effective admittivity is the logarithmically weighted harmonic mean of
-the selected constituent responses. This is radial circuit equivalence, not
-an assertion of full-field equivalence for an arbitrary heterogeneous domain.
-"""
-function constitutive(relations::Tuple{I, S}, material::RadialDielectric,
-        frequency::Real, temperature::Real) where {I, S}
-    T = promote_type(eltype(material), typeof(float(frequency)), typeof(float(temperature)))
-    impedance = zero(Complex{T})
-    for (source, weight) in zip(material.materials, material.weights)
-        response = source.kind === :semicon ?
-                   relations[2](source, frequency, temperature) :
-                   relations[1](source, frequency, temperature)
-        iszero(response) && return zero(Complex{T})
-        impedance += weight / response
-    end
-    return sum(material.weights) / impedance
-end
-
-function constitutive(relations::Tuple{I, S}, material::RadialDielectric,
-        frequency::Real, temperature::Real;
-        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing
-) where {I <: InsulationAdmittanceFormulation, S <: SemiconAdmittanceFormulation}
-    evaluated = map(relations) do selected
-        (source, f,
-            t) -> constitutive(selected, source, f, t; temperature_dependence, workspace)
-    end
-    return constitutive(evaluated, material, frequency, temperature)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Evaluate the registered insulation and semicon constitutive relations for
 every physical dielectric layer, without applying radial geometry.
 

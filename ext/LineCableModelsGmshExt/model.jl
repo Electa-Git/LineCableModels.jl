@@ -235,13 +235,9 @@ function validate(material::LineCableModels.AbstractMaterial, ::Type{FEMResolved
     isfinite(material.mu_r) || _fem_error(
         :adaptation, object_id, :mu_r, "relative permeability must be finite"
     )
-    if material isa LineCableModels.RadialDielectric
-        foreach(m -> validate(m, FEMResolvedModel, object_id), material.materials)
-    else
-        isfinite(material.tan_delta) || _fem_error(
-            :adaptation, object_id, :tan_delta, "loss tangent must be finite"
-        )
-    end
+    isfinite(material.tan_delta) || _fem_error(
+        :adaptation, object_id, :tan_delta, "loss tangent must be finite"
+    )
     return material
 end
 
@@ -721,11 +717,9 @@ function _resolved_fem_model(
                     Complex{T}[complex(inv(rho) + 2π * f * epsilon * material.tan_delta,
                         2π * f * epsilon) for f in problem.frequencies]
                 else
-                    selected = material isa LineCableModels.RadialDielectric ?
-                        (formulation.methods.insulation_admittance,
-                         formulation.methods.semicon_admittance) :
-                        material.kind === :semicon ? formulation.methods.semicon_admittance :
-                        formulation.methods.insulation_admittance
+                    selected = material.kind === :semicon ?
+                               formulation.methods.semicon_admittance :
+                               formulation.methods.insulation_admittance
                     Complex{T}[_fem_float64_scalar(LineCableModels.constitutive(
                         selected, material, frequency, problem.temperature;
                         temperature_dependence=formulation.methods.temperature_dependence))

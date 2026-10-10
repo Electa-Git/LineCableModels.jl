@@ -17,7 +17,7 @@ $(IMPORTS)
 """
 module Materials
 
-export AbstractMaterial, Material, RadialDielectric, MaterialsLibrary, add!
+export AbstractMaterial, Material, MaterialsLibrary, add!
 
 #! explicit-imports: off
 # IMPORTS is expanded in the module docstring rather than called as Julia code.
@@ -30,7 +30,6 @@ import ..Commons
 import ..TextDisplay
 
 include("material.jl")
-include("radialdielectric.jl")
 include("temperaturedependent/TemperatureDependent.jl")
 public TemperatureDependent
 include("materialslibrary.jl")

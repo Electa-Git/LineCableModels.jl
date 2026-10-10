@@ -61,7 +61,7 @@ import ..LineCableModels: line_length
 import ..LineCableModels: parameterize
 import ..LineCableModels: Gridpoint, materialize, realize, realize_arguments
 import Random
-using ..Materials: AbstractMaterial, Material, RadialDielectric
+using ..Materials: AbstractMaterial, Material
 import GeometryBasics
 using GeometryBasics: Point2f
 import Base: angle
