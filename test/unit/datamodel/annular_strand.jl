@@ -64,7 +64,18 @@
         shifted_row.material.rho) ≈ resistance rtol = 1e-12
     @test DM.tubular_gmr(shifted_row.r_ex, shifted_row.r_in, shifted_row.material.mu_r) ≈
           gmr rtol = 1e-12
-    @test shifted_blueprint.mu_r_ins ≈ blueprint.mu_r_ins
+    # The turns affect the results only through the permeability of the dielectric interval.
+    # With insulation, the lay raises it above the insulation's own, and the shifted copy
+    # keeps the same value.
+    dielectric = Material(:insulator, 1e14, 2.3, 1.0)
+    insulated = build(CableDesign, "insulated-annular-last-strip",
+        terminal(:core, body, insulation(dielectric; t=0.2e-3)))
+    insulated_shifted = build(CableDesign, "shifted-insulated-annular-last-strip",
+        assembly(at(terminal(:core, body, insulation(dielectric; t=0.2e-3)),
+            Pose2(0.002, -0.003, 0.47))))
+    insulated_mu = only(DM.flatten(insulated, Float64).mu_r_ins)
+    @test insulated_mu > dielectric.mu_r
+    @test only(DM.flatten(insulated_shifted, Float64).mu_r_ins) ≈ insulated_mu rtol = 1e-12
 
     designs = build(CableDesign, "annular-grid", terminal(:core,
         stranded(copper; shape=strand, center=center,
