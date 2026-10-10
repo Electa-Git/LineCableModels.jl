@@ -326,6 +326,21 @@ equivalent conductor material. The dielectric layers keep their physical materia
 the design remains unchanged. The ATP and TRALIN exporters combine the layer admittances
 in series at the export frequency.
 
+`flatten` reads the electrical topology from the resolved geometry, from which
+conductors enclose which. A coaxial group is one center with a chain of conductors, each
+enclosing the previous one, and their dielectric annuli. Groups that no conductor encloses
+together stay at their own positions, as the insulated cores of an assembly do. A
+conductor around groups off its center makes a pipe-type cable: a metallic pipe, a common
+armor or a metallic umbilical sheath. `flatten` rejects pipe-type cables.
+
+A container is a fill, wall or jacket around groups. A circular container centered on its
+one group, such as a conduit around a centered cable, adds annuli to that group. No
+coaxial reduction exists yet for groups off the center of an insulating container,
+screened or not. `flatten` rejects them, and with them every container that several
+groups share. It also rejects a container with a non-circular boundary, such as an
+elliptical duct. The sector cables and the coaxial trefoil pipe of the gallery below are
+examples of rejected designs.
+
 `homogenize(design)` is an explicit request for a new homogeneous
 `CableDesign`. Independent assembly members are flattened separately. The
 operation calculates no mutual coupling, earth return, or line-parameter

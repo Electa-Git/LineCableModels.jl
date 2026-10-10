@@ -21,7 +21,6 @@ import ...LineCableModels: formula_id
 # These bindings are consumed by the formula definitions below.
 import ...LineCableModels: description
 #! explicit-imports: on
-import ...DataModel
 using ...DataModel: CableDesign
 
 include("interface.jl")

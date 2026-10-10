@@ -92,6 +92,10 @@ function _disk_fill(
         material::Material,
         tag::Symbol
 )
+    # Only contents at the center leave an annular gap. Off-center contents leave a
+    # crescent.
+    contents.at.x == container.at.x && contents.at.y == container.at.y ||
+        return _difference_fill(container, (contents,), material, tag)
     fill_region = Region(
         Symbol(tag, :_fill),
         Annulus(support(contents), container.r),

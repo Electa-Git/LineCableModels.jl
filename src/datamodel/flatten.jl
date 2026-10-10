@@ -1165,12 +1165,26 @@ function equivalent_dielectric_material(dielectric, mu_r, reference_temperature,
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the regions of a cable design that its coaxial reduction reads, in order, by the
+topology rule that [`flatten`](@ref) describes. It drops the fill between the wires of
+one conductor. The fill of a container centered on its one group becomes an annulus, and
+`validate(container, CableBlueprint, ...)` rejects every other container that holds
+groups.
+"""
 function _radial_regions(regions)
     radial = PlacedRegion[]
     sizehint!(radial, length(regions))
-    for source in regions
-        source.primitive isa DifferenceShape || begin
+    index = firstindex(regions)
+    while index <= lastindex(regions)
+        source = regions[index]
+        # Test the primitive's type, not its value: reading an inline primitive from the
+        # abstract region allocates.
+        if !(fieldtype(typeof(source), :primitive) <: DifferenceShape)
             push!(radial, source)
+            index += 1
             continue
         end
         material = source.source.material
@@ -1183,8 +1197,138 @@ function _radial_regions(regions)
         isapprox(material.mu_r, one(material.mu_r)) || throw(ArgumentError(
             "the coaxial reduction requires a nonmagnetic non-radial enclosure fill"
         ))
+        holes = source.primitive.holes
+        # The fill between the wires of one conductor. Its holes are the regions just
+        # before it, all of one terminal. A container's holes are member outlines or the
+        # regions of a whole member, and they fail this test.
+        first_hole = index - length(holes)
+        if first_hole >= firstindex(regions) &&
+           regions[first_hole].terminal !== nothing &&
+           all(k -> regions[k].terminal === regions[first_hole].terminal,
+               first_hole:(index - 1)) &&
+           isequal(regions[first_hole].primitive, first(holes)) &&
+           isequal(regions[index - 1].primitive, last(holes))
+            index += 1
+            continue
+        end
+
+        # Otherwise the fill is a container. Its holes are the outlines of its members, or
+        # the regions of one member.
+        terminals = unique(region.terminal for region in regions
+                           if region.terminal !== nothing)
+        centers = map(terminals) do terminal
+            conductor_zone_position(filter(region -> region.terminal === terminal, regions))
+        end
+        contained = Symbol[]
+        conductive = true
+        for hole in holes
+            member = findfirst(region -> isequal(region.primitive, hole), regions)
+            if member !== nothing
+                terminal = regions[member].terminal
+                terminal === nothing ? (conductive = false) : push!(contained, terminal)
+                continue
+            end
+            conductive = false
+            hole isa Union{Disk, SectorShape} || throw(ArgumentError(
+                "flatten cannot locate the conductors inside a container member with a " *
+                "$(nameof(typeof(hole))) outline"
+            ))
+            append!(contained, (terminals[k] for k in eachindex(terminals)
+                if hole isa Disk ?
+                   hypot(centers[k][1] - hole.at.x, centers[k][2] - hole.at.y) <=
+                   hole.r * (1 + sqrt(eps(float(one(hole.r))))) :
+                   accommodates(hole, centers[k], zero(hole.primitive.r_back))))
+        end
+        if conductive && allequal(contained)
+            # The fill between the wires of one conductor, in another order.
+            index += 1
+            continue
+        end
+        groups = Vector{Symbol}[]
+        for terminal in terminals
+            terminal in contained || continue
+            center = centers[findfirst(==(terminal), terminals)]
+            group = findfirst(groups) do members
+                same_radial_position(centers[findfirst(==(first(members)), terminals)], center)
+            end
+            group === nothing ? push!(groups, [terminal]) : push!(groups[group], terminal)
+        end
+        group_centers = [centers[findfirst(==(first(group)), terminals)] for group in groups]
+
+        # The conductors of the container's wall: annuli about its center, outward from
+        # the fill.
+        outer = source.primitive.outer
+        enclosing = Symbol[]
+        if outer isa Union{Disk, Annulus}
+            radius = r_ex(outer)
+            wall = index + 1
+            while wall <= lastindex(regions) &&
+                      regions[wall].primitive isa Annulus &&
+                      same_radial_position(radial_position(regions[wall]),
+                          (outer.at.x, outer.at.y)) &&
+                      isapprox(regions[wall].primitive.ri, radius)
+                regions[wall].terminal === nothing || push!(enclosing, regions[wall].terminal)
+                radius = regions[wall].primitive.ro
+                wall += 1
+            end
+        end
+        validate(source, CableBlueprint, groups, group_centers, enclosing)
+        if !isempty(groups) && outer isa Disk
+            # One group at the center of a circular container. The fill becomes the
+            # annulus from the group's outer radius to the container's radius.
+            extent = maximum(holes) do hole
+                hole isa Union{Disk, Annulus, BentStrip} ?
+                hypot(hole.at.x - outer.at.x, hole.at.y - outer.at.y) + r_ex(hole) :
+                zero(outer.r)
+            end
+            push!(radial, PlacedRegion(source.source, Annulus(extent, outer.r, outer.at),
+                nothing, source.placement, source.paths))
+        end
+        index += 1
     end
     return radial
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check that the coaxial groups inside one container have a coaxial reduction for a
+[`CableBlueprint`](@ref). `container` is the container's fill. `groups` lists the terminals
+of each group inside it, innermost first, `centers` the center of each group, and
+`enclosing` the terminals of the conductors around the container. A container without
+groups, or with one group at the center of its circular boundary, has a coaxial
+reduction.
+
+# Errors
+
+- `ArgumentError` for a pipe-type cable: a conductor encloses groups off its center.
+- `ArgumentError` for a container with a non-circular boundary.
+- `ArgumentError` for groups off the center of their container, which includes a container
+  shared by several groups.
+"""
+function validate(container::PlacedRegion, ::Type{CableBlueprint}, groups, centers,
+        enclosing)
+    isempty(groups) && return container
+    outer = container.primitive.outer
+    circular = outer isa Union{Disk, Annulus}
+    if !(circular && length(groups) == 1 &&
+         same_radial_position(only(centers), (outer.at.x, outer.at.y)))
+        listed = join(("(" * join((":" * String(t) for t in group), ", ") * ")"
+                       for group in groups), ", ")
+        isempty(enclosing) || throw(ArgumentError(
+            "pipe-type cables are not supported: the conductor :$(first(enclosing)) " *
+            "encloses the coaxial groups $listed"
+        ))
+        circular || throw(ArgumentError(
+            "a non-circular container has no coaxial reduction: the coaxial groups " *
+            "$listed lie in :$(container.source.tag), whose boundary is not circular"
+        ))
+        throw(ArgumentError(
+            "coaxial groups off the center of their container have no coaxial reduction " *
+            "yet: $listed lie in :$(container.source.tag)"
+        ))
+    end
+    return container
 end
 
 function same_path_definitions(left, right)
@@ -1203,8 +1347,21 @@ description.
 Each retained terminal becomes one equivalent conductor annulus. Its material
 reproduces the terminal's parallel resistance and geometric-mean radius. The
 dielectric interval of each conductor keeps its physical layers, with their
-equivalent relative permeability. Conductors that share a center form one
-concentric assembly.
+equivalent relative permeability.
+
+The reduction follows the electrical topology. `flatten` reads it from the resolved
+geometry, from which conductors enclose which, never from the declaration:
+
+- A coaxial group is one center with a chain of conductors, each enclosing the previous
+  one, and their dielectric annuli. It is one concentric assembly of the blueprint.
+- Groups that no conductor encloses together stay at their own positions.
+- A container (a fill, wall or jacket around groups) with one group at the center of its
+  circular boundary adds annuli to that group.
+- A conductor that encloses groups off its center makes a pipe-type cable. `flatten`
+  rejects it.
+- `flatten` also rejects groups off the center of an insulating container, screened or
+  not, which includes several groups sharing one container. It cannot reduce them to
+  coaxial groups yet. It also rejects a container with a non-circular outline.
 
 # Arguments
 
@@ -1214,6 +1371,11 @@ concentric assembly.
 # Returns
 
 - A validated [`CableBlueprint`](@ref).
+
+# Errors
+
+- `ArgumentError` for a pipe-type cable, for groups off the center of their container,
+  and for a container with a non-circular boundary.
 """
 function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
     regions = _radial_regions(design.geometry.regions)

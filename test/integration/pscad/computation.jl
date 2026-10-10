@@ -137,7 +137,8 @@ end
         @test P.earth_impedance(Formulation(:pscad; earth_impedance=:lucca1994).methods.earth_impedance, Val(:mutual), Val(s), Val(t), pscad) ==
             (EarthForm3 = (value = 2, readback = "LUCCA"),)
     end
-    # PSCAD's coaxial cable admits coaxial topology only.
+    # PSCAD's coaxial cable admits coaxial topology only. The topology rule of flatten
+    # rejects the pipe, and the pipe slot admits every design that flattens.
     copper = Material(:conductor, 1.72e-8)
     dielectric = Material(:insulator, 1e14, 2.3)
     conductors = [terminal(name, solid(copper, Disk(0.005)), insulation(dielectric; t = 0.002))
@@ -148,7 +149,9 @@ end
     coaxial = build(CableDesign, "pscad-coaxial", first(conductors))
     none = LineCableModels.Engine.PipeImpedance.Formula(:default)
     @test validate(coaxial, none, pscad) === coaxial
-    @test_throws "not yet implemented for the PSCAD backend" validate(enclosed, none, pscad)
+    @test validate(enclosed, none, pscad) === enclosed
+    @test_throws "pipe-type cables are not supported: the conductor :pipe encloses the " *
+                 "coaxial groups (:a), (:b)" LineCableModels.DataModel.flatten(enclosed)
 end
 
 @testitem "PSCAD / mixed native equations survive coaxial author withdrawal" tags=[:integration, :pscad, :slow] begin

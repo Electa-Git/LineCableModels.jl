@@ -5,7 +5,8 @@ module CurrentScenarios
         line_parameters_problem, channel_value, two_conductor_results, cable_monte_carlo_result,
         three_bare_wires_problem, three_bare_wires_layouts, preservation_corpus,
         internal_shunt_test_design, screened_cable_design, armored_cable_design,
-        three_core_design, single_cable_system, trefoil_system, bipole_system,
+        three_core_design, screened_three_core_design, offset_conduit_design,
+        single_cable_system, trefoil_system, bipole_system,
         exported_text, reduction_corpus
     using LineCableModels
     using LineCableModels.DocStringExtensions: TYPEDSIGNATURES
@@ -294,6 +295,63 @@ module CurrentScenarios
             pattern = Ring(3; r = 0.01, φ0 = 0.27), names = (:phase_1, :phase_2, :phase_3)))
     end
 
+    """
+    $(TYPEDSIGNATURES)
+
+    Construct a three-core cable whose cores each have their own copper screen. Each core
+    is a copper conductor under XLPE insulation and a copper sheath. The cores lie in a
+    trefoil, in a polypropylene filler under a common 2.5 mm PE jacket. `flatten` rejects
+    the design, because it cannot reduce groups that share a container yet.
+    """
+    function screened_three_core_design()
+        materials = MaterialsLibrary(add_defaults = true)
+        copper = Material(materials, :copper)
+        xlpe = Material(materials, :xlpe)
+        function screened_core(prefix)
+            return Stack(
+                terminal(Symbol(prefix, :_core), core(copper; r = 4.0e-3),
+                    insulation(xlpe; t = 3.4e-3)),
+                terminal(Symbol(prefix, :_screen), sheath(copper; t = 0.1e-3)))
+        end
+        # The screened cores have a 7.5 mm outer radius. Their axes lie 8.7 mm from the
+        # cable axis, so neighboring screens are 0.07 mm apart.
+        spacing = 8.7e-3
+        return @cable "screened-three-core" begin
+            @pipe shape=Disk(16.3e-3) fill=Material(materials, :pp) wall=jacket(
+                Material(materials, :pe); t = 2.5e-3) begin
+                @at screened_core(:a) (0.0, spacing)
+                @at screened_core(:b) (-spacing * cos(pi / 6), -spacing * sin(pi / 6))
+                @at screened_core(:c) (spacing * cos(pi / 6), -spacing * sin(pi / 6))
+            end
+        end
+    end
+
+    """
+    $(TYPEDSIGNATURES)
+
+    Construct one screened cable resting on the bottom of an insulating conduit. The cable
+    is a copper conductor under XLPE insulation, a copper sheath and a PE jacket. Air fills
+    the PE conduit. `flatten` rejects the design, because it cannot reduce a group off the
+    center of its container yet.
+    """
+    function offset_conduit_design()
+        materials = MaterialsLibrary(add_defaults = true)
+        copper = Material(materials, :copper)
+        pe = Material(materials, :pe)
+        cable = Stack(
+            terminal(:core, core(copper; r = 4.0e-3),
+                insulation(Material(materials, :xlpe); t = 3.4e-3)),
+            terminal(:screen, sheath(copper; t = 0.1e-3)),
+            jacket(pe; t = 1.0e-3))
+        # The cable's 8.5 mm outer radius touches the 12 mm bore of the conduit.
+        return @cable "offset-conduit" begin
+            @pipe shape=Disk(12.0e-3) fill=Material(materials, :air) wall=jacket(
+                pe; t = 2.0e-3) begin
+                @at cable (0.0, -3.5e-3)
+            end
+        end
+    end
+
     # One cable at a depth of 1 m. Each terminal is a phase of its own.
     function single_cable_system(design)
         connections = Dict(terminal => phase
@@ -356,6 +414,9 @@ module CurrentScenarios
       shunt model at a coarse resolution.
     - Temperature. The 18 kV cable with an aluminum tape among its copper screen wires, a
       terminal of mixed conductor materials, at 90 °C in both computations.
+    - Rejections. The three-core cable with screened cores and the cable off the center of
+      its conduit have no coaxial reduction. The corpus records the messages of `flatten`,
+      of both computations and of the three exports.
     """
     function reduction_corpus()
         earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
@@ -396,6 +457,21 @@ module CurrentScenarios
                 frequencies), Formulation()),
             :mixed_screen_cable_constants_90 => (compute,
                 CableConstantsProblem(mixed; temperature = 90.0), CableConstantsFormulation()))
+        rejected = (screened_three_core = screened_three_core_design(),
+            offset_conduit = offset_conduit_design())
+        for (name, design) in pairs(rejected)
+            system = single_cable_system(design)
+            push!(scenarios,
+                Symbol(name, :_flatten) => (LineCableModels.DataModel.flatten, design),
+                Symbol(name, :_line_parameters) =>
+                    (compute, line_parameters_problem(system; frequencies), Formulation()),
+                Symbol(name, :_cable_constants) => (compute, CableConstantsProblem(design),
+                    CableConstantsFormulation()))
+            for format in (:atp, :pscad, :tralin)
+                push!(scenarios,
+                    Symbol(format, :_, name) => (exported_text, format, system, earth))
+            end
+        end
         return NamedTuple(scenarios)
     end
 end
