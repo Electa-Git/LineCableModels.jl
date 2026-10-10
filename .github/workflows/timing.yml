@@ -2,7 +2,7 @@ name: Timing
 
 # The timing comparison of `test/tools/performance.jl`. Each push to a pull request compares
 # the new head with the previous one. A manual run compares with its `base` input and runs
-# only this workflow.
+# only this workflow. The comparison is advisory: it warns and never fails on its verdict.
 on:
   pull_request:
     types: [synchronize]
@@ -61,13 +61,20 @@ jobs:
           fi
           julia --project=test --color=yes -e 'using Pkg; Pkg.instantiate()'
           status=0
+          log="$RUNNER_TEMP/timing.log"
           julia --project=test --color=yes test/tools/performance.jl "$base" 2>&1 |
-            tee "$RUNNER_TEMP/timing.log" || status=$?
-          # 1 is a slowdown or a failing scenario. 2 is a possible slowdown or an unstable
-          # scenario: no verdict, and not a regression.
-          if [ "$status" -eq 2 ]; then
-            scenarios=$(sed -n 's/^Possible slowdown or unstable, no verdict: //p' "$RUNNER_TEMP/timing.log")
-            echo "::warning title=Timing comparison::No verdict against ${base:0:8} for: ${scenarios:-see the log}"
+            tee "$log" || status=$?
+          # The comparison is advisory. 1 is a slowdown or a scenario that fails on the
+          # working tree, and 2 is a possible slowdown or an unstable scenario. Both warn
+          # with each scenario's change and verdict, and neither fails the job. A run that
+          # exits without the tool's summary line did not finish, and fails.
+          if { [ "$status" -eq 1 ] && grep -q '^Slower than [0-9]* % or failing: ' "$log"; } ||
+            [ "$status" -eq 2 ]; then
+            changes=$(sed -nE \
+              -e 's/^([A-Za-z0-9_]+) +[0-9.]+ ms +[0-9.]+ ms +(-?[0-9.]+ %) .*  (unstable: no verdict|slower than [0-9]+ %|possible slowdown, below the tool.s resolution)$/\1 \2 (\3)/p' \
+              -e 's/^([A-Za-z0-9_]+) +fails on the working tree: (.*)$/\1 fails: \2/p' \
+              "$log" | paste -sd ';' - | sed 's/;/; /g')
+            echo "::warning title=Timing comparison (advisory)::Exit $status against ${base:0:8}: ${changes:-see the log}"
           elif [ "$status" -ne 0 ]; then
             exit "$status"
           fi

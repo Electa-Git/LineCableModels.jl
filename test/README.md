@@ -114,7 +114,8 @@ extension and visual environments that the change touches, the documentation bui
 Vale and cspell with the versions that CI uses. Finally, run `test/tools/durations.jl` on
 the new local logs and the equivalence check that the
 [developer guide](../docs/src/developers.md#preservation-locks) describes. The timing
-comparison runs in CI. Tests are deferred to the end of a track, never skipped.
+comparison runs in CI and is advisory, with a warning as its strongest outcome. The end of
+a track runs every deferred test.
 
 ## Advisory source diagnostics
 

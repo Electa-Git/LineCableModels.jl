@@ -33,7 +33,9 @@
 # reported as not comparable. A failing scenario is never retried. The tool prints the
 # 1-minute load average at the start and the end. Both revisions run on the machine that
 # runs the tool, a developer machine or a CI runner. Other load on that machine makes
-# scenarios unstable. The CI workflow `.github/workflows/timing.yml` runs this tool.
+# scenarios unstable. The comparison is advisory: the CI workflow
+# `.github/workflows/timing.yml` runs this tool and turns exit status 1 and 2 into a warning,
+# never a failure. The allocation ceilings, JET and the `@inferred` floor are the gates.
 const REPOSITORY = dirname(dirname(@__DIR__))
 const CORPUS = joinpath("test", "support", "scenarios.jl")
 const POSSIBLE = 0.05
