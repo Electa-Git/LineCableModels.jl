@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- FEM conductor contours and circular insulating and semiconducting layer
+  boundaries resolve layer gaps within `ConductorGeometryTolerance`.
 - Normalized author-formula identifiers to lowercase main-author/year symbols
   and made their compact descriptions readable author names.
 - Renamed the dielectric constitutive choices to `:lossy` and `:lossless`,

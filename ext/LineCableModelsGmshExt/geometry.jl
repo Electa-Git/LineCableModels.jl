@@ -1312,9 +1312,9 @@ function _lowest_shape_point(shape::DataModel.BentStrip)
         for r in (shape.ri,shape.ro) for a in angles])
 end
 
-# Relative circle-area error is bounded by 2pi^2/(3N^2). Dyadic multiples
-# of twelve reproduce the qualified 96/192-point levels without measuring
-# a mesh or refining in response to its result.
+# Relative circular-area error is bounded by 2pi^2/(3N^2); the adjacent-layer
+# gap error is approximately r*pi^2/(3N^2*t). Native dyadic multiples of twelve
+# satisfy both geometric criteria without refining in response to a mesh result.
 function _conductor_curve_geometry(shape, curve)
     lower, upper = gmsh.model.get_parametrization_bounds(1, curve)
     a = gmsh.model.get_value(1, curve, lower)[1:2] .- (shape.at.x, shape.at.y)
@@ -1514,6 +1514,26 @@ function _write_physical_geometry(path, model, physical)
     gmsh.model.geo.synchronize()
     (;material_surfaces,region_surfaces,terminal_surfaces,cable_curves,cable_loops,
         sector_partitions,anchors,metal_dimensions,cable_loop_curves) = physical
+    layers = [(shape=plan.shape, curves=_entity_boundary(region_surfaces[j]))
+        for (j,plan) in pairs(model.region_plans)
+        if plan.shape isa DataModel.Annulus &&
+           model.material_plans[plan.material_index].kind !== :conductor]
+    conductor_curves = reduce(vcat,(_entity_boundary(region_surfaces[j])
+        for (j,plan) in pairs(model.region_plans)
+        if model.material_plans[plan.material_index].kind === :conductor);init=Int[])
+    layer_curves = sort!(setdiff(unique(reduce(vcat,
+        (layer.curves for layer in layers);init=Int[])),conductor_curves))
+    layer_boundaries = map(layer_curves) do curve
+        adjacent = filter(layer -> curve in layer.curves,layers)
+        shape = first(adjacent).shape
+        lower, _ = gmsh.model.get_parametrization_bounds(1,curve)
+        point = gmsh.model.get_value(1,curve,lower)
+        radius = hypot(point[1]-shape.at.x,point[2]-shape.at.y)
+        thickness = minimum(layer.shape.ro-layer.shape.ri for layer in adjacent)
+        points = unique(last.(gmsh.model.get_boundary([(1,curve)],false,false,false)))
+        cables = [i-1 for (i,curves) in pairs(cable_curves) if curve in curves]
+        (;radius,thickness,points,cables)
+    end
     raw = path*"_unrolled"
     gmsh.write(raw)
     open(path,"w") do io
@@ -1534,6 +1554,13 @@ function _write_physical_geometry(path, model, physical)
         emit(name,values) = println(io,name,"() = ",_pro_array(values),";")
         emit("FEMMaterialSurfaces",reduce(vcat,material_surfaces;init=Int[]))
         emit("FEMCableCurves",unique(reduce(vcat,cable_curves;init=Int[])))
+        emit("FEMLayerBoundaryCurves",layer_curves)
+        emit("FEMLayerBoundaryRadii",[boundary.radius for boundary in layer_boundaries])
+        emit("FEMLayerBoundaryThicknesses",[boundary.thickness for boundary in layer_boundaries])
+        for (i,boundary) in pairs(layer_boundaries)
+            emit("FEMLayerBoundaryPoints~{$(i-1)}",boundary.points)
+            emit("FEMLayerBoundaryCables~{$(i-1)}",boundary.cables)
+        end
         println(io,"FEMAirHoles() = {}; FEMEarthHoles() = {};")
         for cable in eachindex(cable_curves)
             for curves in cable_loop_curves[cable]
@@ -1568,6 +1595,17 @@ function _write_physical_geometry(path, model, physical)
                 arcs = [_conductor_curve_geometry(region.shape,curve) for curve in curves]
                 emit("FEMConductorArcLengths~{$(i-1)}",getproperty.(arcs,:length))
                 emit("FEMConductorArcFractions~{$(i-1)}",getproperty.(arcs,:fraction))
+                thicknesses = map(curves) do curve
+                    thickness = Inf
+                    for layer in layers
+                        curve in layer.curves || continue
+                        _coordinate_key(layer.shape.at.x) == _coordinate_key(region.shape.at.x) &&
+                            _coordinate_key(layer.shape.at.y) == _coordinate_key(region.shape.at.y) || continue
+                        thickness = min(thickness,layer.shape.ro-layer.shape.ri)
+                    end
+                    isfinite(thickness) ? thickness : 0.0
+                end
+                emit("FEMConductorLayerThickness~{$(i-1)}",thicknesses)
                 emit("FEMConductorBulkSurfaces~{$(i-1)}",surfaces)
             else
                 println(io,"FEMSectorDepth~{",i-1,"} = ",_pro_number(partition.depth),";")

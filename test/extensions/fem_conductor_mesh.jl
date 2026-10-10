@@ -20,6 +20,91 @@
 end
 
 
+@testitem "FEM / conductor contours resolve adjacent annular layers" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    N=NativeFEMFixtures
+    copper=Material(kind=:conductor,rho=1.72e-8,eps_r=1.,mu_r=1.)
+    dielectric=Material(kind=:insulator,rho=Inf,eps_r=2.3,mu_r=1.)
+    for (radius,thickness,expected) in ((.0425,.001,384),(.01784,.0083,96))
+        design=build(CableDesign,"insulated-wire",Stack(
+            terminal(:core,Region(:metal,Disk(radius),copper)),
+            Region(:insulation,Shell(thickness),dielectric)))
+        system=build(LineCableSystem,[design],[Pose2(0.,1.)];
+            connections=[Dict(:core=>1)],system_id="annular-layer-mesh",line_length=1.)
+        problem=LineParametersProblem(system;temperature=20.,frequencies=[1e3],
+            earth_props=homogeneous(rho=1000.))
+        N.geometry(problem;mesh=true) do g,log
+            curves=g.model.get_entities_for_physical_group(1,4001)
+            nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in curves)))
+            @test length(nodes)==expected
+            @test g.parser.get_number("FEMConductorLayerThickness_0")≈fill(thickness,length(curves))
+        end
+    end
+end
+
+
+@testitem "FEM / circular non-conductor layer boundaries resolve layer gaps" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    N=NativeFEMFixtures
+    aluminium=Material(kind=:conductor,rho=2.82e-8,eps_r=1.,mu_r=1.)
+    dielectric=Material(kind=:insulator,rho=Inf,eps_r=2.3,mu_r=1.)
+    semicon=Material(kind=:semicon,rho=1.,eps_r=10.,mu_r=1.)
+    for (radius,shell,insulation) in ((.01784,0.,.0083),(.02,.001,.01),(.0425,0.,.001))
+        layers=Any[terminal(:core,Region(:metal,Disk(radius),aluminium))]
+        shell>0 && push!(layers,Region(:semicon,Shell(shell),semicon))
+        push!(layers,Region(:insulation,Shell(insulation),dielectric))
+        design=build(CableDesign,"layer-boundary-wire",Stack(layers...))
+        system=build(LineCableSystem,[design],[Pose2(0.,1.)];
+            connections=[Dict(:core=>1)],system_id="layer-boundary-mesh",line_length=1.)
+        problem=LineParametersProblem(system;temperature=20.,frequencies=[1e3],
+            earth_props=homogeneous(rho=1000.))
+        # NativeFEMFixtures.geometry parses the freshly exported ONELAB bundle.
+        N.geometry(problem;mesh=true) do g,log
+            curves=Int.(g.parser.get_number("FEMLayerBoundaryCurves"))
+            radii=g.parser.get_number("FEMLayerBoundaryRadii")
+            thicknesses=g.parser.get_number("FEMLayerBoundaryThicknesses")
+            targets=Int.(g.parser.get_number("FEMLayerBoundaryTargetCurves"))
+            core_curves=g.model.get_entities_for_physical_group(1,4001)
+            @test !isempty(curves)
+            @test length(curves)==length(radii)==length(thicknesses)
+            @test isempty(intersect(curves,core_curves))
+            for i in eachindex(curves)
+                @test !isempty(g.parser.get_number("FEMLayerBoundaryPoints_$(i-1)"))
+                cables=g.parser.get_number("FEMLayerBoundaryCables_$(i-1)")
+                @test isapprox(radii[i],radius+shell+insulation) ? cables==[0.] : isempty(cables)
+            end
+            if radius==.01784
+                outer_curves=g.model.get_entities_for_physical_group(1,5001)
+                outer_nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in outer_curves)))
+                core_nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in core_curves)))
+                @test all(isapprox.(radii,radius+insulation))
+                @test all(isapprox.(thicknesses,insulation))
+                @test Set(targets)==Set(outer_curves)
+                @test length(outer_nodes)>=192
+                @test length(core_nodes)==96
+                println("Layer boundary: outer nodes=$(length(outer_nodes)), core nodes=$(length(core_nodes))")
+            elseif shell>0
+                shared=findall(r -> isapprox(r,radius+shell),radii)
+                shared_curves=curves[shared]
+                shared_nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in shared_curves)))
+                @test !isempty(shared)
+                @test all(isapprox.(thicknesses[shared],shell))
+                @test all(in(targets),shared_curves)
+                @test length(shared_nodes)>=384
+                println("Layer boundary: semicon/insulation nodes=$(length(shared_nodes))")
+            else
+                @test all(isapprox.(radii,radius+insulation))
+                @test all(isapprox.(thicknesses,insulation))
+                @test isempty(targets)
+                println("Layer boundary: already-fine outer contour, target curves=$(length(targets))")
+            end
+        end
+    end
+    N.geometry(N.problem()) do g,log
+        @test isempty(g.parser.get_number("FEMLayerBoundaryCurves"))
+        @test isempty(g.parser.get_number("FEMLayerBoundaryTargetCurves"))
+    end
+end
+
+
 @testitem "FEM / native conductor contour and skin controls" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     values=[]

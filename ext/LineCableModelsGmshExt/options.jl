@@ -115,7 +115,9 @@ The field formulation and prescribed `Γ` belong to `Formulation`.
   conductor angular and normal sizes, interface and wave sizes, measurement lines,
   and the PML points-per-wavelength bound. Larger values coarsen the mesh; fixed
   minimum circle segments and PML intervals remain fixed. The circle segment count
-  set by geometric area tolerance is independent of `mesh_size_factor`. `domain_size_factor=2.0`
+  set by `ConductorGeometryTolerance` bounds relative conductor circular-area errors
+  and layer gap errors at circular insulating and semiconducting boundaries,
+  independently of `mesh_size_factor`. `domain_size_factor=2.0`
   multiplies the earth sizing length `min(1/Re(q₀), 2π/abs(q₀))`, subject to the
   resistive ceiling. `pml_reflection=1e-3` sets the nominal attenuation target.
   Near DC, the added real stretch is limited to 100 domain half-widths and is purely

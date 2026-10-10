@@ -27,6 +27,35 @@ For cable In {0:NumCables-1}
   Field[FEMField].DistMax = Max(CableSize~{cable},(MeshRemoteMax-CableSize~{cable})/MeshGrowthSlope);
   FEMBackground() += {FEMField}; FEMMeasurementCommon() += {FEMField};
 EndFor
+// Annular layer boundaries retain their current spacing unless the gap bound binds.
+FEMLayerBoundaryTargetCurves() = {};
+For boundary In {0:#FEMLayerBoundaryCurves()-1}
+  FEMLayerRadius = FEMLayerBoundaryRadii(boundary);
+  FEMLayerThickness = FEMLayerBoundaryThicknesses(boundary);
+  FEMLayerSegments = 12*2^Max(0,Ceil(Log(Pi*Sqrt(FEMLayerRadius/(3*ConductorGeometryTolerance*FEMLayerThickness))/12)/Log(2)));
+  FEMLayerSpacing = 2*Pi*FEMLayerRadius/FEMLayerSegments;
+  FEMExistingSpacing = 1e300;
+  For member In {0:#FEMLayerBoundaryPoints~{boundary}()-1}
+    FEMPoint = FEMLayerBoundaryPoints~{boundary}(member);
+    FEMExistingSpacing = Min(FEMExistingSpacing,FEMPointSize~{FEMPoint});
+  EndFor
+  For member In {0:#FEMLayerBoundaryCables~{boundary}()-1}
+    cable = FEMLayerBoundaryCables~{boundary}(member);
+    FEMExistingSpacing = Min(FEMExistingSpacing,CableSize~{cable});
+  EndFor
+  If(FEMLayerSpacing < FEMExistingSpacing)
+    FEMLayerCurve = FEMLayerBoundaryCurves(boundary);
+    FEMDistance = FEMNextField; FEMNextField += 1; Field[FEMDistance] = Distance;
+    // Resolve distance sampling well below the required contour spacing.
+    Field[FEMDistance].CurvesList = {FEMLayerCurve}; Field[FEMDistance].Sampling = Max(100,16*FEMLayerSegments);
+    FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Threshold;
+    Field[FEMField].InField = FEMDistance; Field[FEMField].SizeMin = FEMLayerSpacing;
+    Field[FEMField].SizeMax = MeshRemoteMax; Field[FEMField].DistMin = 0;
+    Field[FEMField].DistMax = Max(FEMLayerSpacing,(MeshRemoteMax-FEMLayerSpacing)/MeshGrowthSlope);
+    FEMBackground() += {FEMField}; FEMMeasurementCommon() += {FEMField};
+    FEMLayerBoundaryTargetCurves() += {FEMLayerCurve};
+  EndIf
+EndFor
 FEMConstant = FEMNextField; FEMNextField += 1; Field[FEMConstant] = MathEval; Field[FEMConstant].F = Sprintf("%.17g",MeshBulk);
 FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Restrict;
 Field[FEMField].InField = FEMConstant; Field[FEMField].IncludeBoundary = 1;
@@ -130,8 +159,14 @@ For region In {0:NumPhysicalRegions-1}
         FEMFirst = FEMExtent*(ConductorMeshGrowth-1)/(ConductorMeshGrowth^FEMLayers-1);
       EndIf
       For arc In {0:#FEMRegionCurves~{region}()-1}
+        FEMLayerSegments = 0;
+        FEMLayerThickness = FEMConductorLayerThickness~{region}(arc);
+        If(FEMLayerThickness > 0)
+          FEMArcRadius = FEMConductorArcLengths~{region}(arc)/(2*Pi*FEMConductorArcFractions~{region}(arc));
+          FEMLayerSegments = 12*2^Max(0,Ceil(Log(Pi*Sqrt(FEMArcRadius/(3*ConductorGeometryTolerance*FEMLayerThickness))/12)/Log(2)));
+        EndIf
         // Allow 64 Float64 ulps when rounding angular interval counts.
-        FEMAngularIntervals = FEMCircleSegments*FEMConductorArcFractions~{region}(arc);
+        FEMAngularIntervals = Max(FEMCircleSegments,FEMLayerSegments)*FEMConductorArcFractions~{region}(arc);
         FEMAngularEpsilon = 0;
         If(FEMAngularIntervals > 0)
           FEMAngularEpsilon = 2^(Floor(Log(FEMAngularIntervals)/Log(2))-52);

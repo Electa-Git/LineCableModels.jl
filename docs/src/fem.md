@@ -381,8 +381,10 @@ Unknown options fail. Removed expert keywords report the native override to use.
 angular spacing, first normal step and bulk sizes, wave and earth-layer targets,
 measurement-line sizes and the PML points-per-wavelength bound. Minimum circle
 segments and the minimum PML interval counts stay fixed. Factor one preserves
-the default mesh. The circle segment count set by geometric area tolerance is
-independent of `mesh_size_factor`. It does not change physical decay lengths or domain extent.
+the default mesh. `ConductorGeometryTolerance` bounds relative conductor
+circular-area errors and layer gap errors at circular insulating and
+semiconducting boundaries, independently of `mesh_size_factor`.
+It does not change physical decay lengths or domain extent.
 `domain_size_factor` multiplies the physical earth sizing length after its
 resistive ceiling and prescribed-Γ adjustment. `pml_reflection` sets nominal
 normal-wave attenuation. Near DC the added real stretch is limited to 100
@@ -404,7 +406,7 @@ The native guards also reject invalid CLI and ONELAB edits. The exported
 | `PmlSideGrading`, `PmlTopGrading`, `PmlBottomGrading` | `log(20)` | Nonnegative grading exponents |
 | `ExteriorMeshSizeFactor` | `1.0` | Remote-buffer factor, at least one |
 | `InterfaceRefinementFactor` | `1.0` | Cable-projected interface footprint factor, at least one |
-| `ConductorGeometryTolerance` | `1e-3` | Positive relative circular area error |
+| `ConductorGeometryTolerance` | `1e-3` | Positive relative conductor circular-area and circular layer-boundary gap error bound |
 | `ConductorSkinDepthElements` | `6.0` | Positive normal divisions per conductor skin depth |
 | `ConductorMeshGrowth` | `sqrt(1.25)` | Normal growth, at least one |
 | `ConductorSkinDepths` | `5.0` | Positive graded depth, limited by conductor width |
