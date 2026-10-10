@@ -325,9 +325,8 @@ function _pscad_components(blueprint::DataModel.CableBlueprint, frequency, formu
         for layer in layers
             source = layer.material
             operating = temperature === nothing ? source.T0 : convert(T, temperature)
-            relation = source.kind === :semicon ? formulation.methods.semicon_admittance :
-                       formulation.methods.insulation_admittance
-            kappa = constitutive(relation, source, frequency, operating;
+            kappa = constitutive((formulation.methods.insulation_admittance,
+                    formulation.methods.semicon_admittance), source, frequency, operating;
                 temperature_dependence = formulation.methods.temperature_dependence)
             impedance += inv(Engine.layer_admittance(layer.r_in, layer.r_ex, kappa))
         end

@@ -653,9 +653,8 @@ function _shunt_values(domain::InternalShuntDomain{T}, methods) where {T}
     # temperature corrections do not belong to these blueprint coefficients.
     reference_frequency = one(T)
     epsilon(material) = begin
-        law = material.kind === :semicon ? methods.semicon_admittance :
-              methods.insulation_admittance
-        kappa = law(material, reference_frequency, material.T0)
+        kappa = constitutive((methods.insulation_admittance, methods.semicon_admittance),
+            material, reference_frequency, material.T0; temperature_dependence = nothing)
         imag(kappa)/(2pi*reference_frequency*vacuum_permittivity(T))
     end
     values = T[domain.a, domain.b, epsilon(domain.material)]

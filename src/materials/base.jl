@@ -1,5 +1,5 @@
 Base.eltype(::Material{T}) where {T} = T
-Base.eltype(::Type{Material{T}}) where {T} = T
+Base.eltype(::Type{<:Material{T}}) where {T} = T
 
 # Implement the AbstractDict interface
 Base.length(lib::MaterialsLibrary) = length(lib.data)
@@ -147,9 +147,8 @@ function Base.show(io::IO, ::MIME"text/plain", library::MaterialsLibrary)
     return TextDisplay.tree(io, header, children; noun = "materials")
 end
 
-function Base.convert(::Type{Material{T}}, m::Material) where {T <: Real}
-    Material{T}(
-        m.kind,
+function Base.convert(::Type{Material{T}}, m::Material{<:Real, K}) where {T <: Real, K}
+    Material{T, K}(
         convert(T, m.rho),
         convert(T, m.eps_r),
         convert(T, m.mu_r),
@@ -163,3 +162,5 @@ function Base.convert(::Type{Material{T}}, m::Material) where {T <: Real}
 end
 
 Base.convert(::Type{Material{T}}, material::Material{T}) where {T <: Real} = material
+Base.convert(::Type{Material{T, K}}, m::Material{<:Real, K}) where {T <: Real, K} =
+    convert(Material{T}, m)

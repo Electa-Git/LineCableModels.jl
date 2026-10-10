@@ -37,8 +37,10 @@ function Material(;
         sigma_solar = 0,
         combine::Symbol = :product
 )
+    # A fixed class enters as `Val(kind)`, so a Gridspace over the other properties infers
+    # its concrete material type.
     values = (
-        kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
+        kind isa Symbol ? Val(kind) : kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
         theta_max, tan_delta, sigma_solar
     )
     return parameterize(

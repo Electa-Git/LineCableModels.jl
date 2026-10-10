@@ -138,7 +138,7 @@ end
         propagated = collect(space)
         @test eltype(space) === Any
         @test Base.IteratorEltype(typeof(space)) isa Base.EltypeUnknown
-        @test eltype(propagated) === Material{Measurement{Float64}}
+        @test eltype(propagated) === Material{Measurement{Float64}, :conductor}
     end
 
     @testset "Mixed BaseParams calls retain primitive sensitivities" begin

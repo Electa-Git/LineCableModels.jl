@@ -28,6 +28,7 @@ import ..Engine: InternalShuntBlock, internal_shunt_response,
                  same_physical_state, numerical_magnitude
 import ..Engine: InsulationAdmittance, SemiconAdmittance
 import ...LineCableModels: nominal
+using ...LineCableModels: constitutive
 using LinearAlgebra: eigvals!, norm, I, lu, mul!, qr!, ColumnNorm, eigen,
                      SymTridiagonal, UpperTriangular
 using QuadGK: alloc_segbuf, quadgk!

@@ -50,7 +50,7 @@ struct LocalCableData{T <: Real}
     "Outer radii of conductor-owned dielectric intervals [m]."
     r_ins_ext::Vector{T}
     "Reference conductor materials, including their resistivity calibration."
-    conductor_materials::Vector{Material{T}}
+    conductor_materials::Vector{Material{T, :conductor}}
     "Conductor relative permeabilities."
     mu_r_cond::Vector{T}
     "Equivalent relative permeabilities of conductor-owned dielectric intervals."
@@ -63,10 +63,6 @@ struct LocalCableData{T <: Real}
     r_layer_ext::Vector{T}
     "Physical dielectric materials in radial order."
     dielectric_materials::Vector{Material{T}}
-    "Indices of dielectric layers classified as insulation."
-    insulation_indices::Vector{Int}
-    "Indices of dielectric layers classified as semiconducting material."
-    semicon_indices::Vector{Int}
 end
 
 # Widen the representation without recalculating the blueprints or detaching
@@ -92,17 +88,13 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     r_ext_values = Vector{T}(undef, conductor_count)
     r_ins_in = Vector{T}(undef, conductor_count)
     r_ins_ext = Vector{T}(undef, conductor_count)
-    conductor_materials = Vector{Material{T}}(undef, conductor_count)
+    conductor_materials = Vector{Material{T, :conductor}}(undef, conductor_count)
     mu_r_cond = Vector{T}(undef, conductor_count)
     mu_r_ins = Vector{T}(undef, conductor_count)
     dielectric_ranges = Vector{UnitRange{Int}}(undef, conductor_count)
     r_layer_in = Vector{T}(undef, layer_count)
     r_layer_ext = Vector{T}(undef, layer_count)
     dielectric_materials = Vector{Material{T}}(undef, layer_count)
-    insulation_indices = Int[]
-    semicon_indices = Int[]
-    sizehint!(insulation_indices, layer_count)
-    sizehint!(semicon_indices, layer_count)
 
     conductor_offset = 0
     layer_offset = 0
@@ -136,15 +128,6 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
                 r_layer_in[layer_offset] = layer.r_in
                 r_layer_ext[layer_offset] = layer.r_ex
                 dielectric_materials[layer_offset] = layer.material
-                if layer.material.kind === :insulator
-                    push!(insulation_indices, layer_offset)
-                elseif layer.material.kind === :semicon
-                    push!(semicon_indices, layer_offset)
-                else
-                    throw(ArgumentError(
-                        "unsupported coaxial dielectric kind :$(layer.material.kind)",
-                    ))
-                end
             end
             dielectric_ranges[index] = first_layer:layer_offset
             mu_r_ins[index] = blueprint.mu_r_ins[local_index]
@@ -174,9 +157,7 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
         dielectric_ranges,
         r_layer_in,
         r_layer_ext,
-        dielectric_materials,
-        insulation_indices,
-        semicon_indices
+        dielectric_materials
     )
 end
 

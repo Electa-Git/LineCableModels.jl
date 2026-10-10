@@ -717,11 +717,10 @@ function _resolved_fem_model(
                     Complex{T}[complex(inv(rho) + 2π * f * epsilon * material.tan_delta,
                         2π * f * epsilon) for f in problem.frequencies]
                 else
-                    selected = material.kind === :semicon ?
-                               formulation.methods.semicon_admittance :
-                               formulation.methods.insulation_admittance
+                    laws = (formulation.methods.insulation_admittance,
+                        formulation.methods.semicon_admittance)
                     Complex{T}[_fem_float64_scalar(LineCableModels.constitutive(
-                        selected, material, frequency, problem.temperature;
+                        laws, material, frequency, problem.temperature;
                         temperature_dependence=formulation.methods.temperature_dependence))
                         for frequency in problem.frequencies]
                 end

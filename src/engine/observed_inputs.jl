@@ -13,9 +13,10 @@ function _input_record(value::Union{DataModel.AbstractCablePart,DataModel.Abstra
         DataModel.LayAngle,DataModel.FillFactor,DataModel.AssemblyMember,
         Materials.AbstractMaterial,Earth.AbstractEarthModel,Earth.AbstractEarthLayer,
         Earth.AbstractEarthMaterial})
-    fields = fieldnames(typeof(value))
+    # Properties, not fields: a material's class is its type parameter, read as `kind`.
+    names = propertynames(value)
     return merge((kind=nameof(typeof(value)),field_descriptions=Commons.input_fields(typeof(value))),
-        NamedTuple{fields}(map(name -> _input_record(getfield(value,name)), fields)))
+        NamedTuple{names}(map(name -> _input_record(getproperty(value,name)), names)))
 end
 
 _input_record(design::CableDesign) = (cable_id=design.cable_id,

@@ -202,7 +202,8 @@ function Enclosure(
     return parameterize(DataModel.Enclosure, DataModel.Enclosure, values; combine)
 end
 
-_terminal_eligible(region::DataModel.Region) = region.material.kind === :conductor ? 1 : 0
+_terminal_eligible(::DataModel.Region{<:Any, <:Materials.Material{<:Real, :conductor}}) = 1
+_terminal_eligible(::DataModel.Region) = 0
 _terminal_eligible(stack::DataModel.Stack) = sum(_terminal_eligible, stack.items; init = 0)
 _terminal_eligible(group::DataModel.Group) = _terminal_eligible(group.item)
 function _terminal_eligible(

@@ -37,21 +37,24 @@ end
     using Random
     import LineCableModels.ParametricBuilder as PB
 
-    material=@inferred PB.Material(kind = :conductor, rho = Float32(1.7e-8))
-    @test material isa LineCableModels.Materials.Material{Float32}
+    # A literal class infers the concrete material type through constant propagation.
+    material=@inferred (() -> PB.Material(kind = :conductor, rho = Float32(1.7e-8)))()
+    @test material isa LineCableModels.Materials.Material{Float32, :conductor}
     @test material.kind === :conductor
 
     space=PB.Material(
         kind = PB.Grid((:conductor, :semicon)),
         rho = Float32(1.7e-8)
     )
+    # The class is a type parameter. A grid over classes yields materials of two types,
+    # and Gridspace does not declare an element type for it.
     @test space isa PB.Gridspace{LineCableModels.Materials.Material}
-    @test eltype(space) === LineCableModels.Materials.Material{Float32}
-    @test Base.IteratorEltype(typeof(space)) isa Base.HasEltype
-    @test @inferred(first(space)) isa LineCableModels.Materials.Material{Float32}
+    @test eltype(space) === Any
+    @test Base.IteratorEltype(typeof(space)) isa Base.EltypeUnknown
+    @test first(space) isa LineCableModels.Materials.Material{Float32}
     @test getproperty.(collect(space), :kind) == [:conductor, :semicon]
     @test all(value -> eltype(value) === Float32, space)
-    sampled=@inferred rand(MersenneTwister(8), space)
+    sampled=rand(MersenneTwister(8), space)
     @test sampled.kind in (:conductor, :semicon)
     @test eltype(sampled) === Float32
 
@@ -63,10 +66,14 @@ end
         T0 = 20.0,
         alpha = 0.0
     )
+    # A fixed class keeps the element type concrete.
     @test eltype(resistivity_space) ===
-          LineCableModels.Materials.Material{Float64}
+          LineCableModels.Materials.Material{Float64, :conductor}
     @test @inferred(first(resistivity_space)) isa
-          LineCableModels.Materials.Material{Float64}
+          LineCableModels.Materials.Material{Float64, :conductor}
+    @test @inferred(rand(MersenneTwister(8), resistivity_space)).kind === :conductor
+    @test eltype(@inferred(collect(resistivity_space))) ===
+          LineCableModels.Materials.Material{Float64, :conductor}
 
     mixed_space=PB.Material(
         kind = :conductor,

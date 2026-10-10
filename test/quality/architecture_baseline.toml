@@ -84,7 +84,7 @@
 "ext/LineCableModelsGmshExt/geometry.jl" = { applicable = 0, eval = 0, kind = 2 }
 "ext/LineCableModelsGmshExt/getdp.jl" = { applicable = 0, eval = 0, kind = 1 }
 "ext/LineCableModelsGmshExt/mesh.jl" = { applicable = 0, eval = 0, kind = 1 }
-"ext/LineCableModelsGmshExt/model.jl" = { applicable = 0, eval = 0, kind = 5 }
+"ext/LineCableModelsGmshExt/model.jl" = { applicable = 0, eval = 0, kind = 4 }
 "ext/LineCableModelsGmshExt/voltage_paths.jl" = { applicable = 0, eval = 0, kind = 1 }
 "ext/LineCableModelsMakieExt/guides.jl" = { applicable = 0, eval = 0, kind = 11 }
 "ext/LineCableModelsMakieExt/layout.jl" = { applicable = 0, eval = 0, kind = 8 }
@@ -103,14 +103,11 @@
 "src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/datamodel/preview/geometry.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
-"src/engine/blueprint.jl" = { applicable = 0, eval = 0, kind = 2 }
 "src/engine/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }
-"src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, kind = 5 }
+"src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, kind = 4 }
 "src/importexport/deserialize.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, kind = 1 }
-"src/parametricbuilder/physicaltree.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
-"src/pscad/importexport/project.jl" = { applicable = 0, eval = 0, kind = 1 }
 "src/reportbuilder/tables.jl" = { applicable = 0, eval = 0, kind = 7 }
 
 [storage]

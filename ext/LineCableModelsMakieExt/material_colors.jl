@@ -97,12 +97,11 @@ function _earth_color(resistivity::Real)
     return _gradient(_EARTH_COLORS, position / 2)
 end
 
-_material_base(material::Material) = _material_base(Val(material.kind), material)
 _material_base(layer::EarthLayer) = _earth_color(nominal(layer.rho))
-_material_base(::Val{:conductor}, material::Material) = _conductor_color(nominal(material.rho))
-_material_base(::Val{:insulator}, material::Material) = _dielectric_color(nominal(material.eps_r))
-_material_base(::Val{:semicon}, material::Material) = _semicon_color(nominal(material.rho))
-function _material_base(::Val{Kind}, material) where {Kind}
+_material_base(material::Material{<:Real, :conductor}) = _conductor_color(nominal(material.rho))
+_material_base(material::Material{<:Real, :insulator}) = _dielectric_color(nominal(material.eps_r))
+_material_base(material::Material{<:Real, :semicon}) = _semicon_color(nominal(material.rho))
+function _material_base(::Material{<:Real, Kind}) where {Kind}
     throw(ArgumentError(
         "preview coloring is not defined for material kind :$Kind"
     ))

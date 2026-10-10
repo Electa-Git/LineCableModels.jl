@@ -230,8 +230,7 @@ end
     cable=input.cable
     @test getproperty.(cable.dielectric_materials, :kind) ==
           [:semicon, :insulator, :insulator]
-    @test cable.semicon_indices == [1]
-    @test cable.insulation_indices == [2, 3]
+    @test getproperty.(cable.dielectric_materials, :kind) == [:semicon, :insulator, :insulator]
     @test cable.dielectric_materials[2].tan_delta == 0.012
     @test @inferred(LineCableModels.Engine.dielectric!(
         workspace.buffers.dielectric_admittivity,

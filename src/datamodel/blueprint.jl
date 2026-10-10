@@ -15,7 +15,7 @@ struct BlueprintConductor{T <: Real}
     "Equivalent outer radius [m]."
     r_ex::T
     "Artificial homogeneous conductor material."
-    material::Material{T}
+    material::Material{T, :conductor}
 end
 
 """

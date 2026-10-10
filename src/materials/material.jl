@@ -6,13 +6,13 @@ abstract type AbstractMaterial end
 """
 $(TYPEDEF)
 
-Store one broad material class and its electromagnetic and thermal properties.
+Store one broad material class and its electromagnetic and thermal properties. The class
+`K`, such as `:conductor`, `:insulator` or `:semicon`, is a type parameter, so laws and
+formulations dispatch on it. `material.kind` returns it.
 
 $(TYPEDFIELDS)
 """
-struct Material{T <: Real} <: AbstractMaterial
-    "Broad physical class used by formulation dispatch."
-    kind::Symbol
+struct Material{T <: Real, K} <: AbstractMaterial
     "Electrical resistivity at reference temperature T0 \\[Ω·m\\]."
     rho::T
     "Relative permittivity \\[dimensionless\\]."
@@ -32,8 +32,7 @@ struct Material{T <: Real} <: AbstractMaterial
     "Solar-absorption coefficient \\[dimensionless\\]."
     sigma_solar::T
 
-    @inline function Material{T}(
-            kind::Symbol,
+    @inline function Material{T, K}(
             rho::T,
             eps_r::T,
             mu_r::T,
@@ -43,13 +42,27 @@ struct Material{T <: Real} <: AbstractMaterial
             theta_max::T,
             tan_delta::T,
             sigma_solar::T
-    ) where {T <: Real}
-        return validate(new{T}(
-            kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
-            theta_max, tan_delta, sigma_solar
+    ) where {T <: Real, K}
+        K isa Symbol && !isempty(String(K)) || throw(ArgumentError(
+            "Material.kind must be a nonempty Symbol; received $(repr(K))"
+        ))
+        return validate(new{T, K}(
+            rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar
         ))
     end
 end
+
+@inline function Material{T}(kind::Symbol, rho::T, eps_r::T, mu_r::T, T0::T, alpha::T,
+        rho_thermal::T, theta_max::T, tan_delta::T, sigma_solar::T) where {T <: Real}
+    return Material{T, kind}(
+        rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar)
+end
+
+# The class is the type parameter: `material.kind` reads it.
+@inline function Base.getproperty(material::Material{T, K}, name::Symbol) where {T, K}
+    return name === :kind ? K : getfield(material, name)
+end
+Base.propertynames(::Material) = (:kind, fieldnames(Material)...)
 
 """
 $(TYPEDSIGNATURES)
@@ -96,11 +109,19 @@ Construct a material after floating and promoting its real-valued properties.
         tan_delta,
         sigma_solar
 )
+    return Material(Val(kind), rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max,
+        tan_delta, sigma_solar)
+end
+
+# Given as `Val(kind)`, the class becomes the type parameter at compile time. A builder
+# with a fixed class then infers the concrete material type.
+@inline function Material(::Val{K}, rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max,
+        tan_delta, sigma_solar) where {K}
     values = map(float, promote(
         rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max,
         tan_delta, sigma_solar
     ))
-    return Material{typeof(first(values))}(kind, values...)
+    return Material{typeof(first(values)), K}(values...)
 end
 
 @inline function Material(
@@ -122,9 +143,6 @@ end
 end
 
 function validate(material::Material)
-    isempty(string(material.kind)) && throw(ArgumentError(
-        "Material.kind cannot be empty; received $(repr(material.kind))"
-    ))
     isnan(material.rho) && throw(DomainError(
         material.rho,
         "Material.rho must not be NaN"

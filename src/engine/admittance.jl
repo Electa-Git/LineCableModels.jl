@@ -71,6 +71,29 @@ function constitutive(
     return formula(material, frequency, temperature; workspace)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate the dielectric law that the material's class selects. `laws` lists the selected
+insulation and semicon laws, in that order. An `:insulator` takes the insulation law, and a
+`:semicon` takes the semicon law. Returns complex admittivity in S/m.
+"""
+function constitutive(laws::Tuple{I, S}, material::Material{<:Real, :insulator},
+        frequency::Real, temperature::Real;
+        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing
+) where {I <: InsulationAdmittanceFormulation, S <: SemiconAdmittanceFormulation}
+    return constitutive(first(laws), material, frequency, temperature;
+        temperature_dependence, workspace)
+end
+
+function constitutive(laws::Tuple{I, S}, material::Material{<:Real, :semicon},
+        frequency::Real, temperature::Real;
+        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing
+) where {I <: InsulationAdmittanceFormulation, S <: SemiconAdmittanceFormulation}
+    return constitutive(last(laws), material, frequency, temperature;
+        temperature_dependence, workspace)
+end
+
 @inline function radial_coefficient(coefficients, layers::UnitRange{Int})
     coefficient = zero(eltype(coefficients))
     @inbounds for layer in layers
@@ -96,23 +119,10 @@ function dielectric!(
         frequency::T,
         temperature::T; workspace = nothing
 ) where {T <: Real}
-    @inbounds for layer in input.insulation_indices
-        κ = constitutive(
-            methods.insulation_admittance,
-            input.dielectric_materials[layer],
-            frequency,
-            temperature; temperature_dependence = methods.temperature_dependence, workspace
-        )
-        admittivity[layer] = κ
-    end
-    @inbounds for layer in input.semicon_indices
-        κ = constitutive(
-            methods.semicon_admittance,
-            input.dielectric_materials[layer],
-            frequency,
-            temperature; temperature_dependence = methods.temperature_dependence, workspace
-        )
-        admittivity[layer] = κ
+    laws = (methods.insulation_admittance, methods.semicon_admittance)
+    @inbounds for (layer, material) in pairs(input.dielectric_materials)
+        admittivity[layer] = constitutive(laws, material, frequency, temperature;
+            temperature_dependence = methods.temperature_dependence, workspace)
     end
     return admittivity
 end

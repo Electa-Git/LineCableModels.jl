@@ -1067,7 +1067,8 @@ function add_dielectric_layer(dielectric, layer)
 end
 
 function dielectric_layer(material::Material, inner::T, outer::T) where {T <: Real}
-    return [(r_in = inner, r_ex = outer, material = convert(Material{T}, material))]
+    Layer = NamedTuple{(:r_in, :r_ex, :material), Tuple{T, T, Material{T}}}
+    return Layer[(r_in = inner, r_ex = outer, material = convert(Material{T}, material))]
 end
 
 function empty_dielectric(conductor, ::Type{T}) where {T <: Real}

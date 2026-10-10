@@ -79,12 +79,6 @@ function validate(workspace::LineParametersWorkspace)
             "dielectric-layer arrays must contain $n_layers entries"
         ))
     end
-    sort(vcat(
-        cable.insulation_indices,
-        cable.semicon_indices
-    )) == collect(1:n_layers) || throw(DimensionMismatch(
-        "insulation and semicon indices must partition the dielectric layers"
-    ))
     size(input.horz_sep) == (n, n) || throw(DimensionMismatch(
         "horizontal separation matrix must be $n×$n"
     ))
