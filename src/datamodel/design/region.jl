@@ -16,7 +16,7 @@ struct Region{P, M} <: AbstractCablePart
     function Region(tag::Symbol, primitive::P, material::M) where {
             P <: Union{AbstractPrimitive, Shell}, M <: AbstractMaterial
     }
-        isempty(String(tag)) && throw(ArgumentError("region tag cannot be empty"))
+        tag === Symbol("") && throw(ArgumentError("region tag cannot be empty"))
         return new{P, M}(tag, primitive, material)
     end
 end
@@ -102,7 +102,7 @@ struct PlacedRegion{
             P <: NamedTuple,
             H <: Tuple
     }
-        terminal === nothing || !isempty(String(terminal)) ||
+        terminal === nothing || terminal !== Symbol("") ||
             throw(
                 ArgumentError("placed-region terminal cannot be empty")
             )

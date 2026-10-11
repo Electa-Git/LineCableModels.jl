@@ -43,7 +43,7 @@ struct Material{T <: Real, K} <: AbstractMaterial
             tan_delta::T,
             sigma_solar::T
     ) where {T <: Real, K}
-        K isa Symbol && !isempty(String(K)) || throw(ArgumentError(
+        K isa Symbol && K !== Symbol("") || throw(ArgumentError(
             "Material.kind must be a nonempty Symbol; received $(repr(K))"
         ))
         return validate(new{T, K}(

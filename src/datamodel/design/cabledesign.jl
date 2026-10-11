@@ -61,7 +61,7 @@ function validate(design::CableDesign)
     isempty(design.terminal_order) && throw(ArgumentError(
         "CableDesign.terminal_order must contain at least one retained terminal"
     ))
-    all(name -> !isempty(String(name)), design.terminal_order) || throw(ArgumentError(
+    all(name -> name !== Symbol(""), design.terminal_order) || throw(ArgumentError(
         "CableDesign.terminal_order cannot contain an empty terminal name"
     ))
     allunique(design.terminal_order) || throw(ArgumentError(

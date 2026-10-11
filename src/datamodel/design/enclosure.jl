@@ -42,7 +42,7 @@ struct Enclosure{
             fill::F,
             wall::W
     ) where {A, S <: AbstractPrimitive, E <: AbstractCablePart, F, W}
-        isempty(String(tag)) && throw(ArgumentError("enclosure tag cannot be empty"))
+        tag === Symbol("") && throw(ArgumentError("enclosure tag cannot be empty"))
         at isa Pose2 || throw(ArgumentError("enclosure pose must resolve to Pose2"))
         fill isa Union{Material, Region} ||
             throw(ArgumentError("enclosure fill must be Material or Region"))

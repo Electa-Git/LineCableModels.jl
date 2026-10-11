@@ -33,7 +33,7 @@ struct Group{A, E <: AbstractCablePart, P, H, C, B} <: AbstractCablePart
             compact::C,
             boundary::B
     ) where {A, E <: AbstractCablePart, P, H, C, B}
-        isempty(String(name)) && throw(ArgumentError("group name cannot be empty"))
+        name === Symbol("") && throw(ArgumentError("group name cannot be empty"))
         at isa Pose2 || throw(ArgumentError("group pose must resolve to Pose2"))
         boundary === nothing || boundary isa Union{Disk, Sector} || throw(ArgumentError(
             "group boundary must be a Disk, Sector, or nothing"

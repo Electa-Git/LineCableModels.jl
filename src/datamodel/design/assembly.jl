@@ -107,7 +107,7 @@ struct Assembly{A, E, P, H, C, N} <: AbstractCablePart
                     "assembly names must be exact symbols or nothing"
                 ))
             names === nothing ||
-                all(name -> !isempty(String(name)), names) ||
+                all(name -> name !== Symbol(""), names) ||
                 throw(ArgumentError(
                     "assembly names cannot be empty"
                 ))
