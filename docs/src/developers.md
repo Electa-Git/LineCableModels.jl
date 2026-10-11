@@ -374,6 +374,31 @@ recorded at `REF`. Each declaration states one kind of difference: `value`, `typ
 different values under the same type and never hides a changed type. Any undeclared
 difference fails. The report lists renames and declarations that match no difference.
 
+### Independent references
+
+The safety net is `julia --project=test test/tools/safety_net.jl BASE [OTHER]`, with
+`OTHER` at `HEAD` by default. Each revision runs its own tutorials, `examples/tutorial*.jl`, with its
+own code in its own worktree. The tool records the cable constants, line parameters,
+modal results, numeric globals and written files of each tutorial. It compares them key by
+key in `.linecablemodels/checkpoint/comparison.md`. Each difference maps to a declared
+decision, or it is a regression.
+
+`julia --project=test test/tools/fem_references.jl [FEM_CHECKOUT]` compares the analytical
+results of this branch with saved FEM runs of the FEM investigation worktree.
+`fem_reference_problem` in `test/support/scenarios.jl` builds the cases: two bare wires,
+two insulated wires and a solid 1000 mm² core. For each case, the tool reads the newest
+`matrices.csv`. It reports e_Z and e_Y against the FEM columns, scaled by the largest
+diagonal entry of this branch. It also reports the largest relative difference of one
+entry from the analytical columns of the FEM checkout. The tables go to
+`.linecablemodels/checkpoint/fem/comparison.md`.
+
+The item `Engine / FEM references / three cheap cases` in
+`test/integration/fem_references.jl` checks the first approved independent references,
+the files in `test/integration/fem_references/`. At the 11 FEM frequencies of each case,
+the analytical result stays within 1 % of FEM by the scaled e_Z and e_Y. It also matches
+the recorded analytical values to a relative tolerance of 1e-12. A failure of the 1 %
+gate is a physics finding. Do not regenerate the reference files after a failure.
+
 ## Developer paths
 
 - [Extension API](extensions.md) lists the equation methods and definition types omitted

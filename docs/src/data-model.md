@@ -36,6 +36,11 @@ design = @cable "example" begin
 end
 ```
 
+`Material(kind=...)` stores the material class as a type parameter:
+`Material{T, :conductor}`, `Material{T, :insulator}` or `Material{T, :semicon}`. Dispatch
+on the class selects the law that evaluates a material, such as the insulation or the
+semicon admittance law of a dielectric layer.
+
 `design` is a completed `CableDesign`. A second resolution call is unnecessary.
 Its physical declaration remains authoritative while geometry and terminal
 indices are derived once by `build`.
@@ -323,10 +328,30 @@ its geometry. `DataModel.flatten(design)` reduces it to a `CableBlueprint`, with
 equivalent conductor annulus per retained terminal. It combines conductor resistances
 in parallel and calculates GMR recursively. Inverse conversions then give the
 equivalent conductor material. The dielectric layers keep their physical materials, and
-the design remains unchanged. The ATP, PSCAD and TRALIN exporters write one cable for each
-coaxial group, at its position. Each exporter evaluates a material where it writes it,
-with the formulation's laws at the export frequency and temperature. For a conductor, that
-is its resistivity, and for a dielectric group, the admittivity of its layers in series.
+the design remains unchanged.
+
+`blueprint[i]` is the row of conductor `i`, `(conductor, layers, mu_r_ins)`. `layers` is a
+view of the dielectric layers of its interval, and `mu_r_ins` is their equivalent relative
+permeability. A loop over a blueprint gives the rows in terminal order, and `eltype` of a
+blueprint is its scalar type, as for a design. `mu_r_ins` includes the helical-solenoid
+correction of the terminal's lay. A lay ratio or a lay angle at zero radius has no pitch.
+`flatten` rejects a terminal with a dielectric interval whose conductor follows such a
+helix.
+
+The ATP, PSCAD and TRALIN exporters write one cable for each coaxial group, at its
+position. Each exporter evaluates a material where it writes it, with the formulation's
+laws at the export frequency and temperature. For a conductor, that is its resistivity,
+and for a dielectric group, the admittivity of its layers in series. The default
+formulation is lossless. With `temperature = nothing`, each material stays at its
+reference temperature. Each format records the group in its own fields:
+
+- ATP: `epsI` gives the capacitance of the group and `Gext` its conductance. ATPDraw adds
+  `Cext` and `Gext` to what it computes from `epsI`, and `Cext` is zero.
+- PSCAD: the equivalent permittivity gives the capacitance, and the loss tangent G/(ωC) the
+  conductance. PSCAD accepts a loss tangent up to 10, and the exporter writes at most 10.
+- TRALIN: field 5 is the metal resistivity relative to 1.7241e-8 Ω·m. Field 7 is the
+  conductivity of the group relative to 1e-14 S/m, and field 8 its relative permittivity.
+  An `INSULATION` subcommand gives the relative permeability of the group.
 
 `flatten` reads the electrical topology from the resolved geometry, from which
 conductors enclose which. A coaxial group is one center with a chain of conductors, each
@@ -336,8 +361,8 @@ conductor around groups off its center makes a pipe-type cable: a metallic pipe,
 armor or a metallic umbilical sheath. `flatten` rejects pipe-type cables.
 
 A container is a fill, wall or jacket around groups. A circular container centered on its
-one group, such as a conduit around a centered cable, adds annuli to that group. No
-coaxial reduction exists yet for groups off the center of an insulating container,
+one group, such as a conduit around a centered cable, adds annuli to that group. The
+coaxial reduction does not cover groups off the center of an insulating container yet,
 screened or not. `flatten` rejects them, and with them every container that several
 groups share. It also rejects a container with a non-circular boundary, such as an
 elliptical duct. The sector cables and the coaxial trefoil pipe of the gallery below are

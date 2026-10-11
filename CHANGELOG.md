@@ -9,8 +9,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `Engine.AbstractModalOperators` is the supertype of modal-to-phase operator bases.
-  `ModalOperators` subtypes it and implements `size`.
+- `DataModel.flatten(design[, T])` gives the `CableBlueprint` of a design. Each retained
+  terminal has one equivalent conductor annulus, the physical dielectric layers of its
+  interval and their equivalent relative permeability `mu_r_ins`. The coaxial groups keep
+  their positions. `blueprint[i]` is the row `(conductor, layers, mu_r_ins)` of conductor
+  `i`, and iteration gives the rows in terminal order.
+- `export_data(:atp, ...)` and `export_data(:tralin, ...)` take `formulation` and
+  `temperature`, as `export_data(:pscad, ...)` does.
 - `Pose2` is callable. `pose(point)` rotates a point by the pose's orientation and
   translates it by the pose's position.
 - `initialize_buffers(reduction::ReductionPlan, T, input, plan, buffers)` adds
@@ -171,6 +176,43 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   input, plan, buffers)` and shapes its own buffers, usually as a named tuple of arrays.
   The fourth argument is the computation plan.
 - The coaxial workspace fields are `input`, `plan`, `buffers` and `trace`.
+- `flatten` follows the electrical topology of a design, read from which conductors
+  enclose which. It rejects a pipe-type cable, a conductor around groups off its center.
+  It also rejects groups off the center of an insulating container, and a container with a
+  non-circular boundary. The error message lists the groups.
+- `flatten` rejects a terminal with a dielectric interval whose conductor follows a lay
+  ratio or a lay angle at zero radius. Such a helix has no pitch, and the permeability of
+  the interval would be infinite.
+- `homogenize(design)` reduces the conductors only. Each dielectric layer keeps its
+  material and radii, with its relative permeability scaled by the helical-solenoid factor
+  of its interval.
+- `Material{T, K}` has the material class `K` as a type parameter: `:conductor`,
+  `:insulator` or `:semicon`. Dispatch on the class selects the dielectric law of a layer.
+- The shunt model completes each formulation after `flatten`, and `flatten` takes no
+  formulation. Domains of `:boundary` with the same physical inputs and numerical controls
+  share one solve within a computation. `details(result).data.shunt_model` reports the
+  solve counts.
+- The ATP, PSCAD and TRALIN exporters write one cable for each coaxial group, at its
+  position. They evaluate each material with the formulation's laws at the export
+  frequency and temperature, and the default formulation is lossless. ATP writes
+  `Cext = 0` and the conductance of the group as `Gext`. PSCAD writes a loss tangent of at
+  most 10. TRALIN writes the conductivity of the group in field 7, its relative
+  permeability in an `INSULATION` subcommand, and metal resistivities relative to
+  1.7241e-8 Ω·m. A design with one sector core exports at the centroid of its conductor.
+- Constructors check their inputs once. `compute` takes a constructed problem as it is,
+  and a call of `validate` checks a problem again. The `validate` method of a design, a
+  system, an earth model or a problem checks the fields of that container. The
+  constructors of its materials, designs and layers check those.
+- An earth computation checks each conductor pair once, when it builds the pairs. It
+  checks the earth media of each calculation once per frequency, before any earth
+  integral.
+- A benchmark table checks each band and normalization when its report runs.
+- `CableBlueprint`, `PreviewShape` and `ModalDomain` store the values they receive.
+  `flatten`, the preview and the modal computation build them from checked inputs.
+- The topology rule of `flatten` applies to every pipe-impedance formulation.
+- `compute` with a PSCAD formulation checks the frequencies, the size and the numeric types
+  of the problem before it stages a project.
+- `ReportBuilder.write` checks every XLSX workbook before it writes any of them.
 - `SpectralIntegral` is a formulation, a subtype of `AbstractFormulation`, and
   `integrate` takes it first: `integrate(integral, Val(:quad), controls, buffers)`. The
   buffers are the record that `initialize_buffers(SpectralIntegral, Val(:quad), T, input,
@@ -197,8 +239,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   line-parameter presentation.
 - Removed the `InputValidation` module. `Commons` owns `validate`.
 - Removed `Commons.check_core_result`. Use `validate(T, AbstractResultSpace)`.
-- Removed `Engine.validate_modal_operators`. Modal operators subtype
-  `AbstractModalOperators` and implement `size`.
+- Removed `Engine.validate_modal_operators`.
 - Removed `TextDisplay.quantity`, which no package code used. `show` of a
   `Units.Quantity` displays the quantity identity.
 - Removed the `ParametricBuilder.Conductor`, `Insulator` and `Semiconductor` modules and

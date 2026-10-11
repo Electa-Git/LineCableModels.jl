@@ -18,8 +18,9 @@ components: `CORE`, `SHEATH` and `ARMOUR`.
 # Keywords
 
 - `formulation`: line-parameter or cable-constant formulation. Its insulation, semicon
-  and temperature laws evaluate the materials. Default: [`Formulation`](@ref), whose
-  dielectric laws are lossless.
+  and temperature laws evaluate the materials. Default:
+  [`Formulation`](@ref LineCableModels.Engine.Formulation), whose dielectric laws are
+  lossless.
 - `freq`: one frequency or a vector of frequencies \\[Hz\\]. Default: `50.0`.
 - `temperature`: temperature of operation \\[°C\\]. With `nothing`, each material stays at
   its reference temperature. Default: `nothing`.

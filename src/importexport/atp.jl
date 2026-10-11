@@ -16,8 +16,9 @@ frequency and the resistivity of the last earth layer.
 # Keywords
 
 - `formulation`: line-parameter or cable-constant formulation. Its insulation, semicon
-  and temperature laws evaluate the materials. Default: [`Formulation`](@ref), whose
-  dielectric laws are lossless.
+  and temperature laws evaluate the materials. Default:
+  [`Formulation`](@ref LineCableModels.Engine.Formulation), whose dielectric laws are
+  lossless.
 - `base_freq`: ATP system frequency, and the frequency of the dielectric laws \\[Hz\\].
   Default: `50.0`.
 - `temperature`: temperature of operation \\[°C\\]. With `nothing`, each material stays at
