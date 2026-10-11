@@ -46,6 +46,7 @@ allocations = "ceiling"
 "test/unit/engine/observations.jl" = 3
 "test/unit/engine/options.jl" = 4
 "test/unit/engine/pipe_formulations.jl" = 1
+"test/unit/engine/problems.jl" = 2
 "test/unit/engine/radial_dielectric.jl" = 3
 "test/unit/engine/result_containers.jl" = 3
 "test/unit/engine/transforms.jl" = 2

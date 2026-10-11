@@ -116,6 +116,17 @@ end
 Base.eltype(::LineCableSystem{T}) where {T} = T
 Base.eltype(::Type{<:LineCableSystem{T}}) where {T} = T
 
+Base.convert(::Type{LineCableSystem{T}}, system::LineCableSystem{T}) where {T <: Real} = system
+
+# A wider scalar type rebuilds the system through its own `build`, with its retained
+# clearances and declared positions.
+function Base.convert(::Type{LineCableSystem{T}}, system::LineCableSystem) where {T <: Real}
+    return build(LineCableSystem, system.designs, system.positions, system.connections,
+        system.environment, system.system_id, convert(T, system.line_length);
+        _clearances = system.clearances, _input_positions = system.input_positions,
+        _rebuild = true)::LineCableSystem{T}
+end
+
 function realize(rng::Random.AbstractRNG, point::Gridpoint{LineCableSystem}, distribution)
     return realize_clearance(rng, point, distribution)
 end

@@ -37,22 +37,46 @@ end
     end
 end
 
-@testitem "Engine / problems / integer inputs keep the precision of the system" tags=[:unit, :engine] begin
+@testitem "Engine / problems / a one-point Gridspace gives the scalar problem" tags=[:unit, :engine] begin
     copper = Material(:conductor, 1.7241f-8)
     xlpe = Material(:insulator, 1.97f14, 2.5f0)
-    # The default group pose and system length are Float64, so they are given here.
     design = build(CableDesign, "float32", Stack(
         Group(:core, Region(:core, Disk(0.01f0), copper); at = Pose2(0.0f0, 0.0f0, 0.0f0)),
         Region(:insulation, Shell(0.005f0), xlpe)))
-    @test eltype(design) === Float32
-    # A scalar input and a one-point Gridspace give problems of one scalar type.
-    @test eltype(CableConstantsProblem(design)) === Float32
-    @test eltype(only(collect(CableConstantsProblem(Grid((design,)))))) === Float32
-    @test eltype(CableConstantsProblem(design; temperature = 90, frequency = 60)) === Float32
+    scalar = CableConstantsProblem(design)
+    gridded = only(collect(CableConstantsProblem(Grid((design,)))))
+    @test typeof(gridded) === typeof(scalar)
+    @test (gridded.temperature, gridded.frequency) == (scalar.temperature, scalar.frequency)
+    @test gridded.design === scalar.design
+
     system = build(LineCableSystem, design, Pose2(0.0f0, -1.0f0);
         connections = Dict(:core => 1), line_length = 1.0f0)
-    earth = homogeneous(rho = 100.0f0)
-    @test eltype(LineParametersProblem(system; earth_props = earth)) === Float32
-    @test eltype(only(collect(LineParametersProblem(Grid((system,)); earth_props = earth)))) ===
-          Float32
+    earth = homogeneous(rho = 100.0)
+    scalar = LineParametersProblem(system; earth_props = earth)
+    gridded = only(collect(LineParametersProblem(Grid((system,)); earth_props = earth)))
+    @test typeof(gridded) === typeof(scalar)
+    @test (gridded.temperature, gridded.frequencies) == (scalar.temperature, scalar.frequencies)
+    @test gridded.earth_props == scalar.earth_props
+    @test gridded.system.positions == scalar.system.positions
+    @test gridded.system.clearances == scalar.system.clearances
+end
+
+@testitem "Engine / problems / mixed Float32 and Float64 inputs compute" tags=[:unit, :engine] begin
+    copper = Material(:conductor, 1.7241f-8)
+    xlpe = Material(:insulator, 1.97f14, 2.5f0)
+    # Float32 inputs, with a Float32 pose and length, meet one Float64 input at a time.
+    design = build(CableDesign, "float32", Stack(
+        Group(:core, Region(:core, Disk(0.01f0), copper); at = Pose2(0.0f0, 0.0f0, 0.0f0)),
+        Region(:insulation, Shell(0.005f0), xlpe)))
+    system = build(LineCableSystem, design, Pose2(0.0f0, -1.0f0);
+        connections = Dict(:core => 1), line_length = 1.0f0)
+    earth32 = homogeneous(rho = 100.0f0)
+    for problem in (
+            LineParametersProblem(system; earth_props = homogeneous(rho = 100.0)),
+            LineParametersProblem(system; earth_props = earth32, temperature = 20.0),
+            LineParametersProblem(system; earth_props = earth32, frequencies = [50.0]))
+        @test @inferred(compute(problem, Formulation())) isa LineParameters
+    end
+    constants = CableConstantsProblem(design; temperature = 20.0)
+    @test @inferred(compute(constants, CableConstantsFormulation())) isa CableConstants
 end

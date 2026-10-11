@@ -272,6 +272,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   numbers throw a `MethodError`.
 - The methods that `TextDisplay.@showfields` defines record their call site, so `@which`,
   `methods` and stack traces show the caller.
+- A `LineParametersProblem` builds from a Float32 system and a Float64 earth, temperature
+  or frequency: `LineCableSystem` converts to a wider scalar type through its own `build`.
 
 ## [0.2.0] - 2026-08-13
 
