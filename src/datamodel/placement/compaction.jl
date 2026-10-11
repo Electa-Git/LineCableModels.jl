@@ -23,7 +23,7 @@ struct FillFactor{T <: Real}
     end
 end
 
-_fill_factor(η) = FillFactor{typeof(float(η))}(float(η))
+FillFactor(η::Real) = FillFactor{typeof(float(η))}(float(η))
 
 """
 $(TYPEDSIGNATURES)
@@ -45,8 +45,8 @@ factors.
 - A `FillFactor`, a tuple of `FillFactor` values, or the corresponding
   `Gridspace` when an explicit finite source is supplied.
 """
-function FillFactor(η; combine::Symbol = :product)
-    parameterize(FillFactor, _fill_factor, (η,); combine)
+function FillFactor(η::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return parameterize(FillFactor, FillFactor, (η,); combine)
 end
 function FillFactor(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
     _normalize_schedule(FillFactor, values; combine)

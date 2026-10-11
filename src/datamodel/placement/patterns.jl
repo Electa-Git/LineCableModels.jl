@@ -72,10 +72,13 @@ function capacity(
     return max(0, floor(Int, count + 8eps(float(count))))
 end
 
-function _ring(n, r, φ0, span, gap_frac)
-    n isa Union{Integer, _DeferredCardinality} || throw(ArgumentError(
-        "ring cardinality must be a positive integer or capacity()"
-    ))
+function Ring(
+        n::Union{Integer, _DeferredCardinality},
+        r::Union{Real, Nothing},
+        φ0::Real,
+        span::Real,
+        gap_frac::Real
+)
     numeric = r === nothing ? promote(φ0, span, gap_frac) :
               promote(r, φ0, span, gap_frac)
     values = map(float, numeric)
@@ -100,16 +103,14 @@ function _ring(n, r, φ0, span, gap_frac)
 end
 
 function Ring(
-        n;
+        n::Union{Integer, _DeferredCardinality, AbstractGrid, Gridspace};
         r = nothing,
         φ0 = 0,
         span = 2π,
         gap_frac = 0,
         combine::Symbol = :product
 )
-    return parameterize(
-        Ring, _ring, (n, r, φ0, span, gap_frac); combine
-    )
+    return parameterize(Ring, Ring, (n, r, φ0, span, gap_frac); combine)
 end
 
 """
@@ -149,13 +150,14 @@ struct Polar{T <: Real}
     end
 end
 
-function _polar(nr, nφ, r0, dr, φ0, span)
-    nr isa Integer && !(nr isa Bool) || throw(ArgumentError(
-        "polar radial count must be an integer"
-    ))
-    nφ isa Integer && !(nφ isa Bool) || throw(ArgumentError(
-        "polar angular count must be an integer"
-    ))
+function Polar(
+        nr::Union{Signed, Unsigned},
+        nφ::Union{Signed, Unsigned},
+        r0::Real,
+        dr::Real,
+        φ0::Real,
+        span::Real
+)
     values = map(float, promote(r0, dr, φ0, span))
     return Polar{typeof(first(values))}(Int(nr), Int(nφ), values...)
 end
@@ -169,7 +171,7 @@ function Polar(;
         span = 2π,
         combine::Symbol = :product
 )
-    return parameterize(Polar, _polar, (nr, nφ, r0, dr, φ0, span); combine)
+    return parameterize(Polar, Polar, (nr, nφ, r0, dr, φ0, span); combine)
 end
 
 """
@@ -202,7 +204,7 @@ struct Fill{T <: Real}
     end
 end
 
-function _fill(r, φ, φ0, span)
+function Fill(r::Real, φ::Real, φ0::Real, span::Real)
     values = map(float, promote(r, φ, φ0, span))
     return Fill{typeof(first(values))}(values...)
 end
@@ -214,7 +216,7 @@ function Fill(;
         span = 2π,
         combine::Symbol = :product
 )
-    return parameterize(Fill, _fill, (r, φ, φ0, span); combine)
+    return parameterize(Fill, Fill, (r, φ, φ0, span); combine)
 end
 
 """
@@ -245,13 +247,12 @@ struct Lattice{T <: Real}
     end
 end
 
-function _lattice(nx, ny, dx, dy)
-    nx isa Integer && !(nx isa Bool) || throw(ArgumentError(
-        "lattice column count must be an integer"
-    ))
-    ny isa Integer && !(ny isa Bool) || throw(ArgumentError(
-        "lattice row count must be an integer"
-    ))
+function Lattice(
+        nx::Union{Signed, Unsigned},
+        ny::Union{Signed, Unsigned},
+        dx::Real,
+        dy::Real
+)
     values = map(float, promote(dx, dy))
     return Lattice{typeof(first(values))}(Int(nx), Int(ny), values...)
 end
@@ -263,7 +264,7 @@ function Lattice(;
         dy,
         combine::Symbol = :product
 )
-    return parameterize(Lattice, _lattice, (nx, ny, dx, dy); combine)
+    return parameterize(Lattice, Lattice, (nx, ny, dx, dy); combine)
 end
 
 """

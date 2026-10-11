@@ -151,3 +151,24 @@ end
     @test (@inferred DM._minimum_radius(Disk(1.0))) == 0.0
     @test r_in(Disk(1.0, Pose2(3.0, 0.0))) == 0.0
 end
+
+@testitem "DataModel / lifting / an invalid scalar placement input throws MethodError" tags=[:unit, :datamodel] begin
+    # Each lift accepts the scalar type of its constructor or a finite source, so an input
+    # of another type reaches no method.
+    @test_throws MethodError Pose2("a", 0.0, 0.0)
+    @test_throws MethodError Pose2(0.0, :b)
+    @test_throws MethodError LayRatio("a")
+    @test_throws MethodError Pitch(:p)
+    @test_throws MethodError LayAngle(1 + 2im)
+    @test_throws MethodError Helix(10.0)
+    @test_throws MethodError Helix(LayRatio(10.0); dir = true)
+    @test_throws MethodError FillFactor("a")
+    @test_throws MethodError Ring(2.5)
+    @test_throws MethodError Polar(nr = 2.0, nφ = 6, dr = 1e-3)
+    @test_throws MethodError Fill(r = "a", φ = 0.0)
+    @test_throws MethodError Lattice(nx = true, ny = 2, dx = 1e-3, dy = 1e-3)
+    @test Pose2(Grid((0.0, 1.0)), 2.0) isa Gridspace{Pose2}
+    @test LayRatio(Grid((10.0, 12.0))) isa Gridspace{LayRatio}
+    @test Helix(LayRatio(10.0); dir = Grid((1, -1))) isa Gridspace{Helix}
+    @test Ring(Grid((6, 12)); r = 1e-3) isa Gridspace{Ring}
+end

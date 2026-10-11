@@ -20,16 +20,29 @@ struct Pose2{T <: Real}
     end
 end
 
-function _pose2(x, y, φ)
+function Pose2(x::Real, y::Real, φ::Real)
     values = map(float, promote(x, y, φ))
     return Pose2{typeof(first(values))}(values...)
 end
 
-function Pose2(x, y, φ; combine::Symbol = :product)
-    return parameterize(Pose2, _pose2, (x, y, φ); combine)
+Pose2(x::Real, y::Real) = Pose2(x, y, 0)
+
+function Pose2(
+        x::Union{Real, AbstractGrid, Gridspace},
+        y::Union{Real, AbstractGrid, Gridspace},
+        φ::Union{Real, AbstractGrid, Gridspace};
+        combine::Symbol = :product
+)
+    return parameterize(Pose2, Pose2, (x, y, φ); combine)
 end
 
-Pose2(x, y; combine::Symbol = :product) = Pose2(x, y, 0; combine)
+function Pose2(
+        x::Union{Real, AbstractGrid, Gridspace},
+        y::Union{Real, AbstractGrid, Gridspace};
+        combine::Symbol = :product
+)
+    return parameterize(Pose2, Pose2, (x, y, 0); combine)
+end
 
 Base.eltype(::Pose2{T}) where {T} = T
 Base.eltype(::Type{<:Pose2{T}}) where {T} = T

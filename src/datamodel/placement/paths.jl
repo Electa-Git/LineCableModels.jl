@@ -10,7 +10,7 @@ struct LayRatio{T <: Real}
     end
 end
 
-_lay_ratio(q) = LayRatio{typeof(float(q))}(float(q))
+LayRatio(q::Real) = LayRatio{typeof(float(q))}(float(q))
 
 function _normalize_schedule(wrapper, values; combine::Symbol)
     return map(Tuple(values)) do value
@@ -37,7 +37,9 @@ Declare one lay-length ratio or a homogeneous schedule of lay-length ratios.
 - A `LayRatio`, a tuple of `LayRatio` values, or the corresponding `Gridspace`
   when an explicit finite source is supplied.
 """
-LayRatio(q; combine::Symbol = :product) = parameterize(LayRatio, _lay_ratio, (q,); combine)
+function LayRatio(q::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return parameterize(LayRatio, LayRatio, (q,); combine)
+end
 function LayRatio(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
     _normalize_schedule(LayRatio, values; combine)
 end
@@ -57,7 +59,7 @@ struct Pitch{T <: Real}
     end
 end
 
-_pitch(p) = Pitch{typeof(float(p))}(float(p))
+Pitch(p::Real) = Pitch{typeof(float(p))}(float(p))
 
 """
 $(TYPEDSIGNATURES)
@@ -78,7 +80,9 @@ Declare one helical pitch or a homogeneous schedule of helical pitches.
 - A `Pitch`, a tuple of `Pitch` values, or the corresponding `Gridspace` when
   an explicit finite source is supplied.
 """
-Pitch(p; combine::Symbol = :product) = parameterize(Pitch, _pitch, (p,); combine)
+function Pitch(p::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return parameterize(Pitch, Pitch, (p,); combine)
+end
 function Pitch(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
     _normalize_schedule(Pitch, values; combine)
 end
@@ -98,7 +102,7 @@ struct LayAngle{T <: Real}
     end
 end
 
-_lay_angle(α) = LayAngle{typeof(float(α))}(float(α))
+LayAngle(α::Real) = LayAngle{typeof(float(α))}(float(α))
 
 """
 $(TYPEDSIGNATURES)
@@ -119,7 +123,9 @@ Declare one helical lay angle or a homogeneous schedule of lay angles.
 - A `LayAngle`, a tuple of `LayAngle` values, or the corresponding `Gridspace`
   when an explicit finite source is supplied.
 """
-LayAngle(α; combine::Symbol = :product) = parameterize(LayAngle, _lay_angle, (α,); combine)
+function LayAngle(α::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return parameterize(LayAngle, LayAngle, (α,); combine)
+end
 function LayAngle(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
     _normalize_schedule(LayAngle, values; combine)
 end
@@ -151,21 +157,22 @@ struct Helix{L, T <: Real}
     end
 end
 
-function _helix(lay, dir, φ0)
-    dir isa Integer && !(dir isa Bool) || throw(ArgumentError(
-        "helix direction must be an integer"
-    ))
+function Helix(
+        lay::Union{LayRatio, Pitch, LayAngle},
+        dir::Union{Signed, Unsigned},
+        φ0::Real
+)
     angle = float(φ0)
     return Helix{typeof(lay), typeof(angle)}(lay, Int(dir), angle)
 end
 
 function Helix(
-        lay;
+        lay::Union{LayRatio, Pitch, LayAngle, AbstractGrid, Gridspace};
         dir = 1,
         φ0 = 0,
         combine::Symbol = :product
 )
-    return parameterize(Helix, _helix, (lay, dir, φ0); combine)
+    return parameterize(Helix, Helix, (lay, dir, φ0); combine)
 end
 
 """

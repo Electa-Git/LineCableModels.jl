@@ -240,16 +240,11 @@
 "src/commons/observed_validation.jl" = 1
 "src/datamodel/cableslibrary/vdeparse.jl" = 2
 "src/datamodel/flatten.jl" = 6
-"src/datamodel/geometry/pose.jl" = 1
 "src/datamodel/geometry/sector.jl" = 4
 "src/datamodel/linecablesystem/clearance.jl" = 1
-"src/datamodel/placement/compaction.jl" = 1
-"src/datamodel/placement/paths.jl" = 4
-"src/datamodel/placement/patterns.jl" = 1
 "src/datamodel/preview/materials.jl" = 1
 "src/datamodel/textdisplay.jl" = 1
 "src/earth/base.jl" = 2
-"src/earth/earthlayer.jl" = 1
 "src/engine/cableconstants.jl" = 1
 "src/engine/formulations.jl" = 1
 "src/engine/problems.jl" = 1

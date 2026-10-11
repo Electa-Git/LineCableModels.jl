@@ -62,7 +62,14 @@ function EarthLayer(rho::Real, eps_r::Real, mu_r::Real)
     return EarthLayer{T}(values..., T(Inf))
 end
 
-function _earth_layer(rho, eps_r, mu_r, thickness)
+# `nothing` selects unity permittivity and permeability in the resistivity scalar type,
+# and a semi-infinite thickness.
+function EarthLayer(
+        rho::Real,
+        eps_r::Union{Real, Nothing},
+        mu_r::Union{Real, Nothing},
+        thickness::Union{Real, Nothing}
+)
     permittivity = eps_r === nothing ? one(float(rho)) : eps_r
     permeability = mu_r === nothing ? one(float(rho)) : mu_r
     return thickness === nothing ?
@@ -99,7 +106,7 @@ function layer(;
         combine::Symbol = :product
 )
     values = (rho, eps_r, mu_r, thickness)
-    return parameterize(EarthLayer, _earth_layer, values; combine)
+    return parameterize(EarthLayer, EarthLayer, values; combine)
 end
 
 function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T <: Real}

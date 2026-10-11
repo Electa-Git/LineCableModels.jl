@@ -197,3 +197,11 @@ end
     @test uncertainty(uncertain.eps_r[2, 1]) > 0
     @test uncertainty(uncertain.mu_r[2, 1]) > 0
 end
+
+@testitem "Earth / lifting / an invalid scalar layer input throws MethodError" tags=[:unit, :earth] begin
+    @test_throws MethodError layer(rho = "a")
+    @test_throws MethodError layer(rho = 100.0, eps_r = :x)
+    @test layer(rho = Grid((10.0, 100.0))) isa Gridspace{LineCableModels.Earth.EarthLayer}
+    # `nothing` selects unity in the resistivity scalar type.
+    @test layer(rho = 100.0f0) isa LineCableModels.Earth.EarthLayer{Float32}
+end
