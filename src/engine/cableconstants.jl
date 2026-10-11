@@ -227,9 +227,8 @@ function CableConstantsProblem(
 end
 
 function CableConstantsProblem(design::CableDesign, temperature::Real, frequency::Real)
-    T = promote_type(
-        eltype(design), typeof(float(temperature)), typeof(float(frequency))
-    )
+    # Integer inputs are neutral: the input types promote as they are, then float.
+    T = float(promote_type(eltype(design), typeof(temperature), typeof(frequency)))
     value = convert(T, float(frequency))
     return CableConstantsProblem{T, typeof(design)}(
         design,

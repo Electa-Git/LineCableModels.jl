@@ -228,6 +228,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   accepts a `Grid` or `Gridspace`, and the call then returns a `Gridspace` of problems.
 - `CableConstants(design; temperature, frequency, formulation, options, combine)` computes
   its problem. With a gridded input it returns the `Combinatorial` result space.
+- `LineParametersProblem` and `CableConstantsProblem` take the floating type of their
+  promoted input types, so an integer temperature or frequency keeps the precision of the
+  system or design.
 
 ### Removed
 

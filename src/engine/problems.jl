@@ -70,23 +70,22 @@ end
 $(TYPEDSIGNATURES)
 
 Construct a problem, or a `Gridspace{LineParametersProblem}` when the system or a keyword
-is a `Grid` or `Gridspace`. Each problem promotes the system, operating temperature,
-static earth model and frequencies to one real scalar type.
+is a `Grid` or `Gridspace`. Each problem takes the floating type of the promoted system,
+operating temperature, static earth model and frequency types, so an integer input keeps
+the precision of the system.
 
 # Keywords
 
-- `temperature`: operating temperature \\[°C\\]. The default, 20 °C, takes the scalar
-  type of a scalar system's line length.
+- `temperature=20`: operating temperature \\[°C\\].
 - `earth_props`: static earth model.
-- `frequencies`: positive sorted analysis frequencies \\[Hz\\]. The default is 50 Hz.
+- `frequencies=[50]`: positive sorted analysis frequencies \\[Hz\\].
 - `combine=:product`: composition rule when an input varies.
 """
 function LineParametersProblem(
         system::Union{LineCableSystem, AbstractGrid, Gridspace};
-        temperature = system isa LineCableSystem ? oftype(float(system.line_length), 20) : 20,
+        temperature = 20,
         earth_props,
-        frequencies = system isa LineCableSystem ? [oftype(float(system.line_length), 50)] :
-                      [50],
+        frequencies = [50],
         combine::Symbol = :product
 )
     values = (system, temperature, earth_props, frequencies)
@@ -100,10 +99,10 @@ function LineParametersProblem(
         frequencies::AbstractVector{<:Real}
 )
     isempty(frequencies) && throw(ArgumentError("frequencies cannot be empty"))
-    T = promote_type(
-        eltype(system), typeof(float(temperature)), eltype(earth_props),
-        typeof(float(first(frequencies)))
-    )
+    # Integer inputs are neutral: the input types promote as they are, then float.
+    T = float(promote_type(
+        eltype(system), typeof(temperature), eltype(earth_props), typeof(first(frequencies))
+    ))
     converted_system = DataModel.interface_clearance(convert(LineCableSystem{T}, system))
     converted_earth = convert(EarthModel{T}, earth_props)
     return LineParametersProblem{
