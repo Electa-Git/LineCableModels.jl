@@ -61,8 +61,9 @@ struct LocalCableData{T <: Real}
     r_layer_in::Vector{T}
     "Physical dielectric-layer outer radii [m]."
     r_layer_ext::Vector{T}
-    "Physical dielectric materials in radial order."
-    dielectric_materials::Vector{Material{T}}
+    "Physical dielectric materials in radial order. `flatten` admits insulators and semicons
+    only."
+    dielectric_materials::Vector{Union{Material{T, :insulator}, Material{T, :semicon}}}
 end
 
 # Widen the representation without recalculating the blueprints or detaching
@@ -94,7 +95,8 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     dielectric_ranges = Vector{UnitRange{Int}}(undef, conductor_count)
     r_layer_in = Vector{T}(undef, layer_count)
     r_layer_ext = Vector{T}(undef, layer_count)
-    dielectric_materials = Vector{Material{T}}(undef, layer_count)
+    dielectric_materials =
+        Vector{Union{Material{T, :insulator}, Material{T, :semicon}}}(undef, layer_count)
 
     conductor_offset = 0
     layer_offset = 0

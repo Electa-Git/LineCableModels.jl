@@ -230,6 +230,7 @@ function LineParametersWorkspace{T}(
     plan = merge(plan, (geometry = (radius = convert(Vector{T}, plan.geometry.radius),
         layers = plan.geometry.layers),))
     rho_cond = Vector{T}(undef, length(cable.conductor_materials))
+    rho_layer = Vector{T}(undef, n_layers)
 
     Zprimitive = Matrix{Complex{T}}(undef, n_phases, n_phases)
     Pprimitive = similar(Zprimitive)
@@ -256,6 +257,7 @@ function LineParametersWorkspace{T}(
     dielectric_admittivity = similar(layer_coefficients)
     buffers = (;
         rho_cond,
+        rho_layer,
         dielectric_admittivity,
         Zprimitive,
         Pprimitive,

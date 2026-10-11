@@ -80,7 +80,9 @@
     methods=Formulation(insulation_admittance = formulation,
         semicon_admittance = semicon).methods
     admittivity=zeros(ComplexF64, 2)
-    E.dielectric!(admittivity, input, methods, 50.0, 20.0)
+    rho=[constitutive(methods.temperature_dependence, material, 20.0)
+         for material in input.dielectric_materials]
+    E.dielectric!(admittivity, input, rho, methods, 50.0, 20.0)
     layers=zeros(ComplexF64, 2)
     potential, admittance=zeros(ComplexF64, 1, 1), zeros(ComplexF64, 1, 1)
     E.cable_potential!(potential, input, shunt, admittivity, s, layers,
@@ -235,6 +237,8 @@ end
     @test @inferred(LineCableModels.Engine.dielectric!(
         workspace.buffers.dielectric_admittivity,
         cable,
+        [constitutive(formulation.methods.temperature_dependence, material, input.temperature)
+         for material in cable.dielectric_materials],
         formulation.methods,
         input.freq[1],
         input.temperature

@@ -73,7 +73,10 @@
     coefficients, tails = zeros(ComplexF64, 3), zeros(ComplexF64, 3)
     local_shunt = shunt.blocks
     admittivity = similar(layers)
-    E.dielectric!(admittivity, cable, Formulation().methods, 50.0, 20.0)
+    methods = Formulation().methods
+    rho = [constitutive(methods.temperature_dependence, material, 20.0)
+           for material in cable.dielectric_materials]
+    E.dielectric!(admittivity, cable, rho, methods, 50.0, 20.0)
     E.cable_potential!(p, cable, shunt, admittivity, 100pi*im,
         layers, coefficients, tails)
     E.cable_admittance!(y, cable, shunt, admittivity, 100pi*im, layers)

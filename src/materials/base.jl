@@ -164,3 +164,8 @@ end
 Base.convert(::Type{Material{T}}, material::Material{T}) where {T <: Real} = material
 Base.convert(::Type{Material{T, K}}, m::Material{<:Real, K}) where {T <: Real, K} =
     convert(Material{T}, m)
+# A dielectric layer is an insulator or a semicon. The conversion changes the scalar type of
+# each material to `T`, and its class stays the same.
+Base.convert(::Type{Union{Material{T, :insulator}, Material{T, :semicon}}},
+    m::Union{Material{<:Real, :insulator}, Material{<:Real, :semicon}}) where {T <: Real} =
+    convert(Material{T}, m)

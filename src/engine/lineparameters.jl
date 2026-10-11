@@ -387,6 +387,10 @@ function materials!(workspace::LineParametersWorkspace, formulation::LineParamet
         buffers.rho_cond[index] = constitutive(formulation.methods.temperature_dependence,
             material, input.temperature; workspace)
     end
+    for (layer, material) in pairs(input.cable.dielectric_materials)
+        buffers.rho_layer[layer] = constitutive(formulation.methods.temperature_dependence,
+            material, input.temperature; workspace)
+    end
     buffers.earth.evaluated === nothing || materials!(buffers.earth.evaluated,
         formulation.methods.earth_properties, input.earth, input.freq; workspace)
     return workspace
@@ -399,7 +403,8 @@ function materials!(
         materials::Tuple = workspace.buffers.earth.calculations)
     homogenize!(workspace, frequency, formulation, calculations, materials)
     dielectric!(workspace.buffers.dielectric_admittivity, workspace.input.cable,
-        formulation.methods, workspace.input.freq[frequency], workspace.input.temperature; workspace)
+        workspace.buffers.rho_layer, formulation.methods, workspace.input.freq[frequency],
+        workspace.input.temperature; workspace)
     return workspace
 end
 

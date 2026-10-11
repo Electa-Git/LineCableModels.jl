@@ -80,7 +80,9 @@
                 shunt = only(E.internal_shunt_response([design], [blueprint], [formulation]))
                 y = zeros(ComplexF64, 1, 1)
                 admittivity = zeros(ComplexF64, length(input.dielectric_materials))
-                E.dielectric!(admittivity, input, formulation.methods, f, 20.0)
+                rho = [constitutive(formulation.methods.temperature_dependence, material, 20.0)
+                       for material in input.dielectric_materials]
+                E.dielectric!(admittivity, input, rho, formulation.methods, f, 20.0)
                 E.cable_admittance!(y, input, shunt, admittivity,
                     complex(0.0, 2π*f), zeros(ComplexF64, length(input.dielectric_materials)))
                 only(y)

@@ -456,6 +456,7 @@ function CableConstantsWorkspace(
         layer_coefficients = Vector{Complex{T}}(
             undef, length(cable.dielectric_materials)
         ),
+        rho_layer = Vector{T}(undef, length(cable.dielectric_materials)),
         dielectric_admittivity = Vector{Complex{T}}(undef, length(cable.dielectric_materials)),
         R = Vector{T}(undef, length(cable.assemblies)),
         L = Vector{T}(undef, length(cable.assemblies)),
@@ -489,8 +490,12 @@ function _solve!(
         workspace.rho[index] = constitutive(formulation.methods.temperature_dependence,
             material, problem.temperature; workspace)
     end
-    dielectric!(buffers.dielectric_admittivity, workspace.cable, formulation.methods,
-        problem.frequency, problem.temperature; workspace)
+    for (layer, material) in pairs(workspace.cable.dielectric_materials)
+        buffers.rho_layer[layer] = constitutive(formulation.methods.temperature_dependence,
+            material, problem.temperature; workspace)
+    end
+    dielectric!(buffers.dielectric_admittivity, workspace.cable, buffers.rho_layer,
+        formulation.methods, problem.frequency, problem.temperature; workspace)
     cable_impedance!(
         buffers.Z,
         workspace.cable,

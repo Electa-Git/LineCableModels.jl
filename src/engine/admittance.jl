@@ -50,18 +50,20 @@ end
 $(TYPEDSIGNATURES)
 
 Evaluate the selected dielectric law at frequency in Hz and temperature in °C.
-The selected `temperature_dependence` law evaluates resistivity exactly once
-before the dielectric equation. Its default is the linear resistivity law.
-Use `nothing` to retain reference resistivity. The temporary material records the
-operating temperature when resistivity changes. The source material remains unchanged.
-The lossless dielectric law ignores resistivity and loss tangent.
-Returns complex admittivity in S/m.
+`rho` is the resistivity at `temperature` \\[Ω·m\\]. By default, the selected
+`temperature_dependence` law evaluates it once before the dielectric equation. That law
+defaults to the linear resistivity law, and `nothing` retains the reference resistivity. A
+computation that evaluates the law once for all frequencies passes `rho` instead.
+
+The temporary material records the operating temperature when resistivity changes. The source
+material remains unchanged. The lossless dielectric law ignores resistivity and loss
+tangent. Returns complex admittivity in S/m.
 """
 function constitutive(
         formula::Union{InsulationAdmittanceFormulation, SemiconAdmittanceFormulation},
         material::Material, frequency::Real, temperature::Real;
-        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing)
-    rho = constitutive(temperature_dependence, material, temperature; workspace)
+        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing,
+        rho = constitutive(temperature_dependence, material, temperature; workspace))
     if rho != material.rho
         material = Material(material.kind, rho, material.eps_r, material.mu_r,
             temperature, material.alpha; rho_thermal = material.rho_thermal,
@@ -76,22 +78,19 @@ $(TYPEDSIGNATURES)
 
 Evaluate the dielectric law that the material's class selects. `laws` lists the selected
 insulation and semicon laws, in that order. An `:insulator` takes the insulation law, and a
-`:semicon` takes the semicon law. Returns complex admittivity in S/m.
+`:semicon` takes the semicon law. The keywords pass to the selected law. Returns complex
+admittivity in S/m.
 """
 function constitutive(laws::Tuple{I, S}, material::Material{<:Real, :insulator},
-        frequency::Real, temperature::Real;
-        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing
+        frequency::Real, temperature::Real; kwargs...
 ) where {I <: InsulationAdmittanceFormulation, S <: SemiconAdmittanceFormulation}
-    return constitutive(first(laws), material, frequency, temperature;
-        temperature_dependence, workspace)
+    return constitutive(first(laws), material, frequency, temperature; kwargs...)
 end
 
 function constitutive(laws::Tuple{I, S}, material::Material{<:Real, :semicon},
-        frequency::Real, temperature::Real;
-        temperature_dependence = TemperatureDependent.Formula(:default), workspace = nothing
+        frequency::Real, temperature::Real; kwargs...
 ) where {I <: InsulationAdmittanceFormulation, S <: SemiconAdmittanceFormulation}
-    return constitutive(last(laws), material, frequency, temperature;
-        temperature_dependence, workspace)
+    return constitutive(last(laws), material, frequency, temperature; kwargs...)
 end
 
 @inline function radial_coefficient(coefficients, layers::UnitRange{Int})
@@ -105,8 +104,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Evaluate the registered insulation and semicon constitutive relations for
-every physical dielectric layer, without applying radial geometry.
+Evaluate the registered insulation and semicon constitutive relations for every physical
+dielectric layer. The result excludes the radial geometry. `rho` holds the resistivity of
+each layer at `temperature` \\[Ω·m\\], which the computation evaluates once with its
+temperature law.
 
 # Returns
 
@@ -115,6 +116,7 @@ every physical dielectric layer, without applying radial geometry.
 function dielectric!(
         admittivity::AbstractVector{Complex{T}},
         input::LocalCableData{T},
+        rho::AbstractVector{T},
         methods::NamedTuple,
         frequency::T,
         temperature::T; workspace = nothing
@@ -122,7 +124,7 @@ function dielectric!(
     laws = (methods.insulation_admittance, methods.semicon_admittance)
     @inbounds for (layer, material) in pairs(input.dielectric_materials)
         admittivity[layer] = constitutive(laws, material, frequency, temperature;
-            temperature_dependence = methods.temperature_dependence, workspace)
+            rho = rho[layer], workspace)
     end
     return admittivity
 end

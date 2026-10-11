@@ -377,7 +377,8 @@ end
         @test calculation.impedance.pairs == calculation.admittance.pairs
         # Poison only numerical buffers. Identity matrices and geometry are inputs.
         for array in (w.buffers.Zearth, w.buffers.Pearth, w.buffers.Zprimitive,
-            w.buffers.Pprimitive, w.buffers.rho_cond, w.buffers.dielectric_admittivity,
+            w.buffers.Pprimitive, w.buffers.rho_cond, w.buffers.rho_layer,
+            w.buffers.dielectric_admittivity,
             w.buffers.earth.evaluated...)
             fill!(array, NaN)
         end

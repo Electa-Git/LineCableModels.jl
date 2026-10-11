@@ -41,7 +41,9 @@ end
         input = EN.LocalCableData(blueprint)
         shunt = only(EN.internal_shunt_response([design], [blueprint], [formulation]))
         admittivity = Vector{ComplexF64}(undef, length(input.dielectric_materials))
-        EN.dielectric!(admittivity, input, formulation.methods, frequency, 20.0)
+        rho = [constitutive(formulation.methods.temperature_dependence, material, 20.0)
+               for material in input.dielectric_materials]
+        EN.dielectric!(admittivity, input, rho, formulation.methods, frequency, 20.0)
         count = length(input.terminals)
         nodal = EN.cable_admittance!(Matrix{ComplexF64}(undef, count, count), input, shunt,
             admittivity, s, similar(admittivity))
