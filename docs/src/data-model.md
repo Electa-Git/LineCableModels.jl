@@ -334,9 +334,8 @@ the design remains unchanged.
 view of the dielectric layers of its interval, and `mu_r_ins` is their equivalent relative
 permeability. A loop over a blueprint gives the rows in terminal order, and `eltype` of a
 blueprint is its scalar type, as for a design. `mu_r_ins` includes the helical-solenoid
-correction of the terminal's lay. A lay ratio or a lay angle at zero radius has no pitch.
-`flatten` rejects a terminal with a dielectric interval whose conductor follows such a
-helix.
+correction of the terminal's lay. At zero radius, a helix lies straight along the axis
+under every lay law, with zero turns and overlength 1.
 
 The ATP, PSCAD and TRALIN exporters write one cable for each coaxial group, at its
 position. Each exporter evaluates a material where it writes it, with the formulation's
@@ -919,7 +918,8 @@ preview(
 
 For local helix radius ``r`` and pitch ``p``, the length factor is
 ``\lambda=\sqrt{1+(2\pi r/p)^2}``. With `LayRatio(q)`, ``p=2rq``, so
-``\lambda(q)=\sqrt{1+(\pi/q)^2}``, independent of the local radius.
+``\lambda(q)=\sqrt{1+(\pi/q)^2}`` at every positive local radius. On the axis, a path is
+straight and ``\lambda=1``.
 For a wire following both paths,
 
 ```math

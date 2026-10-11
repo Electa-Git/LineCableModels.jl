@@ -180,9 +180,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   enclose which. It rejects a pipe-type cable, a conductor around groups off its center.
   It also rejects groups off the center of an insulating container, and a container with a
   non-circular boundary. The error message lists the groups.
-- `flatten` rejects a terminal with a dielectric interval whose conductor follows a lay
-  ratio or a lay angle at zero radius. Such a helix has no pitch, and the permeability of
-  the interval would be infinite.
+- At zero radius, a helix lies straight along the axis under every lay law, with zero
+  turns and overlength 1.
 - `homogenize(design)` reduces the conductors only. Each dielectric layer keeps its
   material and radii, with its relative permeability scaled by the helical-solenoid factor
   of its interval.

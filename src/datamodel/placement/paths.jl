@@ -185,7 +185,8 @@ function angle(path::Helix, radius::Real)
 end
 
 """
-Return the helical path-length ratio at local radius `radius`.
+Return the helical path-length ratio at local radius `radius`. A path at zero radius lies
+straight along the axis, with ratio 1.
 """
 function overlength(path::Helix, radius::Real)
     value = angle(path, radius)
@@ -198,5 +199,6 @@ function overlength(path::Helix{<:LayRatio}, radius::Real)
         "helix radius must be nonnegative"
     ))
     ratio = path.lay.q
-    return sqrt(one(ratio) + ((one(ratio) * pi) / ratio)^2)
+    factor = sqrt(one(ratio) + ((one(ratio) * pi) / ratio)^2)
+    return iszero(radius) ? one(factor) : factor
 end

@@ -172,29 +172,21 @@ end
     @test first(parameters).Y ≈ last(parameters).Y rtol=2e-10
 end
 
-@testitem "DataModel / flatten / an insulated helix on the axis has no finite permeability" tags=[:unit, :datamodel] begin
+@testitem "DataModel / flatten / a helix on the axis is straight" tags=[:unit, :datamodel] begin
     library = MaterialsLibrary(add_defaults = true)
     copper, xlpe = Material(library, :copper), Material(library, :xlpe)
-    # A lay ratio or a lay angle at zero radius has zero pitch and infinite turns per length.
-    for lay in (LayRatio(10.0), LayAngle(π / 4))
-        core = Group(:core, Region(:metal, Disk(0.005), copper); path = Helix(lay))
-        insulated = build(CableDesign, "insulated-axis-helix",
-            Stack(core, Region(:insulation, Shell(0.002), xlpe)))
-        failure = try
-            LineCableModels.DataModel.flatten(insulated)
-            nothing
-        catch exception
-            exception
-        end
-        @test failure isa DomainError
-        @test occursin("zero pitch", sprint(showerror, failure))
-        # Without a dielectric interval, the turns do not enter the blueprint.
-        bare = build(CableDesign, "bare-axis-helix", Stack(core))
-        @test only(LineCableModels.DataModel.flatten(bare).mu_r_ins) == 1
+    insulated(core) = build(CableDesign, "axis-path",
+        Stack(core, Region(:insulation, Shell(0.002), xlpe)))
+    straight = LineCableModels.DataModel.flatten(
+        insulated(Group(:core, Region(:metal, Disk(0.005), copper))))
+    # On the axis, every lay law gives a straight path, with zero turns and overlength 1.
+    for lay in (LayRatio(10.0), LayAngle(π / 4), Pitch(0.5))
+        helical = LineCableModels.DataModel.flatten(insulated(
+            Group(:core, Region(:metal, Disk(0.005), copper); path = Helix(lay))))
+        @test helical.mu_r_ins == straight.mu_r_ins
+        @test only(helical.conductors).material.rho == only(straight.conductors).material.rho
+        @test overlength(Helix(lay), 0.0) == 1
+        @test LineCableModels.DataModel.turns_per_length(
+            ((path = Helix(lay), radius = 0.0),), Float64) == 0
     end
-    # A pitch is a length, and a helix with a pitch on the axis keeps finite turns.
-    pitched = build(CableDesign, "insulated-axis-pitch", Stack(
-        Group(:core, Region(:metal, Disk(0.005), copper); path = Helix(Pitch(0.5))),
-        Region(:insulation, Shell(0.002), xlpe)))
-    @test isfinite(only(LineCableModels.DataModel.flatten(pitched).mu_r_ins))
 end
