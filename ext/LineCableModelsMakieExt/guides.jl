@@ -675,9 +675,8 @@ end
 function LineCableModels.figurelegend!(p::LineCableModels.UIPlot;guide_spacing=_omitted,kwargs...)
     state=p.plot_state
     spacing=guide_spacing===_omitted ? state.guide_spacing[] : _guide_spacing(guide_spacing,state.guide_spacing[])
-    # Validate native options and placement before changing the shared setting.
-    native=(; (key=>value for (key,value) in kwargs if key ∉ (:position,:title,:max_fraction,:legend_labels))...)
-    validate(native,Legend)
+    # Check the placement before changing the shared setting. `_update_legend!` checks the
+    # native options, and the `try` below restores the previous value when they fail.
     haskey(kwargs,:position) && _guide_position(kwargs[:position];legend=true)
     haskey(kwargs,:max_fraction) && _legend_fraction(kwargs[:max_fraction])
     previous=state.guide_spacing[]

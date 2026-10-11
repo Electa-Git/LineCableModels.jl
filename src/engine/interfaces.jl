@@ -238,7 +238,6 @@ Check conductor depths against their resolved horizontal earth layers.
   the supplied horizontal layer inventory.
 """
 function validate(pair::EarthPair, thickness::Union{Tuple, AbstractVector})
-    validate(pair)
     for position in eachindex(pair.layers)
         layer = pair.layers[position]
         layer <= length(thickness) || throw(ArgumentError(
@@ -260,13 +259,6 @@ Tag line parameters expressed in the physical phase domain.
 """
 struct PhaseDomain <: LineParamsDomain end
 """
-Supertype of the modal-to-phase voltage and current bases of a modal transformation.
-A concrete subtype implements `Base.size`, which returns the
-`(modes, modes, frequencies)` dimensions of its operator tensors.
-"""
-abstract type AbstractModalOperators end
-
-"""
 Store the coordinate system of a calculated modal transformation.
 
 The operator tensor type parameterizes the domain because inverse transforms
@@ -279,21 +271,6 @@ struct ModalDomain{O, G} <: LineParamsDomain
     operators::O
     "Aligned propagation roots in the coefficient basis."
     gamma::G
-
-    function ModalDomain(operators::O, gamma::G) where {O, G}
-        return validate(new{O, G}(operators, gamma))
-    end
-end
-
-function validate(domain::ModalDomain)
-    domain.gamma isa AbstractMatrix || throw(DimensionMismatch(
-        "modal roots must be a mode×frequency matrix"))
-    domain.operators isa AbstractModalOperators || throw(ArgumentError(
-        "modal domain requires a validated ModalOperators value"))
-    dimensions=size(domain.operators)
-    size(domain.gamma)==(dimensions[2], dimensions[3]) || throw(DimensionMismatch(
-        "modal roots must align with operator modes and frequency samples"))
-    return domain
 end
 
 """

@@ -38,16 +38,8 @@
     concentric = build(
         CableDesign, "concentric-enclosure", pipe(first_core;
             shape = Disk(0.01), fill = air, wall))
-    @test validate(concentric, selected, LineCableModelsCoaxial()) === concentric
     @test all(isfinite, compute(CableConstantsProblem(concentric)).R)
 
-    # A dielectric duct is not a conducting pipe-return formulation.
-    ducted = build(CableDesign,
-        "dielectric-duct",
-        pipe(
-            at(first_core, -0.01, 0), at(second_core, 0.01, 0);
-            shape = Disk(0.025), fill = air, wall = insulation(dielectric; t = 0.002)))
-    @test validate(ducted, selected, LineCableModelsCoaxial()) === ducted
     for constructor in (Formulation, CableConstantsFormulation)
         selections = constructor(pipe_impedance = Grid((:default, formula(:default))))
         @test length(selections) == 2

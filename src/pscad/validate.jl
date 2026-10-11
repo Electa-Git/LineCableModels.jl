@@ -6,7 +6,6 @@ The supported model consists of air and one infinite horizontal soil half-space.
 """
 function validate(model::EarthModel, ::Type{<:PSCADFormulation})
     _pscad_deterministic(eltype(model))
-    validate(model)
     !model.vertical_layers && length(model.layers) == 2 &&
     all(layer -> isinf(layer.thickness), model.layers) || throw(ArgumentError(
         "PSCAD supports physical air and one homogeneous horizontal soil half-space"))
@@ -43,12 +42,4 @@ function validate(values::AbstractVector, ::Type{<:PSCADFormulation})
     all(isapprox(a, b; rtol = tolerance, atol = 0) for (a, b) in zip(values, expected)) ||
         throw(ArgumentError("PSCAD phase-scan adapter requires logarithmic samples; arbitrary-grid execution is not implemented"))
     return values
-end
-
-function validate(problem::LineParametersProblem, formulation::PSCADFormulation)
-    _pscad_deterministic(eltype(problem), typeof(formulation.options.data.base_frequency))
-    validate(problem.frequencies, PSCADFormulation)
-    _pscad_size(problem)
-    _pscad_inputs(problem, formulation, _pscad_blueprints(problem.system))
-    return problem
 end

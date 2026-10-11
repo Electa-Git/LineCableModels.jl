@@ -496,8 +496,6 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         details_owner,
         child_options
     )
-    validate(typeof(first_aggregate.representation), MonteCarloResult)
-
     values = Vector{typeof(first_aggregate.representation)}(undef, point_count)
     stats_values = Vector{typeof(first_aggregate.statistics)}(undef, point_count)
     sample_values = formulation.options.data.return_samples ?

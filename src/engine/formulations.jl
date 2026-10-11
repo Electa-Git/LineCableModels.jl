@@ -201,9 +201,8 @@ cases.
 """
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
 """
-Select the pipe contribution and its backend and topology applicability. Concrete
-subtypes extend `validate(design, selected, backend)`, which admits the topology of
-`design` or throws. An impedance equation must be supplied separately from admission.
+Select the pipe contribution. The topology rule of `DataModel.flatten` rejects pipe-type
+cables. A pipe formulation applies to the designs that flatten.
 """
 abstract type PipeImpedanceFormulation <: AbstractImpedanceFormulation end
 """
@@ -293,9 +292,6 @@ function Expression(recipe::NamedTuple, pair::EarthPair)
     return Expression(selected, pair)
 end
 
-# Equation-specific geometric restrictions extend the existing validation protocol.
-validate(pair::EarthPair, ::Expression) = pair
-
 # Whether the formula of `expression` admits earth layer `k`. It does when a method of its
 # operation accepts `Val{k}` in the source or the target position, with the `Functor` and the
 # workspace that the evaluation passes, whatever the types of the other arguments. A layer
@@ -346,7 +342,6 @@ function validate(expression::Expression{<:Union{EarthImpedanceFormulation, Eart
 end
 
 function validate(earth::EarthModel, formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})
-    validate(earth)
     earth.vertical_layers &&
         throw(ArgumentError("earth-return equations require horizontal interfaces or an explicit EquivalentHomogeneous reduction"))
     return earth
@@ -509,7 +504,6 @@ function (formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation})
 ) where {T <: Real}
     validate(pair)
     expression = Expression(formula, pair)
-    validate(pair, expression)
     validate(expression, resistivity)
     options = only(formulation_options(formula, (expression,)).options)
     # One pair does not need destinations. The plain constructor gives the empty state of a

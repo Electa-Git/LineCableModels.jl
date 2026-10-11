@@ -138,7 +138,7 @@ end
             (EarthForm3 = (value = 2, readback = "LUCCA"),)
     end
     # PSCAD's coaxial cable admits coaxial topology only. The topology rule of flatten
-    # rejects the pipe, and the pipe slot admits every design that flattens.
+    # rejects the pipe.
     copper = Material(:conductor, 1.72e-8)
     dielectric = Material(:insulator, 1e14, 2.3)
     conductors = [terminal(name, solid(copper, Disk(0.005)), insulation(dielectric; t = 0.002))
@@ -147,9 +147,7 @@ end
     enclosed = build(CableDesign, "pscad-pipe", pipe(at(conductors[1], -0.01, 0),
         at(conductors[2], 0.01, 0); shape = Disk(0.025), fill = Material(:insulator, Inf, 1.0), wall))
     coaxial = build(CableDesign, "pscad-coaxial", first(conductors))
-    none = LineCableModels.Engine.PipeImpedance.Formula(:default)
-    @test validate(coaxial, none, pscad) === coaxial
-    @test validate(enclosed, none, pscad) === enclosed
+    @test length(LineCableModels.DataModel.flatten(coaxial)) == 1
     @test_throws "pipe-type cables are not supported: the conductor :pipe encloses the " *
                  "coaxial groups (:a), (:b)" LineCableModels.DataModel.flatten(enclosed)
 end

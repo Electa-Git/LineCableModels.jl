@@ -4,9 +4,6 @@
     phase=LineParameters(impedance,copy(impedance),[50.0])
     modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(:default))
     @test gamma(modal)[1,1]≈im
-    @test_throws DimensionMismatch E.ModalDomain(operators(modal),zeros(ComplexF64,2,1))
-    @test_throws ArgumentError E.ModalDomain((Tv=operators(modal).Tv,
-        Ti=operators(modal).Ti),zeros(ComplexF64,1,1))
     @test_throws DimensionMismatch ModalOperators(operators(modal).Tv,
         zeros(ComplexF64,2,2,1))
     large=reshape(ComplexF64[1,0,0,1],2,2,1)

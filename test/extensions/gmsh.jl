@@ -120,7 +120,7 @@
             joinpath(directory, "run.json"), String
         ))
         missing_completion = try
-            validate(joinpath(directory, "missing.tsv"), run, 1, 2)
+            extension_module._nonempty_lines(joinpath(directory, "missing.tsv"), run)
             nothing
         catch exception
             exception

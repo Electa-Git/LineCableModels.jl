@@ -155,47 +155,6 @@ function _parse_raw_matrix(
     return matrix
 end
 
-# The completion marker of a run reports a complete scan of every frequency and terminal pair.
-function validate(path::String, run::FEMRun, frequency_count::Int, terminal_count::Int)
-    lines = _nonempty_lines(path, run)
-    length(lines) == 2 || _fem_error(
-        :results,
-        basename(path),
-        :completion,
-        "completion marker must contain exactly one data row";
-        run_directory = run.path
-    )
-    split(lines[1], '\t'; keepempty = true) == FEM_COMPLETE_HEADER || _fem_error(
-        :results,
-        basename(path),
-        :header,
-        "malformed completion header";
-        run_directory = run.path
-    )
-    columns = split(lines[2], '\t'; keepempty = true)
-    length(columns) == 6 || _fem_error(
-        :results, basename(path), :completion, "malformed completion row";
-        run_directory = run.path
-    )
-    values = [_parse_integer(column, path, 2, run) for column in columns]
-    expected_rows = frequency_count * terminal_count * terminal_count
-    values == [
-        frequency_count,
-        terminal_count,
-        expected_rows,
-        expected_rows,
-        expected_rows,
-        1
-    ] || _fem_error(
-        :results,
-        basename(path),
-        :completion,
-        "completion marker reports an incomplete or failed scan: $values";
-        run_directory = run.path
-    )
-    return path
-end
-
 function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::Int;
         physics::Symbol=Symbol("quasi-tem"))
     return [joinpath(
@@ -208,33 +167,6 @@ function _expected_map_paths(run::FEMRun, frequency_count::Int, terminal_count::
             for quantity in _field_quantities(physics)]
 end
 
-# The field maps of a run: every expected map exists, and none is emitted when disabled.
-function validate(maps::Vector{String}, run::FEMRun, enabled::Bool)
-    missing = filter(!isfile, maps)
-    isempty(missing) || _fem_error(
-        :results,
-        "field_maps",
-        :files,
-        "missing $(length(missing)) expected field-map files";
-        run_directory = run.path
-    )
-    if !enabled
-        maps_directory = joinpath(run.path, "maps")
-        emitted = isdir(maps_directory) ?
-                  filter(
-            path -> endswith(path, ".pos"), readdir(maps_directory; join = true)
-        ) : String[]
-        isempty(emitted) || _fem_error(
-            :results,
-            "field_maps",
-            :files,
-            "field maps were emitted while plot_field_maps=false";
-            run_directory = run.path
-        )
-    end
-    return maps
-end
-
 function _parse_scan(
         run::FEMRun,
         model::FEMResolvedModel{T},
@@ -244,7 +176,45 @@ function _parse_scan(
     raw = joinpath(run.path, "raw")
     terminal_count = length(model.terminal_ids)
     frequency_count = length(model.problem.frequencies)
-    validate(joinpath(raw, "scan_complete.tsv"), run, frequency_count, terminal_count)
+    # The completion marker reports a complete scan of every frequency and terminal pair.
+    let path = joinpath(raw, "scan_complete.tsv")
+        lines = _nonempty_lines(path, run)
+        length(lines) == 2 || _fem_error(
+            :results,
+            basename(path),
+            :completion,
+            "completion marker must contain exactly one data row";
+            run_directory = run.path
+        )
+        split(lines[1], '\t'; keepempty = true) == FEM_COMPLETE_HEADER || _fem_error(
+            :results,
+            basename(path),
+            :header,
+            "malformed completion header";
+            run_directory = run.path
+        )
+        columns = split(lines[2], '\t'; keepempty = true)
+        length(columns) == 6 || _fem_error(
+            :results, basename(path), :completion, "malformed completion row";
+            run_directory = run.path
+        )
+        values = [_parse_integer(column, path, 2, run) for column in columns]
+        expected_rows = frequency_count * terminal_count * terminal_count
+        values == [
+            frequency_count,
+            terminal_count,
+            expected_rows,
+            expected_rows,
+            expected_rows,
+            1
+        ] || _fem_error(
+            :results,
+            basename(path),
+            :completion,
+            "completion marker reports an incomplete or failed scan: $values";
+            run_directory = run.path
+        )
+    end
     Z = _parse_raw_matrix(
         T,
         joinpath(raw, "Z.tsv"),
@@ -260,8 +230,33 @@ function _parse_scan(
         run
     )
     enabled = execution.data.plot_field_maps
-    maps = validate(enabled ? _expected_map_paths(run, frequency_count, terminal_count;
-            physics = formulation.options.data.physics) : String[], run, enabled)
+    maps = enabled ? _expected_map_paths(run, frequency_count, terminal_count;
+        physics = formulation.options.data.physics) : String[]
+    # Every expected field map exists, and none is emitted when maps are off.
+    let
+        missing = filter(!isfile, maps)
+        isempty(missing) || _fem_error(
+            :results,
+            "field_maps",
+            :files,
+            "missing $(length(missing)) expected field-map files";
+            run_directory = run.path
+        )
+        if !enabled
+            maps_directory = joinpath(run.path, "maps")
+            emitted = isdir(maps_directory) ?
+                      filter(
+                path -> endswith(path, ".pos"), readdir(maps_directory; join = true)
+            ) : String[]
+            isempty(emitted) || _fem_error(
+                :results,
+                "field_maps",
+                :files,
+                "field maps were emitted while plot_field_maps=false";
+                run_directory = run.path
+            )
+        end
+    end
     return FEMScan(Z, P, maps)
 end
 

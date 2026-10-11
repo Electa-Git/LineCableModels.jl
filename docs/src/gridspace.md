@@ -275,8 +275,8 @@ problem-formulation relation is always Cartesian.
 
 The generic vector `compute` method delegates to established scalar dispatch.
 Owners may specialize that vector method to share immutable lowering work. The
-Coaxial line-parameter path validates and flattens every selected design once
-per problem point, constructs its formulation-independent local input once,
+Coaxial line-parameter path flattens every selected design once per problem
+point, constructs its formulation-independent local input once,
 then allocates and solves one independent workspace per formulation. The
 cable-constant path independently follows the same one-flatten rule. Mutable
 matrices, formula-dependent earth data, reduction maps, and diagnostic storage

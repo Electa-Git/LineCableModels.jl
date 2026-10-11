@@ -145,6 +145,7 @@ end
         pair,
         frequency::Real; workspace = nothing
 )
+    validate(pair)
     expression = validate(Expression(formula, pair))
     options = only(formulation_options(formula, (expression,)).options)
     functor = Functor(formula, (; rho, eps_r, mu_r, model, pair, frequency, options);

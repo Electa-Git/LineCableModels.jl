@@ -145,10 +145,9 @@ formulation = Formulation(shunt_model=:boundary)
 result = @time compute(problem, formulation)
 ```
 
-The compute call completes the selected local shunt model. The default equivalent annular
-layer does not produce geometric boundary blocks, extract geometric boundary domains or
-evaluate a geometric boundary material law. Its reports describe the concentric assembly
-ranges.
+The compute call completes the selected local shunt model. The default model is the
+equivalent annular layer, and its reports describe the concentric assembly ranges. Only
+`:boundary` extracts geometric boundary domains and builds their coefficient blocks.
 No geometric boundary audit is implied.
 Boundary coefficients are independent of the frequency grid and external earth
 model. They are reused across the frequency sweep, but a fresh `compute` call
@@ -774,8 +773,8 @@ formulation constructors follow the same rule. A deterministic `Grid` of
 already completed formulations, including externally supplied formulations is also accepted by
 `Combinatorial`.
 
-For each selected problem, the Coaxial collection dispatch validates and
-lowers the physical declaration once. LineParameters flattens each design and
+For each selected problem, the Coaxial collection dispatch lowers the physical
+declaration once. LineParameters flattens each design and
 constructs `LocalCableData` plus geometry and index input once before creating a
 separate workspace for every formulation. CableConstants performs its own
 calculation sequence, also flattening each design once. Formula-dependent mutable matrices,

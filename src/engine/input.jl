@@ -4,7 +4,7 @@ $(TYPEDEF)
 Own the numerical input and reusable storage for one coaxial line-parameter
 computation.
 
-The constructor adapts a completed physical system once and validates the aligned numerical representation. It constructs cable and reduction indices, and
+The constructor adapts a completed physical system once. It constructs cable and reduction indices, and
 allocates every matrix used by the frequency loop. Each `compute` call uses an independent workspace. Constant fields fix
 its input and buffer bindings. Reference identity avoids copying this large
 record when dispatching heterogeneous equation groups.
@@ -37,65 +37,17 @@ mutable struct LineParametersWorkspace{
             buffers::B,
             trace::C
     ) where {T <: Real, N <: NamedTuple, P <: NamedTuple, B <: NamedTuple, C}
-        return validate(new{T, N, P, B, C}(
+        return new{T, N, P, B, C}(
             input,
             plan,
             buffers,
             trace
-        ))
+        )
     end
 end
 
 Base.eltype(::LineParametersWorkspace{T}) where {T} = T
 Base.eltype(::Type{<:LineParametersWorkspace{T}}) where {T} = T
-
-function validate(workspace::LineParametersWorkspace)
-    input = workspace.input
-    cable = input.cable
-    n = input.n_phases
-    input.n_frequencies == length(input.freq) || throw(DimensionMismatch(
-        "frequency count differs from the frequency vector"
-    ))
-    input.n_cables == maximum(input.cable_map) || throw(DimensionMismatch(
-        "cable count differs from the cable map"
-    ))
-    for values in (
-        input.horz, input.vert, input.phase_map, input.cable_map,
-        input.design_map, cable.terminals, cable.positions, cable.r_in,
-        cable.r_ext, cable.r_ins_in, cable.r_ins_ext, cable.conductor_materials,
-        cable.mu_r_cond, cable.mu_r_ins,
-        cable.dielectric_ranges
-    )
-        length(values) == n || throw(DimensionMismatch(
-            "engine input arrays must have $n component entries"
-        ))
-    end
-    n_layers = length(cable.dielectric_materials)
-    for values in (
-        cable.r_layer_in, cable.r_layer_ext,
-        workspace.buffers.layer_coefficients
-    )
-        length(values) == n_layers || throw(DimensionMismatch(
-            "dielectric-layer arrays must contain $n_layers entries"
-        ))
-    end
-    size(input.horz_sep) == (n, n) || throw(DimensionMismatch(
-        "horizontal separation matrix must be $n×$n"
-    ))
-    length(workspace.plan.cable_indices) == input.n_cables || throw(
-        DimensionMismatch("cable indices must align with the cable count")
-    )
-    all(!isempty, workspace.plan.cable_indices) || throw(ArgumentError(
-        "every cable must contain one retained primitive conductor"
-    ))
-    size(workspace.buffers.Zprimitive) == (n, n) || throw(DimensionMismatch(
-        "primitive impedance storage must be $n×$n"
-    ))
-    size(workspace.buffers.Pprimitive) == (n, n) || throw(DimensionMismatch(
-        "primitive potential-coefficient storage must be $n×$n"
-    ))
-    return workspace
-end
 
 """
 $(TYPEDSIGNATURES)
@@ -381,8 +333,9 @@ and `separation` are aligned coordinates and distances in meters. Diagonal
 separations supply the external self radius. Layer assignment uses `earth`'s
 physical interfaces and rejects conductors on the interface between air and earth.
 
-Return ordered geometry payloads for indexed formula dispatch. Formula
-selection and equivalent-earth reduction occur separately.
+Return ordered geometry payloads for indexed formula dispatch. It checks each pair first.
+On a stratified horizontal earth, it also checks that each conductor depth lies in its
+layer. Formula selection and equivalent-earth reduction occur separately.
 """
 function earth_pairs(
         cables::AbstractVector{Int},
@@ -409,6 +362,12 @@ function earth_pairs(
                 row == column ? zero(T) : separation[target, source],
                 layers; radius = row == column ? separation[target, source] : nothing
             ))
+    end
+    foreach(validate, pairs)
+    # A stratified horizontal earth gives each conductor depth a layer to lie in.
+    if !earth.vertical_layers && length(earth.layers) > 2
+        thickness = [layer.thickness for layer in earth.layers]
+        foreach(pair -> validate(pair, thickness), pairs)
     end
     return pairs
 end

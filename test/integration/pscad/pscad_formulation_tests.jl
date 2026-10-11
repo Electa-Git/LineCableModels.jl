@@ -17,8 +17,6 @@
         temperature = 60,
         frequencies = collect(10.0 .^ range(-1, 6; length = 101)))
     overhead, underground=problem(1.0), problem(-1.0)
-    @test validate(overhead, Formulation(:pscad)) === overhead
-    @test validate(underground, Formulation(:pscad)) === underground
     # The internal slot takes one formula. PSCAD's default is Wedepohl's.
     @test_throws MethodError Formulation(:pscad;
         internal_impedance=(transfer=:default,inner=:default,outer=:default))

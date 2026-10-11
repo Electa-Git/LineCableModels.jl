@@ -94,7 +94,7 @@ state and extends the input, such as with one conductor pair of an earth calcula
 | Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule` | `equivalent_material(formula, Val(kind), Val(source), Val(target), functor, workspace)` | `rho`, `eps_r`, `mu_r`, `model`, the physical `pair`, `frequency`, `options` |
 | Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation` | `Commons.initialize_buffers(formula, T, input, plan, common)` and `ModalAnalysis.decompose!(formula, workspace, parameters, options)` | none |
 | Local shunt geometry | `Engine.ShuntModelFormulation` | `Engine.internal_shunt_response(formula, design, blueprint, T, methods, solutions, design_index)`, after flattening | none |
-| Pipe applicability | `Engine.PipeImpedanceFormulation` | `validate(design, formula, backend)` admits the topology of `design` or throws. No analytical pipe equation is supplied. | none |
+| Pipe impedance | `Engine.PipeImpedanceFormulation` | none yet. The topology rule of `DataModel.flatten` rejects pipe-type cables, and no analytical pipe equation is supplied. | none |
 
 An earth expression returns one coefficient per destination of its calculation. It returns a
 number for one destination and a tuple, ordered as the destinations, for several.

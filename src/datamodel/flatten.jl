@@ -1214,6 +1214,38 @@ function validate(container::PlacedRegion, ::Type{CableBlueprint}, groups, cente
     return container
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Check that `design` gives the dielectric interval of every terminal a finite equivalent
+permeability in its [`CableBlueprint`](@ref). `regions` lists the resolved regions of
+`design` in radial order, and `terminal_starts` gives the index where each terminal begins. The
+solenoid correction of that permeability counts the turns per length of the helical paths
+of the terminal's conductor regions. A lay ratio or a lay angle at zero radius has zero
+pitch, and its turns per length are infinite. Return `design`.
+
+# Errors
+
+- `DomainError` for a terminal with a dielectric interval and a helical path of zero pitch.
+"""
+function validate(design::CableDesign, ::Type{CableBlueprint}, regions, terminal_starts)
+    for (index, start) in pairs(terminal_starts)
+        stop = index == lastindex(terminal_starts) ? lastindex(regions) :
+               terminal_starts[index + 1] - 1
+        block = @view regions[start:stop]
+        any(region -> region.terminal === nothing, block) || continue
+        for region in block, entry in region.paths
+            region.terminal === nothing && continue
+            iszero(pitch(entry.path, entry.radius)) && throw(DomainError(entry.radius,
+                "terminal :$(region.terminal) of $(design.cable_id) has a dielectric " *
+                "interval and follows a helical path of zero pitch at radius " *
+                "$(entry.radius) m: its turns per length, and the permeability of its " *
+                "interval, would be infinite"))
+        end
+    end
+    return design
+end
+
 function same_path_definitions(left, right)
     length(left) == length(right) || return false
     return all(eachindex(left)) do index
@@ -1253,12 +1285,14 @@ geometry, from which conductors enclose which, never from the declaration:
 
 # Returns
 
-- A validated [`CableBlueprint`](@ref).
+- A [`CableBlueprint`](@ref).
 
 # Errors
 
-- `ArgumentError` for a pipe-type cable, for groups off the center of their container,
-  and for a container with a non-circular boundary.
+- `ArgumentError` for a pipe-type cable.
+- `ArgumentError` for groups off the center of their container, or a container with a
+  non-circular boundary.
+- `DomainError` for a terminal with a dielectric interval and a helical path of zero pitch.
 """
 function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
     regions = _radial_regions(design.geometry.regions)
@@ -1277,6 +1311,7 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
     issorted(terminal_starts) && allunique(terminal_starts) || throw(ArgumentError(
         "flatten requires nonreappearing radial terminal blocks"
     ))
+    validate(design, CableBlueprint, regions, terminal_starts)
 
     # The zone reductions depend on each region's primitive, so their types are known only
     # inside this loop. Each terminal is stored as a concrete record, and the rows are

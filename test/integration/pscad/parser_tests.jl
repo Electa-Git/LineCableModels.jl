@@ -157,16 +157,6 @@
     end
     @test verbosity_error isa ArgumentError
     @test occursin("options=(verbosity=", sprint(showerror, verbosity_error))
-    @test_throws ArgumentError harness._supervisor_command(
-        config,
-        raw"Z:\pscad\benchmarks\.work\case\current",
-        raw"C:\pscad\case\current",
-        "case",
-        overhead,
-        [1.0, 3.0, 10.0];
-        output_stem = "pscad",
-        verbosity = 2
-    )
     @test_throws ArgumentError validate(
         collect(10.0 .^ range(0, stop = 6, length = 61)), harness.PSCADFormulation
     )

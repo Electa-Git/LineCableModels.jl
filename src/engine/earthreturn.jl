@@ -93,7 +93,6 @@ function earth!(destinations, part, calculation, functor, workspace)
                 rho = @view(functor.input.rho[:, index]),
                 epsilon = @view(functor.input.epsilon[:, index]),
                 mu = @view(functor.input.mu[:, index]), part.options))
-            validate(point.input, functor.formula)
             coefficients = part.expression(point, workspace)
             values = coefficients isa Tuple ? coefficients : (coefficients,)
             all(value -> value isa Number && isfinite(value), values) || throw(DomainError(

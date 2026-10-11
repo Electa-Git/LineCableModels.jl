@@ -160,11 +160,6 @@ function _compute(
     previous_completion = started
     average_seconds = 0.0
     progress && @info "Line parameters computation started" _group=:progress total=length(formulations)
-    validate(problem)
-    for design in problem.system.designs, formulation in formulations
-
-        validate(design, formulation.methods.pipe_impedance, engine)
-    end
     maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
         @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
             max_frequency=maximum(problem.frequencies),)
@@ -469,6 +464,10 @@ function homogenize!(
             destination.mu[row, column]=mu0*evaluated.mu_r[row, frequency_index]
         end
     end
+    # Every pair sees the same layered media, and the first column stands for all of them.
+    isempty(calculation.pairs) || validate(@view(destination.rho[:, 1]),
+        something(calculation.impedance, calculation.admittance).formula,
+        @view(destination.epsilon[:, 1]), @view(destination.mu[:, 1]), destination.thickness)
     return destination
 end
 
@@ -493,6 +492,10 @@ function homogenize!(
                 workspace)
             earth = validate(reduction.expression(functor, workspace), sequence.rule)
             _media!(destination, column, air, earth)
+            validate(@view(destination.rho[:, column]),
+                something(calculation.impedance, calculation.admittance).formula,
+                @view(destination.epsilon[:, column]), @view(destination.mu[:, column]),
+                destination.thickness)
         end
     end
     return destination
@@ -517,6 +520,10 @@ function homogenize!(
             reconstructed = validate(reduction.expression(functor, workspace), sequence.rule)
             earth = constitutive(relation, reconstructed, frequency; workspace)
             _media!(destination, column, air, earth)
+            validate(@view(destination.rho[:, column]),
+                something(calculation.impedance, calculation.admittance).formula,
+                @view(destination.epsilon[:, column]), @view(destination.mu[:, column]),
+                destination.thickness)
         end
     end
     return destination

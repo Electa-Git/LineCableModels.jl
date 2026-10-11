@@ -17,16 +17,6 @@ struct Formula{ID} <: PipeImpedanceFormulation
     end
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Check that `backend` can compute `design` with a built-in pipe-impedance formula. The
-topology rule of `DataModel.flatten` rejects pipe-type cables, and the built-in formulas
-do not add a pipe term, so they admit every design that flattens. A pipe formulation adds
-its own method. Return `design`.
-"""
-validate(design::CableDesign, ::Formula, backend) = design
-
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
 Formula(selected::PipeImpedanceFormulation) = selected

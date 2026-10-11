@@ -188,7 +188,6 @@ Base.eltype(::CableConstantsProblem{T}) where {T} = T
 Base.eltype(::Type{<:CableConstantsProblem{T}}) where {T} = T
 
 function validate(problem::CableConstantsProblem)
-    validate(problem.design)
     isfinite(problem.temperature) || throw(DomainError(
         problem.temperature,
         "cable-constant temperature must be finite"
@@ -623,10 +622,6 @@ function compute(
     isempty(formulations) && throw(ArgumentError(
         "cable-constant formulation collections cannot be empty",
     ))
-    validate(problem)
-    for formulation in formulations
-        validate(problem.design, formulation.methods.pipe_impedance, engine)
-    end
     blueprint = DataModel.flatten(problem.design, eltype(problem))
     cable = LocalCableData(blueprint)
     shunts = internal_shunt_response([problem.design], [blueprint], formulations)

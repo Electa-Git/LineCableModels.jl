@@ -167,7 +167,6 @@ function _supervisor_command(
         output_stem::AbstractString,
         verbosity::Integer = 0
 )
-    validate(frequencies_value, PSCADFormulation)
     label = only(description([formulation];roles=[:none]))
     increments = length(frequencies_value) - 1
     shared_supervisor = _remote_path(shared_case, "toolkit", "supervisor.ps1")
@@ -322,7 +321,6 @@ function run_remote_pscad(
         verbosity::Integer = 0
 )
     verbosity in 0:2 || throw(ArgumentError("PSCAD verbosity must be 0, 1, or 2"))
-    validate(frequencies_value, PSCADFormulation)
     isdir(local_output) && !isempty(readdir(local_output)) &&
         throw(ArgumentError(
             "PSCAD output directory is not empty; select a new run directory: $local_output"))

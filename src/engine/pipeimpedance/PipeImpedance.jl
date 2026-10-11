@@ -5,7 +5,7 @@ Own pipe-type formula selections and backend applicability. No analytical
 pipe-type implementation is supplied yet.
 """
 module PipeImpedance
-import ...Commons: FormulationOptions, formulas, formulation_options, validate
+import ...Commons: FormulationOptions, formulas, formulation_options
 import ...LineCableModels: FormulaDefinition
 
 export Formula, formula_id, formulas
@@ -21,7 +21,6 @@ import ...LineCableModels: formula_id
 # These bindings are consumed by the formula definitions below.
 import ...LineCableModels: description
 #! explicit-imports: on
-using ...DataModel: CableDesign
 
 include("interface.jl")
 

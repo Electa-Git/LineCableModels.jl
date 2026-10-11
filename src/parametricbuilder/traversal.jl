@@ -111,7 +111,6 @@ function traverse(problem::ParametricProblem, formulation)
         "batched computation did not return one result per formulation",
     ))
     first_result = first(first_batch)
-    validate(typeof(first_result), ParametricResult)
     values = Vector{typeof(first_result)}(
         undef,
         point_count * formulation_count

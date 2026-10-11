@@ -14,15 +14,6 @@ function offdiagonal_ratio(matrix::AbstractMatrix)
            max(matrix_norm, eps(float(real(matrix_norm))))
 end
 
-# The operators transform the coefficients of `parameters` between modal and phase domains.
-function validate(maps::ModalOperators, parameters::LineParameters)
-    expected = size(parameters.Z.values)
-    size(maps.Tv) == expected || throw(DimensionMismatch("Tv must have size $expected"))
-    size(maps.Ti) == expected || throw(DimensionMismatch("Ti must have size $expected"))
-    all(isfinite, maps.Tv) || throw(DomainError(maps.Tv, "Tv must be finite"))
-    all(isfinite, maps.Ti) || throw(DomainError(maps.Ti, "Ti must be finite"))
-    return maps
-end
 
 function computation_options(::Type{LineCableModelsModal}, record::ComputationOptions)::ComputationOptions
     options = record.data
@@ -194,7 +185,8 @@ function compute(::LineCableModelsModal,
     workspace = ModalAnalysisWorkspace(parameters, selected)
     decompose!(selected, workspace, formula_parameters(selected),
         formulation_options(selected))
-    validate(ModalOperators(workspace.Tv, workspace.Ti), parameters)
+    all(isfinite, workspace.Tv) || throw(DomainError(workspace.Tv, "Tv must be finite"))
+    all(isfinite, workspace.Ti) || throw(DomainError(workspace.Ti, "Ti must be finite"))
     orient_modes!(workspace.Tv, workspace.Ti, execution.data.rotate)
     maps = ModalOperators(copy(workspace.Tv), copy(workspace.Ti))
     _coordinate_algebra!(workspace, execution)
@@ -211,7 +203,7 @@ end
 
 """Restore phase coefficients using the retained modal-to-phase bases."""
 function transform(::Type{PhaseDomain}, parameters::LineParameters{T,U,D,Basis}) where {T,U,D<:ModalDomain,Basis}
-    maps = validate(parameters.domain.operators, parameters)
+    maps = parameters.domain.operators
     dimensions = size(parameters.Z.values)
     S = promote_type(T, eltype(maps.Tv), eltype(maps.Ti))
     impedance = Array{S,3}(undef, dimensions)

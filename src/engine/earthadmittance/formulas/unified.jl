@@ -269,11 +269,6 @@ function Functor(formula::Union{EarthImpedance.Formula{:unified}, Formula{:unifi
     isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
     prescribed=formula.options.data.Γ
     longitudinal=prescribed isa Number ? prescribed : prescribed[input.frequency]
-    for column in axes(input.rho, 2)
-        validate(@view(input.rho[:, column]), formula,
-            @view(input.epsilon[:, column]), @view(input.mu[:, column]),
-            input.thickness)
-    end
     for values in (input.rho, input.epsilon, input.mu)
         for column in axes(values, 2), row in axes(values, 1)
 

@@ -168,7 +168,6 @@ function validate(system::LineCableSystem)
     region_index = 0
     terminal_offset = 0
     for (cable_index, design) in pairs(system.designs)
-        validate(design)
         pose = system.positions[cable_index]
         all(isfinite, (pose.x, pose.y, pose.φ)) || throw(DomainError(
             (pose.x, pose.y, pose.φ),

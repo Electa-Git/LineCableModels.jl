@@ -76,7 +76,6 @@ function validate(design::CableDesign)
         ))
     reference = first(design.geometry.regions).source.material.T0
     for (index, placed) in pairs(design.geometry.regions)
-        validate(placed.source.material)
         expected = if placed.terminal === nothing
             0
         else

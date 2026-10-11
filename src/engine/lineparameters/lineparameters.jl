@@ -39,12 +39,10 @@ struct ShuntAdmittance{T, Basis} <: AbstractArray{T, 3}
 end
 
 function SeriesImpedance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
-    validate(basis, LineParameters)
     return SeriesImpedance{T, basis}(Array(A))
 end
 
 function ShuntAdmittance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
-    validate(basis, LineParameters)
     return ShuntAdmittance{T, basis}(Array(A))
 end
 
@@ -124,9 +122,6 @@ function validate(domain::ModalDomain, parameters::LineParameters)
 end
 
 function validate(parameters::LineParameters{T, U, D, Basis}) where {T, U, D, Basis}
-    Basis in LINE_PARAMETER_BASES || throw(ArgumentError(
-        "LineParameters basis must be :pul or :total; received $(repr(Basis))"
-    ))
     size(parameters.Z, 1) == size(parameters.Z, 2) || throw(DimensionMismatch(
         "LineParameters.Z must be square; received size $(size(parameters.Z))"
     ))
@@ -203,7 +198,6 @@ function LineParameters(
         TY <: Complex,
         U <: Real
 }
-    validate(basis, LineParameters)
     element_type = promote_type(TZ, TY)
     return LineParameters(
         domain,

@@ -22,11 +22,12 @@
         @test validate(input) === input
         @test bytes(input)==before
     end
-    # Construction and compute must reject damaged current inputs. The public
-    # materialization path for new problem implementors is tested in behavior.jl.
+    # Construction checks each input once, and a computation does not check it again.
+    # A computation accepts a problem changed after construction, and `validate` still
+    # rejects it. behavior.jl tests the public materialization path for new problem
+    # implementors.
     problem.frequencies[1]=-1
     @test_throws DomainError validate(problem)
-    @test_throws DomainError compute(problem,Formulation())
     bad=TestFixtures.coaxial_design()
     pop!(bad.terminal_map)
     snapshot=copy(bad.terminal_map)

@@ -101,7 +101,6 @@
 "src/datamodel/design/group.jl" = { applicable = 0, eval = 0, kind = 3 }
 "src/datamodel/flatten.jl" = { applicable = 0, eval = 0, kind = 4 }
 "src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, kind = 1 }
-"src/datamodel/preview/geometry.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, kind = 0 }
 "src/engine/modalanalysis/observations.jl" = { applicable = 0, eval = 9, kind = 0 }
 "src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, kind = 4 }

@@ -36,10 +36,10 @@ $(TYPEDSIGNATURES)
 
 Build the calculation of the earth formula `formula` for the physical conductor pairs
 `physical[indices]`, on the decided `earth`: the layered earth `model`, or a reduction of it.
-The constructor checks each pair and the geometric restrictions of each expression. It checks
-that `formula` defines its expressions for the layers of `model`. On a reduction, it checks
-that the reduction admits each expression and defines its own expression for each physical
-pair. The distinct expressions, with the options that `formula` declares for each, become the
+`earth_pairs` checked the physical pairs. The constructor checks that `formula` defines its
+expressions for the layers of `model`. On a reduction, it checks
+that the reduction admits each distinct expression and defines its own expression for each
+physical pair. The distinct expressions, with the options that `formula` declares for each, become the
 parts.
 `geometry` holds the conductor radii and the physical layer of each conductor.
 
@@ -50,12 +50,7 @@ function EarthPlan(formula::Union{EarthImpedanceFormulation, EarthAdmittanceForm
         geometry::NamedTuple)
     earth === model && validate(model, formula)
     decided = [EarthPair(physical[index], earth) for index in indices]
-    expressions = map(decided) do pair
-        validate(pair)
-        expression = Expression(formula, pair)
-        validate(pair, expression)
-        expression
-    end
+    expressions = [Expression(formula, pair) for pair in decided]
     projected = formulation_options(formula, expressions)
     for expression in projected.expressions
         validate(expression, model.layers)
@@ -65,7 +60,7 @@ function EarthPlan(formula::Union{EarthImpedanceFormulation, EarthAdmittanceForm
         nothing
     else
         rule = EquivalentHomogeneous.rule(earth)
-        foreach(expression -> validate(rule, expression), expressions)
+        foreach(expression -> validate(rule, expression), projected.expressions)
         reduced = [Expression(rule, physical[index]) for index in indices]
         normalized = formulation_options(rule, reduced)
         foreach(validate, normalized.expressions)

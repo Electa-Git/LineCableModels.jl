@@ -42,7 +42,7 @@ function load!(
     elseif extension == ".json"
         document = _read_document(file_name, MATERIALS_SCHEMA)
         Dict(
-            name => validate(material) for (name, material) in _document_materials(document)
+            name => material for (name, material) in _document_materials(document)
         )
     else
         throw(ArgumentError(

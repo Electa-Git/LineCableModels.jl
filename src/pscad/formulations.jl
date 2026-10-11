@@ -242,7 +242,6 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
 end
 
 function pscad_setting(formulation::PSCADFormulation, problem::LineParametersProblem, blueprints)
-    validate(problem)
     model = problem.earth_props
     validate(model, PSCADFormulation)
     relation = formulation.methods.earth_properties
@@ -255,24 +254,16 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
             SemiconAdmittance.Formula{:lossless},SemiconAdmittance.Formula{:lossy}} || throw(ArgumentError(
             "PSCAD does not implement $name :$(formula_id(selected))"))
     end
-    for design in problem.system.designs
-        validate(design, formulation.methods.pipe_impedance, formulation)
-    end
     input = Engine.lineinput(problem, blueprints)
     pairs = Engine.earth_pairs(first.(input.cable.assemblies), input.horz, input.vert,
         input.horz_sep, problem.earth_props)
     settings = Dict{Symbol, NamedTuple}()
     interactions = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selection
-        selection isa NamedTuple && validate(problem.earth_props)
         records = NamedTuple{
             (:formula, :kind, :source, :target), Tuple{Symbol, Symbol, Int, Int}}[]
         for pair in pairs
-            validate(pair)
             expression = Expression(selection, pair)
             selected = expression.selection
-            # Registration and physical validity belong to the equation owner.
-            # Execution availability is selected by the native expression.
-            validate(pair, expression)
             formulation_options(selected, (expression,))
             record = (formula = formula_id(selected),
                 kind = pair.row == pair.column ? :self : :mutual,

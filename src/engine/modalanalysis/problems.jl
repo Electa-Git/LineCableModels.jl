@@ -15,7 +15,6 @@ struct ModalAnalysisProblem{P <: LineParameters} <: AbstractProblemDefinition
 end
 
 function validate(problem::ModalAnalysisProblem)
-    validate(problem.parameters)
     parameters = problem.parameters
     size(parameters.Z, 1) > 0 || throw(ArgumentError("modal analysis requires at least one mode"))
     isempty(parameters.f) && throw(ArgumentError("modal analysis requires frequency samples"))

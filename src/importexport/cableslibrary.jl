@@ -82,7 +82,7 @@ function _decoded_cable_library(raw_cables, materials)
         cable_id == design.cable_id || throw(ArgumentError(
             "cable key '$cable_id' differs from cable_id '$(design.cable_id)'"
         ))
-        designs[cable_id] = validate(design)
+        designs[cable_id] = design
         datasheets[cable_id] = _decode_datasheet(
             _required(value, "datasheet", "cable_design")
         )

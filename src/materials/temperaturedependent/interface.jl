@@ -63,20 +63,6 @@ function validate(rho, ::Union{Nothing, TemperatureDependentFormulation}, materi
     return rho
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Build the Functor of a temperature-dependent resistivity law for one reference material at
-one temperature, after checking the temperature. The state is empty.
-"""
-function Functor(formula::TemperatureDependentFormulation, input::NamedTuple;
-        workspace = nothing)
-    (; temperature) = input
-    isfinite(temperature) || throw(DomainError(temperature,
-        "constitutive temperature must be finite"))
-    return Functor(formula, input, (;))
-end
-
 @inline function (formula::TemperatureDependentFormulation)(
         material::Material{T}, temperature::T;
         workspace = nothing) where {T <: Real}

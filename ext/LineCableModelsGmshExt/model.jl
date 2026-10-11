@@ -229,15 +229,6 @@ function validate(material::LineCableModels.AbstractMaterial, ::Type{FEMResolved
             :rho,
             "a conductor requires finite electrical resistivity"
         )
-    isfinite(material.eps_r) || _fem_error(
-        :adaptation, object_id, :eps_r, "relative permittivity must be finite"
-    )
-    isfinite(material.mu_r) || _fem_error(
-        :adaptation, object_id, :mu_r, "relative permeability must be finite"
-    )
-    isfinite(material.tan_delta) || _fem_error(
-        :adaptation, object_id, :tan_delta, "loss tangent must be finite"
-    )
     return material
 end
 
@@ -588,16 +579,6 @@ function _resolved_fem_model(
         formulation::LineCableModelsFEM,
         options::ComputationOptions = computation_options(LineCableModelsFEM, ComputationOptions())
 ) where {T <: Real}
-    try
-        LineCableModels.validate(problem)
-    catch exception
-        _fem_error(
-            :adaptation,
-            problem.system.system_id,
-            :problem,
-            sprint(showerror, exception)
-        )
-    end
     earth = problem.earth_props
     earth.vertical_layers && _fem_error(
         :unsupported,

@@ -111,7 +111,7 @@ function encode(definition::XLSXReportDefinition,observed,tables,illustration;re
             _numeric_sheet(definition,table,"std",Commons.uncertainty),XLSXSheet("metadata",cells)]
         push!(workbooks,XLSXWorkbook(destination,sheets))
     end
-    return validate(workbooks,definition)
+    return workbooks
 end
 
 function _xlsx_sheet_size(rows,columns)

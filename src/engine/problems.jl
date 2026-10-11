@@ -44,8 +44,6 @@ Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 line_length(problem::LineParametersProblem) = line_length(problem.system)
 
 function validate(problem::LineParametersProblem)
-    validate(problem.system)
-    validate(problem.earth_props)
     DataModel.clearance_geometry(problem.system.designs, problem.system.positions;
         required = problem.system.clearances, interface = true, adjust = false)
     phases = unique(problem.system.connection_order)

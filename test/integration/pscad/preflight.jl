@@ -1,5 +1,5 @@
 @testitem "PSCAD / deterministic numeric validation precedes staging and transport" tags=[:integration, :measurements] begin
-    using Measurements, Calculus, Serialization
+    using Measurements, Calculus
     const P = LineCableModels.PSCAD
     const contacts = Ref(0)
     function P.remote_command(::Val{:preflight_probe}, ::P.RemoteConfig, ::AbstractString)
@@ -28,7 +28,6 @@
                     (soil=uncertain(100.0),), (temperature=uncertain(20.0),),
                     (frequency=uncertain.(10.0 .^ range(-1, 5; length=101)),))
                 problem = model(; inputs...)
-                @test_throws r"PSCAD does not support Measurement" validate(problem, selected)
                 @test_throws r"PSCAD does not support Measurement" compute(problem, selected; options=(;remote))
                 @test !ispath(root)
                 @test_throws r"PSCAD does not support Measurement" export_data(:pscad,
@@ -45,10 +44,6 @@
         @test_throws ArgumentError compute(model(frequency=[50.0]), selected; options=(;remote))
         @test_throws ArgumentError compute(model(), [selected, Formulation(:pscad; earth_impedance=:gary1976)]; options=(;remote))
         plain = model()
-        snapshot(value) = (io=IOBuffer(); serialize(io,value); take!(io))
-        original = snapshot(plain)
-        @test validate(plain,selected) === plain
-        @test snapshot(plain) == original
         metal = Material(:conductor,1.72e-8,1.0)
         dielectric = Material(:insulator,1e14,2.3)
         design = build(CableDesign,"five-components",(terminal(Symbol("component$i"),

@@ -434,11 +434,11 @@ end
                 for design in problem.system.designs]
     w=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     E.materials!(w, selected)
-    E.materials!(w, selected, 1)
     fill!(w.buffers.axial_field, NaN)
-    materials=only(w.buffers.earth.calculations)
-    materials.rho[2, 1]=-1
-    @test_throws DomainError E.earth!(w, 1)
+    # `materials!` checks the media of each calculation where it fills them for a frequency,
+    # before any earth integral.
+    w.buffers.earth.evaluated.rho[2, 1]=-1
+    @test_throws DomainError E.materials!(w, selected, 1)
     @test isempty(w.trace.integrals)
     @test all(isnan, w.buffers.axial_field)
 end

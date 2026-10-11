@@ -31,9 +31,6 @@ Base.eltype(::EarthModel{T}) where {T} = T
 Base.eltype(::Type{<:EarthModel{T}}) where {T} = T
 
 function validate(model::EarthModel)
-    for layer in model.layers
-        validate(layer)
-    end
     length(model.layers) >= 2 || throw(ArgumentError(
         "EarthModel.layers must contain air and at least one earth layer; " *
         "received $(length(model.layers)) layers"

@@ -15,7 +15,7 @@ For every frequency sample, `Tv` and `Ti` satisfy `Vₚ = Tv Vₘ` and
 
 $(TYPEDFIELDS)
 """
-struct ModalOperators{V <: AbstractArray, I <: AbstractArray} <: Engine.AbstractModalOperators
+struct ModalOperators{V <: AbstractArray, I <: AbstractArray}
     "Modal-to-phase voltage tensor."
     Tv::V
     "Modal-to-phase current tensor."

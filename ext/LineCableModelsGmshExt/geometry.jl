@@ -1284,34 +1284,6 @@ function _entity_boundary(surfaces)
     for (dim, tag) in gmsh.model.get_boundary(dimtags, true, false, false) if dim == 1))
 end
 
-# Material surfaces of the FEM model: disjoint, and each interface between exactly two.
-function validate(material_surfaces::AbstractVector, model::FEMResolvedModel)
-    surfaces = collect(Iterators.flatten(material_surfaces))
-    length(unique(surfaces)) == length(surfaces) || _fem_error(
-        :geometry,
-        model.problem.system.system_id,
-        :material_partition,
-        "a FEM surface is assigned to more than one material"
-    )
-    curves = Int[]
-    for surfaces in material_surfaces
-        append!(curves, _entity_boundary(surfaces))
-    end
-    offending = Int[]
-    for curve in sort!(unique(curves))
-        adjacent, _ = gmsh.model.get_adjacencies(1, curve)
-        length(unique(adjacent)) == 2 || push!(offending, curve)
-    end
-    isempty(offending) || _fem_error(
-        :geometry,
-        model.problem.system.system_id,
-        :material_partition,
-        "material interfaces must have exactly two adjacent surfaces; " *
-        "invalid curves: $(join(offending, ", "))"
-    )
-    return material_surfaces
-end
-
 function _interface_mesh_sizes(model::FEMResolvedModel, mesh_plan::FEMMeshPlan)
     center_x = model.center[1]
     sizes = Dict{Float64, Float64}()
@@ -1460,7 +1432,32 @@ function _build_geometry!(
     _apply_point_mesh_sizes!(registry)
     gmsh.model.geo.synchronize()
 
-    validate(material_surfaces, model)
+    # The material surfaces are disjoint, and each interface lies between exactly two.
+    let
+        surfaces = collect(Iterators.flatten(material_surfaces))
+        length(unique(surfaces)) == length(surfaces) || _fem_error(
+            :geometry,
+            model.problem.system.system_id,
+            :material_partition,
+            "a FEM surface is assigned to more than one material"
+        )
+        curves = Int[]
+        for surfaces in material_surfaces
+            append!(curves, _entity_boundary(surfaces))
+        end
+        offending = Int[]
+        for curve in sort!(unique(curves))
+            adjacent, _ = gmsh.model.get_adjacencies(1, curve)
+            length(unique(adjacent)) == 2 || push!(offending, curve)
+        end
+        isempty(offending) || _fem_error(
+            :geometry,
+            model.problem.system.system_id,
+            :material_partition,
+            "material interfaces must have exactly two adjacent surfaces; " *
+            "invalid curves: $(join(offending, ", "))"
+        )
+    end
 
     for (index, material) in enumerate(model.material_plans)
         _physical_group(

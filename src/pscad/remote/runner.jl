@@ -52,30 +52,6 @@ function _disabled(value)
         "0", "NO", "FALSE", "DISABLE", "DISABLED", "RETAIN", "NONE")
 end
 
-# The generated PSCAD project retains every requested cable port.
-function validate(components)
-    cables = filter(
-        component -> _definition(component) == "master:cable_coax",
-        components
-    )
-    isempty(cables) && throw(ArgumentError(
-        "generated PSCAD project exposes no master:Cable_Coax components",
-    ))
-    for cable in cables
-        parameters = _parameters(cable)
-        elimination_fields = sort!(filter(
-            field -> occursin(r"^elim\d+$", field),
-            collect(keys(parameters))
-        ))
-        for field in elimination_fields
-            _disabled(parameters[field]) || throw(ArgumentError(
-                "PSCAD field $field requests conductor elimination; requested ports must be retained",
-            ))
-        end
-    end
-    return components
-end
-
 function _messages(project)
     messages = try
         _components(project.messages())
@@ -227,7 +203,26 @@ function main(arguments)
             2,
             "Applied frequency range $fs Hz to $fe Hz and formulation $formulation"
         )
-        validate(components)
+        # The generated PSCAD project retains every requested cable port.
+        cables = filter(
+            component -> _definition(component) == "master:cable_coax",
+            components
+        )
+        isempty(cables) && throw(ArgumentError(
+            "generated PSCAD project exposes no master:Cable_Coax components",
+        ))
+        for cable in cables
+            parameters = _parameters(cable)
+            elimination_fields = sort!(filter(
+                field -> occursin(r"^elim\d+$", field),
+                collect(keys(parameters))
+            ))
+            for field in elimination_fields
+                _disabled(parameters[field]) || throw(ArgumentError(
+                    "PSCAD field $field requests conductor elimination; requested ports must be retained",
+                ))
+            end
+        end
         _report(console, verbosity, 2, "Verified that all cable terminals are retained")
         project.save()
         _record_diagnostics(console, project, verbosity, "PSCAD diagnostics before computation")
