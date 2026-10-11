@@ -309,12 +309,30 @@ function build(
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Build one completed cable design, or a `Gridspace{CableDesign}` when the identifier, a
+part or `nominal_data` is a `Grid` or `Gridspace`.
+"""
 function build(
         ::Type{CableDesign},
-        cable_id::AbstractString,
-        parts::AbstractCablePart...;
+        cable_id::Union{AbstractString, AbstractGrid, Gridspace},
+        parts::Union{AbstractCablePart, AbstractGrid, Gridspace}...;
         nominal_data = nothing,
         combine::Symbol = :product
 )
     return build(CableDesign, cable_id, parts, nominal_data; combine)
+end
+
+function build(
+        ::Type{CableDesign},
+        cable_id::Union{AbstractString, AbstractGrid, Gridspace},
+        parts::Tuple{Vararg{Union{AbstractCablePart, AbstractGrid, Gridspace}}},
+        nominal_data::Union{Nothing, NamedTuple, AbstractGrid, Gridspace};
+        combine::Symbol = :product
+)
+    caller = (cable_id, selected...) ->
+        build(CableDesign, cable_id, Base.front(selected), last(selected))
+    return parameterize(CableDesign, caller, (cable_id, parts..., nominal_data); combine)
 end

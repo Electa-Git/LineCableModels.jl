@@ -14,7 +14,7 @@
     @test (@inferred DM.resolve(DM.EmptyBoundary(), core)).regions[1].primitive ==
           DM.Disk(0.01)
     @test_throws ArgumentError DM.Region(Symbol(""), DM.Disk(1), copper_props)
-    @test_throws ArgumentError DM.Region(:bad, DM.Disk(1), :copper)
+    @test_throws MethodError DM.Region(:bad, DM.Disk(1), :copper)
 
     stack=PB.Stack(core, insulation)
     @test stack.items == DM.AbstractCablePart[core, insulation]

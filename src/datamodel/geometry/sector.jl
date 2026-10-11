@@ -53,6 +53,13 @@ function Sector(
     return Sector{typeof(first(values))}(values...)
 end
 
+"""
+Declare a filleted cable-sector primitive, or a finite space of sectors.
+"""
+function Sector(; span, r_base, r_back, fillet = 0, combine::Symbol = :product)
+    return parameterize(Sector, Sector, (span, r_base, r_back, fillet); combine)
+end
+
 function Base.convert(
         ::Type{<:AbstractPrimitive{T}},
         value::Sector

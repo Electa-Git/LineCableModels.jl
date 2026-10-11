@@ -79,7 +79,6 @@ import ..TextDisplay
 include("macros.jl")
 include("results.jl")
 
-include("geometry.jl")
 include("physicaltree.jl")
 include("positions.jl")
 include("construction_macros.jl")

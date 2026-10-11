@@ -21,6 +21,13 @@ end
 
 Shell(t::Real) = Shell{typeof(float(t))}(float(t))
 
+"""
+Declare a contextual shell, or a finite space of contextual shells.
+"""
+function Shell(t::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return parameterize(Shell, Shell, (t,); combine)
+end
+
 Base.eltype(::Shell{T}) where {T} = T
 Base.eltype(::Type{<:Shell{T}}) where {T} = T
 

@@ -52,6 +52,23 @@ struct Enclosure{
     end
 end
 
+"""
+Contain a cable part in `primitive` with `fill` and an optional `wall`, or declare a
+finite space of such enclosures.
+"""
+function Enclosure(
+        tag::Union{Symbol, AbstractGrid, Gridspace},
+        item::Union{AbstractCablePart, AbstractGrid, Gridspace};
+        at = Pose2(0, 0, 0),
+        primitive,
+        fill,
+        wall = nothing,
+        combine::Symbol = :product
+)
+    values = (tag, at, primitive, item, fill, wall)
+    return parameterize(Enclosure, Enclosure, values; combine)
+end
+
 function Base.:(==)(left::Enclosure, right::Enclosure)
     left.tag == right.tag && left.at == right.at &&
         left.primitive == right.primitive && left.item == right.item &&

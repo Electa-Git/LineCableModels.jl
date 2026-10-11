@@ -121,6 +121,23 @@ struct Assembly{A, E, P, H, C, N} <: AbstractCablePart
     end
 end
 
+"""
+Repeat one prototype by `pattern` at the local origin, or declare a finite space of such
+assemblies.
+"""
+function Assembly(
+        item;
+        at = Pose2(0, 0, 0),
+        pattern,
+        names = nothing,
+        path = nothing,
+        compact = nothing,
+        combine::Symbol = :product
+)
+    values = (at, item, pattern, path, compact, names)
+    return parameterize(Assembly, Assembly, values; combine)
+end
+
 function Base.:(==)(left::Assembly, right::Assembly)
     left.at == right.at && left.item == right.item &&
         left.pattern == right.pattern && left.path == right.path &&

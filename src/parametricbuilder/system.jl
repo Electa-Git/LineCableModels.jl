@@ -1,25 +1,3 @@
-function build(
-        ::Type{DataModel.LineCableSystem},
-        designs,
-        placements;
-        connections = nothing,
-        environment = nothing,
-        system_id = "line-cable-system",
-        line_length = 1,
-        combine::Symbol = :product
-)
-    values = (
-        designs,
-        placements,
-        connections,
-        environment,
-        system_id,
-        line_length
-    )
-    caller = (selected...) -> build(DataModel.LineCableSystem, selected...)
-    return parameterize(DataModel.LineCableSystem, caller, values; combine)
-end
-
 function _placed_system(
         placements,
         environment,
@@ -56,20 +34,6 @@ function _placed_system(
         environment,
         system_id,
         line_length
-    )
-end
-
-function build(
-        ::Type{DataModel.LineCableSystem},
-        placements;
-        environment = nothing,
-        system_id = "line-cable-system",
-        line_length = 1,
-        combine::Symbol = :product
-)
-    values = (placements, environment, system_id, line_length)
-    return parameterize(
-        DataModel.LineCableSystem, _placed_system, values; combine
     )
 end
 

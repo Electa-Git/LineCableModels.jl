@@ -453,6 +453,73 @@ function build(
     return system
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Place completed cable designs in one system. Without keywords the system has no
+connections, no environment, the identifier `"line-cable-system"` and a length of 1 m.
+Returns a `LineCableSystem`, or a `Gridspace{LineCableSystem}` when an input is a `Grid` or
+`Gridspace`.
+"""
+function build(
+        ::Type{LineCableSystem},
+        designs,
+        placements;
+        connections = nothing,
+        environment = nothing,
+        system_id = "line-cable-system",
+        line_length = 1,
+        combine::Symbol = :product
+)
+    values = (designs, placements, connections, environment, system_id, line_length)
+    return parameterize(
+        LineCableSystem, (values...) -> build(LineCableSystem, values...), values; combine)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build one system from placed cables. Each placed cable is a `(design, pose, connections)`
+record, and a formation is a collection of them that contributes its records in order.
+Returns a `LineCableSystem`, or a `Gridspace{LineCableSystem}` when an input is a `Grid` or
+`Gridspace`.
+"""
+function build(
+        ::Type{LineCableSystem},
+        placements::Union{Tuple, AbstractVector, AbstractGrid, Gridspace};
+        environment = nothing,
+        system_id = "line-cable-system",
+        line_length = 1,
+        combine::Symbol = :product
+)
+    entries(placement) = (placement,)
+    entries(formation::Union{Tuple, AbstractVector}) = formation
+    caller = function (placements, environment, system_id, line_length)
+        records = [validate(record, LineCableSystem)
+                   for placement in placements for record in entries(placement)]
+        isempty(records) && throw(ArgumentError(
+            "placed cable declarations must be a nonempty collection"))
+        return build(LineCableSystem, getproperty.(records, :design),
+            getproperty.(records, :pose), getproperty.(records, :connections),
+            environment, system_id, line_length)
+    end
+    values = (placements, environment, system_id, line_length)
+    return parameterize(LineCableSystem, caller, values; combine)
+end
+
+# A placed cable checked for the system build.
+function validate(
+        record::NamedTuple{(:design, :pose, :connections), <:Tuple{CableDesign, Pose2, Any}},
+        ::Type{LineCableSystem}
+)
+    return record
+end
+
+function validate(record, ::Type{LineCableSystem})
+    throw(ArgumentError("each placed cable requires design, pose, and connections; " *
+                        "got a $(nameof(typeof(record)))"))
+end
+
 Commons.input_fields(::Type{<:LineCableSystem}) = (line_length=(name="line length",unit="m"),
     positions=(name="position",unit="m"),input_positions=(name="input position",unit="m"),
     clearances=(name="clearance",unit="m"))

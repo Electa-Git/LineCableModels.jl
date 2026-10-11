@@ -14,16 +14,23 @@ struct Region{P, M} <: AbstractCablePart
     material::M
 
     function Region(tag::Symbol, primitive::P, material::M) where {
-            P, M
+            P <: Union{AbstractPrimitive, Shell}, M <: AbstractMaterial
     }
         isempty(String(tag)) && throw(ArgumentError("region tag cannot be empty"))
-        primitive isa Union{AbstractPrimitive, Shell} || throw(ArgumentError(
-            "region geometry must be an intrinsic primitive or contextual Shell"
-        ))
-        material isa AbstractMaterial ||
-            throw(ArgumentError("region material must resolve to AbstractMaterial"))
         return new{P, M}(tag, primitive, material)
     end
+end
+
+"""
+Bind a primitive to a material under a tag, or declare a finite space of such regions.
+"""
+function Region(
+        tag::Union{Symbol, AbstractGrid, Gridspace},
+        primitive::Union{AbstractPrimitive, Shell, AbstractGrid, Gridspace},
+        material::Union{AbstractMaterial, AbstractGrid, Gridspace};
+        combine::Symbol = :product
+)
+    return parameterize(Region, Region, (tag, primitive, material); combine)
 end
 
 # A material for the cable part of `role` in a region, restricted to the `allowed` kinds.

@@ -1,85 +1,3 @@
-function Region(tag, primitive, material; combine::Symbol = :product)
-    return parameterize(
-        DataModel.Region, DataModel.Region, (tag, primitive, material); combine
-    )
-end
-
-# `DataModel.Region(::Symbol, primitive, material)` is deliberately permissive
-# for scalar declaration types, so explicit finite inputs need narrower methods
-# to use the collection constructor instead of that scalar constructor.
-const _FiniteRegionInput = Union{AbstractGrid, Gridspace}
-
-function Region(tag::_FiniteRegionInput, primitive, material; combine::Symbol = :product)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(tag, primitive::_FiniteRegionInput, material; combine::Symbol = :product)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(tag, primitive, material::_FiniteRegionInput; combine::Symbol = :product)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(
-        tag::Symbol,
-        primitive::_FiniteRegionInput,
-        material;
-        combine::Symbol = :product
-)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(
-        tag::Symbol,
-        primitive,
-        material::_FiniteRegionInput;
-        combine::Symbol = :product
-)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(
-        tag::Symbol,
-        primitive::_FiniteRegionInput,
-        material::_FiniteRegionInput;
-        combine::Symbol = :product
-)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(
-        tag::_FiniteRegionInput,
-        primitive::_FiniteRegionInput,
-        material;
-        combine::Symbol = :product
-)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(
-        tag::_FiniteRegionInput,
-        primitive,
-        material::_FiniteRegionInput;
-        combine::Symbol = :product
-)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(
-        tag,
-        primitive::_FiniteRegionInput,
-        material::_FiniteRegionInput;
-        combine::Symbol = :product
-)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-function Region(
-        tag::_FiniteRegionInput,
-        primitive::_FiniteRegionInput,
-        material::_FiniteRegionInput;
-        combine::Symbol = :product
-)
-    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-end
-
-function Stack(items...; combine::Symbol = :product)
-    isempty(items) && throw(ArgumentError("layers require at least one part"))
-    return parameterize(DataModel.Stack, DataModel.Stack, items; combine)
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -98,33 +16,6 @@ Compose physical parts in outward order.
 - A `Stack`, or a `Gridspace{Stack}` when a direct argument varies.
 """
 layers(parts...; combine::Symbol = :product) = Stack(parts...; combine)
-
-function Group(
-        name,
-        item;
-        at = DataModel.Pose2(0, 0, 0),
-        pattern = nothing,
-        path = nothing,
-        compact = nothing,
-        boundary = nothing,
-        combine::Symbol = :product
-)
-    values = (name, at, item, pattern, path, compact, boundary)
-    return parameterize(DataModel.Group, DataModel.Group, values; combine)
-end
-
-function Assembly(
-        item;
-        at = DataModel.Pose2(0, 0, 0),
-        pattern,
-        names = nothing,
-        path = nothing,
-        compact = nothing,
-        combine::Symbol = :product
-)
-    values = (at, item, pattern, path, compact, names)
-    return parameterize(DataModel.Assembly, DataModel.Assembly, values; combine)
-end
 
 function _explicit_assembly(members...)
     placed = map(members) do member
@@ -187,19 +78,6 @@ function assembly(
         compact,
         combine
     )
-end
-
-function Enclosure(
-        tag,
-        item;
-        at = DataModel.Pose2(0, 0, 0),
-        primitive,
-        fill,
-        wall = nothing,
-        combine::Symbol = :product
-)
-    values = (tag, at, primitive, item, fill, wall)
-    return parameterize(DataModel.Enclosure, DataModel.Enclosure, values; combine)
 end
 
 _terminal_eligible(::DataModel.Region{<:Any, <:Materials.Material{<:Real, :conductor}}) = 1
@@ -1319,42 +1197,4 @@ function duct(
     end
     values = (items..., shape, fill, wall, at, formation)
     return parameterize(DataModel.Enclosure, caller, values; combine)
-end
-
-function build(
-        ::Type{DataModel.CableDesign},
-        cable_id,
-        parts::Tuple,
-        nominal_data;
-        combine::Symbol = :product
-)
-    isempty(parts) && throw(ArgumentError("a cable design requires one physical part"))
-    caller = (selected...) -> begin
-        id = first(selected)
-        data = last(selected)
-        physical = selected[2:(end - 1)]
-        build(DataModel.CableDesign, id, Tuple(physical), data)
-    end
-    values = (cable_id, parts..., nominal_data)
-    return parameterize(DataModel.CableDesign, caller, values; combine)
-end
-
-function build(
-        ::Type{DataModel.CableDesign},
-        cable_id,
-        parts...;
-        nominal_data = nothing,
-        combine::Symbol = :product
-)
-    values = (cable_id, parts..., nominal_data)
-    any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(MethodError(
-        build, (DataModel.CableDesign, cable_id, parts...)
-    ))
-    return build(
-        DataModel.CableDesign,
-        cable_id,
-        Tuple(parts),
-        nominal_data;
-        combine
-    )
 end

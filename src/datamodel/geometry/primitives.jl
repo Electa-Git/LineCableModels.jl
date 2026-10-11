@@ -249,6 +249,53 @@ function Polygon(points::Union{Tuple, AbstractVector})
     return _polygon(points, _origin(typeof(float(first(points)[1]))))
 end
 
+"""
+Declare a circular primitive, or a finite space of circular primitives.
+"""
+function Disk(r::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return parameterize(Disk, Disk, (r,); combine)
+end
+
+"""
+Declare a rectangular primitive, or a finite space of rectangular primitives.
+"""
+function Rectangle(
+        w::Union{Real, AbstractGrid, Gridspace},
+        h::Union{Real, AbstractGrid, Gridspace};
+        combine::Symbol = :product
+)
+    return parameterize(Rectangle, Rectangle, (w, h); combine)
+end
+
+"""
+Declare an elliptical primitive, or a finite space of elliptical primitives.
+"""
+function Ellipse(
+        a::Union{Real, AbstractGrid, Gridspace},
+        b::Union{Real, AbstractGrid, Gridspace};
+        combine::Symbol = :product
+)
+    return parameterize(Ellipse, Ellipse, (a, b); combine)
+end
+
+"""
+Declare an annular primitive, or a finite space of annular primitives.
+"""
+function Annulus(
+        ri::Union{Real, AbstractGrid, Gridspace},
+        ro::Union{Real, AbstractGrid, Gridspace};
+        combine::Symbol = :product
+)
+    return parameterize(Annulus, Annulus, (ri, ro); combine)
+end
+
+"""
+Declare a polygon primitive, or a finite space of polygon primitives.
+"""
+function Polygon(points::Union{AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return parameterize(Polygon, Polygon, (points,); combine)
+end
+
 function Base.convert(
         ::Type{<:AbstractPrimitive{T}}, value::Disk
 ) where {T <: Real}

@@ -218,6 +218,12 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   plan, buffers)` extends with `quadrature`.
 - Materials lifts the keyword, copy and library forms of `Material` over `Grid` and
   `Gridspace` inputs.
+- DataModel lifts its constructors over `Grid` and `Gridspace` inputs: the primitives,
+  `Region`, `Stack`, the keyword `Sector`, `Group`, `Assembly` and `Enclosure`, and the
+  `build` of `CableDesign` and `LineCableSystem`. A scalar input of the wrong type throws a
+  `MethodError`.
+- `Region(tag::Symbol, primitive, material)` takes an `AbstractPrimitive` or `Shell` and an
+  `AbstractMaterial`.
 
 ### Removed
 

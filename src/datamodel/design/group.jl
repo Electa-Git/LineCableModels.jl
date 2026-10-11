@@ -56,6 +56,23 @@ end
 Group(name::Symbol, at, item, pattern, path, compact) =
     Group(name, at, item, pattern, path, compact, nothing)
 
+"""
+Declare a repeated-member scope at the local origin, or a finite space of such scopes.
+"""
+function Group(
+        name::Union{Symbol, AbstractGrid, Gridspace},
+        item::Union{AbstractCablePart, AbstractGrid, Gridspace};
+        at = Pose2(0, 0, 0),
+        pattern = nothing,
+        path = nothing,
+        compact = nothing,
+        boundary = nothing,
+        combine::Symbol = :product
+)
+    values = (name, at, item, pattern, path, compact, boundary)
+    return parameterize(Group, Group, values; combine)
+end
+
 function Base.:(==)(left::Group, right::Group)
     left.name == right.name && left.at == right.at && left.item == right.item &&
         left.pattern == right.pattern && left.path == right.path &&

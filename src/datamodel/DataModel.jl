@@ -58,6 +58,7 @@ import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal, uncertainty
 import ..LineCableModels: line_length
 import ..LineCableModels: parameterize
+using ..LineCableModels: AbstractGrid, Gridspace
 import ..LineCableModels: Gridpoint, materialize, realize, realize_arguments
 import Random
 using ..Materials: AbstractMaterial, Material

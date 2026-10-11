@@ -106,7 +106,7 @@ end
     @test DM.centroid(placed) == (1.0, 2.0)
     @test DM.support(placed, 0) ≈ 2.0
 
-    poses=PB.Pose2(x = PB.Grid((0.0, 1.0)), y = 2.0, φ = PB.Grid((0.0, π / 2)))
+    poses=PB.Pose2(PB.Grid((0.0, 1.0)), 2.0, PB.Grid((0.0, π / 2)))
     @test poses isa PB.Gridspace{DM.Pose2}
     @test length(poses) == 4
     @test all(pose -> pose isa DM.Pose2, poses)
@@ -150,4 +150,16 @@ end
         @test BP.tubular_resistance(0.0,.005,rho) ≈ rho/(pi*.005^2) rtol=1e-10
     end
     @test BP.tubular_gmr(.005,0.0,1.0) ≈ .005exp(-.25) rtol=1e-10
+end
+
+@testitem "DataModel / lifting / an invalid scalar input throws MethodError" tags=[:unit, :datamodel] begin
+    material = Material(:conductor, 1.7241e-8)
+    # A lift accepts the owner's scalar type or a finite source at each position, so
+    # an input of any other type reaches no method.
+    @test_throws MethodError Disk("a")
+    @test_throws MethodError Disk(1 + 2im)
+    @test_throws MethodError Shell(:x)
+    @test_throws MethodError Region(:x, 3.0, material)
+    @test Disk(Grid((0.01, 0.02))) isa Gridspace{Disk}
+    @test Region(:x, Shell(Grid((1e-3, 2e-3))), material) isa Gridspace{Region}
 end
