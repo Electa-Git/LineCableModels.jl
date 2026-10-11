@@ -82,7 +82,7 @@ the precision of the system.
 - `combine=:product`: composition rule when an input varies.
 """
 function LineParametersProblem(
-        system::Union{LineCableSystem, AbstractGrid, Gridspace};
+        system::Union{LineCableSystem, AbstractGrid, Gridspace{<:LineCableSystem}};
         temperature = 20,
         earth_props,
         frequencies = [50],
@@ -115,6 +115,50 @@ function LineParametersProblem(
         converted_earth,
         T[convert(T, float(value)) for value in frequencies]
     )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a line-parameter problem from placed cables: `(design, pose, connections)`
+records, or formations of them, as `at` and the formations produce. Each point builds its
+system with `build(LineCableSystem, placements; environment, system_id, line_length)`,
+then its problem.
+
+# Keywords
+
+- `environment=nothing`: optional physical environment declaration.
+- `system_id="line-cable-system"`: stable system identifier.
+- `line_length=1`: physical line length in meters.
+- `temperature=20`: operating temperature in °C.
+- `earth_props`: static earth model.
+- `frequencies=[50]`: positive sorted analysis frequencies in Hz.
+- `combine=:product`: composition rule when an input varies.
+
+# Returns
+
+One validated [`LineParametersProblem`](@ref), or a `Gridspace{LineParametersProblem}`
+over the seven values when one of them is a `Grid` or `Gridspace`.
+"""
+function LineParametersProblem(
+        placements::Union{Tuple, AbstractVector,
+            Gridspace{<:Union{Tuple, AbstractVector, NamedTuple}}};
+        environment = nothing,
+        system_id = "line-cable-system",
+        line_length = 1,
+        temperature = 20,
+        earth_props,
+        frequencies = [50],
+        combine::Symbol = :product
+)
+    caller = function (placements, environment, system_id, line_length, temperature,
+            earth_props, frequencies)
+        system = build(LineCableSystem, placements; environment, system_id, line_length)
+        return LineParametersProblem(system, temperature, earth_props, frequencies)
+    end
+    values = (placements, environment, system_id, line_length, temperature, earth_props,
+        frequencies)
+    return parameterize(LineParametersProblem, caller, values; combine)
 end
 
 """

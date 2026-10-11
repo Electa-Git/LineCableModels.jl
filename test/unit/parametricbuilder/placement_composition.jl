@@ -78,7 +78,8 @@ end
         connections=(core=(1, 2, 3),)), Pose2(0.0, -1.0))
     systems = build(LineCableSystem, family; environment=soil,
         system_id="placed-system", line_length=250.0)
-    problems = LineParametersProblem(systems;
+    problems = LineParametersProblem(family; environment=soil,
+        system_id="placed-system", line_length=250.0,
         earth_props=soil, frequencies=[50.0, 1000.0], temperature=40.0)
     @test systems isa Gridspace{LineCableSystem}
     @test problems isa Gridspace{LineParametersProblem}
