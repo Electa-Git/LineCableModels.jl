@@ -209,20 +209,6 @@ end
 
 details(value::ParametricResult) = value.details
 
-const _GRIDSPACE_TRANSPORT_DOCUMENTATION = "https://electa-git.github.io/LineCableModels.jl/dev/gridspace/" *
-                                           "#Transporting-completed-result-spaces"
-
-function _transport_error(::Type{Target}, source::AbstractResultSpace) where {Target}
-    target_name = nameof(Target)
-    source_name = nameof(typeof(source))
-    throw(ArgumentError(
-        "Gridspace transport from $source_name to problem $target_name " *
-        "is not defined. Define Gridspace{$target_name}(::$source_name) " *
-        "for that result family. See `?Gridspace` and " *
-        _GRIDSPACE_TRANSPORT_DOCUMENTATION,
-    ))
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -233,16 +219,6 @@ function Gridspace{Target}(
         source::ParametricResult{T, F}
 ) where {Target, T, F <: Combinatorial}
     return Gridspace{Target}(Target, (source,))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Reject result-to-problem transports whose result owner has not defined how to
-construct the requested target-bearing `Gridspace`.
-"""
-function Gridspace{Target}(source::AbstractResultSpace) where {Target}
-    return _transport_error(Target, source)
 end
 
 """

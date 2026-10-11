@@ -31,8 +31,6 @@
 "PSCAD | ImportExport.export_data | src/pscad/importexport/pscad.jl" = 1
 "PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
 "ParametricBuilder | Commons.compute | src/parametricbuilder/traversal.jl" = 4
-"ParametricBuilder | LineCableModels.Gridspace | src/parametricbuilder/results.jl" = 1
-"ParametricBuilder | TextDisplay.name | src/parametricbuilder/textdisplay.jl" = 6
 "UQ | LineCableModels.materialize | src/uq/results.jl" = 2
 "UQ | LineCableModels.realize | src/uq/montecarlo/compute.jl" = 1
 "UQ | Units.display_unit | src/uq/observations.jl" = 1
@@ -262,7 +260,6 @@
 "src/parametricbuilder/macros.jl" = 3
 "src/parametricbuilder/physicaltree.jl" = 4
 "src/parametricbuilder/positions.jl" = 1
-"src/parametricbuilder/results.jl" = 1
 "src/parametricbuilder/wirepatterns/gauges.jl" = 1
 "src/pscad/compute.jl" = 1
 "src/pscad/importexport/import.jl" = 2

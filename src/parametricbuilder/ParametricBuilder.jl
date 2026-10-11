@@ -8,8 +8,8 @@ Construct finite parameter spaces and materialize cable problems from explicit
 
 - Define deterministic and uncertainty-bearing finite sources.
 - Compose sources with product or zip semantics.
-- Materialize materials, cable parts, cable designs, positions, earth models,
-  and line-parameter problems.
+- Declare cable parts, placements and systems with the construction vocabulary
+  and macros.
 - Evaluate every materialized problem with `Combinatorial`.
 - Transport completed result spaces into target-bearing downstream problem
   spaces.

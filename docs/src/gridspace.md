@@ -212,9 +212,9 @@ Do not introduce a passive record merely to store arguments that another
 function immediately unpacks.
 
 `@gridspace` applies the same rule to a keyword-constructed struct. The macro
-retains the strict positional constructor, returns the struct immediately for
-scalar keyword input and creates a Gridspace only when a field is an explicit
-finite source.
+retains the strict positional constructor, and its keyword constructor calls
+`parameterize`: scalar keyword input returns the struct immediately, and a field that
+holds an explicit finite source creates a Gridspace.
 
 ## Materialization and realization
 

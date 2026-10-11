@@ -308,3 +308,9 @@ end
 function rand(grid::AbstractGrid; distribution = :normal)
     return rand(Random.default_rng(), grid; distribution)
 end
+
+TextDisplay.name(::Type{<:UncertainValue}) = "UncertainValue"
+TextDisplay.name(::Type{<:AbsoluteError}) = "AbsoluteError"
+TextDisplay.name(::Type{<:DeterministicGrid}) = "Grid"
+TextDisplay.name(::Type{<:RelativeGrid}) = "Relative-error Grid"
+TextDisplay.name(::Type{<:AbsoluteGrid}) = "Absolute-error Grid"

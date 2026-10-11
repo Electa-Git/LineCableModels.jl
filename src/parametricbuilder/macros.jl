@@ -85,9 +85,10 @@ end
 """
 $(SIGNATURES)
 
-Retain the strict positional struct and add a keyword constructor that lifts
-only explicit Grid or Gridspace fields into a `Gridspace`. With `Target`, the
-generated space materializes that target instead of the declared struct itself.
+Retain the strict positional struct and add a keyword constructor that calls
+`parameterize`: a field that holds an explicit Grid or Gridspace lifts the call into a
+`Gridspace`. With `Target`, the generated space materializes that target instead of the
+declared struct itself.
 """
 macro gridspace(arguments...)
     length(arguments) in (1, 2) ||
@@ -121,29 +122,8 @@ macro gridspace(arguments...)
     constructor = Expr(:function,
         signature,
         quote
-            combine in (:product, :zip) ||
-                throw(ArgumentError("combine must be :product or :zip"))
-            values = $values
-            if any(
-                value -> value isa Union{
-                    $(GlobalRef(@__MODULE__, :AbstractGrid)),
-                    $(GlobalRef(@__MODULE__, :Gridspace))
-                },
-                values
-            )
-                grids = map(values) do value
-                    value isa Union{
-                        $(GlobalRef(@__MODULE__, :AbstractGrid)),
-                        $(GlobalRef(@__MODULE__, :Gridspace))
-                    } ? value : $(GlobalRef(@__MODULE__, :Grid))((value,))
-                end
-                return $(GlobalRef(@__MODULE__, :Gridspace)){$target}(
-                    $target,
-                    grids;
-                    combine
-                )
-            end
-            return $target(values...)
+            return $(GlobalRef(@__MODULE__, :parameterize))(
+                $target, $target, $values; combine)
         end)
     return esc(_rebuild_ast(raw, struct_node, clean_struct, (constructor,)))
 end

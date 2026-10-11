@@ -11,7 +11,6 @@ function _display_grid_values(values)
     return count > visible ? "$items, … ($count values)" : items
 end
 
-TextDisplay.name(::Type{<:UncertainValue}) = "UncertainValue"
 function Base.summary(io::IO, ::UncertainValue)
     print(io, "Uncertain value")
 end
@@ -22,7 +21,6 @@ function Base.show(io::IO, ::MIME"text/plain", value::UncertainValue)
     show(io, value)
 end
 
-TextDisplay.name(::Type{<:AbsoluteError}) = "AbsoluteError"
 function Base.summary(io::IO, error::AbsoluteError)
     print(io, "Absolute error with $(length(error.vals)) values")
 end
@@ -54,9 +52,6 @@ function _grid_errors(grid::AbsoluteGrid)
     return "absolute error  $(_display_grid_values(grid.abs_err))"
 end
 
-TextDisplay.name(::Type{<:DeterministicGrid}) = "Grid"
-TextDisplay.name(::Type{<:RelativeGrid}) = "Relative-error Grid"
-TextDisplay.name(::Type{<:AbsoluteGrid}) = "Absolute-error Grid"
 function Base.summary(io::IO, grid::AbstractGrid)
     print(io, _grid_kind(grid), " with ", length(grid), " points")
 end
@@ -84,8 +79,6 @@ function _space_axis(source::AbstractGrid)
     return _display_grid_values(_grid_nominals(source))
 end
 
-TextDisplay.name(::Type{<:Gridspace{Target}}) where {Target} =
-    string(_semantic_target(Target), " parameter space")
 function Base.summary(io::IO, space::Gridspace{Target}) where {Target}
     print(io, _semantic_target(Target), " parameter space with ", length(space), " points")
 end

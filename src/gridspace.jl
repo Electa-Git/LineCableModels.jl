@@ -105,6 +105,25 @@ function Gridspace{Target}(grids::Tuple; combine::Symbol = :product) where {Targ
     Gridspace{Target}(Target, grids; combine)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Reject result-to-problem transports whose result owner has not defined how to
+construct the requested target-bearing `Gridspace`.
+"""
+function Gridspace{Target}(source::AbstractResultSpace) where {Target}
+    throw(ArgumentError(
+        "Gridspace transport from $(nameof(typeof(source))) to problem $(nameof(Target)) " *
+        "is not defined. Define Gridspace{$(nameof(Target))}(::$(nameof(typeof(source)))) " *
+        "for that result family. See `?Gridspace` and " *
+        "https://electa-git.github.io/LineCableModels.jl/dev/gridspace/" *
+        "#Transporting-completed-result-spaces",
+    ))
+end
+
+TextDisplay.name(::Type{<:Gridspace{Target}}) where {Target} =
+    string(TextDisplay.name(Target), " parameter space")
+
 Grid(space::Gridspace) = space
 
 const _FiniteSource = Union{AbstractGrid, Gridspace}
