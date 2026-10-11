@@ -64,6 +64,7 @@
 end
 
 @testitem "UQ / current AC cable / actual sampling and independently recomputed statistics" tags=[:integration, :measurements] setup=[TestFixtures] begin
+    using Measurements
     using Random
     design=TestFixtures.coaxial_design()
     temperatures=(20.0,60.0)
