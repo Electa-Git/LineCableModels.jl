@@ -432,11 +432,14 @@
         Grid(("constants-a", "constants-b")),
         design.origin
     )
+    # A gridded design makes the convenience return compute's result space.
     constant_space=CableConstants(designs)
-    @test constant_space isa Gridspace{CableConstants}
+    @test constant_space isa ParametricResult
     @test length(constant_space) == 2
     @test all(value -> value isa CableConstants, constant_space)
     @test first(constant_space) == CableConstants(first(designs))
+    @test collect(constant_space) ==
+          collect(compute(CableConstantsProblem(designs), CableConstantsFormulation()))
 
     problem_space=CableConstantsProblem(designs; frequency = 50.0)
     @test problem_space isa Gridspace{CableConstantsProblem}

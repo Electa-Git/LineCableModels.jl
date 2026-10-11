@@ -69,21 +69,35 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct a problem after promoting the system, operating temperature, static
-earth model and frequencies to one real scalar
-type.
+Construct a problem, or a `Gridspace{LineParametersProblem}` when the system or a keyword
+is a `Grid` or `Gridspace`. Each problem promotes the system, operating temperature,
+static earth model and frequencies to one real scalar type.
 
 # Keywords
 
-- `temperature`: operating temperature \\[°C\\].
+- `temperature`: operating temperature \\[°C\\]. The default, 20 °C, takes the scalar
+  type of a scalar system's line length.
 - `earth_props`: static earth model.
-- `frequencies`: positive sorted analysis frequencies \\[Hz\\].
+- `frequencies`: positive sorted analysis frequencies \\[Hz\\]. The default is 50 Hz.
+- `combine=:product`: composition rule when an input varies.
 """
 function LineParametersProblem(
-        system::LineCableSystem;
-        temperature::Real = oftype(float(system.line_length), 20),
+        system::Union{LineCableSystem, AbstractGrid, Gridspace};
+        temperature = system isa LineCableSystem ? oftype(float(system.line_length), 20) : 20,
+        earth_props,
+        frequencies = system isa LineCableSystem ? [oftype(float(system.line_length), 50)] :
+                      [50],
+        combine::Symbol = :product
+)
+    values = (system, temperature, earth_props, frequencies)
+    return parameterize(LineParametersProblem, LineParametersProblem, values; combine)
+end
+
+function LineParametersProblem(
+        system::LineCableSystem,
+        temperature::Real,
         earth_props::EarthModel,
-        frequencies::AbstractVector{<:Real} = [oftype(float(system.line_length), 50)]
+        frequencies::AbstractVector{<:Real}
 )
     isempty(frequencies) && throw(ArgumentError("frequencies cannot be empty"))
     T = promote_type(
@@ -117,21 +131,39 @@ placements.
 
 # Keywords
 
-- `connections`: terminal-to-active-phase declarations. Use one-based active
+- `connections=nothing`: terminal-to-active-phase declarations. Use one-based active
   phase IDs and `0` for grounded or eliminated conductors.
-- `environment`: optional physical environment declaration.
-- `system_id`: stable system identifier.
-- `line_length`: physical line length in meters.
-- `temperature`: operating temperature in °C.
+- `environment=nothing`: optional physical environment declaration.
+- `system_id="line-cable-system"`: stable system identifier.
+- `line_length=1`: physical line length in meters.
+- `temperature=20`: operating temperature in °C.
 - `earth_props`: static earth model.
-- `frequencies`: positive sorted analysis frequencies in Hz.
-- `combine`: rule used to combine designs and placements.
+- `frequencies=[50]`: positive sorted analysis frequencies in Hz.
+- `combine=:product`: composition rule when an input varies.
 
 # Returns
 
 One validated [`LineParametersProblem`](@ref) containing a completed
-[`LineCableSystem`](@ref).
+[`LineCableSystem`](@ref), or a `Gridspace{LineParametersProblem}` over the nine values
+when one of them is a `Grid` or `Gridspace`.
 """
+function LineParametersProblem(
+        designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple, AbstractGrid,
+            Gridspace},
+        placements;
+        connections = nothing,
+        environment = nothing,
+        system_id = "line-cable-system",
+        line_length = 1,
+        temperature = 20,
+        earth_props,
+        frequencies = [50],
+        combine::Symbol = :product
+)
+    return LineParametersProblem(designs, placements, connections, environment, system_id,
+        line_length, temperature, earth_props, frequencies; combine)
+end
+
 function LineParametersProblem(
         designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple},
         placements,
@@ -154,7 +186,25 @@ function LineParametersProblem(
         line_length,
         combine
     )
-    return LineParametersProblem(system; temperature, earth_props, frequencies)
+    return LineParametersProblem(system, temperature, earth_props, frequencies)
+end
+
+function LineParametersProblem(
+        designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple, AbstractGrid,
+            Gridspace},
+        placements,
+        connections,
+        environment,
+        system_id::Union{AbstractString, AbstractGrid, Gridspace},
+        line_length::Union{Real, AbstractGrid, Gridspace},
+        temperature::Union{Real, AbstractGrid, Gridspace},
+        earth_props::Union{EarthModel, AbstractGrid, Gridspace},
+        frequencies::Union{AbstractVector{<:Real}, AbstractGrid, Gridspace};
+        combine::Symbol = :product
+)
+    values = (designs, placements, connections, environment, system_id, line_length,
+        temperature, earth_props, frequencies)
+    return parameterize(LineParametersProblem, LineParametersProblem, values; combine)
 end
 
 """

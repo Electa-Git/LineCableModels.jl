@@ -78,8 +78,7 @@ end
         connections=(core=(1, 2, 3),)), Pose2(0.0, -1.0))
     systems = build(LineCableSystem, family; environment=soil,
         system_id="placed-system", line_length=250.0)
-    problems = LineParametersProblem(family; environment=soil,
-        system_id="placed-system", line_length=250.0,
+    problems = LineParametersProblem(systems;
         earth_props=soil, frequencies=[50.0, 1000.0], temperature=40.0)
     @test systems isa Gridspace{LineCableSystem}
     @test problems isa Gridspace{LineParametersProblem}
@@ -110,8 +109,9 @@ end
         @test actual.Y.values == expected.Y.values
     end
     soils = homogeneous(rho=Grid((10.0, 100.0)))
-    product = LineParametersProblem(systems, soils; frequencies=[50.0])
-    zipped = LineParametersProblem(systems, soils; frequencies=[50.0], combine=:zip)
+    product = LineParametersProblem(systems; earth_props=soils, frequencies=[50.0])
+    zipped = LineParametersProblem(systems; earth_props=soils, frequencies=[50.0],
+        combine=:zip)
     @test length(product) == 4
     @test length(zipped) == 2
     @test [problem.earth_props.layers[2].rho for problem in zipped] == [10.0, 100.0]

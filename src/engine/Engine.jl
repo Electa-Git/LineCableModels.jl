@@ -53,6 +53,7 @@ import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,
                           Expression, FormulaDefinition
 import ..LineCableModels: parameterize
+using ..LineCableModels: AbstractGrid, Gridspace
 import ..LineCableModels: verbosity, VerbosityLogger
 #! explicit-imports: off
 import ..LineCableModels: description

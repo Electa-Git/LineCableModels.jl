@@ -224,6 +224,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `MethodError`.
 - `Region(tag::Symbol, primitive, material)` takes an `AbstractPrimitive` or `Shell` and an
   `AbstractMaterial`.
+- Every keyword of `LineParametersProblem(system; …)` and `CableConstantsProblem(design; …)`
+  accepts a `Grid` or `Gridspace`, and the call then returns a `Gridspace` of problems.
+- `CableConstants(design; temperature, frequency, formulation, options, combine)` computes
+  its problem. With a gridded input it returns the `Combinatorial` result space.
 
 ### Removed
 

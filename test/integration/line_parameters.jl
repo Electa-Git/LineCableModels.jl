@@ -129,8 +129,8 @@ end
     system=TestFixtures.three_phase_system()
     earth=Grid((EarthModel(10.0), EarthModel(100.0)))
     problem_space=LineParametersProblem(
-        system,
-        earth;
+        system;
+        earth_props = earth,
         frequencies = [50.0]
     )
     @test problem_space isa Gridspace{LineParametersProblem}

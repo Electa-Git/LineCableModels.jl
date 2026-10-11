@@ -179,7 +179,7 @@ The current behavior is:
 | `LineCableSystem` | `DataModel.LineCableSystem` | `Gridspace{DataModel.LineCableSystem}` |
 | `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
 | `CableConstantsProblem` | `Engine.CableConstantsProblem` | `Gridspace{Engine.CableConstantsProblem}` |
-| `CableConstants` | `Engine.CableConstants` | `Gridspace{Engine.CableConstants}` |
+| `CableConstants` | `Engine.CableConstants` | `ParametricResult` from `compute` |
 | `Formulation` | `Engine.LineParametersFormulation` | `Gridspace{Engine.LineParametersFormulation}` |
 | `CableConstantsFormulation` | `Engine.CableConstantsFormulation` | `Gridspace{Engine.CableConstantsFormulation}` |
 | `ModalAnalysisFormulation` | `ModalAnalysis.ModalAnalysisFormulation` | `Gridspace{ModalAnalysis.ModalAnalysisFormulation}` |

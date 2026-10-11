@@ -35,8 +35,8 @@ earth = @earth begin
 end
 
 problems = LineParametersProblem(
-    system,
-    earth;
+    system;
+    earth_props = earth,
     temperature = 20.0,
     frequencies = collect(10.0 .^ range(0, stop = 6, length = 101))
 )

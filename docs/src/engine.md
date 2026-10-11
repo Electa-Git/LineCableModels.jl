@@ -814,8 +814,10 @@ sheath. Earth impedance, earth admittance, EquivalentHomogeneous, Γ, position, 
 and bundle reduction never enter this workflow.
 
 `CableConstants(design; temperature=20, frequency=50)` is the convenience
-entry point. CableConstants admits only the 50 Hz and 60 Hz datasheet base
-frequencies. The result owns `cores`, aligned `R/L/C/G` vectors, and the
+entry point. It computes the `CableConstantsProblem` with `formulation`. When the
+design, the temperature, the frequency or a formulation selector is a `Grid`, it returns
+the `Combinatorial` result space of that computation. CableConstants admits only the
+50 Hz and 60 Hz datasheet base frequencies. The result owns `cores`, aligned `R/L/C/G` vectors, and the
 evaluation frequency. A conventional coaxial cable has one row and supports
 `only(constants)`.
 

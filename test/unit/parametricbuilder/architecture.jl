@@ -59,8 +59,8 @@
 
     earth_space=PB.homogeneous(rho = Grid((10.0, 100.0)), eps_r = 1.0)
     collection_problems=LineParametersProblem(
-        collection_system,
-        earth_space;
+        collection_system;
+        earth_props = earth_space,
         frequencies = [50.0]
     )
     @test collection_problems isa Gridspace{LineParametersProblem}

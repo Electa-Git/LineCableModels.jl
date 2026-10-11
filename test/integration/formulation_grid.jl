@@ -24,8 +24,8 @@
         EarthModel(100.0, 10.0, 1.0)
     ))
     problem_space=LineParametersProblem(
-        system,
-        earth;
+        system;
+        earth_props = earth,
         frequencies = [50.0]
     )
     formulation_space=Formulation(
@@ -207,7 +207,8 @@ end
         nominal_data = (; counter))
     system=build(LineCableSystem, design, Pose2(0.0, -1.0);
         connections = (core = 1, sheath = 0))
-    problems=LineParametersProblem(system, homogeneous(rho = Grid((10.0, 100.0)));
+    problems=LineParametersProblem(system;
+        earth_props = homogeneous(rho = Grid((10.0, 100.0))),
         frequencies = [1.0, 50.0, 1000.0])
     formulations=Formulation(earth_impedance = Grid((
         formula(:unified; options=(Γ=0,)),

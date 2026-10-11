@@ -209,16 +209,24 @@ Construct an earth-free cable-constant problem.
 
 - `temperature=20`: operating temperature [°C].
 - `frequency=50`: base frequency, either 50 Hz or 60 Hz.
+- `combine=:product`: composition rule when an input varies.
 
 # Returns
 
-- A validated [`CableConstantsProblem`](@ref).
+- A validated [`CableConstantsProblem`](@ref), or a `Gridspace{CableConstantsProblem}`
+  when the design or a keyword is a `Grid` or `Gridspace`.
 """
 function CableConstantsProblem(
-        design::CableDesign;
-        temperature::Real = 20,
-        frequency::Real = 50
+        design::Union{CableDesign, AbstractGrid, Gridspace};
+        temperature = 20,
+        frequency = 50,
+        combine::Symbol = :product
 )
+    values = (design, temperature, frequency)
+    return parameterize(CableConstantsProblem, CableConstantsProblem, values; combine)
+end
+
+function CableConstantsProblem(design::CableDesign, temperature::Real, frequency::Real)
     T = promote_type(
         eltype(design), typeof(float(temperature)), typeof(float(frequency))
     )
@@ -642,16 +650,21 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate earth-free constants directly from one completed cable design.
+Calculate earth-free constants of one completed cable design: `compute` of the
+[`CableConstantsProblem`](@ref) with `formulation`. Scalar inputs return one
+[`CableConstants`](@ref). When the design, `temperature`, `frequency` or a formulation
+selector is a `Grid` or `Gridspace`, `compute` returns the `Combinatorial` result space:
+the problem inputs combine by `combine`, and the formulations multiply the problems.
 """
 function CableConstants(
-        design::CableDesign;
-        temperature::Real = 20,
-        frequency::Real = 50,
-        formulation::CableConstantsFormulation = CableConstantsFormulation(),
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
+        design::Union{CableDesign, AbstractGrid, Gridspace};
+        temperature = 20,
+        frequency = 50,
+        formulation = CableConstantsFormulation(),
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        combine::Symbol = :product
 )
-    problem = CableConstantsProblem(design; temperature, frequency)
+    problem = CableConstantsProblem(design; temperature, frequency, combine)
     return compute(problem, formulation; options)
 end
 
