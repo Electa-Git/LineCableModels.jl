@@ -297,10 +297,11 @@ function materialize(point::Gridpoint)
     point.build(map(materialize, point.args)...)
 end
 
+# A problem's constructor validates it, so the point build is the checked problem.
 function materialize(
         point::Gridpoint{Target}
 ) where {Target <: AbstractProblemDefinition}
-    return validate(point.build(map(materialize, point.args)...))::Target
+    return point.build(map(materialize, point.args)...)::Target
 end
 
 """
@@ -328,7 +329,7 @@ function realize(
         point::Gridpoint{Target},
         arguments::Tuple
 ) where {Target <: AbstractProblemDefinition}
-    return validate(point.build(arguments...))::Target
+    return point.build(arguments...)::Target
 end
 
 """
