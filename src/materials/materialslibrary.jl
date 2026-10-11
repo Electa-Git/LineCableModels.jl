@@ -126,3 +126,38 @@ function add!(
     library[key] = material
     return library
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Add the one deterministic material represented by `space` to a material
+library.
+
+# Errors
+
+- Throws `ArgumentError` when `space` contains uncertainty or describes more
+  than one material.
+"""
+function add!(
+        library::MaterialsLibrary,
+        name::Union{AbstractString, Symbol},
+        space::Gridspace{<:Material}
+)
+    has_uncertainty(space) && throw(ArgumentError(
+        "a reusable material-library entry must be deterministic",
+    ))
+    length(space) == 1 || throw(ArgumentError(
+        "a reusable material-library entry must describe exactly one material; got $(length(space)) points",
+    ))
+    return add!(library, String(name), only(space))
+end
+
+function Material(
+        library::MaterialsLibrary,
+        name::Union{AbstractString, Symbol};
+        kwargs...
+)
+    material = get(library, String(name), nothing)
+    material === nothing && throw(KeyError(String(name)))
+    return Material(material; kwargs...)
+end

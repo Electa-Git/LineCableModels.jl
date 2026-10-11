@@ -48,10 +48,8 @@
 "ParametricBuilder | Engine.CableConstantsProblem | src/parametricbuilder/engine/cableconstants.jl" = 1
 "ParametricBuilder | Engine.LineParametersProblem | src/parametricbuilder/system.jl" = 6
 "ParametricBuilder | LineCableModels.Gridspace | src/parametricbuilder/results.jl" = 1
-"ParametricBuilder | LineCableModels.add! | src/parametricbuilder/material.jl" = 1
 "ParametricBuilder | LineCableModels.build | src/parametricbuilder/physicaltree.jl" = 2
 "ParametricBuilder | LineCableModels.build | src/parametricbuilder/system.jl" = 2
-"ParametricBuilder | Materials.Material | src/parametricbuilder/material.jl" = 4
 "ParametricBuilder | TextDisplay.name | src/parametricbuilder/textdisplay.jl" = 6
 "UQ | LineCableModels.materialize | src/uq/results.jl" = 2
 "UQ | LineCableModels.realize | src/uq/montecarlo/compute.jl" = 1

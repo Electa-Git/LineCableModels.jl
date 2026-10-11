@@ -216,6 +216,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `integrate` takes it first: `integrate(integral, Val(:quad), controls, buffers)`. The
   buffers are the record that `initialize_buffers(SpectralIntegral, Val(:quad), T, input,
   plan, buffers)` extends with `quadrature`.
+- Materials lifts the keyword, copy and library forms of `Material` over `Grid` and
+  `Gridspace` inputs.
 
 ### Removed
 

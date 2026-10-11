@@ -46,7 +46,7 @@ export WireEstimate, estimate_stranding, estimate_screen
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 import Random
-import ..LineCableModels: add!, build, Gridpoint, validate
+import ..LineCableModels: build, Gridpoint, validate
 import ..LineCableModels: Grid, AbsoluteError, DeterministicGrid, RelativeGrid
 import ..LineCableModels: AbsoluteGrid, AbstractGrid, AbstractUncertainGrid
 import ..LineCableModels: UncertainValue, Gridspace, has_uncertainty
@@ -79,7 +79,6 @@ import ..TextDisplay
 include("macros.jl")
 include("results.jl")
 
-include("material.jl")
 include("geometry.jl")
 include("physicaltree.jl")
 include("positions.jl")
