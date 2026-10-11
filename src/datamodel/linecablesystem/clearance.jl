@@ -87,8 +87,9 @@ function clearance_geometry(designs, poses;
     exteriors = _clearance_exterior.(designs, poses)
     radii = getproperty.(exteriors, :radius)
     centers = getproperty.(exteriors, :center)
-    reference_centers === nothing &&
-        (reference_centers = getproperty.(_clearance_exterior.(designs, reference), :center))
+    declared = reference_centers === nothing ?
+               getproperty.(_clearance_exterior.(designs, reference), :center) :
+               reference_centers
     n = length(radii)
     length(poses) == length(reference) == n || throw(DimensionMismatch(
         "clearance requires one pose per cable"))
@@ -118,23 +119,57 @@ function clearance_geometry(designs, poses;
     required == transpose(required) || throw(ArgumentError(
         "retained cable clearances must be symmetric"))
 
-    result = copy(centers)
-    if sampling && any(((i, j),) ->
-            iszero(nominal(result[i].x - result[j].x)) &&
-            iszero(nominal(result[i].y - result[j].y)),
-            ((i, j) for i in 1:n for j in 1:(i - 1)))
-        # A coincident draw has no direction. Reuse the declared relative
-        # layout at the sampled center, then apply the same clearance rule.
-        cx = sum(p -> p.x, result) / n
-        cy = sum(p -> p.y, result) / n
-        rx = sum(p -> nominal(p.x), reference_centers) / n
-        ry = sum(p -> nominal(p.y), reference_centers) / n
-        result = [Pose2(cx + nominal(reference_centers[i].x) - rx,
-                       cy + nominal(reference_centers[i].y) - ry, centers[i].φ) for i in 1:n]
+    coincident = sampling && any(((i, j),) ->
+            iszero(nominal(centers[i].x - centers[j].x)) &&
+            iszero(nominal(centers[i].y - centers[j].y)),
+        ((i, j) for i in 1:n for j in 1:(i - 1)))
+    laid = coincident ? _declared_layout(centers, declared) : copy(centers)
+    factor = _expansion_factor(laid, radii, required, roundoff, adjust, sampling, false, T)
+    expanded = nominal(factor) > 1 ? _expand(laid, factor, false) : laid
+    result = interface ?
+             _interface!(expanded, declared, radii, required, roundoff, adjust, sampling,
+        reference, T) : expanded
+    displacement = maximum(eachindex(result)) do i
+        hypot(nominal(result[i].x - centers[i].x), nominal(result[i].y - centers[i].y))
     end
+    resolved = iszero(displacement) ? copy(poses) :
+        [Pose2(poses[i].x + (result[i].x - centers[i].x),
+               poses[i].y + (result[i].y - centers[i].y), poses[i].φ) for i in 1:n]
+    if adjust && displacement > 0
+        clearance_geometry(designs, resolved; required, reference,
+            reference_centers = declared, interface, sampling, adjust = false)
+    end
+    return resolved, Matrix{T}(required), displacement
+end
+
+# A coincident draw has no direction. Reuse the declared relative layout at the sampled
+# center, then apply the same clearance rule.
+function _declared_layout(centers, declared)
+    n = length(centers)
+    cx = sum(p -> p.x, centers) / n
+    cy = sum(p -> p.y, centers) / n
+    rx = sum(p -> nominal(p.x), declared) / n
+    ry = sum(p -> nominal(p.y), declared) / n
+    return [Pose2(cx + nominal(declared[i].x) - rx,
+                cy + nominal(declared[i].y) - ry, centers[i].φ) for i in 1:n]
+end
+
+# The expansion of the relative placements that restores every pair clearance. With
+# `adjust=false`, every pair is checked instead. Across the interface, the expansion
+# restores the distances that restoring the declared half-spaces shortened.
+function _expansion_factor(placements, radii, required, roundoff, adjust::Bool,
+        sampling::Bool, across_interface::Bool, ::Type{T}) where {T}
     factor = one(T)
-    for i in 1:n, j in 1:(i - 1)
-        distance = hypot(result[i].x - result[j].x, result[i].y - result[j].y)
+    for i in eachindex(placements), j in 1:(i - 1)
+        distance = hypot(placements[i].x - placements[j].x, placements[i].y - placements[j].y)
+        if across_interface
+            limit = radii[i] + radii[j] + required[i, j]
+            if nominal(distance) + roundoff < nominal(limit)
+                required_scale = (limit + 2roundoff) / distance
+                nominal(required_scale) > nominal(factor) && (factor = required_scale)
+            end
+            continue
+        end
         gap = distance - radii[i] - radii[j]
         if !adjust
             nominal(gap) > 0 && nominal(gap) + roundoff >= nominal(required[i, j]) ||
@@ -150,73 +185,59 @@ function clearance_geometry(designs, poses;
             nominal(required_scale) > nominal(factor) && (factor = required_scale)
         end
     end
-    if nominal(factor) > 1
-        xcenter = sum(pose -> pose.x, result) / n
-        ycenter = sum(pose -> pose.y, result) / n
-        result = [Pose2(xcenter + factor * (pose.x - xcenter),
-                       ycenter + factor * (pose.y - ycenter), pose.φ) for pose in result]
-    end
+    return factor
+end
 
-    if interface
-        # A common translation within each half-space leaves distances unchanged
-        # within that group and increases separation from the other group.
-        for side in (-1, 1)
-            indices = findall(pose -> sign(nominal(pose.y)) == side, reference_centers)
-            shift = zero(T)
+# Expand the placements by `factor` about their centroid. Across the interface, the
+# vertical coordinates expand from y = 0, so that each cable keeps its half-space.
+function _expand(placements, factor, across_interface::Bool)
+    n = length(placements)
+    xcenter = sum(pose -> pose.x, placements) / n
+    across_interface && return [Pose2(xcenter + factor * (pose.x - xcenter),
+        factor * pose.y, pose.φ) for pose in placements]
+    ycenter = sum(pose -> pose.y, placements) / n
+    return [Pose2(xcenter + factor * (pose.x - xcenter),
+                ycenter + factor * (pose.y - ycenter), pose.φ) for pose in placements]
+end
+
+# A common translation within each half-space leaves distances unchanged within that
+# group and increases separation from the other group. The translation applies to
+# `placements` in place.
+function _interface!(placements, declared, radii, required, roundoff, adjust::Bool,
+        sampling::Bool, reference, ::Type{T}) where {T}
+    for side in (-1, 1)
+        indices = findall(pose -> sign(nominal(pose.y)) == side, declared)
+        shift = zero(T)
+        for i in indices
+            original_gap = side * declared[i].y - radii[i]
+            gap = side * placements[i].y - radii[i]
+            adjust && !sampling && nominal(gap) + roundoff < nominal(required[i, i]) &&
+                nominal(original_gap) < -roundoff && throw(DomainError(i,
+                "cable cross-section crosses the air-earth interface"))
+            if !adjust
+                nominal(gap) > 0 && nominal(gap) + roundoff >= nominal(required[i, i]) ||
+                    throw(DomainError(i, "cable clearance from the air-earth interface is below its retained minimum"))
+            elseif nominal(gap) + roundoff < nominal(required[i, i])
+                required_shift = required[i, i] + 2roundoff - gap
+                nominal(required_shift) > nominal(shift) && (shift = required_shift)
+            end
+        end
+        if nominal(shift) > 0
             for i in indices
-                original_gap = side * reference_centers[i].y - radii[i]
-                gap = side * result[i].y - radii[i]
-                adjust && !sampling && nominal(gap) + roundoff < nominal(required[i, i]) &&
-                    nominal(original_gap) < -roundoff && throw(DomainError(i,
-                    "cable cross-section crosses the air-earth interface"))
-                if !adjust
-                    nominal(gap) > 0 && nominal(gap) + roundoff >= nominal(required[i, i]) ||
-                        throw(DomainError(i, "cable clearance from the air-earth interface is below its retained minimum"))
-                elseif nominal(gap) + roundoff < nominal(required[i, i])
-                    required_shift = required[i, i] + 2roundoff - gap
-                    nominal(required_shift) > nominal(shift) && (shift = required_shift)
-                end
-            end
-            if nominal(shift) > 0
-                for i in indices
-                    pose = result[i]
-                    result[i] = Pose2(pose.x, pose.y + side * shift, pose.φ)
-                end
-            end
-        end
-        any(pose -> iszero(nominal(pose.y)), reference_centers) && throw(DomainError(
-            reference, "a declared cable center cannot lie on the air-earth interface"))
-        if adjust
-            # Extreme draws can exchange half-spaces before projection. If
-            # restoring their declared sides shortened a cross-interface
-            # distance, expansion about y=0 preserves the restored sides.
-            factor = one(T)
-            for i in 1:n, j in 1:(i - 1)
-                distance = hypot(result[i].x - result[j].x, result[i].y - result[j].y)
-                limit = radii[i] + radii[j] + required[i, j]
-                if nominal(distance) + roundoff < nominal(limit)
-                    required_scale = (limit + 2roundoff) / distance
-                    nominal(required_scale) > nominal(factor) && (factor = required_scale)
-                end
-            end
-            if nominal(factor) > 1
-                xcenter = sum(p -> p.x, result) / n
-                result = [Pose2(xcenter + factor * (pose.x - xcenter),
-                    factor * pose.y, pose.φ) for pose in result]
+                pose = placements[i]
+                placements[i] = Pose2(pose.x, pose.y + side * shift, pose.φ)
             end
         end
     end
-    displacement = maximum(eachindex(result)) do i
-        hypot(nominal(result[i].x - centers[i].x), nominal(result[i].y - centers[i].y))
-    end
-    resolved = iszero(displacement) ? copy(poses) :
-        [Pose2(poses[i].x + (result[i].x - centers[i].x),
-               poses[i].y + (result[i].y - centers[i].y), poses[i].φ) for i in 1:n]
-    if adjust && displacement > 0
-        clearance_geometry(designs, resolved; required, reference, reference_centers,
-            interface, sampling, adjust = false)
-    end
-    return resolved, Matrix{T}(required), displacement
+    any(pose -> iszero(nominal(pose.y)), declared) && throw(DomainError(
+        reference, "a declared cable center cannot lie on the air-earth interface"))
+    adjust || return placements
+    # Extreme draws can exchange half-spaces before projection. If restoring their
+    # declared sides shortened a cross-interface distance, expansion about y = 0
+    # preserves the restored sides.
+    factor = _expansion_factor(placements, radii, required, roundoff, adjust, sampling,
+        true, T)
+    return nominal(factor) > 1 ? _expand(placements, factor, true) : placements
 end
 
 function _record_clearance_adjustment(system_id, displacement)
