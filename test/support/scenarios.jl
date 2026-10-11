@@ -3,7 +3,8 @@
 module CurrentScenarios
     export conductor_material, coaxial_design, three_phase_system, two_wire_system,
         line_parameters_problem, channel_value, two_conductor_results, cable_monte_carlo_result,
-        three_bare_wires_problem, three_bare_wires_layouts, preservation_corpus,
+        three_bare_wires_problem, three_bare_wires_layouts, fem_reference_problem,
+        preservation_corpus,
         internal_shunt_test_design, screened_cable_design, armored_cable_design,
         three_core_design, screened_three_core_design, offset_conduit_design,
         single_cable_system, trefoil_system, bipole_system,
@@ -57,6 +58,51 @@ module CurrentScenarios
             connections=[Dict(:core=>i) for i in 1:3], system_id=name, line_length)
         return LineParametersProblem(system; temperature, frequencies,
             earth_props=homogeneous(; rho, eps_r, mu_r))
+    end
+
+    """
+    $(TYPEDSIGNATURES)
+
+    Construct a case of the FEM investigation, as its script in
+    `LinecableModels-fem-investigation/test/manual/cases/<case>.jl` builds it: the same
+    geometry, materials, placements, connections, earth and temperature.
+    `:two_bare_wires` and `:two_insulated_wires` are copper wires 1 m apart and 1 m deep,
+    bare or with 1 mm of insulation. `:solid_1000mm2_single` is an aluminum core with XLPE.
+    This physical fixture selects no formula.
+
+    # Keywords
+
+    - `frequencies`: analysis frequencies \\[Hz\\]. The case scripts use 101 points from
+      0.1 Hz to 10 MHz.
+    """
+    function fem_reference_problem(case::Symbol;
+            frequencies=10.0 .^ range(-1, 7; length=101))
+        library = MaterialsLibrary(add_defaults=true)
+        if case === :solid_1000mm2_single
+            design = build(CableDesign, "solid_1000mm2", Stack(
+                Group(:core, Region(:core_metal, Disk(sqrt(1000.0e-6 / π)),
+                    Material(library, :aluminum))),
+                Region(:core_insulation, Shell(8.3e-3), Material(library, :xlpe))))
+            system = build(LineCableSystem, design, Pose2(0.0, -1.0);
+                connections=Dict(:core=>1), system_id="solid_1000mm2_single",
+                line_length=1000.0)
+            earth = homogeneous(rho=100.0, eps_r=10.0, mu_r=1.0)
+        elseif case in (:two_bare_wires, :two_insulated_wires)
+            core = Group(:core, Region(:core_metal, Disk(0.0425), Material(library, :copper)))
+            insulation = Material(kind=:insulator, rho=1.97e14, eps_r=2.3, mu_r=1.0,
+                T0=20.0, alpha=0.0)
+            stack = case === :two_bare_wires ? Stack(core) :
+                    Stack(core, Region(:core_insulation, Shell(1.0e-3), insulation))
+            design = build(CableDesign, String(case), stack)
+            system = build(LineCableSystem, [design, design],
+                [Pose2(0.0, -1.0), Pose2(1.0, -1.0)];
+                connections=[Dict(:core=>1), Dict(:core=>2)], system_id=String(case),
+                line_length=1.0)
+            earth = homogeneous(rho=0.1, eps_r=1.0, mu_r=1.0)
+        else
+            throw(ArgumentError("unknown FEM reference case :$case"))
+        end
+        return LineParametersProblem(system; temperature=20.0, earth_props=earth, frequencies)
     end
 
     conductor_material() = Material(kind=:conductor, rho=2e-8, eps_r=1.0,

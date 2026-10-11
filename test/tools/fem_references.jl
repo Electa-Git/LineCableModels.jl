@@ -4,8 +4,8 @@
 # this repository, `LinecableModels-fem-investigation`.
 #
 # Each case transcribes a script of `FEM_CHECKOUT/test/manual/cases/` with the API of this
-# branch. It keeps the geometry, materials, placements, connections, earth, temperature and
-# frequencies of the script. The shunt model `:coaxial` of the FEM checkout is
+# branch, in `fem_reference_problem` of `test/support/scenarios.jl`. It keeps the geometry,
+# materials, placements, connections, earth, temperature and frequencies of the script. The shunt model `:coaxial` of the FEM checkout is
 # `:equivalent` on this branch. The newest run folder of each case,
 # `FEM_CHECKOUT/.linecablemodels/fem/<case>/<run>/`, holds `matrices.csv`. That file lists
 # every Z and Y entry of the analytical run and of the FEM run of that checkout.
@@ -26,47 +26,11 @@ using LineCableModels
 using LinearAlgebra: diag
 using Printf: @sprintf
 
-# Every case script uses these values.
-const frequencies = 10.0 .^ range(-1, 7; length = 101)
-const temperature = 20.0
-const cable_y = -1.0
-
-# Buried copper wires 1 m apart, bare or with 1 mm of insulation.
-function two_wires(name, insulated)
-    library = MaterialsLibrary(add_defaults = true)
-    core = Group(:core, Region(:core_metal, Disk(0.0425), Material(library, :copper)))
-    insulation = Material(kind = :insulator, rho = 1.97e14, eps_r = 2.3, mu_r = 1.0,
-        T0 = 20.0, alpha = 0.0)
-    stack = insulated ? Stack(core, Region(:core_insulation, Shell(1.0e-3), insulation)) :
-            Stack(core)
-    design = build(CableDesign, name, stack)
-    system = build(LineCableSystem, [design, design],
-        [Pose2(0.0, cable_y), Pose2(1.0, cable_y)];
-        connections = [Dict(:core => 1), Dict(:core => 2)], system_id = name,
-        line_length = 1.0)
-    return LineParametersProblem(system; temperature,
-        earth_props = homogeneous(rho = 0.1, eps_r = 1.0, mu_r = 1.0), frequencies)
-end
-
-# A buried 1000 mm² aluminum core with 8.3 mm of XLPE.
-function solid_single()
-    library = MaterialsLibrary(add_defaults = true)
-    design = build(CableDesign, "solid_1000mm2", Stack(
-        Group(:core, Region(:core_metal, Disk(sqrt(1000.0e-6 / π)),
-            Material(library, :aluminum))),
-        Region(:core_insulation, Shell(8.3e-3), Material(library, :xlpe))))
-    system = build(LineCableSystem, design, Pose2(0.0, cable_y);
-        connections = Dict(:core => 1), system_id = "solid_1000mm2_single",
-        line_length = 1000.0)
-    return LineParametersProblem(system; temperature,
-        earth_props = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0), frequencies)
-end
-
-const CASES = (
-    two_bare_wires = () -> two_wires("two_bare_wires", false),
-    two_insulated_wires = () -> two_wires("two_insulated_wires", true),
-    solid_1000mm2_single = solid_single,
-)
+# `fem_reference_problem` of the test scenarios builds each case, at the 101 frequencies of
+# the case scripts.
+Base.include(@__MODULE__, joinpath(REPOSITORY, "test", "support", "scenarios.jl"))
+using .CurrentScenarios: fem_reference_problem
+const CASES = (:two_bare_wires, :two_insulated_wires, :solid_1000mm2_single)
 
 const FORMULATION = Formulation(earth_impedance = :unified, earth_admittance = :unified,
     shunt_model = :equivalent,
@@ -190,10 +154,10 @@ function main(arguments)
     isdir(checkout) || error("FEM checkout not found: $checkout")
     lines = ["# FEM references against this branch", ""]
     started = time()
-    seconds = Dict(case => compare(case, problem(), checkout, lines) for (case, problem) in pairs(CASES))
+    seconds = Dict(case => compare(case, fem_reference_problem(case), checkout, lines) for case in CASES)
     total = time() - started
     push!(lines, "## Run times", "", "| Case | Computation [s] |", "| --- | ---: |",
-        ["| $case | $(@sprintf("%.1f", seconds[case])) |" for case in keys(CASES)]...,
+        ["| $case | $(@sprintf("%.1f", seconds[case])) |" for case in CASES]...,
         "", "The whole comparison took $(@sprintf("%.1f", total)) s. The first case includes compilation.")
     mkpath(OUTPUT)
     write(joinpath(OUTPUT, "comparison.md"), join(lines, '\n') * '\n')
