@@ -1,27 +1,20 @@
+# One member's entry of a connection schedule. A per-member schedule gives the member's
+# value. Any other value serves every member.
+function _schedule_entry(schedule::Union{Tuple, AbstractVector}, member::Int, count::Int)
+    length(schedule) == count || throw(DimensionMismatch(
+        "connection schedules must contain $count values"
+    ))
+    return schedule[member]
+end
+_schedule_entry(value, ::Int, ::Int) = value
+
 function _connection_for_member(connections::NamedTuple, member::Int, count::Int)
-    resolved = map(Base.values(connections)) do value
-        if value isa Union{Tuple, AbstractVector}
-            length(value) == count || throw(DimensionMismatch(
-                "connection schedules must contain $count values"
-            ))
-            return value[member]
-        end
-        return value
-    end
+    resolved = map(value -> _schedule_entry(value, member, count), Base.values(connections))
     return NamedTuple{keys(connections)}(resolved)
 end
 
 function _connection_for_member(connections::AbstractDict, member::Int, count::Int)
-    return Dict(key => begin
-                    if value isa Union{Tuple, AbstractVector}
-                        length(value) == count || throw(DimensionMismatch(
-                            "connection schedules must contain $count values"
-                        ))
-                        value[member]
-                    else
-                        value
-                    end
-                end for (key, value) in connections)
+    return Dict(key => _schedule_entry(value, member, count) for (key, value) in connections)
 end
 
 function _connection_for_member(connections::Union{Tuple, AbstractVector}, member, count)

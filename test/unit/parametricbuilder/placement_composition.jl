@@ -145,10 +145,52 @@ end
     @test (@inferred at(1.0f0, 2.0f0; φ=0.0f0)) isa Pose2{Float32}
     @test (@inferred at(part, Pose2(1.0, 2.0))).item === part
     @test (@inferred at(design, Pose2(1.0, 2.0); connections=(core=1,))).design === design
-    @test_throws ArgumentError at(Grid(()), 0.0)
-    @test_throws ArgumentError at(0.0, Grid(()))
-    @test_throws ArgumentError at(design, Pose2(0.0, 0.0))
-    @test_throws ArgumentError at(part, Pose2(0.0, 0.0); φ=1.0)
-    @test_throws ArgumentError at(design, Pose2(0.0, 0.0); φ=1.0, connections=(core=1,))
-    @test_throws ArgumentError at((Pose2(0.0, 0.0),), Pose2(0.0, 0.0); φ=1.0)
+    # An empty source gives an empty space, as the owner's Pose2 does.
+    @test isempty(at(Grid(()), 0.0)) && isempty(Pose2(Grid(()), 0.0))
+    @test isempty(at(0.0, Grid(())))
+    # A design requires connections, and other subjects reject them. φ belongs to a pose
+    # built from x and y.
+    @test_throws UndefKeywordError at(design, Pose2(0.0, 0.0))
+    @test_throws UndefKeywordError at(design, 0.0, 0.0)
+    @test_throws MethodError at(part, Pose2(0.0, 0.0); connections=(core=1,))
+    @test_throws MethodError at(part, Pose2(0.0, 0.0); φ=1.0)
+    @test_throws MethodError at(design, Pose2(0.0, 0.0); φ=1.0, connections=(core=1,))
+    @test_throws MethodError at((Pose2(0.0, 0.0),), Pose2(0.0, 0.0); φ=1.0)
+end
+
+@testitem "ParametricBuilder / at lifts every subject and pose from a Grid or a Gridspace" tags=[:unit, :parametric] begin
+    copper = Material(kind=:conductor, rho=1.72e-8)
+    parts = (terminal(:core, core(copper; r=0.001)), terminal(:core, core(copper; r=0.002)))
+    designs = (build(CableDesign, "grid-a", parts[1]), build(CableDesign, "grid-b", parts[2]))
+    poses = (Pose2(0.0, -1.0), Pose2(0.5, -1.0, 0.2))
+    tuples = ((poses[1],), (poses[1], poses[2]))
+    vectors = ([poses[1]], [poses[1], poses[2]])
+    connections = (core=1,)
+    # A Gridspace over the same values, point by point.
+    space(::Type{Target}, values) where {Target} =
+        Gridspace{Target}(index -> values[index], (Grid((1, 2)),))
+    Part = LineCableModels.DataModel.AbstractCablePart
+    cases = (
+        (at(Grid(designs), 0.0, -1.0; connections), [at(d, 0.0, -1.0; connections) for d in designs]),
+        (at(Grid(designs), poses[2]; connections), [at(d, poses[2]; connections) for d in designs]),
+        (at(space(CableDesign, designs), poses[2]; connections),
+            [at(d, poses[2]; connections) for d in designs]),
+        (at(designs[1], Grid(poses); connections), [at(designs[1], p; connections) for p in poses]),
+        (at(designs[1], space(Pose2, poses); connections),
+            [at(designs[1], p; connections) for p in poses]),
+        (at(Grid(parts), poses[2]), [at(p, poses[2]) for p in parts]),
+        (at(space(Part, parts), poses[2]), [at(p, poses[2]) for p in parts]),
+        (at(parts[1], Grid(poses)), [at(parts[1], p) for p in poses]),
+        (at(parts[1], space(Pose2, poses)), [at(parts[1], p) for p in poses]),
+        (at(Grid(tuples), poses[2]), [at(t, poses[2]) for t in tuples]),
+        (at(space(Tuple, tuples), poses[2]), [at(t, poses[2]) for t in tuples]),
+        (at(tuples[2], Grid(poses)), [at(tuples[2], p) for p in poses]),
+        (at(Grid(vectors), poses[2]), [at(v, poses[2]) for v in vectors]),
+        (at(space(Vector, vectors), poses[2]), [at(v, poses[2]) for v in vectors]),
+        (at(vectors[2], space(Pose2, poses)), [at(vectors[2], p) for p in poses]))
+    for (lifted, scalars) in cases
+        @test lifted isa Gridspace
+        @test length(lifted) == length(scalars)
+        @test collect(lifted) == scalars
+    end
 end
