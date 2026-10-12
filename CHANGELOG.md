@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The inward FEM boundary layer of a round conductor reaches at most half its
+  radius, so point contacts no longer stop Gmsh.
 - FEM passive cable layers are each meshed up to their own size target; a thin
   outer layer no longer sets the element size of the whole cable interior.
 - FEM runs pass GetDP and Gmsh paths relative to the run folder, so deep run

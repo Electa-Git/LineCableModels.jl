@@ -149,7 +149,7 @@ For region In {0:NumPhysicalRegions-1}
     FEMWidth = FEMConductorWidth~{region};
     FEMContourSize = RegionSize~{region};
     FEMDivisions = FEMConductorKind~{region} == 2 ? ConductorThicknessElements : 5;
-    FEMFraction = FEMConductorKind~{region} == 1 ? .8 : (FEMConductorKind~{region} == 2 ? .45 : .9);
+    FEMFraction = FEMConductorKind~{region} == 1 ? .5 : (FEMConductorKind~{region} == 2 ? .45 : .9);
     FEMCap = MeshSizeFactor*FEMWidth/FEMDivisions; FEMBulk = Min(RegionSize~{region},FEMCap);
     If(FEMDecay*FEMWidth <= ConductorSkinDepths && FEMPhase > 0) FEMBulk = Min(FEMBulk,MeshSizeFactor*2*Pi/(12*FEMPhase)); EndIf
     FEMExtent = Min(ConductorSkinDepths*FEMDelta,FEMFraction*FEMWidth);

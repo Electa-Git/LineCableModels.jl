@@ -273,7 +273,8 @@ Julia serializes the cable CAD, material ownership and terminal anchors.
 Gmsh computes local disk, annulus, strand, sector and passive-media targets from
 those facts and current native coefficients. Shared contour points use the
 smallest adjacent target. Conductor controls set angular accuracy, elements
-per skin depth, radial growth, graded depth and wall divisions. Each passive
+per skin depth, radial growth, graded depth and wall divisions. The inward
+boundary layer of a round conductor reaches at most half its radius. Each passive
 region extends its own boundary spacing into its interior, capped at
 `RegionSize` with extension distance `RegionSize/MeshGrowthSlope`. A thin outer
 layer does not cap the interior size of another passive layer. `CableSize`

@@ -176,3 +176,43 @@ end
     @test values[2]["first"]<=values[1]["first"]
     @test values[2]["bulk"]<=values[1]["bulk"]
 end
+
+
+@testitem "FEM / round conductor point contacts mesh with active boundary layers" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    N=NativeFEMFixtures
+    copper=Material(kind=:conductor,rho=1.72e-8,eps_r=1.,mu_r=1.)
+    dielectric=Material(kind=:insulator,rho=Inf,eps_r=2.3,mu_r=1.)
+    inner,wire_radius=.02922,.0004
+    outer=inner+2wire_radius
+    # This contact angle reproduces an unrecovered edge with the former 0.8 cap.
+    wire=Group(:wire,Region(:metal,Disk(wire_radius),copper);
+        pattern=Ring(1;r=inner+wire_radius,φ0=π/2-.025))
+    design=build(CableDesign,"round-point-contacts",
+        Region(:centre,Disk(inner-.0003),dielectric),
+        Region(:bedding,Annulus(inner-.0003,inner),dielectric),
+        Enclosure(:matrix,wire;primitive=Annulus(inner,outer),fill=dielectric),
+        terminal(:wire,Region(:screen,Shell(.0001),copper)),
+        Region(:jacket,Shell(.0003),dielectric))
+    system=build(LineCableSystem,design,Pose2(0.,-.9);connections=Dict(:wire=>1))
+    problem=LineParametersProblem(system;temperature=20.,
+        frequencies=[251188.6431509582],earth_props=homogeneous(rho=1000.))
+    N.geometry(problem) do g,log
+        g.option.set_number("General.Verbosity",3)
+        number(name)=only(g.parser.get_number(name))
+        @test number("FrequencyHz")==251188.6431509582
+        regions=0:Int(number("NumPhysicalRegions"))-1
+        round=only(filter(r -> number("FEMConductor_$r")==1 &&
+            number("FEMConductorKind_$r")==1,regions))
+        fields=g.model.mesh.field
+        curves=g.parser.get_number("FEMRegionCurves_$round")
+        layer=only(filter(f -> fields.get_type(f)=="BoundaryLayer" &&
+            Set(fields.get_numbers(f,"CurvesList"))==Set(curves),fields.list()))
+        surfaces=g.parser.get_number("FEMRegionSurfaces_$round")
+        @test isempty(intersect(surfaces,fields.get_numbers(layer,"ExcludedSurfacesList")))
+        g.model.mesh.generate(1)
+        g.model.mesh.generate(2)
+        @test !isempty(first(g.model.mesh.get_elements(2)))
+        @test !any(line -> occursin("intersections in the 1D mesh",line) ||
+            occursin("Edge not recovered",line),g.logger.get())
+    end
+end
