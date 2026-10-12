@@ -224,31 +224,6 @@ function _decode_node(::Val{:ring}, value)
     build = (n, r, φ0, span, gap_frac) -> Ring(n; r, φ0, span, gap_frac)
     return _decoded_target(Ring, build, values)
 end
-function _decode_node(::Val{:polar}, value)
-    values = (
-        _field(value, "nr"), _field(value, "nφ"),
-        _field(value, "r0"), _field(value, "dr"),
-        _field(value, "φ0"), _field(value, "span")
-    )
-    build = (nr, nφ, r0, dr, φ0, span) -> Polar(; nr, nφ, r0, dr, φ0, span)
-    return _decoded_target(Polar, build, values)
-end
-function _decode_node(::Val{:fill}, value)
-    values = (
-        _field(value, "r"), _field(value, "φ"),
-        _field(value, "φ0"), _field(value, "span")
-    )
-    build = (r, φ, φ0, span) -> Fill(; r, φ, φ0, span)
-    return _decoded_target(Fill, build, values)
-end
-function _decode_node(::Val{:lattice}, value)
-    values = (
-        _field(value, "nx"), _field(value, "ny"),
-        _field(value, "dx"), _field(value, "dy")
-    )
-    build = (nx, ny, dx, dy) -> Lattice(; nx, ny, dx, dy)
-    return _decoded_target(Lattice, build, values)
-end
 function _decode_node(::Val{:fill_factor}, value)
     _decoded_target(
         FillFactor, FillFactor, (_field(value, "η"),)

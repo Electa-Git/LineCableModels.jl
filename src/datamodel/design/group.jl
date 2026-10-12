@@ -102,8 +102,16 @@ function _resolved_path_radius(::FillFactor, pattern, pose, primitive::Annulus)
     (r_in(primitive) + r_ex(primitive)) / 2
 end
 
-_member_definition(region::Region) = region.primitive
-_member_definition(::AbstractCablePart) = nothing
+# A pattern places a Region by its primitive and any other part by its resolved geometry.
+_member_definition(region::Region, child) = region.primitive
+_member_definition(::AbstractCablePart, child) = child
+
+# A cross-section that the course derives, such as a bent strip, replaces the primitive
+# of a Region member. A declared primitive or a part's geometry keeps each resolved
+# region primitive.
+_member_primitive(shape::AbstractPrimitive, source) = source.primitive
+_member_primitive(shape::CableGeometry, source) = source.primitive
+_member_primitive(shape::AbstractShape, source) = shape
 
 function bounded_declarations(group::Group)
     group.item isa Stack || throw(ArgumentError(
@@ -350,6 +358,7 @@ _radial_half_extent(definition::Rectangle) = definition.h / 2
 function _radial_half_extent(definition::AbstractPrimitive)
     support(resolve(EmptyBoundary(), definition))
 end
+_radial_half_extent(geometry::CableGeometry) = support(boundary(geometry))
 
 _contextual_pattern(pattern, item, child, compact, context) = pattern
 
@@ -361,10 +370,8 @@ function _contextual_pattern(
         compact,
         context
 )
-    definition = _member_definition(item)
     inner = context isa EmptyBoundary ? zero(support(boundary(child))) : support(context)
-    radial = definition === nothing ? support(boundary(child)) :
-             _radial_half_extent(definition)
+    radial = _radial_half_extent(_member_definition(item, child))
     ring = Ring(
         pattern.n;
         r = inner + radial,
@@ -383,10 +390,7 @@ function _contextual_pattern(
         compact,
         context
 )
-    definition = _member_definition(item)
-    count = definition === nothing ?
-            capacity(Ring, pattern.r, support(boundary(child)); gap_frac = pattern.gap_frac) :
-            capacity(pattern, definition, compact)
+    count = capacity(pattern, _member_definition(item, child), compact)
     count > 0 || throw(ArgumentError(
         "the group geometry cannot admit one member"
     ))
@@ -397,13 +401,6 @@ function _contextual_pattern(
         span = pattern.span,
         gap_frac = pattern.gap_frac
     )
-end
-
-function _group_placements(pattern, item, child, compact, context)
-    concrete = _contextual_pattern(pattern, item, child, compact, context)
-    subject = _member_definition(item)
-    subject === nothing && (subject = child)
-    return concrete, placements(concrete, subject, compact)
 end
 
 function _minimum_radius(primitive::Union{Annulus, BentStrip})
@@ -463,21 +460,18 @@ function _resolve_group(
     end
 
     child = resolve(EmptyBoundary(), group.item)
-    pattern, members = _group_placements(
-        group.pattern, group.item, child, group.compact, context
-    )
-    isempty(members) && throw(ArgumentError("group placement cannot be empty"))
+    pattern = _contextual_pattern(group.pattern, group.item, child, group.compact, context)
+    course = placements(pattern, _member_definition(group.item, child), group.compact)
+    isempty(course.poses) && throw(ArgumentError("group placement cannot be empty"))
 
     regions = PlacedRegion[]
     local_extent = nothing
-    for (member, placement) in enumerate(members)
-        pose = placement.pose
+    for (member, pose) in enumerate(course.poses)
         placed_at = group.at * pose
         for source in child.regions
             terminal = source.source.material.kind === :conductor ? group.name :
                        source.terminal
-            # A placement either keeps the member's primitive or replaces it.
-            local_primitive = resolve(pose, something(placement.primitive, source.primitive))
+            local_primitive = resolve(pose, _member_primitive(course.shape, source))
             primitive = resolve(group.at, local_primitive)
             placed = resolve(placed_at, source)
             extent = support(local_primitive)

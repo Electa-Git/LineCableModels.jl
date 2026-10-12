@@ -113,31 +113,6 @@ TextDisplay.@showfields Ring "Ring" pattern -> (
     gap = iszero(pattern.gap_frac) ? nothing : TextDisplay.value(pattern.gap_frac)
 )
 
-TextDisplay.@showfields Polar "Polar" pattern -> (
-    nᵣ = pattern.nr,
-    nφ = pattern.nφ,
-    r₀ = TextDisplay.engineering(pattern.r0, :meter),
-    Δr = TextDisplay.engineering(pattern.dr, :meter),
-    φ₀ = iszero(pattern.φ0) ? nothing : TextDisplay.angle(pattern.φ0),
-    Δφ = isapprox(pattern.span, oftype(pattern.span, 2π)) ? nothing :
-         TextDisplay.angle(pattern.span)
-)
-
-TextDisplay.@showfields Fill "Fill" pattern -> (
-    r = TextDisplay.engineering(pattern.r, :meter),
-    φ = iszero(pattern.φ) ? nothing : TextDisplay.angle(pattern.φ),
-    φ₀ = iszero(pattern.φ0) ? nothing : TextDisplay.angle(pattern.φ0),
-    Δφ = isapprox(pattern.span, oftype(pattern.span, 2π)) ? nothing :
-         TextDisplay.angle(pattern.span)
-)
-
-TextDisplay.@showfields Lattice "Lattice" pattern -> (
-    nₓ = pattern.nx,
-    nᵧ = pattern.ny,
-    Δx = TextDisplay.engineering(pattern.dx, :meter),
-    Δy = TextDisplay.engineering(pattern.dy, :meter)
-)
-
 TextDisplay.@showfields FillFactor "FillFactor" factor -> (
     η = TextDisplay.value(factor.η),
 )

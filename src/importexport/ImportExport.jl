@@ -45,7 +45,7 @@ using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
                    Disk, Rectangle, Ellipse,
                    Sector, Annulus, Shell,
                    Polygon, Pose2,
-                   Ring, Polar, Fill, Lattice, capacity,
+                   Ring, capacity,
                    FillFactor,
                    LayRatio, Pitch, LayAngle, Helix
 using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,

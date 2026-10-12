@@ -34,7 +34,7 @@ end
 function resolve(at::Pose2, placement::BoundedPlacement)
     return BoundedPlacement(resolve(at, placement.boundary), placement.course)
 end
-resolve(::Pose2, pattern::Union{Ring, Polar, Fill, Lattice, AbstractVector{<:Pose2}}) = pattern
+resolve(::Pose2, pattern::Union{Ring, AbstractVector{<:Pose2}}) = pattern
 
 function resolve(at::Pose2, region::PlacedRegion)
     patterns = map(region.placement.patterns) do entry

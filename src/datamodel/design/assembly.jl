@@ -186,7 +186,7 @@ function _resolve_repeated(assembly::Assembly)
     length(child_terminals) <= 1 || throw(ArgumentError(
         "a repeated assembly prototype may resolve at most one terminal"
     ))
-    poses = placements(assembly.pattern, child, assembly.compact)
+    poses = placements(assembly.pattern, child, assembly.compact).poses
     count = length(poses)
     count > 0 || throw(ArgumentError("assembly placement cannot be empty"))
     member_names = if isempty(child_terminals)
@@ -208,8 +208,7 @@ function _resolve_repeated(assembly::Assembly)
 
     regions = PlacedRegion[]
     boundaries = AbstractShape[]
-    for (member, (name, placement)) in enumerate(zip(member_names, poses))
-        pose = placement.pose
+    for (member, (name, pose)) in enumerate(zip(member_names, poses))
         mapping = isempty(child_terminals) ? identity :
                   terminal -> terminal === only(child_terminals) ? name : terminal
         _append_assembly_member!(

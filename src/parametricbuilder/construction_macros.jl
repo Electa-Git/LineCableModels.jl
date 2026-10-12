@@ -274,8 +274,7 @@ function _enclosure_macro(name::Symbol, arguments)
     keys = first.(keywords)
     :shape in keys || throw(ArgumentError("@$name requires shape"))
     :fill in keys || throw(ArgumentError("@$name requires fill"))
-    allowed = name === :pipe ? (:shape, :fill, :wall, :at, :combine) :
-              (:shape, :fill, :wall, :formation, :at, :combine)
+    allowed = (:shape, :fill, :wall, :at, :combine)
     unsupported = filter(pair -> !(first(pair) in allowed), keywords)
     isempty(unsupported) || throw(ArgumentError(
         "@$name accepts only $(join(allowed, ", "))"
@@ -326,7 +325,6 @@ Contain one or more physical members inside a duct cross-section.
 - `shape`: intrinsic containing primitive.
 - `fill`: filling material or explicit filling region.
 - `wall=nothing`: optional outward wall declaration.
-- `formation=nothing`: placement pattern for one repeated prototype.
 - `at=nothing`: duct pose relative to its parent frame.
 - `combine=:product`: gridspace composition rule.
 

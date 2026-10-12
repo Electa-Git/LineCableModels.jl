@@ -1088,29 +1088,10 @@ function cores(
         names, path, compact, combine)
 end
 
-function _enclosure_item(items::Tuple, formation)
-    if formation === nothing
-        return length(items) == 1 && only(items) isa DataModel.AbstractCablePart ?
-               only(items) : _explicit_assembly(items...)
-    end
-    length(items) == 1 || throw(ArgumentError(
-        "a pattern-backed enclosure requires one repeated prototype"
-    ))
-    only(items) isa DataModel.AbstractCablePart || throw(ArgumentError(
-        "a pattern-backed enclosure requires an unplaced physical prototype"
-    ))
-    return DataModel.Assembly(
-        DataModel.Pose2(0, 0, 0),
-        only(items),
-        formation,
-        nothing,
-        nothing,
-        nothing
-    )
-end
-
-function _enclose(tag, items, shape, fill, wall, pose, formation)
-    item = _enclosure_item(Tuple(items), formation)
+function _enclose(tag, items, shape, fill, wall, pose)
+    # Several members, or one placed member, form an explicit assembly.
+    item = length(items) == 1 && only(items) isa DataModel.AbstractCablePart ?
+           only(items) : _explicit_assembly(items...)
     resolved_pose = pose === nothing ? DataModel.Pose2(0, 0, 0) : pose
     return DataModel.Enclosure(tag, resolved_pose, shape, item, fill, wall)
 end
@@ -1149,7 +1130,7 @@ function pipe(
     caller = (selected...) -> begin
         count = length(items)
         physical = selected[1:count]
-        _enclose(:pipe, physical, selected[(count + 1):end]..., nothing)
+        _enclose(:pipe, physical, selected[(count + 1):end]...)
     end
     values = (items..., shape, fill, wall, at)
     return parameterize(DataModel.Enclosure, caller, values; combine)
@@ -1160,19 +1141,16 @@ $(TYPEDSIGNATURES)
 
 Contain one or more physical members inside a duct cross-section.
 
-A `formation` repeats one prototype without expanding it. Explicitly placed
-members may differ in geometry and terminal structure.
-
 # Arguments
 
-- `items`: enclosed physical members.
+- `items`: enclosed physical members. Several members form an explicit
+  assembly.
 
 # Keywords
 
 - `shape`: intrinsic containing primitive.
 - `fill`: filling material or explicit filling region.
 - `wall=nothing`: optional outward wall declaration.
-- `formation=nothing`: placement pattern for one repeated prototype.
 - `at=nothing`: duct pose relative to its parent frame.
 - `combine=:product`: gridspace composition rule.
 
@@ -1185,7 +1163,6 @@ function duct(
         shape,
         fill,
         wall = nothing,
-        formation = nothing,
         at = nothing,
         combine::Symbol = :product
 )
@@ -1195,6 +1172,6 @@ function duct(
         physical = selected[1:count]
         _enclose(:duct, physical, selected[(count + 1):end]...)
     end
-    values = (items..., shape, fill, wall, at, formation)
+    values = (items..., shape, fill, wall, at)
     return parameterize(DataModel.Enclosure, caller, values; combine)
 end

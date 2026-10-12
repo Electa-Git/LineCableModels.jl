@@ -133,15 +133,39 @@ contained = @pipe shape=Disk(20e-3) fill=air begin
 end
 ```
 
-Homogeneous repeated ducts use a pattern and retain one prototype:
+A duct bank is a concrete duct whose members are air-filled ducts, each holding one
+cable and placed with `@at`:
 
-```julia
-bank = duct(
-    cell;
-    formation=Lattice(nx=3, ny=2, dx=12e-3, dy=12e-3),
-    shape=Rectangle(44e-3, 30e-3),
-    fill=concrete,
-)
+```@example duct_bank
+using LineCableModels
+using CairoMakie
+
+copper = Material(kind=:conductor, rho=1.7241e-8)
+xlpe = Material(kind=:insulator, rho=1.0e14, eps_r=2.3)
+air = Material(kind=:insulator, rho=Inf, eps_r=1.0)
+concrete = Material(kind=:insulator, rho=100.0, eps_r=5.0)
+
+cell(name) = @duct shape=Disk(5e-3) fill=air begin
+    @terminal name begin
+        core(copper; r=2e-3)
+        insulation(xlpe; t=1.5e-3)
+    end
+end
+
+bank = @duct shape=Rectangle(44e-3, 30e-3) fill=concrete begin
+    @at cell(:a) (-12e-3, -6e-3)
+    @at cell(:b) (  0.0,  -6e-3)
+    @at cell(:c) ( 12e-3, -6e-3)
+    @at cell(:d) (-12e-3,  6e-3)
+    @at cell(:e) (  0.0,   6e-3)
+    @at cell(:f) ( 12e-3,  6e-3)
+end
+
+duct_bank = @cable "duct-bank" begin
+    bank
+end
+
+preview(duct_bank; backend=:cairo, display_plot=false, controls=false).figure
 ```
 
 ## Formations

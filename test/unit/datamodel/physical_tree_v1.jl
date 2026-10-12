@@ -418,7 +418,7 @@ end
     wire=LineCableModels.Region(:wire, LineCableModels.Disk(0.5), copper)
 
     ring=LineCableModels.Ring(6; r = 2.0, φ0 = π / 6)
-    poses=getproperty.(LineCableModels.placements(ring, wire.primitive, nothing), :pose)
+    poses=LineCableModels.placements(ring, wire.primitive, nothing).poses
     @test length(poses) == 6
     @test all(pose -> hypot(pose.x, pose.y) ≈ 2.0, poses)
 
@@ -472,7 +472,8 @@ end
 
     indexed=LineCableModels.Assembly(
         core;
-        pattern = LineCableModels.Lattice(nx = 2, ny = 1, dx = 3.0, dy = 0.0),
+        pattern = [LineCableModels.Pose2(-1.5, 0.0, 0.0),
+            LineCableModels.Pose2(1.5, 0.0, 0.0)],
         names = (:phase_1, :phase_2)
     )
     @test getproperty.(

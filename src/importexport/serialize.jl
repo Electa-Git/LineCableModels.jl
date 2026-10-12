@@ -108,16 +108,6 @@ function serialize_value(value::Ring)
     return _node("ring"; n = value.n, r = value.r, φ0 = value.φ0,
         span = value.span, gap_frac = value.gap_frac)
 end
-function serialize_value(value::Polar)
-    return _node("polar"; nr = value.nr, nφ = value.nφ, r0 = value.r0,
-        dr = value.dr, φ0 = value.φ0, span = value.span)
-end
-function serialize_value(value::Fill)
-    _node("fill"; r = value.r, φ = value.φ, φ0 = value.φ0, span = value.span)
-end
-function serialize_value(value::Lattice)
-    _node("lattice"; nx = value.nx, ny = value.ny, dx = value.dx, dy = value.dy)
-end
 serialize_value(value::FillFactor) = _node("fill_factor"; η = value.η)
 serialize_value(::typeof(capacity())) = _node("capacity")
 serialize_value(value::LayRatio) = _node("lay_ratio"; q = value.q)

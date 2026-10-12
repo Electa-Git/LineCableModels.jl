@@ -8,8 +8,8 @@ _input_record(value::Pair) = _input_record(first(value)) => _input_record(last(v
 _input_record(value::AbstractDict) = Dict(_input_record(k) => _input_record(v) for (k,v) in value)
 
 function _input_record(value::Union{DataModel.AbstractCablePart,DataModel.AbstractShape,
-        DataModel.Pose2,DataModel.Shell,DataModel.Ring,DataModel.Polar,DataModel.Fill,
-        DataModel.Lattice,DataModel.Helix,DataModel.LayRatio,DataModel.Pitch,
+        DataModel.Pose2,DataModel.Shell,DataModel.Ring,
+        DataModel.Helix,DataModel.LayRatio,DataModel.Pitch,
         DataModel.LayAngle,DataModel.FillFactor,DataModel.AssemblyMember,
         Materials.AbstractMaterial,Earth.AbstractEarthModel,Earth.AbstractEarthLayer,
         Earth.AbstractEarthMaterial})

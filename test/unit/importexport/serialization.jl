@@ -360,9 +360,6 @@ end
 
     declarations=(
         Ring(capacity(); r = nothing, φ0 = 0.2, gap_frac = 0.03),
-        Polar(nr = 2, nφ = 6, r0 = 0.0, dr = 2e-3),
-        Fill(r = 10e-3, φ = pi/6),
-        Lattice(nx = 2, ny = 3, dx = 10e-3, dy = 12e-3),
         Helix(LayRatio(11); dir = -1, φ0 = 0.1),
         FillFactor(0.9)
     )

@@ -128,7 +128,7 @@ end
         :Region, :Stack, :Group, :Assembly, :Enclosure, :Pose2,
         :Disk, :Rectangle, :Ellipse,
         :Sector, :Annulus, :Shell,
-        :Polygon, :Ring, :Polar, :Fill, :Lattice,
+        :Polygon, :Ring,
         :Helix, :LayRatio, :Pitch, :LayAngle, :FillFactor,
         Symbol("@cable"), Symbol("@system"), Symbol("@earth"),
         Symbol("@terminal"), Symbol("@assembly"),
@@ -413,16 +413,6 @@ end
     end
     @test pipe_space isa Gridspace{Enclosure}
     @test length(pipe_space) == 2
-
-    repeated = duct(
-        cell_a;
-        formation = Lattice(nx = 2, ny = 1, dx = 12e-3, dy = 0),
-        shape = Rectangle(24e-3, 12e-3),
-        fill = concrete
-    )
-    @test repeated.item isa Assembly
-    @test repeated.item.item === cell_a
-    @test repeated.item.pattern == Lattice(nx = 2, ny = 1, dx = 12e-3, dy = 0)
 
     elliptical = duct(
         at(cell_a, -6e-3, 0),
@@ -960,14 +950,6 @@ end
         :(@distribute stranded(copper; shape = Disk(1e-3), boundary = Disk(3e-3)))
     )
 
-    fill_pattern = Fill(r = 2.6e-3, φ = pi / 6)
-    filled_poses = getproperty.(placements(fill_pattern, Disk(0.5e-3), nothing), :pose)
-    @test length(filled_poses) == 19
-    @test capacity(fill_pattern, Disk(0.5e-3), nothing) == 19
-    @test first(filled_poses) == Pose2(0, 0, 0)
-    @test maximum(pose -> hypot(pose.x, pose.y), filled_poses) + 0.5e-3 <=
-          fill_pattern.r + eps(fill_pattern.r)
-
     nested = rope(
         round;
         layers = 1,
@@ -1235,9 +1217,6 @@ end
     advanced_spaces = (
         Pose2(radii, 0, 0),
         Ring(6; r = radii),
-        Polar(nr = 1, nφ = 6, dr = radii),
-        Fill(r = radii, φ = pi / 6),
-        Lattice(nx = 2, ny = 1, dx = radii, dy = 0),
         LayRatio(radii),
         Pitch(radii),
         LayAngle(Grid((0.1, 0.2))),
@@ -1247,8 +1226,8 @@ end
     @test all(space -> space isa Gridspace, advanced_spaces)
     @test all(==(2), length.(advanced_spaces))
     @test collect(advanced_spaces[2]) == [Ring(6; r) for r in (2e-3, 3e-3)]
-    @test collect(advanced_spaces[6]) == collect(LayRatio.((2e-3, 3e-3)))
-    @test collect(advanced_spaces[9]) == [Helix(LayRatio(10); φ0) for φ0 in (0.0, 0.1)]
+    @test collect(advanced_spaces[3]) == collect(LayRatio.((2e-3, 3e-3)))
+    @test collect(advanced_spaces[6]) == [Helix(LayRatio(10); φ0) for φ0 in (0.0, 0.1)]
 
     local_member = @at terminal(:aux, core(copper; r = 1e-3)) (0.01, 0.02, 0.3)
     @test local_member == at(

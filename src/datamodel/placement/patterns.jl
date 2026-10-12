@@ -123,174 +123,9 @@ function Ring(
 end
 
 """
-$(TYPEDEF)
-
-Place members on `nr` concentric loci with `nφ` angular positions per locus.
-
-$(TYPEDFIELDS)
-"""
-struct Polar{T <: Real}
-    "Number of radial loci \\[dimensionless\\]."
-    nr::Int
-    "Angular positions per nonzero locus \\[dimensionless\\]."
-    nφ::Int
-    "First locus radius \\[m\\]."
-    r0::T
-    "Radial increment \\[m\\]."
-    dr::T
-    "Starting angle \\[rad\\]."
-    φ0::T
-    "Counter-clockwise angular span \\[rad\\]."
-    span::T
-
-    function Polar{T}(
-            nr::Int, nφ::Int, r0::T, dr::T, φ0::T, span::T
-    ) where {T <: Real}
-        return validate(new{T}(nr, nφ, r0, dr, φ0, span))
-    end
-end
-
-function validate(pattern::Polar)
-    pattern.nr > 0 || throw(ArgumentError("polar radial count must be positive"))
-    pattern.nφ > 0 || throw(ArgumentError("polar angular count must be positive"))
-    isfinite(pattern.r0) && pattern.r0 >= zero(pattern.r0) || throw(DomainError(
-        pattern.r0, "polar initial radius must be nonnegative and finite"))
-    isfinite(pattern.dr) && pattern.dr >= zero(pattern.dr) || throw(DomainError(
-        pattern.dr, "polar radial increment must be nonnegative and finite"))
-    isfinite(pattern.φ0) ||
-        throw(DomainError(pattern.φ0, "polar start angle must be finite"))
-    isfinite(pattern.span) && zero(pattern.span) < pattern.span <= oftype(pattern.span, 2π) ||
-        throw(DomainError(pattern.span, "polar span must lie in (0, 2π]"))
-    return pattern
-end
-
-function Polar(
-        nr::Union{Signed, Unsigned},
-        nφ::Union{Signed, Unsigned},
-        r0::Real,
-        dr::Real,
-        φ0::Real,
-        span::Real
-)
-    values = map(float, promote(r0, dr, φ0, span))
-    return Polar{typeof(first(values))}(Int(nr), Int(nφ), values...)
-end
-
-function Polar(;
-        nr,
-        nφ,
-        r0 = 0,
-        dr,
-        φ0 = 0,
-        span = 2π,
-        combine::Symbol = :product
-)
-    return parameterize(Polar, Polar, (nr, nφ, r0, dr, φ0, span); combine)
-end
-
-"""
-$(TYPEDEF)
-
-Fill a circular domain with one central member and concentric tangent courses.
-
-$(TYPEDFIELDS)
-"""
-struct Fill{T <: Real}
-    "Outer radius available to the filled members \\[m\\]."
-    r::T
-    "Angular offset applied between consecutive courses \\[rad\\]."
-    φ::T
-    "Starting angle of the first outer course \\[rad\\]."
-    φ0::T
-    "Counter-clockwise angular span of each outer course \\[rad\\]."
-    span::T
-
-    Fill{T}(r::T, φ::T, φ0::T, span::T) where {T <: Real} = validate(new{T}(r, φ, φ0, span))
-end
-
-function validate(pattern::Fill)
-    isfinite(pattern.r) && pattern.r > zero(pattern.r) || throw(DomainError(
-        pattern.r, "fill radius must be positive and finite"
-    ))
-    isfinite(pattern.φ) || throw(DomainError(pattern.φ, "fill course offset must be finite"))
-    isfinite(pattern.φ0) || throw(DomainError(pattern.φ0, "fill start angle must be finite"))
-    isfinite(pattern.span) && zero(pattern.span) < pattern.span <= oftype(pattern.span, 2π) ||
-        throw(DomainError(pattern.span, "fill span must lie in (0, 2π]"))
-    return pattern
-end
-
-function Fill(r::Real, φ::Real, φ0::Real, span::Real)
-    values = map(float, promote(r, φ, φ0, span))
-    return Fill{typeof(first(values))}(values...)
-end
-
-function Fill(;
-        r,
-        φ,
-        φ0 = 0,
-        span = 2π,
-        combine::Symbol = :product
-)
-    return parameterize(Fill, Fill, (r, φ, φ0, span); combine)
-end
-
-"""
-$(TYPEDEF)
-
-Place members on a centered rectangular lattice.
-
-$(TYPEDFIELDS)
-"""
-struct Lattice{T <: Real}
-    "Number of columns \\[dimensionless\\]."
-    nx::Int
-    "Number of rows \\[dimensionless\\]."
-    ny::Int
-    "Column spacing \\[m\\]."
-    dx::T
-    "Row spacing \\[m\\]."
-    dy::T
-
-    Lattice{T}(nx::Int, ny::Int, dx::T, dy::T) where {T <: Real} =
-        validate(new{T}(nx, ny, dx, dy))
-end
-
-function validate(pattern::Lattice)
-    pattern.nx > 0 || throw(ArgumentError("lattice column count must be positive"))
-    pattern.ny > 0 || throw(ArgumentError("lattice row count must be positive"))
-    (; nx, ny, dx, dy) = pattern
-    isfinite(dx) && (nx == 1 ? dx >= zero(dx) : dx > zero(dx)) ||
-        throw(DomainError(dx, "lattice column spacing is invalid"))
-    isfinite(dy) && (ny == 1 ? dy >= zero(dy) : dy > zero(dy)) ||
-        throw(DomainError(dy, "lattice row spacing is invalid"))
-    return pattern
-end
-
-function Lattice(
-        nx::Union{Signed, Unsigned},
-        ny::Union{Signed, Unsigned},
-        dx::Real,
-        dy::Real
-)
-    values = map(float, promote(dx, dy))
-    return Lattice{typeof(first(values))}(Int(nx), Int(ny), values...)
-end
-
-function Lattice(;
-        nx,
-        ny,
-        dx,
-        dy,
-        combine::Symbol = :product
-)
-    return parameterize(Lattice, Lattice, (nx, ny, dx, dy); combine)
-end
-
-"""
-Return the local member placements prescribed by a placement pattern: one
-`(pose, primitive)` record per member. `primitive` is `nothing` when each member keeps its
-own primitive, or the primitive that replaces it, such as a rectangle bent into a strip on
-a ring.
+Return the course that a placement pattern lays: `(poses, shape)`. `poses` holds the local
+pose of each member, and every member shares the cross-section `shape`. A ring bends a
+rectangle into a strip. Every other item is its own `shape`.
 """
 function placements end
 
@@ -308,17 +143,17 @@ function _ring_step(pattern::Ring, count::Int)
            pattern.span / count : pattern.span / (count - 1)
 end
 
-function _ring_placements(pattern::Ring{Int, <:Real, <:Real})
+function _ring_poses(pattern::Ring{Int, <:Real, <:Real})
     step = _ring_step(pattern, pattern.n)
-    return [(pose = Pose2(
-                 pattern.r * cos(pattern.φ0 + index * step),
-                 pattern.r * sin(pattern.φ0 + index * step),
-                 pattern.φ0 + index * step
-             ), primitive = nothing)
+    return [Pose2(
+                pattern.r * cos(pattern.φ0 + index * step),
+                pattern.r * sin(pattern.φ0 + index * step),
+                pattern.φ0 + index * step
+            )
             for index in 0:(pattern.n - 1)]
 end
 
-placements(::Nothing, item, ::Nothing) = [(pose = Pose2(0, 0, 0), primitive = nothing)]
+placements(::Nothing, item, ::Nothing) = (poses = [Pose2(0, 0, 0)], shape = item)
 
 # Ring members of this tangential width keep the requested gap along the ring.
 function validate(pattern::Ring, ::typeof(placements), tangential_width::Real)
@@ -348,20 +183,19 @@ end
 
 function placements(pattern::Ring{Int, <:Real, <:Real}, item::AbstractPrimitive, ::Nothing)
     validate(pattern, placements, _tangential_width(item))
-    return _ring_placements(pattern)
+    return (poses = _ring_poses(pattern), shape = item)
 end
 
 function placements(pattern::Ring{Int, <:Real, <:Real}, item::Disk, ::Nothing)
     validate(pattern, placements, 2item.r)
-    return _ring_placements(pattern)
+    return (poses = _ring_poses(pattern), shape = item)
 end
 
 # Each rectangle bends into one strip on the ring, rotated into its angular slot.
 function _strip_placements(pattern::Ring{Int, <:Real, <:Real}, inner, outer, angular_width)
-    definition = BentStrip(inner, outer, angular_width)
     step = pattern.n == 1 ? zero(pattern.span) : pattern.span / pattern.n
-    return [(pose = Pose2(0, 0, pattern.φ0 + index * step), primitive = definition)
-            for index in 0:(pattern.n - 1)]
+    poses = [Pose2(0, 0, pattern.φ0 + index * step) for index in 0:(pattern.n - 1)]
+    return (poses = poses, shape = BentStrip(inner, outer, angular_width))
 end
 
 function placements(pattern::Ring{Int, <:Real, <:Real}, item::Rectangle, ::Nothing)
@@ -379,10 +213,12 @@ function placements(pattern::Ring{Int, <:Real, <:Real}, item::Rectangle, ::Nothi
 end
 
 function placements(pattern::Ring{Int, <:Real, <:Real}, item::Sector, ::Nothing)
-    iszero(pattern.r) &&
-        return _origin_ring_placements(pattern, resolve(EmptyBoundary(), item), false)
+    if iszero(pattern.r)
+        poses = _origin_ring_poses(pattern, resolve(EmptyBoundary(), item), false)
+        return (poses = poses, shape = item)
+    end
     validate(pattern, placements, _tangential_width(item))
-    return _ring_placements(pattern)
+    return (poses = _ring_poses(pattern), shape = item)
 end
 
 function placements(pattern::Ring{Int, <:Real, <:Real}, item::CableGeometry, ::Nothing)
@@ -392,15 +228,15 @@ function placements(pattern::Ring{Int, <:Real, <:Real}, item::CableGeometry, ::N
         # Insulated sector boundaries may touch, while bare sectors need a side clearance.
         insulated = outer !== nothing &&
                     item.regions[outer].source.material.kind === :insulator
-        return _origin_ring_placements(pattern, shape, insulated)
+        return (poses = _origin_ring_poses(pattern, shape, insulated), shape = item)
     end
     validate(pattern, placements, 2support(boundary(item)))
-    return _ring_placements(pattern)
+    return (poses = _ring_poses(pattern), shape = item)
 end
 
 # Members that share the ring's center are sectors whose sides face their neighbors.
-function _origin_ring_placements(pattern::Ring, shape::SectorShape, allow_contact::Bool)
-    pattern.n == 1 && return _ring_placements(pattern)
+function _origin_ring_poses(pattern::Ring, shape::SectorShape, allow_contact::Bool)
+    pattern.n == 1 && return _ring_poses(pattern)
     iszero(pattern.gap_frac) || throw(DomainError(
         pattern.gap_frac,
         "origin-centered sector spacing is set by its physical side clearance, " *
@@ -434,24 +270,11 @@ function _origin_ring_placements(pattern::Ring, shape::SectorShape, allow_contac
         "sector insulation boundaries overlap" :
         "bare origin-centered sectors require a positive physical side clearance"
     ))
-    return _ring_placements(pattern)
+    return _ring_poses(pattern)
 end
 
-function _origin_ring_placements(pattern::Ring, shape, allow_contact::Bool)
+function _origin_ring_poses(pattern::Ring, shape, allow_contact::Bool)
     throw(ArgumentError("only sector-shaped members can share an origin"))
-end
-
-function placements(pattern::Polar, item, ::Nothing)
-    courses = map(0:(pattern.nr - 1)) do radial_index
-        radius = pattern.r0 + radial_index * pattern.dr
-        iszero(radius) && return [(pose = Pose2(0, 0, pattern.φ0), primitive = nothing)]
-        return placements(
-            Ring(pattern.nφ; r = radius, φ0 = pattern.φ0, span = pattern.span),
-            item,
-            nothing
-        )
-    end
-    return reduce(vcat, courses)
 end
 
 function _ring_capacity(pattern::Ring, ratio::Real)
@@ -499,54 +322,7 @@ function capacity(pattern::Ring{<:Any, <:Real, <:Real}, item::CableGeometry, ::N
     return _ring_capacity(pattern, ratio)
 end
 
-function placements(pattern::Lattice, item, ::Nothing)
-    x0 = -(pattern.nx - 1) * pattern.dx / 2
-    y0 = -(pattern.ny - 1) * pattern.dy / 2
-    return [(pose = Pose2(x0 + ix * pattern.dx, y0 + iy * pattern.dy, 0), primitive = nothing)
-            for iy in 0:(pattern.ny - 1) for ix in 0:(pattern.nx - 1)]
-end
-
-_fill_member_extent(item::AbstractPrimitive) = support(resolve(EmptyBoundary(), item))
-_fill_member_extent(item::CableGeometry) = support(boundary(item))
-
-function _fill_placements(pattern::Fill, item, compact)
-    extent = _fill_member_extent(item)
-    extent > zero(extent) || throw(DomainError(
-        extent, "fill members must have positive radial extent"
-    ))
-    tolerance = sqrt(eps(float(pattern.r))) * max(one(pattern.r), pattern.r)
-    extent <= pattern.r + tolerance || throw(DomainError(
-        extent, "one member does not fit inside the fill radius"
-    ))
-
-    # Courses may resolve to another scalar type than the center, as the poses did.
-    placed = NamedTuple{(:pose, :primitive)}[(pose = Pose2(0, 0, pattern.φ0), primitive = nothing)]
-    course = 1
-    radius = 2extent
-    while radius + extent <= pattern.r + tolerance
-        ring = Ring(
-            capacity();
-            r = radius,
-            φ0 = pattern.φ0 + (course - 1) * pattern.φ,
-            span = pattern.span
-        )
-        count = capacity(ring, item, compact)
-        count > 0 || break
-        append!(placed, placements(
-            Ring(count; r = ring.r, φ0 = ring.φ0, span = ring.span),
-            item,
-            compact
-        ))
-        course += 1
-        radius = 2course * extent
-    end
-    return placed
-end
-
-placements(pattern::Fill, item, ::Nothing) = _fill_placements(pattern, item, nothing)
-capacity(pattern::Fill, item, ::Nothing) = length(_fill_placements(pattern, item, nothing))
-
 function placements(poses::AbstractVector{<:Pose2}, item, ::Nothing)
     isempty(poses) && throw(ArgumentError("explicit placements cannot be empty"))
-    return [(pose = pose, primitive = nothing) for pose in poses]
+    return (poses = collect(poses), shape = item)
 end

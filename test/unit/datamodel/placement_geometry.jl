@@ -2,7 +2,7 @@
     # A placement is a geometry operation: the caller retains its primitives.
     ellipse = Ellipse(0.2e-3, 0.1e-3)
     ring = Ring(5; r=2e-3, φ0=0.27, span=pi)
-    positions = getproperty.(placements(ring, ellipse, nothing), :pose)
+    positions = placements(ring, ellipse, nothing).poses
     @test length(positions) == 5
     for (index, position) in enumerate(positions)
         angle = 0.27 + (index - 1) * pi / 4
@@ -14,19 +14,19 @@
     @test_throws ArgumentError placements(Ring(5), ellipse, nothing)
     @test_throws ArgumentError placements(Ring(capacity(); r=2e-3), ellipse, nothing)
 
-    unmoved = only(placements(nothing, ellipse, nothing)).pose
+    unmoved = only(placements(nothing, ellipse, nothing).poses)
     @test (unmoved.x, unmoved.y, unmoved.φ) == (0, 0, 0)
     explicit = [Pose2(1e-3, 2e-3, 0.1), Pose2(-2e-3, -1e-3, 0.2)]
     copied = placements(explicit, ellipse, nothing)
-    @test getproperty.(copied, :pose) == explicit
-    @test all(placement -> placement.primitive === nothing, copied)
+    @test copied.poses == explicit
+    @test copied.shape === ellipse
     @test_throws ArgumentError placements(Pose2[], ellipse, nothing)
 
     wire = Disk(0.2e-3)
     for span in (pi, 2pi), gap in (0.0, 0.15)
         available = Ring(capacity(); r=2e-3, span, gap_frac=gap)
         count = capacity(available, wire, nothing)
-        packed = getproperty.(placements(Ring(count; r=2e-3, span, gap_frac=gap), wire, nothing), :pose)
+        packed = placements(Ring(count; r=2e-3, span, gap_frac=gap), wire, nothing).poses
         @test length(packed) == count
         @test all(hypot(a.x - b.x, a.y - b.y) >= 2wire.r * (1 + gap) - 1e-12
             for (index, a) in enumerate(packed) for b in packed[(index + 1):end])
@@ -40,15 +40,15 @@
     radius = inner + strip.h / 2
     for fraction in (0.65, 1.0)
         factor = FillFactor(fraction)
-        placements_value = placements(Ring(12; r=radius, φ0=0.19), strip, factor)
+        course = placements(Ring(12; r=radius, φ0=0.19), strip, factor)
         outer = sqrt(inner^2 + 12area(strip) / (pi * fraction))
-        @test length(placements_value) == 12
-        resolved = [value.primitive for value in placements_value]
-        @test all(value -> area(value) ≈ area(strip), resolved)
-        @test all(value -> r_in(value) ≈ inner, resolved)
-        @test all(value -> r_ex(value) ≈ outer, resolved)
-        @test sum(area, resolved) / (pi * (outer^2 - inner^2)) ≈ fraction
-        @test [value.pose.φ for value in placements_value] ≈
+        @test length(course.poses) == 12
+        @test course.shape isa LineCableModels.DataModel.BentStrip
+        @test area(course.shape) ≈ area(strip)
+        @test r_in(course.shape) ≈ inner
+        @test r_ex(course.shape) ≈ outer
+        @test 12area(course.shape) / (pi * (outer^2 - inner^2)) ≈ fraction
+        @test [pose.φ for pose in course.poses] ≈
             [0.19 + (index - 1) * 2pi / 12 for index in 1:12]
         count = capacity(Ring(capacity(); r=radius), strip, factor)
         available_area = pi * ((radius + strip.h / 2)^2 - inner^2)
@@ -67,7 +67,7 @@ end
 @testitem "DataModel / contextual capacity respects resolved member extents" tags=[:unit, :parametric] begin
     sector = Sector(span=2pi / 3, r_base=0.6e-3, r_back=5e-3, fillet=0.2e-3)
     @test capacity(Ring(capacity(); r=0), sector, nothing) == 3
-    origins = getproperty.(placements(Ring(3; r=0), sector, nothing), :pose)
+    origins = placements(Ring(3; r=0), sector, nothing).poses
     @test length(origins) == 3
     @test all(pose -> iszero(pose.x) && iszero(pose.y), origins)
     @test getproperty.(origins, :φ) ≈ [0.0, 2pi / 3, 4pi / 3]
@@ -85,16 +85,13 @@ end
         minimum_angle = 2asin(width * (1 + gap) / (2radius))
         expected = floor(Int, span / minimum_angle) + (span == 2pi ? 0 : 1)
         @test count == expected
-        placed = getproperty.(placements(Ring(count; r=radius, span, gap_frac=gap), item, nothing), :pose)
+        placed = placements(Ring(count; r=radius, span, gap_frac=gap), item, nothing).poses
         @test length(placed) == count
         @test all(hypot(a.x - b.x, a.y - b.y) >= width * (1 + gap) - 1e-12
             for (index, a) in enumerate(placed) for b in placed[(index + 1):end])
         @test_throws DomainError placements(
             Ring(count + 1; r=radius, span, gap_frac=gap), item, nothing)
     end
-    pattern = Fill(r=3e-3, φ=pi / 6)
-    @test placements(pattern, geometry, nothing) ==
-        placements(pattern, Disk(support(boundary(geometry))), nothing)
 end
 
 @testitem "DataModel / contextual ring dispatch preserves inferred geometry" tags=[:unit, :datamodel] begin
@@ -118,27 +115,22 @@ end
     end
 end
 
-@testitem "DataModel / polar placement preserves explicit radial and angular intent" tags=[:unit, :datamodel] begin
-    wire = Disk(0.1e-3)
-    for origin in (0.0, 0.5e-3), span in (pi, 2pi)
-        pattern = Polar(; nr=3, nφ=6, r0=origin, dr=1e-3, φ0=0.27, span)
-        poses = getproperty.(placements(pattern, wire, nothing), :pose)
-        @test length(poses) == (iszero(origin) ? 13 : 18)
-        @test poses == getproperty.(placements(pattern, wire, nothing), :pose)
-        for shell in 0:2
-            radius = origin + shell * 1e-3
-            row = filter(pose -> isapprox(hypot(pose.x, pose.y), radius; atol=1e-12), poses)
-            @test length(row) == (iszero(radius) ? 1 : 6)
-            step = span / (span == 2pi ? 6 : 5)
-            for (index, pose) in enumerate(row)
-                angle = 0.27 + (index - 1) * step
-                @test hypot(pose.x - radius * cos(angle), pose.y - radius * sin(angle)) <= 1e-12
-                @test pose.φ ≈ angle
-            end
-        end
-        @test all(hypot(a.x - b.x, a.y - b.y) >= 2wire.r - 1e-12
-            for (index, a) in enumerate(poses) for b in poses[(index + 1):end])
-    end
+@testitem "DataModel / a ring course bends rectangles and keeps every other member" tags=[:unit, :datamodel] begin
+    const DM = LineCableModels.DataModel
+    copper = Material(kind=:conductor, rho=1.72e-8)
+    wire = Disk(0.2e-3)
+    @test placements(Ring(6; r=2e-3), wire, nothing).shape === wire
+    @test placements(Ring(6; r=2e-3), wire, nothing).poses isa Vector{Pose2{Float64}}
+
+    # Every rectangle on a ring becomes the same strip, bent about the ring center.
+    rectangle = Rectangle(0.4e-3, 0.2e-3)
+    geometry = DM.resolve(DM.EmptyBoundary(),
+        Group(:g, Region(:w, rectangle, copper); pattern=Ring(6; r=2e-3)))
+    shapes = [region.primitive for region in geometry.regions]
+    @test length(shapes) == 6
+    @test all(shape -> shape isa DM.BentStrip, shapes)
+    @test all(shape -> r_in(shape) ≈ 1.9e-3 && r_ex(shape) ≈ 2.1e-3, shapes)
+    @test all(shape -> area(shape) ≈ area(rectangle), shapes)
 end
 
 @testitem "DataModel / minimum radius distinguishes centered holes from displaced boundaries" tags=[:unit, :datamodel] begin
@@ -166,9 +158,6 @@ end
     @test_throws MethodError Helix(LayRatio(10.0); dir = true)
     @test_throws MethodError FillFactor("a")
     @test_throws MethodError Ring(2.5)
-    @test_throws MethodError Polar(nr = 2.0, nφ = 6, dr = 1e-3)
-    @test_throws MethodError Fill(r = "a", φ = 0.0)
-    @test_throws MethodError Lattice(nx = true, ny = 2, dx = 1e-3, dy = 1e-3)
     @test Pose2(Grid((0.0, 1.0)), 2.0) isa Gridspace{Pose2}
     @test LayRatio(Grid((10.0, 12.0))) isa Gridspace{LayRatio}
     @test Helix(LayRatio(10.0); dir = Grid((1, -1))) isa Gridspace{Helix}

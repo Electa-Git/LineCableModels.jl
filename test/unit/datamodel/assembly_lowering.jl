@@ -34,7 +34,7 @@
         member = terminal(:core, body, insulation(dielectric; t=0.5e-3))
         pattern = Ring(count; r=0.01, φ0=0.27)
         repeated = build(CableDesign, "repeated", assembly(member; pattern, names))
-        poses = getproperty.(DM.placements(pattern, DM.resolve(EmptyBoundary(), member), nothing), :pose)
+        poses = DM.placements(pattern, DM.resolve(EmptyBoundary(), member), nothing).poses
         explicit = build(CableDesign, "explicit", assembly((
             at(terminal(name, body, insulation(dielectric; t=0.5e-3)), pose)
             for (name, pose) in zip(names, poses))...))
@@ -114,8 +114,8 @@ end
     @test spaces isa Gridspace{CableDesign}
     @test length(spaces) == 2
     for (design, radius) in zip(spaces, (0.01, 0.02))
-        poses = getproperty.(
-            DM.placements(Ring(3; r=radius), DM.resolve(EmptyBoundary(), member), nothing), :pose)
+        poses = DM.placements(
+            Ring(3; r=radius), DM.resolve(EmptyBoundary(), member), nothing).poses
         explicit = build(CableDesign, "explicit", assembly((
             at(terminal(name, parts...), pose) for (name, pose) in zip(names, poses))...))
         systems = map((design, explicit)) do source

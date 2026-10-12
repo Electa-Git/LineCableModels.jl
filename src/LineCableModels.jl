@@ -48,7 +48,7 @@ export r_in, r_ex, thickness, outer_radius
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
-export Ring, Polar, Fill, Lattice, placements
+export Ring, placements
 export capacity, FillFactor
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export at, trefoil, hflat, vflat, layer, homogeneous
@@ -163,7 +163,7 @@ using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   r_in, r_ex, thickness, outer_radius,
                   AbstractCablePart, Region, Stack,
                   Group, Assembly, Enclosure
-using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
+using .DataModel: Ring, capacity, placements,
                   FillFactor,
                   LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 
