@@ -28,6 +28,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `MonteCarlo` discards a draw that throws `OverlapError`, as if it was never drawn, and
   draws again. It records nothing about the draw. `max_failures` overlapping draws in a
   row stop the study.
+- `trefoil`, `hflat` and `vflat` lay their cables at `max(spacing, 2R + 1 μm)`, where `R`
+  is the outer radius of the design they receive. A formation never overlaps, and a
+  smaller spacing lays its cables touching. Each realization of an uncertain design is laid
+  with its own radius.
 
 ### Changed
 

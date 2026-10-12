@@ -156,7 +156,9 @@ Nonzero one-based values identify active phases. `0` marks a conductor selected
 for grounded or eliminated-conductor reduction. The values are identifiers, not
 electrical polarity or phase-angle signs.
 
-The function forms `trefoil`, `hflat`, and `vflat` accept the same data.
+The function forms `trefoil`, `hflat`, and `vflat` accept the same data. A
+`spacing` below the outer diameter plus 1 μm is raised to it for each realization of the
+design. The cables then touch, 1 μm apart, and never overlap.
 `at(placements, ...)` composes an outer translation and rotation without
 copying the cable designs.
 

@@ -70,6 +70,7 @@ import ..DataModel: Group, Assembly
 import ..DataModel: Enclosure
 import ..DataModel: capacity, FillFactor
 import ..DataModel: CableDesign, LineCableSystem
+import ..DataModel: trefoil, hflat, vflat
 import ..Earth
 using ..Earth: EarthLayer, EarthModel, layer, homogeneous
 import ..Engine

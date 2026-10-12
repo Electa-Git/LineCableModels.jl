@@ -24,7 +24,7 @@ module DataModel
 export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, OverlapError
 export build, homogenize
 export CablesLibrary, DatasheetInfo, datasheet
-export trefoil_formation, flat_formation, outer_radius
+export outer_radius, trefoil, hflat, vflat
 export AbstractShape, AbstractPrimitive
 export AbstractCablePart, Region, Stack
 export Group, Assembly
@@ -98,6 +98,7 @@ include("cableslibrary/datasheetinfo.jl")
 include("cableslibrary/cableslibrary.jl")
 include("linecablesystem/clearance.jl")
 include("linecablesystem/linecablesystem.jl")
+include("placement/formations.jl")
 
 # Geometry and language protocols
 include("geometry.jl")

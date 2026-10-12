@@ -75,13 +75,15 @@ inputs cannot be certified from marginal means and standard uncertainties.
 `MonteCarlo(...; options=(on_error=:resample, retain_details=true))` conditions
 the output distribution on successful construction and calculation.
 
-Exterior cable clearance follows its own rule. A system build raises a gap from zero up
-to 1 μm, between two cables or from a cable to the air-earth interface, to 1 μm. A larger
-overlap throws [`OverlapError`](@ref). The system checks its pair gaps, and a line
-problem checks the interface gaps. Gaps use nominal values, so uncertainty never moves
-the nominal geometry. `MonteCarlo` discards a draw that throws `OverlapError` and draws
-again. Internal geometric and statistical repairs remain prohibited. Gmsh's tolerances are
-not used as manufacturing clearances.
+Exterior cable clearance follows its own rule. A formation lays its cables at least
+1 μm apart, using the outer radius of each realization of its design, so it never
+overlaps. A system build raises a gap from zero up to 1 μm, between two cables or from a
+cable to the air-earth interface, to 1 μm. A larger overlap throws
+[`OverlapError`](@ref). The system checks its pair gaps, and a line problem checks the
+interface gaps. Gaps use nominal values, so uncertainty never moves the nominal geometry.
+`MonteCarlo` discards a draw that throws `OverlapError` and draws again. Internal
+geometric and statistical repairs remain prohibited. Gmsh's tolerances are not used as
+manufacturing clearances.
 
 ## Observable resolution and comparison
 
