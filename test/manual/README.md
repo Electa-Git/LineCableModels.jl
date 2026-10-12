@@ -10,6 +10,7 @@ that `plotting/` has an explicit environment for its optional backends.
 
 | Area | Purpose |
 | --- | --- |
+| `cases/` | One recovered benchmark case per script: analytical and FEM computations, saved results, and a per-frequency comparison. |
 | `performance/` | Local timing and numerical inspection of shunt models. |
 | `calculations/` | Editable analytical, grid-space, export, and FEM comparison runs. |
 | `plotting/` | Human-inspected GL/WGL galleries and plotting experiments. |
@@ -20,6 +21,7 @@ The filename states the runnable experiment. In particular:
 
 | Script | Manual purpose |
 | --- | --- |
+| `cases/<case>.jl` | Run a recovered benchmark case from the repository root with `julia --project=test test/manual/cases/<case>.jl`. |
 | `performance/benchmark_local_shunt.jl` | Inspect local-shunt preparation, allocation, and selected saved references. |
 | `performance/benchmark_shunt_models.jl` | Compare warmed public-API shunt-model timings. |
 | `calculations/fem_validation/` | Compare the current native FEM backend with analytical and homogeneous-cylinder references. |
@@ -40,6 +42,11 @@ write reports or images default outside the checkout, under
 `LINECABLEMODELS_MANUAL_OUTPUT` to an absolute directory when the output should
 survive temporary-directory cleanup. Backend-specific plotting variables remain
 available as overrides and must likewise point outside the checkout.
+
+The `cases/` scripts are the exception to the temporary-directory default.
+Their results are reference data saved under
+`.linecablemodels/fem/<case>/<timestamp>/` in the checkout, ignored by Git,
+with FEM run folders next to them. The results do not go in a temporary folder.
 
 FEM and PSCAD engines may retain their own ignored runtime directories according
 to their explicit execution configuration; those directories are runtime state,
