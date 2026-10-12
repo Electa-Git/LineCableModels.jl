@@ -1,4 +1,4 @@
-@testitem "Engine / explicit lossless defaults and lossy radial admittance" tags=[:unit, :parametric] begin
+@testitem "Engine / explicit lossless defaults and lossy radial admittance" tags=[:unit, :importexport] begin
     using Test
     using LineCableModels
     import EzXML

@@ -1,4 +1,4 @@
-@testitem "DataModel / v1 geometry / primitive and resolved geometry" tags=[:unit, :parametric] begin
+@testitem "DataModel / v1 geometry / primitive and resolved geometry" tags=[:unit, :datamodel] begin
     const DM=LineCableModels.DataModel
 
     @test DM.Disk(2) isa DM.AbstractPrimitive{Float64}
@@ -85,7 +85,7 @@
     @test converted.w === 4.0f0
 end
 
-@testitem "DataModel / v1 geometry / pose and Gridspace materialization" tags=[:unit, :parametric] begin
+@testitem "DataModel / v1 geometry / pose and Gridspace materialization" tags=[:unit, :datamodel] begin
     using Random
     const DM=LineCableModels.DataModel
     const PB=LineCableModels.ParametricBuilder

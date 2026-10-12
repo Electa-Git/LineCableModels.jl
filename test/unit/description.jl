@@ -1,4 +1,4 @@
-@testitem "Descriptions / partial recipes retain only declared ordered children" tags=[:unit, :importexport] begin
+@testitem "Descriptions / partial recipes retain only declared ordered children" tags=[:unit, :engine] begin
     E = LineCableModels.Engine
     for selected in (
             Formulation(earth_impedance=(earth=:unified,)),
@@ -159,7 +159,7 @@ end
     @test all(leaf->occursin(description(leaf;compact=true),rendered),leaves)
 end
 
-@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit, :pscad] setup=[FormulaFixtures] begin
+@testitem "Descriptions / quantity identities ignore unrelated slots and retain composite controls" tags=[:unit, :uq] setup=[FormulaFixtures] begin
     a=Formulation(earth_impedance=:saad1996)
     b=Formulation(earth_impedance=:xue2018)
     @test formula_id(a,Y)==formula_id(b,Y)

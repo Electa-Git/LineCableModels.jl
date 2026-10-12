@@ -1,4 +1,4 @@
-@testitem "Engine / one internal formula serves its surfaces through native dispatch" tags=[:unit, :importexport, :slow] setup=[TestFixtures,FormulaFixtures] begin
+@testitem "Engine / one internal formula serves its surfaces through native dispatch" tags=[:unit, :uq, :slow] setup=[TestFixtures,FormulaFixtures] begin
     const II=LineCableModels.Engine.InternalImpedance
     const M=FormulaFixtures
     args=(0.008,0.01,1.7241e-8,1.,100.0im)

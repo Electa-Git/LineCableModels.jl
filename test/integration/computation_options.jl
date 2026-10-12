@@ -54,7 +54,7 @@ end
     end
 end
 
-@testitem "Execution options / completed tensors and callback precede success notification" tags=[:integration, :parametric] setup=[TestFixtures] begin
+@testitem "Execution options / completed tensors and callback precede success notification" tags=[:integration, :engine] setup=[TestFixtures] begin
     using Logging
     E = LineCableModels.Engine
     problem = TestFixtures.three_bare_wires_problem(frequencies=[1e7], line_length=floatmax(Float64))

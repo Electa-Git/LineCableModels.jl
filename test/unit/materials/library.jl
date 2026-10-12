@@ -1,4 +1,4 @@
-@testitem "Materials / Material / numeric normalization and conversion" tags=[:unit, :measurements] setup=[
+@testitem "Materials / Material / numeric normalization and conversion" tags=[:unit, :materials] setup=[
     UseDataModelSupport
 ] begin
     ordinary=Material(

@@ -1,4 +1,4 @@
-@testitem "DataModel / v1 physical tree / Region and Stack" tags=[:unit, :parametric] begin
+@testitem "DataModel / v1 physical tree / Region and Stack" tags=[:unit, :datamodel] begin
     const DM=LineCableModels.DataModel
     const PB=LineCableModels.ParametricBuilder
     copper_props=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)
@@ -39,7 +39,7 @@
     @test DM.r_ex(DM.boundary(DM.resolve(DM.EmptyBoundary(), first(spaces)))) == 0.015
 end
 
-@testitem "DataModel / v1 physical tree / primitive extension is local dispatch" tags=[:unit, :parametric] begin
+@testitem "DataModel / v1 physical tree / primitive extension is local dispatch" tags=[:unit, :datamodel] begin
     import LineCableModels.DataModel as DM
 
     struct CapsuleDefinition{T <: Real} <: DM.AbstractPrimitive{T}
@@ -412,7 +412,7 @@ end
           DM.tubular_resistance(packed.r_in, packed.r_ex, packed.material.rho)
 end
 
-@testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit, :parametric] begin
+@testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit, :datamodel] begin
     const DM=LineCableModels.DataModel
     copper=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)
     wire=LineCableModels.Region(:wire, LineCableModels.Disk(0.5), copper)
@@ -486,7 +486,7 @@ end
     )
 end
 
-@testitem "DataModel / construction / concrete boundaries" tags=[:unit, :parametric] begin
+@testitem "DataModel / construction / concrete boundaries" tags=[:unit, :engine] begin
     using LineCableModels
 
     conductor=Material(kind = :conductor, rho = 1.7241e-8)

@@ -13,7 +13,7 @@
     @test_throws MethodError validate(value)
 end
 
-@testitem "Core / docstrings / sanitized method-list origins" tags=[:unit, :engine] begin
+@testitem "Core / docstrings / sanitized method-list origins" tags=[:unit, :units] begin
     using DocStringExtensions
 
     method=which(LineCableModels.domain, (Int,))

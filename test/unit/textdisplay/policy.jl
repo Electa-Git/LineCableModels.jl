@@ -93,7 +93,7 @@ end
     end
 end
 
-@testitem "TextDisplay / scientific values preserve signs and physical units" tags=[:unit, :engine] begin
+@testitem "TextDisplay / scientific values preserve signs and physical units" tags=[:unit, :commons] begin
     const TD = LineCableModels.TextDisplay
     const U = LineCableModels.Units
 

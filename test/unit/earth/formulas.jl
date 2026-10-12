@@ -1,4 +1,4 @@
-@testitem "Earth / static and user-owned frequency-dependent relations" tags=[:unit, :measurements] setup=[FormulaFixtures] begin
+@testitem "Earth / static and user-owned frequency-dependent relations" tags=[:unit, :earth] setup=[FormulaFixtures] begin
     using Measurements: measurement,uncertainty
     const EP=LineCableModels.Earth
     relation=EP.FrequencyDependent.Formula(:default)

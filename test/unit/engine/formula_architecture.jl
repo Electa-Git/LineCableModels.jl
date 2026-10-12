@@ -222,7 +222,7 @@ end
     @test epsilon == 8.8541878128e-12 .* [1.5, 10.0]
 end
 
-@testitem "Engine / indexed finite-layer methods determine admission and ordered assembly" tags=[:unit, :parametric, :slow] setup=[FormulaFixtures] begin
+@testitem "Engine / indexed finite-layer methods determine admission and ordered assembly" tags=[:unit, :engine, :slow] setup=[FormulaFixtures] begin
     using LinearAlgebra
     const M=FormulaFixtures
     const E=M.E
@@ -316,7 +316,7 @@ end
     @test (EI.formulas(EI.Formula), EA.formulas(EA.Formula)) === inventories
 end
 
-@testitem "Engine / unrelated coupled formula calculates in the main workspace without quadrature" tags=[:unit, :parametric] setup=[
+@testitem "Engine / unrelated coupled formula calculates in the main workspace without quadrature" tags=[:unit, :engine] setup=[
     TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     const M=FormulaFixtures
@@ -426,7 +426,7 @@ end
     @test first.buffers.quadrature.segments !== second.buffers.quadrature.segments
 end
 
-@testitem "Engine / coupled material admission precedes integration and publication" tags=[:unit, :parametric] setup=[TestFixtures] begin
+@testitem "Engine / coupled material admission precedes integration and publication" tags=[:unit, :engine] setup=[TestFixtures] begin
     const E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
     selected=Formulation()
@@ -444,7 +444,7 @@ end
     @test all(isnan, w.buffers.axial_field)
 end
 
-@testitem "Engine / distinct coupled controls perform separate complete calculations" tags=[:unit, :parametric, :slow] setup=[TestFixtures] begin
+@testitem "Engine / distinct coupled controls perform separate complete calculations" tags=[:unit, :engine, :slow] setup=[TestFixtures] begin
     problem=TestFixtures.three_bare_wires_problem(heights = (1.0, -1.0, -1.0), frequencies = [50.0])
     z=formula(:unified; options = (integration = (options = (rtol = 1e-8,),),))
     p=formula(:unified; options = (integration = (options = (rtol = 1e-9,),),))
@@ -463,7 +463,7 @@ end
     end
 end
 
-@testitem "Engine / fixed material evaluation follows allocation and repeats per solve" tags=[:unit, :parametric] setup=[
+@testitem "Engine / fixed material evaluation follows allocation and repeats per solve" tags=[:unit, :engine] setup=[
     TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     const M=FormulaFixtures

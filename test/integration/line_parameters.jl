@@ -250,7 +250,7 @@ end
     @test size(@observe(modal, (C, diag)[:, :])) == (2, 2)
 end
 
-@testitem "Engine / formulation support / physical geometry precedes backend support" tags=[:integration, :parametric] setup=[
+@testitem "Engine / formulation support / physical geometry precedes backend support" tags=[:integration, :engine] setup=[
     UseEngineSupport
 ] begin
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
@@ -301,7 +301,7 @@ end
     )
 end
 
-@testitem "Engine / coaxial profile / explicit radial support boundary" tags=[:integration, :parametric] setup=[
+@testitem "Engine / coaxial profile / explicit radial support boundary" tags=[:integration, :engine] setup=[
     UseEngineSupport
 ] begin
     conductor=Material(kind = :conductor, rho = 1.7241e-8)

@@ -125,7 +125,7 @@ end
     end
 end
 
-@testitem "TextDisplay / lazy parametric and uncertainty intent" tags=[:unit, :distributions] setup=[
+@testitem "TextDisplay / lazy parametric and uncertainty intent" tags=[:unit, :measurements] setup=[
     TestFixtures,
 ] begin
     using Measurements

@@ -1,4 +1,4 @@
-@testitem "Engine / homogeneous selections retain each indexed formula through assembly" tags=[:unit, :parametric, :slow] setup=[FormulaFixtures] begin
+@testitem "Engine / homogeneous selections retain each indexed formula through assembly" tags=[:unit, :engine, :slow] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     # Manufactured potential coefficients isolate the selection-routing check.
     potential=FormulaFixtures.selection(E.EarthAdmittance)

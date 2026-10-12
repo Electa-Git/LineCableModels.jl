@@ -102,7 +102,7 @@
     )
 end
 
-@testitem "Engine / dielectric laws promote inputs and enforce composable output" tags=[:unit, :measurements] setup=[FormulaFixtures] begin
+@testitem "Engine / dielectric laws promote inputs and enforce composable output" tags=[:unit, :engine] setup=[FormulaFixtures] begin
     using Measurements: measurement, uncertainty
     const E=LineCableModels.Engine
     const M=FormulaFixtures

@@ -39,7 +39,7 @@
     @test_throws BoundsError G.observation_quantity(source, (R, 3))
 end
 
-@testitem "Commons / detached thresholds retain precision and uncertainty dependencies" tags=[:unit, :measurements] begin
+@testitem "Commons / detached thresholds retain precision and uncertainty dependencies" tags=[:unit, :commons] begin
     using Measurements
     const G = LineCableModels.Commons
     shared = measurement(0.5, 0.01)

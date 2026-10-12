@@ -1,4 +1,4 @@
-@testitem "BaseParams / dielectrics / coaxial kernels" tags=[:unit, :measurements] setup=[
+@testitem "BaseParams / dielectrics / coaxial kernels" tags=[:unit, :datamodel] setup=[
     UseBaseParamsSupport
 ] begin
     # Closed-form coaxial capacitance and conductance of a 10-20 mm interval with

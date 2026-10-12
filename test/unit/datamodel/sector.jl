@@ -1,4 +1,4 @@
-@testitem "DataModel / Sector / exact geometry and conformal shells" tags=[:unit, :parametric, :slow] begin
+@testitem "DataModel / Sector / exact geometry and conformal shells" tags=[:unit, :datamodel, :slow] begin
     const DM=LineCableModels.DataModel
 
     primitive=Sector(

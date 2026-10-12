@@ -1,4 +1,4 @@
-@testitem "Core / clearance / sampling does not require Measurements" tags=[:core_only, :extension, :parametric] begin
+@testitem "Core / clearance / sampling does not require Measurements" tags=[:core_only, :extension, :datamodel] begin
     using LineCableModels
     using Random
     @test Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing

@@ -226,7 +226,7 @@ end
           [:chrysochos2014, :chrysochos2014, :vieira2026, :vieira2026]
 end
 
-@testitem "ModalAnalysis / Vieira convenience computation preserves completed upstream results" tags=[:unit, :parametric] setup=[TestFixtures] begin
+@testitem "ModalAnalysis / Vieira convenience computation preserves completed upstream results" tags=[:unit, :engine] setup=[TestFixtures] begin
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 80.0])
     formulation=Formulation()
     phase=compute(problem, formulation)

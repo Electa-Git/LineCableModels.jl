@@ -1,6 +1,6 @@
 # Enclosed-current matrix identities check algebra and conventions. Independent
 # cylindrical controls below provide physical validation for equal media.
-@testitem "Engine / unified retains five-layout FEM baseline agreement" tags=[:unit, :parametric] setup=[TestFixtures] begin
+@testitem "Engine / unified retains five-layout FEM baseline agreement" tags=[:unit, :engine] setup=[TestFixtures] begin
     root=joinpath(pkgdir(LineCableModels), "test/fixtures/reference/three_bare_wires",
         "capture-20260917T102438-Nt9nic")
     selected=Formulation(
@@ -35,7 +35,7 @@
     end
 end
 
-@testitem "Engine / full earth / enclosed-current matrix identities across layouts" tags=[:unit, :parametric] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / full earth / enclosed-current matrix identities across layouts" tags=[:unit, :engine] setup=[UnifiedFormulaFixtures] begin
     using LinearAlgebra
     const E=LineCableModels.Engine
     layouts=([(0.0, -1.0)], [(0.0, 1.0), (0.4, 1.5)],
@@ -136,7 +136,7 @@ end
     end
 end
 
-@testitem "Engine / raw integral trace and warnings do not reject physical computation" tags=[:unit, :parametric] setup=[TestFixtures] begin
+@testitem "Engine / raw integral trace and warnings do not reject physical computation" tags=[:unit, :engine] setup=[TestFixtures] begin
     using Logging
     const E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
@@ -270,7 +270,7 @@ end
     end
 end
 
-@testitem "Engine / complete earth scalar types and air-root limit" tags=[:unit, :parametric, :slow] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / complete earth scalar types and air-root limit" tags=[:unit, :engine, :slow] setup=[UnifiedFormulaFixtures] begin
     using LinearAlgebra
     const E=LineCableModels.Engine
     setprecision(BigFloat, 128) do
@@ -328,7 +328,7 @@ end
     end
 end
 
-@testitem "Engine / full earth / independent equal-medium cylindrical control" tags=[:unit, :parametric] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / full earth / independent equal-medium cylindrical control" tags=[:unit, :engine] setup=[UnifiedFormulaFixtures] begin
     using LinearAlgebra, QuadGK
     include(joinpath(pkgdir(LineCableModels), "test/support/radial_control.jl"))
     const E=LineCableModels.Engine
@@ -448,7 +448,7 @@ end
     end
 end
 
-@testitem "Engine / combined voltage paths equal the manuscript endpoint terms" tags=[:unit, :parametric] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / combined voltage paths equal the manuscript endpoint terms" tags=[:unit, :engine] setup=[UnifiedFormulaFixtures] begin
     const E=LineCableModels.Engine
     geometry=(horizontal = [0.0, 1.0], height = [1.2, -0.9], radius = [0.01, 0.025])
     s=complex(0.0, 2pi*1e4)
@@ -492,7 +492,7 @@ end
     end
 end
 
-@testitem "Engine / prescribed longitudinal constants keep spectral contours on their branch" tags=[:unit, :parametric] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / prescribed longitudinal constants keep spectral contours on their branch" tags=[:unit, :engine] setup=[UnifiedFormulaFixtures] begin
     const E=LineCableModels.Engine
     geometry=(horizontal = [0.0, 1.0], height = [1.0, -1.0], radius = [0.02, 0.03])
     s=complex(0.0, 2pi*1e4)

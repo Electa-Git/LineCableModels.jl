@@ -1,4 +1,4 @@
-@testitem "Engine / observations / native selectors and detached publication" tags=[:unit, :uq] setup=[
+@testitem "Engine / observations / native selectors and detached publication" tags=[:unit, :engine] setup=[
     UseEngineSupport
 ] begin
     using LinearAlgebra: diag

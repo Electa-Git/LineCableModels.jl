@@ -68,7 +68,7 @@
     @test geometry_calculation.pairs[9].reuse_from==1
 end
 
-@testitem "Engine / unified shares indexed source coefficients before its complete solve" tags=[:unit, :parametric, :slow] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / unified shares indexed source coefficients before its complete solve" tags=[:unit, :engine, :slow] setup=[UnifiedFormulaFixtures] begin
     const E=LineCableModels.Engine
     positions=[(column*0.1905, -1.1335-row*0.19035) for row in 0:2 for column in -1:1]
     geometry=(horizontal = first.(positions),
@@ -99,7 +99,7 @@ end
     end
 end
 
-@testitem "Engine / ordinary earth formulations reuse through public compute" tags=[:unit, :parametric] setup=[
+@testitem "Engine / ordinary earth formulations reuse through public compute" tags=[:unit, :engine] setup=[
     TestFixtures, EarthInteractionFixtures] begin
     const F=EarthInteractionFixtures
     problem=TestFixtures.three_bare_wires_problem(heights = (-1.0, -1.0, -1.0),
@@ -121,7 +121,7 @@ end
     @test all(isfinite, Z(result)) && all(isfinite, Y(result))
 end
 
-@testitem "Engine / indexed integral reuse retains descriptions and logical positions" tags=[:unit, :parametric] setup=[
+@testitem "Engine / indexed integral reuse retains descriptions and logical positions" tags=[:unit, :engine] setup=[
     TestFixtures, EarthInteractionFixtures] begin
     using Logging
     const E=LineCableModels.Engine

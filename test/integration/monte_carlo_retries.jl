@@ -71,7 +71,7 @@
 
 end
 
-@testitem "UQ / resampling does not hide non-domain errors or run past its limit" tags=[:integration, :measurements] begin
+@testitem "UQ / resampling does not hide non-domain errors or run past its limit" tags=[:integration, :uq] begin
     using Measurements
     inner = CableConstantsFormulation()
     for (injected, on_error, expected_attempts) in (

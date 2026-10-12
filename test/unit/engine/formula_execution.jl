@@ -1,4 +1,4 @@
-@testitem "Engine / explicit equation recipes are complete only for required cases" tags=[:unit, :parametric] setup=[TestFixtures] begin
+@testitem "Engine / explicit equation recipes are complete only for required cases" tags=[:unit, :engine] setup=[TestFixtures] begin
     const E=LineCableModels.Engine
     omitted=Formulation()
     absent=Formulation(earth_impedance = nothing, earth_admittance = nothing,
@@ -124,7 +124,7 @@ end
     end
 end
 
-@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit, :measurements] setup=[
+@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit, :importexport] setup=[
     TestFixtures, FormulaFixtures] begin
     using Measurements
     E, IE=LineCableModels.Engine, LineCableModels.ImportExport
@@ -244,7 +244,7 @@ end
     @test formula_id(custom) !== formula_id(external.selection)
 end
 
-@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit, :parametric] setup=[
+@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit, :engine] setup=[
     TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     const M=FormulaFixtures
@@ -429,7 +429,7 @@ end
     @test all(isfinite, result.Z.values)
 end
 
-@testitem "Engine / first tubular primitive requests all surfaces without extra assembly terms" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
+@testitem "Engine / first tubular primitive requests all surfaces without extra assembly terms" tags=[:unit, :engine] setup=[FormulaFixtures] begin
     M=FormulaFixtures
     copper=Material(kind = :conductor, rho = 1.7e-8)
     dielectric=Material(kind = :insulator, rho = Inf, eps_r = 2.3)

@@ -1,4 +1,4 @@
-@testitem "DataModel / formations / a spacing below the diameter lays the cables touching" tags=[:unit, :datamodel] begin
+@testitem "DataModel / formations / a spacing below the diameter lays the cables touching" tags=[:unit, :parametric] begin
     using LineCableModels
     copper = Material(kind = :conductor, rho = 1.7e-8)
     design = build(CableDesign, "formation", Group(:core, Region(:metal, Disk(0.01), copper)))
