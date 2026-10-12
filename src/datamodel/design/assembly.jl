@@ -209,7 +209,7 @@ function _resolve_repeated(assembly::Assembly)
     regions = PlacedRegion[]
     boundaries = AbstractShape[]
     for (member, (name, placement)) in enumerate(zip(member_names, poses))
-        pose = _placement_pose(placement)
+        pose = placement.pose
         mapping = isempty(child_terminals) ? identity :
                   terminal -> terminal === only(child_terminals) ? name : terminal
         _append_assembly_member!(

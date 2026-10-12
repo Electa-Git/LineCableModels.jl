@@ -108,13 +108,10 @@ Base.summary(io::IO, ::EnclosureBoundary) = print(io, "Enclosure boundary")
 Base.show(io::IO, ::EnclosureBoundary) = print(io, "EnclosureBoundary()")
 Base.show(io::IO, ::MIME"text/plain", value::EnclosureBoundary) = show(io, value)
 
-function _ring_count(pattern::Ring)
-    pattern.n isa _DeferredCardinality && return "capacity()"
-    return pattern.n
-end
+Base.show(io::IO, ::_DeferredCardinality) = print(io, "capacity()")
 
 TextDisplay.@showfields Ring "Ring" pattern -> (
-    n = _ring_count(pattern),
+    n = pattern.n,
     r = pattern.r === nothing ? nothing : TextDisplay.engineering(pattern.r, :meter),
     φ₀ = iszero(pattern.φ0) ? nothing : TextDisplay.angle(pattern.φ0),
     Δφ = isapprox(pattern.span, oftype(pattern.span, 2π)) ? nothing :

@@ -38,10 +38,7 @@ end
 # A spacing below the outer diameter plus 1 μm is raised to it, with the outer radius of the
 # design that this realization receives. No formation overlaps.
 function _trefoil(design, center, spacing, connections, φ0)
-    spacing > zero(spacing) || throw(DomainError(
-        spacing, "trefoil spacing must be positive"
-    ))
-    side = max(spacing, 2outer_radius(design) + _CABLE_CLEARANCE)
+    side = max(validate(spacing, trefoil), 2outer_radius(design) + _CABLE_CLEARANCE)
     # The centers lie on a circle through the triangle's vertices, at 90°, 210° and 330°.
     distance = side / 2 / cosd(30)
     poses = Pose2[Pose2(zero(distance), distance, 0),
@@ -87,14 +84,11 @@ function trefoil(
     return parameterize(Vector, _trefoil, values; combine)
 end
 
-function _flat(design, center, spacing, connections, vertical::Bool)
-    spacing > zero(spacing) || throw(DomainError(
-        spacing, "flat-formation spacing must be positive"
-    ))
+# `pose` places a member at its signed offset along the formation.
+function _flat(design, center, spacing, connections, pose)
     adjacent = max(spacing, 2outer_radius(design) + _CABLE_CLEARANCE)
     offsets = (-adjacent, zero(adjacent), adjacent)
-    poses = Pose2[vertical ? Pose2(0, -offset, 0) : Pose2(offset, 0, 0)
-                  for offset in offsets]
+    poses = Pose2[pose(offset) for offset in offsets]
     return _formation(design, poses, center, connections)
 end
 
@@ -115,7 +109,8 @@ function hflat(
         connections,
         combine::Symbol = :product
 )
-    caller = (resolved...) -> _flat(resolved..., false)
+    caller = (design, center, spacing, connections) -> _flat(design, center,
+        validate(spacing, hflat), connections, offset -> Pose2(offset, 0, 0))
     return parameterize(
         Vector, caller, (design, center, spacing, connections); combine
     )
@@ -138,8 +133,24 @@ function vflat(
         connections,
         combine::Symbol = :product
 )
-    caller = (resolved...) -> _flat(resolved..., true)
+    caller = (design, center, spacing, connections) -> _flat(design, center,
+        validate(spacing, vflat), connections, offset -> Pose2(0, -offset, 0))
     return parameterize(
         Vector, caller, (design, center, spacing, connections); combine
     )
+end
+
+# A formation spacing is positive. The formation then raises it to the touching spacing.
+function validate(spacing::Real, ::typeof(trefoil))
+    spacing > zero(spacing) || throw(DomainError(
+        spacing, "trefoil spacing must be positive"
+    ))
+    return spacing
+end
+
+function validate(spacing::Real, ::Union{typeof(hflat), typeof(vflat)})
+    spacing > zero(spacing) || throw(DomainError(
+        spacing, "flat-formation spacing must be positive"
+    ))
+    return spacing
 end

@@ -961,7 +961,7 @@ end
     )
 
     fill_pattern = Fill(r = 2.6e-3, φ = pi / 6)
-    filled_poses = placements(fill_pattern, Disk(0.5e-3), nothing)
+    filled_poses = getproperty.(placements(fill_pattern, Disk(0.5e-3), nothing), :pose)
     @test length(filled_poses) == 19
     @test capacity(fill_pattern, Disk(0.5e-3), nothing) == 19
     @test first(filled_poses) == Pose2(0, 0, 0)

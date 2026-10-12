@@ -460,18 +460,13 @@ function _resolve_group(
     regions = PlacedRegion[]
     local_extent = nothing
     for (member, placement) in enumerate(members)
-        pose = _placement_pose(placement)
+        pose = placement.pose
         placed_at = group.at * pose
         for source in child.regions
             terminal = source.source.material.kind === :conductor ? group.name :
                        source.terminal
-            definition = _placement_definition(
-                placement,
-                source.source.primitive
-            )
-            local_primitive = placement isa _ResolvedPlacement ?
-                              resolve(pose, definition) :
-                              resolve(pose, source.primitive)
+            # A placement either keeps the member's primitive or replaces it.
+            local_primitive = resolve(pose, something(placement.primitive, source.primitive))
             primitive = resolve(group.at, local_primitive)
             placed = resolve(placed_at, source)
             extent = support(local_primitive)

@@ -3,20 +3,16 @@ Store a helical lay-length to mean-diameter ratio.
 """
 struct LayRatio{T <: Real}
     q::T
-    function LayRatio{T}(q::T) where {T <: Real}
-        isfinite(q) && q > zero(q) ||
-            throw(DomainError(q, "lay ratio must be positive and finite"))
-        return new{T}(q)
-    end
+    LayRatio{T}(q::T) where {T <: Real} = validate(new{T}(q))
+end
+
+function validate(lay::LayRatio)
+    isfinite(lay.q) && lay.q > zero(lay.q) ||
+        throw(DomainError(lay.q, "lay ratio must be positive and finite"))
+    return lay
 end
 
 LayRatio(q::Real) = LayRatio{typeof(float(q))}(float(q))
-
-function _normalize_schedule(wrapper, values; combine::Symbol)
-    return map(Tuple(values)) do value
-        value isa wrapper ? value : wrapper(value; combine)
-    end
-end
 
 """
 $(TYPEDSIGNATURES)
@@ -40,11 +36,12 @@ Declare one lay-length ratio or a homogeneous schedule of lay-length ratios.
 function LayRatio(q::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
     return parameterize(LayRatio, LayRatio, (q,); combine)
 end
+LayRatio(lay::LayRatio; combine::Symbol = :product) = lay
 function LayRatio(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
-    _normalize_schedule(LayRatio, values; combine)
+    return map(value -> LayRatio(value; combine), Tuple(values))
 end
 function LayRatio(first, second, remaining...; combine::Symbol = :product)
-    _normalize_schedule(LayRatio, (first, second, remaining...); combine)
+    return LayRatio((first, second, remaining...); combine)
 end
 
 """
@@ -52,11 +49,13 @@ Store an authoritative helical pitch length \\[m\\].
 """
 struct Pitch{T <: Real}
     p::T
-    function Pitch{T}(p::T) where {T <: Real}
-        isfinite(p) && p > zero(p) ||
-            throw(DomainError(p, "pitch must be positive and finite"))
-        return new{T}(p)
-    end
+    Pitch{T}(p::T) where {T <: Real} = validate(new{T}(p))
+end
+
+function validate(lay::Pitch)
+    isfinite(lay.p) && lay.p > zero(lay.p) ||
+        throw(DomainError(lay.p, "pitch must be positive and finite"))
+    return lay
 end
 
 Pitch(p::Real) = Pitch{typeof(float(p))}(float(p))
@@ -83,11 +82,12 @@ Declare one helical pitch or a homogeneous schedule of helical pitches.
 function Pitch(p::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
     return parameterize(Pitch, Pitch, (p,); combine)
 end
+Pitch(lay::Pitch; combine::Symbol = :product) = lay
 function Pitch(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
-    _normalize_schedule(Pitch, values; combine)
+    return map(value -> Pitch(value; combine), Tuple(values))
 end
 function Pitch(first, second, remaining...; combine::Symbol = :product)
-    _normalize_schedule(Pitch, (first, second, remaining...); combine)
+    return Pitch((first, second, remaining...); combine)
 end
 
 """
@@ -95,11 +95,13 @@ Store an authoritative helical lay angle relative to the cable axis \\[rad\\].
 """
 struct LayAngle{T <: Real}
     α::T
-    function LayAngle{T}(α::T) where {T <: Real}
-        isfinite(α) && zero(α) < α < oftype(α, π / 2) ||
-            throw(DomainError(α, "lay angle must lie in (0, π/2)"))
-        return new{T}(α)
-    end
+    LayAngle{T}(α::T) where {T <: Real} = validate(new{T}(α))
+end
+
+function validate(lay::LayAngle)
+    isfinite(lay.α) && zero(lay.α) < lay.α < oftype(lay.α, π / 2) ||
+        throw(DomainError(lay.α, "lay angle must lie in (0, π/2)"))
+    return lay
 end
 
 LayAngle(α::Real) = LayAngle{typeof(float(α))}(float(α))
@@ -126,11 +128,12 @@ Declare one helical lay angle or a homogeneous schedule of lay angles.
 function LayAngle(α::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
     return parameterize(LayAngle, LayAngle, (α,); combine)
 end
+LayAngle(lay::LayAngle; combine::Symbol = :product) = lay
 function LayAngle(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
-    _normalize_schedule(LayAngle, values; combine)
+    return map(value -> LayAngle(value; combine), Tuple(values))
 end
 function LayAngle(first, second, remaining...; combine::Symbol = :product)
-    _normalize_schedule(LayAngle, (first, second, remaining...); combine)
+    return LayAngle((first, second, remaining...); combine)
 end
 
 """
@@ -140,7 +143,7 @@ Represent one helical path from one authoritative lay definition.
 
 $(TYPEDFIELDS)
 """
-struct Helix{L, T <: Real}
+struct Helix{L <: Union{LayRatio, Pitch, LayAngle}, T <: Real}
     "Lay definition."
     lay::L
     "Handedness: `1` or `-1` \\[dimensionless\\]."
@@ -148,13 +151,16 @@ struct Helix{L, T <: Real}
     "Initial angular position \\[rad\\]."
     φ0::T
 
-    function Helix{L, T}(lay::L, dir::Int, φ0::T) where {L, T <: Real}
-        lay isa Union{LayRatio, Pitch, LayAngle} ||
-            throw(ArgumentError("helix lay must be LayRatio, Pitch, or LayAngle"))
-        dir in (-1, 1) || throw(ArgumentError("helix direction must be -1 or 1"))
-        isfinite(φ0) || throw(DomainError(φ0, "helix initial angle must be finite"))
-        return new{L, T}(lay, dir, φ0)
+    function Helix{L, T}(lay::L, dir::Int, φ0::T) where {
+            L <: Union{LayRatio, Pitch, LayAngle}, T <: Real}
+        return validate(new{L, T}(lay, dir, φ0))
     end
+end
+
+function validate(helix::Helix)
+    helix.dir in (-1, 1) || throw(ArgumentError("helix direction must be -1 or 1"))
+    isfinite(helix.φ0) || throw(DomainError(helix.φ0, "helix initial angle must be finite"))
+    return helix
 end
 
 function Helix(

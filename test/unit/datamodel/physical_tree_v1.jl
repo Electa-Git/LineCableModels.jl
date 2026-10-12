@@ -418,7 +418,7 @@ end
     wire=LineCableModels.Region(:wire, LineCableModels.Disk(0.5), copper)
 
     ring=LineCableModels.Ring(6; r = 2.0, φ0 = π / 6)
-    poses=LineCableModels.placements(ring, wire.primitive, nothing)
+    poses=getproperty.(LineCableModels.placements(ring, wire.primitive, nothing), :pose)
     @test length(poses) == 6
     @test all(pose -> hypot(pose.x, pose.y) ≈ 2.0, poses)
 

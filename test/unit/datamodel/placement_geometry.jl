@@ -2,7 +2,7 @@
     # A placement is a geometry operation: the caller retains its primitives.
     ellipse = Ellipse(0.2e-3, 0.1e-3)
     ring = Ring(5; r=2e-3, φ0=0.27, span=pi)
-    positions = placements(ring, ellipse, nothing)
+    positions = getproperty.(placements(ring, ellipse, nothing), :pose)
     @test length(positions) == 5
     for (index, position) in enumerate(positions)
         angle = 0.27 + (index - 1) * pi / 4
@@ -14,19 +14,19 @@
     @test_throws ArgumentError placements(Ring(5), ellipse, nothing)
     @test_throws ArgumentError placements(Ring(capacity(); r=2e-3), ellipse, nothing)
 
-    unmoved = only(placements(nothing, ellipse, nothing))
+    unmoved = only(placements(nothing, ellipse, nothing)).pose
     @test (unmoved.x, unmoved.y, unmoved.φ) == (0, 0, 0)
     explicit = [Pose2(1e-3, 2e-3, 0.1), Pose2(-2e-3, -1e-3, 0.2)]
     copied = placements(explicit, ellipse, nothing)
-    @test copied == explicit
-    @test copied !== explicit
+    @test getproperty.(copied, :pose) == explicit
+    @test all(placement -> placement.primitive === nothing, copied)
     @test_throws ArgumentError placements(Pose2[], ellipse, nothing)
 
     wire = Disk(0.2e-3)
     for span in (pi, 2pi), gap in (0.0, 0.15)
         available = Ring(capacity(); r=2e-3, span, gap_frac=gap)
         count = capacity(available, wire, nothing)
-        packed = placements(Ring(count; r=2e-3, span, gap_frac=gap), wire, nothing)
+        packed = getproperty.(placements(Ring(count; r=2e-3, span, gap_frac=gap), wire, nothing), :pose)
         @test length(packed) == count
         @test all(hypot(a.x - b.x, a.y - b.y) >= 2wire.r * (1 + gap) - 1e-12
             for (index, a) in enumerate(packed) for b in packed[(index + 1):end])
@@ -65,7 +65,7 @@ end
 @testitem "DataModel / contextual capacity respects resolved member extents" tags=[:unit, :parametric] begin
     sector = Sector(span=2pi / 3, r_base=0.6e-3, r_back=5e-3, fillet=0.2e-3)
     @test capacity(Ring(capacity(); r=0), sector, nothing) == 3
-    origins = placements(Ring(3; r=0), sector, nothing)
+    origins = getproperty.(placements(Ring(3; r=0), sector, nothing), :pose)
     @test length(origins) == 3
     @test all(pose -> iszero(pose.x) && iszero(pose.y), origins)
     @test getproperty.(origins, :φ) ≈ [0.0, 2pi / 3, 4pi / 3]
@@ -83,7 +83,7 @@ end
         minimum_angle = 2asin(width * (1 + gap) / (2radius))
         expected = floor(Int, span / minimum_angle) + (span == 2pi ? 0 : 1)
         @test count == expected
-        placed = placements(Ring(count; r=radius, span, gap_frac=gap), item, nothing)
+        placed = getproperty.(placements(Ring(count; r=radius, span, gap_frac=gap), item, nothing), :pose)
         @test length(placed) == count
         @test all(hypot(a.x - b.x, a.y - b.y) >= width * (1 + gap) - 1e-12
             for (index, a) in enumerate(placed) for b in placed[(index + 1):end])
@@ -120,9 +120,9 @@ end
     wire = Disk(0.1e-3)
     for origin in (0.0, 0.5e-3), span in (pi, 2pi)
         pattern = Polar(; nr=3, nφ=6, r0=origin, dr=1e-3, φ0=0.27, span)
-        poses = placements(pattern, wire, nothing)
+        poses = getproperty.(placements(pattern, wire, nothing), :pose)
         @test length(poses) == (iszero(origin) ? 13 : 18)
-        @test poses == placements(pattern, wire, nothing)
+        @test poses == getproperty.(placements(pattern, wire, nothing), :pose)
         for shell in 0:2
             radius = origin + shell * 1e-3
             row = filter(pose -> isapprox(hypot(pose.x, pose.y), radius; atol=1e-12), poses)

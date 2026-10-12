@@ -15,12 +15,14 @@ $(TYPEDFIELDS)
 struct FillFactor{T <: Real}
     "Material-area fraction \\[dimensionless\\]."
     η::T
-    function FillFactor{T}(η::T) where {T <: Real}
-        isfinite(η) && zero(η) < η <= one(η) || throw(DomainError(
-            η, "fill factor must lie in (0, 1]"
-        ))
-        return new{T}(η)
-    end
+    FillFactor{T}(η::T) where {T <: Real} = validate(new{T}(η))
+end
+
+function validate(factor::FillFactor)
+    isfinite(factor.η) && zero(factor.η) < factor.η <= one(factor.η) || throw(DomainError(
+        factor.η, "fill factor must lie in (0, 1]"
+    ))
+    return factor
 end
 
 FillFactor(η::Real) = FillFactor{typeof(float(η))}(float(η))
@@ -48,45 +50,26 @@ factors.
 function FillFactor(η::Union{Real, AbstractGrid, Gridspace}; combine::Symbol = :product)
     return parameterize(FillFactor, FillFactor, (η,); combine)
 end
+FillFactor(factor::FillFactor; combine::Symbol = :product) = factor
 function FillFactor(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
-    _normalize_schedule(FillFactor, values; combine)
+    return map(value -> FillFactor(value; combine), Tuple(values))
 end
 function FillFactor(first, second, remaining...; combine::Symbol = :product)
-    _normalize_schedule(FillFactor, (first, second, remaining...); combine)
+    return FillFactor((first, second, remaining...); combine)
 end
 
-function placements(
-        pattern::Ring,
-        item::Rectangle,
-        factor::FillFactor
-)
-    pattern.n isa Int || throw(ArgumentError(
-        "capacity() requires contextual placement"
-    ))
-    pattern.r === nothing && throw(ArgumentError(
-        "FillFactor requires contextual placement or a resolved inner radius"
-    ))
+# Compacted strips fill the declared area fraction of the course envelope.
+function placements(pattern::Ring{Int, <:Real, <:Real}, item::Rectangle, factor::FillFactor)
     inner = max(zero(pattern.r), pattern.r - item.h / 2)
     outer = sqrt(
         inner^2 + 2pattern.n * area(item) / (pattern.span * factor.η)
     )
     angular_width = factor.η * pattern.span / pattern.n
-    definition = BentStrip(inner, outer, angular_width)
-    step = pattern.n == 1 ? zero(pattern.span) : pattern.span / pattern.n
-    return _ResolvedPlacement[
-        _ResolvedPlacement(
-            Pose2(0, 0, pattern.φ0 + index * step),
-            definition
-        ) for index in 0:(pattern.n - 1)
-    ]
+    return _strip_placements(pattern, inner, outer, angular_width)
 end
 
-function _fillfactor_capacity(
-        pattern::Ring,
-        member_area::Real,
-        radial_half_extent::Real,
-        factor::FillFactor
-)
+function capacity(pattern::Ring, item::Rectangle, factor::FillFactor)
+    radial_half_extent = item.h / 2
     radius = something(pattern.r, radial_half_extent)
     radius > zero(radius) || return 0
     factor.η <= inv(one(pattern.gap_frac) + pattern.gap_frac) || throw(DomainError(
@@ -96,10 +79,6 @@ function _fillfactor_capacity(
     inner = max(zero(radius), radius - radial_half_extent)
     outer = radius + radial_half_extent
     envelope_area = pattern.span * (outer^2 - inner^2) / 2
-    count = factor.η * envelope_area / member_area
+    count = factor.η * envelope_area / (item.w * item.h)
     return max(0, floor(Int, count + 8eps(float(count))))
-end
-
-function capacity(pattern::Ring, item::Rectangle, factor::FillFactor)
-    _fillfactor_capacity(pattern, item.w * item.h, item.h / 2, factor)
 end
