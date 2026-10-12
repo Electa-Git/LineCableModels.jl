@@ -33,6 +33,7 @@
         @test_throws DomainError placements(
             Ring(count + 1; r=2e-3, span, gap_frac=gap), wire, nothing)
     end
+    @test_throws ArgumentError capacity(Ring(capacity()), wire, nothing)
 
     strip = Rectangle(0.3e-3, 0.1e-3)
     inner = 1e-3
@@ -60,6 +61,7 @@
     @test_throws DomainError capacity(
         Ring(capacity(); r=radius, gap_frac=0.1), strip, FillFactor(1))
     @test capacity(Ring(capacity(); r=0), strip, FillFactor(0.8)) == 0
+    @test_throws ArgumentError capacity(Ring(capacity()), strip, FillFactor(0.8))
 end
 
 @testitem "DataModel / contextual capacity respects resolved member extents" tags=[:unit, :parametric] begin

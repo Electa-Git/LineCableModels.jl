@@ -465,24 +465,25 @@ function _ring_capacity(pattern::Ring, ratio::Real)
     return max(0, floor(Int, count + 8eps(float(count))) + 1)
 end
 
-function capacity(pattern::Ring, item::Disk, ::Nothing)
-    radius = something(
-        pattern.r,
-        item.r * (one(item.r) + pattern.gap_frac)
-    )
-    ratio = item.r * (one(pattern.gap_frac) + pattern.gap_frac) / radius
+# A ring counts its members once its radius is resolved.
+function capacity(pattern::Ring{<:Any, <:Real, Nothing}, item, compact)
+    throw(ArgumentError("a ring with a contextual radius has a capacity only inside a " *
+                        "physical tree, which resolves its radius"))
+end
+
+function capacity(pattern::Ring{<:Any, <:Real, <:Real}, item::Disk, ::Nothing)
+    ratio = item.r * (one(pattern.gap_frac) + pattern.gap_frac) / pattern.r
     return _ring_capacity(pattern, ratio)
 end
 
-function capacity(pattern::Ring, item::Rectangle, ::Nothing)
-    radius = something(pattern.r, item.h / 2)
-    radius > zero(radius) || return 0
-    ratio = item.w * (one(pattern.gap_frac) + pattern.gap_frac) / (2radius)
+function capacity(pattern::Ring{<:Any, <:Real, <:Real}, item::Rectangle, ::Nothing)
+    pattern.r > zero(pattern.r) || return 0
+    ratio = item.w * (one(pattern.gap_frac) + pattern.gap_frac) / (2pattern.r)
     return _ring_capacity(pattern, ratio)
 end
 
-function capacity(pattern::Ring, item::Sector, ::Nothing)
-    if pattern.r !== nothing && !iszero(pattern.r)
+function capacity(pattern::Ring{<:Any, <:Real, <:Real}, item::Sector, ::Nothing)
+    if !iszero(pattern.r)
         width = _tangential_width(item)
         ratio = width * (one(pattern.gap_frac) + pattern.gap_frac) /
                 (2pattern.r)
@@ -492,13 +493,9 @@ function capacity(pattern::Ring, item::Sector, ::Nothing)
     return max(0, floor(Int, pattern.span / occupied + 8eps(float(pattern.span))))
 end
 
-function capacity(pattern::Ring, item::CableGeometry, ::Nothing)
+function capacity(pattern::Ring{<:Any, <:Real, <:Real}, item::CableGeometry, ::Nothing)
     member_radius = support(boundary(item))
-    radius = something(
-        pattern.r,
-        member_radius * (one(member_radius) + pattern.gap_frac)
-    )
-    ratio = member_radius * (one(pattern.gap_frac) + pattern.gap_frac) / radius
+    ratio = member_radius * (one(pattern.gap_frac) + pattern.gap_frac) / pattern.r
     return _ring_capacity(pattern, ratio)
 end
 

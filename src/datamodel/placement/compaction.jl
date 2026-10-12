@@ -68,16 +68,15 @@ function placements(pattern::Ring{Int, <:Real, <:Real}, item::Rectangle, factor:
     return _strip_placements(pattern, inner, outer, angular_width)
 end
 
-function capacity(pattern::Ring, item::Rectangle, factor::FillFactor)
+function capacity(pattern::Ring{<:Any, <:Real, <:Real}, item::Rectangle, factor::FillFactor)
     radial_half_extent = item.h / 2
-    radius = something(pattern.r, radial_half_extent)
-    radius > zero(radius) || return 0
+    pattern.r > zero(pattern.r) || return 0
     factor.η <= inv(one(pattern.gap_frac) + pattern.gap_frac) || throw(DomainError(
         (factor.η, pattern.gap_frac),
         "fill factor cannot provide the requested member gap"
     ))
-    inner = max(zero(radius), radius - radial_half_extent)
-    outer = radius + radial_half_extent
+    inner = max(zero(pattern.r), pattern.r - radial_half_extent)
+    outer = pattern.r + radial_half_extent
     envelope_area = pattern.span * (outer^2 - inner^2) / 2
     count = factor.η * envelope_area / (item.w * item.h)
     return max(0, floor(Int, count + 8eps(float(count))))

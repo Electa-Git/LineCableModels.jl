@@ -7,12 +7,6 @@ function _display_pose(pose::Pose2)
     return sprint(show, pose; context = :compact => true)
 end
 
-function _bounded_collection(value)
-    value isa AbstractArray && return "$(length(value)) values"
-    value isa Tuple && return "$(length(value)) values"
-    return sprint(show, value; context = :compact => true)
-end
-
 TextDisplay.@showfields OverlapError "OverlapError" error -> (
     cables = error.cables,
     gap = TextDisplay.engineering(error.gap, :meter),

@@ -352,8 +352,10 @@ function _radial_half_extent(definition::AbstractPrimitive)
 end
 
 _contextual_pattern(pattern, item, child, compact, context) = pattern
+
+# A contextual radius lays the member centers one radial half extent outside the context.
 function _contextual_pattern(
-        pattern::Ring,
+        pattern::Ring{<:Any, <:Real, Nothing},
         item,
         child,
         compact,
@@ -363,25 +365,34 @@ function _contextual_pattern(
     inner = context isa EmptyBoundary ? zero(support(boundary(child))) : support(context)
     radial = definition === nothing ? support(boundary(child)) :
              _radial_half_extent(definition)
-    radius = something(pattern.r, inner + radial)
-    count = if pattern.n isa Int
-        pattern.n
-    elseif definition === nothing
-        capacity(Ring, radius, support(boundary(child)); gap_frac = pattern.gap_frac)
-    else
-        capacity(
-            Ring(pattern.n; r = radius, φ0 = pattern.φ0,
-                span = pattern.span, gap_frac = pattern.gap_frac),
-            definition,
-            compact
-        )
-    end
+    ring = Ring(
+        pattern.n;
+        r = inner + radial,
+        φ0 = pattern.φ0,
+        span = pattern.span,
+        gap_frac = pattern.gap_frac
+    )
+    return _contextual_pattern(ring, item, child, compact, context)
+end
+
+# `capacity()` places as many members as fit on the resolved radius.
+function _contextual_pattern(
+        pattern::Ring{_DeferredCardinality, <:Real, <:Real},
+        item,
+        child,
+        compact,
+        context
+)
+    definition = _member_definition(item)
+    count = definition === nothing ?
+            capacity(Ring, pattern.r, support(boundary(child)); gap_frac = pattern.gap_frac) :
+            capacity(pattern, definition, compact)
     count > 0 || throw(ArgumentError(
         "the group geometry cannot admit one member"
     ))
     return Ring(
         count;
-        r = radius,
+        r = pattern.r,
         φ0 = pattern.φ0,
         span = pattern.span,
         gap_frac = pattern.gap_frac
