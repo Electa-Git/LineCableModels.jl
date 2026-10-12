@@ -73,7 +73,7 @@
     @test occursin("LineCableSystem.connection_order[1]", sprint(showerror,
         system_error))
 
-    # A problem constructor validates; materialization builds through it.
+    # A problem constructor validates. Materialization builds through it.
     struct CheckedProblem<:AbstractProblemDefinition
         value::Int
         CheckedProblem(value::Int) = LineCableModels.validate(new(value))

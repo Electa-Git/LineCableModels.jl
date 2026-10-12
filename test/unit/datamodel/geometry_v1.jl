@@ -155,7 +155,7 @@ end
 @testitem "DataModel / lifting / an invalid scalar input throws MethodError" tags=[:unit, :datamodel] begin
     material = Material(:conductor, 1.7241e-8)
     # A lift accepts the owner's scalar type or a finite source at each position, so
-    # an input of any other type reaches no method.
+    # an input of any other type matches no method.
     @test_throws MethodError Disk("a")
     @test_throws MethodError Disk(1 + 2im)
     @test_throws MethodError Shell(:x)

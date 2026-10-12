@@ -403,8 +403,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Place completed cable designs in one system. Without keywords the system has no
-connections, no environment, the identifier `"line-cable-system"` and a length of 1 m.
+Place completed cable designs in one system. Without keywords, the system takes the
+identifier `"line-cable-system"` and a length of 1 m, and it has no connections or
+environment.
 Returns a `LineCableSystem`, or a `Gridspace{LineCableSystem}` when an input is a `Grid` or
 `Gridspace`.
 """

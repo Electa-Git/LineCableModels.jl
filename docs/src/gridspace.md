@@ -213,8 +213,8 @@ function immediately unpacks.
 
 `@gridspace` applies the same rule to a keyword-constructed struct. The macro
 retains the strict positional constructor, and its keyword constructor calls
-`parameterize`: scalar keyword input returns the struct immediately, and a field that
-holds an explicit finite source creates a Gridspace.
+`parameterize`. Scalar keyword input returns the struct immediately. A field that is an
+explicit finite source makes the call return a Gridspace.
 
 ## Materialization and realization
 

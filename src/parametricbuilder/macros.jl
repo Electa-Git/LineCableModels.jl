@@ -86,7 +86,7 @@ end
 $(SIGNATURES)
 
 Retain the strict positional struct and add a keyword constructor that calls
-`parameterize`: a field that holds an explicit Grid or Gridspace lifts the call into a
+`parameterize`. A field that is an explicit Grid or Gridspace makes the call return a
 `Gridspace`. With `Target`, the generated space materializes that target instead of the
 declared struct itself.
 """

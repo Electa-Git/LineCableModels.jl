@@ -133,8 +133,8 @@ contained = @pipe shape=Disk(20e-3) fill=air begin
 end
 ```
 
-A duct bank is a concrete duct whose members are air-filled ducts, each holding one
-cable and placed with `@at`:
+A duct bank is a concrete duct whose members are air-filled ducts. Each air-filled duct
+contains one cable and is placed with `@at`:
 
 ```@example duct_bank
 using LineCableModels
