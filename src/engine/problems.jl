@@ -44,8 +44,9 @@ Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 line_length(problem::LineParametersProblem) = line_length(problem.system)
 
 function validate(problem::LineParametersProblem)
+    # The system checked its pair gaps when it was built. The earth adds the interface.
     DataModel.clearance_geometry(problem.system.designs, problem.system.positions;
-        required = problem.system.clearances, interface = true, adjust = false)
+        pairs = false, interface = true, adjust = false)
     phases = unique(problem.system.connection_order)
     active = filter(>(0), phases)
     isempty(active) && throw(ArgumentError(

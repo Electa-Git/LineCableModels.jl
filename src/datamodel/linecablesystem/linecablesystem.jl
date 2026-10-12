@@ -3,12 +3,11 @@ $(TYPEDEF)
 
 Store completed cable placements and their global terminal state.
 
-`designs`, `input_positions`, `connections`, and `environment` are declarations.
-`positions` contains the resolved poses after automatic exterior-clearance
-adjustment. Touching cables are separated by at least 1 μm plus the propagated
-uncertainty reserve. Nominal designs overlapping beyond the roundoff allowance are rejected.
-Global geometry, terminal order, terminal indices, and the flattened
-connection order are derived by the constructor.
+`designs`, `connections`, and `environment` are declarations. `positions` holds the
+declared poses, with every exterior gap below 1 μm raised to 1 μm: touching cables are
+1 μm apart. Overlapping exteriors throw [`OverlapError`](@ref). Global geometry, terminal
+order, terminal indices, and the flattened connection order are derived by the
+constructor.
 
 $(TYPEDFIELDS)
 """
@@ -28,10 +27,6 @@ struct LineCableSystem{
     designs::D
     "Cable poses in the system frame."
     positions::P
-    "Cable poses before automatic clearance adjustment \\[m, m, rad\\]."
-    input_positions::P
-    "Retained pairwise clearance requirements. Diagonal entries concern the interface \\[m\\]."
-    clearances::Matrix{T}
     "Per-cable terminal connection declarations in terminal order."
     connections::C
     "Optional physical environment declaration."
@@ -57,9 +52,7 @@ struct LineCableSystem{
                 NamedTuple{(:cable, :terminal), Tuple{Int, Symbol}}
             },
             terminal_map::Vector{Int},
-            connection_order::Vector{Int},
-            input_positions::P,
-            clearances::Matrix{T}
+            connection_order::Vector{Int}
     ) where {
             T <: Real,
             D <: AbstractVector,
@@ -73,8 +66,6 @@ struct LineCableSystem{
             line_length,
             designs,
             positions,
-            input_positions,
-            clearances,
             connections,
             environment,
             geometry,
@@ -90,27 +81,17 @@ line_length(system::LineCableSystem) = system.line_length
 """
 $(TYPEDSIGNATURES)
 
-Return a system whose exterior circles satisfy their retained clearance from
-the air-earth interface. Reuse the input when no adjustment is necessary.
-This construction step is called when a line problem supplies the earth model.
+Return a system whose cable exteriors lie at least 1 μm from the air-earth interface. An
+interface gap from zero up to 1 μm is raised to 1 μm, and a cable that crosses the
+interface throws [`OverlapError`](@ref). Reuse the input when nothing moves. A line
+problem calls it when it supplies the earth model.
 """
 function interface_clearance(system::LineCableSystem)
-    reference = system.input_positions
-    context = _CLEARANCE_CONTEXT[]
-    sampling = context !== nothing && context.sampling[]
-    reference_centers = sampling ? get(context.references, system.clearances, nothing) :
-                        nothing
-    positions, _, displacement = clearance_geometry(system.designs, system.positions;
-        required = system.clearances, reference, reference_centers, interface = true, sampling)
+    positions, displacement = clearance_geometry(system.designs, system.positions;
+        pairs = false, interface = true)
     iszero(displacement) && return system
-    result = build(LineCableSystem, system.designs, positions, system.connections,
-        system.environment, system.system_id, system.line_length;
-        _clearances = system.clearances, _input_positions = system.input_positions,
-        _interface = true, _rebuild = true)
-    sampling && reference_centers !== nothing &&
-        (context.references[result.clearances] = reference_centers)
-    _record_clearance_adjustment(system.system_id, displacement)
-    return result
+    return build(LineCableSystem, system.designs, positions, system.connections,
+        system.environment, system.system_id, system.line_length)
 end
 
 Base.eltype(::LineCableSystem{T}) where {T} = T
@@ -118,17 +99,11 @@ Base.eltype(::Type{<:LineCableSystem{T}}) where {T} = T
 
 Base.convert(::Type{LineCableSystem{T}}, system::LineCableSystem{T}) where {T <: Real} = system
 
-# A wider scalar type rebuilds the system through its own `build`, with its retained
-# clearances and declared positions.
+# A wider scalar type rebuilds the system through its own `build`, from its built
+# positions.
 function Base.convert(::Type{LineCableSystem{T}}, system::LineCableSystem) where {T <: Real}
     return build(LineCableSystem, system.designs, system.positions, system.connections,
-        system.environment, system.system_id, convert(T, system.line_length);
-        _clearances = system.clearances, _input_positions = system.input_positions,
-        _rebuild = true)::LineCableSystem{T}
-end
-
-function realize(rng::Random.AbstractRNG, point::Gridpoint{LineCableSystem}, distribution)
-    return realize_clearance(rng, point, distribution)
+        system.environment, system.system_id, convert(T, system.line_length))::LineCableSystem{T}
 end
 
 ncables(system::LineCableSystem) = length(system.designs)
@@ -150,8 +125,6 @@ function validate(system::LineCableSystem)
         "LineCableSystem.positions must contain one Pose2 per design; received " *
         "$(length(system.positions)) positions for $(length(system.designs)) designs"
     ))
-    length(system.input_positions) == length(system.designs) || throw(DimensionMismatch(
-        "LineCableSystem.input_positions must contain one pose per cable"))
     length(system.connections) == length(system.designs) || throw(DimensionMismatch(
         "LineCableSystem.connections must contain one declaration per design; " *
         "received $(length(system.connections)) for $(length(system.designs)) designs"
@@ -237,8 +210,7 @@ function validate(system::LineCableSystem)
     end
 
     clearance_geometry(system.designs, system.positions;
-        required = system.clearances, interface = system.environment !== nothing,
-        adjust = false)
+        interface = system.environment !== nothing, adjust = false)
     return system
 end
 
@@ -250,11 +222,7 @@ function build(
         environment,
         system_id::AbstractString,
         line_length::Real;
-        combine::Symbol = :product,
-        _clearances = nothing,
-        _input_positions = nothing,
-        _interface::Bool = environment !== nothing,
-        _rebuild::Bool = false
+        combine::Symbol = :product
 )
     combine in (:product, :zip) || throw(ArgumentError(
         "combine must be :product or :zip"
@@ -321,33 +289,8 @@ function build(
         (eltype(position) for position in position_values)...
     )
     poses = Pose2{T}[convert(Pose2{T}, position) for position in position_values]
-    original_poses = _input_positions === nothing ? copy(poses) :
-                     Pose2{T}[convert(Pose2{T}, position) for position in _input_positions]
-    context = _CLEARANCE_CONTEXT[]
-    sampling = context !== nothing && context.sampling[]
-    reference = _rebuild ? poses : original_poses
-    reference_centers = nothing
-    if context !== nothing && !_rebuild && sampling
-        context.cursor[] += 1
-        context.cursor[] <= length(context.records) || throw(ArgumentError(
-            "sampled construction produced more cable systems than its declaration"))
-        record = context.records[context.cursor[]]
-        record.system_id == identifier &&
-        record.cables == getproperty.(declared_designs, :cable_id) ||
-            throw(ArgumentError("sampled cable-system layout differs from its declaration"))
-        _clearances = record.clearances
-        reference = record.positions
-        reference_centers = record.centers
-    end
-    poses, clearances, displacement = clearance_geometry(declared_designs, poses;
-        required = _clearances, reference, reference_centers, interface = _interface, sampling)
-    if context !== nothing && !_rebuild && !sampling
-        push!(context.records,
-            (system_id = identifier,
-                cables = getproperty.(declared_designs, :cable_id),
-                clearances = nominal.(clearances), positions = original_poses,
-                centers = getproperty.(_clearance_exterior.(declared_designs, original_poses), :center)))
-    end
+    positions, _ = clearance_geometry(declared_designs, poses;
+        interface = environment !== nothing)
 
     # 2. Establish global primitive and terminal order while retaining cable
     # and local terminal order verbatim.
@@ -422,7 +365,7 @@ function build(
     # problem that consumes the system.
     global_geometry = PlacedRegion[]
     terminal_map = Int[]
-    for (cable_index, (design, pose)) in enumerate(zip(declared_designs, poses))
+    for (cable_index, (design, pose)) in enumerate(zip(declared_designs, positions))
         for (source, local_terminal) in zip(
             design.geometry.regions,
             design.terminal_map
@@ -436,10 +379,10 @@ function build(
         end
     end
     # 5. Freeze declarations and their completed ordering together.
-    system = LineCableSystem{
+    return LineCableSystem{
         T,
         typeof(declared_designs),
-        typeof(poses),
+        typeof(positions),
         typeof(normalized_connections),
         typeof(environment),
         typeof(global_geometry)
@@ -447,21 +390,14 @@ function build(
         identifier,
         convert(T, float(line_length)),
         declared_designs,
-        poses,
+        positions,
         normalized_connections,
         environment,
         global_geometry,
         terminal_order,
         terminal_map,
-        connection_order,
-        original_poses,
-        clearances
+        connection_order
     )
-    if sampling && !_rebuild
-        context.references[system.clearances] = reference_centers
-    end
-    _record_clearance_adjustment(identifier, displacement)
-    return system
 end
 
 """
@@ -532,5 +468,4 @@ function validate(record, ::Type{LineCableSystem})
 end
 
 Commons.input_fields(::Type{<:LineCableSystem}) = (line_length=(name="line length",unit="m"),
-    positions=(name="position",unit="m"),input_positions=(name="input position",unit="m"),
-    clearances=(name="clearance",unit="m"))
+    positions=(name="position",unit="m"))

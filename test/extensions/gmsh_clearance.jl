@@ -10,14 +10,20 @@
     for radius in (0.01, measurement(0.01, 1e-4))
         design = build(CableDesign, "touching-mesh",
             Group(:core, Region(:metal, Disk(radius), copper)))
-        system = @test_logs (:warn, r"Cable placements adjusted") build(LineCableSystem,
+        system = @test_logs build(LineCableSystem,
             trefoil(design; center = at(0, -0.1), spacing = 2radius,
                 connections = (core = (1, 2, 3),)))
+        # Touching cables lie 1 μm apart, whatever the radius uncertainty.
+        positions = system.positions
+        gaps = [hypot(nominal(positions[i].x - positions[j].x),
+                    nominal(positions[i].y - positions[j].y)) - 2nominal(radius)
+                for i in 1:3 for j in 1:(i - 1)]
+        @test all(gap -> isapprox(gap, 1e-6; atol = 1e-14), gaps)
         problem = LineParametersProblem(system;
             earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
         normalized = ext._preflight_fem_problem(problem)
-        @test normalized.system.clearances ≈ nominal.(system.clearances)
         @test getproperty.(normalized.system.positions, :x) ≈ nominal.(getproperty.(system.positions, :x))
+        @test getproperty.(normalized.system.positions, :y) ≈ nominal.(getproperty.(system.positions, :y))
         model = ext._resolved_fem_model(normalized, formulation)
         session = ext._start_gmsh(0)
         try

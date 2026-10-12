@@ -18,13 +18,13 @@ validated = validate(value)
 
 Constructors normalize admitted scalar grammar and fill defaults before
 validating the resulting object. A selected `Gridpoint` is checked when it
-materializes, and computation entry points check their complete problem again.
+materializes. A computation does not check its problem again.
 
 ## Validation failures
 
 Construction and mutation check complete values before returning or changing
-them. Rechecking at computation entry points detects changes to mutable vectors or
-dictionaries retained by an otherwise immutable object.
+them. Calling `validate` on a value checks it again, which detects changes to mutable
+vectors or dictionaries retained by an otherwise immutable object.
 
 The failure type communicates the category:
 
@@ -75,10 +75,13 @@ inputs cannot be certified from marginal means and standard uncertainties.
 `MonteCarlo(...; options=(on_error=:resample, retain_details=true))` conditions
 the output distribution on successful construction and calculation.
 
-The existing exterior cable-clearance rule is separate. System construction
-may adjust practically touching cable placements with a warning, retaining its
-propagated uncertainty reserve across Monte Carlo draws. Internal geometric and statistical repairs remain prohibited. Gmsh's tolerances are not
-used as manufacturing clearances.
+Exterior cable clearance follows its own rule. A system build raises a gap from zero up
+to 1 μm, between two cables or from a cable to the air-earth interface, to 1 μm. A larger
+overlap throws [`OverlapError`](@ref). The system checks its pair gaps, and a line
+problem checks the interface gaps. Gaps use nominal values, so uncertainty never moves
+the nominal geometry. `MonteCarlo` discards a draw that throws `OverlapError` and draws
+again. Internal geometric and statistical repairs remain prohibited. Gmsh's tolerances are
+not used as manufacturing clearances.
 
 ## Observable resolution and comparison
 

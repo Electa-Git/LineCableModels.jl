@@ -294,7 +294,7 @@ end
         connections = (phase = 1,),
         environment = nothing
     )
-    @test_throws DomainError LineParametersProblem(
+    @test_throws OverlapError LineParametersProblem(
         neutral;
         earth_props = EarthModel(100.0),
         frequencies = [50.0]

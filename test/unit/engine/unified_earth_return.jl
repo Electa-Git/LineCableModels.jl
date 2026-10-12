@@ -79,9 +79,9 @@ end
     metal=Material(:conductor, 1.7e-8)
     design=build(CableDesign, "clearance", terminal(:core, core(metal; r = 0.02)))
     crossing=build(LineCableSystem, [design], [Pose2(0.0, -0.01)]; connections = [Dict(:core=>1)])
-    @test_throws DomainError LineParametersProblem(
+    @test_throws OverlapError LineParametersProblem(
         crossing; earth_props = homogeneous(rho = 100.0), frequencies = [50.0])
-    @test_throws DomainError build(LineCableSystem, [design, design],
+    @test_throws OverlapError build(LineCableSystem, [design, design],
         [Pose2(0.0, -1.0), Pose2(0.01, -1.0)]; connections = [
             Dict(:core=>1), Dict(:core=>2)])
     geometry=(horizontal = [0.0, 1.0, 2.0], height = [1.2, -0.9, -1.4],

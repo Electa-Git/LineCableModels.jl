@@ -103,8 +103,7 @@ function confidence(value::MonteCarloResult, point::Integer)
     bound = sqrt(log(2count / (1-confidence(value))) / (2trials))
     retained=details(value).data
     diagnostics = isempty(retained) ? nothing :
-        (failures=retained.failures[point],failure_summary=retained.failure_summary[point],
-            clearance=haskey(retained,:clearance) ? retained.clearance[point] : nothing)
+        (failures=retained.failures[point],failure_summary=retained.failure_summary[point])
     mean_standard_error=map(value.stats[point]) do summaries
         map(summary -> summary.n>1 ? summary.std/sqrt(summary.n) : missing,summaries)
     end

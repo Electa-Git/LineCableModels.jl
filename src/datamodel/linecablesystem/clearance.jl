@@ -1,29 +1,35 @@
-"Minimum engineering separation of cable exteriors \\[m\\]."
+"Minimum surface gap between cable exteriors, and from a cable exterior to the air-earth interface \\[m\\]."
 const _CABLE_CLEARANCE = 1.0e-6
 
-# A scoped value, not process-global mutable state: nested user builders can
-# participate without acquiring an extra public argument. Each sampling task
-# maintains its records and counters.
-const _CLEARANCE_CONTEXT = Base.ScopedValues.ScopedValue{Any}(nothing)
+"""
+$(TYPEDEF)
 
-function _clearance_exterior(design, pose)
-    shape = boundary(design.geometry)
-    if shape isa Disk
-        # Keep eccentric or uncertain local @at coordinates in the center, not
-        # inside a norm about the declaration origin (undefined derivative at 0).
-        reserve = uncertainty(outer_radius(design))
-        if !isfinite(reserve)
-            # At the origin, `norm(x,y)` has no derivative. Its RMS offset
-            # bounds the standard deviation. Retain that conservative reserve
-            # without manufacturing an independent Measurement.
-            reserve = uncertainty(shape.r) + hypot(uncertainty(shape.at.x), uncertainty(shape.at.y))
-        end
-        reserve = max(reserve, uncertainty(shape.r))
-        return (radius = shape.r, center = pose * shape.at, reserve = reserve)
-    end
-    radius = outer_radius(design)
-    return (radius = radius, center = pose, reserve = uncertainty(radius))
+Cable exteriors that overlap, or a cable exterior that crosses the air-earth interface. A
+line-system build throws it. `MonteCarlo` discards a draw that throws it and draws again.
+
+$(TYPEDFIELDS)
+"""
+struct OverlapError <: Exception
+    "Indices of the cables: two for a pair, one at the air-earth interface."
+    cables::Tuple{Vararg{Int}}
+    "Nominal surface gap \\[m\\]. A negative gap is an overlap."
+    gap::Float64
+    "Explanation of the failure."
+    message::String
 end
+
+function Base.showerror(io::IO, error::OverlapError)
+    print(io, "OverlapError: ", error.message, " (", length(error.cables) == 1 ? "cable " :
+        "cables ", join(error.cables, ", "), "; surface gap ", error.gap, " m)")
+end
+
+# The exterior circle of a placed cable. A circular boundary keeps its eccentric local @at
+# coordinates in the center, not inside a norm about the declaration origin. Other
+# geometric boundaries use their containing circle about the pose.
+function _clearance_exterior(shape::Disk, design, pose)
+    return (radius = shape.r, center = pose * shape.at)
+end
+_clearance_exterior(shape, design, pose) = (radius = outer_radius(design), center = pose)
 
 """
 Floating-point allowance for subtraction of placement coordinates \\[m\\].
@@ -39,28 +45,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Resolve exterior-circle clearance by expanding relative cable placements,
-without changing cable dimensions or rotations. Shared translations and
-formation symmetry are retained. If `interface` is true, each half-space
-group is translated away from the air-earth interface when necessary.
+Raise every exterior gap below 1 μm to 1 μm, without changing cable dimensions or
+rotations. A pair gap from zero, within the roundoff allowance, up to 1 μm is raised by
+expanding the relative placements about their centroid, which retains shared translations
+and formation symmetry. With `interface`, each half-space group is then translated away
+from the air-earth interface until its smallest interface gap is 1 μm. A gap below the
+negative roundoff allowance is an overlap and throws [`OverlapError`](@ref). Gaps use
+nominal values: uncertainty never moves the nominal geometry.
 
-The required pair gap is:
-
-```math
-c_{ij} = 10^{-6} + \\max\\left(u_{R,\\max}, u(d_{ij}-r_i-r_j)\\right)
-```
-
-where all lengths and standard uncertainties are in \\[m\\]. Diagonal entries
-retain the corresponding interface clearance. Supplied `required` values
-retain the original uncertainty budget after stochastic sampling.
-
-Circular boundaries use their composed centers and physical radii. Other
-geometric boundaries use their containing circles. A nominally zero uncertain circular
-offset uses its RMS displacement as a conservative radius-uncertainty reserve.
-
-Nominal overlaps are rejected. `sampling=true` permits construction of a
-feasible realization from an already checked declaration. With `adjust=false`,
-only validate the supplied geometry and clearance requirements.
+Circular boundaries use their composed centers and physical radii. Other geometric
+boundaries use their containing circles.
 
 # Arguments
 
@@ -69,276 +63,98 @@ only validate the supplied geometry and clearance requirements.
 
 # Keywords
 
-- `required=nothing`: retained pairwise and interface clearance matrix \\[m\\].
-- `reference=poses`: declared poses used to distinguish nominal overlaps from sampled ones.
-- `interface=false`: enforce clearance from the air-earth interface.
-- `sampling=false`: permit correction of overlaps produced by a sampled declaration.
-- `adjust=true`: resolve placements. `false` performs validation only.
-- `reference_centers=nothing`: composed exterior-center poses retained before sampling.
+- `pairs=true`: resolve the gaps between cables.
+- `interface=false`: resolve the gaps to the air-earth interface.
+- `adjust=true`: resolve placements. `false` only checks that every gap is at least 1 μm.
 
 # Returns
 
-- Resolved poses, retained clearance matrix \\[m\\], and maximum translation
-  magnitude \\[m\\]. Input arrays are not modified.
+- Resolved poses and the largest translation magnitude \\[m\\]. The input poses are
+  returned unchanged when nothing moves.
 """
 function clearance_geometry(designs, poses;
-        required = nothing, reference = poses, interface::Bool = false,
-        sampling::Bool = false, adjust::Bool = true, reference_centers = nothing)
-    exteriors = _clearance_exterior.(designs, poses)
-    radii = getproperty.(exteriors, :radius)
-    centers = getproperty.(exteriors, :center)
-    declared = reference_centers === nothing ?
-               getproperty.(_clearance_exterior.(designs, reference), :center) :
-               reference_centers
-    n = length(radii)
-    length(poses) == length(reference) == n || throw(DimensionMismatch(
+        pairs::Bool = true, interface::Bool = false, adjust::Bool = true)
+    length(poses) == length(designs) || throw(DimensionMismatch(
         "clearance requires one pose per cable"))
+    exteriors = [_clearance_exterior(boundary(design.geometry), design, pose)
+                 for (design, pose) in zip(designs, poses)]
+    radii = [exterior.radius for exterior in exteriors]
+    centers = [exterior.center for exterior in exteriors]
     T = eltype(eltype(poses))
     roundoff = _clearance_roundoff(radii, centers)
-    if required === nothing
-        minimum_gap = oftype(nominal(zero(T)), _CABLE_CLEARANCE)
-        minimum_gap < _CABLE_CLEARANCE && (minimum_gap = nextfloat(minimum_gap))
-        radius_uncertainty = maximum(exterior -> exterior.reserve, exteriors)
-        required = zeros(T, n, n)
-        for i in 1:n
-            required[i, i] = minimum_gap + max(radius_uncertainty,
-                uncertainty(abs(centers[i].y) - radii[i]))
-            for j in 1:(i - 1)
-                distance = hypot(centers[i].x - centers[j].x, centers[i].y - centers[j].y)
-                clearance = minimum_gap + max(radius_uncertainty,
-                    uncertainty(distance - radii[i] - radii[j]))
-                required[i, j] = required[j, i] = clearance
-            end
-        end
-    end
-    size(required) == (n, n) || throw(DimensionMismatch(
-        "clearance matrix must match the cable count"))
-    all(value -> isfinite(value) && nominal(value) >= oftype(nominal(value), _CABLE_CLEARANCE) &&
-                 iszero(uncertainty(value)), required) || throw(ArgumentError(
-        "retained clearances must be finite deterministic lengths of at least 1 μm"))
-    required == transpose(required) || throw(ArgumentError(
-        "retained cable clearances must be symmetric"))
-
-    coincident = sampling && any(((i, j),) ->
-            iszero(nominal(centers[i].x - centers[j].x)) &&
-            iszero(nominal(centers[i].y - centers[j].y)),
-        ((i, j) for i in 1:n for j in 1:(i - 1)))
-    laid = coincident ? _declared_layout(centers, declared) : copy(centers)
-    factor = _expansion_factor(laid, radii, required, roundoff, adjust, sampling, false, T)
-    expanded = nominal(factor) > 1 ? _expand(laid, factor, false) : laid
-    result = interface ?
-             _interface!(expanded, declared, radii, required, roundoff, adjust, sampling,
-        reference, T) : expanded
-    displacement = maximum(eachindex(result)) do i
-        hypot(nominal(result[i].x - centers[i].x), nominal(result[i].y - centers[i].y))
-    end
-    resolved = iszero(displacement) ? copy(poses) :
-        [Pose2(poses[i].x + (result[i].x - centers[i].x),
-               poses[i].y + (result[i].y - centers[i].y), poses[i].φ) for i in 1:n]
-    if adjust && displacement > 0
-        clearance_geometry(designs, resolved; required, reference,
-            reference_centers = declared, interface, sampling, adjust = false)
-    end
-    return resolved, Matrix{T}(required), displacement
-end
-
-# A coincident draw has no direction. Reuse the declared relative layout at the sampled
-# center, then apply the same clearance rule.
-function _declared_layout(centers, declared)
-    n = length(centers)
-    cx = sum(p -> p.x, centers) / n
-    cy = sum(p -> p.y, centers) / n
-    rx = sum(p -> nominal(p.x), declared) / n
-    ry = sum(p -> nominal(p.y), declared) / n
-    return [Pose2(cx + nominal(declared[i].x) - rx,
-                cy + nominal(declared[i].y) - ry, centers[i].φ) for i in 1:n]
-end
-
-# The expansion of the relative placements that restores every pair clearance. With
-# `adjust=false`, every pair is checked instead. Across the interface, the expansion
-# restores the distances that restoring the declared half-spaces shortened.
-function _expansion_factor(placements, radii, required, roundoff, adjust::Bool,
-        sampling::Bool, across_interface::Bool, ::Type{T}) where {T}
+    minimum_gap = oftype(nominal(zero(T)), _CABLE_CLEARANCE)
+    minimum_gap < _CABLE_CLEARANCE && (minimum_gap = nextfloat(minimum_gap))
+    # The expansion of the relative placements about their centroid that raises every pair
+    # gap to `minimum_gap`. With `adjust=false`, every pair is checked instead.
     factor = one(T)
-    for i in eachindex(placements), j in 1:(i - 1)
-        distance = hypot(placements[i].x - placements[j].x, placements[i].y - placements[j].y)
-        if across_interface
-            limit = radii[i] + radii[j] + required[i, j]
-            if nominal(distance) + roundoff < nominal(limit)
-                required_scale = (limit + 2roundoff) / distance
-                nominal(required_scale) > nominal(factor) && (factor = required_scale)
-            end
-            continue
-        end
+    for i in eachindex(centers), j in 1:(pairs ? i - 1 : 0)
+        distance = hypot(centers[i].x - centers[j].x, centers[i].y - centers[j].y)
         gap = distance - radii[i] - radii[j]
+        nominal(gap) < -roundoff && throw(OverlapError((j, i), nominal(gap),
+            "cable exteriors overlap"))
         if !adjust
-            nominal(gap) > 0 && nominal(gap) + roundoff >= nominal(required[i, j]) ||
-                throw(DomainError((i, j), "cable exterior clearance is below its retained minimum"))
-            continue
-        end
-        !sampling && nominal(gap) < -roundoff && throw(DomainError((i, j),
-            "cable cross-sections overlap; only touching or insufficient positive clearance can be adjusted"))
-        nominal(distance) > 0 || throw(DomainError((i, j),
-            "coincident cable centers do not define a separation direction"))
-        if nominal(gap) + roundoff < nominal(required[i, j])
-            required_scale = (radii[i] + radii[j] + required[i, j] + 2roundoff) / distance
+            nominal(gap) > 0 && nominal(gap) + roundoff >= minimum_gap ||
+                throw(OverlapError((j, i), nominal(gap), "cable exteriors lie closer than 1 μm"))
+        elseif nominal(gap) + roundoff < minimum_gap
+            required_scale = (radii[i] + radii[j] + minimum_gap + 2roundoff) / distance
             nominal(required_scale) > nominal(factor) && (factor = required_scale)
         end
     end
-    return factor
+    expanded = nominal(factor) > 1 ? _expand(centers, factor) : centers
+    below, above = interface ?
+                   _interface_shift(expanded, centers, radii, minimum_gap, roundoff, adjust, T) :
+                   (zero(T), zero(T))
+    shifted = nominal(below) > 0 || nominal(above) > 0
+    !shifted && expanded === centers && return poses, zero(nominal(zero(T)))
+    result = shifted ? [Pose2(expanded[i].x,
+                              expanded[i].y + (centers[i].y < 0 ? -below : above),
+                              expanded[i].φ) for i in eachindex(expanded)] : expanded
+    displacement = maximum(eachindex(result)) do i
+        hypot(nominal(result[i].x - centers[i].x), nominal(result[i].y - centers[i].y))
+    end
+    resolved = [Pose2(poses[i].x + (result[i].x - centers[i].x),
+                    poses[i].y + (result[i].y - centers[i].y), poses[i].φ)
+                for i in eachindex(poses)]
+    return resolved, displacement
 end
 
-# Expand the placements by `factor` about their centroid. Across the interface, the
-# vertical coordinates expand from y = 0, so that each cable keeps its half-space.
-function _expand(placements, factor, across_interface::Bool)
+# Expand the placements by `factor` about their centroid.
+function _expand(placements, factor)
     n = length(placements)
     xcenter = sum(pose -> pose.x, placements) / n
-    across_interface && return [Pose2(xcenter + factor * (pose.x - xcenter),
-        factor * pose.y, pose.φ) for pose in placements]
     ycenter = sum(pose -> pose.y, placements) / n
     return [Pose2(xcenter + factor * (pose.x - xcenter),
                 ycenter + factor * (pose.y - ycenter), pose.φ) for pose in placements]
 end
 
-# A common translation within each half-space leaves distances unchanged within that
-# group and increases separation from the other group. The translation applies to
-# `placements` in place.
-function _interface!(placements, declared, radii, required, roundoff, adjust::Bool,
-        sampling::Bool, reference, ::Type{T}) where {T}
-    for side in (-1, 1)
-        indices = findall(pose -> sign(nominal(pose.y)) == side, declared)
-        shift = zero(T)
-        for i in indices
-            original_gap = side * declared[i].y - radii[i]
-            gap = side * placements[i].y - radii[i]
-            adjust && !sampling && nominal(gap) + roundoff < nominal(required[i, i]) &&
-                nominal(original_gap) < -roundoff && throw(DomainError(i,
-                "cable cross-section crosses the air-earth interface"))
-            if !adjust
-                nominal(gap) > 0 && nominal(gap) + roundoff >= nominal(required[i, i]) ||
-                    throw(DomainError(i, "cable clearance from the air-earth interface is below its retained minimum"))
-            elseif nominal(gap) + roundoff < nominal(required[i, i])
-                required_shift = required[i, i] + 2roundoff - gap
-                nominal(required_shift) > nominal(shift) && (shift = required_shift)
+# The translations, away from the air-earth interface, of the cables below it and of those
+# above it, that raise each group's smallest interface gap to `minimum_gap`. A common
+# translation leaves distances unchanged within a group and increases the separation from
+# the other group. `declared` gives each cable's half-space: its center before any
+# expansion. With `adjust=false`, every gap is checked instead.
+function _interface_shift(placements, declared, radii, minimum_gap, roundoff, adjust::Bool,
+        ::Type{T}) where {T}
+    below = zero(T)
+    above = zero(T)
+    for i in eachindex(placements)
+        side = sign(nominal(declared[i].y))
+        iszero(side) && throw(OverlapError((i,), -nominal(radii[i]),
+            "a cable center lies on the air-earth interface"))
+        declared_gap = side * declared[i].y - radii[i]
+        nominal(declared_gap) < -roundoff && throw(OverlapError((i,), nominal(declared_gap),
+            "cable exterior crosses the air-earth interface"))
+        gap = side * placements[i].y - radii[i]
+        if !adjust
+            nominal(gap) > 0 && nominal(gap) + roundoff >= minimum_gap || throw(OverlapError(
+                (i,), nominal(gap), "cable exterior lies closer than 1 μm to the air-earth interface"))
+        elseif nominal(gap) + roundoff < minimum_gap
+            required_shift = minimum_gap + 2roundoff - gap
+            if side < 0
+                nominal(required_shift) > nominal(below) && (below = required_shift)
+            else
+                nominal(required_shift) > nominal(above) && (above = required_shift)
             end
         end
-        if nominal(shift) > 0
-            for i in indices
-                pose = placements[i]
-                placements[i] = Pose2(pose.x, pose.y + side * shift, pose.φ)
-            end
-        end
     end
-    any(pose -> iszero(nominal(pose.y)), declared) && throw(DomainError(
-        reference, "a declared cable center cannot lie on the air-earth interface"))
-    adjust || return placements
-    # Extreme draws can exchange half-spaces before projection. If restoring their
-    # declared sides shortened a cross-interface distance, expansion about y = 0
-    # preserves the restored sides.
-    factor = _expansion_factor(placements, radii, required, roundoff, adjust, sampling,
-        true, T)
-    return nominal(factor) > 1 ? _expand(placements, factor, true) : placements
-end
-
-function _record_clearance_adjustment(system_id, displacement)
-    displacement > 0 || return nothing
-    clearance = _CLEARANCE_CONTEXT[]
-    if clearance === nothing
-        @warn "Cable placements adjusted to preserve exterior clearance" system_id max_displacement_m=displacement
-    else
-        clearance.adjustments[] += 1
-        clearance.max_displacement[] = max(clearance.max_displacement[], displacement)
-    end
-    return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Materialize one unresolved line-system point to retain its uncertainty-bearing
-clearance requirements before sampling. Return task-scoped construction records
-and adjustment counters. Do not consume the sampling RNG.
-"""
-function collect_clearance_requirements(point)
-    clearance = (records = Any[], references = IdDict{Any, Any}(),
-        cursor = Ref(0), sampling = Ref(false),
-        adjustments = Ref(0), max_displacement = Ref(0.0), declaration=Ref{Any}(nothing))
-    clearance.declaration[] = Base.ScopedValues.with(_CLEARANCE_CONTEXT => clearance) do
-        if Base.get_extension(parentmodule(@__MODULE__), :LineCableModelsMeasurementsExt) === nothing
-            # Monte Carlo remains usable without Measurements. The geometric
-            # constraint still applies to every draw. Propagated uncertainty
-            # reserves are available when Measurements is loaded.
-            realize(point, realize_arguments(Random.Xoshiro(0), point,
-                (_rng, mean, _sigma) -> mean))
-        else
-            materialize(point)
-        end
-    end
-    clearance.sampling[] = true
-    clearance.adjustments[] = 0
-    clearance.max_displacement[] = 0.0
-    return clearance
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Execute `f` while reconstructing one realization with recorded clearance
-requirements. Return the result of `f` and restore the previous scope on exit.
-"""
-function with_clearance(f, clearance)
-    clearance === nothing && return f()
-    return Base.ScopedValues.with(_CLEARANCE_CONTEXT => clearance) do
-        clearance.cursor[] = 0
-        empty!(clearance.references)
-        value = f()
-        clearance.cursor[] == length(clearance.records) || throw(ArgumentError(
-            "sampled construction produced fewer cable systems than its declaration"))
-        return value
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the number of adjusted builds and maximum translation \\[m\\] recorded
-in the sampling record. A missing clearance returns zero counts and displacement.
-"""
-function clearance_summary(clearance)
-    clearance === nothing && return (adjustments = 0, max_displacement_m = 0.0)
-    return (adjustments = clearance.adjustments[],
-        max_displacement_m = clearance.max_displacement[])
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Emit one aggregate warning if any sampled placements required adjustment.
-Return `nothing`. No warning is emitted for an unchanged geometry.
-"""
-function warn_clearance_summary(clearance)
-    summary = clearance_summary(clearance)
-    summary.adjustments > 0 &&
-        @warn "Sampled cable placements adjusted to preserve exterior clearance" summary...
-    return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Sample and build one line-system point with its retained clearance requirements.
-Reuse enclosing clearance requirements or collect them for a standalone draw.
-Return the completed system or problem.
-"""
-function realize_clearance(rng, point, distribution)
-    _CLEARANCE_CONTEXT[] === nothing ||
-        return realize(point, realize_arguments(rng, point, distribution))
-    clearance = collect_clearance_requirements(point)
-    try
-        return with_clearance(clearance) do
-            realize(point, realize_arguments(rng, point, distribution))
-        end
-    finally
-        warn_clearance_summary(clearance)
-    end
+    return below, above
 end

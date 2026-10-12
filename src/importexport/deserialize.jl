@@ -433,9 +433,6 @@ _decode_node(::Val{:cable_design}, value) = _decode_design(value)
 function _decode_node(::Val{:line_cable_system}, value)
     designs = CableDesign[deserialize_value(item)
                           for item in _required(value, "designs", "line_cable_system")]
-    clearance_rows = _optional(value, "clearances")
-    clearances = clearance_rows === nothing ? nothing :
-                 reduce(vcat, permutedims.(clearance_rows))
     inputs = (
         designs,
         deserialize_value(_required(value, "positions", "line_cable_system")),
@@ -444,9 +441,7 @@ function _decode_node(::Val{:line_cable_system}, value)
         String(_required(value, "system_id", "line_cable_system")),
         _field(value, "line_length")
     )
-    input_positions = _optional(value, "input_positions")
-    caller = (selected...) -> build(LineCableSystem, selected...;
-        _input_positions = input_positions, _clearances = clearances)
+    caller = (selected...) -> build(LineCableSystem, selected...)
     return parameterize(LineCableSystem, caller, inputs)
 end
 

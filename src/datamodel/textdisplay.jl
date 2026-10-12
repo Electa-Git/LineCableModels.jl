@@ -13,6 +13,12 @@ function _bounded_collection(value)
     return sprint(show, value; context = :compact => true)
 end
 
+TextDisplay.@showfields OverlapError "OverlapError" error -> (
+    cables = error.cables,
+    gap = TextDisplay.engineering(error.gap, :meter),
+    message = error.message
+)
+
 TextDisplay.@showfields Pose2 "Pose" pose -> (
     x = TextDisplay.engineering(pose.x, :meter),
     y = TextDisplay.engineering(pose.y, :meter),

@@ -218,8 +218,7 @@ function validate(result::MonteCarloResult{T}) where {T}
     end
     if !isempty(details.data)
         fields = Tuple(key for key in keys(details.data) if key !== :timing)
-        fields in ((), (:trials, :failures, :failure_summary),
-            (:trials, :failures, :failure_summary, :clearance)) || throw(ArgumentError(
+        fields in ((), (:trials, :failures, :failure_summary)) || throw(ArgumentError(
             "MonteCarloResult details must contain timing, the full trial/failure bundle, or both",
         ))
         point_count = length(values)
@@ -311,15 +310,6 @@ function validate(result::MonteCarloResult{T}) where {T}
                         "Monte Carlo failure-summary acceptance rates are inconsistent",
                     ),
                 )
-                if haskey(details.data, :clearance)
-                    clearance = details.data.clearance[point]
-                    keys(clearance) == (:adjustments, :max_displacement_m) &&
-                        clearance.adjustments isa Int &&
-                        clearance.adjustments >= 0 &&
-                        isfinite(clearance.max_displacement_m) &&
-                        clearance.max_displacement_m >= 0 || throw(ArgumentError(
-                        "Monte Carlo clearance diagnostics must contain a nonnegative count and displacement"))
-                end
             end
         end
     end

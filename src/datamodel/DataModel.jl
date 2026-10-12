@@ -21,7 +21,7 @@ $(IMPORTS)
 module DataModel
 
 # Export public API
-export CableDesign, CableGeometry, PlacedRegion, LineCableSystem
+export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, OverlapError
 export build, homogenize
 export CablesLibrary, DatasheetInfo, datasheet
 export trefoil_formation, flat_formation, outer_radius
@@ -59,8 +59,6 @@ import ..LineCableModels: add!, build, homogenize, validate, nominal, uncertaint
 import ..LineCableModels: line_length
 import ..LineCableModels: parameterize
 using ..LineCableModels: AbstractGrid, Gridspace
-import ..LineCableModels: Gridpoint, materialize, realize, realize_arguments
-import Random
 using ..Materials: AbstractMaterial, Material
 import GeometryBasics
 using GeometryBasics: Point2f
@@ -113,7 +111,6 @@ public preview_shapes, preview_materials
 public PreviewShape, material_property_ranges
 
 # Construction interfaces shared with Engine and UQ. Not modelling options.
-public clearance_geometry, interface_clearance, collect_clearance_requirements, with_clearance
-public clearance_summary, warn_clearance_summary, realize_clearance
+public clearance_geometry, interface_clearance
 
 end # module DataModel

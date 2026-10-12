@@ -81,13 +81,13 @@ deviations, not histogram bins or standard errors of the mean. This payload is i
 not retained by the marginal surrogate. Access and transport reuse the stored
 uncertainty-source identities.
 
-Line-system construction enforces exterior clearance on every realization.
-When Measurements is loaded, the propagated clearance reserve is computed
-before sampling and retained for every draw. Adjusted placements
-describe a clearance-constrained system. Adjustments emit one summary per
-parameter point, not one warning per trial. Retained details include their
-count and maximum displacement \\[m\\]. Invalid dimensions and infeasible
-internal cable constructions remain errors subject to `on_error`.
+Line-system construction checks exterior clearance on every realization. A draw
+whose cables overlap throws
+[`OverlapError`](@ref LineCableModels.DataModel.OverlapError) at its build. The
+study discards that draw as if it was never drawn and draws again, whatever
+`on_error` says. It records nothing about the discarded draw. `max_failures`
+overlapping draws in a row stop the study. Invalid dimensions and infeasible internal
+cable constructions remain errors subject to `on_error`.
 
 Use one joint `Gridspace` builder for dependent internal dimensions. Derive
 stack geometric boundaries and wire placements from its shared inputs. Repeating a Grid

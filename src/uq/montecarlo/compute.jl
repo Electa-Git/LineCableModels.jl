@@ -256,10 +256,6 @@ function _resampling_limit_error(failures, accepted::Int, attempts::Int, maximum
     ))
 end
 
-function realize(rng::Random.AbstractRNG, point::Gridpoint{Engine.LineParametersProblem}, distribution)
-    return DataModel.realize_clearance(rng, point, distribution)
-end
-
 function _uncertain_arguments(point::Gridpoint)
     records=NamedTuple[]
     function collect!(value,path)
@@ -279,46 +275,34 @@ function _uncertain_arguments(point::Gridpoint)
     return records
 end
 
-function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options)
-    clearance = point isa Gridpoint{Engine.LineParametersProblem} ?
-                DataModel.collect_clearance_requirements(point) : nothing
-    physical_inputs=clearance===nothing ? nothing : Engine.completed_inputs(clearance.declaration[])
-    clearance===nothing || (clearance.declaration[]=nothing)
-    try
-        aggregate = _monte_carlo(point, formulation, options, seed, details_owner, child_options, clearance)
-        if physical_inputs===nothing
-            # Capture the nominal physical declaration once after successful
-            # sampling. A Monte Carlo builder need not accept first-order numbers.
-            declaration=realize(Random.Xoshiro(0),point,(_rng,mean,_sigma) -> mean)
-            physical_inputs=merge(Engine.completed_inputs(declaration),(interpretation=:nominal_declaration,))
-        end
-        physical_inputs=merge(physical_inputs,(uncertain_arguments=_uncertain_arguments(point),))
-        representation=Engine.retain_gridpoint(aggregate.representation,Commons.gridpoint_id();
-            fields=merge(aggregate.completion,(inputs=physical_inputs,
-                uncertainty=(estimator=:empirical,representation=:marginal_mean_std),
-                uncertainty_descriptions=_uncertainty_descriptions(MonteCarlo))))
-        return merge(aggregate,(;representation))
-    finally
-        DataModel.warn_clearance_summary(clearance)
-    end
-end
-
-# Draw the arguments, build the problem inside the clearance scope and compute it, once.
-# After a failure that the study resamples, add its record to `failures` and return
-# `nothing`. `stage` and `drawn` keep the stage and the drawn arguments for that record.
+# Draw the arguments, build the problem and compute it, once. A draw whose cables overlap
+# is discarded, as if it was never drawn, and drawn again. `max_failures` overlapping draws
+# in a row stop the study. After a failure that the study resamples, add its record to
+# `failures` and return `nothing`. `stage` and `drawn` keep the stage and the drawn
+# arguments for that record.
 function _attempt(rng, sampler, attempts::Int, accepted::Int)
-    (; point, formulation, clearance, child_options, failures, stage, drawn) = sampler
-    stage[] = :sample
-    drawn[] = nothing
+    (; point, formulation, child_options, failures, stage, drawn) = sampler
+    discarded = 0
     try
-        realization = DataModel.with_clearance(clearance) do
+        while true
+            stage[] = :sample
+            drawn[] = nothing
             arguments = realize_arguments(rng, point, formulation.options.data.distribution)
             drawn[] = arguments
             stage[] = :build
-            realize(point, arguments)
+            realization = try
+                realize(point, arguments)
+            catch exception
+                exception isa DataModel.OverlapError || rethrow()
+                discarded += 1
+                discarded < formulation.options.data.max_failures || throw(ErrorException(
+                    "Monte Carlo discarded $discarded overlapping draws in a row, the " *
+                    "max_failures limit; the last: " * sprint(showerror, exception)))
+                continue
+            end
+            stage[] = :compute
+            return compute(realization, formulation.inner; options=child_options)
         end
-        stage[] = :compute
-        return compute(realization, formulation.inner; options=child_options)
     catch exception
         backtrace = catch_backtrace()
         formulation.options.data.on_error === :resample && exception isa DomainError ||
@@ -342,7 +326,7 @@ function _attempt(rng, sampler, attempts::Int, accepted::Int)
     end
 end
 
-function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options, clearance)
+function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options)
     rng = Random.Xoshiro(seed)
     failures = NamedTuple[]
     timing = get(options.data, :timing, false)
@@ -350,7 +334,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     trial_timings = timing ? NamedTuple[] : nothing
     progress = point isa Gridpoint{<:Engine.LineParametersProblem} && verbosity(options, :progress) > 0
     started = progress ? time_ns() : UInt64(0)
-    sampler = (; point, formulation, clearance, child_options, failures,
+    sampler = (; point, formulation, child_options, failures,
         stage = Ref(:sample), drawn = Ref{Any}(nothing))
 
     # Pilot: draw until the first accepted realization.
@@ -389,8 +373,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                        (
         trials = retained,
         failures,
-        failure_summary,
-        clearance = DataModel.clearance_summary(clearance)
+        failure_summary
     )
     aggregation_started = progress ? time_ns() : UInt64(0)
     aggregate = _aggregate(sample_values, first_result, formulation)
@@ -403,8 +386,17 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     # The trials computed with `formulation.inner` and completed it. The completed record
     # includes the equivalent earth that each earth formula consumed.
     completion = details(first_result).data[(:formulations, :selections, :formulation_fields)]
-    return merge(aggregate,
-        (; trials = ntrials, seed, details = retained_details, timing=trial_timings, completion))
+    # Capture the nominal physical declaration once after successful sampling. A Monte
+    # Carlo builder need not accept first-order numbers.
+    declaration = realize(Random.Xoshiro(0), point, (_rng, mean, _sigma) -> mean)
+    physical_inputs = merge(Engine.completed_inputs(declaration),
+        (interpretation = :nominal_declaration, uncertain_arguments = _uncertain_arguments(point)))
+    representation = Engine.retain_gridpoint(aggregate.representation, Commons.gridpoint_id();
+        fields = merge(completion, (inputs = physical_inputs,
+            uncertainty = (estimator = :empirical, representation = :marginal_mean_std),
+            uncertainty_descriptions = _uncertainty_descriptions(MonteCarlo))))
+    return merge(aggregate, (; representation, trials = ntrials, seed,
+        details = retained_details, timing = trial_timings, completion))
 end
 
 # Record the pilot result in `buffers`, then draw and record further trials until the study
@@ -594,8 +586,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
                        (
         trials = getproperty.(retained, :trials),
         failures = getproperty.(retained, :failures),
-        failure_summary = getproperty.(retained, :failure_summary),
-        clearance = getproperty.(retained, :clearance)
+        failure_summary = getproperty.(retained, :failure_summary)
     )
     timing && (retained_details=merge(retained_details, (timing=population_timings,)))
     result = MonteCarloResult(

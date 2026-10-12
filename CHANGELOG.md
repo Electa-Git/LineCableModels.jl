@@ -20,6 +20,14 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   translates it by the pose's position.
 - `initialize_buffers(reduction::ReductionPlan, T, input, plan, buffers)` adds
   `reduction`, the `ReductionBuffers` of a reduction plan, to a buffer record.
+- `OverlapError` reports cable exteriors that overlap, or a cable exterior that crosses the
+  air-earth interface. A line-system build raises a gap from zero up to 1 μm to 1 μm.
+  Between two cables, it expands the placements about their centroid. At the interface,
+  it translates each half-space group. Gaps use nominal values. The system checks its pair
+  gaps, and a `LineParametersProblem` checks the interface gaps.
+- `MonteCarlo` discards a draw that throws `OverlapError`, as if it was never drawn, and
+  draws again. It records nothing about the draw. `max_failures` overlapping draws in a
+  row stop the study.
 
 ### Changed
 

@@ -58,7 +58,6 @@ end
     @test (gridded.temperature, gridded.frequencies) == (scalar.temperature, scalar.frequencies)
     @test gridded.earth_props == scalar.earth_props
     @test gridded.system.positions == scalar.system.positions
-    @test gridded.system.clearances == scalar.system.clearances
 end
 
 @testitem "Engine / problems / mixed Float32 and Float64 inputs compute" tags=[:unit, :engine] begin

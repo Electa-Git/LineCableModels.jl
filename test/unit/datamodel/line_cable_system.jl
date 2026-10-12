@@ -37,14 +37,14 @@
     )
     @test only(neutral.positions) == Pose2(0.0, 0.0, 0.0)
     @test neutral.environment === nothing
-    @test_throws DomainError build(
+    @test_throws OverlapError build(
         LineCableSystem,
         design,
         Pose2(0.0, 0.0, 0.0);
         environment = :interface
     )
 
-    @test_throws DomainError build(
+    @test_throws OverlapError build(
         LineCableSystem,
         [design, design],
         [Pose2(0.0, -1.0, 0.0), Pose2(0.001, -1.0, 0.0)];

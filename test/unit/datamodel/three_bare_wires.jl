@@ -6,7 +6,6 @@
         system = problem.system
         @test getproperty.(system.positions, :x) == [0.0, 1.0, 2.0]
         @test getproperty.(system.positions, :y) == collect(heights)
-        @test system.positions == system.input_positions
         @test system.connection_order == [1, 2, 3]
         @test system.terminal_order == [(cable=i, terminal=:core) for i in 1:3]
         @test length(system.geometry) == 3

@@ -26,7 +26,6 @@ _input_record(design::CableDesign) = (cable_id=design.cable_id,
 function _input_record(system::LineCableSystem)
     return (system_id=system.system_id, field_descriptions=Commons.input_fields(typeof(system)), line_length=system.line_length,
         designs=_input_record(system.designs), positions=_input_record(system.positions),
-        input_positions=_input_record(system.input_positions), clearances=copy(system.clearances),
         connections=_input_record(system.connections), environment=_input_record(system.environment),
         terminal_order=copy(system.terminal_order), connection_order=copy(system.connection_order))
 end

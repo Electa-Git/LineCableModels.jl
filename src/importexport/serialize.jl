@@ -216,9 +216,6 @@ function serialize_value(value::LineCableSystem)
         "line_length" => serialize_value(value.line_length),
         "designs" => [serialize_value(design) for design in value.designs],
         "positions" => serialize_value(value.positions),
-        "input_positions" => serialize_value(value.input_positions),
-        "clearances" =>
-            [serialize_value(collect(row)) for row in eachrow(value.clearances)],
         "connections" => serialize_value(value.connections),
         "environment" => serialize_value(value.environment)
     )
