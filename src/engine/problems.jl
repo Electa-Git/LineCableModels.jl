@@ -71,9 +71,8 @@ end
 $(TYPEDSIGNATURES)
 
 Construct a problem, or a `Gridspace{LineParametersProblem}` when the system or a keyword
-is a `Grid` or `Gridspace`. Each problem takes the floating type of the promoted system,
-operating temperature, static earth model and frequency types, so an integer input keeps
-the precision of the system.
+is a `Grid` or `Gridspace`. Each problem takes the floating type that the system, operating
+temperature, static earth model and frequency types promote to.
 
 # Keywords
 
