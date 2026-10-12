@@ -273,9 +273,15 @@ Julia serializes the cable CAD, material ownership and terminal anchors.
 Gmsh computes local disk, annulus, strand, sector and passive-media targets from
 those facts and current native coefficients. Shared contour points use the
 smallest adjacent target. Conductor controls set angular accuracy, elements
-per skin depth, radial growth, graded depth and wall divisions. Cable boundaries
-extend their local targets into passive media. Physical regions remain
-triangular; the PML grid is transfinite.
+per skin depth, radial growth, graded depth and wall divisions. Each passive
+region extends its own boundary spacing into its interior, capped at
+`RegionSize` with extension distance `RegionSize/MeshGrowthSlope`. A thin outer
+layer does not cap the interior size of another passive layer. `CableSize`
+retains the exterior contour, interface, earth-layer clearance and existing
+layer-boundary spacing roles. Mesh sidecars report the region caps in
+`region_mesh_sizes_m` and the exterior targets in `cable_outer_mesh_sizes_m`.
+Managed meshes and detached ONELAB meshes use the same native rule. Physical
+regions remain triangular; the PML grid is transfinite.
 
 The bulk target is `mesh_size_factor*max(layout_radius,L)/20`. A medium's wave
 target is `min(MeshBulk,mesh_size_factor/(8*abs(q_m)))`. Its decay footprint is
@@ -395,6 +401,11 @@ throughout that extent; native observations report activation.
 regenerates them. Supplying `mesh_path` with `:remesh` raises `ArgumentError`.
 Very large meshes may require fewer frequency workers to bound memory.
 
+Round conductors with point contacts use grouped scalar fields inside the disk
+when their skin layer is active, because Gmsh's inward boundary-layer columns
+can cross at those contacts. The fields retain the same first normal size,
+growth and depth cutoff; the exact geometry and contour sizing are preserved.
+
 Expert overrides are validated against one declaration of types and ranges.
 The native guards also reject invalid CLI and ONELAB edits. The exported
 `Expert` group uses the same native parameter names and defaults.
@@ -444,6 +455,11 @@ retention, resume, callbacks and logging options are rejected.
 
 The exported entry, physical CAD, evaluated material values and native sources
 are self-contained. Managed Julia runs use these same sources.
+Native GetDP/Gmsh paths must be shorter than the 256-byte limit (255 bytes
+maximum, including the absolute bundle directory). Export checks the longest
+native path for this problem at its chosen location and rejects an overlong
+path before writing any files. Moving the bundle to a deeper folder later can
+exceed this limit.
 Use the generated README for caller-specific filenames. A native frequency
 scan remeshes and solves each exported case in order. Indexed frequency, Γ
 and material coefficients can be edited in ONELAB; this does not evaluate a

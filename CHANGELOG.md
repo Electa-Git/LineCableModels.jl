@@ -9,6 +9,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- FEM round conductors that touch another part at a point are graded inward by
+  a size field instead of a boundary layer, so point contacts no longer stop
+  Gmsh meshing.
+- FEM passive cable layers are each meshed up to their own size target; a thin
+  outer layer no longer sets the element size of the whole cable interior.
+- FEM runs pass GetDP and Gmsh paths relative to the run folder, so deep run
+  folders stay within GetDP's 256-byte path limit. Detached ONELAB exports
+  reject a location whose native paths would reach that limit, and a GetDP run
+  stopped by a signal reports the signal.
 - FEM conductor contours and circular insulating and semiconducting layer
   boundaries resolve layer gaps within `ConductorGeometryTolerance`.
 - Normalized author-formula identifiers to lowercase main-author/year symbols

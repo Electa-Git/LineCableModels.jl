@@ -100,6 +100,81 @@
     end
 end
 
+@testitem "Gmsh FEM / export bounds native and generated filenames" tags=[:extension,:fem] setup=[NativeFEMFixtures] begin
+    using Gmsh
+    FEM=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    problem=NativeFEMFixtures.problem()
+    formulation=Formulation(:fem)
+    mktempdir() do root
+        for length in (245,239)
+            directory=joinpath(root,string(length))
+            path=joinpath(directory,repeat("x",length)*".geo_unrolled.xao")
+            failure=try
+                export_data(:onelab,problem,formulation;
+                    file_name=joinpath(directory,repeat("x",length)*".pro"))
+                nothing
+            catch exception
+                exception
+            end
+            @test failure isa FEM.LineCableModelsFEMError
+            @test occursin(path,sprint(showerror,failure))
+            @test occursin("is $(ncodeunits(path)) bytes long",sprint(showerror,failure))
+            @test occursin("native paths must be shorter than 256 bytes",sprint(showerror,failure))
+            @test !ispath(directory)
+        end
+    end
+end
+
+@testitem "Gmsh FEM / export rejects deep bundle paths before writing" tags=[:extension,:fem] setup=[NativeFEMFixtures] begin
+    using Gmsh
+    FEM=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    base=NativeFEMFixtures.problem(positions=[(0.,1.),(1.,1.)])
+    problem=LineParametersProblem(base.system;frequencies=[1e6,2e6],earth_props=base.earth_props)
+    formulation=Formulation(:fem)
+    relative=joinpath("results","f0002-helmholtz-b0002","raw","jobs",
+        "getdp-f0002-b0002-Pscalar.tsv")
+    maximum_root=255-1-ncodeunits(relative)
+    mktempdir() do root
+        # The largest raw-column path is longer than entry, Include, matrix and map paths.
+        for bytes in (256,320)
+            parent=joinpath(root,"missing-parent")
+            padding=bytes-ncodeunits(parent)-2-ncodeunits(relative)
+            directory=joinpath(parent,repeat("d",padding))
+            path=joinpath(directory,relative)
+            @test ncodeunits(path)==bytes
+            before=readdir(root)
+            failure=try
+                export_data(:onelab,problem,formulation;file_name=joinpath(directory,"model.pro"))
+                nothing
+            catch exception
+                exception
+            end
+            @test failure isa FEM.LineCableModelsFEMError
+            message=sprint(showerror,failure)
+            @test occursin(path,message)
+            @test occursin("is $bytes bytes long",message)
+            @test occursin("native paths must be shorter than 256 bytes",message)
+            @test occursin("maximum allowed bundle-root length: $maximum_root bytes",message)
+            @test !ispath(parent)
+            @test readdir(root)==before
+        end
+        # Multibyte directory names count bytes rather than characters.
+        directory=joinpath(root,repeat("é",cld(maximum_root-ncodeunits(root),2)))
+        @test length(joinpath(directory,relative))<256
+        @test ncodeunits(joinpath(directory,relative))>=256
+        @test_throws FEM.LineCableModelsFEMError export_data(:onelab,problem,formulation;
+            file_name=joinpath(directory,"model.pro"))
+        @test !ispath(directory)
+        # The last permitted byte is accepted, with an ordinary detached bundle.
+        directory=joinpath(root,repeat("d",maximum_root-ncodeunits(root)-1))
+        @test ncodeunits(joinpath(directory,relative))==255
+        entry=joinpath(directory,"model.pro")
+        @test export_data(:onelab,problem,formulation;file_name=entry)==entry
+        @test isfile(entry)
+        @test isfile(joinpath(directory,"formulations","onelab.pro"))
+    end
+end
+
 @testitem "Gmsh FEM / detached native frequency scan" tags=[:extension,:integration,:fem_numerical, :fem] begin
     using Gmsh, JSON3
     const LineCableModelsFEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).LineCableModelsFEM
@@ -160,10 +235,9 @@ end
         open(options,"w") do io
             println(io,"Solver.Name0 = \"GetDP\";")
             println(io,"Solver.Executable0 = ",FEM._pro_string(getdp),";")
-            # Gmsh prefixes SocketName with its home directory, even when the
-            # supplied name starts with a slash. Keep concurrent runs isolated.
-            socket = relpath(joinpath(root,"onelab.sock"),homedir())
-            println(io,"Solver.SocketName = ",FEM._pro_string(socket),";")
+            # An OS-assigned loopback port also works when TMPDIR exceeds the
+            # Unix-domain socket pathname limit. Concurrent runs stay isolated.
+            println(io,"Solver.SocketName = \"127.0.0.1:0\";")
             println(io,"Solver.AutoLoadDatabase = 0; Solver.AutoSaveDatabase = 0;")
         end
         command = `$mesher $entry -option $options -setnumber PlotFieldMaps 0 -run`

@@ -140,6 +140,16 @@ const GETDP_ARTIFACT_VERSION = v"3.5.0"
 const GETDP_ENVIRONMENT_VARIABLE = "LINECABLEMODELS_GETDP"
 const GETDP_ARTIFACTS_TOML = normpath(joinpath(@__DIR__, "..", "..", "Artifacts.toml"))
 
+# GetDP 3.5 copies Include names into a 256-byte C buffer. Check bytes,
+# including multibyte filenames, and leave room for the terminating NUL.
+function _check_native_path(name, value; run_directory=nothing, solver="GetDP", category=:getdp)
+    size = ncodeunits(value)
+    size < 256 || _fem_error(category, solver, :path,
+        "$name is $size bytes long; native paths must be shorter than 256 bytes";
+        run_directory)
+    return value
+end
+
 function _artifact_getdp()
     hash = artifact_hash("getdp", GETDP_ARTIFACTS_TOML)
     hash === nothing && return nothing
@@ -177,7 +187,8 @@ function _getdp_selection(execution::ComputationOptions; run_directory = nothing
         "pass getdp_executable, set " * GETDP_ENVIRONMENT_VARIABLE *
         ", or install getdp on PATH when no package artifact supports this platform";
         run_directory)
-    return merge(selection, (; path = realpath(selection.path)))
+    path = _check_native_path("getdp_executable", realpath(selection.path); run_directory)
+    return merge(selection, (; path))
 end
 
 function _getdp_identity(executable::String)

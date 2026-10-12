@@ -1505,6 +1505,7 @@ function _write_native_geometry_data(io, model)
     end
     for cable in eachindex(system.designs)
         indices = findall(p -> p.cable_index == cable,model.region_plans)
+        # Exterior contour/interface sizing; passive interiors use their own regions.
         sizing = model.cable_boundaries[cable] isa DataModel.AssemblyShape ? indices : [last(indices)]
         println(io,"CableSizingRegions~{",cable-1,"}() = ",_pro_array(sizing.-1),";")
     end
@@ -1568,10 +1569,6 @@ function _write_physical_geometry(path, model, physical)
                 println(io,model.cable_hosts[cable] === :air ? "FEMAirHoles" : "FEMEarthHoles","() += {FEMHole};")
             end
             emit("FEMCableCurves~{$(cable-1)}",cable_curves[cable])
-            passive_regions = [i for (i,r) in pairs(model.region_plans) if r.cable_index == cable && model.material_plans[r.material_index].kind !== :conductor]
-            passive_surfaces = reduce(vcat,(region_surfaces[i] for i in passive_regions);init=Int[])
-            emit("FEMCablePassiveSurfaces~{$(cable-1)}",passive_surfaces)
-            emit("FEMCablePassiveCurves~{$(cable-1)}",_entity_boundary(passive_surfaces))
             _write_native_physical_group(io,1,model.tags.cable_contour_base+cable,
                 @sprintf("LCM/cable_contour/%04d/%s",cable,model.problem.system.designs[cable].cable_id),cable_curves[cable])
         end
@@ -1583,12 +1580,20 @@ function _write_physical_geometry(path, model, physical)
             emit("FEMRegionPoints~{$(i-1)}",tags)
             region = model.region_plans[i]
             section = _conductor_section(region.shape)
+            println(io,"FEMPassive~{",i-1,"} = ",Int(model.material_plans[region.material_index].kind !== :conductor),";")
             isconductor = section !== nothing && model.material_plans[region.material_index].kind === :conductor
             println(io,"FEMConductor~{",i-1,"} = ",Int(isconductor),";")
             isconductor || continue
             println(io,"FEMConductorMaterial~{",i-1,"} = ",region.material_index,";")
             println(io,"FEMConductorWidth~{",i-1,"} = ",_pro_number(section.width),";")
             println(io,"FEMConductorKind~{",i-1,"} = ",section.kind,";")
+            contacted_disk = section.kind == 1 && any(tags) do point
+                incident, _ = gmsh.model.get_adjacencies(0, point)
+                any(curve -> curve ∉ curves, incident)
+            end
+            if contacted_disk
+                println(io,"FEMConductorContactCircle~{",i-1,"} = 1;")
+            end
             partition = get(sector_partitions,i,nothing)
             println(io,"FEMConductorSector~{",i-1,"} = ",Int(partition !== nothing),";")
             if partition === nothing

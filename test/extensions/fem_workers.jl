@@ -24,7 +24,11 @@ for i,a in enumerate(args):
 control=json.loads(pathlib.Path(control_path).read_text())
 if control.get('unsupported'):
     print('Unknown operation GenerateRHSGroup',flush=True);sys.exit(2)
-root=pathlib.Path(settings['RunDirectory'])
+if control.get('signal'):
+    import resource
+    resource.setrlimit(resource.RLIMIT_CORE,(0,0))
+    os.kill(os.getpid(),control['signal'])
+root=pathlib.Path(settings['RunDirectory']).resolve()
 f=int(settings['FrequencyIndex']); data=pathlib.Path(settings['ModelDataPath']).read_text()
 hz=float(re.search(r'Frequencies\(\) = \{([^}]*)\}',data)[1].split(',')[f-1])
 bases=[int(x) for x in re.search(r'\{([^}]*)\}',pathlib.Path(settings['BasisListPath']).read_text())[1].split(',')]
@@ -142,6 +146,20 @@ with open(sys.argv[1],'a+') as f:
             @test failure isa LineCableModelsFEMError
             @test failure.field===:capability
             @test E._live_attempt(unsupported)===nothing
+            signalled=fresh();write(config,JSON3.write((signal=6,)))
+            failure=try
+                E._run_getdp!(signalled,model,form,execution_options,meshes)
+                nothing
+            catch exception
+                exception
+            end
+            @test failure isa LineCableModelsFEMError
+            @test occursin("terminated by signal 6",sprint(showerror,failure))
+            @test !occursin("(exit 0)",sprint(showerror,failure))
+            attempts=[JSON3.read(read(joinpath(d,"attempt.json"),String)) for d in
+                filter(isdir,readdir(joinpath(signalled.path,"work");join=true))]
+            @test any(record->record.signal==6,attempts)
+            @test E._live_attempt(signalled)===nothing
             # Cancellation kills and reaps workers and leaves no completion claim.
             stopped=fresh();write(config,JSON3.write((delay=2.0,fail=false)))
             task = @async try
@@ -196,5 +214,66 @@ end
         @test observation.cutoff_flags == (true,false)
         @test observation.earth_sizing_ceiling_active
         @test observation.air_excited
+    end
+end
+
+@testitem "Gmsh FEM / deep managed paths stay below native argument limits" tags=[:extension,:integration,:fem_numerical,:fem] setup=[TemporaryFEMRuntime] begin
+    using Gmsh, JSON3
+    FEM=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    deep=joinpath(fem_test_runtime_directory,repeat("deep-",16),repeat("folder-",14))
+    mkpath(deep)
+    cd(deep)
+    try
+        wire=build(CableDesign,"path-compliance",terminal(:core,
+            core(Material(kind=:conductor,rho=1.72e-8);r=.01)))
+        formulation=Formulation(:fem;options=(
+            reduce_bundle=false,kron_reduction=false,ideal_transposition=false))
+        options=(overrides=(PmlSideLayers=8,PmlTopLayers=8,PmlBottomLayers=8,),
+            frequency_workers=1,solver_threads=1,mesh_policy=:remesh,
+            keep_run_directory=true,plot_field_maps=true,gmsh_verbosity=0,getdp_verbosity=4)
+        mesh_inputs=Dict{String,String}[]
+        for system_id in ("short",repeat("long-system-",12))
+            system=build(LineCableSystem,[wire,wire],[(0.,1.),(1.,1.)];
+                connections=[Dict(:core=>1),Dict(:core=>2)],system_id)
+            problem=LineParametersProblem(system;frequencies=[1e6],
+                earth_props=homogeneous(rho=1000.,eps_r=12.))
+            result=compute(problem,formulation;options)
+            @test pwd()==deep
+            @test all(isfinite,Z(result)) && all(isfinite,Y(result))
+            run_path=details(result).data.fem.run.run_directory
+            @test ncodeunits(run_path)>300
+            records=[JSON3.read(read(joinpath(directory,"attempt.json"),String))
+                for directory in filter(isdir,readdir(joinpath(run_path,"logs");join=true))]
+            @test length(records)==1
+            arguments=String.(only(records).command)
+            @test all(argument->ncodeunits(argument)<256,arguments)
+            @test all(!isabspath,arguments[2:end])
+            strings=Dict(arguments[i+1]=>arguments[i+2] for i in eachindex(arguments)
+                if arguments[i]=="-setstring")
+            @test strings==Dict("ModelDataPath"=>"model_data.pro","RunDirectory"=>".",
+                "RawDirectory"=>"results","BasisListPath"=>"bases.pro")
+            @test ncodeunits(joinpath(run_path,"work","frequency_0001","bases.pro"))>300
+            mesh_record=JSON3.read(first(readlines(joinpath(run_path,"logs","frequency_0001-gmsh.log"))))
+            @test all(argument->ncodeunits(argument)<256,mesh_record.command)
+            metadata_index=findfirst(==("MeshMetadataPath"),mesh_record.command)
+            @test mesh_record.command[metadata_index+1]=="mesh-metadata.txt"
+            push!(mesh_inputs,Dict(name=>read(joinpath(run_path,"input",name),String)
+                for name in ("physical.geo","model_data.pro","model.geo")))
+            @info "Native path compliance" absolute_run_bytes=ncodeunits(run_path) maximum_argument_bytes=maximum(ncodeunits,arguments)
+        end
+        @test mesh_inputs[1]==mesh_inputs[2]
+        @test FEM._check_native_path("BasisListPath",repeat("x",255))==repeat("x",255)
+        failure=try
+            FEM._check_native_path("BasisListPath",repeat("x",256))
+            nothing
+        catch exception
+            exception
+        end
+        @test failure isa FEM.LineCableModelsFEMError
+        @test occursin("BasisListPath is 256 bytes long",sprint(showerror,failure))
+        @test_throws FEM.LineCableModelsFEMError FEM._check_native_path("BasisListPath",repeat("é",128))
+    finally
+        cd(fem_test_working_directory)
+        rm(fem_test_runtime_directory;recursive=true)
     end
 end

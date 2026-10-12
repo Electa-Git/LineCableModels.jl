@@ -19,6 +19,94 @@
     end
 end
 
+@testitem "FEM / contacted round conductor meshes without inward BL columns" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    N=NativeFEMFixtures
+    copper=Material(kind=:conductor,rho=1.72e-8,eps_r=1.,mu_r=1.)
+    dielectric=Material(kind=:insulator,rho=Inf,eps_r=2.3,mu_r=1.)
+    ri,rw=.026,.00047; ro=ri+2rw
+    for top in (false,true)
+        wire=Group(:screen,Region(:wire,Disk(rw),copper);
+            pattern=Ring(1;r=ri+rw,φ0=π/2-π/98))
+        parts=Any[Region(:bed,Disk(ri),dielectric),
+            Enclosure(:wirefill,Stack(wire);primitive=Annulus(ri,ro),fill=dielectric)]
+        top && push!(parts,Group(:screen,Region(:tape,Annulus(ro,ro+.0001),copper)))
+        design=build(CableDesign,"one-wire-contact",Stack(parts...))
+        system=build(LineCableSystem,design,Pose2(0.,-1.);
+            connections=Dict(:screen=>1),system_id="one-wire-contact",line_length=1.)
+        problem=LineParametersProblem(system;temperature=20.,frequencies=[251188.6431509582],
+            earth_props=homogeneous(rho=100.))
+        N.geometry(problem;mesh=true) do g,log
+            number(name)=only(g.parser.get_number(name))
+            regions=0:Int(number("NumPhysicalRegions"))-1
+            contacted=filter(r->!isempty(g.parser.get_number("FEMConductorContactCircle_$r")),regions)
+            @test length(contacted)==1
+            disk=only(contacted)
+            @test number("FEMConductorDelta_$disk")<number("FEMConductorWidth_$disk")
+            @test number("FEMContactGroups")==1
+            curves=Int.(g.parser.get_number("FEMRegionCurves_$disk"))
+            surfaces=Int.(g.parser.get_number("FEMRegionSurfaces_$disk"))
+            @test g.parser.get_number("FEMContactGroupCurves_0")==curves
+            @test g.parser.get_number("FEMContactGroupSurfaces_0")==surfaces
+            fields=g.model.mesh.field
+            bl=filter(id->fields.get_type(id)=="BoundaryLayer",fields.list())
+            @test all(id->isempty(intersect(curves,Int.(fields.get_numbers(id,"CurvesList")))),bl)
+            for region in regions
+                number("FEMConductor_$region")==1 && region!=disk || continue
+                contour=Int.(g.parser.get_number("FEMRegionCurves_$region"))
+                @test any(id->Set(fields.get_numbers(id,"CurvesList"))==Set(contour),bl)
+            end
+            distance=only(filter(id->fields.get_type(id)=="Distance" &&
+                Set(fields.get_numbers(id,"CurvesList"))==Set(curves) &&
+                fields.get_number(id,"Sampling")==number("FEMContactGroupSampling_0"),fields.list()))
+            target=only(filter(id->fields.get_type(id)=="Threshold" &&
+                fields.get_number(id,"InField")==distance,fields.list()))
+            restriction=only(filter(id->fields.get_type(id)=="Restrict" &&
+                fields.get_number(id,"InField")==target,fields.list()))
+            @test fields.get_number(restriction,"IncludeBoundary")==0
+            @test fields.get_number(restriction,"IncludeEmbedded")==0
+            @test Set(fields.get_numbers(restriction,"SurfacesList"))==Set(surfaces)
+            first_size=number("FEMConductorFirst_$disk")
+            growth=number("ConductorMeshGrowth")
+            depth=number("FEMConductorExtent_$disk")*(1+1e-8)*growth
+            @test fields.get_number(target,"SizeMin")≈first_size
+            @test fields.get_number(target,"SizeMax")≈first_size+(growth-1)*depth
+            @test fields.get_number(target,"DistMax")≈depth
+            @test fields.get_number(target,"StopAtDistMax")==1
+            @test fields.get_number(distance,"Sampling")>
+                128maximum(g.parser.get_number("FEMConductorArcLengths_$disk"))/first_size
+            @test !isempty(first(g.model.mesh.get_elements(2)))
+            @test !any(line->occursin("intersections in the 1D mesh",line),log)
+        end
+    end
+end
+
+@testitem "FEM / equal contacted disks share one scalar field set" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    N=NativeFEMFixtures
+    copper=Material(kind=:conductor,rho=1.72e-8,eps_r=1.,mu_r=1.)
+    dielectric=Material(kind=:insulator,rho=Inf,eps_r=2.3,mu_r=1.)
+    ri,rw,count=.026,.00047,6
+    wires=Group(:screen,Region(:wire,Disk(rw),copper);pattern=Ring(count;r=ri+rw))
+    design=build(CableDesign,"contact-group",Stack(Region(:bed,Disk(ri),dielectric),
+        Enclosure(:wirefill,wires;primitive=Annulus(ri,ri+2rw),fill=dielectric)))
+    system=build(LineCableSystem,design,Pose2(0.,-1.);connections=Dict(:screen=>1))
+    problem=LineParametersProblem(system;temperature=20.,frequencies=[251188.6431509582],
+        earth_props=homogeneous(rho=100.))
+    N.geometry(problem;mesh=true) do g,log
+        regions=0:Int(only(g.parser.get_number("NumPhysicalRegions")))-1
+        disks=filter(r->!isempty(g.parser.get_number("FEMConductorContactCircle_$r")),regions)
+        @test length(disks)==count
+        @test g.parser.get_number("FEMContactGroups")==[1.]
+        @test Set(g.parser.get_number("FEMContactGroupSurfaces_0"))==
+            Set(reduce(vcat,(g.parser.get_number("FEMRegionSurfaces_$r") for r in disks)))
+        @test Set(g.parser.get_number("FEMContactGroupCurves_0"))==
+            Set(reduce(vcat,(g.parser.get_number("FEMRegionCurves_$r") for r in disks)))
+        fields=g.model.mesh.field
+        @test all(id->fields.get_type(id)!="BoundaryLayer" ||
+            isempty(intersect(fields.get_numbers(id,"CurvesList"),
+                g.parser.get_number("FEMContactGroupCurves_0"))),fields.list())
+    end
+end
+
 
 @testitem "FEM / conductor contours resolve adjacent annular layers" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
@@ -105,6 +193,63 @@ end
 end
 
 
+@testitem "FEM / equal-size targets share fields and preserve contour counts" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    N=NativeFEMFixtures
+    copper=Material(kind=:conductor,rho=1.72e-8,eps_r=1.,mu_r=1.)
+    dielectric=Material(kind=:insulator,rho=Inf,eps_r=2.3,mu_r=1.)
+    count,wire_radius,enclosure_radius,thickness=6,.005,.03,.005
+    wires=Group(:wires,Region(:wire,Disk(wire_radius),copper);
+        pattern=Ring(count;r=.02))
+    design=build(CableDesign,"grouped-targets",
+        Enclosure(:matrix,wires;primitive=Disk(enclosure_radius),fill=dielectric),
+        Region(:insulation,Shell(thickness),dielectric))
+    system=build(LineCableSystem,design,Pose2(0.,1.);connections=Dict(:wires=>1))
+    problem=LineParametersProblem(system;temperature=20.,frequencies=[1e3],
+        earth_props=homogeneous(rho=1000.))
+    N.geometry(problem;mesh=true) do g,log
+        regions=Int(only(g.parser.get_number("NumPhysicalRegions")))
+        conductors=filter(r -> only(g.parser.get_number("FEMConductor_$r"))==1,0:regions-1)
+        curves=Int.(g.parser.get_number("FEMLayerBoundaryCurves"))
+        targets=Int.(g.parser.get_number("FEMLayerBoundaryTargetCurves"))
+        contour_groups=Int(only(g.parser.get_number("FEMContourGroups")))
+        layer_groups=Int(only(g.parser.get_number("FEMLayerGroups")))
+        @test length(conductors)==count
+        @test 0<contour_groups<length(conductors)
+        @test layer_groups==2<length(targets)
+        @test Set(targets)==Set(curves)
+        @test Set(reduce(vcat,(Int.(g.parser.get_number("FEMContourGroupCurves_$i")) for i in 0:contour_groups-1)))==
+            Set(reduce(vcat,(Int.(g.parser.get_number("FEMRegionCurves_$r")) for r in conductors)))
+        @test Set(reduce(vcat,(Int.(g.parser.get_number("FEMLayerGroupCurves_$i")) for i in 0:layer_groups-1)))==Set(targets)
+
+        # Expected counts come from the unchanged per-curve resolution criteria.
+        tolerance=only(g.parser.get_number("ConductorGeometryTolerance"))
+        circle_segments=12*2^max(0,ceil(Int,log2(sqrt(2π^2/(3tolerance))/12)))
+        for region in conductors
+            contour=Int.(g.parser.get_number("FEMRegionCurves_$region"))
+            fractions=g.parser.get_number("FEMConductorArcFractions_$region")
+            size=only(g.parser.get_number("RegionSize_$region"))
+            expected=sum(max(1,ceil(Int,circle_segments*f-64eps(circle_segments*f)),
+                ceil(Int,2π*wire_radius*f/size)) for f in fractions)
+            nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in contour)))
+            @test length(nodes)==expected
+            println("Grouped targets: conductor region=$region, nodes=$(length(nodes)), expected=$expected")
+        end
+        radii=g.parser.get_number("FEMLayerBoundaryRadii")
+        thicknesses=g.parser.get_number("FEMLayerBoundaryThicknesses")
+        @test all(isapprox.(thicknesses,thickness))
+        for radius in (enclosure_radius,enclosure_radius+thickness)
+            boundary=curves[findall(r -> isapprox(r,radius),radii)]
+            @test !isempty(boundary)
+            expected=12*2^max(0,ceil(Int,log2(π*sqrt(radius/(3tolerance*thickness))/12)))
+            nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in boundary)))
+            @test length(nodes)==expected
+            println("Grouped targets: radius=$radius, layer nodes=$(length(nodes)), expected=$expected")
+        end
+        println("Grouped targets: conductor groups=$contour_groups/$(length(conductors)), layer groups=$layer_groups/$(length(targets))")
+    end
+end
+
+
 @testitem "FEM / native conductor contour and skin controls" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
     N=NativeFEMFixtures
     values=[]
@@ -118,4 +263,32 @@ end
     end
     @test values[2]["first"]<=values[1]["first"]
     @test values[2]["bulk"]<=values[1]["bulk"]
+end
+
+@testitem "FEM / no-contact native field definitions retain their reference" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    using JSON3
+    N=NativeFEMFixtures
+    N.geometry(N.problem()) do g,log
+        @test g.parser.get_number("FEMContactGroups")==[0.]
+        @test isempty(g.parser.get_number("FEMConductorContactCircle_0"))
+        function snapshot(g)
+            fields=g.model.mesh.field
+            map(Int.(fields.list())) do id
+                kind=fields.get_type(id)
+                scalar=kind=="Threshold" ? ("InField","DistMin","DistMax","SizeMin","SizeMax","StopAtDistMax") :
+                    kind=="Restrict" ? ("InField","IncludeBoundary","IncludeEmbedded") :
+                    kind=="Distance" ? ("Sampling",) :
+                    kind=="BoundaryLayer" ? ("Size","Ratio","Thickness","Quads") : ()
+                vector=kind=="Distance" ? ("CurvesList",) :
+                    kind=="BoundaryLayer" ? ("CurvesList","ExcludedSurfacesList") :
+                    kind=="Restrict" ? ("SurfacesList","CurvesList") :
+                    kind in ("Min","Max") ? ("FieldsList",) : ()
+                (;id,kind,numbers=Dict(k=>fields.get_number(id,k) for k in scalar),
+                    lists=Dict(k=>collect(fields.get_numbers(id,k)) for k in vector),
+                    expression=kind=="MathEval" ? fields.get_string(id,"F") : "")
+            end
+        end
+        reference=joinpath(pkgdir(LineCableModels),"test/fixtures/data/fem/no_contact_fields.json")
+        @test JSON3.read(JSON3.write(snapshot(g)))==JSON3.read(read(reference,String))
+    end
 end

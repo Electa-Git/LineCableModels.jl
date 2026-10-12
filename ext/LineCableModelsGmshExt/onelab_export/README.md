@@ -15,6 +15,12 @@ gmsh '{{COMMAND_STEM}}.pro'
 Use a native GetDP 3.5 or compatible newer build with Gmsh support. The ONELAB
 distribution includes suitable Gmsh/GetDP executables and libraries. Select
 GetDP in Gmsh's standard Solver settings if it is not already configured.
+
+Native GetDP/Gmsh paths must be shorter than the 256-byte limit (255 bytes
+maximum, including the absolute bundle directory). Export checks the longest
+native path for this problem at the chosen location before writing any files.
+Moving the bundle to a deeper folder later can exceed this limit; keep its
+new location short enough for the same internal paths.
 There is no additional driver, environment installation or executable setting.
 
 Select a frequency case, formulation, basis and mesh settings, then Run. Basis
@@ -114,7 +120,11 @@ minimum circle segments and PML interval floors stay fixed. At factor one the
 circle resolution starts at 96 segments and normal layers at no more than one
 sixth of conductor skin depth; local characteristic lengths can add contour
 edges. The exterior factor only coarsens the remote buffer.
-The extension is restricted to the cable's passive surfaces. There is no
+Each passive region extends its own boundary spacing into its own surfaces,
+capped at `RegionSize` over distance `RegionSize/MeshGrowthSlope`, as in the
+managed runner. A thin outer layer does not cap another passive layer's interior.
+`CableSize` remains the exterior contour/interface target and retains its
+earth-layer clearance and existing layer-boundary spacing roles. There is no
 automatic convergence test or refinement loop.
 Sectors use native triangular transfinite strips around a 0.1-scale core, with
 192 angular subdivisions at the default and a matching straight-side cap.

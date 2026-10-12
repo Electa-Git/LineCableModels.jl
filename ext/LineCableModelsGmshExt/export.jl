@@ -127,6 +127,35 @@ function _write_export_data(path, model, formulation, controls)
     end
 end
 
+function _check_export_paths(root, stem, problem)
+    frequency = length(problem.frequencies)
+    terminals = length(problem.system.terminal_order)
+    run = @sprintf("results/f%04g-helmholtz-b%04g", frequency, terminals)
+    column = @sprintf("getdp-f%04.0f-b%04.0f", frequency, terminals)
+    map_suffix = @sprintf("_f%04.0f_b%04.0f.pos", frequency, terminals)
+    paths = [stem * suffix for suffix in
+        (".pro", ".geo", "_data.pro", ".msh", ".pre", ".res", ".pos",
+         ".geo_unrolled", ".geo_unrolled.xao")]
+    # GetDP resolves literal Includes beside the including file. ModelDataPath
+    # is absolute, so its repeated Include in formulations/model.pro adds no prefix.
+    append!(paths, values(_getdp_assets("formulations")))
+    append!(paths, ("geometry/physical.geo", "views.geo", joinpath(run, "completed.txt")))
+    append!(paths, [joinpath(run, "matrices", name * ".tsv")
+        for name in ("Z-primitive", "P-primitive", "Z", "P", "Y")])
+    append!(paths, [joinpath(run, "raw", "jobs", column * suffix)
+        for suffix in ("-Z.tsv", "-P.tsv", "-Pscalar.tsv", "-timing.tsv", ".done")])
+    push!(paths, joinpath(run, "raw", "jobs", @sprintf("pml-f%04g.tsv", frequency)))
+    append!(paths, [joinpath(run, "maps", quantity * map_suffix)
+        for quantity in _field_quantities(:helmholtz)])
+    relative = paths[argmax(ncodeunits.(paths))]
+    path = joinpath(root, relative)
+    maximum_root = 255 - (ncodeunits(path) - ncodeunits(root))
+    _check_native_path(
+        "ONELAB bundle path \"$path\" (maximum allowed bundle-root length: $maximum_root bytes)",
+        path)
+    return nothing
+end
+
 function _write_export_bundle(root, stem, model, formulation, controls)
     mkpath(joinpath(root,"geometry"))
     mkpath(joinpath(root,"formulations"))
@@ -220,6 +249,7 @@ function ImportExport.export_data(::Val{:onelab}, problem::LineParametersProblem
     extension == ".pro" && !isempty(stem) || throw(ArgumentError("file_name must end in .pro"))
     occursin(r"[\r\n\"]",entry) && throw(ArgumentError("export path cannot contain quotes or newlines"))
     root = dirname(entry)
+    _check_export_paths(root, stem, problem)
     existing = isdir(root) ? readdir(root) : String[]
     marker = joinpath(root,".onelab-export-files")
     !isempty(existing) && (!overwrite || !isfile(marker)) && throw(ArgumentError("destination is not empty; overwrite requires an existing exported bundle"))

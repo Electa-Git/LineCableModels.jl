@@ -502,10 +502,24 @@ function _resolve_mesh(run::FEMRun,model::FEMResolvedModel,
 end
 
 function _launch_mesh(run, plan, execution, temporary_mesh, temporary_native)
-    entry=joinpath(run.path,"input","model.geo")
+    directory=dirname(temporary_mesh)
+    for path in _getdp_assets(joinpath(run.path,"input","getdp"))
+        cp(path,joinpath(directory,basename(path)))
+    end
+    for name in ("model_data.pro","physical.geo")
+        cp(joinpath(run.path,"input",name),joinpath(directory,name))
+    end
+    _write_native_mesh_entry(joinpath(directory,"model.geo"),"model_data.pro","physical.geo",".")
     log_path=joinpath(run.path,"logs",plan.stem*"-gmsh.log")
-    command=`$(Gmsh.gmsh_jll.gmsh()) $entry -setnumber FrequencyIndex $(plan.frequency_index) -setstring MeshMetadataPath $temporary_native -2 -o $temporary_mesh -v $(max(1,execution.data.gmsh_verbosity))`
+    command=Cmd(`$(Gmsh.gmsh_jll.gmsh()) model.geo -setnumber FrequencyIndex $(plan.frequency_index) -setstring MeshMetadataPath $(basename(temporary_native)) -2 -o $(basename(temporary_mesh)) -v $(max(1,execution.data.gmsh_verbosity))`;dir=directory)
+    for (index, argument) in enumerate(command)
+        name = index > 2 && command[index-2] == "-setstring" ? command[index-1] :
+            "Gmsh argument $index"
+        _check_native_path(name,argument;run_directory=run.path,solver="Gmsh",category=:mesh)
+    end
     return open(log_path,"w") do log
+        println(log,JSON3.write((;directory,command=collect(command))))
+        flush(log)
         Base.run(pipeline(ignorestatus(command);stdout=log,stderr=log);wait=false)
     end
 end
@@ -576,8 +590,9 @@ function _select_meshes!(run::FEMRun,model::FEMResolvedModel,
         owner_indices[index]==index && push!(pending,index)
     end
     work=joinpath(run.path,"work"); mkpath(work)
-    temporary_meshes=[tempname(work) * ".msh" for plan in plans]
-    temporary_native=[tempname(work) * ".txt" for plan in plans]
+    mesh_directories=[mktempdir(work;prefix="mesh-") for plan in plans]
+    temporary_meshes=[joinpath(directory,"model.msh") for directory in mesh_directories]
+    temporary_native=[joinpath(directory,"mesh-metadata.txt") for directory in mesh_directories]
     processes=Vector{Union{Nothing,Base.Process}}(nothing,length(plans))
     launch_error=Ref{Any}(nothing); aborted=Ref(false)
     try
@@ -618,7 +633,6 @@ function _select_meshes!(run::FEMRun,model::FEMResolvedModel,
     finally
         aborted[]=true
         _stop_mesh_processes!(processes)
-        foreach(path -> rm(path;force=true),temporary_meshes)
-        foreach(path -> rm(path;force=true),temporary_native)
+        foreach(path -> rm(path;recursive=true,force=true),mesh_directories)
     end
 end

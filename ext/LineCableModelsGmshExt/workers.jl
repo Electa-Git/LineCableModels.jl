@@ -182,14 +182,14 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, exe
     basis_path = joinpath(directory, "bases.pro")
     write(basis_path, "RequestedBases() = $(_pro_array(bases));\n")
     verbosity = execution.data.getdp_verbosity
-    arguments = [executable, model_path, "-solve", "LineCableModelsFEMScan",
+    arguments = [executable, basename(model_path), "-solve", "LineCableModelsFEMScan",
         "-setnumber", "Physics", string(_fem_physics_code(formulation)),
-        "-msh", abspath(mesh_path), "-name", joinpath(directory, "solver"),
+        "-msh", relpath(mesh_path, directory), "-name", "solver",
         "-v", string(verbosity),
-        "-setstring", "ModelDataPath", joinpath(run.path, "input", "model_data.pro"),
-        "-setstring", "RunDirectory", directory,
-        "-setstring", "RawDirectory", joinpath(directory,"results"),
-        "-setstring", "BasisListPath", basis_path,
+        "-setstring", "ModelDataPath", "model_data.pro",
+        "-setstring", "RunDirectory", ".",
+        "-setstring", "RawDirectory", "results",
+        "-setstring", "BasisListPath", "bases.pro",
         "-setnumber", "FrequencyIndex", string(frequency_index),
         "-setnumber", "PlotFieldMaps", string(Int(execution.data.plot_field_maps)),
         "-setnumber", "ReuseFactorization", string(Int(reuse_factorization)),
@@ -204,7 +204,13 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, exe
         "-setnumber", "MumpsBackwardErrorTolerance", _pro_number(execution.data.mumps_backward_error_tolerance)]
     if verbosity >= 4
         append!(arguments, [
-            "-cpu", "-ksp_view", "-log_view", ":" * joinpath(directory, "petsc.log")])
+            "-cpu", "-ksp_view", "-log_view", ":petsc.log"])
+    end
+    for (index, argument) in pairs(arguments)
+        name = index == 1 ? "getdp_executable" :
+               index > 2 && arguments[index-2] == "-setstring" ? arguments[index-1] :
+               "GetDP argument $index"
+        _check_native_path(name, argument; run_directory=run.path)
     end
     threads = string(execution.data.solver_threads)
     return addenv(Cmd(Cmd(arguments); dir = directory), "OPENBLAS_NUM_THREADS" => threads,
@@ -228,8 +234,15 @@ function _frequency_job(
     end
     mkpath(joinpath(directory,"results","jobs"))
     execution.data.plot_field_maps && mkpath(joinpath(directory,"maps"))
+    # GetDP resolves Includes/CreateDir against the source, and Print against
+    # -name. Disposable input snapshots beside the entry align both bases.
+    assets = _getdp_assets(joinpath(run.path, "input", "getdp"))
+    for path in assets
+        endswith(path, ".pro") && cp(path, joinpath(directory, basename(path)))
+    end
+    cp(joinpath(run.path, "input", "model_data.pro"), joinpath(directory, "model_data.pro"))
     command = _getdp_command(
-        executable, _getdp_assets(joinpath(run.path, "input", "getdp")).model,
+        executable, assets.model,
         mesh, run, formulation, execution, frequency_index, bases, directory; reuse_factorization)
     return FEMFrequencyJob(frequency_index, Float64(model.problem.frequencies[frequency_index]), collect(bases),
         directory, mesh_digest, command)
@@ -407,7 +420,8 @@ function _finish_worker!(run, worker, execution; stopped = false)
     open(joinpath(run.path, "logs", "getdp.log"), "a") do io
         println(io,
             "frequency=$(worker.job.frequency_index) state=$status elapsed_seconds=$elapsed " *
-            "exit_code=$(worker.process.exitcode) attempt=$(relpath(worker.job.directory, run.path))")
+            "exit_code=$(worker.process.exitcode) signal=$(worker.process.termsignal) " *
+            "attempt=$(relpath(worker.job.directory, run.path))")
         if status != "complete"
             println(io, _log_tail(readlines(joinpath(worker.job.directory, "getdp.log"))))
         end
@@ -626,10 +640,13 @@ function _run_getdp!(run::FEMRun, model::FEMResolvedModel, formulation::LineCabl
                     requirement = capability ?
                                   "This backend requires GetDP with GenerateRHSGroup and SolveAgain support. " :
                                   ""
+                    termination = worker.process.termsignal == 0 ?
+                        "exit $(worker.process.exitcode)" :
+                        "terminated by signal $(worker.process.termsignal)"
                     _fem_error(:getdp, "GetDP", capability ? :capability : :client,
                         requirement *
                         "GetDP frequency $(worker.job.frequency_index) failed " *
-                        "(exit $(worker.process.exitcode)); missing columns $(sort!(collect(worker.pending))). " *
+                        "($termination); missing columns $(sort!(collect(worker.pending))). " *
                         "Attempt: $(worker.job.directory)\nGetDP log tail:\n$tail"; run_directory = run.path)
                 end
                 _retain_worker_logs!(run,worker.job.directory)

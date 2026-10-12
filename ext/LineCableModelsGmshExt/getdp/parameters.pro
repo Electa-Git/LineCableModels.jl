@@ -284,6 +284,7 @@ For region In {0:NumPhysicalRegions-1}
   MeshFine = Min[MeshFine,RegionSize~{region}];
 EndFor
 MeshInterface = MeshBulk;
+// CableSize is the exterior neighbourhood target; passive interiors use RegionSize.
 For cable In {0:NumCables-1}
   CableSize~{cable} = 1e300;
   For member In {0:#CableSizingRegions~{cable}()-1}
