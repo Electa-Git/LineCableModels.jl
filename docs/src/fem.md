@@ -401,11 +401,6 @@ throughout that extent; native observations report activation.
 regenerates them. Supplying `mesh_path` with `:remesh` raises `ArgumentError`.
 Very large meshes may require fewer frequency workers to bound memory.
 
-Round conductors with point contacts use grouped scalar fields inside the disk
-when their skin layer is active, because Gmsh's inward boundary-layer columns
-can cross at those contacts. The fields retain the same first normal size,
-growth and depth cutoff; the exact geometry and contour sizing are preserved.
-
 Expert overrides are validated against one declaration of types and ranges.
 The native guards also reject invalid CLI and ONELAB edits. The exported
 `Expert` group uses the same native parameter names and defaults.

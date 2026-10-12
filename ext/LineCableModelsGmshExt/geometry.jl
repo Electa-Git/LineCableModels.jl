@@ -1587,13 +1587,6 @@ function _write_physical_geometry(path, model, physical)
             println(io,"FEMConductorMaterial~{",i-1,"} = ",region.material_index,";")
             println(io,"FEMConductorWidth~{",i-1,"} = ",_pro_number(section.width),";")
             println(io,"FEMConductorKind~{",i-1,"} = ",section.kind,";")
-            contacted_disk = section.kind == 1 && any(tags) do point
-                incident, _ = gmsh.model.get_adjacencies(0, point)
-                any(curve -> curve ∉ curves, incident)
-            end
-            if contacted_disk
-                println(io,"FEMConductorContactCircle~{",i-1,"} = 1;")
-            end
             partition = get(sector_partitions,i,nothing)
             println(io,"FEMConductorSector~{",i-1,"} = ",Int(partition !== nothing),";")
             if partition === nothing

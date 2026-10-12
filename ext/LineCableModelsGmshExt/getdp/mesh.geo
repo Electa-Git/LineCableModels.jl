@@ -134,7 +134,7 @@ EndIf
 // One resolution scale also controls angular, first-normal and interior targets.
 FEMCircleSegments = 12*2^Max(0,Ceil(Log(Sqrt(2*Pi^2/(3*ConductorGeometryTolerance))/12)/Log(2)));
 // Conductor contour targets are grouped by size to bound field evaluations.
-FEMContourGroups = 0; FEMContactGroups = 0;
+FEMContourGroups = 0;
 For region In {0:NumPhysicalRegions-1}
   If(FEMConductor~{region})
     Mesh.MeshSizeMin = 0;
@@ -194,46 +194,15 @@ For region In {0:NumPhysicalRegions-1}
         Transfinite Curve {FEMRegionCurves~{region}(arc)} = FEMArcNodes;
         FEMContourSize = Min(FEMContourSize,FEMConductorArcLengths~{region}(arc)/(FEMArcNodes-1));
       EndFor
-      FEMContacted = 0;
+      FEMLayer = FEMNextField; FEMNextField += 1; Field[FEMLayer] = BoundaryLayer;
+      Field[FEMLayer].CurvesList = {FEMRegionCurves~{region}()};
+      Field[FEMLayer].Size = FEMFirst; Field[FEMLayer].Ratio = ConductorMeshGrowth;
+      Field[FEMLayer].Thickness = FEMExtent*(1+1e-8); Field[FEMLayer].Quads = 0;
+      FEMExcluded() = Surface{:};
       If(FEMDelta < FEMWidth)
-        If(Exists(FEMConductorContactCircle~{region})) FEMContacted = FEMConductorContactCircle~{region}; EndIf
-      EndIf
-      If(FEMContacted)
-        // Inward BL columns cross at point contacts. Retain their scalar size law.
-        FEMTargetDepth = FEMExtent*(1+1e-8)*ConductorMeshGrowth;
-        FEMGroup = -1;
-        For group In {0:FEMContactGroups-1}
-          If(Abs(FEMContactGroupFirst~{group}-FEMFirst) <= 1e-12*FEMFirst &&
-             Abs(FEMContactGroupGrowth~{group}-ConductorMeshGrowth) <= 1e-12*ConductorMeshGrowth &&
-             Abs(FEMContactGroupDepth~{group}-FEMTargetDepth) <= 1e-12*FEMTargetDepth) FEMGroup = group; EndIf
-        EndFor
-        If(FEMGroup < 0)
-          FEMGroup = FEMContactGroups; FEMContactGroups += 1;
-          FEMContactGroupFirst~{FEMGroup} = FEMFirst;
-          FEMContactGroupGrowth~{FEMGroup} = ConductorMeshGrowth;
-          FEMContactGroupDepth~{FEMGroup} = FEMTargetDepth;
-          FEMContactGroupCurves~{FEMGroup}() = {}; FEMContactGroupSurfaces~{FEMGroup}() = {};
-          FEMContactGroupSampling~{FEMGroup} = 200;
-        EndIf
-        FEMContactGroupCurves~{FEMGroup}() += {FEMRegionCurves~{region}()};
-        FEMContactGroupSurfaces~{FEMGroup}() += {FEMRegionSurfaces~{region}()};
-        For arc In {0:#FEMRegionCurves~{region}()-1}
-          // Distance samples include existing mesh vertices. Leave enough extra
-          // samples that even endpoint distance error is below FEMFirst/128.
-          FEMSampling = Ceil(128*FEMConductorArcLengths~{region}(arc)/FEMFirst)+2*(Ceil(FEMConductorArcLengths~{region}(arc)/FEMContourSize)+1)+2;
-          FEMContactGroupSampling~{FEMGroup} = Max(FEMContactGroupSampling~{FEMGroup},FEMSampling);
-        EndFor
-      Else
-        FEMLayer = FEMNextField; FEMNextField += 1; Field[FEMLayer] = BoundaryLayer;
-        Field[FEMLayer].CurvesList = {FEMRegionCurves~{region}()};
-        Field[FEMLayer].Size = FEMFirst; Field[FEMLayer].Ratio = ConductorMeshGrowth;
-        Field[FEMLayer].Thickness = FEMExtent*(1+1e-8); Field[FEMLayer].Quads = 0;
-        FEMExcluded() = Surface{:};
-        If(FEMDelta < FEMWidth)
-          FEMExcluded() -= {FEMRegionSurfaces~{region}()};
-          Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; BoundaryLayer Field = FEMLayer;
-        Else Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; EndIf
-      EndIf
+        FEMExcluded() -= {FEMRegionSurfaces~{region}()};
+        Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; BoundaryLayer Field = FEMLayer;
+      Else Field[FEMLayer].ExcludedSurfacesList = {FEMExcluded()}; EndIf
     EndIf
     FEMConstant = FEMNextField; FEMNextField += 1; Field[FEMConstant] = MathEval; Field[FEMConstant].F = Sprintf("%.17g",FEMBulk);
     FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Restrict; Field[FEMField].InField = FEMConstant;
@@ -255,23 +224,6 @@ For region In {0:NumPhysicalRegions-1}
     FEMConductorDelta~{region} = FEMDelta; FEMConductorFirst~{region} = FEMFirst;
     FEMConductorExtent~{region} = FEMExtent; FEMConductorBulk~{region} = FEMBulk;
   EndIf
-EndFor
-For group In {0:FEMContactGroups-1}
-  // Inside a disk, another disjoint disk's contour cannot be nearer than its own.
-  FEMDistance = FEMNextField; FEMNextField += 1; Field[FEMDistance] = Distance;
-  Field[FEMDistance].CurvesList = {FEMContactGroupCurves~{group}()};
-  Field[FEMDistance].Sampling = FEMContactGroupSampling~{group};
-  FEMTarget = FEMNextField; FEMNextField += 1; Field[FEMTarget] = Threshold;
-  Field[FEMTarget].InField = FEMDistance;
-  Field[FEMTarget].DistMin = 0; Field[FEMTarget].DistMax = FEMContactGroupDepth~{group};
-  Field[FEMTarget].SizeMin = FEMContactGroupFirst~{group};
-  Field[FEMTarget].SizeMax = FEMContactGroupFirst~{group}+(FEMContactGroupGrowth~{group}-1)*FEMContactGroupDepth~{group};
-  Field[FEMTarget].StopAtDistMax = 1;
-  FEMRestricted = FEMNextField; FEMNextField += 1; Field[FEMRestricted] = Restrict;
-  Field[FEMRestricted].InField = FEMTarget;
-  Field[FEMRestricted].SurfacesList = {FEMContactGroupSurfaces~{group}()};
-  Field[FEMRestricted].IncludeBoundary = 0; Field[FEMRestricted].IncludeEmbedded = 0;
-  FEMBackground() += {FEMRestricted};
 EndFor
 For group In {0:FEMContourGroups-1}
   FEMContourDistance = FEMNextField; FEMNextField += 1; Field[FEMContourDistance] = Distance;
