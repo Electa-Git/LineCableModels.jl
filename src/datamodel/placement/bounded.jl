@@ -29,13 +29,16 @@ function validate(placement::BoundedPlacement)
     return placement
 end
 
+# A bounded placement records its formation boundary in absolute coordinates, which move
+# with the region. Repeating patterns are local to their owner's frame.
+function resolve(at::Pose2, placement::BoundedPlacement)
+    return BoundedPlacement(resolve(at, placement.boundary), placement.course)
+end
+resolve(::Pose2, pattern::Union{Ring, Polar, Fill, Lattice, AbstractVector{<:Pose2}}) = pattern
+
 function resolve(at::Pose2, region::PlacedRegion)
     patterns = map(region.placement.patterns) do entry
-        pattern = entry.pattern isa BoundedPlacement ?
-                  BoundedPlacement(
-            resolve(at, entry.pattern.boundary), entry.pattern.course
-        ) : entry.pattern
-        merge(entry, (pattern = pattern,))
+        merge(entry, (pattern = resolve(at, entry.pattern),))
     end
     return PlacedRegion(
         region.source,
@@ -389,7 +392,8 @@ function _balance_power_cells_nominal(boundary, sites, targets;
         end
         step = try
             LinearAlgebra.qr(reduced) \ residual[1:(end - 1)]
-        catch
+        catch exception
+            exception isa LinearAlgebra.SingularException || rethrow()
             (scale^2 / sum(targets)) .* residual[1:(end - 1)]
         end
 
@@ -420,17 +424,6 @@ function _balance_power_cells_nominal(boundary, sites, targets;
         "bounded compaction did not converge; maximum relative cell-area error " *
         "was $(best_error), target is $rtol"
     ))
-end
-
-function compact_power_cells(boundary, sites, targets; relaxations::Integer = 1)
-    current_sites = copy(sites)
-    cells = Vector{eltype(boundary)}[]
-    for pass in 1:Int(relaxations)
-        cells, _ = balance_power_cells(boundary, current_sites, targets)
-        pass == relaxations && break
-        current_sites = polygon_centroid.(cells)
-    end
-    return cells
 end
 
 function course_count(available_area, strand_area)
@@ -823,11 +816,13 @@ function resolved_polygon(points, angle)
     return _polygon(local_points, Pose2(center[1], center[2], angle))
 end
 
-function deform_disk_members(boundary_shape, members)
-    all(member -> member.source.primitive isa Disk, members) || throw(ArgumentError(
-        "boundary-constrained compaction currently requires circular source strands"
-    ))
-    source_areas = [area(member.source.primitive) for member in members]
+function deform_disk_members(boundary_shape::Disk, members)
+    sources = [member.source.primitive for member in members]
+    return deform_disk_members(boundary_shape, members, sources)
+end
+
+function deform_disk_members(boundary_shape::Disk, members, sources::AbstractVector{<:Disk})
+    source_areas = [area(source) for source in sources]
     total_source_area = sum(source_areas)
     nominal_source_areas = nominal.(source_areas)
     nominal_total_source_area = sum(nominal_source_areas)
@@ -837,7 +832,7 @@ function deform_disk_members(boundary_shape, members)
             total_source_area,
             "the compacted strand inventory exceeds its authoritative boundary area"
         ))
-    points = boundary_shape isa Disk ? 256 : 64
+    points = 256
     polygon = boundary_polygon(boundary_shape; points)
     while nominal_total_source_area > nominal(signed_polygon_area(polygon)) * (1 + 2.0e-6)
         points *= 2
@@ -849,7 +844,7 @@ function deform_disk_members(boundary_shape, members)
     end
     targets = signed_polygon_area(polygon) .* source_areas ./ total_source_area
     sites = [member.site for member in members]
-    cells = compact_power_cells(polygon, sites, targets)
+    cells, _ = balance_power_cells(polygon, sites, targets)
     return [
         resolved_polygon(
             area_preserving_strand(
@@ -858,4 +853,10 @@ function deform_disk_members(boundary_shape, members)
             members[index].angle
         ) for index in eachindex(members)
     ]
+end
+
+function deform_disk_members(boundary_shape::Disk, members, sources)
+    throw(ArgumentError(
+        "boundary-constrained compaction currently requires circular source strands"
+    ))
 end

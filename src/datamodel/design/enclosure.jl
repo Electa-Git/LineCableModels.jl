@@ -7,6 +7,9 @@ Geometry methods use this marker to identify an enclosure boundary.
 """
 struct EnclosureBoundary end
 
+# The marker has no geometry, so it is unchanged when its region moves.
+resolve(::Pose2, marker::EnclosureBoundary) = marker
+
 """
 $(TYPEDEF)
 
