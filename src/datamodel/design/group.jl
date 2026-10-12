@@ -360,6 +360,11 @@ function _radial_half_extent(definition::AbstractPrimitive)
 end
 _radial_half_extent(geometry::CableGeometry) = support(boundary(geometry))
 
+# Members on a contextual radius start at the center of an empty context, or at the
+# support radius of the enclosing geometry.
+_context_radius(::EmptyBoundary, child) = zero(support(boundary(child)))
+_context_radius(context::AbstractShape, child) = support(context)
+
 _contextual_pattern(pattern, item, child, compact, context) = pattern
 
 # A contextual radius lays the member centers one radial half extent outside the context.
@@ -370,11 +375,10 @@ function _contextual_pattern(
         compact,
         context
 )
-    inner = context isa EmptyBoundary ? zero(support(boundary(child))) : support(context)
     radial = _radial_half_extent(_member_definition(item, child))
     ring = Ring(
         pattern.n;
-        r = inner + radial,
+        r = _context_radius(context, child) + radial,
         φ0 = pattern.φ0,
         span = pattern.span,
         gap_frac = pattern.gap_frac
@@ -462,20 +466,22 @@ function _resolve_group(
     child = resolve(EmptyBoundary(), group.item)
     pattern = _contextual_pattern(group.pattern, group.item, child, group.compact, context)
     course = placements(pattern, _member_definition(group.item, child), group.compact)
-    isempty(course.poses) && throw(ArgumentError("group placement cannot be empty"))
+    # The local primitives of the members are resolved before the regions are built, so the
+    # enclosing disk is known before the loop.
+    local_primitives = [resolve(pose, _member_primitive(course.shape, source))
+                        for source in child.regions, pose in course.poses]
+    isempty(local_primitives) && throw(ArgumentError("group placement cannot be empty"))
+    local_boundary = Disk(foldl(max, support(primitive) for primitive in local_primitives))
 
     regions = PlacedRegion[]
-    local_extent = nothing
     for (member, pose) in enumerate(course.poses)
         placed_at = group.at * pose
-        for source in child.regions
+        for (index, source) in enumerate(child.regions)
             terminal = source.source.material.kind === :conductor ? group.name :
                        source.terminal
-            local_primitive = resolve(pose, _member_primitive(course.shape, source))
+            local_primitive = local_primitives[index, member]
             primitive = resolve(group.at, local_primitive)
             placed = resolve(placed_at, source)
-            extent = support(local_primitive)
-            local_extent = local_extent === nothing ? extent : max(local_extent, extent)
             patterns = map(placed.placement.patterns) do entry
                 entry.owner === Assembly ? merge(entry, (owner = Group,)) : entry
             end
@@ -501,8 +507,6 @@ function _resolve_group(
             ))
         end
     end
-    local_extent === nothing && throw(ArgumentError("group placement cannot be empty"))
-    local_boundary = Disk(local_extent)
     return CableGeometry(regions, resolve(group.at, local_boundary))
 end
 
