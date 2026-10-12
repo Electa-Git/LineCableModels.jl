@@ -18,11 +18,15 @@ struct BoundedPlacement{B <: AbstractShape}
     function BoundedPlacement(boundary::B, course::Integer) where {
             B <: AbstractShape
     }
-        course >= 0 || throw(DomainError(
-            course, "bounded-placement course must be nonnegative"
-        ))
-        return new{B}(boundary, Int(course))
+        return validate(new{B}(boundary, Int(course)))
     end
+end
+
+function validate(placement::BoundedPlacement)
+    placement.course >= 0 || throw(DomainError(
+        placement.course, "bounded-placement course must be nonnegative"
+    ))
+    return placement
 end
 
 function resolve(at::Pose2, region::PlacedRegion)
@@ -73,16 +77,20 @@ struct BentStrip{T <: Real, P <: Pose2{T}} <: AbstractShape{T}
     function BentStrip{T, P}(ri::T, ro::T, span::T, at::P) where {
             T <: Real, P <: Pose2{T}
     }
-        isfinite(ri) && ri >= zero(ri) || throw(DomainError(
-            ri, "bent-strip inner radius must be nonnegative and finite"
-        ))
-        isfinite(ro) && ro > ri || throw(DomainError(
-            ro, "bent-strip outer radius must exceed its inner radius"
-        ))
-        isfinite(span) && zero(span) < span <= oftype(span, 2pi) ||
-            throw(DomainError(span, "bent-strip span must lie in (0, 2pi]"))
-        return new{T, P}(ri, ro, span, at)
+        return validate(new{T, P}(ri, ro, span, at))
     end
+end
+
+function validate(shape::BentStrip)
+    isfinite(shape.ri) && shape.ri >= zero(shape.ri) || throw(DomainError(
+        shape.ri, "bent-strip inner radius must be nonnegative and finite"
+    ))
+    isfinite(shape.ro) && shape.ro > shape.ri || throw(DomainError(
+        shape.ro, "bent-strip outer radius must exceed its inner radius"
+    ))
+    isfinite(shape.span) && zero(shape.span) < shape.span <= oftype(shape.span, 2pi) ||
+        throw(DomainError(shape.span, "bent-strip span must lie in (0, 2pi]"))
+    return shape
 end
 
 function BentStrip(ri::Real, ro::Real, span::Real, at::Pose2 = Pose2(0, 0, 0))
