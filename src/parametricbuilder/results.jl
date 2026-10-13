@@ -58,15 +58,22 @@ function _combinatorial_source(inner::AbstractGrid)
     has_uncertainty(inner) && throw(ArgumentError(
         "Combinatorial formulation grids must be deterministic",
     ))
-    all(value -> value isa AbstractFormulation, inner) || throw(ArgumentError(
-        "Combinatorial formulation grids must contain completed AbstractFormulation values",
-    ))
+    foreach(value -> validate(value, Combinatorial), inner)
     return inner
 end
 
 function _combinatorial_source(inner)
     throw(ArgumentError(
         "Combinatorial requires a formulation, formulation Grid, or target-bearing formulation Gridspace; got $(typeof(inner))",
+    ))
+end
+
+# A formulation that a Combinatorial computation traverses.
+validate(formulation::AbstractFormulation, ::Type{Combinatorial}) = formulation
+function validate(value, ::Type{Combinatorial})
+    throw(ArgumentError(
+        "Combinatorial formulation spaces must contain completed AbstractFormulation " *
+        "values; got a $(nameof(typeof(value)))"
     ))
 end
 

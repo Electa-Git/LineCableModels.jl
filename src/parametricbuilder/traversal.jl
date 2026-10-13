@@ -5,11 +5,7 @@ end
 function _formulations(source::Gridspace{Target}) where {Target}
     formulations = Vector{Target}(undef, length(source))
     for (index, point) in enumerate(points(source))
-        formulation = materialize(point)
-        formulation isa AbstractFormulation || throw(ArgumentError(
-            "formulation Gridspace produced $(typeof(formulation))",
-        ))
-        formulations[index] = formulation
+        formulations[index] = validate(materialize(point), Combinatorial)
     end
     return formulations
 end
@@ -21,15 +17,9 @@ function _formulations(source::AbstractGrid)
         typejoin,
         (typeof(formulation) for formulation in collected)
     )
-    formulation_type <: AbstractFormulation || throw(ArgumentError(
-        "formulation Grid must contain completed AbstractFormulation values",
-    ))
     formulations = Vector{formulation_type}(undef, length(collected))
     for (index, formulation) in enumerate(collected)
-        formulation isa AbstractFormulation || throw(ArgumentError(
-            "formulation Grid produced $(typeof(formulation))",
-        ))
-        formulations[index] = formulation
+        formulations[index] = validate(formulation, Combinatorial)
     end
     return formulations
 end

@@ -1,7 +1,5 @@
-function _grid_item(value)
-    value isa Real && return TextDisplay.value(value)
-    return sprint(show, value; context = :compact => true, sizehint = 64)
-end
+_grid_item(value::Real) = TextDisplay.value(value)
+_grid_item(value) = sprint(show, value; context = :compact => true, sizehint = 64)
 
 function _display_grid_values(values)
     count = length(values)
@@ -45,11 +43,13 @@ end
 function _grid_nominals(grid::Union{RelativeGrid, AbsoluteGrid})
     return grid.vals
 end
+# The error descriptions of a grid: none for a deterministic grid.
+_grid_errors(::DeterministicGrid) = ()
 function _grid_errors(grid::RelativeGrid)
-    return "relative error  $(_display_grid_values(grid.rel_err)) %"
+    return ("relative error  $(_display_grid_values(grid.rel_err)) %",)
 end
 function _grid_errors(grid::AbsoluteGrid)
-    return "absolute error  $(_display_grid_values(grid.abs_err))"
+    return ("absolute error  $(_display_grid_values(grid.abs_err))",)
 end
 
 function Base.summary(io::IO, grid::AbstractGrid)
@@ -57,13 +57,13 @@ function Base.summary(io::IO, grid::AbstractGrid)
 end
 function Base.show(io::IO, grid::AbstractGrid)
     print(io, _grid_kind(grid), "(", _display_grid_values(_grid_nominals(grid)))
-    grid isa DeterministicGrid || print(io, "; ", _grid_errors(grid))
+    foreach(text -> print(io, "; ", text), _grid_errors(grid))
     print(io, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", grid::AbstractGrid)
     get(io, :compact, false) && return show(io, grid)
     children = Any[(label = "values  $(_display_grid_values(_grid_nominals(grid)))", noun = "values")]
-    grid isa DeterministicGrid || push!(children, (label = _grid_errors(grid), noun = "values"))
+    append!(children, ((label = text, noun = "values") for text in _grid_errors(grid)))
     return TextDisplay.tree(io, "$(_grid_kind(grid)) · $(length(grid)) points", Tuple(children))
 end
 

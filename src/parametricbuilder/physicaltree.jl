@@ -18,14 +18,19 @@ Compose physical parts in outward order.
 layers(parts...; combine::Symbol = :product) = Stack(parts...; combine)
 
 function _explicit_assembly(members...)
-    placed = map(members) do member
-        member isa DataModel.AssemblyMember ? member :
-        member isa DataModel.AbstractCablePart ? DataModel.AssemblyMember(member) :
-        throw(ArgumentError("assembly members must be physical cable parts"))
-    end
+    placed = map(_assembly_member, members)
     return DataModel.Assembly(
         DataModel.Pose2(0, 0, 0), Tuple(placed), nothing, nothing, nothing, nothing
     )
+end
+
+# An explicit assembly takes placed members, and it places a bare cable part at its origin.
+_assembly_member(member::DataModel.AssemblyMember) = member
+_assembly_member(member::DataModel.AbstractCablePart) = DataModel.AssemblyMember(member)
+function _assembly_member(member)
+    throw(ArgumentError(
+        "assembly members must be physical cable parts; got a $(nameof(typeof(member)))"
+    ))
 end
 
 """
@@ -95,9 +100,11 @@ function _terminal_eligible(
 )
     return sum(member -> _terminal_eligible(member.item), assembly.item; init = 0)
 end
+# A material fill has no terminal.
+_terminal_eligible(::Materials.Material) = 0
 function _terminal_eligible(enclosure::DataModel.Enclosure)
     count = _terminal_eligible(enclosure.item)
-    enclosure.fill isa DataModel.Region && (count += _terminal_eligible(enclosure.fill))
+    count += _terminal_eligible(enclosure.fill)
     enclosure.wall === nothing || (count += _terminal_eligible(enclosure.wall))
     return count
 end
@@ -729,16 +736,19 @@ function stranded(
     values = (
         material, center, shape, lay, dir, φ0, compact, boundary, fill
     )
-    shape_type = shape isa AbstractGrid ? eltype(shape) : typeof(shape)
-    target = if shape_type <: DataModel.Rectangle || shape isa Gridspace{<:DataModel.Rectangle}
-        DataModel.Group
-    elseif shape_type <: DataModel.Disk || shape isa Gridspace{<:DataModel.Disk}
-        DataModel.Enclosure
-    else
-        DataModel.AbstractCablePart
-    end
-    return parameterize(target, caller, values; combine)
+    return parameterize(_stranded_target(shape), caller, values; combine)
 end
+
+# For a Rectangle strand shape, `stranded` builds a bounded Group, and for Disk wires it
+# builds an Enclosure. A Grid that mixes them gives either part.
+_stranded_target(::DataModel.Rectangle) = DataModel.Group
+_stranded_target(::DataModel.Disk) = DataModel.Enclosure
+_stranded_target(::Gridspace{<:DataModel.Rectangle}) = DataModel.Group
+_stranded_target(::Gridspace{<:DataModel.Disk}) = DataModel.Enclosure
+_stranded_target(grid::AbstractGrid) = _stranded_target(eltype(grid))
+_stranded_target(::Type{<:DataModel.Rectangle}) = DataModel.Group
+_stranded_target(::Type{<:DataModel.Disk}) = DataModel.Enclosure
+_stranded_target(shape) = DataModel.AbstractCablePart
 
 # One lay law takes one direction and one initial angle. A schedule of either requires a
 # lay schedule of the same length.
@@ -1228,12 +1238,15 @@ function cores(
 end
 
 function _enclose(tag, items, shape, fill, wall, pose)
-    # Several members, or one placed member, form an explicit assembly.
-    item = length(items) == 1 && only(items) isa DataModel.AbstractCablePart ?
-           only(items) : _explicit_assembly(items...)
+    item = _enclosed_item(items)
     resolved_pose = pose === nothing ? DataModel.Pose2(0, 0, 0) : pose
     return DataModel.Enclosure(tag, resolved_pose, shape, item, fill, wall)
 end
+
+# Several members, or one placed member, form an explicit assembly. One cable part is the
+# enclosed item.
+_enclosed_item(items::Tuple{DataModel.AbstractCablePart}) = only(items)
+_enclosed_item(items) = _explicit_assembly(items...)
 
 """
 $(TYPEDSIGNATURES)

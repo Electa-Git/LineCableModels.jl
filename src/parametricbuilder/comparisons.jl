@@ -25,11 +25,31 @@ function compare(reference::ParametricResult, result::ParametricResult,
     length(pairing) == length(result) &&
         sort(last.(pairing)) == collect(eachindex(result.values)) ||
         throw(ArgumentError("pairing must select every result exactly once"))
-    all(pair -> pair isa Tuple{Integer,Integer} &&
-        !(first(pair) isa Bool) && !(last(pair) isa Bool) &&
-        1 <= first(pair) <= length(reference), pairing) ||
-        throw(ArgumentError("pairing contains an invalid reference/result index"))
+    foreach(pair -> validate(pair, compare, reference), pairing)
     ordered=sort(collect(pairing); by=last)
     errors=[compare(reference[i], result[j], quantity::Union{Function,Tuple}; kwargs...) for (i,j) in ordered]
     return ParametricResult(result.formulation, errors, result.axes, ComputationDetails())
+end
+
+# One pair of a comparison pairing: a reference index within the reference result, and a
+# result index. Bools are not indices.
+function validate(
+        pair::Tuple{Integer, Integer},
+        ::typeof(compare),
+        reference::ParametricResult
+)
+    1 <= first(pair) <= length(reference) || throw(ArgumentError(
+        "pairing contains an invalid reference/result index; got $pair"))
+    return pair
+end
+function validate(
+        pair::Union{Tuple{Bool, Integer}, Tuple{Integer, Bool}},
+        ::typeof(compare),
+        reference::ParametricResult
+)
+    throw(ArgumentError("pairing contains an invalid reference/result index; got $pair"))
+end
+function validate(pair, ::typeof(compare), reference::ParametricResult)
+    throw(ArgumentError(
+        "pairing contains an invalid reference/result index; got $(repr(pair))"))
 end
