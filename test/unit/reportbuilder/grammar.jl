@@ -246,6 +246,11 @@ end
     unit_options=(length_unit = :base, quantity_units = :base, frequency_unit = :kilo)
     observed=ObservedResult(line, quantities; unit_options...)
     raw=report(line; values = quantities, unit_options...)
+    # The reference of a result report is checked before observation: an atomic result is
+    # observed, and any other value is rejected with its type.
+    @test report(line; values = quantities, reference = line).reference isa ObservedResult
+    @test_throws "reference must be an atomic result or ObservedResult; got Int64" report(
+        line; values = quantities, reference = 1)
     retained=report(observed)
     @test retained.observed===observed
     @test raw.tables==retained.tables
