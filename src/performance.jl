@@ -44,10 +44,8 @@ end
 ```
 """
 function benchmark(f; samples = 1, warmup = 0)
-    samples isa Integer && !(samples isa Bool) && 0 < samples <= typemax(Int) ||
-        throw(ArgumentError("samples must be a positive integer representable as Int"))
-    warmup isa Integer && !(warmup isa Bool) && 0 <= warmup <= typemax(Int) ||
-        throw(ArgumentError("warmup must be a nonnegative integer representable as Int"))
+    validate(samples, benchmark, :samples, 1)
+    validate(warmup, benchmark, :warmup, 0)
     for _ in 1:warmup
         f()
     end
@@ -80,4 +78,18 @@ function benchmark(f; samples = 1, warmup = 0)
         timings[index] = measurement(result)
     end
     return (; result, timings)
+end
+
+# A repetition count of `benchmark`: an integer from `minimum` up to `typemax(Int)`. A Bool
+# is an Integer but not a count.
+function validate(count::Union{Signed, Unsigned}, ::typeof(benchmark), role::Symbol,
+        minimum::Int)
+    minimum <= count <= typemax(Int) && return count
+    throw(ArgumentError(
+        "$role must be an integer of at least $minimum representable as Int; got $count"))
+end
+function validate(count, ::typeof(benchmark), role::Symbol, minimum::Int)
+    throw(ArgumentError(
+        "$role must be an integer of at least $minimum representable as Int; " *
+        "got $(typeof(count))"))
 end

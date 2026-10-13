@@ -84,14 +84,9 @@ function Gridspace{Target}(
         build,
         grids::G;
         combine::Symbol = :product
-) where {Target, G <: Tuple}
+) where {Target, G <: Tuple{Vararg{_GridspaceSource}}}
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
-    all(grid -> grid isa _GridspaceSource, grids) || throw(
-        ArgumentError(
-        "Gridspace sources must be Grid, Gridspace, or completed result-space values",
-    ),
-    )
     callable = _gridspace_callable(build)
     result_type = _gridspace_eltype(Target, callable, grids)
     space = Gridspace{
@@ -99,6 +94,11 @@ function Gridspace{Target}(
     }(callable, grids)
     combine === :zip && _zip_length(space)
     return space
+end
+function Gridspace{Target}(build, grids::Tuple; combine::Symbol = :product) where {Target}
+    throw(ArgumentError(
+        "Gridspace sources must be Grid, Gridspace, or completed result-space values",
+    ))
 end
 
 function Gridspace{Target}(grids::Tuple; combine::Symbol = :product) where {Target}

@@ -31,20 +31,24 @@ struct UncertainValue{T, E}
     sigma::E
 
     function UncertainValue(nominal::T, sigma::E) where {T, E}
-        if nominal isa Real && sigma isa Real
-            isfinite(nominal) || throw(ArgumentError(
-                "uncertain nominal values must be finite; got $nominal",
-            ))
-            isfinite(sigma) || throw(ArgumentError(
-                "uncertainty must be finite; got $sigma",
-            ))
-            sigma >= zero(sigma) || throw(ArgumentError(
-                "uncertainty must be nonnegative; got $sigma",
-            ))
-        end
-        return new{T, E}(nominal, sigma)
+        return validate(new{T, E}(nominal, sigma))
     end
 end
+
+# A real uncertain value has a finite nominal value and a finite, nonnegative uncertainty.
+function validate(value::UncertainValue{<:Real, <:Real})
+    isfinite(value.nominal) || throw(ArgumentError(
+        "uncertain nominal values must be finite; got $(value.nominal)",
+    ))
+    isfinite(value.sigma) || throw(ArgumentError(
+        "uncertainty must be finite; got $(value.sigma)",
+    ))
+    value.sigma >= zero(value.sigma) || throw(ArgumentError(
+        "uncertainty must be nonnegative; got $(value.sigma)",
+    ))
+    return value
+end
+validate(value::UncertainValue) = value
 
 """
 $(TYPEDSIGNATURES)
@@ -81,16 +85,21 @@ uncertainties.
 
 $(TYPEDFIELDS)
 """
-struct RelativeGrid{V <: Tuple, P <: Tuple} <: AbstractUncertainGrid
+struct RelativeGrid{V <: Tuple{Vararg{Real}}, P <: Tuple{Vararg{Real}}} <: AbstractUncertainGrid
     "Nominal values admitted by the source."
     vals::V
 
     "Relative standard uncertainties expressed as percentages."
     rel_err::P
 
-    function RelativeGrid(vals::V, rel_err::P) where {V <: Tuple, P <: Tuple}
+    function RelativeGrid(vals::V,
+            rel_err::P) where {V <: Tuple{Vararg{Real}}, P <: Tuple{Vararg{Real}}}
         return validate(new{V, P}(vals, rel_err))
     end
+end
+function RelativeGrid(vals::Tuple, rel_err::Tuple)
+    throw(ArgumentError("relative uncertainty requires real nominal values and errors; " *
+                        "got $(typeof(vals)) and $(typeof(rel_err))"))
 end
 
 """
@@ -101,16 +110,21 @@ uncertainties.
 
 $(TYPEDFIELDS)
 """
-struct AbsoluteGrid{V <: Tuple, P <: Tuple} <: AbstractUncertainGrid
+struct AbsoluteGrid{V <: Tuple{Vararg{Real}}, P <: Tuple{Vararg{Real}}} <: AbstractUncertainGrid
     "Nominal values admitted by the source."
     vals::V
 
     "Absolute standard uncertainties in the same unit as `vals`."
     abs_err::P
 
-    function AbsoluteGrid(vals::V, abs_err::P) where {V <: Tuple, P <: Tuple}
+    function AbsoluteGrid(vals::V,
+            abs_err::P) where {V <: Tuple{Vararg{Real}}, P <: Tuple{Vararg{Real}}}
         return validate(new{V, P}(vals, abs_err))
     end
+end
+function AbsoluteGrid(vals::Tuple, abs_err::Tuple)
+    throw(ArgumentError("absolute uncertainty requires real nominal values and errors; " *
+                        "got $(typeof(vals)) and $(typeof(abs_err))"))
 end
 
 """
@@ -121,14 +135,17 @@ Mark values as absolute standard uncertainties for
 
 $(TYPEDFIELDS)
 """
-struct AbsoluteError{T <: Tuple}
+struct AbsoluteError{T <: Tuple{Vararg{Real}}}
     "Absolute standard uncertainties."
     vals::T
 
-    function AbsoluteError(vals::T) where {T <: Tuple}
+    function AbsoluteError(vals::T) where {T <: Tuple{Vararg{Real}}}
         validate(vals, AbsoluteError)
         return new{T}(vals)
     end
+end
+function AbsoluteError(vals::Tuple)
+    throw(ArgumentError("absolute errors must be real; got $(typeof(vals))"))
 end
 
 _grid_values(value::Tuple) = value
@@ -141,8 +158,6 @@ function validate(errors::Tuple,
     kind = R <: RelativeGrid ? "relative" : "absolute"
     isempty(errors) && throw(ArgumentError("$kind uncertainty cannot be empty"))
     for error in errors
-        error isa Real ||
-            throw(ArgumentError("$kind errors must be real; got $(typeof(error))"))
         isfinite(error) || throw(ArgumentError("$kind errors must be finite; got $error"))
         error >= zero(error) ||
             throw(ArgumentError("$kind errors must be nonnegative; got $error"))
@@ -150,19 +165,24 @@ function validate(errors::Tuple,
     return errors
 end
 
-function validate(grid::Union{RelativeGrid, AbsoluteGrid})
-    kind, errors = grid isa RelativeGrid ? ("relative", grid.rel_err) :
-                   ("absolute", grid.abs_err)
-    values = grid.vals
-    isempty(values) &&
-        throw(ArgumentError("$kind uncertainty cannot have an empty nominal source"))
-    validate(errors, typeof(grid))
-    for value in values
-        value isa Real || throw(ArgumentError(
-            "$kind uncertainty requires real nominal values; got $(typeof(value))",
-        ))
+function validate(grid::RelativeGrid)
+    isempty(grid.vals) &&
+        throw(ArgumentError("relative uncertainty cannot have an empty nominal source"))
+    validate(grid.rel_err, typeof(grid))
+    for value in grid.vals
         isfinite(value) ||
-            throw(ArgumentError("$kind nominal values must be finite; got $value"))
+            throw(ArgumentError("relative nominal values must be finite; got $value"))
+    end
+    return grid
+end
+
+function validate(grid::AbsoluteGrid)
+    isempty(grid.vals) &&
+        throw(ArgumentError("absolute uncertainty cannot have an empty nominal source"))
+    validate(grid.abs_err, typeof(grid))
+    for value in grid.vals
+        isfinite(value) ||
+            throw(ArgumentError("absolute nominal values must be finite; got $value"))
     end
     return grid
 end
@@ -301,8 +321,7 @@ function rand(
         distribution = :normal
 )
     isempty(grid) && throw(ArgumentError("cannot sample an empty Grid"))
-    value = grid[rand(rng, 1:length(grid))]
-    return value isa UncertainValue ? rand(rng, value; distribution) : value
+    return realize(rng, grid[rand(rng, 1:length(grid))], distribution)
 end
 
 function rand(grid::AbstractGrid; distribution = :normal)
