@@ -23,8 +23,10 @@ function report(definition::MonteCarloTableDefinition,source::AbstractUncertaint
     return report(definition,observed)
 end
 select(::MonteCarloTableDefinition,observed::ObservedResult;reference=nothing) = observed.quantities
+function tabulate(::MonteCarloTableDefinition,observed::ObservedResult,selected;reference=nothing)
+    return _quantity_tables(selected;gridpoint_id=observed.gridpoint.id)
+end
 function tabulate(::MonteCarloTableDefinition,observed,selected;reference=nothing)
-    observed isa ObservedResult && return _quantity_tables(selected;gridpoint_id=observed.gridpoint.id)
     return map((point,products) -> _quantity_tables(products;gridpoint_id=point.gridpoint.id),
         observed,selected)
 end

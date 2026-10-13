@@ -126,17 +126,40 @@ function validate(definition::BenchmarkTableDefinition)
         request_quantity(request)
         isempty(request_indices(request)) || throw(ArgumentError("benchmark point selection uses pairing"))
     end
-    if settings.pairing !== nothing
-        settings.pairing isa Union{Tuple,AbstractVector} && !isempty(settings.pairing) &&
-            all(pair -> pair isa Tuple{Integer,Integer} && all(index -> !(index isa Bool) && index>0,pair),settings.pairing) &&
-            sort(last.(collect(settings.pairing))) == collect(1:length(settings.pairing)) ||
-            throw(ArgumentError("pairing must list positive reference/result indices with each result exactly once"))
-    end
+    settings.pairing === nothing || validate(settings.pairing,definition)
     !isempty(settings.bands) && allunique(settings.bands) ||
         throw(ArgumentError("benchmark needs distinct frequency bands"))
     !isempty(settings.normalizations) && allunique(settings.normalizations) ||
         throw(ArgumentError("benchmark needs distinct RMS normalizations"))
     return definition
+end
+
+# A benchmark pairing is a nonempty list of pairs that selects each result once.
+function validate(pairing::Union{Tuple,AbstractVector},definition::BenchmarkTableDefinition)
+    for pair in pairing
+        validate(pair,Engine.compare,definition)
+    end
+    !isempty(pairing) && sort(last.(collect(pairing))) == collect(1:length(pairing)) ||
+        throw(ArgumentError("pairing must list positive reference/result indices with each result exactly once"))
+    return pairing
+end
+function validate(pairing,definition::BenchmarkTableDefinition)
+    throw(ArgumentError("pairing must list positive reference/result indices with each result exactly once; got $(typeof(pairing))"))
+end
+# One pair of positive reference and result positions. A Bool is not a position.
+function validate(pair::Tuple{Integer,Integer},::typeof(Engine.compare),definition::BenchmarkTableDefinition)
+    all(>(0),pair) || throw(ArgumentError(
+        "pairing must list positive reference/result indices with each result exactly once; got $pair"))
+    return pair
+end
+function validate(pair::Union{Tuple{Bool,Integer},Tuple{Integer,Bool}},::typeof(Engine.compare),
+        definition::BenchmarkTableDefinition)
+    throw(ArgumentError(
+        "pairing must list positive reference/result indices with each result exactly once; got $pair"))
+end
+function validate(pair,::typeof(Engine.compare),definition::BenchmarkTableDefinition)
+    throw(ArgumentError(
+        "pairing must list positive reference/result indices with each result exactly once; got $(repr(pair))"))
 end
 
 
@@ -270,8 +293,11 @@ function select(definition::LineParametersTableDefinition,observed::ObservedResu
         for request in Commons.observation_requests(observed,definition.requests).retained]
 end
 function tabulate(::Union{TableReportDefinition,CableConstantsTableDefinition,LineParametersTableDefinition},
+        observed::ObservedResult,selected;reference=nothing)
+    return _quantity_tables(selected;gridpoint_id=observed.gridpoint.id)
+end
+function tabulate(::Union{TableReportDefinition,CableConstantsTableDefinition,LineParametersTableDefinition},
         observed,selected;reference=nothing)
-    observed isa ObservedResult && return _quantity_tables(selected;gridpoint_id=observed.gridpoint.id)
     return map((point,products) -> _quantity_tables(products;gridpoint_id=point.gridpoint.id),
         observed,selected)
 end

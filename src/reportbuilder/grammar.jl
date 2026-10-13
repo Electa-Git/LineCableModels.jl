@@ -119,10 +119,12 @@ function Base.getindex(artifact::ReportArtifact,request)
 end
 
 function Base.getindex(artifact::ReportArtifact,index::Integer,request)
-    index isa Bool && throw(ArgumentError("result position must be an integer, not Bool"))
     points=_observed_points(artifact.observed)
     index in eachindex(points) || throw(BoundsError(artifact,(index,request)))
     return _reported_table(artifact,_reported_tables(artifact),request,index)
+end
+function Base.getindex(artifact::ReportArtifact,index::Bool,request)
+    throw(ArgumentError("result position must be an integer, not Bool"))
 end
 
 """
@@ -326,11 +328,7 @@ function report(
     displayed=isempty(requests) ? () :
               Commons.observation_requests(point, requests; complete_pairs = true).displayed
     options=_report_plot_options(point, displayed, illustration, plot_options)
-    reference===nothing ||
-        reference isa Union{ObservedResult, Commons.AbstractCoreResult,
-            Engine.SeriesImpedance, Engine.ShuntAdmittance} ||
-        throw(ArgumentError(
-            "reference must be an atomic result or ObservedResult"))
+    validate(reference, report)
     observed=observables(source, requests; complete_pairs = true, acquisition...)
     if reference isa ObservedResult
         display_units=(;
@@ -345,13 +343,25 @@ function report(
         observed; values = displayed, reference, illustration, plot_options = options)
 end
 
+# A report's reference is nothing, an observation or one atomic result.
+function validate(
+        reference::Union{Nothing, ObservedResult, Commons.AbstractCoreResult,
+            Engine.SeriesImpedance, Engine.ShuntAdmittance},
+        ::typeof(report))
+    return reference
+end
+function validate(reference, ::typeof(report))
+    throw(ArgumentError(
+        "reference must be an atomic result or ObservedResult; got $(typeof(reference))"))
+end
+
 function report(observed::Union{ObservedResult, AbstractVector{<:ObservedResult}};
         values = nothing, reference::Union{Nothing, ObservedResult} = nothing,
         illustration = nothing, plot_options::NamedTuple = (;), kwargs...)
     display_units=_report_observation_options(kwargs; retained = true)
-    observed isa AbstractVector && isempty(observed) &&
+    isempty(_observed_points(observed)) &&
         throw(ArgumentError("report requires at least one observation"))
-    point=observed isa ObservedResult ? observed : first(observed)
+    point=first(_observed_points(observed))
     requests=Commons.observation_selection(point, values)
     displayed=Commons.observation_requests(point, requests).displayed
     options=_report_plot_options(point, displayed, illustration, plot_options)

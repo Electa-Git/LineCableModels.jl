@@ -60,8 +60,7 @@ function tabulate(definition::BenchmarkTableDefinition,
     population=reference===nothing ? points : [points;reference]
     labels=Commons.observation_labels(population)
     rows=NamedTuple[];terms=NamedTuple[];maxima=NamedTuple[]
-    selected_errors=observed isa ObservedResult ? (selected,) : selected
-    for (index,point) in enumerate(points),error in selected_errors[index]
+    for (index,point) in enumerate(points),error in selected[index]
         id=point.gridpoint.id
         settings=error.settings
         identity=(result_id=error.result_id,reference_id=error.reference_id,
@@ -105,7 +104,7 @@ function tabulate(definition::BenchmarkTableDefinition,
         quantity_labels=Commons.observation_labels(population;request)
         absolute=DataFrame(formula=quantity_labels[representatives]);relative=copy(absolute)
         for band in bands
-            name=band isa Symbol ? band : Symbol(string(band))
+            name=Symbol(string(band))
             for (frame,field) in ((absolute,:maximum_absolute_rms),(relative,:maximum_relative_rms_percent))
                 frame[!,name]=[begin
                     matches=filter(row -> row.result_point==index && isequal(row.band,band),selected)
@@ -135,6 +134,11 @@ function tabulate(definition::BenchmarkTableDefinition,
     metadata!(maxima_table,"comparison_records",Commons.detach(maxima);style=:note)
     return merge(info,(quantities=map(tabulate,points),comparisons=DataFrame(rows),terms=DataFrame(terms),
         maxima=maxima_table,summary=copy(maxima_table),features,groups),timing,sampling,(;overview))
+end
+
+# One observation is a collection of one, with its one list of comparisons.
+function tabulate(definition::BenchmarkTableDefinition,observed::ObservedResult,selected;reference=nothing)
+    return tabulate(definition,[observed],(selected,);reference)
 end
 
 function illustrate(definition::BenchmarkTableDefinition,observed,tables;reference=nothing)
@@ -170,4 +174,5 @@ function report(definition::BenchmarkTableDefinition,source::NamedTuple;requests
     return report(definition,observed;reference=observed_reference)
 end
 
-description(::BenchmarkTableDefinition,band) = band isa Symbol ? string(band) : string(first(band),"–",last(band)," Hz")
+description(::BenchmarkTableDefinition,band::Symbol) = string(band)
+description(::BenchmarkTableDefinition,band) = string(first(band),"–",last(band)," Hz")

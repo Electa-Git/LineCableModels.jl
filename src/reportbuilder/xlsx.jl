@@ -79,13 +79,20 @@ function _numeric_sheet(definition,table,name,transform)
 end
 
 select(::XLSXReportDefinition,observed::ObservedResult;reference=nothing) = observed.quantities
+function tabulate(::XLSXReportDefinition,observed::ObservedResult,selected;reference=nothing)
+    return _quantity_tables(selected;gridpoint_id=observed.gridpoint.id)
+end
 function tabulate(::XLSXReportDefinition,observed,selected;reference=nothing)
-    observed isa ObservedResult && return _quantity_tables(selected;gridpoint_id=observed.gridpoint.id)
     return map((point,products) -> _quantity_tables(products;gridpoint_id=point.gridpoint.id),
         observed,selected)
 end
 function report(definition::XLSXReportDefinition,source::Engine.LineParameters;kwargs...)
     return report(definition,ObservedResult(source;clip=definition.clip,kwargs...))
+end
+# One observation is a collection of one, with its one set of tables.
+function encode(definition::XLSXReportDefinition,observed::ObservedResult,tables,illustration;
+        reference=nothing)
+    return encode(definition,[observed],[tables],illustration;reference)
 end
 function encode(definition::XLSXReportDefinition,observed,tables,illustration;reference=nothing)
     workbooks=XLSXWorkbook[]
@@ -93,8 +100,7 @@ function encode(definition::XLSXReportDefinition,observed,tables,illustration;re
     stem=splitext(basename(requested))[1]
     definition.system_id===nothing || (stem=definition.system_id*"_"*stem)
     for (point_index,point) in enumerate(_observed_points(observed)), product in point.quantities
-        point_tables=observed isa ObservedResult ? tables : tables[point_index]
-        table=getproperty(getproperty(point_tables,product.family),_quantity_name(product))
+        table=getproperty(getproperty(tables[point_index],product.family),_quantity_name(product))
         name=replace(string(_quantity_name(product)),r"[^A-Za-z0-9_-]"=>"_")
         id=get(point.gridpoint,:id,nothing)
         index=id===nothing ? string(point_index) : string(id.source_id,"_",id.problem_index,"_",id.formulation_index)
