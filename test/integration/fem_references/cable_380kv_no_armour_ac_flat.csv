@@ -5,7 +5,7 @@
 # fem: Formulation(:fem), Helmholtz, Gamma = 0, production defaults
 # analytical: Unified earth, shunt model :coaxial of that checkout (:equivalent here), no reductions
 # Source checkout: release/v0.2.0-fem-investigation at db25b591 (round-conductor boundary-layer depth cap 0.5)
-# Copied on the user's instruction on 2026-10-12. Not yet read by a test.
+# Copied on the user's instruction on 2026-10-12. test/integration/fem_references.jl pins its analytical values and compares with FEM only where FEM confirms.
 # FEM vouches for Y at all 11 frequencies (e_Y <= 0.38 %).
 # Z differs by 0.81 to 6.99 % from 3.98 Hz: the analytical stranded core includes the lay correction, which the 2D FEM lacks.
 # Conductors in row/column order: 1 = cable:1:core, 2 = cable:1:sheath, 3 = cable:2:core, 4 = cable:2:sheath, 5 = cable:3:core, 6 = cable:3:sheath

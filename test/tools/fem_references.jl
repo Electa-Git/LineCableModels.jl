@@ -30,7 +30,9 @@ using Printf: @sprintf
 # the case scripts.
 Base.include(@__MODULE__, joinpath(REPOSITORY, "test", "support", "scenarios.jl"))
 using .CurrentScenarios: fem_reference_problem
-const CASES = (:two_bare_wires, :two_insulated_wires, :solid_1000mm2_single)
+const CASES = (:two_bare_wires, :two_insulated_wires, :solid_1000mm2_single,
+    :cable_525kv_land_no_armour_dc_bipole, :cable_320kv_no_armour_dc_bipole,
+    :cable_380kv_no_armour_ac_flat, :cable_132kv_cigre_tb880_case0_630cu_trefoil)
 
 const FORMULATION = Formulation(earth_impedance = :unified, earth_admittance = :unified,
     shunt_model = :equivalent,
