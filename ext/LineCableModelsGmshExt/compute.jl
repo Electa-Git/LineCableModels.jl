@@ -665,12 +665,14 @@ function compute(
     end
 end
 
-function _compute_request(problem, formulation; options)
+# The same rules for completion notification and reuse apply to scalar and collection
+# calls: one formulation is a collection of one.
+function _compute_request(problem, formulation::LineCableModelsFEM; options)
+    return first(_compute_request(problem, [formulation]; options))
+end
+function _compute_request(problem, formulations; options)
     problem = _preflight_fem_problem(problem)
     execution = computation_options(LineCableModelsFEM, options)
-    # The same rules for completion notification and reuse apply to scalar
-    # and collection calls.
-    formulations = formulation isa LineCableModelsFEM ? [formulation] : formulation
     logger = LineCableModels.VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
     values = if execution.data.log_file === nothing
         with_logger(logger) do
@@ -685,7 +687,7 @@ function _compute_request(problem, formulation; options)
             end
         end
     end
-    return formulation isa LineCableModelsFEM ? first(values) : values
+    return values
 end
 
 function _compute_fem(

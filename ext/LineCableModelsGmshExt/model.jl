@@ -303,31 +303,30 @@ function validate(design::DataModel.CableDesign, ::Type{FEMResolvedModel})
     return design
 end
 
+# The mesh size of a region follows its source primitive. Any other source takes its
+# resolved shape.
 function _fem_region_mesh_size(region::DataModel.PlacedRegion)
-    source = region.source.primitive
-    shape = region.primitive
     repeated = any(entry -> entry.owner === DataModel.Group, region.placement.patterns)
-    if source isa DataModel.Disk
-        return repeated ? source.r : source.r / 5
-    end
-    if source isa DataModel.Annulus
-        return (source.ro - source.ri) / 2
-    end
-    if source isa DataModel.Rectangle
-        return min(source.w, source.h) / (repeated ? 2 : 5)
-    end
-    if source isa DataModel.Ellipse
-        return min(source.a, source.b) / (repeated ? 1 : 5)
-    end
-    if shape isa DataModel.Annulus
-        return (shape.ro - shape.ri) / 2
-    end
+    return _fem_region_mesh_size(region.source.primitive, region.primitive, repeated,
+        region.source.tag)
+end
+_fem_region_mesh_size(source::DataModel.Disk, shape, repeated, tag) =
+    repeated ? source.r : source.r / 5
+_fem_region_mesh_size(source::DataModel.Annulus, shape, repeated, tag) =
+    (source.ro - source.ri) / 2
+_fem_region_mesh_size(source::DataModel.Rectangle, shape, repeated, tag) =
+    min(source.w, source.h) / (repeated ? 2 : 5)
+_fem_region_mesh_size(source::DataModel.Ellipse, shape, repeated, tag) =
+    min(source.a, source.b) / (repeated ? 1 : 5)
+_fem_region_mesh_size(source, shape, repeated, tag) = _fem_region_mesh_size(shape, tag)
+_fem_region_mesh_size(shape::DataModel.Annulus, tag) = (shape.ro - shape.ri) / 2
+function _fem_region_mesh_size(shape, tag)
     region_area = LineCableModels.area(shape)
     region_perimeter = DataModel.perimeter(shape)
     scale = region_area / region_perimeter
     isfinite(scale) && scale > zero(scale) || _fem_error(
         :adaptation,
-        String(region.source.tag),
+        String(tag),
         :mesh_size,
         "could not derive a positive local characteristic length"
     )

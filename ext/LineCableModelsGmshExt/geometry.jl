@@ -111,10 +111,12 @@ function _register_full_circle_breaks!(registry::FEMLoopRegistry, center, radius
     return nothing
 end
 
-function _tangent_circular_fill_plan(shape)
-    shape isa DataModel.DifferenceShape || return nothing
+# A tangent plan exists only for an annulus whose holes are disks and bent strips.
+_tangent_circular_fill_plan(shape) = nothing
+function _tangent_circular_fill_plan(
+        shape::DataModel.DifferenceShape{<:Real, <:DataModel.Annulus,
+            <:Tuple{Vararg{Union{DataModel.Disk, DataModel.BentStrip}}}})
     outer = shape.outer
-    outer isa DataModel.Annulus || return nothing
     isempty(shape.holes) && return nothing
     iszero(outer.ri) && return nothing
 
@@ -122,7 +124,6 @@ function _tangent_circular_fill_plan(shape)
     disks = filter(hole -> hole isa DataModel.Disk, shape.holes)
     cutouts = filter(hole -> !(hole isa DataModel.Disk), shape.holes)
     isempty(disks) && return nothing
-    all(hole -> hole isa DataModel.BentStrip, cutouts) || return nothing
     entries = Tuple{Float64, Any}[]
     outer_contacts = Float64[]
     for hole in disks
@@ -1001,24 +1002,35 @@ function _boundary_loop!(
         shape;
         mesh_size = registry.mesh_size
 )
-    if shape isa DataModel.Disk
-        return _circle_loop!(
-            registry,
-            (shape.at.x, shape.at.y),
-            shape.r;
-            mesh_size
-        )
-    end
-    shape isa DataModel.Ellipse && return _ellipse_loop!(
-        registry, shape; mesh_size
-    )
-    shape isa DataModel.SectorShape && return _sector_loop!(
-        registry, shape; mesh_size
-    )
-    shape isa DataModel.BentStrip && return _bent_strip_loop!(
-        registry, shape; mesh_size
-    )
     return _polygon_loop!(registry, _shape_points(shape); mesh_size)
+end
+function _boundary_loop!(
+        registry::FEMLoopRegistry,
+        shape::DataModel.Disk;
+        mesh_size = registry.mesh_size
+)
+    return _circle_loop!(registry, (shape.at.x, shape.at.y), shape.r; mesh_size)
+end
+function _boundary_loop!(
+        registry::FEMLoopRegistry,
+        shape::DataModel.Ellipse;
+        mesh_size = registry.mesh_size
+)
+    return _ellipse_loop!(registry, shape; mesh_size)
+end
+function _boundary_loop!(
+        registry::FEMLoopRegistry,
+        shape::DataModel.SectorShape;
+        mesh_size = registry.mesh_size
+)
+    return _sector_loop!(registry, shape; mesh_size)
+end
+function _boundary_loop!(
+        registry::FEMLoopRegistry,
+        shape::DataModel.BentStrip;
+        mesh_size = registry.mesh_size
+)
+    return _bent_strip_loop!(registry, shape; mesh_size)
 end
 
 function _surface_boundaries(shape::DataModel.Annulus)
