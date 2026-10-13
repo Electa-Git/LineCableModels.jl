@@ -87,10 +87,14 @@ end
         material::EarthMaterial{T}, frequency::T; workspace = nothing
 ) where {T <: Real}
     functor = Functor(formula, (; material, frequency, options = formula.options); workspace)
-    evaluated = Expression(formula, earth_material)(functor, workspace)
-    evaluated isa EarthMaterial ||
-        throw(ArgumentError("a frequency-dependent earth relation must return EarthMaterial"))
-    return evaluated
+    return validate(Expression(formula, earth_material)(functor, workspace), formula)
+end
+
+# The material that a frequency-dependent earth relation returns.
+validate(material::EarthMaterial, formula::FrequencyDependentFormulation) = material
+function validate(material, formula::FrequencyDependentFormulation)
+    throw(ArgumentError("a frequency-dependent earth relation must return EarthMaterial; " *
+                        "got $(typeof(material))"))
 end
 
 function (formula::FrequencyDependentFormulation)(

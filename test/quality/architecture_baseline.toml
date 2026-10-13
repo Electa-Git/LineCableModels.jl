@@ -97,9 +97,7 @@
 "src/datamodel/placement/bounded.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
-"src/earth/earthmodel.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
-"src/earth/equivalenthomogeneous/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/earth/frequencydependent/interface.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
+"src/earth/frequencydependent/interface.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/cableconstants.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/engine/earthadmittance/formulas/unified.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
 "src/engine/earthadmittance/interface.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }

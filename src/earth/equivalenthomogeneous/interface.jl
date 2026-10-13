@@ -131,10 +131,10 @@ $(TYPEDSIGNATURES)
 
 Check that the reduction `rule` returned an [`EarthMaterial`](@ref). Return `material`.
 """
+validate(material::EarthMaterial, rule::AbstractRule) = material
 function validate(material, rule::AbstractRule)
-    material isa EarthMaterial ||
-        throw(ArgumentError("an EquivalentHomogeneous contribution must return EarthMaterial"))
-    return material
+    throw(ArgumentError("an EquivalentHomogeneous contribution must return EarthMaterial; " *
+                        "got $(typeof(material))"))
 end
 
 @inline function (formula::AbstractRule)(

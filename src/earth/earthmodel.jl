@@ -86,28 +86,8 @@ function EarthModel(
     )
 end
 
-function _earth_model(layers, vertical_layers, air_layer)
-    vertical_layers isa Bool || throw(ArgumentError(
-        "vertical_layers must be true or false"
-    ))
-    declared = if layers isa EarthLayer
-        (layers,)
-    elseif layers isa Union{Tuple, AbstractVector}
-        all(layer -> layer isa EarthLayer, layers) || throw(ArgumentError(
-            "earth layers must contain completed EarthLayer objects"
-        ))
-        Tuple(layers)
-    else
-        throw(ArgumentError(
-            "earth layers must be an EarthLayer or a nonempty layer collection"
-        ))
-    end
-    isempty(declared) && throw(ArgumentError(
-        "an earth model requires at least one earth layer"
-    ))
-    air_layer isa Union{Nothing, EarthLayer} || throw(ArgumentError(
-        "air_layer must be nothing or a completed EarthLayer"
-    ))
+function _earth_model(layers, vertical_layers::Bool, air_layer::Union{Nothing, EarthLayer})
+    declared = _declared_layers(layers)
     T = promote_type(
         eltype.(declared)...,
         air_layer === nothing ? eltype(first(declared)) : eltype(air_layer)
@@ -117,6 +97,32 @@ function _earth_model(layers, vertical_layers, air_layer)
           convert(EarthLayer{T}, air_layer)
     earth = map(layer -> convert(EarthLayer{T}, layer), declared)
     return EarthModel{T}(vertical_layers, (air, earth...))
+end
+function _earth_model(layers, vertical_layers::Bool, air_layer)
+    throw(ArgumentError("air_layer must be nothing or a completed EarthLayer"))
+end
+function _earth_model(layers, vertical_layers, air_layer)
+    throw(ArgumentError("vertical_layers must be true or false"))
+end
+
+# Declared earth layers are one layer or a nonempty collection of layers.
+_declared_layers(layer::EarthLayer) = (layer,)
+function _declared_layers(layers::Union{Tuple, AbstractVector})
+    foreach(_declared_layer, layers)
+    declared = Tuple(layers)
+    isempty(declared) && throw(ArgumentError(
+        "an earth model requires at least one earth layer"
+    ))
+    return declared
+end
+function _declared_layers(layers)
+    throw(ArgumentError(
+        "earth layers must be an EarthLayer or a nonempty layer collection"
+    ))
+end
+_declared_layer(layer::EarthLayer) = layer
+function _declared_layer(layer)
+    throw(ArgumentError("earth layers must contain completed EarthLayer objects"))
 end
 
 """
