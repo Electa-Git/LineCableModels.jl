@@ -204,6 +204,7 @@ boundary_formulation = Formulation(
 )
 fem_formulation = Formulation(:fem; options = (; physics = :helmholtz, reductions...))
 fem_options = (
+    frequency_workers = 3,
     keep_run_directory = true,
     verbosity = (default = 0,),
     gmsh_verbosity = 0,
