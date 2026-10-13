@@ -30,7 +30,7 @@
         "validate", "reserved_verbs", "switches", "storage", "dispatch")
     const C_TABLES = ("commons", "vocabulary", "fingerprints", "clones", "helpers", "root")
     const TABLES = (A_TABLES..., C_TABLES...)
-    const SWITCHES = ("applicable", "eval", "kind")
+    const SWITCHES = ("applicable", "eval", "isa", "kind")
     const BASELINE = joinpath(@__DIR__, "architecture_baseline.toml")
 
     const COMMONS = :Commons
@@ -544,8 +544,9 @@
             kind_field(left) && symbol_operand(right)
     end
 
-    # Symbol switches and probes. Per file, calls to `applicable`, `@eval` calls and comparisons of a
-    # `kind` field against symbols, including negated comparisons.
+    # Symbol switches and probes. Per file, calls to `applicable`, `@eval` calls, `isa`
+    # tests in the forms `x isa T` and `isa(x, T)`, and comparisons of a `kind` field
+    # against symbols, including negated comparisons.
     function switches(files, directory)
         found = Dict{String, Dict{String, Int}}()
         for file in files
@@ -558,6 +559,10 @@
                 elseif k == K"macrocall" && numchildren(node) > 0 && syntax_name(node[1]) in
                         ((Symbol("@eval"),), (:Base, Symbol("@eval")), (:Core, Symbol("@eval")))
                     counts["eval"] += 1
+                elseif k == K"call" && numchildren(node) == 3 &&
+                        syntax_name(node[is_prefix_call(node) ? 1 : 2]) in
+                        ((:isa,), (:Base, :isa), (:Core, :isa))
+                    counts["isa"] += 1
                 end
                 kind_switch(node) && (counts["kind"] += 1)
                 return true
@@ -1480,6 +1485,7 @@ end
             Base.@eval generated_too() = 2
             switch(x) = x.kind === :a || x.kind == :b || x.kind in (:c, :d) || in(x.kind, [:e])
             negated(x) = x.kind !== :a && x.kind != :b && x.kind ∉ (:c, :d)
+            typed(x) = x isa Int || isa(x, Float64) || Core.isa(x, Char)
             """)
     # Each storage vocabulary rule has a planted violation. `TracedWorkspace` and
     # `initialize_buffers` conform, and `cache_mesh` is not one of the reserved names.
@@ -1526,7 +1532,8 @@ end
         "reserved_verbs" => Dict(
             "src/sources.jl | _check_input" => 1, "src/sources.jl | ensure_ready" => 1,
             "src/sources.jl | require_kind" => 1, "src/sources.jl | __validate_shape" => 1),
-        "switches" => Dict("src/sources.jl" => Dict("applicable" => 2, "eval" => 2, "kind" => 7)),
+        "switches" => Dict("src/sources.jl" =>
+            Dict("applicable" => 2, "eval" => 2, "isa" => 3, "kind" => 7)),
         "storage" => Dict(
             "src/storage.jl | ProbeWorkspace" => 2, "src/storage.jl | FormulaBuffers" => 1,
             "src/storage.jl | KernelCache" => 1, "src/storage.jl | AbstractStorage" => 1,
@@ -1623,6 +1630,7 @@ end
             check(x) = x
             text = "_check_input(x) = x, applicable(f, x), @eval f() = 1, x.kind === :a"
             # _check_input(x) = x, applicable(f, x), @eval f() = 1, x.kind === :a
+            typed_text = "x isa Int, isa(x, Int)" # x isa Int, isa(x, Int)
             call() = _check_input(1)
             different(x, y) = x.kind === y || x.kind !== y || x.mode !== :a || kind === :a
             generate(x) = eval(x)
@@ -1980,7 +1988,7 @@ end
         "NAME", ")", "return", "NAME"]
 end
 
-@testitem "Quality / architecture / baseline ratchet follows git renames" tags=[:quality] begin
+@testitem "Quality / architecture / baseline ratchet follows git renames and new counters" tags=[:quality] begin
     ratchet = Module(:BaselineRatchet)
     Base.include(ratchet, joinpath(pkgdir(LineCableModels), "test", "tools", "baseline_ratchet.jl"))
     mktempdir() do repository
@@ -2054,5 +2062,40 @@ end
         baseline("Host.Inner | Host.f1 | src/host/inner/Inner.jl" => 2)
         @test grown() ==
               ["ownership | Host.Inner | Host.f1 | src/host/inner/Inner.jl: 2 (1 at HEAD)"]
+
+        # A counter that no row of its table had at the reference starts at its live value,
+        # and a zero count is not an entry. The ratchet still compares every other key.
+        inline(rows) = join(("\"$key\" = { " * join(("$c = $n" for (c, n) in row), ", ") *
+                             " }" for (key, row) in rows), "\n")
+        switches(rows...) =
+            write_file(ratchet.BASELINE, "[switches]\n" * inline(rows) * "\n")
+        tallies(rows...) = write_file(ratchet.PRESERVATION,
+            "[directions]\ntallies = \"floor\"\n\n[tallies]\n" * inline(rows) * "\n")
+        floors() = Base.invokelatest(ratchet.moved, repository, "HEAD",
+            ratchet.PRESERVATION).lines
+        switches()
+        git("add", "-A")
+        git("commit", "-q", "--no-verify", "--no-gpg-sign", "-m", "empty")
+        # When a table has no counter rows at the reference, the ratchet compares its keys.
+        switches("src/a.jl" => ("eval" => 0, "kind" => 1))
+        @test grown() == ["switches | src/a.jl | kind: 1 (absent at HEAD)"]
+        switches("src/a.jl" => ("eval" => 0, "kind" => 2),
+            "src/b.jl" => ("eval" => 1, "kind" => 0))
+        tallies("test/x.jl" => ("marks" => 2,), "test/y.jl" => ("marks" => 1,))
+        git("add", "-A")
+        git("commit", "-q", "--no-verify", "--no-gpg-sign", "-m", "counters")
+        switches("src/a.jl" => ("eval" => 0, "isa" => 4, "kind" => 2),
+            "src/b.jl" => ("eval" => 1, "isa" => 0, "kind" => 0),
+            "src/c.jl" => ("eval" => 0, "isa" => 3, "kind" => 0))
+        @test grown() == String[]
+        # A raised count still fails, and so does an existing counter in a new row.
+        switches("src/a.jl" => ("eval" => 0, "isa" => 4, "kind" => 3),
+            "src/c.jl" => ("eval" => 1, "isa" => 3, "kind" => 0))
+        @test grown() == ["switches | src/a.jl | kind: 3 (2 at HEAD)",
+            "switches | src/c.jl | eval: 1 (absent at HEAD)"]
+        # A floor counter that falls to zero, or whose row goes, is removed.
+        tallies("test/x.jl" => ("marks" => 0,))
+        @test floors() == ["tallies | test/x.jl | marks: removed (2 at HEAD)",
+            "tallies | test/y.jl | marks: removed (1 at HEAD)"]
     end
 end

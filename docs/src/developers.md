@@ -164,8 +164,9 @@ package method and parse every Julia file under `src/` and `ext/`.
   `require_`, `assert_`, `verify_` or `ensure_`, after any leading `_` characters.
   `validate` is the input-check verb.
 - Symbol switches and probes (`switches`). Each source file has counts of `applicable`
-  calls, `@eval` calls, and comparisons of a `kind` field against symbols, negated
-  comparisons included. These counts can decrease and never increase.
+  calls, `@eval` calls, `isa` tests in the forms `x isa T` and `isa(x, T)`, and
+  comparisons of a `kind` field against symbols, negated comparisons included. These
+  counts can decrease and never increase.
 - Storage vocabulary (`storage`). A `*Workspace` struct has exactly the fields `input`,
   `plan` and `buffers`, and optionally `trace`. No function name ends in `_workspace` or
   `_storage`, and only `initialize_buffers` ends in `_buffers`. Only `Commons` defines a
@@ -253,7 +254,11 @@ ownership key has the form `defining module | Owner.function | file`. A change o
 alone, the module that defines the extended function, keeps the entry and its count.
 Any other key renamed without a matching git rename counts as added. A table absent from the
 earlier baseline belongs to a guard introduced since, and the ratchet lists it
-without comparing its keys. Run
+without comparing its keys. In `[switches]`, each row holds counters, and the ratchet
+compares each counter on its own. A zero count is not an entry. A counter that no row of its
+table had in the earlier baseline extends that guard, so the ratchet does not compare it
+either. When a table has no counter rows in the earlier baseline, the ratchet compares all its
+keys. Run
 `julia test/tools/baseline_ratchet.jl HEAD` to compare local changes with the last
 commit.
 

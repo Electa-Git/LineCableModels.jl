@@ -23,6 +23,12 @@
 # An `[inferred]` floor can fall when `@inferred` lines move to other files. Each removed
 # line appears again in another file, unchanged apart from indentation, and these lines
 # cover the drop.
+#
+# In `[switches]`, each row holds counters. Each counter is an entry of the form
+# `table | key | counter`. A zero count of a counter is not an entry. A counter that no row
+# of its table had at `REF` extends that guard, and the ratchet does not compare its
+# entries, as for a new table. When a table has no counter rows at `REF`, the ratchet
+# compares all its keys.
 using TOML
 
 const BASELINE = "test/quality/architecture_baseline.toml"
@@ -39,6 +45,22 @@ const RELOCATABLE = Dict("inferred" => "@inferred")
 const REPOSITORY = normpath(joinpath(@__DIR__, "..", ".."))
 
 git(repository, arguments::AbstractString...) = Cmd(["git", "-C", repository, arguments...])
+
+# The counter entries of `document`, keyed as in `entries`, each with its table and
+# counter.
+function counters(document)
+    found = Dict{String, Tuple{String, String}}()
+    for (table, rows) in document
+        rows isa AbstractDict || continue
+        for (key, counts) in rows
+            counts isa AbstractDict || continue
+            for counter in keys(counts)
+                found[string(table, " | ", key, " | ", counter)] = (table, counter)
+            end
+        end
+    end
+    return found
+end
 
 # Nested tables become keys of the form "table | key | counter".
 function entries(document, prefix = "")
@@ -217,7 +239,7 @@ end
 # The entries of `file` that moved against their table's direction since `reference`,
 # as lines, and the tables new since `reference`, or nothing when `reference` has no
 # `file`. A new table belongs to a lock introduced after `reference`, and its keys are
-# not compared.
+# not compared. So are the entries of a counter new to its table.
 function moved(repository, reference, file)
     success(pipeline(git(repository, "rev-parse", "--verify", "--quiet",
         reference * "^{commit}"); stdout = devnull)) ||
@@ -230,13 +252,20 @@ function moved(repository, reference, file)
     direction = merge(directions(file, document), directions(file, current))
     environment(d) = get(d, "environment", Dict{String, Any}())
     rerecorded = file == PRESERVATION && environment(document) != environment(current)
-    values_of(d) = Dict(key => value for (key, value) in entries(d)
-        if first(split(key, " | ")) ∉ METADATA)
+    # A zero count of a counter is not an entry.
+    values_of(d, counted) = Dict(key => value for (key, value) in entries(d)
+        if first(split(key, " | ")) ∉ METADATA && !(haskey(counted, key) && iszero(value)))
+    previous_counters, current_counters = counters(document), counters(current)
     before = Dict{String, Any}()
-    for (key, value) in values_of(document)
+    for (key, value) in values_of(document, previous_counters)
         mergewith!(+, before, Dict(rename_key(key, renamed) => value))
     end
-    now = values_of(current)
+    now = values_of(current, current_counters)
+    # A counter that no row of its table had at `reference` extends that table's guard.
+    named = Set(values(previous_counters))
+    counted_tables = Set(first(pair) for pair in named)
+    new_counter(key) = haskey(current_counters, key) &&
+        first(current_counters[key]) in counted_tables && current_counters[key] ∉ named
     ceilings = Dict(key => value for (key, value) in before
         if direction[first(split(key, " | "))] == "ceiling")
     for (old, new) in owner_renames(ceilings, now)
@@ -263,7 +292,7 @@ function moved(repository, reference, file)
     end
     for key in sort!(collect(union(keys(now), keys(before))))
         table, entry = split(key, " | "; limit = 2)
-        table in tables && continue
+        (table in tables || new_counter(key)) && continue
         if direction[table] == "ceiling"
             rerecorded && table in MEASURED && continue
             haskey(now, key) || continue
