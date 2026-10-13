@@ -147,7 +147,7 @@ to the operation, in that order.
 
 $(TYPEDFIELDS)
 """
-struct Expression{S, F, A <: Tuple}
+struct Expression{S, F, A <: Tuple{Vararg{Val}}}
     "Selected formula whose concrete type selects the operation's method."
     selection::S
     "Native domain method accepting the selected formulation first."
@@ -160,11 +160,8 @@ end
 $(TYPEDSIGNATURES)
 
 Build the expression of `selection` for the operation `method` and optional `Val` selectors.
-Throw `ArgumentError` if a selector is not a `Val` instance.
 """
-function Expression(selection::S, method::F, arguments...) where {S, F}
-    all(argument -> argument isa Val, arguments) || throw(ArgumentError(
-        "Expression semantic selectors must be Val instances"))
+function Expression(selection::S, method::F, arguments::Val...) where {S, F}
     return Expression{S, F, typeof(arguments)}(selection, method, arguments)
 end
 

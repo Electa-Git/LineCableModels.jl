@@ -246,22 +246,30 @@ function merge_bundles!(
     @inbounds for (first, duplicate) in operations
         base_column = @view matrix[:, first]
         column = @view matrix[:, duplicate]
-        if matrix isa StridedMatrix{T} &&
-           T <: Union{Float32, Float64, ComplexF32, ComplexF64}
-            axpy!(-one(T), base_column, column)
-        else
-            column .-= base_column
-        end
+        column .-= base_column
     end
     @inbounds for (first, duplicate) in operations
         base_row = @view matrix[first, :]
         row = @view matrix[duplicate, :]
-        if matrix isa StridedMatrix{T} &&
-           T <: Union{Float32, Float64, ComplexF32, ComplexF64}
-            axpy!(-one(T), base_row, row)
-        else
-            row .-= base_row
-        end
+        row .-= base_row
+    end
+    return matrix
+end
+
+# A strided matrix of BLAS floats subtracts with `axpy!`.
+function merge_bundles!(
+        matrix::StridedMatrix{T},
+        operations::AbstractVector{<:Tuple{Int, Int}}
+) where {T <: Union{Float32, Float64, ComplexF32, ComplexF64}}
+    @inbounds for (first, duplicate) in operations
+        base_column = @view matrix[:, first]
+        column = @view matrix[:, duplicate]
+        axpy!(-one(T), base_column, column)
+    end
+    @inbounds for (first, duplicate) in operations
+        base_row = @view matrix[first, :]
+        row = @view matrix[duplicate, :]
+        axpy!(-one(T), base_row, row)
     end
     return matrix
 end

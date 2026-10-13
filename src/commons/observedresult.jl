@@ -36,6 +36,19 @@ struct ObservedResult
     end
 end
 
+# An observation declares the selectors of the quantities it retains.
+_observable_declaration(source::ObservedResult) =
+    Tuple(request_identity(q.request) for q in source.quantities)
+
+# The requests of the observation being built, with its native-unit cutoffs `atol`. One
+# scalar cutoff serves one quantity only.
+function validate(requests,::Type{ObservedResult},atol::Real)
+    length(unique(request_quantity.(requests)))>1 && throw(ArgumentError(
+        "multiple quantities require component-keyed native-unit cutoffs"))
+    return requests
+end
+validate(requests,::Type{ObservedResult},atol) = requests
+
 """
 $(TYPEDSIGNATURES)
 
@@ -52,7 +65,7 @@ function observation_selection(source,selection)
         any(item -> item isa Tuple && !isempty(item) && first(item) isa Function,
             selection[2:end]) && return selection
         identity=request_identity(selection)
-        declared=source isa ObservedResult ? Tuple(request_identity(q.request) for q in source.quantities) : observables(typeof(source))
+        declared=_observable_declaration(source)
         normalize_observation_selector(identity) in normalize_observation_selector.(declared) &&
             (identity isa Tuple || !isempty(request_indices(selection))) && return (selection,)
     end
@@ -170,8 +183,7 @@ function ObservedResult(source,requests::Tuple=();comparisons=(),timings=(;),gri
     isempty(units) || length(units)==length(selected) || throw(DimensionMismatch(
         "one display unit is required for each retained quantity"))
     isempty(units) || quantity_units===nothing || throw(ArgumentError("use units or quantity_units, not both"))
-    atol isa Real && length(unique(request_quantity.(selected)))>1 && throw(ArgumentError(
-        "multiple quantities require component-keyed native-unit cutoffs"))
+    validate(selected,ObservedResult,atol)
     description=gridpoint===nothing ? observation_gridpoint(source) : gridpoint
     quantities=map(eachindex(selected)) do index
         request=selected[index]
@@ -235,14 +247,16 @@ function observables(sources::Union{AbstractVector,Tuple,AbstractResultSpace},re
         comparisons=nothing,timings=nothing,kwargs...)
     return map(collect(sources)) do source
         id=get(observation_gridpoint(source),:id,nothing)
-        errors=comparisons===nothing ? (source isa ObservedResult ? source.errors : ()) :
-            filter(record -> record.result_id==id,comparisons)
-        recorded=timings===nothing ? (source isa ObservedResult ? source.timings : (;)) : timings isa NamedTuple ? timings : begin
+        # A record not given here takes its constructor default: an observation keeps its
+        # own comparisons and timings, and any other source starts without them.
+        given=comparisons===nothing ? (;) :
+            (comparisons=filter(record -> record.result_id==id,comparisons),)
+        timings===nothing || (given=merge(given,(timings=timings isa NamedTuple ? timings : begin
             matches=filter(record -> record.result_id==id,timings)
             length(matches)<=1 || throw(ArgumentError("multiple timing records for one result identity"))
             isempty(matches) ? (;) : only(matches)
-        end
-        ObservedResult(source,requests;comparisons=errors,timings=recorded,kwargs...)
+        end,)))
+        ObservedResult(source,requests;given...,kwargs...)
     end
 end
 
@@ -341,8 +355,7 @@ formulations and controls, statistical interpretation, coordinates, and applied
 cutoffs. Exact numerical and uncertainty-dependency agreement only verifies an
 already established equivalence. Unidentified assumptions remain separate.
 """
-function observation_groups(observed;request,band=nothing,normalization=nothing,reference=nothing)
-    points=observed isa ObservedResult ? [observed] : observed
+function observation_groups(points;request,band=nothing,normalization=nothing,reference=nothing)
     groups=NamedTuple[]
     keys=Any[]
     products=Any[]
@@ -391,29 +404,36 @@ function observation_groups(observed;request,band=nothing,normalization=nothing,
     end
     return groups
 end
+# One observation is a collection of one.
+observation_groups(observed::ObservedResult;kwargs...) = observation_groups([observed];kwargs...)
 
-function _description_values!(output,path,value;name=path,unit="",indices=(),text=nothing)
-    if value isa NamedTuple
-        descriptions=get(value,:field_descriptions,(;))
-        for (key,child) in pairs(value)
-            key in (:frequencies,:field_descriptions,:kind,:system_id,:cable_id) && continue
-            child_path=isempty(path) ? string(key) : path*"."*string(key)
-            field=get(descriptions,key,nothing)
-            child_name=(field===nothing ? string(key) : field.name)*join("[$i]" for i in indices)
-            _description_values!(output,child_path,child;name=child_name,
-                unit=field===nothing ? unit : field.unit,indices,
-                text=field===nothing ? nothing : get(field,:text,nothing))
-        end
-    elseif value isa Union{AbstractArray,Tuple}
-        for (index,child) in enumerate(value)
-            suffix="["*string(index)*"]"
-            _description_values!(output,path*suffix,child;name=name*suffix,unit,indices=(indices...,index),text)
-        end
-    elseif value isa Union{Number,AbstractString,Symbol}
-        output[path]=(;value,name,unit,text)
+function _description_values!(output,path,value::NamedTuple;name=path,unit="",indices=(),text=nothing)
+    descriptions=get(value,:field_descriptions,(;))
+    for (key,child) in pairs(value)
+        key in (:frequencies,:field_descriptions,:kind,:system_id,:cable_id) && continue
+        child_path=isempty(path) ? string(key) : path*"."*string(key)
+        field=get(descriptions,key,nothing)
+        child_name=(field===nothing ? string(key) : field.name)*join("[$i]" for i in indices)
+        _description_values!(output,child_path,child;name=child_name,
+            unit=field===nothing ? unit : field.unit,indices,
+            text=field===nothing ? nothing : get(field,:text,nothing))
     end
     return output
 end
+function _description_values!(output,path,value::Union{AbstractArray,Tuple};name=path,unit="",
+        indices=(),text=nothing)
+    for (index,child) in enumerate(value)
+        suffix="["*string(index)*"]"
+        _description_values!(output,path*suffix,child;name=name*suffix,unit,indices=(indices...,index),text)
+    end
+    return output
+end
+function _description_values!(output,path,value::Union{Number,AbstractString,Symbol};name=path,
+        unit="",indices=(),text=nothing)
+    output[path]=(;value,name,unit,text)
+    return output
+end
+_description_values!(output,path,value;kwargs...) = output
 
 """
 Describe differences in captured physical inputs, active methods, and individual
@@ -422,8 +442,7 @@ completed. Gridpoint IDs are available in the observation metadata.
 `fallback` supplies text when no captured description or varying field is
 available. `nothing` retains the default positional result label.
 """
-function observation_labels(observed;request=nothing,fallback=nothing)
-    points=observed isa ObservedResult ? [observed] : observed
+function observation_labels(points;request=nothing,fallback=nothing)
     isempty(points) && return String[]
     descriptions=[begin
         values=_description_values!(Dict{String,Any}(),"",get(point.gridpoint,:inputs,nothing))
@@ -497,3 +516,4 @@ function observation_labels(observed;request=nothing,fallback=nothing)
         join(parts,", ")
     end
 end
+observation_labels(observed::ObservedResult;kwargs...) = observation_labels([observed];kwargs...)

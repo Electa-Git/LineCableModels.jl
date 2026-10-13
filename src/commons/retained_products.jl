@@ -41,7 +41,8 @@ function _reexpress_product(product;unit=nothing,frequency_unit=nothing)
     end
     c=result.coordinates
     if frequency_unit!==nothing && haskey(c,:frequencies) && c.frequencies!==nothing
-        target_frequency=frequency_unit isa Symbol ? Units.units(frequency_unit,:hertz) : frequency_unit
+        # A frequency unit is given by its metric prefix or as a unit expression.
+        target_frequency=display_unit(Units.Quantity{:frequency}(),product.basis,frequency_unit)
         scale_factor(c.frequency_unit,target_frequency)
         result=merge(result,(coordinates=merge(c,(
             frequencies=_observed_scale(c.frequencies,c.frequency_unit,target_frequency),
@@ -50,9 +51,11 @@ function _reexpress_product(product;unit=nothing,frequency_unit=nothing)
     return result
 end
 
+_retained_unit(product,override::UnitExpr,length_unit) = override
 function _retained_unit(product,override,length_unit)
-    override isa UnitExpr && return override
-    override===nothing || override isa Symbol || throw(ArgumentError("unit override must be a unit expression or metric prefix"))
+    throw(ArgumentError("unit override must be a unit expression or metric prefix"))
+end
+function _retained_unit(product,override::Union{Nothing,Symbol},length_unit)
     numerator=product.unit.numerator
     if override!==nothing && !isempty(numerator)
         numerator=(Units.Unit(first(numerator).name,override),Base.tail(numerator)...)

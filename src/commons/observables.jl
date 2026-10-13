@@ -49,12 +49,14 @@ function request_indices(request)
     return request[(selector_count + 1):end]
 end
 
-function _observable_declaration(source)
-    supported = observables(typeof(source))
-    supported isa Tuple || throw(
-        ArgumentError("observables($(typeof(source))) must return a tuple of selectors"),
-    )
-    return supported
+# The selectors that the type of `source` declares.
+_observable_declaration(source) = validate(observables(typeof(source)), observables, source)
+
+# A declaration of observables is a tuple of selectors.
+validate(supported::Tuple, ::typeof(observables), source) = supported
+function validate(supported, ::typeof(observables), source)
+    throw(ArgumentError("observables($(typeof(source))) must return a tuple of selectors; " *
+                        "got $(typeof(supported))"))
 end
 
 """
@@ -190,21 +192,18 @@ function _unit_override_keys(request, overrides)
         names...,physical...)
 end
 
-function _unit_override(overrides, request)
-    overrides === nothing && return nothing
-    overrides isa Union{Symbol, UnitExpr} && return overrides
-    overrides isa Union{NamedTuple, AbstractDict} || throw(ArgumentError(
-        "unit overrides must be a prefix, UnitExpr, keyed collection, or nothing",
-    ))
+_unit_override(::Nothing, request) = nothing
+_unit_override(overrides::Union{Symbol, UnitExpr}, request) = overrides
+function _unit_override(overrides::Union{NamedTuple, AbstractDict}, request)
     for override_key in _unit_override_keys(request,overrides)
-        if overrides isa NamedTuple
-            override_key isa Symbol && haskey(overrides, override_key) &&
-                return overrides[override_key]
-        elseif haskey(overrides, override_key)
-            return overrides[override_key]
-        end
+        override_key in keys(overrides) && return overrides[override_key]
     end
     return nothing
+end
+function _unit_override(overrides, request)
+    throw(ArgumentError(
+        "unit overrides must be a prefix, UnitExpr, keyed collection, or nothing",
+    ))
 end
 
 """
