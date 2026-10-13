@@ -415,47 +415,53 @@ function wires(
     return parameterize(DataModel.Group, caller, values; combine)
 end
 
-function _course_schedule(value, count::Int, name::Symbol)
-    if value isa Union{Tuple, AbstractVector}
-        length(value) == count || throw(DimensionMismatch(
-            "$name requires exactly $count course values"
-        ))
-        return Tuple(value)
-    end
-    return ntuple(_ -> value, count)
+# A per-course keyword takes one value for every course, or one value per course.
+function _course_schedule(values::Union{Tuple, AbstractVector}, count::Int, name::Symbol)
+    length(values) == count || throw(DimensionMismatch(
+        "$name requires exactly $count course values"
+    ))
+    return Tuple(values)
 end
+_course_schedule(value, count::Int, name::Symbol) = ntuple(_ -> value, count)
 
+# The member counts of the courses come from an exact schedule, or from a positive base
+# count that each course multiplies. `capacity()` fills every course. A Bool is not a count.
+function _count_schedule(values::Union{Tuple, AbstractVector}, count::Int)
+    length(values) == count || throw(DimensionMismatch(
+        "n requires exactly $count course values"
+    ))
+    return Tuple(values)
+end
+function _count_schedule(value::Integer, count::Int)
+    value > 0 && return ntuple(index -> index * Int(value), count)
+    throw(ArgumentError(
+        "n must be a positive base count, exact course schedule, or capacity()"
+    ))
+end
+function _count_schedule(value::Bool, count::Int)
+    throw(ArgumentError(
+        "n must be a positive base count, exact course schedule, or capacity()"
+    ))
+end
 function _count_schedule(value, count::Int)
-    if value isa Union{Tuple, AbstractVector}
-        length(value) == count || throw(DimensionMismatch(
-            "n requires exactly $count course values"
-        ))
-        return Tuple(value)
-    end
-    value isa Integer && !(value isa Bool) && value > 0 &&
-        return ntuple(index -> index * Int(value), count)
     value === DataModel.capacity() && return ntuple(_ -> value, count)
     throw(ArgumentError(
         "n must be a positive base count, exact course schedule, or capacity()"
     ))
 end
 
+# Without a lay, a stranded core has no paths. A lay schedule gives one path per inferred
+# course, and one lay law gives one path for every course.
+_stranding_paths(::Nothing, dir, φ0) = nothing
+function _stranding_paths(lay::Union{Tuple, AbstractVector}, dir, φ0)
+    count = length(lay)
+    count > 0 || throw(ArgumentError("lay schedule cannot be empty"))
+    directions = _course_schedule(dir, count, :dir)
+    angles = _course_schedule(φ0, count, :φ0)
+    return ntuple(index -> _path(lay[index], directions[index], angles[index]), count)
+end
 function _stranding_paths(lay, dir, φ0)
-    lay === nothing && return nothing
-    if lay isa Union{Tuple, AbstractVector}
-        count = length(lay)
-        count > 0 || throw(ArgumentError("lay schedule cannot be empty"))
-        directions = _course_schedule(dir, count, :dir)
-        angles = _course_schedule(φ0, count, :φ0)
-        return ntuple(index -> _path(lay[index], directions[index], angles[index]), count)
-    end
-    dir isa Union{Tuple, AbstractVector} && throw(ArgumentError(
-        "a dir schedule requires a lay schedule of the same length"
-    ))
-    φ0 isa Union{Tuple, AbstractVector} && throw(ArgumentError(
-        "a φ0 schedule requires a lay schedule of the same length"
-    ))
-    return _path(lay, dir, φ0)
+    return _path(lay, validate(dir, stranded, :dir), validate(φ0, stranded, :φ0))
 end
 
 # In a sector core, the sector outline compacts the Disk wires around a center strand that
@@ -732,6 +738,16 @@ function stranded(
         DataModel.AbstractCablePart
     end
     return parameterize(target, caller, values; combine)
+end
+
+# One lay law takes one direction and one initial angle. A schedule of either requires a
+# lay schedule of the same length.
+validate(value, ::typeof(stranded), role::Symbol) = value
+function validate(value::Union{Tuple, AbstractVector}, ::typeof(stranded), role::Symbol)
+    throw(ArgumentError(
+        "a $role schedule requires a lay schedule of the same length; " *
+        "got $(length(value)) values"
+    ))
 end
 
 function _inner_radius(primitive::DataModel.Disk)
