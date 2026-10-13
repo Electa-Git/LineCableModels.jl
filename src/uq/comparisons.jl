@@ -21,12 +21,10 @@ function Engine.compare(reference::Union{MonteCarloResult, LinearErrorResult},
                (length(reference) == 1 ? [(1, index) for index in eachindex(result)] :
                 throw(ArgumentError("multiple reference points require explicit pairing"))) :
                collect(pairing)
-    length(selected) == length(result) &&
-    all(
-        pair -> pair isa Tuple{Integer, Integer} && !(first(pair) isa Bool) &&
-                !(last(pair) isa Bool) && 1 <= first(pair) <= length(reference),
-        selected) &&
-    sort(last.(selected)) == collect(eachindex(result)) ||
+    for pair in selected
+        validate(pair, Engine.compare, reference)
+    end
+    length(selected) == length(result) && sort(last.(selected)) == collect(eachindex(result)) ||
         throw(ArgumentError("pairing must reference valid points and select each result exactly once"))
     sort!(selected; by = last)
     for (left_index, right_index) in selected
@@ -53,4 +51,23 @@ function Engine.compare(reference::Union{MonteCarloResult, LinearErrorResult},
                     reference=reference isa MonteCarloResult ? :empirical : :first_order,
                     result=result isa MonteCarloResult ? :empirical : :first_order)))))
     end
+end
+
+# Each pairing pair holds integer reference and result positions, not Bools, and its
+# reference position lies within the reference.
+function validate(pair::Tuple{Integer, Integer}, ::typeof(Engine.compare),
+        reference::Union{MonteCarloResult, LinearErrorResult})
+    1 <= first(pair) <= length(reference) || throw(ArgumentError(
+        "pairing must reference valid points and select each result exactly once; got $pair"))
+    return pair
+end
+function validate(pair::Union{Tuple{Bool, Integer}, Tuple{Integer, Bool}},
+        ::typeof(Engine.compare), reference::Union{MonteCarloResult, LinearErrorResult})
+    throw(ArgumentError(
+        "pairing must reference valid points and select each result exactly once; got $pair"))
+end
+function validate(pair, ::typeof(Engine.compare),
+        reference::Union{MonteCarloResult, LinearErrorResult})
+    throw(ArgumentError("pairing must reference valid points and select each result exactly " *
+                        "once; got $(repr(pair))"))
 end

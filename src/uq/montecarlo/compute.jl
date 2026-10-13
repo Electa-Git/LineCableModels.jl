@@ -256,24 +256,24 @@ function _resampling_limit_error(failures, accepted::Int, attempts::Int, maximum
     ))
 end
 
-function _uncertain_arguments(point::Gridpoint)
-    records=NamedTuple[]
-    function collect!(value,path)
-        if value isa UncertainValue
-            push!(records,(argument_path=path,nominal=value.nominal,standard_deviation=value.sigma))
-        elseif value isa Gridpoint
-            for (index,argument) in enumerate(value.args)
-                collect!(argument,(path...,index))
-            end
-        elseif value isa Union{Tuple,AbstractArray}
-            for (index,argument) in enumerate(value)
-                collect!(argument,(path...,index))
-            end
-        end
+_uncertain_arguments(point::Gridpoint) = _uncertain_arguments(NamedTuple[], point, ())
+# The uncertain arguments below `value` at `path`, appended to `records`.
+function _uncertain_arguments(records, value::UncertainValue, path)
+    return push!(records,(argument_path=path,nominal=value.nominal,standard_deviation=value.sigma))
+end
+function _uncertain_arguments(records, value::Gridpoint, path)
+    for (index,argument) in enumerate(value.args)
+        _uncertain_arguments(records,argument,(path...,index))
     end
-    collect!(point,())
     return records
 end
+function _uncertain_arguments(records, value::Union{Tuple,AbstractArray}, path)
+    for (index,argument) in enumerate(value)
+        _uncertain_arguments(records,argument,(path...,index))
+    end
+    return records
+end
+_uncertain_arguments(records, value, path) = records
 
 # Draw the arguments, build the problem and compute it, once. A draw whose cables overlap
 # is discarded, as if it was never drawn, and drawn again. `max_failures` overlapping draws

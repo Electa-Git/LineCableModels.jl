@@ -24,8 +24,7 @@ end
 function Base.show(io::IO, ::MIME"text/plain", formulation::MonteCarlo)
     get(io, :compact, false) && return show(io, formulation)
     trials = formulation.options.data.trials === nothing ? "DKW-sized" : string(formulation.options.data.trials)
-    distribution = formulation.options.data.distribution isa Symbol ?
-                   ":$(formulation.options.data.distribution)" : _uq_compact(formulation.options.data.distribution)
+    distribution = _uq_compact(formulation.options.data.distribution)
     children = Any[
         (label = "inner        $(_uq_compact(formulation.inner))", noun = "fields"),
         (label = "trials       $trials", noun = "fields"),

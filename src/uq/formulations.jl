@@ -118,12 +118,14 @@ end
 # Uncertainty propagation accepts an inner formulation whose shunt model is fixed.
 validate(inner::AbstractFormulation, ::Type{<:Union{LinearError, MonteCarlo}}) = inner
 function validate(inner::Union{Engine.LineParametersFormulation, Engine.CableConstantsFormulation},
-        ::Type{<:Union{LinearError, MonteCarlo}})
-    selected = inner.methods.shunt_model
-    if selected isa Engine.ShuntModel.Formula{:boundary} && selected.parameters.fallback !== :error
-        throw(ArgumentError("uncertainty propagation requires a fixed shunt model; select strict :boundary or :equivalent, without automatic fallback"))
-    end
+        propagation::Type{<:Union{LinearError, MonteCarlo}})
+    validate(inner.methods.shunt_model, propagation)
     return inner
+end
+function validate(selected::Engine.ShuntModel.Formula{:boundary},
+        ::Type{<:Union{LinearError, MonteCarlo}})
+    selected.parameters.fallback === :error || throw(ArgumentError("uncertainty propagation requires a fixed shunt model; select strict :boundary or :equivalent, without automatic fallback"))
+    return selected
 end
 
 """Identify Monte Carlo propagation without sampling or configuring a solver."""
