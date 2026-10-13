@@ -23,7 +23,7 @@
         (reference=mc,result=lep,context=(id=:benchmark_uq_title_probe,));requests,
         observation_options=(length_unit=:base,))
     options=(backend=:cairo,display_plot=false,open_export=false)
-    page=LineCableModels.plot(artifact;ydata=((R,2,1,:),),problem=2,options...,
+    page=LineCableModels.plot(artifact, ((R,2,1,:),);problem=2,options...,
         axis=(limits=((2.,8.),(.0005,.003)),),linewidth=3)
     axis=only(page.axes)
     @test axis.xlabelvisible[] && axis.xticklabelsvisible[]
@@ -55,7 +55,7 @@
     @test !isempty(Makie.colorbuffer(page.figure))
     @test axis.yscale[]===log10
     @test all(x -> x isa AbstractString,axis.yaxis.ticklabels[])
-    full=LineCableModels.plot(artifact;ydata=((R,2,1,:),),problem=2,options...,errorbar_sampling=:all)
+    full=LineCableModels.plot(artifact, ((R,2,1,:),);problem=2,options...,errorbar_sampling=:all)
     for key in full.plot_state.order
         group=full.plot_state.groups[key]
         @test length(only(filter(p -> p isa Makie.Errorbars,group))[1][])==length(f)
@@ -67,7 +67,7 @@
         restored=import_data(:observed,path)
         for point in results;Z(point).=NaN;end
         reloaded=report(BenchmarkTableDefinition(),restored.observed;reference=restored.reference)
-        other=LineCableModels.plot(reloaded;ydata=((R,2,1,:),),problem=2,options...)
+        other=LineCableModels.plot(reloaded, ((R,2,1,:),);problem=2,options...)
         @test other.plot_state.labels==page.plot_state.labels
         other_curves=filter(p -> p isa Makie.Lines,only(other.axes).scene.plots)
         for (left,right) in zip(curves,other_curves)
@@ -95,7 +95,7 @@ end
     artifact=report(BenchmarkTableDefinition(requests;bands=(:all,:wide)),
         (reference,result,context=(id=:benchmark_uq_statistics,));observation_options=(length_unit=:base,))
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
-    pages=LineCableModels.plot(artifact;ydata=requests,layout=(2,2),options...,fig_size=(1100,750))
+    pages=LineCableModels.plot(artifact, requests;layout=(2,2),options...,fig_size=(1100,750))
     @test length(pages)==12
     @test [length(page.axes) for page in pages]==repeat([4,2,2,1],3)
     @test first(pages).export_name=="benchmark_uq_statistics — Series resistance · mean"
@@ -117,15 +117,15 @@ end
     @test eltype(frequencies(only(result)))<:Measurement
     @test nrow(artifact.tables.statistics)>0
     selection=(statistics,R,mean,[3,1],[2],2:2:12)
-    subset=LineCableModels.plot(artifact;ydata=(selection,),options...)
+    subset=LineCableModels.plot(artifact, (selection,);options...)
     @test length(subset.axes)==2
     for panel in values(subset.plot_state.panel_data),curve in filter(p -> p isa Makie.Lines,panel.axis.scene.plots)
         @test first.(curve[1][])≈f[2:2:12]
     end
-    @test_throws ArgumentError LineCableModels.plot(artifact;ydata=(R,),options...)
+    @test_throws ArgumentError LineCableModels.plot(artifact, (R,);options...)
     @test any(label -> occursin(description(MonteCarlo;compact=true),label),values(first(pages).plot_state.labels))
     @test any(label -> occursin(description(LinearError;compact=true),label),values(first(pages).plot_state.labels))
-    selected=LineCableModels.plot(artifact;ydata=requests[1:2],layout=(2,2),band=:wide,options...)
+    selected=LineCableModels.plot(artifact, requests[1:2];layout=(2,2),band=:wide,options...)
     @test length(selected)==8
     for page in selected,panel in values(page.plot_state.panel_data),curve in filter(p -> p isa Makie.Lines,panel.axis.scene.plots)
         @test all(>(1e6),first.(curve[1][]))

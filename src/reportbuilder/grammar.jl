@@ -72,7 +72,7 @@ function _reported_table(artifact,groups,request,index)
     location="reported result $index"*(id===nothing ? "" : " (gridpoint $(repr(id)))")
     throw(ArgumentError("reported request $(repr(request)) is $problem for $location; " *
         "available reported requests: [$available] (nothing means absent quantity descriptors). " *
-        "Use report(...; values=...) for a different selection."))
+        "Use report(source, selection) for a different selection."))
 end
 
 """
@@ -184,9 +184,9 @@ write(::AbstractReportDefinition,::Nothing) = nothing
 function illustrate(definition::TableReportDefinition,observed,tables;reference=nothing)
     illustration=definition.illustration
     (illustration===nothing || illustration===false) && return nothing
-    options=merge(definition.plot_options,isempty(definition.requests) ? (;) : (ydata=definition.requests,))
     callable=illustration===true ? PlotBuilder.plot : illustration
-    return reference===nothing ? callable(observed;options...) : callable(observed;reference,options...)
+    return reference===nothing ? callable(observed,definition.requests;definition.plot_options...) :
+           callable(observed,definition.requests;reference,definition.plot_options...)
 end
 
 """
@@ -210,7 +210,7 @@ function report(definition::AbstractReportDefinition,
 end
 
 function report(definition::TableReportDefinition,source;kwargs...)
-    return report(source;values=definition.requests,units=definition.units,clip=definition.clip,
+    return report(source,definition.requests;units=definition.units,clip=definition.clip,
         illustration=definition.illustration,plot_options=definition.plot_options,kwargs...)
 end
 
@@ -227,8 +227,6 @@ end
 # These keywords control acquisition. Observation defaults remain with the source.
 function _report_observation_options(options; retained = false)
     for key in keys(options)
-        key in (:ydata, :rdata, :requests, :quantities) && throw(ArgumentError(
-            "use values to select report quantities; $key is not a reporting keyword"))
         key in (:units, :length_unit, :quantity_units, :frequency_unit, :freq_unit,
             :clip, :atol, :frequencies) || throw(ArgumentError(
             "unknown reporting keyword $key; illustration options belong in plot_options"))
@@ -244,28 +242,18 @@ function _report_observation_options(options; retained = false)
     for (key, value) in options)...)
 end
 
-function _report_plot_options(source, requests, illustration, options::NamedTuple)
-    isempty(options) || !(illustration===nothing || illustration===false) ||
-        throw(ArgumentError(
-            "plot_options requires an explicit illustration"))
-    for key in (:values, :rdata, :requests, :quantities)
-        haskey(options, key) &&
-            throw(ArgumentError("select report and illustration quantities with values"))
-    end
-    if haskey(options, :ydata)
-        selected=Commons.observation_selection(source, options.ydata)
-        expected=Commons.observation_requests(source, requests; complete_pairs = true).displayed
-        Commons.observation_requests(source, selected; complete_pairs = true).displayed==expected ||
-            throw(ArgumentError("plot_options.ydata conflicts with the report's values selection"))
-    end
-    return (; (key=>value for (key, value) in pairs(options) if key!==:ydata)...)
+# Illustration options need an explicit illustration.
+function validate(plot_options::NamedTuple, ::typeof(report), illustration)
+    isempty(plot_options) || !(illustration===nothing || illustration===false) ||
+        throw(ArgumentError("plot_options requires an explicit illustration"))
+    return plot_options
 end
 
 """
 $(TYPEDSIGNATURES)
 
 Build separate in-memory quantity tables from a completed result or collection.
-The same scientific selection used by plotting's `ydata` is named `values` here.
+The selection is the same positional request that plotting takes.
 Raw results are observed first. Retained observations preserve their recorded
 units and numerical eligibility unless compatible display units are requested.
 
@@ -273,12 +261,11 @@ units and numerical eligibility unless compatible display units are requested.
 
 - `source`: completed data supplied as a primary result or standalone Z/Y tensor.
   A result space, ordinary collection or retained observation is also accepted.
-- `selection`: optional positional alternative to `values`. Do not supply both.
+- `selection=nothing`: a selector, one `@observe` request or a tuple of requests.
+  `nothing` and `()` use the source owner's defaults or all retained products.
 
 # Keywords
 
-- `values=nothing`: a selector, one `@observe` request or a tuple of requests.
-  `nothing` and `()` use the source owner's defaults or all retained products.
 - `units`, `length_unit`, `quantity_units`, `frequency_unit`: observation unit
   options. Raw defaults belong to the observation owner. Omitted retained
   options preserve recorded units. `freq_unit` is an alternative spelling of
@@ -290,7 +277,8 @@ units and numerical eligibility unless compatible display units are requested.
   `artifact.reference`. Numerical comparisons are supplied as completed records
   in the observed inputs.
 - `illustration=nothing`: `true` or a plotting callable requests an illustration
-  of the retained observations with the matching `ydata` selection.
+  of the retained observations. The callable receives the observations and the
+  report's selection as positional arguments.
 - `plot_options=(;)`: options for an explicitly requested illustration.
 
 # Returns
@@ -300,23 +288,23 @@ units and numerical eligibility unless compatible display units are requested.
 
 # Errors
 
-Unknown options, competing selection keywords, conflicting illustration
-selections, and acquisition options on retained inputs raise `ArgumentError`.
+Unknown options, illustration options without an illustration, and acquisition
+options on retained inputs raise `ArgumentError`.
 Specialized definitions remain available through `report(definition, observed)`.
 
 # Examples
 
 ```julia
 report(constants)
-report(constants; values=(R, L, G, C), length_unit=:kilo,
+report(constants, (R, L, G, C); length_unit=:kilo,
     quantity_units=(R=:base, L=:milli, G=:micro, C=:micro))
-report(line_parameters; values=@observe(R[1, 1, 1:12]))
+report(line_parameters, @observe(R[1, 1, 1:12]))
 ```
 """
 function report(
         source::Union{Commons.AbstractCoreResult, Commons.AbstractResultSpace,
-            Engine.SeriesImpedance, Engine.ShuntAdmittance, AbstractVector, Tuple};
-        values = nothing, reference = nothing, illustration = nothing,
+            Engine.SeriesImpedance, Engine.ShuntAdmittance, AbstractVector, Tuple},
+        selection = nothing; reference = nothing, illustration = nothing,
         plot_options::NamedTuple = (;), kwargs...)
     collection=source isa Union{AbstractVector, Tuple, Commons.AbstractParametricResult}
     collection && isempty(source) &&
@@ -324,10 +312,10 @@ function report(
     acquisition=_report_observation_options(kwargs;
         retained = collection && any(point -> point isa ObservedResult, source))
     point=collection ? first(source) : source
-    requests=Commons.observation_selection(point, values)
+    requests=Commons.observation_selection(point, selection)
     displayed=isempty(requests) ? () :
               Commons.observation_requests(point, requests; complete_pairs = true).displayed
-    options=_report_plot_options(point, displayed, illustration, plot_options)
+    validate(plot_options, report, illustration)
     validate(reference, report)
     observed=observables(source, requests; complete_pairs = true, acquisition...)
     if reference isa ObservedResult
@@ -339,8 +327,7 @@ function report(
     elseif reference!==nothing
         reference=ObservedResult(reference, requests; complete_pairs = true, acquisition...)
     end
-    return report(
-        observed; values = displayed, reference, illustration, plot_options = options)
+    return report(observed, displayed; reference, illustration, plot_options)
 end
 
 # A report's reference is nothing, an observation or one atomic result.
@@ -355,32 +342,20 @@ function validate(reference, ::typeof(report))
         "reference must be an atomic result or ObservedResult; got $(typeof(reference))"))
 end
 
-function report(observed::Union{ObservedResult, AbstractVector{<:ObservedResult}};
-        values = nothing, reference::Union{Nothing, ObservedResult} = nothing,
+function report(observed::Union{ObservedResult, AbstractVector{<:ObservedResult}},
+        selection = nothing; reference::Union{Nothing, ObservedResult} = nothing,
         illustration = nothing, plot_options::NamedTuple = (;), kwargs...)
     display_units=_report_observation_options(kwargs; retained = true)
     isempty(_observed_points(observed)) &&
         throw(ArgumentError("report requires at least one observation"))
     point=first(_observed_points(observed))
-    requests=Commons.observation_selection(point, values)
-    displayed=Commons.observation_requests(point, requests).displayed
-    options=_report_plot_options(point, displayed, illustration, plot_options)
+    requests=Commons.observation_selection(point, selection)
+    validate(plot_options, report, illustration)
     if !isempty(display_units)
         observed=observables(observed, requests; display_units...)
         reference===nothing ||
             (reference=ObservedResult(reference, requests; display_units...))
     end
-    definition=TableReportDefinition(requests; illustration,
-        plot_options = illustration===nothing || illustration===false ? options :
-                       merge(options, (ydata = displayed,)))
+    definition=TableReportDefinition(requests; illustration, plot_options)
     return report(definition, observed; reference)
-end
-
-function report(
-        source::Union{Commons.AbstractCoreResult, Commons.AbstractResultSpace,
-            Engine.SeriesImpedance, Engine.ShuntAdmittance, ObservedResult, AbstractVector, Tuple},
-        selection; kwargs...)
-    haskey(kwargs, :values) &&
-        throw(ArgumentError("use positional selection or values, not both"))
-    return report(source; values = selection, kwargs...)
 end

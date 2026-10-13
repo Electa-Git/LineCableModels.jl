@@ -1,15 +1,15 @@
 """
-    plot(observed::ObservedResult, selection=nothing; ydata=nothing, kwargs...)
-    plot(observed::AbstractVector{<:ObservedResult}, selection=nothing; ydata=nothing, kwargs...)
-    plot(completed_result, selection=nothing; ydata=nothing, kwargs...)
+    plot(observed::ObservedResult, selection=nothing; kwargs...)
+    plot(observed::AbstractVector{<:ObservedResult}, selection=nothing; kwargs...)
+    plot(completed_result, selection=nothing; kwargs...)
 
 Present retained scientific quantities with a loaded Makie backend. Completed
 numerical results are conveniences: they construct `ObservedResult` objects and
 call the same public observed-input method. `PlotBuilder.plot` and
 `LineCableModels.plot` are the same function.
 
-`selection` and `ydata` are alternative spellings of the same request. Supplying
-both is an error. Requests retain `@observe` syntax and original coordinates.
+`selection` is a selector, one `@observe` request or a tuple of requests.
+Requests retain `@observe` syntax and original coordinates.
 An existing observation supplies values, units, descriptions, uncertainty, and
 scientific groups.
 
@@ -31,7 +31,7 @@ retained inputs, including reports. The existing `ObservedResult(existing; ...)`
 operation re-expresses compatible units once before drawing. Omitted options
 preserve recorded units, masks, errors, timings, and uncertainty dependencies.
 `freq_unit` is a spelling of `frequency_unit`. Supplying both is an error.
-`plot(report; ydata=(R,), length_unit=:base)` displays its retained
+`plot(report, (R,); length_unit=:base)` displays its retained
 result and reference curves per meter without rebuilding the report.
 
 `problem` and `formulations` select original recorded identities. `band` selects
@@ -153,12 +153,12 @@ impedance = reshape(complex.([1.0, 2.0, 3.0], [2.0, 3.0, 4.0]), 1, 1, :)
 raw = LineParameters(impedance, impedance .* 1e-6, frequency)
 r_request = @observe R[:, :, :]
 pair = (@observe(R[:, :, :]), @observe(L[:, :, :]))
-a = plot(raw; ydata=(r_request,), clip=true, length_unit=:kilo)
+a = plot(raw, (r_request,); clip=true, length_unit=:kilo)
 o = ObservedResult(raw, (r_request,); complete_pairs=true,
     clip=true, length_unit=:kilo)
-b = plot(o; ydata=(r_request,), length_unit=:base)
-c = plot(raw; ydata=pair, layout=(1,1))
-d = plot(ObservedResult(raw, pair); ydata=pair, layout=(1,1))
+b = plot(o, (r_request,); length_unit=:base)
+c = plot(raw, pair; layout=(1,1))
+d = plot(ObservedResult(raw, pair), pair; layout=(1,1))
 ```
 
 `c` and `d` each contain separate R and L figures.

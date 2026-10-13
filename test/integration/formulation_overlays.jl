@@ -56,12 +56,12 @@
     @test length(blocked)==2
     @test all(length(page.axes)==2 for page in blocked)
     @test LineCableModels.plot(artifact,(R,);title="My comparison",options...).export_name=="My comparison"
-    signed=LineCableModels.plot(artifact;ydata=(G,),options...,controls=true)
+    signed=LineCableModels.plot(artifact, (G,);options...,controls=true)
     signed.controls[:ylog].active[]=true
     @test all(axis -> axis.yscale[](1e-18)>0 && axis.yscale[](-1e-18)<0,signed.axes)
     @test_throws ArgumentError LineCableModels.plot(artifact,(R,);band=(100.,200.),options...)
     @test_throws ArgumentError LineCableModels.plot(artifact,(R,);band=:wide,options...)
-    raw_page=LineCableModels.plot(results;ydata=(R,),reference,length_unit=:base,options...)
+    raw_page=LineCableModels.plot(results, (R,);reference,length_unit=:base,options...)
     @test length(raw_page.axes)==4
     @test length(first(raw_page.plot_state.observed).quantities)==4
     # Rendering and exporting must not consult either poisoned numerical source.
@@ -94,7 +94,7 @@ end
     observed=observables(points)
     groups=observation_groups(observed;request=R)
     @test getproperty.(groups,:members)==[[1,2],[3],[4]]
-    page=LineCableModels.plot(observed;ydata=(R,),backend=:cairo,display_plot=false,controls=false,open_export=false)
+    page=LineCableModels.plot(observed, (R,);backend=:cairo,display_plot=false,controls=false,open_export=false)
     @test length(page.plot_state.observed)==4
     @test page.plot_state.displayed_indices==[1,3,4]
     @test count(item -> item isa Makie.Lines,only(page.axes).scene.plots)==3
@@ -117,7 +117,7 @@ end
     artifact=report(BenchmarkTableDefinition(),(reference=LineParameters(Z(base),Y(base),f),result=points))
     for (request,count) in ((R,5),(X,5),(G,3),(B,3))
         @test length(observation_groups(artifact.observed;request))==count
-        page=LineCableModels.plot(artifact;ydata=(request,),backend=:cairo,display_plot=false,controls=false,open_export=false)
+        page=LineCableModels.plot(artifact, (request,);backend=:cairo,display_plot=false,controls=false,open_export=false)
         @test length(page.plot_state.displayed_indices)==count+1
         labels=collect(values(page.plot_state.labels))
         other=request in (R,X) ? "earth Y" : "earth Z"
@@ -136,7 +136,7 @@ end
     for (request,labels) in ((R,("internal Z=Schelkunoff","earth Z(air)=Unified",
         "earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
         (B,("earth Y(air)=Unified","earth Y(earth)=Unified","earth Y(mixed)=Unified")))
-        page=LineCableModels.plot(observed;ydata=(request,),backend=:cairo,display_plot=false,controls=false,open_export=false)
+        page=LineCableModels.plot(observed, (request,);backend=:cairo,display_plot=false,controls=false,open_export=false)
         fields=getproperty(observed.gridpoint.formulation_fields,request===R ? :Z : :Y)
         @test all(label in [field.name*"="*field.value for field in fields] for label in labels)
         @test only(values(page.plot_state.labels))==description(LineParametersFormulation,physical;quantity=request,compact=true)

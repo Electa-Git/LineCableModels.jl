@@ -200,14 +200,14 @@ It does not bound the mean error or the joint distribution.
 
 ## Tables and reports
 
-Pass a completed result directly to [`report`](@ref). `values` accepts the same
-scientific requests that plotting names `ydata`. Omit it to use the result's
+Pass a completed result directly to [`report`](@ref). The positional selection
+takes the same scientific requests as plotting. Omit it to use the result's
 available quantities and default display units:
 
 ```julia
 constants_report = report(constants)
-phase_report = report(parameters; values=(R, L, G, C), length_unit=:kilo)
-first_term_report = report(parameters; values=@observe(R[1, 1, 1:12]))
+phase_report = report(parameters, (R, L, G, C); length_unit=:kilo)
+first_term_report = report(parameters, @observe(R[1, 1, 1:12]))
 resistance = phase_report[R]
 ```
 
@@ -228,13 +228,13 @@ Use `copy(phase_report[R])` when edits should leave the report unchanged.
 
 An indexed request must match the reported selection. Absent or ambiguous
 products raise an error.
-Select different scientific contents with `report(...; values=...)`.
+Select different scientific contents with `report(source, selection)`.
 
 For statistical products, select the statistic explicitly:
 
 ```julia
 using Statistics
-statistics_report = report(sampled; values=((statistics, R, mean), (statistics, R, std)))
+statistics_report = report(sampled, ((statistics, R, mean), (statistics, R, std)))
 mean_resistance = statistics_report[1, (statistics, R, mean)]
 ```
 

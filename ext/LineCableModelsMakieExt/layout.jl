@@ -64,10 +64,10 @@ function _flow_pages(items, capacity)
 end
 
 # Assign retained coordinates and gridpoints to panels and curves, then paginate.
-function _observation_facets(plot_data, ydata, orientations, retained, slots, reference_position, labels,
+function _observation_facets(plot_data, requests, orientations, retained, slots, reference_position, labels,
         coordinate_labels, coordinate_identities; explicit_labels=false)
     facets = NamedTuple[]
-    for request_index in eachindex(ydata)
+    for request_index in eachindex(requests)
         product = first(plot_data).observations[request_index]
         c = product.coordinates
         rows, columns, _ = first(plot_data).coordinates[request_index]
@@ -95,7 +95,7 @@ function _observation_facets(plot_data, ydata, orientations, retained, slots, re
                         panel_identity=(point, column), curves, orientation, kind=c.kind, extent,
                         domain=get(source_coordinates,:domain,:unspecified),
                         column_domain=get(source_coordinates,:column_domain,nothing),
-                        quantity=product.quantity, identity=request_identity(ydata[request_index]),
+                        quantity=product.quantity, identity=request_identity(requests[request_index]),
                         source_index=index, source_label=labels[request_index][index]))
                 end
             end
@@ -125,7 +125,7 @@ function _observation_facets(plot_data, ydata, orientations, retained, slots, re
                     coordinate.row,coordinate.column,coordinate.row_label,coordinate.column_label,
                     panel_identity,curves,orientation,kind=c.kind,extent,
                     domain=get(c,:domain,:unspecified),column_domain=get(c,:column_domain,nothing),
-                    quantity=product.quantity,identity=request_identity(ydata[request_index])))
+                    quantity=product.quantity,identity=request_identity(requests[request_index])))
             end
         else
             for index in retained[request_index]
@@ -151,7 +151,7 @@ function _observation_facets(plot_data, ydata, orientations, retained, slots, re
                         reference_position : slots[index],curves,orientation,
                     kind=c.kind,extent,domain=get(c,:domain,:unspecified),
                     column_domain=get(c,:column_domain,nothing),quantity=product.quantity,
-                    identity=request_identity(ydata[request_index]),
+                    identity=request_identity(requests[request_index]),
                     source_label=labels[request_index][index]))
             end
         end

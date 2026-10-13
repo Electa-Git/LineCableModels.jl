@@ -23,12 +23,12 @@
     @test all(point -> point.gridpoint.inputs.radius==.01,observed)
     @test length(tabulate(observed))==4
     opts=(backend=:cairo,display_plot=false,controls=false,open_export=false)
-    page=LineCableModels.plot(observed;ydata=(R,),opts...)
+    page=LineCableModels.plot(observed, (R,);opts...)
     @test page.plot_state.displayed_indices==[1,3,4]
     @test only(page.plot_state.display_groups).groups==groups
     @test length(page.plot_state.observed)==4
     @test length(filter(plot -> plot isa Makie.Lines,only(page.axes).scene.plots))==3
-    @test_throws ArgumentError LineCableModels.plot(observed;ydata=(L,),opts...)
+    @test_throws ArgumentError LineCableModels.plot(observed, (L,);opts...)
     @test_throws ArgumentError LineCableModels.plot(observed;clip=false,opts...)
     reference=retain_gridpoint(base,gridpoint_id())
     errors=compare(reference,[first_point,irrelevant,different_input],[R];bands=(:all,(10.,100.)))
@@ -36,7 +36,7 @@
     artifact=report(BenchmarkTableDefinition(),report_points;reference=ObservedResult(reference))
     @test length(artifact.tables.features)==2
     @test all(feature -> length(feature.relative.formula)==1,artifact.tables.features)
-    overlay=LineCableModels.plot(artifact;ydata=(R,),problem=2,band=(10.,100.),opts...)
+    overlay=LineCableModels.plot(artifact, (R,);problem=2,band=(10.,100.),opts...)
     @test length(overlay.plot_state.observed)==2
     @test first(overlay.plot_state.observed).gridpoint.id.problem_index==2
     curves=filter(plot -> plot isa Makie.Lines,only(overlay.axes).scene.plots)

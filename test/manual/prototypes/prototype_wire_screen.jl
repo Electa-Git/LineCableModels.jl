@@ -395,8 +395,8 @@ if ws_make_plots
     # Before: a fabricated ParametricResult supplied plot labels. Now ordinary
     # completed-result collections delegate through observation construction.
     ws_patterns = [ws_baseline, ws_result]
-    ws_plots = LineCableModels.plot(ws_patterns; reference = ws_reference,
-        ydata = (G, B), layout = (3, 3), length_unit = :base,
+    ws_plots = LineCableModels.plot(ws_patterns, (G, B); reference = ws_reference,
+        layout = (3, 3), length_unit = :base,
         # Before: reference-first labels. Now results precede the separate reference.
         series_labels = ("Saved annular", "Four-face tape", "Saved FEM"))
 end

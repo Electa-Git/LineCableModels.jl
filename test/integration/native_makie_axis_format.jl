@@ -19,7 +19,7 @@ end
     before = deepcopy((Z(source),Y(source),frequencies(source)))
     logger = Test.TestLogger(min_level=Logging.Warn)
     with_logger(logger) do
-        page = LineCableModels.plot(source; ydata=(R,),length_unit=:base,
+        page = LineCableModels.plot(source, (R,); length_unit=:base,
             backend=:cairo,display_plot=false,open_export=false,
             figure=(size=(800,500),),axis=(limits=((2.0,8.0),(1.9,8.1)),),linewidth=3)
         axis = only(page.axes)
@@ -156,7 +156,7 @@ end
     for (length_unit, clip) in ((:base, false), (:kilo, true))
         factor = length_unit === :base ? 1.0 : 1000.0
         expected = factor .* conductance
-        page = LineCableModels.plot(source; ydata=(G,), backend=:cairo,
+        page = LineCableModels.plot(source, (G,); backend=:cairo,
             display_plot=false, open_export=false, length_unit, clip, atol=(G=0., B=0.),
             xscale=:log10, yscale=:log10)
         axis = only(page.axes)
@@ -199,7 +199,7 @@ end
         end
     end
     @test all(values -> values ≈ first(positions), positions)
-    clipped = LineCableModels.plot(source; ydata=(G,), backend=:cairo,
+    clipped = LineCableModels.plot(source, (G,); backend=:cairo,
         display_plot=false, controls=false, length_unit=:base)
     line = only(filter(p -> p isa Makie.Lines, only(clipped.axes).scene.plots))
     @test last.(line[1][])[1:6] == zeros(6)
@@ -366,7 +366,7 @@ end
     endpoint = conductance[2] - errors[2]
     admittance = reshape(complex.(measurement.(conductance, errors), 1e-8), 1, 1, :)
     source = LineParameters(ones(ComplexF64, 1, 1, length(f)), admittance, f)
-    page = LineCableModels.plot(source; ydata=(G,), backend=:cairo, display_plot=false,
+    page = LineCableModels.plot(source, (G,); backend=:cairo, display_plot=false,
         open_export=false, length_unit=:base, clip=false, errorbar_sampling=:staggered,
         yscale=:log10)
     axis = only(page.axes)
@@ -387,7 +387,7 @@ end
 @testitem "Makie addons / native override precedence and custom transforms" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     source = LineParameters(reshape(ComplexF64[2,4,8],1,1,:),ones(ComplexF64,1,1,3),[2.0,4.0,8.0])
-    page = LineCableModels.plot(source; ydata=R,backend=:cairo,display_plot=false,
+    page = LineCableModels.plot(source, R; backend=:cairo,display_plot=false,
         open_export=false,length_unit=:base,xscale=sqrt,
         figure=(size=(500,700),),ylabel="Shared",axis=(ylabel="Explicit",),
         linewidth=3,series_attributes=((linewidth=5,),))
@@ -397,7 +397,7 @@ end
     @test axis.ylabel[] == "Explicit"
     @test Tuple(page.figure.scene.viewport[].widths) == (500,700)
     @test only(filter(p->p isa Makie.Lines,axis.scene.plots)).linewidth[] == 5
-    @test_throws ArgumentError LineCableModels.plot(source;ydata=R,backend=:cairo,
+    @test_throws ArgumentError LineCableModels.plot(source, R;backend=:cairo,
         display_plot=false,not_a_native_attribute=true)
     # Reject a second public selection grammar, without banning legitimate
     # local variables called quantities inside the implementation.
@@ -459,7 +459,7 @@ end
     @test Y(parameters) == complex.(zero.(susceptance), susceptance)
     publication = observables(parameters, ((@observe B[1, 1, :]),);complete_pairs=true,
         length_unit=:base, quantity_units=:base, clip=false)
-    published_plot = Makie.plot(publication;ydata=(B,), backend=:cairo, display_plot=false,
+    published_plot = Makie.plot(publication, (B,);backend=:cairo, display_plot=false,
         controls=false)
     published_axis = only(published_plot.axes)
     ylims!(published_axis, -2e-9, 2e-9)
@@ -477,7 +477,7 @@ end
     source = LineParameters(reshape(response .+ im, 1, 1, :), ones(ComplexF64, 1, 1, 3), f)
     logger = Test.TestLogger(min_level=Logging.Warn)
     page = with_logger(logger) do
-        page = LineCableModels.plot(source; ydata=(R,), xscale=:linear, options...)
+        page = LineCableModels.plot(source, (R,); xscale=:linear, options...)
         Makie.colorbuffer(page.figure)
         page
     end
@@ -551,7 +551,7 @@ end
     for (artifact, request, expected) in ((deterministic, (R,), r),
             (uq, ((statistics, R, mean),), r),
             (uq, ((statistics, R, std),), sqrt(2) * 0.1 .* r))
-        page = LineCableModels.plot(artifact; ydata=request, backend=:cairo,
+        page = LineCableModels.plot(artifact, request; backend=:cairo,
             display_plot=false, controls=true, open_export=false, fig_size=(1100, 750))
         Makie.colorbuffer(page.figure)
         axis = last(page.axes)
@@ -637,7 +637,7 @@ end
     f = [1.0, 10.0, 100.0]
     z = [complex(i+j+k, k) for i in 1:2, j in 1:2, k in 1:3]
     data = LineParameters(z, z .* 1e-6, f)
-    page = LineCableModels.plot(data; ydata=(R,), backend=:cairo, display_plot=false,
+    page = LineCableModels.plot(data, (R,); backend=:cairo, display_plot=false,
         controls=true, open_export=false, length_unit=:base, xscale=:linear)
     first_axis, last_axis = first(page.axes), last(page.axes)
     # Model a native pan and zoom: target limits change, the stored request does not.
@@ -673,7 +673,7 @@ end
     operand = (result=negative,
         metadata=(port_order=["a", "b"], formulation=NamedTuple(Formulation()), axes=nothing))
     comparison = report(BenchmarkTableDefinition((G,)), (reference=operand, result=operand))
-    signed = LineCableModels.plot(comparison; ydata=(G,), backend=:cairo,
+    signed = LineCableModels.plot(comparison, (G,); backend=:cairo,
         display_plot=false, controls=true, open_export=false, yscale=:pseudolog10)
     @test signed.controls[:ylog].active[]
     signed.controls[:ylog].active[] = false
@@ -792,7 +792,7 @@ end
     f = [1.0, 10.0, 100.0]
     z = fill(measurement(1e-14, 4e-15) + im * measurement(1e-14, 0.0), 1, 1, 3)
     data = LineParameters(z, z, f)
-    page = LineCableModels.plot(data; ydata=(R,), backend=:cairo, display_plot=false,
+    page = LineCableModels.plot(data, (R,); backend=:cairo, display_plot=false,
         controls=true, open_export=false, length_unit=:base, clip=false)
     axis = only(page.axes)
     Makie.colorbuffer(page.figure)

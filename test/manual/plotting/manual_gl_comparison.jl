@@ -12,11 +12,11 @@ function comparison(channels)
         details=ComputationDetails((coordinates=["west","east"],)))
 end
 # Manufactured routing variants include no author or physical-accuracy label.
-plots=Makie.plot(reference,comparison((1.1,1.2,1.3,1.4)),comparison((.9,.8,.7,.6));
+plots=Makie.plot(reference,comparison((1.1,1.2,1.3,1.4)),comparison((.9,.8,.7,.6)),(R,L,G,C);
     series_labels=("Current routing input","Larger channels","Smaller channels"),
     # Before: result plots accepted size. Now fig_size describes the nominal layout.
     # Each quantity still returns its own UIPlot (preview and plotwindow retain size).
-    ydata=(R,L,G,C),xscale=:log10,fig_size=(1100,750),backend=:gl,display_plot=true,open_export=false)
+    xscale=:log10,fig_size=(1100,750),backend=:gl,display_plot=true,open_export=false)
 @test length(plots)==4
 @test all(page->length(page.axes)==4,plots)
 @test all(page->haskey(page.controls,:legend),plots)

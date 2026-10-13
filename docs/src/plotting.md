@@ -70,8 +70,7 @@ expands to ``R`` then ``X``. ``Y`` expands to ``G`` then ``B``. An exact
 request such as `@observe Z[1,1,:]` keeps its conductor coordinates while
 selecting the complete frequency range. Plotting consumes that resolved
 request and displays both components.
-The plot-facing name for this ordinate selection is `ydata`. Pass it
-positionally or as a keyword, such as `plot(result; ydata=(R, L))`.
+Pass this ordinate selection positionally, such as `plot(result, (R, L))`.
 
 With matrix gridpoint overlays, every `(quantity, row, column)` has one axis.
 Its default title uses `Units.label` and the retained coordinate labels, such as `Self series resistance — conductor 1` or
@@ -128,7 +127,7 @@ Use separate calls for matrix and vector quantities with this explicit option.
 
 ### Matrix pagination and overlays
 
-`plot(results; ydata=(R,L), layout=(2,2))` produces four R pages and four L
+`plot(results, (R,L); layout=(2,2))` produces four R pages and four L
 pages for a full 3×3 matrix. Their actual extents are 2×2, 2×1, 1×2, and 1×1.
 Pages follow request order and then row-major matrix-page order. Original
 coefficient identities remain the addresses for titles, legends, scales, and reset.
@@ -757,8 +756,7 @@ observed = ObservedResult(
     (resistance_request, inductance_request)
 );
 observed_plot = Makie.plot(
-    observed;
-    ydata = (resistance_request, inductance_request),
+    observed, (resistance_request, inductance_request);
     title = "Retained coefficient observations",
     figure_title = "Retained coefficient observations",
     panel_titles = ("R[1,1]", "L[1,1]"),
@@ -1153,7 +1151,7 @@ function add_reset_y!(p)
         success = "Y view reset")
     nothing
 end
-widget_plot=Makie.plot(parameters; ydata = ((R, 1, 1, :),), layout = (1, 1),
+widget_plot=Makie.plot(parameters, ((R, 1, 1, :),); layout = (1, 1),
     backend = :cairo, display_plot = false, widgets = (add_reset_y!,));
 widget_plot.figure #hide
 ````
@@ -1168,7 +1166,7 @@ assembly_a=CableConstants([:core, :sheath], [1.0, 2.0] .* 1e-4, [2.0, 3.0] .* 1e
     [3.0, 4.0] .* 1e-10, [1.0, 2.0] .* 1e-9, 50.0);
 assembly_b=CableConstants([:core, :screen], [1.1, 2.2] .* 1e-4, [2.1, 3.1] .* 1e-7,
     [3.1, 4.1] .* 1e-10, [1.1, 2.1] .* 1e-9, 50.0);
-assembly_plot=Makie.plot((first = assembly_a, second = assembly_b); ydata = (R,),
+assembly_plot=Makie.plot((first = assembly_a, second = assembly_b), (R,);
     backend = :cairo, display_plot = false, controls = false);
 assembly_plot.figure #hide
 ````
@@ -1255,7 +1253,7 @@ override shared defaults. Subsequent native mutations remain authoritative.
 For names shared by Axis and a plot, the unqualified form targets Axis.
 An explicit native `figure.size` overrides `fig_size`. Portrait sizes stay portrait.
 
-UQ benchmark plots with ordinary `ydata=(R,L,G,C)` overlay mean ±1 standard
+UQ benchmark plots of an ordinary `(R,L,G,C)` selection overlay mean ±1 standard
 deviation from retained moments. Explicit `(statistics,L,std)` requests show
 the standard deviation alone. Request these two products in separate calls.
 `uncertain(result, configuration)` returns the uncertainty-bearing core stored

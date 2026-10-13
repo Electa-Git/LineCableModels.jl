@@ -77,7 +77,7 @@ end
     end
     raw=LineParameters(fill(1+2im,1,1,3),fill(1+2im,1,1,3),[1.,10.,100.])
     options=(backend=:cairo,display_plot=false,open_export=false)
-    pages=LineCableModels.plot(raw;ydata=(R,L),widgets=(custom,),options...)
+    pages=LineCableModels.plot(raw, (R,L);widgets=(custom,),options...)
     @test constructions[]==2 && calls[]==0
     p=first(pages)
     @test p.status===p.plot_state.shell.status
@@ -119,7 +119,7 @@ end
     removewidget!(p,:composite)
     composite_button[].clicks[]+=1
     @test calls[]==3
-    none=LineCableModels.plot(raw;ydata=(R,),controls=false,widgets=(custom,),options...)
+    none=LineCableModels.plot(raw, (R,);controls=false,widgets=(custom,),options...)
     @test constructions[]==2 && isempty(none.controls)
     @test_throws ArgumentError addwidget!((p,slot) -> Button(slot),none,:late)
     @test axisscale!(none,:y,:log10)===none

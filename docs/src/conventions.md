@@ -177,8 +177,8 @@ retained. Observation and presentation never reconstruct a problem from lazy axe
 The complete primary pairs are R/X, magnitude and angle of Z, or R/L for Z, and G/B,
 magnitude and angle of Y, or G/C for Y. Defaults are R/X and G/B. The strict constructor
 rejects an incomplete pair. Raw plotting conveniences use the same request
-normalizer with `complete_pairs=true`. `plot(line; ydata=(R,))` retains R/X and G/B
-and displays R. `plot(observed; ydata=(R,))` selects retained R only. Different
+normalizer with `complete_pairs=true`. `plot(line, (R,))` retains R/X and G/B
+and displays R. `plot(observed, (R,))` selects retained R only. Different
 representations require a new explicit construction. No consumer derives an
 absent quantity, repeats clipping or acquires a raw source.
 
@@ -203,7 +203,7 @@ collection use the primary owner and preserve their dependencies.
 ```julia
 observed = ObservedResult(parameters, (R, L, G, C))
 tables = ReportBuilder.tabulate(observed)  # tables.Z.R, tables.Z.L, tables.Y.G, tables.Y.C
-plot(observed; ydata=(R,))
+plot(observed, (R,))
 ```
 
 Each quantity has its own table. A full n×n matrix on m frequencies has m rows and
@@ -230,7 +230,7 @@ completed = compare(reference, results, [R, L]; bands=(:all,))
 points = observables(results; comparisons=completed, timings=recorded_timings)
 reference_point = ObservedResult(reference)
 artifact = report(BenchmarkTableDefinition(), points; reference=reference_point)
-plot(artifact; ydata=(R,))
+plot(artifact, (R,))
 ```
 
 Comparison records join by original result identities. A reference remains

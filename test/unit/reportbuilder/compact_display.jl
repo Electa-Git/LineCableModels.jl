@@ -72,7 +72,7 @@ end
     const RB=LineCableModels.ReportBuilder
     const U=LineCableModels.Units
     constants=CableConstants(1e-4,2e-7,3e-10,4e-12;frequency=50)
-    r=report(constants;values=(R,L,G,C),length_unit=:kilo,
+    r=report(constants, (R,L,G,C);length_unit=:kilo,
         quantity_units=(R=:base,L=:milli,G=:micro,C=:micro))
     original=deepcopy(r.observed.quantities)
     originals=map(copy,(r[R],r[L],r[G],r[C]))
@@ -101,12 +101,12 @@ end
 
     design=TestFixtures.coaxial_design()
     completed=CableConstants(design)
-    single=report(completed;values=R)
+    single=report(completed, R)
     owner_label=only(LineCableModels.Commons.observation_labels(single.observed))
     @test sprint(summary,single)=="Report · 1 table"
     @test owner_label==description(CableConstantsFormulation();compact=true)
     other_observed=ObservedResult(CableConstants(design;temperature=40.))
-    with_reference=report(single.observed;values=R,reference=other_observed)
+    with_reference=report(single.observed, R;reference=other_observed)
     comparison_labels=LineCableModels.Commons.observation_labels([single.observed,other_observed])
     single_table=single[R]
     table_before=copy(single_table)
@@ -127,7 +127,7 @@ end
     @test with_reference.observed===single.observed
 
     points=[single.observed,other_observed]
-    study=report(points;values=R)
+    study=report(points, R)
     labels=LineCableModels.Commons.observation_labels(points)
     @test sprint(summary,study)=="Report · 2 gridpoints · 2 tables"
     for mime in (MIME"text/plain"(),MIME"text/html"())
@@ -138,7 +138,7 @@ end
 
     z=reshape(complex.(1.:800.,801.:1600.),2,2,200)
     source=LineParameters(z,fill(3e-6+4e-6im,2,2,200),collect(1.:200.))
-    collection=report([source,source];values=(R,L,G,C),frequency_unit=:kilo)
+    collection=report([source,source], (R,L,G,C);frequency_unit=:kilo)
     for size in ((24,80),(40,120),(10,40),(5,30),(2,8),(1,1))
         context=IOContext(IOBuffer(),:limit=>true,:displaysize=>size,:color=>false)
         shown=sprint(show,MIME"text/plain"(),collection;context)
@@ -164,7 +164,7 @@ end
         @test !occursin("omitted",shown)
         mime isa MIME"text/html" && @test length(collect(eachmatch(r"<table",shown)))==8
     end
-    selected=report(source;values=@observe(R[2,1,199:200]),frequency_unit=:kilo)
+    selected=report(source, @observe(R[2,1,199:200]);frequency_unit=:kilo)
     selected_html=sprint(show,MIME"text/html"(),selected;context=unlimited)
     @test length(collect(eachmatch(r"<table",selected_html)))==1
     @test occursin("[2,1]",selected_html) && !occursin("[1,2]",selected_html)
@@ -200,16 +200,16 @@ end
             @test !isempty(sprint(show,mime,artifact;context=normal))
         end
     end
-    uq=report(TestFixtures.cable_monte_carlo_result();values=((statistics,R,mean),(statistics,R,std)))
+    uq=report(TestFixtures.cable_monte_carlo_result(), ((statistics,R,mean),(statistics,R,std)))
     for mime in (MIME"text/plain"(),MIME"text/html"())
         shown=sprint(show,mime,uq;context=normal)
         @test occursin("mean",shown) && occursin("std",shown)
     end
     shared=measurement(1e-4,1e-6)
-    uncertain=report(CableConstants(shared,2shared,3shared,4shared);values=R,clip=false)
+    uncertain=report(CableConstants(shared,2shared,3shared,4shared), R;clip=false)
     bigsource=LineParameters(fill(complex(-big"1.23456789e-40",big"0"),1,1,2),
         fill(complex(big"0",big"1e-6"),1,1,2),BigFloat[50,500])
-    precise=report(bigsource;values=R,clip=false)
+    precise=report(bigsource, R;clip=false)
     for artifact in (uncertain,precise)
         table=artifact[R]
         before=deepcopy(table)

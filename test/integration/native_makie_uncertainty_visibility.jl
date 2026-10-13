@@ -8,7 +8,7 @@
     before = deepcopy((Z(source), Y(source), frequencies(source)))
     options = (backend = :cairo, display_plot = false, open_export = false,
         length_unit = :base, quantity_units = :base, freq_unit = :base, clip = false)
-    pages = LineCableModels.plot(source, source, source; options..., ydata = (R,),
+    pages = LineCableModels.plot(source, source, source, (R,); options...,
         layout = (1, 2), errorbar_sampling = :all,
         series_labels = ("first", "second", "third"), legend_position = :bottom)
     for page in pages
@@ -49,7 +49,7 @@
         @test [(p[1][], p.whiskerwidth[], p.linewidth[]) for p in intervals] == saved
     end
     # Default nesting must not take ownership away from explicit native kwargs.
-    custom = LineCableModels.plot(source, source; options..., ydata = ((R, 1, 1, :),),
+    custom = LineCableModels.plot(source, source, ((R, 1, 1, :),); options...,
         series_attributes = (
             (whiskerwidth = 15, linewidth = 2.5), (whiskerwidth = 7, linewidth = 0.8)))
     bars = filter(p -> p isa Makie.Errorbars, only(custom.axes).scene.plots)
@@ -87,9 +87,9 @@ end
     result = ParametricResult(nothing, [compared_result], axes, ComputationDetails((;)))
     before = deepcopy((Z(reference), Y(reference), frequencies(reference), Z(compared_result)))
     options = (; backend = :cairo, display_plot = false, open_export = false,
-        ydata = ((R, 1, 1, :),), reference, length_unit = :base, quantity_units = :base,
+        reference, length_unit = :base, quantity_units = :base,
         freq_unit = :base, clip = false, fig_size = (1000, 650))
-    page = LineCableModels.plot(result; options...)
+    page = LineCableModels.plot(result, ((R, 1, 1, :),); options...)
     axis = only(page.axes)
     for (key, source) in zip(page.plot_state.order, (compared_result, reference))
         group = page.plot_state.groups[key]
@@ -143,7 +143,7 @@ end
 
     for n in (1, 2)
         short = ParametricResult(nothing, [compared_result[1:n]], axes, ComputationDetails((;)))
-        plot = LineCableModels.plot(short; options..., reference = reference[1:n])
+        plot = LineCableModels.plot(short, ((R, 1, 1, :),); options..., reference = reference[1:n])
         for group in values(plot.plot_state.groups)
             marker = only(filter(p -> p isa Makie.Scatter, group))
             bars = filter(p -> p isa Makie.Errorbars, group)
@@ -153,7 +153,7 @@ end
         @test any(element -> element isa Makie.MarkerElement,
             first(last(only(plot.legend.entrygroups[]))).elements)
     end
-    overridden = LineCableModels.plot(result; options..., errorbar_sampling = :all,
+    overridden = LineCableModels.plot(result, ((R, 1, 1, :),); options..., errorbar_sampling = :all,
         series_attributes = (marker = :diamond, color = :magenta, whiskerwidth = 12))
     for group in values(overridden.plot_state.groups)
         marker = only(filter(p -> p isa Makie.Scatter, group))
@@ -162,7 +162,8 @@ end
         @test all(p -> Makie.to_color(p.color[]) == Makie.to_color(:magenta), group)
         @test all(p.whiskerwidth[] == 12 for p in group if p isa Makie.Errorbars)
     end
-    @test_throws r"errorbar_sampling" LineCableModels.plot(result; options..., errorbar_sampling = :invalid)
+    @test_throws r"errorbar_sampling" LineCableModels.plot(result, ((R, 1, 1, :),); options...,
+        errorbar_sampling = :invalid)
     @test isequal(before, (
         Z(reference), Y(reference), frequencies(reference), Z(compared_result)))
 end
@@ -177,7 +178,7 @@ end
              for i in 1:2, j in 1:2, k in eachindex(f)]
         LineParameters(z, z .* 1e-6, f)
     end
-    page = LineCableModels.plot(sources...; ydata = (R,),
+    page = LineCableModels.plot(sources..., (R,);
         backend = :cairo, display_plot = false, controls = true, open_export = false,
         series_labels = ("first", "second"), legend_position = :bottom,
         series_attributes = ((marker = :circle,), (marker = :utriangle,)),
@@ -224,7 +225,7 @@ end
         originals = map(p -> (copy(Z(p)), copy(Y(p)), copy(frequencies(p))), sources)
         attributes = markers ? ((marker = :circle,), (marker = :utriangle,)) : nothing
         page = LineCableModels.plot(
-            sources...; options..., ydata = (R,), errorbar_sampling = :all,
+            sources..., (R,); options..., errorbar_sampling = :all,
             series_labels = ("first", "second"), series_attributes = attributes,
             legend_position = :bottom, panel_legends = (1, 1)=>:right)
         for (index, axis) in enumerate(page.axes)
@@ -297,7 +298,7 @@ end
     options = (
         backend = :cairo, display_plot = false, controls = true, open_export = false,
         length_unit = :base, quantity_units = :base, clip = false, fig_size = (1000, 700))
-    pages = LineCableModels.plot(parameters; options..., ydata = (R,), layout = (2, 2),
+    pages = LineCableModels.plot(parameters, (R,); options..., layout = (2, 2),
         series_labels = ("uncertain",), series_attributes = (marker = :circle,), legend_position = :bottom)
     @test length.(getproperty.(pages, :axes)) == [4, 2, 2, 1]
     pages = copy(pages)
@@ -368,7 +369,7 @@ end
     z = reshape(complex.(measurement.([1.0, 2.0, 3.0], 0.4), 1.0), 1, 1, :)
     source = LineParameters(z, z .* 1e-6, f)
     page = LineCableModels.plot(
-        source; ydata = (R,), backend = :cairo, display_plot = false,
+        source, (R,); backend = :cairo, display_plot = false,
         controls = false, open_export = false, series_labels = ("uncertain",),
         series_attributes = (marker = :circle,), legend_position = :bottom, fig_size = (
             900, 600))
@@ -411,7 +412,7 @@ end
                         fill(measurement(1e-6, 1e-8)+1e-6im, 1, 1, 3), f) for i in 1:24)
     legend_bounds = Observable(Rect2f(0, 0, 300, 100))
     page = LineCableModels.plot(
-        sources...; ydata = (R,), backend = :cairo, display_plot = false,
+        sources..., (R,); backend = :cairo, display_plot = false,
         controls = false, open_export = false, fig_size = (620, 340), legend_position = :inside,
         legend_attributes = (bbox = legend_bounds,), legend_cap = 1.0,
         series_labels = Tuple("Uncertain result $i" for i in 1:24))
@@ -441,7 +442,7 @@ end
     values=measurement.(fill(2.0, 20), [fill(0.1, 19); 20.0])
     raw=LineParameters(reshape(complex.(values, values), 1, 1, :), fill(1+2im, 1, 1, 20), frequency)
     observed=ObservedResult(raw, (R, X); clip = false, length_unit = :base)
-    p=LineCableModels.plot(observed; ydata = (R,), errorbar_sampling = :staggered,
+    p=LineCableModels.plot(observed, (R,); errorbar_sampling = :staggered,
         backend = :cairo, display_plot = false, open_export = false)
     axis=only(p.axes)
     curve=only(filter(plot -> plot isa Makie.Lines, axis.scene.plots))

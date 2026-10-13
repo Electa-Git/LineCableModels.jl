@@ -207,7 +207,7 @@ cable_preview.figure #hide
 #=
 ## Cable constants and equivalent design
 
-Calculate the cable constants and select R/L and G/C with `values`.
+Calculate the cable constants and select R/L and G/C with the positional selection.
 `report(constants)` uses the available quantities and default display units.
 
 The report displays four separate quantity tables.
@@ -218,7 +218,7 @@ columns. Quantities with different units are not combined into one table.
 constants = CableConstants(cable_design);
 rlgc = (R, L, G, C)
 
-constants_report = report(constants; values = rlgc)
+constants_report = report(constants, rlgc)
 
 #=
 An equivalent physical design is a separate operation from either computation
@@ -373,29 +373,27 @@ column followed by all ordered matrix coefficients, including both off-diagonals
 =#
 
 phase_report = report(
-    line_parameters;
-    values = rlgc,
+    line_parameters, rlgc;
     length_unit = :kilo
 )
 
 #=
 To tabulate a selected coefficient or frequency subset, express that request
-with `@observe` in `values`. The following selects the first
+with `@observe` in the selection. The following selects the first
 self-resistance coefficient at the first twelve frequencies. No knowledge of
 the generated DataFrame column names is needed to make the selection.
 =#
 
 first_term_report = report(
-    line_parameters;
-    values = @observe(R[1, 1, 1:12]),
+    line_parameters, @observe(R[1, 1, 1:12]);
     length_unit = :kilo
 )
 
 #=
 ### R/L and G/C plots
 
-Pass the computed result directly to `LineCableModels.plot`. Plotting uses
-`ydata` for the same quantity selection that reporting names `values`.
+Pass the computed result directly to `LineCableModels.plot`. Plotting takes
+the same positional quantity selection as reporting.
 
 Each requested quantity has its own matrix dashboard. Matrix coordinates
 identify subplots. Each trace follows that coefficient over frequency. The
@@ -404,8 +402,7 @@ small entries in the renderer.
 =#
 
 phase_plots = LineCableModels.plot(
-    line_parameters;
-    ydata = rlgc,
+    line_parameters, rlgc;
     xscale = :log10,
     length_unit = :kilo,
     fig_size = (1100, 750),
@@ -421,7 +418,7 @@ phase_plots[4].figure #hide
 #=
 ### Real and imaginary components of Z and Y
 
-With no `ydata` override, the line-result convenience selects R/X and G/B:
+With no selection, the line-result convenience selects R/X and G/B:
 the real and imaginary components of Z and Y. This gives four separate matrix
 dashboards, using the same public call and the same reporting-unit choice.
 =#
@@ -482,15 +479,13 @@ the matrix indices, not the organization of the quantity tables.
 =#
 
 modal_report = report(
-    modal_parameters;
-    values = rlgc,
+    modal_parameters, rlgc;
     length_unit = :kilo
 )
 
 # Apply the same coefficient and sample selection used for the phase result:
 first_modal_term_report = report(
-    modal_parameters;
-    values = @observe(R[1, 1, 1:12]),
+    modal_parameters, @observe(R[1, 1, 1:12]);
     length_unit = :kilo
 )
 
@@ -506,8 +501,7 @@ view. The full transformed matrices remain available for inspection.
 =#
 
 modal_plots = LineCableModels.plot(
-    modal_parameters;
-    ydata = rlgc,
+    modal_parameters, rlgc;
     xscale = :log10,
     length_unit = :kilo,
     fig_size = (1100, 750),

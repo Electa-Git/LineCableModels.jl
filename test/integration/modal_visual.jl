@@ -12,7 +12,7 @@
     segment=PropagationParameters(modal)
     observed=ObservedResult(segment,((H,abs),(Tv,abs));complete_pairs=true)
     @test observed.gridpoint.source_gridpoint==details(segment).data.source_gridpoint
-    pages=LineCableModels.plot(observed; ydata=((H,abs),(Tv,abs)),
+    pages=LineCableModels.plot(observed, ((H,abs),(Tv,abs));
         backend=:cairo,display_plot=false,controls=false,open_export=false)
     pages=pages isa AbstractVector ? pages : [pages]
     @test !isempty(pages)
@@ -23,7 +23,7 @@
     primary=[ObservedResult(value,(R,X)) for value in (modal,alternate)]
     labels=observation_labels(primary;request=R)
     @test labels[1]!=labels[2]
-    primary_pages=LineCableModels.plot(primary;ydata=(R,),backend=:cairo,
+    primary_pages=LineCableModels.plot(primary, (R,);backend=:cairo,
         display_plot=false,controls=false,open_export=false)
     primary_pages=primary_pages isa AbstractVector ? primary_pages : [primary_pages]
     @test any(page -> !isempty(page.axes),primary_pages)
@@ -95,40 +95,40 @@ end
     pages(value)=value isa AbstractVector ? value : [value]
     native_lines(axis)=filter(plot -> plot isa Makie.Lines,axis.scene.plots)
 
-    automatic=pages(LineCableModels.plot(first_point;ydata=(gamma,),options...))
+    automatic=pages(LineCableModels.plot(first_point, (gamma,);options...))
     @test length(automatic)==2
     @test all(page -> length(page.axes)==1 && length(native_lines(only(page.axes)))==2,automatic)
     @test all(page -> page.plot_state.panel_page.coordinates==(1,),automatic)
     @test "Mode 1" in values(first(automatic).plot_state.labels)
     @test !isempty(Makie.colorbuffer(first(automatic).figure))
-    one_cell=pages(LineCableModels.plot(first_point;ydata=(gamma,),layout=(1,1),options...))
+    one_cell=pages(LineCableModels.plot(first_point, (gamma,);layout=(1,1),options...))
     @test all(page -> length(page.axes)==1 && length(native_lines(only(page.axes)))==2,
         one_cell)
-    scalar=pages(LineCableModels.plot(first_point;ydata=(gamma,),options...))
-    collection=pages(LineCableModels.plot([first_point];ydata=(gamma,),options...))
+    scalar=pages(LineCableModels.plot(first_point, (gamma,);options...))
+    collection=pages(LineCableModels.plot([first_point], (gamma,);options...))
     @test [page.plot_state.panel_page.coordinates for page in scalar]==
         [page.plot_state.panel_page.coordinates for page in collection]
-    raw_alpha=LineCableModels.plot(first_segment;ydata=(alpha,),options...)
+    raw_alpha=LineCableModels.plot(first_segment, (alpha,);options...)
     @test length(raw_alpha.axes)==1 && length(native_lines(only(raw_alpha.axes)))==2
-    singleton_alpha=LineCableModels.plot((first_segment,);ydata=(alpha,),options...)
+    singleton_alpha=LineCableModels.plot((first_segment,), (alpha,);options...)
     @test singleton_alpha isa UIPlot
     @test [q.values for q in only(singleton_alpha.plot_state.observed).quantities]==
         [q.values for q in only(raw_alpha.plot_state.observed).quantities]
     @test length(singleton_alpha.axes)==length(raw_alpha.axes) &&
         length(native_lines(only(singleton_alpha.axes)))==length(native_lines(only(raw_alpha.axes)))
-    retained_alpha=LineCableModels.plot(ObservedResult(first_segment);ydata=alpha,options...)
+    retained_alpha=LineCableModels.plot(ObservedResult(first_segment), alpha;options...)
     @test length(retained_alpha.axes)==1 && length(native_lines(only(retained_alpha.axes)))==2
-    real_only=LineCableModels.plot(first_segment;ydata=((gamma,real),),options...)
+    real_only=LineCableModels.plot(first_segment, ((gamma,real),);options...)
     @test real_only isa UIPlot && length(native_lines(only(real_only.axes)))==2
 
-    explicit=pages(LineCableModels.plot(first_point;ydata=(gamma,),layout=(2,1),options...))
+    explicit=pages(LineCableModels.plot(first_point, (gamma,);layout=(2,1),options...))
     @test length(explicit)==2
     @test all(page -> length(page.axes)==2 && all(axis -> length(native_lines(axis))==1,page.axes),explicit)
     @test all(page -> page.plot_state.panel_page.coordinates==(1,2),explicit)
-    multi=pages(LineCableModels.plot([first_point,second_point];ydata=(gamma,),options...))
+    multi=pages(LineCableModels.plot([first_point,second_point], (gamma,);options...))
     @test length(multi)==2
     @test all(page -> length(page.axes)==2 && all(axis -> length(native_lines(axis))==2,page.axes),multi)
-    duplicates=pages(LineCableModels.plot([first_point,first_point];ydata=(gamma,),options...))
+    duplicates=pages(LineCableModels.plot([first_point,first_point], (gamma,);options...))
     @test length(duplicates)==2
     @test all(page -> length(page.axes)==2 &&
         all(axis -> length(native_lines(axis))==2,page.axes),duplicates)
@@ -140,54 +140,54 @@ end
         G.gridpoint_id(;source_id,problem_index=1,formulation_index=index);
         fields=assumptions)),(gamma,)) for index in 1:2]
     @test length(G.observation_groups(equivalent;request=(gamma,real)))==1
-    grouped_auto=LineCableModels.plot(equivalent;ydata=(gamma,real),options...)
+    grouped_auto=LineCableModels.plot(equivalent, (gamma,real);options...)
     @test length(grouped_auto.axes)==2
     @test all(axis -> length(native_lines(axis))==1,grouped_auto.axes)
     @test grouped_auto.plot_state.displayed_indices==[1]
-    grouped_coordinates=LineCableModels.plot(equivalent;ydata=(gamma,real),
+    grouped_coordinates=LineCableModels.plot(equivalent, (gamma,real);
         overlay=:coordinates,options...)
     @test length(grouped_coordinates.axes)==2
     @test all(axis -> length(native_lines(axis))==2,grouped_coordinates.axes)
     @test grouped_coordinates.plot_state.displayed_indices==[1,2]
-    small=pages(LineCableModels.plot([first_point,second_point];ydata=(gamma,),
+    small=pages(LineCableModels.plot([first_point,second_point], (gamma,);
         layout=(1,1),options...))
     @test length(small)==4
     @test [only(page.plot_state.panel_page.coordinates) for page in small]==[1,2,1,2]
-    with_reference=pages(LineCableModels.plot(first_point;ydata=(gamma,),
+    with_reference=pages(LineCableModels.plot(first_point, (gamma,);
         reference=second_point,options...))
     @test length(with_reference)==2
     @test all(page -> length(page.axes)==2 && all(axis -> length(native_lines(axis))==2,page.axes),with_reference)
     @test all(page -> any(occursin("reference",string(label)) for label in values(page.plot_state.labels)),with_reference)
 
-    coordinate_pages=pages(LineCableModels.plot([first_point,second_point];
-        ydata=(gamma,),overlay=:coordinates,layout=(1,1),options...))
+    coordinate_pages=pages(LineCableModels.plot([first_point,second_point], (gamma,);
+        overlay=:coordinates,layout=(1,1),options...))
     @test length(coordinate_pages)==4
     @test [only(page.plot_state.panel_page.coordinates) for page in coordinate_pages]==[1,2,1,2]
     @test all(page -> length(native_lines(only(page.axes)))==2,coordinate_pages)
     @test native_lines(only(coordinate_pages[1].axes))[1].color[]==
         native_lines(only(coordinate_pages[2].axes))[1].color[]
     second_mode=@observe (gamma,real)[2,:]
-    selected_mode=LineCableModels.plot(first_point;ydata=(second_mode,),
+    selected_mode=LineCableModels.plot(first_point, (second_mode,);
         series_attributes=((color=:red,),),options...)
     selected_line=only(native_lines(only(selected_mode.axes)))
     @test selected_line.label[]=="Mode 2"
     @test last.(selected_line[1][])≈[2,4,6]
     @test selected_line.color[]==Makie.to_color(:red)
     reordered_modes=@observe (gamma,real)[[2,1],:]
-    reordered=LineCableModels.plot(first_point;ydata=(reordered_modes,),
+    reordered=LineCableModels.plot(first_point, (reordered_modes,);
         series_attributes=((color=:red,),(color=:blue,)),options...)
     reordered_lines=native_lines(only(reordered.axes))
     @test [line.label[] for line in reordered_lines]==["Mode 2","Mode 1"]
     @test [last.(line[1][]) for line in reordered_lines]≈[[2,4,6],[1,3,5]]
     @test [line.color[] for line in reordered_lines]==collect(Makie.to_color.((:red,:blue)))
-    reordered_default=LineCableModels.plot(first_point;ydata=(reordered_modes,),options...)
+    reordered_default=LineCableModels.plot(first_point, (reordered_modes,);options...)
     @test [line.color[] for line in native_lines(only(reordered_default.axes))]==
         reverse([line.color[] for line in native_lines(only(automatic[1].axes))])
-    relabelled=LineCableModels.plot(first_point;ydata=(reordered_modes,),
+    relabelled=LineCableModels.plot(first_point, (reordered_modes,);
         series_labels=("Selected 2","Selected 1"),options...)
     @test [line.label[] for line in native_lines(only(relabelled.axes))]==
         ["Selected 2","Selected 1"]
-    coordinate_reference=pages(LineCableModels.plot(first_point;ydata=(gamma,),
+    coordinate_reference=pages(LineCableModels.plot(first_point, (gamma,);
         reference=second_point,overlay=:coordinates,layout=(1,2),options...))
     @test length(coordinate_reference)==2
     @test all(page -> length(page.axes)==2 && all(axis -> length(native_lines(axis))==2,page.axes),coordinate_reference)
@@ -196,23 +196,23 @@ end
     distinct=[ObservedResult(PropagationParameters(E.retain_gridpoint(modal,
         G.gridpoint_id(;source_id,problem_index=index,formulation_index=1))),
         (gamma,)) for index in 1:3]
-    stable_reference=LineCableModels.plot(distinct;ydata=(gamma,real),
+    stable_reference=LineCableModels.plot(distinct, (gamma,real);
         overlay=:coordinates,reference=second_point,problem=1,
         panel_legends=Dict(4=>:inside),options...)
     @test stable_reference.plot_state.panel_page.coordinates==(1,4)
     @test length(stable_reference.axes)==2
     filtered_modal=E.retain_gridpoint(modal,G.gridpoint_id(;problem_index=2))
     filtered_point=ObservedResult(PropagationParameters(filtered_modal),(gamma,))
-    filtered=pages(LineCableModels.plot([first_point,filtered_point];ydata=(gamma,),
+    filtered=pages(LineCableModels.plot([first_point,filtered_point], (gamma,);
         problem=2,options...))
     @test length(filtered)==2
     @test all(page -> length(page.axes)==1 && length(native_lines(only(page.axes)))==2,filtered)
-    gridpoint_pages=pages(LineCableModels.plot(first_point;ydata=(gamma,),
+    gridpoint_pages=pages(LineCableModels.plot(first_point, (gamma,);
         overlay=:gridpoints,layout=(1,1),options...))
     @test length(gridpoint_pages)==4
     @test all(page -> length(native_lines(only(page.axes)))==1,gridpoint_pages)
 
-    matrix_pages=pages(LineCableModels.plot(first_point;ydata=(Tv,),options...))
+    matrix_pages=pages(LineCableModels.plot(first_point, (Tv,);options...))
     @test length(matrix_pages)==2
     @test all(page -> length(page.axes)==4,matrix_pages)
     @test all(page -> Set(page.plot_state.panel_page.coordinates)==
@@ -221,8 +221,8 @@ end
         occursin("Re(Tv)",string(axis.ylabel[])),
         first(matrix_pages).axes)
     @test any(page -> any(axis -> any(curve -> any(x -> !iszero(x),last.(curve[1][])),native_lines(axis)),page.axes),matrix_pages)
-    matrix_coordinates=pages(LineCableModels.plot([first_point,second_point];
-        ydata=((Tv,real),),overlay=:coordinates,layout=(1,2),options...))
+    matrix_coordinates=pages(LineCableModels.plot([first_point,second_point], ((Tv,real),);
+        overlay=:coordinates,layout=(1,2),options...))
     @test length(matrix_coordinates)==1
     @test length(only(matrix_coordinates).axes)==2
     @test all(axis -> length(native_lines(axis))==4,only(matrix_coordinates).axes)
@@ -230,23 +230,23 @@ end
     @test all(label -> occursin("Conductor",string(label)) && occursin("Mode",string(label)),
         values(only(matrix_coordinates).plot_state.labels))
     matrix_coefficient=@observe (Tv,real)[1,2,:]
-    selected_matrix=LineCableModels.plot(first_point;ydata=(matrix_coefficient,),
+    selected_matrix=LineCableModels.plot(first_point, (matrix_coefficient,);
         overlay=:coordinates,series_attributes=((color=:green,),),options...)
     selected_matrix_line=only(native_lines(only(selected_matrix.axes)))
     @test occursin("core",selected_matrix_line.label[])
     @test occursin("Mode 2",selected_matrix_line.label[])
     @test last.(selected_matrix_line[1][])≈fill(0.2,3)
     @test selected_matrix_line.color[]==Makie.to_color(:green)
-    mixed=pages(LineCableModels.plot(first_point;ydata=(gamma,(Tv,real)),options...))
+    mixed=pages(LineCableModels.plot(first_point, (gamma,(Tv,real));options...))
     @test [page.plot_state.nominal_capacity for page in mixed]==[(1,1),(1,1),(2,2)]
-    mixed_explicit=pages(LineCableModels.plot(first_point;
-        ydata=(gamma,(Tv,real)),layout=(2,2),options...))
+    mixed_explicit=pages(LineCableModels.plot(first_point, (gamma,(Tv,real));
+        layout=(2,2),options...))
     @test all(page -> page.plot_state.nominal_capacity==(2,2),mixed_explicit)
-    @test_throws ArgumentError LineCableModels.plot(first_point;
-        ydata=(gamma,(Tv,real)),series_labels=("Mode 1","Mode 2"),options...)
-    @test_throws ArgumentError LineCableModels.plot(first_point;
-        ydata=(gamma,(Tv,real)),series_attributes=((color=:red,),(color=:blue,)),options...)
-    styled=LineCableModels.plot(first_point;ydata=(gamma,real),
+    @test_throws ArgumentError LineCableModels.plot(first_point, (gamma,(Tv,real));
+        series_labels=("Mode 1","Mode 2"),options...)
+    @test_throws ArgumentError LineCableModels.plot(first_point, (gamma,(Tv,real));
+        series_attributes=((color=:red,),(color=:blue,)),options...)
+    styled=LineCableModels.plot(first_point, (gamma,real);
         overlay=:coordinates,series_labels=("Mode A","Mode B"),
         series_attributes=((color=:red,),(linestyle=:dash,)),options...)
     @test length(native_lines(only(styled.axes)))==2

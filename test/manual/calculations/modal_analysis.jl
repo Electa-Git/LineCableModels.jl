@@ -110,10 +110,10 @@ display(report(observed))
 plot_options = (overlay = :coordinates, backend = :gl,
     display_plot = true, open_export = false)
 plots = (
-    cartesian = LineCableModels.plot(observed;
-        ydata = ((Zc, real), (Zc, imag), (Yc, real), (Yc, imag)), plot_options...),
-    propagation = LineCableModels.plot(observed;
-        ydata = (alpha, beta, velocity), plot_options...)
+    cartesian = LineCableModels.plot(observed, ((Zc, real), (Zc, imag), (Yc, real), (Yc, imag));
+        plot_options...),
+    propagation = LineCableModels.plot(observed, (alpha, beta, velocity);
+        plot_options...)
 );
 
 transform_matrices = observables(line,

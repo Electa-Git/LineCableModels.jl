@@ -80,7 +80,7 @@
     @test observe(observed,alpha)==G.observation_product(observed,(gamma,real)).values
     @test G.observation_requests(observed,(alpha,)).displayed==((gamma,real),)
     @test_throws ArgumentError G.observation_requests(observed,(alpha,(gamma,real)))
-    @test_throws ArgumentError report(observed;values=(alpha,(gamma,real)))
+    @test_throws ArgumentError report(observed, (alpha,(gamma,real)))
     @test G.observation_product(observed,alpha).coordinates.positions==[1,2]
     @test size(G.observation_product(observed,alpha).values)==(2,3)
     selection=@observe alpha[[2,1],[3,1]]

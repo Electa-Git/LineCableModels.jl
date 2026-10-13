@@ -166,9 +166,9 @@ end
     a=point(analytical,1)
     # Synthetic numerical fixture retains a FEM identity. No FEM solve is claimed.
     reference=point(fem,2)
-    pages=LineCableModels.plot(a;ydata=(R,X,G,B),reference,length_unit=:base,options...)
+    pages=LineCableModels.plot(a, (R,X,G,B);reference,length_unit=:base,options...)
     @test length(pages)==4
-    results=LineCableModels.plot(a;ydata=(R,X,G,B),length_unit=:base,options...)
+    results=LineCableModels.plot(a, (R,X,G,B);length_unit=:base,options...)
     native_lines(axis)=filter(item -> item isa Makie.Lines,axis.scene.plots)
     expected_reference=description(fem;compact=true)*" (reference)"
     for (page,solo,request) in zip(pages,results,(R,X,G,B))
@@ -190,12 +190,12 @@ end
     distances=[sqrt(ext._color_distance(labs[i],labs[j])) for i in 1:12 for j in i+1:12]
     @test minimum(distances)>.08 # measured engineering separation for this finite prefix
     population=[point(analytical,i;rho=100.0i,problem=i) for i in 1:12]
-    p=LineCableModels.plot(population;ydata=(@observe(R[1,1,:]),),length_unit=:base,options...)
+    p=LineCableModels.plot(population, (@observe(R[1,1,:]),);length_unit=:base,options...)
     @test [Makie.to_color(c.color[]) for c in native_lines(only(p.axes))]==Makie.to_color.(palette)
     @test all(label -> occursin("Ω·m",label) && !occursin("radius",label),values(p.plot_state.labels))
-    small=LineCableModels.plot(population[1:2];ydata=(@observe(R[1,1,:]),),length_unit=:base,options...)
+    small=LineCableModels.plot(population[1:2], (@observe(R[1,1,:]),);length_unit=:base,options...)
     @test [c.color[] for c in native_lines(only(small.axes))]==[c.color[] for c in native_lines(only(p.axes))[1:2]]
-    filtered=LineCableModels.plot(population;ydata=(R,X,G,B),reference,problem=[2,5],layout=(1,2),length_unit=:base,options...)
+    filtered=LineCableModels.plot(population, (R,X,G,B);reference,problem=[2,5],layout=(1,2),length_unit=:base,options...)
     @test length(filtered)==8
     for page in filtered, axis in page.axes
         @test [Makie.to_color(c.color[]) for c in native_lines(axis)]==Makie.to_color.([palette[2],palette[5],ext.RGB(0.,0.,0.)])
@@ -203,7 +203,7 @@ end
     # Rebuilding native guides, changing views and exporting use detached data.
     observed=pages[1].plot_state.observed
     Z(a).=NaN;Z(reference).=NaN
-    p=LineCableModels.plot(observed[1];reference=observed[2],ydata=(R,),options...,controls=true)
+    p=LineCableModels.plot(observed[1], (R,);reference=observed[2],options...,controls=true)
     labels=copy(p.plot_state.labels)
     colors=[c.color[] for c in native_lines(first(p.axes))]
     owner=first(native_lines(first(p.axes)))

@@ -59,7 +59,7 @@ function comparison(;uncertain=false)
         artifact=report(BenchmarkTableDefinition(((statistics,R,mean),);bands=(:all,)),
             (reference=(result=reference,metadata=metadata),
                 result=(result=result,metadata=metadata)))
-        return LineCableModels.plot(artifact;ydata=(R,),plot_options...)
+        return LineCableModels.plot(artifact, (R,);plot_options...)
     end
     reference=two_conductor_results()
     omega=reshape(2pi.*reference.f,1,1,:)
@@ -71,7 +71,7 @@ function comparison(;uncertain=false)
         (problems=[:current],formulations=selections), ComputationDetails((;)))
     baseline=(result=reference,metadata=(port_order=["west","east"],formulation=selections[1],axes=nothing))
     artifact=report(BenchmarkTableDefinition((R,);bands=(:all,)),(reference=baseline,result=points))
-    return LineCableModels.plot(artifact;ydata=(R,),plot_options...)
+    return LineCableModels.plot(artifact, (R,);plot_options...)
 end
 
 # Dispatch is deliberately lazy: selecting one view never constructs another.
@@ -112,7 +112,7 @@ function scene(name::AbstractString)
                 measurement.(imag.(Y(parameters)),scale.*imag.(Y(parameters))))
             LineParameters(z,y,f;details=ComputationDetails(;coordinates=["west","east"],))
         end
-        return LineCableModels.plot(variants...;ydata=(R,),plot_options...,
+        return LineCableModels.plot(variants..., (R,);plot_options...,
             length_unit=:base,quantity_units=:base,freq_unit=:base,clip=false,
             series_labels=("one sigma","two sigma","three sigma"))
     end

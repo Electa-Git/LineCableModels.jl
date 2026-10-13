@@ -16,19 +16,19 @@
     ordinates(page)=[last.(curve[1][]) for curve in curves(page)]
     publication=report(BenchmarkTableDefinition(quantities=(G,B,X),clip=true),
         (;reference,result);observation_options=(length_unit=:base,quantity_units=:base))
-    ordinary=LineCableModels.plot(reference;ydata=(G,),length_unit=:base,options...)
-    clean=LineCableModels.plot(publication;ydata=(G,),options...)
+    ordinary=LineCableModels.plot(reference, (G,);length_unit=:base,options...)
+    clean=LineCableModels.plot(publication, (G,);options...)
     @test all(iszero,only(ordinates(ordinary)))
     @test length(curves(clean))==2
     @test all(values -> all(iszero,values),ordinates(clean))
-    @test_throws ArgumentError LineCableModels.plot(publication;ydata=(G,),clip=false,options...)
+    @test_throws ArgumentError LineCableModels.plot(publication, (G,);clip=false,options...)
     raw=report(BenchmarkTableDefinition(quantities=(G,),clip=false),(;reference,result);
         observation_options=(length_unit=:base,quantity_units=:base))
-    rawpage=LineCableModels.plot(raw;ydata=(G,),options...)
+    rawpage=LineCableModels.plot(raw, (G,);options...)
     @test first(ordinates(rawpage))≈2vec(Float32.(real.(y)))
     @test last(ordinates(rawpage))≈vec(Float32.(real.(y)))
     @test observe(reference,Y)==y
-    phase = LineCableModels.plot(reference; ydata=((Y, angle, 1, 1, :),), options...)
+    phase = LineCableModels.plot(reference, ((Y, angle, 1, 1, :),); options...)
     @test all(isnan, only(ordinates(phase)))
     @test only(phase.axes).subtitle[] == "Undefined phase"
     axisscale!(phase,:x,log10)
@@ -38,8 +38,8 @@
     @test all(>(0),only(phase.axes).targetlimits[].origin)
     resetview!(phase)
     @test all(isfinite,only(phase.axes).targetlimits[].widths)
-    standalone = LineCableModels.plot(ShuntAdmittance(y), f;
-        ydata=((C, diag, :, :),), options...)
+    standalone = LineCableModels.plot(ShuntAdmittance(y), f, ((C, diag, :, :),);
+        options...)
     @test all(iszero, only(ordinates(standalone)))
 end
 
@@ -64,7 +64,7 @@ end
         for raw in (false, true)
             logger = Test.TestLogger(min_level=Logging.Warn)
             page = with_logger(logger) do
-                page = LineCableModels.plot(source, source; ydata=(C,), clip=!raw, options...)
+                page = LineCableModels.plot(source, source, (C,); clip=!raw, options...)
                 Makie.colorbuffer(page.figure)
                 for _ in 1:2
                     page.controls[:ylog].active[] = true

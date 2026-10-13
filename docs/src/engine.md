@@ -873,7 +873,7 @@ observed = ObservedResult(parameters, (R, L, G, C); length_unit=:kilo)
 resistance = observe(observed, R)
 quantity_tables = LineCableModels.ReportBuilder.tabulate(observed)
 quantity_tables.Z.R
-plot(observed; ydata=(R,))
+plot(observed, (R,))
 ```
 
 The 4 sections are `gridpoint`, `quantities`, `errors`, and `timings`.

@@ -53,29 +53,29 @@
     @test !isempty(Makie.colorbuffer(first(result).figure))
     @test Tv(segments[1])==voltage && Ti(segments[1])==current
 
-    automatic=LineCableModels.plot(observed;ydata=((Tv,abs),),options...)
+    automatic=LineCableModels.plot(observed, ((Tv,abs),);options...)
     append!(kept,automatic)
     @test length(automatic)==2
     @test all(page -> page.plot_state.nominal_capacity==(2,2),automatic)
     @test all(page -> length(page.axes)==3,automatic)
-    scalar=LineCableModels.plot(first(observed);ydata=((Tv,abs),),options...)
-    singleton=LineCableModels.plot([first(observed)];ydata=((Tv,abs),),options...)
-    raw=LineCableModels.plot(first(segments);ydata=((Tv,abs),),options...)
+    scalar=LineCableModels.plot(first(observed), ((Tv,abs),);options...)
+    singleton=LineCableModels.plot([first(observed)], ((Tv,abs),);options...)
+    raw=LineCableModels.plot(first(segments), ((Tv,abs),);options...)
     append!(kept,[scalar,singleton,raw])
     @test scalar.plot_state.panel_page==singleton.plot_state.panel_page==raw.plot_state.panel_page
     @test scalar.export_name==singleton.export_name==raw.export_name
     @test !occursin(r"(?:Point|Result) 1",scalar.export_name)
     @test [[curve[1][] for curve in lines(axis)] for axis in scalar.axes]==
           [[curve[1][] for curve in lines(axis)] for axis in singleton.axes]
-    named=LineCableModels.plot((short=segments[1],long=segments[2]);
-        ydata=((Tv,abs),),options...)
+    named=LineCableModels.plot((short=segments[1],long=segments[2]), ((Tv,abs),);
+        options...)
     append!(kept,named)
     @test length(named)==2
     @test all(page -> [curve.label[] for curve in lines(page.axes[1])]==
         ["Conductor core","Conductor screen","Conductor armor"],named)
     different_names=observables(PropagationParameters(E.retain_gridpoint(modal,G.gridpoint_id();
         fields=(phase_coordinates=["inner","shield","outer"],))),requests)
-    labelled=LineCableModels.plot([first(observed),different_names];ydata=((Tv,abs),),options...)
+    labelled=LineCableModels.plot([first(observed),different_names], ((Tv,abs),);options...)
     append!(kept,labelled)
     @test all(axis -> [curve.label[] for curve in lines(axis)]==
         ["Conductor inner","Conductor shield","Conductor outer"],labelled[2].axes)
@@ -83,7 +83,7 @@
         [curve.color[] for curve in lines(labelled[2].axes[1])]
 
     selected=@observe (Tv,abs)[[3,1],[3,1],2:3]
-    reordered=LineCableModels.plot(first(observed);ydata=(selected,),
+    reordered=LineCableModels.plot(first(observed), (selected,);
         layout=(1,1),options...)
     append!(kept,reordered)
     @test [only(page.plot_state.panel_page.coordinates) for page in reordered]==[(1,3),(1,1)]
@@ -92,22 +92,22 @@
         @test last.(curve[1][])≈abs.(voltage[row,mode,2:3]) rtol=8eps(Float32)
         @test curve.color[]==lines(scalar.axes[1])[row].color[]
     end
-    styled=LineCableModels.plot(first(observed);ydata=(selected,),
+    styled=LineCableModels.plot(first(observed), (selected,);
         series_labels=("Armor","Core"),series_attributes=((color=:red,),(color=:blue,)),options...)
     push!(kept,styled)
     @test all(axis -> [curve.label[] for curve in lines(axis)]==["Armor","Core"],styled.axes)
     @test all(axis -> [curve.color[] for curve in lines(axis)]==Makie.to_color.([:red,:blue]),styled.axes)
     one=@observe (Ti,abs)[2,2,:]
-    single_entry=LineCableModels.plot(first(observed);ydata=(one,),options...)
+    single_entry=LineCableModels.plot(first(observed), (one,);options...)
     push!(kept,single_entry)
     @test only(lines(only(single_entry.axes))).label[]=="Conductor screen"
     ranged=@observe (Tv,abs)[1:2,2:3,:]
-    range_page=LineCableModels.plot(first(observed);ydata=(ranged,),options...)
+    range_page=LineCableModels.plot(first(observed), (ranged,);options...)
     push!(kept,range_page)
     @test range_page.plot_state.panel_page.coordinates==((1,2),(1,3))
     @test last.(lines(range_page.axes[2])[2][1][])≈abs.(voltage[2,3,:]) rtol=8eps(Float32)
 
-    filtered=LineCableModels.plot(observed;ydata=((Tv,abs),),problem=2,
+    filtered=LineCableModels.plot(observed, ((Tv,abs),);problem=2,
         reference=first(observed),layout=(2,2),
         panel_titles=Dict((3,2)=>"Reference mode two"),
         panel_legends=Dict((3,2)=>:inside),options...)
@@ -126,21 +126,21 @@
         G.gridpoint_id(;source_id,problem_index=1,formulation_index=index);
         fields=assumptions)),requests) for index in 1:2]
     @test length(G.observation_groups(equivalent;request=(Tv,abs)))==1
-    separate=LineCableModels.plot(equivalent;ydata=((Tv,abs),),options...)
+    separate=LineCableModels.plot(equivalent, ((Tv,abs),);options...)
     append!(kept,separate)
     @test length(separate)==2
     @test [page.plot_state.displayed_indices for page in separate]==[[1],[2]]
 
     # Invalid dimensions and positional overrides fail before backend activation.
     mixed=observables(first(segments),(gamma,requests...))
-    @test_throws r"matrix observations" LineCableModels.plot(mixed;
-        ydata=(gamma,(Tv,abs)),options...,backend=:invalid)
-    @test_throws r"no completed comparison retains band" LineCableModels.plot(first(observed);
-        ydata=(selected,),band=(20.0,40.0),options...,backend=:invalid)
-    @test_throws r"different overlaid dimensions" LineCableModels.plot(mixed;
-        ydata=(selected,(Ti,abs)),series_labels=("one","two"),options...,backend=:invalid)
-    @test_throws r"different overlaid dimensions" LineCableModels.plot(mixed;
-        ydata=(selected,(Ti,abs)),series_attributes=((color=:red,),(color=:blue,)),
+    @test_throws r"matrix observations" LineCableModels.plot(mixed, (gamma,(Tv,abs));
+        options...,backend=:invalid)
+    @test_throws r"no completed comparison retains band" LineCableModels.plot(first(observed), (selected,);
+        band=(20.0,40.0),options...,backend=:invalid)
+    @test_throws r"different overlaid dimensions" LineCableModels.plot(mixed, (selected,(Ti,abs));
+        series_labels=("one","two"),options...,backend=:invalid)
+    @test_throws r"different overlaid dimensions" LineCableModels.plot(mixed, (selected,(Ti,abs));
+        series_attributes=((color=:red,),(color=:blue,)),
         options...,backend=:invalid)
     foreach(page -> empty!(page.figure),kept)
 end
@@ -152,7 +152,7 @@ end
        for i in 1:2,j in 1:2,k in eachindex(f)]
     source=LineParameters(z,z.*1e-6,f)
     observed=observables(source,(R,X);length_unit=:base,clip=false)
-    page=LineCableModels.plot(observed;ydata=(R,),overlay=:rows,
+    page=LineCableModels.plot(observed, (R,);overlay=:rows,
         backend=:cairo,display_plot=false,open_export=false,errorbar_sampling=:all)
     @test length(page.axes)==2
     for (column,axis) in enumerate(page.axes)
@@ -174,7 +174,7 @@ end
     reference=LineCableModels.Engine.retain_gridpoint(source,LineCableModels.Commons.gridpoint_id())
     comparisons=LineCableModels.Engine.compare(reference,source,[R];bands=((20.0,40.0),))
     retained=observables(source,(R,X);comparisons,length_unit=:base,clip=false)
-    band_page=LineCableModels.plot(retained;ydata=(R,),overlay=:rows,band=(20.0,40.0),
+    band_page=LineCableModels.plot(retained, (R,);overlay=:rows,band=(20.0,40.0),
         backend=:cairo,display_plot=false,controls=false,open_export=false)
     @test length(band_page.axes)==2
     for (column,axis) in enumerate(band_page.axes)

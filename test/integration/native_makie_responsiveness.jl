@@ -103,10 +103,10 @@ end
     f=[1.0, 10.0, 100.0]
     z=ComplexF64[complex(i+j+k, 1) for i in 1:6, j in 1:6, k in eachindex(f)]
     source=LineParameters(z, z .* 1e-6, f)
-    options=(ydata = (R,), overlay = :coordinates, backend = :cairo, display_plot = false,
+    options=(overlay = :coordinates, backend = :cairo, display_plot = false,
         open_export = false, fig_size = (680, 440))
     for position in (:bottom, :top, :left, :right, :inside)
-        p=LineCableModels.plot(source; options..., legend_position = position)
+        p=LineCableModels.plot(source, (R,); options..., legend_position = position)
         axis=only(p.axes)
         curves=filter(q->q isa Makie.Lines, axis.scene.plots)
         original=[copy(q[1][]) for q in curves]
@@ -140,16 +140,16 @@ end
         empty!(p.figure)
     end
     for invalid in (0, -0.1, 1.01, Inf, NaN, true, :show_all, :ellipsis)
-        @test_throws ArgumentError LineCableModels.plot(source; options..., legend_cap = invalid)
+        @test_throws ArgumentError LineCableModels.plot(source, (R,); options..., legend_cap = invalid)
     end
     for sizing in ((fig_size = (680, 440),), (
         fig_size = (400, 300), figure = (size = (680, 440),)))
-        p=LineCableModels.plot(source; options..., sizing...)
+        p=LineCableModels.plot(source, (R,); options..., sizing...)
         @test p.plot_state.shell.reference_size==(680, 440)
         @test !isempty(Makie.colorbuffer(p.figure))
         empty!(p.figure)
     end
-    fixed=LineCableModels.plot(source; options..., legend_attributes = (
+    fixed=LineCableModels.plot(source, (R,); options..., legend_attributes = (
         width = 1200, height = 800))
     axis=only(fixed.axes)
     @test fixed.legend.layoutobservables.computedbbox[].widths[1]<=axis.scene.viewport[].widths[1]+1
@@ -158,7 +158,7 @@ end
     @test fixed.legend.layoutobservables.computedbbox[].widths[2]<=0.5axis.scene.viewport[].widths[2]+1
     @test !isempty(Makie.colorbuffer(fixed.figure))
     empty!(fixed.figure)
-    panel=LineCableModels.plot(source; options..., legend_position = nothing,
+    panel=LineCableModels.plot(source, (R,); options..., legend_position = nothing,
         panel_legends = (1=>(position = :bottom, max_fraction = 0.5),))
     @test panel.panel_legends[1].layoutobservables.autosize[][2]<=0.5only(panel.axes).scene.viewport[].widths[2]+1
     @test last(last(only(panel.panel_legends[1].entrygroups[]))).label[]=="(...)"
@@ -172,7 +172,7 @@ end
     f=[1.0, 10.0, 100.0]
     z=ComplexF64[complex(i+j+k, 1) for i in 1:2, j in 1:2, k in eachindex(f)]
     p=LineCableModels.plot(
-        LineParameters(z, z .* 1e-6, f); ydata = (R,), overlay = :coordinates,
+        LineParameters(z, z .* 1e-6, f), (R,); overlay = :coordinates,
         backend = :cairo, display_plot = false, controls = false, open_export = false)
     probe=only(filter(q->q isa Makie.Text && !q.visible[], p.legend.blockscene.plots))
     measurements=Ref(0)
@@ -345,7 +345,7 @@ end
     options=(backend = :cairo, display_plot = false, open_export = false)
     raw=TestFixtures.two_conductor_results()
     p=LineCableModels.plot(
-        raw; options..., ydata = (R,), layout = (1, 1), series_labels = ("one",))|>first
+        raw, (R,); options..., layout = (1, 1), series_labels = ("one",))|>first
     frame=only(p.axes).layoutobservables.computedbbox[].widths
     view=only(p.axes).targetlimits[]
     before=p.figure.scene.viewport[].widths
@@ -449,7 +449,7 @@ end
     raw=LineParameters(z, z .* 1e-6, f)
     for attributes in ((width = 700.0, height = 250.0),
         (width = Relative(0.5), height = Relative(0.5)), (alignmode = Outside(10),))
-        p=LineCableModels.plot(raw; ydata = (R,), axis = attributes, layout = (1, 2),
+        p=LineCableModels.plot(raw, (R,); axis = attributes, layout = (1, 2),
             fig_size = (800, 500), controls = false, display_plot = false, backend = :cairo)
         axis=only(p.axes)
         initial=axis.scene.viewport[]

@@ -8,7 +8,7 @@
     parameters = LineParameters(z, z.*1e-6, frequency)
     options = (; backend=:cairo, display_plot=false, controls=true,
         open_export=false, length_unit=:base, fig_size=(1200,800))
-    pages = LineCableModels.plot(parameters; ydata=(R,), layout=(2,3), options...,
+    pages = LineCableModels.plot(parameters, (R,); layout=(2,3), options...,
         panel_legends=(5,5)=>(position=:inside, max_fraction=0.5))
     @test length(pages) == 6
     @test [length(page.axes) for page in pages] == [6,4,6,4,3,2]
@@ -47,24 +47,24 @@
     end
 
     # Selections retain their original slots, not a packed and renumbered submatrix.
-    sparse = LineCableModels.plot(parameters; ydata=((R,[1,5],[2,5],:),),
+    sparse = LineCableModels.plot(parameters, ((R,[1,5],[2,5],:),);
         layout=(2,3), options...)
     @test [page.plot_state.panel_page.index for page in sparse] == [(1,1),(1,2),(3,1),(3,2)]
     @test Set(coordinate for page in sparse for coordinate in keys(page.plot_state.panel_data)) ==
         Set(((1,2),(1,5),(5,2),(5,5)))
     small = LineParameters(z[1:2,1:2,:], z[1:2,1:2,:].*1e-6, frequency)
-    full = LineCableModels.plot(small; ydata=(R,), options...)
+    full = LineCableModels.plot(small, (R,); options...)
     @test full isa UIPlot && length(full.axes) == 4
     @test full.plot_state.panel_page.dimensions==(2,2)
-    one = LineCableModels.plot(small; ydata=(R,), layout=(3,4), title="Example", options...)
+    one = LineCableModels.plot(small, (R,); layout=(3,4), title="Example", options...)
     @test one isa UIPlot && length(one.axes) == 4
     @test one.export_name=="Example"
     for layout in ((0,2),(-1,2),(true,2),(2.0,2),(2,),[2,2])
-        @test_throws ArgumentError LineCableModels.plot(small; ydata=(R,), layout, options...)
+        @test_throws ArgumentError LineCableModels.plot(small, (R,); layout, options...)
     end
-    @test_throws ArgumentError LineCableModels.plot(small; ydata=(R,), blocks=(2,2),
+    @test_throws ArgumentError LineCableModels.plot(small, (R,); blocks=(2,2),
         layout=(1,2), options...)
-    family = LineCableModels.plot(small; ydata=(R,G), layout=(1,2), options...,
+    family = LineCableModels.plot(small, (R,G); layout=(1,2), options...,
         figure_title=("One line", "Two\nlines", "One line", "One line"),
         series_labels=("Saved curve",), legend_position=:bottom,
         panel_legends=(2,2)=>(position=:right, max_fraction=0.5))
@@ -109,7 +109,7 @@ end
         (problems=[:one],formulations=records), ComputationDetails((;)))
     options = (; backend=:cairo,display_plot=false,controls=true,open_export=false,
         fig_size=(1000,650),length_unit=:base)
-    page = LineCableModels.plot(result; ydata=(R,),reference,options...)
+    page = LineCableModels.plot(result, (R,); reference,options...)
     axis = only(page.axes)
     curves = filter(plot -> plot isa Makie.Lines,axis.scene.plots)
     markers = [only(filter(plot -> plot isa Makie.Scatter,page.plot_state.groups[group]))
@@ -137,19 +137,19 @@ end
     Makie.toggle_visibility!(first(entries))
     @test first(curves).visible[] && first(markers).visible[]
 
-    filtered = LineCableModels.plot(result; ydata=(R,),reference,formulations=[5,2],options...)
+    filtered = LineCableModels.plot(result, (R,); reference,formulations=[5,2],options...)
     filtered_curves = filter(plot -> plot isa Makie.Lines,only(filtered.axes).scene.plots)
     filtered_markers = [only(filter(plot -> plot isa Makie.Scatter,filtered.plot_state.groups[group]))
         for group in filtered.plot_state.order]
     @test [curve.color[] for curve in filtered_curves] == [curves[i].color[] for i in [5,2,6]]
     @test [marker.marker[] for marker in filtered_markers] == [markers[i].marker[] for i in [5,2,6]]
     @test [marker[1][] for marker in filtered_markers] == [markers[i][1][] for i in [5,2,6]]
-    plain = LineCableModels.plot(result; ydata=(R,),reference,
+    plain = LineCableModels.plot(result, (R,); reference,
         series_attributes=(marker=nothing,),options...)
     @test !any(plot -> plot isa Makie.Scatter,only(plain.axes).scene.plots)
     short_reference = reference[1:2]
     short_result = ParametricResult(nothing,[point[1:2] for point in completed],result.axes, ComputationDetails((;)))
-    short = LineCableModels.plot(short_result; ydata=(R,),reference=short_reference,options...)
+    short = LineCableModels.plot(short_result, (R,); reference=short_reference,options...)
     @test all(group -> any(plot -> plot isa Makie.Scatter && !isempty(plot[1][]),group),
         values(short.plot_state.groups))
     short_markers = only(filter(plot -> plot isa Makie.Scatter,
@@ -163,7 +163,7 @@ end
 
     # Reflow both entries and labels while retaining native click targets.
     long_labels = ["F$i · earth Z=" * repeat("long_identifier",12) * "; earth Y=default" for i in 1:6]
-    long = LineCableModels.plot(result; ydata=(R,),reference,series_labels=long_labels,options...)
+    long = LineCableModels.plot(result, (R,); reference,series_labels=long_labels,options...)
     @test !isempty(Makie.colorbuffer(long.figure))
     @test long.legend.nbanks[] == 1
     long_entries = last(only(long.legend.entrygroups[]))
@@ -192,7 +192,7 @@ end
     f=[1.,10.,100.]
     z=[complex(i+j+k,i-j+k) for i in 1:3,j in 1:3,k in 1:3]
     raw=LineParameters(z,z.*1e-6,f)
-    pages=LineCableModels.plot(raw;ydata=(R,L),layout=(2,2),fig_size=(1000,700),
+    pages=LineCableModels.plot(raw, (R,L);layout=(2,2),fig_size=(1000,700),
         controls=false,display_plot=false,backend=:cairo,clip=false)
     @test length(pages)==8
     @test [length(p.axes) for p in pages]==[4,2,2,1,4,2,2,1]
@@ -227,7 +227,7 @@ end
     @test length(p.axes)==4
     @test p.plot_state.panel_page.dimensions==(2,2)
     @test [axis.targetlimits[] for axis in p.axes]==views
-    @test_throws ArgumentError LineCableModels.plot(raw;ydata=(R,),blocks=(2,2),display_plot=false)
+    @test_throws ArgumentError LineCableModels.plot(raw, (R,);blocks=(2,2),display_plot=false)
 
     design=TestFixtures.coaxial_design()
     previews=preview(fill(design,4);layout=(1,2),size=(1000,600),

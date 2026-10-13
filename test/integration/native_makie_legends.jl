@@ -183,7 +183,7 @@ end
     @test axis.targetlimits[]==view
 
     raw=TestFixtures.two_conductor_results(; frequencies = [1.0, 10.0, 100.0])
-    q=Makie.plot(raw, raw, raw, raw; ydata = ((R, 1, 1, :),),
+    q=Makie.plot(raw, raw, raw, raw, ((R, 1, 1, :),);
         series_labels = ("first complete description", "second complete description",
             "third complete description", "fourth complete description"),
         backend = :cairo, display_plot = false, controls = false,
@@ -657,7 +657,7 @@ end
     end
     # The shared setting applies to result panels and a caller-owned native canvas.
     raw=TestFixtures.two_conductor_results(; frequencies = [1.0, 10.0, 100.0])
-    result=LineCableModels.plot(raw, raw; ydata = ((R, 1, 1:2, :),), layout = (1, 2),
+    result=LineCableModels.plot(raw, raw, ((R, 1, 1:2, :),); layout = (1, 2),
         backend = :cairo, display_plot = false, controls = false, guide_spacing = (rowgap = 7.5,),
         panel_legends = (1, 1)=>:right)
     @test result.plot_state.guide_spacing[]==(rowgap = 7.5, colgap = 12.0)

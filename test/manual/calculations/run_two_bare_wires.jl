@@ -27,6 +27,6 @@ formulations = [Formulation(
     options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
     for soil_law in (:constant, :longmire1975)]
 results = @time compute(problem, formulations)
-plots = LineCableModels.plot(results;
-    ydata=(R, X, G, B), length_unit=:base, backend=:gl)
+plots = LineCableModels.plot(results, (R, X, G, B);
+    length_unit=:base, backend=:gl)
 nothing

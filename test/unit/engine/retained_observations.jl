@@ -39,7 +39,7 @@
         @test isequal(getproperty(only(restored.quantities),field),getproperty(original,field))
     end
     @test restored.errors==comparisons && restored.timings==timings
-    reported=report(observed;values=@observe(R[[2,1],[2,1],[3,1]]),length_unit=:base,frequency_unit=:kilo)
+    reported=report(observed, @observe(R[[2,1],[2,1],[3,1]]);length_unit=:base,frequency_unit=:kilo)
     @test reported.observed.errors==comparisons && reported.observed.timings==timings
     @test reported.observed.gridpoint==observed.gridpoint
     @test only(reported.observed.quantities).coordinates==product.coordinates

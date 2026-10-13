@@ -4,13 +4,6 @@ const _PrimarySource = Union{
     LineCableModels.PropagationParameters}
 const _PlotSource = Union{_PrimarySource, Commons.ObservedResult}
 
-function _plot_ydata(positional, keyword, default)
-    keyword===nothing && return positional===nothing ? default : positional
-    positional===nothing ||
-        throw(ArgumentError("use positional ydata or the ydata keyword"))
-    return keyword
-end
-
 # Split only public keyword ownership. Scientific normalization stays in Commons.
 function _plot_observation_options(kwargs; retained = false)
     haskey(kwargs, :complete_pairs) &&
@@ -32,9 +25,8 @@ function _plot_observation_options(kwargs; retained = false)
     return acquisition, presentation
 end
 
-function plot(source::_PrimarySource, selection = nothing;
-        ydata = nothing, reference = nothing, kwargs...)
-    return plot((source,), selection; ydata, reference, kwargs...)
+function plot(source::_PrimarySource, selection = nothing; reference = nothing, kwargs...)
+    return plot((source,), selection; reference, kwargs...)
 end
 function plot(source::Union{SeriesImpedance, ShuntAdmittance},
         f::AbstractVector, selection = nothing; kwargs...)
@@ -47,7 +39,7 @@ function plot(observed::Commons.ObservedResult, selection = nothing; kwargs...)
 end
 
 function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = nothing;
-        ydata = nothing, reference = nothing,
+        reference = nothing,
         series_labels = nothing, series_attributes = nothing, problem = nothing,
         formulations = nothing, band = nothing,
         errorbar_sampling = nothing, title = nothing, title_prefix = nothing, figure_title = nothing,
@@ -82,7 +74,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
             by = index -> findfirst(==(observed[index].gridpoint.id.formulation_index), formulations))
     end
     points=observed[selected]
-    requests=Commons.observation_selection(first(points), _plot_ydata(selection, ydata, ()))
+    requests=Commons.observation_selection(first(points), selection)
     requests=Commons.observation_requests(first(points), requests).displayed
     if reference!==nothing && !(reference isa Commons.ObservedResult)
         reference isa _PrimarySource ||
@@ -292,14 +284,13 @@ end
 
 function plot(sources::Union{AbstractVector{<:_PlotSource}, Tuple{Vararg{_PlotSource}}},
         selection = nothing;
-        ydata = nothing, reference = nothing, kwargs...)
+        reference = nothing, kwargs...)
     isempty(sources) && throw(ArgumentError("plot requires at least one result"))
     if all(source -> source isa Commons.ObservedResult, sources)
-        return plot(
-            Commons.ObservedResult[sources...], selection; ydata, reference, kwargs...)
+        return plot(Commons.ObservedResult[sources...], selection; reference, kwargs...)
     end
     acquisition, presentation=_plot_observation_options(kwargs)
-    requests=Commons.observation_selection(first(sources), _plot_ydata(selection, ydata, ()))
+    requests=Commons.observation_selection(first(sources), selection)
     normalized=Commons.observation_requests(first(sources), requests; complete_pairs = true)
     retained_units=(;
         (key=>value
@@ -317,7 +308,7 @@ function plot(sources::Union{AbstractVector{<:_PlotSource}, Tuple{Vararg{_PlotSo
             throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
         reference=Commons.ObservedResult(reference, requests; complete_pairs = true, acquisition...)
     end
-    return plot(observed; ydata = normalized.displayed, reference, presentation...)
+    return plot(observed, normalized.displayed; reference, presentation...)
 end
 function Makie.plot(
         sources::Union{AbstractVector{<:_PlotSource}, Tuple{Vararg{_PlotSource}}},
@@ -333,29 +324,27 @@ function plot(sources::AbstractVector, selection = nothing; kwargs...)
     return plot(_PlotSource[sources...], selection; kwargs...)
 end
 
-function plot(
-        first::_PrimarySource, second::_PrimarySource, rest...; ydata = nothing, kwargs...)
+function plot(first::_PrimarySource, second::_PrimarySource, rest...; kwargs...)
     sources=_PrimarySource[first, second]
     selection=nothing
     for item in rest
         item isa _PrimarySource && selection===nothing ? push!(sources, item) :
         selection===nothing ? (selection=item) :
-        throw(ArgumentError("one trailing ydata selection is accepted"))
+        throw(ArgumentError("one trailing selection is accepted"))
     end
-    return plot(sources; ydata = _plot_ydata(selection, ydata, ()), kwargs...)
+    return plot(sources, selection; kwargs...)
 end
 function Makie.plot(first::_PrimarySource, second::_PrimarySource, rest...; kwargs...)
     plot(first, second, rest...; kwargs...)
 end
 
-function plot(sources::NamedTuple, selection = nothing;
-        ydata = nothing, series_labels = nothing, kwargs...)
+function plot(sources::NamedTuple, selection = nothing; series_labels = nothing, kwargs...)
     all(source -> source isa _PlotSource, values(sources)) ||
         throw(ArgumentError("named result plotting requires supported primary or observed members"))
     # Source names describe gridpoint curves. Row overlays use physical row labels.
     labels=series_labels===nothing && get(kwargs,:overlay,:auto)!==:rows ?
            Tuple(string.(keys(sources))) : series_labels
-    return plot(Tuple(values(sources)), selection; ydata, series_labels = labels, kwargs...)
+    return plot(Tuple(values(sources)), selection; series_labels = labels, kwargs...)
 end
 function Makie.plot(sources::NamedTuple{K, <:Tuple{Vararg{_PlotSource}}}, args...; kwargs...) where {K}
     plot(sources, args...; kwargs...)

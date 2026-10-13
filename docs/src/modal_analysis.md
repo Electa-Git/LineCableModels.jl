@@ -238,8 +238,8 @@ observed = ObservedResult(segment,
     (gamma, Zc, H, voltage_H, current_H, Tv, Ti, velocity))
 another = PropagationParameters(segment; line_length=300.0)
 observed_pair = ObservedResult.((segment, another), Ref((H, gamma)))
-plot(observed; ydata=(gamma, velocity)) # all modes overlaid for one gridpoint
-plot(observed_pair; ydata=(gamma,), overlay=:coordinates)
+plot(observed, (gamma, velocity)) # all modes overlaid for one gridpoint
+plot(observed_pair, (gamma,); overlay=:coordinates)
 ```
 
 Mode vectors have a mode axis and a frequency axis. `Tv` and `Ti` have phase

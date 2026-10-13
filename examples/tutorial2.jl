@@ -272,8 +272,7 @@ datasheet entries used below.
 =#
 
 constants_report = report(
-    constants;
-    values = (R, L, G, C),
+    constants, (R, L, G, C);
     length_unit = :kilo,
     quantity_units = (R = :base, L = :milli, G = :micro, C = :micro)
 )
@@ -288,8 +287,7 @@ has one concentric assembly, named `:core`.
 =#
 
 core_resistance_report = report(
-    constants;
-    values = @observe(R[1]),
+    constants, @observe(R[1]);
     length_unit = :kilo,
     quantity_units = (R = :base,)
 )

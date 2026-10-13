@@ -129,7 +129,7 @@ end
     @test ordinary.observed isa ObservedResult
     observed=ordinary.observed
     lep=LinearErrorResult(LinearError(Formulation()),[uncertain])
-    @test only(report(lep;values=R).tables).Z.R==report(uncertain;values=R).tables.Z.R
+    @test only(report(lep, R).tables).Z.R==report(uncertain, R).tables.Z.R
     @test length(observed.quantities)==4
     @test all(q -> q.statistic===:value,observed.quantities)
     @test !haskey(observed.gridpoint,:sampling)

@@ -306,8 +306,7 @@ case_1_plot_styles = vcat(
     fill((linestyle = :dash,), length(case_1_analytical_results))
 )
 plot_1 = Makie.plot(
-    case_1_plot_results...;
-    ydata = (Y,),
+    case_1_plot_results..., (Y,);
     series_labels = case_1_plot_labels,
     series_attributes = case_1_plot_styles,
     layout = (2, 2),
@@ -329,8 +328,7 @@ case_2_plot_styles = vcat(
     fill((linestyle = :dash,), length(case_2_analytical_results))
 )
 plot_2 = Makie.plot(
-    case_2_plot_results...;
-    ydata = (Y,),
+    case_2_plot_results..., (Y,);
     series_labels = case_2_plot_labels,
     series_attributes = case_2_plot_styles,
     layout = (2, 2),

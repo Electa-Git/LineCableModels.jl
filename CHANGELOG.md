@@ -181,6 +181,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A direct complex `Z` or `Y` coordinate request expands to a paired component
   page. Matrix coordinates identify semantic subplots, while legends identify
   overlaid result containers through `series_labels`.
+- `plot(source, selection; ...)` and `report(source, selection; ...)` take the quantity
+  selection as their second positional argument, and `report(source)` uses the source's
+  default selection. An illustration callable receives the observations and the report's
+  selection as positional arguments.
 - The PSCAD sources moved from the extensions directory to `src/pscad/`, and its remote
   runner project to `src/pscad/remote/`. `LineCableModels.PSCAD` is unchanged.
 - `Commons` owns `initialize_buffers`, which builds every buffer of a computation.
