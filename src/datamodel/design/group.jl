@@ -178,10 +178,12 @@ function validate(part::AbstractCablePart, ::Group)
     ))
 end
 
-function strand_path(paths, course::Int, maximum_course::Int)
+# A course follows no path at the center. Otherwise it follows the one path of every
+# course, or its own entry of a lay schedule with one path per inferred course.
+strand_path(path, course::Int, maximum_course::Int) = iszero(course) ? nothing : path
+strand_path(::Nothing, course::Int, maximum_course::Int) = nothing
+function strand_path(paths::Tuple, course::Int, maximum_course::Int)
     iszero(course) && return nothing
-    paths === nothing && return nothing
-    paths isa Tuple || return paths
     length(paths) == maximum_course || throw(DimensionMismatch(
         "lay schedule requires exactly $maximum_course inferred courses; got $(length(paths))"
     ))

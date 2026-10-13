@@ -96,7 +96,7 @@
 "src/datamodel/cableslibrary/cableslibrary.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, isa = 4, kind = 4 }
 "src/datamodel/design/enclosure.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
-"src/datamodel/design/group.jl" = { applicable = 0, eval = 0, isa = 1, kind = 3 }
+"src/datamodel/design/group.jl" = { applicable = 0, eval = 0, isa = 0, kind = 3 }
 "src/datamodel/design/region.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/datamodel/flatten.jl" = { applicable = 0, eval = 0, isa = 16, kind = 4 }
 "src/datamodel/linecablesystem/linecablesystem.jl" = { applicable = 0, eval = 0, isa = 21, kind = 0 }
