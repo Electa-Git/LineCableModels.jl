@@ -281,9 +281,6 @@ function build(
     identifier = String(cable_id)
     isempty(identifier) && throw(ArgumentError("cable_id cannot be empty"))
     nominal_data = nominal_data === nothing ? (;) : nominal_data
-    nominal_data isa NamedTuple || throw(ArgumentError(
-        "nominal_data must be a named tuple or nothing"
-    ))
 
     # 3. Resolve intrinsic primitives against their contextual geometric boundaries.
     # 4. Resolve pattern placements and compaction through `placements` dispatch.

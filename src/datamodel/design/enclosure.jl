@@ -86,13 +86,22 @@ function resolve(
         tag::Symbol
 )
     length(holes) == 1 && return _disk_fill(container, only(holes), material, tag)
+    return _difference_fill(container, holes, material, tag)
+end
+
+function resolve(
+        container::Disk,
+        holes::Tuple{Vararg{Union{Disk, Annulus}}},
+        material::Material,
+        tag::Symbol
+)
+    length(holes) == 1 && return _disk_fill(container, only(holes), material, tag)
     # A coaxial terminal may supply a disk plus several annuli as its occupied
     # shapes. Their union is one disk only when the radial intervals are complete.
     # Preserve that exact annular fill instead of manufacturing a Boolean region
     # that computational flattening would classify as non-radial interstitial fill.
     if all(holes) do shape
-            shape isa Union{Disk, Annulus} &&
-                iszero(shape.at.x) && iszero(shape.at.y) &&
+            iszero(shape.at.x) && iszero(shape.at.y) &&
                 iszero(container.at.x) && iszero(container.at.y)
         end
         intervals = sort!([(r_in(shape), r_ex(shape)) for shape in holes]; by = first)
@@ -287,6 +296,16 @@ function fill_holes(::Assembly, ::CableGeometry)
     throw(ArgumentError("an enclosed assembly must retain its member boundaries"))
 end
 
+# A complete circular partition is one occupied disk even through terminal and stack
+# wrappers. Incomplete formations retain their individual holes.
+function _partition_holes(container::Disk, occupied::Disk, holes)
+    occupied.at.x == container.at.x && occupied.at.y == container.at.y &&
+    isapprox(sum(area, holes), area(occupied);
+        rtol=0, atol=geometry_tolerance(area(occupied))) || return holes
+    return (occupied,)
+end
+_partition_holes(container, occupied, holes) = holes
+
 # An explicit fill Region always places its geometry, and a material fills only the area
 # that the contents leave.
 _has_fill(::Region, remaining_area, tolerance) = true
@@ -304,15 +323,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
         holes,
         "enclosed geometry must fit inside the enclosure boundary"
     ))
-    # A complete circular partition is one occupied disk even through terminal
-    # and stack wrappers. Incomplete formations retain their individual holes.
-    occupied = boundary(contents)
-    if container isa Disk && occupied isa Disk &&
-       occupied.at.x == container.at.x && occupied.at.y == container.at.y &&
-       isapprox(sum(area, holes), area(occupied);
-            rtol=0, atol=geometry_tolerance(area(occupied)))
-        holes = (occupied,)
-    end
+    holes = _partition_holes(container, boundary(contents), holes)
 
     regions = PlacedRegion[]
     for source in contents.regions

@@ -605,13 +605,6 @@ function nested_conductor_zone(
     isempty(sources) && throw(ArgumentError(
         "a nested conductor requires at least one resolved primitive"
     ))
-    all(sources) do source
-        source.source.primitive isa Union{Disk, Rectangle} &&
-            source.primitive isa Union{Disk, Rectangle, Polygon, BentStrip, Annulus}
-    end || throw(ArgumentError(
-        "nested conductor flattening requires Disk or Rectangle source members " *
-        "resolved as Disk, Rectangle, Polygon, BentStrip, or Annulus geometry"
-    ))
 
     materials = Material{T}[convert(Material{T}, source.source.material)
                             for source in sources]
@@ -658,10 +651,8 @@ function nested_conductor_zone(
     weights = conductances ./ sum(conductances)
     log_gmr = zero(T)
     for left in eachindex(sources)
-        primitive = sources[left].primitive
-        self_gmr = primitive isa Annulus ?
-                   tubular_gmr(primitive.ro, primitive.ri, materials[left].mu_r) :
-                   equivalent_radii[left] * exp(-materials[left].mu_r / 4)
+        self_gmr = _self_gmr(sources[left].primitive, equivalent_radii[left],
+            materials[left].mu_r)
         log_gmr += weights[left]^2 * log(self_gmr)
         for right in (left + 1):length(sources)
             distance = geometric_mean_distance(sources[left].primitive, sources[right].primitive)
@@ -751,8 +742,7 @@ function conductor_zone_position(sources)
             source.placement.patterns
         )
         index === nothing && return nothing
-        shape = source.placement.patterns[index].pattern.boundary
-        return shape isa Disk ? (shape.at.x, shape.at.y) : centroid(shape)
+        return radial_position(source.placement.patterns[index].pattern.boundary)
     end
     if all(!isnothing, bounded)
         reference = first(bounded)
@@ -1047,6 +1037,65 @@ function empty_dielectric(conductor, ::Type{T}) where {T <: Real}
     )
 end
 
+# The self geometric-mean radius of one nested conductor member: a tube for an annular
+# member, otherwise the disk of the member's area.
+_self_gmr(member::Annulus, radius, mu_r) = tubular_gmr(member.ro, member.ri, mu_r)
+function _self_gmr(::Union{Disk, Rectangle, Polygon, BentStrip}, radius, mu_r)
+    return radius * exp(-mu_r / 4)
+end
+
+# The terminals whose conductor center lies inside one member outline of a container.
+function _contained_terminals(hole::Disk, terminals, centers)
+    return (terminals[k] for k in eachindex(terminals)
+        if hypot(centers[k][1] - hole.at.x, centers[k][2] - hole.at.y) <=
+           hole.r * (1 + sqrt(eps(float(one(hole.r))))))
+end
+function _contained_terminals(hole::SectorShape, terminals, centers)
+    return (terminals[k] for k in eachindex(terminals)
+        if accommodates(hole, centers[k], zero(hole.primitive.r_back)))
+end
+function _contained_terminals(hole, terminals, centers)
+    throw(ArgumentError(
+        "flatten cannot locate the conductors inside a container member with a " *
+        "$(nameof(typeof(hole))) outline"
+    ))
+end
+
+# The conductors of a container's wall: annuli about its circular boundary, outward from
+# the fill. A non-circular container has none.
+function _enclosing_terminals(outer::Union{Disk, Annulus}, regions, index)
+    enclosing = Symbol[]
+    radius = r_ex(outer)
+    wall = index + 1
+    while wall <= lastindex(regions) &&
+              regions[wall].primitive isa Annulus &&
+              same_radial_position(radial_position(regions[wall]),
+                  (outer.at.x, outer.at.y)) &&
+              isapprox(regions[wall].primitive.ri, radius)
+        regions[wall].terminal === nothing || push!(enclosing, regions[wall].terminal)
+        radius = regions[wall].primitive.ro
+        wall += 1
+    end
+    return enclosing
+end
+_enclosing_terminals(outer, regions, index) = Symbol[]
+
+# One group at the center of a circular container. The fill becomes the annulus from the
+# group's outer radius to the container's radius. An annular container keeps its fill.
+function _radial_fill!(radial, source, outer::Disk, holes)
+    extent = maximum(hole -> _radial_reach(hole, outer), holes)
+    return push!(radial, PlacedRegion(source.source, Annulus(extent, outer.r, outer.at),
+        nothing, source.placement, source.paths))
+end
+_radial_fill!(radial, source, outer, holes) = radial
+
+# The largest distance of one hole from the container center. An outline without a
+# radial extent gives zero.
+function _radial_reach(hole::Union{Disk, Annulus, BentStrip}, outer)
+    return hypot(hole.at.x - outer.at.x, hole.at.y - outer.at.y) + r_ex(hole)
+end
+_radial_reach(hole, outer) = zero(outer.r)
+
 """
 $(TYPEDSIGNATURES)
 
@@ -1111,15 +1160,7 @@ function _radial_regions(regions)
                 continue
             end
             conductive = false
-            hole isa Union{Disk, SectorShape} || throw(ArgumentError(
-                "flatten cannot locate the conductors inside a container member with a " *
-                "$(nameof(typeof(hole))) outline"
-            ))
-            append!(contained, (terminals[k] for k in eachindex(terminals)
-                if hole isa Disk ?
-                   hypot(centers[k][1] - hole.at.x, centers[k][2] - hole.at.y) <=
-                   hole.r * (1 + sqrt(eps(float(one(hole.r))))) :
-                   accommodates(hole, centers[k], zero(hole.primitive.r_back))))
+            append!(contained, _contained_terminals(hole, terminals, centers))
         end
         if conductive && allequal(contained)
             # The fill between the wires of one conductor, in another order.
@@ -1137,35 +1178,10 @@ function _radial_regions(regions)
         end
         group_centers = [centers[findfirst(==(first(group)), terminals)] for group in groups]
 
-        # The conductors of the container's wall: annuli about its center, outward from
-        # the fill.
         outer = source.primitive.outer
-        enclosing = Symbol[]
-        if outer isa Union{Disk, Annulus}
-            radius = r_ex(outer)
-            wall = index + 1
-            while wall <= lastindex(regions) &&
-                      regions[wall].primitive isa Annulus &&
-                      same_radial_position(radial_position(regions[wall]),
-                          (outer.at.x, outer.at.y)) &&
-                      isapprox(regions[wall].primitive.ri, radius)
-                regions[wall].terminal === nothing || push!(enclosing, regions[wall].terminal)
-                radius = regions[wall].primitive.ro
-                wall += 1
-            end
-        end
+        enclosing = _enclosing_terminals(outer, regions, index)
         validate(source, CableBlueprint, groups, group_centers, enclosing)
-        if !isempty(groups) && outer isa Disk
-            # One group at the center of a circular container. The fill becomes the
-            # annulus from the group's outer radius to the container's radius.
-            extent = maximum(holes) do hole
-                hole isa Union{Disk, Annulus, BentStrip} ?
-                hypot(hole.at.x - outer.at.x, hole.at.y - outer.at.y) + r_ex(hole) :
-                zero(outer.r)
-            end
-            push!(radial, PlacedRegion(source.source, Annulus(extent, outer.r, outer.at),
-                nothing, source.placement, source.paths))
-        end
+        isempty(groups) || _radial_fill!(radial, source, outer, holes)
         index += 1
     end
     return radial
@@ -1191,26 +1207,40 @@ reduction.
 function validate(container::PlacedRegion, ::Type{CableBlueprint}, groups, centers,
         enclosing)
     isempty(groups) && return container
+    listed = join(("(" * join((":" * String(t) for t in group), ", ") * ")"
+                   for group in groups), ", ")
+    isempty(enclosing) || throw(ArgumentError(
+        "pipe-type cables are not supported: the conductor :$(first(enclosing)) " *
+        "encloses the coaxial groups $listed"
+    ))
+    throw(ArgumentError(
+        "a non-circular container has no coaxial reduction: the coaxial groups " *
+        "$listed lie in :$(container.source.tag), whose boundary is not circular"
+    ))
+end
+
+function validate(
+        container::PlacedRegion{
+            <:Region, <:DifferenceShape{<:Real, <:Union{Disk, Annulus}}},
+        ::Type{CableBlueprint},
+        groups,
+        centers,
+        enclosing
+)
+    isempty(groups) && return container
     outer = container.primitive.outer
-    circular = outer isa Union{Disk, Annulus}
-    if !(circular && length(groups) == 1 &&
-         same_radial_position(only(centers), (outer.at.x, outer.at.y)))
-        listed = join(("(" * join((":" * String(t) for t in group), ", ") * ")"
-                       for group in groups), ", ")
-        isempty(enclosing) || throw(ArgumentError(
-            "pipe-type cables are not supported: the conductor :$(first(enclosing)) " *
-            "encloses the coaxial groups $listed"
-        ))
-        circular || throw(ArgumentError(
-            "a non-circular container has no coaxial reduction: the coaxial groups " *
-            "$listed lie in :$(container.source.tag), whose boundary is not circular"
-        ))
-        throw(ArgumentError(
-            "coaxial groups off the center of their container have no coaxial reduction " *
-            "yet: $listed lie in :$(container.source.tag)"
-        ))
-    end
-    return container
+    length(groups) == 1 && same_radial_position(only(centers), (outer.at.x, outer.at.y)) &&
+        return container
+    listed = join(("(" * join((":" * String(t) for t in group), ", ") * ")"
+                   for group in groups), ", ")
+    isempty(enclosing) || throw(ArgumentError(
+        "pipe-type cables are not supported: the conductor :$(first(enclosing)) " *
+        "encloses the coaxial groups $listed"
+    ))
+    throw(ArgumentError(
+        "coaxial groups off the center of their container have no coaxial reduction " *
+        "yet: $listed lie in :$(container.source.tag)"
+    ))
 end
 
 function same_path_definitions(left, right)

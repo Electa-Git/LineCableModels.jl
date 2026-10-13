@@ -93,15 +93,12 @@
 "src/commons/observedresult.jl" = { applicable = 1, eval = 0, isa = 37, kind = 9 }
 "src/commons/retained_products.jl" = { applicable = 0, eval = 0, isa = 5, kind = 10 }
 "src/commons/types.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/datamodel/cableslibrary/cableslibrary.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, isa = 4, kind = 4 }
-"src/datamodel/design/enclosure.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
+"src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, isa = 3, kind = 4 }
 "src/datamodel/design/group.jl" = { applicable = 0, eval = 0, isa = 0, kind = 3 }
-"src/datamodel/design/region.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/datamodel/flatten.jl" = { applicable = 0, eval = 0, isa = 16, kind = 4 }
+"src/datamodel/flatten.jl" = { applicable = 0, eval = 0, isa = 6, kind = 4 }
 "src/datamodel/placement/bounded.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
-"src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, isa = 3, kind = 0 }
+"src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
 "src/earth/earthmodel.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/earth/equivalenthomogeneous/formulas/bottommost.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/earth/equivalenthomogeneous/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
@@ -347,7 +344,6 @@
 "src/datamodel/geometry/sector.jl" = 4
 "src/datamodel/linecablesystem/clearance.jl" = 1
 "src/datamodel/preview/materials.jl" = 1
-"src/datamodel/textdisplay.jl" = 1
 "src/earth/base.jl" = 2
 "src/engine/cableconstants.jl" = 1
 "src/engine/formulations.jl" = 1

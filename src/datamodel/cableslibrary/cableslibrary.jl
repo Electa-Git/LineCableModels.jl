@@ -71,7 +71,7 @@ function add!(
         "cable design '$(design.cable_id)' already exists",
     ))
     validate(design)
-    record = datasheet isa DatasheetInfo ? datasheet : DatasheetInfo(datasheet)
+    record = DatasheetInfo(datasheet)
     library.data[design.cable_id] = design
     library.datasheets[design.cable_id] = record
     return library

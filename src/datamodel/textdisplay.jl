@@ -182,8 +182,7 @@ _datasheet_unit(::Val) = nothing
 
 function _datasheet_value(name::Symbol, item)
     item === nothing && return nothing
-    text = item isa Real ? TextDisplay.value(item) :
-           sprint(show, item; context = :compact => true)
+    text = _datasheet_text(item)
     unit = _datasheet_unit(Val(name))
     return unit === nothing ? text : "$text $unit"
 end
@@ -230,13 +229,22 @@ function _part_label(stack::Stack)
     return "Stack · $count $(count == 1 ? "part" : "parts")"
 end
 
+# A datasheet number shows with the number display, and any other value shows compactly.
+_datasheet_text(item::Real) = TextDisplay.value(item)
+_datasheet_text(item) = sprint(show, item; context = :compact => true)
+
+# A group without a pattern, or with a ring of one member at its center, places one member.
+_pattern_text(::Nothing) = "one member"
+function _pattern_text(pattern::Ring)
+    pattern.n == 1 && (pattern.r === nothing || iszero(pattern.r)) && return "one member"
+    return _compact_text(pattern)
+end
+_pattern_text(pattern) = _compact_text(pattern)
+
 function _part_label(group::Group)
     attributes = String[]
     !_identity_pose(group.at) && push!(attributes, _compact_text(group.at))
-    one_member = group.pattern === nothing ||
-                 group.pattern isa Ring && group.pattern.n == 1 &&
-                 (group.pattern.r === nothing || iszero(group.pattern.r))
-    push!(attributes, one_member ? "one member" : _compact_text(group.pattern))
+    push!(attributes, _pattern_text(group.pattern))
     group.path === nothing || push!(attributes, _compact_text(group.path))
     group.compact === nothing || push!(attributes, _compact_text(group.compact))
     return "Group :$(group.name) · $(join(attributes, " · "))"
@@ -551,8 +559,11 @@ function Base.show(io::IO, ::MIME"text/plain", shape::ShellShape)
         ))
 end
 
-function _preview_geometry_count(geometry)
-    points = geometry isa GeometryBasics.Polygon ? geometry.exterior : geometry
+# A polygon counts the points of its exterior.
+function _preview_geometry_count(geometry::GeometryBasics.Polygon)
+    return _preview_geometry_count(geometry.exterior)
+end
+function _preview_geometry_count(points)
     applicable(length, points) && return length(points)
     return count(_ -> true, points)
 end

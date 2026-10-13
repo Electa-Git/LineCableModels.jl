@@ -36,6 +36,7 @@ Construct cable datasheet information from named values.
 - A [`DatasheetInfo`](@ref) record.
 """
 DatasheetInfo(; values...) = DatasheetInfo((; values...))
+DatasheetInfo(info::DatasheetInfo) = info
 
 Base.propertynames(info::DatasheetInfo, private::Bool = false) =
     private ? (:data, keys(getfield(info, :data))...) : keys(getfield(info, :data))
