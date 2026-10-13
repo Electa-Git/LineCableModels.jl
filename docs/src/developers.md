@@ -399,6 +399,8 @@ checkout. The tables go to `.linecablemodels/checkpoint/fem/comparison.md`.
 The item `Engine / known cases` in `test/integration/known_cases.jl` checks every case
 of `test/integration/known_cases/` at the 11 FEM frequencies. `status.toml` records the
 deviation curves, statuses and explanations.
+The slow item `Engine / known cases / boundary shunt` pins the `analytical_boundary`
+rows and checks the `fem_boundary` deviation curves against FEM.
 
 FEM decides: discrepancies against PSCAD lose to FEM. PSCAD curves are advisory and
 do not need an explanation. The analytical model collapses insulators and semicons
