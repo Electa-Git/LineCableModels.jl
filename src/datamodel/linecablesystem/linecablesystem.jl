@@ -321,14 +321,20 @@ end
 
 # The designs of a system in placement order: one completed design, or a collection of them.
 _declared_designs(design::CableDesign) = typeof(design)[design]
-function _declared_designs(
-        designs::Union{AbstractVector{<:CableDesign}, Tuple{Vararg{CableDesign}}}
-)
-    return collect(designs)
+function _declared_designs(designs::Union{AbstractVector, Tuple})
+    return [_declared_design(design) for design in designs]
 end
 function _declared_designs(designs)
     throw(ArgumentError(
-        "designs must be a CableDesign or a collection of completed CableDesign objects"
+        "designs must be a CableDesign or a design collection; " *
+        "got a $(nameof(typeof(designs)))"
+    ))
+end
+_declared_design(design::CableDesign) = design
+function _declared_design(design)
+    throw(ArgumentError(
+        "designs must contain completed CableDesign objects; " *
+        "got a $(nameof(typeof(design)))"
     ))
 end
 
@@ -345,7 +351,8 @@ function _declared_poses(placements::Union{AbstractVector, Tuple})
 end
 function _declared_poses(placements)
     throw(ArgumentError(
-        "placements must be a Pose2, coordinate tuple, or placement collection"
+        "placements must be a Pose2, coordinate tuple, or placement collection; " *
+        "got a $(nameof(typeof(placements)))"
     ))
 end
 _declared_pose(position::Pose2) = position
@@ -353,7 +360,8 @@ _declared_pose(position::Tuple{Real, Real}) = Pose2(position[1], position[2], 0)
 _declared_pose(position::Tuple{Real, Real, Real}) = Pose2(position[1], position[2], position[3])
 function _declared_pose(position)
     throw(ArgumentError(
-        "placements must contain Pose2 values or `(x, y[, φ])` tuples"
+        "placements must contain Pose2 values or `(x, y[, φ])` tuples; " *
+        "got a $(nameof(typeof(position)))"
     ))
 end
 
@@ -390,36 +398,36 @@ end
 function _connection_values(::Nothing, names, cable_index::Int)
     return [index == 1 ? cable_index : 0 for index in eachindex(names)]
 end
-function _connection_values(declaration::AbstractVector{<:Integer}, names, cable_index::Int)
+function _connection_values(declaration::AbstractVector, names, cable_index::Int)
     length(declaration) == length(names) || throw(DimensionMismatch(
         "connection vector for cable $cable_index must match its terminal count"
     ))
-    return Int[declaration...]
+    return Int[_connection_assignment(value) for value in declaration]
 end
 function _connection_values(declaration::NamedTuple, names, cable_index::Int)
     unknown = setdiff(collect(keys(declaration)), names)
     isempty(unknown) || throw(KeyError(first(unknown)))
     return Int[Int(get(declaration, name, 0)) for name in names]
 end
-function _connection_values(
-        declaration::AbstractDict{<:Any, <:Integer},
-        names,
-        cable_index::Int
-)
+function _connection_values(declaration::AbstractDict, names, cable_index::Int)
     normalized = Dict{Symbol, Int}()
     for (name, value) in declaration
         key = Symbol(name)
         key in names || throw(KeyError(key))
-        normalized[key] = Int(value)
+        normalized[key] = _connection_assignment(value)
     end
     return Int[get(normalized, name, 0) for name in names]
 end
-function _connection_values(::AbstractDict, names, cable_index::Int)
-    throw(ArgumentError("connection assignments must be integers"))
-end
 function _connection_values(declaration, names, cable_index::Int)
     throw(ArgumentError(
-        "each connection declaration must be a mapping or integer vector"
+        "each connection declaration must be a mapping or integer vector; " *
+        "got a $(nameof(typeof(declaration)))"
+    ))
+end
+_connection_assignment(value::Integer) = Int(value)
+function _connection_assignment(value)
+    throw(ArgumentError(
+        "connection assignments must be integers; got a $(nameof(typeof(value)))"
     ))
 end
 
