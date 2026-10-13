@@ -82,7 +82,7 @@
 "ext/LineCableModelsMakieExt/recipes/preview_render.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "ext/LineCableModelsMakieExt/series_styles.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "ext/LineCableModelsMakieExt/shell.jl" = { applicable = 0, eval = 0, isa = 48, kind = 0 }
-"ext/LineCableModelsMeasurementsExt.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
+"ext/LineCableModelsMeasurementsExt.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/commons/observables.jl" = { applicable = 1, eval = 0, isa = 25, kind = 0 }

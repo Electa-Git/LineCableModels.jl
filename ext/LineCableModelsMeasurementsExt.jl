@@ -68,6 +68,20 @@ function deserialize_extension(::Val{:Measurement}, value)
     return Measurements.measurement(nominal, uncertainty)
 end
 
+# One encoded component of a UQ record. `indices` numbers the record's shared sources.
+function _sensitivity_record(component::Measurements.Measurement, indices)
+    contributions=[(source = indices[source], sensitivity = derivative(component, source))
+                   for source in keys(uncertainty_components(component))]
+    sort!(contributions; by = entry->entry.source)
+    return (nominal = nominal(component), uncertainty = uncertainty(component),
+        measured = true, contributions)
+end
+function _sensitivity_record(component, _)
+    contributions=@NamedTuple{source::Int, sensitivity::typeof(nominal(component))}[]
+    return (nominal = nominal(component), uncertainty = uncertainty(component),
+        measured = false, contributions)
+end
+
 """
 Encode one UQ result with shared independent-source identities and sparse signed
 sensitivities. Source IDs are local to this record and preserve shared
@@ -94,16 +108,7 @@ function serialize_value(value::Union{UQ.LinearErrorResult{T},
     end
     sources=sort!(collect(source_set); by = last)
     indices=Dict(source=>index for (index, source) in enumerate(sources))
-    encode = component -> begin
-        contributions=component isa Measurements.Measurement ?
-                      [(source = indices[source],
-                           sensitivity = derivative(component, source))
-                       for source in keys(uncertainty_components(component))] :
-                      @NamedTuple{source::Int, sensitivity::typeof(nominal(component))}[]
-        sort!(contributions; by = entry->entry.source)
-        (nominal = nominal(component), uncertainty = uncertainty(component),
-            measured = component isa Measurements.Measurement, contributions)
-    end
+    encode = component -> _sensitivity_record(component, indices)
     points=map(value) do core
         if core isa Engine.CableConstants
             return (kind = :cable_constants, cores = core.cores,
