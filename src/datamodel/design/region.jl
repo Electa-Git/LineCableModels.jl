@@ -36,7 +36,7 @@ end
 # A material for the cable part of `role` in a region, restricted to the `allowed` kinds.
 function validate(material, ::Type{Region}, role::Symbol, allowed::Tuple)
     throw(ArgumentError(
-        "$role material must resolve to AbstractMaterial; got a $(nameof(typeof(material)))"
+        "$role material must resolve to AbstractMaterial; got $(nameof(typeof(material)))"
     ))
 end
 function validate(material::AbstractMaterial, ::Type{Region}, role::Symbol, allowed::Tuple)

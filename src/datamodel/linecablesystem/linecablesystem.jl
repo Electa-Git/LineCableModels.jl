@@ -327,14 +327,14 @@ end
 function _declared_designs(designs)
     throw(ArgumentError(
         "designs must be a CableDesign or a design collection; " *
-        "got a $(nameof(typeof(designs)))"
+        "got $(nameof(typeof(designs)))"
     ))
 end
 _declared_design(design::CableDesign) = design
 function _declared_design(design)
     throw(ArgumentError(
         "designs must contain completed CableDesign objects; " *
-        "got a $(nameof(typeof(design)))"
+        "got $(nameof(typeof(design)))"
     ))
 end
 
@@ -352,7 +352,7 @@ end
 function _declared_poses(placements)
     throw(ArgumentError(
         "placements must be a Pose2, coordinate tuple, or placement collection; " *
-        "got a $(nameof(typeof(placements)))"
+        "got $(nameof(typeof(placements)))"
     ))
 end
 _declared_pose(position::Pose2) = position
@@ -361,7 +361,7 @@ _declared_pose(position::Tuple{Real, Real, Real}) = Pose2(position[1], position[
 function _declared_pose(position)
     throw(ArgumentError(
         "placements must contain Pose2 values or `(x, y[, φ])` tuples; " *
-        "got a $(nameof(typeof(position)))"
+        "got $(nameof(typeof(position)))"
     ))
 end
 
@@ -421,13 +421,13 @@ end
 function _connection_values(declaration, names, cable_index::Int)
     throw(ArgumentError(
         "each connection declaration must be a mapping or integer vector; " *
-        "got a $(nameof(typeof(declaration)))"
+        "got $(nameof(typeof(declaration)))"
     ))
 end
 _connection_assignment(value::Integer) = Int(value)
 function _connection_assignment(value)
     throw(ArgumentError(
-        "connection assignments must be integers; got a $(nameof(typeof(value)))"
+        "connection assignments must be integers; got $(nameof(typeof(value)))"
     ))
 end
 
@@ -496,7 +496,7 @@ end
 
 function validate(record, ::Type{LineCableSystem})
     throw(ArgumentError("each placed cable requires design, pose, and connections; " *
-                        "got a $(nameof(typeof(record)))"))
+                        "got $(nameof(typeof(record)))"))
 end
 
 Commons.input_fields(::Type{<:LineCableSystem}) = (line_length=(name="line length",unit="m"),

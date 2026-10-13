@@ -36,7 +36,7 @@ The input of `functor` holds the reference material, the temperature and the opt
 """
 function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
-    options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = FormulationOptions(options)
     isempty(parameters) ||
         throw(ArgumentError("formula :$ID has no configurable model parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)

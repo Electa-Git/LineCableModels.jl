@@ -147,7 +147,7 @@ function PSCADFormulation(;
         insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
         pipe_impedance, temperature_dependence)
     return parameterize(PSCADFormulation, (inputs...) -> _pscad_formulation(inputs[1:end-1]...,
-        last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
+        FormulationOptions(last(inputs))),
         (selections..., options); combine)
 end
 

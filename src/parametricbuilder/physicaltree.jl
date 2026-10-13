@@ -29,7 +29,7 @@ _assembly_member(member::DataModel.AssemblyMember) = member
 _assembly_member(member::DataModel.AbstractCablePart) = DataModel.AssemblyMember(member)
 function _assembly_member(member)
     throw(ArgumentError(
-        "assembly members must be physical cable parts; got a $(nameof(typeof(member)))"
+        "assembly members must be physical cable parts; got $(nameof(typeof(member)))"
     ))
 end
 
@@ -1059,7 +1059,7 @@ function validate(layers::Bool, ::typeof(rope))
 end
 function validate(layers, ::typeof(rope))
     throw(ArgumentError(
-        "layers must be a nonnegative integer; got a $(nameof(typeof(layers)))"
+        "layers must be a nonnegative integer; got $(nameof(typeof(layers)))"
     ))
 end
 

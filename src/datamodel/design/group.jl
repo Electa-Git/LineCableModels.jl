@@ -167,14 +167,14 @@ end
 function validate(part::Group, ::Group)
     throw(ArgumentError(
         "each bounded strand declaration must own one Region; " *
-        ":$(part.name) owns a $(nameof(typeof(part.item)))"
+        ":$(part.name) owns $(nameof(typeof(part.item)))"
     ))
 end
 
 function validate(part::AbstractCablePart, ::Group)
     throw(ArgumentError(
         "a bounded formation Stack may contain only strand Groups; " *
-        "got a $(nameof(typeof(part)))"
+        "got $(nameof(typeof(part)))"
     ))
 end
 

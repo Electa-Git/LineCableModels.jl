@@ -70,6 +70,8 @@ Owner-specific interpretation and validation occur when the formulation resolves
 the options, not when this record is constructed.
 """
 FormulationOptions(; kwargs...) = FormulationOptions((; kwargs...))
+# A record passes through its own constructor. A record of another kind has no method.
+FormulationOptions(options::FormulationOptions) = options
 
 """
 $(TYPEDEF)
@@ -92,6 +94,8 @@ Construct computation inputs from keywords, or an empty record with no keywords.
 The receiving computation validates the supported keys and values.
 """
 ComputationOptions(; kwargs...) = ComputationOptions((; kwargs...))
+# A record passes through its own constructor. A record of another kind has no method.
+ComputationOptions(options::ComputationOptions) = options
 
 """
 $(TYPEDEF)
@@ -114,6 +118,8 @@ Construct supplemental output from keywords. With no keywords, return an empty
 record indicating that the computation supplied no supplemental output.
 """
 ComputationDetails(; kwargs...) = ComputationDetails((; kwargs...))
+# A record passes through its own constructor. A record of another kind has no method.
+ComputationDetails(details::ComputationDetails) = details
 
 """
 $(TYPEDEF)

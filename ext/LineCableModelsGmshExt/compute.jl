@@ -655,10 +655,10 @@ function compute(
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     modal===nothing || return compute(problem,formulation,
         LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+    isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     return lock(FEM_SESSION_LOCK) do
         _compute_request(problem, formulation; options)

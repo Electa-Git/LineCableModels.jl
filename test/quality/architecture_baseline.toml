@@ -59,7 +59,7 @@
 
 [switches]
 "ext/LineCableModelsDistributionsExt.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"ext/LineCableModelsGmshExt/compute.jl" = { applicable = 0, eval = 0, isa = 17, kind = 0 }
+"ext/LineCableModelsGmshExt/compute.jl" = { applicable = 0, eval = 0, isa = 15, kind = 0 }
 "ext/LineCableModelsGmshExt/geometry.jl" = { applicable = 0, eval = 0, isa = 9, kind = 2 }
 "ext/LineCableModelsGmshExt/getdp.jl" = { applicable = 0, eval = 0, isa = 1, kind = 1 }
 "ext/LineCableModelsGmshExt/mesh.jl" = { applicable = 0, eval = 0, isa = 1, kind = 1 }
@@ -100,9 +100,8 @@
 "src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
 "src/earth/earthmodel.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
-"src/earth/equivalenthomogeneous/formulas/bottommost.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/earth/equivalenthomogeneous/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/earth/frequencydependent/interface.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
+"src/earth/frequencydependent/interface.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/engine/cableconstants.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/engine/earthadmittance/formulas/unified.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
 "src/engine/earthadmittance/interface.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
@@ -140,7 +139,7 @@
 "src/engine/shuntmodel/geometry.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/engine/shuntmodel/interface.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
 "src/engine/textdisplay.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/formulas.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
+"src/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/grid.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/gridspace.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/importexport/cableslibrary.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
@@ -153,16 +152,15 @@
 "src/importexport/uncertainty.jl" = { applicable = 0, eval = 0, isa = 11, kind = 0 }
 "src/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/materials/material.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 2, kind = 1 }
+"src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
 "src/parametricbuilder/macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
-"src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
+"src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
-"src/parametricbuilder/traversal.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/performance.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/plotbuilder/handle.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
-"src/pscad/formulations.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
+"src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
+"src/pscad/formulations.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/pscad/importexport/pscad.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/pscad/remote/configuration.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/pscad/remote/remote.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
@@ -178,7 +176,7 @@
 "src/units/scaling.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/units/units.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/uq/comparisons.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
-"src/uq/formulations.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
+"src/uq/formulations.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
 "src/uq/linearerror.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/uq/montecarlo/compute.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
 "src/uq/observations.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }

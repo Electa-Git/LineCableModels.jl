@@ -73,12 +73,12 @@ validate(formulation::AbstractFormulation, ::Type{Combinatorial}) = formulation
 function validate(value, ::Type{Combinatorial})
     throw(ArgumentError(
         "Combinatorial formulation spaces must contain completed AbstractFormulation " *
-        "values; got a $(nameof(typeof(value)))"
+        "values; got $(nameof(typeof(value)))"
     ))
 end
 
 function Combinatorial(inner; options::Union{NamedTuple,ComputationOptions} = ComputationOptions())
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     return Combinatorial(inner, options)
 end
 

@@ -40,7 +40,7 @@ equivalent = formula(:default; order=:before)
 function formula(identifier::Symbol; order::Symbol = :default,
         parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions(), equivalent_earth = nothing)
-    options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = FormulationOptions(options)
     order in (:default, :before, :after) || throw(ArgumentError(
         "formula order must be :default, :before, or :after"
     ))

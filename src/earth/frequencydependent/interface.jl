@@ -50,7 +50,7 @@ coefficient and the formula's coefficient domains, and normalize its numerical c
 """
 function Formula{ID}(defaults::NamedTuple, parameters::NamedTuple,
         options::Union{NamedTuple, FormulationOptions}) where {ID}
-    options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = FormulationOptions(options)
     unknown = setdiff(keys(parameters), keys(defaults))
     isempty(unknown) || throw(ArgumentError(
         "unknown parameters for earth-property formula :$ID: $(collect(unknown))"))

@@ -37,7 +37,7 @@ function compute(
         formulations::AbstractVector{<:AbstractFormulation};
         options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     isempty(formulations) && throw(ArgumentError(
         "a formulation collection must contain at least one formulation",
     ))
@@ -214,7 +214,7 @@ function compute(
         formulation;
         options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 ) where {Target <: AbstractProblemDefinition}
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     problem = materialize(point)::Target
     return compute(problem, formulation; options)
 end
@@ -223,7 +223,7 @@ function compute(problem::ParametricProblem, formulation::Combinatorial;
         modal=nothing, modal_options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
     modal===nothing || return compute(problem,formulation,
         LineCableModels.ModalAnalysisFormulation(modal);modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+    isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     levels = verbosity(get(problem.options.data, :verbosity, (default=0,)))
     progress = _reports_progress(problem.space, problem.options)
@@ -261,10 +261,10 @@ function compute(
         options::Union{NamedTuple,ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple,ComputationOptions}=ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     modal===nothing || return compute(problem,formulations,
         LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+    isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     return compute(ParametricProblem(problem, options), Combinatorial(formulations))
 end
@@ -273,10 +273,10 @@ function compute(problem::Gridspace{<:AbstractProblemDefinition},
         formulation::AbstractFormulation;
         options::Union{NamedTuple,ComputationOptions}=ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     modal===nothing || return compute(problem,formulation,
         LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+    isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     return compute(ParametricProblem(problem, options), Combinatorial(formulation))
 end
@@ -295,7 +295,7 @@ function compute(
 )
     modal===nothing || return compute(problem,formulations,
         LineCableModels.ModalAnalysisFormulation(modal);modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+    isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     return compute(problem, Combinatorial(formulations))
 end

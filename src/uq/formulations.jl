@@ -45,7 +45,7 @@ function LinearError(
         inner::F;
         options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
 ) where {F <: AbstractFormulation}
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     return LinearError(inner, options)
 end
 
@@ -257,7 +257,7 @@ the same names and are merged into `options` before normalization.
   The concrete payload type retains the sampler type.
 """
 function MonteCarlo(inner::AbstractFormulation; options::Union{NamedTuple,ComputationOptions} = ComputationOptions(), kwargs...)
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     supplied = (; kwargs...)
     duplicates = filter(key -> haskey(options.data, key), keys(supplied))
     isempty(duplicates) || throw(ArgumentError(

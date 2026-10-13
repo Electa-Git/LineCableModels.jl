@@ -325,7 +325,7 @@ function compute(problem::LineParametersProblem, formulation::PSCADFormulation;
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions())
     modal===nothing || return compute(problem,formulation,
         LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+    isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     return first(compute(problem, [formulation]; options))
 end
@@ -334,10 +334,10 @@ function compute(problem::LineParametersProblem, formulations::AbstractVector{<:
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions())
     isempty(formulations) && throw(ArgumentError("PSCAD formulation collections cannot be empty"))
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     modal===nothing || return compute(problem,formulations,
         LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+    isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     execution = computation_options(PSCADFormulation, options)
     _pscad_deterministic(eltype(problem))

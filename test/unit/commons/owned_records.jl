@@ -21,7 +21,7 @@
         @test_throws MethodError Record((1, 2))
         @test_throws MethodError Record(3)
         @test_throws MethodError Record{NamedTuple}(payload)
-        @test_throws MethodError Record(value)
+        @test Record(value) === value
         for Other in (FormulationOptions, ComputationOptions, ComputationDetails)
             Other === Record && continue
             @test_throws MethodError Record(Other(payload))

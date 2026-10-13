@@ -90,12 +90,12 @@ end
     @test untyped.connection_order == typed.connection_order
     @test untyped.geometry == typed.geometry
     # An offending element is named by its type.
-    @test_throws "designs must contain completed CableDesign objects; got a Int64" build(
+    @test_throws "designs must contain completed CableDesign objects; got Int64" build(
         LineCableSystem, Any[design, 1], poses)
-    message = "placements must contain Pose2 values or `(x, y[, φ])` tuples; got a String"
+    message = "placements must contain Pose2 values or `(x, y[, φ])` tuples; got String"
     @test_throws message build(LineCableSystem, [design, design], Any[first(poses), "east"])
     fractional = mapping(1, Any)
     fractional[first(design.terminal_order)] = 1.5
-    @test_throws "connection assignments must be integers; got a Float64" build(
+    @test_throws "connection assignments must be integers; got Float64" build(
         LineCableSystem, design, first(poses); connections = fractional)
 end

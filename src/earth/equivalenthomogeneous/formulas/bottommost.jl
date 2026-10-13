@@ -28,7 +28,7 @@ Delivery*, 35(2), 881–891, 2020.
 description(::Type{<:Formula{:bottommost}}; compact::Bool=false) = compact ? "Bottommost" : "Bottommost earth layer"
 
 function Formula{:bottommost}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
-    options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = FormulationOptions(options)
     isempty(parameters) || throw(ArgumentError("bottommost earth has no configurable model parameters"))
     return Formula{:bottommost, typeof(parameters), typeof(options)}(parameters, options)
 end
