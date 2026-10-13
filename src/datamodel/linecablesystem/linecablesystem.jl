@@ -223,16 +223,7 @@ function build(
     combine in (:product, :zip) || throw(ArgumentError(
         "combine must be :product or :zip"
     ))
-    declared_input = if designs isa CableDesign
-        typeof(designs)[designs]
-    elseif designs isa AbstractVector || designs isa Tuple
-        all(design -> design isa CableDesign, designs) || throw(ArgumentError(
-            "designs must contain completed CableDesign objects"
-        ))
-        collect(designs)
-    else
-        throw(ArgumentError("designs must be a CableDesign or a design collection"))
-    end
+    declared_input = _declared_designs(designs)
 
     # 1. Place every completed design in the system frame. Coordinate tuples
     # are construction shorthand. The stored declaration is always Pose2.
@@ -243,33 +234,7 @@ function build(
         line_length,
         "line length must be positive"
     ))
-    position_values = if placements isa Pose2
-        Pose2[placements]
-    elseif placements isa Tuple && length(placements) in (2, 3) &&
-           all(value -> value isa Real, placements)
-        Pose2[Pose2(
-            placements[1],
-            placements[2],
-            length(placements) == 3 ? placements[3] : 0
-        )]
-    elseif placements isa AbstractVector || placements isa Tuple
-        Pose2[position isa Pose2 ? position :
-              position isa Tuple && length(position) in (2, 3) &&
-              all(value -> value isa Real, position) ?
-              Pose2(
-                  position[1],
-                  position[2],
-                  length(position) == 3 ? position[3] : 0
-              ) :
-              throw(ArgumentError(
-                  "placements must contain Pose2 values or `(x, y[, φ])` tuples"
-              ))
-              for position in placements]
-    else
-        throw(ArgumentError(
-            "placements must be a Pose2, coordinate tuple, or placement collection"
-        ))
-    end
+    position_values = _declared_poses(placements)
     declared_designs = if length(declared_input) == 1 && length(position_values) > 1
         fill(only(declared_input), length(position_values))
     else
@@ -302,52 +267,10 @@ function build(
     end
 
     # 3. Resolve connection definitions independently for every design.
-    declarations = if connections === nothing
-        fill(nothing, length(declared_designs))
-    elseif length(declared_designs) == 1 &&
-           (connections isa AbstractDict || connections isa NamedTuple ||
-            connections isa AbstractVector{<:Integer})
-        Any[connections]
-    elseif connections isa AbstractVector || connections isa Tuple
-        length(connections) == length(declared_designs) || throw(DimensionMismatch(
-            "connection declaration count must match the cable-design count"
-        ))
-        collect(connections)
-    else
-        throw(ArgumentError(
-            "connections must be one declaration per cable design"
-        ))
-    end
+    declarations = _declared_connections(connections, length(declared_designs))
     normalized_connections = Vector{Int}[]
     for (cable_index, (design, declaration)) in enumerate(zip(declared_designs, declarations))
-        names = design.terminal_order
-        values = if declaration === nothing
-            [index == 1 ? cable_index : 0 for index in eachindex(names)]
-        elseif declaration isa AbstractVector{<:Integer}
-            length(declaration) == length(names) || throw(DimensionMismatch(
-                "connection vector for cable $cable_index must match its terminal count"
-            ))
-            Int[declaration...]
-        elseif declaration isa NamedTuple
-            unknown = setdiff(collect(keys(declaration)), names)
-            isempty(unknown) || throw(KeyError(first(unknown)))
-            Int[Int(get(declaration, name, 0)) for name in names]
-        elseif declaration isa AbstractDict
-            normalized = Dict{Symbol, Int}()
-            for (name, value) in declaration
-                key = Symbol(name)
-                key in names || throw(KeyError(key))
-                value isa Integer || throw(ArgumentError(
-                    "connection assignments must be integers"
-                ))
-                normalized[key] = Int(value)
-            end
-            Int[get(normalized, name, 0) for name in names]
-        else
-            throw(ArgumentError(
-                "each connection declaration must be a mapping or integer vector"
-            ))
-        end
+        values = _connection_values(declaration, design.terminal_order, cable_index)
         all(>=(0), values) || throw(DomainError(
             values,
             "connection assignments must contain nonnegative active phase IDs or zero"
@@ -394,6 +317,110 @@ function build(
         terminal_map,
         connection_order
     )
+end
+
+# The designs of a system in placement order: one completed design, or a collection of them.
+_declared_designs(design::CableDesign) = typeof(design)[design]
+function _declared_designs(
+        designs::Union{AbstractVector{<:CableDesign}, Tuple{Vararg{CableDesign}}}
+)
+    return collect(designs)
+end
+function _declared_designs(designs)
+    throw(ArgumentError(
+        "designs must be a CableDesign or a collection of completed CableDesign objects"
+    ))
+end
+
+# The placements of a system are one pose or coordinate tuple `(x, y[, φ])`, or a
+# collection of them. Coordinate tuples are construction shorthand, and the stored
+# declaration is always Pose2.
+function _declared_poses(
+        placement::Union{Pose2, Tuple{Real, Real}, Tuple{Real, Real, Real}}
+)
+    return Pose2[_declared_pose(placement)]
+end
+function _declared_poses(placements::Union{AbstractVector, Tuple})
+    return Pose2[_declared_pose(position) for position in placements]
+end
+function _declared_poses(placements)
+    throw(ArgumentError(
+        "placements must be a Pose2, coordinate tuple, or placement collection"
+    ))
+end
+_declared_pose(position::Pose2) = position
+_declared_pose(position::Tuple{Real, Real}) = Pose2(position[1], position[2], 0)
+_declared_pose(position::Tuple{Real, Real, Real}) = Pose2(position[1], position[2], position[3])
+function _declared_pose(position)
+    throw(ArgumentError(
+        "placements must contain Pose2 values or `(x, y[, φ])` tuples"
+    ))
+end
+
+# Each design has one connection declaration. With one design, the declaration may come
+# alone.
+_declared_connections(::Nothing, count::Int) = fill(nothing, count)
+function _declared_connections(connections::Union{AbstractVector, Tuple}, count::Int)
+    length(connections) == count || throw(DimensionMismatch(
+        "connection declaration count must match the cable-design count"
+    ))
+    return collect(connections)
+end
+function _declared_connections(declaration::AbstractVector{<:Integer}, count::Int)
+    count == 1 && return Any[declaration]
+    length(declaration) == count || throw(DimensionMismatch(
+        "connection declaration count must match the cable-design count"
+    ))
+    return collect(declaration)
+end
+function _declared_connections(declaration::Union{AbstractDict, NamedTuple}, count::Int)
+    count == 1 || throw(ArgumentError(
+        "connections must be one declaration per cable design"
+    ))
+    return Any[declaration]
+end
+function _declared_connections(connections, count::Int)
+    throw(ArgumentError(
+        "connections must be one declaration per cable design"
+    ))
+end
+
+# The active phase ID of each terminal of one design, zero for elimination. Without a
+# declaration, the design's first terminal takes the cable index.
+function _connection_values(::Nothing, names, cable_index::Int)
+    return [index == 1 ? cable_index : 0 for index in eachindex(names)]
+end
+function _connection_values(declaration::AbstractVector{<:Integer}, names, cable_index::Int)
+    length(declaration) == length(names) || throw(DimensionMismatch(
+        "connection vector for cable $cable_index must match its terminal count"
+    ))
+    return Int[declaration...]
+end
+function _connection_values(declaration::NamedTuple, names, cable_index::Int)
+    unknown = setdiff(collect(keys(declaration)), names)
+    isempty(unknown) || throw(KeyError(first(unknown)))
+    return Int[Int(get(declaration, name, 0)) for name in names]
+end
+function _connection_values(
+        declaration::AbstractDict{<:Any, <:Integer},
+        names,
+        cable_index::Int
+)
+    normalized = Dict{Symbol, Int}()
+    for (name, value) in declaration
+        key = Symbol(name)
+        key in names || throw(KeyError(key))
+        normalized[key] = Int(value)
+    end
+    return Int[get(normalized, name, 0) for name in names]
+end
+function _connection_values(::AbstractDict, names, cable_index::Int)
+    throw(ArgumentError("connection assignments must be integers"))
+end
+function _connection_values(declaration, names, cable_index::Int)
+    throw(ArgumentError(
+        "each connection declaration must be a mapping or integer vector"
+    ))
 end
 
 """

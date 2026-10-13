@@ -99,7 +99,6 @@
 "src/datamodel/design/group.jl" = { applicable = 0, eval = 0, isa = 0, kind = 3 }
 "src/datamodel/design/region.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/datamodel/flatten.jl" = { applicable = 0, eval = 0, isa = 16, kind = 4 }
-"src/datamodel/linecablesystem/linecablesystem.jl" = { applicable = 0, eval = 0, isa = 21, kind = 0 }
 "src/datamodel/placement/bounded.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, isa = 3, kind = 0 }
