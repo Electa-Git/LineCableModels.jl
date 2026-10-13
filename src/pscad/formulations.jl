@@ -64,21 +64,52 @@ function _pscad_default(selected::LineCableModels.FormulaDefinition{:default, Or
 end
 function _pscad_default(selected::NamedTuple, default)
     return NamedTuple{keys(selected)}(map(keys(selected)) do name
-        _pscad_default(selected[name], default isa NamedTuple ? get(default, name, selected[name]) : default)
+        _pscad_default(selected[name], default)
+    end)
+end
+# Defaults given by route apply route by route.
+function _pscad_default(selected::NamedTuple, default::NamedTuple)
+    return NamedTuple{keys(selected)}(map(keys(selected)) do name
+        _pscad_default(selected[name], get(default, name, selected[name]))
     end)
 end
 
-function validate(selected::Union{InternalImpedance.Formula, InsulationImpedance.Formula,
-        EarthImpedance.Formula, EarthAdmittance.Formula}, ::Type{<:PSCADFormulation})
-    empty_controls = selected isa InternalImpedance.Formula ?
-        all(isempty, values(selected.options.data)) : isempty(selected.options.data)
-    isempty(selected.parameters) && empty_controls || throw(ArgumentError(
-        "PSCAD equations do not accept analytical parameters or numerical controls"))
-    if selected isa Union{EarthImpedance.Formula, EarthAdmittance.Formula}
-        selected.equivalent_earth === nothing || throw(ArgumentError(
-            "PSCAD equations do not execute equivalent-earth reductions"))
-    end
+# PSCAD runs each equation as published: without analytical parameters, numerical controls
+# or an equivalent-earth reduction. Internal impedance holds its controls by part.
+function validate(selected::InternalImpedance.Formula, ::Type{<:PSCADFormulation})
+    isempty(selected.parameters) && all(isempty, values(selected.options.data)) ||
+        throw(ArgumentError(
+            "PSCAD equations do not accept analytical parameters or numerical controls"))
     return selected
+end
+function validate(selected::InsulationImpedance.Formula, ::Type{<:PSCADFormulation})
+    isempty(selected.parameters) && isempty(selected.options.data) || throw(ArgumentError(
+        "PSCAD equations do not accept analytical parameters or numerical controls"))
+    return selected
+end
+function validate(selected::Union{EarthImpedance.Formula, EarthAdmittance.Formula},
+        ::Type{<:PSCADFormulation})
+    isempty(selected.parameters) && isempty(selected.options.data) || throw(ArgumentError(
+        "PSCAD equations do not accept analytical parameters or numerical controls"))
+    selected.equivalent_earth === nothing || throw(ArgumentError(
+        "PSCAD equations do not execute equivalent-earth reductions"))
+    return selected
+end
+# A selection by route checks each selected equation.
+function validate(selected::NamedTuple, ::Type{<:PSCADFormulation})
+    foreach(leaf -> leaf === nothing || validate(leaf, PSCADFormulation), values(selected))
+    return selected
+end
+# The admittance equations that PSCAD implements. `name` is the formulation field.
+function validate(
+        selected::Union{InsulationAdmittance.Formula{:lossless},
+            InsulationAdmittance.Formula{:lossy}, SemiconAdmittance.Formula{:lossless},
+            SemiconAdmittance.Formula{:lossy}},
+        ::Type{<:PSCADFormulation}, name::Symbol)
+    return selected
+end
+function validate(selected, ::Type{<:PSCADFormulation}, name::Symbol)
+    throw(ArgumentError("PSCAD does not implement $name :$(formula_id(selected))"))
 end
 
 function _pscad_formulation(internal_impedance, insulation_impedance, earth_impedance,
@@ -98,11 +129,8 @@ function _pscad_formulation(internal_impedance, insulation_impedance, earth_impe
         else
             selected = owner(haskey(defaults, name) ?
                 _pscad_default(requested, defaults[name]) : requested)
-            if haskey(defaults, name)
-                for leaf in (selected isa NamedTuple ? values(selected) : (selected,))
-                    leaf === nothing || validate(leaf, PSCADFormulation)
-                end
-            end
+            haskey(defaults, name) && selected !== nothing &&
+                validate(selected, PSCADFormulation)
             selected
         end
     end for (name, owner) in pairs(PSCADFormulation))...)
@@ -249,10 +277,7 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
      relation === LineCableModels.Earth.FrequencyDependent.Formula(:default)) ||
         throw(ArgumentError("PSCAD does not implement the selected frequency-dependent soil relation"))
     for name in (:insulation_admittance, :semicon_admittance)
-        selected = getproperty(formulation.methods, name)
-        selected isa Union{InsulationAdmittance.Formula{:lossless},InsulationAdmittance.Formula{:lossy},
-            SemiconAdmittance.Formula{:lossless},SemiconAdmittance.Formula{:lossy}} || throw(ArgumentError(
-            "PSCAD does not implement $name :$(formula_id(selected))"))
+        validate(getproperty(formulation.methods, name), PSCADFormulation, name)
     end
     input = Engine.lineinput(problem, blueprints)
     pairs = Engine.earth_pairs(first.(input.cable.assemblies), input.horz, input.vert,
