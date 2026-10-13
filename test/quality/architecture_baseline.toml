@@ -154,7 +154,6 @@
 "src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
 "src/performance.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
-"src/plotbuilder/handle.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
 "src/pscad/formulations.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/pscad/importexport/pscad.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }

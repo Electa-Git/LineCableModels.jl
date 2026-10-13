@@ -47,7 +47,7 @@ function UIPlot(
         title = nothing,
         controls = Dict{Symbol, Any}(),
         legend = nothing,
-        panel_legends = Dict{Any, Any}(),
+        panel_legends::AbstractDict = Dict{Any, Any}(),
         colorbars = (),
         status = nothing,
         plot_state = nothing,
@@ -59,9 +59,6 @@ function UIPlot(
         "export_theme must be :default or :publication",
     ))
     isempty(strip(export_name)) && throw(ArgumentError("export_name cannot be empty"))
-    panel_legends isa AbstractDict || throw(ArgumentError(
-        "panel_legends must be a dictionary keyed by logical panel identity",
-    ))
     return UIPlot(
         figure,
         title,
