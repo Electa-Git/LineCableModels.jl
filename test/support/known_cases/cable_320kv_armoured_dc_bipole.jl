@@ -1,0 +1,164 @@
+function known_case_problem(::Val{:cable_320kv_armoured_dc_bipole};
+        frequencies=10.0 .^ range(-1, 7; length=101))
+    library = MaterialsLibrary(add_defaults=true)
+    strand_layers = 6
+    strand_diameter = 0.00366
+    core_lay_ratio = 15.0
+    inner_semicon_thickness = 0.002
+    insulation_thickness = 0.02
+    outer_semicon_thickness = 0.0015
+    water_blocking_thickness = 0.0003
+    lead_sheath_thickness = 0.0033
+    inner_pe_thickness = 0.003
+    bedding_thickness = 0.009376520171274612
+    armor_wires = 68
+    armor_wire_diameter = 0.00582
+    armor_lay_ratio = 15.0
+    jacket_thickness = 0.01
+    core_rho = 2.3853e-8
+    core_mu_r = 1.01663
+    xlpe_rho = 1.0e14
+    xlpe_eps_r = 2.77781
+    xlpe_mu_r = 1.59891
+    lead_rho = 2.14e-7
+    lead_mu_r = 0.999983
+    pe_rho = 1.97e14
+    pe_eps_r = 2.51862
+    pp_rho = 1.0e15
+    pp_eps_r = 2.8
+    pp_mu_r = 1.1263
+    steel_rho = 1.7475e-7
+    steel_mu_r = 36.6326
+    cable_x = (-0.5, 0.5)
+    cable_y = -1.0
+    line_length = 150000.0
+    voltage = 320.0
+    temperature = 70.0
+    earth_rho = 1000.0
+    earth_eps_r = 10.0
+
+    core = Material(
+        :conductor, core_rho, 1.0, core_mu_r, 20.0, 0.00393
+    )
+    semicon_inner = Material(:semicon, 1_000.0, 1_000.0)
+    semicon_outer = Material(:semicon, 500.0, 1_000.0)
+    xlpe = Material(
+        :insulator, xlpe_rho, xlpe_eps_r, xlpe_mu_r
+    )
+    lead = Material(
+        :conductor, lead_rho, 1.0, lead_mu_r, 20.0, 0.004
+    )
+    pe = Material(:insulator, pe_rho, pe_eps_r)
+    pp = Material(
+        :insulator, pp_rho, pp_eps_r, pp_mu_r
+    )
+    steel = Material(
+        :conductor, steel_rho, 1.0, steel_mu_r, 20.0, 0.0045
+    )
+    matrix = Material(
+        kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
+    )
+
+    strand_radius = strand_diameter / 2
+    strand_count = 1 + 3strand_layers * (strand_layers + 1)
+    radius = sqrt(strand_count) * strand_radius
+    packed_core = stranded(
+        core;
+        shape = Disk(strand_radius),
+        lay = LayRatio(core_lay_ratio),
+        compact = true,
+        boundary = Disk(radius),
+        fill = Material(kind = :insulator, rho = Inf)
+    )
+    parts = AbstractCablePart[packed_core]
+    for (tag, layer_thickness, material) in (
+        (:core_semicon_inner, inner_semicon_thickness, semicon_inner),
+        (:core_insulation, insulation_thickness, xlpe),
+        (:core_semicon_outer, outer_semicon_thickness, semicon_outer),
+        (:core_water_blocking, water_blocking_thickness, semicon_outer)
+    )
+        push!(parts,
+            Region(tag, Shell(layer_thickness), material))
+        radius += layer_thickness
+    end
+    lead_outer = radius + lead_sheath_thickness
+    push!(parts,
+        Group(
+            :sheath,
+            Region(
+                :sheath_lead,
+                Annulus(radius, lead_outer),
+                lead
+            )
+        ))
+    radius = lead_outer
+    push!(parts,
+        Region(
+            :sheath_inner_pe,
+            Shell(inner_pe_thickness),
+            pe
+        ))
+    radius += inner_pe_thickness
+
+    armor_wire_radius = armor_wire_diameter / 2
+    push!(parts,
+        Region(
+            :sheath_bedding,
+            Shell(bedding_thickness),
+            pp
+        ))
+    radius += bedding_thickness
+    armor_outer = radius + 2armor_wire_radius
+    armor = Group(
+        :armor,
+        Region(
+            :armor_wires,
+            Disk(armor_wire_radius),
+            steel
+        );
+        pattern = Ring(
+            armor_wires; r = radius + armor_wire_radius
+        ),
+        path = Helix(LayRatio(armor_lay_ratio))
+    )
+    push!(parts,
+        Enclosure(
+            :armor_matrix,
+            armor;
+            primitive = Annulus(radius, armor_outer),
+            fill = matrix
+        ))
+    radius = armor_outer
+    push!(parts,
+        Region(
+            :armor_jacket,
+            Shell(jacket_thickness),
+            pp
+        ))
+
+    design = build(
+        CableDesign,
+        "cable_320kv_armoured",
+        Stack(parts);
+        nominal_data = (
+            designation_code = "cable_320kv_armoured",
+            U0 = voltage,
+            conductor_cross_section = 1_600.0
+        )
+    )
+    earth = homogeneous(
+        rho = earth_rho, eps_r = earth_eps_r, mu_r = 1.0
+    )
+    connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :armor => 3index)
+                   for index in 1:2]
+    system = build(
+        LineCableSystem,
+        fill(design, 2),
+        [Pose2(cable_x[index], cable_y) for index in 1:2];
+        connections,
+        environment = earth,
+        system_id = "cable_320kv_armoured_dc_bipole",
+        line_length = line_length
+    )
+    return LineParametersProblem(system; temperature, earth_props=earth, frequencies)
+end

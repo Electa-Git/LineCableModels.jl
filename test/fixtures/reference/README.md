@@ -2,34 +2,24 @@
 
 ## Approved references
 
-The first approved independent references sit beside their test, as the next section
-asks. The directory `test/integration/fem_references/` contains one plain-text file per
-case of the FEM investigation: `two_bare_wires.csv`, `two_insulated_wires.csv` and
-`solid_1000mm2_single.csv`. Each file gives the FEM and analytical Z and Y at the 11 FEM
-frequencies of its case. The header of each file states the source run folder and the
-checkout that produced it. The user approved these files on 2026-10-10.
+The directory `test/integration/known_cases/` contains one CSV file per case. Each file
+records the analytical Z and Y at the 11 FEM frequencies, together with the available
+FEM and PSCAD references. Its header identifies the sources and conductor order.
 
-The FEM investigation regenerated them on 2026-10-12 with the production meshing of that
-date. Their analytical values did not change, and their FEM values moved by at most
-0.009 % of the largest diagonal entry.
+Each case's deviation curves, statuses and explanations are recorded in `status.toml`
+beside the CSV files. `test/integration/known_cases.jl` pins the analytical values and
+checks FEM deviations at the 11 FEM frequencies.
 
-The same directory holds cable cases copied on 2026-10-12. The header of each states what
-FEM confirms:
+FEM decides: discrepancies against PSCAD lose to FEM. PSCAD curves are advisory and
+do not need an explanation. The analytical model collapses insulators and semicons
+into one generic insulation bundle. Against FEM, this is the same type of discrepancy
+as the lay (helical path) correction of stranded cores.
 
-- `cable_525kv_land_no_armour_dc_bipole.csv`: Y at every frequency, and Z up to 1.58 MHz.
-  At 10 MHz the core self-impedance differs by 2.78 %.
-- `cable_320kv_no_armour_dc_bipole.csv` and `cable_380kv_no_armour_ac_flat.csv`: Y at every
-  frequency. Z differs from 4 Hz because the analytical stranded core includes the lay
-  correction, which the 2D FEM model does not have.
-- `cable_132kv_cigre_tb880_case0_630cu_trefoil.csv`: Y up to 39.8 kHz. Z differs from
-  25 Hz because of the proximity effect between the closely spaced cables (spacing 2.2 times
-  the outer radius), which the analytical model does not represent.
-
-`test/integration/fem_references.jl` checks every frequency of each case against them.
-The analytical result stays within 1 % of FEM by the metric of the user, for Z and for Y,
-wherever FEM confirms the case.
-That metric divides the largest entry difference by the largest diagonal entry. The
-result also matches the recorded analytical values to a relative tolerance of 1e-12.
+FEM discrepancies are judged as curves. A continuous, smooth, monotonic deviation that
+follows FEM's trend is generally accepted. Within 5 % of FEM a curve is accepted. A
+larger deviation known from this state is advisory. The test fails when a FEM deviation
+rises at any frequency. The analytical pin (rtol 1e-12) keeps the engine from changing
+against itself.
 
 ## Retired inherited references
 

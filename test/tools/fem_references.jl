@@ -4,7 +4,7 @@
 # this repository, `LinecableModels-fem-investigation`.
 #
 # Each case transcribes a script of `FEM_CHECKOUT/test/manual/cases/` with the API of this
-# branch, in `fem_reference_problem` of `test/support/scenarios.jl`. It keeps the geometry,
+# branch, in `known_case_problem` of `test/support/scenarios.jl`. It keeps the geometry,
 # materials, placements, connections, earth, temperature and frequencies of the script. The shunt model `:coaxial` of the FEM checkout is
 # `:equivalent` on this branch. The newest run folder of each case,
 # `FEM_CHECKOUT/.linecablemodels/fem/<case>/<run>/`, holds `matrices.csv`. That file lists
@@ -26,10 +26,10 @@ using LineCableModels
 using LinearAlgebra: diag
 using Printf: @sprintf
 
-# `fem_reference_problem` of the test scenarios builds each case, at the 101 frequencies of
+# `known_case_problem` of the test scenarios builds each case, at the 101 frequencies of
 # the case scripts.
 Base.include(@__MODULE__, joinpath(REPOSITORY, "test", "support", "scenarios.jl"))
-using .CurrentScenarios: fem_reference_problem
+using .CurrentScenarios: known_case_problem
 const CASES = (:two_bare_wires, :two_insulated_wires, :solid_1000mm2_single,
     :cable_525kv_land_no_armour_dc_bipole, :cable_320kv_no_armour_dc_bipole,
     :cable_380kv_no_armour_ac_flat, :cable_132kv_cigre_tb880_case0_630cu_trefoil)
@@ -156,7 +156,7 @@ function main(arguments)
     isdir(checkout) || error("FEM checkout not found: $checkout")
     lines = ["# FEM references against this branch", ""]
     started = time()
-    seconds = Dict(case => compare(case, fem_reference_problem(case), checkout, lines) for case in CASES)
+    seconds = Dict(case => compare(case, known_case_problem(case), checkout, lines) for case in CASES)
     total = time() - started
     push!(lines, "## Run times", "", "| Case | Computation [s] |", "| --- | ---: |",
         ["| $case | $(@sprintf("%.1f", seconds[case])) |" for case in CASES]...,

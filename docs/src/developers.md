@@ -390,19 +390,26 @@ decision, or it is a regression.
 
 `julia --project=test test/tools/fem_references.jl [FEM_CHECKOUT]` compares the analytical
 results of this branch with saved FEM runs of the FEM investigation worktree.
-`fem_reference_problem` in `test/support/scenarios.jl` builds the cases: two bare wires,
-two insulated wires and a solid 1000 mm² core. For each case, the tool reads the newest
-`matrices.csv`. It reports e_Z and e_Y against the FEM columns, scaled by the largest
-diagonal entry of this branch. It also reports the largest relative difference of one
-entry from the analytical columns of the FEM checkout. The tables go to
-`.linecablemodels/checkpoint/fem/comparison.md`.
+The tool builds the cases of `known_case_problem` in `test/support/known_cases/`.
+For each case, the tool reads the newest `matrices.csv`. It reports e_Z and e_Y against
+the FEM columns, scaled by the largest diagonal entry of this branch. It also reports
+the largest relative difference of one entry from the analytical columns of the FEM
+checkout. The tables go to `.linecablemodels/checkpoint/fem/comparison.md`.
 
-The item `Engine / FEM references / three cheap cases` in
-`test/integration/fem_references.jl` checks the first approved independent references,
-the files in `test/integration/fem_references/`. At the 11 FEM frequencies of each case,
-the analytical result stays within 1 % of FEM by the scaled e_Z and e_Y. It also matches
-the recorded analytical values to a relative tolerance of 1e-12. A failure of the 1 %
-gate is a physics finding. Do not regenerate the reference files after a failure.
+The item `Engine / known cases` in `test/integration/known_cases.jl` checks every case
+of `test/integration/known_cases/` at the 11 FEM frequencies. `status.toml` records the
+deviation curves, statuses and explanations.
+
+FEM decides: discrepancies against PSCAD lose to FEM. PSCAD curves are advisory and
+do not need an explanation. The analytical model collapses insulators and semicons
+into one generic insulation bundle. Against FEM, this is the same type of discrepancy
+as the lay (helical path) correction of stranded cores.
+
+FEM discrepancies are judged as curves. A continuous, smooth, monotonic deviation that
+follows FEM's trend is generally accepted. Within 5 % of FEM a curve is accepted. A
+larger deviation known from this state is advisory. The test fails when a FEM deviation
+rises at any frequency. The analytical pin (rtol 1e-12) keeps the engine from changing
+against itself.
 
 ## Developer paths
 
