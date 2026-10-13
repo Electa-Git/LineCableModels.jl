@@ -125,8 +125,7 @@ function _trusted_cable_data(decoded)
         record isa Union{DatasheetInfo, NamedTuple} || throw(ArgumentError(
             "datasheet '$cable_id' must be DatasheetInfo or a named tuple"
         ))
-        datasheets[cable_id] =
-            record isa DatasheetInfo ? record : DatasheetInfo(record)
+        datasheets[cable_id] = DatasheetInfo(record)
     end
     return (; designs, datasheets)
 end

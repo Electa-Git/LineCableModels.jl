@@ -61,7 +61,6 @@ function export_data(::Val{:tralin},
     temperature_dependence = formulation.methods.temperature_dependence
 
     #  helpers
-    _freqs(x) = x isa AbstractVector ? collect(x) : [x]
     _fmt(x) = string(round(Float64(nominal(x)); digits = 6))
     _maybe(x) = (x === nothing) ? "" : _fmt(x)
 
@@ -78,7 +77,7 @@ function export_data(::Val{:tralin},
                     joinpath(@__DIR__, dir, prefixed_fname)
     end
 
-    freqs = map(f -> nominal(f), _freqs(freq))
+    freqs = map(f -> nominal(f), vcat(freq))
 
     #  build TRALIN lines
     lines = String[]
@@ -250,10 +249,8 @@ function _block_after_anchor(fileLines::Vector{String}, anchor::AbstractString)
     return fileLines[(start_idx + 1):(stop_idx - 1)]
 end
 
-function _infer_tralin_order(file_or_lines)::Int
-    fileLines = file_or_lines isa AbstractString ? readlines(String(file_or_lines)) :
-                file_or_lines
-
+_infer_tralin_order(path::AbstractString) = _infer_tralin_order(readlines(String(path)))
+function _infer_tralin_order(fileLines)::Int
     block = _block_after_anchor(
         fileLines,
         "CHARACTERISTICS OF ALL CONDUCTORS"
@@ -302,10 +299,10 @@ Read operating frequencies from a TRALIN output section \\[Hz\\].
 
 - Throws `ArgumentError` when the frequency section is absent or empty.
 """
-function _extract_tralin_frequencies(file_or_lines)::Vector{Float64}
-    fileLines = file_or_lines isa AbstractString ? readlines(String(file_or_lines)) :
-                file_or_lines
-
+function _extract_tralin_frequencies(path::AbstractString)
+    return _extract_tralin_frequencies(readlines(String(path)))
+end
+function _extract_tralin_frequencies(fileLines)::Vector{Float64}
     block = _block_after_anchor(
         fileLines,
         "FREQUENCY OF HARMONIC CURRENT:"

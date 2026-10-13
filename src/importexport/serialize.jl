@@ -12,13 +12,15 @@ _scalar_tag(::Type{BigFloat}) = "BigFloat"
 """Encode a supported scalar, collection, Grid, or v1 declaration."""
 function serialize_value(value::AbstractFloat)
     tag = _scalar_tag(typeof(value))
-    encoded_value = value isa BigFloat ? string(value) : value
-    if isfinite(value)
-        return value isa BigFloat ? Dict("__type__"=>tag,"value"=>encoded_value,"precision"=>precision(value)) :
-            Dict("__type__" => tag, "value" => encoded_value)
-    end
+    isfinite(value) && return Dict("__type__" => tag, "value" => value)
     special = isnan(value) ? "NaN" : signbit(value) ? "-Inf" : "Inf"
     return Dict("__type__" => tag, "special" => special)
+end
+# A finite BigFloat is encoded as text with its precision.
+function serialize_value(value::BigFloat)
+    isfinite(value) || return Dict("__type__" => "BigFloat",
+        "special" => isnan(value) ? "NaN" : signbit(value) ? "-Inf" : "Inf")
+    return Dict("__type__" => "BigFloat", "value" => string(value), "precision" => precision(value))
 end
 
 serialize_value(value::Integer) = value
@@ -63,7 +65,9 @@ function _material_record(value::Material)
     )
 end
 
-function serialize_value(value::AbstractMaterial)
+# With `material_name`, a material is encoded by its library name.
+function serialize_value(value::AbstractMaterial; material_name = nothing)
+    material_name === nothing || return String(material_name(value))
     Dict(
         "type" => "material",
         "value" => _material_record(value)
@@ -118,8 +122,7 @@ function serialize_value(value::Helix)
 end
 
 function serialize_value(value::Region; material_name = nothing)
-    material = material_name === nothing ? serialize_value(value.material) :
-               String(material_name(value.material))
+    material = serialize_value(value.material; material_name)
     return Dict(
         "kind" => "region",
         "tag" => String(value.tag),
@@ -174,10 +177,7 @@ function serialize_value(
     )
 end
 function serialize_value(value::Enclosure; material_name = nothing)
-    fill = value.fill isa Material ?
-           (material_name === nothing ? serialize_value(value.fill) :
-            String(material_name(value.fill))) :
-           serialize_value(value.fill; material_name)
+    fill = serialize_value(value.fill; material_name)
     wall = value.wall === nothing ? nothing : serialize_value(value.wall; material_name)
     return Dict(
         "kind" => "enclosure",
@@ -241,7 +241,10 @@ function serialize_value(grid::AbsoluteGrid)
 end
 
 function _collect_materials!(materials::Vector{AbstractMaterial}, part::Region)
-    any(item -> isequal(item, part.material), materials) || push!(materials, part.material)
+    return _collect_materials!(materials, part.material)
+end
+function _collect_materials!(materials::Vector{AbstractMaterial}, material::AbstractMaterial)
+    any(item -> isequal(item, material), materials) || push!(materials, material)
     return materials
 end
 function _collect_materials!(materials::Vector{AbstractMaterial}, part::Stack)
@@ -266,8 +269,6 @@ function _collect_materials!(
 end
 function _collect_materials!(materials::Vector{AbstractMaterial}, part::Enclosure)
     _collect_materials!(materials, part.item)
-    part.fill isa Material ?
-    (any(item -> isequal(item, part.fill), materials) || push!(materials, part.fill)) :
     _collect_materials!(materials, part.fill)
     part.wall === nothing || _collect_materials!(materials, part.wall)
     return materials

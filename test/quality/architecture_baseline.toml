@@ -135,14 +135,12 @@
 "src/engine/shuntmodel/interface.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
 "src/engine/textdisplay.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
-"src/importexport/cableslibrary.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
+"src/importexport/cableslibrary.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/importexport/deserialize.jl" = { applicable = 1, eval = 0, isa = 21, kind = 0 }
 "src/importexport/materialslibrary.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/importexport/observed.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/importexport/problem.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/importexport/serialize.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
-"src/importexport/tralin.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
-"src/importexport/uncertainty.jl" = { applicable = 0, eval = 0, isa = 11, kind = 0 }
+"src/importexport/uncertainty.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
 "src/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/materials/material.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }

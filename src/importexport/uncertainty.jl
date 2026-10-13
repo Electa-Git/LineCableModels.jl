@@ -162,8 +162,7 @@ empirical products, source identities and details under the scientific result co
 function serialize_value(value::Union{UQ.MonteCarloResult,UQ.LinearErrorResult},
         points::AbstractVector, sources)
     record=NamedTuple(value)
-    formulation=record.formulation isa NamedTuple ? record.formulation :
-                NamedTuple(record.formulation)
+    formulation=NamedTuple(record.formulation)
     retained = record.details.data
     portable_details = if isempty(retained)
         retained
@@ -175,8 +174,7 @@ function serialize_value(value::Union{UQ.MonteCarloResult,UQ.LinearErrorResult},
         retained
     end
     return Dict(
-        "__type__"=>value isa UQ.MonteCarloResult ? "MonteCarloResult" :
-                    "LinearErrorResult",
+        "__type__"=>string(nameof(typeof(value))),
         "version"=>2, "formulation"=>serialize_value(formulation, Val(:scientific)),
         "points"=>points, "sources"=>serialize_value(sources,Val(:scientific)), "details"=>serialize_value(
             portable_details, Val(:scientific)),
