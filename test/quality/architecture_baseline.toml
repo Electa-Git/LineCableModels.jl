@@ -157,7 +157,7 @@
 "src/parametricbuilder/comparisons.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
 "src/parametricbuilder/macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
-"src/parametricbuilder/physicaltree.jl" = { applicable = 0, eval = 0, isa = 31, kind = 0 }
+"src/parametricbuilder/physicaltree.jl" = { applicable = 0, eval = 0, isa = 14, kind = 0 }
 "src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 3, kind = 0 }
 "src/parametricbuilder/traversal.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
@@ -353,7 +353,7 @@
 "src/importexport/deserialize.jl" = 1
 "src/importexport/observed.jl" = 1
 "src/parametricbuilder/macros.jl" = 3
-"src/parametricbuilder/physicaltree.jl" = 4
+"src/parametricbuilder/physicaltree.jl" = 3
 "src/parametricbuilder/wirepatterns/gauges.jl" = 1
 "src/pscad/compute.jl" = 1
 "src/pscad/importexport/import.jl" = 2

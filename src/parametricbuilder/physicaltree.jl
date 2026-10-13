@@ -458,10 +458,144 @@ function _stranding_paths(lay, dir, φ0)
     return _path(lay, dir, φ0)
 end
 
+# In a sector core, the sector outline compacts the Disk wires around a center strand that
+# `shape` gives.
 function _stranded(
         material,
         center,
-        shape,
+        shape::DataModel.Disk,
+        lay,
+        dir,
+        φ0,
+        compact,
+        prescribed_boundary::DataModel.Sector,
+        fill
+)
+    material = validate(material, DataModel.Region, :stranded, (:conductor,))
+    fill = validate(fill, DataModel.Region, :stranded_fill, (:insulator, :semicon))
+    center === nothing || throw(ArgumentError(
+        "a sector bundle infers its center strand from shape; omit center"
+    ))
+    compact === nothing || throw(ArgumentError(
+        "sector stranded cores are intrinsically compacted; omit compact"
+    ))
+    bounded = _stranded_core(
+        material, nothing, shape, _stranding_paths(lay, dir, φ0), nothing,
+        prescribed_boundary)
+    return DataModel.Enclosure(
+        :stranded, DataModel.Pose2(0, 0, 0), prescribed_boundary, bounded, fill, nothing)
+end
+
+# In a circular core, Disk wires surround one circular center wire, which defaults to
+# `shape`. Only `compact = true` deforms the wires.
+function _stranded(
+        material,
+        center::Union{Nothing, DataModel.Disk},
+        shape::DataModel.Disk,
+        lay,
+        dir,
+        φ0,
+        compact::Union{Nothing, Bool},
+        prescribed_boundary::DataModel.Disk,
+        fill
+)
+    material = validate(material, DataModel.Region, :stranded, (:conductor,))
+    fill = validate(fill, DataModel.Region, :stranded_fill, (:insulator, :semicon))
+    center === nothing && (center = shape)
+    compaction = compact === nothing ? false : compact
+    bounded = _stranded_core(
+        material, center, shape, _stranding_paths(lay, dir, φ0), compaction,
+        prescribed_boundary)
+    return DataModel.Enclosure(
+        :stranded, DataModel.Pose2(0, 0, 0), prescribed_boundary, bounded, fill, nothing)
+end
+
+# In a rectangular core, bent courses of a Rectangle strand surround a Disk center wire. The
+# bounded Group is the part, because its contiguous courses fill their whole disk.
+function _stranded(
+        material,
+        center::DataModel.Disk,
+        shape::DataModel.Rectangle,
+        lay,
+        dir,
+        φ0,
+        compact,
+        prescribed_boundary::DataModel.Disk,
+        fill
+)
+    material = validate(material, DataModel.Region, :stranded, (:conductor,))
+    fill = validate(fill, DataModel.Region, :stranded_fill, (:insulator, :semicon))
+    compact === nothing || throw(ArgumentError(
+        "rectangular strands are intrinsically bent; omit compact"
+    ))
+    return _stranded_core(
+        material, center, shape, _stranding_paths(lay, dir, φ0), true, prescribed_boundary)
+end
+
+function _stranded(
+        material,
+        center::Union{Nothing, DataModel.Disk},
+        shape::DataModel.Disk,
+        lay,
+        dir,
+        φ0,
+        compact,
+        prescribed_boundary::DataModel.Disk,
+        fill
+)
+    throw(ArgumentError(
+        "circular stranded compaction is selected with compact=true or false"
+    ))
+end
+
+function _stranded(
+        material,
+        center,
+        shape::DataModel.Disk,
+        lay,
+        dir,
+        φ0,
+        compact,
+        prescribed_boundary::DataModel.Disk,
+        fill
+)
+    throw(ArgumentError(
+        "a disk-bounded stranded core requires one circular center wire"
+    ))
+end
+
+function _stranded(
+        material,
+        center,
+        shape::DataModel.Rectangle,
+        lay,
+        dir,
+        φ0,
+        compact,
+        prescribed_boundary::DataModel.Disk,
+        fill
+)
+    throw(ArgumentError("a rectangular stranded core requires center=Disk(...)"))
+end
+
+function _stranded(
+        material,
+        center,
+        shape::DataModel.Rectangle,
+        lay,
+        dir,
+        φ0,
+        compact,
+        prescribed_boundary::DataModel.Sector,
+        fill
+)
+    throw(ArgumentError("a sector stranded core requires circular Disk wires"))
+end
+
+function _stranded(
+        material,
+        center,
+        shape::Union{DataModel.Disk, DataModel.Rectangle},
         lay,
         dir,
         φ0,
@@ -469,48 +603,16 @@ function _stranded(
         prescribed_boundary,
         fill
 )
-    material = validate(material, DataModel.Region, :stranded, (:conductor,))
-    fill = validate(fill, DataModel.Region, :stranded_fill, (:insulator, :semicon))
-    prescribed_boundary isa Union{DataModel.Disk, DataModel.Sector} ||
-        throw(ArgumentError(
-            "stranded requires a nonhollow Disk or Sector boundary"
-        ))
-    shape isa Union{DataModel.Disk, DataModel.Rectangle} || throw(ArgumentError(
-        "stranded members must be Disk wires or Rectangle strands"
-    ))
-    if prescribed_boundary isa DataModel.Sector
-        shape isa DataModel.Disk || throw(ArgumentError(
-            "a sector stranded core requires circular Disk wires"
-        ))
-        center === nothing || throw(ArgumentError(
-            "a sector bundle infers its center strand from shape; omit center"
-        ))
-        compact === nothing || throw(ArgumentError(
-            "sector stranded cores are intrinsically compacted; omit compact"
-        ))
-        compaction = nothing
-    else
-        if shape isa DataModel.Disk
-            center === nothing && (center = shape)
-            compaction = compact === nothing ? false : compact
-            compaction isa Bool || throw(ArgumentError(
-                "circular stranded compaction is selected with compact=true or false"
-            ))
-        else
-            center isa DataModel.Disk || throw(ArgumentError(
-                "a rectangular stranded core requires center=Disk(...)"
-            ))
-            compact === nothing || throw(ArgumentError(
-                "rectangular strands are intrinsically bent; omit compact"
-            ))
-            compaction = true
-        end
-        center isa DataModel.Disk || throw(ArgumentError(
-            "a disk-bounded stranded core requires one circular center wire"
-        ))
-    end
+    throw(ArgumentError("stranded requires a nonhollow Disk or Sector boundary"))
+end
 
-    paths = _stranding_paths(lay, dir, φ0)
+function _stranded(material, center, shape, lay, dir, φ0, compact, prescribed_boundary, fill)
+    throw(ArgumentError("stranded members must be Disk wires or Rectangle strands"))
+end
+
+# The bounded Group of a stranded core contains one Stack: the optional center strand,
+# then the course wires with their paths.
+function _stranded_core(material, center, shape, paths, compaction, prescribed_boundary)
     parts = DataModel.AbstractCablePart[]
     center === nothing || push!(parts,
         DataModel.Group(
@@ -530,7 +632,7 @@ function _stranded(
             paths,
             nothing
         ))
-    bounded = DataModel.Group(
+    return DataModel.Group(
         :core,
         DataModel.Pose2(0, 0, 0),
         DataModel.Stack(parts),
@@ -538,15 +640,6 @@ function _stranded(
         nothing,
         compaction,
         prescribed_boundary
-    )
-    shape isa DataModel.Rectangle && return bounded
-    return DataModel.Enclosure(
-        :stranded,
-        DataModel.Pose2(0, 0, 0),
-        prescribed_boundary,
-        bounded,
-        fill,
-        nothing
     )
 end
 
@@ -678,22 +771,16 @@ end
 
 function _milliken(
         material,
-        shape,
-        segment,
-        segments,
+        shape::DataModel.Disk,
+        segment::DataModel.Sector,
+        segments::Integer,
         lay,
         dir,
         φ0,
         fill
 )
     material = validate(material, DataModel.Region, :milliken, (:conductor,))
-    shape isa DataModel.Disk || throw(ArgumentError(
-        "milliken segment strands must be circular Disk wires"
-    ))
-    segment isa DataModel.Sector || throw(ArgumentError(
-        "milliken segment must be one Sector boundary"
-    ))
-    segments isa Integer && !(segments isa Bool) && segments >= 2 ||
+    segments >= 2 ||
         throw(ArgumentError("milliken segments must be an integer of at least two"))
     pitch = 2pi / segments
     isapprox(segment.span, pitch) || throw(DomainError(
@@ -771,6 +858,27 @@ function _milliken(
     )
 end
 
+function _milliken(
+        material,
+        shape::DataModel.Disk,
+        segment::DataModel.Sector,
+        segments,
+        lay,
+        dir,
+        φ0,
+        fill
+)
+    throw(ArgumentError("milliken segments must be an integer of at least two"))
+end
+
+function _milliken(material, shape::DataModel.Disk, segment, segments, lay, dir, φ0, fill)
+    throw(ArgumentError("milliken segment must be one Sector boundary"))
+end
+
+function _milliken(material, shape, segment, segments, lay, dir, φ0, fill)
+    throw(ArgumentError("milliken segment strands must be circular Disk wires"))
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -820,8 +928,12 @@ function milliken(
     return parameterize(DataModel.Enclosure, _milliken, values; combine)
 end
 
+function _rope(item, course_count, counts, lays, directions, angles, compactions, gaps)
+    throw(ArgumentError("rope item must be a physical cable part"))
+end
+
 function _rope(
-        item,
+        item::DataModel.AbstractCablePart,
         course_count,
         counts,
         lays,
@@ -830,9 +942,6 @@ function _rope(
         compactions,
         gaps
 )
-    item isa DataModel.AbstractCablePart || throw(ArgumentError(
-        "rope item must be a physical cable part"
-    ))
     central = DataModel.Group(
         :rope, DataModel.Pose2(0, 0, 0), item, nothing, nothing, nothing
     )
@@ -898,11 +1007,7 @@ function rope(
             resolved_item, resolved_layers, resolved_n, resolved_lay,
             resolved_dir, resolved_φ0, resolved_compact, resolved_gap
     )
-        resolved_layers isa Integer && !(resolved_layers isa Bool) &&
-        resolved_layers >= 0 || throw(ArgumentError(
-            "layers must be a nonnegative integer"
-        ))
-        count = Int(resolved_layers)
+        count = Int(validate(resolved_layers, rope))
         return _rope(
             resolved_item,
             count,
@@ -916,6 +1021,20 @@ function rope(
     end
     values = (item, layers, n, lay, dir, φ0, compact, gap_frac)
     return parameterize(DataModel.Stack, caller, values; combine)
+end
+
+# The course count of a rope: a nonnegative integer. A Bool is not a count.
+function validate(layers::Integer, ::typeof(rope))
+    layers >= 0 || throw(ArgumentError("layers must be a nonnegative integer; got $layers"))
+    return layers
+end
+function validate(layers::Bool, ::typeof(rope))
+    throw(ArgumentError("layers must be a nonnegative integer; got $layers"))
+end
+function validate(layers, ::typeof(rope))
+    throw(ArgumentError(
+        "layers must be a nonnegative integer; got a $(nameof(typeof(layers)))"
+    ))
 end
 
 """
@@ -985,9 +1104,10 @@ function armor(
 end
 
 function _tape(material, section, n, lay, gap, compact, tag)
-    section isa DataModel.Rectangle || throw(ArgumentError(
-        "tape section must be a Rectangle(width, thickness)"
-    ))
+    throw(ArgumentError("tape section must be a Rectangle(width, thickness)"))
+end
+
+function _tape(material, section::DataModel.Rectangle, n, lay, gap, compact, tag)
     source = DataModel.Region(tag, section, material)
     return DataModel.Group(
         :tapes,
