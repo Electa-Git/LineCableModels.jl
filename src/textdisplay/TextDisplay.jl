@@ -223,6 +223,11 @@ _tree_children(node::NamedTuple) = get(node, :children, ())
 _tree_children(node) = ()
 _tree_noun(node::NamedTuple) = String(get(node, :noun, "items"))
 _tree_noun(node) = "items"
+_tree_label(node::NamedTuple) = String(node.label)
+_tree_label(node) = string(node)
+# A plain child of the tree root is labeled by its text and named by the tree's noun.
+_tree_entry(entry::NamedTuple, noun) = entry
+_tree_entry(entry, noun) = (label = string(entry), noun = noun)
 
 function _write_tree_line(io::IO, prefix, connector, label)
     available = max(_display_width(io) - textwidth(prefix) - 3, 1)
@@ -246,7 +251,7 @@ function _write_tree_children!(io::IO, nodes, prefix, level, state)
         children = collect(_tree_children(node))
         has_following = index < visible_count || omitted_by_count > 0
         connector = has_following ? "├─ " : "└─ "
-        label = node isa NamedTuple ? String(node.label) : string(node)
+        label = _tree_label(node)
         _write_tree_line(io, prefix, connector, label)
         state.remaining[] -= 1
 
@@ -300,9 +305,7 @@ function tree(
     get(io, :compact, false) && return nothing
     entries = collect(children)
     isempty(entries) && return nothing
-    normalized = map(entries) do entry
-        entry isa NamedTuple ? entry : (label = string(entry), noun = noun)
-    end
+    normalized = map(entry -> _tree_entry(entry, noun), entries)
     state = _tree_state(io)
     _write_tree_children!(io, normalized, "", 1, state)
     isempty(state.truncation[]) || _write_tree_line(
