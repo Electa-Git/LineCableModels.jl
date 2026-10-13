@@ -146,7 +146,7 @@ function serialize_value(value::Group; material_name = nothing)
     )
 end
 function serialize_value(
-        value::Assembly{<:Any, <:AbstractCablePart};
+        value::Assembly{<:Pose2, <:AbstractCablePart};
         material_name = nothing
 )
     names = value.names === nothing ? nothing : String.(value.names)
@@ -160,7 +160,10 @@ function serialize_value(
         "names" => names
     )
 end
-function serialize_value(value::Assembly{<:Any, <:Tuple}; material_name = nothing)
+function serialize_value(
+        value::Assembly{<:Pose2, <:Tuple{Vararg{DataModel.AssemblyMember}}};
+        material_name = nothing
+)
     return Dict(
         "kind" => "assembly",
         "at" => serialize_value(value.at),
@@ -250,13 +253,13 @@ function _collect_materials!(materials::Vector{AbstractMaterial}, part::Group)
 end
 function _collect_materials!(
         materials::Vector{AbstractMaterial},
-        part::Assembly{<:Any, <:AbstractCablePart}
+        part::Assembly{<:Pose2, <:AbstractCablePart}
 )
     return _collect_materials!(materials, part.item)
 end
 function _collect_materials!(
         materials::Vector{AbstractMaterial},
-        part::Assembly{<:Any, <:Tuple}
+        part::Assembly{<:Pose2, <:Tuple{Vararg{DataModel.AssemblyMember}}}
 )
     foreach(member -> _collect_materials!(materials, member.item), part.item)
     return materials

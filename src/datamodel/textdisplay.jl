@@ -242,17 +242,20 @@ function _part_label(group::Group)
     return "Group :$(group.name) · $(join(attributes, " · "))"
 end
 
+function _part_label(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
+    attributes = String[]
+    !_identity_pose(assembly.at) && push!(attributes, _compact_text(assembly.at))
+    count = length(assembly.item)
+    push!(attributes, "$count explicit $(count == 1 ? "member" : "members")")
+    return "Assembly · $(join(attributes, " · "))"
+end
+
 function _part_label(assembly::Assembly)
     attributes = String[]
     !_identity_pose(assembly.at) && push!(attributes, _compact_text(assembly.at))
-    if assembly.item isa Tuple
-        count = length(assembly.item)
-        push!(attributes, "$count explicit $(count == 1 ? "member" : "members")")
-    else
-        push!(attributes, _compact_text(assembly.pattern))
-        assembly.path === nothing || push!(attributes, _compact_text(assembly.path))
-        assembly.compact === nothing || push!(attributes, _compact_text(assembly.compact))
-    end
+    push!(attributes, _compact_text(assembly.pattern))
+    assembly.path === nothing || push!(attributes, _compact_text(assembly.path))
+    assembly.compact === nothing || push!(attributes, _compact_text(assembly.compact))
     return "Assembly · $(join(attributes, " · "))"
 end
 
@@ -265,21 +268,19 @@ end
 _part_children(::Region) = ()
 _part_children(stack::Stack) = Tuple(_part_node(item) for item in stack.items)
 _part_children(group::Group) = (_part_node(group.item),)
-function _part_children(assembly::Assembly)
-    if assembly.item isa Tuple
-        return Tuple((
-                         label = _identity_pose(member.at) ? _part_label(member.item) :
-                                 string(_part_label(member.item), " · ", _compact_text(member.at)),
-                         children = _part_children(member.item),
-                         noun = "parts"
-                     ) for member in assembly.item)
-    end
-    return (_part_node(assembly.item),)
+function _part_children(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
+    return Tuple((
+                     label = _identity_pose(member.at) ? _part_label(member.item) :
+                             string(_part_label(member.item), " · ", _compact_text(member.at)),
+                     children = _part_children(member.item),
+                     noun = "parts"
+                 ) for member in assembly.item)
 end
+_part_children(assembly::Assembly) = (_part_node(assembly.item),)
+# An Enclosure fill is a Material or a Region.
+_part_label(material::Material) = "Material · $(material.kind)"
 function _part_children(enclosure::Enclosure)
-    fill = enclosure.fill isa Material ?
-           "fill · Material · $(enclosure.fill.kind)" :
-           string("fill · ", _part_label(enclosure.fill))
+    fill = string("fill · ", _part_label(enclosure.fill))
     children = Any[_part_node(enclosure.item), (
         label = fill, noun = "parts")]
     enclosure.wall === nothing || push!(children,
@@ -341,19 +342,17 @@ function Base.show(io::IO, ::MIME"text/plain", group::Group)
 end
 
 TextDisplay.name(::Type{<:Assembly}) = "Assembly"
-function Base.summary(io::IO, assembly::Assembly)
-    assembly.item isa Tuple ?
-    print(io, "Assembly with $(length(assembly.item)) members") :
-    print(io, "Assembly")
+function Base.summary(io::IO, assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
+    print(io, "Assembly with $(length(assembly.item)) members")
+end
+Base.summary(io::IO, ::Assembly) = print(io, "Assembly")
+function Base.show(io::IO, assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
+    print(io, "Assembly($(length(assembly.item)) members)")
 end
 function Base.show(io::IO, assembly::Assembly)
-    if assembly.item isa Tuple
-        print(io, "Assembly($(length(assembly.item)) members)")
-    else
-        print(io, "Assembly(")
-        show(IOContext(io, :compact => true), assembly.pattern)
-        print(io, ")")
-    end
+    print(io, "Assembly(")
+    show(IOContext(io, :compact => true), assembly.pattern)
+    print(io, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", assembly::Assembly)
     get(io, :compact, false) && return show(io, assembly)

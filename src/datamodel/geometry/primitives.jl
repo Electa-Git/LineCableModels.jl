@@ -169,7 +169,7 @@ Store one exact outer shape with exact material-free holes removed from it.
 struct DifferenceShape{
     T <: Real,
     O <: AbstractShape,
-    H <: Tuple,
+    H <: Tuple{Vararg{AbstractShape}},
     P <: Pose2{T}
 } <: AbstractShape{T}
     outer::O
@@ -179,10 +179,7 @@ struct DifferenceShape{
     function DifferenceShape(
             outer::O,
             holes::H
-    ) where {O <: AbstractShape, H <: Tuple}
-        all(hole -> hole isa AbstractShape, holes) || throw(ArgumentError(
-            "difference holes must be exact resolved shapes"
-        ))
+    ) where {O <: AbstractShape, H <: Tuple{Vararg{AbstractShape}}}
         T = promote_type(eltype(outer), map(eltype, holes)...)
         at = convert(Pose2{T}, outer.at)
         return new{T, O, H, typeof(at)}(outer, holes, at)

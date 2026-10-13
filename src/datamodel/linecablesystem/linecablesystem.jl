@@ -15,7 +15,7 @@ struct LineCableSystem{
     T <: Real,
     D <: AbstractVector,
     P <: AbstractVector{<:Pose2{T}},
-    C <: AbstractVector,
+    C <: AbstractVector{<:AbstractVector{<:Integer}},
     E,
     G <: AbstractVector
 }
@@ -57,7 +57,7 @@ struct LineCableSystem{
             T <: Real,
             D <: AbstractVector,
             P <: AbstractVector{<:Pose2{T}},
-            C <: AbstractVector,
+            C <: AbstractVector{<:AbstractVector{<:Integer}},
             E,
             G <: AbstractVector
     }
@@ -158,10 +158,6 @@ function validate(system::LineCableSystem)
             "LineCableSystem.positions[$cable_index] must contain finite coordinates"
         ))
         connection = system.connections[cable_index]
-        connection isa AbstractVector{<:Integer} || throw(ArgumentError(
-            "LineCableSystem.connections[$cable_index] must be an integer vector; " *
-            "received $(typeof(connection))"
-        ))
         length(connection) == length(design.terminal_order) ||
             throw(DimensionMismatch(
                 "LineCableSystem.connections[$cable_index] must contain " *

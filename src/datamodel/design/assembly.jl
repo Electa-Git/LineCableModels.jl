@@ -13,15 +13,12 @@ The member geometric boundaries remain exact. An assembly of sector
 cores is not replaced by a circular envelope. Consumers that require one
 containing domain must request an explicit `Enclosure`.
 """
-struct AssemblyShape{T <: Real, S <: Tuple} <: AbstractShape{T}
+struct AssemblyShape{T <: Real, S <: Tuple{Vararg{AbstractShape}}} <: AbstractShape{T}
     members::S
 
-    function AssemblyShape(members::S) where {S <: Tuple}
+    function AssemblyShape(members::S) where {S <: Tuple{Vararg{AbstractShape}}}
         isempty(members) && throw(ArgumentError(
             "an assembly boundary requires at least one member"
-        ))
-        all(member -> member isa AbstractShape, members) || throw(ArgumentError(
-            "assembly boundary members must be resolved shapes"
         ))
         T = promote_type(map(eltype, members)...)
         return new{T, S}(members)
@@ -68,7 +65,14 @@ the same terminal-preserving operation.
 
 $(TYPEDFIELDS)
 """
-struct Assembly{A, E, P, H, C, N} <: AbstractCablePart
+struct Assembly{
+    A <: Pose2,
+    E <: Union{AbstractCablePart, Tuple{Vararg{AssemblyMember}}},
+    P,
+    H,
+    C,
+    N <: Union{Nothing, AbstractVector{Symbol}, Tuple{Vararg{Symbol}}}
+} <: AbstractCablePart
     "Pose relative to the containing frame."
     at::A
     "Repeated prototype or tuple of explicit members."
@@ -89,36 +93,41 @@ struct Assembly{A, E, P, H, C, N} <: AbstractCablePart
             path::H,
             compact::C,
             names::N
-    ) where {A, E, P, H, C, N}
-        at isa Pose2 || throw(ArgumentError("assembly pose must resolve to Pose2"))
-        repeated = item isa AbstractCablePart
-        explicit = item isa Tuple && !isempty(item) &&
-                   all(member -> member isa AssemblyMember, item)
-        repeated || explicit ||
-            throw(ArgumentError(
-                "assembly item must be one prototype or explicit placed members"
-            ))
-        if repeated
-            pattern === nothing && throw(ArgumentError(
-                "a repeated assembly requires a placement pattern"
-            ))
-            names isa Union{Nothing, AbstractVector{Symbol}, Tuple{Vararg{Symbol}}} ||
-                throw(ArgumentError(
-                    "assembly names must be exact symbols or nothing"
-                ))
-            names === nothing ||
-                all(name -> name !== Symbol(""), names) ||
-                throw(ArgumentError(
-                    "assembly names cannot be empty"
-                ))
-        else
-            pattern === nothing && path === nothing && compact === nothing &&
-            names === nothing || throw(ArgumentError(
-                "explicit assembly members own their poses and terminal identities"
-            ))
-        end
-        return new{A, E, P, H, C, N}(at, item, pattern, path, compact, names)
+    ) where {
+            A <: Pose2,
+            E <: Union{AbstractCablePart, Tuple{Vararg{AssemblyMember}}},
+            P,
+            H,
+            C,
+            N <: Union{Nothing, AbstractVector{Symbol}, Tuple{Vararg{Symbol}}}
+    }
+        return validate(new{A, E, P, H, C, N}(at, item, pattern, path, compact, names))
     end
+end
+
+# A repeated assembly places one prototype by its pattern, under exact names.
+function validate(assembly::Assembly{<:Pose2, <:AbstractCablePart})
+    assembly.pattern === nothing && throw(ArgumentError(
+        "a repeated assembly requires a placement pattern"
+    ))
+    assembly.names === nothing ||
+        all(name -> name !== Symbol(""), assembly.names) ||
+        throw(ArgumentError(
+            "assembly names cannot be empty"
+        ))
+    return assembly
+end
+
+# Explicit members own their poses and terminal identities.
+function validate(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
+    isempty(assembly.item) && throw(ArgumentError(
+        "assembly item must be one prototype or explicit placed members"
+    ))
+    assembly.pattern === nothing && assembly.path === nothing &&
+    assembly.compact === nothing && assembly.names === nothing || throw(ArgumentError(
+        "explicit assembly members own their poses and terminal identities"
+    ))
+    return assembly
 end
 
 """
@@ -251,14 +260,14 @@ end
 
 function resolve(
         ::EmptyBoundary,
-        assembly::Assembly{<:Any, <:AbstractCablePart}
+        assembly::Assembly{<:Pose2, <:AbstractCablePart}
 )
     _resolve_repeated(assembly)
 end
 
 resolve(
     ::EmptyBoundary,
-    assembly::Assembly{<:Any, <:Tuple}
+    assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}}
 ) = _resolve_explicit(assembly)
 
 function resolve(::AbstractShape, ::Assembly)

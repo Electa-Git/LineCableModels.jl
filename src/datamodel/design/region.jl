@@ -76,8 +76,10 @@ $(TYPEDFIELDS)
 struct PlacedRegion{
     R <: Region,
     S <: AbstractShape,
-    P <: NamedTuple,
-    H <: Tuple
+    P <: NamedTuple{(:patterns,), <:Tuple{Tuple{Vararg{
+        NamedTuple{(:owner, :pattern, :member, :pose), <:Tuple{Type, Any, Integer, Pose2}}
+    }}}},
+    H <: Tuple{Vararg{NamedTuple{(:path, :radius), <:Tuple{Any, Real}}}}
 }
     "Authoritative homogeneous physical region."
     source::R
@@ -99,30 +101,23 @@ struct PlacedRegion{
     ) where {
             R <: Region,
             S <: AbstractShape,
-            P <: NamedTuple,
-            H <: Tuple
+            P <: NamedTuple{(:patterns,), <:Tuple{Tuple{Vararg{
+                NamedTuple{(:owner, :pattern, :member, :pose),
+                    <:Tuple{Type, Any, Integer, Pose2}}
+            }}}},
+            H <: Tuple{Vararg{NamedTuple{(:path, :radius), <:Tuple{Any, Real}}}}
     }
         terminal === nothing || terminal !== Symbol("") ||
             throw(
                 ArgumentError("placed-region terminal cannot be empty")
             )
-        keys(placement) == (:patterns,) || throw(ArgumentError(
-            "placed-region placement must contain patterns"
-        ))
-        placement.patterns isa Tuple || throw(ArgumentError(
-            "placed-region patterns must be a tuple"
-        ))
         all(placement.patterns) do entry
-            entry isa NamedTuple && keys(entry) == (:owner, :pattern, :member, :pose) &&
-                entry.owner isa Type && entry.owner <: AbstractCablePart &&
-                entry.member isa Integer && entry.member > 0 &&
-                entry.pose isa Pose2
+            entry.owner <: AbstractCablePart && entry.member > 0
         end || throw(ArgumentError(
             "placed-region patterns must contain a physical owner type, positive member indices and poses"
         ))
         all(paths) do entry
-            entry isa NamedTuple && keys(entry) == (:path, :radius) &&
-                entry.radius isa Real && isfinite(entry.radius) && entry.radius >= 0
+            isfinite(entry.radius) && entry.radius >= 0
         end || throw(ArgumentError(
             "placed-region paths must contain finite nonnegative radii"
         ))

@@ -85,11 +85,14 @@ _terminal_eligible(::DataModel.Region) = 0
 _terminal_eligible(stack::DataModel.Stack) = sum(_terminal_eligible, stack.items; init = 0)
 _terminal_eligible(group::DataModel.Group) = _terminal_eligible(group.item)
 function _terminal_eligible(
-        assembly::DataModel.Assembly{<:Any, <:DataModel.AbstractCablePart}
+        assembly::DataModel.Assembly{<:DataModel.Pose2, <:DataModel.AbstractCablePart}
 )
     _terminal_eligible(assembly.item)
 end
-function _terminal_eligible(assembly::DataModel.Assembly{<:Any, <:Tuple})
+function _terminal_eligible(
+        assembly::DataModel.Assembly{
+            <:DataModel.Pose2, <:Tuple{Vararg{DataModel.AssemblyMember}}}
+)
     return sum(member -> _terminal_eligible(member.item), assembly.item; init = 0)
 end
 function _terminal_eligible(enclosure::DataModel.Enclosure)

@@ -8,7 +8,14 @@ conductive descendant is a valid physical group and contributes no terminal.
 
 $(TYPEDFIELDS)
 """
-struct Group{A, E <: AbstractCablePart, P, H, C, B} <: AbstractCablePart
+struct Group{
+    A <: Pose2,
+    E <: AbstractCablePart,
+    P,
+    H,
+    C,
+    B <: Union{Nothing, Disk, Sector}
+} <: AbstractCablePart
     "Coalesced terminal name when the group contains conductive descendants."
     name::Symbol
     "Pose relative to the containing frame."
@@ -32,25 +39,37 @@ struct Group{A, E <: AbstractCablePart, P, H, C, B} <: AbstractCablePart
             path::H,
             compact::C,
             boundary::B
-    ) where {A, E <: AbstractCablePart, P, H, C, B}
-        name === Symbol("") && throw(ArgumentError("group name cannot be empty"))
-        at isa Pose2 || throw(ArgumentError("group pose must resolve to Pose2"))
-        boundary === nothing || boundary isa Union{Disk, Sector} || throw(ArgumentError(
-            "group boundary must be a Disk, Sector, or nothing"
-        ))
-        boundary === nothing || pattern === nothing || throw(ArgumentError(
-            "a bounded formation owns its member placements and cannot carry a group pattern"
-        ))
-        boundary === nothing || path === nothing || throw(ArgumentError(
-            "a bounded formation cannot carry a group-level longitudinal path"
-        ))
-        boundary isa Sector && compact !== nothing && throw(ArgumentError(
-            "sector bounded formations are intrinsically compacted"
-        ))
-        return new{A, E, P, H, C, B}(
+    ) where {A <: Pose2, E <: AbstractCablePart, P, H, C, B <: Union{Nothing, Disk}}
+        return validate(new{A, E, P, H, C, B}(
             name, at, item, pattern, path, compact, boundary
-        )
+        ))
     end
+
+    # The sector outline compacts a sector formation, so it takes no compaction.
+    function Group(
+            name::Symbol,
+            at::A,
+            item::E,
+            pattern::P,
+            path::H,
+            compact::Nothing,
+            boundary::B
+    ) where {A <: Pose2, E <: AbstractCablePart, P, H, B <: Sector}
+        return validate(new{A, E, P, H, Nothing, B}(
+            name, at, item, pattern, path, compact, boundary
+        ))
+    end
+end
+
+function validate(group::Group)
+    group.name === Symbol("") && throw(ArgumentError("group name cannot be empty"))
+    group.boundary === nothing || group.pattern === nothing || throw(ArgumentError(
+        "a bounded formation owns its member placements and cannot carry a group pattern"
+    ))
+    group.boundary === nothing || group.path === nothing || throw(ArgumentError(
+        "a bounded formation cannot carry a group-level longitudinal path"
+    ))
+    return group
 end
 
 Group(name::Symbol, at, item, pattern, path, compact) =
@@ -419,16 +438,26 @@ function _minimum_radius(primitive::AbstractShape)
     return -support(primitive, φ + pi)
 end
 
+# A bounded formation is the innermost physical formation.
+function _resolve_group(
+        ::EmptyBoundary,
+        group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Union{Disk, Sector}}
+)
+    return resolve_bounded(group)
+end
+function _resolve_group(
+        ::AbstractShape,
+        ::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Union{Disk, Sector}}
+)
+    throw(ArgumentError(
+        "a bounded stranded formation must be the innermost physical formation"
+    ))
+end
+
 function _resolve_group(
         context::Union{EmptyBoundary, AbstractShape},
-        group::Group
+        group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, Nothing}
 )
-    if group.boundary !== nothing
-        context isa EmptyBoundary || throw(ArgumentError(
-            "a bounded stranded formation must be the innermost physical formation"
-        ))
-        return resolve_bounded(group)
-    end
     if group.pattern === nothing
         child = resolve(context, group.item)
         regions = PlacedRegion[]

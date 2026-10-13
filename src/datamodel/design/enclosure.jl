@@ -18,11 +18,11 @@ Contain a physical cable object in an explicit cross-section, fill, and wall.
 $(TYPEDFIELDS)
 """
 struct Enclosure{
-    A,
+    A <: Pose2,
     S <: AbstractPrimitive,
     E <: AbstractCablePart,
-    F,
-    W
+    F <: Union{Material, Region},
+    W <: Union{Nothing, AbstractCablePart}
 } <: AbstractCablePart
     "Physical enclosure identity."
     tag::Symbol
@@ -44,13 +44,14 @@ struct Enclosure{
             item::E,
             fill::F,
             wall::W
-    ) where {A, S <: AbstractPrimitive, E <: AbstractCablePart, F, W}
+    ) where {
+            A <: Pose2,
+            S <: AbstractPrimitive,
+            E <: AbstractCablePart,
+            F <: Union{Material, Region},
+            W <: Union{Nothing, AbstractCablePart}
+    }
         tag === Symbol("") && throw(ArgumentError("enclosure tag cannot be empty"))
-        at isa Pose2 || throw(ArgumentError("enclosure pose must resolve to Pose2"))
-        fill isa Union{Material, Region} ||
-            throw(ArgumentError("enclosure fill must be Material or Region"))
-        wall isa Union{Nothing, AbstractCablePart} ||
-            throw(ArgumentError("enclosure wall must be a cable part or nothing"))
         return new{A, S, E, F, W}(tag, at, primitive, item, fill, wall)
     end
 end
@@ -237,6 +238,13 @@ end
 
 fill_holes(::Enclosure, contents::CableGeometry) = (boundary(contents),)
 
+# The holes that a material fill leaves are those of the enclosed item. A fill Region has
+# a declared geometry, and it surrounds the outline of the contents.
+function fill_holes(::Material, item::AbstractCablePart, contents::CableGeometry)
+    return fill_holes(item, contents)
+end
+fill_holes(::Region, ::AbstractCablePart, contents::CableGeometry) = (boundary(contents),)
+
 function fill_holes(group::Group, contents::CableGeometry)
     if group.boundary isa Disk && last(contents.regions).source.primitive isa Rectangle
         outer = boundary(contents)
@@ -246,21 +254,33 @@ function fill_holes(group::Group, contents::CableGeometry)
             return (outer,)
         end
     end
-    group.item isa Assembly || return Tuple(source.primitive for source in contents.regions)
-    outer = boundary(contents)
-    outer isa AssemblyShape || throw(ArgumentError(
-        "a grouped assembly must retain its member boundaries"
-    ))
-    return outer.members
+    return Tuple(source.primitive for source in contents.regions)
 end
 
-function fill_holes(assembly::Assembly, contents::CableGeometry)
-    outer = boundary(contents)
-    outer isa AssemblyShape || throw(ArgumentError(
-        "an enclosed assembly must retain its member boundaries"
-    ))
-    return outer.members
+# An assembly, grouped or enclosed, keeps the outline of each member.
+function fill_holes(
+        ::Group{<:Pose2, <:Assembly},
+        contents::CableGeometry{<:AbstractVector{<:PlacedRegion}, <:AssemblyShape}
+)
+    return boundary(contents).members
 end
+function fill_holes(::Group{<:Pose2, <:Assembly}, ::CableGeometry)
+    throw(ArgumentError("a grouped assembly must retain its member boundaries"))
+end
+function fill_holes(
+        ::Assembly,
+        contents::CableGeometry{<:AbstractVector{<:PlacedRegion}, <:AssemblyShape}
+)
+    return boundary(contents).members
+end
+function fill_holes(::Assembly, ::CableGeometry)
+    throw(ArgumentError("an enclosed assembly must retain its member boundaries"))
+end
+
+# An explicit fill Region always places its geometry, and a material fills only the area
+# that the contents leave.
+_has_fill(::Region, remaining_area, tolerance) = true
+_has_fill(::Material, remaining_area, tolerance) = remaining_area > tolerance
 
 function resolve(context::EmptyBoundary, enclosure::Enclosure)
     container = resolve(EmptyBoundary(), enclosure.primitive)
@@ -269,8 +289,7 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
 end
 
 function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeometry)
-    holes = enclosure.fill isa Material ?
-            fill_holes(enclosure.item, contents) : (boundary(contents),)
+    holes = fill_holes(enclosure.fill, enclosure.item, contents)
     all(hole -> _contained(container, hole), holes) || throw(DomainError(
         holes,
         "enclosed geometry must fit inside the enclosure boundary"
@@ -303,7 +322,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
     remaining_area >= -tolerance || throw(DomainError(
         remaining_area, "enclosure contents exceed the containing boundary area"
     ))
-    if enclosure.fill isa Region || remaining_area > tolerance
+    if _has_fill(enclosure.fill, remaining_area, tolerance)
         fill_result = resolve(
             container,
             holes,
@@ -367,27 +386,49 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
     return CableGeometry(regions, resolve(enclosure.at, boundary(outer)))
 end
 
-function resolve(context::AbstractShape, enclosure::Enclosure)
+function resolve(context::Disk, enclosure::Enclosure{<:Pose2, <:Annulus})
     container = resolve(EmptyBoundary(), enclosure.primitive)
-    container isa Annulus || throw(ArgumentError(
-        "a contextual Enclosure requires an annular containing primitive"
-    ))
     placed = resolve(enclosure.at, container)
-    context isa Disk &&
-    isapprox(context.at.x, placed.at.x) &&
-    isapprox(context.at.y, placed.at.y) &&
-    context.r <= placed.ri + geometry_tolerance(placed.ri) || throw(DomainError(
-        context,
-        "an annular Enclosure must be concentric with and outside the preceding circular boundary"
-    ))
-    # A filled course defines its complement down to the preceding physical
-    # boundary. Explicit wire radii remain fixed. Contextual rings use this disk.
-    # An explicit fill Region has its own geometry and is not extended.
-    enclosure.fill isa Material || isapprox(context.r, placed.ri;
-        rtol=0, atol=geometry_tolerance(placed.ri)) || throw(DomainError(
-        context, "an explicit fill Region must continue the preceding boundary"))
+    validate(context, enclosure, placed)
     inner = Disk(context.r, container.at)
     contents = resolve(inner, enclosure.item)
     effective = Annulus(context.r, container.ro, container.at)
     return _resolve_enclosure(enclosure, effective, contents)
+end
+
+function resolve(context::AbstractShape, ::Enclosure{<:Pose2, <:Annulus})
+    throw(DomainError(
+        context,
+        "an annular Enclosure must be concentric with and outside the preceding circular boundary"
+    ))
+end
+
+function resolve(::AbstractShape, ::Enclosure)
+    throw(ArgumentError(
+        "a contextual Enclosure requires an annular containing primitive"
+    ))
+end
+
+# The preceding circular boundary of an annular Enclosure lies inside its container and
+# shares its center.
+function validate(context::Disk, enclosure::Enclosure, container::Annulus)
+    isapprox(context.at.x, container.at.x) &&
+    isapprox(context.at.y, container.at.y) &&
+    context.r <= container.ri + geometry_tolerance(container.ri) || throw(DomainError(
+        context,
+        "an annular Enclosure must be concentric with and outside the preceding circular boundary"
+    ))
+    validate(context, enclosure.fill, container)
+    return context
+end
+
+# A filled course defines its complement down to the preceding physical boundary.
+# Explicit wire radii remain fixed. Contextual rings use this disk. An explicit fill
+# Region has its own geometry and is not extended, so it must continue that disk.
+validate(context::Disk, ::Material, ::Annulus) = context
+function validate(context::Disk, ::Region, container::Annulus)
+    isapprox(context.r, container.ri;
+        rtol=0, atol=geometry_tolerance(container.ri)) || throw(DomainError(
+        context, "an explicit fill Region must continue the preceding boundary"))
+    return context
 end
