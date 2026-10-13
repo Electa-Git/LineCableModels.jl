@@ -52,15 +52,21 @@ Validate evaluated resistivity \\[Ω·m\\] for a reference material and prescrib
 temperature \\[°C\\]. Resistivity must be real and positive. Conductors require a
 finite value. Passive materials admit infinite resistivity. Return `rho`.
 """
-function validate(rho, ::Union{Nothing, TemperatureDependentFormulation}, material::Material, temperature::Real)
+function validate(rho::Real, ::Union{Nothing, TemperatureDependentFormulation},
+        material::Material, temperature::Real)
     isfinite(temperature) || throw(DomainError(temperature,
         "constitutive temperature must be finite"))
-    rho isa Real && !isnan(rho) && rho > zero(rho) || throw(DomainError(rho,
+    !isnan(rho) && rho > zero(rho) || throw(DomainError(rho,
         "temperature law must return positive real resistivity for $(material.kind) at $temperature °C"))
     material.kind === :conductor && !isfinite(rho) &&
         throw(DomainError(rho,
             "conductor resistivity must be finite at $temperature °C"))
     return rho
+end
+function validate(rho, ::Union{Nothing, TemperatureDependentFormulation},
+        material::Material, temperature::Real)
+    throw(DomainError(rho,
+        "temperature law must return positive real resistivity for $(material.kind) at $temperature °C"))
 end
 
 @inline function (formula::TemperatureDependentFormulation)(

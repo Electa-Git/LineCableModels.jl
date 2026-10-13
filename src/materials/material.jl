@@ -43,9 +43,6 @@ struct Material{T <: Real, K} <: AbstractMaterial
             tan_delta::T,
             sigma_solar::T
     ) where {T <: Real, K}
-        K isa Symbol && K !== Symbol("") || throw(ArgumentError(
-            "Material.kind must be a nonempty Symbol; received $(repr(K))"
-        ))
         return validate(new{T, K}(
             rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar
         ))
@@ -220,6 +217,7 @@ function Material(unexpected; kwargs...)
 end
 
 function validate(material::Material)
+    validate(material.kind, Material)
     isnan(material.rho) && throw(DomainError(
         material.rho,
         "Material.rho must not be NaN"
@@ -258,6 +256,17 @@ function validate(material::Material)
             "Material.sigma_solar must be nonnegative and finite"
         ))
     return material
+end
+
+# The kind of a material is a nonempty Symbol.
+function validate(kind::Symbol, ::Type{Material})
+    kind === Symbol("") && throw(ArgumentError(
+        "Material.kind must be a nonempty Symbol; received $(repr(kind))"
+    ))
+    return kind
+end
+function validate(kind, ::Type{Material})
+    throw(ArgumentError("Material.kind must be a nonempty Symbol; received $(repr(kind))"))
 end
 
 Commons.input_fields(::Type{<:Material}) = (rho=(name="electrical resistivity",unit="Ω·m"),

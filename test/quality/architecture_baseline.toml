@@ -147,8 +147,8 @@
 "src/importexport/tralin.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/importexport/uncertainty.jl" = { applicable = 0, eval = 0, isa = 11, kind = 0 }
 "src/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/materials/material.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 1 }
+"src/materials/material.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
+"src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
 "src/parametricbuilder/macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
 "src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
