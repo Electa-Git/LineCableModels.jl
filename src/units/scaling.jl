@@ -88,12 +88,20 @@ function display_unit(
         override;
         length_prefix::Symbol = :kilo
 )
-    override === nothing &&
-        return display_unit(quantity, basis; length_prefix)
-    override isa UnitExpr && return override
-    override isa Symbol || throw(ArgumentError(
+    throw(ArgumentError(
         "display-unit overrides must be a metric prefix, UnitExpr, or nothing",
     ))
+end
+function display_unit(quantity::Quantity, basis::Symbol, ::Nothing;
+        length_prefix::Symbol = :kilo)
+    return display_unit(quantity, basis; length_prefix)
+end
+function display_unit(quantity::Quantity, basis::Symbol, override::UnitExpr;
+        length_prefix::Symbol = :kilo)
+    return override
+end
+function display_unit(quantity::Quantity, basis::Symbol, override::Symbol;
+        length_prefix::Symbol = :kilo)
     return display_unit(quantity, basis; length_prefix, prefix = override)
 end
 

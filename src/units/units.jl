@@ -70,19 +70,14 @@ Describe numerator and denominator units, such as Ω/km.
 
 $(TYPEDFIELDS)
 """
-struct UnitExpr{N <: Tuple, D <: Tuple}
+struct UnitExpr{N <: Tuple{Vararg{Unit}}, D <: Tuple{Vararg{Unit}}}
     "Numerator units."
     numerator::N
     "Denominator units."
     denominator::D
 
-    function UnitExpr(numerator::N, denominator::D) where {N <: Tuple, D <: Tuple}
-        all(unit -> unit isa Unit, numerator) || throw(
-            ArgumentError("unit-expression numerators must contain Unit values"),
-        )
-        all(unit -> unit isa Unit, denominator) || throw(
-            ArgumentError("unit-expression denominators must contain Unit values"),
-        )
+    function UnitExpr(numerator::N,
+            denominator::D) where {N <: Tuple{Vararg{Unit}}, D <: Tuple{Vararg{Unit}}}
         return new{N, D}(numerator, denominator)
     end
 end
