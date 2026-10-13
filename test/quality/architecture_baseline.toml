@@ -86,7 +86,7 @@
 "ext/LineCableModelsMakieExt/shell.jl" = { applicable = 0, eval = 0, isa = 48, kind = 0 }
 "ext/LineCableModelsMeasurementsExt.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/commons/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
-"src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
+"src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/commons/observables.jl" = { applicable = 1, eval = 0, isa = 25, kind = 0 }
 "src/commons/observed_validation.jl" = { applicable = 0, eval = 0, isa = 45, kind = 13 }
 "src/commons/observedresult.jl" = { applicable = 1, eval = 0, isa = 28, kind = 9 }
@@ -147,7 +147,7 @@
 "src/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/materials/material.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
-"src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
+"src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/parametricbuilder/macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
 "src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
@@ -165,7 +165,7 @@
 "src/reportbuilder/tables.jl" = { applicable = 0, eval = 0, isa = 11, kind = 7 }
 "src/reportbuilder/textdisplay.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/reportbuilder/xlsx.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"src/textdisplay/TextDisplay.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
+"src/textdisplay/TextDisplay.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/uq/comparisons.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/uq/formulations.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
 "src/uq/linearerror.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
@@ -182,7 +182,6 @@
 [dispatch]
 
 [commons]
-"@observe | tests" = 1
 "AbstractCoreResult | tests" = 1
 "AbstractParametricResult | tests" = 1
 "AbstractProblemResult | tests" = 1

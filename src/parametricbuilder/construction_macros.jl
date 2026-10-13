@@ -4,16 +4,24 @@ function _macro_block(value, name::Symbol)
     ))
     parts = Any[]
     for item in value.args
-        item isa LineNumberNode && continue
-        if item isa Expr && item.head === :macrocall &&
-           first(item.args) in (GlobalRef(Core, Symbol("@doc")), Symbol("@doc"))
-            item = last(item.args)
-        end
-        item isa AbstractString || item === nothing || item === :nothing ||
-            push!(parts, item)
+        _macro_part!(parts, item)
     end
     return parts
 end
+
+# One item of a macro block. A line number is not a part, and a documented item is the
+# expression it documents.
+_macro_part!(parts, ::LineNumberNode) = parts
+_macro_part!(parts, item) = _macro_content!(parts, item)
+function _macro_part!(parts, item::Expr)
+    documented = item.head === :macrocall &&
+                 first(item.args) in (GlobalRef(Core, Symbol("@doc")), Symbol("@doc"))
+    return _macro_content!(parts, documented ? last(item.args) : item)
+end
+# Docstrings and `nothing` are not parts.
+_macro_content!(parts, ::Union{AbstractString, Nothing}) = parts
+_macro_content!(parts, item::Symbol) = item === :nothing ? parts : push!(parts, item)
+_macro_content!(parts, item) = push!(parts, item)
 
 _macro_call(name::Symbol, args...) = Expr(
     :call, GlobalRef(@__MODULE__, name), args...
@@ -398,20 +406,20 @@ function _formation_macro(name::Symbol, design, assignments)
     end
     for index in eachindex(keywords)
         key, value = keywords[index]
-        if key === :center && value isa Expr && value.head === :tuple
-            coordinates = _coordinate_tuple(value, name)
-            center = length(coordinates) == 2 ?
-                     _macro_call(:at, coordinates...) :
-                     _call_with_keywords(
-                :at,
-                coordinates[1:2],
-                [:φ => coordinates[3]]
-            )
-            keywords[index] = key => center
-        end
+        key === :center && (keywords[index] = key => _formation_center(value, name))
     end
     return _call_with_keywords(name, (design,), keywords)
 end
+
+# A center given as a coordinate tuple becomes a placement at those coordinates. Any other
+# center is passed unchanged.
+function _formation_center(value::Expr, name::Symbol)
+    value.head === :tuple || return value
+    coordinates = _coordinate_tuple(value, name)
+    return length(coordinates) == 2 ? _macro_call(:at, coordinates...) :
+           _call_with_keywords(:at, coordinates[1:2], [:φ => coordinates[3]])
+end
+_formation_center(value, name::Symbol) = value
 
 """
     @trefoil design spacing=value [keyword=value ...]

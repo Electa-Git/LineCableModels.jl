@@ -333,8 +333,9 @@ macro showfields(type_expression, semantic_name, mapping)
     fields_ref = GlobalRef(@__MODULE__, :fields)
     # The generated methods record the caller's file and line, so `@which` and stack
     # traces point to the call. Line numbers inside escaped caller code are unchanged.
-    located(x) = x isa LineNumberNode ? __source__ :
-                 x isa Expr && x.head !== :escape ? Expr(x.head, map(located, x.args)...) : x
+    located(x) = x
+    located(::LineNumberNode) = __source__
+    located(x::Expr) = x.head === :escape ? x : Expr(x.head, map(located, x.args)...)
     return located(quote
         $name_ref(::Type{<:$(esc(type_expression))}) = $(esc(semantic_name))
         function Base.summary(io::IO, value::$(esc(type_expression)))

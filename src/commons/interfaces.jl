@@ -151,16 +151,17 @@ function _observe_macro_parts(request)
         "got `$(request)`.",
     ))
 
-    selector = first(request.args)
-    indices = request.args[2:end]
-    if selector isa Expr && selector.head === :tuple
+    # A selector tuple lists two or three functions. Any other selector is one function.
+    function selectors(selector::Expr)
+        selector.head === :tuple || return (selector,)
         length(selector.args) in (2, 3) || throw(ArgumentError(
             "@observe selector tuples require two or three functions; " *
             "got `$(selector)`.",
         ))
-        return Tuple(selector.args), indices
+        return Tuple(selector.args)
     end
-    return (selector,), indices
+    selectors(selector) = (selector,)
+    return selectors(first(request.args)), request.args[2:end]
 end
 
 """
