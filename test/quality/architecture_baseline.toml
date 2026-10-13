@@ -51,7 +51,6 @@
 [reserved_verbs]
 "src/commons/observables.jl | validate_observables" = 1
 "src/commons/observed_validation.jl | _validate_observed_comparison" = 1
-"src/commons/observed_validation.jl | _validate_observed_cutoff" = 1
 "src/commons/observed_validation.jl | _validate_observed_id" = 1
 "src/commons/observed_validation.jl | _validate_observed_quantity" = 1
 "src/engine/lineparameters/resolution.jl | _validate_resolution_atol" = 1
@@ -88,7 +87,7 @@
 "src/commons/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/commons/observables.jl" = { applicable = 1, eval = 0, isa = 25, kind = 0 }
-"src/commons/observed_validation.jl" = { applicable = 0, eval = 0, isa = 45, kind = 13 }
+"src/commons/observed_validation.jl" = { applicable = 0, eval = 0, isa = 41, kind = 13 }
 "src/commons/observedresult.jl" = { applicable = 1, eval = 0, isa = 28, kind = 9 }
 "src/commons/retained_products.jl" = { applicable = 0, eval = 0, isa = 2, kind = 10 }
 "src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, isa = 3, kind = 4 }
@@ -252,11 +251,6 @@
 "_validate_observed_comparison | public" = 1
 "_validate_observed_comparison | tests" = 1
 "_validate_observed_comparison | vocabulary" = 1
-"_validate_observed_cutoff | docstring" = 1
-"_validate_observed_cutoff | owners" = 1
-"_validate_observed_cutoff | public" = 1
-"_validate_observed_cutoff | tests" = 1
-"_validate_observed_cutoff | vocabulary" = 1
 "_validate_observed_id | docstring" = 1
 "_validate_observed_id | public" = 1
 "_validate_observed_id | tests" = 1

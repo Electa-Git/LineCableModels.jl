@@ -214,3 +214,6 @@ the requested display units. Absolute/relative error products are never clipped
 using their operands' physical cutoffs.
 """
 function observables end
+
+# Owners add methods for their results. The checks of the records it produces name it.
+function observation_quantity end

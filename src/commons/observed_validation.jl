@@ -119,12 +119,7 @@ function _validate_observed_quantity(product)
             (:missing_reason,x -> x===nothing || x isa Symbol))
         value=getproperty(product,field)
         value===nothing && continue
-        if value isa AbstractArray
-            size(value)==actual || (length(value)==1 && isempty(actual)) || throw(DimensionMismatch("$field shape differs from values"))
-            all(allowed,value) || throw(ArgumentError("invalid $field entries"))
-        else
-            allowed(value) || throw(ArgumentError("invalid $field"))
-        end
+        validate(value,observation_quantity,field,allowed,actual)
     end
     if product.thresholds!==nothing
         _observed_fields(product.thresholds,(:kind,:values,:unit),"quantity thresholds")
@@ -134,22 +129,41 @@ function _validate_observed_quantity(product)
         threshold_quantity=phase ? quantity(first(request_identity(product.request))) : product.quantity
         scale_factor(native_unit(threshold_quantity,product.basis),threshold_unit)
         samples=haskey(c,:samples) ? length(c.samples) : nothing
-        _validate_observed_cutoff(product.thresholds.values,samples)
+        validate(product.thresholds.values,observation_quantity,samples)
     end
     return nothing
 end
 
-function _validate_observed_cutoff(value,samples)
-    value===nothing && return nothing
-    if value isa NamedTuple
-        foreach(v -> _validate_observed_cutoff(v,samples),values(value))
-    elseif value isa AbstractVector
-        samples===nothing || length(value)==samples || throw(DimensionMismatch("cutoff count differs from samples"))
-        foreach(v -> _validate_observed_cutoff(v,nothing),value)
-    else
-        value isa Real && isfinite(nominal(value)) && nominal(value)>=0 || throw(ArgumentError("cutoffs must be finite and nonnegative"))
-    end
-    return nothing
+# A flag field of a quantity record from `observation_quantity`: one value for every entry,
+# or one entry per value.
+function validate(flags::AbstractArray,::typeof(observation_quantity),field::Symbol,allowed,extent)
+    size(flags)==extent || (length(flags)==1 && isempty(extent)) || throw(DimensionMismatch("$field shape differs from values"))
+    all(allowed,flags) || throw(ArgumentError("invalid $field entries"))
+    return flags
+end
+function validate(flag,::typeof(observation_quantity),field::Symbol,allowed,extent)
+    allowed(flag) || throw(ArgumentError("invalid $field"))
+    return flag
+end
+
+# Native-unit cutoffs of a quantity record from `observation_quantity`. Each cutoff is a
+# finite, nonnegative Real, given alone, as a vector with one per sample, or in a named tuple.
+validate(cutoffs::Nothing,::typeof(observation_quantity),samples) = cutoffs
+function validate(cutoffs::NamedTuple,context::typeof(observation_quantity),samples)
+    foreach(cutoff -> validate(cutoff,context,samples),values(cutoffs))
+    return cutoffs
+end
+function validate(cutoffs::AbstractVector,context::typeof(observation_quantity),samples)
+    samples===nothing || length(cutoffs)==samples || throw(DimensionMismatch("cutoff count differs from samples"))
+    foreach(cutoff -> validate(cutoff,context,nothing),cutoffs)
+    return cutoffs
+end
+function validate(cutoff::Real,::typeof(observation_quantity),samples)
+    isfinite(nominal(cutoff)) && nominal(cutoff)>=0 || throw(ArgumentError("cutoffs must be finite and nonnegative"))
+    return cutoff
+end
+function validate(cutoff,::typeof(observation_quantity),samples)
+    throw(ArgumentError("cutoffs must be finite and nonnegative; got $(typeof(cutoff))"))
 end
 
 function _validate_observed_comparison(row)
