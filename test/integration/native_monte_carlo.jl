@@ -15,7 +15,7 @@
             figure_title = "Retained samples",
             panel_titles = ("Sample histogram",),
             legend_title = "Distribution",
-            legend_labels = ("observations",),
+            legend_labels = Dict(:distribution => "observations"),
             legend_position = :inside,
             legend_attributes=(halign=:left,valign=:top)
         ),

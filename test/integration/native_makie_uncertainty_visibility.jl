@@ -59,7 +59,7 @@
     # owned defaults merely because those primitives also happen to be bars.
     native = LineCableModels.plotwindow(;
         title = "Native bars", backend = :cairo, display_plot = false,
-        controls = false, open_export = false, series_attributes = (color = :red,)) do canvas
+        controls = false, open_export = false, color = :red) do canvas
         axis = Axis(canvas[1, 1])
         errorbars!(
             axis, [1.0, 2.0], [3.0, 4.0], [0.2, 0.3]; whiskerwidth = 15, linewidth = 2.5)
@@ -154,7 +154,7 @@ end
             first(last(only(plot.legend.entrygroups[]))).elements)
     end
     overridden = LineCableModels.plot(result, ((R, 1, 1, :),); options..., errorbar_sampling = :all,
-        series_attributes = (marker = :diamond, color = :magenta, whiskerwidth = 12))
+        marker = :diamond, color = :magenta, whiskerwidth = 12)
     for group in values(overridden.plot_state.groups)
         marker = only(filter(p -> p isa Makie.Scatter, group))
         @test length(marker[1][]) == length(f)
@@ -227,7 +227,7 @@ end
         page = LineCableModels.plot(
             sources..., (R,); options..., errorbar_sampling = :all,
             series_labels = ("first", "second"), series_attributes = attributes,
-            legend_position = :bottom, panel_legends = (1, 1)=>:right)
+            legend_position = :bottom, panel_legends = Dict((1, 1) => (position = :right,)))
         for (index, axis) in enumerate(page.axes)
             i, j = cld(index, 2), mod1(index, 2)
             curves = filter(p -> p isa Makie.Lines, axis.scene.plots)
@@ -299,7 +299,8 @@ end
         backend = :cairo, display_plot = false, controls = true, open_export = false,
         length_unit = :base, quantity_units = :base, clip = false, fig_size = (1000, 700))
     pages = LineCableModels.plot(parameters, (R,); options..., layout = (2, 2),
-        series_labels = ("uncertain",), series_attributes = (marker = :circle,), legend_position = :bottom)
+        series_labels = ("uncertain",), series_attributes = ((marker = :circle,),),
+        legend_position = :bottom)
     @test length.(getproperty.(pages, :axes)) == [4, 2, 2, 1]
     pages = copy(pages)
     push!(pages,
@@ -334,7 +335,7 @@ end
             # Recreating a hidden legend must not resurrect its series or lose
             # its visibility state. Glyph count is deliberately not an asserted requirement.
             previous_legend = legend
-            legend = figurelegend!(page; position, max_fraction = 0.5, legend_labels = ("uncertain",))
+            legend = figurelegend!(page; position, max_fraction = 0.5, legend_labels = Dict(:result_1 => "uncertain"))
             @test legend !== previous_legend
             @test all(entry -> first(Makie.get_n_visible(entry)) == 0,
                 last(only(legend.entrygroups[])))
@@ -351,7 +352,7 @@ end
     bar = first(filter(p -> p isa Makie.Errorbars, axis.scene.plots))
     bar.visible[] = false
     @test line.visible[] # Independent native edits are still allowed.
-    figurelegend!(page; position = :bottom, max_fraction = 0.5, legend_labels = ("uncertain",))
+    figurelegend!(page; position = :bottom, max_fraction = 0.5, legend_labels = Dict(:result_1 => "uncertain"))
     @test !bar.visible[] # Rebuilding the legend preserves the series visibility.
     line.visible[] = false
     @test !bar.visible[]
@@ -372,7 +373,7 @@ end
     page = LineCableModels.plot(
         source, (R,); backend = :cairo, display_plot = false,
         controls = false, open_export = false, series_labels = ("uncertain",),
-        series_attributes = (marker = :circle,), legend_position = :bottom, fig_size = (
+        series_attributes = ((marker = :circle,),), legend_position = :bottom, fig_size = (
             900, 600))
     function legend_pixels(page)
         pixels = Makie.colorbuffer(page.figure)
@@ -389,7 +390,7 @@ end
     Makie.toggle_visibility!(first(last(only(page.legend.entrygroups[]))))
     hidden = legend_pixels(page)
     @test shown != hidden
-    figurelegend!(page; position = :bottom, max_fraction = 0.5, legend_labels = ("uncertain",))
+    figurelegend!(page; position = :bottom, max_fraction = 0.5, legend_labels = Dict(:result_1 => "uncertain"))
     # Pixel comparison checks the actual shading listeners, not just the click
     # target list. Replacing a hidden legend must preserve its rendered state.
     @test legend_pixels(page) == hidden

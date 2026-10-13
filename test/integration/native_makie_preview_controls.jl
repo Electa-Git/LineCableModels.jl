@@ -7,8 +7,8 @@
         terminal(:core, core(copper; r=1e-3), insulation(dielectric; t=0.2e-3)))
     options = (; backend=:cairo, display_plot=false, controls=false, open_export=false)
     grouped = preview(design; options..., display_colorbars=false,
-        legend_group=Dict(:core=>:metal, :insulation=>:dielectric),
-        legend_labels=group -> uppercasefirst(String(group)))
+        legend_group=region -> region.source.tag === :core ? :metal : :dielectric,
+        legend_labels=Dict(:metal=>"Metal", :dielectric=>"Dielectric"))
     @test Set(values(grouped.plot_state.labels)) == Set(("Metal", "Dielectric"))
     @test isempty(grouped.colorbars)
     @test length(grouped.axes) == 1

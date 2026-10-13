@@ -192,7 +192,7 @@ function _preview(
         legend_title = nothing,
         legend_attributes::NamedTuple = (; nbanks = 1),
         legend_max_fraction = 0.5,
-        panel_legends = (),
+        panel_legends = nothing,
         legend_group = nothing,
         legend_labels = nothing,
         colorbar_position = :bottom,
@@ -212,7 +212,7 @@ function _preview(
     display_title = title === nothing ?
                     _native_cable_title(display_id, design) :
                     String(title)
-    resolved_panel_titles = _panel_titles(panel_titles, 1; defaults = (display_title,))
+    resolved_panel_titles = _panel_titles(panel_titles, 1)
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     polygons = _native_design_shapes(
@@ -293,7 +293,7 @@ function _preview(
         colorbar_position = :bottom,
         colorbar_attributes::NamedTuple = (; vertical = false),
         guide_gap = (8, 8, 24, 8),
-        panel_legends = (),
+        panel_legends = nothing,
         legend_group = nothing,
         legend_labels = nothing,
         backend = nothing,
@@ -314,8 +314,7 @@ function _preview(
     end
     color_scales = _material_schemes(DataModel.material_property_ranges(designs))
     display_title = title === nothing ? "Cable design previews" : String(title)
-    resolved_panel_titles = _panel_titles(
-        panel_titles, length(designs); defaults = [design.cable_id for design in designs])
+    resolved_panel_titles = _panel_titles(panel_titles, length(designs))
     built=LineCableModels.UIPlot[]
     for page in pages
         rendered=with_theme(_plot_theme(export_theme = export_theme)) do
@@ -373,7 +372,7 @@ function _preview(
                 figure_title,
                 title_attributes,
                 panels,
-                panel_legends = Tuple(pair
+                panel_legends = Dict(pair
                 for pair in _panel_legend_pairs(panel_legends)
                 if first(pair) in page.facets),
                 display_legend = display_legend ||
@@ -427,7 +426,7 @@ function _preview(
         legend_title = nothing,
         legend_attributes::NamedTuple = (;),
         legend_max_fraction = 0.5,
-        panel_legends = (),
+        panel_legends = nothing,
         legend_group = nothing,
         legend_labels = nothing,
         colorbar_position = :bottom,
@@ -454,7 +453,7 @@ function _preview(
     display_title = title === nothing ?
                     _native_system_title(display_id, system) :
                     String(title)
-    resolved_panel_titles = _panel_titles(panel_titles, 1; defaults = (display_title,))
+    resolved_panel_titles = _panel_titles(panel_titles, 1)
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     return with_theme(_plot_theme(export_theme = export_theme)) do

@@ -5,23 +5,19 @@ function _guide_position(position;legend=false,main=false)
     legend && position===:inside && return position
     main && position===Val(:content) && return position
     position in (:left,:right,:top,:bottom) && return position
-    position isa Tuple && length(position)==2 &&
-        all(v -> v isa Integer && !(v isa Bool) && v>0,position) && position!=(2,2) && return Int.(position)
-    throw(ArgumentError("guide position must be a side or positive side-grid slot; (2,2) is reserved for content"))
+    throw(ArgumentError("guide position must be :left, :right, :top, :bottom or nothing; legends also take :inside"))
 end
 
 function _guide_gap(value)
-    values=value isa Real ? ntuple(_ -> value,4) : value
-    values isa Tuple && length(values)==4 && all(x -> x isa Real && isfinite(x) && x>=0,values) ||
-        throw(ArgumentError("guide_gap must be nonnegative or a nonnegative (left,right,bottom,top) tuple"))
-    return Float64.(values)
+    value isa Tuple && length(value)==4 && all(x -> x isa Real && isfinite(x) && x>=0,value) ||
+        throw(ArgumentError("guide_gap must be a nonnegative (left,right,bottom,top) tuple"))
+    return Float64.(value)
 end
 
 function _guide_spacing(value,current=(rowgap=12.0,colgap=12.0))
-    fields=value isa Real ? (rowgap=value,colgap=value) : value
-    fields isa NamedTuple && all(key -> key in (:rowgap,:colgap),keys(fields)) ||
-        throw(ArgumentError("guide_spacing must be a nonnegative number or (rowgap=..., colgap=...)"))
-    result=merge(current,fields)
+    value isa NamedTuple && all(key -> key in (:rowgap,:colgap),keys(value)) ||
+        throw(ArgumentError("guide_spacing must be (rowgap=..., colgap=...)"))
+    result=merge(current,value)
     all(x -> x isa Real && !(x isa Bool) && isfinite(x) && x>=0,values(result)) ||
         throw(ArgumentError("guide spacing must be finite, nonnegative, and non-Boolean"))
     return map(Float64,result)

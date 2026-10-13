@@ -190,6 +190,19 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `frequencies`. `legend_max_fraction` limits the size of a plot's legend, and
   `max_fraction` that of a legend configuration. `fig_size` sets the initial reference
   size of plots, previews, the material scale and `plotwindow`.
+- Each plot keyword takes one form of value:
+  - `series_labels`, `series_attributes` and `panel_titles` are tuples or vectors, one
+    entry per series or selected panel. `series_attributes` has one named tuple per
+    series, and attributes shared by all series are plain keywords.
+  - `figure_title` is one title. `figuretitle!` and `paneltitle!` set the title of one
+    page or panel.
+  - `panel_legends` is a dictionary from panel identity to a legend configuration named
+    tuple. `legend_labels` is a dictionary keyed by legend group, and a preview's
+    `legend_group` is a function of the region.
+  - A guide position is `:left`, `:right`, `:top`, `:bottom`, `:inside` for a legend, or
+    `nothing`. `guide_gap` is `(left, right, bottom, top)`, and `guide_spacing` is
+    `(rowgap = ..., colgap = ...)`.
+  - `problem` and `formulations` take a number or a collection of original identities.
 - The PSCAD sources moved from the extensions directory to `src/pscad/`, and its remote
   runner project to `src/pscad/remote/`. `LineCableModels.PSCAD` is unchanged.
 - `Commons` owns `initialize_buffers`, which builds every buffer of a computation.

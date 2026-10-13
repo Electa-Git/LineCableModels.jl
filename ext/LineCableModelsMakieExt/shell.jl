@@ -90,7 +90,7 @@ end
 function _figure_layout(;
         fig_size, controls::Bool,
         axis::NamedTuple = (;), figure::NamedTuple = (;),
-        widgets = (), guide_gap = 8, guide_spacing = (;),
+        widgets = (), guide_gap = (8, 8, 8, 8), guide_spacing = (;),
         colorbar_position = _omitted, colorbar_attributes = (;), colorbar_group_attributes = (;), kwargs...)
     guide_gap=_guide_gap(guide_gap)
     guide_spacing=_guide_spacing(guide_spacing)
@@ -632,7 +632,7 @@ function _statistical_plot(
         legend_labels = nothing,
         legend_attributes = (;),
         legend_max_fraction = 0.5,
-        panel_legends = (),
+        panel_legends = nothing,
         xlabel = nothing,
         ylabel = nothing,
         xscale = :linear,
@@ -1070,20 +1070,21 @@ function _axis!(
     return axis, scales
 end
 
-function _panel_titles(panel_titles, expected::Int; defaults = nothing)
+function _panel_titles(panel_titles, expected::Int)
     panel_titles === nothing && return nothing
-    panel_titles isa Function && return Tuple(panel_titles(i) for i in 1:expected)
-    panel_titles isa AbstractDict &&
-        return Tuple(get(panel_titles, i, defaults===nothing ? nothing : defaults[i])
-        for i in 1:expected)
-    panel_titles isa Tuple || panel_titles isa AbstractVector ||
-        throw(ArgumentError(
-            "panel_titles must be a tuple, vector, dictionary, function, or nothing",
-        ))
-    length(panel_titles) == expected || throw(DimensionMismatch(
-        "panel_titles must contain one entry per logical plot panel",
+    return Tuple(validate(panel_titles, Axis, expected))
+end
+
+# One axis title per selected panel, in a tuple or a vector, bound before pagination.
+function validate(panel_titles::Union{Tuple, AbstractVector}, ::Type{Axis}, count::Int)
+    length(panel_titles) == count || throw(DimensionMismatch(
+        "panel_titles must contain one title per selected panel",
     ))
-    return Tuple(panel_titles)
+    return panel_titles
+end
+function validate(panel_titles, ::Type{Axis}, count::Int)
+    throw(ArgumentError(
+        "panel_titles must be a tuple or vector of titles; got $(typeof(panel_titles))"))
 end
 
 function _panel!(shell, position::Tuple{Int, Int})
@@ -1116,15 +1117,8 @@ function _legend_slot(body, position)
     position === :left && return body[2, 1], :vertical
     position === :top && return body[1, 2], :horizontal
     position === :bottom && return body[3, 2], :horizontal
-    if position isa Tuple && length(position) == 2 &&
-       all(value -> value isa Integer && !(value isa Bool) && value > 0, position)
-        position == (2, 2) && throw(ArgumentError(
-            "grid position (2, 2) is reserved for the plot canvas",
-        ))
-        return body[Int(position[1]), Int(position[2])], :vertical
-    end
     throw(ArgumentError(
-        "legend_position must be :inside, :left, :right, :top, :bottom, a positive grid index tuple, or nothing",
+        "legend_position must be :inside, :left, :right, :top, :bottom, or nothing",
     ))
 end
 
@@ -1133,7 +1127,6 @@ function _dock_indices(position)
     position === :left && return (2, 1)
     position === :top && return (1, 2)
     position === :bottom && return (3, 2)
-    position isa Tuple && return Int.(position)
     return nothing
 end
 
@@ -1529,31 +1522,11 @@ end
 
 function _relabel_legend!(labels, groups, order, requested)
     requested === nothing && return labels
-    displayed = Any[group
-                    for group in order if haskey(groups, group) && haskey(labels, group)]
-    if requested isa AbstractDict
-        for group in displayed
-            current = labels[group]
-            replacement = if haskey(requested, group)
-                requested[group]
-            elseif haskey(requested, current)
-                requested[current]
-            else
-                continue
-            end
-            labels[group] = replacement
-        end
-        return labels
-    end
-    requested isa Tuple || requested isa AbstractVector ||
-        throw(ArgumentError(
-            "legend_labels must be a tuple, vector, dictionary, or nothing",
-        ))
-    length(requested) == length(displayed) || throw(DimensionMismatch(
-        "legend_labels must contain one entry for each displayed legend group",
-    ))
-    for (group, replacement) in zip(displayed, requested)
-        labels[group] = replacement
+    requested isa AbstractDict || throw(ArgumentError(
+        "legend_labels must be a dictionary keyed by legend group, or nothing"))
+    for group in order
+        haskey(groups, group) && haskey(labels, group) && haskey(requested, group) &&
+            (labels[group] = requested[group])
     end
     return labels
 end
@@ -1607,8 +1580,8 @@ function _legend!(
                 orientation = target_orientation,
                 halign = target_orientation === :vertical ? :left : :center,
                 valign = target_orientation === :vertical ? :top : :center,
-                tellwidth = position[] in (:left, :right) || position[] isa Tuple,
-                tellheight = position[] in (:top, :bottom) || position[] isa Tuple
+                tellwidth = position[] in (:left, :right),
+                tellheight = position[] in (:top, :bottom)
             ),
             attributes)
     end
@@ -1677,12 +1650,9 @@ end
 
 function _panel_legend_pairs(value)
     value === nothing && return Pair[]
-    value === () && return Pair[]
-    value isa Pair && return Pair[value]
     value isa AbstractDict && return collect(pairs(value))
-    value isa Tuple && all(item -> item isa Pair, value) && return collect(value)
     throw(ArgumentError(
-        "panel_legends must be a pair, a tuple of pairs, a dictionary, or nothing",
+        "panel_legends must be a dictionary from panel identity to configuration, or nothing",
     ))
 end
 
@@ -1703,15 +1673,8 @@ function _without_legend_controls(options::NamedTuple)
 end
 
 function _legend_configuration(value; default_position, default_title = nothing)
-    value isa Symbol && return (;
-        position = value,
-        max_fraction = 0.5,
-        title = default_title,
-        legend_labels = nothing,
-        attributes = (;)
-    )
     value isa NamedTuple || throw(ArgumentError(
-        "a legend configuration must be a dock symbol or NamedTuple",
+        "a legend configuration must be a NamedTuple",
     ))
     position = get(value, :position, default_position)
     max_fraction = _legend_fraction(get(value, :max_fraction, 0.5))
@@ -1895,7 +1858,7 @@ function _finish_plot!(
         legend_title = nothing,
         panels = (),
         frame_cells = (),
-        panel_legends = (),
+        panel_legends = nothing,
         panel_group_labels = nothing,
         panel_legend_titles = nothing,
         color_scales = (),
@@ -2003,18 +1966,15 @@ function _finish_plot!(
         identity=_panel_identity(identity)
         haskey(panel_data, identity) ||
             throw(ArgumentError("panel $(repr(identity)) is absent from this figure"))
-        value===nothing || value===false ||
-            begin
-                config=_legend_configuration(value; default_position = :right, default_title = nothing)
-                _relabel_legend!(
-                    panel_data[identity].labels, panel_data[identity].groups,
-                    panel_data[identity].order, config.legend_labels)
-                key=(:legend, identity)
-                built.plot_state.guides[key]=_guide_state(
-                    :legend, identity, config.position, config.attributes;
-                    max_fraction = config.max_fraction, title = config.title)
-                push!(built.plot_state.guide_order, key)
-            end
+        config=_legend_configuration(value; default_position = :right, default_title = nothing)
+        _relabel_legend!(
+            panel_data[identity].labels, panel_data[identity].groups,
+            panel_data[identity].order, config.legend_labels)
+        key=(:legend, identity)
+        built.plot_state.guides[key]=_guide_state(
+            :legend, identity, config.position, config.attributes;
+            max_fraction = config.max_fraction, title = config.title)
+        push!(built.plot_state.guide_order, key)
     end
     resolved_position=shell.colorbar_position===_omitted ? colorbar_position :
                       shell.colorbar_position

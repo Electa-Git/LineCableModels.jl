@@ -9,7 +9,7 @@
     options = (; backend=:cairo, display_plot=false, controls=true,
         open_export=false, length_unit=:base, fig_size=(1200,800))
     pages = LineCableModels.plot(parameters, (R,); layout=(2,3), options...,
-        panel_legends=(5,5)=>(position=:inside, max_fraction=0.5))
+        panel_legends=Dict((5,5)=>(position=:inside, max_fraction=0.5)))
     @test length(pages) == 6
     @test [length(page.axes) for page in pages] == [6,4,6,4,3,2]
     @test [page.plot_state.panel_page.index for page in pages] ==
@@ -65,9 +65,9 @@
     @test_throws ArgumentError LineCableModels.plot(small, (R,); blocks=(2,2),
         layout=(1,2), options...)
     family = LineCableModels.plot(small, (R,G); layout=(1,2), options...,
-        figure_title=("One line", "Two\nlines", "One line", "One line"),
         series_labels=("Saved curve",), legend_position=:bottom,
-        panel_legends=(2,2)=>(position=:right, max_fraction=0.5))
+        panel_legends=Dict((2,2)=>(position=:right, max_fraction=0.5)))
+    foreach(figuretitle!, family, ("One line", "Two\nlines", "One line", "One line"))
     rectangles = [axis.layoutobservables.computedbbox[] for page in family for axis in page.axes]
     @test all(rectangle -> all(isapprox.(rectangle.widths,first(rectangles).widths;atol=1)),rectangles)
     mktempdir() do directory
@@ -144,8 +144,7 @@ end
     @test [curve.color[] for curve in filtered_curves] == [curves[i].color[] for i in [5,2,6]]
     @test [marker.marker[] for marker in filtered_markers] == [markers[i].marker[] for i in [5,2,6]]
     @test [marker[1][] for marker in filtered_markers] == [markers[i][1][] for i in [5,2,6]]
-    plain = LineCableModels.plot(result, (R,); reference,
-        series_attributes=(marker=nothing,),options...)
+    plain = LineCableModels.plot(result, (R,); reference, marker=nothing, options...)
     @test !any(plot -> plot isa Makie.Scatter,only(plain.axes).scene.plots)
     short_reference = reference[1:2]
     short_result = ParametricResult(nothing,[point[1:2] for point in completed],result.axes, ComputationDetails((;)))

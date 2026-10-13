@@ -21,16 +21,13 @@ function _default_preview_legend_group(region, milliken::Bool)
 end
 
 function _preview_legend_group(region, legend_group, milliken::Bool)
-    tag = region.source.tag
     resolved = if legend_group === nothing
         _default_preview_legend_group(region, milliken)
     elseif legend_group isa Function
         legend_group(region)
-    elseif legend_group isa AbstractDict
-        get(legend_group, tag, tag)
     else
         throw(ArgumentError(
-            "legend_group must be a function, a tag-to-group dictionary, or nothing",
+            "legend_group must be a function of the region, or nothing",
         ))
     end
     resolved isa Union{Symbol, AbstractString} || throw(ArgumentError(
@@ -46,13 +43,11 @@ function _preview_legend_label(group::Symbol, legend_labels)
     fallback = uppercasefirst(replace(String(group), '_' => ' '))
     resolved = if legend_labels === nothing
         fallback
-    elseif legend_labels isa Function
-        legend_labels(group)
     elseif legend_labels isa AbstractDict
         get(legend_labels, group, fallback)
     else
         throw(ArgumentError(
-            "legend_labels must be a function, a group-to-label dictionary, or nothing",
+            "legend_labels must be a dictionary keyed by legend group, or nothing",
         ))
     end
     resolved isa AbstractString && !isempty(strip(resolved)) || throw(ArgumentError(

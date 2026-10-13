@@ -109,8 +109,8 @@
 
     filtered=LineCableModels.plot(observed, ((Tv,abs),);problem=2,
         reference=first(observed),layout=(2,2),
-        panel_titles=Dict((3,2)=>"Reference mode two"),
-        panel_legends=Dict((3,2)=>:inside),options...)
+        panel_legends=Dict((3,2)=>(position=:inside,)),options...)
+    paneltitle!(filtered[2], (3,2), "Reference mode two")
     append!(kept,filtered)
     @test length(filtered)==2
     @test filtered[1].plot_state.panel_page.coordinates==((2,1),(2,2),(2,3))

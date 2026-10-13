@@ -37,7 +37,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         title_attributes::NamedTuple = (;), panel_titles = nothing, fig_size = nothing, layout = nothing,
         overlay::Symbol = :auto,
         xscale = nothing, yscale = :linear, legend_position = _omitted, legend_title = nothing,
-        legend_attributes::NamedTuple = (;), legend_max_fraction = 0.5, panel_legends = (),
+        legend_attributes::NamedTuple = (;), legend_max_fraction = 0.5, panel_legends = nothing,
         backend = nothing, display_plot::Bool = true, controls::Bool = true,
         export_theme::Symbol = :default, open_export::Bool = true, kwargs...)
     isempty(observed) && throw(ArgumentError("plot requires at least one observed point"))
@@ -49,21 +49,17 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         :dependent_plots, :marker_coordinates, :signed_ylog, :anchor, :legend_anchor)
         haskey(kwargs, key) && throw(ArgumentError("unsupported plotting keyword $key"))
     end
+    # A number selects one original identity, as a collection of one. The order of
+    # `formulations` orders the points.
     selected=findall(observed) do point
         id=get(point.gridpoint, :id, nothing)
-        (problem===nothing ||
-         id!==nothing &&
-         id.problem_index in (problem isa Integer ? (problem,) : problem)) &&
-            (formulations===nothing ||
-             id!==nothing && id.formulation_index in
-             (formulations isa Integer ? (formulations,) : formulations))
+        (problem===nothing || id!==nothing && id.problem_index in problem) &&
+            (formulations===nothing || id!==nothing && id.formulation_index in formulations)
     end
     isempty(selected) &&
         throw(ArgumentError("no retained observations match the original point selection"))
-    if formulations isa Union{AbstractVector, Tuple}
-        sort!(selected;
-            by = index -> findfirst(==(observed[index].gridpoint.id.formulation_index), formulations))
-    end
+    formulations===nothing || sort!(selected;
+        by = index -> findfirst(==(observed[index].gridpoint.id.formulation_index), formulations))
     points=observed[selected]
     requests=Commons.observation_selection(first(points), selection)
     requests=Commons.observation_requests(first(points), requests).displayed
@@ -120,8 +116,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
     end
     # Positional overrides bind to the overlaid dimension. Preflight every
     # family before constructing the first native figure.
-    if series_labels isa Union{Tuple, AbstractVector} ||
-       series_attributes isa Union{Tuple, AbstractVector}
+    if series_labels !== nothing || series_attributes !== nothing
         counts=unique(orientations[index]!==:gridpoints ?
                       length(coordinate_labels[index]) :
                       input_point_count for index in eachindex(requests))
@@ -133,7 +128,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
                      all(==(:gridpoints), orientations) &&
                      length(series_labels)==length(observed)
     labels=explicit_labels && any(==(:gridpoints), orientations) ?
-           Tuple(_comparison_labels(series_labels, result_labels ? input_point_count-1 :
+           Tuple(validate(series_labels, Legend, result_labels ? input_point_count-1 :
                                                    input_point_count)[i]
     for i in (result_labels ? selected : displayed)) : nothing
     attributes=any(==(:gridpoints), orientations) ?
@@ -163,7 +158,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
     if explicit_labels
         for index in eachindex(requests)
             orientations[index]===:gridpoints && continue
-            coordinate_labels[index]=collect(_comparison_labels(series_labels,
+            coordinate_labels[index]=collect(validate(series_labels, Legend,
                 length(coordinate_labels[index])))
         end
     end
@@ -179,25 +174,17 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         _page_capacity(layout, matrix, (panel_count,))
     end
     pages=_observation_pages(facets, capacities; automatic = layout===nothing)
-    if panel_titles isa Union{Tuple, AbstractVector}
-        length(panel_titles)==length(facets) ||
-            throw(DimensionMismatch("panel_titles must contain one title per selected panel before pagination"))
-        panel_titles=Dict((f.identity, f.panel_identity)=>label
-        for (f, label) in zip(facets, panel_titles))
-    end
+    panel_titles===nothing || (panel_titles=Dict((f.identity, f.panel_identity)=>label
+        for (f, label) in zip(facets, validate(panel_titles, Axis, length(facets)))))
     identities=Set(f.panel_identity for f in facets)
     all(pair -> _panel_identity(first(pair)) in identities, _panel_legend_pairs(panel_legends)) ||
         throw(ArgumentError("panel legend identity is absent from the selected panels"))
     legend_max_fraction=_legend_fraction(legend_max_fraction)
     errorbar_sampling===nothing || errorbar_sampling in (:staggered, :all) ||
         throw(ArgumentError("errorbar_sampling must be :staggered or :all"))
-    if figure_title isa Union{Tuple, AbstractVector}
-        length(figure_title)==length(pages) || throw(DimensionMismatch(
-            "figure_title must contain one entry per generated figure"))
-    end
     _activate_plot_backend(backend)
     built=LineCableModels.UIPlot[]
-    for (page_index, page) in enumerate(pages)
+    for page in pages
         request_index=first(page.facets).request_index
         curves=unique(curve -> curve.group,
             [curve for facet in page.facets for curve in facet.curves])
@@ -221,8 +208,6 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         title!==nothing && length(pages)>1 && (page_title="$title — $automatic_title")
         title===nothing && title_prefix!==nothing && !ismissing(title_prefix) &&
             (page_title="$title_prefix — $automatic_title")
-        visible_title=figure_title isa Union{Tuple, AbstractVector} ?
-                      figure_title[page_index] : figure_title
         push!(built,
             with_theme(_plot_theme(export_theme = export_theme)) do
                 _line_page(
@@ -230,7 +215,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
                     series_indices,
                     errorbar_sampling = sampling, series_defaults = styles,
                     series_attributes = page_attributes, title = page_title,
-                    figure_title = visible_title, title_attributes, panel_titles,
+                    figure_title, title_attributes, panel_titles,
                     fig_size = _figure_size(fig_size, page.capacity),
                     xscale, yscale,
                     legend_position = position, legend_title, legend_attributes, legend_max_fraction, panel_legends,

@@ -30,7 +30,7 @@
     @test_throws ArgumentError LineCableModels.plot(sources, (R,); options...,
         series_attributes=((linestyle=:dash,),))
     @test_throws ArgumentError LineCableModels.plot(sources, (R,); options...,
-        series_attributes=(unsupported_attribute=true,))
+        series_attributes=((unsupported_attribute=true,), (;), (;)))
     mktempdir() do directory
         path = export_svg(page; path=joinpath(directory, "styles.svg"), open_file=false)
         @test filesize(path) > 0
@@ -71,12 +71,12 @@ end
     @test_throws ArgumentError ext._comparison_styles([0],[:result],1)
     @test ext._comparison_styles([2,1],[:result,:result],324)==styles[[2,1]]
 
-    for attributes in (nothing,(color=:red,),
+    for attributes in (nothing,
             Tuple((linewidth=i,) for i in 1:324),[(linewidth=i,) for i in 1:324])
         normalized=ext._series_attributes(attributes,324)
         @test length(normalized)==324
         for slot in (1,18,324)
-            expected_attributes=attributes===nothing ? (;) : attributes isa NamedTuple ? attributes : attributes[slot]
+            expected_attributes=attributes===nothing ? (;) : attributes[slot]
             @test normalized[slot]==expected_attributes
         end
     end
@@ -89,28 +89,29 @@ end
     using Measurements
 
     options = (backend=:cairo, display_plot=false, controls=false, open_export=false)
+    # Shared attributes are plain keywords. They apply to every series of every family.
     attributes = (color=:magenta,)
     parameters = TestFixtures.two_conductor_results()
     # A common override applies to each matrix facet on every Z/Y page.
     pages = LineCableModels.plot(parameters, (Z, Y); options...,
-        series_attributes=attributes)
+        attributes...)
     @test length(pages) == 4
     @test all(page -> length(page.axes) == 4, pages)
     styled = UIPlot[pages...]
     push!(styled, Makie.plot(parameters.Z, R;
-        frequencies = frequencies(parameters), options..., series_attributes=attributes))
+        frequencies = frequencies(parameters), options..., attributes...))
     push!(styled, Makie.plot(parameters.Y, G;
-        frequencies = frequencies(parameters), options..., series_attributes=attributes))
+        frequencies = frequencies(parameters), options..., attributes...))
 
     # Table illustrations use the observation publication renderer.
     artifact = report(TableReportDefinition(((R, :, :, :),);
-        illustration=true, plot_options=(; options..., series_attributes=attributes)),
+        illustration=true, plot_options=(; options..., attributes...)),
         parameters)
     push!(styled, artifact.illustration)
 
     result = TestFixtures.cable_monte_carlo_result()
     for recipe in (Makie.hist, Makie.stairs, Makie.ecdfplot, Makie.lines, Makie.qqplot)
-        push!(styled, recipe(result, R; options..., series_attributes=attributes))
+        push!(styled, recipe(result, R; options..., attributes...))
     end
 
     copper = Material(kind=:conductor, rho=1.72e-8)
@@ -118,10 +119,10 @@ end
     system = build(LineCableSystem, design, (0.0, -1.0); connections=Dict(:core=>1))
     for source in (design, [design, design], system)
         push!(styled, preview(source; options..., display_colorbars=false,
-            series_attributes=attributes))
+            attributes...))
     end
     native = LineCableModels.plotwindow(; title="Shared style", options...,
-        series_attributes=attributes) do canvas
+        attributes...) do canvas
         axis = Axis(canvas[1, 1])
         lines!(axis, [1.0, 2.0], [3.0, 4.0])
         scatter!(axis, [1.0, 2.0], [4.0, 3.0])
@@ -138,7 +139,7 @@ end
         measurement.(imag.(Z(parameters)), 1e-6))
     page = Makie.plot(SeriesImpedance(uncertain), (R, 1, 1, :);
         frequencies = frequencies(parameters), options...,
-        series_attributes=(marker=:circle, markersize=8, alpha=0.35))
+        series_attributes=((marker=:circle, markersize=8, alpha=0.35),))
     handles = only(values(page.plot_state.groups))
     @test count(handle -> handle isa Makie.Lines, handles) == 1
     @test count(handle -> handle isa Makie.Errorbars, handles) == 1

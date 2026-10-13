@@ -32,11 +32,11 @@ The result tensors and geometry tags remain unchanged.
 |:--|:--|
 | `figure_title` | One visible title above the whole native figure |
 | `title_attributes` | Native Makie `Label` attributes for `figure_title` |
-| `panel_titles` | Axis-title overrides by position, request, or panel identifier |
+| `panel_titles` | Axis titles, one per selected panel in order |
 | `legend_title` | Heading of the controlled figure legend |
 | `series_labels` | Names of the overlaid gridpoints or physical coordinates. These are the legend entries |
-| `series_attributes` | Native Makie attributes for all overlaid curves, or one named tuple per curve |
-| `legend_position` | `:inside`, a named outer dock, or a positive dock grid position |
+| `series_attributes` | Native Makie attributes, one named tuple per overlaid curve |
+| `legend_position` | `:inside`, a named outer dock, or `nothing` |
 | `legend_attributes` | Native `halign`/`valign`, orientation, banks, fonts, and padding |
 
 Some established recipes also accept `title` for the window or exported file,
@@ -49,8 +49,8 @@ titles and `figure_title` remain independent.
 
 `series_attributes` uses the shared PlotBuilder controls for matrix and benchmark
 plots, observed results, statistical plots, and geometry previews.
-A named tuple applies to every group. A tuple or vector of named tuples styles
-each group separately.
+A tuple or vector of named tuples styles each group separately. Shared
+settings, such as `linewidth = 2`, are plain keywords.
 `series_attributes=((marker=:circle, markersize=8), (;), (linestyle=:dash,))`
 adds markers to the first series, keeps the second's defaults and dashes the
 third. Styles apply across facets and pages, including their legends and
@@ -118,11 +118,11 @@ use the same operation with their own physical row and column labels.
 Row-overlay panels follow selected column order, left to right and then top to
 bottom. `layout=(r,c)` applies the same block capacity to each point. Pagination
 restarts at each point, even when the previous page has empty cells. Automatic
-capacity uses the selected column count per point. Panel titles and controls
+capacity uses the selected column count per point. `paneltitle!` and controls
 accept `(original_point_position, original_column)` addresses. An explicit
 reference uses its appended input position. Row colors and markers remain
 consistent across columns, points, references and reordered selections.
-Positional `series_labels` and `series_attributes` follow selected row order.
+`series_labels` and `series_attributes` follow selected row order.
 Use separate calls for matrix and vector quantities with this explicit option.
 
 ### Matrix pagination and overlays
@@ -131,7 +131,7 @@ Use separate calls for matrix and vector quantities with this explicit option.
 pages for a full 3×3 matrix. Their actual extents are 2×2, 2×1, 1×2, and 1×1.
 Pages follow request order and then row-major matrix-page order. Original
 coefficient identities remain the addresses for titles, legends, scales, and reset.
-Positional `panel_titles` bind to the complete selected population before paging.
+`panel_titles` bind to the complete selected population before paging.
 
 Automatic matrix pages cover the selected original-coordinate rectangle. Consider this example: selecting columns 2 and 3 gives a two-column overview without splitting
 at the original block edge. Explicit capacities keep blocks anchored at
@@ -157,7 +157,7 @@ Default routes and explicit implementations have the same styling semantics.
 Deterministic references mark both endpoints.
 Colors and marker identities remain stable
 when formulations are filtered. No curves are merged because they agree.
-Use `series_attributes=(marker=nothing,)` for lines only, or an explicit native
+Use `marker=nothing` for lines only, or an explicit native
 `marker` for all-sample placement. References remain comparison operands, not
 declarations of physical truth.
 
@@ -364,7 +364,7 @@ shunt_cartesian = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (900, 480),
-    panel_titles = Dict(:G => "Self conductance", :B => "Self susceptance")
+    panel_titles = ("Self conductance", "Self susceptance")
 )
 shunt_cartesian[1].figure #hide
 ````
@@ -375,9 +375,8 @@ shunt_cartesian[2].figure #hide
 
 Any accepted Makie `Legend` keyword belongs in `legend_attributes`. For a
 labeled source or comparison, moving the
-block uses `legend_position = :inside`, `:left`, `:right`, `:top`, `:bottom`,
-or a positive `(row, column)` dock coordinate. `(2, 2)` remains the plot
-canvas. Native `halign` and `valign` also position inside legends.
+block uses `legend_position = :inside`, `:left`, `:right`, `:top` or `:bottom`.
+Native `halign` and `valign` also position inside legends.
 
 ### Figure-wide and panel-scoped legends
 
@@ -430,7 +429,7 @@ panellegend!(
     position = :inside,
     halign = :left, valign = :bottom,
     title = "Resistance result",
-    legend_labels = ("base R", "alternative R"),
+    legend_labels = Dict(:result_1 => "base R", :result_2 => "alternative R"),
     backgroundcolor = (:white, 0.92),
     max_fraction = 0.5
 )
@@ -446,8 +445,8 @@ legend_scope_demo.figure #hide
 
 The same panel legends can be requested at construction time with
 `panel_legends=Dict((1, 1) => (position=:inside, halign=:left, valign=:bottom,
-legend_labels=("base R", "alternative R")))`. Runtime dictionaries target
-stable source keys such as `:result_1`.
+legend_labels=Dict(:result_1 => "base R", :result_2 => "alternative R")))`.
+Legend labels are keyed by the stable source groups, such as `:result_1`.
 
 ### Derived R/L/G/C dashboard
 
@@ -819,14 +818,13 @@ cable_preview = preview(
 cable_preview.figure #hide
 ````
 
-`legend_group` accepts either the shown callback over a `PlacedRegion` or a
-tag-to-group dictionary. `legend_labels` maps the resulting presentation group
-to text. This keeps display grouping independent of physical tags. For detailed
+`legend_group` is a callback over a `PlacedRegion`, as shown.
+`legend_labels` maps the resulting presentation group to text. This keeps display grouping independent of physical tags. For detailed
 annotation, mutate `cable_preview.axes[1]` and add ordinary Makie plots. Each
 object in `cable_preview.colorbars` is a native `Colorbar`.
 All preview routes use `guide_gap=(8,8,24,8)` in left, right, bottom, top order.
 The 24-pixel bottom clearance separates the axis label from the scale strip.
-Pass a scalar or four-sided `guide_gap` to change that clearance.
+Pass a four-sided `guide_gap` to change that clearance.
 
 ### Independent scale arrangement and guide spacing
 
@@ -859,7 +857,8 @@ figurecolorbars!(scale_arrangement;
     group_attributes = (layout = (3, 1), rowgap = 12, valign = :bottom),
     vertical = false
 )
-figurelegend!(scale_arrangement; position = :right, valign = :top, guide_spacing = 14)
+figurelegend!(scale_arrangement; position = :right, valign = :top,
+    guide_spacing = (rowgap = 14, colgap = 14))
 scale_arrangement.figure #hide
 ````
 
@@ -872,7 +871,7 @@ dimensions have separate controls. Hidden scales keep their native handles
 for restoration and release their occupied space.
 
 Omitted group settings survive live updates. `layout=nothing` restores one
-row at top and bottom or one column at left and right and explicit side-grid slots.
+row at top and bottom or one column at left and right.
 Standalone scales in main content default to one column. Explicit capacity
 fills row-major and omits unoccupied tracks within the colorbar group.
 `rowgap=nothing` and `colgap=nothing` restore inheritance from `guide_spacing`.
@@ -1123,7 +1122,7 @@ quantile_plot = Makie.qqplot(
     fig_size = (820, 440),
     panel_titles = ("Sample versus retained model",),
     legend_title = "Q–Q elements",
-    legend_labels = ("sample quantiles", "identity reference"),
+    legend_labels = Dict(:distribution => "sample quantiles", :identity => "identity reference"),
     legend_position = :inside,
     legend_attributes = (; halign = :left, valign = :top, backgroundcolor = (:white, 0.92)),
     legend_max_fraction = 0.5,
@@ -1294,7 +1293,7 @@ view. Incompatible log limits are rejected before the page changes. Use native
 
 `legend_position` selects only placement. `:inside` overlays the union of the
 figure's axis viewports or the one axis viewport for a panel legend.
-Native `halign`/`valign` select corner, center, or fractional alignment. Side-grid slots
+Native `halign`/`valign` select corner, center, or fractional alignment. Side docks
 remain outside the plot area. `legend_attributes` is merged into the native
 `Legend` constructor, so orientation, bank count, padding, background,
 alignment, and other Makie options remain available. `legend_max_fraction=0.5`

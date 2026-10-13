@@ -88,7 +88,7 @@ caller-owned. `figure_title` names the whole figure, `panel_titles` names its
 logical axes, and `series_labels` names overlaid result containers in legends.
 Matrix coordinates belong in semantic axis titles, never legend entries.
 Legends accept outer docks or
-`legend_position=:inside` with an anchor such as `:rt`. `figurelegend!`,
+`legend_position=:inside` with native `halign` and `valign`. `figurelegend!`,
 `panellegend!`, `figuretitle!`, and `paneltitle!` can change those native blocks
 after construction. The Export SVG control appears only when CairoMakie is loaded
 before plot construction. It saves the current live state without switching

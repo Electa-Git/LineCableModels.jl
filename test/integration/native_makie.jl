@@ -310,8 +310,7 @@ end
     for (position,
         orientation) in (
         (:left, :vertical), (:right, :vertical),
-        (:top, :horizontal), (:bottom, :horizontal),
-        ((1, 3), :horizontal)
+        (:top, :horizontal), (:bottom, :horizontal)
     )
         placed=Makie.plot(
             parameters,
@@ -389,7 +388,7 @@ end
         position = :inside,
         halign = :left, valign = :bottom,
         title = "Resistance results",
-        legend_labels = ("base R", "result R"),
+        legend_labels = Dict(:result_1=>"base R", :result_2=>"result R"),
         max_fraction = 0.5
     )
     Makie.colorbuffer(titled_inside.figure)
@@ -418,14 +417,11 @@ end
         (R, X);
         backend = :cairo,
         display_plot = false,
-        controls = false,
-        figure_title = ("Resistance dashboard", "Reactance dashboard")
+        controls = false
     )
+    foreach(figuretitle!, per_page_titles, ("Resistance dashboard", "Reactance dashboard"))
     @test [page.title.text[] for page in per_page_titles] ==
           ["Resistance dashboard", "Reactance dashboard"]
-    @test_throws DimensionMismatch Makie.plot(parameters, (R, X);
-        backend = :cairo, display_plot = false, controls = false,
-        figure_title = ("only one title",))
 
     @test_throws DimensionMismatch Makie.plot(
         parameters,

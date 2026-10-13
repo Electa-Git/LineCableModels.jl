@@ -100,7 +100,7 @@ preview_plot = preview(
     title = "Unbelievers, lo and behold!",
     panel_titles = ("I told y'all that this could run a Pikachu-shaped cable model!",),
     fig_size = (900, 760),
-    legend_group = presentation_groups,
+    legend_group = region -> get(presentation_groups, region.source.tag, region.source.tag),
     series_attributes = (
         (; color = "#F6C945", strokecolor = "#2A2510", strokewidth = 5.0),
         (; color = "#E64A2E", strokecolor = "#C83A21", strokewidth = 2.0),

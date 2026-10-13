@@ -222,7 +222,7 @@ end
     @test maximum(frame.origin[2]+frame.widths[2] for frame in frames)-minimum(frame.origin[2]+frame.widths[2] for frame in frames)<=1
     figurecolorbars!(p;position=:right,
         group_attributes=(layout=(3,1),rowgap=12,valign=:bottom),vertical=false)
-    figurelegend!(p;position=:right,valign=:top,guide_spacing=14)
+    figurelegend!(p;position=:right,valign=:top,guide_spacing=(rowgap=14,colgap=14))
     resize!(p.figure,1000,800)
     GLMakie.colorbuffer(p.figure)
     frames=[bar.layoutobservables.computedbbox[] for bar in bars]

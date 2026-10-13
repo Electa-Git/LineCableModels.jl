@@ -43,7 +43,7 @@ end
     observed=observables(PropagationParameters(modal),((Tv,abs),(Tv,angle),(Ti,abs),(Ti,angle)))
     pages=LineCableModels.plot(observed;overlay=:coordinates,
         backend=:cairo,display_plot=false,controls=true,open_export=false,
-        series_attributes=(linewidth=2.5,))
+        linewidth=2.5)
     @test length(pages)==4
     for (page, expected) in zip(pages,(abs.(voltage),rad2deg.(angle.(voltage)),
             abs.(current),rad2deg.(angle.(current))))
@@ -198,7 +198,7 @@ end
         (gamma,)) for index in 1:3]
     stable_reference=LineCableModels.plot(distinct, (gamma,real);
         overlay=:coordinates,reference=second_point,problem=1,
-        panel_legends=Dict(4=>:inside),options...)
+        panel_legends=Dict(4=>(position=:inside,)),options...)
     @test stable_reference.plot_state.panel_page.coordinates==(1,4)
     @test length(stable_reference.axes)==2
     filtered_modal=E.retain_gridpoint(modal,G.gridpoint_id(;problem_index=2))

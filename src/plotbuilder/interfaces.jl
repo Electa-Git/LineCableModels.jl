@@ -33,7 +33,8 @@ preserve recorded units, masks, errors, timings, and uncertainty dependencies.
 `plot(report, (R,); length_unit=:base)` displays its retained
 result and reference curves per meter without rebuilding the report.
 
-`problem` and `formulations` select original recorded identities. `band` selects
+`problem` and `formulations` select original recorded identities. A number selects
+one identity, as a collection of one. `band` selects
 saved comparison samples through the observation owner, retaining each trace's
 own coordinates and reference association.
 
@@ -49,7 +50,7 @@ For Tv/Ti, panel titles identify modes and legends identify conductors. Each
 gridpoint, including a reference or an equivalent result, gets separate figures.
 Columns flow left to right, then top to bottom, restarting pagination for each
 point. Figure titles use compact gridpoint descriptions. A reference counts as a
-selected gridpoint. Positional `series_labels` and `series_attributes` address
+selected gridpoint. `series_labels` and `series_attributes` address
 the overlaid dimension. Mixed figure families with incompatible positional
 lengths require separate calls.
 
@@ -72,7 +73,7 @@ lengths require separate calls.
   Each page contains columns from one point. Panel addresses
   are `(original_point_position, original_column)`, with a reference appended
   after the input points. Row styles retain original row identities across pages
-  and points. Positional labels and attributes follow the selected row order.
+  and points. Labels and attributes follow the selected row order.
 - `fig_size` is the initial reference size of the complete nominal capacity.
   `figure=(size=...,)` takes precedence. Managed figures fit their decorated
   occupied content. Residual pages retain the same initial data-frame dimensions,
@@ -82,8 +83,9 @@ lengths require separate calls.
   coordinates use honest element-index views. Full modal matrices retain every
   selected coefficient, including zero and residual off-diagonals.
 - `series_labels`, `reference`, and `series_attributes` control the overlaid
-  trace identity and native appearance. Attributes accept one NamedTuple or an
-  aligned tuple or vector.
+  trace identity and native appearance. Labels and attributes are tuples or
+  vectors aligned with the series, one NamedTuple of attributes per series. Shared
+  attributes are plain keywords.
   Result slots are assigned before filtering and adding a reference. References default to black solid curves and hollow circles.
 - `errorbar_sampling` defaults to `:staggered` for multiple displayed series and
   `:all` for one. Full uncertainty support controls limits. Explicit curve
@@ -100,10 +102,12 @@ lengths require separate calls.
   The native `log10` function remains strict.
   Categorical axes retain native conversion and have no X-log toggle.
 - Titles use `title`, `title_prefix`, `figure_title`, `title_attributes`, and
-  `panel_titles`. Positional panel titles bind before pagination. Dictionary and
-  function selections retain original panel identities.
+  `panel_titles`. `figure_title` is one title for every figure. `panel_titles` is a
+  tuple or vector with one title per selected panel, bound before pagination.
+  [`figuretitle!`](@ref) and [`paneltitle!`](@ref) set one page or panel title.
 - Legends use `legend_position`, `legend_title`, `legend_attributes`,
-  `legend_max_fraction`, and `panel_legends`. Multiple/explicitly labelled result
+  `legend_max_fraction`, and `panel_legends`. `panel_legends` is a dictionary from
+  panel identity to a legend configuration. Multiple/explicitly labelled result
   series default to a bottom legend. One unlabelled series has none.
   `legend_max_fraction=0.5` accepts a finite real number excluding Boolean values in `(0,1]`.
   It caps top and bottom legend height or side legend width relative to the
@@ -112,17 +116,17 @@ lengths require separate calls.
   and restored when space returns. Every curve remains plotted. If even the
   ellipsis and title cannot fit, the legend is hidden until space returns.
 - `colorbar_position`, `colorbar_group_attributes`, `colorbar_attributes`, and
-  `guide_gap=8` place existing scale content.
+  `guide_gap=(8, 8, 8, 8)` place existing scale content.
   Native `halign`/`valign` supply symbolic or fractional alignment.
-- `guide_spacing=12` sets minimum spacing between neighboring complete guides
-  in logical pixels. A `(rowgap=..., colgap=...)` NamedTuple controls each
-  direction. Omitted constructor components default to 12. This is independent
+- `guide_spacing=(rowgap=12, colgap=12)` sets minimum spacing between neighboring
+  complete guides in logical pixels, by direction. Omitted components default to
+  12. This is independent
   of plot-to-guide `guide_gap`, figure padding, and legend-entry spacing.
 - `colorbar_group_attributes=(layout=nothing, rowgap=nothing, colgap=nothing)`
   controls the scale group's cells and minimum internal gaps. Explicit positive
   integer capacity fills row-major. Unused tracks are omitted. Automatic layout
-  is one row at top and bottom and one column at left and right, explicit guide slots,
-  or standalone main content. Gaps inherit `guide_spacing` when omitted or
+  is one row at top and bottom and one column at left and right, or standalone main
+  content. Gaps inherit `guide_spacing` when omitted or
   `nothing`. `colorbar_attributes.vertical` orients each bar independently.
 - `backend`, `display_plot=true`, `controls=true`, `widgets=()`,
   `export_theme=:default`, and `open_export=true` control display and UI behavior.
@@ -191,11 +195,11 @@ a loaded Makie backend.
   strip below the preview. Horizontal bars keep their property labels on the
   left, independently of group placement.
 - `guide_gap=(8,8,24,8)`: clearance in logical pixels between plot decorations
-  and guides, ordered left, right, bottom, top. A scalar sets all four sides.
+  and guides, ordered left, right, bottom, top.
 - `colorbar_group_attributes`: group `layout`, `rowgap`, and `colgap`, with
   native group alignment and explicit outer `margin`. Bar orientation and
   dimensions belong to `colorbar_attributes`. See [`plot`](@ref) for the shared
-  placement rules and sibling spacing through `guide_spacing=12`.
+  placement rules and sibling spacing through `guide_spacing`.
 
 # Returns
 
@@ -264,10 +268,10 @@ preserve current state. `position=nothing` detaches and hides the guide. Native
 restoration retain native styles and series visibility. `max_fraction` uses
 the same `(0,1]` size limit as `plot(...; legend_max_fraction=0.5)` and defaults
 to `0.5` when creating a guide. Figure legends use the combined panel footprint.
+`legend_labels` is a dictionary from legend group, such as `:result_1`, to label.
 
-`guide_spacing` updates the shared figure-wide minimum sibling spacing. A scalar
-sets both directions. A partial `(rowgap=..., colgap=...)` update preserves the
-other current component. Values are finite, nonnegative, non-Boolean real
+`guide_spacing` updates the shared figure-wide minimum sibling spacing. A partial
+`(rowgap=..., colgap=...)` update preserves the other current component. Values are finite, nonnegative, non-Boolean real
 numbers in logical pixels. Existing panel legends inherit this setting.
 """
 function figurelegend! end

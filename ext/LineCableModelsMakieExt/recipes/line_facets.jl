@@ -68,28 +68,6 @@ function _quantity_page_title(page)
     return page.index==(1, 1) ? label : "$label ($(page.index[1]),$(page.index[2]))"
 end
 
-function _panel_title(panel_titles, facet)
-    panel_titles === nothing && return _quantity_panel_title(facet)
-    panel_titles isa Function && return panel_titles(facet)
-    if panel_titles isa AbstractDict
-        quantity_symbol = Symbol(Units.symbol(facet.quantity))
-        panel_title_keys = (
-            (facet.identity, facet.panel_identity),
-            facet.panel_identity,
-            (facet.identity, facet.row, facet.column),
-            (quantity_symbol, facet.row, facet.column),
-            (facet.row, facet.column),
-            facet.identity,
-            quantity_symbol
-        )
-        for title_key in panel_title_keys
-            haskey(panel_titles, title_key) && return panel_titles[title_key]
-        end
-        return _quantity_panel_title(facet)
-    end
-    throw(ArgumentError("panel_titles must be a dictionary, function, or nothing"))
-end
-
 function _line_page(
         published,
         page,
@@ -187,7 +165,9 @@ function _line_page(
             panel.content,
             xobservation,
             yobservation;
-            title = _panel_title(panel_titles, facet),
+            # A plot binds its panel titles by request and panel identity.
+            title = panel_titles === nothing ? _quantity_panel_title(facet) :
+                    panel_titles[(facet.identity, facet.panel_identity)],
             xscale = xscale===nothing ?
                      (facet.kind in (:matrix, :diagonal, :vector) ? :log10 : :linear) :
                      xscale,
@@ -257,7 +237,7 @@ function _line_page(
         push!(requested_scales, scales)
     end
     selected=Set(facet.panel_identity for facet in page.facets)
-    local_panel_legends=Tuple(pair
+    local_panel_legends=Dict(pair
     for pair in _panel_legend_pairs(panel_legends) if first(pair) in selected)
     built = _finish_plot!(
         shell, axes, resets, groups, group_order, group_labels;

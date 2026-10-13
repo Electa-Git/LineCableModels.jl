@@ -159,7 +159,7 @@ end
     @test !isempty(Makie.colorbuffer(fixed.figure))
     empty!(fixed.figure)
     panel=LineCableModels.plot(source, (R,); options..., legend_position = nothing,
-        panel_legends = (1=>(position = :bottom, max_fraction = 0.5),))
+        panel_legends = Dict(1=>(position = :bottom, max_fraction = 0.5)))
     @test panel.panel_legends[1].layoutobservables.autosize[][2]<=0.5only(panel.axes).scene.viewport[].widths[2]+1
     @test last(last(only(panel.panel_legends[1].entrygroups[]))).label[]=="(...)"
     @test !isempty(Makie.colorbuffer(panel.figure))
@@ -361,11 +361,12 @@ end
 
     design=TestFixtures.coaxial_design()
     pages=preview(fill(design, 4); options..., controls = false, layout = (1, 2),
-        panel_titles = Dict(1=>"First", 4=>"Fourth"))
+        panel_titles = ("First", "Second", "Third", "Fourth"))
     @test first(pages).axes[1].title[]=="First"
     @test last(pages).axes[2].title[]=="Fourth"
-    @test first(pages).axes[2].title[]==design.cable_id
-    auto=preview(fill(design, 3); options..., controls = false, panel_titles = i->"Cable $i")
+    @test first(pages).axes[2].title[]=="Second"
+    auto=preview(fill(design, 3); options..., controls = false,
+        panel_titles = Tuple("Cable $i" for i in 1:3))
     identities=auto.plot_state.panel_page.coordinates
     resize!(auto.figure, 1800, 450)
     @test auto.plot_state.panel_page.coordinates==identities
