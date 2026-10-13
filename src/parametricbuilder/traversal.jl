@@ -78,7 +78,7 @@ same problem-index-fastest storage order.
   `ComputationDetails`, empty or containing `(points=records,)`.
 """
 function traverse(problem::ParametricProblem, formulation)
-    progress = problem.space isa Gridspace{<:Engine.LineParametersProblem} && verbosity(problem.options, :progress) > 0
+    progress = _reports_progress(problem.space, problem.options)
     started = progress ? time_ns() : UInt64(0)
     previous = started
     last_log = started
@@ -236,7 +236,7 @@ function compute(problem::ParametricProblem, formulation::Combinatorial;
     isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
     levels = verbosity(get(problem.options.data, :verbosity, (default=0,)))
-    progress = problem.space isa Gridspace{<:Engine.LineParametersProblem} && get(levels, :progress, levels.default) > 0
+    progress = _reports_progress(problem.space, problem.options)
     logger = haskey(problem.options.data, :verbosity) ? VerbosityLogger(Logging.current_logger(), levels) : Logging.current_logger()
     return Logging.with_logger(logger) do
         started = progress ? time_ns() : UInt64(0)

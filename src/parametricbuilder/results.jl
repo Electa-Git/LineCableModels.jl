@@ -84,13 +84,19 @@ target-bearing `Gridspace`. The problem itself need not implement iteration.
 
 $(TYPEDFIELDS)
 """
-struct ParametricProblem{S, O <: ComputationOptions} <: AbstractProblemDefinition
+struct ParametricProblem{
+    S <: Union{AbstractProblemDefinition, Gridspace{<:AbstractProblemDefinition}},
+    O <: ComputationOptions
+} <: AbstractProblemDefinition
     "Lazy space of complete core problems."
     space::S
     "Options forwarded to each core computation for owner-specific normalization."
     options::O
 
-    function ParametricProblem(space::S, options::O) where {S, O <: ComputationOptions}
+    function ParametricProblem(space::S, options::O) where {
+            S <: Union{AbstractProblemDefinition, Gridspace{<:AbstractProblemDefinition}},
+            O <: ComputationOptions
+    }
         return validate(new{S, O}(space, options))
     end
 end
@@ -102,23 +108,26 @@ end
 
 ParametricProblem(space) = ParametricProblem(space, ComputationOptions())
 
-function validate(problem::ParametricProblem)
-    problem.space isa Union{
-        AbstractProblemDefinition,
-        Gridspace{<:AbstractProblemDefinition}
-    } || throw(ArgumentError(
-        "ParametricProblem.space must be a completed problem or a Gridspace " *
-        "targeting AbstractProblemDefinition; received $(typeof(problem.space))"
-    ))
-    if problem.space isa AbstractProblemDefinition
-        validate(problem.space)
-    else
-        length(problem.space) > 0 || throw(ArgumentError(
-            "ParametricProblem.space must contain at least one problem point"
-        ))
-    end
+function validate(problem::ParametricProblem{<:AbstractProblemDefinition})
+    validate(problem.space)
     return problem
 end
+
+function validate(problem::ParametricProblem{<:Gridspace{<:AbstractProblemDefinition}})
+    length(problem.space) > 0 || throw(ArgumentError(
+        "ParametricProblem.space must contain at least one problem point"
+    ))
+    return problem
+end
+
+# Only a space of line-parameter problems reports progress, from a positive progress level.
+function _reports_progress(
+        ::Gridspace{<:Engine.LineParametersProblem},
+        options::ComputationOptions
+)
+    return verbosity(options, :progress) > 0
+end
+_reports_progress(space, options::ComputationOptions) = false
 
 """
 $(TYPEDEF)
