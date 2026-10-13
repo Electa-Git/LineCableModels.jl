@@ -132,32 +132,50 @@ _member_primitive(shape::AbstractPrimitive, source) = source.primitive
 _member_primitive(shape::CableGeometry, source) = source.primitive
 _member_primitive(shape::AbstractShape, source) = shape
 
-function bounded_declarations(group::Group)
-    group.item isa Stack || throw(ArgumentError(
-        "a bounded formation must own an ordered Stack of strand declarations"
-    ))
+function bounded_declarations(group::Group{<:Pose2, <:Stack})
     parts = collect(group.item.items)
     for part in parts
-        part isa Group || throw(ArgumentError(
-            "a bounded formation Stack may contain only strand Groups"
-        ))
-        part.item isa Region || throw(ArgumentError(
-            "each bounded strand declaration must own one Region"
-        ))
-        part.at == Pose2(0, 0, 0) || throw(ArgumentError(
-            "bounded strand declarations must share the formation origin"
-        ))
-        part.boundary === nothing || throw(ArgumentError(
-            "nested bounded formations are not supported"
-        ))
-        part.pattern === nothing || throw(ArgumentError(
-            "a bounded strand inventory cannot declare a Ring or other placement"
-        ))
-        part.compact === nothing || throw(ArgumentError(
-            "bounded compaction belongs to the containing formation"
-        ))
+        validate(part, group)
     end
     return parts
+end
+
+function bounded_declarations(::Group)
+    throw(ArgumentError(
+        "a bounded formation must own an ordered Stack of strand declarations"
+    ))
+end
+
+# A strand declaration of a bounded formation is a Group at the formation origin that owns
+# one Region and leaves placement and compaction to the formation.
+function validate(part::Group{<:Pose2, <:Region}, ::Group)
+    part.at == Pose2(0, 0, 0) || throw(ArgumentError(
+        "bounded strand declarations must share the formation origin"
+    ))
+    part.boundary === nothing || throw(ArgumentError(
+        "nested bounded formations are not supported"
+    ))
+    part.pattern === nothing || throw(ArgumentError(
+        "a bounded strand inventory cannot declare a Ring or other placement"
+    ))
+    part.compact === nothing || throw(ArgumentError(
+        "bounded compaction belongs to the containing formation"
+    ))
+    return part
+end
+
+function validate(part::Group, ::Group)
+    throw(ArgumentError(
+        "each bounded strand declaration must own one Region; " *
+        ":$(part.name) owns a $(nameof(typeof(part.item)))"
+    ))
+end
+
+function validate(part::AbstractCablePart, ::Group)
+    throw(ArgumentError(
+        "a bounded formation Stack may contain only strand Groups; " *
+        "got a $(nameof(typeof(part)))"
+    ))
 end
 
 function strand_path(paths, course::Int, maximum_course::Int)
@@ -170,19 +188,31 @@ function strand_path(paths, course::Int, maximum_course::Int)
     return paths[course]
 end
 
-function circular_members(boundary_shape::Disk, parts, compact::Bool)
+"""
+$(TYPEDSIGNATURES)
+
+Construct the members and placed primitives of a bounded wire formation from
+its physical boundary, ordered part declarations, and compaction selection.
+Coordinates and dimensions are in meters. Return `(boundary, members, primitives)` in
+construction order. The center and strand declarations select the formation. Disk wires
+pack in circular courses, and a Rectangle strand bends around a Disk center wire.
+"""
+function bounded_members(boundary_shape::Disk, parts, compact::Bool)
     length(parts) == 2 || throw(ArgumentError(
-        "a circular stranded core requires center and outer strand declarations"
+        "a disk-bounded stranded core requires center and strand declarations"
     ))
     center_part, strand_part = parts
+    return bounded_members(boundary_shape, center_part, strand_part, compact)
+end
+
+function bounded_members(
+        boundary_shape::Disk,
+        center_part::Group{<:Pose2, <:Region{<:Disk}},
+        strand_part::Group{<:Pose2, <:Region{<:Disk}},
+        compact::Bool
+)
     center = center_part.item.primitive
     strand = strand_part.item.primitive
-    center isa Disk || throw(ArgumentError(
-        "a circular stranded core requires a Disk center wire"
-    ))
-    strand isa Disk || throw(ArgumentError(
-        "circular strand packing requires Disk source wires"
-    ))
     center.r <= boundary_shape.r || throw(DomainError(
         center.r, "the center wire exceeds the circular core boundary"
     ))
@@ -213,46 +243,20 @@ function circular_members(boundary_shape::Disk, parts, compact::Bool)
     primitives = compact ? deform_disk_members(boundary_shape, members) :
                  [resolve(Pose2(member.site..., member.angle), member.source.primitive)
                   for member in members]
-    return members, primitives
+    return boundary_shape, members, primitives
 end
 
-function sector_members(boundary_shape::SectorShape, parts)
-    length(parts) == 1 || throw(ArgumentError(
-        "a sector stranded core uses one declaration for its center and course wires"
-    ))
-    part = only(parts)
-    wire = part.item.primitive
-    wire isa Disk || throw(ArgumentError(
-        "a sector stranded core requires Disk source wires"
-    ))
-    courses, primitives, maximum_course = sector_courses(boundary_shape, wire)
-    members = [(
-                   source = part.item,
-                   placement.course,
-                   member,
-                   path = strand_path(part.path, placement.course, maximum_course),
-                   placement.angle,
-                   placement.site
-               ) for (member, placement) in enumerate(courses)]
-    return members, primitives
-end
-
-function rectangular_members(boundary_shape::Disk, parts, compact::Bool)
+function bounded_members(
+        boundary_shape::Disk,
+        center_part::Group{<:Pose2, <:Region{<:Disk}},
+        strand_part::Group{<:Pose2, <:Region{<:Rectangle}},
+        compact::Bool
+)
     compact || throw(ArgumentError(
         "rectangular strands require area-preserving bending"
     ))
-    length(parts) == 2 || throw(ArgumentError(
-        "a rectangular stranded core requires center and strand declarations"
-    ))
-    center_part, strand_part = parts
     center = center_part.item.primitive
     strand = strand_part.item.primitive
-    center isa Disk || throw(ArgumentError(
-        "a rectangular stranded core requires a Disk center wire"
-    ))
-    strand isa Rectangle || throw(ArgumentError(
-        "rectangular strand packing requires Rectangle source strands"
-    ))
     strips = rectangular_strands(boundary_shape, center, strand)
     maximum_course = maximum(getproperty.(strips, :course))
     members = NamedTuple[(
@@ -277,26 +281,32 @@ function rectangular_members(boundary_shape::Disk, parts, compact::Bool)
         ))
         push!(primitives, strip.primitive)
     end
+    # Complete bent courses occupy exactly this disk. The requested packing limit is not an
+    # additional physical layer.
+    return Disk(r_ex(last(primitives)), boundary_shape.at), members, primitives
+end
+
+function sector_members(boundary_shape::SectorShape, parts)
+    length(parts) == 1 || throw(ArgumentError(
+        "a sector stranded core uses one declaration for its center and course wires"
+    ))
+    part = only(parts)
+    wire = part.item.primitive
+    courses, primitives, maximum_course = sector_courses(boundary_shape, wire)
+    members = [(
+                   source = part.item,
+                   placement.course,
+                   member,
+                   path = strand_path(part.path, placement.course, maximum_course),
+                   placement.angle,
+                   placement.site
+               ) for (member, placement) in enumerate(courses)]
     return members, primitives
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Construct the members and placed primitives of a bounded wire formation from
-its physical boundary, ordered part declarations, and compaction selection.
-Coordinates and dimensions are in meters. Return `(members, primitives)` in
-construction order.
-"""
-function bounded_members(boundary_shape::Disk, parts, compact::Bool)
-    outer = last(parts).item.primitive
-    return outer isa Disk ?
-           circular_members(boundary_shape, parts, compact) :
-           rectangular_members(boundary_shape, parts, compact)
+function bounded_members(boundary_shape::SectorShape, parts, ::Nothing)
+    return boundary_shape, sector_members(boundary_shape, parts)...
 end
-
-bounded_members(boundary_shape::SectorShape, parts, ::Nothing) =
-    sector_members(boundary_shape, parts)
 
 """
 $(TYPEDSIGNATURES)
@@ -309,16 +319,11 @@ primitive order follows construction. An empty formation raises `ArgumentError`.
 function bounded_members(group::Group)
     boundary_shape = resolve(group.at, group.boundary)
     parts = bounded_declarations(group)
-    members, primitives = bounded_members(boundary_shape, parts, group.compact)
+    outer, members, primitives = bounded_members(boundary_shape, parts, group.compact)
     isempty(members) && throw(ArgumentError(
         "a bounded formation requires at least one strand"
     ))
-    if boundary_shape isa Disk && last(parts).item.primitive isa Rectangle
-        # Complete bent courses occupy exactly this disk. The requested
-        # packing limit is not an additional physical layer.
-        boundary_shape = Disk(r_ex(last(primitives)), boundary_shape.at)
-    end
-    return boundary_shape, members, primitives
+    return outer, members, primitives
 end
 
 function bounded_pose(absolute, origin::Pose2, angle)

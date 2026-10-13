@@ -9,14 +9,14 @@ bundle or of one sector segment.
 
 $(TYPEDFIELDS)
 """
-struct BoundedPlacement{B <: AbstractShape}
+struct BoundedPlacement{B <: Union{Disk, SectorShape}}
     "Resolved geometric boundary shared by every member of the formation."
     boundary::B
     "Inferred radial course. Zero denotes a center member."
     course::Int
 
     function BoundedPlacement(boundary::B, course::Integer) where {
-            B <: AbstractShape
+            B <: Union{Disk, SectorShape}
     }
         return validate(new{B}(boundary, Int(course)))
     end

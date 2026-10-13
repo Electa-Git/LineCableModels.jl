@@ -51,6 +51,43 @@ end
 Base.eltype(::CableDesign{T}) where {T} = T
 Base.eltype(::Type{<:CableDesign{T}}) where {T} = T
 
+# A bounded strand declares a Disk wire or a Rectangle strand. Either resolves to a disk, a
+# rectangle, a polygon or a bent strip, and a Rectangle strand may also close an annular
+# course. `index` locates the region in the design.
+function validate(
+        placed::PlacedRegion{
+            <:Region{<:Union{Disk, Rectangle}},
+            <:Union{Disk, Rectangle, Polygon, BentStrip}
+        },
+        ::Type{BoundedPlacement},
+        index
+)
+    return placed
+end
+function validate(
+        placed::PlacedRegion{<:Region{<:Rectangle}, <:Annulus},
+        ::Type{BoundedPlacement},
+        index
+)
+    return placed
+end
+function validate(
+        placed::PlacedRegion{<:Region{<:Union{Disk, Rectangle}}},
+        ::Type{BoundedPlacement},
+        index
+)
+    throw(ArgumentError(
+        "CableDesign.geometry.regions[$index] has unsupported resolved " *
+        "bounded geometry $(nameof(typeof(placed.primitive)))"
+    ))
+end
+function validate(placed::PlacedRegion, ::Type{BoundedPlacement}, index)
+    throw(ArgumentError(
+        "CableDesign.geometry.regions[$index] has an unsupported bounded " *
+        "strand declaration $(nameof(typeof(placed.source.primitive)))"
+    ))
+end
+
 function validate(design::CableDesign)
     isempty(design.cable_id) && throw(ArgumentError(
         "CableDesign.cable_id cannot be empty"
@@ -112,16 +149,7 @@ function validate(design::CableDesign)
             "CableDesign.geometry.regions[$index] is a bounded strand but its " *
             "material is not conductive"
         ))
-        placed.source.primitive isa Union{Disk, Rectangle} || throw(ArgumentError(
-            "CableDesign.geometry.regions[$index] has an unsupported bounded " *
-            "strand declaration $(nameof(typeof(placed.source.primitive)))"
-        ))
-        (placed.primitive isa Union{Disk, Rectangle, Polygon, BentStrip} ||
-         (placed.primitive isa Annulus && placed.source.primitive isa Rectangle)) ||
-            throw(ArgumentError(
-                "CableDesign.geometry.regions[$index] has unsupported resolved " *
-                "bounded geometry $(nameof(typeof(placed.primitive)))"
-            ))
+        validate(placed, BoundedPlacement, index)
         declared_area = area(placed.source.primitive)
         resolved_area = area(placed.primitive)
         isapprox(
@@ -193,12 +221,7 @@ function validate(design::CableDesign)
         ) || throw(ArgumentError(
                 "a bounded formation must preserve its total declared strand area"
             ))
-        boundary = entry.pattern.boundary
-        boundary isa Union{Disk, SectorShape} ||
-            throw(ArgumentError(
-                "a bounded formation has an unsupported authoritative boundary"
-            ))
-        boundary_area = area(boundary)
+        boundary_area = area(entry.pattern.boundary)
         formation_area <= boundary_area * (1 + 5.0e-6) ||
             throw(ArgumentError(
                 "bounded strand area cannot exceed its authoritative boundary"

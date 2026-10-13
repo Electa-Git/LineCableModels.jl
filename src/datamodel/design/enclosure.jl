@@ -245,17 +245,27 @@ function fill_holes(::Material, item::AbstractCablePart, contents::CableGeometry
 end
 fill_holes(::Region, ::AbstractCablePart, contents::CableGeometry) = (boundary(contents),)
 
-function fill_holes(group::Group, contents::CableGeometry)
-    if group.boundary isa Disk && last(contents.regions).source.primitive isa Rectangle
-        outer = boundary(contents)
-        center = first(contents.regions).primitive
-        if center isa Disk && center.at.x == outer.at.x && center.at.y == outer.at.y
-            # The formation already resolved its exact occupied disk.
-            return (outer,)
-        end
-    end
+function fill_holes(::Group, contents::CableGeometry)
     return Tuple(source.primitive for source in contents.regions)
 end
+
+function fill_holes(
+        ::Group{<:Pose2, <:Stack, <:Any, <:Any, <:Any, <:Disk},
+        contents::CableGeometry
+)
+    _occupies_disk(last(contents.regions).source.primitive, contents) &&
+        return (boundary(contents),)
+    return Tuple(source.primitive for source in contents.regions)
+end
+
+# Around a centered wire, complete bent courses of a Rectangle strand occupy their whole
+# disk, which the formation already resolved exactly. Disk wires leave gaps.
+function _occupies_disk(::Rectangle, contents::CableGeometry)
+    outer = boundary(contents)
+    center = first(contents.regions).primitive
+    return center.at.x == outer.at.x && center.at.y == outer.at.y
+end
+_occupies_disk(::AbstractPrimitive, ::CableGeometry) = false
 
 # An assembly, grouped or enclosed, keeps the outline of each member.
 function fill_holes(
