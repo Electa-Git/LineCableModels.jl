@@ -97,10 +97,10 @@ end
     @test length(pages) == 4
     @test all(page -> length(page.axes) == 4, pages)
     styled = UIPlot[pages...]
-    push!(styled, Makie.plot(parameters.Z, frequencies(parameters), R;
-        options..., series_attributes=attributes))
-    push!(styled, Makie.plot(parameters.Y, frequencies(parameters), G;
-        options..., series_attributes=attributes))
+    push!(styled, Makie.plot(parameters.Z, R;
+        frequencies = frequencies(parameters), options..., series_attributes=attributes))
+    push!(styled, Makie.plot(parameters.Y, G;
+        frequencies = frequencies(parameters), options..., series_attributes=attributes))
 
     # Table illustrations use the observation publication renderer.
     artifact = report(TableReportDefinition(((R, :, :, :),);
@@ -136,8 +136,9 @@ end
     # Adding markers retains measurement error bars and their visibility group.
     uncertain = complex.(measurement.(real.(Z(parameters)), 1e-6),
         measurement.(imag.(Z(parameters)), 1e-6))
-    page = Makie.plot(SeriesImpedance(uncertain), frequencies(parameters), (R, 1, 1, :);
-        options..., series_attributes=(marker=:circle, markersize=8, alpha=0.35))
+    page = Makie.plot(SeriesImpedance(uncertain), (R, 1, 1, :);
+        frequencies = frequencies(parameters), options...,
+        series_attributes=(marker=:circle, markersize=8, alpha=0.35))
     handles = only(values(page.plot_state.groups))
     @test count(handle -> handle isa Makie.Lines, handles) == 1
     @test count(handle -> handle isa Makie.Errorbars, handles) == 1

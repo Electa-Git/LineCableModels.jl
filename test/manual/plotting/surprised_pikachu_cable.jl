@@ -99,7 +99,7 @@ preview_plot = preview(
     display_dielectric_pattern = false,
     title = "Unbelievers, lo and behold!",
     panel_titles = ("I told y'all that this could run a Pikachu-shaped cable model!",),
-    size = (900, 760),
+    fig_size = (900, 760),
     legend_group = presentation_groups,
     series_attributes = (
         (; color = "#F6C945", strokecolor = "#2A2510", strokewidth = 5.0),

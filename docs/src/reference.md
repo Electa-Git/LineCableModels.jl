@@ -153,8 +153,7 @@ produces only that quantity's table. Reporting and plotting take the same
 positional selection.
 
 `units`, `length_unit`, `quantity_units`, and `frequency_unit` express display
-units through the observation owner. `freq_unit` is an alternative spelling of
-`frequency_unit`. Supplying both is an error. Retained observations preserve
+units through the observation owner. Retained observations preserve
 recorded units when these options are omitted. Raw-only `clip`, `atol`, and
 `frequencies` cannot be supplied for retained inputs.
 

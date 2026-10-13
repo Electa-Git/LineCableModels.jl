@@ -19,7 +19,7 @@ end
 function _distribution_plot(observed::Commons.ObservedResult,request,kind;
         normalization=:none,qqline=:identity,title=nothing,fig_size=(800,400),
         backend=nothing,display_plot=true,controls=true,export_theme=:default,open_export=true,kwargs...)
-    for key in (:point,:bins,:clip,:atol,:units,:length_unit,:quantity_units,:frequency_unit,:freq_unit,:frequencies,:complete_pairs)
+    for key in (:point,:bins,:clip,:atol,:units,:length_unit,:quantity_units,:frequency_unit,:frequencies,:complete_pairs)
         haskey(kwargs,key) && throw(ArgumentError("$key belongs to observation construction; this statistical view consumes retained products"))
     end
     product=_distribution_product(observed,request)

@@ -8,29 +8,20 @@ const _PlotSource = Union{_PrimarySource, Commons.ObservedResult}
 function _plot_observation_options(kwargs; retained = false)
     haskey(kwargs, :complete_pairs) &&
         throw(ArgumentError("complete_pairs is owned by observation construction"))
-    haskey(kwargs, :freq_unit) && haskey(kwargs, :frequency_unit) &&
-        throw(ArgumentError("use frequency_unit or freq_unit, not both"))
-    keys=(:clip, :atol, :units, :length_unit, :quantity_units,
-        :frequency_unit, :frequencies, :freq_unit)
+    keys=(:clip, :atol, :units, :length_unit, :quantity_units, :frequency_unit, :frequencies)
     if retained
         for key in (:clip, :atol, :frequencies)
             haskey(kwargs, key) &&
                 throw(ArgumentError("$key requires primary observation construction; retained plotting only selects or re-expresses recorded values"))
         end
     end
-    acquisition=(;
-        (key===:freq_unit ? :frequency_unit=>value : key=>value
-    for (key, value) in kwargs if key in keys)...)
+    acquisition=(; (key=>value for (key, value) in kwargs if key in keys)...)
     presentation=(; (key=>value for (key, value) in kwargs if key ∉ keys)...)
     return acquisition, presentation
 end
 
 function plot(source::_PrimarySource, selection = nothing; reference = nothing, kwargs...)
     return plot((source,), selection; reference, kwargs...)
-end
-function plot(source::Union{SeriesImpedance, ShuntAdmittance},
-        f::AbstractVector, selection = nothing; kwargs...)
-    return plot(source, selection; frequencies = f, kwargs...)
 end
 Makie.plot(source::_PrimarySource, args...; kwargs...) = plot(source, args...; kwargs...)
 
@@ -46,7 +37,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         title_attributes::NamedTuple = (;), panel_titles = nothing, fig_size = nothing, layout = nothing,
         overlay::Symbol = :auto,
         xscale = nothing, yscale = :linear, legend_position = _omitted, legend_title = nothing,
-        legend_attributes::NamedTuple = (;), legend_cap = 0.5, panel_legends = (),
+        legend_attributes::NamedTuple = (;), legend_max_fraction = 0.5, panel_legends = (),
         backend = nothing, display_plot::Bool = true, controls::Bool = true,
         export_theme::Symbol = :default, open_export::Bool = true, kwargs...)
     isempty(observed) && throw(ArgumentError("plot requires at least one observed point"))
@@ -197,7 +188,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
     identities=Set(f.panel_identity for f in facets)
     all(pair -> _panel_identity(first(pair)) in identities, _panel_legend_pairs(panel_legends)) ||
         throw(ArgumentError("panel legend identity is absent from the selected panels"))
-    legend_cap=_legend_fraction(legend_cap)
+    legend_max_fraction=_legend_fraction(legend_max_fraction)
     errorbar_sampling===nothing || errorbar_sampling in (:staggered, :all) ||
         throw(ArgumentError("errorbar_sampling must be :staggered or :all"))
     if figure_title isa Union{Tuple, AbstractVector}
@@ -242,7 +233,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
                     figure_title = visible_title, title_attributes, panel_titles,
                     fig_size = _figure_size(fig_size, page.capacity),
                     xscale, yscale,
-                    legend_position = position, legend_title, legend_attributes, legend_cap, panel_legends,
+                    legend_position = position, legend_title, legend_attributes, legend_max_fraction, panel_legends,
                     controls, display_plot = false, export_theme, open_export, kwargs...)
             end)
         last(built).plot_state=merge(last(built).plot_state,

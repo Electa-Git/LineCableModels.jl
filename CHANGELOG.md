@@ -185,6 +185,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   selection as their second positional argument, and `report(source)` uses the source's
   default selection. An illustration callable receives the observations and the report's
   selection as positional arguments.
+- Plots and reports set the frequency display unit with `frequency_unit`. A standalone
+  `SeriesImpedance` or `ShuntAdmittance` takes its frequency samples through
+  `frequencies`. `legend_max_fraction` limits the size of a plot's legend, and
+  `max_fraction` that of a legend configuration. `fig_size` sets the initial reference
+  size of plots, previews, the material scale and `plotwindow`.
 - The PSCAD sources moved from the extensions directory to `src/pscad/`, and its remote
   runner project to `src/pscad/remote/`. `LineCableModels.PSCAD` is unchanged.
 - `Commons` owns `initialize_buffers`, which builds every buffer of a computation.

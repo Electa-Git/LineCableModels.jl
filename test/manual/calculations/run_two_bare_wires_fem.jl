@@ -315,7 +315,7 @@ plot_1 = Makie.plot(
     figure_title = "Two bare wires — case 1: soil resistivity",
     legend_title = "Model and physical assumptions",
     legend_attributes = (; valign = :center),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 
 case_2_plot_results = vcat(case_2_results, case_2_analytical_results)
@@ -337,7 +337,7 @@ plot_2 = Makie.plot(
     figure_title = "Two bare wires — case 2: external radius",
     legend_title = "Model and physical assumptions",
     legend_attributes = (; valign = :center),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 
 nothing

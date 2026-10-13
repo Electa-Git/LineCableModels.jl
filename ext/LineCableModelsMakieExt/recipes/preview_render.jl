@@ -135,7 +135,7 @@ function _preview_finish!(
         legend_position,
         legend_title,
         legend_attributes,
-        legend_cap,
+        legend_max_fraction,
         color_scales,
         colorbar_position,
         colorbar_attributes,
@@ -159,7 +159,7 @@ function _preview_finish!(
         legend_position = display_legend ? legend_position : nothing,
         legend_title,
         legend_attributes,
-        legend_cap,
+        legend_max_fraction,
         panels,
         panel_legends,
         panel_legend_titles,
@@ -187,11 +187,11 @@ function _preview(
         series_attributes = nothing,
         panel_titles = nothing,
         display_colorbars::Bool = true,
-        size::Tuple{Int, Int} = (900, 700),
+        fig_size::Tuple{Int, Int} = (900, 700),
         legend_position = :right,
         legend_title = nothing,
         legend_attributes::NamedTuple = (; nbanks = 1),
-        legend_cap = 0.5,
+        legend_max_fraction = 0.5,
         panel_legends = (),
         legend_group = nothing,
         legend_labels = nothing,
@@ -228,7 +228,7 @@ function _preview(
     )
     color_scales = _material_schemes(DataModel.material_property_ranges(design))
     return with_theme(_plot_theme(export_theme = export_theme)) do
-        shell = _figure_layout(; size, controls, guide_gap, kwargs...)
+        shell = _figure_layout(; fig_size, controls, guide_gap, kwargs...)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, Any}()
@@ -260,7 +260,7 @@ function _preview(
             legend_position,
             legend_title,
             legend_attributes,
-            legend_cap,
+            legend_max_fraction,
             color_scales,
             colorbar_position = display_colorbars ? colorbar_position : nothing,
             colorbar_attributes,
@@ -288,8 +288,8 @@ function _preview(
         legend_position = _omitted,
         legend_title = nothing,
         legend_attributes::NamedTuple = (;),
-        legend_cap = 0.5,
-        size::Tuple{Int, Int} = (1200, 900),
+        legend_max_fraction = 0.5,
+        fig_size::Tuple{Int, Int} = (1200, 900),
         colorbar_position = :bottom,
         colorbar_attributes::NamedTuple = (; vertical = false),
         guide_gap = (8, 8, 24, 8),
@@ -320,7 +320,7 @@ function _preview(
     for page in pages
         rendered=with_theme(_plot_theme(export_theme = export_theme)) do
             rows, columns=page.dimensions
-            shell = _figure_layout(; size,
+            shell = _figure_layout(; fig_size,
                 controls, guide_gap, kwargs...)
             axes = Any[]
             panels = Any[]
@@ -381,7 +381,7 @@ function _preview(
                 legend_position = legend_position===_omitted ? :right : legend_position,
                 legend_title,
                 legend_attributes,
-                legend_cap,
+                legend_max_fraction,
                 color_scales,
                 colorbar_position = display_colorbars ? colorbar_position : nothing,
                 colorbar_attributes,
@@ -422,11 +422,11 @@ function _preview(
         series_attributes = nothing,
         panel_titles = nothing,
         display_colorbars::Bool = true,
-        size::Tuple{Int, Int} = (900, 700),
+        fig_size::Tuple{Int, Int} = (900, 700),
         legend_position = :right,
         legend_title = nothing,
         legend_attributes::NamedTuple = (;),
-        legend_cap = 0.5,
+        legend_max_fraction = 0.5,
         panel_legends = (),
         legend_group = nothing,
         legend_labels = nothing,
@@ -458,7 +458,7 @@ function _preview(
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     return with_theme(_plot_theme(export_theme = export_theme)) do
-        shell = _figure_layout(; size, controls, guide_gap, kwargs...)
+        shell = _figure_layout(; fig_size, controls, guide_gap, kwargs...)
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, Any}()
@@ -492,7 +492,7 @@ function _preview(
             legend_position,
             legend_title,
             legend_attributes,
-            legend_cap,
+            legend_max_fraction,
             color_scales,
             colorbar_position = display_colorbars ? colorbar_position : nothing,
             colorbar_attributes,
@@ -507,7 +507,7 @@ function _preview(
 end
 
 function _material_scale(;
-        size::Tuple{Int, Int} = (800, 400),
+        fig_size::Tuple{Int, Int} = (800, 400),
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
         colorbar_position = _omitted,
@@ -522,7 +522,7 @@ function _material_scale(;
     _activate_plot_backend(backend)
     title = "Material property color scale"
     return with_theme(_plot_theme(export_theme = export_theme)) do
-        shell = _figure_layout(; size, controls, kwargs...)
+        shell = _figure_layout(; fig_size, controls, kwargs...)
         _finish_plot!(
             shell,
             Any[],
@@ -535,7 +535,7 @@ function _material_scale(;
             title_attributes,
             legend_position = nothing,
             legend_attributes = (;),
-            legend_cap = 0.5,
+            legend_max_fraction = 0.5,
             color_scales = _material_schemes(
                 DataModel.material_property_ranges()
             ),

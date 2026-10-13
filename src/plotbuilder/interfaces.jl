@@ -17,8 +17,8 @@ scientific groups.
 
 Raw conveniences accept line, series, shunt, cable-constant, parametric, and UQ
 results, ordinary supported tuples or vectors, named collections, and report
-artifacts. Standalone series and shunt inputs also accept a frequency vector before
-the selection. Raw references become separate atomic observations. Report
+artifacts. Standalone series and shunt inputs take their frequency samples through
+`frequencies`. Raw references become separate atomic observations. Report
 artifacts forward their observed results and their observed reference.
 
 Raw-only acquisition keywords are `clip`, `atol`, and `frequencies`. Single
@@ -30,7 +30,6 @@ thresholds, or replacement sample coordinates.
 retained inputs, including reports. The existing `ObservedResult(existing; ...)`
 operation re-expresses compatible units once before drawing. Omitted options
 preserve recorded units, masks, errors, timings, and uncertainty dependencies.
-`freq_unit` is a spelling of `frequency_unit`. Supplying both is an error.
 `plot(report, (R,); length_unit=:base)` displays its retained
 result and reference curves per meter without rebuilding the report.
 
@@ -104,9 +103,9 @@ lengths require separate calls.
   `panel_titles`. Positional panel titles bind before pagination. Dictionary and
   function selections retain original panel identities.
 - Legends use `legend_position`, `legend_title`, `legend_attributes`,
-  `legend_cap`, and `panel_legends`. Multiple/explicitly labelled result
+  `legend_max_fraction`, and `panel_legends`. Multiple/explicitly labelled result
   series default to a bottom legend. One unlabelled series has none.
-  `legend_cap=0.5` accepts a finite real number excluding Boolean values in `(0,1]`.
+  `legend_max_fraction=0.5` accepts a finite real number excluding Boolean values in `(0,1]`.
   It caps top and bottom legend height or side legend width relative to the
   associated data area. The other dimension also fits within that area.
   An inside legend uses the height cap. Excess entries are replaced by `(...)`
@@ -202,7 +201,7 @@ a loaded Makie backend.
 
 - One [`UIPlot`](@ref), or an ordinary vector when a collection exceeds `layout`
   capacity. Collection panels retain original integer indices. Material ranges
-  are shared across pages. `size` supplies the initial reference dimensions.
+  are shared across pages. `fig_size` supplies the initial reference dimensions.
   `figure.size` takes precedence. The finished window fits the decorated panels
   while preserving physical aspect, limits, and each panel's established frame.
   Heterogeneous panels may retain necessary internal row and column space.
@@ -263,7 +262,7 @@ Update the figure legend from the shell's native series groups. Omitted options
 preserve current state. `position=nothing` detaches and hides the guide. Native
 `halign`, `valign`, margins, and style attributes remain editable. Removal and
 restoration retain native styles and series visibility. `max_fraction` uses
-the same `(0,1]` size limit as `plot(...; legend_cap=0.5)` and defaults
+the same `(0,1]` size limit as `plot(...; legend_max_fraction=0.5)` and defaults
 to `0.5` when creating a guide. Figure legends use the combined panel footprint.
 
 `guide_spacing` updates the shared figure-wide minimum sibling spacing. A scalar
@@ -301,7 +300,7 @@ it.
 function paneltitle! end
 
 """
-    plotwindow(callback; title, figure_title=nothing, size=(800, 400), kwargs...)
+    plotwindow(callback; title, figure_title=nothing, fig_size=(800, 400), kwargs...)
 
 Build the standard Makie shell, pass its caller-owned content `GridLayout` to
 `callback`, and return a [`UIPlot`](@ref). The callback uses ordinary Makie and

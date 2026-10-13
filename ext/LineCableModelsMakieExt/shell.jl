@@ -88,7 +88,7 @@ function _display_figure!(figure, title::AbstractString)
 end
 
 function _figure_layout(;
-        size, controls::Bool,
+        fig_size, controls::Bool,
         axis::NamedTuple = (;), figure::NamedTuple = (;),
         widgets = (), guide_gap = 8, guide_spacing = (;),
         colorbar_position = _omitted, colorbar_attributes = (;), colorbar_group_attributes = (;), kwargs...)
@@ -100,9 +100,9 @@ function _figure_layout(;
         (;
             (key=>value for (key, value) in kwargs if key in axis_keys)...), axis)
     series_attributes = (; (key=>value for (key, value) in kwargs if key ∉ axis_keys)...)
-    size isa Tuple{Int, Int} && all(>(0), size) ||
-        throw(ArgumentError("figure size must be a tuple of two positive integers"))
-    figure = Figure(; merge((; size, figure_padding = (12, 12, 12, 12)), figure)...)
+    fig_size isa Tuple{Int, Int} && all(>(0), fig_size) ||
+        throw(ArgumentError("fig_size must be a tuple of two positive integers"))
+    figure = Figure(; merge((; size = fig_size, figure_padding = (12, 12, 12, 12)), figure)...)
     root = figure.layout
     root.default_rowgap = Fixed(4)
     rowgap!(root, 4)
@@ -559,7 +559,7 @@ function LineCableModels.plotwindow(
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
         series_attributes = nothing,
-        size::Tuple{Int, Int} = (800, 400),
+        fig_size::Tuple{Int, Int} = (800, 400),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -570,7 +570,7 @@ function LineCableModels.plotwindow(
 ) where {F}
     _activate_plot_backend(backend)
     return with_theme(_plot_theme(export_theme = export_theme)) do
-        shell = _figure_layout(; size, controls, kwargs...)
+        shell = _figure_layout(; fig_size, controls, kwargs...)
         callback(shell.canvas)
         axes = Any[content for content in shell.figure.content if content isa Axis]
         # Only caller-supplied overrides apply to caller-constructed axes. Keep
@@ -631,7 +631,7 @@ function _statistical_plot(
         legend_title = nothing,
         legend_labels = nothing,
         legend_attributes = (;),
-        legend_cap = 0.5,
+        legend_max_fraction = 0.5,
         panel_legends = (),
         xlabel = nothing,
         ylabel = nothing,
@@ -644,7 +644,7 @@ function _statistical_plot(
     panel_title = resolved_panel_titles === nothing ? title :
                   only(resolved_panel_titles)
     return with_theme(_plot_theme(export_theme = export_theme)) do
-        shell = _figure_layout(; size = fig_size, controls, kwargs...)
+        shell = _figure_layout(; fig_size, controls, kwargs...)
         panel = _panel!(shell, (1, 1))
         axis, scales = _axis!(
             panel.content,
@@ -680,7 +680,7 @@ function _statistical_plot(
             legend_position,
             legend_title,
             legend_attributes,
-            legend_cap,
+            legend_max_fraction,
             panels = (panel,),
             panel_legends,
             controls,
@@ -1891,7 +1891,7 @@ function _finish_plot!(
         marker_coordinates = nothing,
         legend_position,
         legend_attributes,
-        legend_cap = 0.5,
+        legend_max_fraction = 0.5,
         legend_title = nothing,
         panels = (),
         frame_cells = (),
@@ -1996,7 +1996,7 @@ function _finish_plot!(
         open_export
     )
     figure_guide=_guide_state(:legend, nothing, legend_position, legend_attributes;
-        max_fraction = legend_cap, title = legend_title)
+        max_fraction = legend_max_fraction, title = legend_title)
     built.plot_state.guides[(:legend, nothing)]=figure_guide
     push!(built.plot_state.guide_order, (:legend, nothing))
     for (identity, value) in _panel_legend_pairs(panel_legends)

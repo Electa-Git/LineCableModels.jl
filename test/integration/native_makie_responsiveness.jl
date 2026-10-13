@@ -15,7 +15,7 @@
         display_plot = false,
         fig_size = (420, 260),
         legend_position = :right,
-        legend_cap = 0.5
+        legend_max_fraction = 0.5
     )
     Makie.colorbuffer(compact.figure)
     labels=[entry.label[] for entry in last(first(compact.legend.entrygroups[]))]
@@ -39,7 +39,7 @@
         display_plot = false,
         fig_size = (420, 260),
         legend_position = :right,
-        legend_cap = 0.5
+        legend_max_fraction = 0.5
     )
     Makie.colorbuffer(complete.figure)
     complete_labels=[entry.label[] for entry in last(first(complete.legend.entrygroups[]))]
@@ -49,7 +49,7 @@
         (R, 1, 1, Colon());
         backend = :cairo,
         display_plot = false,
-        legend_cap = :invalid
+        legend_max_fraction = :invalid
     )
 
     constant=Makie.plot(
@@ -140,7 +140,7 @@ end
         empty!(p.figure)
     end
     for invalid in (0, -0.1, 1.01, Inf, NaN, true, :show_all, :ellipsis)
-        @test_throws ArgumentError LineCableModels.plot(source, (R,); options..., legend_cap = invalid)
+        @test_throws ArgumentError LineCableModels.plot(source, (R,); options..., legend_max_fraction = invalid)
     end
     for sizing in ((fig_size = (680, 440),), (
         fig_size = (400, 300), figure = (size = (680, 440),)))
@@ -236,7 +236,7 @@ end
         # Keep the compact right-column case explicit now that previews default
         # to a bottom strip.
         colorbar_position = :right,
-        size = (900, 350)
+        fig_size = (900, 350)
     )
     Makie.colorbuffer(compact.figure)
     viewport=compact.figure.scene.viewport[]
@@ -260,7 +260,7 @@ end
     )
 
     strip=preview(design; backend = :cairo, display_plot = false,
-        open_export = false, size = (900, 350))
+        open_export = false, fig_size = (900, 350))
     Makie.colorbuffer(strip.figure)
     strip_viewport=strip.figure.scene.viewport[]
     @test all(colorbar -> inside(strip_viewport, colorbar), strip.colorbars)
@@ -274,7 +274,7 @@ end
         display_plot = false,
         controls = false,
         open_export = false,
-        size = (1000, 850),
+        fig_size = (1000, 850),
         colorbar_position = :bottom,
         colorbar_attributes = (; vertical = false)
     )
@@ -307,7 +307,7 @@ end
         backend = :cairo,
         display_plot = false,
         open_export = false,
-        size = (1670, 965)
+        fig_size = (1670, 965)
     )
     Makie.colorbuffer(wide.figure)
     wide_viewport=wide.figure.scene.viewport[]
@@ -395,7 +395,7 @@ end
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     design=TestFixtures.coaxial_design()
     p=preview(fill(design, 2); controls = false, display_plot = false,
-        backend = :cairo, size = (1200, 900))
+        backend = :cairo, fig_size = (1200, 900))
     @test p.figure.scene.viewport[].widths[2]<800
     @test p.plot_state.guide_gap==(8.0, 8.0, 24.0, 8.0)
     frames=[axis.scene.viewport[] for axis in p.axes]

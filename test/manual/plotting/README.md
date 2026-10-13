@@ -71,5 +71,4 @@ is hidden in every panel.
 
 Before the refactor, `blocks` paginated matrices and `layout` could pair
 quantities. Now `layout` is the only panel capacity and each quantity has its
-own figures. Result plots use `fig_size`. Previews and `plotwindow` retain
-`size`. The complete script and saved-run disposition is in [../README.md](../README.md).
+own figures. Result plots, previews and `plotwindow` use `fig_size`. The complete script and saved-run disposition is in [../README.md](../README.md).

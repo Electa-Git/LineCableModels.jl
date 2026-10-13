@@ -242,7 +242,7 @@ end
     single=ObservedResult(kilo,(R,);length_unit=:base)
     @test length(single.quantities)==1
     @test data(LineCableModels.plot(single, (R,);length_unit=:base,options...))==data(raw)
-    freq=LineCableModels.plot(single, (R,);freq_unit=:kilo,options...)
+    freq=LineCableModels.plot(single, (R,);frequency_unit=:kilo,options...)
     @test first.(only(curves(freq))[1][])≈f./1000
     @test first.(only(curves(LineCableModels.plot(first(freq.plot_state.observed);frequency_unit=:base,options...)))[1][])≈f
     @test data(LineCableModels.plot(kilo, (R,);units=(U.units(:base,:ohm;per=(:base,:meter)),),options...))==data(raw)
@@ -277,9 +277,8 @@ end
     @test isequal(kilo.quantities,original.quantities)
     @test kilo.gridpoint==original.gridpoint
     for kwargs in ((clip=false,),(atol=0.,),(frequencies=[1.,2.,3.],),
-            (freq_unit=:kilo,frequency_unit=:base,), (units=(U.units(:base,:farad),),))
+            (units=(U.units(:base,:farad),),))
         @test_throws ArgumentError LineCableModels.plot(single, (R,);kwargs...,options...)
     end
     @test_throws ArgumentError LineCableModels.plot(single, (X,);options...)
-    @test_throws ArgumentError LineCableModels.plot(b, (R,);freq_unit=:base,frequency_unit=:kilo,options...)
 end

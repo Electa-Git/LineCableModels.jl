@@ -198,7 +198,7 @@ end
     # bottom strip with left-side property labels and 24-pixel plot clearance.
     # Explicit group layout still owns cells independently of bar orientation.
     p=preview(CurrentScenarios.coaxial_design();backend=:gl,display_plot=true,
-        size=(1200,900),legend_position=:right,
+        fig_size=(1200,900),legend_position=:right,
         legend_attributes=(halign=:left,valign=:top),
         colorbar_attributes=(vertical=false,width=160,height=14),
         colorbar_group_attributes=(layout=(1,3),colgap=16,halign=:center),

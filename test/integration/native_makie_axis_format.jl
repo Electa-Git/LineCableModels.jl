@@ -213,7 +213,7 @@ end
         [-3.7e-6, -3.7e-10, 0.0, 3.7e-10, 3.7e-6], [3.7e-10, 3.7e-6])
     page=LineCableModels.plotwindow(; title = "Signed and positive axes",
         backend = :cairo, display_plot = false,
-        open_export = false, size = (1200, 800), axis = (xscale = :log10, yscale = :log10)) do grid
+        open_export = false, fig_size = (1200, 800), axis = (xscale = :log10, yscale = :log10)) do grid
         for (i, values) in enumerate(samples)
             axis=Axis(grid[cld(i, 2), mod1(i, 2)]; xlabel = "Input", ylabel = "Output")
             lines!(axis, values, values)
@@ -685,7 +685,7 @@ end
 @testitem "Makie addons / native axis density responds to size without losing precision" tags=[:visual, :makie] begin
     using CairoMakie
     page = LineCableModels.plotwindow(; title="Numeric ranges", backend=:cairo,
-        display_plot=false, controls=false, open_export=false, size=(1200, 600)) do layout
+        display_plot=false, controls=false, open_export=false, fig_size=(1200, 600)) do layout
         axis = Axis(layout[1, 1]; xlabel="Input", ylabel="Output")
         lines!(axis, [0.1, 1e7], [1e8, 1e8 + 2])
     end

@@ -7,7 +7,7 @@
     source = LineParameters(z, z .* 1e-6, f)
     before = deepcopy((Z(source), Y(source), frequencies(source)))
     options = (backend = :cairo, display_plot = false, open_export = false,
-        length_unit = :base, quantity_units = :base, freq_unit = :base, clip = false)
+        length_unit = :base, quantity_units = :base, frequency_unit = :base, clip = false)
     pages = LineCableModels.plot(source, source, source, (R,); options...,
         layout = (1, 2), errorbar_sampling = :all,
         series_labels = ("first", "second", "third"), legend_position = :bottom)
@@ -88,7 +88,7 @@ end
     before = deepcopy((Z(reference), Y(reference), frequencies(reference), Z(compared_result)))
     options = (; backend = :cairo, display_plot = false, open_export = false,
         reference, length_unit = :base, quantity_units = :base,
-        freq_unit = :base, clip = false, fig_size = (1000, 650))
+        frequency_unit = :base, clip = false, fig_size = (1000, 650))
     page = LineCableModels.plot(result, ((R, 1, 1, :),); options...)
     axis = only(page.axes)
     for (key, source) in zip(page.plot_state.order, (compared_result, reference))
@@ -212,7 +212,7 @@ end
     f = [1.0, 10.0, 100.0]
     options = (
         backend = :cairo, display_plot = false, controls = true, open_export = false,
-        length_unit = :base, quantity_units = :base, freq_unit = :base, clip = false)
+        length_unit = :base, quantity_units = :base, frequency_unit = :base, clip = false)
     for (xspread, yspread, markers) in ((0, 0, false), (0, 1, false), (1, 0, true), (
         1, 1, true))
         frequency = measurement.(f, xspread .* 0.01f)
@@ -303,8 +303,9 @@ end
     @test length.(getproperty.(pages, :axes)) == [4, 2, 2, 1]
     pages = copy(pages)
     push!(pages,
-        Makie.plot(parameters.Z, frequencies(parameters), (R, 1, 1, :);
-            options..., series_labels = ("uncertain",), legend_position = :bottom))
+        Makie.plot(parameters.Z, (R, 1, 1, :);
+            frequencies = frequencies(parameters), options..., series_labels = ("uncertain",),
+            legend_position = :bottom))
     # This exercises the publication renderer, not the matrix renderer used by
     # the benchmark inspector. Both must honour the same uncertainty visibility rule.
     artifact = report(
@@ -315,7 +316,7 @@ end
                 fig_size = (1000, 700), series_labels = ("uncertain",), legend_position = :bottom)),
         parameters)
     push!(pages, artifact.illustration)
-    single = Makie.plot(parameters.Y, frequencies(parameters), (G, 1, 1, :); options...)
+    single = Makie.plot(parameters.Y, (G, 1, 1, :); frequencies = frequencies(parameters), options...)
     @test single.legend === nothing
     single_line = only(filter(p->p isa Makie.Lines, only(single.axes).scene.plots))
     single_line.visible[] = false
@@ -414,7 +415,7 @@ end
     page = LineCableModels.plot(
         sources..., (R,); backend = :cairo, display_plot = false,
         controls = false, open_export = false, fig_size = (620, 340), legend_position = :inside,
-        legend_attributes = (bbox = legend_bounds,), legend_cap = 1.0,
+        legend_attributes = (bbox = legend_bounds,), legend_max_fraction = 1.0,
         series_labels = Tuple("Uncertain result $i" for i in 1:24))
     Makie.colorbuffer(page.figure)
     entries = last(only(page.legend.entrygroups[]))

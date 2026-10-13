@@ -14,7 +14,7 @@
     admittance = complex.(conductance, angular .* capacitance)
     parameters = LineParameters(copy(impedance), copy(admittance), frequency)
     options = (; backend=:cairo, display_plot=false, controls=false,
-        freq_unit=:kilo, length_unit=:base, quantity_units=:base, clip=false)
+        frequency_unit=:kilo, length_unit=:base, quantity_units=:base, clip=false)
     samples = [4, 2, 1]
 
     @testset "standalone $selector" for (source, selector, expected) in (
@@ -23,8 +23,8 @@
         (ShuntAdmittance(copy(admittance)), G, conductance),
         (ShuntAdmittance(copy(admittance)), C, capacitance),
     )
-        plot = Makie.plot(source, frequency,
-            (selector, [2, 1], [2, 1], samples); options...)
+        plot = Makie.plot(source,
+            (selector, [2, 1], [2, 1], samples); frequencies = frequency, options...)
         @test plot isa UIPlot
         @test Set(keys(plot.plot_state.panel_data)) ==
             Set(((1, 1), (1, 2), (2, 1), (2, 2)))
@@ -56,12 +56,12 @@
     @test_throws ArgumentError Makie.plot(parameters,
         ((R, 1, 1, 1:2), (R, 2, 2, 2:3)); options...)
     @test_throws BoundsError Makie.plot(parameters, (R, 3, 1, :); options...)
-    @test_throws DimensionMismatch Makie.plot(SeriesImpedance(impedance),
-        frequency[1:2], R; options...)
-    @test_throws ArgumentError Makie.plot(ShuntAdmittance(admittance),
-        [10.0, 100.0, Inf, 10_000.0], G; options...)
+    @test_throws DimensionMismatch Makie.plot(SeriesImpedance(impedance), R;
+        frequencies = frequency[1:2], options...)
+    @test_throws ArgumentError Makie.plot(ShuntAdmittance(admittance), G;
+        frequencies = [10.0, 100.0, Inf, 10_000.0], options...)
     for (source,selector) in ((SeriesImpedance(impedance),L),(ShuntAdmittance(admittance),C))
-        page=Makie.plot(source,[0.0,100.0,1000.0,10_000.0],selector;options...)
+        page=Makie.plot(source,selector;frequencies=[0.0,100.0,1000.0,10_000.0],options...)
         retained=observe(only(page.plot_state.observed),selector)
         @test all(ismissing,retained[:,:,1])
         @test all(isfinite,retained[:,:,2:end])
@@ -74,7 +74,7 @@
     residue = fill(complex(eps(Float64) / 2, 1.0), 1, 1, 4)
     source = SeriesImpedance(residue)
     for clipped in (false, true)
-        plot = Makie.plot(source, frequency, R; options..., clip=clipped)
+        plot = Makie.plot(source, R; frequencies = frequency, options..., clip=clipped)
         curve = only(filter(item -> item isa Makie.Lines, only(plot.axes).scene.plots))
         @test last.(curve[1][]) == fill(clipped ? 0.0 : eps(Float64) / 2, 4)
         @test real.(source.values) == fill(eps(Float64) / 2, 1, 1, 4)
@@ -162,7 +162,7 @@ end
         end
     end
     plot = preview(design; backend=:cairo, display_plot=false,
-        controls=true, open_export=false, size=(750, 550))
+        controls=true, open_export=false, fig_size=(750, 550))
     axis = only(plot.axes)
     overlay = lines!(axis, [-0.001, 0.001], [0.0, 0.0]; color=:red)
     annotation = text!(axis, 0, 0; text="caller annotation")

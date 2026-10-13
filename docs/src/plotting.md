@@ -140,7 +140,7 @@ internal holes: selecting (1,1) and (1,3) still spans three columns.
 
 Native decoration measurements establish equal initial data frames. `fig_size`
 is the reference size for the nominal capacity. `figure.size` takes precedence.
-Legends use at most the fraction specified by `legend_cap=0.5`
+Legends use at most the fraction specified by `legend_max_fraction=0.5`
 of their associated data area. Extra entries become `(...)` within that
 allocation. All curves remain plotted.
 Each finished window fits its actual occupied panels, titles, guides, and
@@ -334,7 +334,7 @@ series_cartesian = Makie.plot(
     legend_position = :inside,
     legend_attributes = (;
         halign = :right, valign = :bottom, backgroundcolor = (:white, 0.92)),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 series_cartesian[1].figure #hide
 ````
@@ -508,20 +508,20 @@ scientific transforms in the observation grammar.
 ### Standalone series-impedance result
 
 `SeriesImpedance` can be plotted before it is bundled into `LineParameters`.
-Supply its frequency samples as an explicit positional argument. The same
+Supply its frequency samples with the `frequencies` keyword. The same
 native dashboard controls are available.
 
 ````@example plotting
 standalone_impedance = Makie.plot(
     parameters.Z,
-    parameters.f,
     (Z, 1, 1, Colon());
+    frequencies = parameters.f,
     backend = :cairo,
     display_plot = false,
     controls = false,
     xscale = :log10,
     fig_size = (900, 440),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 standalone_impedance[1].figure #hide
 ````
@@ -538,14 +538,14 @@ default scientific family is `(G, B)`.
 ````@example plotting
 standalone_admittance = Makie.plot(
     parameters.Y,
-    parameters.f,
     (Y, 1, 1, Colon());
+    frequencies = parameters.f,
     backend = :cairo,
     display_plot = false,
     controls = false,
     xscale = :log10,
     fig_size = (900, 440),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 standalone_admittance[1].figure #hide
 ````
@@ -572,7 +572,7 @@ selected_response = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (900, 420),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 selected_response[1].figure #hide
 ````
@@ -618,7 +618,7 @@ stacked_self_impedance = Makie.plot(
     legend_attributes = (halign = :right, valign = :top),
     legend_title = "Result set",
     series_labels = ("solution",), # explicitly opt into a one-source legend
-    legend_cap = 0.5,
+    legend_max_fraction = 0.5,
     fig_size = (720, 720)
 )
 stacked_self_impedance[1].figure #hide
@@ -649,7 +649,7 @@ modal_inductance = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (820, 430),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 modal_inductance.figure #hide
 ````
@@ -699,7 +699,7 @@ uncertainty_plot = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (900, 440),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 uncertainty_plot[1].figure #hide
 ````
@@ -733,7 +733,7 @@ comparison_plot = Makie.plot(
     fig_size = (900, 700),
     legend_position = :top,
     legend_attributes = (; orientation = :horizontal),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 comparison_plot.figure #hide
 ````
@@ -770,7 +770,7 @@ observed_plot = Makie.plot(
     series_labels = ("self impedance",),
     legend_position = :bottom,
     legend_attributes = (; orientation = :horizontal),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 )
 observed_plot[1].figure #hide
 ````
@@ -790,7 +790,7 @@ quantity records reuse table and plot consumption.
 material and construction tag. The Makie preview adapter derives optional
 presentation groups. `_preview_axis!` draws the polygons with native
 `poly!` and locks the axis to `DataAspect`. It also computes
-geometry limits. Preview `size` is an initial reference allocation. The shared
+geometry limits. Preview `fig_size` is an initial reference allocation. The shared
 shell preserves physical frame sizes and view limits, then fits the window
 around the panels and their complete decorations. A circle or sector row can
 retain necessary space beside its shorter panel. A row of circles need not
@@ -807,7 +807,7 @@ cable_preview = preview(
     display_plot = false,
     controls = false,
     display_id = true,
-    size = (950, 700),
+    fig_size = (950, 700),
     # Group the physical core-wire regions into one presentation entry.
     # Geometry tags, terminals, and electrical construction remain untouched.
     legend_group = region -> region.source.tag === :wire ?
@@ -839,7 +839,7 @@ design = mv_design
 scale_arrangement = preview(
     design;
     backend = :cairo, display_plot = false, controls = false,
-    size = (1200, 900),
+    fig_size = (1200, 900),
     legend_position = :right,
     legend_attributes = (halign = :left, valign = :top),
     colorbar_position = :bottom,
@@ -898,7 +898,7 @@ design_collection = preview(
     backend = :cairo,
     display_plot = false,
     controls = false,
-    size = (1000, 850),
+    fig_size = (1000, 850),
     figure_title = "Cable design family",
     panel_titles = ("MV option A", "HV option A", "HV option B", "MV option B")
 )
@@ -927,7 +927,7 @@ system_preview = preview(
     display_plot = false,
     controls = false,
     display_id = true,
-    size = (1000, 700),
+    fig_size = (1000, 700),
     legend_position = :right
 )
 system_preview.figure #hide
@@ -989,7 +989,7 @@ material_scale = show_material_scale(
     backend = :cairo,
     display_plot = false,
     controls = false,
-    size = (850, 360),
+    fig_size = (850, 360),
     figure_title = "Reusable material-property schemes",
     colorbar_attributes = (; vertical = false)
 )
@@ -1025,7 +1025,7 @@ sample_histogram = Makie.hist(
     controls = false,
     fig_size = (820, 400),
     figure_title = "Retained Monte Carlo samples",
-    legend_cap = 0.5,
+    legend_max_fraction = 0.5,
     color = :steelblue
 )
 sample_histogram.figure #hide
@@ -1048,7 +1048,7 @@ model_density = Makie.stairs(
     display_plot = false,
     controls = false,
     fig_size = (820, 400),
-    legend_cap = 0.5,
+    legend_max_fraction = 0.5,
     color = :darkorange,
     linewidth = 3
 )
@@ -1075,7 +1075,7 @@ empirical_cdf = Makie.ecdfplot(
     display_plot = false,
     controls = false,
     fig_size = (820, 400),
-    legend_cap = 0.5,
+    legend_max_fraction = 0.5,
     color = :seagreen,
     linewidth = 3
 )
@@ -1098,7 +1098,7 @@ model_cdf = Makie.lines(
     display_plot = false,
     controls = false,
     fig_size = (820, 400),
-    legend_cap = 0.5,
+    legend_max_fraction = 0.5,
     color = :firebrick,
     linewidth = 3
 )
@@ -1126,7 +1126,7 @@ quantile_plot = Makie.qqplot(
     legend_labels = ("sample quantiles", "identity reference"),
     legend_position = :inside,
     legend_attributes = (; halign = :left, valign = :top, backgroundcolor = (:white, 0.92)),
-    legend_cap = 0.5,
+    legend_max_fraction = 0.5,
     color = :purple,
     markersize = 10
 )
@@ -1186,7 +1186,7 @@ Otherwise their native construction settings are retained.
 custom_dashboard = LineCableModels.plotwindow(
     title = "Caller-owned diagnostics",
     figure_title = "Four caller-owned Makie axes",
-    size = (900, 650),
+    fig_size = (900, 650),
     backend = :cairo,
     display_plot = false,
     controls = false
@@ -1297,7 +1297,7 @@ figure's axis viewports or the one axis viewport for a panel legend.
 Native `halign`/`valign` select corner, center, or fractional alignment. Side-grid slots
 remain outside the plot area. `legend_attributes` is merged into the native
 `Legend` constructor, so orientation, bank count, padding, background,
-alignment, and other Makie options remain available. `legend_cap=0.5`
+alignment, and other Makie options remain available. `legend_max_fraction=0.5`
 is a finite, non-Boolean real number in `(0,1]`. It caps top and bottom legend
 height or side legend width relative to the associated data area. The other
 dimension must also fit. Inside legends use the height cap. Figure legends
@@ -1345,7 +1345,7 @@ owned_plot = Makie.plot(
     controls = false,
     xscale = :log10,
     fig_size = (820, 400),
-    legend_cap = 0.5
+    legend_max_fraction = 0.5
 );
 owned_axis = only(owned_plot.axes);
 owned_axis.title[] = "Caller-owned resistance";

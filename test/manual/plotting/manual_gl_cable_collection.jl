@@ -16,7 +16,7 @@ display_plot = !CABLE_COLLECTION_GALLERY_SMOKE_ONLY
 # canvas. The one set of material colorbars is calculated from all five designs.
 automatic = preview(
     designs;
-    size = (1400, 900),
+    fig_size = (1400, 900),
     backend = :gl,
     display_plot,
     open_export = false
@@ -27,7 +27,7 @@ automatic = preview(
 explicit = preview(
     designs[1:4];
     layout = (1, 4),
-    size = (1600, 500),
+    fig_size = (1600, 500),
     backend = :gl,
     display_plot,
     open_export = false

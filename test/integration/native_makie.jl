@@ -77,7 +77,7 @@ end
         vertical in (false, true)
 
         plot = preview(design; backend = :cairo, display_plot = false, controls = false,
-            size = (850, 650), legend_position = position, colorbar_position = position,
+            fig_size = (850, 650), legend_position = position, colorbar_position = position,
             colorbar_attributes = (; vertical))
         @test ticklabels_fit(plot)
         colorbar = first(plot.colorbars)
@@ -297,7 +297,7 @@ end
         layout = (2, 2),
         legend_position = :bottom,
         legend_attributes = (; orientation = :horizontal),
-        legend_cap = 0.5
+        legend_max_fraction = 0.5
     )
     @test combined isa UIPlot
     @test length(combined.axes) == 4
@@ -322,7 +322,7 @@ end
             display_plot = false,
             legend_position = position,
             legend_attributes = (; orientation),
-            legend_cap = 0.5
+            legend_max_fraction = 0.5
         )
         @test placed.legend.orientation[] == orientation
     end
@@ -340,7 +340,7 @@ end
         legend_position = :inside,
         legend_attributes = (halign = :left, valign = :top),
         legend_title = "Result set",
-        legend_cap = 0.5
+        legend_max_fraction = 0.5
     )
     Makie.colorbuffer(titled_inside.figure)
     @test titled_inside.title.text[] == "Cable impedance"
@@ -582,7 +582,7 @@ end
     @test scale.title.text[] == "Material schemes"
 
     native_grid=LineCableModels.plotwindow(
-        ; title = "native 2x2", size = (700, 500),
+        ; title = "native 2x2", fig_size = (700, 500),
         figure_title = "Native dashboard",
         backend = :cairo, display_plot = false, open_export = false
     ) do grid

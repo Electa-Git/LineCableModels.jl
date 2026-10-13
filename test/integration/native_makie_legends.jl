@@ -11,8 +11,8 @@
     options = (; backend = :cairo, display_plot = false, controls = false,
         layout = (1, 2), panel_titles = ("Self resistance", "Mutual resistance"),
         series_labels = ("baseline", "alternative"), legend_position = nothing,
-        legend_cap = 0.5, length_unit = :base, quantity_units = :base,
-        freq_unit = :base, clip = false)
+        legend_max_fraction = 0.5, length_unit = :base, quantity_units = :base,
+        frequency_unit = :base, clip = false)
 
     plot = Makie.plot(sources, requests; options...,
         panel_legends = (1, 1) => :right)
@@ -110,7 +110,7 @@ end
 @testitem "Makie addons / independent scale arrangement and sibling spacing" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
-    options=(backend = :cairo, display_plot = false, controls = false, size = (1200, 850),
+    options=(backend = :cairo, display_plot = false, controls = false, fig_size = (1200, 850),
         colorbar_attributes = (vertical = false, width = 160, height = 14))
     @testset "placement chooses default cells independently of bar orientation" begin
         p=preview(design; options..., legend_position = nothing, colorbar_position = :bottom)
@@ -207,7 +207,7 @@ end
 @testitem "Makie addons / guide creation order shares complete scale geometry" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
-    options=(backend = :cairo, display_plot = false, controls = false, size = (1000, 650),
+    options=(backend = :cairo, display_plot = false, controls = false, fig_size = (1000, 650),
         legend_position = nothing, colorbar_position = nothing)
     first_legend=preview(design; options...)
     first_scale=preview(design; options...)
@@ -279,7 +279,7 @@ end
     using CairoMakie
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     design=TestFixtures.coaxial_design()
-    options=(backend = :cairo, display_plot = false, controls = false, size = (1400, 950),
+    options=(backend = :cairo, display_plot = false, controls = false, fig_size = (1400, 950),
         legend_position = nothing, colorbar_attributes = (
             vertical = false, width = 160, height = 14),
         colorbar_group_attributes = (
@@ -408,7 +408,7 @@ end
 @testitem "Makie addons / guide arrangement measures visible scales and independent gaps" tags=[:visual, :makie, :slow] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
-    options=(backend = :cairo, display_plot = false, controls = false, size = (1500, 1100),
+    options=(backend = :cairo, display_plot = false, controls = false, fig_size = (1500, 1100),
         colorbar_attributes = (vertical = false, width = 160, height = 14))
     p=preview(design; options..., legend_position = :bottom,
         legend_attributes = (halign = 0.25, margin = (0, 0, 0, 0)),
@@ -567,7 +567,7 @@ end
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     design=TestFixtures.coaxial_design()
     options=(backend = :cairo, display_plot = false, controls = false,
-        size = (1400, 1000), open_export = false)
+        fig_size = (1400, 1000), open_export = false)
     hidden=preview(design; options..., colorbar_position = nothing)
     original_content=copy(hidden.figure.content)
     original_scenes=copy(hidden.figure.scene.children)

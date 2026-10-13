@@ -193,7 +193,6 @@ end
     @test report(line.Z, R; frequencies = frequencies(line)).tables.Z.R==full.tables.Z.R
     @test report(line.Y, C; frequencies = frequencies(line)).tables.Y.C==full.tables.Y.C
     for source in (line, ObservedResult(line), [ObservedResult(line)])
-        @test_throws ArgumentError report(source; frequency_unit = :base, freq_unit = :base)
         @test_throws ArgumentError report(source; backend = :cairo)
         @test_throws ArgumentError report(source; controls = false)
         @test_throws ArgumentError report(source; layout = (1, 1))
@@ -256,7 +255,7 @@ end
         @test a.coordinates==b.coordinates
     end
     @test report(observed; unit_options...).tables==retained.tables
-    converted=report(observed; length_unit = :kilo, freq_unit = :base)
+    converted=report(observed; length_unit = :kilo, frequency_unit = :base)
     roundtrip=report(converted.observed; length_unit = :base, frequency_unit = :kilo)
     for selector in quantities
         a=observation_product(roundtrip.observed, selector)

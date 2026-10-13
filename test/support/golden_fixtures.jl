@@ -14,11 +14,11 @@ const scene_names=("line_rlcg","line_zy_cartesian","line_zy_polar",
     "cable_preview","cable_preview_compact","system_preview","material_scale",
     "mc_hist","mc_pdf","mc_ecdf","mc_qq","custom_layout")
 const plot_options=(backend=:cairo,display_plot=false,controls=false,open_export=false,
-    size=(1100,750))
+    fig_size=(1100,750))
 
 function custom_layout_plot(;backend=:cairo,display_plot=false,controls=false)
     return LineCableModels.plotwindow(;backend,display_plot,controls,open_export=false,
-            title="Asymmetric current layout",size=(1100,750),export_name="custom_layout") do canvas
+            title="Asymmetric current layout",fig_size=(1100,750),export_name="custom_layout") do canvas
         left=Axis(canvas[1,1];title="Quadratic",xlabel="position",ylabel="response")
         right=Axis(canvas[1,2];title="Discrete samples",xlabel="index",ylabel="response")
         x=[.25,.75,1.5,2.5]
@@ -98,7 +98,7 @@ function scene(name::AbstractString)
             ylims!(only(handle.axes),-.45,.05)
             return handle
         end
-        options=name=="cable_preview_compact" ? merge(plot_options,(size=(900,350),)) : plot_options
+        options=name=="cable_preview_compact" ? merge(plot_options,(fig_size=(900,350),)) : plot_options
         return preview(design;options...)
     end
     parameters=two_conductor_results()
@@ -113,12 +113,12 @@ function scene(name::AbstractString)
             LineParameters(z,y,f;details=ComputationDetails(;coordinates=["west","east"],))
         end
         return LineCableModels.plot(variants..., (R,);plot_options...,
-            length_unit=:base,quantity_units=:base,freq_unit=:base,clip=false,
+            length_unit=:base,quantity_units=:base,frequency_unit=:base,clip=false,
             series_labels=("one sigma","two sigma","three sigma"))
     end
     requests=name=="line_rlcg" ? (R,L,G,C) : name=="line_zy_polar" ? (abs,angle) : (Z,Y)
     return LineCableModels.plot(parameters,requests;plot_options...,
-        length_unit=:base,quantity_units=:base,freq_unit=:base,clip=false)
+        length_unit=:base,quantity_units=:base,frequency_unit=:base,clip=false)
 end
 
 function save_pixels(path,handle)

@@ -230,7 +230,7 @@ end
     @test_throws ArgumentError LineCableModels.plot(raw, (R,);blocks=(2,2),display_plot=false)
 
     design=TestFixtures.coaxial_design()
-    previews=preview(fill(design,4);layout=(1,2),size=(1000,600),
+    previews=preview(fill(design,4);layout=(1,2),fig_size=(1000,600),
         display_plot=false,backend=:cairo,controls=false,panel_titles=("one","two","three","four"))
     @test length(previews)==2
     @test [length(p.axes) for p in previews]==[2,2]
@@ -238,7 +238,7 @@ end
     @test Set(keys(previews[2].plot_state.panel_data))==Set((3,4))
     @test [axis.title[] for p in previews for axis in p.axes]==["one","two","three","four"]
     @test all(length(p.colorbars)==3 for p in previews)
-    strip=preview(fill(design,4);layout=(1,4),size=(1200,600),
+    strip=preview(fill(design,4);layout=(1,4),fig_size=(1200,600),
         display_plot=false,backend=:cairo,controls=false)
     @test strip isa UIPlot
     @test length(strip.axes)==4

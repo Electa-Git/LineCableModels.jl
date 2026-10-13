@@ -38,8 +38,8 @@
     @test all(>(0),only(phase.axes).targetlimits[].origin)
     resetview!(phase)
     @test all(isfinite,only(phase.axes).targetlimits[].widths)
-    standalone = LineCableModels.plot(ShuntAdmittance(y), f, ((C, diag, :, :),);
-        options...)
+    standalone = LineCableModels.plot(ShuntAdmittance(y), ((C, diag, :, :),);
+        frequencies = f, options...)
     @test all(iszero, only(ordinates(standalone)))
 end
 

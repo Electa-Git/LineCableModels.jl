@@ -227,19 +227,14 @@ end
 # These keywords control acquisition. Observation defaults remain with the source.
 function _report_observation_options(options; retained = false)
     for key in keys(options)
-        key in (:units, :length_unit, :quantity_units, :frequency_unit, :freq_unit,
+        key in (:units, :length_unit, :quantity_units, :frequency_unit,
             :clip, :atol, :frequencies) || throw(ArgumentError(
             "unknown reporting keyword $key; illustration options belong in plot_options"))
         retained && key in (:clip, :atol, :frequencies) &&
             throw(ArgumentError(
                 "$key requires a raw result; retained reports only select or re-express recorded values"))
     end
-    haskey(options, :frequency_unit) && haskey(options, :freq_unit) &&
-        throw(ArgumentError(
-            "use frequency_unit or freq_unit, not both"))
-    return (;
-        (key===:freq_unit ? :frequency_unit=>value : key=>value
-    for (key, value) in options)...)
+    return (; options...)
 end
 
 # Illustration options need an explicit illustration.
@@ -268,8 +263,7 @@ units and numerical eligibility unless compatible display units are requested.
 
 - `units`, `length_unit`, `quantity_units`, `frequency_unit`: observation unit
   options. Raw defaults belong to the observation owner. Omitted retained
-  options preserve recorded units. `freq_unit` is an alternative spelling of
-  `frequency_unit`. Supplying both is an error.
+  options preserve recorded units.
 - `clip`, `atol`, `frequencies`: raw observation options. Cutoffs use native
   units. Frequencies for a standalone tensor are in \\[Hz\\]. These keywords
   cannot be supplied for retained inputs.

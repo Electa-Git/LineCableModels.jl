@@ -108,7 +108,7 @@ function _line_page(
         legend_position,
         legend_title,
         legend_attributes,
-        legend_cap,
+        legend_max_fraction,
         panel_legends,
         controls,
         display_plot,
@@ -116,7 +116,7 @@ function _line_page(
         open_export,
         kwargs...
 )
-    shell = _figure_layout(; size = fig_size, controls, kwargs...)
+    shell = _figure_layout(; fig_size, controls, kwargs...)
     shell.canvas.default_rowgap = Fixed(24)
     shell.canvas.default_colgap = Fixed(48)
     rowgap!(shell.canvas, 24)
@@ -271,7 +271,7 @@ function _line_page(
         title_attributes,
         legend_position,
         legend_attributes,
-        legend_cap,
+        legend_max_fraction,
         legend_title,
         panels, frame_cells = Tuple(values(cells)),
         panel_legends = local_panel_legends,

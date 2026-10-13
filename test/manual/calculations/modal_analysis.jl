@@ -137,7 +137,7 @@ eigen_residual = [begin
 
 diagnostic_plot = LineCableModels.plotwindow(
     title = "Modal diagnostics",
-    size = (1200, 800),
+    fig_size = (1200, 800),
     backend = :gl,
     axis = (
         xlabel = "Frequency [Hz]",
