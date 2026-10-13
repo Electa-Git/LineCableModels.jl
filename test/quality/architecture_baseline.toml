@@ -57,7 +57,6 @@
 "src/engine/modalanalysis/observations.jl | _validate_phase_selector" = 1
 
 [switches]
-"ext/LineCableModelsDistributionsExt.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "ext/LineCableModelsGmshExt/compute.jl" = { applicable = 0, eval = 0, isa = 13, kind = 0 }
 "ext/LineCableModelsGmshExt/geometry.jl" = { applicable = 0, eval = 0, isa = 2, kind = 2 }
 "ext/LineCableModelsGmshExt/getdp.jl" = { applicable = 0, eval = 0, isa = 1, kind = 1 }

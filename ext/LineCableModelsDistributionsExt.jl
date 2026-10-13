@@ -19,7 +19,7 @@ serialize_value(distribution::Distributions.UnivariateDistribution) = throw(Argu
     "no portable scientific codec for $(typeof(distribution)); supported input-law records are Normal and Uniform"))
 
 function serialize_value(distribution::Union{Distributions.Normal,Distributions.Uniform})
-    return Dict("__type__"=>"Distribution","name"=>distribution isa Distributions.Normal ? "Normal" : "Uniform",
+    return Dict("__type__"=>"Distribution","name"=>string(nameof(typeof(distribution))),
         "parameters"=>serialize_value(Distributions.params(distribution)))
 end
 function deserialize_extension(::Val{:Distribution},record)
