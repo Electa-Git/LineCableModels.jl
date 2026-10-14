@@ -74,10 +74,10 @@
 "ext/LineCableModelsMakieExt/montecarlo.jl" = { applicable = 0, eval = 0, isa = 3, kind = 1 }
 "ext/LineCableModelsMakieExt/plot.jl" = { applicable = 0, eval = 0, isa = 7, kind = 3 }
 "ext/LineCableModelsMakieExt/recipes/comparison_data.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"ext/LineCableModelsMakieExt/recipes/formulation_comparisons.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
-"ext/LineCableModelsMakieExt/recipes/line_data.jl" = { applicable = 0, eval = 0, isa = 7, kind = 5 }
+"ext/LineCableModelsMakieExt/recipes/formulation_comparisons.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
+"ext/LineCableModelsMakieExt/recipes/line_data.jl" = { applicable = 0, eval = 0, isa = 3, kind = 5 }
 "ext/LineCableModelsMakieExt/recipes/line_facets.jl" = { applicable = 0, eval = 0, isa = 3, kind = 13 }
-"ext/LineCableModelsMakieExt/recipes/preview_data.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
+"ext/LineCableModelsMakieExt/recipes/preview_data.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "ext/LineCableModelsMakieExt/recipes/preview_render.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "ext/LineCableModelsMakieExt/series_styles.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "ext/LineCableModelsMakieExt/shell.jl" = { applicable = 0, eval = 0, isa = 17, kind = 0 }

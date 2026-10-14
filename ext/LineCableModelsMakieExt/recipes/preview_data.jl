@@ -20,16 +20,10 @@ function _default_preview_legend_group(region, milliken::Bool)
     return tag
 end
 
+_preview_legend_group(region, ::Nothing, milliken::Bool) =
+    _default_preview_legend_group(region, milliken)
 function _preview_legend_group(region, legend_group, milliken::Bool)
-    resolved = if legend_group === nothing
-        _default_preview_legend_group(region, milliken)
-    elseif legend_group isa Function
-        legend_group(region)
-    else
-        throw(ArgumentError(
-            "legend_group must be a function of the region, or nothing",
-        ))
-    end
+    resolved = validate(legend_group, DataModel.PlacedRegion)(region)
     resolved isa Union{Symbol, AbstractString} || throw(ArgumentError(
         "preview presentation groups must be symbols or strings",
     ))
@@ -39,17 +33,17 @@ function _preview_legend_group(region, legend_group, milliken::Bool)
     return Symbol(resolved)
 end
 
+# A preview groups its regions by a function of the region.
+validate(legend_group::Function, ::Type{DataModel.PlacedRegion}) = legend_group
+function validate(legend_group, ::Type{DataModel.PlacedRegion})
+    throw(ArgumentError("legend_group must be a function of the region, or nothing; " *
+        "got $(typeof(legend_group))"))
+end
+
 function _preview_legend_label(group::Symbol, legend_labels)
     fallback = uppercasefirst(replace(String(group), '_' => ' '))
-    resolved = if legend_labels === nothing
-        fallback
-    elseif legend_labels isa AbstractDict
-        get(legend_labels, group, fallback)
-    else
-        throw(ArgumentError(
-            "legend_labels must be a dictionary keyed by legend group, or nothing",
-        ))
-    end
+    resolved = legend_labels === nothing ? fallback :
+               get(validate(legend_labels, Makie.LegendEntry), group, fallback)
     resolved isa AbstractString && !isempty(strip(resolved)) || throw(ArgumentError(
         "preview legend labels must be nonempty strings",
     ))
@@ -113,15 +107,20 @@ function _native_design_shapes(
     return polygons
 end
 
+# The zoom factor of a system preview: a finite positive real number.
+function validate(zoom_factor::Real, ::typeof(LineCableModels.preview))
+    isfinite(zoom_factor) && zoom_factor > 0 || throw(ArgumentError(
+        "zoom_factor must be finite and greater than zero",
+    ))
+    return zoom_factor
+end
+function validate(zoom_factor, ::typeof(LineCableModels.preview))
+    throw(ArgumentError(
+        "zoom_factor must be a positive real value; got $(typeof(zoom_factor))"))
+end
+
 function _native_system_limits(system, zoom_factor)
-    if zoom_factor !== nothing
-        zoom_factor isa Real || throw(ArgumentError(
-            "zoom_factor must be a positive real value",
-        ))
-        isfinite(zoom_factor) && zoom_factor > 0 || throw(ArgumentError(
-            "zoom_factor must be finite and greater than zero",
-        ))
-    end
+    zoom_factor === nothing || validate(zoom_factor, LineCableModels.preview)
     horizontal = Float64[nominal(position.x) for position in system.positions]
     vertical = Float64[nominal(position.y) for position in system.positions]
     radii = Float64[nominal(outer_radius(design)) for design in system.designs]

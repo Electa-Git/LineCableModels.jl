@@ -7,8 +7,8 @@ function plot(results::LineCableModels.ParametricResult,selection=nothing;
     requests=Commons.observation_selection(first(results),selection)
     normalized=Commons.observation_requests(first(results),requests;complete_pairs=true)
     observed=observables(results,requests;complete_pairs=true,acquisition...)
+    validate(reference,plot)
     if reference!==nothing && !(reference isa Commons.ObservedResult)
-        reference isa _PrimarySource || throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
         reference=Commons.ObservedResult(reference,requests;complete_pairs=true,acquisition...)
     end
     return plot(observed,normalized.displayed;reference,problem,formulations,presentation...)
@@ -19,9 +19,10 @@ function plot(results::LineCableModels.AbstractUncertaintyResult,selection=nothi
     acquisition,presentation=_plot_observation_options(kwargs)
     requests=Commons.observation_selection(results,selection)
     observed=observables(results,requests;complete_pairs=true,acquisition...)
-    retained=point===nothing ? observed : observed[point isa Integer ? [point] : point]
+    # A number selects one point, as a collection of one.
+    retained=point===nothing ? observed : observed[[index for index in point]]
+    validate(reference,plot)
     if reference!==nothing && !(reference isa Commons.ObservedResult)
-        reference isa _PrimarySource || throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
         reference=Commons.ObservedResult(reference,requests;complete_pairs=true,acquisition...)
     end
     return plot(retained,requests;reference,presentation...)

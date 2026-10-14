@@ -5,7 +5,7 @@ function _line_plot_data(records::Tuple)
         kind=q.coordinates.kind
         kind in (:matrix,:diagonal,:vector,:assemblies,:array) || throw(ArgumentError(
             "ordinary plot does not select an interpretation for retained $kind products; use a retained mean/std request or an explicit statistical plotting verb"))
-        kind===:array && q.values isa AbstractArray && ndims(q.values)>1 && throw(ArgumentError(
+        kind===:array && ndims(vcat(q.values))>1 && throw(ArgumentError(
             "generic arrays of rank greater than one need owner-provided coordinate interpretation"))
     end
     coordinates=map(records) do product
@@ -13,7 +13,7 @@ function _line_plot_data(records::Tuple)
         c.kind in (:matrix,:diagonal,:vector) ?
             (c.kind===:vector ? c.positions : c.rows,
                 c.kind===:matrix ? c.columns : [1],c.samples) :
-            ([1],[1],collect(1:length(product.values isa Number || ismissing(product.values) ? [product.values] : product.values)))
+            ([1],[1],collect(1:length(vcat(product.values))))
     end
     xdata=map(records) do product
         c=product.coordinates
@@ -21,7 +21,7 @@ function _line_plot_data(records::Tuple)
             return (values=string.(c.labels[c.assemblies]),quantity=Units.Quantity{:dimensionless}(),
                 unit=Units.units(:base,:dimensionless),label="Assembly")
         elseif c.kind===:array
-            n=product.values isa Number || ismissing(product.values) ? 1 : length(product.values)
+            n=length(vcat(product.values))
             indices=get(c,:indices,())
             selected=length(indices)==1 ? only(indices) : Colon()
             original=selected isa Integer ? [selected] : selected isa AbstractVector || selected isa AbstractRange ? collect(selected) : nothing
@@ -35,8 +35,8 @@ function _line_plot_data(records::Tuple)
         (values=c.frequencies,quantity=Units.Quantity{:frequency}(),unit=c.frequency_unit)
     end
     observations=map(records,coordinates) do product,indices
-        merge(product,(values=reshape(product.values isa Number || ismissing(product.values) ?
-            [product.values] : product.values,length.(indices)...),))
+        # One value is an array of one.
+        merge(product,(values=reshape(vcat(product.values),length.(indices)...),))
     end
     resolutions=map(q -> (clip=q.clipped,kind=q.thresholds===nothing ? :unassessed : q.thresholds.kind),records)
     return (;xdata,observations,coordinates,resolutions)
