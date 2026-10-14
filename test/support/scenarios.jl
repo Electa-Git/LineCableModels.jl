@@ -228,7 +228,7 @@ module CurrentScenarios
                 layer(rho=500.0, eps_r=20.0, thickness=2.0), layer(rho=50.0, eps_r=15.0))),
             frequencies)
         before_fd = formula(:default; equivalent_earth=formula(:bottommost; order=:before))
-        # The formulation of the known-cases test (test/integration/known_cases.jl).
+        # The formulation of the known-cases test, `test/integration/known_cases.jl`.
         known_cases = Formulation(earth_impedance=:unified, earth_admittance=:unified,
             shunt_model=:equivalent,
             options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
