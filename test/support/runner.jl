@@ -95,7 +95,8 @@ function run_changed(root, ordinary; list=false, quality=["tag:quality"])
             failure = caught
         end
     end
-    arguments = [joinpath(root, "test", "runtests.jl"); quality; list ? ["--list"] : String[]]
+    arguments = [joinpath(root, "test", "runtests.jl"); quality; "--workers=1";
+        list ? ["--list"] : String[]]
     command = `$(Base.julia_cmd()) --project=$(dirname(Base.active_project())) $arguments`
     println("Quality items in a fresh process: ", join(quality, " "))
     flush(stdout)
@@ -105,18 +106,192 @@ function run_changed(root, ordinary; list=false, quality=["tag:quality"])
     return nothing
 end
 
+# Packs the test files of `items` onto at most `count` workers, longest first by the
+# summed `weight` of their items. `items` are inventory items in inventory order. The
+# items of a file stay on one worker. The files with a `:fem` item share one worker,
+# because they use the FEM runs root, which has no setting. Each worker's items keep the
+# order of `items`. One worker runs today's order.
+function partition(items, weight, count)
+    files = unique(item.file for item in items)
+    fem = Set(item.file for item in items if :fem in item.tags)
+    units = [[file] for file in files if file ∉ fem]
+    isempty(fem) || push!(units, [file for file in files if file in fem])
+    load = Dict(file => 0.0 for file in files)
+    for item in items
+        load[item.file] += weight(item)
+    end
+    workers = [Set{String}() for _ in 1:min(count, length(units))]
+    totals = zeros(length(workers))
+    # The sort is stable: units of equal load keep the order of their files.
+    for unit in sort(units; by = unit -> sum(file -> load[file], unit), rev = true)
+        k = argmin(totals)
+        union!(workers[k], unit)
+        totals[k] += sum(file -> load[file], unit)
+    end
+    return [[item for item in items if item.file in worker] for worker in workers]
+end
+
+# Runs the `selected` inventory items in fresh processes that start together. `count`
+# workers take the ordinary items, which `partition` packs by the item durations that
+# earlier runs measured, or by item count without them. One more process takes the
+# quality items, as `tag:quality` runs alone, or two when one would take longer than the
+# longest worker.
+#
+# Each process has its own TMPDIR, made with `mktempdir()` and removed afterwards. Its log
+# under `.linecablemodels/test/<run>/` keeps the `Starting` lines that
+# `test/tools/durations.jl` reads. The console shows each process's item starts and
+# failures, then a summary. The measured durations go to
+# `.linecablemodels/test/durations.tsv`. Fails if any process fails.
+function run_workers(root, selected, count)
+    isempty(selected) &&
+        error("No test items selected in $root; check selectors and excluded tags")
+    started = time()
+    output = joinpath(root, ".linecablemodels", "test")
+    record = joinpath(output, "durations.tsv")
+    measured = Dict{Tuple{String, String}, Float64}()
+    if isfile(record)
+        for line in eachline(record)
+            file, name, seconds = split(line, '\t')
+            measured[(file, name)] = parse(Float64, seconds)
+        end
+    end
+    # An item without a measurement weighs as much as the median measured item.
+    typical = isempty(measured) ? 1.0 : sort!(collect(values(measured)))[cld(length(measured), 2)]
+    weight = item -> get(measured, (item.file, item.name), typical)
+    estimate = items -> sum(weight, items; init = 0.0)
+    workers = partition([item for item in selected if :quality ∉ item.tags], weight, count)
+    groups = [("worker $k", items) for (k, items) in enumerate(workers)]
+    # The quality items take a second process only when one would outlast every worker.
+    quality = [item for item in selected if :quality in item.tags]
+    divided = estimate(quality) > maximum(estimate, workers; init = 0.0)
+    for (k, items) in enumerate(partition(quality, weight, divided ? 2 : 1))
+        push!(groups, (divided ? "quality $k" : "quality", items))
+    end
+    directory = mkpath(joinpath(output, Libc.strftime("%Y%m%d-%H%M%S", time()) * "-$(getpid())"))
+    println("Fresh processes: ", length(groups), "; logs in ", directory)
+    for (label, items) in groups
+        println(label, ": ", length(items), " items in ", length(unique(i.file for i in items)),
+            " files", isempty(measured) ? "" : "; estimated $(round(Int, estimate(items))) s")
+    end
+    flush(stdout)
+    project = dirname(Base.active_project())
+    runner = joinpath(root, "test", "support", "runner.jl")
+    temporary = mktempdir()
+    processes = Base.Process[]
+    results = try
+        tasks = map(groups) do (label, items)
+            name = replace(label, ' ' => '-')
+            log = joinpath(directory, name * ".log")
+            program = """
+                using TestItemRunner
+                include($(repr(runner)))
+                const SELECTED = $(repr(Set((item.file, item.name) for item in items)))
+                ValidationTestRunner.run_tests($(repr(root)); filter = item ->
+                    (ValidationTestRunner.relative(item.filename, $(repr(root))),
+                        String(item.name)) in SELECTED)
+                """
+            command = addenv(`$(Base.julia_cmd()) --project=$project -e $program`,
+                "TMPDIR" => mkdir(joinpath(temporary, name)))
+            pipe = Pipe()
+            process = run(pipeline(command; stdout = pipe, stderr = pipe); wait = false)
+            push!(processes, process)
+            close(pipe.in)
+            @async begin
+                named = Dict(item.name => item for item in items)
+                current, since = nothing, time()
+                open(log, "w") do io
+                    for line in eachline(pipe)
+                        println(io, line)
+                        flush(io)
+                        m = match(r"^Starting \[[0-9.]+s\] (.+)$", line)
+                        if m !== nothing
+                            now = time()
+                            current === nothing ||
+                                (measured[(current.file, current.name)] = now - since)
+                            current, since = get(named, m[1], nothing), now
+                        end
+                        if m !== nothing || startswith(line, "Test Failed at") ||
+                           startswith(line, "Error During Test at")
+                            println("[", label, "] ", line)
+                            flush(stdout)
+                        end
+                    end
+                end
+                wait(process)
+                current === nothing || (measured[(current.file, current.name)] = time() - since)
+                (; label, items, log, passed = success(process), seconds = time() - started)
+            end
+        end
+        fetch.(tasks)
+    finally
+        foreach(process -> process_running(process) && kill(process), processes)
+        rm(temporary; recursive = true, force = true)
+    end
+    partial = tempname(output)
+    open(partial, "w") do io
+        for ((file, name), seconds) in sort!(collect(measured))
+            println(io, file, '\t', name, '\t', round(seconds; digits = 2))
+        end
+    end
+    mv(partial, record; force = true)
+    for result in results
+        println(result.label, ": ", length(result.items), " items in ",
+            length(unique(i.file for i in result.items)), " files; ",
+            result.passed ? "run completed" : "run failed", "; ",
+            round(result.seconds; digits = 2), " s; ", result.log)
+    end
+    if !isempty(workers)
+        seconds = [result.seconds for result in results[eachindex(workers)]]
+        println("Longest worker ", round(maximum(seconds); digits = 2), " s; mean ",
+            round(sum(seconds) / length(seconds); digits = 2), " s")
+    end
+    passed = all(result -> result.passed, results)
+    println("Selected ", length(selected), " maintained test items in ",
+        length(unique(item.file for item in selected)), " files; ",
+        passed ? "run completed" : "run failed", "; ", round(time() - started; digits = 2),
+        " s elapsed")
+    flush(stdout)
+    passed || error("Failed in ", join((r.label for r in results if !r.passed), ", "),
+        "; see their logs in ", directory)
+    return nothing
+end
+
 # Runs the selection that `arguments` names, from the test directory `directory`.
+# `--workers=N` runs it in N fresh worker processes (`run_workers`). The default is one
+# under CI, which runs it in this process as before, and otherwise a quarter of the CPU
+# threads, at most 8. `--list` always lists in this process.
 function execute(arguments, directory)
     root = dirname(rstrip(abspath(directory), ['/', '\\']))
+    options = filter(startswith("--workers="), arguments)
+    length(options) <= 1 || error("Give --workers=N once")
+    count = isempty(options) ?
+            (haskey(ENV, "CI") ? 1 : max(1, min(8, Sys.CPU_THREADS ÷ 4))) :
+            something(tryparse(Int, chop(only(options); head = 10, tail = 0)), 0)
+    count >= 1 || error("--workers=N takes a positive integer")
+    arguments = filter(∉(options), arguments)
+    list = "--list" in arguments
     reference = changed_reference(arguments)
-    reference === nothing && return run_tests(root; verbose=true, list="--list" in arguments,
-        filter=selection(arguments, directory))
-    return run_changed(root, changed_selection(reference, root); list="--list" in arguments)
+    if count == 1 || list
+        reference === nothing &&
+            return run_tests(root; verbose=true, list, filter=selection(arguments, directory))
+        return run_changed(root, changed_selection(reference, root); list)
+    end
+    items = inventory(root).items
+    selected = if reference === nothing
+        select = selection(arguments, directory)
+        [item for item in items if select((; filename = joinpath(root, item.file),
+            item.name, item.tags))]
+    else
+        ordinary = changed_selection(reference, root)
+        [item for item in items if :quality in item.tags || (item.file, item.name) in ordinary]
+    end
+    return run_workers(root, selected, count)
 end
 
 function selection(arguments, directory; excluded=ORDINARY_EXCLUDED_TAGS)
     queries = filter(!=("--list"), arguments)
-    any(startswith("--"), queries) && error("Unknown test option; supported option: --list")
+    any(startswith("--"), queries) &&
+        error("Unknown test option; supported options: --list and --workers=N")
     changed_reference(arguments) === nothing || error("changed:REF runs through `execute`, ",
         "which runs its quality items in a fresh process")
     tags = [Symbol(chop(q; head=4, tail=0)) for q in queries if startswith(q, "tag:")]

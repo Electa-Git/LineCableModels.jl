@@ -247,3 +247,30 @@ end
     @test_throws ErrorException T.changed_reference(["changed:"])
     @test_throws ErrorException T.selection(["changed:HEAD"], joinpath(G.REPOSITORY, "test"))
 end
+
+@testitem "Quality / taxonomy / worker partition controls" tags=[:quality] setup=[TaxonomyGuards] begin
+    G = TaxonomyGuards
+    T = G.T
+    item(file, name, tags...) = (; file, name, tags = Symbol[tags...])
+    items = [item("a.jl", "a1"), item("a.jl", "a2"), item("a.jl", "a3"), item("b.jl", "b1"),
+        item("c.jl", "c1", :fem), item("d.jl", "d1"), item("e.jl", "e1", :fem)]
+    # File a weighs 3 and goes first. The FEM files c and e weigh 2 together.
+    @test T.partition(items, _ -> 1.0, 2) == [items[[1, 2, 3, 6]], items[[4, 5, 7]]]
+    @test T.partition(items, _ -> 1.0, 9) == [items[1:3], items[[5, 7]], items[[4]], items[[6]]]
+    @test T.partition(items[1:0], _ -> 1.0, 4) == []
+
+    ordinary = [i for i in T.inventory(G.REPOSITORY).items
+        if isempty(intersect(T.ORDINARY_EXCLUDED_TAGS, i.tags))]
+    weight = i -> :slow in i.tags ? 10.0 : 1.0
+    order = Dict((i.file, i.name) => k for (k, i) in enumerate(ordinary))
+    @test T.partition(ordinary, weight, 1) == [ordinary]
+    for n in (2, 8, 16)
+        workers = T.partition(ordinary, weight, n)
+        @test length(workers) == n
+        @test sort!([(i.file, i.name) for w in workers for i in w]) ==
+              sort!([(i.file, i.name) for i in ordinary])
+        @test allunique([file for w in workers for file in unique(i.file for i in w)])
+        @test count(w -> any(i -> :fem in i.tags, w), workers) == 1
+        @test all(w -> issorted(w; by = i -> order[(i.file, i.name)]), workers)
+    end
+end

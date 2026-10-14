@@ -42,6 +42,20 @@ Append `--list` to inspect selection without executing bodies. Empty selections
 and unknown options fail. The runner prints item starts, selected files and items,
 elapsed time and completion or failure. A started item is not necessarily completed.
 
+`--workers=N` runs the selection in N new Julia processes. The default is a quarter of
+the CPU threads, at most 8. Under CI, which sets `CI`, the default is 1. With one worker,
+the selection runs in the current process. `--list` always lists in the current process.
+The run fails when any process fails.
+
+With more workers, each worker takes whole test files. The files with a `fem` item share
+one worker, because they use the same FEM runs directory. The runner packs the files by
+the item durations that earlier runs measured, kept in `.linecablemodels/test/durations.tsv`,
+or by item count without them. The `quality` items run in a separate new process that
+starts with the workers, or in two when one would take longer than the longest worker.
+Each process has its own `TMPDIR` and its own log under
+`.linecablemodels/test/<run>/`. The console shows each item start with its process, then a
+summary line per process and the total.
+
 `changed:REF` selects the items that the changes since the git revision `REF` can
 affect, untracked files included. It takes no other selector. The runner uses the
 test taxonomy below to choose them:
@@ -54,11 +68,12 @@ test taxonomy below to choose them:
   under `test/unit/core/`, which checks the runner itself.
 - every `quality` item.
 
-Items with an environment tag stay out, as in an ordinary run. The selected items
-outside `quality` run in the current process. The `quality` items then run in a new
-process, exactly as `tag:quality` runs alone, because the architecture guards read the
-live method table that earlier items can extend. The run fails when either part fails.
-`--list` lists both parts.
+Items with an environment tag stay out, as in an ordinary run. With one worker, the
+selected items outside `quality` run in the current process. The `quality` items then run
+in a new process, exactly as `tag:quality` runs alone, because the architecture guards
+read the live method table that earlier items can extend. With more workers, that
+process starts beside the workers. The run fails when any part fails. `--list` lists
+both parts.
 
 ## Test taxonomy
 
@@ -97,13 +112,14 @@ julia --project=test test/tools/owners.jl report DIR
 
 The report lists every item whose owner tag is earlier than the code it runs.
 
-At the end of a track, run `test/tools/durations.jl` on the log of the full run and of
-each environment run. It derives the duration of each item from the `Starting` lines.
+At the end of a track, run `test/tools/durations.jl` on the logs of the full run, one per
+worker, and on the log of each environment run. It derives the duration of each item
+from the `Starting` lines.
 It lists the items above 10 s without `slow`, the `slow` items below 5 s and the minutes
 per owner tag. It reports these findings and leaves the tags unchanged.
 
 ```sh
-julia --project=test test/tools/durations.jl full-suite.log visual.log fem_numerical.log
+julia --project=test test/tools/durations.jl .linecablemodels/test/RUN/worker-*.log visual.log fem_numerical.log
 ```
 
 ## Cadence
