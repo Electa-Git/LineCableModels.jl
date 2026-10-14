@@ -59,15 +59,16 @@ $(TYPEDEF)
 Arrange physical members while retaining their independent terminal
 identities.
 
-An assembly stores either one prototype with a repetition pattern or an
-explicit tuple of independently placed members. Both forms resolve through
-the same terminal-preserving operation.
+An assembly stores a tuple of placed members. With a repetition pattern, the
+tuple contains one prototype member at the origin, which the pattern repeats.
+Without a pattern, each member stores its own pose. Both forms resolve
+through the same terminal-preserving operation.
 
 $(TYPEDFIELDS)
 """
 struct Assembly{
     A <: Pose2,
-    E <: Union{AbstractCablePart, Tuple{Vararg{AssemblyMember}}},
+    E <: Tuple{Vararg{AssemblyMember}},
     P,
     H,
     C,
@@ -75,9 +76,9 @@ struct Assembly{
 } <: AbstractCablePart
     "Pose relative to the containing frame."
     at::A
-    "Repeated prototype or tuple of explicit members."
-    item::E
-    "Cross-sectional placement definition for a repeated prototype."
+    "Placed members, or the one prototype member at the origin when `pattern` repeats it."
+    members::E
+    "Cross-sectional placement definition for a repeated prototype, or `nothing`."
     pattern::P
     "Longitudinal path definition or `nothing`."
     path::H
@@ -88,28 +89,30 @@ struct Assembly{
 
     function Assembly(
             at::A,
-            item::E,
+            members::E,
             pattern::P,
             path::H,
             compact::C,
             names::N
     ) where {
             A <: Pose2,
-            E <: Union{AbstractCablePart, Tuple{Vararg{AssemblyMember}}},
+            E <: Tuple{Vararg{AssemblyMember}},
             P,
             H,
             C,
             N <: Union{Nothing, AbstractVector{Symbol}, Tuple{Vararg{Symbol}}}
     }
-        return validate(new{A, E, P, H, C, N}(at, item, pattern, path, compact, names))
+        return validate(new{A, E, P, H, C, N}(at, members, pattern, path, compact, names))
     end
 end
 
-# A repeated assembly places one prototype by its pattern, under exact names.
-function validate(assembly::Assembly{<:Pose2, <:AbstractCablePart})
-    assembly.pattern === nothing && throw(ArgumentError(
-        "a repeated assembly requires a placement pattern"
-    ))
+# A repeated assembly places one prototype member, held at the origin, by its pattern,
+# under exact names.
+function validate(assembly::Assembly)
+    length(assembly.members) == 1 && only(assembly.members).at == Pose2(0, 0, 0) ||
+        throw(ArgumentError(
+            "a repeated assembly holds exactly one prototype member at the origin"
+        ))
     assembly.names === nothing ||
         all(name -> name !== Symbol(""), assembly.names) ||
         throw(ArgumentError(
@@ -119,12 +122,12 @@ function validate(assembly::Assembly{<:Pose2, <:AbstractCablePart})
 end
 
 # Explicit members own their poses and terminal identities.
-function validate(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
-    isempty(assembly.item) && throw(ArgumentError(
-        "assembly item must be one prototype or explicit placed members"
+function validate(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}, Nothing})
+    isempty(assembly.members) && throw(ArgumentError(
+        "an explicit assembly requires at least one placed member"
     ))
-    assembly.pattern === nothing && assembly.path === nothing &&
-    assembly.compact === nothing && assembly.names === nothing || throw(ArgumentError(
+    assembly.path === nothing && assembly.compact === nothing &&
+    assembly.names === nothing || throw(ArgumentError(
         "explicit assembly members own their poses and terminal identities"
     ))
     return assembly
@@ -135,7 +138,7 @@ Repeat one prototype by `pattern` at the local origin, or declare a finite space
 assemblies.
 """
 function Assembly(
-        item;
+        prototype;
         at = Pose2(0, 0, 0),
         pattern,
         names = nothing,
@@ -143,12 +146,15 @@ function Assembly(
         compact = nothing,
         combine::Symbol = :product
 )
-    values = (at, item, pattern, path, compact, names)
-    return parameterize(Assembly, Assembly, values; combine)
+    values = (at, prototype, pattern, path, compact, names)
+    caller = (at, prototype, pattern, path, compact, names) -> Assembly(
+        at, (AssemblyMember(prototype),), pattern, path, compact, names
+    )
+    return parameterize(Assembly, caller, values; combine)
 end
 
 function Base.:(==)(left::Assembly, right::Assembly)
-    left.at == right.at && left.item == right.item &&
+    left.at == right.at && left.members == right.members &&
         left.pattern == right.pattern && left.path == right.path &&
         left.compact == right.compact && left.names == right.names
 end
@@ -188,7 +194,7 @@ function _append_assembly_member!(
 end
 
 function _resolve_repeated(assembly::Assembly)
-    child = resolve(EmptyBoundary(), assembly.item)
+    child = resolve(EmptyBoundary(), only(assembly.members).part)
     child_terminals = unique(Symbol[placed.terminal
                                     for placed in child.regions
                                     if placed.terminal !== nothing])
@@ -239,7 +245,7 @@ function _resolve_explicit(assembly::Assembly)
     regions = PlacedRegion[]
     terminals = Symbol[]
     boundaries = AbstractShape[]
-    for member in assembly.item
+    for member in assembly.members
         child = resolve(EmptyBoundary(), member.part)
         child_terminals = unique(Symbol[placed.terminal
                                         for placed in child.regions
@@ -258,17 +264,13 @@ function _resolve_explicit(assembly::Assembly)
     return CableGeometry(regions, AssemblyShape(Tuple(boundaries)))
 end
 
+resolve(::EmptyBoundary, assembly::Assembly) = _resolve_repeated(assembly)
 function resolve(
         ::EmptyBoundary,
-        assembly::Assembly{<:Pose2, <:AbstractCablePart}
+        assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}, Nothing}
 )
-    _resolve_repeated(assembly)
+    _resolve_explicit(assembly)
 end
-
-resolve(
-    ::EmptyBoundary,
-    assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}}
-) = _resolve_explicit(assembly)
 
 function resolve(::AbstractShape, ::Assembly)
     throw(ArgumentError(

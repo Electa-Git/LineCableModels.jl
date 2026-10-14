@@ -294,40 +294,46 @@ function _decode_part(::Val{:group}, value, materials)
     return _decoded_target(Group, Group, values)
 end
 function _decode_part(::Val{:assembly}, value, materials)
-    if haskey(value, "members")
-        raw_members = _required(value, "members", "assembly")
-        raw_members isa AbstractVector && !isempty(raw_members) || throw(
-            ArgumentError("explicit assembly members must be a nonempty array")
-        )
-        members = Tuple(map(raw_members) do member
-            member isa AbstractDict || throw(ArgumentError(
-                "explicit assembly members must be objects"
-            ))
-            DataModel.AssemblyMember(
+    raw_members = _required(value, "members", "assembly")
+    raw_members isa AbstractVector && !isempty(raw_members) || throw(
+        ArgumentError("assembly members must be a nonempty array")
+    )
+    members = map(raw_members) do member
+        member isa AbstractDict || throw(ArgumentError(
+            "assembly members must be objects"
+        ))
+        _decoded_target(
+            DataModel.AssemblyMember,
+            DataModel.AssemblyMember,
+            (
                 _decode_part(_required(member, "part", "assembly member"), materials),
                 deserialize_value(_required(member, "at", "assembly member"))
             )
-        end)
-        return Assembly(
-            deserialize_value(_required(value, "at", "assembly")),
-            members,
-            nothing,
-            nothing,
-            nothing,
-            nothing
         )
     end
-    raw_names = _required(value, "names", "assembly")
-    names = raw_names === nothing ? nothing : Symbol.(raw_names)
+    # An explicit assembly has no pattern: its members own their poses and terminal names.
+    pattern, path, compact, names = if haskey(value, "pattern")
+        raw_names = _required(value, "names", "assembly")
+        (
+            deserialize_value(value["pattern"]),
+            deserialize_value(_required(value, "path", "assembly")),
+            deserialize_value(_required(value, "compact", "assembly")),
+            raw_names === nothing ? nothing : Symbol.(raw_names)
+        )
+    else
+        (nothing, nothing, nothing, nothing)
+    end
     values = (
         deserialize_value(_required(value, "at", "assembly")),
-        _decode_part(_required(value, "item", "assembly"), materials),
-        deserialize_value(_required(value, "pattern", "assembly")),
-        deserialize_value(_required(value, "path", "assembly")),
-        deserialize_value(_required(value, "compact", "assembly")),
-        names
+        pattern,
+        path,
+        compact,
+        names,
+        members...
     )
-    return _decoded_target(Assembly, Assembly, values)
+    build = (at, pattern, path, compact, names,
+        members...) -> Assembly(at, members, pattern, path, compact, names)
+    return _decoded_target(Assembly, build, values)
 end
 function _decode_part(::Val{:enclosure}, value, materials)
     raw_fill = _required(value, "fill", "enclosure")

@@ -9,12 +9,12 @@
     single = terminal(:core, solid(copper, wire))
     placed = at(single, Pose2(0.01, 0.0))
     for constructor in (assembly, cores)
-        @test only(constructor(single).item).part == single
-        @test only(constructor(placed).item) == placed
+        @test only(constructor(single).members).part == single
+        @test only(constructor(placed).members) == placed
         gridded = constructor(at(single, Pose2(Grid((0.01, 0.02)), 0.0)))
         @test gridded isa Gridspace{Assembly}
         @test length(gridded) == 2
-        @test [only(assembled.item).at.x for assembled in gridded] == [0.01, 0.02]
+        @test [only(assembled.members).at.x for assembled in gridded] == [0.01, 0.02]
     end
     @test_throws ArgumentError assembly(single, single; pattern=Ring(2; r=0.01))
     @test_throws ArgumentError assembly(single; names=(:a,))

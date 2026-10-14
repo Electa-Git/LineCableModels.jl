@@ -897,7 +897,7 @@
           "required": [
             "kind",
             "at",
-            "item",
+            "members",
             "pattern",
             "path",
             "compact",
@@ -910,8 +910,26 @@
             "at": {
               "$ref": "#/$defs/pose"
             },
-            "item": {
-              "$ref": "#/$defs/part"
+            "members": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "at",
+                  "part"
+                ],
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/pose"
+                  },
+                  "part": {
+                    "$ref": "#/$defs/part"
+                  }
+                },
+                "additionalProperties": false
+              }
             },
             "pattern": {
               "$ref": "#/$defs/pattern"

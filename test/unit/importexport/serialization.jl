@@ -383,7 +383,7 @@ end
     repeated_record=IE.serialize_value(repeated)
     @test repeated_record["kind"] == "assembly"
     @test haskey(repeated_record, "pattern")
-    @test !haskey(repeated_record, "members")
+    @test length(repeated_record["members"]) == 1
     @test IE.deserialize_value(repeated_record) == repeated
 
     descriptive=build(
@@ -522,7 +522,7 @@ end
         get(node, "kind", nothing)=="region"&&
             get(node, "material", nothing)==material_name&&
             push!(tags, node["tag"])
-        for child_name in ("items", "member", "contents", "item", "fill", "wall", "tree")
+        for child_name in ("items", "member", "members", "part", "contents", "fill", "wall", "tree")
             child=get(node, child_name, nothing)
             child isa AbstractVector&&foreach(
                 item->append!(tags, referenced_tags(item, material_name)), child

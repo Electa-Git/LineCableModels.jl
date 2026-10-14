@@ -250,10 +250,10 @@ function _part_label(group::Group)
     return "Group :$(group.name) · $(join(attributes, " · "))"
 end
 
-function _part_label(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
+function _part_label(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}, Nothing})
     attributes = String[]
     !_identity_pose(assembly.at) && push!(attributes, _compact_text(assembly.at))
-    count = length(assembly.item)
+    count = length(assembly.members)
     push!(attributes, "$count explicit $(count == 1 ? "member" : "members")")
     return "Assembly · $(join(attributes, " · "))"
 end
@@ -276,15 +276,17 @@ end
 _part_children(::Region) = ()
 _part_children(stack::Stack) = Tuple(_part_node(item) for item in stack.items)
 _part_children(group::Group) = (_part_node(group.member),)
-function _part_children(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
+function _part_children(
+        assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}, Nothing}
+)
     return Tuple((
                      label = _identity_pose(member.at) ? _part_label(member.part) :
                              string(_part_label(member.part), " · ", _compact_text(member.at)),
                      children = _part_children(member.part),
                      noun = "parts"
-                 ) for member in assembly.item)
+                 ) for member in assembly.members)
 end
-_part_children(assembly::Assembly) = (_part_node(assembly.item),)
+_part_children(assembly::Assembly) = (_part_node(only(assembly.members).part),)
 # An Enclosure fill is a Material or a Region.
 _part_label(material::Material) = "Material · $(material.kind)"
 function _part_children(enclosure::Enclosure)
@@ -350,12 +352,18 @@ function Base.show(io::IO, ::MIME"text/plain", group::Group)
 end
 
 TextDisplay.name(::Type{<:Assembly}) = "Assembly"
-function Base.summary(io::IO, assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
-    print(io, "Assembly with $(length(assembly.item)) members")
+function Base.summary(
+        io::IO,
+        assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}, Nothing}
+)
+    print(io, "Assembly with $(length(assembly.members)) members")
 end
 Base.summary(io::IO, ::Assembly) = print(io, "Assembly")
-function Base.show(io::IO, assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
-    print(io, "Assembly($(length(assembly.item)) members)")
+function Base.show(
+        io::IO,
+        assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}, Nothing}
+)
+    print(io, "Assembly($(length(assembly.members)) members)")
 end
 function Base.show(io::IO, assembly::Assembly)
     print(io, "Assembly(")

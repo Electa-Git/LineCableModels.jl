@@ -148,32 +148,33 @@ function serialize_value(value::Group; material_name = nothing)
         "boundary" => serialize_value(value.boundary)
     )
 end
-function serialize_value(
-        value::Assembly{<:Pose2, <:AbstractCablePart};
-        material_name = nothing
-)
+function serialize_value(member::DataModel.AssemblyMember; material_name = nothing)
+    return Dict(
+        "at" => serialize_value(member.at),
+        "part" => serialize_value(member.part; material_name)
+    )
+end
+function serialize_value(value::Assembly; material_name = nothing)
     names = value.names === nothing ? nothing : String.(value.names)
     return Dict(
         "kind" => "assembly",
         "at" => serialize_value(value.at),
-        "item" => serialize_value(value.item; material_name),
+        "members" => [serialize_value(member; material_name) for member in value.members],
         "pattern" => serialize_value(value.pattern),
         "path" => serialize_value(value.path),
         "compact" => serialize_value(value.compact),
         "names" => names
     )
 end
+# An explicit assembly has no pattern: its members own their poses and terminal names.
 function serialize_value(
-        value::Assembly{<:Pose2, <:Tuple{Vararg{DataModel.AssemblyMember}}};
+        value::Assembly{<:Pose2, <:Tuple{Vararg{DataModel.AssemblyMember}}, Nothing};
         material_name = nothing
 )
     return Dict(
         "kind" => "assembly",
         "at" => serialize_value(value.at),
-        "members" => [Dict(
-             "at" => serialize_value(member.at),
-             "part" => serialize_value(member.part; material_name)
-         ) for member in value.item]
+        "members" => [serialize_value(member; material_name) for member in value.members]
     )
 end
 function serialize_value(value::Enclosure; material_name = nothing)
@@ -254,17 +255,8 @@ end
 function _collect_materials!(materials::Vector{AbstractMaterial}, part::Group)
     return _collect_materials!(materials, part.member)
 end
-function _collect_materials!(
-        materials::Vector{AbstractMaterial},
-        part::Assembly{<:Pose2, <:AbstractCablePart}
-)
-    return _collect_materials!(materials, part.item)
-end
-function _collect_materials!(
-        materials::Vector{AbstractMaterial},
-        part::Assembly{<:Pose2, <:Tuple{Vararg{DataModel.AssemblyMember}}}
-)
-    foreach(member -> _collect_materials!(materials, member.part), part.item)
+function _collect_materials!(materials::Vector{AbstractMaterial}, part::Assembly)
+    foreach(member -> _collect_materials!(materials, member.part), part.members)
     return materials
 end
 function _collect_materials!(materials::Vector{AbstractMaterial}, part::Enclosure)

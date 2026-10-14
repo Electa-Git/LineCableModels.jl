@@ -41,7 +41,7 @@ using ..Earth: EarthLayer, EarthModel
 import ..DataModel
 using ..DataModel.BaseParams: equivalent_eps, equivalent_conductivity
 using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
-                   AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
+                   Region, Stack, Group, Assembly, Enclosure,
                    Disk, Rectangle, Ellipse,
                    Sector, Annulus, Shell,
                    Polygon, Pose2,
