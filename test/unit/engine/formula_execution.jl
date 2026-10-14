@@ -4,8 +4,8 @@
     absent=Formulation(earth_impedance = nothing, earth_admittance = nothing,
         internal_impedance = nothing)
     for slot in (:earth_impedance, :earth_admittance, :internal_impedance)
-        @test formula_id(getproperty(absent.methods, slot)) ==
-              formula_id(getproperty(omitted.methods, slot))
+        @test formula_id(getproperty(absent.formulas, slot)) ==
+              formula_id(getproperty(omitted.formulas, slot))
     end
     buried=TestFixtures.three_bare_wires_problem(heights = (-1.0, -1.0, -1.0), frequencies = [50.0])
     overhead=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
@@ -28,8 +28,8 @@
     @test_throws ArgumentError Formulation(earth_impedance = (soil = formula(:unified),))
     @test_throws ArgumentError Formulation(earth_admittance = formula(:unknown))
     disabled=Formulation(earth_properties = nothing, temperature_dependence = nothing)
-    @test disabled.methods.earth_properties === nothing
-    @test disabled.methods.temperature_dependence === nothing
+    @test disabled.formulas.earth_properties === nothing
+    @test disabled.formulas.temperature_dependence === nothing
 end
 
 @testitem "Engine / unimplemented earth equations are explicit numerical stubs" tags=[:unit, :engine] begin
@@ -84,7 +84,7 @@ end
     end
     @test_throws ArgumentError Formulation(
         earth_impedance = formula(:unified; parameters = (Γ = 1e-4im,)))
-    method=LineCableModels.Expression(make(0).methods.earth_impedance,
+    method=LineCableModels.Expression(make(0).formulas.earth_impedance,
         E.EarthAdmittance.source_coefficients, Val(:self), Val(1), Val(1))
     @test formulation_options(method).data.Γ == 0
     @test formulation_options(method, FormulationOptions(Γ = 2e-4im)).data.Γ == 2e-4im
@@ -102,7 +102,7 @@ end
     @test !E.same_physical_state([rho], [measurement(0.1, 0.001)])
     record=LineCableModels.ImportExport.serialize_value(aligned)
     restored=LineCableModels.ImportExport.deserialize_value(record)
-    @test details(restored).data.formulations.methods.earth_impedance.options.Γ ==
+    @test details(restored).data.formulations.formulas.earth_impedance.options.Γ ==
           fill(1e-4im, 2)
     prescribed=[1e-4im, 2e-4im]
     sweep=compute(problem, make(prescribed))
@@ -137,13 +137,13 @@ end
     first_Z, first_Y=copy(Z(first_result)), copy(Y(first_result))
     record=details(first_result).data.formulations
     for family in (:earth_impedance, :earth_admittance)
-        @test getproperty(record.methods, family).options.Γ == original
+        @test getproperty(record.formulas, family).options.Γ == original
         @test getproperty(record.requested, family).options.Γ == original
-        @test getproperty(record.methods, family).options.Γ !==
-              getproperty(formulation.methods, family).options.data.Γ
+        @test getproperty(record.formulas, family).options.Γ !==
+              getproperty(formulation.formulas, family).options.data.Γ
     end
     for family in (:earth_impedance, :earth_admittance)
-        getproperty(formulation.methods, family).options.data.Γ[2]=7e-4im
+        getproperty(formulation.formulas, family).options.data.Γ[2]=7e-4im
     end
     supplied[2]=7e-4im
     second_result=compute(problem, formulation)
@@ -154,15 +154,15 @@ end
         family in (:earth_impedance, :earth_admittance)
 
         data=details(retained).data.formulations
-        @test getproperty(data.methods, family).options.Γ == original
+        @test getproperty(data.formulas, family).options.Γ == original
         @test getproperty(data.requested, family).options.Γ == original
         @test Z(retained) == first_Z && Y(retained) == first_Y
     end
     rho=measurement(1.0, 0.01)
     custom=FormulaFixtures.selection(E.EarthImpedance; scale = rho)
     retained=NamedTuple(Formulation(earth_impedance = custom))
-    @test retained.methods.earth_impedance.parameters.scale === rho
-    @test uncertainty(retained.methods.earth_impedance.parameters.scale-rho) == 0
+    @test retained.formulas.earth_impedance.parameters.scale === rho
+    @test uncertainty(retained.formulas.earth_impedance.parameters.scale-rho) == 0
 end
 
 @testitem "Engine / prescribed options govern coupled sharing without entering physical UQ" tags=[:unit, :measurements, :slow] setup=[TestFixtures] begin
@@ -204,11 +204,11 @@ end
     for trial in only(details(sampled).data.trials),
         family in (:earth_impedance, :earth_admittance)
 
-        @test getproperty(trial.data.formulations.methods, family).options.Γ == prescribed
+        @test getproperty(trial.data.formulations.formulas, family).options.Γ == prescribed
     end
     linear=compute(ParametricProblem(space), LinearError(selected))
     @test any(>(0), uncertainty.(real.(Z(first(linear)))))
-    @test selected.methods.earth_impedance.options.data.Γ == prescribed
+    @test selected.formulas.earth_impedance.options.data.Γ == prescribed
 end
 
 @testitem "Engine / numerical declarations follow selected types and indexed equations" tags=[:unit, :engine] setup=[FormulaFixtures] begin
@@ -340,7 +340,7 @@ end
         insulation_impedance = FormulaFixtures.InsulationReactance(0))
     cable = E.LocalCableData(LineCableModels.DataModel.flatten(TestFixtures.coaxial_design()))
     actual = zeros(ComplexF64, 2, 2)
-    E.cable_impedance!(actual, cable, fill(2e-8, 2), formulation.methods, 100pi*im)
+    E.cable_impedance!(actual, cable, fill(2e-8, 2), formulation.formulas, 100pi*im)
     # Surface currents are (-contained, contained + wall). The solid core's
     # outer impedance is an additional contribution to its own terminal.
     B = [-1.0 1.0; 0.0 1.0]
@@ -361,7 +361,7 @@ end
             2e-8, cable.mu_r_cond[2], s)
         solid = II.surface_impedances(selected, cable.r_in[1], cable.r_ext[1],
             2e-8, cable.mu_r_cond[1], s)
-        E.cable_impedance!(actual, cable, fill(2e-8, 2), builtin.methods, s)
+        E.cable_impedance!(actual, cable, fill(2e-8, 2), builtin.formulas, s)
         wall_matrix = [wall.inner wall.transfer; wall.transfer wall.outer]
         @test actual ≈ B * wall_matrix * transpose(B) + Diagonal([solid.outer, 0im])
         if frequency == 1e-4
@@ -409,7 +409,7 @@ end
     problem=LineParametersProblem(system; frequencies = [50.0], earth_props = homogeneous(rho = 100.0))
     result=compute(problem, Formulation(internal_impedance = selected))
     @test all(isfinite, result.Z.values)
-    @test keys(details(result).data.formulations.methods.internal_impedance.options)==(:outer,)
+    @test keys(details(result).data.formulations.formulas.internal_impedance.options)==(:outer,)
     @test length(selected.state_inputs)==1
     @test only(selected.evaluations)[2] === Val(:outer)
 end

@@ -41,9 +41,9 @@ end
         input = EN.LocalCableData(blueprint)
         shunt = only(EN.internal_shunt_response([design], [blueprint], [formulation]))
         admittivity = Vector{ComplexF64}(undef, length(input.dielectric_materials))
-        rho = [constitutive(formulation.methods.temperature_dependence, material, 20.0)
+        rho = [constitutive(formulation.formulas.temperature_dependence, material, 20.0)
                for material in input.dielectric_materials]
-        EN.dielectric!(admittivity, input, rho, formulation.methods, frequency, 20.0)
+        EN.dielectric!(admittivity, input, rho, formulation.formulas, frequency, 20.0)
         count = length(input.terminals)
         nodal = EN.cable_admittance!(Matrix{ComplexF64}(undef, count, count), input, shunt,
             admittivity, s, similar(admittivity))
@@ -68,8 +68,8 @@ end
         for formulation in (lossless, lossy)
             engine = intervals(design, formulation)
             again = intervals(homogenized, formulation)
-            laws = (formulation.methods.insulation_admittance,
-                formulation.methods.semicon_admittance)
+            laws = (formulation.formulas.insulation_admittance,
+                formulation.formulas.semicon_admittance)
             # The exporters put the layers of each group in series, each under its law.
             for (index, row) in enumerate(blueprint)
                 (; conductor, layers, mu_r_ins) = row
@@ -77,7 +77,7 @@ end
                 admittance = inv(sum(layers) do layer
                     log(layer.r_ex / layer.r_in) /
                     (2π * constitutive(laws, layer.material, frequency, 20.0;
-                        temperature_dependence = formulation.methods.temperature_dependence))
+                        temperature_dependence = formulation.formulas.temperature_dependence))
                 end)
                 @test engine.admittance[index] ≈ admittance rtol = 1e-12
                 @test again.admittance[index] ≈ admittance rtol = 1e-12
@@ -142,7 +142,7 @@ end
         for design in designs, formulation in (CableConstantsFormulation(), lossy)
             constants = compute(CableConstantsProblem(design; temperature), formulation)
             blueprint = LineCableModels.DataModel.flatten(design)
-            rho = [constitutive(formulation.methods.temperature_dependence,
+            rho = [constitutive(formulation.formulas.temperature_dependence,
                        row.conductor.material, temperature) for row in blueprint]
             expected = complex.(constants.G, omega .* constants.C)
             system = TestFixtures.single_cable_system(design)

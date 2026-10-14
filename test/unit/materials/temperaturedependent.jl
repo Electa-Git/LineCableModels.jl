@@ -51,12 +51,12 @@ end
         @test_throws DomainError constitutive(M.ConstantResistivity(value),material,80.0)
     end
     for constructor in (Formulation,CableConstantsFormulation,LineCableModelsFEM)
-        @test constructor(temperature_dependence=nothing).methods.temperature_dependence === nothing
-        @test constructor(temperature_dependence=selected).methods.temperature_dependence === selected
+        @test constructor(temperature_dependence=nothing).formulas.temperature_dependence === nothing
+        @test constructor(temperature_dependence=selected).formulas.temperature_dependence === selected
         @test_throws ArgumentError constructor(options=(temperature_correction=true,))
         grid=constructor(temperature_dependence=Grid((formula(:default),nothing)))
         @test length(grid)==2
-        @test first(grid).methods.temperature_dependence isa TD.Formula
-        @test last(collect(grid)).methods.temperature_dependence === nothing
+        @test first(grid).formulas.temperature_dependence isa TD.Formula
+        @test last(collect(grid)).formulas.temperature_dependence === nothing
     end
 end

@@ -116,7 +116,7 @@ end
 @testitem "PSCAD / unsupported indexed equations fail without fallback" tags=[:integration, :pscad] begin
     const P = LineCableModels.PSCAD
     pscad = Formulation(:pscad)
-    selected = pscad.methods
+    selected = pscad.formulas
     for (equation, selection) in ((P.earth_impedance, selected.earth_impedance.air),
             (P.earth_potential_coefficient, selected.earth_admittance)),
             (kind, s, t) in ((:self, 1, 2), (:mutual, 2, 3), (:self, 3, 3))
@@ -132,9 +132,9 @@ end
     @test_throws ArgumentError P.internal_impedance(selected.internal_impedance, Val(:invalid), pscad)
     @test_throws ArgumentError Formulation(:pscad; insulation_impedance=:not_registered)
     for (s, t) in ((1, 2), (2, 1))
-        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:ametani2009).methods.earth_impedance, Val(:mutual), Val(s), Val(t), pscad) ==
+        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:ametani2009).formulas.earth_impedance, Val(:mutual), Val(s), Val(t), pscad) ==
             (EarthForm3 = (value = 0, readback = "AMETANIL"),)
-        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:lucca1994).methods.earth_impedance, Val(:mutual), Val(s), Val(t), pscad) ==
+        @test P.earth_impedance(Formulation(:pscad; earth_impedance=:lucca1994).formulas.earth_impedance, Val(:mutual), Val(s), Val(t), pscad) ==
             (EarthForm3 = (value = 2, readback = "LUCCA"),)
     end
     # PSCAD's coaxial cable admits coaxial topology only. The topology rule of flatten
@@ -158,7 +158,7 @@ end
     selected = E.EarthImpedance.Formula(:ametani2009)
     @test occursin("mixed", description(selected))
     pscad = Formulation(:pscad; earth_impedance=:ametani2009)
-    native = pscad.methods.earth_impedance
+    native = pscad.formulas.earth_impedance
     for (s,t) in ((1,2), (2,1))
         @test_throws r"not yet implemented" E.EarthImpedance.earth_impedance(
             selected, Val(:mutual), Val(s), Val(t), nothing, nothing)

@@ -581,7 +581,7 @@ The frequency loop calls the bound methods directly. Register each distinct
 equation under its own identity.
 
 Result details retain one requested and resolved formulation record. Its `requested`
-field preserves the declaration. `methods` records the selected identities,
+field preserves the declaration. `formulas` records the selected identities,
 physical parameters and owner-held numerical controls, including each explicit
 equivalent-earth choice and order. Unspecified numerical defaults remain owned by
 the selected equation.
@@ -1462,10 +1462,10 @@ The restored observations can be reported or plotted without original sources.
 
 
 Scalar computation selections are retained in `details(result).data.formulations`.
-Its `requested` and `methods` fields hold complete requested and resolved records,
+Its `requested` and `formulas` fields hold complete requested and resolved records,
 including physical parameters and numerical controls. Formula identifiers are available
 as `record.requested.earth_admittance.identifier` (or through the corresponding
-`air`, `earth`, `mixed` leaf). Resolved identities are under `methods`. A leaf's
+`air`, `earth`, `mixed` leaf). Resolved identities are under `formulas`. A leaf's
 `equivalent_earth` field contains its reduction choice and order. Realized local
 shunt outcomes, including explicit fallback, remain in `details(result).data.shunt_model`.
 Optional `trace` contains detached evaluation data. Reports use the recorded

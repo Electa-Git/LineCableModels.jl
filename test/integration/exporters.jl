@@ -13,8 +13,8 @@
     function group_admittance(blueprint, index, formulation, frequency)
         layers=blueprint[index].layers
         isempty(layers) && return 0.0im
-        laws=(formulation.methods.insulation_admittance,
-            formulation.methods.semicon_admittance)
+        laws=(formulation.formulas.insulation_admittance,
+            formulation.formulas.semicon_admittance)
         inv(sum(layers) do layer
             kappa=constitutive(laws, layer.material, frequency, layer.material.T0)
             log(layer.r_ex/layer.r_in)/(2π*kappa)
@@ -249,8 +249,8 @@ end
     function group_admittance(blueprint, index, formulation, frequency)
         layers=blueprint[index].layers
         isempty(layers) && return 0.0im
-        laws=(formulation.methods.insulation_admittance,
-            formulation.methods.semicon_admittance)
+        laws=(formulation.formulas.insulation_admittance,
+            formulation.formulas.semicon_admittance)
         inv(sum(layers) do layer
             kappa=constitutive(laws, layer.material, frequency, layer.material.T0)
             log(layer.r_ex/layer.r_in)/(2π*kappa)

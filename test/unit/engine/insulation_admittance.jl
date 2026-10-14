@@ -77,12 +77,12 @@
     blueprint=LineCableModels.DataModel.flatten(design)
     input=E.LocalCableData(blueprint)
     shunt=only(E.internal_shunt_response([design], [blueprint], [Formulation()]))
-    methods=Formulation(insulation_admittance = formulation,
-        semicon_admittance = semicon).methods
+    formulas=Formulation(insulation_admittance = formulation,
+        semicon_admittance = semicon).formulas
     admittivity=zeros(ComplexF64, 2)
-    rho=[constitutive(methods.temperature_dependence, material, 20.0)
+    rho=[constitutive(formulas.temperature_dependence, material, 20.0)
          for material in input.dielectric_materials]
-    E.dielectric!(admittivity, input, rho, methods, 50.0, 20.0)
+    E.dielectric!(admittivity, input, rho, formulas, 50.0, 20.0)
     layers=zeros(ComplexF64, 2)
     potential, admittance=zeros(ComplexF64, 1, 1), zeros(ComplexF64, 1, 1)
     E.cable_potential!(potential, input, shunt, admittivity, s, layers,
@@ -237,9 +237,9 @@ end
     @test @inferred(LineCableModels.Engine.dielectric!(
         workspace.buffers.dielectric_admittivity,
         cable,
-        [constitutive(formulation.methods.temperature_dependence, material, input.temperature)
+        [constitutive(formulation.formulas.temperature_dependence, material, input.temperature)
          for material in cable.dielectric_materials],
-        formulation.methods,
+        formulation.formulas,
         input.freq[1],
         input.temperature
     )) === workspace.buffers.dielectric_admittivity
@@ -257,8 +257,8 @@ end
         function layer_coefficient(layer_index)
             material=cable.dielectric_materials[layer_index]
             relation=material.kind===:semicon ?
-                     formulation.methods.semicon_admittance :
-                     formulation.methods.insulation_admittance
+                     formulation.formulas.semicon_admittance :
+                     formulation.formulas.insulation_admittance
             evaluated=constitutive(
                 relation, material, input.freq[frequency_index], input.temperature)
             return LineCableModels.Engine.potential_coefficient(
@@ -288,8 +288,8 @@ end
         for layer_index in cable.dielectric_ranges[component_index]
             material=cable.dielectric_materials[layer_index]
             relation=material.kind===:semicon ?
-                     formulation.methods.semicon_admittance :
-                     formulation.methods.insulation_admittance
+                     formulation.formulas.semicon_admittance :
+                     formulation.formulas.insulation_admittance
             evaluated=constitutive(
                 relation, material, input.freq[frequency_index], input.temperature)
             coefficient+=LineCableModels.Engine.potential_coefficient(

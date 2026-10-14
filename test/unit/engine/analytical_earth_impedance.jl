@@ -120,7 +120,7 @@ end
             end
             # The existing frequency loop supplies the law once per soil and frequency.
             fd=FormulaFixtures.DispersiveEarth()
-            dispersive=Formulation(earth_impedance = selected.methods.earth_impedance,
+            dispersive=Formulation(earth_impedance = selected.formulas.earth_impedance,
                 earth_admittance = :ideal, earth_properties = fd; options)
             actual=compute(problem, dispersive; options = (trace = true,))
             @test length(fd.seen) == 2

@@ -255,21 +255,21 @@ function _pscad_part_parameters(blueprint::DataModel.CableBlueprint, index::Int,
     conductor_name = "CONNAM$slot"
     inner_name, outer_name, insulation_name = radii[slot]
     T = eltype(blueprint)
-    methods = formulation.methods
+    formulas = formulation.formulas
     (; conductor, layers, mu_r_ins) = blueprint[index]
     metal = conductor.material
     operating = temperature === nothing ? nothing : convert(T, temperature)
-    rho = constitutive(methods.temperature_dependence, metal, something(operating, metal.T0))
+    rho = constitutive(formulas.temperature_dependence, metal, something(operating, metal.T0))
     # The group's admittance puts its layers in series, each under the law of its class.
     # PSCAD reads the capacitance from the equivalent permittivity, and the conductance
     # from the loss tangent G/(ωC). A conductor without dielectric layers has none.
-    laws = (methods.insulation_admittance, methods.semicon_admittance)
+    laws = (formulas.insulation_admittance, formulas.semicon_admittance)
     omega = 2 * (one(T) * pi) * convert(T, frequency)
     Y = isempty(layers) ? zero(Complex{T}) :
         inv(sum(layer -> log(layer.r_ex / layer.r_in) /
                          (2 * (one(T) * pi) * constitutive(laws, layer.material, frequency,
             something(operating, layer.material.T0);
-            temperature_dependence = methods.temperature_dependence)), layers))
+            temperature_dependence = formulas.temperature_dependence)), layers))
     capacitance = imag(Y) / omega
     outer, eps_eq = isempty(layers) ? (conductor.r_ex, zero(T)) :
                     (last(layers).r_ex,

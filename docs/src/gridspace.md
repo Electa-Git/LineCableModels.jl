@@ -315,7 +315,7 @@ run[problem_index, formulation_index]
 Its `values` vector and ordinary linear iteration remain available. Storage is
 column-major in `(problem, formulation)` coordinates: the problem index varies
 fastest. The formulation for column `j` is stored in `run.axes.formulations[j]`.
-Use `formula_id(run.axes.formulations[j].methods.earth_impedance)` to identify
+Use `formula_id(run.axes.formulations[j].formulas.earth_impedance)` to identify
 its earth-impedance method.
 
 Direct linear propagation uses the same traversal. The Measurements extension

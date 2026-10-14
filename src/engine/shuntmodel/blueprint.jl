@@ -5,14 +5,14 @@ const ShuntDomainReport = NamedTuple{
     Tuple{Int, UnitRange{Int}, Symbol, Symbol, Symbol, String}}
 
 function internal_shunt_response(selected::ShuntModelFormulation, design,
-        geometry, T, methods, solutions, design_index)
+        geometry, T, formulas, solutions, design_index)
     domains=internal_shunt_domains(design, geometry, T; design_index)
-    return internal_shunt_response(selected, domains, methods, solutions)
+    return internal_shunt_response(selected, domains, formulas, solutions)
 end
 
 function internal_shunt_response(
         selected::Formula{:equivalent},
-        design::CableDesign, geometry, ::Type{T}, methods, solutions, design_index) where {T}
+        design::CableDesign, geometry, ::Type{T}, formulas, solutions, design_index) where {T}
     requested = formula_id(selected)
     reports = ShuntDomainReport[(design_index, indices, requested,
         :equivalent, :selected,
@@ -25,18 +25,18 @@ function internal_shunt_response(
 end
 
 function internal_shunt_response(selected::Formula{:boundary},
-        domains::Vector{InternalShuntDomain{T}}, methods, solutions) where {T}
+        domains::Vector{InternalShuntDomain{T}}, formulas, solutions) where {T}
     blocks = InternalShuntBlock{T}[]
     diagnostics = InternalShuntDiagnostic[]
     reports = ShuntDomainReport[]
     for domain in domains
         try
-            _shunt_lossless(methods) || throw(BoundarySolveError(:unsupported,
+            _shunt_lossless(formulas) || throw(BoundarySolveError(:unsupported,
                 (; design = domain.design, terminals = domain.terminals),
                 "boundary shunt requires the built-in lossless dielectric laws"))
             # A solve depends on its physical inputs, the terminal of each wire and tape, and
             # its numerical controls.
-            values = _shunt_values(domain, methods)
+            values = _shunt_values(domain, formulas)
             topology = (length(domain.terminals), length(domain.left), length(domain.right),
                 [wire.terminal for wire in domain.wires],
                 [tape.terminal for tape in domain.tapes])

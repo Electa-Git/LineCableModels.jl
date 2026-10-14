@@ -17,9 +17,9 @@
     for (result, selection, beta) in zip(results, choices, coefficients)
         record=details(result).data.formulations
         @test record.requested == NamedTuple(selection).requested
-        @test record.methods == NamedTuple(selection).methods
+        @test record.formulas == NamedTuple(selection).formulas
         @test record.requested.earth_properties.parameters.beta === beta
-        @test record.methods.earth_properties.parameters.beta === beta
+        @test record.formulas.earth_properties.parameters.beta === beta
     end
     artifact=report(BenchmarkTableDefinition(), (
         reference = results[1], result = results[2]))
@@ -42,8 +42,8 @@
     changed=compute(problem, selected)
     @test !isempty(custom.seen)
     @test details(changed).data.formulations.requested.earth_properties==NamedTuple(custom)
-    @test details(changed).data.formulations.methods.earth_properties==NamedTuple(custom)
-    @test details(changed).data.formulations.methods.earth_properties.identifier === :DispersiveEarth
+    @test details(changed).data.formulations.formulas.earth_properties==NamedTuple(custom)
+    @test details(changed).data.formulations.formulas.earth_properties.identifier === :DispersiveEarth
     @test typeof(changed) === typeof(results[1])
     # A saved and reloaded result has the details it was saved with, labels included, for a
     # built-in and for a custom formula. Loading builds no formulation.

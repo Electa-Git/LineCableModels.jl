@@ -117,11 +117,11 @@ function dielectric!(
         admittivity::AbstractVector{Complex{T}},
         cable::LocalCableData{T},
         rho::AbstractVector{T},
-        methods::NamedTuple,
+        formulas::NamedTuple,
         frequency::T,
         temperature::T; workspace = nothing
 ) where {T <: Real}
-    laws = (methods.insulation_admittance, methods.semicon_admittance)
+    laws = (formulas.insulation_admittance, formulas.semicon_admittance)
     @inbounds for (layer, material) in pairs(cable.dielectric_materials)
         admittivity[layer] = constitutive(laws, material, frequency, temperature;
             rho = rho[layer], workspace)

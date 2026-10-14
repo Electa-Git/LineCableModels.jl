@@ -6,17 +6,17 @@
             Formulation(earth_impedance=(;)))
         record = NamedTuple(selected)
         for slot in (:earth_impedance, :earth_admittance)
-            children = getproperty(selected.methods, slot)
+            children = getproperty(selected.formulas, slot)
             children isa NamedTuple || continue
             routes = [last(scope)[2] for (scope, _) in pairs(selected)
                 if length(last(scope)) == 2 && first(last(scope)) == slot]
             @test Tuple(routes) == keys(children)
-            @test keys(getproperty(record.methods, slot)) == keys(children)
+            @test keys(getproperty(record.formulas, slot)) == keys(children)
         end
     end
     record = NamedTuple(Formulation(earth_impedance=(earth=:unified,)))
-    malformed = merge(record, (methods=merge(record.methods,
-        (earth_impedance=(ocean=record.methods.earth_impedance.earth,),)),))
+    malformed = merge(record, (formulas=merge(record.formulas,
+        (earth_impedance=(ocean=record.formulas.earth_impedance.earth,),)),))
     @test_throws ArgumentError pairs(LineParametersFormulation, malformed)
 end
 
@@ -37,7 +37,7 @@ end
     Base.NamedTuple(value::TestEarthLeaf) = (identifier=formula_id(value),parameters=(;),options=(;))
     normal=Formulation()
     leaves=(TestEarthLeaf{:TestAlpha}(),TestEarthLeaf{:TestBeta}())
-    choices=[E.LineParametersFormulation(merge(normal.methods,(earth_impedance=leaf,)),
+    choices=[E.LineParametersFormulation(merge(normal.formulas,(earth_impedance=leaf,)),
         normal.options,merge(normal.definitions,(earth_impedance=leaf,))) for leaf in leaves]
     push!(choices,normal)
     @test description(LineCableModelsCoaxial())==description(LineCableModelsCoaxial)=="coaxial"
@@ -113,7 +113,7 @@ end
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,result=single_data))
     single_label=only(last(single_report.tables.features).relative.formula)
-    @test occursin(description(single.methods.insulation_admittance;compact=true),single_label)
+    @test occursin(description(single.formulas.insulation_admittance;compact=true),single_label)
     @test !occursin("scale",single_label) # a constant control is not a legend difference
     insulation=only(filter(field -> field.meaning==(:insulation_admittance,),only(single_report.observed).gridpoint.formulation_fields.Y))
     @test any(control -> last(control.scope)===:scale,insulation.control_fields)
@@ -131,7 +131,7 @@ end
     description(::BrokenEarthLeaf;compact::Bool=false)=throw(ArgumentError("test-owned description failed"))
     formulation_options(::BrokenEarthLeaf)=FormulationOptions()
     Base.NamedTuple(value::BrokenEarthLeaf)=(identifier=formula_id(value),parameters=(;),options=(;))
-    broken=E.LineParametersFormulation(merge(normal.methods,(earth_impedance=BrokenEarthLeaf(),)),
+    broken=E.LineParametersFormulation(merge(normal.formulas,(earth_impedance=BrokenEarthLeaf(),)),
         normal.options,merge(normal.definitions,(earth_impedance=BrokenEarthLeaf(),)))
     bad=ParametricResult(nothing,[points[1]],(problems=[:one],formulations=[broken]), ComputationDetails((;)))
     @test_throws r"test-owned description failed" E.completed_formulation(broken)
@@ -199,7 +199,7 @@ end
     fem=Formulation(:fem)
     points=[point(a,1),point(fem,2)]
     for request in (R,X,G,B)
-        method=request in (R,X) ? a.methods.earth_impedance : a.methods.earth_admittance
+        method=request in (R,X) ? a.formulas.earth_impedance : a.formulas.earth_admittance
         @test observation_labels(points;request)==[description(method;compact=true),description(fem;compact=true)]
     end
     @test all(field -> field.meaning ∉ ((:earth_impedance,),(:earth_admittance,)),points[2].gridpoint.formulation_fields.all)
@@ -209,7 +209,7 @@ end
     other=Formulation(earth_impedance=:pollaczek1926)
     mixed=[physical[1],point(other,2;rho=500.,problem=2)]
     labels=observation_labels(mixed;request=R)
-    @test occursin(description(other.methods.earth_impedance;compact=true),labels[2])
+    @test occursin(description(other.formulas.earth_impedance;compact=true),labels[2])
     @test occursin("500.0 Ω·m",labels[2])
     reductions=[point(Formulation(options=(kron_reduction=choice,)),i) for (i,choice) in enumerate((false,true))]
     @test observation_labels(reductions;request=R)==[
@@ -218,7 +218,7 @@ end
     @test observation_labels([point(f,i) for (i,f) in enumerate(physics)];request=B)==[
         description(LineCableModelsFEM,Val(:physics),f.options.data.physics;compact=true) for f in physics]
     reordered=Formulation(options=(ideal_transposition=false,kron_reduction=true,reduce_bundle=true))
-    @test observation_labels([point(a,1),point(reordered,2)];request=R)==fill(description(a.methods.earth_impedance;compact=true),2)
+    @test observation_labels([point(a,1),point(reordered,2)];request=R)==fill(description(a.formulas.earth_impedance;compact=true),2)
 
     layer(rho)=(rho=rho,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),))
     layered=[ObservedResult(merge(p.gridpoint,(inputs=(layers=[layer(100.),layer(rho)],),)),p.quantities,p.errors,p.timings)
@@ -235,17 +235,17 @@ end
     gamma=Formulation(earth_impedance=formula(:unified;options=(Γ=1.0,)))
     gamma_labels=observation_labels([point(a,1),point(gamma,2)];request=R)
     @test all(occursin("Γ=",label) for label in gamma_labels)
-    @test occursin(description(typeof(gamma.methods.earth_impedance),Val(:Γ),1.0;compact=true),gamma_labels[2])
+    @test occursin(description(typeof(gamma.formulas.earth_impedance),Val(:Γ),1.0;compact=true),gamma_labels[2])
     gamma_samples=[0.1,0.2,0.3]
     gamma_vector=Formulation(earth_impedance=formula(:unified;options=(Γ=gamma_samples,)),
         earth_admittance=formula(:unified;options=(Γ=gamma_samples,)))
     for request in (R,B)
         gamma_vector_labels=observation_labels([point(a,1),point(gamma_vector,2)];request)
-        selected=request===R ? gamma_vector.methods.earth_impedance : gamma_vector.methods.earth_admittance
+        selected=request===R ? gamma_vector.formulas.earth_impedance : gamma_vector.formulas.earth_admittance
         @test occursin(description(typeof(selected),Val(:Γ),gamma_samples;compact=true),last(gamma_vector_labels))
     end
-    @test description(E.EarthImpedance.Formula{:default};compact=true)==description(a.methods.earth_impedance;compact=true)
-    @test description(E.EarthAdmittance.Formula{:default};compact=true)==description(a.methods.earth_admittance;compact=true)
+    @test description(E.EarthImpedance.Formula{:default};compact=true)==description(a.formulas.earth_impedance;compact=true)
+    @test description(E.EarthAdmittance.Formula{:default};compact=true)==description(a.formulas.earth_admittance;compact=true)
 
     # New scientific owner, deliberately unrelated identifier and compact text.
     const compact_calls=Bool[]
@@ -259,13 +259,13 @@ end
     end
     formulation_options(::DetachedNamingLeaf)=FormulationOptions()
     Base.NamedTuple(::DetachedNamingLeaf)=(identifier=:fixture_unrelated_identifier,parameters=(;),options=(;))
-    f=E.LineParametersFormulation(merge(a.methods,(earth_impedance=DetachedNamingLeaf(),)),a.options,
+    f=E.LineParametersFormulation(merge(a.formulas,(earth_impedance=DetachedNamingLeaf(),)),a.options,
         merge(a.definitions,(earth_impedance=DetachedNamingLeaf(),)))
     extended=point(f,3)
     @test !isempty(compact_calls) && all(compact_calls)
     poison[]=true
     Z(raw) .= NaN
-    expected=[description(a.methods.earth_impedance;compact=true),"Independent field solution"]
+    expected=[description(a.formulas.earth_impedance;compact=true),"Independent field solution"]
     @test observation_labels([points[1],extended];request=R)==expected
     restored=IO.deserialize_value(IO.serialize_value(extended))
     @test observation_labels([points[1],restored];request=R)==expected

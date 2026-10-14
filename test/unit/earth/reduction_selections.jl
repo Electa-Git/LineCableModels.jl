@@ -20,9 +20,9 @@
                 earth_admittance = admittance_id))
             @test Z(reduced) ≈ Z(direct) rtol = 1e-10
             @test Y(reduced) ≈ Y(direct) rtol = 1e-10
-            @test details(reduced).data.formulations.methods.earth_impedance.identifier ===
+            @test details(reduced).data.formulations.formulas.earth_impedance.identifier ===
                 (identifier === :default ? :unified : identifier)
-            @test details(reduced).data.formulations.methods.earth_admittance.identifier ===
+            @test details(reduced).data.formulations.formulas.earth_admittance.identifier ===
                 (admittance_id === :default ? :unified : admittance_id)
             @test length(original.earth_props.layers) == 3
             @test original.earth_props === earth

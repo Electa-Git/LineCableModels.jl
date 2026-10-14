@@ -29,7 +29,7 @@ end
         @test basis(result) === :total
         @test haskey(details(result).data, :coordinates)
         @test length(details(result).data.coordinates) == size(result.Z, 1)
-        @test details(result).data.formulations.methods.earth_impedance.identifier === :unified
+        @test details(result).data.formulations.formulas.earth_impedance.identifier === :unified
         push!(calls, index)
     end
     options = (output_basis=:total, on_result=callback)

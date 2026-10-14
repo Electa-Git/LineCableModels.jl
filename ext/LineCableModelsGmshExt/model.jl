@@ -605,7 +605,7 @@ function _resolved_fem_model(
     earth_materials = Earth.EarthMaterial{T}[]
     for frequency in problem.frequencies
         evaluated = try
-            state = LineCableModels.constitutive(formulation.methods.earth_properties,
+            state = LineCableModels.constitutive(formulation.formulas.earth_properties,
                 Earth.EarthMaterial(soil), frequency)
             material = Earth.EarthMaterial(_fem_float64_scalar(state.rho),
                 _fem_float64_scalar(state.eps_r), _fem_float64_scalar(state.mu_r))
@@ -690,18 +690,18 @@ function _resolved_fem_model(
             admittivity = try
                 if material.kind === :conductor
                     rho = _fem_float64_scalar(LineCableModels.constitutive(
-                        formulation.methods.temperature_dependence, material, problem.temperature))
+                        formulation.formulas.temperature_dependence, material, problem.temperature))
                     isfinite(inv(rho)) && inv(rho) > 0 || throw(DomainError(rho,
                         "conductor conductivity must be positive and finite"))
                     epsilon = convert(T, material.eps_r) * vacuum_permittivity(T)
                     Complex{T}[complex(inv(rho) + 2π * f * epsilon * material.tan_delta,
                         2π * f * epsilon) for f in problem.frequencies]
                 else
-                    laws = (formulation.methods.insulation_admittance,
-                        formulation.methods.semicon_admittance)
+                    laws = (formulation.formulas.insulation_admittance,
+                        formulation.formulas.semicon_admittance)
                     Complex{T}[_fem_float64_scalar(LineCableModels.constitutive(
                         laws, material, frequency, problem.temperature;
-                        temperature_dependence=formulation.methods.temperature_dependence))
+                        temperature_dependence=formulation.formulas.temperature_dependence))
                         for frequency in problem.frequencies]
                 end
             catch exception

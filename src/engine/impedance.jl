@@ -13,7 +13,7 @@ outer, inner, transfer, and longitudinal-insulation terms directly to
 - `destination`: reusable primitive series-impedance matrix [Ω/m].
 - `cable`: concrete local cable arrays.
 - `rho_cond`: temperature-corrected conductor resistivities [Ω·m].
-- `methods`: resolved formulation methods.
+- `formulas`: resolved formulation formulas.
 - `s`: complex angular frequency ``jω`` [1/s].
 
 # Returns
@@ -24,7 +24,7 @@ function cable_impedance!(
         destination::AbstractMatrix{Complex{T}},
         cable::LocalCableData{T},
         rho_cond::AbstractVector{T},
-        methods::NamedTuple,
+        formulas::NamedTuple,
         s::Complex{T}; workspace = nothing
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
@@ -33,7 +33,7 @@ function cable_impedance!(
         inside = zero(eltype(destination))
         for position in count:-1:1
             index = conductors[position]
-            surfaces = InternalImpedance.surface_impedances(methods.internal_impedance,
+            surfaces = InternalImpedance.surface_impedances(formulas.internal_impedance,
                 cable.r_in[index] > 0 ? Val((:outer, :transfer, :inner)) : Val((:outer,)),
                 cable.r_in[index],
                 cable.r_ext[index],
@@ -43,7 +43,7 @@ function cable_impedance!(
             )
             outside = surfaces.outer
             transfer = position > 1 ? surfaces.transfer : zero(outside)
-            insulation = methods.insulation_impedance(
+            insulation = formulas.insulation_impedance(
                 cable.r_ext[index],
                 cable.r_ins_ext[index],
                 cable.mu_r_ins[index],

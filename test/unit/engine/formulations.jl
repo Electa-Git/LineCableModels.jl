@@ -132,7 +132,7 @@ end
         @test NamedTuple(built).backend === tag
     end
     # `Formulation` passes its keywords to the backend's constructor.
-    @test Formulation(:coaxial; earth_impedance = :carson1926).methods.earth_impedance isa
+    @test Formulation(:coaxial; earth_impedance = :carson1926).formulas.earth_impedance isa
           LineCableModels.Engine.EarthImpedance.Formula{:carson1926}
     # Each backend has one identity. `ModalAnalysisFormulation` builds a modal analysis.
     for tag in (:LineCableModelsFEM, :PSCAD, :modal, :unknown)

@@ -135,7 +135,7 @@ end
         @report_opt target_modules=(LineCableModels,) E._solve!(workspace, formulation))
     found["cable_impedance!"] = JET.get_reports(
         @report_opt target_modules=(LineCableModels,) E.cable_impedance!(buffers.Zprimitive,
-            input.cable, buffers.rho_cond, formulation.methods, jω; workspace))
+            input.cable, buffers.rho_cond, formulation.formulas, jω; workspace))
     found["cable_potential!"] = JET.get_reports(
         @report_opt target_modules=(LineCableModels,) E.cable_potential!(buffers.Pprimitive,
             input.cable, plan.shunt, buffers.dielectric_admittivity, jω,

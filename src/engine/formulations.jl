@@ -99,7 +99,7 @@ $(TYPEDFIELDS)
 struct LineCableModelsFEM{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
        AbstractFormulation
     "Shared scientific formula selections, independent of FEM execution controls."
-    methods::M
+    formulas::M
     "Field model and line-parameter matrix reductions."
     options::O
     "Requested formula definitions."
@@ -116,7 +116,7 @@ formula_id(::LineCableModelsFEM) = :fem
 formulation_options(value::LineCableModelsFEM) = value.options
 function Base.pairs(value::LineCableModelsFEM; quantity = nothing)
     pairs(LineCableModelsFEM,
-        (methods = value.methods,
+        (formulas = value.formulas,
             requested = value.definitions,
             options = value.options.data);
         quantity)
@@ -538,7 +538,7 @@ function _fem_formulation(
         insulation_admittance, semicon_admittance, earth_properties, temperature_dependence,
         options::FormulationOptions
 )
-    methods = (
+    formulas = (
         insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
         semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
         earth_properties = earth_properties === nothing ? nothing :
@@ -548,7 +548,7 @@ function _fem_formulation(
     )
     definitions = (; insulation_admittance, semicon_admittance, earth_properties,
         temperature_dependence)
-    return LineCableModelsFEM(methods, formulation_options(LineCableModelsFEM, options),
+    return LineCableModelsFEM(formulas, formulation_options(LineCableModelsFEM, options),
         definitions)
 end
 
@@ -617,8 +617,8 @@ function Base.NamedTuple(value::LineCableModelsFEM)
         selected isa NamedTuple && return map(record, selected)
         return NamedTuple(selected)
     end
-    Record=NamedTuple{(:backend, :requested, :methods, :options),
+    Record=NamedTuple{(:backend, :requested, :formulas, :options),
         Tuple{Symbol, NamedTuple, NamedTuple, NamedTuple}}
     return Record((
-        :fem, map(record, value.definitions), map(record, value.methods), value.options.data))
+        :fem, map(record, value.definitions), map(record, value.formulas), value.options.data))
 end

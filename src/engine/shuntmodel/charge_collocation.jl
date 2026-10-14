@@ -648,12 +648,12 @@ const InternalShuntDiagnostic = NamedTuple{
         Union{Nothing, Float64}, Union{Nothing, Float64}, Float64, Float64,
         Int, Int, Int, typeof(DEFAULT_RESOLUTION)}}
 
-function _shunt_values(domain::InternalShuntDomain{T}, methods) where {T}
+function _shunt_values(domain::InternalShuntDomain{T}, formulas) where {T}
     # The admitted lossless laws depend only on relative permittivity. Resistivity
     # temperature corrections do not belong to these blueprint coefficients.
     reference_frequency = one(T)
     epsilon(material) = begin
-        kappa = constitutive((methods.insulation_admittance, methods.semicon_admittance),
+        kappa = constitutive((formulas.insulation_admittance, formulas.semicon_admittance),
             material, reference_frequency, material.T0; temperature_dependence = nothing)
         imag(kappa)/(2pi*reference_frequency*vacuum_permittivity(T))
     end

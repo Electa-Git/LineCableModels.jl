@@ -145,7 +145,7 @@ two-axis lookup:
 run.axes.problems
 run.axes.formulations
 selected = run[problem_index, formulation_index]
-formula_id(run.axes.formulations[formulation_index].methods.earth_impedance)
+formula_id(run.axes.formulations[formulation_index].formulas.earth_impedance)
 ```
 
 Linear storage is column-major in `(problem, formulation)` coordinates, with the problem index varying fastest. Scalar formulations produce a singleton

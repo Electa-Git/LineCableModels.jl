@@ -251,7 +251,7 @@ struct CableConstantsFormulation{
     D <: NamedTuple
 } <: AbstractFormulation
     "Registered physical formula selections."
-    methods::M
+    formulas::M
     "Cable-constant formulation options."
     options::O
     "Requested declarations retained before formula-owner resolution."
@@ -285,7 +285,7 @@ function description(::Type{CableConstantsFormulation}, slot::Val; compact::Bool
 end
 function Base.pairs(value::CableConstantsFormulation; quantity = nothing)
     pairs(CableConstantsFormulation,
-        (methods = value.methods, requested = value.definitions,
+        (formulas = value.formulas, requested = value.definitions,
             options = value.options.data); quantity)
 end
 function Base.pairs(::Type{CableConstantsFormulation}, retained::NamedTuple; quantity = nothing)
@@ -300,10 +300,10 @@ function Base.NamedTuple(value::CableConstantsFormulation)
         selected isa NamedTuple && return map(record, selected)
         return NamedTuple(selected)
     end
-    Record = NamedTuple{(:backend, :requested, :methods, :options),
+    Record = NamedTuple{(:backend, :requested, :formulas, :options),
         Tuple{Symbol, NamedTuple, NamedTuple, NamedTuple}}
     return Record((:cable_constants, map(record, value.definitions),
-        map(record, value.methods), value.options.data))
+        map(record, value.formulas), value.options.data))
 end
 
 function _constants_formulation(
@@ -316,7 +316,7 @@ function _constants_formulation(
         temperature_dependence,
         options::FormulationOptions
 )
-    methods = (
+    formulas = (
         internal_impedance = InternalImpedance.Formula(internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
         shunt_model = ShuntModel.Formula(shunt_model),
@@ -327,7 +327,7 @@ function _constants_formulation(
                                  TemperatureDependent.Formula(temperature_dependence)
     )
     return CableConstantsFormulation(
-        methods,
+        formulas,
         formulation_options(CableConstantsFormulation, options),
         (; internal_impedance, insulation_impedance, shunt_model, insulation_admittance,
             semicon_admittance, pipe_impedance, temperature_dependence)
@@ -474,11 +474,11 @@ function CableConstantsWorkspace(
     # The internal formula has an expression for each surface impedance that the geometry
     # needs.
     for kind in (any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,))
-        validate(Expression(formulation.methods.internal_impedance,
+        validate(Expression(formulation.formulas.internal_impedance,
             InternalImpedance.internal_impedance, Val(kind)))
     end
     plan = (; shunt)
-    buffers = initialize_buffers(formulation.methods, T, cable, plan, buffers)
+    buffers = initialize_buffers(formulation.formulas, T, cable, plan, buffers)
     return CableConstantsWorkspace{T, typeof(cable), typeof(plan), typeof(buffers)}(
         cable, rho, plan, buffers
     )
@@ -494,20 +494,20 @@ function _solve!(
     ω = 2 * (one(T) * π) * problem.frequency
     s = complex(zero(T), ω)
     for (index, material) in pairs(workspace.cable.conductor_materials)
-        workspace.rho[index] = constitutive(formulation.methods.temperature_dependence,
+        workspace.rho[index] = constitutive(formulation.formulas.temperature_dependence,
             material, problem.temperature; workspace)
     end
     for (layer, material) in pairs(workspace.cable.dielectric_materials)
-        buffers.rho_layer[layer] = constitutive(formulation.methods.temperature_dependence,
+        buffers.rho_layer[layer] = constitutive(formulation.formulas.temperature_dependence,
             material, problem.temperature; workspace)
     end
     dielectric!(buffers.dielectric_admittivity, workspace.cable, buffers.rho_layer,
-        formulation.methods, problem.frequency, problem.temperature; workspace)
+        formulation.formulas, problem.frequency, problem.temperature; workspace)
     cable_impedance!(
         buffers.Z,
         workspace.cable,
         workspace.rho,
-        formulation.methods,
+        formulation.formulas,
         s; workspace
     )
     cable_admittance!(

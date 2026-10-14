@@ -225,7 +225,7 @@ end
     native=Makie.plot(a, (request,);length_unit=:base,options...)
     @test data(native)==data(raw)
     named=LineCableModels.plot((first_case=a,second_case=b), (request,);reference,length_unit=:base,options...)
-    @test Set(values(named.plot_state.labels))==Set(("first_case","second_case",description(Formulation().methods.earth_impedance;compact=true)*" (reference)"))
+    @test Set(values(named.plot_state.labels))==Set(("first_case","second_case",description(Formulation().formulas.earth_impedance;compact=true)*" (reference)"))
     rich_labels=(rich("First",font=:bold),rich("Second",font=:italic))
     rich_page=LineCableModels.plot((a,b), (request,);reference,series_labels=rich_labels,options...)
     @test rich_page.plot_state.labels[:result_1]===rich_labels[1]

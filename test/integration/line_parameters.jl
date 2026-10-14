@@ -176,7 +176,7 @@ end
     @test maximum(local_y_calls) < minimum(local_z_calls)
     @test maximum(local_z_calls) < minimum(earth_z_calls)
     @test maximum(earth_z_calls) < minimum(earth_y_calls)
-    laws=formulation.methods[(
+    laws=formulation.formulas[(
         :insulation_impedance, :insulation_admittance, :semicon_admittance)]
     workspace=first(laws.insulation_admittance.workspaces)
     @test workspace isa EN.LineParametersWorkspace

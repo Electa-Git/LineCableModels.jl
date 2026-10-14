@@ -56,9 +56,9 @@ function export_data(::Val{:tralin},
         temperature::Union{Nothing, Real} = nothing,
         file_name::Union{String, Nothing} = nothing
 )::String
-    laws = (formulation.methods.insulation_admittance,
-        formulation.methods.semicon_admittance)
-    temperature_dependence = formulation.methods.temperature_dependence
+    laws = (formulation.formulas.insulation_admittance,
+        formulation.formulas.semicon_admittance)
+    temperature_dependence = formulation.formulas.temperature_dependence
 
     #  helpers
     _fmt(x) = string(round(Float64(nominal(x)); digits = 6))

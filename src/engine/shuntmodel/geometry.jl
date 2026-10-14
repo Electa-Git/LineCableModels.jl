@@ -244,7 +244,7 @@ function _shunt_lossless(::Union{InsulationAdmittance.Formula{:lossless},
         SemiconAdmittance.Formula{:lossless}})
     true
 end
-function _shunt_lossless(methods::NamedTuple)
-    _shunt_lossless(methods.insulation_admittance) &&
-        _shunt_lossless(methods.semicon_admittance)
+function _shunt_lossless(formulas::NamedTuple)
+    _shunt_lossless(formulas.insulation_admittance) &&
+        _shunt_lossless(formulas.semicon_admittance)
 end

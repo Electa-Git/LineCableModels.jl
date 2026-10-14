@@ -44,10 +44,10 @@
     @test length(run) == length(problems) * length(formulations)
     @test length(details(run).data.points) == length(run)
     @test formula_id.(getproperty.(
-        getproperty.(run.axes.formulations, :methods),
+        getproperty.(run.axes.formulations, :formulas),
         :earth_impedance
     )) == [:LayerImpedance, :LayerImpedance]
-    @test [f.methods.earth_impedance.parameters.scale for f in run.axes.formulations] == [1.0, 2.0]
+    @test [f.formulas.earth_impedance.parameters.scale for f in run.axes.formulations] == [1.0, 2.0]
     for index in eachindex(expected)
         @test same_parameters(run[index], expected[index])
     end

@@ -13,8 +13,8 @@
     @test only(domain.right).material.eps_r == 3.0
     renamed = internal_shunt_test_design(suffix = "_renamed")
     other, _ = internal_shunt_test_domain(renamed)
-    values = E.ShuntModel._shunt_values(domain, Formulation().methods)
-    @test E.same_physical_state(values, E.ShuntModel._shunt_values(other, Formulation().methods))
+    values = E.ShuntModel._shunt_values(domain, Formulation().formulas)
+    @test E.same_physical_state(values, E.ShuntModel._shunt_values(other, Formulation().formulas))
     @test values[1:3] ≈ [domain.a, domain.b, domain.material.eps_r]
     host = only(filter(
         placed->placed.primitive isa LineCableModels.DataModel.DifferenceShape &&
@@ -73,10 +73,10 @@
     coefficients, tails = zeros(ComplexF64, 3), zeros(ComplexF64, 3)
     local_shunt = shunt.blocks
     admittivity = similar(layers)
-    methods = Formulation().methods
-    rho = [constitutive(methods.temperature_dependence, material, 20.0)
+    formulas = Formulation().formulas
+    rho = [constitutive(formulas.temperature_dependence, material, 20.0)
            for material in cable.dielectric_materials]
-    E.dielectric!(admittivity, cable, rho, methods, 50.0, 20.0)
+    E.dielectric!(admittivity, cable, rho, formulas, 50.0, 20.0)
     E.cable_potential!(p, cable, shunt, admittivity, 100pi*im,
         layers, coefficients, tails)
     E.cable_admittance!(y, cable, shunt, admittivity, 100pi*im, layers)
@@ -128,7 +128,7 @@ end
         original.material, original.left, original.right, wires, original.tapes)
     @test domain.terminals == 1:4
     @test sort(unique(getproperty.(domain.wires, :terminal))) == [2, 3]
-    g = E.ShuntModel._shunt_data(E.ShuntModel._shunt_values(domain, Formulation().methods), domain)
+    g = E.ShuntModel._shunt_data(E.ShuntModel._shunt_values(domain, Formulation().formulas), domain)
     result = E.ShuntModel._shunt_capacitance(boundary, g; level = (
         wire = 32, order = 16, quadrature = 128, modes = 256))
     @test size(result.C) == (3, 3)

@@ -31,8 +31,8 @@
         end
         @test_throws ArgumentError owner.Formula(:RemovedAuthor)
     end
-    @test Formulation().methods.earth_impedance.equivalent_earth === nothing
+    @test Formulation().formulas.earth_impedance.equivalent_earth === nothing
     @test_throws ArgumentError Formulation(earth_admittance = :IdealGround)
-    @test formula_id(Formulation(earth_impedance = formula(:default; equivalent_earth = formula(:default))).methods.earth_impedance.equivalent_earth.rule) ===
+    @test formula_id(Formulation(earth_impedance = formula(:default; equivalent_earth = formula(:default))).formulas.earth_impedance.equivalent_earth.rule) ===
           :bottommost
 end

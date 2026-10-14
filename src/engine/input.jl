@@ -189,9 +189,9 @@ function LineParametersWorkspace(
     # Each slot decides its earth once. A recipe then picks each pair's formula on the decided
     # layers. Impedance and admittance calculations that solve the same system merge.
     earth = EarthPlan(
-        EarthPlan(formulation.methods.earth_impedance, problem.earth_props, physical_pairs,
+        EarthPlan(formulation.formulas.earth_impedance, problem.earth_props, physical_pairs,
             geometry),
-        EarthPlan(formulation.methods.earth_admittance, problem.earth_props, physical_pairs,
+        EarthPlan(formulation.formulas.earth_admittance, problem.earth_props, physical_pairs,
             geometry))
     options = formulation.options.data
     reduction = ReductionPlan(phase_map; options.reduce_bundle, options.kron_reduction,
@@ -200,7 +200,7 @@ function LineParametersWorkspace(
     # The earth formulas that the computation uses: each slot's formula, or the formulas of a
     # recipe that a calculation uses, the others `nothing`. They widen the scalar type and
     # provision their arrays.
-    formulas = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selected
+    formulas = map(formulation.formulas[(:earth_impedance, :earth_admittance)]) do selected
         selected isa NamedTuple || return selected
         map(selected) do leaf
             any(calculation -> any(entry -> entry !== nothing && entry.formula === leaf,
@@ -274,13 +274,13 @@ function LineParametersWorkspace{T}(
     # The internal formula has an expression for each surface impedance that the geometry
     # needs.
     for kind in (any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,))
-        validate(Expression(formulation.methods.internal_impedance,
+        validate(Expression(formulation.formulas.internal_impedance,
             InternalImpedance.internal_impedance, Val(kind)))
     end
     # Concrete formulas provision numerical storage, never option-key inspection. A recipe
     # formula provisions arrays only when a calculation uses it. The earth plan then
     # provisions its calculations.
-    buffers = initialize_buffers(merge(formulation.methods, formulas), T, input, plan, buffers)
+    buffers = initialize_buffers(merge(formulation.formulas, formulas), T, input, plan, buffers)
     buffers = initialize_buffers(plan.earth, T, input, plan, buffers)
     workspace = LineParametersWorkspace{
         T,

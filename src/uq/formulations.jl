@@ -119,7 +119,7 @@ end
 validate(inner::AbstractFormulation, ::Type{<:Union{LinearError, MonteCarlo}}) = inner
 function validate(inner::Union{Engine.LineParametersFormulation, Engine.CableConstantsFormulation},
         propagation::Type{<:Union{LinearError, MonteCarlo}})
-    validate(inner.methods.shunt_model, propagation)
+    validate(inner.formulas.shunt_model, propagation)
     return inner
 end
 function validate(selected::Engine.ShuntModel.Formula{:boundary},

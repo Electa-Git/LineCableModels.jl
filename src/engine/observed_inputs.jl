@@ -83,7 +83,7 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
             controls=selected isa Pair ? Commons.detach(last(selected)) : (;)
             # The description compares applied controls, including defaults.
             # Keep the original selection identity used by scientific grouping.
-            effective=get(declaration,:methods,nothing)
+            effective=get(declaration,:formulas,nothing)
             for key in route
                 effective=effective isa NamedTuple ? get(effective,key,nothing) : nothing
             end
@@ -137,8 +137,8 @@ function completed_formulation(formulation::LineParametersFormulation,
         index === nothing && return retained
         return merge(retained, (equivalent_earth = NamedTuple(last(reduced[index])),))
     end
-    recorded = merge(declaration.methods,
-        map(record, formulation.methods[slots], declaration.methods[slots]))
+    recorded = merge(declaration.formulas,
+        map(record, formulation.formulas[slots], declaration.formulas[slots]))
     return completed_formulation(formulation,
         typeof(declaration)((declaration.backend, declaration.requested, recorded, declaration.options)))
 end

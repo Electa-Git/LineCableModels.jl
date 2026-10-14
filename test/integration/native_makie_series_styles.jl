@@ -174,7 +174,7 @@ end
     native_lines(axis)=filter(item -> item isa Makie.Lines,axis.scene.plots)
     expected_reference=description(fem;compact=true)*" (reference)"
     for (page,solo,request) in zip(pages,results,(R,X,G,B))
-        method=request in (R,X) ? analytical.methods.earth_impedance : analytical.methods.earth_admittance
+        method=request in (R,X) ? analytical.formulas.earth_impedance : analytical.formulas.earth_admittance
         @test Set(values(page.plot_state.labels))==Set((description(method;compact=true),expected_reference))
         for (axis,solo_axis) in zip(page.axes,solo.axes)
             curves=native_lines(axis)

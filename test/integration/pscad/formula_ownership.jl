@@ -2,25 +2,25 @@
     const E = LineCableModels.Engine
     const Expression = LineCableModels.Expression
     selected = Formulation(:pscad)
-    @test selected.methods.internal_impedance isa E.InternalImpedance.Formula{:wedepohl1973}
-    @test selected.methods.insulation_impedance isa E.InsulationImpedance.Formula{:ametani1980}
-    @test selected.methods.earth_admittance isa E.EarthAdmittance.Formula{:ideal}
+    @test selected.formulas.internal_impedance isa E.InternalImpedance.Formula{:wedepohl1973}
+    @test selected.formulas.insulation_impedance isa E.InsulationImpedance.Formula{:ametani1980}
+    @test selected.formulas.earth_admittance isa E.EarthAdmittance.Formula{:ideal}
     choices = (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
-    @test map(formula_id, selected.methods.earth_impedance) == choices
-    @test all(value -> value isa E.EarthImpedance.Formula, selected.methods.earth_impedance)
+    @test map(formula_id, selected.formulas.earth_impedance) == choices
+    @test all(value -> value isa E.EarthImpedance.Formula, selected.formulas.earth_impedance)
     @test map(formula_id, Formulation(:pscad;
-        earth_impedance=(air=:default, earth=:default, mixed=:default)).methods.earth_impedance) == choices
-    @test keys(Formulation(:pscad; earth_impedance=(mixed=:default,)).methods.earth_impedance) == (:mixed,)
-    @test Formulation(:pscad; earth_impedance=(mixed=nothing,)).methods.earth_impedance.mixed === nothing
+        earth_impedance=(air=:default, earth=:default, mixed=:default)).formulas.earth_impedance) == choices
+    @test keys(Formulation(:pscad; earth_impedance=(mixed=:default,)).formulas.earth_impedance) == (:mixed,)
+    @test Formulation(:pscad; earth_impedance=(mixed=nothing,)).formulas.earth_impedance.mixed === nothing
     record = NamedTuple(selected)
-    @test map(value -> value.identifier, record.methods.earth_impedance) == choices
-    @test record.methods.earth_admittance.identifier === :ideal
+    @test map(value -> value.identifier, record.formulas.earth_impedance) == choices
+    @test record.formulas.earth_admittance.identifier === :ideal
     label = description(selected, Z)
     @test all(occursin(text, label) for text in ("air", "earth", "mixed", "Carson", "Pollaczek", "Lucca", "Wedepohl"))
     @test !occursin("not yet implemented", label)
     @test occursin("Ideal", description(selected, Y))
     for kind in (:inner,:outer,:transfer)
-        expression = Expression(selected.methods.internal_impedance, E.InternalImpedance.internal_impedance, Val(kind))
+        expression = Expression(selected.formulas.internal_impedance, E.InternalImpedance.internal_impedance, Val(kind))
         @test expression(selected) == (;)
         # The coaxial engine has no expression for Wedepohl's surfaces.
         @test_throws "formula :wedepohl1973 has no expression for :$kind" LineCableModels.validate(expression)
@@ -53,7 +53,7 @@ end
         settings = P.pscad_setting(selected, problem)
         @test Set((row.formula,row.kind,row.source,row.target) for row in settings.interactions.earth_admittance) == expected
         for row in settings.interactions.earth_admittance
-            @test P.earth_potential_coefficient(selected.methods.earth_admittance,
+            @test P.earth_potential_coefficient(selected.formulas.earth_admittance,
                 Val(row.kind),Val(row.source),Val(row.target),selected) == (;)
         end
     end

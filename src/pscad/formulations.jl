@@ -8,7 +8,7 @@ for PSCAD. Backend execution settings remain computation options.
 """
 struct PSCADFormulation{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
        AbstractFormulation
-    methods::M
+    formulas::M
     options::O
     definitions::D
 end
@@ -25,7 +25,7 @@ function Base.pairs(::Type{PSCADFormulation}; quantity=nothing)
         if name !== :shunt_model)...))
 end
 Base.pairs(value::PSCADFormulation;quantity=nothing) =
-    pairs(PSCADFormulation,(methods=value.methods,requested=value.definitions,options=value.options.data);quantity)
+    pairs(PSCADFormulation,(formulas=value.formulas,requested=value.definitions,options=value.options.data);quantity)
 description(::Type{PSCADFormulation},slot::Val;compact::Bool=false) =
     description(LineParametersFormulation,slot;compact)
 description(::Type{PSCADFormulation},slot::Union{Val{:reduce_bundle},Val{:kron_reduction},Val{:ideal_transposition}},
@@ -122,7 +122,7 @@ function _pscad_formulation(internal_impedance, insulation_impedance, earth_impe
     defaults = (internal_impedance = :wedepohl1973, insulation_impedance = :ametani1980,
         earth_impedance = (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994),
         earth_admittance = :ideal)
-    methods = (; (name => begin
+    formulas = (; (name => begin
         requested = selections[name]
         if requested === nothing && name in (:earth_properties, :temperature_dependence)
             nothing
@@ -134,10 +134,10 @@ function _pscad_formulation(internal_impedance, insulation_impedance, earth_impe
             selected
         end
     end for (name, owner) in pairs(PSCADFormulation))...)
-    definitions = map(selections, methods) do requested, selected
+    definitions = map(selections, formulas) do requested, selected
         requested isa NamedTuple ? NamedTuple{keys(selected)}(requested) : requested
     end
-    return PSCADFormulation(methods, normalized, definitions)
+    return PSCADFormulation(formulas, normalized, definitions)
 end
 
 """
@@ -272,18 +272,18 @@ end
 function pscad_setting(formulation::PSCADFormulation, problem::LineParametersProblem, blueprints)
     model = problem.earth_props
     validate(model, PSCADFormulation)
-    relation = formulation.methods.earth_properties
+    relation = formulation.formulas.earth_properties
     (relation === nothing ||
      relation === LineCableModels.Earth.FrequencyDependent.Formula(:default)) ||
         throw(ArgumentError("PSCAD does not implement the selected frequency-dependent soil relation"))
     for name in (:insulation_admittance, :semicon_admittance)
-        validate(getproperty(formulation.methods, name), PSCADFormulation, name)
+        validate(getproperty(formulation.formulas, name), PSCADFormulation, name)
     end
     input = Engine.lineinput(problem, blueprints)
     pairs = Engine.earth_pairs(first.(input.cable.assemblies), input.horz, input.vert,
         input.horz_sep, problem.earth_props)
     settings = Dict{Symbol, NamedTuple}()
-    interactions = map(formulation.methods[(:earth_impedance, :earth_admittance)]) do selection
+    interactions = map(formulation.formulas[(:earth_impedance, :earth_admittance)]) do selection
         records = NamedTuple{
             (:formula, :kind, :source, :target), Tuple{Symbol, Symbol, Int, Int}}[]
         for pair in pairs
@@ -307,10 +307,10 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
     kinds = any(indices -> length(indices) > 1, input.cable.assemblies) ?
             (:inner, :outer, :transfer) : (:outer,)
     for kind in kinds
-        Expression(formulation.methods.internal_impedance,
+        Expression(formulation.formulas.internal_impedance,
             internal_impedance, Val(kind))(formulation)
     end
-    Expression(formulation.methods.insulation_impedance, insulation_impedance)(formulation)
+    Expression(formulation.formulas.insulation_impedance, insulation_impedance)(formulation)
     # Unused native slots are set deterministically and retained too. They do not
     # authorize any additional physical case.
     ground = (
@@ -333,15 +333,15 @@ end
 
 """Record consumed PSCAD identifiers and fixed native assumptions with bounded field types."""
 function computation_details(formulation::PSCADFormulation)::ComputationDetails
-    methods = formulation.methods
+    formulas = formulation.formulas
     return ComputationDetails(merge((
         schema_version = 4,
         assumptions = (
             internal_impedance = "Wedepohl-Wilcox (1973) inner, outer, and transfer conductor surface approximations",
             insulation_impedance = "Ametani (1980) concentric-insulation magnetic impedance",
             earth_admittance = "Ideal-earth images in air; zero external potential coefficients for buried and mixed pairs. Native direct integration can add aerial conductance; native matrices are preserved",
-            insulation_admittance = description(methods.insulation_admittance),
-            semicon_admittance = description(methods.semicon_admittance),
+            insulation_admittance = description(formulas.insulation_admittance),
+            semicon_admittance = description(formulas.semicon_admittance),
             dielectric_equivalence = "Reference-frequency equivalent capacitance and loss tangent; native PSCAD frequency law; loss tangent capped at 10",
             earth = "One homogeneous earth layer; no FrequencyDependent relation",
             pipe_impedance = "Cable_Coax only; shared eccentric metallic enclosure unsupported"),
@@ -360,7 +360,7 @@ function Base.NamedTuple(value::PSCADFormulation)
         selected isa NamedTuple && return map(record,selected)
         return NamedTuple(selected)
     end
-    Record=NamedTuple{(:backend,:requested,:methods,:options),
+    Record=NamedTuple{(:backend,:requested,:formulas,:options),
         Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
-    return Record((:pscad,map(record,value.definitions),map(record,value.methods),value.options.data))
+    return Record((:pscad,map(record,value.definitions),map(record,value.formulas),value.options.data))
 end

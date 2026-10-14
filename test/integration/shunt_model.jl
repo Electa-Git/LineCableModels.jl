@@ -17,7 +17,7 @@
         only(details(nominal).data.shunt_model.domains).message)
     @test isempty(only(E.internal_shunt_response([design],
         [LineCableModels.DataModel.flatten(design)], [default])).blocks)
-    @test E.formula_id(default.methods.shunt_model) === :equivalent
+    @test E.formula_id(default.formulas.shunt_model) === :equivalent
     invalid = (formula(:no_such_model), formula(:equivalent; options = (audit = true,)),
         formula(:boundary; parameters = (fallback = :silent,)),
         formula(:boundary; options = (integration = (rtol = -1.0,),)),

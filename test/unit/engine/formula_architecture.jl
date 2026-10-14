@@ -125,7 +125,7 @@ end
     three=build(EP.EarthModel, (
         EP.EarthLayer(100.0, 10.0, 1.0, 0.5), EP.EarthLayer(200.0, 20.0, 1.0)))
     problem=LineParametersProblem(system; earth_props = three, frequencies = [50.0])
-    recorded(result, slot)=getproperty(details(result).data.formulations.methods, slot).equivalent_earth
+    recorded(result, slot)=getproperty(details(result).data.formulations.formulas, slot).equivalent_earth
     requested(result, slot)=get(getproperty(details(result).data.formulations.requested, slot),
         :equivalent_earth, nothing)
     potential=M.selection(M.EA)
@@ -308,9 +308,9 @@ end
         @test all(record -> length(record[7]) == 3, M.calls)
         @test Set(record[5] for record in M.calls) == Set(((2, 2), (2, 3), (3, 2), (3, 3)))
         @test length(fd_calls) == (order === :before ? 11 : 2)
-        @test details(value).data.formulations.methods.earth_impedance.equivalent_earth ===
+        @test details(value).data.formulations.formulas.earth_impedance.equivalent_earth ===
               nothing
-        @test details(value).data.formulations.methods.earth_admittance.equivalent_earth.order ===
+        @test details(value).data.formulations.formulas.earth_admittance.equivalent_earth.order ===
               order
     end
     @test (EI.formulas(EI.Formula), EA.formulas(EA.Formula)) === inventories
@@ -332,16 +332,16 @@ end
     workspace=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     @test workspace.buffers.coupled isa Matrix{ComplexF64}
     @test !haskey(workspace.buffers, :quadrature)
-    @test isempty(selected.methods.earth_impedance.solves)
+    @test isempty(selected.formulas.earth_impedance.solves)
     @test (@inferred E._solve!(workspace, selected)) === workspace
-    @test length(selected.methods.earth_impedance.solves)==3
+    @test length(selected.formulas.earth_impedance.solves)==3
     @test isempty(workspace.trace.integrals)
     for k in 1:3, p in 1:3, q in 1:3
         @test workspace.trace.Zg[p, q, k]≈2π * im * problem.frequencies[k] * 1e-6 *
                                             (6+p+2q+(p==q ? 3 : 0))
     end
     E._solve!(workspace, selected)
-    @test length(selected.methods.earth_impedance.solves)==6
+    @test length(selected.formulas.earth_impedance.solves)==6
     other=E.LineParametersWorkspace(problem, selected, execution, blueprints)
     @test other.buffers.coupled !== workspace.buffers.coupled
     @test compute(problem, selected).Z.values≈workspace.buffers.Zout
@@ -504,7 +504,7 @@ end
     @test changed.Z.values ≈ expected.Z.values rtol=1e-10
     @test changed.Y.values ≈ expected.Y.values rtol=1e-10
     @test Set(record[2] for record in fd.seen)==Set(base.frequencies)
-    @test details(changed).data.formulations.methods.earth_properties.identifier ===
+    @test details(changed).data.formulations.formulas.earth_properties.identifier ===
           :DispersiveEarth
     reference=compute(base)
     for rtol in (1e-7, 1e-9)
@@ -518,7 +518,7 @@ end
                         method = :quad, options = (; rtol)),))))
         @test result.Z.values ≈ reference.Z.values rtol=3e-6
         @test result.Y.values ≈ reference.Y.values rtol=3e-6
-        controls=details(result).data.formulations.methods.earth_impedance.options.integration
+        controls=details(result).data.formulations.formulas.earth_impedance.options.integration
         @test controls.method === :quad
         @test controls.options.rtol === rtol
     end

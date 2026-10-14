@@ -29,7 +29,7 @@
         @test sprint(showerror, failure) == "ArgumentError: $expected"
     end
     # FEM enclosure support is exercised by its geometry and numerical suites.
-    @test !haskey(LineCableModelsFEM().methods, :pipe_impedance)
+    @test !haskey(LineCableModelsFEM().formulas, :pipe_impedance)
     @test_throws MethodError LineCableModelsFEM(pipe_impedance=formula(:default))
     @test_throws ArgumentError E.PipeImpedance.Formula(:UnimplementedPipe2026)
     @test_throws ArgumentError E.PipeImpedance.Formula(:default; parameters = (invented = true,))
@@ -43,6 +43,6 @@
     for constructor in (Formulation, CableConstantsFormulation)
         selections = constructor(pipe_impedance = Grid((:default, formula(:default))))
         @test length(selections) == 2
-        @test all(value -> value.methods.pipe_impedance isa E.PipeImpedanceFormulation, selections)
+        @test all(value -> value.formulas.pipe_impedance isa E.PipeImpedanceFormulation, selections)
     end
 end

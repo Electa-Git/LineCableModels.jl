@@ -119,7 +119,7 @@ formulation_options(::ModalAnalysisFormulation) = FormulationOptions()
 
 function Base.pairs(value::ModalAnalysisFormulation; quantity=nothing)
     return pairs(ModalAnalysisFormulation,
-        (methods=(transformation=value.formula,),
+        (formulas=(transformation=value.formula,),
          requested=(transformation=value.definition,), options=(;)); quantity)
 end
 
@@ -129,5 +129,5 @@ end
 
 function Base.NamedTuple(value::ModalAnalysisFormulation)
     return (backend=:modal, requested=(transformation=NamedTuple(value.definition),),
-        methods=(transformation=NamedTuple(value.formula),), options=(;))
+        formulas=(transformation=NamedTuple(value.formula),), options=(;))
 end

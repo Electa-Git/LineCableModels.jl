@@ -28,7 +28,7 @@ function _solve!(
     for frequency in 1:input.n_frequencies
         materials!(workspace, formulation, frequency, calculations, materials)
         cable_impedance!(Zprimitive, input.cable, buffers.rho_cond,
-            formulation.methods, input.jω[frequency]; workspace)
+            formulation.formulas, input.jω[frequency]; workspace)
         cable_potential!(Pprimitive, input.cable, plan.shunt, buffers.dielectric_admittivity,
             input.jω[frequency], buffers.layer_coefficients, buffers.coefficients, buffers.tails)
         _stash!(workspace.trace, :Zin, frequency, Zprimitive)
@@ -310,7 +310,7 @@ $(TYPEDSIGNATURES)
 
 Compute line parameters through an explicit coaxial backend tag.
 
-The tag owns execution dispatch while `formulation.methods` retains the
+The tag owns execution dispatch while `formulation.formulas` retains the
 selected physical recipes. Ordinary callers can omit the tag and use the
 two-argument `compute` method.
 """
@@ -384,15 +384,15 @@ end
 function materials!(workspace::LineParametersWorkspace, formulation::LineParametersFormulation)
     input, buffers = workspace.input, workspace.buffers
     for (index, material) in pairs(input.cable.conductor_materials)
-        buffers.rho_cond[index] = constitutive(formulation.methods.temperature_dependence,
+        buffers.rho_cond[index] = constitutive(formulation.formulas.temperature_dependence,
             material, input.temperature; workspace)
     end
     for (layer, material) in pairs(input.cable.dielectric_materials)
-        buffers.rho_layer[layer] = constitutive(formulation.methods.temperature_dependence,
+        buffers.rho_layer[layer] = constitutive(formulation.formulas.temperature_dependence,
             material, input.temperature; workspace)
     end
     buffers.earth.evaluated === nothing || materials!(buffers.earth.evaluated,
-        formulation.methods.earth_properties, input.earth, input.freq; workspace)
+        formulation.formulas.earth_properties, input.earth, input.freq; workspace)
     return workspace
 end
 
@@ -403,7 +403,7 @@ function materials!(
         materials::Tuple = workspace.buffers.earth.calculations)
     homogenize!(workspace, frequency, formulation, calculations, materials)
     dielectric!(workspace.buffers.dielectric_admittivity, workspace.input.cable,
-        workspace.buffers.rho_layer, formulation.methods, workspace.input.freq[frequency],
+        workspace.buffers.rho_layer, formulation.formulas, workspace.input.freq[frequency],
         workspace.input.temperature; workspace)
     return workspace
 end
@@ -429,7 +429,7 @@ function homogenize!(
 )
     foreach(calculations, materials) do calculation, destination
         homogenize!(destination, calculation, workspace, frequency,
-            formulation.methods.earth_properties)
+            formulation.formulas.earth_properties)
     end
     return materials
 end

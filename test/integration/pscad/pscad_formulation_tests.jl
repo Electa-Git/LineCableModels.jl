@@ -20,14 +20,14 @@
     # The internal slot takes one formula. PSCAD's default is Wedepohl's.
     @test_throws MethodError Formulation(:pscad;
         internal_impedance=(transfer=:default,inner=:default,outer=:default))
-    @test LineCableModels.computation_details(Formulation(:pscad)).data.methods.internal_impedance.identifier ===
+    @test LineCableModels.computation_details(Formulation(:pscad)).data.formulas.internal_impedance.identifier ===
         :wedepohl1973
     @test_throws ArgumentError P.pscad_setting(
         Formulation(:pscad;internal_impedance=:schelkunoff1934),underground)
     @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
     for selected_problem in (overhead, underground)
         resolved=Formulation(:pscad)
-        @test map(formula_id, resolved.methods.earth_impedance) ==
+        @test map(formula_id, resolved.formulas.earth_impedance) ==
             (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
         @test formula_id(resolved.definitions.earth_impedance) === :default
         @test all(control -> control.value == 2, P.pscad_setting(resolved, selected_problem).ground)
@@ -79,7 +79,7 @@
         foreach(value->rm(value.root; recursive = true), staged_projects)
     end
 
-    @test NamedTuple(Formulation(:pscad)).methods.internal_impedance.identifier === :wedepohl1973
+    @test NamedTuple(Formulation(:pscad)).formulas.internal_impedance.identifier === :wedepohl1973
     baseline=LineCableModels.computation_details(Formulation(:pscad))
     alternative=LineCableModels.computation_details(Formulation(:pscad;
         earth_impedance = :saad1996, insulation_admittance = :lossy))
@@ -175,7 +175,7 @@ end
     end
     record = NamedTuple(selected)
     @test map(value -> value.identifier,record.requested.earth_impedance) == choices
-    @test record.methods.earth_admittance.identifier === :ideal
+    @test record.formulas.earth_admittance.identifier === :ideal
     @test record.requested.earth_impedance.air.identifier === :gary1976
     vertical = LineParametersProblem(build(LineCableSystem, [design, design],
         [Pose2(0, -1), Pose2(0, -2)]; connections = [Dict(:core => 1), Dict(:core => 2)]);

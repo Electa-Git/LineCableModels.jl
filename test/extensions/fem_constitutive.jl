@@ -19,7 +19,7 @@
     @test soil_law.seen == problem.frequencies
     @test length(dielectric_law.temperatures)==2
     @test all(pair->pair[1]==pair[2],dielectric_law.temperatures)
-    @test keys(formulation.methods) == keys(formulation.definitions) ==
+    @test keys(formulation.formulas) == keys(formulation.definitions) ==
         (:insulation_admittance, :semicon_admittance, :earth_properties, :temperature_dependence)
     metal, passive = model.material_plans
     @test real.(metal.admittivity) ≈ fill(inv(copper.rho*exp(0.06)), 2)
@@ -34,12 +34,12 @@
     end
     record = FEM.formulation_record(formulation)
     @test record.requested == NamedTuple(formulation).requested
-    @test record.methods.temperature_dependence == NamedTuple(temperature_law)
+    @test record.formulas.temperature_dependence == NamedTuple(temperature_law)
     @test typeof(record) === typeof(FEM.formulation_record(LineCableModelsFEM()))
 
-    @test record.methods.temperature_dependence.identifier === :ExponentialResistivity
-    @test record.methods.temperature_dependence.parameters.scale==1000.0
-    @test record.methods.semicon_admittance.identifier === :lossless
+    @test record.formulas.temperature_dependence.identifier === :ExponentialResistivity
+    @test record.formulas.temperature_dependence.parameters.scale==1000.0
+    @test record.formulas.semicon_admittance.identifier === :lossless
     for name in (:internal_impedance,:insulation_impedance,:earth_impedance,:earth_admittance,:pipe_impedance)
         @test_throws MethodError Formulation(:fem; NamedTuple{(name,)}((formula(:default),))...)
     end

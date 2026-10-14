@@ -34,7 +34,7 @@
                     Symbol,
                     LineCableModels.FormulaDefinition
                 }),
-                values(value.methods)
+                values(value.formulas)
             ) &&
                 !(value.options isa Union{AbstractGrid, Gridspace})
         end
@@ -46,8 +46,8 @@
     )
     @test length(product) == 4
     @test Set((
-                  formula_id(value.methods.earth_impedance),
-                  formula_id(value.methods.earth_admittance)
+                  formula_id(value.formulas.earth_impedance),
+                  formula_id(value.formulas.earth_admittance)
               ) for value in product) == Set((
         (:pollaczek1926, :pollaczek1926),
         (:unified, :pollaczek1926),
@@ -62,8 +62,8 @@
     )
     @test length(zipped) == 2
     @test [(
-               formula_id(value.methods.earth_impedance),
-               formula_id(value.methods.earth_admittance)
+               formula_id(value.formulas.earth_impedance),
+               formula_id(value.formulas.earth_admittance)
            ) for value in zipped] == [
         (:pollaczek1926, :pollaczek1926),
         (:unified, :unified)
@@ -75,18 +75,18 @@
         combine = :zip
     )
     @test length(broadcast_zip) == 2
-    @test [formula_id(value.methods.earth_admittance)
+    @test [formula_id(value.formulas.earth_admittance)
            for value in broadcast_zip] == fill(:pollaczek1926, 2)
 
     reductions=Formulation(earth_impedance = Grid((
         formula(:default; equivalent_earth = formula(:default; order = :before)),
         formula(:default; equivalent_earth = formula(:default; order = :after)))))
     @test length(reductions) == 2
-    @test first(reductions).methods.earth_impedance.equivalent_earth isa
+    @test first(reductions).formulas.earth_impedance.equivalent_earth isa
           LineCableModels.Earth.EquivalentHomogeneous.BeforeFD
-    @test last(collect(reductions)).methods.earth_impedance.equivalent_earth isa
+    @test last(collect(reductions)).formulas.earth_impedance.equivalent_earth isa
           LineCableModels.Earth.EquivalentHomogeneous.AfterFD
-    @test all(value -> value.methods.earth_admittance.equivalent_earth === nothing, reductions)
+    @test all(value -> value.formulas.earth_admittance.equivalent_earth === nothing, reductions)
 
     constants=CableConstantsFormulation(
         insulation_admittance = Grid((:default, :lossy)),
@@ -134,8 +134,8 @@
         insulation_admittance = Grid((:default, :lossy)),
         semicon_admittance = Grid((:default, :lossy)), combine = :zip)
     @test length(fem_zipped) == 2
-    @test [(formula_id(value.methods.insulation_admittance),
-               formula_id(value.methods.semicon_admittance)) for value in fem_zipped] ==
+    @test [(formula_id(value.formulas.insulation_admittance),
+               formula_id(value.formulas.semicon_admittance)) for value in fem_zipped] ==
           [(:lossless, :lossless), (:lossy, :lossy)]
 
     struct CountedProblem<:AbstractProblemDefinition

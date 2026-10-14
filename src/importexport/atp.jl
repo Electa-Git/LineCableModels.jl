@@ -66,9 +66,9 @@ function export_data(::Val{:atp},
         temperature::Union{Nothing, Real} = nothing,
         file_name::Union{String, Nothing} = nothing
 )::String
-    laws = (formulation.methods.insulation_admittance,
-        formulation.methods.semicon_admittance)
-    temperature_dependence = formulation.methods.temperature_dependence
+    laws = (formulation.formulas.insulation_admittance,
+        formulation.formulas.semicon_admittance)
+    temperature_dependence = formulation.formulas.temperature_dependence
     function _set_attributes!(element, attrs::Dict)
         for (k, v) in attrs
             element[k] = string(v)

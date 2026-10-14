@@ -20,11 +20,11 @@
     # The admittance of the core's dielectric group: its layers in series, each under the
     # law of its class.
     function group_admittance(selected, temperature)
-        laws = (selected.methods.insulation_admittance, selected.methods.semicon_admittance)
+        laws = (selected.formulas.insulation_admittance, selected.formulas.semicon_admittance)
         inv(sum(blueprint.dielectrics) do layer
             kappa = constitutive(laws, layer.material, frequency,
                 temperature === nothing ? layer.material.T0 : temperature;
-                temperature_dependence = selected.methods.temperature_dependence)
+                temperature_dependence = selected.formulas.temperature_dependence)
             log(layer.r_ex / layer.r_in) / (2pi * kappa)
         end)
     end
@@ -39,7 +39,7 @@
             insulation_id in (:default, :lossy), semicon_id in (:default, :lossy)
             selected = constructor(insulation_admittance=insulation_id,
                 semicon_admittance=semicon_id)
-            @test constitutive(selected.methods.temperature_dependence,
+            @test constitutive(selected.formulas.temperature_dependence,
                 only(blueprint.conductors).material, 60.0) ≈ copper.rho * 1.16
             expected = inv(log(0.0045 / 0.004) / (2pi * admittivity(semicon, semicon_id)) +
                 log(0.0065 / 0.0045) / (2pi * admittivity(dielectric, insulation_id)))

@@ -31,7 +31,7 @@
         coefficient=11s+17t+3row+5column+problem.frequencies[k]/100+(row==column ? 101 : 0)
         @test details(custom).data.trace.Zg[row,column,k] ≈ scale*coefficient*(1e-4+1e-3im)
     end
-    @test map(value -> value.identifier, details(custom).data.formulations.methods.earth_impedance)==
+    @test map(value -> value.identifier, details(custom).data.formulations.formulas.earth_impedance)==
         (air=:HalfSpaceImpedance,earth=:HalfSpaceImpedance,mixed=:HalfSpaceImpedance)
     @test details(custom).data.formulations.requested.earth_impedance.earth.parameters.scale==2.0
 
@@ -80,15 +80,15 @@ end
     @test shorthand.Z.values == scalar.Z.values
     @test shorthand.Y.values == scalar.Y.values
     partial=Formulation(earth_impedance=(air=formula(:default),))
-    @test keys(partial.methods.earth_impedance) === (:air,)
+    @test keys(partial.formulas.earth_impedance) === (:air,)
     @test_throws ArgumentError compute(problem, partial)
     @test_throws ArgumentError Formulation(earth_admittance = merge(same, (other = formula(:default),)))
     reordered=Formulation(earth_impedance = (
         mixed = same.mixed, earth = same.earth, air = same.air))
-    @test keys(reordered.methods.earth_impedance) === (:air, :earth, :mixed)
+    @test keys(reordered.formulas.earth_impedance) === (:air, :earth, :mixed)
     @test keys(reordered.definitions.earth_impedance) === (:air, :earth, :mixed)
     @test_throws "homogeneous selection is not defined for source in layer 2 and target in layer 3" E.Expression(
-        reordered.methods.earth_impedance, E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 3)))
+        reordered.formulas.earth_impedance, E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 3)))
     model=build(E.EarthModel,
         (LineCableModels.Earth.EarthLayer(100.0, 10.0, 1.0, 0.5),
             LineCableModels.Earth.EarthLayer(200.0, 20.0, 1.0)))
@@ -102,7 +102,7 @@ end
     @test recipe.Z.values == single.Z.values && recipe.Y.values == single.Y.values
     for slot in (:earth_impedance, :earth_admittance)
         reductions=map(route -> route.equivalent_earth,
-            getproperty(details(recipe).data.formulations.methods, slot))
+            getproperty(details(recipe).data.formulations.formulas, slot))
         @test keys(reductions) == (:air, :earth, :mixed)
         @test allequal(reductions) && first(reductions).rule.identifier === :bottommost
     end

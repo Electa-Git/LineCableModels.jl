@@ -5,7 +5,7 @@
     epsilon = measurement(2.5, 0.0025)
     design = internal_shunt_test_design(; epsilon, count = 4)
     domain, _ = internal_shunt_test_domain(design)
-    values = E.ShuntModel._shunt_values(domain, Formulation().methods)
+    values = E.ShuntModel._shunt_values(domain, Formulation().formulas)
     level = (wire = 16, order = 8, quadrature = 64, modes = 128)
     propagated = E.internal_shunt_response(E.ShuntModel.Formula(:boundary), values, domain; level)
     @test all(isfinite, Measurements.value.(propagated.C))
@@ -16,7 +16,7 @@
         d,
         _ = internal_shunt_test_domain(internal_shunt_test_design(epsilon = eps, count = 4))
         E.internal_shunt_response(E.ShuntModel.Formula(:boundary),
-            E.ShuntModel._shunt_values(d, Formulation().methods), d; level).C
+            E.ShuntModel._shunt_values(d, Formulation().formulas), d; level).C
     end
     central = (deterministic(2.5001)-deterministic(2.4999))/0.0002
     @test Measurements.derivative.(propagated.C, Ref(epsilon)) ≈ central rtol=2e-3
@@ -25,8 +25,8 @@
     independent,
     _ = internal_shunt_test_domain(internal_shunt_test_design(
         epsilon = measurement(2.5, 0.0025), count = 4))
-    @test !E.same_physical_state(E.ShuntModel._shunt_values(domain, Formulation().methods),
-        E.ShuntModel._shunt_values(independent, Formulation().methods))
+    @test !E.same_physical_state(E.ShuntModel._shunt_values(domain, Formulation().formulas),
+        E.ShuntModel._shunt_values(independent, Formulation().formulas))
     rng = MersenneTwister(314)
     samples = [deterministic(2.5+0.0025randn(rng))[1, 1] for _ in 1:24]
     # 3 standard errors of the sampled standard deviation. No requirement
@@ -38,13 +38,13 @@
     radius = measurement(0.2e-3, 0.1e-6)
     geometry_domain,
     _ = internal_shunt_test_domain(internal_shunt_test_design(; radius, count = 4))
-    geometry_values = E.ShuntModel._shunt_values(geometry_domain, Formulation().methods)
+    geometry_values = E.ShuntModel._shunt_values(geometry_domain, Formulation().formulas)
     geometry_result = E.internal_shunt_response(
         E.ShuntModel.Formula(:boundary), geometry_values, geometry_domain; level)
     function varying_radius(r)
         d, _ = internal_shunt_test_domain(internal_shunt_test_design(radius = r, count = 4))
         E.internal_shunt_response(E.ShuntModel.Formula(:boundary),
-            E.ShuntModel._shunt_values(d, Formulation().methods), d; level).C
+            E.ShuntModel._shunt_values(d, Formulation().formulas), d; level).C
     end
     geometric_central = (varying_radius(0.2e-3+1e-8)-varying_radius(0.2e-3-1e-8))/2e-8
     @test Measurements.derivative.(geometry_result.C, Ref(radius)) ≈ geometric_central rtol=5e-3
@@ -57,13 +57,13 @@
     wire_angle = measurement(0.31, 1e-4)
     angle_domain,
     _ = internal_shunt_test_domain(internal_shunt_test_design(; wire_angle, count = 4))
-    angle_values = E.ShuntModel._shunt_values(angle_domain, Formulation().methods)
+    angle_values = E.ShuntModel._shunt_values(angle_domain, Formulation().formulas)
     angle_result = E.internal_shunt_response(E.ShuntModel.Formula(:boundary), angle_values, angle_domain; level)
     function varying_angle(angle)
         d,
         _ = internal_shunt_test_domain(internal_shunt_test_design(wire_angle = angle, count = 4))
         E.internal_shunt_response(E.ShuntModel.Formula(:boundary),
-            E.ShuntModel._shunt_values(d, Formulation().methods), d; level).C
+            E.ShuntModel._shunt_values(d, Formulation().formulas), d; level).C
     end
     angular_central = (varying_angle(0.31001)-varying_angle(0.30999))/2e-5
     @test Measurements.derivative.(angle_result.C, Ref(wire_angle)) ≈ angular_central rtol=5e-3

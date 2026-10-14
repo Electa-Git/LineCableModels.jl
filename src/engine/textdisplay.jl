@@ -50,11 +50,11 @@ Base.show(io::IO, ::MIME"text/plain", backend::LineCableModelsCoaxial) =
 TextDisplay.name(::Type{<:LineCableModelsFEM}) = "LineCableModelsFEM"
 Base.summary(io::IO, ::LineCableModelsFEM) = print(io, "LineCableModels FEM backend")
 function Base.show(io::IO, backend::LineCableModelsFEM)
-    print(io, "LineCableModelsFEM(", length(backend.methods), " material laws)")
+    print(io, "LineCableModelsFEM(", length(backend.formulas), " material laws)")
 end
 function Base.show(io::IO, ::MIME"text/plain", backend::LineCableModelsFEM)
     get(io, :compact, false) && return show(io, backend)
-    selections = map(backend.methods) do selected
+    selections = map(backend.formulas) do selected
         selected === nothing && return nothing
         description(selected;compact=true)
     end
@@ -104,22 +104,22 @@ TextDisplay.@showfields Union{
 TextDisplay.name(::Type{<:LineParametersFormulation}) = "LineParametersFormulation"
 Base.summary(io::IO, ::LineParametersFormulation) = print(io, "Line-parameters formulation")
 function Base.show(io::IO, formulation::LineParametersFormulation)
-    print(io, "LineParametersFormulation(", length(formulation.methods), " methods)")
+    print(io, "LineParametersFormulation(", length(formulation.formulas), " formulas)")
 end
 
 TextDisplay.name(::Type{<:CableConstantsFormulation}) = "CableConstantsFormulation"
 Base.summary(io::IO, ::CableConstantsFormulation) =
     print(io, "Cable-constants formulation")
 function Base.show(io::IO, formulation::CableConstantsFormulation)
-    print(io, "CableConstantsFormulation(", length(formulation.methods), " methods)")
+    print(io, "CableConstantsFormulation(", length(formulation.formulas), " formulas)")
 end
 function Base.show(io::IO, ::MIME"text/plain", formulation::CableConstantsFormulation)
     get(io, :compact, false) && return show(io, formulation)
     children = Tuple((
         label = string(key, "  ", sprint(show, method; context = :compact => true)),
-        noun = "methods",
-    ) for (key, method) in pairs(formulation.methods))
-    return TextDisplay.tree(io, "Cable-constants formulation", children; noun = "methods")
+        noun = "formulas",
+    ) for (key, method) in pairs(formulation.formulas))
+    return TextDisplay.tree(io, "Cable-constants formulation", children; noun = "formulas")
 end
 
 TextDisplay.name(::Type{<:CableConstantsProblem}) = "CableConstantsProblem"
@@ -161,13 +161,13 @@ function Base.show(io::IO, ::MIME"text/plain", formulation::LineParametersFormul
     get(io, :compact, false) && return show(io, formulation)
     children = Any[(
         label = string(key, "  ", sprint(show, method; context = :compact => true)),
-        noun = "methods",
-    ) for (key, method) in pairs(formulation.methods)]
+        noun = "formulas",
+    ) for (key, method) in pairs(formulation.formulas)]
     isempty(formulation.options.data) || push!(children, (
         label = "options  $(length(formulation.options.data)) entries",
-        noun = "methods",
+        noun = "formulas",
     ))
-    return TextDisplay.tree(io, "Line-parameters formulation", Tuple(children); noun = "methods")
+    return TextDisplay.tree(io, "Line-parameters formulation", Tuple(children); noun = "formulas")
 end
 
 TextDisplay.name(::Type{<:LineParametersProblem}) = "LineParametersProblem"

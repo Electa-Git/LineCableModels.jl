@@ -24,17 +24,17 @@ function internal_shunt_response(designs::AbstractVector,
     Response = NamedTuple{(:blocks, :covered, :details),
         Tuple{Vector{InternalShuntBlock{T}}, BitVector, NamedTuple}}
     solutions = NamedTuple[]
-    return Response[internal_shunt_response(formulation.methods.shunt_model, designs,
-                        blueprints, formulation.methods, solutions)
+    return Response[internal_shunt_response(formulation.formulas.shunt_model, designs,
+                        blueprints, formulation.formulas, solutions)
                     for formulation in formulations]
 end
 
 # Complete one formulation's shunt model for every design, and move each design's
 # response from cable-local to system indices.
 function internal_shunt_response(selected::ShuntModelFormulation, designs::AbstractVector,
-        blueprints::AbstractVector{<:CableBlueprint{T}}, methods::NamedTuple,
+        blueprints::AbstractVector{<:CableBlueprint{T}}, formulas::NamedTuple,
         solutions::Vector) where {T <: Real}
-    parts = [internal_shunt_response(selected, design, blueprint, T, methods, solutions,
+    parts = [internal_shunt_response(selected, design, blueprint, T, formulas, solutions,
                  design_index)
              for (design_index, (design, blueprint)) in enumerate(zip(designs, blueprints))]
     blocks = InternalShuntBlock{T}[]

@@ -26,7 +26,7 @@
     for (backend, formulation) in ((LineParametersFormulation, Formulation()),
             (CableConstantsFormulation, CableConstantsFormulation()))
         for (slot, F) in pairs(backend)
-            @test isequal(getproperty(formulation.methods, slot), F(:default))
+            @test isequal(getproperty(formulation.formulas, slot), F(:default))
         end
     end
     @test isequal(ModalAnalysisFormulation().formula, LineCableModels.ModalAnalysis.Formula(:default))
@@ -113,8 +113,8 @@ end
     expected=compute(problem,Formulation())
     @test Z(actual)==Z(expected) && Y(actual)==Y(expected)
     @test shunt.response_count[]==length(problem.system.designs)
-    @test details(actual).data.formulations.methods.shunt_model.identifier === :UserCoaxialShunt
-    @test details(actual).data.formulations.methods.pipe_impedance.identifier === :UserCoaxialPipe
+    @test details(actual).data.formulations.formulas.shunt_model.identifier === :UserCoaxialShunt
+    @test details(actual).data.formulations.formulas.pipe_impedance.identifier === :UserCoaxialPipe
     constants=CableConstantsProblem(first(problem.system.designs);frequency=50.0)
     @test compute(constants,CableConstantsFormulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe()))==
         compute(constants,CableConstantsFormulation())

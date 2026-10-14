@@ -260,7 +260,7 @@ $(TYPEDFIELDS)
 struct LineParametersFormulation{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
        AbstractFormulation
     "Owner-resolved physical methods. Context-dependent defaults remain deferred."
-    methods::M
+    formulas::M
     "Shared physical computation options."
     options::O
     "Requested selections retained before owner and problem-context resolution."
@@ -339,14 +339,14 @@ description(::Type{LineParametersFormulation},::Val{:temperature_dependence}; co
 
 """Expose typed children and controls without serializing the formulation."""
 Base.pairs(value::LineParametersFormulation; quantity=nothing) =
-    pairs(LineParametersFormulation,(methods=value.methods,requested=value.definitions,options=value.options.data);quantity)
+    pairs(LineParametersFormulation,(formulas=value.formulas,requested=value.definitions,options=value.options.data);quantity)
 formulation_options(value::LineParametersFormulation) = value.options
 
 """
 $(TYPEDSIGNATURES)
 
 Iterate owner-scoped selections from a formulation's declared child interface.
-`retained.methods` contains typed children.
+`retained.formulas` contains typed children.
 `retained.requested` contains their explicit controls. `pairs(owner; quantity)`
 owns child order and relevance. The empty route identifies the owner itself.
 """
@@ -362,7 +362,7 @@ function Base.pairs(::Type{LineParametersFormulation}, retained::NamedTuple;
     end
     entries=Pair{Tuple,Any}[(owner,()) => (owner => retained.options)]
     for (slot,family) in pairs(owner;quantity)
-        selected=retained.methods[slot]
+        selected=retained.formulas[slot]
         requested=retained.requested[slot]
         if selected isa NamedTuple
             children = pairs(family)
@@ -382,8 +382,8 @@ function Base.pairs(::Type{LineParametersFormulation}, retained::NamedTuple;
     return entries
 end
 
-function LineParametersFormulation(methods::NamedTuple, options::FormulationOptions)
-    LineParametersFormulation(methods, options, methods)
+function LineParametersFormulation(formulas::NamedTuple, options::FormulationOptions)
+    LineParametersFormulation(formulas, options, formulas)
 end
 
 function _line_formulation(
@@ -415,12 +415,12 @@ function _line_formulation(
         formulation_options(LineParametersFormulation, options))
     definitions = (; internal_impedance, insulation_impedance,
         earth_impedance = earth_impedance isa NamedTuple ?
-            NamedTuple{keys(selected.methods.earth_impedance)}(earth_impedance) : earth_impedance,
+            NamedTuple{keys(selected.formulas.earth_impedance)}(earth_impedance) : earth_impedance,
         shunt_model, insulation_admittance, semicon_admittance,
         earth_admittance = earth_admittance isa NamedTuple ?
-            NamedTuple{keys(selected.methods.earth_admittance)}(earth_admittance) : earth_admittance,
+            NamedTuple{keys(selected.formulas.earth_admittance)}(earth_admittance) : earth_admittance,
         earth_properties, pipe_impedance, temperature_dependence)
-    return LineParametersFormulation(selected.methods, selected.options, definitions)
+    return LineParametersFormulation(selected.formulas, selected.options, definitions)
 end
 
 """
@@ -533,8 +533,8 @@ function Base.NamedTuple(value::LineParametersFormulation)
     end
     # Retain complete records without specializing result containers on each
     # parameter tuple or concrete selection type. The stored values remain unchanged.
-    Record=NamedTuple{(:backend,:requested,:methods,:options),
+    Record=NamedTuple{(:backend,:requested,:formulas,:options),
         Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
     return Record((:coaxial,copy_containers(map(record,value.definitions)),
-        copy_containers(map(record,value.methods)),copy_containers(value.options.data)))
+        copy_containers(map(record,value.formulas)),copy_containers(value.options.data)))
 end

@@ -52,10 +52,10 @@
     @test local_default.R==local_explicit.R && local_default.L==local_explicit.L
     changed=compute(problem,Formulation(internal_impedance=M.SurfaceLaw(;coefficients)))
     @test Z(changed)!=Z(original) && Y(changed)==Y(original)
-    @test details(changed).data.formulations.methods.internal_impedance.identifier === :SurfaceLaw
+    @test details(changed).data.formulations.formulas.internal_impedance.identifier === :SurfaceLaw
     formulations=Formulation(internal_impedance=Grid((formula(:default),custom));combine=:zip)
     @test length(formulations)==2
-    @test collect(formulations)[2].methods.internal_impedance === custom
+    @test collect(formulations)[2].formulas.internal_impedance === custom
     native=Formulation(internal_impedance=:default)
     for source in (native,MonteCarlo(native),LinearError(native))
         @test occursin("internal Z",only(description([source];quantity=R)))
