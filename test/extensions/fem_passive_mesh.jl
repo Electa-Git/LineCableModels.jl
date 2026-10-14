@@ -46,9 +46,9 @@
                 thin_target=number("RegionSize_2")
                 factor=number("MeshSizeFactor")
                 @test thick_target≈factor*thickness/2
-                @test thin_target≈factor*outer_thickness/2
+                @test thin_target≈factor*2π*(radius+thickness+outer_thickness)/number("FEMCircleSegments")
                 threshold=min(thick_target,number("MeshGrowthSlope")*thickness/4)
-                @test threshold>thin_target
+                @test thin_target>factor*outer_thickness/2
                 tags,xyz,_=g.model.mesh.get_nodes()
                 coordinates=Dict(tag=>xyz[3i-2:3i] for (i,tag) in enumerate(tags))
                 edges=Float64[]
@@ -77,4 +77,53 @@
             end
         end
     end
+end
+
+@testitem "FEM / thin annuli separate normal and tangential resolution" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    N=NativeFEMFixtures
+    copper=Material(kind=:conductor,rho=1.72e-8,eps_r=1.,mu_r=1.)
+    dielectric=Material(kind=:insulator,rho=Inf,eps_r=2.3,mu_r=1.)
+    counts=Int[]
+    for thickness in (25e-6,50e-6,100e-6)
+        radius=.01
+        design=build(CableDesign,"thin-annular-wire",Stack(
+            terminal(:core,Region(:metal,Disk(radius),copper)),
+            Region(:face,Shell(thickness),dielectric),
+            Region(:jacket,Shell(.003),dielectric)))
+        system=build(LineCableSystem,design,Pose2(0.,1.);connections=Dict(:core=>1))
+        problem=LineParametersProblem(system;temperature=20.,frequencies=[1e3],
+            earth_props=homogeneous(rho=1000.))
+        N.geometry(problem;mesh=true) do g,log
+            numbers(name)=Int.(g.parser.get_number(name))
+            surfaces=numbers("FEMRegionSurfaces_1")
+            nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(2,s,true)) for s in surfaces)))
+            push!(counts,length(nodes))
+            tags,xyz,_=g.model.mesh.get_nodes()
+            coordinates=Dict(tag=>xyz[3i-2:3i] for (i,tag) in enumerate(tags))
+            # Two normal elements, even when the tangential edges are much longer.
+            radii=sort!([hypot(coordinates[n][1],coordinates[n][2]-1) for n in nodes])
+            @test all(r -> any(isapprox(r,expected;atol=1e-12,rtol=0)
+                for expected in (radius,radius+thickness/2,radius+thickness)),radii)
+            @test all(expected -> any(isapprox(r,expected;atol=1e-12,rtol=0)
+                for r in radii),(radius,radius+thickness/2,radius+thickness))
+            area=0.
+            for surface in surfaces
+                kinds,_,blocks=g.model.mesh.get_elements(2,surface)
+                @test all(==(2),kinds)
+                for block in blocks, i in 1:3:length(block)
+                    a,b,c=[coordinates[block[i+j]] for j in 0:2]
+                    area+=abs((b[1]-a[1])*(c[2]-a[2])-(b[2]-a[2])*(c[1]-a[1]))/2
+                end
+            end
+            tolerance=only(g.parser.get_number("ConductorGeometryTolerance"))
+            @test abs(area/(π*((radius+thickness)^2-radius^2))-1)<tolerance
+            # At corresponding edge midpoints, the polygonal gap is t*cos(π/N).
+            curves=numbers("FEMRegionCurves_1")
+            ring_nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in curves)))
+            angular=length(ring_nodes)÷2
+            @test 1-cos(π/angular)<tolerance
+            @test length(nodes)==3angular
+        end
+    end
+    @test all(==(first(counts)),counts)
 end

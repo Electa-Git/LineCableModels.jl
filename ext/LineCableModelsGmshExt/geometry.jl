@@ -18,6 +18,9 @@ mutable struct FEMLoopRegistry
     circle_breaks::Dict{Any, Set{Float64}}
     circle_break_points::Dict{Any, Dict{Float64, Tuple{Float64, Float64}}}
     loops::Dict{Any, FEMLoop}
+    polygon_outlines::Dict{Tuple, Vector{Tuple{Float64, Float64}}}
+    polygon_points::Dict{Int, Int}
+    polygon_mesh::Dict{Int, Tuple{Float64, Float64}}
     mesh_size::Float64
 end
 
@@ -26,13 +29,16 @@ function FEMLoopRegistry(mesh_size)
         Dict{Tuple{Float64, Float64}, Int}(),
         Dict{Tuple{Int, Int}, Vector{Tuple{Float64, Float64}}}(),
         Dict{Int, Float64}(),
-        Dict{Tuple{Int, Int}, Int}(),
+        Dict{Int, Int}(),
         Dict{Int, Tuple{Int, Int}}(),
         Dict{Int, Vector{Tuple{Float64, Float64}}}(),
         Dict{Any, Tuple{Int, Int, Int}}(),
         Dict{Any, Set{Float64}}(),
         Dict{Any, Dict{Float64, Tuple{Float64, Float64}}}(),
         Dict{Any, FEMLoop}(),
+        Dict{Tuple, Vector{Tuple{Float64, Float64}}}(),
+        Dict{Tuple{Int, Int}, Int}(),
+        Dict{Int, Tuple{Float64, Float64}}(),
         Float64(mesh_size)
     )
 end
@@ -371,7 +377,12 @@ _register_shape_breaks!(::FEMLoopRegistry, shape) = nothing
 
 function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Polygon)
     # Register topology first; the consuming material supplies the mesh size.
-    foreach(point -> _point!(registry, point; mesh_size = nothing), _shape_points(shape))
+    source_points = _shape_points(shape)
+    foreach(point -> _point!(registry, point; mesh_size = nothing), source_points)
+    points = _normalize_polygon_vertices(source_points)
+    tags = [_point!(registry, point; mesh_size = nothing) for point in points]
+    outline = Tuple(tags)
+    get!(registry.polygon_outlines, outline, points)
     return nothing
 end
 
@@ -564,7 +575,7 @@ function _line!(registry::FEMLoopRegistry, first_point::Int, last_point::Int)
     return first_point == registry.curve_points[tag][1] ? tag : -tag
 end
 
-function _line_path!(registry::FEMLoopRegistry, first, last;
+function _line_path_points!(registry::FEMLoopRegistry, first, last;
         mesh_size = registry.mesh_size)
     first_point = _point!(registry, first; mesh_size)
     last_point = _point!(registry, last; mesh_size)
@@ -594,8 +605,33 @@ function _line_path!(registry::FEMLoopRegistry, first, last;
         end
     end
     sort!(points)
-    return [_line!(registry, points[index][2], points[index + 1][2])
-            for index in 1:(length(points) - 1)]
+    return [point[2] for point in points]
+end
+
+function _line_path!(registry::FEMLoopRegistry, first, last; mesh_size = registry.mesh_size)
+    points = _line_path_points!(registry, first, last; mesh_size)
+    return [_line!(registry, points[i], points[i+1]) for i in 1:length(points)-1]
+end
+
+function _node_polygon_outlines!(registry::FEMLoopRegistry)
+    positions = Dict(tag => point for (point, tag) in registry.points)
+    for (key, values) in registry.polygon_outlines
+        tags = reduce(vcat, [_line_path_points!(registry, values[i],
+                    values[mod1(i+1,end)]; mesh_size = nothing)[1:end-1]
+                for i in eachindex(values)])
+        registry.polygon_outlines[key] = [positions[tag] for tag in tags]
+        for tag in unique(tags)
+            registry.polygon_points[tag] = get(registry.polygon_points, tag, 0) + 1
+        end
+    end
+    # Polygon vertices on analytic boundaries must remain curve endpoints too.
+    for points in Base.values(registry.circle_break_points), point in Base.values(points)
+        key = _matching_point_key(registry, point)
+        tag = get(registry.points, key, 0)
+        haskey(registry.polygon_points, tag) || continue
+        registry.polygon_points[tag] += 1
+    end
+    return nothing
 end
 
 function _refine_loop_mesh_size!(
@@ -628,6 +664,17 @@ function _signed_area(points)
     end / 2
 end
 
+# Absolute turning includes reentrant corners in the polyline area-loss bound.
+function _polygon_total_turn(points)
+    total = 0.0
+    for i in eachindex(points)
+        a, b, c = points[mod1(i-1, end)], points[i], points[mod1(i+1, end)]
+        u, v = b .- a, c .- b
+        total += abs(atan(u[1]*v[2] - u[2]*v[1], u[1]*v[1] + u[2]*v[2]))
+    end
+    return total
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -653,14 +700,55 @@ end
 
 function _polygon_loop!(registry::FEMLoopRegistry, points; mesh_size = registry.mesh_size)
     values = _normalize_polygon_vertices(points)
-    key = (:polygon,
-        Tuple(
-            (_coordinate_key(point[1]), _coordinate_key(point[2])) for point in values
-        ))
+    source_tags = Tuple(_point!(registry, point; mesh_size) for point in values)
+    key = (:polygon, source_tags)
     loop = get!(registry.loops, key) do
-        curves = reduce(vcat,
-            [_line_path!(registry, values[index], values[mod1(index + 1, end)]; mesh_size)
-             for index in eachindex(values)])
+        registered = haskey(registry.polygon_outlines, source_tags)
+        values = get(registry.polygon_outlines, source_tags, values)
+        tags = [_point!(registry, point; mesh_size) for point in values]
+        # Keep contact junctions and straight seams as elementary lines. Free
+        # chains use native degree-one polylines: every original CAD vertex stays.
+        stops = Set([argmin(first.(values)), argmax(first.(values)),
+                     argmin(last.(values)), argmax(last.(values))])
+        # Other tessellated primitives retain their existing line adaptation.
+        registered || union!(stops, eachindex(values))
+        total_turn = _polygon_total_turn(values)
+        for i in eachindex(values)
+            a, b, c = values[mod1(i-1, end)], values[i], values[mod1(i+1, end)]
+            u, v = b .- a, c .- b
+            cross = u[1]*v[2] - u[2]*v[1]
+            if get(registry.polygon_points, tags[i], 0) > 1 ||
+               abs(cross) <= 64eps(max(abs(b[1]),abs(b[2]),1.0)) *
+                             (hypot(u...) + hypot(v...))
+                push!(stops, i)
+            end
+        end
+        # Joining across a corner cuts at most h²*|turn|/8 of area. The
+        # native spacing h therefore bounds the entire polygon's relative area
+        # loss by ConductorGeometryTolerance, including nonconvex outlines.
+        area_scale = 8abs(_signed_area(values)) / total_turn
+        indices = sort!(collect(stops))
+        curves = Int[]
+        for k in eachindex(indices)
+            start = indices[k]
+            stop = k == length(indices) ? first(indices) + length(values) : indices[k+1]
+            samples = [values[mod1(i, end)] for i in start:stop]
+            if length(samples) == 2
+                if registered
+                    push!(curves, _line!(registry, tags[start], tags[mod1(stop,end)]))
+                else
+                    append!(curves, _line_path!(registry, first(samples), last(samples); mesh_size))
+                end
+            else
+                point_tags = [tags[mod1(i, end)] for i in start:stop]
+                curve = gmsh.model.geo.add_polyline(point_tags)
+                registry.curve_points[curve] = (first(point_tags), last(point_tags))
+                registry.curve_samples[curve] = samples
+                length_m = sum(hypot((samples[i+1] .- samples[i])...) for i in 1:length(samples)-1)
+                registry.polygon_mesh[curve] = (length_m, area_scale)
+                push!(curves, curve)
+            end
+        end
         ccw = gmsh.model.geo.add_curve_loop(curves)
         cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
         FEMLoop(ccw, cw, abs.(curves), curves)
@@ -1373,6 +1461,45 @@ function _sector_partition!(registry, shape::DataModel.SectorShape, mesh_size)
     return [sort!(collect(keys(patches)));core],partition
 end
 
+# Concentric boundaries share the same angular breaks before any curve is built.
+# A radial strip then has thickness t*cos(half-angle), independent of its radius.
+function _align_annular_breaks!(registry, layers)
+    groups = Dict{Tuple{Float64,Float64},Set{Float64}}()
+    for shape in layers
+        center = (_coordinate_key(shape.at.x),_coordinate_key(shape.at.y))
+        radii = get!(groups,center,Set{Float64}())
+        union!(radii,(_coordinate_key(shape.ri),_coordinate_key(shape.ro)))
+    end
+    for (center,radii) in groups
+        angles = sort!(unique(vcat([collect(registry.circle_breaks[(center...,r)]) for r in radii]...)))
+        for radius in radii, angle in angles
+            _register_circle_break!(registry,center,radius,angle)
+        end
+    end
+    return nothing
+end
+
+function _annular_partition!(registry, shape::DataModel.Annulus, mesh_size)
+    center = (shape.at.x,shape.at.y)
+    outer = _circle_loop!(registry,center,shape.ro;mesh_size)
+    inner = _circle_loop!(registry,center,shape.ri;mesh_size)
+    coordinates = Dict(tag => point for (point,tag) in registry.points)
+    patches = map(zip(outer.oriented,inner.oriented)) do (oc,ic)
+        a,b = registry.curve_points[abs(oc)]
+        p,q = oc > 0 ? (a,b) : (b,a)
+        a,b = registry.curve_points[abs(ic)]
+        ip,iq = ic > 0 ? (a,b) : (b,a)
+        start,stop = _line!(registry,ip,p),_line!(registry,iq,q)
+        loop = gmsh.model.geo.add_curve_loop([oc,-stop,-ic,start])
+        surface = gmsh.model.geo.add_plane_surface([loop])
+        u,v = coordinates[p] .- center,coordinates[q] .- center
+        angle = atan(abs(u[1]*v[2]-u[2]*v[1]),u[1]*v[1]+u[2]*v[2])
+        (;surface,arcs=(abs(oc),abs(ic)),spokes=(abs(start),abs(stop)),
+            corners=(p,q,iq,ip),fraction=angle/(2π))
+    end
+    return [patch.surface for patch in patches],patches
+end
+
 # Build the frequency-independent physical CAD once. Native exterior and mesh
 # sources consume this topology; material and terminal ownership stays with the CAD.
 function _build_physical_geometry!(
@@ -1389,12 +1516,23 @@ function _build_physical_geometry!(
         model.cable_boundaries
     )
     _register_circle_contacts!(registry)
+    _node_polygon_outlines!(registry)
+    annuli = [region.shape for region in model.region_plans
+        if region.shape isa DataModel.Annulus &&
+           model.material_plans[region.material_index].kind !== :conductor]
+    _align_annular_breaks!(registry,annuli)
+    annular_partitions = Dict{Int,Vector{NamedTuple}}()
     material_surfaces = [Int[] for _ in model.material_plans]
     region_surfaces = Vector{Int}[]
     sector_partitions = Dict{Int,FEMSectorPartition}()
     terminal_surfaces = [Int[] for _ in model.terminal_ids]
     for (index,region) in enumerate(model.region_plans)
-        surfaces = if region.shape isa DataModel.SectorShape &&
+        surfaces = if region.shape isa DataModel.Annulus &&
+                      model.material_plans[region.material_index].kind !== :conductor
+            members,patches = _annular_partition!(registry,region.shape,model.cad_scale)
+            annular_partitions[index] = patches
+            members
+        elseif region.shape isa DataModel.SectorShape &&
                       model.material_plans[region.material_index].kind === :conductor
             members,partition = _sector_partition!(registry,region.shape,model.cad_scale)
             sector_partitions[index] = partition
@@ -1454,7 +1592,8 @@ function _build_physical_geometry!(
     end
 
     return (; anchors, metal_dimensions, material_surfaces, region_surfaces,
-        sector_partitions, terminal_surfaces, cable_curves, cable_loops, cable_loop_curves)
+        sector_partitions, annular_partitions, terminal_surfaces, cable_curves, cable_loops, cable_loop_curves,
+        polygon_mesh=registry.polygon_mesh)
 end
 
 # Serialize intrinsic source dimensions and CAD ownership. Native parameters
@@ -1481,6 +1620,9 @@ function _write_native_geometry_data(io, model)
         offset += count
     end
     for (index,members) in pairs(sources)
+        plan = model.region_plans[index]
+        annular = plan.shape isa DataModel.Annulus && model.material_plans[plan.material_index].kind !== :conductor
+        println(io,"RegionAnnularPassive~{",index-1,"} = ",Int(annular),";")
         dimensions = map(members) do region
             shape = region.source.primitive
             repeated = any(p -> p.owner === DataModel.Group,region.placement.patterns)
@@ -1514,7 +1656,7 @@ end
 function _write_physical_geometry(path, model, physical)
     gmsh.model.geo.synchronize()
     (;material_surfaces,region_surfaces,terminal_surfaces,cable_curves,cable_loops,
-        sector_partitions,anchors,metal_dimensions,cable_loop_curves) = physical
+        sector_partitions,annular_partitions,anchors,metal_dimensions,cable_loop_curves,polygon_mesh) = physical
     layers = [(shape=plan.shape, curves=_entity_boundary(region_surfaces[j]))
         for (j,plan) in pairs(model.region_plans)
         if plan.shape isa DataModel.Annulus &&
@@ -1533,7 +1675,8 @@ function _write_physical_geometry(path, model, physical)
         thickness = minimum(layer.shape.ro-layer.shape.ri for layer in adjacent)
         points = unique(last.(gmsh.model.get_boundary([(1,curve)],false,false,false)))
         cables = [i-1 for (i,curves) in pairs(cable_curves) if curve in curves]
-        (;radius,thickness,points,cables)
+        fraction = _conductor_curve_geometry(shape,curve).fraction
+        (;radius,thickness,points,cables,fraction)
     end
     raw = path*"_unrolled"
     gmsh.write(raw)
@@ -1553,11 +1696,34 @@ function _write_physical_geometry(path, model, physical)
             end
         end
         emit(name,values) = println(io,name,"() = ",_pro_array(values),";")
+        polygon_curves = sort!(collect(keys(polygon_mesh)))
+        emit("FEMPolygonCurves", polygon_curves)
+        polygon_ends = [last.(gmsh.model.get_boundary([(1,c)],false,false,false))
+                        for c in polygon_curves]
+        emit("FEMPolygonFirstPoints", first.(polygon_ends))
+        emit("FEMPolygonLastPoints", last.(polygon_ends))
+        emit("FEMPolygonLengths", [polygon_mesh[c][1] for c in polygon_curves])
+        emit("FEMPolygonAreaScales", [polygon_mesh[c][2] for c in polygon_curves])
         emit("FEMMaterialSurfaces",reduce(vcat,material_surfaces;init=Int[]))
         emit("FEMCableCurves",unique(reduce(vcat,cable_curves;init=Int[])))
         emit("FEMLayerBoundaryCurves",layer_curves)
         emit("FEMLayerBoundaryRadii",[boundary.radius for boundary in layer_boundaries])
         emit("FEMLayerBoundaryThicknesses",[boundary.thickness for boundary in layer_boundaries])
+        emit("FEMLayerBoundaryFractions",[boundary.fraction for boundary in layer_boundaries])
+        patch_index = 0
+        for (region,patches) in sort!(collect(annular_partitions);by=first), patch in patches
+            emit("FEMAnnularArcs~{$patch_index}",patch.arcs)
+            emit("FEMAnnularSpokes~{$patch_index}",patch.spokes)
+            emit("FEMAnnularCorners~{$patch_index}",patch.corners)
+            println(io,"FEMAnnularSurface~{",patch_index,"} = ",patch.surface,";")
+            println(io,"FEMAnnularRegion~{",patch_index,"} = ",region-1,";")
+            println(io,"FEMAnnularFraction~{",patch_index,"} = ",_pro_number(patch.fraction),";")
+            shape = model.region_plans[region].shape
+            println(io,"FEMAnnularRadius~{",patch_index,"} = ",_pro_number(shape.ro),";")
+            println(io,"FEMAnnularThickness~{",patch_index,"} = ",_pro_number(shape.ro-shape.ri),";")
+            patch_index += 1
+        end
+        println(io,"FEMAnnularPatches = ",patch_index,";")
         for (i,boundary) in pairs(layer_boundaries)
             emit("FEMLayerBoundaryPoints~{$(i-1)}",boundary.points)
             emit("FEMLayerBoundaryCables~{$(i-1)}",boundary.cables)
@@ -1593,17 +1759,6 @@ function _write_physical_geometry(path, model, physical)
                 arcs = [_conductor_curve_geometry(region.shape,curve) for curve in curves]
                 emit("FEMConductorArcLengths~{$(i-1)}",getproperty.(arcs,:length))
                 emit("FEMConductorArcFractions~{$(i-1)}",getproperty.(arcs,:fraction))
-                thicknesses = map(curves) do curve
-                    thickness = Inf
-                    for layer in layers
-                        curve in layer.curves || continue
-                        _coordinate_key(layer.shape.at.x) == _coordinate_key(region.shape.at.x) &&
-                            _coordinate_key(layer.shape.at.y) == _coordinate_key(region.shape.at.y) || continue
-                        thickness = min(thickness,layer.shape.ro-layer.shape.ri)
-                    end
-                    isfinite(thickness) ? thickness : 0.0
-                end
-                emit("FEMConductorLayerThickness~{$(i-1)}",thicknesses)
                 emit("FEMConductorBulkSurfaces~{$(i-1)}",surfaces)
             else
                 println(io,"FEMSectorDepth~{",i-1,"} = ",_pro_number(partition.depth),";")

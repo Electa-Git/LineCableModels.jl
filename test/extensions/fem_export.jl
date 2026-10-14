@@ -375,8 +375,13 @@ end
     try
     FEM = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
     copper = Material(kind=:conductor,rho=1.72e-8)
-    wire = build(CableDesign,"export-parity",terminal(:core,core(copper;r=0.005)))
-    system = build(LineCableSystem,[wire,wire],[(0.,0.1),(0.2,-0.1)];
+    dielectric = Material(kind=:insulator,rho=Inf,eps_r=2.3)
+    outline = Polygon(Tuple((0.003cospi(i/6),0.003sinpi(i/6)) for i in 0:11))
+    wire = build(CableDesign,"export-parity",Stack(
+        terminal(:core,core(copper;r=0.005)),
+        Region(:face,Shell(25e-6),dielectric)))
+    polygon_wire = build(CableDesign,"polygon-parity",terminal(:core,solid(copper,outline)))
+    system = build(LineCableSystem,[wire,polygon_wire],[(0.,0.1),(0.2,-0.1)];
         connections=[Dict(:core=>1),Dict(:core=>2)])
     problem = LineParametersProblem(system;frequencies=[50.,10000.],
         earth_props=homogeneous(rho=100.,eps_r=10.))

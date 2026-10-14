@@ -213,8 +213,11 @@ function _measurement_line_ratios(model)
 end
 
 # A conservative chord-area allowance, proportional to the actual boundary
-# segment length squared. Polygon boundaries have no discretization allowance.
-_mesh_area_allowance(::Union{DataModel.Polygon, DataModel.Rectangle}, h2) = 0.0
+# segment length squared. Polygon polylines use the same absolute-turn bound
+# as their native spacing rule; rectangles retain exact straight-line corners.
+_mesh_area_allowance(shape::DataModel.Polygon, h2) =
+    h2 * _polygon_total_turn(_normalize_polygon_vertices(_shape_points(shape))) / 8
+_mesh_area_allowance(::DataModel.Rectangle, h2) = 0.0
 _mesh_area_allowance(::DataModel.Disk, h2) = π * h2 / 3
 _mesh_area_allowance(shape::DataModel.Annulus, h2) = (iszero(shape.ri) ? π : 2π) * h2 / 3
 _mesh_area_allowance(shape::DataModel.Ellipse, h2) = π * (max(shape.a, shape.b) / min(shape.a, shape.b))^2 * h2 / 3

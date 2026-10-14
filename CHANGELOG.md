@@ -9,6 +9,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Thin passive FEM annuli use triangular transfinite strips with separate normal
+  and tangential resolution and conforming shared contours.
+- FEM polygon conductor outlines use native degree-one polylines for free chains,
+  retaining CAD coordinates, shared seams and contacts; contour spacing bounds
+  relative conductor area error with `ConductorGeometryTolerance`.
 - The inward FEM boundary layer of a round conductor reaches at most half its
   radius, so point contacts no longer stop Gmsh.
 - FEM passive cable layers are each meshed up to their own size target; a thin

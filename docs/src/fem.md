@@ -281,7 +281,17 @@ layer does not cap the interior size of another passive layer. `CableSize`
 retains the exterior contour, interface, earth-layer clearance and existing
 layer-boundary spacing roles. Mesh sidecars report the region caps in
 `region_mesh_sizes_m` and the exterior targets in `cable_outer_mesh_sizes_m`.
-Managed meshes and detached ONELAB meshes use the same native rule. Physical
+Thin passive annuli use triangular transfinite strips with separate normal and
+tangential resolution. Normal divisions resolve the layer thickness; tangential
+spacing follows angular accuracy and shared contour targets, so half the
+thickness does not force equally short tangential edges. Shared contours retain
+conforming node counts.
+
+Polygon conductor outlines retain their piecewise-linear CAD coordinates.
+Free chains use native degree-one polylines; shared seams, contacts and coordinate
+extrema remain curve endpoints. Polyline spacing bounds relative conductor area
+error using `ConductorGeometryTolerance` and respects endpoint material targets.
+Managed meshes and detached ONELAB meshes use the same native rules. Physical
 regions remain triangular; the PML grid is transfinite.
 
 The bulk target is `mesh_size_factor*max(layout_radius,L)/20`. A medium's wave

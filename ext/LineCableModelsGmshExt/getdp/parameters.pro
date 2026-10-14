@@ -263,8 +263,11 @@ If(FEMWaveBoxRadius <= MeshDecayEarth)
 EndIf
 If(!FEMAirExcited) MeshWaveAir = MeshRemoteAir; EndIf
 MeshRemoteMax = Max[MeshBulk,Max[MeshRemoteAir,MeshRemoteEarth]];
-MeshFine = 1e300;
+// Relative circle-area error also bounds aligned annular thickness error.
+FEMCircleSegments = 12*2^Max[0,Ceil[Log[Sqrt[2*Pi^2/(3*ConductorGeometryTolerance)]/12]/Log[2]]];
+FEMAnnularLayers = 0; MeshFine = 1e300;
 For region In {0:NumPhysicalRegions-1}
+  FEMAnnularLayers += RegionAnnularPassive~{region};
   FEMRegionTarget = 1e300;
   // Several source sections may form one coalesced material region. Native
   // sizing retains the smallest source target without altering its topology.
@@ -273,7 +276,9 @@ For region In {0:NumPhysicalRegions-1}
     FEMD1 = RegionDimension1~{region}(member); FEMD2 = RegionDimension2~{region}(member);
     FEMRepeated = RegionRepeated~{region}(member);
     If(FEMKind == 1) FEMSize = FEMD1/(FEMRepeated ? 1 : 5);
-    ElseIf(FEMKind == 2) FEMSize = (FEMD1-FEMD2)/2;
+    ElseIf(FEMKind == 2)
+      FEMSize = (FEMD1-FEMD2)/2;
+      If(RegionAnnularPassive~{region}) FEMSize = Max[FEMSize,2*Pi*FEMD1/FEMCircleSegments]; EndIf
     ElseIf(FEMKind == 3) FEMSize = Min[FEMD1,FEMD2]/(FEMRepeated ? 2 : 5);
     ElseIf(FEMKind == 4) FEMSize = Min[FEMD1,FEMD2]/(FEMRepeated ? 1 : 5);
     Else FEMSize = FEMD1/FEMD2;

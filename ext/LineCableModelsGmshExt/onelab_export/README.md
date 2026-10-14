@@ -126,6 +126,15 @@ managed runner. A thin outer layer does not cap another passive layer's interior
 `CableSize` remains the exterior contour/interface target and retains its
 earth-layer clearance and existing layer-boundary spacing roles. There is no
 automatic convergence test or refinement loop.
+Thin passive annuli use triangular transfinite strips with separate thickness
+and tangential resolution. Normal divisions resolve the thickness; angular
+accuracy and shared contour targets set tangential spacing. Shared contours
+retain conforming node counts.
+Polygon conductor outlines retain all piecewise-linear CAD coordinates. Free
+chains use native degree-one polylines, with shared seams, contacts and coordinate
+extrema retained as endpoints. Polyline spacing bounds relative conductor area
+error using `ConductorGeometryTolerance` and respects endpoint material targets.
+These are the same native meshing rules used by managed Julia runs.
 Sectors use native triangular transfinite strips around a 0.1-scale core, with
 192 angular subdivisions at the default and a matching straight-side cap.
 Material/frequency edits recompute the radial counts. The sector strips extend

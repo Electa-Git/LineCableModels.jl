@@ -24,7 +24,7 @@ end
     N=NativeFEMFixtures
     copper=Material(kind=:conductor,rho=1.72e-8,eps_r=1.,mu_r=1.)
     dielectric=Material(kind=:insulator,rho=Inf,eps_r=2.3,mu_r=1.)
-    for (radius,thickness,expected) in ((.0425,.001,384),(.01784,.0083,96))
+    for (radius,thickness,expected) in ((.0425,.001,96),(.01784,.0083,96))
         design=build(CableDesign,"insulated-wire",Stack(
             terminal(:core,Region(:metal,Disk(radius),copper)),
             Region(:insulation,Shell(thickness),dielectric)))
@@ -36,7 +36,11 @@ end
             curves=g.model.get_entities_for_physical_group(1,4001)
             nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in curves)))
             @test length(nodes)==expected
-            @test g.parser.get_number("FEMConductorLayerThickness_0")≈fill(thickness,length(curves))
+            outer=g.model.get_entities_for_physical_group(1,5001)
+            outer_nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in outer)))
+            @test length(outer_nodes)==(thickness==.001 ? length(nodes) : 192)
+            # Corresponding polygon apothems preserve thickness to the circle tolerance.
+            @test 1-cos(π/length(nodes)) < only(g.parser.get_number("ConductorGeometryTolerance"))
         end
     end
 end
@@ -87,8 +91,8 @@ end
                 shared_nodes=unique(reduce(vcat,(first(g.model.mesh.get_nodes(1,c,true)) for c in shared_curves)))
                 @test !isempty(shared)
                 @test all(isapprox.(thicknesses[shared],shell))
-                @test all(in(targets),shared_curves)
-                @test length(shared_nodes)>=384
+                @test isempty(intersect(targets,shared_curves))
+                @test length(shared_nodes)==96
                 println("Layer boundary: semicon/insulation nodes=$(length(shared_nodes))")
             else
                 @test all(isapprox.(radii,radius+insulation))
@@ -200,6 +204,10 @@ end
         g.option.set_number("General.Verbosity",3)
         number(name)=only(g.parser.get_number(name))
         @test number("FrequencyHz")==251188.6431509582
+        # Splitting a circular contour at an off-axis contact must not invent
+        # a new surface target for every rounded short-arc element count.
+        radii=g.parser.get_number("FEMLayerBoundaryRadii")
+        @test number("FEMLayerGroups") <= length(unique(Base.round.(radii;digits=12)))
         regions=0:Int(number("NumPhysicalRegions"))-1
         round=only(filter(r -> number("FEMConductor_$r")==1 &&
             number("FEMConductorKind_$r")==1,regions))
@@ -214,5 +222,19 @@ end
         @test !isempty(first(g.model.mesh.get_elements(2)))
         @test !any(line -> occursin("intersections in the 1D mesh",line) ||
             occursin("Edge not recovered",line),g.logger.get())
+        for group in 0:Int(number("FEMLayerGroups"))-1
+            group_curves=g.parser.get_number("FEMLayerGroupCurves_$group")
+            distances=filter(f -> fields.get_type(f)=="Distance" &&
+                Set(fields.get_numbers(f,"CurvesList"))==Set(group_curves),fields.list())
+            spacing=number("FEMLayerGroupSpacing_$group")
+            threshold=only(filter(f -> fields.get_type(f)=="Threshold" &&
+                fields.get_number(f,"SizeMin")==spacing &&
+                fields.get_number(f,"InField") in distances,fields.list()))
+            distance=Int(fields.get_number(threshold,"InField"))
+            # Sixteen samples per required arc interval; a short CAD arc must
+            # not receive an entire circle's budget on every subdivision.
+            intervals=maximum(sum(length,g.model.mesh.get_elements(1,Int(c))[2]) for c in group_curves)
+            @test fields.get_number(distance,"Sampling")<=max(100,16intervals)
+        end
     end
 end
