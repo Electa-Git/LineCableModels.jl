@@ -24,7 +24,8 @@
     @test resolved.regions[2].primitive == DM.Annulus(0.01, 0.015)
     @test DM.boundary(resolved) == DM.Disk(0.015)
     @test_throws ArgumentError DM.Stack(DM.AbstractCablePart[])
-    @test_throws MethodError DM.resolve(DM.EmptyBoundary(), DM.Stack(insulation))
+    @test_throws "has no preceding part to surround" DM.resolve(DM.EmptyBoundary(),
+        DM.Stack(insulation))
 
     nested=PB.Stack(PB.Stack(core), insulation)
     nested_resolved=DM.resolve(DM.EmptyBoundary(), nested)

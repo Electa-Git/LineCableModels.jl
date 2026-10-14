@@ -185,8 +185,15 @@ sector_core = stranded(
 reconstruction determines the resolved outline. The geometric boundary constrains
 the aggregate shape without adding a homogeneous conductor or a fictitious wire
 at the cable origin.
-Rectangular strands are admitted only in a circular core with an explicit
-center wire. They are always bent area-preservingly into annular courses.
+Rectangular strands are admitted only in a circular core, around an explicit center
+wire or a preceding part. They are always bent area-preservingly into annular courses.
+
+`stranded` can also follow a part, such as the gel-filled tube of an optical ground wire
+or the oil duct of a hollow conductor. The wires then fill the ring between the circular
+outline of that part and the disk boundary, and the stranded construction has no center of
+its own. Natural wires fill the first course with as many wires as fit around the outline,
+and each next course with six more. Rectangular strands bend around the outline.
+Compaction, a sector boundary and a non-circular outline are not supported after a part.
 
 ## Independent cores and enclosures
 
@@ -516,8 +523,8 @@ geometry throughout its support. See [joint geometric inputs](gridspace.md#Feasi
 
 ### Rectangular stranded core
 
-Rectangular source strands require a circular center wire. They are always
-bent into contiguous annular courses. The radial deformation preserves the
+Rectangular source strands surround a circular center wire or a preceding part.
+They are always bent into contiguous annular courses. The radial deformation preserves the
 area of every source rectangle. A one-strand course remains a complete annulus.
 The specified `boundary` determines the strand inventory, but the resolved
 physical boundary is the actual occupied metal disk. No outer `stranded_fill`

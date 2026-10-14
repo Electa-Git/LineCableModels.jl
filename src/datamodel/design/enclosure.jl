@@ -424,6 +424,32 @@ function resolve(context::AbstractShape, ::Enclosure{<:Pose2, <:Annulus})
     ))
 end
 
+# After a part, the enclosure of stranded wires fills the ring between the preceding
+# circular outline and its disk boundary. The wires surround that outline, and the fill
+# takes the rest of the ring.
+function resolve(
+        context::Disk,
+        enclosure::Enclosure{
+            <:Pose2, <:Disk, <:Group{<:Pose2, <:Stack, <:Any, <:Any, <:Any, <:Disk}}
+)
+    container = resolve(EmptyBoundary(), enclosure.primitive)
+    contents = resolve(Disk(context.r, container.at), enclosure.contents)
+    ring = Annulus(context.r, container.r, container.at)
+    validate(context, enclosure, resolve(enclosure.at, ring))
+    return _resolve_enclosure(enclosure, ring, contents)
+end
+
+function resolve(
+        ::AbstractShape,
+        ::Enclosure{<:Pose2, <:Union{Disk, Sector},
+            <:Group{<:Pose2, <:Stack, <:Any, <:Any, <:Any, <:Union{Disk, Sector}}}
+)
+    throw(ArgumentError(
+        "after a part, a stranded formation takes a Disk boundary around a circular " *
+        "outline; a Sector boundary starts at the cable center"
+    ))
+end
+
 function resolve(::AbstractShape, ::Enclosure)
     throw(ArgumentError(
         "a contextual Enclosure requires an annular containing primitive"

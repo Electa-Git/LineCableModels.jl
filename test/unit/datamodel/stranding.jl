@@ -48,6 +48,87 @@
     end
 end
 
+@testitem "DataModel / stranding / a formation after a part fills the ring" tags=[:unit, :parametric] begin
+    import LineCableModels.DataModel as DM
+    aluminum = Material(kind=:conductor, rho=2.8264e-8)
+    copper = Material(kind=:conductor, rho=1.7241e-8)
+    gel = Material(kind=:insulator, rho=1e12, eps_r=2.2)
+    oil = Material(kind=:insulator, rho=1e13, eps_r=2.2)
+    pe = Material(kind=:insulator, rho=Inf, eps_r=2.3)
+
+    # An OPGW has a gel-filled aluminium tube, then rectangular strands bent around it. The
+    # courses follow the rule at the cable center, with the tube in place of the center wire.
+    strand = Rectangle(3e-3, 2e-3)
+    opgw = build(CableDesign, "opgw", filler(gel, Disk(2.5e-3)),
+        terminal(:core, sheath(aluminum; t=0.5e-3),
+            stranded(aluminum; shape=strand, boundary=Disk(7e-3), lay=LayRatio(12))),
+        insulation(pe; t=1e-3))
+    tube = only(filter(placed -> placed.source.tag === :sheath, opgw.geometry.regions))
+    strips = filter(placed -> placed.source.primitive == strand, opgw.geometry.regions)
+    courses = [only(entry.pattern.course for entry in placed.placement.patterns
+                    if entry.pattern isa DM.BoundedPlacement) for placed in strips]
+    @test [count(==(course), courses) for course in 1:2] == [8, 12]
+    @test all(placed -> placed.primitive isa DM.BentStrip, strips)
+    @test all(placed -> placed.primitive.ri == tube.primitive.ro,
+        strips[courses .== 1])
+    @test all(placed -> area(placed.primitive) ≈ area(strand), strips)
+    occupied = sqrt(tube.primitive.ro^2 + 20area(strand) / pi)
+    @test maximum(placed -> placed.primitive.ro, strips) ≈ occupied
+    @test last(opgw.geometry.regions).primitive.ri ≈ occupied
+
+    # In a hollow conductor, round wires surround an oil duct. The first course holds the 15
+    # wires that fit around the duct, and each next course six more.
+    wire = Disk(1.5e-3)
+    oil_duct = filler(oil, Disk(6e-3))
+    hollow = build(CableDesign, "hollow-conductor", oil_duct,
+        terminal(:core, stranded(copper; shape=wire, boundary=Disk(15e-3), lay=LayRatio(14))),
+        insulation(pe; t=2e-3))
+    wires = filter(placed -> placed.terminal === :core, hollow.geometry.regions)
+    courses = [only(entry.pattern.course for entry in placed.placement.patterns
+                    if entry.pattern isa DM.BoundedPlacement) for placed in wires]
+    @test [count(==(course), courses) for course in 1:3] == [15, 21, 27]
+    centers = [centroid(placed.primitive) for placed in wires]
+    for (course, radius) in zip(1:3, (7.5e-3, 10.5e-3, 13.5e-3))
+        @test all(center -> hypot(center...) ≈ radius, centers[courses .== course])
+    end
+    @test all(hypot((left .- right)...) >= 2wire.r * (1 - 1e-12)
+              for (index, left) in enumerate(centers) for right in centers[(index + 1):end])
+    filled = only(filter(placed -> placed.source.tag === :stranded_fill,
+        hollow.geometry.regions))
+    @test (filled.primitive.outer.ri, filled.primitive.outer.ro) == (6e-3, 15e-3)
+    @test area(filled.primitive) ≈ pi * (15e-3^2 - 6e-3^2) - 63area(wire)
+
+    # A formation after an insulated core starts at the insulation and computes.
+    insulated = build(CableDesign, "stranded-neutral", terminal(:core, core(copper; r=3e-3)),
+        insulation(pe; t=2e-3),
+        terminal(:neutral, stranded(copper; shape=Disk(0.5e-3), boundary=Disk(7e-3))),
+        insulation(pe; t=1e-3))
+    neutral = last(DM.flatten(insulated, Float64).conductors)
+    @test neutral.r_in == 5e-3
+    @test neutral.r_ex ≈ 7e-3
+    @test all(isfinite, compute(CableConstantsProblem(insulated)).R)
+
+    @test_throws "has no center of its own" build(CableDesign, "duct-center", oil_duct,
+        terminal(:core, stranded(copper; center=Disk(1e-3), shape=wire, boundary=Disk(15e-3))))
+    @test_throws "takes natural wires" build(CableDesign, "duct-compact", oil_duct,
+        terminal(:core, stranded(copper; shape=wire, compact=true, boundary=Disk(15e-3))))
+    @test_throws "takes a Disk boundary around a circular outline" build(CableDesign,
+        "duct-sector", oil_duct, terminal(:core, stranded(copper; shape=Disk(0.5e-3),
+            boundary=Sector(2pi / 3, 1.5e-3, 8e-3, 0.6e-3))))
+    @test_throws "concentric with and outside the preceding part" build(CableDesign,
+        "duct-inside", oil_duct, terminal(:core, stranded(copper; shape=wire, boundary=Disk(5e-3))))
+    @test_throws "less than one wire diameter around the center wire or the preceding part" build(
+        CableDesign, "duct-thin", oil_duct,
+        terminal(:core, stranded(copper; shape=wire, boundary=Disk(8e-3))))
+    for shape in (wire, strand)
+        @test_throws "takes a Disk boundary around a circular outline" build(CableDesign,
+            "after-rectangle", filler(oil, Rectangle(4e-3, 4e-3)),
+            terminal(:core, stranded(aluminum; shape, boundary=Disk(15e-3))))
+    end
+    @test_throws "requires center=Disk(...)" build(CableDesign, "rods-at-center",
+        terminal(:core, stranded(aluminum; shape=strand, boundary=Disk(7e-3))))
+end
+
 @testitem "DataModel / stranding / clipped disks conserve area inside cells" tags=[:unit, :measurements] begin
     using Measurements: measurement, value, uncertainty
     import LineCableModels.DataModel as DM

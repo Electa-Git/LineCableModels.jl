@@ -677,9 +677,6 @@ function nested_conductor_zone(
         all(==(envelope), bounded) || throw(ArgumentError(
             "one nested conductor cannot combine different bounded formations"
         ))
-        iszero(expected_inner) || throw(ArgumentError(
-            "a bounded stranded formation must be the innermost conductor"
-        ))
         sqrt(convert(T, area(envelope)) / (one(T) * π))
     else
         maximum(

@@ -515,11 +515,13 @@ function _stranded(
         :stranded, DataModel.Pose2(0, 0, 0), prescribed_boundary, bounded, fill, nothing)
 end
 
-# In a rectangular core, bent courses of a Rectangle strand surround a Disk center wire. The
-# bounded Group is the part, because its contiguous courses fill their whole disk.
+# In a rectangular core, bent courses of a Rectangle strand surround a Disk center wire, or
+# the outline of a preceding part. The center defaults to `shape`, which only a formation
+# around a part admits. The bounded Group is the part, because its contiguous courses fill
+# their whole disk.
 function _stranded(
         material,
-        center::DataModel.Disk,
+        center::Union{Nothing, DataModel.Disk},
         shape::DataModel.Rectangle,
         lay,
         dir,
@@ -533,6 +535,7 @@ function _stranded(
     compact === nothing || throw(ArgumentError(
         "rectangular strands are intrinsically bent; omit compact"
     ))
+    center === nothing && (center = shape)
     return _stranded_core(
         material, center, shape, _stranding_paths(lay, dir, φ0), true, prescribed_boundary)
 end
@@ -658,6 +661,10 @@ Circular source bundles have one center strand. Natural wires fill the first cou
 many wires as fit around it, and each next course with six more. Compacted wires take `6k` in
 course `k`.
 
+After a part, the wires fill the ring between the circular outline of that part and the
+disk boundary, and the formation has no center of its own. Natural wires and bent
+rectangular courses start at that outline, by the same rules.
+
 A sector admits the largest complete inventory satisfying
 ``[1 + 3L(L+1)]\\,\\pi a^2 \\leq A_{\\mathrm{sector}}``. Its mapped sites define
 a prescribed-area power diagram. Disks clipped to those cells retain each
@@ -676,12 +683,14 @@ layers start there, without an automatically generated outer filler film.
 # Keywords
 
 - `center=nothing`: circular center member for a disk-bounded core. Circular
-  strands default to one center wire equal to `shape`. Rectangular strands
-  require an explicit `Disk`. A sector bundle infers its center strand from
-  `shape` and does not admit a separate center declaration.
+  strands default to one center wire equal to `shape`. Rectangular strands at the
+  cable center require an explicit `Disk`. A formation after a part admits no
+  center. A sector bundle infers its center strand from `shape` and does not admit a
+  separate center declaration.
 - `shape`: circular wire or rectangular strand primitive.
-- `boundary`: nonhollow `Disk` or `Sector` core boundary. For rectangular
-  strands, a `Disk` packing limit rather than an imposed finished radius.
+- `boundary`: nonhollow `Disk` or `Sector` core boundary, or a `Disk` around a
+  preceding part. For rectangular strands, a `Disk` packing limit rather than an
+  imposed finished radius.
 - `fill=air`: interstitial insulating or semiconducting material, unused by
   contiguous rectangular courses. The default
   is lossless air (``\\rho=\\infty``, ``\\epsilon_r=\\mu_r=1``).
@@ -689,8 +698,8 @@ layers start there, without an automatically generated outer filler film.
 - `dir=1`: helix handedness or a schedule matching `lay`.
 - `φ0=0`: helix initial angle or a schedule matching `lay` \\[rad\\].
 - `compact=nothing`: circular disk-bounded strands remain circular by default.
-  `true` requests area-preserving deformation. Sector and rectangular
-  wire stranding are intrinsically deformed and do not admit this keyword.
+  `true` requests area-preserving deformation at the cable center. Sector and
+  rectangular wire stranding are intrinsically deformed and do not admit this keyword.
 - `combine=:product`: gridspace composition rule.
 
 # Returns
@@ -821,7 +830,8 @@ function _milliken(
         segment,
         fill
     )
-    _, _, segment_primitives = DataModel.bounded_members(segment_part.contents)
+    _, _, segment_primitives = DataModel.bounded_members(
+        DataModel.EmptyBoundary(), segment_part.contents)
     center_radius = minimum(_inner_radius, segment_primitives)
     center_radius > zero(center_radius) || throw(DomainError(
         center_radius,
@@ -1273,7 +1283,10 @@ function pipe(
         at = nothing,
         combine::Symbol = :product
 )
-    isempty(items) && throw(ArgumentError("pipe requires enclosed content"))
+    isempty(items) && throw(ArgumentError(
+        "pipe requires enclosed content; build a filled tube as " *
+        "filler(material, Disk(ri)) followed by sheath(material; t)"
+    ))
     caller = (selected...) -> begin
         count = length(items)
         physical = selected[1:count]
@@ -1313,7 +1326,10 @@ function duct(
         at = nothing,
         combine::Symbol = :product
 )
-    isempty(items) && throw(ArgumentError("duct requires enclosed content"))
+    isempty(items) && throw(ArgumentError(
+        "duct requires enclosed content; build a filled tube as " *
+        "filler(material, Disk(ri)) followed by sheath(material; t)"
+    ))
     caller = (selected...) -> begin
         count = length(items)
         physical = selected[1:count]

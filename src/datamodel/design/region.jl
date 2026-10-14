@@ -148,8 +148,18 @@ area(placed::PlacedRegion) = area(placed.primitive)
 centroid(placed::PlacedRegion) = centroid(placed.primitive)
 support(placed::PlacedRegion, φ::Real) = support(placed.primitive, φ)
 
+# A shell grows outward from the outline of a preceding part. At the cable center there is
+# none.
+validate(region::Region, ::Union{EmptyBoundary, AbstractShape}) = region
+function validate(region::Region{<:Shell}, ::EmptyBoundary)
+    throw(ArgumentError(
+        "the shell :$(region.tag) has no preceding part to surround; start a tube with " *
+        "core(material, Annulus(ri, ro)), or with a filler and then the shell"
+    ))
+end
+
 function resolve(context::Union{EmptyBoundary, AbstractShape}, region::Region)
-    primitive = resolve(context, region.primitive)
+    primitive = resolve(context, validate(region, context).primitive)
     placed = PlacedRegion(region, primitive)
     return CableGeometry(PlacedRegion[placed], boundary(placed))
 end

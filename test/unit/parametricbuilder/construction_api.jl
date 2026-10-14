@@ -485,6 +485,15 @@ This literal is documentation, not a cable part.
     @test expanded.args[1] == GlobalRef(LineCableModels.ParametricBuilder, :terminal)
     @test expanded.args[2] == QuoteNode(:phase)
     @test length(expanded.args) == 4
+
+    # A tube starts with a filler or an annular core, because a shell needs a part to
+    # surround and a pipe or duct needs content.
+    @test_throws "start a tube with core(material, Annulus(ri, ro))" build(CableDesign,
+        "bare-shell", terminal(:tube, sheath(copper; t = 1e-3)))
+    for enclose in (pipe, duct)
+        @test_throws "filler(material, Disk(ri)) followed by sheath(material; t)" enclose(;
+            shape = Disk(2e-3), fill = xlpe)
+    end
 end
 
 @testitem "ParametricBuilder / construction API / repetition and compaction" tags=[:unit, :measurements, :slow] begin
@@ -523,7 +532,7 @@ end
         Helix(LayRatio(12); dir = 1, φ0 = 0.0),
         Helix(Pitch(0.2); dir = -1, φ0 = 0.1)
     )
-    _, round_members, round_shapes = DM.bounded_members(round_group)
+    _, round_members, round_shapes = DM.bounded_members(DM.EmptyBoundary(), round_group)
     @test [count(member -> member.course == course, round_members)
            for course in 1:2] == [6, 12]
     @test all(shape -> shape isa Disk, round_shapes)

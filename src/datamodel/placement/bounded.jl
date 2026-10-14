@@ -445,30 +445,31 @@ function course_count(available_area, strand_area)
     return courses
 end
 
-function circular_courses(shape::Disk, center::Disk, wire::Disk, compact::Bool)
+function circular_courses(shape::Disk, inner::Disk, wire::Disk, compact::Bool)
     courses = if compact
-        course_count(area(shape) - area(center), area(wire))
+        course_count(area(shape) - area(inner), area(wire))
     else
-        ratio = nominal((shape.r - center.r) / (2wire.r))
+        ratio = nominal((shape.r - inner.r) / (2wire.r))
         floor(Int, ratio + 64eps(float(ratio)))
     end
     courses >= 1 || throw(DomainError(
-        wire.r, "the disk boundary admits no complete six-wire course"
+        wire.r, "the disk boundary leaves less than one wire diameter around the " *
+                "center wire or the preceding part"
     ))
-    source_area = area(center) + 3courses * (courses + 1) * area(wire)
+    source_area = area(inner) + 3courses * (courses + 1) * area(wire)
     # Natural wires: the first course holds as many wires as fit at its radius, and each
     # next course six more. Compaction keeps 6k wires in course k.
     first_count = compact ? 6 :
-                  capacity(Ring, nominal(center.r + wire.r), nominal(wire.r))
+                  capacity(Ring, nominal(inner.r + wire.r), nominal(wire.r))
     sites = NamedTuple[]
     for course in 1:courses
         count = first_count + 6(course - 1)
         radius = if compact
-            area_before = area(center) + 3(course - 1) * course * area(wire)
+            area_before = area(inner) + 3(course - 1) * course * area(wire)
             area_middle = area_before + 3course * area(wire)
             shape.r * sqrt(area_middle / source_area)
         else
-            center.r + (2course - 1) * wire.r
+            inner.r + (2course - 1) * wire.r
         end
         phase = isodd(course) ? zero(radius) : π / count
         for member in 1:count
@@ -487,40 +488,42 @@ function circular_courses(shape::Disk, center::Disk, wire::Disk, compact::Bool)
     return sites
 end
 
-function rectangular_strands(shape::Disk, center::Disk, strand::Rectangle)
-    remaining_area = area(shape) - area(center)
+function rectangular_strands(shape::Disk, inner::Disk, strand::Rectangle)
+    remaining_area = area(shape) - area(inner)
     remaining_area > zero(remaining_area) || throw(DomainError(
-        center.r, "the center wire leaves no area for rectangular strands"
+        inner.r, "the center wire or the preceding part leaves no area for " *
+                 "rectangular strands"
     ))
     count = floor(Int, nominal(remaining_area / area(strand)) +
                        64eps(float(nominal(remaining_area / area(strand)))))
     count > 0 || throw(DomainError(
-        area(strand), "one rectangular strand does not fit outside the center wire"
+        area(strand), "one rectangular strand does not fit outside the center wire " *
+                      "or the preceding part"
     ))
     result = NamedTuple[]
-    inner = center.r
+    radius = inner.r
     remaining = count
     course = 0
     while remaining > 0
         course += 1
-        mean_radius = inner + strand.h / 2
+        mean_radius = radius + strand.h / 2
         nominal_count = max(1, floor(Int, nominal(2pi * mean_radius / strand.w)))
         member_count = min(remaining, nominal_count)
-        outer = sqrt(inner^2 + member_count * area(strand) / pi)
+        outer = sqrt(radius^2 + member_count * area(strand) / pi)
         if outer > shape.r
             member_count = min(
                 remaining,
-                floor(Int, nominal(pi * (shape.r^2 - inner^2) / area(strand)))
+                floor(Int, nominal(pi * (shape.r^2 - radius^2) / area(strand)))
             )
             member_count > 0 || break
-            outer = sqrt(inner^2 + member_count * area(strand) / pi)
+            outer = sqrt(radius^2 + member_count * area(strand) / pi)
         end
         span = 2pi / member_count
         for member in 1:member_count
             angle = (member - 1) * span
             pose = Pose2(shape.at.x, shape.at.y, shape.at.φ + angle)
-            primitive = member_count == 1 ? Annulus(inner, outer, pose) :
-                        BentStrip(inner, outer, span, pose)
+            primitive = member_count == 1 ? Annulus(radius, outer, pose) :
+                        BentStrip(radius, outer, span, pose)
             push!(result, (
                 primitive,
                 site = centroid(primitive),
@@ -528,7 +531,7 @@ function rectangular_strands(shape::Disk, center::Disk, strand::Rectangle)
                 member
             ))
         end
-        inner = outer
+        radius = outer
         remaining -= member_count
     end
     return result

@@ -193,13 +193,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct the members and placed primitives of a bounded wire formation from
-its physical boundary, ordered part declarations, and compaction selection.
-Coordinates and dimensions are in meters. Return `(boundary, members, primitives)` in
-construction order. The center and strand declarations select the formation. Disk wires
-pack in circular courses, and a Rectangle strand bends around a Disk center wire.
+Construct the members and placed primitives of a bounded wire formation from its
+geometric context, physical boundary, ordered part declarations, and compaction
+selection. Coordinates and dimensions are in meters. Return `(boundary, members,
+primitives)` in construction order. The center and strand declarations select the
+formation. At the cable center, the courses surround the center wire. Around a preceding
+part, they surround its outline, and the formation has no center of its own. Disk wires
+pack in circular courses, and a Rectangle strand bends around the inner disk.
 """
-function bounded_members(boundary_shape::Disk, parts, compact::Bool)
+function bounded_members(::EmptyBoundary, boundary_shape::Disk, parts::AbstractVector,
+        compact::Bool)
     length(parts) == 2 || throw(ArgumentError(
         "a disk-bounded stranded core requires center and strand declarations"
     ))
@@ -207,38 +210,98 @@ function bounded_members(boundary_shape::Disk, parts, compact::Bool)
     return bounded_members(boundary_shape, center_part, strand_part, compact)
 end
 
+# Around a part, the center declaration is the default, the course wire itself, and the
+# formation does not place it.
+function bounded_members(context::Disk, boundary_shape::Disk, parts::AbstractVector,
+        compact::Bool)
+    length(parts) == 2 || throw(ArgumentError(
+        "a disk-bounded stranded core requires center and strand declarations"
+    ))
+    center_part, strand_part = parts
+    center_part.member == strand_part.member || throw(ArgumentError(
+        "a stranded formation around a part has no center of its own; omit center"
+    ))
+    isapprox(context.at.x, boundary_shape.at.x) &&
+        isapprox(context.at.y, boundary_shape.at.y) && context.r < boundary_shape.r ||
+        throw(DomainError(
+            context,
+            "the formation boundary must be concentric with and outside the preceding part"
+        ))
+    return bounded_members(context, boundary_shape, strand_part, compact)
+end
+
+# Around a part, Disk wires stay natural. Compaction in a ring waits for a real case.
 function bounded_members(
+        context::Disk,
         boundary_shape::Disk,
-        center_part::Group{<:Pose2, <:Region{<:Disk}},
         strand_part::Group{<:Pose2, <:Region{<:Disk}},
         compact::Bool
 )
+    compact && throw(ArgumentError(
+        "a stranded formation around a part takes natural wires; omit compact"
+    ))
+    return bounded_members(boundary_shape, context, NamedTuple[], strand_part, compact)
+end
+
+function bounded_members(
+        context::Disk,
+        boundary_shape::Disk,
+        strand_part::Group{<:Pose2, <:Region{<:Rectangle}},
+        compact::Bool
+)
+    return bounded_members(boundary_shape, context, NamedTuple[], strand_part, compact)
+end
+
+function bounded_members(
+        boundary_shape::Disk,
+        center_part::Group{<:Pose2, <:Region{<:Disk}},
+        strand_part::Group{<:Pose2, <:Region{<:Union{Disk, Rectangle}}},
+        compact::Bool
+)
     center = center_part.member.primitive
-    strand = strand_part.member.primitive
     center.r <= boundary_shape.r || throw(DomainError(
         center.r, "the center wire exceeds the circular core boundary"
     ))
-
-    outer = circular_courses(boundary_shape, center, strand, compact)
-    sites = [(
-        site = (boundary_shape.at.x, boundary_shape.at.y),
+    inside = NamedTuple[(
+        source = center_part.member,
         course = 0,
         member = 1,
-        angle = zero(boundary_shape.r)
-    ); outer]
-    maximum_course = maximum(getproperty.(sites, :course))
-    members = NamedTuple[]
-    for (member, placement) in enumerate(sites)
-        source = member == 1 ? center_part.member : strand_part.member
-        path = member == 1 ? nothing :
-               strand_path(strand_part.path, placement.course, maximum_course)
-        angle = placement.angle
+        path = nothing,
+        angle = zero(boundary_shape.r),
+        site = (boundary_shape.at.x, boundary_shape.at.y)
+    )]
+    return bounded_members(boundary_shape, center, inside, strand_part, compact)
+end
+
+# At the cable center, the default center of rectangular strands, the strand itself, is not
+# a wire to bend around.
+function bounded_members(
+        boundary_shape::Disk,
+        center_part::Group{<:Pose2, <:Region{<:Rectangle}},
+        strand_part::Group{<:Pose2, <:Region{<:Rectangle}},
+        compact::Bool
+)
+    throw(ArgumentError("a rectangular stranded core requires center=Disk(...)"))
+end
+
+# Circular courses of Disk wires surround the inner disk and follow the members inside it.
+function bounded_members(
+        boundary_shape::Disk,
+        inner::Disk,
+        inside::AbstractVector,
+        strand_part::Group{<:Pose2, <:Region{<:Disk}},
+        compact::Bool
+)
+    sites = circular_courses(boundary_shape, inner, strand_part.member.primitive, compact)
+    maximum_course = maximum(site.course for site in sites)
+    members = NamedTuple[inside...]
+    for placement in sites
         push!(members, (;
-            source,
+            source = strand_part.member,
             placement.course,
-            member,
-            path,
-            angle,
+            member = length(members) + 1,
+            path = strand_path(strand_part.path, placement.course, maximum_course),
+            placement.angle,
             placement.site
         ))
     end
@@ -248,29 +311,24 @@ function bounded_members(
     return boundary_shape, members, primitives
 end
 
+# Bent courses of a Rectangle strand surround the inner disk, after the members inside it at
+# the formation center.
 function bounded_members(
         boundary_shape::Disk,
-        center_part::Group{<:Pose2, <:Region{<:Disk}},
+        inner::Disk,
+        inside::AbstractVector,
         strand_part::Group{<:Pose2, <:Region{<:Rectangle}},
         compact::Bool
 )
     compact || throw(ArgumentError(
         "rectangular strands require area-preserving bending"
     ))
-    center = center_part.member.primitive
-    strand = strand_part.member.primitive
-    strips = rectangular_strands(boundary_shape, center, strand)
-    maximum_course = maximum(getproperty.(strips, :course))
-    members = NamedTuple[(
-        source = center_part.member,
-        course = 0,
-        member = 1,
-        path = nothing,
-        angle = zero(boundary_shape.r),
-        site = (boundary_shape.at.x, boundary_shape.at.y)
-    )]
+    strips = rectangular_strands(boundary_shape, inner, strand_part.member.primitive)
+    maximum_course = maximum(strip.course for strip in strips)
+    members = NamedTuple[inside...]
     primitives = AbstractShape[
-        resolve(Pose2(boundary_shape.at.x, boundary_shape.at.y, boundary_shape.at.φ), center)
+        resolve(Pose2(boundary_shape.at.x, boundary_shape.at.y, boundary_shape.at.φ),
+            member.source.primitive) for member in inside
     ]
     for strip in strips
         push!(members, (
@@ -306,22 +364,26 @@ function sector_members(boundary_shape::SectorShape, parts)
     return members, primitives
 end
 
-function bounded_members(boundary_shape::SectorShape, parts, ::Nothing)
+function bounded_members(::EmptyBoundary, boundary_shape::SectorShape, parts::AbstractVector,
+        ::Nothing)
     return boundary_shape, sector_members(boundary_shape, parts)...
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Resolve a bounded wire group into `(boundary_shape, members, primitives)`.
-The returned geometric boundary follows the group's pose and the occupied rectangular
-courses when present. Coordinates and dimensions are in meters. Member and
-primitive order follows construction. An empty formation raises `ArgumentError`.
+Resolve a bounded wire group in its geometric context into `(boundary_shape, members,
+primitives)`. The context is `EmptyBoundary()` at the cable center, or the circular outline
+of the preceding part. The returned geometric boundary follows the group's pose and the
+occupied rectangular courses when present. Coordinates and dimensions are in meters.
+Member and primitive order follows construction. An empty formation raises
+`ArgumentError`.
 """
-function bounded_members(group::Group)
+function bounded_members(context::Union{EmptyBoundary, Disk}, group::Group)
     boundary_shape = resolve(group.at, group.boundary)
     parts = bounded_declarations(group)
-    outer, members, primitives = bounded_members(boundary_shape, parts, group.compact)
+    outer, members, primitives = bounded_members(context, boundary_shape, parts,
+        group.compact)
     isempty(members) && throw(ArgumentError(
         "a bounded formation requires at least one strand"
     ))
@@ -340,8 +402,8 @@ function bounded_pose(absolute, origin::Pose2, angle)
     )
 end
 
-function resolve_bounded(group::Group)
-    outer, members, primitives = bounded_members(group)
+function resolve_bounded(context::Union{EmptyBoundary, Disk}, group::Group)
+    outer, members, primitives = bounded_members(context, group)
     length(primitives) == length(members) || throw(DimensionMismatch(
         "bounded resolution must preserve the inferred strand count"
     ))
@@ -437,6 +499,8 @@ function _minimum_radius(primitive::Union{Annulus, BentStrip})
     iszero(primitive.at.x) && iszero(primitive.at.y) && return r_in(primitive)
     return invoke(_minimum_radius, Tuple{AbstractShape}, primitive)
 end
+# Holes only remove area. The outer primitive of a fill bounds its minimum radius from below.
+_minimum_radius(primitive::DifferenceShape) = _minimum_radius(primitive.outer)
 function _minimum_radius(primitive::AbstractShape)
     center = centroid(primitive)
     center_radius = hypot(center...)
@@ -445,19 +509,27 @@ function _minimum_radius(primitive::AbstractShape)
     return -support(primitive, φ + pi)
 end
 
-# A bounded formation is the innermost physical formation.
+# At the cable center, a bounded formation fills its whole disk or sector. After a part, a
+# formation in a disk fills the ring between the circular outline of that part and the disk.
 function _resolve_group(
-        ::EmptyBoundary,
+        context::EmptyBoundary,
         group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Union{Disk, Sector}}
 )
-    return resolve_bounded(group)
+    return resolve_bounded(context, group)
+end
+function _resolve_group(
+        context::Disk,
+        group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Disk}
+)
+    return resolve_bounded(context, group)
 end
 function _resolve_group(
         ::AbstractShape,
         ::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Union{Disk, Sector}}
 )
     throw(ArgumentError(
-        "a bounded stranded formation must be the innermost physical formation"
+        "after a part, a stranded formation takes a Disk boundary around a circular " *
+        "outline; a Sector boundary starts at the cable center"
     ))
 end
 
