@@ -47,18 +47,18 @@
                             "name": "core",
                             "pattern": null,
                             "compact": null,
-                            "item": {
+                            "member": {
                                 "kind": "stack",
                                 "items": [
                                     {
                                         "kind": "enclosure",
                                         "tag": "stranded",
-                                        "item": {
+                                        "contents": {
                                             "kind": "group",
                                             "name": "core",
                                             "pattern": null,
                                             "compact": true,
-                                            "item": {
+                                            "member": {
                                                 "kind": "stack",
                                                 "items": [
                                                     {
@@ -66,7 +66,7 @@
                                                         "name": "strand",
                                                         "pattern": null,
                                                         "compact": null,
-                                                        "item": {
+                                                        "member": {
                                                             "kind": "region",
                                                             "tag": "wire",
                                                             "material": "conductor_1",
@@ -101,7 +101,7 @@
                                                         "name": "strand",
                                                         "pattern": null,
                                                         "compact": null,
-                                                        "item": {
+                                                        "member": {
                                                             "kind": "region",
                                                             "tag": "wire",
                                                             "material": "conductor_1",
@@ -328,7 +328,7 @@
                             "name": "sheath",
                             "pattern": null,
                             "compact": null,
-                            "item": {
+                            "member": {
                                 "kind": "stack",
                                 "items": [
                                     {
@@ -355,7 +355,7 @@
                                             "n": 49
                                         },
                                         "compact": null,
-                                        "item": {
+                                        "member": {
                                             "kind": "region",
                                             "tag": "screen_wire",
                                             "material": "conductor_7",
@@ -420,7 +420,7 @@
                                             "n": 1
                                         },
                                         "compact": null,
-                                        "item": {
+                                        "member": {
                                             "kind": "region",
                                             "tag": "copper_tape",
                                             "material": "conductor_7",
@@ -505,7 +505,7 @@
                             "name": "jacket",
                             "pattern": null,
                             "compact": null,
-                            "item": {
+                            "member": {
                                 "kind": "stack",
                                 "items": [
                                     {
@@ -602,18 +602,18 @@
                             "name": "core",
                             "pattern": null,
                             "compact": null,
-                            "item": {
+                            "member": {
                                 "kind": "stack",
                                 "items": [
                                     {
                                         "kind": "enclosure",
                                         "tag": "stranded",
-                                        "item": {
+                                        "contents": {
                                             "kind": "group",
                                             "name": "core",
                                             "pattern": null,
                                             "compact": true,
-                                            "item": {
+                                            "member": {
                                                 "kind": "stack",
                                                 "items": [
                                                     {
@@ -621,7 +621,7 @@
                                                         "name": "strand",
                                                         "pattern": null,
                                                         "compact": null,
-                                                        "item": {
+                                                        "member": {
                                                             "kind": "region",
                                                             "tag": "wire",
                                                             "material": "conductor_7",
@@ -656,7 +656,7 @@
                                                         "name": "strand",
                                                         "pattern": null,
                                                         "compact": null,
-                                                        "item": {
+                                                        "member": {
                                                             "kind": "region",
                                                             "tag": "wire",
                                                             "material": "conductor_7",
@@ -824,7 +824,7 @@
                             "name": "sheath",
                             "pattern": null,
                             "compact": null,
-                            "item": {
+                            "member": {
                                 "kind": "stack",
                                 "items": [
                                     {
@@ -888,7 +888,7 @@
                             "name": "armor",
                             "pattern": null,
                             "compact": null,
-                            "item": {
+                            "member": {
                                 "kind": "stack",
                                 "items": [
                                     {
@@ -912,7 +912,7 @@
                                             "n": 68
                                         },
                                         "compact": null,
-                                        "item": {
+                                        "member": {
                                             "kind": "region",
                                             "tag": "armor_wire",
                                             "material": "conductor_10",

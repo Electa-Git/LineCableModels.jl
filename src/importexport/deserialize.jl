@@ -285,7 +285,7 @@ function _decode_part(::Val{:group}, value, materials)
     values = (
         Symbol(_required(value, "name", "group")),
         deserialize_value(_required(value, "at", "group")),
-        _decode_part(_required(value, "item", "group"), materials),
+        _decode_part(_required(value, "member", "group"), materials),
         deserialize_value(_required(value, "pattern", "group")),
         path,
         deserialize_value(_required(value, "compact", "group")),
@@ -304,7 +304,7 @@ function _decode_part(::Val{:assembly}, value, materials)
                 "explicit assembly members must be objects"
             ))
             DataModel.AssemblyMember(
-                _decode_part(_required(member, "item", "assembly member"), materials),
+                _decode_part(_required(member, "part", "assembly member"), materials),
                 deserialize_value(_required(member, "at", "assembly member"))
             )
         end)
@@ -340,7 +340,7 @@ function _decode_part(::Val{:enclosure}, value, materials)
         Symbol(_required(value, "tag", "enclosure")),
         deserialize_value(_required(value, "at", "enclosure")),
         deserialize_value(_required(value, "primitive", "enclosure")),
-        _decode_part(_required(value, "item", "enclosure"), materials),
+        _decode_part(_required(value, "contents", "enclosure"), materials),
         fill,
         wall
     )

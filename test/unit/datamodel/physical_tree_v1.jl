@@ -96,7 +96,7 @@ end
         boundary = compact_boundary
     )
     @test natural isa Enclosure
-    declarations=natural.item.item.items
+    declarations=natural.contents.member.items
     @test all(item -> item isa Group, declarations)
     @test getproperty.(declarations, :name) == fill(:strand, 2)
     @test declarations[1].path === nothing

@@ -102,7 +102,7 @@ end
 _compose_collection(placements, pose) = map(member -> _compose_member(pose, member), placements)
 
 function _compose_member(outer, member::DataModel.AssemblyMember)
-    DataModel.AssemblyMember(member.item, outer * member.at)
+    DataModel.AssemblyMember(member.part, outer * member.at)
 end
 _compose_member(outer, pose::DataModel.Pose2) = outer * pose
 function _compose_member(outer, placement::NamedTuple)

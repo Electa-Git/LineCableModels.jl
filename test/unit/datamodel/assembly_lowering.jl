@@ -9,7 +9,7 @@
     single = terminal(:core, solid(copper, wire))
     placed = at(single, Pose2(0.01, 0.0))
     for constructor in (assembly, cores)
-        @test only(constructor(single).item).item == single
+        @test only(constructor(single).item).part == single
         @test only(constructor(placed).item) == placed
         gridded = constructor(at(single, Pose2(Grid((0.01, 0.02)), 0.0)))
         @test gridded isa Gridspace{Assembly}

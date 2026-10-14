@@ -141,7 +141,7 @@ function serialize_value(value::Group; material_name = nothing)
         "kind" => "group",
         "name" => String(value.name),
         "at" => serialize_value(value.at),
-        "item" => serialize_value(value.item; material_name),
+        "member" => serialize_value(value.member; material_name),
         "pattern" => serialize_value(value.pattern),
         "path" => serialize_value(value.path),
         "compact" => serialize_value(value.compact),
@@ -172,7 +172,7 @@ function serialize_value(
         "at" => serialize_value(value.at),
         "members" => [Dict(
              "at" => serialize_value(member.at),
-             "item" => serialize_value(member.item; material_name)
+             "part" => serialize_value(member.part; material_name)
          ) for member in value.item]
     )
 end
@@ -184,7 +184,7 @@ function serialize_value(value::Enclosure; material_name = nothing)
         "tag" => String(value.tag),
         "at" => serialize_value(value.at),
         "primitive" => serialize_value(value.primitive),
-        "item" => serialize_value(value.item; material_name),
+        "contents" => serialize_value(value.contents; material_name),
         "fill" => fill,
         "wall" => wall
     )
@@ -252,7 +252,7 @@ function _collect_materials!(materials::Vector{AbstractMaterial}, part::Stack)
     return materials
 end
 function _collect_materials!(materials::Vector{AbstractMaterial}, part::Group)
-    return _collect_materials!(materials, part.item)
+    return _collect_materials!(materials, part.member)
 end
 function _collect_materials!(
         materials::Vector{AbstractMaterial},
@@ -264,11 +264,11 @@ function _collect_materials!(
         materials::Vector{AbstractMaterial},
         part::Assembly{<:Pose2, <:Tuple{Vararg{DataModel.AssemblyMember}}}
 )
-    foreach(member -> _collect_materials!(materials, member.item), part.item)
+    foreach(member -> _collect_materials!(materials, member.part), part.item)
     return materials
 end
 function _collect_materials!(materials::Vector{AbstractMaterial}, part::Enclosure)
-    _collect_materials!(materials, part.item)
+    _collect_materials!(materials, part.contents)
     _collect_materials!(materials, part.fill)
     part.wall === nothing || _collect_materials!(materials, part.wall)
     return materials

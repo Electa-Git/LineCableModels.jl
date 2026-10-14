@@ -21,7 +21,7 @@ struct Group{
     "Pose relative to the containing frame."
     at::A
     "Repeated physical member."
-    item::E
+    member::E
     "Cross-sectional placement definition."
     pattern::P
     "Longitudinal path definition or `nothing`."
@@ -34,14 +34,14 @@ struct Group{
     function Group(
             name::Symbol,
             at::A,
-            item::E,
+            member::E,
             pattern::P,
             path::H,
             compact::C,
             boundary::B
     ) where {A <: Pose2, E <: AbstractCablePart, P, H, C, B <: Union{Nothing, Disk}}
         return validate(new{A, E, P, H, C, B}(
-            name, at, item, pattern, path, compact, boundary
+            name, at, member, pattern, path, compact, boundary
         ))
     end
 
@@ -49,14 +49,14 @@ struct Group{
     function Group(
             name::Symbol,
             at::A,
-            item::E,
+            member::E,
             pattern::P,
             path::H,
             compact::Nothing,
             boundary::B
     ) where {A <: Pose2, E <: AbstractCablePart, P, H, B <: Sector}
         return validate(new{A, E, P, H, Nothing, B}(
-            name, at, item, pattern, path, compact, boundary
+            name, at, member, pattern, path, compact, boundary
         ))
     end
 end
@@ -72,15 +72,15 @@ function validate(group::Group)
     return group
 end
 
-Group(name::Symbol, at, item, pattern, path, compact) =
-    Group(name, at, item, pattern, path, compact, nothing)
+Group(name::Symbol, at, member, pattern, path, compact) =
+    Group(name, at, member, pattern, path, compact, nothing)
 
 """
 Declare a repeated-member scope at the local origin, or a finite space of such scopes.
 """
 function Group(
         name::Union{Symbol, AbstractGrid, Gridspace},
-        item::Union{AbstractCablePart, AbstractGrid, Gridspace};
+        member::Union{AbstractCablePart, AbstractGrid, Gridspace};
         at = Pose2(0, 0, 0),
         pattern = nothing,
         path = nothing,
@@ -88,12 +88,12 @@ function Group(
         boundary = nothing,
         combine::Symbol = :product
 )
-    values = (name, at, item, pattern, path, compact, boundary)
+    values = (name, at, member, pattern, path, compact, boundary)
     return parameterize(Group, Group, values; combine)
 end
 
 function Base.:(==)(left::Group, right::Group)
-    left.name == right.name && left.at == right.at && left.item == right.item &&
+    left.name == right.name && left.at == right.at && left.member == right.member &&
         left.pattern == right.pattern && left.path == right.path &&
         left.compact == right.compact && left.boundary == right.boundary
 end
@@ -133,7 +133,7 @@ _member_primitive(shape::CableGeometry, placed) = placed.primitive
 _member_primitive(shape::AbstractShape, placed) = shape
 
 function bounded_declarations(group::Group{<:Pose2, <:Stack})
-    parts = collect(group.item.items)
+    parts = collect(group.member.items)
     for part in parts
         validate(part, group)
     end
@@ -167,7 +167,7 @@ end
 function validate(part::Group, ::Group)
     throw(ArgumentError(
         "each bounded strand declaration must own one Region; " *
-        ":$(part.name) owns $(nameof(typeof(part.item)))"
+        ":$(part.name) owns $(nameof(typeof(part.member)))"
     ))
 end
 
@@ -213,8 +213,8 @@ function bounded_members(
         strand_part::Group{<:Pose2, <:Region{<:Disk}},
         compact::Bool
 )
-    center = center_part.item.primitive
-    strand = strand_part.item.primitive
+    center = center_part.member.primitive
+    strand = strand_part.member.primitive
     center.r <= boundary_shape.r || throw(DomainError(
         center.r, "the center wire exceeds the circular core boundary"
     ))
@@ -229,7 +229,7 @@ function bounded_members(
     maximum_course = maximum(getproperty.(sites, :course))
     members = NamedTuple[]
     for (member, placement) in enumerate(sites)
-        source = member == 1 ? center_part.item : strand_part.item
+        source = member == 1 ? center_part.member : strand_part.member
         path = member == 1 ? nothing :
                strand_path(strand_part.path, placement.course, maximum_course)
         angle = placement.angle
@@ -257,12 +257,12 @@ function bounded_members(
     compact || throw(ArgumentError(
         "rectangular strands require area-preserving bending"
     ))
-    center = center_part.item.primitive
-    strand = strand_part.item.primitive
+    center = center_part.member.primitive
+    strand = strand_part.member.primitive
     strips = rectangular_strands(boundary_shape, center, strand)
     maximum_course = maximum(getproperty.(strips, :course))
     members = NamedTuple[(
-        source = center_part.item,
+        source = center_part.member,
         course = 0,
         member = 1,
         path = nothing,
@@ -274,7 +274,7 @@ function bounded_members(
     ]
     for strip in strips
         push!(members, (
-            source = strand_part.item,
+            source = strand_part.member,
             strip.course,
             member = length(members) + 1,
             path = strand_path(strand_part.path, strip.course, maximum_course),
@@ -293,10 +293,10 @@ function sector_members(boundary_shape::SectorShape, parts)
         "a sector stranded core uses one declaration for its center and course wires"
     ))
     part = only(parts)
-    wire = part.item.primitive
+    wire = part.member.primitive
     courses, primitives, maximum_course = sector_courses(boundary_shape, wire)
     members = [(
-                   source = part.item,
+                   source = part.member,
                    placement.course,
                    member,
                    path = strand_path(part.path, placement.course, maximum_course),
@@ -466,7 +466,7 @@ function _resolve_group(
         group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, Nothing}
 )
     if group.pattern === nothing
-        child = resolve(context, group.item)
+        child = resolve(context, group.member)
         regions = PlacedRegion[]
         for placed in child.regions
             resolved = resolve(group.at, placed)
@@ -499,9 +499,9 @@ function _resolve_group(
         return CableGeometry(regions, resolve(group.at, outer))
     end
 
-    child = resolve(EmptyBoundary(), group.item)
-    pattern = _contextual_pattern(group.pattern, group.item, child, group.compact, context)
-    course = placements(pattern, _member_definition(group.item, child), group.compact)
+    child = resolve(EmptyBoundary(), group.member)
+    pattern = _contextual_pattern(group.pattern, group.member, child, group.compact, context)
+    course = placements(pattern, _member_definition(group.member, child), group.compact)
     # The local primitives of the members are resolved before the regions are built, so the
     # enclosing disk is known before the loop.
     local_primitives = [resolve(pose, _member_primitive(course.shape, placed))

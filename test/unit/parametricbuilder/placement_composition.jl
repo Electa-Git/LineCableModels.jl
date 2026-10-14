@@ -13,7 +13,7 @@
     local_placements = (member, inner)
     transformed = @inferred at(local_placements, outer)
     @test transformed isa Tuple
-    @test transformed[1].item === part
+    @test transformed[1].part === part
     @test transformed[1].at == outer * inner
     @test transformed[2] == outer * inner
     @test at(collect(local_placements), outer) == collect(transformed)
@@ -136,14 +136,14 @@ end
     @test calls[] == 0
     @test members isa Gridspace{LineCableModels.DataModel.AssemblyMember}
     @test designs isa Gridspace{NamedTuple}
-    @test first(members).item === part
+    @test first(members).part === part
     @test calls[] == 1
     placed = first(designs)
     @test placed.design === design
     @test placed.connections === (core=1,)
     @test calls[] == 2
     @test (@inferred at(1.0f0, 2.0f0; φ=0.0f0)) isa Pose2{Float32}
-    @test (@inferred at(part, Pose2(1.0, 2.0))).item === part
+    @test (@inferred at(part, Pose2(1.0, 2.0))).part === part
     @test (@inferred at(design, Pose2(1.0, 2.0); connections=(core=1,))).design === design
     # An empty source gives an empty space, as the owner's Pose2 does.
     @test isempty(at(Grid(()), 0.0)) && isempty(Pose2(Grid(()), 0.0))

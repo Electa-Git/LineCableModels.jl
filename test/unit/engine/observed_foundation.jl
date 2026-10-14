@@ -51,7 +51,7 @@ end
     @test retained.inputs.temperature==20.0
     @test retained.inputs.earth_props.layers[2].rho==100.0
     @test retained.inputs.system.line_length==600.0
-    @test retained.inputs.system.designs[1].tree.items[1].item.items[1].primitive.r==0.005
+    @test retained.inputs.system.designs[1].tree.items[1].member.items[1].primitive.r==0.005
     @test retained.id.problem_index==retained.id.formulation_index==1
     @test retained.formulations==scalar.details.data.formulations
     calls=Ref(0)
@@ -65,7 +65,7 @@ end
     @test calls[]==2
     @test [d.id.problem_index for d in descriptions]==[1,2]
     @test [d.inputs.earth_props.layers[2].rho for d in descriptions]==[100.,200.]
-    @test all(d -> d.inputs.system.designs[1].tree.items[1].item.items[1].primitive.r==0.005,descriptions)
+    @test all(d -> d.inputs.system.designs[1].tree.items[1].member.items[1].primitive.r==0.005,descriptions)
     descriptions[1].inputs.system.connection_order[1]=-100
     @test results[1].details.data.inputs.system.connection_order[1] != -100
     @test observation_gridpoint(results[2]).inputs.earth_props.layers[2].rho==200.
@@ -84,7 +84,7 @@ end
     @test radius_calls[]==2
     @test getproperty.(getproperty.(getproperty.(radius_points,:gridpoint),:id),:problem_index)==[1,2]
     constants=compute(CableConstantsProblem(problem.system.designs[1]))
-    @test observation_gridpoint(constants).inputs.design.tree.items[1].item.items[1].primitive.r==0.005
+    @test observation_gridpoint(constants).inputs.design.tree.items[1].member.items[1].primitive.r==0.005
 end
 
 @testitem "ObservedResult / clipping gives exact zero without uncertainty" tags=[:unit, :measurements] begin

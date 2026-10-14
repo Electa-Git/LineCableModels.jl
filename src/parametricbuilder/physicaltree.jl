@@ -88,7 +88,7 @@ end
 _terminal_eligible(::DataModel.Region{<:Any, <:Materials.Material{<:Real, :conductor}}) = 1
 _terminal_eligible(::DataModel.Region) = 0
 _terminal_eligible(stack::DataModel.Stack) = sum(_terminal_eligible, stack.items; init = 0)
-_terminal_eligible(group::DataModel.Group) = _terminal_eligible(group.item)
+_terminal_eligible(group::DataModel.Group) = _terminal_eligible(group.member)
 function _terminal_eligible(
         assembly::DataModel.Assembly{<:DataModel.Pose2, <:DataModel.AbstractCablePart}
 )
@@ -98,12 +98,12 @@ function _terminal_eligible(
         assembly::DataModel.Assembly{
             <:DataModel.Pose2, <:Tuple{Vararg{DataModel.AssemblyMember}}}
 )
-    return sum(member -> _terminal_eligible(member.item), assembly.item; init = 0)
+    return sum(member -> _terminal_eligible(member.part), assembly.item; init = 0)
 end
 # A material fill has no terminal.
 _terminal_eligible(::Materials.Material) = 0
 function _terminal_eligible(enclosure::DataModel.Enclosure)
-    count = _terminal_eligible(enclosure.item)
+    count = _terminal_eligible(enclosure.contents)
     count += _terminal_eligible(enclosure.fill)
     enclosure.wall === nothing || (count += _terminal_eligible(enclosure.wall))
     return count
@@ -829,7 +829,7 @@ function _milliken(
         segment,
         fill
     )
-    _, _, segment_primitives = DataModel.bounded_members(segment_part.item)
+    _, _, segment_primitives = DataModel.bounded_members(segment_part.contents)
     center_radius = minimum(_inner_radius, segment_primitives)
     center_radius > zero(center_radius) || throw(DomainError(
         center_radius,
@@ -851,7 +851,7 @@ function _milliken(
         terminal = DataModel.Group(
             name,
             DataModel.Pose2(0, 0, 0),
-            segment_part.item,
+            segment_part.contents,
             nothing,
             nothing,
             nothing

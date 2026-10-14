@@ -31,7 +31,7 @@ struct Enclosure{
     "Containing cross-sectional primitive."
     primitive::S
     "Enclosed physical object."
-    item::E
+    contents::E
     "Filling material or filling Region."
     fill::F
     "Optional physical wall."
@@ -41,7 +41,7 @@ struct Enclosure{
             tag::Symbol,
             at::A,
             primitive::S,
-            item::E,
+            contents::E,
             fill::F,
             wall::W
     ) where {
@@ -52,7 +52,7 @@ struct Enclosure{
             W <: Union{Nothing, AbstractCablePart}
     }
         tag === Symbol("") && throw(ArgumentError("enclosure tag cannot be empty"))
-        return new{A, S, E, F, W}(tag, at, primitive, item, fill, wall)
+        return new{A, S, E, F, W}(tag, at, primitive, contents, fill, wall)
     end
 end
 
@@ -62,20 +62,20 @@ finite space of such enclosures.
 """
 function Enclosure(
         tag::Union{Symbol, AbstractGrid, Gridspace},
-        item::Union{AbstractCablePart, AbstractGrid, Gridspace};
+        contents::Union{AbstractCablePart, AbstractGrid, Gridspace};
         at = Pose2(0, 0, 0),
         primitive,
         fill,
         wall = nothing,
         combine::Symbol = :product
 )
-    values = (tag, at, primitive, item, fill, wall)
+    values = (tag, at, primitive, contents, fill, wall)
     return parameterize(Enclosure, Enclosure, values; combine)
 end
 
 function Base.:(==)(left::Enclosure, right::Enclosure)
     left.tag == right.tag && left.at == right.at &&
-        left.primitive == right.primitive && left.item == right.item &&
+        left.primitive == right.primitive && left.contents == right.contents &&
         left.fill == right.fill && left.wall == right.wall
 end
 
@@ -313,12 +313,12 @@ _has_fill(::Material, remaining_area, tolerance) = remaining_area > tolerance
 
 function resolve(context::EmptyBoundary, enclosure::Enclosure)
     container = resolve(EmptyBoundary(), enclosure.primitive)
-    contents = resolve(EmptyBoundary(), enclosure.item)
+    contents = resolve(EmptyBoundary(), enclosure.contents)
     return _resolve_enclosure(enclosure, container, contents)
 end
 
 function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeometry)
-    holes = fill_holes(enclosure.fill, enclosure.item, contents)
+    holes = fill_holes(enclosure.fill, enclosure.contents, contents)
     all(hole -> _contained(container, hole), holes) || throw(DomainError(
         holes,
         "enclosed geometry must fit inside the enclosure boundary"
@@ -412,7 +412,7 @@ function resolve(context::Disk, enclosure::Enclosure{<:Pose2, <:Annulus})
     placed = resolve(enclosure.at, container)
     validate(context, enclosure, placed)
     inner = Disk(context.r, container.at)
-    contents = resolve(inner, enclosure.item)
+    contents = resolve(inner, enclosure.contents)
     effective = Annulus(context.r, container.ro, container.at)
     return _resolve_enclosure(enclosure, effective, contents)
 end

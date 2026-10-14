@@ -348,11 +348,11 @@ end
         )
     )
     bounded_record=IE.serialize_value(bounded)
-    @test bounded_record["tree"]["item"]["items"][1]["item"]["compact"] === nothing
+    @test bounded_record["tree"]["member"]["items"][1]["contents"]["compact"] === nothing
     restored_bounded=IE.deserialize_value(bounded_record)
     @test restored_bounded == bounded
     @test IE.serialize_value(restored_bounded) == bounded_record
-    bounded_group=only(bounded.tree.item.items).item
+    bounded_group=only(bounded.tree.member.items).contents
     @test bounded_group isa Group
     @test bounded_group.boundary == sector_boundary
     @test bounded_group.compact === nothing
@@ -495,7 +495,7 @@ end
     @test JSONSchema.validate(schema, sector_document) === nothing
     invalid_sector=deepcopy(sector_document)
     sector_design=only(values(invalid_sector["root"]["cables"]))
-    sector_design["tree"]["item"]["items"][1]["item"]["compact"]=true
+    sector_design["tree"]["member"]["items"][1]["contents"]["compact"]=true
     @test JSONSchema.validate(schema, invalid_sector) !== nothing
 
     earth=EarthModel(100.0, 10.0, 1.0)
@@ -522,7 +522,7 @@ end
         get(node, "kind", nothing)=="region"&&
             get(node, "material", nothing)==material_name&&
             push!(tags, node["tag"])
-        for child_name in ("items", "item", "fill", "wall", "tree")
+        for child_name in ("items", "member", "contents", "item", "fill", "wall", "tree")
             child=get(node, child_name, nothing)
             child isa AbstractVector&&foreach(
                 item->append!(tags, referenced_tags(item, material_name)), child
@@ -583,18 +583,18 @@ end
     design = build(CableDesign, "material-references", group)
     material_name(material) = material === copper ? "copper" : "dielectric"
     encoded = IE.serialize_value(design; material_name)
-    @test encoded["tree"]["item"]["material"] == "copper"
-    @test IE.serialize_value(design)["tree"]["item"]["material"] == IE.serialize_value(copper)
+    @test encoded["tree"]["member"]["material"] == "copper"
+    @test IE.serialize_value(design)["tree"]["member"]["material"] == IE.serialize_value(copper)
     enclosure = duct(terminal(:core, wire); shape=Ellipse(0.01, 0.008),
         fill=dielectric, wall=insulation(dielectric; t=0.001))
     enclosed = IE.serialize_value(enclosure; material_name)
     @test enclosed["fill"] == "dielectric"
     @test enclosed["wall"]["material"] == "dielectric"
-    @test only(enclosed["item"]["item"]["items"])["material"] == "copper"
+    @test only(enclosed["contents"]["member"]["items"])["material"] == "copper"
     library = CablesLibrary()
     add!(library, design)
     document = IE._json_document(library)
-    reference = document["root"]["cables"][design.cable_id]["tree"]["item"]["material"]
+    reference = document["root"]["cables"][design.cable_id]["tree"]["member"]["material"]
     @test document["materials"][reference] == IE._material_record(copper)
     @test length(document["materials"]) == 1
 end

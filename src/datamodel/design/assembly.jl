@@ -2,7 +2,7 @@
 Store one explicitly placed member of an `Assembly`.
 """
 struct AssemblyMember{E <: AbstractCablePart, P <: Pose2}
-    item::E
+    part::E
     at::P
 end
 
@@ -47,10 +47,10 @@ function resolve(at::Pose2, shape::AssemblyShape)
     AssemblyShape(map(member -> resolve(at, member), shape.members))
 end
 
-AssemblyMember(item::AbstractCablePart) = AssemblyMember(item, Pose2(0, 0, 0))
+AssemblyMember(part::AbstractCablePart) = AssemblyMember(part, Pose2(0, 0, 0))
 
 function Base.:(==)(left::AssemblyMember, right::AssemblyMember)
-    left.item == right.item && left.at == right.at
+    left.part == right.part && left.at == right.at
 end
 
 """
@@ -240,7 +240,7 @@ function _resolve_explicit(assembly::Assembly)
     terminals = Symbol[]
     boundaries = AbstractShape[]
     for member in assembly.item
-        child = resolve(EmptyBoundary(), member.item)
+        child = resolve(EmptyBoundary(), member.part)
         child_terminals = unique(Symbol[placed.terminal
                                         for placed in child.regions
                                         if placed.terminal !== nothing])

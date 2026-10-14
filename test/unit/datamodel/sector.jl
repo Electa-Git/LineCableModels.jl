@@ -318,7 +318,7 @@ end
     @test details(parameters).data.trace.cable_map == [1, 2, 3]
 
     encoded=LineCableModels.ImportExport.serialize_value(design)
-    @test encoded["tree"]["item"]["item"]["items"][1]["primitive"]["kind"] ==
+    @test encoded["tree"]["item"]["member"]["items"][1]["primitive"]["kind"] ==
           "sector"
     serialized=sprint(show, encoded)
     for derived in (

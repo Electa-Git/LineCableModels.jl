@@ -388,7 +388,7 @@ end
         @at cell_b (6e-3, 1e-3, 0.2)
     end
     @test notated == asymmetric
-    @test asymmetric.item isa Assembly
+    @test asymmetric.contents isa Assembly
     design = build(CableDesign, "asymmetric-ducts", asymmetric)
     @test design.terminal_order == [:a, :b]
     @test any(placed -> placed.source.tag === :duct_fill, design.geometry.regions)
@@ -512,10 +512,10 @@ end
         boundary = round_boundary
     )
     @test round isa Enclosure
-    round_group = round.item
+    round_group = round.contents
     @test round_group.boundary == round_boundary
     @test round_group.pattern === nothing
-    round_declarations = round_group.item.items
+    round_declarations = round_group.member.items
     @test length(round_declarations) == 2
     @test all(part -> part.pattern === nothing, round_declarations)
     @test round_declarations[1].path === nothing
@@ -541,9 +541,9 @@ end
         compact = true,
         boundary = compact_boundary
     )
-    normalized_group = normalized.item
+    normalized_group = normalized.contents
     @test normalized_group.compact
-    @test normalized_group.item.items[2].path == (
+    @test normalized_group.member.items[2].path == (
         Helix(LayRatio(12)),
         Helix(LayRatio(11))
     )
@@ -562,15 +562,15 @@ end
         boundary = sector_boundary
     )
     @test bounded isa Enclosure
-    bounded_group = bounded.item
+    bounded_group = bounded.contents
     @test bounded_group isa Group
     @test bounded_group.pattern === nothing
     @test bounded_group.path === nothing
     @test bounded_group.compact === nothing
     @test bounded_group.boundary == sector_boundary
-    @test bounded_group.item isa Stack
-    @test length(bounded_group.item.items) == 1
-    @test only(bounded_group.item.items).path == Helix(LayRatio(12))
+    @test bounded_group.member isa Stack
+    @test length(bounded_group.member.items) == 1
+    @test only(bounded_group.member.items).path == Helix(LayRatio(12))
     bounded_design = build(
         CableDesign,
         "bounded-stranded-core",

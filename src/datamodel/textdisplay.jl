@@ -88,7 +88,7 @@ TextDisplay.@showfields AssemblyShape "AssemblyShape" shape -> (
 )
 
 TextDisplay.@showfields AssemblyMember "AssemblyMember" member -> (
-    item = string(nameof(typeof(member.item))),
+    part = string(nameof(typeof(member.part))),
     at = _display_pose(member.at)
 )
 
@@ -275,12 +275,12 @@ end
 
 _part_children(::Region) = ()
 _part_children(stack::Stack) = Tuple(_part_node(item) for item in stack.items)
-_part_children(group::Group) = (_part_node(group.item),)
+_part_children(group::Group) = (_part_node(group.member),)
 function _part_children(assembly::Assembly{<:Pose2, <:Tuple{Vararg{AssemblyMember}}})
     return Tuple((
-                     label = _identity_pose(member.at) ? _part_label(member.item) :
-                             string(_part_label(member.item), " · ", _compact_text(member.at)),
-                     children = _part_children(member.item),
+                     label = _identity_pose(member.at) ? _part_label(member.part) :
+                             string(_part_label(member.part), " · ", _compact_text(member.at)),
+                     children = _part_children(member.part),
                      noun = "parts"
                  ) for member in assembly.item)
 end
@@ -289,7 +289,7 @@ _part_children(assembly::Assembly) = (_part_node(assembly.item),)
 _part_label(material::Material) = "Material · $(material.kind)"
 function _part_children(enclosure::Enclosure)
     fill = string("fill · ", _part_label(enclosure.fill))
-    children = Any[_part_node(enclosure.item), (
+    children = Any[_part_node(enclosure.contents), (
         label = fill, noun = "parts")]
     enclosure.wall === nothing || push!(children,
         (
