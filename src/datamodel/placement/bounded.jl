@@ -456,9 +456,13 @@ function circular_courses(shape::Disk, center::Disk, wire::Disk, compact::Bool)
         wire.r, "the disk boundary admits no complete six-wire course"
     ))
     source_area = area(center) + 3courses * (courses + 1) * area(wire)
+    # Natural wires: the first course holds as many wires as fit at its radius, and each
+    # next course six more. Compaction keeps 6k wires in course k.
+    first_count = compact ? 6 :
+                  capacity(Ring, nominal(center.r + wire.r), nominal(wire.r))
     sites = NamedTuple[]
     for course in 1:courses
-        count = 6course
+        count = first_count + 6(course - 1)
         radius = if compact
             area_before = area(center) + 3(course - 1) * course * area(wire)
             area_middle = area_before + 3course * area(wire)

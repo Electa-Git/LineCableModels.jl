@@ -35,6 +35,17 @@
     @test all(region -> isapprox(area(region), area(wire); rtol=5e-12), wires)
     @test sum(area, wires) ≈ area(boundary) rtol=5e-12
     @test all(region -> DM.support(region.primitive) <= boundary.r * (1 + 5e-6), wires)
+
+    # Natural wires fill the first course by fit and add six per course. No two wires overlap.
+    strand = Disk(0.5e-3)
+    for (radius, counts) in ((0.5e-3, [6, 12, 18]), (0.25e-3, [4, 10, 16]),
+        (1.0e-3, [9, 15, 21]))
+        sites = DM.circular_courses(Disk(4.0e-3), Disk(radius), strand, false)
+        @test [count(site -> site.course == k, sites) for k in 1:3] == counts
+        disks = [((0.0, 0.0), radius); [(site.site, strand.r) for site in sites]]
+        @test all(hypot((left[1] .- right[1])...) >= (left[2] + right[2]) * (1 - 1e-12)
+                  for (index, left) in enumerate(disks) for right in disks[(index + 1):end])
+    end
 end
 
 @testitem "DataModel / stranding / clipped disks conserve area inside cells" tags=[:unit, :measurements] begin

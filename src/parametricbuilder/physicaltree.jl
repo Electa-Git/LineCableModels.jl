@@ -662,7 +662,10 @@ $(TYPEDSIGNATURES)
 Fill one authoritative core boundary with the maximum admissible inventory of
 equal source strands.
 
-Circular source bundles have one center strand and `6k` wire strands in course `k`.
+Circular source bundles have one center strand. Natural wires fill the first course with as
+many wires as fit around it, and each next course with six more. Compacted wires take `6k` in
+course `k`.
+
 A sector admits the largest complete inventory satisfying
 ``[1 + 3L(L+1)]\\,\\pi a^2 \\leq A_{\\mathrm{sector}}``. Its mapped sites define
 a prescribed-area power diagram. Disks clipped to those cells retain each

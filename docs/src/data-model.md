@@ -121,9 +121,10 @@ end
 ## Repeated conductors
 
 `stranded` accepts circular wire shapes. For a `Disk` geometric boundary, it infers the
-largest complete family of concentric courses: one center wire and exactly
-`6k` wires in course `k`. With `compact=nothing`, those wires remain circles on
-their natural course radii.
+largest complete family of concentric courses around one center wire. With
+`compact=nothing`, the wires remain circles on their natural course radii. The first course
+holds as many wires as fit around the center wire, and each next course holds six more.
+Equal center and strand sizes give `6k` wires in course `k`.
 
 ```julia
 core_part = stranded(
