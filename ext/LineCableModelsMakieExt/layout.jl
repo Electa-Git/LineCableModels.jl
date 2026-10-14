@@ -1,11 +1,20 @@
+# The panel capacity of a page: positive numbers of rows and columns.
+function validate(layout::Tuple{Integer, Integer}, ::Type{GridLayout})
+    all(>(0), layout) ||
+        throw(ArgumentError("layout must be a tuple of two positive integers or nothing"))
+    return layout
+end
+function validate(layout::Union{Tuple{Bool, Integer}, Tuple{Integer, Bool}}, ::Type{GridLayout})
+    throw(ArgumentError("layout must be a tuple of two positive integers or nothing; got $layout"))
+end
+function validate(layout, ::Type{GridLayout})
+    throw(ArgumentError(
+        "layout must be a tuple of two positive integers or nothing; got $(typeof(layout))"))
+end
+
 # One nominal capacity, independent of quantity and actual residual extent.
 function _page_capacity(layout, matrix_positions, flow_counts)
-    if layout !== nothing
-        layout isa Tuple && length(layout)==2 &&
-        all(v -> v isa Integer && !(v isa Bool) && v>0, layout) ||
-            throw(ArgumentError("layout must be a tuple of two positive integers or nothing"))
-        return Int.(layout)
-    end
+    layout !== nothing && return Int.(validate(layout, GridLayout))
     if !isempty(matrix_positions)
         spans=map(positions -> _panel_footprint(positions).dimensions, matrix_positions)
         return (maximum(first, spans), maximum(last, spans))
@@ -16,12 +25,7 @@ function _page_capacity(layout, matrix_positions, flow_counts)
 end
 
 function _figure_size(fig_size, dimensions)
-    if fig_size !== nothing
-        fig_size isa Tuple{Int, Int} && all(>(0), fig_size) || throw(ArgumentError(
-            "fig_size must be a tuple of two positive integers or nothing",
-        ))
-        return fig_size
-    end
+    fig_size !== nothing && return validate(fig_size, Figure)
     rows, columns = dimensions
     return (max(680, 390columns + 180), max(440, 290rows + 100))
 end

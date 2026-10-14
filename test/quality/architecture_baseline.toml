@@ -67,13 +67,12 @@
 "ext/LineCableModelsGmshExt/workers.jl" = { applicable = 0, eval = 0, isa = 16, kind = 0 }
 "ext/LineCableModelsMakieExt/LineCableModelsMakieExt.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "ext/LineCableModelsMakieExt/attributes.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"ext/LineCableModelsMakieExt/controls.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
-"ext/LineCableModelsMakieExt/export_presentation.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
+"ext/LineCableModelsMakieExt/controls.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
+"ext/LineCableModelsMakieExt/export_presentation.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "ext/LineCableModelsMakieExt/guides.jl" = { applicable = 0, eval = 0, isa = 21, kind = 11 }
-"ext/LineCableModelsMakieExt/layout.jl" = { applicable = 0, eval = 0, isa = 16, kind = 8 }
-"ext/LineCableModelsMakieExt/material_colors.jl" = { applicable = 0, eval = 0, isa = 3, kind = 1 }
+"ext/LineCableModelsMakieExt/layout.jl" = { applicable = 0, eval = 0, isa = 12, kind = 8 }
 "ext/LineCableModelsMakieExt/montecarlo.jl" = { applicable = 0, eval = 0, isa = 3, kind = 1 }
-"ext/LineCableModelsMakieExt/plot.jl" = { applicable = 0, eval = 0, isa = 9, kind = 3 }
+"ext/LineCableModelsMakieExt/plot.jl" = { applicable = 0, eval = 0, isa = 7, kind = 3 }
 "ext/LineCableModelsMakieExt/recipes/comparison_data.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "ext/LineCableModelsMakieExt/recipes/formulation_comparisons.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "ext/LineCableModelsMakieExt/recipes/line_data.jl" = { applicable = 0, eval = 0, isa = 7, kind = 5 }
@@ -305,7 +304,7 @@
 "ext/LineCableModelsGmshExt/results.jl" = 2
 "ext/LineCableModelsGmshExt/workers.jl" = 3
 "ext/LineCableModelsMakieExt/controls.jl" = 1
-"ext/LineCableModelsMakieExt/export_presentation.jl" = 2
+"ext/LineCableModelsMakieExt/export_presentation.jl" = 1
 "ext/LineCableModelsMakieExt/layout.jl" = 3
 "ext/LineCableModelsMakieExt/material_colors.jl" = 3
 "ext/LineCableModelsMakieExt/native_export.jl" = 1

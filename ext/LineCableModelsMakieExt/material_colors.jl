@@ -123,14 +123,16 @@ function _material_color(material::Union{Material, EarthLayer};
     relative_permeability = LineCableModels.nominal(material.mu_r)
     base = _material_base(material)
     color = _magnetic_overlay(base, relative_permeability)
-    fill = RGBA(red(color), green(color), blue(color), alpha)
-    if pattern && material isa Material &&
-       material.kind === :insulator
-        ink = _oklab_blend(color, RGB(0.25, 0.27, 0.30), 0.15)
-        return Makie.Pattern(_DIELECTRIC_PATTERN_MASK;
-            color1 = RGBA(red(ink), green(ink), blue(ink), alpha), color2 = fill)
-    end
-    return fill
+    return RGBA(red(color), green(color), blue(color), alpha)
+end
+# An insulator may also show the dielectric pattern over its fill.
+function _material_color(material::Material{<:Real, :insulator};
+        alpha::Real = 1.0, pattern::Bool = false)
+    fill = invoke(_material_color, Tuple{Union{Material, EarthLayer}}, material; alpha)
+    pattern || return fill
+    ink = _oklab_blend(RGB(red(fill), green(fill), blue(fill)), RGB(0.25, 0.27, 0.30), 0.15)
+    return Makie.Pattern(_DIELECTRIC_PATTERN_MASK;
+        color1 = RGBA(red(ink), green(ink), blue(ink), alpha), color2 = fill)
 end
 
 function _compact_number(value::Real)
@@ -200,6 +202,14 @@ function _material_scheme(
     return (; label, colormap = colors, limits = (0.0, 1.0), ticks)
 end
 
+# A material property range: two real values.
+validate(property_range::Tuple{Real, Real}, ::typeof(LineCableModels.materialcolors)) =
+    property_range
+function validate(property_range, ::typeof(LineCableModels.materialcolors))
+    throw(ArgumentError("a material property range must be a tuple of two real values; " *
+        "got $(typeof(property_range))"))
+end
+
 function LineCableModels.materialcolors(
         property::Symbol,
         property_range = nothing;
@@ -214,10 +224,7 @@ function LineCableModels.materialcolors(
     ranges = DataModel.material_property_ranges()
     resolved_range = property_range === nothing ? getproperty(ranges, property) :
                      property_range
-    resolved_range isa Tuple && length(resolved_range) == 2 &&
-    all(value -> value isa Real, resolved_range) || throw(ArgumentError(
-        "a material property range must be a tuple of two real values",
-    ))
+    validate(resolved_range, LineCableModels.materialcolors)
 
     neutral = RGB(0.94, 0.94, 0.94)
     permeability_color(value) = _magnetic_overlay(neutral, value)

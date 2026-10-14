@@ -4,6 +4,13 @@ const _PrimarySource = Union{
     LineCableModels.PropagationParameters}
 const _PlotSource = Union{_PrimarySource, Commons.ObservedResult}
 
+# A plot reference is an observation, a raw result that the plot observes, or nothing.
+validate(reference::Union{Nothing, _PlotSource}, ::typeof(plot)) = reference
+function validate(reference, ::typeof(plot))
+    throw(ArgumentError(
+        "construct an atomic ObservedResult for a reference collection; got $(typeof(reference))"))
+end
+
 # Split only public keyword ownership. Scientific normalization stays in Commons.
 function _plot_observation_options(kwargs; retained = false)
     haskey(kwargs, :complete_pairs) &&
@@ -60,25 +67,24 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         throw(ArgumentError("no retained observations match the original point selection"))
     formulations===nothing || sort!(selected;
         by = index -> findfirst(==(observed[index].gridpoint.id.formulation_index), formulations))
-    points=observed[selected]
-    requests=Commons.observation_selection(first(points), selection)
-    requests=Commons.observation_requests(first(points), requests).displayed
-    if reference!==nothing && !(reference isa Commons.ObservedResult)
-        reference isa _PrimarySource ||
-            throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
-        reference=Commons.ObservedResult(reference, requests; complete_pairs = true)
-    end
-    if !isempty(display_units)
-        points=[Commons.ObservedResult(point, requests; display_units...)
-                    for point in points]
-        reference===nothing ||
-            (reference=Commons.ObservedResult(reference, requests; display_units...))
-    end
-    sources=reference===nothing ? Tuple(points) : (Tuple(points)..., reference)
-    input_point_count=length(observed)+(reference===nothing ? 0 : 1)
-    displayed=reference===nothing ? selected : [selected; input_point_count]
-    slots=reference===nothing ? selected : [selected; 0]
-    reference_id=reference===nothing ? nothing : get(reference.gridpoint, :id, nothing)
+    # Each value that the anonymous functions below capture is assigned once.
+    candidates=observed[selected]
+    requests=Commons.observation_requests(first(candidates),
+        Commons.observation_selection(first(candidates), selection)).displayed
+    # A raw reference is observed with the plot's requests. Display units re-express
+    # the retained points and the reference once.
+    validate(reference, plot)
+    observed_reference=reference===nothing || reference isa Commons.ObservedResult ? reference :
+                       Commons.ObservedResult(reference, requests; complete_pairs = true)
+    points=isempty(display_units) ? candidates :
+           [Commons.ObservedResult(point, requests; display_units...) for point in candidates]
+    plotted_reference=observed_reference===nothing || isempty(display_units) ? observed_reference :
+                      Commons.ObservedResult(observed_reference, requests; display_units...)
+    sources=plotted_reference===nothing ? Tuple(points) : (Tuple(points)..., plotted_reference)
+    input_point_count=length(observed)+(plotted_reference===nothing ? 0 : 1)
+    displayed=plotted_reference===nothing ? selected : [selected; input_point_count]
+    slots=plotted_reference===nothing ? selected : [selected; 0]
+    reference_id=plotted_reference===nothing ? nothing : get(plotted_reference.gridpoint, :id, nothing)
     products=map(request -> Commons.observation_product(sources, request; band, reference_id), requests)
     plot_data=map(eachindex(sources)) do index
         _line_plot_data(Tuple(records[index] for records in products))
@@ -97,7 +103,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
     retained=map(eachindex(requests)) do index
         indices=orientations[index]!==:gridpoints ? collect(eachindex(sources)) :
                 [group.representative for group in groups[index]]
-        orientations[index]===:gridpoints && reference!==nothing &&
+        orientations[index]===:gridpoints && plotted_reference!==nothing &&
             push!(indices, length(sources))
         indices
     end
@@ -124,7 +130,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
             "positional series overrides span figure families with different overlaid dimensions; use separate plot calls"))
     end
     explicit_labels=series_labels!==nothing
-    result_labels=explicit_labels && reference!==nothing &&
+    result_labels=explicit_labels && plotted_reference!==nothing &&
                      all(==(:gridpoints), orientations) &&
                      length(series_labels)==length(observed)
     labels=explicit_labels && any(==(:gridpoints), orientations) ?
@@ -141,7 +147,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         request=requests[index]
         if orientations[index]!==:gridpoints
             result=Commons.observation_labels(sources; request, fallback = "")
-            reference!==nothing &&
+            plotted_reference!==nothing &&
                 (result[end]*=isempty(result[end]) ? "Reference" : " (reference)")
             result
         else
@@ -150,7 +156,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
                 fallback = length(sources)==1 ? "" : nothing)
             result_labels && push!(result,
                 last(Commons.observation_labels(sources; request)))
-            (!explicit_labels || result_labels) && reference!==nothing &&
+            (!explicit_labels || result_labels) && plotted_reference!==nothing &&
                 (result[end]*=" (reference)")
             result
         end
@@ -174,8 +180,9 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         _page_capacity(layout, matrix, (panel_count,))
     end
     pages=_observation_pages(facets, capacities; automatic = layout===nothing)
-    panel_titles===nothing || (panel_titles=Dict((f.identity, f.panel_identity)=>label
-        for (f, label) in zip(facets, validate(panel_titles, Axis, length(facets)))))
+    bound_titles=panel_titles===nothing ? nothing :
+                 Dict((f.identity, f.panel_identity)=>label
+                 for (f, label) in zip(facets, validate(panel_titles, Axis, length(facets))))
     identities=Set(f.panel_identity for f in facets)
     all(pair -> _panel_identity(first(pair)) in identities, _panel_legend_pairs(panel_legends)) ||
         throw(ArgumentError("panel legend identity is absent from the selected panels"))
@@ -204,10 +211,9 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
         sampling=errorbar_sampling===nothing ? (length(curves)>1 ? :staggered : :all) :
                  errorbar_sampling
         automatic_title=_quantity_page_title(page)
-        page_title=title===nothing ? automatic_title : title
-        title!==nothing && length(pages)>1 && (page_title="$title — $automatic_title")
-        title===nothing && title_prefix!==nothing && !ismissing(title_prefix) &&
-            (page_title="$title_prefix — $automatic_title")
+        page_title=title!==nothing ? (length(pages)>1 ? "$title — $automatic_title" : title) :
+                   title_prefix!==nothing && !ismissing(title_prefix) ?
+                   "$title_prefix — $automatic_title" : automatic_title
         push!(built,
             with_theme(_plot_theme(export_theme = export_theme)) do
                 _line_page(
@@ -215,7 +221,7 @@ function plot(observed::AbstractVector{<:Commons.ObservedResult}, selection = no
                     series_indices,
                     errorbar_sampling = sampling, series_defaults = styles,
                     series_attributes = page_attributes, title = page_title,
-                    figure_title, title_attributes, panel_titles,
+                    figure_title, title_attributes, panel_titles = bound_titles,
                     fig_size = _figure_size(fig_size, page.capacity),
                     xscale, yscale,
                     legend_position = position, legend_title, legend_attributes, legend_max_fraction, panel_legends,
@@ -279,9 +285,8 @@ function plot(sources::Union{AbstractVector{<:_PlotSource}, Tuple{Vararg{_PlotSo
                                     Commons.ObservedResult(source, requests;
                                         complete_pairs = true, acquisition...)
                                     for source in sources]
+    validate(reference, plot)
     if reference!==nothing && !(reference isa Commons.ObservedResult)
-        reference isa _PrimarySource ||
-            throw(ArgumentError("construct an atomic ObservedResult for a reference collection"))
         reference=Commons.ObservedResult(reference, requests; complete_pairs = true, acquisition...)
     end
     return plot(observed, normalized.displayed; reference, presentation...)

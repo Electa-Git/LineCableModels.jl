@@ -45,12 +45,12 @@ end
 
 function _delete_subtree!(grid::GridLayout)
     for child in copy(grid.content)
-        object=child.content
-        object isa GridLayout ? _delete_subtree!(object) : delete!(object)
+        _delete_subtree!(child.content)
     end
     _detach!(grid)
     return nothing
 end
+_delete_subtree!(block) = delete!(block)
 
 function _belongs_to_slot(object, slot)
     current=object
@@ -77,12 +77,11 @@ function _expected_callback_error(error)
         DimensionMismatch, SystemError, Base.IOError}
 end
 
-function _widget!(builder, p, key; event = nothing, callback = nothing,
+function _widget!(builder, p, key::Symbol; event = nothing, callback = nothing,
         success = nothing, standard = false)
     state=p.plot_state
     state.controls_enabled ||
         throw(ArgumentError("this figure was constructed with controls=false"))
-    key isa Symbol || throw(ArgumentError("widget keys must be Symbols"))
     haskey(p.controls, key) && throw(ArgumentError("widget key $key is already registered"))
     standard || key ∉ _TOOLBAR_STANDARD_CONTROLS ||
         throw(ArgumentError("widget key $key is reserved"))

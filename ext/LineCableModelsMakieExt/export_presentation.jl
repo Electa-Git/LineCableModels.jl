@@ -14,14 +14,15 @@ function _set_observable!(snapshot, observable, value)
     return observable
 end
 
-function _hide_layout_content!(snapshot, content)
-    if content isa GridLayout
-        for entry in content.content
-            _hide_layout_content!(snapshot, entry.content)
-        end
-    elseif hasproperty(content, :blockscene)
-        _set_observable!(snapshot, content.blockscene.visible, false)
+function _hide_layout_content!(snapshot, content::GridLayout)
+    for entry in content.content
+        _hide_layout_content!(snapshot, entry.content)
     end
+    return snapshot
+end
+function _hide_layout_content!(snapshot, content)
+    hasproperty(content, :blockscene) &&
+        _set_observable!(snapshot, content.blockscene.visible, false)
     return snapshot
 end
 
