@@ -3,7 +3,7 @@ $(TYPEDEF)
 
 Store one completed cable design built from an authoritative physical declaration.
 
-`origin` is the serialized declaration. Geometry and terminal indexing are
+`tree` is the serialized declaration. Geometry and terminal indexing are
 derived together by [`build`](@ref) and cannot be supplied independently.
 
 $(TYPEDFIELDS)
@@ -17,7 +17,7 @@ struct CableDesign{
     "Stable cable identifier."
     cable_id::String
     "Authoritative physical declaration."
-    origin::O
+    tree::O
     "Descriptive catalog data supplied with the physical declaration."
     nominal_data::N
     "Resolved physical geometry."
@@ -29,7 +29,7 @@ struct CableDesign{
 
     function CableDesign{T, O, G, N}(
             cable_id::String,
-            origin::O,
+            tree::O,
             nominal_data::N,
             geometry::G,
             terminal_order::Vector{Symbol},
@@ -39,7 +39,7 @@ struct CableDesign{
     }
         return validate(new{T, O, G, N}(
             cable_id,
-            origin,
+            tree,
             nominal_data,
             geometry,
             terminal_order,
@@ -231,7 +231,7 @@ function validate(design::CableDesign)
 end
 
 function Base.:(==)(left::CableDesign, right::CableDesign)
-    left.cable_id == right.cable_id && left.origin == right.origin &&
+    left.cable_id == right.cable_id && left.tree == right.tree &&
         left.nominal_data == right.nominal_data && left.geometry == right.geometry &&
         left.terminal_order == right.terminal_order &&
         left.terminal_map == right.terminal_map
@@ -269,10 +269,10 @@ function build(
         combine::Symbol = :product
 )
     isempty(parts) && throw(ArgumentError("a cable design requires one physical part"))
-    origin = length(parts) == 1 ? only(parts) : Stack(parts...)
+    tree = length(parts) == 1 ? only(parts) : Stack(parts...)
     # 1. Public conveniences have already lowered into the physical grammar.
     # A conductive Region does not acquire a terminal from its material class.
-    normalized = origin
+    normalized = tree
 
     # 2. Validate formulation-independent declarations.
     combine in (:product, :zip) || throw(ArgumentError(
@@ -314,7 +314,7 @@ function build(
     all(placed -> isapprox(placed.source.material.T0, reference), geometry.regions) ||
         throw(ArgumentError("all cable materials must share one reference temperature"))
 
-    # 9. Freeze the authoritative origin and its completed geometry together.
+    # 9. Freeze the authoritative tree and its completed geometry together.
     T = promote_type(
         (eltype(placed.primitive) for placed in geometry.regions)...,
         (eltype(placed.source.material) for placed in geometry.regions)...

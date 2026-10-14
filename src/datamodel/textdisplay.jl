@@ -447,13 +447,13 @@ end
 function Base.show(io::IO, ::MIME"text/plain", design::CableDesign)
     get(io, :compact, false) && return show(io, design)
     terminals = isempty(design.terminal_order) ? "none" : join(design.terminal_order, ", ")
-    origin = _part_node(design.origin)
+    tree = _part_node(design.tree)
     children = (
         (label = "terminals  $terminals", noun = "parts"),
         (label = "regions    $(length(design.geometry.regions))", noun = "parts"),
         (label = "diameter   $(TextDisplay.engineering(2outer_radius(design), :meter))",
             noun = "parts"),
-        (label = "origin     $(origin.label)", children = origin.children, noun = "parts")
+        (label = "tree       $(tree.label)", children = tree.children, noun = "parts")
     )
     return TextDisplay.tree(io, "CableDesign \"$(design.cable_id)\"", children)
 end

@@ -198,7 +198,7 @@ function serialize_value(value::CableDesign; material_name = nothing)
              "name" => String(name),
              "value" => serialize_value(item)
          ) for (name, item) in pairs(value.nominal_data)],
-        "origin" => serialize_value(value.origin; material_name)
+        "tree" => serialize_value(value.tree; material_name)
     )
 end
 
@@ -290,7 +290,7 @@ function _json_document(library::CablesLibrary)
     materials = AbstractMaterial[]
     cable_ids = sort!(collect(keys(library.data)))
     for cable_id in cable_ids
-        _collect_materials!(materials, library.data[cable_id].origin)
+        _collect_materials!(materials, library.data[cable_id].tree)
     end
     names = Dict{Int, String}(
         index => "$(material.kind)_$index" for (index, material) in enumerate(materials)

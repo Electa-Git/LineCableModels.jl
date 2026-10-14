@@ -39,7 +39,7 @@
                     },
                     "designation_code": "NA2XS(FL)2Y"
                 },
-                "origin": {
+                "tree": {
                     "kind": "stack",
                     "items": [
                         {
@@ -594,7 +594,7 @@
                     "inductance": null,
                     "designation_code": "(N)2XH(F)RK2Y"
                 },
-                "origin": {
+                "tree": {
                     "kind": "stack",
                     "items": [
                         {

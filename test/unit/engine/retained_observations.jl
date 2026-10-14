@@ -144,7 +144,7 @@ end
     using LineCableModels.Engine: retain_gridpoint,completed_inputs,completed_formulation
     problem=TestFixtures.line_parameters_problem()
     inputs=completed_inputs(problem)
-    radius=inputs.system.designs[1].origin.items[1].item.items[1].primitive
+    radius=inputs.system.designs[1].tree.items[1].item.items[1].primitive
     @test radius.field_descriptions.r==(name="radius",unit="m")
     @test inputs.earth_props.layers[2].field_descriptions.rho==(name="electrical resistivity",unit="Ω·m")
     base=LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.])

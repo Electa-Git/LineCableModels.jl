@@ -293,9 +293,9 @@ dielectric to equivalent-area circles only while constructing its numerical
 input. The exact sectors and their centroids remain authoritative in the
 completed design and in persisted declarations.
 
-`design.origin` retains the physical declaration used to build the cable.
+`design.tree` retains the physical declaration used to build the cable.
 `design.geometry` is its resolved geometry. Serialized cable-design records
-store the declaration under `"origin"`. The outer JSON document uses `"root"`
+store the declaration under `"tree"`. The outer JSON document uses `"root"`
 for its top-level value.
 
 ## Parameter spaces

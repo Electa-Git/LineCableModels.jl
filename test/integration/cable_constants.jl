@@ -430,7 +430,7 @@
     designs=build(
         CableDesign,
         Grid(("constants-a", "constants-b")),
-        design.origin
+        design.tree
     )
     # A gridded design makes the convenience return compute's result space.
     constant_space=CableConstants(designs)
@@ -455,7 +455,7 @@
 
     sampled=compute(
         ParametricProblem(CableConstantsProblem(
-            build(CableDesign, Grid(("sampled",)), design.origin);
+            build(CableDesign, Grid(("sampled",)), design.tree);
             frequency = 50.0
         )),
         MonteCarlo(
@@ -478,7 +478,7 @@ end
     first_design=TestFixtures.coaxial_design()
     second_design=TestFixtures.coaxial_design()
     @test first_design !== second_design
-    @test first_design.origin !== second_design.origin
+    @test first_design.tree !== second_design.tree
     @test first_design.geometry.regions !== second_design.geometry.regions
 
     first_system=TestFixtures.three_phase_system()

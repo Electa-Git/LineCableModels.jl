@@ -32,7 +32,7 @@
     end
     @test notated == functional
     @test functional.terminal_order == [:phase]
-    @test functional.origin isa Group
+    @test functional.tree isa Group
     @test all(==(1), filter(!iszero, functional.terminal_map))
     @test_throws ArgumentError build(
         CableDesign,

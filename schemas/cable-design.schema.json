@@ -1036,7 +1036,7 @@
         "kind",
         "cable_id",
         "nominal_data",
-        "origin"
+        "tree"
       ],
       "properties": {
         "kind": {
@@ -1049,7 +1049,7 @@
         "nominal_data": {
           "$ref": "#/$defs/nominalData"
         },
-        "origin": {
+        "tree": {
           "$ref": "#/$defs/part"
         }
       },
@@ -1061,7 +1061,7 @@
         "kind",
         "cable_id",
         "nominal_data",
-        "origin",
+        "tree",
         "datasheet"
       ],
       "properties": {
@@ -1075,7 +1075,7 @@
         "nominal_data": {
           "$ref": "#/$defs/nominalData"
         },
-        "origin": {
+        "tree": {
           "$ref": "#/$defs/part"
         },
         "datasheet": {

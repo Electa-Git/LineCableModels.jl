@@ -4,12 +4,12 @@
 ] begin
     design=TestFixtures.coaxial_design()
     system=TestFixtures.three_phase_system()
-    @test hasfield(typeof(design), :origin)
-    @test hasproperty(design, :origin)
-    @test build(CableDesign, design.cable_id, design.origin;
+    @test hasfield(typeof(design), :tree)
+    @test hasproperty(design, :tree)
+    @test build(CableDesign, design.cable_id, design.tree;
         nominal_data=design.nominal_data) == design
 
-    for object in (design.origin, first(design.geometry.regions), design, system)
+    for object in (design.tree, first(design.geometry.regions), design, system)
         @test !isempty(sprint(show, MIME("text/plain"), object))
     end
 
@@ -28,7 +28,7 @@
     design_display=sprint(show, MIME("text/plain"), design)
     @test contains(design_display, design.cable_id)
     @test contains(design_display, "regions    $(length(design.geometry.regions))")
-    @test contains(design_display, "origin     ")
+    @test contains(design_display, "tree       ")
     system_display=sprint(show, MIME("text/plain"), system)
     @test contains(system_display, system.system_id)
     @test contains(system_display, "cables")

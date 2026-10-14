@@ -20,7 +20,7 @@ function _input_record(value::Union{DataModel.AbstractCablePart,DataModel.Abstra
 end
 
 _input_record(design::CableDesign) = (cable_id=design.cable_id,
-    origin=_input_record(design.origin),
+    tree=_input_record(design.tree),
     terminal_order=copy(design.terminal_order))
 
 function _input_record(system::LineCableSystem)
