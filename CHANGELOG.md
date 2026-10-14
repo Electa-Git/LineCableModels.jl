@@ -256,6 +256,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Region`, `Stack`, the keyword `Sector`, `Group`, `Assembly` and `Enclosure`, and the
   `build` of `CableDesign` and `LineCableSystem`. A scalar input of the wrong type throws a
   `MethodError`.
+- A user type lifts over `Grid` and `Gridspace` inputs with one method, as the package's
+  constructors do. The method returns `LineCableModels.parameterize(T, T, values; combine)`.
 - `Region(tag::Symbol, primitive, material)` takes an `AbstractPrimitive` or `Shell` and an
   `AbstractMaterial`.
 - Every keyword of `LineParametersProblem(system; …)` and `CableConstantsProblem(design; …)`

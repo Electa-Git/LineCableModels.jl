@@ -184,7 +184,7 @@ The current behavior is:
 | `CableConstantsFormulation` | `Engine.CableConstantsFormulation` | `Gridspace{Engine.CableConstantsFormulation}` |
 | `ModalAnalysisFormulation` | `ModalAnalysis.ModalAnalysisFormulation` | `Gridspace{ModalAnalysis.ModalAnalysisFormulation}` |
 | backend formulation constructor | completed backend formulation | target-bearing formulation `Gridspace` |
-| `@gridspace` keyword constructor | strict struct | `Gridspace{Target}` |
+| hand-written lift of a user type | the user's type | `Gridspace` of the user's type |
 
 Scalar-complete calls invoke their domain action immediately. A varying call
 stores only that callable and explicit finite sources. Each selected point
@@ -211,10 +211,31 @@ local variables is suitable for local experiments. Reusable callables use concre
 Do not introduce a passive record merely to store arguments that another
 function immediately unpacks.
 
-`@gridspace` applies the same rule to a keyword-constructed struct. The macro
-retains the strict positional constructor, and its keyword constructor calls
-`parameterize`. Scalar keyword input returns the struct immediately. A field that is an
-explicit finite source makes the call return a Gridspace.
+A user type lifts with one method that calls `parameterize`, as the package's constructors
+do. Each position accepts its scalar type or a `Grid` or `Gridspace`, and the type is the
+caller:
+
+```julia
+struct LabeledValue{T <: Real}
+    value::T
+    label::Symbol
+end
+
+function LabeledValue(
+        value::Union{Real, AbstractGrid, Gridspace},
+        label::Union{Symbol, AbstractGrid, Gridspace} = :default;
+        combine::Symbol = :product
+)
+    return LineCableModels.parameterize(
+        LabeledValue, LabeledValue, (value, label); combine)
+end
+
+LabeledValue(1.0)                    # LabeledValue(1.0, :default)
+LabeledValue(Grid((1.0, 2.0)), :ok)  # a Gridspace with two points
+```
+
+The constructor `LabeledValue(value::T, label::Symbol)` is more specific than the lift, so
+`parameterize` reaches it for scalar inputs and at each point of the space.
 
 ## Materialization and realization
 
@@ -604,8 +625,6 @@ The implementation is split across:
 - `src/grid.jl`: finite values and uncertainty descriptors.
 - `src/gridspace.jl`: composition, point selection, recursive
   materialization, and realization.
-- `src/parametricbuilder/macros.jl`: strict scalar construction and explicit
-  Gridspace lifting for `@gridspace`.
 - material, cable, position, and system files: scalar construction and lifting
   rules and concrete callable algorithms.
 - `src/parametricbuilder/traversal.jl`: combinatorial traversal and the

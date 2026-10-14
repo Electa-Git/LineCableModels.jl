@@ -132,28 +132,46 @@ end
     @test_throws MethodError PB.Gridspace(MissingGridspaceDefinition())
 end
 
-@testitem "ParametricBuilder / macros / strict and lifted construction" tags=[:unit, :parametric] setup=[
+@testitem "ParametricBuilder / parameterize / scalar, Grid and atomic inputs of a user lift" tags=[:unit, :parametric] setup=[
     UseEngineSupport] begin
-    import LineCableModels.ParametricBuilder as PB
-
-    PB.@gridspace struct MacroVault{T <: Real}
+    struct LabeledValue{T <: Real}
         value::T
-        label::Symbol=:default
+        label::Symbol
     end
 
-    @test collect(MacroVault(; value = PB.Grid((1.0, 2.0)), label = :ok)) == [
-        MacroVault(1.0, :ok),
-        MacroVault(2.0, :ok)
-    ]
-    scalar=MacroVault(; value = 1.0)
-    @test scalar isa MacroVault
-    @test scalar == MacroVault(1.0, :default)
-    PB.@gridspace struct AtomicCollections{T}
-        payload::T
-        label::Symbol=:default
+    function LabeledValue(
+            value::Union{Real, AbstractGrid, Gridspace},
+            label::Union{Symbol, AbstractGrid, Gridspace} = :default;
+            combine::Symbol = :product
+    )
+        return LineCableModels.parameterize(
+            LabeledValue, LabeledValue, (value, label); combine)
     end
+
+    @test collect(LabeledValue(Grid((1.0, 2.0)), :ok)) == [
+        LabeledValue(1.0, :ok),
+        LabeledValue(2.0, :ok)
+    ]
+    scalar=LabeledValue(1.0)
+    @test scalar isa LabeledValue
+    @test scalar == LabeledValue(1.0, :default)
+
+    struct AtomicCollections{T <: AbstractMatrix}
+        payload::T
+        label::Symbol
+    end
+
+    function AtomicCollections(
+            payload::Union{AbstractMatrix, AbstractGrid, Gridspace},
+            label::Union{Symbol, AbstractGrid, Gridspace} = :default;
+            combine::Symbol = :product
+    )
+        return LineCableModels.parameterize(
+            AtomicCollections, AtomicCollections, (payload, label); combine)
+    end
+
     matrix=[1.0 2.0; 3.0 4.0]
-    @test AtomicCollections(; payload = matrix).payload === matrix
-    varied=AtomicCollections(; payload = matrix, label = PB.Grid((:a, :b)))
+    @test AtomicCollections(matrix).payload === matrix
+    varied=AtomicCollections(matrix, Grid((:a, :b)))
     @test all(value -> value.payload === matrix, varied)
 end

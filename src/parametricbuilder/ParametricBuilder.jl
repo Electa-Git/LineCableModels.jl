@@ -22,7 +22,6 @@ export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
-export @gridspace
 export build
 
 export Combinatorial, ParametricProblem, ParametricResult
@@ -44,7 +43,7 @@ export @at, @hflat, @vflat, @trefoil
 export @distribute
 export WireEstimate, estimate_stranding, estimate_screen
 
-using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
+using DocStringExtensions: TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 import Random
 import ..LineCableModels: build, Gridpoint, validate
 import ..LineCableModels: Grid, AbsoluteError, DeterministicGrid, RelativeGrid
@@ -77,7 +76,6 @@ import ..Engine
 import ..Engine: compare
 import ..TextDisplay
 
-include("macros.jl")
 include("results.jl")
 
 include("physicaltree.jl")

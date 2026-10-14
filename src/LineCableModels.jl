@@ -31,7 +31,6 @@ export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
-export @gridspace
 export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity
@@ -191,7 +190,6 @@ using .Engine.ModalAnalysis: ModalAnalysisProblem, ModalAnalysisFormulation,
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
 using .ParametricBuilder:
-                          @gridspace,
                           Combinatorial, ParametricProblem, ParametricResult,
                           terminal, core, stranded, milliken, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,

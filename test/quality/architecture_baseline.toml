@@ -143,7 +143,6 @@
 "src/materials/material.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
-"src/parametricbuilder/macros.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
 "src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
 "src/performance.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
@@ -325,7 +324,6 @@
 "src/gridspace.jl" = 3
 "src/importexport/deserialize.jl" = 1
 "src/importexport/observed.jl" = 1
-"src/parametricbuilder/macros.jl" = 3
 "src/parametricbuilder/physicaltree.jl" = 3
 "src/parametricbuilder/wirepatterns/gauges.jl" = 1
 "src/pscad/compute.jl" = 1
