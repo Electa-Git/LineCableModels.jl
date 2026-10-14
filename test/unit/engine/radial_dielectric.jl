@@ -41,7 +41,7 @@
     # homogenize reduces the conductor and keeps each dielectric layer at its radii.
     homogeneous = homogenize(source)
     @test length(homogeneous.geometry.regions) == 4
-    layers = [region.source.material for region in homogeneous.geometry.regions[2:end]]
+    layers = [placed.source.material for placed in homogeneous.geometry.regions[2:end]]
     @test all(material -> material isa Material, layers)
     # A solid core has no lay, and the permeability scale is one up to rounding.
     for (actual, expected) in zip(layers, (semicon, dielectric, semicon))
@@ -62,7 +62,7 @@
     @test only(DM.preview_materials(last(homogeneous.geometry.regions))) == last(layers)
     @test length(DM.preview_shapes(last(homogeneous.geometry.regions))) == 1
     reconstructed = IE.deserialize_value(IE.serialize_value(homogeneous))
-    @test [region.source.material for region in reconstructed.geometry.regions[2:end]] ==
+    @test [placed.source.material for placed in reconstructed.geometry.regions[2:end]] ==
           layers
 
     frequencies = 10.0 .^ range(-1, 6; length = 31)
@@ -195,7 +195,7 @@ end
         load!(restored; file_name = path)
         actual = restored[design.cable_id]
         @test IE.serialize_value(actual) == IE.serialize_value(design)
-        materials = [region.source.material for region in actual.geometry.regions[2:end]]
+        materials = [placed.source.material for placed in actual.geometry.regions[2:end]]
         @test getproperty.(materials, :kind) == [:semicon, :insulator]
         for selector in (:default, :lossy), frequency in (50.0, 60.0)
 

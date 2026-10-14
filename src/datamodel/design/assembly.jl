@@ -165,20 +165,20 @@ function _append_assembly_member!(
 )
     radius = hypot(member_at.x, member_at.y)
     extent = zero(support(boundary(child)))
-    for source in child.regions
-        placed = resolve(assembly_at * member_at, source)
-        terminal = source.terminal === nothing ? nothing : terminal_map(source.terminal)
-        local_primitive = resolve(member_at, source.primitive)
+    for placed in child.regions
+        resolved = resolve(assembly_at * member_at, placed)
+        terminal = placed.terminal === nothing ? nothing : terminal_map(placed.terminal)
+        local_primitive = resolve(member_at, placed.primitive)
         extent = max(extent, support(local_primitive))
-        patterns = pattern === nothing ? placed.placement.patterns :
-                   (placed.placement.patterns...,
+        patterns = pattern === nothing ? resolved.placement.patterns :
+                   (resolved.placement.patterns...,
             (owner = Assembly, pattern = pattern, member = member, pose = member_at))
-        paths = path === nothing ? source.paths :
-                (source.paths..., (path = path, radius = radius))
+        paths = path === nothing ? placed.paths :
+                (placed.paths..., (path = path, radius = radius))
         push!(regions,
             PlacedRegion(
-                source.source,
-                placed.primitive,
+                placed.source,
+                resolved.primitive,
                 terminal,
                 (patterns = patterns,),
                 paths
@@ -189,9 +189,9 @@ end
 
 function _resolve_repeated(assembly::Assembly)
     child = resolve(EmptyBoundary(), assembly.item)
-    child_terminals = unique(Symbol[source.terminal
-                                    for source in child.regions
-                                    if source.terminal !== nothing])
+    child_terminals = unique(Symbol[placed.terminal
+                                    for placed in child.regions
+                                    if placed.terminal !== nothing])
     length(child_terminals) <= 1 || throw(ArgumentError(
         "a repeated assembly prototype may resolve at most one terminal"
     ))
@@ -241,9 +241,9 @@ function _resolve_explicit(assembly::Assembly)
     boundaries = AbstractShape[]
     for member in assembly.item
         child = resolve(EmptyBoundary(), member.item)
-        child_terminals = unique(Symbol[source.terminal
-                                        for source in child.regions
-                                        if source.terminal !== nothing])
+        child_terminals = unique(Symbol[placed.terminal
+                                        for placed in child.regions
+                                        if placed.terminal !== nothing])
         for terminal in child_terminals
             terminal in terminals && throw(ArgumentError(
                 "explicit assembly terminal :$terminal is not unique"

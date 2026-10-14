@@ -8,7 +8,7 @@
     body = stranded(copper; shape=strand, center=center,
         boundary=Disk(0.6e-3), lay=LayRatio(12))
     design = build(CableDesign, "annular-last-strip", terminal(:core, body))
-    metal = filter(region -> region.source.material.kind === :conductor,
+    metal = filter(placed -> placed.source.material.kind === :conductor,
         design.geometry.regions)
     @test length(metal) == 34
     final_strip = last(metal)
@@ -42,14 +42,14 @@
     @test length(design.geometry.regions) == length(metal)
     @test outer_radius(design) == final_strip.primitive.ro
     @test outer_radius(design) < 0.6e-3
-    @test all(region -> only(region.placement.patterns).pattern.boundary ==
+    @test all(placed -> only(placed.placement.patterns).pattern.boundary ==
         design.geometry.outer, metal)
     blueprint = @inferred LineCableModels.DataModel.flatten(design, Float64)
     row = only(blueprint.conductors)
     @test row.r_ex == outer_radius(design)
-    @test count(region -> region.terminal === :core, design.geometry.regions) ==
+    @test count(placed -> placed.terminal === :core, design.geometry.regions) ==
           length(metal)
-    @test sum(region -> area(region.primitive), metal) ≈ area(center) + 33area(strand)
+    @test sum(placed -> area(placed.primitive), metal) ≈ area(center) + 33area(strand)
     expected_resistance = copper.rho / (area(center) + 33area(strand) / sqrt(1 + (pi / 12)^2))
     resistance = DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho)
     gmr = DM.tubular_gmr(row.r_ex, row.r_in, row.material.mu_r)
@@ -84,7 +84,7 @@
     @test length(designs) == 2
     rows = [only(LineCableModels.DataModel.flatten(selected, Float64).conductors)
         for selected in designs]
-    @test [count(region -> region.terminal === :core, selected.geometry.regions)
+    @test [count(placed -> placed.terminal === :core, selected.geometry.regions)
            for selected in designs] == [33, 34]
     @test DM.tubular_resistance(last(rows).r_in, last(rows).r_ex, last(rows).material.rho) ≈
           resistance rtol = 1e-12
@@ -135,9 +135,9 @@ end
     row = only(LineCableModels.DataModel.flatten(design, Float64).conductors)
     # Independent uniform-current limiting case: there is no material or
     # current-density discontinuity between the center and its one full ring.
-    @test count(region -> region.terminal === :core, design.geometry.regions) == 2
-    @test sum(region -> area(region.primitive),
-        filter(region -> region.terminal === :core, design.geometry.regions)) ≈
+    @test count(placed -> placed.terminal === :core, design.geometry.regions) == 2
+    @test sum(placed -> area(placed.primitive),
+        filter(placed -> placed.terminal === :core, design.geometry.regions)) ≈
           pi * radius^2
     @test LineCableModels.DataModel.tubular_resistance(row.r_in, row.r_ex,
         row.material.rho) ≈ copper.rho / (pi * radius^2) rtol=1e-12

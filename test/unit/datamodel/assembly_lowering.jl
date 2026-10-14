@@ -56,7 +56,7 @@
                   for (left, right) in zip(actual.positions, expected.positions))
         @test actual.dielectrics == expected.dielectrics
         @test IE.deserialize_value(IE.serialize_value(repeated)) == repeated
-        @test all(region -> last(region.placement.patterns).owner === DM.Assembly,
+        @test all(placed -> last(placed.placement.patterns).owner === DM.Assembly,
             repeated.geometry.regions)
         relocated = DM.resolve(Pose2(0.004, -0.006, 0.31), first(repeated.geometry.regions))
         @test last(relocated.placement.patterns).owner === DM.Assembly
@@ -77,7 +77,7 @@
     @test all(field -> getfield(merged_blueprint, field) == getfield(direct_blueprint, field),
         (:conductors, :dielectrics, :dielectric_ranges, :mu_r_ins, :assembly_ranges,
             :positions))
-    @test all(region -> all(entry -> entry.owner !== DM.Assembly, region.placement.patterns),
+    @test all(placed -> all(entry -> entry.owner !== DM.Assembly, placed.placement.patterns),
         merged_design.geometry.regions)
 
     # A helical placement retains the physical overlength independently of
@@ -88,8 +88,8 @@
     rows = LineCableModels.DataModel.flatten(helical, Float64).conductors
     @test all(row -> isapprox(DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho),
         copper.rho / area(wire) * overlength(helix, 0.01); rtol = 1e-12), rows)
-    @test all(region -> only(region.paths).path === helix, helical.geometry.regions)
-    @test all(region -> only(region.paths).radius ≈ 0.01, helical.geometry.regions)
+    @test all(placed -> only(placed.paths).path === helix, helical.geometry.regions)
+    @test all(placed -> only(placed.paths).radius ≈ 0.01, helical.geometry.regions)
     prototype = terminal(:core, bodies[2])
     isolated = build(CableDesign, "stranded", prototype)
     helical_stranded = build(CableDesign, "helical-stranded", assembly(prototype;
@@ -157,6 +157,6 @@ end
         isolated = build(CableDesign, "isolated", member)
         repeated = build(CableDesign, "repeated", cores(member; n=3, r=0.01, names=(:a, :b, :c)))
         expected = extension._fem_region_mesh_size(only(isolated.geometry.regions))
-        @test all(region -> extension._fem_region_mesh_size(region) == expected, repeated.geometry.regions)
+        @test all(placed -> extension._fem_region_mesh_size(placed) == expected, repeated.geometry.regions)
     end
 end

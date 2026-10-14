@@ -1111,10 +1111,10 @@ end
         problem(annular_design, Dict(:core => 1), annular_design.cable_id),
         formulation)
     @test any(
-        region -> region.source.primitive isa Rectangle &&
-                  region.primitive isa Annulus,
+        placed -> placed.source.primitive isa Rectangle &&
+                  placed.primitive isa Annulus,
         annular_design.geometry.regions)
-    @test all(region -> region.source.tag !== :stranded_fill,
+    @test all(placed -> placed.source.tag !== :stranded_fill,
         annular_design.geometry.regions)
     @test length(annular_model.region_plans) == 2
     @test first(annular_model.region_plans).shape isa Disk

@@ -65,7 +65,7 @@
         distributed_tapes
     )
     tape_regions = filter(
-        region -> region.source.tag === :tape,
+        placed -> placed.source.tag === :tape,
         distributed_design.geometry.regions
     )
     @test length(tape_regions) == capacity(
@@ -73,7 +73,7 @@
         Rectangle(1.0e-3, 0.5e-3),
         nothing
     )
-    @test all(region -> length(region.paths) == 1, tape_regions)
+    @test all(placed -> length(placed.paths) == 1, tape_regions)
 
     nested = build(
         CableDesign,
@@ -391,7 +391,7 @@ end
     @test asymmetric.item isa Assembly
     design = build(CableDesign, "asymmetric-ducts", asymmetric)
     @test design.terminal_order == [:a, :b]
-    @test any(region -> region.source.tag === :duct_fill, design.geometry.regions)
+    @test any(placed -> placed.source.tag === :duct_fill, design.geometry.regions)
 
     piped = pipe(
         at(cell_a, -5e-3, 0),
@@ -423,9 +423,9 @@ end
     elliptical_design = build(CableDesign, "elliptical-duct", elliptical)
     @test elliptical_design.geometry.outer isa Ellipse
     @test area(elliptical_design.geometry.outer) ≈ pi * 15e-3 * 8e-3
-    elliptical_fill = only(filter(elliptical_design.geometry.regions) do region
-        region.primitive isa DM.DifferenceShape &&
-            region.primitive.outer isa Ellipse
+    elliptical_fill = only(filter(elliptical_design.geometry.regions) do placed
+        placed.primitive isa DM.DifferenceShape &&
+            placed.primitive.outer isa Ellipse
     end)
     @test elliptical_fill.primitive isa DM.DifferenceShape
     @test length(elliptical_fill.primitive.holes) == 2
@@ -442,8 +442,8 @@ end
         CableDesign, "elliptical-duct-wall", elliptical_wall
     )
     @test elliptical_wall_design.geometry.outer isa DM.EllipseOffset
-    wall_region = only(filter(elliptical_wall_design.geometry.regions) do region
-        region.source.tag === :concrete_wall
+    wall_region = only(filter(elliptical_wall_design.geometry.regions) do placed
+        placed.source.tag === :concrete_wall
     end)
     @test wall_region.primitive isa DM.ShellShape
     @test wall_region.primitive.inner isa Ellipse
@@ -577,7 +577,7 @@ end
         terminal(:core, bounded)
     )
     bounded_conductors = filter(
-        region -> region.source.material.kind === :conductor,
+        placed -> placed.source.material.kind === :conductor,
         bounded_design.geometry.regions
     )
     expected_courses = DM.course_count(
@@ -586,12 +586,12 @@ end
     expected_bounded_count = 1 + 3expected_courses * (expected_courses + 1)
     @test length(bounded_conductors) == expected_bounded_count
     @test DM.boundary(bounded_design.geometry).primitive == sector_boundary
-    @test all(region -> region.primitive isa DM.Polygon,
+    @test all(placed -> placed.primitive isa DM.Polygon,
         bounded_conductors)
     @test sum(DM.area, bounded_conductors) ≈
           expected_bounded_count * pi * (0.5e-3)^2
     bounded_fills = filter(
-        region -> region.source.material.kind !== :conductor,
+        placed -> placed.source.material.kind !== :conductor,
         bounded_design.geometry.regions
     )
     @test length(bounded_fills) == 1
@@ -603,9 +603,9 @@ end
           DM.area(bounded_design.geometry.outer)
     sector_center = DM.centroid(resolved_sector)
     @test isempty(first(bounded_conductors).paths)
-    @test all(Iterators.drop(bounded_conductors, 1)) do region
-        radius = only(region.paths).radius
-        center = DM.centroid(region.primitive)
+    @test all(Iterators.drop(bounded_conductors, 1)) do placed
+        radius = only(placed.paths).radius
+        center = DM.centroid(placed.primitive)
         radius ≈ hypot(
             center[1] - sector_center[1],
             center[2] - sector_center[2]
@@ -618,10 +618,10 @@ end
         only(bounded_blueprint.positions),
         DM.centroid(resolved_sector)
     ))
-    member_resistances = map(bounded_conductors) do region
-        factor = isempty(region.paths) ? 1.0 :
-                 overlength(only(region.paths).path, only(region.paths).radius)
-        copper.rho / DM.area(region.source.primitive) * factor
+    member_resistances = map(bounded_conductors) do placed
+        factor = isempty(placed.paths) ? 1.0 :
+                 overlength(only(placed.paths).path, only(placed.paths).radius)
+        copper.rho / DM.area(placed.source.primitive) * factor
     end
     @test DM.tubular_resistance(bounded_component.r_in, bounded_component.r_ex,
         bounded_component.material.rho) ≈ inv(sum(inv, member_resistances)) rtol = 1e-12
@@ -636,15 +636,15 @@ end
     @test all(isapprox.(DM.area.(course_shapes), DM.area(Disk(0.5e-3))))
     resolved_courses = [only(
                             entry.pattern.course
-                        for entry in region.placement.patterns
+                        for entry in placed.placement.patterns
                         if entry.pattern isa DM.BoundedPlacement
-                        ) for region in bounded_conductors]
+                        ) for placed in bounded_conductors]
     @test [count(==(course), resolved_courses)
            for course in 1:expected_courses] == 6 .* (1:expected_courses)
     @test [only(entry.member
-           for entry in region.placement.patterns
+           for entry in placed.placement.patterns
            if entry.pattern isa DM.BoundedPlacement)
-           for region in bounded_conductors] == eachindex(bounded_conductors)
+           for placed in bounded_conductors] == eachindex(bounded_conductors)
     @test_throws ArgumentError stranded(
         copper;
         shape = Disk(0.5e-3),
@@ -718,8 +718,8 @@ end
     )
     @test eltype(uncertain_sector_design) <: Measurement
     @test any(
-        region -> region.primitive isa DM.Polygon &&
-                  uncertainty(DM.area(region.primitive)) > 0,
+        placed -> placed.primitive isa DM.Polygon &&
+                  uncertainty(DM.area(placed.primitive)) > 0,
         uncertain_sector_design.geometry.regions
     )
 
@@ -747,7 +747,7 @@ end
     zipped_designs = [build(CableDesign, "zipped-bounded-$index", terminal(:phase, value))
                       for (index, value) in enumerate(zipped_space)]
     @test length(zipped_designs) == 2
-    @test [count(region -> region.source.material.kind === :conductor,
+    @test [count(placed -> placed.source.material.kind === :conductor,
                design.geometry.regions) for design in zipped_designs] == [7, 7]
 
     uncertain_space = stranded(
@@ -763,7 +763,7 @@ end
     )
     @test eltype(uncertain_design) <: Measurement
     @test any(
-        region -> uncertainty(DM.area(region.primitive)) > 0,
+        placed -> uncertainty(DM.area(placed.primitive)) > 0,
         uncertain_design.geometry.regions
     )
 
@@ -783,13 +783,13 @@ end
         CableDesign, "rectangular-strands", terminal(:phase, rectangular)
     )
     rectangular_conductors = filter(
-        region -> region.source.material.kind === :conductor,
+        placed -> placed.source.material.kind === :conductor,
         rectangular_design.geometry.regions
     )
     @test first(rectangular_conductors).primitive isa Disk
-    @test all(region -> region.primitive isa DM.BentStrip,
+    @test all(placed -> placed.primitive isa DM.BentStrip,
         Iterators.drop(rectangular_conductors, 1))
-    @test all(region -> DM.area(region.primitive) ≈ DM.area(region.source.primitive),
+    @test all(placed -> DM.area(placed.primitive) ≈ DM.area(placed.source.primitive),
         rectangular_conductors)
     @test_throws ArgumentError stranded(
         copper;
@@ -815,17 +815,17 @@ end
     )
     @test milliken_design.terminal_order == [:phase]
     milliken_conductors = filter(
-        region -> region.source.material.kind === :conductor,
+        placed -> placed.source.material.kind === :conductor,
         milliken_design.geometry.regions
     )
     @test length(milliken_conductors) > 7
-    center_wire = only(filter(milliken_conductors) do region
-        region.primitive isa Disk &&
-            hypot(DM.centroid(region.primitive)...) < 1e-12
+    center_wire = only(filter(milliken_conductors) do placed
+        placed.primitive isa Disk &&
+            hypot(DM.centroid(placed.primitive)...) < 1e-12
     end)
     segment_wires = filter(!=(center_wire), milliken_conductors)
-    function inner_distance(region)
-        primitive = region.primitive
+    function inner_distance(placed)
+        primitive = placed.primitive
         cosine = cos(primitive.at.φ)
         sine = sin(primitive.at.φ)
         points = [(
@@ -858,7 +858,7 @@ end
         inner_distances
     ) >= 6
     milliken_fills = filter(
-        region -> region.source.material.kind !== :conductor,
+        placed -> placed.source.material.kind !== :conductor,
         milliken_design.geometry.regions
     )
     @test length(milliken_fills) == 1
@@ -892,15 +892,15 @@ end
         terminal(:phase, compacted)
     )
     deformed = filter(
-        region -> region.primitive isa DM.Polygon,
+        placed -> placed.primitive isa DM.Polygon,
         compacted_design.geometry.regions
     )
     @test length(deformed) == 7
     @test sum(DM.area, deformed) ≈ 7pi * (0.5e-3)^2
-    outer_course = filter(region -> length(region.paths) == 1, deformed)
+    outer_course = filter(placed -> length(placed.paths) == 1, deformed)
     @test length(outer_course) == 6
     @test all(
-        region -> only(region.paths).radius ≈ hypot(DM.centroid(region)...),
+        placed -> only(placed.paths).radius ≈ hypot(DM.centroid(placed)...),
         outer_course
     )
 
@@ -920,7 +920,7 @@ end
     )
     @test sum(DM.area, saturated.geometry.regions) ≈ DM.area(saturated_boundary)
     @test all(
-        region -> DM.support(region.primitive) <=
+        placed -> DM.support(placed.primitive) <=
                   saturated_boundary.r * (1 + 5e-6),
         saturated.geometry.regions
     )
@@ -971,20 +971,20 @@ end
         "nested-rope",
         terminal(:phase, nested)
     )
-    @test any(region -> length(region.paths) == 2, nested_design.geometry.regions)
-    @test any(region -> isempty(region.paths), nested_design.geometry.regions)
+    @test any(placed -> length(placed.paths) == 2, nested_design.geometry.regions)
+    @test any(placed -> isempty(placed.paths), nested_design.geometry.regions)
     nested_conductors = filter(
-        region -> region.source.material.kind === :conductor,
+        placed -> placed.source.material.kind === :conductor,
         nested_design.geometry.regions
     )
-    leaf_resistances = map(nested_conductors) do region
-        primitive = region.source.primitive
+    leaf_resistances = map(nested_conductors) do placed
+        primitive = placed.source.primitive
         base = DM.tubular_resistance(
             0.0,
             primitive.r,
-            region.source.material.rho
+            placed.source.material.rho
         )
-        foldl(region.paths; init = base) do resistance, entry
+        foldl(placed.paths; init = base) do resistance, entry
             resistance * overlength(entry.path, entry.radius)
         end
     end

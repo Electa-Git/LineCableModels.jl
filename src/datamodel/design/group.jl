@@ -128,9 +128,9 @@ _member_definition(::AbstractCablePart, child) = child
 # A cross-section that the course derives, such as a bent strip, replaces the primitive
 # of a Region member. A declared primitive or a part's geometry keeps each resolved
 # region primitive.
-_member_primitive(shape::AbstractPrimitive, source) = source.primitive
-_member_primitive(shape::CableGeometry, source) = source.primitive
-_member_primitive(shape::AbstractShape, source) = shape
+_member_primitive(shape::AbstractPrimitive, placed) = placed.primitive
+_member_primitive(shape::CableGeometry, placed) = placed.primitive
+_member_primitive(shape::AbstractShape, placed) = shape
 
 function bounded_declarations(group::Group{<:Pose2, <:Stack})
     parts = collect(group.item.items)
@@ -468,28 +468,28 @@ function _resolve_group(
     if group.pattern === nothing
         child = resolve(context, group.item)
         regions = PlacedRegion[]
-        for source in child.regions
-            placed = resolve(group.at, source)
-            terminal = source.source.material.kind === :conductor ? group.name :
-                       source.terminal
+        for placed in child.regions
+            resolved = resolve(group.at, placed)
+            terminal = placed.source.material.kind === :conductor ? group.name :
+                       placed.terminal
             # This scope coalesces even terminal-preserving child assemblies.
-            patterns = map(placed.placement.patterns) do entry
+            patterns = map(resolved.placement.patterns) do entry
                 entry.owner === Assembly ? merge(entry, (owner = Group,)) : entry
             end
-            center = centroid(source.primitive)
-            paths = group.path === nothing ? source.paths :
-                    (source.paths...,
+            center = centroid(placed.primitive)
+            paths = group.path === nothing ? placed.paths :
+                    (placed.paths...,
                 (
                     path = group.path,
                     radius = _path_radius(
                         nothing,
                         Pose2(center[1], center[2], 0),
-                        source.primitive
+                        placed.primitive
                     )
                 ))
             push!(regions, PlacedRegion(
-                source.source,
-                placed.primitive,
+                placed.source,
+                resolved.primitive,
                 terminal,
                 (patterns = patterns,),
                 paths
@@ -504,27 +504,27 @@ function _resolve_group(
     course = placements(pattern, _member_definition(group.item, child), group.compact)
     # The local primitives of the members are resolved before the regions are built, so the
     # enclosing disk is known before the loop.
-    local_primitives = [resolve(pose, _member_primitive(course.shape, source))
-                        for source in child.regions, pose in course.poses]
+    local_primitives = [resolve(pose, _member_primitive(course.shape, placed))
+                        for placed in child.regions, pose in course.poses]
     isempty(local_primitives) && throw(ArgumentError("group placement cannot be empty"))
     local_boundary = Disk(foldl(max, support(primitive) for primitive in local_primitives))
 
     regions = PlacedRegion[]
     for (member, pose) in enumerate(course.poses)
         placed_at = group.at * pose
-        for (index, source) in enumerate(child.regions)
-            terminal = source.source.material.kind === :conductor ? group.name :
-                       source.terminal
+        for (index, placed) in enumerate(child.regions)
+            terminal = placed.source.material.kind === :conductor ? group.name :
+                       placed.terminal
             local_primitive = local_primitives[index, member]
             primitive = resolve(group.at, local_primitive)
-            placed = resolve(placed_at, source)
-            patterns = map(placed.placement.patterns) do entry
+            resolved = resolve(placed_at, placed)
+            patterns = map(resolved.placement.patterns) do entry
                 entry.owner === Assembly ? merge(entry, (owner = Group,)) : entry
             end
             patterns = (patterns...,
                 (owner = Group, pattern = pattern, member = member, pose = pose))
-            paths = group.path === nothing ? source.paths :
-                    (source.paths...,
+            paths = group.path === nothing ? placed.paths :
+                    (placed.paths...,
                 (
                     path = group.path,
                     radius = _resolved_path_radius(
@@ -535,7 +535,7 @@ function _resolve_group(
                     )
                 ))
             push!(regions, PlacedRegion(
-                source.source,
+                placed.source,
                 primitive,
                 terminal,
                 (patterns = patterns,),
@@ -553,8 +553,8 @@ function resolve(context::AbstractShape, group::Group)
     current_radius = support(context)
     tolerance = sqrt(eps(typeof(float(current_radius)))) *
                 max(one(current_radius), current_radius)
-    for source in result.regions
-        minimum_radius = _minimum_radius(source.primitive)
+    for placed in result.regions
+        minimum_radius = _minimum_radius(placed.primitive)
         minimum_radius + tolerance >= current_radius || throw(DomainError(
             minimum_radius,
             "group geometry overlaps the current stack boundary at radius $current_radius"

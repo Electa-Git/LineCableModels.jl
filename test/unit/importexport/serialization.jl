@@ -145,10 +145,10 @@ end
                 JSON3.read(JSON3.write(IE.serialize_value(expected)), Dict{String, Any})
             @test actual.terminal_order == expected.terminal_order
             @test actual.terminal_map == expected.terminal_map
-            @test [region.source.material for region in actual.geometry.regions] ==
-                [region.source.material for region in expected.geometry.regions]
-            @test [area(region.primitive) for region in actual.geometry.regions] ≈
-                [area(region.primitive) for region in expected.geometry.regions]
+            @test [placed.source.material for placed in actual.geometry.regions] ==
+                [placed.source.material for placed in expected.geometry.regions]
+            @test [area(placed.primitive) for placed in actual.geometry.regions] ≈
+                [area(placed.primitive) for placed in expected.geometry.regions]
             @test area(boundary(actual.geometry)) ≈ area(boundary(expected.geometry))
         end
     end
@@ -287,9 +287,9 @@ end
     @test area.(getproperty.(restored_compacted.geometry.regions, :primitive)) ==
           area.(getproperty.(compacted.geometry.regions, :primitive))
     @test all(
-        region -> region.source.primitive isa Disk &&
-                  region.primitive isa LineCableModels.DataModel.Polygon,
-        filter(region -> region.source.material.kind === :conductor,
+        placed -> placed.source.primitive isa Disk &&
+                  placed.primitive isa LineCableModels.DataModel.Polygon,
+        filter(placed -> placed.source.material.kind === :conductor,
             restored_compacted.geometry.regions)
     )
 

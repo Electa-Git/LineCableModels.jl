@@ -119,7 +119,7 @@ end
             wire_screened
         end
     end
-    @test any(region -> region.primitive isa DM.DifferenceShape,
+    @test any(placed -> placed.primitive isa DM.DifferenceShape,
         open_screen.geometry.regions)
     layers = DM.flatten(open_screen).dielectrics
     @test all(zip(layers, ((4.0e-3, 7.4e-3), (8.4e-3, 12.0e-3), (12.0e-3, 14.0e-3)))) do (
@@ -129,7 +129,7 @@ end
 
     # A cable on the bottom of its conduit leaves a crescent of fill, off its center.
     offset = TestFixtures.offset_conduit_design()
-    crescent = only(filter(region -> region.primitive isa DM.DifferenceShape,
+    crescent = only(filter(placed -> placed.primitive isa DM.DifferenceShape,
         offset.geometry.regions))
     @test area(crescent.primitive) ≈ pi * (12.0e-3^2 - 8.5e-3^2)
     @test_throws "coaxial groups off the center of their container have no coaxial " *

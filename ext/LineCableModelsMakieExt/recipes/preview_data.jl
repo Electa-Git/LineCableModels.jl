@@ -8,10 +8,10 @@ function _native_cable_colorbars(display::Bool, design)
     _material_schemes(DataModel.material_property_ranges(design)) : ()
 end
 
-function _default_preview_legend_group(region, milliken::Bool)
-    tag = region.source.tag
+function _default_preview_legend_group(placed, milliken::Bool)
+    tag = placed.source.tag
     tag === :wire || return tag
-    patterns = region.placement.patterns
+    patterns = placed.placement.patterns
     bounded = any(patterns) do entry
         entry.pattern isa DataModel.BoundedPlacement
     end
@@ -20,10 +20,10 @@ function _default_preview_legend_group(region, milliken::Bool)
     return tag
 end
 
-_preview_legend_group(region, ::Nothing, milliken::Bool) =
-    _default_preview_legend_group(region, milliken)
-function _preview_legend_group(region, legend_group, milliken::Bool)
-    resolved = validate(legend_group, DataModel.PlacedRegion)(region)
+_preview_legend_group(placed, ::Nothing, milliken::Bool) =
+    _default_preview_legend_group(placed, milliken)
+function _preview_legend_group(placed, legend_group, milliken::Bool)
+    resolved = validate(legend_group, DataModel.PlacedRegion)(placed)
     resolved isa Union{Symbol, AbstractString} || throw(ArgumentError(
         "preview presentation groups must be symbols or strings",
     ))
@@ -60,37 +60,37 @@ function _native_design_shapes(
         legend_labels = nothing
 )
     offset = LineCableModels.Pose2(xcenter, ycenter, 0)
-    milliken = any(region -> region.source.tag === :milliken_fill,
+    milliken = any(placed -> placed.source.tag === :milliken_fill,
         design.geometry.regions)
     identities = Dict{Symbol, NamedTuple}()
     labelled_groups = Set{Symbol}()
     polygons = PreviewPolygon[]
-    for region in design.geometry.regions
-        bounded = any(region.placement.patterns) do entry
+    for placed in design.geometry.regions
+        bounded = any(placed.placement.patterns) do entry
             entry.pattern isa DataModel.BoundedPlacement
         end
-        enclosure_boundary = any(region.placement.patterns) do entry
+        enclosure_boundary = any(placed.placement.patterns) do entry
             entry.pattern isa DataModel.EnclosureBoundary
         end
         stroke = enclosure_boundary ? :black :
                  RGB(102 / 255, 109 / 255, 118 / 255)
         width = enclosure_boundary ? 0.8 : (bounded ? 0.5 : 0.45)
-        presentation_group = _preview_legend_group(region, legend_group, milliken)
+        presentation_group = _preview_legend_group(placed, legend_group, milliken)
         identity = get!(identities, presentation_group) do
             (;
                 label = _preview_legend_label(presentation_group, legend_labels),
                 group = Symbol("preview_", presentation_group),
             )
         end
-        primitive = LineCableModels.resolve(offset, region.primitive)
-        placed = LineCableModels.PlacedRegion(
-            region.source,
+        primitive = LineCableModels.resolve(offset, placed.primitive)
+        resolved = LineCableModels.PlacedRegion(
+            placed.source,
             primitive,
-            region.terminal,
-            (patterns = region.placement.patterns,),
-            region.paths,
+            placed.terminal,
+            (patterns = placed.placement.patterns,),
+            placed.paths,
         )
-        for shape in DataModel.preview_shapes(placed)
+        for shape in DataModel.preview_shapes(resolved)
             label = display_legend && identity.group ∉ labelled_groups ?
                     identity.label : nothing
             push!(polygons, PreviewPolygon(

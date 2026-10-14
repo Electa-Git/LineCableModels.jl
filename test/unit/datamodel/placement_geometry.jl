@@ -126,7 +126,7 @@ end
     rectangle = Rectangle(0.4e-3, 0.2e-3)
     geometry = DM.resolve(DM.EmptyBoundary(),
         Group(:g, Region(:w, rectangle, copper); pattern=Ring(6; r=2e-3)))
-    shapes = [region.primitive for region in geometry.regions]
+    shapes = [placed.primitive for placed in geometry.regions]
     @test length(shapes) == 6
     @test all(shape -> shape isa DM.BentStrip, shapes)
     @test all(shape -> r_in(shape) ≈ 1.9e-3 && r_ex(shape) ≈ 2.1e-3, shapes)

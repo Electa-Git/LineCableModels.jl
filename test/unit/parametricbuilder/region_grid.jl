@@ -68,7 +68,7 @@
     @test length(designs) == 2
     for (index, design) in enumerate(designs)
         @test design isa CableDesign
-        metal = only(filter(region -> region.source.tag === tags[index],
+        metal = only(filter(placed -> placed.source.tag === tags[index],
             design.geometry.regions))
         @test metal.source.material.rho == resistivities[index]
         @test area(metal.primitive) ≈ pi * radii[index]^2

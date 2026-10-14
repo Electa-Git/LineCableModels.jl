@@ -382,24 +382,24 @@ function Base.show(io::IO, ::MIME"text/plain", enclosure::Enclosure)
 end
 
 TextDisplay.name(::Type{<:PlacedRegion}) = "PlacedRegion"
-Base.summary(io::IO, region::PlacedRegion) = print(io, "Placed region :", region.source.tag)
-function Base.show(io::IO, region::PlacedRegion)
-    terminal = region.terminal === nothing ? "" : "; terminal=:$(region.terminal)"
-    print(io, "PlacedRegion(:", region.source.tag, terminal, "; ")
-    show(IOContext(io, :compact => true), region.primitive)
+Base.summary(io::IO, placed::PlacedRegion) = print(io, "Placed region :", placed.source.tag)
+function Base.show(io::IO, placed::PlacedRegion)
+    terminal = placed.terminal === nothing ? "" : "; terminal=:$(placed.terminal)"
+    print(io, "PlacedRegion(:", placed.source.tag, terminal, "; ")
+    show(IOContext(io, :compact => true), placed.primitive)
     print(io, ")")
 end
-function Base.show(io::IO, ::MIME"text/plain", region::PlacedRegion)
-    get(io, :compact, false) && return show(io, region)
+function Base.show(io::IO, ::MIME"text/plain", placed::PlacedRegion)
+    get(io, :compact, false) && return show(io, placed)
     attributes = String[
-    "source    $(_part_label(region.source))",
-    "primitive $(_compact_text(region.primitive))"
+    "source    $(_part_label(placed.source))",
+    "primitive $(_compact_text(placed.primitive))"
 ]
-    region.terminal === nothing || push!(attributes, "terminal  :$(region.terminal)")
-    isempty(region.placement.patterns) || push!(attributes,
-        "patterns  $(length(region.placement.patterns))")
-    isempty(region.paths) || push!(attributes, "paths     $(length(region.paths))")
-    return TextDisplay.tree(io, "PlacedRegion :$(region.source.tag)", attributes)
+    placed.terminal === nothing || push!(attributes, "terminal  :$(placed.terminal)")
+    isempty(placed.placement.patterns) || push!(attributes,
+        "patterns  $(length(placed.placement.patterns))")
+    isempty(placed.paths) || push!(attributes, "paths     $(length(placed.paths))")
+    return TextDisplay.tree(io, "PlacedRegion :$(placed.source.tag)", attributes)
 end
 
 TextDisplay.name(::Type{<:CableGeometry}) = "CableGeometry"
@@ -418,12 +418,12 @@ function Base.show(io::IO, ::MIME"text/plain", geometry::CableGeometry)
     append!(children,
         (
             label = string(
-                "region :", region.source.tag,
-                region.terminal === nothing ? "" : " · terminal :$(region.terminal)",
-                " · ", _compact_text(region.primitive)
+                "region :", placed.source.tag,
+                placed.terminal === nothing ? "" : " · terminal :$(placed.terminal)",
+                " · ", _compact_text(placed.primitive)
             ),
             noun = "regions"
-        ) for region in geometry.regions)
+        ) for placed in geometry.regions)
     count = length(geometry.regions)
     return TextDisplay.tree(
         io,

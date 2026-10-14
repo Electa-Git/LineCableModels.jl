@@ -184,8 +184,8 @@ function conductor_zone(
         ::Type{T},
         expected_inner
 ) where {T <: Real}
-    source = first(zone)
-    material = convert(Material{T}, source.source.material)
+    placed = first(zone)
+    material = convert(Material{T}, placed.source.material)
     radius = convert(T, primitive.r)
     all(item -> isapprox(
             area(item.primitive),
@@ -227,9 +227,9 @@ function conductor_zone(
         ))
         expected_inner, expected_inner + 2radius
     end
-    patterned = any(entry -> entry.owner === Group, source.placement.patterns)
-    uniform_paths = all(item -> item.paths == source.paths, zone)
-    turns = uniform_paths ? turns_per_length(source.paths, T) :
+    patterned = any(entry -> entry.owner === Group, placed.placement.patterns)
+    uniform_paths = all(item -> item.paths == placed.paths, zone)
+    turns = uniform_paths ? turns_per_length(placed.paths, T) :
             sum(item -> turns_per_length(item.paths, T), zone) / length(zone)
     base_resistance = tubular_resistance(
         zero(T),
@@ -237,7 +237,7 @@ function conductor_zone(
         material.rho
     )
     resistance = if uniform_paths
-        path_corrected_resistance(base_resistance, source.paths) / length(zone)
+        path_corrected_resistance(base_resistance, placed.paths) / length(zone)
     else
         resistances = map(zone) do item
             path_corrected_resistance(base_resistance, item.paths)
@@ -281,25 +281,25 @@ function conductor_zone(
     length(zone) == 1 || throw(ArgumentError(
         "flatten requires one region per annular conductor layer"
     ))
-    source = only(zone)
-    material = convert(Material{T}, source.source.material)
+    placed = only(zone)
+    material = convert(Material{T}, placed.source.material)
     center = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     zone_r_in = convert(T, primitive.ri)
     zone_r_ex = convert(T, primitive.ro)
     zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
-    isapprox(area(source.primitive), zone_area) || throw(ArgumentError(
+    isapprox(area(placed.primitive), zone_area) || throw(ArgumentError(
         "resolved annular conductor does not preserve its declared area"
     ))
-    turns = turns_per_length(source.paths, T)
+    turns = turns_per_length(placed.paths, T)
     resistance = path_corrected_resistance(
         material.rho / zone_area,
-        source.paths
+        placed.paths
     )
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
         area = zone_area,
-        wires = isempty(source.paths) ? 0 : 1,
+        wires = isempty(placed.paths) ? 0 : 1,
         turns = convert(T, turns),
         resistance,
         gmr = tubular_gmr(zone_r_ex, zone_r_in, material.mu_r),
@@ -322,8 +322,8 @@ function conductor_zone(
     length(zone) == 1 || throw(ArgumentError(
         "flatten requires one region per contextual conductor shell"
     ))
-    source = only(zone)
-    material = convert(Material{T}, source.source.material)
+    placed = only(zone)
+    material = convert(Material{T}, placed.source.material)
     center = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     zone_r_in = convert(T, primitive.ri)
     zone_r_ex = convert(T, primitive.ro)
@@ -334,16 +334,16 @@ function conductor_zone(
         "resolved conductor shell does not preserve its declared thickness"
     ))
     zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
-    turns = turns_per_length(source.paths, T)
+    turns = turns_per_length(placed.paths, T)
     resistance = path_corrected_resistance(
         material.rho / zone_area,
-        source.paths
+        placed.paths
     )
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
         area = zone_area,
-        wires = isempty(source.paths) ? 0 : 1,
+        wires = isempty(placed.paths) ? 0 : 1,
         turns = convert(T, turns),
         resistance,
         gmr = tubular_gmr(zone_r_ex, zone_r_in, material.mu_r),
@@ -366,11 +366,11 @@ function conductor_zone(
     length(zone) == 1 || throw(ArgumentError(
         "flatten requires one region per sector conductor"
     ))
-    source = only(zone)
-    isempty(source.paths) || throw(ArgumentError(
+    placed = only(zone)
+    isempty(placed.paths) || throw(ArgumentError(
         "flatten does not support a helical sector conductor"
     ))
-    material = convert(Material{T}, source.source.material)
+    material = convert(Material{T}, placed.source.material)
     zone_area = convert(T, area(primitive))
     equivalent_radius = sqrt(zone_area / (one(T) * pi))
     center = convert.(T, centroid(primitive))
@@ -413,21 +413,21 @@ cable-sector assumptions.
 """
 function dielectric_layer(
         primitive::Annulus,
-        source::PlacedRegion,
+        placed::PlacedRegion,
         ::Type{T}
 ) where {T <: Real}
-    isempty(source.paths) || throw(ArgumentError(
+    isempty(placed.paths) || throw(ArgumentError(
         "flatten does not support helical dielectric layers"
     ))
     center = (convert(T, primitive.at.x), convert(T, primitive.at.y))
-    material = source.source.material
+    material = placed.source.material
     material.kind in (:insulator, :semicon) || throw(ArgumentError(
         "a dielectric interval must contain an insulator or semicon material; " *
         "received $(repr(material.kind))"
     ))
     return (
-        r_in = convert(T, r_in(source.primitive)),
-        r_ex = convert(T, r_ex(source.primitive)),
+        r_in = convert(T, r_in(placed.primitive)),
+        r_ex = convert(T, r_ex(placed.primitive)),
         position = center,
         material
     )
@@ -439,13 +439,13 @@ function dielectric_layer(
             <:SectorShape,
             <:SectorShape
         },
-        source::PlacedRegion,
+        placed::PlacedRegion,
         ::Type{T}
 ) where {T <: Real}
-    isempty(source.paths) || throw(ArgumentError(
+    isempty(placed.paths) || throw(ArgumentError(
         "flatten does not support a helical sector dielectric"
     ))
-    material = source.source.material
+    material = placed.source.material
     material.kind in (:insulator, :semicon) || throw(ArgumentError(
         "a dielectric interval must contain an insulator or semicon material; " *
         "received $(repr(material.kind))"
@@ -465,7 +465,7 @@ end
 
 function dielectric_layer(
         primitive::AbstractShape,
-        source::PlacedRegion,
+        placed::PlacedRegion,
         ::Type
 )
     throw(ArgumentError(
@@ -598,25 +598,25 @@ function geometric_mean_distance(left::Annulus, right::Annulus)
 end
 
 function nested_conductor_zone(
-        sources,
+        placed_regions,
         ::Type{T},
         expected_inner::T
 ) where {T <: Real}
-    isempty(sources) && throw(ArgumentError(
+    isempty(placed_regions) && throw(ArgumentError(
         "a nested conductor requires at least one resolved primitive"
     ))
 
-    materials = Material{T}[convert(Material{T}, source.source.material)
-                            for source in sources]
+    materials = Material{T}[convert(Material{T}, placed.source.material)
+                            for placed in placed_regions]
     reference = first(materials).T0
     all(material -> isapprox(material.T0, reference), materials) || throw(
         ArgumentError("all nested conductor materials must share one reference temperature")
     )
 
-    areas = T[convert(T, area(source.source.primitive)) for source in sources]
-    all(eachindex(sources)) do index
+    areas = T[convert(T, area(placed.source.primitive)) for placed in placed_regions]
+    all(eachindex(placed_regions)) do index
         isapprox(
-            convert(T, area(sources[index].primitive)),
+            convert(T, area(placed_regions[index].primitive)),
             areas[index];
             rtol = 5.0e-6,
             atol = zero(T)
@@ -626,18 +626,18 @@ function nested_conductor_zone(
     ))
     equivalent_radii = sqrt.(areas ./ (one(T) * π))
     total_area = sum(areas)
-    center = convert.(T, conductor_zone_position(sources))
+    center = convert.(T, conductor_zone_position(placed_regions))
     resistances = T[path_corrected_resistance(
                         member_resistance(
-                            sources[index].source.primitive,
+                            placed_regions[index].source.primitive,
                             materials[index]
                         ),
-                        sources[index].paths
-                    ) for index in eachindex(sources)]
+                        placed_regions[index].paths
+                    ) for index in eachindex(placed_regions)]
 
     resistance = first(resistances)
     alpha = first(materials).alpha
-    for index in Iterators.drop(eachindex(sources), 1)
+    for index in Iterators.drop(eachindex(placed_regions), 1)
         alpha = equivalent_alpha(
             alpha,
             resistance,
@@ -650,27 +650,27 @@ function nested_conductor_zone(
     conductances = inv.(resistances)
     weights = conductances ./ sum(conductances)
     log_gmr = zero(T)
-    for left in eachindex(sources)
-        self_gmr = _self_gmr(sources[left].primitive, equivalent_radii[left],
+    for left in eachindex(placed_regions)
+        self_gmr = _self_gmr(placed_regions[left].primitive, equivalent_radii[left],
             materials[left].mu_r)
         log_gmr += weights[left]^2 * log(self_gmr)
-        for right in (left + 1):length(sources)
-            distance = geometric_mean_distance(sources[left].primitive, sources[right].primitive)
+        for right in (left + 1):length(placed_regions)
+            distance = geometric_mean_distance(placed_regions[left].primitive, placed_regions[right].primitive)
             log_gmr += 2weights[left] * weights[right] * log(distance)
         end
     end
 
-    turn_values = T[turns_per_length(source.paths, T) for source in sources]
+    turn_values = T[turns_per_length(placed.paths, T) for placed in placed_regions]
     turns = sum(weights .* turn_values)
-    bounded = map(sources) do source
+    bounded = map(placed_regions) do placed
         index = findfirst(
             entry -> entry.pattern isa BoundedPlacement,
-            source.placement.patterns
+            placed.placement.patterns
         )
         index === nothing && return nothing
-        any(entry -> entry.owner === Group, source.placement.patterns[(index + 1):end]) &&
+        any(entry -> entry.owner === Group, placed.placement.patterns[(index + 1):end]) &&
             return nothing
-        return source.placement.patterns[index].pattern.boundary
+        return placed.placement.patterns[index].pattern.boundary
     end
     outer = if all(!isnothing, bounded)
         envelope = first(bounded)
@@ -683,8 +683,8 @@ function nested_conductor_zone(
         sqrt(convert(T, area(envelope)) / (one(T) * π))
     else
         maximum(
-            index -> radial_extent(sources[index].primitive, center),
-            eachindex(sources)
+            index -> radial_extent(placed_regions[index].primitive, center),
+            eachindex(placed_regions)
         )
     end
     outer > expected_inner || throw(ArgumentError(
@@ -694,7 +694,7 @@ function nested_conductor_zone(
         r_in = expected_inner,
         r_ex = outer,
         cross_section = total_area,
-        num_wires = length(sources),
+        num_wires = length(placed_regions),
         turns_per_length = turns,
         resistance,
         alpha,
@@ -722,7 +722,7 @@ function radial_position(
 )
     centroid(shape.inner)
 end
-radial_position(region::PlacedRegion) = radial_position(region.primitive)
+radial_position(placed::PlacedRegion) = radial_position(placed.primitive)
 
 """
 $(TYPEDSIGNATURES)
@@ -732,29 +732,29 @@ conductor regions. Use a shared bounded-placement or group center when present.
 Otherwise, use the primitive centroid for one region or the area-weighted
 centroid for several regions.
 """
-function conductor_zone_position(sources)
-    isempty(sources) && throw(ArgumentError(
+function conductor_zone_position(placed_regions)
+    isempty(placed_regions) && throw(ArgumentError(
         "a conductor zone requires at least one resolved region"
     ))
-    bounded = map(sources) do source
+    bounded = map(placed_regions) do placed
         index = findfirst(
             entry -> entry.pattern isa BoundedPlacement,
-            source.placement.patterns
+            placed.placement.patterns
         )
         index === nothing && return nothing
-        return radial_position(source.placement.patterns[index].pattern.boundary)
+        return radial_position(placed.placement.patterns[index].pattern.boundary)
     end
     if all(!isnothing, bounded)
         reference = first(bounded)
         all(position -> same_radial_position(position, reference), bounded) &&
             return reference
     end
-    patterned = map(sources) do source
-        entries = filter(entry -> entry.owner === Group, source.placement.patterns)
+    patterned = map(placed_regions) do placed
+        entries = filter(entry -> entry.owner === Group, placed.placement.patterns)
         length(entries) == 1 || return nothing
-        primitive = source.primitive
+        primitive = placed.primitive
         hasproperty(primitive, :at) || return nothing
-        intrinsic = source.source.primitive
+        intrinsic = placed.source.primitive
         hasproperty(intrinsic, :at) || return nothing
         local_pose = only(entries).pose * intrinsic.at
         absolute = primitive.at
@@ -771,13 +771,13 @@ function conductor_zone_position(sources)
         all(position -> same_radial_position(position, reference), patterned) &&
             return reference
     end
-    length(sources) == 1 && return centroid(only(sources).primitive)
-    areas = map(source -> area(source.primitive), sources)
-    centers = map(source -> centroid(source.primitive), sources)
+    length(placed_regions) == 1 && return centroid(only(placed_regions).primitive)
+    areas = map(placed -> area(placed.primitive), placed_regions)
+    centers = map(placed -> centroid(placed.primitive), placed_regions)
     total = sum(areas)
     return (
-        sum(index -> areas[index] * centers[index][1], eachindex(sources)) / total,
-        sum(index -> areas[index] * centers[index][2], eachindex(sources)) / total
+        sum(index -> areas[index] * centers[index][1], eachindex(placed_regions)) / total,
+        sum(index -> areas[index] * centers[index][2], eachindex(placed_regions)) / total
     )
 end
 
@@ -1082,12 +1082,12 @@ _enclosing_terminals(outer, regions, index) = Symbol[]
 
 # One group at the center of a circular container. The fill becomes the annulus from the
 # group's outer radius to the container's radius. An annular container keeps its fill.
-function _radial_fill!(radial, source, outer::Disk, holes)
+function _radial_fill!(radial, placed, outer::Disk, holes)
     extent = maximum(hole -> _radial_reach(hole, outer), holes)
-    return push!(radial, PlacedRegion(source.source, Annulus(extent, outer.r, outer.at),
-        nothing, source.placement, source.paths))
+    return push!(radial, PlacedRegion(placed.source, Annulus(extent, outer.r, outer.at),
+        nothing, placed.placement, placed.paths))
 end
-_radial_fill!(radial, source, outer, holes) = radial
+_radial_fill!(radial, placed, outer, holes) = radial
 
 # The largest distance of one hole from the container center. An outline without a
 # radial extent gives zero.
@@ -1110,16 +1110,16 @@ function _radial_regions(regions)
     sizehint!(radial, length(regions))
     index = firstindex(regions)
     while index <= lastindex(regions)
-        source = regions[index]
+        placed = regions[index]
         # Test the primitive's type, not its value: reading an inline primitive from the
         # abstract region allocates.
-        if !(fieldtype(typeof(source), :primitive) <: DifferenceShape)
-            push!(radial, source)
+        if !(fieldtype(typeof(placed), :primitive) <: DifferenceShape)
+            push!(radial, placed)
             index += 1
             continue
         end
-        material = source.source.material
-        source.terminal === nothing || throw(ArgumentError(
+        material = placed.source.material
+        placed.terminal === nothing || throw(ArgumentError(
             "a non-radial enclosure fill cannot own a terminal"
         ))
         material.kind === :insulator || throw(ArgumentError(
@@ -1128,7 +1128,7 @@ function _radial_regions(regions)
         isapprox(material.mu_r, one(material.mu_r)) || throw(ArgumentError(
             "the coaxial reduction requires a nonmagnetic non-radial enclosure fill"
         ))
-        holes = source.primitive.holes
+        holes = placed.primitive.holes
         # The fill between the wires of one conductor. Its holes are the regions just
         # before it, all of one terminal. A container's holes are member outlines or the
         # regions of a whole member, and they fail this test.
@@ -1148,12 +1148,12 @@ function _radial_regions(regions)
         terminals = unique(region.terminal for region in regions
                            if region.terminal !== nothing)
         centers = map(terminals) do terminal
-            conductor_zone_position(filter(region -> region.terminal === terminal, regions))
+            conductor_zone_position(filter(placed -> placed.terminal === terminal, regions))
         end
         contained = Symbol[]
         conductive = true
         for hole in holes
-            member = findfirst(region -> isequal(region.primitive, hole), regions)
+            member = findfirst(placed -> isequal(placed.primitive, hole), regions)
             if member !== nothing
                 terminal = regions[member].terminal
                 terminal === nothing ? (conductive = false) : push!(contained, terminal)
@@ -1178,10 +1178,10 @@ function _radial_regions(regions)
         end
         group_centers = [centers[findfirst(==(first(group)), terminals)] for group in groups]
 
-        outer = source.primitive.outer
+        outer = placed.primitive.outer
         enclosing = _enclosing_terminals(outer, regions, index)
-        validate(source, CableBlueprint, groups, group_centers, enclosing)
-        isempty(groups) || _radial_fill!(radial, source, outer, holes)
+        validate(placed, CableBlueprint, groups, group_centers, enclosing)
+        isempty(groups) || _radial_fill!(radial, placed, outer, holes)
         index += 1
     end
     return radial
@@ -1298,7 +1298,7 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
     ))
     terminal_starts = Int[]
     for terminal in terminals
-        index = findfirst(region -> region.terminal === terminal, regions)
+        index = findfirst(placed -> placed.terminal === terminal, regions)
         index === nothing && throw(ArgumentError(
             "terminal :$terminal has no resolved conductive region"
         ))
@@ -1332,14 +1332,14 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
         cursor = firstindex(block)
         while cursor <= lastindex(block) && block[cursor].terminal === terminal
             start = cursor
-            source = block[cursor]
-            signature = map(entry -> entry.pattern, source.placement.patterns)
+            placed = block[cursor]
+            signature = map(entry -> entry.pattern, placed.placement.patterns)
             while cursor < lastindex(block)
                 next = block[cursor + 1]
                 next_signature = map(entry -> entry.pattern, next.placement.patterns)
                 same_zone = next.terminal === terminal &&
-                            next.source == source.source &&
-                            same_path_definitions(next.paths, source.paths) &&
+                            next.source == placed.source &&
+                            same_path_definitions(next.paths, placed.paths) &&
                             next_signature == signature
                 same_zone || break
                 cursor += 1
@@ -1356,15 +1356,15 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
             ))
 
         conductor_sources = @view block[firstindex(block):(cursor - 1)]
-        nested = any(conductor_sources) do source
-            source.primitive isa Union{Polygon, BentStrip} ||
-                source.source.primitive isa Rectangle ||
+        nested = any(conductor_sources) do placed
+            placed.primitive isa Union{Polygon, BentStrip} ||
+                placed.source.primitive isa Rectangle ||
                 any(
                     entry -> entry.pattern isa BoundedPlacement,
-                    source.placement.patterns
+                    placed.placement.patterns
                 ) ||
-                count(entry -> entry.owner === Group, source.placement.patterns) > 1 ||
-                length(source.paths) > 1
+                count(entry -> entry.owner === Group, placed.placement.patterns) > 1 ||
+                length(placed.paths) > 1
         end
         conductor = if nested
             zone_position = conductor_zone_position(conductor_sources)
@@ -1383,13 +1383,13 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
             accumulated = nothing
             for (zone_index, indices) in enumerate(zone_ranges)
                 zone = @view block[indices]
-                source = first(zone)
-                source.source.material.kind === :conductor || throw(ArgumentError(
+                placed = first(zone)
+                placed.source.material.kind === :conductor || throw(ArgumentError(
                     "terminal :$terminal contains a nonconductor physical region"
                 ))
-                all(item -> item.source.material == source.source.material, zone) ||
+                all(item -> item.source.material == placed.source.material, zone) ||
                     throw(ArgumentError("one conductor zone must use one material"))
-                all(item -> item.source.primitive == source.source.primitive, zone) ||
+                all(item -> item.source.primitive == placed.source.primitive, zone) ||
                     throw(ArgumentError("one conductor zone must use one primitive"))
                 zone_position = conductor_zone_position(zone)
                 expected_inner = if zone_index > 1
@@ -1401,8 +1401,8 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
                     zero(T)
                 end
                 values = conductor_zone(
-                    source.source.primitive,
-                    source.primitive,
+                    placed.source.primitive,
+                    placed.primitive,
                     zone,
                     T,
                     expected_inner
@@ -1440,13 +1440,13 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
         end
 
         dielectric = empty_dielectric(conductor, T)
-        for (layer_index, source) in enumerate(dielectric_sources)
-            source.terminal === nothing || throw(ArgumentError(
+        for (layer_index, placed) in enumerate(dielectric_sources)
+            placed.terminal === nothing || throw(ArgumentError(
                 "a dielectric region cannot own a retained terminal"
             ))
             layer = dielectric_layer(
-                source.primitive,
-                source,
+                placed.primitive,
+                placed,
                 T
             )
             dielectric = layer_index == 1 ?

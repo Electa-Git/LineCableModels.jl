@@ -92,21 +92,21 @@ function _shape_geometry(shape::ShellShape)
     return GeometryBasics.Polygon(outer, [inner])
 end
 
-preview_materials(region::PlacedRegion) = (region.source.material,)
+preview_materials(placed::PlacedRegion) = (placed.source.material,)
 
-function preview_shapes(region::PlacedRegion)
+function preview_shapes(placed::PlacedRegion)
     return PreviewShape[
         PreviewShape(
-        _shape_geometry(region.primitive),
-        region.source.material,
-        region.source.tag
+        _shape_geometry(placed.primitive),
+        placed.source.material,
+        placed.source.tag
     ),
     ]
 end
 
 function _each_material(callback, design::CableDesign)
-    for source in design.geometry.regions
-        foreach(callback, preview_materials(source))
+    for placed in design.geometry.regions
+        foreach(callback, preview_materials(placed))
     end
     return nothing
 end

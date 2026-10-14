@@ -112,12 +112,12 @@ end
         CableDesign, "compacted-circular-strands", terminal(:core, compacted)
     )
     natural_conductors=filter(
-        region -> region.source.material.kind === :conductor,
+        placed -> placed.source.material.kind === :conductor,
         natural_design.geometry.regions
     )
     @test length(natural_conductors) == 19
-    @test all(region -> region.primitive isa Disk, natural_conductors)
-    @test all(region -> region.primitive isa LineCableModels.DataModel.Polygon,
+    @test all(placed -> placed.primitive isa Disk, natural_conductors)
+    @test all(placed -> placed.primitive isa LineCableModels.DataModel.Polygon,
         compacted_design.geometry.regions)
     @test sum(area, getproperty.(natural_conductors, :primitive)) ≈
           19pi * disk.r^2
@@ -128,15 +128,15 @@ end
     ))
     @test hypot(first(strand_centers)...) <= 1e-15
     @test length(unique(strand_centers)) == 19
-    @test [last(region.placement.patterns).member
-           for region in natural_conductors] == collect(1:19)
+    @test [last(placed.placement.patterns).member
+           for placed in natural_conductors] == collect(1:19)
     flattened_circular=only(LineCableModels.DataModel.flatten(natural_design
     ).conductors)
     resistances=[copper.rho / area(disk) * prod(
                      entry -> overlength(entry.path, entry.radius),
-                     region.paths;
+                     placed.paths;
                      init = 1.0
-                 ) for region in natural_conductors]
+                 ) for placed in natural_conductors]
     weights=inv.(resistances) ./ sum(inv, resistances)
     log_gmr=sum(eachindex(strand_centers)) do left
         value=weights[left]^2 * log(disk.r * exp(-copper.mu_r / 4))
@@ -254,7 +254,7 @@ end
     @test fill.primitive isa DM.DifferenceShape
     @test length(fill.primitive.holes) == 7
     @test DM.area(fill.primitive) ≈ π * 1.5^2 - 7π * 0.5^2
-    @test all(region -> region.terminal === :core, resolved.regions[1:7])
+    @test all(placed -> placed.terminal === :core, resolved.regions[1:7])
     @test fill.terminal === nothing
     @test DM.boundary(resolved) == Disk(1.5)
 
@@ -348,7 +348,7 @@ end
 
     nested=Group(:core, bundle; pattern = Ring(2; r = 4.0))
     nested_design=build(CableDesign, "nested-packed", nested)
-    @test count(region -> region.terminal === :core, nested_design.geometry.regions) == 14
+    @test count(placed -> placed.terminal === :core, nested_design.geometry.regions) == 14
 
     lossy=Material(kind = :insulator, rho = 1.0e12, eps_r = 2.3, mu_r = 1.0)
     magnetic=Material(kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 2.0)
@@ -400,7 +400,7 @@ end
     lossy_reduced=LineCableModels.DataModel.flatten(lossy_design)
     @test lossy_reduced.conductors == bare.conductors
     @test lossy_reduced.dielectrics == bare.dielectrics
-    lossy_fill=only(filter(region -> region.primitive isa DM.DifferenceShape,
+    lossy_fill=only(filter(placed -> placed.primitive isa DM.DifferenceShape,
         lossy_design.geometry.regions))
     @test lossy_fill.source.material == lossy
     @test lossy_fill.source.material.rho == 1.0e12
@@ -440,11 +440,11 @@ end
     strand_resolution=DM.resolve(DM.EmptyBoundary(), strand)
     @test unique(getproperty.(strand_resolution.regions, :terminal)) == [:strand]
     @test length(strand_resolution.regions) == 6
-    @test all(region -> region.terminal === :strand, strand_resolution.regions)
+    @test all(placed -> placed.terminal === :strand, strand_resolution.regions)
     @test all(
-        region -> prod(
+        placed -> prod(
             entry -> LineCableModels.overlength(entry.path, entry.radius),
-            region.paths;
+            placed.paths;
             init = 1.0
         ) > 1,
         strand_resolution.regions
@@ -459,7 +459,7 @@ end
     rope_resolution=DM.resolve(DM.EmptyBoundary(), rope)
     @test unique(getproperty.(rope_resolution.regions, :terminal)) == [:phase]
     @test length(rope_resolution.regions) == 18
-    @test all(region -> region.terminal === :phase, rope_resolution.regions)
+    @test all(placed -> placed.terminal === :phase, rope_resolution.regions)
 
     core=LineCableModels.Group(:core, wire)
     phases=LineCableModels.Assembly(

@@ -285,11 +285,11 @@ function build(
     global_geometry = PlacedRegion[]
     terminal_map = Int[]
     for (cable_index, (design, pose)) in enumerate(zip(declared_designs, positions))
-        for (source, local_terminal) in zip(
+        for (placed, local_terminal) in zip(
             design.geometry.regions,
             design.terminal_map
         )
-            push!(global_geometry, resolve(pose, source))
+            push!(global_geometry, resolve(pose, placed))
             push!(
                 terminal_map,
                 iszero(local_terminal) ? 0 :

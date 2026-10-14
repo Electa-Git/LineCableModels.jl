@@ -50,9 +50,9 @@ struct CableGeometry{V <: AbstractVector{<:PlacedRegion}, B <: AbstractShape}
         isempty(regions) && throw(ArgumentError(
             "cable geometry requires at least one placed region"
         ))
-        all(regions) do region
-            region_area = area(region)
-            center = centroid(region)
+        all(regions) do placed
+            region_area = area(placed)
+            center = centroid(placed)
             isfinite(region_area) && region_area > 0 && all(isfinite, center)
         end || throw(ArgumentError(
             "cable geometry requires finite, positive-area placed regions"

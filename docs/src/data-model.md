@@ -866,8 +866,8 @@ end
 preview(
     umbilical_design;
     title="Umbilical - four screened pairs with steel armour",
-    legend_group=region -> region.source.material == umbilical_tpe ?
-                           :tpe_fill : region.source.tag,
+    legend_group=placed -> placed.source.material == umbilical_tpe ?
+                           :tpe_fill : placed.source.tag,
     legend_labels=umbilical_legend_labels,
     backend=:cairo,
     display_plot=false,

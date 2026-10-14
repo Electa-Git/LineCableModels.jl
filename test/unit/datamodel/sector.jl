@@ -123,9 +123,9 @@ end
     design=build(CableDesign, "sectorized", root)
     @test design.terminal_order == [:a, :b, :c]
     @test count(!isnothing, getproperty.(design.geometry.regions, :terminal)) == 3
-    @test count(region -> region.primitive isa DM.SectorShape,
+    @test count(placed -> placed.primitive isa DM.SectorShape,
         design.geometry.regions) == 3
-    @test count(region -> region.primitive isa DM.ShellShape,
+    @test count(placed -> placed.primitive isa DM.ShellShape,
         design.geometry.regions) == 3
     @test !(design.geometry.outer isa DM.Disk)
     @test_throws MethodError DM.resolve(design.geometry.outer, Shell(0.5e-3))
@@ -250,8 +250,8 @@ end
     expected_position=DM.centroid(source_shape)
     conductor=first(blueprint.conductors)
     layer=only(blueprint.dielectrics[first(blueprint.dielectric_ranges)])
-    @test sum(region -> DM.area(region.primitive),
-        filter(region -> region.terminal === :a, design.geometry.regions)) ≈ source_area
+    @test sum(placed -> DM.area(placed.primitive),
+        filter(placed -> placed.terminal === :a, design.geometry.regions)) ≈ source_area
     @test conductor.r_in == 0
     @test conductor.r_ex ≈ equivalent_radius
     @test DM.tubular_resistance(conductor.r_in, conductor.r_ex, conductor.material.rho) ≈
@@ -293,7 +293,7 @@ end
     @test flattened.origin isa DM.Assembly
     @test flattened.terminal_order == design.terminal_order
     flattened_conductors=filter(
-        region->region.source.material.kind===:conductor,
+        placed->placed.source.material.kind===:conductor,
         flattened.geometry.regions
     )
     @test all(zip(

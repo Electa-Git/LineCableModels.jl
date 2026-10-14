@@ -97,13 +97,13 @@ end
     design = TestFixtures.screened_cable_design(tape_material = :aluminum)
     blueprint = LineCableModels.DataModel.flatten(design, Float64)
     row = only(filter(conductor -> conductor.terminal === :sheath, blueprint.conductors))
-    members = filter(region -> region.terminal === :sheath, design.geometry.regions)
-    alpha = [region.source.material.alpha for region in members]
+    members = filter(placed -> placed.terminal === :sheath, design.geometry.regions)
+    alpha = [placed.source.material.alpha for placed in members]
     @test length(unique(alpha)) == 2
-    resistance = map(members) do region
-        factor = prod(entry -> overlength(entry.path, entry.radius), region.paths;
+    resistance = map(members) do placed
+        factor = prod(entry -> overlength(entry.path, entry.radius), placed.paths;
             init = 1.0)
-        region.source.material.rho * factor / DM.area(region.source.primitive)
+        placed.source.material.rho * factor / DM.area(placed.source.primitive)
     end
     weights = inv.(resistance) ./ sum(inv, resistance)
     mean = sum(weights .* alpha)

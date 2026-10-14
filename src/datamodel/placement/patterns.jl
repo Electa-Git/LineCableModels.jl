@@ -224,7 +224,7 @@ end
 function placements(pattern::Ring{Int, <:Real, <:Real}, item::CableGeometry, ::Nothing)
     if iszero(pattern.r)
         shape = boundary(item)
-        outer = findlast(region -> boundary(region.primitive) === shape, item.regions)
+        outer = findlast(placed -> boundary(placed.primitive) === shape, item.regions)
         # Insulated sector boundaries may touch, while bare sectors need a side clearance.
         insulated = outer !== nothing &&
                     item.regions[outer].source.material.kind === :insulator

@@ -482,8 +482,8 @@ end
         display_colorbars = false,
         # Both independently tagged metal regions share one caller-defined
         # legend entry. The dielectric regions retain their own identities.
-        legend_group = region->region.source.tag in (:metal, :return) ?
-                               :conductors : region.source.tag,
+        legend_group = placed->placed.source.tag in (:metal, :return) ?
+                               :conductors : placed.source.tag,
         legend_labels = Dict(:conductors=>"Conductors")
     )
     @test count(==("Conductors"), legend_labels(grouped_cable.legend)) == 1

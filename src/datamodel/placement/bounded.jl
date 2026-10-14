@@ -36,16 +36,16 @@ function resolve(at::Pose2, placement::BoundedPlacement)
 end
 resolve(::Pose2, pattern::Union{Ring, AbstractVector{<:Pose2}}) = pattern
 
-function resolve(at::Pose2, region::PlacedRegion)
-    patterns = map(region.placement.patterns) do entry
+function resolve(at::Pose2, placed::PlacedRegion)
+    patterns = map(placed.placement.patterns) do entry
         merge(entry, (pattern = resolve(at, entry.pattern),))
     end
     return PlacedRegion(
-        region.source,
-        resolve(at, region.primitive),
-        region.terminal,
+        placed.source,
+        resolve(at, placed.primitive),
+        placed.terminal,
         (patterns = patterns,),
-        region.paths
+        placed.paths
     )
 end
 

@@ -143,10 +143,10 @@ function PlacedRegion(source::Region, primitive::AbstractShape)
     )
 end
 
-boundary(region::PlacedRegion) = boundary(region.primitive)
-area(region::PlacedRegion) = area(region.primitive)
-centroid(region::PlacedRegion) = centroid(region.primitive)
-support(region::PlacedRegion, φ::Real) = support(region.primitive, φ)
+boundary(placed::PlacedRegion) = boundary(placed.primitive)
+area(placed::PlacedRegion) = area(placed.primitive)
+centroid(placed::PlacedRegion) = centroid(placed.primitive)
+support(placed::PlacedRegion, φ::Real) = support(placed.primitive, φ)
 
 function resolve(context::Union{EmptyBoundary, AbstractShape}, region::Region)
     primitive = resolve(context, region.primitive)

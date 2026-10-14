@@ -809,8 +809,8 @@ cable_preview = preview(
     fig_size = (950, 700),
     # Group the physical core-wire regions into one presentation entry.
     # Geometry tags, terminals, and electrical construction remain untouched.
-    legend_group = region -> region.source.tag === :wire ?
-                             :stranded_core : region.source.tag,
+    legend_group = placed -> placed.source.tag === :wire ?
+                             :stranded_core : placed.source.tag,
     legend_labels = Dict(:stranded_core => "Stranded core"),
     legend_position = :right,
     legend_attributes = (; nbanks = 2)

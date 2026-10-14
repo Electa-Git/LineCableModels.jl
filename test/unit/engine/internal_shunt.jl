@@ -17,8 +17,8 @@
     @test E.same_physical_state(values, E.ShuntModel._shunt_values(other, Formulation().methods))
     @test values[1:3] ≈ [domain.a, domain.b, domain.material.eps_r]
     host = only(filter(
-        region->region.primitive isa LineCableModels.DataModel.DifferenceShape &&
-                region.primitive.outer isa Annulus,
+        placed->placed.primitive isa LineCableModels.DataModel.DifferenceShape &&
+                placed.primitive.outer isa Annulus,
         design.geometry.regions))
     incomplete = merge((primitive = host.primitive, source = host.source),
         (primitive = LineCableModels.DataModel.DifferenceShape(host.primitive.outer,

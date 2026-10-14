@@ -73,12 +73,12 @@
     )
     natural_component=only(LineCableModels.DataModel.flatten(natural_design).conductors)
     compacted_component=only(LineCableModels.DataModel.flatten(compacted_design).conductors)
-    natural_metal=filter(region -> region.terminal !== nothing,
+    natural_metal=filter(placed -> placed.terminal !== nothing,
         natural_design.geometry.regions)
-    compacted_metal=filter(region -> region.terminal !== nothing,
+    compacted_metal=filter(placed -> placed.terminal !== nothing,
         compacted_design.geometry.regions)
-    @test sum(region -> area(region.primitive), natural_metal) ≈
-          sum(region -> area(region.primitive), compacted_metal) rtol = 1e-12
+    @test sum(placed -> area(placed.primitive), natural_metal) ≈
+          sum(placed -> area(placed.primitive), compacted_metal) rtol = 1e-12
     @test tubular_resistance(natural_component.r_in, natural_component.r_ex,
         natural_component.material.rho) ≈
           tubular_resistance(compacted_component.r_in, compacted_component.r_ex,
@@ -112,15 +112,15 @@
         insulation(packed_dielectric; t = 1e-3)
     )
     sector_wires=filter(
-        region -> region.terminal === :sector_core,
+        placed -> placed.terminal === :sector_core,
         sector_design.geometry.regions
     )
     @test !isempty(sector_wires)
-    @test all(region -> region.primitive isa LineCableModels.DataModel.Polygon,
+    @test all(placed -> placed.primitive isa LineCableModels.DataModel.Polygon,
         sector_wires)
     @test length(sector_design.geometry.regions) == length(sector_wires) + 2
     @test count(
-        region -> region.source.material.kind === :insulator,
+        placed -> placed.source.material.kind === :insulator,
         sector_design.geometry.regions
     ) == 2
     sector_constants=CableConstants(sector_design; frequency = 50.0)

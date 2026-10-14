@@ -281,7 +281,7 @@ end
 function validate(design::DataModel.CableDesign, ::Type{FEMResolvedModel})
     envelope_area = LineCableModels.area(design.geometry.outer)
     declared_area = sum(
-        region -> LineCableModels.area(region.primitive),
+        placed -> LineCableModels.area(placed.primitive),
         design.geometry.regions;
         init = zero(envelope_area)
     )
@@ -305,10 +305,10 @@ end
 
 # The mesh size of a region follows its source primitive. Any other source takes its
 # resolved shape.
-function _fem_region_mesh_size(region::DataModel.PlacedRegion)
-    repeated = any(entry -> entry.owner === DataModel.Group, region.placement.patterns)
-    return _fem_region_mesh_size(region.source.primitive, region.primitive, repeated,
-        region.source.tag)
+function _fem_region_mesh_size(placed::DataModel.PlacedRegion)
+    repeated = any(entry -> entry.owner === DataModel.Group, placed.placement.patterns)
+    return _fem_region_mesh_size(placed.source.primitive, placed.primitive, repeated,
+        placed.source.tag)
 end
 _fem_region_mesh_size(source::DataModel.Disk, shape, repeated, tag) =
     repeated ? source.r : source.r / 5
@@ -429,15 +429,15 @@ end
 function _formations(regions, terminal_map, object_id)
     formations = NamedTuple[]
     assigned = falses(length(regions))
-    for (region_index, region) in pairs(regions)
+    for (region_index, placed) in pairs(regions)
         assigned[region_index] && continue
         entry_index = findfirst(
             entry -> entry.pattern isa DataModel.BoundedPlacement,
-            region.placement.patterns
+            placed.placement.patterns
         )
         entry_index === nothing && continue
-        entry = region.placement.patterns[entry_index]
-        enclosing = region.placement.patterns[(entry_index + 1):end]
+        entry = placed.placement.patterns[entry_index]
+        enclosing = placed.placement.patterns[(entry_index + 1):end]
         members = Int[]
         member_ids = Int[]
         for (peer_index, peer) in pairs(regions)
@@ -448,7 +448,7 @@ function _formations(regions, terminal_map, object_id)
             peer_entry_index === nothing && continue
             peer_entry = peer.placement.patterns[peer_entry_index]
             isequal(peer_entry.pattern.boundary, entry.pattern.boundary) || continue
-            peer.terminal === region.terminal || continue
+            peer.terminal === placed.terminal || continue
             isequal(
                 peer.placement.patterns[(peer_entry_index + 1):end], enclosing
             ) || continue
@@ -500,9 +500,9 @@ function _formations(regions, terminal_map, object_id)
                 "member has the same terminal owner"
             )
         else
-            filled = any(regions) do region
-                shape = region.primitive
-                region.source.material.kind === :conductor && return false
+            filled = any(regions) do placed
+                shape = placed.primitive
+                placed.source.material.kind === :conductor && return false
                 if shape isa DataModel.Annulus && boundary isa DataModel.Disk
                     concentric = isapprox(shape.at.x, boundary.at.x) &&
                                  isapprox(shape.at.y, boundary.at.y)

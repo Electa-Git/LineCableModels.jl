@@ -76,8 +76,8 @@
             @test inv(insulation.source.material.rho) ≈ 2pi * 60 * epsilon0 * expected_epsilon * 0.02
             @test jacket.source.material.eps_r == 3.2
             @test isinf(jacket.source.material.rho)
-            @test all(region -> region.source.material.T0 == 20.0 &&
-                iszero(region.source.material.alpha), design.geometry.regions)
+            @test all(placed -> placed.source.material.T0 == 20.0 &&
+                iszero(placed.source.material.alpha), design.geometry.regions)
         end
         # Exercise the complementary direct-permittivity / DC-resistance inputs.
         _, complementary = import_data(:pscad, write_project(Dict(
@@ -89,8 +89,8 @@
         @test jacket.source.material.eps_r ≈ 0.7e-9 * log(0.0075 / 0.0065) / (2pi * epsilon0)
         _, selected_fields = import_data(:pscad, write_project(Dict(
             "RHOC"=>"unused", "EPS1"=>"unused", "DCRS"=>"unused", "CI2"=>"unused")))
-        @test [region.source.material for region in first(selected_fields.designs).geometry.regions] ==
-            [region.source.material for region in first(system.designs).geometry.regions]
+        @test [placed.source.material for placed in first(selected_fields.designs).geometry.regions] ==
+            [placed.source.material for placed in first(system.designs).geometry.regions]
 
         # LL=0 is the detailed bare-conductor form, not an insulated component.
         _, bare = import_data(:pscad, write_project(Dict("LL"=>"0"); binding="master:Cable_Coax"))

@@ -30,11 +30,11 @@
             stranded(copper; shape=wire, boundary=boundary, compact=true)
         end
     end
-    wires = filter(region -> region.terminal === :core, design.geometry.regions)
+    wires = filter(placed -> placed.terminal === :core, design.geometry.regions)
     @test length(wires) == 127
-    @test all(region -> isapprox(area(region), area(wire); rtol=5e-12), wires)
+    @test all(placed -> isapprox(area(placed), area(wire); rtol=5e-12), wires)
     @test sum(area, wires) ≈ area(boundary) rtol=5e-12
-    @test all(region -> DM.support(region.primitive) <= boundary.r * (1 + 5e-6), wires)
+    @test all(placed -> DM.support(placed.primitive) <= boundary.r * (1 + 5e-6), wires)
 
     # Natural wires fill the first course by fit and add six per course. No two wires overlap.
     strand = Disk(0.5e-3)

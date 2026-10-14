@@ -35,7 +35,7 @@
     physical_objects = (
         wire, Stack(wire), patterned, Group(:single, wire), bounded,
         placed, explicit, repeated, enclosure, design, design.geometry,
-        design.geometry.regions..., (region.primitive for region in design.geometry.regions)...,
+        design.geometry.regions..., (placed.primitive for placed in design.geometry.regions)...,
         DM.preview_shapes(first(design.geometry.regions))...,
         CablesLibrary(),
     )

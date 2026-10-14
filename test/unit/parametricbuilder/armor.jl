@@ -14,20 +14,20 @@
     @test designs isa Gridspace{CableDesign}
     @test length(designs) == 2
     for (count, design) in zip((12, 18), designs)
-        wires = filter(region -> region.terminal === :armor, design.geometry.regions)
+        wires = filter(placed -> placed.terminal === :armor, design.geometry.regions)
         @test length(wires) == count
-        @test all(region -> region.primitive isa Disk, wires)
-        @test all(region -> area(region.primitive) ≈ pi * (0.1e-3)^2, wires)
-        @test all(region -> only(region.paths).path === path, wires)
-        @test all(region -> only(region.paths).radius ≈ 1.6e-3, wires)
+        @test all(placed -> placed.primitive isa Disk, wires)
+        @test all(placed -> area(placed.primitive) ≈ pi * (0.1e-3)^2, wires)
+        @test all(placed -> only(placed.paths).path === path, wires)
+        @test all(placed -> only(placed.paths).radius ≈ 1.6e-3, wires)
         @test design.terminal_order == [:core, :armor]
         @test outer_radius(design) ≈ 1.9e-3
         blueprint = LineCableModels.DataModel.flatten(design)
         conductor = only(filter(row -> row.terminal === :armor, blueprint.conductors))
-        @test sum(region -> area(region.primitive), wires) ≈ count * pi * (0.1e-3)^2
+        @test sum(placed -> area(placed.primitive), wires) ≈ count * pi * (0.1e-3)^2
         @test DM.tubular_resistance(conductor.r_in, conductor.r_ex, conductor.material.rho) ≈
             steel.rho * sqrt(1 + (pi / 10)^2) / (count * pi * (0.1e-3)^2) rtol = 1e-12
-        @test all(region -> region.source.material === steel, wires)
+        @test all(placed -> placed.source.material === steel, wires)
     end
     @test_throws ArgumentError armor(dielectric; shape=Disk(0.1e-3), n=12)
 end

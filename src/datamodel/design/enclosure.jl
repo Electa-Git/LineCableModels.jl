@@ -242,7 +242,7 @@ function _contained(::AbstractShape, ::AbstractShape)
 end
 
 function fill_holes(::AbstractCablePart, contents::CableGeometry)
-    return Tuple(source.primitive for source in contents.regions)
+    return Tuple(placed.primitive for placed in contents.regions)
 end
 
 fill_holes(::Enclosure, contents::CableGeometry) = (boundary(contents),)
@@ -255,7 +255,7 @@ end
 fill_holes(::Region, ::AbstractCablePart, contents::CableGeometry) = (boundary(contents),)
 
 function fill_holes(::Group, contents::CableGeometry)
-    return Tuple(source.primitive for source in contents.regions)
+    return Tuple(placed.primitive for placed in contents.regions)
 end
 
 function fill_holes(
@@ -264,7 +264,7 @@ function fill_holes(
 )
     _occupies_disk(last(contents.regions).source.primitive, contents) &&
         return (boundary(contents),)
-    return Tuple(source.primitive for source in contents.regions)
+    return Tuple(placed.primitive for placed in contents.regions)
 end
 
 # Around a centered wire, complete bent courses of a Rectangle strand occupy their whole
@@ -326,15 +326,15 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
     holes = _partition_holes(container, boundary(contents), holes)
 
     regions = PlacedRegion[]
-    for source in contents.regions
-        placed = resolve(enclosure.at, source)
+    for placed in contents.regions
+        resolved = resolve(enclosure.at, placed)
         push!(regions,
             PlacedRegion(
-                source.source,
-                placed.primitive,
-                source.terminal,
-                placed.placement,
-                source.paths
+                placed.source,
+                resolved.primitive,
+                placed.terminal,
+                resolved.placement,
+                placed.paths
             ))
     end
 
@@ -355,16 +355,16 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
             support(boundary(fill_result)),
             "enclosure fill must reach the containing boundary"
         ))
-        for source in fill_result.regions
-            placed = resolve(enclosure.at, source)
+        for placed in fill_result.regions
+            resolved = resolve(enclosure.at, placed)
             push!(regions,
                 PlacedRegion(
-                    source.source,
-                    placed.primitive,
-                    source.terminal,
+                    placed.source,
+                    resolved.primitive,
+                    placed.terminal,
                     (
                         patterns = (
-                            placed.placement.patterns...,
+                            resolved.placement.patterns...,
                             (
                                 owner = Enclosure,
                                 pattern = EnclosureBoundary(),
@@ -373,7 +373,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
                             )
                         ),
                     ),
-                    source.paths
+                    placed.paths
                 ))
         end
     end
@@ -381,16 +381,16 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
     outer = container
     if enclosure.wall !== nothing
         wall_result = resolve(container, enclosure.wall)
-        for source in wall_result.regions
-            placed = resolve(enclosure.at, source)
+        for placed in wall_result.regions
+            resolved = resolve(enclosure.at, placed)
             push!(regions,
                 PlacedRegion(
-                    source.source,
-                    placed.primitive,
-                    source.terminal,
+                    placed.source,
+                    resolved.primitive,
+                    placed.terminal,
                     (
                         patterns = (
-                            placed.placement.patterns...,
+                            resolved.placement.patterns...,
                             (
                                 owner = Enclosure,
                                 pattern = EnclosureBoundary(),
@@ -399,7 +399,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
                             )
                         ),
                     ),
-                    source.paths
+                    placed.paths
                 ))
         end
         outer = boundary(wall_result)
