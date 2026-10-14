@@ -27,7 +27,7 @@
     const RESERVED_VERB = r"^_*(validate|check|require|assert|verify|ensure)_"
     # Tables of the structural guards (A) and of the Commons and helper guards (C).
     const A_TABLES = ("ownership", "placement", "direction", "names", "shadowing",
-        "validate", "reserved_verbs", "switches", "storage", "dispatch")
+        "validate", "reserved_verbs", "switches", "storage", "dispatch", "repeats")
     const C_TABLES = ("commons", "vocabulary", "fingerprints", "clones", "helpers", "root")
     const TABLES = (A_TABLES..., C_TABLES...)
     const SWITCHES = ("applicable", "eval", "isa", "kind")
@@ -755,6 +755,25 @@
         return found
     end
 
+    # Repeated access names. Per file, the chains whose base binding has the name of their
+    # first field, as in `x.x` or `x.:x`. The count leaves out a field repeated inside a
+    # field, as in `a.x.x`.
+    function repeated_access_names(files, directory)
+        found = Dict{String, Int}()
+        for file in files
+            visit(parse_source(file)) do node
+                kind(node) == K"." && numchildren(node) == 2 &&
+                    kind(node[1]) == K"Identifier" || return true
+                member = node[2]
+                kind(member) == K"quote" && numchildren(member) == 1 && (member = member[1])
+                kind(member) == K"Identifier" && member.val === node[1].val &&
+                    count!(found, relative(file, directory))
+                return true
+            end
+        end
+        return found
+    end
+
     type_name(T) = (T = Base.unwrap_unionall(T); T isa DataType ? nameof(T) : nothing)
 
     # The functions, types and constants that a module defines, by name.
@@ -1238,6 +1257,7 @@
             "switches" => () -> switches(files, tree.directory),
             "storage" => () -> storage_vocabulary(files, tree.directory),
             "dispatch" => () -> dispatch(methods, tree),
+            "repeats" => () -> repeated_access_names(files, tree.directory),
             "commons" => () -> commons_admission(methods, tree, homes, vocabulary),
             "vocabulary" => () -> reserved_vocabulary(files, tree.directory, vocabulary),
             "fingerprints" => () -> fingerprints(files, tree.directory),
@@ -1398,6 +1418,12 @@ end
     @test result.stale == String[]
 end
 
+@testitem "Quality / architecture / repeated access names" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("repeats")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
 @testitem "Quality / architecture / negative controls of the architecture guards" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
 
@@ -1520,6 +1546,11 @@ end
             return (; work = n, cache_mesh = n)
         end
         """
+    # A base binding named like its first field, spelled bare and quoted.
+    planted_files["src/repeats.jl"] = raw"""
+        shape(source) = source.source.primitive
+        width(x) = x.x + x.:x
+        """
     planted_expected = Dict{String, Any}(
         "ownership" => Dict(
             "Consumer | Early.extend | src/consumer/Consumer.jl" => 1,
@@ -1543,7 +1574,8 @@ end
             "src/storage.jl | cache" => 2),
         "dispatch" => Dict("Consumer | kernel | src/consumer/Consumer.jl" => 1,
             "Consumer | mixed | src/consumer/Consumer.jl" => 1,
-            "Consumer | tagged | src/consumer/Consumer.jl" => 1))
+            "Consumer | tagged | src/consumer/Consumer.jl" => 1),
+        "repeats" => Dict("src/repeats.jl" => 3))
 
     # A clean package with the same modules and one extension method.
     clean_files = Dict(
@@ -1660,6 +1692,14 @@ end
         end
         """
     clean_files["src/commons/buffers.jl"] = "struct SharedBuffers end\n"
+    # The guard ignores a field repeated inside a field and a first field with another
+    # name. It reads syntax, so it also ignores `x.x` in a string or a comment.
+    clean_files["src/repeats.jl"] = raw"""
+        shape(placed) = placed.source.primitive
+        nested(record) = record.result.result + record.x.x
+        other(x) = x.y + getfield(x, :x)
+        text = "x.x" # x.x
+        """
     planted = A.probe_inventory(planted_files, "ArchitectureProbePlanted";
         order = (:Early, :Late, :Consumer), tables = A.A_TABLES)
     clean = A.probe_inventory(clean_files, "ArchitectureProbeClean";

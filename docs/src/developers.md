@@ -184,6 +184,10 @@ package method and parse every Julia file under `src/` and `ext/`.
   `formulas`, is a violation: it passes the formula as its tag. Type constructors are
   exempt, such as `Formula(::Val{ID})`. The guard reads the method table. Its baseline
   table is empty.
+- Repeated access names (`repeats`). The base binding of an access chain and its first
+  field have different names, unlike `placed.placed` or `x.:x`. The guard ignores a field
+  repeated inside a field, as in `record.result.result`. Each source file has a count. The
+  guard reads source code. Its baseline table is empty.
 
 `Commons` contains only definitions that several owners use. An owner is the root
 module, a top-level submodule or a package extension. The Commons guards stop

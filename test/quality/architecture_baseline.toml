@@ -173,6 +173,8 @@
 
 [dispatch]
 
+[repeats]
+
 [commons]
 "AbstractCoreResult | tests" = 1
 "AbstractParametricResult | tests" = 1
