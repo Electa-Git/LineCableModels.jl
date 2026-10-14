@@ -163,10 +163,10 @@ function _shunt_host_domain(
     # faces require an exposed-union adapter. Never impose buried geometric boundaries.
     for i in eachindex(wires), j in 1:(i - 1)
 
-        l, r = wires[i], wires[j]
-        gap = hypot(l.x-r.x, l.y-r.y)-l.r-r.r
+        wire, other = wires[i], wires[j]
+        gap = hypot(wire.x-other.x, wire.y-other.y)-wire.r-other.r
         if _shunt_scalar(gap) <= _shunt_tol(scale)
-            l.terminal == r.terminal || throw(ArgumentError(
+            wire.terminal == other.terminal || throw(ArgumentError(
                 "internal shunt: touching wire terminals in $(design.cable_id)"))
             return nothing
         end

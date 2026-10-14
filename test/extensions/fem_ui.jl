@@ -53,9 +53,9 @@
                 if failure isa LineCableModelsFEMError && failure.run_directory !== nothing
                     path=failure.run_directory
                     try
-                        state=JSON3.read(read(joinpath(path,"run.json"),String))
-                        @test state.state == "failed"
-                        @test state.getdp_invocations == 0
+                        record=JSON3.read(read(joinpath(path,"run.json"),String))
+                        @test record.state == "failed"
+                        @test record.getdp_invocations == 0
                         @test occursin(path,sprint(showerror,failure))
                     finally
                         @assert realpath(dirname(path)) == realpath(joinpath(E._runtime_root(),"runs"))
@@ -110,8 +110,8 @@
                 else
                     @test result isa LineCableModelsFEMError
                     @test result.category== (action===:during_solve ? :canceled : :not_executed)
-                    state=JSON3.read(read(joinpath(run_path[],"run.json"),String))
-                    @test state.state== (action===:during_solve ? "canceled" : "not_executed")
+                    record=JSON3.read(read(joinpath(run_path[],"run.json"),String))
+                    @test record.state== (action===:during_solve ? "canceled" : "not_executed")
                     @test E._live_attempt(E.FEMRun(run_path[],E.canceled,"test",:none,""))===nothing
                 end
             finally

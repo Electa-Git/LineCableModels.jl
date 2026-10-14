@@ -156,9 +156,9 @@ end
         Formulation(:pscad; earth_impedance = (
             air = formula(:gary1976; options = (integration = (method = :quad,),)),
             earth = :saad1996, mixed = :lucca1994)), problem)
-    staged = P._stage_pscad_project(P._pscad_inputs(problem, selected, P._pscad_blueprints(problem.system)), mktempdir())
+    project = P._stage_pscad_project(P._pscad_inputs(problem, selected, P._pscad_blueprints(problem.system)), mktempdir())
     try
-        document = EzXML.readxml(staged.staged)
+        document = EzXML.readxml(project.staged)
         ground = only(EzXML.findall("//User[@defn='master:Line_Ground']", document))
         fields = Dict(node["name"] => node["value"] for node in EzXML.findall("./paramlist/param", ground))
         @test all(parse(Float64, fields[string(name)]) == control.value for (name, control) in pairs(setting.ground))
@@ -171,7 +171,7 @@ end
             @test parse(Float64, fields["LT1"]) == 0
         end
     finally
-        rm(staged.root; recursive = true)
+        rm(project.root; recursive = true)
     end
     record = NamedTuple(selected)
     @test map(value -> value.identifier,record.requested.earth_impedance) == choices

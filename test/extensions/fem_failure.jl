@@ -45,10 +45,10 @@
                     @test failure.category === :getdp
                     @test failure.field === :client
                     @test occursin(run_path, sprint(showerror, failure))
-                    state = JSON3.read(read(joinpath(run_path, "run.json"), String))
-                    @test state.state == "failed"
-                    @test state.getdp_invocations == 1
-                    @test occursin("GetDP", state.message)
+                    record = JSON3.read(read(joinpath(run_path, "run.json"), String))
+                    @test record.state == "failed"
+                    @test record.getdp_invocations == 1
+                    @test occursin("GetDP", record.message)
                     @test isfile(joinpath(run_path, "input", "problem.json"))
                     @test isfile(joinpath(run_path, "input", "getdp", "quasi-tem.pro"))
                     @test isfile(joinpath(run_path, "logs", "getdp.log"))

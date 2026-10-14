@@ -100,13 +100,13 @@
     @test names(first(artifact.tables.features).relative)==["formula","all"]
     @test size(artifact.tables.sampling,1)==2
     @test all(iszero,skipmissing(artifact.tables.terms.relative_rms_percent))
-    for row in eachrow(artifact.tables.mean_sampling_precision)
-        selector=getproperty(LineCableModels,row.quantity)
+    for entry in eachrow(artifact.tables.mean_sampling_precision)
+        selector=getproperty(LineCableModels,entry.quantity)
         expected=observe(source,statistics,selector,std,1)
-        @test row.standard_error≈expected[row.index...]/sqrt(2)
-        @test row.row==row.index[1] && row.column==row.index[2]
-        @test row.frequency_Hz==frequencies[row.index[3]]
-        @test row.unit==LineCableModels.Units.label(LineCableModels.Units.native_unit(
+        @test entry.standard_error≈expected[entry.index...]/sqrt(2)
+        @test entry.row==entry.index[1] && entry.column==entry.index[2]
+        @test entry.frequency_Hz==frequencies[entry.index[3]]
+        @test entry.unit==LineCableModels.Units.label(LineCableModels.Units.native_unit(
             LineCableModels.Units.quantity(selector),:pul))
     end
     @test all(==(:empirical),[point.gridpoint.uncertainty.estimator for point in artifact.observed])

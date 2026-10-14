@@ -16,10 +16,10 @@
 
     function execution_context(node)
         ancestors = typeof(node)[]
-        parent = node.parent
-        while parent !== nothing
-            push!(ancestors, parent)
-            parent = parent.parent
+        current = node.parent
+        while current !== nothing
+            push!(ancestors, current)
+            current = current.parent
         end
         quoted, in_function, opaque, in_type = 0, false, false, false
         for i in length(ancestors):-1:1

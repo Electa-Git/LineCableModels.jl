@@ -190,8 +190,8 @@ end
         context=IOContext(IOBuffer(),:limit=>true,:displaysize=>(12,width),:color=>false)
         text=sprint(show,MIME"text/plain"(),wide;context)
         @test all(textwidth(line)<=width for line in split(text,'\n'))
-        @test all(match.match in ("1","3","50",string(large_integer),"77")
-            for match in eachmatch(r"[0-9]+",text))
+        @test all(number.match in ("1","3","50",string(large_integer),"77")
+            for number in eachmatch(r"[0-9]+",text))
         width==72 && @test occursin(string(large_integer),text)
     end
     for table in (DataFrame(value=Float64[]),DataFrame(value=[missing,missing]))

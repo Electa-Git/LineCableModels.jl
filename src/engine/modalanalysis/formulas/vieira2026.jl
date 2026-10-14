@@ -247,9 +247,9 @@ function refine_eigenpairs!(::Formula{:vieira2026}, values, vectors, previous_ve
         greedy_assignment!(assignment, cost)
         for column in 1:count
             track = buffers.tracks[column]
-            source = buffers.columns[assignment[column]]
-            copyto!(@view(vectors[:, track]), @view(eigensystem.vectors[:, source]))
-            values[track] = eigensystem.values[source]
+            eigen_column = buffers.columns[assignment[column]]
+            copyto!(@view(vectors[:, track]), @view(eigensystem.vectors[:, eigen_column]))
+            values[track] = eigensystem.values[eigen_column]
         end
     end
     largest_change = zero(R)
@@ -279,7 +279,7 @@ function decompose!(formula::Formula{:vieira2026}, workspace::ModalAnalysisWorks
     iteration = options.data.iteration
     tracking = options.data.tracking
     prediction = buffers.prediction
-    assignment = buffers.eigenpair_assignment
+    eigenpair_assignment = buffers.eigenpair_assignment
     n, _, nf = size(workspace.Ti)
     T = eltype(workspace.Ti)
     R = typeof(real(zero(T)))
@@ -334,18 +334,18 @@ function decompose!(formula::Formula{:vieira2026}, workspace::ModalAnalysisWorks
                 diagnostics.converged[mode, frequency] = converged
             end
             matched = refine_eigenpairs!(formula, buffers.eigenvalues,
-                buffers.eigenvectors, buffers.previous_eigenvectors, prediction, eigensystem, tracking, assignment)
+                buffers.eigenvectors, buffers.previous_eigenvectors, prediction, eigensystem, tracking, eigenpair_assignment)
             if !matched
                 # Preserve the reference's square correlation solve and greedy assignment.
-                copyto!(assignment.system, buffers.previous_eigenvectors)
-                copyto!(assignment.coefficients, eigensystem.vectors)
-                ldiv!(lu!(assignment.system), assignment.coefficients)
-                assignment.cost .= .-abs.(assignment.coefficients)
-                greedy_assignment!(assignment.assignment, assignment.cost)
+                copyto!(eigenpair_assignment.system, buffers.previous_eigenvectors)
+                copyto!(eigenpair_assignment.coefficients, eigensystem.vectors)
+                ldiv!(lu!(eigenpair_assignment.system), eigenpair_assignment.coefficients)
+                eigenpair_assignment.cost .= .-abs.(eigenpair_assignment.coefficients)
+                greedy_assignment!(eigenpair_assignment.assignment, eigenpair_assignment.cost)
                 for mode in 1:n
-                    source = assignment.assignment[mode]
-                    copyto!(@view(buffers.eigenvectors[:, mode]), @view(eigensystem.vectors[:, source]))
-                    buffers.eigenvalues[mode] = eigensystem.values[source]
+                    eigen_column = eigenpair_assignment.assignment[mode]
+                    copyto!(@view(buffers.eigenvectors[:, mode]), @view(eigensystem.vectors[:, eigen_column]))
+                    buffers.eigenvalues[mode] = eigensystem.values[eigen_column]
                 end
                 push!(diagnostics.fallback_frequencies, frequency)
             end

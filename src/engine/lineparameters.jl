@@ -92,8 +92,8 @@ function _finish(
     all(isfinite, admittance) || throw(DomainError(admittance,
         "completed shunt admittance must contain only finite entries"))
     retained = _retained_details(workspace)
-    names=["cable:$(terminal.cable):$(terminal.terminal)"
-           for terminal in problem.system.terminal_order]
+    names=["cable:$(cable):$(terminal)"
+           for (; cable, terminal) in problem.system.terminal_order]
     coordinates=map(workspace.plan.reduction.indices) do index
         phase=problem.system.connection_order[index]
         members=findall(==(phase), problem.system.connection_order)

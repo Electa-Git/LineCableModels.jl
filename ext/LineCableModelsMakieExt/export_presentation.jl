@@ -14,8 +14,8 @@ function _set_observable!(snapshot, observable, value)
     return observable
 end
 
-function _hide_layout_content!(snapshot, content::GridLayout)
-    for entry in content.content
+function _hide_layout_content!(snapshot, layout::GridLayout)
+    for entry in layout.content
         _hide_layout_content!(snapshot, entry.content)
     end
     return snapshot

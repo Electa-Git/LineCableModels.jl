@@ -189,9 +189,9 @@ function _match!(
     copyto!(ordered_values,values)
     copyto!(ordered_vectors,vectors)
     @inbounds for mode in 1:n
-        source = assignment[mode]
-        values[mode] = ordered_values[source]
-        copyto!(@view(vectors[:, mode]), @view(ordered_vectors[:, source]))
+        eigen_column = assignment[mode]
+        values[mode] = ordered_values[eigen_column]
+        copyto!(@view(vectors[:, mode]), @view(ordered_vectors[:, eigen_column]))
     end
     return assignment
 end

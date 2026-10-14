@@ -44,15 +44,15 @@ parameter(x) = x isa Type || x isa TypeVar ? typename(x) :
     x isa Tuple ? string("(", join(parameter.(x), ", "), length(x) == 1 ? ",)" : ")") :
     repr(x)
 
-function typename(@nospecialize(T))
-    T isa TypeVar && return string(T.name)
-    T isa Union && return string("Union{", join(typename.(Base.uniontypes(T)), ", "), "}")
-    T isa UnionAll && return string(typename(T.body), " where ", T.var.name)
-    T isa Core.TypeofVararg &&
-        return string("Vararg{", isdefined(T, :T) ? typename(T.T) : "", "}")
-    T isa DataType || return repr(T)
-    name = string(T.name.name)
-    owner = parentmodule(T)
+function typename(@nospecialize(type))
+    type isa TypeVar && return string(type.name)
+    type isa Union && return string("Union{", join(typename.(Base.uniontypes(type)), ", "), "}")
+    type isa UnionAll && return string(typename(type.body), " where ", type.var.name)
+    type isa Core.TypeofVararg &&
+        return string("Vararg{", isdefined(type, :T) ? typename(type.T) : "", "}")
+    type isa DataType || return repr(type)
+    name = string(type.name.name)
+    owner = parentmodule(type)
     if startswith(name, "#")
         function_name = match(r"^#([^#]+)$", name)
         function_name === nothing && return CLOSURE
@@ -60,8 +60,8 @@ function typename(@nospecialize(T))
             function_name[1], ")")
     end
     qualified = bare(owner) ? name : string(nameof(owner), ".", name)
-    isempty(T.parameters) && return qualified
-    return string(qualified, "{", join(parameter.(T.parameters), ", "), "}")
+    isempty(type.parameters) && return qualified
+    return string(qualified, "{", join(parameter.(type.parameters), ", "), "}")
 end
 
 bits(x) = bytes2hex(reinterpret(UInt8, [x]))

@@ -233,10 +233,10 @@ end
 # Axis rectangle can include unused space imposed by DataAspect/AxisAspect.
 function _frame_size(axis, allocation = Tuple(axis.layoutobservables.computedbbox[].widths))
     w, h=Float64.(allocation)
-    aspect=axis.aspect[]
-    ratio=aspect isa DataAspect ?
+    axis_aspect=axis.aspect[]
+    ratio=axis_aspect isa DataAspect ?
           Float64(axis.finallimits[].widths[1]/axis.finallimits[].widths[2]) :
-          aspect isa Makie.AxisAspect ? Float64(aspect.aspect) : nothing
+          axis_aspect isa Makie.AxisAspect ? Float64(axis_aspect.aspect) : nothing
     return ratio===nothing ? (w, h) : (min(w, h*ratio), min(h, w/ratio))
 end
 

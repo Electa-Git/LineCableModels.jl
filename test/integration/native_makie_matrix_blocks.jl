@@ -120,7 +120,7 @@ end
     @test allunique([curve.color[] for curve in curves])
     @test last(markers).marker[] == Makie.to_spritemarker(:circle)
     @test Makie.to_color(last(curves).color[]) == Makie.to_color(:black)
-    @test allunique([marker.marker[] for marker in markers[1:end-1]])
+    @test allunique([scatter_plot.marker[] for scatter_plot in markers[1:end-1]])
     @test Makie.alpha(last(markers).color[]) == 0
     @test all(marker -> 1 <= length(marker[1][]) < length(frequency),markers)
     @test all(marker -> all(point -> point in first(curves)[1][],marker[1][]),markers)
@@ -142,7 +142,7 @@ end
     filtered_markers = [only(filter(plot -> plot isa Makie.Scatter,filtered.plot_state.groups[group]))
         for group in filtered.plot_state.order]
     @test [curve.color[] for curve in filtered_curves] == [curves[i].color[] for i in [5,2,6]]
-    @test [marker.marker[] for marker in filtered_markers] == [markers[i].marker[] for i in [5,2,6]]
+    @test [scatter_plot.marker[] for scatter_plot in filtered_markers] == [markers[i].marker[] for i in [5,2,6]]
     @test [marker[1][] for marker in filtered_markers] == [markers[i][1][] for i in [5,2,6]]
     plain = LineCableModels.plot(result, (R,); reference, marker=nothing, options...)
     @test !any(plot -> plot isa Makie.Scatter,only(plain.axes).scene.plots)

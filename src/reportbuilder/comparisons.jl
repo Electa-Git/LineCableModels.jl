@@ -120,7 +120,7 @@ function tabulate(definition::BenchmarkTableDefinition,
         _point_information([reference],:reference,[last(labels)])
     info=map((a,b) -> DataFrame(vcat(a,b)),result_info,reference_info)
     timing=_timing_tables(points,reference)
-    sampling=_sampling_tables(points,reference)
+    tables=_sampling_tables(points,reference)
     coverage=DataFrame([(result_source=string(row.result_id.source_id),reference_source=string(row.reference_id.source_id),
         point=row.problem_index,formulation_index=row.formulation_index,band=row.band isa Tuple ? string(row.band) : row.band,
         frequency_count=row.samples,first_Hz=row.actual_bounds_Hz===nothing ? missing : Commons.nominal(first(row.actual_bounds_Hz)),
@@ -128,12 +128,12 @@ function tabulate(definition::BenchmarkTableDefinition,
     coverage=unique(coverage)
     overview=(coverage,execution=timing.execution,performance=timing.performance,
         timing_ratio=timing.performance_comparison,source_timings=timing.source_timings,
-        sampling=sampling.sampling,cdf_precision=isempty(sampling.sampling) ? DataFrame() : DataFrames.select(sampling.sampling,
+        sampling=tables.sampling,cdf_precision=isempty(tables.sampling) ? DataFrame() : DataFrames.select(tables.sampling,
             :role,:point,:method,:trials,:confidence,:marginal_count,:target_cdf,:cdf_bound,:target_supported,:scope))
     maxima_table=DataFrame(maxima)
     metadata!(maxima_table,"comparison_records",Commons.detach(maxima);style=:note)
     return merge(info,(quantities=map(tabulate,points),comparisons=DataFrame(rows),terms=DataFrame(terms),
-        maxima=maxima_table,summary=copy(maxima_table),features,groups),timing,sampling,(;overview))
+        maxima=maxima_table,summary=copy(maxima_table),features,groups),timing,tables,(;overview))
 end
 
 # One observation is a collection of one, with its one list of comparisons.

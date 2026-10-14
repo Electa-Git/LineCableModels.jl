@@ -41,8 +41,8 @@
     for (radius, counts) in ((0.5e-3, [6, 12, 18]), (0.25e-3, [4, 10, 16]),
         (1.0e-3, [9, 15, 21]))
         sites = DM.circular_courses(Disk(4.0e-3), Disk(radius), strand, false)
-        @test [count(site -> site.course == k, sites) for k in 1:3] == counts
-        disks = [((0.0, 0.0), radius); [(site.site, strand.r) for site in sites]]
+        @test [count(member -> member.course == k, sites) for k in 1:3] == counts
+        disks = [((0.0, 0.0), radius); [(member.site, strand.r) for member in sites]]
         @test all(hypot((left[1] .- right[1])...) >= (left[2] + right[2]) * (1 - 1e-12)
                   for (index, left) in enumerate(disks) for right in disks[(index + 1):end])
     end

@@ -7,25 +7,25 @@
             Float32[1,1,nextfloat(1.0f0)])
         original=copy(values)
         for bins in (nothing,1,2,32)
-            density=HistogramDensity(values;bins)
-            edges=density.edges
+            histogram=HistogramDensity(values;bins)
+            edges=histogram.edges
             @test all(isfinite,edges)
             @test all(>(0),diff(edges))
             @test first(edges)<=minimum(values)<=maximum(values)<=last(edges)
-            @test all(isfinite,density.density)
-            @test sum(density.density .* diff(edges))≈1
+            @test all(isfinite,histogram.density)
+            @test sum(histogram.density .* diff(edges))≈1
             # Count the original population in each documented half-open bin.
             # The final bin alone includes the right endpoint.
             expected=[count(x->edges[i]<=x &&
                 (i==length(edges)-1 ? x<=edges[i+1] : x<edges[i+1]),values)
                 for i in 1:length(edges)-1] ./ length(values)
-            @test density.density .* diff(edges)≈expected
+            @test histogram.density .* diff(edges)≈expected
             @test values==original
             if minimum(values)!=maximum(values)
                 @test first(edges)==minimum(values)
                 @test last(edges)==maximum(values)
             else
-                @test length(density.density)==1
+                @test length(histogram.density)==1
             end
         end
     end

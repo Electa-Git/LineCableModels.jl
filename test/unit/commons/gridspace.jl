@@ -238,9 +238,9 @@ end
 
     function deterministic_sum(space, repetitions)
         total=0.0
-        for _ in 1:repetitions, value in space
+        for _ in 1:repetitions, target in space
 
-            total+=value.value
+            total+=target.value
         end
         return total
     end

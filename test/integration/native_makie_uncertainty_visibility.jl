@@ -156,9 +156,9 @@ end
     overridden = LineCableModels.plot(result, ((R, 1, 1, :),); options..., errorbar_sampling = :all,
         marker = :diamond, color = :magenta, whiskerwidth = 12)
     for group in values(overridden.plot_state.groups)
-        marker = only(filter(p -> p isa Makie.Scatter, group))
-        @test length(marker[1][]) == length(f)
-        @test marker.marker[] == Makie.to_spritemarker(:diamond)
+        scatter_plot = only(filter(p -> p isa Makie.Scatter, group))
+        @test length(scatter_plot[1][]) == length(f)
+        @test scatter_plot.marker[] == Makie.to_spritemarker(:diamond)
         @test all(p -> Makie.to_color(p.color[]) == Makie.to_color(:magenta), group)
         @test all(p.whiskerwidth[] == 12 for p in group if p isa Makie.Errorbars)
     end

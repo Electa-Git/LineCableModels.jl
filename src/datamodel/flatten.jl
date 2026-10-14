@@ -184,17 +184,17 @@ function conductor_zone(
         ::Type{T},
         expected_inner
 ) where {T <: Real}
-    placed = first(zone)
-    material = convert(Material{T}, placed.source.material)
+    reference = first(zone)
+    material = convert(Material{T}, reference.source.material)
     radius = convert(T, primitive.r)
-    all(item -> isapprox(
-            area(item.primitive),
+    all(placed -> isapprox(
+            area(placed.primitive),
             (one(T) * pi) * radius^2
         ), zone) || throw(ArgumentError(
         "resolved disk strands do not preserve their declared area"
     ))
-    coordinates = Tuple{T, T}[convert.(T, centroid(item.primitive))
-                              for item in zone]
+    coordinates = Tuple{T, T}[convert.(T, centroid(placed.primitive))
+                              for placed in zone]
     center = conductor_zone_position(zone)
     center_radius = hypot(
         first(coordinates)[1] - center[1],
@@ -227,20 +227,20 @@ function conductor_zone(
         ))
         expected_inner, expected_inner + 2radius
     end
-    patterned = any(entry -> entry.owner === Group, placed.placement.patterns)
-    uniform_paths = all(item -> item.paths == placed.paths, zone)
-    turns = uniform_paths ? turns_per_length(placed.paths, T) :
-            sum(item -> turns_per_length(item.paths, T), zone) / length(zone)
+    patterned = any(entry -> entry.owner === Group, reference.placement.patterns)
+    uniform_paths = all(placed -> placed.paths == reference.paths, zone)
+    turns = uniform_paths ? turns_per_length(reference.paths, T) :
+            sum(placed -> turns_per_length(placed.paths, T), zone) / length(zone)
     base_resistance = tubular_resistance(
         zero(T),
         radius,
         material.rho
     )
     resistance = if uniform_paths
-        path_corrected_resistance(base_resistance, placed.paths) / length(zone)
+        path_corrected_resistance(base_resistance, reference.paths) / length(zone)
     else
-        resistances = map(zone) do item
-            path_corrected_resistance(base_resistance, item.paths)
+        resistances = map(zone) do placed
+            path_corrected_resistance(base_resistance, placed.paths)
         end
         reduce(parallel, resistances)
     end

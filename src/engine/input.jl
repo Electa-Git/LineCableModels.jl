@@ -98,8 +98,8 @@ function lineinput(
     end
 
     @inbounds for index in eachindex(cable.terminals)
-        terminal = system.terminal_order[index]
-        terminal.terminal === cable.terminals[index] || throw(DimensionMismatch(
+        (; terminal) = system.terminal_order[index]
+        terminal === cable.terminals[index] || throw(DimensionMismatch(
             "DataModel terminal order is not aligned with the cable blueprint"
         ))
         design_index = design_map[index]

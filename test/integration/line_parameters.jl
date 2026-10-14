@@ -109,8 +109,8 @@
         options = (
             reduce_bundle = true, kron_reduction = true, ideal_transposition = false))
     distinct_workspace=LineParametersWorkspace(problem, distinct_formulation, execution, blueprints)
-    impedance, potential=distinct_workspace.plan.earth.calculations
-    @test !isempty(impedance.impedance.pairs) && impedance.admittance === nothing
+    impedance_calculation, potential=distinct_workspace.plan.earth.calculations
+    @test !isempty(impedance_calculation.impedance.pairs) && impedance_calculation.admittance === nothing
     @test potential.impedance === nothing && !isempty(potential.admittance.pairs)
     @test distinct_workspace.buffers.earth.calculations[1].rho !==
           distinct_workspace.buffers.earth.calculations[2].rho

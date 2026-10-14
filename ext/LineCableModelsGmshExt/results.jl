@@ -354,7 +354,7 @@ function _line_parameters(
     files=keep_run ? [(path=relpath(joinpath(directory,name),run.path),
         source=joinpath(directory,name),sha256=bytes2hex(open(sha256,joinpath(directory,name))))
         for (directory,_,names) in walkdir(run.path) for name in sort(names)] : NamedTuple[]
-    names=["cable:$(terminal.cable):$(terminal.terminal)" for terminal in model.problem.system.terminal_order]
+    names=["cable:$(cable):$(terminal)" for (; cable, terminal) in model.problem.system.terminal_order]
     coordinates=map(plan.indices) do index
         phase=model.problem.system.connection_order[index]
         members=findall(==(phase),model.problem.system.connection_order)

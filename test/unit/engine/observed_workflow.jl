@@ -109,20 +109,20 @@ end
     @test size(tabulate(selected_samples,only(selected_samples.quantities).request),1)==4
     histogram=ObservedResult(mc,1,((histograms,R,1,2,3,3),))
     @test length(histogram.quantities)==1
-    distribution=only(histogram.quantities)
-    @test sum(distribution.values.count)==5
-    @test sum(distribution.values.probability)≈1
-    @test distribution.distribution.qq!==nothing
+    observed_quantity=only(histogram.quantities)
+    @test sum(observed_quantity.values.count)==5
+    @test sum(observed_quantity.values.probability)≈1
+    @test observed_quantity.distribution.qq!==nothing
     converted=only(ObservedResult(histogram;length_unit=:base).quantities)
-    @test converted.values.lower≈distribution.values.lower./1000
-    @test converted.values.density≈distribution.values.density.*1000
-    @test converted.values.probability==distribution.values.probability
-    @test converted.values.count==distribution.values.count
-    @test converted.distribution.qq.sample≈distribution.distribution.qq.sample./1000
-    @test converted.distribution.model_cdf.y==distribution.distribution.model_cdf.y
-    @test size(tabulate(histogram,distribution.request),1)==3
+    @test converted.values.lower≈observed_quantity.values.lower./1000
+    @test converted.values.density≈observed_quantity.values.density.*1000
+    @test converted.values.probability==observed_quantity.values.probability
+    @test converted.values.count==observed_quantity.values.count
+    @test converted.distribution.qq.sample≈observed_quantity.distribution.qq.sample./1000
+    @test converted.distribution.model_cdf.y==observed_quantity.distribution.model_cdf.y
+    @test size(tabulate(histogram,observed_quantity.request),1)==3
     trials.R .= -1
-    @test all(>(0),distribution.distribution.qq.sample)
+    @test all(>(0),observed_quantity.distribution.qq.sample)
     shared=measurement(1.,.2)
     uncertain=LineParameters(fill(complex(shared,2shared),2,2,3),fill(complex(3shared,4shared),2,2,3),f)
     ordinary=report(uncertain)

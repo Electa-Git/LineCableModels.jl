@@ -153,21 +153,21 @@
         return parentmodule(F)
     end
 
-    function mentioned!(found::Base.IdSet{DataType}, @nospecialize(T))
-        if T isa TypeVar
-            mentioned!(found, T.lb)
-            mentioned!(found, T.ub)
-        elseif T isa UnionAll
-            mentioned!(found, T.var)
-            mentioned!(found, T.body)
-        elseif T isa Union
-            mentioned!(found, T.a)
-            mentioned!(found, T.b)
-        elseif T isa Core.TypeofVararg
-            isdefined(T, :T) && mentioned!(found, T.T)
-        elseif T isa DataType && T ∉ found
-            push!(found, T)
-            for p in T.parameters
+    function mentioned!(found::Base.IdSet{DataType}, @nospecialize(type))
+        if type isa TypeVar
+            mentioned!(found, type.lb)
+            mentioned!(found, type.ub)
+        elseif type isa UnionAll
+            mentioned!(found, type.var)
+            mentioned!(found, type.body)
+        elseif type isa Union
+            mentioned!(found, type.a)
+            mentioned!(found, type.b)
+        elseif type isa Core.TypeofVararg
+            isdefined(type, :T) && mentioned!(found, type.T)
+        elseif type isa DataType && type ∉ found
+            push!(found, type)
+            for p in type.parameters
                 mentioned!(found, p)
             end
         end

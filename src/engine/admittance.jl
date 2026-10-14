@@ -115,14 +115,14 @@ temperature law.
 """
 function dielectric!(
         admittivity::AbstractVector{Complex{T}},
-        input::LocalCableData{T},
+        cable::LocalCableData{T},
         rho::AbstractVector{T},
         methods::NamedTuple,
         frequency::T,
         temperature::T; workspace = nothing
 ) where {T <: Real}
     laws = (methods.insulation_admittance, methods.semicon_admittance)
-    @inbounds for (layer, material) in pairs(input.dielectric_materials)
+    @inbounds for (layer, material) in pairs(cable.dielectric_materials)
         admittivity[layer] = constitutive(laws, material, frequency, temperature;
             rho = rho[layer], workspace)
     end
@@ -142,7 +142,7 @@ the radial intervals that they cover.
 """
 function cable_potential!(
         destination::AbstractMatrix{Complex{T}},
-        input::LocalCableData{T},
+        cable::LocalCableData{T},
         shunt::NamedTuple,
         admittivity::AbstractVector{Complex{T}},
         s::Complex{T},
@@ -152,14 +152,14 @@ function cable_potential!(
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
     @. layer_coefficients = potential_coefficient(
-        input.r_layer_in, input.r_layer_ext, admittivity, s)
-    @inbounds for conductors in input.assemblies
+        cable.r_layer_in, cable.r_layer_ext, admittivity, s)
+    @inbounds for conductors in cable.assemblies
         count = length(conductors)
         for component in 1:count
             coefficients[component] = shunt.covered[conductors[component]] ? zero(s) :
                                       radial_coefficient(
                 layer_coefficients,
-                input.dielectric_ranges[conductors[component]]
+                cable.dielectric_ranges[conductors[component]]
             )
         end
         tails[count] = coefficients[count]
@@ -192,7 +192,7 @@ cover.
 """
 function cable_admittance!(
         destination::AbstractMatrix{Complex{T}},
-        input::LocalCableData{T},
+        cable::LocalCableData{T},
         shunt::NamedTuple,
         admittivity::AbstractVector{Complex{T}},
         s::Complex{T},
@@ -200,15 +200,15 @@ function cable_admittance!(
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
     @. layer_coefficients = potential_coefficient(
-        input.r_layer_in, input.r_layer_ext, admittivity, s)
-    @inbounds for conductors in input.assemblies
+        cable.r_layer_in, cable.r_layer_ext, admittivity, s)
+    @inbounds for conductors in cable.assemblies
         count = length(conductors)
         for position in 1:count
             index = conductors[position]
             shunt.covered[index] && continue
             coefficient = radial_coefficient(
                 layer_coefficients,
-                input.dielectric_ranges[index]
+                cable.dielectric_ranges[index]
             )
             iszero(coefficient) && continue
             admittance = s / coefficient

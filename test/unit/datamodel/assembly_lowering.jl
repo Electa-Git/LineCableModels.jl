@@ -14,7 +14,7 @@
         gridded = constructor(at(single, Pose2(Grid((0.01, 0.02)), 0.0)))
         @test gridded isa Gridspace{Assembly}
         @test length(gridded) == 2
-        @test [only(item.item).at.x for item in gridded] == [0.01, 0.02]
+        @test [only(assembled.item).at.x for assembled in gridded] == [0.01, 0.02]
     end
     @test_throws ArgumentError assembly(single, single; pattern=Ring(2; r=0.01))
     @test_throws ArgumentError assembly(single; names=(:a,))

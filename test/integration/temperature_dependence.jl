@@ -98,7 +98,7 @@ end
     for point in eachindex(temperatures),quantity in (:R,:L,:C,:G)
         draws=vec(getproperty(sampled.sample_values[point],quantity))
         summary=only(getproperty(sampled.stats[point],quantity))
-        density=only(getproperty(sampled.histogram_values[point],quantity))
+        histogram=only(getproperty(sampled.histogram_values[point],quantity))
         @test length(draws)==N
         expected_mean=sum(draws)/N
         expected_std=sqrt(sum(x->(x-expected_mean)^2,draws)/(N-1))
@@ -109,14 +109,14 @@ end
         @test summary.q05 ≈ quantile7(sorted,.05) rtol=1e-10 atol=0
         @test summary.median ≈ quantile7(sorted,.5) rtol=1e-10 atol=0
         @test summary.q95 ≈ quantile7(sorted,.95) rtol=1e-10 atol=0
-        counts=zeros(Int,length(density.density))
+        counts=zeros(Int,length(histogram.density))
         for value in draws
-            index=min(searchsortedlast(density.edges,value),length(counts))
+            index=min(searchsortedlast(histogram.edges,value),length(counts))
             1<=index<=length(counts) || error("sample outside declared histogram support")
             counts[index]+=1
         end
-        @test density.density ≈ counts./(N.*diff(density.edges)) rtol=1e-10 atol=0
-        @test sum(density.density.*diff(density.edges)) ≈ 1.0 rtol=1e-10
+        @test histogram.density ≈ counts./(N.*diff(histogram.edges)) rtol=1e-10 atol=0
+        @test sum(histogram.density.*diff(histogram.edges)) ≈ 1.0 rtol=1e-10
         @test getproperty(sampled.values[point],quantity)[1] ≈ summary.mean rtol=1e-10 atol=0
     end
     for point in eachindex(temperatures)

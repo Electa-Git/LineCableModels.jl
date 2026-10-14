@@ -11,7 +11,7 @@ outer, inner, transfer, and longitudinal-insulation terms directly to
 # Arguments
 
 - `destination`: reusable primitive series-impedance matrix [Ω/m].
-- `input`: concrete local cable arrays.
+- `cable`: concrete local cable arrays.
 - `rho_cond`: temperature-corrected conductor resistivities [Ω·m].
 - `methods`: resolved formulation methods.
 - `s`: complex angular frequency ``jω`` [1/s].
@@ -22,31 +22,31 @@ outer, inner, transfer, and longitudinal-insulation terms directly to
 """
 function cable_impedance!(
         destination::AbstractMatrix{Complex{T}},
-        input::LocalCableData{T},
+        cable::LocalCableData{T},
         rho_cond::AbstractVector{T},
         methods::NamedTuple,
         s::Complex{T}; workspace = nothing
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
-    @inbounds for conductors in input.assemblies
+    @inbounds for conductors in cable.assemblies
         count = length(conductors)
         inside = zero(eltype(destination))
         for position in count:-1:1
             index = conductors[position]
             surfaces = InternalImpedance.surface_impedances(methods.internal_impedance,
-                input.r_in[index] > 0 ? Val((:outer, :transfer, :inner)) : Val((:outer,)),
-                input.r_in[index],
-                input.r_ext[index],
+                cable.r_in[index] > 0 ? Val((:outer, :transfer, :inner)) : Val((:outer,)),
+                cable.r_in[index],
+                cable.r_ext[index],
                 rho_cond[index],
-                input.mu_r_cond[index],
+                cable.mu_r_cond[index],
                 s; workspace
             )
             outside = surfaces.outer
             transfer = position > 1 ? surfaces.transfer : zero(outside)
             insulation = methods.insulation_impedance(
-                input.r_ext[index],
-                input.r_ins_ext[index],
-                input.mu_r_ins[index],
+                cable.r_ext[index],
+                cable.r_ins_ext[index],
+                cable.mu_r_ins[index],
                 s; workspace
             )
             loop = outside + inside + insulation

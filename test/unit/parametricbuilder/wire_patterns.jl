@@ -22,11 +22,11 @@
         @test choice.wire_diameter > 0
     end
     match = estimate[:closest_area]
-    layers = estimate[:fewest_layers]
+    fewest_layers = estimate[:fewest_layers]
     diameter = estimate[:smallest_diameter]
     @test abs(1e6 * match.total_area - target_area) <=
           abs(1e6 * diameter.total_area - target_area)
-    @test layers.layers <= diameter.layers
+    @test fewest_layers.layers <= diameter.layers
     @test estimate[:fewest_wires].wires == minimum(p.wires for p in estimate)
     @test estimate[Val(:closest_area)] === estimate[:closest_area]
 

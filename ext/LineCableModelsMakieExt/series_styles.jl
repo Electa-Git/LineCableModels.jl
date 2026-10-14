@@ -153,7 +153,7 @@ end
 # Oklab display criteria: lightness in [0.38,0.72], chroma >= 0.10, distance
 # from white >= 0.30 and from black >= 0.40. These choices apply to a finite palette
 # without guaranteeing distinguishability for arbitrarily many simultaneous curves.
-_color_distance(a,b) = (a.l-b.l)^2 + (a.a-b.a)^2 + (a.b-b.b)^2
+_color_distance(left,right) = (left.l-right.l)^2 + (left.a-right.a)^2 + (left.b-right.b)^2
 function _curve_color_allowed(color)
     lab=convert(Oklab,color)
     return 0.38 <= lab.l <= 0.72 && hypot(lab.a,lab.b)>=0.10 &&
