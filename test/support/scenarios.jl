@@ -228,6 +228,10 @@ module CurrentScenarios
                 layer(rho=500.0, eps_r=20.0, thickness=2.0), layer(rho=50.0, eps_r=15.0))),
             frequencies)
         before_fd = formula(:default; equivalent_earth=formula(:bottommost; order=:before))
+        # The formulation of the known-cases test (test/integration/known_cases.jl).
+        known_cases = Formulation(earth_impedance=:unified, earth_admittance=:unified,
+            shunt_model=:equivalent,
+            options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
         return (
             coaxial=(coaxial, Formulation()),
             overhead=(three_bare_wires_problem(;
@@ -247,7 +251,47 @@ module CurrentScenarios
             three_layer=(layered, Formulation()),
             three_layer_before_fd=(layered, Formulation(earth_properties=formula(:alipio2014),
                 earth_impedance=before_fd, earth_admittance=before_fd)),
-            trefoil=(line_parameters_problem(trefoil_system(); frequencies), Formulation()))
+            trefoil=(line_parameters_problem(trefoil_system(); frequencies), Formulation()),
+            cable_132kv_630mm2_flathor=(
+                known_case_problem(Val(:cable_132kv_630mm2_flathor); frequencies), known_cases),
+            cable_132kv_cigre_tb880_case0_630cu_trefoil=(
+                known_case_problem(Val(:cable_132kv_cigre_tb880_case0_630cu_trefoil); frequencies), known_cases),
+            cable_18kv_1000mm2_trefoil=(
+                known_case_problem(Val(:cable_18kv_1000mm2_trefoil); frequencies), known_cases),
+            cable_18kv_1000mm2_trefoil_homogenized=(
+                known_case_problem(Val(:cable_18kv_1000mm2_trefoil_homogenized); frequencies), known_cases),
+            cable_220kv_milliken_1x2500_252_trefoil=(
+                known_case_problem(Val(:cable_220kv_milliken_1x2500_252_trefoil); frequencies), known_cases),
+            cable_30kv_na2xs2y_630mm2_trefoil=(
+                known_case_problem(Val(:cable_30kv_na2xs2y_630mm2_trefoil); frequencies), known_cases),
+            cable_320kv_armoured_dc_bipole=(
+                known_case_problem(Val(:cable_320kv_armoured_dc_bipole); frequencies), known_cases),
+            cable_320kv_no_armour_dc_bipole=(
+                known_case_problem(Val(:cable_320kv_no_armour_dc_bipole); frequencies), known_cases),
+            cable_380kv_2000mm2_flatver=(
+                known_case_problem(Val(:cable_380kv_2000mm2_flatver); frequencies), known_cases),
+            cable_380kv_armoured_ac_flat=(
+                known_case_problem(Val(:cable_380kv_armoured_ac_flat); frequencies), known_cases),
+            cable_380kv_no_armour_ac_flat=(
+                known_case_problem(Val(:cable_380kv_no_armour_ac_flat); frequencies), known_cases),
+            cable_525kv_1600mm2_bipole=(
+                known_case_problem(Val(:cable_525kv_1600mm2_bipole); frequencies), known_cases),
+            cable_525kv_land_no_armour_ac_flat=(
+                known_case_problem(Val(:cable_525kv_land_no_armour_ac_flat); frequencies), known_cases),
+            cable_525kv_land_no_armour_dc_bipole=(
+                known_case_problem(Val(:cable_525kv_land_no_armour_dc_bipole); frequencies), known_cases),
+            cable_525kv_subsea_armoured_ac_flat=(
+                known_case_problem(Val(:cable_525kv_subsea_armoured_ac_flat); frequencies), known_cases),
+            cable_525kv_subsea_armoured_dc_bipole=(
+                known_case_problem(Val(:cable_525kv_subsea_armoured_dc_bipole); frequencies), known_cases),
+            cable_640kv_2000mm2_bipole=(
+                known_case_problem(Val(:cable_640kv_2000mm2_bipole); frequencies), known_cases),
+            solid_1000mm2_single=(
+                known_case_problem(Val(:solid_1000mm2_single); frequencies), known_cases),
+            two_bare_wires=(
+                known_case_problem(Val(:two_bare_wires); frequencies), known_cases),
+            two_insulated_wires=(
+                known_case_problem(Val(:two_insulated_wires); frequencies), known_cases))
     end
 
     """

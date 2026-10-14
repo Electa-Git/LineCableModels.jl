@@ -28,7 +28,7 @@
                     complex(parse(Float64, real_part), parse(Float64, imaginary_part))
             end
         end
-        result = compute(TestFixtures.known_case_problem(Symbol(case); frequencies), formulation)
+        result = @inferred compute(TestFixtures.known_case_problem(Symbol(case); frequencies), formulation)
         @test details(result).data.coordinates == labels
         for (k, f) in enumerate(frequencies), (quantity, selector) in (("Z", Z), ("Y", Y))
             computed = observe(result, selector)[:, :, k]
@@ -75,7 +75,7 @@ end
             end
         end
         if any(key -> first(key) == "analytical_boundary", keys(reference))
-            result = compute(TestFixtures.known_case_problem(Symbol(case); frequencies), formulation)
+            result = @inferred compute(TestFixtures.known_case_problem(Symbol(case); frequencies), formulation)
             for (k, f) in enumerate(frequencies), (quantity, selector) in (("Z", Z), ("Y", Y))
                 computed = observe(result, selector)[:, :, k]
                 @test isapprox(computed, reference[("analytical_boundary", quantity, f)]; rtol = 1e-12)
