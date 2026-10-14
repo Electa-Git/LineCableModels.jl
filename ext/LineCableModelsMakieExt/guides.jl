@@ -8,23 +8,35 @@ function _guide_position(position;legend=false,main=false)
     throw(ArgumentError("guide position must be :left, :right, :top, :bottom or nothing; legends also take :inside"))
 end
 
-function _guide_gap(value)
-    value isa Tuple && length(value)==4 && all(x -> x isa Real && isfinite(x) && x>=0,value) ||
+_guide_gap(value)=Float64.(validate(value,Outside))
+
+# A guide gap or margin pads its four sides (left,right,bottom,top), as Makie's Outside.
+function validate(gap::NTuple{4,Real},::Type{Outside})
+    all(x -> isfinite(x) && x>=0,gap) ||
         throw(ArgumentError("guide_gap must be a nonnegative (left,right,bottom,top) tuple"))
-    return Float64.(value)
+    return gap
+end
+function validate(gap,::Type{Outside})
+    throw(ArgumentError("guide_gap must be a nonnegative (left,right,bottom,top) tuple; got $(typeof(gap))"))
 end
 
-function _guide_spacing(value,current=(rowgap=12.0,colgap=12.0))
-    value isa NamedTuple && all(key -> key in (:rowgap,:colgap),keys(value)) ||
+_guide_spacing(value,current=(rowgap=12.0,colgap=12.0))=
+    map(Float64,merge(current,validate(value,GridLayout,current)))
+
+# Guide spacing sets the row and column gaps of a grid. Omitted gaps keep `current`.
+function validate(spacing::NamedTuple,::Type{GridLayout},current::NamedTuple)
+    all(key -> key in (:rowgap,:colgap),keys(spacing)) ||
         throw(ArgumentError("guide_spacing must be (rowgap=..., colgap=...)"))
-    result=merge(current,value)
-    all(x -> x isa Real && !(x isa Bool) && isfinite(x) && x>=0,values(result)) ||
+    all(x -> x isa Real && !(x isa Bool) && isfinite(x) && x>=0,values(merge(current,spacing))) ||
         throw(ArgumentError("guide spacing must be finite, nonnegative, and non-Boolean"))
-    return map(Float64,result)
+    return spacing
+end
+function validate(spacing,::Type{GridLayout},current::NamedTuple)
+    throw(ArgumentError("guide_spacing must be (rowgap=..., colgap=...); got $(typeof(spacing))"))
 end
 
 function _colorbar_group_attributes(attributes,count=nothing)
-    _guide_attributes(attributes)
+    validate(attributes,Makie.LayoutObservables)
     for (key,value) in pairs(attributes)
         if key===:layout
             value===nothing && continue
@@ -70,11 +82,9 @@ function _pack_guides(extents,span,gap,fractions;desired=nothing)
     return (;starts,extent=total,span)
 end
 
-function _guide_attributes(attributes)
-    attributes isa NamedTuple || throw(ArgumentError("guide attributes must be a NamedTuple"))
-    if haskey(attributes,:margin)
-        _guide_gap(to_value(attributes.margin))
-    end
+# The layout attributes of a guide block: its outer margin and its alignment.
+function validate(attributes::NamedTuple,::Type{Makie.LayoutObservables})
+    haskey(attributes,:margin) && validate(to_value(attributes.margin),Outside)
     for (key,symbols) in ((:halign,(:left,:center,:right)),(:valign,(:bottom,:center,:top)))
         haskey(attributes,key) || continue
         value=to_value(getproperty(attributes,key))
@@ -82,6 +92,9 @@ function _guide_attributes(attributes)
             throw(ArgumentError("$key must be a native alignment symbol or a fraction in [0,1]"))
     end
     return attributes
+end
+function validate(attributes,::Type{Makie.LayoutObservables})
+    throw(ArgumentError("guide attributes must be a NamedTuple; got $(typeof(attributes))"))
 end
 
 function _legend_owner(p,panel)
@@ -95,7 +108,7 @@ end
 
 function _guide_state(kind,scope,position,attributes;max_fraction=0.5,title=nothing)
     _guide_position(position;legend=kind===:legend,main=kind===:colorbars)
-    _guide_attributes(attributes)
+    validate(attributes,Makie.LayoutObservables)
     return (;kind,scope,position=Ref{Any}(position),attributes=Ref{Any}(attributes),
         max_fraction=Ref(_legend_fraction(max_fraction)),title=Ref{Any}(title),placed=Ref{Any}(_omitted),object=Ref{Any}(nothing),
         layout=Ref{Any}(nothing),items=Any[],fit=Ref{Any}(nothing),subscriptions=Any[],hidden=Ref(false),visibility=IdDict{Any,Bool}())
@@ -121,7 +134,7 @@ end
 
 # Native attributes of the Makie Legend or Colorbar that a guide builds.
 function validate(attributes,type::Type{<:Union{Legend,Colorbar}})
-    _guide_attributes(attributes)
+    validate(attributes,Makie.LayoutObservables)
     for (key,attribute) in pairs(attributes)
         key in propertynames(type) || throw(ArgumentError("unsupported native guide attribute $key"))
         value=to_value(attribute)
@@ -379,24 +392,31 @@ function _compose_guides!(p)
     return p
 end
 
-function _watch_guide!(p,guide,object)
-    attributes=object isa Colorbar ? (:ticks,:tickformat,:ticklabelsize,:ticklabelrotation,
-        :ticklabelfont,:label,:labelsize,:labelfont,:labelvisible,:ticklabelsvisible,
-        :labelpadding,:ticklabelpad,:spinewidth,:flipaxis,:vertical,:width,:height) :
-        (:labelsize,:labelfont,:titlesize,:titlefont,:padding,:margin,:patchsize,:rowgap,:colgap,:orientation,:nbanks)
-    append!(guide.subscriptions,_watch_presentation!(p,object,attributes))
+# Presentation and size changes recompose the guides. Showing or hiding a legend also
+# refits the figure.
+function _watch_guide!(p,guide,object::Colorbar)
+    append!(guide.subscriptions,_watch_presentation!(p,object,(:ticks,:tickformat,:ticklabelsize,
+        :ticklabelrotation,:ticklabelfont,:label,:labelsize,:labelfont,:labelvisible,
+        :ticklabelsvisible,:labelpadding,:ticklabelpad,:spinewidth,:flipaxis,:vertical,:width,:height)))
     push!(guide.subscriptions,on(object.blockscene,object.layoutobservables.autosize) do _
         _compose_guides!(p)
         nothing
     end)
-    if object isa Legend
-        push!(guide.subscriptions,on(object.blockscene,object.blockscene.visible) do _
-            state=p.plot_state
-            state.composing_guides[] || state.fitting_geometry[] ||
-                _update_figure_layout!(() -> nothing,p)
-            nothing
-        end)
-    end
+    return object
+end
+function _watch_guide!(p,guide,object::Legend)
+    append!(guide.subscriptions,_watch_presentation!(p,object,(:labelsize,:labelfont,:titlesize,
+        :titlefont,:padding,:margin,:patchsize,:rowgap,:colgap,:orientation,:nbanks)))
+    push!(guide.subscriptions,on(object.blockscene,object.layoutobservables.autosize) do _
+        _compose_guides!(p)
+        nothing
+    end)
+    push!(guide.subscriptions,on(object.blockscene,object.blockscene.visible) do _
+        state=p.plot_state
+        state.composing_guides[] || state.fitting_geometry[] ||
+            _update_figure_layout!(() -> nothing,p)
+        nothing
+    end)
     return object
 end
 
@@ -695,8 +715,7 @@ function LineCableModels.figurecolorbars!(p::LineCableModels.UIPlot;position=_om
     guide=state.guides[(:colorbars,nothing)]
     resolved=position===_omitted ? guide.position[] : position
     _guide_position(resolved;main=position===_omitted)
-    group_attributes===_omitted || group_attributes isa NamedTuple ||
-        throw(ArgumentError("group_attributes must be a NamedTuple"))
+    group_attributes===_omitted || validate(group_attributes,Makie.LayoutObservables)
     group=_colorbar_group_attributes(group_attributes===_omitted ? state.colorbar_group_attributes[] :
         merge(state.colorbar_group_attributes[],group_attributes),length(state.color_scales))
     spacing=guide_spacing===_omitted ? state.guide_spacing[] : _guide_spacing(guide_spacing,state.guide_spacing[])

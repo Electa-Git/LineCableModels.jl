@@ -69,7 +69,7 @@
 "ext/LineCableModelsMakieExt/attributes.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "ext/LineCableModelsMakieExt/controls.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "ext/LineCableModelsMakieExt/export_presentation.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
-"ext/LineCableModelsMakieExt/guides.jl" = { applicable = 0, eval = 0, isa = 28, kind = 11 }
+"ext/LineCableModelsMakieExt/guides.jl" = { applicable = 0, eval = 0, isa = 21, kind = 11 }
 "ext/LineCableModelsMakieExt/layout.jl" = { applicable = 0, eval = 0, isa = 16, kind = 8 }
 "ext/LineCableModelsMakieExt/material_colors.jl" = { applicable = 0, eval = 0, isa = 3, kind = 1 }
 "ext/LineCableModelsMakieExt/montecarlo.jl" = { applicable = 0, eval = 0, isa = 3, kind = 1 }
@@ -81,7 +81,7 @@
 "ext/LineCableModelsMakieExt/recipes/preview_data.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "ext/LineCableModelsMakieExt/recipes/preview_render.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "ext/LineCableModelsMakieExt/series_styles.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
-"ext/LineCableModelsMakieExt/shell.jl" = { applicable = 0, eval = 0, isa = 32, kind = 0 }
+"ext/LineCableModelsMakieExt/shell.jl" = { applicable = 0, eval = 0, isa = 17, kind = 0 }
 "ext/LineCableModelsMeasurementsExt.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }

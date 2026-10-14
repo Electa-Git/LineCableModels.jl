@@ -87,6 +87,17 @@ function _display_figure!(figure, title::AbstractString)
     return figure
 end
 
+# The initial reference size of a figure, in logical pixels.
+function validate(fig_size::Tuple{Int, Int}, ::Type{Figure})
+    all(>(0), fig_size) ||
+        throw(ArgumentError("fig_size must be a tuple of two positive integers"))
+    return fig_size
+end
+function validate(fig_size, ::Type{Figure})
+    throw(ArgumentError(
+        "fig_size must be a tuple of two positive integers; got $(typeof(fig_size))"))
+end
+
 function _figure_layout(;
         fig_size, controls::Bool,
         axis::NamedTuple = (;), figure::NamedTuple = (;),
@@ -100,8 +111,7 @@ function _figure_layout(;
         (;
             (key=>value for (key, value) in kwargs if key in axis_keys)...), axis)
     series_attributes = (; (key=>value for (key, value) in kwargs if key ∉ axis_keys)...)
-    fig_size isa Tuple{Int, Int} && all(>(0), fig_size) ||
-        throw(ArgumentError("fig_size must be a tuple of two positive integers"))
+    validate(fig_size, Figure)
     figure = Figure(; merge((; size = fig_size, figure_padding = (12, 12, 12, 12)), figure)...)
     root = figure.layout
     root.default_rowgap = Fixed(4)
@@ -1253,10 +1263,21 @@ function _wrap_legend_label(label, width, measure)
     return join(lines, '\n')
 end
 
-function _legend_fraction(value)
-    value isa Real && !(value isa Bool) && isfinite(value) && 0<value<=1 ||
+_legend_fraction(value) = Float64(validate(value, LineCableModels.figurelegend!))
+
+# The largest fraction of its data area that a legend takes: a real number in (0, 1].
+function validate(max_fraction::Real, ::typeof(LineCableModels.figurelegend!))
+    isfinite(max_fraction) && 0<max_fraction<=1 ||
         throw(ArgumentError("legend maximum fraction must be a finite real number in (0, 1]"))
-    return Float64(value)
+    return max_fraction
+end
+function validate(max_fraction::Bool, ::typeof(LineCableModels.figurelegend!))
+    throw(ArgumentError(
+        "legend maximum fraction must be a finite real number in (0, 1]; got $max_fraction"))
+end
+function validate(max_fraction, ::typeof(LineCableModels.figurelegend!))
+    throw(ArgumentError("legend maximum fraction must be a finite real number in (0, 1]; " *
+        "got $(typeof(max_fraction))"))
 end
 
 # Measure labels before publishing entries. Native Legend controls the graphics,
@@ -1522,13 +1543,19 @@ end
 
 function _relabel_legend!(labels, groups, order, requested)
     requested === nothing && return labels
-    requested isa AbstractDict || throw(ArgumentError(
-        "legend_labels must be a dictionary keyed by legend group, or nothing"))
+    validate(requested, Makie.LegendEntry)
     for group in order
         haskey(groups, group) && haskey(labels, group) && haskey(requested, group) &&
             (labels[group] = requested[group])
     end
     return labels
+end
+
+# Legend labels name legend entries, keyed by legend group.
+validate(legend_labels::AbstractDict, ::Type{Makie.LegendEntry}) = legend_labels
+function validate(legend_labels, ::Type{Makie.LegendEntry})
+    throw(ArgumentError("legend_labels must be a dictionary keyed by legend group, or " *
+        "nothing; got $(typeof(legend_labels))"))
 end
 
 function _legend!(
@@ -1538,7 +1565,7 @@ function _legend!(
         labels;
         dependent_plots,
         position,
-        attributes,
+        attributes::NamedTuple,
         max_fraction, fitting_geometry,
         title = nothing,
         inside_bbox = nothing,
@@ -1546,8 +1573,6 @@ function _legend!(
         target_orientation = nothing
 )
     position[] === nothing && return nothing
-    attributes isa NamedTuple ||
-        throw(ArgumentError("legend_attributes must be a NamedTuple"))
     entries = Any[]
     displayed = Any[]
     for group in order
@@ -1650,18 +1675,31 @@ end
 
 function _panel_legend_pairs(value)
     value === nothing && return Pair[]
-    value isa AbstractDict && return collect(pairs(value))
-    throw(ArgumentError(
-        "panel_legends must be a dictionary from panel identity to configuration, or nothing",
-    ))
+    return collect(pairs(validate(value, LineCableModels.UIPlot)))
 end
 
-function _panel_identity(value)
-    value isa Integer && !(value isa Bool) && value>0 && return Int(value)
-    value isa Tuple && length(value) == 2 &&
-    all(index -> index isa Integer && !(index isa Bool) && index > 0, value) ||
-        throw(ArgumentError("panel identities must be positive indices or original `(row, column)` tuples"))
-    return (Int(value[1]), Int(value[2]))
+# The panel legends of a plot are a dictionary from panel identity to legend configuration.
+validate(panel_legends::AbstractDict, ::Type{LineCableModels.UIPlot}) = panel_legends
+function validate(panel_legends, ::Type{LineCableModels.UIPlot})
+    throw(ArgumentError("panel_legends must be a dictionary from panel identity to " *
+        "configuration, or nothing; got $(typeof(panel_legends))"))
+end
+
+_panel_identity(value) = Int.(validate(value, Axis))
+
+# A panel is addressed by a positive index or an original `(row, column)` position.
+function validate(panel::Union{Integer, Tuple{Integer, Integer}}, ::Type{Axis})
+    all(>(0), panel) || throw(ArgumentError(
+        "panel identities must be positive indices or original `(row, column)` tuples"))
+    return panel
+end
+function validate(panel::Union{Bool, Tuple{Bool, Integer}, Tuple{Integer, Bool}}, ::Type{Axis})
+    throw(ArgumentError("panel identities must be positive indices or original " *
+        "`(row, column)` tuples; got $(repr(panel))"))
+end
+function validate(panel, ::Type{Axis})
+    throw(ArgumentError("panel identities must be positive indices or original " *
+        "`(row, column)` tuples; got $(typeof(panel))"))
 end
 
 function _without_legend_controls(options::NamedTuple)
@@ -1672,10 +1710,14 @@ function _without_legend_controls(options::NamedTuple)
     return NamedTuple{names}(Tuple(getproperty(options, name) for name in names))
 end
 
-function _legend_configuration(value; default_position, default_title = nothing)
-    value isa NamedTuple || throw(ArgumentError(
-        "a legend configuration must be a NamedTuple",
-    ))
+# A panel legend configuration takes the keywords of `panellegend!`.
+validate(configuration::NamedTuple, ::typeof(LineCableModels.panellegend!)) = configuration
+function validate(configuration, ::typeof(LineCableModels.panellegend!))
+    throw(ArgumentError(
+        "a legend configuration must be a NamedTuple; got $(typeof(configuration))"))
+end
+
+function _legend_configuration(value::NamedTuple; default_position, default_title = nothing)
     position = get(value, :position, default_position)
     max_fraction = _legend_fraction(get(value, :max_fraction, 0.5))
     title = get(value, :title, default_title)
@@ -1686,14 +1728,20 @@ function _legend_configuration(value; default_position, default_title = nothing)
     return (; position, max_fraction, title, legend_labels, attributes)
 end
 
-function _colorbar!(position, scale; attributes)
-    scale isa NamedTuple || throw(ArgumentError(
-        "a material color scale must be a NamedTuple",
-    ))
+# A material color scale has a colormap, limits, ticks and a label.
+function validate(scale::NamedTuple, ::typeof(LineCableModels.materialscale!))
     all(name -> haskey(scale, name), (:colormap, :limits, :ticks, :label)) ||
         throw(ArgumentError(
             "a material color scale requires colormap, limits, ticks, and label",
         ))
+    return scale
+end
+function validate(scale, ::typeof(LineCableModels.materialscale!))
+    throw(ArgumentError("a material color scale must be a NamedTuple; got $(typeof(scale))"))
+end
+
+function _colorbar!(position, scale; attributes)
+    validate(scale, LineCableModels.materialscale!)
     options = merge(
         (;
             colormap = scale.colormap,
@@ -1774,9 +1822,7 @@ function LineCableModels.materialscale!(position, scheme; kwargs...)
     return _colorbar!(position, scheme; attributes = (; kwargs...))
 end
 
-function _colorbars!(slot, scales; attributes, orientation, main = false, scene)
-    attributes isa NamedTuple ||
-        throw(ArgumentError("colorbar_attributes must be a NamedTuple"))
+function _colorbars!(slot, scales; attributes::NamedTuple, orientation, main = false, scene)
     vertical=get(attributes, :vertical, orientation===:vertical)
     length=main ? Auto() : _COLORBAR_DOCK_LENGTH
     defaults=vertical ? (; vertical, height = length) : (; vertical, width = length)
@@ -1824,11 +1870,16 @@ function _bind_visibility!(figure, axes, resets, groups, status)
     return groups
 end
 
+# Native Label attributes of a figure title.
+validate(title_attributes::NamedTuple, ::Type{Label}) = title_attributes
+function validate(title_attributes, ::Type{Label})
+    throw(ArgumentError(
+        "title_attributes must be a NamedTuple; got $(typeof(title_attributes))"))
+end
+
 function _figure_title!(shell, title, attributes)
     title === nothing && return nothing
-    attributes isa NamedTuple || throw(ArgumentError(
-        "title_attributes must be a NamedTuple",
-    ))
+    validate(attributes, Label)
     options = merge(
         (; tellwidth = true, halign = :center, font = :bold, fontsize = 18),
         attributes
@@ -1966,7 +2017,8 @@ function _finish_plot!(
         identity=_panel_identity(identity)
         haskey(panel_data, identity) ||
             throw(ArgumentError("panel $(repr(identity)) is absent from this figure"))
-        config=_legend_configuration(value; default_position = :right, default_title = nothing)
+        config=_legend_configuration(validate(value, LineCableModels.panellegend!);
+            default_position = :right, default_title = nothing)
         _relabel_legend!(
             panel_data[identity].labels, panel_data[identity].groups,
             panel_data[identity].order, config.legend_labels)
