@@ -38,7 +38,7 @@ end
 
     mktempdir() do directory
         function unchanged_after(path)
-            before=library.data
+            before=library.entries
             exception=try
                 load!(library; file_name = path)
                 nothing
@@ -46,7 +46,7 @@ end
                 caught
             end
             @test exception !== nothing
-            @test library.data === before
+            @test library.entries === before
             @test library[design.cable_id] === design
             return exception
         end
@@ -83,9 +83,9 @@ end
 
         malformed=joinpath(directory, "missing-fields.json")
         write(malformed, "{\"data\":{}}")
-        before=library.data
+        before=library.entries
         @test_throws ArgumentError load!(library; file_name = malformed)
-        @test library.data === before
+        @test library.entries === before
 
         @test_throws ArgumentError save(
             library; file_name = joinpath(directory, "cables.archive")

@@ -10,7 +10,7 @@ function save(
 )
     extension = lowercase(splitext(file_name)[2])
     if extension == ".jls"
-        Serialization.serialize(file_name, library.data)
+        Serialization.serialize(file_name, library.entries)
         return abspath(file_name)
     end
     path = _json_path(file_name)
@@ -49,7 +49,7 @@ function load!(
             "MaterialsLibrary loading requires a .json or .jls file",
         ))
     end
-    library.data = materials
+    library.entries = materials
     return library
 end
 

@@ -68,7 +68,7 @@
     copied=copy(library)
     @test copied isa CablesLibrary
     @test copied !== library
-    @test copied.data !== library.data
+    @test copied.entries !== library.entries
     @test copied.datasheets !== library.datasheets
     @test copied[design.cable_id] === design
     @test datasheet(copied, design.cable_id) == datasheet_record

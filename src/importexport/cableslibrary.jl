@@ -11,7 +11,7 @@ function save(
     extension = lowercase(splitext(file_name)[2])
     if extension == ".jls"
         Serialization.serialize(file_name, (
-            designs = library.data,
+            designs = library.entries,
             datasheets = library.datasheets
         ))
         return abspath(file_name)
@@ -56,7 +56,7 @@ function load!(
     else
         throw(ArgumentError("CablesLibrary loading requires a .json or .jls file"))
     end
-    library.data = decoded_library.designs
+    library.entries = decoded_library.designs
     library.datasheets = decoded_library.datasheets
     return library
 end

@@ -281,16 +281,16 @@ function _json_document(library::MaterialsLibrary)
         "version" => JSON_SCHEMA_VERSION,
         "materials" => Dict(
             name => _material_record(material)
-        for (name, material) in sort!(collect(library.data); by = first)
+        for (name, material) in sort!(collect(library.entries); by = first)
         )
     )
 end
 
 function _json_document(library::CablesLibrary)
     materials = AbstractMaterial[]
-    cable_ids = sort!(collect(keys(library.data)))
+    cable_ids = sort!(collect(keys(library.entries)))
     for cable_id in cable_ids
-        _collect_materials!(materials, library.data[cable_id].tree)
+        _collect_materials!(materials, library.entries[cable_id].tree)
     end
     names = Dict{Int, String}(
         index => "$(material.kind)_$index" for (index, material) in enumerate(materials)
@@ -308,7 +308,7 @@ function _json_document(library::CablesLibrary)
             "kind" => "cable_library",
             "cables" => Dict(
                 cable_id => merge(
-                    serialize_value(library.data[cable_id]; material_name),
+                    serialize_value(library.entries[cable_id]; material_name),
                     Dict("datasheet" => Dict(
                         String(name) => serialize_value(item)
                     for (name, item) in pairs(library.datasheets[cable_id])

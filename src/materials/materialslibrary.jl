@@ -10,7 +10,7 @@ $(TYPEDFIELDS)
 """
 mutable struct MaterialsLibrary <: AbstractDict{String, Material}
     "Materials indexed by name."
-    data::Dict{String, Material}
+    entries::Dict{String, Material}
 end
 
 """

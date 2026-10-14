@@ -2,16 +2,16 @@ Base.eltype(::Material{T}) where {T} = T
 Base.eltype(::Type{<:Material{T}}) where {T} = T
 
 # Implement the AbstractDict interface
-Base.length(lib::MaterialsLibrary) = length(lib.data)
+Base.length(lib::MaterialsLibrary) = length(lib.entries)
 function Base.setindex!(lib::MaterialsLibrary, value::Material, key)
-    setindex!(lib.data, validate(value), key)
+    setindex!(lib.entries, validate(value), key)
     return lib
 end
-Base.iterate(lib::MaterialsLibrary, state...) = iterate(lib.data, state...)
-Base.keys(lib::MaterialsLibrary) = keys(lib.data)
-Base.values(lib::MaterialsLibrary) = values(lib.data)
-Base.haskey(lib::MaterialsLibrary, key) = haskey(lib.data, key)
-Base.getindex(lib::MaterialsLibrary, key) = getindex(lib.data, key)
+Base.iterate(lib::MaterialsLibrary, state...) = iterate(lib.entries, state...)
+Base.keys(lib::MaterialsLibrary) = keys(lib.entries)
+Base.values(lib::MaterialsLibrary) = values(lib.entries)
+Base.haskey(lib::MaterialsLibrary, key) = haskey(lib.entries, key)
+Base.getindex(lib::MaterialsLibrary, key) = getindex(lib.entries, key)
 
 """
 $(TYPEDSIGNATURES)
@@ -29,7 +29,7 @@ Remove the material stored under `name`.
 
 """
 function Base.delete!(library::MaterialsLibrary, name)
-    delete!(library.data, name)
+    delete!(library.entries, name)
     return library
 end
 
@@ -50,13 +50,13 @@ Return the material stored under `name`, or `default` when absent.
 
 """
 function Base.get(library::MaterialsLibrary, name, default)
-    return get(library.data, name, default)
+    return get(library.entries, name, default)
 end
 
 function Base.get(
         default::Union{Function, Type}, library::MaterialsLibrary, name
 )
-    return get(default, library.data, name)
+    return get(default, library.entries, name)
 end
 
 """
@@ -68,14 +68,14 @@ Base.empty(::MaterialsLibrary) = MaterialsLibrary(; add_defaults = false)
 Remove every stored material and return `library`.
 """
 function Base.empty!(library::MaterialsLibrary)
-    empty!(library.data)
+    empty!(library.entries)
     return library
 end
 
 """
 Return a shallow material-library copy with independent dictionary storage.
 """
-Base.copy(library::MaterialsLibrary) = MaterialsLibrary(copy(library.data))
+Base.copy(library::MaterialsLibrary) = MaterialsLibrary(copy(library.entries))
 
 TextDisplay.name(::Type{<:Material}) = "Material"
 

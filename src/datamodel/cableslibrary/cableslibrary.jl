@@ -11,7 +11,7 @@ $(TYPEDFIELDS)
 """
 mutable struct CablesLibrary <: AbstractDict{String, CableDesign}
     "Cable designs indexed by `cable_id`."
-    data::Dict{String, CableDesign}
+    entries::Dict{String, CableDesign}
     "Catalog records indexed by `cable_id`."
     datasheets::Dict{String, DatasheetInfo}
 
@@ -72,7 +72,7 @@ function add!(
     ))
     validate(design)
     record = DatasheetInfo(datasheet)
-    library.data[design.cable_id] = design
+    library.entries[design.cable_id] = design
     library.datasheets[design.cable_id] = record
     return library
 end

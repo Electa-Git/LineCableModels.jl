@@ -71,7 +71,7 @@ end
     copied=copy(empty_library)
     @test copied isa MaterialsLibrary
     @test copied !== empty_library
-    @test copied.data !== empty_library.data
+    @test copied.entries !== empty_library.entries
     @test copied["copper"] === replacement
     @test delete!(copied, "copper") === copied
     @test haskey(empty_library, "copper")
@@ -130,6 +130,6 @@ end
     @test parentmodule(which(show, (
         IO,
         MIME"text/plain",
-        typeof(library.data)
+        typeof(library.entries)
     ))) === Base
 end

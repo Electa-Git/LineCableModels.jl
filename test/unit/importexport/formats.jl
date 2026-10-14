@@ -29,9 +29,9 @@
         )
         unsupported=joinpath(directory, "materials.txt")
         write(unsupported, "not json")
-        before=restored.data
+        before=restored.entries
         @test_throws ArgumentError load!(restored; file_name = unsupported)
-        @test restored.data === before
+        @test restored.entries === before
         @test haskey(restored, "copper")
 
         for (name, payload) in (
@@ -40,9 +40,9 @@
         )
             invalid_jls=joinpath(directory, "$name.jls")
             serialize(invalid_jls, payload)
-            before=restored.data
+            before=restored.entries
             @test_throws ArgumentError load!(restored; file_name = invalid_jls)
-            @test restored.data === before
+            @test restored.entries === before
             @test haskey(restored, "copper")
         end
 
@@ -57,14 +57,14 @@
         open(invalid_path, "w") do io
             JSON3.pretty(io, invalid)
         end
-        before=restored.data
+        before=restored.entries
         @test_throws ArgumentError load!(restored; file_name = invalid_path)
-        @test restored.data === before
+        @test restored.entries === before
 
         legacy=joinpath(directory, "legacy.json")
         write(legacy, "{\"copper\":{}}")
         @test_throws ArgumentError load!(restored; file_name = legacy)
-        @test restored.data === before
+        @test restored.entries === before
     end
 end
 
