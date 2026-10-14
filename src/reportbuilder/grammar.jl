@@ -224,9 +224,10 @@ function report(definition::TableReportDefinition,
     return invoke(report,Tuple{AbstractReportDefinition,typeof(observed)},definition,observed;reference)
 end
 
-# These keywords control acquisition. Observation defaults remain with the source.
-function _report_observation_options(options; retained = false)
-    for key in keys(options)
+# A report's keywords control acquisition. Observation defaults remain with the source.
+# Retained observations take no raw acquisition option.
+function validate(keywords::Base.Pairs, ::typeof(report), retained::Bool)
+    for key in keys(keywords)
         key in (:units, :length_unit, :quantity_units, :frequency_unit,
             :clip, :atol, :frequencies) || throw(ArgumentError(
             "unknown reporting keyword $key; illustration options belong in plot_options"))
@@ -234,7 +235,7 @@ function _report_observation_options(options; retained = false)
             throw(ArgumentError(
                 "$key requires a raw result; retained reports only select or re-express recorded values"))
     end
-    return (; options...)
+    return keywords
 end
 
 # Illustration options need an explicit illustration.
@@ -303,8 +304,8 @@ function report(
     collection=source isa Union{AbstractVector, Tuple, Commons.AbstractParametricResult}
     collection && isempty(source) &&
         throw(ArgumentError("report requires at least one result"))
-    acquisition=_report_observation_options(kwargs;
-        retained = collection && any(point -> point isa ObservedResult, source))
+    acquisition=validate(kwargs, report,
+        collection && any(point -> point isa ObservedResult, source))
     point=collection ? first(source) : source
     requests=Commons.observation_selection(point, selection)
     displayed=isempty(requests) ? () :
@@ -339,7 +340,7 @@ end
 function report(observed::Union{ObservedResult, AbstractVector{<:ObservedResult}},
         selection = nothing; reference::Union{Nothing, ObservedResult} = nothing,
         illustration = nothing, plot_options::NamedTuple = (;), kwargs...)
-    display_units=_report_observation_options(kwargs; retained = true)
+    display_units=validate(kwargs, report, true)
     isempty(_observed_points(observed)) &&
         throw(ArgumentError("report requires at least one observation"))
     point=first(_observed_points(observed))
