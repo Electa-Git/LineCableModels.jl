@@ -96,7 +96,7 @@ the owner of its parent: the formula families and ModalAnalysis belong to `engin
 Each item also has at least one kind tag: `unit`, `integration`, `extension`,
 `visual`, `quality` or `aqua`. The environment tags `visual`, `fem_numerical`,
 `pscad_native`, `core_only` and `aqua` keep items out of ordinary runs. `slow` marks
-items that took more than 10 s in the last full run.
+items that took more than 10 s in the last serial full run (`--workers=1`).
 
 The quality items check the taxonomy. An item outside `quality` has one owner tag and a
 `quality` item has none. Each item has a kind tag and only known tags. An item under
@@ -112,9 +112,12 @@ julia --project=test test/tools/owners.jl report DIR
 
 The report lists every item whose owner tag is earlier than the code it runs.
 
-At the end of a track, run `test/tools/durations.jl` on the logs of the full run, one per
-worker, and on the log of each environment run. It derives the duration of each item
-from the `Starting` lines.
+To review the `slow` tags, run the full ordinary suite with `--workers=1` and give its log,
+and the log of each environment run, to `test/tools/durations.jl`. Worker logs cannot
+decide the tags. Each fresh worker compiles again what one process compiles once. An item
+takes 1.5 to 3 times longer there, and the factor changes with the items before it. The
+tool derives the duration of each item from the `Starting` lines.
+
 It lists the items above 10 s without `slow`, the `slow` items below 5 s and the minutes
 per owner tag. It reports these findings and leaves the tags unchanged.
 
