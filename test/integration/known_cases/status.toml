@@ -1,10 +1,10 @@
 # FEM decides: discrepancies against PSCAD lose to FEM. PSCAD curves are advisory
-# and need no explanation.
-# The analytical model collapses insulators and semicons into one generic insulation bundle;
-# against FEM, this carries the same type of discrepancy as the stranded-core lay
+# and do not need an explanation.
+# The analytical model collapses insulators and semicons into one generic insulation bundle.
+# Against FEM, this gives the same type of discrepancy as the stranded-core lay
 # (helical path) correction.
 # Continuous, smooth, monotonic FEM deviation curves that follow FEM's trend are
-# generally accepted. Within 5 % of FEM a curve is accepted; a larger deviation
+# generally accepted. Within 5 % of FEM a curve is accepted. A larger deviation
 # known from this state is advisory.
 # Worsening is a no-go: the test fails when a FEM deviation rises at any frequency.
 # The analytical pin (rtol 1e-12) keeps the engine from changing against itself.
