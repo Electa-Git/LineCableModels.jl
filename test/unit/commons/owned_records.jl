@@ -67,6 +67,7 @@ end
 end
 
 @testitem "Commons / owned records / explicit transport and passive persistence" tags=[:unit, :measurements] setup=[TestFixtures] begin
+    using Measurements
     using Serialization
     const IO = LineCableModels.ImportExport
     payload = (resolution=(enabled=true,), values=[1.0, 2.0])
