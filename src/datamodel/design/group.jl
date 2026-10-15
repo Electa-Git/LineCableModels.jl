@@ -28,7 +28,7 @@ struct Group{
     path::H
     "Compaction definition or `nothing`."
     compact::C
-    "Formation boundary, or rectangular-course packing limit. `nothing` for unbounded groups."
+    "Formation boundary, the finished outline. `nothing` for unbounded groups."
     boundary::B
 
     function Group(
@@ -329,9 +329,8 @@ function bounded_members(
         ))
         push!(primitives, strip.primitive)
     end
-    # Complete bent courses occupy exactly this disk. The requested packing limit is not an
-    # additional physical layer.
-    return Disk(r_ex(last(primitives)), boundary_shape.at), members, primitives
+    # The outermost bent course ends on the disk boundary, the finished outline.
+    return boundary_shape, members, primitives
 end
 
 function sector_members(boundary_shape::SectorShape, part::Group)
@@ -366,8 +365,8 @@ $(TYPEDSIGNATURES)
 
 Resolve a bounded wire group in its geometric context into `(boundary_shape, members,
 primitives)`. The context is `EmptyBoundary()` at the cable center, or the circular outline
-of the preceding part. The returned geometric boundary follows the group's pose and the
-occupied rectangular courses when present. Coordinates and dimensions are in meters.
+of the preceding part. The returned geometric boundary is the declared formation
+boundary, which follows the group's pose. Coordinates and dimensions are in meters.
 Member and primitive order follows construction. An empty formation raises
 `ArgumentError`.
 """

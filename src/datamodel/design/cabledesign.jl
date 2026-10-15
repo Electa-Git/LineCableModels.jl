@@ -51,21 +51,23 @@ end
 Base.eltype(::CableDesign{T}) where {T} = T
 Base.eltype(::Type{<:CableDesign{T}}) where {T} = T
 
-# A bounded strand declares a Disk wire or a Rectangle strand. Either resolves to a disk, a
-# rectangle, a polygon or a bent strip, and a Rectangle strand may also close an annular
-# course. `index` locates the region in the design.
+# Each bounded strand declares a Disk wire or a Rectangle strand. Disk wires resolve to
+# disks, or to polygons when compacted or in a sector, and keep their declared areas.
+# Rectangular strands bend into strips, or close an annular course, and their heights scale
+# with their courses. `index` locates the region in the design.
 function validate(
-        placed::PlacedRegion{
-            <:Region{<:Union{Disk, Rectangle}},
-            <:Union{Disk, Rectangle, Polygon, BentStrip}
-        },
+        placed::PlacedRegion{<:Region{<:Disk}, <:Union{Disk, Polygon}},
         ::Type{BoundedPlacement},
         index
 )
+    isapprox(area(placed.primitive), area(placed.source.primitive); rtol = 5.0e-6,
+        atol = 0) || throw(ArgumentError(
+        "CableDesign.geometry.regions[$index] does not preserve its declared strand area"
+    ))
     return placed
 end
 function validate(
-        placed::PlacedRegion{<:Region{<:Rectangle}, <:Annulus},
+        placed::PlacedRegion{<:Region{<:Rectangle}, <:Union{BentStrip, Annulus}},
         ::Type{BoundedPlacement},
         index
 )
@@ -86,6 +88,48 @@ function validate(placed::PlacedRegion, ::Type{BoundedPlacement}, index)
         "CableDesign.geometry.regions[$index] has an unsupported bounded " *
         "strand declaration $(nameof(typeof(placed.source.primitive)))"
     ))
+end
+
+# The strand declaration of the outermost member selects the area law of a bounded
+# formation. Disk wires keep their declared areas in total, inside their formation
+# boundary.
+function validate(
+        formation::AbstractVector{<:PlacedRegion},
+        ::Type{BoundedPlacement},
+        strand::Region{<:Disk},
+        boundary
+)
+    source_area = sum(placed -> area(placed.source.primitive), formation)
+    formation_area = sum(area, formation)
+    isapprox(source_area, formation_area; rtol = 5.0e-6, atol = 0) || throw(ArgumentError(
+        "a bounded formation must preserve its total declared strand area"
+    ))
+    formation_area <= area(boundary) * (1 + 5.0e-6) || throw(ArgumentError(
+        "bounded strand area cannot exceed its authoritative boundary"
+    ))
+    return formation
+end
+
+# Rectangular strands fill the annulus from their inner outline to the disk boundary, and
+# their declared total is less than that annulus by under one strand.
+function validate(
+        formation::AbstractVector{<:PlacedRegion},
+        ::Type{BoundedPlacement},
+        strand::Region{<:Rectangle},
+        boundary::Disk
+)
+    inner = minimum(placed -> r_in(placed.primitive), formation)
+    filled = area(boundary) - pi * inner^2
+    isapprox(sum(area, formation), filled; rtol = 5.0e-6, atol = 0) || throw(ArgumentError(
+        "rectangular strands must fill the annulus up to their disk boundary"
+    ))
+    shortfall = filled - sum(placed -> area(placed.source.primitive), formation)
+    tolerance = 5.0e-6 * filled
+    -tolerance <= shortfall < area(strand.primitive) + tolerance || throw(ArgumentError(
+        "the declared rectangular strands must fall short of their disk boundary by " *
+        "less than one strand"
+    ))
+    return formation
 end
 
 function validate(design::CableDesign)
@@ -150,17 +194,6 @@ function validate(design::CableDesign)
             "material is not conductive"
         ))
         validate(placed, BoundedPlacement, index)
-        declared_area = area(placed.source.primitive)
-        resolved_area = area(placed.primitive)
-        isapprox(
-            resolved_area,
-            declared_area;
-            rtol = 5.0e-6,
-            atol = 0
-        ) || throw(ArgumentError(
-            "CableDesign.geometry.regions[$index] does not preserve its " *
-            "declared strand area"
-        ))
         entry_index = only(bounded_index)
         entry = placed.placement.patterns[entry_index]
         entry.member == 1 || continue
@@ -203,29 +236,8 @@ function validate(design::CableDesign)
             throw(ArgumentError(
                 "bounded-formation member identities must be contiguous from one"
             ))
-        source_area = sum(
-            peer_index -> area(
-                design.geometry.regions[peer_index].source.primitive
-            ),
-            formation_indices
-        )
-        formation_area = sum(
-            peer_index -> area(design.geometry.regions[peer_index].primitive),
-            formation_indices
-        )
-        isapprox(
-            source_area,
-            formation_area;
-            rtol = 5.0e-6,
-            atol = 0
-        ) || throw(ArgumentError(
-                "a bounded formation must preserve its total declared strand area"
-            ))
-        boundary_area = area(entry.pattern.boundary)
-        formation_area <= boundary_area * (1 + 5.0e-6) ||
-            throw(ArgumentError(
-                "bounded strand area cannot exceed its authoritative boundary"
-            ))
+        formation = design.geometry.regions[formation_indices]
+        validate(formation, BoundedPlacement, last(formation).source, entry.pattern.boundary)
     end
     return design
 end

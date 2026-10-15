@@ -669,10 +669,11 @@ a prescribed-area power diagram. Disks clipped to those cells retain each
 source area. This geometric reconstruction preserves the declared copper
 fill and does not model mechanical forming or plasticity.
 
-Rectangular strands occupy complete, area-preserving annular courses, including
-a full annulus when a course contains one strand. Their requested geometric boundary is
-a packing limit. The resolved geometric boundary is the occupied metal disk. Subsequent
-layers start there, without an automatically generated outer filler film.
+Rectangular strands occupy complete, contiguous annular courses, including a full annulus
+when a course contains one strand. The disk boundary is their finished outline, as for
+circular strands, and the course heights scale so that the outermost course ends on it.
+The resistance is that of the declared rectangular strands. Subsequent layers start at the
+disk boundary, without an outer filler film.
 
 # Arguments
 
@@ -687,8 +688,7 @@ layers start there, without an automatically generated outer filler film.
   admit a separate center declaration.
 - `shape`: circular wire or rectangular strand primitive.
 - `boundary`: nonhollow `Disk` or `Sector` core boundary, or a `Disk` around a
-  preceding part. For rectangular strands, a `Disk` packing limit rather than an
-  imposed finished radius.
+  preceding part. It is the finished outline of the formation.
 - `fill=air`: interstitial insulating or semiconducting material, unused by
   contiguous rectangular courses. The default
   is lossless air (``\\rho=\\infty``, ``\\epsilon_r=\\mu_r=1``).

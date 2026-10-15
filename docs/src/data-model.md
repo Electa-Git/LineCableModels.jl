@@ -530,17 +530,20 @@ geometry throughout its support. See [joint geometric inputs](gridspace.md#Feasi
 ### Rectangular stranded core
 
 Rectangular source strands surround a circular center wire or a preceding part.
-They are always bent into contiguous annular courses. The radial deformation preserves the
-area of every source rectangle. A one-strand course remains a complete annulus.
-The specified `boundary` determines the strand inventory, but the resolved
-physical boundary is the actual occupied metal disk. No outer `stranded_fill`
-film is generated. Insulation starts at that occupied geometric boundary. Rectangular
-`stranded` declarations return a bounded `Group`, while circular and
-sector stranding retain their material-complete `Enclosure` declarations.
+They are always bent into contiguous annular courses, and a one-strand course remains a
+complete annulus. The `boundary` is the finished outline, as for circular strands. The
+declared rectangular strands decide the inventory and the courses. Then the course heights
+scale by area until the outer course ends on the disk boundary. Every strip grows by the
+same factor, which adds less than one strand in total. The resistance is that of the
+declared rectangular strands. No outer `stranded_fill` film is generated, and insulation
+starts at the disk boundary. Rectangular `stranded` declarations return a bounded `Group`,
+while circular and sector stranding retain their material-complete `Enclosure`
+declarations.
 
-When a filled circular-wire course follows the core, its declared filler fills the space from the occupied core boundary to the course enclosure, including
-the interstices between wires. Explicit wire-center radii remain fixed.
-Contextual `Ring(...; r=nothing)` radii follow the occupied core boundary.
+When a filled circular-wire course follows the core, its declared filler fills the space
+from the core boundary to the course enclosure, including the interstices between wires.
+Explicit wire-center radii remain fixed. Contextual `Ring(...; r=nothing)` radii follow
+the core boundary.
 Explicit enclosing layers and coatings are retained, including thin layers.
 
 ```@example supported_formations

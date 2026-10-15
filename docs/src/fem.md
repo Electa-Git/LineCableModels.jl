@@ -334,12 +334,14 @@ synchronization. After meshing, boundary-edge incidence and material coverage
 are checked before a mesh can be cached or passed to GetDP. Nonempty but partial
 material meshes are rejected.
 
-Rectangular stranded cores supply their occupied disk boundary directly from
+Rectangular stranded cores supply their declared disk boundary directly from
 physical resolution. FEM uses the same geometric boundary as preview, analytical
-flattening and subsequent layers. Complete bounded formations are recognized
-using the same floating-point area tolerance as enclosure resolution, not an
-independent engineering fill-fraction cutoff. Retained filler is not replaced
-by an expanded conductor.
+flattening and subsequent layers. FEM assigns the material resistivity to the placed
+strips, whose heights scale to reach that disk boundary. The analytical reduction uses the
+declared rectangular strands, which have less area in total by under one strand.
+Complete bounded formations are recognized using the same floating-point area tolerance
+as enclosure resolution, not an independent engineering fill-fraction cutoff. Retained
+filler is not replaced by an expanded conductor.
 
 The current FEM domain explicitly rejects vertical earth layers, more than one
 earth half-space layer, a problem-supplied propagation constant, unsupported

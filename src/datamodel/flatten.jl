@@ -503,6 +503,33 @@ end
 # placed primitive, because reading it from an abstract region allocates.
 member_area(placed::PlacedRegion) = area(placed.source.primitive)
 member_area(placed::PlacedRegion{<:Region{<:Shell}, <:Annulus}) = area(placed.primitive)
+# Nested members keep their declared areas, except members of a bounded formation. Those
+# follow the area law of their formation, which the design checks. The first placement of
+# such a member is its formation, and the signature restates the declared bounds of
+# PlacedRegion.
+function validate(placed::PlacedRegion, ::Type{CableBlueprint})
+    isapprox(area(placed.primitive), member_area(placed); rtol = 5.0e-6, atol = 0) ||
+        throw(ArgumentError(
+            "resolved compacted strands must preserve every declared source area"
+        ))
+    return placed
+end
+function validate(
+        placed::PlacedRegion{
+            <:Region,
+            <:AbstractShape,
+            <:NamedTuple{(:patterns,), <:Tuple{Tuple{
+                NamedTuple{(:owner, :pattern, :member, :pose),
+                    <:Tuple{Type, BoundedPlacement, Integer, Pose2}},
+                Vararg{NamedTuple{(:owner, :pattern, :member, :pose),
+                    <:Tuple{Type, Any, Integer, Pose2}}}
+            }}}
+        },
+        ::Type{CableBlueprint}
+)
+    return placed
+end
+
 function member_resistance(placed::PlacedRegion, material)
     return member_resistance(placed.source.primitive, material)
 end
@@ -635,16 +662,7 @@ function nested_conductor_zone(
     )
 
     areas = T[convert(T, member_area(placed)) for placed in placed_regions]
-    all(eachindex(placed_regions)) do index
-        isapprox(
-            convert(T, area(placed_regions[index].primitive)),
-            areas[index];
-            rtol = 5.0e-6,
-            atol = zero(T)
-        )
-    end || throw(ArgumentError(
-        "resolved compacted strands must preserve every declared source area"
-    ))
+    foreach(placed -> validate(placed, CableBlueprint), placed_regions)
     equivalent_radii = sqrt.(areas ./ (one(T) * π))
     total_area = sum(areas)
     center = convert.(T, conductor_zone_position(placed_regions))

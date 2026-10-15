@@ -14,12 +14,14 @@
     final_strip = last(metal)
     @test final_strip.source.primitive == strand
     @test final_strip.primitive isa Annulus
-    @test area(final_strip.primitive) ≈ area(strand)
+    # The course heights scale so that the last course ends on the disk boundary.
+    scale = (0.6e-3^2 - center.r^2) / (33area(strand) / pi)
+    @test area(final_strip.primitive) ≈ scale * area(strand)
     # A partial course member keeps its exact curved boundary. Directional
     # support must agree with that geometric boundary after a rigid placement too.
     bent = first(member.primitive for member in metal if member.primitive isa DM.BentStrip)
     for shape in (bent, DM.resolve(Pose2(0.002, -0.003, 0.47), bent))
-        @test area(shape) ≈ area(strand)
+        @test area(shape) ≈ scale * area(strand)
         @test DM.perimeter(shape) ≈
             shape.span * (shape.ro + shape.ri) + 2(shape.ro - shape.ri)
         @test DM.thickness(shape) ≈ shape.ro - shape.ri
@@ -41,7 +43,7 @@
     @test IE.deserialize_value(IE.serialize_value(design)) == design
     @test length(design.geometry.regions) == length(metal)
     @test outer_radius(design) == final_strip.primitive.ro
-    @test outer_radius(design) < 0.6e-3
+    @test outer_radius(design) == 0.6e-3
     @test all(placed -> only(placed.placement.patterns).pattern.boundary ==
         design.geometry.outer, metal)
     blueprint = @inferred LineCableModels.DataModel.flatten(design, Float64)
@@ -49,7 +51,7 @@
     @test row.r_ex == outer_radius(design)
     @test count(placed -> placed.terminal === :core, design.geometry.regions) ==
           length(metal)
-    @test sum(placed -> area(placed.primitive), metal) ≈ area(center) + 33area(strand)
+    @test sum(placed -> area(placed.primitive), metal) ≈ area(Disk(0.6e-3))
     expected_resistance = copper.rho / (area(center) + 33area(strand) / sqrt(1 + (pi / 12)^2))
     resistance = DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho)
     gmr = DM.tubular_gmr(row.r_ex, row.r_in, row.material.mu_r)

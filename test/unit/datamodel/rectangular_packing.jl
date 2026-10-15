@@ -1,4 +1,4 @@
-@testitem "DataModel / rectangular packing hands off its occupied boundary" tags=[:unit, :importexport] begin
+@testitem "DataModel / rectangular packing hands off its declared boundary" tags=[:unit, :importexport] begin
     const DM = LineCableModels.DataModel
     const EN = LineCableModels.Engine
     const IE = LineCableModels.ImportExport
@@ -15,9 +15,14 @@
         standalone = build(CableDesign,"rectangular-boundary",terminal(:core,body))
         regions = standalone.geometry.regions
         occupied = last(regions).primitive.ro
-        @test outer_radius(standalone) == occupied
+        @test outer_radius(standalone) == occupied == limit
         @test all(r -> r.source.material == copper && r.source.tag === :wire, regions)
-        @test all(r -> area(r.primitive) ≈ area(r.source.primitive), regions)
+        # The strips scale alike to fill the disk boundary, short of it by under one strand.
+        @test area(first(regions).primitive) ≈ area(center)
+        scale = area(last(regions).primitive) / area(strand)
+        @test all(r -> area(r.primitive) ≈ scale * area(strand), regions[2:end])
+        declared = sum(r -> area(r.source.primitive), regions)
+        @test 0 <= area(Disk(limit)) - declared < area(strand)
         @test sum(area, regions) ≈ area(standalone.geometry.outer)
         @test all(r -> only(r.placement.patterns).pattern.boundary ==
             standalone.geometry.outer, regions)
@@ -36,11 +41,11 @@
     body = stranded(copper;center=center,shape=strand,boundary=Disk(0.6e-3))
     for thickness in (1e-9, 4e-6)
         wrapped = build(CableDesign,"explicit-wrap",Enclosure(:paper,
-            terminal(:core,body);primitive=Disk(exact+thickness),fill=dielectric))
+            terminal(:core,body);primitive=Disk(0.6e-3+thickness),fill=dielectric))
         layer = last(wrapped.geometry.regions)
         @test layer.source.tag === :paper_fill
         @test layer.primitive isa Annulus
-        @test layer.primitive.ri ≈ exact
+        @test layer.primitive.ri ≈ 0.6e-3
         @test DM.thickness(layer.primitive) ≈ thickness
     end
     rectangles = stranded(copper;center=center,
@@ -88,9 +93,11 @@ end
         @test all(r -> r.source.tag !== :stranded_fill,design.geometry.regions)
         @test sum(area,filter(r -> r.terminal !== nothing,design.geometry.regions)) ≈
             pi*occupied^2+count*pi*wire_radius^2
+        # The resistance is that of the declared rectangular strands.
         row = only(LineCableModels.DataModel.flatten(design,Float64).conductors)
-        @test LineCableModels.DataModel.tubular_resistance(row.r_in,row.r_ex,row.material.rho) ≈
-            copper.rho/(pi*occupied^2+count*pi*wire_radius^2) rtol=1e-12
+        declared = area(Disk(0.2e-3))+33area(Rectangle(0.3e-3,0.1e-3))
+        @test LineCableModels.DataModel.tubular_resistance(row.r_in,row.r_ex,
+            row.material.rho) ≈ copper.rho/(declared+count*pi*wire_radius^2) rtol=1e-12
         # The transfer of geometry also works after a rigid placement of the complete stack.
         shifted = build(CableDesign,"rectangular-ring-placed",
             assembly(at(Stack(core,filled,insulation(dielectric;t=0.1e-3)),

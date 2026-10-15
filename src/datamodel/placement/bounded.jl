@@ -500,12 +500,13 @@ function rectangular_strands(shape::Disk, inner::Disk, strand::Rectangle)
         area(strand), "one rectangular strand does not fit outside the center wire " *
                       "or the preceding part"
     ))
-    result = NamedTuple[]
-    radius = inner.r
+    # The packed courses are contiguous from the inner disk, with as many strips as fit.
+    T = float(promote_type(eltype(shape), eltype(inner), eltype(strand)))
+    counts = Int[]
+    radii = T[inner.r]
     remaining = count
-    course = 0
     while remaining > 0
-        course += 1
+        radius = last(radii)
         mean_radius = radius + strand.h / 2
         nominal_count = max(1, floor(Int, nominal(2pi * mean_radius / strand.w)))
         member_count = min(remaining, nominal_count)
@@ -518,12 +519,24 @@ function rectangular_strands(shape::Disk, inner::Disk, strand::Rectangle)
             member_count > 0 || break
             outer = sqrt(radius^2 + member_count * area(strand) / pi)
         end
+        push!(counts, member_count)
+        push!(radii, outer)
+        remaining -= member_count
+    end
+    # The disk boundary is the finished outline. An area map from the occupied radius to the
+    # disk boundary scales every course height, and every strip area by the same factor.
+    scale = (shape.r^2 - inner.r^2) / (last(radii)^2 - inner.r^2)
+    mapped = [sqrt(inner.r^2 + (radius^2 - inner.r^2) * scale) for radius in radii]
+    mapped[begin], mapped[end] = inner.r, shape.r
+    result = NamedTuple[]
+    for (course, member_count) in enumerate(counts)
         span = 2pi / member_count
         for member in 1:member_count
             angle = (member - 1) * span
             pose = Pose2(shape.at.x, shape.at.y, shape.at.φ + angle)
-            primitive = member_count == 1 ? Annulus(radius, outer, pose) :
-                        BentStrip(radius, outer, span, pose)
+            primitive = member_count == 1 ?
+                        Annulus(mapped[course], mapped[course + 1], pose) :
+                        BentStrip(mapped[course], mapped[course + 1], span, pose)
             push!(result, (
                 primitive,
                 site = centroid(primitive),
@@ -531,8 +544,6 @@ function rectangular_strands(shape::Disk, inner::Disk, strand::Rectangle)
                 member
             ))
         end
-        radius = outer
-        remaining -= member_count
     end
     return result
 end

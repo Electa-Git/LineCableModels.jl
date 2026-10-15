@@ -48,6 +48,34 @@
     end
 end
 
+@testitem "DataModel / stranding / rectangular strands fill their boundary" tags=[:unit, :parametric] begin
+    import LineCableModels.DataModel as DM
+    copper = Material(kind=:conductor, rho=1.7241e-8)
+    center, strand, boundary = Disk(0.55e-3), Rectangle(0.75e-3, 0.35e-3), Disk(3.5e-3)
+    design = build(CableDesign, "rectangular-courses", terminal(:core,
+        stranded(copper; center, shape=strand, boundary)))
+    strips = filter(placed -> placed.source.primitive == strand, design.geometry.regions)
+    courses = [only(placed.placement.patterns).pattern.course for placed in strips]
+    @test [count(==(course), courses) for course in 1:9] == [6, 8, 11, 14, 17, 20, 23, 25, 18]
+    @test outer_radius(design) == maximum(placed -> placed.primitive.ro, strips) == boundary.r
+    # The course heights scale by area from the packed radius to the disk boundary.
+    packed = sqrt(center.r^2 + 142area(strand) / pi)
+    scale = (boundary.r^2 - center.r^2) / (packed^2 - center.r^2)
+    @test all(placed -> area(placed.primitive) ≈ scale * area(strand), strips)
+    # The strips of a course close it, the first course starts on the center wire, and each
+    # next course starts where the previous one ends.
+    radii = [only(unique((placed.primitive.ri, placed.primitive.ro)
+                         for placed in strips[courses .== course])) for course in 1:9]
+    @test first(first(radii)) == center.r
+    @test all(first(radii[course]) == last(radii[course - 1]) for course in 2:9)
+    @test all(sum(placed -> placed.primitive.span, strips[courses .== course]) ≈ 2pi
+              for course in 1:9)
+    # The resistance is that of the declared rectangular strands.
+    row = only(DM.flatten(design, Float64).conductors)
+    @test DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho) ≈
+          copper.rho / (area(center) + 142area(strand)) rtol=1e-12
+end
+
 @testitem "DataModel / stranding / a formation after a part fills the ring" tags=[:unit, :parametric] begin
     import LineCableModels.DataModel as DM
     aluminum = Material(kind=:conductor, rho=2.8264e-8)
@@ -75,10 +103,14 @@ end
     @test all(placed -> placed.primitive isa DM.BentStrip, strips)
     @test all(placed -> placed.primitive.ri == tube.primitive.ro,
         strips[courses .== 1])
-    @test all(placed -> area(placed.primitive) ≈ area(strand), strips)
-    occupied = sqrt(tube.primitive.ro^2 + 20area(strand) / pi)
-    @test maximum(placed -> placed.primitive.ro, strips) ≈ occupied
-    @test last(opgw.geometry.regions).primitive.ri ≈ occupied
+    # The course heights scale so that the outer course ends on the disk boundary.
+    packed = sqrt(tube.primitive.ro^2 + 20area(strand) / pi)
+    scale = (7e-3^2 - tube.primitive.ro^2) / (packed^2 - tube.primitive.ro^2)
+    @test all(placed -> area(placed.primitive) ≈ scale * area(strand), strips)
+    @test maximum(placed -> placed.primitive.ro, strips) == 7e-3
+    @test all(placed -> placed.primitive.ri == maximum(r -> r.primitive.ro, strips[courses .== 1]),
+        strips[courses .== 2])
+    @test last(opgw.geometry.regions).primitive.ri == 7e-3
 
     # The tube and the rectangular strands form one terminal, and the design computes. The
     # gel only sets the inner radius of that conductor. A different gel gives the same Z and Y.
