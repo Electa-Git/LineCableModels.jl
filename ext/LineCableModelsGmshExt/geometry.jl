@@ -595,12 +595,12 @@ function _line_path_points!(registry::FEMLoopRegistry, first, last;
     for (x, y) in bins
         x in x_bins && y in y_bins || continue
         for point in get(registry.point_buckets, (x, y), ())
-            tag = registry.points[point]
-            tag in (first_point, last_point) && continue
             px, py = point[1] - first[1], point[2] - first[2]
             position = (px * dx + py * dy) / distance^2
             tolerance / distance < position < 1 - tolerance / distance || continue
             abs(px * dy - py * dx) <= tolerance * distance || continue
+            tag = registry.points[point]
+            tag in (first_point, last_point) && continue
             push!(points, (position, tag))
         end
     end

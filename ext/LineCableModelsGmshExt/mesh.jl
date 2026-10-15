@@ -533,6 +533,154 @@ function _mesh_launch_error(run, model, plan)
         "native Gmsh failed; see $log_path";run_directory=run.path)
 end
 
+const FEM_GAUGE_TREE_TAG = 9001
+const FEM_GAUGE_TREE_NAME = "LCM/gauge_tree/GetDP-3.5"
+const FEM_VOLTAGE_SAMPLING_NODE_TAG = 9002
+
+# GetDP 3.5 GeoEntity.h edge order, including its non-Gmsh triangle ordering.
+# Preserve GetDP 3.5 GeoData.cpp's sorted element order, including the tags
+# assigned to secondary physical groups. Union by size/path compression changes
+# only component bookkeeping, not the selected tree or the boundary forest.
+_getdp_gauge_cell_edges(t) = t == 1 ? ((1,2),) :
+    t == 2 ? ((1,2),(1,3),(2,3)) :
+    t == 3 ? ((1,2),(1,4),(2,3),(3,4)) :
+    throw(ArgumentError("unsupported GetDP gauge element type $t"))
+
+function _getdp_gauge_elements(boundaries, media)
+    _, all_tags, _ = gmsh.model.mesh.get_elements()
+    last_tag = maximum(maximum, all_tags)
+    record = Tuple{Int,Int,NTuple{4,Int}}
+    boundary, domain = record[], record[]
+    for (dim, entity) in gmsh.model.get_entities()
+        types, tags, nodes = gmsh.model.mesh.get_elements(dim, entity)
+        physical = gmsh.model.get_physical_groups_for_entity(dim, entity)
+        for (p, tag) in enumerate(physical), block in eachindex(types)
+            count = length(tags[block])
+            selected = dim == 1 && tag in boundaries ? boundary :
+                       dim == 2 && tag in media ? domain : nothing
+            if selected !== nothing
+                n = Int(gmsh.model.mesh.get_element_properties(types[block])[4])
+                for i in 1:count
+                    id = p == 1 ? Int(tags[block][i]) : last_tag + i
+                    connectivity = ntuple(k -> k <= n ? Int(nodes[block][(i-1)*n+k]) : 0, 4)
+                    push!(selected, (id, Int(types[block]), connectivity))
+                end
+            end
+            p > 1 && (last_tag += count)
+        end
+    end
+    sort!(boundary; by=first)
+    sort!(domain; by=first)
+    return boundary, domain
+end
+
+function _gauge_root!(parent, a)
+    while parent[a] != a
+        parent[a] = parent[parent[a]]
+        a = parent[a]
+    end
+    return a
+end
+
+function _getdp_gauge_tree(boundary, domain)
+    largest = maximum(maximum(last(cell)) for cells in (boundary,domain) for cell in cells)
+    parent, sizes = collect(1:largest), ones(Int,largest)
+    tree = NTuple{2,Int}[]
+    for cells in (boundary,domain), (_,t,nodes) in cells, (i,j) in _getdp_gauge_cell_edges(t)
+        a, b = nodes[i], nodes[j]
+        ra, rb = _gauge_root!(parent,a), _gauge_root!(parent,b)
+        ra == rb && continue
+        push!(tree, minmax(a,b))
+        sizes[ra] < sizes[rb] && ((ra,rb) = (rb,ra))
+        parent[rb] = ra
+        sizes[ra] += sizes[rb]
+    end
+    return tree
+end
+
+# Keep original element interpolation: select vertices of every media cell
+# whose bounding box crosses a voltage path. GetDP expands these vertices to
+# a one-ring band, including neighbouring cells at interfaces and endpoints.
+function _measurement_field_nodes(model, domain)
+    tags, coordinates, _ = gmsh.model.mesh.get_nodes()
+    x, y = zeros(maximum(tags)), zeros(maximum(tags))
+    for (i,tag) in pairs(tags)
+        x[tag], y[tag] = coordinates[3i-2], coordinates[3i-1]
+    end
+    paths = map(eachindex(model.terminal_ids)) do terminal
+        _, coordinates = gmsh.model.mesh.get_nodes_for_physical_group(
+            1,model.tags.measurement_line_base+terminal)
+        (coordinates[1],minimum(@view(coordinates[2:3:end])),
+            maximum(@view(coordinates[2:3:end])))
+    end
+    selected = Set{Int}()
+    for (_,type,nodes) in domain
+        n = type == 2 ? 3 : 4
+        xmin = xmax = x[nodes[1]]
+        ymin = ymax = y[nodes[1]]
+        for i in 2:n
+            xmin, xmax = min(xmin,x[nodes[i]]), max(xmax,x[nodes[i]])
+            ymin, ymax = min(ymin,y[nodes[i]]), max(ymax,y[nodes[i]])
+        end
+        any(paths) do (px,lo,hi)
+            xmin <= px <= xmax && ymin <= hi && ymax >= lo
+        end || continue
+        for i in 1:n
+            push!(selected,nodes[i])
+        end
+    end
+    return sort!(collect(selected))
+end
+
+function _prepare_gauge_mesh!(mesh, model)
+    current = gmsh.model.get_current()
+    saved = Dict(name=>gmsh.option.get_number(name)
+        for name in ("Mesh.Binary","Mesh.SaveAll","Mesh.MshFileVersion"))
+    temporary = tempname(dirname(mesh))*".msh"
+    gmsh.model.add("LineCableModelsFEM-gauge-$(time_ns())")
+    try
+        gmsh.merge(mesh)
+        groups = gmsh.model.get_physical_groups(1)
+        tree_ready = (1,FEM_GAUGE_TREE_TAG) in groups &&
+            gmsh.model.get_physical_name(1,FEM_GAUGE_TREE_TAG)==FEM_GAUGE_TREE_NAME
+        sampling_ready = (0,FEM_VOLTAGE_SAMPLING_NODE_TAG) in gmsh.model.get_physical_groups(0)
+        tree_ready && sampling_ready && return mesh
+        boundaries = Set([model.tags.outer_boundary;
+            model.tags.terminal_contour_base .+ eachindex(model.terminal_ids)])
+        media = Set([model.tags.air,model.tags.earth,model.tags.air_pml,model.tags.earth_pml,
+            [m.physical_tag for m in model.material_plans if m.kind !== :conductor]...])
+        boundary,domain = _getdp_gauge_elements(boundaries,media)
+        if !tree_ready
+            tree = _getdp_gauge_tree(boundary,domain)
+            curve = gmsh.model.add_discrete_entity(1)
+            gmsh.model.mesh.add_elements_by_type(curve,1,Int[],collect(Iterators.flatten(tree)))
+            gmsh.model.add_physical_group(1,[curve],FEM_GAUGE_TREE_TAG,FEM_GAUGE_TREE_NAME)
+        end
+        if !sampling_ready
+            nodes = _measurement_field_nodes(model,domain)
+            points = gmsh.model.add_discrete_entity(0)
+            gmsh.model.mesh.add_elements_by_type(points,15,Int[],nodes)
+            gmsh.model.add_physical_group(0,[points],FEM_VOLTAGE_SAMPLING_NODE_TAG,
+                "LCM/voltage_sampling_nodes")
+        end
+        gmsh.option.set_number("Mesh.Binary",1)
+        # Retain unlabelled internal curves used by mesh coverage validation.
+        gmsh.option.set_number("Mesh.SaveAll",1)
+        gmsh.option.set_number("Mesh.MshFileVersion",4.1)
+        gmsh.write(temporary)
+        # Reused meshes can be hard links: replace rather than overwrite.
+        mv(temporary,mesh;force=true)
+    finally
+        rm(temporary;force=true)
+        gmsh.model.remove()
+        isempty(current) || gmsh.model.set_current(current)
+        for (name,value) in saved
+            gmsh.option.set_number(name,value)
+        end
+    end
+    return mesh
+end
+
 function _publish_mesh!(run, model, execution, plan; temporary_mesh=nothing,
         temporary_native=nothing, owner=nothing)
     (;frequency_index,gmsh_version,fingerprint,reference_mesh,
@@ -561,6 +709,7 @@ function _publish_mesh!(run, model, execution, plan; temporary_mesh=nothing,
         run.mesh_fingerprint=fingerprint
         run.mesh_source=source
     end
+    _prepare_gauge_mesh!(run_mesh,model)
     return run_mesh
 end
 

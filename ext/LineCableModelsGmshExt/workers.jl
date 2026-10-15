@@ -184,6 +184,7 @@ function _getdp_command(executable, model_path, mesh_path, run, formulation, exe
     verbosity = execution.data.getdp_verbosity
     arguments = [executable, basename(model_path), "-solve", "LineCableModelsFEMScan",
         "-setnumber", "Physics", string(_fem_physics_code(formulation)),
+        "-setnumber", "PreparedGaugeTree", "1",
         "-msh", relpath(mesh_path, directory), "-name", "solver",
         "-v", string(verbosity),
         "-setstring", "ModelDataPath", "model_data.pro",
@@ -306,8 +307,8 @@ function _collect_worker_columns!(run, worker, valid, maps; physics::Symbol=:hel
     end
 end
 
-# Read PETSc's native post-solve MUMPS view, not GetDP's original-coordinate
-# residual. Missing/changed diagnostic output never rejects a computed column.
+# Read PETSc's native post-solve MUMPS view.
+# Missing/changed diagnostic output never rejects a computed column.
 function _solver_diagnostics(text::AbstractString, ::Val{:mumps})
     return map(eachmatch(r"(?ms)^KSP Object:.*?(?=^KSP Object:|\z)", text)) do block
         number(pattern) = begin
@@ -333,11 +334,9 @@ end
 
 function _solver_diagnostics(text::AbstractString, ::Val{:gmres})
     # PETSc's iteration-zero monitor begins each RHS even at GetDP verbosity 0.
-    # GetDP's original-coordinate residual is optional at higher verbosity.
     # MUMPS RINFOG values here would describe a preconditioner application.
     return map(eachmatch(r"(?ms)^[ \t]*0 KSP unpreconditioned resid norm.*?(?=^[ \t]*0 KSP unpreconditioned resid norm|\z)", text)) do block
         reason = match(r"Linear solve (?:did not converge|converged) due to (\S+) iterations (\d+)", block.match)
-        original = match(r"FEM algebraic residual: frequency=\d+ basis=\d+ residual=(\S+) rhs=(\S+)", block.match)
         monitors = collect(eachmatch(r"KSP unpreconditioned resid norm\s+(\S+) true resid norm\s+(\S+) \|\|r\(i\)\|\|/\|\|b\|\|\s+(\S+)", block.match))
         last_monitor = isempty(monitors) ? nothing : last(monitors)
         return (linear_solver=:gmres,
@@ -345,9 +344,7 @@ function _solver_diagnostics(text::AbstractString, ::Val{:gmres})
             convergence_reason=reason === nothing ? nothing : String(reason[1]),
             estimated_residual_norm=last_monitor === nothing ? nothing : tryparse(Float64, last_monitor[1]),
             scaled_residual_norm=last_monitor === nothing ? nothing : tryparse(Float64, last_monitor[2]),
-            scaled_relative_residual=last_monitor === nothing ? nothing : tryparse(Float64, last_monitor[3]),
-            original_residual_norm=original === nothing ? nothing : tryparse(Float64, original[1]),
-            original_rhs_norm=original === nothing ? nothing : tryparse(Float64, original[2]))
+            scaled_relative_residual=last_monitor === nothing ? nothing : tryparse(Float64, last_monitor[3]))
     end
 end
 

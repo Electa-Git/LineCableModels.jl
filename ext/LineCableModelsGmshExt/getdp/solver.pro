@@ -33,9 +33,7 @@ EndIf
 If(PetscPrealloc < 0 || PetscPrealloc > 2147483647 || Floor[PetscPrealloc] != PetscPrealloc)
   Error("PetscPrealloc must be a nonnegative Cint-representable integer");
 EndIf
-// Restore A and b after each solve so original-coordinate residuals and
-// subsequent right-hand sides retain their physical units.
-FEMSolverOptions = "-ksp_diagonal_scale -ksp_diagonal_scale_fix -pc_type lu -pc_factor_mat_solver_type mumps -ksp_knoll false -ksp_initial_guess_nonzero false -ksp_error_if_not_converged false";
+FEMSolverOptions = "-ksp_diagonal_scale -pc_type lu -pc_factor_mat_solver_type mumps -ksp_knoll false -ksp_initial_guess_nonzero false -ksp_error_if_not_converged false";
 If(LinearSolver == 0)
   FEMSolverOptions = StrCat[FEMSolverOptions, " -ksp_type preonly",
     Sprintf[" -mat_mumps_icntl_11 %g -mat_mumps_icntl_10 %g -mat_mumps_cntl_2 %.17g",

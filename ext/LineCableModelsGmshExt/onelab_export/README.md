@@ -70,10 +70,15 @@ estimated and recomputed true residual norms in PETSc's diagonally scaled
 coordinates. The true-residual monitor adds a matrix-vector product and norm
 calculations per iteration. Compare its final relative residual with the
 relative tolerance, or its true residual norm with the absolute tolerance.
-The existing `FEM algebraic residual` line, visible at higher GetDP verbosity,
-is in the original coordinates after PETSc restores the system, and is a
-separate diagnostic. Detached mode
-leaves interpretation of these native diagnostics to the user.
+Detached mode leaves interpretation of these native diagnostics to the user.
+
+Managed Julia runs prepare GetDP's boundary-first gauge tree using disjoint
+sets and store the measurement field on a one-ring element band around the
+floating measurement lines. Detached execution retains GetDP's native tree
+construction and full-media measurement-field storage. Both paths retain the
+same gauge definition and line quadrature. Full field maps retain their
+original support when enabled. Polygon noding in the Julia CAD preparation
+checks coordinates before looking up point tags; exported CAD is unchanged.
 
 Enable **Run frequency scan** to process every exported frequency in order with
 one Run. ONELAB meshes each case before invoking GetDP, using the selected

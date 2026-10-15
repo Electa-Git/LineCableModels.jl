@@ -74,6 +74,8 @@ function _write_model_data(path::String, model::FEMResolvedModel, controls::Name
         println(io, "INNER_PML_BND = ", model.tags.pml_inner_boundary, ";")
         println(io, "TERMINAL = ", model.tags.terminal_base + 1, ";")
         println(io, "TERMINAL_CONTOUR = ", model.tags.terminal_contour_base + 1, ";")
+        println(io, "GAUGE_TREE = ", FEM_GAUGE_TREE_TAG, ";")
+        println(io, "VOLTAGE_SAMPLING_NODES = ", FEM_VOLTAGE_SAMPLING_NODE_TAG, ";")
         println(io, "MEASUREMENT_LINE = ", model.tags.measurement_line_base + 1, ";")
         println(io, "ReceiverInAir() = ", _pro_array([
             model.cable_hosts[t.cable] === :air for t in model.problem.system.terminal_order]), ";")

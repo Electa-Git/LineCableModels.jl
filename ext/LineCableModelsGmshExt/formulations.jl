@@ -71,6 +71,9 @@ floating measurement curve ending inside its own terminal metal region.
 The native horizontal shift is `min(1e-5,0.01*d)` \\[m\\], where `d` is the
 terminal's smallest metal dimension \\[m\\]. Native GetDP integrates the stored
 complex gauge-invariant vector ``\\nabla v+j\\omega b`` on media and PML.
+Managed storage uses a one-ring element band around the measurement curves;
+full field maps retain their full support. Detached execution retains
+full-media storage and native tree construction.
 There are no scalar endpoint terms or additional stretch factors.
 Floating curves have their own nodes and do not enter the field support or
 gauge tree. Stored transverse fields exclude metal interiors. Physical line sizing

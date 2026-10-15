@@ -350,3 +350,122 @@ end
         end
     end
 end
+
+@testitem "FEM / boundary-first GetDP tree edge ordering" tags=[:extension, :fem] begin
+    using Gmsh
+    E = Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
+    # Prescribed boundary forest: the closing edge is redundant. The domain
+    # then joins the components, adds a quadrangle, and joins a new triangle.
+    boundary = [(100,1,(1,2,0,0)),(101,1,(2,3,0,0)),
+        (102,1,(3,1,0,0)),(200,1,(5,6,0,0))]
+    domain = [(300,2,(1,4,2,0)),(301,2,(4,5,2,0)),
+        (302,3,(4,7,8,5)),(400,2,(9,10,11,0)),(500,2,(8,9,7,0))]
+    # GetDP's triangle edges are (1,2), (1,3), (2,3); using Gmsh's
+    # triangle order would choose (10,11) instead of (9,11).
+    expected = [(1,2),(2,3),(5,6),(1,4),(4,5),(4,7),(7,8),
+        (9,10),(9,11),(8,9)]
+    @test E._getdp_gauge_tree(boundary,domain) == expected
+end
+
+@testitem "FEM / prepared gauge tree matches native GetDP" tags=[:extension, :fem] setup=[NativeFEMFixtures] begin
+    using Gmsh
+    N=NativeFEMFixtures;E=N.FEM;g=Gmsh.gmsh
+    # Four separate boundary components (outer boundary and three terminals)
+    # force component merges when GetDP extends its boundary forest into media.
+    problem=N.problem(;frequency=1e6,rho=.1,eps_r=1.,radius=.01,
+        positions=[(-.5,1.),(.5,1.),(0.,-1.)])
+    form=Formulation(:fem;options=(reduce_bundle=false,
+        kron_reduction=false,ideal_transposition=false))
+    execution=E.computation_options(E.LineCableModelsFEM,
+        ComputationOptions(frequency_workers=1,solver_threads=1,gmsh_verbosity=0))
+    artifact=E._artifact_getdp()
+    mktempdir() do directory
+        run=E._create_run(directory,problem.system.system_id)
+        model=E._resolved_fem_model(problem,form);session=E._start_gmsh(0)
+        try
+            E._write_run_inputs!(run,model,execution)
+            physical=E._build_physical_geometry!(model,"native-gauge-tree-test")
+            E._write_physical_geometry(joinpath(run.path,"input","physical.geo"),model,physical)
+            E._write_native_mesh_entry(joinpath(run.path,"input","model.geo"),"model_data.pro","physical.geo","getdp")
+            mesh=only(E._select_meshes!(run,model,execution))
+            g.model.add("native-gauge-tree-reference");g.merge(mesh)
+            name=g.model.get_physical_name(1,9001)
+            encoded=VersionNumber(only(match(r"^LCM/gauge_tree/GetDP-(\d+\.\d+(?:\.\d+)?)$",name).captures))
+            @test encoded==E.GETDP_ARTIFACT_VERSION
+            identity=E._getdp_identity(artifact.path)
+            @test encoded==VersionNumber(only(match(r"Version\s*:\s*(\d+\.\d+\.\d+)",identity.info).captures))
+            prepared=Set{Tuple{Int,Int}}()
+            for curve in g.model.get_entities_for_physical_group(1,9001)
+                types,_,nodes=g.model.mesh.get_elements(1,curve)
+                @test types==[1]
+                for (a,b) in eachcol(reshape(only(nodes),2,:))
+                    push!(prepared,minmax(Int(a),Int(b)))
+                end
+            end
+            @test !isempty(prepared)
+            boundaries=[model.tags.outer_boundary;
+                model.tags.terminal_contour_base .+ eachindex(model.terminal_ids)]
+            boundary_nodes=[Set(g.model.mesh.get_nodes_for_physical_group(1,tag)[1])
+                for tag in boundaries]
+            @test all(!isempty,boundary_nodes)
+            @test all(isdisjoint(boundary_nodes[i],boundary_nodes[j])
+                for i in eachindex(boundaries) for j in 1:i-1)
+
+            # Independent .pre decoding, following task 61: GetDP numbers its
+            # element table by sorted MSH tags, duplicating secondary physical
+            # memberships above the largest original tag. Do not use the Julia
+            # gauge helpers to reconstruct this native reference.
+            _,tags,_=g.model.mesh.get_elements()
+            lasttag=maximum(maximum,tags)
+            elements=Tuple{Int,Int,Vector{Int}}[]
+            for (dim,entity) in g.model.get_entities()
+                types,ids,nodes=g.model.mesh.get_elements(dim,entity)
+                groups=g.model.get_physical_groups_for_entity(dim,entity)
+                for membership in eachindex(groups),block in eachindex(types)
+                    width=Int(g.model.mesh.get_element_properties(types[block])[4])
+                    for i in eachindex(ids[block])
+                        tag=membership==1 ? Int(ids[block][i]) : lasttag+i
+                        push!(elements,(tag,Int(types[block]),
+                            Int.(nodes[block][(i-1)*width+1:i*width])))
+                    end
+                    membership>1 && (lasttag+=length(ids[block]))
+                end
+            end
+            sort!(elements;by=first)
+            input=joinpath(run.path,"input","getdp")
+            cp(joinpath(run.path,"input","model_data.pro"),joinpath(input,"model_data.pro"))
+            command=`$(artifact.path) model.pro -pre LineCableModelsFEMScan
+                -msh $mesh -name native -setstring ModelDataPath model_data.pro
+                -setnumber PreparedGaugeTree 0 -v 2 -nt 1`
+            Base.run(Cmd(command;dir=input))
+            lines=readlines(joinpath(input,"native.pre"))
+            @test count(startswith("\$ExtendedGroup"),lines)==1
+            first_group=findfirst(startswith("\$ExtendedGroup"),lines)
+            last_group=findnext(==("\$EndExtendedGroup"),lines,first_group)
+            tree_ids=Set(parse.(Int,split(join(lines[first_group+2:last_group-1]," "))))
+            @test length(tree_ids)==parse(Int,split(lines[first_group+1])[2])
+            first_edges=findfirst(==("\$ElementsXEdges"),lines)
+            last_edges=findnext(==("\$EndElementsXEdges"),lines,first_edges)
+            # GetDP GeoEntity.h local edge order, independent of mesh.jl.
+            local_edges=Dict(1=>((1,2),),2=>((1,2),(1,3),(2,3)),
+                3=>((1,2),(1,4),(2,3),(3,4)))
+            native=Set{Tuple{Int,Int}}()
+            recovered_ids=Set{Int}()
+            for line in lines[first_edges+2:last_edges-1]
+                row=parse.(Int,split(line))
+                _,type,nodes=elements[row[1]+1] # .pre element indices start at zero.
+                for (k,(i,j)) in enumerate(local_edges[type])
+                    edge=abs(row[k+2])
+                    if edge in tree_ids
+                        push!(native,minmax(nodes[i],nodes[j]))
+                        push!(recovered_ids,edge)
+                    end
+                end
+            end
+            @test recovered_ids==tree_ids
+            @test native==prepared
+        finally
+            E._finish_gmsh(session)
+        end
+    end
+end

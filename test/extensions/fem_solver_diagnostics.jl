@@ -68,13 +68,11 @@
     KSP Object: 1 MPI processes
       type: gmres
       ICNTL(10) (max num of refinements): 0
-    FEM algebraic residual: frequency=1 basis=1 residual=1e-8 rhs=1.414
     """
     gs = E._solver_diagnostics(gmres("CONVERGED_RTOL",2,1e-13,1e-13) *
         gmres("DIVERGED_ITS",1,1e-8,1e-8), Val(:gmres))
     @test getproperty.(gs, :iterations) == [2,1]
     @test gs[1].scaled_relative_residual == 1e-13
-    @test gs[1].original_residual_norm == 1e-8
     @test_logs E._warn_solver_diagnostics(gs[1],c,Val(:gmres);frequency_hz=0.1,basis=1,log="native.log")
     @test_logs (:warn,r"GMRES convergence or recomputed residual target not met") E._warn_solver_diagnostics(
         gs[2],c,Val(:gmres);frequency_hz=0.1,basis=2,log="native.log")
@@ -84,11 +82,6 @@
         gap,c,Val(:gmres);frequency_hz=0.1,basis=1,log="native.log")
     @test_logs E._warn_solver_diagnostics(gap,controls(gmres_absolute_tolerance=1e-7),Val(:gmres);
         frequency_hz=0.1,basis=1,log="native.log")
-    quiet = replace(gmres("CONVERGED_RTOL",2,1e-13,1e-13),
-        r"(?m)^FEM algebraic residual:.*\n" => "")
-    quiet_records = E._solver_diagnostics(quiet * quiet, Val(:gmres))
-    @test length(quiet_records) == 2
-    @test all(x -> x.original_residual_norm === nothing && x.iterations == 2, quiet_records)
     missing_gmres = only(E._solver_diagnostics(gmres("CONVERGED_RTOL",2,"unknown","unknown"),Val(:gmres)))
     @test_logs (:warn,r"GMRES diagnostics unavailable") E._warn_solver_diagnostics(
         missing_gmres,c,Val(:gmres);frequency_hz=0.1,basis=1,log="native.log")

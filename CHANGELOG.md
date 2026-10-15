@@ -9,6 +9,14 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Managed FEM meshes carry the original GetDP boundary-first gauge tree,
+  prepared with disjoint sets, and a measurement-element band. Full field maps
+  retain their full support; detached execution retains native tree construction
+  and full-media measurement-field storage.
+- FEM CAD polygon noding checks coordinates before looking up point tags.
+- Large manual FEM cases use frequency-worker caps estimated for a 52 GiB
+  aggregate native-process budget.
+
 - FEM expert override `ThinLayerStrips` (default `1`) selects thin passive
   layer strips; `0` restores the previous thin-layer CAD and isotropic layer
   and boundary sizing, retaining polyline outlines and the surface-query cache.

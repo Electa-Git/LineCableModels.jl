@@ -153,9 +153,19 @@ sector in a cable with multiple terminals. The horizontal displacement is
 Its points and nodes are independent of the two-dimensional mesh and gauge tree.
 No receiver columns divide the bottom PML.
 
-For each excitation GetDP stores the full complex vector
-`grad v + j*omega*bt` over media and PML in memory, then integrates its vertical
-component with four-point line quadrature. There are no endpoint scalar terms
+Managed runs prepare the same boundary-first tree selected by GetDP 3.5 using
+disjoint sets, then pass its edges as a native constraint group. The tree still
+starts on every prescribed conductor contour and the outer boundary. Detached
+ONELAB execution retains GetDP's native tree construction.
+
+For each excitation GetDP stores the complex vector `grad v + j*omega*bt`
+on a one-ring band of media and PML elements covering the measurement lines,
+then integrates its vertical component with four-point line quadrature.
+The band includes all elements touching vertices of cells whose bounding boxes
+cross a measurement path. Stored values retain the original element
+interpolation. `plot_field_maps=true` retains the full field-map support;
+detached execution retains measurement-field storage over all media.
+There are no endpoint scalar terms
 or extra stretch factors. Metal interiors have no stored field and contribute
 zero. Physical line sizing uses `MeasurementLineSizeFactor=0.25` times the
 minimum exterior target from every intersected cable neighbourhood, exterior
@@ -289,7 +299,9 @@ conforming node counts.
 
 Polygon conductor outlines retain their piecewise-linear CAD coordinates.
 Free chains use native degree-one polylines; shared seams, contacts and coordinate
-extrema remain curve endpoints. Polyline spacing bounds relative conductor area
+extrema remain curve endpoints. Polygon noding tests candidate coordinates before
+looking up their point tags, retaining the same emitted CAD.
+Polyline spacing bounds relative conductor area
 error using `ConductorGeometryTolerance` and respects endpoint material targets.
 Managed meshes and detached ONELAB meshes use the same native rules. Physical
 regions remain triangular; the PML grid is transfinite.
@@ -410,7 +422,11 @@ throughout that extent; native observations report activation.
 
 `mesh_policy=:reuse` reuses compatible meshes within a run; `:remesh`
 regenerates them. Supplying `mesh_path` with `:remesh` raises `ArgumentError`.
-Very large meshes may require fewer frequency workers to bound memory.
+Very large meshes may require fewer frequency workers to bound memory. The
+large manual case scripts use caps estimated for a 52 GiB aggregate native-process
+budget, with at most eight workers. These are scheduling estimates from measured
+peaks, including estimates inferred from summed RSS divided by worker count;
+they do not enforce a memory limit or account for other sessions.
 
 Expert overrides are validated against one declaration of types and ranges.
 The native guards also reject invalid CLI and ONELAB edits. The exported

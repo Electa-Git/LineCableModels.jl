@@ -203,7 +203,7 @@ analytical_formulation = Formulation(
 )
 fem_formulation = Formulation(:fem; options = (; physics = :helmholtz, reductions...))
 fem_options = (
-    frequency_workers = 6,
+    frequency_workers = 8,
     keep_run_directory = true,
     verbosity = (default = 0,),
     gmsh_verbosity = 0,

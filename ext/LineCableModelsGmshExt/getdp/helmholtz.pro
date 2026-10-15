@@ -74,6 +74,10 @@ If(!Exists(RawDirectory)) RawDirectory = StrCat[RunDirectory, "/raw"]; EndIf
 RawJobDirectory = StrCat[RawDirectory, "/jobs"];
 MapDirectory = StrCat[RunDirectory, "/maps"];
 
+// Managed meshes carry the same tree selected with a faster disjoint-set pass.
+// Detached execution retains GetDP's native tree construction.
+If(!Exists(PreparedGaugeTree)) PreparedGaugeTree = 0; EndIf
+
 Group {
   Air = Region[{AIR_EM}];
   Earth = Region[{EARTH_EM}];
@@ -114,6 +118,16 @@ Group {
   Else
     DomainFields = Region[{Domain_Mag}];
     DomainFieldLoss = Region[{DomainLoss}];
+  EndIf
+}
+
+Group {
+  If(PreparedGaugeTree)
+    VoltageSamplingNodes = Region[{VOLTAGE_SAMPLING_NODES}];
+    // One-ring band around the elements crossed by the floating lines.
+    VoltageSamplingElements = ElementsOf[DomainMedia_Ele, OnOneSideOf VoltageSamplingNodes];
+  Else
+    VoltageSamplingElements = Region[{DomainMedia_Ele}];
   EndIf
 }
 
@@ -159,7 +173,13 @@ Constraint {
            { Region TerminalContours; Value 0.; } }
   }
   { Name FEMTransverseGauge; Type Assign;
-    Case { { Region DomainMedia_Ele; SubRegion GaugeBoundary; Value 0.; } }
+    Case {
+      If(PreparedGaugeTree)
+        { Region Region[{GAUGE_TREE}]; Value 0.; }
+      Else
+        { Region DomainMedia_Ele; SubRegion GaugeBoundary; Value 0.; }
+      EndIf
+    }
   }
   { Name FEMScalarPotential; Type Assign;
     Case {
@@ -223,8 +243,13 @@ FunctionSpace {
     Constraint {
       { NameOfCoef be; EntityType EdgesOf;
         NameOfConstraint FEMTransverseBoundary; }
-      { NameOfCoef be; EntityType EdgesOfTreeIn; EntitySubType StartingOn;
-        NameOfConstraint FEMTransverseGauge; }
+      If(PreparedGaugeTree)
+        { NameOfCoef be; EntityType EdgesOf;
+          NameOfConstraint FEMTransverseGauge; }
+      Else
+        { NameOfCoef be; EntityType EdgesOfTreeIn; EntitySubType StartingOn;
+          NameOfConstraint FEMTransverseGauge; }
+      EndIf
     }
   }
   { Name Hgrad_v_FEM_2D; Type Form0;
@@ -353,10 +378,6 @@ Test[$FEMFirstSolve || !ReuseFactorization]{
   Evaluate[$FEMSolveStart = GetWallClockTime[]];
   SolveAgain[Sys_FEM];
 }
-GetResidual[Sys_FEM, $FEMResidualNorm];
-GetNormRightHandSide[Sys_FEM, $FEMRHSNorm];
-Print[{$FEMFrequencyIndex, $FEMBasisTerminal, $FEMResidualNorm, $FEMRHSNorm},
-  Format "FEM algebraic residual: frequency=%g basis=%g residual=%.17g rhs=%.17g"];
 Evaluate[$FEMOutputStart = GetWallClockTime[]];
 Return
 
@@ -579,7 +600,7 @@ PostOperation {
       DeleteFile[RawZPath];
       DeleteFile[RawPPath];
       DeleteFile[RawScalarPath];
-      Print[voltage_gradient, OnElementsOf DomainMedia_Ele, Format Gmsh,
+      Print[voltage_gradient, OnElementsOf VoltageSamplingElements, Format Gmsh,
         StoreInField 100000+basis, File "", NoMesh 0];
       For response_terminal In {1:NumTerminals}
         // Scalar potential is a diagnostic only. It is absent from P.
