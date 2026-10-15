@@ -183,12 +183,75 @@ end
         insulated(Group(:core, Region(:metal, Disk(0.005), copper))))
     # On the axis, every lay law gives a straight path, with zero turns and overlength 1.
     for lay in (LayRatio(10.0), LayAngle(π / 4), Pitch(0.5))
-        helical = LineCableModels.DataModel.flatten(insulated(
-            Group(:core, Region(:metal, Disk(0.005), copper); path = Helix(lay))))
+        axial = insulated(Group(:core, Region(:metal, Disk(0.005), copper); path = Helix(lay)))
+        helical = LineCableModels.DataModel.flatten(axial)
         @test helical.mu_r_ins == straight.mu_r_ins
         @test only(helical.conductors).material.rho == only(straight.conductors).material.rho
         @test overlength(Helix(lay), 0.0) == 1
         @test LineCableModels.DataModel.turns_per_length(
-            ((path = Helix(lay), radius = 0.0),), Float64) == 0
+            first(axial.geometry.regions), (0.0, 0.0), Float64) == 0
     end
+end
+
+@testitem "DataModel / flatten / solenoid turns follow the conductor's own axis" tags=[:unit, :parametric] begin
+    const DM = LineCableModels.DataModel
+    const BP = LineCableModels.DataModel.BaseParams
+    copper = Material(kind=:conductor, rho=1.7241e-8)
+    pe = Material(kind=:insulator, rho=1e14, eps_r=2.3)
+    wire = Disk(0.5e-3)
+
+    # With lay ratio 10, the 37 wires at 18.5 mm wind 37/0.37 turns per meter in all. The 39
+    # wires at 19.5 mm wind 39/0.39. Equal wires and overlengths share the current by count,
+    # so opposite hands cancel and equal hands give 200/76 turns per meter.
+    for (dir, turns) in ((-1, 0.0), (1, 200 / 76))
+        design = build(CableDesign, "screen-courses", terminal(:core, core(copper; r=10e-3)),
+            insulation(pe; t=8e-3), terminal(:screen,
+                armor(copper; shape=wire, n=37, lay=LayRatio(10)),
+                armor(copper; shape=wire, n=39, lay=LayRatio(10), dir)),
+            insulation(pe; t=2e-3))
+        blueprint = DM.flatten(design, Float64)
+        r_ins = blueprint.dielectrics[last(blueprint.dielectric_ranges[2])].r_ex
+        @test blueprint.mu_r_ins[2] ≈ BP.solenoid_factor(turns,
+            blueprint.conductors[2].r_ex, r_ins) rtol=1e-12 atol=1e-12
+    end
+
+    # A tube without turns and 60 wires at 18.7 mm share the current by conductance. For one
+    # material, conductance is proportional to area over overlength.
+    design = build(CableDesign, "tube-and-wires", terminal(:core, core(copper; r=10e-3)),
+        insulation(pe; t=8e-3), terminal(:screen, sheath(copper; t=0.2e-3),
+            armor(copper; shape=wire, n=60, lay=LayRatio(10))), insulation(pe; t=2e-3))
+    lay = Helix(LayRatio(10))
+    tube = pi * (18.2e-3^2 - 18e-3^2)
+    wires = 60area(wire) / overlength(lay, 18.7e-3)
+    blueprint = DM.flatten(design, Float64)
+    r_ins = blueprint.dielectrics[last(blueprint.dielectric_ranges[2])].r_ex
+    @test blueprint.mu_r_ins[2] ≈ BP.solenoid_factor(
+        wires / (tube + wires) / DM.pitch(lay, 18.7e-3),
+        blueprint.conductors[2].r_ex, r_ins) rtol=1e-10
+
+    # The rope has seven-wire members. In the central member, each wire around the center
+    # wire follows the strand lay about the rope axis at 1.2 mm. Every wire of an outer
+    # member follows the rope lay about the rope axis at 3.6 mm. The strand lay of an outer
+    # member winds about that member's own axis and only lengthens its wires. Each wire
+    # weighs by its conductance, one over its overlength.
+    strand_lay, rope_lay = Helix(LayRatio(12)), Helix(LayRatio(18))
+    design = build(CableDesign, "rope-turns", terminal(:core, rope(
+            stranded(copper; shape=Disk(0.6e-3), lay=LayRatio(12), boundary=Disk(1.8e-3));
+            layers=1, n=6, lay=LayRatio(18))), insulation(pe; t=2e-3))
+    strand_overlength = overlength(strand_lay, 1.2e-3)
+    rope_overlength = overlength(rope_lay, 3.6e-3)
+    shares = (1, 6 / strand_overlength, 6 / rope_overlength,
+        36 / (strand_overlength * rope_overlength))
+    turns = (shares[2] / DM.pitch(strand_lay, 1.2e-3) +
+             (shares[3] + shares[4]) / DM.pitch(rope_lay, 3.6e-3)) / sum(shares)
+    blueprint = DM.flatten(design, Float64)
+    r_ins = blueprint.dielectrics[last(blueprint.dielectric_ranges[1])].r_ex
+    @test only(blueprint.mu_r_ins) ≈ BP.solenoid_factor(turns,
+        only(blueprint.conductors).r_ex, r_ins) rtol=1e-10
+
+    # A Milliken segment lays its stranded wires about its own bundle, not about the core axis.
+    design = build(CableDesign, "milliken-lay", terminal(:core, milliken(copper;
+            shape=Disk(1.2e-3), segment=Sector(span=π / 3, r_base=2e-3, r_back=15e-3,
+                fillet=0.5e-3), segments=6, lay=LayRatio(15))), insulation(pe; t=5e-3))
+    @test only(DM.flatten(design, Float64).mu_r_ins) ≈ 1 atol=1e-12
 end

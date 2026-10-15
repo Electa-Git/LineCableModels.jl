@@ -40,12 +40,13 @@ function resolve(at::Pose2, placed::PlacedRegion)
     patterns = map(placed.placement.patterns) do entry
         merge(entry, (pattern = resolve(at, entry.pattern),))
     end
+    paths = map(entry -> merge(entry, (axis = at(entry.axis),)), placed.paths)
     return PlacedRegion(
         placed.source,
         resolve(at, placed.primitive),
         placed.terminal,
         (patterns = patterns,),
-        placed.paths
+        paths
     )
 end
 

@@ -355,8 +355,13 @@ the design remains unchanged.
 view of the dielectric layers of its interval, and `mu_r_ins` is their equivalent relative
 permeability. A loop over a blueprint gives the rows in terminal order, and `eltype` of a
 blueprint is its scalar type, as for a design. `mu_r_ins` includes the helical-solenoid
-correction of the terminal's lay. At zero radius, a helix lies straight along the axis
-under every lay law, with zero turns and overlength 1.
+correction of the terminal's lay, from its turns per unit length. A helix counts only when
+it winds about the conductor's own axis, and about another axis it only lengthens its wires.
+Helices about other axes are the strand lay of an outer rope member, the lay of a Milliken
+segment and the lay-up of cores. The handedness of a helix gives the sign of its
+turns, so contra-laid courses cancel. Each wire, course or layer weighs by its share of the
+DC current. At zero radius, a helix lies
+straight along the axis under every lay law, with zero turns and overlength 1.
 
 The ATP, PSCAD and TRALIN exporters write one cable for each coaxial group, at its
 position. Each exporter evaluates a material where it writes it, with the formulation's
@@ -907,6 +912,10 @@ member axis. The 6 outer members also have `LayRatio(18)` about the rope
 axis. These are separate paths: the accepted approximation **multiplies their
 overlength factors**. Both lays contribute to the overlength.
 The enclosing terminal and insulation belong to the finished rope.
+As in a stranded core, every second course starts half its member spacing later. A course
+of `capacity()` members starts unshifted, because only the resolved geometry gives its
+count. The solenoid correction counts the rope lay and the strand lay of the central
+member, whose axis is the rope axis.
 
 ```@example supported_formations
 rope_member_radius = 0.28e-3

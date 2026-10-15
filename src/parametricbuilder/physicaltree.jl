@@ -1074,7 +1074,8 @@ Repeat one stranded core as a central member and concentric outer courses.
   may be declared as `LayRatio(q...)`, `Pitch(p...)` or `LayAngle(α...)`.
 - `dir=1`: one handedness or one value per outer course.
 - `φ0=0`: one helix initial angle or one value per outer course \\[rad\\]. As in
-  `stranded`, every second course starts half its member spacing later.
+  `stranded`, every second course starts half its member spacing later. A course of
+  `capacity()` members starts unshifted.
 - `compact=nothing`: one compaction law or one law per outer course.
   Homogeneous scalar schedules may be declared as `FillFactor(η...)`.
 - `gap_frac=0`: one clearance fraction or one value per outer course

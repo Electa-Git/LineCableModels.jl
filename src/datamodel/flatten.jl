@@ -17,14 +17,22 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Add the turns per unit length contributed by a tuple of longitudinal paths
-\\[1/m\\]. A path at zero radius lies straight along the axis, with zero turns.
+Add the signed turns per unit length of the helices that a placed region follows about
+`axis` \\[1/m\\]. The sign of each helix is its handedness. Helices about other axes
+lengthen the path and do not add turns about this one. On the axis, at zero radius, a path
+is straight and has zero turns.
 """
-function turns_per_length(paths::Tuple, ::Type{T}) where {T <: Real}
-    return sum(paths; init = zero(T)) do entry
-        turns = inv(pitch(entry.path, entry.radius))
+function turns_per_length(placed::PlacedRegion, axis, ::Type{T}) where {T <: Real}
+    return sum(placed.paths; init = zero(T)) do entry
+        same_radial_position(entry.axis, axis) || return zero(T)
+        turns = entry.path.dir * inv(pitch(entry.path, entry.radius))
         iszero(entry.radius) ? zero(turns) : turns
     end
+end
+
+# A concentric layer, an annulus, is a conductor about its own center.
+function turns_per_length(placed::PlacedRegion{<:Region, <:Annulus}, ::Type{T}) where {T <: Real}
+    return turns_per_length(placed, (placed.primitive.at.x, placed.primitive.at.y), T)
 end
 
 """
@@ -229,8 +237,6 @@ function conductor_zone(
     end
     patterned = any(entry -> entry.owner === Group, reference.placement.patterns)
     uniform_paths = all(placed -> placed.paths == reference.paths, zone)
-    turns = uniform_paths ? turns_per_length(reference.paths, T) :
-            sum(placed -> turns_per_length(placed.paths, T), zone) / length(zone)
     base_resistance = tubular_resistance(
         zero(T),
         radius,
@@ -243,6 +249,12 @@ function conductor_zone(
             path_corrected_resistance(base_resistance, placed.paths)
         end
         reduce(parallel, resistances)
+    end
+    # Each wire weighs in the turns by its share of the current.
+    turns = uniform_paths ? turns_per_length(reference, center, T) :
+            resistance * sum(zone) do placed
+        turns_per_length(placed, center, T) /
+        path_corrected_resistance(base_resistance, placed.paths)
     end
     gmr = patterned ?
           (circular_locus ?
@@ -290,7 +302,7 @@ function conductor_zone(
     isapprox(area(placed.primitive), zone_area) || throw(ArgumentError(
         "resolved annular conductor does not preserve its declared area"
     ))
-    turns = turns_per_length(placed.paths, T)
+    turns = turns_per_length(placed, T)
     resistance = path_corrected_resistance(
         material.rho / zone_area,
         placed.paths
@@ -334,7 +346,7 @@ function conductor_zone(
         "resolved conductor shell does not preserve its declared thickness"
     ))
     zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
-    turns = turns_per_length(placed.paths, T)
+    turns = turns_per_length(placed, T)
     resistance = path_corrected_resistance(
         material.rho / zone_area,
         placed.paths
@@ -530,11 +542,13 @@ function validate(
     return placed
 end
 
+# A member's resistance per unit length of cable includes the overlength of its paths.
 function member_resistance(placed::PlacedRegion, material)
-    return member_resistance(placed.source.primitive, material)
+    return path_corrected_resistance(
+        member_resistance(placed.source.primitive, material), placed.paths)
 end
 function member_resistance(placed::PlacedRegion{<:Region{<:Shell}, <:Annulus}, material)
-    return member_resistance(placed.primitive, material)
+    return path_corrected_resistance(member_resistance(placed.primitive, material), placed.paths)
 end
 
 function radial_extent(shape::Disk, center)
@@ -666,10 +680,8 @@ function nested_conductor_zone(
     equivalent_radii = sqrt.(areas ./ (one(T) * π))
     total_area = sum(areas)
     center = convert.(T, conductor_zone_position(placed_regions))
-    resistances = T[path_corrected_resistance(
-                        member_resistance(placed_regions[index], materials[index]),
-                        placed_regions[index].paths
-                    ) for index in eachindex(placed_regions)]
+    resistances = T[member_resistance(placed_regions[index], materials[index])
+                    for index in eachindex(placed_regions)]
 
     resistance = first(resistances)
     alpha = first(materials).alpha
@@ -696,7 +708,7 @@ function nested_conductor_zone(
         end
     end
 
-    turn_values = T[turns_per_length(placed.paths, T) for placed in placed_regions]
+    turn_values = T[turns_per_length(placed, center, T) for placed in placed_regions]
     turns = sum(weights .* turn_values)
     bounded = map(placed_regions) do placed
         index = findfirst(
@@ -872,19 +884,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Combine the strand-count-weighted turns per unit length of two conductor
-zones \\[1/m\\]. A zone without explicit wires leaves the accumulated value
-unchanged.
+Combine the turns per unit length of two conductor zones \\[1/m\\], each weighted by its
+share of the current, the inverse of its resistance.
 """
 function equivalent_turns_per_length(
-        num_wires::Integer,
+        resistance::Real,
         turns_per_length::Real,
-        added_wires::Integer,
+        added_resistance::Real,
         added_turns::Real
 )
-    iszero(added_wires) && return turns_per_length
-    total_wires = num_wires + added_wires
-    return (num_wires * turns_per_length + added_wires * added_turns) / total_wires
+    return (turns_per_length / resistance + added_turns / added_resistance) *
+           parallel(resistance, added_resistance)
 end
 
 """
@@ -930,9 +940,9 @@ function add_conductor_zone(conductor, zone)
         cross_section = conductor.cross_section + zone.area,
         num_wires = conductor.num_wires + zone.wires,
         turns_per_length = equivalent_turns_per_length(
-            conductor.num_wires,
+            conductor.resistance,
             conductor.turns_per_length,
-            zone.wires,
+            zone.resistance,
             zone.turns
         ),
         resistance = parallel(
@@ -1276,12 +1286,9 @@ function validate(
     ))
 end
 
-function same_path_definitions(left, right)
-    length(left) == length(right) || return false
-    return all(eachindex(left)) do index
-        left[index].path == right[index].path
-    end
-end
+# The helices that a placed region follows, level by level, without their radii and axes.
+# The regions of one zone share them.
+path_definitions(placed::PlacedRegion) = map(entry -> entry.path, placed.paths)
 
 """
 $(TYPEDSIGNATURES)
@@ -1375,7 +1382,7 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
                 next_signature = map(entry -> entry.pattern, next.placement.patterns)
                 same_zone = next.terminal === terminal &&
                             next.source == placed.source &&
-                            same_path_definitions(next.paths, placed.paths) &&
+                            path_definitions(next) == path_definitions(placed) &&
                             next_signature == signature
                 same_zone || break
                 cursor += 1
@@ -1542,7 +1549,7 @@ function flatten(design::CableDesign, ::Type{T}) where {T <: Real}
         mu_r_ins[index] = isempty(item.layers) ? one(T) :
                           equivalent_dielectric_permeability(
             item.layers,
-            item.turns_per_length,
+            abs(item.turns_per_length),
             item.r_ex,
             item.r_ins
         )

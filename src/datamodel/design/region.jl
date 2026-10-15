@@ -81,7 +81,7 @@ struct PlacedRegion{
     P <: NamedTuple{(:patterns,), <:Tuple{Tuple{Vararg{
         NamedTuple{(:owner, :pattern, :member, :pose), <:Tuple{Type, Any, Integer, Pose2}}
     }}}},
-    H <: Tuple{Vararg{NamedTuple{(:path, :radius), <:Tuple{Any, Real}}}}
+    H <: Tuple{Vararg{NamedTuple{(:path, :radius, :axis), <:Tuple{Any, Real, Tuple{Real, Real}}}}}
 }
     "Authoritative homogeneous physical region."
     source::R
@@ -91,7 +91,8 @@ struct PlacedRegion{
     terminal::Union{Nothing, Symbol}
     "Ordered `(owner, pattern, member, pose)` placements. `Group` coalesces terminals, `Assembly` preserves them."
     placement::P
-    "Ordered `(path, radius)` declarations traversed by the region."
+    "Ordered `(path, radius, axis)` declarations traversed by the region. A helix winds about
+    its axis, the center of the part that declared it, at the radius."
     paths::H
 
     function PlacedRegion(
@@ -107,7 +108,8 @@ struct PlacedRegion{
                 NamedTuple{(:owner, :pattern, :member, :pose),
                     <:Tuple{Type, Any, Integer, Pose2}}
             }}}},
-            H <: Tuple{Vararg{NamedTuple{(:path, :radius), <:Tuple{Any, Real}}}}
+            H <: Tuple{Vararg{NamedTuple{(:path, :radius, :axis),
+                <:Tuple{Any, Real, Tuple{Real, Real}}}}}
     }
         terminal === nothing || terminal !== Symbol("") ||
             throw(

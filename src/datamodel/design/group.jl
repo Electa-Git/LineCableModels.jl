@@ -452,7 +452,8 @@ function resolve_bounded(context::Union{EmptyBoundary, Disk}, group::Group)
                         Pose2(absolute_center[1] - formation_center[1],
                             absolute_center[2] - formation_center[2]),
                         primitive
-                    )
+                    ),
+                    axis = formation_center
                 ),)
         terminal = member.source.material.kind === :conductor ? group.name : nothing
         push!(regions,
@@ -589,15 +590,16 @@ function _resolve_group(
                 entry.owner === Assembly ? merge(entry, (owner = Group,)) : entry
             end
             center = centroid(placed.primitive)
-            paths = group.path === nothing ? placed.paths :
-                    (placed.paths...,
+            paths = group.path === nothing ? resolved.paths :
+                    (resolved.paths...,
                 (
                     path = group.path,
                     radius = _path_radius(
                         nothing,
                         Pose2(center[1], center[2], 0),
                         placed.primitive
-                    )
+                    ),
+                    axis = (group.at.x, group.at.y)
                 ))
             push!(regions, PlacedRegion(
                 placed.source,
@@ -635,8 +637,8 @@ function _resolve_group(
             end
             patterns = (patterns...,
                 (owner = Group, pattern = pattern, member = member, pose = pose))
-            paths = group.path === nothing ? placed.paths :
-                    (placed.paths...,
+            paths = group.path === nothing ? resolved.paths :
+                    (resolved.paths...,
                 (
                     path = group.path,
                     radius = _resolved_path_radius(
@@ -644,7 +646,8 @@ function _resolve_group(
                         pattern,
                         pose,
                         local_primitive
-                    )
+                    ),
+                    axis = (group.at.x, group.at.y)
                 ))
             push!(regions, PlacedRegion(
                 placed.source,

@@ -179,8 +179,9 @@ function _append_assembly_member!(
         patterns = pattern === nothing ? resolved.placement.patterns :
                    (resolved.placement.patterns...,
             (owner = Assembly, pattern = pattern, member = member, pose = member_at))
-        paths = path === nothing ? placed.paths :
-                (placed.paths..., (path = path, radius = radius))
+        paths = path === nothing ? resolved.paths :
+                (resolved.paths..., (path = path, radius = radius,
+            axis = (assembly_at.x, assembly_at.y)))
         push!(regions,
             PlacedRegion(
                 placed.source,

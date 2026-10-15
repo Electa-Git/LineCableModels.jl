@@ -334,7 +334,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
                 resolved.primitive,
                 placed.terminal,
                 resolved.placement,
-                placed.paths
+                resolved.paths
             ))
     end
 
@@ -373,7 +373,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
                             )
                         ),
                     ),
-                    placed.paths
+                    resolved.paths
                 ))
         end
     end
@@ -399,7 +399,7 @@ function _resolve_enclosure(enclosure::Enclosure, container, contents::CableGeom
                             )
                         ),
                     ),
-                    placed.paths
+                    resolved.paths
                 ))
         end
         outer = boundary(wall_result)
