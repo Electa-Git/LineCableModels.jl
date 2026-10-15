@@ -404,7 +404,7 @@ function materials!(
     homogenize!(workspace, frequency, formulation, calculations, materials)
     dielectric!(workspace.buffers.dielectric_admittivity, workspace.input.cable,
         workspace.buffers.rho_layer, formulation.formulas, workspace.input.freq[frequency],
-        workspace.input.temperature; workspace)
+        workspace.input.jω[frequency], workspace.input.temperature; workspace)
     return workspace
 end
 

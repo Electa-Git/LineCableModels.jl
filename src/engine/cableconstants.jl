@@ -502,7 +502,7 @@ function _solve!(
             material, problem.temperature; workspace)
     end
     dielectric!(buffers.dielectric_admittivity, workspace.cable, buffers.rho_layer,
-        formulation.formulas, problem.frequency, problem.temperature; workspace)
+        formulation.formulas, problem.frequency, s, problem.temperature; workspace)
     cable_impedance!(
         buffers.Z,
         workspace.cable,

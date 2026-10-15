@@ -41,7 +41,7 @@ export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 export ShuntModel, BoundarySolveError
 export ModalAnalysis
 
-export compute
+export compute, sigma
 
 # Module-specific dependencies
 using LinearAlgebra: diag

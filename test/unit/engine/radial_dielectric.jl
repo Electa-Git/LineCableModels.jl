@@ -82,7 +82,8 @@
                 admittivity = zeros(ComplexF64, length(input.dielectric_materials))
                 rho = [constitutive(formulation.formulas.temperature_dependence, material, 20.0)
                        for material in input.dielectric_materials]
-                E.dielectric!(admittivity, input, rho, formulation.formulas, f, 20.0)
+                E.dielectric!(admittivity, input, rho, formulation.formulas, f,
+                    complex(zero(Float64), 2 * (one(Float64) * π) * f), 20.0)
                 E.cable_admittance!(y, input, shunt, admittivity,
                     complex(0.0, 2π*f), zeros(ComplexF64, length(input.dielectric_materials)))
                 only(y)

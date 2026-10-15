@@ -38,10 +38,11 @@ returned record in result details at completion, once per physical point. Later
 observation reads that record without evaluating problem builders.
 """
 function completed_inputs(problem::LineParametersProblem)
-    Record=NamedTuple{(:system,:temperature,:earth_props,:frequencies,:field_descriptions),
-        Tuple{NamedTuple,typeof(problem.temperature),NamedTuple,typeof(problem.frequencies),NamedTuple}}
+    Record=NamedTuple{(:system,:temperature,:earth_props,:frequencies,:sigma,:field_descriptions),
+        Tuple{NamedTuple,typeof(problem.temperature),NamedTuple,typeof(problem.frequencies),typeof(problem.sigma),NamedTuple}}
     return Record((_input_record(problem.system),problem.temperature,_input_record(problem.earth_props),
-        copy(problem.frequencies),(temperature=(name="temperature",unit="°C"),)))
+        copy(problem.frequencies),problem.sigma,(temperature=(name="temperature",unit="°C"),
+            sigma=(name="Laplace abscissa",unit="1/s"))))
 end
 function completed_inputs(problem::CableConstantsProblem)
     Record=NamedTuple{(:design,:temperature,:frequency,:field_descriptions),
@@ -194,3 +195,9 @@ function line_length(source::AbstractCoreResult)
     return system===nothing ? nothing : system.line_length
 end
 line_length(source) = nothing
+
+"""Return the recorded Laplace abscissa in 1/s, or zero when absent."""
+function sigma(source::AbstractCoreResult)
+    inputs=get(details(source).data,:inputs,nothing)
+    return inputs===nothing ? zero(Float64) : get(inputs,:sigma,zero(Float64))
+end

@@ -556,3 +556,46 @@ end
     @test dispersive.Z.values != static.Z.values
     @test dispersive.Y.values != static.Y.values
 end
+
+@testitem "Engine / solver / Laplace sigma preserves and continues line parameters" tags=[:integration, :engine] setup=[
+    TestFixtures
+] begin
+    fixture = TestFixtures.line_parameters_problem(frequencies = [1.0, 50.0, 1e3, 1e5])
+    formulation = Formulation(insulation_admittance = :lossy, semicon_admittance = :lossy)
+    ordinary = compute(LineParametersProblem(fixture.system;
+        temperature = fixture.temperature, earth_props = fixture.earth_props,
+        frequencies = fixture.frequencies), formulation)
+    zero_shift = compute(LineParametersProblem(fixture.system;
+        temperature = fixture.temperature, earth_props = fixture.earth_props,
+        frequencies = fixture.frequencies, sigma = 0), formulation)
+    @test Z(zero_shift) == Z(ordinary)
+    @test Y(zero_shift) == Y(ordinary)
+    @test LineCableModels.Engine.sigma(zero_shift) == 0
+
+    overhead = TestFixtures.three_bare_wires_problem(frequencies = [50.0, 1e3, 1e5])
+    ideal = Formulation(earth_admittance = :ideal)
+    real_axis = compute(overhead, ideal)
+    shifted = compute(LineParametersProblem(overhead.system;
+        temperature = overhead.temperature, earth_props = overhead.earth_props,
+        frequencies = overhead.frequencies, sigma = 100.0), ideal)
+    @test LineCableModels.Engine.sigma(shifted) == 100.0
+    for (k, frequency) in pairs(overhead.frequencies)
+        jω = im * 2π * frequency
+        @test all(isapprox.(Y(shifted)[:, :, k],
+            (100.0 + jω) ./ jω .* Y(real_axis)[:, :, k]; rtol = 1e-12))
+    end
+
+    f0, sigma0, δ = 1e3, 100.0, 1.0
+    points = ((sigma0 + δ, f0), (sigma0 - δ, f0),
+        (sigma0, f0 + δ / 2π), (sigma0, f0 - δ / 2π))
+    results = [compute(LineParametersProblem(fixture.system;
+        temperature = fixture.temperature, earth_props = fixture.earth_props,
+        frequencies = [frequency], sigma), formulation) for (sigma, frequency) in points]
+    for F in (Z, Y)
+        dσ = (F(results[1]) - F(results[2])) / (2δ)
+        dω = (F(results[3]) - F(results[4])) / (2δ)
+        residual = maximum(abs, dσ .+ im .* dω)
+        derivative = maximum(abs, dσ)
+        @test residual <= 1e-4 * derivative
+    end
+end

@@ -91,7 +91,7 @@ function interface_clearance(system::LineCableSystem)
         pairs = false, interface = true)
     iszero(displacement) && return system
     return build(LineCableSystem, system.designs, positions, system.connections,
-        system.environment, system.system_id, system.line_length)
+        system.environment, system.system_id, system.line_length)::typeof(system)
 end
 
 Base.eltype(::LineCableSystem{T}) where {T} = T

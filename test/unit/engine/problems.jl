@@ -11,6 +11,17 @@
     @test problems isa Gridspace{LineParametersProblem}
     @test [problem.earth_props.layers[2].rho for problem in problems] == [10.0, 100.0]
 
+    earth = homogeneous(rho = 100.0)
+    @test LineParametersProblem(system; earth_props = earth).sigma == 0
+    shifted = @inferred LineParametersProblem(system, 20.0, earth, [50.0], 10.0)
+    @test shifted.sigma == 10.0
+    problems = LineParametersProblem(system; earth_props = earth, sigma = Grid((0.0, 10.0)))
+    @test problems isa Gridspace{LineParametersProblem}
+    @test length(problems) == 2
+    @test [problem.sigma for problem in problems] == [0.0, 10.0]
+    @test_throws DomainError LineParametersProblem(system; earth_props = earth, sigma = NaN)
+    @test_throws DomainError LineParametersProblem(system; earth_props = earth, sigma = -1)
+
     constants_problems = CableConstantsProblem(design; temperature = Grid((20.0, 90.0)))
     @test constants_problems isa Gridspace{CableConstantsProblem}
     @test [problem.temperature for problem in constants_problems] == [20.0, 90.0]

@@ -182,6 +182,8 @@ function Base.show(io::IO, ::MIME"text/plain", problem::LineParametersProblem)
     children = (
         (label = "system       $(sprint(show, problem.system; context = :compact => true))", noun = "fields"),
         (label = "temperature  $(TextDisplay.engineering(problem.temperature, :celsius))", noun = "fields"),
+        (iszero(problem.sigma) ? () :
+            ((label = "σ            $(problem.sigma) 1/s", noun = "fields"),))...,
         (label = "earth        $(sprint(show, problem.earth_props; context = :compact => true))", noun = "fields"),
         (label = "f            $(_frequency_span(problem.frequencies))", noun = "fields"),
     )

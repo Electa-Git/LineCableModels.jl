@@ -9,9 +9,11 @@ and an optional polarization-loss contribution are evaluated together.
 ``\\varepsilon_r``, and polarization loss tangent ``\\tan\\delta_p``,
 
 ```math
-\\kappa=\\frac{1}{\\rho}+\\omega\\varepsilon_0\\varepsilon_r\\tan\\delta_p+
-j\\omega\\varepsilon_0\\varepsilon_r.
+\\kappa(s)=\\frac{1}{\\rho}+s\\varepsilon_0\\varepsilon_r(1-j\\tan\\delta_p).
 ```
+
+On the real axis, this equals ``1/\\rho+\\omega\\varepsilon_0\\varepsilon_r\\tan\\delta_p+
+j\\omega\\varepsilon_0\\varepsilon_r``.
 
 The annular layer operator converts this material admittivity to
 ``Y=2\\pi\\kappa/\\ln(b/a)``. This is the standard frequency-domain
@@ -30,9 +32,11 @@ $(TYPEDSIGNATURES)
 Evaluate the standard lossy material admittivity for a semiconducting layer:
 
 ```math
-\\kappa=\\frac{1}{\\rho}+\\omega\\varepsilon_0\\varepsilon_r\\tan\\delta_p+
-j\\omega\\varepsilon_0\\varepsilon_r.
+\\kappa(s)=\\frac{1}{\\rho}+s\\varepsilon_0\\varepsilon_r(1-j\\tan\\delta_p).
 ```
+
+On the real axis, this equals ``1/\\rho+\\omega\\varepsilon_0\\varepsilon_r\\tan\\delta_p+
+j\\omega\\varepsilon_0\\varepsilon_r``.
 
 `material.tan_delta` represents polarization loss only. Conduction is supplied
 by `material.rho`. The common coaxial operator applies the annular geometry.
@@ -43,6 +47,7 @@ by `material.rho`. The common coaxial operator applies the annular geometry.
   - `material`: semiconducting material properties, including resistivity and
     relative permittivity.
   - `frequency`: evaluation frequency \\[Hz\\].
+  - `s`: complex frequency \\[1/s\\].
   - `temperature`: operating temperature \\[°C\\].
   - `options`: the normalized formulation options of the formula.
 - `workspace`: optional computation workspace supplying reusable numerical buffers.
@@ -59,13 +64,11 @@ semiconducting-screen specialization. The constitutive relation itself is
 standard frequency-domain electromagnetism.
 """
 @inline function semicon_material(::Formula{:lossy}, functor, workspace)
-    (; material, frequency) = functor.input
+    (; material, frequency, s) = functor.input
     T = typeof(frequency)
     ε₀ = vacuum_permittivity(T)
-    ω = 2 * (one(T) * π) * frequency
-    displacement = complex(zero(T), ω) * ε₀ * material.eps_r
-    return conductivity(material.rho) + imag(displacement) * material.tan_delta +
-           displacement
+    return conductivity(material.rho) + s * ε₀ * material.eps_r *
+           complex(one(T), -material.tan_delta)
 end
 
 formulation_options(::Expression{<:Formula{:lossy}, typeof(semicon_material)}) = FormulationOptions()

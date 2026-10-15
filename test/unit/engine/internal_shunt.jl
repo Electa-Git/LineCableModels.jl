@@ -76,7 +76,8 @@
     formulas = Formulation().formulas
     rho = [constitutive(formulas.temperature_dependence, material, 20.0)
            for material in cable.dielectric_materials]
-    E.dielectric!(admittivity, cable, rho, formulas, 50.0, 20.0)
+    E.dielectric!(admittivity, cable, rho, formulas, 50.0,
+        complex(zero(Float64), 2 * (one(Float64) * π) * 50.0), 20.0)
     E.cable_potential!(p, cable, shunt, admittivity, 100pi*im,
         layers, coefficients, tails)
     E.cable_admittance!(y, cable, shunt, admittivity, 100pi*im, layers)

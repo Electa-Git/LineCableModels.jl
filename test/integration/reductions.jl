@@ -43,7 +43,8 @@ end
         admittivity = Vector{ComplexF64}(undef, length(input.dielectric_materials))
         rho = [constitutive(formulation.formulas.temperature_dependence, material, 20.0)
                for material in input.dielectric_materials]
-        EN.dielectric!(admittivity, input, rho, formulation.formulas, frequency, 20.0)
+        EN.dielectric!(admittivity, input, rho, formulation.formulas, frequency,
+            complex(zero(Float64), 2 * (one(Float64) * π) * frequency), 20.0)
         count = length(input.terminals)
         nodal = EN.cable_admittance!(Matrix{ComplexF64}(undef, count, count), input, shunt,
             admittivity, s, similar(admittivity))

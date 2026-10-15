@@ -85,7 +85,7 @@ function lineinput(
     n_cables = length(cable.assemblies)
 
     freq = copy(problem.frequencies)
-    jω = Complex{T}.(im .* (2 * (one(first(freq)) * π) .* freq))
+    jω = Complex{T}.(problem.sigma .+ im .* (2 * (one(first(freq)) * π) .* freq))
     horz = Vector{T}(undef, n_phases)
     horz_sep = Matrix{T}(undef, n_phases, n_phases)
     vert = Vector{T}(undef, n_phases)

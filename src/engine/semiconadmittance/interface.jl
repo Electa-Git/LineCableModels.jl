@@ -5,8 +5,8 @@ Select one semiconducting-screen constitutive relation by its stable literature
 identifier.
 
 Each formula implements `semicon_material(selected, functor, workspace)` on its concrete
-selection type. The input of `functor` holds the material, the frequency, the temperature
-and the options. The method returns the material's frequency-evaluated admittivity [S/m]. Geometry and
+selection type. The input of `functor` holds the material, the frequency, the complex frequency `s`,
+the temperature and the options. The method returns the material's frequency-evaluated admittivity [S/m]. Geometry and
 radial series aggregation remain common Engine operations.
 
 $(TYPEDFIELDS)
@@ -42,10 +42,11 @@ end
 @inline function (formula::SemiconAdmittanceFormulation)(
         material::Material{T},
         frequency::T,
-        temperature::T; workspace = nothing
+        temperature::T; workspace = nothing,
+        s = complex(zero(T), 2 * (one(T) * π) * frequency)
 ) where {T <: Real}
     functor = Functor(formula,
-        (; material, frequency, temperature, options = formula.options); workspace)
+        (; material, frequency, s, temperature, options = formula.options); workspace)
     value = Expression(formula, semicon_material)(functor, workspace)
     return convert(Complex{T}, validate(value, formula, T))
 end
@@ -53,7 +54,8 @@ end
 function (formula::SemiconAdmittanceFormulation)(
         material::Material{T},
         frequency::Real,
-        temperature::Real; workspace = nothing
+        temperature::Real; workspace = nothing,
+        s = complex(zero(T), 2 * (one(T) * π) * frequency)
 ) where {T <: Real}
     U = promote_type(
         T,
@@ -63,7 +65,7 @@ function (formula::SemiconAdmittanceFormulation)(
     return formula(
         convert(Material{U}, material),
         convert(U, float(frequency)),
-        convert(U, float(temperature)); workspace
+        convert(U, float(temperature)); workspace, s = convert(Complex{U}, s)
     )
 end
 

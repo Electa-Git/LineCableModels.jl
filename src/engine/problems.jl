@@ -19,12 +19,15 @@ struct LineParametersProblem{
     earth_props::E
     "Strictly positive, sorted analysis frequencies \\[Hz\\]."
     frequencies::Vector{T}
+    "Laplace abscissa ``σ`` in 1/s. The computation evaluates every law at `s = σ + j2πf`."
+    sigma::T
 
     function LineParametersProblem{T, S, E}(
             system::S,
             temperature::T,
             earth_props::E,
-            frequencies::Vector{T}
+            frequencies::Vector{T},
+            sigma::T
     ) where {
             T <: Real,
             S <: LineCableSystem{T},
@@ -34,7 +37,8 @@ struct LineParametersProblem{
             system,
             temperature,
             earth_props,
-            frequencies
+            frequencies,
+            sigma
         ))
     end
 end
@@ -58,6 +62,8 @@ function validate(problem::LineParametersProblem)
     ))
     isfinite(problem.temperature) || throw(DomainError(problem.temperature,
         "operating temperature must be finite"))
+    isfinite(problem.sigma) && problem.sigma >= zero(problem.sigma) || throw(DomainError(
+        problem.sigma, "Laplace abscissa must be finite and nonnegative"))
     isempty(problem.frequencies) && throw(ArgumentError("frequencies cannot be empty"))
     all(value -> isfinite(value) && value > zero(value), problem.frequencies) ||
         throw(DomainError(
@@ -79,6 +85,7 @@ temperature, static earth model and frequency types promote to.
 - `temperature=20`: operating temperature \\[°C\\].
 - `earth_props`: static earth model.
 - `frequencies=[50]`: positive sorted analysis frequencies \\[Hz\\].
+- `sigma=0`: Laplace abscissa σ \\[1/s\\]. The computation evaluates every law at `s = σ + j2πf`.
 - `combine=:product`: composition rule when an input varies.
 """
 function LineParametersProblem(
@@ -86,9 +93,10 @@ function LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        sigma = 0,
         combine::Symbol = :product
 )
-    values = (system, temperature, earth_props, frequencies)
+    values = (system, temperature, earth_props, frequencies, sigma)
     return parameterize(LineParametersProblem, LineParametersProblem, values; combine)
 end
 
@@ -96,12 +104,14 @@ function LineParametersProblem(
         system::LineCableSystem,
         temperature::Real,
         earth_props::EarthModel,
-        frequencies::AbstractVector{<:Real}
+        frequencies::AbstractVector{<:Real},
+        sigma::Real = 0
 )
     isempty(frequencies) && throw(ArgumentError("frequencies cannot be empty"))
     # Integer inputs are neutral: the input types promote as they are, then float.
     T = float(promote_type(
-        eltype(system), typeof(temperature), eltype(earth_props), typeof(first(frequencies))
+        eltype(system), typeof(temperature), eltype(earth_props), typeof(first(frequencies)),
+        typeof(sigma)
     ))
     converted_system = DataModel.interface_clearance(convert(LineCableSystem{T}, system))
     converted_earth = convert(EarthModel{T}, earth_props)
@@ -113,7 +123,8 @@ function LineParametersProblem(
         converted_system,
         convert(T, float(temperature)),
         converted_earth,
-        T[convert(T, float(value)) for value in frequencies]
+        T[convert(T, float(value)) for value in frequencies],
+        convert(T, float(sigma))
     )
 end
 
@@ -133,12 +144,13 @@ then its problem.
 - `temperature=20`: operating temperature in °C.
 - `earth_props`: static earth model.
 - `frequencies=[50]`: positive sorted analysis frequencies in Hz.
+- `sigma=0`: Laplace abscissa σ \\[1/s\\]. The computation evaluates every law at `s = σ + j2πf`.
 - `combine=:product`: composition rule when an input varies.
 
 # Returns
 
 One validated [`LineParametersProblem`](@ref), or a `Gridspace{LineParametersProblem}`
-over the seven values when one of them is a `Grid` or `Gridspace`.
+over eight inputs when an input is a `Grid` or `Gridspace`.
 """
 function LineParametersProblem(
         placements::Union{Tuple, AbstractVector,
@@ -149,15 +161,16 @@ function LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        sigma = 0,
         combine::Symbol = :product
 )
     caller = function (placements, environment, system_id, line_length, temperature,
-            earth_props, frequencies)
+            earth_props, frequencies, sigma)
         system = build(LineCableSystem, placements; environment, system_id, line_length)
-        return LineParametersProblem(system, temperature, earth_props, frequencies)
+        return LineParametersProblem(system, temperature, earth_props, frequencies, sigma)
     end
     values = (placements, environment, system_id, line_length, temperature, earth_props,
-        frequencies)
+        frequencies, sigma)
     return parameterize(LineParametersProblem, caller, values; combine)
 end
 
@@ -182,13 +195,13 @@ placements.
 - `temperature=20`: operating temperature in °C.
 - `earth_props`: static earth model.
 - `frequencies=[50]`: positive sorted analysis frequencies in Hz.
+- `sigma=0`: Laplace abscissa σ \\[1/s\\]. The computation evaluates every law at `s = σ + j2πf`.
 - `combine=:product`: composition rule when an input varies.
 
 # Returns
 
-One validated [`LineParametersProblem`](@ref) containing a completed
-[`LineCableSystem`](@ref), or a `Gridspace{LineParametersProblem}` over the nine values
-when one of them is a `Grid` or `Gridspace`.
+One validated [`LineParametersProblem`](@ref) with a completed [`LineCableSystem`](@ref).
+If an input is a `Grid` or `Gridspace`, return a `Gridspace{LineParametersProblem}` over ten inputs.
 """
 function LineParametersProblem(
         designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple, AbstractGrid,
@@ -201,10 +214,11 @@ function LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        sigma = 0,
         combine::Symbol = :product
 )
     return LineParametersProblem(designs, placements, connections, environment, system_id,
-        line_length, temperature, earth_props, frequencies; combine)
+        line_length, temperature, earth_props, frequencies, sigma; combine)
 end
 
 function LineParametersProblem(
@@ -216,7 +230,8 @@ function LineParametersProblem(
         line_length::Real,
         temperature::Real,
         earth_props::EarthModel,
-        frequencies::AbstractVector{<:Real};
+        frequencies::AbstractVector{<:Real},
+        sigma::Real;
         combine::Symbol = :product
 )
     system = build(
@@ -229,7 +244,7 @@ function LineParametersProblem(
         line_length,
         combine
     )
-    return LineParametersProblem(system, temperature, earth_props, frequencies)
+    return LineParametersProblem(system, temperature, earth_props, frequencies, sigma)
 end
 
 function LineParametersProblem(
@@ -242,11 +257,12 @@ function LineParametersProblem(
         line_length::Union{Real, AbstractGrid, Gridspace},
         temperature::Union{Real, AbstractGrid, Gridspace},
         earth_props::Union{EarthModel, AbstractGrid, Gridspace},
-        frequencies::Union{AbstractVector{<:Real}, AbstractGrid, Gridspace};
+        frequencies::Union{AbstractVector{<:Real}, AbstractGrid, Gridspace},
+        sigma::Union{Real, AbstractGrid, Gridspace};
         combine::Symbol = :product
 )
     values = (designs, placements, connections, environment, system_id, line_length,
-        temperature, earth_props, frequencies)
+        temperature, earth_props, frequencies, sigma)
     return parameterize(LineParametersProblem, LineParametersProblem, values; combine)
 end
 

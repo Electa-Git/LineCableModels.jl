@@ -7,7 +7,7 @@ displacement current while suppressing conduction and polarization loss.
 **Expression.**
 
 ```math
-\\kappa=j\\omega\\varepsilon_0\\varepsilon_r.
+\\kappa(s)=s\\varepsilon_0\\varepsilon_r.
 ```
 
 This is the lossless specialization of the standard frequency-domain
@@ -23,7 +23,7 @@ $(TYPEDSIGNATURES)
 Evaluate lossless semiconducting-screen admittivity:
 
 ```math
-\\kappa=j\\omega\\varepsilon_0\\varepsilon_r.
+\\kappa(s)=s\\varepsilon_0\\varepsilon_r.
 ```
 
 # Arguments
@@ -31,6 +31,7 @@ Evaluate lossless semiconducting-screen admittivity:
 - `functor`: the Functor of the evaluation point. Its input holds:
   - `material`: semiconducting material and relative permittivity.
   - `frequency`: evaluation frequency \\[Hz\\].
+  - `s`: complex frequency \\[1/s\\].
   - `temperature`: operating temperature \\[°C\\].
   - `options`: the normalized formulation options of the formula.
 - `workspace`: optional computation workspace supplying reusable numerical buffers.
@@ -40,11 +41,10 @@ Evaluate lossless semiconducting-screen admittivity:
 - Complex lossless admittivity \\[S/m\\].
 """
 @inline function semicon_material(::Formula{:lossless}, functor, workspace)
-    (; material, frequency) = functor.input
+    (; material, frequency, s) = functor.input
     T = typeof(frequency)
     ε₀ = vacuum_permittivity(T)
-    ω = 2 * (one(T) * π) * frequency
-    return complex(zero(T), ω) * ε₀ * material.eps_r
+    return s * ε₀ * material.eps_r
 end
 
 formulation_options(::Expression{<:Formula{:lossless}, typeof(semicon_material)}) = FormulationOptions()

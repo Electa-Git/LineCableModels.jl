@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `LineParametersProblem(; sigma=0)` evaluates laws at `s=σ+j2πf`. Lossy laws use `κ(s)=1/ρ+sε₀εr(1−jtanδ)`.
+  `Engine.sigma(result)` reads σ in 1/s.
 - `DataModel.flatten(design[, T])` gives the `CableBlueprint` of a design. Each retained
   terminal has one equivalent conductor annulus, the physical dielectric layers of its
   interval and their equivalent relative permeability `mu_r_ins`. The coaxial groups keep
