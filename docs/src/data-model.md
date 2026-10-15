@@ -592,6 +592,65 @@ preview(
 ).figure
 ```
 
+### Optical ground wire
+
+An optical ground wire starts with a gel-filled aluminium tube. Rectangular strands bend
+around the tube up to the disk boundary. The tube and the rectangular strands form one
+terminal.
+
+```@example supported_formations
+gallery_aluminum = Material(kind=:conductor, rho=2.8264e-8, mu_r=1.0)
+gallery_gel = Material(kind=:insulator, rho=1.0e12, eps_r=2.2)
+opgw_design = @cable "optical-ground-wire" begin
+    filler(gallery_gel, Disk(2.5e-3))
+    @terminal :ground begin
+        sheath(gallery_aluminum; t=0.5e-3)
+        stranded(
+            gallery_aluminum;
+            shape=Rectangle(3.0e-3, 2.0e-3),
+            lay=LayRatio(12),
+            boundary=Disk(7.0e-3),
+        )
+    end
+end
+
+preview(
+    opgw_design;
+    backend=:cairo,
+    display_plot=false,
+    controls=false,
+).figure
+```
+
+### Hollow conductor
+
+Round wires surround the oil duct of a hollow conductor. The first course contains the wires
+that fit around the duct, and each next course six more.
+
+```@example supported_formations
+gallery_oil = Material(kind=:insulator, rho=1.0e13, eps_r=2.2)
+hollow_design = @cable "hollow-conductor" begin
+    filler(gallery_oil, Disk(6.0e-3))
+    @terminal :core begin
+        stranded(
+            gallery_copper;
+            shape=Disk(1.5e-3),
+            lay=LayRatio(14),
+            boundary=Disk(15.0e-3),
+            fill=gallery_air,
+        )
+    end
+    insulation(gallery_xlpe; t=2.0e-3)
+end
+
+preview(
+    hollow_design;
+    backend=:cairo,
+    display_plot=false,
+    controls=false,
+).figure
+```
+
 ### Sectorized stranded cores
 
 A sectorized phase core contains its own bundle-center strand and complete
@@ -644,6 +703,34 @@ end
 preview(
     [sector_stranded, sector_dense];
     panel_titles=("supplied wire, 74.23% fill", "resized wire, 93% fill"),
+    backend=:cairo,
+    display_plot=false,
+    controls=false,
+).figure
+```
+
+### Stranded core in a rectangle
+
+Disk wires fill a `Rectangle` geometric boundary in concentric courses, mapped by swept
+area, and each wire keeps its area. The insulation and the jacket are rectangles with sharp
+corners.
+
+```@example supported_formations
+rectangle_design = @cable "stranded-rectangle" begin
+    @terminal :core begin
+        stranded(
+            gallery_copper;
+            shape=Disk(0.5e-3),
+            boundary=Rectangle(10.0e-3, 6.0e-3),
+            fill=gallery_air,
+        )
+    end
+    insulation(gallery_xlpe; t=1.0e-3)
+    jacket(gallery_jacket; t=0.5e-3)
+end
+
+preview(
+    rectangle_design;
     backend=:cairo,
     display_plot=false,
     controls=false,
@@ -799,6 +886,31 @@ end
 preview(
     milliken_design;
     title="Milliken - six 61-wire segments and a central conductor",
+    backend=:cairo,
+    display_plot=false,
+    controls=false,
+).figure
+```
+
+A stranded core of 0.1 mm wires fills the center disk of the same Milliken.
+
+```@example supported_formations
+milliken_center_design = @cable "milliken-stranded-center" begin
+    @terminal :phase begin
+        milliken(
+            gallery_copper;
+            shape=Disk(0.23862789195414474e-3),
+            segment=milliken_segment_boundary,
+            segments=6,
+            fill=gallery_interstitial,
+            center=stranded(gallery_copper; shape=Disk(0.1e-3), lay=LayRatio(12)),
+        )
+        insulation(gallery_xlpe; t=1.0e-3)
+    end
+end
+
+preview(
+    milliken_center_design;
     backend=:cairo,
     display_plot=false,
     controls=false,

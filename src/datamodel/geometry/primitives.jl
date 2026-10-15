@@ -477,6 +477,15 @@ r_ex(primitive::Annulus) = primitive.ro
 thickness(primitive::Disk) = primitive.r
 thickness(primitive::Annulus) = primitive.ro - primitive.ri
 
+# A rectangle and a polygon tessellate to their exact vertices. They take no arc points.
+function tessellate(shape::Rectangle; points_per_arc::Integer = 2)
+    x, y = shape.w / 2, shape.h / 2
+    return [shape.at(point) for point in ((-x, -y), (x, -y), (x, y), (-x, y))]
+end
+function tessellate(shape::Polygon; points_per_arc::Integer = 2)
+    return [shape.at(point) for point in shape.points]
+end
+
 _with_pose(primitive::Disk, at::Pose2) = Disk(primitive.r, at)
 _with_pose(primitive::Rectangle, at::Pose2) = Rectangle(primitive.w, primitive.h, at)
 _with_pose(primitive::Ellipse, at::Pose2) = Ellipse(primitive.a, primitive.b, at)
