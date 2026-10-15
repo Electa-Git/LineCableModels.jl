@@ -281,7 +281,7 @@ layer does not cap the interior size of another passive layer. `CableSize`
 retains the exterior contour, interface, earth-layer clearance and existing
 layer-boundary spacing roles. Mesh sidecars report the region caps in
 `region_mesh_sizes_m` and the exterior targets in `cable_outer_mesh_sizes_m`.
-Thin passive annuli use triangular transfinite strips with separate normal and
+By default, thin passive annuli use triangular transfinite strips with separate normal and
 tangential resolution. Normal divisions resolve the layer thickness; tangential
 spacing follows angular accuracy and shared contour targets, so half the
 thickness does not force equally short tangential edges. Shared contours retain
@@ -428,6 +428,7 @@ The native guards also reject invalid CLI and ONELAB edits. The exported
 | `ConductorMeshGrowth` | `sqrt(1.25)` | Normal growth, at least one |
 | `ConductorSkinDepths` | `5.0` | Positive graded depth, limited by conductor width |
 | `ConductorThicknessElements` | `4` | Positive integer wall divisions |
+| `ThinLayerStrips` | `1` | Integer 0 or 1; 1 uses structured strips for thin passive layers; 0 restores the previous thin-layer CAD, isotropic half-thickness region targets and independent boundary chord-sag spacing; see the measured trade-off below |
 | `VolumeQuadrature` | `12` | Triangle points: 4, 7, 12 or 13 |
 | `PhysicalVolumeQuadrature` | `3` | Triangle points: 3, 4, 7, 12 or 13 |
 | `PmlQuadrangles` | `1` | 1 for quadrangles, 0 for triangles |
@@ -437,6 +438,43 @@ The native guards also reject invalid CLI and ONELAB edits. The exported
 | `MumpsErrorAnalysis` | `2` | 0 off, 1 full, 2 backward errors |
 | `MumpsRefinementMax` | `2` | Nonnegative refinement limit |
 | `MumpsBackwardErrorTolerance` | `1e-12` | Positive backward-error target |
+
+Use `options=(overrides=(ThinLayerStrips=0,),)` to disable the strips.
+Managed runs build and serialize only the selected CAD. ONELAB exports retain
+both variants so the native control can switch without Julia. The managed mesh
+fingerprint includes the selected CAD bytes.
+
+`ThinLayerStrips` selects an accuracy/cost trade-off; it does not run an automatic
+convergence check. At production factor 1, switching strips off gave full-matrix
+Y differences of 0.511% / 0.212% against the old/current P2 references for the
+320 kV armoured bipole at 0.1 Hz (strips on: 2.645% / 2.340%; previous meshing:
+0.514% / 0.214%). For the 30 kV trefoil at 6309.57 Hz, the difference was
+0.462% (strips on: 2.285%; previous meshing: 0.448%). These are differences from
+discrete P2 solutions, not continuum error bounds.
+
+The mesh-only measurements below use factor 1 and
+`Mesh.LcIntegrationPrecision=1e-6`. Each entry lists current strips / strips off /
+previous meshing (before the strip and polyline changes). Time is native parse +
+1D + 2D meshing in a fresh Julia process, excluding startup/imports and including
+first wrapper compilation. Up to three mesh-only jobs ran concurrently with one
+production job; these timings include contention and are not warmed benchmarks.
+Node totals include floating measurement lines.
+
+| Case | Hz | Nodes: on / off / previous | Mesh time (s): on / off / previous |
+|---|---:|---:|---:|
+| 320 kV armoured | 0.1 | 83,115 / 119,820 / 119,820 | 8.4 / 11.6 / 12.1 |
+| 320 kV armoured | 251189 | 282,855 / 336,408 / 336,410 | 9.8 / 11.9 / 12.2 |
+| 30 kV trefoil | 0.1 | 193,136 / 238,493 / 238,493 | 30.4 / 20.6 / 25.2 |
+| 30 kV trefoil | 251189 | 547,633 / 591,465 / 591,465 | 30.5 / 21.4 / 25.5 |
+| 18 kV stranded trefoil | 0.1 | 347,555 / 523,074 / 523,074 | 60.0 / 50.8 / 57.1 |
+| 18 kV stranded trefoil | 251189 | 698,071 / 875,076 / 875,076 | 61.5 / 49.5 / 55.4 |
+| 220 kV Milliken trefoil | 0.1 | 618,190 / 708,927 / 671,640 | 61.5 / 36.6 / 338.2 |
+| 220 kV Milliken trefoil | 251189 | 869,162 / 948,893 / 911,588 | 64.5 / 37.9 / 339.7 |
+
+Both settings retain the polyline outlines and surface-query cache. The off
+setting also restores unpartitioned annular CAD, independent circular breaks,
+half-thickness passive region targets and independent chord-sag boundary
+spacing. Mesh identity and node-count equality are not accuracy requirements.
 
 Three physical quadrature points integrate first-order field products exactly
 for piecewise-constant materials. PML quadrature remains separate.

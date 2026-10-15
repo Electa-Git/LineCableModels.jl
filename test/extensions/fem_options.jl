@@ -17,6 +17,11 @@
     @test_throws ArgumentError controls(overrides=Dict(:PmlSideLayers=>48))
     @test_throws ArgumentError controls(mesh_path="mesh.msh",mesh_policy=:remesh)
     @test controls(overrides=(PmlQuadrangles=0,)).pml_element_family==0
+    @test controls().thin_layer_strips==1
+    @test controls(overrides=(ThinLayerStrips=0,)).thin_layer_strips==0
+    for bad in (-1,2,.5)
+        @test_throws ArgumentError controls(overrides=(ThinLayerStrips=bad,))
+    end
     @test controls(overrides=(PetscPrealloc=0,MumpsOrdering=-1)).petsc_prealloc==0
     @test controls(overrides=(MumpsOrdering=-1,)).mumps_ordering==-1
     @test !haskey(controls(),:mumps_forward_error_tolerance)
@@ -81,7 +86,7 @@ end
     end
     N.bundle(p) do root,entry
         getdp=E._getdp_selection(computation_options(E.LineCableModelsFEM,ComputationOptions())).path
-        for (name,value,message) in (("PhysicalVolumeQuadrature",1,"PhysicalVolumeQuadrature"),("PmlTopLayers",0,"PML intervals"),("PmlReflection",1,"PML reflection"),("MeshSizeFactor",0,"physical mesh controls"),("PmlBottomThicknessFactor",0,"Native mesh factors"))
+        for (name,value,message) in (("ThinLayerStrips",-1,"ThinLayerStrips"),("ThinLayerStrips",0.5,"ThinLayerStrips"),("ThinLayerStrips",2,"ThinLayerStrips"),("PhysicalVolumeQuadrature",1,"PhysicalVolumeQuadrature"),("PmlTopLayers",0,"PML intervals"),("PmlReflection",1,"PML reflection"),("MeshSizeFactor",0,"physical mesh controls"),("PmlBottomThicknessFactor",0,"Native mesh factors"))
             probe=joinpath(root,"invalid.pro")
             write(probe,"Include \"model_data.pro\";\n$name = $value;\nInclude \"formulations/parameters.pro\";\n")
             Gmsh.gmsh.initialize(String[],false,false)

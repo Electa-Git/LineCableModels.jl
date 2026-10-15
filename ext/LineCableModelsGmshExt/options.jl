@@ -53,6 +53,7 @@ const FEM_NATIVE_OVERRIDES = (
     (names=(:MumpsErrorAnalysis,), field=:mumps_error_analysis, mesh=false, default=2, kind=:integer, range=(0,1,2), closed=:choices),
     (names=(:MumpsRefinementMax,), field=:mumps_refinement_max, mesh=false, default=2, kind=:integer, range=(0,typemax(Cint)), closed=true),
     (names=(:MumpsBackwardErrorTolerance,), field=:mumps_backward_error_tolerance, mesh=false, default=1e-12, kind=:real, range=(0.,Inf), closed=false),
+    (names=(:ThinLayerStrips,), field=:thin_layer_strips, mesh=true, default=1, kind=:integer, range=(0,1), closed=:choices),
 )
 const FEM_MUMPS_FORWARD_ERROR_BUDGET = 0.01
 
@@ -98,6 +99,7 @@ function _fem_expert_controls(overrides)
         mumps_error_analysis=Int(only(values[17])),
         mumps_refinement_max=Int(only(values[18])),
         mumps_backward_error_tolerance=Float64(only(values[19])),
+        thin_layer_strips=Int(only(values[20])),
     )
 end
 
@@ -250,5 +252,6 @@ function computation_options(::Type{LineCableModelsFEM}, record::ComputationOpti
         mumps_error_analysis=expert.mumps_error_analysis,
         mumps_refinement_max=expert.mumps_refinement_max,
         mumps_backward_error_tolerance=expert.mumps_backward_error_tolerance,
+        thin_layer_strips=expert.thin_layer_strips,
     )
 end

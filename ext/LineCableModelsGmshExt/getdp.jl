@@ -50,6 +50,7 @@ function _write_model_data(path::String, model::FEMResolvedModel, controls::Name
         println(io, "ExteriorMeshSizeFactor = ", _pro_number(controls.exterior_mesh_size_factor), ";")
         println(io, "InterfaceRefinementFactor = ", _pro_number(controls.interface_refinement_factor), ";")
         println(io, "PmlQuadrangles = ", controls.pml_element_family, ";")
+        println(io, "ThinLayerStrips = ", controls.thin_layer_strips, ";")
         println(io,"VolumeQuadrature = ",controls.volume_quadrature,";")
         println(io,"PhysicalVolumeQuadrature = ",controls.physical_volume_quadrature,";")
         println(io,"FEMMumpsForwardErrorBudget = ",_pro_number(FEM_MUMPS_FORWARD_ERROR_BUDGET),";")

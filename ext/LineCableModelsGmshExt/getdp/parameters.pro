@@ -28,6 +28,7 @@ If(PmlQuadrature != 4 && PmlQuadrature != 9 && PmlQuadrature != 16)
   Error("PmlQuadrature must be 4, 9 or 16");
 EndIf
 If(PmlQuadrangles != 0 && PmlQuadrangles != 1) Error("PmlQuadrangles must be 0 or 1"); EndIf
+If(ThinLayerStrips != 0 && ThinLayerStrips != 1) Error("ThinLayerStrips must be 0 or 1"); EndIf
 FEMPositiveFactors() = {DomainSizeFactor,MeshSizeFactor,ExteriorMeshSizeFactor,InterfaceRefinementFactor,
   PmlSideThicknessFactor,PmlTopThicknessFactor,PmlBottomThicknessFactor,
   ConductorGeometryTolerance,ConductorSkinDepthElements,ConductorMeshGrowth,ConductorSkinDepths};
@@ -278,7 +279,7 @@ For region In {0:NumPhysicalRegions-1}
     If(FEMKind == 1) FEMSize = FEMD1/(FEMRepeated ? 1 : 5);
     ElseIf(FEMKind == 2)
       FEMSize = (FEMD1-FEMD2)/2;
-      If(RegionAnnularPassive~{region}) FEMSize = Max[FEMSize,2*Pi*FEMD1/FEMCircleSegments]; EndIf
+      If(ThinLayerStrips && RegionAnnularPassive~{region}) FEMSize = Max[FEMSize,2*Pi*FEMD1/FEMCircleSegments]; EndIf
     ElseIf(FEMKind == 3) FEMSize = Min[FEMD1,FEMD2]/(FEMRepeated ? 2 : 5);
     ElseIf(FEMKind == 4) FEMSize = Min[FEMD1,FEMD2]/(FEMRepeated ? 1 : 5);
     Else FEMSize = FEMD1/FEMD2;

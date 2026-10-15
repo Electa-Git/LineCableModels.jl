@@ -1504,7 +1504,8 @@ end
 # sources consume this topology; material and terminal ownership stays with the CAD.
 function _build_physical_geometry!(
         model::FEMResolvedModel,
-        model_name::String
+        model_name::String;
+        thin_layer_strips::Bool=true
 )
     gmsh.model.add(model_name)
     registry = FEMLoopRegistry(model.cad_scale)
@@ -1520,14 +1521,14 @@ function _build_physical_geometry!(
     annuli = [region.shape for region in model.region_plans
         if region.shape isa DataModel.Annulus &&
            model.material_plans[region.material_index].kind !== :conductor]
-    _align_annular_breaks!(registry,annuli)
+    thin_layer_strips && _align_annular_breaks!(registry,annuli)
     annular_partitions = Dict{Int,Vector{NamedTuple}}()
     material_surfaces = [Int[] for _ in model.material_plans]
     region_surfaces = Vector{Int}[]
     sector_partitions = Dict{Int,FEMSectorPartition}()
     terminal_surfaces = [Int[] for _ in model.terminal_ids]
     for (index,region) in enumerate(model.region_plans)
-        surfaces = if region.shape isa DataModel.Annulus &&
+        surfaces = if thin_layer_strips && region.shape isa DataModel.Annulus &&
                       model.material_plans[region.material_index].kind !== :conductor
             members,patches = _annular_partition!(registry,region.shape,model.cad_scale)
             annular_partitions[index] = patches
@@ -1653,6 +1654,29 @@ function _write_native_geometry_data(io, model)
     end
 end
 
+function _write_export_geometry(path, model, physical)
+    # Detached native edits must select both the annular topology and its size law.
+    # Serialize both with the same builder; all other geometry rules stay shared.
+    _write_physical_geometry(path,model,physical)
+    isempty(physical.annular_partitions) && return nothing
+    strips_path = splitext(path)[1]*"-strips.geo"
+    layers_path = splitext(path)[1]*"-layers.geo"
+    mv(path,strips_path;force=true)
+    current = gmsh.model.get_current()
+    try
+        layers = _build_physical_geometry!(model,current*"-layers";thin_layer_strips=false)
+        _write_physical_geometry(layers_path,model,layers)
+        write(path,"If(ThinLayerStrips)\n  Include \"",basename(strips_path),
+            "\";\nElse\n  Include \"",basename(layers_path),"\";\nEndIf\n")
+    finally
+        if gmsh.model.get_current() != current
+            gmsh.model.remove()
+            gmsh.model.set_current(current)
+        end
+    end
+    return nothing
+end
+
 function _write_physical_geometry(path, model, physical)
     gmsh.model.geo.synchronize()
     (;material_surfaces,region_surfaces,terminal_surfaces,cable_curves,cable_loops,
@@ -1759,6 +1783,17 @@ function _write_physical_geometry(path, model, physical)
                 arcs = [_conductor_curve_geometry(region.shape,curve) for curve in curves]
                 emit("FEMConductorArcLengths~{$(i-1)}",getproperty.(arcs,:length))
                 emit("FEMConductorArcFractions~{$(i-1)}",getproperty.(arcs,:fraction))
+                thicknesses = map(curves) do curve
+                    thickness = Inf
+                    for layer in layers
+                        curve in layer.curves || continue
+                        _coordinate_key(layer.shape.at.x) == _coordinate_key(region.shape.at.x) &&
+                            _coordinate_key(layer.shape.at.y) == _coordinate_key(region.shape.at.y) || continue
+                        thickness = min(thickness,layer.shape.ro-layer.shape.ri)
+                    end
+                    isfinite(thickness) ? thickness : 0.0
+                end
+                emit("FEMConductorLayerThickness~{$(i-1)}",thicknesses)
                 emit("FEMConductorBulkSurfaces~{$(i-1)}",surfaces)
             else
                 println(io,"FEMSectorDepth~{",i-1,"} = ",_pro_number(partition.depth),";")

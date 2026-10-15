@@ -1,4 +1,6 @@
 // Shared native mesh prescription. Every field uses current physical inputs.
+// Bound size-field integration work along curves, including floating measurement lines.
+Mesh.LcIntegrationPrecision = 1e-6;
 Mesh.MshFileVersion = 4.1; Mesh.Binary = 1; Mesh.SaveAll = 1;
 Mesh.MeshSizeMin = Min(MeshFine,Min(MeshWaveAir,MeshWaveEarth));
 Mesh.MeshSizeMax = MeshRemoteMax;
@@ -17,6 +19,63 @@ EndFor
 For i In {1:#FEMInterfacePoints()-2}
   Characteristic Length {FEMInterfacePoints(i)} = FEMInterfaceSizes(i);
 EndFor
+// Build the boundary fields once, at the native prescription's sizing stage.
+Macro FEMLayerBoundaryTargets
+// Grade from the prescribed annular contour spacing into neighbours.
+// Layer-boundary targets are grouped by size to bound field evaluations.
+FEMLayerBoundaryTargetCurves() = {}; FEMLayerGroups = 0;
+For boundary In {0:#FEMLayerBoundaryCurves()-1}
+  FEMLayerRadius = FEMLayerBoundaryRadii(boundary);
+  FEMLayerCurve = FEMLayerBoundaryCurves(boundary);
+  If(ThinLayerStrips)
+    FEMLayerSegments = FEMCurveSegments~{FEMLayerCurve};
+    FEMLayerFraction = FEMLayerBoundaryFractions(boundary);
+  Else
+    FEMLayerThickness = FEMLayerBoundaryThicknesses(boundary);
+    FEMLayerSegments = 12*2^Max(0,Ceil(Log(Pi*Sqrt(FEMLayerRadius/(3*ConductorGeometryTolerance*FEMLayerThickness))/12)/Log(2)));
+    FEMLayerFraction = 1;
+  EndIf
+  FEMLayerSpacing = 2*Pi*FEMLayerRadius/FEMLayerSegments;
+  FEMExistingSpacing = 1e300;
+  For member In {0:#FEMLayerBoundaryPoints~{boundary}()-1}
+    FEMPoint = FEMLayerBoundaryPoints~{boundary}(member);
+    FEMExistingSpacing = Min(FEMExistingSpacing,FEMPointSize~{FEMPoint});
+  EndFor
+  For member In {0:#FEMLayerBoundaryCables~{boundary}()-1}
+    cable = FEMLayerBoundaryCables~{boundary}(member);
+    FEMExistingSpacing = Min(FEMExistingSpacing,CableSize~{cable});
+  EndFor
+  If(FEMLayerSpacing < FEMExistingSpacing*(1-ThinLayerStrips*64*2^-52))
+    FEMLayerCurve = FEMLayerBoundaryCurves(boundary);
+    FEMGroup = -1;
+    For group In {0:FEMLayerGroups-1}
+      If(Abs(FEMLayerGroupSpacing~{group}-FEMLayerSpacing) <= 1e-12*FEMLayerSpacing) FEMGroup = group; EndIf
+    EndFor
+    If(FEMGroup < 0)
+      FEMGroup = FEMLayerGroups; FEMLayerGroups += 1;
+      FEMLayerGroupSpacing~{FEMGroup} = FEMLayerSpacing; FEMLayerGroupIntervals~{FEMGroup} = FEMLayerSegments*FEMLayerFraction;
+      FEMLayerGroupCurves~{FEMGroup}() = {};
+    EndIf
+    FEMLayerGroupSpacing~{FEMGroup} = Min(FEMLayerGroupSpacing~{FEMGroup},FEMLayerSpacing);
+    FEMLayerGroupIntervals~{FEMGroup} = Max(FEMLayerGroupIntervals~{FEMGroup},FEMLayerSegments*FEMLayerFraction);
+    FEMLayerGroupCurves~{FEMGroup}() += {FEMLayerCurve};
+    FEMLayerBoundaryTargetCurves() += {FEMLayerCurve};
+  EndIf
+EndFor
+For group In {0:FEMLayerGroups-1}
+  FEMDistance = FEMNextField; FEMNextField += 1; Field[FEMDistance] = Distance;
+  // Sampling is per CAD curve, so use arc intervals rather than a full turn.
+  Field[FEMDistance].CurvesList = {FEMLayerGroupCurves~{group}()}; Field[FEMDistance].Sampling = Max(100,Ceil(16*FEMLayerGroupIntervals~{group}));
+  FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Threshold;
+  Field[FEMField].InField = FEMDistance; Field[FEMField].SizeMin = FEMLayerGroupSpacing~{group};
+  Field[FEMField].SizeMax = MeshRemoteMax; Field[FEMField].DistMin = 0;
+  Field[FEMField].DistMax = Max(FEMLayerGroupSpacing~{group},(MeshRemoteMax-FEMLayerGroupSpacing~{group})/MeshGrowthSlope);
+  FEMBackground() += {FEMField};
+  If(ThinLayerStrips)
+    FEMMeasurementSources~{0}() += {FEMField}; FEMMeasurementSources~{1}() += {FEMField};
+  Else FEMMeasurementCommon() += {FEMField}; EndIf
+EndFor
+Return
 FEMBackground() = {}; FEMMeasurementCommon() = {}; FEMNextField = 1;
 For cable In {0:NumCables-1}
   FEMDistance = FEMNextField; FEMNextField += 1; Field[FEMDistance] = Distance;
@@ -27,6 +86,7 @@ For cable In {0:NumCables-1}
   Field[FEMField].DistMax = Max(CableSize~{cable},(MeshRemoteMax-CableSize~{cable})/MeshGrowthSlope);
   FEMBackground() += {FEMField}; FEMMeasurementCommon() += {FEMField};
 EndFor
+If(!ThinLayerStrips) Call FEMLayerBoundaryTargets; EndIf
 FEMConstant = FEMNextField; FEMNextField += 1; Field[FEMConstant] = MathEval; Field[FEMConstant].F = Sprintf("%.17g",MeshBulk);
 FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Restrict;
 Field[FEMField].InField = FEMConstant; Field[FEMField].IncludeBoundary = 1;
@@ -141,7 +201,15 @@ For region In {0:NumPhysicalRegions-1}
       EndIf
       For arc In {0:#FEMRegionCurves~{region}()-1}
         // Allow 64 Float64 ulps when rounding angular interval counts.
-        FEMAngularIntervals = FEMCircleSegments*FEMConductorArcFractions~{region}(arc);
+        FEMLayerSegments = 0;
+        If(!ThinLayerStrips)
+          FEMLayerThickness = FEMConductorLayerThickness~{region}(arc);
+          If(FEMLayerThickness > 0)
+            FEMArcRadius = FEMConductorArcLengths~{region}(arc)/(2*Pi*FEMConductorArcFractions~{region}(arc));
+            FEMLayerSegments = 12*2^Max(0,Ceil(Log(Pi*Sqrt(FEMArcRadius/(3*ConductorGeometryTolerance*FEMLayerThickness))/12)/Log(2)));
+          EndIf
+        EndIf
+        FEMAngularIntervals = Max(FEMCircleSegments,FEMLayerSegments)*FEMConductorArcFractions~{region}(arc);
         FEMAngularEpsilon = 0;
         If(FEMAngularIntervals > 0)
           FEMAngularEpsilon = 2^(Floor(Log(FEMAngularIntervals)/Log(2))-52);
@@ -175,6 +243,7 @@ For region In {0:NumPhysicalRegions-1}
     FEMConductorExtent~{region} = FEMExtent; FEMConductorBulk~{region} = FEMBulk;
   EndIf
 EndFor
+If(ThinLayerStrips)
 // Annular patches separate normal resolution from the geometric contour target.
 // Angular budgets propagate before rounding to counts on individual CAD arcs.
 For patch In {0:FEMAnnularPatches-1}
@@ -219,51 +288,8 @@ For patch In {0:FEMAnnularPatches-1}
     Transfinite Surface {FEMAnnularSurface~{patch}} = {FEMAnnularCorners~{patch}()} AlternateLeft;
   EndIf
 EndFor
-// Grade from the prescribed annular contour spacing into neighbours.
-// Layer-boundary targets are grouped by size to bound field evaluations.
-FEMLayerBoundaryTargetCurves() = {}; FEMLayerGroups = 0;
-For boundary In {0:#FEMLayerBoundaryCurves()-1}
-  FEMLayerRadius = FEMLayerBoundaryRadii(boundary);
-  FEMLayerCurve = FEMLayerBoundaryCurves(boundary);
-  FEMLayerSegments = FEMCurveSegments~{FEMLayerCurve};
-  FEMLayerSpacing = 2*Pi*FEMLayerRadius/FEMLayerSegments;
-  FEMExistingSpacing = 1e300;
-  For member In {0:#FEMLayerBoundaryPoints~{boundary}()-1}
-    FEMPoint = FEMLayerBoundaryPoints~{boundary}(member);
-    FEMExistingSpacing = Min(FEMExistingSpacing,FEMPointSize~{FEMPoint});
-  EndFor
-  For member In {0:#FEMLayerBoundaryCables~{boundary}()-1}
-    cable = FEMLayerBoundaryCables~{boundary}(member);
-    FEMExistingSpacing = Min(FEMExistingSpacing,CableSize~{cable});
-  EndFor
-  If(FEMLayerSpacing < FEMExistingSpacing*(1-64*2^-52))
-    FEMLayerCurve = FEMLayerBoundaryCurves(boundary);
-    FEMGroup = -1;
-    For group In {0:FEMLayerGroups-1}
-      If(Abs(FEMLayerGroupSpacing~{group}-FEMLayerSpacing) <= 1e-12*FEMLayerSpacing) FEMGroup = group; EndIf
-    EndFor
-    If(FEMGroup < 0)
-      FEMGroup = FEMLayerGroups; FEMLayerGroups += 1;
-      FEMLayerGroupSpacing~{FEMGroup} = FEMLayerSpacing; FEMLayerGroupIntervals~{FEMGroup} = FEMLayerSegments*FEMLayerBoundaryFractions(boundary);
-      FEMLayerGroupCurves~{FEMGroup}() = {};
-    EndIf
-    FEMLayerGroupSpacing~{FEMGroup} = Min(FEMLayerGroupSpacing~{FEMGroup},FEMLayerSpacing);
-    FEMLayerGroupIntervals~{FEMGroup} = Max(FEMLayerGroupIntervals~{FEMGroup},FEMLayerSegments*FEMLayerBoundaryFractions(boundary));
-    FEMLayerGroupCurves~{FEMGroup}() += {FEMLayerCurve};
-    FEMLayerBoundaryTargetCurves() += {FEMLayerCurve};
-  EndIf
-EndFor
-For group In {0:FEMLayerGroups-1}
-  FEMDistance = FEMNextField; FEMNextField += 1; Field[FEMDistance] = Distance;
-  // Sampling is per CAD curve, so use arc intervals rather than a full turn.
-  Field[FEMDistance].CurvesList = {FEMLayerGroupCurves~{group}()}; Field[FEMDistance].Sampling = Max(100,Ceil(16*FEMLayerGroupIntervals~{group}));
-  FEMField = FEMNextField; FEMNextField += 1; Field[FEMField] = Threshold;
-  Field[FEMField].InField = FEMDistance; Field[FEMField].SizeMin = FEMLayerGroupSpacing~{group};
-  Field[FEMField].SizeMax = MeshRemoteMax; Field[FEMField].DistMin = 0;
-  Field[FEMField].DistMax = Max(FEMLayerGroupSpacing~{group},(MeshRemoteMax-FEMLayerGroupSpacing~{group})/MeshGrowthSlope);
-  FEMBackground() += {FEMField};
-  FEMMeasurementSources~{0}() += {FEMField}; FEMMeasurementSources~{1}() += {FEMField};
-EndFor
+EndIf
+If(ThinLayerStrips) Call FEMLayerBoundaryTargets; EndIf
 // Floating measurement curves and neighbouring fields see the final shared counts.
 For region In {0:NumPhysicalRegions-1}
   If(FEMConductor~{region})
@@ -271,7 +297,7 @@ For region In {0:NumPhysicalRegions-1}
     If(!FEMConductorSector~{region})
       For arc In {0:#FEMRegionCurves~{region}()-1}
         FEMCurve = FEMRegionCurves~{region}(arc);
-        If(Exists(FEMAnnularCurve~{FEMCurve}))
+        If(ThinLayerStrips && Exists(FEMAnnularCurve~{FEMCurve}))
           FEMRadius = FEMConductorArcLengths~{region}(arc)/(2*Pi*FEMConductorArcFractions~{region}(arc));
           FEMContourSize = Min(FEMContourSize,2*Pi*FEMRadius/FEMCurveSegments~{FEMCurve});
         Else FEMContourSize = Min(FEMContourSize,FEMConductorArcLengths~{region}(arc)/(FEMCurveNodes~{FEMCurve}-1)); EndIf

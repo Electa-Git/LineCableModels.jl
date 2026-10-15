@@ -377,7 +377,8 @@ function _headless_solve!(
         inputs::NamedTuple
 )
     _write_run_inputs!(run,model,execution)
-    physical = _build_physical_geometry!(model,"LineCableModelsFEM-$(basename(run.path))")
+    physical = _build_physical_geometry!(model,"LineCableModelsFEM-$(basename(run.path))";
+        thin_layer_strips=Bool(execution.data.thin_layer_strips))
     _write_physical_geometry(joinpath(run.path,"input","physical.geo"),model,physical)
     _write_native_mesh_entry(joinpath(run.path,"input","model.geo"),"model_data.pro","physical.geo","getdp")
     _transition!(run,geometry_ready,"native geometry inputs ready")

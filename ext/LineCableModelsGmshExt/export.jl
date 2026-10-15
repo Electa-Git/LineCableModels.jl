@@ -18,7 +18,7 @@ function _write_export_data(path, model, formulation, controls)
     open(path, "w") do io
         println(io, "// Authoritative native model data. SI units; exp(+j omega t).")
         println(io, "// Edit these coefficients directly. Native execution never rewrites this file.")
-        native_controls = ("MeshSizeFactor", "ExteriorMeshSizeFactor", "InterfaceRefinementFactor", "PmlQuadrangles",
+        native_controls = ("MeshSizeFactor", "ExteriorMeshSizeFactor", "InterfaceRefinementFactor", "PmlQuadrangles", "ThinLayerStrips",
             "VolumeQuadrature", "PhysicalVolumeQuadrature", "PmlQuadrature",
             "ConductorGeometryTolerance", "ConductorSkinDepthElements", "ConductorMeshGrowth", "ConductorSkinDepths", "ConductorThicknessElements",
             "DomainSizeFactor", "PmlReflection", "PmlSideThicknessFactor", "PmlTopThicknessFactor", "PmlBottomThicknessFactor",
@@ -140,6 +140,7 @@ function _check_export_paths(root, stem, problem)
     # is absolute, so its repeated Include in formulations/model.pro adds no prefix.
     append!(paths, values(_getdp_assets("formulations")))
     append!(paths, ("geometry/physical.geo", "views.geo", joinpath(run, "completed.txt")))
+    append!(paths, ("geometry/physical-strips.geo", "geometry/physical-layers.geo"))
     append!(paths, [joinpath(run, "matrices", name * ".tsv")
         for name in ("Z-primitive", "P-primitive", "Z", "P", "Y")])
     append!(paths, [joinpath(run, "raw", "jobs", column * suffix)
@@ -168,7 +169,7 @@ function _write_export_bundle(root, stem, model, formulation, controls)
         saved = Dict(option=>gmsh.option.get_number(option) for option in FEM_EXPORT_MESH_GLOBALS)
         try
             physical = _build_physical_geometry!(model,"export-$(basename(root))")
-            _write_physical_geometry(joinpath(root,"geometry","physical.geo"),model,physical)
+            _write_export_geometry(joinpath(root,"geometry","physical.geo"),model,physical)
             gmsh.model.remove()
         finally
             for (option,value) in saved

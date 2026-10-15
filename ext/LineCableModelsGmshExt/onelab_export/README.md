@@ -104,7 +104,8 @@ workers, retention, resume, callbacks and logging are rejected. `solver_threads`
 `plot_field_maps` and `output_basis` are accepted. Expert overrides are numeric,
 with declared types and ranges; no free-form native expressions are accepted.
 
-Expert parameters include `ExteriorMeshSizeFactor`, `InterfaceRefinementFactor`,
+Expert parameters include `ThinLayerStrips`, `ExteriorMeshSizeFactor`,
+`InterfaceRefinementFactor`,
 the five `Conductor` controls, directional PML thicknesses, minimum intervals
 and grading exponents, quadrature and MUMPS controls. Their defaults are the
 managed defaults. Invalid native edits raise a clear Error; physical-volume
@@ -126,10 +127,56 @@ managed runner. A thin outer layer does not cap another passive layer's interior
 `CableSize` remains the exterior contour/interface target and retains its
 earth-layer clearance and existing layer-boundary spacing roles. There is no
 automatic convergence test or refinement loop.
-Thin passive annuli use triangular transfinite strips with separate thickness
+By default, thin passive annuli use triangular transfinite strips with separate thickness
 and tangential resolution. Normal divisions resolve the thickness; angular
 accuracy and shared contour targets set tangential spacing. Shared contours
 retain conforming node counts.
+
+Managed Julia runs prepare only the CAD selected by `ThinLayerStrips` and include
+its bytes in the mesh fingerprint. ONELAB exports retain both CAD variants for
+native switching without Julia.
+
+Set `Expert/ThinLayerStrips` to `0` to use the previous isotropic thin-layer
+meshing: each passive annulus has a half-thickness `RegionSize` target and
+independent boundary chord-sag spacing. The default is `1` (strips on); both
+native parsers reject values outside integer 0/1. Julia uses
+`options=(overrides=(ThinLayerStrips=0,),)`. Off also restores unpartitioned
+annular CAD and independent circular breaks. Both settings retain the polyline
+outlines and surface-query cache. Regenerate the mesh after changing this
+control.
+
+`ThinLayerStrips` selects an accuracy/cost trade-off; it does not run an automatic
+convergence check. At production factor 1, switching strips off gave full-matrix
+Y differences of 0.511% / 0.212% against the old/current P2 references for the
+320 kV armoured bipole at 0.1 Hz (strips on: 2.645% / 2.340%; previous meshing:
+0.514% / 0.214%). For the 30 kV trefoil at 6309.57 Hz, the difference was
+0.462% (strips on: 2.285%; previous meshing: 0.448%). These are differences from
+discrete P2 solutions, not continuum error bounds.
+
+The mesh-only measurements below use factor 1 and
+`Mesh.LcIntegrationPrecision=1e-6`. Each entry lists current strips / strips off /
+previous meshing (before the strip and polyline changes). Time is native parse +
+1D + 2D meshing in a fresh Julia process, excluding startup/imports and including
+first wrapper compilation. Up to three mesh-only jobs ran concurrently with one
+production job; these timings include contention and are not warmed benchmarks.
+Node totals include floating measurement lines.
+
+| Case | Hz | Nodes: on / off / previous | Mesh time (s): on / off / previous |
+|---|---:|---:|---:|
+| 320 kV armoured | 0.1 | 83,115 / 119,820 / 119,820 | 8.4 / 11.6 / 12.1 |
+| 320 kV armoured | 251189 | 282,855 / 336,408 / 336,410 | 9.8 / 11.9 / 12.2 |
+| 30 kV trefoil | 0.1 | 193,136 / 238,493 / 238,493 | 30.4 / 20.6 / 25.2 |
+| 30 kV trefoil | 251189 | 547,633 / 591,465 / 591,465 | 30.5 / 21.4 / 25.5 |
+| 18 kV stranded trefoil | 0.1 | 347,555 / 523,074 / 523,074 | 60.0 / 50.8 / 57.1 |
+| 18 kV stranded trefoil | 251189 | 698,071 / 875,076 / 875,076 | 61.5 / 49.5 / 55.4 |
+| 220 kV Milliken trefoil | 0.1 | 618,190 / 708,927 / 671,640 | 61.5 / 36.6 / 338.2 |
+| 220 kV Milliken trefoil | 251189 | 869,162 / 948,893 / 911,588 | 64.5 / 37.9 / 339.7 |
+
+Both settings retain the polyline outlines and surface-query cache. The off
+setting also restores unpartitioned annular CAD, independent circular breaks,
+half-thickness passive region targets and independent chord-sag boundary
+spacing. Mesh identity and node-count equality are not accuracy requirements.
+
 Polygon conductor outlines retain all piecewise-linear CAD coordinates. Free
 chains use native degree-one polylines, with shared seams, contacts and coordinate
 extrema retained as endpoints. Polyline spacing bounds relative conductor area
@@ -152,8 +199,10 @@ gmsh '{{COMMAND_STEM}}.pro' -setnumber RunFrequencyScan 1 -run
 - `{{MODEL_NAME}}_data.pro`: named material coefficients with SI units, evaluated
   frequency cases, terminal names/tags, phase connections, source amplitudes,
   normalization and ONELAB controls.
-- `{{MODEL_NAME}}.geo`, `geometry/physical.geo`: native entry and serialized
-  frequency-independent physical CAD and material and terminal ownership.
+- `{{MODEL_NAME}}.geo`, `geometry/physical.geo`: native entry and physical CAD
+  selection. Annular projects include `physical-strips.geo` or
+  `physical-layers.geo` in the same geometry directory; both retain material and
+  terminal ownership and can be selected through `ThinLayerStrips`.
 - `formulations/parameters.pro`, `geometry.geo`, `mesh.geo`: shared native
   coefficients and extents, exterior and measurement-line topology and mesh prescriptions.
 - `formulations/helmholtz.pro`: regions/domains, terminal and

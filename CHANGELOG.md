@@ -9,6 +9,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- FEM expert override `ThinLayerStrips` (default `1`) selects thin passive
+  layer strips; `0` restores the previous thin-layer CAD and isotropic layer
+  and boundary sizing, retaining polyline outlines and the surface-query cache.
+  Managed runs prepare only the selected CAD; ONELAB exports retain both variants.
+- FEM meshing integrates size fields along curves to a relative precision of
+  1e-6 (`Mesh.LcIntegrationPrecision`), which keeps the 1D meshing of the
+  floating measurement lines short.
 - Thin passive FEM annuli use triangular transfinite strips with separate normal
   and tangential resolution and conforming shared contours.
 - FEM polygon conductor outlines use native degree-one polylines for free chains,
