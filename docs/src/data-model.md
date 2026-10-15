@@ -758,6 +758,9 @@ geometric boundaries govern packing without becoming overlapping material domain
 explicit fill occupies the interstices around the center and segment wires. Its
 center-wire radius is inferred after resolving one segment so that the center
 is tangent to the innermost strand in every rotated segment.
+The Milliken supplies the center disk as the outline of its center part. By default,
+`solid(material)` fills that disk. A `stranded(material; shape, …)` core with no geometric
+boundary fills it with Disk wires by its own course rules.
 
 This example deliberately uses a densely filled segment: a source-wire radius
 of approximately **0.238628 mm** gives **61 wires per segment**, with the

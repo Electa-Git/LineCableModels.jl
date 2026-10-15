@@ -717,11 +717,11 @@ function nested_conductor_zone(
             return nothing
         return placed.placement.patterns[index].pattern.boundary
     end
-    outer = if all(!isnothing, bounded)
-        envelope = first(bounded)
-        all(==(envelope), bounded) || throw(ArgumentError(
-            "one nested conductor cannot combine different bounded formations"
-        ))
+    # One bounded formation gives the radius of equal area to its formation boundary.
+    # Several formations, as in a Milliken with a stranded core at its center, or unbounded
+    # members give the radial extent.
+    envelope = first(bounded)
+    outer = if all(!isnothing, bounded) && all(==(envelope), bounded)
         sqrt(convert(T, area(envelope)) / (one(T) * π))
     else
         maximum(

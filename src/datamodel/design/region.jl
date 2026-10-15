@@ -8,13 +8,13 @@ $(TYPEDFIELDS)
 struct Region{P, M} <: AbstractCablePart
     "Physical identity within its containing cable object."
     tag::Symbol
-    "Intrinsic cross-sectional geometry."
+    "Intrinsic cross-sectional geometry, or `nothing` to take the outline of its context."
     primitive::P
     "Constitutive material data."
     material::M
 
     function Region(tag::Symbol, primitive::P, material::M) where {
-            P <: Union{AbstractPrimitive, Shell}, M <: AbstractMaterial
+            P <: Union{AbstractPrimitive, Shell, Nothing}, M <: AbstractMaterial
     }
         tag === Symbol("") && throw(ArgumentError("region tag cannot be empty"))
         return new{P, M}(tag, primitive, material)
@@ -26,7 +26,7 @@ Bind a primitive to a material under a tag, or declare a finite space of such re
 """
 function Region(
         tag::Union{Symbol, AbstractGrid, Gridspace},
-        primitive::Union{AbstractPrimitive, Shell, AbstractGrid, Gridspace},
+        primitive::Union{AbstractPrimitive, Shell, Nothing, AbstractGrid, Gridspace},
         material::Union{AbstractMaterial, AbstractGrid, Gridspace};
         combine::Symbol = :product
 )
@@ -157,6 +157,15 @@ function validate(region::Region{<:Shell}, ::EmptyBoundary)
     throw(ArgumentError(
         "the shell :$(region.tag) has no preceding part to surround; start a tube with " *
         "core(material, Annulus(ri, ro)), or with a filler and then the shell"
+    ))
+end
+
+# A part declared without its outline takes it from its context. Only the center of a
+# Milliken supplies one, the disk that its segments leave.
+function validate(region::Region{Nothing}, ::Union{EmptyBoundary, AbstractShape})
+    throw(ArgumentError(
+        "the region :$(region.tag) has no primitive; a part declared without its outline " *
+        "takes it from its context, and only the center of a milliken supplies one"
     ))
 end
 

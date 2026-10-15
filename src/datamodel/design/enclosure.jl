@@ -19,7 +19,7 @@ $(TYPEDFIELDS)
 """
 struct Enclosure{
     A <: Pose2,
-    S <: AbstractPrimitive,
+    S <: Union{AbstractPrimitive, Nothing},
     E <: AbstractCablePart,
     F <: Union{Material, Region},
     W <: Union{Nothing, AbstractCablePart}
@@ -28,7 +28,7 @@ struct Enclosure{
     tag::Symbol
     "Pose relative to the containing frame."
     at::A
-    "Containing cross-sectional primitive."
+    "Containing cross-sectional primitive, or `nothing` to take the outline of its context."
     primitive::S
     "Enclosed physical object."
     contents::E
@@ -46,7 +46,7 @@ struct Enclosure{
             wall::W
     ) where {
             A <: Pose2,
-            S <: AbstractPrimitive,
+            S <: Union{AbstractPrimitive, Nothing},
             E <: AbstractCablePart,
             F <: Union{Material, Region},
             W <: Union{Nothing, AbstractCablePart}
@@ -480,6 +480,18 @@ function resolve(::AbstractShape, ::Enclosure)
     throw(ArgumentError(
         "a contextual Enclosure requires an annular containing primitive"
     ))
+end
+
+# A part declared without its outline takes it from its context. Only the center of a
+# Milliken supplies one, the disk that its segments leave.
+function resolve(::EmptyBoundary, enclosure::Enclosure{<:Pose2, Nothing})
+    throw(ArgumentError(
+        "the enclosure :$(enclosure.tag) has no primitive; a part declared without its " *
+        "outline takes it from its context, and only the center of a milliken supplies one"
+    ))
+end
+function resolve(::AbstractShape, enclosure::Enclosure{<:Pose2, Nothing})
+    return resolve(EmptyBoundary(), enclosure)
 end
 
 # The preceding circular boundary of an annular Enclosure lies inside its container and

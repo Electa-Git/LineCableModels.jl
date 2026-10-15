@@ -149,7 +149,8 @@ Bind an intrinsic primitive definition to one material and local physical tag.
 # Arguments
 
 - `material`: constitutive material record.
-- `primitive`: intrinsic cross-sectional primitive definition.
+- `primitive=nothing`: intrinsic cross-sectional primitive definition. Omitted, the region
+  takes the outline of its context, which only the center of a `milliken` supplies.
 
 # Keywords
 
@@ -160,7 +161,7 @@ Bind an intrinsic primitive definition to one material and local physical tag.
 
 - A `Region`, or a `Gridspace{Region}` when a direct argument varies.
 """
-function solid(material, primitive; tag = :solid, combine::Symbol = :product)
+function solid(material, primitive = nothing; tag = :solid, combine::Symbol = :product)
     Region(tag, primitive, material; combine)
 end
 
@@ -506,7 +507,8 @@ end
 
 # In a circular core, Disk wires surround one circular center wire. The core stores a
 # declared center only, and resolution places the default, a copy of `shape`, at the cable
-# center. Only `compact = true` deforms the wires.
+# center. Only `compact = true` deforms the wires. Without a geometric boundary, the core
+# takes the outline of its context.
 function _stranded(
         material,
         center::Union{Nothing, DataModel.Disk},
@@ -516,7 +518,7 @@ function _stranded(
         dir,
         φ0,
         compact::Union{Nothing, Bool},
-        prescribed_boundary::DataModel.Disk,
+        prescribed_boundary::Union{Nothing, DataModel.Disk},
         fill
 )
     material = validate(material, DataModel.Region, :stranded, (:conductor,))
@@ -563,7 +565,7 @@ function _stranded(
         dir,
         φ0,
         compact,
-        prescribed_boundary::DataModel.Disk,
+        prescribed_boundary::Union{Nothing, DataModel.Disk},
         fill
 )
     throw(ArgumentError(
@@ -580,7 +582,7 @@ function _stranded(
         dir,
         φ0,
         compact,
-        prescribed_boundary::DataModel.Disk,
+        prescribed_boundary::Union{Nothing, DataModel.Disk},
         fill
 )
     throw(ArgumentError(
@@ -727,7 +729,8 @@ disk boundary, without an outer filler film.
   out.
 - `boundary`: nonhollow `Disk`, `Sector`, `Rectangle`, `Ellipse` or star-shaped `Polygon`
   core boundary, or a `Disk` around a preceding part. It is the finished outline of the
-  formation.
+  formation. Omitted, a core of Disk wires takes the outline of its context, which only
+  the center of a `milliken` supplies.
 - `fill=air`: interstitial insulating or semiconducting material, unused by
   contiguous rectangular courses. The default
   is lossless air (``\\rho=\\infty``, ``\\epsilon_r=\\mu_r=1``).
@@ -754,7 +757,7 @@ function stranded(
         dir = 1,
         φ0 = 0,
         compact = nothing,
-        boundary,
+        boundary = nothing,
         fill = Materials.Material(:insulator, Inf),
         combine::Symbol = :product
 )
@@ -838,6 +841,31 @@ function _inner_radius(primitive::DataModel.Polygon)
     end
 end
 
+# The center of a Milliken fills the disk that its segments leave. A solid or a stranded
+# core declared without its outline takes that disk. As in a segment, the fill of the
+# Milliken takes the interstices of a stranded core at the center.
+function _milliken_center(::Nothing, material, disk)
+    return _milliken_center(solid(material), material, disk)
+end
+function _milliken_center(center::DataModel.Region{Nothing}, material, disk)
+    return DataModel.Region(center.tag, disk, center.material)
+end
+function _milliken_center(
+        center::DataModel.Enclosure{<:DataModel.Pose2, Nothing, <:DataModel.Group},
+        material,
+        disk
+)
+    core = center.contents
+    return DataModel.Group(
+        core.name, core.at, core.member, core.pattern, core.path, core.compact, disk)
+end
+function _milliken_center(center, material, disk)
+    throw(ArgumentError(
+        "a milliken center is declared without its outline, as solid(material) or " *
+        "stranded(material; shape, …)"
+    ))
+end
+
 function _milliken(
         material,
         shape::DataModel.Disk,
@@ -846,7 +874,8 @@ function _milliken(
         lay,
         dir,
         φ0,
-        fill
+        fill,
+        center
 )
     material = validate(material, DataModel.Region, :milliken, (:conductor,))
     segments >= 2 ||
@@ -877,12 +906,11 @@ function _milliken(
         center_radius,
         "milliken segment strands leave no positive radius for the center wire"
     ))
-    center = DataModel.Disk(center_radius)
     members = DataModel.AssemblyMember[]
     center_terminal = DataModel.Group(
         :milliken_center,
         DataModel.Pose2(0, 0, 0),
-        DataModel.Region(:wire, center, material),
+        _milliken_center(center, material, DataModel.Disk(center_radius)),
         nothing,
         nothing,
         nothing
@@ -937,16 +965,18 @@ function _milliken(
         lay,
         dir,
         φ0,
-        fill
+        fill,
+        center
 )
     throw(ArgumentError("milliken segments must be an integer of at least two"))
 end
 
-function _milliken(material, shape::DataModel.Disk, segment, segments, lay, dir, φ0, fill)
+function _milliken(material, shape::DataModel.Disk, segment, segments, lay, dir, φ0, fill,
+        center)
     throw(ArgumentError("milliken segment must be one Sector boundary"))
 end
 
-function _milliken(material, shape, segment, segments, lay, dir, φ0, fill)
+function _milliken(material, shape, segment, segments, lay, dir, φ0, fill, center)
     throw(ArgumentError("milliken segment strands must be circular Disk wires"))
 end
 
@@ -972,6 +1002,8 @@ terminal.
 - `dir=1`: helix handedness \\[dimensionless\\].
 - `φ0=0`: helix initial angle \\[rad\\].
 - `fill=air`: interstitial material around the center and every segment strand.
+- `center=nothing`: `solid(material)` by default. A part declared without its outline
+  fills the center disk, such as a `stranded` core without a geometric boundary.
 - `combine=:product`: gridspace composition rule.
 
 The center-wire radius is inferred from the resolved segment packing so that
@@ -991,10 +1023,11 @@ function milliken(
         dir = 1,
         φ0 = 0,
         fill = Materials.Material(:insulator, Inf),
+        center = nothing,
         combine::Symbol = :product
 )
     values = (
-        material, shape, segment, segments, lay, dir, φ0, fill
+        material, shape, segment, segments, lay, dir, φ0, fill, center
     )
     return parameterize(DataModel.Enclosure, _milliken, values; combine)
 end

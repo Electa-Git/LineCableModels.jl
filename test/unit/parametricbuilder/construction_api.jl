@@ -899,6 +899,42 @@ end
         segments = 6
     )
 
+    # The Milliken supplies its center disk, here of radius 0.560 mm, to a center part
+    # declared without its outline. By default, solid(material) fills it with one wire. A
+    # stranded core without a geometric boundary takes that disk as its core boundary and
+    # joins the terminal.
+    # Around its center wire, natural courses of 0.1 mm wires hold 6 wires, as many as fit,
+    # and then 12. A third course would reach 0.6 mm.
+    segment = Sector(span = pi / 3, r_base = 0.45e-3, r_back = 5.0e-3, fillet = 0.18e-3)
+    segment_wire = Disk(0.23862789195414474e-3)
+    solid_center = build(CableDesign, "milliken-solid-center",
+        terminal(:core, milliken(copper; shape = segment_wire, segment)))
+    center_radius = only(filter(solid_center.geometry.regions) do placed
+        placed.source.primitive != segment_wire && placed.terminal === :core
+    end).primitive.r
+    @test center_radius ≈ 0.560e-3 rtol = 1e-3
+    @test milliken(copper; shape = segment_wire, segment) ==
+          milliken(copper; shape = segment_wire, segment, center = solid(copper))
+    stranded_center = build(CableDesign, "milliken-stranded-center",
+        terminal(:core, milliken(copper; shape = segment_wire, segment,
+            center = stranded(copper; shape = Disk(0.1e-3), lay = LayRatio(12)))),
+        insulation(xlpe; t = 1e-3))
+    center_wires = filter(placed -> placed.source.primitive == Disk(0.1e-3),
+        stranded_center.geometry.regions)
+    center_courses = [only(placed.placement.patterns).pattern.course
+                      for placed in center_wires]
+    @test [count(==(course), center_courses) for course in 0:2] == [1, 6, 12]
+    @test all(placed -> placed.terminal === :core, center_wires)
+    @test all(center_wires) do placed
+        only(placed.placement.patterns).pattern.boundary == Disk(center_radius)
+    end
+    @test all(isfinite, compute(CableConstantsProblem(stranded_center)).R)
+    # Only a Milliken center supplies an outline.
+    for part in (solid(copper), stranded(copper; shape = Disk(0.5e-3)))
+        @test_throws "only the center of a milliken supplies one" build(CableDesign,
+            "no-outline", terminal(:core, part))
+    end
+
     compacted = stranded(
         copper;
         shape = Disk(0.5e-3),
