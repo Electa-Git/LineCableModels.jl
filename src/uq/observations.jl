@@ -1,19 +1,19 @@
 """
 Return core results in Gridspace traversal order.
 """
-Units.label(::Units.Quantity{:sample_count}) = "Count"
-Units.symbol(::Units.Quantity{:sample_count}) = "n"
-Units.label(::Units.Quantity{:probability}) = "Probability"
-Units.symbol(::Units.Quantity{:probability}) = "p"
-Units.label(::Units.Quantity{:cumulative_probability}) = "Cumulative probability"
-Units.symbol(::Units.Quantity{:cumulative_probability}) = "F"
-Units.label(::Units.Quantity{:probability_density}) = "Probability density"
-Units.symbol(::Units.Quantity{:probability_density}) = "p"
+Units.label(::Units.Quantity{:sample_count, Nothing}) = "Count"
+Units.symbol(::Units.Quantity{:sample_count, Nothing}) = "n"
+Units.label(::Units.Quantity{:probability, Nothing}) = "Probability"
+Units.symbol(::Units.Quantity{:probability, Nothing}) = "p"
+Units.label(::Units.Quantity{:cumulative_probability, Nothing}) = "Cumulative probability"
+Units.symbol(::Units.Quantity{:cumulative_probability, Nothing}) = "F"
+Units.label(::Units.Quantity{:probability_density, Nothing}) = "Probability density"
+Units.symbol(::Units.Quantity{:probability_density, Nothing}) = "p"
 
 const _DimensionlessStatisticalQuantity = Union{
-    Units.Quantity{:sample_count},
-    Units.Quantity{:probability},
-    Units.Quantity{:cumulative_probability}
+    Units.Quantity{:sample_count, Nothing},
+    Units.Quantity{:probability, Nothing},
+    Units.Quantity{:cumulative_probability, Nothing}
 }
 Units.native_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
 Units.display_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)

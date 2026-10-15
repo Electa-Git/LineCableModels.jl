@@ -1,7 +1,16 @@
 # Shared physical selectors extended independently by DataModel and Engine.
-quantity(::typeof(R)) = Quantity{:series_resistance}()
-quantity(::typeof(L)) = Quantity{:series_inductance}()
-quantity(::typeof(C)) = Quantity{:shunt_capacitance}()
+quantity(::typeof(R)) = Quantity{:series_resistance, Nothing}()
+quantity(::typeof(L)) = Quantity{:series_inductance, Nothing}()
+quantity(::typeof(C)) = Quantity{:shunt_capacitance, Nothing}()
+
+# A magnitude, angle, real or imaginary part is a component of the selector's quantity.
+function quantity(selector::Function,
+        transform::Union{typeof(abs), typeof(angle), typeof(real), typeof(imag)})
+    return quantity(quantity(selector), transform)
+end
+
+# A diagonal keeps the selector's quantity. `observables` declares where it applies.
+quantity(selector::Function, ::typeof(diag)) = quantity(selector)
 
 """
 Return the scientific label registered for `selector`.

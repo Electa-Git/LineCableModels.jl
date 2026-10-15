@@ -136,7 +136,7 @@ end
         (U.units(:micro, :farad; per = (:kilo, :meter)), "μF/km", "Unit expression μF/km"),
         (U.UnitExpr(), "", "Unit expression "),
         (U.quantity(R), "R · Series resistance", "Series resistance"),
-        (U.Quantity{:dimensionless}(), "Dimensionless", "Dimensionless")
+        (U.Quantity{:dimensionless, Nothing}(), "Dimensionless", "Dimensionless")
     )
         @test sprint(show, object) == compact
         @test sprint(show, MIME"text/plain"(), object) == compact

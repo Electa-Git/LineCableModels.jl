@@ -1,34 +1,30 @@
 # Engine-owned line-parameter quantity and unit accessors.
-Units.quantity(::typeof(frequencies)) = Units.Quantity{:frequency}()
-Units.quantity(::typeof(Z)) = Units.Quantity{:series_impedance}()
-Units.quantity(::typeof(Y)) = Units.Quantity{:shunt_admittance}()
-Units.quantity(::typeof(X)) = Units.Quantity{:series_reactance}()
-Units.quantity(::typeof(G)) = Units.Quantity{:shunt_conductance}()
-Units.quantity(::typeof(B)) = Units.Quantity{:shunt_susceptance}()
+Units.quantity(::typeof(frequencies)) = Units.Quantity{:frequency, Nothing}()
+Units.quantity(::typeof(Z)) = Units.Quantity{:series_impedance, Nothing}()
+Units.quantity(::typeof(Y)) = Units.Quantity{:shunt_admittance, Nothing}()
+Units.quantity(::typeof(X)) = Units.Quantity{:series_reactance, Nothing}()
+Units.quantity(::typeof(G)) = Units.Quantity{:shunt_conductance, Nothing}()
+Units.quantity(::typeof(B)) = Units.Quantity{:shunt_susceptance, Nothing}()
 
-Units.quantity(::typeof(Z), ::typeof(abs)) =
-    Units.Quantity{(:series_impedance, :magnitude)}()
-Units.quantity(::typeof(Z), ::typeof(angle)) =
-    Units.Quantity{(:series_impedance, :phase_angle)}()
-Units.quantity(::typeof(Y), ::typeof(abs)) =
-    Units.Quantity{(:shunt_admittance, :magnitude)}()
-Units.quantity(::typeof(Y), ::typeof(angle)) =
-    Units.Quantity{(:shunt_admittance, :phase_angle)}()
-
-Units.quantity(::typeof(Z), ::typeof(diag)) = Units.quantity(Z)
-Units.quantity(::typeof(Y), ::typeof(diag)) = Units.quantity(Y)
-Units.quantity(::typeof(R), ::typeof(diag)) = Units.quantity(R)
-Units.quantity(::typeof(X), ::typeof(diag)) = Units.quantity(X)
-Units.quantity(::typeof(L), ::typeof(diag)) = Units.quantity(L)
-Units.quantity(::typeof(G), ::typeof(diag)) = Units.quantity(G)
-Units.quantity(::typeof(B), ::typeof(diag)) = Units.quantity(B)
-Units.quantity(::typeof(C), ::typeof(diag)) = Units.quantity(C)
-
-Units.quantity(::typeof(Z), ::typeof(absolute_error)) =
-    Units.Quantity{:series_impedance_absolute_error}()
-Units.quantity(::typeof(Z), ::typeof(relative_error)) =
-    Units.Quantity{:series_impedance_relative_error}()
-Units.quantity(::typeof(Y), ::typeof(absolute_error)) =
-    Units.Quantity{:shunt_admittance_absolute_error}()
-Units.quantity(::typeof(Y), ::typeof(relative_error)) =
-    Units.Quantity{:shunt_admittance_relative_error}()
+# Error rules. An error is a component of the selector's quantity. An absolute error
+# keeps the base unit, and a relative error is dimensionless.
+function Units.quantity(selector::Function,
+        transform::Union{typeof(absolute_error), typeof(relative_error)})
+    return Units.quantity(Units.quantity(selector), transform)
+end
+Units.native_unit(::Units.Quantity{Name, typeof(absolute_error)}) where {Name} =
+    Units.native_unit(Units.Quantity{Name, Nothing}())
+Units.display_unit(::Units.Quantity{Name, typeof(absolute_error)}) where {Name} =
+    Units.display_unit(Units.Quantity{Name, Nothing}())
+Units.native_unit(::Units.Quantity{Name, typeof(relative_error)}) where {Name} =
+    Units.units(:base, :dimensionless)
+Units.display_unit(::Units.Quantity{Name, typeof(relative_error)}) where {Name} =
+    Units.units(:base, :dimensionless)
+Units.label(::Units.Quantity{Name, typeof(absolute_error)}) where {Name} =
+    Units.label(Units.Quantity{Name, Nothing}()) * " absolute error"
+Units.label(::Units.Quantity{Name, typeof(relative_error)}) where {Name} =
+    Units.label(Units.Quantity{Name, Nothing}()) * " relative error"
+Units.symbol(::Units.Quantity{Name, typeof(absolute_error)}) where {Name} =
+    "Δ" * Units.symbol(Units.Quantity{Name, Nothing}())
+Units.symbol(::Units.Quantity{Name, typeof(relative_error)}) where {Name} =
+    "ε" * Units.symbol(Units.Quantity{Name, Nothing}())

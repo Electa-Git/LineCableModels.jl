@@ -316,12 +316,10 @@ function Base.pairs(::Type{LineParametersFormulation}; quantity=nothing)
         temperature_dependence=TemperatureDependent.Formula)
     quantity===nothing && return pairs(selected)
     q=quantity isa Units.Quantity ? quantity : Commons.request_quantity(quantity)
-    series=q in (Units.quantity(Z),Units.quantity(R),Units.quantity(X),Units.quantity(L),
-        Units.quantity(Z,abs),Units.quantity(Z,angle))
-    shunt=q in (Units.quantity(Y),Units.quantity(G),Units.quantity(B),Units.quantity(C),
-        Units.quantity(Y,abs),Units.quantity(Y,angle))
-    series || shunt || throw(ArgumentError("no line-formulation selections for $q"))
-    omitted=series ? (:shunt_model,:insulation_admittance,:semicon_admittance,:earth_admittance) :
+    family=Units.family(q)
+    family===nothing && throw(ArgumentError("no line-formulation selections for $q"))
+    omitted=family===Val(:series) ?
+        (:shunt_model,:insulation_admittance,:semicon_admittance,:earth_admittance) :
         (:internal_impedance,:insulation_impedance,:earth_impedance,:pipe_impedance)
     return pairs((; (key=>value for (key,value) in pairs(selected) if key ∉ omitted)...))
 end

@@ -34,18 +34,18 @@ function _distribution_plot(observed::Commons.ObservedResult,request,kind;
         empirical=distribution.empirical_cdf
         empirical===nothing && throw(ArgumentError("empirical CDF coordinates were not retained"))
         x=empirical.x;y=empirical.y
-        ordinate=(values=y,quantity=Units.Quantity{:cumulative_probability}(),unit=Units.UnitExpr())
+        ordinate=(values=y,quantity=Units.Quantity{:cumulative_probability, Nothing}(),unit=Units.UnitExpr())
     elseif kind===:cdf
         x=distribution.model_cdf.x;y=distribution.model_cdf.y
-        ordinate=(values=y,quantity=Units.Quantity{:cumulative_probability}(),unit=Units.UnitExpr())
+        ordinate=(values=y,quantity=Units.Quantity{:cumulative_probability, Nothing}(),unit=Units.UnitExpr())
     else
         normalization in (:none,:probability,:pdf) || throw(ArgumentError("normalization must be :none, :probability or :pdf"))
         field=kind===:density || normalization===:pdf ? :density : normalization===:probability ? :probability : :count
         y=getproperty(product.values,field)
         any(ismissing,y) && throw(ArgumentError("histogram counts were not retained"))
         x=distribution.edges[1:end-1]
-        quantity=field===:density ? Units.Quantity{:probability_density}() : field===:count ?
-            Units.Quantity{:sample_count}() : Units.Quantity{:probability}()
+        quantity=field===:density ? Units.Quantity{:probability_density, Nothing}() : field===:count ?
+            Units.Quantity{:sample_count, Nothing}() : Units.Quantity{:probability, Nothing}()
         unit=field===:density ? product.ordinate_units.density : Units.UnitExpr()
         ordinate=(values=y,quantity,unit)
     end

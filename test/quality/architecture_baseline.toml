@@ -10,7 +10,6 @@
 "Engine | Commons.formulation_options | src/engine/integration.jl" = 1
 "Engine | Commons.observation_resolution | src/engine/lineparameters/resolution.jl" = 1
 "Engine | LineCableModels.line_length | src/engine/observed_inputs.jl" = 2
-"Engine | Units.quantity | src/engine/lineparameters/quantities.jl" = 3
 "Engine.InsulationAdmittance | Engine.InsulationAdmittanceFormulation | src/engine/insulationadmittance/interface.jl" = 2
 "Engine.InsulationImpedance | Engine.InsulationImpedanceFormulation | src/engine/insulationimpedance/interface.jl" = 1
 "Engine.ModalAnalysis | Commons.normalize_observation_selector | src/engine/modalanalysis/observations.jl" = 2
@@ -86,7 +85,7 @@
 "src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/commons/observables.jl" = { applicable = 1, eval = 0, isa = 25, kind = 0 }
 "src/commons/observed_validation.jl" = { applicable = 0, eval = 0, isa = 41, kind = 13 }
-"src/commons/observedresult.jl" = { applicable = 1, eval = 0, isa = 28, kind = 9 }
+"src/commons/observedresult.jl" = { applicable = 0, eval = 0, isa = 28, kind = 9 }
 "src/commons/retained_products.jl" = { applicable = 0, eval = 0, isa = 2, kind = 10 }
 "src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, isa = 3, kind = 4 }
 "src/datamodel/design/group.jl" = { applicable = 0, eval = 0, isa = 0, kind = 3 }
@@ -136,7 +135,7 @@
 "src/importexport/cableslibrary.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/importexport/deserialize.jl" = { applicable = 1, eval = 0, isa = 21, kind = 0 }
 "src/importexport/materialslibrary.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"src/importexport/observed.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
+"src/importexport/observed.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/importexport/problem.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/importexport/uncertainty.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
 "src/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }

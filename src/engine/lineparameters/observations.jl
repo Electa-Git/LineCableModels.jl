@@ -2,7 +2,13 @@ const _ObservedLineSource = Union{LineParameters,SeriesImpedance,ShuntAdmittance
 _line_families(::LineParameters) = (Z,Y)
 _line_families(::SeriesImpedance) = (Z,)
 _line_families(::ShuntAdmittance) = (Y,)
-_primary_family(selector) = selector in (Z,R,X,L) ? Z : selector in (Y,G,B,C) ? Y : nothing
+# A line selector's primary family (Z or Y) is the family of its quantity. A selector
+# that LineParameters does not declare has none.
+function _primary_family(selector)
+    selector in observables(LineParameters) || return nothing
+    family=Units.family(Units.quantity(selector))
+    return family===Val(:series) ? Z : family===Val(:shunt) ? Y : nothing
+end
 observation_assumptions(::Union{SeriesImpedance,ShuntAdmittance},selector) = nothing
 function observation_assumptions(source::AbstractCoreResult,selector)
     family=_primary_family(selector)

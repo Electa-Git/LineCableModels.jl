@@ -14,13 +14,15 @@ plots, and reports.
 module Units
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+using LinearAlgebra: diag
 import ..LineCableModels: R, L, C
 
 export Unit, UnitExpr, Quantity, units
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 
 """
-Return the owner-defined family of a physical quantity.
+Return the family of a physical quantity: `Val(:series)`, `Val(:shunt)`, or
+`nothing` for a quantity in neither. A component belongs to its base's family.
 """
 function family end
 

@@ -84,12 +84,16 @@ serialize_value(value::UUIDs.UUID) = Dict("__type__"=>"UUID","value"=>string(val
 deserialize_extension(::Val{:UUID},record) = UUIDs.UUID(record["value"])
 serialize_value(::Colon) = Dict("__type__"=>"Colon")
 deserialize_extension(::Val{:Colon},record) = Colon()
-serialize_value(value::Units.Quantity{Q}) where {Q} = Q isa Tuple ?
-    Dict("__type__"=>"Quantity","parts"=>string.(collect(Q))) :
-    Dict("__type__"=>"Quantity","name"=>string(Q))
-deserialize_extension(::Val{:Quantity},record) = haskey(record,"parts") ?
-    Units.Quantity{Tuple(Symbol.(record["parts"]))}() :
-    Units.Quantity{Symbol(record["name"])}()
+# A component adds its transform under `component`, in the selector codec form.
+serialize_value(::Units.Quantity{Name, Nothing}) where {Name} =
+    Dict("__type__"=>"Quantity","name"=>string(Name))
+serialize_value(::Units.Quantity{Name, Component}) where {Name, Component} =
+    Dict("__type__"=>"Quantity","name"=>string(Name),
+        "component"=>serialize_value(Component.instance))
+deserialize_extension(::Val{:Quantity},record) = haskey(record,"component") ?
+    Units.quantity(Units.Quantity{Symbol(record["name"]), Nothing}(),
+        deserialize_value(record["component"])) :
+    Units.Quantity{Symbol(record["name"]), Nothing}()
 serialize_value(value::Units.Unit) = Dict("__type__"=>"Unit","name"=>string(value.name),"prefix"=>string(value.prefix))
 deserialize_extension(::Val{:Unit},record) = Units.Unit(Symbol(record["name"]),Symbol(record["prefix"]))
 serialize_value(value::Units.UnitExpr) = Dict("__type__"=>"UnitExpr",

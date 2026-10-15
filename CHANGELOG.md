@@ -185,6 +185,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   selection as their second positional argument, and `report(source)` uses the source's
   default selection. An illustration callable receives the observations and the report's
   selection as positional arguments.
+- `Units.Quantity{Name, Component}` identifies a physical quantity. `Component` is the
+  type of the transform that derives it from its base quantity, such as `typeof(abs)` or
+  `typeof(Engine.absolute_error)`, and `Nothing` for the base quantity. The magnitude,
+  angle, real part, imaginary part and errors each take their unit, label and symbol
+  from the base quantity by one rule. A saved quantity records its component.
 - Plots and reports set the frequency display unit with `frequency_unit`. A standalone
   `SeriesImpedance` or `ShuntAdmittance` takes its frequency samples through
   `frequencies`. `legend_max_fraction` limits the size of a plot's legend, and

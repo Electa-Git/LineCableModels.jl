@@ -1,75 +1,60 @@
 # Scientific units belong to the scalar quantity, independently of presentation.
-Units.quantity(::typeof(gamma)) = Units.Quantity{:propagation_constant}()
-Units.quantity(::typeof(alpha)) = Units.Quantity{:attenuation_constant}()
-Units.quantity(::typeof(beta)) = Units.Quantity{:phase_constant}()
-Units.quantity(::typeof(velocity)) = Units.Quantity{:phase_velocity}()
-Units.quantity(::typeof(Zc)) = Units.Quantity{:characteristic_impedance}()
-Units.quantity(::typeof(Yc)) = Units.Quantity{:characteristic_admittance}()
-Units.quantity(::typeof(H)) = Units.Quantity{:forward_response}()
-Units.quantity(::typeof(Tv)) = Units.Quantity{:voltage_basis}()
-Units.quantity(::typeof(Ti)) = Units.Quantity{:current_basis}()
+Units.quantity(::typeof(gamma)) = Units.Quantity{:propagation_constant, Nothing}()
+Units.quantity(::typeof(alpha)) = Units.Quantity{:attenuation_constant, Nothing}()
+Units.quantity(::typeof(beta)) = Units.Quantity{:phase_constant, Nothing}()
+Units.quantity(::typeof(velocity)) = Units.Quantity{:phase_velocity, Nothing}()
+Units.quantity(::typeof(Zc)) = Units.Quantity{:characteristic_impedance, Nothing}()
+Units.quantity(::typeof(Yc)) = Units.Quantity{:characteristic_admittance, Nothing}()
+Units.quantity(::typeof(H)) = Units.Quantity{:forward_response, Nothing}()
+Units.quantity(::typeof(Tv)) = Units.Quantity{:voltage_basis, Nothing}()
+Units.quantity(::typeof(Ti)) = Units.Quantity{:current_basis, Nothing}()
 Units.quantity(value::Base.Fix2{typeof(H)}) = value.x.field===:voltage ?
-    Units.Quantity{:voltage_propagation_function}() :
-    Units.Quantity{:current_propagation_function}()
-Units.quantity(value::Base.Fix2{typeof(Zc)}) = Units.Quantity{:phase_characteristic_impedance}()
-Units.quantity(value::Base.Fix2{typeof(Yc)}) = Units.Quantity{:phase_characteristic_admittance}()
-
-function Units.quantity(value::Base.Fix2{typeof(H)},transform::Function)
-    name=value.x.field===:voltage ? :voltage_propagation_function :
-        :current_propagation_function
-    return _modal_bound_quantity(name,transform)
-end
-Units.quantity(::Base.Fix2{typeof(Zc)},transform::Function) =
-    _modal_bound_quantity(:phase_characteristic_impedance,transform)
-Units.quantity(::Base.Fix2{typeof(Yc)},transform::Function) =
-    _modal_bound_quantity(:phase_characteristic_admittance,transform)
-
-_modal_bound_quantity(name::Symbol,::typeof(abs)) = Units.Quantity{(name,:magnitude)}()
-_modal_bound_quantity(name::Symbol,::typeof(angle)) = Units.Quantity{(name,:phase_angle)}()
-_modal_bound_quantity(name::Symbol,::typeof(real)) = Units.Quantity{(name,:real)}()
-_modal_bound_quantity(name::Symbol,::typeof(imag)) = Units.Quantity{(name,:imag)}()
+    Units.Quantity{:voltage_propagation_function, Nothing}() :
+    Units.Quantity{:current_propagation_function, Nothing}()
+Units.quantity(value::Base.Fix2{typeof(Zc)}) = Units.Quantity{:phase_characteristic_impedance, Nothing}()
+Units.quantity(value::Base.Fix2{typeof(Yc)}) = Units.Quantity{:phase_characteristic_admittance, Nothing}()
 
 for (selector, name) in ((gamma,:propagation_constant),(Zc,:characteristic_impedance),
         (Yc,:characteristic_admittance),(H,:forward_response),(Tv,:voltage_basis),
         (Ti,:current_basis))
     @eval begin
-        Units.quantity(::typeof($selector),::typeof(abs)) = Units.Quantity{($(QuoteNode(name)),:magnitude)}()
-        Units.quantity(::typeof($selector),::typeof(angle)) = Units.Quantity{($(QuoteNode(name)),:phase_angle)}()
-        Units.native_unit(::Units.Quantity{($(QuoteNode(name)),:magnitude)}) = Units.native_unit(Units.Quantity{$(QuoteNode(name))}())
-        Units.display_unit(::Units.Quantity{($(QuoteNode(name)),:magnitude)}) = Units.display_unit(Units.Quantity{$(QuoteNode(name))}())
-        Units.native_unit(::Units.Quantity{($(QuoteNode(name)),:phase_angle)}) = Units.units(:base,:radian)
-        Units.display_unit(::Units.Quantity{($(QuoteNode(name)),:phase_angle)}) = Units.units(:base,:degree)
-        Units.label(::Units.Quantity{($(QuoteNode(name)),:magnitude)}) = Units.label(Units.Quantity{$(QuoteNode(name))}()) * " magnitude"
-        Units.label(::Units.Quantity{($(QuoteNode(name)),:phase_angle)}) = Units.label(Units.Quantity{$(QuoteNode(name))}()) * " angle"
-        Units.symbol(::Units.Quantity{($(QuoteNode(name)),:magnitude)}) = "|" * Units.symbol(Units.Quantity{$(QuoteNode(name))}()) * "|"
-        Units.symbol(::Units.Quantity{($(QuoteNode(name)),:phase_angle)}) = "∠" * Units.symbol(Units.Quantity{$(QuoteNode(name))}())
+        Units.quantity(::typeof($selector),::typeof(abs)) = Units.Quantity{$(QuoteNode(name)), typeof(abs)}()
+        Units.quantity(::typeof($selector),::typeof(angle)) = Units.Quantity{$(QuoteNode(name)), typeof(angle)}()
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), typeof(abs)}) = Units.native_unit(Units.Quantity{$(QuoteNode(name)), Nothing}())
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), typeof(abs)}) = Units.display_unit(Units.Quantity{$(QuoteNode(name)), Nothing}())
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), typeof(angle)}) = Units.units(:base,:radian)
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), typeof(angle)}) = Units.units(:base,:degree)
+        Units.label(::Units.Quantity{$(QuoteNode(name)), typeof(abs)}) = Units.label(Units.Quantity{$(QuoteNode(name)), Nothing}()) * " magnitude"
+        Units.label(::Units.Quantity{$(QuoteNode(name)), typeof(angle)}) = Units.label(Units.Quantity{$(QuoteNode(name)), Nothing}()) * " angle"
+        Units.symbol(::Units.Quantity{$(QuoteNode(name)), typeof(abs)}) = "|" * Units.symbol(Units.Quantity{$(QuoteNode(name)), Nothing}()) * "|"
+        Units.symbol(::Units.Quantity{$(QuoteNode(name)), typeof(angle)}) = "∠" * Units.symbol(Units.Quantity{$(QuoteNode(name)), Nothing}())
     end
 end
 Units.quantity(::typeof(gamma),::typeof(real)) = Units.quantity(alpha)
 Units.quantity(::typeof(gamma),::typeof(imag)) = Units.quantity(beta)
-Units.quantity(::typeof(Zc),::typeof(real)) = Units.Quantity{:characteristic_resistance}()
-Units.quantity(::typeof(Zc),::typeof(imag)) = Units.Quantity{:characteristic_reactance}()
-Units.quantity(::typeof(Yc),::typeof(real)) = Units.Quantity{:characteristic_conductance}()
-Units.quantity(::typeof(Yc),::typeof(imag)) = Units.Quantity{:characteristic_susceptance}()
-Units.quantity(::typeof(H),::typeof(real)) = Units.Quantity{:forward_response_real}()
-Units.quantity(::typeof(H),::typeof(imag)) = Units.Quantity{:forward_response_imag}()
-Units.quantity(::typeof(Tv),::typeof(real)) = Units.Quantity{:voltage_basis_real}()
-Units.quantity(::typeof(Tv),::typeof(imag)) = Units.Quantity{:voltage_basis_imag}()
-Units.quantity(::typeof(Ti),::typeof(real)) = Units.Quantity{:current_basis_real}()
-Units.quantity(::typeof(Ti),::typeof(imag)) = Units.Quantity{:current_basis_imag}()
+Units.quantity(::typeof(Zc),::typeof(real)) = Units.Quantity{:characteristic_resistance, Nothing}()
+Units.quantity(::typeof(Zc),::typeof(imag)) = Units.Quantity{:characteristic_reactance, Nothing}()
+Units.quantity(::typeof(Yc),::typeof(real)) = Units.Quantity{:characteristic_conductance, Nothing}()
+Units.quantity(::typeof(Yc),::typeof(imag)) = Units.Quantity{:characteristic_susceptance, Nothing}()
+Units.quantity(::typeof(H),::typeof(real)) = Units.Quantity{:forward_response_real, Nothing}()
+Units.quantity(::typeof(H),::typeof(imag)) = Units.Quantity{:forward_response_imag, Nothing}()
+Units.quantity(::typeof(Tv),::typeof(real)) = Units.Quantity{:voltage_basis_real, Nothing}()
+Units.quantity(::typeof(Tv),::typeof(imag)) = Units.Quantity{:voltage_basis_imag, Nothing}()
+Units.quantity(::typeof(Ti),::typeof(real)) = Units.Quantity{:current_basis_real, Nothing}()
+Units.quantity(::typeof(Ti),::typeof(imag)) = Units.Quantity{:current_basis_imag, Nothing}()
 
-Units.native_unit(::Units.Quantity{:attenuation_constant}) = Units.units(:base,:neper;per=(:base,:meter))
-Units.display_unit(::Units.Quantity{:attenuation_constant}) = Units.units(:base,:neper;per=(:kilo,:meter))
-Units.label(::Units.Quantity{:attenuation_constant}) = "Attenuation constant"
-Units.symbol(::Units.Quantity{:attenuation_constant}) = "α"
-Units.native_unit(::Units.Quantity{:phase_constant}) = Units.units(:base,:radian;per=(:base,:meter))
-Units.display_unit(::Units.Quantity{:phase_constant}) = Units.units(:base,:radian;per=(:kilo,:meter))
-Units.label(::Units.Quantity{:phase_constant}) = "Phase constant"
-Units.symbol(::Units.Quantity{:phase_constant}) = "β"
-Units.native_unit(::Units.Quantity{:phase_velocity}) = Units.units(:base,:meter;per=(:base,:second))
-Units.display_unit(::Units.Quantity{:phase_velocity}) = Units.native_unit(Units.Quantity{:phase_velocity}())
-Units.label(::Units.Quantity{:phase_velocity}) = "Phase velocity"
-Units.symbol(::Units.Quantity{:phase_velocity}) = "vₚ"
+Units.native_unit(::Units.Quantity{:attenuation_constant, Nothing}) = Units.units(:base,:neper;per=(:base,:meter))
+Units.display_unit(::Units.Quantity{:attenuation_constant, Nothing}) = Units.units(:base,:neper;per=(:kilo,:meter))
+Units.label(::Units.Quantity{:attenuation_constant, Nothing}) = "Attenuation constant"
+Units.symbol(::Units.Quantity{:attenuation_constant, Nothing}) = "α"
+Units.native_unit(::Units.Quantity{:phase_constant, Nothing}) = Units.units(:base,:radian;per=(:base,:meter))
+Units.display_unit(::Units.Quantity{:phase_constant, Nothing}) = Units.units(:base,:radian;per=(:kilo,:meter))
+Units.label(::Units.Quantity{:phase_constant, Nothing}) = "Phase constant"
+Units.symbol(::Units.Quantity{:phase_constant, Nothing}) = "β"
+Units.native_unit(::Units.Quantity{:phase_velocity, Nothing}) = Units.units(:base,:meter;per=(:base,:second))
+Units.display_unit(::Units.Quantity{:phase_velocity, Nothing}) = Units.native_unit(Units.Quantity{:phase_velocity, Nothing}())
+Units.label(::Units.Quantity{:phase_velocity, Nothing}) = "Phase velocity"
+Units.symbol(::Units.Quantity{:phase_velocity, Nothing}) = "vₚ"
 for (name,base,scientific,sym) in (
         (:characteristic_resistance,:characteristic_impedance,"Characteristic resistance","R꜀"),
         (:characteristic_reactance,:characteristic_impedance,"Characteristic reactance","X꜀"),
@@ -82,38 +67,38 @@ for (name,base,scientific,sym) in (
         (:current_basis_real,:current_basis,"Real modal-to-phase current transformation","Re(Ti)"),
         (:current_basis_imag,:current_basis,"Imaginary modal-to-phase current transformation","Im(Ti)"))
     @eval begin
-        Units.native_unit(::Units.Quantity{$(QuoteNode(name))}) = Units.native_unit(Units.Quantity{$(QuoteNode(base))}())
-        Units.display_unit(::Units.Quantity{$(QuoteNode(name))}) = Units.display_unit(Units.Quantity{$(QuoteNode(base))}())
-        Units.label(::Units.Quantity{$(QuoteNode(name))}) = $scientific
-        Units.symbol(::Units.Quantity{$(QuoteNode(name))}) = $sym
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), Nothing}) = Units.native_unit(Units.Quantity{$(QuoteNode(base)), Nothing}())
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), Nothing}) = Units.display_unit(Units.Quantity{$(QuoteNode(base)), Nothing}())
+        Units.label(::Units.Quantity{$(QuoteNode(name)), Nothing}) = $scientific
+        Units.symbol(::Units.Quantity{$(QuoteNode(name)), Nothing}) = $sym
     end
 end
-Units.native_unit(::Units.Quantity{:propagation_constant}) =
+Units.native_unit(::Units.Quantity{:propagation_constant, Nothing}) =
     Units.units(:base,:dimensionless;per=(:base,:meter))
-Units.display_unit(::Units.Quantity{:propagation_constant}) =
+Units.display_unit(::Units.Quantity{:propagation_constant, Nothing}) =
     Units.units(:base,:dimensionless;per=(:kilo,:meter))
-Units.native_unit(::Units.Quantity{:characteristic_impedance}) = Units.units(:base,:ohm)
-Units.display_unit(::Units.Quantity{:characteristic_impedance}) = Units.units(:base,:ohm)
-Units.native_unit(::Units.Quantity{:characteristic_admittance}) = Units.units(:base,:siemens)
-Units.display_unit(::Units.Quantity{:characteristic_admittance}) = Units.units(:base,:siemens)
+Units.native_unit(::Units.Quantity{:characteristic_impedance, Nothing}) = Units.units(:base,:ohm)
+Units.display_unit(::Units.Quantity{:characteristic_impedance, Nothing}) = Units.units(:base,:ohm)
+Units.native_unit(::Units.Quantity{:characteristic_admittance, Nothing}) = Units.units(:base,:siemens)
+Units.display_unit(::Units.Quantity{:characteristic_admittance, Nothing}) = Units.units(:base,:siemens)
 for name in (:forward_response,:voltage_basis,:current_basis)
     @eval begin
-        Units.native_unit(::Units.Quantity{$(QuoteNode(name))}) = Units.units(:base,:dimensionless)
-        Units.display_unit(::Units.Quantity{$(QuoteNode(name))}) = Units.units(:base,:dimensionless)
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), Nothing}) = Units.units(:base,:dimensionless)
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), Nothing}) = Units.units(:base,:dimensionless)
     end
 end
-Units.label(::Units.Quantity{:propagation_constant}) = "Propagation constant"
-Units.label(::Units.Quantity{:characteristic_impedance}) = "Characteristic impedance"
-Units.label(::Units.Quantity{:characteristic_admittance}) = "Characteristic admittance"
-Units.label(::Units.Quantity{:forward_response}) = "Propagation function"
-Units.label(::Units.Quantity{:voltage_basis}) = "Modal-to-phase voltage transformation"
-Units.label(::Units.Quantity{:current_basis}) = "Modal-to-phase current transformation"
-Units.symbol(::Units.Quantity{:propagation_constant}) = "γ"
-Units.symbol(::Units.Quantity{:characteristic_impedance}) = "Zc"
-Units.symbol(::Units.Quantity{:characteristic_admittance}) = "Yc"
-Units.symbol(::Units.Quantity{:forward_response}) = "H"
-Units.symbol(::Units.Quantity{:voltage_basis}) = "Tv"
-Units.symbol(::Units.Quantity{:current_basis}) = "Ti"
+Units.label(::Units.Quantity{:propagation_constant, Nothing}) = "Propagation constant"
+Units.label(::Units.Quantity{:characteristic_impedance, Nothing}) = "Characteristic impedance"
+Units.label(::Units.Quantity{:characteristic_admittance, Nothing}) = "Characteristic admittance"
+Units.label(::Units.Quantity{:forward_response, Nothing}) = "Propagation function"
+Units.label(::Units.Quantity{:voltage_basis, Nothing}) = "Modal-to-phase voltage transformation"
+Units.label(::Units.Quantity{:current_basis, Nothing}) = "Modal-to-phase current transformation"
+Units.symbol(::Units.Quantity{:propagation_constant, Nothing}) = "γ"
+Units.symbol(::Units.Quantity{:characteristic_impedance, Nothing}) = "Zc"
+Units.symbol(::Units.Quantity{:characteristic_admittance, Nothing}) = "Yc"
+Units.symbol(::Units.Quantity{:forward_response, Nothing}) = "H"
+Units.symbol(::Units.Quantity{:voltage_basis, Nothing}) = "Tv"
+Units.symbol(::Units.Quantity{:current_basis, Nothing}) = "Ti"
 
 for (name,parent,scientific,sym) in (
         (:phase_characteristic_impedance,:characteristic_impedance,"Phase-domain characteristic impedance","Zc,phase"),
@@ -121,26 +106,26 @@ for (name,parent,scientific,sym) in (
         (:voltage_propagation_function,:forward_response,"Voltage propagation function","Hᵥ"),
         (:current_propagation_function,:forward_response,"Current propagation function","Hᵢ"))
     @eval begin
-        Units.native_unit(::Units.Quantity{$(QuoteNode(name))}) = Units.native_unit(Units.Quantity{$(QuoteNode(parent))}())
-        Units.display_unit(::Units.Quantity{$(QuoteNode(name))}) = Units.display_unit(Units.Quantity{$(QuoteNode(parent))}())
-        Units.label(::Units.Quantity{$(QuoteNode(name))}) = $scientific
-        Units.symbol(::Units.Quantity{$(QuoteNode(name))}) = $sym
-        Units.native_unit(::Units.Quantity{($(QuoteNode(name)),:magnitude)}) = Units.native_unit(Units.Quantity{$(QuoteNode(name))}())
-        Units.display_unit(::Units.Quantity{($(QuoteNode(name)),:magnitude)}) = Units.display_unit(Units.Quantity{$(QuoteNode(name))}())
-        Units.label(::Units.Quantity{($(QuoteNode(name)),:magnitude)}) = $scientific * " magnitude"
-        Units.symbol(::Units.Quantity{($(QuoteNode(name)),:magnitude)}) = "|" * $sym * "|"
-        Units.native_unit(::Units.Quantity{($(QuoteNode(name)),:phase_angle)}) = Units.units(:base,:radian)
-        Units.display_unit(::Units.Quantity{($(QuoteNode(name)),:phase_angle)}) = Units.units(:base,:degree)
-        Units.label(::Units.Quantity{($(QuoteNode(name)),:phase_angle)}) = $scientific * " angle"
-        Units.symbol(::Units.Quantity{($(QuoteNode(name)),:phase_angle)}) = "∠" * $sym
-        Units.native_unit(::Units.Quantity{($(QuoteNode(name)),:real)}) = Units.native_unit(Units.Quantity{$(QuoteNode(name))}())
-        Units.display_unit(::Units.Quantity{($(QuoteNode(name)),:real)}) = Units.display_unit(Units.Quantity{$(QuoteNode(name))}())
-        Units.label(::Units.Quantity{($(QuoteNode(name)),:real)}) = "Real " * lowercase($scientific)
-        Units.symbol(::Units.Quantity{($(QuoteNode(name)),:real)}) = "Re(" * $sym * ")"
-        Units.native_unit(::Units.Quantity{($(QuoteNode(name)),:imag)}) = Units.native_unit(Units.Quantity{$(QuoteNode(name))}())
-        Units.display_unit(::Units.Quantity{($(QuoteNode(name)),:imag)}) = Units.display_unit(Units.Quantity{$(QuoteNode(name))}())
-        Units.label(::Units.Quantity{($(QuoteNode(name)),:imag)}) = "Imaginary " * lowercase($scientific)
-        Units.symbol(::Units.Quantity{($(QuoteNode(name)),:imag)}) = "Im(" * $sym * ")"
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), Nothing}) = Units.native_unit(Units.Quantity{$(QuoteNode(parent)), Nothing}())
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), Nothing}) = Units.display_unit(Units.Quantity{$(QuoteNode(parent)), Nothing}())
+        Units.label(::Units.Quantity{$(QuoteNode(name)), Nothing}) = $scientific
+        Units.symbol(::Units.Quantity{$(QuoteNode(name)), Nothing}) = $sym
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), typeof(abs)}) = Units.native_unit(Units.Quantity{$(QuoteNode(name)), Nothing}())
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), typeof(abs)}) = Units.display_unit(Units.Quantity{$(QuoteNode(name)), Nothing}())
+        Units.label(::Units.Quantity{$(QuoteNode(name)), typeof(abs)}) = $scientific * " magnitude"
+        Units.symbol(::Units.Quantity{$(QuoteNode(name)), typeof(abs)}) = "|" * $sym * "|"
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), typeof(angle)}) = Units.units(:base,:radian)
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), typeof(angle)}) = Units.units(:base,:degree)
+        Units.label(::Units.Quantity{$(QuoteNode(name)), typeof(angle)}) = $scientific * " angle"
+        Units.symbol(::Units.Quantity{$(QuoteNode(name)), typeof(angle)}) = "∠" * $sym
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), typeof(real)}) = Units.native_unit(Units.Quantity{$(QuoteNode(name)), Nothing}())
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), typeof(real)}) = Units.display_unit(Units.Quantity{$(QuoteNode(name)), Nothing}())
+        Units.label(::Units.Quantity{$(QuoteNode(name)), typeof(real)}) = "Real " * lowercase($scientific)
+        Units.symbol(::Units.Quantity{$(QuoteNode(name)), typeof(real)}) = "Re(" * $sym * ")"
+        Units.native_unit(::Units.Quantity{$(QuoteNode(name)), typeof(imag)}) = Units.native_unit(Units.Quantity{$(QuoteNode(name)), Nothing}())
+        Units.display_unit(::Units.Quantity{$(QuoteNode(name)), typeof(imag)}) = Units.display_unit(Units.Quantity{$(QuoteNode(name)), Nothing}())
+        Units.label(::Units.Quantity{$(QuoteNode(name)), typeof(imag)}) = "Imaginary " * lowercase($scientific)
+        Units.symbol(::Units.Quantity{$(QuoteNode(name)), typeof(imag)}) = "Im(" * $sym * ")"
     end
 end
 

@@ -48,12 +48,8 @@ end
             @test U.label(relative, U.display_unit(relative, basis)) == U.label(relative)
         end
     end
-    distance = U.Quantity{:distance}()
-    dimensionless = U.Quantity{:dimensionless}()
-    phase = U.Quantity{:phase_angle}()
-    @test U.symbol(distance) == "d"
-    @test U.label(distance, U.display_unit(distance)) == "Distance [m]"
-    @test U.native_unit(distance) == U.display_unit(distance)
+    dimensionless = U.Quantity{:dimensionless, Nothing}()
+    phase = U.Quantity{:phase_angle, Nothing}()
     @test U.symbol(dimensionless) == ""
     @test U.label(dimensionless, U.display_unit(dimensionless)) == "Dimensionless"
     @test U.symbol(phase) == "∠"
@@ -66,15 +62,15 @@ end
     const U = LineCableModels.Units
 
     expected = (
-        (R, U.Quantity{:series_resistance}, "Series resistance", "R", "Ω/km"),
-        (X, U.Quantity{:series_reactance}, "Series reactance", "X", "Ω/km"),
-        (L, U.Quantity{:series_inductance}, "Series inductance", "L", "mH/km"),
-        (G, U.Quantity{:shunt_conductance}, "Shunt conductance", "G", "S/km"),
-        (B, U.Quantity{:shunt_susceptance}, "Shunt susceptance", "B", "S/km"),
-        (C, U.Quantity{:shunt_capacitance}, "Shunt capacitance", "C", "μF/km"),
-        (Z, U.Quantity{:series_impedance}, "Series impedance", "Z", "Ω/km"),
-        (Y, U.Quantity{:shunt_admittance}, "Shunt admittance", "Y", "S/km"),
-        (frequencies, U.Quantity{:frequency}, "Frequency", "f", "Hz")
+        (R, U.Quantity{:series_resistance, Nothing}, "Series resistance", "R", "Ω/km"),
+        (X, U.Quantity{:series_reactance, Nothing}, "Series reactance", "X", "Ω/km"),
+        (L, U.Quantity{:series_inductance, Nothing}, "Series inductance", "L", "mH/km"),
+        (G, U.Quantity{:shunt_conductance, Nothing}, "Shunt conductance", "G", "S/km"),
+        (B, U.Quantity{:shunt_susceptance, Nothing}, "Shunt susceptance", "B", "S/km"),
+        (C, U.Quantity{:shunt_capacitance, Nothing}, "Shunt capacitance", "C", "μF/km"),
+        (Z, U.Quantity{:series_impedance, Nothing}, "Series impedance", "Z", "Ω/km"),
+        (Y, U.Quantity{:shunt_admittance, Nothing}, "Shunt admittance", "Y", "S/km"),
+        (frequencies, U.Quantity{:frequency, Nothing}, "Frequency", "f", "Hz")
     )
 
     for (selector, tag_type, name, notation, unit_text) in expected
@@ -100,7 +96,7 @@ end
     @test_throws ArgumentError U.display_unit(U.quantity(R), :pul, 1)
     @test_throws ArgumentError U.display_unit(U.quantity(R), :invalid)
 
-    @test quantity(R) isa U.Quantity{:series_resistance}
+    @test quantity(R) isa U.Quantity{:series_resistance, Nothing}
     @test label(R) == "Series resistance"
     @test symbol(R) == "R"
     @test label(native_unit(R, :pul)) == "Ω/m"
@@ -150,16 +146,16 @@ end
     y_magnitude = U.quantity(Y, abs)
     y_angle = U.quantity(Y, angle)
 
-    @test z_magnitude isa U.Quantity{(:series_impedance, :magnitude)}
-    @test z_angle isa U.Quantity{(:series_impedance, :phase_angle)}
-    @test y_magnitude isa U.Quantity{(:shunt_admittance, :magnitude)}
-    @test y_angle isa U.Quantity{(:shunt_admittance, :phase_angle)}
+    @test z_magnitude isa U.Quantity{:series_impedance, typeof(abs)}
+    @test z_angle isa U.Quantity{:series_impedance, typeof(angle)}
+    @test y_magnitude isa U.Quantity{:shunt_admittance, typeof(abs)}
+    @test y_angle isa U.Quantity{:shunt_admittance, typeof(angle)}
     @test U.label(z_magnitude) == "Series impedance magnitude"
     @test U.symbol(y_angle) == "∠Y"
     @test U.label(U.native_unit(z_angle)) == "rad"
     @test U.label(U.display_unit(z_angle)) == "°"
     @test U.scale_factor(U.native_unit(z_angle), U.display_unit(z_angle)) ≈ 180 / π
-    @test quantity(Z, abs) isa U.Quantity{(:series_impedance, :magnitude)}
+    @test quantity(Z, abs) isa U.Quantity{:series_impedance, typeof(abs)}
     @test label(Z, abs) == "Series impedance magnitude"
     @test symbol(Z, abs) == "|Z|"
     @test symbol(Z, angle) == "∠Z"
@@ -177,13 +173,13 @@ end
     const U = LineCableModels.Units
 
     profile_response() = nothing
-    U.quantity(::typeof(profile_response)) = U.Quantity{:profile_response}()
-    U.native_unit(::U.Quantity{:profile_response}) = U.units(:base, :ohm)
-    U.display_unit(::U.Quantity{:profile_response}) = U.units(:milli, :ohm)
-    U.label(::U.Quantity{:profile_response}) = "Profile response"
-    U.symbol(::U.Quantity{:profile_response}) = "u"
+    U.quantity(::typeof(profile_response)) = U.Quantity{:profile_response, Nothing}()
+    U.native_unit(::U.Quantity{:profile_response, Nothing}) = U.units(:base, :ohm)
+    U.display_unit(::U.Quantity{:profile_response, Nothing}) = U.units(:milli, :ohm)
+    U.label(::U.Quantity{:profile_response, Nothing}) = "Profile response"
+    U.symbol(::U.Quantity{:profile_response, Nothing}) = "u"
 
-    @test quantity(profile_response) isa U.Quantity{:profile_response}
+    @test quantity(profile_response) isa U.Quantity{:profile_response, Nothing}
     @test label(profile_response) == "Profile response"
     @test symbol(profile_response) == "u"
     @test native_unit(profile_response) == U.units(:base, :ohm)
@@ -208,8 +204,8 @@ end
     )
         @test name in names(U)
     end
-    @test isbitstype(U.Quantity{:series_resistance})
-    @test fieldcount(U.Quantity{:series_resistance}) == 0
+    @test isbitstype(U.Quantity{:series_resistance, Nothing})
+    @test fieldcount(U.Quantity{:series_resistance, Nothing}) == 0
     for name in (:quantity, :native_unit, :display_unit, :scale_factor, :label, :symbol)
         @test name in names(LineCableModels)
         @test getfield(LineCableModels, name) === getfield(U, name)
@@ -223,7 +219,7 @@ end
     for (name, caption, symbol) in ((:sample_count, "Count", "n"),
             (:probability, "Probability", "p"),
             (:cumulative_probability, "Cumulative probability", "F"))
-        quantity = U.Quantity{name}()
+        quantity = U.Quantity{name, Nothing}()
         @test U.label(quantity) == caption
         @test U.symbol(quantity) == symbol
         @test U.native_unit(quantity) == U.display_unit(quantity) == U.units(:base, :dimensionless)
@@ -231,7 +227,7 @@ end
     end
     # Density is not a probability: it has its own caption, while the observed
     # variable determines the reciprocal unit in the histogram publication.
-    density = U.Quantity{:probability_density}()
+    density = U.Quantity{:probability_density, Nothing}()
     @test U.label(density) == "Probability density"
     @test U.symbol(density) == "p"
 end
