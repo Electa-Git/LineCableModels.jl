@@ -14,7 +14,7 @@ struct Group{
     P,
     H,
     C,
-    B <: Union{Nothing, Disk, Sector}
+    B <: Union{Nothing, Disk, Sector, Rectangle, Ellipse, Polygon}
 } <: AbstractCablePart
     "Coalesced terminal name when the group contains conductive descendants."
     name::Symbol
@@ -45,7 +45,7 @@ struct Group{
         ))
     end
 
-    # The sector outline compacts a sector formation, so it takes no compaction.
+    # A non-circular outline deforms its formation, so it takes no compaction.
     function Group(
             name::Symbol,
             at::A,
@@ -54,7 +54,10 @@ struct Group{
             path::H,
             compact::Nothing,
             boundary::B
-    ) where {A <: Pose2, E <: AbstractCablePart, P, H, B <: Sector}
+    ) where {
+            A <: Pose2, E <: AbstractCablePart, P, H,
+            B <: Union{Sector, Rectangle, Ellipse, Polygon}
+    }
         return validate(new{A, E, P, H, Nothing, B}(
             name, at, member, pattern, path, compact, boundary
         ))
@@ -337,9 +340,13 @@ function bounded_members(
     return boundary_shape, members, primitives
 end
 
-function sector_members(boundary_shape::SectorShape, part::Group)
-    wire = part.member.primitive
-    courses, primitives, maximum_course = sector_courses(boundary_shape, wire)
+# A non-circular boundary maps one center wire, a copy of the course wire, and the inferred
+# or declared courses into its outline by swept area.
+function bounded_members(::EmptyBoundary,
+        boundary_shape::Union{SectorShape, Rectangle, Ellipse, Polygon}, ::Nothing,
+        part::Group)
+    courses, primitives, maximum_course = mapped_courses(boundary_shape,
+        part.member.primitive, part.pattern)
     members = [(
                    source = part.member,
                    placement.course,
@@ -348,24 +355,11 @@ function sector_members(boundary_shape::SectorShape, part::Group)
                    placement.angle,
                    placement.site
                ) for (member, placement) in enumerate(courses)]
-    return members, primitives
+    return boundary_shape, members, primitives
 end
 
-# A sector bundle uses one declaration for its center and course wires, and infers its
-# course counts.
-function bounded_members(::EmptyBoundary, boundary_shape::SectorShape, ::Nothing,
-        part::Group{<:Pose2, <:Region, Nothing})
-    return boundary_shape, sector_members(boundary_shape, part)...
-end
-
-function bounded_members(::EmptyBoundary, ::SectorShape, ::Nothing, ::Group)
-    throw(ArgumentError(
-        "a Sector boundary takes inferred course counts for now; omit n"
-    ))
-end
-
-function bounded_members(::Union{EmptyBoundary, Disk}, ::Union{Disk, SectorShape}, compact,
-        parts::Group...)
+function bounded_members(::Union{EmptyBoundary, Disk},
+        ::Union{Disk, SectorShape, Rectangle, Ellipse, Polygon}, compact, parts::Group...)
     throw(ArgumentError(
         "a stranded core declares one strand, after at most one center wire in a disk"
     ))
@@ -536,11 +530,13 @@ function _minimum_radius(primitive::AbstractShape)
     return -support(primitive, φ + pi)
 end
 
-# At the cable center, a bounded formation fills its whole disk or sector. After a part, a
-# formation in a disk fills the ring between the circular outline of that part and the disk.
+# At the cable center, a bounded formation fills its whole geometric boundary. After a
+# part, a formation in a disk fills the ring between the circular outline of that part and
+# the disk.
 function _resolve_group(
         context::EmptyBoundary,
-        group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Union{Disk, Sector}}
+        group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any,
+            <:Union{Disk, Sector, Rectangle, Ellipse, Polygon}}
 )
     return resolve_bounded(context, group)
 end
@@ -566,11 +562,13 @@ function validate(
 end
 function _resolve_group(
         ::AbstractShape,
-        ::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Union{Disk, Sector}}
+        ::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any,
+            <:Union{Disk, Sector, Rectangle, Ellipse, Polygon}}
 )
     throw(ArgumentError(
         "after a part, a stranded formation takes a Disk boundary around a circular " *
-        "outline; a Sector boundary starts at the cable center"
+        "outline; a Sector, Rectangle, Ellipse or Polygon boundary starts at the cable " *
+        "center"
     ))
 end
 

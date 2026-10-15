@@ -474,8 +474,8 @@ function _stranding_paths(lay, dir, φ0)
     return _path(lay, validate(dir, stranded, :dir), validate(φ0, stranded, :φ0))
 end
 
-# In a sector core, the sector outline compacts the Disk wires around a center strand that
-# `shape` gives.
+# In a sector, a rectangle, an ellipse or a star-shaped polygon, the outline deforms the
+# Disk wires around a center strand that `shape` gives.
 function _stranded(
         material,
         center,
@@ -485,16 +485,17 @@ function _stranded(
         dir,
         φ0,
         compact,
-        prescribed_boundary::DataModel.Sector,
+        prescribed_boundary::Union{
+            DataModel.Sector, DataModel.Rectangle, DataModel.Ellipse, DataModel.Polygon},
         fill
 )
     material = validate(material, DataModel.Region, :stranded, (:conductor,))
     fill = validate(fill, DataModel.Region, :stranded_fill, (:insulator, :semicon))
     center === nothing || throw(ArgumentError(
-        "a sector bundle infers its center strand from shape; omit center"
+        "a non-circular stranded core infers its center strand from shape; omit center"
     ))
     compact === nothing || throw(ArgumentError(
-        "sector stranded cores are intrinsically compacted; omit compact"
+        "a non-circular boundary deforms its wires intrinsically; omit compact"
     ))
     bounded = _stranded_core(
         material, nothing, shape, counts, _stranding_paths(lay, dir, φ0), nothing,
@@ -611,10 +612,14 @@ function _stranded(
         dir,
         φ0,
         compact,
-        prescribed_boundary::DataModel.Sector,
+        prescribed_boundary::Union{
+            DataModel.Sector, DataModel.Rectangle, DataModel.Ellipse, DataModel.Polygon},
         fill
 )
-    throw(ArgumentError("a sector stranded core requires circular Disk wires"))
+    throw(ArgumentError(
+        "rectangular strands take a Disk boundary; a Sector, Rectangle, Ellipse or " *
+        "Polygon boundary takes Disk wires"
+    ))
 end
 
 function _stranded(
@@ -629,7 +634,9 @@ function _stranded(
         prescribed_boundary,
         fill
 )
-    throw(ArgumentError("stranded requires a nonhollow Disk or Sector boundary"))
+    throw(ArgumentError(
+        "stranded requires a nonhollow Disk, Sector, Rectangle, Ellipse or Polygon boundary"
+    ))
 end
 
 function _stranded(material, center, shape, counts, lay, dir, φ0, compact,
@@ -688,11 +695,14 @@ After a part, the wires fill the ring between the circular outline of that part 
 disk boundary, and the formation has no center of its own. Natural wires and bent
 rectangular courses start at that outline, by the same rules.
 
-A sector admits the largest complete inventory satisfying
-``[1 + 3L(L+1)]\\,\\pi a^2 \\leq A_{\\mathrm{sector}}``. Its mapped sites define
-a prescribed-area power diagram. Disks clipped to those cells retain each
-source area. This geometric reconstruction preserves the declared copper
-fill and does not model mechanical forming or plasticity.
+A `Sector`, `Rectangle`, `Ellipse` or `Polygon` core boundary holds a center wire and
+concentric courses, mapped into the core boundary by the area swept from its centroid.
+Unless `n` declares the counts, it admits the largest complete inventory that meets
+``[1 + 3L(L+1)]\\,\\pi a^2 \\leq A``, with `6k` wires in course `k`. The declared
+counts and the center wire must fit the area of the core boundary. A `Polygon` must be
+star-shaped about its centroid. The mapped sites define a prescribed-area power diagram,
+and disks clipped to those cells keep each source area. This geometric reconstruction
+preserves the declared copper fill and does not model mechanical forming or plasticity.
 
 Rectangular strands occupy complete, contiguous annular courses, including a full annulus
 when a course contains one strand. The disk boundary is their finished outline, as for
@@ -709,14 +719,15 @@ disk boundary, without an outer filler film.
 - `center=nothing`: circular center member for a disk-bounded core, stored only when
   declared. At the cable center, circular strands default to one center wire equal to
   `shape`, and rectangular strands require an explicit `Disk`. A formation after a part
-  does not admit a center. A sector bundle infers its center strand from `shape` and does not
-  admit a separate center declaration.
+  does not admit a center. A non-circular boundary infers its center strand from `shape`
+  and does not admit a separate center declaration.
 - `shape`: circular wire or rectangular strand primitive.
 - `n=capacity()`: the course counts. `capacity()` infers them, a positive base count puts
   `k n` members in course `k`, and a schedule gives one count per course from the inside
-  out. A `Sector` takes inferred counts.
-- `boundary`: nonhollow `Disk` or `Sector` core boundary, or a `Disk` around a
-  preceding part. It is the finished outline of the formation.
+  out.
+- `boundary`: nonhollow `Disk`, `Sector`, `Rectangle`, `Ellipse` or star-shaped `Polygon`
+  core boundary, or a `Disk` around a preceding part. It is the finished outline of the
+  formation.
 - `fill=air`: interstitial insulating or semiconducting material, unused by
   contiguous rectangular courses. The default
   is lossless air (``\\rho=\\infty``, ``\\epsilon_r=\\mu_r=1``).
@@ -724,8 +735,8 @@ disk boundary, without an outer filler film.
 - `dir=1`: helix handedness or a schedule matching `lay`.
 - `φ0=0`: helix initial angle or a schedule matching `lay` \\[rad\\].
 - `compact=nothing`: circular disk-bounded strands remain circular by default.
-  `true` requests area-preserving deformation at the cable center. Sector and
-  rectangular wire stranding are intrinsically deformed and do not admit this keyword.
+  `true` requests area-preserving deformation at the cable center. Non-circular
+  boundaries and rectangular strands deform intrinsically and do not admit this keyword.
 - `combine=:product`: gridspace composition rule.
 
 # Returns

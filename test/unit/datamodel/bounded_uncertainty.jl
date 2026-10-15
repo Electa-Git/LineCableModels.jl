@@ -87,7 +87,7 @@ end
         part = if kind === :sector
             boundary = resolve(EmptyBoundary(),Sector(span=pi/3,
                 r_base=fillet*0.006s,r_back=0.006s,fillet=fillet*0.006s))
-            _, polygons, _ = DM.sector_courses(boundary,Disk(0.0007s))
+            _, polygons, _ = DM.mapped_courses(boundary,Disk(0.0007s))
             return [resolve(Pose2(dx,0.,rotation),p) for p in polygons]
         elseif kind === :rectangle
             stranded(copper;center=Disk(0.0002s),

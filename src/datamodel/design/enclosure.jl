@@ -176,11 +176,13 @@ function _contained(container::Disk, child::AbstractShape)
     return extent <= container.r + tolerance
 end
 
+# A child can touch the rectangle, within the relative tolerance of a disk container.
 function _contained(container::Rectangle, child::AbstractShape)
-    return support(child, 0) <= container.w / 2 &&
-           support(child, pi) <= container.w / 2 &&
-           support(child, pi / 2) <= container.h / 2 &&
-           support(child, -pi / 2) <= container.h / 2
+    tolerance = 5.0e-6 * hypot(container.w, container.h) / 2
+    return support(child, 0) <= container.w / 2 + tolerance &&
+           support(child, pi) <= container.w / 2 + tolerance &&
+           support(child, pi / 2) <= container.h / 2 + tolerance &&
+           support(child, -pi / 2) <= container.h / 2 + tolerance
 end
 
 function _contained(container::Ellipse, child::AbstractShape)
@@ -232,6 +234,28 @@ function _contained(container::SectorShape, child::Polygon)
             child.at.y + sine * point[1] + cosine * point[2]
         )
         _geometry_scalar(clearance(container, resolved) + tolerance) >= 0
+    end
+end
+
+# A polygon child lies in a polygon container, convex or not, when each child vertex lies
+# inside the container. A vertex within the tolerance of an edge also counts as inside.
+function _contained(container::Polygon, child::Polygon)
+    outline = [nominal.(container.at(point)) for point in container.points]
+    tolerance = 5.0e-6 * nominal(support(container))
+    return all(child.points) do local_point
+        point = nominal.(child.at(local_point))
+        inside = false
+        for index in eachindex(outline)
+            first_point = outline[index]
+            last_point = outline[mod1(index + 1, length(outline))]
+            ex, ey = last_point[1] - first_point[1], last_point[2] - first_point[2]
+            px, py = point[1] - first_point[1], point[2] - first_point[2]
+            along = clamp((px * ex + py * ey) / (ex^2 + ey^2), 0, 1)
+            hypot(px - along * ex, py - along * ey) <= tolerance && return true
+            (first_point[2] > point[2]) != (last_point[2] > point[2]) &&
+                px < ex * py / ey && (inside = !inside)
+        end
+        return inside
     end
 end
 
@@ -441,12 +465,14 @@ end
 
 function resolve(
         ::AbstractShape,
-        ::Enclosure{<:Pose2, <:Union{Disk, Sector},
-            <:Group{<:Pose2, <:Stack, <:Any, <:Any, <:Any, <:Union{Disk, Sector}}}
+        ::Enclosure{<:Pose2, <:Union{Disk, Sector, Rectangle, Ellipse, Polygon},
+            <:Group{<:Pose2, <:Stack, <:Any, <:Any, <:Any,
+                <:Union{Disk, Sector, Rectangle, Ellipse, Polygon}}}
 )
     throw(ArgumentError(
         "after a part, a stranded formation takes a Disk boundary around a circular " *
-        "outline; a Sector boundary starts at the cable center"
+        "outline; a Sector, Rectangle, Ellipse or Polygon boundary starts at the cable " *
+        "center"
     ))
 end
 

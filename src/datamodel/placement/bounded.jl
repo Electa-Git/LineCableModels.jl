@@ -9,14 +9,14 @@ bundle or of one sector segment.
 
 $(TYPEDFIELDS)
 """
-struct BoundedPlacement{B <: Union{Disk, SectorShape}}
+struct BoundedPlacement{B <: Union{Disk, SectorShape, Rectangle, Ellipse, Polygon}}
     "Resolved geometric boundary shared by every member of the formation."
     boundary::B
     "Inferred radial course. Zero denotes a center member."
     course::Int
 
     function BoundedPlacement(boundary::B, course::Integer) where {
-            B <: Union{Disk, SectorShape}
+            B <: Union{Disk, SectorShape, Rectangle, Ellipse, Polygon}
     }
         return validate(new{B}(boundary, Int(course)))
     end
@@ -579,6 +579,27 @@ function course_counts(counts::AbstractVector{<:Integer}, shape::Disk, inner::Di
     return collect(Int, counts)
 end
 
+# A non-circular geometric boundary contains one center wire and the complete courses that
+# its area admits. Course k has 6k wires, or k times a declared base count.
+function course_counts(declared::Union{Nothing, Integer},
+        shape::Union{SectorShape, Rectangle, Ellipse, Polygon}, wire::Disk)
+    base = something(declared, 6)
+    courses = course_count(area(shape) - area(wire), area(wire), base)
+    return base:base:(base * courses)
+end
+
+# A declared schedule and the center wire must fit the area of the geometric boundary.
+function course_counts(counts::AbstractVector{<:Integer},
+        shape::Union{SectorShape, Rectangle, Ellipse, Polygon}, wire::Disk)
+    ratio = nominal(area(shape) / area(wire))
+    room = floor(Int, ratio + 64eps(float(ratio)))
+    1 + sum(counts) <= room || throw(DomainError(
+        counts, "the declared wires and the center wire exceed the area of the boundary, " *
+                "which holds $room"
+    ))
+    return counts
+end
+
 function rectangular_strands(shape::Disk, inner::Disk, strand::Rectangle,
         declared = nothing)
     remaining_area = area(shape) - area(inner)
@@ -670,7 +691,9 @@ function accommodates(shape::SectorShape, center, radius::Real)
     return _geometry_scalar(clearance(shape, center) + tolerance - radius) >= 0
 end
 
-function sector_polygon(shape::SectorShape; points::Integer = 17)
+# The courses map into a counter-clockwise polygon of the geometric boundary, from the point
+# where the swept area starts. A sector starts at its apex, with `points` per arc.
+function fan_polygon(shape::SectorShape; points::Integer = 17)
     polygon = boundary_polygon(shape; points)
     cosine = cos(shape.at.φ)
     sine = sin(shape.at.φ)
@@ -681,6 +704,63 @@ function sector_polygon(shape::SectorShape; points::Integer = 17)
     end[2]
     return [polygon[mod1(first_index + index - 1, length(polygon))]
             for index in eachindex(polygon)]
+end
+
+# A rectangle, an ellipse and a polygon start on the ray from their centroid along their
+# local x-axis, where a circular course starts. An ellipse takes `points` per quarter arc.
+# The other outlines are exact.
+function fan_polygon(shape::Rectangle; points::Integer = 17)
+    x, y = shape.w / 2, shape.h / 2
+    return [shape.at(point) for point in ((x, zero(y)), (x, y), (-x, y), (-x, -y), (x, -y))]
+end
+
+function fan_polygon(shape::Ellipse; points::Integer = 17)
+    polygon = tessellate(shape; points_per_arc = 4points - 3)
+    pop!(polygon)
+    return polygon
+end
+
+function fan_polygon(shape::Polygon; points::Integer = 17)
+    vertices = [shape.at(point) for point in validate(shape, BoundedPlacement).points]
+    signed_polygon_area(vertices) < 0 && reverse!(vertices)
+    center = centroid(shape)
+    dx, dy = cos(shape.at.φ), sin(shape.at.φ)
+    # The ray leaves the centroid through one edge, which it can meet at its first vertex.
+    index = findfirst(eachindex(vertices)) do index
+        first_point = vertices[index] .- center
+        last_point = vertices[mod1(index + 1, length(vertices))] .- center
+        nominal(first_point[1] * dy - first_point[2] * dx) >= 0 &&
+            nominal(dx * last_point[2] - dy * last_point[1]) > 0
+    end
+    first_point = vertices[index]
+    last_point = vertices[mod1(index + 1, length(vertices))]
+    ex, ey = last_point[1] - first_point[1], last_point[2] - first_point[2]
+    fraction = ((center[1] - first_point[1]) * dy - (center[2] - first_point[2]) * dx) /
+               (ex * dy - ey * dx)
+    following = [vertices[mod1(index + offset, length(vertices))]
+                 for offset in 1:length(vertices)]
+    iszero(nominal(fraction)) && return circshift(following, 1)
+    start = (first_point[1] + fraction * ex, first_point[2] + fraction * ey)
+    return pushfirst!(following, start)
+end
+
+# The courses of a polygon boundary map by the area swept from its centroid. The centroid
+# must see every edge from inside: the polygon is star-shaped about it.
+function validate(shape::Polygon, ::Type{BoundedPlacement})
+    center = _local_centroid(shape)
+    orientation = sign(nominal(signed_polygon_area(shape.points)))
+    star = all(eachindex(shape.points)) do index
+        first_point = shape.points[index]
+        last_point = shape.points[mod1(index + 1, length(shape.points))]
+        turn = (last_point[1] - first_point[1]) * (center[2] - first_point[2]) -
+               (last_point[2] - first_point[2]) * (center[1] - first_point[1])
+        nominal(orientation * turn) > 0
+    end
+    star || throw(ArgumentError(
+        "a Polygon boundary must be star-shaped about its centroid: its centroid must " *
+        "see every edge from inside"
+    ))
+    return shape
 end
 
 function fan_measure(polygon, center)
@@ -717,50 +797,56 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Map one center strand and complete circular `6k` courses into a sector.
+Map one center strand and concentric courses into a non-circular boundary.
 The mapped sites retain their course identities while a prescribed-area power
 diagram allocates space. Clipped disks supply the actual conductor shapes.
 
-For `L` courses and `N = 1 + 3L(L+1)` wire strands, the course sites are
+For course counts ``n_1, \\ldots, n_L``, ``N = 1 + \\sum_j n_j`` wire strands and
+``N_k = 1 + \\sum_{j<k} n_j + n_k / 2`` wires inside the middle of each course ``k``, the
+course sites are
 
 ```math
 p_0=c,\\qquad
-p_{k,m}=c+\\sqrt{\\frac{1+3k^2}{N}}\\,[q(t_{k,m})-c],
-\\qquad t_{k,m}=\\frac{m+\\delta_k}{6k}.
+p_{k,m}=c+\\sqrt{\\frac{N_k}{N}}\\,[q(t_{k,m})-c],
+\\qquad t_{k,m}=\\frac{m+\\delta_k}{n_k}.
 ```
 
-Here `c` is the polygonal sector centroid and `q` traverses the geometric boundary
-by normalized swept area. Sites remain fixed during power-cell balancing.
+Here `c` is the polygonal boundary centroid and `q` traverses the geometric boundary
+by normalized swept area. Each even course ``k`` takes ``\\delta_k = 1/2``, and each odd
+course ``\\delta_k = 0``. Sites remain fixed during power-cell balancing.
 
 # Arguments
 
-- `shape`: resolved sector boundary, with coordinates in meters.
+- `shape`: resolved sector, rectangle, ellipse or star-shaped polygon boundary, with
+  coordinates in meters.
 - `wire`: circular source strand. Its area is preserved in every member.
+- `declared`: the declared course counts, or `nothing` for `6k` wires in course `k`.
 
 # Returns
 
 - Mapped members, resolved conductor polygons, and the number of outer courses.
 """
-function sector_courses(shape::SectorShape, wire::Disk)
+function mapped_courses(shape, wire::Disk, declared = nothing)
     source_area = area(wire)
-    courses = course_count(area(shape) - source_area, source_area)
-    total_count = 1 + 3courses * (courses + 1)
+    counts = course_counts(declared, shape, wire)
+    total_count = 1 + sum(counts)
     points = 17
-    polygon = sector_polygon(shape; points)
+    polygon = fan_polygon(shape; points)
     while total_count * nominal(source_area) >
           signed_polygon_area([nominal.(point) for point in polygon]) * (1 + 2.0e-6)
         points = 2points - 1
         points <= 16_385 || throw(ArgumentError(
-            "sector course tessellation could not preserve its source inventory"
+            "the course tessellation of the boundary could not hold its source inventory"
         ))
-        polygon = sector_polygon(shape; points)
+        polygon = fan_polygon(shape; points)
     end
     center = polygon_centroid(polygon)
     measure = fan_measure(polygon, center)
     members = [(site = center, course = 0, member = 1, angle = zero(shape.at.φ))]
-    for course in 1:courses
-        count = 6course
-        scale = sqrt((1 + 3course^2) / total_count)
+    inside = 1
+    for (course, count) in enumerate(counts)
+        scale = sqrt((2inside + count) / (2total_count))
+        inside += count
         phase = isodd(course) ? 0.0 : 0.5
         for member in 1:count
             point = fan_point(polygon, measure, (member - 1 + phase) / count)
@@ -784,17 +870,29 @@ function sector_courses(shape::SectorShape, wire::Disk)
             zero(shape.at.φ)
         ) for cell in cells
     ]
-    return members, primitives, courses
+    return members, primitives, length(counts)
 end
 
+# A strand is its cell clipped to a disk. Each edge of a convex cell clips the disk. Each
+# disk edge clips a nonconvex cell, at a reflex corner of a polygon boundary.
 function clipped_disk!(points, clipped, cell, radius, directions)
     empty!(points)
     for point in directions
         push!(points, (radius * point[1], radius * point[2]))
     end
-    for index in eachindex(cell)
-        next = mod1(index + 1, length(cell))
-        first_point, last_point = cell[index], cell[next]
+    convex = all(eachindex(cell)) do index
+        first_point = cell[index]
+        middle_point = cell[mod1(index + 1, length(cell))]
+        last_point = cell[mod1(index + 2, length(cell))]
+        ax, ay = middle_point[1] - first_point[1], middle_point[2] - first_point[2]
+        bx, by = last_point[1] - middle_point[1], last_point[2] - middle_point[2]
+        nominal(ax * by - ay * bx) >= -1.0e-9 * nominal(hypot(ax, ay) * hypot(bx, by))
+    end
+    clipper = convex ? cell : copy(points)
+    convex || append!(empty!(points), cell)
+    for index in eachindex(clipper)
+        next = mod1(index + 1, length(clipper))
+        first_point, last_point = clipper[index], clipper[next]
         normal = (last_point[2] - first_point[2], first_point[1] - last_point[1])
         offset = normal[1] * first_point[1] + normal[2] * first_point[2]
         clip_halfplane!(clipped, points, normal, offset)

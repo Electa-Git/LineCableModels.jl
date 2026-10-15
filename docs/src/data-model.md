@@ -144,8 +144,9 @@ course `k` holds `k n` wires, and a schedule such as `n=(5, 11, 16)` gives one c
 course from the inside out. Declared natural courses must fit on their radii inside the disk
 boundary, and the room left over belongs to the fill. Declared compacted courses take their
 radii from their areas and must fit the area of the disk boundary. Declared rectangular
-courses must fill the disk boundary within one strand. A `Sector` takes inferred counts. A
-lay schedule must match the number of courses. The declared tree stores only what `n`
+courses must fill the disk boundary within one strand. In a non-circular boundary, the
+declared wires and the center wire must fit its area. A lay schedule must match the number
+of courses. The declared tree stores only what `n`
 declares: no `Ring`, layer count or inferred wire count is stored as a second description
 of the same geometry.
 
@@ -163,13 +164,20 @@ compact_core = stranded(
 )
 ```
 
-A `Sector` geometric boundary infers one bundle-center strand and complete `6k` courses,
-with total inventory `1 + 3L(L+1)`. The circular sites are mapped into the
-resolved sector and retained while a prescribed-area power diagram allocates
-space. Each strand is a disk grown inside its allocated cell until its clipped
-area matches the source wire area. Free portions remain round. Contact faces
+A `Sector` geometric boundary infers one bundle-center strand and, unless `n` declares the
+counts, complete `6k` courses, with total inventory `1 + 3L(L+1)`. The construction maps
+the circular sites into the resolved sector and keeps them while a prescribed-area power
+diagram allocates space. Each strand grows as a disk inside its allocated cell until its
+clipped area matches the source wire area. Free portions remain round, and contact faces
 follow cell boundaries. Sector deformation is intrinsic, so it has no separate
 compaction choice. All remaining area belongs to the declared fill material.
+
+A `Rectangle`, an `Ellipse` or a `Polygon` geometric boundary at the cable center takes the
+same construction. The construction maps a center wire and its inferred or declared courses
+into the geometric boundary by the area swept from its centroid. Each wire keeps its
+declared area. A `Polygon` must be star-shaped about its centroid, which then sees every
+edge from inside. The deformation is intrinsic, so `compact` is an error. Rectangular
+strands take a `Disk` geometric boundary only.
 
 Course schedules are ordinary physical tuples. Wrap a complete schedule in
 `Grid` only when the schedule itself should vary.
@@ -202,7 +210,8 @@ or the oil duct of a hollow conductor. The wires then fill the ring between the 
 outline of that part and the disk boundary, and the stranded construction has no center of
 its own. Natural wires fill the first course with as many wires as fit around the outline,
 and each next course with six more. Rectangular strands bend around the outline.
-Compaction, a sector boundary and a non-circular outline are not supported after a part.
+After a part, `stranded` does not support compaction, a non-circular boundary or a
+non-circular outline.
 The tube of an optical ground wire and its rectangular strands form one terminal, because two
 terminals cannot touch. A dielectric at the cable center, such as the gel in that tube, only sets the
 inner radius of the first conductor. The blueprint has no layer for it, and its material

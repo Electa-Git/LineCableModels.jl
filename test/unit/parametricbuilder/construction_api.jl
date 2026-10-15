@@ -646,9 +646,9 @@ end
     @test DM.tubular_resistance(bounded_component.r_in, bounded_component.r_ex,
         bounded_component.material.rho) ≈ inv(sum(inv, member_resistances)) rtol = 1e-12
 
-    course_members,
-    course_shapes = DM.sector_members(
-        resolved_sector, only(DM.bounded_declarations(bounded_group))
+    _, course_members,
+    course_shapes = DM.bounded_members(DM.EmptyBoundary(),
+        resolved_sector, nothing, only(DM.bounded_declarations(bounded_group))
     )
     @test [count(member -> member.course == course, course_members)
            for course in 1:expected_courses] == 6 .* (1:expected_courses)

@@ -110,10 +110,101 @@ end
     @test_throws "exceed the disk boundary" build(CableDesign, "many-rods",
         terminal(:core, stranded(copper; center=rod_center, shape=rod,
             n=[6, 8, 11, 14, 17, 20, 23, 25, 19], boundary)))
-    @test_throws "takes inferred course counts" build(CableDesign, "sector-counts",
-        terminal(:core, stranded(copper; shape=Disk(0.35e-3), n=6,
-            boundary=Sector(2pi / 3, 0.6e-3, 5e-3, 0.2e-3))))
     @test_throws "n must be a positive base count" stranded(copper; shape=wire, n=0, boundary)
+
+    # In a non-circular boundary, declared courses follow the center wire, and each wire keeps
+    # its area. The sector holds 55.5 wire areas, so a base count of 5 gives four courses
+    # (1 + 50 wires) and not five (1 + 75).
+    for (core_boundary, strand, n, counts) in (
+        (Rectangle(10e-3, 6e-3), wire, [5, 11, 17], [1, 5, 11, 17]),
+        (Sector(2pi / 3, 0.6e-3, 5e-3, 0.2e-3), Disk(0.35e-3), 5, [1, 5, 10, 15, 20]))
+        design = build(CableDesign, "declared-non-circular",
+            terminal(:core, stranded(copper; shape=strand, n, boundary=core_boundary)))
+        strands = filter(placed -> placed.terminal === :core, design.geometry.regions)
+        courses = [only(placed.placement.patterns).pattern.course for placed in strands]
+        @test [count(==(course), courses) for course in 0:(length(counts) - 1)] == counts
+        @test all(placed -> area(placed.primitive) ≈ area(strand), strands)
+    end
+    @test_throws "exceed the area of the boundary, which holds 76" build(CableDesign,
+        "over-full-rectangle", terminal(:core, stranded(copper; shape=wire,
+            n=[6, 12, 18, 24, 30], boundary=Rectangle(10e-3, 6e-3))))
+end
+
+@testitem "DataModel / stranding / non-circular boundaries" tags=[:unit, :parametric] begin
+    import LineCableModels.DataModel as DM
+    copper = Material(kind=:conductor, rho=1.7241e-8)
+    oil = Material(kind=:insulator, rho=1e13, eps_r=2.2)
+    wire = Disk(0.5e-3)
+    rectangle, ellipse = Rectangle(10e-3, 6e-3), Ellipse(4e-3, 2.5e-3)
+    # A five-pointed star about the origin, star-shaped about its centroid and not convex.
+    star = Polygon([(r * cos(k * pi / 5), r * sin(k * pi / 5))
+                    for (k, r) in zip(0:9, Iterators.cycle((5e-3, 2.5e-3)))])
+
+    # Each geometric boundary contains a center wire and the complete 6k courses that its area
+    # admits. An area of 76.4 wires gives four courses (61 wires), and 40 or 46.8 give three
+    # (37 wires).
+    designs = [build(CableDesign, "non-circular",
+                   terminal(:core, stranded(copper; shape=wire, boundary=core_boundary)))
+               for core_boundary in (rectangle, ellipse, star)]
+    wires = [filter(placed -> placed.terminal === :core, design.geometry.regions)
+             for design in designs]
+    for (core_boundary, design, strands, counts) in zip((rectangle, ellipse, star), designs,
+        wires, ([1, 6, 12, 18, 24], [1, 6, 12, 18], [1, 6, 12, 18]))
+        courses = [only(placed.placement.patterns).pattern.course for placed in strands]
+        @test [count(==(course), courses) for course in 0:(length(counts) - 1)] == counts
+        @test all(placed -> isapprox(area(placed.primitive), area(wire); rtol=1e-12), strands)
+        # The fill takes the area of the geometric boundary that the declared metal leaves.
+        fills = filter(placed -> placed.terminal === nothing, design.geometry.regions)
+        @test sum(area, fills) ≈ area(core_boundary) - sum(counts) * area(wire) rtol=1e-12
+    end
+
+    # Every strand vertex lies inside its geometric boundary.
+    @test all(wires[1]) do placed
+        all(placed.primitive.points) do point
+            x, y = placed.primitive.at(point)
+            abs(x) <= 5e-3 * (1 + 1e-12) && abs(y) <= 3e-3 * (1 + 1e-12)
+        end
+    end
+    @test all(wires[2]) do placed
+        all(placed.primitive.points) do point
+            x, y = placed.primitive.at(point)
+            (x / 4e-3)^2 + (y / 2.5e-3)^2 <= 1 + 1e-12
+        end
+    end
+    # A star vertex at angle θ lies on the inner side of the star edge that spans θ.
+    @test all(wires[3]) do placed
+        all(placed.primitive.points) do point
+            x, y = placed.primitive.at(point)
+            k = floor(Int, mod(atan(y, x), 2pi) / (pi / 5))
+            first_point = star.points[mod1(k + 1, 10)]
+            last_point = star.points[mod1(k + 2, 10)]
+            (last_point[1] - first_point[1]) * (y - first_point[2]) -
+            (last_point[2] - first_point[2]) * (x - first_point[1]) >= -1e-15
+        end
+    end
+
+    # As a sector core, a rectangular core flattens to the area of its core boundary, with the
+    # resistance of its 61 declared wires.
+    row = only(DM.flatten(designs[1], Float64).conductors)
+    @test row.r_ex ≈ sqrt(area(rectangle) / pi) rtol=1e-12
+    @test DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho) ≈
+          copper.rho / (61area(wire)) rtol=1e-12
+
+    # This polygon is an 8 mm square with a slot cut in from one side. Its centroid lies in
+    # the slot, so it does not see every edge.
+    slotted = Polygon([(0.0, 0.0), (8e-3, 0.0), (8e-3, 1e-3), (1e-3, 1e-3), (1e-3, 7e-3),
+        (8e-3, 7e-3), (8e-3, 8e-3), (0.0, 8e-3)])
+    @test_throws "must be star-shaped about its centroid" build(CableDesign, "slotted",
+        terminal(:core, stranded(copper; shape=wire, boundary=slotted)))
+    for core_boundary in (rectangle, ellipse, star)
+        @test_throws "deforms its wires intrinsically; omit compact" stranded(copper;
+            shape=wire, compact=true, boundary=core_boundary)
+        @test_throws "rectangular strands take a Disk boundary" stranded(copper;
+            center=Disk(0.5e-3), shape=Rectangle(0.75e-3, 0.35e-3), boundary=core_boundary)
+        @test_throws "Rectangle, Ellipse or Polygon boundary starts at the cable center" build(
+            CableDesign, "non-circular-after-part", filler(oil, Disk(1e-3)),
+            terminal(:core, stranded(copper; shape=wire, boundary=core_boundary)))
+    end
 end
 
 @testitem "DataModel / stranding / rectangular strands fill their boundary" tags=[:unit, :parametric] begin
@@ -325,12 +416,12 @@ end
     for (definition, radius, expected_fill) in boundaries
         boundary = DM.resolve(DM.EmptyBoundary(), definition)
         for a in (radius, sqrt(0.93 * area(boundary) / (37pi)))
-            members, shapes, courses = DM.sector_courses(boundary, Disk(a))
+            members, shapes, courses = DM.mapped_courses(boundary, Disk(a))
             @test courses == 3
             @test length(shapes) == 37
             @test [count(m -> m.course == k, members) for k in 0:3] == [1, 6, 12, 18]
             @test all(isapprox.(first(members).site,
-                DM.polygon_centroid(DM.sector_polygon(boundary))))
+                DM.polygon_centroid(DM.fan_polygon(boundary))))
             @test all(k -> [m.member for m in members if m.course == k] == 1:(6k), 1:3)
             @test maximum(abs.(area.(shapes) ./ (pi * a^2) .- 1)) < 5e-12
             @test 37pi * a^2 / area(boundary) ≈
@@ -355,8 +446,8 @@ end
         end
 
         pose = Pose2(0.012, -0.008, 0.43)
-        original, shapes, _ = DM.sector_courses(boundary, Disk(radius))
-        moved, rotated, _ = DM.sector_courses(DM.resolve(pose, boundary), Disk(radius))
+        original, shapes, _ = DM.mapped_courses(boundary, Disk(radius))
+        moved, rotated, _ = DM.mapped_courses(DM.resolve(pose, boundary), Disk(radius))
         @test getproperty.(moved, :course) == getproperty.(original, :course)
         @test all(eachindex(shapes)) do i
             expected = DM.centroid(DM.resolve(pose, shapes[i]))

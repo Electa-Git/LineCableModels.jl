@@ -753,11 +753,12 @@ end
 $(TYPEDSIGNATURES)
 
 Return the transverse position \\[m\\] used for a radial shape or placed region.
-Disks and annuli use their stored center. Sectors use their centroid, and sector
-shells use the inner sector's centroid. A placed region uses its primitive.
+Disks and annuli use their stored center. Sectors, rectangles, ellipses and polygons use
+their centroid, and sector shells use the inner sector's centroid. A placed region uses
+its primitive.
 """
 radial_position(shape::Union{Disk, Annulus}) = (shape.at.x, shape.at.y)
-radial_position(shape::SectorShape) = centroid(shape)
+radial_position(shape::Union{SectorShape, Rectangle, Ellipse, Polygon}) = centroid(shape)
 function radial_position(
         shape::ShellShape{
         <:Any,
