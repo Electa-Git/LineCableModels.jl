@@ -59,11 +59,6 @@ display_unit(::Quantity{:shunt_admittance, Nothing}) =
 label(::Quantity{:shunt_admittance, Nothing}) = "Shunt admittance"
 symbol(::Quantity{:shunt_admittance, Nothing}) = "Y"
 
-native_unit(::Quantity{:phase_angle, Nothing}) = units(:base, :radian)
-display_unit(::Quantity{:phase_angle, Nothing}) = units(:base, :degree)
-label(::Quantity{:phase_angle, Nothing}) = "Phase angle"
-symbol(::Quantity{:phase_angle, Nothing}) = "∠"
-
 native_unit(::Quantity{:dimensionless, Nothing}) = units(:base, :dimensionless)
 display_unit(::Quantity{:dimensionless, Nothing}) = units(:base, :dimensionless)
 label(::Quantity{:dimensionless, Nothing}) = "Dimensionless"
@@ -71,7 +66,7 @@ symbol(::Quantity{:dimensionless, Nothing}) = ""
 
 # Derived-unit rules. A component reads its unit, label and symbol from its base
 # quantity. A magnitude, real part or imaginary part keeps the base unit, and an angle
-# takes the unit of the phase angle.
+# is in radians, shown in degrees.
 function native_unit(
         ::Quantity{Name, <:Union{typeof(abs), typeof(real), typeof(imag)}}) where {Name}
     return native_unit(Quantity{Name, Nothing}())
@@ -80,10 +75,8 @@ function display_unit(
         ::Quantity{Name, <:Union{typeof(abs), typeof(real), typeof(imag)}}) where {Name}
     return display_unit(Quantity{Name, Nothing}())
 end
-native_unit(::Quantity{Name, typeof(angle)}) where {Name} =
-    native_unit(Quantity{:phase_angle, Nothing}())
-display_unit(::Quantity{Name, typeof(angle)}) where {Name} =
-    display_unit(Quantity{:phase_angle, Nothing}())
+native_unit(::Quantity{Name, typeof(angle)}) where {Name} = units(:base, :radian)
+display_unit(::Quantity{Name, typeof(angle)}) where {Name} = units(:base, :degree)
 
 label(::Quantity{Name, typeof(abs)}) where {Name} =
     label(Quantity{Name, Nothing}()) * " magnitude"

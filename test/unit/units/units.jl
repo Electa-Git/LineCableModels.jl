@@ -49,11 +49,11 @@ end
         end
     end
     dimensionless = U.Quantity{:dimensionless, Nothing}()
-    phase = U.Quantity{:phase_angle, Nothing}()
+    phase = U.quantity(Z, angle)
     @test U.symbol(dimensionless) == ""
     @test U.label(dimensionless, U.display_unit(dimensionless)) == "Dimensionless"
-    @test U.symbol(phase) == "∠"
-    @test U.label(phase, U.display_unit(phase)) == "Phase angle [°]"
+    @test U.symbol(phase) == "∠Z"
+    @test U.label(phase, U.display_unit(phase)) == "Series impedance angle [°]"
     @test U.scale_factor(U.native_unit(phase), U.display_unit(phase)) ≈ 180 / pi
     @test symbol(Y, abs) == "|Y|"
 end

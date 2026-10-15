@@ -18,10 +18,10 @@
 "Engine.ModalAnalysis | Commons.observation_requests | src/engine/modalanalysis/observations.jl" = 1
 "Engine.ModalAnalysis | Engine.selectdetails | src/engine/modalanalysis/interfaces.jl" = 1
 "Engine.ModalAnalysis | Engine.selectdomain | src/engine/modalanalysis/interfaces.jl" = 1
-"Engine.ModalAnalysis | Units.display_unit | src/engine/modalanalysis/observations.jl" = 51
-"Engine.ModalAnalysis | Units.label | src/engine/modalanalysis/observations.jl" = 51
-"Engine.ModalAnalysis | Units.native_unit | src/engine/modalanalysis/observations.jl" = 51
-"Engine.ModalAnalysis | Units.symbol | src/engine/modalanalysis/observations.jl" = 51
+"Engine.ModalAnalysis | Units.display_unit | src/engine/modalanalysis/observations.jl" = 13
+"Engine.ModalAnalysis | Units.label | src/engine/modalanalysis/observations.jl" = 17
+"Engine.ModalAnalysis | Units.native_unit | src/engine/modalanalysis/observations.jl" = 13
+"Engine.ModalAnalysis | Units.symbol | src/engine/modalanalysis/observations.jl" = 17
 "Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
 "Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
 "ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
@@ -118,7 +118,7 @@
 "src/engine/modalanalysis/formulas/wedepohl1996.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/engine/modalanalysis/formulations.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/modalanalysis/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/engine/modalanalysis/observations.jl" = { applicable = 0, eval = 9, isa = 14, kind = 0 }
+"src/engine/modalanalysis/observations.jl" = { applicable = 0, eval = 5, isa = 14, kind = 0 }
 "src/engine/modalanalysis/propagation.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/modalanalysis/quantities.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/observed_inputs.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
