@@ -190,6 +190,52 @@ end
     @test DM.tubular_resistance(row.r_in, row.r_ex, row.material.rho) ≈
           copper.rho / (61area(wire)) rtol=1e-12
 
+    # A shell around the rectangular core is the rectangle 2t wider and 2t higher, with
+    # sharp corners. Each layer adds 2t(w + h) + 4t² to the rectangle inside it. The jacket
+    # wraps the outer rectangle of the insulation.
+    pe = Material(kind=:insulator, rho=1e14, eps_r=2.3)
+    insulated = build(CableDesign, "insulated-rectangle",
+        terminal(:core, stranded(copper; shape=wire, boundary=rectangle)),
+        insulation(pe; t=1e-3), jacket(pe; t=0.5e-3))
+    layers = [only(filter(placed -> placed.source.tag === tag, insulated.geometry.regions))
+              for tag in (:insulation, :jacket)]
+    @test layers[1].primitive.inner == rectangle
+    @test layers[2].primitive.inner == layers[1].primitive.outer
+    @test all(zip(layers, (1e-3, 0.5e-3))) do (layer, t)
+        inner = layer.primitive.inner
+        area(layer.primitive) ≈ 2t * (inner.w + inner.h) + 4t^2
+    end
+    @test all(isfinite, compute(CableConstantsProblem(insulated)).R)
+
+    # Around a polygon, every edge moves outward by t, and adjacent moved edges meet at a
+    # sharp corner. A layer is the shoelace area of its outer polygon less that of its inner
+    # one. A regular hexagon of apothem a grows to apothem a + t. Its layer is
+    # 2√3((a + t)² - a²).
+    hexagon = Polygon([(4e-3 * cos(k * pi / 3), 4e-3 * sin(k * pi / 3)) for k in 0:5])
+    designs = map((hexagon, star, ellipse)) do core_boundary
+        build(CableDesign, "insulated-core",
+            terminal(:core, stranded(copper; shape=wire, boundary=core_boundary)),
+            insulation(pe; t=1e-3))
+    end
+    layers = [only(filter(placed -> placed.source.tag === :insulation,
+                  design.geometry.regions)).primitive for design in designs[1:2]]
+    @test all(layers) do layer
+        shoelace = [abs(sum(p[1] * q[2] - q[1] * p[2]
+                            for (p, q) in zip(points, circshift(points, -1)))) / 2
+                    for points in (layer.outer.points, layer.inner.points)]
+        area(layer) ≈ shoelace[1] - shoelace[2]
+    end
+    apothem = 4e-3 * cos(pi / 6)
+    @test area(first(layers)) ≈ 2sqrt(3) * ((apothem + 1e-3)^2 - apothem^2)
+    # Every shell flattens to the annulus between the radii of equal area, so the insulated
+    # hexagon and ellipse cores compute.
+    @test all(design -> all(isfinite, compute(CableConstantsProblem(design)).R),
+        designs[[1, 3]])
+    # The 2 mm wide notch of this outline closes under a 1.5 mm shell.
+    notched = Polygon([(0.0, 0.0), (10e-3, 0.0), (10e-3, 10e-3), (6e-3, 10e-3),
+        (6e-3, 4e-3), (4e-3, 4e-3), (4e-3, 10e-3), (0.0, 10e-3)])
+    @test_throws "too large for this Polygon outline" DM.resolve(notched, DM.Shell(1.5e-3))
+
     # This polygon is an 8 mm square with a slot cut in from one side. Its centroid lies in
     # the slot, so it does not see every edge.
     slotted = Polygon([(0.0, 0.0), (8e-3, 0.0), (8e-3, 1e-3), (1e-3, 1e-3), (1e-3, 7e-3),

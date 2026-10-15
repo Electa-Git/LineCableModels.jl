@@ -450,17 +450,14 @@ function dielectric_layer(
     )
 end
 
+# A shell becomes the annulus between the radii of equal area, about its inner centroid.
 function dielectric_layer(
-        primitive::ShellShape{
-            <:Any,
-            <:SectorShape,
-            <:SectorShape
-        },
+        primitive::ShellShape,
         placed::PlacedRegion,
         ::Type{T}
 ) where {T <: Real}
     isempty(placed.paths) || throw(ArgumentError(
-        "flatten does not support a helical sector dielectric"
+        "flatten does not support a helical shell dielectric"
     ))
     material = placed.source.material
     material.kind in (:insulator, :semicon) || throw(ArgumentError(
@@ -754,20 +751,12 @@ $(TYPEDSIGNATURES)
 
 Return the transverse position \\[m\\] used for a radial shape or placed region.
 Disks and annuli use their stored center. Sectors, rectangles, ellipses and polygons use
-their centroid, and sector shells use the inner sector's centroid. A placed region uses
+their centroid, and shells use the centroid of their inner outline. A placed region uses
 its primitive.
 """
 radial_position(shape::Union{Disk, Annulus}) = (shape.at.x, shape.at.y)
 radial_position(shape::Union{SectorShape, Rectangle, Ellipse, Polygon}) = centroid(shape)
-function radial_position(
-        shape::ShellShape{
-        <:Any,
-        <:SectorShape,
-        <:SectorShape
-}
-)
-    centroid(shape.inner)
-end
+radial_position(shape::ShellShape) = centroid(shape.inner)
 radial_position(placed::PlacedRegion) = radial_position(placed.primitive)
 
 """

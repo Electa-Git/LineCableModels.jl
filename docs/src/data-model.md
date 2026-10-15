@@ -314,6 +314,8 @@ point, `pose(point)`, rotates the point and then translates it. `area`,
 `perimeter`, `centroid`, and `support` use the exact geometric boundary. `tessellate`
 returns ordinary coordinate tuples solely for renderers and mesh adapters.
 Resolving `Shell(t)` against one sector produces its exact parallel boundary.
+Around a `Rectangle` or a `Polygon`, it moves every edge outward by `t` at the same pose,
+and two adjacent moved edges meet at a sharp corner.
 A common layer around the disconnected assembly requires an explicit
 `Enclosure`.
 

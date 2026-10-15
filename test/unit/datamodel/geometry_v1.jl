@@ -32,10 +32,12 @@
     @test DM.r_in(annulus) == 2.0
     @test DM.r_ex(annulus) == 2.5
     @test DM.thickness(annulus) == 0.5
-    @test_throws MethodError DM.resolve(
+    rectangular=@inferred DM.resolve(
         DM.resolve(DM.EmptyBoundary(), DM.Rectangle(2, 1)),
         DM.Shell(0.1)
     )
+    @test DM.boundary(rectangular).w ≈ 2.2 && DM.boundary(rectangular).h ≈ 1.2
+    @test DM.area(rectangular) ≈ 2 * 0.1 * (2 + 1) + 4 * 0.1^2
 
     rectangle=DM.resolve(DM.EmptyBoundary(), DM.Rectangle(4, 2))
     @test DM.area(rectangle) == 8.0
