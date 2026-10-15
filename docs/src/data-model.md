@@ -196,6 +196,10 @@ outline of that part and the disk boundary, and the stranded construction has no
 its own. Natural wires fill the first course with as many wires as fit around the outline,
 and each next course with six more. Rectangular strands bend around the outline.
 Compaction, a sector boundary and a non-circular outline are not supported after a part.
+The tube of an optical ground wire and its rectangular strands form one terminal, because two
+terminals cannot touch. A dielectric at the cable center, such as the gel in that tube, only sets the
+inner radius of the first conductor. The blueprint has no layer for it, and its material
+enters neither Z nor Y.
 
 ## Independent cores and enclosures
 

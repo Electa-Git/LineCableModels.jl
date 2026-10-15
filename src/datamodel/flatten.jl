@@ -410,9 +410,14 @@ $(TYPEDSIGNATURES)
 Reduce one homogeneous dielectric region to concentric radii and material
 properties. Primitive-specific methods retain circular and equivalent-area
 cable-sector assumptions.
+
+A dielectric disk lies at the center of a coaxial group, inside its innermost conductor.
+It sets the inner radius of that conductor and does not add a layer to the blueprint.
+Inside a hollow conductor with axial current, the coaxial model has no electric or
+magnetic field. Its material enters neither Z nor Y.
 """
 function dielectric_layer(
-        primitive::Annulus,
+        primitive::Union{Annulus, Disk},
         placed::PlacedRegion,
         ::Type{T}
 ) where {T <: Real}
@@ -487,6 +492,22 @@ end
 
 function member_resistance(definition::Rectangle, material)
     return strip_resistance(definition.h, definition.w, material.rho)
+end
+
+function member_resistance(definition::Annulus, material)
+    return tubular_resistance(definition.ri, definition.ro, material.rho)
+end
+
+# The area and resistance of a nested member follow from its declared primitive. A Shell
+# has no intrinsic area, and its placed annulus stands for it. Only a Shell member reads its
+# placed primitive, because reading it from an abstract region allocates.
+member_area(placed::PlacedRegion) = area(placed.source.primitive)
+member_area(placed::PlacedRegion{<:Region{<:Shell}, <:Annulus}) = area(placed.primitive)
+function member_resistance(placed::PlacedRegion, material)
+    return member_resistance(placed.source.primitive, material)
+end
+function member_resistance(placed::PlacedRegion{<:Region{<:Shell}, <:Annulus}, material)
+    return member_resistance(placed.primitive, material)
 end
 
 function radial_extent(shape::Disk, center)
@@ -613,7 +634,7 @@ function nested_conductor_zone(
         ArgumentError("all nested conductor materials must share one reference temperature")
     )
 
-    areas = T[convert(T, area(placed.source.primitive)) for placed in placed_regions]
+    areas = T[convert(T, member_area(placed)) for placed in placed_regions]
     all(eachindex(placed_regions)) do index
         isapprox(
             convert(T, area(placed_regions[index].primitive)),
@@ -628,10 +649,7 @@ function nested_conductor_zone(
     total_area = sum(areas)
     center = convert.(T, conductor_zone_position(placed_regions))
     resistances = T[path_corrected_resistance(
-                        member_resistance(
-                            placed_regions[index].source.primitive,
-                            materials[index]
-                        ),
+                        member_resistance(placed_regions[index], materials[index]),
                         placed_regions[index].paths
                     ) for index in eachindex(placed_regions)]
 
@@ -1266,6 +1284,9 @@ geometry, from which conductors enclose which, never from the declaration:
 - Groups that no conductor encloses together stay at their own positions.
 - A container (a fill, wall or jacket around groups) with one group at the center of its
   circular boundary adds annuli to that group.
+- A dielectric at the center of a coaxial group, inside its innermost conductor, sets the
+  inner radius of that conductor and does not add a layer. Inside a hollow conductor with
+  axial current, the coaxial model has no electric or magnetic field.
 - A conductor that encloses groups off its center makes a pipe-type cable. `flatten`
   rejects it.
 - `flatten` also rejects groups off the center of an insulating container, screened or

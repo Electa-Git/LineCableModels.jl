@@ -53,16 +53,20 @@ end
     aluminum = Material(kind=:conductor, rho=2.8264e-8)
     copper = Material(kind=:conductor, rho=1.7241e-8)
     gel = Material(kind=:insulator, rho=1e12, eps_r=2.2)
+    other_gel = Material(kind=:insulator, rho=1e9, eps_r=4.0)
     oil = Material(kind=:insulator, rho=1e13, eps_r=2.2)
     pe = Material(kind=:insulator, rho=Inf, eps_r=2.3)
 
     # An OPGW has a gel-filled aluminium tube, then rectangular strands bent around it. The
     # courses follow the rule at the cable center, with the tube in place of the center wire.
     strand = Rectangle(3e-3, 2e-3)
-    opgw = build(CableDesign, "opgw", filler(gel, Disk(2.5e-3)),
-        terminal(:core, sheath(aluminum; t=0.5e-3),
-            stranded(aluminum; shape=strand, boundary=Disk(7e-3), lay=LayRatio(12))),
-        insulation(pe; t=1e-3))
+    opgw_designs = map((gel, other_gel)) do filling
+        build(CableDesign, "opgw", filler(filling, Disk(2.5e-3)),
+            terminal(:core, sheath(aluminum; t=0.5e-3),
+                stranded(aluminum; shape=strand, boundary=Disk(7e-3), lay=LayRatio(12))),
+            insulation(pe; t=1e-3))
+    end
+    opgw = first(opgw_designs)
     tube = only(filter(placed -> placed.source.tag === :sheath, opgw.geometry.regions))
     strips = filter(placed -> placed.source.primitive == strand, opgw.geometry.regions)
     courses = [only(entry.pattern.course for entry in placed.placement.patterns
@@ -75,6 +79,28 @@ end
     occupied = sqrt(tube.primitive.ro^2 + 20area(strand) / pi)
     @test maximum(placed -> placed.primitive.ro, strips) ≈ occupied
     @test last(opgw.geometry.regions).primitive.ri ≈ occupied
+
+    # The tube and the rectangular strands form one terminal, and the design computes. The
+    # gel only sets the inner radius of that conductor. A different gel gives the same Z and Y.
+    @test all(isfinite, compute(CableConstantsProblem(opgw)).R)
+    opgw_parameters = map(opgw_designs) do design
+        system = build(LineCableSystem, design, Pose2(0.0, 10.0);
+            connections=Dict(:core => 1))
+        compute(LineParametersProblem(system; earth_props=homogeneous(rho=100.0),
+            frequencies=[50.0]))
+    end
+    @test all(isfinite, first(opgw_parameters).Z) && all(isfinite, first(opgw_parameters).Y)
+    @test first(opgw_parameters).Z == last(opgw_parameters).Z
+    @test first(opgw_parameters).Y == last(opgw_parameters).Y
+    # A declared annulus is the same tube.
+    declared_tube = build(CableDesign, "opgw", filler(gel, Disk(2.5e-3)),
+        terminal(:core, core(aluminum, Annulus(2.5e-3, 3e-3)),
+            stranded(aluminum; shape=strand, boundary=Disk(7e-3), lay=LayRatio(12))),
+        insulation(pe; t=1e-3))
+    for table in (:conductors, :dielectrics)
+        @test getfield(DM.flatten(declared_tube, Float64), table) ==
+              getfield(DM.flatten(opgw, Float64), table)
+    end
 
     # In a hollow conductor, round wires surround an oil duct. The first course holds the 15
     # wires that fit around the duct, and each next course six more.
@@ -97,6 +123,15 @@ end
         hollow.geometry.regions))
     @test (filled.primitive.outer.ri, filled.primitive.outer.ro) == (6e-3, 15e-3)
     @test area(filled.primitive) ≈ pi * (15e-3^2 - 6e-3^2) - 63area(wire)
+    @test all(isfinite, compute(CableConstantsProblem(hollow)).R)
+
+    # A sheath and rectangular armour form one terminal.
+    armoured = build(CableDesign, "sheath-armour", terminal(:core, core(copper; r=3e-3)),
+        insulation(pe; t=2e-3),
+        terminal(:screen, sheath(aluminum; t=0.5e-3),
+            armor(aluminum; shape=Rectangle(1e-3, 0.5e-3), n=10)),
+        insulation(pe; t=1e-3))
+    @test all(isfinite, compute(CableConstantsProblem(armoured)).R)
 
     # A formation after an insulated core starts at the insulation and computes.
     insulated = build(CableDesign, "stranded-neutral", terminal(:core, core(copper; r=3e-3)),
