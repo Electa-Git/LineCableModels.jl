@@ -93,41 +93,6 @@
                                                                 "__type__": "Float64"
                                                             }
                                                         },
-                                                        "path": null,
-                                                        "boundary": null
-                                                    },
-                                                    {
-                                                        "kind": "group",
-                                                        "name": "strand",
-                                                        "pattern": null,
-                                                        "compact": null,
-                                                        "member": {
-                                                            "kind": "region",
-                                                            "tag": "wire",
-                                                            "material": "conductor_1",
-                                                            "primitive": {
-                                                                "kind": "disk",
-                                                                "r": {
-                                                                    "value": 0.00235,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            }
-                                                        },
-                                                        "at": {
-                                                            "kind": "pose2",
-                                                            "x": {
-                                                                "value": 0,
-                                                                "__type__": "Float64"
-                                                            },
-                                                            "φ": {
-                                                                "value": 0,
-                                                                "__type__": "Float64"
-                                                            },
-                                                            "y": {
-                                                                "value": 0,
-                                                                "__type__": "Float64"
-                                                            }
-                                                        },
                                                         "path": [
                                                             {
                                                                 "kind": "helix",
@@ -616,41 +581,6 @@
                                             "member": {
                                                 "kind": "stack",
                                                 "items": [
-                                                    {
-                                                        "kind": "group",
-                                                        "name": "strand",
-                                                        "pattern": null,
-                                                        "compact": null,
-                                                        "member": {
-                                                            "kind": "region",
-                                                            "tag": "wire",
-                                                            "material": "conductor_7",
-                                                            "primitive": {
-                                                                "kind": "disk",
-                                                                "r": {
-                                                                    "value": 0.00183245,
-                                                                    "__type__": "Float64"
-                                                                }
-                                                            }
-                                                        },
-                                                        "at": {
-                                                            "kind": "pose2",
-                                                            "x": {
-                                                                "value": 0,
-                                                                "__type__": "Float64"
-                                                            },
-                                                            "φ": {
-                                                                "value": 0,
-                                                                "__type__": "Float64"
-                                                            },
-                                                            "y": {
-                                                                "value": 0,
-                                                                "__type__": "Float64"
-                                                            }
-                                                        },
-                                                        "path": null,
-                                                        "boundary": null
-                                                    },
                                                     {
                                                         "kind": "group",
                                                         "name": "strand",

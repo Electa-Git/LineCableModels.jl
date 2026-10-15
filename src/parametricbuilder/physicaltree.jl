@@ -491,8 +491,9 @@ function _stranded(
         :stranded, DataModel.Pose2(0, 0, 0), prescribed_boundary, bounded, fill, nothing)
 end
 
-# In a circular core, Disk wires surround one circular center wire, which defaults to
-# `shape`. Only `compact = true` deforms the wires.
+# In a circular core, Disk wires surround one circular center wire. The core stores a
+# declared center only, and resolution places the default, a copy of `shape`, at the cable
+# center. Only `compact = true` deforms the wires.
 function _stranded(
         material,
         center::Union{Nothing, DataModel.Disk},
@@ -506,7 +507,6 @@ function _stranded(
 )
     material = validate(material, DataModel.Region, :stranded, (:conductor,))
     fill = validate(fill, DataModel.Region, :stranded_fill, (:insulator, :semicon))
-    center === nothing && (center = shape)
     compaction = compact === nothing ? false : compact
     bounded = _stranded_core(
         material, center, shape, _stranding_paths(lay, dir, φ0), compaction,
@@ -515,10 +515,9 @@ function _stranded(
         :stranded, DataModel.Pose2(0, 0, 0), prescribed_boundary, bounded, fill, nothing)
 end
 
-# In a rectangular core, bent courses of a Rectangle strand surround a Disk center wire, or
-# the outline of a preceding part. The center defaults to `shape`, which only a formation
-# around a part admits. The bounded Group is the part, because its contiguous courses fill
-# their whole disk.
+# In a rectangular core, bent courses of a Rectangle strand surround a declared Disk center
+# wire, or the outline of a preceding part. The bounded Group is the part, because its
+# contiguous courses fill their whole disk.
 function _stranded(
         material,
         center::Union{Nothing, DataModel.Disk},
@@ -535,7 +534,6 @@ function _stranded(
     compact === nothing || throw(ArgumentError(
         "rectangular strands are intrinsically bent; omit compact"
     ))
-    center === nothing && (center = shape)
     return _stranded_core(
         material, center, shape, _stranding_paths(lay, dir, φ0), true, prescribed_boundary)
 end
@@ -682,11 +680,11 @@ layers start there, without an automatically generated outer filler film.
 
 # Keywords
 
-- `center=nothing`: circular center member for a disk-bounded core. Circular
-  strands default to one center wire equal to `shape`. Rectangular strands at the
-  cable center require an explicit `Disk`. A formation after a part admits no
-  center. A sector bundle infers its center strand from `shape` and does not admit a
-  separate center declaration.
+- `center=nothing`: circular center member for a disk-bounded core, stored only when
+  declared. At the cable center, circular strands default to one center wire equal to
+  `shape`, and rectangular strands require an explicit `Disk`. A formation after a part
+  does not admit a center. A sector bundle infers its center strand from `shape` and does not
+  admit a separate center declaration.
 - `shape`: circular wire or rectangular strand primitive.
 - `boundary`: nonhollow `Disk` or `Sector` core boundary, or a `Disk` around a
   preceding part. For rectangular strands, a `Disk` packing limit rather than an

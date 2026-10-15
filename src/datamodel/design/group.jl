@@ -194,48 +194,36 @@ end
 $(TYPEDSIGNATURES)
 
 Construct the members and placed primitives of a bounded wire formation from its
-geometric context, physical boundary, ordered part declarations, and compaction
-selection. Coordinates and dimensions are in meters. Return `(boundary, members,
-primitives)` in construction order. The center and strand declarations select the
-formation. At the cable center, the courses surround the center wire. Around a preceding
-part, they surround its outline, and the formation has no center of its own. Disk wires
-pack in circular courses, and a Rectangle strand bends around the inner disk.
+geometric context, physical boundary, compaction selection, and ordered part
+declarations. Coordinates and dimensions are in meters. Return `(boundary, members,
+primitives)` in construction order. A disk formation declares its strand, after an
+optional center wire. At the cable center, the courses surround the declared center wire,
+or by default a copy of the course wire. After a part, they surround its outline, and the
+formation has no center. Disk wires pack in circular courses, and a Rectangle strand bends
+around the inner disk.
 """
-function bounded_members(::EmptyBoundary, boundary_shape::Disk, parts::AbstractVector,
-        compact::Bool)
-    length(parts) == 2 || throw(ArgumentError(
-        "a disk-bounded stranded core requires center and strand declarations"
-    ))
-    center_part, strand_part = parts
+function bounded_members(
+        ::EmptyBoundary, boundary_shape::Disk, compact::Bool, strand_part::Group)
+    return bounded_members(boundary_shape, strand_part, strand_part, compact)
+end
+
+function bounded_members(::EmptyBoundary, boundary_shape::Disk, compact::Bool,
+        center_part::Group, strand_part::Group)
     return bounded_members(boundary_shape, center_part, strand_part, compact)
 end
 
-# Around a part, the center declaration is the default, the course wire itself, and the
-# formation does not place it.
-function bounded_members(context::Disk, boundary_shape::Disk, parts::AbstractVector,
-        compact::Bool)
-    length(parts) == 2 || throw(ArgumentError(
-        "a disk-bounded stranded core requires center and strand declarations"
+function bounded_members(::Disk, ::Disk, ::Bool, ::Group, ::Group)
+    throw(ArgumentError(
+        "a stranded formation after a part has no center of its own; omit center"
     ))
-    center_part, strand_part = parts
-    center_part.member == strand_part.member || throw(ArgumentError(
-        "a stranded formation around a part has no center of its own; omit center"
-    ))
-    isapprox(context.at.x, boundary_shape.at.x) &&
-        isapprox(context.at.y, boundary_shape.at.y) && context.r < boundary_shape.r ||
-        throw(DomainError(
-            context,
-            "the formation boundary must be concentric with and outside the preceding part"
-        ))
-    return bounded_members(context, boundary_shape, strand_part, compact)
 end
 
 # Around a part, Disk wires stay natural. Compaction in a ring waits for a real case.
 function bounded_members(
         context::Disk,
         boundary_shape::Disk,
-        strand_part::Group{<:Pose2, <:Region{<:Disk}},
-        compact::Bool
+        compact::Bool,
+        strand_part::Group{<:Pose2, <:Region{<:Disk}}
 )
     compact && throw(ArgumentError(
         "a stranded formation around a part takes natural wires; omit compact"
@@ -246,8 +234,8 @@ end
 function bounded_members(
         context::Disk,
         boundary_shape::Disk,
-        strand_part::Group{<:Pose2, <:Region{<:Rectangle}},
-        compact::Bool
+        compact::Bool,
+        strand_part::Group{<:Pose2, <:Region{<:Rectangle}}
 )
     return bounded_members(boundary_shape, context, NamedTuple[], strand_part, compact)
 end
@@ -273,8 +261,8 @@ function bounded_members(
     return bounded_members(boundary_shape, center, inside, strand_part, compact)
 end
 
-# At the cable center, the default center of rectangular strands, the strand itself, is not
-# a wire to bend around.
+# At the cable center, rectangular strands without a declared Disk center have no wire to
+# bend around.
 function bounded_members(
         boundary_shape::Disk,
         center_part::Group{<:Pose2, <:Region{<:Rectangle}},
@@ -346,11 +334,7 @@ function bounded_members(
     return Disk(r_ex(last(primitives)), boundary_shape.at), members, primitives
 end
 
-function sector_members(boundary_shape::SectorShape, parts)
-    length(parts) == 1 || throw(ArgumentError(
-        "a sector stranded core uses one declaration for its center and course wires"
-    ))
-    part = only(parts)
+function sector_members(boundary_shape::SectorShape, part::Group)
     wire = part.member.primitive
     courses, primitives, maximum_course = sector_courses(boundary_shape, wire)
     members = [(
@@ -364,9 +348,17 @@ function sector_members(boundary_shape::SectorShape, parts)
     return members, primitives
 end
 
-function bounded_members(::EmptyBoundary, boundary_shape::SectorShape, parts::AbstractVector,
-        ::Nothing)
-    return boundary_shape, sector_members(boundary_shape, parts)...
+# A sector bundle uses one declaration for its center and course wires.
+function bounded_members(
+        ::EmptyBoundary, boundary_shape::SectorShape, ::Nothing, part::Group)
+    return boundary_shape, sector_members(boundary_shape, part)...
+end
+
+function bounded_members(::Union{EmptyBoundary, Disk}, ::Union{Disk, SectorShape}, compact,
+        parts::Group...)
+    throw(ArgumentError(
+        "a stranded core declares one strand, after at most one center wire in a disk"
+    ))
 end
 
 """
@@ -381,9 +373,8 @@ Member and primitive order follows construction. An empty formation raises
 """
 function bounded_members(context::Union{EmptyBoundary, Disk}, group::Group)
     boundary_shape = resolve(group.at, group.boundary)
-    parts = bounded_declarations(group)
-    outer, members, primitives = bounded_members(context, boundary_shape, parts,
-        group.compact)
+    outer, members, primitives = bounded_members(context, boundary_shape, group.compact,
+        bounded_declarations(group)...)
     isempty(members) && throw(ArgumentError(
         "a bounded formation requires at least one strand"
     ))
@@ -521,7 +512,21 @@ function _resolve_group(
         context::Disk,
         group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Disk}
 )
-    return resolve_bounded(context, group)
+    return resolve_bounded(validate(context, group), group)
+end
+
+# The preceding circular outline of a bounded formation shares its center and lies inside
+# its disk.
+function validate(
+        context::Disk, group::Group{<:Pose2, <:Any, <:Any, <:Any, <:Any, <:Disk})
+    boundary_shape = resolve(group.at, group.boundary)
+    isapprox(context.at.x, boundary_shape.at.x) &&
+        isapprox(context.at.y, boundary_shape.at.y) && context.r < boundary_shape.r ||
+        throw(DomainError(
+            context,
+            "the formation boundary must be concentric with and outside the preceding part"
+        ))
+    return context
 end
 function _resolve_group(
         ::AbstractShape,

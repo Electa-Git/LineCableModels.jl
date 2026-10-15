@@ -97,14 +97,13 @@ end
         boundary = compact_boundary
     )
     @test natural isa Enclosure
-    declarations=natural.contents.member.items
-    @test all(item -> item isa Group, declarations)
-    @test getproperty.(declarations, :name) == fill(:strand, 2)
-    @test declarations[1].path === nothing
-    @test declarations[2].path == (
+    declaration=only(natural.contents.member.items)
+    @test declaration isa Group
+    @test declaration.name === :strand
+    @test declaration.path == (
         Helix(LayRatio(15)), Helix(LayRatio(11))
     )
-    @test all(item -> item.pattern === nothing, declarations)
+    @test declaration.pattern === nothing
 
     natural_design=build(
         CableDesign, "natural-circular-strands", terminal(:core, natural)

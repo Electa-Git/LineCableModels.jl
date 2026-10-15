@@ -124,7 +124,9 @@ end
 largest complete family of concentric courses around one center wire. With
 `compact=nothing`, the wires remain circles on their natural course radii. The first course
 holds as many wires as fit around the center wire, and each next course holds six more.
-Equal center and strand sizes give `6k` wires in course `k`.
+Equal center and strand sizes give `6k` wires in course `k`. The default center wire is a
+copy of `shape`, placed when the geometry resolves. The declared tree stores a center wire
+only when `center` declares one.
 
 ```julia
 core_part = stranded(

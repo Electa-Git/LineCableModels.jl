@@ -524,14 +524,25 @@ end
     round_group = round.contents
     @test round_group.boundary == round_boundary
     @test round_group.pattern === nothing
-    round_declarations = round_group.member.items
-    @test length(round_declarations) == 2
-    @test all(part -> part.pattern === nothing, round_declarations)
-    @test round_declarations[1].path === nothing
-    @test round_declarations[2].path == (
+    # The default center wire is placed at resolution, and the declared tree neither stores
+    # nor shows it. A declared center is stored and shown.
+    round_declaration = only(round_group.member.items)
+    @test round_declaration.pattern === nothing
+    @test round_declaration.path == (
         Helix(LayRatio(12); dir = 1, φ0 = 0.0),
         Helix(Pitch(0.2); dir = -1, φ0 = 0.1)
     )
+    @test count("Group :strand", sprint(show, MIME"text/plain"(), round_group)) == 1
+    declared_group = stranded(copper; center = Disk(0.6e-3), shape = Disk(0.5e-3),
+        boundary = round_boundary).contents
+    @test [part.member.primitive for part in declared_group.member.items] ==
+          [Disk(0.6e-3), Disk(0.5e-3)]
+    @test count("Group :strand", sprint(show, MIME"text/plain"(), declared_group)) == 2
+    for (group, stored) in ((round_group, 1), (declared_group, 2))
+        record = LineCableModels.ImportExport.serialize_value(
+            build(CableDesign, "stored-center", terminal(:phase, group)))
+        @test length(record["tree"]["member"]["items"][1]["member"]["items"]) == stored
+    end
     _, round_members, round_shapes = DM.bounded_members(DM.EmptyBoundary(), round_group)
     @test [count(member -> member.course == course, round_members)
            for course in 1:2] == [6, 12]
@@ -552,7 +563,7 @@ end
     )
     normalized_group = normalized.contents
     @test normalized_group.compact
-    @test normalized_group.member.items[2].path == (
+    @test only(normalized_group.member.items).path == (
         Helix(LayRatio(12)),
         Helix(LayRatio(11))
     )
@@ -637,7 +648,7 @@ end
 
     course_members,
     course_shapes = DM.sector_members(
-        resolved_sector, DM.bounded_declarations(bounded_group)
+        resolved_sector, only(DM.bounded_declarations(bounded_group))
     )
     @test [count(member -> member.course == course, course_members)
            for course in 1:expected_courses] == 6 .* (1:expected_courses)
