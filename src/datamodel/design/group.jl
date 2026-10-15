@@ -147,7 +147,8 @@ function bounded_declarations(::Group)
 end
 
 # A strand declaration of a bounded formation is a Group at the formation origin that owns
-# one Region and leaves placement and compaction to the formation.
+# one Region. Its pattern declares its course counts, and the formation owns placement and
+# compaction.
 function validate(part::Group{<:Pose2, <:Region}, ::Group)
     part.at == Pose2(0, 0, 0) || throw(ArgumentError(
         "bounded strand declarations must share the formation origin"
@@ -155,9 +156,7 @@ function validate(part::Group{<:Pose2, <:Region}, ::Group)
     part.boundary === nothing || throw(ArgumentError(
         "nested bounded formations are not supported"
     ))
-    part.pattern === nothing || throw(ArgumentError(
-        "a bounded strand inventory cannot declare a Ring or other placement"
-    ))
+    validate(part.pattern, bounded_members)
     part.compact === nothing || throw(ArgumentError(
         "bounded compaction belongs to the containing formation"
     ))
@@ -179,13 +178,13 @@ function validate(part::AbstractCablePart, ::Group)
 end
 
 # A course follows no path at the center. Otherwise it follows the one path of every
-# course, or its own entry of a lay schedule with one path per inferred course.
+# course, or its own entry of a lay schedule with one path per course.
 strand_path(path, course::Int, maximum_course::Int) = iszero(course) ? nothing : path
 strand_path(::Nothing, course::Int, maximum_course::Int) = nothing
 function strand_path(paths::Tuple, course::Int, maximum_course::Int)
     iszero(course) && return nothing
     length(paths) == maximum_course || throw(DimensionMismatch(
-        "lay schedule requires exactly $maximum_course inferred courses; got $(length(paths))"
+        "lay schedule requires exactly $maximum_course courses; got $(length(paths))"
     ))
     return paths[course]
 end
@@ -209,6 +208,9 @@ end
 
 function bounded_members(::EmptyBoundary, boundary_shape::Disk, compact::Bool,
         center_part::Group, strand_part::Group)
+    center_part.pattern === nothing || throw(ArgumentError(
+        "a center wire declares no course counts"
+    ))
     return bounded_members(boundary_shape, center_part, strand_part, compact)
 end
 
@@ -280,7 +282,8 @@ function bounded_members(
         strand_part::Group{<:Pose2, <:Region{<:Disk}},
         compact::Bool
 )
-    sites = circular_courses(boundary_shape, inner, strand_part.member.primitive, compact)
+    sites = circular_courses(boundary_shape, inner, strand_part.member.primitive, compact,
+        strand_part.pattern)
     maximum_course = maximum(site.course for site in sites)
     members = NamedTuple[inside...]
     for placement in sites
@@ -311,7 +314,8 @@ function bounded_members(
     compact || throw(ArgumentError(
         "rectangular strands require area-preserving bending"
     ))
-    strips = rectangular_strands(boundary_shape, inner, strand_part.member.primitive)
+    strips = rectangular_strands(boundary_shape, inner, strand_part.member.primitive,
+        strand_part.pattern)
     maximum_course = maximum(strip.course for strip in strips)
     members = NamedTuple[inside...]
     primitives = AbstractShape[
@@ -347,10 +351,17 @@ function sector_members(boundary_shape::SectorShape, part::Group)
     return members, primitives
 end
 
-# A sector bundle uses one declaration for its center and course wires.
-function bounded_members(
-        ::EmptyBoundary, boundary_shape::SectorShape, ::Nothing, part::Group)
+# A sector bundle uses one declaration for its center and course wires, and infers its
+# course counts.
+function bounded_members(::EmptyBoundary, boundary_shape::SectorShape, ::Nothing,
+        part::Group{<:Pose2, <:Region, Nothing})
     return boundary_shape, sector_members(boundary_shape, part)...
+end
+
+function bounded_members(::EmptyBoundary, ::SectorShape, ::Nothing, ::Group)
+    throw(ArgumentError(
+        "a Sector boundary takes inferred course counts for now; omit n"
+    ))
 end
 
 function bounded_members(::Union{EmptyBoundary, Disk}, ::Union{Disk, SectorShape}, compact,
@@ -378,6 +389,31 @@ function bounded_members(context::Union{EmptyBoundary, Disk}, group::Group)
         "a bounded formation requires at least one strand"
     ))
     return outer, members, primitives
+end
+
+# The courses of a bounded strand are inferred, or declared by a positive base count (course
+# k holds k times it) or by a nonempty schedule of positive counts, from the inside out.
+validate(counts::Nothing, ::typeof(bounded_members)) = counts
+function validate(counts::Integer, ::typeof(bounded_members))
+    counts > 0 || throw(ArgumentError(
+        "a base course count must be positive; got $counts"
+    ))
+    return counts
+end
+function validate(counts::Bool, ::typeof(bounded_members))
+    throw(ArgumentError("a course count must be an integer; got $counts"))
+end
+function validate(counts::AbstractVector{<:Integer}, ::typeof(bounded_members))
+    !isempty(counts) && all(>(0), counts) || throw(ArgumentError(
+        "a course count schedule must be nonempty and positive; got $counts"
+    ))
+    return counts
+end
+function validate(counts, ::typeof(bounded_members))
+    throw(ArgumentError(
+        "a bounded strand inventory declares course counts, not a " *
+        "$(nameof(typeof(counts))) or other placement"
+    ))
 end
 
 function bounded_pose(absolute, origin::Pose2, angle)

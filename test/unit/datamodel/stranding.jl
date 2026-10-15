@@ -48,6 +48,74 @@
     end
 end
 
+@testitem "DataModel / stranding / declared course counts" tags=[:unit, :parametric] begin
+    import LineCableModels.DataModel as DM
+    copper = Material(kind=:conductor, rho=1.7241e-8)
+    oil = Material(kind=:insulator, rho=1e13, eps_r=2.2)
+    wire, boundary = Disk(0.5e-3), Disk(3.5e-3)
+
+    # A declared schedule lies on the natural radii, and the fill takes the room left over.
+    e17 = build(CableDesign, "declared-schedule",
+        terminal(:core, stranded(copper; shape=wire, n=(5, 11, 16), boundary)))
+    wires = filter(placed -> placed.terminal === :core, e17.geometry.regions)
+    e17_courses = [only(placed.placement.patterns).pattern.course for placed in wires]
+    @test [count(==(course), e17_courses) for course in 0:3] == [1, 5, 11, 16]
+    @test all(hypot(centroid(placed.primitive)...) ≈ (2course) * wire.r
+              for (placed, course) in zip(wires, e17_courses) if course > 0)
+    centers = [centroid(placed.primitive) for placed in wires]
+    @test all(hypot((left .- right)...) >= 2wire.r * (1 - 1e-12)
+              for (index, left) in enumerate(centers) for right in centers[(index + 1):end])
+    @test only(e17.tree.member.items).contents.member.items[end].pattern == [5, 11, 16]
+
+    # With equal center and strand sizes, a base count of six is the inferred inventory.
+    for (compact, disk) in ((false, boundary), (true, Disk(sqrt(37) * wire.r)))
+        @test build(CableDesign, "base-count",
+            terminal(:core, stranded(copper; shape=wire, n=6, compact, boundary=disk))
+        ).geometry == build(CableDesign, "base-count",
+            terminal(:core, stranded(copper; shape=wire, compact, boundary=disk))).geometry
+    end
+    compacted = build(CableDesign, "declared-compacted", terminal(:core,
+        stranded(copper; shape=wire, n=(5, 10), compact=true, boundary=Disk(sqrt(18) * wire.r))))
+    @test [count(placed -> only(placed.placement.patterns).pattern.course == course,
+               compacted.geometry.regions[1:16]) for course in 0:2] == [1, 5, 10]
+    @test all(placed -> area(placed.primitive) ≈ area(wire), compacted.geometry.regions[1:16])
+
+    # After a part, the declared courses surround its outline.
+    around = build(CableDesign, "declared-around", filler(oil, Disk(6e-3)),
+        terminal(:core, stranded(copper; shape=Disk(1.5e-3), n=(15, 20),
+            boundary=Disk(12e-3))))
+    around_wires = filter(placed -> placed.terminal === :core, around.geometry.regions)
+    @test [count(placed -> only(placed.placement.patterns).pattern.course == course,
+               around_wires) for course in 1:2] == [15, 20]
+    @test all(placed -> hypot(centroid(placed.primitive)...) >= 7.5e-3 * (1 - 1e-12),
+        around_wires)
+
+    # Declared rectangular courses that fill the disk boundary give the inferred core.
+    rod, rod_center = Rectangle(0.75e-3, 0.35e-3), Disk(0.55e-3)
+    @test build(CableDesign, "declared-rods", terminal(:core, stranded(copper;
+        center=rod_center, shape=rod, n=[6, 8, 11, 14, 17, 20, 23, 25, 18], boundary))
+    ).geometry == build(CableDesign, "declared-rods", terminal(:core, stranded(copper;
+        center=rod_center, shape=rod, boundary))).geometry
+
+    @test_throws "ring members overlap" build(CableDesign, "over-full",
+        terminal(:core, stranded(copper; shape=wire, n=(7, 12), boundary)))
+    @test_throws "reach beyond the disk boundary" build(CableDesign, "beyond",
+        terminal(:core, stranded(copper; shape=wire, n=(6, 12, 18, 24), boundary)))
+    @test_throws "exceeds its authoritative boundary area" build(CableDesign, "overflow",
+        terminal(:core, stranded(copper; shape=wire, n=(6, 12, 18), compact=true,
+            boundary=Disk(sqrt(30) * wire.r))))
+    @test_throws "more than one strand of the disk boundary unfilled" build(CableDesign,
+        "few-rods", terminal(:core, stranded(copper; center=rod_center, shape=rod,
+            n=[6, 8, 11], boundary)))
+    @test_throws "exceed the disk boundary" build(CableDesign, "many-rods",
+        terminal(:core, stranded(copper; center=rod_center, shape=rod,
+            n=[6, 8, 11, 14, 17, 20, 23, 25, 19], boundary)))
+    @test_throws "takes inferred course counts" build(CableDesign, "sector-counts",
+        terminal(:core, stranded(copper; shape=Disk(0.35e-3), n=6,
+            boundary=Sector(2pi / 3, 0.6e-3, 5e-3, 0.2e-3))))
+    @test_throws "n must be a positive base count" stranded(copper; shape=wire, n=0, boundary)
+end
+
 @testitem "DataModel / stranding / rectangular strands fill their boundary" tags=[:unit, :parametric] begin
     import LineCableModels.DataModel as DM
     copper = Material(kind=:conductor, rho=1.7241e-8)

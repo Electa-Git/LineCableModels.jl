@@ -137,10 +137,17 @@ core_part = stranded(
 )
 ```
 
-`boundary` is the authoritative finished core. The wire radius and geometric boundary
-infer the maximum complete `6k` course inventory. A lay schedule must match the
-radial courses found by that inventory. No `Ring`, layer count, or
-wire count is stored as a second description of the same geometry.
+`boundary` is the authoritative finished core. Unless `n` declares the counts, the wire
+radius and the geometric boundary infer the course inventory. `n` takes the forms that
+`rope` gives it. `capacity()`, the default, infers the counts. With a positive base count,
+course `k` holds `k n` wires, and a schedule such as `n=(5, 11, 16)` gives one count per
+course from the inside out. Declared natural courses must fit on their radii inside the disk
+boundary, and the room left over belongs to the fill. Declared compacted courses take their
+radii from their areas and must fit the area of the disk boundary. Declared rectangular
+courses must fill the disk boundary within one strand. A `Sector` takes inferred counts. A
+lay schedule must match the number of courses. The declared tree stores only what `n`
+declares: no `Ring`, layer count or inferred wire count is stored as a second description
+of the same geometry.
 
 Omitting `compact` preserves the natural circular wires. `compact=true`
 selects the maximum complete `6k` inventory admitted by area and deforms every
@@ -894,7 +901,8 @@ preview(
 ### Rope formation
 
 `rope` repeats a complete stranded core as one central member surrounded by six
-peers. Here each member's six course wires have `LayRatio(12)` about their own
+peers. Its member is the result of `stranded`, and plain wires form a `stranded` core
+with `n`. Here each member's six course wires have `LayRatio(12)` about their own
 member axis. The 6 outer members also have `LayRatio(18)` about the rope
 axis. These are separate paths: the accepted approximation **multiplies their
 overlength factors**. Both lays contribute to the overlength.

@@ -1259,9 +1259,29 @@ end
     @test local_member.at == DM.Pose2(0.01, 0.02, 0.3)
 
     @test (@distribute rope(
-        terminal(:aux, core(copper; r = 0.5e-3));
+        stranded(copper; shape = Disk(0.5e-3), boundary = Disk(1.5e-3));
         layers = 1
     )).items[2].pattern.n == capacity()
+
+    # A rope repeats a stranded core. Plain wires, which a rope placed as a center wire and
+    # contextual courses, are a stranded core with the same counts and a disk boundary at
+    # the occupied radius, and they resolve to the same wires.
+    @test_throws "rope repeats a stranded member" rope(
+        terminal(:aux, core(copper; r = 0.5e-3)); layers = 1)
+    plain_wire = core(copper; r = 0.5e-3)
+    plain = build(CableDesign, "plain-courses", terminal(:aux, Stack(
+        Group(:rope, plain_wire),
+        Group(:rope, plain_wire; pattern = Ring(capacity(); r = nothing)))))
+    rewritten = build(CableDesign, "stranded-courses", terminal(:aux,
+        stranded(copper; shape = Disk(0.5e-3), boundary = Disk(1.5e-3))))
+    rewritten_wires = filter(placed -> placed.terminal === :aux, rewritten.geometry.regions)
+    @test length(plain.geometry.regions) == length(rewritten_wires) == 7
+    @test all(zip(plain.geometry.regions, rewritten_wires)) do (left, right)
+        left.primitive.r == right.primitive.r &&
+            all(isapprox.(centroid(left.primitive), centroid(right.primitive);
+                atol = 1e-15))
+    end
+    @test outer_radius(plain) == outer_radius(rewritten)
 
     distributed_space = @distribute wires(
         copper;

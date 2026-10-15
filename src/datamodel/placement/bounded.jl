@@ -426,51 +426,88 @@ function _balance_power_cells_nominal(boundary, sites, targets;
     ))
 end
 
-function course_count(available_area, strand_area)
+function course_count(available_area, strand_area, base::Integer = 6)
     ratio = nominal(available_area / strand_area)
     capacity = ratio + 64eps(float(ratio))
-    capacity >= 6 || throw(DomainError(
+    capacity >= base || throw(DomainError(
         available_area,
-        "a stranded formation requires enough area for its first six-wire course"
+        "a stranded formation requires enough area for its first course of $base wires"
     ))
-    courses = floor(Int, (sqrt(1 + 4ratio / 3) - 1) / 2)
+    courses = floor(Int, (sqrt(1 + 8ratio / base) - 1) / 2)
     # The inverse can round below an integer at exact full occupancy. Check
     # the actual inventory in both directions, using the same area tolerance.
-    while 3(courses + 1) * (courses + 2) <= capacity
+    while base * ((courses + 1) * (courses + 2) ÷ 2) <= capacity
         courses += 1
     end
-    while 3courses * (courses + 1) > capacity
+    while base * (courses * (courses + 1) ÷ 2) > capacity
         courses -= 1
     end
     return courses
 end
 
-function circular_courses(shape::Disk, inner::Disk, wire::Disk, compact::Bool)
-    courses = if compact
-        course_count(area(shape) - area(inner), area(wire))
-    else
-        ratio = nominal((shape.r - inner.r) / (2wire.r))
-        floor(Int, ratio + 64eps(float(ratio)))
-    end
+# Natural courses lie on the radii of the inner disk plus odd multiples of the wire radius,
+# inside the disk boundary.
+function natural_courses(shape::Disk, inner::Disk, wire::Disk)
+    ratio = nominal((shape.r - inner.r) / (2wire.r))
+    courses = floor(Int, ratio + 64eps(float(ratio)))
     courses >= 1 || throw(DomainError(
         wire.r, "the disk boundary leaves less than one wire diameter around the " *
                 "center wire or the preceding part"
     ))
-    source_area = area(inner) + 3courses * (courses + 1) * area(wire)
-    # Natural wires: the first course holds as many wires as fit at its radius, and each
-    # next course six more. Compaction keeps 6k wires in course k.
+    return courses
+end
+
+# The wires of each course, from the inside out. Inferred natural courses hold as many
+# wires as fit around the inner disk, then six more per course. Inferred compacted courses
+# hold 6k wires in course k.
+function course_counts(::Nothing, shape::Disk, inner::Disk, wire::Disk, compact::Bool)
+    courses = compact ? course_count(area(shape) - area(inner), area(wire)) :
+              natural_courses(shape, inner, wire)
     first_count = compact ? 6 :
                   capacity(Ring, nominal(inner.r + wire.r), nominal(wire.r))
+    return [first_count + 6(course - 1) for course in 1:courses]
+end
+
+# A base count puts k times that many wires in course k, in as many courses as the disk
+# boundary holds.
+function course_counts(base::Integer, shape::Disk, inner::Disk, wire::Disk, compact::Bool)
+    courses = compact ? course_count(area(shape) - area(inner), area(wire), base) :
+              natural_courses(shape, inner, wire)
+    return course_counts([base * course for course in 1:courses], shape, inner, wire,
+        compact)
+end
+
+# A declared schedule sets the wires of each course. A natural course must fit on its
+# radius, and the natural courses must lie inside the disk boundary. The compaction checks
+# the total area.
+function course_counts(counts::AbstractVector{<:Integer}, shape::Disk, inner::Disk,
+        wire::Disk, compact::Bool)
+    compact && return collect(Int, counts)
+    room = natural_courses(shape, inner, wire)
+    length(counts) <= room || throw(DomainError(
+        counts, "the declared courses reach beyond the disk boundary, which holds $room"
+    ))
+    for (course, count) in enumerate(counts)
+        validate(Ring(count; r = inner.r + (2course - 1) * wire.r), placements, 2wire.r)
+    end
+    return collect(Int, counts)
+end
+
+function circular_courses(shape::Disk, inner::Disk, wire::Disk, compact::Bool,
+        declared = nothing)
+    counts = course_counts(declared, shape, inner, wire, compact)
+    source_area = area(inner) + sum(counts) * area(wire)
     sites = NamedTuple[]
-    for course in 1:courses
-        count = first_count + 6(course - 1)
+    before = 0
+    for (course, count) in enumerate(counts)
         radius = if compact
-            area_before = area(inner) + 3(course - 1) * course * area(wire)
-            area_middle = area_before + 3course * area(wire)
+            area_before = area(inner) + before * area(wire)
+            area_middle = area_before + count / 2 * area(wire)
             shape.r * sqrt(area_middle / source_area)
         else
             inner.r + (2course - 1) * wire.r
         end
+        before += count
         phase = isodd(course) ? zero(radius) : π / count
         for member in 1:count
             angle = phase + 2π * (member - 1) / count
@@ -488,25 +525,14 @@ function circular_courses(shape::Disk, inner::Disk, wire::Disk, compact::Bool)
     return sites
 end
 
-function rectangular_strands(shape::Disk, inner::Disk, strand::Rectangle)
-    remaining_area = area(shape) - area(inner)
-    remaining_area > zero(remaining_area) || throw(DomainError(
-        inner.r, "the center wire or the preceding part leaves no area for " *
-                 "rectangular strands"
-    ))
-    count = floor(Int, nominal(remaining_area / area(strand)) +
-                       64eps(float(nominal(remaining_area / area(strand)))))
-    count > 0 || throw(DomainError(
-        area(strand), "one rectangular strand does not fit outside the center wire " *
-                      "or the preceding part"
-    ))
-    # The packed courses are contiguous from the inner disk, with as many strips as fit.
+# Inferred bent courses hold as many strips as fit around them, until the rectangular
+# strands run out or a course would leave the disk boundary.
+function course_counts(::Nothing, shape::Disk, inner::Disk, strand::Rectangle, count::Int)
     T = float(promote_type(eltype(shape), eltype(inner), eltype(strand)))
     counts = Int[]
-    radii = T[inner.r]
+    radius = convert(T, inner.r)
     remaining = count
     while remaining > 0
-        radius = last(radii)
         mean_radius = radius + strand.h / 2
         nominal_count = max(1, floor(Int, nominal(2pi * mean_radius / strand.w)))
         member_count = min(remaining, nominal_count)
@@ -520,8 +546,57 @@ function rectangular_strands(shape::Disk, inner::Disk, strand::Rectangle)
             outer = sqrt(radius^2 + member_count * area(strand) / pi)
         end
         push!(counts, member_count)
-        push!(radii, outer)
+        radius = convert(T, outer)
         remaining -= member_count
+    end
+    return counts
+end
+
+# A base count puts k times that many strips in course k, in as many courses as the
+# rectangular strands allow.
+function course_counts(base::Integer, shape::Disk, inner::Disk, strand::Rectangle,
+        count::Int)
+    courses = 0
+    while base * ((courses + 1) * (courses + 2) ÷ 2) <= count
+        courses += 1
+    end
+    return course_counts([base * course for course in 1:courses], shape, inner, strand,
+        count)
+end
+
+# Declared strips fill the disk boundary within one strand, so they number exactly as many
+# rectangular strands as fit.
+function course_counts(counts::AbstractVector{<:Integer}, shape::Disk, inner::Disk,
+        strand::Rectangle, count::Int)
+    sum(counts) <= count || throw(DomainError(
+        counts, "the declared rectangular strands exceed the disk boundary, which holds $count"
+    ))
+    sum(counts) == count || throw(DomainError(
+        counts, "the declared rectangular strands leave more than one strand of the disk " *
+                "boundary unfilled; it holds $count"
+    ))
+    return collect(Int, counts)
+end
+
+function rectangular_strands(shape::Disk, inner::Disk, strand::Rectangle,
+        declared = nothing)
+    remaining_area = area(shape) - area(inner)
+    remaining_area > zero(remaining_area) || throw(DomainError(
+        inner.r, "the center wire or the preceding part leaves no area for " *
+                 "rectangular strands"
+    ))
+    count = floor(Int, nominal(remaining_area / area(strand)) +
+                       64eps(float(nominal(remaining_area / area(strand)))))
+    count > 0 || throw(DomainError(
+        area(strand), "one rectangular strand does not fit outside the center wire " *
+                      "or the preceding part"
+    ))
+    # The packed courses are contiguous from the inner disk.
+    counts = course_counts(declared, shape, inner, strand, count)
+    T = float(promote_type(eltype(shape), eltype(inner), eltype(strand)))
+    radii = T[inner.r]
+    for member_count in counts
+        push!(radii, sqrt(last(radii)^2 + member_count * area(strand) / pi))
     end
     # The disk boundary is the finished outline. An area map from the occupied radius to the
     # disk boundary scales every course height, and every strip area by the same factor.

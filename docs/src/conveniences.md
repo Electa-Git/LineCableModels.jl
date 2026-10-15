@@ -34,8 +34,8 @@ screen_wires = wires(
 )
 ```
 
-With a `Disk` geometric boundary, `stranded` creates a center wire and infers the maximum
-complete `6k` course inventory. Without compaction circular wires retain their
+With a `Disk` geometric boundary, `stranded` creates a center wire and infers its course
+inventory, unless `n` declares the counts. Without compaction circular wires retain their
 natural shape. `compact=true` requests area-preserving deformation of those
 same complete courses. A `Sector` geometric boundary maps a center strand and complete
 `6k` courses into the sector, then reconstructs each strand as an
@@ -65,8 +65,9 @@ round_core = stranded(
 
 The explicit tuple form above remains available when course definitions differ.
 
-`rope(item; ...)` applies the same course grammar to an existing physical
-item. Every child retains its internal path declarations. An outer course adds
+`rope(core; ...)` applies the same course grammar, `n` included, to a stranded core that
+`stranded` returns. Plain wires are a `stranded` core with `n`. Every child retains its
+internal path declarations. An outer course adds
 its own path. `armor` uses the same ring, path, clearance, and compaction
 operations while resolving its course radius from the preceding geometric boundary.
 

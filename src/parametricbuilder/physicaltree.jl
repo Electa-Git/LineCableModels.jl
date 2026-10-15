@@ -423,31 +423,42 @@ function _course_schedule(values::Union{Tuple, AbstractVector}, count::Int, name
 end
 _course_schedule(value, count::Int, name::Symbol) = ntuple(_ -> value, count)
 
-# The member counts of the courses come from an exact schedule, or from a positive base
-# count that each course multiplies. `capacity()` fills every course. A Bool is not a count.
+# `n` declares the member counts of the courses: `capacity()` infers them, a positive base
+# count puts k times it in course k, and a schedule gives one count per course from the
+# inside out. A Bool is not a count. `stranded` and `rope` share this meaning.
+_course_declaration(values::Union{Tuple, AbstractVector}) = values
+function _course_declaration(value::Integer)
+    value > 0 && return Int(value)
+    throw(ArgumentError(
+        "n must be a positive base count, exact course schedule, or capacity()"
+    ))
+end
+function _course_declaration(value::Bool)
+    throw(ArgumentError(
+        "n must be a positive base count, exact course schedule, or capacity()"
+    ))
+end
+function _course_declaration(value)
+    value === DataModel.capacity() && return nothing
+    throw(ArgumentError(
+        "n must be a positive base count, exact course schedule, or capacity()"
+    ))
+end
+
+# A rope expands its course declaration over its layers.
 function _count_schedule(values::Union{Tuple, AbstractVector}, count::Int)
     length(values) == count || throw(DimensionMismatch(
         "n requires exactly $count course values"
     ))
     return Tuple(values)
 end
-function _count_schedule(value::Integer, count::Int)
-    value > 0 && return ntuple(index -> index * Int(value), count)
-    throw(ArgumentError(
-        "n must be a positive base count, exact course schedule, or capacity()"
-    ))
-end
-function _count_schedule(value::Bool, count::Int)
-    throw(ArgumentError(
-        "n must be a positive base count, exact course schedule, or capacity()"
-    ))
-end
-function _count_schedule(value, count::Int)
-    value === DataModel.capacity() && return ntuple(_ -> value, count)
-    throw(ArgumentError(
-        "n must be a positive base count, exact course schedule, or capacity()"
-    ))
-end
+_count_schedule(base::Int, count::Int) = ntuple(index -> index * base, count)
+_count_schedule(::Nothing, count::Int) = ntuple(_ -> DataModel.capacity(), count)
+
+# A stranded core stores its declaration, and the formation expands it when it resolves. A
+# schedule is stored as a vector, as it is serialized.
+_stranding_counts(values::Union{Tuple, AbstractVector}) = collect(values)
+_stranding_counts(declaration) = declaration
 
 # Without a lay, a stranded core has no paths. A lay schedule gives one path per inferred
 # course, and one lay law gives one path for every course.
@@ -469,6 +480,7 @@ function _stranded(
         material,
         center,
         shape::DataModel.Disk,
+        counts,
         lay,
         dir,
         φ0,
@@ -485,7 +497,7 @@ function _stranded(
         "sector stranded cores are intrinsically compacted; omit compact"
     ))
     bounded = _stranded_core(
-        material, nothing, shape, _stranding_paths(lay, dir, φ0), nothing,
+        material, nothing, shape, counts, _stranding_paths(lay, dir, φ0), nothing,
         prescribed_boundary)
     return DataModel.Enclosure(
         :stranded, DataModel.Pose2(0, 0, 0), prescribed_boundary, bounded, fill, nothing)
@@ -498,6 +510,7 @@ function _stranded(
         material,
         center::Union{Nothing, DataModel.Disk},
         shape::DataModel.Disk,
+        counts,
         lay,
         dir,
         φ0,
@@ -509,7 +522,7 @@ function _stranded(
     fill = validate(fill, DataModel.Region, :stranded_fill, (:insulator, :semicon))
     compaction = compact === nothing ? false : compact
     bounded = _stranded_core(
-        material, center, shape, _stranding_paths(lay, dir, φ0), compaction,
+        material, center, shape, counts, _stranding_paths(lay, dir, φ0), compaction,
         prescribed_boundary)
     return DataModel.Enclosure(
         :stranded, DataModel.Pose2(0, 0, 0), prescribed_boundary, bounded, fill, nothing)
@@ -522,6 +535,7 @@ function _stranded(
         material,
         center::Union{Nothing, DataModel.Disk},
         shape::DataModel.Rectangle,
+        counts,
         lay,
         dir,
         φ0,
@@ -535,13 +549,15 @@ function _stranded(
         "rectangular strands are intrinsically bent; omit compact"
     ))
     return _stranded_core(
-        material, center, shape, _stranding_paths(lay, dir, φ0), true, prescribed_boundary)
+        material, center, shape, counts, _stranding_paths(lay, dir, φ0), true,
+        prescribed_boundary)
 end
 
 function _stranded(
         material,
         center::Union{Nothing, DataModel.Disk},
         shape::DataModel.Disk,
+        counts,
         lay,
         dir,
         φ0,
@@ -558,6 +574,7 @@ function _stranded(
         material,
         center,
         shape::DataModel.Disk,
+        counts,
         lay,
         dir,
         φ0,
@@ -574,6 +591,7 @@ function _stranded(
         material,
         center,
         shape::DataModel.Rectangle,
+        counts,
         lay,
         dir,
         φ0,
@@ -588,6 +606,7 @@ function _stranded(
         material,
         center,
         shape::DataModel.Rectangle,
+        counts,
         lay,
         dir,
         φ0,
@@ -602,6 +621,7 @@ function _stranded(
         material,
         center,
         shape::Union{DataModel.Disk, DataModel.Rectangle},
+        counts,
         lay,
         dir,
         φ0,
@@ -612,13 +632,15 @@ function _stranded(
     throw(ArgumentError("stranded requires a nonhollow Disk or Sector boundary"))
 end
 
-function _stranded(material, center, shape, lay, dir, φ0, compact, prescribed_boundary, fill)
+function _stranded(material, center, shape, counts, lay, dir, φ0, compact,
+        prescribed_boundary, fill)
     throw(ArgumentError("stranded members must be Disk wires or Rectangle strands"))
 end
 
 # The bounded Group of a stranded core contains one Stack: the optional center strand,
-# then the course wires with their paths.
-function _stranded_core(material, center, shape, paths, compaction, prescribed_boundary)
+# then the course wires with their declared counts and their paths.
+function _stranded_core(material, center, shape, counts, paths, compaction,
+        prescribed_boundary)
     parts = DataModel.AbstractCablePart[]
     center === nothing || push!(parts,
         DataModel.Group(
@@ -634,7 +656,7 @@ function _stranded_core(material, center, shape, paths, compaction, prescribed_b
             :strand,
             DataModel.Pose2(0, 0, 0),
             DataModel.Region(:wire, shape, material),
-            nothing,
+            counts,
             paths,
             nothing
         ))
@@ -652,12 +674,15 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Fill one authoritative core boundary with the maximum admissible inventory of
-equal source strands.
+Fill one authoritative core boundary with equal source strands, in inferred or declared
+courses.
 
-Circular source bundles have one center strand. Natural wires fill the first course with as
-many wires as fit around it, and each next course with six more. Compacted wires take `6k` in
-course `k`.
+Circular source bundles have one center strand. Unless `n` declares the counts, natural
+wires fill the first course with as many wires as fit around it, and each next course with
+six more. Compacted wires take `6k` in course `k`. Declared natural courses must fit on
+their radii inside the disk boundary. Declared compacted courses take their radii from
+their areas and must fit the area of the disk boundary. Declared rectangular courses must
+fill the disk boundary within one strand. The core stores the declaration only, never the inferred counts.
 
 After a part, the wires fill the ring between the circular outline of that part and the
 disk boundary, and the formation has no center of its own. Natural wires and bent
@@ -687,6 +712,9 @@ disk boundary, without an outer filler film.
   does not admit a center. A sector bundle infers its center strand from `shape` and does not
   admit a separate center declaration.
 - `shape`: circular wire or rectangular strand primitive.
+- `n=capacity()`: the course counts. `capacity()` infers them, a positive base count puts
+  `k n` members in course `k`, and a schedule gives one count per course from the inside
+  out. A `Sector` takes inferred counts.
 - `boundary`: nonhollow `Disk` or `Sector` core boundary, or a `Disk` around a
   preceding part. It is the finished outline of the formation.
 - `fill=air`: interstitial insulating or semiconducting material, unused by
@@ -710,6 +738,7 @@ function stranded(
         material;
         center = nothing,
         shape,
+        n = DataModel.capacity(),
         lay = nothing,
         dir = 1,
         φ0 = 0,
@@ -719,7 +748,7 @@ function stranded(
         combine::Symbol = :product
 )
     caller = function (
-            resolved_material, resolved_center, resolved_shape, resolved_lay,
+            resolved_material, resolved_center, resolved_shape, resolved_n, resolved_lay,
             resolved_dir, resolved_φ0, resolved_compact, resolved_boundary,
             resolved_fill
     )
@@ -727,6 +756,7 @@ function stranded(
             resolved_material,
             resolved_center,
             resolved_shape,
+            _stranding_counts(_course_declaration(resolved_n)),
             resolved_lay,
             resolved_dir,
             resolved_φ0,
@@ -736,7 +766,7 @@ function stranded(
         )
     end
     values = (
-        material, center, shape, lay, dir, φ0, compact, boundary, fill
+        material, center, shape, n, lay, dir, φ0, compact, boundary, fill
     )
     return parameterize(_stranded_target(shape), caller, values; combine)
 end
@@ -821,6 +851,7 @@ function _milliken(
         material,
         nothing,
         shape,
+        nothing,
         lay,
         dir,
         φ0,
@@ -971,6 +1002,30 @@ function _rope(
         compactions,
         gaps
 )
+    throw(ArgumentError(
+        "rope repeats a stranded member; declare plain wires as " *
+        "stranded(material; shape, n = …, boundary)"
+    ))
+end
+
+# A rope repeats one stranded core, the output of `stranded`, as its central member and
+# its outer courses.
+function _rope(
+        item::Union{
+            DataModel.Group{<:DataModel.Pose2, <:DataModel.Stack, <:Any, <:Any, <:Any,
+                <:Union{DataModel.Disk, DataModel.Sector}},
+            DataModel.Enclosure{<:DataModel.Pose2, <:Union{DataModel.Disk, DataModel.Sector},
+                <:DataModel.Group{<:DataModel.Pose2, <:DataModel.Stack, <:Any, <:Any,
+                    <:Any, <:Union{DataModel.Disk, DataModel.Sector}}}
+        },
+        course_count,
+        counts,
+        lays,
+        directions,
+        angles,
+        compactions,
+        gaps
+)
     central = DataModel.Group(
         :rope, DataModel.Pose2(0, 0, 0), item, nothing, nothing, nothing
     )
@@ -997,16 +1052,18 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Repeat one physical item as a central child and concentric outer courses.
+Repeat one stranded core as a central member and concentric outer courses.
 
 # Arguments
 
-- `item`: physical cable part repeated by the rope.
+- `item`: stranded core repeated by the rope, the result of [`stranded`](@ref). Plain
+  wires are a `stranded` formation with `n`.
 
 # Keywords
 
 - `layers`: number of outer courses \\[dimensionless\\].
-- `n=6`: base count, exact course schedule or deferred maximum count `capacity()`.
+- `n=6`: the course counts, as for `stranded`: a positive base count, an exact course
+  schedule, or `capacity()`, the maximum count of each course.
 - `lay=nothing`: one lay law or one law per outer course. Homogeneous schedules
   may be declared as `LayRatio(q...)`, `Pitch(p...)` or `LayAngle(α...)`.
 - `dir=1`: one handedness or one value per outer course.
@@ -1040,7 +1097,7 @@ function rope(
         return _rope(
             resolved_item,
             count,
-            _count_schedule(resolved_n, count),
+            _count_schedule(_course_declaration(resolved_n), count),
             _course_schedule(resolved_lay, count, :lay),
             _course_schedule(resolved_dir, count, :dir),
             _course_schedule(resolved_φ0, count, :φ0),

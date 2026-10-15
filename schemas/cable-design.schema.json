@@ -558,6 +558,18 @@
           "items": {
             "$ref": "#/$defs/pose"
           }
+        },
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       ]
     },

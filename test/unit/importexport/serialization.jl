@@ -467,6 +467,11 @@ end
                 )
             )
         ))
+    declared=build(CableDesign, "declared-counts-schema", terminal(:core, stranded(
+        TestFixtures.conductor_material(); shape = Disk(0.5e-3), n = (5, 11, 16),
+        boundary = Disk(3.5e-3))))
+    @test IE.deserialize_value(IE.serialize_value(declared)) == declared
+    add!(packed_cables, declared)
     @test JSONSchema.validate(
         schema,
         IE._json_document(packed_cables)
