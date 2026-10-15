@@ -986,6 +986,11 @@ end
         Helix(LayRatio(10)),
         Helix(LayRatio(9))
     ]
+    # As in a stranded core, the second course starts half its spacing later, and φ0 is the
+    # initial angle of the helix.
+    @test [course.pattern.φ0 for course in scheduled_rope.items[2:3]] == [0.0, π / 12]
+    turned = rope(round; layers = 1, n = 6, lay = LayRatio(9), φ0 = 0.3).items[2]
+    @test (turned.pattern.φ0, turned.path.φ0) == (0.0, 0.3)
     nested_design = build(
         CableDesign,
         "nested-rope",

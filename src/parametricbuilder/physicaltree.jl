@@ -1008,6 +1008,12 @@ function _rope(
     ))
 end
 
+# As in a stranded core, every second course of a rope starts half its spacing later, and
+# `φ0` is the initial angle of its helix. The count of a `capacity()` course is known only
+# when the geometry resolves, so that course starts at zero.
+_course_phase(course::Int, count::Int) = isodd(course) ? 0.0 : π / count
+_course_phase(course::Int, count) = 0.0
+
 # A rope repeats one stranded core, the output of `stranded`, as its central member and
 # its outer courses.
 function _rope(
@@ -1039,7 +1045,7 @@ function _rope(
                 DataModel.Ring(
                     counts[course];
                     r = nothing,
-                    φ0 = angles[course],
+                    φ0 = _course_phase(course, counts[course]),
                     gap_frac = gaps[course]
                 ),
                 _path(lays[course], directions[course], angles[course]),
@@ -1067,7 +1073,8 @@ Repeat one stranded core as a central member and concentric outer courses.
 - `lay=nothing`: one lay law or one law per outer course. Homogeneous schedules
   may be declared as `LayRatio(q...)`, `Pitch(p...)` or `LayAngle(α...)`.
 - `dir=1`: one handedness or one value per outer course.
-- `φ0=0`: one initial angle or one value per outer course \\[rad\\].
+- `φ0=0`: one helix initial angle or one value per outer course \\[rad\\]. As in
+  `stranded`, every second course starts half its member spacing later.
 - `compact=nothing`: one compaction law or one law per outer course.
   Homogeneous scalar schedules may be declared as `FillFactor(η...)`.
 - `gap_frac=0`: one clearance fraction or one value per outer course
