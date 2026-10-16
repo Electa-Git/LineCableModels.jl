@@ -52,3 +52,17 @@ divided by the largest absolute baseline diagonal entry.
 The scripts print rankings and save `ranking.txt`, ordered by the all-band RMS of e
 for Y, then Z, largest first.
 Each quantity also has the RMS of e in each native band and its maximum e with frequency.
+
+After `earth`, `representation` compares `conductor`, `semicons`, `armour` (armoured
+cases), `dielectric` and `shunt` with the baseline, saves `representation.json`, and
+ranks scaled deviations. The arguments `stranded_core` (default `true`) and
+`core_diameter` (46.3 mm) select the 1600 mm² core, with WP1 corrected materials for
+its solid variant. The argument `hollow_core` (default `false`) selects annular land
+or subsea cores of metal area `conductor_cross_section`, with resistivity set to keep
+the 20 °C DC resistance. The argument `armour_as_tube` (default `false`) selects a
+steel annulus of equal metal area after the declared bedding, without the wire fit
+rule. Layers of zero thickness are absent, and `semicons` folds inner semicon, outer
+semicon and water blocking into insulation at its baseline permittivity.
+The dielectric and shunt variants apply `insulation_admittance = :lossless` with
+`semicon_admittance = :lossless`, and `shunt_model = :boundary`, respectively, to the
+baseline problem.

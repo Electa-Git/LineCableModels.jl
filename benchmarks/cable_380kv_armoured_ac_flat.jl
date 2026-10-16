@@ -25,6 +25,7 @@ function line_parameters_problem(
         armour_temperature_coefficient, reference_temperature, cable_x_left, cable_x_middle,
         cable_x_right, cable_y, line_length, voltage, conductor_cross_section, temperature,
         earth_rho, earth_eps_r, earth_mu_r, frequencies,
+        stranded_core, core_diameter, armour_as_tube,
 )
     core = Material(:conductor, core_rho, 1.0, core_mu_r,
         reference_temperature, core_temperature_coefficient)
@@ -39,37 +40,57 @@ function line_parameters_problem(
         reference_temperature, armour_temperature_coefficient)
     matrix = Material(kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0)
 
-    # The centre wire plus six courses gives an envelope of 13 strand diameters.
-    radius = 13strand_diameter / 2
-    packed_core = stranded(core;
-        shape = Disk(strand_diameter / 2), lay = LayRatio(core_lay_ratio),
-        boundary = Disk(radius), fill = Material(kind = :insulator, rho = Inf))
-    parts = AbstractCablePart[packed_core]
+    # The centre wire and its six courses give an envelope of 13 strand diameters.
+    radius = stranded_core ? 13strand_diameter / 2 : core_diameter / 2
+    conductor = if stranded_core
+        stranded(core;
+            shape = Disk(strand_diameter / 2), lay = LayRatio(core_lay_ratio),
+            boundary = Disk(radius), fill = Material(kind = :insulator, rho = Inf))
+    else
+        Group(:core, Region(:core_conductor, Disk(radius), core))
+    end
+    parts = AbstractCablePart[conductor]
     for (tag, layer_thickness, material) in (
         (:core_semicon_inner, inner_semicon_thickness, semicon_inner),
         (:core_insulation, insulation_thickness, xlpe),
         (:core_semicon_outer, outer_semicon_thickness, semicon_outer),
         (:core_water_blocking, water_blocking_thickness, semicon_outer),
     )
+        iszero(layer_thickness) && continue
         push!(parts, Region(tag, Shell(layer_thickness), material))
         radius += layer_thickness
     end
     sheath_outer = radius + sheath_thickness
-    push!(parts, Group(:sheath, Region(:sheath_lead, Annulus(radius, sheath_outer), sheath)))
-    push!(parts, Region(:sheath_inner_pe, Shell(inner_sheath_thickness), pe))
+    if !iszero(sheath_thickness)
+        push!(parts, Group(:sheath, Region(:sheath_lead, Annulus(radius, sheath_outer), sheath)))
+    end
+    if !iszero(inner_sheath_thickness)
+        push!(parts, Region(:sheath_inner_pe, Shell(inner_sheath_thickness), pe))
+    end
     armour_wire_radius = armour_wire_diameter / 2
     radius_under_bedding = sheath_outer + inner_sheath_thickness
-    effective_bedding_thickness = max(bedding_thickness,
-        armour_wire_radius / sin(pi / armour_wires) - armour_wire_radius - radius_under_bedding)
-    push!(parts, Region(:sheath_bedding, Shell(effective_bedding_thickness), pp))
+    effective_bedding_thickness = armour_as_tube ?
+        bedding_thickness : max(bedding_thickness,
+            armour_wire_radius / sin(pi / armour_wires) - armour_wire_radius - radius_under_bedding)
+    if !iszero(effective_bedding_thickness)
+        push!(parts, Region(:sheath_bedding, Shell(effective_bedding_thickness), pp))
+    end
     armour_inner_radius = radius_under_bedding + effective_bedding_thickness
-    armour_outer = armour_inner_radius + 2armour_wire_radius
-    armor = Group(:armor, Region(:armor_wires, Disk(armour_wire_radius), steel);
-        pattern = Ring(armour_wires; r = armour_inner_radius + armour_wire_radius),
-        path = Helix(LayRatio(armour_lay_ratio)))
-    push!(parts, Enclosure(:armor_matrix, armor;
-        primitive = Annulus(armour_inner_radius, armour_outer), fill = matrix))
-    push!(parts, Region(:armor_jacket, Shell(jacket_thickness), pp))
+    if armour_as_tube
+        armour_outer = sqrt(armour_inner_radius^2 + armour_wires * armour_wire_radius^2)
+        push!(parts, Group(:armor,
+            Region(:armor_tube, Annulus(armour_inner_radius, armour_outer), steel)))
+    else
+        armour_outer = armour_inner_radius + 2armour_wire_radius
+        armor = Group(:armor, Region(:armor_wires, Disk(armour_wire_radius), steel);
+            pattern = Ring(armour_wires; r = armour_inner_radius + armour_wire_radius),
+            path = Helix(LayRatio(armour_lay_ratio)))
+        push!(parts, Enclosure(:armor_matrix, armor;
+            primitive = Annulus(armour_inner_radius, armour_outer), fill = matrix))
+    end
+    if !iszero(jacket_thickness)
+        push!(parts, Region(:armor_jacket, Shell(jacket_thickness), pp))
+    end
 
     design = build(CableDesign, "cable_380kv_armoured", Stack(parts);
         nominal_data = (designation_code = "cable_380kv_armoured",
@@ -77,7 +98,8 @@ function line_parameters_problem(
             conductor_cross_section = conductor_cross_section / 1e-6))
     earth = homogeneous(rho = earth_rho, eps_r = earth_eps_r, mu_r = earth_mu_r)
     cable_x = (cable_x_left, cable_x_middle, cable_x_right)
-    connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :armor => 3index)
+    connections = [Dict(terminal => length(design.terminal_order) * (index - 1) + offset
+                        for (offset, terminal) in enumerate(design.terminal_order))
                    for index in 1:3]
     system = build(LineCableSystem, fill(design, 3),
         [Pose2(cable_x[index], cable_y) for index in 1:3];
@@ -103,6 +125,7 @@ nominal = (;
     line_length = 20000.0, voltage = 380e3, conductor_cross_section = 1600e-6,
     temperature = 70.0, earth_rho = 1000.0, earth_eps_r = 10.0, earth_mu_r = 1.0,
     frequencies = frequencies,
+    stranded_core = true, core_diameter = 46.3e-3, armour_as_tube = false,
 )
 
 problem = line_parameters_problem(nominal...)
@@ -189,4 +212,64 @@ open(joinpath(folder, "ranking.txt"), "w") do io
         print(text)
         flush(io)
     end
+
+    # Representation variants against the same baseline.
+    names = (:conductor, :semicons, :armour, :dielectric, :shunt)
+    ranking = NamedTuple[]
+    section_time = @elapsed begin
+        run = [
+            compute(line_parameters_problem(merge(nominal, (; stranded_core = false, core_rho = 2.3853e-8,
+                core_mu_r = 1.01663, insulation_eps_r = 2.77781, insulation_mu_r = 1.59891,
+                sheath_mu_r = 0.999983, pe_eps_r = 2.51862, pp_mu_r = 1.1263,
+                armour_rho = 1.7475e-7, armour_mu_r = 36.6326))...), formulation),
+            compute(line_parameters_problem(merge(nominal, (;
+                inner_semicon_thickness = 0.0, outer_semicon_thickness = 0.0,
+                water_blocking_thickness = 0.0,
+                insulation_thickness = nominal.insulation_thickness + nominal.inner_semicon_thickness +
+                    nominal.outer_semicon_thickness + nominal.water_blocking_thickness))...), formulation),
+            compute(line_parameters_problem(merge(nominal, (; armour_as_tube = true))...), formulation),
+            compute(problem, Formulation(earth_impedance = :unified, earth_admittance = :unified,
+                shunt_model = :equivalent, insulation_admittance = :lossless,
+                semicon_admittance = :lossless;
+                options = (reduce_bundle = false, kron_reduction = false, ideal_transposition = false))),
+            compute(problem, Formulation(earth_impedance = :unified, earth_admittance = :unified,
+                shunt_model = :boundary, insulation_admittance = :lossy, semicon_admittance = :lossy;
+                options = (reduce_bundle = false, kron_reduction = false, ideal_transposition = false))),
+        ]
+        completed = compare(result, run, [Z, Y]; bands = (:all, :dc, :harmonic, :narrow))
+        points = observables(run; comparisons = completed, length_unit = :base, clip = false)
+        for (index, name) in enumerate(names)
+            deviations = map((Y, Z)) do quantity
+                base = observe(result, quantity)
+                point = observe(run[index], quantity)
+                curve = [maximum(abs, point[:, :, k] - base[:, :, k]) /
+                         maximum(abs, diag(base[:, :, k])) for k in eachindex(frequencies)]
+                value, k = findmax(curve)
+                rms = map((:all, :dc, :harmonic, :narrow)) do band
+                    indices = only(record for record in points[index].errors
+                        if record.request === quantity && record.band === band).settings.indices
+                    sqrt(sum(abs2, curve[indices]) / length(indices))
+                end
+                (; rms, value, frequency = frequencies[k])
+            end
+            push!(ranking, (; name, deviations))
+        end
+        artifact = report(BenchmarkTableDefinition(), points;
+            reference = ObservedResult(result; length_unit = :base, clip = false))
+        save(artifact, joinpath(folder, "representation.json"))
+    end
+    sort!(ranking; by = entry -> Tuple(deviation.rms[1] for deviation in entry.deviations),
+        rev = true)
+    printed = IOBuffer()
+    println(printed, "representation: ", length(names), " variants, wall ", section_time, " s")
+    for entry in ranking, (index, quantity) in enumerate((Y, Z))
+        println(printed, "representation ", entry.name, " ", nameof(quantity),
+            " RMS_e (all,dc,harmonic,narrow)=", entry.deviations[index].rms,
+            " max_e=", entry.deviations[index].value,
+            " frequency_Hz=", entry.deviations[index].frequency)
+    end
+    text = String(take!(printed))
+    print(io, text)
+    print(text)
+    flush(io)
 end
