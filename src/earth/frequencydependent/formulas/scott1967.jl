@@ -15,6 +15,8 @@ of 100 Hz to 1 MHz.
 \\qquad \\sigma=10^{-3}\\widehat\\sigma.
 ```
 
+This fitted law is not causal. A computation at σ ≠ 0 refuses it.
+
 **Reference.** J. H. Scott, R. D. Carroll, and D. R. Cunningham,
 *Journal of Geophysical Research*, 72(20), 1967.
 """

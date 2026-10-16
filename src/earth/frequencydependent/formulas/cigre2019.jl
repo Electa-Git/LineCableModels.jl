@@ -23,6 +23,8 @@ CIGRE WG C4.33 recommended empirical soil-dispersion relation.
 
 The fitted constants are exposed through the formula parameters.
 
+This fitted law is not causal. A computation at σ ≠ 0 refuses it.
+
 **Reference.** CIGRE WG C4.33, Technical Brochure 781 (2019).
 """
 function description(::Type{<:Formula{:cigre2019}}; compact::Bool=false)

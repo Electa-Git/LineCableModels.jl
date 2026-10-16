@@ -42,6 +42,13 @@ homogeneous earth formula meets an earth model with more than two layers, and th
 modal default performs Levenberg–Marquardt tracking. The EquivalentHomogeneous
 default is a package-defined selection rather than an author equation.
 
+At σ ≠ 0, the computation evaluates the causal earth laws `:constant`,
+`:portela1999`, `:alipio2014`, `:longmire1975` and `:messier1985` at `s`. They return
+the real pair whose `1/ρ + s ε₀ εr` equals `κ(s)`. The computation refuses the fitted
+non-causal laws `:scott1967`, `:visacro1987`, `:visacro2012`, `:datsios2019` and
+`:cigre2019`, and a nonzero loss tangent. The quasi-static earth-impedance formulas of Gary,
+Lucca, Saad and Wedepohl use `1/ρ` alone as their approximation.
+
 ## Coaxial computation
 
 The workflow is design, system, problem, formulation, then `compute`. Initialization

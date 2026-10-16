@@ -25,6 +25,8 @@ p=0.537\\widehat\\sigma_{42}^{0.16},\\quad
 The conductivity interpolation is evaluated between the measured 42 Hz and
 high-frequency limits.
 
+This fitted law is not causal. A computation at σ ≠ 0 refuses it.
+
 **Reference.** Z. G. Datsios and P. N. Mikropoulos, *IEEE Transactions on
 Dielectrics and Electrical Insulation*, 26(3), 2019.
 """

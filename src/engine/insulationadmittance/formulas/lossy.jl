@@ -9,11 +9,12 @@ and an optional polarization-loss contribution are evaluated together.
 ``\\varepsilon_r``, and polarization loss tangent ``\\tan\\delta_p``,
 
 ```math
-\\kappa(s)=\\frac{1}{\\rho}+s\\varepsilon_0\\varepsilon_r(1-j\\tan\\delta_p).
+\\kappa(j\\omega)=\\frac{1}{\\rho}+\\omega\\varepsilon_0\\varepsilon_r\\tan\\delta_p+j\\omega\\varepsilon_0\\varepsilon_r.
 ```
 
-On the real axis, this equals ``1/\\rho+\\omega\\varepsilon_0\\varepsilon_r\\tan\\delta_p+
-j\\omega\\varepsilon_0\\varepsilon_r``.
+At σ ≠ 0, ``\\kappa(s)=1/\\rho+s\\varepsilon_0\\varepsilon_r``.
+A constant loss tangent is not causal and has no value at a complex frequency.
+A computation at σ ≠ 0 refuses a nonzero `material.tan_delta`.
 
 The annular layer operator converts this material admittivity to
 ``Y=2\\pi\\kappa/\\ln(b/a)``. This is the standard frequency-domain
@@ -32,11 +33,12 @@ $(TYPEDSIGNATURES)
 Evaluate the standard lossy material admittivity for a cable-insulation layer:
 
 ```math
-\\kappa(s)=\\frac{1}{\\rho}+s\\varepsilon_0\\varepsilon_r(1-j\\tan\\delta_p).
+\\kappa(j\\omega)=\\frac{1}{\\rho}+\\omega\\varepsilon_0\\varepsilon_r\\tan\\delta_p+j\\omega\\varepsilon_0\\varepsilon_r.
 ```
 
-On the real axis, this equals ``1/\\rho+\\omega\\varepsilon_0\\varepsilon_r\\tan\\delta_p+
-j\\omega\\varepsilon_0\\varepsilon_r``.
+At σ ≠ 0, ``\\kappa(s)=1/\\rho+s\\varepsilon_0\\varepsilon_r``.
+A constant loss tangent is not causal and has no value at a complex frequency.
+A computation at σ ≠ 0 refuses a nonzero `material.tan_delta`.
 
 `material.tan_delta` represents polarization loss only. Conduction is supplied
 by `material.rho`. The common coaxial operator applies the annular geometry.
@@ -63,12 +65,19 @@ Ametani, Miyamoto, and Nagaoka (2004), DOI
 reference. The constitutive relation itself is standard frequency-domain
 electromagnetism.
 """
-@inline function insulation_material(::Formula{:lossy}, functor, workspace)
+@inline function insulation_material(formula::Formula{:lossy}, functor, workspace)
     (; material, frequency, s) = functor.input
+    validate(s, formula, material)
     T = typeof(frequency)
     ε₀ = vacuum_permittivity(T)
     return conductivity(material.rho) + s * ε₀ * material.eps_r *
            complex(one(T), -material.tan_delta)
+end
+
+function validate(s::Complex, ::Formula{:lossy}, material::Material)
+    iszero(real(s)) || iszero(material.tan_delta) || throw(ArgumentError(
+        "a constant loss tangent is not causal and has no value at a complex frequency; at σ ≠ 0 set tan_delta = 0"))
+    return s
 end
 
 formulation_options(::Expression{<:Formula{:lossy}, typeof(insulation_material)}) = FormulationOptions()

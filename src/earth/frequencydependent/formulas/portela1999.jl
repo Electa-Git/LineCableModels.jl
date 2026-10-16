@@ -28,6 +28,17 @@ Portela causal power-law soil-dispersion model.
 \\omega^{\\alpha-1}}{\\varepsilon_0}.
 ```
 
+For complex frequency ``s`` in 1/s, the analytic continuation is
+
+```math
+\\kappa(s)=\\sigma_0+\\frac{\\beta10^{-6}}{\\cos(\\pi\\alpha/2)}s^\\alpha.
+```
+
+The authors' causal model ``\\kappa(s)`` is conjugate-symmetric.
+The returned real pair satisfies
+``\\varepsilon_{r,s}=\\operatorname{Im}\\kappa(s)/(\\operatorname{Im}s\\,\\varepsilon_0)``
+and ``1/\\rho_s=\\operatorname{Re}\\kappa(s)-\\operatorname{Re}s\\,\\varepsilon_0\\varepsilon_{r,s}``.
+
 **Reference.** C. M. Portela, “Measurement and Modeling of Soil
 Electromagnetic Behavior,” *IEEE International Symposium on Electromagnetic
 Compatibility*, 1004–1009, 1999.
@@ -37,18 +48,17 @@ function description(::Type{<:Formula{:portela1999}}; compact::Bool=false)
 end
 
 function earth_material(formula::Formula{:portela1999}, functor, workspace)
-    (; material, frequency) = functor.input
+    (; material, frequency, s) = functor.input
     T = typeof(frequency)
     parameters = formula.parameters
     beta = convert(T, parameters.beta)
     exponent = convert(T, parameters.exponent)
-    angular_frequency = 2 * (one(frequency) * π) * frequency
+    epsilon0 = vacuum_permittivity(T)
     fitted_scale = beta * convert(T, 1e-6)
-    conductivity = inv(material.rho) + fitted_scale * angular_frequency^exponent
-    relative_permittivity = fitted_scale *
-                            tan((one(frequency) * π) * exponent / 2) *
-                            angular_frequency^(exponent - one(exponent)) /
-                            vacuum_permittivity(typeof(frequency))
+    κ = inv(material.rho) +
+        (fitted_scale / cos((one(T) * π) * exponent / 2)) * s^exponent
+    relative_permittivity = imag(κ) / (imag(s) * epsilon0)
+    conductivity = real(κ) - real(s) * epsilon0 * relative_permittivity
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 

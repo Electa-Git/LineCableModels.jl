@@ -9,7 +9,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `LineParametersProblem(; sigma=0)` evaluates laws at `s=σ+j2πf`. Lossy laws use `κ(s)=1/ρ+sε₀εr(1−jtanδ)`.
+- Causal earth laws evaluate at complex frequency and return effective real properties. Fitted non-causal laws refuse σ ≠ 0.
+
+- `LineParametersProblem(; sigma=0)` evaluates laws at `s=σ+j2πf`. Lossy laws refuse nonzero loss tangents at σ ≠ 0.
   `Engine.sigma(result)` reads σ in 1/s.
 - `DataModel.flatten(design[, T])` gives the `CableBlueprint` of a design. Each retained
   terminal has one equivalent conductor annulus, the physical dielectric layers of its

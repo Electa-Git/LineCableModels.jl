@@ -599,3 +599,28 @@ end
         @test residual <= 1e-4 * derivative
     end
 end
+
+@testitem "Engine / solver / dispersive earth is analytic at Laplace sigma" tags=[:integration, :engine] setup=[
+    TestFixtures
+] begin
+    fixture = TestFixtures.line_parameters_problem(frequencies = [1.0, 50.0, 1e3, 1e5])
+    f0, sigma0, δ = 1e3, 100.0, 1.0
+    points = ((sigma0 + δ, f0), (sigma0 - δ, f0),
+        (sigma0, f0 + δ / 2π), (sigma0, f0 - δ / 2π))
+    for earth_properties in (:portela1999, :longmire1975)
+        formulation = Formulation(insulation_admittance = :lossy, semicon_admittance = :lossy,
+            earth_properties = earth_properties)
+        results = [compute(LineParametersProblem(fixture.system;
+            temperature = fixture.temperature, earth_props = fixture.earth_props,
+            frequencies = [frequency], sigma), formulation) for (sigma, frequency) in points]
+        for F in (Z, Y)
+            dσ = (F(results[1]) - F(results[2])) / (2δ)
+            dω = (F(results[3]) - F(results[4])) / (2δ)
+            residual = maximum(abs, dσ .+ im .* dω)
+            derivative = maximum(abs, dσ)
+            println("Earth integration ", earth_properties, " ", F, " residual=", residual,
+                " relative=", residual / derivative)
+            @test residual <= 1e-4 * derivative
+        end
+    end
+end

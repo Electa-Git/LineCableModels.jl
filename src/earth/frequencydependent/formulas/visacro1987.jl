@@ -25,6 +25,8 @@ Visacro-Portela empirical power laws for soil conductivity and permittivity.
 \\sigma(f)=\\sigma_0\\left(\\frac{f}{100}\\right)^{0.072}.
 ```
 
+This fitted law is not causal. A computation at σ ≠ 0 refuses it.
+
 **Reference.** S. Visacro and C. M. Portela, *International Symposium on
 High Voltage Engineering*, 1987.
 """

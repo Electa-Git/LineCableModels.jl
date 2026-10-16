@@ -11,8 +11,8 @@ Select one frequency-dependent earth-material relation by its stable formula
 identifier.
 
 Each formula implements `earth_material(selected, functor, workspace) -> EarthMaterial` on
-its concrete selection type. The input of `functor` holds the earth material, the frequency
-and the options. `:default` is a routing alias for the explicit `:constant` pass-through.
+its concrete selection type. The input of `functor` holds the earth material, the frequency,
+the complex frequency `s` and the options. `:default` is a routing alias for the explicit `:constant` pass-through.
 
 $(TYPEDFIELDS)
 """
@@ -84,41 +84,55 @@ function Functor(formula::FrequencyDependentFormulation, input::NamedTuple;
 end
 
 @inline function (formula::FrequencyDependentFormulation)(
-        material::EarthMaterial{T}, frequency::T; workspace = nothing
+        material::EarthMaterial{T}, frequency::T; workspace = nothing,
+        s = complex(zero(T), 2 * (one(T) * π) * frequency)
 ) where {T <: Real}
-    functor = Functor(formula, (; material, frequency, options = formula.options); workspace)
+    validate(s, formula)
+    functor = Functor(formula, (; material, frequency, s, options = formula.options); workspace)
     return validate(Expression(formula, earth_material)(functor, workspace), formula)
 end
 
 # The material that a frequency-dependent earth relation returns.
 validate(material::EarthMaterial, formula::FrequencyDependentFormulation) = material
+validate(s::Complex, ::FrequencyDependentFormulation) = s
+
+function validate(s::Complex, formula::Union{Formula{:scott1967}, Formula{:visacro1987},
+        Formula{:visacro2012}, Formula{:datsios2019}, Formula{:cigre2019}})
+    iszero(real(s)) || throw(ArgumentError(
+        "$(formula_id(formula)) is a fitted law that is not causal and has no value at a complex frequency; at σ ≠ 0 use a causal law: :constant, :portela1999, :alipio2014, :longmire1975 or :messier1985"))
+    return s
+end
+
 function validate(material, formula::FrequencyDependentFormulation)
     throw(ArgumentError("a frequency-dependent earth relation must return EarthMaterial; " *
                         "got $(typeof(material))"))
 end
 
 function (formula::FrequencyDependentFormulation)(
-        material::EarthMaterial{T}, frequency::Real; workspace = nothing) where {T <:
+        material::EarthMaterial{T}, frequency::Real; workspace = nothing,
+        s = complex(zero(T), 2 * (one(T) * π) * frequency)) where {T <:
                                                                                  Real}
     U = promote_type(T, typeof(float(frequency)))
     return formula(
         convert(EarthMaterial{U}, material),
-        convert(U, float(frequency)); workspace
+        convert(U, float(frequency)); workspace, s = convert(Complex{U}, s)
     )
 end
 
 """
 Pass static earth properties through when no constitutive relation is selected.
 """
-constitutive(::Nothing, material::EarthMaterial, ::Real; workspace = nothing) = material
+constitutive(::Nothing, material::EarthMaterial, ::Real; workspace = nothing,
+    s = nothing) = material
 
 """
 Evaluate one registered frequency-dependent earth constitutive relation.
 """
 function constitutive(
-        formula::FrequencyDependentFormulation, material::EarthMaterial, frequency::Real;
-        workspace = nothing)
-    formula(material, frequency; workspace)
+        formula::FrequencyDependentFormulation, material::EarthMaterial{T}, frequency::Real;
+        workspace = nothing,
+        s = complex(zero(T), 2 * (one(T) * π) * frequency)) where {T <: Real}
+    formula(material, frequency; workspace, s)
 end
 
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)

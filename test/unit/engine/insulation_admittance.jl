@@ -463,8 +463,10 @@ end
         material = Material(kind, 1e8, 3.0; tan_delta = 0.012)
         lossy = owner.Formula(:lossy)
         lossless = owner.Formula(:lossless)
-        @test lossy(material, frequency, 20.0; s) ≈
-              inv(material.rho) + s * ε₀ * material.eps_r * (1 - im * material.tan_delta) rtol=1e-14
+        @test_throws ArgumentError lossy(material, frequency, 20.0; s)
+        zero_loss = Material(kind, 1e8, 3.0; tan_delta = 0)
+        @test lossy(zero_loss, frequency, 20.0; s) ≈
+              inv(zero_loss.rho) + s * ε₀ * zero_loss.eps_r rtol=1e-14
         @test lossless(material, frequency, 20.0; s) ≈ s * ε₀ * material.eps_r rtol=1e-14
         displacement = complex(0.0, ω) * ε₀ * material.eps_r
         @test lossy(material, frequency, 20.0) ==

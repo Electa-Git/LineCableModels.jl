@@ -36,6 +36,17 @@ Longmire-Smith thirteen-term dielectric-relaxation soil model.
 \\sum_{n=1}^{13}\\frac{a_n(f/f_n)}{1+(f/f_n)^2}.
 ```
 
+For complex frequency ``s`` in 1/s, the analytic continuation is
+
+```math
+\\kappa(s)=\\sigma_0+s\\varepsilon_0\\varepsilon_\\infty+\\sum_{n=1}^{13}\\frac{s\\varepsilon_0a_n}{1+s/(2\\pi f_n)}.
+```
+
+The authors' causal model ``\\kappa(s)`` is conjugate-symmetric.
+The returned real pair satisfies
+``\\varepsilon_{r,s}=\\operatorname{Im}\\kappa(s)/(\\operatorname{Im}s\\,\\varepsilon_0)``
+and ``1/\\rho_s=\\operatorname{Re}\\kappa(s)-\\operatorname{Re}s\\,\\varepsilon_0\\varepsilon_{r,s}``.
+
 **Reference.** C. L. Longmire and K. S. Smith, *A Universal Impedance for
 Soils*, Defense Nuclear Agency, 1975.
 """
@@ -44,28 +55,23 @@ function description(::Type{<:Formula{:longmire1975}}; compact::Bool=false)
 end
 
 function earth_material(formula::Formula{:longmire1975}, functor, workspace)
-    (; material, frequency) = functor.input
+    (; material, frequency, s) = functor.input
     T = typeof(frequency)
     parameters = formula.parameters
     conductivity_reference = inv(material.rho)
     corner = (convert(T, parameters.corner_scale) * conductivity_reference)^convert(T, parameters.corner_exponent)
-    permittivity_sum = zero(frequency)
-    conductivity_sum = zero(frequency)
+    epsilon0 = vacuum_permittivity(T)
+    κ = conductivity_reference + s * epsilon0 * convert(T, parameters.epsilon_infinity)
     decade = one(frequency)
     ten = convert(T, 10)
     @inbounds for coefficient in LONGMIRE_SMITH_COEFFICIENTS
         corner_frequency = corner * decade
-        ratio = frequency / corner_frequency
-        denominator = one(frequency) + ratio^2
-        typed_coefficient = convert(T, coefficient)
-        permittivity_sum += typed_coefficient / denominator
-        conductivity_sum += typed_coefficient * ratio / denominator
+        κ += s * epsilon0 * convert(T, coefficient) /
+             (one(T) + s / (2 * (one(T) * π) * corner_frequency))
         decade *= ten
     end
-    relative_permittivity = convert(T, parameters.epsilon_infinity) + permittivity_sum
-    conductivity = conductivity_reference +
-                   2 * (one(frequency) * π) * frequency *
-                   vacuum_permittivity(typeof(frequency)) * conductivity_sum
+    relative_permittivity = imag(κ) / (imag(s) * epsilon0)
+    conductivity = real(κ) - real(s) * epsilon0 * relative_permittivity
     return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 

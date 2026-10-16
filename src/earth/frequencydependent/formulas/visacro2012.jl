@@ -26,6 +26,8 @@ frequency limit.
 \\sigma(f)=\\sigma_0+1.2\\times10^{-6}\\sigma_0^{0.27}(f_e-100)^{0.65}.
 ```
 
+This fitted law is not causal. A computation at σ ≠ 0 refuses it.
+
 **Reference.** S. Visacro and R. Alipio, *IEEE Transactions on Power
 Delivery*, 27(2), 2012.
 """

@@ -35,13 +35,26 @@ reference resistivity. Ametani is not involved in this model.
 \\frac{10^{-3}\\widehat\\sigma_0D f^{\\gamma-1}}
 {2\\pi\\varepsilon_0\\cdot10^{6\\gamma}}.
 ```
+
+With ``\\sigma_0=1/\\rho_0`` and ``\\varepsilon_\\infty=12``,
+the analytic continuation at complex frequency ``s`` in 1/s is
+
+```math
+\\kappa(s)=\\sigma_0+s\\varepsilon_0\\varepsilon_\\infty+\\frac{\\sigma_0D}{\\cos(\\pi\\gamma/2)}\\left(\\frac{s}{2\\pi10^6}\\right)^\\gamma.
+```
+
+The authors' causal model ``\\kappa(s)`` is conjugate-symmetric.
+The returned real pair satisfies
+``\\varepsilon_{r,s}=\\operatorname{Im}\\kappa(s)/(\\operatorname{Im}s\\,\\varepsilon_0)``
+and ``1/\\rho_s=\\operatorname{Re}\\kappa(s)-\\operatorname{Re}s\\,\\varepsilon_0\\varepsilon_{r,s}``.
+
 """
 function description(::Type{<:Formula{:alipio2014}}; compact::Bool=false)
     compact ? "Alipio" : "Alipio–Visacro causal soil dispersion (2014)"
 end
 
 function earth_material(formula::Formula{:alipio2014}, functor, workspace)
-    (; material, frequency) = functor.input
+    (; material, frequency, s) = functor.input
     T = typeof(frequency)
     parameters = formula.parameters
     gamma = convert(T, parameters.exponent)
@@ -53,15 +66,13 @@ function earth_material(formula::Formula{:alipio2014}, functor, workspace)
     conductivity_reference = thousand / material.rho
     dispersion = scale * conductivity_reference^conductivity_exponent
     epsilon0 = vacuum_permittivity(typeof(frequency))
-    relative_permittivity = epsilon_infinity +
-                            tan((one(frequency) * π) * gamma / 2) *
-                            convert(T, 1e-3) * conductivity_reference * dispersion *
-                            frequency^(gamma - one(gamma)) /
-                            (2 * (one(frequency) * π) * epsilon0 *
-                             convert(T, 10)^(6 * gamma))
-    conductivity = conductivity_reference *
-                   (one(frequency) + dispersion * (frequency / million)^gamma)
-    return EarthMaterial{T}(thousand / conductivity, relative_permittivity, material.mu_r)
+    conductivity_reference /= thousand
+    κ = conductivity_reference + s * epsilon0 * epsilon_infinity +
+        (conductivity_reference * dispersion / cos((one(T) * π) * gamma / 2)) *
+        (s / (2 * (one(T) * π) * million))^gamma
+    relative_permittivity = imag(κ) / (imag(s) * epsilon0)
+    conductivity = real(κ) - real(s) * epsilon0 * relative_permittivity
+    return EarthMaterial{T}(inv(conductivity), relative_permittivity, material.mu_r)
 end
 
 formulation_options(::Expression{<:Formula{:alipio2014}, typeof(earth_material)}) = FormulationOptions()

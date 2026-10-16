@@ -364,7 +364,8 @@ function materials!(
         destination::NamedTuple,
         relation,
         model::EarthModel{T},
-        frequencies::AbstractVector{T}; workspace = nothing
+        frequencies::AbstractVector{T},
+        jω::AbstractVector{Complex{T}}; workspace = nothing
 ) where {T <: Real}
     rho, eps_r, mu_r = destination.rho, destination.eps_r, destination.mu_r
     @inbounds for row in eachindex(model.layers)
@@ -372,7 +373,7 @@ function materials!(
         for column in eachindex(frequencies)
             material = row == firstindex(model.layers) ?
                        static :
-                       constitutive(relation, static, frequencies[column]; workspace)
+                       constitutive(relation, static, frequencies[column]; workspace, s = jω[column])
             rho[row, column] = material.rho
             eps_r[row, column] = material.eps_r
             mu_r[row, column] = material.mu_r
@@ -392,7 +393,7 @@ function materials!(workspace::LineParametersWorkspace, formulation::LineParamet
             material, input.temperature; workspace)
     end
     buffers.earth.evaluated === nothing || materials!(buffers.earth.evaluated,
-        formulation.formulas.earth_properties, input.earth, input.freq; workspace)
+        formulation.formulas.earth_properties, input.earth, input.freq, input.jω; workspace)
     return workspace
 end
 
@@ -516,6 +517,7 @@ function homogenize!(
         frequency,
         frequency_index::Int; workspace = nothing
 )
+    s = workspace.input.jω[frequency_index]
     air = EarthMaterial(static.rho[1], static.eps_r[1], static.mu_r[1])
     foreach(calculation.reductions) do reduction
         @inbounds for column in reduction.pairs
@@ -523,7 +525,7 @@ function homogenize!(
                 pair = calculation.pairs[column].physical, frequency, reduction.options);
                 workspace)
             reconstructed = validate(reduction.expression(functor, workspace), sequence.rule)
-            earth = constitutive(relation, reconstructed, frequency; workspace)
+            earth = constitutive(relation, reconstructed, frequency; workspace, s)
             _media!(destination, column, air, earth)
             validate(@view(destination.rho[:, column]),
                 something(calculation.impedance, calculation.admittance).formula,
