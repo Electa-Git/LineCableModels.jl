@@ -1,4 +1,4 @@
-@testitem "PSCAD / parser and fixed mappings" tags=[:integration, :pscad] begin
+@testitem "PSCAD / parser and fixed mappings" tags=[:integration, :pscad, :slow] begin
     pscad = Formulation(:pscad)
     using Base64: base64decode
     using Test

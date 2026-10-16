@@ -60,7 +60,7 @@
     @test success(process)
 end
 
-@testitem "Measurements / scientific UQ records preserve signed shared sources" tags=[:extension, :measurements] begin
+@testitem "Measurements / scientific UQ records preserve signed shared sources" tags=[:extension, :measurements, :slow] begin
     using Measurements, JSON3, Statistics
     IE=LineCableModels.ImportExport
     q=measurement(2.0,0.25)

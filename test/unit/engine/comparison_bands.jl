@@ -1,4 +1,4 @@
-@testitem "Engine / RMS bands slice stored frequencies and retain comparison meaning" tags=[:unit, :engine] begin
+@testitem "Engine / RMS bands slice stored frequencies and retain comparison meaning" tags=[:unit, :engine, :slow] begin
     using Test
     using LineCableModels
     using LineCableModels.Engine: compare, RMSError, LineParametersBenchmark

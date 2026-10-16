@@ -1,4 +1,4 @@
-@testitem "ObservedResult / retained re-expression preserves scientific records" tags=[:unit, :measurements] begin
+@testitem "ObservedResult / retained re-expression preserves scientific records" tags=[:unit, :measurements, :slow] begin
     using Measurements
     using LineCableModels.Commons: observation_product,gridpoint_id
     using LineCableModels.Engine: retain_gridpoint,compare
@@ -63,7 +63,7 @@
     @test_throws ArgumentError ObservedResult(radians.gridpoint,[malformed],[],(;))
 end
 
-@testitem "ObservedResult / constructor rejects malformed scientific records" tags=[:unit, :importexport] begin
+@testitem "ObservedResult / constructor rejects malformed scientific records" tags=[:unit, :importexport, :slow] begin
     using LineCableModels.Commons: observation_product
     using LineCableModels.ReportBuilder: tabulate
     source=ObservedResult(LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.]))
@@ -94,7 +94,7 @@ end
     @test_throws ArgumentError LineCableModels.ImportExport.deserialize_value(encoded)
 end
 
-@testitem "ObservedResult / coordinate and unit interpretation is shared" tags=[:unit, :engine] begin
+@testitem "ObservedResult / coordinate and unit interpretation is shared" tags=[:unit, :engine, :slow] begin
     using LineCableModels.Commons: observation_product
     z=reshape(complex.(1.:12.,101.:112.),2,2,3)
     line=LineParameters(z,2z,[1.,10.,100.])

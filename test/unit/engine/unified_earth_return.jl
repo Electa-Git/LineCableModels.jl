@@ -35,7 +35,7 @@
     end
 end
 
-@testitem "Engine / full earth / enclosed-current matrix identities across layouts" tags=[:unit, :engine] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / full earth / enclosed-current matrix identities across layouts" tags=[:unit, :engine, :slow] setup=[UnifiedFormulaFixtures] begin
     using LinearAlgebra
     const E=LineCableModels.Engine
     layouts=([(0.0, -1.0)], [(0.0, 1.0), (0.4, 1.5)],
@@ -136,7 +136,7 @@ end
     end
 end
 
-@testitem "Engine / raw integral trace and warnings do not reject physical computation" tags=[:unit, :engine] setup=[TestFixtures] begin
+@testitem "Engine / raw integral trace and warnings do not reject physical computation" tags=[:unit, :engine, :slow] setup=[TestFixtures] begin
     using Logging
     const E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0])
@@ -180,7 +180,7 @@ end
     @test !haskey(details(quiet).data, :trace)
 end
 
-@testitem "Engine / public earth defaults preserve uncertainty and reuse matching earth states" tags=[:unit, :measurements] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / public earth defaults preserve uncertainty and reuse matching earth states" tags=[:unit, :measurements, :slow] setup=[UnifiedFormulaFixtures] begin
     using Measurements, LinearAlgebra
     const E=LineCableModels.Engine
     radius=measurement(0.0425, 0.0001)
@@ -492,7 +492,7 @@ end
     end
 end
 
-@testitem "Engine / prescribed longitudinal constants keep spectral contours on their branch" tags=[:unit, :engine] setup=[UnifiedFormulaFixtures] begin
+@testitem "Engine / prescribed longitudinal constants keep spectral contours on their branch" tags=[:unit, :engine, :slow] setup=[UnifiedFormulaFixtures] begin
     const E=LineCableModels.Engine
     geometry=(horizontal = [0.0, 1.0], height = [1.0, -1.0], radius = [0.02, 0.03])
     s=complex(0.0, 2pi*1e4)

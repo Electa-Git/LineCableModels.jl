@@ -1,4 +1,4 @@
-@testitem "ObservedResult / primary representations and quantity tables" tags=[:unit, :measurements] begin
+@testitem "ObservedResult / primary representations and quantity tables" tags=[:unit, :measurements, :slow] begin
     using DataFrames, LinearAlgebra, Measurements
     using LineCableModels.ReportBuilder: tabulate
     using LineCableModels.Commons: observation_requests

@@ -245,7 +245,7 @@ end
     @test all(axis.scene.viewport[].widths[1]>60 for axis in strip.axes)
 end
 
-@testitem "Makie addons / selected matrix footprints preserve original coordinates" tags=[:visual, :makie, :slow] begin
+@testitem "Makie addons / selected matrix footprints preserve original coordinates" tags=[:visual, :makie] begin
     using CairoMakie
     using LineCableModels
     ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)

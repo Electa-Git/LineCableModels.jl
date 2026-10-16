@@ -71,7 +71,7 @@
     @test independent_y.Z.values==custom.Z.values
 end
 
-@testitem "Engine / scalar and homogeneous shorthand preserve numerical values and model selections" tags=[:unit, :parametric] setup=[TestFixtures, FormulaFixtures] begin
+@testitem "Engine / scalar and homogeneous shorthand preserve numerical values and model selections" tags=[:unit, :parametric, :slow] setup=[TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     scalar=compute(problem, Formulation())

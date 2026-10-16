@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / v1 direct target materialization" tags=[:unit, :parametric] setup=[
+@testitem "ParametricBuilder / v1 direct target materialization" tags=[:unit, :parametric, :slow] setup=[
     UseEngineSupport
 ] begin
     import LineCableModels.ParametricBuilder as PB

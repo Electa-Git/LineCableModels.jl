@@ -130,7 +130,7 @@ end
             n=[6, 12, 18, 24, 30], boundary=Rectangle(10e-3, 6e-3))))
 end
 
-@testitem "DataModel / stranding / non-circular boundaries" tags=[:unit, :parametric] begin
+@testitem "DataModel / stranding / non-circular boundaries" tags=[:unit, :parametric, :slow] begin
     import LineCableModels.DataModel as DM
     copper = Material(kind=:conductor, rho=1.7241e-8)
     oil = Material(kind=:insulator, rho=1e13, eps_r=2.2)

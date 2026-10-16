@@ -1,4 +1,4 @@
-@testitem "Makie / retained units coordinates and ragged frequencies" tags=[:visual, :makie] begin
+@testitem "Makie / retained units coordinates and ragged frequencies" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     z=reshape(complex.(1.:12.,101.:112.),2,2,3)
     a=ObservedResult(LineParameters(z,2z,[1.,10.,100.]);length_unit=:base)

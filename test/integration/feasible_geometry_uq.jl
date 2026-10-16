@@ -64,7 +64,7 @@
     end
 end
 
-@testitem "UQ / Monte Carlo / computed marginal ownership and scientific transport" tags=[:integration,:extension,:measurements] setup=[TestFixtures] begin
+@testitem "UQ / Monte Carlo / computed marginal ownership and scientific transport" tags=[:integration,:extension,:measurements, :slow] setup=[TestFixtures] begin
     using Measurements, Statistics, JSON3
     IE=LineCableModels.ImportExport
     design=TestFixtures.coaxial_design()

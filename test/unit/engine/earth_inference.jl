@@ -1,4 +1,4 @@
-@testitem "Engine / earth calculation tuples preserve part types across layouts" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
+@testitem "Engine / earth calculation tuples preserve part types across layouts" tags=[:unit, :parametric, :slow] setup=[FormulaFixtures] begin
     const E=LineCableModels.Engine
     design=build(CableDesign, "typed earth equations", terminal(:core,
         core(Material(:conductor, 1.72e-8); r=0.004),

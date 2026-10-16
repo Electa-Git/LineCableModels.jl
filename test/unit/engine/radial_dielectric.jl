@@ -1,4 +1,4 @@
-@testitem "Engine / homogenized dielectric layers retain constitutive selection across frequency" tags=[:unit, :measurements] begin
+@testitem "Engine / homogenized dielectric layers retain constitutive selection across frequency" tags=[:unit, :measurements, :slow] begin
     using Test
     using LineCableModels
     using Measurements: measurement, value, uncertainty

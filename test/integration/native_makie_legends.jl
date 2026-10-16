@@ -403,7 +403,7 @@ end
     @test !isempty(Makie.colorbuffer(p.figure))
 end
 
-@testitem "Makie addons / guide arrangement measures visible scales and independent gaps" tags=[:visual, :makie, :slow] setup=[TestFixtures] begin
+@testitem "Makie addons / guide arrangement measures visible scales and independent gaps" tags=[:visual, :makie] setup=[TestFixtures] begin
     using CairoMakie
     design=TestFixtures.coaxial_design()
     options=(backend = :cairo, display_plot = false, controls = false, fig_size = (1500, 1100),

@@ -68,7 +68,7 @@
     end
 end
 
-@testitem "Makie addons / dielectric pattern clips holes and concavities in rendered output" tags=[:visual, :makie, :slow] begin
+@testitem "Makie addons / dielectric pattern clips holes and concavities in rendered output" tags=[:visual, :makie] begin
     using CairoMakie
     extension = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     material = Material(kind = :insulator, rho = Inf, eps_r = 2.3)

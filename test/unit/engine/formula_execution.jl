@@ -1,4 +1,4 @@
-@testitem "Engine / explicit equation recipes are complete only for required cases" tags=[:unit, :engine] setup=[TestFixtures] begin
+@testitem "Engine / explicit equation recipes are complete only for required cases" tags=[:unit, :engine, :slow] setup=[TestFixtures] begin
     const E=LineCableModels.Engine
     omitted=Formulation()
     absent=Formulation(earth_impedance = nothing, earth_admittance = nothing,
@@ -244,7 +244,7 @@ end
     @test formula_id(custom) !== formula_id(external.selection)
 end
 
-@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit, :engine] setup=[
+@testitem "Engine / required indexed consumers alone initialize formula storage" tags=[:unit, :engine, :slow] setup=[
     TestFixtures, FormulaFixtures] begin
     const E=LineCableModels.Engine
     const M=FormulaFixtures

@@ -1,4 +1,4 @@
-@testitem "Engine / indexed reuse compares current material values and uncertainty" tags=[:unit, :measurements] setup=[
+@testitem "Engine / indexed reuse compares current material values and uncertainty" tags=[:unit, :measurements, :slow] setup=[
     TestFixtures, EarthInteractionFixtures] begin
     using Measurements
     const E=LineCableModels.Engine
@@ -121,7 +121,7 @@ end
     @test all(isfinite, Z(result)) && all(isfinite, Y(result))
 end
 
-@testitem "Engine / indexed integral reuse retains descriptions and logical positions" tags=[:unit, :engine] setup=[
+@testitem "Engine / indexed integral reuse retains descriptions and logical positions" tags=[:unit, :engine, :slow] setup=[
     TestFixtures, EarthInteractionFixtures] begin
     using Logging
     const E=LineCableModels.Engine
