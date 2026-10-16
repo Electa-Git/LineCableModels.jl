@@ -1,8 +1,8 @@
 """
 $(TYPEDEF)
 
-Represent the scientific meaning selected by `Name` and `Component`. It holds no
-numerical values or presentation metadata. `Name` is the type of the quantity's
+Represent the scientific meaning selected by `Name` and `Component`, without numerical
+values or presentation metadata. `Name` is the type of the quantity's
 selector, such as `typeof(Z)`, or a type that its module declares where no selector
 exists, such as [`Frequency`](@ref). `Component` is the type of the transform that
 derives the quantity from its base quantity, such as `typeof(abs)`, and `Nothing` for

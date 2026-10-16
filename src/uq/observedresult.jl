@@ -83,7 +83,7 @@ function Commons.observation_quantity(source::Union{MonteCarloResult,LinearError
         coordinates=merge(_uq_coordinates(core,selector,marginal),(kind=:histogram,))
         return (request,quantity=q,family=:statistics,statistic=:histogram,values,unit=target,basis=basis(core),coordinates,
             thresholds=nothing,available=true,engineering_zero=false,clipped=false,missing_reason=nothing,
-            assumptions=nothing,distribution,ordinate_units=(density=Units.UnitExpr(target.denominator,target.numerator),
+            assumptions=nothing,distribution,ordinate_units=(density=inv(target),
                 probability=Units.units(:base,:dimensionless),count=Units.units(:base,:dimensionless)))
     end
     acquisition_indices=indices

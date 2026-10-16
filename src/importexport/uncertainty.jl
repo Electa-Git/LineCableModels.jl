@@ -41,15 +41,18 @@ function serialize_value(value::AbstractArray{T, N}) where {T, N}
         "values"=>map(serialize_value, vec(value)))
 end
 
-function serialize_value(selector::Function)
-    selector in (
+# The selectors that saved requests and quantities name.
+const _PORTABLE_SELECTORS = (
         Engine.Z, Engine.Y, Engine.R, Engine.X, Engine.L, Engine.G, Engine.B, Engine.C,
         ModalAnalysis.gamma, ModalAnalysis.alpha, ModalAnalysis.beta, ModalAnalysis.velocity,
         ModalAnalysis.Zc, ModalAnalysis.Yc, ModalAnalysis.H,
         ModalAnalysis.Tv, ModalAnalysis.Ti,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
         Statistics.median, minimum, maximum, abs, angle, real, imag,
-        LinearAlgebra.diag, Engine.absolute_error, Engine.relative_error) || throw(ArgumentError(
+        LinearAlgebra.diag, Engine.absolute_error, Engine.relative_error)
+
+function serialize_value(selector::Function)
+    selector in _PORTABLE_SELECTORS || throw(ArgumentError(
         "no portable scientific selector codec for $selector"))
     return Dict("__type__"=>"Observable", "name"=>string(nameof(selector)))
 end
@@ -66,15 +69,7 @@ function serialize_value(selector::Base.Fix2{F}) where {F<:Union{typeof(ModalAna
 end
 
 function deserialize_extension(::Val{:Observable}, record)
-    selectors=(
-        Engine.Z, Engine.Y, Engine.R, Engine.X, Engine.L, Engine.G, Engine.B, Engine.C,
-        ModalAnalysis.gamma, ModalAnalysis.alpha, ModalAnalysis.beta, ModalAnalysis.velocity,
-        ModalAnalysis.Zc, ModalAnalysis.Yc, ModalAnalysis.H,
-        ModalAnalysis.Tv, ModalAnalysis.Ti,
-        frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
-        Statistics.median, minimum, maximum, abs, angle, real, imag,
-        LinearAlgebra.diag, Engine.absolute_error, Engine.relative_error)
-    selected=filter(selector -> string(nameof(selector)) == record["name"], selectors)
+    selected=filter(selector -> string(nameof(selector)) == record["name"], _PORTABLE_SELECTORS)
     length(selected)==1 || throw(ArgumentError("unknown saved scientific selector"))
     return only(selected)
 end

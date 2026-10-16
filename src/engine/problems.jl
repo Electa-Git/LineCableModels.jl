@@ -315,7 +315,7 @@ function Base.pairs(::Type{LineParametersFormulation}; quantity=nothing)
         pipe_impedance=PipeImpedance.Formula,
         temperature_dependence=TemperatureDependent.Formula)
     quantity===nothing && return pairs(selected)
-    q=quantity isa Units.Quantity ? quantity : Commons.request_quantity(quantity)
+    q=Commons.request_quantity(quantity)
     family=Units.family(q)
     family===nothing && throw(ArgumentError("no line-formulation selections for $q"))
     omitted=family===Val(:series) ?
