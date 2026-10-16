@@ -7,6 +7,8 @@ using LineCableModels.Engine: compare
 using LineCableModels.ReportBuilder: BenchmarkTableDefinition
 using LinearAlgebra: diag
 using Dates
+using Measurements, Distributions
+using Statistics: mean, std
 
 frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
 
@@ -235,6 +237,66 @@ open(joinpath(folder, "ranking.txt"), "w") do io
             " RMS_e (all,dc,harmonic,narrow)=", entry.deviations[index].rms,
             " max_e=", entry.deviations[index].value,
             " frequency_Hz=", entry.deviations[index].frequency)
+    end
+    text = String(take!(printed))
+    print(io, text)
+    print(text)
+    flush(io)
+end
+
+# Joint uncertainty: uniform support of ±10 % for the swept inputs.
+grids = map(k -> k in swept ? Grid(nominal[k], (10 / sqrt(3),)) :
+    Grid((nominal[k],)), keys(nominal))
+space = Gridspace{LineParametersProblem}(line_parameters_problem, grids)
+monte_carlo_time = @elapsed monte_carlo = compute(ParametricProblem(space),
+    MonteCarlo(formulation; trials = 200, seed = 20261016, distribution = :uniform,
+        options = (retain_details = true, on_error = :resample, max_failures = 20)))
+linear_error_time = @elapsed linear_error = compute(ParametricProblem(space),
+    LinearError(formulation))
+
+open(joinpath(folder, "ranking.txt"), "a") do io
+    printed = IOBuffer()
+    summary = only(details(monte_carlo).data.failure_summary)
+    println(printed, "uncertainty MonteCarlo: trials=", trial_count(monte_carlo, 1),
+        " failures=", summary.failed, " wall_s=", monte_carlo_time)
+    println(printed, "uncertainty LinearError: computations=1 failures=0 wall_s=", linear_error_time)
+    for failure in only(details(monte_carlo).data.failures)
+        println(printed, "uncertainty failed realization: ", failure)
+    end
+    points = ObservedResult[]
+    requests = (R, X, G, B, (statistics, Z, mean), (statistics, Z, std),
+        (statistics, Y, mean), (statistics, Y, std))
+    for (run, elapsed) in ((monte_carlo, monte_carlo_time), (linear_error, linear_error_time))
+        completed = compare(result, collect(run), [Z, Y]; bands = (:all, :dc, :harmonic, :narrow))
+        append!(points, observables(run, requests; comparisons = completed,
+            timings = (wall_seconds = elapsed,), length_unit = :base, clip = false))
+    end
+    save(points, joinpath(folder, "uncertainty.json"))
+    for quantity in (Z, Y)
+        base = observe(result, quantity)
+        scale = [maximum(abs, diag(base[:, :, k])) for k in eachindex(frequencies)]
+        spread = map((monte_carlo, linear_error)) do run
+            deviation = observe(run, statistics, quantity, std, 1)
+            [maximum(deviation[:, :, k]) / scale[k] for k in eachindex(frequencies)]
+        end
+        center = observe(monte_carlo, statistics, quantity, mean, 1)
+        shift = [maximum(abs, center[:, :, k] - base[:, :, k]) / scale[k]
+                 for k in eachindex(frequencies)]
+        metrics = map(((:MonteCarlo_s, spread[1]), (:LinearError_s, spread[2]),
+                (:MonteCarlo_m, shift))) do (label, curve)
+            value, k = findmax(curve)
+            rms = map((:all, :dc, :harmonic, :narrow)) do band
+                indices = only(record for record in first(points).errors
+                    if record.request === quantity && record.band === band).settings.indices
+                sqrt(sum(abs2, curve[indices]) / length(indices))
+            end
+            println(printed, "uncertainty ", label, " ", nameof(quantity),
+                " RMS (all,dc,harmonic,narrow)=", rms, " max=", value,
+                " frequency_Hz=", frequencies[k])
+            (; rms, value, frequency = frequencies[k])
+        end
+        println(printed, "uncertainty LEP/MC RMS_s all ", nameof(quantity), "=",
+            metrics[2].rms[1] / metrics[1].rms[1])
     end
     text = String(take!(printed))
     print(io, text)

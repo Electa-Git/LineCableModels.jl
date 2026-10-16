@@ -66,3 +66,15 @@ semicon and water blocking into insulation at its baseline permittivity.
 The dielectric and shunt variants apply `insulation_admittance = :lossless` with
 `semicon_admittance = :lossless`, and `shunt_model = :boundary`, respectively, to the
 baseline problem.
+
+The final `uncertainty` section gives the `swept` inputs independent uniform ±10 % distributions
+(`10 / sqrt(3)` % standard uncertainty), with other inputs unchanged.
+Monte Carlo uses 200 successful trials and seed 20261016, with retained diagnostics
+and at most 20 failures, alongside linear error propagation (LEP).
+The KPIs scale the largest entry standard deviation (s) or absolute Monte Carlo
+mean shift (m) by the largest absolute baseline diagonal entry.
+For Z and Y, outputs give band RMS (all, DC, harmonic, narrow), maxima with frequency,
+and LEP/MC ratios of all-band RMS spread.
+The `ranking.txt` file records KPIs, trials, failures and wall times, and
+`uncertainty.json` retains both methods' observations.
+The section dominates a script's run time.
