@@ -28,10 +28,10 @@ struct ModalModel{T}
     transformation::Matrix{T}
     "Frequency used to select the transformation \\[Hz\\]."
     transformation_frequency::T
-    "Sections for modal impedance: constants, real poles, residues and delays \\[s\\]."
+    "Modal impedance sections. A section adds real-pole terms to a constant and delays the sum by `delay` \\[s\\]."
     impedance::Vector{NamedTuple{(:constant, :poles, :residues, :delay),
         Tuple{T, Vector{T}, Vector{T}, T}}}
-    "Sections for modal propagation: constants, real poles, residues and delays \\[s\\]."
+    "Modal propagation sections. A section adds real-pole terms to a constant and delays the sum by `delay` \\[s\\]."
     propagation::Vector{NamedTuple{(:constant, :poles, :residues, :delay),
         Tuple{T, Vector{T}, Vector{T}, T}}}
 end
@@ -53,7 +53,7 @@ struct LineModel{M, T, D} <: AbstractCoreResult
     line_length::T
     "Frequencies for the fit \\[Hz\\]."
     frequencies::Vector{T}
-    "Admittance and propagation errors, each with rms, max and f_max matrices."
+    "Admittance and propagation errors: per-entry RMS and maximum matrices, with `f_max` giving the frequency of each maximum."
     fitting_error::NamedTuple{(:admittance, :propagation), Tuple{
         NamedTuple{(:rms, :max, :f_max), Tuple{Matrix{T}, Matrix{T}, Matrix{T}}},
         NamedTuple{(:rms, :max, :f_max), Tuple{Matrix{T}, Matrix{T}, Matrix{T}}}}}
