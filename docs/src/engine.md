@@ -159,7 +159,7 @@ The calculation runs with its resolution and quadrature controls:
 ```julia
 boundary = formula(:boundary;
     options=(
-        resolution=(wire=64, order=16, quadrature=64, modes=512, contact=4),
+        resolution=(wire=32, order=16, quadrature=64, modes=512, contact=4),
         integration=(rtol=1e-8, atol=1e-10, maxevals=100_000),
     ))
 formulation = Formulation(shunt_model=boundary)
