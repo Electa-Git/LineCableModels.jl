@@ -93,7 +93,7 @@ state and extends the input, such as with one conductor pair of an earth calcula
 | Temperature dependence | `Materials.TemperatureDependent.TemperatureDependentFormulation` | `temperature_resistivity(formula, functor, workspace)` | `material`, `temperature`, `options` |
 | Equivalent earth | `Earth.EquivalentHomogeneous.AbstractRule` | `equivalent_material(formula, Val(kind), Val(source), Val(target), functor, workspace)` | `rho`, `eps_r`, `mu_r`, `model`, the physical `pair`, `frequency`, `options` |
 | Modal decomposition | `AbstractFormulation`, selected by `ModalAnalysisFormulation` | `Commons.initialize_buffers(formula, T, input, plan, common)` and `ModalAnalysis.decompose!(formula, workspace, parameters, options)` | none |
-| Local shunt geometry | `Engine.ShuntModelFormulation` | `Engine.internal_shunt_response(formula, design, blueprint, T, formulas, solutions, design_index)`, after flattening | none |
+| Local shunt geometry | `Engine.ShuntModelFormulation` | `ShuntModel.dielectric_groups(formula, design, blueprint, formulas, design_index)` after flattening, and `ShuntModel.internal_capacitance(formula, group)` for each group it returns | none |
 | Pipe impedance | `Engine.PipeImpedanceFormulation` | none yet. The topology rule of `DataModel.flatten` rejects pipe-type cables, and no analytical pipe equation is supplied. | none |
 
 An earth expression returns one coefficient per destination of its calculation. It returns a
@@ -158,20 +158,20 @@ integral over the spatial Fourier variable and contains only that callable.
 `integrate(integral, Val(:quad), controls, buffers)` passes it and the supplied numeric
 subdivision points to QuadGK. Physical expressions and subdivision choices belong to each formula.
 
-`ShuntModel` owns conductor and dielectric geometry extraction, numerical coefficients and the requested fallback
-model. Engine calls each design's `internal_shunt_response` after flattening, once for each
-formulation. Within one compute call, the solves of the `:boundary` model share their
-coefficient matrices when `same_physical_state` finds the same physical inputs and the
-numerical controls are equal. The workspace plan retains the completed coefficient blocks as `plan.shunt`. The
-charge-system factorization and workspace are reused only during one shunt stage.
+`ShuntModel` defines the extraction of dielectric groups and computes their coefficients.
+`Engine.internal_potential_coefficients` calls each formulation's `dielectric_groups` for
+every design after flattening. Within one compute call, a group reuses an earlier internal
+capacitance when the formula and the group's descriptors are identical (`===`) and its structure
+is the same. The workspace plan retains the completed blocks as `plan.shunt`. The
+charge-system factorization and its buffers live only during one solve.
 
-Conductor pairs with the same inputs share one computed value when their media agree.
-By default the pairs' destination indices take part, so distinct pairs are computed
-separately. A formula whose arithmetic does not read the indices declares the inputs it
-reads with `same_physical_state(formula, a::EarthPair, b::EarthPair, geometry)`. A formula
-that computes the whole system at once, such as Unified, adds an `Engine.EarthPlan`
-constructor method on its own type and an `Engine.earth!(formula, functor, workspace)`
-method that converts the coefficients of its parts into the physical matrices. Each
+Conductor pairs share one computed value when `Engine.same_calculation(formula, a, b,
+geometry)` finds that one calculation serves both and their media agree. By default the
+pairs themselves take part, with their destination indices, so distinct pairs are computed
+separately. When a formula's arithmetic does not read the indices, its own method compares
+the inputs it reads with `===`. Unified and any other formula that computes the whole system
+at once also define an `Engine.earth!(formula, functor, workspace)` method that converts the
+coefficients of its parts into the physical matrices. Each
 selection uses the Engine frequency sequence and its computation workspace.
 
 An internal-impedance formula builds the values that its inner, outer and transfer impedances

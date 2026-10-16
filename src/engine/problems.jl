@@ -431,8 +431,8 @@ Select the complete physical-method bundle for a line-parameter computation.
 geometry.
 `:boundary` explicitly computes a lossless wire and tape boundary correction.
 This choice is independent of `insulation_admittance` and `semicon_admittance`,
-which select material constitutive laws. Geometric boundary numerical controls and an
-explicit fallback belong to `formula(:boundary; options, parameters)`.
+which select material constitutive laws. Geometric boundary numerical controls
+belong to `formula(:boundary; options)`.
 
 `internal_impedance` accepts one formula. A solid primitive requests only its `outer`
 surface, and a tubular primitive all three. Before the frequency loop, the computation

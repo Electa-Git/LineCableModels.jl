@@ -2,9 +2,10 @@
     using LinearAlgebra
     E = LineCableModels.Engine
     boundary = E.ShuntModel.Formula(:boundary)
+    include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
+    integration = (rtol = 1e-10, atol = 1e-12, maxevals = 100_000)
     # Independent Dirichlet-annulus separated solution, not the reflection form.
-    h = (; a = 1.0, b = 3.0, epsilon = 1.0, Rleft = 0.0, Rright = 0.0,
-        Rtotal = log(3.0), left = NamedTuple[], right = NamedTuple[])
+    h = annular_group(1.0, 3.0, 1.0)
     k = E.ShuntModel._shunt_kernel_coefficients(h, 256)
     @testset "Local Green function controls" begin
         z, s=1.4cis(0.3), 2.2cis(1.2)
@@ -22,33 +23,30 @@
             ratio=exp(-abs(y-x))
             tail=ratio^(order+1)/((order+1)*(1-ratio)*(1-exp(-2L)))
             coefficients=E.ShuntModel._shunt_kernel_coefficients(h, order)
-            actual=E.ShuntModel._shunt_kernel(z, s, h, coefficients)
+            actual=reference_kernel(z, s, h, coefficients)
             budget=1e-10abs(exact)
             uncertainty=tail+(2order+20)*eps(Float64)*magnitude
             if uncertainty<=budget/4
                 @test abs(actual-exact)+uncertainty<=budget
                 resolved=true
             end
-            @test E.ShuntModel._shunt_kernel(z, s, h, coefficients) ≈
-                  E.ShuntModel._shunt_kernel(s, z, h, coefficients) atol=1e-12
-            @test abs(E.ShuntModel._shunt_kernel(cis(0.3), s, h, coefficients))<1e-12
-            @test abs(E.ShuntModel._shunt_kernel(3cis(0.3), s, h, coefficients))<1e-12
+            @test reference_kernel(z, s, h, coefficients) ≈
+                  reference_kernel(s, z, h, coefficients) atol=1e-12
+            @test abs(reference_kernel(cis(0.3), s, h, coefficients))<1e-12
+            @test abs(reference_kernel(3cis(0.3), s, h, coefficients))<1e-12
         end
         @test resolved
-        h2 = merge(h, (epsilon = 2.0, Rtotal = log(3.0)/2))
-        @test E.ShuntModel._shunt_kernel(1.4cis(0.2), 2.1cis(1.1), h2,
+        h2 = annular_group(1.0, 3.0, 2.0)
+        @test reference_kernel(1.4cis(0.2), 2.1cis(1.1), h2,
             E.ShuntModel._shunt_kernel_coefficients(h2, 256)) ≈
-              E.ShuntModel._shunt_kernel(1.4cis(0.2), 2.1cis(1.1), h, k)/2
+              reference_kernel(1.4cis(0.2), 2.1cis(1.1), h, k)/2
         targets, sources = [1.3cis(0.2), 1.4cis(2.1)], [2.1cis(1.1), 2.5cis(-0.4)]
-        @test E.ShuntModel._shunt_kernel_matrix(boundary, targets, sources, h, k) ≈
-              [E.ShuntModel._shunt_kernel(z, s, h, k) for z in targets, s in sources]
-        regular = E.ShuntModel._shunt_kernel_matrix(boundary, targets, sources, h, k; regular = true)
-        @test regular ≈ [E.ShuntModel._shunt_kernel(z, s, h, k; regular = true)
-               for z in targets, s in sources]
-        @test E.ShuntModel._shunt_kernel_matrix(boundary, targets, sources, h, k) ≈
+        @test kernel_matrix(boundary, targets, sources, h, k) ≈
+              [reference_kernel(z, s, h, k) for z in targets, s in sources]
+        regular = [reference_kernel(z, s, h, k; regular = true) for z in targets, s in sources]
+        @test kernel_matrix(boundary, targets, sources, h, k) ≈
               regular-[log(abs(z-s)) for z in targets, s in sources]
-        @test isfinite(E.ShuntModel._shunt_kernel(
-            2cis(0.3), 2cis(0.3), h, k; regular = true))
+        @test isfinite(reference_kernel(2cis(0.3), 2cis(0.3), h, k; regular = true))
         layers = [(ri = 1.0, ro = 1.2, epsilon = 3.0), (ri = 1.2, ro = 2.0, epsilon = 3.0)]
         @test E.ShuntModel._shunt_load(layers, 5) ≈
               E.ShuntModel._shunt_load([(ri = 1.0, ro = 2.0, epsilon = 3.0)], 5)
@@ -59,12 +57,13 @@
         theta = 2pi .* (0:255) ./ 256
         targets = [1.8cis.(theta); 2.2cis.(theta)]
         sources = [1.98cis.(theta); 2.02cis.(theta)]
-        kernel = E.ShuntModel._shunt_kernel_matrix(boundary, targets, sources, h, k)
+        kernel = kernel_matrix(boundary, targets, sources, h, k)
         q = kernel \
-            hcat(-E.ShuntModel._shunt_core_voltage.(targets, Ref(h)), ones(length(targets)))
+            hcat(-E.ShuntModel._shunt_core_voltage.(targets, Ref(h), Ref(k)),
+                ones(length(targets)))
         screen = vec(sum(q; dims = 1))
-        core = [1/h.Rtotal, 0.0] -
-               vec(transpose(E.ShuntModel._shunt_core_voltage.(sources, Ref(h)))*q)
+        core = [1/k.Rtotal, 0.0] -
+               vec(transpose(E.ShuntModel._shunt_core_voltage.(sources, Ref(h), Ref(k)))*q)
         capacitance = vcat(transpose(core), transpose(screen))
         left, right = 1/log(1.8), 1/log(3/2.2)
         @test capacitance ≈ [left -left; -left left+right] rtol=1e-9
@@ -88,21 +87,21 @@
         nodes, weights = E.ShuntModel._shunt_gauss_jacobi(64, 0.0, 0.0)
         values = transpose(reduce(hcat, [E.ShuntModel._shunt_jacobi(t, 0.0, 0.0, 3)
                                          for t in nodes]))
-        face = (; kind = :end, radius = 0.0, phi = 0.0, span = 0.0, mid = 2.0, half = 0.1,
-            alpha = 0.0, beta = 0.0, p = 3, nodes, weights, beta_norm = 1.0,
-            weighted = weights .* values, points = complex.(2 .+ 0.1 .* nodes))
-        moments, _ = E.ShuntModel._shunt_log_moments(2.0+0im, face)
-        @test moments ≈ [log(0.1)-1, 0, 1/3, 0] atol=2e-10
-        endpoint, _ = E.ShuntModel._shunt_log_moments(2.1+0im, face)
+        face = (; shape = (phi = 0.0, mid = 2.0, half = 0.1), alpha = 0.0, beta = 0.0, p = 3,
+            nodes, weights, weighted = weights .* values, beta_norm = 1.0, terminal = 2,
+            points = complex.(2 .+ 0.1 .* nodes),
+            recurrence = E.ShuntModel._shunt_jacobi_recurrence(0.0, 0.0, 3))
+        moments(z) = first(E.ShuntModel._shunt_log_moments(z, face; integration...,
+            result = zeros(4), segments = nothing))
+        @test moments(2.0+0im) ≈ [log(0.1)-1, 0, 1/3, 0] atol=2e-10
+        endpoint = moments(2.1+0im)
         @test endpoint[1] ≈ log(0.2)-1 atol=2e-10
         for distance in (0.1, 1e-5)
-            near, _ = E.ShuntModel._shunt_log_moments(2.0+im*distance, face)
+            near = moments(2.0+im*distance)
             exact = log(hypot(0.1, distance))-1+distance/0.1*atan(0.1/distance)
             @test near[1] ≈ exact atol=2e-10
         end
-        h = (; a = 1.0, b = 3.0, epsilon = 1.0, Rleft = 0.0, Rright = log(4/3)/4,
-            Rtotal = log(3)+log(4/3)/4, left = NamedTuple[],
-            right = [(ri = 3.0, ro = 4.0, epsilon = 4.0)])
+        h = annular_group(1.0, 3.0, 1.0; right = [(ri = 3.0, ro = 4.0, epsilon = 4.0)])
         k = E.ShuntModel._shunt_kernel_coefficients(h, 512)
         for (z, s) in ((1.3cis(0.2), 2.1cis(1.1)), (3cis(0.2), 2.5cis(-0.4)))
             split = E.ShuntModel._shunt_kernel(z,
@@ -115,19 +114,20 @@
             @test split ≈ E.ShuntModel._shunt_kernel(z, s, h, k) atol=2e-14
         end
         # Direct and coincident nearest image produce the interface coefficient.
-        difference = E.ShuntModel._shunt_kernel(3.0+0im, 3cis(1e-7), h, k) -
-                     E.ShuntModel._shunt_kernel(3.0+0im, 3cis(2e-7), h, k)
+        difference = reference_kernel(3.0+0im, 3cis(1e-7), h, k) -
+                     reference_kernel(3.0+0im, 3cis(2e-7), h, k)
         @test difference ≈ (2/5)*log(2) rtol=1e-5
         # The charge measure contains no extra face-length Jacobian. Scaling all
         # radii and target-source positions leaves the potential columns unchanged.
         targets = [1.4cis(0.1), 2.5cis(0.3)]
-        original = E.ShuntModel._shunt_tape_columns(boundary, targets, [face], h, k).columns
-        scaled_h = merge(h, (a = 10h.a, b = 10h.b,
-            right = [(ri = 30.0, ro = 40.0, epsilon = 4.0)]))
+        original = tape_columns(boundary, targets, [(face,)], h, k; integration).columns
+        scaled_h = annular_group(10.0, 30.0, 1.0;
+            right = [(ri = 30.0, ro = 40.0, epsilon = 4.0)])
         scaled_face = merge(face, (
-            mid = 10face.mid, half = 10face.half, points = 10face.points))
-        scaled = E.ShuntModel._shunt_tape_columns(boundary, 10targets, [scaled_face], scaled_h,
-            E.ShuntModel._shunt_kernel_coefficients(scaled_h, 512)).columns
+            shape = (phi = 0.0, mid = 10face.shape.mid, half = 10face.shape.half),
+            points = 10face.points))
+        scaled = tape_columns(boundary, 10targets, [(scaled_face,)], scaled_h,
+            E.ShuntModel._shunt_kernel_coefficients(scaled_h, 512); integration).columns
         @test scaled ≈ original atol=1e-12
     end
 end

@@ -98,8 +98,6 @@ end
     uncertain=compute(material_problem, make(1e-4im))
     @test eltype(Z(uncertain)) === Complex{Measurement{Float64}}
     @test any(>(0), uncertainty.(real.(Z(uncertain))))
-    @test E.same_physical_state([rho], [rho])
-    @test !E.same_physical_state([rho], [measurement(0.1, 0.001)])
     record=LineCableModels.ImportExport.serialize_value(aligned)
     restored=LineCableModels.ImportExport.deserialize_value(record)
     @test details(restored).data.formulations.formulas.earth_impedance.options.Γ ==

@@ -153,7 +153,7 @@ function LineParametersWorkspace(
         execution::ComputationOptions,
         blueprints::Vector{CableBlueprint{T}}
 ) where {T <: Real}
-    shunt = only(internal_shunt_response(problem.system.designs, blueprints, [formulation]))
+    shunt = only(internal_potential_coefficients(problem.system.designs, blueprints, [formulation]))
     return LineParametersWorkspace(
         problem,
         formulation,

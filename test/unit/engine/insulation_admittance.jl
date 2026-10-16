@@ -76,7 +76,7 @@
         Region(:insulation, Annulus(r_mid, r_ex), second_material)))
     blueprint=LineCableModels.DataModel.flatten(design)
     input=E.LocalCableData(blueprint)
-    shunt=only(E.internal_shunt_response([design], [blueprint], [Formulation()]))
+    shunt=only(E.internal_potential_coefficients([design], [blueprint], [Formulation()]))
     formulas=Formulation(insulation_admittance = formulation,
         semicon_admittance = semicon).formulas
     admittivity=zeros(ComplexF64, 2)

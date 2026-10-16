@@ -221,7 +221,7 @@ end
         permutation=workspace.plan.reduction.permutation
         primitive=trace.P[permutation, permutation, 1]
         actual=workspace.buffers.Yout[:, :, 1]
-        @test maximum(E.numerical_magnitude.(actual*primitive-(2pi*1e6*im)*I))<1e-6
+        @test maximum(E.tolerance_norm.(actual*primitive-(2pi*1e6*im)*I))<1e-6
         for matrix in (Ze, Pe, Ye), parameter in (rho, radius, depth, spacing)
 
             @test any(matrix) do value
@@ -232,8 +232,6 @@ end
         end
         (Ze, Pe, Ye)
     end
-    @test !E.same_physical_state(rho, measurement(0.1, 0.001))
-    @test E.same_physical_state(rho, 2rho-rho)
     # Check the propagated physical derivatives against independent central
     # perturbations of the material and geometry inputs to the earth-return calculation.
     function perturbed(values)

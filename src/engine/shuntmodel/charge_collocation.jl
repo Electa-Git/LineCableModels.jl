@@ -1,44 +1,6 @@
 # Integrated finite-face charge element for the explicit boundary shunt model.
 # Coordinates are in m. Green functions use charge/(2pi*epsilon0).
-# Dense numerical arrays are local to a boundary solve, never a global cache.
-
-"""
-$(TYPEDEF)
-
-Report a recognized failure of the local geometric boundary approximation. Numerical
-failure is distinct from invalid physical input and must not trigger Monte
-Carlo rejection and resampling.
-
-$(TYPEDFIELDS)
-"""
-struct BoundarySolveError <: Exception
-    "Failure stage or unsupported model assumption."
-    category::Symbol
-    "Physical location and available numerical diagnostics."
-    context::NamedTuple
-    "Explanation of the failure."
-    message::String
-end
-
-function Base.showerror(io::IO, error::BoundarySolveError)
-    print(io, "BoundarySolveError(", error.category, "): ", error.message)
-    isempty(error.context) || print(io, "; ", error.context)
-end
-Base.show(io::IO, error::BoundarySolveError) = showerror(io, error)
-function Base.summary(io::IO, error::BoundarySolveError)
-    print(io, "BoundarySolveError(", error.category, ")")
-end
-function Base.show(io::IO, ::MIME"text/plain", error::BoundarySolveError)
-    get(io, :compact, false) && return summary(io, error)
-    TextDisplay.tree(io,
-        sprint(summary, error),
-        (
-            (label = error.message, noun = "details"),
-            (label = sprint(show, error.context; context = :limit => true),
-                noun = "details")
-        );
-        noun = "details")
-end
+# The buffers of the boundary shunt formula hold the dense arrays of one solve.
 
 """
 $(TYPEDSIGNATURES)
@@ -123,7 +85,7 @@ factors, not this concentric annular Green function or its radial load recursion
 # Arguments
 
 - `g`: host radii and layer boundaries \\[m\\], with positive relative
-  permittivities \\[dimensionless\\] and dielectric log-radius sums.
+  permittivities \\[dimensionless\\].
 - `modes`: number of retained positive Fourier modes.
 
 # Returns
@@ -132,8 +94,13 @@ factors, not this concentric annular Green function or its radial load recursion
 - `ra0`, `rb0`: reflection coefficients at the nearest inner and outer interfaces
   \\[dimensionless\\]. The resulting kernel multiplies charge per unit length
   divided by ``2\\pi\\varepsilon_0`` \\[V\\] to give potential \\[V\\].
+- `Rleft`, `Rtotal`: the zero-mode dielectric log-radius sums from the inner anchor to the
+  host and to the reference \\[dimensionless\\].
 """
 function _shunt_kernel_coefficients(g, modes)
+    Rleft = sum(l->log(l.ro/l.ri)/l.epsilon, g.left; init = zero(g.a))
+    Rright = sum(l->log(l.ro/l.ri)/l.epsilon, g.right; init = zero(g.a))
+    Rtotal = Rleft+log(g.b/g.a)/g.epsilon+Rright
     A, B, D = zeros(modes), zeros(modes), zeros(modes)
     ra0 = isempty(g.left) ? -1.0 :
           (g.epsilon-last(g.left).epsilon)/(g.epsilon+last(g.left).epsilon)
@@ -149,34 +116,22 @@ function _shunt_kernel_coefficients(g, modes)
         B[m] = rb/denominator-rb0/(g.epsilon*m)
         D[m] = ra*rb/denominator
     end
-    (; A, B, D, ra0, rb0)
+    (; A, B, D, ra0, rb0, Rleft, Rtotal)
 end
 
-function _shunt_kernel(z, source, g, k; regular = false, split_images = false)
+# The direct, nearest-image and zero-mode terms of the Green function. The reflected
+# Fourier modes enter by the batched products of `_shunt_kernel_matrix!`.
+function _shunt_kernel(z, source, g, k; split_images = false)
     r, s = abs(z), abs(source)
-    Rr = g.Rleft + log(r/g.a)/g.epsilon
-    Rs = g.Rleft + log(s/g.a)/g.epsilon
-    result = min(Rr, Rs)*(g.Rtotal-max(Rr, Rs))/g.Rtotal
+    Rr = k.Rleft + log(r/g.a)/g.epsilon
+    Rs = k.Rleft + log(s/g.a)/g.epsilon
+    result = min(Rr, Rs)*(k.Rtotal-max(Rr, Rs))/k.Rtotal
     if split_images
         result += (log(max(r, s))+k.ra0*log(s)+k.rb0*(2log(g.b)-log(r)))/g.epsilon
     else
-        result += (regular ? log(max(r, s)) : log(max(r, s)/abs(z-source)))/g.epsilon
+        result += log(max(r, s)/abs(z-source))/g.epsilon
         result -= k.ra0/g.epsilon*log(abs(1-g.a^2/(conj(z)*source)))
         result -= k.rb0/g.epsilon*log(abs(1-z*conj(source)/g.b^2))
-    end
-    qa, qb = g.a^2/(r*s), r*s/g.b^2
-    qd = (g.a/g.b)^2
-    qc, qe = qd*r/s, qd*s/r
-    pa, pb, pc, pe = qa, qb, qc, qe
-    cosine = real(z*conj(source))/(r*s)
-    previous, current = 1.0, cosine
-    @inbounds for m in eachindex(k.A)
-        result += current*(k.A[m]*pa + k.B[m]*pb + k.D[m]*(pc+pe))
-        previous, current = current, 2cosine*current-previous
-        pa *= qa
-        pb *= qb
-        pc *= qc
-        pe *= qe
     end
     result
 end
@@ -184,39 +139,111 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Extend `buffers` with the kernel storage of one shunt assembly. It holds `plan.rows`
-targets, `plan.columns` sources, Fourier blocks of at most 64 of the `plan.modes` modes,
-and tape kernels with `plan.quadrature` nodes per face.
+Extend `buffers` with the arrays that solving `group` uses, sized by `plan`. The `N` ring
+wires have `r` targets and `c` sources each. The border consists of the other `mb` targets
+and `nb` charge coefficients:
+
+- `ring_kernel` holds the potentials of the ring's sources at the first ring wire's
+  targets, `coupling_kernel` at the border targets, and `border` the potentials of the
+  border coefficients at every target. `column_norms` holds the norms that equilibrate
+  their columns.
+- `excitation` holds the excitation of each terminal at the targets, and `coefficients`
+  the equilibrated charge coefficients of the solve.
+- `phases` holds the unitary Fourier transform over the ring. `ring_factors` holds the
+  ring's Fourier blocks and their QR factors, `ring_border` the border columns in the ring's
+  Fourier rows, and `coupling` the ring's Fourier columns in the border rows.
+- `ring_residual`, `border_gram`, `gram_product`, `coupling_product`, `border_reduced` and
+  `border_system` hold the eliminated border system and its factors.
+- `ring_rhs`, `ring_solution`, `border_product`, `border_rhs`, `border_solution`,
+  `residual_rhs` and `system_rhs` hold the right-hand sides and solutions of one solve.
+- `moments` and `segments` hold the logarithmic moments of one tape face and their QuadGK
+  segments.
+- `target_inner`, `target_outer`, `source_inner` and `source_outer` hold the image ratios
+  ``a/\\bar z`` and ``z/b`` of the targets and of the sources or face nodes. The `*_power`
+  arrays hold their running powers.
+- `target_modes` and `source_modes` hold the Fourier factors of at most 64 modes at a time.
+- `face_kernel` holds the Green function from the targets to the nodes of one face.
+- `plus_collocation`, `minus_collocation`, `plus_excitation` and `minus_excitation` hold
+  perturbed blocks of at most 192 targets, when `plan.derivatives` directions follow.
+- `drive`, `stationarity`, `residual`, `border_normal` and `coefficient_derivative` hold the
+  right-hand sides of the capacitance derivative, the residual of the nominal least-squares
+  solve and the derivative of the coefficients.
 """
-function initialize_buffers(::Formula{:boundary}, ::Val{:kernel}, ::Type{T}, input, plan,
+function initialize_buffers(::Formula{:boundary}, ::Type{T}, group::DielectricGroup, plan,
         buffers) where {T}
-    (; rows, columns, modes, quadrature) = plan
+    (; rows, columns, ports, order, sources, modes, quadrature, derivatives) = plan
+    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    mb, nb = rows - N*r, columns - N*c
+    # Only a ring eliminates the border rows. Without one, they are the whole system.
+    kept = iszero(N) ? 0 : mb
+    top = min(N*(r - c), nb)
+    kernel = max(length(sources), quadrature)
+    factors = 4min(64, modes)
+    perturbed = iszero(derivatives) ? 0 : rows
+    block = min(192, perturbed)
+    tangent = iszero(derivatives) ? 0 : columns
     return merge(buffers,
-        (ta = Vector{Complex{T}}(undef, rows), tb = Vector{Complex{T}}(undef, rows),
-            sa = Vector{Complex{T}}(undef, columns), sb = Vector{Complex{T}}(undef, columns),
-            tpa = Vector{Complex{T}}(undef, rows), tpb = Vector{Complex{T}}(undef, rows),
-            spa = Vector{Complex{T}}(undef, columns),
-            spb = Vector{Complex{T}}(undef, columns),
-            U = Matrix{T}(undef, rows, 4min(64, modes)),
-            V = Matrix{T}(undef, columns, 4min(64, modes)),
-            tape = Matrix{T}(undef, rows, quadrature)))
+        (ring_kernel = Matrix{T}(undef, r, N*c),
+            coupling_kernel = Matrix{T}(undef, kept, N*c),
+            border = Matrix{T}(undef, rows, nb),
+            column_norms = Vector{T}(undef, columns),
+            excitation = Matrix{T}(undef, rows, ports),
+            coefficients = Matrix{T}(undef, columns, ports),
+            phases = Matrix{Complex{T}}(undef, N, N),
+            ring_factors = Array{Complex{T}}(undef, r, c, N),
+            ring_border = Array{Complex{T}}(undef, r, nb, N),
+            coupling = Matrix{Complex{T}}(undef, kept, N*c),
+            ring_residual = Matrix{Complex{T}}(undef, N*(r - c), nb),
+            border_gram = Matrix{T}(undef, kept, kept),
+            gram_product = Matrix{Complex{T}}(undef, kept, kept),
+            coupling_product = Matrix{Complex{T}}(undef, kept, nb),
+            border_reduced = Matrix{T}(undef, kept, nb),
+            border_system = Matrix{T}(undef, 2top + mb, nb),
+            ring_rhs = Array{Complex{T}}(undef, r, ports, N),
+            ring_solution = Array{Complex{T}}(undef, c, ports, N),
+            border_product = Matrix{Complex{T}}(undef, kept, ports),
+            border_rhs = Matrix{T}(undef, mb, ports),
+            border_solution = Matrix{T}(undef, nb, ports),
+            residual_rhs = Matrix{Complex{T}}(undef, N*(r - c), ports),
+            system_rhs = Matrix{T}(undef, 2top + mb, ports),
+            moments = Vector{T}(undef, order+1),
+            segments = alloc_segbuf(T, Vector{T}, T; size = 32),
+            target_inner = Vector{Complex{T}}(undef, rows),
+            target_outer = Vector{Complex{T}}(undef, rows),
+            source_inner = Vector{Complex{T}}(undef, kernel),
+            source_outer = Vector{Complex{T}}(undef, kernel),
+            target_inner_power = Vector{Complex{T}}(undef, rows),
+            target_outer_power = Vector{Complex{T}}(undef, rows),
+            source_inner_power = Vector{Complex{T}}(undef, kernel),
+            source_outer_power = Vector{Complex{T}}(undef, kernel),
+            target_modes = Matrix{T}(undef, rows, factors),
+            source_modes = Matrix{T}(undef, kernel, factors),
+            face_kernel = Matrix{T}(undef, rows, quadrature),
+            plus_collocation = Matrix{T}(undef, block, columns),
+            minus_collocation = Matrix{T}(undef, block, columns),
+            plus_excitation = Matrix{T}(undef, block, ports),
+            minus_excitation = Matrix{T}(undef, block, ports),
+            drive = Matrix{T}(undef, perturbed, ports),
+            stationarity = Matrix{T}(undef, tangent, ports),
+            residual = Matrix{T}(undef, perturbed, ports),
+            border_normal = Matrix{Complex{T}}(undef, iszero(tangent) ? 0 : nb, ports),
+            coefficient_derivative = Matrix{T}(undef, tangent, ports)))
 end
 
-function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
-        split_images = false, buffers)
+function _shunt_kernel_matrix!(matrix, targets, sources, g, k; split_images = false, buffers)
     # Same Green function, batched into small Fourier blocks for BLAS. No dense
-    # N-by-modes cache: working storage is only 4*64 columns per geometric boundary set.
-    zero_modes = merge(k, (; A = (), B = (), D = ()))
+    # N-by-modes array: the products use only 4*64 columns per geometric boundary set.
     @inbounds for j in eachindex(sources), i in eachindex(targets)
 
-        matrix[i, j] = _shunt_kernel(
-            targets[i], sources[j], g, zero_modes; regular, split_images)
+        matrix[i, j] = _shunt_kernel(targets[i], sources[j], g, k; split_images)
     end
     nr, nc = length(targets), length(sources)
-    ta, tb = @view(buffers.ta[1:nr]), @view(buffers.tb[1:nr])
-    sa, sb = @view(buffers.sa[1:nc]), @view(buffers.sb[1:nc])
-    tpa, tpb = @view(buffers.tpa[1:nr]), @view(buffers.tpb[1:nr])
-    spa, spb = @view(buffers.spa[1:nc]), @view(buffers.spb[1:nc])
+    ta, tb = @view(buffers.target_inner[1:nr]), @view(buffers.target_outer[1:nr])
+    sa, sb = @view(buffers.source_inner[1:nc]), @view(buffers.source_outer[1:nc])
+    tpa = @view buffers.target_inner_power[1:nr]
+    tpb = @view buffers.target_outer_power[1:nr]
+    spa = @view buffers.source_inner_power[1:nc]
+    spb = @view buffers.source_outer_power[1:nc]
     ta .= g.a ./ conj.(targets);
     tb .= targets ./ g.b
     sa .= g.a ./ conj.(sources);
@@ -225,7 +252,7 @@ function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
     fill!(tpb, 1);
     fill!(spa, 1);
     fill!(spb, 1)
-    U, V = @view(buffers.U[1:nr, :]), @view(buffers.V[1:nc, :])
+    U, V = @view(buffers.target_modes[1:nr, :]), @view(buffers.source_modes[1:nc, :])
     for first_mode in 1:64:length(k.A)
         modes = first_mode:min(first_mode + 63, length(k.A))
         for (column, m) in enumerate(modes)
@@ -255,52 +282,82 @@ function _shunt_kernel_matrix!(matrix, targets, sources, g, k; regular = false,
     matrix
 end
 
-function _shunt_kernel_matrix(selected::Formula{:boundary}, targets, sources, g, k;
-        kwargs...)
-    buffers = initialize_buffers(selected, Val(:kernel), Float64, nothing,
-        (rows = length(targets), columns = length(sources), modes = length(k.A),
-            quadrature = 0), (;))
-    return _shunt_kernel_matrix!(Matrix{Float64}(undef, length(targets), length(sources)),
-        targets, sources, g, k; buffers, kwargs...)
+_shunt_core_voltage(z, g, k) = 1-(k.Rleft+log(abs(z)/g.a)/g.epsilon)/k.Rtotal
+
+# Point `j` of `count` on the circle at `fraction` of a wire's radius, in the wire's own
+# polar frame. A rotation that maps one ring wire onto the next maps its points too.
+# Round wires keep auxiliary sources inside. The tape has no source contour or inset: its
+# physical faces are integrated below.
+function _shunt_wire_point(wire, fraction, j, count)
+    complex(wire.x, wire.y) + fraction*wire.r*cis(atan(wire.y, wire.x) + 2pi*j/count)
 end
 
-_shunt_core_voltage(z, g) = 1-(g.Rleft+log(abs(z)/g.a)/g.epsilon)/g.Rtotal
+"""
+$(TYPEDSIGNATURES)
 
-# Round wires retain their existing auxiliary-source treatment. The tape has
-# no source contour or inset: its physical faces are integrated below.
-function _shunt_points(g, nw, fraction; shift = 0.0)
-    targets, sources = ComplexF64[], ComplexF64[]
-    for wire in g.wires
-        center = complex(wire.x, wire.y)
-        for j in 0:(nw - 1)
-            push!(targets, center + wire.r*cis(2pi*(j+shift)/nw))
-            push!(sources, center + fraction*wire.r*cis(2pi*j/nw))
+Order the wires of `g` for collocation and find its ring. The wires of a ring share one
+terminal, one radius and one pitch circle, and they are equally spaced. Each exposes the same
+targets, at least as many as its sources. The ring's wires come first, in angular order.
+
+# Returns
+
+- `wires`: the wire indices in collocation order.
+- `ring`: the number of ring wires, zero without a ring.
+- `exposed`: for each wire in that order, the indices of its `2level.wire` surface points
+  that lie outside every other wire of its terminal.
+"""
+function _shunt_layout(g, level)
+    count = 2level.wire
+    exposed = map(g.wires) do wire
+        filter(0:(count - 1)) do j
+            point = _shunt_wire_point(wire, 1, j, count)
+            # Contact points and buried arcs do not expose dielectric to this terminal.
+            all(other -> other === wire || other.terminal != wire.terminal ||
+                abs(point-complex(other.x, other.y))-other.r > _shunt_tol(g.b), g.wires)
         end
     end
-    (; targets, sources)
+    angles = [mod(atan(wire.y, wire.x), 2pi) for wire in g.wires]
+    order = sortperm(angles)
+    n = length(order)
+    ring = n > 0 && length(exposed[first(order)]) >= level.wire && all(1:n) do i
+        wire, lead = g.wires[order[i]], g.wires[first(order)]
+        pitch = hypot(wire.x, wire.y)
+        spacing = angles[order[i]] - angles[first(order)] - 2pi*(i - 1)/n
+        wire.terminal == lead.terminal && abs(wire.r - lead.r) <= _shunt_tol(g.b) &&
+            abs(pitch - hypot(lead.x, lead.y)) <= _shunt_tol(g.b) &&
+            abs(pitch*spacing) <= _shunt_tol(g.b) && exposed[order[i]] == exposed[first(order)]
+    end
+    wires = ring ? order : collect(eachindex(g.wires))
+    return (; wires, ring = ring ? n : 0, exposed = exposed[wires])
 end
 
-function _shunt_jacobi!(values, t, alpha, beta)
-    p = length(values)-1
-    values[1] = 1
-    p == 0 && return values
-    values[2] = ((alpha+beta+2)*t+alpha-beta)/2
+# The coefficients (A, B, C) of the three-term recurrence of the Jacobi polynomials,
+# P_{n+1} = (A t + B) P_n - C P_{n-1}, for n = 1, ..., p - 1.
+function _shunt_jacobi_recurrence(alpha, beta, p)
     s = alpha+beta
-    for n in 1:(p - 1)
-        A = (2n+s+1)*(2n+s+2)/(2(n+1)*(n+s+1))
-        B = (alpha^2-beta^2)*(2n+s+1)/(2(n+1)*(n+s+1)*(2n+s))
-        C = (n+alpha)*(n+beta)*(2n+s+2)/((n+1)*(n+s+1)*(2n+s))
+    return map(1:(p - 1)) do n
+        ((2n+s+1)*(2n+s+2)/(2(n+1)*(n+s+1)),
+            (alpha^2-beta^2)*(2n+s+1)/(2(n+1)*(n+s+1)*(2n+s)),
+            (n+alpha)*(n+beta)*(2n+s+2)/((n+1)*(n+s+1)*(2n+s)))
+    end
+end
+
+function _shunt_jacobi!(values, t, alpha, beta, recurrence)
+    values[1] = 1
+    length(values) == 1 && return values
+    values[2] = ((alpha+beta+2)*t+alpha-beta)/2
+    for (n, (A, B, C)) in enumerate(recurrence)
         values[n + 2] = (A*t+B)*values[n + 1]-C*values[n]
     end
     values
 end
 
 function _shunt_jacobi(t, alpha, beta, p)
-    _shunt_jacobi!(Vector{Float64}(undef, p+1), t, alpha, beta)
+    _shunt_jacobi!(Vector{Float64}(undef, p+1), t, alpha, beta,
+        _shunt_jacobi_recurrence(alpha, beta, p))
 end
 
 function _shunt_gauss_jacobi(n, alpha, beta)
-    alpha > -1 && beta > -1 && n > 1 || error("Invalid Jacobi rule.")
     s = alpha+beta
     diagonal = [(beta-alpha)/(s+2);
                 [(beta^2-alpha^2)/((2k+s)*(2k+s+2)) for k in 1:(n - 1)]]
@@ -346,18 +403,18 @@ For equal permittivities this equation recovers ``\\nu=2/3``.
 
 # Errors
 
-Nonpositive permittivities or an unbracketed root raise `ErrorException`.
+Nonpositive permittivities raise `BoundarySolveError`. For positive permittivities the
+determinant is positive near zero and equals ``-\\varepsilon_o`` at one, so the root is
+always bracketed.
 """
 function _shunt_junction_exponent(epsilon_host, epsilon_outer)
-    epsilon_host > 0 && epsilon_outer > 0 ||
-        error("Positive dielectric permittivities required.")
+    epsilon_host > 0 && epsilon_outer > 0 || throw(BoundarySolveError(:unsupported,
+        (; epsilon_host, epsilon_outer), "boundary shunt requires positive permittivities"))
     # Host sector pi/2, outer dielectric sector pi. Determinant has no cotangent
     # poles. Exclude the trivial nu=0 root and bracket the first positive root.
     determinant(nu) = epsilon_host*cospi(nu/2)*sinpi(nu) +
                       epsilon_outer*sinpi(nu/2)*cospi(nu)
     left, right = 1e-10, 1.0
-    determinant(left) > 0 && determinant(right) < 0 ||
-        error("internal shunt: dielectric corner root is not bracketed")
     for _ in 1:60
         mid = (left+right)/2
         if determinant(mid) > 0
@@ -369,11 +426,22 @@ function _shunt_junction_exponent(epsilon_host, epsilon_outer)
     (left+right)/2
 end
 
-function _shunt_face_point(face, t)
-    face.kind == :arc ?
-    face.radius*cis(face.phi+face.span*t/2) :
-    (face.mid+face.half*t)*cis(face.phi)
-end
+# A tape has two circular arc faces and two radial end faces. The record of a face
+# holds its geometry, its endpoint exponents, quadrature, weighted Jacobi values and the
+# Jacobi recurrence coefficients.
+const ShuntArc = NamedTuple{(:radius, :phi, :span), NTuple{3, Float64}}
+const ShuntEnd = NamedTuple{(:phi, :mid, :half), NTuple{3, Float64}}
+const ShuntFace{S} = NamedTuple{
+    (:shape, :alpha, :beta, :p, :nodes, :weights, :weighted, :beta_norm, :terminal, :points,
+        :recurrence),
+    Tuple{S, Float64, Float64, Int, Vector{Float64}, Vector{Float64}, Matrix{Float64},
+        Float64, Int, Vector{ComplexF64}, Vector{NTuple{3, Float64}}}}
+# One tape has an inner arc face, an outer arc face and two end faces, in that order.
+const ShuntTapeFaces = Tuple{ShuntFace{ShuntArc}, ShuntFace{ShuntArc},
+    ShuntFace{ShuntEnd}, ShuntFace{ShuntEnd}}
+
+_shunt_face_point(face::ShuntArc, t) = face.radius*cis(face.phi+face.span*t/2)
+_shunt_face_point(face::ShuntEnd, t) = (face.mid+face.half*t)*cis(face.phi)
 
 """
 $(TYPEDSIGNATURES)
@@ -412,34 +480,20 @@ discretizations are not the boundary-integral element implemented here.
 
 # Returns
 
-- 4 face records with physical coordinates \\[m\\], endpoint exponents,
+- The 4 face records of the tape, with physical coordinates \\[m\\], endpoint exponents,
   quadrature weights and weighted polynomial values.
-
-# Errors
-
-Insufficient quadrature order or tape contact with a bounding conductor
-raises `ErrorException`.
 """
 function _shunt_tape_faces(g, s, p, quadrature)
-    p >= 0 && quadrature >= max(2, p+1) || error("Quadrature needs at least order+1 nodes.")
-    at_interface = isapprox(s.ro, g.b; atol = 64eps(Float64)*g.b, rtol = 0)
-    at_inner = isapprox(s.ri, g.a; atol = 64eps(Float64)*g.b, rtol = 0)
-    at_inner && isempty(g.left) &&
-        error("internal shunt: tape contacts the inner conductor")
+    # A metal face on a dielectric interface meets that dielectric at its corners.
+    at_interface = abs(s.ro - g.b) <= _shunt_tol(g.b)
+    at_inner = abs(s.ri - g.a) <= _shunt_tol(g.b)
     nu_inner = at_inner ? _shunt_junction_exponent(g.epsilon, last(g.left).epsilon) : 2/3
-    # A metal face coincident with the reference shield is not an open tape.
-    at_interface && isempty(g.right) &&
-        error("internal shunt: tape contacts the reference shield")
     nu_outer = at_interface ? _shunt_junction_exponent(g.epsilon, first(g.right).epsilon) :
                2/3
-    descriptions = [
-        (; kind = :arc, radius = s.ri, phi = s.phi, span = s.span, mid = 0.0, half = 0.0,
-            alpha = nu_inner-1, beta = nu_inner-1),
-        (; kind = :arc, radius = s.ro, phi = s.phi, span = s.span, mid = 0.0, half = 0.0,
-            alpha = nu_outer-1, beta = nu_outer-1),
-        [(; kind = :end, radius = 0.0, phi = s.phi+sign*s.span/2, span = 0.0,
-             mid = (s.ri+s.ro)/2, half = (s.ro-s.ri)/2,
-             alpha = nu_outer-1, beta = nu_inner-1) for sign in (-1, 1)]...]
+    arc(radius, nu) = (; shape = ShuntArc((radius, s.phi, s.span)), alpha = nu-1, beta = nu-1)
+    radial(sign) = (; shape = ShuntEnd((s.phi+sign*s.span/2, (s.ri+s.ro)/2, (s.ro-s.ri)/2)),
+        alpha = nu_outer-1, beta = nu_inner-1)
+    descriptions = (arc(s.ri, nu_inner), arc(s.ro, nu_outer), radial(-1), radial(1))
     map(descriptions) do face
         nodes, weights = _shunt_gauss_jacobi(quadrature, face.alpha, face.beta)
         polys = transpose(reduce(hcat, [_shunt_jacobi(t, face.alpha, face.beta, p)
@@ -450,23 +504,33 @@ function _shunt_tape_faces(g, s, p, quadrature)
                         loggamma(face.alpha+face.beta+2))
         merge(face,
             (; p, nodes, weights, weighted, beta_norm, terminal = s.terminal,
-                points = _shunt_face_point.(Ref(face), nodes)))
+                points = _shunt_face_point.(Ref(face.shape), nodes),
+                recurrence = _shunt_jacobi_recurrence(face.alpha, face.beta, p)))
     end
 end
 
-function _shunt_face_projection(z, face)
-    if face.kind == :arc
-        radius = abs(z)
-        angle_difference = atan(sin(angle(z)-face.phi), cos(angle(z)-face.phi))
-        u = 2angle_difference/face.span
-        delta = abs(radius-face.radius)/(face.radius*face.span/2)
-    else
-        rotated = z*cis(-face.phi)
-        u = (real(rotated)-face.mid)/face.half
-        delta = abs(imag(rotated))/face.half
-    end
+function _shunt_face_projection(z, face::ShuntArc)
+    radius = abs(z)
+    angle_difference = atan(sin(angle(z)-face.phi), cos(angle(z)-face.phi))
+    u = 2angle_difference/face.span
+    delta = abs(radius-face.radius)/(face.radius*face.span/2)
     u, delta
 end
+
+function _shunt_face_projection(z, face::ShuntEnd)
+    rotated = z*cis(-face.phi)
+    u = (real(rotated)-face.mid)/face.half
+    delta = abs(imag(rotated))/face.half
+    u, delta
+end
+
+# Distance from `z` to the face point at the cosine-parameter offset `difference`.
+function _shunt_face_distance(face::ShuntArc, z, difference)
+    # Exact opposed-arc distance, also valid in the self limit.
+    hypot(abs(z)-face.radius, 2sqrt(abs(z)*face.radius)*sin(face.span*difference/4))
+end
+_shunt_face_distance(face::ShuntEnd, z, difference) =
+    hypot(face.half*difference, imag(z*cis(-face.phi)))
 
 """
 $(TYPEDSIGNATURES)
@@ -494,27 +558,24 @@ algorithm, and that reference does not prescribe the corner basis.
 
 # Keywords
 
-- `rtol=1e-10`: relative adaptive quadrature tolerance. The absolute tolerance
-  is `0.01rtol` for these dimensionless moments.
-- `atol=0.01rtol`: absolute tolerance for the dimensionless moment vector.
-- `maxevals=100_000`: adaptive quadrature evaluation budget.
-- `result=zeros(face.p+1)`: in-place moment workspace, also returned.
-- `segments=nothing`: optional reusable QuadGK segment buffer.
+- `rtol`, `atol`, `maxevals`: QuadGK's relative and absolute tolerances for the
+  dimensionless moment vector, and its evaluation budget.
+- `result`: in-place moment vector, also returned.
+- `segments`: reusable QuadGK segment buffer.
 
 # Returns
 
 - Logarithmic moments \\[dimensionless\\].
-- Adaptive error estimate. The far-field fixed rule returns zero because it
+- QuadGK's error estimate. The far-field fixed rule returns zero because it
   supplies no estimate, not because its error is known to vanish.
 
 # Errors
 
-An unresolved zero-distance evaluation or failed adaptive quadrature raises
+An unresolved zero-distance evaluation or a nonfinite moment raises
 `BoundarySolveError`. The logarithm is not replaced by an arbitrary finite floor.
 """
-function _shunt_log_moments(z, face; rtol = 1e-10, atol = 0.01rtol,
-        maxevals = 100_000, result = zeros(face.p+1), segments = nothing)
-    u, delta = _shunt_face_projection(z, face)
+function _shunt_log_moments(z, face; rtol, atol, maxevals, result, segments)
+    u, delta = _shunt_face_projection(z, face.shape)
     if hypot(max(abs(u)-1, 0), delta) > 0.2
         fill!(result, 0)
         @inbounds for j in eachindex(face.points)
@@ -538,25 +599,17 @@ function _shunt_log_moments(z, face; rtol = 1e-10, atol = 0.01rtol,
         end
     end
     sort!(unique!(splits))
-    evaluations = Ref(0)
     function integrand!(output, theta)
-        evaluations[] += 1
         t = cos(theta)
         difference = abs(u) <= 1 ?
                      -2sin((theta+theta0)/2)*sin((theta-theta0)/2) : t-u
-        distance = if face.kind == :arc
-            # Exact opposed-arc distance, also valid in the self limit.
-            hypot(abs(z)-face.radius,
-                2sqrt(abs(z)*face.radius)*sin(face.span*difference/4))
-        else
-            hypot(face.half*difference, imag(z*cis(-face.phi)))
-        end
+        distance = _shunt_face_distance(face.shape, z, difference)
         # Roundoff may identify the endpoint only after its contribution is
         # below integration accuracy. Never manufacture a finite log(0) floor.
         distance > 0 || throw(BoundarySolveError(:quadrature,
-            (; point = z, theta, face = face.kind), "unresolved logarithmic integration point"))
+            (; point = z, theta), "unresolved logarithmic integration point"))
         weight = sin(theta/2)^(2face.alpha+1)*cos(theta/2)^(2face.beta+1)/face.beta_norm
-        _shunt_jacobi!(output, t, face.alpha, face.beta)
+        _shunt_jacobi!(output, t, face.alpha, face.beta, face.recurrence)
         output .*= log(distance)*weight
     end
     # Reuse quadrature work vectors. Modal integration must not allocate a new
@@ -565,203 +618,136 @@ function _shunt_log_moments(z, face; rtol = 1e-10, atol = 0.01rtol,
     estimate = quadgk!(integrand!, result, splits;
         segbuf = segments, rtol, atol, order = max(7, cld(face.p+1, 2)), maxevals)
     all(isfinite, integral) || throw(BoundarySolveError(:nonfinite,
-        (; point = z, face = face.kind), "nonfinite logarithmic integral"))
-    tolerance = max(rtol*norm(integral), atol)
-    if !(estimate <= tolerance)
-        @warn "Boundary logarithmic quadrature target was not met; returning the computed integral" context=(; point = z, face = face.kind, radius = face.radius,
-            phi = face.phi, degree = face.p,
-            span = face.span, mid = face.mid, half = face.half, alpha = face.alpha, beta = face.beta,
-            quadrature = length(face.points),
-            estimate, tolerance, evaluations = evaluations[], maxevals)
-    end
+        (; point = z), "nonfinite logarithmic integral"))
     return integral, estimate
 end
 
-function _shunt_tape_columns!(columns, targets, faces, g, k; log_rtol = 1e-10,
-        integration = (rtol = log_rtol, atol = 0.01log_rtol, maxevals = 100_000), buffers)
+# Add the integrated charge columns of every tape face to `columns`. Count the moments
+# whose QuadGK estimate exceeds the requested target.
+function _shunt_tape_columns!(columns, targets, faces, g, k; integration, buffers)
     estimated_error = 0.0
+    unmet = 0
     offset = 0
-    for face in faces
+    for tape in faces, face in tape
         block = @view columns[:, (offset + 1):(offset + face.p + 1)]
-        kernel = @view buffers.tape[1:length(targets), 1:length(face.points)]
+        kernel = @view buffers.face_kernel[1:length(targets), 1:length(face.points)]
         _shunt_kernel_matrix!(
             kernel, targets, face.points, g, k; split_images = true, buffers)
         mul!(block, kernel, face.weighted)
-        result = zeros(face.p+1)
-        segments = alloc_segbuf(Float64, Vector{Float64}, Float64; size = 32)
         for (i, z) in pairs(targets)
             inner, outer = g.a^2/conj(z), g.b^2/conj(z)
             direct_coefficient = 1.0
-            inner_same = abs(inner-z) <= 8eps(Float64)*g.b
-            outer_same = abs(outer-z) <= 8eps(Float64)*g.b
+            inner_same = abs(inner-z) <= _shunt_tol(g.b)
+            outer_same = abs(outer-z) <= _shunt_tol(g.b)
             direct_coefficient += (inner_same ? k.ra0 : 0.0) + (outer_same ? k.rb0 : 0.0)
             for (point, coefficient) in ((inner, inner_same ? 0.0 : k.ra0),
                 (outer, outer_same ? 0.0 : k.rb0), (z, direct_coefficient))
                 coefficient == 0 && continue
                 moments,
-                err = _shunt_log_moments(point, face; integration..., result, segments)
+                err = _shunt_log_moments(point, face; integration...,
+                    result = buffers.moments, segments = buffers.segments)
                 @inbounds for n in eachindex(moments)
                     block[i, n] -= (coefficient/g.epsilon)*moments[n]
                 end
                 estimated_error = max(estimated_error, abs(coefficient/g.epsilon)*err)
+                unmet += !(err <= max(integration.rtol*norm(moments), integration.atol))
             end
         end
         offset += face.p+1
     end
-    (; columns, log_moment_error = estimated_error)
+    (; columns, log_moment_error = estimated_error, unmet)
 end
 
-function _shunt_tape_columns(selected::Formula{:boundary}, targets, faces, g, k; kwargs...)
-    nodes = maximum(face -> length(face.points), faces; init = 0)
-    buffers = initialize_buffers(selected, Val(:kernel), Float64, nothing,
-        (rows = length(targets), columns = nodes, modes = length(k.A), quadrature = nodes),
-        (;))
-    columns = Matrix{Float64}(undef, length(targets), sum(f.p+1 for f in faces; init = 0))
-    return _shunt_tape_columns!(columns, targets, faces, g, k; buffers, kwargs...)
-end
-
-function _shunt_face_targets(faces, n; validation = false)
-    parameters = -cos.(pi .* ((1:n) .- 0.5) ./ n)
-    if validation
-        # Independent uniform targets plus progressively closer corner targets.
-        parameters = sort!(unique!([parameters; collect(range(-1, 1; length = n+1));
-                                    [-1+10.0^-k for k in 2:10]; [1-10.0^-k for k in 2:10]]))
-    end
-    [_shunt_face_point(face, t) for face in faces for t in parameters]
-end
-
-"Maximum dense collocation storage per local solve [bytes]."
-const INTERNAL_SHUNT_MATRIX_BYTES = 384 * 1024^2
-
-const ShuntTapeFace = NamedTuple{
-    (:kind, :radius, :phi, :span, :mid, :half, :alpha, :beta, :p, :nodes, :weights,
-        :weighted, :beta_norm, :terminal, :points),
-    Tuple{Symbol, Float64, Float64, Float64, Float64, Float64, Float64, Float64,
-        Int, Vector{Float64}, Vector{Float64}, Matrix{Float64},
-        Float64, Int, Vector{ComplexF64}}}
-
+"""
+Record one boundary solve. `log_moment_error` is the largest weighted QuadGK error
+estimate of the logarithmic moments. `condition` is the 1-norm condition estimate of the
+equilibrated collocation system's triangular factors, the larger of the Fourier blocks
+together and the border. `ring` counts the wires that the Fourier reduction separates, zero
+without a ring. `unknowns` and `equations` count the charge coefficients and collocation
+equations, and `level` is the resolution.
+"""
 const InternalShuntDiagnostic = NamedTuple{
-    (:boundary_residual, :wire_residual, :tape_residual, :common_residual,
-        :penetration_indicator, :reciprocity, :log_moment_error, :unknowns,
-        :equations, :matrix_bytes, :level),
-    Tuple{Union{Nothing, Float64}, Union{Nothing, Float64}, Union{Nothing, Float64},
-        Union{Nothing, Float64}, Union{Nothing, Float64}, Float64, Float64,
-        Int, Int, Int, typeof(DEFAULT_RESOLUTION)}}
+    (:log_moment_error, :condition, :ring, :unknowns, :equations, :level),
+    Tuple{Float64, Float64, Int, Int, Int, typeof(DEFAULT_RESOLUTION)}}
 
-function _shunt_values(domain::InternalShuntDomain{T}, formulas) where {T}
-    # The admitted lossless laws depend only on relative permittivity. Resistivity
-    # temperature corrections do not belong to these blueprint coefficients.
-    reference_frequency = one(T)
-    epsilon(material) = begin
-        kappa = constitutive((formulas.insulation_admittance, formulas.semicon_admittance),
-            material, reference_frequency, material.T0; temperature_dependence = nothing)
-        imag(kappa)/(2pi*reference_frequency*vacuum_permittivity(T))
+# The fixed geometry of one solve in the wire order of `layout`: tape faces, collocation
+# targets and their terminals, auxiliary sources and Fourier load coefficients, with the
+# array sizes they give. The ring's targets and sources come first, wire by wire, then the
+# other wires' and the tape faces'.
+function _shunt_plan(selected::Formula{:boundary}, g, layout, derivatives = 0)
+    (; resolution, integration) = selected.options.data
+    level = resolution
+    faces = ShuntTapeFaces[_shunt_tape_faces(g, tape, level.order, level.quadrature)
+                           for tape in g.tapes]
+    points, terminals, sources = ComplexF64[], Int[], ComplexF64[]
+    for (index, exposed) in zip(layout.wires, layout.exposed)
+        wire = g.wires[index]
+        append!(points, _shunt_wire_point(wire, 1, j, 2level.wire) for j in exposed)
+        append!(terminals, fill(wire.terminal, length(exposed)))
+        append!(sources,
+            _shunt_wire_point(wire, 0.75, j, level.wire) for j in 0:(level.wire - 1))
     end
-    values = T[domain.a, domain.b, epsilon(domain.material)]
-    for layers in (domain.left, domain.right), layer in layers
-
-        append!(values, (layer.ri, layer.ro, epsilon(layer.material)))
+    nface = max(24, 4(level.order+1))
+    parameters = -cos.(pi .* ((1:nface) .- 0.5) ./ nface)
+    for tape in faces, face in tape
+        append!(points, [_shunt_face_point(face.shape, t) for t in parameters])
+        append!(terminals, fill(face.terminal, nface))
     end
-    for wire in domain.wires
-        append!(values, (wire.x, wire.y, wire.r))
-    end
-    for tape in domain.tapes
-        append!(values, (tape.ri, tape.ro, tape.phi, tape.span))
-    end
-    return values
+    k = _shunt_kernel_coefficients(g, level.modes)
+    columns = length(sources)+4(level.order+1)*length(faces)
+    ports = max(maximum(wire -> wire.terminal, g.wires; init = 1),
+        maximum(tape -> tape.terminal, g.tapes; init = 1))
+    ring = layout.ring
+    return (; faces, points, terminals, sources, k, level, integration, layout, ring,
+        block_rows = iszero(ring) ? 0 : length(first(layout.exposed)),
+        block_columns = iszero(ring) ? 0 : level.wire,
+        rows = length(points), columns, ports, modes = level.modes,
+        quadrature = isempty(faces) ? 0 : level.quadrature, order = level.order, derivatives)
 end
 
-# The flat values vector is also the differentiation input. It keeps
-# correlated scalar graphs out of dense factorizations without discarding them.
-function _shunt_data(values::AbstractVector{T}, domain) where {T}
-    a, b, epsilon = values[1:3]
-    Layer = NamedTuple{(:ri, :ro, :epsilon), Tuple{T, T, T}}
-    left, right = Layer[], Layer[]
-    cursor = 4
-    for (destination, layers) in ((left, domain.left), (right, domain.right))
-        for _ in layers
-            push!(destination, (
-                ri = values[cursor], ro = values[cursor + 1], epsilon = values[cursor + 2]))
-            cursor += 3
-        end
-    end
-    wires, tapes = ShuntWire{T}[], ShuntTape{T}[]
-    for wire in domain.wires
-        push!(wires,
-            (x = values[cursor], y = values[cursor + 1],
-                r = values[cursor + 2], terminal = wire.terminal))
-        cursor += 3
-    end
-    for tape in domain.tapes
-        push!(tapes,
-            (ri = values[cursor], ro = values[cursor + 1], phi = values[cursor + 2],
-                span = values[cursor + 3], terminal = tape.terminal))
-        cursor += 4
-    end
-    Rleft = sum(l->log(l.ro/l.ri)/l.epsilon, left; init = zero(T))
-    Rright = sum(l->log(l.ro/l.ri)/l.epsilon, right; init = zero(T))
-    return (; a, b, epsilon, left, right, wires, tapes, Rleft, Rright,
-        Rtotal = Rleft+log(b/a)/epsilon+Rright, ports = length(domain.terminals)-1)
-end
-
-function _shunt_discretization(g, level; validation = false)
-    faces = ShuntTapeFace[]
-    for tape in g.tapes
-        append!(faces, _shunt_tape_faces(g, tape, level.order, level.quadrature))
-    end
-    count = validation ? 3level.wire : 2level.wire
-    points = _shunt_points(g, count, 0.75; shift = validation ? 0.37 : 0.0).targets
-    terminals = Int[w.terminal for w in g.wires for _ in 1:count]
-    nface = validation ? max(41, 12(level.order+1)) : max(24, 4(level.order+1))
-    for face in faces
-        targets = _shunt_face_targets([face], nface; validation)
-        append!(points, targets)
-        append!(terminals, fill(face.terminal, length(targets)))
-    end
-    return (; faces, points, terminals, wire_targets = count*length(g.wires))
-end
-
-function _shunt_rhs!(rhs, points, terminals, g)
+function _shunt_rhs!(rhs, points, terminals, g, k)
     fill!(rhs, 0)
     @inbounds for i in eachindex(points)
-        rhs[i, 1] = -_shunt_core_voltage(points[i], g)
+        rhs[i, 1] = -_shunt_core_voltage(points[i], g, k)
         rhs[i, terminals[i]] = 1
     end
     return rhs
 end
 
-function _shunt_matrix!(matrix, points, sources, faces, g, k;
-        integration = DEFAULT_INTEGRATION, buffers, stage = :assembly)
+function _shunt_matrix!(matrix, points, sources, faces, g, k; integration, buffers)
     count = length(sources)
-    try
-        _shunt_kernel_matrix!(@view(matrix[:, 1:count]), points, sources, g, k; buffers)
-        tape = _shunt_tape_columns!(
-            @view(matrix[:, (count + 1):end]), points, faces, g, k; integration, buffers)
-        return tape.log_moment_error
-    catch exception
-        exception isa BoundarySolveError || rethrow()
-        throw(BoundarySolveError(exception.category, merge(exception.context, (; stage)), exception.message))
-    end
+    _shunt_kernel_matrix!(@view(matrix[:, 1:count]), points, sources, g, k; buffers)
+    return _shunt_tape_columns!(
+        @view(matrix[:, (count + 1):end]), points, faces, g, k; integration, buffers)
 end
 
-function _shunt_charge_map(g, sources, faces, level)
-    count = length(sources)+sum(f->f.p+1, faces; init = 0)
-    charge = zeros(g.ports, count)
-    @inbounds for (index, wire) in pairs(g.wires)
-        for j in ((index - 1) * level.wire + 1):(index * level.wire)
-            charge[1, j] = -_shunt_core_voltage(sources[j], g)
-            charge[wire.terminal, j] = 1
+# Total charge of each terminal and the charge moment of the core potential, per face.
+function _shunt_charge!(charge, offset, face::ShuntFace{ShuntArc}, g, k)
+    charge[face.terminal, offset + 1] = 1
+    # The core potential is constant on an arc: only the uniform mode has a moment.
+    charge[1, offset + 1] = -_shunt_core_voltage(first(face.points), g, k)
+    return charge
+end
+
+function _shunt_charge!(charge, offset, face::ShuntFace{ShuntEnd}, g, k)
+    charge[face.terminal, offset + 1] = 1
+    @views mul!(charge[1:1, (offset + 1):(offset + face.p + 1)],
+        transpose(_shunt_core_voltage.(face.points, Ref(g), Ref(k))), face.weighted, -1.0, 0.0)
+    return charge
+end
+
+function _shunt_charge_map(g, plan)
+    (; sources, faces, level, k) = plan
+    charge = zeros(plan.ports, plan.columns)
+    @inbounds for (position, index) in pairs(plan.layout.wires)
+        for j in ((position - 1) * level.wire + 1):(position * level.wire)
+            charge[1, j] = -_shunt_core_voltage(sources[j], g, k)
+            charge[g.wires[index].terminal, j] = 1
         end
     end
     offset = length(sources)
-    for face in faces
-        charge[face.terminal, offset + 1] = 1
-        if face.kind === :arc
-            charge[1, offset + 1] = -_shunt_core_voltage(first(face.points), g)
-        else
-            @views mul!(charge[1:1, (offset + 1):(offset + face.p + 1)],
-                transpose(_shunt_core_voltage.(face.points, Ref(g))), face.weighted, -1.0, 0.0)
-        end
+    for tape in faces, face in tape
+        _shunt_charge!(charge, offset, face, g, k)
         offset += face.p+1
     end
     return charge
@@ -773,158 +759,323 @@ $(TYPEDSIGNATURES)
 Compute the lossless terminal capacitance of exposed wires and finite tapes
 inside a layered circular reference shield. Round-wire auxiliary sources and
 corner-weighted integrated tape charges share a column-equilibrated least-
-squares solve. Charge is extracted by exact total-charge and core-potential
-moments, not by symmetrizing the answer.
+squares solve. A ring of identical, equally spaced wires on one terminal separates into one
+block per Fourier index, and the tapes and other wires form a border that is eliminated
+exactly. Charge is extracted by exact total-charge and core-potential
+moments, not by symmetrizing the answer. The layout and plan fix the geometry of the solve,
+the buffers of the boundary shunt formula hold its arrays, and `directions` adds the arrays
+of the capacitance derivative.
 
 # Arguments
 
-- `selected`: the boundary shunt formula, which builds the kernel buffers.
-- `g`: local radii and positions \\[m\\] and relative dielectric permittivities.
-
-# Keywords
-
-- `level`: fixed numerical resolution. The reference settings are not an
+- `selected`: the boundary shunt formula. Its options set the resolution and the
+  logarithmic-moment quadrature controls. The reference settings are not an
   accuracy guarantee for arbitrary geometry or weak terminal couplings.
-- `retain=false`: retain the factorization only for local differentiation.
-- `integration`: dimensionless logarithmic-moment quadrature controls.
-- `audit=false`: evaluate independent boundary-grid residuals. When disabled,
-  those diagnostic fields are `nothing`. The terminal solve is unchanged.
+- `g`: local radii and positions \\[m\\] and relative dielectric permittivities.
+- `directions=nothing`: physical input perturbations, when derivatives follow.
 
 # Returns
 
-- Local capacitance `C` \\[F/m\\], sampled numerical diagnostics, and optional
-  differentiation state. Sampled residuals are not certified error bounds.
+- Local capacitance `C` \\[F/m\\], the numerical record, the factors of the solve, the
+  charge coefficients and charge map, and the workspace of the solve.
 
 # Notes
 
 The layered Green function and whole-face charge approach has precedent in
 [Bernal1997](@cite), but this solve uses oversampled boundary collocation and
-pivoted QR, not that paper's Galerkin system. The circular kernel, wire-source
-placement at `0.75` times each wire radius, Jacobi adaptation, resolution and
-acceptance checks are implementation choices. An accuracy bound for this combined discretization
-is not established by the cited methods.
+unpivoted QR, not that paper's Galerkin system. The circular kernel, wire-source
+placement at `0.75` times each wire radius, Jacobi adaptation and resolution are
+implementation choices. An accuracy bound for this combined discretization is not
+established by the cited methods.
 
 # Errors
 
-Memory-budget failures, degenerate charge columns and nonfinite capacitance are
-`BoundarySolveError`, not geometry `DomainError`. Monte Carlo must not condition
-its samples on them. Estimated rank, reciprocity, passivity and sampled geometric boundary
-quality are reported as warnings without substituting a different calculation.
+Fewer equations than charge coefficients, degenerate charge columns and nonfinite
+capacitance are `BoundarySolveError`, not geometry `DomainError`. Monte Carlo must not
+condition its samples on them. An unmet quadrature target is reported as a warning, once
+per solve. The condition estimate is recorded, without a judgement.
 """
-Base.@constprop :aggressive function _shunt_capacitance(selected::Formula{:boundary}, g;
-        level = DEFAULT_RESOLUTION, retain = false, integration = DEFAULT_INTEGRATION,
-        audit = false)
-    return _shunt_capacitance(selected, g, Val(retain); level, integration, audit)
+function _shunt_capacitance(selected::Formula{:boundary}, group, directions = nothing)
+    layout = _shunt_layout(group, selected.options.data.resolution)
+    plan = _shunt_plan(selected, group, layout,
+        directions === nothing ? 0 : size(directions, 2))
+    buffers = initialize_buffers(selected, Float64, group, plan, (;))
+    workspace = (; input = group, plan, buffers)
+    return merge(_shunt_capacitance!(selected, workspace), (; workspace))
 end
 
-function _shunt_capacitance(selected::Formula{:boundary}, g, ::Val{retain};
-        level = DEFAULT_RESOLUTION,
-        integration = DEFAULT_INTEGRATION, audit = false) where {retain}
-    estimated_unknowns = length(g.wires)*level.wire + 4length(g.tapes)*(level.order+1)
-    estimated_rows = 2length(g.wires)*level.wire +
-                     4length(g.tapes)*max(24, 4(level.order+1))
-    estimated_unknowns > 0 && estimated_rows >= estimated_unknowns ||
-        error("internal shunt: insufficient boundary equations")
-    estimated_unknowns <= div(INTERNAL_SHUNT_MATRIX_BYTES, 8estimated_rows) || throw(
-        BoundarySolveError(:budget, (; estimated_unknowns, estimated_rows),
-        "requested resolution exceeds the dense storage budget"))
-    discretization = _shunt_discretization(g, level)
-    (; faces, points, terminals) = discretization
-    sources = _shunt_points(g, level.wire, 0.75).sources
-    n = length(sources)+sum(f->f.p+1, faces; init = 0)
-    m = length(points)
-    n > 0 && m >= n || error("internal shunt: insufficient boundary equations")
-    n <= div(INTERNAL_SHUNT_MATRIX_BYTES, 8m) ||
-        throw(BoundarySolveError(:budget, (; rows = m, columns = n),
-            "boundary matrix exceeds the $(INTERNAL_SHUNT_MATRIX_BYTES÷1024^2) MiB storage budget"))
-    k = _shunt_kernel_coefficients(g, level.modes)
-    matrix = Matrix{Float64}(undef, m, n)
-    buffers = initialize_buffers(selected, Val(:kernel), Float64, nothing,
-        (rows = max(m, 192), columns = max(length(sources), level.quadrature),
-            modes = level.modes, quadrature = isempty(faces) ? 0 : level.quadrature), (;))
-    moment_error = _shunt_matrix!(
-        matrix, points, sources, faces, g, k; integration, buffers)
-    rhs = _shunt_rhs!(zeros(m, g.ports), points, terminals, g)
-    scales = Vector{Float64}(undef, n)
-    @inbounds for j in 1:n
-        scales[j] = norm(@view matrix[:, j])
-        isfinite(scales[j]) && scales[j] > 0 || throw(BoundarySolveError(
+# Assemble the collocation system in the buffers of `workspace` and solve it.
+function _shunt_capacitance!(selected::Formula{:boundary}, workspace)
+    g, plan, buffers = workspace.input, workspace.plan, workspace.buffers
+    (; faces, points, terminals, sources, k, integration) = plan
+    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    m, n = plan.rows, plan.columns
+    m >= n || throw(BoundarySolveError(:rank, (; rows = m, columns = n),
+        "fewer boundary equations than charge coefficients"))
+    (; ring_kernel, coupling_kernel, border, column_norms) = buffers
+    kept = size(coupling_kernel, 1)
+    # The ring needs one block row of its kernel, and its columns at the border rows.
+    ring = @view sources[1:(N * c)]
+    _shunt_kernel_matrix!(ring_kernel, @view(points[1:r]), ring, g, k; buffers)
+    _shunt_kernel_matrix!(
+        coupling_kernel, @view(points[(N * r + 1):(N * r + kept)]), ring, g, k; buffers)
+    tape = _shunt_matrix!(border, points, @view(sources[(N * c + 1):end]), faces, g, k;
+        integration, buffers)
+    tape.unmet == 0 ||
+        @warn "Boundary logarithmic quadrature target was not met" integrals=tape.unmet log_moment_error=tape.log_moment_error rtol=integration.rtol atol=integration.atol maxevals=integration.maxevals
+    # A ring column's norm over the ring rows is the same on every wire, which keeps the
+    # equilibrated blocks circulant.
+    for j in 1:c
+        scale = norm(@view ring_kernel[:, j:c:end])
+        isfinite(scale) && scale > 0 || throw(BoundarySolveError(
             :rank, (; column = j), "degenerate charge column"))
-        @views matrix[:, j] ./= scales[j]
+        column_norms[j:c:(N * c)] .= scale
+        @views ring_kernel[:, j:c:end] ./= scale
+        @views coupling_kernel[:, j:c:end] ./= scale
     end
-    # In-place pivoted QR avoids retaining K, scaled K, U and V simultaneously.
-    factor = qr!(matrix, ColumnNorm())
-    diagonal = [abs(factor.factors[i, i]) for i in 1:n]
-    cutoff = max(m, n)*eps(Float64)*maximum(diagonal)
-    estimated_rank = count(>(cutoff), diagonal)
-    estimated_rank == n || @warn "Boundary charge basis has unresolved numerical rank; retaining the selected QR solve" estimated_rank columns=n cutoff
-    scaled_coefficients = factor\rhs
-    coefficients = scaled_coefficients ./ scales
-    charge = _shunt_charge_map(g, sources, faces, level)
+    for j in axes(border, 2)
+        scale = norm(@view border[:, j])
+        isfinite(scale) && scale > 0 || throw(BoundarySolveError(
+            :rank, (; column = N*c+j), "degenerate charge column"))
+        column_norms[N * c + j] = scale
+        @views border[:, j] ./= scale
+    end
+    factored = _shunt_factor!(plan, buffers)
+    rhs = _shunt_rhs!(buffers.excitation, points, terminals, g, k)
+    coefficients = _shunt_solve!(buffers.coefficients, factored, plan, buffers, rhs) ./
+                   column_norms
+    charge = _shunt_charge_map(g, plan)
     C = (2pi*vacuum_permittivity(Float64)) .* (charge*coefficients)
-    C[1, 1] += 2pi*vacuum_permittivity(Float64)/g.Rtotal
+    C[1, 1] += 2pi*vacuum_permittivity(Float64)/k.Rtotal
     all(isfinite, C) ||
         throw(BoundarySolveError(:nonfinite, (;), "nonfinite terminal capacitance"))
-    audit_result = audit ?
-                   _shunt_audit(
-        g, level, sources, k, coefficients, n, buffers, integration) : nothing
-    boundary = audit_result === nothing ? nothing : audit_result.boundary
-    common = audit_result === nothing ? nothing : audit_result.common
-    wire_residual = audit_result === nothing ? nothing : audit_result.wire_residual
-    tape_residual = audit_result === nothing ? nothing : audit_result.tape_residual
-    audit_result === nothing || (moment_error=max(moment_error, audit_result.moment_error))
-    reciprocity = norm(C-transpose(C))/norm(C)
-    reciprocity <= 0.01 || @warn "Boundary terminal reciprocity target was not met" reciprocity tolerance=0.01
-    minimum_eigenvalue = minimum(eigvals!(copy((C+transpose(C))/2)))
-    minimum_eigenvalue > 0 || @warn "Boundary capacitance has a nonpositive symmetric-part eigenvalue" minimum_eigenvalue
-    leakage = abs(sum(@view C[1, :]))
-    coupling = sum(abs, @view C[1, 2:end])
-    indicator = common === nothing ? nothing :
-                iszero(leakage) ? Inf : common*coupling/leakage
-    diagnostic = InternalShuntDiagnostic((boundary, wire_residual, tape_residual,
-        common, indicator, reciprocity, moment_error, n, m, 8m*n, level))
-    state = if retain
-        residual = factor.Q' * rhs
-        residual[1:n, :] .= 0
-        residual = factor.Q * residual
-        (; factor, scales, scaled_coefficients, coefficients, charge, residual,
-            points, terminals, sources, faces, k, level, integration)
-    else
-        nothing
-    end
-    return (; C, diagnostic, state)
+    diagnostic = InternalShuntDiagnostic((
+        tape.log_moment_error, factored.condition, N, n, m, plan.level))
+    return (; C, diagnostic, factored, coefficients, charge)
 end
 
-function _shunt_audit(g, level, sources, k, coefficients, n, buffers, integration)
-    checks = _shunt_discretization(g, level; validation = true)
-    matrix = Matrix{Float64}(undef, min(192, length(checks.points)), n)
-    errors = zeros(size(matrix, 1), g.ports)
-    boundary = common = wire_residual = tape_residual = 0.0
-    moment_error = 0.0
-    for start in 1:192:length(checks.points)
-        stop = min(start+191, length(checks.points))
-        rows = 1:(stop - start + 1)
-        block = @view matrix[rows, :]
-        selected = @view checks.points[start:stop]
-        moment_error = max(moment_error,
-            _shunt_matrix!(block, selected, sources, checks.faces, g, k;
-                integration, buffers, stage = :audit))
-        residual = @view errors[rows, :]
-        _shunt_rhs!(residual, selected, @view(checks.terminals[start:stop]), g)
-        mul!(residual, block, coefficients, 1.0, -1.0)
-        for i in rows
-            value = maximum(abs, @view residual[i, :])
-            boundary = max(boundary, value)
-            common = max(common, abs(sum(@view residual[i, :])))
-            if start+i-1 <= checks.wire_targets
-                wire_residual = max(wire_residual, value)
-            else
-                tape_residual = max(tape_residual, value)
-            end
+"""
+$(TYPEDSIGNATURES)
+
+Factor the equilibrated collocation system that `buffers` holds for `plan`. A unitary
+discrete Fourier transform over the ring separates its circulant part into one block
+``\\Lambda_p=\\sum_l B_l e^{2\\pi i p l/N}`` per Fourier index ``p``, where ``B_l`` is the
+potential of wire ``l``'s sources at the first wire's targets. Unpivoted QR factors each
+block, ``\\Lambda_p=Q_p R_p``. The border rows enter through ``M=G R^{-1}`` and the Cholesky
+factor ``L`` of ``K=I+\\Re(M M^H)``, where ``G`` holds the ring's Fourier columns at the border
+rows. The border columns enter through one QR factor of the blocks' residual rows stacked on
+``L^{-1}(H-\\Re(M S))``, where ``H`` and ``S`` hold the border columns at the border rows and
+at the blocks' leading rows. Without a ring, that factor is the QR factor of the whole system.
+
+# Returns
+
+- The factors that `_shunt_solve!` and `_shunt_normal!` use, and `condition`, the larger of
+  the 1-norm condition estimates of the Fourier blocks together and of the border factor.
+"""
+function _shunt_factor!(plan, buffers)
+    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    nb = plan.columns - N*c
+    (; ring_kernel, coupling_kernel, border, phases, ring_factors, ring_border, coupling,
+        ring_residual, border_gram, gram_product, coupling_product, border_reduced,
+        border_system) = buffers
+    kept = size(coupling, 1)
+    for l in 0:(N - 1), p in 0:(N - 1)
+        phases[p + 1, l + 1] = cispi(2mod(p*l, N)/N)/sqrt(N)
+    end
+    fill!(ring_factors, 0)
+    fill!(ring_border, 0)
+    fill!(coupling, 0)
+    for l in 0:(N - 1), p in 0:(N - 1)
+        phase = phases[p + 1, l + 1]
+        block, rows = (l * c + 1):((l + 1) * c), (l * r + 1):((l + 1) * r)
+        @views ring_factors[:, :, p + 1] .+= (sqrt(N)*phase) .* ring_kernel[:, block]
+        @views ring_border[:, :, p + 1] .+= conj(phase) .* border[rows, :]
+        @views coupling[:, (p * c + 1):((p + 1) * c)] .+= phase .* coupling_kernel[:, block]
+    end
+    factors = [qr!(@view ring_factors[:, :, p]) for p in 1:N]
+    largest, inverse = 0.0, 0.0
+    for p in 1:N
+        lmul!(factors[p].Q', @view ring_border[:, :, p])
+        R = UpperTriangular(@view ring_factors[1:c, :, p])
+        magnitude = opnorm(R, 1)
+        largest = max(largest, magnitude)
+        inverse = max(inverse, cond(R, 1)/magnitude)
+        rdiv!(@view(coupling[:, ((p - 1) * c + 1):(p * c)]), R)
+    end
+    # Without a ring or without border rows, K is empty.
+    mul!(gram_product, coupling, coupling')
+    border_gram .= real.(gram_product)
+    for i in 1:kept
+        border_gram[i, i] += 1
+    end
+    gram = cholesky!(Hermitian(border_gram))
+    fill!(coupling_product, 0)
+    for p in 1:N
+        @views mul!(coupling_product, coupling[:, ((p - 1) * c + 1):(p * c)],
+            ring_border[1:c, :, p], true, true)
+    end
+    @views border_reduced .= border[(N * r + 1):(N * r + kept), :] .- real.(coupling_product)
+    ldiv!(gram.L, border_reduced)
+    for p in 1:N
+        @views ring_residual[((p - 1) * (r - c) + 1):(p * (r - c)), :] .=
+            ring_border[(c + 1):r, :, p]
+    end
+    residual = qr!(ring_residual)
+    top = min(N*(r - c), nb)
+    R = residual.R
+    @views border_system[1:top, :] .= real.(R)
+    @views border_system[(top + 1):(2top), :] .= imag.(R)
+    @views border_system[(2top + 1):end, :] .= iszero(N) ? border : border_reduced
+    system = qr!(border_system)
+    condition = max(largest*inverse, iszero(nb) ? 1.0 :
+                                     cond(UpperTriangular(@view system.factors[1:nb, 1:nb]), 1))
+    return (; factors, gram, residual, top, system, condition)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write the equilibrated coefficients of the least-squares solution for the right-hand sides
+`rhs` into `x`. With ``d_p`` the leading rows of ``Q_p^H`` times the transformed ring rows,
+``w=L^{-1}(b_b-\\Re\\sum_p M_p d_p)`` and the blocks' residual rows give the border
+coefficients ``t`` by the border factor. Then ``v=L^{-H}(w-L^{-1}\\tilde H t)``, each block's
+coefficients are ``y_p=R_p^{-1}(d_p+M_p^H v-S_p t)``, and the inverse transform returns the
+ring's coefficients.
+"""
+function _shunt_solve!(x, factored, plan, buffers, rhs)
+    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    nb = plan.columns - N*c
+    (; factors, gram, residual, top, system) = factored
+    (; phases, ring_factors, ring_border, coupling, border_reduced, ring_rhs, ring_solution,
+        border_product, border_rhs, border_solution, residual_rhs, system_rhs) = buffers
+    kept = size(coupling, 1)
+    fill!(ring_rhs, 0)
+    for q in 0:(N - 1), p in 0:(N - 1)
+        @views ring_rhs[:, :, p + 1] .+= conj(phases[p + 1, q + 1]) .*
+                                         rhs[(q * r + 1):((q + 1) * r), :]
+    end
+    for p in 1:N
+        lmul!(factors[p].Q', @view ring_rhs[:, :, p])
+    end
+    w = border_rhs
+    w .= @view rhs[(N * r + 1):end, :]
+    fill!(border_product, 0)
+    for p in 1:N
+        @views mul!(border_product, coupling[:, ((p - 1) * c + 1):(p * c)],
+            ring_rhs[1:c, :, p], true, true)
+    end
+    @views w[1:kept, :] .-= real.(border_product)
+    @views ldiv!(gram.L, w[1:kept, :])
+    for p in 1:N
+        @views residual_rhs[((p - 1) * (r - c) + 1):(p * (r - c)), :] .=
+            ring_rhs[(c + 1):r, :, p]
+    end
+    lmul!(residual.Q', residual_rhs)
+    @views system_rhs[1:top, :] .= real.(residual_rhs[1:top, :])
+    @views system_rhs[(top + 1):(2top), :] .= imag.(residual_rhs[1:top, :])
+    @views system_rhs[(2top + 1):end, :] .= w
+    lmul!(system.Q', system_rhs)
+    t = border_solution
+    t .= @view system_rhs[1:nb, :]
+    ldiv!(UpperTriangular(@view system.factors[1:nb, 1:nb]), t)
+    @views mul!(w[1:kept, :], border_reduced, t, -1, 1)
+    @views ldiv!(gram.U, w[1:kept, :])
+    for p in 1:N
+        y = @view ring_solution[:, :, p]
+        @views y .= ring_rhs[1:c, :, p]
+        @views mul!(y, coupling[:, ((p - 1) * c + 1):(p * c)]', w[1:kept, :], true, true)
+        @views mul!(y, ring_border[1:c, :, p], t, -1, 1)
+        ldiv!(UpperTriangular(@view ring_factors[1:c, :, p]), y)
+    end
+    return _shunt_coefficients!(x, plan, buffers)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write ``(A^T A)^{-1} w`` of the factored, equilibrated system ``A`` into `x`, which may be
+`w`, for the implicit derivative. The blocks give ``c_p=R_p^{-H}\\hat w_p`` from the
+transformed ring part ``\\hat w`` of `w`. The border coefficients ``q_t`` solve
+``R_T^T R_T q_t=w_t-\\Re\\sum_p S_p^H c_p-\\tilde W^T g`` with the border factor ``R_T``,
+``g=L^{-1}\\Re\\sum_p M_p c_p`` and ``\\tilde W=L^{-1}\\tilde H``. Each block's coefficients
+are then ``R_p^{-1}(c_p-M_p^H L^{-H}(g+\\tilde W q_t)-S_p q_t)``, transformed back.
+"""
+function _shunt_normal!(x, factored, plan, buffers, w)
+    N, c = plan.ring, plan.block_columns
+    nb = plan.columns - N*c
+    (; gram, system) = factored
+    (; phases, ring_factors, ring_border, coupling, border_reduced, ring_solution,
+        border_product, border_rhs, border_solution, border_normal) = buffers
+    kept = size(coupling, 1)
+    fill!(ring_solution, 0)
+    for l in 0:(N - 1), p in 0:(N - 1)
+        @views ring_solution[:, :, p + 1] .+= conj(phases[p + 1, l + 1]) .*
+                                              w[(l * c + 1):((l + 1) * c), :]
+    end
+    for p in 1:N
+        ldiv!(UpperTriangular(@view ring_factors[1:c, :, p])', @view ring_solution[:, :, p])
+    end
+    t = border_solution
+    t .= @view w[(N * c + 1):end, :]
+    fill!(border_normal, 0)
+    fill!(border_product, 0)
+    for p in 1:N
+        @views mul!(border_normal, ring_border[1:c, :, p]', ring_solution[:, :, p], true, true)
+        @views mul!(border_product, coupling[:, ((p - 1) * c + 1):(p * c)],
+            ring_solution[:, :, p], true, true)
+    end
+    t .-= real.(border_normal)
+    g = @view border_rhs[1:kept, :]
+    g .= real.(border_product)
+    ldiv!(gram.L, g)
+    mul!(t, border_reduced', g, -1, 1)
+    R = UpperTriangular(@view system.factors[1:nb, 1:nb])
+    ldiv!(R', t)
+    ldiv!(R, t)
+    mul!(g, border_reduced, t, 1, 1)
+    ldiv!(gram.U, g)
+    for p in 1:N
+        y = @view ring_solution[:, :, p]
+        @views mul!(y, coupling[:, ((p - 1) * c + 1):(p * c)]', g, -1, 1)
+        @views mul!(y, ring_border[1:c, :, p], t, -1, 1)
+        ldiv!(UpperTriangular(@view ring_factors[1:c, :, p]), y)
+    end
+    return _shunt_coefficients!(x, plan, buffers)
+end
+
+# The equilibrated coefficients from the ring's Fourier coefficients and the border's: wire
+# l's are the real part of the inverse transform, sum over p of exp(2pi i p l/N)/sqrt(N) y_p.
+function _shunt_coefficients!(x, plan, buffers)
+    N, c = plan.ring, plan.block_columns
+    (; phases, ring_solution, border_solution) = buffers
+    for l in 0:(N - 1)
+        block = @view x[(l * c + 1):((l + 1) * c), :]
+        fill!(block, 0)
+        for p in 0:(N - 1)
+            @views block .+= real.(phases[p + 1, l + 1] .* ring_solution[:, :, p + 1])
         end
     end
-    boundary <= 0.06 || @warn "Sampled boundary residual exceeds 0.06 V per unit excitation" boundary tolerance=0.06
-    return (; boundary, common, wire_residual, tape_residual, moment_error)
+    @views x[(N * c + 1):end, :] .= border_solution
+    return x
+end
+
+# Write the residual b - A y of the equilibrated system for the coefficients `y` and the
+# right-hand sides `rhs` into `residual`. Block (q, l) of the ring's circulant is block
+# (0, l - q mod N) of its first block row.
+function _shunt_residual!(residual, plan, buffers, y, rhs)
+    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    (; ring_kernel, coupling_kernel, border) = buffers
+    kept = size(coupling_kernel, 1)
+    copyto!(residual, rhs)
+    for q in 0:(N - 1), l in 0:(N - 1)
+        d = mod(l - q, N)
+        @views mul!(residual[(q * r + 1):((q + 1) * r), :],
+            ring_kernel[:, (d * c + 1):((d + 1) * c)], y[(l * c + 1):((l + 1) * c), :], -1, 1)
+    end
+    @views mul!(residual[(N * r + 1):(N * r + kept), :], coupling_kernel, y[1:(N * c), :],
+        -1, 1)
+    @views mul!(residual, border, y[(N * c + 1):end, :], -1, 1)
+    return residual
 end
 
 """
@@ -932,14 +1083,15 @@ $(TYPEDSIGNATURES)
 
 Differentiate the fixed-resolution local least-squares problem in one physical
 parameter direction. Centered differences evaluate only kernel and charge-map
-derivatives. The nominal pivoted QR is reused. Include the nonzero collocation
+derivatives. The nominal factors are reused. Include the nonzero collocation
 residual in the differentiated stationarity equation:
 
 ```math
 A^T A\\,dx=A^T(db-dA\\,x)+dA^T(b-Ax).
 ```
 
-Triangular QR solves evaluate this equation without forming normal equations.
+The factored solves evaluate this equation without forming normal equations. The perturbed
+groups keep the nominal layout. Their points correspond to the nominal points.
 Geometric boundary derivatives are streamed in bounded row blocks, not stored as a dense
 matrix of uncertain scalars. Input directions retain their original physical
 units. The direction parameter and `step` are dimensionless.
@@ -948,127 +1100,95 @@ units. The direction parameter and `step` are dimensionless.
 
 - Directional derivative of terminal capacitance \\[F/m\\].
 """
-function _shunt_tangent(selected::Formula{:boundary}, values, direction, domain, state, step)
-    plus = _shunt_data(values .+ step .* direction, domain)
-    minus = _shunt_data(values .- step .* direction, domain)
-    dp,
-    dm = _shunt_discretization(plus, state.level), _shunt_discretization(minus, state.level)
-    sp = _shunt_points(plus, state.level.wire, 0.75).sources
-    sm = _shunt_points(minus, state.level.wire, 0.75).sources
-    kp,
-    km = _shunt_kernel_coefficients(plus, state.level.modes),
-    _shunt_kernel_coefficients(minus, state.level.modes)
-    m, n = size(state.factor)
-    count = min(192, m)
-    matrix_p, matrix_m = Matrix{Float64}(undef, count, n), Matrix{Float64}(undef, count, n)
-    bp, bm = zeros(count, plus.ports), zeros(count, plus.ports)
-    drive, stationarity = zeros(m, plus.ports), zeros(n, plus.ports)
-    buffers = initialize_buffers(selected, Val(:kernel), Float64, nothing,
-        (rows = count, columns = max(length(sp), state.level.quadrature),
-            modes = state.level.modes,
-            quadrature = isempty(dp.faces) ? 0 : state.level.quadrature), (;))
-    for start in 1:192:m
-        stop = min(start+191, m)
+function _shunt_tangent(selected::Formula{:boundary}, group, values, direction, solved, step)
+    (; plan, buffers) = solved.workspace
+    plus = DielectricGroup(group, values .+ step .* direction)
+    minus = DielectricGroup(group, values .- step .* direction)
+    dp = _shunt_plan(selected, plus, plan.layout)
+    dm = _shunt_plan(selected, minus, plan.layout)
+    m = plan.rows
+    count = size(buffers.plus_collocation, 1)
+    stationarity = fill!(buffers.stationarity, 0)
+    for start in 1:count:m
+        stop = min(start+count-1, m)
         rows = 1:(stop - start + 1)
-        ap, am = @view(matrix_p[rows, :]), @view(matrix_m[rows, :])
+        ap = @view buffers.plus_collocation[rows, :]
+        am = @view buffers.minus_collocation[rows, :]
         xp, xm = @view(dp.points[start:stop]), @view(dm.points[start:stop])
-        _shunt_matrix!(ap, xp, sp, dp.faces, plus, kp;
-            integration = state.integration, buffers, stage = :derivative)
-        _shunt_matrix!(am, xm, sm, dm.faces, minus, km;
-            integration = state.integration, buffers, stage = :derivative)
+        _shunt_matrix!(ap, xp, dp.sources, dp.faces, plus, dp.k; plan.integration, buffers)
+        _shunt_matrix!(am, xm, dm.sources, dm.faces, minus, dm.k; plan.integration, buffers)
         ap .-= am
         ap ./= 2step
-        rp, rm = @view(bp[rows, :]), @view(bm[rows, :])
-        _shunt_rhs!(rp, xp, @view(dp.terminals[start:stop]), plus)
-        _shunt_rhs!(rm, xm, @view(dm.terminals[start:stop]), minus)
-        target = @view drive[start:stop, :]
+        rp = @view buffers.plus_excitation[rows, :]
+        rm = @view buffers.minus_excitation[rows, :]
+        _shunt_rhs!(rp, xp, @view(dp.terminals[start:stop]), plus, dp.k)
+        _shunt_rhs!(rm, xm, @view(dm.terminals[start:stop]), minus, dm.k)
+        target = @view buffers.drive[start:stop, :]
         target .= (rp .- rm) ./ (2step)
-        mul!(target, ap, state.coefficients, -1.0, 1.0)
-        mul!(stationarity, transpose(ap), @view(state.residual[start:stop, :]), 1.0, 1.0)
+        mul!(target, ap, solved.coefficients, -1.0, 1.0)
+        mul!(stationarity, transpose(ap), @view(buffers.residual[start:stop, :]), 1.0, 1.0)
     end
-    stationarity ./= state.scales
-    delta = state.factor\drive
-    R = UpperTriangular(@view state.factor.factors[1:n, 1:n])
-    correction = R\(transpose(R)\stationarity[state.factor.p, :])
-    @inbounds for i in 1:n, j in axes(delta, 2)
-
-        delta[state.factor.p[i], j] += correction[i, j]
-    end
-    delta ./= state.scales
-    charge_delta = (_shunt_charge_map(plus, sp, dp.faces, state.level) -
-                    _shunt_charge_map(minus, sm, dm.faces, state.level)) ./ (2step)
+    stationarity ./= buffers.column_norms
+    delta = _shunt_solve!(
+        buffers.coefficient_derivative, solved.factored, plan, buffers, buffers.drive)
+    delta .+= _shunt_normal!(stationarity, solved.factored, plan, buffers, stationarity)
+    delta ./= buffers.column_norms
+    charge_delta = (_shunt_charge_map(plus, dp) - _shunt_charge_map(minus, dm)) ./ (2step)
     result = (2pi*vacuum_permittivity(Float64)) .*
-             (charge_delta*state.coefficients + state.charge*delta)
-    result[1, 1] += 2pi*vacuum_permittivity(Float64)*(inv(plus.Rtotal)-inv(minus.Rtotal))/(2step)
+             (charge_delta*solved.coefficients + solved.charge*delta)
+    result[1, 1] += 2pi*vacuum_permittivity(Float64)*(inv(dp.k.Rtotal)-inv(dm.k.Rtotal))/(2step)
     return result
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Evaluate a local shunt domain from its physical scalar descriptors.
-This non-exported extension protocol lets Measurements preserve correlations
-without introducing uncertain scalars into dense numerical workspaces.
+Compute the internal capacitance of one dielectric group: the terminal capacitance of its
+inner anchor and open conductors relative to its reference \\[F/m\\]. This is the
+calculation of the `:boundary` formula. The Measurements extension adds a method for
+uncertain groups that preserves their correlations without introducing uncertain scalars
+into the dense arrays.
 
 # Arguments
 
-- `values`: host and layer radii, wire coordinates and radii and tape dimensions
-  \\[m\\], relative permittivities and tape angles \\[rad\\], in the shunt
-  stage's order.
-- `domain`: extracted local geometry and terminal ownership.
-
-# Keywords
-
-- `level`: wire, tape, and Fourier discretization controls.
-- `integration`: dimensionless logarithmic-moment quadrature controls.
-- `audit=false`: enable independent boundary-grid and derivative step checks.
-- `retain=false`: retain the nominal factorization for differentiation tests.
-- `directions=nothing`: optional columns of physical input perturbations per
-  unit dimensionless direction parameter.
+- `selected`: the boundary shunt formula.
+- `group`: the dielectric group, built once by `dielectric_groups`.
+- `directions=nothing`: optional columns of perturbations of the group's physical
+  descriptors, in the order of `Vector(group)`, per unit dimensionless direction parameter.
 
 # Returns
 
-- Capacitance `C` \\[F/m\\], numerical diagnostics and optional retained state.
-  With `directions`, also return checked implicit capacitance derivatives.
+- Capacitance `C` \\[F/m\\] and the numerical record. With `directions`, also the
+  implicit capacitance derivatives, one row per direction.
 """
-function internal_shunt_response(
-        selected::Formula{:boundary}, values::AbstractVector{<:Real}, domain;
-        level = DEFAULT_RESOLUTION, retain = false, directions = nothing,
-        integration = DEFAULT_INTEGRATION, audit = false)
-    numerical = Float64.(values)
-    result = try
-        _shunt_capacitance(selected, _shunt_data(numerical, domain); level, integration, audit,
-            retain = retain || directions !== nothing)
+function internal_capacitance(selected::Formula{:boundary}, group::DielectricGroup,
+        directions = nothing)
+    values = Float64.(Vector(group))
+    numerical = DielectricGroup(group, values)
+    solved = try
+        _shunt_capacitance(selected, numerical, directions)
     catch exception
         exception isa BoundarySolveError || rethrow()
         throw(BoundarySolveError(exception.category,
-            merge(exception.context,
-                (; design = domain.design, terminals = domain.terminals)),
+            merge(exception.context, (; design = group.design, terminals = group.terminals)),
             exception.message))
     end
-    directions === nothing && return result
-    size(directions, 1) == length(numerical) || throw(DimensionMismatch(
-        "internal shunt directions must align with physical descriptors"))
-    derivatives = Matrix{Float64}(undef, size(directions, 2), length(result.C))
+    directions === nothing && return (; solved.C, solved.diagnostic)
+    # The residual of the nominal least-squares solve enters the derivative.
+    (; plan, buffers) = solved.workspace
+    _shunt_residual!(buffers.residual, plan, buffers, buffers.coefficients, buffers.excitation)
+    tangents = Matrix{Float64}(undef, size(directions, 2), length(solved.C))
     for column in axes(directions, 2)
         direction = @view directions[:, column]
         relative = maximum(eachindex(direction)) do i
-            abs(direction[i])/(iszero(numerical[i]) ? abs(numerical[2]) : abs(numerical[i]))
+            abs(direction[i])/(iszero(values[i]) ? abs(values[2]) : abs(values[i]))
         end
-        iszero(relative) && (derivatives[column, :] .= 0; continue)
+        iszero(relative) && (tangents[column, :] .= 0; continue)
         step = cbrt(eps(Float64))/relative
-        fine = _shunt_tangent(selected, numerical, direction, domain, result.state, step/2)
-        all(isfinite, fine) || throw(BoundarySolveError(:derivative,
-            (; design = domain.design, terminals = domain.terminals, column), "nonfinite sensitivity"))
-        if audit
-            coarse = _shunt_tangent(selected, numerical, direction, domain, result.state, step)
-            discrepancy = norm(fine-coarse)
-            tolerance = 0.02max(norm(fine), norm(coarse)) +
-                        256eps(Float64)*norm(result.C)/step
-            discrepancy <= tolerance || @warn "Boundary uncertainty sensitivity did not resolve on step refinement" design=domain.design terminals=domain.terminals column discrepancy tolerance
-        end
-        derivatives[column, :] .= vec(fine)
+        derivative = _shunt_tangent(selected, numerical, values, direction, solved, step/2)
+        all(isfinite, derivative) || throw(BoundarySolveError(:derivative,
+            (; design = group.design, terminals = group.terminals, column), "nonfinite sensitivity"))
+        tangents[column, :] .= vec(derivative)
     end
-    return (; C = result.C, diagnostic = result.diagnostic,
-        state = retain ? result.state : nothing, tangents = derivatives)
+    return (; solved.C, solved.diagnostic, tangents)
 end

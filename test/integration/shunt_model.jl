@@ -1,4 +1,4 @@
-@testitem "Engine / shunt model / selection, fallback and completed coefficients" tags=[:integration, :importexport, :slow] begin
+@testitem "Engine / shunt model / strict selection and completed coefficients" tags=[:integration, :importexport, :slow] begin
     using Logging
     E = LineCableModels.Engine
     IE = LineCableModels.ImportExport
@@ -9,17 +9,20 @@
     equivalent = CableConstantsFormulation(shunt_model = :equivalent)
     nominal = @inferred compute(problem, default)
     @test nominal == compute(problem, equivalent)
-    @test details(nominal).data.shunt_model.effective === :equivalent
+    @test details(nominal).data.shunt_model.requested === :equivalent
     @test details(nominal).data.shunt_model.solves == 0
     @test isempty(details(nominal).data.shunt_model.diagnostics)
     @test only(details(nominal).data.shunt_model.domains).terminals == 1:3
-    @test occursin("no boundary extraction or audit",
+    @test occursin("no boundary extraction",
         only(details(nominal).data.shunt_model.domains).message)
-    @test isempty(only(E.internal_shunt_response([design],
+    @test isempty(only(E.internal_potential_coefficients([design],
         [LineCableModels.DataModel.flatten(design)], [default])).blocks)
     @test E.formula_id(default.formulas.shunt_model) === :equivalent
     invalid = (formula(:no_such_model), formula(:equivalent; options = (audit = true,)),
+        formula(:boundary; options = (audit = true,)),
         formula(:boundary; parameters = (fallback = :silent,)),
+        formula(:boundary; parameters = (fallback = :error,)),
+        formula(:boundary; parameters = (fallback = :equivalent,)),
         formula(:boundary; options = (integration = (rtol = -1.0,),)),
         formula(:boundary; options = (resolution = (wire = 0,),)),
         formula(:boundary; options = (resolution = (order = 8, quadrature = 8),)))
@@ -27,20 +30,13 @@
         @test_throws ArgumentError Formulation(shunt_model = value)
         @test_throws ArgumentError CableConstantsFormulation(shunt_model = value)
     end
-    # Exhaust a declared numerical budget before allocating a dense matrix.
-    budget = (resolution = (wire = 100_000,),)
-    strict = CableConstantsFormulation(shunt_model = formula(:boundary; options = budget))
+    # A law that the boundary shunt model cannot represent fails before any solve.
+    strict = CableConstantsFormulation(shunt_model = :boundary, insulation_admittance = :lossy)
     @test_throws BoundarySolveError compute(problem, strict)
-    fallback = CableConstantsFormulation(shunt_model = formula(:boundary;
-        parameters = (fallback = :equivalent,), options = budget))
-    result = @test_logs (:warn, r"replaced by the equivalent annular layer") compute(problem, fallback)
-    report = details(result).data.shunt_model
-    @test result == nominal
-    @test report.requested === :boundary && report.effective === :equivalent
-    @test only(report.domains).reason === :budget
-    @test occursin("budget", only(report.domains).message)
-    @test_throws ArgumentError MonteCarlo(fallback; trials = 2)
-    @test_throws ArgumentError LinearError(fallback)
+    # UQ accepts a fixed geometric boundary model. Its failures propagate.
+    @test MonteCarlo(strict; trials = 2).inner === strict
+    @test LinearError(strict).inner === strict
+    @test_throws BoundarySolveError compute(problem, strict)
     quadrature = CableConstantsFormulation(shunt_model = formula(:boundary;
         options = (resolution = (wire = 16, order = 8, quadrature = 64, modes = 128),
             integration = (rtol = 1e-15, atol = 0.0, maxevals = 1))))
@@ -49,32 +45,30 @@
         compute(problem, quadrature)
     end
     warnings = filter(log -> occursin("logarithmic quadrature target", log.message), logger.logs)
-    @test !isempty(warnings)
-    @test all(log -> log.kwargs[:context].evaluations > 0 &&
-        log.kwargs[:context].estimate > log.kwargs[:context].tolerance, warnings)
+    # One solve reports its unmet QuadGK targets once.
+    @test length(warnings) == 1
+    @test only(warnings).kwargs[:integrals] > 0 && only(warnings).kwargs[:maxevals] == 1
     @test all(isfinite, approximate.C)
-    @test details(approximate).data.shunt_model.effective === :boundary
+    @test details(approximate).data.shunt_model.requested === :boundary
     @test details(approximate).data.shunt_model.solves == 1
-    permitted_fallback = CableConstantsFormulation(shunt_model = formula(:boundary;
-        parameters = (fallback = :equivalent,), options = quadrature.definitions.shunt_model.options))
-    fallback_logger = Test.TestLogger(; min_level = Logging.Warn)
-    unchanged = with_logger(fallback_logger) do
-        compute(problem, permitted_fallback)
+    repeated_logger = Test.TestLogger(; min_level = Logging.Warn)
+    unchanged = with_logger(repeated_logger) do
+        compute(problem, quadrature)
     end
     @test unchanged.C == approximate.C
-    @test details(unchanged).data.shunt_model.effective === :boundary
-    @test all(log -> !occursin("replaced by the equivalent annular layer", log.message), fallback_logger.logs)
+    @test details(unchanged).data.shunt_model.requested === :boundary
+    @test all(log -> !occursin("replaced by the equivalent annular layer", log.message), repeated_logger.logs)
     lossy = CableConstantsFormulation(shunt_model = :boundary, insulation_admittance = :lossy)
     @test_throws BoundarySolveError compute(problem, lossy)
     boundary = CableConstantsFormulation(shunt_model = formula(:boundary;
         options = (resolution = (wire = 16, order = 8, quadrature = 64, modes = 128),)))
     blueprint = @inferred LineCableModels.DataModel.flatten(design)
-    shunt = only(E.internal_shunt_response([design], [blueprint], [boundary]))
+    shunt = only(E.internal_potential_coefficients([design], [blueprint], [boundary]))
     @test length(shunt.blocks) == 1
     @test shunt.details.solves == 1
-    @test only(E.internal_shunt_response([design],
+    @test only(E.internal_potential_coefficients([design],
         [LineCableModels.DataModel.flatten(design, Float32)], [boundary])).blocks isa
-          Vector{E.InternalShuntBlock{Float32}}
+          Vector{E.InternalCapacitance{Float32}}
     first_result = compute(problem, boundary)
     explicit_lossless = CableConstantsFormulation(
         shunt_model = boundary.definitions.shunt_model,
@@ -83,9 +77,9 @@
     workspace = E.CableConstantsWorkspace(problem, boundary, E.LocalCableData(blueprint), shunt)
     @test workspace.plan.shunt.blocks[1].C === shunt.blocks[1].C
     @test E._solve!(workspace, problem, boundary) == first_result
-    @test details(first_result).data.shunt_model.effective === :boundary
-    @test only(details(first_result).data.shunt_model.diagnostics).boundary_residual ===
-          nothing
+    @test details(first_result).data.shunt_model.requested === :boundary
+    @test keys(only(details(first_result).data.shunt_model.diagnostics)) ==
+          (:log_moment_error, :condition, :ring, :unknowns, :equations, :level)
     @test typeof(first_result) === typeof(nominal)
     @test compute(problem, boundary) == first_result
     @test compute(CableConstantsProblem(design; frequency = 60), boundary).C ==
@@ -104,11 +98,11 @@
         (boundary, Formulation(shunt_model = boundary.definitions.shunt_model))
         @test occursin("boundary", description(formulation, C))
     end
-    for source in (first_result, result)
+    for source in (first_result, nominal)
         restored=IE.deserialize_value(IE.serialize_value(source))
         @test restored == source
-        @test details(restored).data.shunt_model.effective ===
-              details(source).data.shunt_model.effective
+        @test details(restored).data.shunt_model.requested ===
+              details(source).data.shunt_model.requested
         @test details(restored).data.formulations == details(source).data.formulations
         @test only(details(restored).data.shunt_model.domains).reason ===
               only(details(source).data.shunt_model.domains).reason

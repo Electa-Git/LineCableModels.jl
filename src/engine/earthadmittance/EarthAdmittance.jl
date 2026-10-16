@@ -27,7 +27,7 @@ import ..Engine: EarthAdmittanceFormulation, formula_id
 import ...LineCableModels: validate
 import ...Commons: Functor
 import ..Engine: EarthPair
-import ..Engine: EarthPlan, earth!, same_physical_state, layer_index
+import ..Engine: EarthPlan, earth!, layer_index, same_calculation
 using ...Earth: EarthModel
 import ...Commons: initialize_buffers
 import ..Engine: computation_type, EarthImpedanceFormulation, special_besselix,

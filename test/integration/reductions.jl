@@ -39,7 +39,7 @@ end
     function intervals(design, formulation)
         blueprint = LineCableModels.DataModel.flatten(design, Float64)
         input = EN.LocalCableData(blueprint)
-        shunt = only(EN.internal_shunt_response([design], [blueprint], [formulation]))
+        shunt = only(EN.internal_potential_coefficients([design], [blueprint], [formulation]))
         admittivity = Vector{ComplexF64}(undef, length(input.dielectric_materials))
         rho = [constitutive(formulation.formulas.temperature_dependence, material, 20.0)
                for material in input.dielectric_materials]

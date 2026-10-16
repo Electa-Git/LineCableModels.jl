@@ -64,8 +64,8 @@ end
 function _sample_shunt_model(value::Union{Engine.LineParameters,Engine.CableConstants})
     model=get(details(value).data,:shunt_model,nothing)
     model===nothing && return ComputationDetails()
-    return ComputationDetails(; shunt_model=(requested=model.requested,effective=model.effective,
-        domains=[(design=d.design,terminals=collect(d.terminals),effective=d.effective)
+    return ComputationDetails(; shunt_model=(requested=model.requested,
+        domains=[(design=d.design,terminals=collect(d.terminals),reason=d.reason)
             for d in model.domains]))
 end
 

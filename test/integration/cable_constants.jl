@@ -138,7 +138,7 @@
     @test blueprint isa LineCableModels.DataModel.CableBlueprint{Float64}
     @test blueprint.assembly_ranges == [1:length(design.terminal_order)]
     @test getproperty.(blueprint.conductors, :terminal) == design.terminal_order
-    shunt = only(LineCableModels.Engine.internal_shunt_response([design], [blueprint],
+    shunt = only(LineCableModels.Engine.internal_potential_coefficients([design], [blueprint],
         [formulation]))
     @test isempty(shunt.blocks)
     @test shunt.details.solves == 0

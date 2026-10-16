@@ -20,7 +20,7 @@
     results = compute(problem, [first_formula, other_formula, reduced_formula]; options = (trace = true,))
     first_result = first(results)
     shunt = details(first_result).data.shunt_model
-    @test shunt.effective === :boundary
+    @test shunt.requested === :boundary
     @test shunt.solves == 1
     @test length(shunt.domains) == 2
     @test details(results[2]).data.trace.Pin == details(first_result).data.trace.Pin
@@ -41,8 +41,8 @@
     @test details(results[3]).data.shunt_model.solves == 1
     constants = @inferred CableConstants(design; frequency = 50.0,
         formulation = CableConstantsFormulation(shunt_model = boundary))
-    local_domain, blueprint = internal_shunt_test_domain(design)
-    response = only(E.internal_shunt_response([design], [blueprint],
+    local_group, blueprint = internal_shunt_test_group(design)
+    response = only(E.internal_potential_coefficients([design], [blueprint],
         [CableConstantsFormulation(shunt_model = boundary)]))
     @test constants.C[1] ≈ response.blocks[1].C[1, 1] rtol=1e-10
     @test constants.G[1] == 0
@@ -50,15 +50,15 @@
     mixed = compute(problem, [first_formula, lossy])
     @test length(mixed) == 2
     @test typeof(mixed[1]) == typeof(mixed[2])
-    @test details(mixed[2]).data.shunt_model.effective === :equivalent
+    @test details(mixed[2]).data.shunt_model.requested === :equivalent
     @test details(mixed[2]).data.shunt_model.solves == 0
     reference_temperature = Formulation(shunt_model = boundary,
         temperature_dependence = nothing; options = physical)
     blueprints = [LineCableModels.DataModel.flatten(design, Float64)
                   for design in system.designs]
-    shunts = E.internal_shunt_response(system.designs, blueprints,
+    shunts = E.internal_potential_coefficients(system.designs, blueprints,
         [first_formula, other_formula, lossy, reference_temperature])
-    # Formulations whose domains have the same physical inputs share one solve.
+    # Formulations whose groups have the same physical inputs share one solve.
     @test all(index -> shunts[index].blocks[1].C === shunts[1].blocks[1].C, (2, 4))
     @test all(index -> shunts[index].details.solves == 1, (1, 2, 4))
     @test isempty(shunts[3].blocks)
@@ -79,9 +79,10 @@
     pair = build(CableDesign, "two-local-domains",
         assembly(at(left.tree, -0.01, 0.0), at(right.tree, 0.01, 0.0)))
     pair_blueprint = LineCableModels.DataModel.flatten(pair)
-    domains = E.ShuntModel.internal_shunt_domains([pair], [pair_blueprint])
-    @test length(domains) == 2
-    @test getproperty.(domains, :terminals) == [1:3, 4:6]
+    groups = E.ShuntModel.dielectric_groups(first_formula.formulas.shunt_model, pair,
+        pair_blueprint, first_formula.formulas, 1).groups
+    @test length(groups) == 2
+    @test [group.terminals for group in groups] == [1:3, 4:6]
     @test CableConstants(pair; formulation = CableConstantsFormulation(shunt_model = boundary)).C ≈
           fill(constants.C[1], 2) rtol=1e-8
 end

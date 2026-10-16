@@ -3,9 +3,6 @@
     using Measurements
     const E=LineCableModels.Engine
     const F=EarthInteractionFixtures
-    # Equal plain floating-point infinities do not need subtraction (Inf-Inf is NaN).
-    @test E.same_physical_state(BigFloat(Inf), BigFloat(Inf))
-    @test !E.same_physical_state(BigFloat(Inf), BigFloat(-Inf))
     problem=TestFixtures.three_bare_wires_problem(
         heights = (-1.0, -1.0, -1.0), frequencies = [50.0], rho = 100.0)
     selected=F.PairImpedance()
@@ -51,10 +48,12 @@
     @test length(selected.calls)==4
     @test uncertainty(imag(uncertain.buffers.Zearth[1, 2]-uncertain.buffers.Zearth[2, 1]))==0
     @test uncertainty(imag(uncertain.buffers.Zearth[1, 1]-uncertain.buffers.Zearth[3, 3]))≈sqrt(2)*1e-5
+    # An equal derived value is another object: the pair computes its own value, which
+    # keeps the correlation.
     materials.rho[2, 9]=2rho-rho
     empty!(selected.calls)
     E.earth!(uncertain, 1)
-    @test length(selected.calls)==3
+    @test length(selected.calls)==4
     @test uncertainty(imag(uncertain.buffers.Zearth[1, 1]-uncertain.buffers.Zearth[3, 3]))==0
 
     height=measurement(-1.0, 0.001)

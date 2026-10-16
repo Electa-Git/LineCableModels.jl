@@ -1,28 +1,63 @@
 """
 $(TYPEDEF)
 
-Store one lossless terminal-capacitance block in its owner's conductor indices.
-A shunt model returns cable-local indices. The shunt stage remaps them to the
-system. `C` is shield-referenced capacitance \\[F/m\\]. `P` is its charge-potential
-inverse \\[m/F\\].
+Represent a closed metallic reference at the last real domain terminal.
 
 $(TYPEDFIELDS)
 """
-struct InternalShuntBlock{T <: Real}
+struct ShuntShield{T <: Real}
+    "Inner radius of the shield \\[m\\]."
+    radius::T
+end
+
+"""
+$(TYPEDEF)
+
+Represent the external equipotential at the outer radius of the jacket.
+This reference does not own a terminal.
+
+$(TYPEDFIELDS)
+"""
+struct ShuntJacket{T <: Real}
+    "Outer radius of the jacket \\[m\\]."
+    radius::T
+end
+
+Base.convert(::Type{Union{ShuntShield{T}, ShuntJacket{T}}}, reference::ShuntShield) where {T} =
+    ShuntShield{T}(reference.radius)
+Base.convert(::Type{Union{ShuntShield{T}, ShuntJacket{T}}}, reference::ShuntJacket) where {T} =
+    ShuntJacket{T}(reference.radius)
+nominal(reference::ShuntShield) = ShuntShield(nominal(reference.radius))
+nominal(reference::ShuntJacket) = ShuntJacket(nominal(reference.radius))
+
+"""
+$(TYPEDEF)
+
+Store the internal capacitance of one dielectric group in its owner's conductor indices:
+the lossless terminal capacitance `C` \\[F/m\\] relative to the group's reference and its
+potential coefficients `P` \\[m/F\\]. The shunt stage remaps the cable-local indices to the
+system.
+
+$(TYPEDFIELDS)
+"""
+struct InternalCapacitance{T <: Real}
     "Conductor range of the containing concentric assembly."
     assembly::UnitRange{Int}
-    "Domain terminals including the reference shield."
+    "Real conductors of the group, with the shield as the last terminal when present."
     terminals::UnitRange{Int}
+    "Closed metallic shield or external jacket equipotential."
+    reference::Union{ShuntShield{T}, ShuntJacket{T}}
     "Terminal capacitance \\[F/m\\]."
     C::Matrix{T}
     "Terminal charge-potential coefficients \\[m/F\\]."
     P::Matrix{T}
 end
 
-function Base.convert(::Type{InternalShuntBlock{T}}, block::InternalShuntBlock) where {T <: Real}
-    InternalShuntBlock{T}(block.assembly, block.terminals, block.C, block.P)
+function Base.convert(::Type{InternalCapacitance{T}}, block::InternalCapacitance) where {T <: Real}
+    InternalCapacitance{T}(block.assembly, block.terminals,
+        convert(Union{ShuntShield{T}, ShuntJacket{T}}, block.reference), block.C, block.P)
 end
-Base.convert(::Type{InternalShuntBlock{T}}, block::InternalShuntBlock{T}) where {T <: Real} = block
+Base.convert(::Type{InternalCapacitance{T}}, block::InternalCapacitance{T}) where {T <: Real} = block
 
 """
 $(TYPEDEF)

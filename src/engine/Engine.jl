@@ -44,7 +44,7 @@ export ModalAnalysis
 export compute
 
 # Module-specific dependencies
-using LinearAlgebra: diag
+using LinearAlgebra: diag, lu, I
 import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, line_length, build, R, L, C,
@@ -159,12 +159,12 @@ public AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,
        earth_spectral_points!, earth_contour_angle, earth_direct,
        outgoing_root, bessel_i0m1, bessel_current_ratio, special_besselix
 public earth!, materials!, homogenize!,
-       same_physical_state, layer_index, computation_type
-public has_uncertainty_type, numerical_magnitude
+       layer_index, computation_type
+public has_uncertainty_type, tolerance_norm, same_calculation
 public resolution_available
 public observation_assumptions
 public domain, LineParamsDomain, PhaseDomain, ModalDomain, line_coordinates
-public internal_shunt_response
+public internal_potential_coefficients
 public InternalImpedanceFormulation, InsulationImpedanceFormulation,
        PipeImpedanceFormulation,
        EarthImpedanceFormulation, InsulationAdmittanceFormulation,

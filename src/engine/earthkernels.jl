@@ -28,7 +28,7 @@ function earth_spectral_value(kernel, λ, height, separation, radius)
     end
     isfinite(weighted) ||
         throw(DomainError((λ, weighted), "nonfinite weighted earth kernel"))
-    iszero(numerical_magnitude(weighted)) && return weighted
+    iszero(tolerance_norm(weighted)) && return weighted
     return weighted*special_besseljx(0, radius*λ)
 end
 
@@ -79,7 +79,7 @@ function earth_weighted_spectrum(kernel::AirVoltageSpectrum{Q},
     else
         argument=g.radius*λ
         envelope=exp(-g.padding*λ+abs(imag(argument)))
-        scaled=iszero(numerical_magnitude(envelope)) ? zero(envelope) :
+        scaled=iszero(tolerance_norm(envelope)) ? zero(envelope) :
                envelope*special_besseljx(0, argument)
         ((one(g.i0minus)+g.i0minus)*exp(-g.padding*λ-g.hp*ap)-scaled)/ap
     end

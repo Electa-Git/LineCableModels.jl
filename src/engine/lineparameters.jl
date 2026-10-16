@@ -166,7 +166,7 @@ function _compute(
     blueprints = CableBlueprint{T}[DataModel.flatten(design, T)
                                    for design in problem.system.designs]
     input = lineinput(problem, blueprints)
-    shunts = internal_shunt_response(problem.system.designs, blueprints, formulations)
+    shunts = internal_potential_coefficients(problem.system.designs, blueprints, formulations)
     values = map(formulations, shunts, eachindex(formulations)) do formulation, shunt, index
         gridpoint = Commons.gridpoint_id(; source_id, formulation_index=index)
         # Measure a full scan from workspace creation through the solve and result validation.
@@ -459,11 +459,15 @@ function homogenize!(
 )
     epsilon0=vacuum_permittivity(eltype(destination.rho))
     mu0=vacuum_permeability(eltype(destination.rho))
+    # The pairs share one value object per layer, so reuse finds them identical (`===`).
     for row in axes(destination.rho, 1)
+        rho=evaluated.rho[row, frequency_index]
+        epsilon=epsilon0*evaluated.eps_r[row, frequency_index]
+        mu=mu0*evaluated.mu_r[row, frequency_index]
         for column in eachindex(calculation.pairs)
-            destination.rho[row, column]=evaluated.rho[row, frequency_index]
-            destination.epsilon[row, column]=epsilon0*evaluated.eps_r[row, frequency_index]
-            destination.mu[row, column]=mu0*evaluated.mu_r[row, frequency_index]
+            destination.rho[row, column]=rho
+            destination.epsilon[row, column]=epsilon
+            destination.mu[row, column]=mu
         end
     end
     # Every pair sees the same layered media, and the first column stands for all of them.

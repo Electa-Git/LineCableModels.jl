@@ -13,7 +13,7 @@
         error=E.integrate(integral, controls.method, controls.options; points = (0.0, 1.0))
         @test value isa Complex{Measurement{Float64}}
         @test error isa Float64
-        @test E.numerical_magnitude(value-exact)<1e-9*E.numerical_magnitude(exact)
+        @test E.tolerance_norm(value-exact)<1e-9*E.tolerance_norm(exact)
         for component in (real, imag)
             actual=Measurements.derivative(component(value), a)
             expected=Measurements.derivative(component(exact), a)
@@ -29,7 +29,7 @@
         actual,
         _=E.integrate(zero_mean, controls.method, controls.options; points = (0.0, 1.0))
         expected=complex(perturbation)/(2+im)
-        @test E.numerical_magnitude(actual-expected)<1e-9
+        @test E.tolerance_norm(actual-expected)<1e-9
     end
     # Equal nominal media with independent uncertainties have no nominal
     # denominator pole. Metadata must not divide by their uncertain zero.

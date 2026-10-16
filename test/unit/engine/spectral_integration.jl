@@ -76,7 +76,7 @@ end
         den=inv(1-t)
         f(t*den)*den^2
     end
-    direct=quadgk(mapped, 0.0, 0.5, 1.0; controls..., norm = E.numerical_magnitude)
+    direct=quadgk(mapped, 0.0, 0.5, 1.0; controls..., norm = E.tolerance_norm)
     @test work==calls[]
     @test actual==direct
     @test isfinite(first(actual))

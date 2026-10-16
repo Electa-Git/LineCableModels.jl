@@ -35,36 +35,22 @@ the open-circuit limit.
 @inline conductivity(rho) = isinf(rho) ? zero(rho) : inv(rho)
 
 """
-Return a real scalar magnitude for numerical error estimates and physical-state
-comparisons. Deterministic values use absolute magnitude. Uncertainty extensions
-also account for uncertain contributions with zero nominal value. Evaluated
-physical quantities retain their correlations.
+Return the real scalar norm that numerical tolerances and quadrature error estimates use.
+Deterministic values use absolute magnitude. Uncertainty extensions also account for
+uncertain contributions with zero nominal value.
 """
-@inline numerical_magnitude(z) = abs(complex(nominal(real(z)), nominal(imag(z))))
+@inline tolerance_norm(z) = abs(complex(nominal(real(z)), nominal(imag(z))))
 
 """
-    same_physical_state(a, b)
+    same_calculation(formula, a, b, geometry)
+    same_calculation(impedance, admittance)
 
-Whether `a` and `b` are the same physical values, including the correlation of uncertain
-values. Uncertain values with equal nominal values and uncertainties differ when their
-sources differ. Tuples, named tuples and arrays compare element by element. A formula's
-method compares the physical inputs that the formula reads.
+Whether one calculation serves the earth pairs `a` and `b` of `formula`, given the conductor
+radii and layers in `geometry`. With two formulas, whether one calculation serves an
+impedance and an admittance formula. A method of a formula compares with `===` the inputs
+that the formula's arithmetic reads.
 """
-same_physical_state(a, b) = isequal(a, b)
-same_physical_state(a::BigFloat, b::BigFloat) = isequal(a, b)
-function same_physical_state(a::Number, b::Number)
-    a === b || (isequal(a, b) && iszero(numerical_magnitude(a-b)))
-end
-function same_physical_state(a::Tuple, b::Tuple)
-    # Tuple map preserves each field's type in heterogeneous physical records.
-    length(a) == length(b) && all(map(same_physical_state, a, b))
-end
-function same_physical_state(a::NamedTuple, b::NamedTuple)
-    keys(a) == keys(b) && same_physical_state(values(a), values(b))
-end
-function same_physical_state(a::AbstractArray, b::AbstractArray)
-    axes(a) == axes(b) && all(pair -> same_physical_state(pair...), zip(a, b))
-end
+function same_calculation end
 
 """
 Resolve a placed conductor's earth-layer index from the problem and coordinates
@@ -88,8 +74,8 @@ function computation_type(::Type{T}, selections::NamedTuple, frequencies) where 
     end
 end
 
-"""Calculate the selected local shunt response from the flattened cable designs."""
-function internal_shunt_response end
+"""Calculate the internal potential coefficients of the flattened cable designs."""
+function internal_potential_coefficients end
 """
 $(TYPEDSIGNATURES)
 

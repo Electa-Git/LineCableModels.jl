@@ -37,11 +37,11 @@ uncertainty(value::Measurements.Measurement) = measured_uncertainty(value)
 # Refinement must still see an uncertain contribution whose nominal value is
 # zero. Physical evaluations retain their correlated derivative information.
 # Only the scalar numerical error metric and sampling coordinates are nominal.
-function Engine.numerical_magnitude(z::Complex{<:Measurements.Measurement})
+function Engine.tolerance_norm(z::Complex{<:Measurements.Measurement})
     return max(abs(measured_value(z)),
         hypot(measured_uncertainty(real(z)), measured_uncertainty(imag(z))))
 end
-function Engine.numerical_magnitude(z::Measurements.Measurement)
+function Engine.tolerance_norm(z::Measurements.Measurement)
     return max(abs(measured_value(z)), measured_uncertainty(z))
 end
 
@@ -278,26 +278,25 @@ end
 Lift local capacitance through its fixed-resolution least-squares equations.
 Independent uncertainty directions preserve the original Measurement graph.
 Only the nominal factorization and bounded Float64 derivative blocks are dense.
-Kernel derivatives use centered steps, checked by halving the step. This avoids
-both a dense Measurement matrix and repeated perturbed factorizations.
+Kernel derivatives use centered steps. This avoids both a dense Measurement matrix
+and repeated perturbed factorizations.
 """
-function Engine.internal_shunt_response(selected::Engine.ShuntModel.Formula{:boundary},
-        values::AbstractVector{<:Measurements.Measurement}, domain; kwargs...)
-    nominal_values = Float64.(measured_value.(values))
+function Engine.ShuntModel.internal_capacitance(selected::Engine.ShuntModel.Formula{:boundary},
+        group::Engine.ShuntModel.DielectricGroup{<:Measurements.Measurement})
+    values = Vector(group)
+    nominal_group = Engine.ShuntModel.DielectricGroup(group, Float64.(measured_value.(values)))
     tags = sort!(
         unique!([tag for value in values
                  for tag in keys(uncertainty_components(value)) if !iszero(tag[2])]);
         by = last)
     if isempty(tags)
-        result = Engine.internal_shunt_response(selected, nominal_values, domain; kwargs...)
-        return (;
-            C = eltype(values).(result.C), diagnostic = result.diagnostic, state = nothing)
+        result = Engine.ShuntModel.internal_capacitance(selected, nominal_group)
+        return (; C = eltype(values).(result.C), result.diagnostic)
     end
     # Columns are physical perturbations per standard deviation of each
     # independent input. Their distribution remains unchanged by this normalization.
     directions = [Float64(derivative(value, tag)*tag[2]) for value in values, tag in tags]
-    result = Engine.internal_shunt_response(
-        selected, nominal_values, domain; directions, kwargs...)
+    result = Engine.ShuntModel.internal_capacitance(selected, nominal_group, directions)
     # Return sensitivities through the original physical arguments, including
     # shared and dependent ones. A small rank-revealing solve handles redundant
     # descriptors without creating new independent Measurement identities.
@@ -308,8 +307,7 @@ function Engine.internal_shunt_response(selected::Engine.ShuntModel.Formula{:bou
                                   factor.S[keep])
     lifted = [measured_result(result.C[i], @view(gradient[:, i]), values)
               for i in eachindex(result.C)]
-    return (; C = reshape(lifted, size(result.C)),
-        diagnostic = result.diagnostic, state = nothing)
+    return (; C = reshape(lifted, size(result.C)), result.diagnostic)
 end
 # The archive source table spans all atomic points and a separate report reference.
 function ImportExport.encode_observation(value::Measurements.Measurement,source_table)

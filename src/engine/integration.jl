@@ -85,7 +85,7 @@ and actual quadrature failures remain errors.
     value,
     error=if quadrature===nothing
         quadgk(f, mapped; rtol = controls.rtol, atol = controls.atol,
-            maxevals = controls.maxevals, norm = numerical_magnitude)
+            maxevals = controls.maxevals, norm = tolerance_norm)
     else
         # Public QuadGK evaluation creates reusable seeds in the same mapped
         # coordinate as f. No dependency-private segment constructors are used.
@@ -93,12 +93,12 @@ and actual quadrature failures remain errors.
         sample=quadrature.prototype
         for i in 1:(length(mapped) - 1)
             quadgk(_->sample, mapped[i], mapped[i + 1];
-                segbuf = quadrature.seed, norm = numerical_magnitude)
+                segbuf = quadrature.seed, norm = tolerance_norm)
             append!(seeds, quadrature.seed)
         end
         quadgk(f, zero(R), one(R); rtol = controls.rtol, atol = controls.atol,
             maxevals = controls.maxevals, segbuf = quadrature.segments,
-            eval_segbuf = seeds, norm = numerical_magnitude)
+            eval_segbuf = seeds, norm = tolerance_norm)
     end
     isfinite(value) || throw(DomainError(value, "QuadGK returned a nonfinite integral"))
     record_integral!(observations, quadrature === nothing ? nothing : quadrature.warnings,
@@ -110,7 +110,7 @@ end
 function record_integral!(observations, warnings, value, error, controls, context)
     observations === nothing ||
         push!(observations, (; context, value, estimated_error = error))
-    target=max(controls.atol, controls.rtol*numerical_magnitude(value))
+    target=max(controls.atol, controls.rtol*tolerance_norm(value))
     if !isfinite(error) || error>target
         warnings === nothing ||
             push!(warnings, (; context, value, estimated_error = error, controls))

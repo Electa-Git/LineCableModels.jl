@@ -19,7 +19,6 @@
 "Engine.ModalAnalysis | Engine.selectdetails | src/engine/modalanalysis/interfaces.jl" = 1
 "Engine.ModalAnalysis | Engine.selectdomain | src/engine/modalanalysis/interfaces.jl" = 1
 "Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
-"Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
 "ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
 "Materials.TemperatureDependent | LineCableModels.constitutive | src/materials/temperaturedependent/interface.jl" = 1
 "PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 1
@@ -118,10 +117,9 @@
 "src/engine/pipeimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/problems.jl" = { applicable = 0, eval = 0, isa = 11, kind = 0 }
 "src/engine/semiconadmittance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/engine/shuntmodel/blueprint.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, isa = 2, kind = 4 }
-"src/engine/shuntmodel/geometry.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
-"src/engine/shuntmodel/interface.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
+"src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
+"src/engine/shuntmodel/geometry.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
+"src/engine/shuntmodel/interface.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/textdisplay.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/importexport/cableslibrary.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
@@ -313,7 +311,6 @@
 "src/engine/cableconstants.jl" = 1
 "src/engine/formulations.jl" = 1
 "src/engine/problems.jl" = 1
-"src/engine/shuntmodel/charge_collocation.jl" = 2
 "src/gridspace.jl" = 3
 "src/importexport/deserialize.jl" = 1
 "src/importexport/observed.jl" = 1

@@ -46,8 +46,8 @@ options. The expression returns one coefficient per destination, a number for on
 and a tuple for several. The calculation's pairs give each pair's source-target geometry and
 the earlier pair with the same inputs, `reuse_from`.
 
-A pair takes the value of that earlier pair only when their current media agree under
-`same_physical_state`. `buffers.earth.pairs` records, at each frequency, the pair whose
+A pair takes the value of that earlier pair only when their current media are identical (`===`)
+element by element. `buffers.earth.pairs` records, at each frequency, the pair whose
 computed value each pair took. Every logical integral and warning retains its receiving row
 and source column.
 """
@@ -76,10 +76,8 @@ function earth!(destinations, part, calculation, functor, workspace)
         source = entry.reuse_from
         while source != current
             same = let source = source
-                all(
-                    values -> same_physical_state(@view(values[:, index]),
-                        @view(values[:, source])),
-                    materials)
+                all(values -> all(row -> values[row, index] === values[row, source],
+                        axes(values, 1)), materials)
             end
             same && break
             current = source

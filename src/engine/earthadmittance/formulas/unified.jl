@@ -226,18 +226,21 @@ function EarthPlan(formula::Union{EarthImpedance.Formula{:unified}, Formula{:uni
 end
 
 # Unified's arithmetic reads the pair's geometry and the conductor radii, not its indices.
-function same_physical_state(::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
+function same_calculation(::Union{EarthImpedance.Formula{:unified}, Formula{:unified}},
         a::EarthPair, b::EarthPair, geometry::NamedTuple)
     inputs(pair)=(pair.row==pair.column, pair.layers, pair.heights, pair.separation,
         geometry.radius[pair.row], geometry.radius[pair.column])
-    return same_physical_state(inputs(a), inputs(b))
+    return inputs(a)===inputs(b)
 end
 
 # An impedance and an admittance formula of Unified share one calculation when their model
-# parameters and requested equivalent earths agree: they solve the same system.
-function same_physical_state(z::EarthImpedance.Formula{:unified}, p::Formula{:unified})
-    return same_physical_state(z.parameters, p.parameters) &&
-           same_physical_state(z.equivalent_earth, p.equivalent_earth)
+# parameters, requested equivalent earths and options agree: they solve the same system. A
+# prescribed Γ vector compares element by element.
+function same_calculation(z::EarthImpedance.Formula{:unified}, p::Formula{:unified})
+    a, b=z.options.data, p.options.data
+    return z.parameters===p.parameters && z.equivalent_earth===p.equivalent_earth &&
+           get(a, :integration, nothing)===get(b, :integration, nothing) &&
+           eachindex(a.Γ)==eachindex(b.Γ) && all(i->a.Γ[i]===b.Γ[i], eachindex(a.Γ))
 end
 
 function initialize_buffers(
@@ -272,7 +275,7 @@ function Functor(formula::Union{EarthImpedance.Formula{:unified}, Formula{:unifi
     for values in (input.rho, input.epsilon, input.mu)
         for column in axes(values, 2), row in axes(values, 1)
 
-            same_physical_state(values[row, column], values[row, 1]) ||
+            values[row, column] === values[row, 1] ||
                 throw(ArgumentError("the unified earth-return calculation requires the same equivalent media for all conductor pairs"))
         end
     end

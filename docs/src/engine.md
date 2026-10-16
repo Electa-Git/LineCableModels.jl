@@ -107,36 +107,34 @@ shunt contribution and requires the radial terminal ordering of coaxial lowering
 Series impedance, earth return, and matrix reductions use their respective
 selected formulations.
 
-Qualification currently requires an explicitly filled annular host, continuous
-concentric dielectric paths, exposed whole wire and tape geometric boundaries, and a closed
-circular reference shield. Separate shielded assemblies are handled in their
-own local frames. Overlapping same-terminal faces, interacting courses in
-different hosts, nonconcentric dielectric interfaces and noncircular reference
-shields retain the existing equivalent-coaxial treatment. They are not fed to
-an inapplicable circular Green function. The resolved path currently uses the
-built-in `:lossless` insulation or semicon laws or their `:default` aliases.
-Lossy or custom constitutive selections are unsupported by `:boundary` and raise `BoundarySolveError` for
-eligible domains. Select `:equivalent` to retain their radial calculation without
-losing conductivity or frequency dependence.
+A domain qualifies when its wires and tapes share one homogeneous annular host,
+continuous concentric dielectrics lead to a closed inner anchor, and a closed concentric
+shield or the jacket's outer surface bounds it. The coaxial model also refers its outermost
+potentials to the jacket's outer radius. `:boundary` solves the qualifying domains. Any other open arrangement
+raises `BoundarySolveError` with its specific reason, such as coatings or dielectric
+islands in the host, terminals in several hosts without a closed separator, contact
+between different terminals, or an uncertain displacement that changes a contact. No
+other model replaces the selected one. The resolved path uses the built-in `:lossless`
+insulation or semicon laws or their `:default` aliases. Lossy or custom constitutive
+selections raise `BoundarySolveError` for a design with domains. Select `:equivalent` to
+retain their radial calculation without losing conductivity or frequency dependence.
 
-Inspect `details(result).data.shunt_model` for requested and effective model, domain
-terminal ranges, solve counts, and diagnostics. Boundary-resolved domains
-coexist with ordinary radial intervals outside their coverage. `effective`
-describes the qualifying domains. `:mixed` indicates explicit fallback in some
-of them. Numerical grid residuals and small-coupling indicators are not
-certified error bounds. Whole-matrix convergence can conceal substantial
-relative changes in weak individual couplings.
+Inspect `details(result).data.shunt_model` for the requested model, the domain terminal
+ranges with the reason of each record (`:resolved`, `:radial` or `:selected`), the solve
+count and the numerical record of each solve. Boundary-resolved domains coexist with
+ordinary radial intervals outside their coverage. Whole-matrix convergence can conceal
+substantial relative changes in weak individual couplings.
 
-The shunt stage runs after flattening. It uses bounded dense storage and in-place
-pivoted QR. The workspace plan stores its result in `plan.shunt`: lossless terminal
-capacitance and potential coefficients, the radial intervals that they replace and the
-numerical outcomes. Workspaces consume these coefficients without performing a boundary
-solve.
+The shunt stage runs after flattening. The buffers of the boundary shunt formula hold the
+collocation arrays and factors of each solve. The workspace plan
+stores the stage's result in `plan.shunt`: lossless terminal capacitance and potential
+coefficients, the radial intervals that they replace and the numerical outcomes.
+Workspaces consume these coefficients without performing a boundary solve.
 
 Domains of the `:boundary` model with the same physical inputs and numerical controls
 share coefficient matrices within the same compute call, also across formulations whose
-earth-return choices differ. Independent uncertainty sources prevent sharing. The stage releases its dense
-geometric boundary matrices when it ends.
+earth-return choices differ. Independent uncertainty sources prevent sharing. The stage
+releases its dense collocation arrays when it ends.
 
 Select the formulation and call `compute` directly:
 
@@ -148,60 +146,50 @@ result = @time compute(problem, formulation)
 The compute call completes the selected local shunt model. The default model is the
 equivalent annular layer, and its reports describe the concentric assembly ranges. Only
 `:boundary` extracts geometric boundary domains and builds their coefficient blocks.
-No geometric boundary audit is implied.
 Boundary coefficients are independent of the frequency grid and external earth
 model. They are reused across the frequency sweep, but a fresh `compute` call
 completes fresh coefficients: there is no process-global or cross-call cache.
 Changed geometry and Monte Carlo realizations receive new coefficients.
 Do not mutate coefficient arrays that completed shunt results share.
 
-Production reports unmet quadrature targets, estimated rank, reciprocity and
-positive-capacitance concerns as warnings. The computed finite result is retained
-without retry, repair or substitution. Dense-storage limits, degenerate columns,
-actual solve failure and nonfinite physical results remain errors. The independent
-validation grid and derivative step-refinement are opt-in:
+The calculation runs with its resolution and quadrature controls:
 
 ```julia
 boundary = formula(:boundary;
-    parameters=(fallback=:error,),
     options=(
-        resolution=(wire=64, order=32, quadrature=256, modes=1024),
+        resolution=(wire=64, order=32, quadrature=64, modes=512),
         integration=(rtol=1e-8, atol=1e-10, maxevals=100_000),
-        audit=false,
     ))
 formulation = Formulation(shunt_model=boundary)
 ```
 
-Set `audit=true` for the independent checks. Unaudited residual fields are
-`nothing`, not zero. The audit warns on unmet criteria and does not alter the
-computed terminal matrix.
-The integration tolerances control dimensionless logarithmic moments, not
-the error in an individual terminal coupling.
+QuadGK integrates the logarithmic moments with `rtol`, `atol` and `maxevals`. A solve
+whose moments miss that target warns once and keeps its computed result. The numerical
+record of each solve stores the condition estimate of its collocation system, which the
+solve does not judge. The resolution controls set the discretization, and the solve does
+not refine it. Degenerate columns,
+actual solve failure and nonfinite physical results remain errors. The integration
+tolerances control dimensionless logarithmic moments, not the error in an individual
+terminal coupling. The user validates the result against FEM.
 
 See [`BoundarySolveError`](@ref) and [`LineCableModels.Engine.ShuntModel.Formula`](@ref)
 for the failure categories and formula selections.
 
-Actual failures propagate by default. An explicit `parameters=(fallback=:equivalent,)`
-permits the equivalent annular layer as replacement only after recognized numerical or unsupported-law
-failures, with a warning and recorded reason. Finite-result quality warnings do
-not trigger that fallback. Invalid inputs and unexpected
-exceptions propagate. UQ wrappers reject automatic fallback. Choose strict
-`:boundary` or `:equivalent` for the whole study. Monte Carlo also checks that
-shunt-model coverage remains fixed across realizations and never retries a
-`BoundarySolveError` as a geometry rejection.
+UQ wrappers accept a strict `:boundary` or `:equivalent` selection for the whole study.
+Monte Carlo checks that shunt-model coverage remains fixed across realizations and never
+retries a `BoundarySolveError` as a geometry rejection.
 
 With Measurements loaded, local sensitivities preserve the original correlated
-inputs. The nominal QR is reused in an implicit least-squares derivative that
-includes its residual term. Centered kernel derivatives use one step in
-production. The audit also checks step halving. Derivative matrices
-are streamed in bounded blocks rather than stored
-as dense Measurement arrays. This is fixed-topology linear propagation, not a
-claim about differentiability across a contact or strand-count transition.
+inputs. The nominal factors are reused in an implicit least-squares derivative that
+includes its residual term. Centered kernel derivatives use one step. Derivative
+matrices are streamed in bounded blocks rather than stored as dense Measurement arrays.
+This is fixed-topology linear propagation, not a claim about differentiability across a
+contact or strand-count transition.
 Each Monte Carlo realization constructs its own physical geometry and material
 operator. Identical cables and formulations within that realization share it.
 Concentricity checks include coordinate dependencies: two centers with equal
 nominal positions but independent uncertainty do not qualify as concentric.
-The local geometric boundary calculation uses Float64 workspaces. It does not promise
+The local geometric boundary calculation uses Float64 buffers. It does not promise
 arbitrary-precision geometric boundary accuracy when surrounding scalar inputs use a
 wider type.
 
@@ -222,7 +210,14 @@ The finite-thickness, layered-Green-function, whole-face charge approach has
 precedent in [Bernal1997](@cite), especially Section IV, Eq. (10). Their
 Maxwell-weighted Chebyshev/Galerkin formulation is not reproduced verbatim:
 this implementation uses a concentric circular Green function, normalized
-Jacobi face charges and oversampled boundary collocation with pivoted QR.
+Jacobi face charges and oversampled boundary collocation with unpivoted QR.
+
+The concentric Green function is invariant under rotation. With each wire's collocation
+and source points in its own polar frame, a ring of identical, equally spaced wires on one
+terminal gives a block-circulant system. A unitary discrete Fourier transform over the ring
+separates it into one small block per Fourier index. The tapes and any other wires form a
+border, eliminated exactly. A group without a ring takes the same solver with an empty
+ring, which is a dense QR.
 
 [Campione2018](@cite), Section 2, Eq. (3), provides a cable-screen application
 of dielectric image factors `(εhost − εadjacent)/(εhost + εadjacent)`, also
@@ -246,8 +241,7 @@ algorithm from their rational-quadrature scheme.
 
 The following internal numerical methods document the equations, charge
 normalization and quadrature needed to reproduce the calculation. These implementation details are internal to the calculation. Source placement,
-resolution controls, validation thresholds and uncertainty differentiation
-remain package-specific choices, not accuracy guarantees supplied by these
+resolution controls and uncertainty differentiation remain package-specific choices, not accuracy guarantees supplied by these
 references.
 
 ```@docs
@@ -256,7 +250,12 @@ LineCableModels.Engine.ShuntModel._shunt_kernel_coefficients
 LineCableModels.Engine.ShuntModel._shunt_junction_exponent
 LineCableModels.Engine.ShuntModel._shunt_tape_faces
 LineCableModels.Engine.ShuntModel._shunt_log_moments
+LineCableModels.Engine.ShuntModel._shunt_layout
+LineCableModels.Engine.ShuntModel._shunt_factor!
+LineCableModels.Engine.ShuntModel._shunt_solve!
+LineCableModels.Engine.ShuntModel._shunt_normal!
 LineCableModels.Engine.ShuntModel._shunt_capacitance
+LineCableModels.Engine.ShuntModel.internal_capacitance
 ```
 
 ## Formula selection
@@ -385,16 +384,15 @@ arrays. The complete scan specializes on those tuples before entering its
 frequency loop, while the workspace type remains independent of conductor layout.
 
 Repeated numerical interactions use the shared `Engine.earth!` traversal of
-the parts of each earth calculation. During workspace construction,
-`same_physical_state(formula, a, b, geometry)` compares the invariant arithmetic inputs
-of two conductor pairs. The default compares their destination indices. A formula
-compares the inputs it reads instead only when its arithmetic does not use the indices.
+the parts of each earth calculation. During workspace construction, the earth plan compares
+the inputs that the formula's arithmetic reads for two conductor pairs with `===`. The
+default reads their destination indices. A formula passes the inputs it reads instead only
+when its arithmetic does not use the indices.
 These inputs serve reuse alone: expressions consume the existing `EarthPair` and
 evaluated material data, without a second pair representation or callback interface.
 
 Earlier interactions belong to the same bound equation and resolved controls. At each
-frequency, Engine uses `same_physical_state` to compare their current material
-values. It evaluates each distinct interaction and distributes the resulting
+frequency, Engine compares their current material values with `===`, element by element. It evaluates each distinct interaction and distributes the resulting
 scalar or tuple of coefficients. Equal nominal values with independent
 uncertainty sources remain distinct. Each invocation overwrites representative
 indices and diagnostic ranges. The calculation starts afresh at each frequency. Geometry
@@ -1473,6 +1471,6 @@ including physical parameters and numerical controls. Formula identifiers are av
 as `record.requested.earth_admittance.identifier` (or through the corresponding
 `air`, `earth`, `mixed` leaf). Resolved identities are under `formulas`. A leaf's
 `equivalent_earth` field contains its reduction choice and order. Realized local
-shunt outcomes, including explicit fallback, remain in `details(result).data.shunt_model`.
+shunt outcomes remain in `details(result).data.shunt_model`.
 Optional `trace` contains detached evaluation data. Reports use the recorded
 formulation selections and voltage references to describe each result.

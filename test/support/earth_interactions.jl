@@ -46,11 +46,11 @@
     end
 
     # The arithmetic reads the pair's geometry and the conductor radii, not its indices.
-    function E.same_physical_state(::Union{PairImpedance, PairPotential}, a::E.EarthPair,
+    function E.same_calculation(::Union{PairImpedance, PairPotential}, a::E.EarthPair,
             b::E.EarthPair, geometry::NamedTuple)
         inputs(pair)=(pair.row==pair.column, pair.layers, pair.heights, pair.separation,
             geometry.radius[pair.row], geometry.radius[pair.column])
-        return E.same_physical_state(inputs(a), inputs(b))
+        return inputs(a)===inputs(b)
     end
 
     struct IntegralImpedance{P} <: E.EarthImpedanceFormulation
@@ -81,8 +81,8 @@
     end
     # The arithmetic does not read any pair input, so every pair with the same media takes one
     # value.
-    E.same_physical_state(::IntegralImpedance, a::E.EarthPair, b::E.EarthPair,
-        geometry::NamedTuple) = true
+    E.same_calculation(::IntegralImpedance, a::E.EarthPair, b::E.EarthPair,
+        geometry::NamedTuple)=true
     G.initialize_buffers(::IntegralImpedance,
         ::Type{T},
         input,

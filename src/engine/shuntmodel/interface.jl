@@ -4,19 +4,68 @@ $(TYPEDEF)
 Select a local shunt geometry approximation. Material admittivity remains owned
 by the insulation and semiconductor constitutive selections.
 
+Each formula implements `dielectric_groups(selected, design, blueprint, formulas,
+design_index)`, which returns the dielectric groups that the formula solves in one design and
+the records of every concentric assembly. The `:boundary` formula solves each group with
+`internal_capacitance`.
+
 $(TYPEDFIELDS)
 """
 struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: ShuntModelFormulation
-    "Requested fallback model."
+    "Model parameters. The built-in selections accept none."
     parameters::P
-    "Boundary discretization, quadrature, and optional audit controls."
+    "Boundary discretization and quadrature controls."
     options::O
 end
 
+"""
+$(TYPEDEF)
+
+Report a recognized failure of the local geometric boundary approximation. Numerical
+failure is distinct from invalid physical input and must not trigger Monte
+Carlo rejection and resampling.
+
+$(TYPEDFIELDS)
+"""
+struct BoundarySolveError <: Exception
+    "Failure stage or unsupported model assumption."
+    category::Symbol
+    "Physical location and available numerical diagnostics."
+    context::NamedTuple
+    "Explanation of the failure."
+    message::String
+end
+
+function Base.showerror(io::IO, error::BoundarySolveError)
+    print(io, "BoundarySolveError(", error.category, "): ", error.message)
+    isempty(error.context) || print(io, "; ", error.context)
+end
+Base.show(io::IO, error::BoundarySolveError) = showerror(io, error)
+function Base.summary(io::IO, error::BoundarySolveError)
+    print(io, "BoundarySolveError(", error.category, ")")
+end
+function Base.show(io::IO, ::MIME"text/plain", error::BoundarySolveError)
+    get(io, :compact, false) && return summary(io, error)
+    TextDisplay.tree(io,
+        sprint(summary, error),
+        (
+            (label = error.message, noun = "details"),
+            (label = sprint(show, error.context; context = :limit => true),
+                noun = "details")
+        );
+        noun = "details")
+end
+
 "Reference boundary discretization. Accuracy depends on geometry and the requested terminal quantity."
-const DEFAULT_RESOLUTION = (wire = 64, order = 32, quadrature = 256, modes = 1024)
+const DEFAULT_RESOLUTION = (wire = 64, order = 32, quadrature = 64, modes = 512)
 "Default controls for dimensionless logarithmic-moment integration."
 const DEFAULT_INTEGRATION = (rtol = 1e-8, atol = 1e-10, maxevals = 100_000)
+
+"""
+Return the dielectric groups that a shunt model solves in one cable design and the records of
+its concentric assemblies.
+"""
+function dielectric_groups end
 
 "Return the available local shunt model identifiers."
 formulas(::Type{<:Formula}) = (:default, :equivalent, :boundary)
@@ -25,18 +74,15 @@ formulas(::Type{<:Formula}) = (:default, :equivalent, :boundary)
 $(TYPEDSIGNATURES)
 
 Construct a cable-local shunt model. `:default` and `:equivalent` use the equivalent annular
-layer of each dielectric interval. `:boundary` resolves eligible lossless open-screen
-domains before frequency evaluation.
+layer of each dielectric interval. `:boundary` resolves supported lossless wire and
+tape arrangements before frequency evaluation, or reports an unsupported geometry.
 
 # Keywords
 
-- `parameters=(;)`: geometric boundary `fallback=:error` (default) or explicitly
-  `:equivalent` after an unsupported geometric boundary assumption or numerical failure.
-  A finite result's quality warning never triggers this fallback.
+- `parameters=(;)`: the model rejects parameters. Numerical failures propagate.
 - `options=(;)`: geometric boundary `resolution=(wire=64, order=32, quadrature=256,
-  modes=1024)`, `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`, and
-  `audit=false`, where the audit recomputes an independent boundary grid to check
-  derivative step refinement. The equivalent model does not accept numerical controls.
+  modes=1024)` and `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`. The
+  equivalent model does not accept numerical controls.
 
 # Returns
 
@@ -44,54 +90,46 @@ domains before frequency evaluation.
 """
 function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
-    options = options isa NamedTuple ? FormulationOptions(options) : options
-    ID === :equivalent || throw(ArgumentError("unknown shunt model :$ID"))
-    isempty(parameters) && isempty(options.data) || throw(ArgumentError(
-        "equivalent shunt models accept no parameters or numerical controls"))
-    return Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
+    options = FormulationOptions(options)
+    isempty(parameters) || throw(ArgumentError("shunt model :$ID accepts no parameters"))
+    selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
+    normalized = formulation_options(Expression(selected, dielectric_groups), options)
+    return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
 end
 
 Formula{:default}(; kwargs...) = Formula{:equivalent}(; kwargs...)
 
-function Formula{:boundary}(; parameters::NamedTuple = (;),
-        options::Union{NamedTuple, FormulationOptions} = FormulationOptions())
-    options = options isa NamedTuple ? FormulationOptions(options) : options
-    isempty(setdiff(keys(parameters), (:fallback,))) || throw(ArgumentError(
-        "boundary shunt parameters accept only fallback"))
-    fallback = get(parameters, :fallback, :error)
-    fallback in (:error, :equivalent) ||
-        throw(ArgumentError("boundary fallback must be :error or :equivalent"))
-    isempty(setdiff(keys(options.data), (:resolution, :integration, :audit))) ||
-        throw(ArgumentError(
-            "boundary shunt options accept resolution, integration, and audit"))
-    resolution = get(options.data, :resolution, (;))
-    resolution isa NamedTuple &&
-    isempty(setdiff(keys(resolution), keys(DEFAULT_RESOLUTION))) ||
+formulation_options(::Expression{<:Formula{:equivalent}}) = FormulationOptions()
+
+function formulation_options(::Expression{<:Formula{:boundary}})
+    FormulationOptions((resolution = DEFAULT_RESOLUTION, integration = DEFAULT_INTEGRATION))
+end
+
+function formulation_options(::Expression{<:Formula{:boundary}}, ::Val{:resolution},
+        defaults::NamedTuple, supplied::NamedTuple)
+    isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown boundary resolution controls"))
-    resolution = merge(DEFAULT_RESOLUTION, resolution)
+    resolution = merge(defaults, supplied)
     all(x -> x isa Integer && !(x isa Bool) && x > 0, values(resolution)) ||
         throw(ArgumentError("boundary resolution controls must be positive integers"))
     resolution.quadrature >= resolution.order+1 || throw(ArgumentError(
         "boundary quadrature must contain at least order+1 nodes"))
-    integration = get(options.data, :integration, (;))
-    integration isa NamedTuple &&
-    isempty(setdiff(keys(integration), keys(DEFAULT_INTEGRATION))) ||
+    return map(Int, resolution)
+end
+
+function formulation_options(::Expression{<:Formula{:boundary}}, ::Val{:integration},
+        defaults::NamedTuple, supplied::NamedTuple)
+    isempty(setdiff(keys(supplied), keys(defaults))) ||
         throw(ArgumentError("unknown boundary integration controls"))
-    integration = merge(DEFAULT_INTEGRATION, integration)
+    integration = merge(defaults, supplied)
     all(x -> x isa Real && isfinite(x) && x >= 0, (integration.rtol, integration.atol)) &&
     max(integration.rtol, integration.atol) > 0 || throw(ArgumentError(
         "boundary integration requires nonnegative finite tolerances, at least one positive"))
     integration.maxevals isa Integer && !(integration.maxevals isa Bool) &&
     integration.maxevals > 0 ||
         throw(ArgumentError("boundary maxevals must be a positive integer"))
-    audit = get(options.data, :audit, false)
-    audit isa Bool || throw(ArgumentError("boundary audit must be Bool"))
-    normalized = FormulationOptions(; resolution,
-        integration = (rtol = Float64(integration.rtol),
-            atol = Float64(integration.atol), maxevals = Int(integration.maxevals)),
-        audit)
-    parameters = (; fallback)
-    return Formula{:boundary, typeof(parameters), typeof(normalized)}(parameters, normalized)
+    return (rtol = Float64(integration.rtol), atol = Float64(integration.atol),
+        maxevals = Int(integration.maxevals))
 end
 
 """Describe the equivalent annular layer local shunt approximation."""

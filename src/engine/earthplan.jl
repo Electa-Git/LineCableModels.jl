@@ -43,7 +43,9 @@ physical pair. The distinct expressions, with the options that `formula` declare
 parts.
 `geometry` holds the conductor radii and the physical layer of each conductor.
 
-A formula that computes the whole system adds a method on its own type.
+A pair takes the value of the nearest earlier pair of its part when `same_calculation` finds
+that one calculation serves both. Formulas that compute the whole system add a method on
+their own type.
 """
 function EarthPlan(formula::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
         earth, model::EarthModel, physical::AbstractVector{<:EarthPair}, indices,
@@ -69,14 +71,15 @@ function EarthPlan(formula::Union{EarthImpedanceFormulation, EarthAdmittanceForm
         end)
     end
     # The pairs that each distinct expression serves.
-    served = [findall(==(expression), expressions) for expression in projected.expressions]
+    served = Vector{Int}[findall(==(expression), expressions)
+                         for expression in projected.expressions]
     # A pair takes the value of the nearest earlier pair of its part with the same inputs.
     reuse_from = collect(eachindex(decided))
     for members in served, ordinal in eachindex(members)
         position = members[ordinal]
         for earlier in (ordinal - 1):-1:1
             candidate = members[earlier]
-            if same_physical_state(formula, decided[position], decided[candidate], geometry)
+            if same_calculation(formula, decided[position], decided[candidate], geometry)
                 reuse_from[position] = candidate
                 break
             end
@@ -165,18 +168,15 @@ $(TYPEDSIGNATURES)
 
 Merge the earth plans of the impedance and the admittance slot. The first plan's calculations
 compute the impedance and the second plan's the admittance. An impedance and an admittance
-calculation become one calculation serving both when their formulas have the same physical
-state and their parts the same options.
+calculation become one calculation serving both when `same_calculation` finds that their
+formulas compute the same calculation.
 """
 function EarthPlan(impedance::EarthPlan, admittance::EarthPlan)
     calculations = NamedTuple[]
     remaining = collect(NamedTuple, admittance.calculations)
     for calculation in impedance.calculations
-        index = findfirst(remaining) do candidate
-            same_physical_state(calculation.impedance.formula, candidate.admittance.formula) &&
-                same_physical_state(first(calculation.parts).options.data,
-                    first(candidate.parts).options.data)
-        end
+        index = findfirst(candidate -> same_calculation(
+                calculation.impedance.formula, candidate.admittance.formula), remaining)
         if index === nothing
             push!(calculations, calculation)
         else
@@ -189,19 +189,16 @@ function EarthPlan(impedance::EarthPlan, admittance::EarthPlan)
     return EarthPlan(Tuple(calculations))
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Whether `formula` gives the conductor pairs `a` and `b` the same value when their media
-agree. `geometry` holds the conductor radii. By default the pairs' destination indices take
-part, so distinct pairs are computed separately. A formula whose arithmetic does not read
-them compares the inputs it reads instead.
-"""
-function same_physical_state(
-        ::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
+# By default the pairs themselves, with their destination indices, take part: distinct pairs
+# are computed separately.
+function same_calculation(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation},
         a::EarthPair, b::EarthPair, geometry::NamedTuple)
-    return same_physical_state((a.row, a.column), (b.row, b.column))
+    return a === b
 end
+
+# An impedance and an admittance formula compute separate calculations unless their family
+# shares one.
+same_calculation(::EarthImpedanceFormulation, ::EarthAdmittanceFormulation) = false
 
 """
 $(TYPEDSIGNATURES)

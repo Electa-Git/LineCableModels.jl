@@ -1,84 +1,60 @@
-# The shunt stage completes the boundary coefficients after flattening, for each
-# formulation. The solved-domain inventory lives only for one shunt stage.
+# The shunt stage completes the internal potential coefficients after flattening, for each
+# formulation. Its records of the solved groups live only for one stage.
 const ShuntDomainReport = NamedTuple{
-    (:design, :terminals, :requested, :effective, :reason, :message),
-    Tuple{Int, UnitRange{Int}, Symbol, Symbol, Symbol, String}}
+    (:design, :terminals, :requested, :reason, :message),
+    Tuple{Int, UnitRange{Int}, Symbol, Symbol, String}}
 
-function internal_shunt_response(selected::ShuntModelFormulation, design,
-        geometry, T, formulas, solutions, design_index)
-    domains=internal_shunt_domains(design, geometry, T; design_index)
-    return internal_shunt_response(selected, domains, formulas, solutions)
+function dielectric_groups(selected::Formula{:equivalent}, design::CableDesign,
+        blueprint::CableBlueprint{T}, formulas, design_index) where {T}
+    reports = ShuntDomainReport[(design_index, indices, formula_id(selected), :selected,
+        "Equivalent annular layers; no boundary extraction")
+        for indices in blueprint.assembly_ranges]
+    return (groups = DielectricGroup{T}[], reports)
 end
 
-function internal_shunt_response(
-        selected::Formula{:equivalent},
-        design::CableDesign, geometry, ::Type{T}, formulas, solutions, design_index) where {T}
-    requested = formula_id(selected)
-    reports = ShuntDomainReport[(design_index, indices, requested,
-        :equivalent, :selected,
-        "Equivalent annular layers; no boundary extraction or audit")
-        for indices in geometry.assembly_ranges]
-    return (blocks = InternalShuntBlock{T}[],
-        details =
-        (requested, effective = :equivalent, solves = 0, domains = reports,
-            diagnostics = InternalShuntDiagnostic[]))
+function dielectric_groups(selected::Formula{:boundary}, design::CableDesign,
+        blueprint::CableBlueprint{T}, formulas, design_index) where {T}
+    extraction = _shunt_extract(design, blueprint, T, design_index, formulas)
+    validate(blueprint, selected, extraction, design)
+    (; groups) = extraction
+    isempty(groups) || validate(formulas, selected, design)
+    reports = ShuntDomainReport[(group.design, group.terminals, :boundary, :resolved,
+        (first(group.terminals) == first(group.assembly) ?
+         "Equivalent inner core. " : "Closed inner anchor. ") *
+        "Outer equipotential $(group.reference) [m].") for group in groups]
+    for assembly in blueprint.assembly_ranges
+        any(group -> group.assembly == assembly, groups) && continue
+        push!(reports, (design_index, assembly, :boundary, :radial,
+            "No discrete outer arrangement; exact radial dielectric solution. " *
+            "The inner core retains the equivalent-core assumption."))
+    end
+    return (; groups, reports)
 end
 
-function internal_shunt_response(selected::Formula{:boundary},
-        domains::Vector{InternalShuntDomain{T}}, formulas, solutions) where {T}
-    blocks = InternalShuntBlock{T}[]
-    diagnostics = InternalShuntDiagnostic[]
-    reports = ShuntDomainReport[]
-    for domain in domains
-        try
-            _shunt_lossless(formulas) || throw(BoundarySolveError(:unsupported,
-                (; design = domain.design, terminals = domain.terminals),
-                "boundary shunt requires the built-in lossless dielectric laws"))
-            # A solve depends on its physical inputs, the terminal of each wire and tape, and
-            # its numerical controls.
-            values = _shunt_values(domain, formulas)
-            topology = (length(domain.terminals), length(domain.left), length(domain.right),
-                [wire.terminal for wire in domain.wires],
-                [tape.terminal for tape in domain.tapes])
-            controls = selected.options.data
-            previous = findfirst(
-                solution -> isequal(solution.controls, controls) &&
-                            isequal(solution.topology, topology) &&
-                            same_physical_state(solution.values, values),
-                solutions)
-            if previous === nothing
-                # The admitted lossless laws are independent of frequency and
-                # temperature. Their dielectric descriptors retain UQ sources.
-                result = internal_shunt_response(selected, values, domain;
-                    level = controls.resolution, integration = controls.integration,
-                    audit = controls.audit)
-                C = Matrix{T}(result.C)
-                P = lu(C) \ Matrix{T}(I, size(C, 1), size(C, 1))
-                diagnostic = result.diagnostic
-                push!(solutions, (; values, topology, controls, C, P, diagnostic))
-            else
-                source = solutions[previous]
-                C, P, diagnostic = source.C, source.P, source.diagnostic
-            end
-            push!(blocks, InternalShuntBlock(domain.assembly, domain.terminals, C, P))
-            push!(diagnostics, diagnostic)
-            push!(reports, (
-                domain.design, domain.terminals, :boundary, :boundary, :resolved, ""))
-        catch exception
-            exception isa BoundarySolveError || rethrow()
-            selected.parameters.fallback === :equivalent || rethrow()
-            @warn "Boundary shunt replaced by the equivalent annular layer" design=domain.design terminals=domain.terminals reason=exception.category
-            push!(reports,
-                (domain.design, domain.terminals, :boundary,
-                    :equivalent, exception.category, sprint(showerror, exception)))
+# Every conductor outside the inner core is a closed concentric tube or lies in a group.
+# Otherwise the reason is the one that extraction gave for its host.
+function validate(blueprint::CableBlueprint, ::Formula{:boundary}, extraction,
+        design::CableDesign)
+    for assembly in blueprint.assembly_ranges
+        x, y = blueprint.positions[blueprint.conductors[first(assembly)].assembly]
+        for index in (first(assembly)+1):last(assembly)
+            _shunt_closed(design, index, x, y, blueprint.conductors[index].r_ex) !== nothing && continue
+            any(group -> group.assembly == assembly &&
+                first(group.terminals) < index <= last(group.terminals), extraction.groups) && continue
+            host = findfirst(rejection -> index in rejection.terminals, extraction.rejected)
+            host === nothing || throw(extraction.rejected[host].reason)
+            throw(BoundarySolveError(:unsupported,
+                (; cable = design.cable_id, terminal = blueprint.conductors[index].terminal),
+                "boundary shunt cannot represent this conductor: it is neither a closed " *
+                "concentric tube nor a wire or tape in an annular dielectric host"))
         end
     end
-    solved = Base.IdSet{Matrix{T}}()
-    foreach(block -> push!(solved, block.C), blocks)
-    effective = isempty(reports) ? :equivalent :
-                all(r -> r.effective === :boundary, reports) ? :boundary :
-                all(r -> r.effective === :equivalent, reports) ? :equivalent : :mixed
-    return (blocks,
-        details = (requested = :boundary, effective,
-            solves = length(solved), domains = reports, diagnostics))
+    return blueprint
+end
+
+function validate(formulas::NamedTuple, ::Formula{:boundary}, design::CableDesign)
+    _shunt_lossless(formulas) || throw(BoundarySolveError(:unsupported,
+        (; cable = design.cable_id),
+        "boundary shunt requires the built-in lossless dielectric laws"))
+    return formulas
 end

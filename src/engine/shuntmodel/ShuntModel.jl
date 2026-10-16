@@ -3,7 +3,7 @@
 
 Select the cable-local shunt geometry model independently of dielectric
 constitutive laws. The equivalent annular layer is the default. The geometric boundary
-approximation resolves eligible open wires and tapes inside a closed circular shield.
+approximation resolves exposed wires and tapes inside a layered circular reference.
 
 # Dependencies
 
@@ -17,20 +17,19 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 import ..Engine: ShuntModelFormulation
-import ...LineCableModels: FormulaDefinition, formula_id, description
+import ...LineCableModels: FormulaDefinition, Expression, formula_id, description
 import ...Commons: formulation_options, initialize_buffers
 using ...Commons: vacuum_permittivity
 import ...Materials: Material
 import ...DataModel: CableDesign, CableBlueprint
 import ...DataModel
 import ...TextDisplay
-import ..Engine: InternalShuntBlock, internal_shunt_response,
-                 same_physical_state, numerical_magnitude
+import ..Engine: ShuntShield, ShuntJacket, tolerance_norm
 import ..Engine: InsulationAdmittance, SemiconAdmittance
-import ...LineCableModels: nominal
+import ...LineCableModels: nominal, validate
 using ...LineCableModels: constitutive
-using LinearAlgebra: eigvals!, norm, I, lu, mul!, qr!, ColumnNorm, eigen,
-                     SymTridiagonal, UpperTriangular
+using LinearAlgebra: norm, opnorm, cond, lmul!, mul!, ldiv!, rdiv!, qr!, cholesky!,
+                     Hermitian, eigen, SymTridiagonal, UpperTriangular
 using QuadGK: alloc_segbuf, quadgk!
 import SpecialFunctions
 
@@ -41,5 +40,6 @@ include("geometry.jl")
 include("charge_collocation.jl")
 include("blueprint.jl")
 
-public BoundarySolveError
+public BoundarySolveError, InternalShuntDiagnostic, DielectricGroup, dielectric_groups,
+       internal_capacitance
 end

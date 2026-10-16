@@ -47,11 +47,12 @@
         E.materials!(prepared, selected)
         E.materials!(prepared, selected, 1)
         prepared.input.jω[1]=state.jω
+        # The pairs share one value object per layer, as in the computation's media.
+        rho=[iszero(sigma) ? T(Inf) : inv(sigma) for sigma in state.sigma]
         for materials in prepared.buffers.earth.calculations
             for column in axes(materials.rho, 2), layer in 1:2
 
-                materials.rho[layer, column]=iszero(state.sigma[layer]) ? T(Inf) :
-                                             inv(state.sigma[layer])
+                materials.rho[layer, column]=rho[layer]
                 materials.epsilon[layer, column]=state.epsilon[layer]
                 materials.mu[layer, column]=state.mu[layer]
             end

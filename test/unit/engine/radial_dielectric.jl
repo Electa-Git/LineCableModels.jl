@@ -77,7 +77,7 @@
             reduced = map((source, homogeneous)) do design
                 blueprint = LineCableModels.DataModel.flatten(design)
                 input = E.LocalCableData(blueprint)
-                shunt = only(E.internal_shunt_response([design], [blueprint], [formulation]))
+                shunt = only(E.internal_potential_coefficients([design], [blueprint], [formulation]))
                 y = zeros(ComplexF64, 1, 1)
                 admittivity = zeros(ComplexF64, length(input.dielectric_materials))
                 rho = [constitutive(formulation.formulas.temperature_dependence, material, 20.0)

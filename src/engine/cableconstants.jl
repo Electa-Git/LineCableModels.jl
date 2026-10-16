@@ -427,7 +427,7 @@ function CableConstantsWorkspace(
         formulation::CableConstantsFormulation,
         blueprint::CableBlueprint{T}
 ) where {T <: Real}
-    shunt = only(internal_shunt_response([problem.design], [blueprint], [formulation]))
+    shunt = only(internal_potential_coefficients([problem.design], [blueprint], [formulation]))
     return CableConstantsWorkspace(
         problem,
         formulation,
@@ -636,7 +636,7 @@ function compute(
     ))
     blueprint = DataModel.flatten(problem.design, eltype(problem))
     cable = LocalCableData(blueprint)
-    shunts = internal_shunt_response([problem.design], [blueprint], formulations)
+    shunts = internal_potential_coefficients([problem.design], [blueprint], formulations)
     physical_inputs = completed_inputs(problem)
     source_id = Commons.gridpoint_id().source_id
     return map(formulations, shunts, eachindex(formulations)) do formulation, shunt, index
