@@ -15,7 +15,7 @@ end
 $(TYPEDSIGNATURES)
 
 Compute a transient response using the selected formula. Execution options admit
-`verbosity=(default=0,)` and `timing=false`. Both built-in solvers are placeholders.
+`verbosity=(default=0,)` and `timing=false`.
 """
 function compute(problem::TransientAnalysisProblem, formulation::TransientFormulation;
         options::Union{NamedTuple, ComputationOptions}=ComputationOptions())
@@ -23,26 +23,18 @@ function compute(problem::TransientAnalysisProblem, formulation::TransientFormul
     execution = computation_options(TransientFormulation, options)
     selected = formulation.formula
     validate(problem, selected)
-    input = (line=problem.line, sending=problem.sending, receiving=problem.receiving,
-        window=problem.window)
-    coordinates = _transient_coordinates(problem.line)
-    plan = (window=problem.window, coordinates=coordinates)
-    T = float(promote_type(eltype(problem.line), typeof(problem.window.tmax),
-        typeof(problem.window.step)))
-    buffers = initialize_buffers(selected, T, input, plan, (;))
-    workspace = TransientWorkspace(input, plan, buffers)
     values, timing = with_logger(VerbosityLogger(current_logger(), execution.data.verbosity)) do
         if execution.data.timing
-            measured = Base.@timed respond!(selected, workspace, selected.parameters, selected.options)
+            measured = Base.@timed compute(selected, problem, execution)
             return measured.value, (wall_seconds=measured.time, bytes=measured.bytes,
                 gc_seconds=measured.gctime, compile_seconds=measured.compile_time,
                 recompile_seconds=measured.recompile_time)
         end
-        return respond!(selected, workspace, selected.parameters, selected.options), nothing
+        return compute(selected, problem, execution), nothing
     end
-    t, voltages, currents = values
-    retained = (formula=formula_id(selected), options=selected.options.data,
-        window=problem.window, gridpoint=Commons.gridpoint_id(), coordinates=coordinates)
+    t, voltages, currents, coordinates, retained = values
+    retained = merge((formula=formula_id(selected), options=selected.options.data,
+        window=problem.window, gridpoint=Commons.gridpoint_id(), coordinates=coordinates), retained)
     execution.data.timing && (retained = merge(retained, (timing=timing,)))
     return TransientResponse(t, voltages, currents, coordinates, ComputationDetails(retained))
 end
@@ -51,5 +43,6 @@ function computation_details(::Type{<:TransientFormulation}, result::TransientRe
     return details(result)
 end
 
-respond!(::Formula{:nlt}, workspace, parameters, options) = throw(ArgumentError("not implemented yet"))
+compute(::Formula{:td}, problem::TransientAnalysisProblem, execution::ComputationOptions) =
+    throw(ArgumentError("not implemented yet"))
 respond!(::Formula{:td}, workspace, parameters, options) = throw(ArgumentError("not implemented yet"))

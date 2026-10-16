@@ -71,7 +71,8 @@
     @test_throws TypeError computation_options(TransientFormulation, ComputationOptions(; timing=1))
     @test_throws ArgumentError computation_options(TransientFormulation, ComputationOptions(; verbosity=(default=3,)))
     @test TA.initialize_buffers(default.formula, Float64, nothing, nothing, (;)) === (;)
-    for identifier in (:nlt, :td)
+    @test validate(problem, TransientFormulation(:nlt).formula) === problem
+    for identifier in (:td,)
         selected = TransientFormulation(identifier)
         @test_throws ArgumentError("not implemented yet") TA.respond!(selected.formula, nothing, (;), selected.formula.options)
         message = try

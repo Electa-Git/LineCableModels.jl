@@ -291,7 +291,16 @@ module CurrentScenarios
             two_bare_wires=(
                 known_case_problem(Val(:two_bare_wires); frequencies), known_cases),
             two_insulated_wires=(
-                known_case_problem(Val(:two_insulated_wires); frequencies), known_cases))
+                known_case_problem(Val(:two_insulated_wires); frequencies), known_cases),
+            nlt=(TransientAnalysisProblem(three_bare_wires_problem(; line_length=1000.0);
+                sending=(Step("cable:1:core", 1.0),
+                    TerminalImpedance("cable:2:core"; R=1.0),
+                    TerminalImpedance("cable:3:core"; R=1.0)),
+                receiving=(TerminalImpedance("cable:2:core"; R=1.0),
+                    TerminalImpedance("cable:3:core"; R=1.0)),
+                window=(tmax=2e-4, step=1e-6)),
+                TransientFormulation(:nlt; options=(N=64,
+                    line=Formulation(earth_impedance=:unified, earth_admittance=:unified)))))
     end
 
     """

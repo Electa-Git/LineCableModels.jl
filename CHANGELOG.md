@@ -9,7 +9,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Transient analysis grammar includes terminal assignments, formulations, response arrays and raw voltage and current observations. Responses retain time coordinates for observations, tables and saved archives.
+- Transient analysis grammar includes terminal assignments, formulations, response arrays and raw voltage and current observations. Responses retain time coordinates for observations, tables and saved archives. The numerical Laplace transform computes terminal voltages and currents from the exact line two-port.
 
 - Problem JSON preserves σ. PSCAD line constants, FEM computations and ATP matrix exports refuse σ ≠ 0.
 

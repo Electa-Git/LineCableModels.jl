@@ -53,6 +53,8 @@ allowance(value::Complex) = allowance(real(value)) + allowance(imag(value))
 allowance(values::AbstractArray) = sum(allowance, values; init = 0)
 allowance(result::LineParameters) =
     allowance(result.Z) + allowance(result.Y) + allowance(result.f)
+allowance(result::TransientResponse) =
+    allowance(result.t) + allowance(result.voltage) + allowance(result.current)
 allowance(result::CableConstants) = allowance(result.R) + allowance(result.L) +
     allowance(result.C) + allowance(result.G) + allowance(result.frequency)
 allowance(result::Union{AbstractParametricResult, AbstractUncertaintyResult}) =

@@ -216,3 +216,7 @@ allocations = "ceiling"
 "two_bare_wires | 4 frequencies | bytes" = 231744
 "two_insulated_wires | 4 frequencies | allocations" = 4447
 "two_insulated_wires | 4 frequencies | bytes" = 243008
+"nlt | 2 frequencies | allocations" = 7143
+"nlt | 2 frequencies | bytes" = 871216
+"nlt | 4 frequencies | allocations" = 7143
+"nlt | 4 frequencies | bytes" = 871216

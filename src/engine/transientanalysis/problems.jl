@@ -32,9 +32,6 @@ function TransientAnalysisProblem(line; sending, receiving, window)
         (line, sending, receiving, window))
 end
 
-_transient_coordinates(line::LineParametersProblem) =
-    ["cable:$(cable):$(terminal)" for (; cable, terminal) in line.system.terminal_order]
-
 validate(assignment::Matched, ::Type{<:TransientAnalysisProblem}, coordinates) = assignment
 
 function validate(assignments::Tuple, ::Type{<:TransientAnalysisProblem}, coordinates)
@@ -54,7 +51,8 @@ function validate(assignment::Union{TerminalImpedance, Waveform},
 end
 
 function validate(problem::TransientAnalysisProblem)
-    coordinates = _transient_coordinates(problem.line)
+    coordinates = ["cable:$(cable):$(terminal)"
+        for (; cable, terminal) in problem.line.system.terminal_order]
     validate(problem.sending, TransientAnalysisProblem, coordinates)
     validate(problem.receiving, TransientAnalysisProblem, coordinates)
     keys(problem.window) == (:tmax, :step) ||
