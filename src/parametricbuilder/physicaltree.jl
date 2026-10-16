@@ -1079,8 +1079,8 @@ Repeat one stranded core as a central member and concentric outer courses.
 # Keywords
 
 - `layers`: number of outer courses \\[dimensionless\\].
-- `n=6`: the course counts, as for `stranded`: a positive base count, an exact course
-  schedule, or `capacity()`, the maximum count of each course.
+- `n=6`: the course counts, declared as in `stranded`. With `capacity()`, each course
+  takes its maximum count.
 - `lay=nothing`: one lay law or one law per outer course. Homogeneous schedules
   may be declared as `LayRatio(q...)`, `Pitch(p...)` or `LayAngle(α...)`.
 - `dir=1`: one handedness or one value per outer course.
