@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "98775e4833db5b32a74799a0d3ab641521fc1b02"
+project_hash = "de8ce7590d2214005ff8d03960d9d0fb1fb8ae8d"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1046,6 +1046,7 @@ version = "0.2.0"
     LineCableModelsGmshExt = "Gmsh"
     LineCableModelsMakieExt = ["Makie", "Colors"]
     LineCableModelsMeasurementsExt = ["Measurements", "Calculus"]
+    LineCableModelsUniversalLineModelExt = "UniversalLineModel"
     LineCableModelsWGLMakieExt = ["Makie", "WGLMakie"]
     LineCableModelsXLSXExt = "XLSX"
 
@@ -1058,6 +1059,7 @@ version = "0.2.0"
     Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
     Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
     Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
+    UniversalLineModel = "746cdcb3-aca5-48bf-a31d-4d74a2c5ed83"
     WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
     XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 
@@ -1899,6 +1901,15 @@ version = "1.29.0"
     Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
     NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
     Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[deps.UniversalLineModel]]
+deps = ["LinearAlgebra", "Printf", "QuadGK", "SpecialFunctions"]
+git-tree-sha1 = "c5a4a7991819dcf8df0a88eb12e969be90568d5c"
+repo-rev = "0682b277d8eeddbc8be0f4cc78a54f7866334c6b"
+repo-subdir = "UniversalLineModel"
+repo-url = "https://github.com/amaurigmartins/ULM.git"
+uuid = "746cdcb3-aca5-48bf-a31d-4d74a2c5ed83"
+version = "0.2.0"
 
 [[deps.WebP]]
 deps = ["CEnum", "ColorTypes", "FileIO", "FixedPointNumbers", "ImageCore", "libwebp_jll"]

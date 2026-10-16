@@ -2,9 +2,10 @@
     using ExplicitImports: test_explicit_imports, improper_qualified_accesses
     # These adapters participate in the numerical/UQ paths. Check the loaded
     # extensions too. A cold root-only scan cannot see their ownership errors.
-    import Measurements, Distributions, Gmsh, Calculus, XLSX, CairoMakie
+    import Measurements, Distributions, Gmsh, Calculus, XLSX, CairoMakie, UniversalLineModel
     for name in (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
-            :LineCableModelsGmshExt, :LineCableModelsXLSXExt)
+            :LineCableModelsGmshExt, :LineCableModelsXLSXExt,
+            :LineCableModelsUniversalLineModelExt)
         @test Base.get_extension(LineCableModels, name) !== nothing
     end
     renderer = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)

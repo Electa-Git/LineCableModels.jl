@@ -8,7 +8,7 @@
 # Owner tags in load order: the core layers, then the extensions.
 const OWNERS = (:units, :commons, :materials, :earth, :datamodel, :engine,
     :parametric, :uq, :report, :importexport, :pscad,
-    :measurements, :distributions, :xlsx, :fem, :makie)
+    :measurements, :distributions, :xlsx, :fem, :ulm, :makie)
 
 # The core modules in load order, each with its owner tag. Modules without a tag of
 # their own take the tag of the preceding owner.
@@ -20,7 +20,8 @@ const MODULE_OWNERS = (Units = :units, Commons = :commons, TextDisplay = :common
 
 const EXTENSION_OWNERS = (LineCableModelsMeasurementsExt = :measurements,
     LineCableModelsDistributionsExt = :distributions, LineCableModelsXLSXExt = :xlsx,
-    LineCableModelsGmshExt = :fem, LineCableModelsMakieExt = :makie,
+    LineCableModelsGmshExt = :fem, LineCableModelsUniversalLineModelExt = :ulm,
+    LineCableModelsMakieExt = :makie,
     LineCableModelsCairoMakieExt = :makie, LineCableModelsGLMakieExt = :makie,
     LineCableModelsWGLMakieExt = :makie)
 
