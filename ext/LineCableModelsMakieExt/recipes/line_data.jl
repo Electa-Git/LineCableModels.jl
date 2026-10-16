@@ -18,7 +18,7 @@ function _line_plot_data(records::Tuple)
     xdata=map(records) do product
         c=product.coordinates
         if c.kind===:assemblies
-            return (values=string.(c.labels[c.assemblies]),quantity=Units.Quantity{:dimensionless, Nothing}(),
+            return (values=string.(c.labels[c.assemblies]),quantity=Units.Quantity{Units.Dimensionless, Nothing}(),
                 unit=Units.units(:base,:dimensionless),label="Assembly")
         elseif c.kind===:array
             n=length(vcat(product.values))
@@ -27,12 +27,12 @@ function _line_plot_data(records::Tuple)
             original=selected isa Integer ? [selected] : selected isa AbstractVector || selected isa AbstractRange ? collect(selected) : nothing
             original===nothing || length(original)==n || throw(DimensionMismatch("retained element indices do not match values"))
             return (values=original===nothing ? collect(1:n) : original,
-                quantity=Units.Quantity{:dimensionless, Nothing}(),unit=Units.units(:base,:dimensionless),
+                quantity=Units.Quantity{Units.Dimensionless, Nothing}(),unit=Units.units(:base,:dimensionless),
                 label=original===nothing ? "Retained element position" : "Original element index")
         end
         c.frequencies===nothing && throw(ArgumentError(
             "a frequency plot requires a frequency axis retained during observation"))
-        (values=c.frequencies,quantity=Units.Quantity{:frequency, Nothing}(),unit=c.frequency_unit)
+        (values=c.frequencies,quantity=Units.Quantity{Units.Frequency, Nothing}(),unit=c.frequency_unit)
     end
     observations=map(records,coordinates) do product,indices
         # One value is an array of one.

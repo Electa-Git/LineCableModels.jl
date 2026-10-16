@@ -26,7 +26,7 @@ Return the family of a physical quantity: `Val(:series)`, `Val(:shunt)`, or
 """
 function family end
 
-public family
+public family, Frequency, Dimensionless
 
 include("units.jl")
 include("quantities.jl")

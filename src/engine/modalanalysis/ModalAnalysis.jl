@@ -44,7 +44,7 @@ include("interfaces.jl")
 include("problems.jl")
 
 include("formulations.jl")
-public decompose!
+public decompose!, VoltagePropagationFunction, CurrentPropagationFunction
 include("eigensystems.jl")
 include("compute.jl")
 include("composition.jl")

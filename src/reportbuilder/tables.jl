@@ -220,11 +220,11 @@ function _quantity_table(product; gridpoint_id=nothing)
             end
         end
         first_column=f===nothing ? (:sample=>(quantity=nothing,unit=nothing)) :
-            (:frequency=>(quantity=Units.Quantity{:frequency, Nothing}(),unit=coordinates.frequency_unit))
+            (:frequency=>(quantity=Units.Quantity{Units.Frequency, Nothing}(),unit=coordinates.frequency_unit))
         metadata!(table,"observation_columns",(; (first_column,columns...)...);style=:note)
     elseif coordinates.kind===:assemblies
         table=DataFrame(frequency=coordinates.frequencies)
-        columns=Pair{Symbol,Any}[:frequency=>(quantity=Units.Quantity{:frequency, Nothing}(),unit=coordinates.frequency_unit)]
+        columns=Pair{Symbol,Any}[:frequency=>(quantity=Units.Quantity{Units.Frequency, Nothing}(),unit=coordinates.frequency_unit)]
         for (index,assembly) in enumerate(coordinates.assemblies)
             name=Symbol(coordinates.labels[assembly])
             name===:frequency && throw(ArgumentError("assembly name conflicts with the frequency column"))

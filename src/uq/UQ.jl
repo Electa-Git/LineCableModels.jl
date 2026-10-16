@@ -13,6 +13,7 @@ export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export cumulative_probability, quantile_pairs
+public SampleCount, Probability, CumulativeProbability, ProbabilityDensity
 
 import Random
 import Statistics

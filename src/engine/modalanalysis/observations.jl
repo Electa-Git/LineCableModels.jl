@@ -1,113 +1,124 @@
-# Scientific units belong to the scalar quantity, independently of presentation.
-Units.quantity(::typeof(gamma)) = Units.Quantity{:propagation_constant, Nothing}()
-Units.quantity(::typeof(alpha)) = Units.Quantity{:attenuation_constant, Nothing}()
-Units.quantity(::typeof(beta)) = Units.Quantity{:phase_constant, Nothing}()
-Units.quantity(::typeof(velocity)) = Units.Quantity{:phase_velocity, Nothing}()
-Units.quantity(::typeof(Zc)) = Units.Quantity{:characteristic_impedance, Nothing}()
-Units.quantity(::typeof(Yc)) = Units.Quantity{:characteristic_admittance, Nothing}()
-Units.quantity(::typeof(H)) = Units.Quantity{:forward_response, Nothing}()
-Units.quantity(::typeof(Tv)) = Units.Quantity{:voltage_basis, Nothing}()
-Units.quantity(::typeof(Ti)) = Units.Quantity{:current_basis, Nothing}()
+const _phase_Zc = Base.Fix2(Zc,(domain=PhaseDomain,))
+const _phase_Yc = Base.Fix2(Yc,(domain=PhaseDomain,))
+const _voltage_H = Base.Fix2(H,(domain=PhaseDomain,field=:voltage))
+const _current_H = Base.Fix2(H,(domain=PhaseDomain,field=:current))
+
+"""
+$(TYPEDEF)
+
+The name of the voltage propagation function, `H` bound to the phase domain and the
+voltage field. The binding stores the field as a value, so the voltage and the current
+functions share one selector type.
+"""
+abstract type VoltagePropagationFunction end
+
+"""
+$(TYPEDEF)
+
+The name of the current propagation function, `H` bound to the phase domain and the
+current field. See [`VoltagePropagationFunction`](@ref).
+"""
+abstract type CurrentPropagationFunction end
+
+# Scientific units belong to the scalar quantity, independently of presentation. A
+# selector's type names its quantity.
+Units.quantity(selector::Union{typeof(gamma),typeof(alpha),typeof(beta),typeof(velocity),
+    typeof(Zc),typeof(Yc),typeof(H),typeof(Tv),typeof(Ti),typeof(_phase_Zc),typeof(_phase_Yc)}) =
+    Units.Quantity{typeof(selector), Nothing}()
 Units.quantity(value::Base.Fix2{typeof(H)}) = value.x.field===:voltage ?
-    Units.Quantity{:voltage_propagation_function, Nothing}() :
-    Units.Quantity{:current_propagation_function, Nothing}()
-Units.quantity(value::Base.Fix2{typeof(Zc)}) = Units.Quantity{:phase_characteristic_impedance, Nothing}()
-Units.quantity(value::Base.Fix2{typeof(Yc)}) = Units.Quantity{:phase_characteristic_admittance, Nothing}()
+    Units.Quantity{VoltagePropagationFunction, Nothing}() :
+    Units.Quantity{CurrentPropagationFunction, Nothing}()
 
-Units.native_unit(::Units.Quantity{:propagation_constant, Nothing}) =
+Units.native_unit(::Units.Quantity{typeof(gamma), Nothing}) =
     Units.units(:base,:dimensionless;per=(:base,:meter))
-Units.display_unit(::Units.Quantity{:propagation_constant, Nothing}) =
+Units.display_unit(::Units.Quantity{typeof(gamma), Nothing}) =
     Units.units(:base,:dimensionless;per=(:kilo,:meter))
-Units.label(::Units.Quantity{:propagation_constant, Nothing}) = "Propagation constant"
-Units.symbol(::Units.Quantity{:propagation_constant, Nothing}) = "γ"
+Units.label(::Units.Quantity{typeof(gamma), Nothing}) = "Propagation constant"
+Units.symbol(::Units.Quantity{typeof(gamma), Nothing}) = "γ"
 
-Units.native_unit(::Units.Quantity{:attenuation_constant, Nothing}) = Units.units(:base,:neper;per=(:base,:meter))
-Units.display_unit(::Units.Quantity{:attenuation_constant, Nothing}) = Units.units(:base,:neper;per=(:kilo,:meter))
-Units.label(::Units.Quantity{:attenuation_constant, Nothing}) = "Attenuation constant"
-Units.symbol(::Units.Quantity{:attenuation_constant, Nothing}) = "α"
+Units.native_unit(::Units.Quantity{typeof(alpha), Nothing}) = Units.units(:base,:neper;per=(:base,:meter))
+Units.display_unit(::Units.Quantity{typeof(alpha), Nothing}) = Units.units(:base,:neper;per=(:kilo,:meter))
+Units.label(::Units.Quantity{typeof(alpha), Nothing}) = "Attenuation constant"
+Units.symbol(::Units.Quantity{typeof(alpha), Nothing}) = "α"
 
-Units.native_unit(::Units.Quantity{:phase_constant, Nothing}) = Units.units(:base,:radian;per=(:base,:meter))
-Units.display_unit(::Units.Quantity{:phase_constant, Nothing}) = Units.units(:base,:radian;per=(:kilo,:meter))
-Units.label(::Units.Quantity{:phase_constant, Nothing}) = "Phase constant"
-Units.symbol(::Units.Quantity{:phase_constant, Nothing}) = "β"
+Units.native_unit(::Units.Quantity{typeof(beta), Nothing}) = Units.units(:base,:radian;per=(:base,:meter))
+Units.display_unit(::Units.Quantity{typeof(beta), Nothing}) = Units.units(:base,:radian;per=(:kilo,:meter))
+Units.label(::Units.Quantity{typeof(beta), Nothing}) = "Phase constant"
+Units.symbol(::Units.Quantity{typeof(beta), Nothing}) = "β"
 
-Units.native_unit(::Units.Quantity{:phase_velocity, Nothing}) = Units.units(:base,:meter;per=(:base,:second))
-Units.display_unit(::Units.Quantity{:phase_velocity, Nothing}) = Units.native_unit(Units.Quantity{:phase_velocity, Nothing}())
-Units.label(::Units.Quantity{:phase_velocity, Nothing}) = "Phase velocity"
-Units.symbol(::Units.Quantity{:phase_velocity, Nothing}) = "vₚ"
+Units.native_unit(::Units.Quantity{typeof(velocity), Nothing}) = Units.units(:base,:meter;per=(:base,:second))
+Units.display_unit(::Units.Quantity{typeof(velocity), Nothing}) = Units.native_unit(Units.Quantity{typeof(velocity), Nothing}())
+Units.label(::Units.Quantity{typeof(velocity), Nothing}) = "Phase velocity"
+Units.symbol(::Units.Quantity{typeof(velocity), Nothing}) = "vₚ"
 
-Units.native_unit(::Units.Quantity{:characteristic_impedance, Nothing}) = Units.units(:base,:ohm)
-Units.display_unit(::Units.Quantity{:characteristic_impedance, Nothing}) = Units.units(:base,:ohm)
-Units.label(::Units.Quantity{:characteristic_impedance, Nothing}) = "Characteristic impedance"
-Units.symbol(::Units.Quantity{:characteristic_impedance, Nothing}) = "Zc"
+Units.native_unit(::Units.Quantity{typeof(Zc), Nothing}) = Units.units(:base,:ohm)
+Units.display_unit(::Units.Quantity{typeof(Zc), Nothing}) = Units.units(:base,:ohm)
+Units.label(::Units.Quantity{typeof(Zc), Nothing}) = "Characteristic impedance"
+Units.symbol(::Units.Quantity{typeof(Zc), Nothing}) = "Zc"
 
-Units.native_unit(::Units.Quantity{:characteristic_admittance, Nothing}) = Units.units(:base,:siemens)
-Units.display_unit(::Units.Quantity{:characteristic_admittance, Nothing}) = Units.units(:base,:siemens)
-Units.label(::Units.Quantity{:characteristic_admittance, Nothing}) = "Characteristic admittance"
-Units.symbol(::Units.Quantity{:characteristic_admittance, Nothing}) = "Yc"
+Units.native_unit(::Units.Quantity{typeof(Yc), Nothing}) = Units.units(:base,:siemens)
+Units.display_unit(::Units.Quantity{typeof(Yc), Nothing}) = Units.units(:base,:siemens)
+Units.label(::Units.Quantity{typeof(Yc), Nothing}) = "Characteristic admittance"
+Units.symbol(::Units.Quantity{typeof(Yc), Nothing}) = "Yc"
 
-Units.native_unit(::Units.Quantity{:forward_response, Nothing}) = Units.units(:base,:dimensionless)
-Units.display_unit(::Units.Quantity{:forward_response, Nothing}) = Units.units(:base,:dimensionless)
-Units.label(::Units.Quantity{:forward_response, Nothing}) = "Propagation function"
-Units.symbol(::Units.Quantity{:forward_response, Nothing}) = "H"
+Units.native_unit(::Units.Quantity{typeof(H), Nothing}) = Units.units(:base,:dimensionless)
+Units.display_unit(::Units.Quantity{typeof(H), Nothing}) = Units.units(:base,:dimensionless)
+Units.label(::Units.Quantity{typeof(H), Nothing}) = "Propagation function"
+Units.symbol(::Units.Quantity{typeof(H), Nothing}) = "H"
 
-Units.native_unit(::Units.Quantity{:voltage_basis, Nothing}) = Units.units(:base,:dimensionless)
-Units.display_unit(::Units.Quantity{:voltage_basis, Nothing}) = Units.units(:base,:dimensionless)
-Units.label(::Units.Quantity{:voltage_basis, Nothing}) = "Modal-to-phase voltage transformation"
-Units.symbol(::Units.Quantity{:voltage_basis, Nothing}) = "Tv"
+Units.native_unit(::Units.Quantity{typeof(Tv), Nothing}) = Units.units(:base,:dimensionless)
+Units.display_unit(::Units.Quantity{typeof(Tv), Nothing}) = Units.units(:base,:dimensionless)
+Units.label(::Units.Quantity{typeof(Tv), Nothing}) = "Modal-to-phase voltage transformation"
+Units.symbol(::Units.Quantity{typeof(Tv), Nothing}) = "Tv"
 
-Units.native_unit(::Units.Quantity{:current_basis, Nothing}) = Units.units(:base,:dimensionless)
-Units.display_unit(::Units.Quantity{:current_basis, Nothing}) = Units.units(:base,:dimensionless)
-Units.label(::Units.Quantity{:current_basis, Nothing}) = "Modal-to-phase current transformation"
-Units.symbol(::Units.Quantity{:current_basis, Nothing}) = "Ti"
+Units.native_unit(::Units.Quantity{typeof(Ti), Nothing}) = Units.units(:base,:dimensionless)
+Units.display_unit(::Units.Quantity{typeof(Ti), Nothing}) = Units.units(:base,:dimensionless)
+Units.label(::Units.Quantity{typeof(Ti), Nothing}) = "Modal-to-phase current transformation"
+Units.symbol(::Units.Quantity{typeof(Ti), Nothing}) = "Ti"
 
 # The phase-domain variants keep the unit of the modal quantity they represent.
-Units.native_unit(::Units.Quantity{:phase_characteristic_impedance, Nothing}) =
-    Units.native_unit(Units.Quantity{:characteristic_impedance, Nothing}())
-Units.display_unit(::Units.Quantity{:phase_characteristic_impedance, Nothing}) =
-    Units.display_unit(Units.Quantity{:characteristic_impedance, Nothing}())
-Units.label(::Units.Quantity{:phase_characteristic_impedance, Nothing}) = "Phase-domain characteristic impedance"
-Units.symbol(::Units.Quantity{:phase_characteristic_impedance, Nothing}) = "Zc,phase"
+Units.native_unit(::Units.Quantity{typeof(_phase_Zc), Nothing}) =
+    Units.native_unit(Units.Quantity{typeof(Zc), Nothing}())
+Units.display_unit(::Units.Quantity{typeof(_phase_Zc), Nothing}) =
+    Units.display_unit(Units.Quantity{typeof(Zc), Nothing}())
+Units.label(::Units.Quantity{typeof(_phase_Zc), Nothing}) = "Phase-domain characteristic impedance"
+Units.symbol(::Units.Quantity{typeof(_phase_Zc), Nothing}) = "Zc,phase"
 
-Units.native_unit(::Units.Quantity{:phase_characteristic_admittance, Nothing}) =
-    Units.native_unit(Units.Quantity{:characteristic_admittance, Nothing}())
-Units.display_unit(::Units.Quantity{:phase_characteristic_admittance, Nothing}) =
-    Units.display_unit(Units.Quantity{:characteristic_admittance, Nothing}())
-Units.label(::Units.Quantity{:phase_characteristic_admittance, Nothing}) = "Phase-domain characteristic admittance"
-Units.symbol(::Units.Quantity{:phase_characteristic_admittance, Nothing}) = "Yc,phase"
+Units.native_unit(::Units.Quantity{typeof(_phase_Yc), Nothing}) =
+    Units.native_unit(Units.Quantity{typeof(Yc), Nothing}())
+Units.display_unit(::Units.Quantity{typeof(_phase_Yc), Nothing}) =
+    Units.display_unit(Units.Quantity{typeof(Yc), Nothing}())
+Units.label(::Units.Quantity{typeof(_phase_Yc), Nothing}) = "Phase-domain characteristic admittance"
+Units.symbol(::Units.Quantity{typeof(_phase_Yc), Nothing}) = "Yc,phase"
 
-Units.native_unit(::Units.Quantity{:voltage_propagation_function, Nothing}) =
-    Units.native_unit(Units.Quantity{:forward_response, Nothing}())
-Units.display_unit(::Units.Quantity{:voltage_propagation_function, Nothing}) =
-    Units.display_unit(Units.Quantity{:forward_response, Nothing}())
-Units.label(::Units.Quantity{:voltage_propagation_function, Nothing}) = "Voltage propagation function"
-Units.symbol(::Units.Quantity{:voltage_propagation_function, Nothing}) = "Hᵥ"
+Units.native_unit(::Units.Quantity{VoltagePropagationFunction, Nothing}) =
+    Units.native_unit(Units.Quantity{typeof(H), Nothing}())
+Units.display_unit(::Units.Quantity{VoltagePropagationFunction, Nothing}) =
+    Units.display_unit(Units.Quantity{typeof(H), Nothing}())
+Units.label(::Units.Quantity{VoltagePropagationFunction, Nothing}) = "Voltage propagation function"
+Units.symbol(::Units.Quantity{VoltagePropagationFunction, Nothing}) = "Hᵥ"
 
-Units.native_unit(::Units.Quantity{:current_propagation_function, Nothing}) =
-    Units.native_unit(Units.Quantity{:forward_response, Nothing}())
-Units.display_unit(::Units.Quantity{:current_propagation_function, Nothing}) =
-    Units.display_unit(Units.Quantity{:forward_response, Nothing}())
-Units.label(::Units.Quantity{:current_propagation_function, Nothing}) = "Current propagation function"
-Units.symbol(::Units.Quantity{:current_propagation_function, Nothing}) = "Hᵢ"
+Units.native_unit(::Units.Quantity{CurrentPropagationFunction, Nothing}) =
+    Units.native_unit(Units.Quantity{typeof(H), Nothing}())
+Units.display_unit(::Units.Quantity{CurrentPropagationFunction, Nothing}) =
+    Units.display_unit(Units.Quantity{typeof(H), Nothing}())
+Units.label(::Units.Quantity{CurrentPropagationFunction, Nothing}) = "Current propagation function"
+Units.symbol(::Units.Quantity{CurrentPropagationFunction, Nothing}) = "Hᵢ"
 
 # Named parts. The real and imaginary parts of γ are the attenuation and phase constants,
 # with units of their own. Those of Zc and Yc take the unit of the Units rule and carry
 # their own names. Every other component follows the Units rules.
 Units.quantity(::typeof(gamma),::typeof(real)) = Units.quantity(alpha)
 Units.quantity(::typeof(gamma),::typeof(imag)) = Units.quantity(beta)
-Units.label(::Units.Quantity{:characteristic_impedance, typeof(real)}) = "Characteristic resistance"
-Units.label(::Units.Quantity{:characteristic_impedance, typeof(imag)}) = "Characteristic reactance"
-Units.label(::Units.Quantity{:characteristic_admittance, typeof(real)}) = "Characteristic conductance"
-Units.label(::Units.Quantity{:characteristic_admittance, typeof(imag)}) = "Characteristic susceptance"
-Units.symbol(::Units.Quantity{:characteristic_impedance, typeof(real)}) = "R꜀"
-Units.symbol(::Units.Quantity{:characteristic_impedance, typeof(imag)}) = "X꜀"
-Units.symbol(::Units.Quantity{:characteristic_admittance, typeof(real)}) = "G꜀"
-Units.symbol(::Units.Quantity{:characteristic_admittance, typeof(imag)}) = "B꜀"
+Units.label(::Units.Quantity{typeof(Zc), typeof(real)}) = "Characteristic resistance"
+Units.label(::Units.Quantity{typeof(Zc), typeof(imag)}) = "Characteristic reactance"
+Units.label(::Units.Quantity{typeof(Yc), typeof(real)}) = "Characteristic conductance"
+Units.label(::Units.Quantity{typeof(Yc), typeof(imag)}) = "Characteristic susceptance"
+Units.symbol(::Units.Quantity{typeof(Zc), typeof(real)}) = "R꜀"
+Units.symbol(::Units.Quantity{typeof(Zc), typeof(imag)}) = "X꜀"
+Units.symbol(::Units.Quantity{typeof(Yc), typeof(real)}) = "G꜀"
+Units.symbol(::Units.Quantity{typeof(Yc), typeof(imag)}) = "B꜀"
 
-const _phase_Zc = Base.Fix2(Zc,(domain=PhaseDomain,))
-const _phase_Yc = Base.Fix2(Yc,(domain=PhaseDomain,))
-const _voltage_H = Base.Fix2(H,(domain=PhaseDomain,field=:voltage))
-const _current_H = Base.Fix2(H,(domain=PhaseDomain,field=:current))
 
 # Finite representation bindings include only domain and, for H, field.
 function _validate_phase_selector(selector::Base.Fix2)

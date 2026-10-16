@@ -49,7 +49,7 @@ function serialize_value(selector::Function)
         ModalAnalysis.Tv, ModalAnalysis.Ti,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
         Statistics.median, minimum, maximum, abs, angle, real, imag,
-        LinearAlgebra.diag) || throw(ArgumentError(
+        LinearAlgebra.diag, Engine.absolute_error, Engine.relative_error) || throw(ArgumentError(
         "no portable scientific selector codec for $selector"))
     return Dict("__type__"=>"Observable", "name"=>string(nameof(selector)))
 end
@@ -73,7 +73,7 @@ function deserialize_extension(::Val{:Observable}, record)
         ModalAnalysis.Tv, ModalAnalysis.Ti,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
         Statistics.median, minimum, maximum, abs, angle, real, imag,
-        LinearAlgebra.diag)
+        LinearAlgebra.diag, Engine.absolute_error, Engine.relative_error)
     selected=filter(selector -> string(nameof(selector)) == record["name"], selectors)
     length(selected)==1 || throw(ArgumentError("unknown saved scientific selector"))
     return only(selected)

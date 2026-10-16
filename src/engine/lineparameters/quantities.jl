@@ -1,10 +1,45 @@
 # Engine-owned line-parameter quantity and unit accessors.
-Units.quantity(::typeof(frequencies)) = Units.Quantity{:frequency, Nothing}()
-Units.quantity(::typeof(Z)) = Units.Quantity{:series_impedance, Nothing}()
-Units.quantity(::typeof(Y)) = Units.Quantity{:shunt_admittance, Nothing}()
-Units.quantity(::typeof(X)) = Units.Quantity{:series_reactance, Nothing}()
-Units.quantity(::typeof(G)) = Units.Quantity{:shunt_conductance, Nothing}()
-Units.quantity(::typeof(B)) = Units.Quantity{:shunt_susceptance, Nothing}()
+Units.quantity(::typeof(frequencies)) = Units.Quantity{Units.Frequency, Nothing}()
+Units.quantity(selector::Union{typeof(Z), typeof(Y), typeof(X), typeof(G), typeof(B)}) =
+    Units.Quantity{typeof(selector), Nothing}()
+
+Units.native_unit(::Units.Quantity{typeof(Z), Nothing}) =
+    Units.units(:base, :ohm; per = (:base, :meter))
+Units.display_unit(::Units.Quantity{typeof(Z), Nothing}) =
+    Units.units(:base, :ohm; per = (:kilo, :meter))
+Units.label(::Units.Quantity{typeof(Z), Nothing}) = "Series impedance"
+Units.symbol(::Units.Quantity{typeof(Z), Nothing}) = "Z"
+
+Units.native_unit(::Units.Quantity{typeof(X), Nothing}) =
+    Units.units(:base, :ohm; per = (:base, :meter))
+Units.display_unit(::Units.Quantity{typeof(X), Nothing}) =
+    Units.units(:base, :ohm; per = (:kilo, :meter))
+Units.label(::Units.Quantity{typeof(X), Nothing}) = "Series reactance"
+Units.symbol(::Units.Quantity{typeof(X), Nothing}) = "X"
+
+Units.native_unit(::Units.Quantity{typeof(Y), Nothing}) =
+    Units.units(:base, :siemens; per = (:base, :meter))
+Units.display_unit(::Units.Quantity{typeof(Y), Nothing}) =
+    Units.units(:base, :siemens; per = (:kilo, :meter))
+Units.label(::Units.Quantity{typeof(Y), Nothing}) = "Shunt admittance"
+Units.symbol(::Units.Quantity{typeof(Y), Nothing}) = "Y"
+
+Units.native_unit(::Units.Quantity{typeof(G), Nothing}) =
+    Units.units(:base, :siemens; per = (:base, :meter))
+Units.display_unit(::Units.Quantity{typeof(G), Nothing}) =
+    Units.units(:base, :siemens; per = (:kilo, :meter))
+Units.label(::Units.Quantity{typeof(G), Nothing}) = "Shunt conductance"
+Units.symbol(::Units.Quantity{typeof(G), Nothing}) = "G"
+
+Units.native_unit(::Units.Quantity{typeof(B), Nothing}) =
+    Units.units(:base, :siemens; per = (:base, :meter))
+Units.display_unit(::Units.Quantity{typeof(B), Nothing}) =
+    Units.units(:base, :siemens; per = (:kilo, :meter))
+Units.label(::Units.Quantity{typeof(B), Nothing}) = "Shunt susceptance"
+Units.symbol(::Units.Quantity{typeof(B), Nothing}) = "B"
+
+Units.family(::Units.Quantity{<:Union{typeof(Z), typeof(X)}, Nothing}) = Val(:series)
+Units.family(::Units.Quantity{<:Union{typeof(Y), typeof(G), typeof(B)}, Nothing}) = Val(:shunt)
 
 # Error rules. An error is a component of the selector's quantity. An absolute error
 # keeps the base unit, and a relative error is dimensionless.

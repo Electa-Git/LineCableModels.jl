@@ -84,16 +84,25 @@ serialize_value(value::UUIDs.UUID) = Dict("__type__"=>"UUID","value"=>string(val
 deserialize_extension(::Val{:UUID},record) = UUIDs.UUID(record["value"])
 serialize_value(::Colon) = Dict("__type__"=>"Colon")
 deserialize_extension(::Val{:Colon},record) = Colon()
-# A component adds its transform under `component`, in the selector codec form.
+# The record keeps a quantity's name under `selector`, in the selector codec form, or
+# under `type`, the type that its module declares. A saved selector loads as its
+# quantity, and a component adds its transform under `component`.
 serialize_value(::Units.Quantity{Name, Nothing}) where {Name} =
-    Dict("__type__"=>"Quantity","name"=>string(Name))
+    Dict("__type__"=>"Quantity",_quantity_record(Name))
 serialize_value(::Units.Quantity{Name, Component}) where {Name, Component} =
-    Dict("__type__"=>"Quantity","name"=>string(Name),
+    Dict("__type__"=>"Quantity",_quantity_record(Name),
         "component"=>serialize_value(Component.instance))
-deserialize_extension(::Val{:Quantity},record) = haskey(record,"component") ?
-    Units.quantity(Units.Quantity{Symbol(record["name"]), Nothing}(),
-        deserialize_value(record["component"])) :
-    Units.Quantity{Symbol(record["name"]), Nothing}()
+_quantity_record(name::Type) = "type"=>serialize_value(name)
+_quantity_record(name::Type{<:Function}) = "selector"=>serialize_value(name.instance)
+# A bound Zc or Yc holds its domain as a value, and the phase domain is the one supported.
+_quantity_record(::Type{Base.Fix2{F, B}}) where {F, B} =
+    "selector"=>serialize_value(Base.Fix2(F.instance, (domain=Engine.PhaseDomain,)))
+function deserialize_extension(::Val{:Quantity},record)
+    base=haskey(record,"selector") ? Units.quantity(deserialize_value(record["selector"])) :
+        Units.Quantity{deserialize_value(record["type"]), Nothing}()
+    return haskey(record,"component") ?
+        Units.quantity(base,deserialize_value(record["component"])) : base
+end
 serialize_value(value::Units.Unit) = Dict("__type__"=>"Unit","name"=>string(value.name),"prefix"=>string(value.prefix))
 deserialize_extension(::Val{:Unit},record) = Units.Unit(Symbol(record["name"]),Symbol(record["prefix"]))
 serialize_value(value::Units.UnitExpr) = Dict("__type__"=>"UnitExpr",

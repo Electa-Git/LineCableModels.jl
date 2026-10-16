@@ -1,19 +1,45 @@
 """
-Return core results in Gridspace traversal order.
+$(TYPEDEF)
+
+The name of the sample count, the ordinate of a histogram without normalization.
 """
-Units.label(::Units.Quantity{:sample_count, Nothing}) = "Count"
-Units.symbol(::Units.Quantity{:sample_count, Nothing}) = "n"
-Units.label(::Units.Quantity{:probability, Nothing}) = "Probability"
-Units.symbol(::Units.Quantity{:probability, Nothing}) = "p"
-Units.label(::Units.Quantity{:cumulative_probability, Nothing}) = "Cumulative probability"
-Units.symbol(::Units.Quantity{:cumulative_probability, Nothing}) = "F"
-Units.label(::Units.Quantity{:probability_density, Nothing}) = "Probability density"
-Units.symbol(::Units.Quantity{:probability_density, Nothing}) = "p"
+abstract type SampleCount end
+
+"""
+$(TYPEDEF)
+
+The name of the probability, the ordinate of a histogram normalized to probabilities.
+"""
+abstract type Probability end
+
+"""
+$(TYPEDEF)
+
+The name of the cumulative probability, the ordinate of an empirical or model CDF.
+"""
+abstract type CumulativeProbability end
+
+"""
+$(TYPEDEF)
+
+The name of the probability density, the ordinate of a density histogram. Its unit is
+the reciprocal of the observed quantity's unit.
+"""
+abstract type ProbabilityDensity end
+
+Units.label(::Units.Quantity{SampleCount, Nothing}) = "Count"
+Units.symbol(::Units.Quantity{SampleCount, Nothing}) = "n"
+Units.label(::Units.Quantity{Probability, Nothing}) = "Probability"
+Units.symbol(::Units.Quantity{Probability, Nothing}) = "p"
+Units.label(::Units.Quantity{CumulativeProbability, Nothing}) = "Cumulative probability"
+Units.symbol(::Units.Quantity{CumulativeProbability, Nothing}) = "F"
+Units.label(::Units.Quantity{ProbabilityDensity, Nothing}) = "Probability density"
+Units.symbol(::Units.Quantity{ProbabilityDensity, Nothing}) = "p"
 
 const _DimensionlessStatisticalQuantity = Union{
-    Units.Quantity{:sample_count, Nothing},
-    Units.Quantity{:probability, Nothing},
-    Units.Quantity{:cumulative_probability, Nothing}
+    Units.Quantity{SampleCount, Nothing},
+    Units.Quantity{Probability, Nothing},
+    Units.Quantity{CumulativeProbability, Nothing}
 }
 Units.native_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
 Units.display_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)

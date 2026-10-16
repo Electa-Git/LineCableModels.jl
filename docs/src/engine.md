@@ -903,9 +903,11 @@ ReportBuilder derives human-facing tables through `report`. Both consumers use
 the quantities, transforms, and unit metadata supplied by the observation grammar.
 
 `Quantity{Name, Component}` is a fieldless typed identity for extension methods
-and internal publication payloads. `Component` is the type of the transform that
-derives the quantity from its base quantity, such as `typeof(abs)`, and `Nothing`
-for the base quantity itself. Ordinary calls use scientific selector functions:
+and internal publication payloads. `Name` is the type of the quantity's selector,
+such as `typeof(Z)`, or a type that its module declares where no selector exists,
+such as `Units.Frequency`. `Component` is the type of the transform that derives
+the quantity from its base quantity, such as `typeof(abs)`, and `Nothing` for the
+base quantity itself. Ordinary calls use scientific selector functions:
 
 ```julia
 label(R)
@@ -916,29 +918,29 @@ display_unit(Z, abs, :total)
 
 The selector methods delegate to the quantity's label and unit methods. The
 magnitude, angle, real part and imaginary part of a quantity follow one rule
-each, from the base quantity's metadata. An external selector adds the
-identity and metadata of its base quantity at the Units API:
+each, from the base quantity's metadata. An extension defines its own selector
+function and declares the metadata of its base quantity on the selector's type:
 
 ```julia
 function profile_response end
 
 LineCableModels.Units.quantity(::typeof(profile_response)) =
-    LineCableModels.Units.Quantity{:profile_response, Nothing}()
+    LineCableModels.Units.Quantity{typeof(profile_response), Nothing}()
 
 LineCableModels.Units.native_unit(
-    ::LineCableModels.Units.Quantity{:profile_response, Nothing},
+    ::LineCableModels.Units.Quantity{typeof(profile_response), Nothing},
 ) = LineCableModels.Units.units(:base, :ohm)
 
 LineCableModels.Units.display_unit(
-    ::LineCableModels.Units.Quantity{:profile_response, Nothing},
+    ::LineCableModels.Units.Quantity{typeof(profile_response), Nothing},
 ) = LineCableModels.Units.units(:milli, :ohm)
 
 LineCableModels.Units.label(
-    ::LineCableModels.Units.Quantity{:profile_response, Nothing},
+    ::LineCableModels.Units.Quantity{typeof(profile_response), Nothing},
 ) = "Profile response"
 
 LineCableModels.Units.symbol(
-    ::LineCableModels.Units.Quantity{:profile_response, Nothing},
+    ::LineCableModels.Units.Quantity{typeof(profile_response), Nothing},
 ) = "u"
 
 label(profile_response)

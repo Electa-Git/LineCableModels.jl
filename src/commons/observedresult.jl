@@ -188,7 +188,7 @@ function ObservedResult(source,requests::Tuple=();comparisons=(),timings=(;),gri
     quantities=map(eachindex(selected)) do index
         request=selected[index]
         q=request_quantity(request)
-        unit=isempty(units) ? q isa Units.Quantity{:frequency, Nothing} ? Units.units(frequency_unit,:hertz) :
+        unit=isempty(units) ? q isa Units.Quantity{Units.Frequency, Nothing} ? Units.units(frequency_unit,:hertz) :
             display_unit(q,basis(source),_unit_override(quantity_units,request);length_prefix=length_unit) :
             display_unit(q,basis(source),units[index];length_prefix=length_unit)
         record=observation_quantity(source,request;unit,clip,atol,frequencies)

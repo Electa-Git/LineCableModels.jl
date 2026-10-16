@@ -18,10 +18,6 @@
 "Engine.ModalAnalysis | Commons.observation_requests | src/engine/modalanalysis/observations.jl" = 1
 "Engine.ModalAnalysis | Engine.selectdetails | src/engine/modalanalysis/interfaces.jl" = 1
 "Engine.ModalAnalysis | Engine.selectdomain | src/engine/modalanalysis/interfaces.jl" = 1
-"Engine.ModalAnalysis | Units.display_unit | src/engine/modalanalysis/observations.jl" = 13
-"Engine.ModalAnalysis | Units.label | src/engine/modalanalysis/observations.jl" = 17
-"Engine.ModalAnalysis | Units.native_unit | src/engine/modalanalysis/observations.jl" = 13
-"Engine.ModalAnalysis | Units.symbol | src/engine/modalanalysis/observations.jl" = 17
 "Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
 "Engine.ShuntModel | Engine.internal_shunt_response | src/engine/shuntmodel/blueprint.jl" = 1
 "ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
@@ -31,10 +27,6 @@
 "PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
 "ParametricBuilder | Commons.compute | src/parametricbuilder/traversal.jl" = 4
 "UQ | LineCableModels.materialize | src/uq/results.jl" = 2
-"UQ | Units.display_unit | src/uq/observations.jl" = 1
-"UQ | Units.label | src/uq/observations.jl" = 4
-"UQ | Units.native_unit | src/uq/observations.jl" = 1
-"UQ | Units.symbol | src/uq/observations.jl" = 4
 
 [placement]
 
