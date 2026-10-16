@@ -40,7 +40,7 @@ native_unit(selector::Function) = native_unit(quantity(selector))
 """
 Return the native unit registered for `selector` at `basis`.
 """
-native_unit(selector::Function, basis::Symbol) = native_unit(quantity(selector), basis)
+native_unit(selector::Function, basis::Union{Symbol, LengthBasis}) = native_unit(quantity(selector), basis)
 
 """
 Return the native unit registered for `selector` and `transform`.
@@ -52,7 +52,7 @@ end
 """
 Return the native unit registered for `selector` and `transform` at `basis`.
 """
-function native_unit(selector::Function, transform::Function, basis::Symbol)
+function native_unit(selector::Function, transform::Function, basis::Union{Symbol, LengthBasis})
     native_unit(quantity(selector, transform), basis)
 end
 
@@ -64,7 +64,7 @@ display_unit(selector::Function) = display_unit(quantity(selector))
 """
 Return the display unit registered for `selector` at `basis`.
 """
-function display_unit(selector::Function, basis::Symbol; kwargs...)
+function display_unit(selector::Function, basis::Union{Symbol, LengthBasis}; kwargs...)
     return display_unit(quantity(selector), basis; kwargs...)
 end
 
@@ -81,7 +81,7 @@ Return the display unit registered for `selector` and `transform` at `basis`.
 function display_unit(
         selector::Function,
         transform::Function,
-        basis::Symbol;
+        basis::Union{Symbol, LengthBasis};
         kwargs...
 )
     return display_unit(quantity(selector, transform), basis; kwargs...)
@@ -97,7 +97,7 @@ end
 """
 Return the factor from the native unit of `selector` at `basis` to `target`.
 """
-function scale_factor(selector::Function, basis::Symbol, target::UnitExpr)
+function scale_factor(selector::Function, basis::Union{Symbol, LengthBasis}, target::UnitExpr)
     scale_factor(quantity(selector), basis, target)
 end
 
@@ -114,7 +114,7 @@ Return the factor from the native unit of `selector` and `transform` at `basis` 
 function scale_factor(
         selector::Function,
         transform::Function,
-        basis::Symbol,
+        basis::Union{Symbol, LengthBasis},
         target::UnitExpr
 )
     return scale_factor(quantity(selector, transform), basis, target)

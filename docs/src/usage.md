@@ -96,8 +96,9 @@ placement, propagation constant, transposition, or bundle option.
 contain one row per independent concentric assembly. `only(constants)` returns
 the scalar row of a conventional single-core coaxial cable. [`LineParameters`](@ref)
 stores frequency-dependent Z/Y matrices and records their physical domain and
-`:pul` or `:total` basis. Scientific extraction goes through `observe` or
-`observables`.
+length basis. `basis(parameters)` returns `Units.PerUnitLength()` or
+`Units.TotalLength()`, which options and keywords also accept written as `:pul` or
+`:total`. Scientific extraction goes through `observe` or `observables`.
 
 [`observe`](@ref) reads one scientific quantity:
 

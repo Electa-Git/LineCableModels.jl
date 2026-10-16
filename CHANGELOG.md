@@ -195,6 +195,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `typeof(Engine.absolute_error)`, and `Nothing` for the base quantity. The magnitude, angle, real part, imaginary part and errors each take their
   unit, label and symbol from the base quantity by one rule. A saved quantity records
   its selector or its type, and its component. Observed comparison errors save and load.
+- `Units.LengthBasis`, with `Units.PerUnitLength` and `Units.TotalLength`, is the length
+  basis of line results, observation records and computation options. `basis(result)`
+  returns `PerUnitLength()` or `TotalLength()`. Options, keywords and the unit functions
+  also take `:pul` and `:total`, and saved records and reports write `pul` and `total`.
 - Plots and reports set the frequency display unit with `frequency_unit`. A standalone
   `SeriesImpedance` or `ShuntAdmittance` takes its frequency samples through
   `frequencies`. `legend_max_fraction` limits the size of a plot's legend, and

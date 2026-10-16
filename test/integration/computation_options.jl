@@ -26,7 +26,7 @@ end
     space = Gridspace{LineParametersProblem}(identity, (Grid((problem,)),))
     calls = Int[]
     callback = function (problem, index, result)
-        @test basis(result) === :total
+        @test basis(result) === LineCableModels.Units.TotalLength()
         @test haskey(details(result).data, :coordinates)
         @test length(details(result).data.coordinates) == size(result.Z, 1)
         @test details(result).data.formulations.formulas.earth_impedance.identifier === :unified
@@ -40,17 +40,17 @@ end
     @test fieldtype(typeof(execution.data), :on_result) === typeof(callback)
     batch = compute(problem, [inner, inner]; options)
     @test calls == [1, 2]
-    @test all(value -> basis(value) === :total, batch)
+    @test all(value -> basis(value) === LineCableModels.Units.TotalLength(), batch)
     empty!(calls)
     value = compute(first(LineCableModels.points(space)), inner; options)
     @test calls == [1]
-    @test basis(value) === :total
+    @test basis(value) === LineCableModels.Units.TotalLength()
     for (outer, count) in ((Combinatorial(inner), 1), (LinearError(inner), 1),
             (MonteCarlo(inner; options=(trials=2, seed=1)), 2))
         empty!(calls)
         result = compute(ParametricProblem(space, ComputationOptions(options)), outer)
         @test calls == fill(1, count)
-        @test basis(first(result)) === :total
+        @test basis(first(result)) === LineCableModels.Units.TotalLength()
     end
 end
 
@@ -106,7 +106,7 @@ end
         buffer = getproperty(workspace.buffers, field)
         saved = buffer[1]
         buffer[1] = complex(Inf)
-        @test_throws DomainError E._finish(workspace, ordinary, selected, Val(:pul))
+        @test_throws DomainError E._finish(workspace, ordinary, selected, LineCableModels.Units.PerUnitLength())
         buffer[1] = saved
     end
 end

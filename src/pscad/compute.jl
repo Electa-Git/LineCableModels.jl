@@ -20,7 +20,7 @@ function computation_options(
             output_stem = "lcm",
             work_root = options.remote.local_root,
             verbosity = (default = 0,),
-            output_basis = :pul,
+            output_basis = Units.PerUnitLength(),
             on_result = nothing,
             resume_run_directory = nothing,
             solver_identity = nothing,
@@ -38,10 +38,7 @@ function computation_options(
         ))
     levels = verbosity(normalized.verbosity)
     normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
-    basis_value = normalized.output_basis
-    basis_value in (:pul, :total) || throw(ArgumentError(
-        "output_basis must be :pul or :total; got $(repr(basis_value))",
-    ))
+    output_basis = Units.LengthBasis(normalized.output_basis)
     resume = normalized.resume_run_directory
     (resume === nothing || resume === :latest || resume isa AbstractString) ||
         throw(ArgumentError("PSCAD resume_run_directory must be nothing, :latest, or a completed run path"))
@@ -64,7 +61,7 @@ function computation_options(
         remote = options.remote,
         verbosity = levels,
         timing = normalized.timing,
-        output_basis = Val(basis_value),
+        output_basis,
         on_result = normalized.on_result,
         resume_run_directory = resume isa AbstractString ? abspath(resume) : resume,
         solver_identity = identity
@@ -89,24 +86,6 @@ function _pscad_size(problem::LineParametersProblem)
         "PSCAD computation active-phase assignments must be contiguous from 1",
     ))
     return (length(assignments), length(assignments), length(problem.frequencies))
-end
-
-function _pscad_basis(parameters, ::LineParametersProblem, ::Val{:pul})
-    parameters
-end
-
-function _pscad_basis(
-        parameters::LineParameters,
-        problem::LineParametersProblem,
-        ::Val{:total}
-)
-    return LineParameters(
-        PhaseDomain,
-        Z(parameters) .* problem.system.line_length,
-        Y(parameters) .* problem.system.line_length,
-        frequencies(parameters);
-        basis = :total, details = details(parameters)
-    )
 end
 
 function _pscad_inputs(problem::LineParametersProblem, formulation::PSCADFormulation, blueprints)
@@ -298,7 +277,8 @@ function _pscad_result(problem, formulation, options, inputs, native; batch_reus
     parameters = LineParameters(PhaseDomain,
         Z(native.parameters)[permutation, permutation, :], Y(native.parameters)[permutation, permutation, :],
         copy(frequencies(native.parameters)); details = details(native.parameters))
-    parameters = _pscad_basis(parameters, problem, options.data.output_basis)
+    parameters = LineParameters(parameters, options.data.output_basis,
+        problem.system.line_length)
     all(isfinite, Z(parameters)) || throw(DomainError(Z(parameters),
         "completed PSCAD series impedance must contain only finite entries"))
     all(isfinite, Y(parameters)) || throw(DomainError(Y(parameters),

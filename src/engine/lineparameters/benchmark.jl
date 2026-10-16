@@ -58,13 +58,13 @@ end
 function LineParametersBenchmark(
         impedance::RMSError{T},
         admittance::RMSError{T};
-        basis::Symbol = :pul
+        basis = Units.PerUnitLength()
 ) where {T <: Real}
-    validate(basis, LineParameters)
-    return LineParametersBenchmark{T, basis, typeof(impedance), typeof(admittance)}(impedance, admittance)
+    return LineParametersBenchmark{T, typeof(Units.LengthBasis(basis)), typeof(impedance),
+        typeof(admittance)}(impedance, admittance)
 end
 
-basis(::LineParametersBenchmark{T, Basis}) where {T, Basis} = Basis
+basis(::LineParametersBenchmark{T, Basis}) where {T, Basis} = Basis()
 
 function observe(benchmark::LineParametersBenchmark, ::typeof(Z), ::typeof(absolute_error), indices...)
     getindex(benchmark.Z.absolute, indices...)
@@ -338,16 +338,17 @@ $(TYPEDSIGNATURES)
 
 Compare physical tensors on an explicit frequency axis using the same band and
 two-sided resolution rules as core results. Arrays use native units in
-`result_basis` (`:pul` or `:total`). Frequencies use Hz. Owner-supplied resolution
+`result_basis`, a `Units.LengthBasis` or the Symbol `:pul` or `:total` that writes it.
+Frequencies use Hz. Owner-supplied resolution
 records preserve operand-specific precision. The operation preserves each sample without a physical calculation.
 """
 function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::AbstractArray{<:Union{Missing,Number},3},
-        quantity::Function; frequencies::AbstractVector, result_basis::Symbol,
+        quantity::Function; frequencies::AbstractVector, result_basis,
         reference_resolution=nothing, result_resolution=nothing,
         normalization::Symbol=:reference_rms, band=:all, fundamental::Real=50.0,
         harmonics::Integer=50, atol=nothing, unsupported::NamedTuple=(;))
     validate((; normalization, band, fundamental, harmonics, atol, unsupported), compare)
-    validate(result_basis, LineParameters)
+    result_basis = Units.LengthBasis(result_basis)
     quantity in _LINE_RESOLUTION_QUANTITIES || throw(ArgumentError("unsupported physical RMS quantity"))
     f = frequencies
     !isempty(f) && issorted(f) && all(value -> isfinite(value) && value >= 0, f) ||

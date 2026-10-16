@@ -119,7 +119,7 @@
         remote = config,
         verbosity = (default = 0, PSCAD = 2),
         timing = false,
-        output_basis = Val(:total),
+        output_basis = LineCableModels.Units.TotalLength(),
         on_result = nothing,
         resume_run_directory = nothing,
         solver_identity = nothing

@@ -49,17 +49,22 @@ end
 formula_parameters(selected::Formula) = selected.parameters
 formula_parameters(::AbstractFormulation) = (;)
 
+# Total coefficients with a declared normalization length scale the roots by that length.
+# Per unit length, or with no declared length, the scale is `unit`.
+_root_scale(::Units.PerUnitLength, ell0, unit) = unit
+function _root_scale(::Units.TotalLength, ell0, unit)
+    ell0 === nothing && return unit
+    ell0 isa Real && !(ell0 isa Bool) && isfinite(nominal(ell0)) && nominal(ell0) > 0 ||
+        throw(ArgumentError("total coefficients require a positive source normalization length"))
+    return nominal(ell0)
+end
+
 function ModalAnalysisWorkspace(source::LineParameters, selected::AbstractFormulation)
     Zp = nominal(source.Z.values)
     Yp = nominal(source.Y.values)
     n, _, nf = size(Zp)
     ell0 = line_length(source)
-    factor = one(real(zero(eltype(Zp))))
-    if basis(source) === :total && ell0 !== nothing
-        ell0 isa Real && !(ell0 isa Bool) && isfinite(nominal(ell0)) && nominal(ell0) > 0 ||
-            throw(ArgumentError("total coefficients require a positive source normalization length"))
-        factor = nominal(ell0)
-    end
+    factor = _root_scale(basis(source), ell0, one(real(zero(eltype(Zp)))))
     input = (Z=Zp, Y=Yp, f=nominal(source.f),
         root_scale=factor, source_basis=basis(source))
     T = float(promote_type(eltype(input.Z), eltype(input.Y)))

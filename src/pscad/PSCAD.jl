@@ -32,6 +32,7 @@ import LineCableModels: constitutive
 import LineCableModels.DataModel
 using LineCableModels.DataModel.BaseParams: equivalent_eps
 import LineCableModels.Engine
+import LineCableModels.Units
 import LineCableModels.ImportExport: import_data, export_data
 import EzXML
 using EzXML: ElementNode, XMLDocument, addelement!, nodename,

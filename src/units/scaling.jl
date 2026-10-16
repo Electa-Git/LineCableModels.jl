@@ -39,27 +39,29 @@ function scale_factor(from::UnitExpr,to::UnitExpr,::Type{T}) where {T<:AbstractF
         (T(π)/T(180))^(degrees(from)-degrees(to))
 end
 
-function _with_basis(expression::UnitExpr, basis::Symbol; length_prefix::Symbol = :base)
-    basis in (:pul, :total) || throw(
-        ArgumentError("basis must be :pul or :total"),
-    )
+# Per unit length keeps the length in the denominator, with `length_prefix`. The total
+# line length removes it.
+function _with_basis(expression::UnitExpr, ::PerUnitLength; length_prefix::Symbol = :base)
     has_length = any(unit -> unit.name === :meter, expression.denominator)
     retained = filter(unit -> unit.name !== :meter, expression.denominator)
-    denominator = basis === :pul && has_length ?
-                  (retained..., Unit(:meter, length_prefix)) : retained
+    denominator = has_length ? (retained..., Unit(:meter, length_prefix)) : retained
     return UnitExpr(expression.numerator, denominator)
 end
+function _with_basis(expression::UnitExpr, ::TotalLength; length_prefix::Symbol = :base)
+    retained = filter(unit -> unit.name !== :meter, expression.denominator)
+    return UnitExpr(expression.numerator, retained)
+end
 
-function native_unit(quantity::Quantity, basis::Symbol)
-    _with_basis(native_unit(quantity), basis)
+function native_unit(quantity::Quantity, basis::Union{Symbol, LengthBasis})
+    _with_basis(native_unit(quantity), LengthBasis(basis))
 end
 function display_unit(
         quantity::Quantity,
-        basis::Symbol;
+        basis::Union{Symbol, LengthBasis};
         length_prefix::Symbol = :kilo,
         prefix::Union{Nothing, Symbol} = nothing
 )
-    expression = _with_basis(display_unit(quantity), basis; length_prefix)
+    expression = _with_basis(display_unit(quantity), LengthBasis(basis); length_prefix)
     prefix === nothing && return expression
     isempty(expression.numerator) && return expression
     numerator = (
@@ -84,7 +86,7 @@ its numerator metric prefix, and a `UnitExpr` is returned unchanged.
 """
 function display_unit(
         quantity::Quantity,
-        basis::Symbol,
+        basis::Union{Symbol, LengthBasis},
         override;
         length_prefix::Symbol = :kilo
 )
@@ -92,15 +94,15 @@ function display_unit(
         "display-unit overrides must be a metric prefix, UnitExpr, or nothing",
     ))
 end
-function display_unit(quantity::Quantity, basis::Symbol, ::Nothing;
+function display_unit(quantity::Quantity, basis::Union{Symbol, LengthBasis}, ::Nothing;
         length_prefix::Symbol = :kilo)
     return display_unit(quantity, basis; length_prefix)
 end
-function display_unit(quantity::Quantity, basis::Symbol, override::UnitExpr;
+function display_unit(quantity::Quantity, basis::Union{Symbol, LengthBasis}, override::UnitExpr;
         length_prefix::Symbol = :kilo)
     return override
 end
-function display_unit(quantity::Quantity, basis::Symbol, override::Symbol;
+function display_unit(quantity::Quantity, basis::Union{Symbol, LengthBasis}, override::Symbol;
         length_prefix::Symbol = :kilo)
     return display_unit(quantity, basis; length_prefix, prefix = override)
 end
@@ -108,6 +110,6 @@ end
 function scale_factor(quantity::Quantity, target::UnitExpr)
     scale_factor(native_unit(quantity), target)
 end
-function scale_factor(quantity::Quantity, basis::Symbol, target::UnitExpr)
+function scale_factor(quantity::Quantity, basis::Union{Symbol, LengthBasis}, target::UnitExpr)
     scale_factor(native_unit(quantity, basis), target)
 end

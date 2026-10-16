@@ -29,8 +29,18 @@ end
 _cutoff_number(::Type{T}, value::Rational) where {T} = T(value)
 _cutoff_number(::Type{T}, value::Real) where {T} = convert(promote_type(T,typeof(float(value))),value)
 
+# A default floor is per unit length. The total line scales it by the retained length.
+_default_cutoff(cutoff, ::Units.PerUnitLength, key, line_length) = cutoff
+function _default_cutoff(cutoff, ::Units.TotalLength, key, line_length)
+    line_length === nothing && throw(ArgumentError(
+        "total $key reporting requires retained line length or an explicit total-unit cutoff"))
+    length_value=nominal(line_length)
+    isfinite(length_value) && length_value>0 || throw(ArgumentError("line length must be finite and positive"))
+    return cutoff * length_value
+end
+
 function _line_resolution_tolerance(quantity, ::Type{T}, f, atol;
-        result_basis=:pul, line_length=nothing) where {T}
+        result_basis=Units.PerUnitLength(), line_length=nothing) where {T}
     name = nameof(quantity)
     atol isa Real && name in (:Z,:Y) && throw(ArgumentError(
         "complex zero requires component cutoffs, for example atol=(R=0, X=0)"))
@@ -50,13 +60,8 @@ function _line_resolution_tolerance(quantity, ::Type{T}, f, atol;
             return key in (:X,:B) ? angular .* other :
                 broadcast((cutoff,w) -> iszero(w) ? zero(cutoff) : cutoff/w,other,angular)
         end
-        cutoff=T(getproperty(_LINE_RESOLUTION_DEFAULTS,key))
-        result_basis === :pul && return cutoff
-        line_length === nothing && throw(ArgumentError(
-            "total $key reporting requires retained line length or an explicit total-unit cutoff"))
-        length_value=nominal(line_length)
-        isfinite(length_value) && length_value>0 || throw(ArgumentError("line length must be finite and positive"))
-        return cutoff * length_value
+        return _default_cutoff(T(getproperty(_LINE_RESOLUTION_DEFAULTS,key)),result_basis,key,
+            line_length)
     end
     name === :Z && return (R=component(R),X=component(X))
     name === :Y && return (G=component(G),B=component(B))
@@ -91,7 +96,8 @@ separate. Physical standard uncertainty never contributes to a reporting floor.
 
 - `atol`: component cutoffs in native basis units.
 - `frequencies`: aligned frequencies \\[Hz\\] for linked X/L and B/C cutoffs.
-- `result_basis=:pul`: per-metre or `:total` quantities.
+- `result_basis=Units.PerUnitLength()`: per-metre quantities, or `Units.TotalLength()`.
+  The Symbols `:pul` and `:total` write them.
 - `line_length`: physical length \\[m\\] for scaling default total-unit floors.
 
 # Returns
@@ -100,9 +106,9 @@ separate. Physical standard uncertainty never contributes to a reporting floor.
   masks. An unknown frequency-dependent threshold is explicitly unassessed.
 """
 function observation_resolution(values::Union{Number,AbstractArray}, selector::Function;
-        atol=nothing, frequencies=nothing, result_basis::Symbol=:pul, line_length=nothing)
+        atol=nothing, frequencies=nothing, result_basis=Units.PerUnitLength(), line_length=nothing)
     _validate_resolution_atol(atol)
-    validate(result_basis, LineParameters)
+    length_basis=Units.LengthBasis(result_basis)
     selector in _LINE_RESOLUTION_QUANTITIES ||
         return observation_resolution(nothing,selector;atol,frequencies)
     if frequencies isa Real
@@ -114,13 +120,13 @@ function observation_resolution(values::Union{Number,AbstractArray}, selector::F
             throw(DimensionMismatch("frequencies must match the quantity depth"))
     end
     T=typeof(float(real(nominal(zero(Base.nonmissingtype(eltype(values)))))))
-    tolerance=_line_resolution_tolerance(selector,T,frequencies,atol;result_basis,line_length)
+    tolerance=_line_resolution_tolerance(selector,T,frequencies,atol;result_basis=length_basis,line_length)
     assessed = tolerance !== nothing && (!(tolerance isa NamedTuple) || all(!isnothing,Base.values(tolerance)))
     available=resolution_available.(values)
     if selector in (L,C) && frequencies!==nothing
         available = available .& (.!iszero.(_aligned_cutoff(frequencies,values)))
     end
-    assessed || return (kind=:unassessed,atol=nothing,unit=Units.native_unit(selector,result_basis),
+    assessed || return (kind=:unassessed,atol=nothing,unit=Units.native_unit(selector,length_basis),
         unresolved=nothing,available)
     _cutoff_available(tolerance) || throw(ArgumentError("cutoffs must remain finite and nonnegative"))
     unresolved = if selector in (Z,Y)
@@ -130,7 +136,7 @@ function observation_resolution(values::Union{Number,AbstractArray}, selector::F
     else
         _resolution_unresolved.(values,_aligned_cutoff(tolerance,values))
     end
-    return (kind=:declared_floor,atol=tolerance,unit=Units.native_unit(selector,result_basis),
+    return (kind=:declared_floor,atol=tolerance,unit=Units.native_unit(selector,length_basis),
         unresolved=unresolved .& available,available)
 end
 

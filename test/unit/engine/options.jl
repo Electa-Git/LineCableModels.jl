@@ -54,7 +54,7 @@
         formulation_owner, FormulationOptions(unknown = true))
 
     default_execution=@inferred Commons.computation_options(computation_type, ComputationOptions((;)))
-    @test default_execution.data.output_basis == Val(:pul)
+    @test default_execution.data.output_basis === LineCableModels.Units.PerUnitLength()
     @test default_execution.data.trace == Val(false)
     @test default_execution.data.on_result === nothing
     execution=Commons.computation_options(
@@ -65,7 +65,7 @@
         )))
     @test execution.data == (
         verbosity = (default = 1, NLsolve = 0),
-        output_basis = Val(:total),
+        output_basis = LineCableModels.Units.TotalLength(),
         trace = Val(true),
         on_result = nothing,
         timing = false

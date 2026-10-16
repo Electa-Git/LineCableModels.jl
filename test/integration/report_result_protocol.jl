@@ -6,7 +6,7 @@
         values::Array{Float64,3}
         frequencies::Vector{Float64}
     end
-    LineCableModels.basis(::IndependentResult)=:pul
+    LineCableModels.basis(::IndependentResult)=LineCableModels.Units.PerUnitLength()
     LineCableModels.observables(::Type{IndependentResult})=(R,)
     function LineCableModels.Commons.observation_quantity(result::IndependentResult,request;
             unit=nothing,clip=true,atol=nothing,frequencies=nothing)
@@ -16,7 +16,7 @@
         native=LineCableModels.Units.native_unit(R,:pul)
         factor=LineCableModels.Units.scale_factor(native,target)
         return (request,quantity=LineCableModels.Units.quantity(R),family=:independent,statistic=:value,
-            values=copy(result.values).*factor,unit=target,basis=:pul,
+            values=copy(result.values).*factor,unit=target,basis=LineCableModels.Units.PerUnitLength(),
             coordinates=(kind=:matrix,indices=(:,:, :),rows=collect(1:n),columns=collect(1:m),
                 samples=collect(1:k),frequencies=copy(result.frequencies),frequency_unit=LineCableModels.Units.units(:base,:hertz),
                 extent=(n,m,k),labels=string.(1:n),domain=:PhaseDomain),

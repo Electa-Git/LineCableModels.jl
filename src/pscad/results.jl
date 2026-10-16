@@ -116,7 +116,7 @@ function read_pscad_result(
         impedance,
         admittance,
         frequencies_value;
-        basis = :pul,
+        basis = Units.PerUnitLength(),
         details = ComputationDetails(; native_frequencies = copy(observed_frequencies))
     )
 end

@@ -13,9 +13,10 @@
     for result_basis in (:pul, :total)
         line = LineParameters(copy(impedance), copy(admittance), frequency; basis=result_basis)
         series, shunt = line.Z, line.Y
-        @test basis(typeof(line)) === result_basis
-        @test basis(typeof(series)) === result_basis
-        @test basis(typeof(shunt)) === result_basis
+        expected_basis = LineCableModels.Units.LengthBasis(result_basis)
+        @test basis(typeof(line)) === expected_basis
+        @test basis(typeof(series)) === expected_basis
+        @test basis(typeof(shunt)) === expected_basis
         for (selector, standalone, values) in (
                 (Z, series, impedance), (R, series, resistance),
                 (X, series, omega .* inductance), (L, series, inductance),

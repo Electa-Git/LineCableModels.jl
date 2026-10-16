@@ -52,21 +52,23 @@ function computation_options(
         "unknown LineCableModelsCoaxial computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
-        (verbosity = (default = 0,), output_basis = :pul,
+        (verbosity = (default = 0,), output_basis = Units.PerUnitLength(),
             trace = false, on_result = nothing, timing = false),
         options
     )
+    return computation_options(LineCableModelsCoaxial, normalized,
+        Units.LengthBasis(normalized.output_basis))
+end
+
+# This method builds the options record after `LengthBasis` decides the basis, so a
+# Symbol read at run time still gives one concrete record per basis.
+function computation_options(::Type{LineCableModelsCoaxial}, normalized::NamedTuple,
+        basis::Units.LengthBasis)::ComputationOptions
     levels = verbosity(normalized.verbosity)
-    basis_value = normalized.output_basis
-    basis_value in (:pul, :total) || throw(ArgumentError(
-        "output_basis must be :pul or :total; got $(repr(basis_value))",
-    ))
     normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
     normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
-    basis = basis_value === :pul ? (output_basis = Val(:pul),) :
-            (output_basis = Val(:total),)
-    execution = merge((verbosity = levels,), basis,
-        (trace = Val(false), on_result = normalized.on_result, timing = normalized.timing))
+    execution = (verbosity = levels, output_basis = basis, trace = Val(false),
+        on_result = normalized.on_result, timing = normalized.timing)
     normalized.trace && return ComputationOptions(merge(execution, (trace = Val(true),)))
     return ComputationOptions(execution)
 end
@@ -124,7 +126,8 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `frequency_workers=2`: maximum concurrent frequency solver processes.
   - `solver_threads=1`: BLAS and OpenMP threads per solver process.
   - `verbosity=(default=0,)`: logging in Julia levels from 0 through 2.
-  - `output_basis=:pul`: per-unit-length matrices. `:total` scales by line length.
+  - `output_basis=Units.PerUnitLength()`, written `:pul`: per-unit-length matrices.
+    `Units.TotalLength()`, written `:total`, scales by line length.
   - `trace=false`: retain `Z_primitive`, `P_primitive` and a copied `phase_map`
     under `details(result).data.fem.primitive`. The primitive arrays refer to the
     completed FEM scan arrays.
@@ -136,7 +139,8 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 # Returns
 
 - A fixed-key [`ComputationOptions`](@ref) named tuple. Paths and integer controls
-  are normalized. `output_basis` and `trace` are lowered to `Val` values.
+  take their normal form, `output_basis` becomes a `Units.LengthBasis`, and `trace`
+  becomes a `Val`.
 
 # Errors
 

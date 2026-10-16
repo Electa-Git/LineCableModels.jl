@@ -1,20 +1,14 @@
-const LINE_PARAMETER_BASES = (:pul, :total)
-
 """
     SeriesImpedance{T, Basis}
 
 Store a square series-impedance matrix over frequency. Values use \\[Ω/m\\]
-when `Basis` is `:pul` and \\[Ω\\] when it is `:total`.
+when `Basis` is `Units.PerUnitLength` and \\[Ω\\] when it is `Units.TotalLength`.
 """
 struct SeriesImpedance{T, Basis} <: AbstractArray{T, 3}
     "Complex series-impedance tensor with dimensions conductor × conductor × frequency."
     values::Array{T, 3}
 
-    function SeriesImpedance{T, Basis}(values::Array{T, 3}) where {T, Basis}
-        Basis isa Symbol || throw(
-            ArgumentError("basis must be :pul or :total; got $(repr(Basis))"),
-        )
-        validate(Basis, LineParameters)
+    function SeriesImpedance{T, Basis}(values::Array{T, 3}) where {T, Basis <: Units.LengthBasis}
         return new{T, Basis}(values)
     end
 end
@@ -23,40 +17,37 @@ end
     ShuntAdmittance{T, Basis}
 
 Store a square shunt-admittance matrix over frequency. Values use \\[S/m\\]
-when `Basis` is `:pul` and \\[S\\] when it is `:total`.
+when `Basis` is `Units.PerUnitLength` and \\[S\\] when it is `Units.TotalLength`.
 """
 struct ShuntAdmittance{T, Basis} <: AbstractArray{T, 3}
     "Complex shunt-admittance tensor with dimensions conductor × conductor × frequency."
     values::Array{T, 3}
 
-    function ShuntAdmittance{T, Basis}(values::Array{T, 3}) where {T, Basis}
-        Basis isa Symbol || throw(
-            ArgumentError("basis must be :pul or :total; got $(repr(Basis))"),
-        )
-        validate(Basis, LineParameters)
+    function ShuntAdmittance{T, Basis}(values::Array{T, 3}) where {T, Basis <: Units.LengthBasis}
         return new{T, Basis}(values)
     end
 end
 
-function SeriesImpedance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
-    return SeriesImpedance{T, basis}(Array(A))
+# The basis keyword takes a `Units.LengthBasis` or the Symbol that writes it.
+function SeriesImpedance(A::AbstractArray{T, 3}; basis = Units.PerUnitLength()) where {T}
+    return SeriesImpedance{T, typeof(Units.LengthBasis(basis))}(Array(A))
 end
 
-function ShuntAdmittance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
-    return ShuntAdmittance{T, basis}(Array(A))
+function ShuntAdmittance(A::AbstractArray{T, 3}; basis = Units.PerUnitLength()) where {T}
+    return ShuntAdmittance{T, typeof(Units.LengthBasis(basis))}(Array(A))
 end
 
-@inline basis(::Type{<:SeriesImpedance{T, Basis}}) where {T, Basis} = Basis
-@inline basis(::SeriesImpedance{T, Basis}) where {T, Basis} = Basis
-@inline basis(::Type{<:ShuntAdmittance{T, Basis}}) where {T, Basis} = Basis
-@inline basis(::ShuntAdmittance{T, Basis}) where {T, Basis} = Basis
+@inline basis(::Type{<:SeriesImpedance{T, Basis}}) where {T, Basis} = Basis()
+@inline basis(::SeriesImpedance{T, Basis}) where {T, Basis} = Basis()
+@inline basis(::Type{<:ShuntAdmittance{T, Basis}}) where {T, Basis} = Basis()
+@inline basis(::ShuntAdmittance{T, Basis}) where {T, Basis} = Basis()
 
 """
     LineParameters{T, U, D, Basis, Q}
 
 Frequency-dependent series-impedance and shunt-admittance matrices.
 
-    `Basis` is either `:pul` or `:total`. Per-length values are stored in
+    `Basis` is `Units.PerUnitLength` or `Units.TotalLength`. Per-length values are stored in
 Ω/m and S/m. Total values are stored in Ω and S. Frequencies are stored in
 Hz. `D` is the concrete physical coordinate-domain value. `Q` is the concrete
 named-tuple type of optional computation output.
@@ -102,14 +93,6 @@ struct LineParameters{
             retained
         ))
     end
-end
-
-# Line-parameter quantities are per unit length (`:pul`) or for the total line length.
-@inline function validate(basis::Symbol, ::Type{LineParameters})
-    basis in LINE_PARAMETER_BASES || throw(
-        ArgumentError("basis must be :pul or :total; got :$basis"),
-    )
-    return basis
 end
 
 # The phase domain does not restrict the coefficients.
@@ -174,13 +157,13 @@ function LineParameters(
         YBasis
 }
     ZBasis === YBasis || throw(
-        ArgumentError("Z and Y must have the same basis; got :$ZBasis and :$YBasis"),
+        ArgumentError("Z and Y must have the same basis; got :$(ZBasis()) and :$(YBasis())"),
     )
     element_type = promote_type(TZ, TY)
     return LineParameters(
         PhaseDomain,
-        SeriesImpedance(convert(Array{element_type, 3}, Z.values); basis = ZBasis),
-        ShuntAdmittance(convert(Array{element_type, 3}, Y.values); basis = YBasis),
+        SeriesImpedance(convert(Array{element_type, 3}, Z.values); basis = ZBasis()),
+        ShuntAdmittance(convert(Array{element_type, 3}, Y.values); basis = YBasis()),
         f
     )
 end
@@ -190,7 +173,7 @@ function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis::Symbol = :pul,
+        basis = Units.PerUnitLength(),
         details::ComputationDetails = ComputationDetails()
 ) where {
         D <: LineParamsDomain,
@@ -213,7 +196,7 @@ function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis::Symbol = :pul,
+        basis = Units.PerUnitLength(),
         details::ComputationDetails = ComputationDetails()
 ) where {TZ <: Complex, TY <: Complex, U <: Real}
     return LineParameters(PhaseDomain(), Z, Y, f; basis, details)
@@ -223,7 +206,7 @@ function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis::Symbol = :pul,
+        basis = Units.PerUnitLength(),
         details::ComputationDetails = ComputationDetails()
 ) where {
         TZ <: Complex,
@@ -236,8 +219,26 @@ end
 @inline domain(::Type{<:LineParameters{
     T, U, D}}) where {T, U, D <: LineParamsDomain} = domain(D)
 @inline domain(lp::LineParameters) = domain(typeof(lp))
-@inline basis(::Type{<:LineParameters{T, U, D, Basis}}) where {T, U, D, Basis} = Basis
-@inline basis(::LineParameters{T, U, D, Basis}) where {T, U, D, Basis} = Basis
+@inline basis(::Type{<:LineParameters{T, U, D, Basis}}) where {T, U, D, Basis} = Basis()
+@inline basis(::LineParameters{T, U, D, Basis}) where {T, U, D, Basis} = Basis()
+
+"""
+    LineParameters(parameters, basis, line_length)
+
+Express phase-domain, per-unit-length `parameters` in `basis` for a line of
+`line_length` \\[m\\]. Total-length coefficients are the per-unit-length ones times
+`line_length`.
+"""
+function LineParameters(parameters::LineParameters{T, U, PhaseDomain, Units.PerUnitLength},
+        ::Units.PerUnitLength, line_length::Real) where {T, U}
+    return parameters
+end
+function LineParameters(parameters::LineParameters{T, U, PhaseDomain, Units.PerUnitLength},
+        ::Units.TotalLength, line_length::Real) where {T, U}
+    return LineParameters(parameters.domain, parameters.Z.values .* line_length,
+        parameters.Y.values .* line_length, parameters.f;
+        basis = Units.TotalLength(), details = parameters.details)
+end
 details(parameters::LineParameters) = parameters.details
 
 observe(lp::LineParameters, ::typeof(frequencies)) = lp.f

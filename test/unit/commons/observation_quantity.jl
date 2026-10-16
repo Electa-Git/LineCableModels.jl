@@ -5,7 +5,7 @@
     end
     G.observe(source::ObservationSource, ::typeof(R)) = source.values
     G.observe(source::ObservationSource, ::typeof(R), index::Int) = source.values[index]
-    G.basis(::ObservationSource) = :pul
+    G.basis(::ObservationSource) = LineCableModels.Units.PerUnitLength()
 
     for value in (Float32(1), 1.0, big"1.0", missing, [1.0, 2.0])
         source = ObservationSource(value)

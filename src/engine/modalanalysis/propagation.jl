@@ -10,13 +10,12 @@ struct PropagationParameters{P <: LineParameters, L <: Real, D <: ComputationDet
     line_length::L
     details::D
 
+    # Only per-unit-length coefficients bind to a segment.
     function PropagationParameters(parameters::P, line_length::L,
-            details::D) where
-            {P <: LineParameters, L <: Real, D <: ComputationDetails}
+            details::D) where {P <: LineParameters{<:Any, <:Any, <:Any, Units.PerUnitLength},
+            L <: Real, D <: ComputationDetails}
         Engine.domain(parameters)===ModalDomain || throw(ArgumentError(
             "PropagationParameters require modal-domain coefficients"))
-        basis(parameters)===:pul || throw(ArgumentError(
-            "PropagationParameters require per-unit-length coefficients"))
         _segment_length(line_length)
         haskey(details.data, :gridpoint) && haskey(details.data, :source_gridpoint) ||
             throw(ArgumentError("segment details must retain gridpoint ancestry"))
@@ -38,20 +37,20 @@ function _segment_length(value)
 end
 
 function per_unit_length(parameters::LineParameters{
-        T, U, D, :pul}) where {T, U, D <: ModalDomain}
+        T, U, D, Units.PerUnitLength}) where {T, U, D <: ModalDomain}
     return parameters
 end
 
 function per_unit_length(parameters::LineParameters{
-        T, U, D, :total}) where {T, U, D <: ModalDomain}
+        T, U, D, Units.TotalLength}) where {T, U, D <: ModalDomain}
     ell0 = line_length(parameters)
     ell0 isa Real && !(ell0 isa Bool) && isfinite(nominal(ell0)) &&
     nominal(ell0) > 0 || throw(ArgumentError(
         "total modal coefficients require a known positive source normalization length"))
     modal = ModalDomain(parameters.domain.operators, gamma(parameters) ./ ell0)
     return LineParameters(modal,
-        SeriesImpedance(parameters.Z.values ./ ell0; basis = :pul),
-        ShuntAdmittance(parameters.Y.values ./ ell0; basis = :pul),
+        SeriesImpedance(parameters.Z.values ./ ell0; basis = Units.PerUnitLength()),
+        ShuntAdmittance(parameters.Y.values ./ ell0; basis = Units.PerUnitLength()),
         parameters.f, parameters.details)
 end
 
@@ -104,7 +103,7 @@ function _bind_segment(source::PropagationParameters, line_length)
 end
 
 line_length(source::PropagationParameters) = source.line_length
-basis(::PropagationParameters) = :pul
+basis(::PropagationParameters) = Units.PerUnitLength()
 frequencies(source::PropagationParameters) = frequencies(source.parameters)
 details(source::PropagationParameters) = source.details
 Tv(source::PropagationParameters) = Tv(source.parameters)

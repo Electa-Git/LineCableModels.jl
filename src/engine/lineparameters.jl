@@ -77,20 +77,12 @@ function _finish(
         workspace::LineParametersWorkspace,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation,
-        ::Val{Basis};
+        basis::Units.LengthBasis;
         physical_inputs=completed_inputs(problem),
         gridpoint=Commons.gridpoint_id()
-) where {Basis}
+)
     impedance = copy(workspace.buffers.Zout)
     admittance = copy(workspace.buffers.Yout)
-    if Basis === :total
-        impedance .*= workspace.input.line_length
-        admittance .*= workspace.input.line_length
-    end
-    all(isfinite, impedance) || throw(DomainError(impedance,
-        "completed series impedance must contain only finite entries"))
-    all(isfinite, admittance) || throw(DomainError(admittance,
-        "completed shunt admittance must contain only finite entries"))
     retained = _retained_details(workspace)
     names=["cable:$(cable):$(terminal)"
            for (; cable, terminal) in problem.system.terminal_order]
@@ -101,14 +93,19 @@ function _finish(
         "bundle:[" * join(names[members], ",") * "]" : names[index]
     end
     result = LineParameters(PhaseDomain,
-        SeriesImpedance{eltype(impedance), Basis}(impedance),
-        ShuntAdmittance{eltype(admittance), Basis}(admittance),
+        SeriesImpedance{eltype(impedance), Units.PerUnitLength}(impedance),
+        ShuntAdmittance{eltype(admittance), Units.PerUnitLength}(admittance),
         workspace.input.freq,
         completion_details(merge(retained.data,
             completed_formulation(formulation, workspace),
             NamedTuple{(:inputs,:gridpoint,:coordinates),Tuple{NamedTuple,NamedTuple,Vector{String}}}(
                 (physical_inputs,gridpoint,coordinates)))))
-    return result
+    completed = LineParameters(result, basis, workspace.input.line_length)
+    all(isfinite, completed.Z.values) || throw(DomainError(completed.Z.values,
+        "completed series impedance must contain only finite entries"))
+    all(isfinite, completed.Y.values) || throw(DomainError(completed.Y.values,
+        "completed shunt admittance must contain only finite entries"))
+    return completed
 end
 
 function _compute(

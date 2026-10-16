@@ -214,7 +214,7 @@ Resolve display-unit targets aligned with a tuple of scientific requests.
 # Arguments
 
 - `requests`: selector functions or selector tuples.
-- `result_basis`: `:pul` or `:total`.
+- `result_basis`: a `Units.LengthBasis`, or the Symbol `:pul` or `:total` that writes it.
 
 # Keywords
 
@@ -227,7 +227,7 @@ Resolve display-unit targets aligned with a tuple of scientific requests.
 """
 function unit_targets(
         requests::Tuple,
-        result_basis::Symbol;
+        result_basis::Union{Symbol, Units.LengthBasis};
         length_prefix::Symbol = :kilo,
         overrides = nothing
 )

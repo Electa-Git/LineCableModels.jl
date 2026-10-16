@@ -101,7 +101,7 @@
 "src/engine/lineparameters.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
 "src/engine/lineparameters/base.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/lineparameters/benchmark.jl" = { applicable = 0, eval = 0, isa = 16, kind = 0 }
-"src/engine/lineparameters/lineparameters.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
+"src/engine/lineparameters/lineparameters.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/lineparameters/observations.jl" = { applicable = 0, eval = 0, isa = 18, kind = 0 }
 "src/engine/lineparameters/resolution.jl" = { applicable = 0, eval = 0, isa = 23, kind = 0 }
 "src/engine/modalanalysis/compute.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }

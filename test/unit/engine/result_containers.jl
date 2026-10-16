@@ -9,7 +9,7 @@
     @test all(>(0), constants.L)
     @test all(>(0), constants.C)
     @test all(>=(0), constants.G)
-    @test basis(constants) === :pul
+    @test basis(constants) === LineCableModels.Units.PerUnitLength()
     constants_display=sprint(show, constants)
     @test occursin("CableConstants(assemblies=1", constants_display)
     @test resistance(constants) === constants.R
@@ -51,7 +51,7 @@
         basis = :total
     )
 
-    @test basis(parameters) === :total
+    @test basis(parameters) === LineCableModels.Units.TotalLength()
     @test frequencies(parameters) == frequency
     @test nconductors(parameters) == 2
     @test nfrequencies(parameters) == 3
@@ -104,8 +104,8 @@
         @test eltype(typeof(container)) == ComplexF64
         @test Base.IndexStyle(typeof(container)) == IndexCartesian()
         @test container[1, 2, 2] == container.values[1, 2, 2]
-        @test basis(typeof(container)) === :total
-        @test basis(container) === :total
+        @test basis(typeof(container)) === LineCableModels.Units.TotalLength()
+        @test basis(container) === LineCableModels.Units.TotalLength()
     end
     @test occursin("2×2×3", sprint(show, series))
     @test occursin("unit=Ω", sprint(show, series))
@@ -129,8 +129,9 @@
     @test eltype(promoted) === ComplexF64
     @test_throws ArgumentError SeriesImpedance(impedance; basis = :invalid)
     @test_throws ArgumentError ShuntAdmittance(admittance; basis = :invalid)
-    @test_throws ArgumentError SeriesImpedance{ComplexF64, 1}(impedance)
-    @test_throws ArgumentError ShuntAdmittance{ComplexF64, 1}(admittance)
+    # A basis parameter that is not a `Units.LengthBasis` has no constructor.
+    @test_throws MethodError SeriesImpedance{ComplexF64, 1}(impedance)
+    @test_throws MethodError ShuntAdmittance{ComplexF64, 1}(admittance)
     @test_throws ArgumentError LineParameters(
         impedance, admittance, frequency; basis = :invalid)
     @test_throws ArgumentError LineParameters(
@@ -140,7 +141,7 @@
     )
 
     selected=parameters[2:3]
-    @test basis(selected) === :total
+    @test basis(selected) === LineCableModels.Units.TotalLength()
     @test domain(selected) === domain(parameters)
     @test frequencies(selected) == frequency[2:3]
     @test selected.Z.values == impedance[:, :, 2:3]

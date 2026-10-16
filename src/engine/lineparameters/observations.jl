@@ -217,7 +217,7 @@ function Commons.observation_quantity(source::CableConstants,request;
     selected=observation_indices(index,length(source))
     selector=request_identity(request)
     values=getindex(observe(source,selector),index)
-    resolution=observation_resolution(values,selector;atol,result_basis=:pul)
+    resolution=observation_resolution(values,selector;atol,result_basis=Units.PerUnitLength())
     resolved = if !clip
         values
     elseif resolution.unresolved === nothing
@@ -229,11 +229,11 @@ function Commons.observation_quantity(source::CableConstants,request;
         end
     end
     q=Units.quantity(selector)
-    target=unit===nothing ? Units.display_unit(q,:pul) : unit
+    target=unit===nothing ? Units.display_unit(q,Units.PerUnitLength()) : unit
     T=typeof(float(nominal(zero(eltype(values)))))
-    factor=Units.scale_factor(Units.native_unit(q,:pul),target,T)
+    factor=Units.scale_factor(Units.native_unit(q,Units.PerUnitLength()),target,T)
     return (request,quantity=q,family=:constants,statistic=:value,values=Commons.detach(resolved,factor),
-        unit=target,basis=:pul,coordinates=(kind=:assemblies,indices=(index,),assemblies=selected,
+        unit=target,basis=Units.PerUnitLength(),coordinates=(kind=:assemblies,indices=(index,),assemblies=selected,
             labels=copy(source.cores),frequencies=[source.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(source),1)),
         thresholds=(kind=resolution.kind,values=Commons.detach(resolution.atol,factor),unit=target),
         available=resolution.available,engineering_zero=resolution.unresolved,clipped=clip,missing_reason=nothing)

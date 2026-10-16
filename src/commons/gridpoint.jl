@@ -12,7 +12,7 @@ detach(value::Tuple) = map(detach, value)
 detach(value::AbstractArray) = map(detach, value)
 detach(value::Pair) = detach(first(value)) => detach(last(value))
 detach(value::AbstractDict) = Dict(detach(key) => detach(item) for (key, item) in value)
-detach(value::Union{Units.UnitExpr,Units.Unit,Units.Quantity}) = value
+detach(value::Union{Units.UnitExpr,Units.Unit,Units.Quantity,Units.LengthBasis}) = value
 function detach(value::Function)
     Base.issingletontype(typeof(value)) || throw(ArgumentError("observation records require a singleton function type or a type-specific detach method"))
     return value

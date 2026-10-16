@@ -327,8 +327,8 @@ end
         formulation;
         options = (output_basis = :total,)
     )
-    @test basis(parameters) === :pul
-    @test basis(total) === :total
+    @test basis(parameters) === LineCableModels.Units.PerUnitLength()
+    @test basis(total) === LineCableModels.Units.TotalLength()
     @test total.Z.values ≈ problem.system.line_length .* parameters.Z.values
     @test total.Y.values ≈ problem.system.line_length .* parameters.Y.values
 end
@@ -444,8 +444,8 @@ end
         ParametricProblem(problem, ComputationOptions((output_basis = :total,))),
         monte_carlo
     )
-    @test basis(only(sampled)) === :pul
-    @test basis(only(total)) === :total
+    @test basis(only(sampled)) === LineCableModels.Units.PerUnitLength()
+    @test basis(only(total)) === LineCableModels.Units.TotalLength()
     for component in (:R, :L, :G, :C)
         @test getproperty(only(samples(total)), component) ≈
               1000.0 .* getproperty(only(samples(sampled)), component)

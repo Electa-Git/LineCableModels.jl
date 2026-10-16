@@ -14,7 +14,7 @@
     @test row.C > 0
     @test row.G >= 0
     @test constants.frequency == 50.0
-    @test basis(constants) === :pul
+    @test basis(constants) === LineCableModels.Units.PerUnitLength()
     @test resistance(constants) === constants.R
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C

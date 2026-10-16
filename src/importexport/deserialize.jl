@@ -113,7 +113,7 @@ function deserialize_value(value)
         marker in ("UInt64", "Observable", "Quantile", "ModalRepresentation", "LineParameters", "CableConstants", "MonteCarloResult",
             "LinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution",
             "FormulationOptions", "ComputationOptions", "ComputationDetails", "ObservedArchive",
-            "UUID", "Colon", "Quantity", "Unit", "UnitExpr", "ScientificType") &&
+            "UUID", "Colon", "Quantity", "Unit", "UnitExpr", "LengthBasis", "ScientificType") &&
             return deserialize_extension(Val(Symbol(marker)),value)
         if marker in ("Measurement", "MeasurementLinearErrorResult")
             applicable(deserialize_extension, Val(Symbol(marker)), value) || throw(

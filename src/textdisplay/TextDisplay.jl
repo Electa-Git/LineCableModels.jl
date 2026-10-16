@@ -383,6 +383,11 @@ function Base.show(io::IO, quantity::Units.Quantity)
 end
 Base.show(io::IO, ::MIME"text/plain", quantity::Units.Quantity) = show(io, quantity)
 
+# A basis shows as the Symbol that writes it.
+Base.summary(io::IO, basis::Units.LengthBasis) = print(io, "Length basis ", Symbol(basis))
+Base.show(io::IO, basis::Units.LengthBasis) = print(io, Symbol(basis))
+Base.show(io::IO, ::MIME"text/plain", basis::Units.LengthBasis) = show(io, basis)
+
 name(::Type{<:FormulaDefinition}) = "FormulaDefinition"
 function Base.summary(io::IO, ::FormulaDefinition{ID}) where {ID}
     print(io, "Formula definition :", ID)

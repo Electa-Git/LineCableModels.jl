@@ -321,12 +321,6 @@ function _line_parameters(
         residuals[index] = diagnostics.residual
         condition_numbers[index] = diagnostics.condition_number
     end
-    basis = :pul
-    if execution.data.output_basis === Val(:total)
-        Z = Z .* model.problem.system.line_length
-        Y = Y .* model.problem.system.line_length
-        basis = :total
-    end
     keep_run = execution.data.keep_run_directory
     timing_path = joinpath(run.path, "timing-summary.json")
     native_timing = isfile(timing_path) ? JSON3.read(read(timing_path, String), NamedTuple) : (;)
@@ -383,13 +377,15 @@ function _line_parameters(
             worker_wall_seconds=get(native_timing, :worker_wall_seconds, nothing))
         details = Engine.completion_details(merge(details.data, (; timing)))
     end
-    return LineParameters(
+    parameters = LineParameters(
         PhaseDomain,
-        SeriesImpedance(Z; basis),
-        ShuntAdmittance(Y; basis),
+        SeriesImpedance(Z),
+        ShuntAdmittance(Y),
         model.problem.frequencies,
         details
     )
+    return LineParameters(parameters, execution.data.output_basis,
+        model.problem.system.line_length)
 end
 
 function _merge_maps!(paths::Vector{String})

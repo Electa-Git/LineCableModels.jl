@@ -55,7 +55,7 @@ end
     execution = @inferred computation_options(LineCableModelsCoaxial, ComputationOptions())
     @test execution isa ComputationOptions
     @test execution.data.trace === Val(false)
-    @test execution.data.output_basis === Val(:pul)
+    @test execution.data.output_basis === LineCableModels.Units.PerUnitLength()
     @test_throws MethodError formulation_options(LineParametersFormulation, (;))
     @test_throws MethodError formulation_options(LineParametersFormulation, ComputationOptions())
     @test_throws MethodError computation_options(LineCableModelsCoaxial, (;))
