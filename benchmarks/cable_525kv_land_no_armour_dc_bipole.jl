@@ -3,6 +3,9 @@
 # Values from the benchmark specification, Appendix A (DC525-L).
 
 using LineCableModels
+using LineCableModels.Engine: compare
+using LineCableModels.ReportBuilder: BenchmarkTableDefinition
+using LinearAlgebra: diag
 using Dates
 
 frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
@@ -11,7 +14,7 @@ frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
 Construct the cable line-parameter problem from physical data in SI units and temperatures in °C.
 """
 function line_parameters_problem(
-        core_diameter, core_dc_resistance, inner_semicon_thickness, insulation_thickness,
+        core_diameter, core_rho, inner_semicon_thickness, insulation_thickness,
         outer_semicon_thickness, water_blocking_thickness, pre_sheath_filler_thickness,
         sheath_thickness, post_sheath_filler_thickness, jacket_thickness,
         outer_semicon_skin_thickness, core_mu_r, core_temperature_coefficient,
@@ -21,7 +24,6 @@ function line_parameters_problem(
         cable_x_right, cable_y, line_length, voltage, conductor_cross_section, temperature,
         earth_rho, earth_eps_r, earth_mu_r, frequencies,
 )
-    core_rho = core_dc_resistance * (pi * (core_diameter / 2)^2)
     core = Material(:conductor, core_rho, 1.0, core_mu_r,
         reference_temperature, core_temperature_coefficient)
     semicon_inner = Material(:semicon, inner_semicon_rho, inner_semicon_eps_r)
@@ -71,7 +73,7 @@ function line_parameters_problem(
 end
 
 nominal = (;
-    core_diameter = 68e-3, core_dc_resistance = 0.006e-3, inner_semicon_thickness = 1.8e-3,
+    core_diameter = 68e-3, core_rho = 0.006e-3 * (pi * (0.068 / 2)^2), inner_semicon_thickness = 1.8e-3,
     insulation_thickness = 26.5e-3, outer_semicon_thickness = 1.5e-3,
     water_blocking_thickness = 0.3e-3, pre_sheath_filler_thickness = 3.7e-3,
     sheath_thickness = 1.2e-3, post_sheath_filler_thickness = 2.2e-3, jacket_thickness = 5e-3,
@@ -99,3 +101,74 @@ save(ObservedResult(result, (R, X, G, B); length_unit = :base, clip = false),
     joinpath(folder, "baseline.json"))
 println("cable_525kv_land_no_armour_dc_bipole: ", length(problem.system.terminal_order),
     " terminals, compute ", compute_time, " s, ", folder)
+
+# One at a time, temperature, and earth resistivity.
+swept = (
+    :core_diameter, :core_rho, :inner_semicon_thickness, :insulation_thickness,
+    :outer_semicon_thickness, :water_blocking_thickness, :pre_sheath_filler_thickness,
+    :sheath_thickness, :post_sheath_filler_thickness, :jacket_thickness,
+    :outer_semicon_skin_thickness, :core_mu_r, :core_temperature_coefficient,
+    :inner_semicon_rho, :inner_semicon_eps_r, :outer_semicon_rho, :outer_semicon_eps_r,
+    :insulation_rho, :insulation_eps_r, :insulation_mu_r, :sheath_rho, :sheath_mu_r,
+    :sheath_temperature_coefficient, :pe_rho, :pe_eps_r,
+)
+
+open(joinpath(folder, "ranking.txt"), "w") do io
+    for (section, names) in ((:one_at_a_time, swept),
+            (:temperature, (:temperature,)), (:earth, (:earth_rho,)))
+        points = ObservedResult[]
+        ranking = NamedTuple[]
+        section_time = @elapsed begin
+            for name in names
+                levels = section === :one_at_a_time ? nominal[name] .* (0.9, 1.1) :
+                    section === :temperature ? (20.0, 40.0, 90.0) : (100.0, 10000.0)
+                if section === :one_at_a_time
+                    run = [compute(line_parameters_problem(
+                        map(k -> k === name ? level : nominal[k], keys(nominal))...),
+                        formulation) for level in levels]
+                else
+                    grids = map(k -> k === name ? Grid(levels) : Grid((nominal[k],)), keys(nominal))
+                    space = Gridspace{LineParametersProblem}(line_parameters_problem, grids)
+                    run = compute(space, formulation)
+                end
+                completed = compare(result, run, [Z, Y]; bands = (:all, :dc, :harmonic, :narrow))
+                observed = observables(run; comparisons = completed, length_unit = :base, clip = false)
+                append!(points, observed)
+                for (index, level) in enumerate(levels)
+                    deviations = map((Y, Z)) do quantity
+                        base = observe(result, quantity)
+                        point = observe(run[index], quantity)
+                        curve = [maximum(abs, point[:, :, k] - base[:, :, k]) /
+                                 maximum(abs, diag(base[:, :, k])) for k in eachindex(frequencies)]
+                        value, k = findmax(curve)
+                        rms = map((:all, :dc, :harmonic, :narrow)) do band
+                            indices = only(record for record in observed[index].errors
+                                if record.request === quantity && record.band === band).settings.indices
+                            sqrt(sum(abs2, curve[indices]) / length(indices))
+                        end
+                        (; rms, value, frequency = frequencies[k])
+                    end
+                    push!(ranking, (; name, level, deviations))
+                end
+            end
+            artifact = report(BenchmarkTableDefinition(), points;
+                reference = ObservedResult(result; length_unit = :base, clip = false))
+            save(artifact, joinpath(folder, string(section, ".json")))
+        end
+        sort!(ranking; by = entry -> Tuple(deviation.rms[1] for deviation in entry.deviations),
+            rev = true)
+        printed = IOBuffer()
+        println(printed, section, ": ", length(names), " swept inputs, ", length(points),
+            " computed points, wall ", section_time, " s")
+        for entry in ranking, (index, quantity) in enumerate((Y, Z))
+            println(printed, section, " ", entry.name, "=", entry.level, " ", nameof(quantity),
+                " RMS_e (all,dc,harmonic,narrow)=", entry.deviations[index].rms,
+                " max_e=", entry.deviations[index].value,
+                " frequency_Hz=", entry.deviations[index].frequency)
+        end
+        text = String(take!(printed))
+        print(io, text)
+        print(text)
+        flush(io)
+    end
+end
