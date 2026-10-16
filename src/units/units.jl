@@ -13,7 +13,7 @@ const _METRIC_PREFIX_SYMBOL = (
 )
 
 const _UNIT_SYMBOL = (
-    dimensionless = "", ohm = "Ω", henry = "H", farad = "F",
+    dimensionless = "", ohm = "Ω", henry = "H", farad = "F", volt = "V", ampere = "A",
     siemens = "S", meter = "m", hertz = "Hz", second = "s",
     radian = "rad", degree = "°", neper = "Np"
 )

@@ -40,6 +40,7 @@ export InternalImpedance, InsulationImpedance, EarthImpedance, PipeImpedance
 export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 export ShuntModel, BoundarySolveError
 export ModalAnalysis
+export TransientAnalysis
 
 export compute, sigma
 
@@ -151,6 +152,10 @@ include("textdisplay.jl")
 # Submodule `ModalAnalysis`
 include("modalanalysis/ModalAnalysis.jl")
 using .ModalAnalysis: ModalAnalysis
+
+# Submodule `TransientAnalysis`
+include("transientanalysis/TransientAnalysis.jl")
+using .TransientAnalysis: TransientAnalysis
 
 public completion_details, completed_inputs, completed_formulation, retain_gridpoint
 public selectdetails

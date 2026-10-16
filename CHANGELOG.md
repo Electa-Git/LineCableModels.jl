@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Transient analysis grammar includes terminal assignments, formulations, response arrays and raw voltage and current observations.
+
 - Problem JSON preserves σ. PSCAD line constants, FEM computations and ATP matrix exports refuse σ ≠ 0.
 
 - Laplace-domain observation masks use `:laplace_domain`. Scan comparisons need equal σ.

@@ -12,7 +12,7 @@
             directory = joinpath(dirname(String(registration.file)), "formulas"))
     end
     filter!(category -> isdir(category.directory), categories)
-    @test length(categories) == 11
+    @test length(categories) == 12
 
     for category in categories
         directory = category.directory

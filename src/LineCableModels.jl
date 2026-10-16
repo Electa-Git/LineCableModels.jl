@@ -80,6 +80,8 @@ export ModalAnalysisProblem, ModalAnalysisFormulation,
        LineCableModelsModal, ModalOperators, operators, Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc,
        PropagationParameters, H, transform
 export ModalAnalysis
+export TransientAnalysis, TransientAnalysisProblem, TransientFormulation, TransientResponse
+export TerminalImpedance, Waveform, Step, Cosine, DoubleExponential, Matched, voltage, current
 
 # Import/Export:
 export export_data, import_data, save, load!
@@ -186,6 +188,12 @@ using .Engine: ModalAnalysis
 using .Engine.ModalAnalysis: ModalAnalysisProblem, ModalAnalysisFormulation,
                    LineCableModelsModal, ModalOperators, operators,
                    Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc, PropagationParameters, H, transform
+
+# Submodule `Engine.TransientAnalysis`
+using .Engine: TransientAnalysis
+using .Engine.TransientAnalysis: TransientAnalysisProblem, TransientFormulation,
+                   TransientResponse, TerminalImpedance, Waveform, Step, Cosine,
+                   DoubleExponential, Matched, voltage, current
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")

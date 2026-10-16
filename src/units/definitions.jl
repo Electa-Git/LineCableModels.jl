@@ -3,6 +3,21 @@ display_unit(::Quantity{:frequency}) = units(:base, :hertz)
 label(::Quantity{:frequency}) = "Frequency"
 symbol(::Quantity{:frequency}) = "f"
 
+native_unit(::Quantity{:time}) = units(:base, :second)
+display_unit(::Quantity{:time}) = units(:base, :second)
+label(::Quantity{:time}) = "Time"
+symbol(::Quantity{:time}) = "t"
+
+native_unit(::Quantity{:terminal_voltage}) = units(:base, :volt)
+display_unit(::Quantity{:terminal_voltage}) = units(:base, :volt)
+label(::Quantity{:terminal_voltage}) = "Terminal voltage"
+symbol(::Quantity{:terminal_voltage}) = "V"
+
+native_unit(::Quantity{:terminal_current}) = units(:base, :ampere)
+display_unit(::Quantity{:terminal_current}) = units(:base, :ampere)
+label(::Quantity{:terminal_current}) = "Terminal current"
+symbol(::Quantity{:terminal_current}) = "I"
+
 native_unit(::Quantity{:series_resistance}) = units(:base, :ohm; per = (:base, :meter))
 display_unit(::Quantity{:series_resistance}) = units(:base, :ohm; per = (:kilo, :meter))
 label(::Quantity{:series_resistance}) = "Series resistance"
