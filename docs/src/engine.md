@@ -159,7 +159,7 @@ The calculation runs with its resolution and quadrature controls:
 ```julia
 boundary = formula(:boundary;
     options=(
-        resolution=(wire=64, order=16, quadrature=64, modes=512),
+        resolution=(wire=64, order=16, quadrature=64, modes=512, contact=4),
         integration=(rtol=1e-8, atol=1e-10, maxevals=100_000),
     ))
 formulation = Formulation(shunt_model=boundary)
@@ -224,6 +224,12 @@ each ring onto itself and gives a block-circulant system over `g` sectors. A uni
 Fourier transform separates it into one block per Fourier index. The tapes and any other wires
 form a border, eliminated exactly. A group without a ring takes the same solver with an empty
 ring, which is a dense QR.
+
+A wire that touches the interface of its layer next to a more permittive layer concentrates
+its charge in a band about the contact, of half-width about ``1.6\,r\,\varepsilon_l/
+\varepsilon_n`` for a wire of radius ``r`` in a layer of permittivity ``\varepsilon_l`` next
+to ``\varepsilon_n``. The points of such a wire are graded toward the contact in levels fixed
+by that contrast and by the control `contact`. Every wire of a ring keeps the same points.
 
 [Campione2018](@cite), Section 2, Eq. (3), provides a cable-screen application
 of dielectric image factors `(εlayer − εadjacent)/(εlayer + εadjacent)`, also

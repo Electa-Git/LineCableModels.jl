@@ -202,7 +202,7 @@ targets and `nb` charge coefficients:
 function initialize_buffers(::Formula{:boundary}, ::Type{T}, group::DielectricGroup, plan,
         buffers) where {T}
     (; rows, columns, ports, order, sources, modes, quadrature, derivatives) = plan
-    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    N, r, c = plan.layout.sectors, plan.block_rows, plan.block_columns
     mb, nb = rows - N*r, columns - N*c
     # Only a ring eliminates the border rows. Without one, they are the whole system.
     kept = iszero(N) ? 0 : mb
@@ -340,43 +340,85 @@ function _shunt_core_voltage(z, layer, k)
     1-(k.R[layer]+log(abs(z)/k.radii[layer])/k.epsilon[layer])/k.Rtotal
 end
 
-# Point `j` of `count` on the circle at `fraction` of a wire's radius, in the wire's own
-# polar frame. A rotation that maps one ring wire onto the next maps its points too.
-# Round wires keep auxiliary sources inside. The tape has no source contour or inset: its
-# physical faces are integrated below.
-function _shunt_wire_point(wire, fraction, j, count)
-    complex(wire.x, wire.y) + fraction*wire.r*cis(atan(wire.y, wire.x) + 2pi*j/count)
+# The point at `angle` on the circle at `fraction` of a wire's radius, in the wire's own polar
+# frame. A rotation that maps one ring wire onto the next maps its points too. Round wires keep
+# auxiliary sources inside. The tape has no source contour or inset: its physical faces are
+# integrated below.
+function _shunt_wire_point(wire, fraction, angle)
+    complex(wire.x, wire.y) + fraction*wire.r*cis(atan(wire.y, wire.x) + angle)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Order the wires of `g` for collocation and find its rings. The wires of a ring share one
-terminal, one layer, one radius and one pitch circle, they are equally spaced, and each
-exposes the same targets. A ring has at least two wires. A rotation by ``2\\pi/n``, with ``n``
-the greatest common divisor of the ring sizes, maps every ring onto itself in the concentric
-layers. The rings split into ``n`` sectors that it permutes cyclically, each with ``N_i/n``
-consecutive wires of ring ``i``. The sectors come first, then the other wires. A sector needs
-at least as many targets as sources, or no wire is reduced.
+Place the collocation targets and the auxiliary sources of each wire of `g` in the wire's own
+polar frame, order the wires for collocation and find the rings.
+
+A wire has `2level.wire` uniform targets on its circumference and `level.wire` uniform sources
+at 0.75 of its radius. A wire that touches the interface of its layer next to a layer of larger
+permittivity concentrates its charge in a band about the contact. The gap between the wire and
+the interface, ``r\\theta^2/2`` at the angle ``\\theta`` from the contact, holds a charge
+density that grows as ``1/\\theta^2`` until the field spreading into the neighbour takes over,
+at ``\\theta\\approx w=2\\varepsilon_l/\\varepsilon_n``, with ``\\varepsilon_l`` the
+permittivity of the wire's layer and ``\\varepsilon_n`` the neighbour's. The layout grades the
+points toward that contact until the finest source depth is ``w/c``, with ``c`` the control
+`level.contact`, in ``K=\\max(0,\\lceil\\log_2(c\\,\\varepsilon_n/(8\\varepsilon_l))
+\\rceil)`` levels. Level ``\\ell`` adds sources at ``\\pm d_\\ell`` radians from the contact
+and at depth ``d_\\ell r``, with ``d_\\ell=2^{-\\ell}/4``, and targets at ``\\pm d_\\ell/2`` and
+``\\pm 3d_\\ell/4``. One more source lies on the contact direction at the finest depth. The
+levels depend on the geometry alone, and a wire without such a contact keeps its uniform
+points. Targets inside another wire of its terminal are not exposed.
+
+The wires of a ring share one terminal, one layer, one radius and one pitch circle, they are
+equally spaced, and each has the same points. A ring has at least two wires. A rotation by
+``2\\pi/n``, with ``n`` the greatest common divisor of the ring sizes, maps every ring onto
+itself in the concentric layers. The rings split into ``n`` sectors that it permutes
+cyclically, each with ``N_i/n`` consecutive wires of ring ``i``. The sectors come first, then
+the other wires. A sector needs at least as many targets as sources, or no wire is reduced.
 
 # Returns
 
 - `wires`: the wire indices in collocation order.
-- `ring`: the number of sectors, zero without a ring.
+- `sectors`: the number of sectors, zero without a ring.
 - `sector`: the number of wires in a sector.
-- `exposed`: for each wire in that order, the indices of its `2level.wire` surface points
-  that lie outside every other wire of its terminal.
+- `targets`: for each wire in that order, the angles of its exposed targets in its own frame.
+- `sources`: for each wire in that order, the angles of its sources in its own frame and their
+  fractions of its radius.
 """
 function _shunt_layout(g, level)
     count = 2level.wire
-    exposed = map(g.wires) do wire
-        tolerance = _shunt_tol(g.layers[wire.layer].ro)
-        filter(0:(count - 1)) do j
-            point = _shunt_wire_point(wire, 1, j, count)
-            # Contact points and buried arcs do not expose dielectric to this terminal.
+    targets, sources = Vector{Float64}[], Vector{Tuple{Float64, Float64}}[]
+    for wire in g.wires
+        layer = g.layers[wire.layer]
+        tolerance = _shunt_tol(layer.ro)
+        pitch = hypot(wire.x, wire.y)
+        angles = [2pi*j/count for j in 0:(count - 1)]
+        placed = [(2pi*j/level.wire, 0.75) for j in 0:(level.wire - 1)]
+        # The contact with the inner interface lies toward the center, the outer one away.
+        for (contact, touches, neighbour) in (
+            (Float64(pi), wire.layer > 1 && abs(pitch-wire.r-layer.ri) <= tolerance,
+                wire.layer-1),
+            (0.0, wire.layer < length(g.layers) && abs(pitch+wire.r-layer.ro) <= tolerance,
+                wire.layer+1))
+            touches || continue
+            ratio = g.layers[neighbour].epsilon/layer.epsilon
+            levels = max(0, ceil(Int, log2(level.contact*ratio/8)))
+            for l in 1:levels
+                depth = 0.25/2^l
+                append!(angles, (contact-depth/2, contact+depth/2, contact-0.75depth,
+                    contact+0.75depth))
+                append!(placed, ((contact-depth, 1-depth), (contact+depth, 1-depth)))
+            end
+            levels > 0 && push!(placed, (contact, 1-0.25/2^levels))
+        end
+        # Contact points and buried arcs do not expose dielectric to this terminal.
+        filter!(angles) do angle
+            point = _shunt_wire_point(wire, 1, angle)
             all(other -> other === wire || other.terminal != wire.terminal ||
                 abs(point-complex(other.x, other.y))-other.r > tolerance, g.wires)
         end
+        push!(targets, angles)
+        push!(sources, placed)
     end
     angles = [mod(atan(wire.y, wire.x), 2pi) for wire in g.wires]
     # Wires of one terminal and layer with one radius on one pitch circle, in angular order.
@@ -396,16 +438,15 @@ function _shunt_layout(g, level)
         lead = g.wires[first(ring)]
         tolerance = _shunt_tol(g.layers[lead.layer].ro)
         length(ring) > 1 && all(pairs(ring)) do (position, index)
-            spacing = angles[index] - angles[first(ring)] - 2pi*(position - 1)/length(ring)
-            abs(hypot(lead.x, lead.y)*spacing) <= tolerance &&
-                exposed[index] == exposed[first(ring)]
+            offset = angles[index] - angles[first(ring)] - 2pi*(position - 1)/length(ring)
+            abs(hypot(lead.x, lead.y)*offset) <= tolerance &&
+                targets[index] == targets[first(ring)] && sources[index] == sources[first(ring)]
         end
     end
     n = isempty(rings) ? 0 : gcd(length.(rings))
     sector = sum(ring -> length(ring) ÷ n, rings; init = 0)
-    reduced = n > 0 &&
-              sum(ring -> length(ring) ÷ n * length(exposed[first(ring)]), rings) >=
-              sector*level.wire
+    reduced = n > 0 && sum(ring -> length(ring) ÷ n * length(targets[first(ring)]), rings) >=
+                       sum(ring -> length(ring) ÷ n * length(sources[first(ring)]), rings)
     wires = Int[]
     if reduced
         for k in 0:(n - 1), ring in rings
@@ -414,8 +455,8 @@ function _shunt_layout(g, level)
         end
     end
     append!(wires, setdiff(eachindex(g.wires), wires))
-    return (; wires, ring = reduced ? n : 0, sector = reduced ? sector : 0,
-        exposed = exposed[wires])
+    return (; wires, sectors = reduced ? n : 0, sector = reduced ? sector : 0,
+        targets = targets[wires], sources = sources[wires])
 end
 
 # The coefficients (A, B, C) of the three-term recurrence of the Jacobi polynomials,
@@ -761,12 +802,12 @@ end
 Record one boundary solve. `log_moment_error` is the largest weighted QuadGK error
 estimate of the logarithmic moments. `condition` is the 1-norm condition estimate of the
 equilibrated collocation system's triangular factors, the larger of the Fourier blocks
-together and the border. `ring` is the number of Fourier classes that the ring reduction
-separates, zero without a ring. `unknowns` and `equations` count the charge coefficients and
+together and the border. `sectors` is the number of sectors, the Fourier classes that the
+ring reduction separates, zero without a ring. `unknowns` and `equations` count the charge coefficients and
 collocation equations, and `level` is the resolution.
 """
 const InternalShuntDiagnostic = NamedTuple{
-    (:log_moment_error, :condition, :ring, :unknowns, :equations, :level),
+    (:log_moment_error, :condition, :sectors, :unknowns, :equations, :level),
     Tuple{Float64, Float64, Int, Int, Int, typeof(DEFAULT_RESOLUTION)}}
 
 # The fixed geometry of one solve in the wire order of `layout`: tape faces, collocation
@@ -779,15 +820,16 @@ function _shunt_plan(selected::Formula{:boundary}, g, layout, derivatives = 0)
     faces = ShuntTapeFaces[_shunt_tape_faces(g, tape, level.order, level.quadrature)
                            for tape in g.tapes]
     points, terminals, point_layers = ComplexF64[], Int[], Int[]
-    sources, source_layers = ComplexF64[], Int[]
-    for (index, exposed) in zip(layout.wires, layout.exposed)
+    sources, source_layers, source_terminals = ComplexF64[], Int[], Int[]
+    for (index, angles, placed) in zip(layout.wires, layout.targets, layout.sources)
         wire = g.wires[index]
-        append!(points, _shunt_wire_point(wire, 1, j, 2level.wire) for j in exposed)
-        append!(terminals, fill(wire.terminal, length(exposed)))
-        append!(point_layers, fill(wire.layer, length(exposed)))
+        append!(points, _shunt_wire_point(wire, 1, angle) for angle in angles)
+        append!(terminals, fill(wire.terminal, length(angles)))
+        append!(point_layers, fill(wire.layer, length(angles)))
         append!(sources,
-            _shunt_wire_point(wire, 0.75, j, level.wire) for j in 0:(level.wire - 1))
-        append!(source_layers, fill(wire.layer, level.wire))
+            _shunt_wire_point(wire, fraction, angle) for (angle, fraction) in placed)
+        append!(source_layers, fill(wire.layer, length(placed)))
+        append!(source_terminals, fill(wire.terminal, length(placed)))
     end
     nface = max(24, 4(level.order+1))
     parameters = -cos.(pi .* ((1:nface) .- 0.5) ./ nface)
@@ -800,11 +842,10 @@ function _shunt_plan(selected::Formula{:boundary}, g, layout, derivatives = 0)
     columns = length(sources)+4(level.order+1)*length(faces)
     ports = max(maximum(wire -> wire.terminal, g.wires; init = 1),
         maximum(tape -> tape.terminal, g.tapes; init = 1))
-    ring = layout.ring
-    return (; faces, points, terminals, point_layers, sources, source_layers, k, level,
-        integration, layout, ring,
-        block_rows = sum(length, view(layout.exposed, 1:layout.sector); init = 0),
-        block_columns = layout.sector*level.wire,
+    return (; faces, points, terminals, point_layers, sources, source_layers,
+        source_terminals, k, level, integration, layout,
+        block_rows = sum(length, view(layout.targets, 1:layout.sector); init = 0),
+        block_columns = sum(length, view(layout.sources, 1:layout.sector); init = 0),
         rows = length(points), columns, ports, modes = level.modes,
         quadrature = isempty(faces) ? 0 : level.quadrature, order = level.order, derivatives)
 end
@@ -843,14 +884,12 @@ function _shunt_charge!(charge, offset, face::ShuntFace{ShuntEnd}, k)
     return charge
 end
 
-function _shunt_charge_map(g, plan)
-    (; sources, source_layers, faces, level, k) = plan
+function _shunt_charge_map(plan)
+    (; sources, source_layers, source_terminals, faces, k) = plan
     charge = zeros(plan.ports, plan.columns)
-    @inbounds for (position, index) in pairs(plan.layout.wires)
-        for j in ((position - 1) * level.wire + 1):(position * level.wire)
-            charge[1, j] = -_shunt_core_voltage(sources[j], source_layers[j], k)
-            charge[g.wires[index].terminal, j] = 1
-        end
+    @inbounds for j in eachindex(sources)
+        charge[1, j] = -_shunt_core_voltage(sources[j], source_layers[j], k)
+        charge[source_terminals[j], j] = 1
     end
     offset = length(sources)
     for tape in faces, face in tape
@@ -915,7 +954,7 @@ end
 function _shunt_capacitance!(selected::Formula{:boundary}, workspace)
     g, plan, buffers = workspace.input, workspace.plan, workspace.buffers
     (; faces, points, terminals, point_layers, sources, source_layers, k, integration) = plan
-    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    N, r, c = plan.layout.sectors, plan.block_rows, plan.block_columns
     m, n = plan.rows, plan.columns
     m >= n || throw(BoundarySolveError(:rank, (; rows = m, columns = n),
         "fewer boundary equations than charge coefficients"))
@@ -953,7 +992,7 @@ function _shunt_capacitance!(selected::Formula{:boundary}, workspace)
     rhs = _shunt_rhs!(buffers.excitation, points, point_layers, terminals, k)
     coefficients = _shunt_solve!(buffers.coefficients, factored, plan, buffers, rhs) ./
                    column_norms
-    charge = _shunt_charge_map(g, plan)
+    charge = _shunt_charge_map(plan)
     C = (2pi*vacuum_permittivity(Float64)) .* (charge*coefficients)
     C[1, 1] += 2pi*vacuum_permittivity(Float64)/k.Rtotal
     all(isfinite, C) ||
@@ -982,7 +1021,7 @@ at the blocks' leading rows. Without a ring, that factor is the QR factor of the
   the 1-norm condition estimates of the Fourier blocks together and of the border factor.
 """
 function _shunt_factor!(plan, buffers)
-    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    N, r, c = plan.layout.sectors, plan.block_rows, plan.block_columns
     nb = plan.columns - N*c
     (; ring_kernel, coupling_kernel, border, phases, ring_factors, ring_border, coupling,
         ring_residual, border_gram, gram_product, coupling_product, border_reduced,
@@ -1052,7 +1091,7 @@ coefficients are ``y_p=R_p^{-1}(d_p+M_p^H v-S_p t)``, and the inverse transform 
 ring's coefficients.
 """
 function _shunt_solve!(x, factored, plan, buffers, rhs)
-    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    N, r, c = plan.layout.sectors, plan.block_rows, plan.block_columns
     nb = plan.columns - N*c
     (; factors, gram, residual, top, system) = factored
     (; phases, ring_factors, ring_border, coupling, border_reduced, ring_rhs, ring_solution,
@@ -1110,7 +1149,7 @@ transformed ring part ``\\hat w`` of `w`. The border coefficients ``q_t`` solve
 are then ``R_p^{-1}(c_p-M_p^H L^{-H}(g+\\tilde W q_t)-S_p q_t)``, transformed back.
 """
 function _shunt_normal!(x, factored, plan, buffers, w)
-    N, c = plan.ring, plan.block_columns
+    N, c = plan.layout.sectors, plan.block_columns
     nb = plan.columns - N*c
     (; gram, system) = factored
     (; phases, ring_factors, ring_border, coupling, border_reduced, ring_solution,
@@ -1155,7 +1194,7 @@ end
 # The equilibrated coefficients from the ring's Fourier coefficients and the border's: wire
 # l's are the real part of the inverse transform, sum over p of exp(2pi i p l/N)/sqrt(N) y_p.
 function _shunt_coefficients!(x, plan, buffers)
-    N, c = plan.ring, plan.block_columns
+    N, c = plan.layout.sectors, plan.block_columns
     (; phases, ring_solution, border_solution) = buffers
     for l in 0:(N - 1)
         block = @view x[(l * c + 1):((l + 1) * c), :]
@@ -1172,7 +1211,7 @@ end
 # right-hand sides `rhs` into `residual`. Block (q, l) of the ring's circulant is block
 # (0, l - q mod N) of its first block row.
 function _shunt_residual!(residual, plan, buffers, y, rhs)
-    N, r, c = plan.ring, plan.block_rows, plan.block_columns
+    N, r, c = plan.layout.sectors, plan.block_rows, plan.block_columns
     (; ring_kernel, coupling_kernel, border) = buffers
     kept = size(coupling_kernel, 1)
     copyto!(residual, rhs)
@@ -1245,7 +1284,7 @@ function _shunt_tangent(selected::Formula{:boundary}, group, values, direction, 
         buffers.coefficient_derivative, solved.factored, plan, buffers, buffers.drive)
     delta .+= _shunt_normal!(stationarity, solved.factored, plan, buffers, stationarity)
     delta ./= buffers.column_norms
-    charge_delta = (_shunt_charge_map(plus, dp) - _shunt_charge_map(minus, dm)) ./ (2step)
+    charge_delta = (_shunt_charge_map(dp) - _shunt_charge_map(dm)) ./ (2step)
     result = (2pi*vacuum_permittivity(Float64)) .*
              (charge_delta*solved.coefficients + solved.charge*delta)
     result[1, 1] += 2pi*vacuum_permittivity(Float64)*(inv(dp.k.Rtotal)-inv(dm.k.Rtotal))/(2step)

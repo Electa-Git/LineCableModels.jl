@@ -136,8 +136,8 @@ function kernel_matrix(selected, targets, target_layers, sources, source_layers,
         split_images = false)
     SM=LineCableModels.Engine.ShuntModel
     plan=(rows = length(targets), columns = 0, ports = 1, order = 0, sources,
-        modes = size(k.modal, 1), quadrature = 0, derivatives = 0, ring = 0, block_rows = 0,
-        block_columns = 0)
+        modes = size(k.modal, 1), quadrature = 0, derivatives = 0, layout = (sectors = 0,),
+        block_rows = 0, block_columns = 0)
     buffers=SM.initialize_buffers(selected, Float64, g, plan, (;))
     return SM._shunt_kernel_matrix!(Matrix{Float64}(undef, length(targets), length(sources)),
         targets, target_layers, sources, source_layers, k; split_images, buffers)
@@ -150,7 +150,7 @@ function tape_columns(selected, targets, target_layers, faces, g, k; integration
     nodes=maximum(tape -> maximum(face -> length(face.points), tape), faces)
     columns=sum(tape -> sum(face -> face.p+1, tape), faces)
     plan=(rows = length(targets), columns = 0, ports = 1, order, sources = ComplexF64[],
-        modes = size(k.modal, 1), quadrature = nodes, derivatives = 0, ring = 0,
+        modes = size(k.modal, 1), quadrature = nodes, derivatives = 0, layout = (sectors = 0,),
         block_rows = 0, block_columns = 0)
     buffers=SM.initialize_buffers(selected, Float64, g, plan, (;))
     return SM._shunt_tape_columns!(Matrix{Float64}(undef, length(targets), columns),
@@ -183,8 +183,8 @@ function boundary_residual(selected, g, solved)
         push!(terminals, face.terminal)
         push!(layers, face.layer)
     end
-    check=merge(plan, (; rows = length(points), columns = 0, ring = 0, block_rows = 0,
-        block_columns = 0))
+    check=merge(plan, (; rows = length(points), columns = 0, layout = (sectors = 0,),
+        block_rows = 0, block_columns = 0))
     buffers=SM.initialize_buffers(selected, Float64, g, check, (;))
     collocation=Matrix{Float64}(undef, length(points), plan.columns)
     SM._shunt_matrix!(collocation, points, layers, plan.sources, plan.source_layers,

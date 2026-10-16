@@ -55,13 +55,14 @@
     @test result.workspace.plan.rows == result.diagnostic.equations
     # The group's wires form one ring, which the solve separates by Fourier index. The same
     # solver without the ring, a dense solve of the same points, gives the same capacitance.
-    @test result.diagnostic.ring == length(g.wires)
+    @test result.diagnostic.sectors == length(g.wires)
     @test result.diagnostic.condition >= 1
     dense = E.ShuntModel._shunt_plan(selected, g,
-        merge(E.ShuntModel._shunt_layout(g, level), (; ring = 0, sector = 0)))
+        merge(E.ShuntModel._shunt_layout(g, selected.options.data.resolution),
+            (; sectors = 0, sector = 0)))
     buffers = E.ShuntModel.initialize_buffers(selected, Float64, g, dense, (;))
     unreduced = E.ShuntModel._shunt_capacitance!(selected, (; input = g, plan = dense, buffers))
-    @test unreduced.diagnostic.ring == 0
+    @test unreduced.diagnostic.sectors == 0
     @test unreduced.C ≈ result.C rtol=1e-12
     doubled = E.ShuntModel.DielectricGroup(g.design, g.assembly, g.terminals, g.reference,
         [merge(l, (epsilon = 2l.epsilon,)) for l in g.layers], g.wires, g.tapes)
@@ -254,7 +255,7 @@ end
         boundary = selected.formulas.shunt_model
         plan = SM._shunt_plan(boundary, g,
             SM._shunt_layout(g, boundary.options.data.resolution))
-        @test plan.ring == 0
+        @test plan.layout.sectors == 0
         @test length(plan.points) < 4plan.level.wire == 2length(plan.sources)
         @test length(plan.points) == length(plan.terminals)
         @test all(point -> minimum(abs(point-complex(wire.x, wire.y))-wire.r
@@ -342,9 +343,9 @@ end
         @test minimum(eigvals(Symmetric(result.C))) > 0
         # The rotation common to both rings splits the system into gcd(N1, N2) classes, and
         # the same solver without them gives the same capacitance.
-        @test result.diagnostic.ring == sectors
-        layout = SM._shunt_layout(group, level)
-        unreduced = solve(group, merge(layout, (; ring = 0, sector = 0)))
+        @test result.diagnostic.sectors == sectors
+        layout = SM._shunt_layout(group, selected.options.data.resolution)
+        unreduced = solve(group, merge(layout, (; sectors = 0, sector = 0)))
         @test unreduced.C ≈ result.C rtol=1e-12
         # Equal permittivities in all layers equal one layer of the same radii, to roundoff
         # judged against the condition estimate of the solve.
@@ -359,4 +360,33 @@ end
         @test maximum(abs, layered.C-uniform.C) <=
               10layered.diagnostic.condition*eps()*maximum(abs, diag(uniform.C))
     end
+end
+
+@testitem "Engine / internal shunt / wires touching a more permittive layer" tags=[:unit, :engine] begin
+    using LinearAlgebra
+    E = LineCableModels.Engine
+    SM = E.ShuntModel
+    include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
+    # A ring of eight wires touching the inner interface of their layer, next to a layer a
+    # thousand times more permittive: the charge concentrates about each contact.
+    wires = [(x = 2.2cos(pi*k/4), y = 2.2sin(pi*k/4), r = 0.2, terminal = 2, layer = 2)
+             for k in 0:7]
+    g = layered_group([(ri = 1.0, ro = 2.0, epsilon = 1000.0),
+        (ri = 2.0, ro = 3.0, epsilon = 1.0)]; wires)
+    boundary(wire, contact) = SM.Formula(:boundary; options = (resolution = (
+        wire = wire, order = 8, quadrature = 64, modes = 256, contact),))
+    layout = SM._shunt_layout(g, boundary(16, 4).options.data.resolution)
+    # The points grade toward the contact in ceil(log2(4*1000/8)) = 9 levels, the same on
+    # every wire. The ring stays a ring.
+    @test layout.sectors == 8
+    @test length(first(layout.sources)) == 16+2*9+1
+    @test all(==(first(layout.targets)), layout.targets)
+    @test all(==(first(layout.sources)), layout.sources)
+    capacitance(wire, contact) = SM.internal_capacitance(boundary(wire, contact), g).C
+    # The same capacitance at finer wire and contact resolution: the grading is a
+    # discretization of one model.
+    reference = capacitance(32, 16)
+    scale = maximum(abs, diag(reference))
+    @test maximum(abs, capacitance(16, 4)-reference) < 1e-5scale
+    @test maximum(abs, capacitance(32, 4)-reference) < 2e-6scale
 end

@@ -57,7 +57,7 @@ function Base.show(io::IO, ::MIME"text/plain", error::BoundarySolveError)
 end
 
 "Reference boundary discretization. Accuracy depends on geometry and the requested terminal quantity."
-const DEFAULT_RESOLUTION = (wire = 64, order = 16, quadrature = 64, modes = 512)
+const DEFAULT_RESOLUTION = (wire = 64, order = 16, quadrature = 64, modes = 512, contact = 4)
 "Default controls for dimensionless logarithmic-moment integration."
 const DEFAULT_INTEGRATION = (rtol = 1e-8, atol = 1e-10, maxevals = 100_000)
 
@@ -81,7 +81,7 @@ tape arrangements before frequency evaluation, or reports an unsupported geometr
 
 - `parameters=(;)`: the model rejects parameters. Numerical failures propagate.
 - `options=(;)`: geometric boundary `resolution=(wire=64, order=16, quadrature=64,
-  modes=512)` and `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`. The
+  modes=512, contact=4)` and `integration=(rtol=1e-8, atol=1e-10, maxevals=100_000)`. The
   equivalent model does not accept numerical controls.
 
 # Returns

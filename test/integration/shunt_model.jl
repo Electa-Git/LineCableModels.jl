@@ -79,7 +79,7 @@
     @test E._solve!(workspace, problem, boundary) == first_result
     @test details(first_result).data.shunt_model.requested === :boundary
     @test keys(only(details(first_result).data.shunt_model.diagnostics)) ==
-          (:log_moment_error, :condition, :ring, :unknowns, :equations, :level)
+          (:log_moment_error, :condition, :sectors, :unknowns, :equations, :level)
     @test typeof(first_result) === typeof(nominal)
     @test compute(problem, boundary) == first_result
     @test compute(CableConstantsProblem(design; frequency = 60), boundary).C ==
