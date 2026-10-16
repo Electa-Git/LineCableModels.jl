@@ -159,6 +159,28 @@ within relative tolerance 1e-12, with zero absolute tolerance. Relative error
 is `missing` where the reference RMS is zero. Details retain the quantity,
 `:reference_rms` normalization, sample count and time window.
 
+## Time-domain simulation of a fitted line model
+
+Load UniversalLineModel, fit a line model, then select `:td`:
+
+```julia
+using UniversalLineModel
+
+phase = compute(line_problem, Formulation())
+modal = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation())
+segment = PropagationParameters(modal; line_length=line_length(line_problem))
+model = compute(LineModelProblem(segment), LineModelFormulation(:ulm))
+problem = TransientAnalysisProblem(model; sending, receiving,
+    window=(tmax=2e-4, step=1e-7))
+response = compute(problem, TransientFormulation(:td;
+    options=(interp=:single, enforce_sign=false, initial_solve=false)))
+```
+
+The time step must be at most the smallest fitted propagation delay.
+Interpolation accepts `:single` or `:double`. Currents enter the line at both ends.
+`Matched()` needs a fitted characteristic-admittance branch that the ULM network
+does not provide and throws an error. Modal line models are not implemented yet.
+
 ## Sweeps
 
 Numeric `Grid` values in terminal assignments lift the transient problem into

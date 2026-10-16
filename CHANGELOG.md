@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The `:td` transient formulation runs UniversalLineModel simulations of fitted wideband line models.
+
 - Line models now have problems, formulations, wideband and modal records, selectors and observations. The `:ulm` and `:fdcm` selections require UniversalLineModel. The `:marti` selection throws an error.
 
 - UniversalLineModel is a weak dependency with the extension `LineCableModelsUniversalLineModelExt`. The test environment pins it by Git revision. The extension fits `:ulm` and `:fdcm` models with fitting errors, passivity records and conversion to UniversalLineModel.

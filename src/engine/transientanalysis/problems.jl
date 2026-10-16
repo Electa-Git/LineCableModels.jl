@@ -1,13 +1,13 @@
 """
 $(TYPEDEF)
 
-Define transient analysis of an uncomputed line with terminal assignments at both ends.
+Define transient analysis of an uncomputed line or fitted model with terminal assignments.
 An end is `Matched()` or a tuple of assignments. Unlisted terminals are open.
 
 $(TYPEDFIELDS)
 """
-struct TransientAnalysisProblem{L <: LineParametersProblem, S, R, W <: NamedTuple} <: AbstractProblemDefinition
-    "Uncomputed line problem."
+struct TransientAnalysisProblem{L <: Union{LineParametersProblem, LineModel}, S, R, W <: NamedTuple} <: AbstractProblemDefinition
+    "Uncomputed line problem or fitted line model."
     line::L
     "Sending-end assignments."
     sending::S
@@ -17,7 +17,7 @@ struct TransientAnalysisProblem{L <: LineParametersProblem, S, R, W <: NamedTupl
     window::W
 
     function TransientAnalysisProblem(line::L, sending::S, receiving::R, window::W) where {
-            L <: LineParametersProblem, S, R, W <: NamedTuple}
+            L <: Union{LineParametersProblem, LineModel}, S, R, W <: NamedTuple}
         return validate(new{L, S, R, W}(line, sending, receiving, window))
     end
 end
@@ -50,9 +50,12 @@ function validate(assignment::Union{TerminalImpedance, Waveform},
     return assignment
 end
 
+_transient_coordinates(line::LineParametersProblem) = ["cable:$(cable):$(terminal)"
+    for (; cable, terminal) in line.system.terminal_order]
+_transient_coordinates(line::LineModel) = line.coordinates
+
 function validate(problem::TransientAnalysisProblem)
-    coordinates = ["cable:$(cable):$(terminal)"
-        for (; cable, terminal) in problem.line.system.terminal_order]
+    coordinates = _transient_coordinates(problem.line)
     validate(problem.sending, TransientAnalysisProblem, coordinates)
     validate(problem.receiving, TransientAnalysisProblem, coordinates)
     keys(problem.window) == (:tmax, :step) ||

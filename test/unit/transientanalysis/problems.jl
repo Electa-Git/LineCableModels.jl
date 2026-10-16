@@ -56,7 +56,17 @@
         selected = TransientFormulation(:nlt; options=(N=128, Tfactor=2.0, taper=taper))
         @test formulation_options(selected.formula).data.taper === taper
     end
-    @test isempty(formulation_options(TransientFormulation(:td).formula).data)
+    @test formulation_options(TransientFormulation(:td).formula).data ==
+        (interp=:single, enforce_sign=false, initial_solve=false)
+    for interp in (:single, :double)
+        selected = TransientFormulation(:td; options=(; interp, enforce_sign=true, initial_solve=true))
+        @test formulation_options(selected.formula).data ==
+            (; interp, enforce_sign=true, initial_solve=true)
+    end
+    @test_throws ArgumentError TransientFormulation(:td; options=(interp=:unknown,))
+    @test_throws TypeError TransientFormulation(:td; options=(interp=1,))
+    @test_throws TypeError TransientFormulation(:td; options=(enforce_sign=1,))
+    @test_throws TypeError TransientFormulation(:td; options=(initial_solve=1,))
     @test TransientFormulation(Grid((:nlt, :td))) isa Gridspace{TransientFormulation}
     @test [formula_id(item.formula) for item in TransientFormulation(Grid((:nlt, :td)))] == [:nlt, :td]
     @test_throws ArgumentError TransientFormulation(:nlt; options=(unknown=1,))
@@ -74,7 +84,6 @@
     @test validate(problem, TransientFormulation(:nlt).formula) === problem
     for identifier in (:td,)
         selected = TransientFormulation(identifier)
-        @test_throws ArgumentError("not implemented yet") TA.respond!(selected.formula, nothing, (;), selected.formula.options)
         message = try
             validate(problem, selected.formula)
             ""
@@ -84,5 +93,30 @@
         @test occursin(string(identifier), message)
         @test occursin(string(typeof(line)), message)
         @test_throws ArgumentError compute(problem, selected)
+    end
+
+    admittance = (poles=ComplexF64[], residues=zeros(ComplexF64, 1, 1, 0), direct=ones(1, 1))
+    propagation = [(delay=1e-6, poles=ComplexF64[-1], residues=ones(ComplexF64, 1, 1, 1))]
+    errors = (rms=zeros(1, 1), max=zeros(1, 1), f_max=zeros(1, 1))
+    passive = (checked=false, passive=nothing, bands=Tuple{Float64, Float64}[],
+        worst=nothing, f_worst=nothing, perturbation=nothing)
+    sections = [(constant=1.0, poles=[-1.0], residues=[1.0], delay=1e-6)]
+    for payload in (WidebandModel(admittance, propagation),
+            ModalModel(ones(1, 1), 50.0, sections, deepcopy(sections)))
+        model = LineModel(payload, ["wire"], 1000.0, [1.0, 1e6],
+            (admittance=errors, propagation=errors), passive,
+            (targets=nothing, achieved=nothing), ComputationDetails())
+        fitted = TransientAnalysisProblem(model; sending=(Step("wire", 1.0),), receiving=(), window)
+        @test fitted.line === model
+        @test validate(fitted, TransientFormulation(:td).formula) === fitted
+        @test_throws ArgumentError TransientAnalysisProblem(model; sending, receiving=(), window)
+        @test_throws ArgumentError compute(fitted, TransientFormulation(:nlt))
+        if payload isa ModalModel
+            @test_throws ArgumentError("not implemented yet") compute(fitted, TransientFormulation(:td))
+        else
+            @test_throws ArgumentError("load UniversalLineModel to run :td on a wideband line model") invoke(
+                TA.compute, Tuple{TA.Formula{:td}, TransientAnalysisProblem{<:LineModel}, Any},
+                TransientFormulation(:td).formula, fitted, execution)
+        end
     end
 end

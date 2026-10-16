@@ -26,6 +26,7 @@ import ...Commons
 import ...Units
 import ..Engine: LineParameters, LineParametersProblem, LineParametersFormulation, Formulation,
                  description, formula_id, compare, RMSError
+import ..LineModels: LineModel, ModalModel
 import ...TextDisplay
 using Logging: with_logger, current_logger
 using LinearAlgebra: eigen!, lu!, ldiv!, mul!

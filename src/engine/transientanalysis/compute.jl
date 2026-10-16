@@ -43,6 +43,7 @@ function computation_details(::Type{<:TransientFormulation}, result::TransientRe
     return details(result)
 end
 
-compute(::Formula{:td}, problem::TransientAnalysisProblem, execution::ComputationOptions) =
+compute(::Formula{:td}, problem::TransientAnalysisProblem{<:LineModel}, execution) =
+    throw(ArgumentError("load UniversalLineModel to run :td on a wideband line model"))
+compute(::Formula{:td}, problem::TransientAnalysisProblem{<:LineModel{<:ModalModel}}, execution) =
     throw(ArgumentError("not implemented yet"))
-respond!(::Formula{:td}, workspace, parameters, options) = throw(ArgumentError("not implemented yet"))
