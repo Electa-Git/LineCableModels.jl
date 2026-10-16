@@ -300,6 +300,9 @@ function export_data(::Val{:atp},
         cable_system::Union{LineCableSystem, Nothing} = nothing
 )::String
 
+    iszero(Engine.sigma(line_params)) || throw(ArgumentError(
+        "ATP line data are real-frequency matrices. The scan has Laplace abscissa σ = $(Engine.sigma(line_params)); export a scan computed with σ = 0."))
+
     # Resolve final file_name while preserving any user-supplied path.
     if isnothing(file_name)
         # Derive the name from cable_system when the caller omits it.

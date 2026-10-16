@@ -102,6 +102,10 @@ end
     z[1,2,:].*=-1
     y[2,1,:].*=-1
     parameters=LineParameters(z,y,frequencies(source))
+    shifted = LineParameters(z, y, frequencies(source);
+        details = ComputationDetails(inputs = (sigma = 100.0,)))
+    @test_throws ArgumentError(
+        "ATP line data are real-frequency matrices. The scan has Laplace abscissa σ = 100.0; export a scan computed with σ = 0.") export_data(:atp, shifted)
     mktempdir() do directory
         path=joinpath(directory,"matrices.xml")
         @test export_data(:atp,parameters;file_name=path)==path

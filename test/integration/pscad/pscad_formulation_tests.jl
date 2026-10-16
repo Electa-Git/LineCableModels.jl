@@ -17,6 +17,17 @@
         temperature = 60,
         frequencies = collect(10.0 .^ range(-1, 6; length = 101)))
     overhead, underground=problem(1.0), problem(-1.0)
+    shifted = LineParametersProblem(underground.system;
+        temperature = underground.temperature, earth_props = earth,
+        frequencies = underground.frequencies, sigma = 100.0)
+    rejection = ArgumentError(
+        "PSCAD line constants are computed on the real frequency axis. The Laplace abscissa σ must be zero.")
+    @test_throws rejection P.pscad_setting(Formulation(:pscad), shifted)
+    mktempdir() do directory
+        remote = P.RemoteConfig("fixture", "shared", "scratch", "julia", "python";
+            local_root = directory, transport = :preflight_probe)
+        @test_throws rejection compute(shifted, Formulation(:pscad); options = (; remote))
+    end
     # The internal slot takes one formula. PSCAD's default is Wedepohl's.
     @test_throws MethodError Formulation(:pscad;
         internal_impedance=(transfer=:default,inner=:default,outer=:default))

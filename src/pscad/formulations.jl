@@ -270,6 +270,7 @@ function pscad_setting(formulation::PSCADFormulation, problem::LineParametersPro
 end
 
 function pscad_setting(formulation::PSCADFormulation, problem::LineParametersProblem, blueprints)
+    validate(problem, PSCADFormulation)
     model = problem.earth_props
     validate(model, PSCADFormulation)
     relation = formulation.formulas.earth_properties

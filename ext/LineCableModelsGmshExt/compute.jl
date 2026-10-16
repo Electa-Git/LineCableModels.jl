@@ -671,6 +671,8 @@ function _compute_request(problem, formulation::LineCableModelsFEM; options)
     return first(_compute_request(problem, [formulation]; options))
 end
 function _compute_request(problem, formulations; options)
+    iszero(problem.sigma) || throw(ArgumentError(
+        "The FEM backend computes on the real frequency axis. The Laplace abscissa σ must be zero."))
     problem = _preflight_fem_problem(problem)
     execution = computation_options(LineCableModelsFEM, options)
     logger = LineCableModels.VerbosityLogger(Logging.current_logger(), execution.data.verbosity)

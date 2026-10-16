@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Problem JSON preserves σ. PSCAD line constants, FEM computations and ATP matrix exports refuse σ ≠ 0.
+
 - Laplace-domain observation masks use `:laplace_domain`. Scan comparisons need equal σ.
 
 - Causal earth laws evaluate at complex frequency and return effective real properties. Fitted non-causal laws refuse σ ≠ 0.

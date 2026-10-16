@@ -175,6 +175,13 @@ end
 
     normalized = extension_module._preflight_fem_problem(problem)
 
+    shifted = LineParametersProblem(normalized.system;
+        temperature = normalized.temperature, earth_props = normalized.earth_props,
+        frequencies = normalized.frequencies, sigma = 100.0)
+    rejection = ArgumentError(
+        "The FEM backend computes on the real frequency axis. The Laplace abscissa σ must be zero.")
+    @test_throws rejection compute(shifted, Formulation(:fem))
+
     @test eltype(problem) === Measurement{Float64}
     @test eltype(normalized) === Float64
     @test eltype(normalized.system) === Float64

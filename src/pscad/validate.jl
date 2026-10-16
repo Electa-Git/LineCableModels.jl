@@ -12,6 +12,17 @@ function validate(model::EarthModel, ::Type{<:PSCADFormulation})
     return model
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Check that a line-parameter problem uses the real frequency axis accepted by PSCAD.
+"""
+function validate(problem::LineParametersProblem, ::Type{<:PSCADFormulation})
+    iszero(problem.sigma) || throw(ArgumentError(
+        "PSCAD line constants are computed on the real frequency axis. The Laplace abscissa σ must be zero."))
+    return problem
+end
+
 function _pscad_deterministic(types::Type...)
     any(Engine.has_uncertainty_type, types) && throw(ArgumentError(
         "PSCAD does not support Measurement values. Supply deterministic inputs."))

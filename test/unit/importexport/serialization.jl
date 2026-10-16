@@ -46,6 +46,22 @@
     ))
 end
 
+@testitem "ImportExport / problem sigma survives JSON transport" tags=[:unit, :importexport] setup=[TestFixtures] begin
+    using JSON3
+    import LineCableModels.ImportExport as IE
+
+    fixture = TestFixtures.line_parameters_problem(frequencies = [50.0])
+    problem = LineParametersProblem(fixture.system;
+        temperature = fixture.temperature, earth_props = fixture.earth_props,
+        frequencies = fixture.frequencies, sigma = 100.0)
+    document = JSON3.read(JSON3.write(IE.serialize_value(problem)), Dict{String, Any})
+    restored = IE.deserialize_value(document)
+    @test restored.sigma == 100.0
+    @test IE.serialize_value(restored) == IE.serialize_value(problem)
+    delete!(document, "sigma")
+    @test IE.deserialize_value(document).sigma == 0
+end
+
 @testitem "ImportExport / resolved formulation records survive scientific JSON transport" tags=[:unit, :importexport] begin
     using JSON3
     import LineCableModels.ImportExport as IE

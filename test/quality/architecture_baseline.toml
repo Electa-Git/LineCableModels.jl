@@ -324,7 +324,6 @@
 "src/engine/problems.jl" = 1
 "src/engine/shuntmodel/charge_collocation.jl" = 2
 "src/gridspace.jl" = 3
-"src/importexport/deserialize.jl" = 1
 "src/importexport/observed.jl" = 1
 "src/parametricbuilder/physicaltree.jl" = 3
 "src/parametricbuilder/wirepatterns/gauges.jl" = 1

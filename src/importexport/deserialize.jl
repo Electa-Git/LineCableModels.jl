@@ -435,7 +435,8 @@ function _decode_node(::Val{:line_parameters_problem}, value)
         system;
         temperature = _field(value, "temperature"),
         earth_props = earth,
-        frequencies = _field(value, "frequencies")
+        frequencies = _field(value, "frequencies"),
+        sigma = something(_optional(value, "sigma"), 0)
     )
 end
 
