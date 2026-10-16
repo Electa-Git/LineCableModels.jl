@@ -78,3 +78,12 @@ and LEP/MC ratios of all-band RMS spread.
 The `ranking.txt` file records KPIs, trials, failures and wall times, and
 `uncertainty.json` retains both methods' observations.
 The section dominates a script's run time.
+
+`sensitivity_tables.jl` reads the newest complete `ranking.txt` of each script and
+writes LaTeX tables (longtable, booktabs, siunitx) without computing any case:
+
+```sh
+julia benchmarks/sensitivity_tables.jl [output folder]
+```
+
+The default output folder is `.linecablemodels/benchmarks/tables/`.
