@@ -40,6 +40,7 @@ export InternalImpedance, InsulationImpedance, EarthImpedance, PipeImpedance
 export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 export ShuntModel, BoundarySolveError
 export ModalAnalysis
+export LineModels
 export TransientAnalysis
 
 export compute, sigma
@@ -152,6 +153,10 @@ include("textdisplay.jl")
 # Submodule `ModalAnalysis`
 include("modalanalysis/ModalAnalysis.jl")
 using .ModalAnalysis: ModalAnalysis
+
+# Submodule `LineModels`
+include("linemodels/LineModels.jl")
+using .LineModels: LineModels
 
 # Submodule `TransientAnalysis`
 include("transientanalysis/TransientAnalysis.jl")

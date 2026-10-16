@@ -152,3 +152,23 @@ function label(quantity::Quantity, unit::UnitExpr)
     unit_text = label(unit)
     return isempty(unit_text) ? label(quantity) : "$(label(quantity)) [$unit_text]"
 end
+
+native_unit(::Quantity{:pole}) = units(:base, :dimensionless; per=(:base, :second))
+display_unit(::Quantity{:pole}) = units(:base, :dimensionless; per=(:base, :second))
+label(::Quantity{:pole}) = "Pole"
+symbol(::Quantity{:pole}) = "p"
+
+native_unit(::Quantity{:residue}) = units(:base, :dimensionless)
+display_unit(::Quantity{:residue}) = units(:base, :dimensionless)
+label(::Quantity{:residue}) = "Residue"
+symbol(::Quantity{:residue}) = "r"
+
+native_unit(::Quantity{:delay}) = units(:base, :second)
+display_unit(::Quantity{:delay}) = units(:base, :second)
+label(::Quantity{:delay}) = "Delay"
+symbol(::Quantity{:delay}) = "τ"
+
+native_unit(::Quantity{:fitting_error}) = units(:base, :dimensionless)
+display_unit(::Quantity{:fitting_error}) = units(:base, :dimensionless)
+label(::Quantity{:fitting_error}) = "Fitting error"
+symbol(::Quantity{:fitting_error}) = "ε"

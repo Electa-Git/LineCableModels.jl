@@ -17,6 +17,7 @@ allocations = "ceiling"
 
 # Floor: `@inferred` uses per test file.
 [inferred]
+"test/unit/linemodels/problems.jl" = 1
 "test/extensions/measurements.jl" = 2
 "test/integration/cable_constants.jl" = 3
 "test/integration/computation_options.jl" = 1

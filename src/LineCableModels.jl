@@ -80,6 +80,8 @@ export ModalAnalysisProblem, ModalAnalysisFormulation,
        LineCableModelsModal, ModalOperators, operators, Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc,
        PropagationParameters, H, transform
 export ModalAnalysis
+export LineModels, LineModelProblem, LineModelFormulation, LineModel, WidebandModel, ModalModel
+export poles, residues, delays, fitting_error, passivity
 export TransientAnalysis, TransientAnalysisProblem, TransientFormulation, TransientResponse
 export TerminalImpedance, Waveform, Step, Cosine, DoubleExponential, Matched, voltage, current
 
@@ -188,6 +190,11 @@ using .Engine: ModalAnalysis
 using .Engine.ModalAnalysis: ModalAnalysisProblem, ModalAnalysisFormulation,
                    LineCableModelsModal, ModalOperators, operators,
                    Tv, Ti, gamma, alpha, beta, velocity, Zc, Yc, PropagationParameters, H, transform
+
+# Submodule `Engine.LineModels`
+using .Engine: LineModels
+using .Engine.LineModels: LineModelProblem, LineModelFormulation, LineModel,
+                   WidebandModel, ModalModel, poles, residues, delays, fitting_error, passivity
 
 # Submodule `Engine.TransientAnalysis`
 using .Engine: TransientAnalysis

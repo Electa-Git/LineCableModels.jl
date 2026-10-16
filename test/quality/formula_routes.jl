@@ -1,7 +1,7 @@
 @testitem "Quality / formula registry / every registered identity constructs through each route" tags=[:quality] setup=[FormulaFamilies] begin
     const C=LineCableModels.Commons
     families=FormulaFamilies.families()
-    @test length(families) == 13
+    @test length(families) == 14
     for family in families
         F=family.Formula
         registered=C.formulas(F)
@@ -46,6 +46,7 @@ end
         EP.FrequencyDependent=>EP.FrequencyDependent.earth_material,
         LineCableModels.ModalAnalysis=>LineCableModels.ModalAnalysis.decompose!,
         LineCableModels.TransientAnalysis=>LineCableModels.TransientAnalysis.respond!,
+        LineCableModels.LineModels=>LineCableModels.LineModels.fit,
         LineCableModels.Materials.TemperatureDependent=>
             LineCableModels.Materials.TemperatureDependent.temperature_resistivity)
     for owner in owners, identifier in owner.formulas(owner.Formula)
