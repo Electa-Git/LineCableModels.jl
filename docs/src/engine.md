@@ -684,6 +684,29 @@ assemblies do not require an additional pipe term. Eccentric or multicore conduc
 enclosures fail explicitly on the coaxial backend. FEM retains its supported
 physical enclosure geometry.
 
+## Laplace abscissa
+
+The problem keyword `sigma` sets the Laplace abscissa σ in 1/s, with default zero.
+Every law uses ``s = \sigma + j2\pi f``. A scan on a numerical-Laplace grid uses
+the grid's σ. At σ ≠ 0, Z and Y remain available as complex Laplace-domain values.
+
+Retained observations of R, X, L, G, B and C are unavailable with
+`missing_reason = :laplace_domain`. These quantities assume ``s = j\omega``.
+Modal γ, Zc, Yc and H remain available. Observations mask modal α, β and velocity
+with the same reason.
+
+```julia
+problem = LineParametersProblem(system; frequencies=[50.0, 1000.0],
+    earth_props=homogeneous(rho=100.0), sigma=100.0)
+result = compute(problem, Formulation())
+observe(result, Z, 1, 1, :) # complex Laplace-domain impedance
+retained = observables(result, (R,); complete_pairs=true)
+observe(retained, R, 1, 1, :) # unavailable: missing values
+```
+
+Comparisons need equal σ. Each observation records its σ, so scans at different
+Laplace abscissae never share a group.
+
 ## Cable-material temperature dependence
 
 Select the constitutive law in the formulation and prescribe the operating

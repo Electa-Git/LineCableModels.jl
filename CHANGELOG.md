@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Laplace-domain observation masks use `:laplace_domain`. Scan comparisons need equal σ.
+
 - Causal earth laws evaluate at complex frequency and return effective real properties. Fitted non-causal laws refuse σ ≠ 0.
 
 - `LineParametersProblem(; sigma=0)` evaluates laws at `s=σ+j2πf`. Lossy laws refuse nonzero loss tangents at σ ≠ 0.

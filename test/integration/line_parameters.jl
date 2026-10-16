@@ -120,6 +120,32 @@
           complete_workspace.buffers.axial_field
 end
 
+@testitem "Engine / solver / modal roots at Laplace sigma" tags=[:integration, :engine] setup=[
+    TestFixtures
+] begin
+    using LinearAlgebra: eigvals, norm
+    fixture = TestFixtures.line_parameters_problem(frequencies = [1.0, 50.0, 1e3, 1e5])
+    phase = compute(LineParametersProblem(fixture.system;
+        temperature = fixture.temperature, earth_props = fixture.earth_props,
+        frequencies = fixture.frequencies, sigma = 100.0), Formulation())
+    modal = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+    segment = PropagationParameters(modal)
+    @test LineCableModels.Engine.sigma(modal) == 100.0
+    @test LineCableModels.Engine.sigma(segment) == 100.0
+    differences = map(eachindex(fixture.frequencies)) do k
+        expected = sort(eigvals(Z(phase)[:, :, k] * Y(phase)[:, :, k]); by = real)
+        actual = sort(gamma(modal)[:, k] .^ 2; by = real)
+        @test isapprox(actual, expected; rtol = 1e-9)
+        norm(actual - expected) / norm(expected)
+    end
+    worst = argmax(differences)
+    observed = observables(modal, (alpha,); complete_pairs = true)
+    attenuation = first(observed.quantities)
+    @test all(ismissing, attenuation.values)
+    @test all(!, attenuation.available)
+    @test all(==(:laplace_domain), attenuation.missing_reason)
+end
+
 @testitem "Engine / Gridpoint / selected line problem reaches scalar compute" tags=[:integration, :parametric] setup=[
     UseEngineSupport,
     TestFixtures

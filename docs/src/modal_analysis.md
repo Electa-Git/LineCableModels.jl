@@ -213,6 +213,9 @@ frequency-aligned diagnostics together without a new solve.
 
 ## Collections and observations
 
+Modal analysis of a σ ≠ 0 scan runs and returns Laplace-domain γ, Zc, Yc and H,
+with α, β and velocity masked as unavailable with `:laplace_domain` in retained observations.
+
 Completed phase result spaces transport through
 `Gridspace{ModalAnalysisProblem}(phase_results)`. One modal formulation
 keeps one downstream result per source point. A formulation Gridspace forms

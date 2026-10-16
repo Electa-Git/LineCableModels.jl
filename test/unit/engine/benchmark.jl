@@ -123,3 +123,16 @@
     relative=LineCableModels.ReportBuilder.tabulate(retained,(Z,relative_error))
     @test LineCableModels.Units.label(LineCableModels.ReportBuilder.observation_columns(relative).value.unit)==""
 end
+
+@testitem "Engine / line parameters / comparisons require equal Laplace sigma" tags=[:unit, :engine] setup=[
+    TestFixtures
+] begin
+    using LineCableModels.Engine
+
+    fixture = TestFixtures.line_parameters_problem(frequencies = [50.0, 1e3])
+    reference = compute(fixture, Formulation())
+    shifted = compute(LineParametersProblem(fixture.system;
+        temperature = fixture.temperature, earth_props = fixture.earth_props,
+        frequencies = fixture.frequencies, sigma = 100.0), Formulation())
+    @test_throws ArgumentError("compared scans have different Laplace abscissae σ") compare(reference, shifted)
+end

@@ -7,7 +7,8 @@ observation_assumptions(::Union{SeriesImpedance,ShuntAdmittance},selector) = not
 function observation_assumptions(source::AbstractCoreResult,selector)
     family=_primary_family(selector)
     family===nothing && return nothing
-    return get(get(details(source).data,:selections,(;)),Symbol(nameof(family)),nothing)
+    return (selections=get(get(details(source).data,:selections,(;)),Symbol(nameof(family)),nothing),
+        sigma=sigma(source))
 end
 _primary_key(identity) = identity isa Function ? nameof(identity) :
     first(identity) in (Z,Y) && any(in((abs,angle)),Base.tail(identity)) ?
@@ -157,9 +158,12 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
     resolution=observation_resolution(original,selector;atol,frequencies=sampled_f,
         result_basis=basis(source),line_length=line_length(source))
     values=polar ? (phase ? angle.(original) : abs.(original)) : original
+    assumptions=observation_assumptions(source,selector)
+    laplace=selector in (R,X,L,G,B,C) && assumptions!==nothing && !iszero(sigma(source))
     available=resolution.available .& resolution_available.(values)
     exact_origin=polar ? iszero.(nominal.(original)) : false
     phase && (available=available .& .!exact_origin)
+    available=available .& !laplace
     mask=resolution.unresolved===nothing ? false : resolution.unresolved
     resolved=broadcast(values,mask,available) do value,unresolved,valid
         !valid && return missing
@@ -167,7 +171,7 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
         clip && unresolved ? zero(value) : value
     end
     reasons=broadcast(available,mask,exact_origin) do valid,unresolved,origin
-        !valid ? (polar && !phase && origin ? :undefined_first_order_magnitude : phase && origin ? :undefined_phase :
+        laplace ? :laplace_domain : !valid ? (polar && !phase && origin ? :undefined_first_order_magnitude : phase && origin ? :undefined_phase :
             selector in (L,C) ? :unavailable_proxy : :nonfinite_value) :
             clip && phase && unresolved ? :engineering_zero_phase : nothing
     end
@@ -186,7 +190,7 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
         unit=Units.native_unit(selector,basis(source))) : nothing
     return (request,quantity=q,family=Symbol(nameof(_primary_family(selector))),statistic=:value,
         values=Commons.detach(resolved isa AbstractArray && ndims(resolved)==0 ? only(resolved) : resolved,factor),unit=target,basis=basis(source),coordinates,
-        assumptions=observation_assumptions(source,selector),
+        assumptions,
         thresholds=(kind=resolution.kind,values=Commons.detach(resolution.atol,threshold_factor),
             unit=phase ? threshold_unit : target),available,engineering_zero=mask,clipped=clip,
         missing_reason=reasons,unavailable_components=components)

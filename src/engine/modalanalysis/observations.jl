@@ -346,9 +346,11 @@ function _modal_observation_quantity(source,request;unit=nothing,clip=true,atol=
     origin=length(prefix)==2 && transform===angle ? iszero.(nominal.(original)) : false
     magnitude_origin=length(prefix)==2 && transform===abs ?
         iszero.(nominal.(original)) : false
-    available=available .& .!origin
+    laplace=!iszero(Engine.sigma(source)) && (selector in (alpha,beta,velocity) ||
+        selector===gamma && transform in (real,imag))
+    available=available .& .!origin .& !laplace
     reasons=broadcast(available,origin,magnitude_origin) do valid,at_zero,at_magnitude_origin
-        valid ? nothing : at_zero ? :undefined_phase :
+        laplace ? :laplace_domain : valid ? nothing : at_zero ? :undefined_phase :
             at_magnitude_origin ? :undefined_first_order_magnitude : :nonfinite_value
     end
     resolved=broadcast((value,valid)->valid ? value : missing,values,available)
@@ -377,7 +379,7 @@ function Engine.observation_assumptions(
     modal=get(retained,:modal,nothing)
     return upstream===nothing || modal===nothing ? nothing :
         (upstream=(Z=get(upstream,:Z,nothing),Y=get(upstream,:Y,nothing)),
-         modal=get(modal,:effective,nothing),rotate=get(modal,:rotate,nothing))
+         modal=get(modal,:effective,nothing),rotate=get(modal,:rotate,nothing),sigma=Engine.sigma(source))
 end
 
 function Commons.observation_quantity(source::_ModalLineParameters,request;kwargs...)

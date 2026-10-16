@@ -44,3 +44,22 @@
         @test frequencies(line) == frequency
     end
 end
+
+@testitem "Engine / observations / Laplace masks" tags=[:unit, :engine] setup=[
+    TestFixtures
+] begin
+    fixture = TestFixtures.line_parameters_problem(frequencies = [50.0, 1e3])
+    result = compute(LineParametersProblem(fixture.system;
+        temperature = fixture.temperature, earth_props = fixture.earth_props,
+        frequencies = fixture.frequencies, sigma = 100.0), Formulation())
+    for selector in (R, X, L, G, B, C)
+        quantity = LineCableModels.Commons.observation_quantity(result, (selector, 1, 1, :))
+        @test all(ismissing, quantity.values)
+        @test all(!, quantity.available)
+        @test all(==(:laplace_domain), quantity.missing_reason)
+        @test quantity.assumptions.sigma == 100.0
+    end
+    @test observe(result, Z) == result.Z.values
+    retained = observables(result, (R,); complete_pairs = true)
+    @test !isempty(sprint(show, MIME"text/plain"(), report(retained)))
+end

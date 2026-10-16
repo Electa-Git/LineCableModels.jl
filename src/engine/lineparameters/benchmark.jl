@@ -321,6 +321,8 @@ function compare(reference::AbstractCoreResult, result::AbstractCoreResult,
     isempty(f) && throw(ArgumentError("reference frequencies cannot be empty"))
     f == frequencies(result) || throw(ArgumentError(
         "reference and result frequencies must match exactly and in order"))
+    sigma(reference) == sigma(result) || throw(ArgumentError(
+        "compared scans have different Laplace abscissae σ"))
     basis(reference) === basis(result) || throw(ArgumentError("reference and result basis must match"))
     domain(reference) === domain(result) || throw(ArgumentError("reference and result domains must match"))
     issorted(f) || throw(ArgumentError("frequency-band comparison requires ascending stored frequencies"))
