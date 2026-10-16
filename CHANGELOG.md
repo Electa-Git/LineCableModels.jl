@@ -11,7 +11,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Line models now have problems, formulations, wideband and modal records, selectors and observations. The `:ulm` and `:fdcm` selections require UniversalLineModel. The `:marti` selection throws an error.
 
-- UniversalLineModel is a weak dependency with the extension `LineCableModelsUniversalLineModelExt`. The test environment pins it by Git revision.
+- UniversalLineModel is a weak dependency with the extension `LineCableModelsUniversalLineModelExt`. The test environment pins it by Git revision. The extension fits `:ulm` and `:fdcm` models with fitting errors, passivity records and conversion to UniversalLineModel.
 
 - Transient analysis grammar includes terminal assignments, formulations, response arrays and raw voltage and current observations. Responses retain time coordinates for observations, tables and saved archives. The numerical Laplace transform computes terminal voltages and currents from the exact line two-port. Transient responses provide peak, arrival time, damping and DC offset KPIs, RMS comparison, terminal Gridspace sweeps and a user guide.
 

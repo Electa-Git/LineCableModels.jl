@@ -202,7 +202,7 @@ end
     @test select("src/gridspace.jl") == select("src/commons/Commons.jl")
     @test select("src/engine/lineparameters.jl", "src/uq/UQ.jl") == engine
     fem = select("ext/LineCableModelsGmshExt/LineCableModelsGmshExt.jl")
-    @test all(k -> k in quality || owner(only(i for i in items if key(i) == k)) in (:fem, :makie), fem)
+    @test all(k -> k in quality || owner(only(i for i in items if key(i) == k)) in (:fem, :ulm, :makie), fem)
 
     # A changed test file selects all its items, slow ones too, and the files that use
     # a setup it defines. Its environment items remain excluded.
