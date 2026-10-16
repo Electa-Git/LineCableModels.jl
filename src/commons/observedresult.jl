@@ -170,14 +170,14 @@ completed comparison and timing records.
 - `clip=true`, `atol=nothing`: replace assessed values at or below the native-unit
   cutoffs with exact zero, including zero uncertainty. Unresolved phase is
   unavailable. Source results and values outside the cutoffs are unchanged.
-- `length_unit=:kilo`, `frequency_unit=:base`: display-unit prefixes.
+- `length_unit=:kilo`, `frequency_unit=:base`, `time_unit=:base`: display-unit prefixes.
 - `units=()`, `quantity_units=nothing`: aligned or quantity-keyed unit overrides.
 - `frequencies=nothing`: frequency context \\[Hz\\] for standalone numerical tensors.
 - `complete_pairs=false`: complete a raw display selection through the shared normalizer.
 """
 function ObservedResult(source,requests::Tuple=();comparisons=(),timings=(;),gridpoint=nothing,
         clip::Bool=true,atol=nothing,units::Tuple=(),length_unit::Symbol=:kilo,
-        frequency_unit::Symbol=:base,quantity_units=nothing,frequencies=nothing,
+        frequency_unit::Symbol=:base,time_unit::Symbol=:base,quantity_units=nothing,frequencies=nothing,
         complete_pairs::Bool=false)
     selected=observation_requests(source,requests;complete_pairs).retained
     isempty(units) || length(units)==length(selected) || throw(DimensionMismatch(
@@ -192,12 +192,16 @@ function ObservedResult(source,requests::Tuple=();comparisons=(),timings=(;),gri
             display_unit(q,basis(source),_unit_override(quantity_units,request);length_prefix=length_unit) :
             display_unit(q,basis(source),units[index];length_prefix=length_unit)
         record=observation_quantity(source,request;unit,clip,atol,frequencies)
-        if haskey(record.coordinates,:frequencies) && record.coordinates.frequencies!==nothing
-            frequency_target=Units.units(frequency_unit,:hertz)
-            f=record.coordinates.frequencies
-            factor=isempty(f) ? 1 : scale_factor(Units.units(:base,:hertz),frequency_target,typeof(float(nominal(first(f)))))
-            record=merge(record,(coordinates=merge(record.coordinates,
-                (frequencies=detach(f,factor),frequency_unit=frequency_target)),))
+        for (values_key,unit_key,quantity,prefix) in (
+                (:frequencies,:frequency_unit,Units.Quantity{:frequency}(),frequency_unit),
+                (:times,:time_unit,Units.Quantity{:time}(),time_unit))
+            c=record.coordinates
+            haskey(c,values_key) && c[values_key]!==nothing || continue
+            target=display_unit(quantity,basis(source),prefix)
+            values=c[values_key]
+            factor=isempty(values) ? 1 : scale_factor(c[unit_key],target,typeof(float(nominal(first(values)))))
+            record=merge(record,(coordinates=merge(c,
+                NamedTuple{(values_key,unit_key)}((detach(values,factor),target))),))
         end
         record
     end
@@ -266,7 +270,7 @@ $(TYPEDSIGNATURES)
 Select a retained quantity record and optional original coordinates. Missing or
 ambiguous requests fail.
 """
-function observation_product(observed::ObservedResult,request;unit=nothing,frequency_unit=nothing)
+function observation_product(observed::ObservedResult,request;unit=nothing,frequency_unit=nothing,time_unit=nothing)
     identity=normalize_observation_selector(request_identity(request))
     matches=filter(q -> isequal(normalize_observation_selector(request_identity(q.request)),identity),
         observed.quantities)
@@ -275,7 +279,7 @@ function observation_product(observed::ObservedResult,request;unit=nothing,frequ
     product=only(matches)
     indices=request_indices(request)
     isempty(indices) || request==product.request || (product=_selected_product(product,request,indices))
-    return _reexpress_product(product;unit,frequency_unit)
+    return _reexpress_product(product;unit,frequency_unit,time_unit)
 end
 
 function _selected_product(product,request,indices)
@@ -303,18 +307,18 @@ function _selected_product(product,request,indices)
     end
     select_values(value)=value isa AbstractArray ? reshape(value,length.(dimensions)...)[positions...] : value
     sample_axis=c.kind===:vector || c.kind===:diagonal ? 2 : matrix ? 3 : nothing
-    f=if c.frequencies===nothing || sample_axis===nothing
-        c.frequencies
-    else
-        selected_samples=positions[sample_axis]
-        c.frequencies[selected_samples isa Integer ? [selected_samples] : selected_samples]
-    end
     coordinate=c.kind===:vector ? merge(c,(indices,positions=first(selected_dimensions),
-        samples=last(selected_dimensions),frequencies=f)) :
+        samples=last(selected_dimensions))) :
         matrix ? merge(c,(indices,rows=first(selected_dimensions),
         columns=c.kind===:diagonal ? first(selected_dimensions) : selected_dimensions[2],
-        samples=selected_dimensions[sample_axis],frequencies=f)) :
+        samples=selected_dimensions[sample_axis])) :
         merge(c,(indices,assemblies=first(selected_dimensions)))
+    for values_key in (:frequencies,:times)
+        haskey(c,values_key) && c[values_key]!==nothing && sample_axis!==nothing || continue
+        selected_samples=positions[sample_axis]
+        values=c[values_key][selected_samples isa Integer ? [selected_samples] : selected_samples]
+        coordinate=merge(coordinate,NamedTuple{(values_key,)}((values,)))
+    end
     c.kind===:samples && (coordinate=merge(coordinate,(trials=last(selected_dimensions),)))
     thresholds=product.thresholds
     if thresholds!==nothing && sample_axis!==nothing

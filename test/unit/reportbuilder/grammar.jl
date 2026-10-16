@@ -387,3 +387,37 @@ end
     @test observe(constants,R)==[1e-4]
     @test r[R][1,2]==42.
 end
+
+@testitem "ReportBuilder / mixed matrix labels and sample abscissas" tags=[:unit, :report] begin
+    using DataFrames
+    import LineCableModels.Commons as G
+    import LineCableModels.ReportBuilder as RB
+    import LineCableModels.Units as U
+    product=G.observation_quantity(TransientResponse([0.,1.,2.],ones(2,3,3),
+        zeros(2,3,3),["a","b","c"],ComputationDetails()),voltage)
+    table=RB._quantity_table(product)
+    @test names(table)==["time","sending a","sending b","sending c",
+        "receiving a","receiving b","receiving c"]
+    @test RB.observation_columns(table).time==
+        (quantity=U.Quantity{:time}(),unit=U.units(:base,:second))
+    frequency=merge(product,(coordinates=merge(
+        Base.structdiff(product.coordinates,(times=nothing,time_unit=nothing)),
+        (frequencies=[10.,20.,30.],frequency_unit=U.units(:base,:hertz))),))
+    frequency_table=RB._quantity_table(frequency)
+    @test names(frequency_table)[1]=="frequency"
+    @test frequency_table.frequency==[10.,20.,30.]
+    @test RB.observation_columns(frequency_table).frequency==
+        (quantity=U.Quantity{:frequency}(),unit=U.units(:base,:hertz))
+    modal=merge(frequency,(coordinates=merge(frequency.coordinates,(column_domain=:ModalDomain,)),))
+    @test names(RB._quantity_table(modal))[2]=="Conductor sending, Mode a"
+    absent=merge(product,(coordinates=merge(product.coordinates,(times=nothing,)),))
+    @test names(RB._quantity_table(absent))[1]=="sample"
+    @test RB.observation_columns(RB._quantity_table(absent)).sample==(quantity=nothing,unit=nothing)
+    line=LineParameters(fill(1.0+2im,1,1,3),fill(3.0+4im,1,1,3),[10.,20.,30.])
+    retained=ObservedResult(line,(R,L,LineCableModels.G,C);frequency_unit=:kilo)
+    @test G.observation_product(retained,R).coordinates.frequencies==[0.01,0.02,0.03]
+    @test report(retained)[R].frequency==[0.01,0.02,0.03]
+    selected=G.observation_product(retained,(R,1,1,2:3);frequency_unit=:base)
+    @test selected.coordinates.frequencies==[20.,30.]
+    @test G.observation_product(ObservedResult(retained;frequency_unit=:base),R).coordinates.frequencies==[10.,20.,30.]
+end

@@ -20,8 +20,9 @@ import ...LineCableModels: verbosity, VerbosityLogger
 import ...Commons: AbstractProblemDefinition, AbstractFormulation, AbstractCoreResult,
                   FormulationOptions, ComputationOptions, ComputationDetails,
                   compute, computation_options, computation_details, formulation_options,
-                  details, initialize_buffers, formulas, observe
+                  details, initialize_buffers, formulas, observe, basis
 import ...Commons
+import ...Units
 import ..Engine: LineParametersProblem, LineParametersFormulation, Formulation,
                  description, formula_id
 import ...TextDisplay

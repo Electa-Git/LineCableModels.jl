@@ -47,6 +47,7 @@ function serialize_value(selector::Function)
         ModalAnalysis.gamma, ModalAnalysis.alpha, ModalAnalysis.beta, ModalAnalysis.velocity,
         ModalAnalysis.Zc, ModalAnalysis.Yc, ModalAnalysis.H,
         ModalAnalysis.Tv, ModalAnalysis.Ti,
+        Engine.TransientAnalysis.voltage, Engine.TransientAnalysis.current,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
         Statistics.median, minimum, maximum, abs, angle, real, imag,
         LinearAlgebra.diag) || throw(ArgumentError(
@@ -71,6 +72,7 @@ function deserialize_extension(::Val{:Observable}, record)
         ModalAnalysis.gamma, ModalAnalysis.alpha, ModalAnalysis.beta, ModalAnalysis.velocity,
         ModalAnalysis.Zc, ModalAnalysis.Yc, ModalAnalysis.H,
         ModalAnalysis.Tv, ModalAnalysis.Ti,
+        Engine.TransientAnalysis.voltage, Engine.TransientAnalysis.current,
         frequencies, UQ.statistics, UQ.samples, UQ.histograms, Statistics.mean, Statistics.std,
         Statistics.median, minimum, maximum, abs, angle, real, imag,
         LinearAlgebra.diag)

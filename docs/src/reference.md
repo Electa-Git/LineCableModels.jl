@@ -153,7 +153,7 @@ R/L/G/C requests those four quantities instead. One selector such as `R`
 produces only that quantity's table. Reporting and plotting take the same
 positional selection.
 
-`units`, `length_unit`, `quantity_units`, and `frequency_unit` express display
+`units`, `length_unit`, `quantity_units`, `frequency_unit`, and `time_unit` express display
 units through the observation owner. Retained observations preserve
 recorded units when these options are omitted. Raw-only `clip`, `atol`, and
 `frequencies` cannot be supplied for retained inputs.

@@ -76,3 +76,45 @@ end
     @test !G._same_observed_values((x=shared,), (y=shared,))
     @test !G._same_observed_values((shared,), (shared, shared))
 end
+
+@testitem "Commons / frequency and time sample coordinates" tags=[:unit, :commons] begin
+    import LineCableModels.Commons as G
+    import LineCableModels.Units as U
+    product=G.observation_quantity(TransientResponse([0.,1.,2.],ones(2,3,3),
+        zeros(2,3,3),["a","b","c"],ComputationDetails()),voltage)
+    matrix=product.coordinates
+    @test G._validate_observed_quantity(product)===nothing
+    @test length(matrix.labels)==2 && length(matrix.column_labels)==3
+    @test_throws DimensionMismatch G._validate_observed_quantity(merge(product,
+        (coordinates=merge(matrix,(labels=["sending"],)),)))
+    @test_throws DimensionMismatch G._validate_observed_quantity(merge(product,
+        (coordinates=merge(matrix,(column_labels=["a","b"],)),)))
+    for kind in (:matrix,:diagonal,:vector)
+        c=kind===:matrix ? matrix : kind===:diagonal ?
+            (kind,indices=(),rows=[1,2],columns=[1,2],samples=[1,2,3],
+                extent=(2,2,3),labels=matrix.labels,domain=:LineEnd) :
+            (kind,indices=(),axis=:end,axis_label="End",positions=[1,2],samples=[1,2,3],
+                extent=(2,3),labels=matrix.labels,domain=:LineEnd)
+        c=Base.structdiff(c,(times=nothing,time_unit=nothing))
+        values=kind===:matrix ? ones(2,3,3) : ones(2,3)
+        record=merge(product,(values,coordinates=c))
+        @test_throws ArgumentError G._validate_observed_quantity(record)
+        for (axis,unit_key,unit,points) in ((:frequencies,:frequency_unit,:hertz,[0.,1.,2.]),
+                (:times,:time_unit,:second,[-1.,0.,1.]))
+            coordinates=merge(c,NamedTuple{(axis,unit_key)}((points,U.units(:base,unit))))
+            valid=merge(record,(;coordinates))
+            @test G._validate_observed_quantity(valid)===nothing
+            @test G._validate_observed_quantity(merge(valid,
+                (coordinates=merge(coordinates,NamedTuple{(axis,)}((nothing,))),)))===nothing
+            @test_throws DimensionMismatch G._validate_observed_quantity(merge(valid,
+                (coordinates=merge(coordinates,NamedTuple{(axis,)}(([0.,1.],))),)))
+            @test_throws ArgumentError G._validate_observed_quantity(merge(valid,
+                (coordinates=merge(coordinates,NamedTuple{(axis,)}(([0.,Inf,2.],))),)))
+            @test_throws ArgumentError G._validate_observed_quantity(merge(valid,
+                (coordinates=merge(coordinates,NamedTuple{(unit_key,)}((U.units(:base,:meter),))),)))
+            both=merge(coordinates,(times=[0.,1.,2.],time_unit=U.units(:base,:second),
+                frequencies=[0.,1.,2.],frequency_unit=U.units(:base,:hertz)))
+            @test_throws ArgumentError G._validate_observed_quantity(merge(valid,(coordinates=both,)))
+        end
+    end
+end

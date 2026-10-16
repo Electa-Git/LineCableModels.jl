@@ -28,24 +28,23 @@ function _validate_observed_quantity(product)
             throw(ArgumentError("request selectors disagree with retained coordinate selectors"))
     end
     dims=if c.kind===:vector
-        _observed_fields(c,(:axis,:axis_label,:positions,:samples,:frequencies,:frequency_unit,:labels,:domain),"vector coordinates")
-        length(c.extent)==2 || throw(DimensionMismatch("vector extent requires coordinate and frequency axes"))
+        _observed_fields(c,(:axis,:axis_label,:positions,:samples,:labels,:domain),"vector coordinates")
+        length(c.extent)==2 || throw(DimensionMismatch("vector extent requires coordinate and sample axes"))
         c.axis isa Symbol && c.axis_label isa AbstractString && c.domain isa Symbol ||
             throw(ArgumentError("vector axis requires physical labels and a domain"))
         _observed_indices(c.positions,c.extent[1],"positions")
         _observed_indices(c.samples,c.extent[2],"samples")
         c.labels isa AbstractVector && length(c.labels)==c.extent[1] ||
             throw(DimensionMismatch("vector labels do not cover the original extent"))
-        c.frequencies===nothing || length(c.frequencies)==length(c.samples) ||
-            throw(DimensionMismatch("frequency and sample counts differ"))
         (length(c.positions),length(c.samples))
     elseif c.kind in (:matrix,:diagonal) || c.kind in (:samples,:histogram) && haskey(c,:rows)
-        _observed_fields(c,(:rows,:columns,:samples,:frequencies,:frequency_unit,:labels,:domain),"matrix coordinates")
+        _observed_fields(c,(:rows,:columns,:samples,:labels,:domain),"matrix coordinates")
         length(c.extent)==3 || throw(DimensionMismatch("matrix extent requires three axes"))
         _observed_indices(c.rows,c.extent[1],"rows")
         _observed_indices(c.columns,c.extent[2],"columns")
         _observed_indices(c.samples,c.extent[3],"samples")
-        length(c.labels)>=max(c.extent[1],c.extent[2]) || throw(DimensionMismatch("matrix labels do not cover the extent"))
+        length(c.labels)>=(haskey(c,:column_labels) ? c.extent[1] : max(c.extent[1],c.extent[2])) ||
+            throw(DimensionMismatch("matrix labels do not cover the extent"))
         if haskey(c,:column_labels) || haskey(c,:column_domain)
             _observed_fields(c,(:column_labels,:column_domain),"mixed matrix coordinates")
             c.kind===:matrix || throw(ArgumentError("mixed labels require matrix coordinates"))
@@ -54,7 +53,6 @@ function _validate_observed_quantity(product)
             c.column_domain isa Symbol || throw(ArgumentError("column domain must be a symbol"))
         end
         c.kind===:diagonal && c.rows!=c.columns && throw(ArgumentError("diagonal coordinates must agree"))
-        c.frequencies===nothing || length(c.frequencies)==length(c.samples) || throw(DimensionMismatch("frequency and sample counts differ"))
         c.kind===:diagonal ? (length(c.rows),length(c.samples)) : (length(c.rows),length(c.columns),length(c.samples))
     elseif c.kind===:assemblies || c.kind in (:samples,:histogram) && haskey(c,:assemblies)
         _observed_fields(c,(:assemblies,:labels,:frequencies,:frequency_unit),"assembly coordinates")
@@ -68,10 +66,24 @@ function _validate_observed_quantity(product)
     else
         throw(ArgumentError("unsupported observed coordinate kind $(c.kind)"))
     end
+    if haskey(c,:samples)
+        frequency=haskey(c,:frequencies) || haskey(c,:frequency_unit)
+        time=haskey(c,:times) || haskey(c,:time_unit)
+        xor(frequency,time) || throw(ArgumentError("sample coordinates require either frequency or time coordinates"))
+        _observed_fields(c,frequency ? (:frequencies,:frequency_unit) : (:times,:time_unit),"sample coordinates")
+        values=c[frequency ? :frequencies : :times]
+        values===nothing || length(values)==length(c.samples) ||
+            throw(DimensionMismatch("coordinate and sample counts differ"))
+    end
     if haskey(c,:frequency_unit)
         scale_factor(c.frequency_unit,Units.units(:base,:hertz))
         c.frequencies===nothing || all(f -> f isa Real && isfinite(nominal(f)) && nominal(f)>=0,c.frequencies) ||
             throw(ArgumentError("frequency coordinates must be finite and nonnegative"))
+    end
+    if haskey(c,:time_unit)
+        scale_factor(c.time_unit,Units.units(:base,:second))
+        c.times===nothing || all(t -> isfinite(nominal(t)::Real),c.times) ||
+            throw(ArgumentError("time coordinates must be finite and real"))
     end
     if c.kind===:samples
         _observed_fields(c,(:trials,),"sample coordinates")

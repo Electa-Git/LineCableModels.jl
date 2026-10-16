@@ -228,7 +228,7 @@ end
 # Retained observations take no raw acquisition option.
 function validate(keywords::Base.Pairs, ::typeof(report), retained::Bool)
     for key in keys(keywords)
-        key in (:units, :length_unit, :quantity_units, :frequency_unit,
+        key in (:units, :length_unit, :quantity_units, :frequency_unit, :time_unit,
             :clip, :atol, :frequencies) || throw(ArgumentError(
             "unknown reporting keyword $key; illustration options belong in plot_options"))
         retained && key in (:clip, :atol, :frequencies) &&
@@ -317,7 +317,7 @@ function report(
         display_units=(;
             (key=>value
         for (key, value) in pairs(acquisition)
-        if key in (:units, :length_unit, :quantity_units, :frequency_unit))...)
+        if key in (:units, :length_unit, :quantity_units, :frequency_unit, :time_unit))...)
         isempty(display_units) || (reference=ObservedResult(reference; display_units...))
     elseif reference!==nothing
         reference=ObservedResult(reference, requests; complete_pairs = true, acquisition...)

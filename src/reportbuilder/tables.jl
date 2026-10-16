@@ -191,8 +191,15 @@ function _quantity_table(product; gridpoint_id=nothing)
             diagonal ? (length(coordinates.rows),length(coordinates.samples)) :
             (length(coordinates.rows),length(coordinates.columns),length(coordinates.samples))
         shaped=reshape(scalar ? [values] : values,dimensions...)
-        f=coordinates.frequencies
-        table=f===nothing ? DataFrame(sample=coordinates.samples) : DataFrame(frequency=f)
+        table=DataFrame(sample=coordinates.samples)
+        first_column=:sample=>(quantity=nothing,unit=nothing)
+        for (values_key,unit_key,quantity,name) in (
+                (:frequencies,:frequency_unit,Units.Quantity{:frequency}(),:frequency),
+                (:times,:time_unit,Units.Quantity{:time}(),:time))
+            haskey(coordinates,values_key) && coordinates[values_key]!==nothing || continue
+            table=DataFrame(name=>coordinates[values_key])
+            first_column=name=>(quantity,unit=coordinates[unit_key])
+        end
         columns=Pair{Symbol,Any}[]
         if vector
             for (i,position) in enumerate(coordinates.positions)
@@ -212,6 +219,8 @@ function _quantity_table(product; gridpoint_id=nothing)
             for (i,row) in enumerate(coordinates.rows), (j,column) in enumerate(coordinates.columns)
                 name=get(coordinates,:column_domain,nothing)===:ModalDomain ?
                     Symbol("Conductor ",coordinates.labels[row],", Mode ",coordinates.column_labels[column]) :
+                    haskey(coordinates,:column_labels) ?
+                    Symbol(coordinates.labels[row]," ",coordinates.column_labels[column]) :
                     Symbol("[",row,",",column,"]")
                 table[!,name]=copy(shaped[i,j,:])
                 push!(columns,name=>(quantity=product.quantity,unit=product.unit,row,column,
@@ -219,8 +228,6 @@ function _quantity_table(product; gridpoint_id=nothing)
                     column_label=get(coordinates,:column_labels,coordinates.labels)[column]))
             end
         end
-        first_column=f===nothing ? (:sample=>(quantity=nothing,unit=nothing)) :
-            (:frequency=>(quantity=Units.Quantity{:frequency}(),unit=coordinates.frequency_unit))
         metadata!(table,"observation_columns",(; (first_column,columns...)...);style=:note)
     elseif coordinates.kind===:assemblies
         table=DataFrame(frequency=coordinates.frequencies)

@@ -12,7 +12,7 @@ function _observed_scale(value::Number,from,to)
     return T===BigFloat ? setprecision(convert_value,BigFloat,precision(real(nominal(value)))) : convert_value()
 end
 
-function _reexpress_product(product;unit=nothing,frequency_unit=nothing)
+function _reexpress_product(product;unit=nothing,frequency_unit=nothing,time_unit=nothing)
     target=unit===nothing ? product.unit : unit
     scale_factor(product.unit,target) # Check dimensions even if all values are missing.
     result=product
@@ -40,13 +40,15 @@ function _reexpress_product(product;unit=nothing,frequency_unit=nothing)
         end
     end
     c=result.coordinates
-    if frequency_unit!==nothing && haskey(c,:frequencies) && c.frequencies!==nothing
-        # A frequency unit is given by its metric prefix or as a unit expression.
-        target_frequency=display_unit(Units.Quantity{:frequency}(),product.basis,frequency_unit)
-        scale_factor(c.frequency_unit,target_frequency)
-        result=merge(result,(coordinates=merge(c,(
-            frequencies=_observed_scale(c.frequencies,c.frequency_unit,target_frequency),
-            frequency_unit=target_frequency)),))
+    for (values_key,unit_key,quantity,prefix) in (
+            (:frequencies,:frequency_unit,Units.Quantity{:frequency}(),frequency_unit),
+            (:times,:time_unit,Units.Quantity{:time}(),time_unit))
+        prefix!==nothing && haskey(c,values_key) && c[values_key]!==nothing || continue
+        target_axis=display_unit(quantity,product.basis,prefix)
+        scale_factor(c[unit_key],target_axis)
+        result=merge(result,(coordinates=merge(result.coordinates,
+            NamedTuple{(values_key,unit_key)}((
+                _observed_scale(c[values_key],c[unit_key],target_axis),target_axis))),))
     end
     return result
 end
@@ -79,7 +81,7 @@ require a new observation of the primary result.
 function ObservedResult(source::ObservedResult,requests::Tuple=();
         comparisons=nothing,timings=nothing,gridpoint=nothing,clip=nothing,atol=nothing,
         units::Tuple=(),length_unit::Union{Nothing,Symbol}=nothing,
-        frequency_unit=nothing,quantity_units=nothing,frequencies=nothing,
+        frequency_unit=nothing,time_unit=nothing,quantity_units=nothing,frequencies=nothing,
         complete_pairs::Bool=false)
     atol===nothing && frequencies===nothing || throw(ArgumentError(
         "retained observations cannot apply new cutoffs or recover frequency samples"))
@@ -95,7 +97,7 @@ function ObservedResult(source::ObservedResult,requests::Tuple=();
         clip===nothing || clip===product.clipped || throw(ArgumentError("retained clipping cannot be changed"))
         override=isempty(units) ? _unit_override(quantity_units,request) : units[index]
         unit=_retained_unit(product,override,length_unit)
-        _reexpress_product(product;unit,frequency_unit)
+        _reexpress_product(product;unit,frequency_unit,time_unit)
     end
     return ObservedResult(source.gridpoint,products,source.errors,source.timings)
 end
