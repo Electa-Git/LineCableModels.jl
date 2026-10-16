@@ -49,11 +49,14 @@ function internal_potential_coefficients(selected::ShuntModelFormulation,
     parts = [Expression(selected, ShuntModel.dielectric_groups)(
                  design, blueprint, formulas, design_index)
              for (design_index, (design, blueprint)) in enumerate(zip(designs, blueprints))]
-    # A solve reads the group's descriptors, its layer counts and its terminal membership.
-    same(a, b) = length(a.left) === length(b.left) && length(a.right) === length(b.right) &&
+    # A solve reads the group's descriptors, its layer count and the terminal and layer of
+    # each open conductor.
+    same(a, b) = length(a.layers) === length(b.layers) &&
                  length(a.wires) === length(b.wires) && length(a.tapes) === length(b.tapes) &&
-                 all(i -> a.wires[i].terminal === b.wires[i].terminal, eachindex(a.wires)) &&
-                 all(i -> a.tapes[i].terminal === b.tapes[i].terminal, eachindex(a.tapes)) &&
+                 all(i -> a.wires[i].terminal === b.wires[i].terminal &&
+                     a.wires[i].layer === b.wires[i].layer, eachindex(a.wires)) &&
+                 all(i -> a.tapes[i].terminal === b.tapes[i].terminal &&
+                     a.tapes[i].layer === b.tapes[i].layer, eachindex(a.tapes)) &&
                  all(pair -> first(pair) === last(pair), zip(Vector(a), Vector(b)))
     # The block that the group at `position` reuses comes from an earlier formulation with the
     # same controls or from an earlier group of this formulation. Without one, it is solved.
@@ -140,8 +143,7 @@ end
 # Solve one dielectric group for its internal capacitance, its potential coefficients and its
 # numerical record.
 function internal_potential_coefficients(selected::ShuntModelFormulation,
-        group::ShuntModel.DielectricGroup)
-    T = eltype(group.a)
+        group::ShuntModel.DielectricGroup{T}) where {T}
     result = Expression(selected, ShuntModel.internal_capacitance)(group)
     C = Matrix{T}(result.C)
     P = lu(C) \ Matrix{T}(I, size(C, 1), size(C, 1))

@@ -107,13 +107,15 @@ shunt contribution and requires the radial terminal ordering of coaxial lowering
 Series impedance, earth return, and matrix reductions use their respective
 selected formulations.
 
-A domain qualifies when its wires and tapes share one homogeneous annular host,
-continuous concentric dielectrics lead to a closed inner anchor, and a closed concentric
-shield or the jacket's outer surface bounds it. The coaxial model also refers its outermost
-potentials to the jacket's outer radius. `:boundary` solves the qualifying domains. Any other open arrangement
-raises `BoundarySolveError` with its specific reason, such as coatings or dielectric
-islands in the host, terminals in several hosts without a closed separator, contact
-between different terminals, or an uncertain displacement that changes a contact. No
+A domain qualifies when continuous concentric dielectric layers lie between a closed inner
+anchor and a closed concentric shield or the jacket's outer surface, and each of its wires
+and tapes lies in one of those layers, an annular fill. Fills with no closed conductor between
+them belong to one domain, in their own layers. A face on an interface is admitted. The
+coaxial model also refers its outermost potentials to the jacket's outer radius. `:boundary`
+solves the qualifying domains. Any other open arrangement raises `BoundarySolveError` with
+its specific reason, such as coatings or dielectric islands in a fill, a conductor that
+crosses a dielectric interface, contact between different terminals, or an uncertain
+displacement that changes a contact. No
 other model replaces the selected one. The resolved path uses the built-in `:lossless`
 insulation or semicon laws or their `:default` aliases. Lossy or custom constitutive
 selections raise `BoundarySolveError` for a design with domains. Select `:equivalent` to
@@ -157,7 +159,7 @@ The calculation runs with its resolution and quadrature controls:
 ```julia
 boundary = formula(:boundary;
     options=(
-        resolution=(wire=64, order=32, quadrature=64, modes=512),
+        resolution=(wire=64, order=16, quadrature=64, modes=512),
         integration=(rtol=1e-8, atol=1e-10, maxevals=100_000),
     ))
 formulation = Formulation(shunt_model=boundary)
@@ -195,8 +197,9 @@ wider type.
 
 ### Numerical method and attribution
 
-The annular Green function is assembled from classical cylindrical Laplace
-harmonics: `r^m` and `r^-m`, with `1` and `log(r)` for the zero mode.
+The layered Green function is assembled from classical cylindrical Laplace
+harmonics: `r^m` and `r^-m`, with `1` and `log(r)` for the zero mode. One recursion serves a
+target and a source in any two layers.
 [Schelkunoff1934](@cite), Eqs. (122)-(124), p. 573, gives this radial basis
 in its treatment of cylindrical fields in the small-radius-to-wavelength
 limit. Here the same basis solves the electrostatic potential problem.
@@ -204,7 +207,8 @@ limit. Here the same basis solves the electrostatic potential problem.
 capacitance normalization. Section 1.6, Eqs. (1.39)-(1.42), p. 15, gives
 the load and reflection transformation applied here in log-radius coordinates.
 Matching the dielectric interfaces and grounded inner and outer boundaries
-assembles these ingredients into the implemented layered annular kernel.
+assembles these ingredients into the implemented layered annular kernel. The direct or
+transmitted logarithm and the nearest images are extracted before the modes are truncated.
 
 The finite-thickness, layered-Green-function, whole-face charge approach has
 precedent in [Bernal1997](@cite), especially Section IV, Eq. (10). Their
@@ -214,13 +218,15 @@ Jacobi face charges and oversampled boundary collocation with unpivoted QR.
 
 The concentric Green function is invariant under rotation. With each wire's collocation
 and source points in its own polar frame, a ring of identical, equally spaced wires on one
-terminal gives a block-circulant system. A unitary discrete Fourier transform over the ring
-separates it into one small block per Fourier index. The tapes and any other wires form a
-border, eliminated exactly. A group without a ring takes the same solver with an empty
+terminal and in one layer is mapped onto itself by a rotation of one wire pitch. For several
+rings, a rotation by `2π/g`, with `g` the greatest common divisor of their wire counts, maps
+each ring onto itself and gives a block-circulant system over `g` sectors. A unitary discrete
+Fourier transform separates it into one block per Fourier index. The tapes and any other wires
+form a border, eliminated exactly. A group without a ring takes the same solver with an empty
 ring, which is a dense QR.
 
 [Campione2018](@cite), Section 2, Eq. (3), provides a cable-screen application
-of dielectric image factors `(εhost − εadjacent)/(εhost + εadjacent)`, also
+of dielectric image factors `(εlayer − εadjacent)/(εlayer + εadjacent)`, also
 used in the extracted nearest-interface terms here. Their cylindrical braid
 is locally approximated by a plane. That work is not a derivation of this
 implementation's concentric annular kernel or radial layer recursion.
@@ -245,7 +251,6 @@ resolution controls and uncertainty differentiation remain package-specific choi
 references.
 
 ```@docs
-LineCableModels.Engine.ShuntModel._shunt_load
 LineCableModels.Engine.ShuntModel._shunt_kernel_coefficients
 LineCableModels.Engine.ShuntModel._shunt_junction_exponent
 LineCableModels.Engine.ShuntModel._shunt_tape_faces

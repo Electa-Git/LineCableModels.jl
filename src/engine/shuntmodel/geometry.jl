@@ -1,19 +1,22 @@
-# Dielectric group records owned by the local shunt formulations.
-const ShuntWire{T} = NamedTuple{(:x, :y, :r, :terminal), Tuple{T, T, T, Int}}
-const ShuntTape{T} = NamedTuple{(:ri, :ro, :phi, :span, :terminal), Tuple{T, T, T, T, Int}}
+# Dielectric group records owned by the local shunt formulations. A wire or tape records the
+# index of the dielectric layer it lies in.
+const ShuntWire{T} = NamedTuple{(:x, :y, :r, :terminal, :layer), Tuple{T, T, T, Int, Int}}
+const ShuntTape{T} = NamedTuple{(:ri, :ro, :phi, :span, :terminal, :layer),
+    Tuple{T, T, T, T, Int, Int}}
 const ShuntLayer{T} = NamedTuple{(:ri, :ro, :epsilon), Tuple{T, T, T}}
-# A host that the formula cannot represent, with its terminals and the reason.
+# Fills that the formula cannot represent, with their terminals and the reason.
 const ShuntRejection = NamedTuple{(:terminals, :reason), Tuple{Vector{Int}, BoundarySolveError}}
 
 """
 $(TYPEDEF)
 
 Hold the dielectric layers between two closed equipotentials, the inner anchor and the
-shield or jacket reference, with the open conductors inside them, solved as one group. The
-first terminal is the inner anchor. A shield occupies the last real terminal, while a jacket
-reference has a radius and does not own a terminal. Coordinates and radii use \\[m\\]. Relative
-permittivities are those of the formulation's lossless laws. The extraction builds each
-group once, and the boundary shunt calculation consumes it.
+shield or jacket reference, with the open conductors that lie in them, solved as one group.
+Each open conductor lies in one layer. The first terminal is the inner anchor. A shield
+occupies the last real terminal, while a jacket reference has a radius and does not own a
+terminal. Coordinates and radii use \\[m\\]. Relative permittivities are those of the
+formulation's lossless laws. The extraction builds each group once, and the boundary shunt
+calculation consumes it.
 
 $(TYPEDFIELDS)
 """
@@ -26,54 +29,47 @@ struct DielectricGroup{T <: Real}
     terminals::UnitRange{Int}
     "Closed metallic shield or external jacket equipotential."
     reference::Union{ShuntShield{T}, ShuntJacket{T}}
-    "Host dielectric inner radius \\[m\\]."
-    a::T
-    "Host dielectric outer radius \\[m\\]."
-    b::T
-    "Host relative permittivity \\[dimensionless\\]."
-    epsilon::T
-    "Ordered layers between inner conductor and host."
-    left::Vector{ShuntLayer{T}}
-    "Ordered layers between host and reference shield."
-    right::Vector{ShuntLayer{T}}
-    "Exposed circular wires in the host frame."
+    "Concentric dielectric layers from the inner anchor to the reference, in radial order."
+    layers::Vector{ShuntLayer{T}}
+    "Exposed circular wires in the group frame, each with the index of its layer."
     wires::Vector{ShuntWire{T}}
-    "Exposed finite-thickness tapes in the host frame."
+    "Exposed finite-thickness tapes in the group frame, each with the index of its layer."
     tapes::Vector{ShuntTape{T}}
 end
 
 _shunt_scalar(x) = float(nominal(x))
-# Faces touch when their gap is below this tolerance, which scales with the host's outer
-# radius.
+# Faces touch when their gap is below this tolerance, which scales with the outer radius of
+# their layer.
 _shunt_tol(x) = 128eps(typeof(_shunt_scalar(x))) * abs(_shunt_scalar(x))
 _shunt_same(a, b, scale) = tolerance_norm(a - b) <= _shunt_tol(scale)
 function _shunt_concentric(shape, x, y, scale)
     _shunt_same(shape.at.x, x, scale) && _shunt_same(shape.at.y, y, scale)
 end
 
-# Relative permittivity of a material under the formulation's lossless laws.
-function _shunt_permittivity(material::Material{T}, formulas) where {T}
-    frequency = one(T)
-    kappa = constitutive((formulas.insulation_admittance, formulas.semicon_admittance),
-        material, frequency, material.T0; temperature_dependence = nothing)
-    return imag(kappa)/(2pi*frequency*vacuum_permittivity(T))
-end
-
-# Preserve ordering and dependency information. Nominal values decide ordering.
-# Coincident interfaces and centers must also have matching uncertain dependencies.
-function _shunt_layers(regions, inner, outer, x, y, ::Type{T}, formulas) where {T}
+# The concentric dielectric layers between `inner` and `outer`, the fills of open conductors
+# `fills` among them, in radial order, each with the relative permittivity of its material
+# under the formulation's lossless laws. Preserve ordering and dependency information. Nominal
+# values decide ordering. Coincident interfaces and centers must also have matching uncertain
+# dependencies.
+function _shunt_layers(regions, fills, inner, outer, x, y, ::Type{T}, formulas) where {T}
     inner, outer = T(inner), T(outer)
     layers = ShuntLayer{T}[]
     _shunt_same(inner, outer, outer) && return layers
-    for placed in regions
-        shape = placed.primitive
-        placed.terminal === nothing && shape isa DataModel.Annulus || continue
-        _shunt_concentric(shape, x, y, outer) || continue
-        _shunt_scalar(shape.ri - inner) >= -_shunt_tol(outer) &&
-        _shunt_scalar(shape.ro - outer) <= _shunt_tol(outer) || continue
-        push!(layers,
-            (ri = T(shape.ri), ro = T(shape.ro), epsilon = _shunt_permittivity(
-                convert(Material{T}, placed.source.material), formulas)))
+    annuli = Tuple{DataModel.Annulus, Material}[(placed.primitive, placed.source.material)
+                                                for placed in regions
+              if placed.terminal === nothing && placed.primitive isa DataModel.Annulus &&
+              _shunt_concentric(placed.primitive, x, y, outer) &&
+              _shunt_scalar(placed.primitive.ri - inner) >= -_shunt_tol(outer) &&
+              _shunt_scalar(placed.primitive.ro - outer) <= _shunt_tol(outer)]
+    append!(annuli, [(regions[fill].primitive.outer, regions[fill].source.material)
+                     for fill in fills])
+    frequency = one(T)
+    for (shape, source) in annuli
+        material = convert(Material{T}, source)
+        kappa = constitutive((formulas.insulation_admittance, formulas.semicon_admittance),
+            material, frequency, material.T0; temperature_dependence = nothing)
+        push!(layers, (ri = T(shape.ri), ro = T(shape.ro),
+            epsilon = imag(kappa)/(2pi*frequency*vacuum_permittivity(T))))
     end
     sort!(layers; by = layer -> _shunt_scalar(layer.ri))
     cursor = inner
@@ -94,47 +90,39 @@ function _shunt_closed(design, index, x, y, scale)
     return shape
 end
 
-# Add the group of one annular host to `groups`, or the reason that the boundary shunt
-# formula cannot represent it to `rejected`. A host without terminal members is not a group.
-function _shunt_host_group!(groups, rejected, design, blueprint, host_region, design_index,
+# Add the group of the fills `chain` to `groups`, or the reason that the boundary shunt formula
+# cannot represent it to `rejected`. The fills lie between one inner anchor and one reference,
+# with no closed conductor between them. Each record contains the region index of its fill,
+# the region indices of the open conductors in it and whether an uncertain displacement
+# changes a contact with its inner or outer surface.
+function _shunt_group!(groups, rejected, design, blueprint, chain, design_index,
         ::Type{T}, formulas) where {T}
-    host = host_region.primitive.outer
-    x, y, phi = host.at.x, host.at.y, host.at.φ
-    scale = T(host.ro)
-    members = Int[]
-    uncertain_contact = false
-    for (i, placed) in pairs(design.geometry.regions)
-        placed.terminal === nothing && continue
-        shape = placed.primitive
-        inner, outer = if shape isa DataModel.Disk
-            radius = hypot(shape.at.x - x, shape.at.y - y)
-            radius-shape.r, radius+shape.r
-        elseif shape isa DataModel.BentStrip && _shunt_concentric(shape, x, y, scale)
-            shape.ri, shape.ro
-        else
-            continue
-        end
-        _shunt_scalar(inner - host.ri) >= -_shunt_tol(scale) &&
-            _shunt_scalar(outer - host.ro) <= _shunt_tol(scale) || continue
-        # A nominal contact with an independent uncertain displacement
-        # crosses a dielectric interface, outside a fixed-topology tangent.
-        for (edge, boundary) in ((inner, host.ri), (outer, host.ro))
-            uncertain_contact |= abs(_shunt_scalar(edge-boundary)) <= _shunt_tol(scale) &&
-                                 !_shunt_same(edge, boundary, scale)
-        end
-        push!(members, i)
-    end
-    isempty(members) && return groups
+    regions = design.geometry.regions
+    innermost = regions[first(chain).region].primitive.outer
+    x, y, phi = innermost.at.x, innermost.at.y, innermost.at.φ
+    scale = T(regions[last(chain).region].primitive.outer.ro)
+    members = mapreduce(current -> current.members, vcat, chain)
     terminals = sort!(unique(design.terminal_map[members]))
     reject(reason) = push!(rejected, (; terminals, reason = BoundarySolveError(:unsupported,
-        (; cable = design.cable_id, terminals), "boundary shunt cannot represent this host: " * reason)))
-    uncertain_contact && return reject(
-        "an uncertain displacement changes whether a wire or tape touches the host boundary")
-    # Coatings and dielectric islands invalidate the homogeneous-host Green function.
-    holes = host_region.primitive.holes
-    length(holes) == length(members) && all(
-        index -> any(hole -> isequal(design.geometry.regions[index].primitive, hole), holes), members) ||
-        return reject("it holds coatings or dielectric islands besides its exposed wires and tapes")
+        (; cable = design.cable_id, terminals),
+        "boundary shunt cannot represent this dielectric group: " * reason)))
+    any(current -> current.uncertain, chain) && return reject(
+        "an uncertain displacement changes whether a wire or tape touches a layer boundary")
+    for current in chain
+        holes = regions[current.region].primitive.holes
+        for hole in holes
+            any(member -> isequal(regions[member].primitive, hole), current.members) && continue
+            # A conductor that leaves its fill crosses a dielectric interface.
+            any(placed -> placed.terminal !== nothing && isequal(placed.primitive, hole),
+                regions) && return reject("an open conductor crosses a dielectric interface")
+            return reject(
+                "it holds coatings or dielectric islands besides its exposed wires and tapes")
+        end
+        length(holes) == length(current.members) && all(member -> any(
+            hole -> isequal(regions[member].primitive, hole), holes), current.members) ||
+            return reject(
+                "it holds coatings or dielectric islands besides its exposed wires and tapes")
+    end
     first(terminals) > 1 || return reject(
         "it holds pieces of the innermost conductor, which keeps the equivalent-core assumption")
     terminals == collect(first(terminals):last(terminals)) ||
@@ -161,32 +149,34 @@ function _shunt_host_group!(groups, rejected, design, blueprint, host_region, de
             return reject("the next conductor outward is not a closed concentric shield")
         ShuntShield{T}(shield.ri), index
     else
-        layers = blueprint[last(assembly)].layers
-        isempty(layers) && return reject("the outermost conductor has no jacket to reference")
-        ShuntJacket{T}(last(layers).r_ex), last(terminals)
+        jacket = blueprint[last(assembly)].layers
+        isempty(jacket) && return reject("the outermost conductor has no jacket to reference")
+        ShuntJacket{T}(last(jacket).r_ex), last(terminals)
     end
-    left = _shunt_layers(design.geometry.regions, inner.r_ex, host.ri, x, y, T, formulas)
-    left === nothing && return reject(
-        "the dielectrics between the inner anchor and the host are not continuous concentric layers")
-    right = _shunt_layers(design.geometry.regions, host.ro, reference.radius, x, y, T,
-        formulas)
-    right === nothing && return reject(
-        "the dielectrics between the host and its reference are not continuous concentric layers")
+    layers = _shunt_layers(regions, [current.region for current in chain], inner.r_ex,
+        reference.radius, x, y, T, formulas)
+    layers === nothing && return reject(
+        "the dielectrics between the inner anchor and the reference are not continuous concentric layers")
     wires, tapes = ShuntWire{T}[], ShuntTape{T}[]
-    for index in members
-        shape = design.geometry.regions[index].primitive
-        terminal = design.terminal_map[index] - first_index + 1
-        if shape isa DataModel.Disk
-            dx, dy = shape.at.x - x, shape.at.y - y
-            push!(wires,
-                (x = T(cos(phi)*dx + sin(phi)*dy),
-                    y = T(-sin(phi)*dx + cos(phi)*dy), r = T(shape.r), terminal))
-        else
-            zero(shape.span) < shape.span < 2pi ||
-                return reject("a tape spans no angle or a full turn")
-            push!(tapes,
-                (ri = T(shape.ri), ro = T(shape.ro),
-                    phi = T(shape.at.φ - phi), span = T(shape.span), terminal))
+    for current in chain
+        boundary = regions[current.region].primitive.outer
+        # The fill is one of the layers: its open conductors lie in it.
+        layer = findfirst(layer -> _shunt_same(layer.ri, boundary.ri, scale), layers)::Int
+        for index in current.members
+            shape = regions[index].primitive
+            terminal = design.terminal_map[index] - first_index + 1
+            if shape isa DataModel.Disk
+                dx, dy = shape.at.x - x, shape.at.y - y
+                push!(wires,
+                    (x = T(cos(phi)*dx + sin(phi)*dy), y = T(-sin(phi)*dx + cos(phi)*dy),
+                        r = T(shape.r), terminal, layer))
+            else
+                zero(shape.span) < shape.span < 2pi ||
+                    return reject("a tape spans no angle or a full turn")
+                push!(tapes,
+                    (ri = T(shape.ri), ro = T(shape.ro), phi = T(shape.at.φ - phi),
+                        span = T(shape.span), terminal, layer))
+            end
         end
     end
     # Touching wires of one terminal use exposed surface points in collocation.
@@ -194,9 +184,10 @@ function _shunt_host_group!(groups, rejected, design, blueprint, host_region, de
     validate(wires, DielectricGroup, design, scale)
     for tape in tapes
         # A tape face that touches a metal surface belongs to that conductor.
-        isempty(left) && abs(_shunt_scalar(tape.ri - host.ri)) <= _shunt_tol(scale) &&
+        tape.layer == 1 && abs(_shunt_scalar(tape.ri - first(layers).ri)) <= _shunt_tol(scale) &&
             return reject("a tape touches the inner anchor")
-        isempty(right) && abs(_shunt_scalar(tape.ro - host.ro)) <= _shunt_tol(scale) &&
+        tape.layer == length(layers) &&
+            abs(_shunt_scalar(tape.ro - last(layers).ro)) <= _shunt_tol(scale) &&
             return reject("a tape touches the reference")
     end
     for tape in tapes, wire in wires
@@ -220,10 +211,8 @@ function _shunt_host_group!(groups, rejected, design, blueprint, host_region, de
         radial > _shunt_tol(scale) || angular > _shunt_tol(scale)/_shunt_scalar(scale) ||
             return reject("two tapes overlap")
     end
-    return push!(groups, DielectricGroup{T}(design_index, assembly,
-        first_index:last_index, reference, T(host.ri), T(host.ro),
-        _shunt_permittivity(convert(Material{T}, host_region.source.material), formulas),
-        left, right, wires, tapes))
+    return push!(groups, DielectricGroup{T}(design_index, assembly, first_index:last_index,
+        reference, layers, wires, tapes))
 end
 
 function validate(wires::Vector{ShuntWire{T}}, ::Type{DielectricGroup}, design, scale) where {T}
@@ -241,33 +230,82 @@ function validate(wires::Vector{ShuntWire{T}}, ::Type{DielectricGroup}, design, 
     return wires
 end
 
-# Extract the annular hosts of one design: each one a group or a rejection.
+# Extract the dielectric groups of one design: each one a group or a rejection. The fills of
+# open conductors around one center with no closed conductor between them form one group.
 function _shunt_extract(design::CableDesign, blueprint::CableBlueprint, ::Type{T},
         design_index, formulas) where {T}
     groups, rejected = DielectricGroup{T}[], ShuntRejection[]
-    for placed in design.geometry.regions
+    regions = design.geometry.regions
+    fills = NamedTuple{(:region, :members, :uncertain), Tuple{Int, Vector{Int}, Bool}}[]
+    for (region, placed) in pairs(regions)
         shape = placed.primitive
         placed.terminal === nothing && shape isa DataModel.DifferenceShape &&
         shape.outer isa DataModel.Annulus || continue
-        _shunt_host_group!(groups, rejected, design, blueprint, placed, design_index, T,
-            formulas)
+        annulus = shape.outer
+        x, y = annulus.at.x, annulus.at.y
+        scale = T(annulus.ro)
+        members = Int[]
+        uncertain = false
+        for (i, conductor) in pairs(regions)
+            conductor.terminal === nothing && continue
+            piece = conductor.primitive
+            inner, outer = if piece isa DataModel.Disk
+                radius = hypot(piece.at.x - x, piece.at.y - y)
+                radius-piece.r, radius+piece.r
+            elseif piece isa DataModel.BentStrip && _shunt_concentric(piece, x, y, scale)
+                piece.ri, piece.ro
+            else
+                continue
+            end
+            _shunt_scalar(inner - annulus.ri) >= -_shunt_tol(scale) &&
+                _shunt_scalar(outer - annulus.ro) <= _shunt_tol(scale) || continue
+            # A nominal contact with an independent uncertain displacement
+            # crosses a dielectric interface, outside a fixed-topology tangent.
+            for (edge, boundary) in ((inner, annulus.ri), (outer, annulus.ro))
+                uncertain |= abs(_shunt_scalar(edge-boundary)) <= _shunt_tol(scale) &&
+                             !_shunt_same(edge, boundary, scale)
+            end
+            push!(members, i)
+        end
+        # A fill without open conductors is only a dielectric layer of a group.
+        isempty(members) || push!(fills, (; region, members, uncertain))
     end
+    sort!(fills; by = current -> minimum(design.terminal_map[current.members]))
+    chain = similar(fills, 0)
+    for current in fills
+        if !isempty(chain)
+            outer = regions[last(chain).region].primitive.outer
+            annulus = regions[current.region].primitive.outer
+            # A closed conductor between two fills takes the terminal between theirs.
+            continues = minimum(design.terminal_map[current.members]) ==
+                        maximum(design.terminal_map[last(chain).members]) + 1 &&
+                        _shunt_concentric(annulus, outer.at.x, outer.at.y, annulus.ro)
+            if !continues
+                _shunt_group!(groups, rejected, design, blueprint, chain, design_index, T,
+                    formulas)
+                chain = similar(fills, 0)
+            end
+        end
+        push!(chain, current)
+    end
+    isempty(chain) ||
+        _shunt_group!(groups, rejected, design, blueprint, chain, design_index, T, formulas)
     return (; groups, rejected)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the physical descriptors of `group` in one flat vector: host radii and permittivity,
-each layer's radii and permittivity, each wire's center and radius, and each tape's radii,
-angle and span. It is the differentiation input: a dense factorization cannot hold uncertain
-scalars, so Measurements differentiates through these values. `DielectricGroup(group,
-values)` is its inverse.
+Return the physical descriptors of `group` in one flat vector. The layers come first, in
+radial order, with their radii and permittivity. The wires follow with their centers and
+radii, then the tapes with their radii, angles and spans. It is the differentiation input: a
+dense factorization cannot hold uncertain scalars, so Measurements differentiates through
+these values. The layer of a wire or tape is discrete and is not a descriptor.
+`DielectricGroup(group, values)` is its inverse.
 """
 function Base.Vector(group::DielectricGroup{T}) where {T}
-    values = T[group.a, group.b, group.epsilon]
-    for layers in (group.left, group.right), layer in layers
-
+    values = T[]
+    for layer in group.layers
         append!(values, (layer.ri, layer.ro, layer.epsilon))
     end
     for wire in group.wires
@@ -283,31 +321,31 @@ end
 $(TYPEDSIGNATURES)
 
 Rebuild `group` from its physical descriptors `values`, in the order of `Vector(group)`, with
-their element type. The reference keeps its nominal radius: the calculation does not read it.
+their element type. The terminals and layers of the wires and tapes and the nominal radius of
+the reference are those of `group`: the calculation does not read the reference radius.
 """
 function DielectricGroup(group::DielectricGroup, values::AbstractVector{S}) where {S}
-    left, right = ShuntLayer{S}[], ShuntLayer{S}[]
-    cursor = 4
-    for (destination, layers) in ((left, group.left), (right, group.right)), _ in layers
-
-        push!(destination,
+    layers = ShuntLayer{S}[]
+    cursor = 1
+    for _ in group.layers
+        push!(layers,
             (ri = values[cursor], ro = values[cursor + 1], epsilon = values[cursor + 2]))
         cursor += 3
     end
     wires, tapes = ShuntWire{S}[], ShuntTape{S}[]
     for wire in group.wires
         push!(wires, (x = values[cursor], y = values[cursor + 1], r = values[cursor + 2],
-            terminal = wire.terminal))
+            wire.terminal, wire.layer))
         cursor += 3
     end
     for tape in group.tapes
         push!(tapes, (ri = values[cursor], ro = values[cursor + 1], phi = values[cursor + 2],
-            span = values[cursor + 3], terminal = tape.terminal))
+            span = values[cursor + 3], tape.terminal, tape.layer))
         cursor += 4
     end
     reference = convert(Union{ShuntShield{S}, ShuntJacket{S}}, nominal(group.reference))
     return DielectricGroup{S}(group.design, group.assembly, group.terminals, reference,
-        values[1], values[2], values[3], left, right, wires, tapes)
+        layers, wires, tapes)
 end
 
 _shunt_lossless(::Any) = false

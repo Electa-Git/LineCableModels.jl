@@ -7,36 +7,42 @@
     @test group.terminals == 1:3
     @test length(group.wires) == 6
     @test length(group.tapes) == 1
-    @test group.epsilon ≈ 1
-    @test only(group.left).epsilon ≈ 3.0
-    @test only(group.right).epsilon ≈ 3.0
+    @test [layer.epsilon for layer in group.layers] ≈ [3.0, 1.0, 3.0]
+    @test all(wire -> wire.layer == 2, group.wires) && only(group.tapes).layer == 2
     renamed = internal_shunt_test_design(suffix = "_renamed")
     other, _ = internal_shunt_test_group(renamed)
     values = Vector(group)
     @test all(pair -> first(pair) === last(pair), zip(values, Vector(other)))
-    @test values[1:3] == [group.a, group.b, group.epsilon]
+    @test values[1:3] == collect(first(group.layers))
     # The group rebuilt from its descriptors has the same descriptors.
     rebuilt = @inferred E.ShuntModel.DielectricGroup(group, values)
     @test Vector(rebuilt) == values && rebuilt.reference == group.reference
-    host = only(filter(
+    fill = only(findall(
         placed->placed.primitive isa LineCableModels.DataModel.DifferenceShape &&
                 placed.primitive.outer isa Annulus,
         design.geometry.regions))
-    incomplete = merge((primitive = host.primitive, source = host.source),
-        (primitive = LineCableModels.DataModel.DifferenceShape(host.primitive.outer,
-            Base.front(host.primitive.holes)),))
+    host = design.geometry.regions[fill]
     extraction = E.ShuntModel._shunt_extract(design, bp, Float64, 1, Formulation().formulas)
     @test only(extraction.groups).terminals == group.terminals && isempty(extraction.rejected)
-    # A host whose holes differ from its members reports why it is not a group.
-    for primitive in (incomplete.primitive, LineCableModels.DataModel.DifferenceShape(
-            host.primitive.outer, (
-                first(host.primitive.holes), Base.front(host.primitive.holes)...)))
+    # A fill whose holes differ from its open conductors reports why it is not a group.
+    members = findall(==(2), design.terminal_map)
+    holes = host.primitive.holes
+    for (primitive, chosen, reason) in (
+        (LineCableModels.DataModel.DifferenceShape(host.primitive.outer, Base.front(holes)),
+            members, "coatings or dielectric islands"),
+        (LineCableModels.DataModel.DifferenceShape(host.primitive.outer,
+                (first(holes), Base.front(holes)...)), members, "coatings or dielectric islands"),
+        (host.primitive, members[2:end], "an open conductor crosses a dielectric interface"))
+        regions = Any[design.geometry.regions...]
+        regions[fill] = (; primitive, host.source, terminal = nothing)
+        altered = (; geometry = (; regions), design.terminal_map, design.cable_id)
         groups = E.ShuntModel.DielectricGroup{Float64}[]
         rejected = E.ShuntModel.ShuntRejection[]
-        E.ShuntModel._shunt_host_group!(groups, rejected, design, bp,
-            merge(incomplete, (; primitive)), 1, Float64, Formulation().formulas)
+        E.ShuntModel._shunt_group!(groups, rejected, altered, bp,
+            [(region = fill, members = chosen, uncertain = false)], 1, Float64,
+            Formulation().formulas)
         @test isempty(groups)
-        @test occursin("coatings or dielectric islands", only(rejected).reason.message)
+        @test occursin(reason, only(rejected).reason.message)
     end
     g = group
     level = (wire = 32, order = 16, quadrature = 128, modes = 256)
@@ -52,18 +58,17 @@
     @test result.diagnostic.ring == length(g.wires)
     @test result.diagnostic.condition >= 1
     dense = E.ShuntModel._shunt_plan(selected, g,
-        merge(E.ShuntModel._shunt_layout(g, level), (; ring = 0)))
+        merge(E.ShuntModel._shunt_layout(g, level), (; ring = 0, sector = 0)))
     buffers = E.ShuntModel.initialize_buffers(selected, Float64, g, dense, (;))
     unreduced = E.ShuntModel._shunt_capacitance!(selected, (; input = g, plan = dense, buffers))
     @test unreduced.diagnostic.ring == 0
     @test unreduced.C ≈ result.C rtol=1e-12
     doubled = E.ShuntModel.DielectricGroup(g.design, g.assembly, g.terminals, g.reference,
-        g.a, g.b, 2g.epsilon, [merge(l, (epsilon = 2l.epsilon,)) for l in g.left],
-        [merge(l, (epsilon = 2l.epsilon,)) for l in g.right], g.wires, g.tapes)
+        [merge(l, (epsilon = 2l.epsilon,)) for l in g.layers], g.wires, g.tapes)
     @test E.ShuntModel._shunt_capacitance(selected, doubled).C ≈ 2result.C rtol=1e-8
     rotation = 0.317
     rotated = E.ShuntModel.DielectricGroup(g.design, g.assembly, g.terminals, g.reference,
-        g.a, g.b, g.epsilon, g.left, g.right,
+        g.layers,
         [merge(w, (x = w.x*cos(rotation)-w.y*sin(rotation),
              y = w.x*sin(rotation)+w.y*cos(rotation))) for w in g.wires],
         [merge(t, (phi = t.phi+rotation,)) for t in g.tapes])
@@ -145,9 +150,8 @@ end
     @test all(responses[1].covered)
     group = only(E.ShuntModel.dielectric_groups(selected.formulas.shunt_model,
         exposed, DM.flatten(exposed), selected.formulas, 1).groups)
-    @test length(group.left) == length(group.right) == 2
-    @test [layer.epsilon for layer in group.left] ≈ [1000.0, 3.0]
-    @test [layer.epsilon for layer in group.right] ≈ [1000.0, 3.0]
+    @test [layer.epsilon for layer in group.layers] ≈ [1000.0, 3.0, 1.0, 1000.0, 3.0]
+    @test all(wire -> wire.layer == 3, group.wires)
     p, y = zeros(ComplexF64, 2, 2), zeros(ComplexF64, 2, 2)
     E._shunt_potential!(p, responses[1].blocks)
     E._shunt_admittance!(y, responses[1].blocks, 100pi*im)
@@ -189,16 +193,19 @@ end
     @test details(exact).data.shunt_model.requested === :boundary
     @test details(exact).data.shunt_model.solves == 0
     @test only(details(exact).data.shunt_model.domains).reason === :radial
-    # The selected formulation rejects a terminal in a second host.
-    unsupported = build(CableDesign, "two-hosts", Stack(layers,
-        Enclosure(:second_host,
+    # A terminal in a second fill, with no closed conductor between the two fills, joins the
+    # same group in its own layer.
+    two_fills = build(CableDesign, "two-fills", Stack(layers,
+        Enclosure(:second_fill,
             Group(:outer_screen, Region(:outer_wire, Disk(0.0003), metal);
                 pattern = Ring(4; r = 0.0059));
             primitive = Annulus(0.0056, 0.0062), fill = host),
         Region(:second_jacket, Shell(0.001), insulation)))
-    @test_throws BoundarySolveError compute(CableConstantsProblem(unsupported), selected)
-    @test_throws r"next conductor outward is not a closed concentric shield" compute(
-        CableConstantsProblem(unsupported), selected)
+    joined = only(E.ShuntModel.dielectric_groups(selected.formulas.shunt_model,
+        two_fills, DM.flatten(two_fills), selected.formulas, 1).groups)
+    @test joined.terminals == 1:3 && joined.reference == E.ShuntJacket(0.0072)
+    @test sort!(unique(wire.layer for wire in joined.wires)) == [3, 6]
+    @test all(isfinite, compute(CableConstantsProblem(two_fills), selected).C)
     @test_throws r"lossless dielectric laws" compute(CableConstantsProblem(exposed),
         CableConstantsFormulation(shunt_model = selected.definitions.shunt_model,
             semicon_admittance = :lossy))
@@ -241,8 +248,8 @@ end
     @test norm(sensitivity.tangents) < 1e-6norm(sensitivity.C)
     # Tangency removes isolated contact points. Overlap removes buried arcs.
     for separation in (0.4, 0.3)
-        wires = [(x = 2-separation/2, y = 0.0, r = 0.2, terminal = 2),
-            (x = 2+separation/2, y = 0.0, r = 0.2, terminal = 2)]
+        wires = [(x = 2-separation/2, y = 0.0, r = 0.2, terminal = 2, layer = 1),
+            (x = 2+separation/2, y = 0.0, r = 0.2, terminal = 2, layer = 1)]
         g = annular_group(1.0, 3.0, 1.0; wires)
         boundary = selected.formulas.shunt_model
         plan = SM._shunt_plan(boundary, g,
@@ -296,8 +303,7 @@ end
     wires = [merge(wire, (terminal = iseven(index) ? 2 : 3,))
              for (index, wire) in pairs(original.wires)]
     group = E.ShuntModel.DielectricGroup(
-        original.design, 1:4, 1:4, original.reference, original.a, original.b,
-        original.epsilon, original.left, original.right, wires, original.tapes)
+        original.design, 1:4, 1:4, original.reference, original.layers, wires, original.tapes)
     @test group.terminals == 1:4
     @test sort(unique(getproperty.(group.wires, :terminal))) == [2, 3]
     result = E.ShuntModel._shunt_capacitance(E.ShuntModel.Formula(:boundary;
@@ -306,4 +312,51 @@ end
     @test result.C ≈ transpose(result.C) rtol=1e-6
     @test result.C[2, 3] < 0
     @test minimum(eigvals(Symmetric(result.C))) > 0
+end
+
+@testitem "Engine / internal shunt / open conductors in several dielectric layers" tags=[:unit, :engine] begin
+    using LinearAlgebra
+    E = LineCableModels.Engine
+    SM = E.ShuntModel
+    include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
+    level = (wire = 16, order = 8, quadrature = 64, modes = 128)
+    selected = SM.Formula(:boundary; options = (resolution = level,))
+    formulation = Formulation(shunt_model = formula(:boundary; options = (resolution = level,)))
+    solve(g, layout) = SM._shunt_capacitance!(selected, (; input = g,
+        plan = SM._shunt_plan(selected, g, layout),
+        buffers = SM.initialize_buffers(selected, Float64, g,
+            SM._shunt_plan(selected, g, layout), (;))))
+    for (screen, armour, sectors) in ((12, 18, 6), (12, 13, 1))
+        design = screen_armour_design(; screen, armour)
+        blueprint = LineCableModels.DataModel.flatten(design, Float64)
+        # The screen and the armour lie in two fills with the sheath between them.
+        group = only(SM.dielectric_groups(formulation.formulas.shunt_model, design,
+            blueprint, formulation.formulas, 1).groups)
+        @test group.terminals == 1:3 && group.reference isa E.ShuntJacket
+        @test length(group.layers) == 5
+        @test [wire.layer for wire in group.wires] == [fill(2, screen); fill(4, armour)]
+        values = Vector(group)
+        rebuilt = SM.DielectricGroup(group, values)
+        @test Vector(rebuilt) == values && rebuilt.wires == group.wires
+        result = SM._shunt_capacitance(selected, group)
+        @test minimum(eigvals(Symmetric(result.C))) > 0
+        # The rotation common to both rings splits the system into gcd(N1, N2) classes, and
+        # the same solver without them gives the same capacitance.
+        @test result.diagnostic.ring == sectors
+        layout = SM._shunt_layout(group, level)
+        unreduced = solve(group, merge(layout, (; ring = 0, sector = 0)))
+        @test unreduced.C ≈ result.C rtol=1e-12
+        # Equal permittivities in all layers equal one layer of the same radii, to roundoff
+        # judged against the condition estimate of the solve.
+        equal = SM.DielectricGroup(group.design, group.assembly, group.terminals,
+            group.reference, [merge(layer, (epsilon = 2.0,)) for layer in group.layers],
+            group.wires, group.tapes)
+        single = SM.DielectricGroup(group.design, group.assembly, group.terminals,
+            group.reference,
+            [(ri = first(group.layers).ri, ro = last(group.layers).ro, epsilon = 2.0)],
+            [merge(wire, (layer = 1,)) for wire in group.wires], group.tapes)
+        layered, uniform = SM._shunt_capacitance(selected, equal), SM._shunt_capacitance(selected, single)
+        @test maximum(abs, layered.C-uniform.C) <=
+              10layered.diagnostic.condition*eps()*maximum(abs, diag(uniform.C))
+    end
 end

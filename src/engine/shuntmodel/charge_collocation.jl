@@ -5,133 +5,162 @@
 """
 $(TYPEDSIGNATURES)
 
-Propagate the radial Dirichlet-to-Neumann load of one positive angular mode
-through concentric dielectric layers. In log-radius coordinates, the load
-transformation is the admittance form of the uniform-line input-impedance
-relation [Sunde1968](@cite), Section 1.6, Eqs. (1.39)-(1.42), p. 15:
+Evaluate the Fourier coefficients of the electrostatic Green function of the concentric
+dielectric layers of `g`, grounded at the inner anchor and at the reference, for a target and
+a source in any two layers. The radial basis ``r^{\\pm m}``, with ``1,\\log r`` for the zero
+mode, is the classical cylindrical Laplace basis. See [Schelkunoff1934](@cite),
+Eqs. (122)-(124), p. 573, in the small-radius-to-wavelength limit of cylindrical fields. Here
+it is used for the electrostatic potential. The layered-kernel strategy is also supported by
+[Bernal1997](@cite), Sections II-III, whose planar Prony/matrix-pencil kernel is not used here.
+
+With ``t=\\log r``, layer ``k`` between the radii ``\\rho_{k-1}<\\rho_k`` with relative
+permittivity ``\\varepsilon_k`` satisfies ``u''-m^2u=0`` for the mode ``m``. The solution
+``u_L`` vanishes at the inner anchor and ``u_R`` at the reference, and both keep ``u`` and
+``\\varepsilon u'`` continuous at every interface. In layer ``k``,
+``u_L\\propto (r/\\rho_{k-1})^m+\\Gamma^L_k(\\rho_{k-1}/r)^m`` and
+``u_R\\propto(\\rho_k/r)^m+\\Gamma^R_k(r/\\rho_k)^m``, with ``\\Gamma^L_1=\\Gamma^R_L=-1`` at
+grounded metal. Matching at ``\\rho_k`` gives
 
 ```math
-Y_{\\mathrm{in}}=Y_c\\frac{Y_L+Y_c\\tanh(m\\ell)}
-{Y_c+Y_L\\tanh(m\\ell)},\\qquad
-Y_c=\\varepsilon_r m,\\qquad\\ell=\\log(r_o/r_i).
+\\Gamma^L_{k+1}=\\frac{\\varepsilon_{k+1}(1+\\gamma)-\\varepsilon_k(1-\\gamma)}
+{\\varepsilon_{k+1}(1+\\gamma)+\\varepsilon_k(1-\\gamma)},\\qquad
+\\gamma=\\Gamma^L_k(\\rho_{k-1}/\\rho_k)^{2m},
 ```
 
-Here the loads ``Y_L,Y_c,Y_{\\mathrm{in}}`` are dimensionless modal loads,
-not electrical admittances. The recursion starts with ``Y_L=\\infty`` at
-grounded metal. Applying the line relation to cylindrical Laplace modes is
-the log-radius construction used here, not a cable propagation calculation.
+and the mirror relation for ``\\Gamma^R_k``, the reflection form of the load transformation of
+[Sunde1968](@cite), Section 1.6, Eqs. (1.39)-(1.42), p. 15. Every ``|\\Gamma|\\le 1``, so no
+mode overflows. With the invariant Wronskian
+``W_m=\\varepsilon(u_L'u_R-u_Lu_R')``, the mode of the Green function is
+``H_m=u_L(r_<)u_R(r_>)/W_m``, and the kernel is ``H_0+2\\sum_m H_m\\cos m\\Delta\\theta``. For
+the inner point in layer ``p`` and the outer point in layer ``q``,
+
+```math
+2H_m=\\frac{\\prod_{k=p}^{q-1}T_k}{\\varepsilon_p m(1-\\Gamma^L_p\\Gamma^R_p
+(\\rho_{p-1}/\\rho_p)^{2m})}\\left(\\frac{r_<}{r_>}\\right)^m
+\\left(1+\\Gamma^L_p\\frac{\\rho_{p-1}^{2m}}{r_<^{2m}}\\right)
+\\left(1+\\Gamma^R_q\\frac{r_>^{2m}}{\\rho_q^{2m}}\\right),\\qquad
+T_k=\\frac{2\\varepsilon_k}{\\varepsilon_k(1+\\gamma)+\\varepsilon_{k+1}(1-\\gamma)},
+```
+
+with ``\\gamma=\\Gamma^R_{k+1}(\\rho_k/\\rho_{k+1})^{2m}``. The zero mode is
+
+```math
+H_0(r,s)=\\frac{R_<(R_{\\mathrm{total}}-R_>)}{R_{\\mathrm{total}}},\\qquad
+R(r)=\\int_{\\rho_0}^r\\frac{dr'}{\\varepsilon(r')r'},
+```
+
+where ``R_<`` and ``R_>`` are the smaller and larger of ``R(r),R(s)``. The log-radius
+normalization follows the coaxial capacitance ``C=2\\pi\\varepsilon/\\log(r_o/r_i)`` \\[F/m\\].
+See [Sunde1968](@cite), Section 1.5, Eq. (1.20), p. 11. The kernel is reciprocal before
+discretization.
+
+The logarithms are extracted before the modes are truncated: the direct logarithm in the
+source's layer and the transmitted one in another layer, with the static coefficient
+``\\prod_k 2\\varepsilon_k/(\\varepsilon_k+\\varepsilon_{k+1})/\\varepsilon_p``, and, for a
+target and a source in one layer, its two nearest images with the static contrasts
+``(\\varepsilon_p-\\varepsilon_j)/(\\varepsilon_p+\\varepsilon_j)`` of the adjacent layers,
+also used in [Campione2018](@cite), Section 2, Eq. (3). That paper uses a local planar
+approximation to the braid geometry. It supports these dielectric image factors, not this
+concentric Green function or its radial recursion. A source on an interface sees the mean of its
+two permittivities. Only the remaining reflections and transmissions are
+truncated.
 
 # Arguments
 
-- `layers`: radially ordered layers with inner and outer radii \\[m\\] and
-  positive relative permittivities \\[dimensionless\\].
-- `m`: positive angular mode order.
-
-# Keywords
-
-- `reverse_layers=false`: reverse the layer order to propagate from the
-  outer grounded shield toward the host instead of from the inner conductor.
-
-# Returns
-
-- Modal load seen at the host boundary \\[dimensionless\\]. `Inf` when the
-  layer sequence is empty, representing an immediately adjacent metal boundary.
-"""
-function _shunt_load(layers, m; reverse_layers = false)
-    load = Inf
-    for layer in (reverse_layers ? Iterators.reverse(layers) : layers)
-        t = tanh(m * log(layer.ro/layer.ri))
-        characteristic = layer.epsilon * m
-        load = isinf(load) ? characteristic/t :
-               characteristic * (load + characteristic*t)/(characteristic + load*t)
-    end
-    load
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Evaluate the reflected Fourier modes of the local electrostatic Green function
-in a concentric layered annulus. The radial basis ``r^{\\pm m}``, with
-``1,\\log r`` for the zero mode, is the classical cylindrical Laplace basis.
-See [Schelkunoff1934](@cite), Eqs. (122)-(124), p. 573, in the small-radius-to-
-wavelength limit of cylindrical fields. Here it is used for the electrostatic
-potential. The layered-kernel strategy is also supported by [Bernal1997](@cite),
-Sections II-III, whose planar Prony/matrix-pencil kernel is not used here.
-
-With ``t=\\log(r/a)``, each source-free dielectric layer satisfies
-``d^2u_m/dt^2-m^2u_m=0``. Matching potential and normal displacement gives
-the radial load recursion in `_shunt_load`, terminated at grounded metal.
-The zero Fourier mode is evaluated separately in `_shunt_kernel`:
-
-```math
-G_0(r,s)=\\frac{R_< (R_{\\mathrm{total}}-R_>)}{R_{\\mathrm{total}}},
-\\qquad R(r)=R_{\\mathrm{left}}+\\frac{\\log(r/a)}{\\varepsilon_h}.
-```
-
-Here ``R_<`` and ``R_>`` are the smaller and larger of ``R(r),R(s)``.
-The dielectric log-radius sums ``R`` and host relative permittivity
-``\\varepsilon_h`` are dimensionless. The log-radius normalization follows
-the coaxial capacitance ``C=2\\pi\\varepsilon/\\log(r_o/r_i)`` \\[F/m\\], with
-absolute permittivity ``\\varepsilon`` \\[F/m\\]. See [Sunde1968](@cite),
-Section 1.5, Eq. (1.20), p. 11. Direct and nearest-interface logarithms
-are extracted analytically. Only the remaining reflections are truncated.
-For an adjacent dielectric, the extracted contrast is
-``(\\varepsilon_h-\\varepsilon_j)/(\\varepsilon_h+\\varepsilon_j)``, also used
-in [Campione2018](@cite), Section 2, Eq. (3). That paper uses a local planar
-approximation to the braid geometry. It supports these dielectric image
-factors, not this concentric annular Green function or its radial load recursion.
-
-# Arguments
-
-- `g`: host radii and layer boundaries \\[m\\], with positive relative
-  permittivities \\[dimensionless\\].
+- `g`: the dielectric layers' radii \\[m\\] and positive relative permittivities
+  \\[dimensionless\\].
 - `modes`: number of retained positive Fourier modes.
 
 # Returns
 
-- `A`, `B`, `D`: smooth Fourier reflection coefficients \\[dimensionless\\].
-- `ra0`, `rb0`: reflection coefficients at the nearest inner and outer interfaces
-  \\[dimensionless\\]. The resulting kernel multiplies charge per unit length
-  divided by ``2\\pi\\varepsilon_0`` \\[V\\] to give potential \\[V\\].
-- `Rleft`, `Rtotal`: the zero-mode dielectric log-radius sums from the inner anchor to the
-  host and to the reference \\[dimensionless\\].
+- `radii`: the interfaces ``\\rho_0,\\ldots,\\rho_L`` \\[m\\].
+- `epsilon`: the layers' relative permittivities.
+- `R`: ``R`` at each interface and `Rtotal` at the reference \\[dimensionless\\].
+- `inner`, `outer`: the static image contrasts of each layer \\[dimensionless\\].
+- `direct`: the static coefficient of the extracted logarithm, by target and source layer.
+- `modal`: the remaining coefficients, by mode, by the target's inner or outer factor
+  ``(\\rho_{i-1}/\\bar z)^m`` or ``(z/\\rho_i)^m``, by the source's factor of the same kind,
+  and by target and source layer. The kernel multiplies charge per unit length divided by
+  ``2\\pi\\varepsilon_0`` \\[V\\] to give potential \\[V\\].
 """
 function _shunt_kernel_coefficients(g, modes)
-    Rleft = sum(l->log(l.ro/l.ri)/l.epsilon, g.left; init = zero(g.a))
-    Rright = sum(l->log(l.ro/l.ri)/l.epsilon, g.right; init = zero(g.a))
-    Rtotal = Rleft+log(g.b/g.a)/g.epsilon+Rright
-    A, B, D = zeros(modes), zeros(modes), zeros(modes)
-    ra0 = isempty(g.left) ? -1.0 :
-          (g.epsilon-last(g.left).epsilon)/(g.epsilon+last(g.left).epsilon)
-    rb0 = isempty(g.right) ? -1.0 :
-          (g.epsilon-first(g.right).epsilon)/(g.epsilon+first(g.right).epsilon)
-    for m in 1:modes
-        l = _shunt_load(g.left, m)/g.epsilon
-        r = _shunt_load(g.right, m; reverse_layers = true)/g.epsilon
-        ra = isinf(l) ? -1.0 : (m-l)/(m+l)
-        rb = isinf(r) ? -1.0 : (m-r)/(m+r)
-        denominator = g.epsilon*m*(1-ra*rb*(g.a/g.b)^(2m))
-        A[m] = ra/denominator-ra0/(g.epsilon*m)
-        B[m] = rb/denominator-rb0/(g.epsilon*m)
-        D[m] = ra*rb/denominator
+    layers = g.layers
+    L = length(layers)
+    radii = [first(layers).ri; [layer.ro for layer in layers]]
+    epsilon = [layer.epsilon for layer in layers]
+    R = zeros(L + 1)
+    for (k, layer) in pairs(layers)
+        R[k + 1] = R[k] + log(layer.ro/layer.ri)/layer.epsilon
     end
-    (; A, B, D, ra0, rb0, Rleft, Rtotal)
+    inner = [k == 1 ? -1.0 : (epsilon[k]-epsilon[k-1])/(epsilon[k]+epsilon[k-1]) for k in 1:L]
+    outer = [k == L ? -1.0 : (epsilon[k]-epsilon[k+1])/(epsilon[k]+epsilon[k+1]) for k in 1:L]
+    direct = [prod(k -> 2epsilon[k]/(epsilon[k]+epsilon[k+1]), min(i, j):(max(i, j)-1);
+                  init = 1.0)/epsilon[min(i, j)] for i in 1:L, j in 1:L]
+    modal = zeros(modes, 2, 2, L, L)
+    left, right, transmission = zeros(L), zeros(L), zeros(L)
+    for m in 1:modes
+        left[1] = -1
+        for k in 2:L
+            gamma = left[k-1]*(radii[k-1]/radii[k])^(2m)
+            left[k] = (epsilon[k]*(1+gamma)-epsilon[k-1]*(1-gamma)) /
+                      (epsilon[k]*(1+gamma)+epsilon[k-1]*(1-gamma))
+        end
+        right[L] = -1
+        for k in (L - 1):-1:1
+            gamma = right[k+1]*(radii[k+1]/radii[k+2])^(2m)
+            denominator = epsilon[k]*(1+gamma)+epsilon[k+1]*(1-gamma)
+            right[k] = (epsilon[k]*(1+gamma)-epsilon[k+1]*(1-gamma))/denominator
+            transmission[k] = 2epsilon[k]/denominator
+        end
+        for j in 1:L, i in 1:L
+            p, q = minmax(i, j)
+            X = left[p]*right[p]*(radii[p]/radii[p+1])^(2m)
+            if i == j
+                weight = epsilon[p]*m
+                modal[m, 1, 1, i, j] = (left[p]/(1-X)-inner[p])/weight
+                modal[m, 2, 2, i, j] = (right[p]/(1-X)-outer[p])/weight
+                cross = left[p]*right[p]*(radii[p]/radii[p+1])^m/((1-X)*weight)
+                modal[m, 1, 2, i, j] = cross
+                modal[m, 2, 1, i, j] = cross
+            else
+                scale = prod(view(transmission, p:(q - 1)))/(epsilon[p]*m*(1-X))
+                transmitted = (scale-direct[i, j]/m)*(radii[p+1]/radii[q])^m
+                outward = scale*right[q]*(radii[p+1]/radii[q+1])^m
+                inward = scale*left[p]*(radii[p]/radii[q])^m
+                both = scale*left[p]*right[q]*(radii[p]/radii[q+1])^m
+                # The point in layer p takes its outer factor and the point in layer q its
+                # inner factor in the transmitted term.
+                near, far = i < j ? (2, 1) : (1, 2)
+                modal[m, near, far, i, j] = transmitted
+                modal[m, 2, 2, i, j] = outward
+                modal[m, 1, 1, i, j] = inward
+                modal[m, far, near, i, j] = both
+            end
+        end
+    end
+    return (; radii, epsilon, R, Rtotal = R[L + 1], inner, outer, direct, modal)
 end
 
-# The direct, nearest-image and zero-mode terms of the Green function. The reflected
-# Fourier modes enter by the batched products of `_shunt_kernel_matrix!`.
-function _shunt_kernel(z, source, g, k; split_images = false)
+# The zero-mode, extracted logarithmic and nearest-image terms of the Green function for a
+# target `z` in layer `i` and a source in layer `j`. The remaining Fourier modes enter by the
+# batched products of `_shunt_kernel_matrix!`. With `split_images`, the logarithms of the
+# distances to the source and its images, which the tape faces integrate, are left out.
+function _shunt_kernel(z, i, source, j, k; split_images = false)
     r, s = abs(z), abs(source)
-    Rr = k.Rleft + log(r/g.a)/g.epsilon
-    Rs = k.Rleft + log(s/g.a)/g.epsilon
+    Rr = k.R[i] + log(r/k.radii[i])/k.epsilon[i]
+    Rs = k.R[j] + log(s/k.radii[j])/k.epsilon[j]
     result = min(Rr, Rs)*(k.Rtotal-max(Rr, Rs))/k.Rtotal
     if split_images
-        result += (log(max(r, s))+k.ra0*log(s)+k.rb0*(2log(g.b)-log(r)))/g.epsilon
+        result += k.direct[i, j]*log(max(r, s))
+        # The nearest images belong to a target and a source in one layer.
+        i == j && (result += (k.inner[i]*log(s)+k.outer[i]*(2log(k.radii[i+1])-log(r))) /
+                             k.epsilon[i])
     else
-        result += log(max(r, s)/abs(z-source))/g.epsilon
-        result -= k.ra0/g.epsilon*log(abs(1-g.a^2/(conj(z)*source)))
-        result -= k.rb0/g.epsilon*log(abs(1-z*conj(source)/g.b^2))
+        result += k.direct[i, j]*log(max(r, s)/abs(z-source))
+        if i == j
+            result -= k.inner[i]/k.epsilon[i]*log(abs(1-k.radii[i]^2/(conj(z)*source)))
+            result -= k.outer[i]/k.epsilon[i]*log(abs(1-z*conj(source)/k.radii[i+1]^2))
+        end
     end
     result
 end
@@ -139,12 +168,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Extend `buffers` with the arrays that solving `group` uses, sized by `plan`. The `N` ring
-wires have `r` targets and `c` sources each. The border consists of the other `mb` targets
-and `nb` charge coefficients:
+Extend `buffers` with the arrays that solving `group` uses, sized by `plan`. The `N` sectors
+of the rings have `r` targets and `c` sources each. The border consists of the other `mb`
+targets and `nb` charge coefficients:
 
-- `ring_kernel` holds the potentials of the ring's sources at the first ring wire's
-  targets, `coupling_kernel` at the border targets, and `border` the potentials of the
+- `ring_kernel` holds the potentials of the rings' sources at the first sector's targets,
+  `coupling_kernel` at the border targets, and `border` the potentials of the
   border coefficients at every target. `column_norms` holds the norms that equilibrate
   their columns.
 - `excitation` holds the excitation of each terminal at the targets, and `coefficients`
@@ -158,11 +187,12 @@ and `nb` charge coefficients:
   `residual_rhs` and `system_rhs` hold the right-hand sides and solutions of one solve.
 - `moments` and `segments` hold the logarithmic moments of one tape face and their QuadGK
   segments.
-- `target_inner`, `target_outer`, `source_inner` and `source_outer` hold the image ratios
-  ``a/\\bar z`` and ``z/b`` of the targets and of the sources or face nodes. The `*_power`
-  arrays hold their running powers.
+- `target_inner`, `target_outer`, `source_inner` and `source_outer` hold the ratios
+  ``\\rho_{k-1}/\\bar z`` and ``z/\\rho_k`` of the targets and of the sources or face nodes
+  to the interfaces of their layer ``k``. The `*_power` arrays hold their running powers.
 - `target_modes` and `source_modes` hold the Fourier factors of at most 64 modes at a time.
-- `face_kernel` holds the Green function from the targets to the nodes of one face.
+- `face_kernel` holds the Green function from the targets to the nodes of one face, and
+  `face_layers` the layer of those nodes.
 - `plus_collocation`, `minus_collocation`, `plus_excitation` and `minus_excitation` hold
   perturbed blocks of at most 192 targets, when `plan.derivatives` directions follow.
 - `drive`, `stationarity`, `residual`, `border_normal` and `coefficient_derivative` hold the
@@ -219,6 +249,7 @@ function initialize_buffers(::Formula{:boundary}, ::Type{T}, group::DielectricGr
             target_modes = Matrix{T}(undef, rows, factors),
             source_modes = Matrix{T}(undef, kernel, factors),
             face_kernel = Matrix{T}(undef, rows, quadrature),
+            face_layers = Vector{Int}(undef, quadrature),
             plus_collocation = Matrix{T}(undef, block, columns),
             minus_collocation = Matrix{T}(undef, block, columns),
             plus_excitation = Matrix{T}(undef, block, ports),
@@ -230,12 +261,14 @@ function initialize_buffers(::Formula{:boundary}, ::Type{T}, group::DielectricGr
             coefficient_derivative = Matrix{T}(undef, tangent, ports)))
 end
 
-function _shunt_kernel_matrix!(matrix, targets, sources, g, k; split_images = false, buffers)
+function _shunt_kernel_matrix!(matrix, targets, target_layers, sources, source_layers, k;
+        split_images = false, buffers)
     # Same Green function, batched into small Fourier blocks for BLAS. No dense
     # N-by-modes array: the products use only 4*64 columns per geometric boundary set.
     @inbounds for j in eachindex(sources), i in eachindex(targets)
 
-        matrix[i, j] = _shunt_kernel(targets[i], sources[j], g, k; split_images)
+        matrix[i, j] = _shunt_kernel(
+            targets[i], target_layers[i], sources[j], source_layers[j], k; split_images)
     end
     nr, nc = length(targets), length(sources)
     ta, tb = @view(buffers.target_inner[1:nr]), @view(buffers.target_outer[1:nr])
@@ -244,45 +277,68 @@ function _shunt_kernel_matrix!(matrix, targets, sources, g, k; split_images = fa
     tpb = @view buffers.target_outer_power[1:nr]
     spa = @view buffers.source_inner_power[1:nc]
     spb = @view buffers.source_outer_power[1:nc]
-    ta .= g.a ./ conj.(targets);
-    tb .= targets ./ g.b
-    sa .= g.a ./ conj.(sources);
-    sb .= sources ./ g.b
-    fill!(tpa, 1);
-    fill!(tpb, 1);
-    fill!(spa, 1);
-    fill!(spb, 1)
+    # Each point's Fourier factors refer to the interfaces of its own layer.
+    @inbounds for i in eachindex(targets)
+        ta[i] = k.radii[target_layers[i]]/conj(targets[i])
+        tb[i] = targets[i]/k.radii[target_layers[i]+1]
+    end
+    @inbounds for j in eachindex(sources)
+        sa[j] = k.radii[source_layers[j]]/conj(sources[j])
+        sb[j] = sources[j]/k.radii[source_layers[j]+1]
+    end
     U, V = @view(buffers.target_modes[1:nr, :]), @view(buffers.source_modes[1:nc, :])
-    for first_mode in 1:64:length(k.A)
-        modes = first_mode:min(first_mode + 63, length(k.A))
-        for (column, m) in enumerate(modes)
-            tpa .*= ta
-            tpb .*= tb
-            spa .*= sa
-            spb .*= sb
-            cross = k.D[m]*(g.a/g.b)^m
-            @inbounds for i in eachindex(targets)
-                U[i, 4column - 3]=real(tpa[i])
-                U[i, 4column - 2]=imag(tpa[i])
-                U[i, 4column - 1]=real(tpb[i])
-                U[i, 4column]=imag(tpb[i])
-            end
-            @inbounds for j in eachindex(sources)
-                a=k.A[m]*spa[j]+cross*spb[j]
-                b=k.B[m]*spb[j]+cross*spa[j]
-                V[j, 4column - 3]=real(a)
-                V[j, 4column - 2]=imag(a)
-                V[j, 4column - 1]=real(b)
-                V[j, 4column]=imag(b)
-            end
+    modes = size(k.modal, 1)
+    # The targets of one layer that follow each other share their coefficients.
+    start = 1
+    while start <= nr
+        layer = target_layers[start]
+        stop = start
+        while stop < nr && target_layers[stop + 1] == layer
+            stop += 1
         end
-        @views mul!(
-            matrix, U[:, 1:4length(modes)], transpose(V[:, 1:4length(modes)]), 1.0, 1.0)
+        rows = start:stop
+        fill!(@view(tpa[rows]), 1)
+        fill!(@view(tpb[rows]), 1)
+        fill!(spa, 1)
+        fill!(spb, 1)
+        for first_mode in 1:64:modes
+            block = first_mode:min(first_mode + 63, modes)
+            for (column, m) in enumerate(block)
+                @views tpa[rows] .*= ta[rows]
+                @views tpb[rows] .*= tb[rows]
+                spa .*= sa
+                spb .*= sb
+                @inbounds for i in rows
+                    U[i - start + 1, 4column - 3]=real(tpa[i])
+                    U[i - start + 1, 4column - 2]=imag(tpa[i])
+                    U[i - start + 1, 4column - 1]=real(tpb[i])
+                    U[i - start + 1, 4column]=imag(tpb[i])
+                end
+                @inbounds for j in eachindex(sources)
+                    source = source_layers[j]
+                    a=k.modal[m, 1, 1, layer, source]*spa[j] +
+                      k.modal[m, 1, 2, layer, source]*spb[j]
+                    b=k.modal[m, 2, 1, layer, source]*spa[j] +
+                      k.modal[m, 2, 2, layer, source]*spb[j]
+                    V[j, 4column - 3]=real(a)
+                    V[j, 4column - 2]=imag(a)
+                    V[j, 4column - 1]=real(b)
+                    V[j, 4column]=imag(b)
+                end
+            end
+            @views mul!(matrix[rows, :], U[1:length(rows), 1:4length(block)],
+                transpose(V[:, 1:4length(block)]), 1.0, 1.0)
+        end
+        start = stop + 1
     end
     matrix
 end
 
-_shunt_core_voltage(z, g, k) = 1-(k.Rleft+log(abs(z)/g.a)/g.epsilon)/k.Rtotal
+# The potential of the inner anchor at unit voltage, relative to the reference, at a point `z`
+# in `layer`.
+function _shunt_core_voltage(z, layer, k)
+    1-(k.R[layer]+log(abs(z)/k.radii[layer])/k.epsilon[layer])/k.Rtotal
+end
 
 # Point `j` of `count` on the circle at `fraction` of a wire's radius, in the wire's own
 # polar frame. A rotation that maps one ring wire onto the next maps its points too.
@@ -295,40 +351,71 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Order the wires of `g` for collocation and find its ring. The wires of a ring share one
-terminal, one radius and one pitch circle, and they are equally spaced. Each exposes the same
-targets, at least as many as its sources. The ring's wires come first, in angular order.
+Order the wires of `g` for collocation and find its rings. The wires of a ring share one
+terminal, one layer, one radius and one pitch circle, they are equally spaced, and each
+exposes the same targets. A ring has at least two wires. A rotation by ``2\\pi/n``, with ``n``
+the greatest common divisor of the ring sizes, maps every ring onto itself in the concentric
+layers. The rings split into ``n`` sectors that it permutes cyclically, each with ``N_i/n``
+consecutive wires of ring ``i``. The sectors come first, then the other wires. A sector needs
+at least as many targets as sources, or no wire is reduced.
 
 # Returns
 
 - `wires`: the wire indices in collocation order.
-- `ring`: the number of ring wires, zero without a ring.
+- `ring`: the number of sectors, zero without a ring.
+- `sector`: the number of wires in a sector.
 - `exposed`: for each wire in that order, the indices of its `2level.wire` surface points
   that lie outside every other wire of its terminal.
 """
 function _shunt_layout(g, level)
     count = 2level.wire
     exposed = map(g.wires) do wire
+        tolerance = _shunt_tol(g.layers[wire.layer].ro)
         filter(0:(count - 1)) do j
             point = _shunt_wire_point(wire, 1, j, count)
             # Contact points and buried arcs do not expose dielectric to this terminal.
             all(other -> other === wire || other.terminal != wire.terminal ||
-                abs(point-complex(other.x, other.y))-other.r > _shunt_tol(g.b), g.wires)
+                abs(point-complex(other.x, other.y))-other.r > tolerance, g.wires)
         end
     end
     angles = [mod(atan(wire.y, wire.x), 2pi) for wire in g.wires]
-    order = sortperm(angles)
-    n = length(order)
-    ring = n > 0 && length(exposed[first(order)]) >= level.wire && all(1:n) do i
-        wire, lead = g.wires[order[i]], g.wires[first(order)]
-        pitch = hypot(wire.x, wire.y)
-        spacing = angles[order[i]] - angles[first(order)] - 2pi*(i - 1)/n
-        wire.terminal == lead.terminal && abs(wire.r - lead.r) <= _shunt_tol(g.b) &&
-            abs(pitch - hypot(lead.x, lead.y)) <= _shunt_tol(g.b) &&
-            abs(pitch*spacing) <= _shunt_tol(g.b) && exposed[order[i]] == exposed[first(order)]
+    # Wires of one terminal and layer with one radius on one pitch circle, in angular order.
+    rings = Vector{Int}[]
+    for index in sortperm(angles)
+        wire = g.wires[index]
+        tolerance = _shunt_tol(g.layers[wire.layer].ro)
+        found = findfirst(rings) do candidate
+            lead = g.wires[first(candidate)]
+            lead.terminal == wire.terminal && lead.layer == wire.layer &&
+                abs(lead.r - wire.r) <= tolerance &&
+                abs(hypot(lead.x, lead.y) - hypot(wire.x, wire.y)) <= tolerance
+        end
+        found === nothing ? push!(rings, [index]) : push!(rings[found], index)
     end
-    wires = ring ? order : collect(eachindex(g.wires))
-    return (; wires, ring = ring ? n : 0, exposed = exposed[wires])
+    filter!(rings) do ring
+        lead = g.wires[first(ring)]
+        tolerance = _shunt_tol(g.layers[lead.layer].ro)
+        length(ring) > 1 && all(pairs(ring)) do (position, index)
+            spacing = angles[index] - angles[first(ring)] - 2pi*(position - 1)/length(ring)
+            abs(hypot(lead.x, lead.y)*spacing) <= tolerance &&
+                exposed[index] == exposed[first(ring)]
+        end
+    end
+    n = isempty(rings) ? 0 : gcd(length.(rings))
+    sector = sum(ring -> length(ring) ÷ n, rings; init = 0)
+    reduced = n > 0 &&
+              sum(ring -> length(ring) ÷ n * length(exposed[first(ring)]), rings) >=
+              sector*level.wire
+    wires = Int[]
+    if reduced
+        for k in 0:(n - 1), ring in rings
+            share = length(ring) ÷ n
+            append!(wires, view(ring, (k*share + 1):((k + 1)*share)))
+        end
+    end
+    append!(wires, setdiff(eachindex(g.wires), wires))
+    return (; wires, ring = reduced ? n : 0, sector = reduced ? sector : 0,
+        exposed = exposed[wires])
 end
 
 # The coefficients (A, B, C) of the three-term recurrence of the Jacobi polynomials,
@@ -373,12 +460,12 @@ end
 $(TYPEDSIGNATURES)
 
 Find the leading electrostatic exponent at a right-angle metal corner on a
-dielectric interface. The host occupies angle ``\\pi/2`` and the adjacent
+dielectric interface. The layer of the metal occupies angle ``\\pi/2`` and the adjacent
 dielectric angle ``\\pi``. Continuity of potential and normal displacement,
 with constant potential on the two metal faces, gives this specialization:
 
 ```math
-\\varepsilon_h\\cos(\\nu\\pi/2)\\sin(\\nu\\pi)
+\\varepsilon_l\\cos(\\nu\\pi/2)\\sin(\\nu\\pi)
 +\\varepsilon_o\\sin(\\nu\\pi/2)\\cos(\\nu\\pi)=0.
 ```
 
@@ -392,7 +479,7 @@ For equal permittivities this equation recovers ``\\nu=2/3``.
 
 # Arguments
 
-- `epsilon_host`: host relative permittivity \\[dimensionless\\].
+- `epsilon_layer`: relative permittivity of the metal's layer \\[dimensionless\\].
 - `epsilon_outer`: adjacent dielectric relative permittivity \\[dimensionless\\].
 
 # Returns
@@ -407,12 +494,12 @@ Nonpositive permittivities raise `BoundarySolveError`. For positive permittiviti
 determinant is positive near zero and equals ``-\\varepsilon_o`` at one, so the root is
 always bracketed.
 """
-function _shunt_junction_exponent(epsilon_host, epsilon_outer)
-    epsilon_host > 0 && epsilon_outer > 0 || throw(BoundarySolveError(:unsupported,
-        (; epsilon_host, epsilon_outer), "boundary shunt requires positive permittivities"))
-    # Host sector pi/2, outer dielectric sector pi. Determinant has no cotangent
+function _shunt_junction_exponent(epsilon_layer, epsilon_outer)
+    epsilon_layer > 0 && epsilon_outer > 0 || throw(BoundarySolveError(:unsupported,
+        (; epsilon_layer, epsilon_outer), "boundary shunt requires positive permittivities"))
+    # Layer sector pi/2, outer dielectric sector pi. Determinant has no cotangent
     # poles. Exclude the trivial nu=0 root and bracket the first positive root.
-    determinant(nu) = epsilon_host*cospi(nu/2)*sinpi(nu) +
+    determinant(nu) = epsilon_layer*cospi(nu/2)*sinpi(nu) +
                       epsilon_outer*sinpi(nu/2)*cospi(nu)
     left, right = 1e-10, 1.0
     for _ in 1:60
@@ -427,15 +514,15 @@ function _shunt_junction_exponent(epsilon_host, epsilon_outer)
 end
 
 # A tape has two circular arc faces and two radial end faces. The record of a face
-# holds its geometry, its endpoint exponents, quadrature, weighted Jacobi values and the
-# Jacobi recurrence coefficients.
+# holds its geometry, its endpoint exponents, quadrature, weighted Jacobi values, the
+# Jacobi recurrence coefficients and the layer of its tape.
 const ShuntArc = NamedTuple{(:radius, :phi, :span), NTuple{3, Float64}}
 const ShuntEnd = NamedTuple{(:phi, :mid, :half), NTuple{3, Float64}}
 const ShuntFace{S} = NamedTuple{
     (:shape, :alpha, :beta, :p, :nodes, :weights, :weighted, :beta_norm, :terminal, :points,
-        :recurrence),
+        :recurrence, :layer),
     Tuple{S, Float64, Float64, Int, Vector{Float64}, Vector{Float64}, Matrix{Float64},
-        Float64, Int, Vector{ComplexF64}, Vector{NTuple{3, Float64}}}}
+        Float64, Int, Vector{ComplexF64}, Vector{NTuple{3, Float64}}, Int}}
 # One tape has an inner arc face, an outer arc face and two end faces, in that order.
 const ShuntTapeFaces = Tuple{ShuntFace{ShuntArc}, ShuntFace{ShuntArc},
     ShuntFace{ShuntEnd}, ShuntFace{ShuntEnd}}
@@ -472,8 +559,9 @@ discretizations are not the boundary-integral element implemented here.
 
 # Arguments
 
-- `g`: host and layer radii \\[m\\] and relative permittivities \\[dimensionless\\].
-- `s`: tape geometry and terminal index. The inner and outer radii are in
+- `g`: the dielectric layers' radii \\[m\\] and relative permittivities
+  \\[dimensionless\\].
+- `s`: tape geometry, terminal index and layer. The inner and outer radii are in
   \\[m\\], and the center angle and angular span are in \\[rad\\].
 - `p`: highest Jacobi degree on each face.
 - `quadrature`: number of normalized Gauss–Jacobi nodes per face.
@@ -485,10 +573,12 @@ discretizations are not the boundary-integral element implemented here.
 """
 function _shunt_tape_faces(g, s, p, quadrature)
     # A metal face on a dielectric interface meets that dielectric at its corners.
-    at_interface = abs(s.ro - g.b) <= _shunt_tol(g.b)
-    at_inner = abs(s.ri - g.a) <= _shunt_tol(g.b)
-    nu_inner = at_inner ? _shunt_junction_exponent(g.epsilon, last(g.left).epsilon) : 2/3
-    nu_outer = at_interface ? _shunt_junction_exponent(g.epsilon, first(g.right).epsilon) :
+    layer = g.layers[s.layer]
+    at_inner = s.layer > 1 && abs(s.ri - layer.ri) <= _shunt_tol(layer.ro)
+    at_outer = s.layer < length(g.layers) && abs(s.ro - layer.ro) <= _shunt_tol(layer.ro)
+    nu_inner = at_inner ? _shunt_junction_exponent(layer.epsilon, g.layers[s.layer-1].epsilon) :
+               2/3
+    nu_outer = at_outer ? _shunt_junction_exponent(layer.epsilon, g.layers[s.layer+1].epsilon) :
                2/3
     arc(radius, nu) = (; shape = ShuntArc((radius, s.phi, s.span)), alpha = nu-1, beta = nu-1)
     radial(sign) = (; shape = ShuntEnd((s.phi+sign*s.span/2, (s.ri+s.ro)/2, (s.ro-s.ri)/2)),
@@ -505,7 +595,8 @@ function _shunt_tape_faces(g, s, p, quadrature)
         merge(face,
             (; p, nodes, weights, weighted, beta_norm, terminal = s.terminal,
                 points = _shunt_face_point.(Ref(face.shape), nodes),
-                recurrence = _shunt_jacobi_recurrence(face.alpha, face.beta, p)))
+                recurrence = _shunt_jacobi_recurrence(face.alpha, face.beta, p),
+                layer = s.layer))
     end
 end
 
@@ -622,34 +713,42 @@ function _shunt_log_moments(z, face; rtol, atol, maxevals, result, segments)
     return integral, estimate
 end
 
-# Add the integrated charge columns of every tape face to `columns`. Count the moments
-# whose QuadGK estimate exceeds the requested target.
-function _shunt_tape_columns!(columns, targets, faces, g, k; integration, buffers)
+# Add the integrated charge columns of every tape face to `columns`, for targets in
+# `target_layers`. A target in the face's layer integrates the direct logarithm and the two
+# nearest images, and a target in another layer the transmitted logarithm. On an interface, an
+# image is the target itself. Count the moments whose QuadGK estimate exceeds the requested
+# target.
+function _shunt_tape_columns!(columns, targets, target_layers, faces, k; integration, buffers)
     estimated_error = 0.0
     unmet = 0
     offset = 0
     for tape in faces, face in tape
         block = @view columns[:, (offset + 1):(offset + face.p + 1)]
         kernel = @view buffers.face_kernel[1:length(targets), 1:length(face.points)]
+        layers = fill!(@view(buffers.face_layers[1:length(face.points)]), face.layer)
         _shunt_kernel_matrix!(
-            kernel, targets, face.points, g, k; split_images = true, buffers)
+            kernel, targets, target_layers, face.points, layers, k; split_images = true, buffers)
         mul!(block, kernel, face.weighted)
         for (i, z) in pairs(targets)
-            inner, outer = g.a^2/conj(z), g.b^2/conj(z)
-            direct_coefficient = 1.0
-            inner_same = abs(inner-z) <= _shunt_tol(g.b)
-            outer_same = abs(outer-z) <= _shunt_tol(g.b)
-            direct_coefficient += (inner_same ? k.ra0 : 0.0) + (outer_same ? k.rb0 : 0.0)
-            for (point, coefficient) in ((inner, inner_same ? 0.0 : k.ra0),
-                (outer, outer_same ? 0.0 : k.rb0), (z, direct_coefficient))
+            layer = target_layers[i]
+            same = layer == face.layer
+            inner, outer = k.radii[layer]^2/conj(z), k.radii[layer + 1]^2/conj(z)
+            inner_same = abs(inner-z) <= _shunt_tol(k.radii[layer + 1])
+            outer_same = abs(outer-z) <= _shunt_tol(k.radii[layer + 1])
+            inner_image = same ? k.inner[layer]/k.epsilon[layer] : 0.0
+            outer_image = same ? k.outer[layer]/k.epsilon[layer] : 0.0
+            direct = k.direct[layer, face.layer] + (inner_same ? inner_image : 0.0) +
+                     (outer_same ? outer_image : 0.0)
+            for (point, coefficient) in ((inner, inner_same ? 0.0 : inner_image),
+                (outer, outer_same ? 0.0 : outer_image), (z, direct))
                 coefficient == 0 && continue
                 moments,
                 err = _shunt_log_moments(point, face; integration...,
                     result = buffers.moments, segments = buffers.segments)
                 @inbounds for n in eachindex(moments)
-                    block[i, n] -= (coefficient/g.epsilon)*moments[n]
+                    block[i, n] -= coefficient*moments[n]
                 end
-                estimated_error = max(estimated_error, abs(coefficient/g.epsilon)*err)
+                estimated_error = max(estimated_error, abs(coefficient)*err)
                 unmet += !(err <= max(integration.rtol*norm(moments), integration.atol))
             end
         end
@@ -662,92 +761,100 @@ end
 Record one boundary solve. `log_moment_error` is the largest weighted QuadGK error
 estimate of the logarithmic moments. `condition` is the 1-norm condition estimate of the
 equilibrated collocation system's triangular factors, the larger of the Fourier blocks
-together and the border. `ring` counts the wires that the Fourier reduction separates, zero
-without a ring. `unknowns` and `equations` count the charge coefficients and collocation
-equations, and `level` is the resolution.
+together and the border. `ring` is the number of Fourier classes that the ring reduction
+separates, zero without a ring. `unknowns` and `equations` count the charge coefficients and
+collocation equations, and `level` is the resolution.
 """
 const InternalShuntDiagnostic = NamedTuple{
     (:log_moment_error, :condition, :ring, :unknowns, :equations, :level),
     Tuple{Float64, Float64, Int, Int, Int, typeof(DEFAULT_RESOLUTION)}}
 
 # The fixed geometry of one solve in the wire order of `layout`: tape faces, collocation
-# targets and their terminals, auxiliary sources and Fourier load coefficients, with the
-# array sizes they give. The ring's targets and sources come first, wire by wire, then the
-# other wires' and the tape faces'.
+# targets with their terminals and layers, auxiliary sources with their layers and the
+# Fourier coefficients, with the array sizes they give. The sectors' targets and sources come
+# first, wire by wire, then the other wires' and the tape faces'.
 function _shunt_plan(selected::Formula{:boundary}, g, layout, derivatives = 0)
     (; resolution, integration) = selected.options.data
     level = resolution
     faces = ShuntTapeFaces[_shunt_tape_faces(g, tape, level.order, level.quadrature)
                            for tape in g.tapes]
-    points, terminals, sources = ComplexF64[], Int[], ComplexF64[]
+    points, terminals, point_layers = ComplexF64[], Int[], Int[]
+    sources, source_layers = ComplexF64[], Int[]
     for (index, exposed) in zip(layout.wires, layout.exposed)
         wire = g.wires[index]
         append!(points, _shunt_wire_point(wire, 1, j, 2level.wire) for j in exposed)
         append!(terminals, fill(wire.terminal, length(exposed)))
+        append!(point_layers, fill(wire.layer, length(exposed)))
         append!(sources,
             _shunt_wire_point(wire, 0.75, j, level.wire) for j in 0:(level.wire - 1))
+        append!(source_layers, fill(wire.layer, level.wire))
     end
     nface = max(24, 4(level.order+1))
     parameters = -cos.(pi .* ((1:nface) .- 0.5) ./ nface)
     for tape in faces, face in tape
         append!(points, [_shunt_face_point(face.shape, t) for t in parameters])
         append!(terminals, fill(face.terminal, nface))
+        append!(point_layers, fill(face.layer, nface))
     end
     k = _shunt_kernel_coefficients(g, level.modes)
     columns = length(sources)+4(level.order+1)*length(faces)
     ports = max(maximum(wire -> wire.terminal, g.wires; init = 1),
         maximum(tape -> tape.terminal, g.tapes; init = 1))
     ring = layout.ring
-    return (; faces, points, terminals, sources, k, level, integration, layout, ring,
-        block_rows = iszero(ring) ? 0 : length(first(layout.exposed)),
-        block_columns = iszero(ring) ? 0 : level.wire,
+    return (; faces, points, terminals, point_layers, sources, source_layers, k, level,
+        integration, layout, ring,
+        block_rows = sum(length, view(layout.exposed, 1:layout.sector); init = 0),
+        block_columns = layout.sector*level.wire,
         rows = length(points), columns, ports, modes = level.modes,
         quadrature = isempty(faces) ? 0 : level.quadrature, order = level.order, derivatives)
 end
 
-function _shunt_rhs!(rhs, points, terminals, g, k)
+function _shunt_rhs!(rhs, points, point_layers, terminals, k)
     fill!(rhs, 0)
     @inbounds for i in eachindex(points)
-        rhs[i, 1] = -_shunt_core_voltage(points[i], g, k)
+        rhs[i, 1] = -_shunt_core_voltage(points[i], point_layers[i], k)
         rhs[i, terminals[i]] = 1
     end
     return rhs
 end
 
-function _shunt_matrix!(matrix, points, sources, faces, g, k; integration, buffers)
+function _shunt_matrix!(matrix, points, point_layers, sources, source_layers, faces, k;
+        integration, buffers)
     count = length(sources)
-    _shunt_kernel_matrix!(@view(matrix[:, 1:count]), points, sources, g, k; buffers)
-    return _shunt_tape_columns!(
-        @view(matrix[:, (count + 1):end]), points, faces, g, k; integration, buffers)
+    _shunt_kernel_matrix!(
+        @view(matrix[:, 1:count]), points, point_layers, sources, source_layers, k; buffers)
+    return _shunt_tape_columns!(@view(matrix[:, (count + 1):end]), points, point_layers,
+        faces, k; integration, buffers)
 end
 
 # Total charge of each terminal and the charge moment of the core potential, per face.
-function _shunt_charge!(charge, offset, face::ShuntFace{ShuntArc}, g, k)
+function _shunt_charge!(charge, offset, face::ShuntFace{ShuntArc}, k)
     charge[face.terminal, offset + 1] = 1
     # The core potential is constant on an arc: only the uniform mode has a moment.
-    charge[1, offset + 1] = -_shunt_core_voltage(first(face.points), g, k)
+    charge[1, offset + 1] = -_shunt_core_voltage(first(face.points), face.layer, k)
     return charge
 end
 
-function _shunt_charge!(charge, offset, face::ShuntFace{ShuntEnd}, g, k)
+function _shunt_charge!(charge, offset, face::ShuntFace{ShuntEnd}, k)
     charge[face.terminal, offset + 1] = 1
     @views mul!(charge[1:1, (offset + 1):(offset + face.p + 1)],
-        transpose(_shunt_core_voltage.(face.points, Ref(g), Ref(k))), face.weighted, -1.0, 0.0)
+        transpose(_shunt_core_voltage.(face.points, face.layer, Ref(k))), face.weighted,
+        -1.0, 0.0)
     return charge
 end
 
 function _shunt_charge_map(g, plan)
-    (; sources, faces, level, k) = plan
+    (; sources, source_layers, faces, level, k) = plan
     charge = zeros(plan.ports, plan.columns)
     @inbounds for (position, index) in pairs(plan.layout.wires)
         for j in ((position - 1) * level.wire + 1):(position * level.wire)
-            charge[1, j] = -_shunt_core_voltage(sources[j], g, k)
+            charge[1, j] = -_shunt_core_voltage(sources[j], source_layers[j], k)
             charge[g.wires[index].terminal, j] = 1
         end
     end
     offset = length(sources)
     for tape in faces, face in tape
-        _shunt_charge!(charge, offset, face, g, k)
+        _shunt_charge!(charge, offset, face, k)
         offset += face.p+1
     end
     return charge
@@ -807,23 +914,25 @@ end
 # Assemble the collocation system in the buffers of `workspace` and solve it.
 function _shunt_capacitance!(selected::Formula{:boundary}, workspace)
     g, plan, buffers = workspace.input, workspace.plan, workspace.buffers
-    (; faces, points, terminals, sources, k, integration) = plan
+    (; faces, points, terminals, point_layers, sources, source_layers, k, integration) = plan
     N, r, c = plan.ring, plan.block_rows, plan.block_columns
     m, n = plan.rows, plan.columns
     m >= n || throw(BoundarySolveError(:rank, (; rows = m, columns = n),
         "fewer boundary equations than charge coefficients"))
     (; ring_kernel, coupling_kernel, border, column_norms) = buffers
     kept = size(coupling_kernel, 1)
-    # The ring needs one block row of its kernel, and its columns at the border rows.
-    ring = @view sources[1:(N * c)]
-    _shunt_kernel_matrix!(ring_kernel, @view(points[1:r]), ring, g, k; buffers)
-    _shunt_kernel_matrix!(
-        coupling_kernel, @view(points[(N * r + 1):(N * r + kept)]), ring, g, k; buffers)
-    tape = _shunt_matrix!(border, points, @view(sources[(N * c + 1):end]), faces, g, k;
-        integration, buffers)
+    # The rings need one block row of their kernel, and their columns at the border rows.
+    ring, ring_layers = @view(sources[1:(N * c)]), @view(source_layers[1:(N * c)])
+    _shunt_kernel_matrix!(ring_kernel, @view(points[1:r]), @view(point_layers[1:r]), ring,
+        ring_layers, k; buffers)
+    border_rows = (N * r + 1):(N * r + kept)
+    _shunt_kernel_matrix!(coupling_kernel, @view(points[border_rows]),
+        @view(point_layers[border_rows]), ring, ring_layers, k; buffers)
+    tape = _shunt_matrix!(border, points, point_layers, @view(sources[(N * c + 1):end]),
+        @view(source_layers[(N * c + 1):end]), faces, k; integration, buffers)
     tape.unmet == 0 ||
         @warn "Boundary logarithmic quadrature target was not met" integrals=tape.unmet log_moment_error=tape.log_moment_error rtol=integration.rtol atol=integration.atol maxevals=integration.maxevals
-    # A ring column's norm over the ring rows is the same on every wire, which keeps the
+    # A ring column's norm over the ring rows is the same in every sector, which keeps the
     # equilibrated blocks circulant.
     for j in 1:c
         scale = norm(@view ring_kernel[:, j:c:end])
@@ -841,7 +950,7 @@ function _shunt_capacitance!(selected::Formula{:boundary}, workspace)
         @views border[:, j] ./= scale
     end
     factored = _shunt_factor!(plan, buffers)
-    rhs = _shunt_rhs!(buffers.excitation, points, terminals, g, k)
+    rhs = _shunt_rhs!(buffers.excitation, points, point_layers, terminals, k)
     coefficients = _shunt_solve!(buffers.coefficients, factored, plan, buffers, rhs) ./
                    column_norms
     charge = _shunt_charge_map(g, plan)
@@ -1115,14 +1224,17 @@ function _shunt_tangent(selected::Formula{:boundary}, group, values, direction, 
         ap = @view buffers.plus_collocation[rows, :]
         am = @view buffers.minus_collocation[rows, :]
         xp, xm = @view(dp.points[start:stop]), @view(dm.points[start:stop])
-        _shunt_matrix!(ap, xp, dp.sources, dp.faces, plus, dp.k; plan.integration, buffers)
-        _shunt_matrix!(am, xm, dm.sources, dm.faces, minus, dm.k; plan.integration, buffers)
+        layers = @view plan.point_layers[start:stop]
+        _shunt_matrix!(ap, xp, layers, dp.sources, plan.source_layers, dp.faces, dp.k;
+            plan.integration, buffers)
+        _shunt_matrix!(am, xm, layers, dm.sources, plan.source_layers, dm.faces, dm.k;
+            plan.integration, buffers)
         ap .-= am
         ap ./= 2step
         rp = @view buffers.plus_excitation[rows, :]
         rm = @view buffers.minus_excitation[rows, :]
-        _shunt_rhs!(rp, xp, @view(dp.terminals[start:stop]), plus, dp.k)
-        _shunt_rhs!(rm, xm, @view(dm.terminals[start:stop]), minus, dm.k)
+        _shunt_rhs!(rp, xp, layers, @view(dp.terminals[start:stop]), dp.k)
+        _shunt_rhs!(rm, xm, layers, @view(dm.terminals[start:stop]), dm.k)
         target = @view buffers.drive[start:stop, :]
         target .= (rp .- rm) ./ (2step)
         mul!(target, ap, solved.coefficients, -1.0, 1.0)
