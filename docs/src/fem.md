@@ -131,7 +131,11 @@ The complete equations and terminal conditions are specified in
 [`FEM.LineCableModelsFEM`](@ref), with the potential-equation reference
 [Ciuprina2024](@cite).
 
-One imposed axial current excites each column. The native measurement is
+One imposed axial current excites each column. Terminal currents enter the
+native right-hand side directly. The boundary and tree-gauge constraints are
+fixed during preprocessing; changing columns does not repeat constraint
+processing. The metal-drive weak terms are assembled only on their conductor
+support. The native measurement is
 
 ```math
 P_{ij}=\frac{1}{I_j}\int_{\ell_i}(\nabla v+j\omega b)\cdot d\ell,

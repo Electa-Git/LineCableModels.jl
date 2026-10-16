@@ -72,6 +72,10 @@ calculations per iteration. Compare its final relative residual with the
 relative tolerance, or its true residual norm with the absolute tolerance.
 Detached mode leaves interpretation of these native diagnostics to the user.
 
+Terminal currents are explicit right-hand-side sources. Each excitation reuses
+the fixed boundary and gauge constraints established during preprocessing.
+Metal-drive weak terms are assembled only on their conductor support.
+
 Managed Julia runs prepare GetDP's boundary-first gauge tree using disjoint
 sets and store the measurement field on a one-ring element band around the
 floating measurement lines. Detached execution retains GetDP's native tree

@@ -155,17 +155,16 @@ Function {
 
 Include "pml.pro";
 
+Function {
+  For t In {1:NumTerminals}
+    FEMTerminalDrive[Terminal~{t}] = Complex[UnitSource * ($FEMBasisTerminal == t), 0.];
+  EndFor
+}
+
 Constraint {
   { Name FEMMagneticVectorPotential;
     Case {
       { Region Sur_Dirichlet_Mag; Value 0.; }
-    }
-  }
-  { Name FEMTerminalCurrent;
-    Case {
-      For t In {1:NumTerminals}
-        { Region Terminal~{t}; Value $FEM_I~{t}; }
-      EndFor
     }
   }
   { Name FEMTransverseBoundary; Type Assign;
@@ -200,11 +199,9 @@ FunctionSpace {
       }
       GlobalQuantity {
         { Name A; Type AliasOf; NameOfCoef af; }
-        { Name I; Type AssociatedWith; NameOfCoef af; }
       }
       Constraint {
         { NameOfCoef ae; EntityType NodesOf; NameOfConstraint FEMMagneticVectorPotential; }
-        { NameOfCoef I; EntityType Auto; NameOfConstraint FEMTerminalCurrent; }
       }
     }
   Else
@@ -227,10 +224,6 @@ FunctionSpace {
     }
     GlobalQuantity {
       { Name U; Type AliasOf; NameOfCoef ur; }
-      { Name I; Type AssociatedWith; NameOfCoef ur; }
-    }
-    Constraint {
-      { NameOfCoef I; EntityType Auto; NameOfConstraint FEMTerminalCurrent; }
     }
   }
 
@@ -277,11 +270,9 @@ Formulation {
       { Name a; Type Local; NameOfSpace Hcurl_a_FEM_2D; }
       If(PerfectConductors)
         { Name A; Type Global; NameOfSpace Hcurl_a_FEM_2D [A]; }
-        { Name I; Type Global; NameOfSpace Hcurl_a_FEM_2D [I]; }
       Else
       { Name ur; Type Local; NameOfSpace Hregion_u_FEM_2D; }
       { Name U; Type Global; NameOfSpace Hregion_u_FEM_2D [U]; }
-      { Name I; Type Global; NameOfSpace Hregion_u_FEM_2D [I]; }
       EndIf
       { Name bt; Type Local; NameOfSpace Hcurl_bt_FEM_2D; }
       { Name v; Type Local; NameOfSpace Hgrad_v_FEM_2D; }
@@ -294,7 +285,7 @@ Formulation {
           In DomainMedia_Ele; Jacobian Vol; Integration I1; }
         Galerkin { [Complex[0,omega[]] * sePml[] * Dof{a}, {a}];
           In DomainMedia_Ele; Jacobian Vol; Integration I1; }
-        GlobalTerm { [-Dof{I}, {A}]; In Terminals; }
+        GlobalTerm { [-FEMTerminalDrive[], {A}]; In Terminals; }
       Else
       Galerkin {
         [nuPml[] * Dof{d a}, {d a}];
@@ -306,13 +297,13 @@ Formulation {
       Galerkin { [Complex[0,omega[]] * seZ[] * Dof{a}, {a}];
         In Domain_Mag; Jacobian Vol; Integration I1; }
       Galerkin { [seZ[] * Dof{ur}, {a}];
-        In Domain_Mag; Jacobian Vol; Integration I1; }
+        In ConductorMaterialRegions; Jacobian Vol; Integration I1; }
       Galerkin { [Complex[0,omega[]] * seZ[] * Dof{a}, {ur}];
-        In Domain_Mag; Jacobian Vol; Integration I1; }
+        In ConductorMaterialRegions; Jacobian Vol; Integration I1; }
       Galerkin { [seZ[] * Dof{ur}, {ur}];
-        In Domain_Mag; Jacobian Vol; Integration I1; }
+        In ConductorMaterialRegions; Jacobian Vol; Integration I1; }
 
-        GlobalTerm { [Dof{I}, {U}]; In DomainCWithI; }
+        GlobalTerm { [FEMTerminalDrive[], {U}]; In DomainCWithI; }
       EndIf
       If(FiniteGamma)
         // B_t = curl_t(a zhat) - Gamma^2 zhat x bt.
@@ -352,22 +343,15 @@ Formulation {
         Galerkin { [-gamma2[] * seZ[] * Dof{v}, {v}];
           In DomainMedia_Ele; Jacobian Vol; Integration I1; }
       EndIf
-      GlobalTerm { [-Dof{I}, {V}]; In Terminals; }
+      GlobalTerm { [-FEMTerminalDrive[], {V}]; In Terminals; }
     }
   }
 }
 
-Macro FEMSetBasisCurrent
-For t In {1:NumTerminals}
-  Evaluate[$FEM_I~{t} = Complex[
-    UnitSource * ($FEMBasisTerminal == t), 0.]];
-EndFor
-Return
-
 Macro FEMSolveBasis
 Evaluate[$FEMConstraintStart = GetWallClockTime[]];
-Call FEMSetBasisCurrent;
-UpdateConstraint[Sys_FEM];
+// Boundaries and the gauge are fixed by preprocessing. Only the terminal
+// drive changes, and GenerateRHSGroup evaluates it without a constraint pass.
 Evaluate[$FEMAssemblyStart = GetWallClockTime[]];
 Test[$FEMFirstSolve || !ReuseFactorization]{
   Generate[Sys_FEM];

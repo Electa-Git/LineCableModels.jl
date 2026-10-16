@@ -9,6 +9,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- FEM terminal currents enter the right-hand side directly, avoiding repeated
+  processing of fixed boundary and gauge constraints for each excitation.
+  Metal-drive weak terms are assembled only on their conductor support.
 - Managed FEM meshes carry the original GetDP boundary-first gauge tree,
   prepared with disjoint sets, and a measurement-element band. Full field maps
   retain their full support; detached execution retains native tree construction
