@@ -1,3 +1,5 @@
+import ..Engine: completion_details
+
 function computation_options(::Type{<:LineModelFormulation}, record::ComputationOptions)::ComputationOptions
     options = record.data
     isempty(setdiff(keys(options), (:verbosity, :timing))) ||
@@ -38,7 +40,7 @@ function compute(problem::LineModelProblem, formulation::LineModelFormulation;
         inputs=get(details(segment).data, :inputs, nothing))
     execution.data.timing && (retained = merge(retained, (timing=timing,)))
     return LineModel(model, input.coordinates, input.length, input.frequencies,
-        errors, passive, dc, ComputationDetails(retained))
+        errors, passive, dc, completion_details(retained))
 end
 
 function computation_details(::Type{<:LineModelFormulation}, result::LineModel)::ComputationDetails

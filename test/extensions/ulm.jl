@@ -54,3 +54,38 @@
     @test passivity(fdcm).perturbation === nothing
     @test all(isfinite, fitting_error(fdcm).propagation.rms)
 end
+
+@testitem "UniversalLineModel / fitting selection sweep" tags=[:extension, :ulm] setup=[TestFixtures] begin
+    using UniversalLineModel
+
+    f = 10.0 .^ range(0, 6; length=31)
+    problem = TestFixtures.three_bare_wires_problem(; frequencies=f, line_length=1000.0)
+    phase = compute(problem, LineParametersFormulation())
+    modal = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+    segment = PropagationParameters(modal; line_length=1000.0)
+    segments = ParametricResult(Combinatorial(ModalAnalysisFormulation()), [segment])
+    problems = Gridspace{LineModelProblem}(segments)
+    formulations = LineModelFormulation(Grid([:ulm, :fdcm]);
+        options=(yc=(npoles=8,), h=(npoles=8,), passivity=false))
+    started = time_ns()
+    run = try
+        compute(problems, formulations)
+    finally
+        @info "Line model selection sweep" requested_fits=2 wall_seconds=(time_ns() - started) / 1e9
+    end
+    @test run isa ParametricResult
+    @test length(run) == 2
+    @test all(value -> value isa LineModel, run)
+    @test run.axes.problems === problems
+    @test run.axes.formulations == collect(formulations)
+    for j in 1:length(formulations)
+        model = run[1, j]
+        @test model === run[j]
+        @test details(model).data.formula == formula_id(run.axes.formulations[j].formula)
+        @test details(model).data.options == formulation_options(run.axes.formulations[j].formula).data
+        @test line_length(model) == line_length(segment)
+        for quantity in values(fitting_error(model)), statistic in values(quantity)
+            @test all(isfinite, statistic)
+        end
+    end
+end

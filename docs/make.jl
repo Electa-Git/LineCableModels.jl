@@ -236,6 +236,7 @@ makedocs(;
             "Cable data model" => "data-model.md",
             "Modeling and results" => "usage.md",
             "Modal analysis" => "modal_analysis.md",
+            "Line models" => "line_models.md",
             "Transient analysis" => "transient_analysis.md",
             "Gmsh/GetDP FEM backend" => "fem.md",
             "Gridspace and uncertainty" => "gridspace.md"

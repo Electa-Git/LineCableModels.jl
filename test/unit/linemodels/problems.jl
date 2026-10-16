@@ -52,8 +52,11 @@ end
     @test [point.segment for point in problems] == collect(segments)
     for identifier in (:ulm, :fdcm)
         selected = LineModelFormulation(identifier)
-        @test_throws ArgumentError("load UniversalLineModel to fit :$identifier") compute(first(problems), selected)
-        @test_throws ArgumentError("load UniversalLineModel to fit :$identifier") compute(problems, selected)
+        for point in problems
+            @test_throws ArgumentError("load UniversalLineModel to fit :$identifier") invoke(
+                LM.fit, Tuple{LM.Formula{identifier}, Vararg{Any}},
+                selected.formula, point, selected.formula.parameters, selected.formula.options)
+        end
     end
     @test_throws ArgumentError("not implemented yet") compute(first(problems), LineModelFormulation(:marti))
     @test_throws ArgumentError("not implemented yet") LM.fit(LM.Formula(:marti), nothing, (;), FormulationOptions())

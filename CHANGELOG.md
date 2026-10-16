@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Line models sweep over Gridspaces of segments and formula selections with one result type per sweep. The user guide has a page on fitted line models.
+
 - The `:td` transient formulation runs UniversalLineModel simulations of fitted wideband line models.
 
 - Line models now have problems, formulations, wideband and modal records, selectors and observations. The `:ulm` and `:fdcm` selections require UniversalLineModel. The `:marti` selection throws an error.
