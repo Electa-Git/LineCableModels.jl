@@ -13,7 +13,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - UniversalLineModel is a weak dependency with the extension `LineCableModelsUniversalLineModelExt`. The test environment pins it by Git revision.
 
-- Transient analysis grammar includes terminal assignments, formulations, response arrays and raw voltage and current observations. Responses retain time coordinates for observations, tables and saved archives. The numerical Laplace transform computes terminal voltages and currents from the exact line two-port.
+- Transient analysis grammar includes terminal assignments, formulations, response arrays and raw voltage and current observations. Responses retain time coordinates for observations, tables and saved archives. The numerical Laplace transform computes terminal voltages and currents from the exact line two-port. Transient responses provide peak, arrival time, damping and DC offset KPIs, RMS comparison, terminal Gridspace sweeps and a user guide.
 
 - Problem JSON preserves σ. PSCAD line constants, FEM computations and ATP matrix exports refuse σ ≠ 0.
 

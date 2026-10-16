@@ -12,6 +12,7 @@ module TransientAnalysis
 export TerminalImpedance, Waveform, Step, Cosine, DoubleExponential, Matched
 export TransientAnalysisProblem, TransientFormulation, TransientResponse
 export voltage, current, Formula, formula_id, formulas
+export peak, arrival_time, damping, dc_offset
 
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
@@ -24,10 +25,11 @@ import ...Commons: AbstractProblemDefinition, AbstractFormulation, AbstractCoreR
 import ...Commons
 import ...Units
 import ..Engine: LineParameters, LineParametersProblem, LineParametersFormulation, Formulation,
-                 description, formula_id
+                 description, formula_id, compare, RMSError
 import ...TextDisplay
 using Logging: with_logger, current_logger
 using LinearAlgebra: eigen!, lu!, ldiv!, mul!
+using Statistics: mean
 #! explicit-imports: on
 
 include("terminals.jl")
@@ -36,6 +38,7 @@ include("formulations.jl")
 include("interfaces.jl")
 public respond!
 include("results.jl")
+include("kpis.jl")
 include("compute.jl")
 
 #! explicit-imports: off

@@ -84,6 +84,7 @@ export LineModels, LineModelProblem, LineModelFormulation, LineModel, WidebandMo
 export poles, residues, delays, fitting_error, passivity
 export TransientAnalysis, TransientAnalysisProblem, TransientFormulation, TransientResponse
 export TerminalImpedance, Waveform, Step, Cosine, DoubleExponential, Matched, voltage, current
+export peak, arrival_time, damping, dc_offset
 
 # Import/Export:
 export export_data, import_data, save, load!
@@ -200,7 +201,8 @@ using .Engine.LineModels: LineModelProblem, LineModelFormulation, LineModel,
 using .Engine: TransientAnalysis
 using .Engine.TransientAnalysis: TransientAnalysisProblem, TransientFormulation,
                    TransientResponse, TerminalImpedance, Waveform, Step, Cosine,
-                   DoubleExponential, Matched, voltage, current
+                   DoubleExponential, Matched, voltage, current, peak, arrival_time,
+                   damping, dc_offset
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
