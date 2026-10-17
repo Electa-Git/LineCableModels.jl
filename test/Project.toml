@@ -39,7 +39,7 @@ XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 [sources]
 LineCableModels = {path = ".."}
 ReLint = {url = "https://github.com/RelationalAI-oss/ReLint.jl", rev = "61079427d9fc91cb3ead8f5b287aa3ae9b2269cb"}
-UniversalLineModel = {url = "https://github.com/amaurigmartins/ULM.git", rev = "0682b277d8eeddbc8be0f4cc78a54f7866334c6b", subdir = "UniversalLineModel"}
+UniversalLineModel = {url = "https://github.com/amaurigmartins/ULM.git", rev = "5b68fa7637fa9a6eb1fddbcb9a715d456387a917", subdir = "UniversalLineModel"}
 
 [compat]
 Base64 = "1.11"

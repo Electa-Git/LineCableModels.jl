@@ -8,7 +8,7 @@
 # together with a change of this environment.
 [environment]
 julia = "1.12.7"
-manifest = "13368287d5900fc61793f2772880c417861295f655c250c33d9f51ceb7b3792e"
+manifest = "b70fab4db62510da80f6467996511aeda4c0aa723e3d39de2ba285060750d5c1"
 
 [directions]
 inferred = "floor"
@@ -110,7 +110,7 @@ allocations = "ceiling"
 "three_layer | 2 frequencies | allocations" = 6475
 "three_layer | 2 frequencies | bytes" = 368512
 "three_layer_before_fd | 2 frequencies | allocations" = 6788
-"three_layer_before_fd | 2 frequencies | bytes" = 381184
+"three_layer_before_fd | 2 frequencies | bytes" = 381152
 "trefoil | 2 frequencies | allocations" = 82028
 "trefoil | 2 frequencies | bytes" = 2674504
 "coaxial | 4 frequencies | allocations" = 6049
