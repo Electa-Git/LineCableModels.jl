@@ -43,6 +43,7 @@ public pscad_setting
 
 include("formulations.jl")
 include("importexport/pscad.jl")
+include("importexport/canvas.jl")
 include("results.jl")
 include("validate.jl")
 include("remote/configuration.jl")

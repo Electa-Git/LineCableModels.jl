@@ -21,18 +21,26 @@ const _PSCAD_IDS = (
     first_physical_component = 100000010
 )
 
-function _pscad_project_settings!(project)
+"""
+    _pscad_project_settings!(project[, duration, step, sample, output_stem])
+
+Write project settings. Time arguments are in seconds. PSCAD stores integration
+and sampling steps in microseconds. Supplying a duration enables output to
+`output_stem.out`. With no time arguments, retain the line-constants settings.
+"""
+function _pscad_project_settings!(project, duration = nothing, step = nothing,
+        sample = nothing, output_stem = nothing)
     settings = Pair{String, String}[
     "creator" => "LineCableModels.jl",
-    "time_duration" => "0.5",
-    "time_step" => "5",
-    "sample_step" => "250",
+    "time_duration" => duration === nothing ? "0.5" : _pscad_value(duration),
+    "time_step" => step === nothing ? "5" : _pscad_value(step * 1e6),
+    "sample_step" => sample === nothing ? "250" : _pscad_value(sample * 1e6),
     "chatter_threshold" => ".001",
     "branch_threshold" => ".0005",
     "StartType" => "0",
     "startup_filename" => "\$(Namespace).snp",
-    "PlotType" => "0",
-    "output_filename" => "\$(Namespace).out",
+    "PlotType" => duration === nothing ? "0" : "1",
+    "output_filename" => output_stem === nothing ? "\$(Namespace).out" : "$output_stem.out",
     "SnapType" => "0",
     "SnapTime" => "0.3",
     "snapshot_filename" => "\$(Namespace).snp",
@@ -381,10 +389,26 @@ function _pscad_cable_parameters(
     return parameters
 end
 
+"""
+    _pscad_project(system, earth, base_frequency, blueprints, formulation, temperature)
+
+Keywords: `native_settings`, `settings` and `fit` (each an empty named tuple by default),
+and `model` (`:fd_phase` by default).
+
+Build a project document. Optional `settings` contains `duration`, `step`,
+`sample` in seconds and `output_stem`. `fit` overrides native fitting fields.
+FD-Phase accepts `FS`, `FE`, `Numf`, `YMaxP`, `AMaxP`, `YMaxE`, `AMaxE`,
+`DCenab`, `DCCOR`, `CPASS` and `MaxRPtol`. FD-Mode uses its own native fields,
+including transformation frequency `FT` in hertz and impedance fields `ZMaxP`
+and `ZMaxE`. Error fields are percentages. Ordinary line-constants exports keep
+their original sparse parameter list. Omitted fields use component defaults.
+"""
 function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency,
-        blueprints, formulation, temperature; native_settings::NamedTuple = (;))
+        blueprints, formulation, temperature; native_settings::NamedTuple = (;),
+        settings::NamedTuple = (;), model::Symbol = :fd_phase, fit::NamedTuple = (;))
     isempty(setdiff(keys(native_settings), (:ground, :frequency))) || throw(ArgumentError(
         "PSCAD native settings require ground and frequency fields"))
+    model in (:fd_phase, :fd_mode) || throw(ArgumentError("unsupported PSCAD model $model"))
     document = XMLDocument()
     project = ElementNode("project")
     setroot!(document, project)
@@ -394,7 +418,12 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
         schema = "",
         Target = "EMTDC"
     ))
-    _pscad_project_settings!(project)
+    if isempty(settings)
+        _pscad_project_settings!(project)
+    else
+        _pscad_project_settings!(project, settings.duration, settings.step,
+            settings.sample, settings.output_stem)
+    end
     _pscad_project_scaffolding!(project)
 
     definitions = addelement!(project, "definitions")
@@ -427,16 +456,38 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
     ])
 
     identifier = _PSCAD_IDS.first_physical_component
-    frequency_parameters = [
-        "FS" => "0.5", "FE" => "1.0E6", "Numf" => "100",
-        "DCCOR" => "1", "CPASS" => "0", "enablf" => "1", "shntcab" => "0.0"]
+    # Native bindings and defaults: mhi-xml 1.3.0, pscad/twm_types.py:120-181.
+    # Keep the historical sparse phase list for an ordinary constants export.
+    if model == :fd_phase
+        binding = _PSCAD_FREQUENCY_BINDING
+        frequency_parameters = [
+            "FS" => "0.5", "FE" => "1.0E6", "Numf" => "100",
+            "DCCOR" => "1", "CPASS" => "0", "enablf" => "1", "shntcab" => "0.0"]
+        if !isempty(settings) || !isempty(fit)
+            append!(frequency_parameters, [
+                "YMaxP" => "20", "AMaxP" => "20", "YMaxE" => "0.2",
+                "AMaxE" => "0.2", "DCenab" => "0", "MaxRPtol" => "2000000.0"])
+        end
+    else
+        binding = "master:Line_FreDep_Options"
+        frequency_parameters = [
+            "FS" => "0.5", "FE" => "1.0E6", "FT" => "2000",
+            "ZMaxP" => "20", "AMaxP" => "20", "ZMaxE" => "1.0",
+            "AMaxE" => "1.0", "Interp1" => "1", "Output" => "0",
+            "W1" => "1.0", "W2" => "1000.0", "W3" => "1.0", "Inflen" => "0"]
+    end
     for (field, setting) in pairs(get(native_settings, :frequency, (;)))
         index = findfirst(pair -> first(pair) == string(field), frequency_parameters)
         index === nothing &&
             throw(ArgumentError("unsupported PSCAD frequency field $field"))
         frequency_parameters[index] = string(field) => _pscad_value(setting.value)
     end
-    _pscad_user!(schematic, identifier, _PSCAD_FREQUENCY_BINDING,
+    for (field, value) in pairs(fit)
+        index = findfirst(pair -> first(pair) == string(field), frequency_parameters)
+        index === nothing && throw(ArgumentError("unsupported PSCAD $model fitting field $field"))
+        frequency_parameters[index] = string(field) => _pscad_value(value)
+    end
+    _pscad_user!(schematic, identifier, binding,
         frequency_parameters; x = 576, y = 180)
     addelement!(schematic, "grouping")
     identifier += 1

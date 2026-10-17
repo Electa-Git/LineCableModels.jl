@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- PSCAD project documents support transient settings, fitting overrides, FD-Mode options and canvas primitives on the 18-pixel grid.
+
 - Line models sweep over Gridspaces of segments and formula selections with one result type per sweep. The user guide has a page on fitted line models.
 
 - The `:td` transient formulation runs UniversalLineModel simulations of fitted wideband line models.
