@@ -11,9 +11,9 @@ function _output_matches(roots, suffix)
     return matches
 end
 
-function _data_rows(path::AbstractString)
+function _data_rows(path::AbstractString; fortran::Bool = false)
     return count(eachline(path)) do line
-        fields=split(strip(line))
+        fields=split(strip(fortran ? replace(line, 'D' => 'E', 'd' => 'e') : line))
         length(fields) >= 2 || return false
         return tryparse(Float64, fields[1]) !== nothing &&
                tryparse(Float64, fields[2]) !== nothing
@@ -59,4 +59,74 @@ function _wait_output(
         "PSCAD output $suffix did not become complete within $timeout seconds; " *
         "last observed $observed",
     ))
+end
+
+# INF parsing: PowerImpedance.jl `src/PSCAD/remote/files.jl:23-51`.
+# Legacy INF files are Windows-1252.
+function _inf_entries(path::AbstractString)
+    bytes = read(path)
+    special = ('€', '\u0081', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹',
+        'Œ', '\u008d', 'Ž', '\u008f', '\u0090', '‘', '’', '“', '”', '•', '–', '—',
+        '˜', '™', 'š', '›', 'œ', '\u009d', 'ž', 'Ÿ')
+    text = join(byte in 0x80:0x9f ? special[Int(byte) - 0x7f] : Char(byte)
+    for byte in bytes)
+    entries = NamedTuple{(:index, :desc, :group), Tuple{Int, String, String}}[]
+    for line in split(text, '\n')
+        desc = match(r"\bDesc=\"([^\"]*)\"", line)
+        desc === nothing && continue
+        isempty(desc[1]) &&
+            throw(ArgumentError("PSCAD INF contains an empty channel name: $path"))
+        pgb = match(r"PGB\((\d+)\)", line)
+        group = match(r"\bGroup=\"([^\"]*)\"", line)
+        push!(entries,
+            (index = pgb === nothing ? length(entries) + 1 : parse(Int, pgb[1]),
+                desc = String(desc[1]), group = group === nothing ? "" : String(group[1])))
+    end
+    isempty(entries) && throw(ArgumentError("PSCAD INF contains no channels: $path"))
+    sort!(entries; by = entry -> entry.index)
+    [entry.index for entry in entries] == collect(1:length(entries)) ||
+        throw(ArgumentError("PSCAD INF channel indices must be consecutive from 1: $path"))
+    return entries
+end
+
+# Output waiting: PowerImpedance.jl `src/PSCAD/remote/files.jl:77-137`.
+function _wait_outputs(roots, stem::AbstractString, expected_rows::Integer;
+        timeout::Real = 60, poll_interval::Real = 0.25)
+    expected_rows > 0 || throw(ArgumentError("expected_rows must be positive"))
+    isfinite(timeout) && timeout > 0 || throw(ArgumentError("invalid output timeout"))
+    isfinite(poll_interval) && poll_interval > 0 ||
+        throw(ArgumentError("invalid output poll interval"))
+    deadline = time() + timeout
+    previous = nothing
+    observed = "no complete output files"
+    while time() < deadline
+        matches = filter(path -> lowercase(basename(path)) == lowercase(stem * ".inf"),
+            _output_matches(roots, ".inf"))
+        length(matches) <= 1 || throw(ArgumentError("multiple PSCAD INF files: $matches"))
+        if length(matches) == 1
+            inf = only(matches)
+            count = try
+                length(_inf_entries(inf))
+            catch
+                0
+            end
+            outs = [joinpath(dirname(inf), stem * "_" * lpad(string(index), 2, '0') * ".out")
+                    for index in 1:cld(count, 10)]
+            found = filter(isfile, outs)
+            state = (inf, count, filesize(inf), found, filesize.(found))
+            observed = "INF: $inf; OUT files: $found"
+            if count > 0 && length(found) == length(outs) && state == previous
+                rows = [_data_rows(path; fortran = true) for path in outs]
+                observed *= "; rows: $rows; expected $expected_rows"
+                any(>(expected_rows), rows) && throw(ArgumentError(observed))
+                if state[3] == filesize(inf) && state[5] == filesize.(outs) &&
+                        all(==(expected_rows), rows)
+                    return (; inf, outs)
+                end
+            end
+            previous = state
+        end
+        sleep(poll_interval)
+    end
+    throw(ArgumentError("PSCAD output timeout after $timeout seconds; $observed"))
 end

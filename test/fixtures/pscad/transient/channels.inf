@@ -1,0 +1,3 @@
+PGB(3) Output Desc="receiving:cable:1:sheath:v" Group="Main" Units="V"
+PGB(1) Output Desc="sending:cable:1:core:i" Group="Main" Units="A"
+PGB(2) Output Desc="sending:cable:1:core:v" Group="Main" Units="V"

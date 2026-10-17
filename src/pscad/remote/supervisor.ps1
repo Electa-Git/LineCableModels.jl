@@ -26,7 +26,9 @@ param(
     [int] $Verbosity,
     [Parameter(Mandatory = $true)]
     [ValidateRange(1, 2147483647)]
-    [int] $TimeoutSeconds
+    [int] $TimeoutSeconds,
+    [ValidateSet("constants", "transient")]
+    [string] $Mode = "constants"
 )
 
 $ErrorActionPreference = "Stop"
@@ -200,6 +202,7 @@ $commandValues = @(
     $ProjectName,
     $OutputStem,
     $Formulation,
+    $Mode,
     $stdoutPath,
     $stderrPath,
     $exitPath
@@ -222,7 +225,8 @@ $runnerArguments = @(
     "`"$FrequencyEnd`"",
     "`"$FrequencyIncrements`"",
     "`"$PSCADVersion`"",
-    "`"$Verbosity`""
+    "`"$Verbosity`"",
+    "`"$Mode`""
 )
 $invokeLines = @(
     "@echo off",

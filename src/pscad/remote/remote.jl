@@ -157,17 +157,34 @@ function _run_remote(
     return stdout_value
 end
 
+function _remote_protocol(formulation::PSCADFormulation, frequencies_value)
+    label = only(description([formulation]; roles = [:none]))
+    return (; mode = "constants", label,
+        start_message = "Executing PSCAD frequency scan",
+        start_fields = (; formulation = label, frequencies = length(frequencies_value)),
+        completed_message = "PSCAD frequency scan completed",
+        elapsed_field = :compile_call_seconds, elapsed_scope = PSCAD_TIMING_SCOPE)
+end
+
+function _remote_protocol(formulation::PSCADTransientFormulation, frequencies_value)
+    return (; mode = "transient", label = string(formulation.model),
+        start_message = "Executing PSCAD transient run",
+        start_fields = (; model = formulation.model),
+        completed_message = "PSCAD transient run completed",
+        elapsed_field = :run_call_seconds, elapsed_scope = "project.run()")
+end
+
 function _supervisor_command(
         config::RemoteConfig,
         shared_case::AbstractString,
         remote_case::AbstractString,
         project_name::AbstractString,
-        formulation::PSCADFormulation,
+        formulation::Union{PSCADFormulation, PSCADTransientFormulation},
         frequencies_value::AbstractVector;
         output_stem::AbstractString,
         verbosity::Integer = 0
 )
-    label = only(description([formulation];roles=[:none]))
+    protocol = _remote_protocol(formulation, frequencies_value)
     increments = length(frequencies_value) - 1
     shared_supervisor = _remote_path(shared_case, "toolkit", "supervisor.ps1")
     return join(
@@ -179,7 +196,8 @@ function _supervisor_command(
             "-Python $(_ps_quote(config.python_executable))",
             "-ProjectName $(_ps_quote(project_name))",
             "-OutputStem $(_ps_quote(output_stem))",
-            "-Formulation $(_ps_quote(label))",
+            "-Mode $(_ps_quote(protocol.mode))",
+            "-Formulation $(_ps_quote(protocol.label))",
             "-FrequencyStart $(_ps_quote(string(first(frequencies_value))))",
             "-FrequencyEnd $(_ps_quote(string(last(frequencies_value))))",
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
@@ -311,11 +329,35 @@ function _diagnostic_tail(path::AbstractString; count::Integer = 12)
     return join(last(lines, min(count, length(lines))), '\n')
 end
 
+function validate(directory::AbstractString, ::PSCADFormulation;
+        output_stem::AbstractString)
+    required = ("pscad-console.txt", "timing.txt", "result_zm.out", "result_zp.out",
+        "result_ym.out", "result_yp.out")
+    for name in required
+        path = joinpath(directory, name)
+        isfile(path) || throw(ArgumentError("required PSCAD output is missing: $path"))
+        filesize(path) > 0 || throw(ArgumentError("required PSCAD output is empty: $path"))
+    end
+    return directory
+end
+
+function validate(directory::AbstractString, ::PSCADTransientFormulation;
+        output_stem::AbstractString)
+    required = ("pscad-console.txt", "timing.txt", "execution.toml", output_stem * ".inf")
+    for name in required
+        path = joinpath(directory, name)
+        isfile(path) || throw(ArgumentError("required PSCAD output is missing: $path"))
+        filesize(path) > 0 || throw(ArgumentError("required PSCAD output is empty: $path"))
+    end
+    read_pscad_transient(directory; stem = output_stem)
+    return directory
+end
+
 function run_remote_pscad(
         config::RemoteConfig,
         local_project::AbstractString,
         local_output::AbstractString,
-        formulation::PSCADFormulation,
+        formulation::Union{PSCADFormulation, PSCADTransientFormulation},
         frequencies_value::AbstractVector;
         output_stem::AbstractString,
         verbosity::Integer = 0
@@ -347,7 +389,8 @@ function run_remote_pscad(
         output_stem,
         verbosity
     )
-    verbosity >= 2 && @debug "Executing PSCAD frequency scan" host=config.host run_id formulation=only(description([formulation];roles=[:none])) frequencies=length(frequencies_value) timeout=config.timeout
+    protocol = _remote_protocol(formulation, frequencies_value)
+    verbosity >= 2 && @debug protocol.start_message host=config.host run_id protocol.start_fields... timeout=config.timeout
     execution_error = try
         _run_remote(
             config,
@@ -389,20 +432,14 @@ function run_remote_pscad(
         ))
     end
     verbosity >= 2 && @debug "Checking PSCAD outputs" host=config.host run_id destination=local_output
-    required = (
-        "pscad-console.txt", "timing.txt", "result_zm.out", "result_zp.out",
-        "result_ym.out", "result_yp.out"
-    )
-    for name in required
-        path = joinpath(local_output, name)
-        isfile(path) || throw(ArgumentError("required PSCAD output is missing: $path"))
-        filesize(path) > 0 || throw(ArgumentError("required PSCAD output is empty: $path"))
-    end
+    validate(local_output, formulation; output_stem)
     elapsed = parse(Float64, strip(read(joinpath(local_output, "timing.txt"), String)))
-    verbosity >= 2 && @debug "PSCAD frequency scan completed" host=config.host run_id compile_call_seconds=elapsed timing_scope=PSCAD_TIMING_SCOPE
+    elapsed_scope = protocol.elapsed_scope
+    elapsed_fields = NamedTuple{(protocol.elapsed_field,)}((elapsed,))
+    verbosity >= 2 && @debug protocol.completed_message host=config.host run_id elapsed_fields... timing_scope=elapsed_scope
     return (
         elapsed_seconds = elapsed,
-        elapsed_scope = PSCAD_TIMING_SCOPE,
+        elapsed_scope,
         exit_code = 0,
         stdout_path,
         stderr_path,

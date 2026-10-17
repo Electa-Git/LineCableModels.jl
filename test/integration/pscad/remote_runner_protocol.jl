@@ -198,3 +198,66 @@ end
         @test occursin("synthetic compile failure",read(joinpath(output,"pscad-console.txt"),String))
     end
 end
+
+const PYTHON_TRANSIENT_FIXTURE=raw"""
+import shutil
+
+def transient_parameters(self, **updates):
+    if not hasattr(self, "_settings"):
+        self._settings = dict(time_duration="0.019", time_step="1000",
+                              sample_step="1000", PlotType="1", output_filename="unset.out")
+    self._settings.update(updates)
+    return dict(self._settings)
+
+def transient_run(self):
+    root = os.environ["LCM_RUNNER_FIXTURE_OUTPUT"]
+    stem = self.parameters()["output_filename"][:-4]
+    target = os.path.join(root, "native")
+    os.makedirs(target, exist_ok=True)
+    fixture = os.environ["LCM_RUNNER_FIXTURE_CHANNELS"]
+    shutil.copyfile(os.path.join(fixture, "channels.inf"), os.path.join(target, stem + ".inf"))
+    shutil.copyfile(os.path.join(fixture, "channels_01.out"), os.path.join(target, stem + "_01.out"))
+
+Project.parameters = transient_parameters
+Project.run = transient_run
+"""
+
+@testset "Remote PSCAD transient runner protocol without PSCAD" begin
+    pyexec(PYTHON_AUTOMATION_FIXTURE,Main)
+    pyexec(PYTHON_TRANSIENT_FIXTURE,Main)
+    root=mkpath(joinpath(REPOSITORY_ROOT,".linecablemodels","test","transient-runner"))
+    mktempdir(root) do directory
+        output=joinpath(directory,"outputs")
+        arguments=[runner_arguments(directory,output); "transient"]
+        @test arguments[4] == "fixture"
+        @test last(arguments) == "transient"
+        @test_throws ArgumentError main([arguments[1:10]; "invalid"])
+        environment=pyimport("os").environ
+        environment["LCM_RUNNER_FIXTURE_OUTPUT"]=output
+        environment["LCM_RUNNER_FIXTURE_CHANNELS"]=joinpath(
+            REPOSITORY_ROOT,"test","fixtures","pscad","transient")
+        environment["LCM_RUNNER_FIXTURE_FAIL"]="1"
+        try
+            @test main(arguments) === nothing
+        finally
+            for name in ("LCM_RUNNER_FIXTURE_OUTPUT","LCM_RUNNER_FIXTURE_CHANNELS",
+                    "LCM_RUNNER_FIXTURE_FAIL")
+                environment.pop(name,nothing)
+            end
+        end
+        @test TOML.parsefile(joinpath(output,"execution.toml")) ==
+            Dict("mode"=>"transient","stem"=>"fixture")
+        settings=TOML.parsefile(joinpath(output,"native-settings.toml"))["project"]
+        @test settings["output_filename"] == "fixture.out"
+        @test settings["sample_step"] == "1000"
+        @test parse(Float64,read(joinpath(output,"timing.txt"),String)) >= 0
+        @test isfile(joinpath(output,"solver.toml"))
+        @test !isfile(joinpath(output,"result_zm.out"))
+        for name in ("fixture.inf","fixture_01.out")
+            @test read(joinpath(output,name)) == read(joinpath(output,"native",name))
+        end
+        console=read(joinpath(output,"pscad-console.txt"),String)
+        @test occursin("Starting PSCAD project.run()",console)
+        @test occursin("Collected PSCAD transient outputs",console)
+    end
+end

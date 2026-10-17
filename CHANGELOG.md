@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- PSCAD runs transient projects through the station runner and reads INF and OUT channels into terminal voltage and current responses.
+
 - PSCAD exports a transient analysis problem through `PSCADTransientFormulation`, with exposed cable terminals, sources, terminations, voltage and current channels, and a matched end as an extension of the same cable.
 
 - PSCAD project documents support transient settings, fitting overrides, FD-Mode options and canvas primitives on the 18-pixel grid.

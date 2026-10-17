@@ -330,7 +330,7 @@
 "src/pscad/compute.jl" = 1
 "src/pscad/importexport/import.jl" = 2
 "src/pscad/importexport/schema.jl" = 1
-"src/pscad/results.jl" = 3
+"src/pscad/results.jl" = 1
 "src/textdisplay/TextDisplay.jl" = 2
 "src/units/scaling.jl" = 1
 "src/units/units.jl" = 2

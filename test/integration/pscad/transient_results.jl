@@ -1,0 +1,108 @@
+@testitem "PSCAD / transient channels and terminal response" tags=[:integration, :pscad] setup=[TestFixtures] begin
+    const P = LineCableModels.PSCAD
+    directory = joinpath(@__DIR__, "..", "..", "fixtures", "pscad", "transient")
+    record = P.read_pscad_transient(directory; stem = "channels")
+    @test record.time == collect(0:19) ./ 1000
+    @test Set(keys(record.channels)) == Set(("sending:cable:1:core:v",
+        "sending:cable:1:core:i", "receiving:cable:1:sheath:v"))
+    @test record.channels["sending:cable:1:core:v"] == collect(0:19) .* 10
+    @test record.channels["sending:cable:1:core:i"] == collect(0:19) ./ 2
+    @test record.channels["receiving:cable:1:sheath:v"] == 100 .- collect(0:19)
+    design = TestFixtures.coaxial_design()
+    system = build(LineCableSystem, [design], [(0.0, -1.0)];
+        connections = [Dict(:core => 1, :sheath => 2)], line_length = 600.0)
+    line = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0),
+        frequencies = [1.0, 1e6])
+    problem = TransientAnalysisProblem(line; sending = (Step("cable:1:core", 190.0),),
+        receiving = (), window = (tmax = 0.019, step = 0.001))
+    response = P.read_pscad_transient(record, problem)
+    voltage = zeros(2, 2, 20)
+    current = zeros(2, 2, 20)
+    voltage[1, 1, :] = collect(0:19) .* 10
+    voltage[2, 2, :] = 100 .- collect(0:19)
+    current[1, 1, :] = collect(0:19) ./ 2
+    @test response.t == record.time
+    @test response.coordinates == ["cable:1:core", "cable:1:sheath"]
+    @test response.voltage == voltage
+    @test response.current == current
+    for name in ("sending:cable:1:core:v", "sending:cable:1:core:i")
+        channels = copy(record.channels)
+        delete!(channels, name)
+        @test_throws ArgumentError P.read_pscad_transient((time = record.time, channels), problem)
+    end
+    matched = TransientAnalysisProblem(line; sending = problem.sending,
+        receiving = Matched(), window = problem.window)
+    @test P.read_pscad_transient(record, matched).voltage == voltage
+end
+
+@testitem "PSCAD / transient supervisor arguments" tags=[:integration, :pscad] begin
+    const P = LineCableModels.PSCAD
+    config = P.RemoteConfig("fixture", "shared", "scratch", "julia", "python";
+        local_root = @__DIR__, transport = :ssh)
+    formulation = P.PSCADTransientFormulation(model = :fd_mode)
+    command = P._supervisor_command(config, "shared", "scratch", "generated",
+        formulation, [1.0, 1e6]; output_stem = "channels")
+    @test occursin("-Mode 'transient'", command)
+    @test occursin("-OutputStem 'channels'", command)
+    @test occursin("-Formulation 'fd_mode'", command)
+end
+
+@testitem "PSCAD / constants supervisor command remains unchanged" tags=[:integration, :pscad] begin
+    const P = LineCableModels.PSCAD
+    config = P.RemoteConfig("fixture", "shared", "scratch", "julia", "python";
+        local_root = @__DIR__, transport = :ssh)
+    formulation = Formulation(:pscad)
+    label = only(description([formulation]; roles = [:none]))
+    expected = "& 'shared\\toolkit\\supervisor.ps1' -SharedCase 'shared' " *
+        "-LocalCase 'scratch' -Julia 'julia' -Python 'python' -ProjectName 'generated' " *
+        "-OutputStem 'channels' -Mode 'constants' -Formulation '$label' " *
+        "-FrequencyStart '1.0' -FrequencyEnd '1.0e6' -FrequencyIncrements '1' " *
+        "-PSCADVersion '5.1.0' -Verbosity '0' -TimeoutSeconds '1800'"
+    @test P._supervisor_command(config, "shared", "scratch", "generated",
+        formulation, [1.0, 1e6]; output_stem = "channels") == expected
+end
+
+@testitem "PSCAD / transient completion and output checks" tags=[:integration, :pscad] begin
+    using Logging
+    const P = LineCableModels.PSCAD
+    function P.remote_command(::Val{:transient_completion_fixture}, config::P.RemoteConfig,
+            command::AbstractString)
+        fixture = joinpath(@__DIR__, "..", "..", "fixtures", "pscad", "transient")
+        output = joinpath(config.local_root, "case", "outputs")
+        script = "output = " * repr(output) * "; fixture = " * repr(fixture) *
+            "; for name in (\"channels.inf\", \"channels_01.out\"); " *
+            "cp(joinpath(fixture, name), joinpath(output, name)); end; " *
+            "write(joinpath(output, \"pscad-console.txt\"), \"fixture\"); " *
+            "write(joinpath(output, \"execution.toml\"), \"mode = 'transient'\"); " *
+            "write(joinpath(output, \"timing.txt\"), \"0.125\")"
+        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
+    end
+    root = mkpath(joinpath(@__DIR__, "..", "..", "..", ".linecablemodels", "test",
+        "transient-completion"))
+    mktempdir(root) do directory
+        config = P.RemoteConfig("fixture", "shared", "scratch", "julia", "python";
+            local_root = directory, transport = :transient_completion_fixture)
+        project = joinpath(mkpath(joinpath(directory, "case")), "generated.pscx")
+        write(project, "fixture")
+        output = joinpath(dirname(project), "outputs")
+        formulation = P.PSCADTransientFormulation(model = :fd_mode)
+        log = Test.TestLogger(min_level = Logging.Debug)
+        result = with_logger(log) do
+            P.run_remote_pscad(config, project, output, formulation, [1.0, 1e6];
+                output_stem = "channels", verbosity = 2)
+        end
+        @test result.elapsed_seconds == 0.125
+        @test result.elapsed_scope == "project.run()"
+        started = only(filter(r -> r.message == "Executing PSCAD transient run", log.logs))
+        @test started.kwargs[:model] == :fd_mode
+        completed = only(filter(r -> r.message == "PSCAD transient run completed", log.logs))
+        @test completed.kwargs[:run_call_seconds] == 0.125
+        @test completed.kwargs[:timing_scope] == "project.run()"
+        @test !haskey(completed.kwargs, :compile_call_seconds)
+        @test P.validate(output, formulation; output_stem = "channels") === output
+        write(joinpath(output, "channels_01.out"), "")
+        @test_throws ArgumentError P.validate(output, formulation; output_stem = "channels")
+        rm(joinpath(output, "execution.toml"))
+        @test_throws ArgumentError P.validate(output, formulation; output_stem = "channels")
+    end
+end

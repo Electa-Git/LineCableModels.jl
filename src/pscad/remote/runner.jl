@@ -102,14 +102,16 @@ function _record_diagnostics(
 end
 
 function main(arguments)
-    length(arguments) == 10 || throw(ArgumentError(
+    length(arguments) in (10, 11) || throw(ArgumentError(
         "runner expects project, output, project name, output stem, formulation, " *
         "FS, FE, Numf, PSCAD version, " *
         "and verbosity",
     ))
     project_path, output, project_name, output_stem, formulation,
     fs, fe, numf, pscad_version,
-    verbosity_text = arguments
+    verbosity_text = arguments[1:10]
+    mode = length(arguments) == 11 ? arguments[11] : "constants"
+    mode in ("constants", "transient") || throw(ArgumentError("invalid PSCAD mode $mode"))
     verbosity = parse(Int, verbosity_text)
     verbosity in 0:2 || throw(ArgumentError("verbosity must be 0, 1, or 2"))
     pscad_version == "5.1.0" || throw(ArgumentError("PSCAD 5.1.0 is required"))
@@ -163,7 +165,7 @@ function main(arguments)
             "generated PSCAD project must expose exactly one line-data row; found $(length(lines))",
         ))
         line = only(lines)
-        _set!(line, "Name", output_stem)
+        mode == "constants" && _set!(line, "Name", output_stem)
         _report(
             console,
             verbosity,
@@ -177,12 +179,17 @@ function main(arguments)
         end
         components = _components(canvas.components())
         phase = "input configuration"
-        frequency = _single_component(components, "master:line_frephase_options")
+        frequency = mode == "constants" ?
+            _single_component(components, "master:line_frephase_options") :
+            only(filter(component -> _definition(component) in
+                ("master:line_frephase_options", "master:line_fredep_options"), components))
         ground = _single_component(components, "master:line_ground")
-        _set!(frequency, "FS", parse(Float64, fs))
-        _set!(frequency, "FE", parse(Float64, fe))
-        _set!(frequency, "Numf", parse(Int, numf))
-        _set!(frequency, "Output", 1; readback = "YES")
+        if mode == "constants"
+            _set!(frequency, "FS", parse(Float64, fs))
+            _set!(frequency, "FE", parse(Float64, fe))
+            _set!(frequency, "Numf", parse(Int, numf))
+            _set!(frequency, "Output", 1; readback = "YES")
+        end
         readbacks = Dict{String, Any}()
         for (name, component) in
             (("ground", ground), ("frequency", frequency), ("configuration", line))
@@ -193,6 +200,15 @@ function main(arguments)
                 observed[field] = _parameters(component)[field]
             end
             readbacks[name] = observed
+        end
+        if mode == "transient"
+            _set!(project, "output_filename", output_stem * ".out")
+            settings = _parameters(project)
+            readbacks["project"] = Dict(field => settings[field] for field in
+                ("time_duration", "time_step", "sample_step", "PlotType", "output_filename"))
+            open(joinpath(output, "execution.toml"), "w") do io
+                TOML.print(io, Dict("mode" => mode, "stem" => output_stem); sorted = true)
+            end
         end
         open(joinpath(output, "native-settings.toml"), "w") do io
             TOML.print(io, readbacks; sorted = true)
@@ -226,42 +242,65 @@ function main(arguments)
         _report(console, verbosity, 2, "Verified that all cable terminals are retained")
         project.save()
         _record_diagnostics(console, project, verbosity, "PSCAD diagnostics before computation")
-        phase = "line-constants computation"
-        _report(console, verbosity, 1, "Starting PSCAD line-constants computation")
-        started = time_ns()
-        line.compile()
-        elapsed = (time_ns() - started)*1e-9
-        _report(
-            console,
-            verbosity,
-            1,
-            "PSCAD compile call returned in $(round(elapsed; digits = 3)) seconds"
-        )
-        _record_diagnostics(console, project, verbosity, "PSCAD diagnostics after compile call")
-        write(joinpath(output, "timing.txt"), string(elapsed))
-        roots = [
-            abspath(output),
-            abspath(dirname(project_path)),
-            abspath(_string(project.temp_folder))
-        ]
-        phase = "detailed-output completion"
-        expected_rows=parse(Int, numf) + 1
-        _report(
-            console,
-            verbosity,
-            1,
-            "Waiting for $expected_rows rows in each detailed PSCAD matrix file"
-        )
-        for (suffix, name) in OUTPUT_SUFFIXES
-            source=_wait_output(roots, suffix, expected_rows)
-            destination=joinpath(output, name)
-            cp(source, destination; force = true)
-            _data_rows(destination) == expected_rows || throw(ArgumentError(
-                "copied PSCAD output $destination is incomplete",
-            ))
-            _report(console, verbosity, 2, "Validated $name with $expected_rows rows")
+        if mode == "transient"
+            phase = "project run"
+            _report(console, verbosity, 1, "Starting PSCAD project.run()")
+            started = time_ns()
+            # PowerImpedance.jl `src/PSCAD/remote/runner.jl:235-259`.
+            project.run()
+            elapsed = (time_ns() - started) * 1e-9
+            write(joinpath(output, "timing.txt"), string(elapsed))
+            _record_diagnostics(console, project, verbosity, "PSCAD diagnostics after run call")
+            roots = [abspath(output), abspath(dirname(project_path)),
+                abspath(_string(project.temp_folder))]
+            phase = "transient-output completion"
+            settings = readbacks["project"]
+            expected_rows = round(Int, parse(Float64, string(settings["time_duration"])) /
+                (parse(Float64, string(settings["sample_step"])) * 1e-6)) + 1
+            files = _wait_outputs(roots, output_stem, expected_rows)
+            for source in (files.inf, files.outs...)
+                destination = joinpath(output, basename(source))
+                abspath(source) == abspath(destination) || cp(source, destination; force = true)
+            end
+            _report(console, verbosity, 1, "Collected PSCAD transient outputs")
+        else
+            phase = "line-constants computation"
+            _report(console, verbosity, 1, "Starting PSCAD line-constants computation")
+            started = time_ns()
+            line.compile()
+            elapsed = (time_ns() - started)*1e-9
+            _report(
+                console,
+                verbosity,
+                1,
+                "PSCAD compile call returned in $(round(elapsed; digits = 3)) seconds"
+            )
+            _record_diagnostics(console, project, verbosity, "PSCAD diagnostics after compile call")
+            write(joinpath(output, "timing.txt"), string(elapsed))
+            roots = [
+                abspath(output),
+                abspath(dirname(project_path)),
+                abspath(_string(project.temp_folder))
+            ]
+            phase = "detailed-output completion"
+            expected_rows=parse(Int, numf) + 1
+            _report(
+                console,
+                verbosity,
+                1,
+                "Waiting for $expected_rows rows in each detailed PSCAD matrix file"
+            )
+            for (suffix, name) in OUTPUT_SUFFIXES
+                source=_wait_output(roots, suffix, expected_rows)
+                destination=joinpath(output, name)
+                cp(source, destination; force = true)
+                _data_rows(destination) == expected_rows || throw(ArgumentError(
+                    "copied PSCAD output $destination is incomplete",
+                ))
+                _report(console, verbosity, 2, "Validated $name with $expected_rows rows")
+            end
+            _report(console, verbosity, 1, "Collected detailed PSCAD Z and Y outputs")
         end
-        _report(console, verbosity, 1, "Collected detailed PSCAD Z and Y outputs")
         observed = pyconvert(Dict{String, String}, identify(pscad_version, app))
         observed == initial_identity ||
             error("PSCAD installation changed during computation")

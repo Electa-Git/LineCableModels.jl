@@ -120,3 +120,97 @@ function read_pscad_result(
         details = ComputationDetails(; native_frequencies = copy(observed_frequencies))
     )
 end
+
+"""
+    read_pscad_transient(directory::AbstractString; stem::AbstractString)
+
+Read PSCAD INF channel names and numbered OUT files with time followed by at
+most ten channels. Return `(time, channels)`, with time in seconds and channels
+keyed by their PGB names in the recorded units. Accept Fortran exponents.
+"""
+function read_pscad_transient(directory::AbstractString; stem::AbstractString)
+    occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", stem) ||
+        throw(ArgumentError("invalid PSCAD output stem $stem"))
+    names = [entry.desc for entry in _inf_entries(_result_path(directory, stem * ".inf"))]
+    allunique(names) || throw(ArgumentError("PSCAD channel names must be unique"))
+    time = Float64[]
+    channels = Dict{String, Vector{Float64}}()
+    for file_index in 1:cld(length(names), 10)
+        offset = 10(file_index - 1)
+        count = min(10, length(names) - offset)
+        path = _result_path(directory, stem * "_" * lpad(string(file_index), 2, '0') * ".out")
+        rows = [_float_row(line) for line in eachline(path) if !isempty(strip(line))]
+        isempty(rows) && throw(ArgumentError("PSCAD output contains no samples: $path"))
+        all(row -> length(row) == count + 1, rows) ||
+            throw(ArgumentError("PSCAD output has an incorrect column count: $path"))
+        table = reduce(vcat, permutedims.(rows))
+        all(isfinite, table) || throw(ArgumentError("PSCAD output has nonfinite samples: $path"))
+        times = table[:, 1]
+        all(>(0), diff(times)) ||
+            throw(ArgumentError("PSCAD output time must be strictly increasing: $path"))
+        if file_index == 1
+            time = times
+        else
+            times == time || throw(ArgumentError("PSCAD output time columns differ: $path"))
+        end
+        for index in 1:count
+            channels[names[offset + index]] = table[:, index + 1]
+        end
+    end
+    return (; time, channels)
+end
+
+function _pscad_response_channels!(voltage, current, record, coordinates,
+        assignments::Tuple, end_index)
+    channels = record.channels
+    end_name = end_index == 1 ? "sending" : "receiving"
+    assigned = Set(assignment.terminal for assignment in assignments)
+    for (terminal, label) in enumerate(coordinates)
+        vname, iname = "$end_name:$label:v", "$end_name:$label:i"
+        if label in assigned
+            haskey(channels, vname) || throw(ArgumentError("missing PSCAD channel $vname"))
+            haskey(channels, iname) || throw(ArgumentError("missing PSCAD channel $iname"))
+            current[end_index, terminal, :] = channels[iname]
+        end
+        if haskey(channels, vname)
+            voltage[end_index, terminal, :] = channels[vname]
+        end
+    end
+    return nothing
+end
+
+function _pscad_response_channels!(voltage, current, record, coordinates,
+        ::Matched, end_index)
+    channels = record.channels
+    end_name = end_index == 1 ? "sending" : "receiving"
+    quantities = ((voltage, "v"), (current, "i"))
+    for (terminal, label) in enumerate(coordinates), (array, kind) in quantities
+        name = "$end_name:$label:$kind"
+        if haskey(channels, name)
+            array[end_index, terminal, :] = channels[name]
+        end
+    end
+    return nothing
+end
+
+"""
+    read_pscad_transient(record::NamedTuple, problem::TransientAnalysisProblem)
+
+Build a `TransientResponse` from the reader's `(time, channels)` record in the
+problem's terminal order. Arrays use end × terminal × time, sending first.
+Require voltage and current channels for each assigned terminal. Open terminals
+have zero current and retain their voltage channel when present. Absent channels
+remain zero. Matched ends retain any recorded voltage and current channels.
+The exported PGB channels already use volts and amperes.
+"""
+function read_pscad_transient(record::NamedTuple{(:time, :channels)},
+        problem::TransientAnalysisProblem{<:LineParametersProblem})
+    coordinates = ["cable:$(cable):$(terminal)"
+        for (; cable, terminal) in problem.line.system.terminal_order]
+    voltage = zeros(Float64, 2, length(coordinates), length(record.time))
+    current = zeros(Float64, size(voltage))
+    _pscad_response_channels!(voltage, current, record, coordinates, problem.sending, 1)
+    _pscad_response_channels!(voltage, current, record, coordinates, problem.receiving, 2)
+    return Engine.TransientAnalysis.TransientResponse(copy(record.time), voltage, current,
+        coordinates, ComputationDetails(; backend = :pscad))
+end
