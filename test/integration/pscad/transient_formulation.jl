@@ -27,7 +27,10 @@
                 stem = splitext(input["project_settings"]["output_filename"])[1]
                 names = ["sending:cable:1:core:v", "sending:cable:1:core:i",
                     "sending:cable:1:sheath:v", "sending:cable:1:sheath:i",
-                    "sending:cable:2:sheath:v", "sending:cable:2:sheath:i"]
+                    "sending:cable:2:sheath:v", "sending:cable:2:sheath:i",
+                    "sending:cable:2:core:v", "receiving:cable:1:core:v",
+                    "receiving:cable:1:sheath:v", "receiving:cable:2:core:v",
+                    "receiving:cable:2:sheath:v"]
                 $(missing_channel[]) && (names[2] = "sending:cable:2:core:i")
                 open(joinpath(output, stem * ".inf"), "w") do io
                     for (index, name) in enumerate(names)
@@ -35,9 +38,14 @@
                             " Group=", repr("Main"), " Max=1000 Min=0 Units=", repr("V"))
                     end
                 end
-                open(joinpath(output, stem * "_01.out"), "w") do io
-                    for t in range(0.0, input["project_settings"]["time_duration"]; length=201)
-                        println(io, t, " 1000 2 30 3 40 4")
+                samples = (1000, 2, 30, 3, 40, 4, 50, 200, 60, 300, 70)
+                for index in 1:cld(length(names), 10)
+                    path = joinpath(output, stem * "_" * lpad(string(index), 2, '0') * ".out")
+                    columns = samples[(10(index - 1) + 1):min(10index, length(names))]
+                    open(path, "w") do io
+                        for t in range(0.0, input["project_settings"]["time_duration"]; length=201)
+                            println(io, t, " ", join(columns, " "))
+                        end
                     end
                 end
                 readback = Dict{String, Any}(component => Dict(field => control["readback"]
@@ -118,7 +126,7 @@
         @test read(joinpath(source, "generated.pscx"), String) == read(expected, String)
         document = readxml(joinpath(source, "generated.pscx"))
         @test length(findall("//User[@defn='master:cable_interface']", document)) == 2
-        @test length(findall("//User[@defn='master:pgb']", document)) == 6
+        @test length(findall("//User[@defn='master:pgb']", document)) == 11
         @test length(findall("//User[@defn='master:Line_FrePhase_Options']", document)) == 1
         input = TOML.parsefile(joinpath(source, "computation.toml"))
         @test input["mode"] == "transient"
@@ -133,7 +141,7 @@
         readback["project"]["PlotType"] = "NONE"
         @test_throws r"project setting PlotType differs" P.validate(readback, formulation, input, retained.execution)
         @test Set(keys(TOML.parsefile(joinpath(source, "complete.toml"))["outputs"])) ==
-            Set(("solver.toml", "native-settings.toml", "timing.txt", "execution.toml", "transient.inf", "transient_01.out"))
+            Set(("solver.toml", "native-settings.toml", "timing.txt", "execution.toml", "transient.inf", "transient_01.out", "transient_02.out"))
         original = Dict(joinpath(root, name) => (bytes2hex(open(sha256, joinpath(root, name))),
             mtime(joinpath(root, name))) for (root, _, names) in walkdir(source) for name in names)
         callbacks = Int[]

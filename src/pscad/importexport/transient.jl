@@ -69,14 +69,17 @@ function _pscad_signal_stub!(canvas, port, name; offset = (0, 36))
 end
 
 # Meter ports and output table: PowerImpedance.jl `src/PSCAD/emitters/probes.jl:25-35,63-68`.
-function _pscad_transient_meters!(canvas, node, title)
+function _pscad_transient_meters!(canvas, node, title; current::Bool = true)
     x, y = allocate_cell!(canvas)
-    component!(canvas, "ammeter", (x + 72, y + 54), ["Name" => node * "_i"])
-    _pscad_terminal_stub!(canvas, (x + 72, y + 54), node; offset = (-36, 0))
-    _pscad_terminal_stub!(canvas, (x + 108, y + 54), node * "_branch"; offset = (36, 0))
+    if current
+        component!(canvas, "ammeter", (x + 72, y + 54), ["Name" => node * "_i"])
+        _pscad_terminal_stub!(canvas, (x + 72, y + 54), node; offset = (-36, 0))
+        _pscad_terminal_stub!(canvas, (x + 108, y + 54), node * "_branch"; offset = (36, 0))
+    end
     component!(canvas, "voltmetergnd", (x + 72, y + 144), ["Name" => node * "_v"])
     _pscad_terminal_stub!(canvas, (x + 72, y + 144), node; offset = (-36, 0))
     for (kind, row, unit) in (("v", y + 54, "V"), ("i", y + 144, "A"))
+        kind == "i" && !current && continue
         component!(canvas, "pgb", (x + 288, row),
             ["Name" => "$title:$kind", "Units" => unit, "Scale" => "1000",
                 "UseSignalName" => "0", "enab" => "1"])
@@ -90,10 +93,13 @@ function _pscad_transient_end!(canvas, assignments::Tuple, problem, end_name, fo
     labels = ["$(end_name)_c$(t.cable)_$(t.terminal)" for t in system.terminal_order]
     _pscad_transient_interface!(canvas, system, system.system_id, end_name, labels)
     coordinates = terminal_labels(system)
+    for (node, terminal) in zip(labels, coordinates)
+        _pscad_transient_meters!(canvas, node, "$end_name:$terminal";
+            current = any(a -> a.terminal == terminal, assignments))
+    end
     for assignment in assignments
         index = only(findall(==(assignment.terminal), coordinates))
         node = labels[index]
-        _pscad_transient_meters!(canvas, node, "$end_name:$(assignment.terminal)")
         _pscad_transient_assignment!(canvas, assignment, node * "_branch", problem.window.step)
     end
     return nothing
@@ -103,6 +109,9 @@ function _pscad_transient_end!(canvas, ::Matched, problem, end_name, formulation
     system = problem.line.system
     labels = ["$(end_name)_c$(t.cable)_$(t.terminal)" for t in system.terminal_order]
     _pscad_transient_interface!(canvas, system, system.system_id, end_name, labels)
+    for (node, terminal) in zip(labels, terminal_labels(system))
+        _pscad_transient_meters!(canvas, node, "$end_name:$terminal")
+    end
     name = end_name * "_extension"
     parameters = _pscad_main_instance_parameters(system, formulation.frequency)
     c = 1 / sqrt(vacuum_permeability(Float64) * vacuum_permittivity(Float64))
@@ -122,7 +131,8 @@ function _pscad_transient_end!(canvas, ::Matched, problem, end_name, formulation
     _pscad_attributes!(call, (link = canvas.next_id + 1, name = binding,
         z = -1, view = "false", instance = 0))
     canvas.next_id += 2
-    _pscad_transient_interface!(canvas, system, name, "sending", labels)
+    _pscad_transient_interface!(canvas, system, name, "sending",
+        [label * "_branch" for label in labels])
     # The extension's far end has no assignments or measurement branches.
     _pscad_transient_interface!(canvas, system, name, "receiving",
         [label * "_open" for label in labels])

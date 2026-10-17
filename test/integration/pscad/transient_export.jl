@@ -61,9 +61,11 @@
             parameters(c)["C1T"] == parameters(c)["C2T"] == "2", interfaces)
         @test [parameters(c)["send_recv"] for c in interfaces] == ["1", "2"]
         @test Set(parameters(c)["Name"] for c in components(document, "pgb")) ==
-            Set("sending:$(a.terminal):$kind" for a in sending for kind in ("v", "i"))
+            union(Set("$end_name:$terminal:v" for end_name in ("sending", "receiving")
+                    for terminal in terminal_labels(system)),
+                Set("sending:$(a.terminal):i" for a in sending))
         @test all(c -> parameters(c)["Scale"] == "1000", components(document, "pgb"))
-        @test length(components(document, "voltmetergnd")) == length(sending)
+        @test length(components(document, "voltmetergnd")) == 8
         @test length(components(document, "ammeter")) == length(sending)
         @test [parse(Float64, parameters(c)["R"]) for c in components(document, "resistor")] == [10, 10]
         settings = parameters(root(document))
@@ -96,6 +98,17 @@
             @test stubs[(x, y)] == node
             @test stubs[(x + 36, y)] == node * "_branch"
         end
+        for meter in components(document, "voltmetergnd")
+            x, y = parse(Int, meter["x"]), parse(Int, meter["y"])
+            @test stubs[(x, y)] == replace(parameters(meter)["Name"], r"_v$" => "")
+        end
+        # Voltage probes connect to existing terminal nodes.
+        electrical_labels = Set(parameters(c)["Name"] for c in components(document, "nodelabel"))
+        @test electrical_labels == union(
+            Set("$(end_name)_c$(t.cable)_$(t.terminal)" for end_name in ("sending", "receiving")
+                for t in system.terminal_order),
+            Set("sending_c$(t.cable)_$(t.terminal)_branch" for t in system.terminal_order[[1, 2, 4]]),
+            Set(["sending_c1_core_branch_dc"]))
         @test allunique(n["id"] for n in findall("//*[@id]", document))
         main = only(findall("/project/definitions/Definition[@name='Main']/schematic", document))
         @test allunique((c["x"], c["y"]) for c in findall("./User", main))
@@ -169,14 +182,24 @@
             a = (parse(Int, original["x"]), parse(Int, original["y"]))
             b = (parse(Int, near["x"]), parse(Int, near["y"]))
             for offset in ((-18, 0), (18, 18), (-18, 54), (18, 72))
-                @test stubs[a .+ offset] == stubs[b .+ offset]
+                @test stubs[a .+ offset] * "_branch" == stubs[b .+ offset]
             end
         end
-        @test length(components(document, "ammeter")) == 3
-        @test length(components(document, "voltmetergnd")) == 3
+        @test length(components(document, "ammeter")) == 7
+        @test length(components(document, "voltmetergnd")) == 8
         @test length(components(document, "resistor")) == 2
         @test length(components(document, "source_1")) == 1
-        @test all(c -> startswith(parameters(c)["Name"], "sending:"), components(document, "pgb"))
+        @test Set(parameters(c)["Name"] for c in components(document, "pgb")) ==
+            union(Set("$end_name:$terminal:v" for end_name in ("sending", "receiving")
+                    for terminal in terminal_labels(system)),
+                Set("sending:$(a.terminal):i" for a in sending),
+                Set("receiving:$terminal:i" for terminal in terminal_labels(system)))
+        for meter in components(document, "ammeter")
+            x, y = parse(Int, meter["x"]), parse(Int, meter["y"])
+            node = replace(parameters(meter)["Name"], r"_i$" => "")
+            @test stubs[(x, y)] == node
+            @test stubs[(x + 36, y)] == node * "_branch"
+        end
         mode_matched = readxml(export_data(:pscad, matched,
             PSCADTransientFormulation(model = :fd_mode, fit = (FT = 700.0,)); file_name))
         @test length(components(mode_matched, "Line_FreDep_Options")) == 1

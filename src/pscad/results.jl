@@ -169,13 +169,11 @@ function _pscad_response_channels!(voltage, current, record, coordinates,
     assigned = Set(assignment.terminal for assignment in assignments)
     for (terminal, label) in enumerate(coordinates)
         vname, iname = "$end_name:$label:v", "$end_name:$label:i"
+        haskey(channels, vname) || throw(ArgumentError("missing PSCAD channel $vname"))
+        voltage[end_index, terminal, :] = channels[vname]
         if label in assigned
-            haskey(channels, vname) || throw(ArgumentError("missing PSCAD channel $vname"))
             haskey(channels, iname) || throw(ArgumentError("missing PSCAD channel $iname"))
             current[end_index, terminal, :] = channels[iname]
-        end
-        if haskey(channels, vname)
-            voltage[end_index, terminal, :] = channels[vname]
         end
     end
     return nothing
@@ -188,22 +186,22 @@ function _pscad_response_channels!(voltage, current, record, coordinates,
     quantities = ((voltage, "v"), (current, "i"))
     for (terminal, label) in enumerate(coordinates), (array, kind) in quantities
         name = "$end_name:$label:$kind"
-        if haskey(channels, name)
-            array[end_index, terminal, :] = channels[name]
-        end
+        haskey(channels, name) || throw(ArgumentError("missing PSCAD channel $name"))
+        array[end_index, terminal, :] = channels[name]
     end
     return nothing
 end
 
 """
-    read_pscad_transient(record::NamedTuple, problem::TransientAnalysisProblem)
+$(TYPEDSIGNATURES)
 
 Build a `TransientResponse` from the reader's `(time, channels)` record in the
 problem's terminal order. Arrays use end × terminal × time, sending first.
-Require voltage and current channels for each assigned terminal. Open terminals
-have zero current and retain their voltage channel when present. Absent channels
-remain zero. Matched ends retain any recorded voltage and current channels.
-The exported PGB channels already use volts and amperes.
+Require a voltage channel for every terminal at both ends and a current channel
+for every assigned terminal and matched-end branch. Unassigned open terminals
+have zero current because their circuits are open.
+Missing channels throw `ArgumentError` naming the channel.
+The exported PGB channels already use volts \\[V\\] and amperes \\[A\\].
 """
 function read_pscad_transient(record::NamedTuple{(:time, :channels)},
         problem::TransientAnalysisProblem{<:LineParametersProblem})

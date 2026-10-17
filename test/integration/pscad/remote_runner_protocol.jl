@@ -51,7 +51,7 @@ class Line(Component):
 
     def compile(self):
         LAST_APP._project.compiled = True
-        if os.environ.get("LCM_RUNNER_FIXTURE_FAIL") == "1":
+        if os.environ.get("LCM_RUNNER_FIXTURE_FAIL") == "1" or os.environ.get("LCM_RUNNER_MODE") == "build_error_throw":
             raise RuntimeError("synthetic compile failure")
         root = os.environ["LCM_RUNNER_FIXTURE_OUTPUT"]
         for suffix in ("_zm.out", "_zp.out", "_ym.out", "_yp.out"):
@@ -88,8 +88,9 @@ class Project:
         return self._canvas
 
     def messages(self):
-        status = "error" if os.environ.get("LCM_RUNNER_MODE") == "build_error" else "normal"
-        return [Message("fixture message", "Build", status, "generated")]
+        status = "error" if os.environ.get("LCM_RUNNER_MODE") in ("build_error", "build_error_throw") else "normal"
+        text = "An alert was issued while solving line constants, check the log file 'generated.log'" if status == "error" else "fixture message"
+        return [Message(text, "Build", status, "generated")]
 
     def output(self):
         return "fixture project output"
@@ -301,7 +302,7 @@ def transient_parameters(self, **updates):
 
 def transient_run(self):
     self.ran = True
-    if os.environ.get("LCM_RUNNER_MODE") in ("run_error", "run_restore_error"):
+    if os.environ.get("LCM_RUNNER_MODE") in ("run_error", "run_restore_error", "build_error_throw"):
         raise RuntimeError("synthetic run failure")
     root = os.environ["LCM_RUNNER_FIXTURE_OUTPUT"]
     stem = self.parameters()["output_filename"][:-4]
@@ -362,10 +363,17 @@ end
     root = mkpath(joinpath(REPOSITORY_ROOT, ".linecablemodels", "test", "station-runner"))
     for mode in ("constants", "transient"), (port, owned) in ((0, true), (50000, false), (50000, true)),
             scenario in ("success", "stale", "foreign", "moved", "load_error", "session0",
-                "run_error", "build_error", "restore_error", "run_restore_error")
+                "run_error", "build_error", "build_error_throw", "restore_error", "run_restore_error")
         mktempdir(root) do directory
             output = joinpath(directory, "outputs")
             arguments = runner_arguments(directory, output; mode, port, owned)
+            if scenario in ("build_error", "build_error_throw")
+                write(joinpath(directory, "generated.log"),
+                    "omitted first diagnostic\n" * repeat("line constants detail\n", 20) *
+                    "synthetic line constants failure\n")
+                write(joinpath(mkpath(joinpath(directory, "generated.gf81")), "cable.log"),
+                    "synthetic cable log ending\n")
+            end
             @test arguments[11:14] == [mode, string(port), string(owned), directory]
             environment = pyimport("os").environ
             environment["LCM_RUNNER_FIXTURE_OUTPUT"] = output
@@ -382,8 +390,8 @@ end
                     environment.pop(key, nothing)
                 end
             end
-            failed = scenario in ("foreign", "moved", "load_error") ||
-                (mode == "transient" && scenario in ("session0", "run_error", "build_error", "run_restore_error"))
+            failed = scenario in ("foreign", "moved", "load_error", "build_error", "build_error_throw") ||
+                (mode == "transient" && scenario in ("session0", "run_error", "run_restore_error"))
             @test (caught !== nothing) == failed
             @test pyconvert(Bool, pyeval("LAST_APP.closed", Main)) == owned
             @test !pyconvert(Bool, pyeval("LAST_APP.other.unloaded", Main))
@@ -416,8 +424,27 @@ end
                 @test occursin("set pscad_port", sprint(showerror, caught))
                 @test occursin("session 0", sprint(showerror, caught))
             end
-            if mode == "transient" && scenario == "build_error"
+            if scenario in ("build_error", "build_error_throw")
                 @test occursin("error\tBuild\tgenerated", read(joinpath(output, "build-messages.txt"), String))
+                @test read(joinpath(output, "generated.log")) == read(joinpath(directory, "generated.log"))
+                @test read(joinpath(output, "generated.gf81", "cable.log")) ==
+                    read(joinpath(directory, "generated.gf81", "cable.log"))
+                diagnostic = sprint(showerror, caught)
+                @test occursin("synthetic line constants failure", diagnostic)
+                @test occursin("synthetic cable log ending", diagnostic)
+                @test occursin("Last lines of generated.log:", diagnostic)
+                @test !occursin("omitted first diagnostic", diagnostic)
+                @test occursin("synthetic line constants failure",
+                    read(joinpath(output, "pscad-console.txt"), String))
+                # The transport reports the last twelve console lines in its Julia error.
+                tail = join(last(readlines(joinpath(output, "pscad-console.txt")), 12), '\n')
+                @test occursin("Last lines of generated.log:", tail)
+                @test occursin("synthetic line constants failure", tail)
+                @test occursin("synthetic cable log ending", tail)
+                if scenario == "build_error_throw"
+                    @test occursin(mode == "transient" ? "synthetic run failure" :
+                        "synthetic compile failure", diagnostic)
+                end
             end
             if mode == "transient" && scenario == "run_restore_error"
                 @test occursin("synthetic run failure", sprint(showerror, caught))

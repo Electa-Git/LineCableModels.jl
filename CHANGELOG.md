@@ -7,6 +7,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- PSCAD transient exports measure every terminal voltage and assigned or matched branch current, reject missing response channels, and retain line-constants logs with build errors.
+
 ### Added
 
 - The `:ulm` fit offers Add pole and Functional form DC correction with physical line targets, exact reference samples and retained convergence diagnostics.
