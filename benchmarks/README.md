@@ -87,3 +87,10 @@ julia benchmarks/sensitivity_tables.jl [output folder]
 ```
 
 The default output folder is `.linecablemodels/benchmarks/tables/`.
+
+`julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl wp22` selects the DC320-U WP2.2 pilot after the baseline, while no argument selects WP2.1.
+The 48 ULM variants vary Yc and H orders (8, 16), time rows, passivity enforcement and DC correction, alongside default FDCM and Marti models.
+The run folder holds `wp22_segment.json`, `wp22_references.json`, `wp22_response_<index>.json` and `wp22_fit_<index>_<quantity>_1_fitting_error.xlsx` workbooks, whose metadata sheets keep fit diagnostics.
+Three NLT references use single-point sheath bonds of 1, 10 and 20 Ω, with every model response at 10 Ω.
+Archives keep fit diagnostics, DC targets and achieved values, core 1 KPIs, wall times and transient RMS deviations scaled by the reference peak.
+Growth ratios compare peaks in the final two 10 % windows. A run is flagged when a ratio exceeds one and 110 % of its reference ratio.
