@@ -1,0 +1,12 @@
+extends: ai-tells.EmphaticCopula
+# Vale 3.23 supports semantic inline scopes. Raw rules also inspect source code.
+scope: emphasis
+tokens:
+  - '^(?:is|are|was|were|the|and|not|or|actually|really|never|always|truly|literally)$'
+tests:
+  - name: emphasized word
+    input: "The value *is* finite."
+    contains: Project.EmphaticCopula
+  - name: code identifier
+    input: "Call `_is_uq_product(request)`."
+    want: ""

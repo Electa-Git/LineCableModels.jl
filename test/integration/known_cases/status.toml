@@ -1,0 +1,511 @@
+# FEM decides: discrepancies against PSCAD lose to FEM. PSCAD curves are advisory
+# and do not need an explanation.
+# The analytical model collapses insulators and semicons into one generic insulation bundle.
+# Against FEM, this gives the same type of discrepancy as the stranded-core lay
+# (helical path) correction.
+# Continuous, smooth, monotonic FEM deviation curves that follow FEM's trend are
+# generally accepted. Within 5 % of FEM a curve is accepted. A larger deviation
+# known from this state is advisory.
+# Worsening is a no-go: the test fails when a FEM deviation rises at any frequency.
+# The analytical pin (rtol 1e-12) keeps the engine from changing against itself.
+frequencies_hz = [0.1, 0.6309573444801932, 3.9810717055349722, 25.118864315095795, 158.48931924611142, 1000.0, 6309.57344480193, 39810.71705534969, 251188.6431509582, 1584893.1924611141, 10000000.0]
+
+[cable_132kv_630mm2_flathor.pscad.Z]
+e_percent = [0.000200438, 0.00126825, 0.0118209, 0.0974422, 0.338258, 0.47957, 0.611408, 0.652187, 0.542585, 0.884407, 6.58032]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_132kv_630mm2_flathor.pscad.Y]
+e_percent = [3.18628e-05, 3.30019e-05, 3.24599e-05, 6.25633e-05, 0.000322051, 0.00177418, 0.00951579, 0.048727, 0.215457, 0.673152, 1.13295]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_132kv_cigre_tb880_case0_630cu_trefoil.fem.Z]
+e_percent = [0.00552832, 0.0280777, 0.150362, 0.645748, 1.87989, 3.57072, 4.15772, 4.63669, 5.31156, 6.23308, 6.67162]
+status = "advisory"
+explanation = "proximity between the closely spaced cables (spacing 2.2 times the outer radius): FEM has it, the analytical model does not"
+
+[cable_132kv_cigre_tb880_case0_630cu_trefoil.fem.Y]
+e_percent = [0.103109, 0.103109, 0.103109, 0.103109, 0.103114, 0.103372, 0.114011, 0.341307, 1.51565, 5.53966, 9.70519]
+status = "advisory"
+explanation = "the analytical model collapses the semicons and the insulation into one insulation bundle; FEM keeps the layers"
+
+[cable_132kv_cigre_tb880_case0_630cu_trefoil.pscad.Z]
+e_percent = [0.000437329, 0.00225677, 0.0204205, 0.0913855, 0.181178, 0.243801, 0.361045, 0.479, 0.505713, 0.875846, 6.66115]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_132kv_cigre_tb880_case0_630cu_trefoil.pscad.Y]
+e_percent = [2.45912e-05, 0.00014078, 0.000807168, 0.00457392, 0.0255699, 0.14056, 0.754618, 3.8722, 16.5943, 39.653, 112.793]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_18kv_1000mm2_trefoil.pscad.Z]
+e_percent = [0.000106205, 0.000386962, 0.00374492, 0.033333, 0.178446, 0.242804, 0.360714, 0.482201, 0.514805, 0.890541, 6.81436]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_18kv_1000mm2_trefoil.pscad.Y]
+e_percent = [9.18414e-07, 3.19824e-06, 1.81593e-05, 0.000100979, 0.000565026, 0.00310812, 0.0166914, 0.0852102, 0.344618, 0.70282, 1.32004]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_18kv_1000mm2_trefoil_homogenized.pscad.Z]
+e_percent = [0.000106205, 0.000386962, 0.00374492, 0.033333, 0.178446, 0.242804, 0.360714, 0.482201, 0.514805, 0.890541, 6.81436]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_18kv_1000mm2_trefoil_homogenized.pscad.Y]
+e_percent = [9.18414e-07, 3.19824e-06, 1.81593e-05, 0.000100979, 0.000565026, 0.00310812, 0.0166914, 0.0852102, 0.344618, 0.70282, 1.32004]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_220kv_milliken_1x2500_252_trefoil.pscad.Z]
+e_percent = [0.000135663, 0.00102523, 0.00975904, 0.0732921, 0.172631, 0.270906, 0.399021, 0.524354, 0.533172, 0.998332, 7.80117]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_220kv_milliken_1x2500_252_trefoil.pscad.Y]
+e_percent = [4.69434e-06, 2.71053e-05, 0.000154616, 0.000873224, 0.00486014, 0.0265783, 0.14149, 0.709147, 2.6918, 5.3521, 10.5785]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_30kv_na2xs2y_630mm2_trefoil.pscad.Z]
+e_percent = [0.000263123, 0.000718945, 0.00690934, 0.0535462, 0.176449, 0.230723, 0.344061, 0.462559, 0.499557, 0.872035, 6.64846]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_30kv_na2xs2y_630mm2_trefoil.pscad.Y]
+e_percent = [3.10962e-05, 0.000129969, 0.000740007, 0.00420493, 0.0235618, 0.129853, 0.699379, 3.60145, 15.3222, 34.512, 88.1407]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_320kv_armoured_dc_bipole.pscad.Z]
+e_percent = [0.000261692, 0.00203867, 0.0188292, 0.10436, 0.179547, 0.274283, 0.406083, 0.571203, 1.32701, 6.88689, 26.8486]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_320kv_armoured_dc_bipole.pscad.Y]
+e_percent = [0.000235851, 0.000954093, 0.00537111, 0.0306185, 0.172961, 0.96257, 5.18836, 23.5114, 67.6207, 107.614, 108.278]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_320kv_no_armour_dc_bipole.fem.Z]
+e_percent = [0.170908, 0.214869, 0.810527, 2.9826, 3.56455, 3.84308, 4.14565, 4.51818, 4.98233, 5.64146, 6.69337]
+status = "advisory"
+explanation = "the lay (helical path) correction of the stranded core in the analytical model; the 2D FEM model has none"
+
+[cable_320kv_no_armour_dc_bipole.fem.Y]
+e_percent = [0.0354463, 0.0354463, 0.0354463, 0.0354468, 0.0354541, 0.035553, 0.0378751, 0.0618916, 0.096184, 0.161079, 0.37382]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_320kv_no_armour_dc_bipole.pscad.Z]
+e_percent = [0.000273645, 0.00210747, 0.0195118, 0.110632, 0.192898, 0.294298, 0.426326, 0.597101, 1.31766, 6.82506, 26.5307]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_320kv_no_armour_dc_bipole.pscad.Y]
+e_percent = [0.000112595, 0.000618172, 0.00355243, 0.0203105, 0.114946, 0.641557, 3.49784, 17.4585, 59.7933, 136.253, 143.523]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_380kv_2000mm2_flatver.pscad.Z]
+e_percent = [0.000229589, 0.00219478, 0.0203004, 0.148484, 0.353341, 0.50592, 0.650337, 0.677085, 0.509069, 1.02069, 7.65499]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_380kv_2000mm2_flatver.pscad.Y]
+e_percent = [1.31589e-05, 1.32886e-05, 2.2485e-05, 9.57177e-05, 0.000519682, 0.00282512, 0.0149795, 0.0747913, 0.298441, 0.806725, 1.17952]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_380kv_armoured_ac_flat.pscad.Z]
+e_percent = [0.000298771, 0.0028699, 0.026161, 0.142206, 0.237594, 0.346702, 0.474633, 0.571082, 1.32634, 6.88361, 26.8346]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_380kv_armoured_ac_flat.pscad.Y]
+e_percent = [0.000235851, 0.000954094, 0.00537108, 0.0306172, 0.172915, 0.960749, 5.10149, 20.7169, 61.5102, 107.597, 108.599]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_380kv_no_armour_ac_flat.fem.Z]
+e_percent = [0.170896, 0.214619, 0.808626, 2.97598, 3.54896, 3.8342, 4.14293, 4.51597, 4.98379, 5.64026, 6.98804]
+status = "advisory"
+explanation = "the lay (helical path) correction of the stranded core in the analytical model; the 2D FEM model has none"
+
+[cable_380kv_no_armour_ac_flat.fem.Y]
+e_percent = [0.0591589, 0.0591588, 0.0591588, 0.0591584, 0.0591587, 0.0592156, 0.0608052, 0.0700566, 0.112066, 0.14043, 0.380006]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_380kv_no_armour_ac_flat.pscad.Z]
+e_percent = [0.000305774, 0.00293896, 0.0268592, 0.149403, 0.253106, 0.369197, 0.495591, 0.597024, 1.31723, 6.82297, 26.5219]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_380kv_no_armour_ac_flat.pscad.Y]
+e_percent = [0.000112595, 0.000618171, 0.00355242, 0.02031, 0.114929, 0.640913, 3.47017, 16.2718, 53.3373, 128.618, 144.945]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_1600mm2_bipole.pscad.Z]
+e_percent = [0.00298708, 0.00492462, 0.0423309, 0.162227, 0.258205, 0.413016, 0.533162, 0.547421, 0.445118, 0.966454, 6.9299]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_1600mm2_bipole.pscad.Y]
+e_percent = [0.000835658, 0.000835704, 0.000835165, 0.00198814, 0.011025, 0.0602552, 0.320359, 1.63245, 7.50301, 26.5541, 53.1409]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_land_no_armour_ac_flat.pscad.Z]
+e_percent = [0.0012039, 0.0113791, 0.0792711, 0.178913, 0.276607, 0.404955, 0.546013, 0.658811, 1.54981, 8.21597, 33.7605]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_land_no_armour_ac_flat.pscad.Y]
+e_percent = [0.000282102, 0.00162354, 0.00937368, 0.0535774, 0.302686, 1.68083, 8.8694, 34.9421, 116.086, 310.191, 358.408]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_land_no_armour_dc_bipole.fem.Z]
+e_percent = [0.0127362, 0.0716447, 0.302232, 0.420022, 0.434669, 0.427052, 0.409825, 0.381867, 0.360246, 0.264062, 2.78348]
+status = "accepted"
+explanation = "agrees within 1 % up to 1.58 MHz; at 10 MHz the core self-impedance differs by 2.78 %, a known high-frequency deviation the user accepts; its cause is not yet identified"
+
+[cable_525kv_land_no_armour_dc_bipole.fem.Y]
+e_percent = [0.0175876, 0.0175876, 0.0175881, 0.0175912, 0.0176494, 0.0189707, 0.0324712, 0.0618941, 0.118849, 0.19211, 0.671352]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_525kv_land_no_armour_dc_bipole.pscad.Z]
+e_percent = [0.000869107, 0.00808035, 0.0570352, 0.131257, 0.208963, 0.320279, 0.467061, 0.658953, 1.55062, 8.21995, 33.7815]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_land_no_armour_dc_bipole.pscad.Y]
+e_percent = [0.000282102, 0.00162354, 0.00937377, 0.0535803, 0.302791, 1.68496, 9.07084, 40.7391, 134.494, 337.722, 359.315]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_subsea_armoured_ac_flat.pscad.Z]
+e_percent = [0.000387276, 0.0037155, 0.0333012, 0.158901, 0.268427, 0.392312, 0.533121, 0.646292, 1.543, 8.18568, 33.6205]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_subsea_armoured_ac_flat.pscad.Y]
+e_percent = [0.000191731, 0.00111103, 0.00640175, 0.0365642, 0.206408, 1.14239, 5.84041, 19.4923, 51.6779, 69.8911, 70.2185]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_subsea_armoured_dc_bipole.pscad.Z]
+e_percent = [0.000282076, 0.00263212, 0.0239039, 0.116309, 0.202351, 0.309692, 0.455423, 0.646448, 1.54388, 8.19007, 33.6437]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_525kv_subsea_armoured_dc_bipole.pscad.Y]
+e_percent = [0.000191731, 0.00111103, 0.00640182, 0.0365668, 0.206503, 1.14637, 6.04621, 22.8492, 54.4244, 69.8964, 70.0997]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_640kv_2000mm2_bipole.pscad.Z]
+e_percent = [0.00021426, 0.00204503, 0.018879, 0.138321, 0.329715, 0.46291, 0.576933, 0.586078, 0.462845, 0.992324, 7.2161]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_640kv_2000mm2_bipole.pscad.Y]
+e_percent = [1.50343e-05, 6.24816e-05, 0.000346933, 0.00195326, 0.010853, 0.05922, 0.314944, 1.60195, 7.19132, 23.5348, 39.7282]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[solid_1000mm2_single.fem.Z]
+e_percent = [0.07729, 0.17995, 0.425754, 0.463943, 0.448724, 0.429572, 0.409799, 0.385852, 0.353009, 0.342589, 0.350149]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[solid_1000mm2_single.fem.Y]
+e_percent = [0.0389877, 0.0389877, 0.0389877, 0.0389876, 0.0389868, 0.0389831, 0.038967, 0.0390748, 0.0450731, 0.103161, 0.218904]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[solid_1000mm2_single.pscad.Z]
+e_percent = [0.003272, 0.00597842, 0.0174711, 0.0622683, 0.188255, 0.193363, 0.288454, 0.38791, 0.414388, 0.921392, 6.97485]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[solid_1000mm2_single.pscad.Y]
+e_percent = [0.000193345, 0.000194725, 0.000312552, 0.00149274, 0.00838117, 0.0463132, 0.250401, 1.31649, 6.65615, 31.6606, 121.471]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[two_bare_wires.fem.Z]
+e_percent = [0.196376, 0.443174, 0.470961, 0.476702, 0.472296, 0.480219, 0.540032, 0.565114, 0.539196, 0.403311, 0.167441]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[two_bare_wires.fem.Y]
+e_percent = [0.685027, 0.658287, 0.675106, 0.668071, 0.803376, 0.664155, 0.58084, 0.606422, 0.579346, 0.316393, 0.243899]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[two_insulated_wires.fem.Z]
+e_percent = [0.154982, 0.357757, 0.372113, 0.368401, 0.336822, 0.322113, 0.359684, 0.327805, 0.250927, 0.17261, 0.105288]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[two_insulated_wires.fem.Y]
+e_percent = [0.0203021, 0.0203021, 0.0203021, 0.0203021, 0.0203021, 0.020302, 0.0203018, 0.0202976, 0.0202705, 0.0202244, 0.0202298]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[two_insulated_wires.pscad.Z]
+e_percent = [0.128928, 0.449638, 0.656968, 0.751279, 0.713444, 1.1384, 1.96085, 1.34795, 1.49421, 2.88979, 3.86935]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[two_insulated_wires.pscad.Y]
+e_percent = [9.46405e-08, 1.96611e-06, 2.3544e-06, 1.25839e-05, 6.31355e-05, 0.000300595, 0.001338, 0.0060276, 0.0269249, 0.104275, 0.347019]
+status = "advisory"
+explanation = "PSCAD loses to FEM"
+
+[cable_18kv_1000mm2_trefoil.fem.Z]
+e_percent = [2.42434, 2.42288, 2.40754, 2.12989, 3.06314, 4.81762, 5.98628, 6.48675, 6.93799, 8.05628, 9.44334]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_18kv_1000mm2_trefoil.fem.Y]
+e_percent = [85.9231, 85.9231, 85.9231, 85.9231, 85.9232, 85.9234, 85.9255, 85.9438, 86.1912, 86.4395, 87.0115]
+status = "advisory"
+explanation = "the default shunt model does not represent the wire screen; the boundary shunt model is within 5 % (see fem_boundary)"
+
+[cable_18kv_1000mm2_trefoil.fem_boundary.Z]
+e_percent = [2.42434, 2.42288, 2.40754, 2.12989, 3.06314, 4.81762, 5.98628, 6.48675, 6.93799, 8.05628, 9.44334]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_18kv_1000mm2_trefoil.fem_boundary.Y]
+e_percent = [2.53018, 2.53018, 2.53018, 2.53018, 2.53018, 2.53018, 2.53019, 2.53009, 2.06399, 2.51808, 2.47175]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_18kv_1000mm2_trefoil_homogenized.fem.Z]
+e_percent = [0.00420135, 0.00436068, 0.0215512, 0.14241, 1.24394, 2.95886, 3.93458, 4.59266, 5.29607, 6.28778, 7.89421]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_18kv_1000mm2_trefoil_homogenized.fem.Y]
+e_percent = [0.0680508, 0.0680508, 0.0680508, 0.0680508, 0.0680508, 0.0680511, 0.0680527, 0.0680672, 0.0689868, 0.154903, 0.132069]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_18kv_1000mm2_trefoil_homogenized.fem_boundary.Z]
+e_percent = [0.00420135, 0.00436068, 0.0215512, 0.14241, 1.24394, 2.95886, 3.93458, 4.59266, 5.29607, 6.28778, 7.89421]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_18kv_1000mm2_trefoil_homogenized.fem_boundary.Y]
+e_percent = [0.0680508, 0.0680508, 0.0680508, 0.0680508, 0.0680508, 0.0680511, 0.0680527, 0.0680672, 0.0689868, 0.154903, 0.132069]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_30kv_na2xs2y_630mm2_trefoil.fem.Z]
+e_percent = [2.06115, 2.05856, 2.02666, 1.48783, 2.9925, 4.72013, 6.45065, 6.9138, 7.4504, 8.68624, 10.4059]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_30kv_na2xs2y_630mm2_trefoil.fem.Y]
+e_percent = [17.1204, 17.1204, 17.1203, 17.1203, 17.1198, 17.1182, 17.1543, 18.3896, 17.9232, 17.6892, 17.477]
+status = "advisory"
+explanation = "the default shunt model does not represent the wire screen; the boundary shunt model reduces the deviation to at most 8.4 % (see fem_boundary)"
+
+[cable_30kv_na2xs2y_630mm2_trefoil.fem_boundary.Z]
+e_percent = [2.06115, 2.05856, 2.02666, 1.48783, 2.9925, 4.72013, 6.45065, 6.9138, 7.4504, 8.68624, 10.4059]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_30kv_na2xs2y_630mm2_trefoil.fem_boundary.Y]
+e_percent = [0.852296, 0.852296, 0.852295, 0.852292, 0.85231, 0.853868, 0.918769, 2.43442, 3.41982, 4.95625, 8.41009]
+status = "advisory"
+explanation = "the deviation lies in each cable's common-voltage channel: at 10 MHz it holds 99.98 % of the potential-coefficient discrepancy, and the core-to-screen differential differs by 0.14 %"
+
+[cable_132kv_630mm2_flathor.fem.Z]
+e_percent = [1.0293, 1.02864, 1.02276, 1.79929, 4.48585, 4.8237, 4.51287, 3.93286, 4.14291, 4.68669, 5.43197]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_132kv_630mm2_flathor.fem.Y]
+e_percent = [90.4381, 90.4381, 90.4381, 90.4381, 90.4382, 90.4383, 90.4395, 90.4671, 90.5267, 90.8595, 91.4476]
+status = "advisory"
+explanation = "the default shunt model does not represent the wire screen; the boundary shunt model is within 5 % (see fem_boundary)"
+
+[cable_132kv_630mm2_flathor.fem_boundary.Z]
+e_percent = [1.0293, 1.02864, 1.02276, 1.79929, 4.48585, 4.8237, 4.51287, 3.93286, 4.14291, 4.68669, 5.43197]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_132kv_630mm2_flathor.fem_boundary.Y]
+e_percent = [2.1637, 2.1637, 2.1637, 2.1637, 2.16371, 2.16373, 2.1639, 1.91838, 2.17308, 2.25577, 2.2973]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_220kv_milliken_1x2500_252_trefoil.fem.Z]
+e_percent = [2.67521, 2.67017, 2.59313, 1.57734, 3.21955, 4.26323, 4.71998, 5.32042, 6.18188, 7.4204, 8.211]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_220kv_milliken_1x2500_252_trefoil.fem.Y]
+e_percent = [36.6367, 36.6367, 36.6367, 36.6367, 36.6368, 36.6379, 36.6453, 36.7289, 37.274, 38.8264, 40.3022]
+status = "advisory"
+explanation = "the default shunt model does not represent the wire screen; the boundary shunt model is within 5 % (see fem_boundary)"
+
+[cable_220kv_milliken_1x2500_252_trefoil.fem_boundary.Z]
+e_percent = [2.67521, 2.67017, 2.59313, 1.57734, 3.21955, 4.26323, 4.71998, 5.32042, 6.18188, 7.4204, 8.211]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_220kv_milliken_1x2500_252_trefoil.fem_boundary.Y]
+e_percent = [0.381641, 0.381641, 0.381641, 0.381641, 0.381641, 0.381634, 0.381606, 0.449413, 0.498559, 1.23488, 1.8962]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_320kv_armoured_dc_bipole.fem.Z]
+e_percent = [0.925962, 0.926715, 1.57323, 5.87105, 6.62629, 3.4397, 3.14311, 3.96114, 4.69284, 5.51304, 6.73213]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_320kv_armoured_dc_bipole.fem.Y]
+e_percent = [6.18714, 6.18713, 6.18711, 6.18693, 6.18574, 6.17652, 6.07514, 5.20047, 4.00764, 3.37753, 3.38554]
+status = "advisory"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model agrees within 1 % (see fem_boundary)"
+
+[cable_320kv_armoured_dc_bipole.fem_boundary.Z]
+e_percent = [0.925962, 0.926715, 1.57323, 5.87105, 6.62629, 3.4397, 3.14311, 3.96114, 4.69284, 5.51304, 6.73213]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_320kv_armoured_dc_bipole.fem_boundary.Y]
+e_percent = [0.619019, 0.619018, 0.619016, 0.618997, 0.618871, 0.617978, 0.609839, 0.524056, 0.378901, 0.278971, 0.466111]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_380kv_2000mm2_flatver.fem.Z]
+e_percent = [0.387569, 0.387234, 0.5695, 2.87762, 4.99127, 4.54556, 3.65959, 3.749, 4.11956, 4.77402, 5.53706]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_380kv_2000mm2_flatver.fem.Y]
+e_percent = [93.821, 93.821, 93.821, 93.821, 93.8211, 93.8214, 93.7676, 93.8403, 93.9558, 94.3429, 94.9239]
+status = "advisory"
+explanation = "the default shunt model does not represent the wire screen; the boundary shunt model is within 5 % (see fem_boundary)"
+
+[cable_380kv_2000mm2_flatver.fem_boundary.Z]
+e_percent = [0.387569, 0.387234, 0.5695, 2.87762, 4.99127, 4.54556, 3.65959, 3.749, 4.11956, 4.77402, 5.53706]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_380kv_2000mm2_flatver.fem_boundary.Y]
+e_percent = [1.47077, 1.47077, 1.47077, 1.47078, 1.47079, 1.47087, 2.38572, 1.47572, 1.5054, 1.60151, 1.23096]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_380kv_armoured_ac_flat.fem.Z]
+e_percent = [0.925948, 0.92678, 1.58152, 5.89922, 6.64617, 3.44655, 3.15021, 3.97829, 4.71189, 5.53331, 7.06856]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_380kv_armoured_ac_flat.fem.Y]
+e_percent = [6.18796, 6.18795, 6.18792, 6.18774, 6.18651, 6.17628, 6.0553, 5.39383, 4.40167, 3.45689, 3.32381]
+status = "advisory"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model agrees within 1 % (see fem_boundary)"
+
+[cable_380kv_armoured_ac_flat.fem_boundary.Z]
+e_percent = [0.925948, 0.92678, 1.58152, 5.89922, 6.64617, 3.44655, 3.15021, 3.97829, 4.71189, 5.53331, 7.06856]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_380kv_armoured_ac_flat.fem_boundary.Y]
+e_percent = [0.62634, 0.62634, 0.626337, 0.626317, 0.626189, 0.625195, 0.615416, 0.553774, 0.41745, 0.391101, 0.535027]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_525kv_1600mm2_bipole.fem.Z]
+e_percent = [1.94617, 1.93657, 8.44723, 22.2849, 19.8111, 8.4681, 5.37804, 6.29408, 7.9434, 9.82188, 11.5482]
+status = "advisory"
+explanation = "not yet explained: far above the other lay cases"
+
+[cable_525kv_1600mm2_bipole.fem.Y]
+e_percent = [8.68928, 8.68928, 8.68927, 8.68926, 8.78037, 8.68878, 8.68591, 8.66267, 8.46778, 7.82338, 8.1128]
+status = "advisory"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model agrees within 1 % (see fem_boundary)"
+
+[cable_525kv_1600mm2_bipole.fem_boundary.Z]
+e_percent = [1.94617, 1.93657, 8.44723, 22.2849, 19.8111, 8.4681, 5.37804, 6.29408, 7.9434, 9.82188, 11.5482]
+status = "advisory"
+explanation = "not yet explained: far above the other lay cases"
+
+[cable_525kv_1600mm2_bipole.fem_boundary.Y]
+e_percent = [0.754754, 0.754754, 0.754754, 0.754752, 0.672508, 0.754668, 0.754176, 0.750553, 0.719851, 0.555675, 0.78551]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_525kv_land_no_armour_ac_flat.fem.Z]
+e_percent = [0.0125237, 0.0699457, 0.297876, 0.41935, 0.431543, 0.445847, 0.427408, 0.409972, 0.38519, 0.299161, 2.80251]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_525kv_land_no_armour_ac_flat.fem.Y]
+e_percent = [0.00645637, 0.00645643, 0.0064569, 0.00646243, 0.00653135, 0.00967885, 0.0275099, 0.0624743, 0.144534, 0.239013, 0.653492]
+status = "accepted"
+explanation = "agrees within 1 %"
+
+[cable_525kv_subsea_armoured_ac_flat.fem.Z]
+e_percent = [2.01936, 2.01205, 1.90529, 0.974069, 0.663539, 0.629594, 0.286424, 0.355614, 0.40247, 0.364196, 2.86673]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_525kv_subsea_armoured_ac_flat.fem.Y]
+e_percent = [13.0315, 13.0315, 13.0315, 13.0313, 13.0296, 13.0121, 13.0604, 12.5226, 11.8586, 13.565, 13.7617]
+status = "advisory"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model is within 5 % (see fem_boundary)"
+
+[cable_525kv_subsea_armoured_ac_flat.fem_boundary.Z]
+e_percent = [2.01936, 2.01205, 1.90529, 0.974069, 0.663539, 0.629594, 0.286424, 0.355614, 0.40247, 0.364196, 2.86673]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_525kv_subsea_armoured_ac_flat.fem_boundary.Y]
+e_percent = [1.38774, 1.38774, 1.38772, 1.38764, 1.38705, 1.38201, 1.03732, 1.12215, 0.621612, 0.454677, 0.62119]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_525kv_subsea_armoured_dc_bipole.fem.Z]
+e_percent = [2.01936, 2.01204, 1.90547, 0.976236, 0.649038, 0.628176, 0.266264, 0.328604, 0.368551, 0.322029, 2.8766]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_525kv_subsea_armoured_dc_bipole.fem.Y]
+e_percent = [13.0316, 13.0316, 13.0316, 13.0314, 13.0299, 13.0153, 13.0586, 12.11, 12.1815, 13.5823, 13.6247]
+status = "advisory"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model is within 5 % (see fem_boundary)"
+
+[cable_525kv_subsea_armoured_dc_bipole.fem_boundary.Z]
+e_percent = [2.01936, 2.01204, 1.90547, 0.976236, 0.649038, 0.628176, 0.266264, 0.328604, 0.368551, 0.322029, 2.8766]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_525kv_subsea_armoured_dc_bipole.fem_boundary.Y]
+e_percent = [1.3877, 1.3877, 1.38769, 1.3876, 1.38703, 1.38254, 1.03616, 1.04812, 0.529032, 0.400982, 0.591852]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_640kv_2000mm2_bipole.fem.Z]
+e_percent = [0.0535717, 0.0923118, 0.46944, 2.35667, 4.04689, 4.42065, 4.85087, 5.40866, 6.15931, 7.2674, 8.73827]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_640kv_2000mm2_bipole.fem.Y]
+e_percent = [0.0266894, 0.0266894, 0.0266894, 0.0266894, 0.0266897, 0.0266915, 0.0267037, 0.0267964, 0.0275677, 0.0315415, 0.0424792]
+status = "accepted"
+explanation = "agrees within 1 %"

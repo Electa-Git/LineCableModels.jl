@@ -1,0 +1,248 @@
+"""
+$(TYPEDEF)
+
+Evaluate every point in a [`ParametricProblem`](@ref) with `inner`.
+
+`inner` may be one completed formulation, a deterministic target-bearing
+formulation [`Gridspace`](@ref) or a deterministic [`Grid`](@ref) containing
+completed formulations. Problem and formulation points always form a
+Cartesian product. Uncertainty belongs to the problem space and is rejected
+from the formulation source.
+
+$(TYPEDFIELDS)
+"""
+struct Combinatorial{F, O <: ComputationOptions} <: AbstractFormulation
+    "Formulation used for each core problem."
+    inner::F
+    "Supplemental-output retention options owned by this traversal."
+    options::O
+
+    function Combinatorial(inner, options::ComputationOptions)
+        source = _combinatorial_source(inner)
+        normalized = computation_options(Combinatorial, options)
+        return new{typeof(source), typeof(normalized)}(source, normalized)
+    end
+end
+
+function computation_options(
+        ::Type{Combinatorial},
+        record::ComputationOptions
+)::ComputationOptions
+    options = record.data
+    unknown = filter(key -> key !== :retain_details, keys(options))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown Combinatorial computation options: $(sort!(collect(unknown)))",
+    ))
+    normalized = merge((retain_details = false,), options)
+    normalized.retain_details isa Bool || throw(ArgumentError(
+        "Combinatorial retain_details must be Bool",
+    ))
+    return ComputationOptions(; retain_details = normalized.retain_details)
+end
+
+function _combinatorial_source(inner::AbstractFormulation)
+    return inner
+end
+
+function _combinatorial_source(inner::Gridspace{Target}) where {Target}
+    Target <: AbstractFormulation || throw(ArgumentError(
+        "Combinatorial Gridspace target must subtype AbstractFormulation; got $Target",
+    ))
+    has_uncertainty(inner) && throw(ArgumentError(
+        "Combinatorial formulation spaces must be deterministic",
+    ))
+    return inner
+end
+
+function _combinatorial_source(inner::AbstractGrid)
+    has_uncertainty(inner) && throw(ArgumentError(
+        "Combinatorial formulation grids must be deterministic",
+    ))
+    foreach(value -> validate(value, Combinatorial), inner)
+    return inner
+end
+
+function _combinatorial_source(inner)
+    throw(ArgumentError(
+        "Combinatorial requires a formulation, formulation Grid, or target-bearing formulation Gridspace; got $(typeof(inner))",
+    ))
+end
+
+# A formulation that a Combinatorial computation traverses.
+validate(formulation::AbstractFormulation, ::Type{Combinatorial}) = formulation
+function validate(value, ::Type{Combinatorial})
+    throw(ArgumentError(
+        "Combinatorial formulation spaces must contain completed AbstractFormulation " *
+        "values; got $(nameof(typeof(value)))"
+    ))
+end
+
+function Combinatorial(inner; options::Union{NamedTuple,ComputationOptions} = ComputationOptions())
+    options = ComputationOptions(options)
+    return Combinatorial(inner, options)
+end
+
+"""
+$(TYPEDEF)
+
+Pair a lazy parameter space with computation options for a higher-order
+computation. A completed scalar problem is normalized to a singleton
+target-bearing `Gridspace`. The problem itself need not implement iteration.
+
+$(TYPEDFIELDS)
+"""
+struct ParametricProblem{
+    S <: Union{AbstractProblemDefinition, Gridspace{<:AbstractProblemDefinition}},
+    O <: ComputationOptions
+} <: AbstractProblemDefinition
+    "Lazy space of complete core problems."
+    space::S
+    "Options forwarded to each core computation for owner-specific normalization."
+    options::O
+
+    function ParametricProblem(space::S, options::O) where {
+            S <: Union{AbstractProblemDefinition, Gridspace{<:AbstractProblemDefinition}},
+            O <: ComputationOptions
+    }
+        return validate(new{S, O}(space, options))
+    end
+end
+
+function ParametricProblem(problem::AbstractProblemDefinition, options::ComputationOptions)
+    space = Gridspace{typeof(problem)}(identity, (Grid((problem,)),))
+    return ParametricProblem(space, options)
+end
+
+ParametricProblem(space) = ParametricProblem(space, ComputationOptions())
+
+function validate(problem::ParametricProblem{<:AbstractProblemDefinition})
+    validate(problem.space)
+    return problem
+end
+
+function validate(problem::ParametricProblem{<:Gridspace{<:AbstractProblemDefinition}})
+    length(problem.space) > 0 || throw(ArgumentError(
+        "ParametricProblem.space must contain at least one problem point"
+    ))
+    return problem
+end
+
+# Only a space of line-parameter problems reports progress, from a positive progress level.
+function _reports_progress(
+        ::Gridspace{<:Engine.LineParametersProblem},
+        options::ComputationOptions
+)
+    return verbosity(options, :progress) > 0
+end
+_reports_progress(space, options::ComputationOptions) = false
+
+"""
+$(TYPEDEF)
+
+Store core results over resolved problem and formulation axes.
+
+Linear indexing remains compatible with ordinary result-space iteration.
+Values use column-major `(problem, formulation)` order: the problem index
+varies fastest. Two-dimensional indexing accepts those indices directly.
+
+$(TYPEDFIELDS)
+"""
+struct ParametricResult{T, F, A <: NamedTuple, D <: ComputationDetails} <:
+       AbstractParametricResult{T}
+    "Higher-order formulation used for the computation."
+    formulation::F
+    "Core results in problem-index-fastest formulation order."
+    values::Vector{T}
+    "Problem and resolved-formulation sources aligned with `values`."
+    axes::A
+    "Typed supplemental output retained by the traversal."
+    details::D
+
+    function ParametricResult(
+            formulation::F,
+            values::Vector{T},
+            axes::A,
+            details::D
+    ) where {T, F, A <: NamedTuple, D <: ComputationDetails}
+        validate(T, ParametricResult)
+        if !isempty(axes)
+            keys(axes) == (:problems, :formulations) || throw(ArgumentError(
+                "ParametricResult axes must contain problems and formulations",
+            ))
+            length(axes.problems) * length(axes.formulations) == length(values) ||
+                throw(DimensionMismatch(
+                    "ParametricResult axes must span every stored core result",
+                ))
+        end
+        isempty(details.data) || keys(details.data) == (:points,) ||
+            throw(ArgumentError(
+                "ParametricResult details must be empty or contain only points",
+            ))
+        isempty(details.data) || length(details.data.points) == length(values) ||
+            throw(DimensionMismatch(
+                "retained details must contain one entry per core result",
+            ))
+        return new{T, F, A, D}(formulation, values, axes, details)
+    end
+end
+
+function ParametricResult(formulation, values, details::ComputationDetails)
+    ParametricResult(formulation, values, (;), details)
+end
+ParametricResult(formulation, values) = ParametricResult(formulation, values, (;), ComputationDetails())
+
+Base.length(value::ParametricResult) = length(value.values)
+Base.size(value::ParametricResult) = (length(value),)
+Base.getindex(value::ParametricResult, index::Integer) = value.values[index]
+Base.iterate(value::ParametricResult, state...) = iterate(value.values, state...)
+Base.firstindex(value::ParametricResult) = firstindex(value.values)
+Base.lastindex(value::ParametricResult) = lastindex(value.values)
+
+"""
+Return one result selected by its problem and formulation indices.
+"""
+function Base.getindex(
+        value::ParametricResult,
+        problem_index::Integer,
+        formulation_index::Integer
+)
+    isempty(value.axes) && throw(ArgumentError(
+        "this ParametricResult does not retain problem/formulation axes",
+    ))
+    problem_count = length(value.axes.problems)
+    formulation_count = length(value.axes.formulations)
+    1 <= problem_index <= problem_count || throw(BoundsError(
+        value,
+        (problem_index, formulation_index)
+    ))
+    1 <= formulation_index <= formulation_count || throw(BoundsError(
+        value,
+        (problem_index, formulation_index)
+    ))
+    index = problem_index + (formulation_index - 1) * problem_count
+    return value.values[index]
+end
+
+details(value::ParametricResult) = value.details
+
+"""
+$(TYPEDSIGNATURES)
+
+Transport every completed combinatorial result into one target-bearing
+downstream problem point while preserving source cardinality and order.
+"""
+function Gridspace{Target}(
+        source::ParametricResult{T, F}
+) where {Target, T, F <: Combinatorial}
+    return Gridspace{Target}(Target, (source,))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose the formulation, ordered values, resolved axes and computation details as
+a native record. Arrays and axes retain their identity. The method returns these retained objects without calculating or copying them.
+"""
+function Base.NamedTuple(value::ParametricResult)
+    return (formulation=value.formulation, values=value.values, axes=value.axes, details=value.details)
+end

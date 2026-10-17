@@ -20,7 +20,7 @@
 
 article#documenter-page img {
     display: block !important;
-    margin: auto !important;
+    margin: 0.75rem auto !important;
 }
 
 /* Improved scrollbar styling for code blocks rendered in Chrome */
@@ -60,7 +60,7 @@ table {
     overflow-x: auto;
     /* Use auto instead of scroll */
     max-width: 100%;
-    /* Ensure content doesn't exceed container */
+    /* Ensure content does not exceed its container */
 }
 
 /* Modern scrollbar styling using standard CSS */

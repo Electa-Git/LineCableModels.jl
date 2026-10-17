@@ -1,0 +1,11 @@
+extends: ai-tells.NounString
+exceptions:
+  # Exact French title of Gary's 1976 paper.
+  - 'Approche\s+complète\s+de\s+la\s+propagation\s+multifilaire\s+en\s+haute\s+fréquence\s+par\s+utilisation\s+des\s+matrices\s+complexes'
+tests:
+  - name: published title
+    input: 'C. Gary, “Approche complète de la propagation multifilaire en haute fréquence par utilisation des matrices complexes.”'
+    want: ""
+  - name: noun stack
+    input: "The customer feedback analysis pipeline stalled."
+    contains: Project.NounString

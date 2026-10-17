@@ -1,0 +1,12 @@
+extends: ai-tells.OverusedVocabulary
+exceptions:
+  # Numerical precision and Julia dispatch terminology.
+  - '(?i)significant\s+digits'
+  - '(?i)dynamically\s+typed'
+tests:
+  - name: numerical precision
+    input: "Print three significant digits."
+    want: ""
+  - name: vague emphasis
+    input: "This is a significant improvement."
+    contains: Project.OverusedVocabulary

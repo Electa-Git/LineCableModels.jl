@@ -1,0 +1,38 @@
+"""
+    LineCableModels.Units
+
+Define the physical-quantity identities and units used by computation results,
+plots, and reports.
+
+# Public actions
+
+- `quantity` maps a scientific selector to its physical meaning.
+- `native_unit` and `display_unit` select computation and presentation units.
+- `scale_factor` converts compatible unit expressions.
+- `label` and `symbol` format unit and quantity metadata.
+"""
+module Units
+
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+using LinearAlgebra: diag
+import ..LineCableModels: R, L, C
+
+export Unit, UnitExpr, Quantity, units
+export quantity, native_unit, display_unit, scale_factor, label, symbol
+
+"""
+Return the family of a physical quantity: `Val(:series)`, `Val(:shunt)`, or
+`nothing` for a quantity in neither. A component belongs to its base's family.
+"""
+function family end
+
+public family, Frequency, Dimensionless, LengthBasis, PerUnitLength, TotalLength
+
+include("units.jl")
+include("quantities.jl")
+include("basis.jl")
+include("accessors.jl")
+include("scaling.jl")
+include("definitions.jl")
+
+end # module Units

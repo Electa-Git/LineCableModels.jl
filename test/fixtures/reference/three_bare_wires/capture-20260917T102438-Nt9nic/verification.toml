@@ -1,0 +1,9 @@
+capture_files_verified = 75
+comparison_source_sha256 = "8c655d549fb12eb08e4ff0db3ec2f415f1474e2651ac4bd91647ed075aebae47"
+fem_artifacts_verified = 1480
+runs = 10
+
+[source_sha256]
+"dev/run_three_bare_wires_baseline.jl" = "f983929224224837c3f02c0cd76e553ef68ec2d3f766e994864ba128905f4891"
+"docs/spectral-integration-ownership-plan.md" = "626d66f37a29fa69dc58d0f51f1d76730f2d352bfa548dd7921ca79371b979f4"
+"test/support/scenarios.jl" = "bd81faedc37a67fd81175efd5af7b30da24da63cba979bb832b0eca2f592397e"

@@ -1,0 +1,2280 @@
+julia = "1.12.7"
+matching_criteria = "Pending human review; no numerical acceptance tolerance imposed."
+project = "/home/amartins/.julia/environments/v1.12/Project.toml"
+revision = "1d931911b45aa5232e472c935a602e2392ff76e3"
+status = "captured; pending comparison and human review"
+
+[packages.0234f1f7-429e-5d53-9886-15a909be8d59]
+name = "HDF5_jll"
+source = "/home/amartins/.julia/packages/HDF5_jll/NQMjC"
+version = "1.14.6+0"
+
+[packages.02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a]
+name = "XML2_jll"
+source = "/home/amartins/.julia/packages/XML2_jll/XNg4P"
+version = "2.15.3+0"
+
+[packages.03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66]
+name = "SplitApplyCombine"
+source = "/home/amartins/.julia/packages/SplitApplyCombine/ebXW1"
+version = "1.3.0"
+
+[packages.05181044-ff0b-4ac5-8273-598c1e38db00]
+name = "RelocatableFolders"
+source = "/home/amartins/.julia/packages/RelocatableFolders/URtlI"
+version = "1.0.1"
+
+[packages.05823500-19ac-5b8b-9628-191a04bc5112]
+name = "OpenLibm_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/OpenLibm_jll"
+version = "0.8.7+0"
+
+[packages.0656b61e-2033-5cc2-a64a-77c0f6c09b89]
+name = "GLFW_jll"
+source = "/home/amartins/.julia/packages/GLFW_jll/EvIAA"
+version = "3.5.1+0"
+
+[packages.069b7b12-0de2-55c6-9aab-29f3d0a68a2e]
+name = "FunctionWrappers"
+source = "/home/amartins/.julia/packages/FunctionWrappers/Q5cBx"
+version = "1.1.3"
+
+[packages.075b6546-f08a-558a-be8f-8157d0f608a5]
+name = "libsixel_jll"
+source = "/home/amartins/.julia/packages/libsixel_jll/8qnSY"
+version = "1.10.5+0"
+
+[packages.08abe8d2-0d0c-5749-adfa-8a2ac140af0d]
+name = "PrettyTables"
+source = "/home/amartins/.julia/packages/PrettyTables/ueaXN"
+version = "3.4.8"
+
+[packages.0987c9cc-fe09-11e8-30f0-b96dd679fdca]
+name = "MonteCarloMeasurements"
+source = "/home/amartins/.julia/packages/MonteCarloMeasurements/zXluZ"
+version = "1.5.2"
+
+[packages.09ab397b-f2b6-538f-b94a-2f83cf4a842a]
+name = "StructArrays"
+source = "/home/amartins/.julia/packages/StructArrays/fvsNe"
+version = "0.7.3"
+
+[packages.0a4f8689-d25c-4efe-a92b-7142dfc1aa53]
+name = "MathTeXEngine"
+source = "/home/amartins/.julia/packages/MathTeXEngine/Zd227"
+version = "0.6.9"
+
+[packages.0ac62f75-1d6f-5e53-bd7c-93b484bb37c0]
+name = "libass_jll"
+source = "/home/amartins/.julia/packages/libass_jll/95TY2"
+version = "0.17.5+0"
+
+[packages.0bca4576-84f4-4d90-8ffe-ffa030f20462]
+name = "SciMLBase"
+source = "/home/amartins/.julia/packages/SciMLBase/1DcFZ"
+version = "3.55.0"
+
+[packages.0c0b7dd1-d40b-584c-a123-a41640f87eec]
+name = "Xorg_libXau_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXau_jll/J4NX6"
+version = "1.0.13+0"
+
+[packages.0c0d3e7f-3a8b-4f7e-b6f1-9a4d2e7c1f01]
+name = "PureKLU"
+source = "/home/amartins/.julia/packages/PureKLU/EusaS"
+version = "1.5.0"
+
+[packages.0c81fc1b-5583-44fc-8770-48be1e1cca08]
+name = "InputBuffers"
+source = "/home/amartins/.julia/packages/InputBuffers/6eq7q"
+version = "1.1.1"
+
+[packages.0d7ed370-da01-4f52-bd93-41d350b8b718]
+name = "StaticArrayInterface"
+source = "/home/amartins/.julia/packages/StaticArrayInterface/qmd3i"
+version = "1.10.0"
+
+[packages.0dad84c5-d112-42e6-8d28-ef12dabb789f]
+name = "ArgTools"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/ArgTools"
+version = "1.1.2"
+
+[packages.0f8b85d8-7281-11e9-16c2-39a750bddbf1]
+name = "JSON3"
+source = "/home/amartins/.julia/packages/JSON3/rT1w2"
+version = "1.14.3"
+
+[packages.10745b16-79ce-11e8-11f9-7d13ad32a3b2]
+name = "Statistics"
+source = "/home/amartins/.julia/packages/Statistics/2IU8F"
+version = "1.11.5"
+
+[packages.1082639a-0dae-5f34-9b06-72781eeb8cb3]
+name = "Xorg_libXext_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXext_jll/ZknMc"
+version = "1.3.8+0"
+
+[packages.10f19ff3-798f-405d-979b-55457f8fc047]
+name = "LayoutPointers"
+source = "/home/amartins/.julia/packages/LayoutPointers/nNKcM"
+version = "0.1.17"
+
+[packages.1183f4f0-6f2a-5f1a-908b-139f9cdfea6f]
+name = "libdecor_jll"
+source = "/home/amartins/.julia/packages/libdecor_jll/Ha22M"
+version = "0.2.2+0"
+
+[packages.1270edf5-f2f9-52d2-97e9-ab00b5d0237a]
+name = "x264_jll"
+source = "/home/amartins/.julia/packages/x264_jll/fFdOY"
+version = "10164.0.1+0"
+
+[packages.13072b0f-2c55-5437-9ae7-d433b7a33950]
+name = "AxisAlgorithms"
+source = "/home/amartins/.julia/packages/AxisAlgorithms/08cuY"
+version = "1.1.0"
+
+[packages.1317d2d5-d96f-522e-a858-c73665f53c3e]
+name = "oneTBB_jll"
+source = "/home/amartins/.julia/packages/oneTBB_jll/IZRZe"
+version = "2022.3.0+0"
+
+[packages.14a3606d-f60d-562e-9121-12d972cd8159]
+name = "MozillaCACerts_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/MozillaCACerts_jll"
+version = "2025.11.4"
+
+[packages.14f7f29c-3bd6-536c-9a0b-7339e30b5a3e]
+name = "AMD"
+source = "/home/amartins/.julia/packages/AMD/XmreB"
+version = "0.5.4"
+
+[packages.1520ce14-60c1-5f80-bbc7-55ef81b5835c]
+name = "AbstractTrees"
+source = "/home/amartins/.julia/packages/AbstractTrees/Ftf8W"
+version = "0.4.5"
+
+[packages.163ba53b-c6d8-5494-b064-1a9d43ac40c5]
+name = "DiffResults"
+source = "/home/amartins/.julia/packages/DiffResults/YLo25"
+version = "1.1.0"
+
+[packages.187b0558-2788-49d3-abe0-74a17ed4e7c9]
+name = "ConstructionBase"
+source = "/home/amartins/.julia/packages/ConstructionBase/3a7dg"
+version = "1.6.0"
+
+[packages.189a3867-3050-52da-a836-e630ba90ab69]
+name = "Reexport"
+source = "/home/amartins/.julia/packages/Reexport/OxbHO"
+version = "1.2.2"
+
+[packages.18a262bb-aa17-5467-a713-aee519bc75cb]
+name = "OpenEXR_jll"
+source = "/home/amartins/.julia/packages/OpenEXR_jll/n7HRj"
+version = "3.4.15+0"
+
+[packages.18c40d15-f7cd-5a6d-bc92-87468d86c5db]
+name = "LinearElasticity_jll"
+source = "/home/amartins/.julia/packages/LinearElasticity_jll/WfjJL"
+version = "5.0.1+0"
+
+[packages.18cc8868-cbac-4acf-b575-c8ff214dc66f]
+name = "BaseDirs"
+source = "/home/amartins/.julia/packages/BaseDirs/xcQ4N"
+version = "1.4.0"
+
+[packages.18e31ff7-3703-566c-8e60-38913d67486b]
+name = "Peaks"
+source = "/home/amartins/.julia/packages/Peaks/qZdvG"
+version = "0.6.2"
+
+[packages.18e54dd8-cb9d-406c-a71d-865a43cbb235]
+name = "IntegerMathUtils"
+source = "/home/amartins/.julia/packages/IntegerMathUtils/ufRWt"
+version = "0.1.4"
+
+[packages.1914dd2f-81c6-5fcd-8719-6d5c9610ff09]
+name = "MacroTools"
+source = "/home/amartins/.julia/packages/MacroTools/Ar0jT"
+version = "0.5.16"
+
+[packages.1986cc42-f94f-5a68-af5c-568840ba703d]
+name = "Unitful"
+source = "/home/amartins/.julia/packages/Unitful/ikxOk"
+version = "1.29.0"
+
+[packages.19eb6ba3-879d-56ad-ad62-d5c202156566]
+name = "Packing"
+source = "/home/amartins/.julia/packages/Packing/Riovd"
+version = "0.5.1"
+
+[packages.19f34311-ddf3-4b8b-af20-060888a46c0e]
+name = "SciMLJacobianOperators"
+source = "/home/amartins/.julia/packages/SciMLJacobianOperators/yaf1p"
+version = "0.1.19"
+
+[packages.1a1011a3-84de-559e-8e89-a11a2f7dc383]
+name = "SharedArrays"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/SharedArrays"
+version = "1.11.0"
+
+[packages.1a297f60-69ca-5386-bcde-b61e274b549b]
+name = "FillArrays"
+source = "/home/amartins/.julia/packages/FillArrays/zA1cC"
+version = "1.17.0"
+
+[packages.1c621080-faea-4a02-84b6-bbd5e436b8fe]
+name = "TestItems"
+source = "/home/amartins/.julia/packages/TestItems/FaZSd"
+version = "1.1.0"
+
+[packages.1cfade01-22cf-5700-b092-accc4b62d6e1]
+name = "UnicodeFun"
+source = "/home/amartins/.julia/packages/UnicodeFun/QjvWn"
+version = "0.4.1"
+
+[packages.1d5cc7b8-4909-519e-a0f8-d0f5ad9712d0]
+name = "IntelOpenMP_jll"
+source = "/home/amartins/.julia/packages/IntelOpenMP_jll/eZgzz"
+version = "2025.2.0+0"
+
+[packages.1d63c593-3942-5779-bab2-d838dc0a180e]
+name = "LLVMOpenMP_jll"
+source = "/home/amartins/.julia/packages/LLVMOpenMP_jll/bgCml"
+version = "23.1.1+0"
+
+[packages.1e83bf80-4336-4d27-bf5d-d5a4f845583c]
+name = "StaticArraysCore"
+source = "/home/amartins/.julia/packages/StaticArraysCore/MoJEf"
+version = "1.4.4"
+
+[packages.1fa38f19-a742-5d3f-a2b9-30dd87b9d5f8]
+name = "Format"
+source = "/home/amartins/.julia/packages/Format/0LfJN"
+version = "1.3.7"
+
+[packages.1fd47b50-473d-5c70-9696-f719f8f3bcdc]
+name = "QuadGK"
+source = "/home/amartins/.julia/packages/QuadGK/5mgi5"
+version = "2.11.3"
+
+[packages.2030c09a-7f63-5d83-885d-db604e0e9cc0]
+name = "InfrastructureModels"
+source = "/home/amartins/.julia/packages/InfrastructureModels/3h9nD"
+version = "0.7.9"
+
+[packages.21216c6a-2e73-6563-6e65-726566657250]
+name = "Preferences"
+source = "/home/amartins/.julia/packages/Preferences/DwMOj"
+version = "1.6.0"
+
+[packages.21fd56a4-db03-40ee-82ee-a87907bee541]
+name = "RobustAndOptimalControl"
+source = "/home/amartins/.julia/packages/RobustAndOptimalControl/p3cMV"
+version = "0.4.52"
+
+[packages.2569d6c7-a4a2-43d3-a901-331e8e4be471]
+name = "ConcreteStructs"
+source = "/home/amartins/.julia/packages/ConcreteStructs/4xZSO"
+version = "0.2.8"
+
+[packages.26075421-4e9a-44e1-8bd1-420ed7ad02b2]
+name = "NonlinearSolveSpectralMethods"
+source = "/home/amartins/.julia/packages/NonlinearSolveSpectralMethods/VzvhW"
+version = "1.8.3"
+
+[packages.2702e6a9-849d-5ed8-8c21-79e8b8f9ee43]
+name = "EpollShim_jll"
+source = "/home/amartins/.julia/packages/EpollShim_jll/MeNmS"
+version = "0.0.20230411+1"
+
+[packages.276daf66-3868-5448-9aa4-cd146d93841b]
+name = "SpecialFunctions"
+source = "/home/amartins/.julia/packages/SpecialFunctions/EJiJa"
+version = "2.9.0"
+
+[packages.2774e3e8-f4cf-5e23-947b-6d7e65073b56]
+name = "NLsolve"
+source = "/home/amartins/.julia/packages/NLsolve/gJL1I"
+version = "4.5.1"
+
+[packages.27a7e980-b3e6-11e9-2bcd-0b925532e340]
+name = "Animations"
+source = "/home/amartins/.julia/packages/Animations/OGXDY"
+version = "0.4.2"
+
+[packages.27ebfcd6-29c5-5fa9-bf4b-fb8fc14df3ae]
+name = "Primes"
+source = "/home/amartins/.julia/packages/Primes/qiMp0"
+version = "0.5.7"
+
+[packages.2803e5a7-5153-5ecf-9a86-9b4c37f5f5ac]
+name = "ImageAxes"
+source = "/home/amartins/.julia/packages/ImageAxes/1Fb97"
+version = "0.6.12"
+
+[packages.2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91]
+name = "StatsBase"
+source = "/home/amartins/.julia/packages/StatsBase/TkBxP"
+version = "0.34.13"
+
+[packages.295af30f-e4ad-537b-8983-00126c2a3abe]
+name = "Revise"
+source = "/home/amartins/.julia/packages/Revise/0LsA7"
+version = "3.17.0"
+
+[packages.29816b5a-b9ab-546f-933c-edad1886dfa8]
+name = "LibSSH2_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/LibSSH2_jll"
+version = "1.11.3+1"
+
+[packages.2a0f44e3-6c83-55bd-87e4-b1978d98bd5f]
+name = "Base64"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Base64"
+version = "1.11.0"
+
+[packages.2a0fbf3d-bb9c-48f3-b0a9-814d99fd7ab9]
+name = "CPUSummary"
+source = "/home/amartins/.julia/packages/CPUSummary/Wjls3"
+version = "0.2.7"
+
+[packages.2ab3a3ac-af41-5b50-aa03-7779005ae688]
+name = "LogExpFunctions"
+source = "/home/amartins/.julia/packages/LogExpFunctions/LITgj"
+version = "1.0.1"
+
+[packages.2b5f629d-d688-5b77-993f-72d75c75574e]
+name = "DiffEqBase"
+source = "/home/amartins/.julia/packages/DiffEqBase/wRYJL"
+version = "7.21.1"
+
+[packages.2b9e73d6-9f99-4895-a28a-fad5d1cd90f9]
+name = "PowerImpedance"
+source = "/home/amartins/Documents/KUL/PowerImpedance.jl"
+version = "0.3.0"
+
+[packages.2c808117-e144-5220-80d1-69d4eaa9352c]
+name = "Xorg_libXft_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXft_jll/i5Yyq"
+version = "2.3.9+0"
+
+[packages.2dfb63ee-cc39-5dd5-95bd-886bf059d720]
+name = "PooledArrays"
+source = "/home/amartins/.julia/packages/PooledArrays/Vy2X0"
+version = "1.4.3"
+
+[packages.2e619515-83b5-522b-bb60-26c02a35a201]
+name = "Expat_jll"
+source = "/home/amartins/.julia/packages/Expat_jll/uTocy"
+version = "2.8.4+0"
+
+[packages.2e76f6c2-a576-52d4-95c1-20adfe4de566]
+name = "HarfBuzz_jll"
+source = "/home/amartins/.julia/packages/HarfBuzz_jll/SooXK"
+version = "100.14004.0+0"
+
+[packages.2efcf032-c050-4f8e-a9bb-153293bab1f5]
+name = "SymbolicIndexingInterface"
+source = "/home/amartins/.julia/packages/SymbolicIndexingInterface/faxpV"
+version = "0.3.55"
+
+[packages.2f01184e-e22b-5df5-ae63-d93ebab69eaf]
+name = "SparseArrays"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/SparseArrays"
+version = "1.12.0"
+
+[packages.2faa5264-e118-4071-8864-e10559f68c7c]
+name = "LHLFactorization"
+source = "/home/amartins/.julia/packages/LHLFactorization/OdOla"
+version = "2.2.2"
+
+[packages.2fda8390-95c7-5789-9bda-21331edee243]
+name = "LsqFit"
+source = "/home/amartins/.julia/packages/LsqFit/rHpK1"
+version = "0.15.1"
+
+[packages.30392449-352a-5448-841d-b1acce4e97dc]
+name = "Pixman_jll"
+source = "/home/amartins/.julia/packages/Pixman_jll/boKTq"
+version = "0.46.4+0"
+
+[packages.313cdc1a-70c2-5d6a-ae34-0150d3930a38]
+name = "Indexing"
+source = "/home/amartins/.julia/packages/Indexing/iF84V"
+version = "1.1.1"
+
+[packages.3161d3a3-bdf6-5164-811a-617609db77b4]
+name = "Zstd_jll"
+source = "/home/amartins/.julia/packages/Zstd_jll/YX1LN"
+version = "1.5.7+1"
+
+[packages.319450e9-13b8-58e8-aa9f-8fd1420848ab]
+name = "SPRAL_jll"
+source = "/home/amartins/.julia/packages/SPRAL_jll/2bs1h"
+version = "2025.9.18+1"
+
+[packages.31c24e10-a181-5473-b8eb-7969acd0382f]
+name = "Distributions"
+source = "/home/amartins/.julia/packages/Distributions/RTt4y"
+version = "0.25.131"
+
+[packages.33bec58e-1273-512f-9401-5d533626f822]
+name = "Xorg_xkeyboard_config_jll"
+source = "/home/amartins/.julia/packages/Xorg_xkeyboard_config_jll/MfIRq"
+version = "2.47.0+2"
+
+[packages.34004b35-14d8-5ef3-9330-4cdb6864b03a]
+name = "HypergeometricFunctions"
+source = "/home/amartins/.julia/packages/HypergeometricFunctions/O0DoB"
+version = "0.3.30"
+
+[packages.34da2185-b29b-5c13-b0c7-acf172513d20]
+name = "Compat"
+source = "/home/amartins/.julia/packages/Compat/FiBO2"
+version = "4.18.1"
+
+[packages.35492f91-a3bd-45ad-95db-fcad7dcfedb7]
+name = "AdaptivePredicates"
+source = "/home/amartins/.julia/packages/AdaptivePredicates/rvPuS"
+version = "1.2.0"
+
+[packages.35661453-b289-5fab-8a00-3d9160c6a3a4]
+name = "Xorg_xkbcomp_jll"
+source = "/home/amartins/.julia/packages/Xorg_xkbcomp_jll/nNUE1"
+version = "1.4.7+0"
+
+[packages.3587e190-3f89-42d0-90ee-14403ec27112]
+name = "InverseFunctions"
+source = "/home/amartins/.julia/packages/InverseFunctions/4sFsZ"
+version = "0.1.17"
+
+[packages.35d6a980-a343-548e-a6ea-1d62b119f2f4]
+name = "ColorSchemes"
+source = "/home/amartins/.julia/packages/ColorSchemes/3BWhh"
+version = "3.31.0"
+
+[packages.36c8627f-9965-5494-a995-c6b170f724f3]
+name = "Pango_jll"
+source = "/home/amartins/.julia/packages/Pango_jll/16ssY"
+version = "1.58.2+0"
+
+[packages.3783bdb8-4a98-5b6b-af9a-565f29a5fe9c]
+name = "TableTraits"
+source = "/home/amartins/.julia/packages/TableTraits/o8VMV"
+version = "1.0.1"
+
+[packages.37e2e46d-f89d-539d-b4ee-838fcccc9c8e]
+name = "LinearAlgebra"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/LinearAlgebra"
+version = "1.12.0"
+
+[packages.38540f10-b2f7-11e9-35d8-d573e4eb0ff2]
+name = "CommonSolve"
+source = "/home/amartins/.julia/packages/CommonSolve/zocpq"
+version = "0.2.14"
+
+[packages.38a345b3-de98-5d2b-a5d3-14cd9215e700]
+name = "Libuuid_jll"
+source = "/home/amartins/.julia/packages/Libuuid_jll/fHaZa"
+version = "2.42.0+0"
+
+[packages.3955a311-db13-416c-9275-1d80ed98e5e9]
+name = "GridLayoutBase"
+source = "/home/amartins/.julia/packages/GridLayoutBase/K7sJt"
+version = "0.11.3"
+
+[packages.39de3d68-74b9-583c-8d2d-e117c070f3a9]
+name = "AxisArrays"
+source = "/home/amartins/.julia/packages/AxisArrays/gTmxS"
+version = "0.4.8"
+
+[packages.3a884ed6-31ef-47d7-9d2a-63182c4928ed]
+name = "UnPack"
+source = "/home/amartins/.julia/packages/UnPack/EkESO"
+version = "1.0.2"
+
+[packages.3b182d85-2403-5c21-9c21-1e1f0cc25472]
+name = "Graphite2_jll"
+source = "/home/amartins/.julia/packages/Graphite2_jll/qMpcV"
+version = "1.3.16+0"
+
+[packages.3bb67fe8-82b1-5028-8e26-92a6c54297fa]
+name = "TranscodingStreams"
+source = "/home/amartins/.julia/packages/TranscodingStreams/O3BYF"
+version = "0.11.3"
+
+[packages.3cdcf5f2-1ef4-517c-9805-6587b60abb01]
+name = "RecipesBase"
+source = "/home/amartins/.julia/packages/RecipesBase/BRe07"
+version = "1.3.4"
+
+[packages.3d5dd08c-fd9d-11e8-17fa-ed2836048c2f]
+name = "VectorizationBase"
+source = "/home/amartins/.julia/packages/VectorizationBase/F4R96"
+version = "0.21.74"
+
+[packages.3da002f7-5984-5a60-b8a6-cbb66c0b333f]
+name = "ColorTypes"
+source = "/home/amartins/.julia/packages/ColorTypes/L7biZ"
+version = "0.12.1"
+
+[packages.3da0fdf6-3ccc-4f1b-acd9-58baa6c99267]
+name = "MPIPreferences"
+source = "/home/amartins/.julia/packages/MPIPreferences/wIB4a"
+version = "0.1.12"
+
+[packages.3e5b6fbb-0976-4d2c-9146-d79de83f2fb0]
+name = "HostCPUFeatures"
+source = "/home/amartins/.julia/packages/HostCPUFeatures/ZTXz4"
+version = "0.1.18"
+
+[packages.3f19e933-33d8-53b3-aaab-bd5110c3b7a0]
+name = "p7zip_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/p7zip_jll"
+version = "17.7.0+0"
+
+[packages.3fa0cd96-eef1-5676-8a61-b3b8758bbffb]
+name = "REPL"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/REPL"
+version = "1.11.0"
+
+[packages.4076af6c-e467-56ae-b986-b466b2749572]
+name = "JuMP"
+source = "/home/amartins/.julia/packages/JuMP/Y8Mtc"
+version = "1.31.2"
+
+[packages.41ab1584-1d38-5bbf-9106-f11c6c58b48f]
+name = "InvertedIndices"
+source = "/home/amartins/.julia/packages/InvertedIndices/jfcUx"
+version = "1.3.1"
+
+[packages.429524aa-4258-5aef-a3af-852621145aeb]
+name = "Optim"
+source = "/home/amartins/.julia/packages/Optim/gmigl"
+version = "1.13.3"
+
+[packages.429591f6-91af-11e9-00e2-59fbe8cec110]
+name = "ExactPredicates"
+source = "/home/amartins/.julia/packages/ExactPredicates/V0dTA"
+version = "2.2.9"
+
+[packages.431bcebd-1456-4ced-9d72-93c2757fff0b]
+name = "SciMLPublic"
+source = "/home/amartins/.julia/packages/SciMLPublic/hI11w"
+version = "1.3.0"
+
+[packages.43287f4e-b6f4-7ad1-bb20-aadabca52c3d]
+name = "PtrArrays"
+source = "/home/amartins/.julia/packages/PtrArrays/m7fuD"
+version = "1.4.0"
+
+[packages.44cfe95a-1eb2-52ea-b672-e2afdf69b78f]
+name = "Pkg"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Pkg"
+version = "1.12.1"
+
+[packages.4536629a-c528-5b80-bd46-f80d51c5b363]
+name = "OpenBLAS_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/OpenBLAS_jll"
+version = "0.3.29+0"
+
+[packages.45858cf5-a6b0-47a3-bbea-62219f50df47]
+name = "Sixel"
+source = "/home/amartins/.julia/packages/Sixel/X78VX"
+version = "0.1.5"
+
+[packages.458c3c95-2e84-50aa-8efc-19380b2a3a95]
+name = "OpenSSL_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/OpenSSL_jll"
+version = "3.5.6+0"
+
+[packages.459566f4-90b8-5000-8ac3-15dfb0a30def]
+name = "DiffEqCallbacks"
+source = "/home/amartins/.julia/packages/DiffEqCallbacks/LYx6b"
+version = "4.19.4"
+
+[packages.4607b0f0-06f3-5cda-b6b1-a6196a1729e9]
+name = "SuiteSparse"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/SuiteSparse"
+version = "nothing"
+
+[packages.46192b85-c4d5-4398-a991-12ede77f4527]
+name = "GPUArraysCore"
+source = "/home/amartins/.julia/packages/GPUArraysCore/aNaXo"
+version = "0.2.0"
+
+[packages.46d2c3a1-f734-5fdb-9937-b9b9aeba4221]
+name = "MuladdMacro"
+source = "/home/amartins/.julia/packages/MuladdMacro/zEkh6"
+version = "0.2.7"
+
+[packages.476501e8-09a2-5ece-8869-fb82de89a1fa]
+name = "SLEEFPirates"
+source = "/home/amartins/.julia/packages/SLEEFPirates/OTXBS"
+version = "0.6.46"
+
+[packages.477f73a3-ac25-53e9-8cc3-50b2fa2566f0]
+name = "libaec_jll"
+source = "/home/amartins/.julia/packages/libaec_jll/sha5F"
+version = "1.1.7+0"
+
+[packages.47edcb42-4c32-4615-8424-f2b9edc5f35b]
+name = "ADTypes"
+source = "/home/amartins/.julia/packages/ADTypes/0z2Sm"
+version = "1.24.0"
+
+[packages.48062228-2e41-5def-b9a4-89aafe57970f]
+name = "FilePathsBase"
+source = "/home/amartins/.julia/packages/FilePathsBase/NV2We"
+version = "0.9.24"
+
+[packages.48965c70-4690-11ea-1f13-43a2532b2fa8]
+name = "MatrixPencils"
+source = "/home/amartins/.julia/packages/MatrixPencils/AzObp"
+version = "1.9.1"
+
+[packages.49080126-0e18-4c2a-b176-c102e4b3760c]
+name = "ZipArchives"
+source = "/home/amartins/.julia/packages/ZipArchives/2srn2"
+version = "2.6.0"
+
+[packages.49dc2e85-a5d0-5ad3-a950-438e2897f1b9]
+name = "Calculus"
+source = "/home/amartins/.julia/packages/Calculus/sTHut"
+version = "0.5.2"
+
+[packages.4af54fe1-eca0-43a8-85a7-787d91b784e3]
+name = "LazyArtifacts"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/LazyArtifacts"
+version = "1.11.0"
+
+[packages.4b2f31a3-9ecc-558c-b454-b3730dcb73e9]
+name = "Libmount_jll"
+source = "/home/amartins/.julia/packages/Libmount_jll/Obn9P"
+version = "2.42.0+0"
+
+[packages.4b34888f-f399-49d4-9bb3-47ed5cae4e65]
+name = "QOI"
+source = "/home/amartins/.julia/packages/QOI/NQrwL"
+version = "1.0.2"
+
+[packages.4c555306-a7a7-4459-81d9-ec55ddd5c99a]
+name = "ArrayLayouts"
+source = "/home/amartins/.julia/packages/ArrayLayouts/RCHQ8"
+version = "1.12.2"
+
+[packages.4c63d2b9-4356-54db-8cca-17b64c39e42c]
+name = "StatsFuns"
+source = "/home/amartins/.julia/packages/StatsFuns/Qq3vY"
+version = "2.2.1"
+
+[packages.4cefb923-2b6f-58c4-9e65-6821f26b7b51]
+name = "Munkres"
+source = "/home/amartins/.julia/packages/Munkres/D30ch"
+version = "0.2.0"
+
+[packages.4e289a0a-7415-4d19-859d-a7e5c4648b56]
+name = "EnumX"
+source = "/home/amartins/.julia/packages/EnumX/CGSQY"
+version = "1.0.7"
+
+[packages.4e9b3aee-d8a1-5a3d-ad8b-7d824db253f0]
+name = "CRlibm_jll"
+source = "/home/amartins/.julia/packages/CRlibm_jll/0eQYo"
+version = "1.0.1+0"
+
+[packages.4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5]
+name = "Unicode"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Unicode"
+version = "1.11.0"
+
+[packages.4f6342f7-b3d2-589e-9d20-edeb45f2b2bc]
+name = "Xorg_libX11_jll"
+source = "/home/amartins/.julia/packages/Xorg_libX11_jll/n2y3B"
+version = "1.8.13+0"
+
+[packages.4fba245c-0d91-5ea0-9b3e-6abc04ee57a9]
+name = "ArrayInterface"
+source = "/home/amartins/.julia/packages/ArrayInterface/TT5ip"
+version = "7.30.2"
+
+[packages.4fce6fc7-ba6a-5f4c-898f-77e99806d6f8]
+name = "FLTK_jll"
+source = "/home/amartins/.julia/packages/FLTK_jll/UfoZV"
+version = "1.3.8+0"
+
+[packages.510215fc-4207-5dde-b226-833fc4488ee2]
+name = "Observables"
+source = "/home/amartins/.julia/packages/Observables/YdEbO"
+version = "0.5.5"
+
+[packages.523fee87-0ab8-5b00-afb7-3ecf72e48cfd]
+name = "CodecBzip2"
+source = "/home/amartins/.julia/packages/CodecBzip2/gnqO5"
+version = "0.8.5"
+
+[packages.52e1d378-f018-4a11-a4be-720524705ac7]
+name = "OpenEXR"
+source = "/home/amartins/.julia/packages/OpenEXR/KjZGg"
+version = "0.3.3"
+
+[packages.53ae85a6-f571-4167-b2af-e1d143709226]
+name = "SciMLStructures"
+source = "/home/amartins/.julia/packages/SciMLStructures/YPjs4"
+version = "1.10.5"
+
+[packages.53c48c17-4a7d-5ca2-90c5-79b7896eea93]
+name = "FixedPointNumbers"
+source = "/home/amartins/.julia/packages/FixedPointNumbers/1T7Qh"
+version = "0.8.6"
+
+[packages.5432bcbf-9aad-5242-b902-cca2824c8663]
+name = "PaddedViews"
+source = "/home/amartins/.julia/packages/PaddedViews/Zxi9Z"
+version = "0.5.12"
+
+[packages.559328eb-81f9-559d-9380-de523a88c83c]
+name = "FriBidi_jll"
+source = "/home/amartins/.julia/packages/FriBidi_jll/pOqh0"
+version = "1.0.17+0"
+
+[packages.56ddb016-857b-54e1-b83d-db4d58db5568]
+name = "Logging"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Logging"
+version = "1.11.0"
+
+[packages.56f22d72-fd6d-98f1-02f0-08ddc0907c33]
+name = "Artifacts"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Artifacts"
+version = "1.11.0"
+
+[packages.5789e2e9-d7fb-5bc7-8068-2c6fae9b9549]
+name = "FileIO"
+source = "/home/amartins/.julia/packages/FileIO/pFGbU"
+version = "1.20.0"
+
+[packages.5959db7a-ea39-4486-b5fe-2dd0bf03d60d]
+name = "NonlinearSolveFirstOrder"
+source = "/home/amartins/.julia/packages/NonlinearSolveFirstOrder/HPOPL"
+version = "2.8.0"
+
+[packages.59f7168a-df46-5410-90c8-f2779963d0ec]
+name = "Giflib_jll"
+source = "/home/amartins/.julia/packages/Giflib_jll/8qnLE"
+version = "5.2.3+0"
+
+[packages.5ab0869b-81aa-558d-bb23-cbf5423bbe9b]
+name = "KernelDensity"
+source = "/home/amartins/.julia/packages/KernelDensity/uVtNL"
+version = "0.6.12"
+
+[packages.5ae413db-bbd1-5e63-b57d-d24a61df00f5]
+name = "EarCut_jll"
+source = "/home/amartins/.julia/packages/EarCut_jll/vCK9i"
+version = "2.2.4+0"
+
+[packages.5ae59095-9a9b-59fe-a467-6f913c188581]
+name = "Colors"
+source = "/home/amartins/.julia/packages/Colors/VFEJ1"
+version = "0.13.1"
+
+[packages.5c1252a2-5f33-56bf-86c9-59e7332b4326]
+name = "GeometryBasics"
+source = "/home/amartins/.julia/packages/GeometryBasics/eeEec"
+version = "0.5.12"
+
+[packages.5eaf0fd0-dfba-4ccb-bf02-d820a40db705]
+name = "RoundingEmulator"
+source = "/home/amartins/.julia/packages/RoundingEmulator/5KuEV"
+version = "0.2.1"
+
+[packages.615f187c-cbe4-4ef1-ba3b-2fcf58d6d173]
+name = "IfElse"
+source = "/home/amartins/.julia/packages/IfElse/dlhAd"
+version = "0.1.1"
+
+[packages.621f4979-c628-5d54-868e-fcf4e3e8185c]
+name = "AbstractFFTs"
+source = "/home/amartins/.julia/packages/AbstractFFTs/4iQz5"
+version = "1.5.0"
+
+[packages.62783981-4cbd-42fc-bca8-16325de8dc4b]
+name = "BitTwiddlingConvenienceFunctions"
+source = "/home/amartins/.julia/packages/BitTwiddlingConvenienceFunctions/q3iiO"
+version = "0.1.6"
+
+[packages.62fd8b95-f654-4bbd-a8a5-9c27f68ccd50]
+name = "TensorCore"
+source = "/home/amartins/.julia/packages/TensorCore/77QBu"
+version = "0.1.1"
+
+[packages.630162c2-fc9b-58b3-9910-8442a8a132e6]
+name = "gmsh_jll"
+source = "/home/amartins/.julia/packages/gmsh_jll/YykAt"
+version = "4.15.0+0"
+
+[packages.6309b1aa-fc58-479c-8956-599a07234577]
+name = "CodecInflate64"
+source = "/home/amartins/.julia/packages/CodecInflate64/81Eoa"
+version = "0.1.3"
+
+[packages.6462fe0b-24de-5631-8697-dd941f90decc]
+name = "Sockets"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Sockets"
+version = "1.11.0"
+
+[packages.647866c9-e3ac-4575-94e7-e3d426903924]
+name = "PolygonOps"
+source = "/home/amartins/.julia/packages/PolygonOps/SnsUB"
+version = "0.1.2"
+
+[packages.64ca27bc-2ba2-4a57-88aa-44e436879224]
+name = "FindFirstFunctions"
+source = "/home/amartins/.julia/packages/FindFirstFunctions/Rer7g"
+version = "3.2.1"
+
+[packages.65257c39-d410-5151-9873-9b3e5be5013e]
+name = "ShaderAbstractions"
+source = "/home/amartins/.julia/packages/ShaderAbstractions/BCZHP"
+version = "0.5.0"
+
+[packages.656ef2d0-ae68-5445-9ca0-591084a874a2]
+name = "OpenBLAS32_jll"
+source = "/home/amartins/.julia/packages/OpenBLAS32_jll/BP214"
+version = "0.3.34+0"
+
+[packages.663a7486-cb36-511b-a19d-713bb74d65c9]
+name = "FreeTypeAbstraction"
+source = "/home/amartins/.julia/packages/FreeTypeAbstraction/GGCCW"
+version = "0.10.8"
+
+[packages.66dad0bd-aa9a-41b7-9441-69ab47430ed8]
+name = "AliasTables"
+source = "/home/amartins/.julia/packages/AliasTables/N6kwW"
+version = "1.1.3"
+
+[packages.66fc600b-dfda-50eb-8b99-91cfa97b1301]
+name = "ModernGL"
+source = "/home/amartins/.julia/packages/ModernGL/BUvna"
+version = "1.1.8"
+
+[packages.67c07d97-cdcb-5c2c-af73-a7f9c32a568b]
+name = "Automa"
+source = "/home/amartins/.julia/packages/Automa/fzRJn"
+version = "1.2.0"
+
+[packages.682c06a0-de6a-54ab-a142-c8b1cf79cde6]
+name = "JSON"
+source = "/home/amartins/.julia/packages/JSON/tMaHX"
+version = "1.8.0"
+
+[packages.692b3bcd-3c85-4b1f-b108-f13ce0eb3210]
+name = "JLLWrappers"
+source = "/home/amartins/.julia/packages/JLLWrappers/Kp7TC"
+version = "1.8.0"
+
+[packages.699a6c99-e7fa-54fc-8d76-47d257e15c1d]
+name = "SimpleTraits"
+source = "/home/amartins/.julia/packages/SimpleTraits/nEtvW"
+version = "0.9.6"
+
+[packages.69de0a69-1ddd-5017-9359-2bf0b02dc9f0]
+name = "Parsers"
+source = "/home/amartins/.julia/packages/Parsers/xi9N1"
+version = "2.8.8"
+
+[packages.6a86dc24-6348-571c-b903-95158fe2bd41]
+name = "FiniteDiff"
+source = "/home/amartins/.julia/packages/FiniteDiff/Z4dvL"
+version = "2.33.0"
+
+[packages.6b39b394-51ab-5f42-8807-6242bab2b4c2]
+name = "CodecZstd"
+source = "/home/amartins/.julia/packages/CodecZstd/dNeRy"
+version = "0.8.7"
+
+[packages.6c6a2e73-6563-6170-7368-637461726353]
+name = "Scratch"
+source = "/home/amartins/.julia/packages/Scratch/tDtSY"
+version = "1.3.0"
+
+[packages.6cdc7f73-28fd-5e50-80fb-958a8875b1af]
+name = "OpenBLASConsistentFPCSR_jll"
+source = "/home/amartins/.julia/packages/OpenBLASConsistentFPCSR_jll/3j4TV"
+version = "0.3.34+0"
+
+[packages.6e34b625-4abd-537c-b88f-471c36dfa7a0]
+name = "Bzip2_jll"
+source = "/home/amartins/.julia/packages/Bzip2_jll/eIOLw"
+version = "1.0.9+0"
+
+[packages.6f1432cf-f94c-5a45-995e-cdbf5db27b0b]
+name = "LoweredCodeUtils"
+source = "/home/amartins/.julia/packages/LoweredCodeUtils/LjxQL"
+version = "3.8.0"
+
+[packages.6fe1bfb0-de20-5000-8ca7-80f57d26f881]
+name = "OffsetArrays"
+source = "/home/amartins/.julia/packages/OffsetArrays/b7qpm"
+version = "1.17.0"
+
+[packages.7034ab61-46d4-4ed7-9d0f-46aef9175898]
+name = "FastBroadcast"
+source = "/home/amartins/.julia/packages/FastBroadcast/FugmW"
+version = "1.4.0"
+
+[packages.705231aa-382f-11e9-3f0c-b7cb4346fdeb]
+name = "Gmsh"
+source = "/home/amartins/.julia/packages/Gmsh/Yk7b3"
+version = "0.3.1"
+
+[packages.70df07ce-3d50-431d-a3e7-ca6ddb60ac1e]
+name = "BracketingNonlinearSolve"
+source = "/home/amartins/.julia/packages/BracketingNonlinearSolve/riRCN"
+version = "1.12.7"
+
+[packages.7269a6da-0436-5bbc-96c2-40638cbb6118]
+name = "MeshIO"
+source = "/home/amartins/.julia/packages/MeshIO/K87As"
+version = "0.5.4"
+
+[packages.727e6d20-b764-4bd8-a329-72de5adea6c7]
+name = "SimpleNonlinearSolve"
+source = "/home/amartins/.julia/packages/SimpleNonlinearSolve/4wDnl"
+version = "2.14.5"
+
+[packages.72c71f33-b9b6-44de-8c94-c961784809e2]
+name = "XML"
+source = "/home/amartins/.julia/packages/XML/sBoky"
+version = "0.4.6"
+
+[packages.731186ca-8d62-57ce-b412-fbd966d074cd]
+name = "RecursiveArrayTools"
+source = "/home/amartins/.julia/packages/RecursiveArrayTools/9DBPt"
+version = "4.5.1"
+
+[packages.731e570b-9d59-4bfa-96dc-6df516fadf69]
+name = "TiffImages"
+source = "/home/amartins/.julia/packages/TiffImages/VlJh4"
+version = "0.11.9"
+
+[packages.73760f76-fbc4-59ce-8f25-708e95d2df96]
+name = "SignedDistanceFields"
+source = "/home/amartins/.julia/packages/SignedDistanceFields/TUaux"
+version = "0.4.1"
+
+[packages.76f85450-5226-5b5a-8eaa-529ad045b433]
+name = "LibGit2"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/LibGit2"
+version = "1.11.0"
+
+[packages.7746bdde-850d-59dc-9ae8-88ece973131d]
+name = "Glib_jll"
+source = "/home/amartins/.julia/packages/Glib_jll/d3glN"
+version = "2.88.3+0"
+
+[packages.77ba4419-2d1f-58cd-9bb1-8ffee604a2e3]
+name = "NaNMath"
+source = "/home/amartins/.julia/packages/NaNMath/1MJdn"
+version = "1.1.4"
+
+[packages.77dc65aa-8811-40c2-897b-53d922fa7daf]
+name = "FunctionWrappersWrappers"
+source = "/home/amartins/.julia/packages/FunctionWrappersWrappers/7CPBX"
+version = "1.13.0"
+
+[packages.781609d7-10c4-51f6-84f2-b8444358ff6d]
+name = "GMP_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/GMP_jll"
+version = "6.3.0+2"
+
+[packages.781d530d-4396-4725-bb49-402e4bee1e77]
+name = "TruncatedStacktraces"
+source = "/home/amartins/.julia/packages/TruncatedStacktraces/wmUUK"
+version = "1.4.0"
+
+[packages.79098fc4-a85e-5d69-aa6a-4863f24498fa]
+name = "Rmath"
+source = "/home/amartins/.julia/packages/Rmath/SBB4Z"
+version = "0.9.0"
+
+[packages.79e6a3ab-5dfb-504d-930d-738a2a938a0e]
+name = "Adapt"
+source = "/home/amartins/.julia/packages/Adapt/EMZqd"
+version = "4.7.1"
+
+[packages.7a12625a-238d-50fd-b39a-03d52299707e]
+name = "LinearMaps"
+source = "/home/amartins/.julia/packages/LinearMaps/KV78T"
+version = "3.11.4"
+
+[packages.7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee]
+name = "FileWatching"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/FileWatching"
+version = "1.11.0"
+
+[packages.7cb0a576-ebde-5e09-9194-50597f1243b4]
+name = "MPICH_jll"
+source = "/home/amartins/.julia/packages/MPICH_jll/F2DHh"
+version = "4.3.2+0"
+
+[packages.7d9f7c33-5ae7-4f3b-8dc6-eff91059b697]
+name = "Accessors"
+source = "/home/amartins/.julia/packages/Accessors/e7kZq"
+version = "0.1.45"
+
+[packages.7e49a35a-f44a-4d26-94aa-eba1b4ca6b47]
+name = "RuntimeGeneratedFunctions"
+source = "/home/amartins/.julia/packages/RuntimeGeneratedFunctions/xVoUB"
+version = "0.5.26"
+
+[packages.7e76a0d4-f3c7-5321-8279-8d96eeed0f29]
+name = "Libglvnd_jll"
+source = "/home/amartins/.julia/packages/Libglvnd_jll/upkN8"
+version = "1.7.1+1"
+
+[packages.7ed4a6bd-45f5-4d41-b270-4a48e9bafcae]
+name = "LinearSolve"
+source = "/home/amartins/.julia/packages/LinearSolve/jTUFm"
+version = "5.17.5"
+
+[packages.807dbc54-b67e-4c79-8afb-eafe4df6f2e1]
+name = "Compiler"
+source = "/home/amartins/.julia/packages/Compiler/dYFDw"
+version = "0.1.1"
+
+[packages.8197267c-284f-5f27-9208-e0e47529a953]
+name = "IntervalSets"
+source = "/home/amartins/.julia/packages/IntervalSets/2xOE8"
+version = "0.7.14"
+
+[packages.82899510-4779-5014-852e-03e436cf321d]
+name = "IteratorInterfaceExtensions"
+source = "/home/amartins/.julia/packages/IteratorInterfaceExtensions/NZdaj"
+version = "1.0.0"
+
+[packages.82ae8749-77ed-4fe6-ae5f-f523153014b0]
+name = "StatsAPI"
+source = "/home/amartins/.julia/packages/StatsAPI/b8dYo"
+version = "1.8.0"
+
+[packages.82e4d734-157c-48bb-816b-45c225c6df19]
+name = "ImageIO"
+source = "/home/amartins/.julia/packages/ImageIO/Ydbk5"
+version = "0.6.10"
+
+[packages.83423d85-b0ee-5818-9007-b63ccbeb887a]
+name = "Cairo_jll"
+source = "/home/amartins/.julia/packages/Cairo_jll/qZ5M2"
+version = "1.18.7+0"
+
+[packages.83775a58-1f1d-513f-b197-d71354ab007a]
+name = "Zlib_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Zlib_jll"
+version = "1.3.1+2"
+
+[packages.842dd82b-1e85-43dc-bf29-5d0ee9dffc48]
+name = "InlineStrings"
+source = "/home/amartins/.julia/packages/InlineStrings/3hOt5"
+version = "1.4.6"
+
+[packages.856f044c-d86e-5d09-b602-aeab76dc8ba7]
+name = "MKL_jll"
+source = "/home/amartins/.julia/packages/MKL_jll/A29wq"
+version = "2025.2.0+0"
+
+[packages.856f2bd8-1eba-4b0a-8007-ebc267875bd4]
+name = "StructTypes"
+source = "/home/amartins/.julia/packages/StructTypes/PaLwj"
+version = "1.11.0"
+
+[packages.85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4]
+name = "Dictionaries"
+source = "/home/amartins/.julia/packages/Dictionaries/P05gc"
+version = "0.4.6"
+
+[packages.85a6dd25-e78a-55b7-8502-1745935b8125]
+name = "PositiveFactorizations"
+source = "/home/amartins/.julia/packages/PositiveFactorizations/BN7VB"
+version = "0.2.4"
+
+[packages.86086c02-e288-5929-a127-40944b0018b7]
+name = "MMG_jll"
+source = "/home/amartins/.julia/packages/MMG_jll/rtCl3"
+version = "5.8.0+0"
+
+[packages.860ef19b-820b-49d6-a774-d7a799459cd3]
+name = "StableRNGs"
+source = "/home/amartins/.julia/packages/StableRNGs/yMYQp"
+version = "1.0.4"
+
+[packages.864edb3b-99cc-5e75-8d2d-829cb0a9cfe8]
+name = "DataStructures"
+source = "/home/amartins/.julia/packages/DataStructures/IwRP2"
+version = "0.19.6"
+
+[packages.87fe0de2-c867-4266-b59a-2f0a94fc965b]
+name = "LineSearch"
+source = "/home/amartins/.julia/packages/LineSearch/AH6Up"
+version = "0.1.18"
+
+[packages.88015f11-f218-50d7-93a8-a6af411a945d]
+name = "LERC_jll"
+source = "/home/amartins/.julia/packages/LERC_jll/vI05H"
+version = "4.2.0+0"
+
+[packages.8913a72c-1f9b-4ce2-8d82-65094dcecaec]
+name = "NonlinearSolve"
+source = "/home/amartins/.julia/packages/NonlinearSolve/CN1dw"
+version = "4.28.0"
+
+[packages.892a3eda-7b42-436c-8928-eab12a02cf0e]
+name = "StringManipulation"
+source = "/home/amartins/.julia/packages/StringManipulation/up6yo"
+version = "0.5.0"
+
+[packages.89763e89-9b03-5906-acba-b20f662cd828]
+name = "Libtiff_jll"
+source = "/home/amartins/.julia/packages/Libtiff_jll/5PvcP"
+version = "4.7.3+0"
+
+[packages.8ba89e20-285c-5b6f-9357-94700520ee1b]
+name = "Distributed"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Distributed"
+version = "1.11.0"
+
+[packages.8bb1440f-4735-579b-a4ab-409b98df4dab]
+name = "DelimitedFiles"
+source = "/home/amartins/.julia/packages/DelimitedFiles/aGcsu"
+version = "1.9.1"
+
+[packages.8bf52ea8-c179-5cab-976a-9e18b702a9bc]
+name = "CRC32c"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/CRC32c"
+version = "1.11.0"
+
+[packages.8cdb02fc-e678-4876-92c5-9defec4f444e]
+name = "LazyModules"
+source = "/home/amartins/.julia/packages/LazyModules/d9Be6"
+version = "0.3.1"
+
+[packages.8dfed614-e22c-5e08-85e1-65c5234f0b40]
+name = "Test"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Test"
+version = "1.11.0"
+
+[packages.8e53e030-5e6c-5a89-a30b-be5b7263a166]
+name = "libdrm_jll"
+source = "/home/amartins/.julia/packages/libdrm_jll/0jtGm"
+version = "2.4.134+0"
+
+[packages.8e850b90-86db-534c-a0d3-1478176c7d93]
+name = "libblastrampoline_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/libblastrampoline_jll"
+version = "5.15.0+0"
+
+[packages.8e850ede-7688-5339-a07c-302acd2aaf8d]
+name = "nghttp2_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/nghttp2_jll"
+version = "1.64.0+1"
+
+[packages.8f399da3-3557-5675-b5ff-fb832c97cbdb]
+name = "Libdl"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Libdl"
+version = "1.11.0"
+
+[packages.8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615]
+name = "EzXML"
+source = "/home/amartins/.julia/packages/EzXML/ROYMh"
+version = "1.2.3"
+
+[packages.8fc22ac5-c921-52a6-82fd-178b2807b824]
+name = "FilePaths"
+source = "/home/amartins/.julia/packages/FilePaths/3Niq6"
+version = "0.9.0"
+
+[packages.90014a1f-27ba-587c-ab20-58faa44d9150]
+name = "PDMats"
+source = "/home/amartins/.julia/packages/PDMats/ZCpqF"
+version = "0.11.41"
+
+[packages.90137ffa-7385-5640-81b9-e52037218182]
+name = "StaticArrays"
+source = "/home/amartins/.julia/packages/StaticArrays/k7bbZ"
+version = "1.9.20"
+
+[packages.905a6f67-0a94-5f89-b386-d35d92009cd1]
+name = "Imath_jll"
+source = "/home/amartins/.julia/packages/Imath_jll/hEXZc"
+version = "3.2.2+0"
+
+[packages.91c51154-3ec4-41a3-a24f-3f23e20d615c]
+name = "SentinelArrays"
+source = "/home/amartins/.julia/packages/SentinelArrays/YQPM3"
+version = "1.4.10"
+
+[packages.91d4177d-7536-5919-b921-800302f37372]
+name = "Opus_jll"
+source = "/home/amartins/.julia/packages/Opus_jll/1vPwF"
+version = "1.6.1+0"
+
+[packages.9237b28f-5490-5468-be7b-bb81f5f5e6cf]
+name = "MicrosoftMPI_jll"
+source = "/home/amartins/.julia/packages/MicrosoftMPI_jll/D5Wy1"
+version = "10.1.4+3"
+
+[packages.927a84f5-c5f4-47a5-9785-b46e178433df]
+name = "DelaunayTriangulation"
+source = "/home/amartins/.julia/packages/DelaunayTriangulation/iZKpa"
+version = "1.6.7"
+
+[packages.92933f4c-e287-5a05-a399-4b506db050ca]
+name = "ProgressMeter"
+source = "/home/amartins/.julia/packages/ProgressMeter/N660J"
+version = "1.11.0"
+
+[packages.92d709cd-6900-40b7-9082-c6be49f344b6]
+name = "IrrationalConstants"
+source = "/home/amartins/.julia/packages/IrrationalConstants/RokwY"
+version = "0.2.6"
+
+[packages.935fb764-8cf2-53bf-bb30-45bb1f8bf724]
+name = "Xorg_libXcursor_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXcursor_jll/drhiH"
+version = "1.2.4+0"
+
+[packages.944b1d66-785c-5afd-91f1-9de20f533193]
+name = "CodecZlib"
+source = "/home/amartins/.julia/packages/CodecZlib/BjTS1"
+version = "0.7.9"
+
+[packages.94ce4f54-9a6c-5748-9c1c-f9c7231a4531]
+name = "Libiconv_jll"
+source = "/home/amartins/.julia/packages/Libiconv_jll/sE4g7"
+version = "1.18.0+0"
+
+[packages.94e857df-77ce-4151-89e5-788b33177be4]
+name = "SIMDTypes"
+source = "/home/amartins/.julia/packages/SIMDTypes/8cg0U"
+version = "0.1.0"
+
+[packages.95dc2771-c249-4cd0-9c9f-1f3b4330693c]
+name = "ComputePipeline"
+source = "/home/amartins/.julia/packages/ComputePipeline/E2l50"
+version = "0.1.8"
+
+[packages.96374032-68de-5a5b-8d9e-752f78720389]
+name = "CRlibm"
+source = "/home/amartins/.julia/packages/CRlibm/A3Rgc"
+version = "1.0.2"
+
+[packages.9672c7b4-1e72-59bd-8a11-6ac3964bc41f]
+name = "SteadyStateDiffEq"
+source = "/home/amartins/.julia/packages/SteadyStateDiffEq/daMik"
+version = "2.16.0"
+
+[packages.97f35ef4-7bc5-4ec1-a41a-dcc69c7308c6]
+name = "RequiredInterfaces"
+source = "/home/amartins/.julia/packages/RequiredInterfaces/FQnDq"
+version = "0.1.7"
+
+[packages.981d1d27-644d-49a2-9326-4793e63143c3]
+name = "TriplotBase"
+source = "/home/amartins/.julia/packages/TriplotBase/I5oWP"
+version = "0.1.0"
+
+[packages.995b91a9-d308-5afd-9ec6-746e21dbc043]
+name = "PlotUtils"
+source = "/home/amartins/.julia/packages/PlotUtils/HX80C"
+version = "1.4.4"
+
+[packages.99c1a7ee-ab34-5fd5-8076-27c950a045f4]
+name = "MatrixEquations"
+source = "/home/amartins/.julia/packages/MatrixEquations/8YHP3"
+version = "2.6.6"
+
+[packages.9a156e7d-b971-5f62-b2c9-67348b8fb97c]
+name = "libva_jll"
+source = "/home/amartins/.julia/packages/libva_jll/ZulEV"
+version = "2.23.0+0"
+
+[packages.9a2c21bd-3a47-402d-9113-8faf9a0ee114]
+name = "NonlinearSolveQuasiNewton"
+source = "/home/amartins/.julia/packages/NonlinearSolveQuasiNewton/rzYZ4"
+version = "1.15.3"
+
+[packages.9a3f8284-a2c9-5f02-9a11-845980a1fd5c]
+name = "Random"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Random"
+version = "1.11.0"
+
+[packages.9a68df92-36a6-505f-a73e-abb412b6bfb4]
+name = "isoband_jll"
+source = "/home/amartins/.julia/packages/isoband_jll/yAVhA"
+version = "0.2.3+0"
+
+[packages.9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a]
+name = "DataAPI"
+source = "/home/amartins/.julia/packages/DataAPI/atdEM"
+version = "1.16.0"
+
+[packages.9aa1b823-49e4-5ca5-8b0f-3971ec8bab6a]
+name = "FastClosures"
+source = "/home/amartins/.julia/packages/FastClosures/3LNoZ"
+version = "0.3.2"
+
+[packages.9b13fd28-a010-5f03-acff-a1bbcff69959]
+name = "IndirectArrays"
+source = "/home/amartins/.julia/packages/IndirectArrays/BUQO3"
+version = "1.0.0"
+
+[packages.9cc047cb-c261-5740-88fc-0cf96f7bdcc7]
+name = "Ipopt_jll"
+source = "/home/amartins/.julia/packages/Ipopt_jll/dtdDk"
+version = "300.1400.1902+0"
+
+[packages.9d95f2ec-7b3d-5a63-8d20-e2491e220bb9]
+name = "TypedTables"
+source = "/home/amartins/.julia/packages/TypedTables/ItVth"
+version = "1.4.6"
+
+[packages.9e88b42a-f829-5b0c-bbe9-9e923198166b]
+name = "Serialization"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Serialization"
+version = "1.11.0"
+
+[packages.9fa8497b-333b-5362-9e8d-4d0656e87820]
+name = "Future"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Future"
+version = "1.11.0"
+
+[packages.9fe22ead-9e00-4db2-8b46-706a60d40f5e]
+name = "RespecializeParams"
+source = "/home/amartins/.julia/packages/RespecializeParams/fhYLh"
+version = "1.3.0"
+
+[packages.a0844989-3bd2-4988-8bea-c9407ab0941b]
+name = "Gamma"
+source = "/home/amartins/.julia/packages/Gamma/Xa01a"
+version = "1.2.0"
+
+[packages.a09fc81d-aa75-5fe9-8630-4744c3626534]
+name = "ImageCore"
+source = "/home/amartins/.julia/packages/ImageCore/0ilgc"
+version = "0.10.5"
+
+[packages.a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63]
+name = "DifferentiationInterface"
+source = "/home/amartins/.julia/packages/DifferentiationInterface/seMaz"
+version = "0.7.21"
+
+[packages.a2964d1f-97da-50d4-b82a-358c7fce9d89]
+name = "Wayland_jll"
+source = "/home/amartins/.julia/packages/Wayland_jll/m5orr"
+version = "1.24.0+0"
+
+[packages.a2af1166-a08f-5f64-846c-94a0d3cef48c]
+name = "SortingAlgorithms"
+source = "/home/amartins/.julia/packages/SortingAlgorithms/ZonD6"
+version = "1.2.3"
+
+[packages.a2cac450-b92f-5266-8821-25eda20663c8]
+name = "ColorBrewer"
+source = "/home/amartins/.julia/packages/ColorBrewer/Ic9lh"
+version = "0.4.2"
+
+[packages.a33af91c-f02d-484b-be07-31d278c5ca2b]
+name = "CompositionsBase"
+source = "/home/amartins/.julia/packages/CompositionsBase/IN0VV"
+version = "0.1.2"
+
+[packages.a3789734-cfe1-5b06-b2d0-1dd0d9d62d05]
+name = "Xorg_libXdmcp_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXdmcp_jll/tJKX9"
+version = "1.1.6+0"
+
+[packages.a38c48d9-6df1-5ac9-9223-b6ada3b5572b]
+name = "CoreMath_jll"
+source = "/home/amartins/.julia/packages/CoreMath_jll/p6YLU"
+version = "0.1.0+0"
+
+[packages.a3b82374-2e81-5b9e-98ce-41277c0e4c87]
+name = "MatrixFactorizations"
+source = "/home/amartins/.julia/packages/MatrixFactorizations/r2wSS"
+version = "3.1.3"
+
+[packages.a3f928ae-7b40-5064-980b-68af3947d34b]
+name = "Fontconfig_jll"
+source = "/home/amartins/.julia/packages/Fontconfig_jll/SN8rj"
+version = "2.17.1+0"
+
+[packages.a4ae2306-e953-59d6-aa16-d00cac43593b]
+name = "libaom_jll"
+source = "/home/amartins/.julia/packages/libaom_jll/nuw9H"
+version = "3.14.1+0"
+
+[packages.a4df4552-cc26-4903-aec0-212e50a0e84b]
+name = "FastPower"
+source = "/home/amartins/.julia/packages/FastPower/soIUe"
+version = "1.5.0"
+
+[packages.a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e]
+name = "Tar"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Tar"
+version = "1.10.0"
+
+[packages.a51aa0fd-4e3c-5386-b890-e753decda492]
+name = "Xorg_libXi_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXi_jll/KWLGF"
+version = "1.8.4+0"
+
+[packages.a57abbd0-fea5-4d57-96be-5e525945e8e4]
+name = "SparseColumnPivotedQR"
+source = "/home/amartins/.julia/packages/SparseColumnPivotedQR/SPDic"
+version = "2.1.8"
+
+[packages.a63ad114-7e13-5084-954f-fe012c677804]
+name = "Mmap"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Mmap"
+version = "1.11.0"
+
+[packages.a65dc6b1-eb27-53a1-bb3e-dea574b5389e]
+name = "Xorg_libpciaccess_jll"
+source = "/home/amartins/.julia/packages/Xorg_libpciaccess_jll/6MCDN"
+version = "0.19.0+0"
+
+[packages.a6db7da4-7206-11f0-1eab-35f2a5dbe1d1]
+name = "SciMLLogging"
+source = "/home/amartins/.julia/packages/SciMLLogging/zP0QP"
+version = "2.1.0"
+
+[packages.a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f]
+name = "TimerOutputs"
+source = "/home/amartins/.julia/packages/TimerOutputs/yewJH"
+version = "1.2.1"
+
+[packages.a81e2ce2-54d1-11eb-2c75-db236b00f339]
+name = "DescriptorSystems"
+source = "/home/amartins/.julia/packages/DescriptorSystems/b6V8a"
+version = "1.5.0"
+
+[packages.a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f]
+name = "Crayons"
+source = "/home/amartins/.julia/packages/Crayons/mwQuU"
+version = "4.2.0"
+
+[packages.a8d0f55d-b80e-548d-aff6-1a04c175f0f9]
+name = "SCOTCH_jll"
+source = "/home/amartins/.julia/packages/SCOTCH_jll/mstUT"
+version = "7.0.11+0"
+
+[packages.a93c6f00-e57d-5684-b7b6-d8193f3e46c0]
+name = "DataFrames"
+source = "/home/amartins/.julia/packages/DataFrames/0Y1g5"
+version = "1.8.2"
+
+[packages.a98d9a8b-a2ab-59e6-89dd-64a1c18fca59]
+name = "Interpolations"
+source = "/home/amartins/.julia/packages/Interpolations/rXcvn"
+version = "0.16.3"
+
+[packages.aa1ae85d-cabe-5617-a682-6adf51b2e16a]
+name = "JuliaInterpreter"
+source = "/home/amartins/.julia/packages/JuliaInterpreter/c4WlU"
+version = "0.11.4"
+
+[packages.aaaaaaaa-a6ca-5380-bf3e-84a91bcd477e]
+name = "ControlSystemsBase"
+source = "/home/amartins/.julia/packages/ControlSystemsBase/VGC12"
+version = "1.21.0"
+
+[packages.aacddb02-875f-59d6-b918-886e6ef4fbf8]
+name = "JpegTurbo_jll"
+source = "/home/amartins/.julia/packages/JpegTurbo_jll/dWdb4"
+version = "3.2.0+1"
+
+[packages.aae01518-5342-5314-be14-df237901396f]
+name = "BandedMatrices"
+source = "/home/amartins/.julia/packages/BandedMatrices/Kml90"
+version = "1.12.0"
+
+[packages.ac6e5ff7-fb65-4e79-a425-ec3bc9c03011]
+name = "JuliaSyntaxHighlighting"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/JuliaSyntaxHighlighting"
+version = "1.12.0"
+
+[packages.adafc99b-e345-5852-983c-f28acb93d879]
+name = "CpuId"
+source = "/home/amartins/.julia/packages/CpuId/n7zKC"
+version = "0.3.1"
+
+[packages.ade2ca70-3891-5945-98fb-dc099432e06a]
+name = "Dates"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Dates"
+version = "1.11.0"
+
+[packages.ae029012-a4dd-5104-9daa-d747884805df]
+name = "Requires"
+source = "/home/amartins/.julia/packages/Requires/1eCOK"
+version = "1.3.1"
+
+[packages.ae81ac8f-d209-56e5-92de-9978fef736f9]
+name = "ASL_jll"
+source = "/home/amartins/.julia/packages/ASL_jll/HkA3G"
+version = "0.1.5+0"
+
+[packages.aea7be01-6a6a-4083-8856-8a6e6704d82a]
+name = "PrecompileTools"
+source = "/home/amartins/.julia/packages/PrecompileTools/QUxvR"
+version = "1.3.4"
+
+[packages.aedffcd0-7271-4cad-89d0-dc628f76c6d3]
+name = "Static"
+source = "/home/amartins/.julia/packages/Static/WX7YF"
+version = "1.4.6"
+
+[packages.b0724c58-0f36-5564-988d-3bb0596ebc4a]
+name = "GettextRuntime_jll"
+source = "/home/amartins/.julia/packages/GettextRuntime_jll/oLbdj"
+version = "0.22.4+0"
+
+[packages.b0b7db55-cfe3-40fc-9ded-d10e2dbeff66]
+name = "ComponentArrays"
+source = "/home/amartins/.julia/packages/ComponentArrays/ZG0hs"
+version = "0.15.49"
+
+[packages.b22a6f82-2f65-5046-a5b2-351ab43fb4e5]
+name = "FFMPEG_jll"
+source = "/home/amartins/.julia/packages/FFMPEG_jll/Bz1KQ"
+version = "8.1.2+0"
+
+[packages.b27032c2-a3e7-50c8-80cd-2d36dbcbfd21]
+name = "LibCURL"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/LibCURL"
+version = "0.6.4"
+
+[packages.b38be410-82b0-50bf-ab77-7b57e271db43]
+name = "FreeType"
+source = "/home/amartins/.julia/packages/FreeType/ATaWH"
+version = "4.1.1"
+
+[packages.b3c3ace0-ae52-54e7-9d0b-2c1406fd6b9d]
+name = "RangeArrays"
+source = "/home/amartins/.julia/packages/RangeArrays/vV4Oe"
+version = "0.3.2"
+
+[packages.b4f34e82-e78d-54a5-968a-f98e89d6e8f7]
+name = "Distances"
+source = "/home/amartins/.julia/packages/Distances/mlz7p"
+version = "0.10.12"
+
+[packages.b53b4c65-9356-5827-b1ea-8c7a1a84506f]
+name = "libpng_jll"
+source = "/home/amartins/.julia/packages/libpng_jll/lJMP0"
+version = "1.6.58+0"
+
+[packages.b552c78f-8df3-52c6-915a-8e097449b14b]
+name = "DiffRules"
+source = "/home/amartins/.julia/packages/DiffRules/7zWhL"
+version = "1.16.0"
+
+[packages.b6b21f68-93f8-5de0-b562-5493be1d77c9]
+name = "Ipopt"
+source = "/home/amartins/.julia/packages/Ipopt/JN6dO"
+version = "1.16.0"
+
+[packages.b77e0a4c-d291-57a0-90e8-8db25a27a240]
+name = "InteractiveUtils"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/InteractiveUtils"
+version = "1.11.0"
+
+[packages.b7a15901-be09-4a0e-87d2-2e66b0e09b5a]
+name = "CoreMath"
+source = "/home/amartins/.julia/packages/CoreMath/8F08b"
+version = "0.1.0"
+
+[packages.b835a17e-a41a-41e7-81f0-2f016b05efe0]
+name = "JpegTurbo"
+source = "/home/amartins/.julia/packages/JpegTurbo/Fr9ri"
+version = "0.1.6"
+
+[packages.b86e33f2-c0db-4aa1-a6e0-ab43e668529e]
+name = "FFTA"
+source = "/home/amartins/.julia/packages/FFTA/fhqKV"
+version = "0.3.1"
+
+[packages.b8f27783-ece8-5eb3-8dc8-9495eed66fee]
+name = "MathOptInterface"
+source = "/home/amartins/.julia/packages/MathOptInterface/13jDB"
+version = "1.53.0"
+
+[packages.b964fa9f-0449-5b57-a5c2-d3ea65f4040f]
+name = "LaTeXStrings"
+source = "/home/amartins/.julia/packages/LaTeXStrings/xwv3L"
+version = "1.4.1"
+
+[packages.ba0b0d4f-ebba-5204-a429-3ac8c609bfb7]
+name = "Krylov"
+source = "/home/amartins/.julia/packages/Krylov/ciZbW"
+version = "0.10.10"
+
+[packages.baad4e97-8daa-5946-aac2-2edac59d34e1]
+name = "OCCT_jll"
+source = "/home/amartins/.julia/packages/OCCT_jll/7QDHX"
+version = "7.9.3+0"
+
+[packages.bac558e1-5e72-5ebc-8fee-abe8a469f55d]
+name = "OrderedCollections"
+source = "/home/amartins/.julia/packages/OrderedCollections/1sijc"
+version = "2.0.1"
+
+[packages.bb5d69b7-63fc-4a16-80bd-7e42200c7bdb]
+name = "MaybeInplace"
+source = "/home/amartins/.julia/packages/MaybeInplace/6lGEI"
+version = "0.1.8"
+
+[packages.bbf7d656-a473-5ed7-a52c-81e309532950]
+name = "CommonSubexpressions"
+source = "/home/amartins/.julia/packages/CommonSubexpressions/nws5L"
+version = "0.3.1"
+
+[packages.bc367c6b-8a6b-528e-b4bd-a4b897500b49]
+name = "ImageMetadata"
+source = "/home/amartins/.julia/packages/ImageMetadata/cJkCb"
+version = "0.9.10"
+
+[packages.bd17208b-e95e-5925-bf81-e2f59b3e5c61]
+name = "GLU_jll"
+source = "/home/amartins/.julia/packages/GLU_jll/xvGet"
+version = "9.0.1+0"
+
+[packages.bd369af6-aec1-5ad0-b16a-f7cc5008161c]
+name = "Tables"
+source = "/home/amartins/.julia/packages/Tables/qGyu7"
+version = "1.14.0"
+
+[packages.be0214bd-f91f-a760-ac4e-3421ce2b2da0]
+name = "NonlinearSolveBase"
+source = "/home/amartins/.julia/packages/NonlinearSolveBase/zLkkA"
+version = "2.51.1"
+
+[packages.bea87d4a-7f5b-5778-9afe-8cc45184846c]
+name = "SuiteSparse_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/SuiteSparse_jll"
+version = "7.8.3+2"
+
+[packages.c0aeaf25-5076-4817-a8d5-81caf7dfa961]
+name = "SciMLOperators"
+source = "/home/amartins/.julia/packages/SciMLOperators/g0aVc"
+version = "1.30.1"
+
+[packages.c145ed77-6b09-5dd9-b285-bf645a82121e]
+name = "GenericSchur"
+source = "/home/amartins/.julia/packages/GenericSchur/6AunB"
+version = "0.5.8"
+
+[packages.c1c5ebd0-6772-5130-a774-d5fcae4a789d]
+name = "LAME_jll"
+source = "/home/amartins/.julia/packages/LAME_jll/hLSZH"
+version = "3.100.3+0"
+
+[packages.c3611d14-8923-5661-9e6a-0046d554d3a4]
+name = "ColorVectorSpace"
+source = "/home/amartins/.julia/packages/ColorVectorSpace/JXxVe"
+version = "0.11.0"
+
+[packages.c36e90e8-916a-50a6-bd94-075b64ef4655]
+name = "PowerModels"
+source = "/home/amartins/.julia/packages/PowerModels/9nxfE"
+version = "0.21.6"
+
+[packages.c5f90fcd-3b7e-5836-afba-fc50a0988cb2]
+name = "libwebp_jll"
+source = "/home/amartins/.julia/packages/libwebp_jll/spcJQ"
+version = "1.6.0+0"
+
+[packages.c5fb5394-a638-5e4d-96e5-b29de1b5cf10]
+name = "Xorg_xtrans_jll"
+source = "/home/amartins/.julia/packages/Xorg_xtrans_jll/GstJ7"
+version = "1.6.0+0"
+
+[packages.c7cfdc94-dc32-55de-ac96-5a1b8d977c5b]
+name = "Xorg_libxcb_jll"
+source = "/home/amartins/.julia/packages/Xorg_libxcb_jll/f1ZGe"
+version = "1.17.1+0"
+
+[packages.c817782e-172a-44cc-b673-b171935fbb9e]
+name = "ImageBase"
+source = "/home/amartins/.julia/packages/ImageBase/z0ixH"
+version = "0.1.7"
+
+[packages.c84ed2f1-dad5-54f0-aa8e-dbefe2724439]
+name = "Ratios"
+source = "/home/amartins/.julia/packages/Ratios/FsiCW"
+version = "0.4.5"
+
+[packages.c8e1da08-722c-5040-9ed9-7db0dc04731e]
+name = "IterTools"
+source = "/home/amartins/.julia/packages/IterTools/cLYFo"
+version = "1.10.0"
+
+[packages.ca575930-c2e3-43a9-ace4-1e988b2c1908]
+name = "NetworkOptions"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/NetworkOptions"
+version = "1.3.0"
+
+[packages.cae243ae-269e-4f55-b966-ac2d0dc13c15]
+name = "StackViews"
+source = "/home/amartins/.julia/packages/StackViews/O9ART"
+version = "0.1.2"
+
+[packages.cc61e674-0454-545c-8b26-ed2c68acab7a]
+name = "Xorg_libxkbfile_jll"
+source = "/home/amartins/.julia/packages/Xorg_libxkbfile_jll/epSk2"
+version = "1.2.0+0"
+
+[packages.cf7118a7-6976-5b1a-9a39-7adc72f591a4]
+name = "UUIDs"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/UUIDs"
+version = "1.11.0"
+
+[packages.d00139f3-1899-568f-a2f0-47f597d42d70]
+name = "METIS_jll"
+source = "/home/amartins/.julia/packages/METIS_jll/HBwKI"
+version = "5.1.4+0"
+
+[packages.d091e8ba-531a-589c-9de9-94069b037ed8]
+name = "Xorg_libXfixes_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXfixes_jll/iQEXI"
+version = "6.0.2+0"
+
+[packages.d125e4d3-2237-4719-b19c-fa641b8a4667]
+name = "ManualMemory"
+source = "/home/amartins/.julia/packages/ManualMemory/iySrG"
+version = "0.1.8"
+
+[packages.d1454406-59df-5ea1-beac-c340f2130bc3]
+name = "Xorg_libXinerama_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXinerama_jll/ZTxyU"
+version = "1.1.7+0"
+
+[packages.d1acc4aa-44c8-5952-acd4-ba5d80a2a253]
+name = "IntervalArithmetic"
+source = "/home/amartins/.julia/packages/IntervalArithmetic/mlFMS"
+version = "1.0.12"
+
+[packages.d236fae5-4411-538c-8e31-a6e3d9e00b46]
+name = "PreallocationTools"
+source = "/home/amartins/.julia/packages/PreallocationTools/dNQ2d"
+version = "1.7.1"
+
+[packages.d25df0c9-e2be-5dd7-82c8-3ad0b3e990b9]
+name = "Inflate"
+source = "/home/amartins/.julia/packages/Inflate/AToAX"
+version = "0.1.5"
+
+[packages.d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4]
+name = "ChainRulesCore"
+source = "/home/amartins/.julia/packages/ChainRulesCore/IZ7FD"
+version = "1.26.1"
+
+[packages.d38c429a-6771-53c6-b99e-75d170b6e991]
+name = "Contour"
+source = "/home/amartins/.julia/packages/Contour/vefVR"
+version = "0.6.3"
+
+[packages.d3d80556-e9d4-5f37-9878-2ab0fcc64255]
+name = "LineSearches"
+source = "/home/amartins/.julia/packages/LineSearches/2BCHN"
+version = "7.5.1"
+
+[packages.d41bc354-129a-5804-8e4c-c37616107c6c]
+name = "NLSolversBase"
+source = "/home/amartins/.julia/packages/NLSolversBase/n7XXO"
+version = "7.10.0"
+
+[packages.d6f4376e-aef5-505a-96c1-9c027394607a]
+name = "Markdown"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Markdown"
+version = "1.11.0"
+
+[packages.d7e528f0-a631-5988-bf34-fe36492bcfd7]
+name = "FreeType2_jll"
+source = "/home/amartins/.julia/packages/FreeType2_jll/tFigR"
+version = "2.14.3+1"
+
+[packages.d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d]
+name = "MUMPS_seq_jll"
+source = "/home/amartins/.julia/packages/MUMPS_seq_jll/8TSrC"
+version = "500.900.100+0"
+
+[packages.d8a4904e-b15c-11e9-3269-09a3773c0cb0]
+name = "MutableArithmetics"
+source = "/home/amartins/.julia/packages/MutableArithmetics/xwKH0"
+version = "1.8.0"
+
+[packages.d8fb68d0-12a3-5cfd-a85a-d49703b185fd]
+name = "xkbcommon_jll"
+source = "/home/amartins/.julia/packages/xkbcommon_jll/kKUyp"
+version = "1.13.0+0"
+
+[packages.d96e819e-fc66-5662-9728-84c9c7592b0a]
+name = "Parameters"
+source = "/home/amartins/.julia/packages/Parameters/mlriZ"
+version = "0.13.1"
+
+[packages.d9f16b24-f501-4c13-a1f2-28368ffc5196]
+name = "Functors"
+source = "/home/amartins/.julia/packages/Functors/PfDWx"
+version = "0.5.3"
+
+[packages.da1fd8a2-8d9e-5ec2-8556-3022fb5608a2]
+name = "CodeTracking"
+source = "/home/amartins/.julia/packages/CodeTracking/hHLkR"
+version = "3.0.2"
+
+[packages.dbb5928d-eab1-5f90-85c2-b9b0edb7c900]
+name = "MappedArrays"
+source = "/home/amartins/.julia/packages/MappedArrays/WoTkJ"
+version = "0.4.3"
+
+[packages.dce04be8-c92d-5529-be00-80e4d2c0e197]
+name = "ArgCheck"
+source = "/home/amartins/.julia/packages/ArgCheck/DaoPJ"
+version = "2.5.0"
+
+[packages.de0858da-6303-5e67-8744-51eddeeeb8d7]
+name = "Printf"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Printf"
+version = "1.11.0"
+
+[packages.deac9b47-8bc7-5906-a0fe-35ac56dc84c0]
+name = "LibCURL_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/LibCURL_jll"
+version = "8.15.0+0"
+
+[packages.dfaa095f-4041-5dcd-9319-2fabd8486b76]
+name = "x265_jll"
+source = "/home/amartins/.julia/packages/x265_jll/QkM1f"
+version = "4.1.0+0"
+
+[packages.dffb7669-8cd4-4628-99dd-7694e356ba37]
+name = "LineCableModels"
+source = "/home/amartins/Documents/KUL/LineCableModels"
+version = "0.2.0"
+
+[packages.e1d29d7a-bbdc-5cf2-9ac0-f12de2c33e28]
+name = "Missings"
+source = "/home/amartins/.julia/packages/Missings/MBhnW"
+version = "1.2.0"
+
+[packages.e2ba6199-217a-4e67-a87a-7c52f15ade04]
+name = "ExprTools"
+source = "/home/amartins/.julia/packages/ExprTools/9lavJ"
+version = "0.1.11"
+
+[packages.e2d170a0-9d28-54be-80f0-106bbe20a464]
+name = "DataValueInterfaces"
+source = "/home/amartins/.julia/packages/DataValueInterfaces/0j6Kp"
+version = "1.0.0"
+
+[packages.e33a78d0-f292-5ffc-b300-72abe9b543c8]
+name = "Hwloc_jll"
+source = "/home/amartins/.julia/packages/Hwloc_jll/8nfxf"
+version = "2.12.1+0"
+
+[packages.e37daf67-58a4-590a-8e99-b0245dd2ffc5]
+name = "LibGit2_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/LibGit2_jll"
+version = "1.9.0+0"
+
+[packages.e3aaa7dc-3e4b-44e0-be63-ffb868ccd7c1]
+name = "WebP"
+source = "/home/amartins/.julia/packages/WebP/EiIqv"
+version = "0.1.3"
+
+[packages.e66e0078-7015-5450-92f7-15fbd957f2ae]
+name = "CompilerSupportLibraries_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/CompilerSupportLibraries_jll"
+version = "1.3.1+2"
+
+[packages.e6f89c97-d47a-5376-807f-9c37f3926c36]
+name = "LoggingExtras"
+source = "/home/amartins/.julia/packages/LoggingExtras/IICqi"
+version = "1.2.0"
+
+[packages.e7412a2a-1a6e-54c0-be00-318e2571c051]
+name = "Ogg_jll"
+source = "/home/amartins/.julia/packages/Ogg_jll/ypXgB"
+version = "1.3.6+0"
+
+[packages.e91730f6-4275-51fb-a7a0-7064cfbd3b39]
+name = "Hungarian"
+source = "/home/amartins/.julia/packages/Hungarian/ZFj4j"
+version = "0.7.0"
+
+[packages.e9467ef8-e4e7-5192-8a1a-b1aee30e663a]
+name = "GLMakie"
+source = "/home/amartins/.julia/packages/GLMakie/hxEgI"
+version = "0.13.14"
+
+[packages.e94cdb99-869f-56ef-bcf0-1ae2bcbe0389]
+name = "MosaicViews"
+source = "/home/amartins/.julia/packages/MosaicViews/rPrgS"
+version = "0.3.4"
+
+[packages.e9f186c6-92d2-5b65-8a66-fee21dc1b490]
+name = "Libffi_jll"
+source = "/home/amartins/.julia/packages/Libffi_jll/EP787"
+version = "3.4.7+0"
+
+[packages.ea2f1a96-1ddc-540d-b46f-429655e07cfa]
+name = "Xorg_libXrender_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXrender_jll/TCAvu"
+version = "0.9.12+0"
+
+[packages.ea8e919c-243c-51af-8825-aaa63cd721ce]
+name = "SHA"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/SHA"
+version = "0.7.0"
+
+[packages.eb426421-6452-4132-80ef-4b100a757ac5]
+name = "DoubleExponentialFormulas"
+source = "/home/amartins/.julia/packages/DoubleExponentialFormulas/bRCbp"
+version = "0.1.0"
+
+[packages.ec057cc2-7a8d-4b58-b3b3-92acb9f63b42]
+name = "StructUtils"
+source = "/home/amartins/.julia/packages/StructUtils/019BB"
+version = "2.8.5"
+
+[packages.ec84b674-ba8e-5d96-8ba1-2a689ba10484]
+name = "Xorg_libXrandr_jll"
+source = "/home/amartins/.julia/packages/Xorg_libXrandr_jll/q66gc"
+version = "1.5.6+0"
+
+[packages.ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4]
+name = "Sobol"
+source = "/home/amartins/.julia/packages/Sobol/5NmUh"
+version = "1.5.0"
+
+[packages.ee1fde0b-3d02-5ea6-8484-8dfef6360eab]
+name = "Dbus_jll"
+source = "/home/amartins/.julia/packages/Dbus_jll/vwYlz"
+version = "1.16.2+0"
+
+[packages.ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a]
+name = "Makie"
+source = "/home/amartins/.julia/packages/Makie/Iy6pu"
+version = "0.24.14"
+
+[packages.eebad327-c553-4316-9ea0-9fa01ccd7688]
+name = "PkgVersion"
+source = "/home/amartins/.julia/packages/PkgVersion/9yTWs"
+version = "0.3.3"
+
+[packages.efce3f68-66dc-5838-9240-27a6d6f5f9b6]
+name = "WoodburyMatrices"
+source = "/home/amartins/.julia/packages/WoodburyMatrices/inxuE"
+version = "1.1.0"
+
+[packages.efcefdf7-47ab-520b-bdef-62a2eaa19f15]
+name = "PCRE2_jll"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/PCRE2_jll"
+version = "10.44.0+1"
+
+[packages.efcf1570-3423-57d1-acb7-fd33fddbac46]
+name = "Setfield"
+source = "/home/amartins/.julia/packages/Setfield/ZezIj"
+version = "1.1.2"
+
+[packages.efe28fd5-8261-553b-a9e1-b2916fc3738e]
+name = "OpenSpecFun_jll"
+source = "/home/amartins/.julia/packages/OpenSpecFun_jll/4QIOW"
+version = "0.5.6+0"
+
+[packages.eff96d63-e80a-5855-80a2-b1b0885c5ab7]
+name = "Measurements"
+source = "/home/amartins/.julia/packages/Measurements/FIcLC"
+version = "2.14.1"
+
+[packages.f09324ee-3d7c-5217-9330-fc30815ba969]
+name = "Netpbm"
+source = "/home/amartins/.julia/packages/Netpbm/EXoxl"
+version = "1.1.1"
+
+[packages.f151be2c-9106-41f4-ab19-57ee4f262869]
+name = "EnzymeCore"
+source = "/home/amartins/.julia/packages/EnzymeCore/w6Eem"
+version = "0.8.21"
+
+[packages.f1662d9f-8043-43de-a69a-05efc1cc6ff4]
+name = "Isoband"
+source = "/home/amartins/.julia/packages/Isoband/qUEGP"
+version = "0.1.1"
+
+[packages.f1f71cc9-e9ae-5b93-9b94-4fe0e1ad3748]
+name = "MPItrampoline_jll"
+source = "/home/amartins/.julia/packages/MPItrampoline_jll/ldHYr"
+version = "5.5.6+0"
+
+[packages.f27b6e38-b328-58d1-80ce-0feddd5e7a45]
+name = "Polynomials"
+source = "/home/amartins/.julia/packages/Polynomials/CQYvl"
+version = "4.1.3"
+
+[packages.f27f6e37-5d2b-51aa-960f-b287f2bc3b7a]
+name = "libvorbis_jll"
+source = "/home/amartins/.julia/packages/libvorbis_jll/UePdg"
+version = "1.3.8+0"
+
+[packages.f2b01f46-fcfa-551c-844a-d8ac1e96c665]
+name = "Roots"
+source = "/home/amartins/.julia/packages/Roots/is6NK"
+version = "3.0.8"
+
+[packages.f43a241f-c20a-4ad4-852c-f6b1247861c6]
+name = "Downloads"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/Downloads"
+version = "1.7.0"
+
+[packages.f489334b-da3d-4c2e-b8f0-e476e12c162b]
+name = "StyledStrings"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/StyledStrings"
+version = "1.11.0"
+
+[packages.f50d1b31-88e8-58de-be2c-1cc44531875f]
+name = "Rmath_jll"
+source = "/home/amartins/.julia/packages/Rmath_jll/Ad6Tb"
+version = "0.5.2+0"
+
+[packages.f57f5aa1-a3ce-4bc8-8ab9-96f992907883]
+name = "PNGFiles"
+source = "/home/amartins/.julia/packages/PNGFiles/tc8G3"
+version = "0.4.5"
+
+[packages.f6369f11-7733-5829-9624-2563aa707210]
+name = "ForwardDiff"
+source = "/home/amartins/.julia/packages/ForwardDiff/wp23H"
+version = "1.4.6"
+
+[packages.f638f0a6-7fb0-5443-88ba-1cc74229b280]
+name = "libfdk_aac_jll"
+source = "/home/amartins/.julia/packages/libfdk_aac_jll/6fM3s"
+version = "2.0.4+0"
+
+[packages.f70d9fcc-98c5-4d4a-abd7-e4cdeebd8ca8]
+name = "CommonWorldInvalidations"
+source = "/home/amartins/.julia/packages/CommonWorldInvalidations/werPC"
+version = "1.2.2"
+
+[packages.f7f18e0c-5ee9-5ccd-a5bf-e8befd85ed98]
+name = "GLFW"
+source = "/home/amartins/.julia/packages/GLFW/wA4ue"
+version = "3.4.6"
+
+[packages.f8b46487-2199-4994-9208-9a1283c18c0a]
+name = "TestItemRunner"
+source = "/home/amartins/.julia/packages/TestItemRunner/uGBn3"
+version = "1.3.2"
+
+[packages.fa267f1f-6049-4f14-aa54-33bafae1ed76]
+name = "TOML"
+source = "/home/amartins/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu/share/julia/stdlib/v1.12/TOML"
+version = "1.0.3"
+
+[packages.fa961155-64e5-5f13-b03f-caf6b980ea82]
+name = "CEnum"
+source = "/home/amartins/.julia/packages/CEnum/B6ahP"
+version = "0.5.0"
+
+[packages.fdbf4ff8-1666-58a4-91e7-1b58723a45e0]
+name = "XLSX"
+source = "/home/amartins/.julia/packages/XLSX/CSF3F"
+version = "0.12.3"
+
+[packages.fdea26ae-647d-5447-a871-4b548cad5224]
+name = "SIMD"
+source = "/home/amartins/.julia/packages/SIMD/UiGbs"
+version = "3.7.2"
+
+[packages.fe0851c0-eecd-5654-98d4-656369965a5c]
+name = "OpenMPI_jll"
+source = "/home/amartins/.julia/packages/OpenMPI_jll/3lpnV"
+version = "5.0.11+0"
+
+[packages.ff45984e-d068-5f4c-9e32-c4133509d236]
+name = "PowerModelsACDC"
+source = "/home/amartins/.julia/packages/PowerModelsACDC/rDOL9"
+version = "0.10.1"
+
+[packages.ffbed154-4ef7-542d-bbb7-c09d3a79fcae]
+name = "DocStringExtensions"
+source = "/home/amartins/.julia/packages/DocStringExtensions/zNis6"
+version = "0.9.5"
+
+[packages.ffd25f8a-64ca-5728-b0f7-c24cf3aae800]
+name = "XZ_jll"
+source = "/home/amartins/.julia/packages/XZ_jll/dRNtS"
+version = "5.8.4+0"
+
+[runs."three_bare_wires_air_1/fem"]
+directory = "three_bare_wires_air_1/fem"
+fem_run_directory = "/home/amartins/Documents/KUL/LineCableModels/.linecablemodels/fem/runs/run-nZpQeq"
+seconds = 44.18872594833374
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_air_1/fem".sha256]
+    "Y.csv" = "d2dc753fa5d79c0345fca421b35415d4af68526791a7d58fef044729399276d1"
+    "Z.csv" = "5fba0d0a60a9196c2ef04b2b2a1cab12f56a0b7a573f229c4d8771698c7c4ff0"
+    "computation-options.txt" = "0dbde8116245047b46af5ba9cec83c49c05a3ad26dfc4795dbc1096be3fe2fb7"
+    "compute.log" = "4518aff1a2ed01ec24925ec017a191588e2fb076c6f24f72f5c10ed4776fe0e2"
+    "details.txt" = "37385b0fb34ac320f82f09435dc141d283c33e70e54922244d36b8687df422a6"
+    "fem-artifacts.toml" = "8a29856df22113e3e9a84a9fe252120794b96b2112e78bff424703bb75b15025"
+    "formulation.txt" = "3a46e5789375b82d5bdb834c8e7e44a224d45617f42466bd404172aa16799f68"
+    "problem.json" = "923fde848c12b5dfb72720cc69a12b65d22972341d8fbd1cee5e5b6fb38c867f"
+
+[runs."three_bare_wires_air_1/unified"]
+directory = "three_bare_wires_air_1/unified"
+seconds = 3.6788880825042725
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_air_1/unified".sha256]
+    "Y.csv" = "c1781a943be20f3d99bdf8a9558ce4e70134f3cd19460da22eca39f526aed6c4"
+    "Z.csv" = "58f904dc16552619aaffb4bfb00a663eb0f1e76feca62e142c7b1899e6b1fa07"
+    "computation-options.txt" = "b86069c50956980c051629764fd9ab441dd338f909dd6d4fa44084e6876a35ee"
+    "compute.log" = "178aa9f8367d78a1838c9b61d67860f686754fc1991ecbffccfa110af813b6ce"
+    "details.txt" = "ddaa96e65a5107a0e11aed7bd95f0ab289da24df53278e5649e730cda8d8f52d"
+    "formulation.txt" = "a7c87d4d0d59abe1436e6a8a6db6e6acf5e2d88bb56f2f4bc6428fa61f523018"
+    "problem.json" = "923fde848c12b5dfb72720cc69a12b65d22972341d8fbd1cee5e5b6fb38c867f"
+
+[runs."three_bare_wires_air_2/fem"]
+directory = "three_bare_wires_air_2/fem"
+fem_run_directory = "/home/amartins/Documents/KUL/LineCableModels/.linecablemodels/fem/runs/run-10qUQO"
+seconds = 39.63953399658203
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_air_2/fem".sha256]
+    "Y.csv" = "51ff0beb013a2fe9624150538d4b1f14b17520b00fb1823b8b60c3cdab70e4c3"
+    "Z.csv" = "f2a7eeceef9db641c9218ba816d2c1108f143b37f2a48ec786f39e3d54a36c15"
+    "computation-options.txt" = "0dbde8116245047b46af5ba9cec83c49c05a3ad26dfc4795dbc1096be3fe2fb7"
+    "compute.log" = "55687c58b92b8988a65f8f2d0239816890944fa3d16b099b3c854545ada5e83a"
+    "details.txt" = "8b7710bcc89fed1ee3dfee441d0980d1f974d22812b45cd101ec39b866d241bc"
+    "fem-artifacts.toml" = "584ad81100c163d81f163a090e2ea6259beb335e91c9fdc473732676fc9c178c"
+    "formulation.txt" = "3a46e5789375b82d5bdb834c8e7e44a224d45617f42466bd404172aa16799f68"
+    "problem.json" = "d6cf220a44b5f13afe1b224f05f05cccdb657c2f105fb193e9841a8055816797"
+
+[runs."three_bare_wires_air_2/unified"]
+directory = "three_bare_wires_air_2/unified"
+seconds = 2.6573989391326904
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_air_2/unified".sha256]
+    "Y.csv" = "d942680200138e2bfaf84b60ffce59ca762ad80a65941e8b74d0bb9b6e22e219"
+    "Z.csv" = "47e67a8dc68a2766876a1e1937377c3949ae592904d224542044679412cd3dc6"
+    "computation-options.txt" = "b86069c50956980c051629764fd9ab441dd338f909dd6d4fa44084e6876a35ee"
+    "compute.log" = "a5204e565c04ab3e07ae19bdeb9cee7d13ac49d8227e32423878381f3d3da107"
+    "details.txt" = "0e2cdd53bd90b78467b9d9e523d1668f9b2b24e03caef61e23364aaa7ee099d9"
+    "formulation.txt" = "a7c87d4d0d59abe1436e6a8a6db6e6acf5e2d88bb56f2f4bc6428fa61f523018"
+    "problem.json" = "d6cf220a44b5f13afe1b224f05f05cccdb657c2f105fb193e9841a8055816797"
+
+[runs."three_bare_wires_air_3/fem"]
+directory = "three_bare_wires_air_3/fem"
+fem_run_directory = "/home/amartins/Documents/KUL/LineCableModels/.linecablemodels/fem/runs/run-ZOwVWH"
+seconds = 44.83907389640808
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_air_3/fem".sha256]
+    "Y.csv" = "6df558e978eb303643fb47203c04e4507cf131309c2ea71c633d9fe721c1ca49"
+    "Z.csv" = "a70bba3ce78afdf163876ec11ca3398222b028d45eb2bf46e4c36e012b984276"
+    "computation-options.txt" = "0dbde8116245047b46af5ba9cec83c49c05a3ad26dfc4795dbc1096be3fe2fb7"
+    "compute.log" = "2d194d357dc478ab94fd9168121f8db63dba6acf022bb1a7cca8eeb70089e1a6"
+    "details.txt" = "2c2bc700158f9c0021a62f640f4a2d4448c1b65ab1cbdefa2c8402ed7ae2fd62"
+    "fem-artifacts.toml" = "a091495fa60fe3a8d72d68672a1d84ed6125594f8813088d4fb51def7ee0af8d"
+    "formulation.txt" = "3a46e5789375b82d5bdb834c8e7e44a224d45617f42466bd404172aa16799f68"
+    "problem.json" = "9cd63d9004b9cde69d04605db197b799489fc8dd601e9ceaf806010fe79a2f91"
+
+[runs."three_bare_wires_air_3/unified"]
+directory = "three_bare_wires_air_3/unified"
+seconds = 2.554433822631836
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_air_3/unified".sha256]
+    "Y.csv" = "d755dd9ecf39ac2edb7a9bd74e040b9421272992ef1a2625c611d932c3d90a06"
+    "Z.csv" = "a10546be75ece17056a779c6ebd6f154d19b5b4f5404d74121243c5b2e8e5122"
+    "computation-options.txt" = "b86069c50956980c051629764fd9ab441dd338f909dd6d4fa44084e6876a35ee"
+    "compute.log" = "21b631000801eccdd8849a064cd1ab75e12eec3378e301c8d868d4a853e9e56a"
+    "details.txt" = "d5e4f7c0458e87af128d1f3d0ad5e6eff75ef88c34ff167addd4074c729ec2f7"
+    "formulation.txt" = "a7c87d4d0d59abe1436e6a8a6db6e6acf5e2d88bb56f2f4bc6428fa61f523018"
+    "problem.json" = "9cd63d9004b9cde69d04605db197b799489fc8dd601e9ceaf806010fe79a2f91"
+
+[runs."three_bare_wires_all_air/fem"]
+directory = "three_bare_wires_all_air/fem"
+fem_run_directory = "/home/amartins/Documents/KUL/LineCableModels/.linecablemodels/fem/runs/run-Fon40d"
+seconds = 64.65753602981567
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_all_air/fem".sha256]
+    "Y.csv" = "2e0d25927c3c7515dffe960d854bd83a2127a03ffe9d6631757f5b52fdea2f7e"
+    "Z.csv" = "5a3bee66ff67323ba4cd90b27c0fb5ca1d7e94fcea73545144ba7c591be691e9"
+    "computation-options.txt" = "0dbde8116245047b46af5ba9cec83c49c05a3ad26dfc4795dbc1096be3fe2fb7"
+    "compute.log" = "f844490c7e09e2f0c59dfae4b10cbc273749a6813e480cf3f19640b2b416ba1a"
+    "details.txt" = "5b4a17ce722d0543f1969ff1e4c0e28d7ed49e8470012b3de9d4a5df3251c1f2"
+    "fem-artifacts.toml" = "5fbd08cfc142e15a4aeb12fe622ea06710d8f7a24590bda79330f859d6aa4727"
+    "formulation.txt" = "3a46e5789375b82d5bdb834c8e7e44a224d45617f42466bd404172aa16799f68"
+    "problem.json" = "8d595a0ff4913df649d1f7129a69011ba6c0cc657905141120a4316c7a26d043"
+
+[runs."three_bare_wires_all_air/unified"]
+directory = "three_bare_wires_all_air/unified"
+seconds = 58.08219909667969
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_all_air/unified".sha256]
+    "Y.csv" = "9edfe22b78aac77a31505d80e51d1690f5bee7651155533d395f231788970e7d"
+    "Z.csv" = "509fce8b1d62060461705c315d79345f58c20b4703ab9dacf4d9983dc43ed52a"
+    "computation-options.txt" = "b86069c50956980c051629764fd9ab441dd338f909dd6d4fa44084e6876a35ee"
+    "compute.log" = "28bb3fe1832ab79bb63ae4d946258ff50edea90c21f12e0834a169bb37070470"
+    "details.txt" = "6e15d355d1d5b65fb8a586a1ef41c93a3614ce678b4efbd646a1b410dcad212b"
+    "formulation.txt" = "a7c87d4d0d59abe1436e6a8a6db6e6acf5e2d88bb56f2f4bc6428fa61f523018"
+    "problem.json" = "8d595a0ff4913df649d1f7129a69011ba6c0cc657905141120a4316c7a26d043"
+
+[runs."three_bare_wires_all_earth/fem"]
+directory = "three_bare_wires_all_earth/fem"
+fem_run_directory = "/home/amartins/Documents/KUL/LineCableModels/.linecablemodels/fem/runs/run-fEugm1"
+seconds = 43.08330798149109
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_all_earth/fem".sha256]
+    "Y.csv" = "6178fb7bb6c30653f628a82279d9637b280f82723f830d8e85297c90cb57fad8"
+    "Z.csv" = "0e7a1341b5dfb48bec0350a353822b8a919460b1bf84d9ce12010b8ab70687a4"
+    "computation-options.txt" = "0dbde8116245047b46af5ba9cec83c49c05a3ad26dfc4795dbc1096be3fe2fb7"
+    "compute.log" = "c0c963f948081b9840ab65fe33aef1230619ac572793f4de9281b23a565acda6"
+    "details.txt" = "7e9cf9b6cd2ff748fa12854b4c0e0202a76b0e075f400077873d59541731f1ae"
+    "fem-artifacts.toml" = "f563fe3f6d193443019596047b7c250e05978bd618add0e3c75d6a4b41ea0061"
+    "formulation.txt" = "3a46e5789375b82d5bdb834c8e7e44a224d45617f42466bd404172aa16799f68"
+    "problem.json" = "65a8aedcb06ac0089cca15af43390bba1fb8dcb4adb0ae1002fe694b73a8dcc6"
+
+[runs."three_bare_wires_all_earth/unified"]
+directory = "three_bare_wires_all_earth/unified"
+seconds = 3.271066904067993
+status = "captured"
+terminal_order = ["cable:1:core", "cable:2:core", "cable:3:core"]
+
+    [runs."three_bare_wires_all_earth/unified".sha256]
+    "Y.csv" = "0682607582edc6218ce090a8b55e671e94fbcacd84081c4d2094ef3e880639e8"
+    "Z.csv" = "2191de0b3d3cce5bbae75eec5dee2042c9f65683200cf947c22a31e42bef0b17"
+    "computation-options.txt" = "b86069c50956980c051629764fd9ab441dd338f909dd6d4fa44084e6876a35ee"
+    "compute.log" = "8e0148f8593665de0306d2aba90831ab6cf8722a072a1483c83ba8c92a351e87"
+    "details.txt" = "3636ac08c936bf0827cec2f2027eceabc16229f6b6224c7ab1df5b232d36484d"
+    "formulation.txt" = "a7c87d4d0d59abe1436e6a8a6db6e6acf5e2d88bb56f2f4bc6428fa61f523018"
+    "problem.json" = "65a8aedcb06ac0089cca15af43390bba1fb8dcb4adb0ae1002fe694b73a8dcc6"

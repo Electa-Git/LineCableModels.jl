@@ -1,26 +1,20 @@
-# Export public API
-export f₀, μ₀, ε₀, ρ₀, T₀, TOL, ΔTmax
-export BASE_FLOAT, REALSCALAR, COMPLEXSCALAR
+"""
+$(TYPEDSIGNATURES)
 
-# General constants
-"Base power system frequency, f₀ = 50.0 [Hz]."
-const f₀ = 50.0
-"Magnetic constant (vacuum permeability), μ₀ = 4π * 1e-7 [H/m]."
-const μ₀ = 4π * 1e-7
-"Electric constant (vacuum permittivity), ε₀ = 8.8541878128e-12 [F/m]."
-const ε₀ = 8.8541878128e-12
-"Annealed copper reference resistivity, ρ₀ = 1.724e-08 [Ω·m]."
-const ρ₀ = 1.724e-08
-"Base temperature for conductor properties, T₀ = 20.0 [°C]."
-const T₀ = 20.0
-"Maximum tolerance for temperature variations, ΔTmax = 150 [°C]."
-const ΔTmax = 150.0
-"Default tolerance for floating-point comparisons, TOL = 1e-6."
-const TOL = 1e-6
+Return the vacuum permittivity ``\\varepsilon_0 = 8.8541878128 \\times 10^{-12}``
+\\[F/m\\] in the scalar type `T`.
 
-# Define aliases for the type constraints
-using Measurements: Measurement
-const BASE_FLOAT = Float64
-const REALSCALAR = Union{BASE_FLOAT, Measurement{BASE_FLOAT}}
-const COMPLEXSCALAR = Union{Complex{BASE_FLOAT}, Complex{Measurement{BASE_FLOAT}}}
+The integer mantissa and the power of ten are evaluated in `T`. The value is exact
+for rational `T` and has the precision of `T` otherwise.
+"""
+vacuum_permittivity(::Type{T}) where {T <: Real} = one(T) * 88541878128 * (one(T) * 10)^(-22)
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the vacuum permeability ``\\mu_0 = 4\\pi \\times 10^{-7}`` \\[H/m\\] in the scalar
+type `T`.
+
+The factors are evaluated in `T`. The value has the precision of `T`.
+"""
+vacuum_permeability(::Type{T}) where {T <: Real} = one(T) * 4 * (one(T) * π) * (one(T) * 10)^(-7)

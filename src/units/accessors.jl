@@ -1,0 +1,121 @@
+# Shared physical selectors extended independently by DataModel and Engine.
+quantity(::typeof(R)) = Quantity{typeof(R), Nothing}()
+quantity(::typeof(L)) = Quantity{typeof(L), Nothing}()
+quantity(::typeof(C)) = Quantity{typeof(C), Nothing}()
+
+# A magnitude, angle, real or imaginary part is a component of the selector's quantity.
+function quantity(selector::Function,
+        transform::Union{typeof(abs), typeof(angle), typeof(real), typeof(imag)})
+    return quantity(quantity(selector), transform)
+end
+
+# A diagonal keeps the selector's quantity. `observables` declares where it applies.
+quantity(selector::Function, ::typeof(diag)) = quantity(selector)
+
+"""
+Return the scientific label registered for `selector`.
+"""
+label(selector::Function) = label(quantity(selector))
+
+"""
+Return the scientific label registered for `selector` and `transform`.
+"""
+label(selector::Function, transform::Function) = label(quantity(selector, transform))
+
+"""
+Return the scientific symbol registered for `selector`.
+"""
+symbol(selector::Function) = symbol(quantity(selector))
+
+"""
+Return the scientific symbol registered for `selector` and `transform`.
+"""
+symbol(selector::Function, transform::Function) = symbol(quantity(selector, transform))
+
+"""
+Return the native unit registered for `selector`.
+"""
+native_unit(selector::Function) = native_unit(quantity(selector))
+
+"""
+Return the native unit registered for `selector` at `basis`.
+"""
+native_unit(selector::Function, basis::Union{Symbol, LengthBasis}) = native_unit(quantity(selector), basis)
+
+"""
+Return the native unit registered for `selector` and `transform`.
+"""
+function native_unit(selector::Function, transform::Function)
+    native_unit(quantity(selector, transform))
+end
+
+"""
+Return the native unit registered for `selector` and `transform` at `basis`.
+"""
+function native_unit(selector::Function, transform::Function, basis::Union{Symbol, LengthBasis})
+    native_unit(quantity(selector, transform), basis)
+end
+
+"""
+Return the display unit registered for `selector`.
+"""
+display_unit(selector::Function) = display_unit(quantity(selector))
+
+"""
+Return the display unit registered for `selector` at `basis`.
+"""
+function display_unit(selector::Function, basis::Union{Symbol, LengthBasis}; kwargs...)
+    return display_unit(quantity(selector), basis; kwargs...)
+end
+
+"""
+Return the display unit registered for `selector` and `transform`.
+"""
+function display_unit(selector::Function, transform::Function)
+    display_unit(quantity(selector, transform))
+end
+
+"""
+Return the display unit registered for `selector` and `transform` at `basis`.
+"""
+function display_unit(
+        selector::Function,
+        transform::Function,
+        basis::Union{Symbol, LengthBasis};
+        kwargs...
+)
+    return display_unit(quantity(selector, transform), basis; kwargs...)
+end
+
+"""
+Return the factor from the native unit of `selector` to `target`.
+"""
+function scale_factor(selector::Function, target::UnitExpr)
+    scale_factor(quantity(selector), target)
+end
+
+"""
+Return the factor from the native unit of `selector` at `basis` to `target`.
+"""
+function scale_factor(selector::Function, basis::Union{Symbol, LengthBasis}, target::UnitExpr)
+    scale_factor(quantity(selector), basis, target)
+end
+
+"""
+Return the factor from the native unit of `selector` and `transform` to `target`.
+"""
+function scale_factor(selector::Function, transform::Function, target::UnitExpr)
+    scale_factor(quantity(selector, transform), target)
+end
+
+"""
+Return the factor from the native unit of `selector` and `transform` at `basis` to `target`.
+"""
+function scale_factor(
+        selector::Function,
+        transform::Function,
+        basis::Union{Symbol, LengthBasis},
+        target::UnitExpr
+)
+    return scale_factor(quantity(selector, transform), basis, target)
+end

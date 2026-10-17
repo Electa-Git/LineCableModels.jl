@@ -1,0 +1,38 @@
+# Reviewed historical false positives from Gitleaks 8.30.1.
+# Each entry identifies one commit, file, rule and line.
+
+# Formula corpus identifiers, not credentials
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:1089
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:1170
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:1495
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:1558
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:1628
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:175
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:1985
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:2260
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:2317
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:2370
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:2433
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:2488
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:263
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:2678
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:2741
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:2950
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:3225
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:3298
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:3367
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:3476
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:3555
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:3604
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:438
+02f51d3e7d899349b9e76c718f4f63fc729bbee2:line_cable_formula_corpus.json:generic-api-key:701
+
+# AxisKeys package UUIDs, not credentials
+16d29119492709b164eadda12cd7e2510545adde:playground/worker/profiles/power-flow/Manifest.toml:generic-api-key:47
+4367ffd692e1945de0bec28f8c56867700680c10:showcase/bonito/Manifest.toml:generic-api-key:60
+
+# Julia quantity-key expression, not a credential
+16ea5d2d5f0bf3ce0cd3c8d13df6be67808f7d25:test/quality/formula_routes.jl:generic-api-key:67
+
+# Vendored JavaScript property-key expression, not a credential
+6c2c3bd2b411ad630af66c35589d984ca0324b13:playground/assets/vendor/geographic-map.bundle.js:generic-api-key:3
