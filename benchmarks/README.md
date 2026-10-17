@@ -88,9 +88,30 @@ julia benchmarks/sensitivity_tables.jl [output folder]
 
 The default output folder is `.linecablemodels/benchmarks/tables/`.
 
-`julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl wp22` selects the DC320-U WP2.2 pilot after the baseline, while no argument selects WP2.1.
-The 48 ULM variants vary Yc and H orders (8, 16), time rows, passivity enforcement and DC correction, alongside default FDCM and Marti models.
-The run folder holds `wp22_segment.json`, `wp22_references.json`, `wp22_response_<index>.json` and `wp22_fit_<index>_<quantity>_1_fitting_error.xlsx` workbooks, whose metadata sheets keep fit diagnostics.
-Three NLT references use single-point sheath bonds of 1, 10 and 20 Ω, with every model response at 10 Ω.
+`julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl wp22` selects the DC320-U WP2.2 study after the baseline.
+No argument selects WP2.1.
+The 48 ULM variants vary Yc and H orders (8, 16), time rows, passivity enforcement and DC correction.
+The study also fits default FDCM and Marti models.
+
+Three NLT step references use single-point sheath bonds of 1, 10 and 20 Ω.
+Every baseline fit runs at 10 Ω for the single-point and both-ends step scenarios.
+The third scenario uses a double exponential.
+The 1.2/50 µs pulse has a 320 kV peak, single-point bonds and an open receiving end.
+Its 3 ms window has 12000 steps of 0.25 µs and includes the first modal arrival.
+The pulse reference uses N = 8192 and T = 3.75 ms, with a highest frequency of 2.1844 MHz.
+
+A second baseline uses 101 logarithmic frequencies from 1 Hz to 1 MHz plus 50 Hz.
+The ULM 16/16 fits use time rows, passivity enforcement and each DC choice, alongside default Marti.
+The study compares their fit errors and single-point step deviations with the 227-frequency fits.
+
+The run folder holds `wp22_segment.json`, `wp22_fits.json`, `wp22_references.json`, `wp22_response_<index>.json`, `wp22_ii_response_<index>.json`, `wp22_iii_response_<index>.json`, `wp22_sampling_baseline.json`, `wp22_sampling.json` and `wp22_fit_<index>_<quantity>_1_fitting_error.xlsx` workbooks.
 Archives keep fit diagnostics, DC targets and achieved values, core 1 KPIs, wall times and transient RMS deviations scaled by the reference peak.
-Growth ratios compare peaks in the final two 10 % windows. A run is flagged when a ratio exceeds one and 110 % of its reference ratio.
+Growth ratios compare peaks in the final two 10 % windows.
+A growth flag identifies a ratio that exceeds one and 110 % of its reference ratio.
+
+Append `pscad` to run the optional PSCAD section after the other studies: `julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl wp22 pscad`.
+Set `LINECABLEMODELS_PSCAD_CONFIG` to the station configuration path.
+The section runs FD-Phase orders 10, 20 and 30 with each DC and passivity setting, and default FD-Mode.
+It covers the single-point step at 10 Ω and the pulse.
+It saves station identity, responses, comparisons, statuses with failure messages, and native projects, logs and outputs under `wp22_pscad_<scenario>_<index>/` in the run folder.
+A station failure produces a status file, and execution continues.
