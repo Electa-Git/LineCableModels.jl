@@ -377,8 +377,8 @@ finest depth. The levels depend on the geometry alone, and a wire without such a
 its uniform points.
 
 The layout drops the targets inside the metal of another wire of its terminal. A coat keeps
-the metal off every interface and every other metal. A coated wire keeps its uniform points,
-which its coat operator needs.
+the metal off every interface and every other metal, so that its wire keeps the uniform points
+of its coat operator.
 
 Ring wires share one terminal, layer, radius, coat and pitch circle, with equal steps and the
 same points. A ring has at least two wires. A rotation by

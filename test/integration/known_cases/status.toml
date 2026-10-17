@@ -286,7 +286,7 @@ status = "advisory"
 explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
 
 [cable_18kv_1000mm2_trefoil.fem_boundary.Y]
-e_percent = [2.54017, 2.54017, 2.54017, 2.54017, 2.54017, 2.54017, 2.54018, 2.5401, 2.0741, 2.52851, 2.48269]
+e_percent = [2.53018, 2.53018, 2.53018, 2.53018, 2.53018, 2.53018, 2.53019, 2.53009, 2.06399, 2.51808, 2.47175]
 status = "accepted"
 explanation = "within 5 % of FEM"
 
@@ -318,7 +318,7 @@ explanation = "expected: the analytical model has the lay (helical path) correct
 [cable_30kv_na2xs2y_630mm2_trefoil.fem.Y]
 e_percent = [17.1204, 17.1204, 17.1203, 17.1203, 17.1198, 17.1182, 17.1543, 18.3896, 17.9232, 17.6892, 17.477]
 status = "advisory"
-explanation = "not yet explained: the boundary shunt model does not take this case"
+explanation = "the default shunt model does not represent the wire screen; the boundary shunt model reduces the deviation to at most 8.4 % (see fem_boundary)"
 
 [cable_30kv_na2xs2y_630mm2_trefoil.fem_boundary.Z]
 e_percent = [2.06115, 2.05856, 2.02666, 1.48783, 2.9925, 4.72013, 6.45065, 6.9138, 7.4504, 8.68624, 10.4059]
@@ -326,9 +326,9 @@ status = "advisory"
 explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
 
 [cable_30kv_na2xs2y_630mm2_trefoil.fem_boundary.Y]
-e_percent = [17.1204, 17.1204, 17.1203, 17.1203, 17.1198, 17.1182, 17.1543, 18.3896, 17.9232, 17.6892, 17.477]
+e_percent = [0.852296, 0.852296, 0.852295, 0.852292, 0.85231, 0.853868, 0.918769, 2.43442, 3.41982, 4.95625, 8.41009]
 status = "advisory"
-explanation = "not yet explained: the boundary shunt model does not take this case"
+explanation = "the deviation lies in each cable's common-voltage channel: at 10 MHz it holds 99.98 % of the potential-coefficient discrepancy, and the core-to-screen differential differs by 0.14 %"
 
 [cable_132kv_630mm2_flathor.fem.Z]
 e_percent = [1.0293, 1.02864, 1.02276, 1.79929, 4.48585, 4.8237, 4.51287, 3.93286, 4.14291, 4.68669, 5.43197]
@@ -346,7 +346,7 @@ status = "advisory"
 explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
 
 [cable_132kv_630mm2_flathor.fem_boundary.Y]
-e_percent = [2.17116, 2.17116, 2.17116, 2.17116, 2.17117, 2.17119, 2.17137, 1.92583, 2.18061, 2.26752, 2.30574]
+e_percent = [2.1637, 2.1637, 2.1637, 2.1637, 2.16371, 2.16373, 2.1639, 1.91838, 2.17308, 2.25577, 2.2973]
 status = "accepted"
 explanation = "within 5 % of FEM"
 
@@ -378,7 +378,17 @@ explanation = "expected: the analytical model has the lay (helical path) correct
 [cable_320kv_armoured_dc_bipole.fem.Y]
 e_percent = [6.18714, 6.18713, 6.18711, 6.18693, 6.18574, 6.17652, 6.07514, 5.20047, 4.00764, 3.37753, 3.38554]
 status = "advisory"
-explanation = "not yet explained: the deviation sits on the armour entries from 0.1 Hz"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model agrees within 1 % (see fem_boundary)"
+
+[cable_320kv_armoured_dc_bipole.fem_boundary.Z]
+e_percent = [0.925962, 0.926715, 1.57323, 5.87105, 6.62629, 3.4397, 3.14311, 3.96114, 4.69284, 5.51304, 6.73213]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_320kv_armoured_dc_bipole.fem_boundary.Y]
+e_percent = [0.619019, 0.619018, 0.619016, 0.618997, 0.618871, 0.617978, 0.609839, 0.524056, 0.378901, 0.278971, 0.466111]
+status = "accepted"
+explanation = "agrees within 1 %"
 
 [cable_380kv_2000mm2_flatver.fem.Z]
 e_percent = [0.387569, 0.387234, 0.5695, 2.87762, 4.99127, 4.54556, 3.65959, 3.749, 4.11956, 4.77402, 5.53706]
@@ -396,7 +406,7 @@ status = "advisory"
 explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
 
 [cable_380kv_2000mm2_flatver.fem_boundary.Y]
-e_percent = [1.48123, 1.48123, 1.48123, 1.48123, 1.48125, 1.48132, 2.39624, 1.48621, 1.51611, 1.613, 1.24377]
+e_percent = [1.47077, 1.47077, 1.47077, 1.47078, 1.47079, 1.47087, 2.38572, 1.47572, 1.5054, 1.60151, 1.23096]
 status = "accepted"
 explanation = "within 5 % of FEM"
 
@@ -408,7 +418,17 @@ explanation = "expected: the analytical model has the lay (helical path) correct
 [cable_380kv_armoured_ac_flat.fem.Y]
 e_percent = [6.18796, 6.18795, 6.18792, 6.18774, 6.18651, 6.17628, 6.0553, 5.39383, 4.40167, 3.45689, 3.32381]
 status = "advisory"
-explanation = "not yet explained: the deviation sits on the armour entries from 0.1 Hz"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model agrees within 1 % (see fem_boundary)"
+
+[cable_380kv_armoured_ac_flat.fem_boundary.Z]
+e_percent = [0.925948, 0.92678, 1.58152, 5.89922, 6.64617, 3.44655, 3.15021, 3.97829, 4.71189, 5.53331, 7.06856]
+status = "advisory"
+explanation = "expected: the analytical model has the lay (helical path) correction and no proximity; the 2D FEM model has proximity and no lay correction"
+
+[cable_380kv_armoured_ac_flat.fem_boundary.Y]
+e_percent = [0.62634, 0.62634, 0.626337, 0.626317, 0.626189, 0.625195, 0.615416, 0.553774, 0.41745, 0.391101, 0.535027]
+status = "accepted"
+explanation = "agrees within 1 %"
 
 [cable_525kv_1600mm2_bipole.fem.Z]
 e_percent = [1.94617, 1.93657, 8.44723, 22.2849, 19.8111, 8.4681, 5.37804, 6.29408, 7.9434, 9.82188, 11.5482]
@@ -418,7 +438,17 @@ explanation = "not yet explained: far above the other lay cases"
 [cable_525kv_1600mm2_bipole.fem.Y]
 e_percent = [8.68928, 8.68928, 8.68927, 8.68926, 8.78037, 8.68878, 8.68591, 8.66267, 8.46778, 7.82338, 8.1128]
 status = "advisory"
-explanation = "not yet explained"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model agrees within 1 % (see fem_boundary)"
+
+[cable_525kv_1600mm2_bipole.fem_boundary.Z]
+e_percent = [1.94617, 1.93657, 8.44723, 22.2849, 19.8111, 8.4681, 5.37804, 6.29408, 7.9434, 9.82188, 11.5482]
+status = "advisory"
+explanation = "not yet explained: far above the other lay cases"
+
+[cable_525kv_1600mm2_bipole.fem_boundary.Y]
+e_percent = [0.754754, 0.754754, 0.754754, 0.754752, 0.672508, 0.754668, 0.754176, 0.750553, 0.719851, 0.555675, 0.78551]
+status = "accepted"
+explanation = "agrees within 1 %"
 
 [cable_525kv_land_no_armour_ac_flat.fem.Z]
 e_percent = [0.0125237, 0.0699457, 0.297876, 0.41935, 0.431543, 0.445847, 0.427408, 0.409972, 0.38519, 0.299161, 2.80251]
@@ -438,7 +468,17 @@ explanation = "within 5 % of FEM"
 [cable_525kv_subsea_armoured_ac_flat.fem.Y]
 e_percent = [13.0315, 13.0315, 13.0315, 13.0313, 13.0296, 13.0121, 13.0604, 12.5226, 11.8586, 13.565, 13.7617]
 status = "advisory"
-explanation = "not yet explained: the deviation sits on the armour entries from 0.1 Hz"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model is within 5 % (see fem_boundary)"
+
+[cable_525kv_subsea_armoured_ac_flat.fem_boundary.Z]
+e_percent = [2.01936, 2.01205, 1.90529, 0.974069, 0.663539, 0.629594, 0.286424, 0.355614, 0.40247, 0.364196, 2.86673]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_525kv_subsea_armoured_ac_flat.fem_boundary.Y]
+e_percent = [1.38774, 1.38774, 1.38772, 1.38764, 1.38705, 1.38201, 1.03732, 1.12215, 0.621612, 0.454677, 0.62119]
+status = "accepted"
+explanation = "within 5 % of FEM"
 
 [cable_525kv_subsea_armoured_dc_bipole.fem.Z]
 e_percent = [2.01936, 2.01204, 1.90547, 0.976236, 0.649038, 0.628176, 0.266264, 0.328604, 0.368551, 0.322029, 2.8766]
@@ -448,7 +488,17 @@ explanation = "within 5 % of FEM"
 [cable_525kv_subsea_armoured_dc_bipole.fem.Y]
 e_percent = [13.0316, 13.0316, 13.0316, 13.0314, 13.0299, 13.0153, 13.0586, 12.11, 12.1815, 13.5823, 13.6247]
 status = "advisory"
-explanation = "not yet explained: the deviation sits on the armour entries from 0.1 Hz"
+explanation = "the default shunt model does not represent the armour wires; the boundary shunt model is within 5 % (see fem_boundary)"
+
+[cable_525kv_subsea_armoured_dc_bipole.fem_boundary.Z]
+e_percent = [2.01936, 2.01204, 1.90547, 0.976236, 0.649038, 0.628176, 0.266264, 0.328604, 0.368551, 0.322029, 2.8766]
+status = "accepted"
+explanation = "within 5 % of FEM"
+
+[cable_525kv_subsea_armoured_dc_bipole.fem_boundary.Y]
+e_percent = [1.3877, 1.3877, 1.38769, 1.3876, 1.38703, 1.38254, 1.03616, 1.04812, 0.529032, 0.400982, 0.591852]
+status = "accepted"
+explanation = "within 5 % of FEM"
 
 [cable_640kv_2000mm2_bipole.fem.Z]
 e_percent = [0.0535717, 0.0923118, 0.46944, 2.35667, 4.04689, 4.42065, 4.85087, 5.40866, 6.15931, 7.2674, 8.73827]

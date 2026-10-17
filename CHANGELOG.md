@@ -32,6 +32,37 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is the outer radius of the design they receive. A formation never overlaps, and a
   smaller spacing lays its cables touching. Each realization of an uncertain design is laid
   with its own radius.
+- `shunt_model = :boundary` solves the internal shunt of a dielectric group. The group is the
+  concentric layers between a closed inner anchor and a closed concentric shield or the
+  jacket's outer surface, with the round wires and finite tapes in them. Wires of one
+  terminal can touch, open conductors can lie in several of its layers, and a round wire can
+  carry a coat. A bare wire whose metal touches a more permittive layer takes points graded
+  toward the contact. A ring of identical, equally spaced wires splits into one block per Fourier index.
+  Any other open arrangement raises `BoundarySolveError` with its reason. The default shunt
+  model is `:equivalent`.
+- `formula(:boundary; options = (; resolution, integration))` sets the numerical controls of
+  the boundary shunt. `resolution` defaults to
+  `(wire = 32, order = 16, quadrature = 64, modes = 512, contact = 4)`: the sources per wire,
+  the order and quadrature of the tape charges, the Fourier modes of the layered Green
+  function and the grading at a contact. `integration` defaults to
+  `(rtol = 1e-8, atol = 1e-10, maxevals = 100_000)`.
+- A coated wire is the `Stack` of a wire's `Disk` and a dielectric `Shell`, placed by a
+  `Ring`. Its coat thickness and material take any `Shell` input: a number, a `Grid` or an
+  uncertain value. In an `Enclosure`, the fill starts at the coat's outer circle. `flatten`
+  and `homogenize` reduce a ring of coated wires to the tube over its metal, between two
+  layers of the coat material. The exporters add these layers to the equivalent permittivity
+  of their groups.
+- `DataModel.fill_hole(regions, index)` gives the hole that one resolved region leaves in its
+  fill: the coat's outer circle for a coated wire, and otherwise the region's primitive.
+- `Engine.internal_potential_coefficients(designs, blueprints, formulations)` completes the
+  internal potential coefficients of each formulation. `ShuntModel.dielectric_groups`
+  extracts the dielectric groups of a design, each a `ShuntModel.DielectricGroup`.
+  `ShuntModel.internal_capacitance(formula, group)` solves one group, and
+  `ShuntModel.InternalShuntDiagnostic` is the numerical record of a solve.
+- `Engine.same_calculation(formula, a, b, geometry)` tells whether one calculation serves two
+  earth pairs, and `same_calculation(impedance, admittance)` whether it serves an impedance
+  and an admittance formula. `Engine.tolerance_norm(z)` is the real norm that numerical
+  tolerances and quadrature error estimates use.
 
 ### Changed
 

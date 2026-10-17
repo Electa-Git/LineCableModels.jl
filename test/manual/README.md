@@ -26,7 +26,7 @@ provide GLMakie.
 
 | Script | Manual purpose |
 | --- | --- |
-| `performance/benchmark_local_shunt.jl` | Inspect local-shunt coefficient construction, allocation, and selected saved references. |
+| `performance/benchmark_local_shunt.jl` | Time and inspect the boundary shunt stage of one known case. |
 | `performance/benchmark_shunt_models.jl` | Compare warmed public-API shunt-model timings. |
 | `calculations/gridspace.jl` | Inspect a small constructed `Gridspace`. |
 | `calculations/run_line_parameters.jl` | Run one editable datasheet case through the analytical or FEM backend and export PSCAD input. |
