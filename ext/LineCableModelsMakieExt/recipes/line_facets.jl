@@ -169,7 +169,7 @@ function _line_page(
             title = panel_titles === nothing ? _quantity_panel_title(facet) :
                     panel_titles[(facet.identity, facet.panel_identity)],
             xscale = xscale===nothing ?
-                     (facet.kind in (:matrix, :diagonal, :vector) ? :log10 : :linear) :
+                     (xobservation.quantity==Units.Quantity{:frequency}() ? :log10 : :linear) :
                      xscale,
             yscale,
             xlabel = get(xobservation, :label, nothing),

@@ -30,9 +30,14 @@ function _line_plot_data(records::Tuple)
                 quantity=Units.Quantity{:dimensionless}(),unit=Units.units(:base,:dimensionless),
                 label=original===nothing ? "Retained element position" : "Original element index")
         end
-        c.frequencies===nothing && throw(ArgumentError(
-            "a frequency plot requires a frequency axis retained during observation"))
-        (values=c.frequencies,quantity=Units.Quantity{:frequency}(),unit=c.frequency_unit)
+        for (values_key,unit_key,quantity) in (
+                (:frequencies,:frequency_unit,Units.Quantity{:frequency}()),
+                (:times,:time_unit,Units.Quantity{:time}()))
+            haskey(c,values_key) && c[values_key]!==nothing || continue
+            return (values=c[values_key],quantity,unit=c[unit_key])
+        end
+        throw(ArgumentError(
+            "a plot requires the frequency or time axis retained during observation"))
     end
     observations=map(records,coordinates) do product,indices
         # One value is an array of one.

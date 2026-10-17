@@ -15,7 +15,7 @@ end
 function _plot_observation_options(kwargs; retained = false)
     haskey(kwargs, :complete_pairs) &&
         throw(ArgumentError("complete_pairs is owned by observation construction"))
-    keys=(:clip, :atol, :units, :length_unit, :quantity_units, :frequency_unit, :frequencies)
+    keys=(:clip, :atol, :units, :length_unit, :quantity_units, :frequency_unit, :time_unit, :frequencies)
     if retained
         for key in (:clip, :atol, :frequencies)
             haskey(kwargs, key) &&
@@ -278,7 +278,7 @@ function plot(sources::Union{AbstractVector{<:_PlotSource}, Tuple{Vararg{_PlotSo
         (key=>value
     for (key, value) in pairs(acquisition)
     if key in
-       (:units, :length_unit, :quantity_units, :frequency_unit))...)
+       (:units, :length_unit, :quantity_units, :frequency_unit, :time_unit))...)
     observed=Commons.ObservedResult[source isa Commons.ObservedResult ?
                                     (isempty(retained_units) ? source :
                                      Commons.ObservedResult(source, normalized.displayed; retained_units...)) :

@@ -26,7 +26,7 @@ primary requests use the observation owner's pair completion. Statistical
 products do not trigger it. Observed inputs reject new clipping decisions,
 thresholds, or replacement sample coordinates.
 
-`units`, `length_unit`, `quantity_units`, and `frequency_unit` also apply to
+`units`, `length_unit`, `quantity_units`, `frequency_unit`, and `time_unit` also apply to
 retained inputs, including reports. The existing `ObservedResult(existing; ...)`
 operation re-expresses compatible units once before drawing. Omitted options
 preserve recorded units, masks, errors, timings, and uncertainty dependencies.
