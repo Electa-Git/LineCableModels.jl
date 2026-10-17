@@ -35,6 +35,12 @@
             P.node_label!(canvas, "port-$(side)-$port", endpoint)
             P.wire!(canvas, point, endpoint)
         end
+        for position in ((-18, 18), (18, -18), (14400, 18), (18, 14400))
+            @test_throws r"coordinates must lie in \[0, 14382\]" P.component!(canvas, "ground", position)
+            @test_throws r"coordinates must lie in \[0, 14382\]" P.wire!(canvas, (18, 18), position)
+            @test_throws r"coordinates must lie in \[0, 14382\]" P.wire!(canvas, position, (18, 18))
+        end
+        @test P.validate((0, 14382), P.PSCADCanvas) == (0, 14382)
         @test_throws ArgumentError P.component!(canvas, "ground", (1, 18))
         @test_throws ArgumentError P.node_label!(canvas, "invalid", (18, 1))
         @test_throws ArgumentError P.wire!(canvas, (0, 0), (18, 18))
@@ -42,6 +48,7 @@
         @test_throws ArgumentError P.wire!(canvas, (0, 0), (0, 1))
         write(path, document)
         parsed = readxml(path)
+        @test all(parameters(c)["size"] == "5" for c in findall("//schematic", parsed))
         values = parameters(root(parsed))
         @test values["time_duration"] == "0.02"
         @test values["time_step"] == "2.0"
@@ -138,6 +145,10 @@ end
     directory = mkpath(joinpath(repository, ".linecablemodels", "test", "transient-settings"))
     mktempdir(directory) do destination
         old_path, new_path = joinpath(destination, "before.pscx"), joinpath(destination, "after.pscx")
+        for parameter in findall("//schematic/paramlist/param[@name='size']", before)
+            @test parameter["value"] in ("0", "5")
+            parameter["value"] = "5"
+        end
         write(old_path, before)
         write(new_path, after)
         @test read(new_path) == read(old_path)

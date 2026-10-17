@@ -1314,6 +1314,13 @@ For a custom wrapper, use `transport="command"` and an argument array such as
 replaced by the configured host. Encoded PowerShell arguments are appended without
 shell evaluation. Caller-defined `remote_command` methods remain supported.
 
+The optional TOML field `pscad_port` (1024–65535) selects a station listener.
+An interactive scheduled task starts PSCAD in the account's logged-on desktop session when the port has no listener.
+The runner restores a borrowed application's silence flag and closes an application it starts.
+It probes listeners within 60 seconds before it loads projects, and launches a private application when the configuration omits the port.
+Transient runs detect compilers before EMTDC builds, while constants runs compile line data.
+Both modes reject objects that move on load and keep diagnostics.
+
 Fresh calls execute PSCAD once per distinct native request. Explicit
 `resume_run_directory=:latest` or a completed-run path requests verified native
 reuse. `solver_identity` optionally pins the installation. Reuse checks the current

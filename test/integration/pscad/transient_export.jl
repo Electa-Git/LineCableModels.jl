@@ -53,6 +53,7 @@
     mktempdir(directory) do destination
         file_name = joinpath(destination, "transient.pscx")
         document = readxml(export_data(:pscad, problem, formulation; file_name))
+        @test all(parameters(c)["size"] == "5" for c in findall("//schematic", document))
         interfaces = components(document, "cable_interface")
         @test length(interfaces) == 2
         @test all(c -> all(parameters(c)[field] == "0" for field in ("GroundS", "GroundA", "GroundOC")), interfaces)

@@ -450,7 +450,7 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
     schematic["classid"] = "RowCanvas"
     _pscad_paramlist!(schematic, [
         "show_grid" => "0",
-        "size" => "0",
+        "size" => "5",
         "orient" => "1",
         "show_border" => "0"
     ])

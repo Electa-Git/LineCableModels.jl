@@ -105,7 +105,7 @@ end
 function _pscad_canvas_params!(canvas; user::Bool = false)
     parameters = Pair{String, String}[
     "show_grid" => "0",
-    "size" => "0",
+    "size" => "5",
     "orient" => "1",
     "show_border" => "0",
     "monitor_bus_voltage" => "0",

@@ -196,10 +196,15 @@
         output_stem = "saad",
         verbosity = 0
     )
-    cancel_command=harness._cancel_command(raw"C:\pscad\case\current")
-    @test occursin("owner.txt", cancel_command)
-    @test occursin("taskkill.exe /PID", cancel_command)
-    @test occursin("CommandLine.IndexOf", cancel_command)
+    cancel_command=harness._cancel_command(
+        raw"Z:\pscad\benchmarks\.work\case\current\toolkit", raw"C:\pscad\case\current")
+    @test occursin(raw". 'Z:\pscad\benchmarks\.work\case\current\toolkit\lifecycle.ps1'", cancel_command)
+    @test occursin(raw"Stop-PSCADCase -LocalCase 'C:\pscad\case\current'", cancel_command)
+    lifecycle = harness.PSCAD_REMOTE_SOURCES["lifecycle.ps1"]
+    @test occursin("owner.txt", lifecycle)
+    @test occursin("taskkill.exe", lifecycle)
+    @test occursin(raw"""Arguments @("/PID", $ProcessId, "/T", "/F")""", lifecycle)
+    @test occursin("CommandLine.IndexOf", lifecycle)
 
     mktempdir() do directory
         run_directory=joinpath(directory, "case", "current")
@@ -214,6 +219,8 @@
             "Project.toml",
             "files.jl",
             "identity.py",
+            "lifecycle.ps1",
+            "probe.py",
             "runner.jl",
             "supervisor.ps1"
         ]

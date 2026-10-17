@@ -35,6 +35,8 @@ function allocate_cell!(canvas::PSCADCanvas)
 end
 
 function validate(position::NTuple{2, Int}, ::Type{PSCADCanvas})
+    all(coordinate -> 0 <= coordinate <= 14382, position) ||
+        throw(ArgumentError("PSCAD canvas at $position: coordinates must lie in [0, 14382]"))
     all(coordinate -> coordinate % _PSCAD_GRID == 0, position) ||
         throw(ArgumentError("PSCAD positions must be multiples of 18 pixels"))
     return position

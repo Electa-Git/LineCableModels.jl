@@ -9,6 +9,10 @@ Station connection and filesystem mapping for native PSCAD execution.
 does not perform I/O. Construction from a TOML filename only reads that file.
 `timeout` is the remote execution limit \\[s\\], defaulting to 1800.
 
+`pscad_port` selects a station-local automation listener. If absent, execution
+launches a private PSCAD. If set, execution attaches to that listener or starts
+PSCAD in the station account's logged-on desktop session.
+
 $(TYPEDFIELDS)
 """
 struct RemoteConfig
@@ -19,6 +23,8 @@ struct RemoteConfig
     julia_executable::String
     python_executable::String
     pscad_version::String
+    "Station automation port (1024–65535), or `nothing` to launch a private application."
+    pscad_port::Union{Nothing, Int}
     transport::Symbol
     "Remote execution timeout \\[s\\]."
     timeout::Int
@@ -34,6 +40,7 @@ function RemoteConfig(
         python_executable::AbstractString;
         local_root::AbstractString,
         pscad_version::AbstractString = "5.1.0",
+        pscad_port = nothing,
         transport::Symbol = :ssh,
         verbosity = nothing,
         timeout::Integer = 1800,
@@ -61,6 +68,7 @@ function RemoteConfig(
     timeout > 0 || throw(ArgumentError(
         "PSCAD timeout must be positive",
     ))
+    validate(pscad_port, RemoteConfig)
     if transport === :command
         isempty(command) && throw(ArgumentError("PSCAD command transport requires an argument array"))
         isempty(strip(first(command))) && throw(ArgumentError("PSCAD command executable cannot be empty"))
@@ -75,6 +83,7 @@ function RemoteConfig(
         String(julia_executable),
         String(python_executable),
         String(pscad_version),
+        pscad_port === nothing ? nothing : Int(pscad_port),
         transport,
         Int(timeout),
         String.(command)
@@ -107,7 +116,7 @@ function RemoteConfig(path::AbstractString)
     values = TOML.parsefile(path)
     required = ("host", "local_root", "shared_root", "remote_root",
         "julia_executable", "python_executable")
-    optional = ("pscad_version", "transport", "timeout", "command")
+    optional = ("pscad_version", "pscad_port", "transport", "timeout", "command")
     unknown = setdiff(keys(values), (required..., optional...))
     isempty(unknown) || throw(ArgumentError("unknown PSCAD configuration fields: $(sort!(collect(unknown)))"))
     for name in required
@@ -130,6 +139,23 @@ function RemoteConfig(path::AbstractString)
         values["julia_executable"], values["python_executable"];
         local_root = isabspath(local_root) ? local_root : joinpath(dirname(abspath(path)), local_root),
         pscad_version = get(values, "pscad_version", "5.1.0"),
+        pscad_port = get(values, "pscad_port", nothing),
         transport = Symbol(get(values, "transport", "ssh")),
         timeout = timeout, command = String[value for value in command])
+end
+
+validate(port::Nothing, ::Type{RemoteConfig}) = port
+
+function validate(port::Bool, ::Type{RemoteConfig})
+    throw(ArgumentError("PSCAD port $(repr(port)) must be an integer in 1024:65535 or nothing"))
+end
+
+function validate(port::Integer, ::Type{RemoteConfig})
+    1024 <= port <= 65535 ||
+        throw(ArgumentError("PSCAD port $(repr(port)) must be in 1024:65535"))
+    return port
+end
+
+function validate(port, ::Type{RemoteConfig})
+    throw(ArgumentError("PSCAD port $(repr(port)) must be an integer in 1024:65535 or nothing"))
 end

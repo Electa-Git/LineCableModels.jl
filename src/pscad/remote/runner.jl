@@ -13,6 +13,34 @@ const OUTPUT_SUFFIXES = (
 _string(value) = pyconvert(String, pybuiltins.str(value))
 _components(value) = pyconvert(Vector{Py}, pybuiltins.list(value))
 
+function _schematic_origins(path)
+    root = pyimport("xml.etree.ElementTree").parse(String(path)).getroot()
+    objects = Dict{Tuple{String, String}, NamedTuple{(:x, :y, :kind), Tuple{Int, Int, String}}}()
+    for definition in root.findall("./definitions/Definition")
+        name = _string(definition.get("name"))
+        for canvas in definition.findall("schematic"), node in canvas.iter()
+            pyis(node.get("id"), pybuiltins.None) && continue
+            pyis(node.get("x"), pybuiltins.None) && continue
+            objects[(name, _string(node.get("id")))] = (
+                x = parse(Int, _string(node.get("x"))),
+                y = parse(Int, _string(node.get("y"))),
+                kind = _string(node.get("defn", node.get("classid", node.tag))))
+        end
+    end
+    return objects
+end
+
+function _load_relocations(before, after)
+    moved = String[]
+    for key in sort!(collect(keys(before)))
+        haskey(after, key) || continue
+        a, b = before[key], after[key]
+        (a.x, a.y) == (b.x, b.y) && continue
+        push!(moved, "$(key[1]) id=$(key[2]) $(a.kind): $((a.x, a.y)) -> $((b.x, b.y))")
+    end
+    return moved
+end
+
 function _definition(component)
     return lowercase(_string(component.defn_name))
 end
@@ -101,16 +129,37 @@ function _record_diagnostics(
     return text
 end
 
+function _build_messages(project, path)
+    messages = _components(project.messages())
+    open(path, "w") do io
+        for message in messages
+            println(io,
+                join(
+                    (_string(message.status), _string(message.label),
+                        _string(message.name), replace(_string(message.text), '\n' => ' ', '\r' =>
+                            ' ')),
+                    '\t'))
+        end
+    end
+    any(message -> lowercase(_string(message.status)) == "error", messages) &&
+        error("PSCAD build messages contain error status; see $path")
+    return messages
+end
+
 function main(arguments)
-    length(arguments) in (10, 11) || throw(ArgumentError(
+    length(arguments) == 14 || throw(ArgumentError(
         "runner expects project, output, project name, output stem, formulation, " *
         "FS, FE, Numf, PSCAD version, " *
-        "and verbosity",
+        "verbosity, mode, port, ownership, and scratch root",
     ))
     project_path, output, project_name, output_stem, formulation,
     fs, fe, numf, pscad_version,
     verbosity_text = arguments[1:10]
-    mode = length(arguments) == 11 ? arguments[11] : "constants"
+    mode, port_text, owned_text, remote_root = arguments[11:14]
+    port = parse(Int, port_text)
+    (port == 0 || port in 1024:65535) || throw(ArgumentError("invalid PSCAD port"))
+    owned = parse(Bool, owned_text)
+    port == 0 && !owned && throw(ArgumentError("a private PSCAD launch must be owned"))
     mode in ("constants", "transient") || throw(ArgumentError("invalid PSCAD mode $mode"))
     verbosity = parse(Int, verbosity_text)
     verbosity in 0:2 || throw(ArgumentError("verbosity must be 0, 1, or 2"))
@@ -119,7 +168,9 @@ function main(arguments)
         throw(ArgumentError("invalid PSCAD output stem $output_stem"))
     mkpath(output)
     app = nothing
+    previous_silence = nothing
     project = nothing
+    load_attempted = false
     phase = "initialization"
     input_path = joinpath(dirname(project_path), "computation.toml")
     input = TOML.parsefile(input_path)
@@ -127,6 +178,8 @@ function main(arguments)
         "PSCAD runner requires the complete version-4 numerical input record"))
     identify = pyimport("runpy").run_path(joinpath(@__DIR__, "identity.py"))["identify"]
     console = open(joinpath(output, "pscad-console.txt"), "w")
+    build_path = joinpath(output, "build-messages.txt")
+    write(build_path, "")
     try
         metadata = pyimport("importlib.metadata")
         observed = _string(metadata.version("mhi.pscad"))
@@ -134,18 +187,37 @@ function main(arguments)
             "mhi.pscad $MHI_PSCAD_VERSION is required; found $observed",
         ))
         pscad = pyimport("mhi.pscad")
-        phase = "PSCAD launch"
-        _report(console, verbosity, 1, "Launching PSCAD 5.1.0")
-        app = cd(abspath(output)) do
-            pscad.launch(;
-                version = pscad_version,
-                x64 = true,
-                minimize = true,
-                splash = false,
-                silence = true,
-                timeout = 60
-            )
+        phase = "PSCAD acquisition"
+        if port == 0
+            _report(console, verbosity, 1, "Launching PSCAD 5.1.0")
+            app = cd(abspath(output)) do
+                pscad.launch(; version = pscad_version, x64 = true, minimize = true,
+                    splash = false, silence = true, timeout = 60)
+            end
+        else
+            _report(console, verbosity, 1, "Connecting to PSCAD on port $port (owned=$owned)")
+            connect_started = time_ns()
+            app = pscad.connect(; host = "127.0.0.1", port, timeout = 30)
+            connect_seconds = (time_ns() - connect_started) / 1e9
+            _report(console, verbosity, 1,
+                "PSCAD connect took $(round(connect_seconds; digits = 3)) s")
         end
+        phase = "PSCAD dialog suppression"
+        previous_silence = pyconvert(Bool, app.silence)
+        app.silence = true
+        _report(console, verbosity, 1, "silence: previous=$previous_silence, now=true")
+        if mode == "transient"
+            phase = "compiler detection"
+            application_settings = try
+                app.settings()
+            catch capability_error
+                occursin("Unable to retrieve detected software", sprint(showerror, capability_error)) ||
+                    rethrow()
+                error("PSCAD cannot detect compilers in this Windows session (non-interactive, e.g. SSH session 0); set pscad_port in the station configuration so runs use a PSCAD in the logged-on desktop session")
+            end
+            _report(console, verbosity, 1, "fortran_version=$(_string(application_settings["fortran_version"]))")
+        end
+        phase = "PSCAD licence and identity"
         pyconvert(Bool, app.licensed()) || error("PSCAD refused the configured license")
         _string(app.version) == pscad_version ||
             error("PSCAD launched an unexpected version")
@@ -154,7 +226,20 @@ function main(arguments)
         expected_identity === nothing || initial_identity == expected_identity ||
             error("PSCAD installation does not match the expected solver identity")
         phase = "project load"
+        for entry in _components(app.projects())
+            _string(entry["name"]) == project_name || continue
+            existing = app.project(project_name)
+            filename = _string(existing.filename)
+            root = lowercase(replace(normpath(abspath(remote_root)), '\\' => '/'))
+            path = lowercase(replace(normpath(abspath(filename)), '\\' => '/'))
+            startswith(path, rstrip(root, '/') * "/") ||
+                error("Refusing to replace loaded PSCAD project $project_name from $filename; it is outside the station scratch root $remote_root")
+            existing.unload()
+            _report(console, verbosity, 1, "Unloaded stale PSCAD project $project_name from $filename")
+        end
         _report(console, verbosity, 1, "Loading generated project $project_name")
+        load_attempted = true
+        origins = _schematic_origins(project_path)
         app.load(abspath(project_path))
         project = app.project(project_name)
         lines = vcat(
@@ -241,6 +326,15 @@ function main(arguments)
         end
         _report(console, verbosity, 2, "Verified that all cable terminals are retained")
         project.save()
+        phase = "load geometry"
+        moved = _load_relocations(origins, _schematic_origins(project_path))
+        if !isempty(moved)
+            relocation_path = joinpath(output, "load-relocations.txt")
+            write(relocation_path, join(moved, '\n') * "\n")
+            error("PSCAD moved $(length(moved)) schematic objects on load; see $relocation_path\n" *
+                join(first(moved, 20), '\n'))
+        end
+
         _record_diagnostics(console, project, verbosity, "PSCAD diagnostics before computation")
         if mode == "transient"
             phase = "project run"
@@ -250,7 +344,9 @@ function main(arguments)
             project.run()
             elapsed = (time_ns() - started) * 1e-9
             write(joinpath(output, "timing.txt"), string(elapsed))
+            phase = "build messages"
             _record_diagnostics(console, project, verbosity, "PSCAD diagnostics after run call")
+            _build_messages(project, build_path)
             roots = [abspath(output), abspath(dirname(project_path)),
                 abspath(_string(project.temp_folder))]
             phase = "transient-output completion"
@@ -315,21 +411,45 @@ function main(arguments)
             "PSCAD diagnostics at failure";
             error_stream = true
         )
+        if project !== nothing && mode == "transient"
+            try
+                _build_messages(project, build_path)
+            catch
+            end
+        end
         message="PSCAD runner failed during $phase: $(sprint(showerror, error))"
         println(console, message)
         flush(console)
         throw(ErrorException(message))
     finally
+        if project === nothing && load_attempted
+            try
+                loaded = app.project(project_name)
+                normpath(abspath(_string(loaded.filename))) ==
+                normpath(abspath(project_path)) &&
+                    (project = loaded)
+            catch error
+                println(console, "PSCAD project lookup during cleanup failed: ", sprint(showerror, error))
+            end
+        end
         project === nothing || try
             project.unload()
         catch error
             println(console, "PSCAD project unload failed: ", sprint(showerror, error))
         end
-        app === nothing || try
-            app.quit()
-        catch error
-            println(console, "PSCAD application close failed: ", sprint(showerror, error))
+        if app !== nothing && !owned && previous_silence !== nothing
+            try
+                app.silence = previous_silence
+            catch error
+                println(console, "PSCAD silence restore failed: ", sprint(showerror, error))
+            end
         end
+        app === nothing || !owned ||
+            try
+                app.quit()
+            catch error
+                println(console, "PSCAD application close failed: ", sprint(showerror, error))
+            end
         flush(console)
         close(console)
     end

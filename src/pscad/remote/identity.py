@@ -27,13 +27,18 @@ def identify(version, app=None):
         # Version-bound workaround: mhi.pscad 3.1.2 settings() initializes its
         # Fortran codec even for a read, raising "Unable to retrieve detected
         # software" on this 5.1 station. This is its own underlying read-only
-        # settings call; bypass only that unrelated decoder, not solver settings.
+        # settings call, which reads solver settings without the unrelated decoder.
         # Revisit when the required automation version fixes that reader.
         selected = app._settings({})["file_lcp"]
         expanded = str(selected).replace("$(HomeDir)", str(root))
         solver = Path(expanded)
         if "$(" in expanded or not solver.is_absolute():
             raise ValueError("Cannot identify PSCAD's selected LCP executable: " + str(selected))
+        fortran_version = "unknown"
+        try:
+            fortran_version = str(app._settings({})["fortran_version"])
+        except Exception:
+            pass
         files = {
             "pscad": executable,
             "line_constants": solver.resolve(),
@@ -41,6 +46,7 @@ def identify(version, app=None):
         }
         result = {
             "schema": "1",
+            "fortran_version": fortran_version,
             "version": version,
             "python_version": platform.python_version(),
             "automation_version": automation_version,

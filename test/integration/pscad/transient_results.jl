@@ -54,10 +54,10 @@ end
     formulation = Formulation(:pscad)
     label = only(description([formulation]; roles = [:none]))
     expected = "& 'shared\\toolkit\\supervisor.ps1' -SharedCase 'shared' " *
-        "-LocalCase 'scratch' -Julia 'julia' -Python 'python' -ProjectName 'generated' " *
+        "-LocalCase 'scratch' -RemoteRoot 'scratch' -Julia 'julia' -Python 'python' -ProjectName 'generated' " *
         "-OutputStem 'channels' -Mode 'constants' -Formulation '$label' " *
         "-FrequencyStart '1.0' -FrequencyEnd '1.0e6' -FrequencyIncrements '1' " *
-        "-PSCADVersion '5.1.0' -Verbosity '0' -TimeoutSeconds '1800'"
+        "-PSCADVersion '5.1.0' -PSCADPort 0 -Verbosity '0' -TimeoutSeconds '1800'"
     @test P._supervisor_command(config, "shared", "scratch", "generated",
         formulation, [1.0, 1e6]; output_stem = "channels") == expected
 end

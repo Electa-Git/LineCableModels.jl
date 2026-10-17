@@ -192,6 +192,7 @@ function _supervisor_command(
             "& $(_ps_quote(shared_supervisor))",
             "-SharedCase $(_ps_quote(shared_case))",
             "-LocalCase $(_ps_quote(remote_case))",
+            "-RemoteRoot $(_ps_quote(config.remote_root))",
             "-Julia $(_ps_quote(config.julia_executable))",
             "-Python $(_ps_quote(config.python_executable))",
             "-ProjectName $(_ps_quote(project_name))",
@@ -202,40 +203,26 @@ function _supervisor_command(
             "-FrequencyEnd $(_ps_quote(string(last(frequencies_value))))",
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
             "-PSCADVersion $(_ps_quote(config.pscad_version))",
+            "-PSCADPort $(something(config.pscad_port, 0))",
             "-Verbosity $(_ps_quote(string(verbosity)))",
             "-TimeoutSeconds $(_ps_quote(string(config.timeout)))"
         ),
         ' ')
 end
 
-function _cancel_command(remote_case::AbstractString)
-    owner_path = _remote_path(remote_case, "owner.txt")
-    return "\$ownerPath=$(_ps_quote(owner_path)); " *
-           "if (-not (Test-Path -LiteralPath \$ownerPath -PathType Leaf)) { exit 0 }; " *
-           "\$owner=@(Get-Content -LiteralPath \$ownerPath); " *
-           "if (\$owner.Count -ne 2) { throw 'invalid PSCAD runner owner file' }; " *
-           "\$runner=[IO.Path]::GetFullPath(\$owner[1]); " *
-           "\$root=[IO.Path]::GetFullPath($(_ps_quote(remote_case))).TrimEnd('\\')+'\\'; " *
-           "if (-not \$runner.StartsWith(\$root,[StringComparison]::OrdinalIgnoreCase)) " *
-           "{ throw 'refusing to stop a process outside the PSCAD case directory' }; " *
-           "\$runnerPid=0; if (-not [int]::TryParse(\$owner[0],[ref]\$runnerPid)) " *
-           "{ throw 'invalid PSCAD runner PID' }; " *
-           "\$process=Get-CimInstance Win32_Process -Filter \"ProcessId = \$runnerPid\"; " *
-           "if (\$null -eq \$process) { Remove-Item -LiteralPath \$ownerPath -Force; exit 0 }; " *
-           "if (\$null -eq \$process.CommandLine -or " *
-           "\$process.CommandLine.IndexOf(\$runner,[StringComparison]::OrdinalIgnoreCase) -lt 0) " *
-           "{ throw 'recorded PID no longer belongs to the PSCAD runner' }; " *
-           "& taskkill.exe /PID \$runnerPid /T /F | Out-Null; " *
-           "if (\$LASTEXITCODE -ne 0) { throw 'could not stop PSCAD runner process tree' }; " *
-           "Remove-Item -LiteralPath \$ownerPath -Force -ErrorAction SilentlyContinue"
+function _cancel_command(shared_toolkit::AbstractString, remote_case::AbstractString)
+    lifecycle = _remote_path(shared_toolkit, "lifecycle.ps1")
+    return ". $(_ps_quote(lifecycle)); Stop-PSCADCase -LocalCase $(_ps_quote(remote_case))"
 end
 
 function _cancel_remote(
         config::RemoteConfig,
+        shared_toolkit::AbstractString,
         remote_case::AbstractString;
         verbosity::Integer = 0
 )
-    _run_remote(config, _cancel_command(remote_case); stream = verbosity >= 2,
+    _run_remote(
+        config, _cancel_command(shared_toolkit, remote_case); stream = verbosity >= 2,
         timeout = min(config.timeout, 30))
     return nothing
 end
@@ -248,7 +235,7 @@ const PSCAD_REMOTE_SOURCES = Dict(name => let
                                       read(path, String)
                                   end
 for name in ("Project.toml", "Manifest.toml", "files.jl",
-    "runner.jl", "supervisor.ps1", "identity.py"))
+    "runner.jl", "supervisor.ps1", "lifecycle.ps1", "identity.py", "probe.py"))
 
 """
 $(TYPEDSIGNATURES)
@@ -353,6 +340,21 @@ function validate(directory::AbstractString, ::PSCADTransientFormulation;
     return directory
 end
 
+function _supervisor_errors(path::AbstractString)
+    isfile(path) || return ""
+    text = read(path, String)
+    # Windows PowerShell serializes stderr strings as CLIXML stream records.
+    records = [record[1]
+               for record in eachmatch(r"<S\b[^>]*\bS=\"Error\"[^>]*>(.*?)</S>"s, text)]
+    isempty(records) && return occursin("#< CLIXML", text) ? "" : strip(text)
+    return strip(join(
+        (rstrip(replace(record,
+             "_x000D__x000A_" => "\n", "_x000D_" => "\n", "_x000A_" => "\n",
+             "&lt;" => "<", "&gt;" => ">", "&quot;" => "\"", "&apos;" => "'", "&amp;" => "&"))
+        for record in records),
+        '\n'))
+end
+
 function run_remote_pscad(
         config::RemoteConfig,
         local_project::AbstractString,
@@ -374,6 +376,7 @@ function run_remote_pscad(
     run_id = last(work_parts)
     _stage_toolkit(local_project, local_output)
     shared_case = _remote_path(config.shared_root, work_parts...)
+    shared_toolkit = _remote_path(shared_case, "toolkit")
     remote_case = _remote_path(config.remote_root, work_parts..., output_stem)
     stdout_path = joinpath(local_output, "stdout.txt")
     stderr_path = joinpath(local_output, "stderr.txt")
@@ -398,14 +401,14 @@ function run_remote_pscad(
             stdout_path = transport_stdout,
             stderr_path = transport_stderr,
             stream = verbosity >= 2,
-            timeout = config.timeout + 60,
-            on_interrupt = () -> _cancel_remote(config, remote_case; verbosity)
+            timeout = config.timeout + (config.pscad_port === nothing ? 60 : 160),
+            on_interrupt = () -> _cancel_remote(config, shared_toolkit, remote_case; verbosity)
         )
         nothing
     catch error
         if !(error isa InterruptException)
             try
-                _cancel_remote(config, remote_case; verbosity)
+                _cancel_remote(config, shared_toolkit, remote_case; verbosity)
             catch cancellation_error
                 @warn "Remote PSCAD cancellation could not be confirmed" host=config.host run_id exception=(
                     cancellation_error, catch_backtrace())
@@ -423,8 +426,17 @@ function run_remote_pscad(
             )
         end
         summary=first(split(sprint(showerror, execution_error), '\n'))
+        diagnostics = _diagnostic_tail(console_path)
+        supervisor_errors = _supervisor_errors(transport_stderr)
+        if !isempty(supervisor_errors)
+            if !occursin("PSCAD runner failed during", diagnostics)
+                summary *= "\nSupervisor error:\n$supervisor_errors"
+            elseif occursin("Cleanup failure:", supervisor_errors)
+                diagnostics *= "\nSupervisor error:\n$supervisor_errors"
+            end
+        end
         throw(ErrorException(
-            "$summary\nLast PSCAD diagnostics:\n$(_diagnostic_tail(console_path))" *
+            "$summary\nLast PSCAD diagnostics:\n$diagnostics" *
             "\nFull PSCAD diagnostics: $console_path" *
             "\nTransport stdout: $transport_stdout" *
             "\nTransport stderr: $transport_stderr" *
