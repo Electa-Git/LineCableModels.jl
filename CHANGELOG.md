@@ -11,7 +11,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - The `:ulm` fit offers Add pole and Functional form DC correction with physical line targets, exact reference samples and retained convergence diagnostics.
 
-- The `:marti` fit truncates each propagation band at `bode.threshold` (default `1e-2`) to handle attenuation underflow and reports the highest fitted frequency per mode.
+- The `:marti` fit reflects right-half-plane zeros and fits strictly proper lossy propagation over the full band with a `bode.threshold` magnitude floor.
+
+- The `:marti` fit rotates each selected modal column before taking its real part and reports the residual imaginary norm.
 
 - With a `ModalModel`, `:td` runs the J. Marti trapezoidal companion model in core, with delayed modal propagation and fitted matched terminations.
 
