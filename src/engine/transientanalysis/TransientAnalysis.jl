@@ -29,7 +29,7 @@ import ..Engine: LineParameters, LineParametersProblem, LineParametersFormulatio
 import ..LineModels: LineModel, ModalModel
 import ...TextDisplay
 using Logging: with_logger, current_logger
-using LinearAlgebra: eigen!, lu!, ldiv!, mul!
+using LinearAlgebra: Diagonal, eigen!, lu, lu!, ldiv!, mul!
 using Statistics: mean
 #! explicit-imports: on
 

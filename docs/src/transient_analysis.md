@@ -195,7 +195,55 @@ The `:td` options pass to the UniversalLineModel network and time loop:
 ``Y_c(s)`` of the line model in `:td`, and with the exact ``Y_c(s)`` in `:nlt`.
 Comparisons between them include the admittance fitting error at the
 matched end, along with the line fitting and numerical inversion errors.
-A `ModalModel` also throws with `:td`.
+A `ModalModel` runs the J. Marti companion model in core with `:td`, as described below.
+
+### J. Marti companion model
+
+A `LineModel` with a `ModalModel` payload uses its constant real transformation,
+fitted modal characteristic impedances and delayed propagation sections.
+Fit the segment with `:marti`, then select the same `:td` transient formulation:
+
+```julia
+model = compute(LineModelProblem(segment), LineModelFormulation(:marti))
+problem = TransientAnalysisProblem(model; sending, receiving=Matched(),
+    window=(tmax=2e-4, step=1e-7))
+response = compute(problem, TransientFormulation(:td;
+    options=(initial_solve=true,)))
+```
+
+Core TransientAnalysis integrates each modal impedance section by the trapezoidal
+rule. For a pole ``p`` and residue ``r`` in ``r/(s-p)``, its resistance contribution
+is ``r\Delta t/(2-p\Delta t)``. The constant plus these contributions gives
+``R_{\mathrm{eq}}``. History voltages retain the section states between steps.
+Propagation uses recursive convolution with exact integration of a linear input
+over each step and linear interpolation of the delayed outgoing wave from the
+far end. History is zero before time zero. The step must be at most the smallest
+modal propagation delay, including when a delay is a fraction of a time step.
+
+The current transformation ``T`` maps ``i=T i_m``, and voltages obey
+``v_m=T^{\mathsf T}v``. Each end contributes the phase conductance
+``G=T\operatorname{diag}(R_{\mathrm{eq}}^{-1})T^{\mathsf T}`` to a dense network.
+Its matrix includes the terminal resistances, trapezoidal inductance companions,
+ideal voltage sources and solid grounds and is factored once. Unlisted terminals
+remain open. Output arrays retain the end × terminal × time ordering and currents
+enter the line at both ends.
+
+`Matched()` loads every mode at that end with its own fitted characteristic
+impedance, using a separate copy of the same trapezoidal companion. It prevents
+reflection of the incident wave. Both ends support `Matched()`. The retained
+`details(response).data.td.terminations` records these fitted impedance loads.
+
+| Option | Default | Meaning for a `ModalModel` |
+|---|---|---|
+| `initial_solve` | `false` | When true, solves the companion network at time zero with zero history. Otherwise all initial outputs are zero and the first solve is at `step`. |
+| `interp` | `:single` | Must keep the default. Modal propagation always uses linear interpolation. |
+| `enforce_sign` | `false` | Must keep the default. The modal conductance follows the fitted transformation and impedance. |
+
+Non-default `interp` or `enforce_sign` values raise an `ArgumentError` naming the
+option. With a `WidebandModel`, `:td` uses the UniversalLineModel extension and
+its fitted phase admittance and propagation groups. That backend supports the
+additional interpolation and conductance sign controls in the preceding table.
+The modal backend uses the J. Marti fit and runs entirely in core.
 
 ## Choosing a formulation
 

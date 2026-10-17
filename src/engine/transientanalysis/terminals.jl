@@ -78,6 +78,8 @@ function validate(source::Step)
     return source
 end
 
+(source::Step)(t) = t >= source.t0 ? source.amplitude : zero(source.amplitude)
+
 """
 $(TYPEDEF)
 
@@ -119,6 +121,8 @@ function validate(source::Cosine)
     return source
 end
 
+(source::Cosine)(t) = source.amplitude * cos(2π * source.frequency * t + source.phase)
+
 """
 $(TYPEDEF)
 
@@ -159,6 +163,9 @@ function validate(source::DoubleExponential)
         throw(DomainError(source.beta, "beta must be finite and greater than alpha"))
     return source
 end
+
+(source::DoubleExponential)(t) =
+    source.amplitude * (exp(-source.alpha * t) - exp(-source.beta * t))
 
 """
 $(TYPEDEF)

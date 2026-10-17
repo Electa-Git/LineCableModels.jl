@@ -123,12 +123,16 @@
             (targets=nothing, achieved=nothing), ComputationDetails())
         fitted = TransientAnalysisProblem(model; sending=(Step("wire", 1.0),), receiving=(), window)
         @test fitted.line === model
-        @test validate(fitted, TransientFormulation(:td).formula) === fitted
         @test_throws ArgumentError TransientAnalysisProblem(model; sending, receiving=(), window)
         @test_throws ArgumentError compute(fitted, TransientFormulation(:nlt))
         if payload isa ModalModel
-            @test_throws ArgumentError("not implemented yet") compute(fitted, TransientFormulation(:td))
+            # This fixture delays its impedance section, which modal TD refuses.
+            @test_throws ArgumentError("modal characteristic impedance must have zero delay") validate(
+                fitted, TransientFormulation(:td).formula)
+            @test_throws ArgumentError("modal characteristic impedance must have zero delay") compute(
+                fitted, TransientFormulation(:td))
         else
+            @test validate(fitted, TransientFormulation(:td).formula) === fitted
             @test_throws ArgumentError("load UniversalLineModel to run :td on a wideband line model") invoke(
                 TA.compute, Tuple{TA.Formula{:td}, TransientAnalysisProblem{<:LineModel}, Any},
                 TransientFormulation(:td).formula, fitted, execution)

@@ -45,5 +45,16 @@ end
 
 compute(::Formula{:td}, problem::TransientAnalysisProblem{<:LineModel}, execution) =
     throw(ArgumentError("load UniversalLineModel to run :td on a wideband line model"))
-compute(::Formula{:td}, problem::TransientAnalysisProblem{<:LineModel{<:ModalModel}}, execution) =
-    throw(ArgumentError("not implemented yet"))
+function compute(selected::Formula{:td},
+        problem::TransientAnalysisProblem{<:LineModel{<:ModalModel}}, execution)
+    workspace = TransientWorkspace(problem, selected)
+    t, voltages, currents = respond!(selected, workspace, selected.parameters, selected.options)
+    matched = workspace.buffers.matched
+    termination = (impedance=:fitted_characteristic,
+        poles=sum(section -> length(section.poles), problem.line.model.impedance))
+    retained = (td=(interp=:single, enforce_sign=false,
+        initial_solve=selected.options.data.initial_solve, steps=length(t),
+        terminations=(sending=matched[1] ? termination : nothing,
+            receiving=matched[2] ? termination : nothing)), line=details(problem.line))
+    return t, voltages, currents, problem.line.coordinates, retained
+end
