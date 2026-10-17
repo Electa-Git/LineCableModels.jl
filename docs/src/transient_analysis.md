@@ -10,6 +10,7 @@ selects time-domain simulation of a fitted model. `compute` returns a
 
 Each end is a tuple of assignments or `Matched()`. Each assignment specifies a
 terminal label such as `"cable:2:core"`. Assignments can select cores, sheaths or armour.
+Use `terminal_labels(line.system)` to list valid labels for terminal assignments.
 Each terminal can have one assignment per end. Unlisted terminals are open.
 `TerminalImpedance` connects a terminal to ground through a series resistance R
 in Ω and inductance L in H. Zero values for both ground the terminal solidly.

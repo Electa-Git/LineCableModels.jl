@@ -37,7 +37,7 @@ export tessellate
 export Ring, capacity, placements
 export FillFactor
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
-export ncables, nphases
+export ncables, nphases, terminal_labels
 
 public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoundary
 public geometry_tolerance

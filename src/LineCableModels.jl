@@ -64,7 +64,7 @@ export estimate_stranding, estimate_screen, WireEstimate
 public Gridpoint
 
 # Materialized results, reusable designs, and presentation:
-export CableDesign, LineCableSystem, OverlapError, DatasheetInfo, datasheet
+export CableDesign, LineCableSystem, OverlapError, DatasheetInfo, datasheet, terminal_labels
 export CableGeometry, PlacedRegion
 export CableConstants, CableConstantsProblem, CableConstantsFormulation,
        LineParametersProblem, LineParameters, CablesLibrary
@@ -158,7 +158,7 @@ using .Earth: AbstractEarthModel, AbstractEarthLayer, AbstractEarthMaterial,
 include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   LineCableSystem, OverlapError, DatasheetInfo, datasheet,
-                  CablesLibrary, ncables, nphases,
+                  CablesLibrary, ncables, nphases, terminal_labels,
                   AbstractShape, AbstractPrimitive,
                   Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell,
                   Pose2,

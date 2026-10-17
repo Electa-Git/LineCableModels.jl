@@ -92,14 +92,8 @@ function _finish(
     all(isfinite, admittance) || throw(DomainError(admittance,
         "completed shunt admittance must contain only finite entries"))
     retained = _retained_details(workspace)
-    names=["cable:$(cable):$(terminal)"
-           for (; cable, terminal) in problem.system.terminal_order]
-    coordinates=map(workspace.plan.reduction.indices) do index
-        phase=problem.system.connection_order[index]
-        members=findall(==(phase), problem.system.connection_order)
-        formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
-        "bundle:[" * join(names[members], ",") * "]" : names[index]
-    end
+    coordinates = DataModel.terminal_labels(problem.system, workspace.plan.reduction.indices;
+        bundle = formulation.options.data.reduce_bundle)
     result = LineParameters(PhaseDomain,
         SeriesImpedance{eltype(impedance), Basis}(impedance),
         ShuntAdmittance{eltype(admittance), Basis}(admittance),

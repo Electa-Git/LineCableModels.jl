@@ -99,3 +99,30 @@ end
     @test_throws "connection assignments must be integers; got Float64" build(
         LineCableSystem, design, first(poses); connections = fractional)
 end
+
+@testitem "DataModel / LineCableSystem / terminal labels" tags=[:unit, :parametric] setup=[
+    UseDataModelSupport,
+    TestFixtures
+] begin
+    design = TestFixtures.coaxial_design()
+    system = build(LineCableSystem, [design, design],
+        [Pose2(0.0, -1.0, 0.0), Pose2(0.1, -1.0, 0.0)];
+        connections = [Dict(:core => 7, :sheath => 0), Dict(:core => 7, :sheath => 3)])
+
+    @test terminal_labels(system) ==
+        ["cable:1:core", "cable:1:sheath", "cable:2:core", "cable:2:sheath"]
+    @test terminal_labels(system, [4, 1, 2]; bundle = false) ==
+        ["cable:2:sheath", "cable:1:core", "cable:1:sheath"]
+    @test terminal_labels(system, [4, 1, 2]; bundle = true) ==
+        ["cable:2:sheath", "bundle:[cable:1:core,cable:2:core]", "cable:1:sheath"]
+    @test terminal_labels(system, [3]; bundle = true) ==
+        ["bundle:[cable:1:core,cable:2:core]"]
+    separate = build(LineCableSystem, [design, design], system.positions;
+        connections = [Dict(:core => 7, :sheath => 0), Dict(:core => 3, :sheath => 0)])
+    @test terminal_labels(separate, [2, 3, 4, 1]; bundle = true) ==
+        ["cable:1:sheath", "cable:2:core", "cable:2:sheath", "cable:1:core"]
+    @test terminal_labels(system, Int[]; bundle = true) == String[]
+    @test terminal_labels(system, Int[]; bundle = false) == String[]
+    @test terminal_labels((cable = cable, terminal = :core) for cable in (2, 1)) ==
+        ["cable:2:core", "cable:1:core"]
+end

@@ -89,9 +89,9 @@ function _pscad_transient_end!(canvas, assignments::Tuple, problem, end_name, fo
     system = problem.line.system
     labels = ["$(end_name)_c$(t.cable)_$(t.terminal)" for t in system.terminal_order]
     _pscad_transient_interface!(canvas, system, system.system_id, end_name, labels)
+    coordinates = terminal_labels(system)
     for assignment in assignments
-        index = only(findall(t -> "cable:$(t.cable):$(t.terminal)" == assignment.terminal,
-            system.terminal_order))
+        index = only(findall(==(assignment.terminal), coordinates))
         node = labels[index]
         _pscad_transient_meters!(canvas, node, "$end_name:$(assignment.terminal)")
         _pscad_transient_assignment!(canvas, assignment, node * "_branch", problem.window.step)

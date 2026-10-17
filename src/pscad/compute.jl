@@ -127,8 +127,8 @@ function _pscad_inputs(problem::LineParametersProblem, formulation::PSCADFormula
         throw(ArgumentError("PSCAD equivalent components must represent every terminal exactly once"))
     requested_order = problem.system.terminal_order[sortperm(problem.system.connection_order)]
     permutation = [only(findall(==(terminal), native_order)) for terminal in requested_order]
-    coordinates = ["cable:$(native_cables[index]):$(native_order[index].terminal)"
-                   for index in permutation]
+    coordinates = terminal_labels((cable = native_cables[index],
+        terminal = native_order[index].terminal) for index in permutation)
     document = _pscad_project(problem.system, problem.earth_props, frequency, blueprints,
         formulation, temperature; native_settings = setting[(:ground, :frequency)])
     project = sprint(print, document)

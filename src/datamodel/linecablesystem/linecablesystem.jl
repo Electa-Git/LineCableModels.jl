@@ -109,6 +109,51 @@ end
 ncables(system::LineCableSystem) = length(system.designs)
 nphases(system::LineCableSystem) = length(unique(filter(>(0), system.connection_order)))
 
+"""
+$(TYPEDSIGNATURES)
+
+Return terminal labels in the order of `system.terminal_order`.
+
+# Arguments
+
+- `system`: Completed cable system.
+- `retained`: Optional row indices in result order.
+
+# Keywords
+
+- `bundle::Bool`: Required with `retained`. A true value combines terminals of a
+  shared positive phase as `"bundle:[a,b]"` in terminal order.
+
+# Returns
+
+- A `Vector{String}` of `"cable:<cable>:<terminal>"` labels, or bundle labels for
+  retained rows when requested. A zero phase keeps its individual terminal label.
+
+# Notes
+
+An iterable of `(cable, terminal)` records labels a native terminal order.
+
+# Examples
+
+```julia
+terminal_labels(line.system)
+terminal_labels(line.system, [1, 3]; bundle = false)
+```
+"""
+terminal_labels(system::LineCableSystem) = terminal_labels(system.terminal_order)
+
+terminal_labels(order) = ["cable:$(cable):$(terminal)" for (; cable, terminal) in order]
+
+function terminal_labels(system::LineCableSystem, retained; bundle::Bool)
+    names = terminal_labels(system)
+    return map(retained) do index
+        phase = system.connection_order[index]
+        members = findall(==(phase), system.connection_order)
+        bundle && phase > 0 && length(members) > 1 ?
+            "bundle:[" * join(names[members], ",") * "]" : names[index]
+    end
+end
+
 function validate(system::LineCableSystem)
     isempty(system.system_id) && throw(ArgumentError(
         "LineCableSystem.system_id cannot be empty"

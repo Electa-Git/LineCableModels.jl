@@ -205,8 +205,7 @@ The exported PGB channels already use volts and amperes.
 """
 function read_pscad_transient(record::NamedTuple{(:time, :channels)},
         problem::TransientAnalysisProblem{<:LineParametersProblem})
-    coordinates = ["cable:$(cable):$(terminal)"
-        for (; cable, terminal) in problem.line.system.terminal_order]
+    coordinates = terminal_labels(problem.line.system)
     voltage = zeros(Float64, 2, length(coordinates), length(record.time))
     current = zeros(Float64, size(voltage))
     _pscad_response_channels!(voltage, current, record, coordinates, problem.sending, 1)

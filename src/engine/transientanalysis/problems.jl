@@ -1,3 +1,5 @@
+import ...DataModel: terminal_labels
+
 """
 $(TYPEDEF)
 
@@ -50,14 +52,21 @@ function validate(assignment::Union{TerminalImpedance, Waveform},
     return assignment
 end
 
-_transient_coordinates(line::LineParametersProblem) = ["cable:$(cable):$(terminal)"
-    for (; cable, terminal) in line.system.terminal_order]
-_transient_coordinates(line::LineModel) = line.coordinates
-
-function validate(problem::TransientAnalysisProblem)
-    coordinates = _transient_coordinates(problem.line)
+function validate(problem::TransientAnalysisProblem, line::LineParametersProblem)
+    coordinates = terminal_labels(line.system)
     validate(problem.sending, TransientAnalysisProblem, coordinates)
     validate(problem.receiving, TransientAnalysisProblem, coordinates)
+    return problem
+end
+
+function validate(problem::TransientAnalysisProblem, line::LineModel)
+    validate(problem.sending, TransientAnalysisProblem, line.coordinates)
+    validate(problem.receiving, TransientAnalysisProblem, line.coordinates)
+    return problem
+end
+
+function validate(problem::TransientAnalysisProblem)
+    validate(problem, problem.line)
     keys(problem.window) == (:tmax, :step) ||
         throw(ArgumentError("window must contain tmax and step"))
     window = problem.window
