@@ -111,7 +111,7 @@
         @test retained.timing.run_call_seconds == 1.25
         @test retained.timing.wall_seconds >= 0
         @test retained.window == problem.window
-        @test retained.native_readback["project"]["time_step"] == 0.1
+        @test retained.native_readback["project"]["time_step"] == problem.window.step * 1e6
         @test retained.native_readback["frequency"]["FE"] == 2e6
         @test P.computation_details(typeof(formulation), result) === details(result)
         expected = export_data(:pscad, problem, formulation; file_name = joinpath(directory, "expected.pscx"))
@@ -126,7 +126,8 @@
         @test only(findall("/project/paramlist/param[@name='PlotType']", document))["value"] == "1"
         readback = deepcopy(retained.native_readback)
         readback["project"] = Dict{String, Any}("PlotType" => "OUT",
-            "time_duration" => 20e-6, "time_step" => 0.1, "sample_step" => 0.1,
+            "time_duration" => problem.window.tmax, "time_step" => problem.window.step * 1e6,
+            "sample_step" => problem.window.step * 1e6,
             "output_filename" => "transient.out")
         @test P.validate(readback, formulation, input, retained.execution) === readback
         readback["project"]["PlotType"] = "NONE"

@@ -32,9 +32,9 @@ function _pscad_project_settings!(project, duration = nothing, step = nothing,
         sample = nothing, output_stem = nothing)
     settings = Pair{String, String}[
     "creator" => "LineCableModels.jl",
-    "time_duration" => duration === nothing ? "0.5" : _pscad_value(duration),
-    "time_step" => step === nothing ? "5" : _pscad_value(step * 1e6),
-    "sample_step" => sample === nothing ? "250" : _pscad_value(sample * 1e6),
+    "time_duration" => duration === nothing ? "0.5" : repr(duration),
+    "time_step" => step === nothing ? "5" : repr(step * 1e6),
+    "sample_step" => sample === nothing ? "250" : repr(sample * 1e6),
     "chatter_threshold" => ".001",
     "branch_threshold" => ".0005",
     "StartType" => "0",

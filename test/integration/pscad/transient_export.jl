@@ -108,6 +108,20 @@
         @test parse(Float64, parameters(root(mode))["sample_step"]) == 10
         @test parameters(root(mode))["output_filename"] == "mode_channels.out"
 
+        tmax = 0.01922048123456789
+        precise_window = (tmax = tmax, step = tmax / 4000)
+        precise_problem = TransientAnalysisProblem(line; sending, receiving = (),
+            window = precise_window)
+        for sample in (nothing, 3 * precise_window.step)
+            document = readxml(export_data(:pscad, precise_problem,
+                PSCADTransientFormulation(; sample); file_name))
+            settings = parameters(root(document))
+            @test parse(Float64, settings["time_duration"]) == precise_problem.window.tmax
+            @test parse(Float64, settings["time_step"]) == precise_problem.window.step * 1e6
+            @test parse(Float64, settings["sample_step"]) ==
+                something(sample, precise_problem.window.step) * 1e6
+        end
+
         waveforms = (Cosine("cable:1:core", -2000, 50; phase = pi / 6),
             DoubleExponential("cable:2:core", 3000, 1e3, 1e5),
             TerminalImpedance("cable:1:sheath"; L = 0.01),
