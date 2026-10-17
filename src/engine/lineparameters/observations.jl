@@ -7,8 +7,9 @@ observation_assumptions(::Union{SeriesImpedance,ShuntAdmittance},selector) = not
 function observation_assumptions(source::AbstractCoreResult,selector)
     family=_primary_family(selector)
     family===nothing && return nothing
-    return (selections=get(get(details(source).data,:selections,(;)),Symbol(nameof(family)),nothing),
-        sigma=sigma(source))
+    selections=get(get(details(source).data,:selections,(;)),Symbol(nameof(family)),nothing)
+    # Unidentified selections stay unidentified, so observation groups keep such sources apart.
+    return selections===nothing ? nothing : (selections=selections,sigma=sigma(source))
 end
 _primary_key(identity) = identity isa Function ? nameof(identity) :
     first(identity) in (Z,Y) && any(in((abs,angle)),Base.tail(identity)) ?
@@ -159,7 +160,7 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
         result_basis=basis(source),line_length=line_length(source))
     values=polar ? (phase ? angle.(original) : abs.(original)) : original
     assumptions=observation_assumptions(source,selector)
-    laplace=selector in (R,X,L,G,B,C) && assumptions!==nothing && !iszero(sigma(source))
+    laplace=selector in (R,X,L,G,B,C) && !iszero(sigma(source))
     available=resolution.available .& resolution_available.(values)
     exact_origin=polar ? iszero.(nominal.(original)) : false
     phase && (available=available .& .!exact_origin)

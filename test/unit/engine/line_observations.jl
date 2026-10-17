@@ -63,3 +63,13 @@ end
     retained = observables(result, (R,); complete_pairs = true)
     @test !isempty(sprint(show, MIME"text/plain"(), report(retained)))
 end
+
+@testitem "Engine / observations / unidentified selections stay separate" tags=[:unit, :engine] setup=[TestFixtures] begin
+    import LineCableModels.Commons as G
+    import LineCableModels.Engine as E
+    parameters = TestFixtures.two_conductor_results()
+    observed = ObservedResult(parameters, (R, X))
+    @test E.observation_assumptions(parameters, R) === nothing
+    @test length(G.observation_groups([observed, observed]; request=R)) == 2
+    @test E.sigma(parameters.Z) == 0
+end

@@ -201,3 +201,4 @@ function sigma(source::AbstractCoreResult)
     inputs=get(details(source).data,:inputs,nothing)
     return inputs===nothing ? zero(Float64) : get(inputs,:sigma,zero(Float64))
 end
+sigma(::Union{SeriesImpedance,ShuntAdmittance}) = zero(Float64)
