@@ -265,8 +265,35 @@ function _contained(::AbstractShape, ::AbstractShape)
     ))
 end
 
+# A coat is an annulus without a terminal around the disk of a terminal's wire, from the wire's
+# radius outward. The `Stack` of a `Disk` and a `Shell` declares a coated wire, and its coat
+# follows it among the resolved regions.
+function _coats(coat::PlacedRegion{<:Region, <:Annulus}, wire::PlacedRegion{<:Region, <:Disk})
+    return coat.terminal === nothing && wire.terminal !== nothing &&
+           same_radial_position(radial_position(coat), radial_position(wire)) &&
+           isapprox(coat.primitive.ri, wire.primitive.r)
+end
+_coats(::PlacedRegion, ::PlacedRegion) = false
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the hole that the resolved region `regions[index]` leaves in the fill around it. A
+wire followed by its coat leaves the coat's outer circle. Any other region leaves its
+primitive.
+"""
+function fill_hole(regions::AbstractVector{<:PlacedRegion}, index::Integer)
+    index < lastindex(regions) || return regions[index].primitive
+    wire, coat = regions[index], regions[index + 1]
+    _coats(coat, wire) || return wire.primitive
+    return Disk(coat.primitive.ro, coat.primitive.at)
+end
+
+# The holes of the contents are those of their regions. A coat shares the hole of its wire.
 function fill_holes(::AbstractCablePart, contents::CableGeometry)
-    return Tuple(placed.primitive for placed in contents.regions)
+    regions = contents.regions
+    return Tuple(fill_hole(regions, index) for index in eachindex(regions)
+                 if index == firstindex(regions) || !_coats(regions[index], regions[index - 1]))
 end
 
 fill_holes(::Enclosure, contents::CableGeometry) = (boundary(contents),)
@@ -277,10 +304,6 @@ function fill_holes(::Material, item::AbstractCablePart, contents::CableGeometry
     return fill_holes(item, contents)
 end
 fill_holes(::Region, ::AbstractCablePart, contents::CableGeometry) = (boundary(contents),)
-
-function fill_holes(::Group, contents::CableGeometry)
-    return Tuple(placed.primitive for placed in contents.regions)
-end
 
 function fill_holes(
         ::Group{<:Pose2, <:Stack, <:Any, <:Any, <:Any, <:Disk},

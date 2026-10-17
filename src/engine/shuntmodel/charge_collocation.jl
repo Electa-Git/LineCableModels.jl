@@ -193,8 +193,10 @@ targets and `nb` charge coefficients:
 - `target_modes` and `source_modes` hold the Fourier factors of at most 64 modes at a time.
 - `face_kernel` holds the Green function from the targets to the nodes of one face, and
   `face_layers` the layer of those nodes.
+- `coat_product` holds the product of one wire's coat operator with its rows.
 - `plus_collocation`, `minus_collocation`, `plus_excitation` and `minus_excitation` hold
-  perturbed blocks of at most 192 targets, when `plan.derivatives` directions follow.
+  perturbed blocks of whole wires, at most 192 targets or the targets of the widest wire,
+  when `plan.derivatives` directions follow.
 - `drive`, `stationarity`, `residual`, `border_normal` and `coefficient_derivative` hold the
   right-hand sides of the capacitance derivative, the residual of the nominal least-squares
   solve and the derivative of the coefficients.
@@ -209,8 +211,9 @@ function initialize_buffers(::Formula{:boundary}, ::Type{T}, group::DielectricGr
     top = min(N*(r - c), nb)
     kernel = max(length(sources), quadrature)
     factors = 4min(64, modes)
+    widest = maximum(coat -> length(coat.rows), plan.coats; init = 0)
     perturbed = iszero(derivatives) ? 0 : rows
-    block = min(192, perturbed)
+    block = min(max(192, widest), perturbed)
     tangent = iszero(derivatives) ? 0 : columns
     return merge(buffers,
         (ring_kernel = Matrix{T}(undef, r, N*c),
@@ -249,6 +252,7 @@ function initialize_buffers(::Formula{:boundary}, ::Type{T}, group::DielectricGr
             target_modes = Matrix{T}(undef, rows, factors),
             source_modes = Matrix{T}(undef, kernel, factors),
             face_kernel = Matrix{T}(undef, rows, quadrature),
+            coat_product = Matrix{T}(undef, widest, columns),
             face_layers = Vector{Int}(undef, quadrature),
             plus_collocation = Matrix{T}(undef, block, columns),
             minus_collocation = Matrix{T}(undef, block, columns),
@@ -340,12 +344,12 @@ function _shunt_core_voltage(z, layer, k)
     1-(k.R[layer]+log(abs(z)/k.radii[layer])/k.epsilon[layer])/k.Rtotal
 end
 
-# The point at `angle` on the circle at `fraction` of a wire's radius, in the wire's own polar
-# frame. A rotation that maps one ring wire onto the next maps its points too. Round wires keep
-# auxiliary sources inside. The tape has no source contour or inset: its physical faces are
-# integrated below.
+# The point at `angle` on the circle at `fraction` of a wire's coat radius, in the wire's own
+# polar frame. A rotation that maps one ring wire onto the next maps its points too. Round
+# wires keep auxiliary sources inside. The tape has no source contour or inset: the tape
+# columns below integrate its physical faces.
 function _shunt_wire_point(wire, fraction, angle)
-    complex(wire.x, wire.y) + fraction*wire.r*cis(atan(wire.y, wire.x) + angle)
+    complex(wire.x, wire.y) + fraction*wire.coat*cis(atan(wire.y, wire.x) + angle)
 end
 
 """
@@ -354,23 +358,30 @@ $(TYPEDSIGNATURES)
 Place the collocation targets and the auxiliary sources of each wire of `g` in the wire's own
 polar frame, order the wires for collocation and find the rings.
 
-A wire has `2level.wire` uniform targets on its circumference and `level.wire` uniform sources
-at 0.75 of its radius. A wire that touches the interface of its layer next to a layer of larger
-permittivity concentrates its charge in a band about the contact. The gap between the wire and
-the interface, ``r\\theta^2/2`` at the angle ``\\theta`` from the contact, holds a charge
-density that grows as ``1/\\theta^2`` until the field spreading into the neighbour takes over,
-at ``\\theta\\approx w=2\\varepsilon_l/\\varepsilon_n``, with ``\\varepsilon_l`` the
-permittivity of the wire's layer and ``\\varepsilon_n`` the neighbour's. The layout grades the
-points toward that contact until the finest source depth is ``w/c``, with ``c`` the control
-`level.contact`, in ``K=\\max(0,\\lceil\\log_2(c\\,\\varepsilon_n/(8\\varepsilon_l))
-\\rceil)`` levels. Level ``\\ell`` adds sources at ``\\pm d_\\ell`` radians from the contact
-and at depth ``d_\\ell r``, with ``d_\\ell=2^{-\\ell}/4``, and targets at ``\\pm d_\\ell/2`` and
-``\\pm 3d_\\ell/4``. One more source lies on the contact direction at the finest depth. The
-levels depend on the geometry alone, and a wire without such a contact keeps its uniform
-points. Targets inside another wire of its terminal are not exposed.
+A wire has `2level.wire` uniform targets on the outer circle of its coat and `level.wire`
+uniform sources at 0.75 of that radius. A bare wire's coat circle is its metal surface.
 
-The wires of a ring share one terminal, one layer, one radius and one pitch circle, they are
-equally spaced, and each has the same points. A ring has at least two wires. A rotation by
+When the metal of a bare wire touches the interface with a more permittive layer, its charge
+concentrates in a band about the contact. At the angle ``\\theta`` from the contact, the gap
+between the wire and the interface is ``r\\theta^2/2``. The charge density in it grows as
+``1/\\theta^2``, until the field that spreads into the neighbour takes over at
+``\\theta\\approx w=2\\varepsilon_l/\\varepsilon_n``. Here ``\\varepsilon_l`` is the
+permittivity of the wire's layer and ``\\varepsilon_n`` the neighbour's.
+
+The layout grades the points toward that contact until the finest source depth is ``w/c``,
+with ``c`` the control `level.contact`, in ``K=\\max(0,\\lceil\\log_2(c\\,\\varepsilon_n/
+(8\\varepsilon_l))\\rceil)`` levels. Level ``\\ell`` adds sources at ``\\pm d_\\ell`` radians
+from the contact and at depth ``d_\\ell r``, with ``d_\\ell=2^{-\\ell}/4``, and targets at
+``\\pm d_\\ell/2`` and ``\\pm 3d_\\ell/4``. One more source lies on the contact direction at the
+finest depth. The levels depend on the geometry alone, and a wire without such a contact keeps
+its uniform points.
+
+The layout drops the targets inside the metal of another wire of its terminal. A coat keeps
+the metal off every interface and every other metal. A coated wire keeps its uniform points,
+which its coat operator needs.
+
+Ring wires share one terminal, layer, radius, coat and pitch circle, with equal steps and the
+same points. A ring has at least two wires. A rotation by
 ``2\\pi/n``, with ``n`` the greatest common divisor of the ring sizes, maps every ring onto
 itself in the concentric layers. The rings split into ``n`` sectors that it permutes
 cyclically, each with ``N_i/n`` consecutive wires of ring ``i``. The sectors come first, then
@@ -429,7 +440,8 @@ function _shunt_layout(g, level)
         found = findfirst(rings) do candidate
             lead = g.wires[first(candidate)]
             lead.terminal == wire.terminal && lead.layer == wire.layer &&
-                abs(lead.r - wire.r) <= tolerance &&
+                abs(lead.r - wire.r) <= tolerance && abs(lead.coat - wire.coat) <= tolerance &&
+                lead.epsilon == wire.epsilon &&
                 abs(hypot(lead.x, lead.y) - hypot(wire.x, wire.y)) <= tolerance
         end
         found === nothing ? push!(rings, [index]) : push!(rings[found], index)
@@ -810,19 +822,120 @@ const InternalShuntDiagnostic = NamedTuple{
     (:log_moment_error, :condition, :sectors, :unknowns, :equations, :level),
     Tuple{Float64, Float64, Int, Int, Int, typeof(DEFAULT_RESOLUTION)}}
 
+# The record of a wire's coat contains the wire's target rows and source columns in the
+# collocation system. It also contains the operator Q of the coat on the potential at those
+# targets and the table S of the wire's own sources.
+const ShuntCoat{T} = NamedTuple{(:rows, :columns, :operator, :own),
+    Tuple{UnitRange{Int}, UnitRange{Int}, Matrix{T}, Matrix{T}}}
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the operator of a wire's coat on the potential at its targets and the table of its own
+sources. The wire has the metal radius ``a`` and the coat radius ``c``, with
+``L=\\log(c/a)``. Its coat has the permittivity ``\\varepsilon_c``, in a layer of permittivity
+``\\varepsilon_h``.
+
+Inside the coat, the potential is ``V`` on the metal. Each harmonic ``n`` of
+the potential outside then satisfies, on the coat's outer circle,
+``\\varepsilon_h c\\,\\partial_\\rho\\varphi_n=\\varepsilon_c n\\coth(nL)\\varphi_n``. The
+zero harmonic satisfies
+``\\varepsilon_h c\\,\\partial_\\rho\\varphi_0=\\varepsilon_c(\\varphi_0-V)/L``. Together they
+give ``\\varphi-Z\\partial_\\rho\\varphi=V``, with ``z_0=\\varepsilon_h cL/\\varepsilon_c`` and
+``z_n=\\varepsilon_h c\\tanh(nL)/(\\varepsilon_c n)``. This is the metal-core limit of the
+coated-cylinder relation of [Nicorovici1994](@cite).
+
+The coat disk lies in one layer. Every part of the potential but the wire's own sources is
+harmonic in it. On its circle, ``\\partial_\\rho`` acts on that part as the interior
+Dirichlet-to-Neumann map, with eigenvalue ``|n|/c``. The row of a target is then ``(I+Q)``
+times the potential at the wire's targets, plus ``S`` times the wire's own source
+coefficients. The circulant ``Q`` has the eigenvalue
+``q_n=-(\\varepsilon_h/\\varepsilon_c)\\tanh(|n|L)``. A source at ``\\tau c`` and angle
+``\\psi`` gives, at the target angle ``\\theta``,
+
+```math
+S=\\frac{1}{\\varepsilon_h}\\,(Q u)(\\theta)+\\frac{1}{\\varepsilon_c}\\left(L+\\sum_{n\\ge 1}
+\\frac{\\tanh(nL)}{n}\\tau^n\\cos n(\\theta-\\psi)\\right),
+```
+
+with ``u`` the logarithm of the distance to the source at the targets. ``Q`` then acts on the
+regular part of the potential only. The targets of a coated wire are uniform. A bare wire has
+``L=0``: ``Q`` and ``S`` vanish, and its rows are the potential.
+
+# Arguments
+
+- `wire`: the wire, with its coat.
+- `host`: the relative permittivity of its layer.
+- `angles`: the angles of its targets in its own frame.
+- `placed`: the angles of its sources in its own frame and their fractions of the coat radius.
+
+# Returns
+
+- `operator`: ``Q`` on the targets.
+- `own`: ``S``, by target and source.
+"""
+function _shunt_coat(wire, host, angles, placed)
+    P, L = length(angles), log(wire.coat/wire.r)
+    ratio = host/wire.epsilon
+    # The first column of the circulant, from its eigenvalues.
+    column = [sum(m -> -ratio*tanh(min(m, P - m)*L)*cospi(2m*d/P), 0:(P - 1))/P
+              for d in 0:(P - 1)]
+    operator = [column[mod(k - l, P) + 1] for k in 1:P, l in 1:P]
+    # Q annihilates constants. The logarithm leaves out the coat radius.
+    own = operator*[log(abs(cis(theta) - fraction*cis(psi)))
+                    for theta in angles, (psi, fraction) in placed] ./ host
+    # The series stops where the powers of the source fraction fall below the rounding. A
+    # bare wire has no term.
+    terms = iszero(L) ? 0 : ceil(Int, log(eps(typeof(L)))/log(maximum(last, placed)))
+    for (j, (psi, fraction)) in pairs(placed), (i, theta) in pairs(angles)
+        series = sum(n -> tanh(n*L)*fraction^n*cos(n*(theta - psi))/n, 1:terms; init = L)
+        own[i, j] += series/wire.epsilon
+    end
+    return operator, own
+end
+
+# `matrix` holds the rows `rows` and the columns `columns` of the collocation system. For each
+# wire whose targets lie in `rows`, its rows gain Q times themselves, and the columns of its
+# own sources gain S.
+function _shunt_coat!(matrix, rows, columns, plan, buffers)
+    for coat in plan.coats
+        first(coat.rows) >= first(rows) && last(coat.rows) <= last(rows) || continue
+        local_rows = coat.rows .- (first(rows) - 1)
+        block = @view matrix[local_rows, :]
+        product = @view buffers.coat_product[1:length(local_rows), 1:size(matrix, 2)]
+        mul!(product, coat.operator, block)
+        block .+= product
+        own = intersect(coat.columns, columns)
+        isempty(own) && continue
+        @views block[:, own .- (first(columns) - 1)] .+=
+                   coat.own[:, own .- (first(coat.columns) - 1)]
+    end
+    return matrix
+end
+
 # The fixed geometry of one solve in the wire order of `layout`: tape faces, collocation
-# targets with their terminals and layers, auxiliary sources with their layers and the
-# Fourier coefficients, with the array sizes they give. The sectors' targets and sources come
-# first, wire by wire, then the other wires' and the tape faces'.
-function _shunt_plan(selected::Formula{:boundary}, g, layout, derivatives = 0)
+# targets with their terminals and layers, auxiliary sources with their layers, the coats and
+# the Fourier coefficients, with the array sizes they give. The sectors' targets and sources
+# come first, wire by wire, then the other wires' and the tape faces'.
+function _shunt_plan(selected::Formula{:boundary}, g::DielectricGroup{T}, layout,
+        derivatives = 0) where {T}
     (; resolution, integration) = selected.options.data
     level = resolution
     faces = ShuntTapeFaces[_shunt_tape_faces(g, tape, level.order, level.quadrature)
                            for tape in g.tapes]
     points, terminals, point_layers = ComplexF64[], Int[], Int[]
     sources, source_layers, source_terminals = ComplexF64[], Int[], Int[]
+    coats = ShuntCoat{T}[]
+    # The wires of a ring have one coat, computed once.
+    computed = Dict{Tuple{T, T, T, T, Vector{Float64}, Vector{Tuple{Float64, Float64}}},
+        Tuple{Matrix{T}, Matrix{T}}}()
     for (index, angles, placed) in zip(layout.wires, layout.targets, layout.sources)
         wire = g.wires[index]
+        host = g.layers[wire.layer].epsilon
+        key = (wire.r, wire.coat, wire.epsilon, host, angles, placed)
+        operator, own = get!(() -> _shunt_coat(wire, host, angles, placed), computed, key)
+        push!(coats, (rows = (length(points) + 1):(length(points) + length(angles)),
+            columns = (length(sources) + 1):(length(sources) + length(placed)), operator, own))
         append!(points, _shunt_wire_point(wire, 1, angle) for angle in angles)
         append!(terminals, fill(wire.terminal, length(angles)))
         append!(point_layers, fill(wire.layer, length(angles)))
@@ -843,7 +956,7 @@ function _shunt_plan(selected::Formula{:boundary}, g, layout, derivatives = 0)
     ports = max(maximum(wire -> wire.terminal, g.wires; init = 1),
         maximum(tape -> tape.terminal, g.tapes; init = 1))
     return (; faces, points, terminals, point_layers, sources, source_layers,
-        source_terminals, k, level, integration, layout,
+        source_terminals, k, coats, level, integration, layout,
         block_rows = sum(length, view(layout.targets, 1:layout.sector); init = 0),
         block_columns = sum(length, view(layout.sources, 1:layout.sector); init = 0),
         rows = length(points), columns, ports, modes = level.modes,
@@ -964,11 +1077,14 @@ function _shunt_capacitance!(selected::Formula{:boundary}, workspace)
     ring, ring_layers = @view(sources[1:(N * c)]), @view(source_layers[1:(N * c)])
     _shunt_kernel_matrix!(ring_kernel, @view(points[1:r]), @view(point_layers[1:r]), ring,
         ring_layers, k; buffers)
+    _shunt_coat!(ring_kernel, 1:r, 1:(N * c), plan, buffers)
     border_rows = (N * r + 1):(N * r + kept)
     _shunt_kernel_matrix!(coupling_kernel, @view(points[border_rows]),
         @view(point_layers[border_rows]), ring, ring_layers, k; buffers)
+    _shunt_coat!(coupling_kernel, border_rows, 1:(N * c), plan, buffers)
     tape = _shunt_matrix!(border, points, point_layers, @view(sources[(N * c + 1):end]),
         @view(source_layers[(N * c + 1):end]), faces, k; integration, buffers)
+    _shunt_coat!(border, 1:m, (N * c + 1):n, plan, buffers)
     tape.unmet == 0 ||
         @warn "Boundary logarithmic quadrature target was not met" integrals=tape.unmet log_moment_error=tape.log_moment_error rtol=integration.rtol atol=integration.atol maxevals=integration.maxevals
     # A ring column's norm over the ring rows is the same in every sector, which keeps the
@@ -989,7 +1105,8 @@ function _shunt_capacitance!(selected::Formula{:boundary}, workspace)
         @views border[:, j] ./= scale
     end
     factored = _shunt_factor!(plan, buffers)
-    rhs = _shunt_rhs!(buffers.excitation, points, point_layers, terminals, k)
+    rhs = _shunt_coat!(_shunt_rhs!(buffers.excitation, points, point_layers, terminals, k),
+        1:m, 1:0, plan, buffers)
     coefficients = _shunt_solve!(buffers.coefficients, factored, plan, buffers, rhs) ./
                    column_norms
     charge = _shunt_charge_map(plan)
@@ -1257,8 +1374,13 @@ function _shunt_tangent(selected::Formula{:boundary}, group, values, direction, 
     m = plan.rows
     count = size(buffers.plus_collocation, 1)
     stationarity = fill!(buffers.stationarity, 0)
-    for start in 1:count:m
+    start = 1
+    while start <= m
         stop = min(start+count-1, m)
+        # A block ends between wires, so that each coat acts on whole wires.
+        for coat in plan.coats
+            first(coat.rows) <= stop < last(coat.rows) && (stop = first(coat.rows) - 1)
+        end
         rows = 1:(stop - start + 1)
         ap = @view buffers.plus_collocation[rows, :]
         am = @view buffers.minus_collocation[rows, :]
@@ -1266,18 +1388,23 @@ function _shunt_tangent(selected::Formula{:boundary}, group, values, direction, 
         layers = @view plan.point_layers[start:stop]
         _shunt_matrix!(ap, xp, layers, dp.sources, plan.source_layers, dp.faces, dp.k;
             plan.integration, buffers)
+        _shunt_coat!(ap, start:stop, 1:plan.columns, dp, buffers)
         _shunt_matrix!(am, xm, layers, dm.sources, plan.source_layers, dm.faces, dm.k;
             plan.integration, buffers)
+        _shunt_coat!(am, start:stop, 1:plan.columns, dm, buffers)
         ap .-= am
         ap ./= 2step
         rp = @view buffers.plus_excitation[rows, :]
         rm = @view buffers.minus_excitation[rows, :]
-        _shunt_rhs!(rp, xp, layers, @view(dp.terminals[start:stop]), dp.k)
-        _shunt_rhs!(rm, xm, layers, @view(dm.terminals[start:stop]), dm.k)
+        _shunt_coat!(_shunt_rhs!(rp, xp, layers, @view(dp.terminals[start:stop]), dp.k),
+            start:stop, 1:0, dp, buffers)
+        _shunt_coat!(_shunt_rhs!(rm, xm, layers, @view(dm.terminals[start:stop]), dm.k),
+            start:stop, 1:0, dm, buffers)
         target = @view buffers.drive[start:stop, :]
         target .= (rp .- rm) ./ (2step)
         mul!(target, ap, solved.coefficients, -1.0, 1.0)
         mul!(stationarity, transpose(ap), @view(buffers.residual[start:stop, :]), 1.0, 1.0)
+        start = stop + 1
     end
     stationarity ./= buffers.column_norms
     delta = _shunt_solve!(

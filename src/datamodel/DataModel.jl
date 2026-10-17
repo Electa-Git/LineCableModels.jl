@@ -42,7 +42,7 @@ export ncables, nphases
 public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement, EnclosureBoundary
 public geometry_tolerance
 public equivalent_dielectric_permeability, radial_position,
-       conductor_zone_position, same_radial_position, bounded_members
+       conductor_zone_position, same_radial_position, bounded_members, fill_hole
 public flatten, CableBlueprint, BlueprintConductor, BlueprintDielectric
 public DifferenceShape, EllipseOffset, ShellShape, SectorShape
 

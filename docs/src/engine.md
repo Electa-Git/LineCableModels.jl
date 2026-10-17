@@ -110,10 +110,12 @@ selected formulations.
 A domain qualifies when continuous concentric dielectric layers lie between a closed inner
 anchor and a closed concentric shield or the jacket's outer surface, and each of its wires
 and tapes lies in one of those layers, an annular fill. Fills with no closed conductor between
-them belong to one domain, in their own layers. A face on an interface is admitted. The
+them belong to one domain, in their own layers. The solve admits a face on an interface. A
+round wire can carry a dielectric coat, the `Shell` of a coated wire. A coat lies in its wire's
+layer. It can touch other coats or an interface, but it cannot overlap or cross them. The
 coaxial model also refers its outermost potentials to the jacket's outer radius. `:boundary`
 solves the qualifying domains. Any other open arrangement raises `BoundarySolveError` with
-its specific reason, such as coatings or dielectric islands in a fill, a conductor that
+its specific reason, such as a dielectric island other than a coat, a conductor that
 crosses a dielectric interface, contact between different terminals, or an uncertain
 displacement that changes a contact. No
 other model replaces the selected one. The resolved path uses the built-in `:lossless`
@@ -224,6 +226,34 @@ each ring onto itself and gives a block-circulant system over `g` sectors. A uni
 Fourier transform separates it into one block per Fourier index. The tapes and any other wires
 form a border, eliminated exactly. A group without a ring takes the same solver with an empty
 ring, which is a dense QR.
+
+A coat leaves the unknowns unchanged. The wire's targets lie on the coat's outer circle, and its
+sources represent the field outside the coat. Inside the coat, the potential has one exact
+harmonic expansion about the wire's center. The metal sets its value at the inner radius. On
+the outer circle, each harmonic of the potential then fixes that of its radial derivative.
+This is the metal-core limit of the coated-cylinder relation of [Nicorovici1994](@cite).
+
+The rest of the potential is harmonic in the coat disk. One circulant per coat applies the
+relation to its values at the targets, and a bare wire's circulant is zero. Every wire of a
+ring has the same coat, so a ring of coated wires is still a ring. A coated wire keeps uniform
+targets and takes none of the grading below.
+
+A thin coat that touches a much more permittive layer converges more slowly. The table gives
+the error of the capacitance matrix against `wire = 128`, relative to its largest diagonal
+entry. The ring has eight wires of metal radius ``a``, each with a coat of thickness ``t`` and
+permittivity 2.3, in a layer of permittivity 1. Each coat touches the interface with an inner
+layer that is `contrast` times more permittive.
+
+| contrast | ``t/a`` | `wire = 16` | `wire = 32` | `wire = 64` |
+| --- | --- | --- | --- | --- |
+| 10 | 0.01 | 2.3e-3 | 2.7e-4 | 6.2e-6 |
+| 10 | 0.05 | 7.6e-5 | 9.1e-6 | 3.9e-8 |
+| 10 | 0.25 | 4.9e-5 | 2.2e-7 | 1.1e-9 |
+| 1000 | 0.01 | 2.6e-1 | 7.2e-2 | 4.6e-3 |
+| 1000 | 0.05 | 1.1e-2 | 5.7e-4 | 3.6e-6 |
+| 1000 | 0.25 | 2.1e-4 | 4.4e-6 | 2.7e-8 |
+
+Convergence stays geometric, so a larger `wire` resolves these cases.
 
 A wire that touches the interface of its layer next to a more permittive layer concentrates
 its charge in a band about the contact, of half-width about ``1.6\,r\,\varepsilon_l/

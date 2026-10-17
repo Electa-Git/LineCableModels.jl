@@ -1129,14 +1129,39 @@ function _radial_reach(hole::Union{Disk, Annulus, BentStrip}, outer)
 end
 _radial_reach(hole, outer) = zero(outer.r)
 
+# In a ring of coated wires, each wire precedes its coat. The ring reduces to its wires
+# between two annuli of the coat material. Let p be the pitch radius, a the wire radius and
+# c the coat radius. The inner annulus spans p - c to p - a, and the outer one p + a to p + c.
+# The coaxial reduction drops the fill between the coats, as between bare wires.
+function _coated_ring!(radial, ring)
+    wires, coats = ring[begin:2:end], ring[(begin + 1):2:end]
+    center = conductor_zone_position(wires)
+    coat = first(coats)
+    a, c = coat.primitive.ri, coat.primitive.ro
+    pitch = hypot(coat.primitive.at.x - center[1], coat.primitive.at.y - center[2])
+    all(coats) do other
+        other.source == coat.source && isapprox(other.primitive.ri, a) &&
+            isapprox(other.primitive.ro, c) && isapprox(
+            hypot(other.primitive.at.x - center[1], other.primitive.at.y - center[2]), pitch)
+    end || throw(ArgumentError(
+        "the coaxial reduction of coated wires requires one coat material and thickness " *
+        "on one pitch circle"
+    ))
+    at = Pose2(center[1], center[2], zero(center[1]))
+    push!(radial, PlacedRegion(coat.source, Annulus(pitch - c, pitch - a, at)))
+    append!(radial, wires)
+    return push!(radial, PlacedRegion(coat.source, Annulus(pitch + a, pitch + c, at)))
+end
+
 """
 $(TYPEDSIGNATURES)
 
 Return the regions of a cable design that its coaxial reduction reads, in order, by the
 topology rule that [`flatten`](@ref) describes. It drops the fill between the wires of
-one conductor. The fill of a container centered on its one group becomes an annulus, and
-`validate(container, CableBlueprint, ...)` rejects every other container that holds
-groups.
+one conductor. A ring of coated wires becomes the tube over its metal between two
+concentric layers of the coat material. The fill of a container centered on its one group
+becomes an annulus, and `validate(container, CableBlueprint, ...)` rejects every other
+container that holds groups.
 """
 function _radial_regions(regions)
     radial = PlacedRegion[]
@@ -1147,8 +1172,20 @@ function _radial_regions(regions)
         # Test the primitive's type, not its value: reading an inline primitive from the
         # abstract region allocates.
         if !(fieldtype(typeof(placed), :primitive) <: DifferenceShape)
-            push!(radial, placed)
-            index += 1
+            stop = index - 1
+            while stop + 2 <= lastindex(regions) &&
+                      regions[stop + 1].terminal === placed.terminal &&
+                      _coats(regions[stop + 2], regions[stop + 1])
+                stop += 2
+            end
+            # A ring has at least two wires. One wire with its coat is a coaxial layer.
+            if stop > index + 1
+                _coated_ring!(radial, @view regions[index:stop])
+                index = stop + 1
+            else
+                push!(radial, placed)
+                index += 1
+            end
             continue
         end
         material = placed.source.material
@@ -1296,6 +1333,8 @@ geometry, from which conductors enclose which, never from the declaration:
 
 - A coaxial group is one center with a chain of conductors, each enclosing the previous
   one, and their dielectric annuli. It is one concentric assembly of the blueprint.
+- A ring of coated wires becomes the tube over its metal, between two coat-thick annuli
+  of the coat material.
 - Groups that no conductor encloses together stay at their own positions.
 - A container (a fill, wall or jacket around groups) with one group at the center of its
   circular boundary adds annuli to that group.

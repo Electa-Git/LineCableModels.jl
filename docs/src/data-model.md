@@ -404,6 +404,16 @@ groups share. It also rejects a container with a non-circular boundary, such as 
 elliptical duct. The sector cables and the coaxial trefoil pipe of the gallery below are
 examples of rejected designs.
 
+A ring of coated wires reduces to the tube over its metal between two layers of the coat
+material. Let p be the pitch radius, a the wire radius and c the coat radius. The tube spans
+p − a to p + a. The coat material inside the tube spans p − c to p − a and ends the
+dielectric of the conductor inside the ring. The coat material outside the tube spans
+p + a to p + c and starts the dielectric of the ring.
+
+`flatten` drops the fill between the coats, as between bare wires. A nonmagnetic coat gives
+the Z of bare wires at the same pitch, and its permittivity enters Y. The exporters keep
+these radii, and each coat layer enters the equivalent permittivity of its group.
+
 `homogenize(design)` is an explicit request for a new homogeneous
 `CableDesign`. Independent assembly members are flattened separately. The
 operation calculates no mutual coupling, earth return, or line-parameter
@@ -1111,6 +1121,41 @@ DataFrame(
 These factors multiply each wire's resistance before the parallel reduction.
 One blanket factor is not applied to all 49 wires. The transverse wire areas
 and preview are unchanged by the lay choices.
+
+### Coated armour wires
+
+An armour wire can carry its own dielectric coat. The ring's member is then a `Stack` of
+the wire's `Disk` and a `Shell` of the coat material. The wire and its coat remain separate
+regions, and the fill starts at the coat's outer circle. The coat thickness and material
+take any `Shell` input: a number, a `Grid` or an uncertain value. The section on
+formulation support above gives the coaxial reduction of the ring.
+
+```@example supported_formations
+gallery_steel = Material(kind=:conductor, rho=1.38e-7, mu_r=10.0)
+gallery_pe = Material(kind=:insulator, rho=1.97e14, eps_r=2.3)
+coated_wire = Stack(
+    Region(:armor_wire, Disk(1.0e-3), gallery_steel),
+    Region(:armor_coat, Shell(0.3e-3), gallery_pe),
+)
+coated_armor = Group(:armor, coated_wire; pattern=Ring(18; r=8.3e-3),
+    path=Helix(LayRatio(10)))
+coated_design = @cable "coated-armour" begin
+    @terminal :core begin
+        core(gallery_copper; r=4.0e-3)
+    end
+    insulation(gallery_xlpe; t=3.0e-3)
+    Enclosure(:armor_bedding, coated_armor; primitive=Annulus(7.0e-3, 9.6e-3),
+        fill=gallery_air)
+    jacket(gallery_jacket; t=1.0e-3)
+end
+
+preview(
+    coated_design;
+    backend=:cairo,
+    display_plot=false,
+    controls=false,
+).figure
+```
 
 ### 3 coaxial cores in a pipe
 

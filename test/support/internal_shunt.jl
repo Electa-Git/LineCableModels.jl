@@ -68,13 +68,17 @@ end
 
 # A synthetic dielectric group of concentric `layers` (ri, ro, epsilon) [m], grounded at the
 # innermost radius and referenced to grounded metal at the outermost radius. Each wire and tape
-# carries its terminal and the index of its layer.
+# carries its terminal and the index of its layer. A wire without `coat` and `epsilon` is bare:
+# its coat radius is its radius and its coat permittivity that of its layer.
 function layered_group(layers; wires = [], tapes = [])
     SM=LineCableModels.Engine.ShuntModel
     terminals=1:max(1, maximum(member -> member.terminal, [wires; tapes]; init = 1))
+    coated=[(x = wire.x, y = wire.y, r = wire.r, coat = get(wire, :coat, wire.r),
+        epsilon = get(wire, :epsilon, layers[wire.layer].epsilon), terminal = wire.terminal,
+        layer = wire.layer) for wire in wires]
     return SM.DielectricGroup{Float64}(1, terminals, terminals,
         LineCableModels.Engine.ShuntJacket(Float64(last(layers).ro)),
-        SM.ShuntLayer{Float64}[layers...], SM.ShuntWire{Float64}[wires...],
+        SM.ShuntLayer{Float64}[layers...], SM.ShuntWire{Float64}[coated...],
         SM.ShuntTape{Float64}[tapes...])
 end
 
@@ -137,6 +141,7 @@ function kernel_matrix(selected, targets, target_layers, sources, source_layers,
     SM=LineCableModels.Engine.ShuntModel
     plan=(rows = length(targets), columns = 0, ports = 1, order = 0, sources,
         modes = size(k.modal, 1), quadrature = 0, derivatives = 0, layout = (sectors = 0,),
+        coats = (),
         block_rows = 0, block_columns = 0)
     buffers=SM.initialize_buffers(selected, Float64, g, plan, (;))
     return SM._shunt_kernel_matrix!(Matrix{Float64}(undef, length(targets), length(sources)),
@@ -151,6 +156,7 @@ function tape_columns(selected, targets, target_layers, faces, g, k; integration
     columns=sum(tape -> sum(face -> face.p+1, tape), faces)
     plan=(rows = length(targets), columns = 0, ports = 1, order, sources = ComplexF64[],
         modes = size(k.modal, 1), quadrature = nodes, derivatives = 0, layout = (sectors = 0,),
+        coats = (),
         block_rows = 0, block_columns = 0)
     buffers=SM.initialize_buffers(selected, Float64, g, plan, (;))
     return SM._shunt_tape_columns!(Matrix{Float64}(undef, length(targets), columns),

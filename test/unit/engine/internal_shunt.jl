@@ -33,8 +33,8 @@
         (LineCableModels.DataModel.DifferenceShape(host.primitive.outer,
                 (first(holes), Base.front(holes)...)), members, "coatings or dielectric islands"),
         (host.primitive, members[2:end], "an open conductor crosses a dielectric interface"))
-        regions = Any[design.geometry.regions...]
-        regions[fill] = (; primitive, host.source, terminal = nothing)
+        regions = LineCableModels.DataModel.PlacedRegion[design.geometry.regions...]
+        regions[fill] = LineCableModels.DataModel.PlacedRegion(host.source, primitive)
         altered = (; geometry = (; regions), design.terminal_map, design.cable_id)
         groups = E.ShuntModel.DielectricGroup{Float64}[]
         rejected = E.ShuntModel.ShuntRejection[]
@@ -264,9 +264,9 @@ end
         @test all(isfinite, result.C)
         @test minimum(eigvals(Symmetric(result.C))) > 0
         @test boundary_residual(selected.formulas.shunt_model, g, result).wire < 0.06
-        independent = [wires[1], merge(wires[2], (terminal = 3,))]
+        independent = [g.wires[1], merge(g.wires[2], (terminal = 3,))]
         @test_throws r"touching wire terminals" SM.validate(
-            independent, SM.DielectricGroup, (cable_id = "different-terminals",), 3.0)
+            independent, SM.DielectricGroup, (cable_id = "different-terminals",), g.layers, 3.0)
     end
 end
 

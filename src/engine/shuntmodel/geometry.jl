@@ -1,6 +1,9 @@
 # Dielectric group records owned by the local shunt formulations. A wire or tape records the
-# index of the dielectric layer it lies in.
-const ShuntWire{T} = NamedTuple{(:x, :y, :r, :terminal, :layer), Tuple{T, T, T, Int, Int}}
+# index of the dielectric layer it lies in. A wire records its metal radius `r`, the outer
+# radius `coat` of its coat and the coat's relative permittivity `epsilon`. A bare wire's coat
+# radius is its metal radius, and its coat permittivity is that of its layer.
+const ShuntWire{T} = NamedTuple{(:x, :y, :r, :coat, :epsilon, :terminal, :layer),
+    Tuple{T, T, T, T, T, Int, Int}}
 const ShuntTape{T} = NamedTuple{(:ri, :ro, :phi, :span, :terminal, :layer),
     Tuple{T, T, T, T, Int, Int}}
 const ShuntLayer{T} = NamedTuple{(:ri, :ro, :epsilon), Tuple{T, T, T}}
@@ -31,7 +34,7 @@ struct DielectricGroup{T <: Real}
     reference::Union{ShuntShield{T}, ShuntJacket{T}}
     "Concentric dielectric layers from the inner anchor to the reference, in radial order."
     layers::Vector{ShuntLayer{T}}
-    "Exposed circular wires in the group frame, each with the index of its layer."
+    "Exposed circular wires in the group frame, each with its coat and the index of its layer."
     wires::Vector{ShuntWire{T}}
     "Exposed finite-thickness tapes in the group frame, each with the index of its layer."
     tapes::Vector{ShuntTape{T}}
@@ -44,6 +47,15 @@ _shunt_tol(x) = 128eps(typeof(_shunt_scalar(x))) * abs(_shunt_scalar(x))
 _shunt_same(a, b, scale) = tolerance_norm(a - b) <= _shunt_tol(scale)
 function _shunt_concentric(shape, x, y, scale)
     _shunt_same(shape.at.x, x, scale) && _shunt_same(shape.at.y, y, scale)
+end
+
+# The relative permittivity of `source` under the formulation's lossless laws.
+function _shunt_permittivity(source, ::Type{T}, formulas) where {T}
+    material = convert(Material{T}, source)
+    frequency = one(T)
+    kappa = constitutive((formulas.insulation_admittance, formulas.semicon_admittance),
+        material, frequency, material.T0; temperature_dependence = nothing)
+    return imag(kappa)/(2pi*frequency*vacuum_permittivity(T))
 end
 
 # The concentric dielectric layers between `inner` and `outer`, the fills of open conductors
@@ -63,13 +75,9 @@ function _shunt_layers(regions, fills, inner, outer, x, y, ::Type{T}, formulas) 
               _shunt_scalar(placed.primitive.ro - outer) <= _shunt_tol(outer)]
     append!(annuli, [(regions[fill].primitive.outer, regions[fill].source.material)
                      for fill in fills])
-    frequency = one(T)
     for (shape, source) in annuli
-        material = convert(Material{T}, source)
-        kappa = constitutive((formulas.insulation_admittance, formulas.semicon_admittance),
-            material, frequency, material.T0; temperature_dependence = nothing)
         push!(layers, (ri = T(shape.ri), ro = T(shape.ro),
-            epsilon = imag(kappa)/(2pi*frequency*vacuum_permittivity(T))))
+            epsilon = _shunt_permittivity(source, T, formulas)))
     end
     sort!(layers; by = layer -> _shunt_scalar(layer.ri))
     cursor = inner
@@ -111,7 +119,8 @@ function _shunt_group!(groups, rejected, design, blueprint, chain, design_index,
     for current in chain
         holes = regions[current.region].primitive.holes
         for hole in holes
-            any(member -> isequal(regions[member].primitive, hole), current.members) && continue
+            any(member -> isequal(DataModel.fill_hole(regions, member), hole),
+                current.members) && continue
             # A conductor that leaves its fill crosses a dielectric interface.
             any(placed -> placed.terminal !== nothing && isequal(placed.primitive, hole),
                 regions) && return reject("an open conductor crosses a dielectric interface")
@@ -119,7 +128,8 @@ function _shunt_group!(groups, rejected, design, blueprint, chain, design_index,
                 "it holds coatings or dielectric islands besides its exposed wires and tapes")
         end
         length(holes) == length(current.members) && all(member -> any(
-            hole -> isequal(regions[member].primitive, hole), holes), current.members) ||
+            hole -> isequal(DataModel.fill_hole(regions, member), hole), holes),
+            current.members) ||
             return reject(
                 "it holds coatings or dielectric islands besides its exposed wires and tapes")
     end
@@ -167,9 +177,14 @@ function _shunt_group!(groups, rejected, design, blueprint, chain, design_index,
             terminal = design.terminal_map[index] - first_index + 1
             if shape isa DataModel.Disk
                 dx, dy = shape.at.x - x, shape.at.y - y
+                # A wire's hole is its own disk, or the outer circle of the coat that follows it.
+                hole = DataModel.fill_hole(regions, index)
+                coat, epsilon = isequal(hole, shape) ? (T(shape.r), layers[layer].epsilon) :
+                                (T(hole.r),
+                    _shunt_permittivity(regions[index + 1].source.material, T, formulas))
                 push!(wires,
                     (x = T(cos(phi)*dx + sin(phi)*dy), y = T(-sin(phi)*dx + cos(phi)*dy),
-                        r = T(shape.r), terminal, layer))
+                        r = T(shape.r), coat, epsilon, terminal, layer))
             else
                 zero(shape.span) < shape.span < 2pi ||
                     return reject("a tape spans no angle or a full turn")
@@ -181,7 +196,7 @@ function _shunt_group!(groups, rejected, design, blueprint, chain, design_index,
     end
     # Touching wires of one terminal use exposed surface points in collocation.
     # Buried tape faces still require an exposed-union adapter.
-    validate(wires, DielectricGroup, design, scale)
+    validate(wires, DielectricGroup, design, layers, scale)
     for tape in tapes
         # A tape face that touches a metal surface belongs to that conductor.
         tape.layer == 1 && abs(_shunt_scalar(tape.ri - first(layers).ri)) <= _shunt_tol(scale) &&
@@ -191,7 +206,7 @@ function _shunt_group!(groups, rejected, design, blueprint, chain, design_index,
             return reject("a tape touches the reference")
     end
     for tape in tapes, wire in wires
-        gap = tape.ri - hypot(wire.x, wire.y) - wire.r
+        gap = tape.ri - hypot(wire.x, wire.y) - wire.coat
         _shunt_scalar(gap) >= -_shunt_tol(scale) || return reject("a wire overlaps a tape")
         abs(_shunt_scalar(gap)) <= _shunt_tol(scale) &&
             !_shunt_same(gap, zero(gap), scale) &&
@@ -215,15 +230,32 @@ function _shunt_group!(groups, rejected, design, blueprint, chain, design_index,
         reference, layers, wires, tapes))
 end
 
-function validate(wires::Vector{ShuntWire{T}}, ::Type{DielectricGroup}, design, scale) where {T}
+function validate(wires::Vector{ShuntWire{T}}, ::Type{DielectricGroup}, design, layers,
+        scale) where {T}
+    for wire in wires
+        layer, pitch = layers[wire.layer], hypot(wire.x, wire.y)
+        # A coat lies in the layer of its wire. It can touch an interface but not cross it.
+        _shunt_scalar(pitch - wire.coat - layer.ri) >= -_shunt_tol(scale) &&
+            _shunt_scalar(layer.ro - pitch - wire.coat) >= -_shunt_tol(scale) ||
+            throw(BoundarySolveError(:unsupported, (; cable = design.cable_id),
+                "boundary shunt: a coat crosses a dielectric interface"))
+    end
     for i in eachindex(wires), j in 1:(i - 1)
         wire, other = wires[i], wires[j]
-        gap = hypot(wire.x-other.x, wire.y-other.y)-wire.r-other.r
+        distance = hypot(wire.x-other.x, wire.y-other.y)
+        gap = distance-wire.r-other.r
         _shunt_scalar(gap) > _shunt_tol(scale) ||
             wire.terminal == other.terminal || throw(BoundarySolveError(:unsupported,
                 (; cable = design.cable_id), "boundary shunt: touching wire terminals"))
+        # Coats can touch each other but not overlap. Bare wires of one terminal can overlap.
+        outline = distance-wire.coat-other.coat
+        wire.coat == wire.r && other.coat == other.r ||
+            _shunt_scalar(outline) >= -_shunt_tol(scale) ||
+            throw(BoundarySolveError(:unsupported, (; cable = design.cable_id),
+                "boundary shunt: overlapping coats"))
         # A contact that changes with uncertain inputs has no fixed exposed topology.
-        abs(_shunt_scalar(gap)) > _shunt_tol(scale) || _shunt_same(gap, zero(gap), scale) ||
+        abs(_shunt_scalar(outline)) > _shunt_tol(scale) ||
+            _shunt_same(outline, zero(outline), scale) ||
             throw(BoundarySolveError(:unsupported, (; cable = design.cable_id),
                 "boundary shunt cannot differentiate an uncertain wire contact that changes topology"))
     end
@@ -297,8 +329,8 @@ end
 $(TYPEDSIGNATURES)
 
 Return the physical descriptors of `group` in one flat vector. The layers come first, in
-radial order, with their radii and permittivity. The wires follow with their centers and
-radii, then the tapes with their radii, angles and spans. It is the differentiation input: a
+radial order, with their radii and permittivity. The wires follow with their centers, metal
+radii, coat radii and coat permittivities, then the tapes with their radii, angles and spans. It is the differentiation input: a
 dense factorization cannot hold uncertain scalars, so Measurements differentiates through
 these values. The layer of a wire or tape is discrete and is not a descriptor.
 `DielectricGroup(group, values)` is its inverse.
@@ -309,7 +341,7 @@ function Base.Vector(group::DielectricGroup{T}) where {T}
         append!(values, (layer.ri, layer.ro, layer.epsilon))
     end
     for wire in group.wires
-        append!(values, (wire.x, wire.y, wire.r))
+        append!(values, (wire.x, wire.y, wire.r, wire.coat, wire.epsilon))
     end
     for tape in group.tapes
         append!(values, (tape.ri, tape.ro, tape.phi, tape.span))
@@ -335,8 +367,8 @@ function DielectricGroup(group::DielectricGroup, values::AbstractVector{S}) wher
     wires, tapes = ShuntWire{S}[], ShuntTape{S}[]
     for wire in group.wires
         push!(wires, (x = values[cursor], y = values[cursor + 1], r = values[cursor + 2],
-            wire.terminal, wire.layer))
-        cursor += 3
+            coat = values[cursor + 3], epsilon = values[cursor + 4], wire.terminal, wire.layer))
+        cursor += 5
     end
     for tape in group.tapes
         push!(tapes, (ri = values[cursor], ro = values[cursor + 1], phi = values[cursor + 2],

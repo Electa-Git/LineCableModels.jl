@@ -2,16 +2,20 @@
     using Measurements
     SM = LineCableModels.Engine.ShuntModel
     radius = measurement(0.2, 1e-5)
-    uncertain = [(x = measurement(1.8, 0.0), y = zero(radius), r = radius, terminal = 2,
-            layer = 1),
-        (x = measurement(2.2, 0.0), y = zero(radius), r = radius, terminal = 2, layer = 1)]
+    one_layer = [(ri = 1.0, ro = 3.0, epsilon = 1.0)]
+    uncertain = [(x = measurement(1.8, 0.0), y = zero(radius), r = radius, coat = radius,
+            epsilon = zero(radius)+1, terminal = 2, layer = 1),
+        (x = measurement(2.2, 0.0), y = zero(radius), r = radius, coat = radius,
+            epsilon = zero(radius)+1, terminal = 2, layer = 1)]
     @test_throws SM.BoundarySolveError SM.validate(
-        uncertain, SM.DielectricGroup, (cable_id = "uncertain-contact",), 3.0)
+        uncertain, SM.DielectricGroup, (cable_id = "uncertain-contact",), one_layer, 3.0)
     scale = measurement(1.0, 1e-3)
-    coordinated = [(x = 1.8scale, y = zero(scale), r = 0.2scale, terminal = 2, layer = 1),
-        (x = 2.2scale, y = zero(scale), r = 0.2scale, terminal = 2, layer = 1)]
+    coordinated = [(x = 1.8scale, y = zero(scale), r = 0.2scale, coat = 0.2scale,
+            epsilon = zero(scale)+1, terminal = 2, layer = 1),
+        (x = 2.2scale, y = zero(scale), r = 0.2scale, coat = 0.2scale,
+            epsilon = zero(scale)+1, terminal = 2, layer = 1)]
     @test SM.validate(coordinated, SM.DielectricGroup,
-        (cable_id = "fixed-contact",), 3.0) === coordinated
+        (cable_id = "fixed-contact",), one_layer, 3.0) === coordinated
 end
 
 @testitem "Measurements / internal shunt / correlated implicit sensitivities" tags=[:extension, :measurements, :slow] begin
