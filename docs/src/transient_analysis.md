@@ -190,15 +190,18 @@ The `:td` options pass to the UniversalLineModel network and time loop:
 | `enforce_sign` | `false` | When true, sets the companion conductance diagonal to absolute values and its off-diagonal entries to negative absolute values. Passed to `add_line!`. |
 | `initial_solve` | `false` | When true, solves the companion network at time zero with zero history sources. Otherwise the initial values are zero. Passed to `simulate`. |
 
-`Matched()` needs a fitted characteristic-admittance branch that the ULM network
-does not provide and throws an error with `:td`. A `ModalModel` also throws with `:td`.
+`Matched()` terminates a whole end with the fitted characteristic admittance
+``Y_c(s)`` of the line model in `:td`, and with the exact ``Y_c(s)`` in `:nlt`.
+Comparisons between them include the admittance fitting error at the
+matched end, along with the line fitting and numerical inversion errors.
+A `ModalModel` also throws with `:td`.
 
 ## Choosing a formulation
 
 `:nlt` computes the exact two-port of an uncomputed `LineParametersProblem` on
 its own Laplace grid, then inverts the spectra numerically. `:td` simulates a
 fitted `LineModel` with a `WidebandModel` payload through UniversalLineModel.
-`Matched()` is available with `:nlt` and refused by `:td`.
+`Matched()` is available with both formulations.
 
 Use the same terminal assignments, line length and time window to compare the
 two responses. After the fit and `:td` computation above, compute the `:nlt`

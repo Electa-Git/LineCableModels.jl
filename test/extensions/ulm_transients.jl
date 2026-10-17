@@ -26,7 +26,8 @@
     @test response.coordinates == reference.coordinates
     @test size(response.voltage) == size(reference.voltage)
     @test details(response).data.td ==
-        (interp=:single, enforce_sign=false, initial_solve=false, steps=length(response.t))
+        (interp=:single, enforce_sign=false, initial_solve=false, steps=length(response.t),
+            terminations=(sending=nothing, receiving=nothing))
     @test details(response).data.line === details(fitted)
     @info "D05 wall times" nlt=details(reference).data.timing.wall_seconds td=details(response).data.timing.wall_seconds
     for (selector, values) in ((voltage, reference.voltage), (current, reference.current))
@@ -47,10 +48,100 @@
     for side in 1:2, terminal in 2:3
         @test response.current[side, terminal, :] ≈ -response.voltage[side, terminal, :] rtol=1e-9
     end
-    message = "Matched() needs a fitted characteristic-admittance branch, which the UniversalLineModel network does not provide"
-    for (sending, receiving) in ((Matched(), receiving), (sending, Matched()))
-        matched = TransientAnalysisProblem(fitted; sending, receiving, window)
-        @test_throws ArgumentError(message) compute(matched, TransientFormulation(:td))
+    @testset "Matched ends" begin
+        # D05 measured 1.15% voltage and 2.33% current deviation within its 5% budget.
+        # Keep that budget for propagation and inversion, plus twice the sampled Yc
+        # fitting RMS error for the effect of characteristic loading on the response.
+        yc_error = maximum(fitting_error(fitted).admittance.rms)
+        @test yc_error < 1e-2
+        tolerance = 0.05 + 2yc_error
+        termination = (admittance=:fitted_characteristic, poles=length(model.pY))
+        matched = compute(TransientAnalysisProblem(fitted; sending, receiving=Matched(), window),
+            TransientFormulation(:td))
+        exact = compute(TransientAnalysisProblem(line; sending, receiving=Matched(), window),
+            TransientFormulation(:nlt; options=(N=1024,
+                line=Formulation(earth_impedance=:unified, earth_admittance=:unified))))
+        @test matched.t == exact.t
+        @test matched.coordinates == exact.coordinates
+        @test details(matched).data.td.terminations ==
+            (sending=nothing, receiving=termination)
+        for (selector, values) in ((voltage, exact.voltage), (current, exact.current))
+            scaled = compare(exact, matched, selector).absolute ./ maximum(abs, values)
+            @info "U03 matched comparison" quantity=selector scaled=repr(scaled) maximum_scaled=maximum(scaled) yc_error tolerance
+            @test all(<=(tolerance), scaled)
+        end
+
+        # With the exact matched termination, the voltage at that end is the forward wave.
+        # Compare after the resolved front and before the earliest round trip.
+        early = findall(t -> 1.2maximum(model.tau) <= t < 1.8minimum(model.tau), matched.t)
+        @test !isempty(early)
+        voltage_scale = maximum(abs, exact.voltage)
+        forward_error = [sqrt(sum(abs2, matched.voltage[2, terminal, early] .-
+            exact.voltage[2, terminal, early]) / length(early)) / voltage_scale
+            for terminal in 1:3]
+        @test all(<=(tolerance), forward_error)
+        before = findlast(<(1.8minimum(model.tau)), matched.t)
+        after = findall(t -> 2.2maximum(model.tau) <= t <= 4maximum(model.tau), matched.t)
+        @test !isempty(after)
+        excursion = [maximum(abs, matched.voltage[1, terminal, after] .-
+            matched.voltage[1, terminal, before]) / voltage_scale for terminal in 1:3]
+        @test all(<=(tolerance), excursion)
+        @info "U03 reflection windows" delays_s=repr(model.tau) early_s=(matched.t[first(early)], matched.t[last(early)]) before_s=matched.t[before] after_s=(matched.t[first(after)], matched.t[last(after)]) forward_scaled=repr(forward_error) sending_excursion_scaled=repr(excursion) tolerance
+
+        # Compare all line-state outputs with a network that stamps each matched end once.
+        # Test a source at either end and both ends without a source.
+        for (sending_end, receiving_end, source_node, loaded_nodes, matched_nodes, retained) in (
+                (sending, Matched(), 1, (2, 3), ([4, 5, 6],),
+                    (sending=nothing, receiving=termination)),
+                (Matched(), sending, 4, (5, 6), ([1, 2, 3],),
+                    (sending=termination, receiving=nothing)),
+                (Matched(), Matched(), 0, (), ([1, 2, 3], [4, 5, 6]),
+                    (sending=termination, receiving=termination)))
+            result = compute(TransientAnalysisProblem(fitted; sending=sending_end,
+                receiving=receiving_end, window), TransientFormulation(:td))
+            net = Network(6)
+            add_line!(net, model, [1, 2, 3], [4, 5, 6])
+            for nodes in matched_nodes
+                add_rational_admittance!(net, nodes, model.pY, model.RY, model.DY)
+            end
+            if !iszero(source_node)
+                add_vsource!(net, source_node, StepSource(1.0))
+            end
+            for node in loaded_nodes
+                add_resistor!(net, node, 0, 1.0)
+            end
+            direct = simulate(net, window.step, window.tmax)
+            @test result.voltage[1, :, :] == permutedims(direct.lines[1].v0)
+            @test result.voltage[2, :, :] == permutedims(direct.lines[1].vL)
+            @test result.current[1, :, :] == permutedims(direct.lines[1].i0)
+            @test result.current[2, :, :] == permutedims(direct.lines[1].iL)
+            @test details(result).data.td.terminations == retained
+            if source_node == 1
+                # The ideal source fixes its voltage even if a reflected wave returns.
+                # The wave from the matched end also detects that reflection.
+                reflected = maximum(abs, direct.lines[1].ifwL) / maximum(abs, exact.current)
+                @test reflected <= tolerance
+                @info "U03 outgoing reflected wave" scaled=reflected tolerance
+            elseif iszero(source_node)
+                @test all(iszero, result.voltage)
+                @test all(iszero, result.current)
+            end
+        end
+    end
+
+    @testset "Unmatched voltage preservation" begin
+        net = Network(6)
+        add_line!(net, model, [1, 2, 3], [4, 5, 6])
+        add_vsource!(net, 1, StepSource(1.0))
+        for node in (2, 3, 5, 6)
+            add_resistor!(net, node, 0, 1.0)
+        end
+        direct = simulate(net, window.step, window.tmax)
+        for side in 1:2, terminal in 1:3
+            previous = direct.v[:, (side - 1) * 3 + terminal]
+            @test reinterpret(UInt64, response.voltage[side, terminal, :]) ==
+                reinterpret(UInt64, previous)
+        end
     end
     large_step = 2minimum(model.tau)
     invalid = TransientAnalysisProblem(fitted; sending, receiving,

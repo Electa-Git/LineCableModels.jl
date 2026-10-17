@@ -17,6 +17,7 @@ import LineCableModels.Engine.TransientAnalysis: TransientAnalysisProblem,
 using UniversalLineModel: LineFrequencyData, ULMModel, fit_ulm, fit_fdcm,
                           eval_yc, eval_h, passivity_check, enforce_passivity,
                           Network, add_line!, add_resistor!, add_inductor!, add_vsource!,
+                          add_rational_admittance!,
                           StepSource, CosineSource, DoubleExpSource, simulate
 using Logging: @warn, @info
 

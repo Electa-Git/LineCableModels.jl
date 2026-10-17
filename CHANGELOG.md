@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- With `:td`, `Matched()` terminates a whole end with the fitted characteristic admittance of the line model.
+
 - PSCAD station execution supports desktop launch and attachment, bounded responsiveness checks, shared process cleanup, and load geometry checks with sheet size 5.
 
 - Grids lift calls through nested named tuples and pairs, including formulation options and transient time windows.
