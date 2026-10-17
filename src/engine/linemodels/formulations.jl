@@ -97,24 +97,13 @@ Select one or more line-model computations. A symbol, formula declaration, or
 completed user-owned formulation selects one equation. `Grid` and `Gridspace`
 vary complete selections with product or zip composition.
 """
-function LineModelFormulation(selection=:default; options::NamedTuple=(;), combine::Symbol=:product)
+function LineModelFormulation(selection=:default; options=(;), combine::Symbol=:product)
     return parameterize(LineModelFormulation, _line_model_formulation,
         (selection, options); combine)
 end
 
 formula_id(::Type{<:LineModelFormulation}) = :linemodel
 
-# The constructor does not lift a Grid inside the options, so the formula would receive it as a
-# value. These checks refuse it before a fit fails on it.
-function validate(section::NamedTuple, context::Type{<:Formula})
-    foreach(value -> validate(value, context), section)
-    return section
-end
-function validate(value::Union{AbstractGrid, Gridspace}, ::Type{<:Formula})
-    throw(ArgumentError("Grids inside line-model options do not lift (got $(length(value)) " *
-        "alternatives); build one formulation for each set of options"))
-end
-validate(value, ::Type{<:Formula}) = value
 formula_id(::LineModelFormulation) = :linemodel
 description(::Type{<:LineModelFormulation}; compact::Bool=false) = "line-model"
 description(::LineModelFormulation; compact::Bool=false) = "line-model"

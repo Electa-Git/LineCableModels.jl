@@ -15,7 +15,6 @@ function formulation_options(::Expression{<:Formula{:ulm}, typeof(fit)},
         supplied::FormulationOptions)
     isempty(setdiff(keys(supplied.data), (:yc, :h, :passivity, :dc))) ||
         throw(ArgumentError("unknown :ulm formulation options"))
-    validate(supplied.data, Formula)
     return supplied
 end
 

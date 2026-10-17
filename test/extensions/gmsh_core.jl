@@ -19,3 +19,10 @@
     @test formulation isa LineCableModels.LineCableModelsFEM
     @test Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
 end
+
+@testitem "Gmsh FEM / nested option lifting without a solve" tags=[:unit, :engine] begin
+    nested = LineCableModelsFEM(; options=(reduce_bundle=Grid((true, false)),))
+    complete = LineCableModelsFEM(;
+        options=Grid(((reduce_bundle=true,), (reduce_bundle=false,))))
+    @test NamedTuple.(collect(nested)) == NamedTuple.(collect(complete))
+end

@@ -98,7 +98,7 @@ Select one or more transient computations. A symbol, formula declaration, or
 completed user-owned formulation selects one equation. `Grid` and `Gridspace`
 vary complete selections with product or zip composition.
 """
-function TransientFormulation(selection=:default; options::NamedTuple=(;), combine::Symbol=:product)
+function TransientFormulation(selection=:default; options=(;), combine::Symbol=:product)
     return parameterize(TransientFormulation, _transient_formulation,
         (selection, options); combine)
 end

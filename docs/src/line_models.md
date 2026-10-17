@@ -187,5 +187,17 @@ selected_options = formulation_options(run.axes.formulations[2].formula).data
 varies fastest, so point `(i, j)` has linear index `i + (j - 1) * length(segments)`.
 The formulation axis identifies the selection and numerical options at each point.
 
-Grids nested inside formulation option records currently remain inside those
-records.
+Grids inside option records form the same formulation space. This example
+varies the admittance pole count, propagation pole count and passivity enforcement
+over eight fits:
+
+```julia
+formulations = LineModelFormulation(:ulm;
+    options=(yc=(npoles=Grid((6, 10)),), h=(npoles=Grid((8, 12)),),
+        passivity=Grid((false, true))))
+run = compute(problems, formulations)
+```
+
+The number of poles for admittance varies fastest. The number for propagation
+varies next. The passivity setting varies last. Each entry on the formulation
+axis keeps its selected scalar options.

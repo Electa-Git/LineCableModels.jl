@@ -46,6 +46,21 @@
     @test TransientAnalysisProblem(Grid((line, line)); sending, receiving=(), window) isa Gridspace
     @test TransientAnalysisProblem(line; sending, receiving=(), window=Grid((window, window))) isa Gridspace
 
+    nested_window = TransientAnalysisProblem(line; sending, receiving=(),
+        window=(tmax=Grid((1e-4, 2e-4)), step=1e-6))
+    complete_window = TransientAnalysisProblem(line; sending, receiving=(),
+        window=Grid(((tmax=1e-4, step=1e-6), (tmax=2e-4, step=1e-6))))
+    @test [(point.line, point.sending, point.receiving, point.window) for point in nested_window] ==
+        [(point.line, point.sending, point.receiving, point.window) for point in complete_window]
+    @test_throws MethodError TransientAnalysisProblem(line;
+        sending=("cable:1:core" => Step("cable:1:core", 1),), receiving=(), window)
+
+    nested_options = TransientFormulation(:nlt;
+        options=(N=Grid((1024, 4096)), taper=Grid((:hanning, :lanczos))))
+    complete_options = TransientFormulation(:nlt; options=Grid(Tuple(
+        (N=N, taper=taper) for N in (1024, 4096), taper in (:hanning, :lanczos))))
+    @test NamedTuple.(collect(nested_options)) == NamedTuple.(collect(complete_options))
+
     default = TransientFormulation()
     @test formula_id(default.formula) === :nlt
     controls = formulation_options(default.formula).data

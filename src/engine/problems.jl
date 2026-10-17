@@ -474,7 +474,8 @@ material.
 Each formula slot and the complete `options` tuple accepts either one scalar
 selection or an explicit
 [`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
-[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source, including
+grids nested inside `options`. Scalar
 inputs return one [`LineParametersFormulation`](@ref). Varying inputs return a
 `Gridspace{LineParametersFormulation}` whose points contain only completed,
 owner-resolved formula values. `:default` routes to an explicit implementation.

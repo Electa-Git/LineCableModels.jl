@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Grids lift calls through nested named tuples and pairs, including formulation options and transient time windows.
+
 - `compute` runs `PSCADTransientFormulation` with verified station records, settings read-back, completed-run reuse and retained terminal responses.
 
 - PSCAD runs transient projects through the station runner and reads INF and OUT channels into terminal voltage and current responses.

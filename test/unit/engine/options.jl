@@ -118,3 +118,10 @@ end
         @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((;domain_skin_depths=invalid)))
     end
 end
+
+@testitem "Engine / line parameters / nested option lifting" tags=[:unit, :engine] begin
+    nested = LineParametersFormulation(; options=(reduce_bundle=Grid((true, false)),))
+    complete = LineParametersFormulation(;
+        options=Grid(((reduce_bundle=true,), (reduce_bundle=false,))))
+    @test NamedTuple.(collect(nested)) == NamedTuple.(collect(complete))
+end

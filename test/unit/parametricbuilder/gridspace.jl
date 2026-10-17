@@ -1,3 +1,10 @@
+@testitem "ParametricBuilder / parameterize / cold scalar container inference" tags=[:unit, :parametric] begin
+    import LineCableModels: parameterize
+
+    scalar = (controls=(nested=(value=1, label=:fixed),), entry=:core => (index=3,))
+    @test (@inferred parameterize(NamedTuple, identity, (scalar,))) === scalar
+end
+
 @testitem "ParametricBuilder / joint input identity and bounded covariance" tags=[:unit, :extension, :measurements] begin
     using Measurements, Random, Statistics
     source = Grid(1.,10.)
@@ -174,4 +181,62 @@ end
     @test AtomicCollections(matrix).payload === matrix
     varied=AtomicCollections(matrix, Grid((:a, :b)))
     @test all(value -> value.payload === matrix, varied)
+end
+
+@testitem "ParametricBuilder / Gridspace / named tuples and pairs" tags=[:unit, :parametric] begin
+    using Random: Xoshiro
+    import LineCableModels: parameterize
+
+    flat = parameterize(NamedTuple, identity,
+        ((label=:fixed, a=Grid((1, 2)), b=2.0),))
+    @test length(flat) == 2
+    @test collect(flat) == [(label=:fixed, a=1, b=2.0), (label=:fixed, a=2, b=2.0)]
+    @test all(point -> keys(point) === (:label, :a, :b), flat)
+    @test eltype(flat) === @NamedTuple{label::Symbol, a::Int, b::Float64}
+    @test eltype(only(flat.grids)) === eltype(flat)
+
+    inputs = (controls=(a=Grid((1, 2)), b=Grid((10, 20)), fixed=Grid((:tag,))),)
+    product = parameterize(NamedTuple, identity, (inputs,))
+    @test collect(product) == [(controls=(a=a, b=b, fixed=:tag),)
+        for (a, b) in ((1, 10), (2, 10), (1, 20), (2, 20))]
+    zipped = parameterize(NamedTuple, identity, (inputs,); combine=:zip)
+    @test collect(zipped) == [(controls=(a=1, b=10, fixed=:tag),),
+        (controls=(a=2, b=20, fixed=:tag),)]
+    @test_throws DimensionMismatch parameterize(NamedTuple, identity,
+        ((controls=(a=Grid((1, 2)), b=Grid((10, 20, 30))),),); combine=:zip)
+    child = Gridspace{Tuple}(tuple, (Grid((1, 2)),))
+    @test collect(parameterize(NamedTuple, identity, ((child=child,),))) ==
+        [(child=(1,),), (child=(2,),)]
+
+    second = parameterize(Pair, identity, (:core => Grid((1, 2)),))
+    first = parameterize(Pair, identity, (Grid((:core, :screen)) => 1,))
+    both = parameterize(Pair, identity, (Grid((:core, :screen)) => Grid((1, 2)),))
+    @test collect(second) == [:core => 1, :core => 2]
+    @test collect(first) == [:core => 1, :screen => 1]
+    @test collect(both) == [:core => 1, :screen => 1, :core => 2, :screen => 2]
+    @test eltype(both) === Pair{Symbol, Int}
+    @test eltype(only(both.grids)) === Pair{Symbol, Int}
+    @test collect(parameterize(Pair, identity,
+        (Grid((:core, :screen)) => Grid((1, 2)),); combine=:zip)) ==
+        [:core => 1, :screen => 2]
+    @test collect(parameterize(NamedTuple, identity,
+        ((entry=:core => (index=Grid((1, 2)),),),))) ==
+        [(entry=:core => (index=1,),), (entry=:core => (index=2,),)]
+
+    mixed = parameterize(Vector, identity, ([((a=Grid((1, 2)),),)],))
+    @test collect(mixed) == [[((a=1,),)], [((a=2,),)]]
+    scalar = (controls=(a=1, b=(2, :fixed)), entry=:core => 3)
+    @test parameterize(NamedTuple, identity, (scalar,)) === scalar
+
+    for source in (Grid((10.0, 20.0), AbsoluteError(0.1)),
+            Grid((10.0, 20.0), (1.0, 5.0)))
+        uncertain = parameterize(NamedTuple, identity, ((value=source, label=:fixed),))
+        @test eltype(uncertain) === Any
+        @test Base.IteratorEltype(typeof(uncertain)) == Base.EltypeUnknown()
+        draw = rand(Xoshiro(42), uncertain;
+            distribution=(rng, nominal, sigma) -> nominal + sigma)
+        @test draw.label === :fixed
+        @test draw.value in Tuple(value.nominal + value.sigma for value in source)
+        @test draw.value::Float64 > 0
+    end
 end

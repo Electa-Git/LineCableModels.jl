@@ -243,3 +243,12 @@ end
     @test haskey(details(combined).data, :trace)
     @test !haskey(details(direct).data, :trace)
 end
+
+@testitem "ModalAnalysis / Vieira nested option lifting" tags=[:unit, :engine] begin
+    nested = ModalAnalysisFormulation(:vieira2026;
+        options=(iteration=(convergence=Grid((1e-8, 1e-12)),),))
+    complete = ModalAnalysisFormulation(:vieira2026;
+        options=Grid(((iteration=(convergence=1e-8,),),
+            (iteration=(convergence=1e-12,),))))
+    @test NamedTuple.(collect(nested)) == NamedTuple.(collect(complete))
+end

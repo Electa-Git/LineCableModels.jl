@@ -89,3 +89,36 @@ end
         end
     end
 end
+
+@testitem "UniversalLineModel / nested fitting option sweep" tags=[:extension, :ulm] setup=[TestFixtures] begin
+    using UniversalLineModel
+
+    f = 10.0 .^ range(0, 6; length=31)
+    line = TestFixtures.three_bare_wires_problem(; frequencies=f, line_length=1000.0)
+    phase = compute(line, LineParametersFormulation())
+    modal = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+    segment = PropagationParameters(modal; line_length=1000.0)
+    segments = ParametricResult(Combinatorial(ModalAnalysisFormulation()), [segment])
+    problems = Gridspace{LineModelProblem}(segments)
+    formulations = LineModelFormulation(:ulm;
+        options=(yc=(npoles=Grid((6, 10)),), h=(npoles=Grid((8, 12)),),
+            passivity=Grid((false, true))))
+    run = compute(problems, formulations)
+    @test length(formulations) == length(run) == 8
+    @test eltype(run) <: LineModel
+    @test run.axes.problems === problems
+    @test run.axes.formulations == collect(formulations)
+    for (j, (yc, h, passivity)) in enumerate(Iterators.product((6, 10), (8, 12), (false, true)))
+        model = run[1, j]
+        @test model === run[j]
+        @test formulation_options(run.axes.formulations[j].formula).data ==
+            (yc=(npoles=yc,), h=(npoles=h,), passivity=passivity)
+        @test details(model).data.options ==
+            formulation_options(run.axes.formulations[j].formula).data
+        @test model.passivity.checked
+        @test (model.passivity.perturbation !== nothing) == passivity
+        for quantity in values(fitting_error(model)), statistic in values(quantity)
+            @test all(isfinite, statistic)
+        end
+    end
+end

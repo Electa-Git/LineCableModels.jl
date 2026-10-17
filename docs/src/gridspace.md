@@ -85,7 +85,8 @@ The matrix or frequency vector remains one complete value at every point.
 Calling `Grid(matrix)` is different and explicit: the matrix elements become
 alternatives because the caller requested that variation.
 
-A tuple or vector containing a `Grid` or `Gridspace` is not atomic: the
+A tuple, vector, named tuple or pair containing a `Grid` or `Gridspace` at any
+depth is reconstructed at each point: the
 explicit finite sources are composed and the collection is rebuilt from their
 selected, completed values. This lets domain collections such as
 `[design_space, design_space]` reach their scalar builder as completed
@@ -129,6 +130,12 @@ collect(space)
 # [(1, 10, :fixed), (2, 20, :fixed), (3, 30, :fixed)]
 ```
 
+Pair arguments follow the same composition rule as `Gridspace{Tuple}`: the
+first side precedes the second side, and each selected point is rebuilt with
+`=>`. The argument `:core => Grid((1, 2))` gives `:core => 1` and `:core => 2`
+inside a lifted call. A transient assignment contains its terminal label.
+Transient analysis rejects a pair as an end entry.
+
 All non-singleton direct sources must have equal cardinality. A mismatch
 throws `DimensionMismatch` when the Gridspace is constructed, before any point
 is materialized. Zip traversal is linear in the number of rows.
@@ -162,9 +169,29 @@ at least one explicit source        -> preserve sources, singleton-wrap siblings
                                        and return a Gridspace
 ```
 
-For domain arguments that are tuples or vectors, an admitted source may be a
-collection member. The collection itself is reconstructed before the scalar
-action runs.
+A `Grid` or `Gridspace` lifts a call through tuples, vectors, named tuples and
+pairs at any depth. Each container is reconstructed before the scalar action
+runs. Named tuples retain field names and order. Sources follow field order,
+with the first varying fastest under product composition. The call's `combine`
+setting also applies to nested containers. Zip broadcasts singleton sources.
+
+Nested option fields can vary independently:
+
+```julia
+formulations = LineModelFormulation(:ulm;
+    options=(yc=(npoles=Grid((6, 10)),), h=(npoles=Grid((8, 12)),)))
+```
+
+Varying a field and varying the complete options tuple give the same points:
+
+```julia
+nested = LineParametersFormulation(; options=(reduce_bundle=Grid((true, false)),))
+complete = LineParametersFormulation(;
+    options=Grid(((reduce_bundle=true,), (reduce_bundle=false,))))
+NamedTuple.(collect(nested)) == NamedTuple.(collect(complete))
+```
+
+Dictionaries, sets, generators and fields inside structs remain complete values.
 
 The current behavior is:
 

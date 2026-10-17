@@ -131,6 +131,8 @@ const _FiniteCollection = Union{Tuple, AbstractVector}
 
 _contains_grid(::_FiniteSource) = true
 _contains_grid(values::_FiniteCollection) = any(_contains_grid, values)
+_contains_grid(values::NamedTuple) = _contains_grid(Tuple(values))
+_contains_grid(pair::Pair) = _contains_grid(first(pair)) || _contains_grid(last(pair))
 _contains_grid(::Any) = false
 
 _collect_arguments(values...) = collect(values)
@@ -141,6 +143,19 @@ function _grid_source(values::Tuple; combine::Symbol)
         _contains_grid(value) ? _grid_source(value; combine) : Grid((value,))
     end
     return Gridspace{Tuple}(tuple, sources; combine)
+end
+function _grid_source(values::NamedTuple; combine::Symbol)
+    sources = map(Tuple(values)) do value
+        _contains_grid(value) ? _grid_source(value; combine) : Grid((value,))
+    end
+    return Gridspace{NamedTuple{keys(values)}}(NamedTuple{keys(values)} ∘ tuple,
+        sources; combine)
+end
+function _grid_source(pair::Pair; combine::Symbol)
+    sources = map((first(pair), last(pair))) do value
+        _contains_grid(value) ? _grid_source(value; combine) : Grid((value,))
+    end
+    return Gridspace{Pair}(Pair, sources; combine)
 end
 function _grid_source(values::AbstractVector; combine::Symbol)
     sources = map(values) do value
