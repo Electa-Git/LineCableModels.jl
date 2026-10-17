@@ -27,6 +27,9 @@ ParametricBuilder, UQ, and external implementations.
 - `validate` checks a materialized input before its consumer uses it and returns it
   unchanged.
 - `compute` evaluates a problem through a selected formulation.
+- `Grid` declares a finite source, `Gridspace` a lazy space of finite sources combined
+  by `Product` or `Zip`, and `parameterize` lifts a call over them. `has_grid` tells
+  whether a value contains a source.
 - `observe` and `@observe` read native numerical values from completed results.
 - `observables` publishes explicitly requested scientific values.
 - `validate_observables` and `unit_targets` align publication requests and
@@ -41,10 +44,15 @@ export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables, validate
 export nominal, uncertainty
+export add!, build, homogenize, constitutive, basis, line_length, description
+export R, L, C, resistance, inductance, capacitance
+export formula, formula_id
+export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
+export AbstractGrid, AbstractUncertainGrid, UncertainValue
+export Gridspace, has_uncertainty, has_grid
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using RequiredInterfaces: @required
-import ..LineCableModels: basis
 import UUIDs
 import Random
 import ..Units
@@ -58,8 +66,11 @@ include("base.jl")
 include("results.jl")
 include("interfaces.jl")
 include("formulas.jl")
+include("selections.jl")
 include("observables.jl")
 include("uncertainty.jl")
+include("grid.jl")
+include("gridspace.jl")
 include("gridpoint.jl")
 include("observed_validation.jl")
 include("observedresult.jl")
@@ -79,4 +90,6 @@ public observation_groups, observation_labels, observation_product, gridpoint_id
 public observation_selection
 public request_identity, request_quantity, request_indices
 public normalize_observation_selector
+public Gridpoint, Composition, Product, Zip, parameterize, materialize, points
+public realize, realize_arguments, sample_uncertainty
 end # module Commons

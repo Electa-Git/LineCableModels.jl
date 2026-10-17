@@ -184,6 +184,14 @@ package method and parse every Julia file under `src/` and `ext/`.
   `formulas`, is a violation: it passes the formula as its tag. Type constructors are
   exempt, such as `Formula(::Val{ID})`. The guard reads the method table. Its baseline
   table is empty.
+- Lifting (`lifting`). The owner of an input family lifts its constructors with one family
+  method, `(::Type{T})(arguments...) where {T <: Family}`, which dispatch reaches only when
+  no other method accepts the arguments. The family types are the package types under the
+  bound of a family method. Every other constructor method of a family type, except one
+  that calls `parameterize`, types each value position, so a `Grid` or a `Gridspace`
+  never matches it. A method with keywords that calls `parameterize` types no keyword but
+  `combine` narrower than a space. The guard reads the method table. Its baseline table
+  is empty.
 - Repeated access names (`repeats`). The base binding of an access chain and its first
   field have different names, unlike `placed.placed` or `x.:x`. The guard ignores a field
   repeated inside a field, as in `record.result.result`. Each source file has a count. The

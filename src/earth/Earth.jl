@@ -36,6 +36,12 @@ Supertype for materialized static earth-layer and earth-model descriptions.
 """
 abstract type AbstractEarthModel end
 
+# A constructor call that holds a Grid or a Gridspace, and that no scalar method accepts,
+# lifts through the grammar.
+function (::Type{T})(arguments...; combine = :product) where {T <: AbstractEarthModel}
+    return parameterize(T, arguments; combine)
+end
+
 """
 Supertype for a static earth layer.
 """

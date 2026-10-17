@@ -136,7 +136,7 @@ end
             alpha = 0.0
         )
         propagated = collect(space)
-        @test eltype(space) === Any
+        @test eltype(space) === Material
         @test Base.IteratorEltype(typeof(space)) isa Base.EltypeUnknown
         @test eltype(propagated) === Material{Measurement{Float64}, :conductor}
     end
@@ -385,7 +385,8 @@ end
     modal_space=Gridspace{ModalAnalysisProblem}(line_completed)
     modal_problem=only(modal_space)
     @test modal_problem isa ModalAnalysisProblem
-    @test isconcretetype(eltype(modal_space))
+    @test eltype(modal_space) === ModalAnalysisProblem
+    @test isconcretetype(typeof(modal_problem))
     @test value(real(modal_problem.parameters.Z.values[1])) == 2.0
     @test uncertainty(real(modal_problem.parameters.Z.values[1])) == 1.0
     @test value(imag(modal_problem.parameters.Z.values[1])) == 20.0angular
@@ -409,8 +410,9 @@ end
     )
     transported_points = Gridspace{ModalAnalysisProblem}(two_points)
     @test length(transported_points) == 2
-    @test isconcretetype(eltype(transported_points))
+    @test eltype(transported_points) === ModalAnalysisProblem
     modal_problems = collect(transported_points)
+    @test isconcretetype(eltype(modal_problems))
     selected_core = @inferred uncertain(two_points,2)
     all_cores = @inferred uncertain(two_points)
     @test length(all_cores) == 2

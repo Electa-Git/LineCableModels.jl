@@ -30,7 +30,7 @@ Custom formulations extend `insulation_material` on their own concrete selection
 Unknown controls fail before numerical evaluation.
 """
 function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
-    options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = FormulationOptions(options)
     isempty(parameters) || throw(ArgumentError("formula :$ID has no configurable model parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
     expression = Expression(selected, insulation_material)

@@ -1,24 +1,8 @@
-# The quantities of R, L and C, which DataModel and Engine share, and the quantities
-# without a selector.
+# The quantities without a selector.
 native_unit(::Quantity{Frequency, Nothing}) = units(:base, :hertz)
 display_unit(::Quantity{Frequency, Nothing}) = units(:base, :hertz)
 label(::Quantity{Frequency, Nothing}) = "Frequency"
 symbol(::Quantity{Frequency, Nothing}) = "f"
-
-native_unit(::Quantity{typeof(R), Nothing}) = units(:base, :ohm; per = (:base, :meter))
-display_unit(::Quantity{typeof(R), Nothing}) = units(:base, :ohm; per = (:kilo, :meter))
-label(::Quantity{typeof(R), Nothing}) = "Series resistance"
-symbol(::Quantity{typeof(R), Nothing}) = "R"
-
-native_unit(::Quantity{typeof(L), Nothing}) = units(:base, :henry; per = (:base, :meter))
-display_unit(::Quantity{typeof(L), Nothing}) = units(:milli, :henry; per = (:kilo, :meter))
-label(::Quantity{typeof(L), Nothing}) = "Series inductance"
-symbol(::Quantity{typeof(L), Nothing}) = "L"
-
-native_unit(::Quantity{typeof(C), Nothing}) = units(:base, :farad; per = (:base, :meter))
-display_unit(::Quantity{typeof(C), Nothing}) = units(:micro, :farad; per = (:kilo, :meter))
-label(::Quantity{typeof(C), Nothing}) = "Shunt capacitance"
-symbol(::Quantity{typeof(C), Nothing}) = "C"
 
 native_unit(::Quantity{Dimensionless, Nothing}) = units(:base, :dimensionless)
 display_unit(::Quantity{Dimensionless, Nothing}) = units(:base, :dimensionless)
@@ -56,8 +40,6 @@ symbol(::Quantity{Name, typeof(real)}) where {Name} =
 symbol(::Quantity{Name, typeof(imag)}) where {Name} =
     "Im(" * symbol(Quantity{Name, Nothing}()) * ")"
 
-family(::Union{Quantity{typeof(R), Nothing}, Quantity{typeof(L), Nothing}}) = Val(:series)
-family(::Quantity{typeof(C), Nothing}) = Val(:shunt)
 family(::Quantity{Name, Nothing}) where {Name} = nothing
 family(::Quantity{Name, <:Function}) where {Name} = family(Quantity{Name, Nothing}())
 

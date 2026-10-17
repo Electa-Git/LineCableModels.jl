@@ -21,18 +21,6 @@ struct Region{P, M} <: AbstractCablePart
     end
 end
 
-"""
-Bind a primitive to a material under a tag, or declare a finite space of such regions.
-"""
-function Region(
-        tag::Union{Symbol, AbstractGrid, Gridspace},
-        primitive::Union{AbstractPrimitive, Shell, Nothing, AbstractGrid, Gridspace},
-        material::Union{AbstractMaterial, AbstractGrid, Gridspace};
-        combine::Symbol = :product
-)
-    return parameterize(Region, Region, (tag, primitive, material); combine)
-end
-
 # A material for the cable part of `role` in a region, restricted to the `allowed` kinds.
 function validate(material, ::Type{Region}, role::Symbol, allowed::Tuple)
     throw(ArgumentError(

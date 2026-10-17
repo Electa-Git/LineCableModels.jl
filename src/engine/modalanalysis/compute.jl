@@ -235,7 +235,7 @@ end
 function compute(::LineCableModelsModal, problem::ModalAnalysisProblem{P},
         formulation::ModalAnalysisFormulation;
         options::Union{NamedTuple,ComputationOptions}=ComputationOptions()) where {P}
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     execution = computation_options(LineCableModelsModal, options)
     result = if execution.data.timing
         measured = Base.@timed compute(LineCableModelsModal(),problem,formulation,execution)

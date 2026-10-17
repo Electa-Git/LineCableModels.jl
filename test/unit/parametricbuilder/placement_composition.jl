@@ -38,7 +38,9 @@
     @test collect(transformed_family) == [at(formation, outer) for formation in family]
     offsets = at(Grid((0.1, 0.2)), -1.0)
     product = at(family, offsets)
-    zipped = at(family, offsets; combine=:zip)
+    # Paired variants of two spaces are a Grid of their complete objects.
+    @test_throws ArgumentError at(family, offsets; combine=:zip)
+    zipped = at(Grid(Tuple(family)), Grid(Tuple(offsets)); combine=:zip)
     @test length(product) == 4
     @test length(zipped) == 2
     @test collect(product) == [at(formation, pose) for pose in offsets for formation in family]
@@ -111,8 +113,10 @@ end
     end
     soils = homogeneous(rho=Grid((10.0, 100.0)))
     product = LineParametersProblem(systems; earth_props=soils, frequencies=[50.0])
-    zipped = LineParametersProblem(systems; earth_props=soils, frequencies=[50.0],
-        combine=:zip)
+    @test_throws ArgumentError LineParametersProblem(systems; earth_props=soils,
+        frequencies=[50.0], combine=:zip)
+    zipped = LineParametersProblem(Grid(Tuple(systems)); earth_props=Grid(Tuple(soils)),
+        frequencies=[50.0], combine=:zip)
     @test length(product) == 4
     @test length(zipped) == 2
     @test [problem.earth_props.layers[2].rho for problem in zipped] == [10.0, 100.0]

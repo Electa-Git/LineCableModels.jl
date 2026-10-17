@@ -595,7 +595,7 @@ function LineCableModelsFEM(;
     return parameterize(
         LineCableModelsFEM,
         (inputs...) -> _fem_formulation(inputs[1:(end - 1)]...,
-            last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
+            FormulationOptions(last(inputs))),
         (insulation_admittance, semicon_admittance, earth_properties,
             temperature_dependence, options);
         combine

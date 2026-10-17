@@ -230,7 +230,7 @@ Base.@constprop :aggressive function compute(
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     modal===nothing || return compute(problem,Formulation(),
         ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
     isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
@@ -280,7 +280,7 @@ Base.@constprop :aggressive function compute(
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     modal===nothing || return compute(problem,formulation,
         ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
     isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
@@ -294,7 +294,7 @@ function compute(
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     modal===nothing || return compute(problem,formulations,
         ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
     isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
@@ -317,7 +317,7 @@ Base.@constprop :aggressive function compute(
         formulation::LineParametersFormulation = Formulation();
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     execution = computation_options(LineCableModelsCoaxial, options)
     # Timing changes the retained detail schema. Carry this finite choice through
     # the caller's dynamically typed logger without widening the default result.
@@ -334,7 +334,7 @@ Base.@constprop :aggressive function compute(
         formulations::AbstractVector{<:LineParametersFormulation};
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     execution = computation_options(LineCableModelsCoaxial, options)
     timing = execution.data.timing ? Val(true) : Val(false)
     logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)

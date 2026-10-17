@@ -3,6 +3,12 @@ Supertype for package-owned electromagnetic material values.
 """
 abstract type AbstractMaterial end
 
+# A constructor call that holds a Grid or a Gridspace, and that no scalar method accepts,
+# lifts through the grammar.
+function (::Type{T})(arguments...; combine = :product) where {T <: AbstractMaterial}
+    return parameterize(T, arguments; combine)
+end
+
 """
 $(TYPEDEF)
 
@@ -96,15 +102,15 @@ Construct a material after floating and promoting its real-valued properties.
 """
 @inline function Material(
         kind::Symbol,
-        rho,
-        eps_r,
-        mu_r,
-        T0,
-        alpha,
-        rho_thermal,
-        theta_max,
-        tan_delta,
-        sigma_solar
+        rho::Real,
+        eps_r::Real,
+        mu_r::Real,
+        T0::Real,
+        alpha::Real,
+        rho_thermal::Real,
+        theta_max::Real,
+        tan_delta::Real,
+        sigma_solar::Real
 )
     return Material(Val(kind), rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max,
         tan_delta, sigma_solar)
@@ -112,8 +118,9 @@ end
 
 # Given as `Val(kind)`, the class becomes the type parameter at compile time. A builder
 # with a fixed class then infers the concrete material type.
-@inline function Material(::Val{K}, rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max,
-        tan_delta, sigma_solar) where {K}
+@inline function Material(::Val{K}, rho::Real, eps_r::Real, mu_r::Real, T0::Real,
+        alpha::Real, rho_thermal::Real, theta_max::Real, tan_delta::Real,
+        sigma_solar::Real) where {K}
     values = map(float, promote(
         rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max,
         tan_delta, sigma_solar
@@ -123,11 +130,11 @@ end
 
 @inline function Material(
         kind::Symbol,
-        rho,
-        eps_r = 1,
-        mu_r = 1,
-        T0 = 20,
-        alpha = 0;
+        rho::Real,
+        eps_r::Real = 1,
+        mu_r::Real = 1,
+        T0::Real = 20,
+        alpha::Real = 0;
         rho_thermal = 0,
         theta_max = 90,
         tan_delta = 0,
@@ -178,13 +185,19 @@ function Material(;
         sigma_solar = 0,
         combine::Symbol = :product
 )
-    # A fixed class enters as `Val(kind)`, so a Gridspace over the other properties infers
-    # its concrete material type.
     values = (
-        kind isa Symbol ? Val(kind) : kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
-        theta_max, tan_delta, sigma_solar
+        kind, rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar
     )
     return parameterize(Material, Material, values; combine)
+end
+
+# A material's class is a type parameter. A fixed class enters a space as its type, so the
+# space builds one concrete material type. Without a varying value, the call is scalar.
+function parameterize(
+        ::Type{Material}, caller, values::Tuple{Symbol, Vararg{Any, 9}};
+        combine = :product)
+    has_grid(values) || return caller(values...)
+    return parameterize(Material, caller, (Val(first(values)), Base.tail(values)...); combine)
 end
 
 function Material(
@@ -207,7 +220,8 @@ function Material(
     )
 end
 
-function Material(unexpected; kwargs...)
+function Material(unexpected::Union{Number, Symbol, AbstractString, UncertainValue};
+        kwargs...)
     throw(ArgumentError(
         "keyword Material construction accepts no positional arguments; " *
         "got $(repr(unexpected)). To declare uncertainty, keep the error " *

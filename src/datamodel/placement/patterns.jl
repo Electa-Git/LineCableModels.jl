@@ -122,6 +122,11 @@ function Ring(
     return parameterize(Ring, Ring, (n, r, φ0, span, gap_frac); combine)
 end
 
+# The cross-sectional placement of repeated members: `nothing` for one member at the
+# origin, a ring, explicit poses, a base course count, or a course-count schedule.
+const PlacementPattern = Union{
+    Nothing, Integer, Ring, AbstractVector{<:Integer}, AbstractVector{<:Pose2}}
+
 """
 Return the course that a placement pattern lays: `(poses, shape)`. `poses` holds the local
 pose of each member, and every member shares the cross-section `shape`. A ring bends a

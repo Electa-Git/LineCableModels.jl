@@ -58,9 +58,10 @@ end
     ]
     @test length(product_space) == 6
     @test size(product_space) == (6,)
-    @test eltype(product_space) === Tuple{Int, Int}
-    @test Base.IteratorEltype(typeof(product_space)) isa Base.HasEltype
-    @test isconcretetype(eltype(product_space))
+    # The target is the element type. Each point has the concrete type that `build` returns.
+    @test eltype(product_space) === Tuple
+    @test Base.IteratorEltype(typeof(product_space)) isa Base.EltypeUnknown
+    @test eltype(collect(product_space)) === Tuple{Int, Int}
     @test PB.Grid(product_space) === product_space
 
     zip_space=PB.Gridspace{Tuple}(
@@ -102,21 +103,20 @@ end
     )) == [((1, 10), :a), ((2, 20), :b)]
 
     zero_argument_product = PB.Gridspace{Tuple}(tuple, ())
-    @test (@inferred LineCableModels._combinations(zero_argument_product)) == ((),)
+    @test (@inferred first(LineCableModels.points(zero_argument_product))).args == ()
     @test (@inferred collect(zero_argument_product)) == [()]
     zero_argument_zip = PB.Gridspace{Tuple}(tuple, (); combine=:zip)
-    @test (@inferred LineCableModels._combinations(zero_argument_zip)) == ((),)
+    @test (@inferred first(LineCableModels.points(zero_argument_zip))).args == ()
     @test (@inferred collect(zero_argument_zip)) == [()]
     @test (@inferred collect(zip_space)) == [(1, 10, :fixed), (2, 20, :fixed), (3, 30, :fixed)]
     @test (@inferred collect(child)) == [(1, 10), (2, 20)]
     @test isempty(PB.Gridspace{Tuple}(tuple, (PB.Grid(()),)))
     empty_space=PB.Gridspace{Tuple}(tuple, (PB.Grid(()),))
-    @test eltype(empty_space) === Any
+    @test eltype(empty_space) === Tuple
     @test Base.IteratorEltype(typeof(empty_space)) isa Base.EltypeUnknown
     @test_throws ArgumentError PB.Gridspace{Tuple}(tuple, (1, 2))
-    @test_throws ArgumentError PB.Gridspace{String}(
-        identity, (PB.Grid((1, 2)),)
-    )
+    # A point whose build does not return the target fails when it is built.
+    @test_throws TypeError first(PB.Gridspace{String}(identity, (PB.Grid((1, 2)),)))
     @test_throws ArgumentError PB.Gridspace{Tuple}(
         tuple, (PB.Grid(1),); combine = :outer)
     @test !applicable(getindex, product_space, 1)
@@ -137,15 +137,16 @@ end
     using Random
     import LineCableModels.ParametricBuilder as PB
 
+    # A finite source has a length and indexed points.
     mutable struct CountingGrid{V <: Tuple}<:PB.AbstractGrid
         vals::V
-        iterate_calls::Int
+        index_calls::Int
         length_calls::Int
     end
     CountingGrid(values::Tuple)=CountingGrid(values, 0, 0)
-    function Base.iterate(grid::CountingGrid, state...)
-        grid.iterate_calls+=1
-        return iterate(grid.vals, state...)
+    function Base.getindex(grid::CountingGrid, index::Integer)
+        grid.index_calls+=1
+        return grid.vals[index]
     end
     function Base.length(grid::CountingGrid)
         grid.length_calls+=1
@@ -195,21 +196,20 @@ end
     left=CountingGrid(Tuple(1:2_000))
     right=CountingGrid(Tuple(2_001:4_000))
     counted_product=PB.Gridspace{Tuple}(tuple, (left, right))
-    @test eltype(counted_product) === Any
+    @test eltype(counted_product) === Tuple
     @test Base.IteratorEltype(typeof(counted_product)) isa Base.EltypeUnknown
     @test length(counted_product) == 4_000_000
-    @test left.iterate_calls == 0
-    @test right.iterate_calls == 0
+    @test left.index_calls == 0
+    @test right.index_calls == 0
 
     zipped=PB.Gridspace{Tuple}(tuple, (left, right); combine = :zip)
-    left.iterate_calls=0
-    right.iterate_calls=0
     @test length(zipped) == 2_000
-    @test left.iterate_calls == 0
-    @test right.iterate_calls == 0
+    @test left.index_calls == 0
+    @test right.index_calls == 0
+    # Each point reads each source once.
     @test length(collect(zipped)) == 2_000
-    @test 2_000 <= left.iterate_calls <= 2_001
-    @test 2_000 <= right.iterate_calls <= 2_001
+    @test left.index_calls == 2_000
+    @test right.index_calls == 2_000
 
     materializations=Ref(0)
     build=(values...)->(materializations[]+=1; values)
@@ -259,7 +259,7 @@ end
     )
     deterministic_point=first(PB.points(deterministic))
     @test eltype(deterministic) === ScalarTarget
-    @test Base.IteratorEltype(typeof(deterministic)) isa Base.HasEltype
+    @test Base.IteratorEltype(typeof(deterministic)) isa Base.EltypeUnknown
     @test @inferred(first(deterministic)) == ScalarTarget(1.0)
     @test @inferred(PB.materialize(deterministic_point)) == ScalarTarget(1.0)
 
@@ -268,7 +268,7 @@ end
         (PB.Grid(1.0, PB.AbsoluteError(0.1)),)
     )
     uncertain_point=first(PB.points(uncertain))
-    @test eltype(uncertain) === Any
+    @test eltype(uncertain) === ScalarTarget
     @test Base.IteratorEltype(typeof(uncertain)) isa Base.EltypeUnknown
     rng=Random.Xoshiro(0x1234)
     @test @inferred(LineCableModels.realize(rng, uncertain_point, :normal)) isa ScalarTarget

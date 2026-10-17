@@ -22,7 +22,7 @@ Construct a modal decomposition with model parameters and numerical controls.
 Custom formulations extend `initialize_buffers` and `decompose!`.
 """
 function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
-    options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = FormulationOptions(options)
     isempty(parameters) || throw(ArgumentError("modal :$ID has no physical parameters"))
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
     normalized = formulation_options(Expression(selected, decompose!), options)
@@ -65,6 +65,11 @@ struct ModalAnalysisFormulation{F <: AbstractFormulation, D} <: AbstractFormulat
     formula::F
     "Requested selection before default resolution and control normalization."
     definition::D
+
+    function ModalAnalysisFormulation(formula::F, definition::D) where {
+            F <: AbstractFormulation, D <: Union{FormulaDefinition, AbstractFormulation}}
+        return new{F, D}(formula, definition)
+    end
 end
 
 ModalAnalysisFormulation() = ModalAnalysisFormulation(:default)

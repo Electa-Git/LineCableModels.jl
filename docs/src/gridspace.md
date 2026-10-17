@@ -29,11 +29,12 @@ Gridspace{Target}(grids::Tuple; combine=:product)
 Every member of `grids` must already be a `Grid` or nested `Gridspace`. Wrap
 finite alternatives in `Grid` before passing them to this constructor.
 `Target` is the result family used for dispatch and
-`build` is the callable that constructs it. A nonempty deterministic space
-advertises a concrete iterator element type when Julia can prove that type
-without evaluating a point. Otherwise-including uncertainty-bearing and empty
-spaces-its iterator uses `Base.EltypeUnknown`. `combine` is normalized into the concrete Gridspace
-type. The space is lazy and has an analytic length. `rand(space)` selects and
+`build` is the callable that constructs it. `Target` is the element type of the space,
+and its iterator uses `Base.EltypeUnknown`: each point has the concrete type that `build`
+returns. `combine` selects `Product` or `Zip`, which is part of the Gridspace type. A
+zip pairs the direct parameters of one call, so it refuses a nested space that varies. A
+nested space of one point pairs as that point. To pair complete objects, pass a `Grid`
+of them. The space is lazy and has an analytic length. `rand(space)` selects and
 realizes one point without collecting the space.
 
 ## Grid is the variation marker
@@ -622,8 +623,8 @@ reuse, explicit variation, and scalar public construction.
 
 The implementation is split across:
 
-- `src/grid.jl`: finite values and uncertainty descriptors.
-- `src/gridspace.jl`: composition, point selection, recursive
+- `src/commons/grid.jl`: finite values and uncertainty descriptors.
+- `src/commons/gridspace.jl`: composition, point selection, recursive
   materialization, and realization.
 - material, cable, position, and system files: scalar construction and lifting
   rules and concrete callable algorithms.

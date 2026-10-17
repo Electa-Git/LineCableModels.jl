@@ -39,7 +39,12 @@ struct Group{
             path::H,
             compact::C,
             boundary::B
-    ) where {A <: Pose2, E <: AbstractCablePart, P, H, C, B <: Union{Nothing, Disk}}
+    ) where {
+            A <: Pose2, E <: AbstractCablePart,
+            P <: PlacementPattern,
+            H <: LongitudinalPath,
+            C <: Compaction, B <: Union{Nothing, Disk}
+    }
         return validate(new{A, E, P, H, C, B}(
             name, at, member, pattern, path, compact, boundary
         ))
@@ -55,7 +60,9 @@ struct Group{
             compact::Nothing,
             boundary::B
     ) where {
-            A <: Pose2, E <: AbstractCablePart, P, H,
+            A <: Pose2, E <: AbstractCablePart,
+            P <: PlacementPattern,
+            H <: LongitudinalPath,
             B <: Union{Sector, Rectangle, Ellipse, Polygon}
     }
         return validate(new{A, E, P, H, Nothing, B}(
@@ -75,8 +82,12 @@ function validate(group::Group)
     return group
 end
 
-Group(name::Symbol, at, member, pattern, path, compact) =
-    Group(name, at, member, pattern, path, compact, nothing)
+function Group(name::Symbol, at::Pose2, member::AbstractCablePart,
+        pattern::PlacementPattern,
+        path::LongitudinalPath,
+        compact::Compaction)
+    return Group(name, at, member, pattern, path, compact, nothing)
+end
 
 """
 Declare a repeated-member scope at the local origin, or a finite space of such scopes.

@@ -33,7 +33,7 @@ end
 
     PB=LineCableModels.ParametricBuilder
     @test Base.ispublic(LineCableModels, :sample_uncertainty)
-    @test parentmodule(LineCableModels.sample_uncertainty) === LineCableModels
+    @test parentmodule(LineCableModels.sample_uncertainty) === LineCableModels.Commons
     @test any(
         method -> method.module === extension_module,
         methods(LineCableModels.sample_uncertainty)

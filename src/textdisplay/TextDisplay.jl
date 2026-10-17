@@ -4,6 +4,8 @@ module TextDisplay
 
 import ..Units
 import ..LineCableModels: FormulaDefinition
+import ..LineCableModels: UncertainValue, AbsoluteError, DeterministicGrid, RelativeGrid,
+    AbsoluteGrid, Gridspace
 
 """
 Return the explicitly declared semantic display name for an owned type.
@@ -389,6 +391,12 @@ Base.show(io::IO, basis::Units.LengthBasis) = print(io, Symbol(basis))
 Base.show(io::IO, ::MIME"text/plain", basis::Units.LengthBasis) = show(io, basis)
 
 name(::Type{<:FormulaDefinition}) = "FormulaDefinition"
+name(::Type{<:UncertainValue}) = "UncertainValue"
+name(::Type{<:AbsoluteError}) = "AbsoluteError"
+name(::Type{<:DeterministicGrid}) = "Grid"
+name(::Type{<:RelativeGrid}) = "Relative-error Grid"
+name(::Type{<:AbsoluteGrid}) = "Absolute-error Grid"
+name(::Type{<:Gridspace{Target}}) where {Target} = string(name(Target), " parameter space")
 function Base.summary(io::IO, ::FormulaDefinition{ID}) where {ID}
     print(io, "Formula definition :", ID)
 end

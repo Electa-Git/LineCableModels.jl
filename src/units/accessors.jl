@@ -1,8 +1,3 @@
-# Shared physical selectors extended independently by DataModel and Engine.
-quantity(::typeof(R)) = Quantity{typeof(R), Nothing}()
-quantity(::typeof(L)) = Quantity{typeof(L), Nothing}()
-quantity(::typeof(C)) = Quantity{typeof(C), Nothing}()
-
 # A magnitude, angle, real or imaginary part is a component of the selector's quantity.
 function quantity(selector::Function,
         transform::Union{typeof(abs), typeof(angle), typeof(real), typeof(imag)})

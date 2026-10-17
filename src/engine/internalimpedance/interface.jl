@@ -30,7 +30,7 @@ surface impedances.
 """
 function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
     ID in formulas(Formula) || throw(ArgumentError("unknown internal-impedance formula :$ID"))
-    options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = FormulationOptions(options)
     isempty(parameters) || throw(ArgumentError("internal impedance :$ID has no model parameters"))
     kinds = (:inner, :outer, :transfer)
     selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)

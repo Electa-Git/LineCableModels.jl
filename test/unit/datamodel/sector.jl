@@ -210,7 +210,7 @@ end
     )
     designs=build(CableDesign, "sector-grid", varied_phase)
     @test designs isa Gridspace{CableDesign}
-    @test eltype(designs) === Any
+    @test eltype(designs) === CableDesign
     @test Base.IteratorEltype(typeof(designs)) isa Base.EltypeUnknown
     @test length(designs) == 32
     @test all(design -> design isa CableDesign, designs)

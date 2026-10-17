@@ -58,6 +58,11 @@ function FillFactor(first, second, remaining...; combine::Symbol = :product)
     return FillFactor((first, second, remaining...); combine)
 end
 
+# The compaction of repeated members: `nothing` keeps the natural circular members, a Bool
+# selects whether a bounded formation compacts, and a fill factor sets the material-area
+# fraction.
+const Compaction = Union{Nothing, Bool, FillFactor}
+
 # Compacted strips fill the declared area fraction of the course envelope.
 function placements(pattern::Ring{Int, <:Real, <:Real}, item::Rectangle, factor::FillFactor)
     inner = max(zero(pattern.r), pattern.r - item.h / 2)

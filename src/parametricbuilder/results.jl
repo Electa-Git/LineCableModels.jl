@@ -17,7 +17,9 @@ struct Combinatorial{F, O <: ComputationOptions} <: AbstractFormulation
     "Supplemental-output retention options owned by this traversal."
     options::O
 
-    function Combinatorial(inner, options::ComputationOptions)
+    function Combinatorial(
+            inner::Union{AbstractFormulation, AbstractGrid, Gridspace},
+            options::ComputationOptions)
         source = _combinatorial_source(inner)
         normalized = computation_options(Combinatorial, options)
         return new{typeof(source), typeof(normalized)}(source, normalized)
@@ -62,11 +64,6 @@ function _combinatorial_source(inner::AbstractGrid)
     return inner
 end
 
-function _combinatorial_source(inner)
-    throw(ArgumentError(
-        "Combinatorial requires a formulation, formulation Grid, or target-bearing formulation Gridspace; got $(typeof(inner))",
-    ))
-end
 
 # A formulation that a Combinatorial computation traverses.
 validate(formulation::AbstractFormulation, ::Type{Combinatorial}) = formulation
@@ -77,7 +74,8 @@ function validate(value, ::Type{Combinatorial})
     ))
 end
 
-function Combinatorial(inner; options::Union{NamedTuple,ComputationOptions} = ComputationOptions())
+function Combinatorial(inner::Union{AbstractFormulation, AbstractGrid, Gridspace};
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions())
     options = ComputationOptions(options)
     return Combinatorial(inner, options)
 end
@@ -113,7 +111,10 @@ function ParametricProblem(problem::AbstractProblemDefinition, options::Computat
     return ParametricProblem(space, options)
 end
 
-ParametricProblem(space) = ParametricProblem(space, ComputationOptions())
+function ParametricProblem(
+        space::Union{AbstractProblemDefinition, Gridspace{<:AbstractProblemDefinition}})
+    return ParametricProblem(space, ComputationOptions())
+end
 
 function validate(problem::ParametricProblem{<:AbstractProblemDefinition})
     validate(problem.space)

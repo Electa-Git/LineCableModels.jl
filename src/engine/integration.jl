@@ -6,7 +6,7 @@ The formula supplies the complete scalar integrand, including any weights and Ja
 
 $(TYPEDFIELDS)
 """
-struct SpectralIntegral{F} <: AbstractFormulation
+struct SpectralIntegral{F <: Function} <: AbstractFormulation
     "Complete integrand, evaluated at nonnegative real coordinates."
     f::F
 end

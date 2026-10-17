@@ -28,7 +28,8 @@ function formulation_options(expression::Expression, defaults::FormulationOption
         explicit = get(supplied_data, name, default isa NamedTuple ? (;) : default)
         formulation_options(expression, Val(name), default, explicit)
     end
-    return FormulationOptions(NamedTuple{keys(default_data)}(sections))
+    normalized = NamedTuple{keys(default_data)}(sections)
+    return FormulationOptions{typeof(normalized)}(normalized)
 end
 
 function formulation_options(expression::Expression, ::Val{Section}, defaults,
@@ -71,7 +72,6 @@ method on its own `Formula` type.
 """
 function formulas end
 
-import ..LineCableModels: description, formula_id
 
 """
 $(TYPEDSIGNATURES)

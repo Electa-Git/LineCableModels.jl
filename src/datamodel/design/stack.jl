@@ -18,16 +18,6 @@ end
 Stack(item::AbstractCablePart) = Stack(AbstractCablePart[item])
 Stack(items::AbstractCablePart...) = Stack(AbstractCablePart[items...])
 
-"""
-Compose cable parts in outward order, or declare a finite space of such stacks.
-"""
-function Stack(
-        items::Union{AbstractCablePart, AbstractGrid, Gridspace}...;
-        combine::Symbol = :product
-)
-    return parameterize(Stack, Stack, items; combine)
-end
-
 Base.:(==)(left::Stack, right::Stack) = left.items == right.items
 
 """

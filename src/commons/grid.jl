@@ -1,6 +1,3 @@
-import Base: eltype, extrema, getindex, iterate, length, rand, size
-import Random
-
 """
 $(TYPEDEF)
 
@@ -148,9 +145,14 @@ function AbsoluteError(vals::Tuple)
     throw(ArgumentError("absolute errors must be real; got $(typeof(vals))"))
 end
 
-_grid_values(value::Tuple) = value
-_grid_values(value::AbstractArray) = Tuple(value)
-_grid_values(value) = (value,)
+"""
+$(TYPEDSIGNATURES)
+
+Collect the values of one deterministic source. A tuple keeps its values, an array
+contributes its elements, and any other value is the one value of the source.
+"""
+DeterministicGrid(values::AbstractArray) = DeterministicGrid(Tuple(values))
+DeterministicGrid(value) = DeterministicGrid((value,))
 
 # Standard uncertainties of the record being built. Relative uncertainties are percentages.
 function validate(errors::Tuple,
@@ -187,7 +189,7 @@ function validate(grid::AbsoluteGrid)
     return grid
 end
 
-AbsoluteError(value) = AbsoluteError(_grid_values(value))
+AbsoluteError(value) = AbsoluteError(DeterministicGrid(value).vals)
 
 """
 $(TYPEDSIGNATURES)
@@ -196,48 +198,48 @@ Create an explicit finite source. Collections vary only when passed to
 `Grid`. Ordinary builder arguments remain atomic domain values.
 """
 Grid(grid::AbstractGrid) = grid
-Grid(value) = DeterministicGrid(_grid_values(value))
-Grid(value, error::AbsoluteError) = AbsoluteGrid(_grid_values(value), error.vals)
+Grid(value) = DeterministicGrid(value)
+Grid(value, error::AbsoluteError) = AbsoluteGrid(DeterministicGrid(value).vals, error.vals)
 function Grid(value, relative_error)
     RelativeGrid(
-        _grid_values(value),
-        _grid_values(relative_error)
+        DeterministicGrid(value).vals,
+        DeterministicGrid(relative_error).vals
     )
 end
 
-iterate(grid::DeterministicGrid, state...) = iterate(grid.vals, state...)
-length(grid::DeterministicGrid) = length(grid.vals)
-size(grid::DeterministicGrid) = (length(grid),)
-getindex(grid::DeterministicGrid, index::Integer) = grid.vals[index]
-eltype(::Type{<:DeterministicGrid{V}}) where {V} = eltype(V)
+Base.iterate(grid::DeterministicGrid, state...) = iterate(grid.vals, state...)
+Base.length(grid::DeterministicGrid) = length(grid.vals)
+Base.size(grid::DeterministicGrid) = (length(grid),)
+Base.getindex(grid::DeterministicGrid, index::Integer) = grid.vals[index]
+Base.eltype(::Type{<:DeterministicGrid{V}}) where {V} = eltype(V)
 #! explicit-imports: off
 # Base's iterator trait protocol exposes this value without a public binding.
 Base.IteratorSize(::Type{<:DeterministicGrid}) = Base.HasShape{1}()
 #! explicit-imports: on
 
-function iterate(grid::RelativeGrid, state...)
+function Base.iterate(grid::RelativeGrid, state...)
     item = iterate(Iterators.product(grid.vals, grid.rel_err), state...)
     item === nothing && return nothing
     (value, percent), next_state = item
     return UncertainValue(value, abs(value) * percent / 100), next_state
 end
 
-function iterate(grid::AbsoluteGrid, state...)
+function Base.iterate(grid::AbsoluteGrid, state...)
     item = iterate(Iterators.product(grid.vals, grid.abs_err), state...)
     item === nothing && return nothing
     (value, error), next_state = item
     return UncertainValue(value, error), next_state
 end
 
-length(grid::RelativeGrid) = length(grid.vals) * length(grid.rel_err)
-length(grid::AbsoluteGrid) = length(grid.vals) * length(grid.abs_err)
-size(grid::AbstractUncertainGrid) = (length(grid),)
+Base.length(grid::RelativeGrid) = length(grid.vals) * length(grid.rel_err)
+Base.length(grid::AbsoluteGrid) = length(grid.vals) * length(grid.abs_err)
+Base.size(grid::AbstractUncertainGrid) = (length(grid),)
 #! explicit-imports: off
 # Base's iterator trait protocol exposes this value without a public binding.
 Base.IteratorSize(::Type{<:AbstractUncertainGrid}) = Base.HasShape{1}()
 #! explicit-imports: on
 
-function getindex(grid::RelativeGrid, index::Integer)
+function Base.getindex(grid::RelativeGrid, index::Integer)
     1 <= index <= length(grid) || throw(BoundsError(grid, index))
     value_index = mod1(index, length(grid.vals))
     error_index = cld(index, length(grid.vals))
@@ -245,16 +247,16 @@ function getindex(grid::RelativeGrid, index::Integer)
     return UncertainValue(value, abs(value) * grid.rel_err[error_index] / 100)
 end
 
-function getindex(grid::AbsoluteGrid, index::Integer)
+function Base.getindex(grid::AbsoluteGrid, index::Integer)
     1 <= index <= length(grid) || throw(BoundsError(grid, index))
     value_index = mod1(index, length(grid.vals))
     error_index = cld(index, length(grid.vals))
     return UncertainValue(grid.vals[value_index], grid.abs_err[error_index])
 end
 
-extrema(grid::DeterministicGrid) = extrema(grid.vals)
+Base.extrema(grid::DeterministicGrid) = extrema(grid.vals)
 
-function extrema(grid::RelativeGrid)
+function Base.extrema(grid::RelativeGrid)
     bounds = map(Iterators.product(grid.vals, grid.rel_err)) do (value, percent)
         delta = abs(value) * percent / 100
         (value - delta, value + delta)
@@ -262,7 +264,7 @@ function extrema(grid::RelativeGrid)
     return minimum(first, bounds), maximum(last, bounds)
 end
 
-function extrema(grid::AbsoluteGrid)
+function Base.extrema(grid::AbsoluteGrid)
     bounds = map(Iterators.product(grid.vals, grid.abs_err)) do (value, error)
         (value - error, value + error)
     end
@@ -302,7 +304,7 @@ function sample_uncertainty(::Random.AbstractRNG, ::UncertainValue, distribution
     ))
 end
 
-function rand(
+function Base.rand(
         rng::Random.AbstractRNG,
         value::UncertainValue{<:Real};
         distribution = :normal
@@ -311,11 +313,11 @@ function rand(
     return sample_uncertainty(rng, value, distribution)
 end
 
-function rand(value::UncertainValue{<:Real}; distribution = :normal)
+function Base.rand(value::UncertainValue{<:Real}; distribution = :normal)
     return rand(Random.default_rng(), value; distribution)
 end
 
-function rand(
+function Base.rand(
         rng::Random.AbstractRNG,
         grid::AbstractGrid;
         distribution = :normal
@@ -324,12 +326,6 @@ function rand(
     return realize(rng, grid[rand(rng, 1:length(grid))], distribution)
 end
 
-function rand(grid::AbstractGrid; distribution = :normal)
+function Base.rand(grid::AbstractGrid; distribution = :normal)
     return rand(Random.default_rng(), grid; distribution)
 end
-
-TextDisplay.name(::Type{<:UncertainValue}) = "UncertainValue"
-TextDisplay.name(::Type{<:AbsoluteError}) = "AbsoluteError"
-TextDisplay.name(::Type{<:DeterministicGrid}) = "Grid"
-TextDisplay.name(::Type{<:RelativeGrid}) = "Relative-error Grid"
-TextDisplay.name(::Type{<:AbsoluteGrid}) = "Absolute-error Grid"

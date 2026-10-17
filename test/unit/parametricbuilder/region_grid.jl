@@ -22,9 +22,9 @@
             continue
         end
         @test regions isa Gridspace{Region}
-        @test Base.IteratorEltype(typeof(regions)) isa Base.HasEltype
-        @test isconcretetype(eltype(regions))
-        @test @inferred(first(regions)) isa eltype(regions)
+        @test Base.IteratorEltype(typeof(regions)) isa Base.EltypeUnknown
+        @test eltype(regions) === Region
+        @test isconcretetype(typeof(@inferred(first(regions))))
         selected_tags = tag_index == 1 ? tags[1:1] : tags
         selected_radii = primitive_index == 1 ? radii[1:1] : radii
         selected_rho = material_index == 1 ? resistivities[1:1] : resistivities
@@ -32,17 +32,28 @@
         actual = [(region.tag, region.primitive.r, region.material.rho) for region in regions]
         @test actual == expected
 
+        # Zip pairs the direct parameters of one call. A nested space varies on its own.
+        if 3 in (tag_index, primitive_index, material_index)
+            refused = try
+                Region(tag, primitive, material; combine=:zip)
+            catch error
+                error
+            end
+            @test refused isa ArgumentError
+            @test occursin("pass a Grid of them", sprint(showerror, refused))
+            continue
+        end
         zipped = Region(tag, primitive, material; combine=:zip)
         @test zipped isa Gridspace{Region}
         @test length(zipped) == 2
-        @test isconcretetype(eltype(zipped))
-        @test @inferred(first(zipped)) isa eltype(zipped)
+        @test eltype(zipped) === Region
+        @test isconcretetype(typeof(@inferred(first(zipped))))
         @test [(region.tag, region.primitive.r, region.material.rho) for region in zipped] ==
             [(tags[tag_index == 1 ? 1 : index], radii[primitive_index == 1 ? 1 : index],
                 resistivities[material_index == 1 ? 1 : index]) for index in 1:2]
     end
 
-    @test_throws DimensionMismatch Region(Grid(tags), Disk(Grid((1e-3, 2e-3, 3e-3))),
+    @test_throws DimensionMismatch Region(Grid(tags), Grid(Disk.((1e-3, 2e-3, 3e-3))),
         first(materials); combine=:zip)
     deferred = Region(Grid((:valid, Symbol(""))), first(primitives), first(materials))
     @test deferred isa Gridspace{Region}
@@ -50,10 +61,10 @@
     @test_throws ArgumentError collect(deferred)
     empty_regions = Region(Grid(()), first(primitives), first(materials))
     @test isempty(empty_regions)
-    @test eltype(empty_regions) === Any
+    @test eltype(empty_regions) === Region
     @test Base.IteratorEltype(typeof(empty_regions)) isa Base.EltypeUnknown
 
-    selected = Region(Grid(tags), Disk(Grid(radii)), Grid(materials); combine=:zip)
+    selected = Region(Grid(tags), Grid(Disk.(radii)), Grid(materials); combine=:zip)
     xlpe = Material(:insulator, Inf, 2.3, 1.0)
     designs = @cable "region-grid" begin
         @terminal :core begin

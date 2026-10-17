@@ -46,10 +46,9 @@ end
         kind = PB.Grid((:conductor, :semicon)),
         rho = Float32(1.7e-8)
     )
-    # The class is a type parameter. A grid over classes yields materials of two types,
-    # and Gridspace does not declare an element type for it.
+    # The class is a type parameter. A grid over classes yields materials of two types.
     @test space isa PB.Gridspace{LineCableModels.Materials.Material}
-    @test eltype(space) === Any
+    @test eltype(space) === LineCableModels.Materials.Material
     @test Base.IteratorEltype(typeof(space)) isa Base.EltypeUnknown
     @test first(space) isa LineCableModels.Materials.Material{Float32}
     @test getproperty.(collect(space), :kind) == [:conductor, :semicon]
@@ -66,9 +65,8 @@ end
         T0 = 20.0,
         alpha = 0.0
     )
-    # A fixed class keeps the element type concrete.
-    @test eltype(resistivity_space) ===
-          LineCableModels.Materials.Material{Float64, :conductor}
+    # A fixed class keeps each material concrete.
+    @test eltype(resistivity_space) === LineCableModels.Materials.Material
     @test @inferred(first(resistivity_space)) isa
           LineCableModels.Materials.Material{Float64, :conductor}
     @test @inferred(rand(MersenneTwister(8), resistivity_space)).kind === :conductor
@@ -84,7 +82,7 @@ end
         alpha = 0.0
     )
     @test PB.has_uncertainty(mixed_space)
-    @test eltype(mixed_space) === Any
+    @test eltype(mixed_space) === LineCableModels.Materials.Material
     @test Base.IteratorEltype(typeof(mixed_space)) isa Base.EltypeUnknown
     @test rand(MersenneTwister(9), mixed_space) isa
           LineCableModels.Materials.Material{Float64}
@@ -118,7 +116,7 @@ end
     point=first(PB.points(parent))
     @test point isa LineCableModels.Gridpoint{Tuple}
     @test PB.has_uncertainty(parent)
-    @test eltype(parent) === Any
+    @test eltype(parent) === Tuple
     @test Base.IteratorEltype(typeof(parent)) isa Base.EltypeUnknown
     @test PB.has_uncertainty(point)
     @test PB.materialize(point)[1][1] isa Measurement

@@ -181,6 +181,11 @@ function Helix(
     return parameterize(Helix, Helix, (lay, dir, φ0); combine)
 end
 
+# The longitudinal path of repeated members: `nothing` for straight members, one helix, or
+# one helix or `nothing` per course.
+const LongitudinalPath = Union{
+    Nothing, Helix, Tuple{Vararg{Union{Nothing, Helix}}}, AbstractVector{<:Union{Nothing, Helix}}}
+
 """
 Return helical pitch at local radius `radius` \\[m\\].
 """

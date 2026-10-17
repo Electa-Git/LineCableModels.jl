@@ -27,7 +27,8 @@
     const RESERVED_VERB = r"^_*(validate|check|require|assert|verify|ensure)_"
     # Tables of the structural guards (A) and of the Commons and helper guards (C).
     const A_TABLES = ("ownership", "placement", "direction", "names", "shadowing",
-        "validate", "reserved_verbs", "switches", "storage", "dispatch", "repeats")
+        "validate", "reserved_verbs", "switches", "storage", "dispatch", "repeats",
+        "lifting")
     const C_TABLES = ("commons", "vocabulary", "fingerprints", "clones", "helpers", "root")
     const TABLES = (A_TABLES..., C_TABLES...)
     const SWITCHES = ("applicable", "eval", "isa", "kind")
@@ -774,6 +775,90 @@
         return found
     end
 
+    # Lifting. The owner of an input family lifts its constructors with one family method,
+    # `(::Type{T})(arguments...) where {T <: Family}`, which dispatch reaches only when no
+    # scalar method accepts the arguments. So every other constructor of a family type
+    # types each value position, and a Grid or a Gridspace never matches it. A method that
+    # calls the grammar's `parameterize` types no keyword but `combine` narrower than a
+    # space. The family types are the package types under a family method's bound.
+    upper(T) = T isa TypeVar ? upper(T.ub) :
+        T isa Core.TypeofVararg ? (isdefined(T, :T) ? upper(T.T) : Any) : T
+    function family_bound(m::Method)
+        m.sig isa UnionAll || return nothing
+        parameters = Base.unwrap_unionall(m.sig).parameters
+        length(parameters) == 2 && parameters[2] isa Core.TypeofVararg &&
+            upper(parameters[2]) === Any || return nothing
+        F = parameters[1]
+        F isa DataType && F.name === Type.body.name && F.parameters[1] isa TypeVar ||
+            return nothing
+        bound = F.parameters[1].ub
+        return bound === Any ? nothing : bound
+    end
+    function calls_parameterize(m::Method)
+        code = lowered_code(m)
+        code === nothing && return false
+        return any(value -> value === LineCableModels.Commons.parameterize,
+            referenced_values(code))
+    end
+    function lifts(m::Method)
+        calls_parameterize(m) && return true
+        body = try
+            Base.bodyfunction(m)
+        catch
+            nothing
+        end
+        body === nothing && return false
+        return any(calls_parameterize, Base.methods(body))
+    end
+    function lifting(methods, tree::PackageTree)
+        found = Dict{String, Int}()
+        families = Any[]
+        for m in methods
+            bound = family_bound(m)
+            bound === nothing || push!(families, bound)
+        end
+        for M in tree.modules, value in values(definitions(M))
+            value isa Type && !isabstracttype(Base.unwrap_unionall(value)) &&
+                any(F -> value <: F, families) || continue
+            for m in Base.methods(value)
+                m.module in tree.modules || continue
+                F = Base.unwrap_unionall(m.sig).parameters[1]
+                F isa DataType && F.name === Type.body.name &&
+                    F.parameters[1] === value || continue
+                lifts(m) && continue
+                untyped = count(p -> upper(p) === Any,
+                    Base.unwrap_unionall(m.sig).parameters[2:end])
+                untyped == 0 && continue
+                key = string(module_name(tree, m.module), " | ", nameof(value), " | ",
+                    source_name(tree, m))
+                found[key] = get(found, key, 0) + untyped
+            end
+        end
+        space = Union{LineCableModels.AbstractGrid, LineCableModels.Gridspace}
+        for m in methods
+            startswith(string(m.name), "#") && continue
+            keywords = Base.kwarg_decl(m)
+            isempty(keywords) && continue
+            body = try
+                Base.bodyfunction(m)
+            catch
+                nothing
+            end
+            body === nothing && continue
+            for b in Base.methods(body)
+                calls_parameterize(b) || continue
+                types = Base.unwrap_unionall(b.sig).parameters[2:(1 + length(keywords))]
+                narrow = count(zip(keywords, types)) do (name, type)
+                    name !== :combine && !endswith(string(name), "...") &&
+                        !(space <: upper(type))
+                end
+                narrow == 0 || count!(found, string(module_name(tree, m.module), " | ",
+                    m.name, " | keywords | ", source_name(tree, m)))
+            end
+        end
+        return found
+    end
+
     type_name(T) = (T = Base.unwrap_unionall(T); T isa DataType ? nameof(T) : nothing)
 
     # The functions, types and constants that a module defines, by name.
@@ -1258,6 +1343,7 @@
             "storage" => () -> storage_vocabulary(files, tree.directory),
             "dispatch" => () -> dispatch(methods, tree),
             "repeats" => () -> repeated_access_names(files, tree.directory),
+            "lifting" => () -> lifting(methods, tree),
             "commons" => () -> commons_admission(methods, tree, homes, vocabulary),
             "vocabulary" => () -> reserved_vocabulary(files, tree.directory, vocabulary),
             "fingerprints" => () -> fingerprints(files, tree.directory),
@@ -1424,6 +1510,12 @@ end
     @test result.stale == String[]
 end
 
+@testitem "Quality / architecture / lifting" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("lifting")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
 @testitem "Quality / architecture / negative controls of the architecture guards" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
 
@@ -1479,6 +1571,16 @@ end
             kernel(::Val{:part}) = 2
             mixed(::Union{Selection, Val{:part}}) = 3
             tagged(::Val{:probe}) = 4
+            # A family whose member leaves a value position untyped, and a lifting
+            # method whose keyword rejects a Grid.
+            abstract type Part end
+            (::Type{T})(arguments...; combine = :product) where {T <: Part} =
+                LineCableModels.parameterize(T, arguments; combine)
+            struct Loose <: Part
+                size
+            end
+            lifted(value; width::Real = 1, combine = :product) =
+                LineCableModels.parameterize(Loose, Loose, (value,); combine)
             include("../early/stray.jl")
             include("../../ext/core.jl")
             end
@@ -1575,7 +1677,9 @@ end
         "dispatch" => Dict("Consumer | kernel | src/consumer/Consumer.jl" => 1,
             "Consumer | mixed | src/consumer/Consumer.jl" => 1,
             "Consumer | tagged | src/consumer/Consumer.jl" => 1),
-        "repeats" => Dict("src/repeats.jl" => 3))
+        "repeats" => Dict("src/repeats.jl" => 3),
+        "lifting" => Dict("Consumer | Loose | src/consumer/Consumer.jl" => 1,
+            "Consumer | lifted | keywords | src/consumer/Consumer.jl" => 1))
 
     # A clean package with the same modules and one extension method.
     clean_files = Dict(
@@ -1614,6 +1718,15 @@ end
             LineCableModels.Commons.formulas(::Type{<:Selection}) = (:clean_probe,)
             Selection(::Val{:clean_probe}) = Selection()
             kernel(::Selection, ::Val{:part}) = 1
+            # A family whose member types its value position, and a lifting builder.
+            abstract type Piece end
+            (::Type{T})(arguments...; combine = :product) where {T <: Piece} =
+                LineCableModels.parameterize(T, arguments; combine)
+            struct Tight{T <: Real} <: Piece
+                size::T
+            end
+            lifted(value; width = 1, combine = :product) =
+                LineCableModels.parameterize(Tight, Tight, (value,); combine)
             include("helpers.jl")
             end
             """,

@@ -36,7 +36,7 @@ A missing physical case is unsupported.
 """
 function Formula{ID}(; parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions(), equivalent_earth = nothing) where {ID}
-    options = options isa NamedTuple ? FormulationOptions(options) : options
+    options = FormulationOptions(options)
     options = formulation_options(Formula{ID}, options)
     isempty(parameters) ||
         throw(ArgumentError("earth formula :$ID has no configurable physical parameters"))

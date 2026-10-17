@@ -202,12 +202,8 @@ function homogeneous(;
         air_layer = nothing,
         combine::Symbol = :product
 )
-    earth_layer = layer(; rho, eps_r, mu_r, thickness, combine)
-    return build(
-        EarthModel,
-        earth_layer;
-        vertical_layers,
-        air_layer,
-        combine
-    )
+    caller = (rho, eps_r, mu_r, thickness, vertical_layers, air_layer) -> build(
+        EarthModel, layer(; rho, eps_r, mu_r, thickness); vertical_layers, air_layer)
+    values = (rho, eps_r, mu_r, thickness, vertical_layers, air_layer)
+    return parameterize(EarthModel, caller, values; combine)
 end

@@ -65,15 +65,16 @@
     )
     @test collection_problems isa Gridspace{LineParametersProblem}
     @test length(collection_problems) == length(collection_system) * length(earth_space)
+    # The target bounds every point of a space.
     for space in (conductor, wire, terminal, design, system, problems)
-        @test eltype(space) === Any || isconcretetype(eltype(space))
-        @test !(eltype(space) isa UnionAll)
+        @test Base.IteratorEltype(typeof(space)) isa Base.EltypeUnknown
+        @test first(space) isa eltype(space)
     end
 
     identifiers=Grid(("first", "second"))
     direct=build(CableDesign, "first", first(terminal))
     design_space=build(CableDesign, identifiers, first(terminal))
-    @test eltype(design_space) === Any
+    @test eltype(design_space) === CableDesign
     @test Base.IteratorEltype(typeof(design_space)) isa Base.EltypeUnknown
     @test first(design_space).tree == direct.tree
     @test first(design_space).terminal_order == direct.terminal_order

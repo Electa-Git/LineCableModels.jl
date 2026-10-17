@@ -97,9 +97,9 @@ struct Assembly{
     ) where {
             A <: Pose2,
             E <: Tuple{Vararg{AssemblyMember}},
-            P,
-            H,
-            C,
+            P <: PlacementPattern,
+            H <: LongitudinalPath,
+            C <: Compaction,
             N <: Union{Nothing, AbstractVector{Symbol}, Tuple{Vararg{Symbol}}}
     }
         return validate(new{A, E, P, H, C, N}(at, members, pattern, path, compact, names))

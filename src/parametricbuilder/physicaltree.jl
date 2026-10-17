@@ -15,7 +15,7 @@ Compose physical parts in outward order.
 
 - A `Stack`, or a `Gridspace{Stack}` when a direct argument varies.
 """
-layers(parts...; combine::Symbol = :product) = Stack(parts...; combine)
+layers(parts...; combine::Symbol = :product) = parameterize(Stack, Stack, parts; combine)
 
 function _explicit_assembly(members...)
     placed = map(_assembly_member, members)
@@ -162,7 +162,7 @@ Bind an intrinsic primitive definition to one material and local physical tag.
 - A `Region`, or a `Gridspace{Region}` when a direct argument varies.
 """
 function solid(material, primitive = nothing; tag = :solid, combine::Symbol = :product)
-    Region(tag, primitive, material; combine)
+    parameterize(Region, Region, (tag, primitive, material); combine)
 end
 
 """
@@ -186,7 +186,8 @@ Declare one outward material layer of thickness `t` \\[m\\].
   varies.
 """
 function shell(material; t, tag = :shell, combine::Symbol = :product)
-    Region(tag, Shell(t), material; combine)
+    caller = (tag, t, material) -> Region(tag, Shell(t), material)
+    return parameterize(Region, caller, (tag, t, material); combine)
 end
 
 """
@@ -225,7 +226,8 @@ function core(material, primitive; tag = :core, combine::Symbol = :product)
 end
 
 function core(material; r, tag = :core, combine::Symbol = :product)
-    core(material, Disk(r); tag, combine)
+    caller = (material, r, tag) -> core(material, Disk(r); tag)
+    return parameterize(DataModel.Region, caller, (material, r, tag); combine)
 end
 
 function _role_shell(role::Symbol, allowed, material, t, tag)
@@ -1344,9 +1346,10 @@ function cores(
         return assembly(members...; names, path, compact, combine)
     end
     r === nothing && throw(ArgumentError("repeated cores require an explicit ring radius r"))
-    return assembly(members...;
-        pattern = DataModel.Ring(n; r, φ0, span, combine),
-        names, path, compact, combine)
+    caller = (members, n, r, φ0, span, path, compact, names) -> assembly(members...;
+        pattern = DataModel.Ring(n; r, φ0, span), names, path, compact)
+    values = (members, n, r, φ0, span, path, compact, names)
+    return parameterize(DataModel.Assembly, caller, values; combine)
 end
 
 function _enclose(tag, items, shape, fill, wall, pose)

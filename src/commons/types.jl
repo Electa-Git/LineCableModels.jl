@@ -59,15 +59,30 @@ $(TYPEDFIELDS)
 struct FormulationOptions{NT <: NamedTuple}
     "Supplied formulation options."
     data::NT
-    FormulationOptions(data::NamedTuple) = new{typeof(data)}(data)
+    # The parameter is the type of the data, so no record holds an abstract parameter.
+    function FormulationOptions{NT}(data::NamedTuple{K, V}) where {K, V, NT <: NamedTuple{K, V}}
+        return new{NT}(data)
+    end
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct formulation inputs from keywords, or an empty record with no keywords.
-Owner-specific interpretation and validation occur when the formulation resolves
-the options, not when this record is constructed.
+Construct formulation inputs from a named tuple. A `Grid` or `Gridspace` at any depth of
+`data` returns a `Gridspace{FormulationOptions}`. Owner-specific interpretation and
+validation occur when the formulation resolves the options, not when this record is
+constructed.
+"""
+function FormulationOptions(data::NamedTuple)
+    caller = data -> FormulationOptions{typeof(data)}(data)
+    return parameterize(FormulationOptions, caller, (data,))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct formulation inputs from keywords, as from the named tuple of the keywords, or an
+empty record with no keywords.
 """
 FormulationOptions(; kwargs...) = FormulationOptions((; kwargs...))
 # A record passes through its own constructor. A record of another kind has no method.
@@ -84,7 +99,16 @@ $(TYPEDFIELDS)
 struct ComputationOptions{NT <: NamedTuple}
     "Supplied computation options."
     data::NT
-    ComputationOptions(data::NamedTuple) = new{typeof(data)}(data)
+    ComputationOptions(data::NamedTuple) = validate(new{typeof(data)}(data))
+end
+
+# Computation options control one computation. They do not vary, so no Grid or Gridspace
+# enters them.
+function validate(options::ComputationOptions)
+    has_grid(options.data) && throw(ArgumentError(
+        "computation options do not vary; vary the problem or the formulation instead"
+    ))
+    return options
 end
 
 """

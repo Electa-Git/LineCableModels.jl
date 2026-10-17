@@ -15,7 +15,6 @@ module Units
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using LinearAlgebra: diag
-import ..LineCableModels: R, L, C
 
 export Unit, UnitExpr, Quantity, units
 export quantity, native_unit, display_unit, scale_factor, label, symbol

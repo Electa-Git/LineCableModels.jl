@@ -3,13 +3,11 @@
 # Print the live inventory with `test/tools/architecture_inventory.jl`.
 
 [ownership]
-"Commons | LineCableModels.description | src/commons/formulas.jl" = 3
-"Commons | LineCableModels.formula_id | src/commons/formulas.jl" = 1
-"Earth.EquivalentHomogeneous | LineCableModels.description | src/earth/equivalenthomogeneous/interface.jl" = 2
-"Earth.FrequencyDependent | LineCableModels.constitutive | src/earth/frequencydependent/interface.jl" = 1
+"Earth.EquivalentHomogeneous | Commons.description | src/earth/equivalenthomogeneous/interface.jl" = 2
+"Earth.FrequencyDependent | Commons.constitutive | src/earth/frequencydependent/interface.jl" = 1
 "Engine | Commons.formulation_options | src/engine/integration.jl" = 1
+"Engine | Commons.line_length | src/engine/observed_inputs.jl" = 2
 "Engine | Commons.observation_resolution | src/engine/lineparameters/resolution.jl" = 1
-"Engine | LineCableModels.line_length | src/engine/observed_inputs.jl" = 2
 "Engine.InsulationAdmittance | Engine.InsulationAdmittanceFormulation | src/engine/insulationadmittance/interface.jl" = 2
 "Engine.InsulationImpedance | Engine.InsulationImpedanceFormulation | src/engine/insulationimpedance/interface.jl" = 1
 "Engine.ModalAnalysis | Commons.normalize_observation_selector | src/engine/modalanalysis/observations.jl" = 2
@@ -20,12 +18,12 @@
 "Engine.ModalAnalysis | Engine.selectdomain | src/engine/modalanalysis/interfaces.jl" = 1
 "Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
 "ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
-"Materials.TemperatureDependent | LineCableModels.constitutive | src/materials/temperaturedependent/interface.jl" = 1
+"Materials.TemperatureDependent | Commons.constitutive | src/materials/temperaturedependent/interface.jl" = 1
 "PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 1
 "PSCAD | ImportExport.export_data | src/pscad/importexport/pscad.jl" = 1
 "PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
 "ParametricBuilder | Commons.compute | src/parametricbuilder/traversal.jl" = 4
-"UQ | LineCableModels.materialize | src/uq/results.jl" = 2
+"UQ | Commons.materialize | src/uq/results.jl" = 2
 
 [placement]
 
@@ -78,6 +76,7 @@
 "src/commons/observed_validation.jl" = { applicable = 0, eval = 0, isa = 41, kind = 13 }
 "src/commons/observedresult.jl" = { applicable = 0, eval = 0, isa = 28, kind = 9 }
 "src/commons/retained_products.jl" = { applicable = 0, eval = 0, isa = 2, kind = 10 }
+"src/commons/selections.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, isa = 3, kind = 4 }
 "src/datamodel/design/group.jl" = { applicable = 0, eval = 0, isa = 0, kind = 3 }
 "src/datamodel/flatten.jl" = { applicable = 0, eval = 0, isa = 6, kind = 4 }
@@ -85,43 +84,38 @@
 "src/datamodel/placement/patterns.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/datamodel/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
 "src/earth/frequencydependent/interface.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"src/engine/cableconstants.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
+"src/engine/cableconstants.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/earthadmittance/formulas/unified.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
-"src/engine/earthadmittance/interface.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
-"src/engine/earthimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
+"src/engine/earthadmittance/interface.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
+"src/engine/earthimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/earthplan.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/engine/earthreturn.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
-"src/engine/formulations.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
+"src/engine/formulations.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/input.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"src/engine/insulationadmittance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/engine/insulationimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
+"src/engine/insulationimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/integration.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
-"src/engine/internalimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"src/engine/lineparameters.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
+"src/engine/internalimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
+"src/engine/lineparameters.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/lineparameters/base.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/lineparameters/benchmark.jl" = { applicable = 0, eval = 0, isa = 16, kind = 0 }
 "src/engine/lineparameters/lineparameters.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/lineparameters/observations.jl" = { applicable = 0, eval = 0, isa = 18, kind = 0 }
 "src/engine/lineparameters/resolution.jl" = { applicable = 0, eval = 0, isa = 23, kind = 0 }
-"src/engine/modalanalysis/compute.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
+"src/engine/modalanalysis/compute.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/engine/modalanalysis/formulas/chrysochos2014.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/engine/modalanalysis/formulas/vieira2026.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/modalanalysis/formulas/wedepohl1996.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
-"src/engine/modalanalysis/formulations.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/modalanalysis/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/modalanalysis/observations.jl" = { applicable = 0, eval = 5, isa = 14, kind = 0 }
 "src/engine/modalanalysis/propagation.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/modalanalysis/quantities.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/observed_inputs.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
 "src/engine/options.jl" = { applicable = 0, eval = 0, isa = 14, kind = 0 }
-"src/engine/pipeimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/engine/problems.jl" = { applicable = 0, eval = 0, isa = 11, kind = 0 }
-"src/engine/semiconadmittance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
+"src/engine/problems.jl" = { applicable = 0, eval = 0, isa = 10, kind = 0 }
 "src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/shuntmodel/geometry.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
 "src/engine/shuntmodel/interface.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/textdisplay.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/importexport/cableslibrary.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/importexport/deserialize.jl" = { applicable = 1, eval = 0, isa = 21, kind = 0 }
 "src/importexport/materialslibrary.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
@@ -129,7 +123,6 @@
 "src/importexport/problem.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/importexport/uncertainty.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
 "src/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/materials/material.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
@@ -163,6 +156,8 @@
 [dispatch]
 
 [repeats]
+
+[lifting]
 
 [commons]
 "AbstractCoreResult | tests" = 1
@@ -311,7 +306,6 @@
 "src/engine/cableconstants.jl" = 1
 "src/engine/formulations.jl" = 1
 "src/engine/problems.jl" = 1
-"src/gridspace.jl" = 3
 "src/importexport/deserialize.jl" = 1
 "src/importexport/observed.jl" = 1
 "src/parametricbuilder/physicaltree.jl" = 3
@@ -328,4 +322,4 @@
 "src/uq/results.jl" = 2
 
 [root]
-"LineCableModels" = 63
+"LineCableModels" = 7

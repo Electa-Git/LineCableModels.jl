@@ -41,7 +41,7 @@ end
 
 @testitem "Engine / real-only callable struct and complete transformed integrands" tags=[:unit, :engine] begin
     const E=LineCableModels.Engine
-    struct RealKernel
+    struct RealKernel <: Function
         rate::Float64
     end
     (k::RealKernel)(x::Real)=exp(-k.rate*x)

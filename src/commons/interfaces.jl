@@ -217,3 +217,146 @@ function observables end
 
 # Owners add methods for their results. The checks of the records it produces name it.
 function observation_quantity end
+
+"""
+Add one owned value to a mutable collection.
+"""
+function add! end
+
+"""
+    build(Target, declarations...; kwargs...)
+
+Construct one completed domain object from complete physical declarations.
+
+`build(CableDesign, ...)` resolves a physical cable root and terminal state.
+`build(LineCableSystem, ...)` places completed designs and resolves global
+connections. When an argument is a `Grid` or `Gridspace`, or an admitted tuple
+or vector contains one, the same call returns a `Gridspace{Target}` whose
+callable invokes scalar `build` after selecting and reconstructing one complete
+point.
+
+# Arguments
+
+- `Target`: completed domain type to construct.
+- `declarations`: complete physical declarations owned by `Target`.
+
+# Returns
+
+One completed `Target`, or `Gridspace{Target}` for explicit finite inputs.
+"""
+function build end
+
+"""
+homogenize(design. New_id="")
+
+Build a homogeneous cable design that preserves each radial assembly member
+and matches the effective conductor and dielectric properties of `design`.
+
+The physical source design remains unchanged. The reduction uses only scalar
+series and parallel circuit calculations. It does not calculate line-parameter
+matrices, mutual coupling, or earth return.
+
+# Arguments
+
+- `design`: completed physical cable design.
+
+# Keywords
+
+- `new_id`: identifier for the returned design. An empty value appends
+  `"_equivalent"` to the source identifier.
+
+# Returns
+
+- A completed homogeneous `CableDesign`.
+"""
+function homogenize end
+
+"""
+Evaluate the constitutive relation selected for a material value.
+"""
+function constitutive end
+
+"""
+Return the physical storage basis of a result.
+"""
+function basis end
+
+"""
+Return the physical length of a line, a system or a result \\[m\\].
+"""
+function line_length end
+
+"""
+Select or return the series resistance of a result per unit length or in total.
+"""
+function R end
+
+"""
+Select or return the series inductance of a result per unit length or in total.
+"""
+function L end
+
+"""
+Select or return the shunt capacitance of a result per unit length or in total.
+"""
+function C end
+
+"""
+Return the series resistance of a result. The long name of [`R`](@ref).
+"""
+function resistance end
+
+"""
+Return the series inductance of a result. The long name of [`L`](@ref).
+"""
+function inductance end
+
+"""
+Return the shunt capacitance of a result. The long name of [`C`](@ref).
+"""
+function capacitance end
+
+# The quantities of R, L and C, which DataModel and Engine share.
+Units.quantity(::typeof(R)) = Units.Quantity{typeof(R), Nothing}()
+Units.quantity(::typeof(L)) = Units.Quantity{typeof(L), Nothing}()
+Units.quantity(::typeof(C)) = Units.Quantity{typeof(C), Nothing}()
+
+Units.native_unit(::Units.Quantity{typeof(R), Nothing}) =
+    Units.units(:base, :ohm; per = (:base, :meter))
+Units.display_unit(::Units.Quantity{typeof(R), Nothing}) =
+    Units.units(:base, :ohm; per = (:kilo, :meter))
+Units.label(::Units.Quantity{typeof(R), Nothing}) = "Series resistance"
+Units.symbol(::Units.Quantity{typeof(R), Nothing}) = "R"
+
+Units.native_unit(::Units.Quantity{typeof(L), Nothing}) =
+    Units.units(:base, :henry; per = (:base, :meter))
+Units.display_unit(::Units.Quantity{typeof(L), Nothing}) =
+    Units.units(:milli, :henry; per = (:kilo, :meter))
+Units.label(::Units.Quantity{typeof(L), Nothing}) = "Series inductance"
+Units.symbol(::Units.Quantity{typeof(L), Nothing}) = "L"
+
+Units.native_unit(::Units.Quantity{typeof(C), Nothing}) =
+    Units.units(:base, :farad; per = (:base, :meter))
+Units.display_unit(::Units.Quantity{typeof(C), Nothing}) =
+    Units.units(:micro, :farad; per = (:kilo, :meter))
+Units.label(::Units.Quantity{typeof(C), Nothing}) = "Shunt capacitance"
+Units.symbol(::Units.Quantity{typeof(C), Nothing}) = "C"
+Units.family(::Union{Units.Quantity{typeof(R), Nothing}, Units.Quantity{typeof(L), Nothing}}) =
+    Val(:series)
+Units.family(::Units.Quantity{typeof(C), Nothing}) = Val(:shunt)
+
+"""
+Return owned scientific text for a formulation. `compact=true` selects its
+short display name. `formula_id` remains its scientific identity.
+"""
+function description end
+
+"""
+Declare a formula selection for resolution by its receiving formulation owner.
+"""
+function formula end
+
+"""
+Return the stable scientific identifier of a formula selection.
+"""
+function formula_id end

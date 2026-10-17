@@ -384,7 +384,7 @@ function CableConstantsFormulation(;
     return parameterize(
         CableConstantsFormulation,
         (inputs...) -> _constants_formulation(inputs[1:(end - 1)]...,
-            last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
+            FormulationOptions(last(inputs))),
         values;
         combine
     )
@@ -570,7 +570,7 @@ function compute(
         problem::CableConstantsProblem;
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     return compute(
         LineCableModelsCoaxial(),
         problem,
@@ -589,7 +589,7 @@ function compute(
         formulation::CableConstantsFormulation;
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     return compute(LineCableModelsCoaxial(), problem, formulation; options)
 end
 
@@ -598,7 +598,7 @@ function compute(
         formulations::AbstractVector{<:CableConstantsFormulation};
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     return compute(LineCableModelsCoaxial(), problem, formulations; options)
 end
 
@@ -613,7 +613,7 @@ function compute(
         formulation::CableConstantsFormulation = CableConstantsFormulation();
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     values = compute(
         engine,
         problem,
@@ -629,7 +629,7 @@ function compute(
         formulations::AbstractVector{<:CableConstantsFormulation};
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
+    options = ComputationOptions(options)
     computation_options(CableConstantsFormulation, options)
     isempty(formulations) && throw(ArgumentError(
         "cable-constant formulation collections cannot be empty",

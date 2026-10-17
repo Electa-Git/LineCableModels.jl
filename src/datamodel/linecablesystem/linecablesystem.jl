@@ -217,12 +217,8 @@ function build(
         connections,
         environment,
         system_id::AbstractString,
-        line_length::Real;
-        combine::Symbol = :product
+        line_length::Real
 )
-    combine in (:product, :zip) || throw(ArgumentError(
-        "combine must be :product or :zip"
-    ))
     declared_input = _declared_designs(designs)
 
     # 1. Place every completed design in the system frame. Coordinate tuples

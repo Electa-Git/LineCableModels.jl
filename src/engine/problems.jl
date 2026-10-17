@@ -193,7 +193,7 @@ when one of them is a `Grid` or `Gridspace`.
 function LineParametersProblem(
         designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple, AbstractGrid,
             Gridspace},
-        placements;
+        placements::Union{DataModel.Pose2, Tuple, AbstractVector, AbstractGrid, Gridspace};
         connections = nothing,
         environment = nothing,
         system_id = "line-cable-system",
@@ -209,9 +209,9 @@ end
 
 function LineParametersProblem(
         designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple},
-        placements,
-        connections,
-        environment,
+        placements::Union{DataModel.Pose2, Tuple, AbstractVector},
+        connections::Union{Nothing, Tuple, AbstractVector, AbstractDict, NamedTuple},
+        environment::Union{Nothing, EarthModel},
         system_id::AbstractString,
         line_length::Real,
         temperature::Real,
@@ -230,24 +230,6 @@ function LineParametersProblem(
         combine
     )
     return LineParametersProblem(system, temperature, earth_props, frequencies)
-end
-
-function LineParametersProblem(
-        designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple, AbstractGrid,
-            Gridspace},
-        placements,
-        connections,
-        environment,
-        system_id::Union{AbstractString, AbstractGrid, Gridspace},
-        line_length::Union{Real, AbstractGrid, Gridspace},
-        temperature::Union{Real, AbstractGrid, Gridspace},
-        earth_props::Union{EarthModel, AbstractGrid, Gridspace},
-        frequencies::Union{AbstractVector{<:Real}, AbstractGrid, Gridspace};
-        combine::Symbol = :product
-)
-    values = (designs, placements, connections, environment, system_id, line_length,
-        temperature, earth_props, frequencies)
-    return parameterize(LineParametersProblem, LineParametersProblem, values; combine)
 end
 
 """
@@ -497,7 +479,7 @@ function LineParametersFormulation(;
     )
     return parameterize(
         LineParametersFormulation,
-        (inputs...) -> _line_formulation(inputs[1:end-1]..., last(inputs) isa NamedTuple ? FormulationOptions(last(inputs)) : last(inputs)),
+        (inputs...) -> _line_formulation(inputs[1:end-1]..., FormulationOptions(last(inputs))),
         values;
         combine
     )

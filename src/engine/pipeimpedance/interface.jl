@@ -10,7 +10,7 @@ struct Formula{ID} <: PipeImpedanceFormulation
     function Formula{ID}(; parameters::NamedTuple = (;),
             options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
         ID in formulas(Formula) || throw(ArgumentError("unknown pipe-impedance formula :$ID"))
-        options = options isa NamedTuple ? FormulationOptions(options) : options
+        options = FormulationOptions(options)
         isempty(parameters) && isempty(options.data) ||
             throw(ArgumentError("pipe-impedance :$ID accepts no model parameters or numerical controls"))
         return new{ID}()

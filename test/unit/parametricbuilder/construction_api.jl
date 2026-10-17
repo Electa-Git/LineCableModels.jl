@@ -405,7 +405,7 @@ end
     end
     @test notated_pipe == piped
 
-    pipe_space = @pipe shape=Disk(Grid((15e-3, 16e-3))) fill=Grid((
+    pipe_space = @pipe shape=Grid((Disk(15e-3), Disk(16e-3))) fill=Grid((
         air,
         concrete
     )) combine=:zip begin
@@ -1196,9 +1196,15 @@ end
                terminal(:phase, core(copper; r), insulation(xlpe; t = 1e-3))
            ) for r in (2e-3, 3e-3)]
 
-    zipped_terminal = @terminal :phase combine=:zip begin
+    # Zip pairs the direct parameters of one call. Paired parts are a Grid of complete
+    # parts. A nested part space multiplies with the other parameters instead.
+    @test_throws ArgumentError @terminal :phase combine=:zip begin
         core(copper; r = Grid((2e-3, 3e-3)))
         insulation(xlpe; t = Grid((1e-3, 2e-3)))
+    end
+    zipped_terminal = @terminal :phase combine=:zip begin
+        Grid((core(copper; r = 2e-3), core(copper; r = 3e-3)))
+        Grid((insulation(xlpe; t = 1e-3), insulation(xlpe; t = 2e-3)))
     end
     @test zipped_terminal isa Gridspace{Group}
     @test length(zipped_terminal) == 2
@@ -1207,7 +1213,7 @@ end
         (rating = 1,),
         (rating = 2,)
     )) combine=:zip begin
-        zipped_terminal
+        Grid(Tuple(zipped_terminal))
     end
     @test zipped_designs isa Gridspace{CableDesign}
     @test length(zipped_designs) == 2
@@ -1220,8 +1226,8 @@ end
     left_members = terminal(:left, core(copper; r = Grid((1e-3, 1.2e-3))))
     right_members = terminal(:right, core(copper; r = Grid((0.8e-3, 0.9e-3))))
     zipped_assembly = @assembly combine=:zip begin
-        left_members
-        right_members
+        Grid(Tuple(left_members))
+        Grid(Tuple(right_members))
     end
     @test zipped_assembly isa Gridspace{Assembly}
     @test length(zipped_assembly) == 2
@@ -1229,7 +1235,7 @@ end
     zipped_formation = @trefoil first(zipped_designs) spacing=Grid((
         0.08,
         0.1
-    )) center=at(x = Grid((0.0, 0.2)), y = -1.0) combine=:zip phase=(1, 2, 3)
+    )) center=Grid((at(0.0, -1.0), at(0.2, -1.0))) combine=:zip phase=(1, 2, 3)
     @test zipped_formation isa Gridspace{Vector}
     @test length(zipped_formation) == 2
 

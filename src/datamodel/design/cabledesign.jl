@@ -277,8 +277,7 @@ function build(
         ::Type{CableDesign},
         cable_id::AbstractString,
         parts::Tuple{Vararg{AbstractCablePart}},
-        nominal_data::Union{Nothing, NamedTuple};
-        combine::Symbol = :product
+        nominal_data::Union{Nothing, NamedTuple}
 )
     isempty(parts) && throw(ArgumentError("a cable design requires one physical part"))
     tree = length(parts) == 1 ? only(parts) : Stack(parts...)
@@ -287,9 +286,6 @@ function build(
     normalized = tree
 
     # 2. Validate formulation-independent declarations.
-    combine in (:product, :zip) || throw(ArgumentError(
-        "combine must be :product or :zip"
-    ))
     identifier = String(cable_id)
     isempty(identifier) && throw(ArgumentError("cable_id cannot be empty"))
     nominal_data = nominal_data === nothing ? (;) : nominal_data

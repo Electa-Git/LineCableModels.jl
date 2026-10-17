@@ -142,7 +142,7 @@
     regions = Region(:equivalent, Annulus(0.01, 0.02), Grid((dielectric, other)))
     @test regions isa Gridspace{Region}
     @test length(regions) == 2
-    @test isconcretetype(eltype(regions))
+    @test eltype(regions) === Region
     @test @inferred(first(regions)) isa Region
     transported = Gridspace{CableDesign}(homogenize, (Grid((source, source)),))
     @test length(transported) == 2

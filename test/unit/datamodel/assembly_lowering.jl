@@ -130,13 +130,16 @@ end
         @test actual.Y.values == expected.Y.values
         @test LineCableModels.DataModel.flatten(design, Float64).assembly_ranges == [1:1, 2:2, 3:3]
     end
-    # Combining the core declaration and placement axes uses the same
-    # Gridspace rule, including a zip across the nested Ring declaration.
+    # Zip pairs the direct parameters of `cores`: a Grid of complete members, the ring
+    # radius and the starting angle. A nested member space multiplies with them.
     radii = (0.01, 0.02)
     angles = (0.0, 0.3)
     wires = (0.5e-3, 1e-3)
     members = terminal(:core, solid(copper, Disk(Grid(wires))))
-    zipped = cores(members; n=3, r=Grid(radii), φ0=Grid(angles), names, combine=:zip)
+    @test_throws ArgumentError cores(members; n=3, r=Grid(radii), φ0=Grid(angles), names,
+        combine=:zip)
+    complete = Grid(Tuple(terminal(:core, solid(copper, Disk(wire))) for wire in wires))
+    zipped = cores(complete; n=3, r=Grid(radii), φ0=Grid(angles), names, combine=:zip)
     @test zipped isa Gridspace{Assembly}
     @test collect(zipped) == [cores(terminal(:core, solid(copper, Disk(wire)));
         n=3, r=radius, φ0=angle, names) for (wire, radius, angle) in zip(wires, radii, angles)]

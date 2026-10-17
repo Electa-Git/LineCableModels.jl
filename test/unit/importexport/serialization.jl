@@ -257,7 +257,7 @@ end
     )))
     system_space=IE.deserialize_value(parametric_system_record)
     @test system_space isa Gridspace{LineCableSystem}
-    @test eltype(system_space) === Any
+    @test eltype(system_space) === LineCableSystem
     @test Base.IteratorEltype(typeof(system_space)) isa Base.EltypeUnknown
     @test getproperty.(collect(system_space), :positions) == [
         [Pose2(-0.1, -1.0)],

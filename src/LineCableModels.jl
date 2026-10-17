@@ -30,7 +30,7 @@ export series_impedance, shunt_admittance,
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
-export has_uncertainty, nominal, uncertainty
+export has_uncertainty, has_grid, nominal, uncertainty
 export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity
@@ -61,7 +61,7 @@ export @at, @hflat, @vflat, @trefoil
 export @distribute
 export estimate_stranding, estimate_screen, WireEstimate
 
-public Gridpoint
+public Gridpoint, Composition, Product, Zip, points, realize, realize_arguments
 
 # Materialized results, reusable designs, and presentation:
 export CableDesign, LineCableSystem, OverlapError, DatasheetInfo, datasheet
@@ -87,11 +87,9 @@ export export_data, import_data, save, load!
 
 import DocStringExtensions: DocStringExtensions
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
-using Random
 import Logging
 
 include("docstrings.jl")
-include("interfaces.jl")
 
 public FormulaDefinition, Expression, Functor
 
@@ -110,18 +108,17 @@ using .Commons:
                 observe, @observe, observables, ObservedResult, kron_reduce
 import .Commons: compute, validate
 using .Commons: FormulaDefinition, Expression, Functor
+using .Commons: add!, build, homogenize, constitutive, basis, line_length, description,
+                R, L, C, resistance, inductance, capacitance, formula, formula_id
+using .Commons: Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid,
+                AbstractGrid, AbstractUncertainGrid, UncertainValue, Gridspace, Gridpoint,
+                Composition, Product, Zip, has_uncertainty, has_grid, nominal, uncertainty,
+                parameterize, materialize, points, realize, realize_arguments,
+                sample_uncertainty
 include("logging.jl")
-include("formulas.jl")
 
 # Bounded text formatting consumes the completed shared declaration grammar.
 include("textdisplay/TextDisplay.jl")
-import .Commons: nominal, uncertainty
-
-# Root-owned finite parameter grammar. These primitives are loaded before the
-# domain modules so every constructor enters the same scalar-or-Gridspace path
-# without a late-loaded bridge through ParametricBuilder.
-include("grid.jl")
-include("gridspace.jl")
 
 public parameterize, materialize, sample_uncertainty
 
