@@ -250,6 +250,47 @@ formula owns `diagonal_product`. It writes phase-row by mode-column bases
 and mode-by-frequency roots. The owner checks structural shape and finite arithmetic before computing intrinsic coefficients. It then copies the returned arrays and records diagnostics. Numerical targets are reported as warnings and facts,
 without becoming result-admission rules.
 
+## UniversalLineModel extension
+
+Load both packages to activate `LineCableModelsUniversalLineModelExt`:
+
+```julia
+using LineCableModels, UniversalLineModel
+```
+
+The extension adds `UniversalLineModel.LineFrequencyData(segment)` for a
+`PropagationParameters` segment. It supplies phase characteristic admittance,
+phase current propagation, modal propagation factors and constants, current
+transformations, frequencies and line length. It warns when the maximum
+retained modal Z or Y coupling exceeds `1e-6`, because the phase characteristic
+admittance and propagation use the diagonal modal approximation.
+
+The `:ulm` and `:fdcm` [line-model fits](line_models.md) use this adapter and
+return `WidebandModel` coefficients with measured fitting errors and passivity
+records. The extension also adds these conversions:
+
+```julia
+data = UniversalLineModel.LineFrequencyData(segment)
+ulm_model = UniversalLineModel.ULMModel(model)
+payload = WidebandModel(ulm_model)
+```
+
+Here `model` is a `LineModel` with a `WidebandModel` payload. The conversion to
+`ULMModel` copies its coefficients, delays, length and fitted frequencies.
+`WidebandModel(ulm_model)` copies the rational admittance and propagation groups.
+
+For [transient analysis](transient_analysis.md), the extension implements the
+`:td` time loop for a wideband `LineModel`. It builds a UniversalLineModel
+network with the terminal assignments, calls `simulate` and returns terminal
+voltages and currents as a `TransientResponse`.
+
+UniversalLineModel is a weak dependency with compatibility `0.2` in
+`Project.toml`. The test environment lists it as a direct dependency in
+`test/Project.toml`, with a source at
+`https://github.com/amaurigmartins/ULM.git`, subdirectory `UniversalLineModel`,
+and revision `0682b277d8eeddbc8be0f4cc78a54f7866334c6b`.
+The committed `Manifest.toml` records that revision and version `0.2.0`.
+
 ## Input validation
 
 A materialized input defines one direct `validate(::OwnedType)` method. The method

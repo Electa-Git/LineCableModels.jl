@@ -1,8 +1,9 @@
 # Transient analysis
 
-`TransientAnalysisProblem` holds an uncomputed `LineParametersProblem`, assignments
-at both ends and a time window. `TransientFormulation(:nlt)` selects the numerical
-Laplace transform of the exact line two-port. `compute` returns a
+`TransientAnalysisProblem` holds an uncomputed `LineParametersProblem` or a fitted
+`LineModel`, assignments at both ends and a time window. `TransientFormulation(:nlt)`
+selects the numerical Laplace transform of the exact line two-port, and `:td`
+selects time-domain simulation of a fitted model. `compute` returns a
 `TransientResponse` with voltage in V, current in A and time in s.
 
 ## Terminals and waveforms
@@ -31,8 +32,8 @@ DoubleExponential("cable:1:core", 1.0, 1e4, 1e6)    # amplitude [V], decay rates
 
 The cosine is ``A\cos(2\pi f t+\varphi)``. The double exponential is
 ``A(e^{-\alpha t}-e^{-\beta t})``, with ``\beta>\alpha>0``.
-`Matched()` terminates a whole end with the characteristic admittance matrix
-``Y_c(s)`` from the line. It replaces the tuple at that end.
+With `:nlt`, `Matched()` terminates a whole end with the characteristic admittance
+matrix ``Y_c(s)`` from the line. It replaces the tuple at that end.
 
 ## Problem and computation
 
@@ -57,10 +58,14 @@ Response arrays have axes end × terminal × time (2 × n × samples).
 The sending end comes first, followed by the receiving end. Currents enter the line at both ends.
 `response.coordinates` retains terminal labels in physical order.
 
-The default controls are `N=4096`, `Tfactor=1.25`, `taper=:hanning` and
-`line=Formulation()`. `N` is an integer of at least two. `Tfactor` must exceed
-one. `taper` accepts `:hanning`, `:blackman` or `:lanczos`.
-The `line` option selects the formulation for the line-parameter scan.
+The `:nlt` options control the scan and inversion:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `N` | `4096` | Number of Laplace samples, an `Int` of at least two. |
+| `Tfactor` | `1.25` | Sets the transform interval to `Tfactor * tmax`. Must be finite and greater than one. |
+| `taper` | `:hanning` | Spectral taper before inversion: `:hanning`, `:blackman` or `:lanczos`. |
+| `line` | `Formulation()` | `LineParametersFormulation` used to compute the Laplace-grid scan. |
 
 `compute` first builds the Laplace grid, with ``T=\mathrm{Tfactor}\,t_{\max}``:
 
@@ -177,9 +182,41 @@ response = compute(problem, TransientFormulation(:td;
 ```
 
 The time step must be at most the smallest fitted propagation delay.
-Interpolation accepts `:single` or `:double`. Currents enter the line at both ends.
+The `:td` options pass to the UniversalLineModel network and time loop:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `interp` | `:single` | Delayed-history interpolation. `:single` uses one linear interpolation per step. `:double` splits the delayed step into two segments at the grid sample inside it when the delay is not a whole number of steps. |
+| `enforce_sign` | `false` | When true, sets the companion conductance diagonal to absolute values and its off-diagonal entries to negative absolute values. Passed to `add_line!`. |
+| `initial_solve` | `false` | When true, solves the companion network at time zero with zero history sources. Otherwise the initial values are zero. Passed to `simulate`. |
+
 `Matched()` needs a fitted characteristic-admittance branch that the ULM network
-does not provide and throws an error. Modal line models are not implemented yet.
+does not provide and throws an error with `:td`. A `ModalModel` also throws with `:td`.
+
+## Choosing a formulation
+
+`:nlt` computes the exact two-port of an uncomputed `LineParametersProblem` on
+its own Laplace grid, then inverts the spectra numerically. `:td` simulates a
+fitted `LineModel` with a `WidebandModel` payload through UniversalLineModel.
+`Matched()` is available with `:nlt` and refused by `:td`.
+
+Use the same terminal assignments, line length and time window to compare the
+two responses. After the fit and `:td` computation above, compute the `:nlt`
+reference on that window:
+
+```julia
+import LineCableModels.Engine: compare
+
+reference_problem = TransientAnalysisProblem(line_problem; sending, receiving,
+    window=problem.window)
+reference = compute(reference_problem, TransientFormulation(:nlt;
+    options=(line=Formulation(),)))
+voltage_error = compare(reference, response, voltage)
+current_error = compare(reference, response, current)
+```
+
+The reference uses the same line formulation as the scan used for the fit.
+The returned errors compare the stored samples over this window.
 
 ## Sweeps
 

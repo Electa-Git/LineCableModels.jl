@@ -690,6 +690,9 @@ The problem keyword `sigma` sets the Laplace abscissa σ in 1/s, with default ze
 Every law uses ``s = \sigma + j2\pi f``. A scan on a numerical-Laplace grid uses
 the grid's σ. At σ ≠ 0, Z and Y remain available as complex Laplace-domain values.
 
+[Transient analysis](transient_analysis.md) computes its `:nlt` scans on a Laplace
+grid, and [line models](line_models.md) are fitted on the real frequency axis only.
+
 Retained observations of R, X, L, G, B and C are unavailable with
 `missing_reason = :laplace_domain`. These quantities assume ``s = j\omega``.
 Modal γ, Zc, Yc and H remain available. Observations mask modal α, β and velocity
