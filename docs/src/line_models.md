@@ -144,6 +144,11 @@ relative improvement of ``10^{-8}`` or after 50 iterations.
 |---|---|---|
 | `transformation.frequency` | `nothing` | Frequency in Hz for the constant transformation. The nearest sample is used. `nothing` selects the last sample. |
 | `bode.tolerance_db` | `0.5` | Magnitude tolerance in dB for the starting Bode asymptotes. |
+| `bode.threshold` | `1e-2` | Propagation magnitude cutoff, strictly between zero and one. |
+
+For each mode, the propagation fit and the delay estimate use the samples before the first one below this threshold.
+The characteristic impedance keeps the full band.
+`diagnostic.propagation_f_max` records the highest fitted propagation frequency of each mode in Hz.
 
 These controls are stored in the `transformation` and `bode` named tuples.
 Unknown option sections throw. The `:marti` sections also reject unknown keys.

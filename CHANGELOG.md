@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The `:marti` fit truncates each propagation band at `bode.threshold` (default `1e-2`) to handle attenuation underflow and reports the highest fitted frequency per mode.
+
 - With a `ModalModel`, `:td` runs the J. Marti trapezoidal companion model in core, with delayed modal propagation and fitted matched terminations.
 
 - `terminal_labels` lists system terminals and retained result rows, including bundled phases.

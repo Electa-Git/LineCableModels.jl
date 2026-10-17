@@ -16,7 +16,7 @@ description(::Type{<:Formula{:marti}}; compact::Bool=false) =
 
 function formulation_options(::Expression{<:Formula{:marti}, typeof(fit)})
     return FormulationOptions((transformation=(frequency=nothing,),
-        bode=(tolerance_db=0.5,)))
+        bode=(tolerance_db=0.5, threshold=1e-2)))
 end
 
 function formulation_options(expression::Expression{<:Formula{:marti}, typeof(fit)},
@@ -36,9 +36,12 @@ end
 
 function validate(options::FormulationOptions, ::Formula{:marti})
     tolerance = options.data.bode.tolerance_db::Real
+    threshold = options.data.bode.threshold::Real
     frequency = options.data.transformation.frequency
     isfinite(tolerance) && tolerance > 0 ||
         throw(ArgumentError("Bode tolerance must be finite and positive"))
+    0 < threshold < 1 ||
+        throw(ArgumentError("Bode threshold must lie strictly between zero and one"))
     frequency === nothing || (isfinite(frequency::Real) && frequency > 0) ||
         throw(ArgumentError("transformation frequency must be finite and positive"))
     return options
@@ -59,6 +62,7 @@ function initialize_buffers(::Formula{:marti}, ::Type{T}, input, plan,
         modal_admittance=Matrix{Complex{R}}(undef, n, n),
         impedance_sections=Vector{section}(undef, n),
         propagation_sections=Vector{section}(undef, n),
+        propagation_count=zeros(Int, n),
         offdiagonal_ratio=zeros(R, 2), phase_error_degrees=zeros(R, n)))
 end
 
@@ -321,8 +325,9 @@ function modal_fitting_error!(formula::Formula{:marti}, workspace)
                 fitted .= inv.(fitted)
                 data .= inv.(data)
             else
+                count = buffers.propagation_count[mode]
                 buffers.phase_error_degrees[mode] = maximum(
-                    abs.(rad2deg.(angle.(fitted ./ data))))
+                    abs.(rad2deg.(angle.(fitted[1:count] ./ data[1:count]))))
             end
             relative .= abs.(abs.(fitted) .- abs.(data)) ./ maximum(abs, data)
             errors.rms[mode, mode] = sqrt(sum(abs2, relative) / length(relative))
@@ -349,13 +354,19 @@ function fit(formula::Formula{:marti}, workspace::LineModelWorkspace,
     buffers = workspace.buffers
     for mode in axes(transformation, 2)
         impedance = @view buffers.impedance[mode, :]
-        propagation = @view buffers.propagation[mode, :]
-        delay = refine_delay(formula, buffers.omega, propagation,
-            buffers.roots[mode, end], workspace.input.length)
+        first_below = findfirst(a -> abs(a) < options.data.bode.threshold,
+            @view buffers.propagation[mode, :])
+        count = first_below === nothing ? length(frequencies) : first_below - 1
+        buffers.propagation_count[mode] = count
+        omega = @view buffers.omega[1:count]
+        propagation = @view buffers.propagation[mode, 1:count]
+        validate((omega, abs.(propagation), options.data.bode.tolerance_db), formula)
+        delay = refine_delay(formula, omega, propagation,
+            buffers.roots[mode, count], workspace.input.length)
         buffers.impedance_sections[mode] = bode_fit(formula, buffers.omega,
             impedance, options.data.bode.tolerance_db)
-        buffers.propagation_sections[mode] = bode_fit(formula, buffers.omega,
-            propagation .* cis.(buffers.omega .* delay), options.data.bode.tolerance_db; delay)
+        buffers.propagation_sections[mode] = bode_fit(formula, omega,
+            propagation .* cis.(omega .* delay), options.data.bode.tolerance_db; delay)
     end
     model = ModalModel(transformation, frequencies[k], buffers.impedance_sections,
         buffers.propagation_sections)
@@ -363,7 +374,8 @@ function fit(formula::Formula{:marti}, workspace::LineModelWorkspace,
     passive = (checked=false, passive=nothing, bands=Tuple{eltype(frequencies), eltype(frequencies)}[],
         worst=nothing, f_worst=nothing, perturbation=nothing)
     diagnostics = (marti=(offdiagonal_ratio=buffers.offdiagonal_ratio,
-        phase_error_degrees=buffers.phase_error_degrees),)
+        phase_error_degrees=buffers.phase_error_degrees,
+        propagation_f_max=frequencies[buffers.propagation_count]),)
     return model, errors, passive, (targets=nothing, achieved=nothing), diagnostics
 end
 
