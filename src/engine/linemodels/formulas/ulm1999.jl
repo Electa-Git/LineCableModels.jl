@@ -2,7 +2,8 @@
 $(TYPEDSIGNATURES)
 
 Select the universal line model (1999). UniversalLineModel fits the model.
-The `yc`, `h`, `passivity` and `dc` option sections pass through unchanged.
+The `yc`, `h` and `passivity` sections supply fitting controls.
+The `dc` section selects DC correction with targets from the physical line.
 """
 description(::Type{<:Formula{:ulm}}; compact::Bool=false) =
     compact ? "ulm" : "Universal line model (1999)"
@@ -18,11 +19,25 @@ function formulation_options(::Expression{<:Formula{:ulm}, typeof(fit)},
     if haskey(supplied.data, :line)
         supplied.data.line::LineParametersFormulation
     end
+    dc = get(supplied.data, :dc, (;))::NamedTuple
+    if !isempty(dc)
+        isempty(setdiff(keys(dc), (:method, :k))) ||
+            throw(ArgumentError("unknown :ulm dc options"))
+        get(dc, :method, nothing) in (:add_pole, :functional_form) ||
+            throw(ArgumentError("dc.method must be :add_pole or :functional_form"))
+        if haskey(dc, :k)
+            dc.method == :add_pole || throw(ArgumentError("dc.k requires :add_pole"))
+            k = dc.k::Real
+            isfinite(k) && 0 < k < 1 || throw(ArgumentError("dc.k must be in (0, 1)"))
+        end
+    end
     return supplied
 end
 
 function validate(line::Nothing, problem::LineModelProblem, selected::Formula{:ulm})
     validate(line, problem)
+    isempty(get(selected.options.data, :dc, (;))) || throw(ArgumentError(
+        "dc requires LineModelProblem(segment; line=...) and its line formulation option"))
     get(get(selected.options.data, :h, (;)), :td, false) && throw(ArgumentError(
         "td=true requires LineModelProblem(segment; line=...)"))
     return line

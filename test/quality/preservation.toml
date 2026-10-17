@@ -8,7 +8,7 @@
 # together with a change of this environment.
 [environment]
 julia = "1.12.7"
-manifest = "b70fab4db62510da80f6467996511aeda4c0aa723e3d39de2ba285060750d5c1"
+manifest = "b4e133daeeda65b73225fac62aca32d54716d4bf6c025d6065039c4b0d354030"
 
 [directions]
 inferred = "floor"

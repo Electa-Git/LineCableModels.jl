@@ -50,10 +50,10 @@
         @test eval_yc(roundtrip, s) ≈ eval_yc(rebuilt, s) rtol=1e-12 atol=1e-12
         @test eval_h(roundtrip, s) ≈ eval_h(rebuilt, s) rtol=1e-12 atol=1e-12
     end
-    for identifier in (:ulm, :fdcm)
-        invalid = LineModelFormulation(identifier; options=(dc=(admittance=zeros(3, 3),),))
-        @test_throws ArgumentError("dc targets are not implemented yet") compute(LineModelProblem(segment), invalid)
-    end
+    @test_throws ArgumentError("unknown :ulm dc options") LineModelFormulation(:ulm;
+        options=(dc=(admittance=zeros(3, 3),),))
+    invalid = LineModelFormulation(:fdcm; options=(dc=(method=:add_pole,),))
+    @test_throws ArgumentError("dc targets are not implemented yet") compute(LineModelProblem(segment), invalid)
     fdcm = compute(LineModelProblem(segment), LineModelFormulation(:fdcm;
         options=(yc=(npoles=8,), h=(npoles=8,), passivity=false)))
     @test fdcm isa LineModel{<:WidebandModel}
@@ -77,6 +77,102 @@
     unused_marti = @test_logs (:warn, ":marti ignores the supplied line problem") compute(
         unused_problem, LineModelFormulation(:marti))
     @test typeof(unused_marti.model) <: ModalModel
+end
+
+@testitem "UniversalLineModel / DC correction from lossy cable parameters" tags=[:extension, :ulm] setup=[TestFixtures] begin
+    using UniversalLineModel
+
+    # three_phase_system uses coaxial_design: insulation rho=1e8 Ohm m,
+    # core radius 5 mm, insulation outer radius 10 mm, grounded sheath.
+    f = 10.0 .^ range(0, 6; length=31)
+    line = TestFixtures.line_parameters_problem(; frequencies=f)
+    line_formulation = LineParametersFormulation(insulation_admittance=:lossy)
+    phase = compute(line, line_formulation)
+    @test real(phase.Y.values[1, 1, 1]) ≈ 2π / (1e8 * log(2)) rtol=1e-12
+    modal = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+    segment = PropagationParameters(modal; line_length=line_length(line))
+    problem = LineModelProblem(segment; line)
+    data = LineFrequencyData(segment)
+    extension = Base.get_extension(LineCableModels, :LineCableModelsUniversalLineModelExt)
+    # Nonorthogonal current modes have decay rates of 1 and 2 per metre.
+    # This independent modal fixture distinguishes current and voltage propagation.
+    coupled = extension.wave_matrices((ComplexF64[1 -1; -1 2], ComplexF64[5 4; 4 4]), 1.0)
+    @test coupled.admittance ≈ [3 2; 2 2] rtol=1e-12
+    @test coupled.propagation ≈ [exp(-1) exp(-2)-exp(-1); 0 exp(-2)] rtol=1e-12
+    options = (yc=(npoles=8,), h=(npoles=8, step_check=false),
+        line=line_formulation, passivity=false)
+    baseline = compute(problem, LineModelFormulation(:ulm; options))
+    native = WidebandModel(fit_ulm(data;
+        geom=extension.LineCableModelsLine(line, line_formulation),
+        yc=options.yc, h=options.h, passivity=false))
+    explicit_empty = compute(problem, LineModelFormulation(:ulm;
+        options=merge(options, (dc=(;),))))
+    @test isequal(baseline.model.admittance, native.admittance)
+    @test isequal(baseline.model.propagation, native.propagation)
+    @test isequal(explicit_empty.model.admittance, baseline.model.admittance)
+    @test isequal(explicit_empty.model.propagation, baseline.model.propagation)
+    @test baseline.dc == explicit_empty.dc == (targets=nothing, achieved=nothing)
+    @test !haskey(details(baseline).data, :dc)
+
+    for dc in ((method=:add_pole,), (method=:functional_form,), (method=:add_pole, k=0.1))
+        selected = LineModelFormulation(:ulm; options=merge(options, (; dc)))
+        @test_throws ArgumentError("dc requires LineModelProblem(segment; line=...) and its line formulation option") compute(
+            LineModelProblem(segment), selected)
+        model = compute(problem, selected)
+        rebuilt = ULMModel(model)
+        evidence = details(model).data.dc
+        convergence = evidence.convergence
+        @test convergence.frequencies == [1e-6, 1e-9, 1e-12]
+        @test convergence.pairs == ((1, 2), (2, 3), (1, 3))
+        for quantity in (:admittance, :propagation)
+            target = model.dc.targets[quantity]
+            achieved = model.dc.achieved[quantity]
+            relative_error = maximum(abs, achieved - target) / maximum(abs, target)
+            @test relative_error <= 1e-10
+            @test all(isreal, target)
+            @test convergence.imaginary_relative[quantity] < 1e-6
+            @test evidence[quantity].method == dc.method
+            if dc.method == :add_pole
+                @test 0 < evidence[quantity].k < 1
+                @test evidence[quantity].a0 ≈ 2π * first(f) * evidence[quantity].k rtol=1e-12
+                if haskey(dc, :k)
+                    @test evidence[quantity].k ≈ dc.k rtol=1e-12
+                    @test isnothing(evidence[quantity].reference_range)
+                else
+                    @test evidence[quantity].reference_range == (first(f) / 1000, first(f))
+                end
+            end
+            @info "ULM DC correction" method=dc.method quantity relative_error correction=evidence[quantity]
+        end
+        @test model.dc.achieved.admittance == eval_yc(rebuilt, 0)
+        @test model.dc.achieved.propagation == eval_h(rebuilt, 0)
+        @test maximum(convergence.relative_differences.impedance) <= 1e-6
+        @test maximum(convergence.relative_differences.admittance) <= 1e-6
+        @test all(isfinite, fitting_error(model).admittance.rms)
+        @test all(isfinite, fitting_error(model).propagation.rms)
+        @info "ULM DC limit" method=dc.method convergence
+    end
+
+    geom = extension.LineCableModelsLine(line, line_formulation)
+    points = 2π * im .* [1e-6, 1e-9, 1e-12]
+    samples = UniversalLineModel.zy(geom, points)
+    @test length(geom.scans) == 3
+    @test all(samples[k] === geom.scans[points[k]] for k in eachindex(points))
+    @test UniversalLineModel.zy(geom, reverse(points)) == reverse(samples)
+    reference = extension.dc_reference(geom, data)
+    @test length(reference.admittance.s) == length(reference.admittance.F) == 31
+    @test reference.propagation.s == reference.admittance.s
+    @test length(reference.propagation.F) == 31
+    @test length(geom.scans) == 34
+    @test extrema(abs.(reference.admittance.s) ./ (2π)) == (first(f) / 1000, first(f))
+    @test_throws ArgumentError UniversalLineModel.zy(geom, ComplexF64[])
+    @test_throws ArgumentError UniversalLineModel.zy(geom, [1 + im, 2 + im])
+    for dc in ((method=:unknown,), (k=0.1,), (method=:functional_form, k=0.1),
+            (method=:add_pole, k=0.0), (method=:add_pole, k=1.0),
+            (method=:add_pole, k=NaN), (method=:add_pole, reference=(;)))
+        @test_throws ArgumentError LineModelFormulation(:ulm; options=(; dc))
+    end
+    @test_throws ArgumentError LineModelFormulation(:marti; options=(dc=(method=:add_pole,),))
 end
 
 @testitem "UniversalLineModel / time rows and exact step check" tags=[:extension, :ulm] setup=[TestFixtures] begin

@@ -1904,8 +1904,8 @@ version = "1.29.0"
 
 [[deps.UniversalLineModel]]
 deps = ["LinearAlgebra", "Printf", "QuadGK", "SpecialFunctions"]
-git-tree-sha1 = "c3f903a29aee8d49185ce4ba9c52897d22c09d61"
-repo-rev = "5b68fa7637fa9a6eb1fddbcb9a715d456387a917"
+git-tree-sha1 = "678b15df4b05cf6b4b5fe1d24dcbb7467fbc6c42"
+repo-rev = "deb02963a7c1240b2896fdd2d2190b8ef96be66d"
 repo-subdir = "UniversalLineModel"
 repo-url = "https://github.com/amaurigmartins/ULM.git"
 uuid = "746cdcb3-aca5-48bf-a31d-4d74a2c5ed83"

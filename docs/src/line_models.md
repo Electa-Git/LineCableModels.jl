@@ -50,12 +50,69 @@ that receives them.
 | `yc` | `(;)` | `yc` in `fit_ulm` or `fit_fdcm`, then keyword arguments of `fit_yc` for characteristic admittance. `(npoles=8,)` sets eight poles. |
 | `h` | `(;)` | `h` in `fit_ulm`, then keyword arguments of `fit_h` for propagation. For `:fdcm`, its entries pass as keyword arguments directly to `fit_fdcm`. |
 | `passivity` | `(;)` | Passed to `fit_ulm` for `:ulm`. For `:fdcm`, a separate call to `enforce_passivity` follows the fit unless this is `false`. With `true` or `(;)`, enforcement uses its default controls. A named tuple supplies enforcement keywords. |
-| `dc` | `(;)` | A non-empty value throws before either fit. No direct-current targets pass to UniversalLineModel. |
+| `dc` | `(;)` | For `:ulm`, select `(method=:add_pole,)`, `(method=:add_pole, k=0.1)` or `(method=:functional_form,)`. Correction needs the physical `line`. The `:fdcm` fit rejects non-empty values. |
 | `line` (`:ulm` only) | `Formulation()` | Line-parameter formulation for exact Laplace samples when `LineModelProblem(segment; line=...)` supplies the physical problem. |
 
-The extension calls both fits with `geom=nothing` and a `LineFrequencyData`
-adapter of the segment. It measures passivity after either fit, including when
+The extension fits a `LineFrequencyData` adapter of the segment.
+A supplied physical line provides exact Laplace samples for `:ulm`.
+The extension measures passivity after either fit, including when
 `passivity=false` disables enforcement.
+
+## DC correction
+
+The `:ulm` fit offers the Add pole and Functional form methods of
+[De Silva, Gole and Wedepohl, IPST 2007](https://www.ipstconf.org/papers/Proc_IPST2007/07IPST024.pdf).
+[PSCAD offers both methods](https://www.pscad.com/webhelp-v502-ol/Master_Library_Models/Transmission_Lines_Cables/Distributed_Line_Models/fd_phase_options.htm)
+for its phase model. An empty `dc=(;)` keeps the ordinary fit.
+The `:fdcm` and `:marti` fits refuse DC correction.
+
+```julia
+problem = LineModelProblem(segment; line=line_problem)
+formulation = LineModelFormulation(:ulm; options=(dc=(method=:add_pole,),
+    line=LineParametersFormulation(insulation_admittance=:lossy), passivity=false))
+model = compute(problem, formulation)
+model.dc.targets
+model.dc.achieved
+details(model).data.dc
+```
+
+The physical line and its `line` formulation follow the same consistency checks
+as the exact step response. Finite insulation resistivity supplies positive DC
+shunt conductance with `insulation_admittance=:lossy`.
+
+LineCableModels computes the targets from the line's ``s\to0`` limit.
+One scan evaluates ``f=(10^{-6},10^{-9},10^{-12})`` Hz at ``\sigma=0``.
+For each pair of frequencies, the maximum entry difference in ``Z`` and ``Y``
+is divided by the largest entry magnitude at the smaller frequency.
+All three relative differences must be at most ``10^{-6}`` for each matrix.
+The smallest-frequency matrices define
+
+```math
+D_Y=Z^{-1}\sqrt{ZY},\qquad D_H=\exp(-\sqrt{YZ}\,\ell).
+```
+
+LineCableModels symmetrizes ``D_Y`` by its transpose.
+For each target, the largest imaginary magnitude divided by the largest real
+magnitude must be below ``10^{-6}``. The real parts supply the DC targets.
+``D_H`` follows the adapter's current-wave orientation and uses the segment length ``\ell``.
+The computation throws when the parameters fail to converge or either target exceeds the imaginary tolerance.
+
+Add pole appends a low-frequency pole and chooses its residue to reach the target.
+With `k`, its decay rate is ``a_0=2\pi f_{\min}k``, where ``0<k<1``.
+Without `k`, one scan supplies exact admittance and propagation at 31 logarithmic
+frequencies from ``f_{\min}/1000`` through ``f_{\min}``.
+These samples pass as `dc.reference=(s=2π*im*f, F=matrices)` to UniversalLineModel.
+ULM selects the pole from the reference and fitted frequency bands.
+Functional form identifies the rational model with a fixed DC term through
+`dc=(method=:functional_form,)`.
+
+`model.dc` retains `targets` and `achieved`, each with `admittance` and `propagation`.
+The achieved matrices evaluate the final fitted model at zero.
+`details(model).data.dc` retains convergence measures and ULM's admittance and propagation diagnostics.
+For Add pole, these include `method`, `k`, `a0` in rad/s and `reference_range` in Hz.
+Passivity enforcement can change the achieved propagation value after correction.
+
+With zero shunt conductance, the targets ``Y_c(0)=0`` and ``H(0)=I`` leave the DC resistance and steady-state current undetermined.
 
 ## Time-domain rows and the step check
 
@@ -179,7 +236,7 @@ The returned `LineModel` has these fields:
 | `frequencies` | The fitted frequency samples in Hz. |
 | `fitting_error` | `admittance` and `propagation` records, each with phase × phase matrices `rms`, `max` and `f_max`. Errors are relative fractions, and `f_max` gives the frequency in Hz of each maximum. |
 | `passivity` | `checked`, `passive`, `bands`, `worst`, `f_worst` and `perturbation`. Bands are frequency pairs in Hz. The perturbation record is `nothing` when enforcement was disabled. |
-| `dc` | `targets` and `achieved`, both `nothing` for the current fits. |
+| `dc` | `targets` and `achieved`, each with admittance and propagation matrices when correction is active, otherwise both `nothing`. |
 | `details` | `ComputationDetails` with the formula identifier, options, source grid point and inputs. Timing is included when requested. |
 
 `WidebandModel.admittance` contains `poles`, `residues` and `direct`. Each entry
