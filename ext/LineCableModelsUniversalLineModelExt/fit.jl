@@ -5,7 +5,7 @@ function fit(::Formula{:ulm}, workspace, parameters, options)
     model = fit_ulm(data; geom=nothing, yc=options.yc, h=options.h,
         passivity=options.passivity)
     return (WidebandModel(model), measure_fitting_error(model, data), measure_passivity(model),
-        (targets=nothing, achieved=nothing))
+        (targets=nothing, achieved=nothing), (;))
 end
 
 function fit(::Formula{:fdcm}, workspace, parameters, options)
@@ -18,5 +18,5 @@ function fit(::Formula{:fdcm}, workspace, parameters, options)
         model, _ = enforce_passivity(model; controls...)
     end
     return (WidebandModel(model), measure_fitting_error(model, data), measure_passivity(model),
-        (targets=nothing, achieved=nothing))
+        (targets=nothing, achieved=nothing), (;))
 end

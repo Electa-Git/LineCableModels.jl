@@ -34,10 +34,11 @@ function compute(problem::LineModelProblem, formulation::LineModelFormulation;
         end
         return fit(selected, workspace, selected.parameters, selected.options), nothing
     end
-    model, errors, passive, dc = values
+    model, errors, passive, dc, diagnostics = values
     retained = (formula=formula_id(selected), options=selected.options.data,
         gridpoint=get(details(segment).data, :gridpoint, nothing),
         inputs=get(details(segment).data, :inputs, nothing))
+    retained = merge(retained, deepcopy(diagnostics))
     execution.data.timing && (retained = merge(retained, (timing=timing,)))
     return LineModel(model, input.coordinates, input.length, input.frequencies,
         errors, passive, dc, completion_details(retained))
@@ -49,4 +50,3 @@ end
 
 fit(::Formula{:ulm}, args...) = throw(ArgumentError("load UniversalLineModel to fit :ulm"))
 fit(::Formula{:fdcm}, args...) = throw(ArgumentError("load UniversalLineModel to fit :fdcm"))
-fit(::Formula{:marti}, args...) = throw(ArgumentError("not implemented yet"))

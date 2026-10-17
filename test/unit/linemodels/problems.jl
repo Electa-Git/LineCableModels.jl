@@ -58,8 +58,8 @@ end
                 selected.formula, point, selected.formula.parameters, selected.formula.options)
         end
     end
-    @test_throws ArgumentError("not implemented yet") compute(first(problems), LineModelFormulation(:marti))
-    @test_throws ArgumentError("not implemented yet") LM.fit(LM.Formula(:marti), nothing, (;), FormulationOptions())
+    @test compute(first(problems), LineModelFormulation(:marti)) isa LineModel{<:ModalModel}
+    @test_throws MethodError LM.fit(LM.Formula(:marti), nothing, (;), FormulationOptions())
     @test computation_options(LineModelFormulation, ComputationOptions()).data ==
         (verbosity=(default=0,), timing=false)
     @test_throws ArgumentError computation_options(LineModelFormulation, ComputationOptions(; unknown=true))

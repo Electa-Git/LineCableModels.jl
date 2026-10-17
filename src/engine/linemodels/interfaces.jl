@@ -1,7 +1,8 @@
 """
     fit(formula, workspace, parameters, options)
 
-Fit the selected line model and return `(model, fitting_error, passivity, dc)`.
+Fit the selected line model and return `(model, fitting_error, passivity, dc, diagnostics)`.
+The `diagnostics` NamedTuple contains formula-specific values copied into the result details.
 """
 function fit end
 

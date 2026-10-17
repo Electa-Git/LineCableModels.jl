@@ -34,14 +34,12 @@ modal transformation matrices must have finite entries.
 
 The default selection, `:default`, resolves to `:ulm`. Load UniversalLineModel
 for the `:ulm` and `:fdcm` fits. Both return a `WidebandModel` payload.
-The `:marti` selection accepts its controls but `compute` currently throws an
-`ArgumentError` because the fit is not implemented.
 
 | Selection | Method |
 |---|---|
 | `:ulm` | Universal line model (1999), through `UniversalLineModel.fit_ulm`. |
 | `:fdcm` | Frequency-dependent cable model (2016), through `UniversalLineModel.fit_fdcm`. |
-| `:marti` | Constant-transformation modal line model (1982). The fit throws. |
+| `:marti` | Constant-transformation modal line model (1982), returning a `ModalModel`. |
 
 For `:ulm` and `:fdcm`, each section of the options defaults to an empty named tuple. Omitted
 controls within `yc` and `h` use the defaults of the UniversalLineModel method
@@ -58,15 +56,54 @@ The extension calls both fits with `geom=nothing` and a `LineFrequencyData`
 adapter of the segment. It measures passivity after either fit, including when
 `passivity=false` disables enforcement.
 
-The `:marti` controls are:
+## J. Marti modal fit
+
+The `:marti` fit uses a constant real current transformation ``T``. It takes the
+real part of the segment's modal current transformation at the selected sample
+and normalizes each column to unit norm. The voltage transformation is
+``T_v = T^{-\mathsf{T}}``. At each frequency, the fit uses the diagonals of
+``Z_m = T_v^{-1} Z T`` and ``Y_m = T^{-1} Y T_v`` to calculate the modal
+characteristic impedance ``Z_{c,i} = \sqrt{z_{m,i}/y_{m,i}}`` and propagation
+``A_i = \exp(-\gamma_i\ell)``, with
+``\gamma_i = \sqrt{z_{m,i}y_{m,i}}`` chosen to have nonnegative real part.
+
+Each propagation section retains a travel delay in seconds. Its initial value
+comes from the highest-frequency propagation constant. A search over 300 delay
+values within 10% of that estimate minimizes the RMS phase difference between
+the delay-compensated propagation and the minimum phase implied by its magnitude.
+The Bode gain and phase relation uses a discrete Hilbert transform on the
+log-frequency grid with trapezoidal integration.
+
+Bode asymptotes approximate each modal impedance and propagation magnitude with
+slopes in multiples of 20 dB per decade. Corners supply starting real poles.
+Variable projection then refines their logarithms by Levenberg–Marquardt least
+squares. Every pole remains real and negative. For each trial, a linear least-squares
+solve identifies a real constant and real residues against the complex impedance
+or delay-compensated propagation, with weights equal to the inverse data magnitude.
+Only steps that decrease the residual are accepted. Refinement stops below a
+relative improvement of ``10^{-8}`` or after 50 iterations.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `transformation.frequency` | `nothing` | Frequency in Hz for the constant transformation. |
-| `bode.tolerance_db` | `3.0` | Bode approximation tolerance in dB. |
+| `transformation.frequency` | `nothing` | Frequency in Hz for the constant transformation. The nearest sample is used. `nothing` selects the last sample. |
+| `bode.tolerance_db` | `0.5` | Magnitude tolerance in dB for the starting Bode asymptotes. |
 
 These controls are stored in the `transformation` and `bode` named tuples.
 Unknown option sections throw. The `:marti` sections also reject unknown keys.
+
+```julia
+model = compute(problem, LineModelFormulation(:marti;
+    options=(transformation=(frequency=nothing,), bode=(tolerance_db=0.5,))))
+diagnostic = details(model).data.marti
+```
+
+`diagnostic.offdiagonal_ratio` stores the largest off-diagonal magnitude divided
+by the largest diagonal magnitude, over all frequencies, for ``Z_m`` and ``Y_m``
+in that order. `diagnostic.phase_error_degrees` stores the largest absolute
+propagation phase error per mode in degrees. The fitting-error matrices contain
+per-mode magnitude errors on their diagonals and zeros elsewhere. Their RMS and
+maximum values normalize by the largest data magnitude over frequency.
+Passivity has `checked=false` and `passive=nothing`. Both DC fields are `nothing`.
 
 ## Result record
 

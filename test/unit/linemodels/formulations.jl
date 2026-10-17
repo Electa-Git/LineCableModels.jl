@@ -22,7 +22,7 @@
         @test_throws ArgumentError LM.Formula(identifier; parameters=(unknown=1,))
     end
     marti = formulation_options(LineModelFormulation(:marti).formula).data
-    @test marti == (transformation=(frequency=nothing,), bode=(tolerance_db=3.0,))
+    @test marti == (transformation=(frequency=nothing,), bode=(tolerance_db=0.5,))
     supplied = LineModelFormulation(:marti; options=(transformation=(frequency=50.0,),))
     @test supplied.formula.options.data.transformation.frequency == 50.0
     @test_throws ArgumentError LineModelFormulation(:marti; options=(unknown=(;),))

@@ -23,8 +23,9 @@ import ...Commons: AbstractProblemDefinition, AbstractFormulation, AbstractCoreR
 import ...Commons
 import ...Units
 import ...TextDisplay
-import ..Engine: description, formula_id, frequencies, sigma, LineParametersFormulation
-import ..ModalAnalysis: PropagationParameters
+import ..Engine: description, formula_id, frequencies, sigma, LineParametersFormulation, PhaseDomain
+import ..ModalAnalysis: PropagationParameters, Ti, transform
+using LinearAlgebra: norm, lu, mul!, ldiv!
 using Logging: with_logger, current_logger
 #! explicit-imports: on
 

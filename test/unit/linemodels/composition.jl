@@ -71,7 +71,7 @@ end
         passive = (checked=false, passive=nothing, bands=Tuple{Float64, Float64}[],
             worst=nothing, f_worst=nothing, perturbation=nothing)
         return (WidebandModel(admittance, groups), (admittance=errors, propagation=errors),
-            passive, (targets=nothing, achieved=nothing))
+            passive, (targets=nothing, achieved=nothing), (;))
     end
 
     phase = TestFixtures.two_conductor_results()
