@@ -81,11 +81,12 @@ as the exact step response. Finite insulation resistivity supplies positive DC
 shunt conductance with `insulation_admittance=:lossy`.
 
 LineCableModels computes the targets from the line's ``s\to0`` limit.
-One scan evaluates ``f=(10^{-6},10^{-9},10^{-12})`` Hz at ``\sigma=0``.
-For each pair of frequencies, the maximum entry difference in ``Z`` and ``Y``
+One scan evaluates ``f=(10^{-6},10^{-9},10^{-12},10^{-15},10^{-18})`` Hz at ``\sigma=0``.
+For consecutive frequencies, the maximum entry difference in ``Z`` and ``Y``
 is divided by the largest entry magnitude at the smaller frequency.
-All three relative differences must be at most ``10^{-6}`` for each matrix.
-The smallest-frequency matrices define
+The first consecutive pair with both relative differences at most ``10^{-6}``
+supplies the matrices at its smaller frequency. The diagnostic records that
+frequency and the differences. These matrices define
 
 ```math
 D_Y=Z^{-1}\sqrt{ZY},\qquad D_H=\exp(-\sqrt{YZ}\,\ell).

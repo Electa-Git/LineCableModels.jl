@@ -83,13 +83,13 @@ function wave_matrices(parameters::Tuple{<:AbstractMatrix, <:AbstractMatrix}, le
 end
 
 function dc_targets(g::LineCableModelsLine, len::Real)
-    f = [1e-6, 1e-9, 1e-12]
+    f = [1e-6, 1e-9, 1e-12, 1e-15, 1e-18]
     samples = UniversalLineModel.zy(g, 2π * im .* f)
     for (k, matrices) in enumerate(samples)
         all(matrix -> all(isfinite, matrix), matrices) ||
             throw(ArgumentError("DC line parameters are not finite at $(f[k]) Hz"))
     end
-    pairs = ((1, 2), (2, 3), (1, 3))
+    pairs = ((1, 2), (2, 3), (3, 4), (4, 5))
     differences = map((1, 2)) do quantity
         return map(pairs) do (i, j)
             scale = maximum(abs, samples[j][quantity])
@@ -98,16 +98,23 @@ function dc_targets(g::LineCableModelsLine, len::Real)
         end
     end
     relative_differences = (impedance=differences[1], admittance=differences[2])
-    all(values -> maximum(values) <= 1e-6, differences) || throw(ArgumentError(
-        "DC line parameters do not converge at $(Tuple(f)) Hz: $relative_differences"))
-    matrices = wave_matrices(last(samples), len)
+    accepted = findfirst(eachindex(pairs)) do k
+        return all(values -> values[k] <= 1e-6, differences)
+    end
+    if isnothing(accepted)
+        table = join(("$(f[i]) -> $(f[j]) Hz: Z=$(differences[1][k]), Y=$(differences[2][k])"
+                      for (k, (i, j)) in enumerate(pairs)), "\n")
+        throw(ArgumentError("DC line parameters do not converge within 1e-6 relative:\n$table"))
+    end
+    accepted_frequency = f[accepted + 1]
+    matrices = wave_matrices(samples[accepted + 1], len)
     imaginary_relative = map(matrices) do matrix
         return maximum(abs, imag.(matrix)) / maximum(abs, real.(matrix))
     end
     all(ratio -> isfinite(ratio) && ratio < 1e-6, imaginary_relative) ||
-        throw(ArgumentError("DC target imaginary parts at $(last(f)) Hz exceed 1e-6 relative: $imaginary_relative"))
+        throw(ArgumentError("DC target imaginary parts at $(accepted_frequency) Hz exceed 1e-6 relative: $imaginary_relative"))
     targets = map(matrix -> real.(matrix), matrices)
-    return targets, (; frequencies=f, pairs, relative_differences, imaginary_relative)
+    return targets, (; frequencies=f, pairs, accepted_frequency, relative_differences, imaginary_relative)
 end
 
 function dc_reference(g::LineCableModelsLine, data::LineFrequencyData)

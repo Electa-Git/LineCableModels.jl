@@ -122,8 +122,9 @@ end
         rebuilt = ULMModel(model)
         evidence = details(model).data.dc
         convergence = evidence.convergence
-        @test convergence.frequencies == [1e-6, 1e-9, 1e-12]
-        @test convergence.pairs == ((1, 2), (2, 3), (1, 3))
+        @test convergence.frequencies == [1e-6, 1e-9, 1e-12, 1e-15, 1e-18]
+        @test convergence.pairs == ((1, 2), (2, 3), (3, 4), (4, 5))
+        @test convergence.accepted_frequency == 1e-9
         for quantity in (:admittance, :propagation)
             target = model.dc.targets[quantity]
             achieved = model.dc.achieved[quantity]
@@ -173,6 +174,60 @@ end
         @test_throws ArgumentError LineModelFormulation(:ulm; options=(; dc))
     end
     @test_throws ArgumentError LineModelFormulation(:marti; options=(dc=(method=:add_pole,),))
+end
+
+@testitem "UniversalLineModel / DC limit with small insulation conductance" tags=[:extension, :ulm] setup=[TestFixtures] begin
+    using UniversalLineModel
+
+    # Same coaxial geometry and grounded sheaths as the DC correction fixture.
+    f = 10.0 .^ range(0, 6; length=31)
+    dielectric = Material(kind=:insulator, rho=1e14, eps_r=3.0, mu_r=1.0)
+    designs = [build(CableDesign, "phase-$phase", Stack(
+        terminal(:core, Region(:metal, Disk(0.005), TestFixtures.conductor_material())),
+        Region(:dielectric, Shell(0.005), dielectric),
+        terminal(:sheath, Region(:return, Shell(0.001), TestFixtures.conductor_material())),
+        Region(:cover, Shell(0.001), dielectric))) for phase in 1:3]
+    system = build(LineCableSystem, designs, [(-0.08, -1.0), (0.0, -1.08), (0.08, -1.0)];
+        system_id="small-conductance-three-phase", line_length=600.0,
+        connections=[Dict(:core=>phase, :sheath=>0) for phase in 1:3])
+    line = TestFixtures.line_parameters_problem(system; frequencies=f)
+    line_formulation = LineParametersFormulation(insulation_admittance=:lossy)
+    phase = compute(line, line_formulation)
+    @test real(phase.Y.values[1, 1, 1]) ≈ 2π / (1e14 * log(2)) rtol=1e-12
+    modal = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+    segment = PropagationParameters(modal; line_length=line_length(line))
+    problem = LineModelProblem(segment; line)
+    for method in (:add_pole, :functional_form)
+        model = compute(problem, LineModelFormulation(:ulm;
+            options=(yc=(npoles=8,), h=(npoles=8, step_check=false),
+                line=line_formulation, passivity=false, dc=(; method))))
+        # At zero frequency every delay factor is one. Sum all pole terms by entry.
+        roundoff_bound = 16 * eps(Float64) * maximum(sum(
+            abs.(group.residues[:, :, k] ./ group.poles[k])
+            for group in model.model.propagation for k in eachindex(group.poles)))
+        @info "ULM small-conductance DC rounding bound" method roundoff_bound
+        convergence = details(model).data.dc.convergence
+        accepted = findfirst(==(convergence.accepted_frequency), convergence.frequencies)
+        @test convergence.accepted_frequency < 1e-9
+        for quantity in (:impedance, :admittance)
+            differences = convergence.relative_differences[quantity]
+            @test differences[accepted - 1] <= 1e-6
+        end
+        for quantity in (:admittance, :propagation)
+            target = model.dc.targets[quantity]
+            achieved = model.dc.achieved[quantity]
+            relative_error = maximum(abs, achieved - target) / maximum(abs, target)
+            if quantity == :propagation
+                @test maximum(abs, achieved - target) <= roundoff_bound
+            else
+                @test relative_error <= 1e-10
+            end
+            @test all(isreal, target)
+            @test convergence.imaginary_relative[quantity] < 1e-6
+            @info "ULM small-conductance DC target" method quantity relative_error
+        end
+        @info "ULM small-conductance DC limit" method convergence
+    end
 end
 
 @testitem "UniversalLineModel / time rows and exact step check" tags=[:extension, :ulm] setup=[TestFixtures] begin
