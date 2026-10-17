@@ -120,7 +120,17 @@
         @test length(findall("//User[@defn='master:cable_interface']", document)) == 2
         @test length(findall("//User[@defn='master:pgb']", document)) == 6
         @test length(findall("//User[@defn='master:Line_FrePhase_Options']", document)) == 1
-        @test TOML.parsefile(joinpath(source, "computation.toml"))["mode"] == "transient"
+        input = TOML.parsefile(joinpath(source, "computation.toml"))
+        @test input["mode"] == "transient"
+        @test input["project_settings"]["PlotType"] == "OUT"
+        @test only(findall("/project/paramlist/param[@name='PlotType']", document))["value"] == "1"
+        readback = deepcopy(retained.native_readback)
+        readback["project"] = Dict{String, Any}("PlotType" => "OUT",
+            "time_duration" => 20e-6, "time_step" => 0.1, "sample_step" => 0.1,
+            "output_filename" => "transient.out")
+        @test P.validate(readback, formulation, input, retained.execution) === readback
+        readback["project"]["PlotType"] = "NONE"
+        @test_throws r"project setting PlotType differs" P.validate(readback, formulation, input, retained.execution)
         @test Set(keys(TOML.parsefile(joinpath(source, "complete.toml"))["outputs"])) ==
             Set(("solver.toml", "native-settings.toml", "timing.txt", "execution.toml", "transient.inf", "transient_01.out"))
         original = Dict(joinpath(root, name) => (bytes2hex(open(sha256, joinpath(root, name))),
@@ -147,6 +157,26 @@
         @test details(mode).data.formulations.model === :fd_mode
         @test details(mode).data.native_readback["frequency"]["FT"] == 500
         @test isfile(joinpath(details(mode).data.execution.source_run, "outputs", "mode.inf"))
+        for (response, frequency_controls) in (
+                (result, ("FS" => 1.0, "FE" => 2e6, "Numf" => 200,
+                    "YMaxP" => 20, "AMaxP" => 20, "YMaxE" => 0.2,
+                    "AMaxE" => 0.2, "MaxRPtol" => 2e6)),
+                (mode, ("FS" => 0.5, "FE" => 1e6, "FT" => 500.0,
+                    "ZMaxP" => 20, "AMaxP" => 20, "ZMaxE" => 1.0, "AMaxE" => 1.0,
+                    "W1" => 1.0, "W2" => 1000.0, "W3" => 1.0)))
+            execution = details(response).data.execution
+            input = TOML.parsefile(joinpath(execution.source_run, "computation.toml"))
+            for (component, controls) in (("frequency", frequency_controls),
+                    ("ground", ("GRRES" => 100.0, "GPERM" => 1.0, "GRP" => 1.0,
+                        "K0" => 0.001, "K1" => 0.01, "alpha" => 0.7)),
+                    ("configuration", ("Freq" => 50.0,)))
+                for (field, expected) in controls
+                    @test input["native_settings"][component][field]["value"] === expected
+                    @test input["native_settings"][component][field]["readback"] === expected
+                    @test details(response).data.native_readback[component][field] === expected
+                end
+            end
+        end
         fresh = compute(problem, formulation; options)
         @test launches[] == 3
         @test details(fresh).data.execution.source_run != source

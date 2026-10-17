@@ -5,7 +5,7 @@ end
 
 const PSCAD_FREQUENCY_RTOL = 5.0e-8
 
-function _pscad_number(text::AbstractString)
+function _pscad_number(text::AbstractString; required::Bool = true)
     value = replace(strip(text), 'D' => 'E', 'd' => 'e')
     value = replace(value, r"^([+-])\." => s"\g<1>0.")
     value = replace(value, r"^\." => "0.")
@@ -14,12 +14,8 @@ function _pscad_number(text::AbstractString)
         r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))([+-]\d+)$" => s"\g<1>E\g<2>"
     )
     parsed = tryparse(Float64, value)
-    parsed === nothing && throw(ArgumentError("invalid PSCAD numeric field $(repr(text))"))
+    parsed === nothing && required && throw(ArgumentError("invalid PSCAD numeric field $(repr(text))"))
     return parsed
-end
-
-function _float_row(line::AbstractString)
-    return _pscad_number.(split(strip(line)))
 end
 
 function _read_detailed(path::AbstractString)
@@ -28,7 +24,7 @@ function _read_detailed(path::AbstractString)
     header === nothing && throw(ArgumentError(
         "missing PSCAD detailed-output header in $path",
     ))
-    rows = [_float_row(line)
+    rows = [_pscad_number.(split(strip(line)))
             for line in @view(lines[(header + 1):end]) if !isempty(strip(line))]
     isempty(rows) && throw(ArgumentError("PSCAD detailed output contains no data: $path"))
     width = length(first(rows))
@@ -139,7 +135,13 @@ function read_pscad_transient(directory::AbstractString; stem::AbstractString)
         offset = 10(file_index - 1)
         count = min(10, length(names) - offset)
         path = _result_path(directory, stem * "_" * lpad(string(file_index), 2, '0') * ".out")
-        rows = [_float_row(line) for line in eachline(path) if !isempty(strip(line))]
+        rows = Vector{Float64}[]
+        for line in eachline(path)
+            fields = split(strip(line))
+            isempty(fields) && continue
+            _pscad_number(first(fields); required = false) === nothing && continue
+            push!(rows, _pscad_number.(fields))
+        end
         isempty(rows) && throw(ArgumentError("PSCAD output contains no samples: $path"))
         all(row -> length(row) == count + 1, rows) ||
             throw(ArgumentError("PSCAD output has an incorrect column count: $path"))

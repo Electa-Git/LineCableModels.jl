@@ -447,10 +447,12 @@ function validate(readback::AbstractDict, ::PSCADTransientFormulation, input::Ab
     project = readback["project"]
     Set(keys(project)) == Set(keys(input["project_settings"])) ||
         throw(ArgumentError("PSCAD transient project settings readback is incomplete"))
-    for field in ("time_duration", "time_step", "sample_step", "PlotType")
+    for field in ("time_duration", "time_step", "sample_step")
         parse(Float64, string(project[field])) == input["project_settings"][field] ||
             throw(ArgumentError("PSCAD transient project setting $field differs from the request"))
     end
+    project["PlotType"] == input["project_settings"]["PlotType"] ||
+        throw(ArgumentError("PSCAD transient project setting PlotType differs from the request"))
     project["output_filename"] == input["project_settings"]["output_filename"] ||
         throw(ArgumentError("PSCAD transient output filename differs from the request"))
     return readback
@@ -481,11 +483,14 @@ function _pscad_inputs(problem::TransientAnalysisProblem{<:LineParametersProblem
         path = export_data(:pscad, problem, formulation; file_name = joinpath(directory, "transient.pscx"))
         document = readxml(path)
         frequency = only(findall("//User[@defn='master:Line_FrePhase_Options' or @defn='master:Line_FreDep_Options']", document))
-        numeric_fields = ("FS", "FE", "Numf", "FT", "YMaxP", "AMaxP", "YMaxE", "AMaxE",
-            "ZMaxP", "ZMaxE", "MaxRPtol", "W1", "W2", "W3")
-        frequency_controls = Dict(node["name"] => Dict("value" => parse(Float64, node["value"]),
-            "readback" => parse(Float64, node["value"]))
-            for node in findall("./paramlist/param", frequency) if node["name"] in numeric_fields)
+        numeric_fields = Dict("FS" => Float64, "FE" => Float64, "Numf" => Int,
+            "FT" => Float64, "YMaxP" => Int, "AMaxP" => Int, "YMaxE" => Float64,
+            "AMaxE" => Float64, "ZMaxP" => Int, "ZMaxE" => Float64,
+            "MaxRPtol" => Float64, "W1" => Float64, "W2" => Float64, "W3" => Float64)
+        frequency_controls = Dict{String, Any}(
+            node["name"] => Dict("value" => numeric_fields[node["name"]](parse(Float64, node["value"])),
+                "readback" => numeric_fields[node["name"]](parse(Float64, node["value"])))
+            for node in findall("./paramlist/param", frequency) if haskey(numeric_fields, node["name"]))
         ground = only(findall("//User[@defn='master:Line_Ground']", document))
         ground_controls = Dict(node["name"] => Dict("value" => parse(Float64, node["value"]),
             "readback" => parse(Float64, node["value"]))
@@ -496,7 +501,8 @@ function _pscad_inputs(problem::TransientAnalysisProblem{<:LineParametersProblem
                 "readback" => Float64(formulation.frequency))))
         project_settings = Dict{String, Any}(node["name"] => parse(Float64, node["value"])
             for node in findall("/project/paramlist/param", document)
-            if node["name"] in ("time_duration", "time_step", "sample_step", "PlotType"))
+            if node["name"] in ("time_duration", "time_step", "sample_step"))
+        project_settings["PlotType"] = "OUT"
         project_settings["output_filename"] = formulation.output_stem * ".out"
         channels = [only(findall("./paramlist/param[@name='Name']", node))["value"]
             for node in findall("//User[@defn='master:pgb']", document)]
