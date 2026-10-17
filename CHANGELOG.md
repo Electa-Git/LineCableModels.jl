@@ -11,7 +11,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - The `:ulm` fit offers Add pole and Functional form DC correction with physical line targets, exact reference samples and retained convergence diagnostics.
 
-- The `:marti` fit reflects right-half-plane zeros and fits strictly proper lossy propagation over the full band with a `bode.threshold` magnitude floor.
+- The `:marti` fit refines products with positive real pole and zero magnitudes by least squares. Each fitted section is minimum phase by construction. Lossy propagation is strictly proper and uses the full band with a `bode.threshold` magnitude floor. Residues come directly from the factors, and delay refinement uses the final rational phase.
 
 - The `:marti` fit rotates each selected modal column before taking its real part and reports the residual imaginary norm.
 

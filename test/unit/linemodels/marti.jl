@@ -69,7 +69,6 @@ end
         compute(LineModelProblem(segment), LineModelFormulation(:marti;
             options=(bode=(tolerance_db=tolerance,),)))
     end
-    # Preserve the coefficients of structurally valid sections bit for bit.
     input = (segment=segment, coordinates=details(segment).data.phase_coordinates,
         frequencies=f, length=1000.0)
     reference = LM.LineModelWorkspace(input, (;),
@@ -77,36 +76,14 @@ end
     transformation = first(results).model.transformation
     LM.modal_samples!(LM.Formula(:marti), reference, transformation,
         inv(transpose(transformation)))
-    omega = reference.buffers.omega
     @test all(a -> abs(a) >= 1e-2, reference.buffers.propagation)
-    for (tolerance, result) in zip(tolerances, results)
-        formula = LM.Formula(:marti; options=(bode=(tolerance_db=tolerance,),))
-        for mode in 1:3
-            impedance = @view reference.buffers.impedance[mode, :]
-            propagation = @view reference.buffers.propagation[mode, :]
-            delay = LM.refine_delay(formula, omega, propagation,
-                reference.buffers.roots[mode, end], input.length)
-            impedance_section = LM.bode_fit(formula, omega, impedance, tolerance)
-            # The 1 dB mode-1 impedance had two RHP zeros and an unstable inverse.
-            if tolerance == 1.0 && mode == 1
-                impedance_section = LM.minimum_phase!(formula, impedance_section)
-            end
-            # The lossy propagation sections had a nonzero high-frequency term.
-            # Their replacement has one more real pole than real zero.
-            propagation_section = LM.minimum_phase!(formula,
-                LM.bode_fit(formula, omega, propagation .* cis.(omega .* delay),
-                    tolerance; delay, threshold=1e-2, proper=true))
-            # The corrected minimum-phase section determines the travel delay.
-            delay = LM.refine_delay(formula, omega, propagation,
-                reference.buffers.roots[mode, end], input.length; section=propagation_section)
-            propagation_section = merge(propagation_section, (; delay))
-            expected = (impedance_section, propagation_section)
-            for (actual, original) in zip(
-                    (result.model.impedance[mode], result.model.propagation[mode]), expected)
-                @test reinterpret(UInt64, [actual.constant; actual.poles; actual.residues; actual.delay]) ==
-                    reinterpret(UInt64, [original.constant; original.poles; original.residues; original.delay])
-            end
+    for result in results
+        for section in (result.model.impedance..., result.model.propagation...)
+            @test all(p -> isreal(p) && p < 0, section.poles)
+            @test all(isfinite, section.residues)
         end
+        @test all(section -> section.constant > 0, result.model.impedance)
+        @test all(section -> iszero(section.constant), result.model.propagation)
         @test details(result).data.marti.propagation_f_max == fill(last(f), 3)
     end
     admittance_rms = [maximum(fitting_error(result).admittance.rms) for result in results]
@@ -143,7 +120,7 @@ end
     @test diagnostic.offdiagonal_ratio ≈ expected_ratios rtol=1e-12
     @test diagnostic.offdiagonal_ratio ≈ [0.036, 4.6e-5] rtol=0.003
     @info "Marti test (c)" offdiagonal_ratio=diagnostic.offdiagonal_ratio phase_error_degrees=diagnostic.phase_error_degrees admittance=errors.admittance propagation=errors.propagation
-    @test result.model isa ModalModel
+    @test typeof(result.model) <: ModalModel
     @test size(result.model.transformation) == (3, 3)
     @test result.model.transformation_frequency == last(f)
     @test all(isfinite, diagnostic.offdiagonal_ratio)
@@ -195,26 +172,36 @@ end
             @test all(a -> abs(a) >= threshold, samples[1:last_sample])
             @test abs(samples[last_sample + 1]) < threshold
             @test diagnostic.propagation_f_max[mode] == f[last_sample]
-            omega = reference.buffers.omega[1:last_sample]
-            propagation = samples[1:last_sample]
-            delay = LM.refine_delay(formulation.formula, omega, propagation,
-                reference.buffers.roots[mode, last_sample], length_m)
-            # The truncated sections had non-decaying tails.
-            # The strictly proper fit uses all samples with a floor for the weights.
-            expected = LM.minimum_phase!(formulation.formula,
-                LM.bode_fit(formulation.formula, reference.buffers.omega,
-                    samples .* cis.(reference.buffers.omega .* delay), 0.5;
-                    delay, threshold, proper=true))
-            delay = LM.refine_delay(formulation.formula, omega, propagation,
-                reference.buffers.roots[mode, last_sample], length_m; section=expected)
-            expected = merge(expected, (; delay))
-            @test isequal(result.model.propagation[mode], expected)
-            impedance = LM.bode_fit(formulation.formula, reference.buffers.omega,
-                reference.buffers.impedance[mode, :], 0.5)
-            # Mode 2 had an RHP zero.
-            # Other impedance sections use their original coefficients.
-            mode == 2 && (impedance = LM.minimum_phase!(formulation.formula, impedance))
-            @test isequal(result.model.impedance[mode], impedance)
+            impedance = result.model.impedance[mode]
+            @test impedance.constant > 0
+            @test all(p -> isreal(p) && p < 0, impedance.poles)
+            @test all(isfinite, impedance.residues)
+            fitted_impedance = [abs(impedance.constant + sum(r / (im*w - p)
+                for (p, r) in zip(impedance.poles, impedance.residues)))
+                for w in reference.buffers.omega]
+            impedance_data = abs.(reference.buffers.impedance[mode, :])
+            impedance_error = (fitted_impedance .- impedance_data) ./ maximum(impedance_data)
+            @test sqrt(sum(abs2, impedance_error) / length(impedance_error)) <= 0.01
+            section = result.model.propagation[mode]
+            @test iszero(section.constant)
+            @test all(p -> isreal(p) && p < 0, section.poles)
+            @test all(isfinite, section.residues)
+            fitted = [abs(sum(r / (im * w - p)
+                for (p, r) in zip(section.poles, section.residues)))
+                for w in reference.buffers.omega]
+            # Full-band residuals retain the threshold floor, including underflow.
+            relative = (fitted .- abs.(samples)) ./ maximum(abs, samples)
+            @test all(isfinite, (fitted .- abs.(samples)) ./ max.(abs.(samples), threshold))
+            @test sqrt(sum(abs2, relative) / length(relative)) ≈
+                fitting_error(result).propagation.rms[mode, mode]
+            delay = LM.refine_delay(formulation.formula,
+                reference.buffers.omega[1:last_sample], samples[1:last_sample],
+                reference.buffers.roots[mode, last_sample], length_m; section)
+            @test section.delay == delay
+            tail = 10.0 .^ range(log10(reference.buffers.omega[last_sample]), log10(2π * 1e7); length=1001)
+            magnitude = [abs(sum(r / (im * w - p)
+                for (p, r) in zip(section.poles, section.residues))) for w in tail]
+            @test all(<=(0), diff(magnitude))
         end
         @info "Marti attenuated propagation bands" length_m threshold f_min=first(f) f_max=diagnostic.propagation_f_max underflows=count(iszero, reference.buffers.propagation)
     end
@@ -230,22 +217,44 @@ end
     import LineCableModels.LineModels as LM
 
     formula = LM.Formula(:marti)
-    # An independent one-pole fixture has a zero at +20 and a pole at -200.
-    section = (constant=1.0, poles=[-200.0], residues=[-220.0], delay=0.0)
-    corrected = LM.minimum_phase!(formula, section)
-    omega = 10.0 .^ range(-2, 8; length=301)
-    original = @. section.constant + only(section.residues) / (im * omega - only(section.poles))
-    fitted = @. corrected.constant + only(corrected.residues) / (im * omega - only(corrected.poles))
-    @test corrected.constant == section.constant
-    @test corrected.poles == section.poles
-    @test only(corrected.poles) - only(corrected.residues) / corrected.constant ≈ -20.0
-    @test abs.(fitted) ≈ abs.(original) rtol=1e-14
-    @test LM.minimum_phase!(formula, corrected) === corrected
+    # A 20-pole product is an independent fixture on a 102-sample grid.
+    omega = 10.0 .^ range(0, 6; length=102)
+    poles = 10.0 .^ range(-1, 7; length=20)
+    zeros = 0.7 .* poles
+    data = [30prod((1 + im*w/z) / (1 + im*w/p) for (p, z) in zip(poles, zeros))
+        for w in omega]
+    impedance = LM.bode_fit(formula, omega, data, 0.5)
+    fitted = [impedance.constant + sum(r / (im*w - p)
+        for (p, r) in zip(impedance.poles, impedance.residues)) for w in omega]
+    @test all(p -> isreal(p) && p < 0, impedance.poles)
+    @test all(isfinite, impedance.residues)
+    @test impedance.constant > 0
+    @test maximum(abs.(20log10.(abs.(fitted ./ data)))) <= 0.5
+
+    # Inspect the factor coordinates at conversion, independently evaluating their product.
+    input = (; omega, data, threshold=0.0)
+    plan = (; poles=1.1poles, zeros=0.9zeros, delay=0.0, proper=false)
+    buffers = LM.initialize_buffers(formula, Val(:factors), Float64, input, plan, (;))
+    section = LM.refine_poles!(formula, input, plan, buffers)
+    k = exp(first(buffers.theta))
+    fitted_zeros = exp.(buffers.theta[2:21])
+    fitted_poles = exp.(buffers.theta[22:end])
+    @test k > 0 && isfinite(k)
+    @test all(z -> isfinite(z) && z > 0, fitted_zeros)
+    @test all(p -> isfinite(p) && p > 0, fitted_poles)
+    @test length(fitted_zeros) == length(fitted_poles) == 20
+    @test section.constant == k
+    @test -section.poles ≈ fitted_poles rtol=1e-14
+    product = [k * prod(hypot(w, z) for z in fitted_zeros) /
+        prod(hypot(w, p) for p in fitted_poles) for w in omega]
+    partial_fractions = [section.constant + sum(r / (im*w - p)
+        for (p, r) in zip(section.poles, section.residues)) for w in omega]
+    @test abs.(partial_fractions) ≈ product rtol=1e-10
+    @test maximum(abs.(20log10.(product ./ abs.(data)))) <= 0.5
 
     # A physical first-order attenuation has a known real negative pole.
     data = @. inv(1 + im * omega / 1e3)
-    propagation = LM.minimum_phase!(formula,
-        LM.bode_fit(formula, omega, data, 0.5; threshold=1e-2, proper=true))
+    propagation = LM.bode_fit(formula, omega, data, 0.5; threshold=1e-2, proper=true)
     @test iszero(propagation.constant)
     @test all(<(0), propagation.poles)
     tail = 10.0 .^ range(5, 10; length=1001)
@@ -253,6 +262,15 @@ end
         for (p, r) in zip(propagation.poles, propagation.residues))) for w in tail]
     @test all(<(0), diff(magnitude))
     @test last(magnitude) < first(magnitude) / 1000
+    flat = LM.bode_fit(formula, omega, fill(0.9, length(omega)), 0.5;
+        threshold=1e-2, proper=true)
+    @test iszero(flat.constant)
+    @test length(flat.poles) >= 1
+    @test all(<(0), flat.poles)
+    flat_magnitude = [abs(sum(r / (im*w - p)
+        for (p, r) in zip(flat.poles, flat.residues))) for w in tail]
+    @test all(<(0), diff(flat_magnitude))
+    @test last(flat_magnitude) < first(flat_magnitude)
 end
 
 @testitem "LineModels / Marti transformation rotation" tags=[:unit, :engine] setup=[TestFixtures] begin

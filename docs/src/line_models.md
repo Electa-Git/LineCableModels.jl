@@ -194,47 +194,47 @@ values within 10% of that estimate minimizes the RMS phase difference between
 the delay-compensated propagation and the minimum phase implied by its magnitude.
 The initial search uses the Bode gain and phase relation, evaluated by a discrete
 Hilbert transform on the log-frequency grid with trapezoidal integration.
-After a structural correction, the search uses the phase of the final rational
-section so that its phase and travel delay describe the same propagation function.
+After fitting, the search uses the phase of the final rational section so that
+its phase and travel delay describe the same propagation function.
 
 Bode asymptotes approximate each modal impedance and propagation magnitude with
-slopes in multiples of 20 dB per decade. Corners supply starting real poles.
-For characteristic impedance, variable projection refines their logarithms by
-Levenberg–Marquardt least squares. Each trial identifies a real constant and real
-residues against the complex impedance, weighted by the inverse data magnitude.
-Every pole remains real and negative. Refinement stops below a relative
-improvement of ``10^{-8}`` or after 50 iterations.
-
-After fitting, right-half-plane zeros are reflected across the imaginary axis
-and the real residues are recomputed. This transformation preserves magnitude
-on the imaginary axis and makes the inverse impedance stable. Complex conjugate
-zeros in the left half plane retain their locations and the fitted magnitude.
-The impedance fit permits complex zeros. Its high-frequency limit
-is the fitted real constant.
-
-A lossy propagation section with a nonzero constant is replaced by a strictly
-proper real pole and zero product:
+slopes in multiples of 20 dB per decade. Their corners supply starting real
+poles and zeros. Each rational section uses J. Marti's product form:
 
 ```math
-A_i(s)=e^{-s\tau_i}g_i
-\frac{\prod_{j=1}^{n-1}(1+s/z_j)}{\prod_{j=1}^{n}(1+s/p_j)},
-\qquad 0<g_i\leq1,\quad 0<p_j\leq z_j.
+F(s)=k\frac{\prod_j(s+z_j)}{\prod_j(s+p_j)},
+\qquad k>0,\quad z_j>0,\quad p_j>0.
 ```
 
-The pole and zero magnitudes ``p_j`` and ``z_j`` have units of inverse seconds.
-The poles are ``-p_j`` and the zeros are ``-z_j``. Each paired factor decreases
-in magnitude with frequency, and the unmatched pole makes the limit zero.
-Least squares refines the logarithms of the pole magnitudes, zero magnitudes
-and gain against the full set of propagation magnitudes. Weights are
-``1/\max(|A_i|,\mathrm{threshold})``. Neighboring pole magnitudes have a ratio
-of at least 1.2 to keep simple poles separated in the partial fractions.
+The poles are ``-p_j`` and the zeros are ``-z_j``, in inverse seconds.
+The product is minimum phase by construction. The starting gain comes from the
+low-frequency asymptote.
+
+Characteristic impedance has equal numbers of poles and zeros. Its high-frequency
+limit is ``k``. Lossy propagation has one more pole than zero. Its high-frequency
+limit is zero. Asymptotes that end flat acquire a pole above the
+sampled band. The required counts determine any extra factors.
+Propagation retains ``p_j\leq z_j`` for each paired factor, so its magnitude is
+non-increasing with frequency. Its low-frequency gain is at most one.
+
+Levenberg–Marquardt least squares refines the logarithms of the gain, zero
+magnitudes and pole magnitudes. It uses magnitude residuals weighted by
+``1/|Z_{c,i}|`` for impedance and
+``1/\max(|A_i|,\mathrm{threshold})`` for propagation.
 Refinement stops below a relative improvement of ``10^{-12}``, a relative
-parameter step of ``10^{-10}``, or after 300 iterations. The final section has
-zero constant term. A lossless section retains its exact pure delay and
-constant propagation magnitude.
-Conversion to floating-point partial fractions can split repeated real zeros
-into complex conjugate zeros in the left half plane. Reflection preserves these
-zeros and the fitted magnitude.
+parameter step of ``10^{-10}``, or after 300 iterations. Neighboring pole
+magnitudes have a ratio of at least 1.2. The simple poles remain separate.
+
+Conversion to partial fractions uses 512-bit arithmetic, then rounds the residues
+to the input floating-point type:
+
+```math
+r_j=k\frac{\prod_i(z_i-p_j)}{\prod_{i\ne j}(p_i-p_j)}.
+```
+
+The conversion evaluates numerator and denominator products factor by factor.
+The constant term is ``k`` for impedance and zero for lossy propagation. A lossless section
+retains its exact pure delay and constant propagation magnitude.
 
 | Option | Default | Meaning |
 |---|---|---|
