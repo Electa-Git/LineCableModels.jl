@@ -23,10 +23,11 @@ import ...Commons: AbstractProblemDefinition, AbstractFormulation, AbstractCoreR
 import ...Commons
 import ...Units
 import ...TextDisplay
-import ..Engine: description, formula_id, frequencies, sigma, LineParametersFormulation, PhaseDomain
+import ..Engine: description, formula_id, frequencies, sigma, LineParametersFormulation,
+                LineParametersProblem, PhaseDomain, completed_inputs, completion_details
 import ..ModalAnalysis: PropagationParameters, Ti, transform
 using LinearAlgebra: norm, lu, mul!, ldiv!
-using Logging: with_logger, current_logger
+using Logging: with_logger, current_logger, @warn
 #! explicit-imports: on
 
 include("problems.jl")

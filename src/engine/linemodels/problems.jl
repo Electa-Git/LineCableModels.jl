@@ -5,12 +5,15 @@ Define fitting of one completed propagation segment on the real frequency axis.
 
 $(TYPEDFIELDS)
 """
-struct LineModelProblem{S <: PropagationParameters} <: AbstractProblemDefinition
+struct LineModelProblem{S <: PropagationParameters, L <: Union{Nothing, LineParametersProblem}} <: AbstractProblemDefinition
     "Source propagation segment."
     segment::S
+    "Physical line problem used to compute the segment, when supplied."
+    line::L
 
-    function LineModelProblem(segment::S) where {S <: PropagationParameters}
-        return validate(new{S}(segment))
+    function LineModelProblem(segment::S;
+            line::Union{Nothing, LineParametersProblem}=nothing) where {S <: PropagationParameters}
+        return validate(new{S, typeof(line)}(segment, line))
     end
 end
 
@@ -37,8 +40,35 @@ function validate(problem::LineModelProblem)
         throw(ArgumentError("line models are fitted on the real frequency axis"))
     line_length(segment) > 0 ||
         throw(DomainError(line_length(segment), "line models require positive line length"))
+    validate(problem.line, problem)
     return problem
 end
 
+validate(line::Nothing, ::LineModelProblem) = line
+
+function validate(line::LineParametersProblem, problem::LineModelProblem)
+    iszero(line.sigma) || throw(ArgumentError(
+        "the line problem must be on the real frequency axis"))
+    line.frequencies == frequencies(problem.segment) || throw(ArgumentError(
+        "the line problem frequencies must equal the segment frequencies"))
+    return line
+end
+
 Base.eltype(problem::LineModelProblem) = eltype(problem.segment.parameters)
-Base.eltype(::Type{LineModelProblem{PropagationParameters{P, L, D}}}) where {P, L, D} = eltype(fieldtype(P, :Z))
+Base.eltype(::Type{LineModelProblem{PropagationParameters{P, L, D}, I}}) where {P, L, D, I} = eltype(fieldtype(P, :Z))
+
+function validate(subject::NamedTuple, problem::LineModelProblem, expected::NamedTuple,
+        path::Tuple)
+    keys(subject) == keys(expected) || throw(ArgumentError(
+        "line consistency mismatch at $(join(path, '.'))"))
+    for name in keys(subject)
+        validate(subject[name], problem, expected[name], (path..., name))
+    end
+    return subject
+end
+
+function validate(subject, problem::LineModelProblem, expected, path::Tuple)
+    isequal(subject, expected) || throw(ArgumentError(
+        "line consistency mismatch at $(join(path, '.'))"))
+    return subject
+end

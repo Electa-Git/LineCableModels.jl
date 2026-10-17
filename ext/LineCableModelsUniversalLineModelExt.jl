@@ -8,7 +8,8 @@ module LineCableModelsUniversalLineModelExt
 import LineCableModels
 import UniversalLineModel
 using LineCableModels: PropagationParameters, PhaseDomain, frequencies, line_length,
-                       details, Yc, H, gamma, Ti, LineModel
+                       details, Yc, H, gamma, Ti, LineModel, LineParametersProblem,
+                       LineParametersFormulation
 import LineCableModels.Engine.LineModels: Formula, fit, WidebandModel
 import LineCableModels: compute
 import LineCableModels.Engine.TransientAnalysis
@@ -22,6 +23,7 @@ using UniversalLineModel: LineFrequencyData, ULMModel, fit_ulm, fit_fdcm,
 using Logging: @warn, @info
 
 include("LineCableModelsUniversalLineModelExt/adapter.jl")
+include("LineCableModelsUniversalLineModelExt/laplace.jl")
 include("LineCableModelsUniversalLineModelExt/result.jl")
 include("LineCableModelsUniversalLineModelExt/passivity.jl")
 include("LineCableModelsUniversalLineModelExt/fit.jl")

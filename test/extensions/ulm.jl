@@ -23,6 +23,13 @@
             options=(timing=true, verbosity=(default=1,)))
     end
     errors = fitting_error(model)
+    reference = WidebandModel(fit_ulm(data; geom=nothing, yc=(npoles=8,),
+        h=(npoles=8,), passivity=(;)))
+    @test isequal(model.model.admittance, reference.admittance)
+    @test isequal(model.model.propagation, reference.propagation)
+    @test !details(model).data.step_check
+    @test isnan(details(model).data.step_err)
+    @test isnan(details(model).data.step_err_late)
     @test maximum(errors.admittance.rms) < 1e-2
     @test maximum(errors.propagation.rms) < 1e-2
     @test all(0 .< delays(model) .< 1.5 * line_length(segment) / 299792458.0)
@@ -53,6 +60,183 @@
     @test passivity(fdcm).checked
     @test passivity(fdcm).perturbation === nothing
     @test all(isfinite, fitting_error(fdcm).propagation.rms)
+    @test !details(fdcm).data.step_check
+    @test isnan(details(fdcm).data.step_err)
+    @test isnan(details(fdcm).data.step_err_late)
+    unused_line = LineParametersProblem(problem.system, problem.temperature + 10,
+        problem.earth_props, f)
+    unused_problem = LineModelProblem(segment; line=unused_line)
+    unused_fdcm = @test_logs (:warn, ":fdcm ignores the supplied line problem") compute(
+        unused_problem, LineModelFormulation(:fdcm;
+            options=(yc=(npoles=8,), h=(npoles=8,), passivity=false)))
+    @test isequal(unused_fdcm.model.admittance, fdcm.model.admittance)
+    @test isequal(unused_fdcm.model.propagation, fdcm.model.propagation)
+    @test isequal((details(unused_fdcm).data.step_check,
+        details(unused_fdcm).data.step_err, details(unused_fdcm).data.step_err_late),
+        (false, NaN, NaN))
+    unused_marti = @test_logs (:warn, ":marti ignores the supplied line problem") compute(
+        unused_problem, LineModelFormulation(:marti))
+    @test typeof(unused_marti.model) <: ModalModel
+end
+
+@testitem "UniversalLineModel / time rows and exact step check" tags=[:extension, :ulm] setup=[TestFixtures] begin
+    using UniversalLineModel
+    import LineCableModels: validate
+
+    extension = Base.get_extension(LineCableModels, :LineCableModelsUniversalLineModelExt)
+    f = 10.0 .^ range(0, 6; length=31)
+    line = TestFixtures.three_bare_wires_problem(; frequencies=f, line_length=1000.0)
+    line_formulation = Formulation(earth_impedance=:unified, earth_admittance=:unified)
+    phase = compute(line, line_formulation)
+    modal = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+    segment = PropagationParameters(modal; line_length=1000.0)
+    problem = LineModelProblem(segment; line)
+    formulation = LineModelFormulation(:ulm;
+        options=(yc=(npoles=8,), h=(td=true, td_N=1024),
+            line=line_formulation, passivity=false))
+    @test validate(problem, formulation.formula) === problem
+    @info "ULM time-row fit scans"
+    model = compute(problem, formulation; options=(verbosity=(default=1,),))
+    diagnostics = details(model).data
+    @test diagnostics.step_check
+    @test isfinite(diagnostics.step_err)
+    @test isfinite(diagnostics.step_err_late)
+    @info "ULM time rows" step_err=diagnostics.step_err step_err_late=diagnostics.step_err_late
+
+    geom = extension.LineCableModelsLine(line, line_formulation)
+    fitted = ULMModel(model)
+    t = collect(range(0.98minimum(fitted.tau),
+        maximum(fitted.tau) + 0.3minimum(fitted.tau); length=5))
+    exact = h_step_response_exact(geom, line_length(segment), t; N=1024)
+    @info "ULM five-time fitted error" relative_error=maximum(abs, h_step_response(fitted, t) - exact)/maximum(abs, exact)
+    @test UniversalLineModel.nphases(geom) == 3
+    T = 1.25maximum(t)
+    c = log(1024^2) / T
+    points = [complex(c, (2k - 1) * (π / T)) for k in 1:1024]
+    @test Set(keys(geom.scans)) == Set(points)
+    @test h_step_response_exact(geom, line_length(segment), t; N=1024) == exact
+    @test length(geom.scans) == 1024
+    slow_point = complex(1.0, 2π * 100.0)
+    Z, Y = UniversalLineModel.zy(geom, slow_point)
+    direct = compute(LineParametersProblem(line.system, line.temperature, line.earth_props,
+        [imag(slow_point) / (2π)], real(slow_point)), line_formulation)
+    @test Z == direct.Z.values[:, :, 1]
+    @test Y == direct.Y.values[:, :, 1]
+    @test UniversalLineModel.zy(geom, slow_point) === geom.scans[slow_point]
+    k = 16
+    Zreal, Yreal = UniversalLineModel.zy(geom, 2π * im * f[k])
+    phase_segment = transform(PhaseDomain, segment.parameters)
+    @test size(Zreal) == size(Yreal) == size(phase_segment.Z.values)[1:2]
+    @test Zreal ≈ phase_segment.Z.values[:, :, k] rtol=1e-12
+    @test Yreal ≈ phase_segment.Y.values[:, :, k] rtol=1e-12
+
+    @info "ULM default step-check scans"
+    default_model = compute(problem, LineModelFormulation(:ulm;
+        options=(yc=(npoles=8,), line=line_formulation, passivity=false));
+        options=(verbosity=(default=1,),))
+    @test details(default_model).data.step_check
+    @test isfinite(details(default_model).data.step_err)
+    @test isfinite(details(default_model).data.step_err_late)
+    @info "ULM default step check" step_err=details(default_model).data.step_err step_err_late=details(default_model).data.step_err_late
+    disabled = compute(problem, LineModelFormulation(:ulm;
+        options=(yc=(npoles=8,), h=(step_check=false,), line=line_formulation,
+            passivity=false)))
+    @test !details(disabled).data.step_check
+    @test isnan(details(disabled).data.step_err)
+    @test isnan(details(disabled).data.step_err_late)
+
+    # Both inversions use the same odd harmonics, abscissa and Hanning window.
+    # At N=4096, N*eps(Float64)*exp(c*tmax) is below 6e-7.
+    # A tolerance of 1e-5 relative to the peak allows for solves and summation order.
+    inversion_tolerance = 1e-5
+    late_end = 10 / (2π * 1e-3)
+    windows = ((label=:arrival, start=first(t), stop=last(t), intervals=2048),
+        (label=:late_1, start=20maximum(fitted.tau), stop=1e-3, intervals=64),
+        (label=:late_2, start=1e-3, stop=0.1, intervals=64),
+        (label=:late_3, start=0.1, stop=10.0, intervals=64),
+        (label=:late_4, start=10.0, stop=late_end, intervals=64))
+    references = map(windows) do window
+        transient = TransientAnalysisProblem(line;
+            sending=(Step("cable:1:core", 1.0), TerminalImpedance("cable:2:core"),
+                TerminalImpedance("cable:3:core")), receiving=Matched(),
+            window=(tmax=window.stop, step=window.stop / window.intervals))
+        response = compute(transient, TransientFormulation(:nlt;
+            options=(line=line_formulation, N=4096, Tfactor=1.25)))
+        hook = h_step_response_exact(geom, line_length(segment), response.t; N=4096)
+        received = permutedims(response.voltage[2, :, :])
+        indices = findall(>=(window.start), response.t)
+        peak = maximum(abs, received[indices, :])
+        column_error = maximum(abs, hook[indices, :, 1] - received[indices, :]) / peak
+        # NLT receiving voltages select row 1 of ULM's current-wave response.
+        relative_error = maximum(abs, hook[indices, 1, :] - received[indices, :]) / peak
+        @info "ULM independent NLT reference" window=window.label N=4096 T=1.25window.stop relative_error column_error inversion_tolerance
+        @test isfinite(relative_error)
+        @test isfinite(column_error)
+        if window.label !== :arrival
+            @test relative_error <= inversion_tolerance
+        end
+        return (t=response.t, exact=hook, received=received, relative_error=relative_error)
+    end
+
+    convergence = map(Iterators.product((1024, 2048, 4096), (1.25, 2.0))) do (N, Tfactor)
+        values = h_step_response_exact(geom, line_length(segment), t; N, Tfactor)
+        return (N=N, Tfactor=Tfactor, values=values)
+    end
+    convergence_peak = maximum(entry -> maximum(abs, entry.values), convergence)
+    refined_values = last(convergence).values
+    for entry in convergence
+        relative_error = maximum(abs, entry.values - refined_values) / convergence_peak
+        @info "ULM exact five-time convergence" N=entry.N Tfactor=entry.Tfactor T=entry.Tfactor*maximum(t) relative_error times=t column_1=entry.values[:, :, 1]
+    end
+    envelope_max = reduce((left, right) -> max.(left, right),
+        map(entry -> entry.values, convergence))
+    envelope_min = reduce((left, right) -> min.(left, right),
+        map(entry -> entry.values, convergence))
+    spread_per_time = [maximum(envelope_max[it, :, :] - envelope_min[it, :, :]) /
+        convergence_peak for it in eachindex(t)]
+    @info "ULM exact five-time spread" relative_spread=maximum(spread_per_time) spread_per_time
+
+    arrival = first(references)
+    default_fitted = ULMModel(default_model)
+    # This line has no DC shunt conductance, so its exact final H is the identity.
+    for (label, values, final_values) in (
+            (:exact, arrival.exact[:, :, 1], [1.0, 0.0, 0.0]),
+            (:td, h_step_response(fitted, arrival.t)[:, :, 1],
+                real.(eval_h(fitted, 0im)[:, 1])),
+            (:default, h_step_response(default_fitted, arrival.t)[:, :, 1],
+                real.(eval_h(default_fitted, 0im)[:, 1])))
+        for conductor in 1:3
+            signal = abs.(values[:, conductor])
+            onset = findfirst(>(1e-3), signal)
+            half = iszero(final_values[conductor]) ? nothing :
+                findfirst(>(0.5abs(final_values[conductor])), signal)
+            onset_time = isnothing(onset) ? missing : arrival.t[onset]
+            half_time = isnothing(half) ? missing : arrival.t[half]
+            @info "ULM front timing" label conductor onset_time half_time final_value=final_values[conductor]
+        end
+    end
+    @info "ULM front scan" td_delays=Tuple(fitted.tau) default_delays=Tuple(default_fitted.tau) time_step=arrival.t[2] td_highest_frequency=(2*1024-1)/(2*1.25maximum(t)) default_highest_frequency=(2*4096-1)/(2*1.25maximum(t)) fitted_band=(first(f),last(f)) sample_count=length(f)
+
+    native = fit_ulm(hvdc_cable(), line_length(segment); f)
+    @info "ULM native cable baseline" step_err=native.info[:step_err] step_err_late=native.info[:step_err_late]
+    @test isfinite(native.info[:step_err])
+    @test isfinite(native.info[:step_err_late])
+
+    other_line = LineParametersProblem(line.system, line.temperature + 10,
+        line.earth_props, f)
+    @test_throws ArgumentError("line consistency mismatch at inputs.temperature") compute(
+        LineModelProblem(segment; line=other_line), formulation)
+    other_formulation = LineModelFormulation(:ulm;
+        options=(line=Formulation(earth_impedance=:carson1926),))
+    @test_throws ArgumentError("line consistency mismatch at formulations.formulas.earth_impedance.identifier") compute(
+        problem, other_formulation)
+    @test_throws ArgumentError("td=true requires LineModelProblem(segment; line=...)") compute(
+        LineModelProblem(segment), formulation)
+    unrecorded = PropagationParameters(segment.parameters, segment.line_length,
+        ComputationDetails(Base.structdiff(details(segment).data,
+            NamedTuple{(:inputs, :formulations)})))
+    @test_logs (:warn, "line consistency cannot be checked: the segment has no input or formulation record") validate(
+        LineModelProblem(unrecorded; line), formulation.formula)
 end
 
 @testitem "UniversalLineModel / fitting selection sweep" tags=[:extension, :ulm] setup=[TestFixtures] begin

@@ -1,5 +1,3 @@
-import ..Engine: completion_details
-
 function computation_options(::Type{<:LineModelFormulation}, record::ComputationOptions)::ComputationOptions
     options = record.data
     isempty(setdiff(keys(options), (:verbosity, :timing))) ||
@@ -19,8 +17,10 @@ function compute(problem::LineModelProblem, formulation::LineModelFormulation;
         options::Union{NamedTuple, ComputationOptions}=ComputationOptions())
     execution = computation_options(LineModelFormulation, ComputationOptions(options))
     selected = formulation.formula
+    validate(problem, selected)
     segment = problem.segment
-    input = (segment=segment, coordinates=copy(details(segment).data.phase_coordinates),
+    input = (segment=segment, line=problem.line,
+        coordinates=copy(details(segment).data.phase_coordinates),
         length=convert(eltype(frequencies(segment)), line_length(segment)), frequencies=copy(frequencies(segment)))
     plan = (;)
     buffers = initialize_buffers(selected, eltype(problem), input, plan, (;))
@@ -50,3 +50,18 @@ end
 
 fit(::Formula{:ulm}, args...) = throw(ArgumentError("load UniversalLineModel to fit :ulm"))
 fit(::Formula{:fdcm}, args...) = throw(ArgumentError("load UniversalLineModel to fit :fdcm"))
+
+function validate(problem::LineModelProblem, selected::AbstractFormulation)
+    validate(problem)
+    validate(problem.line, problem, selected)
+    return problem
+end
+
+validate(line::Nothing, ::LineModelProblem, ::AbstractFormulation) = line
+
+function validate(line::LineParametersProblem, problem::LineModelProblem,
+        selected::AbstractFormulation)
+    validate(line, problem)
+    @warn ":$(formula_id(selected)) ignores the supplied line problem"
+    return line
+end

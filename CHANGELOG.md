@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The `:ulm` fit accepts a physical line problem and line-parameter formulation for time-domain rows and the default step-response check, with retained error diagnostics.
+
 - With `:td`, `Matched()` terminates a whole end with the fitted characteristic admittance of the line model.
 
 - PSCAD station execution supports desktop launch and attachment, bounded responsiveness checks, shared process cleanup, and load geometry checks with sheet size 5.

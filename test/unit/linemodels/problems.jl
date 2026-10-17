@@ -37,6 +37,32 @@
     @test_throws ArgumentError("line models are fitted on the real frequency axis") LineModelProblem(shifted)
 end
 
+@testitem "LineModels / source line problem validation" tags=[:unit, :engine] setup=[TestFixtures] begin
+    import LineCableModels: validate
+
+    line = TestFixtures.three_bare_wires_problem(; frequencies=[1.0, 10.0, 100.0],
+        line_length=1000.0)
+    phase = compute(line, Formulation())
+    modal = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation())
+    segment = PropagationParameters(modal; line_length=1000.0)
+    problem = @inferred LineModelProblem(segment; line)
+    @test problem.line === line
+    @test isconcretetype(fieldtype(typeof(problem), :line))
+    @test validate(problem) === problem
+    @test LineModelProblem(segment).line === nothing
+    @test eltype(typeof(problem)) === eltype(problem)
+    shifted = LineParametersProblem(line.system, line.temperature, line.earth_props,
+        line.frequencies, 1.0)
+    @test_throws ArgumentError("the line problem must be on the real frequency axis") LineModelProblem(segment; line=shifted)
+    other = LineParametersProblem(line.system, line.temperature, line.earth_props,
+        [1.0, 10.0, 101.0])
+    @test_throws ArgumentError("the line problem frequencies must equal the segment frequencies") LineModelProblem(segment; line=other)
+    for identifier in (:fdcm, :marti)
+        @test_throws ArgumentError LineModelFormulation(identifier; options=(line=Formulation(),))
+    end
+    @test_throws TypeError LineModelFormulation(:ulm; options=(line=:default,))
+end
+
 @testitem "LineModels / completed segment transport and fitting fallbacks" tags=[:unit, :parametric] setup=[TestFixtures] begin
     import LineCableModels.LineModels as LM
 

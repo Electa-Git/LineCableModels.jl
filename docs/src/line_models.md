@@ -51,10 +51,67 @@ that receives them.
 | `h` | `(;)` | `h` in `fit_ulm`, then keyword arguments of `fit_h` for propagation. For `:fdcm`, its entries pass as keyword arguments directly to `fit_fdcm`. |
 | `passivity` | `(;)` | Passed to `fit_ulm` for `:ulm`. For `:fdcm`, a separate call to `enforce_passivity` follows the fit unless this is `false`. With `true` or `(;)`, enforcement uses its default controls. A named tuple supplies enforcement keywords. |
 | `dc` | `(;)` | A non-empty value throws before either fit. No direct-current targets pass to UniversalLineModel. |
+| `line` (`:ulm` only) | `Formulation()` | Line-parameter formulation for exact Laplace samples when `LineModelProblem(segment; line=...)` supplies the physical problem. |
 
 The extension calls both fits with `geom=nothing` and a `LineFrequencyData`
 adapter of the segment. It measures passivity after either fit, including when
 `passivity=false` disables enforcement.
+
+## Time-domain rows and the step check
+
+For `:ulm`, supply the physical line problem and select its line-parameter
+formulation to evaluate the exact propagation step response on the Laplace plane:
+
+```julia
+problem = LineModelProblem(segment; line=line_problem)
+formulation = LineModelFormulation(:ulm; options=(h=(td=true,),
+    line=Formulation(earth_impedance=:unified, earth_admittance=:unified)))
+model = compute(problem, formulation)
+```
+
+The line problem must have zero Laplace abscissa and the segment's frequencies.
+The extension compares the supplied physical inputs and resolved formula
+selections with the segment's recorded computation before fitting.
+On a mismatch, the error specifies the first differing field.
+Without these records, validation warns that it cannot check consistency.
+
+The `h` controls pass unchanged to UniversalLineModel:
+
+| Control | Default | Meaning |
+|---|---|---|
+| `td` | `false` | Add exact step-response samples to the residue fit alongside frequency samples. Poles and delays keep their frequency-domain values. Needs `LineModelProblem(segment; line=...)`. |
+| `td_N` | `4096` | Laplace terms for the arrival window. Late-time scans use `max(1024, td_N ÷ 4)`. |
+| `step_check` | `true` | Compare fitted and exact step responses whenever the physical line is supplied, including when `td=false`. |
+| `step_tol` | `0.1` | Relative error threshold for ULM's step-check warning. |
+
+ULM samples an arrival window around the fitted delays and, by default, late
+times from twenty times the largest delay to `10/(2π * 1e-3)` seconds. Time rows
+have relative weight `td_weight=0.03`. The default `td_window=true` includes
+arrival rows, and `td_late=true` includes late rows. Set `step_check=false` to
+disable the check. Exact samples still supply the time rows when `td=true`.
+
+The step check and `td` rows use Laplace grids with highest frequency
+`(2N−1)/(2T)`. Arrival grids extend far above the fitted band and can exceed the
+line model's validity range, triggering the quasi-TEM warning above 100 MHz.
+In that case the arrival-window error compares the fit with line parameters
+evaluated outside their validity range. ULM's `td_window=false` keeps only
+late-time rows when `td=true` and `td_late=true`.
+
+For a fit with time rows or the step check, the extension computes one Laplace
+scan for the arrival window. ULM requests another scan for each two decades of
+late times. Each scan computes all its line-parameter samples in one `compute`
+call. The adapter keeps samples during that fit. ULM performs its own eigenvalue
+calculation, windowing and inversion. Every fit repeats these scans across
+formulation combinations.
+
+The result's `details(model).data.step_check` records whether the check ran.
+When it ran, `step_err` and `step_err_late` record the largest element errors in
+the arrival and late-time windows, relative to the largest exact sampled value.
+Both errors are `NaN` when the check did not run, for both wideband fit methods.
+Without a physical line, the fit uses its frequency samples and `td=true` throws.
+The `:fdcm` and `:marti` options reject `line`.
+If a problem supplies `line` for either fit, validation warns and fitting uses
+the segment.
 
 ## J. Marti modal fit
 
