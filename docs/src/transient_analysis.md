@@ -224,7 +224,7 @@ Numeric `Grid` values in terminal assignments lift the transient problem into
 a `Gridspace`. The existing traversal computes one response per point:
 
 ```julia
-receiving = (TerminalImpedance("cable:2:core"; R=Grid([1.0, 10.0])),
+receiving = (TerminalImpedance("cable:2:core"; R=Grid((1.0, 10.0))),
     TerminalImpedance("cable:3:core"; R=1.0))
 problems = TransientAnalysisProblem(line_problem; sending, receiving,
     window=problem.window)

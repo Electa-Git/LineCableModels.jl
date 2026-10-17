@@ -65,7 +65,7 @@ end
     segment = PropagationParameters(modal; line_length=1000.0)
     segments = ParametricResult(Combinatorial(ModalAnalysisFormulation()), [segment])
     problems = Gridspace{LineModelProblem}(segments)
-    formulations = LineModelFormulation(Grid([:ulm, :fdcm]);
+    formulations = LineModelFormulation(Grid((:ulm, :fdcm));
         options=(yc=(npoles=8,), h=(npoles=8,), passivity=false))
     started = time_ns()
     run = try

@@ -103,6 +103,18 @@ function LineModelFormulation(selection=:default; options::NamedTuple=(;), combi
 end
 
 formula_id(::Type{<:LineModelFormulation}) = :linemodel
+
+# The constructor does not lift a Grid inside the options, so the formula would receive it as a
+# value. These checks refuse it before a fit fails on it.
+function validate(section::NamedTuple, context::Type{<:Formula})
+    foreach(value -> validate(value, context), section)
+    return section
+end
+function validate(value::Union{AbstractGrid, Gridspace}, ::Type{<:Formula})
+    throw(ArgumentError("Grids inside line-model options do not lift (got $(length(value)) " *
+        "alternatives); build one formulation for each set of options"))
+end
+validate(value, ::Type{<:Formula}) = value
 formula_id(::LineModelFormulation) = :linemodel
 description(::Type{<:LineModelFormulation}; compact::Bool=false) = "line-model"
 description(::LineModelFormulation; compact::Bool=false) = "line-model"

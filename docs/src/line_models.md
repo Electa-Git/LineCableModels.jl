@@ -172,7 +172,7 @@ and `:fdcm` with eight poles for each rational approximation and passivity
 enforcement disabled:
 
 ```julia
-formulations = LineModelFormulation(Grid([:ulm, :fdcm]);
+formulations = LineModelFormulation(Grid((:ulm, :fdcm));
     options=(yc=(npoles=8,), h=(npoles=8,), passivity=false))
 
 # segments is a completed ParametricResult of PropagationParameters.

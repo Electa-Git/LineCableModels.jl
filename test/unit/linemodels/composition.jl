@@ -30,7 +30,7 @@
     segments = ParametricResult(Combinatorial(ModalAnalysisFormulation()),
         collect(PropagationParameters(modal; line_length=Grid((500.0, 1000.0)))))
     problems = Gridspace{LineModelProblem}(segments)
-    formulations = LineModelFormulation(Grid([:ulm, :fdcm]);
+    formulations = LineModelFormulation(Grid((:ulm, :fdcm));
         options=(yc=(npoles=8,), h=(npoles=8,), passivity=false))
     @test length(problems) == length(segments) == 2
     @test [point.segment for point in problems] == collect(segments)

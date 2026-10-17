@@ -15,7 +15,7 @@ export poles, residues, delays, fitting_error, passivity, Formula, formula_id, f
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...LineCableModels: Expression, FormulaDefinition, formula, parameterize, validate,
-                          line_length, Grid, Gridspace, verbosity, VerbosityLogger
+                          line_length, Grid, Gridspace, AbstractGrid, verbosity, VerbosityLogger
 import ...Commons: AbstractProblemDefinition, AbstractFormulation, AbstractCoreResult,
                   FormulationOptions, ComputationOptions, ComputationDetails,
                   compute, computation_options, computation_details, formulation_options,

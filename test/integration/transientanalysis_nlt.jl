@@ -33,7 +33,7 @@ end
     sending = (Step("cable:1:core", 1.0),
         TerminalImpedance("cable:2:core"; R=1.0),
         TerminalImpedance("cable:3:core"; R=1.0))
-    receiving = (TerminalImpedance("cable:2:core"; R=Grid([1.0, 10.0])),
+    receiving = (TerminalImpedance("cable:2:core"; R=Grid((1.0, 10.0))),
         TerminalImpedance("cable:3:core"; R=1.0))
     problems = TransientAnalysisProblem(line; sending, receiving,
         window=(tmax=2e-4, step=1e-6))

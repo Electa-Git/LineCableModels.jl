@@ -19,6 +19,8 @@
         @test formulation_options(selected.formula).data === controls
         @test isempty(formulation_options(LineModelFormulation(identifier).formula).data)
         @test_throws ArgumentError LineModelFormulation(identifier; options=(unknown=(;),))
+        @test_throws ArgumentError("Grids inside line-model options do not lift (got 2 alternatives); build one formulation for each set of options") LineModelFormulation(identifier; options=(yc=(npoles=Grid((6, 10)),),))
+        @test LineModelFormulation(identifier; options=(yc=(npoles=8,), passivity=false)) isa LineModelFormulation
         @test_throws ArgumentError LM.Formula(identifier; parameters=(unknown=1,))
     end
     marti = formulation_options(LineModelFormulation(:marti).formula).data
