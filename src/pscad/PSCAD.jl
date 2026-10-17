@@ -13,7 +13,9 @@ import Logging
 using LineCableModels
 using LineCableModels.DataModel: LineCableSystem
 using LineCableModels.Earth: EarthModel
-using LineCableModels.Commons: vacuum_permittivity
+using LineCableModels.Commons: vacuum_permittivity, vacuum_permeability
+using LineCableModels.Engine.TransientAnalysis: TransientAnalysisProblem,
+    TerminalImpedance, Step, Cosine, DoubleExponential, Matched
 using LineCableModels.Engine
 using LineCableModels.ImportExport
 import LineCableModels: description, parameterize, computation_details, validate,
@@ -37,13 +39,14 @@ import EzXML
 using EzXML: ElementNode, XMLDocument, addelement!, nodename,
              readxml, root, setroot!
 
-export PSCADFormulation, RemoteConfig,
+export PSCADFormulation, PSCADTransientFormulation, RemoteConfig,
        read_pscad_result, remote_command, run_remote_pscad, identify
 public pscad_setting
 
 include("formulations.jl")
 include("importexport/pscad.jl")
 include("importexport/canvas.jl")
+include("importexport/transient.jl")
 include("results.jl")
 include("validate.jl")
 include("remote/configuration.jl")

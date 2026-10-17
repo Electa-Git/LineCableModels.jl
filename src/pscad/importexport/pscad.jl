@@ -5,6 +5,63 @@ include("import.jl")
 """
 $(TYPEDSIGNATURES)
 
+Export a cable transient problem as a PSCAD project with sources, terminations
+and voltage and current channels. Unlisted terminals remain open. A `Matched()`
+end connects to an open extension of length `1.1 * c * tmax / 2` \\[m\\].
+Here `c` is the speed of light \\[m/s\\], and `tmax` is the duration \\[s\\].
+
+# Arguments
+
+- `problem`: Transient analysis of an uncomputed line-parameter problem.
+- `formulation`: Settings for PSCAD transient export.
+
+# Keywords
+
+- `file_name`: Destination `.pscx` file. Its basename receives the system identifier.
+
+# Returns
+
+- Written project path.
+
+# Notes
+
+The window sets the duration and integration step \\[s\\]. Voltage and current
+channels use terminal labels with units \\[V\\] and \\[A\\], respectively.
+
+# Errors
+
+Throw `ArgumentError` for unsupported geometry, earth, abscissa or settings.
+"""
+function export_data(::Val{:pscad},
+        problem::TransientAnalysisProblem{<:LineParametersProblem},
+        formulation::PSCADTransientFormulation; file_name)
+    validate(formulation)
+    validate(problem, formulation)
+    line = problem.line
+    system = line.system
+    blueprints = _pscad_blueprints(system)
+    settings = (duration = problem.window.tmax, step = problem.window.step,
+        sample = something(formulation.sample, problem.window.step),
+        output_stem = formulation.output_stem)
+    document = _pscad_project(system, line.earth_props, formulation.frequency, blueprints,
+        Engine.Formulation(), line.temperature; settings,
+        model = formulation.model, fit = formulation.fit)
+    for parameter in findall("//User[@defn='master:Cable_Coax']/paramlist/param[starts-with(@name,'elim')]", document)
+        parameter["value"] = "0"
+    end
+    schematic = only(findall("/project/definitions/Definition[@name='Main']/schematic", document))
+    canvas = PSCADCanvas(schematic)
+    canvas.next_cell = 6 # Reserve the first row for the cable wrapper.
+    _pscad_transient_end!(canvas, problem.sending, problem, "sending", formulation)
+    _pscad_transient_end!(canvas, problem.receiving, problem, "receiving", formulation)
+    path = _pscad_output_path(system, file_name)
+    write(path, document)
+    return path
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Export a [`LineCableSystem`](@ref) as a minimal PSCAD project.
 
 The generated project preserves PSCAD's `master:Line_FrePhase_Options`,

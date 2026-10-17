@@ -13,6 +13,71 @@ struct PSCADFormulation{M <: NamedTuple, O <: FormulationOptions, D <: NamedTupl
     definitions::D
 end
 
+"""
+$(TYPEDEF)
+
+Store settings for a PSCAD transient project.
+Duration and integration step come from the transient problem's window.
+
+$(TYPEDFIELDS)
+"""
+struct PSCADTransientFormulation{F <: NamedTuple, S, H <: Real} <: AbstractFormulation
+    "Frequency-dependent cable model: `:fd_phase` or `:fd_mode`."
+    model::Symbol
+    "Native fitting overrides. Omitted fields keep component defaults."
+    fit::F
+    "Steady-state frequency of PSCAD's cable (`Freq`) \\[Hz\\]."
+    frequency::H
+    "Sample interval \\[s\\], or `nothing` to use the window step."
+    sample::S
+    "Stem of the output filename, without its extension."
+    output_stem::String
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct settings for PSCAD transient export.
+
+# Keywords
+
+- `model=:fd_phase`: Frequency-dependent phase or mode model (`:fd_mode`).
+- `fit=(;)`: Native fitting fields. Omitted fields use component defaults.
+- `frequency=50.0`: Steady-state frequency of PSCAD's cable (`Freq`) \\[Hz\\].
+- `sample=nothing`: Sample interval \\[s\\]. `nothing` uses the window step.
+- `output_stem="transient"`: Output filename stem.
+
+# Returns
+
+- Validated `PSCADTransientFormulation`.
+
+# Errors
+
+Throw `ArgumentError` for invalid settings.
+"""
+function PSCADTransientFormulation(; model::Symbol = :fd_phase,
+        fit::NamedTuple = (;), frequency::Real = 50.0, sample::Union{Nothing, Real} = nothing,
+        output_stem::AbstractString = "transient")
+    return validate(PSCADTransientFormulation(model, fit, frequency, sample, String(output_stem)))
+end
+
+function validate(formulation::PSCADTransientFormulation)
+    formulation.model in (:fd_phase, :fd_mode) ||
+        throw(ArgumentError("PSCAD transient model must be :fd_phase or :fd_mode"))
+    isfinite(formulation.frequency) && formulation.frequency > 0 ||
+        throw(ArgumentError("PSCAD cable steady-state frequency must be finite and positive"))
+    formulation.sample === nothing ||
+        (isfinite(formulation.sample) && formulation.sample > 0) ||
+        throw(ArgumentError("PSCAD sample interval must be finite and positive"))
+    occursin(r"^[A-Za-z0-9_][A-Za-z0-9_-]*$", formulation.output_stem) ||
+        throw(ArgumentError("PSCAD output stem must be a filename without an extension"))
+    for (field, value) in pairs(formulation.fit)
+        value >= 0 && isfinite(value) ||
+            throw(ArgumentError("PSCAD fitting field $field must be finite and nonnegative"))
+    end
+    return formulation
+end
+
 """Identify PSCAD without server access or native setting compilation."""
 description(::Type{<:PSCADFormulation}; compact::Bool=false) = "PSCAD"
 description(::PSCADFormulation; compact::Bool=false) = description(PSCADFormulation;compact)

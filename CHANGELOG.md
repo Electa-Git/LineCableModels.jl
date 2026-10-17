@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- PSCAD exports a transient analysis problem through `PSCADTransientFormulation`, with exposed cable terminals, sources, terminations, voltage and current channels, and a matched end as an extension of the same cable.
+
 - PSCAD project documents support transient settings, fitting overrides, FD-Mode options and canvas primitives on the 18-pixel grid.
 
 - Line models sweep over Gridspaces of segments and formula selections with one result type per sweep. The user guide has a page on fitted line models.
