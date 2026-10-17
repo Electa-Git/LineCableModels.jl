@@ -1,5 +1,5 @@
 function computation_options(
-        ::Type{PSCADFormulation},
+        ::Union{Type{PSCADFormulation}, Type{PSCADTransientFormulation}},
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
@@ -160,7 +160,6 @@ _pscad_digest(record::AbstractDict) =
 
 function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormulation,
         execution_options, inputs)
-    config = execution_options.data.remote
     setting = inputs.setting
     input = Dict{String, Any}(
         "schema_version" => 4,
@@ -172,6 +171,13 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             for (field, control) in pairs(getproperty(setting, component)))
             for component in (:ground, :frequency, :configuration)),
         "toolkit" => Dict(name => bytes2hex(sha256(source)) for (name, source) in PSCAD_REMOTE_SOURCES))
+    @debug "Computing PSCAD line parameters" system=problem.system.system_id
+    return _compute_pscad(problem, formulation, execution_options, inputs, input,
+        PSCAD_COMPLETED_OUTPUTS)
+end
+
+function _compute_pscad(problem, formulation, execution_options, inputs, input, completed_outputs)
+    config = execution_options.data.remote
     # Expected identity constrains execution, not numerical compatibility. The
     # completion record independently authenticates the complete request.
     signature = _pscad_digest(input)
@@ -210,7 +216,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             bytes2hex(open(sha256, joinpath(candidate, "toolkit", name))) == digest ||
                 throw(ArgumentError("PSCAD completed-run solver source changed: $candidate/toolkit/$name"))
         end
-        for name in PSCAD_COMPLETED_OUTPUTS
+        for name in completed_outputs
             path = joinpath(candidate, "outputs", name)
             isfile(path) && bytes2hex(open(sha256, path)) == get(record["outputs"], name, nothing) ||
                 throw(ArgumentError("PSCAD completed-run output integrity check failed: $path"))
@@ -242,9 +248,8 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         open(joinpath(root, "computation.toml"), "w") do io
             TOML.print(io, input; sorted = true)
         end
-        @debug "Computing PSCAD line parameters" system=problem.system.system_id
         execution = run_remote_pscad(config, staged, joinpath(root, "outputs"),
-            formulation, problem.frequencies; output_stem = execution_options.data.output_stem,
+            formulation, input["frequencies"]; output_stem = execution_options.data.output_stem,
             verbosity = verbosity(execution_options, :PSCAD))
         actual = Dict{String, String}(validate(
             TOML.parsefile(joinpath(execution.output_dir, "solver.toml")), config))
@@ -252,12 +257,10 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
             "PSCAD result does not match the expected solver identity: $root"))
     end
     native_readback = TOML.parsefile(joinpath(execution.output_dir, "native-settings.toml"))
-    expected_readback = Dict(component => Dict(field => control["readback"]
-        for (field, control) in controls) for (component, controls) in input["native_settings"])
-    native_readback == expected_readback || throw(ArgumentError(
-        "PSCAD result has no matching native-settings readback: $(execution.output_dir)"))
-    parameters = try
-        read_pscad_result(execution.output_dir, problem.frequencies, _pscad_size(problem))
+    validate(native_readback, formulation, input, execution)
+    result = try
+        read_pscad_result(execution.output_dir, problem, formulation;
+            output_stem = execution_options.data.output_stem)
     catch error
         verbosity(execution_options, :progress) > 0 && @info "PSCAD result validation failed" _group=:progress exception=error
         throw(ErrorException("PSCAD result validation failed: $(sprint(showerror, error))" *
@@ -270,7 +273,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         completion = Dict("schema_version" => 4, "input_sha256" => signature,
             "request_sha256" => _pscad_digest(input), "observed_solver" => actual,
             "outputs" => Dict(name => bytes2hex(open(sha256, joinpath(execution.output_dir, name)))
-                for name in PSCAD_COMPLETED_OUTPUTS))
+                for name in completed_outputs))
         temporary = tempname(source_root)
         try
             open(temporary, "w") do io
@@ -290,14 +293,14 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         if key ∉ (:elapsed_seconds, :elapsed_scope))...)
     execution = merge(execution, (backend = :pscad, pscad_version = config.pscad_version,
         reused, source_run = source_root, input_sha256 = signature, solver_identity = actual))
-    return (; parameters, native_readback, files, execution, compile_call_seconds=source_elapsed)
+    return (; result, native_readback, files, execution, source_elapsed)
 end
 
 function _pscad_result(problem, formulation, options, inputs, native; batch_reuse = false)
     permutation = inputs.permutation
     parameters = LineParameters(PhaseDomain,
-        Z(native.parameters)[permutation, permutation, :], Y(native.parameters)[permutation, permutation, :],
-        copy(frequencies(native.parameters)); details = details(native.parameters))
+        Z(native.result)[permutation, permutation, :], Y(native.result)[permutation, permutation, :],
+        copy(frequencies(native.result)); details = details(native.result))
     parameters = _pscad_basis(parameters, problem, options.data.output_basis)
     all(isfinite, Z(parameters)) || throw(DomainError(Z(parameters),
         "completed PSCAD series impedance must contain only finite entries"))
@@ -310,11 +313,11 @@ function _pscad_result(problem, formulation, options, inputs, native; batch_reus
         formulations = computation_details(formulation).data, native_setting = inputs.setting,
         base_frequency = formulation.options.data.base_frequency, loss_tangent_limit = 10.0,
         aerial_shunt_conductance = 1e-38, native_readback = deepcopy(native.native_readback),
-        native_frequencies = copy(details(native.parameters).data.native_frequencies),
+        native_frequencies = copy(details(native.result).data.native_frequencies),
         dielectric_losses = deepcopy(inputs.dielectric_losses), exported_project = inputs.project,
         execution = deepcopy(execution))
     if options.data.timing
-        timing = execution.reused ? (;) : (compile_call_seconds=native.compile_call_seconds,)
+        timing = execution.reused ? (;) : (compile_call_seconds=native.source_elapsed,)
         retained = merge(retained, (; timing))
     end
     return LineParameters(parameters.domain, parameters.Z, parameters.Y, parameters.f, Engine.completion_details(retained))
@@ -424,4 +427,134 @@ function _compute_pscad(problem::LineParametersProblem,
     end
     progress && @info "PSCAD computation completed successfully" _group=:progress completed=length(values) total=length(formulations) elapsed_seconds=(time_ns()-started)*1e-9
     return values
+end
+
+function validate(readback::AbstractDict, ::PSCADFormulation, input::AbstractDict, execution)
+    expected = Dict(component => Dict(field => control["readback"]
+        for (field, control) in controls) for (component, controls) in input["native_settings"])
+    readback == expected || throw(ArgumentError(
+        "PSCAD result has no matching native-settings readback: $(execution.output_dir)"))
+    return readback
+end
+
+function validate(readback::AbstractDict, ::PSCADTransientFormulation, input::AbstractDict, execution)
+    expected = Dict(component => Dict(field => control["readback"]
+        for (field, control) in controls) for (component, controls) in input["native_settings"])
+    Set(keys(readback)) == Set((keys(expected)..., "project")) ||
+        throw(ArgumentError("PSCAD transient result has incomplete settings readback"))
+    all(readback[name] == controls for (name, controls) in expected) ||
+        throw(ArgumentError("PSCAD result has no matching native-settings readback: $(execution.output_dir)"))
+    project = readback["project"]
+    Set(keys(project)) == Set(keys(input["project_settings"])) ||
+        throw(ArgumentError("PSCAD transient project settings readback is incomplete"))
+    for field in ("time_duration", "time_step", "sample_step", "PlotType")
+        parse(Float64, string(project[field])) == input["project_settings"][field] ||
+            throw(ArgumentError("PSCAD transient project setting $field differs from the request"))
+    end
+    project["output_filename"] == input["project_settings"]["output_filename"] ||
+        throw(ArgumentError("PSCAD transient output filename differs from the request"))
+    return readback
+end
+
+function read_pscad_result(directory::AbstractString, problem::LineParametersProblem,
+        ::PSCADFormulation; output_stem)
+    dimensions = _pscad_size(problem)
+    result = read_pscad_result(directory, problem.frequencies, dimensions)
+    all(isfinite, Z(result)) || throw(DomainError(Z(result), "PSCAD series impedance must be finite"))
+    all(isfinite, Y(result)) || throw(DomainError(Y(result), "PSCAD shunt admittance must be finite"))
+    return result
+end
+
+function read_pscad_result(directory::AbstractString,
+        problem::TransientAnalysisProblem{<:LineParametersProblem},
+        ::PSCADTransientFormulation; output_stem)
+    execution = TOML.parsefile(joinpath(directory, "execution.toml"))
+    execution == Dict("mode" => "transient", "stem" => output_stem) ||
+        throw(ArgumentError("PSCAD transient execution record differs from the request"))
+    record = read_pscad_transient(directory; stem = output_stem)
+    return read_pscad_transient(record, problem)
+end
+
+function _pscad_inputs(problem::TransientAnalysisProblem{<:LineParametersProblem},
+        formulation::PSCADTransientFormulation, work_root::AbstractString)
+    return mktempdir(mkpath(work_root)) do directory
+        path = export_data(:pscad, problem, formulation; file_name = joinpath(directory, "transient.pscx"))
+        document = readxml(path)
+        frequency = only(findall("//User[@defn='master:Line_FrePhase_Options' or @defn='master:Line_FreDep_Options']", document))
+        numeric_fields = ("FS", "FE", "Numf", "FT", "YMaxP", "AMaxP", "YMaxE", "AMaxE",
+            "ZMaxP", "ZMaxE", "MaxRPtol", "W1", "W2", "W3")
+        frequency_controls = Dict(node["name"] => Dict("value" => parse(Float64, node["value"]),
+            "readback" => parse(Float64, node["value"]))
+            for node in findall("./paramlist/param", frequency) if node["name"] in numeric_fields)
+        ground = only(findall("//User[@defn='master:Line_Ground']", document))
+        ground_controls = Dict(node["name"] => Dict("value" => parse(Float64, node["value"]),
+            "readback" => parse(Float64, node["value"]))
+            for node in findall("./paramlist/param", ground)
+            if node["name"] in ("GRRES", "GPERM", "GRP", "K0", "K1", "alpha"))
+        native_settings = Dict("ground" => ground_controls, "frequency" => frequency_controls,
+            "configuration" => Dict("Freq" => Dict("value" => Float64(formulation.frequency),
+                "readback" => Float64(formulation.frequency))))
+        project_settings = Dict{String, Any}(node["name"] => parse(Float64, node["value"])
+            for node in findall("/project/paramlist/param", document)
+            if node["name"] in ("time_duration", "time_step", "sample_step", "PlotType"))
+        project_settings["output_filename"] = formulation.output_stem * ".out"
+        channels = [only(findall("./paramlist/param[@name='Name']", node))["value"]
+            for node in findall("//User[@defn='master:pgb']", document)]
+        return (; project = read(path, String), native_settings, project_settings, channels)
+    end
+end
+
+function _compute_pscad(problem::TransientAnalysisProblem{<:LineParametersProblem},
+        formulation::PSCADTransientFormulation, execution_options, inputs)
+    input = Dict{String, Any}("schema_version" => 4, "mode" => "transient",
+        "project_sha256" => bytes2hex(sha256(inputs.project)),
+        "frequencies" => Float64.(problem.line.frequencies),
+        "native_settings" => inputs.native_settings, "project_settings" => inputs.project_settings,
+        "toolkit" => Dict(name => bytes2hex(sha256(source)) for (name, source) in PSCAD_REMOTE_SOURCES))
+    stem = execution_options.data.output_stem
+    completed_outputs = ["solver.toml", "native-settings.toml", "timing.txt", "execution.toml",
+        stem * ".inf", [stem * "_" * lpad(string(index), 2, '0') * ".out"
+            for index in 1:cld(length(inputs.channels), 10)]...]
+    @debug "Computing PSCAD transient response" system=problem.line.system.system_id
+    return _compute_pscad(problem, formulation, execution_options, inputs, input, completed_outputs)
+end
+
+function compute(problem::TransientAnalysisProblem{<:LineParametersProblem},
+        formulation::PSCADTransientFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    execution = computation_options(PSCADTransientFormulation,
+        ComputationOptions(merge((output_stem = formulation.output_stem,), ComputationOptions(options).data)))
+    formulation = PSCADTransientFormulation(; formulation.model, formulation.fit,
+        formulation.frequency, formulation.sample, output_stem = execution.data.output_stem)
+    validate(problem, PSCADTransientFormulation)
+    inputs = _pscad_inputs(problem, formulation, execution.data.work_root)
+    logger = LineCableModels.VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
+    return Logging.with_logger(logger) do
+        started = time_ns()
+        native = _compute_pscad(problem, formulation, execution, inputs)
+        response = native.result
+        retained = merge(details(response).data, (formulations = computation_details(formulation).data,
+            window = problem.window, gridpoint = gridpoint_id(), coordinates = copy(response.coordinates),
+            files = native.files, exported_project = inputs.project, execution = native.execution,
+            native_readback = native.native_readback))
+        if execution.data.timing
+            timing = native.execution.reused ? (;) :
+                (wall_seconds = (time_ns() - started) * 1e-9, run_call_seconds = native.source_elapsed)
+            retained = merge(retained, (; timing))
+        end
+        result = Engine.TransientAnalysis.TransientResponse(response.t, response.voltage,
+            response.current, response.coordinates, ComputationDetails(retained))
+        execution.data.on_result === nothing || execution.data.on_result(problem, 1, result)
+        return result
+    end
+end
+
+function computation_details(formulation::PSCADTransientFormulation)::ComputationDetails
+    return ComputationDetails(; backend = :pscad, model = formulation.model, fit = formulation.fit,
+        frequency = formulation.frequency, sample = formulation.sample, output_stem = formulation.output_stem)
+end
+
+function computation_details(::Type{<:PSCADTransientFormulation},
+        result::Engine.TransientAnalysis.TransientResponse)::ComputationDetails
+    return details(result)
 end

@@ -54,3 +54,12 @@ function validate(values::AbstractVector, ::Type{<:PSCADFormulation})
         throw(ArgumentError("PSCAD phase-scan adapter requires logarithmic samples; arbitrary-grid execution is not implemented"))
     return values
 end
+
+function validate(problem::TransientAnalysisProblem{<:LineParametersProblem},
+        ::Type{PSCADTransientFormulation})
+    c = inv(sqrt(vacuum_permeability(Float64) * vacuum_permittivity(Float64)))
+    travel_time = problem.line.system.line_length / c
+    problem.window.step > travel_time / 10 &&
+        @warn "PSCAD time step exceeds one tenth of the shortest possible travel time" step=problem.window.step travel_time
+    return problem
+end

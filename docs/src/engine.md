@@ -1326,6 +1326,51 @@ measurement objects even when their standard deviation is zero. It returns norma
 phase-domain `LineParameters`, with both matrices permuted to the requested terminal
 order. Stored native outputs retain their original ordering.
 
+For cable transients, construct `PSCADTransientFormulation` directly:
+
+```julia
+using LineCableModels.PSCAD: PSCADTransientFormulation
+
+transient = TransientAnalysisProblem(problem;
+    sending=(Step("cable:1:core", 1000.0; t0=1e-4),
+        TerminalImpedance("cable:1:sheath"; R=10.0)),
+    receiving=(), window=(tmax=1e-3, step=1e-7))
+selected = PSCADTransientFormulation(model=:fd_phase,
+    fit=(FS=0.5, FE=1e6, Numf=100), frequency=50.0)
+response = compute(transient, selected; options=(remote=station, timing=true))
+```
+
+The window of the problem sets the duration and the integration step in seconds. The
+formulation supplies the sample interval (`sample=nothing` uses the integration
+step), cable frequency, fitting overrides and output stem. An execution
+`output_stem` overrides the formulation's stem. FD-Phase (`model=:fd_phase`)
+fits the phase-domain cable model. FD-Mode (`model=:fd_mode`) fits modal
+quantities and accepts the transformation frequency as `fit=(FT=2000.0,)`.
+Each model accepts its native fitting fields.
+
+The runner reads back the numeric fitting settings and cable frequency, plus
+project duration, integration and sampling steps, output type and filename.
+`details(response).data` retains these readings, the requested model and fitting
+fields, station identity, exported project, output files and run folder.
+With `timing=true`, a fresh run retains `wall_seconds` and `run_call_seconds`.
+Verified reuse retains an empty timing record. The same station, identity and
+resume options as line-constants computation apply.
+
+INF names map voltage and current channels to `<end>:<terminal>:v` and
+`<end>:<terminal>:i`, such as `sending:cable:1:core:v`.
+`TransientResponse` stores seconds, volts and amperes with arrays ordered as
+end × terminal × time, sending first. Assigned terminals require both channels.
+Unlisted terminals remain open. Their voltage is retained when a channel exists.
+
+A `Matched()` end uses a long extension of the same cable, with the same rows
+and FD model. Its length is `1.1 * c * tmax / 2`. A reflection from its far end
+returns after the requested window, even at the speed of light `c`.
+The time step warns when it exceeds one tenth of the line length divided by `c`.
+PSCAD transients require an EDU licence that permits EMTDC runs through the
+automation API, deterministic real-axis line problems, one homogeneous soil
+half-space and at most four conductor layers per cable. Switching events are
+unsupported.
+
 Both option sets are ordinary `NamedTuple`s, aliased as
 [`FormulationOptions`](@ref) and [`ComputationOptions`](@ref). Callers can
 compose them with `merge`. Each owner rejects unknown keys and returns a

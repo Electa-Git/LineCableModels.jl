@@ -158,3 +158,29 @@ end
     @test !isfile(joinpath(run_directory,"outputs","result_zm.out"))
     println("Native identity rejection evidence: ",run_directory)
 end
+
+@testitem "PSCAD / real station two-cable transient step" tags=[:pscad_native, :integration, :pscad] setup=[TestFixtures] begin
+    using LineCableModels.PSCAD: PSCADTransientFormulation, RemoteConfig
+    config_path = get(ENV, "LINECABLEMODELS_PSCAD_CONFIG", "")
+    isempty(config_path) && error("Set LINECABLEMODELS_PSCAD_CONFIG to your station TOML filename")
+    remote = RemoteConfig(config_path)
+    design = TestFixtures.coaxial_design()
+    system = build(LineCableSystem, [design, design], [(-0.08, -1.0), (0.08, -1.0)];
+        connections = [Dict(:core => 1, :sheath => 2), Dict(:core => 3, :sheath => 4)],
+        system_id = "native-transient", line_length = 600.0)
+    line = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0),
+        frequencies = [1.0, 1e6])
+    amplitude, onset = 1000.0, 0.001
+    sending = (Step("cable:1:core", amplitude; t0 = onset),
+        TerminalImpedance("cable:1:sheath"; R = 10),
+        TerminalImpedance("cable:2:sheath"; R = 10))
+    problem = TransientAnalysisProblem(line; sending, receiving = (),
+        window = (tmax = 0.002, step = 1e-7))
+    result = compute(problem, PSCADTransientFormulation(); options = (; remote, timing = true))
+    travel_time = system.line_length * sqrt(3.0) / 299792458.0
+    samples = findall(>=(onset + 5travel_time), result.t)
+    core = only(findall(==("cable:1:core"), result.coordinates))
+    @test !isempty(samples)
+    @test maximum(abs, result.voltage[1, core, samples] .- amplitude) <= 0.02amplitude
+    @test details(result).data.execution.solver_identity["version"] == remote.pscad_version
+end

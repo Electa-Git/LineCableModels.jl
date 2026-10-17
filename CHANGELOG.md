@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `compute` runs `PSCADTransientFormulation` with verified station records, settings read-back, completed-run reuse and retained terminal responses.
+
 - PSCAD runs transient projects through the station runner and reads INF and OUT channels into terminal voltage and current responses.
 
 - PSCAD exports a transient analysis problem through `PSCADTransientFormulation`, with exposed cable terminals, sources, terminations, voltage and current channels, and a matched end as an extension of the same cable.
