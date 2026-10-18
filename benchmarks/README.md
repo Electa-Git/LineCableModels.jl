@@ -182,6 +182,76 @@ at 1 Hz, 50 Hz and 1 kHz. It flags a changed mode number or overlap below 0.9.
 The summary records these checks for each point.
 
 The three DC study scripts select frequency-domain sensitivity when run without arguments.
+They also accept `transient_sensitivity` alone:
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl transient_sensitivity
+```
+
+This study measures the transient consequence of physical input variations with
+the exact NLT reference. It uses the reference core step with single-point bonds
+at 10 Ω and the impulse. Both keep their nominal windows and NLT settings.
+Each line-problem Gridspace lifts into a transient problem through the package API.
+
+Before each transient calculation, a line-parameter Gridspace checks Z and Y on
+the real frequency axis with the same formulation. The band limits come from
+the scenario's NLT settings: `1 / (2T)` to `(2N - 1) / (2T)`, with
+`T = Tfactor * tmax`. The log grid has at least 400 intervals per decade and
+includes both limits.
+
+The check uses the smallest eigenvalue of `(A + Aᴴ) / 2`
+for each matrix. Any strictly negative eigenvalue marks the point
+`not_computable`. Its record gives the first negative sample, the previous
+sample and the offending quantity. A point without a negative sample records
+`passive` for that band.
+
+The `*_passivity.json` archives keep both eigenvalue curves and the frequency grid.
+Flagged points keep the passivity evidence and status. They have no transient
+calculation, waveform observables or waveform archive.
+
+Every swept input uses 90, 100 and 110 % of nominal. Separate grids use temperatures
+of 20, 40, 70 and 90 °C and earth resistivities of 100, 1000 and 10000 Ω·m.
+The correction steps and their availability match the modal study.
+
+The `transient_sensitivity.json` archive keeps core 1 peak voltage, peak time and
+arrival time at the `receiving` end. Arrival uses 10 % of the peak.
+It also keeps voltage peaks for every sheath and armour terminal at both ends.
+The core 1 current peak uses the `sending` end.
+The RMS deviation of core 1 voltage at the `receiving` end uses its nominal peak
+as the denominator.
+
+Voltages use kV, times use µs and currents use kA. Peaks are absolute magnitudes.
+The RMS ratio is dimensionless. The package writes these observations with `save`.
+Each point also records its window, NLT controls and passivity summary.
+The `transient_sensitivity_run.json` archive records inputs, correction availability,
+retained waveform filenames and wall times.
+
+For each scenario, full voltage and current waveforms remain for the nominal point.
+They also remain for both extreme levels of the five inputs with the largest peak
+change at the `receiving` end.
+This selection considers computable levels of the swept inputs, temperature and earth resistivity.
+An extreme level without a computable response has no waveform archive.
+Other points keep scalar observations.
+
+Generate CSV and LaTeX tables from one or more completed run folders:
+
+```sh
+julia --project=test benchmarks/transient_sensitivity_tables.jl <run folder>... <output folder>
+```
+
+The generator writes tables under `<output folder>/<script name>/<timestamp>/`.
+Each scenario has changes in physical units and percent relative to nominal.
+The ±10 % inputs follow their largest absolute peak change at the `receiving` end,
+largest first.
+Temperature, earth and correction rows follow. A separate table states which
+corrections are available. Percent changes with a zero nominal value have an empty CSV field
+and a dash in LaTeX.
+
+Flagged rows give the status, onset frequency and quantity with a negative eigenvalue.
+Numerical observables and changes remain empty for these points.
+The `transient_passivity.csv` table lists the status and passivity summary of every point.
+The generator needs archives with passivity records.
+
 `time_domain` runs line-model fits and their time-domain comparisons without PSCAD.
 `pscad` runs only the baseline, the NLT references for the single-point step and impulse scenarios at 10 Ω, and PSCAD.
 `time_domain pscad` runs both time-domain comparisons and PSCAD.

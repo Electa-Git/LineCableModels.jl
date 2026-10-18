@@ -4,16 +4,18 @@
 using LineCableModels
 using LineCableModels.Engine: compare
 using LineCableModels.ReportBuilder: BenchmarkTableDefinition
-using LinearAlgebra: diag
+using LinearAlgebra: diag, eigmin, Hermitian
 using Dates
 using Measurements, Distributions
 using Statistics: mean, std
 
-ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"]) ||
-    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal")
+ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"]) ||
+    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity")
 run_time_domain = "time_domain" in ARGS
 run_pscad = "pscad" in ARGS
 run_model_settings = ARGS == ["model_settings"]
+run_transient_sensitivity = ARGS == ["transient_sensitivity"]
+transient_started = time_ns()
 
 frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
 
@@ -146,6 +148,20 @@ folder = joinpath(pwd(), ".linecablemodels", "benchmarks",
     "cable_525kv_subsea_armoured_dc_bipole", Dates.format(now(), "yyyymmdd-HHMMSS"))
 mkpath(folder)
 
+folded = (inner_semicon_thickness = 0.0, outer_semicon_thickness = 0.0, water_blocking_thickness = 0.0,
+    insulation_thickness = nominal.insulation_thickness + nominal.inner_semicon_thickness +
+        nominal.outer_semicon_thickness + nominal.water_blocking_thickness)
+correction_steps = (;)
+correction_status = [
+    "solid_core" => "not applicable",
+    "core_lay" => "not applicable",
+    "folded_layers" => "corrected material data unavailable in case representation",
+    "armour_tube" => "corrected material data unavailable in case representation",
+    "armour_lay" => "corrected material data unavailable in case representation",
+    "pe" => "corrected material data unavailable in case representation",
+    "all" => "corrected material data unavailable in case representation",
+]
+
 if ARGS == ["modal"]
     let
         started = time_ns()
@@ -172,7 +188,6 @@ if ARGS == ["modal"]
         basis_indices = [only(findall(f -> isapprox(f, requested; rtol = 1e-12), frequencies))
             for requested in (1.0, 50.0, 1e3, 1e4, 1e5, 1e6)]
         infeasible = String[]
-        correction_status = Pair{String, String}[]
         problem = line_parameters_problem(nominal...)
         println("modal run: ", folder)
         flush(stdout)
@@ -211,19 +226,6 @@ if ARGS == ["modal"]
                     inputs = [merge(nominal, (cable_x_left = -spacing / 2, cable_x_right = spacing / 2, cable_y = -depth)) for depth in depths for spacing in spacings]
                     names = ["spacing=$(spacing);depth=$(depth)" for depth in depths for spacing in spacings]
                 elseif study == "corrections"
-                    folded = (inner_semicon_thickness = 0.0, outer_semicon_thickness = 0.0, water_blocking_thickness = 0.0,
-                        insulation_thickness = nominal.insulation_thickness + nominal.inner_semicon_thickness +
-                            nominal.outer_semicon_thickness + nominal.water_blocking_thickness)
-                    correction_steps = (;)
-                    correction_status = [
-                        "solid_core" => "not applicable",
-                        "core_lay" => "not applicable",
-                        "folded_layers" => "corrected material data unavailable in case representation",
-                        "armour_tube" => "corrected material data unavailable in case representation",
-                        "armour_lay" => "corrected material data unavailable in case representation",
-                        "pe" => "corrected material data unavailable in case representation",
-                        "all" => "corrected material data unavailable in case representation",
-                    ]
                     inputs = [merge(nominal, changes) for changes in values(correction_steps)]
                     names = string.(collect(keys(correction_steps)))
                     space = Gridspace{LineParametersProblem}(p -> line_parameters_problem(p...), (Grid(inputs),))
@@ -463,7 +465,7 @@ open(joinpath(folder, "ranking.txt"), "a") do io
 end
 end
 
-if run_time_domain || run_pscad
+if run_time_domain || run_pscad || run_transient_sensitivity
     using UniversalLineModel, XLSX, TOML
     using LineCableModels: DoubleExponential
     using LineCableModels.PSCAD: PSCADTransientFormulation, LineConstantsError, RemoteConfig, identify
@@ -576,6 +578,169 @@ if run_time_domain || run_pscad
         push!(reference_problems, TransientAnalysisProblem(problem;
             sending = (DoubleExponential(core1, pulse_amplitude, alpha, beta), both_end_bonds...),
             receiving = (), window = pulse_window))
+        if run_transient_sensitivity
+            println("transient sensitivity run: ", folder)
+            flush(stdout)
+            observations = ObservedResult[]
+            timings = NamedTuple[]
+            retained = NamedTuple[]
+            passivity_grids = NamedTuple[]
+            for (scenario, reference_index) in ((:step_single_point, 2), (:impulse, 5))
+                scenario_start = time_ns()
+                reference_problem = reference_problems[reference_index]
+                N = scenario === :impulse ? pulse_N : 4096
+                selected = TransientFormulation(:nlt; options = (line = formulation, N, Tfactor = 1.25))
+                controls = selected.formula.options.data
+                T = controls.Tfactor * reference_problem.window.tmax
+                band = (lowest_Hz = 1 / (2T), highest_Hz = (2controls.N - 1) / (2T))
+                count = ceil(Int, 400log10(band.highest_Hz / band.lowest_Hz)) + 1
+                passivity_frequencies = exp10.(range(log10(band.lowest_Hz), log10(band.highest_Hz); length = count))
+                passivity_frequencies[1], passivity_frequencies[end] = band.lowest_Hz, band.highest_Hz
+                nlt_settings = (; N = controls.N, T, Tfactor = controls.Tfactor, taper = controls.taper)
+                push!(passivity_grids, (; scenario, band_source = "nlt_settings", band,
+                    points_per_decade = 400, frequencies_Hz = passivity_frequencies, nlt = nlt_settings))
+                nominal_response = nothing
+                nominal_peak = NaN
+                extremes = NamedTuple[]
+                for study in (:baseline, :one_at_a_time, :temperature, :earth, :corrections)
+                    for input in (study === :one_at_a_time ? swept : (study,))
+                        inputs = if study === :baseline
+                            [nominal]
+                        elseif study === :corrections
+                            [merge(nominal, changes) for changes in values(correction_steps)]
+                        else
+                            key = study === :temperature ? :temperature : study === :earth ? :earth_rho : input
+                            levels = study === :temperature ? (20.0, 40.0, 70.0, 90.0) :
+                                study === :earth ? (100.0, 1000.0, 10000.0) : nominal[key] .* (0.9, 1.0, 1.1)
+                            [merge(nominal, NamedTuple{(key,)}((level,))) for level in levels]
+                        end
+                        isempty(inputs) && continue
+                        group_start = time_ns()
+                        space = Gridspace{LineParametersProblem}(p -> line_parameters_problem(p...), (Grid(inputs),))
+                        passivity_space = Gridspace{LineParametersProblem}(line ->
+                            LineParametersProblem(line.system; temperature = line.temperature,
+                                earth_props = line.earth_props, frequencies = passivity_frequencies, sigma = 0.0), (space,))
+                        passivity_elapsed = @elapsed scans = compute(passivity_space, formulation)
+                        checks = NamedTuple[]
+                        curves = NamedTuple[]
+                        for scan in scans
+                            z, y = observe(scan, Z), observe(scan, Y)
+                            z_min = [eigmin(Hermitian((z[:, :, k] + z[:, :, k]') / 2)) for k in eachindex(passivity_frequencies)]
+                            y_min = [eigmin(Hermitian((y[:, :, k] + y[:, :, k]') / 2)) for k in eachindex(passivity_frequencies)]
+                            onset = findfirst(k -> z_min[k] < 0 || y_min[k] < 0, eachindex(passivity_frequencies))
+                            offending_quantity = onset === nothing ? nothing : join(
+                                (string(quantity) for (quantity, values) in ((:Z, z_min), (:Y, y_min)) if values[onset] < 0), ',')
+                            check = (; status = onset === nothing ? "passive" : "non_passive",
+                                onset_frequency_Hz = onset === nothing ? nothing : passivity_frequencies[onset],
+                                onset_lower_Hz = onset === nothing || onset == 1 ? nothing : passivity_frequencies[onset - 1],
+                                offending_quantity,
+                                minimum_Z_eigenvalue_ohm_per_m = minimum(z_min),
+                                minimum_Z_frequency_Hz = passivity_frequencies[argmin(z_min)],
+                                minimum_Y_eigenvalue_S_per_m = minimum(y_min),
+                                minimum_Y_frequency_Hz = passivity_frequencies[argmin(y_min)])
+                            push!(checks, check)
+                            push!(curves, (; id = details(scan).data.gridpoint, check,
+                                Z_min_eigenvalues_ohm_per_m = z_min, Y_min_eigenvalues_S_per_m = y_min))
+                        end
+                        passivity_file = "transient_$(scenario)_$(study)_$(input)_passivity.json"
+                        save(ObservedResult((; id = nothing, scenario, study, input,
+                            band_source = "nlt_settings", band, nlt = nlt_settings,
+                            points_per_decade = 400, frequencies_Hz = passivity_frequencies, curves),
+                            NamedTuple[], NamedTuple[], (; wall_seconds = passivity_elapsed)), joinpath(folder, passivity_file))
+                        computable = findall(check -> check.status == "passive", checks)
+                        responses = TransientResponse[]
+                        transient_elapsed = 0.0
+                        if !isempty(computable)
+                            accepted_space = Gridspace{LineParametersProblem}(p -> line_parameters_problem(p...), (Grid(inputs[computable]),))
+                            problems = TransientAnalysisProblem(accepted_space; sending = reference_problem.sending,
+                                receiving = reference_problem.receiving, window = reference_problem.window)
+                            transient_elapsed = @elapsed responses = compute(problems, selected; options = (timing = true,))
+                        end
+                        if study === :baseline && !isempty(responses)
+                            nominal_response = only(responses)
+                            core_index = only(findall(==(core1), nominal_response.coordinates))
+                            nominal_peak = peak(nominal_response, voltage).value[2, core_index]
+                        end
+                        group_points = ObservedResult[]
+                        for index in eachindex(inputs)
+                            input_name = study === :earth ? :earth_rho : input
+                            level = study === :baseline ? "nominal" : study === :corrections ?
+                                string(collect(keys(correction_steps))[index]) : inputs[index][input_name]
+                            passivity = merge(checks[index], (; archive = passivity_file, point = index))
+                            evidence = (; scenario, study, input = input_name, level,
+                                status = passivity.status == "passive" ? "computable" : "not_computable",
+                                passivity, window = reference_problem.window, nlt = nlt_settings)
+                            response_index = findfirst(==(index), computable)
+                            id = details(scans[index]).data.gridpoint
+                            if response_index !== nothing
+                                response = responses[response_index]
+                                core_index = only(findall(==(core1), response.coordinates))
+                                voltage_peak = peak(response, voltage)
+                                current_peak = peak(response, current)
+                                metal_indices = findall(label -> endswith(label, ":sheath") ||
+                                    endswith(label, ":armor"), response.coordinates)
+                                metal_peaks = [(; line_end, terminal = response.coordinates[terminal],
+                                    peak_kV = voltage_peak.value[side, terminal] / 1e3)
+                                    for (side, line_end) in enumerate((:sending, :receiving)) for terminal in metal_indices]
+                                deviation = nominal_response === nothing ? nothing :
+                                    compare(nominal_response, response, voltage).absolute[2, core_index] / nominal_peak
+                                evidence = merge(evidence, (;
+                                    receiving_peak_kV = voltage_peak.value[2, core_index] / 1e3,
+                                    receiving_peak_time_us = voltage_peak.time[2, core_index] * 1e6,
+                                    arrival_time_us = arrival_time(response, voltage)[2, core_index] * 1e6,
+                                    sending_current_peak_kA = current_peak.value[1, core_index] / 1e3,
+                                    receiving_scaled_rms = deviation, metal_peaks, nlt = details(response).data.nlt))
+                                id = details(response).data.gridpoint
+                            else
+                                println("transient ", scenario, " ", input_name, " ", level,
+                                    " not computable: ", passivity.offending_quantity, " onset ", passivity.onset_frequency_Hz, " Hz")
+                            end
+                            point = ObservedResult((; id, sensitivity = evidence), NamedTuple[], NamedTuple[],
+                                (; passivity_wall_seconds = passivity_elapsed, transient_wall_seconds = transient_elapsed))
+                            push!(group_points, point)
+                            push!(observations, point)
+                        end
+                        save(observations, joinpath(folder, "transient_sensitivity.json"))
+                        if study === :baseline && nominal_response !== nothing
+                            save(ObservedResult(nominal_response; gridpoint = only(group_points).gridpoint, clip = false),
+                                joinpath(folder, "transient_$(scenario)_nominal.json"))
+                            println("transient ", scenario, " nominal receiving peak: ", nominal_peak / 1e3, " kV")
+                        elseif study in (:one_at_a_time, :temperature, :earth) && !isempty(computable) && isfinite(nominal_peak)
+                            change_kV = maximum(abs(group_points[index].gridpoint.sensitivity.receiving_peak_kV - nominal_peak / 1e3)
+                                for index in computable)
+                            endpoints = NamedTuple[]
+                            for (bound, index) in ((:lower, 1), (:upper, length(inputs)))
+                                response_index = findfirst(==(index), computable)
+                                response_index === nothing && continue
+                                push!(endpoints, (; bound, response = responses[response_index], point = group_points[index]))
+                            end
+                            push!(extremes, (; input = group_points[1].gridpoint.sensitivity.input, change_kV, endpoints))
+                            sort!(extremes; by = entry -> entry.change_kV, rev = true)
+                            length(extremes) > 5 && pop!(extremes)
+                        end
+                        elapsed = (time_ns() - group_start) / 1e9
+                        push!(timings, (; scenario, study, input, points = length(inputs), computed_points = length(responses),
+                            passivity_wall_seconds = passivity_elapsed, transient_wall_seconds = transient_elapsed, wall_seconds = elapsed))
+                        println("transient ", scenario, " ", study, " ", input, ": ", elapsed, " s")
+                        flush(stdout)
+                    end
+                end
+                for entry in extremes, endpoint in entry.endpoints
+                    filename = "transient_$(scenario)_$(entry.input)_$(endpoint.bound).json"
+                    save(ObservedResult(endpoint.response; gridpoint = endpoint.point.gridpoint, clip = false), joinpath(folder, filename))
+                    push!(retained, (; scenario, input = entry.input, bound = endpoint.bound, change_kV = entry.change_kV, filename))
+                end
+                println("transient ", scenario, " complete: ", (time_ns() - scenario_start) / 1e9, " s")
+                flush(stdout)
+            end
+            metadata = (; id = nothing, nominal, swept, correction_steps, terminals = labels, passivity_grids,
+                correction_status = Tuple.(correction_status), travel_times, timings, retained,
+                wall_seconds = (time_ns() - transient_started) / 1e9)
+            save(ObservedResult(metadata, NamedTuple[], NamedTuple[], (;)), joinpath(folder, "transient_sensitivity_run.json"))
+            println("transient sensitivity complete: ", metadata.wall_seconds, " s, ", folder)
+            exit()
+        end
+
         references = Vector{TransientResponse}(undef, length(reference_problems))
         reference_points = ObservedResult[]
         for (reference_index, reference_problem) in enumerate(reference_problems)
