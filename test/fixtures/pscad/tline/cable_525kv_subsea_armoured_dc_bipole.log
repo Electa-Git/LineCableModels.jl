@@ -1,0 +1,22 @@
+ Line Constants Program for the PSCAD V5.1
+ Build: 2026.01.28
+ (c)1995-2026 Manitoba Hydro International, Ltd.
+ 
+ File Name:        C:\Users\Amauri\AppData\Local\LineCableModels\PSCAD\Remote\cable_525kv_subsea_armoured_dc_bipole_20261018-113513\run-fptIDG\transient\\generated.gf81\cable_525kv_subsea_armoured_dc_bipole.cli
+ Segment length:   150000.000000 [m]
+ Length Increment: 0.000000 [m]
+ Steps:            1
+ ====================================================================
+ CURVE FITTING OUTPUT
+ ====================================================================
+ 
+ Fitting Characteristic Admittance Yc:
+ ====================================================================
+  
+ *******************************************
+ Tline.exe: ERROR
+ Error in INVCJD. Singularity occurs
+ Verify Transmission line data
+ *******************************************
+ EMTTL Ending!
+1

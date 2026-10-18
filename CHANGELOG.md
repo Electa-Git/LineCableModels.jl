@@ -7,6 +7,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- PSCAD transient exports accept `line`. Native runs keep raw line-constants logs and report Tline failures through `PSCAD.LineConstantsError`.
+
 - PSCAD transient exports measure every terminal voltage and assigned or matched branch current, reject missing response channels, and retain line-constants logs with build errors.
 
 ### Added

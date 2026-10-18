@@ -39,7 +39,7 @@ import EzXML
 using EzXML: ElementNode, XMLDocument, addelement!, nodename,
              readxml, root, setroot!
 
-export PSCADFormulation, PSCADTransientFormulation, RemoteConfig,
+export PSCADFormulation, PSCADTransientFormulation, LineConstantsError, RemoteConfig,
        read_pscad_result, remote_command, run_remote_pscad, identify
 public pscad_setting
 

@@ -129,38 +129,11 @@ function _record_diagnostics(
     return text
 end
 
-function _build_messages(project, path, case_directory)
-    messages = _components(project.messages())
-    open(path, "w") do io
-        for message in messages
-            println(io,
-                join(
-                    (_string(message.status), _string(message.label),
-                        _string(message.name), replace(_string(message.text), '\n' => ' ', '\r' =>
-                            ' ')),
-                    '\t'))
-        end
-    end
-    if any(message -> lowercase(_string(message.status)) == "error", messages)
-        output = dirname(path)
-        diagnostics = String[]
-        logs = setdiff(_output_matches([case_directory], ".log"),
-            _output_matches([output], ".log"))
-        for source in logs
-            destination = joinpath(output, relpath(source, case_directory))
-            try
-                mkpath(dirname(destination))
-                cp(source, destination; force = true)
-                push!(diagnostics, "Last lines of $(relpath(source, case_directory)): " *
-                    join(last(readlines(destination), 12), " | "))
-            catch log_error
-                push!(diagnostics, "Unable to collect $source: $(sprint(showerror, log_error))")
-            end
-        end
-        error("PSCAD build messages contain error status; see $path\n" *
-            join(diagnostics, '\n'))
-    end
-    return messages
+function _build_messages(project, path, case_directory; console::IO = stdout)
+    messages = [(status = _string(message.status), label = _string(message.label),
+        name = _string(message.name), text = _string(message.text))
+        for message in _components(project.messages())]
+    return _build_messages(messages, path, case_directory; console)
 end
 
 function main(arguments)
@@ -315,11 +288,15 @@ function main(arguments)
         open(joinpath(output, "native-settings.toml"), "w") do io
             TOML.print(io, readbacks; sorted = true)
         end
+        frequency_readback = _parameters(frequency)
         _report(
             console,
             verbosity,
             2,
-            "Applied frequency range $fs Hz to $fe Hz and formulation $formulation"
+            mode == "constants" ?
+                "Applied frequency range $fs Hz to $fe Hz, Numf=$numf and formulation $formulation" :
+                "Project fitting readbacks: FS=$(frequency_readback["FS"]) Hz, " *
+                "FE=$(frequency_readback["FE"]) Hz, Numf=$(get(frequency_readback, "Numf", "unavailable"))"
         )
         # The generated PSCAD project retains every requested cable port.
         cables = filter(
@@ -363,7 +340,7 @@ function main(arguments)
             write(joinpath(output, "timing.txt"), string(elapsed))
             phase = "build messages"
             _record_diagnostics(console, project, verbosity, "PSCAD diagnostics after run call")
-            _build_messages(project, build_path, dirname(project_path))
+            _build_messages(project, build_path, dirname(project_path); console)
             roots = [abspath(output), abspath(dirname(project_path)),
                 abspath(_string(project.temp_folder))]
             phase = "transient-output completion"
@@ -390,7 +367,7 @@ function main(arguments)
             )
             _record_diagnostics(console, project, verbosity, "PSCAD diagnostics after compile call")
             phase = "build messages"
-            _build_messages(project, build_path, dirname(project_path))
+            _build_messages(project, build_path, dirname(project_path); console)
             write(joinpath(output, "timing.txt"), string(elapsed))
             roots = [
                 abspath(output),
@@ -433,7 +410,7 @@ function main(arguments)
         message="PSCAD runner failed during $phase: $(sprint(showerror, error))"
         if project !== nothing
             try
-                _build_messages(project, build_path, dirname(project_path))
+                _build_messages(project, build_path, dirname(project_path); console)
             catch build_error
                 diagnostic = sprint(showerror, build_error)
                 occursin(diagnostic, message) || (message *= "\n$diagnostic")

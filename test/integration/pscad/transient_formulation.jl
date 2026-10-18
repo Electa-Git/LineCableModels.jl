@@ -58,6 +58,8 @@
                 end
                 write(joinpath(output, "timing.txt"), "1.25")
                 write(joinpath(output, "pscad-console.txt"), "offline transient transport fixture")
+                write(joinpath(output, "generated.log"), "raw constants diagnostic\\n")
+                write(joinpath(mkpath(joinpath(output, "generated.gf81")), "cable.log"), "raw cable diagnostic\\n")
                 """
         else
             @test occursin("identify.py", command)
@@ -78,7 +80,8 @@
         TerminalImpedance("cable:2:sheath"; R = 10))
     problem = TransientAnalysisProblem(line; sending, receiving = (),
         window = (tmax = 20e-6, step = 1e-7))
-    formulation = PSCADTransientFormulation(fit = (FS = 1.0, FE = 2e6, Numf = 200))
+    lossy = Formulation(insulation_admittance = :lossy, semicon_admittance = :lossy)
+    formulation = PSCADTransientFormulation(line = lossy, fit = (FS = 1.0, FE = 2e6, Numf = 200))
     parent = mkpath(joinpath(@__DIR__, "..", "..", "..", ".linecablemodels", "test", "transient-compute"))
     mktempdir(parent) do directory
         remote = P.RemoteConfig("fixture", directory, "unused", "julia", "python";
@@ -116,6 +119,10 @@
         @test retained.execution.solver_identity == identity
         @test retained.formulations.model === :fd_phase
         @test retained.formulations.fit == formulation.fit
+        @test retained.formulations.line == NamedTuple(lossy)
+        @test Set(retained.line_constants_logs) == Set(joinpath(source, "outputs", path)
+            for path in ("generated.log", joinpath("generated.gf81", "cable.log")))
+        @test all(isfile, retained.line_constants_logs)
         @test retained.timing.run_call_seconds == 1.25
         @test retained.timing.wall_seconds >= 0
         @test retained.window == problem.window
@@ -152,6 +159,7 @@
         @test callbacks == [1]
         @test details(reused).data.execution.reused
         @test isempty(details(reused).data.timing)
+        @test details(reused).data.line_constants_logs == retained.line_constants_logs
         @test reused.voltage == result.voltage && reused.current == result.current
         @test original == Dict(path => (bytes2hex(open(sha256, path)), mtime(path)) for path in keys(original))
         latest = compute(problem, formulation; options = (; options..., timing = false, resume_run_directory = :latest))

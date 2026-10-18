@@ -1343,6 +1343,7 @@ transient = TransientAnalysisProblem(problem;
         TerminalImpedance("cable:1:sheath"; R=10.0)),
     receiving=(), window=(tmax=1e-3, step=1e-7))
 selected = PSCADTransientFormulation(model=:fd_phase,
+    line=Formulation(insulation_admittance=:lossy, semicon_admittance=:lossy),
     fit=(FS=0.5, FE=1e6, Numf=100), frequency=50.0)
 response = compute(transient, selected; options=(remote=station, timing=true))
 ```
@@ -1355,10 +1356,29 @@ fits the phase-domain cable model. FD-Mode (`model=:fd_mode`) fits modal
 quantities and accepts the transformation frequency as `fit=(FT=2000.0,)`.
 Each model accepts its native fitting fields.
 
+The `line` keyword selects the formulation for the exported cable data.
+Its default, `Formulation()`, selects lossless dielectrics. Lossy insulation and
+semicon selections export the same layer loss tangents as a line-constants export
+with the same formulation, cable frequency and temperature.
+For FD-Phase, `fit=(enablf=1,)` makes PSCAD derive shunt conductance from the layer
+loss tangents and ignore `shntcab`. With `enablf=0`, PSCAD uses `shntcab` instead.
+Both fields accept overrides in `fit`.
+
 The runner reads back the numeric fitting settings and cable frequency, plus
 project duration, integration and sampling steps, output type and filename.
-`details(response).data` retains these readings, the requested model and fitting
-fields, station identity, exported project, output files and run folder.
+`details(response).data` keeps these readings, the requested model and fitting
+fields, exported line formulation, station identity, exported project, output files
+and run folder.
+
+Both line-constants and transient results keep local raw log paths
+in `details(response).data.line_constants_logs`.
+Tline failures throw `PSCAD.LineConstantsError`, whose `message` and `log_path`
+fields contain the native diagnostic and local log path.
+The message includes each Tline error block and its fitting stage from the
+referenced log. If the log has no error block, the message keeps the build alert
+and states that the log has no error block. A log-copy failure produces a console
+diagnostic and a warning in the build messages. Successful computation continues.
+
 With `timing=true`, a fresh run retains `wall_seconds` and `run_call_seconds`.
 Verified reuse retains an empty timing record. The same station, identity and
 resume options as line-constants computation apply.

@@ -354,6 +354,8 @@ Project.run = transient_run
         console=read(joinpath(output,"pscad-console.txt"),String)
         @test occursin("Starting PSCAD project.run()",console)
         @test occursin("Collected PSCAD transient outputs",console)
+        @test occursin("Project fitting readbacks: FS=0.0 Hz, FE=0.0 Hz, Numf=0", console)
+        @test !occursin("Applied frequency range 10.0 Hz to 1000.0 Hz", console)
     end
 end
 
@@ -367,7 +369,7 @@ end
         mktempdir(root) do directory
             output = joinpath(directory, "outputs")
             arguments = runner_arguments(directory, output; mode, port, owned)
-            if scenario in ("build_error", "build_error_throw")
+            if scenario in ("success", "build_error", "build_error_throw")
                 write(joinpath(directory, "generated.log"),
                     "omitted first diagnostic\n" * repeat("line constants detail\n", 20) *
                     "synthetic line constants failure\n")
@@ -424,23 +426,25 @@ end
                 @test occursin("set pscad_port", sprint(showerror, caught))
                 @test occursin("session 0", sprint(showerror, caught))
             end
-            if scenario in ("build_error", "build_error_throw")
-                @test occursin("error\tBuild\tgenerated", read(joinpath(output, "build-messages.txt"), String))
+            if scenario in ("success", "build_error", "build_error_throw")
                 @test read(joinpath(output, "generated.log")) == read(joinpath(directory, "generated.log"))
                 @test read(joinpath(output, "generated.gf81", "cable.log")) ==
                     read(joinpath(directory, "generated.gf81", "cable.log"))
+            end
+            if scenario in ("build_error", "build_error_throw")
+                @test occursin("error\tBuild\tgenerated", read(joinpath(output, "build-messages.txt"), String))
+                failure = TOML.parsefile(joinpath(output, "failure.toml"))
+                @test failure["kind"] == "line_constants_error"
+                @test failure["errors"] == ["An alert was issued while solving line constants, check the log file 'generated.log'",
+                    "No Tline ERROR block found in the referenced log."]
+                @test failure["stage"] == ""
+                @test failure["log_path"] == "generated.log"
                 diagnostic = sprint(showerror, caught)
-                @test occursin("synthetic line constants failure", diagnostic)
-                @test occursin("synthetic cable log ending", diagnostic)
-                @test occursin("Last lines of generated.log:", diagnostic)
+                @test occursin("An alert was issued while solving line constants", diagnostic)
                 @test !occursin("omitted first diagnostic", diagnostic)
-                @test occursin("synthetic line constants failure",
+                @test !occursin("synthetic cable log ending", diagnostic)
+                @test occursin("An alert was issued while solving line constants",
                     read(joinpath(output, "pscad-console.txt"), String))
-                # The transport reports the last twelve console lines in its Julia error.
-                tail = join(last(readlines(joinpath(output, "pscad-console.txt")), 12), '\n')
-                @test occursin("Last lines of generated.log:", tail)
-                @test occursin("synthetic line constants failure", tail)
-                @test occursin("synthetic cable log ending", tail)
                 if scenario == "build_error_throw"
                     @test occursin(mode == "transient" ? "synthetic run failure" :
                         "synthetic compile failure", diagnostic)

@@ -44,7 +44,7 @@ function export_data(::Val{:pscad},
         sample = something(formulation.sample, problem.window.step),
         output_stem = formulation.output_stem)
     document = _pscad_project(system, line.earth_props, formulation.frequency, blueprints,
-        Engine.Formulation(), line.temperature; settings,
+        formulation.line, line.temperature; settings,
         model = formulation.model, fit = formulation.fit)
     for parameter in findall("//User[@defn='master:Cable_Coax']/paramlist/param[starts-with(@name,'elim')]", document)
         parameter["value"] = "0"

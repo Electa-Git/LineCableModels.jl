@@ -1,6 +1,25 @@
 import LineCableModels: formula_id
 
 """
+$(TYPEDEF)
+
+Report a native PSCAD line-constants failure and its local diagnostic log.
+
+$(TYPEDFIELDS)
+"""
+struct LineConstantsError <: Exception
+    "Native stage and error lines, or the build alert when the log has no error block."
+    message::String
+    "Local path of the raw line-constants log, or an empty string if unavailable."
+    log_path::String
+end
+
+function Base.showerror(io::IO, error::LineConstantsError)
+    print(io, error.message)
+    isempty(error.log_path) || print(io, "\nLine-constants log: ", error.log_path)
+end
+
+"""
     PSCADFormulation
 
 Store shared formula selections, requested definitions, and physical options
@@ -21,7 +40,9 @@ Duration and integration step come from the transient problem's window.
 
 $(TYPEDFIELDS)
 """
-struct PSCADTransientFormulation{F <: NamedTuple, S, H <: Real} <: AbstractFormulation
+struct PSCADTransientFormulation{L, F <: NamedTuple, S, H <: Real} <: AbstractFormulation
+    "Line formulation for exported cable material properties."
+    line::L
     "Frequency-dependent cable model: `:fd_phase` or `:fd_mode`."
     model::Symbol
     "Native fitting overrides. Omitted fields keep component defaults."
@@ -41,6 +62,8 @@ Construct settings for PSCAD transient export.
 
 # Keywords
 
+- `line=Engine.Formulation()`: Line formulation for exported cable data and its
+  insulation and semicon admittance selections.
 - `model=:fd_phase`: Frequency-dependent phase or mode model (`:fd_mode`).
 - `fit=(;)`: Native fitting fields. Omitted fields use component defaults.
 - `frequency=50.0`: Steady-state frequency of PSCAD's cable (`Freq`) \\[Hz\\].
@@ -55,13 +78,18 @@ Construct settings for PSCAD transient export.
 
 Throw `ArgumentError` for invalid settings.
 """
-function PSCADTransientFormulation(; model::Symbol = :fd_phase,
+function PSCADTransientFormulation(;
+        line::Union{Engine.LineParametersFormulation, Engine.CableConstantsFormulation,
+            PSCADFormulation} = Engine.Formulation(), model::Symbol = :fd_phase,
         fit::NamedTuple = (;), frequency::Real = 50.0, sample::Union{Nothing, Real} = nothing,
         output_stem::AbstractString = "transient")
-    return validate(PSCADTransientFormulation(model, fit, frequency, sample, String(output_stem)))
+    return validate(PSCADTransientFormulation(line, model, fit, frequency, sample, String(output_stem)))
 end
 
 function validate(formulation::PSCADTransientFormulation)
+    for name in (:insulation_admittance, :semicon_admittance)
+        validate(getproperty(formulation.line.formulas, name), PSCADFormulation, name)
+    end
     formulation.model in (:fd_phase, :fd_mode) ||
         throw(ArgumentError("PSCAD transient model must be :fd_phase or :fd_mode"))
     isfinite(formulation.frequency) && formulation.frequency > 0 ||

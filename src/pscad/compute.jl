@@ -315,6 +315,7 @@ function _pscad_result(problem, formulation, options, inputs, native; batch_reus
         aerial_shunt_conductance = 1e-38, native_readback = deepcopy(native.native_readback),
         native_frequencies = copy(details(native.result).data.native_frequencies),
         dielectric_losses = deepcopy(inputs.dielectric_losses), exported_project = inputs.project,
+        line_constants_logs = _output_matches([native.execution.output_dir], ".log"),
         execution = deepcopy(execution))
     if options.data.timing
         timing = execution.reused ? (;) : (compile_call_seconds=native.source_elapsed,)
@@ -530,7 +531,7 @@ function compute(problem::TransientAnalysisProblem{<:LineParametersProblem},
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
     execution = computation_options(PSCADTransientFormulation,
         ComputationOptions(merge((output_stem = formulation.output_stem,), ComputationOptions(options).data)))
-    formulation = PSCADTransientFormulation(; formulation.model, formulation.fit,
+    formulation = PSCADTransientFormulation(; formulation.line, formulation.model, formulation.fit,
         formulation.frequency, formulation.sample, output_stem = execution.data.output_stem)
     validate(problem, PSCADTransientFormulation)
     inputs = _pscad_inputs(problem, formulation, execution.data.work_root)
@@ -542,7 +543,8 @@ function compute(problem::TransientAnalysisProblem{<:LineParametersProblem},
         retained = merge(details(response).data, (formulations = computation_details(formulation).data,
             window = problem.window, gridpoint = gridpoint_id(), coordinates = copy(response.coordinates),
             files = native.files, exported_project = inputs.project, execution = native.execution,
-            native_readback = native.native_readback))
+            native_readback = native.native_readback,
+            line_constants_logs = _output_matches([native.execution.output_dir], ".log")))
         if execution.data.timing
             timing = native.execution.reused ? (;) :
                 (wall_seconds = (time_ns() - started) * 1e-9, run_call_seconds = native.source_elapsed)
@@ -556,7 +558,8 @@ function compute(problem::TransientAnalysisProblem{<:LineParametersProblem},
 end
 
 function computation_details(formulation::PSCADTransientFormulation)::ComputationDetails
-    return ComputationDetails(; backend = :pscad, model = formulation.model, fit = formulation.fit,
+    return ComputationDetails(; backend = :pscad, line = NamedTuple(formulation.line),
+        model = formulation.model, fit = formulation.fit,
         frequency = formulation.frequency, sample = formulation.sample, output_stem = formulation.output_stem)
 end
 

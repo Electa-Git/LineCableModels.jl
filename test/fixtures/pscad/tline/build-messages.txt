@@ -1,0 +1,1 @@
+error	build		An alert was issued while solving line constants, check the log file 'cable_525kv_subsea_armoured_dc_bipole.log' for details.

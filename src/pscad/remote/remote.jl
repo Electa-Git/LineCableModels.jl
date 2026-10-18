@@ -418,6 +418,20 @@ function run_remote_pscad(
         error
     end
     if execution_error !== nothing
+        failure_path = joinpath(local_output, "failure.toml")
+        if isfile(failure_path)
+            failure = TOML.parsefile(failure_path)
+            if get(failure, "kind", nothing) == "line_constants_error"
+                log_path = failure["log_path"]
+                local_log = isempty(log_path) ? "" :
+                    abspath(joinpath(local_output, split(replace(log_path, '\\' => '/'), '/')...))
+                blocks = failure["blocks"]
+                message = isempty(blocks) ? join(failure["errors"], "; ") :
+                    join([(isempty(block["stage"]) ? "" : block["stage"] * " ") *
+                        join(block["errors"], "; ") for block in blocks], '\n')
+                throw(LineConstantsError(message, local_log))
+            end
+        end
         console_path = joinpath(local_output, "pscad-console.txt")
         if !isfile(console_path)
             write(

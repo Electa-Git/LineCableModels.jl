@@ -11,6 +11,97 @@ function _output_matches(roots, suffix)
     return matches
 end
 
+function _build_messages(messages::AbstractVector, path, case_directory; console::IO = stdout)
+    open(path, "w") do io
+        for message in messages
+            println(io, join((message.status, message.label, message.name,
+                replace(message.text, '\n' => ' ', '\r' => ' ')), '\t'))
+        end
+    end
+    output = dirname(path)
+    logs = setdiff(_output_matches([case_directory], ".log"),
+        _output_matches([output], ".log"))
+    for source in logs
+        destination = joinpath(output, relpath(source, case_directory))
+        try
+            mkpath(dirname(destination))
+            cp(source, destination; force = true)
+        catch log_error
+            diagnostic = "Unable to collect $source: $(sprint(showerror, log_error))"
+            println(console, diagnostic)
+            flush(console)
+            open(io -> println(io, "warning\tbuild\t$source\t$diagnostic"), path, "a")
+        end
+    end
+    errors = filter(message -> lowercase(message.status) == "error", messages)
+    if !isempty(errors)
+        tline = filter(message -> occursin(r"(?i)\b(tline|line.constants)\b",
+            join((message.label, message.name, message.text), ' ')), errors)
+        if !isempty(tline)
+            alerts = [message.text for message in tline]
+            references = [lowercase(basename(replace(matched[1], '\\' => '/')))
+                for text in alerts for matched in eachmatch(r"['\"]([^'\"]+\.log)['\"]"i, text)]
+            matched_logs = filter(source -> lowercase(basename(source)) in references, logs)
+            blocks = NamedTuple{(:stage, :errors, :log_path), Tuple{String, Vector{String}, String}}[]
+            for source in matched_logs
+                stage = ""
+                block_stage = ""
+                block_lines = String[]
+                enclosed = false
+                destination = joinpath(output, relpath(source, case_directory))
+                local_log = isfile(destination) ?
+                    replace(relpath(source, case_directory), '\\' => '/') : ""
+                try
+                    for raw in eachline(source)
+                        text = strip(raw)
+                        if !isempty(text) && all(==('*'), text)
+                            if enclosed
+                                if any(line -> occursin("ERROR", line), block_lines)
+                                    push!(blocks, (stage = block_stage,
+                                        errors = copy(block_lines), log_path = local_log))
+                                end
+                                empty!(block_lines)
+                            else
+                                block_stage = stage
+                            end
+                            enclosed = !enclosed
+                        elseif enclosed
+                            push!(block_lines, String(text))
+                        end
+                        if !isempty(text) && endswith(text, ":") &&
+                           !all(character -> character in ('*', '=', '-', '_', ':'), text)
+                            stage = String(text)
+                        end
+                    end
+                catch log_error
+                    diagnostic = "Unable to read $source: $(sprint(showerror, log_error))"
+                    println(console, diagnostic)
+                    flush(console)
+                    open(io -> println(io, "warning\tbuild\t$source\t$diagnostic"), path, "a")
+                end
+            end
+            native_errors = isempty(blocks) ?
+                [alerts; "No Tline ERROR block found in the referenced log."] :
+                [line for block in blocks for line in block.errors]
+            stage = isempty(blocks) ? "" : first(blocks).stage
+            log_path = isempty(blocks) ? "" : first(blocks).log_path
+            if isempty(blocks) && !isempty(matched_logs)
+                relative = relpath(first(matched_logs), case_directory)
+                isfile(joinpath(output, relative)) && (log_path = replace(relative, '\\' => '/'))
+            end
+            open(joinpath(output, "failure.toml"), "w") do io
+                TOML.print(io, Dict("kind" => "line_constants_error", "stage" => stage,
+                    "errors" => native_errors, "log_path" => log_path,
+                    "blocks" => [Dict("stage" => block.stage, "errors" => block.errors,
+                        "log_path" => block.log_path) for block in blocks]); sorted = true)
+            end
+        end
+        error("PSCAD build messages contain error status; see $path\n" *
+            join([message.text for message in errors], '\n'))
+    end
+    return messages
+end
+
 function _data_rows(path::AbstractString; fortran::Bool = false)
     return count(eachline(path)) do line
         fields=split(strip(fortran ? replace(line, 'D' => 'E', 'd' => 'e') : line))

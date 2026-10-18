@@ -19,7 +19,8 @@
         TerminalImpedance("cable:2:sheath"; R = 10))
     problem = TransientAnalysisProblem(line; sending, receiving = (), window)
     fit = (FS = 1.0, FE = 2e6, Numf = 200, YMaxP = 24, AMaxP = 26,
-        YMaxE = 0.03, AMaxE = 0.04, DCenab = 1, DCCOR = 2, CPASS = 1, MaxRPtol = 3e6)
+        YMaxE = 0.03, AMaxE = 0.04, DCenab = 1, DCCOR = 2, CPASS = 1, MaxRPtol = 3e6,
+        enablf = 0, shntcab = 1e-8)
     formulation = PSCADTransientFormulation(; fit)
     directory = mkpath(joinpath(@__DIR__, "..", "..", "..",
         ".linecablemodels", "test", "transient-export"))
@@ -225,5 +226,51 @@
         @test_throws ArgumentError PSCADTransientFormulation(fit = (FS = NaN,))
         @test_throws ArgumentError export_data(:pscad, problem,
             PSCADTransientFormulation(fit = (unknown = 1,)); file_name)
+    end
+end
+
+@testitem "PSCAD / transient cable dielectric selection" tags=[:integration, :pscad] begin
+    using EzXML
+    using LineCableModels.PSCAD: PSCADTransientFormulation
+    const P = LineCableModels.PSCAD
+    defaults = @inferred PSCADTransientFormulation()
+    @test defaults.line isa LineCableModels.Engine.LineParametersFormulation
+    @test formula_id(defaults.line.formulas.insulation_admittance) === :lossless
+    @test formula_id(defaults.line.formulas.semicon_admittance) === :lossless
+    copper = Material(:conductor, 1.72e-8)
+    dielectric = Material(:insulator, 1e10, 2.3; tan_delta = 0.03)
+    semicon = Material(:semicon, 1e4, 40; tan_delta = 0.02)
+    design = build(CableDesign, "transient-dielectric", terminal(:core,
+        solid(copper, Disk(0.004)), screen(semicon; t = 0.0005),
+        insulation(dielectric; t = 0.002)))
+    system = build(LineCableSystem, [design], [Pose2(0, -1)];
+        connections = [Dict(:core => 1)], line_length = 600.0)
+    earth = homogeneous(rho = 100.0)
+    line = LineParametersProblem(system; earth_props = earth, frequencies = [1.0, 1e6],
+        temperature = 60.0)
+    problem = TransientAnalysisProblem(line; sending = (), receiving = (),
+        window = (tmax = 20e-6, step = 1e-7))
+    lossy = Formulation(insulation_admittance = :lossy, semicon_admittance = :lossy)
+    selected = @inferred PSCADTransientFormulation(line = lossy, frequency = 60.0)
+    @test selected.line === lossy
+    @test P.validate(selected) === selected
+    @test P.computation_details(selected).data.line == NamedTuple(lossy)
+    unsupported = merge(lossy.formulas, (insulation_admittance = lossy.formulas.earth_admittance,))
+    invalid = LineCableModels.Engine.LineParametersFormulation(unsupported, lossy.options, lossy.definitions)
+    @test_throws r"PSCAD does not implement insulation_admittance" PSCADTransientFormulation(line = invalid)
+    mktempdir() do directory
+        for selection in (defaults.line, lossy,
+                CableConstantsFormulation(insulation_admittance = :lossy, semicon_admittance = :lossy),
+                Formulation(:pscad; insulation_admittance = :lossy, semicon_admittance = :lossy))
+            transient = readxml(export_data(:pscad, problem,
+                PSCADTransientFormulation(line = selection, frequency = 60.0);
+                file_name = joinpath(directory, "transient.pscx")))
+            constants = readxml(export_data(:pscad, system, earth; formulation = selection,
+                base_freq = 60.0, temperature = 60.0, file_name = joinpath(directory, "constants.pscx")))
+            losses = [p["value"] for p in findall("//User[@defn='master:Cable_Coax']/paramlist/param[starts-with(@name,'LT')]", transient)]
+            @test losses == [p["value"] for p in findall("//User[@defn='master:Cable_Coax']/paramlist/param[starts-with(@name,'LT')]", constants)]
+            @test selection === defaults.line ? all(iszero, parse.(Float64, losses)) :
+                parse(Float64, first(losses)) > 0
+        end
     end
 end

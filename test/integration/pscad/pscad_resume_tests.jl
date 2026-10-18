@@ -39,6 +39,7 @@
               $(incomplete_matrix[]) && write(joinpath(output, "result_zm.out"), "LOG10(FN) FN element\n")
               write(joinpath(output, "timing.txt"), "3.25")
               write(joinpath(output, "pscad-console.txt"), "protocol fixture")
+              write(joinpath(output, "generated.log"), "raw constants diagnostic")
               open(joinpath(output, "solver.toml"), "w") do io
                   TOML.print(io, identity)
               end
@@ -80,6 +81,8 @@
         @test identifications[] == 0
         @test !haskey(details(first_result).data.execution, :elapsed_scope)
         source=details(first_result).data.execution.source_run
+        @test details(first_result).data.line_constants_logs == [joinpath(source, "outputs", "generated.log")]
+        @test read(only(details(first_result).data.line_constants_logs), String) == "raw constants diagnostic"
         files=[joinpath(root, file) for (root, _, names) in walkdir(source)
                for file in names]
         original=Dict(path=>(bytes2hex(open(sha256, path)), mtime(path)) for path in files)

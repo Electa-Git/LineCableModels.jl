@@ -335,7 +335,7 @@ end
 if run_time_domain || run_pscad
     using UniversalLineModel, XLSX, TOML
     using LineCableModels: DoubleExponential
-    using LineCableModels.PSCAD: PSCADTransientFormulation, RemoteConfig, identify
+    using LineCableModels.PSCAD: PSCADTransientFormulation, LineConstantsError, RemoteConfig, identify
 
     let
         println("baseline: 227 samples from 1 mHz, including 50 Hz")
@@ -606,26 +606,31 @@ if run_time_domain || run_pscad
                 reference = references[reference_index]
                 reference_problem = reference_problems[reference_index]
                 core_index = findfirst(==(core1), reference.coordinates)
-                pscad_formulations = PSCADTransientFormulation[PSCADTransientFormulation(model = :fd_phase;
+                pscad_formulations = PSCADTransientFormulation[PSCADTransientFormulation(model = :fd_phase; line = formulation,
                     fit = (; YMaxP = order, AMaxP = order, DCenab = dc, CPASS = enforce))
                     for order in (10, 20, 30) for dc in (0, 1) for enforce in (0, 1)]
-                push!(pscad_formulations, PSCADTransientFormulation(model = :fd_mode))
+                push!(pscad_formulations, PSCADTransientFormulation(model = :fd_mode, line = formulation))
                 for (index, selected) in enumerate(pscad_formulations)
                     output_folder = mkpath(joinpath(folder, "pscad_$(scenario)_$(index)"))
                     before = Set(readdir(native_folder))
                     started = time_ns()
-                    # Station failures are ErrorException in this package version.
                     # Keep construction and comparison outside the station-error catch.
                     response = try
                         compute(reference_problem, selected;
                             options = merge(options, (; work_root = native_folder)))
                     catch exception
-                        exception isa ErrorException || rethrow()
+                        failure = if exception isa LineConstantsError
+                            Dict("status" => "line_constants_error", "message" => exception.message,
+                                "log_path" => exception.log_path)
+                        elseif exception isa ErrorException
+                            Dict("status" => "known_station_failure", "message" => sprint(showerror, exception))
+                        else
+                            rethrow()
+                        end
                         open(joinpath(output_folder, "status.toml"), "w") do io
-                            TOML.print(io, Dict("status" => "known_station_failure",
-                                "message" => sprint(showerror, exception), "scenario" => string(scenario),
+                            TOML.print(io, merge(failure, Dict("scenario" => string(scenario),
                                 "model" => string(selected.model), "fit" => Dict(string(k) => v for (k, v) in pairs(selected.fit)),
-                                "station" => station, "wall_seconds" => (time_ns() - started) / 1e9); sorted = true)
+                                "station" => station, "wall_seconds" => (time_ns() - started) / 1e9)); sorted = true)
                         end
                         nothing
                     end

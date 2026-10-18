@@ -75,6 +75,116 @@
     end
 end
 
+@testitem "PSCAD / line-constants failure record preserves native cause" tags=[:integration, :pscad] begin
+    using TOML
+    const P = LineCableModels.PSCAD
+    const fixture = joinpath(@__DIR__, "..", "..", "fixtures", "pscad", "tline")
+    const log_name = "cable_525kv_subsea_armoured_dc_bipole.log"
+    function P.remote_command(::Val{:tline_failure_fixture}, config::P.RemoteConfig, command::AbstractString)
+        script = if occursin("-SharedCase", command)
+            directory = joinpath(config.local_root, "case")
+            """
+            using TOML
+            directory = $(repr(directory))
+            fixture = $(repr(fixture))
+            log_name = $(repr(log_name))
+            include(joinpath(directory, "toolkit", "files.jl"))
+            cp(joinpath(fixture, log_name), joinpath(mkpath(joinpath(directory, "generated.gf81")), log_name))
+            messages = [(; zip((:status, :label, :name, :text),
+                String.(split(line, '\t'; limit = 4)))...) for line in readlines(joinpath(fixture, "build-messages.txt"))]
+            _build_messages(messages, joinpath(directory, "outputs", "build-messages.txt"), directory)
+            """
+        else
+            "nothing"
+        end
+        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
+    end
+    for formulation in (Formulation(:pscad), P.PSCADTransientFormulation())
+        mktempdir() do root
+            config = P.RemoteConfig("fixture", root, "scratch", "julia", "python";
+                local_root = root, transport = :tline_failure_fixture)
+            directory = mkpath(joinpath(root, "case"))
+            project = joinpath(directory, "generated.pscx")
+            write(project, "protocol fixture")
+            output = joinpath(directory, "outputs")
+            caught = try
+                P.run_remote_pscad(config, project, output, formulation,
+                    10.0.^range(-1, 5; length = 101); output_stem = "fixture")
+                nothing
+            catch exception
+                exception
+            end
+            @test caught isa P.LineConstantsError
+            @test caught.message == "Fitting Characteristic Admittance Yc: Tline.exe: ERROR; Error in INVCJD. Singularity occurs; Verify Transmission line data"
+            @test caught.log_path == joinpath(output, "generated.gf81", log_name)
+            @test read(caught.log_path) == read(joinpath(fixture, log_name))
+            failure = TOML.parsefile(joinpath(output, "failure.toml"))
+            @test failure["stage"] == "Fitting Characteristic Admittance Yc:"
+            @test failure["errors"] == ["Tline.exe: ERROR", "Error in INVCJD. Singularity occurs", "Verify Transmission line data"]
+            @test failure["log_path"] == "generated.gf81/" * log_name
+            @test length(failure["blocks"]) == 1
+            @test occursin(caught.message, sprint(showerror, caught))
+            @test occursin(caught.log_path, sprint(showerror, caught))
+        end
+    end
+end
+
+@testitem "PSCAD / Tline blocks and log-copy diagnostics" tags=[:integration, :pscad] begin
+    using TOML
+    const P = LineCableModels.PSCAD
+    fixture = joinpath(@__DIR__, "..", "..", "fixtures", "pscad", "tline")
+    log_name = "cable_525kv_subsea_armoured_dc_bipole.log"
+    messages = [(; zip((:status, :label, :name, :text),
+        String.(split(line, '\t'; limit = 4)))...) for line in readlines(joinpath(fixture, "build-messages.txt"))]
+    alert = only(messages).text
+    for build_error in (false, true)
+        mktempdir() do directory
+            source = joinpath(mkpath(joinpath(directory, "generated.gf81")), log_name)
+            cp(joinpath(fixture, log_name), source)
+            output = mkpath(joinpath(directory, "outputs"))
+            write(joinpath(output, "generated.gf81"), "block the log destination")
+            path = joinpath(output, "build-messages.txt")
+            console = IOBuffer()
+            selected = build_error ? messages : [merge(only(messages), (status = "normal", text = "successful build"))]
+            if build_error
+                @test_throws ErrorException P._build_messages(selected, path, directory; console)
+                failure = TOML.parsefile(joinpath(output, "failure.toml"))
+                @test failure["errors"] == ["Tline.exe: ERROR", "Error in INVCJD. Singularity occurs", "Verify Transmission line data"]
+                @test failure["log_path"] == ""
+            else
+                @test P._build_messages(selected, path, directory; console) === selected
+                @test !isfile(joinpath(output, "failure.toml"))
+            end
+            @test occursin("Unable to collect", String(take!(console)))
+            @test occursin("warning\tbuild", read(path, String))
+            @test occursin("Unable to collect", read(path, String))
+            @test read(source) == read(joinpath(fixture, log_name))
+        end
+    end
+    for content in ("Successful fitting\n", "Stage:\n***\nTline.exe: ERROR\n")
+        mktempdir() do directory
+            source = joinpath(mkpath(joinpath(directory, "generated.gf81")), log_name)
+            write(source, content)
+            output = mkpath(joinpath(directory, "outputs"))
+            @test_throws ErrorException P._build_messages(messages, joinpath(output, "build-messages.txt"), directory)
+            failure = TOML.parsefile(joinpath(output, "failure.toml"))
+            @test isempty(failure["blocks"])
+            @test failure["stage"] == ""
+            @test failure["errors"] == [alert, "No Tline ERROR block found in the referenced log."]
+        end
+    end
+    mktempdir() do directory
+        source = joinpath(mkpath(joinpath(directory, "generated.gf81")), log_name)
+        write(source, "Ignored stage:\n***\nno failure\n***\nFirst stage:\n====:\n***\nTline.exe: ERROR\nfirst cause\n***\nSecond stage:\n====\n***\nERROR: second cause\n***\n")
+        output = mkpath(joinpath(directory, "outputs"))
+        @test_throws ErrorException P._build_messages(messages, joinpath(output, "build-messages.txt"), directory)
+        failure = TOML.parsefile(joinpath(output, "failure.toml"))
+        @test [block["stage"] for block in failure["blocks"]] == ["First stage:", "Second stage:"]
+        @test [block["errors"] for block in failure["blocks"]] == [["Tline.exe: ERROR", "first cause"], ["ERROR: second cause"]]
+        @test failure["errors"] == ["Tline.exe: ERROR", "first cause", "ERROR: second cause"]
+    end
+end
+
 @testitem "PSCAD / completion verbosity and compile-call timing scope" tags=[:integration, :pscad] begin
     using Logging
     const P = LineCableModels.PSCAD
