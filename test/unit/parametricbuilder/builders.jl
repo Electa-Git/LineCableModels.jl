@@ -9,7 +9,7 @@
     # takes all its calls.
     for builder in (layers, assembly, terminal, solid, shell, core, insulation, screen,
             sheath, bedding, jacket, filler, wires, stranded, milliken, rope, armor, tape,
-            cores, pipe, duct)
+            cores, pipe, duct, at)
         @test builder isa LineCableModels.Builder
         @test length(methods(builder)) == 1
     end
@@ -29,6 +29,25 @@
     placed = at(member, Grid((0.1, 0.2)), Grid((0.3, 0.4)); combine = :zip)
     @test [(placement.at.x, placement.at.y) for placement in placed] == [(0.1, 0.3), (0.2, 0.4)]
 
+    # What `at` places follows its subject, by dispatch on the scalar type of the subject.
+    target = LineCableModels.target
+    @test target(at, 0.1, 0.2) === DM.Pose2
+    @test target(at, member, 0.1, 0.2) === DM.AssemblyMember
+    @test target(at, Grid((member, member)), Pose2(0.0, 0.0)) === DM.AssemblyMember
+    @test target(at, (member,), 0.0, 0.0) === Tuple
+    @test target(at, [Pose2(0.0, 0.0)], 0.0, 0.0) === Vector
+    @test at(Grid((Pose2(0.1, 0.2), Pose2(0.3, 0.2)))) isa Gridspace{DM.Pose2}
+    @test isempty(at(member, Grid(()), 0.0))
+    # A target that follows a keyword receives it and passes it on as the subject.
+    @test target(stranded, cu; shape = Disk(0.5e-3)) === DM.Enclosure
+    @test target(stranded, Grid((cu, al)); shape = Rectangle(0.3e-3, 0.1e-3)) === DM.Group
+    @test target(stranded, cu; shape = Grid((Disk(0.5e-3), Disk(0.6e-3)))) === DM.Enclosure
+    @test target(stranded, cu; shape = Grid((Disk(0.5e-3), Rectangle(0.3e-3, 0.1e-3)))) ===
+          DM.AbstractCablePart
+    @test stranded(cu; shape = Grid((Disk(0.5e-3), Disk(0.6e-3)))) isa Gridspace{DM.Enclosure}
+    poses = at([Pose2(0.1, 0.2)], Grid((0.1, 0.2)), Grid((0.3, 0.4)); combine = :zip)
+    @test [only(collection).x for collection in poses] ≈ [0.2, 0.3]
+
     # A product varies the first source fastest, in the order the call writes them.
     lays = Grid((DM.LayRatio(10), DM.LayRatio(12)))
     courses = wires(cu; shape = Disk(1e-3), n = 6, lay = lays, r = Grid((3e-3, 4e-3)))
@@ -40,6 +59,9 @@
     @test @inferred(cores(member; n = 3, r = 1e-2, names = (:a, :b, :c))) isa Assembly
     @test @inferred(first(insulation(Grid((pe, xlpe)); t = 1e-3))) isa Region
     @test @inferred(at(member, Grid((0.1, 0.2)), 0.0)) isa Gridspace{DM.AssemblyMember}
+    # A literal composition written in a call infers too.
+    zipped_collection = collection -> at(collection, Grid((0.1, 0.2)), 0.0; combine = :zip)
+    @test @inferred(zipped_collection([Pose2(0.1, 0.2)])) isa Gridspace{Vector}
 end
 
 @testitem "ParametricBuilder / builders / a build method extends a builder for an own type" tags=[:unit, :parametric] begin

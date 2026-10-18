@@ -494,6 +494,48 @@ on keywords, so such a method takes the call before the grammar does. A `Grid` k
 reaches it unlifted, and `combine` is refused. The `builders` guard checks that no builder
 of the package has one.
 
+### Targets
+
+A builder's target is the type of what it builds, and of the points of its `Gridspace` when a
+call lifts. It is the `Target` of `Builder{Target}` unless the owner adds a `target` method for
+the scalar type of the call's subject, its first argument. A subject that is a `Grid` or a
+`Gridspace` selects by the type of its points. The methods take scalar types only. `at`
+builds a pose by default, and its subject chooses what it places:
+
+```julia
+struct AtBuilder <: Builder{Pose2} end
+const at = AtBuilder()
+target(::AtBuilder, ::Type{<:AbstractCablePart}) = AssemblyMember
+target(::AtBuilder, ::Type{<:CableDesign}) = NamedTuple
+build(::AtBuilder, x::Real, y::Real; φ = 0) = Pose2(x, y, φ)
+build(::AtBuilder, part::AbstractCablePart, pose::Pose2) = AssemblyMember(part, pose)
+build(builder::AtBuilder, subject, x::Real, y::Real; φ = 0, keywords...) =
+    build(builder, subject, Pose2(x, y, φ); keywords...)
+at(Grid((0.1, 0.2)), 0.0)          # a Gridspace{Pose2}
+at(part, Grid((0.1, 0.2)), 0.0)    # a Gridspace{AssemblyMember}
+```
+
+Keywords do not select a method. A target that follows a keyword has one method that
+receives the keyword and passes it on as the subject. `stranded` builds a bounded group for
+rectangular strands and an enclosure for Disk wires:
+
+```julia
+function target(builder::StrandedBuilder,
+        material::Union{Materials.AbstractMaterial, Gridspace{<:Materials.AbstractMaterial},
+            DeterministicGrid{<:Tuple{Materials.AbstractMaterial,
+                Vararg{Materials.AbstractMaterial}}}};
+        shape, keywords...)
+    return target(builder, shape)
+end
+target(::StrandedBuilder, ::Type{<:DataModel.Rectangle}) = DataModel.Group
+target(::StrandedBuilder, ::Type{<:DataModel.Disk}) = DataModel.Enclosure
+stranded(copper; shape = Grid((Disk(0.5e-3), Disk(0.6e-3))))   # a Gridspace{Enclosure}
+```
+
+The first method types its `material`, as a material or a space of materials, so that the
+`shape` value passed on never reaches it again. A mixed or empty source of shapes keeps the default,
+`AbstractCablePart`.
+
 ## Developer paths
 
 - [Extension API](extensions.md) lists the equation methods and definition types omitted

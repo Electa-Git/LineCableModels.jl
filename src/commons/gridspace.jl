@@ -200,7 +200,7 @@ a `Grid` or a `Gridspace`, and otherwise invoke `caller` directly. A tuple, vect
 named tuple or pair among `values` that holds a source is varied at its depth, with the
 same composition.
 """
-function parameterize(
+Base.@constprop :aggressive function parameterize(
         ::Type{Target}, caller, values::Tuple; combine = :product
 ) where {Target}
     has_grid(values) || return caller(values...)
@@ -216,7 +216,7 @@ Lift the call `caller(arguments...; keywords...)` over its arguments and the val
 keywords, all as direct sources of one space. Each point calls `caller` with its
 positional arguments and its keywords again.
 """
-function parameterize(::Type{Target}, caller, arguments::Tuple{Vararg{Any, N}},
+Base.@constprop :aggressive function parameterize(::Type{Target}, caller, arguments::Tuple{Vararg{Any, N}},
         keywords::NamedTuple{K}; combine = :product) where {Target, N, K}
     split = (selected...) -> caller(ntuple(index -> selected[index], Val(N))...;
         NamedTuple{K}(ntuple(index -> selected[N + index], Val(length(K))))...)
@@ -252,11 +252,37 @@ function FormulationOptions(arguments...; combine = :product)
     return parameterize(FormulationOptions, arguments; combine)
 end
 
+"""
+    target(builder, subject, arguments...; keywords...)
+    target(builder, ::Type)
+
+Return the type of the object that a call of `builder` builds, the type of the points of the
+call's `Gridspace` when it lifts. It is the `Target` of `Builder{Target}` unless the owner of
+the builder adds a method for the scalar type of the call's subject, its first argument, as
+`target(::AtBuilder, ::Type{<:AbstractCablePart}) = AssemblyMember`. A subject that is a
+`Grid` or a `Gridspace` selects by the type of its points. The methods that take a subject
+receive the call's keywords, and these defaults ignore them. An owner whose target follows a
+keyword adds one method that receives the keyword and passes its value on as the subject.
+That method types its own subject, so that the value it passes on does not return to it.
+`stranded` does this for its `shape` keyword.
+"""
+target(::Builder{Target}; keywords...) where {Target} = Target
+target(::Builder{Target}, ::Type) where {Target} = Target
+target(builder::Builder, subject, arguments...; keywords...) = target(builder, typeof(subject))
+function target(builder::Builder, subject::Union{AbstractGrid, Gridspace}, arguments...;
+        keywords...)
+    return target(builder, eltype(subject))
+end
+# An empty source has no points to select a target by.
+target(::Builder{Target}, ::DeterministicGrid{Tuple{}}, arguments...; keywords...) where {Target} =
+    Target
+
 # Every builder lifts here, over all its arguments and keywords, so that `combine` composes
 # all of them. Each point builds from scalars.
-function (builder::Builder{Target})(arguments...; combine = :product, keywords...) where {Target}
+Base.@constprop :aggressive function (builder::Builder)(arguments...; combine = :product, keywords...)
     caller = Base.Fix1(build, builder)
-    return parameterize(Target, caller, arguments, NamedTuple(keywords); combine)
+    return parameterize(target(builder, arguments...; keywords...), caller, arguments,
+        NamedTuple(keywords); combine)
 end
 
 # Each source is checked for the composition of the space, and a zip checks the source

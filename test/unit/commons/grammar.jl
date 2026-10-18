@@ -134,6 +134,11 @@ end
     # over all its arguments and keywords.
     @test formula isa C.FormulaBuilder
     @test C.FormulaBuilder <: C.Builder{C.FormulaDefinition}
+    # A builder's target is its `Target`, unless its owner specifies one for its subject. A
+    # space selects by the type of its points.
+    @test C.target(formula) === C.FormulaDefinition
+    @test C.target(formula, :carson1926) === C.FormulaDefinition
+    @test C.target(formula, C.Grid((:carson1926, :deri1973))) === C.FormulaDefinition
     # A literal identifier infers at its call site. The identifier is part of the type.
     @test @inferred((() -> formula(:carson1926))()) isa C.FormulaDefinition{:carson1926}
     earths = formula(C.Grid((:carson1926, :deri1973)))

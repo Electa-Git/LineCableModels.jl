@@ -1,18 +1,21 @@
+struct AtBuilder <: Builder{DataModel.Pose2} end
+
 """
-    at(x, y; φ = 0, combine = :product)
-    at(; x = 0, y = 0, φ = 0, combine = :product)
-    at(pose)
-    at(part, pose; combine = :product)
-    at(part, x, y; φ = 0, combine = :product)
-    at(design, pose; connections, combine = :product)
-    at(design, x, y; φ = 0, connections, combine = :product)
-    at(placements, pose; combine = :product)
-    at(placements, x, y; φ = 0, combine = :product)
+```julia
+at(x, y; φ = 0, combine = :product)
+at(; x = 0, y = 0, φ = 0, combine = :product)
+at(pose)
+at(part, pose; combine = :product)
+at(part, x, y; φ = 0, combine = :product)
+at(design, pose; connections, combine = :product)
+at(design, x, y; φ = 0, connections, combine = :product)
+at(placements, pose; combine = :product)
+at(placements, x, y; φ = 0, combine = :product)
+```
 
 Construct a pose, place a local cable part, place a completed cable with its
 connections, or compose an outer transform onto a placement collection. A placement at
-`x` and `y` lifts over them, and over `φ`, as direct parameters of the one call, and it
-builds its pose from the scalars of each point.
+`x` and `y` builds its pose from them and `φ`.
 
 # Arguments
 
@@ -33,75 +36,31 @@ builds its pose from the scalars of each point.
 
 # Returns
 
-- A `Pose2`, placed member, placed-design record, transformed collection, or
-  the corresponding `Gridspace` when an argument or a keyword is a `Grid` or `Gridspace`.
+- A `Pose2`, a placed member, a placed-design record or a transformed collection. When an
+  argument or a keyword varies, a `Gridspace` of the type that its subject places.
 """
-function at end
+const at = AtBuilder()
 
-# One value of `T`, or a finite space of them: the subjects and the poses that `at` places.
-const Placed{T} = Union{T, Gridspace{<:T}, DeterministicGrid{<:Tuple{T, Vararg{T}}}}
+# What `at` places follows its subject. It places a pose by default. A part becomes a member,
+# a design a placed record, and a collection a collection of the same type.
+target(::AtBuilder, ::Type{<:DataModel.AbstractCablePart}) = DataModel.AssemblyMember
+target(::AtBuilder, ::Type{<:DataModel.CableDesign}) = NamedTuple
+target(::AtBuilder, ::Type{<:Tuple}) = Tuple
+target(::AtBuilder, ::Type{<:AbstractVector}) = Vector
 
-function at(
-        x::Union{Real, AbstractUncertainGrid, DeterministicGrid{<:Tuple{Vararg{Real}}},
-            Gridspace{<:Real}},
-        y::Union{Real, AbstractUncertainGrid, DeterministicGrid{<:Tuple{Vararg{Real}}},
-            Gridspace{<:Real}};
-        φ = 0,
-        combine::Symbol = :product
-)
-    return DataModel.Pose2(x, y, φ; combine)
-end
-
-at(; x = 0, y = 0, φ = 0, combine::Symbol = :product) = at(x, y; φ, combine)
-
-at(pose::Placed{DataModel.Pose2}) = pose
-
-function at(part::Placed{DataModel.AbstractCablePart}, pose::Placed{DataModel.Pose2};
-        combine::Symbol = :product)
-    return parameterize(
-        DataModel.AssemblyMember, DataModel.AssemblyMember, (part, pose); combine
-    )
-end
-function at(part::Placed{DataModel.AbstractCablePart}, x, y; φ = 0,
-        combine::Symbol = :product)
-    caller = (part, x, y, φ) -> DataModel.AssemblyMember(part, DataModel.Pose2(x, y, φ))
-    return parameterize(DataModel.AssemblyMember, caller, (part, x, y, φ); combine)
-end
-
-function at(design::Placed{DataModel.CableDesign}, pose::Placed{DataModel.Pose2};
-        connections, combine::Symbol = :product)
-    # The placed record, as the formations write it.
-    caller = (design, pose, connections) -> (; design, pose, connections)
-    return parameterize(NamedTuple, caller, (design, pose, connections); combine)
-end
-function at(design::Placed{DataModel.CableDesign}, x, y; φ = 0, connections,
-        combine::Symbol = :product)
-    caller = (design, x, y, φ, connections) ->
-        (; design, pose = DataModel.Pose2(x, y, φ), connections)
-    return parameterize(NamedTuple, caller, (design, x, y, φ, connections); combine)
-end
-
-function at(placements::Placed{Tuple}, pose::Placed{DataModel.Pose2};
-        combine::Symbol = :product)
-    return parameterize(Tuple, _compose_collection, (placements, pose); combine)
-end
-function at(placements::Placed{Tuple}, x, y; φ = 0, combine::Symbol = :product)
-    caller = (placements, x, y, φ) ->
-        _compose_collection(placements, DataModel.Pose2(x, y, φ))
-    return parameterize(Tuple, caller, (placements, x, y, φ); combine)
-end
-
-function at(placements::Placed{AbstractVector}, pose::Placed{DataModel.Pose2};
-        combine::Symbol = :product)
-    return parameterize(Vector, _compose_collection, (placements, pose); combine)
-end
-function at(placements::Placed{AbstractVector}, x, y; φ = 0, combine::Symbol = :product)
-    caller = (placements, x, y, φ) ->
-        _compose_collection(placements, DataModel.Pose2(x, y, φ))
-    return parameterize(Vector, caller, (placements, x, y, φ); combine)
-end
-
-_compose_collection(placements, pose) = map(member -> _compose_member(pose, member), placements)
+build(::AtBuilder, x::Real, y::Real; φ = 0) = DataModel.Pose2(x, y, φ)
+build(::AtBuilder; x = 0, y = 0, φ = 0) = DataModel.Pose2(x, y, φ)
+build(::AtBuilder, pose::DataModel.Pose2) = pose
+build(::AtBuilder, part::DataModel.AbstractCablePart, pose::DataModel.Pose2) =
+    DataModel.AssemblyMember(part, pose)
+# The placed record, as the formations write it.
+build(::AtBuilder, design::DataModel.CableDesign, pose::DataModel.Pose2; connections) =
+    (; design, pose, connections)
+build(::AtBuilder, placements::Union{Tuple, AbstractVector}, pose::DataModel.Pose2) =
+    map(member -> _compose_member(pose, member), placements)
+# A subject placed at `x` and `y` is placed at the pose they declare.
+build(builder::AtBuilder, subject, x::Real, y::Real; φ = 0, keywords...) =
+    build(builder, subject, DataModel.Pose2(x, y, φ); keywords...)
 
 function _compose_member(outer, member::DataModel.AssemblyMember)
     DataModel.AssemblyMember(member.part, outer * member.at)

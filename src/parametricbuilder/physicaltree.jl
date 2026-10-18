@@ -800,9 +800,24 @@ disk boundary, without an outer filler film.
 
 - A bounded `Group` for rectangular strands, or a material-complete
   `Enclosure` for circular strands. When an argument or a keyword varies, a
-  `Gridspace{AbstractCablePart}`.
+  `Gridspace` of the part that the `shape` keyword selects, or of `AbstractCablePart` when
+  its source mixes primitive types.
 """
 const stranded = StrandedBuilder()
+
+# The `shape` keyword selects what `stranded` builds: a bounded group for rectangular
+# strands, and an enclosure for Disk wires. A source of `shape` values selects by the type of
+# its points, and a mixed or empty one keeps `AbstractCablePart`. The material is typed so
+# that a `shape` value passed on as the subject never returns to this method.
+function target(builder::StrandedBuilder,
+        material::Union{Materials.AbstractMaterial, Gridspace{<:Materials.AbstractMaterial},
+            DeterministicGrid{<:Tuple{Materials.AbstractMaterial,
+                Vararg{Materials.AbstractMaterial}}}};
+        shape, keywords...)
+    return target(builder, shape)
+end
+target(::StrandedBuilder, ::Type{<:DataModel.Rectangle}) = DataModel.Group
+target(::StrandedBuilder, ::Type{<:DataModel.Disk}) = DataModel.Enclosure
 
 function build(::StrandedBuilder, material; center = nothing, shape,
         n = DataModel.capacity(), lay = nothing, dir = 1, φ0 = 0, compact = nothing,

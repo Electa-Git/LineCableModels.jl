@@ -311,6 +311,12 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Builder{Target}`, and one call method lifts it over all its arguments and keywords. Its
   scalar body is a `build` method. A user extends a builder for an own type with a `build`
   method, as `build(::typeof(insulation), m::MyMaterial; t, tag)`.
+- `target(builder, subject, arguments...)` gives the type that a call of a builder builds:
+  the `Target` of its type, or the type that its owner names for the scalar type of the
+  subject. `at` is a builder whose target follows its subject: a pose, a placed member, a
+  placed-design record or a placement collection. The target of `stranded` follows its
+  `shape` keyword: a bounded `Group` for rectangular strands and an `Enclosure` for Disk
+  wires.
 - `combine = :zip` pairs the direct parameters of one call, and a one-point source pairs as
   its only point. A zip that includes a nested space that varies throws an `ArgumentError`,
   whose message suggests a `Grid` of complete objects instead. A product varies its

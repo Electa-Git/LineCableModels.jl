@@ -50,7 +50,7 @@
     end
     rectangles = stranded(copper;center=center,
         shape=Rectangle(Grid((0.3e-3,0.31e-3)),0.1e-3),boundary=Disk(0.6e-3))
-    @test rectangles isa Gridspace{AbstractCablePart}
+    @test rectangles isa Gridspace{Group}
     @test all(part -> part isa Group, rectangles)
     mixed = stranded(copper;center=center,
         shape=Grid((strand,Disk(0.1e-3))),boundary=Disk(0.6e-3))

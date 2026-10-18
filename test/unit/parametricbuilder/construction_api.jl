@@ -698,8 +698,7 @@ end
         shape = Disk(0.5e-3),
         boundary = Grid((sector_boundary, second_boundary))
     )
-    @test boundary_space isa Gridspace{LineCableModels.DataModel.AbstractCablePart}
-    @test all(part -> part isa Enclosure, boundary_space)
+    @test boundary_space isa Gridspace{Enclosure}
     @test collect(boundary_space) == [stranded(
                copper;
                shape = Disk(0.5e-3),
@@ -722,8 +721,7 @@ end
         boundary = Grid((sector_boundary, second_boundary)),
         fill = fill_space
     )
-    @test sector_formation_space isa Gridspace{LineCableModels.DataModel.AbstractCablePart}
-    @test all(part -> part isa Enclosure, sector_formation_space)
+    @test sector_formation_space isa Gridspace{Enclosure}
     @test length(sector_formation_space) == 32
     sector_formations = collect(sector_formation_space)
     @test all(formation -> formation isa Enclosure, sector_formations)
@@ -752,8 +750,7 @@ end
         lay = LayRatio(12),
         boundary = Disk(2.0e-3)
     )
-    @test product_space isa Gridspace{LineCableModels.DataModel.AbstractCablePart}
-    @test all(part -> part isa Enclosure, product_space)
+    @test product_space isa Gridspace{Enclosure}
     @test length(product_space) == 4
 
     radii = (0.4e-3, 0.5e-3)
@@ -1260,8 +1257,7 @@ end
         lay = schedules,
         boundary = Disk(2.5e-3)
     )
-    @test strands isa Gridspace{LineCableModels.DataModel.AbstractCablePart}
-    @test all(part -> part isa Enclosure, strands)
+    @test strands isa Gridspace{Enclosure}
     @test length(strands) == 2
     @test stranded(
         copper;
