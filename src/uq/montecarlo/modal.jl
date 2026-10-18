@@ -55,7 +55,7 @@ function _sample_axis(value::Engine.LineParameters{<:Complex,<:Real,<:Engine.Mod
         selected=formulation.inner.modal.formula)
 end
 
-function initialize_buffers(::MonteCarlo, ::Type{T},
+function initialize_buffers(::Union{MonteCarlo,LinearError}, ::Type{T},
         input::Engine.LineParameters{<:Complex,<:Real,<:Engine.ModalDomain}, plan, buffers) where {T}
     segment = LineCableModels.PropagationParameters(input)
     quantities = (R=R(input), L=L(input), C=C(input), G=Engine.G(input),
@@ -79,9 +79,9 @@ function _record_sample!(buffers::NamedTuple, value::Engine.LineParameters{<:Com
     assignment = Engine.ModalAnalysis.align_modes(axis.selected,value,axis.reference;
         buffers=buffers.alignment)
     buffers.overlaps[:,trial] .= assignment.overlap
+    buffers.permutations[:,trial] .= assignment.permutation
     minimum(assignment.overlap) >= _MODAL_OVERLAP_THRESHOLD ||
         return false
-    buffers.permutations[:,trial] .= assignment.permutation
     value = assignment.parameters
     segment = LineCableModels.PropagationParameters(value)
     quantities = (R=R(value), L=L(value), C=C(value), G=Engine.G(value),
@@ -114,15 +114,11 @@ function _aggregate(buffers::NamedTuple, source::Engine.LineParameters{<:Complex
     histograms = formulation.options.data.return_histograms ? map(samples) do quantity
         _map_samples(values -> HistogramDensity(values; bins=formulation.options.data.bins),quantity)
     end : nothing
-    roots = complex.(materialize.(summaries.gamma.real),materialize.(summaries.gamma.imag))
-    voltage = complex.(materialize.(summaries.Tv.real),materialize.(summaries.Tv.imag))
-    current = complex.(materialize.(summaries.Ti.real),materialize.(summaries.Ti.imag))
-    domain = Engine.ModalDomain(LineCableModels.ModalOperators(voltage,current),roots)
-    angular = reshape(2π .* frequencies(source),1,1,:)
-    representation = Engine.LineParameters(domain,
-        complex.(materialize.(summaries.R),materialize.(summaries.L).*angular),
-        complex.(materialize.(summaries.G),materialize.(summaries.C).*angular),
-        frequencies(source); basis=basis(source), details=details(source))
+    quantities = merge(summaries, map((; gamma=summaries.gamma, Tv=summaries.Tv,
+        Ti=summaries.Ti)) do quantity
+        complex.(materialize.(quantity.real),materialize.(quantity.imag))
+    end)
+    representation = materialize(source, quantities, formulation)
     frequency = Engine.ModalAnalysis.ordering_frequency(
         formulation.inner.modal.formula,frequencies(source))
     assignment = (threshold=_MODAL_OVERLAP_THRESHOLD, frequency,
@@ -132,6 +128,19 @@ function _aggregate(buffers::NamedTuple, source::Engine.LineParameters{<:Complex
     return (; representation, statistics=summaries,
         samples=formulation.options.data.return_samples ? samples : nothing,
         histograms, mode_assignment=assignment)
+end
+
+# Both propagation methods construct the modal core from these physical products.
+function materialize(source::Engine.LineParameters{<:Complex,<:Real,<:Engine.ModalDomain},
+        quantities::NamedTuple{(:R,:L,:C,:G,:gamma,:Zc,:Yc,:Ti,:Tv,:alpha,:beta,:velocity)},
+        ::Union{LinearError,MonteCarlo})
+    domain = Engine.ModalDomain(LineCableModels.ModalOperators(
+        quantities.Tv, quantities.Ti), quantities.gamma)
+    angular = reshape(2π .* frequencies(source),1,1,:)
+    return Engine.LineParameters(domain,
+        complex.(materialize.(quantities.R),materialize.(quantities.L).*angular),
+        complex.(materialize.(quantities.G),materialize.(quantities.C).*angular),
+        frequencies(source); basis=basis(source), details=details(source))
 end
 
 function validate(value::Engine.LineParameters{<:Complex,<:Real,<:Engine.ModalDomain}, ::Type{MonteCarloResult},

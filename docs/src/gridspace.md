@@ -345,9 +345,10 @@ fastest. The formulation for column `j` is stored in `run.axes.formulations[j]`.
 Use `formula_id(run.axes.formulations[j].formulas.earth_impedance)` to identify
 its earth-impedance method.
 
-Direct linear propagation uses the same traversal. The Measurements extension
-changes only how an uncertain descriptor materializes. `LinearErrorResult`
-stores only its formulation and ordered core results.
+Linear propagation returns `LinearErrorResult` with its formulation, ordered
+uncertainty-bearing core results and retained details. Its default Measurements
+method uses the same traversal. The extension changes how each uncertain
+descriptor materializes.
 
 ParametricBuilder defines this shared traversal as the qualified `traverse`
 method. It computes the first problem-formulation batch, allocates a vector of
@@ -356,6 +357,72 @@ later type change. Optional detail records follow the same rule and are
 resolved through each scalar formulation's computation owner. `Combinatorial`
 constructs its result space from `values`, `axes` and `details`. `LinearError`
 uses one scalar formulation and consumes `values` and `details`.
+
+### Linear error propagation
+
+`LinearError(inner; derivative=:measurements)` is the default. It propagates
+Measurements through one evaluation per outer point. Every numerical operation
+must support those scalar types. Line parameters and cable constants support
+this path. Modal analysis and transient compositions throw an `ArgumentError`
+about the missing capability. Eigendecomposition does not accept
+`Complex{Measurement}`.
+
+`LinearError(inner; derivative=:central, relative_step=0.01)` uses ordinary
+numerical scalars for every solve. For each outer point, it evaluates the nominal
+problem and each independent input at its nominal value plus and minus
+`h_i = relative_step * u_i`. The other inputs remain nominal. Every evaluation
+uses the same Gridspace builder, including its dependent geometry. For `n`
+inputs with positive standard uncertainty, the cost is `2n + 1` evaluations.
+
+The keyword symbols resolve to UQ-owned method values during construction.
+The direct equivalent is `LinearError(inner; derivative=CentralDifferences(relative_step=0.01))`,
+with `CentralDifferences` imported from `LineCableModels.UQ`.
+`MeasurementsPropagation()` selects the default method directly. A method value
+stores its numerical configuration. Set the step in `CentralDifferences`.
+The `LinearError.derivative` field stores that value and its concrete type selects
+computation. Runtime output options contain only `retain_details`.
+
+The Jacobian column is `(y_plus - y_minus)/(2h_i)` and the standard uncertainty
+of each output is `sqrt(sum((J_i*u_i)^2))`. Signed sensitivities preserve shared
+output dependence and correlations between real and imaginary parts.
+
+Central truncation error scales quadratically with the perturbation for smooth
+responses. Subtraction also amplifies solver error and rounding when the step
+is small. Choose the step together with the solver accuracy and compare a
+halved step when assessing a numerical uncertainty estimate.
+
+Both methods need `using Measurements` to construct the returned values.
+Central differences propagate uncertainty in cable constants and line parameters.
+They compose with modal analysis through `modal=`, `modal_options=` or a positional
+`ModalAnalysisFormulation`, and with transient problems, including the NLT reference.
+Numerical operations inside
+the solver need only support ordinary scalars. Each central modal perturbation
+uses the same assignment and 0.8 overlap threshold as Monte Carlo.
+
+```julia
+linear_modal = compute(ParametricProblem(space),
+    LinearError(line_formulation; derivative=:central, relative_step=0.01);
+    modal=:default)
+```
+
+Declare independent inputs with relative or absolute uncertainty in `Grid`.
+Derive shared dimensions from one declared input in a joint builder.
+Supplied uncertainty-bearing numerical objects carry sources outside this
+declaration and cause an `ArgumentError` about shared or correlated inputs.
+
+Each central computation stores diagnostics in `details(result).data.points[i].data`.
+This record contains the inputs and signed perturbations. It also stores the
+evaluation count and propagated observables.
+
+Modal `mode_assignment` records overlaps and permutations for the
+nominal evaluation followed by each positive and negative perturbation. Input
+names such as `input[1][2]` identify argument positions through nested builders.
+
+With `retain_details=true`, `computations` also stores each scalar computation
+record. If a requested perturbation leaves the admissible domain or mode
+identity fails, computation stops. `details(error)` identifies the input,
+signed step, stage and any failed mode assignment. `error.cause` retains the
+original failure. The method neither changes the step nor omits a derivative.
 
 Monte Carlo selects each outer point once and derives a deterministic seed for that point. It repeatedly realizes the same point:
 
@@ -452,8 +519,9 @@ Arrival time uses 10 % of the absolute peak. Final value uses the mean of the
 last 10 % of samples, rounded up to at least one sample. A summary or histogram
 for an undefined arrival time is `missing`. The corresponding waveform remains
 available. Retained samples preserve the undefined value as `NaN`.
-`LinearError` rejects transient problems with an `ArgumentError` naming the
-missing first-order transient propagation.
+The default Measurements method of `LinearError` rejects transient problems
+with an `ArgumentError` naming the missing first-order transient propagation.
+Select `derivative=:central` to propagate through these computations.
 
 ### Observe and compare retained uncertainty
 

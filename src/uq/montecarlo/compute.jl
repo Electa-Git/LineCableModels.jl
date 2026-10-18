@@ -18,7 +18,7 @@ Extend `buffers` with the `R`, `L`, `C` and `G` samples of `plan.trials` realiza
 one row per assembly of `input`, the first accepted result. The samples keep the scalar
 type of that result.
 """
-function initialize_buffers(::MonteCarlo, ::Type, input::Engine.CableConstants, plan,
+function initialize_buffers(::Union{MonteCarlo,LinearError}, ::Type, input::Engine.CableConstants, plan,
         buffers)
     T = eltype(observe(input, R))
     return merge(buffers, (
@@ -105,7 +105,7 @@ $(TYPEDSIGNATURES)
 Extend `buffers` with the `R`, `L`, `C` and `G` samples of `plan.trials` realizations, in
 the phase and frequency layout of `input`, the first accepted result, with scalar type `T`.
 """
-function initialize_buffers(::MonteCarlo, ::Type{T}, input::Engine.LineParameters, plan,
+function initialize_buffers(::Union{MonteCarlo,LinearError}, ::Type{T}, input::Engine.LineParameters, plan,
         buffers) where {T}
     dimensions = (size(observe(input, Engine.Z))..., plan.trials)
     Rs = Array{T}(undef, dimensions)

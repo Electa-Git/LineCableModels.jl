@@ -327,22 +327,27 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Materialize retained R/L/C/G marginal summaries as an uncertainty-bearing core
-result using `source`'s physical axes. The summaries include native units and
-their standard deviations describe output spread, not uncertainty of the mean.
+Materialize R/L/C/G products as an uncertainty-bearing core result using
+`source`'s physical axes and native units. Products contain marginal summaries
+or values carrying first-order input dependencies. The standard deviations of
+sample summaries describe output spread, not uncertainty of the mean.
 `details` defaults to the source's supplemental output. MC computation selects
 only its point-wide metadata. Neither histogram bins nor sample retention
 participate in this construction.
 """
 function materialize(source::Engine.CableConstants,
-        summaries::NamedTuple{(:R,:L,:C,:G)}; details::ComputationDetails=source.details)
+        summaries::NamedTuple{(:R,:L,:C,:G)},
+        propagation::Union{LinearError,MonteCarlo,Nothing}=nothing;
+        details::ComputationDetails=source.details)
     return Engine.CableConstants(source.cores,
         materialize.(summaries.R), materialize.(summaries.L),
         materialize.(summaries.C), materialize.(summaries.G), source.frequency, details)
 end
 
 function materialize(source::Engine.LineParameters,
-        summaries::NamedTuple{(:R,:L,:C,:G)}; details::ComputationDetails=source.details)
+        summaries::NamedTuple{(:R,:L,:C,:G)},
+        propagation::Union{LinearError,MonteCarlo,Nothing}=nothing;
+        details::ComputationDetails=source.details)
     angular = reshape(2π .* frequencies(source), 1, 1, :)
     return Engine.LineParameters(source.domain,
         complex.(materialize.(summaries.R), materialize.(summaries.L) .* angular),

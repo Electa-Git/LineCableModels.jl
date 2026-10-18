@@ -11,7 +11,7 @@ function _sample_axis(value::Engine.TransientAnalysis.TransientResponse, point, 
     return (; time=value.t, coordinates=value.coordinates)
 end
 
-function initialize_buffers(::MonteCarlo, ::Type, input::Engine.TransientAnalysis.TransientResponse, plan, buffers)
+function initialize_buffers(::Union{MonteCarlo,LinearError}, ::Type, input::Engine.TransientAnalysis.TransientResponse, plan, buffers)
     T = eltype(input.voltage)
     samples = (voltage=Array{T}(undef,size(input.voltage)...,plan.trials),
         current=Array{T}(undef,size(input.current)...,plan.trials))
@@ -50,11 +50,7 @@ function _aggregate(buffers::NamedTuple, source::Engine.TransientAnalysis.Transi
     summaries = (voltage=_map_samples(SampleSummary,buffers.voltage),
         current=_map_samples(SampleSummary,buffers.current),
         kpis=map(quantities -> map(values -> _map_samples(summarize,values),quantities),buffers.kpis))
-    voltages = materialize.(summaries.voltage)
-    currents = materialize.(summaries.current)
-    T = eltype(voltages)
-    representation = Engine.TransientAnalysis.TransientResponse(convert(Vector{T},source.t),voltages,currents,
-        source.coordinates,details(source))
+    representation = materialize(source, summaries, formulation)
     histograms = if formulation.options.data.return_histograms
         density = values -> all(isfinite,values) ?
             HistogramDensity(values; bins=formulation.options.data.bins) : missing
@@ -65,6 +61,15 @@ function _aggregate(buffers::NamedTuple, source::Engine.TransientAnalysis.Transi
     end
     return (; representation, statistics=summaries,
         samples=formulation.options.data.return_samples ? buffers : nothing, histograms)
+end
+
+function materialize(source::Engine.TransientAnalysis.TransientResponse,
+        quantities::NamedTuple{(:voltage,:current,:kpis)}, ::Union{LinearError,MonteCarlo})
+    voltages = materialize.(quantities.voltage)
+    currents = materialize.(quantities.current)
+    T = eltype(voltages)
+    return Engine.TransientAnalysis.TransientResponse(convert(Vector{T},source.t),voltages,currents,
+        source.coordinates,details(source))
 end
 
 function validate(value::Engine.TransientAnalysis.TransientResponse, ::Type{MonteCarloResult},

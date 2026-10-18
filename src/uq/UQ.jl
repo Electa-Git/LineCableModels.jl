@@ -8,6 +8,7 @@ module UQ
 import ..LineCableModels: description, formula_id
 
 export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
+export LinearErrorMethod, MeasurementsPropagation, CentralDifferences
 export SampleSummary, HistogramDensity
 export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
@@ -52,6 +53,7 @@ include("linearerror.jl")
 include("montecarlo/compute.jl")
 include("montecarlo/modal.jl")
 include("montecarlo/transient.jl")
+include("centraldifference.jl")
 include("textdisplay.jl")
 
 end

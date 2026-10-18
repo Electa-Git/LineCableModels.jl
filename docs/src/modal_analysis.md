@@ -44,12 +44,16 @@ modal = compute(line_problem, user_formulation, ModalAnalysisFormulation(:defaul
 
 A problem `Gridspace` and one of its grid points compose in the same way.
 A `ParametricProblem` supports `Combinatorial`, deterministic formulation
-`Gridspace` selections, and `MonteCarlo`. Monte Carlo decomposes every trial
+`Gridspace` selections, `MonteCarlo`, and `LinearError` with `derivative=:central`.
+Monte Carlo decomposes every trial
 before aggregation and aligns its modes to the nominal result. See
 [Monte Carlo compositions](gridspace.md#monte-carlo-compositions).
-`LinearError` rejects modal composition with an `ArgumentError` because
-first-order mode tracking is unavailable. Cable constants do not compose
-with modal analysis.
+
+Central differences align each perturbed result to the nominal modes with the
+same assignment and report the overlaps in the retained point details.
+The default `LinearError` method, `derivative=:measurements`, rejects modal
+composition with an `ArgumentError` naming the missing capability.
+Cable constants do not compose with modal analysis.
 
 For Monte Carlo studies, custom modal formulas define
 `ModalAnalysis.ordering_frequency(selected, frequencies)`. This method takes

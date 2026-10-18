@@ -1,7 +1,111 @@
 """
 $(TYPEDEF)
 
-Select direct linear uncertainty propagation with `inner`.
+Select the derivative calculation used by [`LinearError`](@ref).
+"""
+abstract type LinearErrorMethod end
+
+"""
+$(TYPEDEF)
+
+Propagate first-order input dependencies through Measurements arithmetic in one
+computation. Numerical operations must support Measurements scalars.
+"""
+struct MeasurementsPropagation <: LinearErrorMethod end
+
+"""
+$(TYPEDEF)
+
+Estimate the Jacobian by paired central perturbations through the Gridspace
+builder. Each perturbation is `relative_step` times the input standard
+uncertainty. The default relative step is `0.01`.
+
+$(TYPEDFIELDS)
+"""
+struct CentralDifferences <: LinearErrorMethod
+    "Ratio of the perturbation to the input standard uncertainty [dimensionless]."
+    relative_step::Float64
+
+    function CentralDifferences(relative_step)
+        validate(relative_step, CentralDifferences)
+        return new(Float64(relative_step))
+    end
+end
+
+CentralDifferences(; relative_step=0.01) = CentralDifferences(relative_step)
+
+# Public symbols are resolved here, before the computation is constructed.
+function LinearErrorMethod(identifier::Symbol, relative_step=0.01)
+    if identifier === :measurements
+        validate(relative_step, CentralDifferences)
+        return MeasurementsPropagation()
+    elseif identifier === :central
+        return CentralDifferences(relative_step)
+    end
+    throw(ArgumentError("LinearError derivative must be :measurements or :central"))
+end
+LinearErrorMethod(method::LinearErrorMethod) = method
+function LinearErrorMethod(method::LinearErrorMethod, relative_step)
+    throw(ArgumentError("relative_step=$(repr(relative_step)) was supplied alongside " *
+        "$(typeof(method)); specify the step in CentralDifferences"))
+end
+function LinearErrorMethod(value, args...)
+    throw(ArgumentError("LinearError derivative must be :measurements, :central or " *
+        "a LinearErrorMethod value; got $(repr(value))"))
+end
+
+function validate(step::Real, ::Type{CentralDifferences})
+    isfinite(step) && step > 0 && isfinite(Float64(step)) && Float64(step) > 0 ||
+        throw(ArgumentError("LinearError relative_step must be finite and positive"))
+    return step
+end
+function validate(step::Bool, ::Type{CentralDifferences})
+    throw(ArgumentError("LinearError relative_step must be a real number, excluding Bool; got $step"))
+end
+function validate(step, ::Type{CentralDifferences})
+    throw(ArgumentError("LinearError relative_step must be a finite positive real number; got $(repr(step))"))
+end
+
+# Symbols here describe the method for display and serialization only.
+Base.NamedTuple(::MeasurementsPropagation) = (derivative=:measurements, relative_step=0.01)
+Base.NamedTuple(method::CentralDifferences) = (derivative=:central, relative_step=method.relative_step)
+
+"""
+$(TYPEDEF)
+
+Select first-order uncertainty propagation with `inner`.
+
+Option `derivative=:measurements` (default) propagates Measurements through one
+evaluation and requires every numerical operation to support those scalars.
+Option `derivative=:central` evaluates the nominal problem and two perturbations
+per independent uncertain input through the same Gridspace builder. It supports
+modal and transient computations with ordinary numerical scalars. Both methods
+need `using Measurements` to construct uncertainty-bearing results.
+
+The symbols select UQ-owned method values at construction. The equivalent direct
+forms are `derivative=MeasurementsPropagation()` and
+`derivative=CentralDifferences(relative_step=0.01)`, imported from
+`LineCableModels.UQ`. A method value stores its configuration. Set the relative
+step in the `CentralDifferences` constructor.
+
+For central differences, `relative_step=0.01` sets the dimensionless ratio
+``s = h_i/u_i`` of each perturbation to its input standard uncertainty. The
+Jacobian and output standard uncertainty are
+
+```math
+J_i = \\frac{y(x+h_i e_i)-y(x-h_i e_i)}{2h_i}, \\qquad
+u_y = \\sqrt{\\sum_i (J_i u_i)^2}.
+```
+
+Inputs declared by Grid are independent. Shared dimensions derived by one joint
+builder keep their dependence. Central differences reject supplied uncertain
+scalars whose shared or correlated sources are outside that declaration.
+
+Modal perturbations use nominal mode assignment and report overlaps in
+`details(result).data.points`. A rejected perturbation throws an error whose
+`details(error)` identifies the input path, signed step and original failure.
+The method preserves the requested step. `retain_details=true` also keeps the scalar
+computation records for all evaluations.
 
 Shared inputs must be supplied once to a joint `Gridspace` builder, which
 derives the dependent geometry. Propagation retains those correlations and
@@ -12,16 +116,21 @@ First-order moments need not equal nonlinear Monte Carlo moments.
 
 $(TYPEDFIELDS)
 """
-struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractFormulation
+struct LinearError{F <: AbstractFormulation, O <: ComputationOptions,
+        D <: LinearErrorMethod} <: AbstractFormulation
     "Formulation used for each materialized problem."
     inner::F
+    "Derivative method and its numerical configuration."
+    derivative::D
     "Supplemental-output retention options owned by this propagation."
     options::O
 
-    function LinearError(inner::AbstractFormulation, options::ComputationOptions)
+    function LinearError(inner::AbstractFormulation, derivative::LinearErrorMethod,
+            options::ComputationOptions)
         validate(inner, LinearError)
         normalized = computation_options(LinearError, options)
-        return new{typeof(inner), typeof(normalized)}(inner, normalized)
+        return new{typeof(inner), typeof(normalized), typeof(derivative)}(
+            inner, derivative, normalized)
     end
 end
 
@@ -41,16 +150,37 @@ function computation_options(
     return ComputationOptions(; retain_details = normalized.retain_details)
 end
 
+function LinearError(inner::AbstractFormulation, options::ComputationOptions)
+    selected = get(options.data, :derivative, :measurements)
+    derivative = haskey(options.data, :relative_step) ?
+        LinearErrorMethod(selected, options.data.relative_step) : LinearErrorMethod(selected)
+    unknown = filter(key -> key ∉ (:retain_details,:derivative,:relative_step), keys(options.data))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown LinearError computation options: $(sort!(collect(unknown)))"))
+    retention = ComputationOptions(; retain_details=get(options.data,:retain_details,false))
+    return LinearError(inner, derivative, retention)
+end
+
+function LinearError(inner::AbstractFormulation, derivative::LinearErrorMethod;
+        options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
+    return LinearError(inner, derivative, ComputationOptions(options))
+end
+
 function LinearError(
         inner::F;
-        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions(),
+        kwargs...
 ) where {F <: AbstractFormulation}
     options = ComputationOptions(options)
-    return LinearError(inner, options)
+    supplied = (; kwargs...)
+    duplicates = intersect(keys(options.data), keys(supplied))
+    isempty(duplicates) || throw(ArgumentError(
+        "LinearError options were supplied twice: $(collect(duplicates))"))
+    return LinearError(inner, ComputationOptions(merge(options.data, supplied)))
 end
 
 function Base.NamedTuple(value::LinearError)
-    return (kind = :linear_error, inner = NamedTuple(value.inner), options = value.options.data)
+    return (kind = :linear_error, inner = NamedTuple(value.inner), options = merge(value.options.data, NamedTuple(value.derivative)))
 end
 
 """Identify first-order uncertainty propagation without inspecting its inner owner."""
@@ -60,7 +190,8 @@ formula_id(::Type{<:LinearError}) = :LinearError
 formula_id(::LinearError) = :LinearError
 computation_options(value::LinearError) = value.options
 function Base.pairs(value::LinearError; quantity = nothing)
-    pairs(LinearError, (inner = value.inner, options = value.options.data); quantity)
+    pairs(LinearError, (inner = value.inner,
+        options = merge(value.options.data, NamedTuple(value.derivative))); quantity)
 end
 
 """

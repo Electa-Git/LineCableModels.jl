@@ -13,7 +13,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Monte Carlo supports modal analysis with nominal mode assignment and transient waveform and terminal KPI statistics. Unsupported LinearError compositions report the missing capability.
+- `LinearError` offers `derivative=:central` with `relative_step=0.01`, nominal mode assignment and transient propagation. Measurements remains the default method.
+
+- Monte Carlo supports modal analysis with nominal mode assignment and transient waveform and terminal KPI statistics.
 
 - `Yc(model, s)` and `H(model, s)` evaluate ULM, FDCM and J. Marti fits at complex frequencies and DC in terminal order.
 

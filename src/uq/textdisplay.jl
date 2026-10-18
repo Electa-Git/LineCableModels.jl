@@ -1,5 +1,10 @@
 _uq_compact(value) = sprint(show, value; context = :compact => true, sizehint = 80)
 
+TextDisplay.@showfields MeasurementsPropagation "MeasurementsPropagation" method -> (;)
+TextDisplay.@showfields CentralDifferences "CentralDifferences" method -> (
+    relative_step = method.relative_step,
+)
+
 TextDisplay.name(::Type{<:LinearError}) = "LinearError"
 Base.summary(io::IO, ::LinearError) = print(io, "Linear uncertainty propagation")
 function Base.show(io::IO, formulation::LinearError)
