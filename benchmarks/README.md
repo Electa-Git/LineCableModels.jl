@@ -94,6 +94,7 @@ The DC320 scripts select WP2.1 when run without arguments.
 `wp22 pscad` runs both WP2.2 and PSCAD.
 Run DC320-U without the fits with `julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl pscad`.
 DC320-A uses separate sheath and armour bonds and a pulse window from its modal delays.
+DC525-S accepts the same arguments, with separate sheath and armour bonds and a 525 kV pulse window from its modal delays.
 The 48 ULM variants vary Yc and H orders (8, 16), time rows, passivity enforcement and DC correction.
 The study also fits default FDCM and Marti models.
 
