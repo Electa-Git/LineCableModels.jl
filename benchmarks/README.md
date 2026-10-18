@@ -88,9 +88,12 @@ julia benchmarks/sensitivity_tables.jl [output folder]
 
 The default output folder is `.linecablemodels/benchmarks/tables/`.
 
-`julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl wp22` selects the DC320-U WP2.2 study after the baseline.
-DC320-A uses the same `wp22` and optional `pscad` arguments, with separate sheath and armour bonds and a pulse window from its modal delays.
-No argument selects WP2.1.
+The DC320 scripts select WP2.1 when run without arguments.
+`wp22` runs WP2.2 without PSCAD.
+`pscad` runs only the baseline, the NLT references for scenarios (i) and (iii) at 10 Ω, and PSCAD.
+`wp22 pscad` runs both WP2.2 and PSCAD.
+Run DC320-U without the fits with `julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl pscad`.
+DC320-A uses separate sheath and armour bonds and a pulse window from its modal delays.
 The 48 ULM variants vary Yc and H orders (8, 16), time rows, passivity enforcement and DC correction.
 The study also fits default FDCM and Marti models.
 
@@ -110,7 +113,6 @@ Archives keep fit diagnostics, DC targets and achieved values, core 1 KPIs, wall
 Growth ratios compare peaks in the final two 10 % windows.
 A growth flag identifies a ratio that exceeds one and 110 % of its reference ratio.
 
-Append `pscad` to run the optional PSCAD section after the other studies: `julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl wp22 pscad`.
 Set `LINECABLEMODELS_PSCAD_CONFIG` to the station configuration path.
 The section runs FD-Phase orders 10, 20 and 30 with each DC and passivity setting, and default FD-Mode.
 It covers the single-point step at 10 Ω and the pulse.
