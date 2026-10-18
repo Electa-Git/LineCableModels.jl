@@ -15,6 +15,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Monte Carlo supports modal analysis with nominal mode assignment and transient waveform and terminal KPI statistics. Unsupported LinearError compositions report the missing capability.
 
+- `Yc(model, s)` and `H(model, s)` evaluate ULM, FDCM and J. Marti fits at complex frequencies and DC in terminal order.
+
 - The `:ulm` fit offers Add pole and Functional form DC correction with physical line targets, exact reference samples and retained convergence diagnostics.
 
 - The `:marti` fit refines products with positive real pole and zero magnitudes by least squares. Each fitted section is minimum phase by construction. Lossy propagation is strictly proper and uses the full band with a `bode.threshold` magnitude floor. Residues come directly from the factors, and delay refinement uses the final rational phase.

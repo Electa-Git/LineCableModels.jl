@@ -36,3 +36,54 @@
     @test U.scale_factor(U.native_unit(U.Quantity{:fitting_error}()),
         U.display_unit(U.Quantity{:fitting_error}())) == 1.0
 end
+
+@testitem "LineModels / fitted evaluation at complex frequency and DC" tags=[:unit, :engine] begin
+    for T in (Float64, Float32)
+        s = Complex{T}[0, 3 + 4im, -1 + 2im, im]
+        errors = (rms=zeros(T, 2, 2), max=zeros(T, 2, 2), f_max=zeros(T, 2, 2))
+        passive = (checked=false, passive=nothing, bands=Tuple{T, T}[], worst=nothing,
+            f_worst=nothing, perturbation=nothing)
+        admittance = (poles=Complex{T}[-1, -2],
+            residues=cat(Complex{T}[1 2; 3 4], Complex{T}[2 0; 1 3]; dims=3),
+            direct=T[2 1; 0 3])
+        groups = [(delay=T(0.1), poles=Complex{T}[-3],
+                residues=reshape(Complex{T}[1 2; 3 4], 2, 2, 1)),
+            (delay=T(0.2), poles=Complex{T}[-4],
+                residues=reshape(Complex{T}[2 1; 0 3], 2, 2, 1))]
+        wideband = LineModel(WidebandModel(admittance, groups), ["west", "east"],
+            one(T), T[1, 2], (admittance=errors, propagation=errors), passive,
+            (targets=nothing, achieved=nothing), ComputationDetails(; formula=:ulm))
+        yc = @inferred Yc(wideband, s)
+        h = @inferred H(wideband, s)
+        @test eltype(yc) == eltype(h) == Complex{T}
+        for (k, point) in enumerate(s)
+            expected_yc = [2 + 1/(point+1) + 2/(point+2) 1 + 2/(point+1);
+                3/(point+1) + 1/(point+2) 3 + 4/(point+1) + 3/(point+2)]
+            expected_h = exp(-point*T(0.1)) / (point+3) * [1 2; 3 4] +
+                exp(-point*T(0.2)) / (point+4) * [2 1; 0 3]
+            @test yc[:, :, k] ≈ expected_yc
+            @test h[:, :, k] ≈ expected_h
+        end
+        @test size(Yc(wideband, Complex{T}[])) == size(H(wideband, Complex{T}[])) == (2, 2, 0)
+
+        # Nonorthogonal current modes distinguish transpose from inverse and voltage from current.
+        impedance = [(constant=T(3), poles=T[-2], residues=T[12], delay=zero(T)),
+            (constant=T(5), poles=T[-4], residues=T[20], delay=zero(T))]
+        propagation = [(constant=zero(T), poles=T[-2, -4], residues=T[1, -1], delay=T(0.1)),
+            (constant=T(0.7), poles=T[], residues=T[], delay=T(0.2))]
+        modal = LineModel(ModalModel(T[1 2; 0 1], one(T), impedance, propagation),
+            ["west", "east"], one(T), T[1, 2], (admittance=errors, propagation=errors),
+            passive, (targets=nothing, achieved=nothing), ComputationDetails(; formula=:marti))
+        yc = @inferred Yc(modal, s)
+        h = @inferred H(modal, s)
+        @test eltype(yc) == eltype(h) == Complex{T}
+        for (k, point) in enumerate(s)
+            y1, y2 = (point+2)/(3*(point+6)), (point+4)/(5*(point+8))
+            h1 = exp(-point*T(0.1)) * 2/((point+2)*(point+4))
+            h2 = T(0.7) * exp(-point*T(0.2))
+            @test yc[:, :, k] ≈ [y1+4y2 2y2; 2y2 y2]
+            @test h[:, :, k] ≈ [h1 2*(h2-h1); 0 h2]
+        end
+        @test size(Yc(modal, Complex{T}[])) == size(H(modal, Complex{T}[])) == (2, 2, 0)
+    end
+end

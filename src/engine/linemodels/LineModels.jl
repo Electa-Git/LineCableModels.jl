@@ -25,8 +25,8 @@ import ...Units
 import ...TextDisplay
 import ..Engine: description, formula_id, frequencies, sigma, LineParametersFormulation,
                 LineParametersProblem, PhaseDomain, completed_inputs, completion_details
-import ..ModalAnalysis: PropagationParameters, Ti, transform
-using LinearAlgebra: norm, lu, mul!, ldiv!
+import ..ModalAnalysis: PropagationParameters, Ti, transform, Yc, H
+using LinearAlgebra: Diagonal, norm, lu, mul!, ldiv!
 using Logging: with_logger, current_logger, @warn
 #! explicit-imports: on
 

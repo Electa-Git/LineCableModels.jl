@@ -96,3 +96,114 @@ details(result::LineModel) = result.details
 function completed_inputs(model::LineModel)
     return get(details(model).data,:inputs,(;))
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate fitted characteristic admittance at complex frequencies and DC.
+Wideband and modal models use, respectively,
+
+```math
+Y_c(s) = D + \\sum_k \\frac{R_k}{s-p_k}, \\qquad
+Y_c(s) = T\\,\\mathrm{diag}(1/Z_{c,m}(s))\\,T^\\mathsf{T},
+```
+
+where ``T`` is the retained current transformation and ``Z_{c,m}`` is the
+fitted modal impedance.
+
+# Arguments
+
+- `result`: Completed fitted line model.
+- `s`: Vector of complex frequencies \\[rad/s\\]. Zero selects DC.
+
+# Returns
+
+- Phase-domain admittance \\[S\\], with axes `terminal × terminal × frequency`
+  in `result.coordinates` and `s` order.
+"""
+function Yc(result::LineModel{<:WidebandModel{T}}, s::AbstractVector{<:Complex}) where {T}
+    admittance = result.model.admittance
+    n = size(admittance.direct, 1)
+    values = Array{promote_type(Complex{T}, eltype(s)), 3}(undef, n, n, length(s))
+    for (k, point) in enumerate(s)
+        @views values[:, :, k] .= admittance.direct
+        for j in eachindex(admittance.poles)
+            @views values[:, :, k] .+= admittance.residues[:, :, j] ./ (point - admittance.poles[j])
+        end
+    end
+    return values
+end
+
+function Yc(result::LineModel{<:ModalModel{T}}, s::AbstractVector{<:Complex}) where {T}
+    model = result.model
+    transformation = model.transformation
+    n = size(transformation, 1)
+    S = promote_type(Complex{T}, eltype(s))
+    values = Array{S, 3}(undef, n, n, length(s))
+    modal = Vector{S}(undef, n)
+    for (k, point) in enumerate(s)
+        for (mode, section) in enumerate(model.impedance)
+            impedance = section.constant + sum(r / (point - p)
+                for (p, r) in zip(section.poles, section.residues); init=zero(S))
+            modal[mode] = inv(impedance * exp(-point * section.delay))
+        end
+        @views values[:, :, k] .= transformation * Diagonal(modal) * transpose(transformation)
+    end
+    return values
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate fitted current-wave propagation at complex frequencies and DC.
+Wideband and modal models use, respectively,
+
+```math
+H(s) = \\sum_g e^{-s\\tau_g}\\sum_k \\frac{R_{g,k}}{s-p_{g,k}}, \\qquad
+H(s) = T\\,\\mathrm{diag}(h_m(s))\\,T^{-1},
+```
+
+where ``T`` is the retained current transformation and each fitted modal section
+is ``h_m(s)=e^{-s\\tau_m}(c_m+\\sum_k r_{m,k}/(s-p_{m,k}))``.
+At DC each delay factor is one and each pole term is ``-r_{m,k}/p_{m,k}``.
+
+# Arguments
+
+- `result`: Completed fitted line model.
+- `s`: Vector of complex frequencies \\[rad/s\\]. Zero selects DC.
+
+# Returns
+
+- Phase-domain propagation \\[dimensionless\\], with axes `terminal × terminal × frequency`
+  in `result.coordinates` and `s` order.
+"""
+function H(result::LineModel{<:WidebandModel{T}}, s::AbstractVector{<:Complex}) where {T}
+    model = result.model
+    n = size(model.admittance.direct, 1)
+    values = zeros(promote_type(Complex{T}, eltype(s)), n, n, length(s))
+    for (k, point) in enumerate(s), group in model.propagation
+        delay = exp(-point * group.delay)
+        for j in eachindex(group.poles)
+            @views values[:, :, k] .+= group.residues[:, :, j] .* (delay / (point - group.poles[j]))
+        end
+    end
+    return values
+end
+
+function H(result::LineModel{<:ModalModel{T}}, s::AbstractVector{<:Complex}) where {T}
+    model = result.model
+    transformation = model.transformation
+    n = size(transformation, 1)
+    S = promote_type(Complex{T}, eltype(s))
+    values = Array{S, 3}(undef, n, n, length(s))
+    modal = Vector{S}(undef, n)
+    for (k, point) in enumerate(s)
+        for (mode, section) in enumerate(model.propagation)
+            modal[mode] = (section.constant + sum(r / (point - p)
+                for (p, r) in zip(section.poles, section.residues); init=zero(S))) *
+                exp(-point * section.delay)
+        end
+        @views values[:, :, k] .= (transformation * Diagonal(modal)) / transformation
+    end
+    return values
+end

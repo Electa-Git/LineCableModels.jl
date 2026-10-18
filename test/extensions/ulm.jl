@@ -63,6 +63,31 @@
     @test !details(fdcm).data.step_check
     @test isnan(details(fdcm).data.step_err)
     @test isnan(details(fdcm).data.step_err_late)
+    for fitted in (model, fdcm)
+        yc = @inferred Yc(fitted, data.s)
+        h = @inferred H(fitted, data.s)
+        @test size(yc) == size(h) == (3, 3, length(f))
+        for (evaluated, exact, record) in
+                ((yc, data.Yc, fitting_error(fitted).admittance),
+                (h, data.H, fitting_error(fitted).propagation))
+            for j in 1:3, i in 1:3
+                scale = maximum(abs(sample[i, j]) for sample in exact)
+                differences = [abs(evaluated[i, j, k] - exact[k][i, j]) for k in eachindex(f)]
+                relative = iszero(scale) ? ifelse.(iszero.(differences), 0.0, Inf) : differences ./ scale
+                @test sqrt(sum(abs2, relative) / length(f)) ≈ record.rms[i, j] rtol=1e-12
+                maximum_error, index = findmax(relative)
+                @test maximum_error ≈ record.max[i, j] rtol=1e-12
+                @test f[index] == record.f_max[i, j]
+            end
+        end
+        rebuilt = ULMModel(fitted)
+        points = ComplexF64[0, 100 + 200im, 1 - 10im]
+        yc, h = Yc(fitted, points), H(fitted, points)
+        for (k, point) in enumerate(points)
+            @test yc[:, :, k] == eval_yc(rebuilt, point)
+            @test h[:, :, k] == eval_h(rebuilt, point)
+        end
+    end
     unused_line = LineParametersProblem(problem.system, problem.temperature + 10,
         problem.earth_props, f)
     unused_problem = LineModelProblem(segment; line=unused_line)
@@ -147,6 +172,9 @@ end
         end
         @test model.dc.achieved.admittance == eval_yc(rebuilt, 0)
         @test model.dc.achieved.propagation == eval_h(rebuilt, 0)
+        # The DC record uses real zero, whose scalar divisions can round differently.
+        @test Yc(model, ComplexF64[0])[:, :, 1] ≈ model.dc.achieved.admittance rtol=16eps(Float64)
+        @test H(model, ComplexF64[0])[:, :, 1] ≈ model.dc.achieved.propagation rtol=16eps(Float64)
         @test maximum(convergence.relative_differences.impedance) <= 1e-6
         @test maximum(convergence.relative_differences.admittance) <= 1e-6
         @test all(isfinite, fitting_error(model).admittance.rms)

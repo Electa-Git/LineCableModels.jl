@@ -326,6 +326,24 @@ The `fitting_error` observation expands to the admittance and propagation RMS
 matrices, with detached values and phase labels. `observables(model)` includes
 poles, delays and both error matrices. Reports accept these observations.
 
+### Evaluation at complex frequency
+
+`Yc(model, s)` and `H(model, s)` evaluate the fitted characteristic admittance
+in siemens and current-wave propagation, respectively. `s` is a vector of complex
+frequencies in rad/s. Both return `terminal × terminal × frequency` arrays in
+`model.coordinates` order. Wideband models keep the rational direct term and
+delayed propagation groups. J. Marti models use the fitted modal sections and
+the retained constant transformation, as in the `:td` realization.
+Zero evaluates the fitted DC solution directly:
+
+```julia
+s = vcat(0.0 + 0.0im, 2π * im .* model.frequencies)
+yc = Yc(model, s)
+h = H(model, s)
+yc_dc = yc[:, :, 1]
+h_dc = h[:, :, 1]
+```
+
 ## Line-model sweeps
 
 A selection `Grid` forms a formulation `Gridspace`. This example compares `:ulm`

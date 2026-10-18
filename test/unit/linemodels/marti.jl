@@ -49,6 +49,8 @@ end
     @test relative_delay_error <= 1e-9
     @test maximum(fitting_error(result).admittance.max) < 1e-14
     @test maximum(fitting_error(result).propagation.max) < 1e-14
+    @test Yc(result, ComplexF64[0])[:, :, 1] ≈ fill(sqrt(capacitance / inductance), 1, 1) rtol=1e-14
+    @test H(result, ComplexF64[0])[:, :, 1] ≈ ones(1, 1) rtol=1e-14
     @test !passivity(result).checked && passivity(result).passive === nothing
     @test result.dc == (targets=nothing, achieved=nothing)
     selected = compute(LineModelProblem(segment), LineModelFormulation(:marti;
@@ -78,6 +80,26 @@ end
         inv(transpose(transformation)))
     @test all(a -> abs(a) >= 1e-2, reference.buffers.propagation)
     for result in results
+        points = 2π * im .* f
+        yc = @inferred Yc(result, points)
+        h = @inferred H(result, points)
+        transformation = result.model.transformation
+        modal_yc = [transformation \ yc[:, :, k] / transpose(transformation) for k in eachindex(f)]
+        modal_h = [transformation \ h[:, :, k] * transformation for k in eachindex(f)]
+        for (evaluated, exact, record) in
+                ((modal_yc, inv.(reference.buffers.impedance), fitting_error(result).admittance),
+                (modal_h, reference.buffers.propagation, fitting_error(result).propagation))
+            for mode in 1:3
+                data = exact[mode, :]
+                relative = [abs(abs(evaluated[k][mode, mode]) - abs(data[k])) for k in eachindex(f)] ./
+                    maximum(abs, data)
+                # Phase-to-modal transport adds round-off even when the fit error is nearly zero.
+                @test sqrt(sum(abs2, relative) / length(f)) ≈ record.rms[mode, mode] rtol=1e-10 atol=64eps(Float64)
+                maximum_error, index = findmax(relative)
+                @test maximum_error ≈ record.max[mode, mode] rtol=1e-10 atol=64eps(Float64)
+                @test f[index] == record.f_max[mode, mode]
+            end
+        end
         for section in (result.model.impedance..., result.model.propagation...)
             @test all(p -> isreal(p) && p < 0, section.poles)
             @test all(isfinite, section.residues)
