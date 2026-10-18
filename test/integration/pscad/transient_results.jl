@@ -62,6 +62,65 @@
     end
 end
 
+@testitem "PSCAD / nonfinite transient samples retain channel and time" tags=[:integration, :pscad] begin
+    const P = LineCableModels.PSCAD
+    fixture = joinpath(@__DIR__, "..", "..", "fixtures", "pscad", "transient")
+    caught = try
+        P.read_pscad_transient(fixture; stem = "nonfinite")
+    catch error
+        error
+    end
+    @test caught isa P.NonfiniteOutputError
+    @test caught.output_path == joinpath(fixture, "nonfinite_02.out")
+    @test caught.channel == "receiving:cable:1:core:v"
+    @test caught.time == 0.001
+    @test occursin(caught.output_path, sprint(showerror, caught))
+    @test occursin(caught.channel, sprint(showerror, caught))
+    @test occursin("t=0.001 s", sprint(showerror, caught))
+    mktempdir() do directory
+        for name in ("nonfinite.inf", "nonfinite_01.out", "nonfinite_02.out")
+            cp(joinpath(fixture, name), joinpath(directory, name))
+        end
+        write(joinpath(directory, "pscad-console.txt"), "fixture")
+        write(joinpath(directory, "timing.txt"), "0.1")
+        write(joinpath(directory, "execution.toml"), "mode = 'transient'")
+        @test_throws P.NonfiniteOutputError P.validate(directory,
+            P.PSCADTransientFormulation(); output_stem = "nonfinite")
+        first_path = joinpath(directory, "nonfinite_01.out")
+        second_path = joinpath(directory, "nonfinite_02.out")
+        write(second_path, replace(read(second_path, String), "Inf" => "1"))
+        nan_error = try
+            P.read_pscad_transient(directory; stem = "nonfinite")
+        catch error
+            error
+        end
+        @test nan_error isa P.NonfiniteOutputError
+        @test nan_error.output_path == first_path
+        @test nan_error.channel == "receiving:cable:1:sheath:v"
+        @test nan_error.time == 0.002
+        write(first_path, replace(read(first_path, String), "NaN" => "2"))
+        negative_inf = try
+            P.read_pscad_transient(directory; stem = "nonfinite")
+        catch error
+            error
+        end
+        @test negative_inf isa P.NonfiniteOutputError
+        @test negative_inf.channel == "sending:cable:1:core:v"
+        @test negative_inf.time == 0.003
+        write(first_path, replace(read(first_path, String), "-Inf" => "3"))
+        finite = P.read_pscad_transient(directory; stem = "nonfinite")
+        @test finite.time == [0.0, 0.001, 0.002, 0.003]
+        @test length(finite.channels) == 11
+        @test all(values(finite.channels)) do samples
+            all(isfinite, samples)
+        end
+        write(second_path, replace(read(second_path, String), "0.001" => "NaN"))
+        @test_throws ArgumentError P.read_pscad_transient(directory; stem = "nonfinite")
+        rm(second_path)
+        @test_throws ArgumentError P.read_pscad_transient(directory; stem = "nonfinite")
+    end
+end
+
 @testitem "PSCAD / recorded transient title and samples" tags=[:integration, :pscad] begin
     const P = LineCableModels.PSCAD
     directory = joinpath(@__DIR__, "..", "..", "fixtures", "pscad", "transient")

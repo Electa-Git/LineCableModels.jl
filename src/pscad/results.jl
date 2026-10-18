@@ -118,11 +118,35 @@ function read_pscad_result(
 end
 
 """
+$(TYPEDEF)
+
+Report the earliest nonfinite channel sample in PSCAD transient output.
+The first channel in INF order identifies simultaneous nonfinite samples.
+
+$(TYPEDFIELDS)
+"""
+struct NonfiniteOutputError <: Exception
+    "Local path of the numbered OUT file containing the sample."
+    output_path::String
+    "PGB channel name from the INF file."
+    channel::String
+    "Time of the first nonfinite sample \\[s\\]."
+    time::Float64
+end
+
+function Base.showerror(io::IO, error::NonfiniteOutputError)
+    print(io, "PSCAD output has nonfinite samples in channel ", repr(error.channel),
+        " at t=", error.time, " s: ", error.output_path)
+end
+
+"""
     read_pscad_transient(directory::AbstractString; stem::AbstractString)
 
 Read PSCAD INF channel names and numbered OUT files with time followed by at
 most ten channels. Return `(time, channels)`, with time in seconds and channels
 keyed by their PGB names in the recorded units. Accept Fortran exponents.
+Throw `NonfiniteOutputError` for the earliest nonfinite channel sample across
+all numbered files. Invalid time coordinates and missing output remain errors.
 """
 function read_pscad_transient(directory::AbstractString; stem::AbstractString)
     occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", stem) ||
@@ -131,6 +155,7 @@ function read_pscad_transient(directory::AbstractString; stem::AbstractString)
     allunique(names) || throw(ArgumentError("PSCAD channel names must be unique"))
     time = Float64[]
     channels = Dict{String, Vector{Float64}}()
+    divergence = nothing
     for file_index in 1:cld(length(names), 10)
         offset = 10(file_index - 1)
         count = min(10, length(names) - offset)
@@ -146,8 +171,8 @@ function read_pscad_transient(directory::AbstractString; stem::AbstractString)
         all(row -> length(row) == count + 1, rows) ||
             throw(ArgumentError("PSCAD output has an incorrect column count: $path"))
         table = reduce(vcat, permutedims.(rows))
-        all(isfinite, table) || throw(ArgumentError("PSCAD output has nonfinite samples: $path"))
         times = table[:, 1]
+        all(isfinite, times) || throw(ArgumentError("PSCAD output has nonfinite times: $path"))
         all(>(0), diff(times)) ||
             throw(ArgumentError("PSCAD output time must be strictly increasing: $path"))
         if file_index == 1
@@ -155,10 +180,18 @@ function read_pscad_transient(directory::AbstractString; stem::AbstractString)
         else
             times == time || throw(ArgumentError("PSCAD output time columns differ: $path"))
         end
+        invalid = findfirst(!isfinite, transpose(@view table[:, 2:end]))
+        if invalid !== nothing
+            channel, sample = Tuple(invalid)
+            if divergence === nothing || times[sample] < divergence.time
+                divergence = NonfiniteOutputError(String(path), names[offset + channel], times[sample])
+            end
+        end
         for index in 1:count
             channels[names[offset + index]] = table[:, index + 1]
         end
     end
+    divergence === nothing || throw(divergence)
     return (; time, channels)
 end
 

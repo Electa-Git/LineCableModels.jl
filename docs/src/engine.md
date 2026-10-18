@@ -1392,8 +1392,18 @@ resume options as line-constants computation apply.
 INF names map voltage and current channels to `<end>:<terminal>:v` and
 `<end>:<terminal>:i`, such as `sending:cable:1:core:v`.
 `TransientResponse` stores seconds, volts and amperes with arrays ordered as
-end × terminal × time, sending first. Assigned terminals require both channels.
-Unlisted terminals remain open. Their voltage is retained when a channel exists.
+end × terminal × time, sending first. Voltage channels cover both ends of the
+terminal list. Current channels cover assigned terminals and matched branches.
+Unassigned terminals remain open with zero current.
+The reader throws `ArgumentError` if a required channel is absent.
+
+Nonfinite channel samples throw `PSCAD.NonfiniteOutputError`.
+Its `output_path` identifies the numbered OUT file, `channel` gives the INF name,
+and `time` gives the earliest nonfinite sample time in seconds across all output files.
+Simultaneous failures use the first channel in INF order.
+The native runner propagates this exception so callers can record a diverged
+simulation and continue a parameter study. Raw outputs remain in the run folder.
+Invalid time coordinates still throw `ArgumentError`.
 
 A `Matched()` end uses a long extension of the same cable, with the same rows
 and FD model. Its length is `1.1 * c * tmax / 2`. A reflection from its far end

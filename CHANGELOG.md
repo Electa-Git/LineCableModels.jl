@@ -13,6 +13,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- PSCAD transient readers report divergence with `PSCAD.NonfiniteOutputError`, including the output path, channel and first nonfinite sample time.
+
 - The coaxial backend evaluates `:pollaczek1926` buried-cable earth-return impedance at complex frequency with configurable Gauss–Kronrod integration tolerances.
 
 - `LinearError` offers `derivative=:central` with `relative_step=0.01`, nominal mode assignment and transient propagation. Measurements remains the default method.
