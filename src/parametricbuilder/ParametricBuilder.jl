@@ -48,7 +48,7 @@ import Random
 import ..LineCableModels: build, Gridpoint, validate
 import ..LineCableModels: Grid, AbsoluteError, DeterministicGrid, RelativeGrid
 import ..LineCableModels: AbsoluteGrid, AbstractGrid, AbstractUncertainGrid
-import ..LineCableModels: UncertainValue, Gridspace, has_uncertainty
+import ..LineCableModels: UncertainValue, Gridspace, ScalarOrGrid, has_uncertainty
 import ..LineCableModels: materialize, points, Builder, target
 import ..LineCableModels: verbosity, VerbosityLogger
 import Logging

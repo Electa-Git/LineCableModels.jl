@@ -1614,32 +1614,30 @@ design is unchanged.
 
 # Arguments
 
-- `original`: completed physical cable design.
+- `original`: completed physical cable design, or a space of designs.
 
 # Keywords
 
 - `new_id`: identifier for the returned design. An empty value appends
   `"_equivalent"` to the source identifier.
+- `combine=:product`: composition of the sources when `original` or `new_id` is a `Grid`
+  or a `Gridspace`, `:product` or `:zip`.
 
 # Returns
 
-- A completed homogeneous [`CableDesign`](@ref).
+- A completed homogeneous [`CableDesign`](@ref), or a `Gridspace{CableDesign}` of them
+  when an argument varies.
 """
-function homogenize(
-        original::Union{Gridspace{<:CableDesign},
-            DeterministicGrid{<:Tuple{CableDesign, Vararg{CableDesign}}}};
-        new_id = "", combine = :product)
-    caller = (original; new_id) -> homogenize(original; new_id)
-    return parameterize(CableDesign, caller, (original,), (; new_id); combine)
+function homogenize(original::ScalarOrGrid{CableDesign}; new_id = "", combine = :product)
+    return parameterize(CableDesign, Base.Fix1(build, homogenize), (original,), (; new_id);
+        combine)
 end
 
-function homogenize(
-        original::CableDesign;
-        new_id::AbstractString = ""
-)
+# The scalar body of `homogenize`, which builds each point.
+function build(::typeof(homogenize), original::CableDesign; new_id::AbstractString = "")
     target_id = isempty(new_id) ? original.cable_id * "_equivalent" : String(new_id)
     blueprint = flatten(original)
-    flattened_members = AbstractCablePart[]
+    flattened_members = Stack{Vector{AbstractCablePart}}[]
     for assembly in blueprint.assembly_ranges
         parts = AbstractCablePart[]
         for index in assembly
@@ -1671,15 +1669,12 @@ function homogenize(
             mu_scale = mu_r_ins / radial_mu
             for (position, layer) in pairs(layers)
                 source = layer.material
+                material = build(Material, source; mu_r = source.mu_r * mu_scale)
                 push!(parts,
                     Region(
                         Symbol(terminal, :_dielectric_, position),
                         Annulus(layer.r_in, layer.r_ex),
-                        Material(source.kind, source.rho, source.eps_r,
-                            source.mu_r * mu_scale, source.T0, source.alpha;
-                            rho_thermal = source.rho_thermal,
-                            theta_max = source.theta_max, tan_delta = source.tan_delta,
-                            sigma_solar = source.sigma_solar)
+                        material
                     ))
             end
         end
@@ -1709,5 +1704,5 @@ function homogenize(
             nothing
         )
     end
-    return build(CableDesign, target_id, root; nominal_data = original.nominal_data)
+    return build(CableDesign, target_id, (root,), original.nominal_data)
 end

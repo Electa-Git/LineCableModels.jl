@@ -809,10 +809,7 @@ const stranded = StrandedBuilder()
 # strands, and an enclosure for Disk wires. A source of `shape` values selects by the type of
 # its points, and a mixed or empty one keeps `AbstractCablePart`. The material is typed so
 # that a `shape` value passed on as the subject never returns to this method.
-function target(builder::StrandedBuilder,
-        material::Union{Materials.AbstractMaterial, Gridspace{<:Materials.AbstractMaterial},
-            DeterministicGrid{<:Tuple{Materials.AbstractMaterial,
-                Vararg{Materials.AbstractMaterial}}}};
+function target(builder::StrandedBuilder, material::ScalarOrGrid{Materials.AbstractMaterial};
         shape, keywords...)
     return target(builder, shape)
 end

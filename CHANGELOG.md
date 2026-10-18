@@ -307,6 +307,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pairs that contain it. A constructor lifts through the family method of its input family,
   `(::Type{T})(arguments...; combine) where {T <: Family}`. A type outside a family lifts
   with one method of its own that calls `parameterize`.
+- `ScalarOrGrid{T}` is a `T`, a `Gridspace` of `T` or a non-empty deterministic `Grid` of
+  `T`. It is public in `Commons` and not exported. The values of the `Grid` can mix subtypes
+  of `T`. A vector, a `Gridpoint` and an uncertain grid are not members. A method typed with
+  it receives a scalar and a space of it. `LineParametersProblem(system; …)`, `homogenize`
+  and the target of `stranded` take it.
 - Each builder of the user-facing language is the singleton of a subtype of
   `Builder{Target}`, and one call method lifts it over all its arguments and keywords. Its
   scalar body is a `build` method. A user extends a builder for an own type with a `build`
@@ -323,7 +328,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first source fastest, in the order the call writes its arguments and keywords.
 - `formula` lifts over a `Grid` of identifiers, orders or options, and `at` with `x` and
   `y` lifts over them and `φ`. `Material(library, name)` lifts over a `Grid` of names,
-  `homogenize` over a space of designs, and `Formulation` over a `Grid` of backend tags.
+  `homogenize` over a space of designs and over `new_id`, and `Formulation` over a `Grid`
+  of backend tags.
 - `FormulationOptions` lifts over its named tuple and its keywords. `ComputationOptions`
   throws an `ArgumentError` for a `Grid`, since computation options do not vary.
 - The integrand of a `SpectralIntegral` is a `Function`.

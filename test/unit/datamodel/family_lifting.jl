@@ -40,6 +40,10 @@ end
     homogenized = homogenize(designs)
     @test homogenized isa Gridspace{CableDesign}
     @test [design.cable_id for design in homogenized] == fill("lifted_equivalent", 2)
+    # One method takes a design or a space of designs, and lifts its keyword too.
+    @test homogenize(first(designs)) isa CableDesign
+    renamed = homogenize(first(designs); new_id = Grid(("first", "second")))
+    @test [design.cable_id for design in renamed] == ["first", "second"]
 
     # A formation zips its own parameters.
     paired = trefoil(first(designs); spacing = Grid((0.1, 0.2)), φ0 = Grid((0.0, 0.1)),

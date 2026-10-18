@@ -82,7 +82,7 @@ temperature, static earth model and frequency types promote to.
 - `combine=:product`: composition rule when an input varies.
 """
 function LineParametersProblem(
-        system::Union{LineCableSystem, AbstractGrid, Gridspace{<:LineCableSystem}};
+        system::ScalarOrGrid{LineCableSystem};
         temperature = 20,
         earth_props,
         frequencies = [50],

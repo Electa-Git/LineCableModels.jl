@@ -35,6 +35,33 @@
     @test_throws MethodError C.Gridspace(1.0)
 end
 
+@testitem "Commons / grammar / a scalar or a space of it" tags=[:unit, :commons] begin
+    const C = LineCableModels.Commons
+    const RealOrGrid = C.ScalarOrGrid{Real}
+
+    # A value of T, a Gridspace of T and a non-empty Grid of T are members. The values of a
+    # Grid can mix subtypes of T.
+    @test 2.0 isa RealOrGrid
+    @test C.Grid((1.0, 2.0)) isa RealOrGrid
+    @test C.Grid((1, 2.5)) isa RealOrGrid
+    @test C.Gridspace{Float64}(float, (C.Grid((1, 2)),)) isa RealOrGrid
+    @test Shell(C.Grid((1e-3, 2e-3))) isa C.ScalarOrGrid{Shell}
+
+    # The empty Grid, a vector, a Gridpoint, an uncertain grid and a space of another type
+    # are not.
+    @test !(C.Grid(()) isa RealOrGrid)
+    @test !([1.0, 2.0] isa RealOrGrid)
+    @test !(C.Gridpoint{Float64}(float, (1,)) isa RealOrGrid)
+    @test !(C.Grid((1.0, 2.0), 5.0) isa RealOrGrid)
+    @test !(C.Grid((:a, :b)) isa RealOrGrid)
+    @test !(C.Gridspace{Symbol}(Symbol, (C.Grid(("a", "b")),)) isa RealOrGrid)
+
+    # One method receives the scalar and the space, and lifts the space.
+    half(x::C.ScalarOrGrid{Real}) = C.parameterize(Float64, value -> value / 2, (x,))
+    @test @inferred(half(2.0)) === 1.0
+    @test collect(@inferred(half(C.Grid((2.0, 4.0))))) == [1.0, 2.0]
+end
+
 @testitem "Commons / grammar / lifting and composition" tags=[:unit, :commons] begin
     using Random
     const C = LineCableModels.Commons

@@ -200,24 +200,33 @@ function parameterize(
     return parameterize(Material, caller, (Val(first(values)), Base.tail(values)...); combine)
 end
 
-function Material(
-        material::Material;
-        kind = material.kind,
-        rho = material.rho,
-        eps_r = material.eps_r,
-        mu_r = material.mu_r,
-        T0 = material.T0,
-        alpha = material.alpha,
-        rho_thermal = material.rho_thermal,
-        theta_max = material.theta_max,
-        tan_delta = material.tan_delta,
-        sigma_solar = material.sigma_solar,
-        combine::Symbol = :product
-)
-    return Material(;
-        kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
-        theta_max, tan_delta, sigma_solar, combine
-    )
+"""
+$(TYPEDSIGNATURES)
+
+Copy `material` with the properties named by the keywords changed. A keyword that is a
+`Grid` or a `Gridspace` lifts the call, and it then returns a `Gridspace{Material}`.
+
+# Keywords
+
+- `kind`, `rho`, `eps_r`, `mu_r`, `T0`, `alpha`, `rho_thermal`, `theta_max`, `tan_delta` and
+  `sigma_solar`: the changed properties. The others keep the values of `material`.
+- `combine=:product`: composition of the sources when a keyword varies, `:product` or `:zip`.
+"""
+function Material(material::Material; combine = :product, changes...)
+    return parameterize(Material, Base.Fix1(build, Material), (material,),
+        NamedTuple(changes); combine)
+end
+
+# The scalar body of the copy method, which builds each point. An unchanged class is the
+# type parameter of `material`, passed on as `Val(K)`, and dispatch selects the constructor
+# by its type.
+function build(::Type{Material}, material::Material{T, K}; kind = Val(K), rho = material.rho,
+        eps_r = material.eps_r, mu_r = material.mu_r, T0 = material.T0,
+        alpha = material.alpha, rho_thermal = material.rho_thermal,
+        theta_max = material.theta_max, tan_delta = material.tan_delta,
+        sigma_solar = material.sigma_solar) where {T, K}
+    return Material(kind, rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta,
+        sigma_solar)
 end
 
 function Material(unexpected::Union{Number, Symbol, AbstractString, UncertainValue};

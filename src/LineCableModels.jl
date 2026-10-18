@@ -112,15 +112,15 @@ using .Commons: add!, build, homogenize, constitutive, basis, line_length, descr
                 R, L, C, resistance, inductance, capacitance, formula, formula_id
 using .Commons: Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid,
                 AbstractGrid, AbstractUncertainGrid, UncertainValue, Gridspace, Gridpoint,
-                Composition, Product, Zip, has_uncertainty, has_grid, nominal, uncertainty,
-                parameterize, materialize, points, realize, realize_arguments,
+                Composition, Product, Zip, ScalarOrGrid, has_uncertainty, has_grid, nominal,
+                uncertainty, parameterize, materialize, points, realize, realize_arguments,
                 sample_uncertainty, Builder, target
 include("logging.jl")
 
 # Bounded text formatting consumes the completed shared declaration grammar.
 include("textdisplay/TextDisplay.jl")
 
-public parameterize, materialize, sample_uncertainty, Builder, target
+public parameterize, materialize, sample_uncertainty, Builder, target, ScalarOrGrid
 
 # Thin native plotting handles and optional-extension entry points.
 include("plotbuilder/PlotBuilder.jl")

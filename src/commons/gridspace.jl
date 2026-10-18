@@ -136,6 +136,32 @@ function Gridspace{Target}(source::AbstractResultSpace) where {Target}
 end
 
 """
+    ScalarOrGrid{T}
+
+A value of `T` or a finite space of values of `T`: `T` itself, a `Gridspace` whose points are
+of `T`, or a non-empty deterministic `Grid` of values of `T`. What dispatches on a scalar `T`
+dispatches on a space of `T`, and this type writes that rule in one signature. The method
+receives both, lifts a space and builds or computes a scalar. `homogenize` takes a
+`ScalarOrGrid{CableDesign}`.
+
+The values of a `Grid` can mix subtypes of `T`. A vector is one value, and alternatives are
+a `Grid`. A vector, a `Gridpoint`, an uncertain grid and the empty `Grid(())` are not
+members.
+
+# Examples
+
+```julia
+using LineCableModels: ScalarOrGrid
+2.0 isa ScalarOrGrid{Real}                              # true
+Grid((1, 2.5)) isa ScalarOrGrid{Real}                   # true, Int and Float64 values
+Shell(Grid((1e-3, 2e-3))) isa ScalarOrGrid{Shell}       # true, a Gridspace{Shell}
+[1.0, 2.0] isa ScalarOrGrid{Real}                       # false
+Grid(()) isa ScalarOrGrid{Real}                         # false
+```
+"""
+const ScalarOrGrid{T} = Union{T, Gridspace{<:T}, DeterministicGrid{<:Tuple{T, Vararg{T}}}}
+
+"""
 $(TYPEDSIGNATURES)
 
 Return the finite source that `values` contributes to a space. A `Grid` or a `Gridspace`

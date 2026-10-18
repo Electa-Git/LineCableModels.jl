@@ -256,7 +256,7 @@ one object of its target type.
 function build end
 
 """
-homogenize(design. New_id="")
+    homogenize(design; new_id = "")
 
 Build a homogeneous cable design that preserves each radial assembly member
 and matches the effective conductor and dielectric properties of `design`.

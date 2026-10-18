@@ -18,7 +18,9 @@
     for binding in names(LineCableModels; all = false, imported = true)
         isdefined(LineCableModels, binding) || continue
         owned_type=getfield(LineCableModels, binding)
-        owned_type isa Union{DataType, UnionAll} || continue
+        # Only a type with instances owns display methods. The loop skips functions and
+        # aliases of a Union, such as `ScalarOrGrid`.
+        Base.unwrap_unionall(owned_type) isa DataType || continue
         Base.isabstracttype(owned_type) && continue
         parentmodule(Base.unwrap_unionall(owned_type)) in owner_modules || continue
         @test which(summary, (IO, owned_type)).module in display_modules
@@ -29,7 +31,7 @@
         for binding in names(owner; all = false, imported = false)
             isdefined(owner, binding) || continue
             owned_type=getfield(owner, binding)
-            owned_type isa Union{DataType, UnionAll} || continue
+            Base.unwrap_unionall(owned_type) isa DataType || continue
             Base.isabstracttype(owned_type) && continue
             parentmodule(Base.unwrap_unionall(owned_type)) in owner_modules || continue
             @test which(summary, (IO, owned_type)).module in display_modules

@@ -58,6 +58,8 @@ end
     @test (gridded.temperature, gridded.frequencies) == (scalar.temperature, scalar.frequencies)
     @test gridded.earth_props == scalar.earth_props
     @test gridded.system.positions == scalar.system.positions
+    # The call refuses a Grid of values that are not systems.
+    @test_throws MethodError LineParametersProblem(Grid((1, 2)); earth_props = earth)
 end
 
 @testitem "Engine / problems / mixed Float32 and Float64 inputs compute" tags=[:unit, :engine] begin

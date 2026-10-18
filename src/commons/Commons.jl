@@ -29,7 +29,7 @@ ParametricBuilder, UQ, and external implementations.
 - `compute` evaluates a problem through a selected formulation.
 - `Grid` declares a finite source, `Gridspace` a lazy space of finite sources combined
   by `Product` or `Zip`, and `parameterize` lifts a call over them. `has_grid` tells
-  whether a value contains a source.
+  whether a value contains a source. `ScalarOrGrid{T}` is a `T` or a space of `T`.
 - `observe` and `@observe` read native numerical values from completed results.
 - `observables` publishes explicitly requested scientific values.
 - `validate_observables` and `unit_targets` align publication requests and
@@ -90,7 +90,7 @@ public observation_groups, observation_labels, observation_product, gridpoint_id
 public observation_selection
 public request_identity, request_quantity, request_indices
 public normalize_observation_selector
-public Gridpoint, Composition, Product, Zip, parameterize, materialize, points
+public Gridpoint, Composition, Product, Zip, ScalarOrGrid, parameterize, materialize, points
 public Builder, FormulaBuilder, target
 public realize, realize_arguments, sample_uncertainty
 end # module Commons

@@ -161,7 +161,7 @@ function Material(
     caller = (name; keywords...) -> begin
         material = get(library, String(name), nothing)
         material === nothing && throw(KeyError(String(name)))
-        Material(material; keywords...)
+        build(Material, material; keywords...)
     end
     return parameterize(Material, caller, (name,), NamedTuple(kwargs); combine)
 end

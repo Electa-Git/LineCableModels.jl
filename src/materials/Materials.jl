@@ -25,7 +25,7 @@ using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 using RequiredInterfaces: @required
-import ..LineCableModels: add!, validate, parameterize
+import ..LineCableModels: add!, build, validate, parameterize
 using ..LineCableModels: has_uncertainty, has_grid, Gridspace, UncertainValue, AbstractGrid
 import ..Commons
 import ..TextDisplay

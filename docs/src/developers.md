@@ -450,6 +450,21 @@ and the modules extend it by dispatch.
 - A source selects its points by index. A source type of your own that subtypes
   `AbstractGrid` defines `length` and `getindex`.
 
+What dispatches on a scalar `T` dispatches on a space of `T`. `ScalarOrGrid{T}` writes that
+rule in one signature: a `T`, a `Gridspace` of `T` or a non-empty `Grid` of `T`, whose values
+can mix subtypes of `T`. A vector is one value, and alternatives are a `Grid`, as in
+`Grid((a, b))`. A `Gridpoint` and an uncertain grid are not members. Uncertain values lift
+through the family methods, which accept any `Grid`. A method typed `ScalarOrGrid{T}` lifts a
+space and builds a scalar with its scalar body, a `build` method, as a builder does:
+
+```julia
+homogenize(original::ScalarOrGrid{CableDesign}; new_id = "", combine = :product) =
+    parameterize(CableDesign, Base.Fix1(build, homogenize), (original,), (; new_id);
+        combine)
+build(::typeof(homogenize), original::CableDesign; new_id::AbstractString = "") = ...
+homogenize(Grid((first, second)); new_id = "reduced")   # a Gridspace{CableDesign}
+```
+
 ### Family methods
 
 A constructor lifts through the family method of its input family, which the family's owner
@@ -520,10 +535,7 @@ receives the keyword and passes it on as the subject. `stranded` builds a bounde
 rectangular strands and an enclosure for Disk wires:
 
 ```julia
-function target(builder::StrandedBuilder,
-        material::Union{Materials.AbstractMaterial, Gridspace{<:Materials.AbstractMaterial},
-            DeterministicGrid{<:Tuple{Materials.AbstractMaterial,
-                Vararg{Materials.AbstractMaterial}}}};
+function target(builder::StrandedBuilder, material::ScalarOrGrid{Materials.AbstractMaterial};
         shape, keywords...)
     return target(builder, shape)
 end
@@ -532,7 +544,7 @@ target(::StrandedBuilder, ::Type{<:DataModel.Disk}) = DataModel.Enclosure
 stranded(copper; shape = Grid((Disk(0.5e-3), Disk(0.6e-3))))   # a Gridspace{Enclosure}
 ```
 
-The first method types its `material`, as a material or a space of materials, so that the
+The first method types its `material` as a `ScalarOrGrid` of materials, so that the
 `shape` value passed on never reaches it again. A mixed or empty source of shapes keeps the default,
 `AbstractCablePart`.
 
