@@ -10,10 +10,11 @@ using Dates
 using Measurements, Distributions
 using Statistics: mean, std
 
-ARGS in (String[], ["wp22"], ["pscad"], ["wp22", "pscad"]) ||
-    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [wp22] [pscad]")
+ARGS in (String[], ["wp22"], ["pscad"], ["wp22", "pscad"], ["variations"]) ||
+    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [wp22] [pscad] | variations")
 run_wp22 = "wp22" in ARGS
 run_pscad = "pscad" in ARGS
+run_variations = ARGS == ["variations"]
 
 frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
 
@@ -656,6 +657,135 @@ if run_wp22 || run_pscad
                 end
             end
             println("wp22 PSCAD: wall ", (time_ns() - section_start) / 1e9, " s, ", folder)
+        end
+    end
+end
+
+if run_variations
+    using UniversalLineModel
+
+    let
+        section_start = time_ns()
+        modal = compute(ModalAnalysisProblem(result), ModalAnalysisFormulation(:default))
+        segment = PropagationParameters(modal; line_length = nominal.line_length)
+        travel_times = nominal.line_length ./ velocity(segment)[:, end]
+        tmax = 20minimum(travel_times)
+        window = (tmax = tmax, step = tmax / 4000)
+        fitting_problem = LineModelProblem(segment; line = problem)
+        sampling_frequencies = sort!(vcat(exp10.(range(0, 6; length = 101)), 50.0))
+        sampling_problem = line_parameters_problem(merge(nominal,
+            (; frequencies = sampling_frequencies))...)
+        sampling_result = compute(sampling_problem, formulation)
+        sampling_modal = compute(ModalAnalysisProblem(sampling_result), ModalAnalysisFormulation(:default))
+        sampling_segment = PropagationParameters(sampling_modal; line_length = nominal.line_length)
+        sampling_fitting_problem = LineModelProblem(sampling_segment; line = sampling_problem)
+        save(ObservedResult(sampling_result; clip = false),
+            joinpath(folder, "variations_coarse_baseline.json"))
+        labels = terminal_labels(problem.system)
+        core1 = first(label for label in labels if endswith(label, ":1:core"))
+        bonds = Tuple(TerminalImpedance(label; R = 10.0)
+            for label in labels if endswith(label, ":sheath") || endswith(label, ":armor"))
+        sending = (Step(core1, nominal.voltage), bonds...)
+        receiving = ()
+        reference_problem = TransientAnalysisProblem(problem; sending, receiving, window)
+        reference_time = @elapsed reference = compute(reference_problem,
+            TransientFormulation(:nlt; options = (line = formulation, N = 4096, Tfactor = 1.25));
+            options = (timing = true,))
+        save(ObservedResult(reference; timings = (wall_seconds = reference_time,), clip = false),
+            joinpath(folder, "variations_reference.json"))
+        core_index = findfirst(==(core1), reference.coordinates)
+        reference_peak = maximum(abs, reference.voltage[2, core_index, :])
+        println("variations reference: wall ", reference_time, " s, peak ", reference_peak, " V")
+        flush(stdout)
+
+        fit_points = ObservedResult[]
+        open(joinpath(folder, "variations.txt"), "w") do io
+            for (method, selected_problem, controls) in (
+                    (:marti, fitting_problem, (nothing, 2000.0)),
+                    (:ulm, sampling_fitting_problem, (Inf, 100.0)))
+                for control in controls
+                    selected = method === :marti ? LineModelFormulation(:marti;
+                        options = (transformation = (frequency = control,),)) :
+                        LineModelFormulation(:ulm; options = (yc = (npoles = 16,),
+                            h = (npoles = 16, td = true, max_ratio = control),
+                            passivity = true, dc = (;), line = formulation))
+                    fit_time = @elapsed fitted = compute(selected_problem, selected;
+                        options = (timing = true,))
+                    diagnostic = details(fitted).data
+                    # H ratios use the largest matrix entry of each residue divided by |pole|.
+                    ratios = method === :ulm ?
+                        UniversalLineModel.residue_pole_ratios(UniversalLineModel.ULMModel(fitted)) : nothing
+                    admittance_ratio = method === :ulm ? maximum(
+                        maximum(abs, residue) / abs(pole) for (residue, pole) in
+                        zip(eachslice(fitted.model.admittance.residues; dims = 3),
+                            fitted.model.admittance.poles)) : nothing
+                    evidence = (; method, samples = length(fitted.frequencies),
+                        transformation_requested = method === :marti ? control : nothing,
+                        transformation_frequency = method === :marti ? fitted.model.transformation_frequency : nothing,
+                        modal = method === :marti ? diagnostic.marti : nothing,
+                        max_ratio = method === :ulm ? control : nothing,
+                        residue_pole_ratios = ratios,
+                        largest_residue_pole_ratio = method === :ulm ? maximum(maximum, ratios) : nothing,
+                        largest_admittance_residue_pole_ratio = admittance_ratio,
+                        fitting_error = fitting_error(fitted), passivity = passivity(fitted),
+                        orders = length.(poles(fitted)), dc = fitted.dc,
+                        options = (; (key => value for (key, value) in pairs(diagnostic.options)
+                            if key !== :line)...),
+                        travel_times, window, wall_seconds = fit_time)
+                    point = ObservedResult(fitted; timings = (wall_seconds = fit_time,), clip = false)
+                    push!(fit_points, ObservedResult(merge(point.gridpoint, (; variation = evidence)),
+                        NamedTuple[], point.errors, point.timings))
+                    save(fit_points, joinpath(folder, "variations_fits.json"))
+                    println("variations fit ", method, " control=", control, ": wall ", fit_time, " s")
+                    flush(stdout)
+                    for interp in (method === :marti ? (:single,) : (:single, :double))
+                        elapsed = @elapsed response = compute(TransientAnalysisProblem(fitted;
+                            sending, receiving, window), TransientFormulation(:td; options = (; interp));
+                            options = (timing = true,))
+                        deviation = compare(reference, response, voltage)
+                        scaled_rms = deviation.absolute[2, core_index] / reference_peak
+                        last_windows = (findall(t -> 0.8tmax <= t < 0.9tmax, response.t),
+                            findall(t -> 0.9tmax <= t <= tmax, response.t))
+                        window_peaks = map((model = response, reference = reference)) do run
+                            [dropdims(maximum(abs, run.voltage[:, :, indices]; dims = 3);
+                                dims = 3) for indices in last_windows]
+                        end
+                        growth_ratios = map(window_peaks) do peaks
+                            map(peaks[1], peaks[2]) do previous_peak, last_peak
+                                iszero(previous_peak) ? (iszero(last_peak) ? 1.0 : Inf) :
+                                    last_peak / previous_peak
+                            end
+                        end
+                        growth_factor = 1.1
+                        growth = (growth_ratios.model .> 1) .&
+                            (growth_ratios.model .> growth_factor .* growth_ratios.reference)
+                        transient = (; scenario = :i, resistance = 10.0, interp, scaled_rms,
+                            reference_peak, scale = :reference_receiving_core1_peak,
+                            absolute = deviation.absolute, relative = deviation.relative,
+                            growth, growth_ratios, growth_factor, voltage_window_peaks = window_peaks,
+                            stability_flag = any(growth),
+                            stability_windows = ((0.8tmax, 0.9tmax), (0.9tmax, tmax)))
+                        point = ObservedResult(response; timings = (wall_seconds = elapsed,), clip = false)
+                        save(ObservedResult(merge(point.gridpoint, (; variation = evidence, transient)),
+                            point.quantities, point.errors, point.timings),
+                            joinpath(folder, "variations_response_$(length(fit_points))_$(interp).json"))
+                        text = string(method, " control=", control, " interp=", interp,
+                            " frequency_Hz=", evidence.transformation_frequency,
+                            " modal=", evidence.modal, " fitting_error=", evidence.fitting_error,
+                            " passive=", evidence.passivity.passive,
+                            " largest_residue_pole_ratio=", evidence.largest_residue_pole_ratio,
+                            " scaled_RMS=", scaled_rms, " growth=", any(growth),
+                            " fit_s=", fit_time, " td_s=", elapsed)
+                        println(io, text)
+                        println(text)
+                        flush(io)
+                        flush(stdout)
+                    end
+                end
+            end
+            elapsed = (time_ns() - section_start) / 1e9
+            println(io, "variations wall_seconds=", elapsed, " baseline_compute_seconds=", compute_time)
+            println("variations: wall ", elapsed, " s, ", folder)
         end
     end
 end
