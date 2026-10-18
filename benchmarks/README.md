@@ -89,6 +89,7 @@ julia benchmarks/sensitivity_tables.jl [output folder]
 The default output folder is `.linecablemodels/benchmarks/tables/`.
 
 `julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl wp22` selects the DC320-U WP2.2 study after the baseline.
+DC320-A uses the same `wp22` and optional `pscad` arguments, with separate sheath and armour bonds and a pulse window from its modal delays.
 No argument selects WP2.1.
 The 48 ULM variants vary Yc and H orders (8, 16), time rows, passivity enforcement and DC correction.
 The study also fits default FDCM and Marti models.
