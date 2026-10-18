@@ -120,3 +120,13 @@ The section runs FD-Phase orders 10, 20 and 30 with each DC and passivity settin
 It covers the single-point step at 10 Ω and the pulse.
 It saves station identity, responses, comparisons, statuses with failure messages, and native projects, logs and outputs under `pscad_<scenario>_<index>/` in the run folder.
 A station failure produces a status file, and execution continues.
+
+`time_domain_tables.jl` reads the newest complete time-domain, PSCAD and
+model-settings runs with the current archive filenames for the three DC cables.
+Run `julia --project=test benchmarks/time_domain_tables.jl [output folder]` to write
+eight LaTeX tables with captions and three significant digits (longtable, booktabs,
+siunitx) in `.linecablemodels/benchmarks/tables/` by default.
+The script prints its source folders and lists them in `time_domain_sources.txt`.
+The tables cover fitting errors, DC behaviour, three transient scenarios, PSCAD,
+sampling and model settings, with captions that identify omitted diagnostics.
+The generator reads archives and workbooks without a study run.
