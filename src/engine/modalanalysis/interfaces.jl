@@ -77,3 +77,11 @@ function selectdetails(retained::ComputationDetails, ::ModalDomain, selected)
         converged=diagnostics.converged[:,selected]))
     return ComputationDetails(merge(record,(modal=merge(modal,(diagnostics=sliced,)),)))
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the index into `frequencies` \\[Hz\\] at which `selected` establishes its
+mode ordering. The current basis at this index anchors the identity of modes across Monte Carlo trials.
+"""
+function ordering_frequency end

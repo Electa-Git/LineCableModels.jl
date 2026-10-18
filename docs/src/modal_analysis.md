@@ -42,8 +42,23 @@ user-owned formulation composes too:
 modal = compute(line_problem, user_formulation, ModalAnalysisFormulation(:default))
 ```
 
-A problem `Gridspace`, one of its grid points and a `ParametricProblem` compose in the
-same way. Cable constants are not line parameters and do not compose with modal analysis.
+A problem `Gridspace` and one of its grid points compose in the same way.
+A `ParametricProblem` supports `Combinatorial`, deterministic formulation
+`Gridspace` selections, and `MonteCarlo`. Monte Carlo decomposes every trial
+before aggregation and aligns its modes to the nominal result. See
+[Monte Carlo compositions](gridspace.md#monte-carlo-compositions).
+`LinearError` rejects modal composition with an `ArgumentError` because
+first-order mode tracking is unavailable. Cable constants do not compose
+with modal analysis.
+
+For Monte Carlo studies, custom modal formulas define
+`ModalAnalysis.ordering_frequency(selected, frequencies)`. This method takes
+the formula object first and returns the frequency index that establishes mode order.
+`ModalAnalysis.align_modes(selected, trial, reference)` assigns a modal result to
+the reference modes by optimal normalized current-basis overlap at that index.
+It returns aligned line parameters, the permutation and overlaps, with paired
+voltage and current phases aligned across all frequencies. Monte Carlo applies
+its documented overlap threshold to this result.
 
 `modal_options` controls the modal action only. A nonempty value requires
 `modal`. The upstream solver, including its selected backend and batched path,

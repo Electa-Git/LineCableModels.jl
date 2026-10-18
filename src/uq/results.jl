@@ -33,26 +33,7 @@ end
 
 LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, ComputationDetails())
 
-_monte_carlo_keys(::Type{<:Engine.CableConstants}) = (:R, :L, :C, :G)
-_monte_carlo_keys(::Type{<:Engine.LineParameters}) = (:R, :L, :C, :G)
 
-function _validated_product(product, expected_keys::Tuple, name::AbstractString)
-    product isa NamedTuple || throw(ArgumentError(
-        "Monte Carlo $name must be a named tuple",
-    ))
-    keys(product) == expected_keys || throw(ArgumentError(
-        "Monte Carlo $name must contain exactly $(join(expected_keys, ", "))",
-    ))
-    return product
-end
-
-function _line_product_shape(product, expected_shape, name::AbstractString)
-    all(field -> field isa AbstractArray && size(field) == expected_shape,
-        Base.values(product)) || throw(DimensionMismatch(
-        "line-parameter $name must match the core matrix and frequency dimensions",
-    ))
-    return nothing
-end
 
 
 """
@@ -110,6 +91,24 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
     end
 end
 
+function validate(product, ::Type{MonteCarloResult}, expected_keys::Tuple, name::AbstractString)
+    product isa NamedTuple || throw(ArgumentError(
+        "Monte Carlo $name must be a named tuple",
+    ))
+    keys(product) == expected_keys || throw(ArgumentError(
+        "Monte Carlo $name must contain exactly $(join(expected_keys, ", "))",
+    ))
+    return product
+end
+
+function validate(product, ::Type{MonteCarloResult}, value::Engine.LineParameters, expected_shape, name::AbstractString)
+    all(field -> field isa AbstractArray && size(field) == expected_shape,
+        Base.values(product)) || throw(DimensionMismatch(
+        "line-parameter $name must match the core matrix and frequency dimensions",
+    ))
+    return product
+end
+
 # Checks the stored cores, the empirical products of each point against its core result,
 # and the retained trial, failure and timing details.
 function validate(result::MonteCarloResult{T}) where {T}
@@ -151,73 +150,15 @@ function validate(result::MonteCarloResult{T}) where {T}
     histogram_values === nothing || isconcretetype(eltype(histogram_values)) || throw(
         ArgumentError("retained histograms must use a concrete product type"),
     )
-    if T <: Union{Engine.CableConstants, Engine.LineParameters}
-        Engine.has_uncertainty_type(eltype(observe(first(values),R))) || throw(ArgumentError(
-            "MonteCarloResult requires stored uncertainty-bearing cores; materialize the empirical summaries before construction"))
-        expected_keys = _monte_carlo_keys(T)
-        for point in eachindex(values)
-            trials = trial_counts[point]
-            trials > 0 || throw(ArgumentError("Monte Carlo trial counts must be positive"))
-            statistics_product = _validated_product(
-                stats[point], expected_keys, "statistics products")
-            sample_product = sample_values === nothing ? nothing : _validated_product(
-                sample_values[point], expected_keys, "sample products")
-            histogram_product = histogram_values === nothing ? nothing : _validated_product(
-                histogram_values[point], expected_keys, "histogram products")
-            value = values[point]
-            if value isa Engine.CableConstants
-                count = length(value)
-                all(field -> field isa AbstractVector && length(field) == count,
-                    Base.values(statistics_product)) || throw(DimensionMismatch(
-                    "cable-constant summaries must match the assembly count",
-                ))
-                all(summary -> summary isa SampleSummary && summary.n == trials,
-                    Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
-                    "cable-constant summaries must contain the Monte Carlo trial count",
-                ))
-                if sample_product !== nothing
-                    all(sample -> sample isa AbstractMatrix && size(sample) == (count, trials),
-                        Base.values(sample_product)) || throw(DimensionMismatch(
-                        "cable-constant samples must contain assembly and trial dimensions",
-                    ))
-                end
-                if histogram_product !== nothing
-                    all(field -> field isa AbstractVector && length(field) == count,
-                        Base.values(histogram_product)) || throw(DimensionMismatch(
-                        "cable-constant histograms must match the assembly count",
-                    ))
-                    all(histogram -> histogram isa HistogramDensity,
-                        Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
-                        "cable-constant histograms must contain HistogramDensity values",
-                    ))
-                end
-            else
-                core_shape = size(observe(value, Engine.Z))
-                _line_product_shape(statistics_product, core_shape, "summaries")
-                all(summary -> summary isa SampleSummary && summary.n == trials,
-                    Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
-                    "line-parameter summaries must contain the Monte Carlo trial count",
-                ))
-                if sample_product !== nothing
-                    sample_shape = (core_shape..., trials)
-                    _line_product_shape(sample_product, sample_shape, "samples")
-                end
-                if histogram_product !== nothing
-                    _line_product_shape(histogram_product, core_shape, "histograms")
-                    all(histogram -> histogram isa HistogramDensity,
-                        Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
-                        "line-parameter histograms must contain HistogramDensity values",
-                    ))
-                end
-            end
-        end
-    else
-        all(>(0), trial_counts) || throw(ArgumentError(
-            "Monte Carlo trial counts must be positive",
-        ))
+    for point in eachindex(values)
+        trials = trial_counts[point]
+        trials > 0 || throw(ArgumentError("Monte Carlo trial counts must be positive"))
+        validate(values[point], MonteCarloResult, stats[point],
+            sample_values === nothing ? nothing : sample_values[point],
+            histogram_values === nothing ? nothing : histogram_values[point], trials)
     end
     if !isempty(details.data)
-        fields = Tuple(key for key in keys(details.data) if key !== :timing)
+        fields = Tuple(key for key in keys(details.data) if key ∉ (:timing,:mode_assignment))
         fields in ((), (:trials, :failures, :failure_summary)) || throw(ArgumentError(
             "MonteCarloResult details must contain timing, the full trial/failure bundle, or both",
         ))
@@ -407,4 +348,70 @@ function materialize(source::Engine.LineParameters,
         complex.(materialize.(summaries.R), materialize.(summaries.L) .* angular),
         complex.(materialize.(summaries.G), materialize.(summaries.C) .* angular),
         frequencies(source); basis=basis(source), details)
+end
+
+# External result owners define their own products and transport behavior.
+validate(value::Commons.AbstractCoreResult, ::Type{MonteCarloResult},
+    statistics_product, sample_product, histogram_product, trials) = value
+
+function validate(value::Engine.CableConstants, ::Type{MonteCarloResult},
+        statistics_product, sample_product, histogram_product, trials)
+    Engine.has_uncertainty_type(eltype(observe(value,R))) || throw(ArgumentError(
+        "MonteCarloResult requires stored uncertainty-bearing cores"))
+    validate(statistics_product,MonteCarloResult,(:R,:L,:C,:G),"statistics products")
+    sample_product === nothing || validate(sample_product,MonteCarloResult,(:R,:L,:C,:G),"sample products")
+    histogram_product === nothing || validate(histogram_product,MonteCarloResult,(:R,:L,:C,:G),"histogram products")
+    count = length(value)
+    all(field -> field isa AbstractVector && length(field) == count,
+        Base.values(statistics_product)) || throw(DimensionMismatch(
+        "cable-constant summaries must match the assembly count",
+    ))
+    all(summary -> summary isa SampleSummary && summary.n == trials,
+        Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
+        "cable-constant summaries must contain the Monte Carlo trial count",
+    ))
+    if sample_product !== nothing
+        all(sample -> sample isa AbstractMatrix && size(sample) == (count, trials),
+            Base.values(sample_product)) || throw(DimensionMismatch(
+            "cable-constant samples must contain assembly and trial dimensions",
+        ))
+    end
+    if histogram_product !== nothing
+        all(field -> field isa AbstractVector && length(field) == count,
+            Base.values(histogram_product)) || throw(DimensionMismatch(
+            "cable-constant histograms must match the assembly count",
+        ))
+        all(histogram -> histogram isa HistogramDensity,
+            Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
+            "cable-constant histograms must contain HistogramDensity values",
+        ))
+    end
+    return value
+end
+
+function validate(value::Engine.LineParameters, ::Type{MonteCarloResult},
+        statistics_product, sample_product, histogram_product, trials)
+    Engine.has_uncertainty_type(eltype(observe(value,R))) || throw(ArgumentError(
+        "MonteCarloResult requires stored uncertainty-bearing cores"))
+    validate(statistics_product,MonteCarloResult,(:R,:L,:C,:G),"statistics products")
+    sample_product === nothing || validate(sample_product,MonteCarloResult,(:R,:L,:C,:G),"sample products")
+    histogram_product === nothing || validate(histogram_product,MonteCarloResult,(:R,:L,:C,:G),"histogram products")
+    core_shape = size(observe(value, Engine.Z))
+    validate(statistics_product,MonteCarloResult,value, core_shape, "summaries")
+    all(summary -> summary isa SampleSummary && summary.n == trials,
+        Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
+        "line-parameter summaries must contain the Monte Carlo trial count",
+    ))
+    if sample_product !== nothing
+        sample_shape = (core_shape..., trials)
+        validate(sample_product,MonteCarloResult,value, sample_shape, "samples")
+    end
+    if histogram_product !== nothing
+        validate(histogram_product,MonteCarloResult,value, core_shape, "histograms")
+        all(histogram -> histogram isa HistogramDensity,
+            Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
+            "line-parameter histograms must contain HistogramDensity values",
+        ))
+    end
+    return value
 end

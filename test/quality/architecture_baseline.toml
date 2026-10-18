@@ -165,7 +165,7 @@
 "src/uq/montecarlo/compute.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/uq/observations.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/uq/observedresult.jl" = { applicable = 0, eval = 0, isa = 14, kind = 0 }
-"src/uq/results.jl" = { applicable = 0, eval = 0, isa = 29, kind = 0 }
+"src/uq/results.jl" = { applicable = 0, eval = 0, isa = 28, kind = 0 }
 
 [storage]
 "src/engine/cableconstants.jl | CableConstantsWorkspace" = 3
@@ -334,8 +334,7 @@
 "src/textdisplay/TextDisplay.jl" = 2
 "src/units/scaling.jl" = 1
 "src/units/units.jl" = 2
-"src/uq/montecarlo/compute.jl" = 4
-"src/uq/results.jl" = 2
+"src/uq/montecarlo/compute.jl" = 3
 
 [root]
 "LineCableModels" = 63

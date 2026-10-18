@@ -92,3 +92,7 @@ delays(result::LineModel) = delays(result.model)
 fitting_error(result::LineModel) = result.fitting_error
 passivity(result::LineModel) = result.passivity
 details(result::LineModel) = result.details
+
+function completed_inputs(model::LineModel)
+    return get(details(model).data,:inputs,(;))
+end

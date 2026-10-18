@@ -413,4 +413,6 @@ function decompose!(formula::Formula{:vieira2026}, workspace::ModalAnalysisWorks
     return workspace
 end
 
+ordering_frequency(selected::Formula{:vieira2026}, frequencies) = selected.options.data.tracking.order_by_velocity ? lastindex(frequencies, 1) : firstindex(frequencies, 1)
+
 :vieira2026

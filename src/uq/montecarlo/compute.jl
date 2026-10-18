@@ -48,21 +48,24 @@ function _record_sample!(
     return buffers
 end
 
-function _sample_axis(value::Engine.CableConstants)
+function _sample_axis(value::Engine.CableConstants, point, formulation, child_options)
     (
         cores = copy(value.cores),
         frequency = value.frequency
     )
 end
-_sample_axis(value::Engine.LineParameters) = observe(value, Engine.frequencies)
+_sample_axis(value::Engine.LineParameters, point, formulation, child_options) = observe(value, Engine.frequencies)
 
 function _cable_summaries(values::AbstractMatrix)
     return [SampleSummary(collect(@view values[assembly, :]))
             for assembly in axes(values, 1)]
 end
 
-function _sample_shunt_model(value::Union{Engine.LineParameters,Engine.CableConstants})
-    model=get(details(value).data,:shunt_model,nothing)
+_sample_shunt_model(value::Union{Engine.LineParameters,Engine.CableConstants}) =
+    _sample_shunt_model(details(value))
+
+function _sample_shunt_model(record::ComputationDetails)
+    model=get(record.data,:shunt_model,nothing)
     model===nothing && return ComputationDetails()
     return ComputationDetails(; shunt_model=(requested=model.requested,effective=model.effective,
         domains=[(design=d.design,terminals=collect(d.terminals),effective=d.effective)
@@ -114,10 +117,10 @@ end
 
 function _record_sample!(
         buffers::NamedTuple{(:R, :L, :C, :G)},
-        value::Engine.LineParameters,
+        value::Engine.LineParameters{T,U,Engine.PhaseDomain},
         trial::Int,
         expected_frequencies
-)
+) where {T,U}
     impedance = observe(value, Engine.Z)
     size(impedance) == size(buffers.R)[1:3] || throw(DimensionMismatch(
         "Monte Carlo realizations produced incompatible impedance dimensions",
@@ -148,11 +151,18 @@ function _map_samples(function_value, sample_values::Array{<:Real, 4})
     return output
 end
 
+function _map_samples(function_value, sample_values::AbstractArray{<:Real})
+    output_size = size(sample_values)[1:(ndims(sample_values)-1)]
+    return map(CartesianIndices(output_size)) do index
+        function_value(collect(@view sample_values[index.I..., :]))
+    end
+end
+
 function _aggregate(
         sample_values::NamedTuple{(:R, :L, :C, :G)},
-        first_result::Engine.LineParameters,
+        first_result::Engine.LineParameters{T,U,Engine.PhaseDomain},
         formulation::MonteCarlo
-)
+) where {T,U}
     summary_values = Tuple(
         _map_samples(SampleSummary, values)
     for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
@@ -357,16 +367,19 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             formulation.options.data.cdf_tol
         )
     )
+    sample_axis = _sample_axis(first_result, point, formulation, child_options)
     sample_values = initialize_buffers(formulation, Float64, first_result,
         (; trials = ntrials), (;))
-    sample_axis = _sample_axis(first_result)
     retained = formulation.options.data.retain_details ?
                Vector{typeof(record)}(undef, ntrials) : nothing
 
     trials = _trials!(rng, first_result, sample_values, retained, record, sampler,
         details_owner, sample_axis, trial_timings, attempts, ntrials, progress, started)
     attempts = trials.attempts
-    accepted = ntrials
+    accepted = trials.accepted
+    retained === nothing || resize!(retained, accepted)
+    accepted > 0 || throw(ArgumentError("Monte Carlo accepted no trials: " *
+        join((failure.error.message for failure in failures), "; ")))
 
     failure_summary = _failure_summary(failures, accepted, attempts)
     retained_details = retained === nothing ? nothing :
@@ -377,6 +390,9 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     )
     aggregation_started = progress ? time_ns() : UInt64(0)
     aggregate = _aggregate(sample_values, first_result, formulation)
+    if haskey(aggregate, :mode_assignment)
+        retained_details = merge(retained_details, (mode_assignment=aggregate.mode_assignment,))
+    end
     if progress
         now = time_ns()
         if now - trials.last_log >= 5_000_000_000
@@ -385,7 +401,10 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     end
     # The trials computed with `formulation.inner` and completed it. The completed record
     # includes the equivalent earth that each earth formula consumed.
-    completion = details(first_result).data[(:formulations, :selections, :formulation_fields)]
+    source_record = details(first_result).data
+    # Preserve the declared field types of the completed record.
+    completion = merge((formulations=(;),selections=(;),formulation_fields=(;)),
+        source_record)[(:formulations,:selections,:formulation_fields)]
     # Capture the nominal physical declaration once after successful sampling. A Monte
     # Carlo builder need not accept first-order numbers.
     declaration = realize(Random.Xoshiro(0), point, (_rng, mean, _sigma) -> mean)
@@ -395,7 +414,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         fields = merge(completion, (inputs = physical_inputs,
             uncertainty = (estimator = :empirical, representation = :marginal_mean_std),
             uncertainty_descriptions = _uncertainty_descriptions(MonteCarlo))))
-    return merge(aggregate, (; representation, trials = ntrials, seed,
+    return merge(aggregate, (; representation, trials = accepted, seed,
         details = retained_details, timing = trial_timings, completion))
 end
 
@@ -446,10 +465,15 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
         end
         value = result
     end
-    return (; attempts, last_log)
+    return (; attempts, accepted, last_log)
 end
 
-function compute(problem::ParametricProblem, formulation::MonteCarlo)
+function compute(problem::ParametricProblem, formulation::MonteCarlo;
+        modal=nothing, modal_options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
+    modal === nothing || return compute(problem, formulation,
+        LineCableModels.ModalAnalysisFormulation(modal); modal_options)
+    isempty(ComputationOptions(modal_options).data) ||
+        throw(ArgumentError("modal_options require a modal formulation"))
     levels = verbosity(get(problem.options.data, :verbosity, (default=0,)))
     progress = problem.space isa LineCableModels.Gridspace{<:Engine.LineParametersProblem} && get(levels, :progress, levels.default) > 0
     child_options = progress ? ComputationOptions(merge(problem.options.data,
@@ -588,6 +612,10 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         failures = getproperty.(retained, :failures),
         failure_summary = getproperty.(retained, :failure_summary)
     )
+    if retained !== nothing && haskey(first(retained), :mode_assignment)
+        retained_details = merge(retained_details,
+            (mode_assignment=getproperty.(retained, :mode_assignment),))
+    end
     timing && (retained_details=merge(retained_details, (timing=population_timings,)))
     result = MonteCarloResult(
         formulation,

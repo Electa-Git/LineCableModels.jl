@@ -50,6 +50,8 @@ include("observedresult.jl")
 include("comparisons.jl")
 include("linearerror.jl")
 include("montecarlo/compute.jl")
+include("montecarlo/modal.jl")
+include("montecarlo/transient.jl")
 include("textdisplay.jl")
 
 end

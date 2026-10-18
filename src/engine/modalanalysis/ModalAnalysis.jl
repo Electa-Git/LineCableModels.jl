@@ -44,9 +44,10 @@ include("interfaces.jl")
 include("problems.jl")
 
 include("formulations.jl")
-public decompose!
+public decompose!, ordering_frequency, align_modes
 include("eigensystems.jl")
 include("compute.jl")
+include("alignment.jl")
 include("composition.jl")
 
 #! explicit-imports: off

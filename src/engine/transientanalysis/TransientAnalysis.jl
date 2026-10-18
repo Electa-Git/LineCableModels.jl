@@ -25,7 +25,7 @@ import ...Commons: AbstractProblemDefinition, AbstractFormulation, AbstractCoreR
 import ...Commons
 import ...Units
 import ..Engine: LineParameters, LineParametersProblem, LineParametersFormulation, Formulation,
-                 description, formula_id, compare, RMSError
+                 description, formula_id, compare, RMSError, completed_inputs, retain_gridpoint
 import ..LineModels: LineModel, ModalModel
 import ...TextDisplay
 using Logging: with_logger, current_logger

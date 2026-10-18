@@ -411,4 +411,6 @@ function formulation_options(::Expression{<:Formula{:chrysochos2014}, typeof(dec
     return options
 end
 
+ordering_frequency(selected::Formula{:chrysochos2014}, frequencies) = firstindex(frequencies, 1)
+
 :chrysochos2014

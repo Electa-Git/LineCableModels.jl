@@ -30,3 +30,13 @@ Select terminal current entering the line \\[A\\] from a transient response.
 function current end
 
 details(response::TransientResponse) = response.details
+
+function retain_gridpoint(source::TransientResponse, id; fields=(;))
+    retained = ComputationDetails(merge(details(source).data,fields,(gridpoint=id,)))
+    return TransientResponse(source.t,source.voltage,source.current,source.coordinates,retained)
+end
+
+function completed_inputs(problem::TransientAnalysisProblem)
+    return (line=completed_inputs(problem.line),sending=problem.sending,
+        receiving=problem.receiving,window=problem.window)
+end

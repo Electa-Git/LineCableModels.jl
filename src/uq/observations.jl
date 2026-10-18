@@ -94,6 +94,14 @@ sampling_distribution(value::MonteCarloResult) = value.formulation.options.data.
 sampling_distribution(value::MonteCarloResult{<:Any, <:NamedTuple}) =
     value.formulation.options.distribution
 
+_observable_count(::SampleSummary) = 1
+_observable_count(::Missing) = 0
+_observable_count(product::Union{NamedTuple,AbstractArray}) = sum(_observable_count,product; init=0)
+
+_mean_standard_error(summary::SampleSummary) = summary.n > 1 ? summary.std/sqrt(summary.n) : missing
+_mean_standard_error(::Missing) = missing
+_mean_standard_error(product::Union{NamedTuple,AbstractArray}) = map(_mean_standard_error,product)
+
 """
 $(TYPEDSIGNATURES)
 
@@ -103,20 +111,19 @@ an iid-sampling bound, not measured CDF error. Resampling concerns the
 population conditional on success. A fixed trial count is insufficient to certify the configured target.
 """
 function confidence(value::MonteCarloResult, point::Integer)
-    count = sum(length, values(value.stats[point]))
+    count = _observable_count(value.stats[point])
     trials = trial_count(value,point)
     bound = sqrt(log(2count / (1-confidence(value))) / (2trials))
     retained=details(value).data
     diagnostics = isempty(retained) ? nothing :
         (failures=retained.failures[point],failure_summary=retained.failure_summary[point])
-    mean_standard_error=map(value.stats[point]) do summaries
-        map(summary -> summary.n>1 ? summary.std/sqrt(summary.n) : missing,summaries)
-    end
+    mean_standard_error = _mean_standard_error(value.stats[point])
     return (point, trials, spread_estimated=trials>1,marginal_count=count, confidence=confidence(value),
         target_cdf=cdf_tolerance(value), cdf_bound=min(1.0,bound),
         target_supported=bound <= cdf_tolerance(value), scope=:point_all_retained_marginals,
         assumption=:iid, distribution=sampling_distribution(value),
-        conditioning=(value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).on_error === :resample ? :successful_realizations : :none,
+        conditioning=haskey(retained,:mode_assignment) ||
+            (value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).on_error === :resample ? :successful_realizations : :none,
         diagnostics, mean_standard_error, root_seed=root_seed(value), point_seed=point_seed(value,point),
         samples_retained=samples(value) !== nothing, histograms_retained=histograms(value) !== nothing)
 end

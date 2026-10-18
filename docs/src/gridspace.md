@@ -390,6 +390,71 @@ products retain conductor × conductor × frequency × trial dimensions.
 `MonteCarloResult` validates these point-aligned arrays' keys and dimensions
 and supplies their public observation methods.
 
+### Monte Carlo compositions
+
+Monte Carlo composes with modal analysis by decomposing each trial's line
+parameters before computing statistics:
+
+```julia
+modal_mc = compute(ParametricProblem(space),
+    MonteCarlo(line_formulation; trials=10, seed=42, distribution=:uniform);
+    modal=:default, modal_options=(rotate=true,))
+```
+
+The equivalent positional form is
+`compute(ParametricProblem(space), mc, ModalAnalysisFormulation(:default); modal_options)`.
+The Hungarian algorithm maximizes total normalized absolute current-basis overlap
+with the nominal point. Matching uses the first frequency for `:chrysochos2014`
+and `:wedepohl1996`, and the final frequency for `:vieira2026` when
+`tracking.order_by_velocity=true` (the first otherwise). The same permutation
+and complex phase alignment apply across frequencies to both paired bases.
+
+Every assigned overlap must be at least 0.8, corresponding to an angle of at most
+36.87 degrees between normalized current vectors. This identity threshold is
+above the equal-overlap value of `1/sqrt(2)` for two orthogonal modes. It is
+an identity screen, independent of the modal solver's numerical tolerances.
+
+The computation excludes a trial below the threshold without replacement, even with
+`on_error=:resample`. The accepted count can be smaller than `trials`.
+If every trial fails matching, computation throws an `ArgumentError` with the reasons.
+Modal composition always retains diagnostics: `details(modal_mc).data.mode_assignment`
+contains accepted overlaps, permutations, the threshold and matching frequency
+for each outer point. Failed overlaps appear with their reason in `failures`
+and contribute to `failure_summary`.
+
+`statistics(modal_mc)[1]` contains `R`, `L`, `C`, `G`, `gamma`, `Zc`, `Yc`,
+`Ti`, `Tv`, `alpha`, `beta`, and `velocity`. Complex quantities have separate
+`real` and `imag` arrays of `SampleSummary`. Real quantities have arrays of summaries.
+
+Samples keep complex arrays directly. Vectors use axes mode × frequency × trial.
+Bases use axes phase × mode × frequency × trial.
+
+Segment quantities use
+per-unit-length roots and the declared line length. Each summary describes the
+trial quantity directly. Nonlinear quantities evaluated on the marginal core
+can differ from these empirical summaries.
+
+Monte Carlo also aggregates transient voltage and current at every end, terminal
+and time sample:
+
+```julia
+transient_mc = compute(ParametricProblem(TransientAnalysisProblem(space;
+    sending, receiving, window)),
+    MonteCarlo(transient_formulation; trials=5, seed=42, distribution=:uniform))
+```
+
+`statistics(transient_mc)[1]` contains `voltage`, `current`, and `kpis`.
+Waveforms use axes end × terminal × time. Samples append a trial axis.
+`kpis.voltage` and `kpis.current` contain end × terminal summaries for
+`peak`, `peak_time`, `arrival_time`, and `final_value`, evaluated on each trial.
+
+Arrival time uses 10 % of the absolute peak. Final value uses the mean of the
+last 10 % of samples, rounded up to at least one sample. A summary or histogram
+for an undefined arrival time is `missing`. The corresponding waveform remains
+available. Retained samples preserve the undefined value as `NaN`.
+`LinearError` rejects transient problems with an `ArgumentError` naming the
+missing first-order transient propagation.
+
 ### Observe and compare retained uncertainty
 
 Statistical selectors use the same observation grammar as deterministic values:
