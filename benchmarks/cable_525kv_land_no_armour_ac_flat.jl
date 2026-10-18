@@ -9,6 +9,9 @@ using Dates
 using Measurements, Distributions
 using Statistics: mean, std
 
+ARGS in (String[], ["modal"]) ||
+    error("Usage: julia --project=test benchmarks/cable_525kv_land_no_armour_ac_flat.jl [modal]")
+
 frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
 
 """
@@ -96,21 +99,6 @@ nominal = (;
     hollow_core = false,
 )
 
-problem = line_parameters_problem(nominal...)
-formulation = Formulation(earth_impedance = :unified, earth_admittance = :unified,
-    shunt_model = :equivalent, insulation_admittance = :lossy, semicon_admittance = :lossy;
-    options = (reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
-compute_time = @elapsed result = compute(problem, formulation)
-folder = joinpath(pwd(), ".linecablemodels", "benchmarks",
-    "cable_525kv_land_no_armour_ac_flat", Dates.format(now(), "yyyymmdd-HHMMSS"))
-mkpath(folder)
-export_data(:json, problem; file_name = joinpath(folder, "problem.json"))
-save(ObservedResult(result, (R, X, G, B); length_unit = :base, clip = false),
-    joinpath(folder, "baseline.json"))
-println("cable_525kv_land_no_armour_ac_flat: ", length(problem.system.terminal_order),
-    " terminals, compute ", compute_time, " s, ", folder)
-
-# One at a time, temperature, and earth resistivity.
 swept = (
     :core_diameter, :core_rho, :inner_semicon_thickness, :insulation_thickness,
     :outer_semicon_thickness, :water_blocking_thickness, :pre_sheath_filler_thickness,
@@ -121,6 +109,153 @@ swept = (
     :sheath_temperature_coefficient, :pe_rho, :pe_eps_r,
 )
 
+corrected_materials = (;)
+
+formulation = Formulation(earth_impedance = :unified, earth_admittance = :unified,
+    shunt_model = :equivalent, insulation_admittance = :lossy, semicon_admittance = :lossy;
+    options = (reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
+folder = joinpath(pwd(), ".linecablemodels", "benchmarks",
+    "cable_525kv_land_no_armour_ac_flat", Dates.format(now(), "yyyymmdd-HHMMSS"))
+mkpath(folder)
+
+if ARGS == ["modal"]
+    let
+        started = time_ns()
+        timings = NamedTuple[]
+        registry = [
+            ("impedance", "unified", "unified", "Unified circumferential earth impedance with complete enclosed-current normalization", "supported"),
+            ("impedance", "ametani2009", "ametani2009", "Ametani mixed-pair homogeneous-earth impedance (2009)", "registered; coaxial implementation unavailable"),
+            ("impedance", "carson1926", "carson1926", "Carson homogeneous-earth overhead impedance (1926)", "registered; coaxial implementation unavailable"),
+            ("impedance", "default", "unified", "Unified circumferential earth impedance with complete enclosed-current normalization", "supported"),
+            ("impedance", "gary1976", "gary1976", "Gary complex-depth approximation (1976)", "ArgumentError: formula :gary1976 has no expression for :self, 2, 2"),
+            ("impedance", "lucca1994", "lucca1994", "Lucca mixed-pair homogeneous-earth impedance (1994)", "ArgumentError: formula :lucca1994 has no expression for :self, 2, 2"),
+            ("impedance", "pollaczek1926", "pollaczek1926", "Pollaczek homogeneous-earth underground impedance (1926)", "registered; coaxial implementation unavailable"),
+            ("impedance", "saad1996", "saad1996", "Saad underground closed form (1996)", "supported"),
+            ("impedance", "wedepohl1973", "wedepohl1973", "Wedepohl-Wilcox low-frequency underground approximation (1973)", "supported"),
+            ("impedance", "wise1934", "wise1934", "Wise homogeneous-earth overhead impedance (1934) — not yet implemented", "registered; coaxial implementation unavailable"),
+            ("impedance", "xue2018", "xue2018", "Xue homogeneous-earth underground impedance (2018) — not yet implemented", "registered; coaxial implementation unavailable"),
+            ("admittance", "unified", "unified", "Unified circumferential earth potential with complete enclosed-current normalization", "supported"),
+            ("admittance", "default", "unified", "Unified circumferential earth potential with complete enclosed-current normalization", "supported"),
+            ("admittance", "ideal", "ideal", "Ideal-earth electrostatic image potential coefficients", "supported"),
+            ("admittance", "pollaczek1926", "pollaczek1926", "Pollaczek underground potential coefficients (1926) — not yet implemented", "registered; coaxial implementation unavailable"),
+            ("admittance", "wise1948", "wise1948", "Wise homogeneous-earth overhead potential coefficient (1948) — not yet implemented", "registered; coaxial implementation unavailable"),
+            ("admittance", "xue2018", "xue2018", "Xue homogeneous-earth underground potential coefficient (2018) — not yet implemented", "registered; coaxial implementation unavailable"),
+        ]
+        basis_indices = [only(findall(f -> isapprox(f, requested; rtol = 1e-12), frequencies))
+            for requested in (1.0, 50.0, 1e3, 1e4, 1e5, 1e6)]
+        infeasible = String[]
+        correction_status = Pair{String, String}[]
+        problem = line_parameters_problem(nominal...)
+        println("modal run: ", folder)
+        flush(stdout)
+        for study in ("baseline", "one_at_a_time", "temperature_earth", "layout", "corrections", "earth_formulas")
+            section_start = time_ns()
+            point_count = 0
+            for input in (study == "one_at_a_time" ? swept : (study,))
+                selected = formulation
+                inputs = NamedTuple[]
+                names = String[]
+                if study == "baseline"
+                    inputs = [nominal]
+                    names = ["baseline"]
+                    space = Gridspace{LineParametersProblem}(p -> line_parameters_problem(p...), (Grid(inputs),))
+                elseif study == "one_at_a_time"
+                    levels = nominal[input] .* range(0.9, 1.1; length = 9)
+                    inputs = [merge(nominal, NamedTuple{(input,)}((level,))) for level in levels]
+                    space = Gridspace{LineParametersProblem}(p -> line_parameters_problem(p...), (Grid(inputs),))
+                    names = [string(input, "=", level) for level in levels]
+                elseif study == "temperature_earth"
+                    temperatures, resistivities = 20.0:10.0:90.0, exp10.(1:0.25:4)
+                    space = Gridspace{LineParametersProblem}(
+                        (temperature, rho) -> line_parameters_problem(merge(nominal, (; temperature, earth_rho = rho))...),
+                        (Grid(temperatures), Grid(resistivities)))
+                    inputs = [merge(nominal, (; temperature, earth_rho = rho)) for rho in resistivities for temperature in temperatures]
+                    names = ["temperature=$(p.temperature);earth_rho=$(p.earth_rho)" for p in inputs]
+                elseif study == "layout"
+                    spacings, depths = (0.25, 0.5, 0.75, 1.0, 1.5, 2.0), (0.8, 1.0, 1.25, 1.5, 2.0)
+                    radii = [LineCableModels.support(design.geometry.outer) for design in problem.system.designs]
+                    clearance = maximum(radii[1:end-1] .+ radii[2:end])
+                    append!(infeasible, ["spacing=$(spacing);depth=$(depth)" for depth in depths for spacing in spacings if spacing <= clearance])
+                    spacings = filter(>(clearance), spacings)
+                    space = Gridspace{LineParametersProblem}((spacing, depth) -> line_parameters_problem(merge(nominal,
+                        (cable_x_left = -spacing, cable_x_right = spacing, cable_y = -depth))...),
+                        (Grid(spacings), Grid(depths)))
+                    inputs = [merge(nominal, (cable_x_left = -spacing, cable_x_right = spacing, cable_y = -depth)) for depth in depths for spacing in spacings]
+                    names = ["spacing=$(spacing);depth=$(depth)" for depth in depths for spacing in spacings]
+                elseif study == "corrections"
+                    folded = (inner_semicon_thickness = 0.0, outer_semicon_thickness = 0.0, water_blocking_thickness = 0.0,
+                        insulation_thickness = nominal.insulation_thickness + nominal.inner_semicon_thickness +
+                            nominal.outer_semicon_thickness + nominal.water_blocking_thickness)
+                    correction_steps = (;)
+                    correction_status = [
+                        "solid_core" => "not applicable",
+                        "core_lay" => "not applicable",
+                        "folded_layers" => "corrected material data unavailable in case representation",
+                        "armour_tube" => "not applicable",
+                        "armour_lay" => "not applicable",
+                        "pe" => "corrected material data unavailable in case representation",
+                        "all" => "corrected material data unavailable in case representation",
+                    ]
+                    inputs = [merge(nominal, changes) for changes in values(correction_steps)]
+                    names = string.(collect(keys(correction_steps)))
+                    space = Gridspace{LineParametersProblem}(p -> line_parameters_problem(p...), (Grid(inputs),))
+                else
+                    earth_pairs = ((:unified, :unified), (:saad1996, :unified),
+                        (:wedepohl1973, :unified), (:unified, :ideal), (:saad1996, :ideal),
+                        (:wedepohl1973, :ideal))
+                    selected = Formulation(earth_impedance = Grid(first.(earth_pairs)),
+                        earth_admittance = Grid(last.(earth_pairs)), combine = :zip,
+                        shunt_model = :equivalent, insulation_admittance = :lossy, semicon_admittance = :lossy;
+                        options = (reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
+                    inputs = fill(nominal, length(earth_pairs))
+                    names = ["impedance=$(z);admittance=$(y)" for (z, y) in earth_pairs]
+                    space = Gridspace{LineParametersProblem}(p -> line_parameters_problem(p...), (Grid((nominal,)),))
+                end
+                if !isempty(inputs)
+                    results = compute(space, selected; modal = :default)
+                    for (i, result) in enumerate(results)
+                        point_count += 1
+                        observed = ObservedResult(PropagationParameters(result; line_length = nominal.line_length),
+                            ((gamma, real), (gamma, imag), velocity, Zc);
+                            gridpoint = (; id = details(result).data.gridpoint), length_unit = :base, clip = false)
+                        metadata = (; study, point = names[i], inputs = inputs[i],
+                            basis_indices, diagnostics = details(result).data.modal.diagnostics)
+                        archive = joinpath(folder, "modal_$(study)_$(lpad(point_count, 4, '0')).json")
+                        save([ObservedResult(merge(observed.gridpoint, (; modal = metadata)), observed.quantities,
+                                observed.errors, observed.timings),
+                            ObservedResult(result[basis_indices], (Ti, Tv);
+                                gridpoint = (; id = observed.gridpoint.id), length_unit = :base, clip = false),
+                            ObservedResult(transform(PhaseDomain, result[1]), (Z, Y);
+                                gridpoint = (; id = observed.gridpoint.id), length_unit = :base, clip = false)],
+                            archive)
+                        run(`gzip -n -9 -- $archive`)
+                    end
+                end
+                study == "one_at_a_time" && println("modal one_at_a_time: ", input, " complete")
+                flush(stdout)
+            end
+            elapsed = (time_ns() - section_start) / 1e9
+            push!(timings, (; study, wall_seconds = elapsed, points = point_count))
+            println("modal ", study, ": ", elapsed, " s, ", point_count, " points")
+            flush(stdout)
+        end
+        metadata = (; id = nothing, nominal, swept, correction_status = Tuple.(correction_status), registry, infeasible,
+            terminal_order = problem.system.terminal_order, timings,
+            wall_seconds = (time_ns() - started) / 1e9)
+        save(ObservedResult(metadata, NamedTuple[], NamedTuple[], (;)), joinpath(folder, "modal_run.json"))
+    end
+else
+    problem = line_parameters_problem(nominal...)
+    compute_time = @elapsed result = compute(problem, formulation)
+    export_data(:json, problem; file_name = joinpath(folder, "problem.json"))
+    save(ObservedResult(result, (R, X, G, B); length_unit = :base, clip = false),
+        joinpath(folder, "baseline.json"))
+    println("cable_525kv_land_no_armour_ac_flat: ", length(problem.system.terminal_order),
+        " terminals, compute ", compute_time, " s, ", folder)
+end
+
+if isempty(ARGS)
+# One at a time, temperature, and earth resistivity.
 open(joinpath(folder, "ranking.txt"), "w") do io
     for (section, names) in ((:one_at_a_time, swept),
             (:temperature, (:temperature,)), (:earth, (:earth_rho,)))
@@ -296,4 +431,5 @@ open(joinpath(folder, "ranking.txt"), "a") do io
     print(io, text)
     print(text)
     flush(io)
+end
 end

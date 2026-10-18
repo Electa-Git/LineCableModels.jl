@@ -88,6 +88,99 @@ julia benchmarks/sensitivity_tables.jl [output folder]
 
 The default output folder is `.linecablemodels/benchmarks/tables/`.
 
+All eight cable scripts also accept `modal` alone:
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl modal
+```
+
+This argument measures how cable construction, temperature, soil and layout
+change the propagation modes. The scans use a line-parameter Gridspace and
+`compute(space, formulation; modal = :default)` over the same 227 frequencies.
+The case script saves native observations directly with the package API.
+Its run folder contains `modal_run.json` with the declared inputs and wall times,
+plus `modal_<study>_<index>.json.gz` for each computed point.
+The package writes JSON, and gzip compresses each point archive.
+These archives keep full propagation constant, velocity and characteristic impedance
+curves at all 227 frequencies. Both modal bases use the six report frequencies.
+The phase Z/Y coefficients use only the lowest frequency for the DC estimates.
+The archives also keep the modal diagnostics.
+
+Run the separate generator with one or more run folders, then an output folder:
+
+```sh
+julia --project=test benchmarks/modal_tables.jl <run folder>... <output folder>
+```
+
+The generator reads the archives and derives the tables without a physical computation.
+It writes each run under `<output folder>/<script name>/<timestamp>/`.
+The output prefixes describe these physical comparisons:
+
+| Output prefix | Physical comparison |
+| --- | --- |
+| `modal_baseline` | Current patterns, attenuation, phase velocity, characteristic impedance and phase travel time for the declared cable. |
+| `modal_one_at_a_time` | Each swept input at nine levels from 90 % to 110 % of nominal, with changes in physical units and percent. |
+| `modal_temperature_earth` | The product of temperature and soil resistivity. Temperature spans 20 to 90 °C at 10 °C intervals. Resistivity spans 10 to 10000 Ω·m at quarter-decade intervals. |
+| `modal_layout` | Cable separation in metres: 0.25, 0.5, 0.75, 1, 1.5 and 2. Depth in metres: 0.8, 1, 1.25, 1.5 and 2. |
+| `modal_corrections` | Solid core, core lay, folded dielectric layers, armour tube, armour lay, PE permittivity and the complete corrected set, each against the declared baseline. |
+| `modal_earth_formulas` | Supported pairs of buried-conductor earth impedance and admittance formulas against the Unified pair. The pairs include ideal earth admittance. |
+
+Each prefix has a JSON archive compressed with gzip. It holds full propagation
+constant, velocity and characteristic impedance curves from native modal observations.
+The CSV table gives attenuation in dB/km, velocity in m/µs, impedance magnitude
+in Ω and phase travel time in µs. It samples 1 Hz, 50 Hz, 1 kHz, 10 kHz, 100 kHz
+and 1 MHz. Divide the line length by the phase velocity to calculate the phase travel time.
+
+The CSV also gives the sheath and armour skin transition frequencies.
+These use the material resistivity at the selected temperature and permeability.
+For armour wires, the skin length is wire diameter. For a tube, it is wall thickness.
+Each `_conductors.csv` file records the conductor resistance diagonal in Ω/km
+and the complete shunt conductance matrix in S/km at the lowest frequency.
+These phase coefficients give an estimate of DC resistance.
+
+For each input, the nonlinearity fraction measures the largest departure of its
+nine-level observable curve from the line through its endpoints.
+The fraction uses the absolute change between endpoints as its denominator.
+A zero change with nonzero departure gives NaN. A percentage with a zero
+baseline has an empty field.
+
+Mode classes follow the current amplitudes and relative phases at each frequency.
+Opposite core and sheath currents identify the coaxial family.
+Opposite sheath and armour currents identify the sheath-armour family.
+Net current identifies the dominant return conductor. Cable current correlation
+distinguishes common currents from currents that flow against another cable.
+
+For three cables, the same rule aggregates terminal amplitudes across cables.
+It tests the cable pairs whose current norms exceed 20 % of the total norm.
+The generated JSON archives keep these classes at the six report frequencies
+and keep the study inputs.
+Mode assignment uses maximum normalized current-basis overlap at 10 kHz with
+Hungarian assignment. Tables keep the baseline mode, assigned overlap and
+largest two candidate overlaps.
+
+The `modal_summary.txt` file lists ambiguous matches, infeasible layouts,
+correction availability and wall times for each study.
+A match is ambiguous when its best or assigned overlap is below 0.9.
+It is also ambiguous when its two largest overlaps differ by at most 0.05.
+Mode numbers keep the package order.
+
+The `_status.csv` file records corrections that are not applicable or whose
+corrected material values are absent from the case representation.
+The `_registry.csv` file lists each registered earth formula and its availability.
+Each case script declares six pairs. Unified, Saad 1996 and Wedepohl-Wilcox 1973
+impedance each use Unified or ideal admittance.
+The registry metadata retains the availability recorded for these comparisons.
+
+The `modal_fallback_continuity.csv` file compares velocity and attenuation jumps
+on each side of a fallback with the same numbered baseline mode.
+A relative jump equals the absolute change divided by the absolute previous value.
+The reference is the largest adjacent jump within five baseline samples centred
+on the fallback index. The table flags a jump above three times that reference.
+
+The `modal_mode_order.csv` file records mode assignments from the current bases
+at 1 Hz, 50 Hz and 1 kHz. It flags a changed mode number or overlap below 0.9.
+The summary records these checks for each point.
+
 The three DC study scripts select frequency-domain sensitivity when run without arguments.
 `time_domain` runs line-model fits and their time-domain comparisons without PSCAD.
 `pscad` runs only the baseline, the NLT references for the single-point step and impulse scenarios at 10 Ω, and PSCAD.
