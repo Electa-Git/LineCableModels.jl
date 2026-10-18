@@ -27,10 +27,16 @@ conductor expressions. Insulation impedance's default and `:ametani1980`
 retain the annular magnetic term documented by Ametani.
 Both earth defaults route to `:unified`, which implements the supplied circumferentially averaged framework
 with complete enclosed-current normalization. The coaxial backend also evaluates
-`:gary1976` aerial impedance, `:saad1996` and `:wedepohl1973` buried impedance,
+`:gary1976` aerial impedance, `:pollaczek1926`, `:saad1996` and `:wedepohl1973` buried impedance,
 `:lucca1994` mixed impedance, and `:ideal` external potential coefficients.
 Other registered earth identities throw "not yet implemented". They never substitute Unified.
 Independent external-backend and consumer-defined implementations are unaffected.
+
+Pollaczek integrates the classical underground filament expression at complex
+frequency. It uses earth resistivity and permeability and neglects displacement current in
+earth. Its integration controls follow the spectral options below.
+Select it with `Formulation(earth_impedance=:pollaczek1926, earth_admittance=:ideal)`.
+
 Dielectric `:default` selections
 route to explicit `:lossless` equations. `:lossy` retains conductivity and the
 material's supplied polarization losses. The FrequencyDependent `:default`

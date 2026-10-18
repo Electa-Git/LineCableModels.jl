@@ -24,9 +24,10 @@ import ...Earth: EquivalentHomogeneous
 import ..Engine: EarthImpedanceFormulation, formula_id
 #! explicit-imports: off
 # Explicitly included equations share these physical and numerical operations.
-import ...LineCableModels: FormulaDefinition, Expression
+import ...LineCableModels: FormulaDefinition, Expression, nominal
 import ..Engine: description, conductivity, special_besselk
-import ..Engine: formulation_options
+import ..Engine: formulation_options, SpectralIntegral, integrate
+import ...Commons: initialize_buffers
 using ...Commons: vacuum_permeability
 #! explicit-imports: on
 

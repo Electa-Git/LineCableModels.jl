@@ -51,7 +51,8 @@
         Formulation(:pscad; earth_impedance = :carson1926), underground)
     @test_throws ArgumentError P.pscad_setting(
         Formulation(:pscad; earth_properties = :cigre2019), underground)
-    @test_throws r"not yet implemented" compute(underground, Formulation(earth_impedance = :pollaczek1926))
+    @test all(isfinite, observe(compute(underground,
+        Formulation(earth_impedance=:pollaczek1926, earth_admittance=:ideal)), Z))
     @test P.pscad_setting(Formulation(:pscad; earth_impedance=:pollaczek1926), underground).ground ==
           P.pscad_setting(Formulation(:pscad), underground).ground
     for key in keys(Formulation(:pscad).definitions)

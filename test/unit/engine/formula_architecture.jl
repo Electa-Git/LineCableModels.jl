@@ -211,7 +211,8 @@ end
             selected = owner.Formula(id)
             # Unified solves the whole system and runs only in a computation.
             id === :unified && continue
-            if id in (:gary1976, :saad1996, :wedepohl1973, :lucca1994)
+            if id in (:gary1976, :saad1996, :wedepohl1973, :lucca1994) ||
+                    (owner === E.EarthImpedance && id === :pollaczek1926)
                 @test isfinite(selected(rho, epsilon, mu, s, pair))
             else
                 @test_throws "not yet implemented" selected(rho, epsilon, mu, s, pair)

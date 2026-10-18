@@ -39,7 +39,7 @@ end
         @test formula_id(owner.Formula(:default)) === :unified
         implemented = owner === E.EarthImpedance ?
                       (
-            :default, :unified, :saad1996, :wedepohl1973, :gary1976, :lucca1994) :
+            :default, :unified, :pollaczek1926, :saad1996, :wedepohl1973, :gary1976, :lucca1994) :
                       (:default, :unified, :ideal)
         earth = homogeneous(rho = 100.0)
         for identifier in setdiff(owner.formulas(owner.Formula), implemented)
