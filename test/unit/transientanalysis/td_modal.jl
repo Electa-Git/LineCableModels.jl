@@ -28,7 +28,7 @@
     end
 end
 
-@testitem "TransientAnalysis / modal TD three bare wires (b) and allocations (c)" tags=[:unit, :engine] setup=[TestFixtures] begin
+@testitem "TransientAnalysis / modal TD three bare wires and allocations" tags=[:unit, :engine] setup=[TestFixtures] begin
     import LineCableModels.TransientAnalysis as TA
     import LineCableModels.Engine: compare
 
@@ -51,26 +51,26 @@ end
         options=(timing=true,))
     response = compute(problem, TransientFormulation(:td); options=(timing=true,))
 
-    @testset "Comparison (b)" begin
+    @testset "Comparison" begin
         @test response.t == reference.t
         @test response.coordinates == reference.coordinates
         @test all(isfinite, response.voltage)
         @test all(isfinite, response.current)
         diagnostics = details(fitted).data.marti
         errors = fitting_error(fitted)
-        @info "E3 E2 fit evidence" admittance=errors.admittance propagation=errors.propagation offdiagonal_ratio=diagnostics.offdiagonal_ratio phase_error_degrees=diagnostics.phase_error_degrees
+        @info "modal line fit evidence" admittance=errors.admittance propagation=errors.propagation offdiagonal_ratio=diagnostics.offdiagonal_ratio phase_error_degrees=diagnostics.phase_error_degrees
         for (quantity, actual, exact) in ((voltage, response.voltage, reference.voltage),
                 (current, response.current, reference.current))
             scale = maximum(abs, exact)
             rms = compare(reference, response, quantity).absolute ./ scale
             peak_deviation = maximum(rms)
             pointwise = dropdims(maximum(abs, actual .- exact; dims=3); dims=3) ./ scale
-            @info "E3 test (b), rows sending and receiving, columns terminals" quantity scale scaled_rms=repr(rms) peak_deviation scaled_pointwise=repr(pointwise) maximum_scaled_front=maximum(pointwise)
-            # The D05 measure scales each terminal RMS by the largest reference peak.
+            @info "td against nlt, rows sending and receiving, columns terminals" quantity scale scaled_rms=repr(rms) peak_deviation scaled_pointwise=repr(pointwise) maximum_scaled_front=maximum(pointwise)
+            # The scaled RMS measure scales each terminal RMS by the largest reference peak.
             # Peak deviation is the maximum of that measure across ends and terminals.
             # Pointwise front maxima include NLT inversion and modal fit errors.
             if peak_deviation > 0.01
-                @info "E3 deviations above one percent include E2 fit and transformation errors, trapezoidal discretization, and NLT inversion" quantity admittance_rms=errors.admittance.rms propagation_rms=errors.propagation.rms offdiagonal_ratio=diagnostics.offdiagonal_ratio phase_error_degrees=diagnostics.phase_error_degrees
+                @info "Deviations above one percent include modal fit and transformation errors, trapezoidal discretization, and NLT inversion" quantity admittance_rms=errors.admittance.rms propagation_rms=errors.propagation.rms offdiagonal_ratio=diagnostics.offdiagonal_ratio phase_error_degrees=diagnostics.phase_error_degrees
             end
             for side in 1:2, terminal in 1:3
                 @test rms[side, terminal] <= 0.10
@@ -79,20 +79,20 @@ end
         for side in 1:2, terminal in 2:3
             @test response.current[side, terminal, :] ≈ -response.voltage[side, terminal, :] atol=1e-12
         end
-        @info "E3 computation wall seconds" nlt=details(reference).data.timing.wall_seconds td=details(response).data.timing.wall_seconds
+        @info "td against nlt computation wall seconds" nlt=details(reference).data.timing.wall_seconds td=details(response).data.timing.wall_seconds
     end
 
-    @testset "One hundred warmed steps (c)" begin
+    @testset "One hundred warmed steps" begin
         selected = TransientFormulation(:td).formula
         workspace = TA.TransientWorkspace(problem, selected)
         @test (@inferred TA.advance_modal!(selected, workspace, 2:101)) === nothing
         bytes = @allocated TA.advance_modal!(selected, workspace, 102:201)
-        @info "E3 test (c)" steps=100 bytes allocations=(iszero(bytes) ? 0 : missing)
+        @info "modal td warmed step allocations" steps=100 bytes allocations=(iszero(bytes) ? 0 : missing)
         @test bytes == 0
     end
 end
 
-@testitem "TransientAnalysis / modal TD lossless step (a)" tags=[:unit, :engine] setup=[TDModalFixtures] begin
+@testitem "TransientAnalysis / modal TD lossless step" tags=[:unit, :engine] setup=[TDModalFixtures] begin
     import LineCableModels.TransientAnalysis as TA
     line = TDModalFixtures.modal_line()
     delay = only(line.model.propagation).delay
@@ -105,7 +105,7 @@ end
         arrival_s = t[arrival]
         tail = t .>= 2delay
         error = maximum(abs, volts[2, 1, tail] .- expected)
-        @info "E3 test (a)" receiving expected delay arrival_s error
+        @info "lossless line arrival" receiving expected delay arrival_s error
         @test 0 <= arrival_s - delay <= workspace.input.window.step
         @test error <= 1e-3
         @test all(iszero, volts[2, 1, t .< delay])
@@ -113,7 +113,7 @@ end
         @test amps[1, 1, 1] ≈ 0.5 / zc atol=1e-14
         if expected == 0.5
             reflected = maximum(abs, workspace.buffers.outgoing[2, 1, :])
-            @info "E3 test (a) matched reflected wave" reflected
+            @info "lossless line matched reflected wave" reflected
             @test reflected <= 1e-3
             @test maximum(abs, volts[1, 1, :] .- 0.5) <= 1e-3
         else

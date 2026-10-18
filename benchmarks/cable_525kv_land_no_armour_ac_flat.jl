@@ -1,6 +1,5 @@
 # Solid equivalent core, aluminium sheath, unarmoured.
 # Three AC phases in a flat arrangement, 20 km long.
-# Values from the benchmark specification, Appendix A (AC525-L).
 
 using LineCableModels
 using LineCableModels.Engine: compare

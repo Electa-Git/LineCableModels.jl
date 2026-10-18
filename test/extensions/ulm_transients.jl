@@ -29,12 +29,12 @@
         (interp=:single, enforce_sign=false, initial_solve=false, steps=length(response.t),
             terminations=(sending=nothing, receiving=nothing))
     @test details(response).data.line === details(fitted)
-    @info "D05 wall times" nlt=details(reference).data.timing.wall_seconds td=details(response).data.timing.wall_seconds
+    @info "td against nlt wall times" nlt=details(reference).data.timing.wall_seconds td=details(response).data.timing.wall_seconds
     for (selector, values) in ((voltage, reference.voltage), (current, reference.current))
         error = compare(reference, response, selector).absolute
         peaks = dropdims(maximum(abs, values; dims=3); dims=3)
         scale = maximum(peaks)
-        @info "D05 comparison" quantity=selector absolute_rms=repr(error) reference_peak=repr(peaks) fraction=repr(error ./ peaks) scaled=repr(error ./ scale)
+        @info "td against nlt comparison" quantity=selector absolute_rms=repr(error) reference_peak=repr(peaks) fraction=repr(error ./ peaks) scaled=repr(error ./ scale)
         for side in 1:2, terminal in 1:3
             @test error[side, terminal] <= 0.05scale
         end
@@ -49,7 +49,7 @@
         @test response.current[side, terminal, :] ≈ -response.voltage[side, terminal, :] rtol=1e-9
     end
     @testset "Matched ends" begin
-        # D05 measured 1.15% voltage and 2.33% current deviation within its 5% budget.
+        # The td against nlt comparison measured 1.15% voltage and 2.33% current deviation within its 5% budget.
         # Keep that budget for propagation and inversion, plus twice the sampled Yc
         # fitting RMS error for the effect of characteristic loading on the response.
         yc_error = maximum(fitting_error(fitted).admittance.rms)
@@ -67,7 +67,7 @@
             (sending=nothing, receiving=termination)
         for (selector, values) in ((voltage, exact.voltage), (current, exact.current))
             scaled = compare(exact, matched, selector).absolute ./ maximum(abs, values)
-            @info "U03 matched comparison" quantity=selector scaled=repr(scaled) maximum_scaled=maximum(scaled) yc_error tolerance
+            @info "matched receiving end comparison" quantity=selector scaled=repr(scaled) maximum_scaled=maximum(scaled) yc_error tolerance
             @test all(<=(tolerance), scaled)
         end
 
@@ -86,7 +86,7 @@
         excursion = [maximum(abs, matched.voltage[1, terminal, after] .-
             matched.voltage[1, terminal, before]) / voltage_scale for terminal in 1:3]
         @test all(<=(tolerance), excursion)
-        @info "U03 reflection windows" delays_s=repr(model.tau) early_s=(matched.t[first(early)], matched.t[last(early)]) before_s=matched.t[before] after_s=(matched.t[first(after)], matched.t[last(after)]) forward_scaled=repr(forward_error) sending_excursion_scaled=repr(excursion) tolerance
+        @info "matched receiving end reflection windows" delays_s=repr(model.tau) early_s=(matched.t[first(early)], matched.t[last(early)]) before_s=matched.t[before] after_s=(matched.t[first(after)], matched.t[last(after)]) forward_scaled=repr(forward_error) sending_excursion_scaled=repr(excursion) tolerance
 
         # Compare all line-state outputs with a network that stamps each matched end once.
         # Test a source at either end and both ends without a source.
@@ -121,7 +121,7 @@
                 # The wave from the matched end also detects that reflection.
                 reflected = maximum(abs, direct.lines[1].ifwL) / maximum(abs, exact.current)
                 @test reflected <= tolerance
-                @info "U03 outgoing reflected wave" scaled=reflected tolerance
+                @info "matched receiving end outgoing reflected wave" scaled=reflected tolerance
             elseif iszero(source_node)
                 @test all(iszero, result.voltage)
                 @test all(iszero, result.current)

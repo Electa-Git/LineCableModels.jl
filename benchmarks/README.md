@@ -1,19 +1,19 @@
 # Benchmark cable cases
 
 These scripts declare the benchmark-system cable cases for the wideband model
-assessment using the construction API of LineCableModels. Values follow the
-benchmark specification, Appendix A, with the selected core representation below.
+assessment using the construction API of LineCableModels, with the selected core
+representation below.
 
-| Script | Specification case |
+| Script | Physical description |
 | --- | --- |
-| `cable_320kv_armoured_dc_bipole.jl` | DC320-A |
-| `cable_320kv_no_armour_dc_bipole.jl` | DC320-U |
-| `cable_380kv_armoured_ac_flat.jl` | AC380-A |
-| `cable_380kv_no_armour_ac_flat.jl` | AC380-U |
-| `cable_525kv_land_no_armour_dc_bipole.jl` | DC525-L |
-| `cable_525kv_land_no_armour_ac_flat.jl` | AC525-L |
-| `cable_525kv_subsea_armoured_dc_bipole.jl` | DC525-S |
-| `cable_525kv_subsea_armoured_ac_flat.jl` | AC525-S |
+| `cable_320kv_armoured_dc_bipole.jl` | 320 kV DC, armoured, land, bipole, stranded core |
+| `cable_320kv_no_armour_dc_bipole.jl` | 320 kV DC, unarmoured, land, bipole, stranded core |
+| `cable_380kv_armoured_ac_flat.jl` | 380 kV AC, armoured, land, flat arrangement, stranded core |
+| `cable_380kv_no_armour_ac_flat.jl` | 380 kV AC, unarmoured, land, flat arrangement, stranded core |
+| `cable_525kv_land_no_armour_dc_bipole.jl` | 525 kV DC, land, unarmoured, bipole, solid equivalent core |
+| `cable_525kv_land_no_armour_ac_flat.jl` | 525 kV AC, land, unarmoured, flat arrangement, solid equivalent core |
+| `cable_525kv_subsea_armoured_dc_bipole.jl` | 525 kV DC, subsea, armoured, bipole, solid equivalent core |
+| `cable_525kv_subsea_armoured_ac_flat.jl` | 525 kV AC, subsea, armoured, flat arrangement, solid equivalent core |
 
 Run a script from the repository root:
 
@@ -56,7 +56,7 @@ Each quantity also has the RMS of e in each native band and its maximum e with f
 After `earth`, `representation` compares `conductor`, `semicons`, `armour` (armoured
 cases), `dielectric` and `shunt` with the baseline, saves `representation.json`, and
 ranks scaled deviations. The arguments `stranded_core` (default `true`) and
-`core_diameter` (46.3 mm) select the 1600 mm² core, with WP1 corrected materials for
+`core_diameter` (46.3 mm) select the 1600 mm² core, with corrected materials for
 its solid variant. The argument `hollow_core` (default `false`) selects annular land
 or subsea cores of metal area `conductor_cross_section`, with resistivity set to keep
 the 20 °C DC resistance. The argument `armour_as_tube` (default `false`) selects a
@@ -88,14 +88,14 @@ julia benchmarks/sensitivity_tables.jl [output folder]
 
 The default output folder is `.linecablemodels/benchmarks/tables/`.
 
-The DC320 scripts select WP2.1 when run without arguments.
-`wp22` runs WP2.2 without PSCAD.
-`pscad` runs only the baseline, the NLT references for scenarios (i) and (iii) at 10 Ω, and PSCAD.
-`wp22 pscad` runs both WP2.2 and PSCAD.
-`variations` alone runs the two baselines, the scenario (i) reference at 10 Ω, Marti transformation-frequency comparisons and coarse ULM residue-limit and interpolation comparisons in the three cases.
-Run DC320-U without the fits with `julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl pscad`.
-DC320-A uses separate sheath and armour bonds and a pulse window from its modal delays.
-DC525-S accepts the same arguments, with separate sheath and armour bonds and a 525 kV pulse window from its modal delays.
+The three DC study scripts select frequency-domain sensitivity when run without arguments.
+`time_domain` runs line-model fits and their time-domain comparisons without PSCAD.
+`pscad` runs only the baseline, the NLT references for the single-point step and impulse scenarios at 10 Ω, and PSCAD.
+`time_domain pscad` runs both time-domain comparisons and PSCAD.
+`model_settings` alone runs the two baselines, the single-point step reference at 10 Ω, Marti transformation-frequency comparisons and coarse ULM residue-limit and interpolation comparisons in the three cases.
+Run the 320 kV unarmoured DC cable without the fits with `julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl pscad`.
+The 320 kV armoured DC cable uses separate sheath and armour bonds and a pulse window from its modal delays.
+The 525 kV subsea armoured DC cable accepts the same arguments, with separate sheath and armour bonds and a 525 kV pulse window from its modal delays.
 The 48 ULM variants vary Yc and H orders (8, 16), time rows, passivity enforcement and DC correction.
 The study also fits default FDCM and Marti models.
 
@@ -110,7 +110,7 @@ A second baseline uses 101 logarithmic frequencies from 1 Hz to 1 MHz plus 50 Hz
 The ULM 16/16 fits use time rows, passivity enforcement and each DC choice, alongside default Marti.
 The study compares their fit errors and single-point step deviations with the 227-frequency fits.
 
-The run folder holds `wp22_segment.json`, `wp22_fits.json`, `wp22_references.json`, `wp22_response_<index>.json`, `wp22_ii_response_<index>.json`, `wp22_iii_response_<index>.json`, `wp22_sampling_baseline.json`, `wp22_sampling.json` and `wp22_fit_<index>_<quantity>_1_fitting_error.xlsx` workbooks.
+The run folder holds `segment.json`, `line_models.json`, `references.json`, `<scenario>_response_<index>.json`, `coarse_baseline.json`, `sampling_comparison.json` and `line_model_<index>_<quantity>_1_fitting_error.xlsx` workbooks.
 Archives keep fit diagnostics, DC targets and achieved values, core 1 KPIs, wall times and transient RMS deviations scaled by the reference peak.
 Growth ratios compare peaks in the final two 10 % windows.
 A growth flag identifies a ratio that exceeds one and 110 % of its reference ratio.
@@ -118,5 +118,5 @@ A growth flag identifies a ratio that exceeds one and 110 % of its reference rat
 Set `LINECABLEMODELS_PSCAD_CONFIG` to the station configuration path.
 The section runs FD-Phase orders 10, 20 and 30 with each DC and passivity setting, and default FD-Mode.
 It covers the single-point step at 10 Ω and the pulse.
-It saves station identity, responses, comparisons, statuses with failure messages, and native projects, logs and outputs under `wp22_pscad_<scenario>_<index>/` in the run folder.
+It saves station identity, responses, comparisons, statuses with failure messages, and native projects, logs and outputs under `pscad_<scenario>_<index>/` in the run folder.
 A station failure produces a status file, and execution continues.

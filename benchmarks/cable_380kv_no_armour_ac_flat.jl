@@ -1,6 +1,5 @@
 # Explicit stranded core, lead sheath, unarmoured.
 # Three AC phases in a flat arrangement, 20 km long.
-# Values from the benchmark specification, Appendix A (AC380-U).
 
 using LineCableModels
 using LineCableModels.Engine: compare

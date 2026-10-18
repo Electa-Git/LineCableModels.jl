@@ -119,7 +119,7 @@ end
     using EzXML
     const P = LineCableModels.PSCAD
 
-    # Load the unchanged project writer at the campaign base as an independent reference.
+    # Load the unchanged project writer at the reference revision as an independent reference.
     repository = normpath(joinpath(@__DIR__, "..", "..", ".."))
     source = read(`git -C $repository show 2657ccf2:src/pscad/importexport/project.jl`, String)
     reference = Module(:PSCADConstantsReference)

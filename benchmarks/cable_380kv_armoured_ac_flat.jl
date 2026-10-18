@@ -1,6 +1,5 @@
 # Explicit stranded core, lead sheath, steel-wire armour.
 # Three AC phases in a flat arrangement, 20 km long.
-# Values from the benchmark specification, Appendix A (AC380-A).
 
 using LineCableModels
 using LineCableModels.Engine: compare

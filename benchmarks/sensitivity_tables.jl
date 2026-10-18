@@ -87,14 +87,14 @@ root = dirname(dirname(abspath(PROGRAM_FILE)))
 output = isempty(ARGS) ? joinpath(root, ".linecablemodels", "benchmarks", "tables") : abspath(ARGS[1])
 cases = NamedTuple[]
 for (script, label) in (
-        ("cable_320kv_armoured_dc_bipole", "DC320-A"),
-        ("cable_320kv_no_armour_dc_bipole", "DC320-U"),
-        ("cable_380kv_armoured_ac_flat", "AC380-A"),
-        ("cable_380kv_no_armour_ac_flat", "AC380-U"),
-        ("cable_525kv_land_no_armour_dc_bipole", "DC525-L"),
-        ("cable_525kv_land_no_armour_ac_flat", "AC525-L"),
-        ("cable_525kv_subsea_armoured_dc_bipole", "DC525-S"),
-        ("cable_525kv_subsea_armoured_ac_flat", "AC525-S"))
+        ("cable_320kv_armoured_dc_bipole", "320 kV DC, armoured"),
+        ("cable_320kv_no_armour_dc_bipole", "320 kV DC, unarmoured"),
+        ("cable_380kv_armoured_ac_flat", "380 kV AC, armoured"),
+        ("cable_380kv_no_armour_ac_flat", "380 kV AC, unarmoured"),
+        ("cable_525kv_land_no_armour_dc_bipole", "525 kV DC, land, unarmoured"),
+        ("cable_525kv_land_no_armour_ac_flat", "525 kV AC, land, unarmoured"),
+        ("cable_525kv_subsea_armoured_dc_bipole", "525 kV DC, subsea, armoured"),
+        ("cable_525kv_subsea_armoured_ac_flat", "525 kV AC, subsea, armoured"))
     directory = joinpath(root, ".linecablemodels", "benchmarks", script)
     isdir(directory) || error("$label ($script): no output folder; missing all five ranking sections")
     folders = sort(filter(name -> occursin(r"^\d{8}-\d{6}$", name) &&
@@ -130,8 +130,8 @@ sources = [case.source for case in cases]
 labels = join([case.label for case in cases], ", ")
 
 for case in cases
-    write_table("wp21_drivers_$(case.script).tex",
-            "WP2.1 one-at-a-time sensitivity, $(case.label): ten largest all-band RMS deviations for each of Y and Z. Levels use the case inputs' base units; deviations are fractions.",
+    write_table("drivers_$(case.script).tex",
+            "One-at-a-time sensitivity, $(case.label): ten largest all-band RMS deviations for each of Y and Z. Levels use the case inputs' base units; deviations are fractions.",
             raw"@{}lp{0.24\linewidth}rrrrrrr@{}",
             raw"Q & Input & Level & RMS all & RMS dc & RMS harmonic & RMS narrow & Max $e$ & $f$ (Hz) ",
             [case.source]) do io
@@ -150,8 +150,8 @@ for case in cases
     end
 end
 
-write_table("wp21_temperature_earth.tex",
-        "WP2.1 temperature and earth resistivity sensitivity: $labels. All computed levels are reproduced; deviations are fractions.",
+write_table("temperature_earth.tex",
+        "Temperature and earth resistivity sensitivity: $labels. All computed levels are reproduced; deviations are fractions.",
         raw"@{}llrlrrr@{}",
         raw"Case & Input (unit) & Level & Q & RMS all (fraction) & Max $e$ (fraction) & $f$ (Hz)",
         sources) do io
@@ -166,8 +166,8 @@ write_table("wp21_temperature_earth.tex",
     end
 end
 
-write_table("wp21_representation.tex",
-        "WP2.1 representation sensitivity: $labels. Every computed variant is included; deviations are fractions.",
+write_table("representation.tex",
+        "Representation sensitivity: $labels. Every computed variant is included; deviations are fractions.",
         raw"@{}lllrrr@{}",
         raw"Case & Variant & Q & RMS all (fraction) & Max $e$ (fraction) & $f$ (Hz)",
         sources) do io
@@ -181,8 +181,8 @@ write_table("wp21_representation.tex",
     end
 end
 
-write_table("wp21_uncertainty.tex",
-        "WP2.1 joint uncertainty: $labels. MC denotes Monte Carlo and LEP denotes linear error propagation. Spread and mean shift are fractions; LEP/MC is the all-band RMS spread ratio.",
+write_table("uncertainty.tex",
+        "Joint uncertainty: $labels. MC denotes Monte Carlo and LEP denotes linear error propagation. Spread and mean shift are fractions; LEP/MC is the all-band RMS spread ratio.",
         raw"@{}lllrrrr@{}",
         raw"Case & Q & Statistic & RMS all (fraction) & Max (fraction) & $f$ (Hz) & LEP/MC",
         sources) do io
@@ -199,14 +199,14 @@ write_table("wp21_uncertainty.tex",
     end
 end
 
-write_table("wp22_selection.tex",
-        "WP2.2 case selection: DC320-A, DC320-U and DC525-S.",
+write_table("time_domain_selection.tex",
+        "Time domain case selection: 320 kV DC, armoured, 320 kV DC, unarmoured and 525 kV DC, subsea, armoured.",
         raw"@{}lp{0.27\linewidth}p{0.54\linewidth}@{}", "Case & Script & Reason",
-        [case.source for case in cases if case.label in ("DC320-A", "DC320-U", "DC525-S")]) do io
+        [case.source for case in cases if case.label in ("320 kV DC, armoured", "320 kV DC, unarmoured", "525 kV DC, subsea, armoured")]) do io
     for (label, reason) in (
-            ("DC320-A", "Armoured system cable: stranded core and wire armour with high permeability steel."),
-            ("DC320-U", "Unarmoured system cable: paired with DC320-A to assess the effect of armour."),
-            ("DC525-S", "Subsea cable: different solid core, armour geometry and lower permeability steel."))
+            ("320 kV DC, armoured", "Armoured system cable: stranded core and wire armour with high permeability steel."),
+            ("320 kV DC, unarmoured", "Unarmoured system cable: paired with 320 kV DC, armoured to assess the effect of armour."),
+            ("525 kV DC, subsea, armoured", "Subsea cable: different solid core, armour geometry and lower permeability steel."))
         case = only(filter(case -> case.label == label, cases))
         println(io, label, " & ", tex_text(case.script), " & ", reason, raw"\\\\")
     end

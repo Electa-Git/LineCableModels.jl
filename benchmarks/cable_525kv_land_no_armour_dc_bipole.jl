@@ -1,6 +1,5 @@
 # Solid equivalent core, aluminium sheath, unarmoured.
 # Two DC poles, 150 km long.
-# Values from the benchmark specification, Appendix A (DC525-L).
 
 using LineCableModels
 using LineCableModels.Engine: compare

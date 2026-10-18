@@ -1,6 +1,5 @@
 # Solid equivalent core, lead sheath, steel-wire armour.
 # Two DC poles, 150 km long.
-# Values from the benchmark specification, Appendix A (DC525-S).
 
 using LineCableModels
 using LineCableModels.Engine: compare
@@ -10,11 +9,11 @@ using Dates
 using Measurements, Distributions
 using Statistics: mean, std
 
-ARGS in (String[], ["wp22"], ["pscad"], ["wp22", "pscad"], ["variations"]) ||
-    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [wp22] [pscad] | variations")
-run_wp22 = "wp22" in ARGS
+ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"]) ||
+    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings")
+run_time_domain = "time_domain" in ARGS
 run_pscad = "pscad" in ARGS
-run_variations = ARGS == ["variations"]
+run_model_settings = ARGS == ["model_settings"]
 
 frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
 
@@ -333,12 +332,13 @@ open(joinpath(folder, "ranking.txt"), "a") do io
 end
 end
 
-if run_wp22 || run_pscad
+if run_time_domain || run_pscad
     using UniversalLineModel, XLSX, TOML
     using LineCableModels: DoubleExponential
     using LineCableModels.PSCAD: PSCADTransientFormulation, RemoteConfig, identify
 
     let
+        println("baseline: 227 samples from 1 mHz, including 50 Hz")
         section_start = time_ns()
         modal = compute(ModalAnalysisProblem(result), ModalAnalysisFormulation(:default))
         segment = PropagationParameters(modal; line_length = nominal.line_length)
@@ -347,11 +347,11 @@ if run_wp22 || run_pscad
         tmax = 20minimum(travel_times)
         window = (tmax = tmax, step = tmax / 4000)
         save(ObservedResult(segment; timings = (wall_seconds = (time_ns() - section_start) / 1e9,),
-            length_unit = :base, clip = false), joinpath(folder, "wp22_segment.json"))
-        println("wp22 modal: wall ", (time_ns() - section_start) / 1e9,
+            length_unit = :base, clip = false), joinpath(folder, "segment.json"))
+        println("modal: wall ", (time_ns() - section_start) / 1e9,
             " s, travel times ", travel_times, " s, window ", window)
 
-        if run_wp22
+        if run_time_domain
             fitting_problem = LineModelProblem(segment; line = problem)
             section_start = time_ns()
             sampling_frequencies = sort!(vcat(exp10.(range(0, 6; length = 101)), 50.0))
@@ -361,8 +361,8 @@ if run_wp22 || run_pscad
             sampling_modal = compute(ModalAnalysisProblem(sampling_result), ModalAnalysisFormulation(:default))
             sampling_segment = PropagationParameters(sampling_modal; line_length = nominal.line_length)
             sampling_fitting_problem = LineModelProblem(sampling_segment; line = sampling_problem)
-            save(ObservedResult(sampling_result; clip = false), joinpath(folder, "wp22_sampling_baseline.json"))
-            println("wp22 sampling baseline: ", length(sampling_frequencies), " samples, wall ",
+            save(ObservedResult(sampling_result; clip = false), joinpath(folder, "coarse_baseline.json"))
+            println("coarse: 101 samples from 1 Hz, plus 50 Hz; wall ",
                 (time_ns() - section_start) / 1e9, " s")
 
             formulations = LineModelFormulation(:ulm; options = (
@@ -399,25 +399,25 @@ if run_wp22 || run_pscad
                         step_err_late = get(diagnostic, :step_err_late, NaN),
                         delays = delays(fitted), travel_times, window, wall_seconds = elapsed,
                         action_timing = diagnostic.timing)
-                    println("wp22 fit compute ", length(fitted_models), ": wall ", elapsed, " s")
+                    println("time domain fits compute ", length(fitted_models), ": wall ", elapsed, " s")
                     flush(stdout)
                     point = ObservedResult(fitted; timings = (wall_seconds = elapsed,
                         action = diagnostic.timing), clip = false)
                     # Keep fit diagnostics as ordinary metadata in the portable archive.
-                    push!(fit_points, ObservedResult(merge(point.gridpoint, (pilot = evidence,)),
+                    push!(fit_points, ObservedResult(merge(point.gridpoint, (study = evidence,)),
                         NamedTuple[], point.errors, point.timings))
                     for quantity in (:admittance, :propagation)
                         observed = ObservedResult(fitted, ((fitting_error, quantity),);
                             gridpoint = fit_points[end].gridpoint, clip = false)
                         export_data(:xlsx, observed;
-                            file_name = joinpath(folder, "wp22_fit_$(length(fitted_models))_$(quantity).xlsx"))
+                            file_name = joinpath(folder, "line_model_$(length(fitted_models))_$(quantity).xlsx"))
                     end
-                    println("wp22 fit ", length(fitted_models), " ", evidence.method,
+                    println("time domain fits ", length(fitted_models), " ", evidence.method,
                         ": orders ", evidence.orders, ", wall ", elapsed, " s")
                     flush(stdout)
                 end
-                save(fit_points, joinpath(folder, "wp22_fits.json"))
-                println("wp22 fits ", sampling, ": wall ", (time_ns() - section_start) / 1e9, " s")
+                save(fit_points, joinpath(folder, "line_models.json"))
+                println("time domain fits ", sampling, ": wall ", (time_ns() - section_start) / 1e9, " s")
             end
         end
 
@@ -448,10 +448,10 @@ if run_wp22 || run_pscad
         references = Vector{TransientResponse}(undef, length(reference_problems))
         reference_points = ObservedResult[]
         for (reference_index, reference_problem) in enumerate(reference_problems)
-            run_wp22 || reference_index in (2, 5) || continue
+            run_time_domain || reference_index in (2, 5) || continue
             resistance = (1.0, 10.0, 20.0, 10.0, 10.0)[reference_index]
-            scenario = reference_index <= 3 ? :i : reference_index == 4 ? :ii : :iii
-            N = scenario === :iii ? pulse_N : 4096
+            scenario = reference_index <= 3 ? :step_single_point : reference_index == 4 ? :step_both_ends : :impulse
+            N = scenario === :impulse ? pulse_N : 4096
             elapsed = @elapsed reference = compute(reference_problem,
                 TransientFormulation(:nlt; options = (line = formulation, N, Tfactor = 1.25));
                 options = (timing = true,))
@@ -463,25 +463,25 @@ if run_wp22 || run_pscad
                 highest_frequency = (2nlt.N - 1) / (2nlt.T),
                 window = reference_problem.window, travel_times,
                 sending = (source = core1, waveform = nameof(typeof(source)), amplitude = source.amplitude,
-                    alpha = scenario === :iii ? alpha : nothing, beta = scenario === :iii ? beta : nothing,
+                    alpha = scenario === :impulse ? alpha : nothing, beta = scenario === :impulse ? beta : nothing,
                     bonds = [bond.terminal for bond in reference_problem.sending[2:end]]),
                 receiving = [bond.terminal for bond in reference_problem.receiving],
-                pulse_peak_time = scenario === :iii ? pulse_peak_time : nothing,
+                pulse_peak_time = scenario === :impulse ? pulse_peak_time : nothing,
                 before_first_arrival = reference_problem.window.tmax < minimum(travel_times))
-            push!(reference_points, ObservedResult(merge(point.gridpoint, (pilot = evidence,)),
+            push!(reference_points, ObservedResult(merge(point.gridpoint, (study = evidence,)),
                 point.quantities, point.errors, point.timings))
-            save(reference_points, joinpath(folder, "wp22_references.json"))
-            println("wp22 reference ", scenario, " R=", resistance, ": wall ", elapsed,
+            save(reference_points, joinpath(folder, "references.json"))
+            println("reference ", scenario, " R=", resistance, ": wall ", elapsed,
                 " s, N=", nlt.N, " T=", nlt.T, " s, highest frequency=", evidence.highest_frequency, " Hz")
             flush(stdout)
         end
-        println("wp22 references: wall ", (time_ns() - section_start) / 1e9, " s")
+        println("references: wall ", (time_ns() - section_start) / 1e9, " s")
 
-        if run_wp22
+        if run_time_domain
             model_deviations = fill(NaN, 3, length(fitted_models))
             for (scenario_index, reference_index) in enumerate((2, 4, 5))
                 section_start = time_ns()
-                scenario = (:i, :ii, :iii)[scenario_index]
+                scenario = (:step_single_point, :step_both_ends, :impulse)[scenario_index]
                 reference = references[reference_index]
                 sending = reference_problems[reference_index].sending
                 receiving = reference_problems[reference_index].receiving
@@ -490,9 +490,8 @@ if run_wp22 || run_pscad
                 core_index = findfirst(==(core1), reference.coordinates)
                 growth_factor = 1.1
                 for (index, fitted) in enumerate(fitted_models)
-                    scenario !== :i && fit_points[index].gridpoint.pilot.line === :coarse && continue
-                    response_file = scenario === :i ? "wp22_response_$(index).json" :
-                        "wp22_$(scenario)_response_$(index).json"
+                    scenario !== :step_single_point && fit_points[index].gridpoint.study.line === :coarse && continue
+                    response_file = "$(scenario)_response_$(index).json"
                     elapsed = @elapsed response = compute(TransientAnalysisProblem(fitted;
                         sending, receiving, window), TransientFormulation(:td);
                         options = (timing = true,))
@@ -512,7 +511,7 @@ if run_wp22 || run_pscad
                             exception isa DomainError || rethrow()
                             (fill(missing, 2), sprint(showerror, exception))
                         end
-                        expected = selector === voltage && scenario !== :iii ? nominal.voltage : 0.0
+                        expected = selector === voltage && scenario !== :impulse ? nominal.voltage : 0.0
                         offset = dc_offset(response, selector; expected)
                         (; quantity = nameof(selector), peak = extrema.value[:, core_index],
                             peak_time = extrema.time[:, core_index], arrival_time = arrival[:, core_index],
@@ -545,11 +544,11 @@ if run_wp22 || run_pscad
                         voltage_window_peaks = window_peaks, stability_flag = any(growth),
                         stability_windows = ((0.8tmax, 0.9tmax), (0.9tmax, tmax)))
                     point = ObservedResult(response; timings = (wall_seconds = elapsed,), clip = false)
-                    point = ObservedResult(merge(point.gridpoint, (pilot = evidence,)),
+                    point = ObservedResult(merge(point.gridpoint, (study = evidence,)),
                         point.quantities, point.errors, point.timings)
                     save(point, joinpath(folder, response_file))
-                    fit_evidence = fit_points[index].gridpoint.pilot
-                    println("wp22 model ", scenario, " ", index, " ", fit_evidence.method,
+                    fit_evidence = fit_points[index].gridpoint.study
+                    println("model ", scenario, " ", index, " ", fit_evidence.method,
                         ": Yc_RMS=", maximum(fitting_error(fitted, :admittance)),
                         " H_RMS=", maximum(fitting_error(fitted, :propagation)),
                         " passive=", passivity(fitted).passive, " step_err=", fit_evidence.step_err,
@@ -558,27 +557,27 @@ if run_wp22 || run_pscad
                         " damping_errors=", [entry.damping_error for entry in kpis])
                     for (side, line_end) in enumerate(("sending", "receiving")),
                             (terminal, coordinate) in enumerate(response.coordinates)
-                        println("wp22 growth ", index, " ", line_end, " ", coordinate,
+                        println("growth ", index, " ", line_end, " ", coordinate,
                             ": model=", growth_ratios.model[side, terminal],
                             " reference=", growth_ratios.reference[side, terminal],
                             " flag=", growth[side, terminal])
                     end
                     flush(stdout)
                 end
-                println("wp22 models ", scenario, ": wall ", (time_ns() - section_start) / 1e9, " s, ", folder)
+                println("models ", scenario, ": wall ", (time_ns() - section_start) / 1e9, " s, ", folder)
             end
 
             section_start = time_ns()
             sampling_points = ObservedResult[]
             for index in 51:length(fitted_models)
-                coarse = fit_points[index].gridpoint.pilot
+                coarse = fit_points[index].gridpoint.study
                 baseline_index = findfirst(fit_points[1:50]) do point
-                    full = point.gridpoint.pilot
+                    full = point.gridpoint.study
                     full.method === coarse.method && (coarse.method === :marti ||
                         (full.options.yc.npoles == 16 && full.options.h.npoles == 16 &&
                          full.options.h.td && full.options.passivity && full.options.dc == coarse.options.dc))
                 end
-                full = fit_points[baseline_index].gridpoint.pilot
+                full = fit_points[baseline_index].gridpoint.study
                 evidence = (; coarse_fit = index, baseline_fit = baseline_index,
                     samples = (baseline = length(frequencies), coarse = length(sampling_frequencies)),
                     frequency_bounds = (baseline = extrema(frequencies), coarse = extrema(sampling_frequencies)),
@@ -587,11 +586,11 @@ if run_wp22 || run_pscad
                 point = fit_points[index]
                 push!(sampling_points, ObservedResult(merge(point.gridpoint, (; sampling = evidence)),
                     point.quantities, point.errors, point.timings))
-                println("wp22 sampling ", coarse.method, " ", get(coarse.options, :dc, (;)),
+                println("sampling ", coarse.method, " ", get(coarse.options, :dc, (;)),
                     ": fitting_error=", evidence.fitting_error, " scaled_RMS=", evidence.scaled_rms)
             end
-            save(sampling_points, joinpath(folder, "wp22_sampling.json"))
-            println("wp22 sampling comparison: wall ", (time_ns() - section_start) / 1e9, " s")
+            save(sampling_points, joinpath(folder, "sampling_comparison.json"))
+            println("sampling comparison: wall ", (time_ns() - section_start) / 1e9, " s")
         end
 
         if run_pscad
@@ -599,11 +598,11 @@ if run_wp22 || run_pscad
             path = ENV["LINECABLEMODELS_PSCAD_CONFIG"]
             options = (; remote = RemoteConfig(path))
             station = identify(options.remote)
-            open(joinpath(folder, "wp22_pscad_station.toml"), "w") do io
+            open(joinpath(folder, "pscad_station.toml"), "w") do io
                 TOML.print(io, station; sorted = true)
             end
-            native_folder = mkpath(joinpath(options.remote.local_root, "dc525_s_$(basename(folder))"))
-            for (scenario, reference_index) in ((:i, 2), (:iii, 5))
+            native_folder = mkpath(joinpath(options.remote.local_root, "cable_525kv_subsea_armoured_dc_bipole_$(basename(folder))"))
+            for (scenario, reference_index) in ((:step_single_point, 2), (:impulse, 5))
                 reference = references[reference_index]
                 reference_problem = reference_problems[reference_index]
                 core_index = findfirst(==(core1), reference.coordinates)
@@ -612,7 +611,7 @@ if run_wp22 || run_pscad
                     for order in (10, 20, 30) for dc in (0, 1) for enforce in (0, 1)]
                 push!(pscad_formulations, PSCADTransientFormulation(model = :fd_mode))
                 for (index, selected) in enumerate(pscad_formulations)
-                    output_folder = mkpath(joinpath(folder, "wp22_pscad_$(scenario)_$(index)"))
+                    output_folder = mkpath(joinpath(folder, "pscad_$(scenario)_$(index)"))
                     before = Set(readdir(native_folder))
                     started = time_ns()
                     # Station failures are ErrorException in this package version.
@@ -656,15 +655,16 @@ if run_wp22 || run_pscad
                     end
                 end
             end
-            println("wp22 PSCAD: wall ", (time_ns() - section_start) / 1e9, " s, ", folder)
+            println("pscad: wall ", (time_ns() - section_start) / 1e9, " s, ", folder)
         end
     end
 end
 
-if run_variations
+if run_model_settings
     using UniversalLineModel
 
     let
+        println("baseline: 227 samples from 1 mHz, including 50 Hz")
         section_start = time_ns()
         modal = compute(ModalAnalysisProblem(result), ModalAnalysisFormulation(:default))
         segment = PropagationParameters(modal; line_length = nominal.line_length)
@@ -680,7 +680,8 @@ if run_variations
         sampling_segment = PropagationParameters(sampling_modal; line_length = nominal.line_length)
         sampling_fitting_problem = LineModelProblem(sampling_segment; line = sampling_problem)
         save(ObservedResult(sampling_result; clip = false),
-            joinpath(folder, "variations_coarse_baseline.json"))
+            joinpath(folder, "coarse_baseline.json"))
+        println("coarse: 101 samples from 1 Hz, plus 50 Hz")
         labels = terminal_labels(problem.system)
         core1 = first(label for label in labels if endswith(label, ":1:core"))
         bonds = Tuple(TerminalImpedance(label; R = 10.0)
@@ -692,14 +693,14 @@ if run_variations
             TransientFormulation(:nlt; options = (line = formulation, N = 4096, Tfactor = 1.25));
             options = (timing = true,))
         save(ObservedResult(reference; timings = (wall_seconds = reference_time,), clip = false),
-            joinpath(folder, "variations_reference.json"))
+            joinpath(folder, "reference.json"))
         core_index = findfirst(==(core1), reference.coordinates)
         reference_peak = maximum(abs, reference.voltage[2, core_index, :])
-        println("variations reference: wall ", reference_time, " s, peak ", reference_peak, " V")
+        println("model settings reference: wall ", reference_time, " s, peak ", reference_peak, " V")
         flush(stdout)
 
         fit_points = ObservedResult[]
-        open(joinpath(folder, "variations.txt"), "w") do io
+        open(joinpath(folder, "model_settings.txt"), "w") do io
             for (method, selected_problem, controls) in (
                     (:marti, fitting_problem, (nothing, 2000.0)),
                     (:ulm, sampling_fitting_problem, (Inf, 100.0)))
@@ -733,10 +734,10 @@ if run_variations
                             if key !== :line)...),
                         travel_times, window, wall_seconds = fit_time)
                     point = ObservedResult(fitted; timings = (wall_seconds = fit_time,), clip = false)
-                    push!(fit_points, ObservedResult(merge(point.gridpoint, (; variation = evidence)),
+                    push!(fit_points, ObservedResult(merge(point.gridpoint, (; model_settings = evidence)),
                         NamedTuple[], point.errors, point.timings))
-                    save(fit_points, joinpath(folder, "variations_fits.json"))
-                    println("variations fit ", method, " control=", control, ": wall ", fit_time, " s")
+                    save(fit_points, joinpath(folder, "line_models.json"))
+                    println("model settings fit ", method, " control=", control, ": wall ", fit_time, " s")
                     flush(stdout)
                     for interp in (method === :marti ? (:single,) : (:single, :double))
                         elapsed = @elapsed response = compute(TransientAnalysisProblem(fitted;
@@ -759,16 +760,16 @@ if run_variations
                         growth_factor = 1.1
                         growth = (growth_ratios.model .> 1) .&
                             (growth_ratios.model .> growth_factor .* growth_ratios.reference)
-                        transient = (; scenario = :i, resistance = 10.0, interp, scaled_rms,
+                        transient = (; scenario = :step_single_point, resistance = 10.0, interp, scaled_rms,
                             reference_peak, scale = :reference_receiving_core1_peak,
                             absolute = deviation.absolute, relative = deviation.relative,
                             growth, growth_ratios, growth_factor, voltage_window_peaks = window_peaks,
                             stability_flag = any(growth),
                             stability_windows = ((0.8tmax, 0.9tmax), (0.9tmax, tmax)))
                         point = ObservedResult(response; timings = (wall_seconds = elapsed,), clip = false)
-                        save(ObservedResult(merge(point.gridpoint, (; variation = evidence, transient)),
+                        save(ObservedResult(merge(point.gridpoint, (; model_settings = evidence, transient)),
                             point.quantities, point.errors, point.timings),
-                            joinpath(folder, "variations_response_$(length(fit_points))_$(interp).json"))
+                            joinpath(folder, "step_single_point_response_$(length(fit_points))_$(interp).json"))
                         text = string(method, " control=", control, " interp=", interp,
                             " frequency_Hz=", evidence.transformation_frequency,
                             " modal=", evidence.modal, " fitting_error=", evidence.fitting_error,
@@ -784,8 +785,8 @@ if run_variations
                 end
             end
             elapsed = (time_ns() - section_start) / 1e9
-            println(io, "variations wall_seconds=", elapsed, " baseline_compute_seconds=", compute_time)
-            println("variations: wall ", elapsed, " s, ", folder)
+            println(io, "model settings wall_seconds=", elapsed, " baseline_compute_seconds=", compute_time)
+            println("model settings: wall ", elapsed, " s, ", folder)
         end
     end
 end
