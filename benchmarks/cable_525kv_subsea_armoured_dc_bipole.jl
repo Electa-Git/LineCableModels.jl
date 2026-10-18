@@ -9,13 +9,21 @@ using Dates
 using Measurements, Distributions
 using Statistics: mean, std
 
-ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"]) ||
-    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity")
+ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"], ["dc_behaviour"], ["dc_behaviour", "pscad"], ["dc_behaviour", "pscad", "supplementary"]) ||
+    (length(ARGS) == 4 && ARGS[1:3] == ["dc_behaviour", "pscad", "supplementary"]) ||
+    (length(ARGS) >= 5 && ARGS[1:3] == ["dc_behaviour", "pscad", "runs"]) ||
+    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder>")
 run_time_domain = "time_domain" in ARGS
 run_pscad = "pscad" in ARGS
 run_model_settings = ARGS == ["model_settings"]
 run_transient_sensitivity = ARGS == ["transient_sensitivity"]
 transient_started = time_ns()
+run_dc_behaviour = "dc_behaviour" in ARGS
+run_dc_supplementary = "supplementary" in ARGS
+run_dc_selected = length(ARGS) >= 3 && ARGS[1:3] == ["dc_behaviour", "pscad", "runs"]
+dc_run_indices = run_dc_selected ? parse.(Int, ARGS[4:end-1]) : Int[]
+allunique(dc_run_indices) && all(i -> 1 <= i <= 55, dc_run_indices) || error("Run indices must be unique integers from 1 to 55")
+dc_base_folder = run_dc_selected || length(ARGS) == 4 ? abspath(last(ARGS)) : nothing
 
 frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
 
@@ -465,7 +473,7 @@ open(joinpath(folder, "ranking.txt"), "a") do io
 end
 end
 
-if run_time_domain || run_pscad || run_transient_sensitivity
+if run_time_domain || (run_pscad && !run_dc_behaviour) || run_transient_sensitivity
     using UniversalLineModel, XLSX, TOML
     using LineCableModels: DoubleExponential
     using LineCableModels.PSCAD: PSCADTransientFormulation, LineConstantsError, RemoteConfig, identify
@@ -903,8 +911,8 @@ if run_time_domain || run_pscad || run_transient_sensitivity
                 reference_problem = reference_problems[reference_index]
                 core_index = findfirst(==(core1), reference.coordinates)
                 pscad_formulations = PSCADTransientFormulation[PSCADTransientFormulation(model = :fd_phase; line = formulation,
-                    fit = (; YMaxP = order, AMaxP = order, DCenab = dc, CPASS = enforce))
-                    for order in (10, 20, 30) for dc in (0, 1) for enforce in (0, 1)]
+                    fit = (; YMaxP = order, AMaxP = order, DCenab = dc, CPASS = passivity_mode))
+                    for order in (10, 20, 30) for dc in (0, 1) for passivity_mode in (0, 1)]
                 push!(pscad_formulations, PSCADTransientFormulation(model = :fd_mode, line = formulation))
                 for (index, selected) in enumerate(pscad_formulations)
                     output_folder = mkpath(joinpath(folder, "pscad_$(scenario)_$(index)"))
@@ -1089,5 +1097,527 @@ if run_model_settings
             println(io, "model settings wall_seconds=", elapsed, " baseline_compute_seconds=", compute_time)
             println("model settings: wall ", elapsed, " s, ", folder)
         end
+    end
+end
+
+if run_dc_behaviour
+    using UniversalLineModel, TOML, EzXML
+    using LinearAlgebra: Symmetric, eigvals, I
+    using LineCableModels.PSCAD: PSCADTransientFormulation, LineConstantsError, NonfiniteOutputError, RemoteConfig, identify
+
+    let
+        study_start = time_ns()
+        labels = terminal_labels(problem.system)
+        core1 = first(label for label in labels if endswith(label, ":1:core"))
+        core_index = only(findall(==(core1), labels))
+        G_dc = real(result.Y.values[core_index, core_index, 1])
+        core_radius = nominal.core_diameter / 2
+        r_in = core_radius + nominal.inner_semicon_thickness
+        G_analytic = 2pi / (nominal.insulation_rho * log1p(nominal.insulation_thickness / r_in))
+        modal = compute(ModalAnalysisProblem(result), ModalAnalysisFormulation(:default))
+        segment = PropagationParameters(modal; line_length = nominal.line_length)
+        travel_times = nominal.line_length ./ velocity(segment)[:, end]
+        time_constants = [maximum(eigvals(Symmetric(imag.(result.Z.values[:, :, k]) / (2pi * result.f[k])),
+            Symmetric(real.(result.Z.values[:, :, k])))) for k in 1:3]
+        tau = maximum(time_constants)
+        step = minimum(travel_times) / 10
+        tmax = ceil(max(20tau, 50maximum(travel_times)) / step) * step
+        window = (; tmax, step)
+        short_window = (tmax = 20minimum(travel_times), step = minimum(travel_times) / 200)
+        bonds = Tuple(TerminalImpedance(label; R = 10.0) for label in labels
+            if endswith(label, ":sheath") || endswith(label, ":armor"))
+        sending = (Step(core1, nominal.voltage), bonds...)
+        R_fault = 0.01
+        receiving = (TerminalImpedance(core1; R = R_fault),)
+        long_problem = TransientAnalysisProblem(problem; sending, receiving, window)
+        short_problem = TransientAnalysisProblem(problem; sending, receiving = (), window = short_window)
+        summary = Dict{String, Any}("cable" => problem.system.system_id,
+            "G_dc_S_per_m" => G_dc, "G_analytic_S_per_m" => G_analytic,
+            "G_frequency_Hz" => first(result.f), "tau_seconds" => tau,
+            "time_constants_seconds" => time_constants, "time_constant_frequencies_Hz" => result.f[1:3],
+            "travel_times_seconds" => travel_times, "duration_seconds" => tmax, "step_seconds" => step,
+            "window_choice" => "max(20 times slowest L/R mode at first three baseline frequencies, 50 times longest travel time), rounded up to an output step",
+            "short_duration_seconds" => short_window.tmax, "short_step_seconds" => short_window.step,
+            "supplementary" => run_dc_supplementary, "selected_runs" => run_dc_selected,
+            "fault_resistance_ohm" => R_fault, "fault_current_definition" => "receiving voltage divided by fault resistance; into fault")
+        println("DC conductance: numeric ", G_dc, " S/m; main-insulation analytic ", G_analytic, " S/m")
+        println("DC window: ", window, "; L/R modes ", time_constants, " s; travel times ", travel_times, " s")
+        flush(stdout)
+
+        # Export selected variants locally before optional station execution.
+        variants = NamedTuple[]
+        for (line_name, line) in ((:lossless, Formulation()), (:lossy, formulation)), dc in (0, 1), passivity_mode in (0, 1)
+            push!(variants, (; scenario = :short, line_name, line,
+                fit = (enablf = 1, shntcab = 0.0, DCenab = dc, DCCOR = 1,
+                    CPASS = passivity_mode, FS = 0.5, YMaxP = 20, AMaxP = 20)))
+        end
+        for conductance in (G_dc, 10G_dc, 100G_dc, 1000G_dc, 1e-11), dc_correction in (1, 2), passivity_mode in (0, 1)
+            push!(variants, (; scenario = :short, line_name = :lossy, line = formulation,
+                fit = (enablf = 0, shntcab = conductance, DCenab = 1, DCCOR = dc_correction,
+                    CPASS = passivity_mode, FS = 0.5, YMaxP = 20, AMaxP = 20)))
+        end
+        for dc_correction in (1, 2)
+            push!(variants, (; scenario = :short, line_name = :lossy, line = formulation,
+                fit = (enablf = 0, shntcab = G_dc, DCenab = 1, DCCOR = dc_correction,
+                    CPASS = 1, FS = 0.01, YMaxP = 20, AMaxP = 20)))
+        end
+        push!(variants, (; scenario = :long, line_name = :lossy, line = formulation,
+            fit = (enablf = 1, shntcab = 0.0, DCenab = 0, DCCOR = 1,
+                CPASS = 0, FS = 0.5, YMaxP = 20, AMaxP = 20)))
+        for dc_correction in (1, 2), passivity_mode in (0, 1)
+            push!(variants, (; scenario = :long, line_name = :lossy, line = formulation,
+                fit = (enablf = 0, shntcab = G_dc, DCenab = 1, DCCOR = dc_correction,
+                    CPASS = passivity_mode, FS = 0.5, YMaxP = 20, AMaxP = 20)))
+        end
+        # Keep the original 35 indices to preserve run identity.
+        for conductance in (G_dc, 100G_dc), dc_correction in (1, 2)
+            push!(variants, (; scenario = :short, line_name = :lossy, line = formulation,
+                fit = (enablf = 0, shntcab = conductance, DCenab = 1, DCCOR = dc_correction,
+                    CPASS = 2, FS = 0.5, YMaxP = 20, AMaxP = 20)))
+        end
+        for start_frequency in (0.01, 0.001), dc_correction in (1, 2), conductance in (G_dc, 100G_dc), passivity_mode in (1, 2)
+            push!(variants, (; scenario = :long, line_name = :lossy, line = formulation,
+                fit = (enablf = 0, shntcab = conductance, DCenab = 1, DCCOR = dc_correction,
+                    CPASS = passivity_mode, FS = start_frequency, YMaxP = 20, AMaxP = 20)))
+        end
+        if dc_base_folder !== nothing
+            isdir(dc_base_folder) || error("Base run folder is missing: $dc_base_folder")
+            base_summary = TOML.parsefile(joinpath(dc_base_folder, "dc_behaviour.toml"))
+            base_summary["cable"] == problem.system.system_id || error("Base run folder belongs to a different cable")
+            summary["base_folder"] = dc_base_folder
+        end
+        missing_base_indices = Int[]
+        if run_dc_supplementary && dc_base_folder !== nothing
+            for i in 1:35
+                status_path = joinpath(dc_base_folder, "dc_pscad_$i", "status.toml")
+                if !isfile(status_path) || get(TOML.parsefile(status_path), "status", "") ∉
+                        ("completed", "nonfinite_response", "line_constants_error", "known_station_failure")
+                    push!(missing_base_indices, i)
+                end
+            end
+        end
+        variant_indices = run_dc_selected ? dc_run_indices : run_dc_supplementary ?
+            vcat(missing_base_indices, collect(36:length(variants))) : eachindex(variants)
+        summary["missing_base_variant_indices"] = missing_base_indices
+        summary["station_variant_indices"] = collect(variant_indices)
+        summary["station_runs"] = length(variant_indices)
+        summary["station_simulated_seconds"] = sum(variants[i].scenario === :short ? short_window.tmax : tmax for i in variant_indices)
+        open(joinpath(folder, "dc_behaviour.toml"), "w") do io
+            TOML.print(io, summary; sorted = true)
+        end
+        dielectric_groups = [
+            [(nominal.inner_semicon_thickness, nominal.inner_semicon_rho, nominal.inner_semicon_eps_r),
+                (nominal.insulation_thickness, nominal.insulation_rho, nominal.insulation_eps_r),
+                (nominal.outer_semicon_thickness, nominal.outer_semicon_rho, nominal.outer_semicon_eps_r),
+                (nominal.water_blocking_thickness, nominal.outer_semicon_rho, nominal.outer_semicon_eps_r)],
+            [(nominal.inner_sheath_thickness, nominal.pe_rho, nominal.pe_eps_r),
+                (nominal.bedding_thickness, nominal.pp_rho, nominal.pp_eps_r)],
+            [(nominal.jacket_thickness, nominal.pp_rho, nominal.pp_eps_r)]]
+        radius_under_bedding = core_radius + nominal.inner_semicon_thickness + nominal.insulation_thickness +
+            nominal.outer_semicon_thickness + nominal.water_blocking_thickness + nominal.sheath_thickness + nominal.inner_sheath_thickness
+        wire_radius = nominal.armour_wire_diameter / 2
+        bedding = max(nominal.bedding_thickness,
+            wire_radius / sin(pi / nominal.armour_wires) - wire_radius - radius_under_bedding)
+        dielectric_groups[2][2] = (bedding, nominal.pp_rho, nominal.pp_eps_r)
+        expected_losses = zeros(4)
+        radius = core_radius
+        for (slot, layers) in enumerate(dielectric_groups)
+            impedance = 0.0im
+            for (thickness, rho, eps_r) in layers
+                impedance += log1p(thickness / radius) / (inv(rho) + 2pi * 50im * 8.8541878128e-12 * eps_r)
+                radius += thickness
+            end
+            admittance = 2pi / impedance
+            expected_losses[slot] = min(10.0, real(admittance) / imag(admittance))
+            if slot == 1
+                radius += nominal.sheath_thickness
+            elseif slot == 2 && length(dielectric_groups) == 3
+                radius += nominal.armour_wire_diameter
+            end
+        end
+        export_start = time_ns()
+        for index in variant_indices
+            variant = variants[index]
+            directory = mkpath(joinpath(folder, "dc_pscad_$(index)"))
+            selected = PSCADTransientFormulation(model = :fd_phase; line = variant.line, fit = variant.fit)
+            selected_problem = variant.scenario === :short ? short_problem : long_problem
+            path = export_data(:pscad, selected_problem, selected; file_name = joinpath(directory, "transient.pscx"))
+            document = readxml(path)
+            phase = only(findall("//User[@defn='master:Line_FrePhase_Options']", document))
+            exported = Dict(p["name"] => parse(Float64, p["value"]) for p in findall("./paramlist/param", phase))
+            for (key, value) in pairs(variant.fit)
+                exported[string(key)] == round(value; sigdigits = 6) || error("Exported $key differs in $path")
+            end
+            all(key -> !haskey(exported, key), ("ET_PE", "MER_PE", "MIT_PE", "FSP", "FEP", "NFP", "FDIS")) ||
+                error("Passivity defaults must come from the component definition in $path")
+            losses = Vector{Float64}[]
+            for cable in findall("//User[@defn='master:Cable_Coax']", document)
+                values = [parse(Float64, only(findall("./paramlist/param[@name='LT$(slot)']", cable))["value"]) for slot in 1:4]
+                if variant.line_name === :lossless
+                    all(iszero, values) || error("Lossless LT differs in $path")
+                else
+                    all(isapprox.(values, round.(expected_losses; sigdigits = 6); rtol = 1e-12, atol = 0)) ||
+                        error("Lossy LT differs from the radial-layer calculation in $path")
+                end
+                push!(losses, values)
+            end
+            length(losses) == 2 && all(==(first(losses)), losses) || error("Cable LT mismatch in $path")
+            status = Dict{String, Any}("status" => "exported", "message" => "Station execution not requested",
+                "scenario" => string(variant.scenario), "model" => "fd_phase",
+                "fault_resistance_ohm" => R_fault, "fault_current_definition" => "receiving voltage divided by fault resistance; into fault",
+                "measured_receiving_current_orientation" => "out of line into fault", "measured_current_to_fault_sign" => 1,
+                "fault_current_consistency_assessed" => false,
+                "line_formulation" => string(variant.line_name),
+                "exported_line_formulation" => Dict(string(k) => string(formula_id(v)) for (k, v) in pairs(variant.line.formulas)),
+                "fit" => Dict(string(k) => v for (k, v) in pairs(variant.fit)),
+                "exported_fit" => exported,
+                "dc_correction_method" => (variant.fit.DCCOR == 1 ? "functional_form" : "add_pole_residue"),
+                "passivity_mode" => ("disabled", "scan_only", "enforcement")[variant.fit.CPASS + 1],
+                "effective_fit" => merge(Dict{String, Any}(exported), Dict(
+                    "ET_PE" => 1e-10, "MER_PE" => 2, "MIT_PE" => 5,
+                    "FSP" => 0.001, "FEP" => 1e6, "NFP" => 1000, "FDIS" => 3)),
+                "component_defaults_source" => "m7-master.pslx; Definition Line_FrePhase_Options; category Passivity Enforcement; parameter defaults",
+                "LT" => first(losses), "project_path" => path,
+                "export_check" => true, "line_constants_log_paths" => String[],
+                "duration_seconds" => selected_problem.window.tmax, "step_seconds" => selected_problem.window.step)
+            if variant.scenario === :long
+                status["settled"] = false
+                status["settling_assessed"] = false
+            end
+            open(joinpath(directory, "status.toml"), "w") do io
+                TOML.print(io, status; sorted = true)
+            end
+        end
+        summary["export_wall_seconds"] = (time_ns() - export_start) / 1e9
+        println("DC export check: ", length(variant_indices), " projects, wall ", summary["export_wall_seconds"], " s")
+        flush(stdout)
+
+        reference_start = time_ns()
+        N = 8192
+        reference = try
+            compute(long_problem, TransientFormulation(:nlt;
+                options = (line = formulation, N, Tfactor = 2.0)); options = (timing = true,))
+        catch exception
+            exception isa InterruptException && rethrow()
+            directory = mkpath(joinpath(folder, "dc_nlt"))
+            open(joinpath(directory, "status.toml"), "w") do io
+                TOML.print(io, Dict("status" => "julia_error", "message" => sprint(showerror, exception),
+                    "settled" => false, "settling_assessed" => false, "N" => N, "wall_seconds" => (time_ns() - reference_start) / 1e9); sorted = true)
+            end
+            rethrow()
+        end
+        reference_wall = (time_ns() - reference_start) / 1e9
+        tail = findall(>=(0.9tmax), reference.t)
+        fault_current = reference.voltage[2, core_index, tail] ./ R_fault
+        reference_final = [mean(fault_current), mean(reference.voltage[1, core_index, tail]),
+            mean(reference.voltage[2, core_index, tail])]
+        reference_variations = map((fault_current, reference.voltage[1, core_index, tail],
+                reference.voltage[2, core_index, tail])) do values
+            all(isfinite, values) || return Inf
+            change = maximum(values) - minimum(values)
+            scale = abs(mean(values))
+            return iszero(scale) ? (iszero(change) ? 0.0 : Inf) : change / scale
+        end
+        variation = first(reference_variations)
+        reference_status = Dict("status" => variation < 0.001 ? "completed" : "unsettled_reference",
+            "message" => variation < 0.001 ? "" : "NLT final-window variation exceeds 0.1 percent",
+            "fault_current_A" => reference_final[1], "sending_voltage_V" => reference_final[2],
+            "receiving_voltage_V" => reference_final[3], "tail_variation" => variation,
+            "fault_current_tail_variation" => reference_variations[1],
+            "sending_voltage_tail_variation" => reference_variations[2],
+            "receiving_voltage_tail_variation" => reference_variations[3],
+            "settled" => variation < 0.001, "settling_assessed" => true,
+            "fault_current_error_A" => 0.0, "fault_current_relative_error" => 0.0,
+            "sending_voltage_error_V" => 0.0, "receiving_voltage_error_V" => 0.0,
+            "sending_voltage_relative_error" => 0.0, "receiving_voltage_relative_error" => 0.0,
+            "N" => N, "T_seconds" => details(reference).data.nlt.T, "wall_seconds" => reference_wall)
+        reference_status["fault_resistance_ohm"] = R_fault
+        reference_status["fault_current_definition"] = "receiving voltage divided by fault resistance; into fault"
+        reference_status["measured_receiving_current_A"] = mean(reference.current[2, core_index, tail])
+        reference_status["measured_receiving_current_orientation"] = "into line at receiving end"
+        reference_status["measured_current_to_fault_sign"] = -1
+        consistency = -1 .* reference.current[2, core_index, tail] .- reference.voltage[2, core_index, tail] ./ R_fault
+        consistency_scale = maximum(abs, reference.voltage[2, core_index, tail] ./ R_fault)
+        consistency_max = all(isfinite, consistency) ? maximum(abs, consistency) : Inf
+        reference_status["fault_current_consistency_error_A"] = mean(consistency)
+        reference_status["fault_current_consistency_max_abs_A"] = consistency_max
+        reference_status["fault_current_consistency_relative_error"] = !isfinite(consistency_scale) ? Inf :
+            iszero(consistency_scale) ? (iszero(consistency_max) ? 0.0 : Inf) : consistency_max / consistency_scale
+        reference_status["fault_current_consistency_assessed"] = true
+        directory = mkpath(joinpath(folder, "dc_nlt"))
+        save(ObservedResult(reference; clip = false), joinpath(directory, "response.json"))
+        open(joinpath(directory, "status.toml"), "w") do io
+            TOML.print(io, reference_status; sorted = true)
+        end
+        println("DC NLT: ", reference_status)
+        flush(stdout)
+        variation < 0.001 || error("Extend the DC window: final NLT current variation is $variation")
+
+        if !(run_dc_supplementary || run_dc_selected)
+            # Compare all six fits with the same converged physical DC targets.
+            dc_frequencies = [1e-18, 1e-15, 1e-12]
+            dc_scan = compute(LineParametersProblem(problem.system, problem.temperature, problem.earth_props,
+                dc_frequencies, 0.0), formulation)
+            dc_differences = [maximum(abs, values[:, :, 1] - values[:, :, 2]) / maximum(abs, values[:, :, 1])
+                for values in (dc_scan.Z.values, dc_scan.Y.values)]
+            all(<=(1e-6), dc_differences) || error("Physical DC targets did not converge")
+            Z0, Y0 = dc_scan.Z.values[:, :, 1], dc_scan.Y.values[:, :, 1]
+            yc0 = Z0 \ sqrt(Z0 * Y0)
+            targets = (admittance = real.((yc0 + transpose(yc0)) / 2),
+                propagation = real.(exp(-sqrt(Y0 * Z0) * nominal.line_length)))
+            # The NLT assembly is private: `src/engine/transientanalysis/formulas/nlt.jl`,
+            # functions `sample_network!` and `stamp!`. For current waves (`docs/src/line_models.md`):
+            # `Ys = (I - H^2) \ ((I + H^2) * Yc)`, `Ym = (I - H^2) \ (-2H * Yc)`.
+            function dc_solution(yc, h)
+                n = length(labels)
+                blocks = (I - h * h) \ hcat((I + h * h) * yc, -2h * yc)
+                ys, ym = blocks[:, 1:n], blocks[:, n+1:2n]
+                line_admittance = [ys ym; ym ys]
+                matrix = zeros(ComplexF64, 2n + 1, 2n + 1)
+                matrix[1:2n, 1:2n] .= line_admittance
+                rhs = zeros(ComplexF64, 2n + 1)
+                for (offset, assignments) in ((0, sending), (n, receiving)), assignment in assignments
+                    node = offset + only(findall(==(assignment.terminal), labels))
+                    if assignment isa Step
+                        matrix[node, end] = matrix[end, node] = 1
+                        rhs[end] = assignment.amplitude
+                    else
+                        matrix[node, node] += inv(assignment.R)
+                    end
+                end
+                volts = (matrix \ rhs)[1:2n]
+                amps = line_admittance * volts
+                # Circuit currents enter the line. The fault current follows Ohm's law.
+                return real.([volts[n + core_index] / R_fault, volts[core_index], volts[n + core_index]]),
+                    real(amps[n + core_index])
+            end
+            target_dc_final, target_dc_measured = dc_solution(targets.admittance, targets.propagation)
+            reference_status["dc_solution_measured_receiving_current_A"] = target_dc_measured
+            reference_status["dc_solution_current_consistency_error_A"] = -target_dc_measured - target_dc_final[1]
+            for (i, field, unit) in ((1, "fault_current", "A"), (2, "sending_voltage", "V"), (3, "receiving_voltage", "V"))
+                reference_status["dc_solution_$(field)_$unit"] = target_dc_final[i]
+                reference_status["dc_solution_$(field)_error_$unit"] = target_dc_final[i] - reference_final[i]
+                reference_status["dc_solution_$(field)_relative_error"] = (target_dc_final[i] - reference_final[i]) / reference_final[i]
+            end
+            open(joinpath(folder, "dc_nlt", "status.toml"), "w") do io
+                TOML.print(io, reference_status; sorted = true)
+            end
+            println("DC target check: ", target_dc_final - reference_final)
+            flush(stdout)
+            fitting_problem = LineModelProblem(segment; line = problem)
+            for (index, (method, enforce)) in enumerate(Iterators.product((:none, :add_pole, :functional_form), (false, true)))
+                directory = mkpath(joinpath(folder, "dc_ulm_$(index)"))
+                started = time_ns()
+                status = Dict{String, Any}("method" => string(method), "passivity" => enforce,
+                    "status" => "started", "message" => "", "settled" => false, "settling_assessed" => false,
+                    "fault_resistance_ohm" => R_fault, "fault_current_definition" => "receiving voltage divided by fault resistance; into fault",
+                    "measured_receiving_current_orientation" => "into line at receiving end", "measured_current_to_fault_sign" => -1,
+                    "fault_current_consistency_assessed" => false)
+                try
+                    selected = LineModelFormulation(:ulm; options = (yc = (npoles = 16,),
+                        h = (npoles = 16, td = true), passivity = enforce,
+                        dc = method === :none ? (;) : (; method), line = formulation))
+                    fit_wall = @elapsed fitted = compute(fitting_problem, selected; options = (timing = true,))
+                    fitted.coordinates == labels || error("Fitted terminal order differs from the DC circuit")
+                    pole_time_constants = [inv(minimum(p -> abs(real(p)), group; init = Inf))
+                        for group in LineCableModels.poles(fitted)]
+                    status["yc_time_constant_seconds"] = first(pole_time_constants)
+                    status["h_time_constants_seconds"] = pole_time_constants[2:end]
+                    status["slowest_time_constant_seconds"] = maximum(pole_time_constants)
+                    dc_correction = if method === :add_pole
+                        diagnostic = details(fitted).data.dc
+                        for (quantity, correction) in (("yc", diagnostic.admittance), ("h", diagnostic.propagation))
+                            status["$(quantity)_added_pole_a0_per_second"] = correction.a0
+                            status["$(quantity)_added_pole_time_constant_seconds"] = inv(correction.a0)
+                        end
+                        (admittance = diagnostic.admittance, propagation = diagnostic.propagation)
+                    else
+                        nothing
+                    end
+                    achieved = (admittance = Yc(fitted, ComplexF64[0])[:, :, 1],
+                        propagation = H(fitted, ComplexF64[0])[:, :, 1])
+                    dc_final, dc_measured = dc_solution(achieved.admittance, achieved.propagation)
+                    # Corrected fits keep the physical targets selected by the package.
+                    circuit_targets = something(fitted.dc.targets, targets)
+                    target_dc_final, target_dc_measured = dc_solution(circuit_targets.admittance, circuit_targets.propagation)
+                    status["dc_solution_measured_receiving_current_A"] = dc_measured
+                    status["dc_solution_current_consistency_error_A"] = -dc_measured - dc_final[1]
+                    status["target_dc_measured_receiving_current_A"] = target_dc_measured
+                    status["target_dc_current_consistency_error_A"] = -target_dc_measured - target_dc_final[1]
+                    for (i, field, unit) in ((1, "fault_current", "A"), (2, "sending_voltage", "V"), (3, "receiving_voltage", "V"))
+                        status["dc_solution_$(field)_$unit"] = dc_final[i]
+                        status["dc_solution_$(field)_error_$unit"] = dc_final[i] - reference_final[i]
+                        status["dc_solution_$(field)_relative_error"] = (dc_final[i] - reference_final[i]) / reference_final[i]
+                        status["target_dc_$(field)_$unit"] = target_dc_final[i]
+                        status["target_dc_$(field)_error_$unit"] = target_dc_final[i] - reference_final[i]
+                        status["target_dc_$(field)_relative_error"] = (target_dc_final[i] - reference_final[i]) / reference_final[i]
+                    end
+                    dc_errors = map((actual, target) -> maximum(abs, actual - target) / maximum(abs, target), achieved, targets)
+                    status["fit_wall_seconds"] = fit_wall
+                    status["H0_relative_deviation"] = dc_errors.propagation
+                    status["Yc0_relative_deviation"] = dc_errors.admittance
+                    point = ObservedResult(fitted; clip = false)
+                    evidence = (; targets, achieved, relative_deviation = dc_errors, dc_frequencies,
+                        dc_differences, target_frequency = first(dc_frequencies), method, enforce,
+                        pole_time_constants, dc_correction, dc_final, circuit_targets, target_dc_final, reference_final,
+                        model = (admittance = fitted.model.admittance, propagation = fitted.model.propagation),
+                        fitting_error = fitting_error(fitted), passivity = passivity(fitted))
+                    save(ObservedResult(merge(point.gridpoint, (; dc_behaviour = evidence)),
+                        NamedTuple[], point.errors, point.timings), joinpath(directory, "fit.json"))
+                    response_wall = @elapsed response = compute(TransientAnalysisProblem(fitted;
+                        sending, receiving, window), TransientFormulation(:td); options = (timing = true,))
+                    response_tail = findall(>=(0.9tmax), response.t)
+                    tail_values = (response.voltage[2, core_index, response_tail] ./ R_fault,
+                        response.voltage[1, core_index, response_tail], response.voltage[2, core_index, response_tail])
+                    final = mean.(tail_values)
+                    status["fault_resistance_ohm"] = R_fault
+                    status["fault_current_definition"] = "receiving voltage divided by fault resistance; into fault"
+                    status["measured_receiving_current_A"] = mean(response.current[2, core_index, response_tail])
+                    status["measured_receiving_current_orientation"] = "into line at receiving end"
+                    status["measured_current_to_fault_sign"] = -1
+                    consistency = -1 .* response.current[2, core_index, response_tail] .- response.voltage[2, core_index, response_tail] ./ R_fault
+                    consistency_scale = maximum(abs, response.voltage[2, core_index, response_tail] ./ R_fault)
+                    consistency_max = all(isfinite, consistency) ? maximum(abs, consistency) : Inf
+                    status["fault_current_consistency_error_A"] = mean(consistency)
+                    status["fault_current_consistency_max_abs_A"] = consistency_max
+                    status["fault_current_consistency_relative_error"] = !isfinite(consistency_scale) ? Inf :
+                        iszero(consistency_scale) ? (iszero(consistency_max) ? 0.0 : Inf) : consistency_max / consistency_scale
+                    status["fault_current_consistency_assessed"] = true
+                    for (i, field, unit) in ((1, "fault_current", "A"), (2, "sending_voltage", "V"), (3, "receiving_voltage", "V"))
+                        status["$(field)_$unit"] = final[i]
+                        status["$(field)_error_$unit"] = final[i] - reference_final[i]
+                        values = tail_values[i]
+                        change = maximum(values) - minimum(values)
+                        scale = abs(final[i])
+                        status["$(field)_tail_variation"] = !all(isfinite, values) ? Inf :
+                            iszero(scale) ? (iszero(change) ? 0.0 : Inf) : change / scale
+                        status["$(field)_relative_error"] = (final[i] - reference_final[i]) / reference_final[i]
+                    end
+                    status["tail_variation"] = status["fault_current_tail_variation"]
+                    status["settled"] = status["tail_variation"] < 0.001
+                    status["settling_assessed"] = true
+                    status["response_wall_seconds"] = response_wall
+                    status["status"] = all(isfinite, final) ? "completed" : "nonfinite_response"
+                    status["message"] = all(isfinite, final) ? "" : "Nonfinite final response"
+                    save(ObservedResult(response; clip = false), joinpath(directory, "response.json"))
+                catch exception
+                    exception isa InterruptException && rethrow()
+                    status["status"] = "julia_error"
+                    status["message"] = sprint(showerror, exception)
+                end
+                status["wall_seconds"] = (time_ns() - started) / 1e9
+                open(joinpath(directory, "status.toml"), "w") do io
+                    TOML.print(io, status; sorted = true)
+                end
+                println("DC ULM: ", status)
+                flush(stdout)
+            end
+        end
+
+        if run_pscad
+            remote = RemoteConfig(ENV["LINECABLEMODELS_PSCAD_CONFIG"])
+            station = identify(remote)
+            open(joinpath(folder, "pscad_station.toml"), "w") do io
+                TOML.print(io, station; sorted = true)
+            end
+            native_folder = mkpath(joinpath(remote.local_root, "$(problem.system.system_id)_$(basename(folder))"))
+            if any(i -> variants[i].scenario === :short, variant_indices)
+                short_reference = compute(short_problem, TransientFormulation(:nlt;
+                    options = (line = formulation, N = 4096, Tfactor = 1.25)))
+                save(ObservedResult(short_reference; clip = false), joinpath(folder, "dc_short_reference.json"))
+            end
+            for index in variant_indices
+                variant = variants[index]
+                directory = joinpath(folder, "dc_pscad_$(index)")
+                status = TOML.parsefile(joinpath(directory, "status.toml"))
+                before = Set(readdir(native_folder))
+                started = time_ns()
+                selected = PSCADTransientFormulation(model = :fd_phase; line = variant.line, fit = variant.fit)
+                selected_problem = variant.scenario === :short ? short_problem : long_problem
+                response = try
+                    compute(selected_problem, selected; options = (; remote, work_root = native_folder))
+                catch exception
+                    exception isa InterruptException && rethrow()
+                    if exception isa NonfiniteOutputError
+                        status["status"] = "nonfinite_response"
+                        status["message"] = sprint(showerror, exception)
+                        status["nonfinite_output_path"] = exception.output_path
+                        status["nonfinite_channel"] = exception.channel
+                        status["first_nonfinite_time_seconds"] = exception.time
+                        status["settled"] = false
+                        status["settling_assessed"] = false
+                    elseif exception isa LineConstantsError
+                        status["status"] = "line_constants_error"
+                        status["message"] = exception.message
+                        status["log_path"] = exception.log_path
+                    elseif exception isa ErrorException
+                        status["status"] = "known_station_failure"
+                        status["message"] = sprint(showerror, exception)
+                    else
+                        rethrow()
+                    end
+                    nothing
+                end
+                for name in setdiff(Set(readdir(native_folder)), before)
+                    cp(joinpath(native_folder, name), joinpath(directory, name))
+                end
+                status["line_constants_log_paths"] = [joinpath(root, name) for (root, _, files) in walkdir(directory)
+                    for name in files if endswith(lowercase(name), ".log")]
+                if response !== nothing
+                    exact = variant.scenario === :short ? short_reference : reference
+                    deviation = compare(exact, response, voltage)
+                    status["scaled_rms"] = deviation.absolute[2, core_index] / maximum(abs, exact.voltage[2, core_index, :])
+                    status["peak_receiving_voltage_kV"] = maximum(abs, response.voltage[2, core_index, :]) / 1000
+                    if variant.scenario === :long
+                        response_tail = findall(>=(0.9tmax), response.t)
+                        tail_values = (response.voltage[2, core_index, response_tail] ./ R_fault,
+                            response.voltage[1, core_index, response_tail], response.voltage[2, core_index, response_tail])
+                        final = mean.(tail_values)
+                        status["fault_resistance_ohm"] = R_fault
+                        status["fault_current_definition"] = "receiving voltage divided by fault resistance; into fault"
+                        status["measured_receiving_current_A"] = mean(response.current[2, core_index, response_tail])
+                        status["measured_receiving_current_orientation"] = "out of line into fault"
+                        status["measured_current_to_fault_sign"] = 1
+                        consistency = 1 .* response.current[2, core_index, response_tail] .- response.voltage[2, core_index, response_tail] ./ R_fault
+                        consistency_scale = maximum(abs, response.voltage[2, core_index, response_tail] ./ R_fault)
+                        consistency_max = all(isfinite, consistency) ? maximum(abs, consistency) : Inf
+                        status["fault_current_consistency_error_A"] = mean(consistency)
+                        status["fault_current_consistency_max_abs_A"] = consistency_max
+                        status["fault_current_consistency_relative_error"] = !isfinite(consistency_scale) ? Inf :
+                            iszero(consistency_scale) ? (iszero(consistency_max) ? 0.0 : Inf) : consistency_max / consistency_scale
+                        status["fault_current_consistency_assessed"] = true
+                        for (i, field, unit) in ((1, "fault_current", "A"), (2, "sending_voltage", "V"), (3, "receiving_voltage", "V"))
+                            status["$(field)_$unit"] = final[i]
+                            status["$(field)_error_$unit"] = final[i] - reference_final[i]
+                            values = tail_values[i]
+                            change = maximum(values) - minimum(values)
+                            scale = abs(final[i])
+                            status["$(field)_tail_variation"] = !all(isfinite, values) ? Inf :
+                                iszero(scale) ? (iszero(change) ? 0.0 : Inf) : change / scale
+                            status["$(field)_relative_error"] = (final[i] - reference_final[i]) / reference_final[i]
+                        end
+                        status["tail_variation"] = status["fault_current_tail_variation"]
+                        status["settled"] = status["tail_variation"] < 0.001
+                        status["settling_assessed"] = true
+                    end
+                    status["status"] = "completed"
+                    status["message"] = ""
+                    save(ObservedResult(response; clip = false), joinpath(directory, "response.json"))
+                end
+                status["station"] = station
+                status["wall_seconds"] = (time_ns() - started) / 1e9
+                open(joinpath(directory, "status.toml"), "w") do io
+                    TOML.print(io, status; sorted = true)
+                end
+                println("DC PSCAD ", index, ": ", status["status"], ", wall ", status["wall_seconds"], " s")
+                flush(stdout)
+            end
+        end
+        summary["reference_wall_seconds"] = reference_wall
+        summary["wall_seconds"] = (time_ns() - study_start) / 1e9
+        open(joinpath(folder, "dc_behaviour.toml"), "w") do io
+            TOML.print(io, summary; sorted = true)
+        end
+        println("DC behaviour: wall ", summary["wall_seconds"], " s, ", folder)
     end
 end

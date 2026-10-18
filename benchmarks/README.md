@@ -293,3 +293,207 @@ The script prints its source folders and lists them in `time_domain_sources.txt`
 The tables cover fitting errors, DC behaviour, three transient scenarios, PSCAD,
 sampling and model settings, with captions that identify omitted diagnostics.
 The generator reads archives and workbooks without a study run.
+
+`dc_behaviour` runs the long-window DC fault study for the three DC study scripts.
+Add `pscad` as a second argument to run the station matrix and the DC fault tests:
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl dc_behaviour
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl dc_behaviour pscad
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl dc_behaviour pscad supplementary
+julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl dc_behaviour pscad supplementary <base folder>
+```
+
+Core 1 at the source end receives the same voltage step as the PSCAD study.
+The bonds at that end each have a resistance of 10 Ω. The receiving core has a 0.01 Ω fault to ground.
+The slowest L/R mode uses the first three baseline frequencies.
+The duration is the larger of 20 times that mode and 50 times the longest modal travel time. The output
+step is one tenth of the shortest modal travel time.
+
+The NLT reference must
+vary by less than 0.1 % over its last 10 %. An unsettled reference stops the
+study and keeps its status for inspection.
+
+Six ULM fits use orders 16/16, time rows, all three DC treatments and both
+passivity settings on the baseline grid. Final values are means over the last
+10 %. Signed differences use the NLT reference.
+The current into the fault is `I_fault = V_receiving / R_fault`, with `R_fault = 0.01` Ω,
+for NLT, ULM and PSCAD. The same definition applies to fitted DC circuit solutions.
+
+The native receiving current points into the line for NLT and ULM, and out of the
+line into the fault for PSCAD. Each status gives the raw measured mean, its orientation
+and the sign that converts it to current into the fault.
+It records the signed consistency residual and the maximum absolute residual over
+the final window. The relative consistency error divides that maximum by the
+maximum magnitude of the current derived from voltage.
+These diagnostics describe the measurement agreement without a new acceptance test.
+
+Long-window responses record the tail variation of the fault current
+and both core voltages. This is the tail range divided by the magnitude of
+its mean. A constant zero signal has variation zero. A signal with zero mean
+and a nonzero range, or nonfinite samples, has infinite variation.
+The settled flag requires current variation below 0.1 %.
+
+ULM statuses give pole time constants for Yc, the H groups and the complete fit.
+A time constant is the reciprocal of the smallest absolute real part of its poles.
+
+A function without poles has time constant zero. A pole with zero real part
+has infinite time constant. Added-pole fits also record the separate Yc and H
+rates a0 in inverse seconds and their reciprocals in seconds.
+Each fit archive keeps H(0), Yc(0), their physical targets and deviations.
+This also applies to fits without DC correction.
+
+The study records the baseline core self-conductance in S/m and the main
+insulation's analytic conductance. A constant loss tangent specifies conductance
+proportional to frequency. This conductance vanishes at DC.
+
+The first 30 short-window FD-Phase variants compare lossless and lossy
+exports, DC correction and passivity scans. They also compare five constant
+shunt conductances, two correction methods and a lower start frequency for the fit.
+The first five long-window variants compare disabled DC correction with both
+correction methods and disabled or scan-only passivity at the physical shunt conductance.
+These keep indices 1–35.
+
+Short-window variants 36–39 use enforcement with both DC correction methods.
+They use shunt conductance G_dc or 100 G_dc, and FS = 0.5 Hz.
+Long-window variants 40–55 combine FS = 0.01 or 0.001 Hz, both correction methods,
+and G_dc or 100 G_dc. Each combination uses scan only or enforcement.
+
+The long window tests the guideline's 0.01 Hz start frequency for the fit
+as well as 0.001 Hz. All 20 additions use enablf = 0 and orders 20/20.
+
+The master-library definition `Line_FrePhase_Options` in `m7-master.pslx`
+gives DCCOR = 1 as Functional Form and DCCOR = 2 as Add Pole/Residue.
+CPASS = 0 disables passivity checks, 1 selects Scan only, and 2 selects Enforcement.
+The field `shntcab` is Cable Shunt Conductance (obsolete), in mho/m,
+with component default 1e-9. The recommended enablf = 1 uses loss tangent.
+The constant-conductance variants explicitly select enablf = 0.
+
+The same definition's category for passivity enforcement supplies these defaults:
+
+- `ET_PE = 1e-10` (eigenvalue tolerance), `MER_PE = 2` (maximum percentage error)
+  and `MIT_PE = 5` (maximum iterations).
+- `FSP = 0.001 Hz`, `FEP = 1 MHz`, `NFP = 1000` and `FDIS = 3` (log + linear).
+
+The component supplies these seven defaults when the exported XML and fit
+arguments omit them. Each status records them in `effective_fit`
+and cites the definition in `component_defaults_source`.
+
+A full invocation exports 55 PSCAD projects and checks their XML settings.
+The exporter writes six significant digits. Archives keep requested, exported
+and effective values, with separate names for the correction and passivity modes.
+The `pscad` argument starts station computations.
+
+The `dc_behaviour pscad supplementary` arguments select indices 36–55
+and the long and short NLT references. They skip the six ULM fits.
+An optional base folder as the fourth argument also selects each index in 1–35
+whose `dc_pscad_<index>/status.toml` file is absent or has an unfinished status.
+The final PSCAD statuses are `completed`, `nonfinite_response`, `line_constants_error`
+and `known_station_failure`. An `exported` or `started` status needs a fresh run.
+The base folder must contain `dc_behaviour.toml` for the same cable.
+Final status files keep their runs out of this recovery selection.
+
+To run an explicit list of matrix indices, use:
+
+```sh
+julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl dc_behaviour pscad runs 34 35 "<base folder>"
+```
+
+Indices must be unique integers from 1 to 55. This mode runs the selected PSCAD
+variants and the NLT reference, and skips the six ULM fits. A selected index runs
+even if its base status is final.
+
+The script writes all selected results into a new run folder and records the
+base folder and recovered indices in its summary. It reads the base folder
+without changing its contents.
+The same arguments work with all three DC cable scripts.
+
+Each `dc_pscad_<index>/status.toml` keeps requested and exported settings,
+loss tangents, line formulation, log paths, native failure messages and
+available response metrics. The `dc_nlt` and `dc_ulm_<index>` folders keep
+statuses, responses and fit archives. The `dc_behaviour.toml` file records
+conductances, window choices, travel times and wall times.
+
+A diverged PSCAD response records `status = "nonfinite_response"`,
+`nonfinite_output_path`, `nonfinite_channel` and `first_nonfinite_time_seconds`.
+The script keeps the raw outputs and continues with the next run.
+Missing or unmeasured channels remain errors.
+
+A full station matrix contains 34 short and 21 long windows.
+The supplementary matrix contains four short and 16 long windows,
+plus any base runs with absent or unfinished status files.
+Native fits and compilation add station wall time.
+
+The standalone generator groups run folders by cable and model.
+For each cable, supply the base folder, its supplementary folders, and the Julia
+rerun folder, in that order. The latest final attempt supplies each model's result.
+An export-only record cannot replace a final station result. If no attempt is
+final, the first supplied attempt gives the metadata and the table marks it incomplete.
+The latest final NLT record supplies the common reference for that cable.
+
+The generator writes CSV and LaTeX tables with longtable, booktabs and siunitx:
+
+```sh
+julia --project=test benchmarks/dc_behaviour_tables.jl <run folders>... <output folder>
+```
+
+The tables cover physical parameters, final values and errors, short-window
+correction results, distinct exported settings, tail variations, pole time
+constants and wall times. It discovers the model directories in each archive
+and accepts full and supplementary folders. Final-window differences remain available
+for all models.
+
+The consolidated tables are `dc_pscad_short`, `dc_pscad_long`, `dc_ulm` and `dc_nlt`.
+The short PSCAD table gives the voltage deviation.
+It also gives the Tline errors and passivity diagnostics.
+The long table gives voltage and current errors with settling, tail variation and divergence.
+The ULM table adds fitted DC errors, pole time constants and reciprocals of added-pole rates.
+CSV files keep the complete columns. LaTeX tables use shorter column selections.
+The `dc_model_sources` table identifies the selected attempt and the other candidates.
+The `dc_incomplete_pscad` table lists matrix entries that still need a final outcome.
+
+The generator recomputes archived fault currents from stored receiving voltages
+and the recorded fault resistance. Earlier archives use this study's fixed 0.01 Ω.
+It recomputes the current and voltage errors against the selected NLT reference.
+
+The `dc_current_consistency` table compares final-window means with the oriented
+native current. Earlier archives stored minus the receiving-current channel for
+all backends. The generator recovers that raw measured mean before it applies the
+backend's physical orientation. The original archived current occupies a separate column for comparison.
+This correction reads the archives without modifying them or repeating a station run.
+
+The generator reads raw Tline logs from `line_constants_log_paths`.
+If those paths are absent, it searches the model's archived native folders.
+The case scripts only archive those logs.
+The `dc_pscad_fits` tables give the last Hphase maximum and RMS errors before
+Applying DC Correction. They also give the errors in Final Fit after correction.
+The `dc_pscad_poles` tables give the final H pole counts and maximum ratio of
+residue to pole. Yc errors and pole counts come from its own heading.
+
+The log has no Yc error after correction, which remains `not found`.
+The passivity tables give violation ranges, their smallest reported
+eigenvalue and the scan or enforcement outcome. The patterns use native headings.
+An absent heading or outcome gives `not found`.
+The `dc_pscad_log_reports.toml` file keeps the extracted report text and log paths.
+DCCOR and CPASS labels follow their master-library meanings.
+
+Steady-state error columns need both that model and NLT to pass
+the current variation criterion. The tables label unsettled models as unsettled
+and leave their steady-state errors blank. Archives without these measurements
+appear as `not_assessed` and have no steady-state error.
+The file
+`dc_sources.txt` lists the source folders.
+
+Each ULM fit records its own DC circuit solution from `Yc(model, ComplexF64[0])`
+and `H(model, ComplexF64[0])`, with the fault test's source and terminal impedances.
+The study compares the DC fault current and both core voltages with the settled
+NLT means. These DC errors apply independently of the transient settled flag.
+The two-port assembly follows the private NLT construction in
+`src/engine/transientanalysis/formulas/nlt.jl`, where H acts on current waves.
+
+The same circuit also uses the physical DC targets retained by corrected fits.
+Uncorrected fits use the independent physical DC limit. The archives record the
+target solution and its signed differences from the NLT means.
+The generator writes `dc_solutions` for all three quantities and `dc_target_check`
+for the physical-target comparison. The `dc_fits` table gives each fit's current
+errors, settled flag, slowest time constant and reciprocals of added-pole rates.
