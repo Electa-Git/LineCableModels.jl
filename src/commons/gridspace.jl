@@ -19,8 +19,8 @@ struct Product <: Composition end
 $(TYPEDEF)
 
 Pair the points of equal-length sources, broadcasting sources with one point. Zip pairs
-the direct parameters of one call. A nested parameter space varies on its own, so a zip
-refuses it. Paired complete objects are a `Grid` of those objects.
+the direct parameters of one call. It refuses a nested parameter space that varies. Paired
+complete objects are a `Grid` of those objects.
 """
 struct Zip <: Composition end
 
@@ -160,10 +160,12 @@ function Gridspace(values::AbstractVector, composition::Composition)
     sources = Tuple(map(Base.Fix2(Gridspace, composition), values))
     return Gridspace{Vector}(Base.vect, sources, composition)
 end
+# The names of a named tuple are a type parameter of its build, so a point of it is isbits.
 function Gridspace(values::NamedTuple{K}, composition::Composition) where {K}
     has_grid(values) || return DeterministicGrid((values,))
     sources = map(Base.Fix2(Gridspace, composition), Tuple(values))
-    return Gridspace{NamedTuple{K}}(NamedTuple{K} ∘ tuple, sources, composition)
+    return Gridspace{NamedTuple{K}}((selected...) -> NamedTuple{K}(selected), sources,
+        composition)
 end
 function Gridspace(pair::Pair, composition::Composition)
     has_grid(pair) || return DeterministicGrid((pair,))
@@ -208,6 +210,20 @@ function parameterize(
 end
 
 """
+    parameterize(Target, caller, arguments, keywords; combine=:product)
+
+Lift the call `caller(arguments...; keywords...)` over its arguments and the values of its
+keywords, all as direct sources of one space. Each point calls `caller` with its
+positional arguments and its keywords again.
+"""
+function parameterize(::Type{Target}, caller, arguments::Tuple{Vararg{Any, N}},
+        keywords::NamedTuple{K}; combine = :product) where {Target, N, K}
+    split = (selected...) -> caller(ntuple(index -> selected[index], Val(N))...;
+        NamedTuple{K}(ntuple(index -> selected[N + index], Val(length(K))))...)
+    return parameterize(Target, split, (arguments..., Tuple(keywords)...); combine)
+end
+
+"""
     parameterize(Target, arguments; combine=:product)
 
 Lift a call of the constructor of `Target` whose `arguments` hold a `Grid` or a
@@ -234,6 +250,13 @@ end
 # The record type itself, so a call of the parametric constructor reaches only the record.
 function FormulationOptions(arguments...; combine = :product)
     return parameterize(FormulationOptions, arguments; combine)
+end
+
+# Every builder lifts here, over all its arguments and keywords, so that `combine` composes
+# all of them. Each point builds from scalars.
+function (builder::Builder{Target})(arguments...; combine = :product, keywords...) where {Target}
+    caller = Base.Fix1(build, builder)
+    return parameterize(Target, caller, arguments, NamedTuple(keywords); combine)
 end
 
 # Each source is checked for the composition of the space, and a zip checks the source
@@ -280,8 +303,8 @@ function validate(source, ::Composition)
 end
 
 """
-Return the unresolved points of a finite source, in its order: the values of a `Grid`,
-the results of a completed result space, and the lazy points of a Gridspace. With an
+Return the unresolved points of a finite source, in its order. A `Grid` gives its values
+and a completed result space its results. A Gridspace gives its points lazily. With an
 `index`, return that one point. A source is indexed from 1 to its `length`.
 """
 points(grid::AbstractGrid) = grid

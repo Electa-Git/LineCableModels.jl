@@ -29,3 +29,21 @@
     @test grouped isa Gridspace{DM.Group}
     @test length(grouped) == 2
 end
+
+@testitem "DataModel / lifting / formations and homogenize lift once" tags=[:unit, :datamodel] begin
+    copper = Material(:conductor, 1.7241e-8)
+    xlpe = Material(:insulator, 1.97e14, 2.5)
+    designs = build(CableDesign, "lifted", Stack(Group(:core,
+        Region(:core, Disk(Grid((5e-3, 6e-3))), copper)), Region(:ins, Shell(2e-3), xlpe)))
+
+    # A space of designs homogenizes point by point.
+    homogenized = homogenize(designs)
+    @test homogenized isa Gridspace{CableDesign}
+    @test [design.cable_id for design in homogenized] == fill("lifted_equivalent", 2)
+
+    # A formation zips its own parameters.
+    paired = trefoil(first(designs); spacing = Grid((0.1, 0.2)), φ0 = Grid((0.0, 0.1)),
+        connections = (core = (1, 2, 3),), combine = :zip)
+    @test paired isa Gridspace{Vector}
+    @test length(paired) == 2
+end

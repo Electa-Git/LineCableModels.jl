@@ -26,7 +26,7 @@ export FrequencyDependent, EquivalentHomogeneous
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using RequiredInterfaces: @required
 import ..LineCableModels: build, validate
-import ..LineCableModels: parameterize
+import ..LineCableModels: parameterize, Builder
 using ..Materials: AbstractMaterial
 import ..Commons
 import ..TextDisplay

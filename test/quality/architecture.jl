@@ -28,7 +28,7 @@
     # Tables of the structural guards (A) and of the Commons and helper guards (C).
     const A_TABLES = ("ownership", "placement", "direction", "names", "shadowing",
         "validate", "reserved_verbs", "switches", "storage", "dispatch", "repeats",
-        "lifting")
+        "lifting", "builders")
     const C_TABLES = ("commons", "vocabulary", "fingerprints", "clones", "helpers", "root")
     const TABLES = (A_TABLES..., C_TABLES...)
     const SWITCHES = ("applicable", "eval", "isa", "kind")
@@ -53,7 +53,8 @@
         :reorder_indices => r"^_*reorder(_|$)",
         :ReductionPlan => r"(?i)^_*reduction_?(plan|map)$",
         :ReductionBuffers => r"(?i)^_*reduction_?buffers$",
-        :reduce_line_matrices! => r"^_*reduce_(line|primitive)_matrices")
+        :reduce_line_matrices! => r"^_*reduce_(line|primitive)_matrices",
+        :FormulaBuilder => r"^_*FormulaBuilder$")
     const SHINGLE = 8
     const CLONE_TOKENS = 30
     const CLONE_SHARE = 0.75
@@ -859,6 +860,30 @@
         return found
     end
 
+    # Builders. A builder is a singleton subtype of the grammar's `Builder`, and the grammar's
+    # one call method lifts every call of it. A call method of the builder's own type would
+    # take its calls before the grammar does, so a `Grid` keyword would reach it unlifted. Its
+    # scalar body is a `build` method, which declares no `combine`: the grammar takes it once.
+    # The builders are the concrete subtypes of `Builder` that the package defines.
+    function builders(tree::PackageTree)
+        found = Dict{String, Int}()
+        bodies = Base.methods(LineCableModels.build)
+        for M in tree.modules, value in values(definitions(M))
+            value isa DataType && value <: LineCableModels.Builder &&
+                !isabstracttype(value) || continue
+            key(what) = string(module_name(tree, M), " | ", nameof(value), " | ", what)
+            for m in Base.methods(value.instance)
+                Base.unwrap_unionall(m.sig).parameters[1] === value && count!(found, key("call"))
+            end
+            own = [m for m in bodies if Base.unwrap_unionall(m.sig).parameters[2] === value]
+            isempty(own) && count!(found, key("build"))
+            for m in own
+                :combine in Base.kwarg_decl(m) && count!(found, key("combine"))
+            end
+        end
+        return found
+    end
+
     type_name(T) = (T = Base.unwrap_unionall(T); T isa DataType ? nameof(T) : nothing)
 
     # The functions, types and constants that a module defines, by name.
@@ -1344,6 +1369,7 @@
             "dispatch" => () -> dispatch(methods, tree),
             "repeats" => () -> repeated_access_names(files, tree.directory),
             "lifting" => () -> lifting(methods, tree),
+            "builders" => () -> builders(tree),
             "commons" => () -> commons_admission(methods, tree, homes, vocabulary),
             "vocabulary" => () -> reserved_vocabulary(files, tree.directory, vocabulary),
             "fingerprints" => () -> fingerprints(files, tree.directory),
@@ -1516,6 +1542,12 @@ end
     @test result.stale == String[]
 end
 
+@testitem "Quality / architecture / builders" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("builders")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
 @testitem "Quality / architecture / negative controls of the architecture guards" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
 
@@ -1581,6 +1613,13 @@ end
             end
             lifted(value; width::Real = 1, combine = :product) =
                 LineCableModels.parameterize(Loose, Loose, (value,); combine)
+            # A builder with a call method of its own and no scalar body, a builder with
+            # no scalar body, and one whose scalar body takes `combine`.
+            struct Bypass <: LineCableModels.Builder{Int} end
+            (::Bypass)(x; t = 1) = x
+            struct Bodyless <: LineCableModels.Builder{Int} end
+            struct Combining <: LineCableModels.Builder{Int} end
+            LineCableModels.build(::Combining, x; combine = :product) = x
             include("../early/stray.jl")
             include("../../ext/core.jl")
             end
@@ -1679,7 +1718,9 @@ end
             "Consumer | tagged | src/consumer/Consumer.jl" => 1),
         "repeats" => Dict("src/repeats.jl" => 3),
         "lifting" => Dict("Consumer | Loose | src/consumer/Consumer.jl" => 1,
-            "Consumer | lifted | keywords | src/consumer/Consumer.jl" => 1))
+            "Consumer | lifted | keywords | src/consumer/Consumer.jl" => 1),
+        "builders" => Dict("Consumer | Bypass | call" => 1, "Consumer | Bypass | build" => 1,
+            "Consumer | Bodyless | build" => 1, "Consumer | Combining | combine" => 1))
 
     # A clean package with the same modules and one extension method.
     clean_files = Dict(
@@ -1727,6 +1768,9 @@ end
             end
             lifted(value; width = 1, combine = :product) =
                 LineCableModels.parameterize(Tight, Tight, (value,); combine)
+            # A builder whose one scalar body takes its keywords.
+            struct Fine <: LineCableModels.Builder{Int} end
+            LineCableModels.build(::Fine, x; t = 1) = x
             include("helpers.jl")
             end
             """,

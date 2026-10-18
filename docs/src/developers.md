@@ -192,6 +192,10 @@ package method and parse every Julia file under `src/` and `ext/`.
   never matches it. A method with keywords that calls `parameterize` types no keyword but
   `combine` narrower than a space. The guard reads the method table. Its baseline table
   is empty.
+- Builders (`builders`). A builder is a concrete subtype of `Builder` that the package
+  defines. It has no call method of its own type, at least one `build` method, and no
+  `build` method that declares `combine`. The guard reads the method table. Its baseline
+  table is empty.
 - Repeated access names (`repeats`). The base binding of an access chain and its first
   field have different names, unlike `placed.placed` or `x.:x`. The guard ignores a field
   repeated inside a field, as in `record.result.result`. Each source file has a count. The
@@ -426,6 +430,69 @@ follows FEM's trend is generally accepted. Within 5 % of FEM a curve is accepted
 larger deviation known from this state is advisory. The test fails when a FEM deviation
 rises at any frequency. The analytical pin (rtol 1e-12) keeps the engine from changing
 against itself.
+
+## Lifting
+
+Every input of a computation may be a scalar or a finite space at any depth of the tuples,
+vectors, named tuples and pairs that contain it. A finite space is a `Grid` or a
+`Gridspace`, and `has_grid` tells whether a value holds one. `Commons` defines this grammar,
+and the modules extend it by dispatch.
+
+- A call without a `Grid` or a `Gridspace` is the scalar call, at no extra cost. A call
+  with one returns a `Gridspace{Target}` of what the scalar call returns, and each point
+  calls it again with scalars.
+- `combine = :product`, the default, forms the Cartesian product. The first source varies
+  fastest, in the order in which the call writes its arguments and keywords.
+  `combine = :zip` pairs the direct parameters of one call, row by row, and a one-point
+  source pairs as its only point. A zip refuses a nested space that varies. To pair
+  complete objects, pass a `Grid` of them. `:product` and `:zip` select the types
+  `Product` and `Zip`.
+- A source selects its points by index. A source type of your own that subtypes
+  `AbstractGrid` defines `length` and `getindex`.
+
+### Family methods
+
+A constructor lifts through the family method of its input family, which the family's owner
+defines once:
+
+```julia
+(::Type{T})(arguments...; combine = :product) where {T <: AbstractShape} =
+    parameterize(T, arguments; combine)
+```
+
+Dispatch reaches it only when no scalar method accepts the arguments. So every other
+constructor of a family type types each value position, which the `lifting` guard checks.
+
+### Builders
+
+A builder is a call of the user-facing language, such as `insulation`, `wires` or `formula`.
+Each is the singleton of a subtype of `Builder{Target}`. Its one call method, in `Commons`,
+lifts the call over all its arguments and keywords and takes `combine`. The owner writes
+only the scalar body, a `build` method that receives scalars:
+
+```julia
+struct InsulationBuilder <: Builder{Region} end
+const insulation = InsulationBuilder()
+build(::InsulationBuilder, material; t, tag = :insulation) =
+    Region(tag, Shell(t), validate(material, Region, :insulation, (:insulator,)))
+```
+
+Inside a scalar body every value is a scalar. A body that uses another builder calls its
+scalar body, as `build(assembly, members...; pattern, names)`.
+
+To accept a material type of your own, add a scalar body for it. Lifting, `combine` and zip
+come with it:
+
+```julia
+LineCableModels.build(::typeof(insulation), m::MyMaterial; t, tag = :insulation) =
+    Region(tag, Shell(t), Material(:insulator, m.rho, m.eps_r))
+insulation(Grid((mine, yours)); t = Grid((5.5e-3, 6e-3)), combine = :zip)  # two Regions
+```
+
+Do not add a call method `(::typeof(insulation))(m::MyMaterial; t)`. Julia does not dispatch
+on keywords, so such a method takes the call before the grammar does. A `Grid` keyword then
+reaches it unlifted, and `combine` is refused. The `builders` guard checks that no builder
+of the package has one.
 
 ## Developer paths
 

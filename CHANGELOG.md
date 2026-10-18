@@ -301,8 +301,26 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Region`, `Stack`, the keyword `Sector`, `Group`, `Assembly` and `Enclosure`, and the
   `build` of `CableDesign` and `LineCableSystem`. A scalar input of the wrong type throws a
   `MethodError`.
-- A user type lifts over `Grid` and `Gridspace` inputs with one method, as the package's
-  constructors do. The method returns `LineCableModels.parameterize(T, T, values; combine)`.
+- `Commons` defines the lifting grammar: `Grid`, `Gridspace`, `has_grid`, `parameterize`
+  and the composition types `Product` and `Zip`. Every input of a computation may be a
+  scalar or a `Grid` or `Gridspace`, at any depth of the tuples, vectors, named tuples and
+  pairs that contain it. A constructor lifts through the family method of its input family,
+  `(::Type{T})(arguments...; combine) where {T <: Family}`. A type outside a family lifts
+  with one method of its own that calls `parameterize`.
+- Each builder of the user-facing language is the singleton of a subtype of
+  `Builder{Target}`, and one call method lifts it over all its arguments and keywords. Its
+  scalar body is a `build` method. A user extends a builder for an own type with a `build`
+  method, as `build(::typeof(insulation), m::MyMaterial; t, tag)`.
+- `combine = :zip` pairs the direct parameters of one call, and a one-point source pairs as
+  its only point. A zip that includes a nested space that varies throws an `ArgumentError`,
+  whose message suggests a `Grid` of complete objects instead. A product varies its
+  first source fastest, in the order the call writes its arguments and keywords.
+- `formula` lifts over a `Grid` of identifiers, orders or options, and `at` with `x` and
+  `y` lifts over them and `φ`. `Material(library, name)` lifts over a `Grid` of names,
+  `homogenize` over a space of designs, and `Formulation` over a `Grid` of backend tags.
+- `FormulationOptions` lifts over its named tuple and its keywords. `ComputationOptions`
+  throws an `ArgumentError` for a `Grid`, since computation options do not vary.
+- The integrand of a `SpectralIntegral` is a `Function`.
 - `Region(tag::Symbol, primitive, material)` takes an `AbstractPrimitive` or `Shell` and an
   `AbstractMaterial`.
 - Every keyword of `LineParametersProblem(system; …)` and `CableConstantsProblem(design; …)`

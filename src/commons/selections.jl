@@ -1,5 +1,15 @@
 """
-$(TYPEDSIGNATURES)
+$(TYPEDEF)
+
+The builder of [`formula`](@ref).
+"""
+struct FormulaBuilder <: Builder{FormulaDefinition} end
+
+"""
+```julia
+formula(identifier; order = :default, parameters = (;), options = (;),
+    equivalent_earth = nothing)
+```
 
 Select a registered formula. The receiving formulation determines its family from the
 keyword slot in which the selection appears.
@@ -35,9 +45,12 @@ keyword slot in which the selection appears.
 earth = formula(:carson1926)
 soil = formula(:default)
 equivalent = formula(:default; order=:before)
+earths = formula(Grid((:carson1926, :deri1973)))
 ```
 """
-function formula(identifier::Symbol; order::Symbol = :default,
+const formula = FormulaBuilder()
+
+function build(::FormulaBuilder, identifier::Symbol; order::Symbol = :default,
         parameters::NamedTuple = (;),
         options::Union{NamedTuple, FormulationOptions} = FormulationOptions(), equivalent_earth = nothing)
     options = FormulationOptions(options)

@@ -58,7 +58,7 @@ import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal, uncertainty
 import ..LineCableModels: line_length
 import ..LineCableModels: parameterize
-using ..LineCableModels: AbstractGrid, Gridspace
+using ..LineCableModels: AbstractGrid, Gridspace, DeterministicGrid, Builder
 using ..Materials: AbstractMaterial, Material
 import GeometryBasics
 using GeometryBasics: Point2f

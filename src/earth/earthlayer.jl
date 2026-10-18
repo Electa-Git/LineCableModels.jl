@@ -77,8 +77,12 @@ function EarthLayer(
            EarthLayer(rho, permittivity, permeability, thickness)
 end
 
+struct LayerBuilder <: Builder{EarthLayer} end
+
 """
-$(TYPEDSIGNATURES)
+```julia
+layer(; rho, eps_r = nothing, mu_r = nothing, thickness = nothing, combine = :product)
+```
 
 Declare one static earth layer directly or as an explicit finite space.
 
@@ -91,23 +95,17 @@ Declare one static earth layer directly or as an explicit finite space.
   selects unity in the resistivity scalar type.
 - `thickness=nothing`: layer thickness \\[m\\]. `nothing` selects a
   semi-infinite layer.
-- `combine=:product`: gridspace composition rule.
+- `combine=:product`: composition of the sources when an argument or a keyword is a `Grid`
+  or a `Gridspace`, `:product` or `:zip`.
 
 # Returns
 
-- An `EarthLayer`, or a `Gridspace{EarthLayer}` when an explicit finite source
-  is supplied.
+- An `EarthLayer`, or a `Gridspace{EarthLayer}` when a keyword varies.
 """
-function layer(;
-        rho,
-        eps_r = nothing,
-        mu_r = nothing,
-        thickness = nothing,
-        combine::Symbol = :product
-)
-    values = (rho, eps_r, mu_r, thickness)
-    return parameterize(EarthLayer, EarthLayer, values; combine)
-end
+const layer = LayerBuilder()
+
+build(::LayerBuilder; rho, eps_r = nothing, mu_r = nothing, thickness = nothing) =
+    EarthLayer(rho, eps_r, mu_r, thickness)
 
 function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T <: Real}
     return EarthLayer{T}(

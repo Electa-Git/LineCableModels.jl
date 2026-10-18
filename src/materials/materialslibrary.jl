@@ -154,10 +154,14 @@ end
 
 function Material(
         library::MaterialsLibrary,
-        name::Union{AbstractString, Symbol};
+        name::Union{AbstractString, Symbol, AbstractGrid, Gridspace};
+        combine = :product,
         kwargs...
 )
-    material = get(library, String(name), nothing)
-    material === nothing && throw(KeyError(String(name)))
-    return Material(material; kwargs...)
+    caller = (name; keywords...) -> begin
+        material = get(library, String(name), nothing)
+        material === nothing && throw(KeyError(String(name)))
+        Material(material; keywords...)
+    end
+    return parameterize(Material, caller, (name,), NamedTuple(kwargs); combine)
 end

@@ -91,5 +91,6 @@ public observation_selection
 public request_identity, request_quantity, request_indices
 public normalize_observation_selector
 public Gridpoint, Composition, Product, Zip, parameterize, materialize, points
+public Builder, FormulaBuilder
 public realize, realize_arguments, sample_uncertainty
 end # module Commons

@@ -205,3 +205,12 @@ end
     # `nothing` selects unity in the resistivity scalar type.
     @test layer(rho = 100.0f0) isa LineCableModels.Earth.EarthLayer{Float32}
 end
+
+@testitem "Earth / builders / layer and homogeneous zip their keywords" tags=[:unit, :earth] begin
+    zipped = homogeneous(rho = Grid((10.0, 100.0)), eps_r = Grid((5.0, 10.0)), combine = :zip)
+    @test zipped isa Gridspace{EarthModel}
+    @test [(model.layers[2].rho, model.layers[2].eps_r) for model in zipped] ==
+          [(10.0, 5.0), (100.0, 10.0)]
+    @test @inferred(homogeneous(rho = 100.0, eps_r = 10.0)) isa EarthModel
+    @test length(layer(rho = Grid((10.0, 100.0)), eps_r = Grid((5.0, 10.0)))) == 4
+end

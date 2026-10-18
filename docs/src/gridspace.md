@@ -175,13 +175,15 @@ The current behavior is:
 | `Disk`, `Shell`, and other physical geometry | concrete primitive or contextual shell | `Gridspace{Primitive}` or `Gridspace{Shell}` |
 | `Region`, `Stack`, `Group`, `Assembly`, `Enclosure` | concrete cable part | `Gridspace{TargetPart}` |
 | `CableDesign` | `DataModel.CableDesign` | `Gridspace{DataModel.CableDesign}` |
-| `at`, `trefoil`, `hflat`, `vflat` | `Pose2` or `Vector{Pose2}` | corresponding `Gridspace` |
+| `at`, `trefoil`, `hflat`, `vflat` | `Pose2`, placed member, placed-design record or a formation | corresponding `Gridspace` |
+| `layers`, `terminal`, `solid`, `core`, `insulation` and the other builders | the declared part | `Gridspace` of the builder's target |
+| `formula` | `FormulaDefinition` | `Gridspace{FormulaDefinition}` |
 | `homogeneous` | `EarthModel` | `Gridspace{EarthModel}` |
 | `LineCableSystem` | `DataModel.LineCableSystem` | `Gridspace{DataModel.LineCableSystem}` |
 | `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
 | `CableConstantsProblem` | `Engine.CableConstantsProblem` | `Gridspace{Engine.CableConstantsProblem}` |
 | `CableConstants` | `Engine.CableConstants` | `ParametricResult` from `compute` |
-| `Formulation` | `Engine.LineParametersFormulation` | `Gridspace{Engine.LineParametersFormulation}` |
+| `Formulation` | `Engine.LineParametersFormulation` | `Gridspace{Engine.LineParametersFormulation}`, or `Gridspace{AbstractFormulation}` for a `Grid` of backend tags |
 | `CableConstantsFormulation` | `Engine.CableConstantsFormulation` | `Gridspace{Engine.CableConstantsFormulation}` |
 | `ModalAnalysisFormulation` | `ModalAnalysis.ModalAnalysisFormulation` | `Gridspace{ModalAnalysis.ModalAnalysisFormulation}` |
 | backend formulation constructor | completed backend formulation | target-bearing formulation `Gridspace` |
@@ -190,6 +192,12 @@ The current behavior is:
 Scalar-complete calls invoke their domain action immediately. A varying call
 stores only that callable and explicit finite sources. Each selected point
 invokes the same scalar action.
+
+Each builder lifts over all its arguments and keywords at its own level, and its points build
+their inner objects from scalars. In a product, the first source varies fastest, in the order
+the call writes them. `wires(cu; shape, n = 6, lay = Grid(...), r = Grid(...))` varies `lay`
+fastest. The [developers guide](developers.md#Lifting) shows how to define a builder and how
+to extend one for a type of your own.
 
 ## Gridspace callables
 

@@ -114,13 +114,13 @@ using .Commons: Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGr
                 AbstractGrid, AbstractUncertainGrid, UncertainValue, Gridspace, Gridpoint,
                 Composition, Product, Zip, has_uncertainty, has_grid, nominal, uncertainty,
                 parameterize, materialize, points, realize, realize_arguments,
-                sample_uncertainty
+                sample_uncertainty, Builder
 include("logging.jl")
 
 # Bounded text formatting consumes the completed shared declaration grammar.
 include("textdisplay/TextDisplay.jl")
 
-public parameterize, materialize, sample_uncertainty
+public parameterize, materialize, sample_uncertainty, Builder
 
 # Thin native plotting handles and optional-extension entry points.
 include("plotbuilder/PlotBuilder.jl")

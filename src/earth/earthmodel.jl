@@ -169,8 +169,13 @@ end
 
 Base.convert(::Type{EarthModel{T}}, model::EarthModel{T}) where {T <: Real} = model
 
+struct HomogeneousBuilder <: Builder{EarthModel} end
+
 """
-$(TYPEDSIGNATURES)
+```julia
+homogeneous(; rho, eps_r = nothing, mu_r = nothing, thickness = nothing,
+    vertical_layers = false, air_layer = nothing, combine = :product)
+```
 
 Declare a homogeneous earth model through [`layer`](@ref) and
 `build(EarthModel, ...)`. Semi-infinite air is implicit.
@@ -186,24 +191,17 @@ Declare a homogeneous earth model through [`layer`](@ref) and
   semi-infinite earth layer.
 - `vertical_layers=false`: whether earth interfaces are vertical.
 - `air_layer=nothing`: optional explicit semi-infinite air layer.
-- `combine=:product`: gridspace composition rule.
+- `combine=:product`: composition of the sources when an argument or a keyword is a `Grid`
+  or a `Gridspace`, `:product` or `:zip`.
 
 # Returns
 
-- An `EarthModel`, or a `Gridspace{EarthModel}` when an explicit finite source
-  is supplied.
+- An `EarthModel`, or a `Gridspace{EarthModel}` when a keyword varies.
 """
-function homogeneous(;
-        rho,
-        eps_r = nothing,
-        mu_r = nothing,
-        thickness = nothing,
-        vertical_layers = false,
-        air_layer = nothing,
-        combine::Symbol = :product
-)
-    caller = (rho, eps_r, mu_r, thickness, vertical_layers, air_layer) -> build(
-        EarthModel, layer(; rho, eps_r, mu_r, thickness); vertical_layers, air_layer)
-    values = (rho, eps_r, mu_r, thickness, vertical_layers, air_layer)
-    return parameterize(EarthModel, caller, values; combine)
+const homogeneous = HomogeneousBuilder()
+
+function build(::HomogeneousBuilder; rho, eps_r = nothing, mu_r = nothing,
+        thickness = nothing, vertical_layers = false, air_layer = nothing)
+    return build(EarthModel, build(layer; rho, eps_r, mu_r, thickness); vertical_layers,
+        air_layer)
 end

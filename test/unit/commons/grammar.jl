@@ -126,3 +126,23 @@ end
     @test U.family(U.quantity(C.R)) === Val(:series)
     @test U.family(U.quantity(C.C)) === Val(:shunt)
 end
+
+@testitem "Commons / grammar / builders" tags=[:unit, :commons] begin
+    const C = LineCableModels.Commons
+
+    # A builder is a singleton under the grammar type, and its one call method lifts it
+    # over all its arguments and keywords.
+    @test formula isa C.FormulaBuilder
+    @test C.FormulaBuilder <: C.Builder{C.FormulaDefinition}
+    # A literal identifier infers at its call site. The identifier is part of the type.
+    @test @inferred((() -> formula(:carson1926))()) isa C.FormulaDefinition{:carson1926}
+    earths = formula(C.Grid((:carson1926, :deri1973)))
+    @test earths isa C.Gridspace{C.FormulaDefinition}
+    @test [C.formula_id(selection) for selection in earths] == [:carson1926, :deri1973]
+    orders = formula(:default; order = C.Grid((:before, :after)))
+    @test [NamedTuple(selection).order for selection in orders] == [:before, :after]
+    paired = formula(C.Grid((:carson1926, :deri1973)); order = C.Grid((:before, :after)),
+        combine = :zip)
+    @test [(C.formula_id(s), NamedTuple(s).order) for s in paired] ==
+          [(:carson1926, :before), (:deri1973, :after)]
+end

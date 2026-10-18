@@ -49,7 +49,7 @@ import ..LineCableModels: build, Gridpoint, validate
 import ..LineCableModels: Grid, AbsoluteError, DeterministicGrid, RelativeGrid
 import ..LineCableModels: AbsoluteGrid, AbstractGrid, AbstractUncertainGrid
 import ..LineCableModels: UncertainValue, Gridspace, has_uncertainty
-import ..LineCableModels: parameterize, materialize, points
+import ..LineCableModels: parameterize, materialize, points, Builder
 import ..LineCableModels: verbosity, VerbosityLogger
 import Logging
 import ..Commons

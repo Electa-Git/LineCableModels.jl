@@ -159,6 +159,8 @@
 
 [lifting]
 
+[builders]
+
 [commons]
 "AbstractCoreResult | tests" = 1
 "AbstractParametricResult | tests" = 1
@@ -308,7 +310,7 @@
 "src/engine/problems.jl" = 1
 "src/importexport/deserialize.jl" = 1
 "src/importexport/observed.jl" = 1
-"src/parametricbuilder/physicaltree.jl" = 3
+"src/parametricbuilder/physicaltree.jl" = 1
 "src/parametricbuilder/wirepatterns/gauges.jl" = 1
 "src/pscad/compute.jl" = 1
 "src/pscad/importexport/import.jl" = 2

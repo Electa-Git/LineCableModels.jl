@@ -1626,6 +1626,14 @@ design is unchanged.
 - A completed homogeneous [`CableDesign`](@ref).
 """
 function homogenize(
+        original::Union{Gridspace{<:CableDesign},
+            DeterministicGrid{<:Tuple{CableDesign, Vararg{CableDesign}}}};
+        new_id = "", combine = :product)
+    caller = (original; new_id) -> homogenize(original; new_id)
+    return parameterize(CableDesign, caller, (original,), (; new_id); combine)
+end
+
+function homogenize(
         original::CableDesign;
         new_id::AbstractString = ""
 )

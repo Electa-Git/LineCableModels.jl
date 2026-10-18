@@ -133,3 +133,12 @@ end
         typeof(library.entries)
     ))) === Base
 end
+
+@testitem "Materials / MaterialsLibrary / a Grid of names lifts the lookup" tags=[:unit, :materials] begin
+    library = MaterialsLibrary()
+    looked_up = Material(library, Grid((:copper, :aluminum)))
+    @test looked_up isa Gridspace{Material}
+    @test [material.rho for material in looked_up] ==
+          [Material(library, :copper).rho, Material(library, :aluminum).rho]
+    @test_throws KeyError collect(Material(library, Grid((:copper, :absent))))
+end

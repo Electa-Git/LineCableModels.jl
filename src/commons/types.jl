@@ -15,6 +15,23 @@ abstract type AbstractFormulation end
 """
 $(TYPEDEF)
 
+Supertype of the builders of the user-facing language, such as `insulation`, `wires` and
+`formula`. Each builder is a singleton that returns a `Target`.
+
+Calling a builder lifts it over all its arguments and keywords, including those inside the
+tuples, vectors, named tuples and pairs it receives. With no `Grid` or `Gridspace` among
+them, the call returns `build(builder, arguments...; keywords...)`. With one, it returns
+the `Gridspace{Target}` whose points do, composed by `combine = :product` or `:zip`. The
+points of a product vary the first source fastest, in the order the call writes them.
+The owner of a builder, or a user for an own type, adds `build` methods, which receive
+scalars only. A call method of a builder's own type would take its calls before the
+grammar, so a `Grid` keyword would reach it unlifted: extend `build` instead.
+"""
+abstract type Builder{Target} end
+
+"""
+$(TYPEDEF)
+
 Supertype for completed LineCableModels computation results.
 """
 abstract type AbstractProblemResult end

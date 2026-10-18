@@ -111,3 +111,10 @@ end
     @test [(problem.system.positions[1].y, problem.temperature) for problem in problems] ==
           [(-1.0, 20.0), (-2.0, 90.0)]
 end
+
+@testitem "Engine / problems / a Grid of backend tags lifts Formulation" tags=[:unit, :engine] begin
+    backends = Formulation(Grid((:coaxial, :cable_constants)))
+    @test backends isa Gridspace{LineCableModels.AbstractFormulation}
+    @test [nameof(typeof(formulation)) for formulation in backends] ==
+          [:LineParametersFormulation, :CableConstantsFormulation]
+end

@@ -35,21 +35,12 @@ function _formation(design, local_poses, center, connections)
             for (member, pose) in enumerate(local_poses)]
 end
 
-# A spacing below the outer diameter plus 1 μm is raised to it, with the outer radius of the
-# design that this realization receives. No formation overlaps.
-function _trefoil(design, center, spacing, connections, φ0)
-    side = max(validate(spacing, trefoil), 2outer_radius(design) + _CABLE_CLEARANCE)
-    # The centers lie on a circle through the triangle's vertices, at 90°, 210° and 330°.
-    distance = side / 2 / cosd(30)
-    poses = Pose2[Pose2(zero(distance), distance, 0),
-        Pose2(distance * cosd(210), distance * sind(210), 0),
-        Pose2(distance * cosd(330), distance * sind(330), 0)]
-    origin = center * Pose2(0, 0, φ0)
-    return _formation(design, poses, origin, connections)
-end
+struct TrefoilBuilder <: Builder{Vector} end
 
 """
-$(TYPEDSIGNATURES)
+```julia
+trefoil(design; center = Pose2(0, 0), spacing, connections, φ0 = 0, combine = :product)
+```
 
 Place three copies of one completed cable in an equilateral trefoil formation.
 
@@ -65,23 +56,27 @@ Place three copies of one completed cable in an equilateral trefoil formation.
   1 μm apart, and never overlap.
 - `connections`: scalar or three-member terminal connection schedules.
 - `φ0=0`: formation rotation \\[rad\\].
-- `combine=:product`: gridspace composition rule.
+- `combine=:product`: composition of the sources when an argument or a keyword is a `Grid`
+  or a `Gridspace`, `:product` or `:zip`.
 
 # Returns
 
-- Three placed-design records, or a `Gridspace{Vector}` when a direct argument
+- Three placed-design records, or a `Gridspace{Vector}` when an argument or a keyword
   varies.
 """
-function trefoil(
-        design;
-        center = Pose2(0, 0),
-        spacing,
-        connections,
-        φ0 = 0,
-        combine::Symbol = :product
-)
-    values = (design, center, spacing, connections, φ0)
-    return parameterize(Vector, _trefoil, values; combine)
+const trefoil = TrefoilBuilder()
+
+# A spacing below the outer diameter plus 1 μm is raised to it, with the outer radius of the
+# design that this realization receives. No formation overlaps.
+function build(::TrefoilBuilder, design; center = Pose2(0, 0), spacing, connections, φ0 = 0)
+    side = max(validate(spacing, trefoil), 2outer_radius(design) + _CABLE_CLEARANCE)
+    # The centers lie on a circle through the triangle's vertices, at 90°, 210° and 330°.
+    distance = side / 2 / cosd(30)
+    poses = Pose2[Pose2(zero(distance), distance, 0),
+        Pose2(distance * cosd(210), distance * sind(210), 0),
+        Pose2(distance * cosd(330), distance * sind(330), 0)]
+    origin = center * Pose2(0, 0, φ0)
+    return _formation(design, poses, origin, connections)
 end
 
 # `pose` places a member at its signed offset along the formation.
@@ -92,8 +87,12 @@ function _flat(design, center, spacing, connections, pose)
     return _formation(design, poses, center, connections)
 end
 
+struct HflatBuilder <: Builder{Vector} end
+
 """
-$(TYPEDSIGNATURES)
+```julia
+hflat(design; center = Pose2(0, 0), spacing, connections, combine = :product)
+```
 
 Place three copies of one completed cable in a horizontal flat formation.
 
@@ -102,22 +101,17 @@ diameter plus 1 μm is raised to it for each realization of `design`. The cables
 touch, 1 μm apart, and never overlap. Scalar connection entries apply to every cable.
 Three-element entries distribute by member.
 """
-function hflat(
-        design;
-        center = Pose2(0, 0),
-        spacing,
-        connections,
-        combine::Symbol = :product
-)
-    caller = (design, center, spacing, connections) -> _flat(design, center,
-        validate(spacing, hflat), connections, offset -> Pose2(offset, 0, 0))
-    return parameterize(
-        Vector, caller, (design, center, spacing, connections); combine
-    )
-end
+const hflat = HflatBuilder()
+
+build(::HflatBuilder, design; center = Pose2(0, 0), spacing, connections) =
+    _flat(design, center, validate(spacing, hflat), connections, offset -> Pose2(offset, 0, 0))
+
+struct VflatBuilder <: Builder{Vector} end
 
 """
-$(TYPEDSIGNATURES)
+```julia
+vflat(design; center = Pose2(0, 0), spacing, connections, combine = :product)
+```
 
 Place three copies of one completed cable in a vertical flat formation.
 
@@ -126,19 +120,10 @@ diameter plus 1 μm is raised to it for each realization of `design`. The cables
 touch, 1 μm apart, and never overlap. Scalar connection entries apply to every cable.
 Three-element entries distribute by member.
 """
-function vflat(
-        design;
-        center = Pose2(0, 0),
-        spacing,
-        connections,
-        combine::Symbol = :product
-)
-    caller = (design, center, spacing, connections) -> _flat(design, center,
-        validate(spacing, vflat), connections, offset -> Pose2(0, -offset, 0))
-    return parameterize(
-        Vector, caller, (design, center, spacing, connections); combine
-    )
-end
+const vflat = VflatBuilder()
+
+build(::VflatBuilder, design; center = Pose2(0, 0), spacing, connections) =
+    _flat(design, center, validate(spacing, vflat), connections, offset -> Pose2(0, -offset, 0))
 
 # A formation spacing is positive. The formation then raises it to the touching spacing.
 function validate(spacing::Real, ::typeof(trefoil))

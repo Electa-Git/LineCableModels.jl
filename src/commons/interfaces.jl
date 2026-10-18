@@ -225,8 +225,10 @@ function add! end
 
 """
     build(Target, declarations...; kwargs...)
+    build(builder, arguments...; keywords...)
 
-Construct one completed domain object from complete physical declarations.
+Construct one completed domain object from complete physical declarations, or build the
+object that a [`Builder`](@ref) declares from scalar arguments.
 
 `build(CableDesign, ...)` resolves a physical cable root and terminal state.
 `build(LineCableSystem, ...)` places completed designs and resolves global
@@ -235,14 +237,21 @@ or vector contains one, the same call returns a `Gridspace{Target}` whose
 callable invokes scalar `build` after selecting and reconstructing one complete
 point.
 
+A builder, such as `insulation`, lifts its own calls and builds each point with
+`build(builder, arguments...; keywords...)`. Its owner adds that method, and a user adds
+one for an own type, as `build(::typeof(insulation), m::MyMaterial; t, tag)`. The method
+receives scalars only.
+
 # Arguments
 
 - `Target`: completed domain type to construct.
 - `declarations`: complete physical declarations owned by `Target`.
+- `builder`: the builder whose declared object is built.
 
 # Returns
 
-One completed `Target`, or `Gridspace{Target}` for explicit finite inputs.
+One completed `Target`, or `Gridspace{Target}` for explicit finite inputs. For a builder,
+one object of its target type.
 """
 function build end
 
@@ -350,11 +359,6 @@ Return owned scientific text for a formulation. `compact=true` selects its
 short display name. `formula_id` remains its scientific identity.
 """
 function description end
-
-"""
-Declare a formula selection for resolution by its receiving formulation owner.
-"""
-function formula end
 
 """
 Return the stable scientific identifier of a formula selection.
