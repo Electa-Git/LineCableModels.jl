@@ -448,7 +448,7 @@ The scalar problem supplies its geometry and earth context for validation.
 formulation. `combine=:zip` aligns equally sized fields and broadcasts
 singletons. This composition is independent of the Cartesian product between
 problem points and formulation points performed by
-[`Combinatorial`](@ref LineCableModels.ParametricBuilder.Combinatorial).
+[`Combinatorial`](@ref LineCableModels.Commons.Combinatorial).
 """
 function LineParametersFormulation(;
         internal_impedance = formula(:default),

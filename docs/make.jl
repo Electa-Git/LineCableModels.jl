@@ -42,7 +42,7 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.materialscale!,
     LineCableModels.Engine.has_uncertainty_type,
     LineCableModels.materialize,
-    LineCableModels.ParametricBuilder.traverse,
+    LineCableModels.Commons.traverse,
     LineCableModels.sample_uncertainty,
     LineCableModels.UIPlot,
     LineCableModels.plotwindow,
