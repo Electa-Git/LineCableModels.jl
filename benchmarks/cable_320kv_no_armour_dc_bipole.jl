@@ -10,9 +10,10 @@ using Measurements, Distributions
 using Statistics: mean, std
 
 ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"], ["dc_behaviour"], ["dc_behaviour", "pscad"], ["dc_behaviour", "pscad", "supplementary"]) ||
+    ARGS in (["uncertainty"], ["uncertainty", "reduced"], ["uncertainty", "frequency_domain"], ["uncertainty", "frequency_domain", "reduced"]) ||
     (length(ARGS) == 4 && ARGS[1:3] == ["dc_behaviour", "pscad", "supplementary"]) ||
     (length(ARGS) >= 5 && ARGS[1:3] == ["dc_behaviour", "pscad", "runs"]) ||
-    error("Usage: julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder>")
+    error("Usage: julia --project=test benchmarks/cable_320kv_no_armour_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder> | uncertainty [frequency_domain] [reduced]")
 run_time_domain = "time_domain" in ARGS
 run_pscad = "pscad" in ARGS
 run_model_settings = ARGS == ["model_settings"]
@@ -156,6 +157,175 @@ correction_status = [
     "pe" => "computed",
     "all" => "computed",
 ]
+
+if !isempty(ARGS) && first(ARGS) == "uncertainty"
+    let
+        reduced = "reduced" in ARGS
+        frequency_domain = "frequency_domain" in ARGS
+        counts = reduced ? (joint = 200, levels = 100, kink = 100, transient = 100) :
+            (joint = 2000, levels = 500, kink = 1000, transient = 500)
+        started = time_ns()
+        timings = NamedTuple[]
+        # Keep the six engineering report frequencies and the lowest DC sample.
+        indices = [1; [only(findall(f -> isapprox(f, target; rtol = 1e-12), frequencies))
+            for target in (1.0, 50.0, 1e3, 1e4, 1e5, 1e6)]]
+        problem = line_parameters_problem(nominal...)
+        phase = compute(problem, formulation)
+        reference = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+        baseline = (; Z = Z(phase)[:, :, indices], Y = Y(phase)[:, :, indices],
+            alpha = alpha(PropagationParameters(reference))[:, indices],
+            velocity = velocity(PropagationParameters(reference))[:, indices],
+            Zc = Zc(reference)[:, indices], Ti = Ti(reference)[:, :, indices])
+        export_data(:json, problem; file_name = joinpath(folder, "problem.json"))
+        save(ObservedResult((; id = nothing, baseline), NamedTuple[], NamedTuple[], (;)),
+            joinpath(folder, "uncertainty_baseline.json"))
+        println("uncertainty run: ", folder)
+        flush(stdout)
+        configurations = [("joint", level, level == 10 ? counts.joint : counts.levels, swept, nothing)
+            for level in (10, 5, 20)]
+        for (study, percent, trials, inputs, fixed_radius) in configurations
+            section_started = time_ns()
+            grids = map(k -> k in inputs ? Grid(nominal[k], (percent / sqrt(3),)) :
+                Grid((nominal[k],)), keys(nominal))
+            space = Gridspace{LineParametersProblem}(line_parameters_problem, grids)
+            for method in (study == "joint" ? (:monte_carlo, :measurements, :central) :
+                    (:monte_carlo, :central))
+                selected = method == :monte_carlo ? MonteCarlo(formulation;
+                    trials, seed = 20261016, distribution = :uniform,
+                    options = (return_samples = true, return_histograms = false)) :
+                    LinearError(formulation; derivative = method)
+                compilation_seconds = 0.0
+                warm_seconds = 0.0
+                for repetition in 1:2
+                    elapsed = @elapsed begin
+                        run = method == :measurements ?
+                            compute(ParametricProblem(space, ComputationOptions((verbosity = (default = 0, progress = 1),))), selected) :
+                            compute(ParametricProblem(space), selected; modal = :default)
+                        # Propagate phase matrices directly and keep modal observables from their composition.
+                        phase_run = method == :central ?
+                            compute(ParametricProblem(space), selected) : nothing
+                    end
+                    if repetition == 1
+                        compilation_seconds = elapsed
+                    else
+                        warm_seconds = elapsed
+                        if method == :monte_carlo
+                            raw = only(samples(run))
+                            products = (; (name => getproperty(raw, name)[:, :, indices, :]
+                                    for name in (:R, :L, :C, :G, :Ti, :Tv))...,
+                                (name => getproperty(raw, name)[:, indices, :]
+                                    for name in (:alpha, :velocity, :Zc))...)
+                            diagnostics = (; failure_summary = only(details(run).data.failure_summary),
+                                mode_assignment = only(details(run).data.mode_assignment),
+                                modal = [(; missed_frequencies = point.data.modal.diagnostics.missed_frequencies,
+                                    fallback_frequencies = point.data.modal.diagnostics.fallback_frequencies)
+                                    for point in only(details(run).data.trials)])
+                            accepted = trial_count(run, 1)
+                        else
+                            result = only(run)
+                            phase_result = method == :central ? only(phase_run) : result
+                            products = (; Z = Z(phase_result)[:, :, indices], Y = Y(phase_result)[:, :, indices])
+                            if method == :central
+                                modal_observables = only(details(run).data.points).data.observables
+                                products = merge(products, (; (name => getproperty(modal_observables, name)[:, indices]
+                                    for name in (:alpha, :velocity, :Zc))...))
+                            end
+                            diagnostics = method == :central ?
+                                (; evaluations = only(details(run).data.points).data.evaluations,
+                                    phase_evaluations = only(details(phase_run).data.points).data.evaluations,
+                                    phase_source = :direct, modal_source = :composition,
+                                    mode_assignment = only(details(run).data.points).data.mode_assignment) :
+                                (; evaluations = 1, phase_source = :direct)
+                            accepted = nothing
+                        end
+                        metadata = (; id = nothing, study, percent, method, trials, accepted,
+                            inputs, fixed_radius, products, diagnostics)
+                        timing = (; compilation_seconds, warm_seconds)
+                        archive = "uncertainty_$(study)_$(percent)_$(method).json"
+                        save(ObservedResult(metadata, NamedTuple[], NamedTuple[], timing), joinpath(folder, archive))
+                        push!(timings, (; study, percent, method, trials, inputs = length(inputs), timing...))
+                        println("uncertainty ", study, " ±", percent, "% ", method,
+                            ": first ", compilation_seconds, " s; warm ", warm_seconds, " s")
+                        flush(stdout)
+                    end
+                end
+                GC.gc()
+            end
+            elapsed = (time_ns() - section_started) / 1e9
+            println("uncertainty ", study, " ±", percent, "% wall ", elapsed, " s")
+            push!(timings, (; study, percent, wall_seconds = elapsed))
+            flush(stdout)
+        end
+        section_started = time_ns()
+        labels = terminal_labels(problem.system)
+        core1 = first(label for label in labels if endswith(label, ":1:core"))
+        bonds = Tuple(TerminalImpedance(label; R = 10.0) for label in labels
+            if endswith(label, ":sheath") || endswith(label, ":armor"))
+        travel_times = nominal.line_length ./ velocity(PropagationParameters(reference))[:, end]
+        tmax = 20minimum(travel_times)
+        window = (tmax = tmax, step = tmax / 4000)
+        sending = (Step(core1, nominal.voltage), bonds...)
+        receiving = ()
+        selected = TransientFormulation(:nlt;
+            options = (line = formulation, N = 4096, Tfactor = 1.25))
+        transient_problem = TransientAnalysisProblem(problem; sending, receiving, window)
+        response = compute(transient_problem, selected)
+        extrema = peak(response, voltage)
+        baseline = (; peak = extrema.value, peak_time = extrema.time,
+            arrival_time = arrival_time(response, voltage))
+        metadata = (; id = nothing, baseline, coordinates = response.coordinates, core1, window,
+            nlt = details(response).data.nlt)
+        save(ObservedResult(metadata, NamedTuple[], NamedTuple[], (;)),
+            joinpath(folder, "uncertainty_transient_baseline.json"))
+        grids = map(k -> k in swept ? Grid(nominal[k], (10 / sqrt(3),)) :
+            Grid((nominal[k],)), keys(nominal))
+        space = Gridspace{LineParametersProblem}(line_parameters_problem, grids)
+        transient_space = TransientAnalysisProblem(space; sending, receiving, window)
+        for method in (frequency_domain ? (:central,) : (:monte_carlo, :central))
+            uq = method == :monte_carlo ? MonteCarlo(selected; trials = counts.transient,
+                seed = 20261016, distribution = :uniform,
+                options = (return_samples = true, return_histograms = false)) :
+                LinearError(selected; derivative = :central)
+            compilation_seconds = 0.0
+            for repetition in 1:2
+                elapsed = @elapsed run = compute(ParametricProblem(transient_space), uq)
+                if repetition == 1
+                    compilation_seconds = elapsed
+                else
+                    products = method == :monte_carlo ? only(samples(run)).kpis.voltage :
+                        only(details(run).data.points).data.observables.kpis.voltage
+                    # The archive keeps trial KPIs. Waveforms remain in memory.
+                    products = products[(:peak, :peak_time, :arrival_time)]
+                    diagnostics = method == :monte_carlo ?
+                        (; accepted = trial_count(run, 1)) :
+                        (; evaluations = only(details(run).data.points).data.evaluations)
+                    metadata = (; id = nothing, study = "transient", percent = 10, method,
+                        trials = counts.transient, products, diagnostics)
+                    timing = (; compilation_seconds, warm_seconds = elapsed)
+                    save(ObservedResult(metadata, NamedTuple[], NamedTuple[], timing),
+                        joinpath(folder, "uncertainty_transient_10_$(method).json"))
+                    push!(timings, (; study = "transient", percent = 10, method,
+                        trials = counts.transient, inputs = length(swept), timing...))
+                    println("uncertainty transient ", method, ": first ", compilation_seconds,
+                        " s; warm ", elapsed, " s")
+                    flush(stdout)
+                end
+            end
+            GC.gc()
+        end
+        elapsed = (time_ns() - section_started) / 1e9
+        push!(timings, (; study = "transient", percent = 10, wall_seconds = elapsed))
+        println("uncertainty transient wall ", elapsed, " s")
+
+        metadata = (; id = nothing, script = splitext(basename(@__FILE__))[1], nominal, swept,
+            counts, reduced, frequency_domain, frequencies = frequencies[indices], indices, seed = 20261016,
+            terminal_order = problem.system.terminal_order, timings,
+            wall_seconds = (time_ns() - started) / 1e9)
+        save(ObservedResult(metadata, NamedTuple[], NamedTuple[], (;)), joinpath(folder, "uncertainty_run.json"))
+        println("uncertainty complete: ", folder)
+    end
+    exit()
+end
 
 if ARGS == ["modal"]
     let

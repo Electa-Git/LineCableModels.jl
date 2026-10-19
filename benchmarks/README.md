@@ -67,17 +67,206 @@ The dielectric and shunt variants apply `insulation_admittance = :lossless` with
 `semicon_admittance = :lossless`, and `shunt_model = :boundary`, respectively, to the
 baseline problem.
 
-The final `uncertainty` section gives the `swept` inputs independent uniform ±10 % distributions
-(`10 / sqrt(3)` % standard uncertainty), with other inputs unchanged.
-Monte Carlo uses 200 successful trials and seed 20261016, with retained diagnostics
-and at most 20 failures, alongside linear error propagation (LEP).
-The KPIs scale the largest entry standard deviation (s) or absolute Monte Carlo
-mean shift (m) by the largest absolute baseline diagonal entry.
-For Z and Y, outputs give band RMS (all, DC, harmonic, narrow), maxima with frequency,
-and LEP/MC ratios of all-band RMS spread.
-The `ranking.txt` file records KPIs, trials, failures and wall times, and
-`uncertainty.json` retains both methods' observations.
-The section dominates a script's run time.
+Without arguments, the original joint uncertainty section follows the sensitivity
+comparisons. It uses 200 uniform trials at ±10 % and Measurements-based LEP.
+Its `uncertainty.json` and `ranking.txt` keep the original matrix comparisons.
+
+Dedicated uncertainty studies cover the 320 kV DC bipoles with and without armour.
+They also cover the 525 kV subsea armoured DC bipole and 380 kV armoured AC line.
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl uncertainty
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl uncertainty reduced
+```
+
+The full study uses 2000 Monte Carlo trials at ±10 % and 500 at ±5 % and ±20 %.
+Each swept input has independent uniform uncertainty, declared with
+`Grid(nominal, (percent / sqrt(3),))`. The seed is 20261016.
+Monte Carlo composes each trial with `modal = :default`.
+
+Both LEP methods compute phase Z/Y directly.
+Central LEP also runs the modal composition for the modal observables.
+Its timing includes both computations.
+
+Central perturbations use the package default of 0.01 times each input standard uncertainty.
+Near a radius transition, a central perturbation can select different branches
+of the builder. Measurements follows the branch selected at the nominal point.
+These methods can give different spreads near the wire-fit limit.
+
+Each method runs once for compilation and once for warm timing.
+The first timing includes computation. Estimated compilation overhead equals the
+first timing minus warm timing, with zero as the lower bound.
+
+The solves use the declared 227 frequencies. Trial archives keep complete ordered
+coefficients at 1 mHz, 1 Hz, 50 Hz, 1 kHz, 10 kHz, 100 kHz and 1 MHz.
+Modal tables use the last six frequencies.
+
+For Monte Carlo, the generator reconstructs phase Z/Y from raw modal R/L/C/G coefficients and paired bases.
+The LEP archives supply phase Z/Y from the direct computation.
+The archives also keep trial attenuation, velocity and surge impedance.
+The generator derives impedance magnitudes and phase travel time for each trial.
+
+Mode assignment uses the nominal reference at each frequency.
+The package matches numerically degenerate reference modes through their cluster spans
+and rotates each assigned basis onto the reference basis.
+Assignment overlaps and permutations have axes `(mode, frequency, trial)` or `(mode, frequency, evaluation)`.
+Reference cluster sizes have axes `(mode, frequency)`.
+The archives keep these records and their full frequency axes.
+
+The diagnostic table gives accepted counts and the minimum overlap across all modes and frequencies.
+It also gives the count and values of clustered frequencies.
+Archives that predate cluster records have empty cluster columns.
+The package conditions modal results on successful mode assignment.
+
+Armoured cases compare the original nominal with a second bedding nominal under
+the ordinary maximum of stack and wire-fit radii. Each comparison uses 1000 trials
+at ±10 % and both LEP methods for phase Z/Y. Central LEP also computes modal
+observables. Each nominal has its own baseline and modal reference.
+
+The CSV records `nominal_id` and `bedding_thickness_m` for each result.
+Each mean shift uses its own nominal value as the reference.
+The LEP/MC ratio compares spreads from the same nominal.
+
+The second design uses 1.05 times the minimum nominal thickness needed to clear
+the wire-fit rule throughout the full ±10 % input support. The minimum uses
+the smallest stack dimensions and `bedding_thickness`, with the largest wire diameter.
+An increase of 5 % over the fit thickness at nominal dimensions does not clear this support.
+The geometry table includes that literal calculation as a diagnostic.
+
+The geometry archive records the nominal clearance above the wire-fit radius.
+It also records minimum clearances over the inner-input and full ±10 % supports.
+Those bounds include the tolerance of `bedding_thickness`. The generator writes these margins to
+`uncertainty_kink_geometry.csv` and `.tex` and the summary.
+A positive minimum means the builder uses the stack radius throughout that support.
+
+The inner-input fixed-radius comparison remains a partial control.
+The builder keyword `armour_wire_centre_radius` defaults to `nothing` for the
+ordinary rule. A supplied radius determines the bedding thickness and fixes
+the armour radius. Infeasible geometry produces a status archive, and the study
+continues with the declared input distribution.
+
+The inner group includes bedding and the material properties of layers under the armour.
+Shared polypropylene properties belong to this group and also affect the jacket.
+The outer group contains armour properties, wire diameter, lay ratio and jacket thickness.
+Both groups also keep ordinary-rule comparisons at the original nominal.
+
+Run only the kink item, with 100 trials per Monte Carlo population, with:
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl uncertainty kink reduced
+```
+
+Without `reduced`, this item uses 1000 trials per population. It skips the other
+tolerance levels and transient computations. The full `uncertainty` command
+includes these revised kink controls.
+
+The three DC cases compute voltage transient KPIs at ±10 % with 500 trials and central LEP.
+A core step uses 10 Ω bonds for sheaths and armour at the source end.
+The remote end is open. NLT uses N = 4096 and Tfactor = 1.25.
+The nominal window is twenty times the fastest modal delay, with 4000 time steps.
+These settings match the prior step study.
+
+The transient archive keeps the remote core peak and its time.
+It also keeps the 10 %-of-peak arrival time and sheath and armour peaks at both ends.
+The sampled time grid can produce zero or discontinuous timing derivatives.
+These results remain visible in the tables.
+
+The `reduced` argument uses 200 trials at ±10 % and 100 for each other comparison.
+Physical and solver settings remain the same. The package `save` API writes JSON.
+`uncertainty_run.json` marks a complete run and records input sets and wall times.
+
+The `frequency_domain` selector runs every configuration except transient Monte Carlo.
+The DC cases keep the transient baseline and central LEP.
+Each invocation writes a new run folder.
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl uncertainty frequency_domain
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl uncertainty frequency_domain reduced
+```
+
+Generate CSV and LaTeX tables from complete run folders:
+
+```sh
+julia --project=test benchmarks/uncertainty_tables.jl <run folder>... <output folder>
+```
+
+To combine a frequency-domain run with archived transient Monte Carlo for the same cable, use:
+
+```sh
+julia --project=test benchmarks/uncertainty_tables.jl <frequency-domain folder> <earlier full folder> <output folder>
+```
+
+Supply at most one frequency-domain folder per cable.
+The generator takes transient trials from the first supplied folder for that cable that contains the Monte Carlo archive.
+The frequency-domain folder supplies the transient baseline and central LEP when present.
+The generator requires equal nominal inputs in the two source declarations.
+The combined output uses the frequency-domain run folder name.
+Other complete runs keep separate output directories.
+
+Rows identify their Monte Carlo, LEP and baseline source folders.
+The text summary and `uncertainty_sources.csv` list the source folders for each table.
+
+Nested trial prefixes use N = 100, 200,
+500, 1000 and 2000, up to the accepted count, plus the complete accepted sample.
+Each prefix uses 2000 percentile bootstrap resamples with seed 20261018 plus N.
+The same trial resample serves every observable.
+
+Tables report signed mean shifts, spread and 95 % intervals in physical units.
+Phase coefficients have real, imaginary and magnitude rows.
+Modal rows give attenuation in dB/km, velocity in m/µs, surge impedance in Ω and travel time in µs.
+For each ratio, bounds equal LEP spread divided by the opposite bounds of the Monte Carlo interval.
+
+Each comparison has a separate class for spread and mean.
+Spread is `equivalent` when the whole ratio interval lies within [0.9, 1.1].
+It is `different` when the whole interval lies below 0.9 or above 1.1.
+An interval that overlaps a bound is `inconclusive`.
+Spread is `insensitive` when Monte Carlo sigma is below 0.1 % of the absolute nominal value or exactly zero.
+Unsupported and nonfinite LEP quantities have separate classes.
+
+The mean has a `mean shift` flag when its interval excludes zero and the absolute
+point shift exceeds 1 % of the absolute nominal value.
+A `within 1%` mean has its whole shift interval within that tolerance.
+Other means are `inconclusive`.
+
+Zero nominal values keep absolute shifts. Intervals are marginal bootstrap estimates.
+The CSV keeps the original combined `agrees` flag.
+The summaries use the separate classes.
+
+The structural-zero threshold is one billionth of the largest complex entry in each Z or Y matrix.
+The test compares magnitudes at the same frequency.
+It applies to the complex entry for all its component rows.
+It preserves small loss components of a substantial complex entry.
+The generator lists structural zeros and excludes them from comparison counts.
+
+Output prefixes `uncertainty`, `uncertainty_kink` and `uncertainty_transient` each
+have CSV and LaTeX tables. Separate CSV files hold timing and diagnostic data.
+The class columns identify self and mutual entries within each cable by conductor pair.
+They also identify entries between cables and modal quantities by mode.
+Transient classes identify the terminal and line end.
+
+The files `uncertainty_classes` and `uncertainty_observable_classes` give CSV and
+LaTeX summaries by physical class, study, nominal and method at the complete sample.
+The latter also separates observables.
+Each summary gives spread counts, mean counts, excluded counts and the warm speed-up.
+Counts include directed entries, cable copies and observable components.
+These counts describe table rows, which can share the same input draws.
+
+The central-to-Measurements ratio in `uncertainty_lep_methods.csv` marks a method difference outside [0.9, 1.1].
+Its support columns identify which method has spread equivalent to Monte Carlo.
+Class totals appear in `uncertainty_lep_method_classes.csv` and `.tex`.
+The file `uncertainty_structural_zeros.csv` lists excluded rows at the complete sample.
+
+The files `uncertainty_kink_effects.csv` and `.tex` give paired changes in Monte
+Carlo means, defined as fixed radius minus ordinary rule. Paired comparisons use
+identical input sets and complete populations with zero rejected trials.
+
+A text summary records the source, wall times and estimated full computation cost.
+Speed-up compares the measured Monte Carlo population with the measured LEP pass.
+A separate estimate scales the time for Monte Carlo to each nested prefix.
+
+Full-run estimates scale the sample cost with trial count.
+LEP evaluation counts remain constant. CSV files keep numeric precision.
+LaTeX uses three significant digits with longtable and booktabs.
 
 `sensitivity_tables.jl` reads the newest complete `ranking.txt` of each script and
 writes LaTeX tables (longtable, booktabs, siunitx) without computing any case:

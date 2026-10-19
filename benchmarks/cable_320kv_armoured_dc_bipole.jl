@@ -10,9 +10,10 @@ using Measurements, Distributions
 using Statistics: mean, std
 
 ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"], ["dc_behaviour"], ["dc_behaviour", "pscad"], ["dc_behaviour", "pscad", "supplementary"]) ||
+    ARGS in (["uncertainty"], ["uncertainty", "reduced"], ["uncertainty", "frequency_domain"], ["uncertainty", "frequency_domain", "reduced"], ["uncertainty", "kink"], ["uncertainty", "kink", "reduced"]) ||
     (length(ARGS) == 4 && ARGS[1:3] == ["dc_behaviour", "pscad", "supplementary"]) ||
     (length(ARGS) >= 5 && ARGS[1:3] == ["dc_behaviour", "pscad", "runs"]) ||
-    error("Usage: julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder>")
+    error("Usage: julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder> | uncertainty [kink | frequency_domain] [reduced]")
 run_time_domain = "time_domain" in ARGS
 run_pscad = "pscad" in ARGS
 run_model_settings = ARGS == ["model_settings"]
@@ -42,7 +43,8 @@ function line_parameters_problem(
         armour_temperature_coefficient, reference_temperature, cable_x_left, cable_x_right,
         cable_y, line_length, voltage, conductor_cross_section, temperature, earth_rho,
         earth_eps_r, earth_mu_r, frequencies,
-        stranded_core, core_diameter, armour_as_tube,
+        stranded_core, core_diameter, armour_as_tube;
+        armour_wire_centre_radius = nothing,
 )
     core = Material(:conductor, core_rho, 1.0, core_mu_r,
         reference_temperature, core_temperature_coefficient)
@@ -86,7 +88,10 @@ function line_parameters_problem(
     end
     armour_wire_radius = armour_wire_diameter / 2
     radius_under_bedding = sheath_outer + inner_sheath_thickness
-    effective_bedding_thickness = armour_as_tube ?
+    # A supplied wire-centre radius fixes the ring and derives the bedding thickness.
+    # The default retains the stack and wire-fit rule.
+    effective_bedding_thickness = armour_wire_centre_radius !== nothing ?
+        armour_wire_centre_radius - armour_wire_radius - radius_under_bedding : armour_as_tube ?
         bedding_thickness : max(bedding_thickness,
             armour_wire_radius / sin(pi / armour_wires) - armour_wire_radius - radius_under_bedding)
     if !iszero(effective_bedding_thickness)
@@ -188,6 +193,242 @@ correction_status = [
     "pe" => "computed",
     "all" => "computed",
 ]
+
+if !isempty(ARGS) && first(ARGS) == "uncertainty"
+    let
+        reduced = "reduced" in ARGS
+        kink_only = "kink" in ARGS
+        frequency_domain = "frequency_domain" in ARGS
+        counts = reduced ? (joint = 200, levels = 100, kink = 100, transient = 100) :
+            (joint = 2000, levels = 500, kink = 1000, transient = 500)
+        started = time_ns()
+        timings = NamedTuple[]
+        # Keep the six engineering report frequencies and the lowest DC sample.
+        indices = [1; [only(findall(f -> isapprox(f, target; rtol = 1e-12), frequencies))
+            for target in (1.0, 50.0, 1e3, 1e4, 1e5, 1e6)]]
+        problem = line_parameters_problem(nominal...)
+        phase = compute(problem, formulation)
+        reference = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+        baseline = (; Z = Z(phase)[:, :, indices], Y = Y(phase)[:, :, indices],
+            alpha = alpha(PropagationParameters(reference))[:, indices],
+            velocity = velocity(PropagationParameters(reference))[:, indices],
+            Zc = Zc(reference)[:, indices], Ti = Ti(reference)[:, :, indices])
+        export_data(:json, problem; file_name = joinpath(folder, "problem.json"))
+        save(ObservedResult((; id = nothing, baseline), NamedTuple[], NamedTuple[], (;)),
+            joinpath(folder, "uncertainty_baseline.json"))
+        println("uncertainty run: ", folder)
+        flush(stdout)
+        radius_under_bedding = 13nominal.strand_diameter / 2 + nominal.inner_semicon_thickness +
+            nominal.insulation_thickness + nominal.outer_semicon_thickness +
+            nominal.water_blocking_thickness + nominal.sheath_thickness + nominal.inner_sheath_thickness
+        nominal_radius = max(radius_under_bedding + nominal.bedding_thickness + nominal.armour_wire_diameter / 2,
+            nominal.armour_wire_diameter / (2sin(pi / nominal.armour_wires)))
+        under_armour = Tuple(input for input in swept if !startswith(string(input), "armour_") &&
+            input != :jacket_thickness)
+        remaining = Tuple(input for input in swept if !(input in under_armour))
+        wire_radius = nominal.armour_wire_diameter / 2
+        wire_fit_radius = wire_radius / sin(pi / nominal.armour_wires)
+        nominal_fit_bedding = max(0.0, wire_fit_radius - wire_radius - radius_under_bedding)
+        literal_bedding = 1.05nominal_fit_bedding
+        support_fit_bedding = max(0.0,
+            (1.1 * (wire_fit_radius - wire_radius) - 0.9radius_under_bedding) / 0.9)
+        off_nominal_bedding = 1.05support_fit_bedding
+        off_nominal = merge(nominal, (; bedding_thickness = off_nominal_bedding))
+        geometry = [(; nominal_id, bedding_thickness = bedding,
+            nominal_margin = radius_under_bedding + bedding + wire_radius - wire_fit_radius,
+            inner_margin = 0.9 * (radius_under_bedding + bedding) + wire_radius - wire_fit_radius,
+            all_margin = 0.9 * (radius_under_bedding + bedding) - 1.1 * (wire_fit_radius - wire_radius))
+            for (nominal_id, bedding) in (("original", nominal.bedding_thickness),
+                ("nominal_fit_plus_5_percent", literal_bedding), ("off_kink", off_nominal_bedding))]
+        save(ObservedResult((; id = nothing, geometry, nominal_fit_bedding, support_fit_bedding),
+            NamedTuple[], NamedTuple[], (;)), joinpath(folder, "uncertainty_kink_geometry.json"))
+        for entry in geometry
+            println("kink geometry ", entry.nominal_id, ": bedding ", 1000entry.bedding_thickness,
+                " mm; nominal/inner/all margins ",
+                1000 .* (entry.nominal_margin, entry.inner_margin, entry.all_margin), " mm")
+        end
+        flush(stdout)
+        off_problem = line_parameters_problem(off_nominal...)
+        off_phase = compute(off_problem, formulation)
+        off_modal = compute(ModalAnalysisProblem(off_phase), ModalAnalysisFormulation(:default))
+        off_baseline = (; Z = Z(off_phase)[:, :, indices], Y = Y(off_phase)[:, :, indices],
+            alpha = alpha(PropagationParameters(off_modal))[:, indices],
+            velocity = velocity(PropagationParameters(off_modal))[:, indices],
+            Zc = Zc(off_modal)[:, indices], Ti = Ti(off_modal)[:, :, indices])
+        save(ObservedResult((; id = nothing, baseline = off_baseline, nominal = off_nominal),
+            NamedTuple[], NamedTuple[], (;)), joinpath(folder, "uncertainty_off_nominal_baseline.json"))
+        configurations = kink_only ? Tuple[] :
+            Tuple[("joint", level, level == 10 ? counts.joint : counts.levels, swept, nothing, nominal)
+                for level in (10, 5, 20)]
+        append!(configurations, [
+            ("kink_all_rule", 10, counts.kink, swept, nothing, nominal),
+            ("kink_all_off_nominal", 10, counts.kink, swept, nothing, off_nominal),
+            ("kink_under_rule", 10, counts.kink, under_armour, nothing, nominal),
+            ("kink_under_fixed", 10, counts.kink, under_armour, nominal_radius, nominal),
+            ("kink_remaining_rule", 10, counts.kink, remaining, nothing, nominal),
+        ])
+        for (study, percent, trials, inputs, fixed_radius, design_nominal) in configurations
+            section_started = time_ns()
+            nominal_id = study == "kink_all_off_nominal" ? "off_kink" : "original"
+            baseline_file = nominal_id == "off_kink" ? "uncertainty_off_nominal_baseline.json" :
+                "uncertainty_baseline.json"
+            grids = map(k -> k in inputs ? Grid(design_nominal[k], (percent / sqrt(3),)) :
+                Grid((design_nominal[k],)), keys(design_nominal))
+            space = Gridspace{LineParametersProblem}((args...) -> line_parameters_problem(args...; armour_wire_centre_radius = fixed_radius), grids)
+            for method in (study in ("joint", "kink_all_rule", "kink_all_off_nominal") ?
+                    (:monte_carlo, :measurements, :central) :
+                    (:monte_carlo, :central))
+                selected = method == :monte_carlo ? MonteCarlo(formulation;
+                    trials, seed = 20261016, distribution = :uniform,
+                    options = (return_samples = true, return_histograms = false)) :
+                    LinearError(formulation; derivative = method)
+                compilation_seconds = 0.0
+                warm_seconds = 0.0
+                try
+                    for repetition in 1:2
+                        elapsed = @elapsed begin
+                            run = method == :measurements ?
+                                compute(ParametricProblem(space, ComputationOptions((verbosity = (default = 0, progress = 1),))), selected) :
+                                compute(ParametricProblem(space), selected; modal = :default)
+                            # Propagate phase matrices directly and keep modal observables from their composition.
+                            phase_run = method == :central ?
+                                compute(ParametricProblem(space), selected) : nothing
+                        end
+                        if repetition == 1
+                            compilation_seconds = elapsed
+                        else
+                            warm_seconds = elapsed
+                            if method == :monte_carlo
+                                raw = only(samples(run))
+                                products = (; (name => getproperty(raw, name)[:, :, indices, :]
+                                        for name in (:R, :L, :C, :G, :Ti, :Tv))...,
+                                    (name => getproperty(raw, name)[:, indices, :]
+                                        for name in (:alpha, :velocity, :Zc))...)
+                                diagnostics = (; failure_summary = only(details(run).data.failure_summary),
+                                    mode_assignment = only(details(run).data.mode_assignment),
+                                    modal = [(; missed_frequencies = point.data.modal.diagnostics.missed_frequencies,
+                                        fallback_frequencies = point.data.modal.diagnostics.fallback_frequencies)
+                                        for point in only(details(run).data.trials)])
+                                accepted = trial_count(run, 1)
+                            else
+                                result = only(run)
+                                phase_result = method == :central ? only(phase_run) : result
+                                products = (; Z = Z(phase_result)[:, :, indices], Y = Y(phase_result)[:, :, indices])
+                                if method == :central
+                                    modal_observables = only(details(run).data.points).data.observables
+                                    products = merge(products, (; (name => getproperty(modal_observables, name)[:, indices]
+                                        for name in (:alpha, :velocity, :Zc))...))
+                                end
+                                diagnostics = method == :central ?
+                                    (; evaluations = only(details(run).data.points).data.evaluations,
+                                        phase_evaluations = only(details(phase_run).data.points).data.evaluations,
+                                        phase_source = :direct, modal_source = :composition,
+                                        mode_assignment = only(details(run).data.points).data.mode_assignment) :
+                                    (; evaluations = 1, phase_source = :direct)
+                                accepted = nothing
+                            end
+                            metadata = (; id = nothing, study, percent, method, trials, accepted,
+                                inputs, fixed_radius, nominal_id, baseline_file,
+                                bedding_thickness = design_nominal.bedding_thickness, products, diagnostics)
+                            timing = (; compilation_seconds, warm_seconds)
+                            archive = "uncertainty_$(study)_$(percent)_$(method).json"
+                            save(ObservedResult(metadata, NamedTuple[], NamedTuple[], timing), joinpath(folder, archive))
+                            push!(timings, (; study, percent, method, trials, inputs = length(inputs), timing...))
+                            println("uncertainty ", study, " ±", percent, "% ", method,
+                                ": first ", compilation_seconds, " s; warm ", warm_seconds, " s")
+                            flush(stdout)
+                        end
+                    end
+                catch exception
+                    cause = exception isa LineCableModels.UQ.PerturbationError ? exception.cause : exception
+                    fixed_radius !== nothing && cause isa DomainError || rethrow()
+                    status = (; id = nothing, study, percent, method, trials, inputs, fixed_radius,
+                        status = "infeasible", message = sprint(showerror, exception))
+                    save(ObservedResult(status, NamedTuple[], NamedTuple[], (;)),
+                        joinpath(folder, "uncertainty_$(study)_$(percent)_$(method)_status.json"))
+                    println("uncertainty ", study, " ", method, ": infeasible: ", sprint(showerror, cause))
+                    flush(stdout)
+                end
+                GC.gc()
+            end
+            elapsed = (time_ns() - section_started) / 1e9
+            println("uncertainty ", study, " ±", percent, "% wall ", elapsed, " s")
+            push!(timings, (; study, percent, wall_seconds = elapsed))
+            flush(stdout)
+        end
+        if !kink_only
+            section_started = time_ns()
+            labels = terminal_labels(problem.system)
+            core1 = first(label for label in labels if endswith(label, ":1:core"))
+            bonds = Tuple(TerminalImpedance(label; R = 10.0) for label in labels
+                if endswith(label, ":sheath") || endswith(label, ":armor"))
+            travel_times = nominal.line_length ./ velocity(PropagationParameters(reference))[:, end]
+            tmax = 20minimum(travel_times)
+            window = (tmax = tmax, step = tmax / 4000)
+            sending = (Step(core1, nominal.voltage), bonds...)
+            receiving = ()
+            selected = TransientFormulation(:nlt;
+                options = (line = formulation, N = 4096, Tfactor = 1.25))
+            transient_problem = TransientAnalysisProblem(problem; sending, receiving, window)
+            response = compute(transient_problem, selected)
+            extrema = peak(response, voltage)
+            baseline = (; peak = extrema.value, peak_time = extrema.time,
+                arrival_time = arrival_time(response, voltage))
+            metadata = (; id = nothing, baseline, coordinates = response.coordinates, core1, window,
+                nlt = details(response).data.nlt)
+            save(ObservedResult(metadata, NamedTuple[], NamedTuple[], (;)),
+                joinpath(folder, "uncertainty_transient_baseline.json"))
+            grids = map(k -> k in swept ? Grid(nominal[k], (10 / sqrt(3),)) :
+                Grid((nominal[k],)), keys(nominal))
+            space = Gridspace{LineParametersProblem}(line_parameters_problem, grids)
+            transient_space = TransientAnalysisProblem(space; sending, receiving, window)
+            for method in (frequency_domain ? (:central,) : (:monte_carlo, :central))
+                uq = method == :monte_carlo ? MonteCarlo(selected; trials = counts.transient,
+                    seed = 20261016, distribution = :uniform,
+                    options = (return_samples = true, return_histograms = false)) :
+                    LinearError(selected; derivative = :central)
+                compilation_seconds = 0.0
+                for repetition in 1:2
+                    elapsed = @elapsed run = compute(ParametricProblem(transient_space), uq)
+                    if repetition == 1
+                        compilation_seconds = elapsed
+                    else
+                        products = method == :monte_carlo ? only(samples(run)).kpis.voltage :
+                            only(details(run).data.points).data.observables.kpis.voltage
+                        # The archive keeps trial KPIs. Waveforms remain in memory.
+                        products = products[(:peak, :peak_time, :arrival_time)]
+                        diagnostics = method == :monte_carlo ?
+                            (; accepted = trial_count(run, 1)) :
+                            (; evaluations = only(details(run).data.points).data.evaluations)
+                        metadata = (; id = nothing, study = "transient", percent = 10, method,
+                            trials = counts.transient, products, diagnostics)
+                        timing = (; compilation_seconds, warm_seconds = elapsed)
+                        save(ObservedResult(metadata, NamedTuple[], NamedTuple[], timing),
+                            joinpath(folder, "uncertainty_transient_10_$(method).json"))
+                        push!(timings, (; study = "transient", percent = 10, method,
+                            trials = counts.transient, inputs = length(swept), timing...))
+                        println("uncertainty transient ", method, ": first ", compilation_seconds,
+                            " s; warm ", elapsed, " s")
+                        flush(stdout)
+                    end
+                end
+                GC.gc()
+            end
+            elapsed = (time_ns() - section_started) / 1e9
+            push!(timings, (; study = "transient", percent = 10, wall_seconds = elapsed))
+            println("uncertainty transient wall ", elapsed, " s")
+
+        end
+
+        metadata = (; id = nothing, script = splitext(basename(@__FILE__))[1], nominal, swept,
+            counts, reduced, kink_only, frequency_domain, off_nominal, geometry, frequencies = frequencies[indices], indices, seed = 20261016,
+            terminal_order = problem.system.terminal_order, timings,
+            wall_seconds = (time_ns() - started) / 1e9)
+        save(ObservedResult(metadata, NamedTuple[], NamedTuple[], (;)), joinpath(folder, "uncertainty_run.json"))
+        println("uncertainty complete: ", folder)
+    end
+    exit()
+end
 
 if ARGS == ["modal"]
     let
