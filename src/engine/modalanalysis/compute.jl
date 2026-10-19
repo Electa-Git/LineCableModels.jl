@@ -15,6 +15,15 @@ function offdiagonal_ratio(matrix::AbstractMatrix)
 end
 
 
+# The modal backend normalizes the computation options of a modal-analysis formulation.
+computation_options(::Type{<:ModalAnalysisFormulation}, record::ComputationOptions) =
+    computation_options(LineCableModelsModal, record)
+
+# A normalized record is returned as it is.
+computation_options(::Type{LineCableModelsModal},
+    record::ComputationOptions{<:NamedTuple{(:offdiagonal_tolerance, :on_result, :timing,
+        :rotate, :verbosity), <:Tuple{Real, Any, Bool, Bool, Any}}}) = record
+
 function computation_options(::Type{LineCableModelsModal}, record::ComputationOptions)::ComputationOptions
     options = record.data
     isempty(setdiff(keys(options), (:rotate, :offdiagonal_tolerance, :on_result, :timing, :verbosity))) ||
@@ -182,10 +191,18 @@ Base.@constprop :aggressive function _modal_completion(parameters, formulation, 
     return _modal_detail_merge(source_record,added)
 end
 
-function compute(::LineCableModelsModal,
-        problem::ModalAnalysisProblem{<:LineParameters{T,U,PhaseDomain,Basis}},
-        formulation::ModalAnalysisFormulation, execution::ComputationOptions) where {T,U,Basis}
-    parameters=problem.parameters
+"""
+$(TYPEDSIGNATURES)
+
+Compute the modal analysis of one point: the modal decomposition of the phase-domain line
+parameters of the problem.
+"""
+function compute(
+        resolved::Resolved{<:ModalAnalysisProblem{<:LineParameters{T,U,PhaseDomain,Basis}}},
+        formulation::ModalAnalysisFormulation;
+        options::Union{NamedTuple,ComputationOptions}=ComputationOptions()) where {T,U,Basis}
+    execution = computation_options(LineCableModelsModal, ComputationOptions(options))
+    parameters=resolved.problem.parameters
     selected = formulation.formula
     workspace = ModalAnalysisWorkspace(parameters, selected)
     decompose!(selected, workspace, formula_parameters(selected),
@@ -227,28 +244,7 @@ function transform(::Type{PhaseDomain}, parameters::LineParameters{T,U,D,Basis})
         retained)
 end
 
-function compute(problem::ModalAnalysisProblem{P}, formulation::ModalAnalysisFormulation;
-        options::Union{NamedTuple,ComputationOptions}=ComputationOptions()) where {P}
-    return compute(LineCableModelsModal(), problem, formulation; options)
-end
-
-function compute(::LineCableModelsModal, problem::ModalAnalysisProblem{P},
-        formulation::ModalAnalysisFormulation;
-        options::Union{NamedTuple,ComputationOptions}=ComputationOptions()) where {P}
-    options = ComputationOptions(options)
-    execution = computation_options(LineCableModelsModal, options)
-    result = if execution.data.timing
-        measured = Base.@timed compute(LineCableModelsModal(),problem,formulation,execution)
-        Engine.retain_gridpoint(measured.value, details(measured.value).data.gridpoint;
-            fields=(timing=(wall_seconds=measured.time, bytes=measured.bytes,
-                gc_seconds=measured.gctime, compile_seconds=measured.compile_time,
-                recompile_seconds=measured.recompile_time),))
-    else
-        compute(LineCableModelsModal(),problem,formulation,execution)
-    end
-    execution.data.on_result === nothing || execution.data.on_result(problem, 1, result)
-    return result
-end
+description(::ModalAnalysisProblem; compact::Bool = false) = "Modal analysis"
 
 function computation_details(::Type{<:ModalAnalysisFormulation}, result::LineParameters)::ComputationDetails
     return details(result)

@@ -531,7 +531,7 @@ backend's constructor. PSCAD defines its own method.
 - Throws `ArgumentError` for an unknown `tag`.
 """
 Formulation(tag::Symbol; kwargs...) = Formulation(Val(tag); kwargs...)
-function Formulation(tag::Union{AbstractGrid, Gridspace}; combine = :product, kwargs...)
+function Formulation(tag::ScalarOrGrid{Symbol}; combine = :product, kwargs...)
     return parameterize(AbstractFormulation, Formulation, (tag,), NamedTuple(kwargs); combine)
 end
 

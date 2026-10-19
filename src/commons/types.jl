@@ -15,6 +15,19 @@ abstract type AbstractFormulation end
 """
 $(TYPEDEF)
 
+Supertype of the higher-order formulations that compute every point of a problem space with
+an `inner` formulation: [`Combinatorial`](@ref), `LinearError` and `MonteCarlo`. Each
+subtype has the fields `inner` and `options` and one type parameter for each. The family
+has one keyword constructor, `T(inner; options, keywords...)`, which merges the keywords
+into `options` and normalizes them with `computation_options(T, options)`. Its positional
+constructor `T(inner, options)` takes normalized options and checks the built formulation
+with `validate`.
+"""
+abstract type AbstractTraversal <: AbstractFormulation end
+
+"""
+$(TYPEDEF)
+
 Supertype of the builders of the user-facing language, such as `insulation`, `wires` and
 `formula`. Each builder is a singleton that returns a `Target`.
 

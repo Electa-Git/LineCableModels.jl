@@ -113,13 +113,13 @@ end
 
     child=PB.Gridspace{Tuple}(tuple, (PB.Grid(10.0, 5.0), PB.Grid(:tag)))
     parent=PB.Gridspace{Tuple}(tuple, (child, PB.Grid((1, 2))))
-    point=first(PB.points(parent))
+    point=first(LineCableModels.points(parent))
     @test point isa LineCableModels.Gridpoint{Tuple}
     @test PB.has_uncertainty(parent)
     @test eltype(parent) === Tuple
     @test Base.IteratorEltype(typeof(parent)) isa Base.EltypeUnknown
     @test PB.has_uncertainty(point)
-    @test PB.materialize(point)[1][1] isa Measurement
+    @test LineCableModels.materialize(point)[1][1] isa Measurement
     arguments=LineCableModels.realize_arguments(MersenneTwister(42), point, :normal)
     draw=LineCableModels.realize(point, arguments)
     @test draw[1][1] isa Float64

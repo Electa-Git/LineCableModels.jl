@@ -359,13 +359,13 @@ Transport every uncertainty-bearing linear-error result into one
 target-bearing downstream problem point while preserving source cardinality
 and order.
 """
-function ParametricBuilder.Gridspace{Target}(
+function Commons.Gridspace{Target}(
         source::LinearErrorResult
 ) where {Target}
-    return ParametricBuilder.Gridspace{Target}(Target, (source,))
+    return Commons.Gridspace{Target}(Target, (source,))
 end
 
-function ParametricBuilder.Gridspace{Target}(
+function Commons.Gridspace{Target}(
         source::MonteCarloResult{T}
 ) where {Target, T}
     target_name = nameof(Target)
@@ -377,10 +377,10 @@ function ParametricBuilder.Gridspace{Target}(
     ))
 end
 
-function ParametricBuilder.Gridspace{Target}(
+function Commons.Gridspace{Target}(
         source::MonteCarloResult{<:Union{Engine.CableConstants,Engine.LineParameters}}
 ) where {Target}
-    return ParametricBuilder.Gridspace{Target}(Target, (source,))
+    return Commons.Gridspace{Target}(Target, (source,))
 end
 
 """

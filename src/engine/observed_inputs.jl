@@ -177,7 +177,6 @@ Associate a completed result with its original gridpoint identity and additional
 captured fields. Built-in results retain their numerical arrays and replace only
 completion details. External result owners may extend this completion operation.
 """
-retain_gridpoint(source, id; fields=(;)) = source
 function retain_gridpoint(source::LineParameters, id; fields=(;))
     retained=completion_details(merge(details(source).data,fields,(gridpoint=id,)))
     return LineParameters(source.domain,source.Z,source.Y,source.f,retained)

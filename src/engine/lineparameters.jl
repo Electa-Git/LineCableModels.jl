@@ -108,239 +108,120 @@ function _finish(
     return completed
 end
 
-function _compute(
-        engine::LineCableModelsCoaxial,
-        problem::LineParametersProblem,
-        formulation::LineParametersFormulation,
-        execution::ComputationOptions,
-        input::NamedTuple,
-        shunt::NamedTuple,
-        physical_inputs::NamedTuple,
-        gridpoint::NamedTuple
-)
-    workspace = LineParametersWorkspace(problem, formulation, execution, input, shunt)
-    _solve!(workspace, formulation)
-    return _finish(workspace, problem, formulation, execution.data.output_basis;
-        physical_inputs, gridpoint)
-end
+"""
+$(TYPEDSIGNATURES)
 
-function _compute(
-        engine::LineCableModelsCoaxial,
-        problem::LineParametersProblem,
-        formulation::LineParametersFormulation,
-        execution::ComputationOptions,
-        timing::Val
-)
-    values = _compute(
-        engine,
-        problem,
-        typeof(formulation)[formulation],
-        execution,
-        timing
-    )
-    return first(values)
-end
-
-function _compute(
-        engine::LineCableModelsCoaxial,
-        problem::LineParametersProblem,
-        formulations::AbstractVector{<:LineParametersFormulation},
-        execution::ComputationOptions,
-        timing::Val
-)
-    isempty(formulations) && throw(ArgumentError(
-        "line-parameter formulation collections cannot be empty",
-    ))
-    progress = verbosity(execution, :progress) > 0
-    started = progress ? time_ns() : UInt64(0)
-    last_log = started
-    previous_completion = started
-    average_seconds = 0.0
-    progress && @info "Line parameters computation started" _group=:progress total=length(formulations)
+Resolve the parts of a line-parameter problem that its coaxial formulations share: the
+blueprints of the designs, the line input and the completed inputs, once per problem, and
+the internal potential coefficients of each formulation, whose blocks are shared where the
+shunt state agrees. Return one `Resolved` per formulation.
+"""
+function resolve(problem::LineParametersProblem,
+        formulations::Union{Tuple{LineParametersFormulation, Vararg{LineParametersFormulation}},
+            AbstractVector{<:LineParametersFormulation}};
+        options)
     maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
         @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
             max_frequency=maximum(problem.frequencies),)
-    physical_inputs = completed_inputs(problem)
-    source_id = Commons.gridpoint_id().source_id
     T = eltype(problem)
     blueprints = CableBlueprint{T}[DataModel.flatten(design, T)
                                    for design in problem.system.designs]
-    input = lineinput(problem, blueprints)
+    line = lineinput(problem, blueprints)
+    physical_inputs = completed_inputs(problem)
     shunts = internal_potential_coefficients(problem.system.designs, blueprints, formulations)
-    values = map(formulations, shunts, eachindex(formulations)) do formulation, shunt, index
-        gridpoint = Commons.gridpoint_id(; source_id, formulation_index=index)
-        # Measure a full scan from workspace creation through the solve and result validation.
-        # Shared input and workspace construction, attachment, callbacks and progress are excluded.
-        value = if timing isa Val{true}
-            measured = Base.@timed _compute(engine, problem, formulation, execution,
-                input, shunt, physical_inputs, gridpoint)
-            retain_gridpoint(measured.value, gridpoint; fields=(timing=(
-                wall_seconds=measured.time, bytes=measured.bytes,
-                gc_seconds=measured.gctime, compile_seconds=measured.compile_time,
-                recompile_seconds=measured.recompile_time),))
-        else
-            _compute(
-            engine,
-            problem,
-            formulation,
-            execution,
-            input,
-            shunt,
-            physical_inputs,
-            gridpoint
-        )
-        end
-        execution.data.on_result === nothing ||
-            execution.data.on_result(problem, index, value)
-        if progress
-            now = time_ns()
-            interval = (now - previous_completion) * 1e-9
-            average_seconds = index == 1 ? interval : 0.2 * interval + 0.8 * average_seconds
-            previous_completion = now
-            if now - last_log >= 5_000_000_000
-                @info "Line parameters progress" _group=:progress completed=index total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-index)*average_seconds/3600
-                last_log = now
-            end
-        end
-        value
-    end
-    progress && @info "Line parameters computation completed successfully" _group=:progress completed=length(values) total=length(formulations) elapsed_seconds=(time_ns()-started)*1e-9
-    return values
+    return map(shunt -> Resolved(problem, (; line, shunt, physical_inputs)), shunts)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Compute line parameters with the coaxial backend and default formulation.
+Compute the line parameters of one point with the coaxial backend: the workspace, the
+frequency loop and the completed result, from what `resolve` shares.
+"""
+function compute(resolved::Resolved{<:LineParametersProblem},
+        formulation::LineParametersFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    execution = computation_options(LineCableModelsCoaxial, ComputationOptions(options))
+    (; problem, input) = resolved
+    workspace = LineParametersWorkspace(problem, formulation, execution, input.line, input.shunt)
+    _solve!(workspace, formulation)
+    return _finish(workspace, problem, formulation, execution.data.output_basis;
+        physical_inputs = input.physical_inputs)
+end
 
-# Arguments
+# The default `resolve` serves a formulation source that mixes backends. Each point then
+# resolves its own input.
+function compute(resolved::Resolved{<:LineParametersProblem, @NamedTuple{}},
+        formulation::LineParametersFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    return compute(only(resolve(resolved.problem, (formulation,); options)), formulation;
+        options)
+end
 
-- `problem`: completed line-parameter problem.
+description(::LineParametersProblem; compact::Bool = false) = "Line parameters"
 
-# Keywords
+"""
+$(TYPEDSIGNATURES)
 
-- `options`: coaxial-backend computation options.
-
-# Returns
-
-- One [`LineParameters`](@ref) result.
+Compute line parameters with the default formulation. See the method with a formulation.
 """
 Base.@constprop :aggressive function compute(
         problem::LineParametersProblem;
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
-    options = ComputationOptions(options)
-    modal===nothing || return compute(problem,Formulation(),
-        ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
-        throw(ArgumentError("modal_options require a modal formulation"))
-    return compute(LineCableModelsCoaxial(), problem, Formulation(); options)
+    return compute(problem, Formulation(); options, modal, modal_options)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Compute frequency-dependent line parameters with the coaxial backend.
+Compute the frequency-dependent line parameters of a problem or a space of problems with a
+formulation or a space of formulations, through [`traverse`](@ref LineCableModels.Commons.traverse).
+The formulation selects the coaxial, FEM or PSCAD backend.
 
-The completed data model supplies the equivalent concentric representation
-used for series impedance and ordinary radial dielectric intervals. Eligible
-open wire and tape domains retain their physical geometry for the explicitly selected
-`shunt_model=:boundary` calculation. The default uses annular geometry. The
-physical system is normalized once into a backend-owned
-workspace, and all reusable numerical storage is allocated before the frequency
-loop. `trace=true` copies `Zin`, `Pin`, `Zg`, `Pg`, `Z`, `P`, `phase_map`,
-`cable_map` and the integration records into `details(result).data.trace`.
-These arrays remain available after the workspace is reused. The result type
-remains unchanged.
+The coaxial backend uses the equivalent concentric representation of the completed data
+model for series impedance and ordinary radial dielectric intervals. Eligible open wire and
+tape domains retain their physical geometry for the explicitly selected
+`shunt_model=:boundary` calculation. The default uses annular geometry. The physical system
+is normalized once into a backend-owned workspace, and all reusable numerical storage is
+allocated before the frequency loop. `trace=true` copies `Zin`, `Pin`, `Zg`, `Pg`, `Z`, `P`,
+`phase_map`, `cable_map` and the integration records into `details(result).data.trace`.
+These arrays remain available after the workspace is reused. The result type remains
+unchanged.
 
 # Arguments
 
-- `problem`: completed line-parameter problem.
-- `formulation`: selected line-parameter physical methods.
+- `problem`: completed line-parameter problem, or a space of them.
+- `formulation`: selected line-parameter physical methods, or a space of them.
 
 # Keywords
 
-- `options`: named tuple containing `verbosity`, `output_basis`, `trace`, and
+- `options`: named tuple containing `verbosity`, `output_basis`, `trace`, `timing` and
   `on_result`. The optional callable `on_result(problem, index, result)` runs
-  synchronously after each completed formulation and
-  before the next computation. `index` is local to the formulation collection
-  (`1` for a scalar call). Its return value is ignored. Exceptions propagate.
-  The callback must not mutate the problem or result. The default is `nothing`.
-  The compute call completes the selected local shunt coefficients after flattening
-  the cable designs, without an additional execution option.
+  synchronously after each completed point and before the next computation. `index` is
+  the point's index in the space (`1` for a scalar call). Its return value is ignored.
+  Exceptions propagate. The callback must not mutate the problem or result. The default is
+  `nothing`.
+- `modal`: a modal-analysis formulation, a space of them or the identifier of one. The
+  result is then the modal analysis of each line-parameter result.
+- `modal_options`: the options of the modal analysis.
 
 # Returns
 
-- One [`LineParameters`](@ref) result.
+- One [`LineParameters`](@ref) result, or a `ParametricResult` of them for a space.
 """
 Base.@constprop :aggressive function compute(
-        problem::LineParametersProblem,
-        formulation::LineParametersFormulation;
+        problem::ScalarOrGrid{LineParametersProblem},
+        formulation::ScalarOrGrid{AbstractFormulation};
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
-    options = ComputationOptions(options)
-    modal===nothing || return compute(problem,formulation,
-        ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
+    modal === nothing ||
+        return compute(problem, formulation, modal; options, modal_options)
+    isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
-    return compute(LineCableModelsCoaxial(), problem, formulation; options)
-end
-
-function compute(
-        problem::LineParametersProblem,
-        formulations::AbstractVector{<:LineParametersFormulation};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
-        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
-)
-    options = ComputationOptions(options)
-    modal===nothing || return compute(problem,formulations,
-        ModalAnalysis.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(modal_options isa NamedTuple ? modal_options : modal_options.data) ||
-        throw(ArgumentError("modal_options require a modal formulation"))
-    return compute(LineCableModelsCoaxial(), problem, formulations; options)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Compute line parameters through an explicit coaxial backend tag.
-
-The tag owns execution dispatch while `formulation.formulas` retains the
-selected physical recipes. Ordinary callers can omit the tag and use the
-two-argument `compute` method.
-"""
-Base.@constprop :aggressive function compute(
-        engine::LineCableModelsCoaxial,
-        problem::LineParametersProblem,
-        formulation::LineParametersFormulation = Formulation();
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
-)
-    options = ComputationOptions(options)
-    execution = computation_options(LineCableModelsCoaxial, options)
-    # Timing changes the retained detail schema. Carry this finite choice through
-    # the caller's dynamically typed logger without widening the default result.
-    timing = execution.data.timing ? Val(true) : Val(false)
-    logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
-    return with_logger(logger) do
-        _compute(engine, problem, formulation, execution, timing)
-    end
-end
-
-Base.@constprop :aggressive function compute(
-        engine::LineCableModelsCoaxial,
-        problem::LineParametersProblem,
-        formulations::AbstractVector{<:LineParametersFormulation};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
-)
-    options = ComputationOptions(options)
-    execution = computation_options(LineCableModelsCoaxial, options)
-    timing = execution.data.timing ? Val(true) : Val(false)
-    logger = VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
-    return with_logger(logger) do
-        _compute(engine, problem, formulations, execution, timing)
-    end
+    return compute(ParametricProblem(problem, ComputationOptions(options)), formulation)
 end
 
 function computation_details(

@@ -11,7 +11,8 @@ when its physical state and numerical controls agree.
 
 - `designs`: completed physical cable designs.
 - `blueprints`: the blueprints of `designs`, in the same order.
-- `formulations`: selected formulations.
+- `formulations`: the selected formulations in a vector or a tuple. A tuple gives a tuple
+  of results.
 
 # Returns
 
@@ -35,6 +36,14 @@ function internal_potential_coefficients(designs::AbstractVector,
             formulations, responses, groups, index)
     end
     return responses
+end
+
+# A tuple of formulations gives a tuple of results.
+function internal_potential_coefficients(designs::AbstractVector,
+        blueprints::AbstractVector{<:CableBlueprint},
+        formulations::Tuple{Vararg{AbstractFormulation, N}}) where {N}
+    responses = internal_potential_coefficients(designs, blueprints, collect(formulations))
+    return ntuple(index -> responses[index], Val(N))
 end
 
 # Complete the internal capacitances of the formulation at `index` for every design. Each

@@ -95,8 +95,9 @@
         @test Z(reused) == Z(first_result)
         @test Y(reused) == Y(first_result)
         @test details(reused).data.execution.reused
-        @test isempty(details(reused).data.timing)
-        @test details(first_result).data.timing.compile_call_seconds == 3.25
+        # A point that reuses a native run is timed like any point.
+        @test keys(details(reused).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+        @test details(first_result).data.execution.compile_call_seconds == 3.25
         @test details(first_result).data.timing.wall_seconds >= 0
         @test !haskey(details(reused).data.execution, :elapsed_seconds)
         @test details(reused).data.formulations.requested.earth_impedance.identifier === :pollaczek1926
@@ -115,7 +116,7 @@
         callback_log=Test.TestLogger()
         batch=with_logger(callback_log) do
             compute(problem,
-                [Formulation(:pscad), Formulation(:pscad; earth_impedance = :pollaczek1926)];
+                Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = :pollaczek1926)));
                 options = (;
                     options..., on_result = (problem, index, result)->begin
                         push!(callbacks, index)
@@ -133,10 +134,11 @@
             details(batch[2]).data.native_setting.interactions.earth_impedance)
         @test Z(batch[1]) == Z(batch[2])
         @test Z(batch[1]) !== Z(batch[2])
-        @test isempty(details(batch[2]).data.timing)
+        @test keys(details(batch[2]).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
         homogeneous_choices = (air = :default, earth = :default, mixed = :default)
         represented = compute(problem,
-            [Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)]; options)
+            Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)));
+            options)
         @test launches[] == 1
         @test details(represented[1]).data.formulations.requested.earth_impedance.identifier === :default
         @test map(record -> record.identifier,details(represented[2]).data.formulations.requested.earth_impedance) == homogeneous_choices
@@ -193,7 +195,7 @@
         # Distinct physical settings in one batch require distinct native runs.
         before = launches[]
         heterogeneous = compute(problem,
-            [Formulation(:pscad), Formulation(:pscad; earth_impedance = :saad1996)];
+            Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = :saad1996)));
             options = (; remote))
         @test launches[] == before + 2
         @test !details(heterogeneous[1]).data.execution.reused
@@ -203,14 +205,15 @@
         # The first cache entry may be reused while a later selection is fresh.
         before = launches[]
         source_root = dirname(details(first(heterogeneous)).data.execution.source_run)
-        mixed = compute(problem, [Formulation(:pscad),
-            Formulation(:pscad; options=(base_frequency=55.0,))]; options=(;
+        mixed = compute(problem, Grid((Formulation(:pscad),
+            Formulation(:pscad; options=(base_frequency=55.0,)))); options=(;
                 remote, work_root=source_root, timing=true, resume_run_directory=:latest))
         @test launches[] == before + 1
         @test details(first(mixed)).data.execution.reused
-        @test isempty(details(first(mixed)).data.timing)
+        @test keys(details(first(mixed)).data.timing) ==
+              (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
         @test !details(last(mixed)).data.execution.reused
-        @test details(last(mixed)).data.timing.compile_call_seconds == 3.25
+        @test details(last(mixed)).data.execution.compile_call_seconds == 3.25
         @test typeof(first(mixed)) === typeof(last(mixed))
     finally
         rm(directory; recursive = true)

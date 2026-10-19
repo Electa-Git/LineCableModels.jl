@@ -548,6 +548,76 @@ The first method types its `material` as a `ScalarOrGrid` of materials, so that 
 `shape` value passed on never reaches it again. A mixed or empty source of shapes keeps the default,
 `AbstractCablePart`.
 
+## Running a computation
+
+Every call `compute(problem, formulation; options)`, scalar or space, computes
+`ParametricProblem(problem, options)`, which runs through one runner in `Commons`,
+`traverse`. It takes a problem and a formulation, each a `ScalarOrGrid`, and computes the
+Cartesian product of their points:
+
+1. It materializes and validates the problems and the formulations before the first point,
+   and the owner of the formulations normalizes the options once, with
+   `computation_options(F, options)` for their element type `F`.
+2. Problem by problem, it calls `resolve(problem, formulations; options)` once.
+3. For each formulation it calls the backend's point method,
+   `compute(resolved, formulation; options)`, on the `Resolved` value of that formulation.
+4. A scalar problem and a scalar formulation are a run of one point, which returns its value.
+   Any other call returns a `ParametricResult`, its values in space order, the problem index
+   fastest.
+
+The runner writes the work around the points once. It logs the run and its progress with
+the action that `description(problem)` returns. It attaches the `timing` record and the
+gridpoint to each value, and it calls `on_result(problem, index, value)` with the position
+of the point in the space as `index`. The backends leave this work to the runner.
+
+A backend adds two methods. Its point method computes one point from a `Resolved` value,
+which holds the problem and what one formulation needs from it:
+
+```julia
+function compute(resolved::Resolved{<:LineParametersProblem},
+        formulation::LineParametersFormulation; options)
+    execution = computation_options(LineCableModelsCoaxial, ComputationOptions(options))
+    (; problem, input) = resolved
+    workspace = LineParametersWorkspace(problem, formulation, execution, input.line, input.shunt)
+    ...
+end
+```
+
+Its `resolve` method shares the work that the formulations of one problem need equally. The
+coaxial backend flattens the designs and builds the line input once per problem, and
+completes the internal potential coefficients of every formulation together:
+
+```julia
+function resolve(problem::LineParametersProblem,
+        formulations::Union{Tuple{Vararg{LineParametersFormulation}},
+            AbstractVector{<:LineParametersFormulation}}; options)
+    ...
+    return map(shunt -> Resolved(problem, (; line, shunt, physical_inputs)), shunts)
+end
+```
+
+A tuple of formulations gives a tuple of `Resolved` values, which a scalar call keeps
+without a vector. Without a `resolve` method, a backend gives each formulation
+`Resolved(problem, (;))`. PSCAD and FEM share a table of their native runs by the content
+keys of their inputs. A point whose run is not in the table launches it, and a later point
+with the same native input reuses it. Each point completes its result for its own
+formulation.
+
+A higher-order formulation, such as `LinearError` or `MonteCarlo`, subtypes
+`AbstractTraversal`. It has the fields `inner` and `options` and one inner constructor,
+which validates what it builds:
+
+```julia
+LinearError(inner::F, options::O) where {F <: AbstractFormulation, O <: ComputationOptions} =
+    validate(new{F, O}(inner, options))
+```
+
+The family's keyword constructor, `T(inner; options, keywords...)`, normalizes the options
+with `computation_options(T, options)`, which admits `retain_details` unless the type adds
+its own method, as `MonteCarlo` does. Its method `compute(problem::ParametricProblem,
+formulation)` calls `traverse` on the problem's space and builds its own result from the
+returned `(; values, details, axes)`.
+
 ## Developer paths
 
 - [Extension API](extensions.md) lists the equation methods and definition types omitted

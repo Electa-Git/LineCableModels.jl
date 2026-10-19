@@ -136,9 +136,9 @@ end
     @test problem_space isa Gridspace{LineParametersProblem}
     @test length(problem_space) == 2
 
-    point=first(PB.points(problem_space))
+    point=first(LineCableModels.points(problem_space))
     @test point isa LineCableModels.Gridpoint{LineParametersProblem}
-    result=compute(point, Formulation())
+    result=compute(LineCableModels.materialize(point), Formulation())
     @test result isa LineParameters
     @test size(result.Z) == (3, 3, 1)
     @test size(result.Y) == (3, 3, 1)

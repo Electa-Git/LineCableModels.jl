@@ -32,15 +32,13 @@ import ..Commons: compute, computation_options, computation_details, details,
                   observation_indices, observation_resolution, observation_request,
                   initialize_buffers
 using ..Commons: request_quantity
-import ..ParametricBuilder
-import ..ParametricBuilder: traverse
 import ..Units
 import ..TextDisplay
 using ..Commons:
-                 AbstractFormulation, AbstractUncertaintyResult,
+                 AbstractProblemDefinition, AbstractFormulation, AbstractTraversal,
+                 AbstractUncertaintyResult, Grid, Gridspace,
                  ComputationOptions, ComputationDetails
-using ..ParametricBuilder:
-                           ParametricProblem
+using ..LineCableModels: ParametricProblem, Combinatorial, traverse
 
 include("formulations.jl")
 include("statistics.jl")

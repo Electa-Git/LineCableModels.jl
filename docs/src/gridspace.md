@@ -273,8 +273,9 @@ run = compute(problem_space, formulation_space; options=(;))
 run = compute(ParametricProblem(problem_space, ComputationOptions(options)), formulation_space)
 ```
 
-The result is a `ParametricResult` in all three cases. A scalar problem forms
-a singleton problem axis. `options` belong to the core computations. An
+The result is a `ParametricResult` in all three cases: the first two calls compute the
+`ParametricProblem` of their problem and `options`, as the third does. A scalar problem
+forms a singleton problem axis. `options` belong to the core computations. An
 existing `ParametricProblem` retains its stored options. For traversal settings
 such as retaining supplemental details, select `Combinatorial` explicitly:
 
@@ -285,16 +286,17 @@ run = compute(ParametricProblem(problem_space, ComputationOptions(options)),
 
 `Combinatorial` accepts one completed formulation, a deterministic
 target-bearing formulation `Gridspace`, or a deterministic `Grid` containing
-completed formulations. Formulation points are resolved once. Traversal then
-materializes each selected problem exactly once and gives the complete
-formulation vector to `compute`:
+completed formulations. The runner, `traverse`, materializes and validates every
+problem and formulation before the first point, then computes problem by problem:
 
 ```text
-resolve every formulation point once
+materialize and validate every problem and formulation
 
-for each `Gridpoint{Problem}`
-    materialize the scalar problem once
-    compute(problem, resolved_formulations)
+for each problem
+    resolve(problem, formulations; options)      # once per problem
+    for each formulation
+        compute(resolved, formulation; options)  # one point
+    end
 end
 ```
 
@@ -303,15 +305,15 @@ constructor remains local to that formulation: `combine=:product` or
 `combine=:zip` determines its formulation points, while the outer
 problem-formulation relation is always Cartesian.
 
-The generic vector `compute` method delegates to established scalar dispatch.
-Owners may specialize that vector method to share immutable lowering work. The
-Coaxial line-parameter path flattens every selected design once per problem
-point, constructs its formulation-independent local input once,
-then allocates and solves one independent workspace per formulation. The
-cable-constant path independently follows the same one-flatten rule. Mutable
-matrices, formula-dependent earth data, reduction maps, and diagnostic storage
-belong to each workspace. Modal transformation does not need special lowering and uses the
-generic route on the same phase-domain matrices.
+`resolve` shares the work that the formulations of one problem need equally. The
+coaxial line-parameter path flattens every selected design once per problem,
+constructs its formulation-independent line input once, and completes the internal
+potential coefficients of every formulation together. Each point then allocates and
+solves one independent workspace. The cable-constant path follows the same
+one-flatten rule. Mutable matrices, formula-dependent earth data, reduction maps,
+and diagnostic storage belong to each workspace. Modal analysis uses the default `resolve`.
+PSCAD and FEM share one table of native runs per problem, so a later point with the
+same native input reuses the run that an earlier point launched.
 
 `ParametricResult` retains both axes:
 
@@ -331,13 +333,13 @@ Direct linear propagation uses the same traversal. The Measurements extension
 changes only how an uncertain descriptor materializes. `LinearErrorResult`
 stores only its formulation and ordered core results.
 
-ParametricBuilder defines this shared traversal as the qualified `traverse`
-method. It computes the first problem-formulation batch, allocates a vector of
-that exact result type with the analytic Cartesian cardinality and rejects any
-later type change. Optional detail records follow the same rule and are
-resolved through each scalar formulation's computation owner. `Combinatorial`
-constructs its result space from `values`, `axes` and `details`. `LinearError`
-uses one scalar formulation and consumes `values` and `details`.
+`traverse` computes the first point and allocates a vector of that exact result type
+with the analytic Cartesian cardinality. It writes every later value at its index in
+the space. A scalar problem and a scalar formulation are a run of one point, and
+`compute` returns its value. Optional detail records are resolved through each
+formulation's computation owner. `Combinatorial` keeps its result space as `values`,
+`axes` and `details`. `LinearError` uses one scalar formulation and consumes
+`values` and `details`.
 
 Monte Carlo selects each outer point once and derives a deterministic seed for that point. It repeatedly realizes the same point:
 

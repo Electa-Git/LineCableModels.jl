@@ -15,8 +15,8 @@
     struct TransportFormulation <: Commons.AbstractFormulation end
 
     values=TransportResult[TransportResult(1.0), TransportResult(2.0)]
-    combinatorial=PB.Combinatorial(TransportFormulation())
-    source=PB.ParametricResult(combinatorial, values)
+    combinatorial=Commons.Combinatorial(TransportFormulation())
+    source=Commons.ParametricResult(combinatorial, values)
     transported=PB.Gridspace{DownstreamProblem}(source)
 
     @test transported.grids === (source,)
@@ -32,7 +32,7 @@
     @test uncertain_transport.grids === (linear,)
     @test collect(uncertain_transport) == DownstreamProblem.(values)
 
-    unsupported=PB.ParametricResult(TransportFormulation(), values)
+    unsupported=Commons.ParametricResult(TransportFormulation(), values)
     error=try
         PB.Gridspace{DownstreamProblem}(unsupported)
         nothing

@@ -9,7 +9,6 @@ module PSCAD
 using Base64: base64encode
 using SHA: sha256
 import TOML
-import Logging
 using LineCableModels
 using LineCableModels.DataModel: LineCableSystem
 using LineCableModels.Earth: EarthModel
@@ -26,7 +25,8 @@ import LineCableModels.Engine: Formulation,
                                LineParametersProblem
 import LineCableModels.Commons: AbstractFormulation, ComputationOptions, ComputationDetails,
                                 FormulationOptions, computation_options, compute,
-                                formulation_options, gridpoint_id
+                                formulation_options, gridpoint_id, resolve
+using LineCableModels.Commons: Resolved
 using DocStringExtensions: TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 import LineCableModels: constitutive
 import LineCableModels.DataModel

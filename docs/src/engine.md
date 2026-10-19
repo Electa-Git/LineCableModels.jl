@@ -1151,10 +1151,12 @@ and sampler types. Access payload fields through `.data`. Implicit conversions a
 arrays are not copied or frozen. Nested numerical groups, physical parameters,
 scientific products, axes and plotting attributes remain ordinary named tuples.
 
-`Combinatorial`, `LinearError` and `MonteCarlo` normalize their own execution
-options inside their constructors, including positional construction.
+`Combinatorial`, `LinearError` and `MonteCarlo` form the `AbstractTraversal` family. Its
+one keyword constructor, `T(inner; options, keywords...)`, normalizes the execution options
+with `computation_options(T, options)`. The positional constructor `T(inner, options)` takes
+normalized options and rejects any other record.
 The complete set of Monte Carlo controls is stored in `MonteCarlo.options` and passes through
-`computation_options(MonteCarlo, options)`. Keyword shorthand remains available:
+`computation_options(MonteCarlo, options)`. A keyword sets the option of the same name:
 
 ```julia
 MonteCarlo(formulation; options=(trials=100, seed=42, retain_details=true))
@@ -1183,37 +1185,34 @@ scan = details(result).data.timing
 ```
 
 For a higher-order computation, keep these controls in
-`ParametricProblem(problem_space, execution)`. Cable-constant computations and
-modal actions retain their existing option handling.
+`ParametricProblem(problem_space, execution)`. Cable-constant computations accept no
+computation options.
 
-One measurement describes one materialized problem and formulation over the
-complete requested frequency vector. The owned backend uses `Base.@timed` around
-its existing workspace construction, solve, and validated result construction.
-Batch-shared input construction, timing attachment, `on_result`, and subsequent
-progress logging lie outside the measured expression. 3 executed formulations produce
-three measurements. Shared input construction is neither duplicated nor apportioned.
-Compilation that occurs before the measured expression begins is not included.
+Each measurement describes one point, which is one materialized problem and formulation
+over the complete requested frequency vector. The runner uses `Base.@timed` around the
+backend's point method, for every backend. The shared work that `resolve` does once
+per problem, timing attachment, `on_result`, and progress logging lie outside the
+measured expression. 3 executed formulations produce three measurements. Shared input
+construction is neither duplicated nor apportioned. Compilation that occurs before
+the measured expression begins is not included.
 
-| Backend | Fields in `details(result).data.timing` |
-|---|---|
-| Owned | `wall_seconds`, `bytes`, `gc_seconds`, `compile_seconds`, `recompile_seconds` |
-| FEM | `wall_seconds`, `constraint_seconds`, `assembly_seconds`, `solve_seconds`, `output_seconds`, `worker_wall_seconds` |
-| PSCAD | `wall_seconds`, `compile_call_seconds` |
+`details(result).data.timing` holds `wall_seconds`, `bytes`, `gc_seconds`,
+`compile_seconds` and `recompile_seconds`. All durations are in seconds. `bytes` is
+Julia allocation volume, not retained size or peak memory, and does not describe
+native memory use. A point that reuses a native run is timed like any other point.
+With `timing=false`, the field is absent.
 
-All durations are in seconds. `bytes` is Julia allocation volume, not retained
-size or peak memory. Native `wall_seconds` covers caller-side execution and
-completed result construction after shared input construction. FEM phase durations sum
-the existing native column measurements. `worker_wall_seconds` sums newly
-executed process durations, not elapsed scan time. PSCAD `compile_call_seconds`
-measures the worker's `line.compile()` call and excludes output-readiness waiting.
-Caller Julia allocation measurements do not describe native memory use in either backend.
-
-Fully reused, partially recovered, and within-batch reused results have empty
-timing records `(;)`. A fresh complete scan retains available measurements and
-uses `nothing` for unavailable optional native metrics. With `timing=false`, the
-field is absent. Required native timing files and recovery checks remain active.
-FEM records reuse, recovery and factorization facts in `details(result).data.fem.run`.
-PSCAD execution facts remain in `details(result).data.execution`.
+The native backends record their own durations in their run records. FEM records the
+native phase durations of a run in `details(result).data.fem.run.durations`:
+`constraint_seconds`, `assembly_seconds`, `solve_seconds`, `output_seconds` and
+`worker_wall_seconds`. The phase durations sum the native column measurements, and
+`worker_wall_seconds` sums newly executed process durations, not elapsed scan time. A
+reused or partially recovered run has empty durations `(;)`, and an unavailable
+optional native metric is `nothing`. FEM records reuse, recovery and factorization
+facts in `details(result).data.fem.run`. PSCAD records its execution facts in
+`details(result).data.execution`, among them `compile_call_seconds`, which measures
+the worker's `line.compile()` call and excludes output-readiness waiting, and
+`reused`. Required native timing files and recovery checks remain active.
 
 Parametric and linear-error results keep measurements in their scalar values.
 Monte Carlo retains one record per accepted and stored trial at
@@ -1354,8 +1353,10 @@ Other exception types always propagate immediately.
 ## Extending the engine
 
 An external package may own a backend identity and a separate formulation
-type. The backend's `compute` method normalizes execution options before doing
-work:
+type. The backend's point method, `compute` on the `Resolved` value of one problem
+and one formulation, normalizes execution options before doing work. A call
+`compute(problem, formulation; options)` reaches it through the runner, `traverse`,
+which adds the timing record, progress and `on_result`:
 
 ```julia
 import LineCableModels:
@@ -1367,7 +1368,8 @@ import LineCableModels:
     computation_details,
     computation_options,
     compute,
-    formulation_options
+    formulation_options,
+    Resolved
 
 struct ExternalEngine end
 
@@ -1402,14 +1404,12 @@ function computation_options(
 end
 
 function compute(
-    ::ExternalEngine,
-    problem,
+    resolved::Resolved,
     formulation::ExternalFormulation;
     options::Union{NamedTuple,ComputationOptions} = ComputationOptions(),
 )
-    options = options isa NamedTuple ? ComputationOptions(options) : options
-    execution = computation_options(ExternalEngine, options)
-    # Use `problem`, `formulation`, and `execution` here.
+    execution = computation_options(ExternalEngine, ComputationOptions(options))
+    # Use `resolved.problem`, `formulation`, and `execution` here.
 end
 ```
 
@@ -1445,8 +1445,8 @@ owned direct results. It is not an admission requirement for external result
 payloads.
 
 The outer keys and their types are fixed for `ExternalFormulation`. Dynamic
-vendor channels remain inside the explicit `raw` leaf. ParametricBuilder and
-UQ collect these records when `retain_details=true`, preserving the fields
+vendor channels remain inside the explicit `raw` leaf. The runner and UQ
+collect these records when `retain_details=true`, preserving the fields
 provided by the backend.
 
 ## Reports and XLSX output

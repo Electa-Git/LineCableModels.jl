@@ -8,8 +8,8 @@
     invalid = (unsupported=true,)
     pending = ParametricProblem(space, ComputationOptions(invalid))
     @test pending.options.data === invalid
-    @test_throws ArgumentError compute(point, inner; options=invalid)
-    @test_throws ArgumentError compute(problem, [inner, inner]; options=invalid)
+    @test_throws ArgumentError compute(LineCableModels.materialize(point), inner; options=invalid)
+    @test_throws ArgumentError compute(problem, Grid((inner, inner)); options=invalid)
     formulas = Gridspace{CableConstantsFormulation}(identity, (Grid((inner,)),))
     @test_throws ArgumentError compute(space, formulas; options=invalid)
     for outer in (Combinatorial(inner), LinearError(inner),
@@ -38,11 +38,12 @@ end
     execution = LineCableModels.computation_options(LineCableModelsCoaxial, ComputationOptions(options))
     @test execution.data.on_result === callback
     @test fieldtype(typeof(execution.data), :on_result) === typeof(callback)
-    batch = compute(problem, [inner, inner]; options)
+    batch = compute(problem, Grid((inner, inner)); options)
     @test calls == [1, 2]
     @test all(value -> basis(value) === LineCableModels.Units.TotalLength(), batch)
     empty!(calls)
-    value = compute(first(LineCableModels.points(space)), inner; options)
+    value = compute(LineCableModels.materialize(first(LineCableModels.points(space))), inner;
+        options)
     @test calls == [1]
     @test basis(value) === LineCableModels.Units.TotalLength()
     for (outer, count) in ((Combinatorial(inner), 1), (LinearError(inner), 1),
@@ -77,7 +78,7 @@ end
         @test haskey(details(result).data, :timing)
         error("injected callback failure")
     end
-    for choice in (selected, [selected, selected])
+    for choice in (selected, Grid((selected, selected)))
         empty!(calls)
         empty!(failure_log.logs)
         with_logger(failure_log) do
@@ -90,7 +91,7 @@ end
     completed_callback = (_, index, result) -> (@info "callback completed" index)
     log = Test.TestLogger()
     with_logger(log) do
-        result = compute(ordinary, [selected, selected];
+        result = compute(ordinary, Grid((selected, selected));
             options=(on_result=completed_callback, verbosity=(default=1,)))
         @test length(result) == 2
     end

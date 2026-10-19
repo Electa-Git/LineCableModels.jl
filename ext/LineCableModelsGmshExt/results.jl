@@ -325,12 +325,20 @@ function _line_parameters(
     timing_path = joinpath(run.path, "timing-summary.json")
     native_timing = isfile(timing_path) ? JSON3.read(read(timing_path, String), NamedTuple) : (;)
     recovered_columns = get(native_timing, :recovered_columns, 0)
+    # The native durations of the run, which a reused or recovered run did not spend.
+    durations = reused || recovered_columns > 0 ? (;) : (
+        constraint_seconds=get(native_timing, :constraint_seconds, nothing),
+        assembly_seconds=get(native_timing, :assembly_seconds, nothing),
+        solve_seconds=get(native_timing, :solve_seconds, nothing),
+        output_seconds=get(native_timing, :output_seconds, nothing),
+        worker_wall_seconds=get(native_timing, :worker_wall_seconds, nothing))
     record = (
         state=completed,
         reused,
         recovered_columns,
         columns=get(native_timing, :columns, nothing),
         factorized_columns=get(native_timing, :factorized_columns, nothing),
+        durations,
         run_directory=keep_run ? run.path : nothing,
         mesh_source=run.mesh_source,
         mesh_fingerprint=run.mesh_fingerprint,
@@ -368,15 +376,6 @@ function _line_parameters(
         primitive = trace
     ),
     )
-    if execution.data.timing
-        timing = reused || recovered_columns > 0 ? (;) : (
-            constraint_seconds=get(native_timing, :constraint_seconds, nothing),
-            assembly_seconds=get(native_timing, :assembly_seconds, nothing),
-            solve_seconds=get(native_timing, :solve_seconds, nothing),
-            output_seconds=get(native_timing, :output_seconds, nothing),
-            worker_wall_seconds=get(native_timing, :worker_wall_seconds, nothing))
-        details = Engine.completion_details(merge(details.data, (; timing)))
-    end
     parameters = LineParameters(
         PhaseDomain,
         SeriesImpedance(Z),

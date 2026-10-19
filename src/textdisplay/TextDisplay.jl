@@ -6,6 +6,7 @@ import ..Units
 import ..LineCableModels: FormulaDefinition
 import ..LineCableModels: UncertainValue, AbsoluteError, DeterministicGrid, RelativeGrid,
     AbsoluteGrid, Gridspace
+import ..LineCableModels: Combinatorial, ParametricProblem, ParametricResult
 
 """
 Return the explicitly declared semantic display name for an owned type.
@@ -397,6 +398,46 @@ name(::Type{<:DeterministicGrid}) = "Grid"
 name(::Type{<:RelativeGrid}) = "Relative-error Grid"
 name(::Type{<:AbsoluteGrid}) = "Absolute-error Grid"
 name(::Type{<:Gridspace{Target}}) where {Target} = string(name(Target), " parameter space")
+
+name(::Type{<:Combinatorial}) = "Combinatorial"
+Base.summary(io::IO, ::Combinatorial) = print(io, "Combinatorial formulation")
+function Base.show(io::IO, formulation::Combinatorial)
+    print(io, "Combinatorial(")
+    show(IOContext(io, :compact => true), formulation.inner)
+    print(io, ")")
+end
+Base.show(io::IO, ::MIME"text/plain", formulation::Combinatorial) = show(io, formulation)
+
+name(::Type{<:ParametricProblem}) = "ParametricProblem"
+Base.summary(io::IO, ::ParametricProblem) = print(io, "Parametric problem")
+function Base.show(io::IO, problem::ParametricProblem)
+    print(io, "ParametricProblem(")
+    show(IOContext(io, :compact => true), problem.space)
+    print(io, ")")
+end
+function Base.show(io::IO, ::MIME"text/plain", problem::ParametricProblem)
+    get(io, :compact, false) && return show(io, problem)
+    return tree(io, "ParametricProblem", (
+        (label = "space    $(sprint(show, problem.space; context = :compact => true))", noun = "fields"),
+        (label = "options  $(length(problem.options.data)) entries", noun = "fields"),
+    ))
+end
+
+name(::Type{<:ParametricResult}) = "ParametricResult"
+function Base.summary(io::IO, result::ParametricResult)
+    print(io, "Parametric result with $(length(result)) values")
+end
+function Base.show(io::IO, result::ParametricResult)
+    print(io, "ParametricResult($(length(result)) values)")
+end
+function Base.show(io::IO, ::MIME"text/plain", result::ParametricResult)
+    get(io, :compact, false) && return show(io, result)
+    value_type = isempty(result.values) ? "none" : String(nameof(eltype(result.values)))
+    return tree(io, "ParametricResult · $(length(result)) values", (
+        (label = "result type  $value_type", noun = "fields"),
+        (label = "details      $(length(result.details.data)) entries", noun = "fields"),
+    ))
+end
 function Base.summary(io::IO, ::FormulaDefinition{ID}) where {ID}
     print(io, "Formula definition :", ID)
 end

@@ -22,7 +22,6 @@
 "PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 1
 "PSCAD | ImportExport.export_data | src/pscad/importexport/pscad.jl" = 1
 "PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
-"ParametricBuilder | Commons.compute | src/parametricbuilder/traversal.jl" = 4
 "UQ | Commons.materialize | src/uq/results.jl" = 2
 
 [placement]
@@ -72,9 +71,11 @@
 "ext/LineCableModelsMeasurementsExt.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
+"src/commons/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/commons/observables.jl" = { applicable = 1, eval = 0, isa = 25, kind = 0 }
 "src/commons/observed_validation.jl" = { applicable = 0, eval = 0, isa = 41, kind = 13 }
 "src/commons/observedresult.jl" = { applicable = 0, eval = 0, isa = 28, kind = 9 }
+"src/commons/parametric.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/commons/retained_products.jl" = { applicable = 0, eval = 0, isa = 2, kind = 10 }
 "src/commons/selections.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/datamodel/design/cabledesign.jl" = { applicable = 0, eval = 0, isa = 3, kind = 4 }
@@ -95,7 +96,7 @@
 "src/engine/insulationimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/integration.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/engine/internalimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/engine/lineparameters.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
+"src/engine/lineparameters.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/lineparameters/base.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/lineparameters/benchmark.jl" = { applicable = 0, eval = 0, isa = 16, kind = 0 }
 "src/engine/lineparameters/lineparameters.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
@@ -122,10 +123,8 @@
 "src/importexport/observed.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/importexport/problem.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/importexport/uncertainty.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
-"src/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
-"src/parametricbuilder/results.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
 "src/performance.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
@@ -142,9 +141,8 @@
 "src/reportbuilder/textdisplay.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/textdisplay/TextDisplay.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/uq/comparisons.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
-"src/uq/formulations.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
-"src/uq/linearerror.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/uq/montecarlo/compute.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
+"src/uq/formulations.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
+"src/uq/montecarlo/compute.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/uq/observations.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/uq/observedresult.jl" = { applicable = 0, eval = 0, isa = 14, kind = 0 }
 "src/uq/results.jl" = { applicable = 0, eval = 0, isa = 29, kind = 0 }
@@ -162,7 +160,6 @@
 [builders]
 
 [commons]
-"AbstractCoreResult | tests" = 1
 "AbstractParametricResult | tests" = 1
 "AbstractProblemResult | tests" = 1
 "AbstractResultSpace | tests" = 1
@@ -239,8 +236,6 @@
 "_validate_observed_quantity | docstring" = 1
 "_validate_observed_quantity | public" = 1
 "_validate_observed_quantity | vocabulary" = 1
-"computation_details | tests" = 1
-"gridpoint_id | tests" = 1
 "gridpoint_id | vocabulary" = 1
 "input_fields | tests" = 1
 "materialize_observation | owners" = 1
@@ -324,4 +319,4 @@
 "src/uq/results.jl" = 2
 
 [root]
-"LineCableModels" = 7
+"LineCableModels" = 5

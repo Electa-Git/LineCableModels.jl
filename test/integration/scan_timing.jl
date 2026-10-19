@@ -58,7 +58,7 @@
               get(details(result).data, :timing, nothing)
     end
     calls=Int[]
-    forms=[formulation, formulation, formulation]
+    forms=Grid((formulation, formulation, formulation))
     batch=compute(problem, forms; options = (
         timing = true, on_result = (_, i, _)->push!(calls, i)))
     @test calls == [1, 2, 3]
@@ -98,8 +98,10 @@
     @test length(product) == 6
     @test isempty(details(product).data)
     @test all(value -> haskey(details(value).data, :timing), product)
-    @test !any(record -> occursin("Line parameters computation", string(record.message)), log.logs)
-    @test last(log.logs).message == "Parametric computation completed successfully"
+    # The run writes its lines once, naming the action.
+    @test count(record -> occursin("Line parameters computation", string(record.message)),
+        log.logs) == 2
+    @test last(log.logs).message == "Line parameters computation completed successfully"
     @test last(log.logs).kwargs[:completed] == 6
     uncertain_space=Gridspace{LineParametersProblem}(
         radius->TestFixtures.three_bare_wires_problem(; frequencies = problem.frequencies, radius),

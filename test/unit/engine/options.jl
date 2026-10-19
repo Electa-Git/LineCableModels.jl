@@ -36,8 +36,9 @@
         UnregisteredFormulation,
         (;)
     )
-    @test_throws MethodError Commons.computation_options(
-        UnregisteredFormulation, ComputationOptions((;)))
+    # A formulation type without an owner method keeps the options as they are.
+    unregistered = ComputationOptions((;))
+    @test Commons.computation_options(UnregisteredFormulation, unregistered) === unregistered
     @test_throws MethodError Commons.formulation_options(
         formulation_owner, Dict{Symbol, Any}())
     @test_throws MethodError Commons.computation_options(

@@ -114,8 +114,9 @@ end
         @test Y(result)[:, :, 1] == Y(sweep)[:, :, index]
     end
     setprecision(BigFloat, 128) do
-        mixed_precision=compute(problem, LineParametersFormulation[
-        make(1e-4im), make(big"0.0001"*im)])
+        # Results of different number types do not share the slots of one space.
+        mixed_precision=[compute(problem, selected)
+                         for selected in (make(1e-4im), make(big"0.0001"*im))]
         @test eltype(Z(mixed_precision[1])) === ComplexF64
         @test eltype(Z(mixed_precision[2])) === Complex{BigFloat}
         @test Z(mixed_precision[2]) == Z(compute(problem, make(big"0.0001"*im)))

@@ -52,8 +52,9 @@
         @test iszero(Y(first_result)[1,3,k])
     end
     for result in (first_result, next_result)
-        @test keys(details(result).data.timing) == (:wall_seconds, :compile_call_seconds)
+        @test keys(details(result).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
         @test all(>=(0), values(details(result).data.timing))
+        @test details(result).data.execution.compile_call_seconds >= 0
         @test !haskey(details(result).data.execution, :elapsed_seconds)
     end
     source = details(first_result).data.execution.source_run
@@ -62,7 +63,7 @@
         options=(;options...,resume_run_directory=source))
     reordered = reuse_timing.value
     @test details(reordered).data.execution.reused
-    @test isempty(details(reordered).data.timing)
+    @test keys(details(reordered).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
     @test Z(reordered) == Z(first_result)[[2,4,1,3],[2,4,1,3],:]
     @test Y(reordered) == Y(first_result)[[2,4,1,3],[2,4,1,3],:]
     @test bytes2hex(open(sha256,joinpath(source,"outputs","result_zm.out"))) == source_hash
@@ -72,12 +73,12 @@
         Formulation(:pscad;earth_impedance=(air=:gary1976,earth=:wedepohl1973,mixed=:ametani2009)),
         Formulation(:pscad;earth_impedance=(air=:gary1976,earth=:saad1996,mixed=:lucca1994),
             insulation_admittance=:lossy)]
-    batch = compute(problem,selections;options=(;options...,resume_run_directory=:latest,
+    batch = compute(problem,Grid(Tuple(selections));options=(;options...,resume_run_directory=:latest,
         on_result=(p,i,r)->push!(callbacks,i)))
     # The first two selections share native settings. Distinct settings require
     # separate native outputs, which :latest may reuse from an earlier test run.
     @test callbacks == collect(1:length(selections))
-    @test isempty(details(batch[2]).data.timing)
+    @test keys(details(batch[2]).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
     @test all(result -> typeof(result) === typeof(first(batch)), batch)
     @test Z(batch[1]) == Z(batch[2])
     @test Z(batch[1]) !== Z(batch[2])
@@ -118,8 +119,8 @@
     evidence = Dict("transport"=>string(remote.transport), "source_run"=>source,
         "first_compute_seconds"=>first_timing.time,"next_compute_seconds"=>next_timing.time,
         "reuse_seconds"=>reuse_timing.time,
-        "first_compile_seconds"=>details(first_result).data.timing.compile_call_seconds,
-        "next_compile_seconds"=>details(next_result).data.timing.compile_call_seconds,
+        "first_compile_seconds"=>details(first_result).data.execution.compile_call_seconds,
+        "next_compile_seconds"=>details(next_result).data.execution.compile_call_seconds,
         "runs"=>[details(result).data.execution.source_run for result in batch],
         "ideal_deviation"=>Dict(
             "frequency_hz"=>problem.frequencies[end],

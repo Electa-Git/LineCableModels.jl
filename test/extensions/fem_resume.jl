@@ -104,14 +104,15 @@
         region.shape, region.mesh_size)
     @test extension._fem_input_record(ownership, formulation, computation_options(LineCableModelsFEM, ComputationOptions(formulation_controls))).mesh_fingerprint !=
           inputs.mesh_fingerprint
-    @test_throws ArgumentError compute(problem, LineCableModelsFEM[])
+    # A vector is one value. Alternatives are a Grid or a Gridspace.
+    @test_throws MethodError compute(problem, LineCableModelsFEM[])
     law=FormulaFixtures.ScaledSoil(rho=Inf)
     unsupported = Formulation(:fem;
         earth_properties = law,
         options = formulation.options)
     unsupported_controls = formulation_controls
     before = Bool(Gmsh.gmsh.is_initialized())
-    @test_throws LineCableModelsFEMError compute(problem, [formulation, unsupported])
+    @test_throws LineCableModelsFEMError compute(problem, Grid((formulation, unsupported)))
     @test Bool(Gmsh.gmsh.is_initialized()) == before
     mktempdir() do root
         run = extension._create_run(root)

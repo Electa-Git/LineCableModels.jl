@@ -12,41 +12,14 @@ First-order moments need not equal nonlinear Monte Carlo moments.
 
 $(TYPEDFIELDS)
 """
-struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractFormulation
+struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractTraversal
     "Formulation used for each materialized problem."
     inner::F
     "Supplemental-output retention options owned by this propagation."
     options::O
 
-    function LinearError(inner::AbstractFormulation, options::ComputationOptions)
-        validate(inner, LinearError)
-        normalized = computation_options(LinearError, options)
-        return new{typeof(inner), typeof(normalized)}(inner, normalized)
-    end
-end
-
-function computation_options(
-        ::Type{LinearError},
-        record::ComputationOptions
-)::ComputationOptions
-    options = record.data
-    unknown = filter(key -> key !== :retain_details, keys(options))
-    isempty(unknown) || throw(ArgumentError(
-        "unknown LinearError computation options: $(sort!(collect(unknown)))",
-    ))
-    normalized = merge((retain_details = false,), options)
-    normalized.retain_details isa Bool || throw(ArgumentError(
-        "LinearError retain_details must be Bool",
-    ))
-    return ComputationOptions(; retain_details = normalized.retain_details)
-end
-
-function LinearError(
-        inner::F;
-        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
-) where {F <: AbstractFormulation}
-    options = ComputationOptions(options)
-    return LinearError(inner, options)
+    LinearError(inner::F, options::O) where {F <: AbstractFormulation, O <: ComputationOptions} =
+        validate(new{F, O}(inner, options))
 end
 
 function Base.NamedTuple(value::LinearError)
@@ -99,24 +72,37 @@ the complete joint support to feasible designs. Select this law only when the
 uniform distribution is a justified statistical assumption. Changing the
 marginal law neither repairs the geometry nor supplies a correlation.
 
+`MonteCarlo(inner; options = (;), keywords...)` takes its execution controls in `options`
+or as keywords of the same names. Both forms are normalized by
+`computation_options(MonteCarlo, options)`, and a key supplied in both places is an error.
+
+# Keywords
+
+- `trials=nothing`: positive accepted-trial count, or DKW sizing when omitted.
+- `confidence=0.95`: simultaneous empirical-CDF confidence [dimensionless], in `(0, 1)`.
+- `cdf_tol=0.02`: maximum empirical-CDF deviation for DKW sizing [dimensionless], in `(0, 1)`.
+- `distribution=:normal`: `:normal`, `:uniform`, a sampler function, or an extension-supported distribution.
+- `seed=nothing`: nonnegative root seed representable as `UInt64`, or fresh randomness.
+- `return_samples=false`: retain joint samples.
+- `return_histograms=false`: retain marginal histogram densities.
+- `bins=nothing`: positive histogram bin count, or automatic binning.
+- `retain_details=false`: retain accepted-trial details and failure diagnostics.
+- `on_error=:fail`: propagate exceptions. `:resample` rejects `DomainError` realizations and requires `retain_details=true`.
+- `max_failures=100`: positive maximum rejected-trial count per parameter point.
+
+The concrete type of `options` retains the sampler type.
+
 $(TYPEDFIELDS)
 """
-struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <:
-       AbstractFormulation
+struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractTraversal
     "Formulation used for each sampled problem."
     inner::F
     "Normalized sampling, error-handling and supplemental-output computation options."
     options::O
 
-    function MonteCarlo(inner::AbstractFormulation, options::ComputationOptions)
-        validate(inner, MonteCarlo)
-        normalized = computation_options(MonteCarlo, options)
-        return new{typeof(inner), typeof(normalized)}(inner, normalized)
-    end
+    MonteCarlo(inner::F, options::O) where {F <: AbstractFormulation, O <: ComputationOptions} =
+        validate(new{F, O}(inner, options))
 end
-
-# Uncertainty propagation accepts an inner formulation whose shunt model is fixed.
-validate(inner::AbstractFormulation, ::Type{<:Union{LinearError, MonteCarlo}}) = inner
 
 """Identify Monte Carlo propagation without sampling or configuring a solver."""
 description(::Type{<:MonteCarlo}; compact::Bool=false) = "Monte Carlo"
@@ -147,7 +133,7 @@ end
 description(::Type{<:Union{MonteCarlo, LinearError}}, ::Val{:inner}; compact::Bool=false) = "inner method"
 
 function computation_options(
-        ::Type{MonteCarlo},
+        ::Type{<:MonteCarlo},
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
@@ -212,50 +198,6 @@ function computation_options(
         on_error = normalized.on_error,
         max_failures = Int(normalized.max_failures)
     )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Construct a Monte Carlo formulation with execution controls supplied as an
-ordinary `options` named tuple or as keyword shorthand. Both forms are
-normalized by `computation_options(MonteCarlo, options)`. A key supplied in
-both places is an error.
-
-# Arguments
-
-- `inner`: formulation used for each sampled problem.
-
-# Keywords
-
-`options=(;)` accepts these controls. Additional keywords use
-the same names and are merged into `options` before normalization.
-
-- `trials=nothing`: positive accepted-trial count, or DKW sizing when omitted.
-- `confidence=0.95`: simultaneous empirical-CDF confidence [dimensionless], in `(0, 1)`.
-- `cdf_tol=0.02`: maximum empirical-CDF deviation for DKW sizing [dimensionless], in `(0, 1)`.
-- `distribution=:normal`: `:normal`, `:uniform`, a sampler function, or an extension-supported distribution.
-- `seed=nothing`: nonnegative root seed representable as `UInt64`, or fresh randomness.
-- `return_samples=false`: retain joint samples.
-- `return_histograms=false`: retain marginal histogram densities.
-- `bins=nothing`: positive histogram bin count, or automatic binning.
-- `retain_details=false`: retain accepted-trial details and failure diagnostics.
-- `on_error=:fail`: propagate exceptions. `:resample` rejects `DomainError` realizations and requires `retain_details=true`.
-- `max_failures=100`: positive maximum rejected-trial count per parameter point.
-
-# Returns
-
-- A `MonteCarlo` formulation storing normalized `ComputationOptions` in `options`.
-  The concrete payload type retains the sampler type.
-"""
-function MonteCarlo(inner::AbstractFormulation; options::Union{NamedTuple,ComputationOptions} = ComputationOptions(), kwargs...)
-    options = ComputationOptions(options)
-    supplied = (; kwargs...)
-    duplicates = filter(key -> haskey(options.data, key), keys(supplied))
-    isempty(duplicates) || throw(ArgumentError(
-        "MonteCarlo computation options supplied both as keywords and in options: $(collect(duplicates))",
-    ))
-    return MonteCarlo(inner, isempty(supplied) ? options : ComputationOptions(merge(options.data, supplied)))
 end
 
 function Base.NamedTuple(value::MonteCarlo)

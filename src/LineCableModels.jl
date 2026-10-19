@@ -13,7 +13,7 @@ module LineCableModels
 # Core generics:
 export add!, build, homogenize, validate, description, constitutive
 export formula, formula_id
-export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
+export AbstractProblemDefinition, AbstractFormulation, AbstractTraversal, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
@@ -87,7 +87,6 @@ export export_data, import_data, save, load!
 
 import DocStringExtensions: DocStringExtensions
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
-import Logging
 
 include("docstrings.jl")
 
@@ -100,7 +99,8 @@ using .Units: quantity, native_unit, display_unit, scale_factor, label, symbol
 # Package-local shared computation grammar.
 include("commons/Commons.jl")
 using .Commons:
-                AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
+                AbstractProblemDefinition, AbstractFormulation, AbstractTraversal,
+                AbstractProblemResult,
                 AbstractCoreResult, AbstractResultSpace,
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
@@ -115,7 +115,11 @@ using .Commons: Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGr
                 Composition, Product, Zip, ScalarOrGrid, has_uncertainty, has_grid, nominal,
                 uncertainty, parameterize, materialize, points, realize, realize_arguments,
                 sample_uncertainty, Builder, target
-include("logging.jl")
+using .Commons: verbosity, VerbosityLogger
+public verbosity, VerbosityLogger
+using .Commons: Combinatorial, ParametricProblem, ParametricResult, resolve, Resolved,
+                traverse, retain_gridpoint, timed
+public Resolved, traverse, retain_gridpoint, timed
 
 # Bounded text formatting consumes the completed shared declaration grammar.
 include("textdisplay/TextDisplay.jl")
@@ -154,7 +158,7 @@ using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   AbstractShape, AbstractPrimitive,
                   Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell,
                   Pose2,
-                  EmptyBoundary, resolve, boundary, area, perimeter, centroid, support,
+                  EmptyBoundary, boundary, area, perimeter, centroid, support,
                   tessellate,
                   r_in, r_ex, thickness, outer_radius,
                   AbstractCablePart, Region, Stack,
@@ -187,7 +191,6 @@ using .Engine.ModalAnalysis: ModalAnalysisProblem, ModalAnalysisFormulation,
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
 using .ParametricBuilder:
-                          Combinatorial, ParametricProblem, ParametricResult,
                           terminal, core, stranded, milliken, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,
                           filler, pipe, duct, solid, shell, wires, layers,

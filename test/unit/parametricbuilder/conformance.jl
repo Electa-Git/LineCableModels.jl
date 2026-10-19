@@ -11,8 +11,8 @@
         DuplicateValue(),
         (PB.Grid(10.0, PB.AbsoluteError(0.5)),)
     )
-    duplicated_point=first(PB.points(duplicated))
-    propagated=PB.materialize(duplicated_point)
+    duplicated_point=first(LineCableModels.points(duplicated))
+    propagated=LineCableModels.materialize(duplicated_point)
     @test propagated[1] === propagated[2]
     @test Measurements.cov(propagated[1], propagated[2]) ==
           Measurements.uncertainty(propagated[1])^2
@@ -31,12 +31,12 @@
         );
         combine = :zip
     )
-    independent_values=PB.materialize(first(PB.points(independent)))
+    independent_values=LineCableModels.materialize(first(LineCableModels.points(independent)))
     @test independent_values[1] !== independent_values[2]
     @test iszero(Measurements.cov(independent_values...))
 
     reused=PB.Grid(10.0, PB.AbsoluteError(0.5))
-    reused_values=PB.materialize(first(PB.points(PB.Gridspace{Tuple}(
+    reused_values=LineCableModels.materialize(first(LineCableModels.points(PB.Gridspace{Tuple}(
         tuple,
         (reused, reused);
         combine = :zip

@@ -92,7 +92,7 @@ end
     problem = CableConstantsProblem(TestFixtures.coaxial_design())
     formulation = CableConstantsFormulation()
     scalar = @inferred compute(problem, formulation; options=ComputationOptions())
-    bundled = @inferred compute(problem, [formulation, formulation])
+    bundled = @inferred ParametricResult compute(problem, Grid((formulation, formulation)))
     @test isconcretetype(eltype(bundled))
     @test all(value -> typeof(value) === typeof(scalar), bundled)
     @test scalar == compute(problem, formulation; options=(;))

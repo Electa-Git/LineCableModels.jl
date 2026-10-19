@@ -62,14 +62,14 @@
         end
     end
 
-    direct=compute(first(problems), formulations)
+    direct=compute(first(problems), Grid(Tuple(formulations)))
     @test length(direct) == length(formulations)
     completions=Tuple[]
     on_result=(problem, index, result)->push!(completions, (problem, index, result))
-    observed=compute(first(problems), formulations; options = (; on_result))
+    observed=compute(first(problems), Grid(Tuple(formulations)); options = (; on_result))
     @test getindex.(completions, 2) == collect(eachindex(formulations))
     @test all(item -> item[1] === first(problems), completions)
-    @test all(index -> same_parameters(completions[index][3], observed[index]), eachindex(observed))
+    @test all(index -> same_parameters(completions[index][3], observed[index]), eachindex(completions))
     empty!(completions)
     compute(first(problems), first(formulations); options = (; on_result))
     @test length(completions) == 1
@@ -80,7 +80,8 @@
         on_result(problem, index, result)
         throw(failure)
     end
-    @test_throws failure compute(first(problems), formulations; options = (on_result = stop_after_first,))
+    @test_throws failure compute(first(problems), Grid(Tuple(formulations));
+        options = (on_result = stop_after_first,))
     @test length(completions) == 1
     @test same_parameters(completions[1][3], direct[1])
     for formulation_index in eachindex(formulations)
@@ -96,10 +97,11 @@
             compute(source, formulation_space; options = (; on_result))
         @test all(same_parameters.(collect(automatic), expected))
         @test length(completions) == length(expected)
-        @test getindex.(completions, 2) == [1, 2, 1, 2]
+        # Problem by problem, each value at its index in the space, the problem index fastest.
+        @test getindex.(completions, 2) == [1, 3, 2, 4]
     end
     automatic_scalar=compute(first(problems), formulation_space)
-    @test all(same_parameters.(collect(automatic_scalar), direct))
+    @test all(same_parameters.(collect(automatic_scalar), collect(direct)))
 
     design=TestFixtures.coaxial_design()
     constants_problem=CableConstantsProblem(design; frequency = 50.0)
@@ -107,10 +109,10 @@
         insulation_admittance = Grid((:lossy, :default)),
     )
     constants_formulations=collect(constants_space)
-    constants_batch=compute(constants_problem, constants_formulations)
-    @test constants_batch == [compute(constants_problem, formulation)
+    constants_batch=compute(constants_problem, Grid(Tuple(constants_formulations)))
+    @test collect(constants_batch) == [compute(constants_problem, formulation)
            for formulation in constants_formulations]
-    @test collect(compute(constants_problem, constants_space)) == constants_batch
+    @test collect(compute(constants_problem, constants_space)) == collect(constants_batch)
 
     phase=first(expected)
     modal_problem=ModalAnalysisProblem(phase)
@@ -118,20 +120,20 @@
         Grid((:default, :default)),
     )
     modal_formulations=collect(modal_space)
-    modal_batch=compute(modal_problem, modal_formulations)
+    modal_batch=compute(modal_problem, Grid(Tuple(modal_formulations)))
     modal_scalar=[compute(modal_problem, formulation)
                   for formulation in modal_formulations]
     @test length(modal_batch) == 2
-    @test all(same_parameters.(collect(compute(modal_problem, modal_space)), modal_batch))
+    @test all(same_parameters.(collect(compute(modal_problem, modal_space)), collect(modal_batch)))
     @test isconcretetype(eltype(modal_batch))
     @test typeof(modal_batch[1]) === typeof(modal_batch[2])
     @test size(modal_batch[1].domain.gamma)==(size(phase.Z,1),length(phase.f))
-    for index in eachindex(modal_batch)
+    for index in eachindex(modal_scalar)
         @test same_parameters(modal_batch[index], modal_scalar[index])
     end
 
     stages=Symbol[]
-    composed=compute(first(problems),formulations;
+    composed=compute(first(problems),Grid(Tuple(formulations));
         options=(on_result=(problem,index,value)->begin
             @test domain(value)===PhaseDomain
             push!(stages,:phase)
@@ -142,11 +144,11 @@
             push!(stages,:modal)
         end,))
     @test stages==[:phase,:phase,:modal,:modal]
-    @test composed isa AbstractVector{<:LineParameters}
+    @test eltype(composed) <: LineParameters
     @test length(composed)==length(formulations)
     @test all(index -> Z(composed[index])≈Z(compute(
         ModalAnalysisProblem(direct[index]),ModalAnalysisFormulation(:default))),
-        eachindex(composed))
+        1:length(composed))
     @test_throws ArgumentError compute(first(problems),first(formulations);
         modal_options=(timing=true,))
     completed_modal_grid=Grid(Tuple(modal_formulations))
@@ -231,7 +233,7 @@ end
     constants_problem=CableConstantsProblem(design; frequency = 50.0)
     constants_formulations=collect(CableConstantsFormulation(
         insulation_admittance = Grid((:lossy, :default))))
-    constants=compute(constants_problem, constants_formulations)
+    constants=compute(constants_problem, Grid(Tuple(constants_formulations)))
     @test length(constants) == 2
     @test counter.calls[] == 1
 

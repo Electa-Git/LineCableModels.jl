@@ -48,7 +48,7 @@ end
                     for physics in (:quasi_tem, :quasi_fw)]
     controls = (gmsh_verbosity = 0, getdp_verbosity = 0,
         keep_run_directory = true, plot_field_maps = true)
-    results = compute(problem, formulations; options = (; controls..., trace = true))
+    results = compute(problem, Grid(Tuple(formulations)); options = (; controls..., trace = true))
     tem, fw = results
     @test all(isfinite, Z(fw)) # No cross-formulation numerical authority.
     @test tem.details.data.fem.inputs.options.physics !==

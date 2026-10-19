@@ -217,7 +217,7 @@ Construct an earth-free cable-constant problem.
   when the design or a keyword is a `Grid` or `Gridspace`.
 """
 function CableConstantsProblem(
-        design::Union{CableDesign, AbstractGrid, Gridspace};
+        design::ScalarOrGrid{CableDesign};
         temperature = 20,
         frequency = 50,
         combine::Symbol = :product
@@ -570,81 +570,52 @@ function compute(
         problem::CableConstantsProblem;
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
 )
-    options = ComputationOptions(options)
-    return compute(
-        LineCableModelsCoaxial(),
-        problem,
-        CableConstantsFormulation();
-        options
-    )
+    return compute(problem, CableConstantsFormulation(); options)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Compute earth-free cable constants with an explicit formula bundle.
+Resolve the parts of a cable-constant problem that its formulations share. Once per
+problem, it builds the blueprint of the design, its local cable data and the completed
+inputs. It completes the internal potential coefficients of each formulation. Return one
+`Resolved` per formulation.
 """
-function compute(
-        problem::CableConstantsProblem,
-        formulation::CableConstantsFormulation;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
-)
-    options = ComputationOptions(options)
-    return compute(LineCableModelsCoaxial(), problem, formulation; options)
-end
-
-function compute(
-        problem::CableConstantsProblem,
-        formulations::AbstractVector{<:CableConstantsFormulation};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
-)
-    options = ComputationOptions(options)
-    return compute(LineCableModelsCoaxial(), problem, formulations; options)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Compute earth-free cable constants through the coaxial backend tag.
-"""
-function compute(
-        engine::LineCableModelsCoaxial,
-        problem::CableConstantsProblem,
-        formulation::CableConstantsFormulation = CableConstantsFormulation();
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
-)
-    options = ComputationOptions(options)
-    values = compute(
-        engine,
-        problem,
-        typeof(formulation)[formulation];
-        options
-    )
-    return first(values)
-end
-
-function compute(
-        engine::LineCableModelsCoaxial,
-        problem::CableConstantsProblem,
-        formulations::AbstractVector{<:CableConstantsFormulation};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
-)
-    options = ComputationOptions(options)
-    computation_options(CableConstantsFormulation, options)
-    isempty(formulations) && throw(ArgumentError(
-        "cable-constant formulation collections cannot be empty",
-    ))
+function resolve(problem::CableConstantsProblem,
+        formulations::Union{Tuple{CableConstantsFormulation, Vararg{CableConstantsFormulation}},
+            AbstractVector{<:CableConstantsFormulation}};
+        options)
     blueprint = DataModel.flatten(problem.design, eltype(problem))
     cable = LocalCableData(blueprint)
-    shunts = internal_potential_coefficients([problem.design], [blueprint], formulations)
     physical_inputs = completed_inputs(problem)
-    source_id = Commons.gridpoint_id().source_id
-    return map(formulations, shunts, eachindex(formulations)) do formulation, shunt, index
-        workspace = CableConstantsWorkspace(problem, formulation, cable, shunt)
-        _solve!(workspace, problem, formulation; physical_inputs,
-            gridpoint=Commons.gridpoint_id(;source_id,formulation_index=index))
-    end
+    shunts = internal_potential_coefficients([problem.design], [blueprint], formulations)
+    return map(shunt -> Resolved(problem, (; cable, shunt, physical_inputs)), shunts)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute the earth-free cable constants of one point from what `resolve` shares.
+"""
+function compute(resolved::Resolved{<:CableConstantsProblem},
+        formulation::CableConstantsFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    computation_options(CableConstantsFormulation, ComputationOptions(options))
+    (; problem, input) = resolved
+    workspace = CableConstantsWorkspace(problem, formulation, input.cable, input.shunt)
+    return _solve!(workspace, problem, formulation; physical_inputs = input.physical_inputs)
+end
+
+# The default `resolve` serves a formulation source that mixes backends. Each point then
+# resolves its own input.
+function compute(resolved::Resolved{<:CableConstantsProblem, @NamedTuple{}},
+        formulation::CableConstantsFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    return compute(only(resolve(resolved.problem, (formulation,); options)), formulation;
+        options)
+end
+
+description(::CableConstantsProblem; compact::Bool = false) = "Cable constants"
 
 """
 $(TYPEDSIGNATURES)
@@ -656,7 +627,7 @@ selector is a `Grid` or `Gridspace`, `compute` returns the `Combinatorial` resul
 the problem inputs combine by `combine`, and the formulations multiply the problems.
 """
 function CableConstants(
-        design::Union{CableDesign, AbstractGrid, Gridspace};
+        design::ScalarOrGrid{CableDesign};
         temperature = 20,
         frequency = 50,
         formulation = CableConstantsFormulation(),

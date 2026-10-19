@@ -649,150 +649,82 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
     )
 end
 
-function compute(
-        problem::LineParametersProblem,
-        formulation::Union{LineCableModelsFEM, AbstractVector{<:LineCableModelsFEM}};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
-        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
-)
-    options = ComputationOptions(options)
-    modal===nothing || return compute(problem,formulation,
-        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(ComputationOptions(modal_options).data) ||
-        throw(ArgumentError("modal_options require a modal formulation"))
-    return lock(FEM_SESSION_LOCK) do
-        _compute_request(problem, formulation; options)
+"""
+Resolve the parts of a line-parameter problem that its FEM formulations share. Once per
+problem, it normalizes the problem to nominal `Float64` and builds its completed inputs. It
+resolves the model and the input record of each formulation, and it validates each request
+before Gmsh opens or GetDP starts. The formulations share one table of runs by their input
+records. A point whose run is not in the table computes it, and a later point with the same
+inputs reuses it.
+"""
+function LineCableModels.resolve(problem::LineParametersProblem,
+        formulations::Union{Tuple{LineCableModelsFEM, Vararg{LineCableModelsFEM}},
+            AbstractVector{<:LineCableModelsFEM}};
+        options)
+    preflighted = _preflight_fem_problem(problem)
+    execution = computation_options(LineCableModelsFEM, ComputationOptions(options))
+    physical_inputs = Engine.completed_inputs(preflighted)
+    models = map(formulation -> _resolved_fem_model(preflighted, formulation, execution),
+        formulations)
+    runs = Dict{String, Any}()
+    return map(models, formulations) do model, formulation
+        key = JSON3.write(_fem_input_record(model, formulation, execution))
+        Commons.Resolved(preflighted, (; model, key, runs, physical_inputs))
     end
 end
 
-# The same rules for completion notification and reuse apply to scalar and collection
-# calls: one formulation is a collection of one.
-function _compute_request(problem, formulation::LineCableModelsFEM; options)
-    return first(_compute_request(problem, [formulation]; options))
-end
-function _compute_request(problem, formulations; options)
-    problem = _preflight_fem_problem(problem)
-    execution = computation_options(LineCableModelsFEM, options)
-    logger = LineCableModels.VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
-    values = if execution.data.log_file === nothing
-        with_logger(logger) do
-            _compute_fem(problem, formulations, execution)
-        end
-    else
+"""
+Compute the line parameters of one point with FEM, behind the session lock: the run of its
+resolved model, or the run that an earlier point of the problem computed for the same inputs,
+completed for its own formulation. With a `log_file`, the point's log records also go to that
+file.
+"""
+function compute(resolved::Commons.Resolved{<:LineParametersProblem},
+        formulation::LineCableModelsFEM;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    execution = computation_options(LineCableModelsFEM, ComputationOptions(options))
+    return lock(FEM_SESSION_LOCK) do
+        execution.data.log_file === nothing && return _compute_fem(resolved, formulation, execution)
         mkpath(dirname(abspath(execution.data.log_file)))
         open(execution.data.log_file, "a") do io
             file_logger = SimpleLogger(io, Logging.Debug)
-            with_logger(FEMTeeLogger(logger, file_logger)) do
-                _compute_fem(problem, formulations, execution)
+            with_logger(FEMTeeLogger(Logging.current_logger(), file_logger)) do
+                _compute_fem(resolved, formulation, execution)
             end
         end
     end
-    return values
 end
 
-function _compute_fem(
-        problem::LineParametersProblem{Float64},
-        formulations::AbstractVector{<:LineCableModelsFEM},
-        execution::ComputationOptions
-)
-    isempty(formulations) && throw(ArgumentError(
-        "FEM formulation collections cannot be empty"))
-    progress = LineCableModels.verbosity(execution, :progress) > 0
-    started = progress ? time_ns() : UInt64(0)
-    last_log = started
-    previous_completion = started
-    average_seconds = 0.0
-    progress && @info "FEM computation started" _group=:progress total=length(formulations)
-    physical_inputs=Engine.completed_inputs(problem)
-    source_id=Commons.gridpoint_id().source_id
-    # Resolve and validate all requests before opening Gmsh or starting GetDP.
-    models = [_resolved_fem_model(problem, formulation, execution)
-              for formulation in formulations]
-    # The problem and loaded solver source are common to this batch. Only actual
-    # material and mesh inputs and execution settings distinguish its computations.
-    keys = [JSON3.write(_fem_input_record(model, formulation, execution))
-            for (model, formulation) in zip(models, formulations)]
-    function completion_fields(formulation)
-        completion = Engine.completed_formulation(formulation)
-        return merge(completion,
-            (
-                formulations = merge(formulation_record(formulation), completion.formulations),
-                inputs = physical_inputs
-            ))
+# The default `resolve` serves a formulation source that mixes backends. Each point then
+# resolves its own input.
+function compute(resolved::Commons.Resolved{<:LineParametersProblem, @NamedTuple{}},
+        formulation::LineCableModelsFEM;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    return compute(only(LineCableModels.resolve(resolved.problem, (formulation,); options)),
+        formulation; options)
+end
+
+function _compute_fem(resolved::Commons.Resolved, formulation::LineCableModelsFEM,
+        execution::ComputationOptions)
+    (; problem, input) = resolved
+    source = get(input.runs, input.key, nothing)
+    value = if source === nothing || execution.data.ui || execution.data.mesh_mode === :remesh
+        input.runs[input.key] = _compute_fem(problem, formulation, execution, input.model)
+    else
+        @debug "FEM reuses identical resolved inputs"
+        # Results remain independently mutable and each request keeps its own
+        # selection record. The shared run record identifies the actual solve.
+        retained = deepcopy(source.details.data)
+        retained = merge(retained, (formulations = formulation_record(formulation),
+            fem=merge(retained.fem, (run=merge(retained.fem.run, (reused=true,)),))))
+        LineParameters(PhaseDomain,
+            SeriesImpedance(copy(source.Z.values); basis = Engine.basis(source)),
+            ShuntAdmittance(copy(source.Y.values); basis = Engine.basis(source)),
+            copy(source.f), Engine.completion_details(retained))
     end
-    # Caller wall time covers native execution and completed result construction.
-    # Native worker durations remain separate, never Julia allocation estimates.
-    scan_started = execution.data.timing ? time_ns() : UInt64(0)
-    first_result = Engine.retain_gridpoint(
-        _compute_fem(problem, first(formulations), execution, first(models)),
-        Commons.gridpoint_id(; source_id);
-        fields = completion_fields(first(formulations)))
-    if execution.data.timing && !isempty(first_result.details.data.timing)
-        wall_seconds = (time_ns() - scan_started) * 1e-9
-        first_result = Engine.retain_gridpoint(first_result, first_result.details.data.gridpoint;
-            fields=(timing=merge((; wall_seconds), first_result.details.data.timing),))
-    end
-    values = Vector{typeof(first_result)}(undef, length(formulations))
-    values[1] = first_result
-    execution.data.on_result === nothing ||
-        execution.data.on_result(problem, 1, first_result)
-    if progress
-        now = time_ns()
-        average_seconds = (now - previous_completion) * 1e-9
-        previous_completion = now
-        if now - last_log >= 5_000_000_000
-            @info "FEM progress" _group=:progress completed=1 total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-1)*average_seconds/3600
-            last_log = now
-        end
-    end
-    completed = Dict(first(keys) => 1)
-    for index in 2:length(formulations)
-        formulation = formulations[index]
-        previous = get(completed, keys[index], nothing)
-        scan_started = execution.data.timing ? time_ns() : UInt64(0)
-        value = if previous === nothing || execution.data.ui ||
-                   execution.data.mesh_mode === :remesh
-            _compute_fem(problem, formulation, execution, models[index])
-        else
-            source = values[previous]
-            @debug "FEM reuses identical resolved inputs" formulation=index source_formulation=previous
-            # Results remain independently mutable and each request keeps its own
-            # selection record. The shared run record identifies the actual solve.
-            retained = deepcopy(source.details.data)
-            retained = merge(retained, (formulations = formulation_record(formulation),
-                fem=merge(retained.fem, (run=merge(retained.fem.run, (reused=true,)),))))
-            execution.data.timing && (retained=merge(retained, (timing=(;),)))
-            metadata = Engine.completion_details(retained)
-            LineParameters(PhaseDomain,
-                SeriesImpedance(copy(source.Z.values); basis = Engine.basis(source)),
-                ShuntAdmittance(copy(source.Y.values); basis = Engine.basis(source)),
-                copy(source.f), metadata)
-        end
-        value=Engine.retain_gridpoint(value,
-            Commons.gridpoint_id(; source_id, formulation_index = index);
-            fields = completion_fields(formulations[index]))
-        if execution.data.timing && !isempty(value.details.data.timing)
-            wall_seconds = (time_ns() - scan_started) * 1e-9
-            value = Engine.retain_gridpoint(value, value.details.data.gridpoint;
-                fields=(timing=merge((; wall_seconds), value.details.data.timing),))
-        end
-        typeof(value) === eltype(values) || throw(ArgumentError(
-            "FEM formulations produced inconsistent result types"))
-        values[index] = value
-        completed[keys[index]] = index
-        execution.data.on_result === nothing ||
-            execution.data.on_result(problem, index, value)
-        if progress
-            now = time_ns()
-            interval = (now - previous_completion) * 1e-9
-            average_seconds = 0.2 * interval + 0.8 * average_seconds
-            previous_completion = now
-            if now - last_log >= 5_000_000_000
-                @info "FEM progress" _group=:progress completed=index total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-index)*average_seconds/3600
-                last_log = now
-            end
-        end
-    end
-    progress && @info "FEM computation completed successfully" _group=:progress completed=length(values) total=length(formulations) elapsed_seconds=(time_ns()-started)*1e-9
-    return values
+    completion = Engine.completed_formulation(formulation)
+    return Engine.retain_gridpoint(value, Commons.gridpoint_id();
+        fields = merge(completion, (
+            formulations = merge(formulation_record(formulation), completion.formulations),
+            inputs = input.physical_inputs)))
 end

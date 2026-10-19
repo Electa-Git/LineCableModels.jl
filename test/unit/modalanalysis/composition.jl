@@ -3,7 +3,8 @@
     struct FixedPhase{P <: LineParameters} <: AbstractFormulation
         parameters::P
     end
-    function LineCableModels.compute(::LineParametersProblem, formulation::FixedPhase;
+    function LineCableModels.compute(::LineCableModels.Resolved{<:LineParametersProblem},
+            formulation::FixedPhase;
             options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
         return formulation.parameters
     end
@@ -19,10 +20,10 @@
     space = Gridspace{LineParametersProblem}(
         rho -> TestFixtures.three_bare_wires_problem(; rho, frequencies),
         (Grid((10.0, 100.0)),))
-    @test same(compute(first(LineCableModels.points(space)), fixed, modal))
+    @test same(compute(LineCableModels.materialize(first(LineCableModels.points(space))),
+        fixed, modal))
     for composed in (compute(space, fixed; modal = :default), compute(space, fixed, modal),
-            compute(ParametricProblem(space), Combinatorial(fixed), modal),
-            compute(ParametricProblem(space), Combinatorial(fixed); modal = :default))
+            compute(ParametricProblem(space), Combinatorial(fixed), modal))
         @test composed isa ParametricResult
         @test length(composed) == 2
         @test all(same, composed)

@@ -1,5 +1,12 @@
+# A normalized record stores its basis as a type. This method returns it as it is.
+computation_options(::Type{<:PSCADFormulation},
+    record::ComputationOptions{<:NamedTuple{(:work_root, :output_stem, :remote, :verbosity,
+        :timing, :output_basis, :on_result, :resume_run_directory, :solver_identity),
+        <:Tuple{String, String, RemoteConfig, NamedTuple, Bool, Units.LengthBasis,
+            Any, Any, Any}}}) = record
+
 function computation_options(
-        ::Type{PSCADFormulation},
+        ::Type{<:PSCADFormulation},
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
@@ -268,8 +275,9 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     execution = (; (key => value for (key, value) in pairs(execution)
         if key ∉ (:elapsed_seconds, :elapsed_scope))...)
     execution = merge(execution, (backend = :pscad, pscad_version = config.pscad_version,
-        reused, source_run = source_root, input_sha256 = signature, solver_identity = actual))
-    return (; parameters, native_readback, files, execution, compile_call_seconds=source_elapsed)
+        reused, source_run = source_root, input_sha256 = signature, solver_identity = actual,
+        compile_call_seconds = source_elapsed))
+    return (; parameters, native_readback, files, execution)
 end
 
 function _pscad_result(problem, formulation, options, inputs, native; batch_reuse = false)
@@ -293,115 +301,69 @@ function _pscad_result(problem, formulation, options, inputs, native; batch_reus
         native_frequencies = copy(details(native.parameters).data.native_frequencies),
         dielectric_losses = deepcopy(inputs.dielectric_losses), exported_project = inputs.project,
         execution = deepcopy(execution))
-    if options.data.timing
-        timing = execution.reused ? (;) : (compile_call_seconds=native.compile_call_seconds,)
-        retained = merge(retained, (; timing))
-    end
     return LineParameters(parameters.domain, parameters.Z, parameters.Y, parameters.f, Engine.completion_details(retained))
 end
 
-function compute(problem::LineParametersProblem, formulation::PSCADFormulation;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
-        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions())
-    modal===nothing || return compute(problem,formulation,
-        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(ComputationOptions(modal_options).data) ||
-        throw(ArgumentError("modal_options require a modal formulation"))
-    return first(compute(problem, [formulation]; options))
-end
+"""
+$(TYPEDSIGNATURES)
 
-function compute(problem::LineParametersProblem, formulations::AbstractVector{<:PSCADFormulation};
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
-        modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions())
-    isempty(formulations) && throw(ArgumentError("PSCAD formulation collections cannot be empty"))
-    options = ComputationOptions(options)
-    modal===nothing || return compute(problem,formulations,
-        LineCableModels.ModalAnalysisFormulation(modal);options,modal_options)
-    isempty(ComputationOptions(modal_options).data) ||
-        throw(ArgumentError("modal_options require a modal formulation"))
-    execution = computation_options(PSCADFormulation, options)
+Resolve the parts of a line-parameter problem that its PSCAD formulations share. Once per
+problem, it checks the problem and builds the blueprints and the completed inputs. It
+exports the inputs of each formulation. The formulations share one table of native runs by
+the content keys of their exported inputs. A point whose run is not in the table launches
+it, and a later point with the same native input reuses it. The formulations also share the
+solver identity of the problem. It is the `solver_identity` option when given, otherwise the
+identity of the first run. Every later run must match it.
+"""
+function resolve(problem::LineParametersProblem,
+        formulations::Union{Tuple{PSCADFormulation, Vararg{PSCADFormulation}},
+            AbstractVector{<:PSCADFormulation}};
+        options)
+    execution = computation_options(PSCADFormulation, ComputationOptions(options))
     _pscad_deterministic(eltype(problem))
     validate(problem.frequencies, PSCADFormulation)
     _pscad_size(problem)
     blueprints = _pscad_blueprints(problem.system)
-    inputs = [_pscad_inputs(problem, formulation, blueprints) for formulation in formulations]
-    logger = LineCableModels.VerbosityLogger(Logging.current_logger(), execution.data.verbosity)
-    return Logging.with_logger(logger) do
-        _compute_pscad(problem, formulations, execution, inputs)
+    physical_inputs = Engine.completed_inputs(problem)
+    identity = Ref{Union{Nothing, Dict{String, String}}}(execution.data.solver_identity)
+    runs = Dict{Any, Any}()
+    return map(formulations) do formulation
+        inputs = _pscad_inputs(problem, formulation, blueprints)
+        key = (project = inputs.project,
+            setting = inputs.setting[(:ground, :frequency, :configuration)])
+        Resolved(problem, (; inputs, key, runs, identity, physical_inputs))
     end
 end
 
-function _compute_pscad(problem::LineParametersProblem,
-        formulations::AbstractVector{<:PSCADFormulation}, execution::ComputationOptions, inputs)
-    progress = verbosity(execution, :progress) > 0
-    started = progress ? time_ns() : UInt64(0)
-    last_log = started
-    previous = started
-    average_seconds = 0.0
-    progress && @info "PSCAD computation started" _group=:progress total=length(formulations)
-    physical_inputs = Engine.completed_inputs(problem)
-    source_id = gridpoint_id().source_id
-    keys = [(project = value.project, setting = value.setting[(:ground, :frequency, :configuration)])
-            for value in inputs]
-    # Include native execution, readback, and final result construction, but
-    # exclude batch input construction, measurement attachment, and callbacks.
-    scan_started = execution.data.timing ? time_ns() : UInt64(0)
-    native = _compute_pscad(problem, first(formulations), execution, first(inputs))
-    execution = ComputationOptions(merge(execution.data, (solver_identity = native.execution.solver_identity,)))
-    first_result = Engine.retain_gridpoint(_pscad_result(problem, first(formulations), execution,
-        first(inputs), native), gridpoint_id(; source_id);
-        fields = merge(Engine.completed_formulation(first(formulations)), (inputs = physical_inputs,)))
-    if execution.data.timing && !isempty(first_result.details.data.timing)
-        wall_seconds = (time_ns() - scan_started) * 1e-9
-        first_result = Engine.retain_gridpoint(first_result, first_result.details.data.gridpoint;
-            fields=(timing=merge((; wall_seconds), first_result.details.data.timing),))
-    end
-    values = Vector{typeof(first_result)}(undef, length(formulations))
-    values[1] = first_result
-    execution.data.on_result === nothing || execution.data.on_result(problem, 1, first_result)
-    if progress
-        now = time_ns()
-        average_seconds = (now - previous) * 1e-9
-        previous = now
-        if now - last_log >= 5_000_000_000
-            @info "PSCAD progress" _group=:progress completed=1 total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-1)*average_seconds/3600
-            last_log = now
-        end
-    end
-    completed = Dict(first(keys) => native)
-    for index in 2:length(formulations)
-        shared = haskey(completed, keys[index])
-        scan_started = execution.data.timing ? time_ns() : UInt64(0)
-        native = if shared
-            @debug "PSCAD reuses identical exported inputs" formulation=index
-            completed[keys[index]]
-        else
-            _compute_pscad(problem, formulations[index], execution, inputs[index])
-        end
-        value = _pscad_result(problem, formulations[index], execution, inputs[index], native; batch_reuse = shared)
-        value = Engine.retain_gridpoint(value,
-            gridpoint_id(; source_id, formulation_index = index);
-            fields = merge(Engine.completed_formulation(formulations[index]), (inputs = physical_inputs,)))
-        if execution.data.timing && !isempty(value.details.data.timing)
-            wall_seconds = (time_ns() - scan_started) * 1e-9
-            value = Engine.retain_gridpoint(value, value.details.data.gridpoint;
-                fields=(timing=merge((; wall_seconds), value.details.data.timing),))
-        end
-        typeof(value) === eltype(values) || throw(ArgumentError("PSCAD formulations produced inconsistent result types"))
-        values[index] = value
-        completed[keys[index]] = native
-        execution.data.on_result === nothing || execution.data.on_result(problem, index, values[index])
-        if progress
-            now = time_ns()
-            interval = (now - previous) * 1e-9
-            average_seconds = 0.2 * interval + 0.8 * average_seconds
-            previous = now
-            if now - last_log >= 5_000_000_000
-                @info "PSCAD progress" _group=:progress completed=index total=length(formulations) elapsed_seconds=(now-started)*1e-9 eta_hours=(length(formulations)-index)*average_seconds/3600
-                last_log = now
-            end
-        end
-    end
-    progress && @info "PSCAD computation completed successfully" _group=:progress completed=length(values) total=length(formulations) elapsed_seconds=(time_ns()-started)*1e-9
-    return values
+"""
+$(TYPEDSIGNATURES)
+
+Compute the line parameters of one point with PSCAD: the native run of its exported inputs,
+or the run that an earlier point of the problem launched for the same native input, checked
+against the solver identity of the problem, and the result completed for its own
+formulation.
+"""
+function compute(resolved::Resolved{<:LineParametersProblem}, formulation::PSCADFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    (; problem, input) = resolved
+    normalized = computation_options(PSCADFormulation, ComputationOptions(options))
+    execution = ComputationOptions(merge(normalized.data, (solver_identity = input.identity[],)))
+    reused = haskey(input.runs, input.key)
+    native = reused ? input.runs[input.key] :
+             (input.runs[input.key] = _compute_pscad(problem, formulation, execution, input.inputs))
+    input.identity[] === nothing && (input.identity[] = native.execution.solver_identity)
+    value = _pscad_result(problem, formulation, execution, input.inputs, native;
+        batch_reuse = reused)
+    return Engine.retain_gridpoint(value, gridpoint_id();
+        fields = merge(Engine.completed_formulation(formulation),
+            (inputs = input.physical_inputs,)))
+end
+
+# The default `resolve` serves a formulation source that mixes backends. Each point then
+# resolves its own input.
+function compute(resolved::Resolved{<:LineParametersProblem, @NamedTuple{}},
+        formulation::PSCADFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    return compute(only(resolve(resolved.problem, (formulation,); options)), formulation;
+        options)
 end

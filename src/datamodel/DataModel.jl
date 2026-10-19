@@ -55,7 +55,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..Units
 import ..Commons
 import ..TextDisplay
-import ..LineCableModels: add!, build, homogenize, validate, nominal, uncertainty
+import ..LineCableModels: add!, build, homogenize, resolve, validate, nominal, uncertainty
 import ..LineCableModels: line_length
 import ..LineCableModels: parameterize
 using ..LineCableModels: AbstractGrid, Gridspace, ScalarOrGrid, Builder

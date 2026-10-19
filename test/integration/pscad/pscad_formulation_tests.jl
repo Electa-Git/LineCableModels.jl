@@ -58,7 +58,8 @@
 
     # Native reuse is determined by exported numerical inputs plus solver setting,
     # not by whether the requested selector happened to be :default.
-    @test_throws ArgumentError compute(underground, P.PSCADFormulation[])
+    # A vector is one value. Alternatives are a Grid or a Gridspace.
+    @test_throws MethodError compute(underground, P.PSCADFormulation[])
     requested=(Formulation(:pscad),
         Formulation(:pscad; earth_impedance = :pollaczek1926),
         Formulation(:pscad; insulation_admittance = :lossy))

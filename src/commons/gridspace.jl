@@ -356,12 +356,15 @@ end
 
 """
 Return the unresolved points of a finite source, in its order. A `Grid` gives its values
-and a completed result space its results. A Gridspace gives its points lazily. With an
-`index`, return that one point. A source is indexed from 1 to its `length`.
+and a completed result space its results. A Gridspace gives its points lazily. A problem or
+a formulation is a source of one point, itself. With an `index`, return that one point. A
+source is indexed from 1 to its `length`.
 """
 points(grid::AbstractGrid) = grid
 points(result::AbstractResultSpace) = result
 points(space::Gridspace) = (points(space, index) for index in 1:length(space))
+points(problem::AbstractProblemDefinition) = (problem,)
+points(formulation::AbstractFormulation) = (formulation,)
 points(source::Union{AbstractGrid, AbstractResultSpace}, index::Integer) = source[index]
 # The points of `sources` at `indices`, one per source. The tuple is unrolled, so a nested
 # space with more sources than its parent still infers: a recursive tuple `map` at both

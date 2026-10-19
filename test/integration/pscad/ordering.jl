@@ -75,7 +75,7 @@
         @test details(repeated).data.execution.source_run != source
         @test Z(repeated) == Z(first_result)
         callbacks = Int[]
-        batch = compute(permuted,[selected,Formulation(:pscad;earth_impedance=:pollaczek1926)];
+        batch = compute(permuted,Grid((selected,Formulation(:pscad;earth_impedance=:pollaczek1926)));
             options=(;remote,on_result=(p,i,r)->push!(callbacks,i)))
         @test launches[] == 3
         @test callbacks == [1,2]
@@ -87,7 +87,7 @@
         near = [Formulation(:pscad;options=(base_frequency=f,)) for f in (50.000001,50.000002)]
         project_inputs = [P._pscad_inputs(permuted,f,P._pscad_blueprints(permuted.system)) for f in near]
         @test project_inputs[1].project == project_inputs[2].project
-        distinct = compute(permuted,near;options=(;remote))
+        distinct = compute(permuted,Grid(Tuple(near));options=(;remote))
         @test launches[] == 5
         @test !any(r->details(r).data.execution.reused,distinct)
         @test [details(r).data.base_frequency for r in distinct] == [50.000001,50.000002]

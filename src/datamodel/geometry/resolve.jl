@@ -1,8 +1,3 @@
-"""
-Resolve one primitive or contextual layer against a geometric context.
-"""
-function resolve end
-
 resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
 
 function resolve(context::Disk, definition::Shell)

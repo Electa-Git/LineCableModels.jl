@@ -151,15 +151,15 @@
     problem_space=Gridspace{CountedProblem}(make_problem, (Grid((1, 2)),))
     formulas=Grid((CountedFormulation{:first}(), CountedFormulation{:second}()))
     LineCableModels.compute(
-        problem::CountedProblem,
+        resolved::LineCableModels.Resolved{<:CountedProblem},
         ::CountedFormulation{:first};
         options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
-    )=CountedResult(problem.value)
+    )=CountedResult(resolved.problem.value)
     LineCableModels.compute(
-        problem::CountedProblem,
+        resolved::LineCableModels.Resolved{<:CountedProblem},
         ::CountedFormulation{:second};
         options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
-    )=CountedResult(10problem.value)
+    )=CountedResult(10resolved.problem.value)
 
     run=compute(
         ParametricProblem(problem_space),
@@ -175,11 +175,10 @@
     @test run.axes.formulations isa Vector{<:AbstractFormulation}
     @test_throws BoundsError run[3, 1]
 
-    # A completed scalar problem is admitted as a singleton without iteration.
+    # A completed scalar problem stays a scalar, without iteration.
     scalar=CountedProblem(7)
     scalar_problem=ParametricProblem(scalar)
-    @test length(scalar_problem.space) == 1
-    @test first(scalar_problem.space) === scalar
+    @test scalar_problem.space === scalar
     scalar_run=compute(scalar_problem, Combinatorial(formulas))
     @test collect(scalar_run) == CountedResult.(Int[7, 70])
     @test scalar_run[1, 2] == CountedResult(70)
@@ -197,7 +196,8 @@
     )
     @test isempty(unindexed.axes)
     @test_throws ArgumentError unindexed[1, 1]
-    @test_throws MethodError compute(CountedProblem(1), formulas)
+    # A plain Grid of formulations is a space of them.
+    @test collect(compute(CountedProblem(1), formulas)) == CountedResult.(Int[1, 10])
     @test_throws ArgumentError Combinatorial(Grid((1, 2)))
     @test_throws ArgumentError Combinatorial(
         Gridspace{Int}(identity, (Grid((1, 2)),)),

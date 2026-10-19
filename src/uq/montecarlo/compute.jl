@@ -301,7 +301,7 @@ function _attempt(rng, sampler, attempts::Int, accepted::Int)
                 continue
             end
             stage[] = :compute
-            return compute(realization, formulation.inner; options=child_options)
+            return compute(realization, formulation.inner; options = child_options)
         end
     catch exception
         backtrace = catch_backtrace()
@@ -332,7 +332,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     timing = get(options.data, :timing, false)
     timing isa Bool || throw(ArgumentError("timing must be Bool"))
     trial_timings = timing ? NamedTuple[] : nothing
-    progress = point isa Gridpoint{<:Engine.LineParametersProblem} && verbosity(options, :progress) > 0
+    progress = verbosity(options, :progress) > 0
     started = progress ? time_ns() : UInt64(0)
     sampler = (; point, formulation, child_options, failures,
         stage = Ref(:sample), drawn = Ref{Any}(nothing))
@@ -449,11 +449,19 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
     return (; attempts, last_log)
 end
 
+# Monte Carlo samples the arguments of the points of a space. A scalar problem is the space
+# of one point, whose argument is the problem.
+function compute(problem::ParametricProblem{<:AbstractProblemDefinition}, formulation::MonteCarlo)
+    space = Gridspace{typeof(problem.space)}(identity, (Grid((problem.space,)),))
+    return compute(ParametricProblem(space, problem.options), formulation)
+end
+
 function compute(problem::ParametricProblem, formulation::MonteCarlo)
     levels = verbosity(get(problem.options.data, :verbosity, (default=0,)))
-    progress = problem.space isa LineCableModels.Gridspace{<:Engine.LineParametersProblem} && get(levels, :progress, levels.default) > 0
+    progress = get(levels, :progress, levels.default) > 0
+    # The study reports its progress, and the computation of each trial does not.
     child_options = progress ? ComputationOptions(merge(problem.options.data,
-        (verbosity=merge(problem.options.data.verbosity, (progress=0,)),))) : problem.options
+        (verbosity = merge(problem.options.data.verbosity, (progress = 0,)),))) : problem.options
     logger = haskey(problem.options.data, :verbosity) ? VerbosityLogger(Logging.current_logger(), levels) : Logging.current_logger()
     return Logging.with_logger(logger) do
     started = progress ? time_ns() : UInt64(0)

@@ -17,7 +17,8 @@
         earth_impedance = formula(:unified; options=(Γ=1e-4im,)); options = physical)
     reduced_formula = Formulation(shunt_model = boundary; options = (reduce_bundle = true,
             kron_reduction = true, ideal_transposition = false))
-    results = compute(problem, [first_formula, other_formula, reduced_formula]; options = (trace = true,))
+    results = compute(problem, Grid((first_formula, other_formula, reduced_formula));
+        options = (trace = true,))
     first_result = first(results)
     shunt = details(first_result).data.shunt_model
     @test shunt.requested === :boundary
@@ -47,7 +48,7 @@
     @test constants.C[1] ≈ response.blocks[1].C[1, 1] rtol=1e-10
     @test constants.G[1] == 0
     lossy = Formulation(insulation_admittance = :lossy; options = physical)
-    mixed = compute(problem, [first_formula, lossy])
+    mixed = compute(problem, Grid((first_formula, lossy)))
     @test length(mixed) == 2
     @test typeof(mixed[1]) == typeof(mixed[2])
     @test details(mixed[2]).data.shunt_model.requested === :equivalent
@@ -65,13 +66,9 @@
     @test shunts[1].blocks[1].terminals == 1:3
     @test shunts[1].blocks[2].terminals == 4:6
     @test shunts[1].blocks[1].C === shunts[1].blocks[2].C
-    input = E.lineinput(problem, blueprints)
-    execution = computation_options(LineCableModelsCoaxial, ComputationOptions((;)))
-    @test observe(
-        E._compute(
-            LineCableModelsCoaxial(), problem, other_formula, execution, input, shunts[2],
-            E.completed_inputs(problem),LineCableModels.Commons.gridpoint_id()), Y) ==
-          observe(results[2], Y)
+    resolved = LineCableModels.Resolved(problem, (; line = E.lineinput(problem, blueprints),
+        shunt = shunts[2], physical_inputs = E.completed_inputs(problem)))
+    @test observe(compute(resolved, other_formula), Y) == observe(results[2], Y)
     # The same physical API supports independent translated assemblies inside
     # one design. Their local operators must be scattered into distinct ports.
     left = internal_shunt_test_design(count = 4, suffix = "_left")

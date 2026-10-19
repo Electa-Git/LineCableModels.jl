@@ -107,46 +107,6 @@ function Base.show(io::IO, ::MIME"text/plain", space::Gridspace{Target}) where {
     )
 end
 
-TextDisplay.name(::Type{<:Combinatorial}) = "Combinatorial"
-Base.summary(io::IO, ::Combinatorial) = print(io, "Combinatorial formulation")
-function Base.show(io::IO, formulation::Combinatorial)
-    print(io, "Combinatorial(")
-    show(IOContext(io, :compact => true), formulation.inner)
-    print(io, ")")
-end
-Base.show(io::IO, ::MIME"text/plain", formulation::Combinatorial) = show(io, formulation)
-
-TextDisplay.name(::Type{<:ParametricProblem}) = "ParametricProblem"
-Base.summary(io::IO, ::ParametricProblem) = print(io, "Parametric problem")
-function Base.show(io::IO, problem::ParametricProblem)
-    print(io, "ParametricProblem(")
-    show(IOContext(io, :compact => true), problem.space)
-    print(io, ")")
-end
-function Base.show(io::IO, ::MIME"text/plain", problem::ParametricProblem)
-    get(io, :compact, false) && return show(io, problem)
-    return TextDisplay.tree(io, "ParametricProblem", (
-        (label = "space    $(sprint(show, problem.space; context = :compact => true))", noun = "fields"),
-        (label = "options  $(length(problem.options.data)) entries", noun = "fields"),
-    ))
-end
-
-TextDisplay.name(::Type{<:ParametricResult}) = "ParametricResult"
-function Base.summary(io::IO, result::ParametricResult)
-    print(io, "Parametric result with $(length(result)) values")
-end
-function Base.show(io::IO, result::ParametricResult)
-    print(io, "ParametricResult($(length(result)) values)")
-end
-function Base.show(io::IO, ::MIME"text/plain", result::ParametricResult)
-    get(io, :compact, false) && return show(io, result)
-    value_type = isempty(result.values) ? "none" : _semantic_target(eltype(result.values))
-    return TextDisplay.tree(io, "ParametricResult · $(length(result)) values", (
-        (label = "result type  $value_type", noun = "fields"),
-        (label = "details      $(length(result.details.data)) entries", noun = "fields"),
-    ))
-end
-
 TextDisplay.name(::Type{<:WireEstimate}) = "WireEstimate"
 function Base.summary(io::IO, estimate::WireEstimate)
     print(io, "Wire estimate with $(length(estimate)) patterns")

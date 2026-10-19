@@ -10,7 +10,6 @@ Construct finite parameter spaces and materialize cable problems from explicit
 - Compose sources with product or zip semantics.
 - Declare cable parts, placements and systems with the construction vocabulary
   and macros.
-- Evaluate every materialized problem with `Combinatorial`.
 - Transport completed result spaces into target-bearing downstream problem
   spaces.
 - Estimate stranded-conductor and wire-screen patterns.
@@ -23,8 +22,6 @@ export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
 export build
-
-export Combinatorial, ParametricProblem, ParametricResult
 
 export Material
 export CableDesign, LineCableSystem
@@ -43,22 +40,13 @@ export @at, @hflat, @vflat, @trefoil
 export @distribute
 export WireEstimate, estimate_stranding, estimate_screen
 
-using DocStringExtensions: TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 import Random
-import ..LineCableModels: build, Gridpoint, validate
+import ..LineCableModels: build, validate
 import ..LineCableModels: Grid, AbsoluteError, DeterministicGrid, RelativeGrid
 import ..LineCableModels: AbsoluteGrid, AbstractGrid, AbstractUncertainGrid
 import ..LineCableModels: UncertainValue, Gridspace, ScalarOrGrid, has_uncertainty
-import ..LineCableModels: materialize, points, Builder, target
-import ..LineCableModels: verbosity, VerbosityLogger
-import Logging
-import ..Commons
-import ..Commons: compute, computation_options, computation_details, details,
-                  nominal, uncertainty
-using ..Commons:
-                 AbstractProblemDefinition, AbstractFormulation, AbstractResultSpace,
-                 AbstractParametricResult,
-                 ComputationOptions, ComputationDetails
+import ..LineCableModels: Builder, target
+import ..Commons: nominal, uncertainty
 import ..Materials
 import ..Materials: Material
 import ..DataModel
@@ -72,24 +60,15 @@ import ..DataModel: CableDesign, LineCableSystem
 import ..DataModel: trefoil, hflat, vflat
 import ..Earth
 using ..Earth: EarthLayer, EarthModel, layer, homogeneous
-import ..Engine
-import ..Engine: compare
 import ..TextDisplay
-
-include("results.jl")
 
 include("physicaltree.jl")
 include("positions.jl")
 include("construction_macros.jl")
 
-include("traversal.jl")
-include("comparisons.jl")
-
 include("wirepatterns/WirePatterns.jl")
 using .WirePatterns: WireEstimate, estimate_stranding, estimate_screen
 
 include("textdisplay.jl")
-
-public traverse
 
 end

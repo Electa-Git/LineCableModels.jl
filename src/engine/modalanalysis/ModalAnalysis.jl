@@ -19,7 +19,7 @@ export formula_id, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...LineCableModels: Expression, nominal, FormulaDefinition, formula, parameterize, validate
 import ...LineCableModels: line_length
-import ...LineCableModels: Grid, Gridpoint, Gridspace
+import ...LineCableModels: Grid, Gridspace, ScalarOrGrid, ParametricProblem, Resolved
 import ...LineCableModels
 import ...Commons: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions, ComputationDetails,

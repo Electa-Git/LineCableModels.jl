@@ -1263,8 +1263,9 @@ end
             @test first_result.details.data.fem.primitive.Z_primitive !==
                   second_result.details.data.fem.primitive.Z_primitive
             @test run_directories[indices[1]] == run_directories[indices[2]]
-            @test !isempty(details(first_result).data.timing)
-            @test isempty(details(second_result).data.timing)
+            # The reused point is timed like any point, and its run record marks the reuse.
+            @test !isempty(details(first_result).data.fem.run.durations)
+            @test isempty(details(second_result).data.fem.run.durations)
             @test details(second_result).data.fem.run.reused
             @test typeof(first_result) === typeof(second_result)
         end
@@ -1291,13 +1292,16 @@ end
               length(problem.frequencies) * length(result.details.data.fem.terminal_ids)
         @test run_directory !== nothing
         timing=result.details.data.timing
+        durations=result.details.data.fem.run.durations
         @test result.details.data.fem.run.columns == result.details.data.fem.run.completed_columns
         @test result.details.data.fem.run.recovered_columns == 0
         @test !result.details.data.fem.run.reused
-        @test keys(timing) == (:wall_seconds, :constraint_seconds, :assembly_seconds,
+        @test keys(timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds,
+            :recompile_seconds)
+        @test keys(durations) == (:constraint_seconds, :assembly_seconds,
             :solve_seconds, :output_seconds, :worker_wall_seconds)
         @test timing.wall_seconds >= 0
-        @test timing.worker_wall_seconds >= 0
+        @test durations.worker_wall_seconds >= 0
         @test !haskey(result.details.data.fem, :timing)
         extension=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
         native=[extension._column_timing(extension._column_paths(
@@ -1305,7 +1309,7 @@ end
             for frequency in eachindex(problem.frequencies)
             for basis in eachindex(result.details.data.fem.terminal_ids)]
         for phase in (:constraint_seconds,:assembly_seconds,:solve_seconds,:output_seconds)
-            @test getproperty(timing,phase) ≈ sum(getproperty(row,phase) for row in native)
+            @test getproperty(durations,phase) ≈ sum(getproperty(row,phase) for row in native)
         end
         expected_rows = 1 +
                         length(problem.frequencies) *
@@ -1346,19 +1350,19 @@ end
         @test repeated.details.data.formulations.formulas.earth_properties === nothing
         @test repeated.details.data.fem.run.run_directory == run_directory
         @test repeated.details.data.fem.run.reused
-        @test isempty(repeated.details.data.timing)
+        @test isempty(repeated.details.data.fem.run.durations)
         @test repeated.details.data.fem.inputs.getdp_identity.sha256 != ""
         @test !Bool(Gmsh.gmsh.is_initialized())
         @test snapshot_files(run_directory) == before_reuse
         batch_log = Test.TestLogger()
         reused_batch = with_logger(batch_log) do
-            compute(problem, fill(selected[last(default_indices)], 3); options=(;
+            compute(problem, Grid(Tuple(fill(selected[last(default_indices)], 3))); options=(;
                 formulation_controls..., trace=true, resume_run_directory=run_directory,
                 verbosity=(default=0, progress=1)))
         end
-        @test all(value->isempty(details(value).data.timing), reused_batch)
+        @test all(value->details(value).data.fem.run.reused, reused_batch)
         @test all(value->Z(value) == Z(result) && Y(value) == Y(result), reused_batch)
-        @test last(batch_log.logs).message == "FEM computation completed successfully"
+        @test last(batch_log.logs).message == "Line parameters computation completed successfully"
         @test last(batch_log.logs).kwargs[:completed] == 3
         @test snapshot_files(run_directory) == before_reuse
         mktempdir() do temporary
@@ -1405,7 +1409,7 @@ end
         end
         recovered = compute(problem, selected[last(default_indices)]; options=(;
             formulation_controls..., trace=true, resume_run_directory=run_directory))
-        @test isempty(details(recovered).data.timing)
+        @test isempty(details(recovered).data.fem.run.durations)
         @test details(recovered).data.fem.run.recovered_columns > 0
         @test details(recovered).data.fem.run.getdp_invocations ==
             details(result).data.fem.run.getdp_invocations + 1

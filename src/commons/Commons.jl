@@ -26,7 +26,12 @@ ParametricBuilder, UQ, and external implementations.
   computation owner, and `details` reads retained supplemental output.
 - `validate` checks a materialized input before its consumer uses it and returns it
   unchanged.
-- `compute` evaluates a problem through a selected formulation.
+- `compute` evaluates a problem through a selected formulation, each a scalar or a space,
+  through the runner `traverse`. `resolve` gives a backend what one formulation needs from
+  a problem as a `Resolved` value, and `retain_gridpoint` records the identity of a point
+  in its result. `ParametricProblem`, `Combinatorial` and `ParametricResult` declare and
+  hold a parametric run.
+- `verbosity` and `VerbosityLogger` select and filter log records by execution verbosity.
 - `Grid` declares a finite source, `Gridspace` a lazy space of finite sources combined
   by `Product` or `Zip`, and `parameterize` lifts a call over them. `has_grid` tells
   whether a value contains a source. `ScalarOrGrid{T}` is a `T` or a space of `T`.
@@ -37,7 +42,7 @@ ParametricBuilder, UQ, and external implementations.
 """
 module Commons
 
-export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
+export AbstractProblemDefinition, AbstractFormulation, AbstractTraversal, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
@@ -50,9 +55,11 @@ export formula, formula_id
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace, has_uncertainty, has_grid
+export Combinatorial, ParametricProblem, ParametricResult
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using RequiredInterfaces: @required
+import Logging
 import UUIDs
 import Random
 import ..Units
@@ -62,6 +69,7 @@ using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
 include("consts.jl")
 include("matrixops.jl")
 include("types.jl")
+include("logging.jl")
 include("base.jl")
 include("results.jl")
 include("interfaces.jl")
@@ -72,6 +80,8 @@ include("uncertainty.jl")
 include("grid.jl")
 include("gridspace.jl")
 include("gridpoint.jl")
+include("parametric.jl")
+include("runner.jl")
 include("observed_validation.jl")
 include("observedresult.jl")
 include("retained_products.jl")
@@ -93,4 +103,5 @@ public normalize_observation_selector
 public Gridpoint, Composition, Product, Zip, ScalarOrGrid, parameterize, materialize, points
 public Builder, FormulaBuilder, target
 public realize, realize_arguments, sample_uncertainty
+public resolve, Resolved, traverse, retain_gridpoint, timed
 end # module Commons

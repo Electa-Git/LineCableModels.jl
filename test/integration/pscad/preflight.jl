@@ -42,7 +42,8 @@
                 file_name=joinpath(root, "invalid.pscx"))
         end
         @test_throws ArgumentError compute(model(frequency=[50.0]), selected; options=(;remote))
-        @test_throws ArgumentError compute(model(), [selected, Formulation(:pscad; earth_impedance=:gary1976)]; options=(;remote))
+        @test_throws ArgumentError compute(model(),
+            Grid((selected, Formulation(:pscad; earth_impedance=:gary1976))); options=(;remote))
         plain = model()
         metal = Material(:conductor,1.72e-8,1.0)
         dielectric = Material(:insulator,1e14,2.3)

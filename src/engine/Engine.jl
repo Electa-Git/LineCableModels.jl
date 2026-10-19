@@ -53,8 +53,10 @@ import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,
                           Expression, FormulaDefinition
 import ..LineCableModels: parameterize
-using ..LineCableModels: AbstractGrid, Gridspace, ScalarOrGrid
-import ..LineCableModels: verbosity, VerbosityLogger
+using ..LineCableModels: AbstractGrid, Gridspace, ScalarOrGrid, ParametricResult,
+                         ParametricProblem, Resolved
+import ..LineCableModels: resolve, retain_gridpoint
+import ..LineCableModels: verbosity
 #! explicit-imports: off
 import ..LineCableModels: description
 #! explicit-imports: on
@@ -82,8 +84,6 @@ using ..DataModel: CableDesign, CableBlueprint, LineCableSystem, ncables, nphase
 import ..DataModel
 import ..TextDisplay
 import ..LineCableModels: validate
-import Logging
-using Logging: with_logger
 import SpecialFunctions
 using QuadGK: alloc_segbuf, quadgk
 
@@ -103,6 +103,7 @@ include("lineparameters/lineparameters.jl")
 include("lineparameters/quantities.jl")
 include("lineparameters/resolution.jl")
 include("lineparameters/benchmark.jl")
+include("lineparameters/comparisons.jl")
 
 # Submodule `InternalImpedance`
 include("internalimpedance/InternalImpedance.jl")

@@ -310,8 +310,52 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `ScalarOrGrid{T}` is a `T`, a `Gridspace` of `T` or a non-empty deterministic `Grid` of
   `T`. It is public in `Commons` and not exported. The values of the `Grid` can mix subtypes
   of `T`. A vector, a `Gridpoint` and an uncertain grid are not members. A method typed with
-  it receives a scalar and a space of it. `LineParametersProblem(system; …)`, `homogenize`
-  and the target of `stranded` take it.
+  it receives a scalar and a space of it. `LineParametersProblem(system; …)`, `homogenize`,
+  the target of `stranded`, `ParametricProblem`, `CableConstantsProblem(design; …)`,
+  `CableConstants(design; …)`, `Formulation(tag)` and the modal composition take it.
+- `compute(problem, formulation; options)` computes `ParametricProblem(problem, options)`,
+  and `compute(problem::ParametricProblem, formulation)` runs every action through one
+  runner in `Commons`, `traverse`, for a scalar or a space of problems and of formulations.
+  It materializes and validates the problems and the formulations before the first point,
+  then computes problem by problem. A scalar problem and a scalar formulation are a run of
+  one point, which returns its value. Any other call returns a `ParametricResult`, the
+  problem index fastest. A `ParametricProblem` keeps a scalar problem as a scalar, and
+  `LinearError` and `MonteCarlo` compute it as the space of one point.
+- `AbstractTraversal` is the supertype of `Combinatorial`, `LinearError` and `MonteCarlo`.
+  Each takes its options as `T(inner; options, keywords...)`, where a keyword sets the
+  option of the same name, normalized by `computation_options(T, options)`. The positional
+  constructor `T(inner, options)` takes normalized options and throws `ArgumentError` for
+  any other record.
+- `resolve(problem, formulations; options)` returns one `Resolved` per formulation, a tuple
+  for a tuple, which holds the problem and what one formulation needs from it. A backend
+  computes one point with `compute(resolved, formulation; options)`. The coaxial and
+  cable-constant backends share the blueprints of one problem between its formulations.
+  PSCAD and FEM share a table of native runs per problem by the content keys of their
+  inputs, and each point completes its result for its own formulation. `resolve` is public
+  in `Commons` and holds DataModel's geometric methods too.
+- The runner writes the work around the points once. `on_result(problem, index, value)`
+  runs after each point in computation order, and `index` gives the position of the point
+  in the space. The `timing` record holds `wall_seconds`, `bytes`, `gc_seconds`,
+  `compile_seconds` and `recompile_seconds` for every backend, also for a point that
+  reuses a native run. The log lines take the action from `description(problem)`, as in
+  "Line parameters computation started". The library emits its records only at the
+  progress levels that ask for them. When the options set `verbosity` or `on_result`, each
+  point computes in a `VerbosityLogger` at the `verbosity` levels, level 0 by default, which
+  filters the records of `on_result` too.
+- A vector of formulations is one value. Alternatives are a `Grid` or a `Gridspace`, as in
+  `compute(problem, Grid((first, second)))`.
+- FEM records the native phase durations of a run in `details(result).data.fem.run.durations`.
+  PSCAD records `compile_call_seconds` among its execution facts in
+  `details(result).data.execution`.
+- Before the first point, `traverse` normalizes the options once with
+  `computation_options(F, options)`, where `F` is the element type of the formulations. A
+  line-parameter formulation reaches the coaxial backend's method and a modal formulation
+  the modal backend's method. Another formulation type receives the options as they are.
+  `timed(timing, call)` returns the value of a call and the timing record that a point
+  retains about it.
+- `AbstractTraversal`, `ParametricProblem`, `Combinatorial` and `ParametricResult` are
+  defined in `Commons`, and `timed`, `verbosity`, `VerbosityLogger` and `retain_gridpoint`
+  are public in `Commons`.
 - Each builder of the user-facing language is the singleton of a subtype of
   `Builder{Target}`, and one call method lifts it over all its arguments and keywords. Its
   scalar body is a `build` method. A user extends a builder for an own type with a `build`

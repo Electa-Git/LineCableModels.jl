@@ -60,6 +60,16 @@ function computation_options(
         Units.LengthBasis(normalized.output_basis))
 end
 
+# The coaxial backend normalizes the computation options of a line-parameter formulation.
+computation_options(::Type{<:LineParametersFormulation}, record::ComputationOptions) =
+    computation_options(LineCableModelsCoaxial, record)
+
+# A normalized record stores the basis and the trace switch as types. This method returns it
+# as it is.
+computation_options(::Type{LineCableModelsCoaxial},
+    record::ComputationOptions{<:NamedTuple{(:verbosity, :output_basis, :trace, :on_result,
+        :timing), <:Tuple{NamedTuple, Units.LengthBasis, Val, Any, Bool}}}) = record
+
 # This method builds the options record after `LengthBasis` decides the basis, so a
 # Symbol read at run time still gives one concrete record per basis.
 function computation_options(::Type{LineCableModelsCoaxial}, normalized::NamedTuple,
@@ -146,7 +156,17 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 
 - `ArgumentError`: unknown keys, invalid controls or empty paths.
 """
-function computation_options(::Type{LineCableModelsFEM}, record::ComputationOptions)::ComputationOptions
+# A normalized record stores its basis and trace switch as types. This method returns it as
+# it is.
+computation_options(::Type{<:LineCableModelsFEM},
+    record::ComputationOptions{<:NamedTuple{(:verbosity, :output_basis, :trace, :on_result,
+        :timing, :ui, :plot_field_maps, :mesh_mode, :mesh_path, :domain_skin_depths,
+        :keep_run_directory, :getdp_executable, :gmsh_verbosity, :getdp_verbosity,
+        :frequency_workers, :solver_threads, :log_file, :resume_run_directory),
+        <:Tuple{NamedTuple, Units.LengthBasis, Val, Any, Bool, Bool, Bool, Symbol, Any,
+            Float64, Bool, Any, Int, Int, Int, Int, Any, Any}}}) = record
+
+function computation_options(::Type{<:LineCableModelsFEM}, record::ComputationOptions)::ComputationOptions
     options = record.data
     defaults = (ui=false, plot_field_maps=false, mesh_mode=:reuse,
         mesh_path=nothing, domain_skin_depths=2.0,

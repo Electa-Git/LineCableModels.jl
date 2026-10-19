@@ -131,11 +131,12 @@ end
     end
     LineCableModels.validate(problem::AffineProblem)=problem
     struct AffineFormulation <: AbstractFormulation end
-    function LineCableModels.compute(problem::AffineProblem,::AffineFormulation;
+    function LineCableModels.compute(resolved::LineCableModels.Resolved{<:AffineProblem},
+            ::AffineFormulation;
             options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
         options = options isa NamedTuple ? ComputationOptions(options) : options
         isempty(options.data) || throw(ArgumentError("affine fixture accepts no execution controls"))
-        x,y=problem.x,problem.y
+        x,y=resolved.problem.x,resolved.problem.y
         u,v=2x+3y,x-y
         LineParameters(reshape([complex(u,v)],1,1,1),reshape([complex(v,u)],1,1,1),[50.0])
     end

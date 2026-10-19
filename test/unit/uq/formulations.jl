@@ -4,10 +4,12 @@
     normalize = LineCableModels.computation_options
     @test LineCableModels.ComputationOptions !== NamedTuple
 
+    # The keyword constructor normalizes the options. The positional constructor takes
+    # normalized options and validates the formulation it builds.
     for owner in (Combinatorial, LinearError, MonteCarlo)
         keyword = @inferred owner(inner; options=(retain_details=true,))
-        positional = @inferred owner(inner, ComputationOptions(retain_details=true))
-        @test keyword.options === positional.options
+        @test @inferred(owner(inner; retain_details=true)) === keyword
+        @test @inferred(owner(inner, keyword.options)) === keyword
         @test normalize(owner, keyword.options) === keyword.options
         @test_throws ArgumentError owner(inner; options=(unused=true,))
         @test_throws ArgumentError owner(inner, ComputationOptions(unused=true))
@@ -17,6 +19,7 @@
         @test_throws MethodError owner{typeof(inner), typeof(invalid)}(inner, invalid)
         @test_throws TypeError owner{typeof(inner), NamedTuple}
     end
+    @test_throws ArgumentError MonteCarlo(inner, ComputationOptions(retain_details=true))
     @test_throws ArgumentError Combinatorial(Grid((1, 2)), ComputationOptions())
     @test_throws ArgumentError Combinatorial(
         Gridspace{Int}(identity, (Grid((1, 2)),)), ComputationOptions())
