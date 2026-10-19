@@ -890,3 +890,109 @@ Interpret the option comparisons through these measured effects:
 | Passivity | Compare the violation reports before and after enforcement, the fitting-error change and the transient change. Each backend supplies its own passivity assessment. |
 | Time step and interpolation | Compare arrival and waveform convergence as the step shrinks. Compare interpolation settings at the same step. |
 | Transformation frequency | J. Marti's off-diagonal ratios measure the coupling discarded by its constant transformation. Compare the resulting transient over the event's spectrum. |
+
+## Verification checks against transient outcomes
+
+`verification_tables.jl` compares archived model checks with measured errors
+against the exact NLT reference. It derives tables from saved results:
+
+```sh
+julia --project=test benchmarks/verification_tables.jl <run folders>... <output folder>
+```
+
+Supply the time-domain, model-settings and PSCAD folders listed in
+`time_domain_sources.txt`, the consolidated DC behaviour folders, the option study
+folder and the transient sensitivity folders. Supply each folder once.
+DC reruns follow argument order. A final result replaces an earlier result.
+Different time steps and interpolation settings remain separate configurations.
+
+The generator counts detections in each configuration class and in the pooled data.
+The classes describe contrasts against each study's baseline.
+They do not infer a physical cause from an error or diagnostic.
+
+| Study | Configuration rule |
+| --- | --- |
+| Time domain, Julia | The baseline is the dense ULM 16/16 fit with H time rows, passivity enforcement, `dc=()` and single interpolation. Order, time rows, passivity, DC correction and coarse sampling change the fit class. Marti and FDCM change the model structure. FDCM uses a frequency-dependent transformation. |
+| Time domain, PSCAD | The baseline is FD-Phase, orders 20/20, `DCenab=0`, `CPASS=1`, with the original band, window and interpolation. Order, DC and passivity changes belong to fit settings. FD-Mode belongs to model structure. |
+| PSCAD options | Compare each backend with its archived variant 1. Divisor zero and native `Interp1=1` or Julia `interp=single` are the simulation defaults. Compare actual controls, so duplicate default values remain baseline. Transformation-frequency choices of FD-Mode and Marti belong to model structure. |
+| Model settings | The dense ULM baseline is the same as the time-domain baseline, with `max_ratio=Inf`. Both archived ULM fits use the coarse grid and belong to fit settings. Double interpolation adds simulation settings. Marti uses the dense grid and belongs to model structure. |
+| DC behaviour | The baseline uses a lossy line with loss tangent. Native settings are `FS=0.5`, orders 20/20, `DCenab=0`, `CPASS=0`. ULM uses 16/16 with time rows, `dc=()` and `passivity=false`. Long scenarios add the long-window DC class. Changed fitting controls add fit settings. Lossless dielectric or constant conductance changes add a separate line-settings class. |
+
+The original scenario windows are the simulation defaults in each study.
+Changes to several controls within one class remain in that class.
+Changes across classes receive a separate mixed class, with every component retained.
+They do not enter either single-class count.
+
+Coarse-grid Marti combines fit settings and model structure.
+Coarse-grid ULM with double interpolation combines fit and simulation settings.
+The summary states each rule, and `verification_mixed.csv` lists every mixed row.
+
+The output contains CSV and LaTeX tables for configurations and scenarios,
+check detection counts, and silent failures. Separate tables keep passivity ranges
+and terminal measurements. The coverage table records excluded runs.
+Physical-input NLT responses from transient sensitivity have no fitted model
+or independent model error. Fits without transient outcomes also remain outside
+the detection counts.
+
+Reported fit-error flags use maximum entry errors above 0.2 and 2 percent.
+A separate flag uses reported RMS error above 2 percent.
+FD-Mode log errors keep their raw values because the native column has no unit label.
+The percent-threshold checks remain unavailable for these rows.
+
+DC-target flags use relative matrix deviations above 1 percent.
+Another flag checks whether the spectral radius of H(0) exceeds one.
+Propagation residue to pole ratios use thresholds of 1000 and 2000000.
+These dimensionless comparisons exclude admittance and impedance ratios, which have units.
+
+Empty fields identify unavailable checks. J. Marti passivity is unchecked.
+A silent failure means no available check flags the response.
+It does not mean every check passed.
+
+The default failure definition includes divergence and these absolute errors:
+
+- Core peak error above 2 percent.
+- Sheath peak error above 10 percent.
+- DC endpoint error above 5 percent.
+
+The second definition uses core and sheath limits of 5 and 20 percent.
+Sheath error uses the largest relative error in magnitude across sheaths at the receiving end.
+The endpoint compares final-window voltage means for finite responses, whether settled or unsettled.
+“Fine” means no threshold exceedance in retained outcomes.
+Unavailable checks have separate counts for failed and fine responses.
+
+Growth checks use the final two ten-percent windows at every voltage terminal.
+The standalone check requires a peak ratio above 1.1.
+The increase must also exceed one percent of the model receiving-core peak.
+The divergence outcome uses the NLT comparison rule.
+Its ratio must exceed one and 110 percent of the NLT ratio.
+Its final-window peak must exceed NLT by more than one percent of the NLT receiving-core peak.
+
+The NLT comparison requires the reference.
+The generator reports it separately from the independent growth check.
+
+Passivity ranges come from `PSCAD.read_pscad_fit_report` or the archived Julia fit record.
+Locations distinguish frequencies below the fitting band, within it below the scenario band,
+within the scenario band, and above either band.
+A range that crosses a band limit keeps each location.
+The scenario band uses the NLT limits.
+For an impulse, its upper limit captures 99 percent of source spectral energy,
+subject to the NLT upper limit.
+
+Successful native enforcement supersedes its earlier negative samples.
+Failed enforcement keeps the initial evidence for the unenforced model.
+Eigenvalue normalizations differ between backends.
+
+`verification_summary.txt` states these definitions and gives detection tables per class
+and pooled, for both failure definitions.
+`verification_classes.csv` gives row, failure and silent-failure counts per class.
+`verification_power.csv` reports sensitivity as flagged-failed / all-failed
+and specificity as quiet-fine / all-fine, with counts and fractions.
+Unavailable checks stay in both denominators and contribute to neither numerator.
+The fractions describe observed detection and clearance with the retained evidence.
+Each denominator counts every row in its class, regardless of check availability.
+A zero denominator has no rate.
+`verification_silent.csv` lists each silent failure with its configuration and scenario.
+It also lists errors and unavailable checks.
+The combined check set reports results at each fit-error threshold and with RMS alone.
+This comparison shows the effect of that threshold on silence.
+`verification_sources.txt` records every input folder.
