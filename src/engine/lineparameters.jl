@@ -135,8 +135,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compute the line parameters of one point with the coaxial backend: the workspace, the
-frequency loop and the completed result, from what `resolve` shares.
+Compute the line parameters of one point with the coaxial backend, from what `resolve`
+shares. The point builds its workspace and runs the frequency loop before it completes the
+result.
 """
 function compute(resolved::Resolved{<:LineParametersProblem},
         formulation::LineParametersFormulation;
@@ -190,8 +191,8 @@ unchanged.
 
 - `options`: named tuple containing `verbosity`, `output_basis`, `trace`, `timing` and
   `on_result`. The optional callable `on_result(problem, index, result)` runs
-  synchronously after each completed point and before the next computation. `index` is
-  the point's index in the space (`1` for a scalar call). Its return value is ignored.
+  synchronously after each completed point and before the next computation. `index` gives
+  the position of the point in the space (`1` for a scalar call). Its return value is ignored.
   Exceptions propagate. The callback must not mutate the problem or result. The default is
   `nothing`.
 - `modal`: a modal-analysis formulation, a space of them or the identifier of one. The

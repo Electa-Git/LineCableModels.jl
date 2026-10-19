@@ -2,7 +2,7 @@
     resolve(context, objects...; options)
 
 Return what `context` needs for the `objects` that apply to it. A geometric context resolves
-one primitive or contextual layer against itself. A problem resolves its formulations.
+one primitive or contextual layer against itself.
 `resolve(problem, formulations; options)` returns one [`Resolved`](@ref) per formulation, a
 tuple for a tuple, and shares between them the parts that the formulations need equally.
 [`traverse`](@ref) resolves each problem once, before its points. A backend that shares work
@@ -39,6 +39,15 @@ retained details. The owner of a result type adds a method. This default returns
 value as it is.
 """
 retain_gridpoint(result, gridpoint; fields = (;)) = result
+
+"""
+    retain_gridpoint(result; fields)
+
+Return `result` with `fields` merged into its retained details. The gridpoint identity of
+`result` is unchanged. The owner of a result type adds a method. This default returns any
+other value as it is.
+"""
+retain_gridpoint(result; fields = (;)) = result
 
 """
     timed(timing, call)
@@ -135,15 +144,14 @@ function traverse(problem, formulation, problems, formulations, execution::Compu
     count = length(problems) * length(formulations)
     started = time_ns()
     # A point of a space takes the identity of the run and its indices. A scalar value keeps
-    # the identity that its backend gave it, unless it gains fields to retain.
+    # the identity that its backend gave it, and the fields to retain merge into its details.
     identified = if spaced
         let source_id = gridpoint_id().source_id
             (value, fields, problem_index, formulation_index) -> retain_gridpoint(value,
                 gridpoint_id(; source_id, problem_index, formulation_index); fields)
         end
     else
-        (value, fields, _, _) -> isempty(fields) ? value :
-                                 retain_gridpoint(value, gridpoint_id(); fields)
+        (value, fields, _, _) -> isempty(fields) ? value : retain_gridpoint(value; fields)
     end
     # A point computes its value with the backend, timed or not, then records its gridpoint
     # and calls `on_result`. The step receives the resolved input and the formulation of the

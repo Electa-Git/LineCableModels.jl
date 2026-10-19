@@ -1185,7 +1185,7 @@ scan = details(result).data.timing
 ```
 
 For a higher-order computation, keep these controls in
-`ParametricProblem(problem_space, execution)`. Cable-constant computations accept no
+`ParametricProblem(problem_space, execution)`. Cable-constant computations do not take
 computation options.
 
 Each measurement describes one point, which is one materialized problem and formulation

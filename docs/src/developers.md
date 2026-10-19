@@ -451,8 +451,8 @@ and the modules extend it by dispatch.
   `AbstractGrid` defines `length` and `getindex`.
 
 What dispatches on a scalar `T` dispatches on a space of `T`. `ScalarOrGrid{T}` writes that
-rule in one signature: a `T`, a `Gridspace` of `T` or a non-empty `Grid` of `T`, whose values
-can mix subtypes of `T`. A vector is one value, and alternatives are a `Grid`, as in
+rule in one signature. It admits a `T` and a `Gridspace` of `T`, and also a non-empty `Grid`
+of `T`, whose values can mix subtypes of `T`. A vector is one value, and alternatives are a `Grid`, as in
 `Grid((a, b))`. A `Gridpoint` and an uncertain grid are not members. Uncertain values lift
 through the family methods, which accept any `Grid`. A method typed `ScalarOrGrid{T}` lifts a
 space and builds a scalar with its scalar body, a `build` method, as a builder does:

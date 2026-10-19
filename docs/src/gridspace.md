@@ -287,8 +287,8 @@ run = compute(ParametricProblem(problem_space, ComputationOptions(options)),
 `Combinatorial` accepts one completed formulation, a deterministic
 target-bearing formulation `Gridspace`, or a deterministic `Grid` containing
 completed formulations. A formulation space contains the formulations of one backend,
-whose formula choices may vary. Comparing backends takes one computation per backend. The runner, `traverse`, materializes and validates every
-problem and formulation before the first point, then computes problem by problem:
+whose formula choices may vary. Comparing backends takes one computation per backend. The runner, `traverse`, materializes and validates the
+problems and formulations before the first point, then computes problem by problem:
 
 ```text
 materialize and validate every problem and formulation
@@ -307,9 +307,9 @@ constructor remains local to that formulation: `combine=:product` or
 problem-formulation relation is always Cartesian.
 
 `resolve` shares the work that the formulations of one problem need equally. The
-coaxial line-parameter path flattens every selected design once per problem,
-constructs its formulation-independent line input once, and completes the internal
-potential coefficients of every formulation together. Each point then allocates and
+coaxial line-parameter path flattens the selected designs and builds the
+formulation-independent line input, both once per problem. It completes the internal
+potential coefficients of the formulations together. Each point then allocates and
 solves one independent workspace. The cable-constant path follows the same
 one-flatten rule. Mutable matrices, formula-dependent earth data, reduction maps,
 and diagnostic storage belong to each workspace. Modal analysis uses the default `resolve`.
