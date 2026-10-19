@@ -1,0 +1,119 @@
+                    Passivity Enforcement 
+ ====================================================================
+  Optimization via Spectral Residue Pertubation            
+  of propagation matrix            
+  Number of ports                             6
+  Order of the transfer function             88
+      
+   -------------------------------------------------------------------- 
+   Main Iteration  #   1
+   -------------------------------------------------------------------- 
+  Initial passivity violations  
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        7.2784810E-01       -1.2745095E-06
+        1.1550633E+00       -8.3063651E-07
+        1.7816456E+00       -8.9237988E-07
+        2.8354430E+00       -3.8125099E-07
+        4.6582278E+00       -3.2717742E-06
+        6.7088608E+00       -6.5278033E-06
+    ...........   
+  Model Order reduction 
+  Original    48, Reduced    48
+   
+    Inner Iteration  #  1
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        7.2784810E-01       -6.1740436E-07
+        1.0981013E+00       -2.1739014E-07
+        1.6392405E+00       -4.7331459E-09
+        1.7816456E+00       -1.3825587E-07
+        4.2594937E+00       -3.0075179E-07
+        6.9936709E+00       -6.6226200E-07
+   
+    Inner Iteration  #  2
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        7.2784810E-01       -5.8784541E-07
+        1.0981013E+00       -2.2448494E-07
+        1.6107595E+00       -8.5847081E-09
+        4.2879747E+00       -2.7961571E-07
+        6.7088608E+00       -5.7598421E-07
+   
+    Inner Iteration  #  3
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        7.2784810E-01       -5.8784541E-07
+        1.0981013E+00       -2.2448494E-07
+        1.6107595E+00       -8.5847081E-09
+        4.2879747E+00       -2.7961571E-07
+        6.7088608E+00       -5.7598421E-07
+   -------------------------------------------------------------------- 
+   Main Iteration  #   2
+   -------------------------------------------------------------------- 
+    ...........   
+  Model Order reduction 
+  Original    48, Reduced    48
+   
+    Inner Iteration  #  1
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        7.2784810E-01       -3.5697911E-08
+        4.2594937E+00       -6.4363718E-10
+        6.9936709E+00       -1.6034868E-07
+   
+    Inner Iteration  #  2
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        7.2784810E-01       -3.6115703E-08
+        4.2594937E+00       -6.4362661E-10
+        6.4240506E+00       -1.4978949E-09
+        6.9936709E+00       -8.9641678E-09
+   
+    Inner Iteration  #  3
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        7.2784810E-01       -3.6115703E-08
+        4.2594937E+00       -6.4362661E-10
+        6.4240506E+00       -1.4978949E-09
+        6.9936709E+00       -8.9641678E-09
+   -------------------------------------------------------------------- 
+   Main Iteration  #   3
+   -------------------------------------------------------------------- 
+    ...........   
+  Model Order reduction 
+  Original    48, Reduced    48
+   
+    Inner Iteration  #  1
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        6.9936709E-01       -6.6090289E-12
+        6.4240506E+00       -2.1426952E-09
+   
+    Inner Iteration  #  2
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        6.9936709E-01       -6.6090289E-12
+        6.4240506E+00       -2.1426952E-09
+   
+    Inner Iteration  #  3
+    Frequency [Hz]         Negative eigenvalue minimas
+    ..............           ............ 
+        6.9936709E-01       -6.6090289E-12
+        6.4240506E+00       -2.1426952E-09
+   -------------------------------------------------------------------- 
+   Main Iteration  #   4
+   -------------------------------------------------------------------- 
+    ...........   
+  Model Order reduction 
+  Original    48, Reduced    48
+   
+    Inner Iteration  #  1
+   
+  There are no passivity violations. Passivity is sucessfully enforced  
+   -------------------------------------------------------------------- 
+  Maximum abs. error    7.203260719909321E-002 %
+ Time elapsed     2.70312500000000        [sec]
+ ====================================================================
+ 
+ LCP solve constants complete.

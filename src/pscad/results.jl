@@ -117,6 +117,166 @@ function read_pscad_result(
     )
 end
 
+# Native headings delimit both complete reports and logs interrupted by Tline.
+function _pscad_fit_section(text, heading, ending)
+    return match(Regex(raw"(?ms)^[ \t]*" * heading * raw"[^\r\n]*\n(.*?)(?=^[ \t]*(?:" * ending * raw")|\z)"), text)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Read the curve-fit and passivity reports from a native Tline log.
+
+# Arguments
+
+- `path`: Local line-constants log file.
+
+# Returns
+
+A named tuple with these fields. Absent sections and values are `nothing`.
+
+- `admittance`: `before_dc` and `after_dc` error records, and the reported `poles`
+  count. Each error record has `maximum_error_percent` and `rms_error_percent`.
+- `propagation`: The same error records, `poles` per delay group, and
+  `poles_source` (`:final_fit` or `:last_hmode`).
+- `maximum_residue_pole_ratio`: Largest ratio of residue to pole in the final fit.
+- `scan`: `band` with `lower_Hz` and `upper_Hz`, violation `ranges` with those
+  limits and `smallest_eigenvalue`, the overall `smallest_eigenvalue`, native
+  `outcome` and `report` text. A clean scan has empty ranges.
+- `enforcement`: Native `outcome`, `initial_smallest_eigenvalue`,
+  `final_smallest_eigenvalue`, overall `smallest_eigenvalue`,
+  `maximum_abs_error_percent`, `ranges`, `report` and `iterations`.
+  Each inner iteration has `main` and `inner` indices, `frequencies` \\[Hz\\] and
+  `eigenvalues`. An iteration without a table has empty sample vectors.
+- `reports`: `fitting`, `before_dc` and `after_dc` text, with LF line endings.
+
+The `before_dc` errors describe the last fit before any DC correction, including
+runs with DC correction disabled. Enforcement minima describe the first and last
+reported eigenvalue tables. The outcome states whether enforcement succeeded.
+Errors use percent. Frequencies use Hz. Eigenvalues and ratios of residue to pole
+keep the native normalization.
+"""
+function read_pscad_fit_report(path::AbstractString)
+    text = replace(read(path, String), "\r\n" => "\n")
+    number = raw"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][-+]?\d+)?"
+    fitting = _pscad_fit_section(text, "CURVE FITTING OUTPUT", raw"LCP solve constants complete\.")
+    fit_text = fitting === nothing ? "" : fitting.captures[1]
+    correction = match(r"(?m)^[ \t]*Applying DC Correction[ \t]*$", fit_text)
+    before, after = correction === nothing ? (fit_text, "") :
+        Tuple(split(fit_text, correction.match; limit = 2))
+    reports = (fitting = fitting === nothing ? nothing : String(strip(fit_text)),
+        before_dc = correction === nothing ? nothing : String(strip(before)),
+        after_dc = correction === nothing ? nothing : String(strip(after)))
+
+    yc_rows = map((before, after)) do section
+        yc = _pscad_fit_section(section, "Fitting Characteristic Admittance Yc:", "Fitting Propagation Function H:")
+        yc === nothing && return nothing
+        return match(Regex(raw"(?m)^[ \t]*Yc:[^\n]*\n[ \t]*Fitting Error[ \t]+of Poles[ \t]*\n[ \t-]+\n[ \t]*(" *
+            number * raw")[ \t]*%[ \t]+(\d+)[ \t]*$"), yc.captures[1])
+    end
+    yc_errors = map(yc_rows) do row
+        row === nothing ? nothing :
+            (maximum_error_percent = _pscad_number(row[1]), rms_error_percent = nothing)
+    end
+    yc_final = yc_rows[2] === nothing ? yc_rows[1] : yc_rows[2]
+    admittance = yc_final === nothing ? nothing :
+        (before_dc = yc_errors[1], after_dc = yc_errors[2], poles = parse(Int, yc_final[2]))
+
+    h_before, h_after, h_poles, h_source, ratio = nothing, nothing, nothing, nothing, nothing
+    propagation_section = _pscad_fit_section(before, "Fitting Propagation Function H:", "Applying DC Correction")
+    if propagation_section !== nothing
+        attempts = collect(eachmatch(Regex(raw"(?m)^[ \t]*Hphase:[^\n]*\n[ \t]*Fitting Error[ \t]+RMS Error[ \t]+Residue/Pole Ratio[ \t]*\n[ \t-]+\n[ \t]*(" *
+            number * raw")[ \t]*%[ \t]+(" * number * raw")[ \t]*%[ \t]+(" * number * raw")"), propagation_section[1]))
+        if !isempty(attempts)
+            row = last(attempts)
+            h_before = (maximum_error_percent = _pscad_number(row[1]), rms_error_percent = _pscad_number(row[2]))
+            ratio = _pscad_number(row[3])
+        end
+        modal = collect(eachmatch(r"(?ms)^[ \t]*Hmode:[^\n]*\n(.*?)(?=^[ \t]*Hphase:|\z)", propagation_section[1]))
+        if !isempty(modal)
+            counts = [parse(Int, row[1]) for row in eachmatch(Regex(raw"(?m)^[ \t]*\d+[ \t]+" * number *
+                raw"[ \t]*%[ \t]+(\d+)[ \t]+" * number * raw"[ \t]+ms[ \t]*$"), last(modal)[1])]
+            if !isempty(counts)
+                h_poles, h_source = counts, :last_hmode
+            end
+        end
+    end
+    final = _pscad_fit_section(fit_text, "Final Fit:", "Maximum Residue/Pole Ratio:")
+    if final !== nothing
+        row = match(Regex(raw"(?m)^[ \t]*(" * number * raw")[ \t]*%[ \t]+(" * number * raw")[ \t]*%[ \t]+(\d+)[ \t]+" *
+            number * raw"[ \t]+ms[ \t]*$"), final[1])
+        if row !== nothing
+            h_poles = [parse(Int, row[3]); [parse(Int, item[1]) for item in eachmatch(
+                Regex(raw"(?m)^[ \t]*(\d+)[ \t]+" * number * raw"[ \t]+ms[ \t]*$"), final[1])]]
+            h_source = :final_fit
+            if correction !== nothing && final.offset > correction.offset
+                h_after = (maximum_error_percent = _pscad_number(row[1]), rms_error_percent = _pscad_number(row[2]))
+            end
+        end
+    end
+    final_ratio = match(Regex(raw"(?m)^[ \t]*Maximum Residue/Pole Ratio:[ \t]*(" * number * raw")[ \t]*$"), fit_text)
+    final_ratio === nothing || (ratio = _pscad_number(final_ratio[1]))
+    propagation = h_before === nothing && h_after === nothing && h_poles === nothing ? nothing :
+        (before_dc = h_before, after_dc = h_after, poles = h_poles, poles_source = h_source)
+
+    enforcement_heading = raw"Passivity Enforcement[ \t]*$"
+    scan_section = _pscad_fit_section(text, "Checking for Passivity Violations Between", enforcement_heading * raw"|LCP solve constants complete\.")
+    enforcement_section = _pscad_fit_section(text, enforcement_heading, raw"LCP solve constants complete\.")
+    range_pattern = Regex(raw"(?m)^[ \t]*From[ \t]+(" * number * raw")[ \t]+Hz[ \t]+to[ \t]+(" *
+        number * raw")[ \t]+Hz[ \t]+(" * number * raw")[ \t]*$")
+    passivity_ranges = map((scan_section, enforcement_section)) do section
+        section === nothing && return nothing
+        return [(lower_Hz = _pscad_number(row[1]), upper_Hz = _pscad_number(row[2]),
+            smallest_eigenvalue = _pscad_number(row[3])) for row in eachmatch(range_pattern, section[1])]
+    end
+    scan = nothing
+    if scan_section !== nothing
+        band = match(Regex(raw"Checking for Passivity Violations Between[ \t]+(" * number * raw")[ \t]+Hz[ \t]+and[ \t]+(" *
+            number * raw")[ \t]+Hz"), scan_section.match)
+        outcomes = collect(eachmatch(r"(?m)^[ \t]*Passivity violations detected\. See help for further details[ \t]*$", scan_section[1]))
+        ranges = passivity_ranges[1]
+        scan = (band = band === nothing ? nothing : (lower_Hz = _pscad_number(band[1]), upper_Hz = _pscad_number(band[2])),
+            ranges, smallest_eigenvalue = isempty(ranges) ? nothing : minimum(row.smallest_eigenvalue for row in ranges),
+            outcome = isempty(outcomes) ? nothing : String(strip(last(outcomes).match)), report = String(strip(scan_section.match)))
+    end
+    enforcement = nothing
+    if enforcement_section !== nothing
+        body = enforcement_section[1]
+        # cspell:ignore sucessfully
+        outcomes = collect(eachmatch(r"(?m)^[ \t]*(?:Constrained solution failed|There are no passivity violations\. Passivity is sucessfully enforced)[ \t]*$", body))
+        table_pattern = Regex(raw"(?m)^[ \t]*Frequency \[Hz\][ \t]+Negative eigenvalue minimas[ \t]*\n[ \t.]+\n((?:[ \t]*" *
+            number * raw"[ \t]+" * number * raw"[ \t]*\n)+)")
+        point_pattern = Regex(raw"(?m)^[ \t]*(" * number * raw")[ \t]+(" * number * raw")[ \t]*$")
+        tables = collect(eachmatch(table_pattern, body))
+        minima = [minimum(_pscad_number(row[2]) for row in eachmatch(point_pattern, table[1])) for table in tables]
+        markers = collect(eachmatch(r"(?m)^[ \t]*(Main|Inner) Iteration[ \t]+#[ \t]*(\d+)[ \t]*$", body))
+        iterations = NamedTuple{(:main, :inner, :frequencies, :eigenvalues), Tuple{Union{Nothing, Int}, Int, Vector{Float64}, Vector{Float64}}}[]
+        main = nothing
+        for (index, marker) in enumerate(markers)
+            if marker[1] == "Main"
+                main = parse(Int, marker[2])
+                continue
+            end
+            stop = index == length(markers) ? lastindex(body) : prevind(body, markers[index + 1].offset)
+            table = match(table_pattern, SubString(body, marker.offset, stop))
+            points = table === nothing ? Tuple{Float64, Float64}[] :
+                [(_pscad_number(row[1]), _pscad_number(row[2])) for row in eachmatch(point_pattern, table[1])]
+            push!(iterations, (main, inner = parse(Int, marker[2]), frequencies = Float64[first(row) for row in points],
+                eigenvalues = Float64[last(row) for row in points]))
+        end
+        error_match = match(Regex(raw"(?m)^[ \t]*Maximum abs\. error[ \t]+(" * number * raw")[ \t]*%[ \t]*$"), body)
+        enforcement = (outcome = isempty(outcomes) ? nothing : String(strip(last(outcomes).match)),
+            initial_smallest_eigenvalue = isempty(minima) ? nothing : first(minima),
+            final_smallest_eigenvalue = isempty(minima) ? nothing : last(minima),
+            smallest_eigenvalue = isempty(minima) ? (isempty(passivity_ranges[2]) ? nothing :
+                minimum(row.smallest_eigenvalue for row in passivity_ranges[2])) : minimum(minima),
+            maximum_abs_error_percent = error_match === nothing ? nothing : _pscad_number(error_match[1]),
+            ranges = passivity_ranges[2], iterations = isempty(markers) ? nothing : iterations,
+            report = String(strip(enforcement_section.match)))
+    end
+    return (; admittance, propagation, maximum_residue_pole_ratio = ratio, scan, enforcement, reports)
+end
+
 """
 $(TYPEDEF)
 

@@ -1,6 +1,7 @@
 # Read DC behaviour archives and write CSV and LaTeX tables.
 # Run: `julia --project=test benchmarks/dc_behaviour_tables.jl <run folders>... <output folder>`
 using TOML
+using LineCableModels.PSCAD: read_pscad_fit_report
 
 length(ARGS) >= 2 || error("Expected run folders followed by an output folder")
 folders = abspath.(ARGS[1:end-1])
@@ -12,92 +13,50 @@ tex_cell(::Nothing) = "{---}"
 tex_cell(value::AbstractFloat) = isfinite(value) ? "\\num[round-mode=figures,round-precision=3]{$value}" : tex_text(value)
 tex_cell(value) = tex_text(value)
 
-# Sections end at another native heading. Absent headings remain explicit.
-function tline_section(text, heading, ending)
-    return match(Regex(raw"(?ms)^[ \t]*" * heading * raw"[^\r\n]*\r?\n(.*?)(?=^[ \t]*(?:" * ending * raw")|\z)"), text)
-end
-
-function tline_diagnostics(text)
-    text = replace(text, "\r\n" => "\n")
-    fields = ["Yc_before_dc_max_error_percent", "Yc_after_dc_max_error_percent", "Yc_reported_poles",
-        "H_before_dc_max_error_percent", "H_before_dc_rms_error_percent",
-        "H_after_dc_max_error_percent", "H_after_dc_rms_error_percent", "H_final_poles",
-        "maximum_residue_pole_ratio", "before_dc_report", "after_dc_report",
-        "scan_report", "scan_violation_ranges", "scan_smallest_eigenvalue", "scan_outcome",
-        "enforcement_report", "enforcement_violation_ranges", "enforcement_smallest_eigenvalue", "enforcement_outcome",
-        "enforcement_initial_smallest_eigenvalue", "enforcement_last_reported_smallest_eigenvalue", "enforcement_max_abs_error_percent"]
-    data = Dict{String, Any}(field => "not found" for field in fields)
-    number = raw"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][-+]?\d+)?"
-    numeric(value) = parse(Float64, replace(value, 'D' => 'E', 'd' => 'e'))
-    fitting = tline_section(text, "CURVE FITTING OUTPUT", raw"LCP solve constants complete\.")
-    fit_text = fitting === nothing ? "" : fitting.captures[1]
-    correction = match(r"(?m)^[ \t]*Applying DC Correction[ \t]*$", fit_text)
-    before = correction === nothing ? "" : first(split(fit_text, correction.match; limit = 2))
-    after = correction === nothing ? "" : last(split(fit_text, correction.match; limit = 2))
-    if correction !== nothing
-        data["before_dc_report"] = strip(before)
-        data["after_dc_report"] = strip(after)
-    end
-    yc = tline_section(fit_text, "Fitting Characteristic Admittance Yc:", "Fitting Propagation Function H:")
-    if yc !== nothing
-        row = match(Regex(raw"(?m)^[ \t]*Yc:[^\r\n]*\r?\n[ \t]*Fitting Error[ \t]+of Poles[ \t]*\r?\n[ \t-]+\r?\n[ \t]*(" * number * raw")[ \t]*%[ \t]+(\d+)[ \t]*$"), yc.captures[1])
-        if row !== nothing
-            correction === nothing || (data["Yc_before_dc_max_error_percent"] = numeric(row[1]))
-            data["Yc_reported_poles"] = parse(Int, row[2])
-        end
-    end
-    propagation = tline_section(before, "Fitting Propagation Function H:", "Applying DC Correction")
-    if propagation !== nothing
-        attempts = collect(eachmatch(Regex(raw"(?m)^[ \t]*Hphase:[^\r\n]*\r?\n[ \t]*Fitting Error[ \t]+RMS Error[ \t]+Residue/Pole Ratio[ \t]*\r?\n[ \t-]+\r?\n[ \t]*(" * number * raw")[ \t]*%[ \t]+(" * number * raw")[ \t]*%"), propagation.captures[1]))
-        if !isempty(attempts)
-            data["H_before_dc_max_error_percent"] = numeric(last(attempts)[1])
-            data["H_before_dc_rms_error_percent"] = numeric(last(attempts)[2])
-        end
-    end
-    final = tline_section(fit_text, "Final Fit:", "Maximum Residue/Pole Ratio:")
-    if final !== nothing
-        row = match(Regex(raw"(?m)^[ \t]*(" * number * raw")[ \t]*%[ \t]+(" * number * raw")[ \t]*%[ \t]+(\d+)[ \t]+" * number * raw"[ \t]+ms[ \t]*$"), final.captures[1])
-        if row !== nothing
-            poles = [parse(Int, row[3])]
-            append!(poles, [parse(Int, m[1]) for m in eachmatch(Regex(raw"(?m)^[ \t]*(\d+)[ \t]+" * number * raw"[ \t]+ms[ \t]*$"), final.captures[1])])
-            data["H_final_poles"] = join(poles, ", ")
-            if correction !== nothing && final.offset > correction.offset
-                data["H_after_dc_max_error_percent"] = numeric(row[1])
-                data["H_after_dc_rms_error_percent"] = numeric(row[2])
-            end
-        end
-    end
-    ratio = match(Regex(raw"(?m)^[ \t]*Maximum Residue/Pole Ratio:[ \t]*(" * number * raw")[ \t]*$"), fit_text)
-    ratio === nothing || (data["maximum_residue_pole_ratio"] = numeric(ratio[1]))
-
-    enforcement_heading = raw"(?i:Passivity Enforcement|Enforcing Passivity|Applying Passivity Enforcement)\b"
-    for (kind, heading, ending) in (("scan", "Checking for Passivity Violations Between", enforcement_heading * raw"|LCP solve constants complete\."),
-            ("enforcement", enforcement_heading, raw"LCP solve constants complete\."))
-        section = tline_section(text, heading, ending)
-        section === nothing && continue
-        data["$(kind)_report"] = strip(section.match)
-        ranges = tline_section(section.match, raw"Frequency range[ \t]+smallest eigenvalue", raw"(?i:Passivity|Enforcement)\b")
-        if ranges !== nothing
-            entries = collect(eachmatch(Regex(raw"(?m)^[ \t]*From[ \t]+(" * number * raw")[ \t]+Hz[ \t]+to[ \t]+(" * number * raw")[ \t]+Hz[ \t]+(" * number * raw")[ \t]*$"), ranges.captures[1]))
-            if !isempty(entries)
-                data["$(kind)_violation_ranges"] = join(["$(numeric(m[1])) to $(numeric(m[2])) Hz: $(numeric(m[3]))" for m in entries], "; ")
-                data["$(kind)_smallest_eigenvalue"] = minimum(numeric(m[3]) for m in entries)
-            end
-        end
-        outcome_pattern = kind == "scan" ? r"(?im)^[ \t]*(?:Passivity violations detected\.|No passivity violations[^\r\n]*)[^\r\n]*$" :
-            r"(?im)^[ \t]*(?:(?:Passivity[ \t]+)?Enforcement[ \t]+(?:outcome|result|status)[ \t]*:|Passivity[ \t]+(?:successfully enforced|enforced|achieved)|(?:Passivity[ \t]+)?Enforcement[ \t]+(?:successful|failed|completed)|(?:Successful|Failed)[ \t]+passivity enforcement|Constrained solution failed|There are no passivity violations\.)[^\r\n]*$"
-        outcomes = collect(eachmatch(outcome_pattern, section.captures[1]))
-        isempty(outcomes) || (data["$(kind)_outcome"] = strip(last(outcomes).match))
-        if kind == "enforcement"
-            blocks = collect(eachmatch(Regex(raw"(?m)^[ \t]*Frequency \[Hz\][ \t]+Negative eigenvalue minimas[ \t]*\n[ \t.]+\n((?:[ \t]*" * number * raw"[ \t]+" * number * raw"[ \t]*\n)+)"), section.captures[1]))
-            minima = [minimum(numeric(m[2]) for m in eachmatch(Regex(raw"(?m)^[ \t]*(" * number * raw")[ \t]+(" * number * raw")[ \t]*$"), block[1])) for block in blocks]
-            if !isempty(minima)
-                data["enforcement_initial_smallest_eigenvalue"] = first(minima)
-                data["enforcement_last_reported_smallest_eigenvalue"] = last(minima)
-                data["enforcement_smallest_eigenvalue"] = minimum(minima)
-            end
-            error = match(Regex(raw"(?m)^[ \t]*Maximum abs\. error[ \t]+(" * number * raw")[ \t]*%[ \t]*$"), section.captures[1])
-            error === nothing || (data["enforcement_max_abs_error_percent"] = numeric(error[1]))
+# Convert native report data to this table schema.
+function fit_report_columns(reports)
+    fit_index = findfirst(report -> report.reports.fitting !== nothing, reports)
+    scan_index = findfirst(report -> report.scan !== nothing, reports)
+    enforcement_index = findfirst(report -> report.enforcement !== nothing, reports)
+    fitting = fit_index === nothing ? nothing : reports[fit_index]
+    absent_fit = (before_dc = nothing, after_dc = nothing, poles = nothing, poles_source = nothing)
+    yc = something(fitting === nothing ? nothing : fitting.admittance, absent_fit)
+    h = something(fitting === nothing ? nothing : fitting.propagation, absent_fit)
+    absent_errors = (maximum_error_percent = nothing, rms_error_percent = nothing)
+    yc_before, yc_after = something(yc.before_dc, absent_errors), something(yc.after_dc, absent_errors)
+    h_before, h_after = something(h.before_dc, absent_errors), something(h.after_dc, absent_errors)
+    raw = fitting === nothing ? (fitting = nothing, before_dc = nothing, after_dc = nothing) : fitting.reports
+    scan = something(scan_index === nothing ? nothing : reports[scan_index].scan,
+        (band = nothing, ranges = nothing, smallest_eigenvalue = nothing, outcome = nothing, report = nothing))
+    enforcement = something(enforcement_index === nothing ? nothing : reports[enforcement_index].enforcement,
+        (ranges = nothing, smallest_eigenvalue = nothing, outcome = nothing, report = nothing,
+            initial_smallest_eigenvalue = nothing, final_smallest_eigenvalue = nothing, maximum_abs_error_percent = nothing))
+    data = Dict{String, Any}(key => something(value, "not found") for (key, value) in (
+        "Yc_before_dc_max_error_percent" => (raw.before_dc === nothing ? nothing : yc_before.maximum_error_percent),
+        "Yc_after_dc_max_error_percent" => yc_after.maximum_error_percent,
+        "Yc_reported_poles" => yc.poles,
+        "H_before_dc_max_error_percent" => (raw.before_dc === nothing ? nothing : h_before.maximum_error_percent),
+        "H_before_dc_rms_error_percent" => (raw.before_dc === nothing ? nothing : h_before.rms_error_percent),
+        "H_after_dc_max_error_percent" => h_after.maximum_error_percent,
+        "H_after_dc_rms_error_percent" => h_after.rms_error_percent,
+        "H_final_poles" => (h.poles === nothing ? nothing : join(h.poles, ", ")),
+        "maximum_residue_pole_ratio" => (fitting === nothing ? nothing : fitting.maximum_residue_pole_ratio),
+        "before_dc_report" => raw.before_dc,
+        "after_dc_report" => raw.after_dc,
+        "scan_report" => scan.report,
+        "scan_violation_ranges" => nothing,
+        "scan_smallest_eigenvalue" => scan.smallest_eigenvalue,
+        "scan_outcome" => scan.outcome,
+        "enforcement_report" => enforcement.report,
+        "enforcement_violation_ranges" => nothing,
+        "enforcement_smallest_eigenvalue" => enforcement.smallest_eigenvalue,
+        "enforcement_outcome" => enforcement.outcome,
+        "enforcement_initial_smallest_eigenvalue" => enforcement.initial_smallest_eigenvalue,
+        "enforcement_last_reported_smallest_eigenvalue" => enforcement.final_smallest_eigenvalue,
+        "enforcement_max_abs_error_percent" => enforcement.maximum_abs_error_percent))
+    for (name, ranges) in (("scan", scan.ranges), ("enforcement", enforcement.ranges))
+        if ranges !== nothing && !isempty(ranges)
+            data[name * "_violation_ranges"] = join(["$(row.lower_Hz) to $(row.upper_Hz) Hz: $(row.smallest_eigenvalue)" for row in ranges], "; ")
         end
     end
     return data
@@ -285,7 +244,7 @@ for cable in unique(summary["cable"] for summary in summaries)
             end
             row["DCCOR_meaning"] = haskey(fit, "DCCOR") ? dc_correction_label(fit["DCCOR"]) : "not found"
             row["CPASS_meaning"] = haskey(fit, "CPASS") ? passivity_label(fit["CPASS"]) : "not found"
-            diagnostics = tline_diagnostics("")
+            diagnostics = fit_report_columns([])
             paths = get(row, "line_constants_log_paths", String[])
             if isempty(paths)
                 directory = joinpath(row["source"], name)
@@ -293,7 +252,7 @@ for cable in unique(summary["cable"] for summary in summaries)
                     for file in files if endswith(lowercase(file), ".log")]
             end
             for log_path in paths
-                data = tline_diagnostics(isfile(log_path) ? read(log_path, String) : "")
+                data = fit_report_columns(isfile(log_path) ? [read_pscad_fit_report(log_path)] : [])
                 for (key, value) in data
                     value == "not found" || (diagnostics[key] = value)
                 end
@@ -391,7 +350,7 @@ write_tables("dc_exports", "Distinct XML values from the package exporter. Condu
     ["cable", "field", "distinct_values"], export_values; layout = "lp{0.75\\linewidth}")
 write_tables("dc_pscad_fits", "Tline fitting errors in percent. Before correction uses the last Hphase attempt preceding Applying DC Correction. After correction uses Final Fit, which reports H. Missing headings give not found. The log gives no Yc error after correction.",
     ["cable", "model", "Yc_before_dc_max_error_percent", "Yc_after_dc_max_error_percent", "H_before_dc_max_error_percent", "H_after_dc_max_error_percent", "H_before_dc_rms_error_percent", "H_after_dc_rms_error_percent"], logs)
-write_tables("dc_pscad_poles", "Tline pole counts and final maximum ratio of residue to pole. H counts follow delay-group order in Final Fit. Yc counts come from its own fitting heading.",
+write_tables("dc_pscad_poles", "Tline pole counts and final maximum ratio of residue to pole. H counts follow delay-group order in Final Fit or the last Hmode attempt. Ratios use the final reported value, including uncorrected Hphase attempts. Yc counts come from its own fitting heading.",
     ["cable", "model", "Yc_reported_poles", "H_final_poles", "maximum_residue_pole_ratio"], logs)
 passivity_rows = Dict{String, Any}[]
 for row in logs

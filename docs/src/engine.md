@@ -1415,6 +1415,14 @@ and run folder.
 
 Both line-constants and transient results keep local raw log paths
 in `details(response).data.line_constants_logs`.
+
+`PSCAD.read_pscad_fit_report(path)` reads a retained log as a named tuple with
+`admittance`, `propagation`, `maximum_residue_pole_ratio`, `scan`, `enforcement`
+and `reports` fields. Errors are in percent before and after DC correction. Scan
+limits and ranges use Hz. Enforcement records include minima from the first and
+last tables, plus inner iterations. Missing sections or values are `nothing`.
+Report text keeps the native wording with LF line endings.
+
 Tline failures throw `PSCAD.LineConstantsError`, whose `message` and `log_path`
 fields contain the native diagnostic and local log path.
 The message includes each Tline error block and its fitting stage from the

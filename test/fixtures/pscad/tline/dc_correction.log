@@ -1,0 +1,201 @@
+ CURVE FITTING OUTPUT
+ ====================================================================
+ 
+ Fitting Characteristic Admittance Yc:
+ ====================================================================
+ Maximum Fitting Error Requested:                            0.2000 %
+ Maximum Number of Poles:                                        20
+ 
+ Yc:          Maximum          Number
+              Fitting Error    of Poles
+              --------------   --------
+                  0.1855 %       17
+ 
+ ====================================================================
+ 
+ Fitting Propagation Function H:
+ ====================================================================
+ Maximum Fitting Error Requested:                            0.2000 %
+ Maximum Number of Poles (per delay group):                      20
+ 
+ --------------------------------------------------------------------
+ Attempt #  1                               Target error:   25.0000 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          9.85391 %        2         0.963811 ms
+                 2         14.32456 %        1         0.892496 ms
+                 3         14.81721 %        1         0.884711 ms
+                 4          9.92831 %        1         3.697058 ms
+                 5          6.41988 %        1         8.679454 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                 18.3184 %        4.8318 %              9.98
+ --------------------------------------------------------------------
+ Attempt #  2                               Target error:   12.5000 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          9.85391 %        2         0.963811 ms
+                 2          6.39227 %        2         1.070995 ms
+                 3          6.58984 %        2         1.061653 ms
+                 4          9.92831 %        1         3.697058 ms
+                 5          6.41988 %        1         8.679454 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                 17.7134 %        4.7928 %             13.18
+ --------------------------------------------------------------------
+ Attempt #  3                               Target error:    6.2500 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          2.95329 %        3         0.964300 ms
+                 2          3.46556 %        3         1.277667 ms
+                 3          3.65980 %        3         1.266717 ms
+                 4          2.46920 %        3         3.737121 ms
+                 5          2.24861 %        5         8.477885 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                  6.1317 %        1.8347 %             66.41
+ --------------------------------------------------------------------
+ Attempt #  4                               Target error:    3.1250 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          2.95329 %        3         0.964300 ms
+                 2          1.79238 %        4         1.453702 ms
+                 3          1.84445 %        4         1.461018 ms
+                 4          2.46920 %        3         3.737121 ms
+                 5          2.24861 %        5         8.477885 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                  5.3133 %        1.7397 %              5.08
+ --------------------------------------------------------------------
+ Attempt #  5                               Target error:    1.5625 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          0.18937 %        7         0.961913 ms
+                 2          0.86474 %        5         1.196404 ms
+                 3          1.35695 %        7         1.445577 ms
+                 4          1.23914 %        8         3.709277 ms
+                 5          1.48167 %        7         8.297696 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                  0.6287 %        0.1869 %             26.20
+ --------------------------------------------------------------------
+ Attempt #  6                               Target error:    0.7812 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          0.18937 %        7         0.961913 ms
+                 2          0.59554 %        6         1.228504 ms
+                 3          0.94527 %       20         1.216715 ms
+                 4          1.07928 %       20         3.418265 ms
+                 5          1.34600 %       20         6.642173 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                  0.3689 %        0.0979 %           4231.03
+ --------------------------------------------------------------------
+ Attempt #  7                               Target error:    0.3906 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          0.18937 %        7         0.961913 ms
+                 2          0.38913 %       20         1.153382 ms
+                 3          0.94527 %       20         1.216715 ms
+                 4          1.07928 %       20         3.418265 ms
+                 5          1.34600 %       20         6.642173 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                  0.3159 %        0.0642 %          32048.23
+ --------------------------------------------------------------------
+ Attempt #  8                               Target error:    0.1953 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          0.18937 %        7         0.961913 ms
+                 2          0.38913 %       20         1.153382 ms
+                 3          0.94527 %       20         1.216715 ms
+                 4          1.07928 %       20         3.418265 ms
+                 5          1.34600 %       20         6.642173 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                  0.3159 %        0.0642 %          32048.23
+ --------------------------------------------------------------------
+ Attempt #  9                               Target error:    0.0977 %
+ --------------------------------------------------------------------
+ Hmode:       Delay      Maximum          Number      Time
+              Group #    Fitting Error    of Poles    Delay
+              -------    -------------    --------    -----
+                 1          0.09434 %       13         0.960560 ms
+                 2          0.38913 %       20         1.153382 ms
+                 3          0.94527 %       20         1.216715 ms
+                 4          1.07928 %       20         3.418265 ms
+                 5          1.34600 %       20         6.642173 ms
+ 
+ Hphase:      Maximum           Maximum       Maximum
+              Fitting Error     RMS Error     Residue/Pole Ratio
+              --------------    ----------    ------------------
+                  0.1443 %        0.0357 %         332109.57
+ 
+ Applying DC Correction
+ --------------------------------------------------------------------
+ 
+ 
+ Final Fit:   Maximum        Maximum      Number      Adjusted
+              Fitting Error  RMS Error    of Poles    Time Delays
+              -------------  ---------    --------    -----------
+                0.14433 %    0.03572 %      13         0.960560 ms
+                                            20         1.153382 ms
+                                            20         1.216715 ms
+                                            20         3.418265 ms
+                                            20         6.642173 ms
+ 
+                           Maximum Residue/Pole Ratio:  0.3606085E+06
+ 
+ --------------------------------------------------------------------
+ ====================================================================
+             
+             
+ Checking for Passivity Violations Between  0.100E-02 Hz and  0.100E+07 Hz
+             
+             
+ ====================================================================
+ The presence of negative eigenvalues indicates passivity violations
+ and hence possibility of unstable simulations
+ -----------------------------------------------------------------
+ Frequency range                              smallest eigenvalue
+ -----------------------------------------------------------------
+             
+ From  0.100E-02 Hz to  0.408E+01 Hz         -0.164E+00
+ From  0.449E+01 Hz to  0.222E+02 Hz         -0.304E-05
+             
+ Passivity violations detected. See help for further details
+             
+ 
+ LCP solve constants complete.

@@ -40,7 +40,7 @@ using EzXML: ElementNode, XMLDocument, addelement!, nodename,
              readxml, root, setroot!
 
 export PSCADFormulation, PSCADTransientFormulation, LineConstantsError, NonfiniteOutputError, RemoteConfig,
-       read_pscad_result, remote_command, run_remote_pscad, identify
+       read_pscad_result, read_pscad_fit_report, remote_command, run_remote_pscad, identify
 public pscad_setting
 
 include("formulations.jl")
