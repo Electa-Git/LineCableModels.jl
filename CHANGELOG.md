@@ -105,6 +105,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The run timeout of the remote configuration (`RemoteConfig.timeout`) bounds the PSCAD line-constants matrix wait.
+
 - `validate` is owned by `Commons`. `LineCableModels.validate` and
   `import LineCableModels: validate` are unchanged. Every `validate` method takes the
   checked input first and returns it unchanged or throws. Further arguments say what the

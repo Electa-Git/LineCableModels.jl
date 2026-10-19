@@ -1297,6 +1297,8 @@ The PSCAD backend accepts:
 `remote` must be a `PSCAD.RemoteConfig`. `output_stem` names files
 created by that execution. Both values belong to that execution rather than `PSCADFormulation`.
 
+The run timeout of the remote configuration (`RemoteConfig.timeout`) bounds the line-constants solve.
+
 Construct a station from a user-selected TOML filename:
 
 ```julia

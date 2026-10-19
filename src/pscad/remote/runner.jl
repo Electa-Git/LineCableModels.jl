@@ -134,15 +134,16 @@ function _build_messages(project, path, case_directory; console::IO = stdout)
 end
 
 function main(arguments)
-    length(arguments) == 14 || throw(ArgumentError(
+    length(arguments) == 15 || throw(ArgumentError(
         "runner expects project, output, project name, output stem, formulation, " *
         "FS, FE, Numf, PSCAD version, " *
-        "verbosity, mode, port, ownership, and scratch root",
+        "verbosity, mode, port, ownership, scratch root, and run timeout",
     ))
     project_path, output, project_name, output_stem, formulation,
     fs, fe, numf, pscad_version,
     verbosity_text = arguments[1:10]
     mode, port_text, owned_text, remote_root = arguments[11:14]
+    run_timeout = parse(Int, arguments[15])
     port = parse(Int, port_text)
     (port == 0 || port in 1024:65535) || throw(ArgumentError("invalid PSCAD port"))
     owned = parse(Bool, owned_text)
@@ -381,7 +382,7 @@ function main(arguments)
                 "Waiting for $expected_rows rows in each detailed PSCAD matrix file"
             )
             for (suffix, name) in OUTPUT_SUFFIXES
-                source=_wait_output(roots, suffix, expected_rows)
+                source=_wait_output(roots, suffix, expected_rows; timeout = run_timeout)
                 destination=joinpath(output, name)
                 cp(source, destination; force = true)
                 _data_rows(destination) == expected_rows || throw(ArgumentError(

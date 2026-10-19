@@ -67,6 +67,8 @@ class Line(Component):
         LAST_APP._project.compiled = True
         if os.environ.get("LCM_RUNNER_FIXTURE_FAIL") == "1" or os.environ.get("LCM_RUNNER_MODE") == "build_error_throw":
             raise RuntimeError("synthetic compile failure")
+        if os.environ.get("LCM_RUNNER_MODE") == "delayed_output":
+            return
         root = os.environ["LCM_RUNNER_FIXTURE_OUTPUT"]
         for suffix in ("_zm.out", "_zp.out", "_ym.out", "_yp.out"):
             with open(os.path.join(root, "raw" + suffix), "w") as stream:
@@ -221,7 +223,8 @@ runpy._lcm_original_run_path = getattr(runpy, "_lcm_original_run_path", runpy.ru
 runpy.run_path = lambda path: {"identify": lambda version, app: dict(IDENTITY)}
 """
 
-function runner_arguments(directory,output;verbosity="0", mode="constants", port=0, owned=true)
+function runner_arguments(directory,output;verbosity="0", mode="constants", port=0, owned=true,
+        run_timeout=1800)
     project=joinpath(directory,"generated.pscx")
     write(project, "<project><definitions><Definition name=\"Main\"><schematic>" *
         "<User id=\"1\" x=\"72\" y=\"3168\" defn=\"master:voltmetergnd\"/>" *
@@ -238,7 +241,7 @@ function runner_arguments(directory,output;verbosity="0", mode="constants", port
         TOML.print(io,input;sorted=true)
     end
     return [project,output,"generated","fixture","pscad","10.0","1000.0","2",
-        "5.1.0",verbosity,mode,string(port),string(owned),directory]
+        "5.1.0",verbosity,mode,string(port),string(owned),directory,string(run_timeout)]
 end
 
 @testset "Remote PSCAD runner protocol without PSCAD" begin
@@ -310,6 +313,67 @@ end
         @test caught isa ErrorException
         @test occursin("line-constants computation",sprint(showerror,caught))
         @test occursin("synthetic compile failure",read(joinpath(output,"pscad-console.txt"),String))
+    end
+end
+
+module PSCADDelayedOutputRunner
+const elapsed_seconds = Ref(0.0)
+const output_directory = Ref("")
+const published = Ref(false)
+
+time() = elapsed_seconds[]
+function sleep(seconds)
+    elapsed_seconds[] += seconds
+    if elapsed_seconds[] >= 31.0 && !published[]
+        for suffix in ("_zm.out", "_zp.out", "_ym.out", "_yp.out")
+            write(joinpath(output_directory[], "raw" * suffix), "header\n0 1\n1 2\n2 3\n")
+        end
+        published[] = true
+    end
+    return nothing
+end
+
+include(joinpath(@__DIR__, "..", "..", "..", "src", "pscad", "remote", "runner.jl"))
+end
+
+@testset "PSCAD detailed output follows the run timeout with a mock clock" begin
+    pyexec(PYTHON_AUTOMATION_FIXTURE, Main)
+    root = mkpath(joinpath(REPOSITORY_ROOT, ".linecablemodels", "test", "delayed-constants"))
+    for run_timeout in (30, 60)
+        mktempdir(root) do directory
+            output = joinpath(directory, "outputs")
+            arguments = runner_arguments(directory, output; run_timeout)
+            PSCADDelayedOutputRunner.elapsed_seconds[] = 0.0
+            PSCADDelayedOutputRunner.output_directory[] = output
+            PSCADDelayedOutputRunner.published[] = false
+            environment = pyimport("os").environ
+            environment["LCM_RUNNER_MODE"] = "delayed_output"
+            environment["LCM_RUNNER_FIXTURE_OUTPUT"] = output
+            caught = try
+                PSCADDelayedOutputRunner.main(arguments)
+                nothing
+            catch error
+                error
+            finally
+                environment.pop("LCM_RUNNER_MODE", nothing)
+                environment.pop("LCM_RUNNER_FIXTURE_OUTPUT", nothing)
+            end
+            if run_timeout == 30
+                @test caught isa ErrorException
+                @test occursin("within 30 seconds", sprint(showerror, caught))
+                @test occursin("last observed no matching file", sprint(showerror, caught))
+                @test !PSCADDelayedOutputRunner.published[]
+                @test !isfile(joinpath(output, "solver.toml"))
+            else
+                @test caught === nothing
+                @test PSCADDelayedOutputRunner.elapsed_seconds[] >= 31.0
+                @test PSCADDelayedOutputRunner.published[]
+                @test isfile(joinpath(output, "solver.toml"))
+                for name in ("result_zm.out", "result_zp.out", "result_ym.out", "result_yp.out")
+                    @test _data_rows(joinpath(output, name)) == 3
+                end
+            end
+        end
     end
 end
 

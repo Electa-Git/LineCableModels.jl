@@ -284,7 +284,8 @@ try {
         "`"$Mode`"",
         "`"$PSCADPort`"",
         "`"$runnerOwned`"",
-        "`"$RemoteRoot`""
+        "`"$RemoteRoot`"",
+        "`"$TimeoutSeconds`""
     )
     $invokeLines = @(
         "@echo off",
