@@ -87,6 +87,13 @@ The implementation that owns `OwnerType` defines a method for the type itself.
 `OwnerType` may identify a core solver or another composite computation owner.
 Dispatch requires an explicitly supported type. An unregistered owner raises `MethodError`.
 
+The runner normalizes the options of a formulation space once, with
+`computation_options(F, options)` for the element type `F` of its formulations. A
+formulation space contains the formulations of one backend. Each formulation type defines
+`computation_options(::Type{<:T}, options)`. A space that mixes backends raises an
+`ArgumentError`, as does a formulation type without such a method. Comparing backends takes
+one computation per backend.
+
 # Arguments
 
 - `owner`: computation-owner dispatch token.

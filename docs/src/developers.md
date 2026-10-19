@@ -570,8 +570,12 @@ the action that `description(problem)` returns. It attaches the `timing` record 
 gridpoint to each value, and it calls `on_result(problem, index, value)` with the position
 of the point in the space as `index`. The backends leave this work to the runner.
 
-A backend adds two methods. Its point method computes one point from a `Resolved` value,
-which holds the problem and what one formulation needs from it:
+Each formulation space contains the formulations of one backend, whose formula choices may
+vary. The runner refuses a space that mixes backends with an `ArgumentError`, and comparing
+backends takes one computation per backend. A backend adds three methods. Its
+`computation_options(::Type{<:F}, options)` method normalizes the options of its
+formulation type `F`, once, before the first point. Its point method computes one point
+from a `Resolved` value, which holds the problem and what one formulation needs from it:
 
 ```julia
 function compute(resolved::Resolved{<:LineParametersProblem},
@@ -589,7 +593,7 @@ completes the internal potential coefficients of every formulation together:
 
 ```julia
 function resolve(problem::LineParametersProblem,
-        formulations::Union{Tuple{Vararg{LineParametersFormulation}},
+        formulations::Union{Tuple{LineParametersFormulation, Vararg{LineParametersFormulation}},
             AbstractVector{<:LineParametersFormulation}}; options)
     ...
     return map(shunt -> Resolved(problem, (; line, shunt, physical_inputs)), shunts)

@@ -149,15 +149,6 @@ function compute(resolved::Resolved{<:LineParametersProblem},
         physical_inputs = input.physical_inputs)
 end
 
-# The default `resolve` serves a formulation source that mixes backends. Each point then
-# resolves its own input.
-function compute(resolved::Resolved{<:LineParametersProblem, @NamedTuple{}},
-        formulation::LineParametersFormulation;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
-    return compute(only(resolve(resolved.problem, (formulation,); options)), formulation;
-        options)
-end
-
 description(::LineParametersProblem; compact::Bool = false) = "Line parameters"
 
 """

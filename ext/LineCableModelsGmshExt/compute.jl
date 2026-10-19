@@ -695,15 +695,6 @@ function compute(resolved::Commons.Resolved{<:LineParametersProblem},
     end
 end
 
-# The default `resolve` serves a formulation source that mixes backends. Each point then
-# resolves its own input.
-function compute(resolved::Commons.Resolved{<:LineParametersProblem, @NamedTuple{}},
-        formulation::LineCableModelsFEM;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
-    return compute(only(LineCableModels.resolve(resolved.problem, (formulation,); options)),
-        formulation; options)
-end
-
 function _compute_fem(resolved::Commons.Resolved, formulation::LineCableModelsFEM,
         execution::ComputationOptions)
     (; problem, input) = resolved

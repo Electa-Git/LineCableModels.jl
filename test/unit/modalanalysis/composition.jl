@@ -3,6 +3,7 @@
     struct FixedPhase{P <: LineParameters} <: AbstractFormulation
         parameters::P
     end
+    LineCableModels.computation_options(::Type{<:FixedPhase}, options::ComputationOptions) = options
     function LineCableModels.compute(::LineCableModels.Resolved{<:LineParametersProblem},
             formulation::FixedPhase;
             options::Union{NamedTuple, ComputationOptions} = ComputationOptions())

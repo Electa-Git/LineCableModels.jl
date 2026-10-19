@@ -606,15 +606,6 @@ function compute(resolved::Resolved{<:CableConstantsProblem},
     return _solve!(workspace, problem, formulation; physical_inputs = input.physical_inputs)
 end
 
-# The default `resolve` serves a formulation source that mixes backends. Each point then
-# resolves its own input.
-function compute(resolved::Resolved{<:CableConstantsProblem, @NamedTuple{}},
-        formulation::CableConstantsFormulation;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
-    return compute(only(resolve(resolved.problem, (formulation,); options)), formulation;
-        options)
-end
-
 description(::CableConstantsProblem; compact::Bool = false) = "Cable constants"
 
 """

@@ -131,6 +131,7 @@ end
     end
     LineCableModels.validate(problem::AffineProblem)=problem
     struct AffineFormulation <: AbstractFormulation end
+    LineCableModels.computation_options(::Type{AffineFormulation}, options::ComputationOptions) = options
     function LineCableModels.compute(resolved::LineCableModels.Resolved{<:AffineProblem},
             ::AffineFormulation;
             options::Union{NamedTuple,ComputationOptions}=ComputationOptions())

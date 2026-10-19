@@ -57,8 +57,17 @@ function timed(::Val{true}, call)
         recompile_seconds = statistics.recompile_time),)
 end
 
-# Without an owner method for its type, a formulation receives the options as they are.
-computation_options(::Type{<:AbstractFormulation}, record::ComputationOptions) = record
+# Each formulation space contains the formulations of one backend, whose owner normalizes
+# their options. This method refuses a space that mixes backends and a formulation type
+# without an owner method.
+function computation_options(::Type{F}, ::ComputationOptions) where {F <: AbstractFormulation}
+    throw(ArgumentError(
+        "no computation options are defined for formulations of type $F. A formulation " *
+        "space contains the formulations of one backend: compute each backend separately. " *
+        "A formulation type of your own defines computation_options(::Type{<:T}, options). " *
+        "See `?computation_options`.",
+    ))
+end
 
 """
     traverse(problem, formulation; options)
@@ -71,7 +80,8 @@ formulation; options)`.
 
 Before the first point, the owner of the formulations normalizes the options once with
 `computation_options(F, options)`, where `F` is the element type of the formulations. A
-formulation type without an owner method receives them as they are. The traversal writes the
+formulation space contains the formulations of one backend, and a space that mixes backends
+raises an `ArgumentError`. The traversal writes the
 work around the points once. The library emits its records only at the progress levels that
 ask for them. When the options set `verbosity` or `on_result`, each point computes in a
 `VerbosityLogger` at the `verbosity` levels, level 0 by default, which filters the records

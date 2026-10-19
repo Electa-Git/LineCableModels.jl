@@ -36,9 +36,9 @@
         UnregisteredFormulation,
         (;)
     )
-    # A formulation type without an owner method keeps the options as they are.
-    unregistered = ComputationOptions((;))
-    @test Commons.computation_options(UnregisteredFormulation, unregistered) === unregistered
+    # A formulation type without its own normalizer is refused, with the extension point.
+    @test_throws r"computation_options\(::Type\{<:T\}, options\)" Commons.computation_options(
+        UnregisteredFormulation, ComputationOptions((;)))
     @test_throws MethodError Commons.formulation_options(
         formulation_owner, Dict{Symbol, Any}())
     @test_throws MethodError Commons.computation_options(

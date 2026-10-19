@@ -143,6 +143,7 @@
     end
     LineCableModels.validate(problem::CountedProblem)=problem
     struct CountedFormulation{ID}<:AbstractFormulation end
+    LineCableModels.computation_options(::Type{<:CountedFormulation}, options::ComputationOptions) = options
     struct CountedResult<:AbstractCoreResult
         value::Int
     end

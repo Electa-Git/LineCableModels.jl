@@ -5,6 +5,7 @@
     end
     LineCableModels.validate(problem::CountProblem) = problem
     struct Scale{K} <: AbstractFormulation end
+    LineCableModels.computation_options(::Type{<:Scale}, options::C.ComputationOptions) = options
     struct CountResult <: AbstractCoreResult
         value::Int
     end
@@ -69,7 +70,7 @@
     @test value == 7
     @test keys(fields.timing) ==
           (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
-    # A formulation type without an owner method keeps the options as they are.
+    # A formulation type of one's own defines its normalizer, here one that keeps the options.
     @test computation_options(Scale{1}, options) === options
 
     # The default returns a result type without retained details as it is.

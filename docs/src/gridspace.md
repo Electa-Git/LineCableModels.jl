@@ -183,7 +183,7 @@ The current behavior is:
 | `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
 | `CableConstantsProblem` | `Engine.CableConstantsProblem` | `Gridspace{Engine.CableConstantsProblem}` |
 | `CableConstants` | `Engine.CableConstants` | `ParametricResult` from `compute` |
-| `Formulation` | `Engine.LineParametersFormulation` | `Gridspace{Engine.LineParametersFormulation}`, or `Gridspace{AbstractFormulation}` for a `Grid` of backend tags |
+| `Formulation` | `Engine.LineParametersFormulation` | `Gridspace{Engine.LineParametersFormulation}` |
 | `CableConstantsFormulation` | `Engine.CableConstantsFormulation` | `Gridspace{Engine.CableConstantsFormulation}` |
 | `ModalAnalysisFormulation` | `ModalAnalysis.ModalAnalysisFormulation` | `Gridspace{ModalAnalysis.ModalAnalysisFormulation}` |
 | backend formulation constructor | completed backend formulation | target-bearing formulation `Gridspace` |
@@ -286,7 +286,8 @@ run = compute(ParametricProblem(problem_space, ComputationOptions(options)),
 
 `Combinatorial` accepts one completed formulation, a deterministic
 target-bearing formulation `Gridspace`, or a deterministic `Grid` containing
-completed formulations. The runner, `traverse`, materializes and validates every
+completed formulations. A formulation space contains the formulations of one backend,
+whose formula choices may vary. Comparing backends takes one computation per backend. The runner, `traverse`, materializes and validates every
 problem and formulation before the first point, then computes problem by problem:
 
 ```text

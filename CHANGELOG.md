@@ -312,7 +312,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of `T`. A vector, a `Gridpoint` and an uncertain grid are not members. A method typed with
   it receives a scalar and a space of it. `LineParametersProblem(system; …)`, `homogenize`,
   the target of `stranded`, `ParametricProblem`, `CableConstantsProblem(design; …)`,
-  `CableConstants(design; …)`, `Formulation(tag)` and the modal composition take it.
+  `CableConstants(design; …)` and the modal composition take it.
 - `compute(problem, formulation; options)` computes `ParametricProblem(problem, options)`,
   and `compute(problem::ParametricProblem, formulation)` runs every action through one
   runner in `Commons`, `traverse`, for a scalar or a space of problems and of formulations.
@@ -343,14 +343,19 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   point computes in a `VerbosityLogger` at the `verbosity` levels, level 0 by default, which
   filters the records of `on_result` too.
 - A vector of formulations is one value. Alternatives are a `Grid` or a `Gridspace`, as in
-  `compute(problem, Grid((first, second)))`.
+  `compute(problem, Grid((first, second)))`. A formulation space contains the formulations
+  of one backend, whose formula choices may vary. Comparing backends takes one computation per
+  backend.
 - FEM records the native phase durations of a run in `details(result).data.fem.run.durations`.
   PSCAD records `compile_call_seconds` among its execution facts in
   `details(result).data.execution`.
 - Before the first point, `traverse` normalizes the options once with
   `computation_options(F, options)`, where `F` is the element type of the formulations. A
   line-parameter formulation reaches the coaxial backend's method and a modal formulation
-  the modal backend's method. Another formulation type receives the options as they are.
+  the modal backend's method, and cable constants, PSCAD and FEM normalize them by their
+  own formulation types. A space that mixes backends, or a formulation type without a
+  `computation_options` method, throws an `ArgumentError` that states the rule and the
+  extension point.
   `timed(timing, call)` returns the value of a call and the timing record that a point
   retains about it.
 - `AbstractTraversal`, `ParametricProblem`, `Combinatorial` and `ParametricResult` are
@@ -372,8 +377,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first source fastest, in the order the call writes its arguments and keywords.
 - `formula` lifts over a `Grid` of identifiers, orders or options, and `at` with `x` and
   `y` lifts over them and `φ`. `Material(library, name)` lifts over a `Grid` of names,
-  `homogenize` over a space of designs and over `new_id`, and `Formulation` over a `Grid`
-  of backend tags.
+  `homogenize` over a space of designs and over `new_id`, and `Formulation(tag; …)` over
+  its keywords.
 - `FormulationOptions` lifts over its named tuple and its keywords. `ComputationOptions`
   throws an `ArgumentError` for a `Grid`, since computation options do not vary.
 - The integrand of a `SpectralIntegral` is a `Function`.
