@@ -1,3 +1,16 @@
+# Compare native values consistently at configuration and result validation.
+_same_value(observed::Number, requested::Number) = observed == requested
+# Numeric choice fields (Numf, NFP) read back as numbers, named ones as labels.
+_same_value(observed::Number, requested::AbstractString) =
+    tryparse(Float64, requested) == observed
+_same_value(observed, requested::AbstractString) =
+    replace(uppercase(string(observed)), r"[^A-Z0-9]" => "") ==
+    replace(uppercase(requested), r"[^A-Z0-9]" => "")
+_same_value(observed::AbstractDict, requested::AbstractDict) =
+    keys(observed) == keys(requested) &&
+    all(_same_value(observed[field], value) for (field, value) in requested)
+_same_value(observed, requested) = string(observed) == string(requested)
+
 function _output_matches(roots, suffix)
     matches=String[]
     for root in unique(filter(isdir, roots))

@@ -17,6 +17,12 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- PSCAD FD-Phase and FD-Mode exports accept native fitting fields with the master library's numeric types, choices, labels and ranges.
+
+- `PSCADTransientFormulation` checks each fit field at construction and reports unsupported fields or values outside the component constraints.
+
+- PSCAD configuration and result validation accept choice readbacks as labels or numbers. Label comparisons ignore case, spaces, `_` and punctuation.
+
 - PSCAD transient readers report divergence with `PSCAD.NonfiniteOutputError`, including the output path, channel and first nonfinite sample time.
 
 - The coaxial backend evaluates `:pollaczek1926` buried-cable earth-return impedance at complex frequency with configurable Gauss–Kronrod integration tolerances.

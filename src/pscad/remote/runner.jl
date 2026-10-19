@@ -58,9 +58,6 @@ function _parameters(component)
     return Dict(string(key) => value for (key, value) in raw)
 end
 
-_same_value(observed::Number, requested::Number) = observed == requested
-_same_value(observed, requested) = string(observed) == string(requested)
-
 function _set!(component, name::AbstractString, value; readback = value)
     haskey(_parameters(component), name) || throw(KeyError(
         "PSCAD component $(_string(component.defn_name)) has no field $name",
@@ -263,6 +260,7 @@ function main(arguments)
             _set!(frequency, "FS", parse(Float64, fs))
             _set!(frequency, "FE", parse(Float64, fe))
             _set!(frequency, "Numf", parse(Int, numf))
+            # Detailed constants output is outside the FD-Phase fitting table.
             _set!(frequency, "Output", 1; readback = "YES")
         end
         readbacks = Dict{String, Any}()

@@ -433,7 +433,7 @@ end
 function validate(readback::AbstractDict, ::PSCADFormulation, input::AbstractDict, execution)
     expected = Dict(component => Dict(field => control["readback"]
         for (field, control) in controls) for (component, controls) in input["native_settings"])
-    readback == expected || throw(ArgumentError(
+    _same_value(readback, expected) || throw(ArgumentError(
         "PSCAD result has no matching native-settings readback: $(execution.output_dir)"))
     return readback
 end
@@ -443,7 +443,7 @@ function validate(readback::AbstractDict, ::PSCADTransientFormulation, input::Ab
         for (field, control) in controls) for (component, controls) in input["native_settings"])
     Set(keys(readback)) == Set((keys(expected)..., "project")) ||
         throw(ArgumentError("PSCAD transient result has incomplete settings readback"))
-    all(readback[name] == controls for (name, controls) in expected) ||
+    all(_same_value(readback[name], controls) for (name, controls) in expected) ||
         throw(ArgumentError("PSCAD result has no matching native-settings readback: $(execution.output_dir)"))
     project = readback["project"]
     Set(keys(project)) == Set(keys(input["project_settings"])) ||
@@ -484,14 +484,17 @@ function _pscad_inputs(problem::TransientAnalysisProblem{<:LineParametersProblem
         path = export_data(:pscad, problem, formulation; file_name = joinpath(directory, "transient.pscx"))
         document = readxml(path)
         frequency = only(findall("//User[@defn='master:Line_FrePhase_Options' or @defn='master:Line_FreDep_Options']", document))
-        numeric_fields = Dict("FS" => Float64, "FE" => Float64, "Numf" => Int,
-            "FT" => Float64, "YMaxP" => Int, "AMaxP" => Int, "YMaxE" => Float64,
-            "AMaxE" => Float64, "ZMaxP" => Int, "ZMaxE" => Float64,
-            "MaxRPtol" => Float64, "W1" => Float64, "W2" => Float64, "W3" => Float64)
-        frequency_controls = Dict{String, Any}(
-            node["name"] => Dict("value" => numeric_fields[node["name"]](parse(Float64, node["value"])),
-                "readback" => numeric_fields[node["name"]](parse(Float64, node["value"])))
-            for node in findall("./paramlist/param", frequency) if haskey(numeric_fields, node["name"]))
+        fields = getproperty(_PSCAD_FIT_FIELDS, formulation.model)
+        frequency_controls = Dict{String, Any}()
+        for node in findall("./paramlist/param", frequency)
+            field = node["name"]
+            constraint = fields[Symbol(field)]
+            value_type = constraint.integer ? Int : Float64
+            value = value_type(parse(Float64, node["value"]))
+            readback = isempty(constraint.choices) ? value :
+                last(only(choice for choice in constraint.choices if first(choice) == value))
+            frequency_controls[field] = Dict("value" => value, "readback" => readback)
+        end
         ground = only(findall("//User[@defn='master:Line_Ground']", document))
         ground_controls = Dict(node["name"] => Dict("value" => parse(Float64, node["value"]),
             "readback" => parse(Float64, node["value"]))

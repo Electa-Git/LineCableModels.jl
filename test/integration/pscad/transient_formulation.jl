@@ -145,6 +145,12 @@
             "sample_step" => problem.window.step * 1e6,
             "output_filename" => "transient.out")
         @test P.validate(readback, formulation, input, retained.execution) === readback
+        readback["frequency"]["DCenab"] = "DISABLED"
+        readback["frequency"]["DCCOR"] = "functional_form"
+        readback["frequency"]["CPASS"] = "DISABLE"
+        readback["frequency"]["Interp1"] = "YES"
+        @test P.validate(readback, formulation, input, retained.execution) === readback
+        @test input["native_settings"]["frequency"]["Numf"] == Dict("value" => 200, "readback" => "200")
         readback["project"]["PlotType"] = "NONE"
         @test_throws r"project setting PlotType differs" P.validate(readback, formulation, input, retained.execution)
         @test Set(keys(TOML.parsefile(joinpath(source, "complete.toml"))["outputs"])) ==
@@ -175,7 +181,7 @@
         @test details(mode).data.native_readback["frequency"]["FT"] == 500
         @test isfile(joinpath(details(mode).data.execution.source_run, "outputs", "mode.inf"))
         for (response, frequency_controls) in (
-                (result, ("FS" => 1.0, "FE" => 2e6, "Numf" => 200,
+                (result, ("FS" => 1.0, "FE" => 2e6,
                     "YMaxP" => 20, "AMaxP" => 20, "YMaxE" => 0.2,
                     "AMaxE" => 0.2, "MaxRPtol" => 2e6)),
                 (mode, ("FS" => 0.5, "FE" => 1e6, "FT" => 500.0,

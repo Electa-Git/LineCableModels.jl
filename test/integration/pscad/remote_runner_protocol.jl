@@ -43,6 +43,20 @@ class Component:
         self._parameters.update(updates)
         if updates.get("Output") == 1:
             self._parameters["Output"] = "YES"
+        if os.environ.get("LCM_RUNNER_CHOICE_LABELS") == "1":
+            labels = {
+                "DCenab": {0: "DISABLED", 1: "ENABLED"},
+                "DCCOR": {1: "functional_form", 2: "ADD POLE-RESIDUE"},
+                "CPASS": {0: "DISABLE", 1: "SCAN_ONLY", 2: "enforcement"},
+                "Interp1": {0: "NO", 1: "yes"},
+                # Station evidence: numeric choices read back as floats.
+                "Numf": {1000: 1000.0},
+            }
+            for field, choices in labels.items():
+                if field in updates:
+                    self._parameters[field] = choices[updates[field]]
+            if "DCenab" in updates and os.environ.get("LCM_RUNNER_WRONG_CHOICE") == "1":
+                self._parameters["DCenab"] = "ENABLED"
         return dict(self._parameters)
 
 class Line(Component):
@@ -71,7 +85,8 @@ class Project:
     def __init__(self):
         self.line = Line()
         self.frequency = Component(
-            "master:line_frephase_options", FS=0.0, FE=0.0, Numf=0, Output="NO")
+            "master:line_frephase_options", FS=0.0, FE=0.0, Numf=0, Output="NO",
+            DCenab="DISABLED", DCCOR="FUNCTIONAL_FORM", CPASS="DISABLE", Interp1="YES")
         self.ground = Component("master:line_ground")
         self.cable = Component("master:cable_coax", elim1=0, elim2="RETAIN")
         self._canvas = Canvas([self.frequency, self.ground, self.cable])
@@ -231,6 +246,14 @@ end
 
     @test _same_value(1,1.0)
     @test !_same_value(1,2)
+    @test _same_value("functional_form", "Functional Form")
+    @test _same_value("ADD POLE-RESIDUE", "Add Pole/Residue")
+    @test _same_value("LOG_LINEAR", "Log + Linear")
+    @test !_same_value("ENABLED", "Disabled")
+    @test !_same_value("1.0", 10)
+    @test _same_value(100.0, "100")
+    @test !_same_value(100.0, "1000")
+    @test !_same_value(0, "Disabled")
     @test _same_value("YES",pystr("YES"))
     for value in (0,"no","FALSE"," disabled ","retain","none")
         @test _disabled(value)
@@ -356,6 +379,58 @@ Project.run = transient_run
         @test occursin("Collected PSCAD transient outputs",console)
         @test occursin("Project fitting readbacks: FS=0.0 Hz, FE=0.0 Hz, Numf=0", console)
         @test !occursin("Applied frequency range 10.0 Hz to 1000.0 Hz", console)
+    end
+end
+
+@testset "Remote PSCAD choice labels and field rejection" begin
+    pyexec(PYTHON_AUTOMATION_FIXTURE, Main)
+    pyexec(PYTHON_TRANSIENT_FIXTURE, Main)
+    root = mkpath(joinpath(REPOSITORY_ROOT, ".linecablemodels", "test", "choice-runner"))
+    for (dccor, cpass, dccor_label, cpass_label, wrong) in
+            ((1, 0, "Functional Form", "Disable", false),
+             (1, 1, "Functional Form", "Scan only", false),
+             (2, 2, "Add Pole/Residue", "Enforcement", false),
+             (1, 1, "Functional Form", "Scan only", true))
+        mktempdir(root) do directory
+            output = joinpath(directory, "outputs")
+            arguments = runner_arguments(directory, output; mode = "transient")
+            input = TOML.parsefile(joinpath(directory, "computation.toml"))
+            input["native_settings"]["frequency"] = Dict(
+                "DCenab" => Dict("value" => 0, "readback" => "Disabled"),
+                "DCCOR" => Dict("value" => dccor, "readback" => dccor_label),
+                "CPASS" => Dict("value" => cpass, "readback" => cpass_label),
+                "Interp1" => Dict("value" => 1, "readback" => "Yes"),
+                "Numf" => Dict("value" => 1000, "readback" => "1000"))
+            open(io -> TOML.print(io, input), joinpath(directory, "computation.toml"), "w")
+            environment = pyimport("os").environ
+            environment["LCM_RUNNER_FIXTURE_OUTPUT"] = output
+            environment["LCM_RUNNER_FIXTURE_CHANNELS"] = joinpath(
+                REPOSITORY_ROOT, "test", "fixtures", "pscad", "transient")
+            environment["LCM_RUNNER_CHOICE_LABELS"] = "1"
+            environment["LCM_RUNNER_WRONG_CHOICE"] = wrong ? "1" : "0"
+            try
+                if wrong
+                    @test_throws r"PSCAD field DCenab rejected 0" main(arguments)
+                    @test !isfile(joinpath(output, "native-settings.toml"))
+                else
+                    @test main(arguments) === nothing
+                    readback = TOML.parsefile(joinpath(output, "native-settings.toml"))["frequency"]
+                    @test _same_value(readback, Dict(field => control["readback"]
+                        for (field, control) in input["native_settings"]["frequency"]))
+                    @test readback["DCenab"] == "DISABLED"
+                    @test readback["DCCOR"] == (dccor == 1 ? "functional_form" : "ADD POLE-RESIDUE")
+                    @test readback["CPASS"] == (cpass == 0 ? "DISABLE" : cpass == 1 ? "SCAN_ONLY" : "enforcement")
+                    @test readback["Interp1"] == "yes"
+                    @test readback["Numf"] === 1000.0
+                    @test isfile(joinpath(output, "fixture_01.out"))
+                end
+            finally
+                for name in ("LCM_RUNNER_FIXTURE_OUTPUT", "LCM_RUNNER_FIXTURE_CHANNELS",
+                        "LCM_RUNNER_CHOICE_LABELS", "LCM_RUNNER_WRONG_CHOICE")
+                    environment.pop(name, nothing)
+                end
+            end
+        end
     end
 end
 

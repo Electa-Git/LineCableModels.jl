@@ -99,9 +99,19 @@ function validate(formulation::PSCADTransientFormulation)
         throw(ArgumentError("PSCAD sample interval must be finite and positive"))
     occursin(r"^[A-Za-z0-9_][A-Za-z0-9_-]*$", formulation.output_stem) ||
         throw(ArgumentError("PSCAD output stem must be a filename without an extension"))
+    fields = getproperty(_PSCAD_FIT_FIELDS, formulation.model)
     for (field, value) in pairs(formulation.fit)
-        value >= 0 && isfinite(value) ||
-            throw(ArgumentError("PSCAD fitting field $field must be finite and nonnegative"))
+        haskey(fields, field) || throw(ArgumentError(
+            "PSCAD $(formulation.model) fitting field $field=$(repr(value)) is unsupported; allowed fields: $(join(keys(fields), ", "))"))
+        constraint = fields[field]
+        allowed = isempty(constraint.choices) ?
+            "$(constraint.integer ? "Integer" : "Real") in [$(constraint.minimum), $(constraint.maximum)]" :
+            "one of $(first.(constraint.choices))"
+        valid = isfinite(value) && (!constraint.integer || isinteger(value)) &&
+            constraint.minimum <= value <= constraint.maximum &&
+            (isempty(constraint.choices) || value in first.(constraint.choices))
+        valid || throw(ArgumentError(
+            "PSCAD $(formulation.model) fitting field $field=$(repr(value)) must be $allowed"))
     end
     return formulation
 end

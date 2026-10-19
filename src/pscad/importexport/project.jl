@@ -389,6 +389,51 @@ function _pscad_cable_parameters(
     return parameters
 end
 
+# Native fitting fields and constraints from Line_FrePhase_Options and
+# Line_FreDep_Options in m7-master.pslx. Defaults keep the exported XML text.
+# FD-Phase FS is 0.5 Hz rather than the master-library default of 0.01 Hz.
+# FD-Phase shntcab is 0.0 rather than the master-library default of 1e-9.
+const _PSCAD_FIT_FIELDS = (
+    fd_phase = (
+        FS = (default = "0.5", integer = false, choices = (), minimum = 1E-08, maximum = 100000000),
+        FE = (default = "1.0E6", integer = false, choices = (), minimum = 1E-08, maximum = 100000000),
+        Numf = (default = "100", integer = true, choices = (100 => "100", 200 => "200", 500 => "500", 1000 => "1000"), minimum = -Inf, maximum = Inf),
+        DCCOR = (default = "1", integer = true, choices = (1 => "Functional Form", 2 => "Add Pole/Residue"), minimum = -Inf, maximum = Inf),
+        CPASS = (default = "0", integer = true, choices = (0 => "Disable", 1 => "Scan only", 2 => "Enforcement"), minimum = -Inf, maximum = Inf),
+        enablf = (default = "1", integer = true, choices = (1 => "Yes", 0 => "No"), minimum = -Inf, maximum = Inf),
+        shntcab = (default = "0.0", integer = false, choices = (), minimum = 1E-100, maximum = 100000000),
+        YMaxP = (default = "20", integer = true, choices = (), minimum = 5, maximum = 50),
+        AMaxP = (default = "20", integer = true, choices = (), minimum = 5, maximum = 50),
+        YMaxE = (default = "0.2", integer = false, choices = (), minimum = 1E-05, maximum = 100000000),
+        AMaxE = (default = "0.2", integer = false, choices = (), minimum = 1E-05, maximum = 100000000),
+        DCenab = (default = "0", integer = true, choices = (0 => "Disabled", 1 => "Enabled"), minimum = -Inf, maximum = Inf),
+        MaxRPtol = (default = "2000000.0", integer = false, choices = (), minimum = 1, maximum = 1E+308),
+        ET_PE = (default = "1.0E-10", integer = false, choices = (), minimum = -1E+308, maximum = 1E+308),
+        MER_PE = (default = "2", integer = false, choices = (), minimum = 1E-10, maximum = 100),
+        MIT_PE = (default = "5", integer = true, choices = (), minimum = 1, maximum = 20),
+        FSP = (default = "0.001", integer = false, choices = (), minimum = 1E-06, maximum = 100000000),
+        FEP = (default = "1.0E6", integer = false, choices = (), minimum = 1E-06, maximum = 100000000),
+        NFP = (default = "1000", integer = true, choices = (100 => "100", 500 => "500", 1000 => "1000", 2000 => "2000", 5000 => "5000"), minimum = -Inf, maximum = Inf),
+        FDIS = (default = "3", integer = true, choices = (1 => "Log", 2 => "Linear", 3 => "Log + Linear"), minimum = -Inf, maximum = Inf),
+        Interp1 = (default = "1", integer = true, choices = (0 => "No", 1 => "Yes"), minimum = -Inf, maximum = Inf),
+    ),
+    fd_mode = (
+        FS = (default = "0.5", integer = false, choices = (), minimum = 0, maximum = 1e+008),
+        FE = (default = "1.0E6", integer = false, choices = (), minimum = 0, maximum = 1e+008),
+        FT = (default = "2000", integer = false, choices = (), minimum = 0, maximum = 1e+008),
+        ZMaxP = (default = "20", integer = true, choices = (), minimum = 5, maximum = 100),
+        AMaxP = (default = "20", integer = true, choices = (), minimum = 5, maximum = 100),
+        ZMaxE = (default = "1.0", integer = false, choices = (), minimum = 0.01, maximum = 100),
+        AMaxE = (default = "1.0", integer = false, choices = (), minimum = 0.01, maximum = 100),
+        Interp1 = (default = "1", integer = true, choices = (0 => "No", 1 => "Yes"), minimum = -Inf, maximum = Inf),
+        Output = (default = "0", integer = true, choices = (0 => "No", 1 => "Yes"), minimum = -Inf, maximum = Inf),
+        W1 = (default = "1.0", integer = false, choices = (), minimum = 0, maximum = 1e+010),
+        W2 = (default = "1000.0", integer = false, choices = (), minimum = 0, maximum = 1e+010),
+        W3 = (default = "1.0", integer = false, choices = (), minimum = 0, maximum = 1e+010),
+        Inflen = (default = "0", integer = true, choices = (0 => "No", 1 => "Yes"), minimum = -Inf, maximum = Inf),
+    ),
+)
+
 """
     _pscad_project(system, earth, base_frequency, blueprints, formulation, temperature)
 
@@ -398,7 +443,8 @@ and `model` (`:fd_phase` by default).
 Build a project document. Optional `settings` contains `duration`, `step`,
 `sample` in seconds and `output_stem`. `fit` overrides native fitting fields.
 FD-Phase accepts `FS`, `FE`, `Numf`, `YMaxP`, `AMaxP`, `YMaxE`, `AMaxE`,
-`DCenab`, `DCCOR`, `CPASS` and `MaxRPtol`. FD-Mode uses its own native fields,
+`DCenab`, `DCCOR`, `CPASS`, `MaxRPtol`, `ET_PE`, `MER_PE`, `MIT_PE`,
+`FSP`, `FEP`, `NFP`, `FDIS` and `Interp1`. FD-Mode uses its own native fields,
 including transformation frequency `FT` in hertz and impedance fields `ZMaxP`
 and `ZMaxE`. Error fields are percentages. Ordinary line-constants exports keep
 their original sparse parameter list. Omitted fields use component defaults.
@@ -456,26 +502,12 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
     ])
 
     identifier = _PSCAD_IDS.first_physical_component
-    # Native bindings and defaults: mhi-xml 1.3.0, pscad/twm_types.py:120-181.
+    fields = getproperty(_PSCAD_FIT_FIELDS, model)
     # Keep the historical sparse phase list for an ordinary constants export.
-    if model == :fd_phase
-        binding = _PSCAD_FREQUENCY_BINDING
-        frequency_parameters = [
-            "FS" => "0.5", "FE" => "1.0E6", "Numf" => "100",
-            "DCCOR" => "1", "CPASS" => "0", "enablf" => "1", "shntcab" => "0.0"]
-        if !isempty(settings) || !isempty(fit)
-            append!(frequency_parameters, [
-                "YMaxP" => "20", "AMaxP" => "20", "YMaxE" => "0.2",
-                "AMaxE" => "0.2", "DCenab" => "0", "MaxRPtol" => "2000000.0"])
-        end
-    else
-        binding = "master:Line_FreDep_Options"
-        frequency_parameters = [
-            "FS" => "0.5", "FE" => "1.0E6", "FT" => "2000",
-            "ZMaxP" => "20", "AMaxP" => "20", "ZMaxE" => "1.0",
-            "AMaxE" => "1.0", "Interp1" => "1", "Output" => "0",
-            "W1" => "1.0", "W2" => "1000.0", "W3" => "1.0", "Inflen" => "0"]
-    end
+    names = model == :fd_phase && isempty(settings) && isempty(fit) ?
+        (:FS, :FE, :Numf, :DCCOR, :CPASS, :enablf, :shntcab) : keys(fields)
+    binding = model == :fd_phase ? _PSCAD_FREQUENCY_BINDING : "master:Line_FreDep_Options"
+    frequency_parameters = [string(field) => fields[field].default for field in names]
     for (field, setting) in pairs(get(native_settings, :frequency, (;)))
         index = findfirst(pair -> first(pair) == string(field), frequency_parameters)
         index === nothing &&

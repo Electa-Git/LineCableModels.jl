@@ -13,7 +13,9 @@
     blueprints = P._pscad_blueprints(system)
     settings = (duration = 0.02, step = 2e-6, sample = 10e-6, output_stem = "channels")
     fit = (FS = 1.0, FE = 2e6, Numf = 200, YMaxP = 24, AMaxP = 26,
-        YMaxE = 0.03, AMaxE = 0.04, DCenab = 1, DCCOR = 2, CPASS = 1, MaxRPtol = 3e6)
+        YMaxE = 0.03, AMaxE = 0.04, DCenab = 1, DCCOR = 2, CPASS = 2, MaxRPtol = 3e6,
+        ET_PE = 1e-6, MER_PE = 10.0, MIT_PE = 7, FSP = 0.01, FEP = 2e6,
+        NFP = 500, FDIS = 1, Interp1 = 0)
     directory = mkpath(joinpath(@__DIR__, "..", "..", "..",
         ".linecablemodels", "test", "transient-settings"))
     mktempdir(directory) do destination
@@ -86,7 +88,10 @@
         @test parameters(phase) == Dict("FS" => "0.5", "FE" => "1.0E6", "Numf" => "100",
             "DCCOR" => "1", "CPASS" => "0", "enablf" => "1", "shntcab" => "0.0",
             "YMaxP" => "20", "AMaxP" => "20", "YMaxE" => "0.2", "AMaxE" => "0.2",
-            "DCenab" => "0", "MaxRPtol" => "2000000.0")
+            "DCenab" => "0", "MaxRPtol" => "2000000.0",
+            "ET_PE" => "1.0E-10", "MER_PE" => "2", "MIT_PE" => "5",
+            "FSP" => "0.001", "FEP" => "1.0E6", "NFP" => "1000",
+            "FDIS" => "3", "Interp1" => "1")
 
         mode = P._pscad_project(system, earth, 50.0, blueprints, formulation, nothing;
             settings, model = :fd_mode)
@@ -105,6 +110,31 @@
         @test parameters(mode_component)["FT"] == "500.0"
         @test parse(Float64, parameters(mode_component)["ZMaxP"]) == 30
         @test parameters(mode_component)["ZMaxE"] == "0.5"
+
+        line = LineParametersProblem(system; earth_props = earth, frequencies = [1.0, 1e6])
+        problem = TransientAnalysisProblem(line;
+            sending = (Step("cable:1:core", 1000.0; t0 = 2e-6),), receiving = (),
+            window = (tmax = 20e-6, step = 1e-7))
+        for (model, native_fit) in ((:fd_phase, fit), (:fd_mode, (FT = 500.0, ZMaxP = 30)))
+            native = P.PSCADTransientFormulation(; model, fit = native_fit)
+            inputs = P._pscad_inputs(problem, native, destination)
+            controls = inputs.native_settings["frequency"]
+            @test Set(keys(controls)) == Set(string.(keys(getproperty(P._PSCAD_FIT_FIELDS, model))))
+            @test controls["Interp1"]["value"] isa Int
+            @test controls["Interp1"]["readback"] == (model == :fd_phase ? "No" : "Yes")
+            if model == :fd_phase
+                @test controls["DCenab"] == Dict("value" => 1, "readback" => "Enabled")
+                @test controls["DCCOR"] == Dict("value" => 2, "readback" => "Add Pole/Residue")
+                @test controls["CPASS"] == Dict("value" => 2, "readback" => "Enforcement")
+                @test controls["Numf"] == Dict("value" => 200, "readback" => "200")
+            else
+                @test controls["Output"] == Dict("value" => 0, "readback" => "No")
+            end
+            if model == :fd_phase
+                @test controls["MER_PE"] == Dict("value" => 10.0, "readback" => 10.0)
+                @test controls["MER_PE"]["readback"] isa Float64
+            end
+        end
         @test_throws ArgumentError P._pscad_project(system, earth, 50.0, blueprints, formulation,
             nothing; model = :unknown)
         @test_throws ArgumentError P._pscad_project(system, earth, 50.0, blueprints, formulation,
@@ -112,6 +142,44 @@
         @test_throws ArgumentError P._pscad_project(system, earth, 50.0, blueprints, formulation,
             nothing; model = :fd_mode, fit = (YMaxP = 1,))
     end
+end
+
+@testitem "PSCAD / fitting fields follow master-library definitions" tags=[:integration, :pscad] begin
+    using LineCableModels.PSCAD: PSCADTransientFormulation
+    const P = LineCableModels.PSCAD
+
+    # Independent defaults from the two component definitions in m7-master.pslx.
+    phase = (FS = 0.01, FE = 1e6, Numf = 100, DCCOR = 1, CPASS = 0,
+        enablf = 1, shntcab = 1e-9, YMaxP = 20, AMaxP = 20, YMaxE = 0.2,
+        AMaxE = 0.2, DCenab = 0, MaxRPtol = 2e6, ET_PE = 1e-10,
+        MER_PE = 2, MIT_PE = 5, FSP = 0.001, FEP = 1e6,
+        NFP = 1000, FDIS = 3, Interp1 = 1)
+    mode = (FS = 0.5, FE = 1e6, FT = 2000, ZMaxP = 20, AMaxP = 20,
+        ZMaxE = 1, AMaxE = 1, Interp1 = 1, Output = 0,
+        W1 = 1, W2 = 1000, W3 = 1, Inflen = 0)
+    for (model, defaults) in ((:fd_phase, phase), (:fd_mode, mode))
+        @test keys(getproperty(P._PSCAD_FIT_FIELDS, model)) == keys(defaults)
+        @test PSCADTransientFormulation(; model, fit = defaults).fit == defaults
+        for (field, value) in pairs(defaults)
+            fit = NamedTuple{(field,)}((value,))
+            @test PSCADTransientFormulation(; model, fit).fit == fit
+        end
+    end
+    @test_throws ArgumentError("PSCAD fd_phase fitting field Numf=300 must be one of (100, 200, 500, 1000)") PSCADTransientFormulation(fit = (Numf = 300,))
+    @test_throws ArgumentError("PSCAD fd_phase fitting field YMaxP=60 must be Integer in [5, 50]") PSCADTransientFormulation(fit = (YMaxP = 60,))
+    for fit in ((YMaxP = 20.5,), (MIT_PE = 5.5,), (NFP = 300,),
+            (FDIS = 0,), (Interp1 = 0.5,), (DCCOR = 0,), (FS = 0,),
+            (MER_PE = 101,), (shntcab = 0,), (FE = Inf,))
+        @test_throws ArgumentError PSCADTransientFormulation(; fit)
+    end
+    @test_throws MethodError PSCADTransientFormulation(fit = (FS = "0.5",))
+    @test_throws MethodError PSCADTransientFormulation(fit = (FS = 1 + 0im,))
+    @test_throws r"ZMaxP=20.*allowed fields:.*FS" PSCADTransientFormulation(fit = (ZMaxP = 20,))
+    @test_throws r"YMaxP=20.*allowed fields:.*FS" PSCADTransientFormulation(model = :fd_mode, fit = (YMaxP = 20,))
+    @test_throws r"AMaxP=60.*\[5, 50\]" PSCADTransientFormulation(fit = (AMaxP = 60,))
+    @test_throws r"ZMaxP=101.*\[5, 100\]" PSCADTransientFormulation(model = :fd_mode, fit = (ZMaxP = 101,))
+    @test PSCADTransientFormulation(model = :fd_mode, fit = (AMaxP = 60, FS = 0)).fit == (AMaxP = 60, FS = 0)
+    @test PSCADTransientFormulation(fit = (ET_PE = -1e-6, YMaxP = 20.0)).fit == (ET_PE = -1e-6, YMaxP = 20.0)
 end
 
 @testitem "PSCAD / constants project byte preservation" tags=[:integration, :pscad] setup=[TestFixtures] begin

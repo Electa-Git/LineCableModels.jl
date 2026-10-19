@@ -1362,6 +1362,39 @@ fits the phase-domain cable model. FD-Mode (`model=:fd_mode`) fits modal
 quantities and accepts the transformation frequency as `fit=(FT=2000.0,)`.
 Each model accepts its native fitting fields.
 
+FD-Phase accepts the following transient fitting fields. Frequencies use Hz,
+and fitting-error targets use percent. These are exporter defaults.
+
+| Fields | Default | Meaning |
+|---|---|---|
+| `FS`, `FE` | `0.5`, `1e6` | Lower and upper fitting limits. |
+| `Numf` | `100` | Total solution increments across the fitting band. |
+| `YMaxP`, `AMaxP` | `20`, `20` | Maximum poles per admittance column and propagation delay group. |
+| `YMaxE`, `AMaxE` | `0.2`, `0.2` | Maximum final fitting error in percent. |
+| `MaxRPtol` | `2e6` | Tolerance on the maximum ratio of residue to pole for propagation. |
+| `DCenab`, `DCCOR` | `0`, `1` | DC correction enable and method. Method 1 is Functional form. Method 2 is Add pole. |
+| `CPASS` | `0` | `0` disables passivity processing, `1` scans, and `2` enforces. |
+| `ET_PE` | `1e-10` | Eigenvalue tolerance for passivity enforcement. |
+| `MER_PE` | `2` | Maximum percentage error for spectral residue perturbation. |
+| `MIT_PE` | `5` | Maximum enforcement iterations. |
+| `FSP`, `FEP` | `0.001`, `1e6` | Passivity scan limits, independent of the fitting band. |
+| `NFP` | `1000` | Frequency samples for the passivity scan. |
+| `FDIS` | `3` | Scan distribution: `1` logarithmic, `2` linear, `3` both. |
+| `Interp1` | `1` | `0` disables travel-time interpolation. `1` enables it. |
+
+The added passivity and interpolation defaults follow the master-library component
+definition. Its `FS` default is 0.01 Hz. The exporter retains 0.5 Hz.
+
+FD-Mode accepts `FS`, `FE`, `FT`, `ZMaxP`, `AMaxP`, `ZMaxE`, `AMaxE`,
+`Interp1`, `Output`, `W1`, `W2`, `W3` and `Inflen`.
+Its transformation frequency `FT` defaults to 2000 Hz, and its impedance
+and propagation error targets default to 1 percent with at most 20 poles each.
+
+Construction checks supplied fitting fields against the selected master-library
+component's types, choices and inclusive limits. `Numf` accepts 100, 200, 500 and 1000.
+FD-Phase pole limits range from 5 to 50. FD-Mode pole limits range from 5 to 100.
+Integer fields need integral values. Error messages specify the field, its value and the allowed choices or range.
+
 The `line` keyword selects the formulation for the exported cable data.
 Its default, `Formulation()`, selects lossless dielectrics. Lossy insulation and
 semicon selections export the same layer loss tangents as a line-constants export
@@ -1370,8 +1403,12 @@ For FD-Phase, `fit=(enablf=1,)` makes PSCAD derive shunt conductance from the la
 loss tangents and ignore `shntcab`. With `enablf=0`, PSCAD uses `shntcab` instead.
 Both fields accept overrides in `fit`.
 
-The runner reads back the numeric fitting settings and cable frequency, plus
-project duration, integration and sampling steps, output type and filename.
+The runner reads back numeric fitting settings, choice labels and cable frequency,
+plus project duration, integration and sampling steps, output type and filename.
+Choice settings keep their numeric XML values. PSCAD reads named choices back as master-library labels
+and numeric choices such as `Numf` back as numbers.
+String comparisons ignore case, spaces, `_` and punctuation.
+Result details keep the labels PSCAD returned.
 `details(response).data` keeps these readings, the requested model and fitting
 fields, exported line formulation, station identity, exported project, output files
 and run folder.
