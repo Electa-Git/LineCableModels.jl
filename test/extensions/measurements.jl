@@ -46,8 +46,6 @@
     @test_throws ArgumentError LineCableModels.ImportExport.deserialize_value(
         encoded_measurement
     )
-    @test_throws ArgumentError LineCableModels.ImportExport.deserialize_value(
-        Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1))
     """
     project=dirname(Base.active_project())
     process=run(`$(Base.julia_cmd()) --startup-file=no --project=$project -e $program`;wait=false)
@@ -60,9 +58,8 @@
     @test success(process)
 end
 
-@testitem "Measurements / scientific UQ records preserve signed shared sources" tags=[:extension, :measurements, :slow] begin
-    using Measurements, JSON3, Statistics
-    IE=LineCableModels.ImportExport
+@testitem "Measurements / saved UQ results keep signed shared sources" tags=[:extension, :measurements, :slow] setup=[SavedResults] begin
+    using Measurements, Statistics
     q=measurement(2.0,0.25)
     f=[measurement(50.0,0.1),measurement(1000.0,0.2)]
     z=reshape([complex(q,2q),complex(3q,-q)],1,1,2)
@@ -79,35 +76,22 @@ end
         for result in (LinearErrorResult(LinearError(Formulation()),[core,core]),
                 MonteCarloResult(MonteCarlo(Formulation();trials=3,seed=7),
                     [core,core],[summaries,summaries],nothing,nothing,UInt64(7),UInt64[8,9],[3,3]))
-            record=IE.serialize_value(result)
-            restored=IE.deserialize_value(JSON3.read(JSON3.write(record),Dict{String,Any}))
-            @test (restored isa MonteCarloResult) == (result isa MonteCarloResult)
+            restored=SavedResults.round_trip(result)
+            @test SavedResults.same(restored, result)
             for quantity in (R,L,C,G)
                 before=observe(first(result),quantity)
                 after=observe(first(restored),quantity)
-                @test nominal.(after) ≈ nominal.(before)
-                @test uncertainty.(after) ≈ uncertainty.(before)
+                # The loaded values have their own sources, shared within the file.
+                @test uncertainty.(after.-before) ≈ sqrt(2).*uncertainty.(before)
                 @test all(iszero,uncertainty.(after.-observe(last(restored),quantity)))
             end
-            @test Measurements.cov(first(R(restored[1])),first(G(restored[1]))) ≈
+            @test Measurements.cov(first(R(restored[1])),first(G(restored[1]))) ==
                 Measurements.cov(first(R(core)),first(G(core)))
             if core isa LineParameters
                 @test uncertainty.(frequencies(restored[1])) ≈ uncertainty.(f)
                 @test all(iszero,uncertainty.(frequencies(restored[1]).-frequencies(restored[2])))
             else
                 @test uncertainty(restored[1].frequency-restored[2].frequency)==0
-            end
-            if core isa LineParameters && result isa LinearErrorResult
-                legacy_points=map(record["points"]) do point
-                    merge(IE.deserialize_value(point),(frequencies=nominal.(f),))
-                end
-                payload=(formulation=NamedTuple(result.formulation),points=legacy_points,
-                    sources=IE.deserialize_value(record["sources"]),details=(;))
-                legacy=Dict("__type__"=>"MeasurementLinearErrorResult","version"=>1,
-                    "payload"=>IE.serialize_value(payload,Val(:scientific)))
-                recovered=IE.deserialize_value(JSON3.read(JSON3.write(legacy),Dict{String,Any}))
-                @test uncertainty(first(R(recovered[1]))-first(R(recovered[2])))==0
-                @test uncertainty(first(G(recovered[1]))-4first(R(recovered[1])))==0
             end
         end
     end

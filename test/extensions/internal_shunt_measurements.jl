@@ -86,7 +86,7 @@ end
 @testitem "Measurements / internal shunt / public parametric studies" tags=[
     :extension, :integration,
     :measurements,
-    :slow] begin
+    :slow] setup=[SavedResults] begin
     using Measurements, Statistics
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
     space = Gridspace{CableConstantsProblem}(
@@ -104,18 +104,16 @@ end
     @test all(isempty, sampled.details.data.failures)
     @test only(sampled.values).details.data.shunt_model.requested === :boundary
     @test only(linear.values).details.data.shunt_model.requested === :boundary
-    IE=LineCableModels.ImportExport
-    restored=IE.deserialize_value(IE.serialize_value(linear))
+    restored=SavedResults.round_trip(linear)
+    @test SavedResults.same(restored, linear)
     original=only(linear.values)
-    saved=only(restored.values)
-    @test Measurements.value.(saved.C) == Measurements.value.(original.C)
-    @test Measurements.uncertainty.(saved.C) ≈ Measurements.uncertainty.(original.C)
-    @test details(saved).data.shunt_model.requested === :boundary
+    @test details(only(restored.values)).data.shunt_model.requested === :boundary
     # One shared uncertain input must remain one source across distinct points.
     duplicated=LineCableModels.UQ.LinearErrorResult(
         LinearError(inner), [original, original], ComputationDetails((;)))
-    copied=IE.deserialize_value(IE.serialize_value(duplicated))
+    copied=SavedResults.round_trip(duplicated)
     @test Measurements.uncertainty(copied.values[1].C[1]-copied.values[2].C[1]) == 0
+    @test Measurements.uncertainty(copied.values[1].C[1]-original.C[1]) > 0
     strict = CableConstantsFormulation(shunt_model = formula(:boundary;
         options = (resolution = (wire = 16, order = 8, quadrature = 64, modes = 128),)),
         insulation_admittance = :lossy)

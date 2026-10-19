@@ -1,4 +1,4 @@
-@testitem "UQ / scalar products preserve populations, units and eligibility" tags=[:unit, :measurements, :slow] begin
+@testitem "UQ / scalar products preserve populations, units and eligibility" tags=[:unit, :measurements, :slow] setup=[SavedResults] begin
     using Statistics, Measurements, DataFrames, Random
     using LineCableModels.Engine: compare, absolute_error, relative_error
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
@@ -41,7 +41,8 @@
     @test only(last(retained.quantities).coordinates.rows)==1
     @test only(mc)===core
     @test eachindex(mc)==Base.OneTo(1)
-    restored=LineCableModels.ImportExport.deserialize_value(LineCableModels.ImportExport.serialize_value(mc))
+    restored=SavedResults.round_trip(mc)
+    @test SavedResults.same(restored, mc)
     @test observe(restored, samples, R, 1)==trials.R
     @test NamedTuple(observe(
         restored, LineCableModels.histograms, R, 1, 1, 1, 1))==NamedTuple(histograms.R[1])

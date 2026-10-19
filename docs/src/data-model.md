@@ -442,8 +442,9 @@ assembly.
 
 JSON records authoritative materials, physical declarations, patterns, paths,
 compaction laws, poses, terminal names, tags, and explicit Grid declarations.
-Decoding invokes the same constructors. Resolved geometry, terminal
-maps, engine workspaces, and solver results are not serialized.
+Decoding invokes the same constructors. Resolved geometry, terminal maps and
+engine workspaces are not in JSON. Computed results are saved with `save` (see
+[Saving results](@ref)).
 
 Model declarations use their bounded `text/plain` displays. Electrical tables
 come from `CableConstants(design)` or observed `LineParameters` results.

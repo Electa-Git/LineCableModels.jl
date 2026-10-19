@@ -1219,8 +1219,7 @@ Monte Carlo retains one record per accepted and stored trial at
 `details(result).data.timing[population_index][accepted_trial_index]`, independently
 of `retain_details`, `return_samples`, and histogram retention. Failed attempts
 are not successful measurements, and aggregate mean and standard-deviation values do not receive scan
-timing. Supported scientific serialization preserves optional timing, including
-through the Measurements extension. Records without timing remain readable.
+timing. A saved result keeps its timing records (see [Saving results](@ref)).
 
 Progress uses ordinary structured Julia `@info` messages with `_group=:progress`.
 The effective level is `get(verbosity, :progress, verbosity.default)`. Other
@@ -1349,6 +1348,19 @@ the default and rethrows every exception. `on_error=:resample` requires
 `retain_details=true` and rejects only `DomainError` realizations until the
 requested accepted-trial count is reached or `max_failures` is exhausted.
 Other exception types always propagate immediately.
+
+## Saving results
+
+`save(result, path)` writes a computed result, or a space of results, with Julia's
+`Serialization`. `import_data(path, :result)` reads it back. The file is for the same code.
+Another version of LineCableModels or of Julia can fail to read it, as can another version
+of a package whose values the result contains. Recompute after an update. The loaded result
+has the type and every value of the saved one, details included. Its uncertainty sources
+are new ones, one for each source of the file: the loaded values keep their correlations
+with one another and are independent of the sources that the reading process creates.
+
+JSON holds portable inputs: material and cable libraries, cable designs, line-cable
+systems, earth models and line-parameter problems. Observation archives also use it.
 
 ## Extending the engine
 

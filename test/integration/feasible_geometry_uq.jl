@@ -64,9 +64,8 @@
     end
 end
 
-@testitem "UQ / Monte Carlo / computed marginal ownership and scientific transport" tags=[:integration,:extension,:measurements, :slow] setup=[TestFixtures] begin
-    using Measurements, Statistics, JSON3
-    IE=LineCableModels.ImportExport
+@testitem "UQ / Monte Carlo / computed marginal ownership and saved results" tags=[:integration,:extension,:measurements, :slow] setup=[TestFixtures, SavedResults] begin
+    using Measurements, Statistics
     design=TestFixtures.coaxial_design()
     space=Gridspace{CableConstantsProblem}(
         temperature -> CableConstantsProblem(design;temperature),
@@ -90,31 +89,16 @@ end
             @test uncertainty.(output) ≈ vec(std(draws;dims=2))
             @test all(iszero,uncertainty.(output .- observe(result[point],quantity)))
         end
-        record=IE.serialize_value(result)
-        @test record["version"] == 2
-        restored=IE.deserialize_value(JSON3.read(JSON3.write(record),Dict{String,Any}))
-        @test statistics(restored) == statistics(result)
-        @test restored.point_seeds == result.point_seeds
-        @test restored.trial_counts == result.trial_counts
+        restored=SavedResults.round_trip(result)
+        @test SavedResults.same(restored, result)
+        # The loaded values have their own sources: their difference from the saved values
+        # keeps its uncertainty.
         for point in eachindex(result), quantity in (R,L,C,G)
-            @test nominal.(observe(restored[point],quantity)) == nominal.(observe(result[point],quantity))
-            @test uncertainty.(observe(restored[point],quantity)) ≈ uncertainty.(observe(result[point],quantity))
+            saved=observe(result[point],quantity)
+            loaded=observe(restored[point],quantity)
+            @test uncertainty.(loaded .- saved) ≈ sqrt(2) .* uncertainty.(saved)
         end
     end
-    # V1 is a supported full scientific record, unlike a moments-only publication.
-    old=IE.serialize_value(baseline)
-    old["version"]=1
-    delete!(old,"sources")
-    old["points"]=[IE.serialize_value(CableConstants(value.cores,
-        nominal.(value.R),nominal.(value.L),nominal.(value.C),nominal.(value.G),
-        nominal(value.frequency),value.details)) for value in baseline]
-    restored=IE.deserialize_value(JSON3.read(JSON3.write(old),Dict{String,Any}))
-    @test statistics(restored) == statistics(baseline)
-    @test uncertainty.(first(restored).R) ≈ uncertainty.(first(baseline).R)
-    @test uncertain(restored,1) === first(restored)
-    rounded=deepcopy(old)
-    rounded["point_seeds"]=[1.0,1.0]
-    @test_throws r"exact integers" IE.deserialize_value(rounded)
 
     singleton=compute(problem,MonteCarlo(inner;trials=1,seed=2029,return_samples=true))
     for core in singleton, quantity in (R,L,C,G)

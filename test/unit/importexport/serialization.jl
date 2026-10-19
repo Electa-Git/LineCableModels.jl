@@ -46,27 +46,29 @@
     ))
 end
 
-@testitem "ImportExport / resolved formulation records survive scientific JSON transport" tags=[:unit, :importexport] begin
-    using JSON3
-    import LineCableModels.ImportExport as IE
-    selected = Formulation(earth_impedance=formula(:carson1926;
-        options=(integration=(method=:quad, options=(rtol=1e-6,)),)))
-    for formulation in (Formulation(), selected, LinearError(selected),
-            MonteCarlo(selected; trials=2, seed=0x1234), ModalAnalysisFormulation())
-        original = NamedTuple(formulation)
-        encoded = IE.serialize_value(original, Val(:scientific))
-        transported = JSON3.read(JSON3.write(encoded), Dict{String,Any})
-        restored = IE.deserialize_value(transported)
-        @test restored == original
+@testitem "ImportExport / saved results keep their types and values" tags=[:unit, :importexport] setup=[TestFixtures, SavedResults] begin
+    using Serialization
+    problem = CableConstantsProblem(TestFixtures.coaxial_design())
+    constants = compute(problem, CableConstantsFormulation())
+    precise = setprecision(BigFloat, 384) do
+        LineParameters(fill(complex(parse(BigFloat, "1.234567890123456789012345678901"), 2), 1, 1, 2),
+            fill(complex(BigFloat(3), 4), 1, 1, 2), BigFloat[1, 2])
     end
-    for selector in (Val(:homogeneous), Val(:quad), Val(1), Val((:self, 1, 2)))
-        encoded = IE.serialize_value(selector, Val(:scientific))
-        @test IE.deserialize_value(JSON3.read(JSON3.write(encoded), Dict{String,Any})) === selector
+    for result in (constants, precise)
+        mktempdir() do directory
+            path = save(result, joinpath(directory, "result.jls"))
+            @test isabspath(path) && isfile(path)
+            restored = setprecision(() -> import_data(path, :result), BigFloat, 128)
+            @test SavedResults.same(restored, result)
+        end
     end
-    for seed in (UInt64(0),UInt64(1)<<63,typemax(UInt64))
-        original=NamedTuple(MonteCarlo(selected;trials=2,seed))
-        encoded=IE.serialize_value(original,Val(:scientific))
-        @test IE.deserialize_value(JSON3.read(JSON3.write(encoded),Dict{String,Any})) == original
+    restored = setprecision(() -> SavedResults.round_trip(precise), BigFloat, 128)
+    @test precision(real(first(Z(restored)))) == 384
+    mktempdir() do directory
+        path = joinpath(directory, "values.jls")
+        serialize(path, (values = [1.0, 2.0],))
+        @test_throws TypeError import_data(path, :result)
+        @test_throws MethodError import_data(path, :values)
     end
 end
 

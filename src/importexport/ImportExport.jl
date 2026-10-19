@@ -7,6 +7,7 @@ Read and write LineCableModels data.
 
 - Save and load material and cable libraries.
 - Encode package-owned model types in the versioned JSON schema.
+- Save computed results with Julia's `Serialization` and read them back with the same code.
 - Export cable systems and calculated matrices to PSCAD, ATPDraw, and TRALIN
   formats.
 - Import supported PSCAD and TRALIN results.
@@ -27,14 +28,14 @@ export load!
 # IMPORTS is expanded in the module docstring rather than called as Julia code.
 using DocStringExtensions: IMPORTS
 #! explicit-imports: on
-using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, METHODLIST
 import ..LineCableModels: build, validate, nominal, parameterize
 using ..LineCableModels: constitutive
 import ..LineCableModels
 import ..Commons
 import ..Units
 import UUIDs
-import ..Commons: observe, FormulationOptions, ComputationOptions, ComputationDetails
+import ..Commons: observe
 import ..ReportBuilder
 using ..Materials: AbstractMaterial, Material, MaterialsLibrary
 using ..Earth: EarthLayer, EarthModel
@@ -70,6 +71,7 @@ include("serialize.jl")
 include("deserialize.jl")
 include("uncertainty.jl")
 include("observed.jl")
+include("results.jl")
 include("problem.jl")
 include("cableslibrary.jl")
 include("materialslibrary.jl")
@@ -78,5 +80,6 @@ include("tralin.jl")
 
 public encode_observation, decode_observation_measurement, observation_sources
 public serialize_value, deserialize_value, deserialize_extension
+public ResultReader
 
 end # module ImportExport

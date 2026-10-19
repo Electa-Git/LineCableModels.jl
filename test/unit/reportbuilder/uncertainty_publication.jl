@@ -1,4 +1,4 @@
-@testitem "UQ / publication / selected matrix coordinates retain axes and units" tags=[:unit, :measurements, :slow] begin
+@testitem "UQ / publication / selected matrix coordinates retain axes and units" tags=[:unit, :measurements, :slow] setup=[SavedResults] begin
     using DataFrames
     using Statistics
     using Measurements
@@ -81,18 +81,20 @@
     @test observe(lep_observed,statistics,R,mean)==quantities.R
     @test observe(lep_observed,statistics,R,std)==fill(1e-6,2,2,2)
     @test_throws ArgumentError ObservedResult(lep,1,((statistics,R,median),))
-    IE=LineCableModels.ImportExport
-    restored_mc=IE.deserialize_value(IE.serialize_value(source))
+    restored_mc=SavedResults.round_trip(source)
+    @test SavedResults.same(restored_mc, source)
     @test observe(restored_mc,statistics,R,mean,1) == observe(source,statistics,R,mean,1)
     @test NamedTuple(first(only(UQ.statistics(restored_mc)).R)) == NamedTuple(first(summaries.R))
     @test UQ.confidence(restored_mc,1).trials == 2
-    restored_lep=IE.deserialize_value(IE.serialize_value(lep))
+    restored_lep=SavedResults.round_trip(lep)
+    @test SavedResults.same(restored_lep, lep)
     @test observe(restored_lep,statistics,R,std,1) == observe(lep,statistics,R,std,1)
     shared=measurement(1.0,0.1)
     correlated=LineParameters(fill(shared+im*shared,2,2,2),fill(2shared+im*shared,2,2,2),frequencies)
-    restored=IE.deserialize_value(IE.serialize_value(LinearErrorResult(LinearError(Formulation()),[correlated])))
+    restored=SavedResults.round_trip(LinearErrorResult(LinearError(Formulation()),[correlated]))
     @test uncertainty(real(only(restored).Z[1])-real(only(restored).Z[2])) == 0
     @test uncertainty(real(only(restored).Y[1])-2real(only(restored).Z[1])) == 0
+    @test uncertainty(real(only(restored).Z[1])-shared) ≈ sqrt(2)*uncertainty(shared)
 
     definition=RB.BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std),(statistics,B,mean));bands=(:all,))
     artifact=RB.report(definition,(reference=source,result=source))

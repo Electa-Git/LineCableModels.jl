@@ -1,7 +1,6 @@
-@testitem "Scan timing / stage ownership, progress, composition and persistence" tags=[:integration, :measurements, :slow] setup=[TestFixtures] begin
-    using Logging, Measurements, JSON3, Serialization
+@testitem "Scan timing / stage ownership, progress, composition and persistence" tags=[:integration, :measurements, :slow] setup=[TestFixtures, SavedResults] begin
+    using Logging, Measurements
     const E=LineCableModels.Engine
-    const IE=LineCableModels.ImportExport
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 1000.0])
     formulation=Formulation()
     plain=compute(problem, formulation)
@@ -50,12 +49,9 @@
     @test Z(reused) === Z(timed)
     @test Y(reused) === Y(timed)
     @test details(reused).data.gridpoint === details(timed).data.gridpoint
+    # A saved result keeps its timing record.
     for result in (plain, timed, reused)
-        restored=IE.deserialize_value(JSON3.read(JSON3.write(IE.serialize_value(result)), Dict{
-            String, Any}))
-        @test Z(restored) == Z(result)
-        @test get(details(restored).data, :timing, nothing) ==
-              get(details(result).data, :timing, nothing)
+        @test SavedResults.same(SavedResults.round_trip(result), result)
     end
     calls=Int[]
     forms=Grid((formulation, formulation, formulation))
@@ -110,11 +106,7 @@
     linear=compute(study, LinearError(formulation))
     @test isempty(details(linear).data)
     @test haskey(details(first(linear)).data, :timing)
-    restored=IE.deserialize_value(JSON3.read(JSON3.write(IE.serialize_value(linear)), Dict{
-        String, Any}))
-    @test details(first(restored)).data.timing == details(first(linear)).data.timing
-    @test nominal.(Z(first(restored))) == nominal.(Z(first(linear)))
-    @test uncertainty.(Z(first(restored))) == uncertainty.(Z(first(linear)))
+    @test SavedResults.same(SavedResults.round_trip(linear), linear)
     mc=MonteCarlo(formulation; trials = 4, seed = 71)
     sampled=compute(study, mc)
     replay=compute(ParametricProblem(uncertain_space), mc)
@@ -131,18 +123,9 @@
         value=compute(study,
             MonteCarlo(formulation; trials = 2, seed = 71, retain_details,
                 return_samples, return_histograms, bins = 2))
-        local restored_mc=IE.deserialize_value(JSON3.read(
-            JSON3.write(IE.serialize_value(value)), Dict{String, Any}))
-        @test details(restored_mc).data.timing == details(value).data.timing
-        @test statistics(restored_mc) == statistics(value)
-        @test haskey(details(restored_mc).data, :trials) == retain_details
+        @test haskey(details(value).data, :trials) == retain_details
+        @test SavedResults.same(SavedResults.round_trip(value), value)
     end
-    # The scientific record codec is also valid through Julia serialization.
-    buffer=IOBuffer()
-    serialize(buffer, IE.serialize_value(sampled))
-    seekstart(buffer)
-    @test details(IE.deserialize_value(deserialize(buffer))).data.timing ==
-          details(sampled).data.timing
     for timing in (false, true), progress in (0, 1)
 
         options=ComputationOptions(; timing, verbosity = (default = 0, progress))

@@ -73,7 +73,8 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.ReportBuilder.XLSXWorkbook,
     LineCableModels.ImportExport.serialize_value,
     LineCableModels.ImportExport.deserialize_value,
-    LineCableModels.ImportExport.deserialize_extension
+    LineCableModels.ImportExport.deserialize_extension,
+    LineCableModels.ImportExport.ResultReader
 )
 
 _contains_identity(collection, object) = any(entry -> entry === object, collection)

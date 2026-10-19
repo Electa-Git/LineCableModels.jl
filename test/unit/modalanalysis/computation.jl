@@ -1,4 +1,4 @@
-@testitem "ModalAnalysis / retained directions, finite responses, transport, and diagnostics" tags=[:unit, :importexport, :slow] begin
+@testitem "ModalAnalysis / retained directions, finite responses, transport, and diagnostics" tags=[:unit, :importexport, :slow] setup=[SavedResults] begin
     using Test
     using LinearAlgebra
     using Serialization
@@ -168,7 +168,7 @@
     @test line_length(unbound)===nothing
     @test_throws ArgumentError PropagationParameters(unbound)
     @test line_length(PropagationParameters(unbound;line_length=25.0))==25.0
-    @test_throws ArgumentError LineCableModels.ImportExport.serialize_value(modal)
+    @test SavedResults.same(SavedResults.round_trip(modal), modal)
 
     timed_phase=E.retain_gridpoint(phase,details(phase).data.gridpoint;
         fields=(timing=(wall_seconds=1.0,),))

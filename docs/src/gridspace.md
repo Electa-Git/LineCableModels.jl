@@ -419,12 +419,10 @@ campaign-wide. Fixed trials need not certify the configured target. Its
 One trial cannot establish population spread. No LEP distribution is inferred
 from two moments, and no report initiates sampling or physical computation.
 
-Portable scientific records preserve the complete set of retained MC products and shared MC/LEP
-Measurement sources, including signed sensitivities. Built-in `:normal` and
-`:uniform` law choices are retained directly. Distributions.jl `Normal` and
-`Uniform` records retain their actual parameters. Other custom input laws or
-formulation declarations require an owner-provided codec and fail explicitly
-when no codec exists. They are never changed into a supported law on recovery.
+A Monte Carlo or linear-error result saved with `save` keeps its retained products, its
+formulation, the law it sampled with and its seeds, and `import_data(path, :result)` reads
+it with the same code (see [Saving results](@ref)). Values that shared a Measurement source
+in the saved result share one again after loading.
 
 All completed result spaces are one-dimensional finite Julia collections.
 Iteration and indexing return one stored core result per computation. A
@@ -596,8 +594,8 @@ Normal sampling remains the default and has unbounded support. Finite reserve
 distances cannot make all independent normal draws feasible. Resampling
 estimates a distribution conditional on success, not the original input law.
 
-Executable native checkpoints retain the joint builder and its sources.
-Marginal Measurement JSON retains values and standard uncertainties only. It is
+A result saved with `save` keeps the joint builder of its space and the sources of its
+values. Marginal Measurement JSON retains values and standard uncertainties only. It is
 not a format for archiving the joint statistical law or covariance.
 
 ## Optional package extensions

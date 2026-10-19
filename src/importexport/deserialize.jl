@@ -93,7 +93,6 @@ function deserialize_value(value)
         marker in ("Float16", "Float32", "Float64", "BigFloat") &&
             return _decode_float(marker, value)
         marker == "Symbol" && return Symbol(_required(value, "value", marker))
-        marker == "Val" && return Val(deserialize_value(_required(value, "value", marker)))
         marker == "Complex" && return complex(
             deserialize_value(_required(value, "re", marker)),
             deserialize_value(_required(value, "im", marker))
@@ -110,12 +109,10 @@ function deserialize_value(value)
         end
         marker == "NamedTuple" && return NamedTuple{Tuple(Symbol.(value["names"]))}(
             Tuple(deserialize_value(item) for item in value["values"]))
-        marker in ("UInt64", "Observable", "Quantile", "ModalRepresentation", "LineParameters", "CableConstants", "MonteCarloResult",
-            "LinearErrorResult", "SampleSummary", "HistogramDensity", "Distribution",
-            "FormulationOptions", "ComputationOptions", "ComputationDetails", "ObservedArchive",
+        marker in ("UInt64", "Observable", "Quantile", "ModalRepresentation", "ObservedArchive",
             "UUID", "Colon", "Quantity", "Unit", "UnitExpr", "LengthBasis", "ScientificType") &&
             return deserialize_extension(Val(Symbol(marker)),value)
-        if marker in ("Measurement", "MeasurementLinearErrorResult")
+        if marker == "Measurement"
             applicable(deserialize_extension, Val(Symbol(marker)), value) || throw(
                 ArgumentError("deserializing Measurement values requires Measurements.jl")
             )

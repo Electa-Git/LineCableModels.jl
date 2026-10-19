@@ -1,7 +1,6 @@
-@testitem "Engine / shunt model / strict selection and completed coefficients" tags=[:integration, :importexport, :slow] begin
+@testitem "Engine / shunt model / strict selection and completed coefficients" tags=[:integration, :importexport, :slow] setup=[SavedResults] begin
     using Logging
     E = LineCableModels.Engine
-    IE = LineCableModels.ImportExport
     include(joinpath(pkgdir(LineCableModels), "test", "support", "internal_shunt.jl"))
     design = internal_shunt_test_design(count = 4)
     problem = CableConstantsProblem(design)
@@ -99,12 +98,6 @@
         @test occursin("boundary", description(formulation, C))
     end
     for source in (first_result, nominal)
-        restored=IE.deserialize_value(IE.serialize_value(source))
-        @test restored == source
-        @test details(restored).data.shunt_model.requested ===
-              details(source).data.shunt_model.requested
-        @test details(restored).data.formulations == details(source).data.formulations
-        @test only(details(restored).data.shunt_model.domains).reason ===
-              only(details(source).data.shunt_model.domains).reason
+        @test SavedResults.same(SavedResults.round_trip(source), source)
     end
 end

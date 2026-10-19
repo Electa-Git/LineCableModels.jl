@@ -68,7 +68,6 @@
 "ext/LineCableModelsMakieExt/recipes/preview_render.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "ext/LineCableModelsMakieExt/series_styles.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "ext/LineCableModelsMakieExt/shell.jl" = { applicable = 0, eval = 0, isa = 17, kind = 0 }
-"ext/LineCableModelsMeasurementsExt.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/commons/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
@@ -122,7 +121,6 @@
 "src/importexport/materialslibrary.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/importexport/observed.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/importexport/problem.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/importexport/uncertainty.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }

@@ -187,8 +187,8 @@ in m/F, and temperature-law resistivities in Ω·m. Scalar material laws return
 `workspace.Tv`, `workspace.Ti`, and `workspace.roots`. The owner constructs
 `ModalOperators` and intrinsic coefficients after decomposition. Supply
 `formula_id`, `description`, `NamedTuple` and
-`formulation_options` methods for metadata. Serialized identities and data do
-not reconstruct executable methods. See the [temperature-law example](engine.md#Cable-material-temperature-dependence).
+`formulation_options` methods for metadata. A saved result contains the formula itself.
+Loading it needs the module that defines the formula, at the same version. See the [temperature-law example](engine.md#Cable-material-temperature-dependence).
 
 ### A custom modal formula
 

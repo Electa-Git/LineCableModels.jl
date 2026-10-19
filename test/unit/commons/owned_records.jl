@@ -66,10 +66,9 @@ end
     @test_throws TypeError formula(:default; options=ComputationDetails())
 end
 
-@testitem "Commons / owned records / explicit transport and passive persistence" tags=[:unit, :measurements] setup=[TestFixtures] begin
+@testitem "Commons / owned records / saved records and results" tags=[:unit, :measurements] setup=[TestFixtures, SavedResults] begin
     using Measurements
     using Serialization
-    const IO = LineCableModels.ImportExport
     payload = (resolution=(enabled=true,), values=[1.0, 2.0])
     for Record in (FormulationOptions, ComputationOptions, ComputationDetails)
         record = Record(payload)
@@ -77,12 +76,6 @@ end
         @test_throws MethodError iterate(record)
         @test_throws MethodError NamedTuple(record)
         @test_throws MethodError merge(record, (;))
-        for encoded in (IO.serialize_value(record), IO.serialize_value(record, Val(:scientific)))
-            @test encoded["__type__"] == string(nameof(Record))
-            restored = IO.deserialize_value(encoded)
-            @test typeof(restored) === typeof(record)
-            @test isequal(restored, record)
-        end
         buffer = IOBuffer()
         serialize(buffer, record)
         seekstart(buffer)
@@ -99,8 +92,8 @@ end
     @test details(scalar) isa ComputationDetails
     @test fieldtype(typeof(scalar), :details) === typeof(details(scalar))
     @test fieldtype(typeof(details(scalar).data), :shunt_model) === NamedTuple
-    restored_scalar=IO.deserialize_value(IO.serialize_value(scalar))
-    @test typeof(restored_scalar) === typeof(scalar)
+    restored_scalar=SavedResults.round_trip(scalar)
+    @test SavedResults.same(restored_scalar, scalar)
     @test fieldtype(typeof(details(restored_scalar).data), :shunt_model) === NamedTuple
     @test_throws TypeError compute(problem, formulation; options=FormulationOptions())
     @test_throws MethodError ParametricProblem(problem, (;))
@@ -110,19 +103,19 @@ end
         result = compute(ParametricProblem(problem), outer)
         @test fieldtype(typeof(result), :details) === typeof(details(result))
         @test isconcretetype(eltype(result.values))
-        encoded = IO.serialize_value(result)
-        retained = IO.deserialize_value(encoded["details"])
-        @test retained isa NamedTuple
-        records = outer isa LinearError ? retained.points : first(retained.trials)
-        @test all(record -> record isa NamedTuple, records)
-        restored = IO.deserialize_value(encoded)
-        @test isequal(details(restored), details(result))
-        @test first(restored) == first(result)
-        @test restored.formulation isa NamedTuple
+        restored = SavedResults.round_trip(result)
+        @test SavedResults.same(restored, result)
         @test fieldtype(typeof(details(first(restored)).data), :shunt_model) === NamedTuple
         restored_records=outer isa LinearError ? details(restored).data.points :
             first(details(restored).data.trials)
         @test all(record -> fieldtype(typeof(record.data), :shunt_model) === NamedTuple,
             restored_records)
+    end
+    # A saved Monte Carlo result keeps its formulation and all 64 bits of its seeds.
+    for seed in (UInt64(0), UInt64(1) << 63, typemax(UInt64))
+        sampled = compute(ParametricProblem(problem), MonteCarlo(formulation; trials=2, seed))
+        restored = SavedResults.round_trip(sampled)
+        @test restored.root_seed === seed
+        @test SavedResults.same(restored, sampled)
     end
 end

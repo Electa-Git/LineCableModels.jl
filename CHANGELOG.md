@@ -92,7 +92,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reports an unused option as `unused formulation options (...) for :id`.
 - `Formulation(tag; kwargs...)` builds the backend formulations `:coaxial`,
   `:cable_constants`, `:fem` and `:pscad`, and throws for an unknown tag.
-- A saved `LineParameters` record keeps its `details` whole and loads them as data.
+- `save(result, path)` writes a computed result, one result or a space of results, with
+  Julia's `Serialization`, and `import_data(path, :result)` reads it back with the same code.
+  The loaded uncertainty sources are new ones, one for each source of the file. JSON holds
+  portable inputs and observation archives.
 - On an earth with more than two layers, an earth formula with no expression beyond layer 2
   takes the `:default` reduction.
 - `InternalImpedance` takes one formula per slot.

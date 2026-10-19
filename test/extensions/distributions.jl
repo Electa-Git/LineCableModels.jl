@@ -19,8 +19,9 @@ end
 @testitem "Extensions / Distributions adapter / normalized sampling and density laws" tags=[
     :extension,
     :distributions
-] begin
+] setup=[TestFixtures, SavedResults] begin
     using Distributions
+    using Measurements
     using Random
     using Statistics
     import LineCableModels
@@ -43,12 +44,18 @@ end
     shifted_draw=rand(MersenneTwister(41), uncertain; distribution = Normal(10, 3))
     @test standard_draw == shifted_draw
     @test isfinite(standard_draw)
+    # A saved Monte Carlo result keeps the law of its formulation.
+    design=TestFixtures.coaxial_design()
+    space=LineCableModels.Gridspace{LineCableModels.CableConstantsProblem}(
+        temperature -> LineCableModels.CableConstantsProblem(design; temperature),
+        (PB.Grid((20.0,), PB.AbsoluteError(1.0)),))
     for law in (Normal(10.,3.),Uniform(-2.,7.))
-        restored=LineCableModels.ImportExport.deserialize_value(LineCableModels.ImportExport.serialize_value(law))
-        @test typeof(restored)===typeof(law)
-        @test params(restored)==params(law)
-        @test rand(MersenneTwister(41),uncertain;distribution=restored)==
-            rand(MersenneTwister(41),uncertain;distribution=law)
+        sampled=LineCableModels.compute(LineCableModels.ParametricProblem(space),
+            LineCableModels.MonteCarlo(LineCableModels.CableConstantsFormulation();
+                trials=2, seed=41, distribution=law))
+        restored=SavedResults.round_trip(sampled)
+        @test SavedResults.same(restored, sampled)
+        @test restored.formulation.options.data.distribution === law
     end
 
     density=LineCableModels.UQ.HistogramDensity(

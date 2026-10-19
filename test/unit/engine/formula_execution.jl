@@ -61,7 +61,7 @@ end
     end
 end
 
-@testitem "Engine / prescribed propagation is a unified formulation option" tags=[:unit, :measurements, :slow] setup=[TestFixtures] begin
+@testitem "Engine / prescribed propagation is a unified formulation option" tags=[:unit, :measurements, :slow] setup=[TestFixtures, SavedResults] begin
     const E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
     options=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
@@ -98,8 +98,8 @@ end
     uncertain=compute(material_problem, make(1e-4im))
     @test eltype(Z(uncertain)) === Complex{Measurement{Float64}}
     @test any(>(0), uncertainty.(real.(Z(uncertain))))
-    record=LineCableModels.ImportExport.serialize_value(aligned)
-    restored=LineCableModels.ImportExport.deserialize_value(record)
+    restored=SavedResults.round_trip(aligned)
+    @test SavedResults.same(restored, aligned)
     @test details(restored).data.formulations.formulas.earth_impedance.options.Γ ==
           fill(1e-4im, 2)
     prescribed=[1e-4im, 2e-4im]
@@ -124,9 +124,9 @@ end
 end
 
 @testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit, :importexport] setup=[
-    TestFixtures, FormulaFixtures] begin
+    TestFixtures, FormulaFixtures, SavedResults] begin
     using Measurements
-    E, IE=LineCableModels.Engine, LineCableModels.ImportExport
+    E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
     original=[1e-4+2e-4im, 3e-4-1e-4im]
     supplied=copy(original)
@@ -148,7 +148,8 @@ end
     second_result=compute(problem, formulation)
     @test Z(first_result) == first_Z && Y(first_result) == first_Y
     @test Z(second_result) != first_Z || Y(second_result) != first_Y
-    restored=IE.deserialize_value(IE.serialize_value(first_result))
+    restored=SavedResults.round_trip(first_result)
+    @test SavedResults.same(restored, first_result)
     for retained in (first_result, restored),
         family in (:earth_impedance, :earth_admittance)
 
