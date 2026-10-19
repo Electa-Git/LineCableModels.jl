@@ -414,8 +414,10 @@ Each central computation stores diagnostics in `details(result).data.points[i].d
 This record contains the inputs and signed perturbations. It also stores the
 evaluation count and propagated observables.
 
-Modal `mode_assignment` records overlaps and permutations for the
-nominal evaluation followed by each positive and negative perturbation. Input
+Modal `mode_assignment` records overlaps and permutations with axes
+mode × frequency × evaluation. Evaluations start with the nominal point,
+followed by each positive and negative perturbation. The record also stores
+its frequencies \[Hz\] and reference cluster sizes with axes mode × frequency. Input
 names such as `input[1][2]` identify argument positions through nested builders.
 
 With `retain_details=true`, `computations` also stores each scalar computation
@@ -470,23 +472,26 @@ modal_mc = compute(ParametricProblem(space),
 
 The equivalent positional form is
 `compute(ParametricProblem(space), mc, ModalAnalysisFormulation(:default); modal_options)`.
-The Hungarian algorithm maximizes total normalized absolute current-basis overlap
-with the nominal point. Matching uses the first frequency for `:chrysochos2014`
-and `:wedepohl1996`, and the final frequency for `:vieira2026` when
-`tracking.order_by_velocity=true` (the first otherwise). The same permutation
-and complex phase alignment apply across frequencies to both paired bases.
+The Hungarian algorithm maximizes total normalized current-column projection
+onto nominal cluster spans independently at each frequency.
+Reference roots squared define connected clusters at relative separation below
+`sqrt(eps(T))`, with real cost type `T`. Singletons use ordinary absolute overlaps.
+The polar factor of each cross-overlap matrix rotates both paired bases and
+transforms the modal coefficient matrices by similarity. Input roots keep their
+assigned order.
 
-Every assigned overlap must be at least 0.8, corresponding to an angle of at most
-36.87 degrees between normalized current vectors. This identity threshold is
-above the equal-overlap value of `1/sqrt(2)` for two orthogonal modes. It is
-an identity screen, independent of the modal solver's numerical tolerances.
+Each normalized projection must reach 0.8 across modes and frequencies.
+For a singleton, this bounds the angle between current columns to 36.87 degrees.
+For a cluster, it bounds the angle to the reference span.
+This identity threshold is independent of the modal solver's numerical tolerances.
 
 The computation excludes a trial below the threshold without replacement, even with
 `on_error=:resample`. The accepted count can be smaller than `trials`.
 If every trial fails matching, computation throws an `ArgumentError` with the reasons.
 Modal composition always retains diagnostics: `details(modal_mc).data.mode_assignment`
-contains accepted overlaps, permutations, the threshold and matching frequency
-for each outer point. Failed overlaps appear with their reason in `failures`
+contains accepted overlaps and permutations with axes `(mode, frequency, trial)`.
+It also stores the threshold, frequencies \[Hz\] and reference cluster sizes
+with axes mode × frequency for each outer point. Failed overlaps appear with their reason in `failures`
 and contribute to `failure_summary`.
 
 `statistics(modal_mc)[1]` contains `R`, `L`, `C`, `G`, `gamma`, `Zc`, `Yc`,

@@ -87,9 +87,11 @@ end
     record = details(keyword).data.points[1].data
     @test record.evaluations == 3
     @test length(record.computations) == 3
-    @test size(record.mode_assignment.overlap) == (2,3)
+    @test size(record.mode_assignment.overlap) == (2,3,3)
+    @test record.mode_assignment.cluster_sizes == ones(Int,2,3)
+    @test record.mode_assignment.frequencies == [50.0,500.0,5000.0]
     @test minimum(record.mode_assignment.overlap) > .99
-    @test all(record.mode_assignment.permutation .== reshape([1,2],:,1))
+    @test all(record.mode_assignment.permutation .== reshape([1,2],:,1,1))
     for quantity in (Z,Y,gamma,Zc,Yc,Ti,Tv)
         values = quantity(keyword[1])
         @test all(isfinite,nominal.(values))

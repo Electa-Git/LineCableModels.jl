@@ -37,7 +37,7 @@ end
 
 const _MODAL_OVERLAP_THRESHOLD = 0.8
 struct ModeAssignmentError <: Exception
-    overlap::Vector{Float64}
+    overlap::Matrix{Float64}
 end
 function Base.showerror(io::IO, error::ModeAssignmentError)
     print(io, "modal current-basis overlap ", error.overlap,
@@ -49,10 +49,7 @@ function _sample_axis(value::Engine.LineParameters{<:Complex,<:Real,<:Engine.Mod
         formulation::MonteCarlo{<:ModalComposition}, child_options)
     declaration = realize(Random.Xoshiro(0), point, (_rng, mean, _sigma) -> mean)
     reference = compute(declaration, formulation.inner; options=child_options)
-    frequency = Engine.ModalAnalysis.ordering_frequency(
-        formulation.inner.modal.formula, frequencies(reference))
-    return (; frequencies=frequencies(reference), reference, frequency,
-        selected=formulation.inner.modal.formula)
+    return (; frequencies=frequencies(reference), reference)
 end
 
 function initialize_buffers(::Union{MonteCarlo,LinearError}, ::Type{T},
@@ -70,16 +67,18 @@ function initialize_buffers(::Union{MonteCarlo,LinearError}, ::Type{T},
     return merge(buffers, (products=NamedTuple{keys(quantities)}(products),
         alignment=initialize_buffers(Engine.ModalAnalysis.align_modes,T,input,(;),(;)),
         accepted=Ref(0),
-        overlaps=Matrix{T}(undef,size(input.Z,1),plan.trials),
-        permutations=Matrix{Int}(undef,size(input.Z,1),plan.trials)))
+        cluster_sizes=Matrix{Int}(undef,size(input.Z,1),size(input.Z,3)),
+        overlaps=Array{T}(undef,size(input.Z,1),size(input.Z,3),plan.trials),
+        permutations=Array{Int}(undef,size(input.Z,1),size(input.Z,3),plan.trials)))
 end
 
 function _record_sample!(buffers::NamedTuple, value::Engine.LineParameters{<:Complex,<:Real,<:Engine.ModalDomain},
         trial::Int, axis)
-    assignment = Engine.ModalAnalysis.align_modes(axis.selected,value,axis.reference;
+    assignment = Engine.ModalAnalysis.align_modes(value,axis.reference;
         buffers=buffers.alignment)
-    buffers.overlaps[:,trial] .= assignment.overlap
-    buffers.permutations[:,trial] .= assignment.permutation
+    buffers.overlaps[:,:,trial] .= assignment.overlap
+    buffers.permutations[:,:,trial] .= assignment.permutation
+    buffers.cluster_sizes .= assignment.cluster_sizes
     minimum(assignment.overlap) >= _MODAL_OVERLAP_THRESHOLD ||
         return false
     value = assignment.parameters
@@ -119,12 +118,10 @@ function _aggregate(buffers::NamedTuple, source::Engine.LineParameters{<:Complex
         complex.(materialize.(quantity.real),materialize.(quantity.imag))
     end)
     representation = materialize(source, quantities, formulation)
-    frequency = Engine.ModalAnalysis.ordering_frequency(
-        formulation.inner.modal.formula,frequencies(source))
-    assignment = (threshold=_MODAL_OVERLAP_THRESHOLD, frequency,
-        frequency_hz=frequencies(source)[frequency],
-        overlap=copy(buffers.overlaps[:,1:trials]),
-        permutation=copy(buffers.permutations[:,1:trials]))
+    assignment = (threshold=_MODAL_OVERLAP_THRESHOLD, frequencies=copy(frequencies(source)),
+        cluster_sizes=copy(buffers.cluster_sizes),
+        overlap=copy(buffers.overlaps[:,:,1:trials]),
+        permutation=copy(buffers.permutations[:,:,1:trials]))
     return (; representation, statistics=summaries,
         samples=formulation.options.data.return_samples ? samples : nothing,
         histograms, mode_assignment=assignment)
@@ -181,7 +178,7 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
     while true
         matched = _record_sample!(buffers, value, accepted + 1, sample_axis)
         if !matched
-            exception = ModeAssignmentError(copy(@view buffers.overlaps[:,accepted+1]))
+            exception = ModeAssignmentError(copy(@view buffers.overlaps[:,:,accepted+1]))
             push!(failures, _failure_record(attempts, accepted + 1, :compute,
                 sampler.drawn[], exception, backtrace()))
             unmatched += 1

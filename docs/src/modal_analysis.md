@@ -55,14 +55,17 @@ The default `LinearError` method, `derivative=:measurements`, rejects modal
 composition with an `ArgumentError` naming the missing capability.
 Cable constants do not compose with modal analysis.
 
-For Monte Carlo studies, custom modal formulas define
-`ModalAnalysis.ordering_frequency(selected, frequencies)`. This method takes
-the formula object first and returns the frequency index that establishes mode order.
-`ModalAnalysis.align_modes(selected, trial, reference)` assigns a modal result to
-the reference modes by optimal normalized current-basis overlap at that index.
-It returns aligned line parameters, the permutation and overlaps, with paired
-voltage and current phases aligned across all frequencies. Monte Carlo applies
-its documented overlap threshold to this result.
+`ModalAnalysis.align_modes(trial, reference)` matches reference modes at each
+frequency. Reference roots squared form connected clusters when their relative
+separation is below `sqrt(eps(T))`, with real cost type `T`.
+Assignment maximizes normalized projections onto the reference cluster spans.
+For singletons these projections equal ordinary current-column overlaps.
+
+The unitary polar factor of each cross-overlap matrix rotates both paired bases
+and acts by similarity on the modal coefficients. Input roots keep their assigned
+order. The result contains aligned parameters, permutation, overlap and
+`cluster_sizes` arrays with axes mode × frequency.
+Monte Carlo and central differences apply their overlap threshold across those axes.
 
 `modal_options` controls the modal action only. A nonempty value requires
 `modal`. The upstream solver, including its selected backend and batched path,

@@ -7,6 +7,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Modal alignment matches degenerate reference spans and applies unitary polar rotations at each frequency.
+
+- Monte Carlo and central LEP keep overlaps, permutations and cluster sizes in their modal assignment diagnostics.
+
 - PSCAD transient exports accept `line`. Native runs keep raw line-constants logs and report Tline failures through `PSCAD.LineConstantsError`.
 
 - PSCAD transient exports measure every terminal voltage and assigned or matched branch current, reject missing response channels, and retain line-constants logs with build errors.

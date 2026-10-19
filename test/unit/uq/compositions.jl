@@ -22,8 +22,11 @@
     @test all(isequal(samples(keyword)[1][key],samples(positional)[1][key]) for key in keys(samples(keyword)[1]))
     @test gamma(keyword[1]) == gamma(positional[1])
     assignment = details(keyword).data.mode_assignment[1]
+    @test size(assignment.overlap) == (2,3,8)
+    @test assignment.cluster_sizes == ones(Int,2,3)
+    @test assignment.frequencies == base.frequencies
     @test minimum(assignment.overlap) > 0.99
-    @test all(assignment.permutation .== reshape([1,2],:,1))
+    @test all(assignment.permutation .== reshape([1,2],:,1,1))
     @test details(keyword).data.failure_summary[1].failed == 0
     @test trial_count(keyword,1) == 8
     @test isfinite(confidence(keyword,1).cdf_bound)
@@ -35,11 +38,10 @@
         nominal_modal.Z.values[order,order,:].*sign./permutedims(sign,(2,1,3)),
         nominal_modal.Y.values[order,order,:].*sign./permutedims(sign,(2,1,3)),
         frequencies(nominal_modal);details=details(nominal_modal))
-    axis = (reference=nominal_modal,frequency=1,frequencies=frequencies(nominal_modal),
-        selected=ModalAnalysisFormulation().formula)
+    axis = (reference=nominal_modal,frequencies=frequencies(nominal_modal))
     buffers = LCM.Commons.initialize_buffers(mc,Float64,nominal_modal,(trials=1,axis=axis),(;))
-    aligned = LCM.Engine.ModalAnalysis.align_modes(axis.selected,permuted,nominal_modal)
-    @test aligned.permutation == order
+    aligned = @inferred LCM.Engine.ModalAnalysis.align_modes(permuted,nominal_modal)
+    @test aligned.permutation == repeat(order,1,3)
     @test minimum(aligned.overlap) ≈ 1.0
     @test Ti(aligned.parameters) ≈ Ti(nominal_modal)
     @test Tv(aligned.parameters) ≈ Tv(nominal_modal)
@@ -47,7 +49,7 @@
     @test aligned.parameters.Y ≈ nominal_modal.Y
     @test gamma(aligned.parameters) == gamma(nominal_modal)
     LCM.UQ._record_sample!(buffers,permuted,1,axis)
-    @test buffers.permutations[:,1] == order
+    @test buffers.permutations[:,:,1] == repeat(order,1,3)
     @test buffers.products.Ti[:,:,:,1] ≈ Ti(nominal_modal)
     @test buffers.products.Tv[:,:,:,1] ≈ Tv(nominal_modal)
     @test buffers.products.gamma[:,:,1] == gamma(nominal_modal)

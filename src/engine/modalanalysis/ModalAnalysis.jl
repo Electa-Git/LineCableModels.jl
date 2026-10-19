@@ -31,7 +31,7 @@ import ..Engine: LineParameters, LineParametersFormulation, LineParametersProble
                  PhaseDomain, ModalDomain, SeriesImpedance, ShuntAdmittance, basis, frequencies,
                  description, formula_id, selectdomain, selectdetails
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
-                     eigen!, issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd!, svdvals!
+                     eigen!, issuccess, ldiv!, lmul!, lu!, mul!, norm, qr!, rdiv!, svd!, svdvals!
 import ...Commons: AbstractCoreResult
 import ..Engine
 import ...Commons
@@ -44,7 +44,7 @@ include("interfaces.jl")
 include("problems.jl")
 
 include("formulations.jl")
-public decompose!, ordering_frequency, align_modes
+public decompose!, align_modes
 include("eigensystems.jl")
 include("compute.jl")
 include("alignment.jl")

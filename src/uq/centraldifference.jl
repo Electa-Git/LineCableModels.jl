@@ -76,15 +76,11 @@ end
 # The modal reference is the already computed nominal point, with no extra solve.
 function _sample_axis(value::Engine.LineParameters{<:Complex,<:Real,<:Engine.ModalDomain},
         point, formulation::LinearError{<:ModalComposition}, child_options)
-    selected = formulation.inner.modal.formula
-    frequency = Engine.ModalAnalysis.ordering_frequency(selected, frequencies(value))
-    return (; reference=value, selected, frequency, frequencies=frequencies(value))
+    return (; reference=value, frequencies=frequencies(value))
 end
 function _sample_axis(value::Engine.LineParameters{<:Complex,<:Real,<:Engine.ModalDomain},
         point, formulation::LinearError{<:LineCableModels.ModalAnalysisFormulation}, child_options)
-    selected = formulation.inner.formula
-    frequency = Engine.ModalAnalysis.ordering_frequency(selected, frequencies(value))
-    return (; reference=value, selected, frequency, frequencies=frequencies(value))
+    return (; reference=value, frequencies=frequencies(value))
 end
 
 # One independent unit-uncertainty source per input preserves the signed Jacobian
@@ -140,7 +136,7 @@ function _central_difference(method::CentralDifferences, point, formulation, chi
                 accepted = _record_sample!(buffers, value, evaluation, axis)
                 stage = :assignment
                 accepted === false && throw(ArgumentError(
-                    "modal current-basis overlap $(buffers.overlaps[:,evaluation]) falls below " *
+                    "modal current-basis overlap $(buffers.overlaps[:,:,evaluation]) falls below " *
                     "the mode-assignment threshold $_MODAL_OVERLAP_THRESHOLD; " *
                     "central differences require both perturbations"))
                 retained === nothing || push!(retained, computation_details(typeof(formulation.inner), value))
@@ -148,8 +144,9 @@ function _central_difference(method::CentralDifferences, point, formulation, chi
             catch exception
                 diagnostic = (; point=point_index, input..., step=direction*step, evaluation, stage,
                     mode_assignment=stage === :assignment && haskey(buffers, :overlaps) ?
-                        (overlap=copy(buffers.overlaps[:,evaluation]),
-                            permutation=copy(buffers.permutations[:,evaluation])) : nothing)
+                        (cluster_sizes=copy(buffers.cluster_sizes),
+                            overlap=copy(buffers.overlaps[:,:,evaluation]),
+                            permutation=copy(buffers.permutations[:,:,evaluation])) : nothing)
                 _central_failure(exception, diagnostic)
             end
         end
@@ -166,8 +163,8 @@ function _central_difference(method::CentralDifferences, point, formulation, chi
         observables=products)
     retained === nothing || (record=merge(record, (computations=retained,)))
     if haskey(buffers, :overlaps)
-        assignment = (threshold=_MODAL_OVERLAP_THRESHOLD, frequency=axis.frequency,
-            frequency_hz=frequencies(reference)[axis.frequency],
+        assignment = (threshold=_MODAL_OVERLAP_THRESHOLD, frequencies=copy(frequencies(reference)),
+            cluster_sizes=copy(buffers.cluster_sizes),
             overlap=copy(buffers.overlaps), permutation=copy(buffers.permutations))
         record = merge(record, (; mode_assignment=assignment))
     end

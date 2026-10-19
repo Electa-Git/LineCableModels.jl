@@ -191,6 +191,5 @@ function decompose!(::Formula{:wedepohl1996}, workspace::ModalAnalysisWorkspace,
     return workspace
 end
 
-ordering_frequency(selected::Formula{:wedepohl1996}, frequencies) = firstindex(frequencies, 1)
 
 :wedepohl1996

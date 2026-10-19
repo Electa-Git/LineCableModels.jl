@@ -17,13 +17,14 @@ allocations = "ceiling"
 
 # Floor: `@inferred` uses per test file.
 [inferred]
+"test/unit/modalanalysis/alignment.jl" = 5
 "test/unit/engine/pollaczek1926.jl" = 2
 "test/integration/pollaczek1926.jl" = 1
 "test/unit/linemodels/results.jl" = 4
 "test/unit/linemodels/marti.jl" = 2
 "test/extensions/ulm.jl" = 2
 "test/integration/pscad/transient_export.jl" = 2
-"test/unit/uq/compositions.jl" = 3
+"test/unit/uq/compositions.jl" = 4
 "test/unit/transientanalysis/td_modal.jl" = 1
 "test/unit/linemodels/problems.jl" = 2
 "test/extensions/measurements.jl" = 2
