@@ -241,6 +241,10 @@ function transient_outcomes!(row, observed, reference, growth_rows, sheath_rows;
     model_core, exact_core = response.values[2, core, :], target.values[2, core, :]
     scale = maximum(abs, exact_core)
     row["reference_core_peak_kV"] = scale / 1000
+    sheath_terminals = findall(label -> endswith(label, ":sheath"), response.labels)
+    reference_sheath_peaks = [maximum(abs, target.values[2, terminal, :]) for terminal in sheath_terminals]
+    sheath_scale = maximum(reference_sheath_peaks)
+    row["reference_receiving_sheath_peak_scale_kV"] = sheath_scale / 1000
     row["nonfinite_output"] = any(q -> !all(isfinite, q.values), observed.quantities)
     row["nonfinite_output"] && return
     model_scale = maximum(abs, model_core)
@@ -248,18 +252,22 @@ function transient_outcomes!(row, observed, reference, growth_rows, sheath_rows;
     row["receiving_core_peak_error_percent"] = 100(model_scale - scale) / scale
     row["receiving_core_scaled_rms"] = sqrt(mean(abs2, model_core - exact_core)) / scale
     sheath_errors = Float64[]
-    for (terminal, label) in enumerate(response.labels)
-        endswith(label, ":sheath") || continue
+    for (terminal, expected) in zip(sheath_terminals, reference_sheath_peaks)
+        label = response.labels[terminal]
         actual = maximum(abs, response.values[2, terminal, :])
-        expected = maximum(abs, target.values[2, terminal, :])
         deviation = iszero(expected) ? nothing : 100(actual - expected) / expected
-        deviation === nothing || push!(sheath_errors, deviation)
+        scaled = iszero(sheath_scale) ? nothing : 100abs(actual - expected) / sheath_scale
+        scaled === nothing || push!(sheath_errors, scaled)
+        if label == replace(response.labels[core], ":core" => ":sheath")
+            row["receiving_energized_sheath_peak_error_percent"] = deviation
+        end
         push!(sheath_rows, merge(Dict(k => row[k] for k in ("study", "cable", "fit", "scenario", "source")),
             Dict("terminal" => label, "peak_kV" => actual / 1000, "reference_peak_kV" => expected / 1000,
-                "peak_error_percent" => deviation)))
+                "peak_error_percent" => deviation, "scaled_peak_error_percent" => scaled,
+                "reference_peak_scale_kV" => sheath_scale / 1000)))
     end
     if !isempty(sheath_errors)
-        row["receiving_sheath_peak_error_percent"] = sheath_errors[argmax(abs.(sheath_errors))]
+        row["receiving_sheath_scaled_peak_error_percent"] = maximum(sheath_errors)
     end
     tmax = get(row, "duration_seconds", min(last(response.times), last(target.times)))
     row["late_growth"] = false
@@ -305,7 +313,7 @@ function complete_checks!(row)
     for (name, core, sheath) in (("strict", 2, 10), ("loose", 5, 20))
         row["failed_" * name] = row["divergence"] || any(get(row, key, nothing) !== nothing && abs(row[key]) > limit
             for (key, limit) in (("receiving_core_peak_error_percent", core),
-                ("receiving_sheath_peak_error_percent", sheath), ("DC_endpoint_error_percent", 5)))
+                ("receiving_sheath_scaled_peak_error_percent", sheath), ("DC_endpoint_error_percent", 5)))
     end
     row["any_check"] = any(get(row, key, nothing) === true for key in VERIFICATION_CHECKS)
     row["any_check_fit2pct"] = any(get(row, key, nothing) === true for key in VERIFICATION_CHECKS if key != "fit_error_0.2pct")
@@ -566,7 +574,7 @@ function verification_tables(folders, output)
     identity = ["study", "cable", "fit", "scenario", "method", "source"]
     write_tables(output, "verification_fits", rows, vcat(identity, setdiff(fields, identity));
         caption = "One archived fitted configuration and scenario per row. Empty fields mean unavailable. Errors are percent; scaled RMS is a fraction.",
-        tex_columns = ["cause_class", identity[1:5]..., "receiving_core_peak_error_percent", "receiving_sheath_peak_error_percent", "DC_endpoint_error_percent", "divergence", "failed_strict", "failed_loose"])
+        tex_columns = ["cause_class", identity[1:5]..., "receiving_core_peak_error_percent", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence", "failed_strict", "failed_loose"])
     (; detection, compact, silent) = detection_counts(rows)
     classes = [Dict("cause_class" => r["cause_class"], "definition" => r["definition"],
         "rows" => r["all_failed"] + r["all_fine"], "failed" => r["all_failed"], "fine" => r["all_fine"],
@@ -583,20 +591,22 @@ function verification_tables(folders, output)
         caption = "Sensitivity is flagged-failed / all-failed; specificity is quiet-fine / all-fine. Unavailable checks remain in the denominators and count in neither numerator. A zero denominator has no rate.",
         tex_columns = ["cause_class", "definition", "check", "sensitivity_count", "specificity_count", "unavailable_failed", "unavailable_fine"])
     write_tables(output, "verification_silent", silent,
-        ["cause_class", "definition", "check_set", identity..., "reported_max_fit_error_percent", "reported_rms_fit_error_percent", "receiving_core_peak_error_percent", "receiving_core_scaled_rms", "receiving_sheath_peak_error_percent", "DC_endpoint_error_percent", "divergence", "unchecked_checks"];
+        ["cause_class", "definition", "check_set", identity..., "reported_max_fit_error_percent", "reported_rms_fit_error_percent", "receiving_core_peak_error_percent", "receiving_core_scaled_rms", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence", "unchecked_checks"];
         caption = "Failures with no available check flag. Missing checks are listed; silence does not imply every check passed.")
     write_tables(output, "verification_mixed", filter(row -> startswith(row["cause_class"], "mixed:"), rows),
         ["cause_class", "configuration_changes", identity..., "failed_strict", "failed_loose"];
         caption = "Configurations changing more than one cause class. These rows have their own detection counts and do not enter either single-class count.")
     for (name, data, columns) in (("verification_ranges", ranges, [identity[1:4]..., "lower_Hz", "upper_Hz", "smallest_eigenvalue", "location", "source"]),
             ("verification_growth", growth, [identity[1:4]..., "end", "terminal", "growth_ratio", "reference_growth_ratio", "late_peak_relative_to_scale", "late_peak_excess_relative_to_scale", "late_growth", "reference_qualified_growth", "source"]),
-            ("verification_sheaths", sheaths, [identity[1:4]..., "terminal", "peak_kV", "reference_peak_kV", "peak_error_percent", "source"]),
+            ("verification_sheaths", sheaths, [identity[1:4]..., "terminal", "peak_kV", "reference_peak_kV", "peak_error_percent", "scaled_peak_error_percent", "reference_peak_scale_kV", "source"]),
             ("verification_coverage", coverage, ["study", "source", "fit", "status", "included", "reason"]))
         write_tables(output, name, data, columns; caption = "Archived evidence and availability for the verification comparison.")
     end
     open(joinpath(output, "verification_summary.txt"), "w") do io
-        println(io, "Failure: nonfinite output or reference-qualified growth; or absolute receiving-core peak error >2%, receiving-sheath peak error >10%, or DC endpoint error >5%.")
-        println(io, "Loose definition: core >5%, sheath >20%; divergence and DC threshold unchanged. Sheath error is the worst absolute relative peak error across receiving sheaths.")
+        println(io, "Failure: nonfinite output or reference-qualified growth; or absolute receiving-core peak error >2%, scaled receiving-sheath peak error >10%, or DC endpoint error >5%.")
+        println(io, "Loose definition: core >5%, scaled sheath >20%; divergence and DC threshold unchanged.")
+        println(io, "Each sheath peak is the maximum absolute receiving-end voltage over the scenario window. Energized-sheath error is the signed model-minus-reference peak divided by that sheath's reference peak, in percent. The energized sheath belongs to the cable with the driven core.")
+        println(io, "Scaled sheath error is the largest absolute model-minus-reference peak difference across receiving sheaths, divided by the largest reference receiving-sheath peak of the scenario, in percent. Only this common-scale sheath measure enters failure criteria. A zero reference denominator leaves its measure unavailable.")
         println(io, "Fit-error checks use maximum reported entry error >0.2% and >2%, and reported RMS >2%. The any_check set includes maximum >0.2%; any_check_fit2pct uses maximum >2%; any_check_rms2pct uses RMS >2%.")
         println(io, "FD-Mode raw fitting errors have no unit label in the log. The native values are retained separately; normalized percent-threshold checks remain unavailable.")
         println(io, "DC-target checks use maximum absolute matrix difference / maximum target magnitude >1%. H0 gain uses spectral radius >1. Only archived targets/achieved values are used.")
@@ -634,7 +644,7 @@ function verification_tables(folders, output)
         end
         println(io, "\nSilent failures (full identities and outcomes in verification_silent.csv): ", length(silent))
         for row in silent
-            println(io, join([get(row, k, "") for k in ("cause_class", "definition", "check_set", "study", "cable", "fit", "scenario", "receiving_core_peak_error_percent", "receiving_sheath_peak_error_percent", "DC_endpoint_error_percent", "divergence")], " | "))
+            println(io, join([get(row, k, "") for k in ("cause_class", "definition", "check_set", "study", "cable", "fit", "scenario", "receiving_core_peak_error_percent", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence")], " | "))
         end
     end
     write(joinpath(output, "verification_sources.txt"), join(folders, '\n') * "\n")

@@ -951,11 +951,19 @@ It does not mean every check passed.
 The default failure definition includes divergence and these absolute errors:
 
 - Core peak error above 2 percent.
-- Sheath peak error above 10 percent.
+- Scaled sheath peak error above 10 percent.
 - DC endpoint error above 5 percent.
 
 The second definition uses core and sheath limits of 5 and 20 percent.
-Sheath error uses the largest relative error in magnitude across sheaths at the receiving end.
+Each sheath peak is the maximum absolute voltage at the receiving end over the scenario window.
+The energized-sheath measure is the signed peak error divided by its own reference peak.
+That sheath belongs to the cable with the driven core.
+
+The scaled measure uses the worst absolute peak error across receiving sheaths.
+Its denominator is the largest reference receiving-sheath peak of the scenario.
+Both measures use percent. Failure criteria use the scaled measure.
+A zero denominator leaves its measure unavailable.
+
 The endpoint compares final-window voltage means for finite responses, whether settled or unsettled.
 “Fine” means no threshold exceedance in retained outcomes.
 Unavailable checks have separate counts for failed and fine responses.
