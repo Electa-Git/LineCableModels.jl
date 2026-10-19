@@ -50,6 +50,8 @@ end
     failed = read_pscad_fit_report(joinpath(fixture, "enforcement_failed.log"))
     record = failed.enforcement
     @test record.outcome == "Constrained solution failed"
+    @test minimum(record.initial_samples.eigenvalues) == record.initial_smallest_eigenvalue
+    @test length(record.initial_samples.frequencies) == length(record.initial_samples.eigenvalues)
     @test record.initial_smallest_eigenvalue == -0.0019472408
     @test record.final_smallest_eigenvalue == -0.14763037
     @test record.smallest_eigenvalue == -2.0589101
@@ -82,6 +84,7 @@ end
     fixture = joinpath(@__DIR__, "..", "..", "fixtures", "pscad", "tline")
     partial = read_pscad_fit_report(joinpath(fixture, "cable_525kv_subsea_armoured_dc_bipole.log"))
     @test partial.admittance === nothing
+    @test partial.modal === nothing
     @test partial.propagation === nothing
     @test partial.maximum_residue_pole_ratio === nothing
     @test partial.scan === nothing
@@ -92,7 +95,7 @@ end
     mktemp() do path, io
         close(io)
         empty = read_pscad_fit_report(path)
-        @test all(isnothing, (empty.admittance, empty.propagation, empty.maximum_residue_pole_ratio,
+        @test all(isnothing, (empty.admittance, empty.propagation, empty.modal, empty.maximum_residue_pole_ratio,
             empty.scan, empty.enforcement))
         @test all(isnothing, empty.reports)
         @test_throws SystemError read_pscad_fit_report(path * ".missing")
@@ -102,4 +105,25 @@ end
         @test count("\r\n", bytes) > 0
         @test !occursin('\n', replace(bytes, "\r\n" => ""))
     end
+end
+
+@testitem "PSCAD / fit report / native FD-Mode fitting rows" tags=[:integration, :pscad] begin
+    using LineCableModels.PSCAD: read_pscad_fit_report
+    fixture = joinpath(@__DIR__, "..", "..", "fixtures", "pscad", "tline")
+    report = read_pscad_fit_report(joinpath(fixture, "fd_mode.log"))
+    @test length(report.modal) == 12
+    @test first(report.modal) == (mode = 1, quantity = :impedance,
+        reported_error = 0.01414245054021148, poles = 20)
+    @test report.modal[2] == (mode = 1, quantity = :propagation,
+        reported_error = 0.007665950452101136, poles = 6)
+    @test maximum(row.reported_error for row in report.modal if row.quantity === :impedance) == 0.123958789320771
+    @test [row.mode for row in report.modal if row.quantity === :propagation] == collect(1:6)
+    @test report.admittance === nothing
+    @test report.propagation === nothing
+    @test report.scan === nothing
+    @test report.maximum_residue_pole_ratio === nothing
+    @test read_pscad_fit_report(joinpath(fixture, "scan_violations.log")).modal === nothing
+    bytes = read(joinpath(fixture, "fd_mode.log"), String)
+    @test count("\r\n", bytes) > 0
+    @test !occursin('\n', replace(bytes, "\r\n" => ""))
 end

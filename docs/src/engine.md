@@ -1419,10 +1419,15 @@ Both line-constants and transient results keep local raw log paths
 in `details(response).data.line_constants_logs`.
 
 `PSCAD.read_pscad_fit_report(path)` reads a retained log as a named tuple with
-`admittance`, `propagation`, `maximum_residue_pole_ratio`, `scan`, `enforcement`
-and `reports` fields. Errors are in percent before and after DC correction. Scan
-limits and ranges use Hz. Enforcement records include minima from the first and
-last tables, plus inner iterations. Missing sections or values are `nothing`.
+`admittance`, `propagation`, `modal`, `maximum_residue_pole_ratio`, `scan`,
+`enforcement` and `reports` fields. The `modal` records keep FD-Mode errors and
+pole counts per mode for surge impedance and propagation. The modal error column
+has no unit label or RMS statistic, so `reported_error` keeps the native value.
+FD-Phase errors use percent and describe the fits before and after DC correction.
+
+Scan limits and ranges use Hz. Enforcement records include minima from the first and
+last tables, plus inner iterations. The `initial_samples` record keeps the frequencies
+and eigenvalues before the first inner iteration. Missing sections or values are `nothing`.
 Report text keeps the native wording with LF line endings.
 
 Tline failures throw `PSCAD.LineConstantsError`, whose `message` and `log_path`

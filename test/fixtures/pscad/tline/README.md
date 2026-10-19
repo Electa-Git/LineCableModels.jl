@@ -12,3 +12,6 @@ run `20261018-230729`.
 run `20261018-170642`, variant 10. It contains the curve fit, DC correction and scan.
 
 The original failure log and build messages record the INVCJD singularity.
+
+`fd_mode.log` comes from the 320 kV armoured option study,
+run `20261018-230729`, impulse variant 47. It contains the modal fitting rows.

@@ -1,0 +1,27 @@
+ FITTING ERROR                # OF POLES
+ -------------                ----------
+Mode  1 Surge Impedance:
+  1.414245054021148E-002          20
+Mode  1 Attenuation Constant:
+  7.665950452101136E-003           6
+Mode  2 Surge Impedance:
+  5.162400773603726E-002          20
+Mode  2 Attenuation Constant:
+  1.164249142714128E-002          20
+Mode  3 Surge Impedance:
+  4.645995872486434E-002          20
+Mode  3 Attenuation Constant:
+  1.920429581707025E-002          20
+Mode  4 Surge Impedance:
+  0.123958789320771               20
+Mode  4 Attenuation Constant:
+  1.657886449131282E-002          20
+Mode  5 Surge Impedance:
+  6.014829248350353E-002          20
+Mode  5 Attenuation Constant:
+  3.927173732542578E-003           6
+Mode  6 Surge Impedance:
+  7.027925704822993E-002          20
+Mode  6 Attenuation Constant:
+  4.544482057621434E-003           6
+ 

@@ -18,6 +18,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `PSCAD.read_pscad_fit_report(path)` reads native Tline fit errors, pole counts, ratios of residue to pole and passivity reports as typed records. Missing values are `nothing`.
+- `PSCAD.read_pscad_fit_report(path).modal` contains native FD-Mode fitting errors and pole counts per mode for surge impedance and propagation. Its enforcement record keeps the initial frequency and eigenvalue samples.
 
 - PSCAD FD-Phase and FD-Mode exports accept native fitting fields with the master library's numeric types, choices, labels and ranges.
 

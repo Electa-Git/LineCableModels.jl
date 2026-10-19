@@ -139,6 +139,8 @@ A named tuple with these fields. Absent sections and values are `nothing`.
   count. Each error record has `maximum_error_percent` and `rms_error_percent`.
 - `propagation`: The same error records, `poles` per delay group, and
   `poles_source` (`:final_fit` or `:last_hmode`).
+- `modal`: FD-Mode rows with `mode`, `quantity` (`:impedance` or `:propagation`),
+  `reported_error` and `poles`. The native column has no unit label or RMS statistic.
 - `maximum_residue_pole_ratio`: Largest ratio of residue to pole in the final fit.
 - `scan`: `band` with `lower_Hz` and `upper_Hz`, violation `ranges` with those
   limits and `smallest_eigenvalue`, the overall `smallest_eigenvalue`, native
@@ -148,12 +150,14 @@ A named tuple with these fields. Absent sections and values are `nothing`.
   `maximum_abs_error_percent`, `ranges`, `report` and `iterations`.
   Each inner iteration has `main` and `inner` indices, `frequencies` \\[Hz\\] and
   `eigenvalues`. An iteration without a table has empty sample vectors.
+  `initial_samples` contains the frequencies and eigenvalues before the first inner iteration,
+  or `nothing` when that table is absent.
 - `reports`: `fitting`, `before_dc` and `after_dc` text, with LF line endings.
 
 The `before_dc` errors describe the last fit before any DC correction, including
 runs with DC correction disabled. Enforcement minima describe the first and last
 reported eigenvalue tables. The outcome states whether enforcement succeeded.
-Errors use percent. Frequencies use Hz. Eigenvalues and ratios of residue to pole
+FD-Phase errors use percent. Frequencies use Hz. Eigenvalues and ratios of residue to pole
 keep the native normalization.
 """
 function read_pscad_fit_report(path::AbstractString)
@@ -192,10 +196,10 @@ function read_pscad_fit_report(path::AbstractString)
             h_before = (maximum_error_percent = _pscad_number(row[1]), rms_error_percent = _pscad_number(row[2]))
             ratio = _pscad_number(row[3])
         end
-        modal = collect(eachmatch(r"(?ms)^[ \t]*Hmode:[^\n]*\n(.*?)(?=^[ \t]*Hphase:|\z)", propagation_section[1]))
-        if !isempty(modal)
+        modal_attempts = collect(eachmatch(r"(?ms)^[ \t]*Hmode:[^\n]*\n(.*?)(?=^[ \t]*Hphase:|\z)", propagation_section[1]))
+        if !isempty(modal_attempts)
             counts = [parse(Int, row[1]) for row in eachmatch(Regex(raw"(?m)^[ \t]*\d+[ \t]+" * number *
-                raw"[ \t]*%[ \t]+(\d+)[ \t]+" * number * raw"[ \t]+ms[ \t]*$"), last(modal)[1])]
+                raw"[ \t]*%[ \t]+(\d+)[ \t]+" * number * raw"[ \t]+ms[ \t]*$"), last(modal_attempts)[1])]
             if !isempty(counts)
                 h_poles, h_source = counts, :last_hmode
             end
@@ -218,6 +222,12 @@ function read_pscad_fit_report(path::AbstractString)
     final_ratio === nothing || (ratio = _pscad_number(final_ratio[1]))
     propagation = h_before === nothing && h_after === nothing && h_poles === nothing ? nothing :
         (before_dc = h_before, after_dc = h_after, poles = h_poles, poles_source = h_source)
+
+    modal_rows = collect(eachmatch(Regex(raw"(?m)^[ \t]*Mode[ \t]+(\d+)[ \t]+(Surge Impedance|Attenuation Constant):[ \t]*\n[ \t]*(" *
+        number * raw")[ \t]+(\d+)[ \t]*$"), text))
+    modal = isempty(modal_rows) ? nothing :
+        [(mode = parse(Int, row[1]), quantity = row[2] == "Surge Impedance" ? :impedance : :propagation,
+            reported_error = _pscad_number(row[3]), poles = parse(Int, row[4])) for row in modal_rows]
 
     enforcement_heading = raw"Passivity Enforcement[ \t]*$"
     scan_section = _pscad_fit_section(text, "Checking for Passivity Violations Between", enforcement_heading * raw"|LCP solve constants complete\.")
@@ -250,6 +260,10 @@ function read_pscad_fit_report(path::AbstractString)
         tables = collect(eachmatch(table_pattern, body))
         minima = [minimum(_pscad_number(row[2]) for row in eachmatch(point_pattern, table[1])) for table in tables]
         markers = collect(eachmatch(r"(?m)^[ \t]*(Main|Inner) Iteration[ \t]+#[ \t]*(\d+)[ \t]*$", body))
+        initial_section = _pscad_fit_section(body, "Initial passivity violations", "Model Order reduction")
+        initial_table = initial_section === nothing ? nothing : match(table_pattern, initial_section[1])
+        initial_points = initial_table === nothing ? nothing :
+            [(_pscad_number(row[1]), _pscad_number(row[2])) for row in eachmatch(point_pattern, initial_table[1])]
         iterations = NamedTuple{(:main, :inner, :frequencies, :eigenvalues), Tuple{Union{Nothing, Int}, Int, Vector{Float64}, Vector{Float64}}}[]
         main = nothing
         for (index, marker) in enumerate(markers)
@@ -266,6 +280,8 @@ function read_pscad_fit_report(path::AbstractString)
         end
         error_match = match(Regex(raw"(?m)^[ \t]*Maximum abs\. error[ \t]+(" * number * raw")[ \t]*%[ \t]*$"), body)
         enforcement = (outcome = isempty(outcomes) ? nothing : String(strip(last(outcomes).match)),
+            initial_samples = initial_points === nothing ? nothing :
+                (frequencies = first.(initial_points), eigenvalues = last.(initial_points)),
             initial_smallest_eigenvalue = isempty(minima) ? nothing : first(minima),
             final_smallest_eigenvalue = isempty(minima) ? nothing : last(minima),
             smallest_eigenvalue = isempty(minima) ? (isempty(passivity_ranges[2]) ? nothing :
@@ -274,7 +290,7 @@ function read_pscad_fit_report(path::AbstractString)
             ranges = passivity_ranges[2], iterations = isempty(markers) ? nothing : iterations,
             report = String(strip(enforcement_section.match)))
     end
-    return (; admittance, propagation, maximum_residue_pole_ratio = ratio, scan, enforcement, reports)
+    return (; admittance, propagation, modal, maximum_residue_pole_ratio = ratio, scan, enforcement, reports)
 end
 
 """
