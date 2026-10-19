@@ -9,16 +9,17 @@ using Dates
 using Measurements, Distributions
 using Statistics: mean, std
 
-ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"], ["pscad_options"], ["pscad_options", "pscad"], ["dc_behaviour"], ["dc_behaviour", "pscad"], ["dc_behaviour", "pscad", "supplementary"]) ||
+ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"], ["pscad_like_reference"], ["pscad_like_reference", "pscad"], ["pscad_options"], ["pscad_options", "pscad"], ["dc_behaviour"], ["dc_behaviour", "pscad"], ["dc_behaviour", "pscad", "supplementary"]) ||
     ARGS in (["uncertainty"], ["uncertainty", "reduced"], ["uncertainty", "frequency_domain"], ["uncertainty", "frequency_domain", "reduced"], ["uncertainty", "kink"], ["uncertainty", "kink", "reduced"]) ||
     (length(ARGS) == 4 && ARGS[1:3] == ["dc_behaviour", "pscad", "supplementary"]) ||
     (length(ARGS) >= 5 && ARGS[1:3] == ["dc_behaviour", "pscad", "runs"]) ||
     (length(ARGS) >= 5 && ARGS[1:3] == ["pscad_options", "pscad", "runs"]) ||
-    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | pscad_options [pscad] | pscad_options pscad runs <indices>... <base_folder> | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder> | uncertainty [kink | frequency_domain] [reduced]")
+    error("Usage: julia --project=test benchmarks/cable_525kv_subsea_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | pscad_like_reference [pscad] | pscad_options [pscad] | pscad_options pscad runs <indices>... <base_folder> | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder> | uncertainty [kink | frequency_domain] [reduced]")
 run_time_domain = "time_domain" in ARGS
 run_pscad = "pscad" in ARGS
 run_model_settings = ARGS == ["model_settings"]
 run_transient_sensitivity = ARGS == ["transient_sensitivity"]
+run_pscad_like_reference = "pscad_like_reference" in ARGS
 transient_started = time_ns()
 run_pscad_options = "pscad_options" in ARGS
 run_options_selected = length(ARGS) >= 3 && ARGS[1:3] == ["pscad_options", "pscad", "runs"]
@@ -1006,7 +1007,7 @@ if run_pscad_options
     end
 end
 
-if run_time_domain || (run_pscad && !run_dc_behaviour && !run_pscad_options) || run_transient_sensitivity
+if run_time_domain || (run_pscad && !run_dc_behaviour && !run_pscad_options) || run_transient_sensitivity || run_pscad_like_reference
     using UniversalLineModel, XLSX, TOML
     using LineCableModels: DoubleExponential
     using LineCableModels.PSCAD: PSCADTransientFormulation, LineConstantsError, RemoteConfig, identify
@@ -1119,6 +1120,145 @@ if run_time_domain || (run_pscad && !run_dc_behaviour && !run_pscad_options) || 
         push!(reference_problems, TransientAnalysisProblem(problem;
             sending = (DoubleExponential(core1, pulse_amplitude, alpha, beta), both_end_bonds...),
             receiving = (), window = pulse_window))
+        if run_pscad_like_reference
+            selected_line = Formulation(; merge(formulation.definitions,
+                (; earth_impedance = :pollaczek1926, earth_admittance = :ideal))...,
+                options = formulation.options)
+            comparison_frequencies = 10.0 .^ range(-1, 6; length = 101)
+            comparison_grid = (; spacing = :logarithmic, samples = length(comparison_frequencies),
+                lowest_Hz = first(comparison_frequencies), highest_Hz = last(comparison_frequencies))
+            comparison_problem = LineParametersProblem(problem.system; temperature = problem.temperature,
+                earth_props = problem.earth_props, frequencies = comparison_frequencies, sigma = problem.sigma)
+            elapsed = @elapsed owned = compute(comparison_problem, selected_line; options = (trace = true, timing = true))
+            point = ObservedResult(owned, (Z, Y); length_unit = :base, clip = false)
+            save(ObservedResult(merge(point.gridpoint, (; comparison_grid)),
+                point.quantities, point.errors, point.timings), joinpath(folder, "pscad_like_line_parameters.json"))
+            trace = details(owned).data.trace
+            save(ObservedResult((; id = nothing, comparison_grid, frequencies_Hz = comparison_frequencies,
+                terminal_order = labels, cable_map = trace.cable_map,
+                Zearth_ohm_per_m = trace.Zg, Pearth_m_per_F = trace.Pg,
+                formulation = NamedTuple(selected_line)), NamedTuple[], NamedTuple[],
+                (; wall_seconds = elapsed)), joinpath(folder, "pscad_like_earth_parameters.json"))
+            unified_points = ObservedResult[]
+            reference_points = ObservedResult[]
+            earth_points = ObservedResult[]
+            for (scenario, reference_index) in ((:step_single_point, 2), (:step_both_ends, 4), (:impulse, 5))
+                reference_problem = reference_problems[reference_index]
+                N = scenario === :impulse ? pulse_N : 4096
+                selected = TransientFormulation(:nlt; options = (line = selected_line, N, Tfactor = 1.25))
+                controls = selected.formula.options.data
+                T = controls.Tfactor * reference_problem.window.tmax
+                band = (lowest_Hz = 1 / (2T), highest_Hz = (2controls.N - 1) / (2T))
+                count = ceil(Int, 400log10(band.highest_Hz / band.lowest_Hz)) + 1
+                check_frequencies = exp10.(range(log10(band.lowest_Hz), log10(band.highest_Hz); length = count))
+                check_frequencies[1], check_frequencies[end] = band.lowest_Hz, band.highest_Hz
+                nlt_settings = (; N = controls.N, T, Tfactor = controls.Tfactor, taper = controls.taper)
+                unified = nothing
+                for earth_rho in (scenario === :step_both_ends ? (nominal.earth_rho,) : (nominal.earth_rho, 100.0, 10000.0))
+                    line = line_parameters_problem(merge(nominal, (; earth_rho))...)
+                    transient = TransientAnalysisProblem(line; sending = reference_problem.sending,
+                        receiving = reference_problem.receiving, window = reference_problem.window)
+                    for (model, line_formulation) in (earth_rho == nominal.earth_rho ?
+                            ((:unified, formulation), (:pscad_like, selected_line)) : ((:pscad_like, selected_line),))
+                        scan_problem = LineParametersProblem(line.system; temperature = line.temperature,
+                            earth_props = line.earth_props, frequencies = check_frequencies, sigma = 0.0)
+                        passivity_elapsed = @elapsed scan = compute(scan_problem, line_formulation)
+                        z, y = observe(scan, Z), observe(scan, Y)
+                        z_min = [eigmin(Hermitian((z[:, :, k] + z[:, :, k]') / 2)) for k in eachindex(check_frequencies)]
+                        y_min = [eigmin(Hermitian((y[:, :, k] + y[:, :, k]') / 2)) for k in eachindex(check_frequencies)]
+                        onset = findfirst(k -> z_min[k] < 0 || y_min[k] < 0, eachindex(check_frequencies))
+                        check = (; status = onset === nothing ? "passive" : "non_passive",
+                            onset_frequency_Hz = onset === nothing ? nothing : check_frequencies[onset],
+                            onset_lower_Hz = onset === nothing || onset == 1 ? nothing : check_frequencies[onset - 1],
+                            offending_quantity = onset === nothing ? nothing : join(
+                                (string(q) for (q, v) in ((:Z, z_min), (:Y, y_min)) if v[onset] < 0), ','),
+                            minimum_Z_eigenvalue_ohm_per_m = minimum(z_min),
+                            minimum_Z_frequency_Hz = check_frequencies[argmin(z_min)],
+                            minimum_Y_eigenvalue_S_per_m = minimum(y_min),
+                            minimum_Y_frequency_Hz = check_frequencies[argmin(y_min)])
+                        passivity_file = "$(model)_$(scenario)_$(Int(earth_rho))_passivity.json"
+                        save(ObservedResult((; id = nothing, scenario, model, earth_rho,
+                            band_source = "nlt_settings", band, nlt = nlt_settings, points_per_decade = 400,
+                            frequencies_Hz = check_frequencies, check,
+                            Z_min_eigenvalues_ohm_per_m = z_min, Y_min_eigenvalues_S_per_m = y_min),
+                            NamedTuple[], NamedTuple[], (; wall_seconds = passivity_elapsed)), joinpath(folder, passivity_file))
+                        evidence = (; scenario, model, earth_rho, resistance = 10.0,
+                            status = onset === nothing ? "computable" : "not_computable",
+                            window = transient.window, travel_times, nlt = nlt_settings,
+                            passivity = merge(check, (; archive = passivity_file)),
+                            formulation = NamedTuple(line_formulation))
+                        if onset !== nothing
+                            push!(earth_points, ObservedResult((; id = nothing, study = evidence),
+                                NamedTuple[], NamedTuple[], (;)))
+                            save(earth_points, joinpath(folder, "pscad_like_earth.json"))
+                            model === :unified && error("Unified nominal reference is non-passive for $scenario")
+                            println("PSCAD-like ", scenario, " earth ", earth_rho, " not computable: ", check)
+                            continue
+                        end
+                        elapsed = @elapsed response = compute(transient,
+                            TransientFormulation(:nlt; options = (line = line_formulation, N, Tfactor = 1.25));
+                            options = (timing = true,))
+                        peaks = peak(response, voltage)
+                        receiving_peaks = [(; terminal = label, peak_kV = peaks.value[2, i] / 1e3,
+                            peak_time_us = peaks.time[2, i] * 1e6) for (i, label) in enumerate(response.coordinates)]
+                        comparisons = NamedTuple[]
+                        if model === :unified
+                            unified = response
+                        elseif earth_rho == nominal.earth_rho
+                            deviation = compare(unified, response, voltage)
+                            unified_peaks = peak(unified, voltage)
+                            for (i, label) in enumerate(response.coordinates)
+                                label == core1 || endswith(label, ":sheath") || continue
+                                reference_peak = unified_peaks.value[2, i]
+                                push!(comparisons, (; terminal = label,
+                                    rms_kV = deviation.absolute[2, i] / 1e3,
+                                    scaled_rms = deviation.absolute[2, i] / reference_peak,
+                                    unified_peak_kV = reference_peak / 1e3,
+                                    pscad_like_peak_kV = peaks.value[2, i] / 1e3,
+                                    peak_difference_kV = (peaks.value[2, i] - reference_peak) / 1e3,
+                                    maximum_difference_kV = maximum(abs, response.voltage[2, i, :] - unified.voltage[2, i, :]) / 1e3))
+                            end
+                        end
+                        point = ObservedResult(response; timings = (; wall_seconds = elapsed), clip = false)
+                        point = ObservedResult(merge(point.gridpoint,
+                            (; study = merge(evidence, (; receiving_peaks, comparisons)))),
+                            point.quantities, point.errors, point.timings)
+                        if model === :unified
+                            push!(unified_points, point)
+                            save(unified_points, joinpath(folder, "references.json"))
+                        else
+                            if earth_rho == nominal.earth_rho
+                                push!(reference_points, point)
+                                save(reference_points, joinpath(folder, "pscad_like_references.json"))
+                            end
+                            if scenario !== :step_both_ends
+                                push!(earth_points, point)
+                                save(earth_points, joinpath(folder, "pscad_like_earth.json"))
+                            end
+                        end
+                        println(model, " ", scenario, " earth ", earth_rho, " ohm m: receiving core peak ",
+                            only(p.peak_kV for p in receiving_peaks if p.terminal == core1),
+                            " kV, passivity ", check.status, ", wall ", elapsed, " s")
+                        flush(stdout)
+                    end
+                end
+            end
+            if run_pscad
+                # Native earth selections keep the export defaults. Dielectric laws match the case.
+                native_formulation = Formulation(:pscad;
+                    insulation_admittance = formulation.definitions.insulation_admittance,
+                    semicon_admittance = formulation.definitions.semicon_admittance)
+                elapsed = @elapsed native = compute(comparison_problem, native_formulation;
+                    options = (remote = RemoteConfig(ENV["LINECABLEMODELS_PSCAD_CONFIG"]), timing = true))
+                point = ObservedResult(native, (Z, Y); length_unit = :base, clip = false,
+                    timings = (; wall_seconds = elapsed))
+                save(ObservedResult(merge(point.gridpoint, (; comparison_grid)),
+                    point.quantities, point.errors, point.timings), joinpath(folder, "pscad_native_line_parameters.json"))
+            end
+            println("PSCAD-like reference run: ", folder)
+            exit()
+        end
+
         if run_transient_sensitivity
             println("transient sensitivity run: ", folder)
             flush(stdout)

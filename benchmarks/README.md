@@ -483,6 +483,71 @@ The tables cover fitting errors, DC behaviour, three transient scenarios, PSCAD,
 sampling and model settings, with captions that identify omitted diagnostics.
 The generator reads archives and workbooks without a study run.
 
+`pscad_like_reference` runs the three nominal scenarios at 10 Ω with Pollaczek
+earth impedance and ideal earth admittance. All other owned formulation selections,
+windows and NLT controls match the Unified references. The run saves the Unified
+waveforms in `references.json` and the alternative waveforms in
+`pscad_like_references.json`.
+
+Each alternative records receiving core 1 and sheath
+voltage RMS differences, absolute peaks, signed peak differences and maximum
+waveform differences against Unified. RMS ratios use each Unified terminal peak.
+
+The same argument computes the single-point step and impulse at earth resistivities
+of 100, 1000 and 10000 Ω·m. The `pscad_like_earth.json` archive keeps waveforms and peaks.
+Both nominal formulations and every alternative resistivity point use the
+`transient_sensitivity` passivity check over the scenario's full NLT frequency band.
+Separate archives keep the Z/Y eigenvalue curves, band limits and first negative
+sample. A negative eigenvalue prevents that transient calculation.
+
+Add `pscad` to compute native line constants on the comparison grid:
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl pscad_like_reference
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl pscad_like_reference pscad
+```
+
+The second command uses the configured station. Its `Formulation(:pscad)` keeps
+the native default earth selections and the case's dielectric admittance laws.
+Both owned Pollaczek + ideal and native line constants use the same 101
+logarithmic samples from 0.1 Hz to 1 MHz. Each line-parameter archive records this
+comparison grid's spacing, sample count and limits alongside the full frequency
+coordinates. The owned and native Z/Y archives are `pscad_like_line_parameters.json`
+and `pscad_native_line_parameters.json`. Owned earth coefficients remain separately
+in `pscad_like_earth_parameters.json`, with the comparison grid recorded there too.
+
+In station runs, PSCAD reported "ACLine segment manual solve: started" for its
+stand-alone native line-constants solve with Pollaczek earth, but produced no
+matrix file within the 7200 s run timeout at 1001 samples for the 320 kV armoured
+and unarmoured cases or at 101 samples for the 320 kV armoured case, so the native
+Z/Y comparison has no data.
+The same solver with Pollaczek earth completed in about a minute inside every
+observed FD-Phase transient run.
+
+Generate CSV and LaTeX comparisons from completed folders:
+
+```sh
+julia --project=test benchmarks/pscad_like_tables.jl <run folder>... <output folder>
+```
+
+The generator compares the references and reads archived PSCAD transients listed
+in the main tree's `local/report/tables/time_domain_sources.txt`. Each completed
+PSCAD variant has receiving core 1 RMS deviation and signed absolute-peak error
+against both references. RMS ratios use each reference peak. Failed
+variants keep their status and empty metrics. Output folders follow the case
+name and run timestamp.
+
+The generator reports the native comparison only when
+`pscad_native_line_parameters.json` exists. Its frequency tables give scaled deviations
+for all, self, mutual, outer self and cross-cable outer mutual entries. The scale
+is the largest absolute owned diagonal at each frequency. Individual entry tables
+keep both complex matrices.
+
+Cross-cable outer Z mutual entries isolate earth return.
+Outer self entries also include conductor impedance. Native isolated
+earth self coefficients are unavailable. Native conductor equations and dielectric
+export representation also contribute to total Z/Y differences.
+
 `dc_behaviour` runs the long-window DC fault study for the three DC study scripts.
 Add `pscad` as a second argument to run the station matrix and the DC fault tests:
 
