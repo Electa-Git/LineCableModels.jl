@@ -9,22 +9,29 @@ using Dates
 using Measurements, Distributions
 using Statistics: mean, std
 
-ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"], ["dc_behaviour"], ["dc_behaviour", "pscad"], ["dc_behaviour", "pscad", "supplementary"]) ||
+ARGS in (String[], ["time_domain"], ["pscad"], ["time_domain", "pscad"], ["model_settings"], ["modal"], ["transient_sensitivity"], ["pscad_options"], ["pscad_options", "pscad"], ["dc_behaviour"], ["dc_behaviour", "pscad"], ["dc_behaviour", "pscad", "supplementary"]) ||
     ARGS in (["uncertainty"], ["uncertainty", "reduced"], ["uncertainty", "frequency_domain"], ["uncertainty", "frequency_domain", "reduced"], ["uncertainty", "kink"], ["uncertainty", "kink", "reduced"]) ||
     (length(ARGS) == 4 && ARGS[1:3] == ["dc_behaviour", "pscad", "supplementary"]) ||
     (length(ARGS) >= 5 && ARGS[1:3] == ["dc_behaviour", "pscad", "runs"]) ||
-    error("Usage: julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder> | uncertainty [kink | frequency_domain] [reduced]")
+    (length(ARGS) >= 5 && ARGS[1:3] == ["pscad_options", "pscad", "runs"]) ||
+    error("Usage: julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl [time_domain] [pscad] | model_settings | modal | transient_sensitivity | pscad_options [pscad] | pscad_options pscad runs <indices>... <base_folder> | dc_behaviour [pscad [supplementary [base_folder]]] | dc_behaviour pscad runs <indices>... <base_folder> | uncertainty [kink | frequency_domain] [reduced]")
 run_time_domain = "time_domain" in ARGS
 run_pscad = "pscad" in ARGS
 run_model_settings = ARGS == ["model_settings"]
 run_transient_sensitivity = ARGS == ["transient_sensitivity"]
 transient_started = time_ns()
+run_pscad_options = "pscad_options" in ARGS
+run_options_selected = length(ARGS) >= 3 && ARGS[1:3] == ["pscad_options", "pscad", "runs"]
+options_run_indices = run_options_selected ? parse.(Int, ARGS[4:end-1]) : Int[]
+allunique(options_run_indices) && all(i -> 1 <= i <= 62, options_run_indices) ||
+    error("PSCAD option run indices must be unique integers from 1 to 62")
+options_base_folder = run_options_selected ? abspath(last(ARGS)) : nothing
 run_dc_behaviour = "dc_behaviour" in ARGS
 run_dc_supplementary = "supplementary" in ARGS
 run_dc_selected = length(ARGS) >= 3 && ARGS[1:3] == ["dc_behaviour", "pscad", "runs"]
 dc_run_indices = run_dc_selected ? parse.(Int, ARGS[4:end-1]) : Int[]
 allunique(dc_run_indices) && all(i -> 1 <= i <= 55, dc_run_indices) || error("Run indices must be unique integers from 1 to 55")
-dc_base_folder = run_dc_selected || length(ARGS) == 4 ? abspath(last(ARGS)) : nothing
+dc_base_folder = run_dc_selected || (run_dc_supplementary && length(ARGS) == 4) ? abspath(last(ARGS)) : nothing
 
 frequencies = sort!(vcat(exp10.(range(-3, 6; length = 226)), 50.0))
 
@@ -168,9 +175,13 @@ corrected_materials = (; core_rho = 2.3853e-8,
 formulation = Formulation(earth_impedance = :unified, earth_admittance = :unified,
     shunt_model = :equivalent, insulation_admittance = :lossy, semicon_admittance = :lossy;
     options = (reduce_bundle = false, kron_reduction = false, ideal_transposition = false))
-folder = joinpath(pwd(), ".linecablemodels", "benchmarks",
+folder = run_options_selected ? options_base_folder : joinpath(pwd(), ".linecablemodels", "benchmarks",
     "cable_320kv_armoured_dc_bipole", Dates.format(now(), "yyyymmdd-HHMMSS"))
-mkpath(folder)
+if run_options_selected
+    isdir(folder) || error("Base run folder is missing: $folder")
+else
+    mkpath(folder)
+end
 
 folded = (inner_semicon_thickness = 0.0, outer_semicon_thickness = 0.0, water_blocking_thickness = 0.0,
     insulation_thickness = nominal.insulation_thickness + nominal.inner_semicon_thickness +
@@ -544,12 +555,14 @@ if ARGS == ["modal"]
     end
 else
     problem = line_parameters_problem(nominal...)
-    compute_time = @elapsed result = compute(problem, formulation)
-    export_data(:json, problem; file_name = joinpath(folder, "problem.json"))
-    save(ObservedResult(result, (R, X, G, B); length_unit = :base, clip = false),
-        joinpath(folder, "baseline.json"))
-    println("cable_320kv_armoured_dc_bipole: ", length(problem.system.terminal_order),
-        " terminals, compute ", compute_time, " s, ", folder)
+    if !run_options_selected
+        compute_time = @elapsed result = compute(problem, formulation)
+        export_data(:json, problem; file_name = joinpath(folder, "problem.json"))
+        save(ObservedResult(result, (R, X, G, B); length_unit = :base, clip = false),
+            joinpath(folder, "baseline.json"))
+        println("cable_320kv_armoured_dc_bipole: ", length(problem.system.terminal_order),
+            " terminals, compute ", compute_time, " s, ", folder)
+    end
 end
 
 if isempty(ARGS)
@@ -732,7 +745,286 @@ open(joinpath(folder, "ranking.txt"), "a") do io
 end
 end
 
-if run_time_domain || (run_pscad && !run_dc_behaviour) || run_transient_sensitivity
+if run_pscad_options
+    using TOML, EzXML
+    if !run_options_selected
+        using UniversalLineModel
+    end
+    using LineCableModels: DoubleExponential
+    using LineCableModels.PSCAD: PSCADTransientFormulation, LineConstantsError, NonfiniteOutputError, RemoteConfig, identify
+
+    let
+        println("PSCAD options run: ", folder)
+        flush(stdout)
+        if run_options_selected
+            base_summary = TOML.parsefile(joinpath(folder, "pscad_options.toml"))
+            base_summary["cable"] == problem.system.system_id || error("Base run folder belongs to a different cable")
+            travel_times = base_summary["travel_times_seconds"]
+        else
+            modal = compute(ModalAnalysisProblem(result), ModalAnalysisFormulation(:default))
+            segment = PropagationParameters(modal; line_length = nominal.line_length)
+            travel_times = nominal.line_length ./ velocity(segment)[:, end]
+        end
+        tau_min = minimum(travel_times)
+        labels = terminal_labels(problem.system)
+        core1 = first(label for label in labels if endswith(label, ":1:core"))
+        bonds = Tuple(TerminalImpedance(label; R = 10.0) for label in labels
+            if endswith(label, ":sheath") || endswith(label, ":armor"))
+        alpha, beta = 1.47e4, 2.47e6
+        pulse_peak_time = log(beta / alpha) / (beta - alpha)
+        pulse_amplitude = nominal.voltage / (exp(-alpha * pulse_peak_time) - exp(-beta * pulse_peak_time))
+        pulse_step = 0.25e-6
+        pulse_tmax = ceil(max(3e-3, 3tau_min) / pulse_step) * pulse_step
+        pulse_N = nextpow(2, ceil(Int, 2e6 * (1.25pulse_tmax) + 0.5))
+        scenarios = ((name = :step_single_point, source = Step(core1, nominal.voltage),
+                window = (tmax = 20tau_min, step = tau_min / 200), N = 4096),
+            (name = :impulse, source = DoubleExponential(core1, pulse_amplitude, alpha, beta),
+                window = (tmax = pulse_tmax, step = pulse_step), N = pulse_N))
+        phase_defaults = (FS = 0.5, FE = 1e6, Numf = 100, YMaxP = 20, AMaxP = 20,
+            YMaxE = 0.2, AMaxE = 0.2, MaxRPtol = 2e6, DCenab = 0, CPASS = 1,
+            ET_PE = 1e-10, MER_PE = 2.0, MIT_PE = 5, FSP = 0.001, FEP = 1e6,
+            NFP = 1000, FDIS = 3, Interp1 = 1)
+        native = NamedTuple[(study = :baseline, model = :fd_phase, fit = phase_defaults, divisor = 0)]
+        for FS in (0.5, 0.05, 0.01, 0.001), Numf in (100, 1000)
+            push!(native, (; study = :band_samples, model = :fd_phase,
+                fit = merge(phase_defaults, (; FS, Numf)), divisor = 0))
+        end
+        for MaxRPtol in (2e6, 1e9, 1e12)
+            push!(native, (; study = :residue_limit, model = :fd_phase,
+                fit = merge(phase_defaults, (; MaxRPtol)), divisor = 0))
+        end
+        for order in (5, 10, 15, 20, 30, 40), error in (2.0, 0.2, 0.02)
+            push!(native, (; study = :order_error, model = :fd_phase,
+                fit = merge(phase_defaults, (YMaxP = order, AMaxP = order, YMaxE = error, AMaxE = error)), divisor = 0))
+        end
+        for MER_PE in (2.0, 0.2, 10.0), ET_PE in (1e-10, 1e-6)
+            push!(native, (; study = :passivity, model = :fd_phase,
+                fit = merge(phase_defaults, (; CPASS = 2, MER_PE, ET_PE)), divisor = 0))
+        end
+        for divisor in (2, 5, 10, 20, 50), Interp1 in (0, 1)
+            push!(native, (; study = :time_step, model = :fd_phase,
+                fit = merge(phase_defaults, (; Interp1)), divisor))
+        end
+        for FT in (50.0, 500.0, 2000.0, 1e4, 1e5, 1e6)
+            push!(native, (; study = :transformation, model = :fd_mode, fit = (; FT), divisor = 0))
+        end
+        appended_start = length(native) + 1
+        for (order, error) in ((20, 0.2), (40, 0.02)), MaxRPtol in (1e2, 1e3, 1e4, 1e5)
+            push!(native, (; study = :residue_limit, model = :fd_phase,
+                fit = merge(phase_defaults, (; YMaxP = order, AMaxP = order,
+                    YMaxE = error, AMaxE = error, MaxRPtol)), divisor = 0))
+        end
+        for FS in (0.5, 0.001)
+            push!(native, (; study = :passivity, model = :fd_phase,
+                fit = merge(phase_defaults, (; CPASS = 2, FS, FSP = FS)), divisor = 0))
+        end
+        for scenario in scenarios, index in appended_start:length(native)
+            variant = native[index]
+            println("options appended ", scenario.name, " index=", index, " ", variant.study,
+                " MaxRPtol=", variant.fit.MaxRPtol, " poles=", variant.fit.YMaxP,
+                " error=", variant.fit.YMaxE, " CPASS=", variant.fit.CPASS,
+                " FS=", variant.fit.FS, " FSP=", variant.fit.FSP)
+        end
+        for scenario in scenarios, Numf in (100, 1000)
+            indices = findall(v -> v.study === :band_samples && v.fit.Numf == Numf, native)
+            println("options Numf=", Numf, " ", scenario.name, " indices: ", join(indices, ", "))
+        end
+        flush(stdout)
+        variant_indices = run_options_selected ? options_run_indices : eachindex(native)
+        # Only the optional branch opens a station connection.
+        remote = run_pscad ? RemoteConfig(ENV["LINECABLEMODELS_PSCAD_CONFIG"]) : nothing
+        station = run_pscad ? identify(remote) : nothing
+        native_folder = run_pscad ? mkpath(joinpath(remote.local_root,
+            "$(problem.system.system_id)_options_$(basename(folder))")) : nothing
+        reference_paths = Dict{Tuple{Symbol, Int}, String}()
+        reference_wall = 0.0
+        for scenario in scenarios, divisor in (0, 2, 5, 10, 20, 50)
+            path = "options_nlt_$(scenario.name)_$(divisor).json"
+            reference_paths[(scenario.name, divisor)] = path
+            run_options_selected && continue
+            window = divisor == 0 ? scenario.window : (tmax = scenario.window.tmax, step = tau_min / divisor)
+            selected_problem = TransientAnalysisProblem(problem; sending = (scenario.source, bonds...), receiving = (), window)
+            elapsed = @elapsed reference = compute(selected_problem, TransientFormulation(:nlt;
+                options = (line = formulation, N = scenario.N, Tfactor = 1.25)); options = (timing = true,))
+            reference_wall += elapsed
+            save(ObservedResult(reference; clip = false), joinpath(folder, path))
+            println("options NLT ", scenario.name, " divisor=", divisor, ": ", elapsed, " s")
+            flush(stdout)
+        end
+        export_wall = 0.0
+        for scenario in scenarios, index in variant_indices
+            variant = native[index]
+            selected = PSCADTransientFormulation(model = variant.model, line = formulation, fit = variant.fit)
+            directory = joinpath(folder, "options_pscad_$(scenario.name)_$(index)")
+            run_options_selected && ispath(directory) && rm(directory; recursive = true)
+            mkpath(directory)
+            window = variant.divisor == 0 ? scenario.window :
+                (tmax = scenario.window.tmax, step = tau_min / variant.divisor)
+            selected_problem = TransientAnalysisProblem(problem; sending = (scenario.source, bonds...), receiving = (), window)
+            elapsed = @elapsed path = export_data(:pscad, selected_problem, selected;
+                file_name = joinpath(directory, "transient.pscx"))
+            export_wall += elapsed
+            document = readxml(path)
+            binding = variant.model === :fd_phase ? "Line_FrePhase_Options" : "Line_FreDep_Options"
+            component = only(findall("//User[@defn='master:$binding']", document))
+            exported = Dict(p["name"] => parse(Float64, p["value"]) for p in findall("./paramlist/param", component))
+            for (key, value) in pairs(variant.fit)
+                exported[string(key)] == round(value; sigdigits = 6) || error("Exported $key differs in $path")
+            end
+            project = Dict(p["name"] => p["value"] for p in findall("/project/paramlist/param", document))
+            isapprox(parse(Float64, project["time_step"]), window.step * 1e6;
+                rtol = 8eps(Float64), atol = 0) || error("Exported time step differs")
+            status = Dict{String, Any}("status" => "export_checked", "backend" => "pscad",
+                "scenario" => string(scenario.name), "study" => string(variant.study), "index" => index,
+                "model" => string(variant.model), "divisor" => variant.divisor,
+                "fit" => Dict(string(k) => v for (k, v) in pairs(variant.fit)), "exported_fit" => exported,
+                "reference" => reference_paths[(scenario.name, variant.divisor)],
+                "step_seconds" => window.step, "duration_seconds" => window.tmax, "export_wall_seconds" => elapsed)
+            response = nothing
+            run_start = time_ns()
+            if run_pscad
+                before = Set(readdir(native_folder))
+                try
+                    response = compute(selected_problem, selected; options = (; remote, work_root = native_folder))
+                    status["status"] = "completed"
+                catch exception
+                    exception isa InterruptException && rethrow()
+                    status["exception_type"] = string(typeof(exception))
+                    status["message"] = sprint(showerror, exception)
+                    if exception isa LineConstantsError
+                        status["status"] = "line_constants_error"
+                        status["log_path"] = exception.log_path
+                    elseif exception isa NonfiniteOutputError
+                        status["status"] = "nonfinite_response"
+                        status["nonfinite_output_path"] = exception.output_path
+                        status["nonfinite_channel"] = exception.channel
+                        status["first_nonfinite_time_seconds"] = exception.time
+                    else
+                        status["status"] = "execution_error"
+                    end
+                end
+                for name in setdiff(Set(readdir(native_folder)), before)
+                    cp(joinpath(native_folder, name), joinpath(directory, name))
+                end
+                status["station"] = station
+                status["line_constants_log_paths"] = [joinpath(root, name) for (root, _, files) in walkdir(directory)
+                    for name in files if endswith(lowercase(name), ".log")]
+                response === nothing || save(ObservedResult(response; clip = false), joinpath(directory, "response.json"))
+            end
+            status["wall_seconds"] = (time_ns() - run_start) / 1e9
+            open(io -> TOML.print(io, status; sorted = true), joinpath(directory, "status.toml"), "w")
+            println("options PSCAD ", scenario.name, " ", index, ": ", status["status"])
+            flush(stdout)
+        end
+        if !run_options_selected
+            baseline = (method = :ulm, lower = 0.001, density = 25, order = 16, max_ratio = Inf,
+                enforce = false, frequency = 2000.0)
+            variants = NamedTuple[merge(baseline, (study = :baseline,))]
+            append!(variants, [merge(baseline, (; study = :band, lower)) for lower in (1.0, 0.5, 0.1, 0.01, 0.001)])
+            append!(variants, [merge(baseline, (; study = :density, density)) for density in (25, 75)])
+            append!(variants, [merge(baseline, (; study = :residue_limit, lower, max_ratio))
+                for lower in (0.001, 1.0) for max_ratio in (100.0, 2e6, Inf)])
+            append!(variants, [merge(baseline, (; study = :order, order)) for order in (4, 8, 12, 16, 24)])
+            append!(variants, [merge(baseline, (; study = :passivity, enforce)) for enforce in (false, true)])
+            append!(variants, [merge(baseline, (; study = :transformation, method = :marti, frequency))
+                for frequency in (50.0, 500.0, 2000.0, 1e4, 1e5, 1e6)])
+            unforced = nothing
+            fit_wall, transient_wall = 0.0, 0.0
+            for (index, variant) in enumerate(variants)
+                directory = mkpath(joinpath(folder, "options_fit_$(index)"))
+                fit_start = time_ns()
+                fitted = nothing
+                status = Dict{String, Any}("status" => "started", "index" => index,
+                    (string(k) => (v isa Symbol ? string(v) : v) for (k, v) in pairs(variant))...)
+                try
+                    f = sort!(unique!(vcat(exp10.(range(log10(variant.lower), 6;
+                        length = round(Int, variant.density * log10(1e6 / variant.lower)) + 1)),
+                        50.0, variant.method === :marti ? variant.frequency : Float64[])))
+                    line = line_parameters_problem(merge(nominal, (; frequencies = f))...)
+                    phase = compute(line, formulation)
+                    modes = compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default))
+                    propagation = PropagationParameters(modes; line_length = nominal.line_length)
+                    selected = variant.method === :marti ? LineModelFormulation(:marti;
+                        options = (transformation = (frequency = variant.frequency,),)) :
+                        LineModelFormulation(:ulm; options = (
+                            yc = (npoles = variant.order, maxpoles = variant.order),
+                            h = (npoles = variant.order, maxpoles = variant.order,
+                                max_ratio = variant.max_ratio, td = false, step_check = false),
+                            passivity = variant.enforce, dc = (;)))
+                    fitted = compute(LineModelProblem(propagation), selected; options = (timing = true,))
+                    index == 1 && (unforced = fitted)
+                    evidence = (; variant, frequencies = f, fitting_error = fitting_error(fitted),
+                        passivity_before = variant.enforce ? passivity(unforced) : passivity(fitted),
+                        passivity_after = passivity(fitted), poles = poles(fitted), residues = residues(fitted),
+                        marti = variant.method === :marti ? details(fitted).data.marti : nothing,
+                        transformation_frequency = variant.method === :marti ? fitted.model.transformation_frequency : nothing)
+                    point = ObservedResult(fitted; clip = false)
+                    save(ObservedResult(merge(point.gridpoint, (; options_fit = evidence)),
+                        NamedTuple[], point.errors, point.timings), joinpath(directory, "fit.json"))
+                    status["status"] = "completed"
+                catch exception
+                    exception isa InterruptException && rethrow()
+                    status["status"] = "julia_error"
+                    status["exception_type"] = string(typeof(exception))
+                    status["message"] = sprint(showerror, exception)
+                    fitted = nothing
+                end
+                elapsed = (time_ns() - fit_start) / 1e9
+                fit_wall += elapsed
+                status["wall_seconds"] = elapsed
+                open(io -> TOML.print(io, status; sorted = true), joinpath(directory, "status.toml"), "w")
+                println("options fit ", index, " ", variant.study, ": ", status["status"], " ", elapsed, " s")
+                flush(stdout)
+                fitted === nothing && continue
+                for scenario in scenarios, divisor in (index == 1 ? (0, 2, 5, 10, 20, 50) : (0,)),
+                        interp in (divisor == 0 ? (:single,) : (:single, :double))
+                    directory = mkpath(joinpath(folder, "options_julia_$(scenario.name)_$(index)_$(divisor)_$(interp)"))
+                    window = divisor == 0 ? scenario.window : (tmax = scenario.window.tmax, step = tau_min / divisor)
+                    status = Dict{String, Any}("status" => "started", "backend" => string(variant.method),
+                        "scenario" => string(scenario.name), "study" => divisor == 0 ? string(variant.study) : "time_step",
+                        "index" => index, "divisor" => divisor, "interp" => string(interp),
+                        "reference" => reference_paths[(scenario.name, divisor)], "fit_archive" => "options_fit_$(index)/fit.json",
+                        "step_seconds" => window.step, "duration_seconds" => window.tmax)
+                    run_start = time_ns()
+                    try
+                        response = compute(TransientAnalysisProblem(fitted; sending = (scenario.source, bonds...), receiving = (), window),
+                            TransientFormulation(:td; options = (; interp)); options = (timing = true,))
+                        if all(isfinite, response.voltage) && all(isfinite, response.current)
+                            status["status"] = "completed"
+                            save(ObservedResult(response; clip = false), joinpath(directory, "response.json"))
+                        else
+                            status["status"] = "nonfinite_response"
+                        end
+                    catch exception
+                        exception isa InterruptException && rethrow()
+                        status["status"] = "julia_error"
+                        status["exception_type"] = string(typeof(exception))
+                        status["message"] = sprint(showerror, exception)
+                    end
+                    elapsed = (time_ns() - run_start) / 1e9
+                    transient_wall += elapsed
+                    status["wall_seconds"] = elapsed
+                    open(io -> TOML.print(io, status; sorted = true), joinpath(directory, "status.toml"), "w")
+                    println("options Julia ", scenario.name, " ", index, " divisor=", divisor, " ", interp, ": ", status["status"], " ", elapsed, " s")
+                    flush(stdout)
+                end
+            end
+            summary = Dict("cable" => problem.system.system_id, "travel_times_seconds" => travel_times,
+                "pscad_runs" => 2length(native), "julia_fits" => length(variants), "station_requested" => run_pscad,
+                "reference_wall_seconds" => reference_wall, "export_wall_seconds" => export_wall,
+                "fit_wall_seconds" => fit_wall, "transient_wall_seconds" => transient_wall,
+                "baseline_compute_seconds" => compute_time, "wall_seconds" => (time_ns() - transient_started) / 1e9,
+                "scenarios" => [Dict("name" => string(s.name), "N" => s.N, "Tfactor" => 1.25,
+                    "duration_seconds" => s.window.tmax, "step_seconds" => s.window.step) for s in scenarios])
+            open(io -> TOML.print(io, summary; sorted = true), joinpath(folder, "pscad_options.toml"), "w")
+            println("PSCAD options complete: ", summary["wall_seconds"], " s, ", folder)
+        else
+            println("PSCAD options reruns complete: ", 2length(variant_indices), " runs, ", folder)
+        end
+    end
+end
+
+if run_time_domain || (run_pscad && !run_dc_behaviour && !run_pscad_options) || run_transient_sensitivity
     using UniversalLineModel, XLSX, TOML
     using LineCableModels: DoubleExponential
     using LineCableModels.PSCAD: PSCADTransientFormulation, LineConstantsError, RemoteConfig, identify
@@ -1507,8 +1799,9 @@ if run_dc_behaviour
             for (key, value) in pairs(variant.fit)
                 exported[string(key)] == round(value; sigdigits = 6) || error("Exported $key differs in $path")
             end
-            all(key -> !haskey(exported, key), ("ET_PE", "MER_PE", "MIT_PE", "FSP", "FEP", "NFP", "FDIS")) ||
-                error("Passivity defaults must come from the component definition in $path")
+            all(exported[key] == value for (key, value) in ("ET_PE" => 1e-10, "MER_PE" => 2,
+                "MIT_PE" => 5, "FSP" => 0.001, "FEP" => 1e6, "NFP" => 1000, "FDIS" => 3)) ||
+                error("Passivity defaults differ from the component definition in $path")
             losses = Vector{Float64}[]
             for cable in findall("//User[@defn='master:Cable_Coax']", document)
                 values = [parse(Float64, only(findall("./paramlist/param[@name='LT$(slot)']", cable))["value"]) for slot in 1:4]

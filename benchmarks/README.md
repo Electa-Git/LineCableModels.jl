@@ -686,3 +686,142 @@ target solution and its signed differences from the NLT means.
 The generator writes `dc_solutions` for all three quantities and `dc_target_check`
 for the physical-target comparison. The `dc_fits` table gives each fit's current
 errors, settled flag, slowest time constant and reciprocals of added-pole rates.
+
+`pscad_options` compares fitting and simulation controls in the three DC study scripts.
+A full invocation runs the Julia calculations. Add `pscad` to compute the native variants:
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl pscad_options
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl pscad_options pscad
+julia --project=test benchmarks/pscad_options_tables.jl <run folders>... <output folder>
+```
+
+To replace selected PSCAD runs in an existing folder, use:
+
+```sh
+julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl pscad_options pscad runs 3 5 7 9 "<base folder>"
+```
+
+Indices are unique integers from 1 to 62 and select the same variants in both scenarios.
+The base folder must contain `pscad_options.toml` for the same cable.
+
+The original indices 1–52 keep their settings. The tighter residue limits occupy
+53–56 at order 20 and 57–60 at order 40, in ascending limit order.
+Indices 61 and 62 enforce passivity with the scan band equal to the fitting band,
+starting at 0.5 and 0.001 Hz, respectively. The script prints these indices for both scenarios.
+
+This mode replaces only the selected PSCAD directories and statuses. It uses the archived
+travel times and NLT references, and skips the Julia computations and reference calculations.
+The generator accepts the same folder after these replacements.
+
+The scripts print both scenarios' indices: `Numf=100` uses 2, 4, 6, 8.
+`Numf=1000` uses 3, 5, 7, 9.
+
+The core step uses single-point bonding at 10 Ω. The impulse uses the same bonds,
+double exponential, duration and NLT settings as `time_domain`.
+The step window is twenty times the shortest modal travel time, with 4000 intervals.
+The impulse lasts at least 3 ms and three shortest travel times, sampled at 0.25 µs.
+
+NLT uses `N=4096` for the step. The impulse uses the next power of two that reaches
+2 MHz. Both use `Tfactor=1.25` and the default Hanning taper.
+The time-step comparisons use NLT references at matching output times.
+
+The FD-Phase baseline uses the lossy line formulation, `FS=0.5`, `FE=1e6`,
+`Numf=100`, `YMaxP=AMaxP=20`, `YMaxE=AMaxE=0.2`, `MaxRPtol=2e6`,
+`DCenab=0` and `CPASS=1`. The passivity scan uses the master-definition defaults
+`FSP=0.001`, `FEP=1e6`, `NFP=1000` and `FDIS=3`.
+The baseline interpolates travel times. Each comparison keeps the other controls fixed.
+
+| Comparison | PSCAD settings | Julia settings |
+|---|---|---|
+| Fitting band and samples | `FS` = 0.5, 0.05, 0.01, 0.001 Hz, each with `Numf` = 100, 1000. | The lower limit = 1, 0.5, 0.1, 0.01, 0.001 Hz at 25 intervals per decade. Density = 25, 75 at the baseline band. |
+| Residue/pole limit | `MaxRPtol` = 2e6, 1e9, 1e12 at 0.5 Hz. Appended limits = 1e2, 1e3, 1e4, 1e5 at orders 20 and 40 with error targets 0.2 and 0.02 percent, respectively. | `h.max_ratio` = 100, 2e6, infinity on the baseline and 1 Hz grids. |
+| Order and error target | Both maximum orders = 5, 10, 15, 20, 30, 40, each with both error targets = 2, 0.2, 0.02 percent. | Both orders = 4, 8, 12, 16, 24. |
+| Passivity | `CPASS=2`, `MER_PE` = 2, 0.2, 10, each with `ET_PE` = 1e-10, 1e-6. Appended runs set `FSP=FS` at 0.5 and 0.001 Hz. | Enforcement off and on. |
+| Time step and interpolation | Shortest travel time divided by 2, 5, 10, 20, 50, each with `Interp1` = 0, 1. | The same steps, each with `interp=:single`, `:double`. |
+| Transformation frequency | FD-Mode `FT` = 50, 500, 2000, 1e4, 1e5, 1e6 Hz. | J. Marti `transformation.frequency` at those exact samples. |
+
+The ULM baseline uses the 227-frequency grid, 16 poles for both sections,
+`h.max_ratio=Inf`, `dc=(;)` and `passivity=false`.
+Maximum pole counts equal the requested orders, so adaptive order growth cannot
+confound the order comparison. The fits omit time rows and the step check.
+The comparisons use the ordinary time-domain interpolation and physical polarity defaults.
+
+J. Marti uses its default Bode controls. Its grid includes the requested transformation frequency
+to avoid substitution by a nearby sample.
+
+Each case uses the package API directly. The `options_fit_<index>` folders keep
+fit observations, pole and residue arrays, fitting errors and passivity reports.
+The enforced ULM fit keeps its baseline report before enforcement and its own
+report afterwards. Response folders store voltage and current observations.
+The `pscad_options.toml` file records the scenario controls, travel times and wall times.
+Failed Julia fits keep their exception type and message in their status file.
+
+The study exports and checks 124 PSCAD variants locally, which include
+two baseline runs. The check reads back each requested field and the integration
+step from XML. An invocation without `pscad` records `export_checked` and opens
+no station connection. Native runs keep their copied projects, logs and outputs.
+
+`LineConstantsError` records `line_constants_error` with its native diagnostic.
+`NonfiniteOutputError` records `nonfinite_response` with the channel, output path
+and first nonfinite time. Other exceptions keep their type as `execution_error`.
+These records preserve the cause of each failure.
+At 40–75 seconds per native run, 124 runs take about 83–155 minutes per cable.
+
+The standalone generator writes CSV and LaTeX tables under `<output folder>/<cable>/`.
+It accepts several run folders per cable, with the latest final outcome taking
+precedence. Export records cannot replace a final outcome.
+The tables give core RMS and maximum absolute waveform deviations at the receiving end,
+scaled by the NLT core peak. They also give core and individual sheath peaks and their signed errors.
+Arrival uses 10 percent of the core peak.
+
+Growth appears for both ends of each terminal, using the final two ten percent windows.
+A flag requires a peak ratio above one and above 110 percent of the NLT ratio.
+The model's final-window peak must also exceed NLT's by more than one percent
+of the scenario scale, the NLT receiving core peak.
+The growth table gives final-window amplitudes relative to that scale.
+The growth-count table compares both rules on the same completed runs.
+
+Failed and incomplete rows have empty waveform measurements.
+
+Pole frequencies use `abs(pole)/(2π)`. For the impulse, the spectral limit contains
+99 percent of the continuous source spectral energy, capped by the NLT upper frequency.
+An ideal step has unbounded bandwidth. Its reported pole counts use the NLT upper
+frequency as the resolved limit. The pole table keeps the definition and individual
+ratios of residues to poles.
+
+The maximum propagation ratio is dimensionless.
+Admittance and impedance ratios use separate columns in S and Ω.
+
+Native logs that report counts without pole locations leave
+the count beyond the spectral limit explicitly unavailable.
+
+The generator extracts Tline fitting errors, pole counts and maximum ratios of residues to poles.
+It also records scan bands, violation ranges and enforcement outcomes with the original report text.
+The passivity-range table labels each range below, inside or above the fitting band.
+A range that crosses a band limit lists every region it overlaps.
+A missing heading remains `not found`.
+
+Enforcement logs give initial, final reported and worst reported eigenvalue minima.
+Their final reported minimum describes an enforcement iterate.
+The generator compares voltage and current at every terminal and time
+with a completed `CPASS=1` run having the same fit and time grid.
+A failed enforcement with an identical transient states
+`enforcement failed; unenforced model simulated`.
+Comparison scans identify their source run and its scan band, independently of the requested scan band.
+
+ULM passivity rows give reports before and after enforcement, fit-error changes
+and the transient change against the unforced baseline.
+The summary ranks the sampled settings by NLT deviation for each scenario.
+Recommendations need the measured fit, passivity and transient evidence together.
+
+Interpret the option comparisons through these measured effects:
+
+| Control | Evidence for the setting |
+|---|---|
+| Band and samples | A lower start frequency adds slow dynamics. More samples resolve the same band more closely. Compare their separate ULM sweeps before attributing an improvement to either. |
+| Residue/pole limit | Large propagation ratios show cancellation between rational terms. The bound trades fitting error against amplification of time discretization errors. Check both errors together. |
+| Order and error target | Compare transient errors with the pole counts above the event's spectral limit. Extra poles can improve a frequency fit without improving the transient. |
+| Passivity | Compare the violation reports before and after enforcement, the fitting-error change and the transient change. Each backend supplies its own passivity assessment. |
+| Time step and interpolation | Compare arrival and waveform convergence as the step shrinks. Compare interpolation settings at the same step. |
+| Transformation frequency | J. Marti's off-diagonal ratios measure the coupling discarded by its constant transformation. Compare the resulting transient over the event's spectrum. |
