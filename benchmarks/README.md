@@ -769,6 +769,9 @@ julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl pscad_options 
 
 Indices are unique integers from 1 to 62 and select the same variants in both scenarios.
 The base folder must contain `pscad_options.toml` for the same cable.
+The `pscad_options pscad resume <base folder>` command completes an interrupted run of the same
+cable and reuses completed PSCAD runs, Julia fits, transients and NLT references.
+Append `check` after the folder to print the run plan without numerical work or station access.
 
 The original indices 1–52 keep their settings. The tighter residue limits occupy
 53–56 at order 20 and 57–60 at order 40, in ascending limit order.
