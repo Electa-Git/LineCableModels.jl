@@ -871,12 +871,25 @@ A range that crosses a band limit lists every region it overlaps.
 A missing heading remains `not found`.
 
 Enforcement logs give initial, final reported and worst reported eigenvalue minima.
-Their final reported minimum describes an enforcement iterate.
+Their final reported minimum describes an enforcement iterate, with its frequency.
+If the log omits an outcome, the generator reports `iteration limit reached, violation remaining`
+only when the main-iteration count equals `MIT_PE` and the last reported minimum is below `-ET_PE`.
+Other runs without an outcome report `no outcome reported`.
 The generator compares voltage and current at every terminal and time
 with a completed `CPASS=1` run having the same fit and time grid.
 A failed enforcement with an identical transient states
 `enforcement failed; unenforced model simulated`.
 Comparison scans identify their source run and its scan band, independently of the requested scan band.
+
+The output root also contains `pscad_options_cross_cable.csv` and its LaTeX table.
+They place the cables side by side, with each scenario's settings and a default row for every study.
+The transformation comparison uses 2000 Hz as the default for FD-Mode and J. Marti.
+
+Core RMS and signed core peak errors use the NLT core peak at the line's far end as scale.
+Sheath error uses the largest absolute peak difference across sheaths at the far end.
+The scale is the largest sheath peak in the NLT reference for that scenario.
+The table gives the ratio in percent.
+Variant identities keep repeated default settings distinct, and failed runs have blank measurements.
 
 ULM passivity rows give reports before and after enforcement, fit-error changes
 and the transient change against the unforced baseline.

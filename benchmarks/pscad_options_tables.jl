@@ -6,12 +6,14 @@ using Statistics: mean
 
 csv_cell(x) = "\"" * replace(x === nothing ? "" : string(x), '"' => "\"\"") * "\""
 tex_text(x) = replace(string(x), '\\' => raw"\textbackslash{}", '_' => raw"\_\allowbreak{}",
-    '%' => raw"\%", '&' => raw"\&", '#' => raw"\#", '$' => raw"\$", '{' => raw"\{", '}' => raw"\}")
+    '%' => raw"\%", '&' => raw"\&", '#' => raw"\#", '$' => raw"\$", '{' => raw"\{", '}' => raw"\}",
+    '=' => raw"=\allowbreak{}")
 tex_cell(::Nothing) = "{---}"
 tex_cell(x::AbstractFloat) = isfinite(x) ? "\\num[round-mode=figures,round-precision=3]{$x}" : "{" * tex_text(x) * "}"
 tex_cell(x) = tex_text(x)
 
-function write_tables(destination, name, rows, columns; caption, tex_columns = columns)
+function write_tables(destination, name, rows, columns; caption, tex_columns = columns,
+        tex_headers = tex_columns, tex_format = repeat("l", length(tex_columns)), tex_groups = [])
     open(joinpath(destination, name * ".csv"), "w") do io
         println(io, join(csv_cell.(columns), ','))
         for row in rows
@@ -20,9 +22,12 @@ function write_tables(destination, name, rows, columns; caption, tex_columns = c
     end
     open(joinpath(destination, name * ".tex"), "w") do io
         println(io, raw"\begingroup\tiny")
-        println(io, "\\begin{longtable}{", repeat("l", length(tex_columns)), "}")
+        println(io, "\\begin{longtable}{", tex_format, "}")
         println(io, "\\caption{", tex_text(caption), raw"}\\\toprule")
-        println(io, join(tex_text.(tex_columns), " & "), raw"\\\midrule\endhead")
+        if !isempty(tex_groups)
+            println(io, join(["\\multicolumn{$count}{c}{$(tex_text(label))}" for (label, count) in tex_groups], " & "), "\\\\")
+        end
+        println(io, join(tex_text.(tex_headers), " & "), raw"\\\midrule\endhead")
         for row in rows
             println(io, join([tex_cell(get(row, key, nothing)) for key in tex_columns], " & "), "\\\\")
         end
@@ -96,6 +101,13 @@ function transient_metrics(response, reference; tmax = last(reference.times))
             metrics["$(label)_peak_relative_error"] = iszero(target) ? nothing : (peak - target) / target
         end
     end
+    sheaths = findall(label -> endswith(label, ":sheath"), response.labels)
+    reference_peaks = [maximum(abs, reference.values[2, terminal, :]) for terminal in sheaths]
+    sheath_scale = maximum(reference_peaks; init = 0.0)
+    sheath_error = maximum((abs(maximum(abs, response.values[2, terminal, :]) - target)
+        for (terminal, target) in zip(sheaths, reference_peaks)); init = 0.0)
+    metrics["reference_receiving_sheath_peak_scale_kV"] = sheath_scale / 1000
+    metrics["receiving_sheath_scaled_peak_error_percent"] = iszero(sheath_scale) ? nothing : 100sheath_error / sheath_scale
     metrics["growth_ratio_flag"] = any(row["growth_ratio_flag"] for row in growth)
     metrics["growth_flag"] = any(row["growth_flag"] for row in growth)
     metrics["maximum_late_peak_relative_to_scale"] = maximum(row["late_peak_relative_to_scale"] for row in growth)
@@ -119,7 +131,7 @@ function spectral_limit(scenario)
 end
 
 # Convert native report data to this table schema.
-function fit_report_columns(reports; fitting_band)
+function fit_report_columns(reports; fitting_band, fit)
     fit_index = findfirst(report -> report.reports.fitting !== nothing, reports)
     scan_index = findfirst(report -> report.scan !== nothing, reports)
     enforcement_index = findfirst(report -> report.enforcement !== nothing, reports)
@@ -135,7 +147,26 @@ function fit_report_columns(reports; fitting_band)
         (band = nothing, ranges = nothing, smallest_eigenvalue = nothing, outcome = nothing, report = nothing))
     enforcement = something(enforcement_index === nothing ? nothing : reports[enforcement_index].enforcement,
         (ranges = nothing, smallest_eigenvalue = nothing, outcome = nothing, report = nothing,
-            initial_smallest_eigenvalue = nothing, final_smallest_eigenvalue = nothing, maximum_abs_error_percent = nothing))
+            initial_smallest_eigenvalue = nothing, final_smallest_eigenvalue = nothing, maximum_abs_error_percent = nothing,
+            iterations = nothing, initial_samples = nothing))
+    iterations = something(enforcement.iterations, [])
+    main_iterations = unique(row.main for row in iterations if row.main !== nothing)
+    last_table = findlast(row -> !isempty(row.eigenvalues), iterations)
+    final_samples = last_table === nothing ? enforcement.initial_samples : iterations[last_table]
+    last_minimum, last_frequency = if final_samples === nothing || isempty(final_samples.eigenvalues)
+        nothing, nothing
+    else
+        index = argmin(final_samples.eigenvalues)
+        final_samples.eigenvalues[index], final_samples.frequencies[index]
+    end
+    outcome = enforcement.outcome
+    if outcome === nothing && get(fit, "CPASS", 0) == 2
+        outcome = "no outcome reported"
+        if length(main_iterations) == get(fit, "MIT_PE", nothing) &&
+                last_minimum !== nothing && haskey(fit, "ET_PE") && last_minimum < -fit["ET_PE"]
+            outcome = "iteration limit reached, violation remaining"
+        end
+    end
     data = Dict{String, Any}(key => something(value, "not found") for (key, value) in (
         "Yc_max_error_percent" => yc_before.maximum_error_percent,
         "Yc_after_dc_max_error_percent" => yc_after.maximum_error_percent,
@@ -159,7 +190,9 @@ function fit_report_columns(reports; fitting_band)
         "enforcement_report" => enforcement.report,
         "enforcement_violation_ranges" => nothing,
         "enforcement_smallest_eigenvalue" => enforcement.smallest_eigenvalue,
-        "enforcement_outcome" => enforcement.outcome,
+        "enforcement_outcome" => outcome,
+        "enforcement_main_iterations" => (enforcement.iterations === nothing ? nothing : length(main_iterations)),
+        "enforcement_last_reported_minimum_frequency_Hz" => last_frequency,
         "enforcement_initial_smallest_eigenvalue" => enforcement.initial_smallest_eigenvalue,
         "enforcement_final_smallest_eigenvalue" => enforcement.final_smallest_eigenvalue,
         "enforcement_last_reported_smallest_eigenvalue" => enforcement.final_smallest_eigenvalue,
@@ -183,12 +216,81 @@ function fit_report_columns(reports; fitting_band)
     return data
 end
 
+# Align the variant identities across cables. Absolute time steps depend on each cable's travel time.
+function cross_cable_tables(output, rows, settings)
+    cables = sort(unique(row["cable"] for row in rows))
+    fields = filter(!=("step_seconds"), settings)
+    defaults = Dict{Tuple{String, String, String}, Dict{String, Any}}()
+    for row in rows
+        model = get(row, "model", row["backend"])
+        if string(row["study"]) == "baseline" || (string(row["study"]) == "transformation" &&
+                get(row, row["backend"] == "pscad" ? "FT" : "frequency", nothing) == 2000)
+            defaults[(row["cable"], row["scenario"], model)] = row
+        end
+    end
+    comparisons = Dict{NTuple{4, String}, Dict{String, Any}}()
+    configurations = Dict{NTuple{4, String}, Any}()
+    for row in rows
+        study, scenario = string(row["study"]), row["scenario"]
+        model = get(row, "model", row["backend"])
+        baseline = get(defaults, (row["cable"], scenario, model), nothing)
+        candidates = baseline === nothing || study == "baseline" ? (row,) : (baseline, row)
+        for candidate in candidates
+            key = (study, scenario, model, candidate["run"])
+            configuration = Dict(field => candidate[field] for field in fields if haskey(candidate, field))
+            if haskey(configurations, key)
+                configurations[key] == configuration || error("Option settings differ across cables: $key")
+            else
+                configurations[key] = configuration
+            end
+            comparison = get!(comparisons, key) do
+                changed = baseline === nothing ? collect(fields) :
+                    [field for field in fields if get(candidate, field, nothing) != get(baseline, field, nothing)]
+                is_default = baseline !== nothing && candidate["run"] == baseline["run"]
+                setting = join(["$field=$(candidate[field])" for field in changed if haskey(candidate, field)], "; ")
+                Dict{String, Any}("study" => study, "scenario" => scenario, "model" => model,
+                    "run" => candidate["run"], "index" => candidate["index"],
+                    "divisor" => get(candidate, "divisor", 0), "interp" => get(candidate, "interp", ""),
+                    "setting_role" => is_default ? "default" : isempty(setting) ? "default repeat" : "varied",
+                    "setting" => isempty(setting) ? (is_default ? "default" : "default (repeat)") : setting)
+            end
+            prefix = row["cable"] * "_"
+            comparison[prefix * "status"] = candidate["status"]
+            for (column, metric, factor) in (("core_rms_percent", "receiving_core_scaled_rms", 100),
+                    ("core_peak_error_percent", "receiving_core_peak_relative_error", 100),
+                    ("sheath_scaled_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", 1))
+                value = get(candidate, metric, nothing)
+                comparison[prefix * column] = value === nothing ? nothing : factor * value
+            end
+        end
+    end
+    compared = sort(collect(values(comparisons)); by = row ->
+        (row["study"], row["scenario"], row["model"], row["setting_role"] != "default", row["index"], row["divisor"], row["interp"]))
+    identity = ["scenario", "study", "model", "setting"]
+    measurements = [cable * "_" * metric for cable in cables
+        for metric in ("core_rms_percent", "core_peak_error_percent", "sheath_scaled_peak_error_percent")]
+    columns = vcat(identity, ["run", "index", "divisor", "interp", "setting_role"],
+        [cable * "_status" for cable in cables], measurements)
+    headers = vcat(identity, repeat(["RMS (%)", "peak (%)", "sheath (%)"], length(cables)))
+    groups = [("", 4); [(replace(cable, "cable_" => "", "_dc_bipole" => "", "kv" => " kV", "_" => " "), 3) for cable in cables]]
+    widths = vcat(["p{1cm}", "p{1.6cm}", "p{0.65cm}", "p{1.8cm}"], fill("p{1.25cm}", length(measurements)))
+    format = "@{}" * join(widths, raw"@{\hspace{1.5pt}}") * "@{}"
+    write_tables(output, "pscad_options_cross_cable", compared, columns;
+        caption = "Option effects across cables. Default rows repeat each study's reference configuration; variant identities keep repeated settings distinct. Core RMS and signed peak errors use the NLT core peak. Sheath error is the worst absolute peak difference divided by the largest NLT receiving sheath peak. All errors are percent. Blank measurements indicate an incomplete or failed run.",
+        tex_columns = vcat(identity, measurements), tex_headers = headers, tex_format = format, tex_groups = groups)
+    return compared
+end
+
 if abspath(PROGRAM_FILE) == abspath(@__FILE__)
     length(ARGS) >= 2 || error("Usage: julia --project=test benchmarks/pscad_options_tables.jl <run folders>... <output folder>")
     folders = abspath.(ARGS[1:end-1])
     output = mkpath(abspath(last(ARGS)))
     summaries = [TOML.parsefile(joinpath(folder, "pscad_options.toml")) for folder in folders]
     final_status(status) = status in ("completed", "line_constants_error", "nonfinite_response", "execution_error", "julia_error")
+    all_rows = Dict{String, Any}[]
+    settings = ["FS", "FE", "Numf", "YMaxP", "AMaxP", "YMaxE", "AMaxE", "MaxRPtol", "CPASS",
+        "ET_PE", "MER_PE", "MIT_PE", "FSP", "FEP", "NFP", "FDIS", "Interp1", "FT",
+        "lower", "density", "order", "max_ratio", "enforce", "frequency", "interp", "divisor", "step_seconds"]
     for cable in unique(summary["cable"] for summary in summaries)
         selected = Dict{String, Dict{String, Any}}()
         attempts = Dict{String, Any}[]
@@ -239,7 +341,7 @@ if abspath(PROGRAM_FILE) == abspath(@__FILE__)
             paths = unique(vcat(filter(isfile, paths), local_paths))
             fit = row["exported_fit"]
             diagnostics = fit_report_columns(read_pscad_fit_report.(paths);
-                fitting_band = (fit["FS"], fit["FE"]))
+                fitting_band = (fit["FS"], fit["FE"]), fit)
             log_cache[name] = merge(Dict("run" => name, "source" => row["source"], "paths" => paths), diagnostics)
         end
         reference_cache = Dict{String, Any}()
@@ -355,11 +457,15 @@ if abspath(PROGRAM_FILE) == abspath(@__FILE__)
                 if comparison !== nothing
                     # Compare both voltage and current at all terminals and times.
                     row["enforcement_transient_identical"] = isequal(response, baseline)
-                    failed = occursin(r"(?i)failed", row["enforcement_outcome"])
+                    failed = occursin(r"(?i)failed", row["enforcement_outcome"]) ||
+                        row["enforcement_outcome"] == "iteration limit reached, violation remaining"
                     if failed && row["enforcement_transient_identical"]
                         row["enforcement_simulation"] = "enforcement failed; unenforced model simulated"
                     elseif failed
                         row["enforcement_simulation"] = "enforcement failed; transient differs from matching scan run"
+                    else
+                        row["enforcement_simulation"] = row["enforcement_transient_identical"] ?
+                            "transient identical to matching scan run" : "transient differs from matching scan run"
                     end
                 end
             end
@@ -384,11 +490,9 @@ if abspath(PROGRAM_FILE) == abspath(@__FILE__)
             push!(rows, row)
         end
         identity = ["run", "backend", "scenario", "study", "status"]
-        settings = ["FS", "FE", "Numf", "YMaxP", "AMaxP", "YMaxE", "AMaxE", "MaxRPtol", "CPASS",
-            "ET_PE", "MER_PE", "MIT_PE", "FSP", "FEP", "NFP", "FDIS", "Interp1", "FT",
-            "lower", "density", "order", "max_ratio", "enforce", "frequency", "interp", "divisor", "step_seconds"]
         metrics = ["receiving_core_scaled_rms", "receiving_core_scaled_peak", "receiving_core_peak_kV", "receiving_core_peak_error_kV",
             "arrival_time_us", "growth_flag", "maximum_late_peak_relative_to_scale", "poles_beyond_content", "maximum_residue_pole_ratio"]
+        append!(all_rows, rows)
         columns = unique(vcat(identity, settings, metrics, sort(unique([key for row in rows for key in keys(row)]))))
         write_tables(destination, "pscad_options", rows, columns;
             caption = "Option effects against exact NLT at matching sample times. Errors use the NLT receiving core peak.",
@@ -413,8 +517,10 @@ if abspath(PROGRAM_FILE) == abspath(@__FILE__)
             caption = "Fitted pole frequencies are magnitudes divided by two pi. Spectral limits use the pulse's 99 percent source energy or the step's resolved NLT band.")
         write_tables(destination, "pscad_options_logs", log_rows,
             unique(vcat(["run", "source", "paths"], sort(unique([k for row in log_rows for k in keys(row)])))) ;
-            caption = "Native Tline fit and passivity reports. Missing headings remain not found.",
-            tex_columns = ["run", "Yc_max_error_percent", "H_max_error_percent", "H_rms_error_percent", "maximum_residue_pole_ratio", "scan_outcome", "enforcement_outcome"])
+            caption = "Native Tline fit and passivity reports. An absent enforcement outcome is inferred only from the iteration limit and the last reported violation.",
+            tex_columns = ["run", "Yc_max_error_percent", "H_max_error_percent", "H_rms_error_percent", "maximum_residue_pole_ratio", "scan_outcome", "enforcement_outcome", "enforcement_main_iterations",
+                "enforcement_last_reported_smallest_eigenvalue", "enforcement_last_reported_minimum_frequency_Hz",
+                "enforcement_transient_identical"])
         write_tables(destination, "pscad_options_sources", attempts, ["run", "source", "status", "message", "exception_type"];
             caption = "All supplied attempts. Latest final outcomes take precedence over exports.")
         open(joinpath(destination, "pscad_options_log_reports.toml"), "w") do io
@@ -444,4 +550,6 @@ if abspath(PROGRAM_FILE) == abspath(@__FILE__)
             caption = "Growth flags before and after the amplitude condition, on the same completed runs.")
         println("Option tables: ", destination, " (", length(rows), " runs)")
     end
+    compared = cross_cable_tables(output, all_rows, settings)
+    println("Cross-cable option table: ", joinpath(output, "pscad_options_cross_cable.csv"), " (", length(compared), " rows)")
 end
