@@ -1,7 +1,10 @@
 # The preservation locks record counts per key in `preservation.toml`. Each table
 # declares its direction. `[inferred]` is a floor, and `[jet]` and `[allocations]` are
-# ceilings. A check fails when a live count passes its limit. It also fails when the
-# live count improves on the table, so that the table records the current state.
+# ceilings. A check fails when a live count passes its limit. The `[inferred]` and `[jet]`
+# checks also fail when the live count improves on the table, so that the table records
+# the current state. An `[allocations]` row that falls passes, and the check lists it for
+# the end of a track, which records the table again.
+#
 # Allocation counts may differ from the table by their allowance, and recorded bytes fail
 # only on increases beyond their margin. The measured ceilings hold for the Julia
 # version and the `Manifest.toml` recorded in `[environment]`. Across commits,
@@ -29,6 +32,14 @@
     end
 
     report(lines) = (foreach(println, lines); lines)
+
+    # The fallen allocation rows in one line, their count and then the rows. They pass,
+    # and the end of a track records them again.
+    function report_fallen(rows)
+        isempty(rows) || @info string("Fallen allocation rows, ", length(rows), ": ",
+            join(rows, "; "))
+        return rows
+    end
 
     # The environment of the measured tables: the Julia version and the committed
     # `Manifest.toml`, which the CI quality job instantiates.
@@ -187,8 +198,9 @@ end
         Dict{String, Int}(measured["allowances"]), measured["derivative"]["bytes"])
     # A row above its ceiling allocates more.
     @test P.report(result.broken) == String[]
-    # A row whose counts fell lowers its ceiling, and re-records its bytes, in the same change.
-    @test P.report(result.stale) == String[]
+    # A row whose counts fell passes. The item lists it, and the end of the track records
+    # its counts and bytes again.
+    P.report_fallen(result.stale)
 end
 
 @testitem "Quality / preservation / negative controls" tags=[:quality] setup=[PreservationLocks] begin
@@ -325,6 +337,12 @@ end
         ["s | 2 frequencies | bytes: 1513 (recorded 1000 + 512)"]
     @test compare(11, 1000).broken == ["s | 2 frequencies | allocations: 11 (recorded 10 ± 0)"]
     @test compare(9, 1000).stale == ["s | 2 frequencies | allocations: 9 (recorded 10 ± 0)"]
+    # A risen row fails, as above. A fallen row passes, and the item lists it in one line.
+    @test compare(9, 1000).broken == String[]
+    @test_logs (:info, "Fallen allocation rows, 1: " *
+        "s | 2 frequencies | allocations: 9 (recorded 10 ± 0)") P.report_fallen(
+        compare(9, 1000).stale)
+    @test_logs P.report_fallen(compare(10, 1000).stale)
     # A scenario that the allowances do not list compares exactly.
     @test P.compare_allocations(row(11, 1000), recorded, Dict{String, Int}(), derivative).broken ==
         ["s | 2 frequencies | allocations: 11 (recorded 10 ± 0)"]

@@ -1,7 +1,9 @@
 # Preservation locks, checked by `test/quality/preservation.jl`. Each table declares
 # its direction: a floor may only rise and a ceiling may only fall, which
 # `test/tools/baseline_ratchet.jl REF` checks across commits. The quality checks
-# require the counts to equal the live counts, within the tolerance of [allocations].
+# require the [inferred] and [jet] counts to equal the live counts. An [allocations] row
+# fails only when its live count rises beyond its tolerance. The end of a track records
+# again the rows that fell.
 
 # The measured ceilings ([jet], [allocations]) hold for this Julia version and the
 # committed `Manifest.toml` with this SHA-256 only. An increase in them is accepted only

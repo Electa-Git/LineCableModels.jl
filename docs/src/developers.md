@@ -308,9 +308,13 @@ A refactor keeps type stability, allocations, speed and results. Quality checks 
 local tools protect them. `test/quality/preservation.toml` records the counts
 of the quality checks. Each table declares its direction in `[directions]`. The
 `@inferred` table is a floor, which may only rise. The JET and allocation tables are
-ceilings, which may only fall. A quality check fails when a count passes its limit. It
-also fails when a count improves on the table, so the table always records the current
-state. A change that improves a count updates the table in the same commit.
+ceilings, which may only fall.
+
+A quality check fails when a count passes its limit. The `@inferred` and JET tables
+always record the current state: their checks also fail when a count improves on the
+table. A change that improves one of their counts
+updates the table in the same commit. An allocation row whose count falls passes. The
+check lists the fallen rows in one line, and the end of a track records them again.
 `test/tools/baseline_ratchet.jl` rejects a lowered floor or a raised ceiling against
 the earlier revision.
 
@@ -360,6 +364,13 @@ a request to record the tables again. A dependency update records both tables ag
 the same change as the new `Manifest.toml`, with the counts of
 `test/tools/allocations.jl` and of the JET check. A JET or allocation ceiling may rise only in a change that also changes
 `[environment]`.
+
+`julia --startup-file=no test/tools/displacement.jl REF` prints the private definitions
+and types added and removed since `REF`, the net lines of `src` and `ext`, and the
+`absence` ceilings.
+`julia --project=test --startup-file=no test/tools/latency.jl` prints the first-call
+times of a scalar computation, of the chained modal computation after it and of a
+product space, each sequence in a new process.
 
 The local tools compare the working tree with a git revision `REF`. Each checks out
 `REF` in a temporary git worktree. That test environment starts from the repository
