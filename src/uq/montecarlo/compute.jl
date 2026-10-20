@@ -64,9 +64,10 @@ end
 function _sample_shunt_model(value::Union{Engine.LineParameters,Engine.CableConstants})
     model=get(details(value).data,:shunt_model,nothing)
     model===nothing && return ComputationDetails()
-    return ComputationDetails(; shunt_model=(requested=model.requested,
+    return ComputationDetails(NamedTuple{(:shunt_model,),Tuple{NamedTuple}}(((
+        requested=model.requested,
         domains=[(design=d.design,terminals=collect(d.terminals),reason=d.reason)
-            for d in model.domains]))
+            for d in model.domains]),)))
 end
 
 function _aggregate(
@@ -381,9 +382,10 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             @info "Monte Carlo aggregation completed" _group=:progress accepted trials=ntrials attempts rejected=length(failures) aggregation_seconds=(now-aggregation_started)*1e-9 elapsed_seconds=(now-started)*1e-9
         end
     end
-    # The trials computed with `formulation.inner` and completed it. The completed record
-    # includes the equivalent earth that each earth formula consumed.
-    completion = details(first_result).data[(:formulations, :selections, :formulation_fields)]
+    # The trials computed with `formulation.inner`. The record of the first one holds that
+    # formulation and the choices its point made, such as the equivalent earth of each earth
+    # formula.
+    completion = details(first_result).data[(:formulation, :choices)]
     # Capture the nominal physical declaration once after successful sampling. A Monte
     # Carlo builder need not accept first-order numbers.
     declaration = realize(Random.Xoshiro(0), point, (_rng, mean, _sigma) -> mean)
@@ -394,7 +396,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             uncertainty = (estimator = :empirical, representation = :marginal_mean_std),
             uncertainty_descriptions = _uncertainty_descriptions(MonteCarlo))))
     return merge(aggregate, (; representation, trials = ntrials, seed,
-        details = retained_details, timing = trial_timings, completion))
+        details = retained_details, timing = trial_timings))
 end
 
 # Record the pilot result in `buffers`, then draw and record further trials until the study

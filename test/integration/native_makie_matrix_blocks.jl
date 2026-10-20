@@ -102,8 +102,7 @@ end
     source_id = LineCableModels.Commons.gridpoint_id().source_id
     completed = [LineCableModels.Engine.retain_gridpoint(reference,
         LineCableModels.Commons.gridpoint_id(;source_id,formulation_index=index);
-        fields=merge(LineCableModels.Engine.completed_formulation(formula),
-            (inputs=(resistivity=100.,),)))
+        fields=(formulation=formula,choices=(),inputs=(resistivity=100.,)))
         for (index,formula) in enumerate(records)]
     result = ParametricResult(nothing,completed,
         (problems=[:one],formulations=records), ComputationDetails((;)))

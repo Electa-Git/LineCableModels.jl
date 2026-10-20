@@ -193,7 +193,7 @@ end
 
 @testitem "Makie / public conveniences re-express retained display units" tags=[:visual, :makie, :slow] begin
     using CairoMakie, Measurements
-    using LineCableModels.Engine: retain_gridpoint,completed_formulation,compare
+    using LineCableModels.Engine: retain_gridpoint,compare
     using LineCableModels.Commons: gridpoint_id,observation_product
     using LineCableModels.ReportBuilder: ReportArtifact,BenchmarkTableDefinition
     U=LineCableModels.Units
@@ -202,7 +202,7 @@ end
     z=reshape(complex.(1.:12.,21.:32.),2,2,3)
     f=[10.,100.,1000.]
     point(index;values=z,frequency=f)=retain_gridpoint(LineParameters(copy(values),values.*1e-6,frequency; line_length=1.0),
-        gridpoint_id(;source_id,problem_index=index,formulation_index=index);fields=completed_formulation(Formulation()))
+        gridpoint_id(;source_id,problem_index=index,formulation_index=index);fields=(formulation=Formulation(),choices=()))
     a,b=point(1),point(2;values=2z)
     reference=point(3;values=.5z)
     request=@observe R[:,:,:]

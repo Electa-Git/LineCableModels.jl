@@ -48,18 +48,26 @@ end
 
 @testitem "ImportExport / saved results keep their types and values" tags=[:unit, :importexport] setup=[TestFixtures, SavedResults] begin
     using Serialization
+    using LineCableModels.Engine: completed_formulation
     problem = CableConstantsProblem(TestFixtures.coaxial_design())
     constants = compute(problem, CableConstantsFormulation())
     precise = setprecision(BigFloat, 384) do
         LineParameters(fill(complex(parse(BigFloat, "1.234567890123456789012345678901"), 2), 1, 1, 2),
             fill(complex(BigFloat(3), 4), 1, 1, 2), BigFloat[1, 2]; line_length=1.0)
     end
-    for result in (constants, precise)
+    parameters = compute(TestFixtures.line_parameters_problem(frequencies = [50.0, 1e3]),
+        Formulation())
+    for result in (constants, precise, parameters)
         mktempdir() do directory
             path = save(result, joinpath(directory, "result.jls"))
             @test isabspath(path) && isfile(path)
             restored = setprecision(() -> import_data(path, :result), BigFloat, 128)
             @test SavedResults.same(restored, result)
+            # A loaded result describes its formulation as the live result does.
+            @test isequal(completed_formulation(details(restored)),
+                completed_formulation(details(result)))
+            @test LineCableModels.Commons.observation_labels([ObservedResult(restored)]) ==
+                  LineCableModels.Commons.observation_labels([ObservedResult(result)])
         end
     end
     restored = setprecision(() -> SavedResults.round_trip(precise), BigFloat, 128)

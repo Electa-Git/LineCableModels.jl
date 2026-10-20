@@ -365,7 +365,6 @@ function _line_parameters(
     end
     details = ComputationDetails(;
         files,
-        formulations = formulation_record(formulation),
         fem = (
         run = record,
         inputs,

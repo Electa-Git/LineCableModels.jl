@@ -5,15 +5,20 @@
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition,tabulate
     source_id=gridpoint_id().source_id
     base=LineParameters(fill(1.0+2im,1,1,3),fill(3.0+4im,1,1,3),[1.,10.,100.]; line_length=1.0)
-    function point(problem,formula;rho=100.,control=20.,value=base)
+    # The second formulation differs from the first in an admittance formula only, the third
+    # in an explicit control of both earth formulas.
+    formulations=(Formulation(),Formulation(earth_admittance=:ideal),
+        Formulation(earth_impedance=formula(:unified;options=(Γ=0,)),
+            earth_admittance=formula(:unified;options=(Γ=0,))))
+    function point(problem,formula;rho=100.,value=base)
         retain_gridpoint(value,gridpoint_id(;source_id,problem_index=problem,formulation_index=formula);
             fields=(inputs=(radius=.01,earth_resistivity=rho),
-                selections=(Z=((:internal,:fixture,(accuracy=control,)),),Y=((:shunt,Symbol("formula",formula),(;)),))))
+                formulation=formulations[formula],choices=()))
     end
     first_point=point(1,1)
     irrelevant=point(1,2)
     different_input=point(2,1;rho=200.)
-    different_control=point(1,3;control=30.)
+    different_control=point(1,3)
     observed=observables([first_point,irrelevant,different_input,different_control])
     groups=observation_groups(observed;request=R)
     @test getproperty.(groups,:members)==[[1,2],[3],[4]]

@@ -153,7 +153,7 @@ include("textdisplay.jl")
 include("modalanalysis/ModalAnalysis.jl")
 using .ModalAnalysis: ModalAnalysis
 
-public completion_details, completed_inputs, completed_formulation, retain_gridpoint
+public completed_inputs, completed_formulation, retain_gridpoint
 public selectdetails
 public SpectralIntegral, integrate
 public AirVoltageSpectrum, earth_spectral_term, earth_spectral_value,

@@ -13,7 +13,7 @@ observation_assumptions(::Union{SeriesImpedance,ShuntAdmittance},selector) = not
 function observation_assumptions(source::AbstractCoreResult,selector)
     family=_primary_family(selector)
     family===nothing && return nothing
-    return get(get(details(source).data,:selections,(;)),Symbol(nameof(family)),nothing)
+    return get(completed_formulation(details(source)).selections,Symbol(nameof(family)),nothing)
 end
 _primary_key(identity) = identity isa Function ? nameof(identity) :
     first(identity) in (Z,Y) && any(in((abs,angle)),Base.tail(identity)) ?

@@ -296,14 +296,14 @@ function _pscad_result(problem, formulation, options, inputs, native; batch_reus
     batch_reuse && (execution=merge(execution, (reused=true,)))
     retained = (files = deepcopy(native.files),
         native_terminal_order = copy(inputs.native_order), requested_frequencies = copy(problem.frequencies),
-        formulations = computation_details(formulation).data, native_setting = inputs.setting,
+        native_setting = inputs.setting,
         base_frequency = formulation.options.data.base_frequency, loss_tangent_limit = 10.0,
         aerial_shunt_conductance = 1e-38, native_readback = deepcopy(native.native_readback),
         native_frequencies = copy(details(native.parameters).data.native_frequencies),
         dielectric_losses = deepcopy(inputs.dielectric_losses), exported_project = inputs.project,
         execution = deepcopy(execution))
     return LineParameters(parameters.domain, parameters.Z, parameters.Y, parameters.f,
-        parameters.terminals, parameters.line_length, Engine.completion_details(retained))
+        parameters.terminals, parameters.line_length, ComputationDetails(retained))
 end
 
 """
@@ -357,7 +357,6 @@ function compute(resolved::Resolved{<:LineParametersProblem}, formulation::PSCAD
     value = _pscad_result(problem, formulation, execution, input.inputs, native;
         batch_reuse = reused)
     return Engine.retain_gridpoint(value, gridpoint_id();
-        fields = merge(Engine.completed_formulation(formulation),
-            (inputs = input.physical_inputs,)))
+        fields = (formulation = formulation, choices = (), inputs = input.physical_inputs))
 end
 

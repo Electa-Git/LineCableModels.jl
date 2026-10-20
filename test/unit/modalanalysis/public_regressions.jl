@@ -30,11 +30,11 @@ end
         details=ComputationDetails((inputs=(system=(line_length=10.0,),),)))
     point=details(base).data.gridpoint
     first_phase=E.retain_gridpoint(base,point;
-        fields=E.completed_formulation(Formulation()))
+        fields=(formulation=Formulation(),choices=()))
     second_phase=E.retain_gridpoint(base,point;
-        fields=E.completed_formulation(Formulation(earth_impedance=:unified)))
+        fields=(formulation=Formulation(earth_impedance=:unified),choices=()))
     distinct_phase=E.retain_gridpoint(base,point;
-        fields=E.completed_formulation(Formulation(earth_impedance=:carson1926)))
+        fields=(formulation=Formulation(earth_impedance=:carson1926),choices=()))
     first_segment=PropagationParameters(compute(ModalAnalysisProblem(first_phase),
         ModalAnalysisFormulation(:default)))
     second_segment=PropagationParameters(compute(ModalAnalysisProblem(second_phase),
@@ -69,7 +69,7 @@ end
     primary_labels=G.observation_labels([primary,primary_alternate];request=E.R)
     @test primary_labels[1]!=primary_labels[2]
     @test any(label -> occursin("max_iterations",label),primary_labels)
-    descriptions=details(first_segment.parameters).data.formulation_fields
+    descriptions=E.completed_formulation(details(first_segment.parameters)).formulation_fields
     @test descriptions.all==descriptions.Z==descriptions.Y
     @test descriptions.all !== descriptions.Z && descriptions.all !== descriptions.Y &&
         descriptions.Z !== descriptions.Y
@@ -88,7 +88,7 @@ end
         compared;reference=ObservedResult(reference,(E.R,E.X)))
     @test size(only(artifact.tables.features).absolute,1)==2
     admittance_cases=[E.retain_gridpoint(base,point;
-        fields=E.completed_formulation(Formulation(earth_admittance=selection)))
+        fields=(formulation=Formulation(earth_admittance=selection),choices=()))
         for selection in (:unified,:ideal)]
     phase_admittance=[ObservedResult(phase,(E.R,E.X)) for phase in admittance_cases]
     @test only(unique(G.observation_labels(phase_admittance;request=E.R))) isa String
@@ -144,7 +144,7 @@ end
     y=reshape(ComplexF64[1e-6im],1,1,1)
     base=LineParameters(z,y,[50.0]; line_length=1.0)
     phase=E.retain_gridpoint(base,details(base).data.gridpoint;
-        fields=E.completed_formulation(Formulation()))
+        fields=(formulation=Formulation(),choices=()))
     first_modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(ScaleModal(1.0)))
     second_modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(ScaleModal(2.0)))
     @test Tv(first_modal)!=Tv(second_modal)
@@ -152,7 +152,7 @@ end
     second=ObservedResult(second_modal,((Tv,abs),E.R,E.X);complete_pairs=true)
     @test length(G.observation_groups([first,second];request=(Tv,abs)))==2
     @test first.quantities[1].assumptions!=second.quantities[1].assumptions
-    fields=details(first_modal).data.formulation_fields.all
+    fields=E.completed_formulation(details(first_modal)).formulation_fields.all
     modal_field=only(filter(field -> field.meaning==(:transformation,),fields))
     @test modal_field.value=="Basis scale 1.0"
     @test any(control -> control.scope==(:parameters,:scale),modal_field.control_fields)

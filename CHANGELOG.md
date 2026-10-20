@@ -405,6 +405,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `CableConstants(R, L, C, G; terminal = "1", frequency = 50)` builds one assembly.
 - `compare` and the uncertainty comparisons refuse a reference and a result with different
   terminals.
+- The record of a computed result contains the formulation that its point used,
+  `details(result).data.formulation`, and the choices that the point made,
+  `details(result).data.choices`. A coaxial point records its earth plan as its choices,
+  and a modal point records the record of its source. The other backends record `()`.
+  `Engine.completed_formulation(details(result))` gives the formulations, the selections and
+  their descriptions as data when it is called, for a live or a loaded result alike. No
+  description is built while computing.
 - The integrand of a `SpectralIntegral` is a `Function`.
 - `Region(tag::Symbol, primitive, material)` takes an `AbstractPrimitive` or `Shell` and an
   `AbstractMaterial`.

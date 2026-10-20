@@ -5,8 +5,7 @@ function compute(problem::ParametricProblem, formulation::LinearError)
         options = (retain_details = formulation.options.data.retain_details,))
     traversed = traverse(Grid(problem.space), inner; options = problem.options)
     values = map(traversed.values) do value
-        id = get(Commons.observation_gridpoint(value), :id, nothing)
-        Engine.retain_gridpoint(value, id;
+        Engine.retain_gridpoint(value;
             fields = (
                 uncertainty = (
                     estimator = :first_order, representation = :dependency_preserving),

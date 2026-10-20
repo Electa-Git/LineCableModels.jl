@@ -1,4 +1,5 @@
 @testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration, :pscad] setup=[FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e7,2.3,1,20,-0.003;tan_delta=0.025)
     function cable_with(metal, passive)
@@ -28,7 +29,7 @@
     @test !isempty(declaration.seen)
     @test actual.Z.values ≈ reference.Z.values rtol=2e-13
     @test actual.Y.values ≈ reference.Y.values rtol=2e-13
-    @test details(actual).data.formulations.formulas.temperature_dependence.identifier === :ScaledResistivity
+    @test completed_formulation(details(actual)).formulations.formulas.temperature_dependence.identifier === :ScaledResistivity
     grid = Formulation(temperature_dependence=Grid((declaration,nothing)),
         insulation_admittance=:lossy,options=selected.options)
     results = compute(problem,grid)

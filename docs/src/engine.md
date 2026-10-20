@@ -1529,12 +1529,21 @@ The restored observations can be reported or plotted without original sources.
 
 
 
-Scalar computation selections are retained in `details(result).data.formulations`.
-Its `requested` and `formulas` fields hold complete requested and resolved records,
-including physical parameters and numerical controls. Formula identifiers are available
+The record of a computed result contains the formulation that its point used,
+`details(result).data.formulation`, and the choices that the point made,
+`details(result).data.choices`. A coaxial point records its earth plan as its choices,
+and a modal point records the record of its source. The other backends record `()`.
+`Engine.completed_formulation(details(result))` reads them as data when it is called. Its
+`formulations` field is the declaration `record`, whose `requested` and `formulas` fields
+hold complete requested and resolved records, including physical parameters and numerical
+controls. Its `selections` field holds the formula identifiers of each quantity, and its
+`formulation_fields` field describes each selection and its controls. No description is
+built while computing. Saving a result keeps its formulation as a value, and the loaded
+result reads as the live one does. Formula identifiers are available
 as `record.requested.earth_admittance.identifier` (or through the corresponding
 `air`, `earth`, `mixed` leaf). Resolved identities are under `formulas`. A leaf's
-`equivalent_earth` field contains its reduction choice and order. Realized local
+`equivalent_earth` field contains the reduction that its calculation consumed, explicit or
+chosen by the earth plan, and its order. Realized local
 shunt outcomes remain in `details(result).data.shunt_model`.
 Optional `trace` contains detached evaluation data. Reports use the recorded
 formulation selections and voltage references to describe each result.

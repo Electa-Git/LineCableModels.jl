@@ -105,6 +105,7 @@ end
 end
 
 @testitem "Quality / user-owned shunt and pipe selections reach the shunt stage and compute" tags=[:quality] setup=[TestFixtures,FormulaFixtures,ModalFormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     M=FormulaFixtures
     shunt=M.UserCoaxialShunt()
     selected=Formulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe())
@@ -113,8 +114,8 @@ end
     expected=compute(problem,Formulation())
     @test Z(actual)==Z(expected) && Y(actual)==Y(expected)
     @test shunt.response_count[]==length(problem.system.designs)
-    @test details(actual).data.formulations.formulas.shunt_model.identifier === :UserCoaxialShunt
-    @test details(actual).data.formulations.formulas.pipe_impedance.identifier === :UserCoaxialPipe
+    @test completed_formulation(details(actual)).formulations.formulas.shunt_model.identifier === :UserCoaxialShunt
+    @test completed_formulation(details(actual)).formulations.formulas.pipe_impedance.identifier === :UserCoaxialPipe
     constants=CableConstantsProblem(first(problem.system.designs);frequency=50.0)
     @test compute(constants,CableConstantsFormulation(shunt_model=shunt,pipe_impedance=M.UserCoaxialPipe()))==
         compute(constants,CableConstantsFormulation())

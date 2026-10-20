@@ -151,7 +151,7 @@ end
 
 @testitem "Makie addons / automatic difference labels and chromatic result prefix" tags=[:visual, :makie, :slow] begin
     using CairoMakie
-    using LineCableModels.Engine: retain_gridpoint,completed_formulation
+    using LineCableModels.Engine: retain_gridpoint
     using LineCableModels.Commons: gridpoint_id,observation_labels
     ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
@@ -163,7 +163,7 @@ end
         inputs=(rho=rho,radius=.0425,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),radius=(name="radius",unit="m")))
         retain_gridpoint(LineParameters(copy(z),z.*1e-6,[1.,10.,100.]; line_length=1.0),
             gridpoint_id(;source_id,problem_index=problem,formulation_index=index);
-            fields=merge(completed_formulation(formulation),(inputs=inputs,)))
+            fields=(formulation=formulation,choices=(),inputs=inputs))
     end
     a=point(analytical,1)
     # Synthetic numerical fixture retains a FEM identity. No FEM solve is claimed.

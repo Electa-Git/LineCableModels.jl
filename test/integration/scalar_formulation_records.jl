@@ -1,4 +1,5 @@
 @testitem "ReportBuilder / scalar results retain physical and native formula choices" tags=[:integration, :importexport, :slow] setup=[FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     using LinearAlgebra, Serialization
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     copper=Material(MaterialsLibrary(add_defaults = true), :copper)
@@ -15,7 +16,7 @@
     @test norm(Y(results[1])-Y(results[2]))/norm(Y(results[1])) > 0.1
     @test typeof(results[1]) === typeof(results[2])
     for (result, selection, beta) in zip(results, choices, coefficients)
-        record=details(result).data.formulations
+        record=completed_formulation(details(result)).formulations
         @test record.requested == NamedTuple(selection).requested
         @test record.formulas == NamedTuple(selection).formulas
         @test record.requested.earth_properties.parameters.beta === beta
@@ -41,9 +42,9 @@
     selected=Formulation(earth_properties = custom)
     changed=compute(problem, selected)
     @test !isempty(custom.seen)
-    @test details(changed).data.formulations.requested.earth_properties==NamedTuple(custom)
-    @test details(changed).data.formulations.formulas.earth_properties==NamedTuple(custom)
-    @test details(changed).data.formulations.formulas.earth_properties.identifier === :DispersiveEarth
+    @test completed_formulation(details(changed)).formulations.requested.earth_properties==NamedTuple(custom)
+    @test completed_formulation(details(changed)).formulations.formulas.earth_properties==NamedTuple(custom)
+    @test completed_formulation(details(changed)).formulations.formulas.earth_properties.identifier === :DispersiveEarth
     @test typeof(changed) === typeof(results[1])
     grid=Formulation(
         earth_properties = Grid([c.definitions.earth_properties for c in choices]);
@@ -54,6 +55,8 @@
     for i in 1:2
         @test Z(batch[i]) == Z(results[i])
         @test Y(batch[i]) == Y(results[i])
-        @test details(batch[i]).data.formulations == details(results[i]).data.formulations
+        @test details(batch[i]).data.inputs == details(results[i]).data.inputs
+        @test details(batch[i]).data.formulation == details(results[i]).data.formulation
+        @test isequal(completed_formulation(details(batch[i])), completed_formulation(details(results[i])))
     end
 end

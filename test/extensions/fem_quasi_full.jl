@@ -22,6 +22,7 @@ end
     :extension, :integration, :fem_numerical,
     :fem,
     :slow] begin
+    using LineCableModels.Engine: completed_formulation
     using LineCableModels, Gmsh, LinearAlgebra, JSON3
     FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     @test formulation_options(LineCableModelsFEM, FormulationOptions()).data.physics ===
@@ -62,7 +63,7 @@ end
     @test fw.details.data.fem.run.factorized_columns == 1
     @test length(fw.details.data.fem.run.map_paths) == 24
     @test length(tem.details.data.fem.run.map_paths) == 18
-    @test occursin("Coupled", fw.details.data.formulations.assumptions.admittance)
+    @test occursin("Coupled", completed_formulation(fw.details).formulations.assumptions.admittance)
     path = fw.details.data.fem.run.run_directory
     @test isfile(joinpath(path, "raw/jobs/getdp-f0001-b0001-Pscalar.tsv"))
     @test isfile(joinpath(path, "input/paths-f0001.pro"))

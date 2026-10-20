@@ -342,9 +342,9 @@ end
 function Engine.observation_assumptions(
         source::Union{_ModalLineParameters,PropagationParameters},selector)
     retained=details(source).data
-    upstream=get(retained,:selections,nothing)
+    upstream=Engine.completed_formulation(details(source)).selections
     modal=get(retained,:modal,nothing)
-    return upstream===nothing || modal===nothing ? nothing :
+    return isempty(upstream) || modal===nothing ? nothing :
         (upstream=(Z=get(upstream,:Z,nothing),Y=get(upstream,:Y,nothing)),
          modal=get(modal,:effective,nothing),rotate=get(modal,:rotate,nothing))
 end

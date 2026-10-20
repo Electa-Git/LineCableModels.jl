@@ -88,7 +88,7 @@ struct LineParameters{
             Basis
     }
         retained=haskey(details.data,:gridpoint) ? details :
-            completion_details(merge(details.data,(gridpoint=Commons.gridpoint_id(),)))
+            ComputationDetails(merge(details.data,(gridpoint=Commons.gridpoint_id(),)))
         return validate(new{T, U, D, Basis}(
             Z,
             Y,

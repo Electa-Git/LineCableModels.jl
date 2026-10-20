@@ -122,7 +122,8 @@
     @test haskey(filtered[2].panel_legends,(3,2))
     @test !haskey(filtered[1].panel_legends,(3,2))
     @test lines(filtered[1].axes[1])[1].color[]==lines(filtered[2].axes[1])[1].color[]
-    assumptions=(selections=(Z=((:series,:given,(;)),),Y=((:shunt,:given,(;)),)),
+    assumptions=(formulation=ModalAnalysisFormulation(:default),
+        choices=ComputationDetails((formulation=Formulation(),choices=())),
         modal=(effective=(method=:default,),))
     equivalent=[observables(PropagationParameters(E.retain_gridpoint(modal,
         G.gridpoint_id(;source_id,problem_index=1,formulation_index=index);

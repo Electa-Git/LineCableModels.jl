@@ -1,4 +1,5 @@
 @testitem "PSCAD / matrix coordinates and complete native reuse keys" tags=[:integration, :measurements, :slow] begin
+    using LineCableModels.Engine: completed_formulation
     using TOML, SHA, Measurements
     const P = LineCableModels.PSCAD
     const launches = Ref(0)
@@ -83,7 +84,7 @@
         @test Y(batch[1]) == Y(batch[2]) && Y(batch[1]) !== Y(batch[2])
         @test details(batch[1]).data.gridpoint.source_id == details(batch[2]).data.gridpoint.source_id
         @test [details(result).data.gridpoint.formulation_index for result in batch] == [1,2]
-        @test details(batch[2]).data.formulations.requested.earth_impedance.identifier === :pollaczek1926
+        @test completed_formulation(details(batch[2])).formulations.requested.earth_impedance.identifier === :pollaczek1926
         near = [Formulation(:pscad;options=(base_frequency=f,)) for f in (50.000001,50.000002)]
         project_inputs = [P._pscad_inputs(permuted,f,P._pscad_blueprints(permuted.system)) for f in near]
         @test project_inputs[1].project == project_inputs[2].project

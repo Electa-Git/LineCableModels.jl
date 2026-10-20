@@ -1,5 +1,6 @@
 @testitem "Gmsh FEM / constitutive selection, evaluated state and rejection" tags=[:extension, :fem] setup=[FormulaFixtures] begin
     using Gmsh, Measurements
+    using LineCableModels.Engine: completed_formulation
     const FEM = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     const FD = LineCableModels.Earth.FrequencyDependent
     const TD = LineCableModels.Materials.TemperatureDependent
@@ -32,10 +33,10 @@
         @test model.mesh_plans[index].domain_radius ≈ max(5.0,
             2sqrt(earth.rho/(pi*f*earth.mu_r*4pi*1e-7)))
     end
-    record = FEM.formulation_record(formulation)
+    record = completed_formulation(formulation, ()).formulations
     @test record.requested == NamedTuple(formulation).requested
     @test record.formulas.temperature_dependence == NamedTuple(temperature_law)
-    @test typeof(record) === typeof(FEM.formulation_record(LineCableModelsFEM()))
+    @test typeof(record) === typeof(completed_formulation(LineCableModelsFEM(), ()).formulations)
 
     @test record.formulas.temperature_dependence.identifier === :ExponentialResistivity
     @test record.formulas.temperature_dependence.parameters.scale==1000.0

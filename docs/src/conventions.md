@@ -169,10 +169,10 @@ completed numerical result + completed comparisons + recorded timings
 ```
 
 The result owner implements `observation_quantity` and declares its requests.
-`Commons.observation_gridpoint` reads the description captured in completed result
-storage. Completion captures actual physical inputs, formulation selections and
-controls, coordinates, and original point identity. Basic descriptions are always
-retained. Observation and presentation never reconstruct a problem from lazy axes.
+`Commons.observation_gridpoint` reads the description of a completed result from its
+record. Completion records the actual physical inputs, the formulation and the choices of
+the point, and the original point identity. The formulation selections and controls are
+described when the record is read. Basic descriptions are always retained. Observation and presentation never reconstruct a problem from lazy axes.
 
 The complete primary pairs are R/X, magnitude and angle of Z, or R/L for Z, and G/B,
 magnitude and angle of Y, or G/C for Y. Defaults are R/X and G/B. The strict constructor

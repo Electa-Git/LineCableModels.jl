@@ -96,10 +96,10 @@ function _finish(
         SeriesImpedance{eltype(impedance), Units.PerUnitLength}(impedance),
         ShuntAdmittance{eltype(admittance), Units.PerUnitLength}(admittance),
         workspace.input.freq, terminals, workspace.input.line_length,
-        completion_details(merge(retained.data,
-            completed_formulation(formulation, workspace),
-            NamedTuple{(:inputs,:gridpoint),Tuple{NamedTuple,NamedTuple}}(
-                (physical_inputs,gridpoint)))))
+        ComputationDetails(merge(retained.data,
+            NamedTuple{(:formulation,:choices,:inputs,:gridpoint),
+                Tuple{LineParametersFormulation,EarthPlan,NamedTuple,NamedTuple}}(
+                (formulation,workspace.plan.earth,physical_inputs,gridpoint)))))
     completed = LineParameters(result, basis)
     all(isfinite, completed.Z.values) || throw(DomainError(completed.Z.values,
         "completed series impedance must contain only finite entries"))

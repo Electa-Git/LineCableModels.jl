@@ -2,6 +2,7 @@
     UseEngineSupport,
     TestFixtures, FormulaFixtures
 ] begin
+    using LineCableModels.Engine: completed_formulation
     function same_parameters(left, right)
         same_domain=if domain(left)===ModalDomain
             details(left).data.modal.identifier==details(right).data.modal.identifier&&
@@ -15,8 +16,12 @@
                left.Z.values==right.Z.values&&
                left.Y.values==right.Y.values&&
                left.f==right.f&&
-               Base.structdiff(left.details.data,(gridpoint=left.details.data.gridpoint,))==Base.structdiff(right.details.data,(gridpoint=right.details.data.gridpoint,))
+               record(left)==record(right)&&
+               isequal(completed_formulation(details(left)),completed_formulation(details(right)))
     end
+    # The record's other entries compare as data. Its formulation and the choices of its
+    # point compare through what they describe.
+    record(result)=Base.structdiff(result.details.data,NamedTuple{(:gridpoint,:formulation,:choices)})
 
     system=TestFixtures.three_phase_system()
     earth=Grid((

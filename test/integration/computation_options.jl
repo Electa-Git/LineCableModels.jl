@@ -20,6 +20,7 @@
 end
 
 @testitem "Execution options / callbacks and output basis survive all traversal paths" tags=[:integration, :measurements] setup=[TestFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     using Measurements
     problem = TestFixtures.line_parameters_problem()
     inner = Formulation()
@@ -28,7 +29,7 @@ end
     callback = function (problem, index, result)
         @test basis(result) === LineCableModels.Units.TotalLength()
         @test length(result.terminals) == size(result.Z, 1)
-        @test details(result).data.formulations.formulas.earth_impedance.identifier === :unified
+        @test completed_formulation(details(result)).formulations.formulas.earth_impedance.identifier === :unified
         push!(calls, index)
     end
     options = (output_basis=:total, on_result=callback)
@@ -73,7 +74,7 @@ end
     ordinary = TestFixtures.three_bare_wires_problem(frequencies=[50.])
     failed_callback = function (_, index, result)
         push!(calls, index)
-        @test haskey(details(result).data, :formulations)
+        @test haskey(details(result).data, :formulation)
         @test haskey(details(result).data, :timing)
         error("injected callback failure")
     end

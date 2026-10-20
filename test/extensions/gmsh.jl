@@ -1188,6 +1188,7 @@ end
     :fem,
     :slow
 ] begin
+    using LineCableModels.Engine: completed_formulation
     using LineCableModels
     using Gmsh
     using SHA
@@ -1244,10 +1245,10 @@ end
             files = details(batch[index]).data.files
             @test any(file -> file.path == "run.json", files)
             @test all(file -> bytes2hex(open(sha256, file.source)) == file.sha256, files)
-            soil = batch[index].details.data.formulations.formulas.earth_properties
+            soil = completed_formulation(batch[index].details).formulations.formulas.earth_properties
             @test soil === nothing ? selected[index].formulas.earth_properties === nothing :
                   soil.identifier === formula_id(selected[index].formulas.earth_properties)
-            @test keys(batch[index].details.data.formulations.formulas) == keys(selected[index].formulas)
+            @test keys(completed_formulation(batch[index].details).formulations.formulas) == keys(selected[index].formulas)
             @test details(batch).data.points[index] == details(batch[index])
         end
         default_indices = findall(
@@ -1347,7 +1348,7 @@ end
             options = (;formulation_controls..., trace = true, resume_run_directory = run_directory))
         @test repeated.Z.values == result.Z.values
         @test repeated.Y.values == result.Y.values
-        @test repeated.details.data.formulations.formulas.earth_properties === nothing
+        @test completed_formulation(repeated.details).formulations.formulas.earth_properties === nothing
         @test repeated.details.data.fem.run.run_directory == run_directory
         @test repeated.details.data.fem.run.reused
         @test isempty(repeated.details.data.fem.run.durations)

@@ -1,6 +1,6 @@
 @testitem "Makie addons / completed overlays preserve matrices, identities and exports" tags=[:visual, :makie, :slow] begin
     using CairoMakie
-    using LineCableModels.Engine: retain_gridpoint, completed_formulation
+    using LineCableModels.Engine: retain_gridpoint
     using LineCableModels.Commons: gridpoint_id, observation_labels
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f=[1.,10.,100.]
@@ -11,7 +11,7 @@
         Formulation(earth_impedance=:xue2018,earth_admittance=:xue2018)]
     points=[retain_gridpoint(LineParameters(k*z,k*y,f; terminals=["a","b"], line_length=1.0),
         gridpoint_id(;source_id,formulation_index=index);
-        fields=merge(completed_formulation(choices[index]),(inputs=(radius=.01,resistivity=100.),)))
+        fields=(formulation=choices[index],choices=(),inputs=(radius=.01,resistivity=100.)))
         for (index,k) in enumerate((2,3))]
     reference=LineParameters(z,y,f; terminals=["a","b"], line_length=1.0)
     results=ParametricResult(nothing,points,(problems=[:unavailable],formulations=choices),ComputationDetails())
@@ -84,13 +84,13 @@ end
 
 @testitem "Makie addons / grouping retains independent uncertainty interpretations" tags=[:visual, :makie, :slow] begin
     using CairoMakie,Measurements
-    using LineCableModels.Engine: retain_gridpoint,completed_formulation
+    using LineCableModels.Engine: retain_gridpoint
     using LineCableModels.Commons: gridpoint_id,observation_groups
     source_id=gridpoint_id().source_id
     shared=measurement(1.,.1)
     values=(shared,shared,measurement(1.,.1),measurement(1.,.4))
     points=[retain_gridpoint(LineParameters(fill(complex(value,2value),1,1,3),fill(1e-6im,1,1,3),[1.,10.,100.]; line_length=1.0),
-        gridpoint_id(;source_id,formulation_index=index);fields=completed_formulation(Formulation()))
+        gridpoint_id(;source_id,formulation_index=index);fields=(formulation=Formulation(),choices=()))
         for (index,value) in enumerate(values)]
     observed=observables(points)
     groups=observation_groups(observed;request=R)
@@ -104,7 +104,7 @@ end
 
 @testitem "Makie addons / quantity assumptions share report and plot grouping" tags=[:visual, :makie, :slow] begin
     using CairoMakie
-    using LineCableModels.Engine: retain_gridpoint,completed_formulation
+    using LineCableModels.Engine: retain_gridpoint
     using LineCableModels.Commons: gridpoint_id,observation_groups
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     source_id=gridpoint_id().source_id
@@ -113,7 +113,7 @@ end
     f=[1.,50.,1e3,1e7]
     base=LineParameters(fill(1.0+2im,1,1,4),fill(3e-6+4e-6im,1,1,4),f; line_length=1.0)
     points=[retain_gridpoint(base,gridpoint_id(;source_id,formulation_index=index);
-        fields=merge(completed_formulation(choice),(inputs=(radius=.01,resistivity=100.),)))
+        fields=(formulation=choice,choices=(),inputs=(radius=.01,resistivity=100.)))
         for (index,choice) in enumerate(choices)]
     artifact=report(BenchmarkTableDefinition(),(reference=LineParameters(Z(base),Y(base),f; line_length=1.0),result=points))
     for (request,count) in ((R,5),(X,5),(G,3),(B,3))
@@ -133,7 +133,7 @@ end
     physical=Formulation(internal_impedance=:default,
         earth_impedance=(air=:default,earth=:pollaczek1926,mixed=:default),
         earth_admittance=(air=:default,earth=:default,mixed=:default))
-    observed=ObservedResult(retain_gridpoint(base,gridpoint_id();fields=completed_formulation(physical)))
+    observed=ObservedResult(retain_gridpoint(base,gridpoint_id();fields=(formulation=physical,choices=())))
     for (request,labels) in ((R,("internal Z=Schelkunoff","earth Z(air)=Unified",
         "earth Z(earth)=Pollaczek","earth Z(mixed)=Unified")),
         (B,("earth Y(air)=Unified","earth Y(earth)=Unified","earth Y(mixed)=Unified")))

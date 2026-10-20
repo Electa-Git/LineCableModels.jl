@@ -1,4 +1,5 @@
 @testitem "Analytical selections / explicit earth reduction preserves formula and indexed geometry" tags=[:unit, :parametric] begin
+    using LineCableModels.Engine: completed_formulation
     const EP = LineCableModels.Earth
     copper = Material(:conductor, 1.72e-8, 1.0)
     design = build(CableDesign, "explicit-reduction", terminal(:core,
@@ -20,9 +21,9 @@
                 earth_admittance = admittance_id))
             @test Z(reduced) ≈ Z(direct) rtol = 1e-10
             @test Y(reduced) ≈ Y(direct) rtol = 1e-10
-            @test details(reduced).data.formulations.formulas.earth_impedance.identifier ===
+            @test completed_formulation(details(reduced)).formulations.formulas.earth_impedance.identifier ===
                 (identifier === :default ? :unified : identifier)
-            @test details(reduced).data.formulations.formulas.earth_admittance.identifier ===
+            @test completed_formulation(details(reduced)).formulations.formulas.earth_admittance.identifier ===
                 (admittance_id === :default ? :unified : admittance_id)
             @test length(original.earth_props.layers) == 3
             @test original.earth_props === earth

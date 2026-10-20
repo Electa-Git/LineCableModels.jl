@@ -26,7 +26,6 @@ using LineCableModels: LineCableModelsFEM, LineCableModelsFEMError,
                        SeriesImpedance, ShuntAdmittance, PhaseDomain
 
 include("model.jl")
-include("formulations.jl")
 include("geometry.jl")
 include("mesh.jl")
 include("onelab.jl")

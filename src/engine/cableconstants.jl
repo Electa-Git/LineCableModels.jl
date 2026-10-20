@@ -56,7 +56,7 @@ struct CableConstants{T <: Real} <: AbstractCoreResult
             "cable constants must be finite"
         ))
         retained=haskey(details.data,:gridpoint) ? details :
-            completion_details(merge(details.data,(gridpoint=Commons.gridpoint_id(),)))
+            ComputationDetails(merge(details.data,(gridpoint=Commons.gridpoint_id(),)))
         return new{T}(terminals, R, L, C, G, frequency, retained)
     end
 end
@@ -554,10 +554,9 @@ function _solve!(
         buffers.C,
         buffers.G,
         problem.frequency,
-        ComputationDetails(NamedTuple{
-            (:formulations,:selections,:formulation_fields,:shunt_model,:inputs,:gridpoint),
-            NTuple{6,NamedTuple}}((values(completed_formulation(formulation))...,
-            workspace.plan.shunt.details,physical_inputs,gridpoint)))
+        ComputationDetails(NamedTuple{(:formulation,:choices,:shunt_model,:inputs,:gridpoint),
+            Tuple{CableConstantsFormulation,Tuple{},NamedTuple,NamedTuple,NamedTuple}}((
+            formulation,(),workspace.plan.shunt.details,physical_inputs,gridpoint)))
     )
 end
 

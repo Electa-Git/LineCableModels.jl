@@ -706,17 +706,14 @@ function _compute_fem(resolved::Commons.Resolved, formulation::LineCableModelsFE
         # Results remain independently mutable and each request keeps its own
         # selection record. The shared run record identifies the actual solve.
         retained = deepcopy(source.details.data)
-        retained = merge(retained, (formulations = formulation_record(formulation),
-            fem=merge(retained.fem, (run=merge(retained.fem.run, (reused=true,)),))))
+        retained = merge(retained,
+            (fem=merge(retained.fem, (run=merge(retained.fem.run, (reused=true,)),)),))
         LineParameters(PhaseDomain(),
             SeriesImpedance(copy(source.Z.values); basis = Engine.basis(source)),
             ShuntAdmittance(copy(source.Y.values); basis = Engine.basis(source)),
             copy(source.f), copy(source.terminals), source.line_length,
-            Engine.completion_details(retained))
+            ComputationDetails(retained))
     end
-    completion = Engine.completed_formulation(formulation)
     return Engine.retain_gridpoint(value, Commons.gridpoint_id();
-        fields = merge(completion, (
-            formulations = merge(formulation_record(formulation), completion.formulations),
-            inputs = input.physical_inputs)))
+        fields = (formulation = formulation, choices = (), inputs = input.physical_inputs))
 end

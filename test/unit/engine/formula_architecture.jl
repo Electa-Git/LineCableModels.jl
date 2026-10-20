@@ -113,6 +113,7 @@ end
 end
 
 @testitem "Engine / a layered earth formula is never reduced without an explicit reduction" tags=[:unit, :engine, :slow] setup=[FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     const M=FormulaFixtures
     const EP=M.EP
     const EH=M.EH
@@ -125,8 +126,8 @@ end
     three=build(EP.EarthModel, (
         EP.EarthLayer(100.0, 10.0, 1.0, 0.5), EP.EarthLayer(200.0, 20.0, 1.0)))
     problem=LineParametersProblem(system; earth_props = three, frequencies = [50.0])
-    recorded(result, slot)=getproperty(details(result).data.formulations.formulas, slot).equivalent_earth
-    requested(result, slot)=get(getproperty(details(result).data.formulations.requested, slot),
+    recorded(result, slot)=getproperty(completed_formulation(details(result)).formulations.formulas, slot).equivalent_earth
+    requested(result, slot)=get(getproperty(completed_formulation(details(result)).formulations.requested, slot),
         :equivalent_earth, nothing)
     potential=M.selection(M.EA)
     # The layered fixture sees all three media, as do a formula with typed runtime arguments
@@ -223,6 +224,7 @@ end
 end
 
 @testitem "Engine / indexed finite-layer methods determine admission and ordered assembly" tags=[:unit, :engine, :slow] setup=[FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     using LinearAlgebra
     const M=FormulaFixtures
     const E=M.E
@@ -308,9 +310,9 @@ end
         @test all(record -> length(record[7]) == 3, M.calls)
         @test Set(record[5] for record in M.calls) == Set(((2, 2), (2, 3), (3, 2), (3, 3)))
         @test length(fd_calls) == (order === :before ? 11 : 2)
-        @test details(value).data.formulations.formulas.earth_impedance.equivalent_earth ===
+        @test completed_formulation(details(value)).formulations.formulas.earth_impedance.equivalent_earth ===
               nothing
-        @test details(value).data.formulations.formulas.earth_admittance.equivalent_earth.order ===
+        @test completed_formulation(details(value)).formulations.formulas.earth_admittance.equivalent_earth.order ===
               order
     end
     @test (EI.formulas(EI.Formula), EA.formulas(EA.Formula)) === inventories
@@ -487,6 +489,7 @@ end
 
 @testitem "Engine / material laws and numerical options do not change physical routing" tags=[:unit, :parametric] setup=[
     TestFixtures, FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     const E=LineCableModels.Engine
     base=TestFixtures.line_parameters_problem(frequencies = [50.0, 1e5])
     fd=FormulaFixtures.DispersiveEarth(exponent = 0)
@@ -504,7 +507,7 @@ end
     @test changed.Z.values ≈ expected.Z.values rtol=1e-10
     @test changed.Y.values ≈ expected.Y.values rtol=1e-10
     @test Set(record[2] for record in fd.seen)==Set(base.frequencies)
-    @test details(changed).data.formulations.formulas.earth_properties.identifier ===
+    @test completed_formulation(details(changed)).formulations.formulas.earth_properties.identifier ===
           :DispersiveEarth
     reference=compute(base)
     for rtol in (1e-7, 1e-9)
@@ -518,7 +521,7 @@ end
                         method = :quad, options = (; rtol)),))))
         @test result.Z.values ≈ reference.Z.values rtol=3e-6
         @test result.Y.values ≈ reference.Y.values rtol=3e-6
-        controls=details(result).data.formulations.formulas.earth_impedance.options.integration
+        controls=completed_formulation(details(result)).formulations.formulas.earth_impedance.options.integration
         @test controls.method === :quad
         @test controls.options.rtol === rtol
     end

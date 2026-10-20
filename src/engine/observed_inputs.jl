@@ -50,13 +50,19 @@ function completed_inputs(problem::CableConstantsProblem)
         (temperature=(name="temperature",unit="°C"),frequency=(name="frequency",unit="Hz"))))
 end
 
-# Capture owner-scoped meanings and names while the selected objects exist.
-# Common-field omission later compares selections, never punctuation.
+# Common-field omission compares selections, never punctuation.
 """
 $(TYPEDSIGNATURES)
 
-Capture actual formulation selections, controls, and structured description
-fields when a result completes.
+Read `formulation`, declared as `declaration`, as data with these fields:
+
+- `formulations`: the declaration.
+- `selections`: the formula identifier of each quantity, `Z` and `Y`.
+- `formulation_fields`: the description of each selection and of its controls, for all
+  quantities (`all`) and for each quantity.
+
+A computed record contains the formulation, not these fields, and this method formats them
+when a reader calls it.
 """
 function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(formulation))
     function control_fields(owner, controls, path=())
@@ -110,21 +116,25 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Complete `formulation` as the line-parameter computation of `workspace` applied it. Each
-earth formula records the equivalent earth that its calculation in the plan consumed. A
+Read `formulation` as data, for a point whose choices are empty.
+"""
+completed_formulation(formulation, ::Tuple{}) = completed_formulation(formulation)
+
+"""
+$(TYPEDSIGNATURES)
+
+Read `formulation` as the line-parameter computation applied it on the earth plan `earth`.
+Each earth formula records the equivalent earth that its calculation in the plan consumed. A
 reduction that the plan resolved through `:default` appears as that formula's
 `equivalent_earth`, as an explicit one does. The requested selections remain as declared.
 """
-function completed_formulation(formulation::LineParametersFormulation,
-        workspace::LineParametersWorkspace)
+function completed_formulation(formulation::LineParametersFormulation, earth::EarthPlan)
     declaration = NamedTuple(formulation)
-    length(workspace.input.earth.layers) > 2 ||
-        return completed_formulation(formulation, declaration)
     slots = (:earth_impedance, :earth_admittance)
     # Each formula without an explicit `equivalent_earth` that the plan reduced, with the
     # reduction its calculation consumed.
     reduced = Pair[]
-    for calculation in workspace.plan.earth.calculations
+    for calculation in earth.calculations
         calculation.earth isa EarthModel && continue
         for entry in (calculation.impedance, calculation.admittance)
             entry === nothing || entry.formula.equivalent_earth !== nothing ||
@@ -143,25 +153,49 @@ function completed_formulation(formulation::LineParametersFormulation,
         typeof(declaration)((declaration.backend, declaration.requested, recorded, declaration.options)))
 end
 
-# Description contents and runtime geometry do not specialize the record's named tuple.
 """
 $(TYPEDSIGNATURES)
 
-Store a captured completion record. Each nested named tuple is held as `NamedTuple`, so the
-type of the record's named tuple follows its keys and leaf types, not runtime geometry or
-nested description contents.
+Read a FEM formulation as data, for a point whose choices are empty. Its declaration also
+states the field equations and the material assumptions of the FEM computation.
 """
-function completion_details(record::NamedTuple{names,T}) where {names,T}
-    types=map(value -> value isa NamedTuple ? NamedTuple : typeof(value),values(record))
-    return ComputationDetails(NamedTuple{names,Tuple{types...}}(values(record)))
+function completed_formulation(formulation::LineCableModelsFEM, ::Tuple{})
+    quasi_full = formulation.options.data.physics === Symbol("quasi-fw")
+    return completed_formulation(formulation, merge((
+        schema_version = 5,
+        assumptions = (
+            impedance = "Axial current-driven A_z/u_r finite-element equations",
+            admittance = quasi_full ?
+                "Coupled first-order Maxwell A_z/A_t/phi equations; axial current supplies normalized leakage; vertical path voltage includes A_t/Gamma; Y = inv(P)" :
+                "Scalar electrodynamic Helmholtz equation in surrounding media; equipotential terminals with unit transverse-current excitation; Y = inv(P)",
+            earth = "Horizontal air and one semi-infinite soil; soil constitutive properties evaluated at each frequency",
+            propagation = quasi_full ?
+                "Gamma -> 0 with A_t/Gamma and phi/Gamma retained; conduction and displacement; one coupled factorization" :
+                "Gamma = 0; medium diffusion and displacement retained; independent Z/P blocks in one factorization",
+            semicon_domain = "Passive material region, without electrical terminal ownership",
+            enclosure = "Supported enclosures are represented by their material and terminal domains"
+        )
+    ), NamedTuple(formulation)))
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Read the formulation that `record` holds, with the choices its point made, as data. A
+computed or loaded record holds the entries `formulation` and `choices`. A record without
+them, such as that of a result built from matrices, reads as no formulation.
+"""
+completed_formulation(record::ComputationDetails) = haskey(record.data, :formulation) ?
+    completed_formulation(record.data.formulation, record.data.choices) :
+    (formulations = nothing, selections = (;), formulation_fields = (;))
 
 function Commons.observation_gridpoint(source::Union{LineParameters,CableConstants})
     retained=details(source).data
     inputs=get(retained,:inputs,nothing)
+    completed=completed_formulation(details(source))
     return Commons.detach((id=get(retained,:gridpoint,nothing), inputs,
         source_gridpoint=get(retained,:source_gridpoint,nothing),
-        formulations=get(retained,:formulations,nothing),formulation_fields=get(retained,:formulation_fields,(;)),
+        formulations=completed.formulations,formulation_fields=completed.formulation_fields,
         coordinates=source.terminals,
         uncertainty=get(retained,:uncertainty,nothing),
         uncertainty_descriptions=get(retained,:uncertainty_descriptions,nothing),
@@ -194,11 +228,11 @@ Merge `fields` into the completion details of `source`. The gridpoint identity o
 is unchanged. Built-in results retain their numerical arrays and replace only completion details.
 """
 function retain_gridpoint(source::LineParameters; fields)
-    retained=completion_details(merge(details(source).data,fields))
+    retained=ComputationDetails(merge(details(source).data,fields))
     return LineParameters(source.domain,source.Z,source.Y,source.f,source.terminals,
         source.line_length,retained)
 end
 function retain_gridpoint(source::CableConstants; fields)
-    retained=completion_details(merge(details(source).data,fields))
+    retained=ComputationDetails(merge(details(source).data,fields))
     return CableConstants(source.terminals,source.R,source.L,source.C,source.G,source.frequency,retained)
 end

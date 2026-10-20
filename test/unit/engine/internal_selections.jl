@@ -1,4 +1,5 @@
 @testitem "Engine / one internal formula serves its surfaces through native dispatch" tags=[:unit, :uq, :slow] setup=[TestFixtures,FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     const II=LineCableModels.Engine.InternalImpedance
     const M=FormulaFixtures
     args=(0.008,0.01,1.7241e-8,1.,100.0im)
@@ -52,7 +53,7 @@
     @test local_default.R==local_explicit.R && local_default.L==local_explicit.L
     changed=compute(problem,Formulation(internal_impedance=M.SurfaceLaw(;coefficients)))
     @test Z(changed)!=Z(original) && Y(changed)==Y(original)
-    @test details(changed).data.formulations.formulas.internal_impedance.identifier === :SurfaceLaw
+    @test completed_formulation(details(changed)).formulations.formulas.internal_impedance.identifier === :SurfaceLaw
     formulations=Formulation(internal_impedance=Grid((formula(:default),custom));combine=:zip)
     @test length(formulations)==2
     @test collect(formulations)[2].formulas.internal_impedance === custom

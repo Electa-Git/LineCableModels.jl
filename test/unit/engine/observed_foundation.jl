@@ -44,6 +44,7 @@
 end
 
 @testitem "ObservedResult / declared inputs survive completion without tracing" tags=[:unit, :parametric] setup=[TestFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     using LineCableModels.Commons: observation_gridpoint,observation_labels
     problem=TestFixtures.line_parameters_problem()
     scalar=compute(problem)
@@ -53,7 +54,7 @@ end
     @test retained.inputs.system.line_length==600.0
     @test retained.inputs.system.designs[1].tree.items[1].member.items[1].primitive.r==0.005
     @test retained.id.problem_index==retained.id.formulation_index==1
-    @test retained.formulations==scalar.details.data.formulations
+    @test retained.formulations==completed_formulation(scalar.details).formulations
     calls=Ref(0)
     space=Gridspace{LineParametersProblem}(rho -> begin
         calls[]+=1

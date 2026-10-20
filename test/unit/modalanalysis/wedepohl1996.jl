@@ -136,7 +136,7 @@ end
     phase=LineParameters(
         cat(fill(impedance, 3)...; dims = 3), cat(fill(admittance, 3)...; dims = 3), f; line_length=1.0,
         details = ComputationDetails((
-            gridpoint = G.gridpoint_id(), selections = (Z = :example, Y = :example))))
+            gridpoint = G.gridpoint_id(), formulation = Formulation(), choices = ())))
     selected=ModalAnalysisFormulation(FixedOrientation(voltage, current, roots))
     rotated=@inferred compute(ModalAnalysisProblem(phase), selected)
     raw=compute(ModalAnalysisProblem(phase), selected; options = (rotate = false,))

@@ -1,4 +1,5 @@
 @testitem "Engine / homogeneous selections retain each indexed formula through assembly" tags=[:unit, :engine, :slow] setup=[FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     const E=LineCableModels.Engine
     # Manufactured potential coefficients isolate the selection-routing check.
     potential=FormulaFixtures.selection(E.EarthAdmittance)
@@ -31,9 +32,9 @@
         coefficient=11s+17t+3row+5column+problem.frequencies[k]/100+(row==column ? 101 : 0)
         @test details(custom).data.trace.Zg[row,column,k] ≈ scale*coefficient*(1e-4+1e-3im)
     end
-    @test map(value -> value.identifier, details(custom).data.formulations.formulas.earth_impedance)==
+    @test map(value -> value.identifier, completed_formulation(details(custom)).formulations.formulas.earth_impedance)==
         (air=:HalfSpaceImpedance,earth=:HalfSpaceImpedance,mixed=:HalfSpaceImpedance)
-    @test details(custom).data.formulations.requested.earth_impedance.earth.parameters.scale==2.0
+    @test completed_formulation(details(custom)).formulations.requested.earth_impedance.earth.parameters.scale==2.0
 
     # Partial Unified publication must still use the complete physical system.
     # The other entries come from the explicit manufactured equation above.
@@ -72,6 +73,7 @@
 end
 
 @testitem "Engine / scalar and homogeneous shorthand preserve numerical values and model selections" tags=[:unit, :parametric, :slow] setup=[TestFixtures, FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     const E=LineCableModels.Engine
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     scalar=compute(problem, Formulation())
@@ -102,7 +104,7 @@ end
     @test recipe.Z.values == single.Z.values && recipe.Y.values == single.Y.values
     for slot in (:earth_impedance, :earth_admittance)
         reductions=map(route -> route.equivalent_earth,
-            getproperty(details(recipe).data.formulations.formulas, slot))
+            getproperty(completed_formulation(details(recipe)).formulations.formulas, slot))
         @test keys(reductions) == (:air, :earth, :mixed)
         @test allequal(reductions) && first(reductions).rule.identifier === :bottommost
     end

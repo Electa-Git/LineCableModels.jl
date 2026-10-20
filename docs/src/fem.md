@@ -150,10 +150,10 @@ skin depth is unsupported. Equivalent homogeneous-earth reductions are rejected.
 An ordinary `EarthModel` supplied after an external reduction includes no history
 from which FEM could detect that prior approximation.
 
-Saved FEM formulation details contain the four consumed `selections`, their
-parameters and numerical options, alongside requested and resolved records.
-Custom selections retain their identities and data. Saved records never
-reconstruct executable methods.
+The record of a FEM result contains its formulation. `Engine.completed_formulation(details(result))`
+reads the four consumed selections, their parameters and numerical options, the requested
+and resolved records, and the field equations and material assumptions of the FEM
+computation. Custom selections retain their identities and data.
 The selected propagation approximation remains recorded separately.
 
 ## Field equations and matrix extraction

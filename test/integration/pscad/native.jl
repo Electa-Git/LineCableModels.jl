@@ -1,4 +1,5 @@
 @testitem "PSCAD / real station repair acceptance" tags=[:pscad_native, :integration, :makie] begin
+    using LineCableModels.Engine: completed_formulation
     using TOML, SHA, CairoMakie, LinearAlgebra
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     const P = LineCableModels.PSCAD
@@ -27,9 +28,9 @@
     @test details(first_result).data.execution.source_run != details(next_result).data.execution.source_run
     @test Z(first_result) == Z(next_result)
     @test Y(first_result) == Y(next_result)
-    @test details(first_result).data.formulations.formulas.earth_admittance.identifier === :ideal
-    @test details(first_result).data.formulations.formulas.internal_impedance.identifier === :wedepohl1973
-    @test map(value -> value.identifier, details(first_result).data.formulations.formulas.earth_impedance) ==
+    @test completed_formulation(details(first_result)).formulations.formulas.earth_admittance.identifier === :ideal
+    @test completed_formulation(details(first_result)).formulations.formulas.internal_impedance.identifier === :wedepohl1973
+    @test map(value -> value.identifier, completed_formulation(details(first_result)).formulations.formulas.earth_impedance) ==
         (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
     # Independent electrostatic reference: air images plus each wire's insulation.
     # Buried and mixed external coefficients are zero. Matrix output has 8-digit

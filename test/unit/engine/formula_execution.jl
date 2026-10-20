@@ -62,6 +62,7 @@ end
 end
 
 @testitem "Engine / prescribed propagation is a unified formulation option" tags=[:unit, :measurements, :slow] setup=[TestFixtures, SavedResults] begin
+    using LineCableModels.Engine: completed_formulation
     const E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
     options=(reduce_bundle = false, kron_reduction = false, ideal_transposition = false)
@@ -100,7 +101,7 @@ end
     @test any(>(0), uncertainty.(real.(Z(uncertain))))
     restored=SavedResults.round_trip(aligned)
     @test SavedResults.same(restored, aligned)
-    @test details(restored).data.formulations.formulas.earth_impedance.options.Γ ==
+    @test completed_formulation(details(restored)).formulations.formulas.earth_impedance.options.Γ ==
           fill(1e-4im, 2)
     prescribed=[1e-4im, 2e-4im]
     sweep=compute(problem, make(prescribed))
@@ -125,6 +126,7 @@ end
 
 @testitem "Engine / prescribed options are values that keep their uncertainty sources" tags=[:unit, :importexport] setup=[
     TestFixtures, FormulaFixtures, SavedResults] begin
+    using LineCableModels.Engine: completed_formulation
     using Measurements
     E=LineCableModels.Engine
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 500.0])
@@ -148,7 +150,7 @@ end
     for retained in (first_result, second_result, restored),
         family in (:earth_impedance, :earth_admittance)
 
-        data=details(retained).data.formulations
+        data=completed_formulation(details(retained)).formulations
         @test getproperty(data.formulas, family).options.Γ == original
         @test getproperty(data.requested, family).options.Γ == original
         @test Z(retained) == first_Z && Y(retained) == first_Y
@@ -161,6 +163,7 @@ end
 end
 
 @testitem "Engine / prescribed options govern coupled sharing without entering physical UQ" tags=[:unit, :measurements, :slow] setup=[TestFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     using Measurements
     E=LineCableModels.Engine
     prescribed=[1e-4+2e-4im, 3e-4-1e-4im]
@@ -199,7 +202,7 @@ end
     for trial in only(details(sampled).data.trials),
         family in (:earth_impedance, :earth_admittance)
 
-        @test getproperty(trial.data.formulations.formulas, family).options.Γ == prescribed
+        @test getproperty(completed_formulation(trial).formulations.formulas, family).options.Γ == prescribed
     end
     linear=compute(ParametricProblem(space), LinearError(selected))
     @test any(>(0), uncertainty.(real.(Z(first(linear)))))
@@ -387,6 +390,7 @@ end
 end
 
 @testitem "Engine / internal consumers request only their actual surface kinds" tags=[:unit, :parametric] setup=[FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     const II=LineCableModels.Engine.InternalImpedance
     selected=FormulaFixtures.SurfaceLaw(kinds = (:outer,))
     @test keys(II.surface_impedances(
@@ -404,7 +408,7 @@ end
     problem=LineParametersProblem(system; frequencies = [50.0], earth_props = homogeneous(rho = 100.0))
     result=compute(problem, Formulation(internal_impedance = selected))
     @test all(isfinite, result.Z.values)
-    @test keys(details(result).data.formulations.formulas.internal_impedance.options)==(:outer,)
+    @test keys(completed_formulation(details(result)).formulations.formulas.internal_impedance.options)==(:outer,)
     @test length(selected.state_inputs)==1
     @test only(selected.evaluations)[2] === Val(:outer)
 end

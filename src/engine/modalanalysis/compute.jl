@@ -150,37 +150,22 @@ function _dependent_roots(workspace::ModalAnalysisWorkspace)
     return roots
 end
 
-# Keep the completed record's outer key and type layout inferable even when an
-# upstream gridpoint or formula description is intentionally type-erased.
-@generated function _modal_detail_merge(record::NamedTuple{Names,Types},
-        extra::NamedTuple{ExtraNames,ExtraTypes}) where {Names,Types,ExtraNames,ExtraTypes}
-    retained=filter(name -> name ∉ ExtraNames &&
-        name ∉ (:timing,:comparison_unsupported),Names)
-    names=(retained...,ExtraNames...)
-    types=(map(name -> fieldtype(Types,findfirst(==(name),Names)),retained)...,
-        fieldtypes(ExtraTypes)...)
-    compact=map(type -> type<:NamedTuple ? NamedTuple : type,types)
-    output=NamedTuple{names,Tuple{compact...}}
-    entries=[:(getproperty(record,$(QuoteNode(name)))) for name in retained]
-    append!(entries,[:(getproperty(extra,$(QuoteNode(name)))) for name in ExtraNames])
-    return :(ComputationDetails($output(($(entries...),))))
-end
+"""
+$(TYPEDSIGNATURES)
 
-Base.@constprop :aggressive function _modal_completion(parameters, formulation, selected, diagnostics, execution)
-    source_record=parameters.details.data
-    source_fields=get(source_record,:formulation_fields,(;))
-    modal_descriptions=Engine.completed_formulation(formulation).formulation_fields.all
-    modal_descriptions=filter(field -> !isempty(field.meaning),modal_descriptions)
-    descriptions=vcat(get(source_fields,:all,NamedTuple[]),modal_descriptions)
-    fields=merge(source_fields,
-        (all=descriptions,Z=copy(descriptions),Y=copy(descriptions)))
-    added=NamedTuple{(:source_gridpoint,:modal,:formulation_fields),
-        Tuple{Any,NamedTuple,NamedTuple}}((
-         get(parameters.details.data, :gridpoint, nothing),
-         (identifier=formula_id(selected), requested=NamedTuple(formulation.definition),
-            effective=NamedTuple(selected), rotate=execution.data.rotate, diagnostics=diagnostics),
-         fields))
-    return _modal_detail_merge(source_record,added)
+Read the modal `formulation` that a point applied to the result whose record is `source`, as
+data. The formulations and selections are those of the source. The descriptions list the
+source's selections, then the modal transformation, for every quantity.
+"""
+function Engine.completed_formulation(formulation::ModalAnalysisFormulation,
+        source::ComputationDetails)
+    upstream=Engine.completed_formulation(source)
+    modal_descriptions=filter(field -> !isempty(field.meaning),
+        Engine.completed_formulation(formulation).formulation_fields.all)
+    descriptions=vcat(get(upstream.formulation_fields,:all,NamedTuple[]),modal_descriptions)
+    return (formulations=upstream.formulations,selections=upstream.selections,
+        formulation_fields=merge(upstream.formulation_fields,
+            (all=descriptions,Z=copy(descriptions),Y=copy(descriptions))))
 end
 
 """
@@ -208,7 +193,19 @@ function compute(
     all(isfinite, roots) || throw(DomainError(roots, "modal roots must be finite"))
     modal = ModalDomain(maps, roots)
     diagnostics = map(copy,workspace.diagnostics)
-    retained = _modal_completion(parameters, formulation, selected, diagnostics, execution)
+    # The record keeps the source's entries, except its timing, then adds the modal entries,
+    # among them the source's record as the choice of the modal formulation.
+    source = parameters.details
+    kept = filter(∉((:timing, :comparison_unsupported, :source_gridpoint, :modal, :formulation,
+        :choices)), keys(source.data))
+    retained = ComputationDetails(merge(NamedTuple{kept}(source.data),
+        NamedTuple{(:source_gridpoint, :modal, :formulation, :choices),
+            Tuple{Any, NamedTuple, ModalAnalysisFormulation, ComputationDetails}}((
+            get(source.data, :gridpoint, nothing),
+            (identifier=formula_id(selected), requested=NamedTuple(formulation.definition),
+                effective=NamedTuple(selected), rotate=execution.data.rotate,
+                diagnostics=diagnostics),
+            formulation, source))))
     return LineParameters(modal,
         SeriesImpedance{eltype(workspace.Zm),Basis}(copy(workspace.Zm)),
         ShuntAdmittance{eltype(workspace.Ym),Basis}(copy(workspace.Ym)),

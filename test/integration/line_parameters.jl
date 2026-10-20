@@ -3,6 +3,7 @@
     TestFixtures,
     TestNumerics
 ] begin
+    using LineCableModels.Engine: completed_formulation
     using LinearAlgebra
     using Logging: NullLogger, with_logger
 
@@ -20,8 +21,8 @@
         ModalAnalysisProblem(phase_parameters),
         ModalAnalysisFormulation(:default)
     )
-    @test details(parameters).data.formulations ===
-          details(phase_parameters).data.formulations
+    @test completed_formulation(details(parameters)).formulations ===
+          completed_formulation(details(phase_parameters)).formulations
 
     @test domain(parameters) === ModalDomain
     @test size(parameters.Z) == (3, 3, 2)

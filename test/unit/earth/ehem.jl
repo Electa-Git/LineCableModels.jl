@@ -1,5 +1,6 @@
 @testitem "Earth / explicit reduction and FrequencyDependent order through public compute" tags=[:unit, :parametric, :slow] setup=[
     TestFixtures, FormulaFixtures] begin
+    using LineCableModels.Engine: completed_formulation
     const E=LineCableModels.Engine
     const EP=LineCableModels.Earth
     system=TestFixtures.three_phase_system()
@@ -44,13 +45,13 @@
         @test all(record -> last(record) === workspace, law.seen)
         @test events == (order===:before ? repeat([:ehem, :fd], pairs) :
                vcat(fill(:fd, length(earth.layers)-1), fill(:ehem, pairs)))
-        @test details(result).data.formulations.formulas.earth_impedance.equivalent_earth.order ===
+        @test completed_formulation(details(result)).formulations.formulas.earth_impedance.equivalent_earth.order ===
               order
-        @test details(result).data.formulations.formulas.earth_admittance.equivalent_earth.order ===
+        @test completed_formulation(details(result)).formulations.formulas.earth_admittance.equivalent_earth.order ===
               order
-        @test details(result).data.formulations.formulas.earth_properties.identifier ===
+        @test completed_formulation(details(result)).formulations.formulas.earth_properties.identifier ===
               :DispersiveEarth
-        @test details(result).data.formulations.formulas.earth_impedance.equivalent_earth.rule.identifier ===
+        @test completed_formulation(details(result)).formulations.formulas.earth_impedance.equivalent_earth.rule.identifier ===
               :SquaredBottomEarth
     end
 end

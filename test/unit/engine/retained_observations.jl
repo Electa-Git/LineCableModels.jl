@@ -154,7 +154,7 @@ end
         declared=(soil=(rho=rho,field_descriptions=inputs.earth_props.layers[2].field_descriptions),
             conductor=(r=r,field_descriptions=radius.field_descriptions))
         ObservedResult(retain_gridpoint(value,gridpoint_id(;source_id,problem_index=index);
-            fields=merge(completed_formulation(selection),(inputs=declared,))))
+            fields=(formulation=selection,choices=(),inputs=declared)))
     end
     points=[point(1,100.,.005),point(2,200.,.01)]
     labels=observation_labels(points;request=R)

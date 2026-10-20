@@ -1,4 +1,5 @@
 @testitem "PSCAD / verified completed-run reuse" tags=[:integration, :pscad, :slow] begin
+    using LineCableModels.Engine: completed_formulation
     using LineCableModels
     using TOML, SHA, Logging
     const P=LineCableModels.PSCAD
@@ -100,7 +101,7 @@
         @test details(first_result).data.execution.compile_call_seconds == 3.25
         @test details(first_result).data.timing.wall_seconds >= 0
         @test !haskey(details(reused).data.execution, :elapsed_seconds)
-        @test details(reused).data.formulations.requested.earth_impedance.identifier === :pollaczek1926
+        @test completed_formulation(details(reused)).formulations.requested.earth_impedance.identifier === :pollaczek1926
         sample_log=Test.TestLogger()
         total=with_logger(sample_log) do
             compute(problem, Formulation(:pscad); options = (;
@@ -128,8 +129,8 @@
         @test all(record->record.level >= Logging.Warn, callback_log.logs)
         @test launches[] == 1
         @test callbacks == [1, 2]
-        @test details(batch[1]).data.formulations.requested.earth_impedance.identifier === :default
-        @test details(batch[2]).data.formulations.requested.earth_impedance.identifier === :pollaczek1926
+        @test completed_formulation(details(batch[1])).formulations.requested.earth_impedance.identifier === :default
+        @test completed_formulation(details(batch[2])).formulations.requested.earth_impedance.identifier === :pollaczek1926
         @test all(record -> record.formula === :pollaczek1926,
             details(batch[2]).data.native_setting.interactions.earth_impedance)
         @test Z(batch[1]) == Z(batch[2])
@@ -140,8 +141,8 @@
             Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)));
             options)
         @test launches[] == 1
-        @test details(represented[1]).data.formulations.requested.earth_impedance.identifier === :default
-        @test map(record -> record.identifier,details(represented[2]).data.formulations.requested.earth_impedance) == homogeneous_choices
+        @test completed_formulation(details(represented[1])).formulations.requested.earth_impedance.identifier === :default
+        @test map(record -> record.identifier,completed_formulation(details(represented[2])).formulations.requested.earth_impedance) == homogeneous_choices
         @test Z(represented[1]) == Z(represented[2])
         @test Z(represented[1]) !== Z(represented[2])
         changed_earth=LineParametersProblem(

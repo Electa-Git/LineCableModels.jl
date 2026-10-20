@@ -1,13 +1,13 @@
 @testitem "ModalAnalysis / retained finite quantities render with completed formulations" tags=[:visual, :makie, :slow] begin
     using CairoMakie
-    using LineCableModels.Engine: retain_gridpoint, completed_formulation
+    using LineCableModels.Engine: retain_gridpoint
     using LineCableModels.Commons: gridpoint_id, observation_labels
 
     z=reshape(ComplexF64[1+im,2+im,3+im],1,1,3)
     y=reshape(ComplexF64[1e-6im,2e-6im,3e-6im],1,1,3)
     phase=retain_gridpoint(LineParameters(z,y,[10.0,50.0,100.0];terminals=["core"],line_length=10.0),
-        gridpoint_id();fields=merge(completed_formulation(Formulation()),
-            (inputs=(system=(line_length=10.0,),),)))
+        gridpoint_id();fields=(formulation=Formulation(),choices=(),
+            inputs=(system=(line_length=10.0,),)))
     modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(:default))
     segment=PropagationParameters(modal)
     observed=ObservedResult(segment,((H,abs),(Tv,abs));complete_pairs=true)
@@ -133,7 +133,8 @@ end
         all(axis -> length(native_lines(axis))==2,page.axes),duplicates)
     @test length(G.observation_groups([first_point,first_point];request=(gamma,real)))==2
     source_id=G.gridpoint_id().source_id
-    assumptions=(selections=(Z=((:series,:given,(;)),),Y=((:shunt,:given,(;)),)),
+    assumptions=(formulation=ModalAnalysisFormulation(:default),
+        choices=ComputationDetails((formulation=Formulation(),choices=())),
         modal=(effective=(method=:default,),))
     equivalent=[ObservedResult(PropagationParameters(E.retain_gridpoint(modal,
         G.gridpoint_id(;source_id,problem_index=1,formulation_index=index);
