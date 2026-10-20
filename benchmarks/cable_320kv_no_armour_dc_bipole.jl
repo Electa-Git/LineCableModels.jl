@@ -1147,7 +1147,7 @@ if run_time_domain || (run_pscad && !run_dc_behaviour && !run_pscad_options) || 
             selected_line = Formulation(; merge(formulation.definitions,
                 (; earth_impedance = :pollaczek1926, earth_admittance = :ideal))...,
                 options = formulation.options)
-            comparison_frequencies = 10.0 .^ range(-1, 6; length = 101)
+            comparison_frequencies = 10.0 .^ range(-1, 6; length = 1001)
             comparison_grid = (; spacing = :logarithmic, samples = length(comparison_frequencies),
                 lowest_Hz = first(comparison_frequencies), highest_Hz = last(comparison_frequencies))
             comparison_problem = LineParametersProblem(problem.system; temperature = problem.temperature,

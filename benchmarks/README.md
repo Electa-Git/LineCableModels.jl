@@ -509,20 +509,12 @@ julia --project=test benchmarks/cable_320kv_armoured_dc_bipole.jl pscad_like_ref
 
 The second command uses the configured station. Its `Formulation(:pscad)` keeps
 the native default earth selections and the case's dielectric admittance laws.
-Both owned Pollaczek + ideal and native line constants use the same 101
+Both owned Pollaczek + ideal and native line constants use the same 1001
 logarithmic samples from 0.1 Hz to 1 MHz. Each line-parameter archive records this
 comparison grid's spacing, sample count and limits alongside the full frequency
 coordinates. The owned and native Z/Y archives are `pscad_like_line_parameters.json`
 and `pscad_native_line_parameters.json`. Owned earth coefficients remain separately
 in `pscad_like_earth_parameters.json`, with the comparison grid recorded there too.
-
-In station runs, PSCAD reported "ACLine segment manual solve: started" for its
-stand-alone native line-constants solve with Pollaczek earth, but produced no
-matrix file within the 7200 s run timeout at 1001 samples for the 320 kV armoured
-and unarmoured cases or at 101 samples for the 320 kV armoured case, so the native
-Z/Y comparison has no data.
-The same solver with Pollaczek earth completed in about a minute inside every
-observed FD-Phase transient run.
 
 Generate CSV and LaTeX comparisons from completed folders:
 
