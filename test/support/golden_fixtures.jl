@@ -64,8 +64,8 @@ function comparison(;uncertain=false)
     reference=two_conductor_results()
     omega=reshape(2pi.*reference.f,1,1,:)
     result=LineParameters(1.1R(reference).+im.*omega.*1.2L(reference),
-        1.3G(reference).+im.*omega.*1.4C(reference),reference.f;
-        details=ComputationDetails(;coordinates=["west","east"],))
+        1.3G(reference).+im.*omega.*1.4C(reference),reference.f; line_length=1.0,
+        terminals=["west","east"])
     selections=[NamedTuple(Formulation()),NamedTuple(Formulation(earth_impedance=:pollaczek1926))]
     points=ParametricResult(nothing,[reference,result],
         (problems=[:current],formulations=selections), ComputationDetails((;)))
@@ -110,7 +110,7 @@ function scene(name::AbstractString)
                 measurement.(imag.(Z(parameters)),scale.*imag.(Z(parameters))))
             y=complex.(measurement.(real.(Y(parameters)),scale.*real.(Y(parameters))),
                 measurement.(imag.(Y(parameters)),scale.*imag.(Y(parameters))))
-            LineParameters(z,y,f;details=ComputationDetails(;coordinates=["west","east"],))
+            LineParameters(z,y,f; line_length=1.0,terminals=["west","east"])
         end
         return LineCableModels.plot(variants..., (R,);plot_options...,
             length_unit=:base,quantity_units=:base,frequency_unit=:base,clip=false,

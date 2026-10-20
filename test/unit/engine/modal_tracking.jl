@@ -11,7 +11,7 @@
         impedance[:,:,index]=(1+2im).*(rotation*Diagonal([1.0,1.0,5.0])*transpose(rotation))
         admittance[:,:,index]=(1e-8+4e-7im).*Matrix(I,3,3)
     end
-    phase=LineParameters(impedance,admittance,frequencies)
+    phase=LineParameters(impedance,admittance,frequencies; line_length=1.0)
     modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(:default))
     maps=operators(modal)
     for index in eachindex(frequencies)
@@ -78,7 +78,7 @@ end
         admittance[:,:,index]=rotation*Diagonal(ComplexF64[
             1e-8+index*1e-7im,2e-8+index*3e-7im])*transpose(rotation)
     end
-    phase=LineParameters(impedance,admittance,frequencies)
+    phase=LineParameters(impedance,admittance,frequencies; line_length=1.0)
     matched=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(:default;
         options=(iteration=(max_iterations=1,),)))
     diagnostic=details(matched).data.modal.diagnostics

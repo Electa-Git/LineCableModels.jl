@@ -3,7 +3,7 @@
     using LineCableModels
 
     impedance = reshape(ComplexF64[1 + 2im, 2 + 3im], 1, 1, 2)
-    parameters = LineParameters(impedance, impedance .* 1e-6, [1.0, 10.0])
+    parameters = LineParameters(impedance, impedance .* 1e-6, [1.0, 10.0]; line_length=1.0)
     sources = (; fem=parameters, proposed=parameters, xue=parameters)
     options = (backend=:cairo, display_plot=false, controls=false)
     page = LineCableModels.plot(sources, (R,); options...,
@@ -161,7 +161,7 @@ end
     z=reshape(complex.(1.:12.,21.:32.),2,2,3)
     function point(formulation,index;rho=100.,problem=1)
         inputs=(rho=rho,radius=.0425,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),radius=(name="radius",unit="m")))
-        retain_gridpoint(LineParameters(copy(z),z.*1e-6,[1.,10.,100.]),
+        retain_gridpoint(LineParameters(copy(z),z.*1e-6,[1.,10.,100.]; line_length=1.0),
             gridpoint_id(;source_id,problem_index=problem,formulation_index=index);
             fields=merge(completed_formulation(formulation),(inputs=inputs,)))
     end

@@ -18,9 +18,8 @@
             y[mode,mode,k]=roots[mode,k]
         end
         modal=LineParameters(E.ModalDomain(ModalOperators(maps,maps),roots),
-            SeriesImpedance(z),ShuntAdmittance(y),f,
-            ComputationDetails((inputs=(system=(line_length=T(20),),),
-                phase_coordinates=["core","sheath"])))
+            SeriesImpedance(z),ShuntAdmittance(y),f;terminals=["core","sheath"],line_length=T(20),
+            details=ComputationDetails((inputs=(system=(line_length=T(20),),),)))
         return PropagationParameters(modal)
     end
 

@@ -1,6 +1,6 @@
 @testitem "ReportBuilder / observations and fixed stage order" tags=[:unit, :report] begin
     const RB=LineCableModels.ReportBuilder
-    source=LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.])
+    source=LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.]; line_length=1.0)
     observed=ObservedResult(source)
     const stages=Symbol[]
     struct StageReport <: RB.AbstractReportDefinition end
@@ -60,7 +60,7 @@ end
     impedance=reshape(ComplexF64.(1:8),2,2,2)
     impedance[1,2,2]=0.25+0.05im
     impedance[2,1,2]=0.5+0.1im
-    parameters=LineParameters(impedance,fill(3e-6+4e-6im,2,2,2),[50.,500.])
+    parameters=LineParameters(impedance,fill(3e-6+4e-6im,2,2,2),[50.,500.]; line_length=1.0)
     mktempdir() do directory
         artifact=report(XLSXReportDefinition(file_name=joinpath(directory,"full.xlsx")),parameters)
         @test length(artifact.output)==4
@@ -79,13 +79,13 @@ end
         end
         @test length(export_data(:xlsx,parameters;file_name=joinpath(directory,"delegated.xlsx")))==4
         diagonal=LineParameters(cat(Diagonal([1.0+2im,2.0+3im]);dims=3),
-            cat(Diagonal([3.0+4im,4.0+5im]);dims=3),[50.])
+            cat(Diagonal([3.0+4im,4.0+5im]);dims=3),[50.]; line_length=1.0)
         result=report(XLSXReportDefinition(file_name=joinpath(directory,"diagonal.xlsx")),diagonal)
         workbook=XLSX.readxlsx(only(filter(path -> endswith(path,"_R.xlsx"),result.output)))
         @test workbook["values"]["C2"]==0
         @test workbook["values"]["D2"]==0
         shared=measurement(1e-4,1e-5)
-        uncertain=LineParameters(fill(complex(shared,2shared),1,1,2),fill(3e-6+4e-6im,1,1,2),[50.,500.])
+        uncertain=LineParameters(fill(complex(shared,2shared),1,1,2),fill(3e-6+4e-6im,1,1,2),[50.,500.]; line_length=1.0)
         result=report(XLSXReportDefinition(file_name=joinpath(directory,"uncertain.xlsx")),uncertain)
         workbook=XLSX.readxlsx(only(filter(path -> endswith(path,"_R.xlsx"),result.output)))
         @test workbook["values"]["B2"]≈0.1
@@ -126,7 +126,7 @@ end
 @testitem "ReportBuilder / XLSX destinations are preflighted before writes" tags=[:integration, :xlsx] begin
     using XLSX
     RB=LineCableModels.ReportBuilder
-    observed=ObservedResult(LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.]))
+    observed=ObservedResult(LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.]; line_length=1.0))
     mktempdir() do directory
         definition=XLSXReportDefinition(file_name=joinpath(directory,"safe.xlsx"))
         books=RB.encode(definition,observed,RB.tabulate(observed),nothing)
@@ -174,7 +174,7 @@ end
     artifact=report(constants, requested; units...)
     @test artifact.tables.constants.R[!, 2]==[1000.0]
     @test keys(artifact.tables)==(:constants,)
-    @test names(artifact.tables.constants.R)==["frequency", string.(constants.cores)...]
+    @test names(artifact.tables.constants.R)==["frequency", constants.terminals...]
     @test artifact.tables.constants.R.frequency==[constants.frequency]
     @test report(constants, @observe(R[1]); units...).tables.constants.R==artifact.tables.constants.R
     @test keys(report(line, R).tables.Z)==(:R,)
@@ -342,7 +342,7 @@ end
     @test_throws ArgumentError selected[@observe(R[2])]
 
     z=reshape(complex.(1.:8.,9.:16.),2,2,2)
-    source=LineParameters(z,fill(3e-6+4e-6im,2,2,2),[50.,500.])
+    source=LineParameters(z,fill(3e-6+4e-6im,2,2,2),[50.,500.]; line_length=1.0)
     full=report(source, (R,L,G,C))
     @test propertynames(full[R])==[:frequency,Symbol("[1,1]"),Symbol("[1,2]"),Symbol("[2,1]"),Symbol("[2,2]")]
     @test full[R][!,3]!=full[R][!,4]

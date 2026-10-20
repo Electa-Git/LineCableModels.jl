@@ -95,8 +95,8 @@ function compare(case, problem, checkout, lines)
     run = newest(checkout, case)
     labels, matrices = reference(joinpath(run, "matrices.csv"))
     seconds = @elapsed result = compute(problem, FORMULATION)
-    coordinates = details(result).data.coordinates
-    coordinates == labels || error("$case: conductor order $coordinates differs from $labels")
+    terminals = result.terminals
+    terminals == labels || error("$case: conductor order $terminals differs from $labels")
     Z_branch, Y_branch = observe(result, Z), observe(result, Y)
     column = Dict(f => k for (k, f) in enumerate(observe(result, LineCableModels.frequencies)))
 

@@ -12,7 +12,7 @@
     angular = reshape(2pi .* frequency, 1, 1, :)
     impedance = complex.(resistance, angular .* inductance)
     admittance = complex.(conductance, angular .* capacitance)
-    parameters = LineParameters(copy(impedance), copy(admittance), frequency)
+    parameters = LineParameters(copy(impedance), copy(admittance), frequency; line_length=1.0)
     options = (; backend=:cairo, display_plot=false, controls=false,
         frequency_unit=:kilo, length_unit=:base, quantity_units=:base, clip=false)
     samples = [4, 2, 1]

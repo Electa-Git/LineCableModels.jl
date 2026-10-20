@@ -71,8 +71,9 @@ normalized eigenproblem, Hungarian assignment and Levenberg–Marquardt least sq
 in its `initialize_buffers` method. Its arithmetic remains in
 `decompose!(::Formula{:chrysochos2014}, ...)`. `Tv`
 and `Ti` map modal coordinates to phase coordinates. Total source coefficients
-are normalized by their declared source length before the line segment is
-bound.
+are normalized by the source's `line_length` before the line segment is
+bound. A modal result keeps the `terminals` of its source, the phase side of `Tv`
+and `Ti`. Its modes have an index and no name.
 
 ## Alternative complex LM implementation
 
@@ -244,7 +245,7 @@ plot(observed_pair, (gamma,); overlay=:coordinates)
 
 Mode vectors have a mode axis and a frequency axis. `Tv` and `Ti` have phase
 rows, mode columns, and frequency samples. Retained coordinates keep both
-label sets. Phase matrices have ordered phase rows and columns. `abs`, `angle`,
+label sets: the line's terminals for phase rows, the mode index for modes. Phase matrices have ordered phase rows and columns. `abs`, `angle`,
 `real`, and `imag` can be requested through the existing request tuples.
 `@observe alpha[:, :]` and `@observe Tv[:, :, :]` keep original
 indices. `@observe (H, abs)[:, :]` requests the explicit magnitude component.

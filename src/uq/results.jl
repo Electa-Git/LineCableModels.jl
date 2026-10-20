@@ -5,19 +5,19 @@ Store ordered core results from a [`LinearError`](@ref) computation.
 
 $(TYPEDFIELDS)
 """
-struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyResult{T}
+struct LinearErrorResult{T, F} <: AbstractUncertaintyResult{T}
     "Higher-order formulation used for the computation."
     formulation::F
     "Uncertainty-bearing core results in Gridspace traversal order."
     values::Vector{T}
-    "Typed supplemental output retained by the propagation."
-    details::D
+    "Supplemental output retained by the propagation."
+    details::ComputationDetails
 
     function LinearErrorResult(
             formulation::F,
             values::Vector{T},
-            details::D
-    ) where {T, F, D <: ComputationDetails}
+            details::ComputationDetails
+    ) where {T, F}
         validate(T, LinearErrorResult)
         isempty(details.data) || keys(details.data) == (:points,) ||
             throw(ArgumentError(
@@ -27,7 +27,7 @@ struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyRe
             throw(DimensionMismatch(
                 "retained details must contain one entry per core result",
             ))
-        return new{T, F, D}(formulation, values, details)
+        return new{T, F}(formulation, values, details)
     end
 end
 
@@ -64,8 +64,7 @@ the retained uncertainty-source identities.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetails} <:
-       AbstractUncertaintyResult{T}
+struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <: AbstractUncertaintyResult{T}
     "Higher-order formulation used for the computation."
     formulation::F
     "Stored mean ± sample standard deviation core results in Gridspace traversal order."
@@ -82,8 +81,8 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
     point_seeds::Vector{UInt64}
     "Accepted-trial count used for each Gridspace point."
     trial_counts::Vector{Int}
-    "Typed accepted-trial details and failure diagnostics retained by the propagation."
-    details::D
+    "Accepted-trial details and failure diagnostics retained by the propagation."
+    details::ComputationDetails
 
     function MonteCarloResult(
             formulation::F,
@@ -94,9 +93,9 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
             root_seed::UInt64,
             point_seeds::Vector{UInt64},
             trial_counts::Vector{Int},
-            details::D
-    ) where {T, F, ST <: AbstractVector, S, H, D <: ComputationDetails}
-        return validate(new{T, F, ST, S, H, D}(
+            details::ComputationDetails
+    ) where {T, F, ST <: AbstractVector, S, H}
+        return validate(new{T, F, ST, S, H}(
             formulation,
             values,
             stats,
@@ -385,7 +384,7 @@ participate in this construction.
 """
 function materialize(source::Engine.CableConstants,
         summaries::NamedTuple{(:R,:L,:C,:G)}; details::ComputationDetails=source.details)
-    return Engine.CableConstants(source.cores,
+    return Engine.CableConstants(source.terminals,
         materialize.(summaries.R), materialize.(summaries.L),
         materialize.(summaries.C), materialize.(summaries.G), source.frequency, details)
 end
@@ -396,5 +395,6 @@ function materialize(source::Engine.LineParameters,
     return Engine.LineParameters(source.domain,
         complex.(materialize.(summaries.R), materialize.(summaries.L) .* angular),
         complex.(materialize.(summaries.G), materialize.(summaries.C) .* angular),
-        frequencies(source); basis=basis(source), details)
+        frequencies(source); basis=basis(source), terminals=source.terminals,
+        line_length=source.line_length, details)
 end

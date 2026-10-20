@@ -65,12 +65,13 @@ end
     z=reshape(complex.(collect(1.:24.),collect(101.:124.)),2,2,6)
     y=reshape(complex.(collect(201.:224.),collect(301.:324.)),2,2,6)*1e-6
     ports=["a","b"]
-    ref=LineParameters(z,y,f;details=ComputationDetails(;coordinates=ports,E.completed_formulation(LineCableModelsFEM())...,))
+    ref=LineParameters(z,y,f;terminals=ports,line_length=1.0,
+        details=ComputationDetails(;E.completed_formulation(LineCableModelsFEM())...,))
     source_id=LineCableModels.Commons.gridpoint_id().source_id
     completed(value,selection,index)=E.retain_gridpoint(value,
         LineCableModels.Commons.gridpoint_id(;source_id,formulation_index=index);
         fields=E.completed_formulation(selection))
-    points=[completed(LineParameters(scale*z,y,f;details=ComputationDetails(;coordinates=ports,)),choices[index],index)
+    points=[completed(LineParameters(scale*z,y,f; line_length=1.0,terminals=ports),choices[index],index)
         for (index,scale) in enumerate((1.1,1.2,1.3))]
     results=ParametricResult(nothing,points,(problems=[:one],formulations=choices), ComputationDetails((;)))
     source=(reference=ref,result=results)
@@ -188,7 +189,7 @@ end
     using LineCableModels.Commons: gridpoint_id,observation_labels,observation_groups
     E=LineCableModels.Engine
     IO=LineCableModels.ImportExport
-    raw=LineParameters(fill(1.0+2im,1,1,3),fill(3e-6+4e-6im,1,1,3),[1.,10.,100.])
+    raw=LineParameters(fill(1.0+2im,1,1,3),fill(3e-6+4e-6im,1,1,3),[1.,10.,100.]; line_length=1.0)
     source_id=gridpoint_id().source_id
     function point(selection,index;rho=100.,problem=1)
         fields=merge(completed_formulation(selection),(inputs=(radius=.01,rho=rho,

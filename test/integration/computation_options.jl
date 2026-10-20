@@ -27,8 +27,7 @@ end
     calls = Int[]
     callback = function (problem, index, result)
         @test basis(result) === LineCableModels.Units.TotalLength()
-        @test haskey(details(result).data, :coordinates)
-        @test length(details(result).data.coordinates) == size(result.Z, 1)
+        @test length(result.terminals) == size(result.Z, 1)
         @test details(result).data.formulations.formulas.earth_impedance.identifier === :unified
         push!(calls, index)
     end

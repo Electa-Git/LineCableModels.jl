@@ -4,6 +4,7 @@
     @test isequal((@inferred FormulationOptions(payload)).data, payload)
     @test (@inferred ComputationOptions(payload)).data === payload
     @test (@inferred ComputationDetails(payload)).data === payload
+    @test typeof(ComputationDetails(payload)) === typeof(ComputationDetails()) === ComputationDetails
     @test FormulationOptions !== ComputationOptions !== ComputationDetails
     @test LineCableModels.FormulaDefinition === LineCableModels.Commons.FormulaDefinition
     @test LineCableModels.Expression === LineCableModels.Commons.Expression
@@ -11,7 +12,9 @@
     for Record in (FormulationOptions, ComputationOptions, ComputationDetails)
         value = Record(payload)
         @test !(value isa NamedTuple)
-        @test fieldtype(typeof(value), :data) === typeof(payload)
+        # The record of a computation has one type, whatever its contents.
+        @test fieldtype(typeof(value), :data) ===
+              (Record === ComputationDetails ? NamedTuple : typeof(payload))
         kept = Record !== FormulationOptions
         @test kept ? value.data === payload : isequal(value.data, payload)
         @test (value.data.values === payload.values) == kept
@@ -23,7 +26,8 @@
         @test_throws MethodError Record(Dict(:rtol=>1e-8))
         @test_throws MethodError Record((1, 2))
         @test_throws MethodError Record(3)
-        @test_throws MethodError Record{NamedTuple}(payload)
+        Record === ComputationDetails ||
+            @test_throws MethodError Record{NamedTuple}(payload)
         @test Record(value) === value
         for Other in (FormulationOptions, ComputationOptions, ComputationDetails)
             Other === Record && continue

@@ -123,7 +123,7 @@ end
         isempty(options.data) || throw(ArgumentError("affine fixture accepts no execution controls"))
         x,y=resolved.problem.x,resolved.problem.y
         u,v=2x+3y,x-y
-        LineParameters(reshape([complex(u,v)],1,1,1),reshape([complex(v,u)],1,1,1),[50.0])
+        LineParameters(reshape([complex(u,v)],1,1,1),reshape([complex(v,u)],1,1,1),[50.0]; line_length=1.0)
     end
     space=Gridspace{AffineProblem}(AffineProblem,
         (Grid((2.0,4.0),AbsoluteError(.1)),Grid(3.0,AbsoluteError(.2))))

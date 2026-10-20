@@ -15,7 +15,7 @@
     end, sample_arrays)
     omega = reshape(2pi .* frequency, 1, 1, :)
     line = LineParameters(2.5e-4 .* scale .+ im .* omega .* 2.5e-7 .* scale,
-        2.5e-9 .* scale .+ im .* omega .* 2.5e-10 .* scale, frequency)
+        2.5e-9 .* scale .+ im .* omega .* 2.5e-10 .* scale, frequency; line_length=1.0)
     line = LineCableModels.materialize(line,summaries)
     matrix = MonteCarloResult(cable.formulation, [line], [summaries], [sample_arrays],
         [models], cable.root_seed, cable.point_seeds, cable.trial_counts)

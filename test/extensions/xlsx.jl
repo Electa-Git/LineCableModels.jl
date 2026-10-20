@@ -1,7 +1,7 @@
 @testitem "Extensions / XLSX / unloaded writer is absent" tags=[:extension,:core_only,:report] begin
     const RB=LineCableModels.ReportBuilder
     @test Base.get_extension(LineCableModels,:LineCableModelsXLSXExt)===nothing
-    observed=ObservedResult(LineParameters(fill(1.0+2im,2,2,1),fill(3.0+4im,2,2,1),[50.]))
+    observed=ObservedResult(LineParameters(fill(1.0+2im,2,2,1),fill(3.0+4im,2,2,1),[50.]; line_length=1.0))
     definition=XLSXReportDefinition()
     tables=RB.tabulate(definition,observed)
     encoded=RB.encode(definition,observed,tables,nothing)
@@ -21,7 +21,7 @@ end
     extension=Base.get_extension(LineCableModels,:LineCableModelsXLSXExt)
     @test extension!==nothing
     @test any(method -> method.module===extension,methods(LineCableModels.ReportBuilder.write))
-    parameters=LineParameters(fill(1.0+2im,1,1,1),fill(3e-6+4e-6im,1,1,1),[50.])
+    parameters=LineParameters(fill(1.0+2im,1,1,1),fill(3e-6+4e-6im,1,1,1),[50.]; line_length=1.0)
     mktempdir() do directory
         files=export_data(:xlsx,parameters;file_name=joinpath(directory,"owned.xlsx"))
         @test length(files)==4

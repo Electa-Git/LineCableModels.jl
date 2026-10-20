@@ -5,8 +5,8 @@
     f = [0.1, 1.0, 40.0, 60.0, 100.0, 1000.0, 2000.0, 3000.0, 1e6]
     z = reshape(ComplexF64.(1:length(f)), 1, 1, :)
     y = (0.1+0.2im) .* z
-    a = LineParameters(PhaseDomain, z, y, f)
-    b = LineParameters(PhaseDomain, z .* 1.1, y .* 1.2, f)
+    a = LineParameters(PhaseDomain, z, y, f; line_length=1.0)
+    b = LineParameters(PhaseDomain, z .* 1.1, y .* 1.2, f; line_length=1.0)
     original = deepcopy((a.Z.values, a.Y.values, b.Z.values, b.Y.values))
     full = compare(a, b)
     @test full isa LineParametersBenchmark
@@ -19,8 +19,8 @@
         @test result.Z.details.data.indices == indices
         @test result.Z.details.data.actual_bounds == (f[first(indices)], f[last(indices)])
         @test result.Z.details.data.sample_count == length(indices)
-        sliced_a = LineParameters(PhaseDomain, z[:, :, indices], y[:, :, indices], f[indices])
-        sliced_b = LineParameters(PhaseDomain, 1.1z[:, :, indices], 1.2y[:, :, indices], f[indices])
+        sliced_a = LineParameters(PhaseDomain, z[:, :, indices], y[:, :, indices], f[indices]; line_length=1.0)
+        sliced_b = LineParameters(PhaseDomain, 1.1z[:, :, indices], 1.2y[:, :, indices], f[indices]; line_length=1.0)
         @test result.Z.absolute == compare(sliced_a, sliced_b).Z.absolute
         @test result.Y.relative == compare(sliced_a, sliced_b).Y.relative
     end
@@ -40,7 +40,7 @@
         @test result.Z.details.data.reason isa String
     end
     wider_f = [1e6, 1.1e6, 2e6]
-    wider = LineParameters(PhaseDomain, ones(ComplexF64, 1, 1, 3), ones(ComplexF64, 1, 1, 3), wider_f)
+    wider = LineParameters(PhaseDomain, ones(ComplexF64, 1, 1, 3), ones(ComplexF64, 1, 1, 3), wider_f; line_length=1.0)
     @test compare(wider, wider; band = :wide).Z.details.data.indices == 2:3
     @test_throws ArgumentError compare(a, b; band = :unknown)
     @test_throws ArgumentError compare(a, b; band = (100.0, 50.0))
@@ -52,7 +52,7 @@
     @test all(ismissing, unavailable.Y.relative)
     @test only(unavailable.Y.details.data.status) === :unsupported
     @test only(unavailable.Z.relative) ≈ 0.1
-    declared = LineParameters(PhaseDomain, z, y, f;
+    declared = LineParameters(PhaseDomain, z, y, f; line_length=1.0,
         details = ComputationDetails(;comparison_unsupported = (G = "Dielectric conduction not represented",),))
     @test only(compare(declared, b, G).details.data.status) === :unsupported
     @test only(compare(declared, b).Y.details.data.status) === :compared
@@ -60,18 +60,18 @@
     tiny = fill(1e-15+1e-15im, 1, 1, length(f))
     signal = copy(tiny)
     signal[1, 1, end] = 1.0
-    quiet = LineParameters(PhaseDomain, tiny, tiny, f)
-    noisy = LineParameters(PhaseDomain, signal, signal, f)
+    quiet = LineParameters(PhaseDomain, tiny, tiny, f; line_length=1.0)
+    noisy = LineParameters(PhaseDomain, signal, signal, f; line_length=1.0)
     @test ismissing(only(compare(quiet, noisy; band = :dc).Y.relative))
     @test only(compare(quiet, noisy; band = :dc).Y.details.data.status) === :reference_sample_below_tolerance
     @test ismissing(only(compare(quiet, noisy).Y.relative))
     @test ismissing(only(compare(quiet, noisy).Y.absolute))
     @test only(compare(quiet, noisy; band = :dc, atol = (R=0,X=0,G=0,B=0)).Y.details.data.status) === :compared
     zero = LineParameters(
-        PhaseDomain, zeros(ComplexF64, 1, 1, length(f)), zeros(ComplexF64, 1, 1, length(f)), f)
+        PhaseDomain, zeros(ComplexF64, 1, 1, length(f)), zeros(ComplexF64, 1, 1, length(f)), f; line_length=1.0)
     @test ismissing(only(compare(zero, noisy).Y.relative))
     tiny_capacitance = reshape(complex.(zeros(length(f)), 2π .* f .* 1e-17), 1, 1, :)
-    negligible = LineParameters(PhaseDomain, z, tiny_capacitance, f)
+    negligible = LineParameters(PhaseDomain, z, tiny_capacitance, f; line_length=1.0)
     @test ismissing(only(compare(zero, negligible).Y.relative))
     @test ismissing(only(compare(zero, negligible).Y.absolute))
     @test ismissing(only(compare(zero, negligible, C).relative))
@@ -92,7 +92,7 @@ end
     using LineCableModels.Engine: compare
     function parameters(values)
         tensor = reshape(ComplexF64.(values), 1, 1, :)
-        LineParameters(PhaseDomain, tensor, tensor, collect(1.0:length(values)))
+        LineParameters(PhaseDomain, tensor, tensor, collect(1.0:length(values)); line_length=1.0)
     end
     a, b = parameters([1, 100]), parameters([2, 100])
     @test only(compare(a, b).Y.relative) ≈ sqrt(1/10001)
@@ -153,14 +153,14 @@ end
     z = ones(ComplexF64, 1, 1, length(f))
     y = tensor(2π .* f .* 1e-8im)
     tiny_y = tensor(2π .* f .* 1e-17im)
-    reference = LineParameters(PhaseDomain, z, y, f)
-    result = LineParameters(PhaseDomain, z, tiny_y, f)
+    reference = LineParameters(PhaseDomain, z, y, f; line_length=1.0)
+    result = LineParameters(PhaseDomain, z, tiny_y, f; line_length=1.0)
     @test only(compare(reference, result, Y).details.data.status) === :result_below_tolerance
     @test ismissing(only(compare(reference, result, C).relative))
     @test only(compare(reference, result, Y; atol=(C=1e-18, G=0)).relative) ≈ 1-1e-9
     mixed_y = copy(y)
     mixed_y[1, 1, 1] = tiny_y[1, 1, 1]
-    mixed = LineParameters(PhaseDomain, z, mixed_y, f)
+    mixed = LineParameters(PhaseDomain, z, mixed_y, f; line_length=1.0)
     for normalization in (:reference_rms, :pointwise)
         for band in (:all, :dc)
             error = compare(reference, mixed, Y; band, normalization)
@@ -184,8 +184,8 @@ end
     z = ones(ComplexF64, 2, 2, 2)
     y = fill(1e-4im, 2, 2, 2)
     y[2, 2, :] .+= 1e-6
-    reference = LineParameters(PhaseDomain, z, y, frequencies)
-    result = LineParameters(PhaseDomain, z, y .+ 1e-14, frequencies)
+    reference = LineParameters(PhaseDomain, z, y, frequencies; line_length=1.0)
+    result = LineParameters(PhaseDomain, z, y .+ 1e-14, frequencies; line_length=1.0)
     conductance = compare(reference, result, G)
     @test ismissing(conductance.relative[1, 1])
     @test ismissing(conductance.absolute[1, 1])

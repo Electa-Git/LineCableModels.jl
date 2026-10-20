@@ -6,8 +6,8 @@
     samples=Float32[1,10]
     z=fill(ComplexF32(1,2),2,2,2)
     y=fill(ComplexF32(0,1e-6),2,2,2)
-    reference=LineParameters(PhaseDomain,z,y,samples;details=ComputationDetails(;coordinates=["a","b"],))
-    result=LineParameters(PhaseDomain,2z,2y,samples;details=ComputationDetails(;coordinates=["a","b"],))
+    reference=LineParameters(PhaseDomain,z,y,samples; line_length=1.0,terminals=["a","b"])
+    result=LineParameters(PhaseDomain,2z,2y,samples; line_length=1.0,terminals=["a","b"])
     artifact=report(BenchmarkTableDefinition(quantities=(Z,G),bands=(:all,)),(;reference,result))
     @test nrow(report(BenchmarkTableDefinition(quantities=(G,)),artifact.observed).tables.maxima)==1
     @test_throws ArgumentError report(BenchmarkTableDefinition(bands=(:wide,)),artifact.observed)
@@ -17,7 +17,7 @@
     @test_throws r"scalar reference" report(BenchmarkTableDefinition(pairing=[(2,1)]),(;reference,result))
     @test all(ismissing,filter(row -> row.quantity === :G,artifact.tables.terms).relative_rms_percent)
     @test all(ismissing,filter(row -> row.quantity === :G,artifact.tables.terms).absolute_rms)
-    far=LineParameters(PhaseDomain,z,y,Float32[1e7,2e7];details=ComputationDetails(;coordinates=["a","b"],))
+    far=LineParameters(PhaseDomain,z,y,Float32[1e7,2e7]; line_length=1.0,terminals=["a","b"])
     space=ParametricResult(nothing,[reference,far],(problems=[:near,:far],formulations=records[1:1]), ComputationDetails((;)))
     errors=compare(space,space,Z;pairing=[(1,1),(2,2)],band=:wide)
     @test isconcretetype(eltype(errors))
@@ -35,10 +35,10 @@ end
     using DataFrames
     f = [50.0, 500.0]
     z = ones(ComplexF64, 1, 1, 2)
-    reference = LineParameters(PhaseDomain,z,fill(1e-6+1e-4im,1,1,2),f;
-        details=ComputationDetails(;coordinates=["a"],))
-    result = LineParameters(PhaseDomain,z,fill(1e-14+1e-4im,1,1,2),f;
-        details=ComputationDetails(;coordinates=["a"],))
+    reference = LineParameters(PhaseDomain,z,fill(1e-6+1e-4im,1,1,2),f; line_length=1.0,
+        terminals=["a"])
+    result = LineParameters(PhaseDomain,z,fill(1e-14+1e-4im,1,1,2),f; line_length=1.0,
+        terminals=["a"])
     definition = BenchmarkTableDefinition(quantities=(G,Y),bands=(:all,))
     artifact = report(definition,(;reference,result))
     g = only(eachrow(filter(row -> row.quantity === :G,artifact.tables.terms)))

@@ -4,16 +4,15 @@
 Bind per-unit-length modal parameters to one line segment.
 The source normalization length and active segment length are independent.
 """
-struct PropagationParameters{P <: LineParameters, L <: Real, D <: ComputationDetails} <:
-       AbstractCoreResult
+struct PropagationParameters{P <: LineParameters, L <: Real} <: AbstractCoreResult
     parameters::P
     line_length::L
-    details::D
+    details::ComputationDetails
 
     # Only per-unit-length coefficients bind to a segment.
     function PropagationParameters(parameters::P, line_length::L,
-            details::D) where {P <: LineParameters{<:Any, <:Any, <:Any, Units.PerUnitLength},
-            L <: Real, D <: ComputationDetails}
+            details::ComputationDetails) where {
+            P <: LineParameters{<:Any, <:Any, <:Any, Units.PerUnitLength}, L <: Real}
         Engine.domain(parameters)===ModalDomain || throw(ArgumentError(
             "PropagationParameters require modal-domain coefficients"))
         _segment_length(line_length)
@@ -25,7 +24,7 @@ struct PropagationParameters{P <: LineParameters, L <: Real, D <: ComputationDet
             throw(ArgumentError("segment details must retain the completed length description"))
         isequal(retained.line_length, line_length) ||
             throw(ArgumentError("segment details must describe the stored line_length"))
-        return new{P, L, D}(parameters, line_length, details)
+        return new{P, L}(parameters, line_length, details)
     end
 end
 
@@ -43,15 +42,12 @@ end
 
 function per_unit_length(parameters::LineParameters{
         T, U, D, Units.TotalLength}) where {T, U, D <: ModalDomain}
-    ell0 = line_length(parameters)
-    ell0 isa Real && !(ell0 isa Bool) && isfinite(nominal(ell0)) &&
-    nominal(ell0) > 0 || throw(ArgumentError(
-        "total modal coefficients require a known positive source normalization length"))
+    ell0 = parameters.line_length
     modal = ModalDomain(parameters.domain.operators, gamma(parameters) ./ ell0)
     return LineParameters(modal,
         SeriesImpedance(parameters.Z.values ./ ell0; basis = Units.PerUnitLength()),
         ShuntAdmittance(parameters.Y.values ./ ell0; basis = Units.PerUnitLength()),
-        parameters.f, parameters.details)
+        parameters.f, parameters.terminals, ell0, parameters.details)
 end
 
 function PropagationParameters(parameters::LineParameters{T, U, D};
@@ -62,8 +58,6 @@ end
 
 function _bind_segment(parameters::LineParameters{T, U, D}, line_length) where {
         T, U, D <: ModalDomain}
-    line_length === nothing && throw(ArgumentError(
-        "segment line_length is required when the source has no declared length"))
     segment_length = _segment_length(line_length)
     per_unit_length_parameters = per_unit_length(parameters)
     source_length = LineCableModels.line_length(parameters)

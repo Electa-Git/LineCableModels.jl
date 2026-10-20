@@ -19,7 +19,7 @@
     @test keys(tables)==(:R,:L,:C,:G)
     for (quantity,table) in zip((R,L,C,G),tables)
         @test nrow(table)==1
-        @test names(table)==["frequency";string.(constants.cores)]
+        @test names(table)==["frequency";constants.terminals]
         @test table.frequency==[constants.frequency]
         @test collect(table[1,2:end])==observe(observed,quantity)
     end

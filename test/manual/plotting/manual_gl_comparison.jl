@@ -7,9 +7,7 @@ function comparison(channels)
     r,l,g,c=channels
     LineParameters(r*R(reference).+im.*omega.*l.*L(reference),
         g*G(reference).+im.*omega.*c.*C(reference),frequencies(reference);
-        # Before: an untyped details NamedTuple was accepted. Completed results
-        # now carry ComputationDetails. The coordinate names keep their meaning.
-        details=ComputationDetails((coordinates=["west","east"],)))
+        terminals=["west","east"],line_length=1.0)
 end
 # Manufactured routing variants include no author or physical-accuracy label.
 plots=Makie.plot(reference,comparison((1.1,1.2,1.3,1.4)),comparison((.9,.8,.7,.6)),(R,L,G,C);

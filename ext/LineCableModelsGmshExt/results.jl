@@ -357,14 +357,14 @@ function _line_parameters(
         source=joinpath(directory,name),sha256=bytes2hex(open(sha256,joinpath(directory,name))))
         for (directory,_,names) in walkdir(run.path) for name in sort(names)] : NamedTuple[]
     names=["cable:$(cable):$(terminal)" for (; cable, terminal) in model.problem.system.terminal_order]
-    coordinates=map(plan.indices) do index
+    terminals=map(plan.indices) do index
         phase=model.problem.system.connection_order[index]
         members=findall(==(phase),model.problem.system.connection_order)
         formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
             "bundle:[" * join(names[members],",") * "]" : names[index]
     end
     details = ComputationDetails(;
-        files, coordinates,
+        files,
         formulations = formulation_record(formulation),
         fem = (
         run = record,
@@ -377,14 +377,15 @@ function _line_parameters(
     ),
     )
     parameters = LineParameters(
-        PhaseDomain,
+        PhaseDomain(),
         SeriesImpedance(Z),
         ShuntAdmittance(Y),
         model.problem.frequencies,
+        terminals,
+        model.problem.system.line_length,
         details
     )
-    return LineParameters(parameters, execution.data.output_basis,
-        model.problem.system.line_length)
+    return LineParameters(parameters, execution.data.output_basis)
 end
 
 function _merge_maps!(paths::Vector{String})

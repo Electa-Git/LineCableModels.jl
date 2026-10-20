@@ -69,22 +69,22 @@
         table(joinpath(directory, "result_zp.out"), phase)
         table(joinpath(directory, "result_ym.out"), ymag)
         table(joinpath(directory, "result_yp.out"), yphase)
-        result=harness.read_pscad_result(directory, frequency, (2, 2, 2))
+        result=harness.read_pscad_result(directory, frequency, (2, 2, 2), 1.0)
         @test result isa LineParameters
         @test size(Z(result)) == (2, 2, 2)
         @test Z(result)[:, :, 1] ≈ permutedims(reshape(magnitude[1,:].*cispi.(phase[1,:]./180),2,2))
         @test Y(result)[:, :, 2] ≈ permutedims(reshape(ymag[2,:].*cispi.(yphase[2,:]./180),2,2))
         rounded_frequency=[10.0, 100.0*(1+4.0e-8)]
         rounded_result=harness.read_pscad_result(
-            directory, rounded_frequency, (2, 2, 2)
+            directory, rounded_frequency, (2, 2, 2), 1.0
         )
         @test frequencies(rounded_result) == rounded_frequency
         @test_throws ArgumentError harness.read_pscad_result(
-            directory, [1.0, 11.0], (2, 2, 2)
+            directory, [1.0, 11.0], (2, 2, 2), 1.0
         )
         mv(joinpath(directory, "result_zm.out"), joinpath(directory, "raw_zm.out"))
         @test_throws ArgumentError harness.read_pscad_result(directory, frequency, (
-            2, 2, 2))
+            2, 2, 2), 1.0)
     end
 
     config=harness.RemoteConfig(

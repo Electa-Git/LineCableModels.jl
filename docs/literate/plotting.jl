@@ -221,7 +221,8 @@ capacitance = repeat([4.0 -0.7; -0.7 5.0] .* 1.0e-10, 1, 1, length(frequency));
 parameters = LineParameters(
     complex.(resistance, inductance .* angular_frequency),
     complex.(conductance, capacitance .* angular_frequency),
-    frequency
+    frequency;
+    line_length = 1000.0
 );
 
 # The geometry gallery uses the example library included in the repository.
@@ -623,7 +624,8 @@ measured_parameters = LineParameters(
         measurement.(capacitance .* angular_frequency,
             abs.(0.05 .* capacitance .* angular_frequency))
     ),
-    frequency
+    frequency;
+    line_length = 1000.0
 );
 uncertainty_plot = Makie.plot(
     measured_parameters,
@@ -650,7 +652,8 @@ uncertainty_plot[2].figure #hide
 result = LineParameters(
     parameters.Z.values .* (1.06 + 0im),
     parameters.Y.values .* (0.94 + 0im),
-    parameters.f
+    parameters.f;
+    line_length = parameters.line_length
 );
 comparison_plot = Makie.plot(
     (; reference = parameters, result),
@@ -1060,9 +1063,9 @@ widget_plot.figure #hide
 # Their intervals retain their original uncertainty meaning. Categorical points
 # are primary data, so decorative-marker sampling does not remove them.
 
-assembly_a=CableConstants([:core, :sheath], [1.0, 2.0] .* 1e-4, [2.0, 3.0] .* 1e-7,
+assembly_a=CableConstants(["core", "sheath"], [1.0, 2.0] .* 1e-4, [2.0, 3.0] .* 1e-7,
     [3.0, 4.0] .* 1e-10, [1.0, 2.0] .* 1e-9, 50.0);
-assembly_b=CableConstants([:core, :screen], [1.1, 2.2] .* 1e-4, [2.1, 3.1] .* 1e-7,
+assembly_b=CableConstants(["core", "screen"], [1.1, 2.2] .* 1e-4, [2.1, 3.1] .* 1e-7,
     [3.1, 4.1] .* 1e-10, [1.1, 2.1] .* 1e-9, 50.0);
 assembly_plot=Makie.plot((first = assembly_a, second = assembly_b), (R,);
     backend = :cairo, display_plot = false, controls = false);

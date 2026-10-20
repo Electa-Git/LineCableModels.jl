@@ -25,15 +25,17 @@
     @test constants_observables isa ObservedResult
     @test observe(constants_observables,R)≈1_000constants.R
     constants_table=LineCableModels.ReportBuilder.tabulate(constants_observables,R)
-    @test names(constants_table)==["frequency","core"]
+    terminal=only(constants.terminals)
+    @test terminal=="cable:$(design.cable_id):core"
+    @test names(constants_table)==["frequency",terminal]
     @test constants_table.frequency==[constants.frequency]
-    @test constants_table.core≈1_000constants.R
+    @test constants_table[!,terminal]≈1_000constants.R
     @test DataFrames.metadata(constants_table,"basis")===basis(constants)
     constants_columns=LineCableModels.ReportBuilder.observation_columns(constants_table)
-    @test constants_columns.core.assembly==1
-    @test LineCableModels.Units.label(constants_columns.core.unit)=="Ω/km"
+    @test getproperty(constants_columns,Symbol(terminal)).assembly==1
+    @test LineCableModels.Units.label(getproperty(constants_columns,Symbol(terminal)).unit)=="Ω/km"
     native_constants_table=DataFrame(constants)
-    @test names(native_constants_table) == ["core", "R", "L", "C", "G"]
+    @test names(native_constants_table) == ["terminal", "R", "L", "C", "G"]
     @test native_constants_table.R == constants.R
 
     frequency=[50.0, 100.0, 200.0]
@@ -47,7 +49,7 @@
     parameters=LineParameters(
         impedance,
         admittance,
-        frequency;
+        frequency; line_length=1.0,
         basis = :total
     )
 
@@ -112,7 +114,7 @@
     @test occursin("2×2×3", sprint(show, shunt))
     @test occursin("unit=S", sprint(show, shunt))
 
-    reconstructed=LineParameters(series, shunt, frequency)
+    reconstructed=LineParameters(series, shunt, frequency; line_length=1.0)
     @test reconstructed.Z === series
     @test reconstructed.Y === shunt
     @test occursin("LineParameters(phase domain; 2×2×3, basis=:total)", sprint(show, reconstructed))
@@ -124,8 +126,7 @@
     promoted=LineParameters(
         SeriesImpedance(ComplexF32.(impedance); basis = :total),
         shunt,
-        frequency
-    )
+        frequency; line_length=1.0)
     @test eltype(promoted) === ComplexF64
     @test_throws ArgumentError SeriesImpedance(impedance; basis = :invalid)
     @test_throws ArgumentError ShuntAdmittance(admittance; basis = :invalid)
@@ -133,12 +134,11 @@
     @test_throws MethodError SeriesImpedance{ComplexF64, 1}(impedance)
     @test_throws MethodError ShuntAdmittance{ComplexF64, 1}(admittance)
     @test_throws ArgumentError LineParameters(
-        impedance, admittance, frequency; basis = :invalid)
+        impedance, admittance, frequency; line_length=1.0, basis = :invalid)
     @test_throws ArgumentError LineParameters(
         SeriesImpedance(impedance; basis = :total),
         ShuntAdmittance(admittance; basis = :pul),
-        frequency
-    )
+        frequency; line_length=1.0)
 
     selected=parameters[2:3]
     @test basis(selected) === LineCableModels.Units.TotalLength()
@@ -173,8 +173,7 @@
     zero_frequency=LineParameters(
         impedance[:, :, 1:1],
         admittance[:, :, 1:1],
-        [0.0]
-    )
+        [0.0]; line_length=1.0)
     @test R(zero_frequency, 1, 1, 1) == real(impedance[1, 1, 1])
     @test X(zero_frequency, 1, 1, 1) == imag(impedance[1, 1, 1])
     @test_throws DomainError L(zero_frequency)
@@ -194,18 +193,15 @@
     @test_throws DimensionMismatch LineParameters(
         zeros(ComplexF64, 2, 3, 1),
         zeros(ComplexF64, 2, 3, 1),
-        [50.0]
-    )
+        [50.0]; line_length=1.0)
     @test_throws DimensionMismatch LineParameters(
         zeros(ComplexF64, 2, 2, 2),
         zeros(ComplexF64, 2, 2, 2),
-        [50.0]
-    )
+        [50.0]; line_length=1.0)
     @test_throws ArgumentError LineParameters(
         zeros(ComplexF64, 1, 1, 1),
         zeros(ComplexF64, 1, 1, 1),
-        [Inf]
-    )
+        [Inf]; line_length=1.0)
 end
 
 @testitem "UQ / result products / statistical invariants" tags=[:unit, :distributions, :slow] setup=[
@@ -387,7 +383,7 @@ end
     frequency=[50.0, 100.0]
     impedance=fill(1.0e-4+2.0e-4im, 2, 2, 2)
     admittance=fill(3.0e-8+4.0e-8im, 2, 2, 2)
-    parameters=LineParameters(impedance, admittance, frequency)
+    parameters=LineParameters(impedance, admittance, frequency; line_length=1.0)
     sample_values=LineCableModels.Commons.initialize_buffers(MonteCarlo(Formulation()), Float64,
         parameters, (; trials = 2), (;))
     LineCableModels.UQ._record_sample!(sample_values, parameters, 1, frequency)

@@ -35,7 +35,7 @@ function _record_sample!(
         trial::Int,
         expected_axis
 )
-    value.cores == expected_axis.cores || throw(DimensionMismatch(
+    value.terminals == expected_axis.terminals || throw(DimensionMismatch(
         "Monte Carlo cable-constant realizations produced incompatible assembly labels",
     ))
     value.frequency == expected_axis.frequency || throw(DimensionMismatch(
@@ -50,7 +50,7 @@ end
 
 function _sample_axis(value::Engine.CableConstants)
     (
-        cores = copy(value.cores),
+        terminals = copy(value.terminals),
         frequency = value.frequency
     )
 end
@@ -160,8 +160,6 @@ function _aggregate(
     summaries = NamedTuple{(:R, :L, :C, :G)}(summary_values)
     retained_details=_sample_shunt_model(first_result)
     source_details=details(first_result).data
-    haskey(source_details,:coordinates) && (retained_details=ComputationDetails(
-        merge(retained_details.data,(coordinates=source_details.coordinates,))))
     haskey(source_details,:comparison_unsupported) && (retained_details=ComputationDetails(
         merge(retained_details.data,(comparison_unsupported=source_details.comparison_unsupported,))))
     representation = materialize(first_result, summaries; details=retained_details)
@@ -439,11 +437,6 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
         result isa R || throw(ArgumentError(
             "Monte Carlo realizations produced incompatible result types",
         ))
-        if retained !== nothing
-            typeof(record) === eltype(retained) || throw(ArgumentError(
-                "Monte Carlo trials produced incompatible details record types",
-            ))
-        end
         value = result
     end
     return (; attempts, last_log)

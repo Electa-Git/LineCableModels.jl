@@ -227,12 +227,12 @@ end
         @test parsed_Y[1, 1, 1] ≈ (3.0 + 4.0im) * 1e-9
         @test parsed_P[1, 1, 1] == (7.0 + 8.0im) * 1e9
 
-        parameters=LineParameters(report_path)
+        parameters=LineParameters(report_path; line_length=1.0)
         @test frequencies(parameters) == [50.0]
-        symbol_parameters=LineParameters(:tralin, report_path)
+        symbol_parameters=LineParameters(:tralin, report_path; line_length=1.0)
         @test Z(symbol_parameters) == Z(parameters)
         @test Y(symbol_parameters) == Y(parameters)
-        @test_throws ArgumentError LineParameters(report_path; format = :unknown)
+        @test_throws ArgumentError LineParameters(report_path; line_length=1.0, format = :unknown)
         @test_throws ArgumentError LineParameters(:unsupported, report_path)
     end
 end

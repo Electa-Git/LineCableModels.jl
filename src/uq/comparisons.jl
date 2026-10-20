@@ -33,9 +33,7 @@ function Engine.compare(reference::Union{MonteCarloResult, LinearErrorResult},
             throw(ArgumentError("UQ point basis or domain differs"))
         frequencies(left) == frequencies(right) ||
             throw(ArgumentError("UQ point frequencies differ"))
-        left_ports = get(details(left).data, :coordinates, nothing)
-        right_ports = get(details(right).data, :coordinates, nothing)
-        left_ports === nothing || right_ports === nothing || left_ports == right_ports ||
+        left.terminals == right.terminals ||
             throw(ArgumentError("UQ point output terminals differ"))
     end
     return map(selected) do (left_index, right_index)

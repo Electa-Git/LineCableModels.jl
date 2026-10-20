@@ -43,21 +43,20 @@ end
 @inline basis(::ShuntAdmittance{T, Basis}) where {T, Basis} = Basis()
 
 """
-    LineParameters{T, U, D, Basis, Q}
+    LineParameters{T, U, D, Basis}
 
-Frequency-dependent series-impedance and shunt-admittance matrices.
+Frequency-dependent series-impedance and shunt-admittance matrices of a line.
 
-    `Basis` is `Units.PerUnitLength` or `Units.TotalLength`. Per-length values are stored in
+`Basis` is `Units.PerUnitLength` or `Units.TotalLength`. Per-length values are stored in
 Ω/m and S/m. Total values are stored in Ω and S. Frequencies are stored in
-Hz. `D` is the concrete physical coordinate-domain value. `Q` is the concrete
-named-tuple type of optional computation output.
+Hz. `D` is the concrete physical coordinate-domain value. The record of the computation,
+[`ComputationDetails`](@ref), has one type for every content.
 """
 struct LineParameters{
     T <: Complex,
     U <: Real,
     D <: LineParamsDomain,
-    Basis,
-    Q <: ComputationDetails
+    Basis
 } <: AbstractCoreResult
     "Frequency-dependent series impedance \\[Ω/m\\] or \\[Ω\\]."
     Z::SeriesImpedance{T, Basis}
@@ -67,29 +66,36 @@ struct LineParameters{
     f::Vector{U}
     "Physical coordinate domain, including any required transformation state."
     domain::D
-    "Typed supplemental output retained by the computation."
-    details::Q
+    "The line's terminals after reduction, one per matrix row of the phase domain."
+    terminals::Vector{String}
+    "Length of the line \\[m\\]."
+    line_length::U
+    "Supplemental output retained by the computation."
+    details::ComputationDetails
 
     function LineParameters(
             domain::D,
             Z::SeriesImpedance{T, Basis},
             Y::ShuntAdmittance{T, Basis},
             f::AbstractVector{U},
-            details::Q = ComputationDetails()
+            terminals::AbstractVector{<:AbstractString},
+            line_length::Real,
+            details::ComputationDetails
     ) where {
             D <: LineParamsDomain,
             T <: Complex,
             U <: Real,
-            Basis,
-            Q <: ComputationDetails
+            Basis
     }
         retained=haskey(details.data,:gridpoint) ? details :
             completion_details(merge(details.data,(gridpoint=Commons.gridpoint_id(),)))
-        return validate(new{T, U, D, Basis, typeof(retained)}(
+        return validate(new{T, U, D, Basis}(
             Z,
             Y,
             Vector{U}(f),
             domain,
+            terminals,
+            line_length,
             retained
         ))
     end
@@ -124,31 +130,54 @@ function validate(parameters::LineParameters{T, U, D, Basis}) where {T, U, D, Ba
         "LineParameters.f must contain only finite frequencies; received " *
         repr(parameters.f)
     ))
+    length(parameters.terminals) == size(parameters.Z, 1) || throw(DimensionMismatch(
+        "LineParameters.terminals must name one terminal per matrix row; received " *
+        "$(length(parameters.terminals)) names for $(size(parameters.Z, 1)) rows"
+    ))
+    isfinite(parameters.line_length) && parameters.line_length > zero(parameters.line_length) ||
+        throw(DomainError(parameters.line_length,
+            "LineParameters.line_length must be positive and finite"))
     return parameters
+end
+
+# Without `terminals`, a result built from matrices names its terminals by position. Its
+# line length is always given.
+function LineParameters(
+        domain::LineParamsDomain,
+        Z::SeriesImpedance{T, Basis},
+        Y::ShuntAdmittance{T, Basis},
+        f::AbstractVector{<:Real};
+        terminals::AbstractVector{<:AbstractString} = string.(1:size(Z, 1)),
+        line_length::Real,
+        details::ComputationDetails = ComputationDetails()
+) where {T <: Complex, Basis}
+    return LineParameters(domain, Z, Y, f, terminals, line_length, details)
 end
 
 function LineParameters(
         ::Type{PhaseDomain},
         Z::SeriesImpedance{T, Basis},
         Y::ShuntAdmittance{T, Basis},
-        f::AbstractVector{U},
-        details::Q = ComputationDetails()
-) where {T <: Complex, U <: Real, Basis, Q <: ComputationDetails}
-    return LineParameters(PhaseDomain(), Z, Y, f, details)
+        f::AbstractVector{<:Real};
+        kwargs...
+) where {T <: Complex, Basis}
+    return LineParameters(PhaseDomain(), Z, Y, f; kwargs...)
 end
 
 function LineParameters(
         Z::SeriesImpedance{T, Basis},
         Y::ShuntAdmittance{T, Basis},
-        f::AbstractVector{U}
-) where {T <: Complex, U <: Real, Basis}
-    return LineParameters(PhaseDomain, Z, Y, f)
+        f::AbstractVector{<:Real};
+        kwargs...
+) where {T <: Complex, Basis}
+    return LineParameters(PhaseDomain, Z, Y, f; kwargs...)
 end
 
 function LineParameters(
         Z::SeriesImpedance{TZ, ZBasis},
         Y::ShuntAdmittance{TY, YBasis},
-        f::AbstractVector{U}
+        f::AbstractVector{U};
+        kwargs...
 ) where {
         TZ <: Complex,
         TY <: Complex,
@@ -164,7 +193,8 @@ function LineParameters(
         PhaseDomain,
         SeriesImpedance(convert(Array{element_type, 3}, Z.values); basis = ZBasis()),
         ShuntAdmittance(convert(Array{element_type, 3}, Y.values); basis = YBasis()),
-        f
+        f;
+        kwargs...
     )
 end
 
@@ -174,7 +204,7 @@ function LineParameters(
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
         basis = Units.PerUnitLength(),
-        details::ComputationDetails = ComputationDetails()
+        kwargs...
 ) where {
         D <: LineParamsDomain,
         TZ <: Complex,
@@ -186,8 +216,8 @@ function LineParameters(
         domain,
         SeriesImpedance(convert(Array{element_type, 3}, Z); basis),
         ShuntAdmittance(convert(Array{element_type, 3}, Y); basis),
-        f,
-        details
+        f;
+        kwargs...
     )
 end
 
@@ -196,24 +226,22 @@ function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis = Units.PerUnitLength(),
-        details::ComputationDetails = ComputationDetails()
+        kwargs...
 ) where {TZ <: Complex, TY <: Complex, U <: Real}
-    return LineParameters(PhaseDomain(), Z, Y, f; basis, details)
+    return LineParameters(PhaseDomain(), Z, Y, f; kwargs...)
 end
 
 function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis = Units.PerUnitLength(),
-        details::ComputationDetails = ComputationDetails()
+        kwargs...
 ) where {
         TZ <: Complex,
         TY <: Complex,
         U <: Real
 }
-    return LineParameters(PhaseDomain, Z, Y, f; basis, details)
+    return LineParameters(PhaseDomain, Z, Y, f; kwargs...)
 end
 
 @inline domain(::Type{<:LineParameters{
@@ -223,23 +251,25 @@ end
 @inline basis(::LineParameters{T, U, D, Basis}) where {T, U, D, Basis} = Basis()
 
 """
-    LineParameters(parameters, basis, line_length)
+    LineParameters(parameters, basis)
 
-Express phase-domain, per-unit-length `parameters` in `basis` for a line of
-`line_length` \\[m\\]. Total-length coefficients are the per-unit-length ones times
-`line_length`.
+Express phase-domain, per-unit-length `parameters` in `basis`. Total-length coefficients
+are the per-unit-length ones times the length of the line, `parameters.line_length` \\[m\\].
 """
 function LineParameters(parameters::LineParameters{T, U, PhaseDomain, Units.PerUnitLength},
-        ::Units.PerUnitLength, line_length::Real) where {T, U}
+        ::Units.PerUnitLength) where {T, U}
     return parameters
 end
 function LineParameters(parameters::LineParameters{T, U, PhaseDomain, Units.PerUnitLength},
-        ::Units.TotalLength, line_length::Real) where {T, U}
+        ::Units.TotalLength) where {T, U}
+    (; line_length) = parameters
     return LineParameters(parameters.domain, parameters.Z.values .* line_length,
         parameters.Y.values .* line_length, parameters.f;
-        basis = Units.TotalLength(), details = parameters.details)
+        basis = Units.TotalLength(), terminals = parameters.terminals, line_length,
+        details = parameters.details)
 end
 details(parameters::LineParameters) = parameters.details
+line_length(parameters::LineParameters) = parameters.line_length
 
 observe(lp::LineParameters, ::typeof(frequencies)) = lp.f
 observe(lp::LineParameters, ::typeof(frequencies), indices...) = getindex(lp.f, indices...)

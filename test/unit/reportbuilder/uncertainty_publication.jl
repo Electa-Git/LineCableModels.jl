@@ -10,7 +10,7 @@
         C=positions .* 1e-10, G=positions .* 1e-9)
     omega = reshape(2pi .* frequencies, 1, 1, :)
     parameters = LineParameters(quantities.R .+ im .* omega .* quantities.L,
-        quantities.G .+ im .* omega .* quantities.C, frequencies)
+        quantities.G .+ im .* omega .* quantities.C, frequencies; line_length=1.0)
     summaries = map(quantities) do values
         map(value -> UQ.SampleSummary([0.5value, 1.5value]), values)
     end
@@ -71,7 +71,7 @@
 
     uncertain_z = measurement.(real.(parameters.Z), 1e-6) .+
         im .* measurement.(imag.(parameters.Z), 2e-6)
-    lep_core = LineParameters(uncertain_z, parameters.Y, frequencies)
+    lep_core = LineParameters(uncertain_z, parameters.Y, frequencies; line_length=1.0)
     lep = LinearErrorResult(LinearError(Formulation()), [lep_core])
     @test only(lep) === lep_core
     @test observe(lep, statistics, R, mean, 1) == quantities.R
@@ -90,7 +90,7 @@
     @test SavedResults.same(restored_lep, lep)
     @test observe(restored_lep,statistics,R,std,1) == observe(lep,statistics,R,std,1)
     shared=measurement(1.0,0.1)
-    correlated=LineParameters(fill(shared+im*shared,2,2,2),fill(2shared+im*shared,2,2,2),frequencies)
+    correlated=LineParameters(fill(shared+im*shared,2,2,2),fill(2shared+im*shared,2,2,2),frequencies; line_length=1.0)
     restored=SavedResults.round_trip(LinearErrorResult(LinearError(Formulation()),[correlated]))
     @test uncertainty(real(only(restored).Z[1])-real(only(restored).Z[2])) == 0
     @test uncertainty(real(only(restored).Y[1])-2real(only(restored).Z[1])) == 0

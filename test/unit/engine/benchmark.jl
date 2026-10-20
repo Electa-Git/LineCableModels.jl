@@ -11,7 +11,7 @@
     impedance[:, :, 2]=[2+3im 4+0im; 6+0im 8+2im]
     admittance[:, :, 1]=[2im 1im; 1im 4im]
     admittance[:, :, 2]=[4im 2im; 2im 8im]
-    reference=LineParameters(PhaseDomain, impedance, admittance, frequencies_value)
+    reference=LineParameters(PhaseDomain, impedance, admittance, frequencies_value; line_length=1.0)
 
     identical=compare(reference, reference)
     @test identical.Z.absolute == zeros(2, 2)
@@ -23,8 +23,7 @@
         PhaseDomain,
         impedance .+ reshape(ComplexF64[1, 2, 3, 4], 2, 2, 1),
         admittance .+ reshape(ComplexF64[2im, 3im, 4im, 5im], 2, 2, 1),
-        frequencies_value
-    )
+        frequencies_value; line_length=1.0)
     comparison=compare(reference, result)
     comparison_observables=observables(
         comparison,
@@ -61,26 +60,24 @@
         PhaseDomain,
         zeros(ComplexF64, 2, 2, 2),
         zeros(ComplexF64, 2, 2, 2),
-        frequencies_value
-    )
+        frequencies_value; line_length=1.0)
     @test all(ismissing, compare(zero_reference, zero_reference).Z.relative)
     @test all(ismissing, compare(zero_reference, result).Z.relative)
 
     different_frequency=LineParameters(
-        PhaseDomain, impedance, admittance, [1.0, 11.0]
-    )
+        PhaseDomain, impedance, admittance, [1.0, 11.0]; line_length=1.0)
     @test_throws ArgumentError compare(reference, different_frequency)
 
     different_size=LineParameters(
         PhaseDomain,
         zeros(ComplexF64, 3, 3, 2),
         zeros(ComplexF64, 3, 3, 2),
-        frequencies_value
-    )
-    @test_throws DimensionMismatch compare(reference, different_size)
+        frequencies_value; line_length=1.0)
+    # Results of different sizes name different terminals.
+    @test_throws ArgumentError compare(reference, different_size)
 
     total=LineParameters(
-        PhaseDomain, impedance, admittance, frequencies_value; basis = :total
+        PhaseDomain, impedance, admittance, frequencies_value; line_length=1.0, basis = :total
     )
     @test_throws ArgumentError compare(reference, total)
 
@@ -88,8 +85,7 @@
         PhaseDomain,
         cat([1+2im 0; 0 4+1im], [2+3im 0; 0 8+2im]; dims = 3),
         cat([2im 0; 0 4im], [4im 0; 0 8im]; dims = 3),
-        frequencies_value
-    )
+        frequencies_value; line_length=1.0)
     modal=compute(
         ModalAnalysisProblem(modal_source),
         ModalAnalysisFormulation(:default)

@@ -88,7 +88,7 @@
         earth_impedance = formula(:default; equivalent_earth = formula(:default)))
     @test typeof(baseline) === typeof(alternative)
     result=LineParameters(PhaseDomain, zeros(ComplexF64, 1, 1, 1),
-        zeros(ComplexF64, 1, 1, 1), [50.0]; details = ComputationDetails(;formulations = baseline.data,))
+        zeros(ComplexF64, 1, 1, 1), [50.0]; line_length=1.0, details = ComputationDetails(;formulations = baseline.data,))
     @test computation_details(typeof(Formulation(:pscad)), result) === details(result)
 end
 

@@ -856,14 +856,23 @@ and bundle reduction never enter this workflow.
 entry point. It computes the `CableConstantsProblem` with `formulation`. When the
 design, the temperature, the frequency or a formulation selector is a `Grid`, it returns
 the `Combinatorial` result space of that computation. CableConstants admits only the
-50 Hz and 60 Hz datasheet base frequencies. The result owns `cores`, aligned `R/L/C/G` vectors, and the
-evaluation frequency. A conventional coaxial cable has one row and supports
-`only(constants)`.
+50 Hz and 60 Hz datasheet base frequencies. The result owns `terminals`, the innermost
+terminal of each assembly as `"cable:<cable id>:<terminal>"`, aligned `R/L/C/G` vectors, and
+the evaluation frequency. Each row is `(terminal, R, L, C, G)`. A conventional coaxial cable
+has one row and supports `only(constants)`.
 
 ## Completed-result read side
 
 `AbstractCoreResult` marks direct LineCableModels-owned computation results.
 `CableConstants` and `LineParameters` are the current core result types.
+A result's type parameters are its physics: `LineParameters{T, U, D, Basis}` has the
+coefficient and frequency types, the domain and the length basis. `LineParameters` also
+has `terminals`, the line's terminals after reduction, `"cable:<cable id>:<terminal>"` or
+`"bundle:[...]"` for a reduced bundle, and `line_length`, the length of the line in
+meters. A modal result keeps the line's terminals, the phase side of its transformation.
+Its modes have an index and no name. Every constructor takes `line_length`. Matrices given
+without `terminals` name them `"1"` to `"n"`. `compare` refuses a reference and a result
+with different terminals.
 `AbstractResultSpace{T}` marks completed finite collections of stored core
 results. Its element type remains open so an external solver's concrete result
 can be stored without subtyping a LineCableModels type. Result-space
@@ -1070,13 +1079,15 @@ matched conventional eigensolution when iteration fails. Its bibliography stays
 in `src/engine/modalanalysis/formulas/chrysochos2014.jl`.
 
 [`ComputationDetails`](@ref) is an immutable record of supplemental computation
-output, parameterized by its named-tuple payload. Access its fields through `.data`.
+output. Its named-tuple payload is in a field typed `NamedTuple`, so every record has the
+same type, and options such as `timing` and `trace` only add keys to `.data`. Access its
+fields through `.data`.
 [`computation_details`](@ref) returns the fixed-key details record supplied by the
 formulation's owner. Higher-order computations dispatch on `typeof(formulation)`
 when collecting these records. A formulation without a method raises `MethodError`.
 
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
-[`MonteCarloResult`](@ref) store the concrete type of the details record. Retention is
+[`MonteCarloResult`](@ref) store a `ComputationDetails` of their own. Retention is
 disabled by default, so `details(result) == ComputationDetails()`. The higher-order formulation
 defines the retention option:
 

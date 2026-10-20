@@ -301,6 +301,8 @@ function basis end
 Return the physical length of a line, a system or a result \\[m\\].
 """
 function line_length end
+# A value without a line length answers `nothing`.
+line_length(source) = nothing
 
 """
 Select or return the series resistance of a result per unit length or in total.

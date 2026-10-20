@@ -86,21 +86,21 @@ function _finish(
     retained = _retained_details(workspace)
     names=["cable:$(cable):$(terminal)"
            for (; cable, terminal) in problem.system.terminal_order]
-    coordinates=map(workspace.plan.reduction.indices) do index
+    terminals=map(workspace.plan.reduction.indices) do index
         phase=problem.system.connection_order[index]
         members=findall(==(phase), problem.system.connection_order)
         formulation.options.data.reduce_bundle && phase > 0 && length(members) > 1 ?
         "bundle:[" * join(names[members], ",") * "]" : names[index]
     end
-    result = LineParameters(PhaseDomain,
+    result = LineParameters(PhaseDomain(),
         SeriesImpedance{eltype(impedance), Units.PerUnitLength}(impedance),
         ShuntAdmittance{eltype(admittance), Units.PerUnitLength}(admittance),
-        workspace.input.freq,
+        workspace.input.freq, terminals, workspace.input.line_length,
         completion_details(merge(retained.data,
             completed_formulation(formulation, workspace),
-            NamedTuple{(:inputs,:gridpoint,:coordinates),Tuple{NamedTuple,NamedTuple,Vector{String}}}(
-                (physical_inputs,gridpoint,coordinates)))))
-    completed = LineParameters(result, basis, workspace.input.line_length)
+            NamedTuple{(:inputs,:gridpoint),Tuple{NamedTuple,NamedTuple}}(
+                (physical_inputs,gridpoint)))))
+    completed = LineParameters(result, basis)
     all(isfinite, completed.Z.values) || throw(DomainError(completed.Z.values,
         "completed series impedance must contain only finite entries"))
     all(isfinite, completed.Y.values) || throw(DomainError(completed.Y.values,

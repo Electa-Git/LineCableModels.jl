@@ -102,7 +102,7 @@ end
     using CairoMakie
     f=[1.0, 10.0, 100.0]
     z=ComplexF64[complex(i+j+k, 1) for i in 1:6, j in 1:6, k in eachindex(f)]
-    source=LineParameters(z, z .* 1e-6, f)
+    source=LineParameters(z, z .* 1e-6, f; line_length=1.0)
     options=(overlay = :coordinates, backend = :cairo, display_plot = false,
         open_export = false, fig_size = (680, 440))
     for position in (:bottom, :top, :left, :right, :inside)
@@ -172,7 +172,7 @@ end
     f=[1.0, 10.0, 100.0]
     z=ComplexF64[complex(i+j+k, 1) for i in 1:2, j in 1:2, k in eachindex(f)]
     p=LineCableModels.plot(
-        LineParameters(z, z .* 1e-6, f), (R,); overlay = :coordinates,
+        LineParameters(z, z .* 1e-6, f; line_length=1.0), (R,); overlay = :coordinates,
         backend = :cairo, display_plot = false, controls = false, open_export = false)
     probe=only(filter(q->q isa Makie.Text && !q.visible[], p.legend.blockscene.plots))
     measurements=Ref(0)
@@ -447,7 +447,7 @@ end
     ext=Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     f=[1.0, 10.0, 100.0]
     z=reshape(complex.([1.0, 2.0, 3.0], [2.0, 3.0, 4.0]), 1, 1, :)
-    raw=LineParameters(z, z .* 1e-6, f)
+    raw=LineParameters(z, z .* 1e-6, f; line_length=1.0)
     for attributes in ((width = 700.0, height = 250.0),
         (width = Relative(0.5), height = Relative(0.5)), (alignmode = Outside(10),))
         p=LineCableModels.plot(raw, (R,); axis = attributes, layout = (1, 2),

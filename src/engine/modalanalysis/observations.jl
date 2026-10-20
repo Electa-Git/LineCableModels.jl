@@ -281,9 +281,7 @@ function _modal_coordinates(source,request,values)
     selected=map(observation_indices,indices,dims)
     n=size(Tv(source),1)
     modes=string.(1:n)
-    phase=get(details(source isa PropagationParameters ? source.parameters : source).data,
-        :phase_coordinates,nothing)
-    phase=phase===nothing ? string.(1:n) : string.(phase)
+    phase=copy((source isa PropagationParameters ? source.parameters : source).terminals)
     mixed=selector in (Tv,Ti)
     phase_matrix=selector in (_phase_Zc,_phase_Yc,_voltage_H,_current_H)
     labels=mixed || phase_matrix ? phase : modes

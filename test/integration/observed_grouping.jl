@@ -4,7 +4,7 @@
     using LineCableModels.Commons: gridpoint_id,observation_groups,observation_labels
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition,tabulate
     source_id=gridpoint_id().source_id
-    base=LineParameters(fill(1.0+2im,1,1,3),fill(3.0+4im,1,1,3),[1.,10.,100.])
+    base=LineParameters(fill(1.0+2im,1,1,3),fill(3.0+4im,1,1,3),[1.,10.,100.]; line_length=1.0)
     function point(problem,formula;rho=100.,control=20.,value=base)
         retain_gridpoint(value,gridpoint_id(;source_id,problem_index=problem,formulation_index=formula);
             fields=(inputs=(radius=.01,earth_resistivity=rho),
@@ -44,7 +44,7 @@
     @test all(curve -> length(curve[1][])==2,curves)
     # Equal marginals do not establish the same dependency interpretation.
     a=measurement(1.,.1);b=measurement(1.,.1)
-    uncertain(x)=LineParameters(fill(complex(x,2x),1,1,3),base.Y,[1.,10.,100.])
+    uncertain(x)=LineParameters(fill(complex(x,2x),1,1,3),base.Y,[1.,10.,100.]; line_length=1.0)
     independent=observables([point(1,1;value=uncertain(a)),point(1,2;value=uncertain(b))])
     @test length(observation_groups(independent;request=R))==2
     correlated=observables([point(1,1;value=uncertain(a)),point(1,2;value=uncertain(a))])

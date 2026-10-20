@@ -38,7 +38,7 @@ function _uq_coordinates(core::Engine.CableConstants,selector,indices)
     length(indices)<=1 || throw(DimensionMismatch("cable statistics select assembly indices"))
     selected=isempty(indices) ? Colon() : only(indices)
     return (kind=:assemblies,indices=(selected,),assemblies=observation_indices(selected,length(core)),
-        labels=copy(core.cores),frequencies=[core.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(core),1))
+        labels=copy(core.terminals),frequencies=[core.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(core),1))
 end
 
 function Commons.observation_quantity(source::Union{MonteCarloResult,LinearErrorResult},

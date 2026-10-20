@@ -708,10 +708,11 @@ function _compute_fem(resolved::Commons.Resolved, formulation::LineCableModelsFE
         retained = deepcopy(source.details.data)
         retained = merge(retained, (formulations = formulation_record(formulation),
             fem=merge(retained.fem, (run=merge(retained.fem.run, (reused=true,)),))))
-        LineParameters(PhaseDomain,
+        LineParameters(PhaseDomain(),
             SeriesImpedance(copy(source.Z.values); basis = Engine.basis(source)),
             ShuntAdmittance(copy(source.Y.values); basis = Engine.basis(source)),
-            copy(source.f), Engine.completion_details(retained))
+            copy(source.f), copy(source.terminals), source.line_length,
+            Engine.completion_details(retained))
     end
     completion = Engine.completed_formulation(formulation)
     return Engine.retain_gridpoint(value, Commons.gridpoint_id();

@@ -11,20 +11,20 @@ term and band. Eligible small and zero errors remain unchanged.
 
 $(TYPEDFIELDS)
 """
-struct RMSError{T <: Real, D <: ComputationDetails}
+struct RMSError{T <: Real}
     "Absolute error in the units of the compared quantity."
     absolute::Matrix{Union{Missing, T}}
     "Reference-normalized error [dimensionless]."
     relative::Matrix{Union{Missing, T}}
     "Requested and selected frequency band, tolerance, applicability, and per-term classification."
-    details::D
+    details::ComputationDetails
 end
 
 function RMSError{T}(absolute::AbstractMatrix, relative::AbstractMatrix;
         details::ComputationDetails = ComputationDetails()) where {T <: Real}
     size(absolute) == size(relative) ||
         throw(DimensionMismatch("RMS error matrices must match"))
-    return RMSError{T, typeof(details)}(absolute, relative, details)
+    return RMSError{T}(absolute, relative, details)
 end
 
 function RMSError(absolute::AbstractMatrix{T}, relative::AbstractMatrix{S};
@@ -47,12 +47,11 @@ admittance of two [`LineParameters`](@ref) objects.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersBenchmark{T <: Real, Basis, ZE <: RMSError{T}, YE <: RMSError{T}} <:
-       AbstractProblemResult
+struct LineParametersBenchmark{T <: Real, Basis} <: AbstractProblemResult
     "Series-impedance error."
-    Z::ZE
+    Z::RMSError{T}
     "Shunt-admittance error."
-    Y::YE
+    Y::RMSError{T}
 end
 
 function LineParametersBenchmark(
@@ -60,8 +59,7 @@ function LineParametersBenchmark(
         admittance::RMSError{T};
         basis = Units.PerUnitLength()
 ) where {T <: Real}
-    return LineParametersBenchmark{T, typeof(Units.LengthBasis(basis)), typeof(impedance),
-        typeof(admittance)}(impedance, admittance)
+    return LineParametersBenchmark{T, typeof(Units.LengthBasis(basis))}(impedance, admittance)
 end
 
 basis(::LineParametersBenchmark{T, Basis}) where {T, Basis} = Basis()
@@ -312,11 +310,8 @@ function compare(reference::AbstractCoreResult, result::AbstractCoreResult,
         band = :all, fundamental::Real = 50.0, harmonics::Integer = 50,
         atol = nothing, unsupported::NamedTuple = (;))
     validate((; normalization, band, fundamental, harmonics, atol, unsupported), compare)
-    left_coordinates=get(details(reference).data, :coordinates, nothing)
-    right_coordinates=get(details(result).data, :coordinates, nothing)
-    if left_coordinates !== nothing && right_coordinates !== nothing
-        left_coordinates == right_coordinates || throw(ArgumentError("reference and result output terminal identities differ"))
-    end
+    reference.terminals == result.terminals ||
+        throw(ArgumentError("reference and result output terminal identities differ"))
     f = frequencies(reference)
     isempty(f) && throw(ArgumentError("reference frequencies cannot be empty"))
     f == frequencies(result) || throw(ArgumentError(
@@ -497,7 +492,7 @@ function compare(reference,result,requests::AbstractVector;
             push!(completed,Commons.detach((result_id,reference_id,request,
                 quantity=Commons.request_quantity(request),statistic,band,normalization,
                 absolute,relative,absolute_unit=unit,relative_unit=Units.units(:base,:dimensionless),
-                coordinates=get(details(right).data,:coordinates,string.(1:size(absolute,1))),
+                coordinates=Commons.observation_gridpoint(right).coordinates,
                 assumptions=observation_assumptions(right,identity isa Function ? identity : identity[2]),
                 settings=information,maxima=(absolute=_comparison_maximum(absolute),relative=_comparison_maximum(relative)))))
         end

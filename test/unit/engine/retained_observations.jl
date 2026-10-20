@@ -4,7 +4,7 @@
     using LineCableModels.Engine: retain_gridpoint,compare
     U=LineCableModels.Units
     shared=measurement(1.,0.1)
-    line=LineParameters(fill(complex(shared,2shared),2,2,3),fill(3.0+4im,2,2,3),[10.,100.,1000.])
+    line=LineParameters(fill(complex(shared,2shared),2,2,3),fill(3.0+4im,2,2,3),[10.,100.,1000.]; line_length=1.0)
     result=retain_gridpoint(line,gridpoint_id())
     reference=retain_gridpoint(line,gridpoint_id())
     comparisons=compare(reference,result,[R];bands=(:all,))
@@ -52,7 +52,7 @@
     @test_throws ArgumentError ObservedResult(observed;frequencies=[1.,2.,3.])
     @test_throws ArgumentError ObservedResult(observed;timings=(seconds=5.,))
     @test_throws ArgumentError ObservedResult(observed,(R,);units=(U.units(:base,:farad),))
-    polar=ObservedResult(LineParameters(fill(3.0+4im,1,1,2),fill(1.0+2im,1,1,2),[1.,2.]),((Z,abs),(Z,angle)))
+    polar=ObservedResult(LineParameters(fill(3.0+4im,1,1,2),fill(1.0+2im,1,1,2),[1.,2.]; line_length=1.0),((Z,abs),(Z,angle)))
     angle_unit=only(filter(p -> p.quantity==U.quantity(Z,angle),polar.quantities)).unit
     radians=ObservedResult(polar,((Z,angle),);units=(U.units(:base,:radian),))
     degrees=ObservedResult(radians;units=(angle_unit,))
@@ -66,7 +66,7 @@ end
 @testitem "ObservedResult / constructor rejects malformed scientific records" tags=[:unit, :importexport, :slow] begin
     using LineCableModels.Commons: observation_product
     using LineCableModels.ReportBuilder: tabulate
-    source=ObservedResult(LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.]))
+    source=ObservedResult(LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.]; line_length=1.0))
     q=first(source.quantities)
     make(product)=ObservedResult(source.gridpoint,[product],source.errors,source.timings)
     @test_throws ArgumentError make(Base.structdiff(q,(family=nothing,)))
@@ -97,7 +97,7 @@ end
 @testitem "ObservedResult / coordinate and unit interpretation is shared" tags=[:unit, :engine, :slow] begin
     using LineCableModels.Commons: observation_product
     z=reshape(complex.(1.:12.,101.:112.),2,2,3)
-    line=LineParameters(z,2z,[1.,10.,100.])
+    line=LineParameters(z,2z,[1.,10.,100.]; line_length=1.0)
     a=ObservedResult(line;length_unit=:base)
     b=ObservedResult(line,((R,[2,1],[2,1],[1,3]),(X,[2,1],[2,1],[1,3]),
         (G,[2,1],[2,1],:),(B,[2,1],[2,1],:));length_unit=:kilo,frequency_unit=:kilo)
@@ -116,7 +116,7 @@ end
 @testitem "ObservedResult / table definitions retain one hierarchy" tags=[:unit, :report] begin
     using DataFrames
     using LineCableModels.ReportBuilder: tabulate,LineParametersTableDefinition
-    source=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.])
+    source=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.]; line_length=1.0)
     observed=ObservedResult(source)
     all_tables=tabulate(observed)
     for input in (source,observed)
@@ -132,7 +132,7 @@ end
         @test selected.Z.R==all_tables.Z.R
     end
     @test_throws r"quantity tables.*tabulate" DataFrame(observed)
-    constants=CableConstants([:core,:sheath],[1.,2.],[3.,4.],[5.,6.],[7.,8.],60.)
+    constants=CableConstants(["core", "sheath"],[1.,2.],[3.,4.],[5.,6.],[7.,8.],60.)
     table=tabulate(ObservedResult(constants;length_unit=:base,quantity_units=:base),R)
     @test names(table)==["frequency","core","sheath"]
     @test size(table)==(1,3)
@@ -147,7 +147,7 @@ end
     radius=inputs.system.designs[1].tree.items[1].member.items[1].primitive
     @test radius.field_descriptions.r==(name="radius",unit="m")
     @test inputs.earth_props.layers[2].field_descriptions.rho==(name="electrical resistivity",unit="Ω·m")
-    base=LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.])
+    base=LineParameters(fill(1.0+2im,1,1,2),fill(3.0+4im,1,1,2),[1.,2.]; line_length=1.0)
     source_id=gridpoint_id().source_id
     function point(index,rho,r;selection=Formulation(),value=base)
         # Use metadata supplied by the physical owners, even after detachment.
@@ -176,7 +176,7 @@ end
     retained=merge(points[1].gridpoint,(formulation_fields=merge(fields,(Z=[altered;fields.Z[2:end]],)),))
     label=only(observation_labels(ObservedResult(retained,points[1].quantities,[],(;));request=R))
     @test occursin("owned; punctuation",label)
-    conflicting=point(1,100.,.005;value=LineParameters(fill(2.0+2im,1,1,2),base.Y,[1.,2.]))
+    conflicting=point(1,100.,.005;value=LineParameters(fill(2.0+2im,1,1,2),base.Y,[1.,2.]; line_length=1.0))
     @test_throws r"conflicting numerical values" observation_groups([points[1],conflicting];request=R)
     @test length(observation_groups(points;request=R))==2
 end
@@ -185,7 +185,7 @@ end
     U=LineCableModels.Units
     original=setprecision(BigFloat,384) do
         source=LineParameters(fill(complex(big"1.234567890123456789012345678901",big"2"),1,1,2),
-            fill(complex(big"3",big"4"),1,1,2),BigFloat[1,2])
+            fill(complex(big"3",big"4"),1,1,2),BigFloat[1,2]; line_length=1.0)
         ObservedResult(source;length_unit=:base)
     end
     converted=setprecision(BigFloat,128) do

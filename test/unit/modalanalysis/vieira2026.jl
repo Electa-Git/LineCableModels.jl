@@ -17,7 +17,7 @@
             Y[:, :, k] = y * Matrix{R}(I, 3, 3)
             roots[:, k] = sqrt.(z .* y)
         end
-        phase = LineParameters(Z, Y, f;
+        phase = LineParameters(Z, Y, f; line_length = R(25),
             details = ComputationDetails((inputs = (system = (line_length = R(25),),),)))
         return phase, roots
     end
@@ -165,7 +165,7 @@ end
     end
     @test_throws ArgumentError ModalAnalysisFormulation(:vieira2026; parameters = (s = [1im],))
     branch=LineParameters(reshape(ComplexF64[-im], 1, 1, 1),
-        reshape(ComplexF64[-im], 1, 1, 1), [50.0])
+        reshape(ComplexF64[-im], 1, 1, 1), [50.0]; line_length=1.0)
     @test only(gamma(compute(ModalAnalysisProblem(branch), ModalAnalysisFormulation(:vieira2026)))) ≈
           im
 end
@@ -178,7 +178,8 @@ end
     segment=PropagationParameters(modal)
     @test H(segment) ≈ exp.(-gamma(modal) .* 25)
     total=LineParameters(PhaseDomain, SeriesImpedance(Z(phase) .* 25; basis = :total),
-        ShuntAdmittance(Y(phase) .* 25; basis = :total), phase.f, phase.details)
+        ShuntAdmittance(Y(phase) .* 25; basis = :total), phase.f;
+        line_length = phase.line_length, details = phase.details)
     total_modal=compute(ModalAnalysisProblem(total), selected)
     @test gamma(total_modal) ≈ gamma(modal) .* 25
     @test H(PropagationParameters(total_modal)) ≈ H(segment)
@@ -207,7 +208,7 @@ end
     end
     x=measurement(2.0, 0.1)
     uncertain=LineParameters(reshape([complex(x, zero(x))], 1, 1, 1),
-        reshape([3.0+0im], 1, 1, 1), [50.0])
+        reshape([3.0+0im], 1, 1, 1), [50.0]; line_length=1.0)
     propagated=@inferred compute(ModalAnalysisProblem(uncertain), selected)
     root=real(only(gamma(propagated)))
     @test nominal(root) ≈ sqrt(6)

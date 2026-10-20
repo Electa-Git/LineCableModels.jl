@@ -388,6 +388,23 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `deepcopy`, when it is built. A problem keeps the system or design that it is given, both
   values that their builders make. Result records hold the data of the formulation and the
   problem without a further copy.
+- A result's type parameters are its physics: `LineParameters{T, U, D, Basis}`,
+  `CableConstants{T}`, `PropagationParameters{P, L}`, `ParametricResult{T, F, A}`,
+  `LinearErrorResult{T, F}`, `MonteCarloResult{T, F, ST, S, H}` and `RMSError{T}`. Each holds
+  one `ComputationDetails`, whose named tuple `data` is in a field typed `NamedTuple`, so
+  options such as `timing` and `trace` change its keys, never the type of a result.
+- `LineParameters` has `terminals`, the line's terminals after reduction
+  (`"cable:<cable id>:<terminal>"`, or `"bundle:[...]"` for a reduced bundle), and
+  `line_length`, the length of the line in meters. A modal result keeps the terminals of
+  its source and indexes its modes by position. Every constructor takes `line_length`, and
+  matrices given without `terminals` name them `"1"` to `"n"`.
+  `LineParameters(parameters, basis)` gives total coefficients from `line_length`.
+  `LineParameters(path; line_length)` reads a TRALIN report.
+- `CableConstants` has `terminals`, the innermost terminal of each assembly as
+  `"cable:<cable id>:<terminal>"`. Its rows are `(terminal, R, L, C, G)`, and
+  `CableConstants(R, L, C, G; terminal = "1", frequency = 50)` builds one assembly.
+- `compare` and the uncertainty comparisons refuse a reference and a result with different
+  terminals.
 - The integrand of a `SpectralIntegral` is a `Function`.
 - `Region(tag::Symbol, primitive, material)` takes an `AbstractPrimitive` or `Shell` and an
   `AbstractMaterial`.

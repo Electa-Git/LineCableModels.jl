@@ -58,7 +58,7 @@
         @test Z(first_result)[1,2,1] == 231
         @test Z(first_result)[2,1,1] == 321
         @test Y(first_result)[1,3,1] ≈ 211e-6
-        @test details(first_result).data.coordinates == ["cable:1:sheath","cable:2:core","cable:1:core"]
+        @test first_result.terminals == ["cable:1:sheath","cable:2:core","cable:1:core"]
         source = details(first_result).data.execution.source_run
         raw_hash = bytes2hex(open(sha256,joinpath(source,"outputs","result_zm.out")))
         reused = compute(natural,selected;options=(;remote,resume_run_directory=source))

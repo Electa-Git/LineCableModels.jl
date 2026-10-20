@@ -15,7 +15,7 @@ end
     using CairoMakie, Measurements, Logging
     f = collect(range(2.0,8.0;length=9))
     r = reshape(measurement.(reverse(f),0.02),1,1,:)
-    source = LineParameters(complex.(r,r),ones(ComplexF64,1,1,9),f)
+    source = LineParameters(complex.(r,r),ones(ComplexF64,1,1,9),f; line_length=1.0)
     before = deepcopy((Z(source),Y(source),frequencies(source)))
     logger = Test.TestLogger(min_level=Logging.Warn)
     with_logger(logger) do
@@ -151,7 +151,7 @@ end
     # Use the exact Float64 cutoff for the separate default-clipping check.
     conductance[6] = -1e-12
     admittance = reshape(complex.(conductance, 1e-8), 1, 1, :)
-    source = LineParameters(ones(ComplexF64, 1, 1, 8), admittance, f)
+    source = LineParameters(ones(ComplexF64, 1, 1, 8), admittance, f; line_length=1.0)
     positions = Vector{Float64}[]
     for (length_unit, clip) in ((:base, false), (:kilo, true))
         factor = length_unit === :base ? 1.0 : 1000.0
@@ -365,7 +365,7 @@ end
     errors[2] = prevfloat(1e-6)
     endpoint = conductance[2] - errors[2]
     admittance = reshape(complex.(measurement.(conductance, errors), 1e-8), 1, 1, :)
-    source = LineParameters(ones(ComplexF64, 1, 1, length(f)), admittance, f)
+    source = LineParameters(ones(ComplexF64, 1, 1, length(f)), admittance, f; line_length=1.0)
     page = LineCableModels.plot(source, (G,); backend=:cairo, display_plot=false,
         open_export=false, length_unit=:base, clip=false, errorbar_sampling=:staggered,
         yscale=:log10)
@@ -386,7 +386,7 @@ end
 
 @testitem "Makie addons / native override precedence and custom transforms" tags=[:visual, :makie, :slow] begin
     using CairoMakie
-    source = LineParameters(reshape(ComplexF64[2,4,8],1,1,:),ones(ComplexF64,1,1,3),[2.0,4.0,8.0])
+    source = LineParameters(reshape(ComplexF64[2,4,8],1,1,:),ones(ComplexF64,1,1,3),[2.0,4.0,8.0]; line_length=1.0)
     page = LineCableModels.plot(source, R; backend=:cairo,display_plot=false,
         open_export=false,length_unit=:base,xscale=sqrt,
         figure=(size=(500,700),),ylabel="Shared",axis=(ylabel="Explicit",),
@@ -429,7 +429,7 @@ end
     frequency = [1.0, 10.0, 100.0]
     impedance = fill(1.0 + 2.0im, 1, 1, 3)
     susceptance = reshape([-1.0, 0.0, 1.0] .* 1e-14, 1, 1, 3)
-    parameters = LineParameters(impedance, complex.(zero.(susceptance), susceptance), frequency)
+    parameters = LineParameters(impedance, complex.(zero.(susceptance), susceptance), frequency; line_length=1.0)
     plot = Makie.plot(parameters, B; backend=:cairo, display_plot=false,
         controls=false, length_unit=:base, quantity_units=:base, clip=false)
     axis = only(plot.axes)
@@ -474,7 +474,7 @@ end
         length_unit=:base, quantity_units=:base, clip=false)
     f = [1.0, nextfloat(1.0), nextfloat(nextfloat(1.0))]
     response = [-3.592027795269888e-10, -3.592027795269885e-10, -3.592027795269883e-10]
-    source = LineParameters(reshape(response .+ im, 1, 1, :), ones(ComplexF64, 1, 1, 3), f)
+    source = LineParameters(reshape(response .+ im, 1, 1, :), ones(ComplexF64, 1, 1, 3), f; line_length=1.0)
     logger = Test.TestLogger(min_level=Logging.Warn)
     page = with_logger(logger) do
         page = LineCableModels.plot(source, (R,); xscale=:linear, options...)
@@ -535,7 +535,7 @@ end
     omega = reshape(2pi .* f, 1, 1, :)
     r = [(i + 2j) * 1e-3 * (1 + log10(1 + x)) for i in 1:2, j in 1:2, x in f]
     v = (R=r, L=r .* 1e-4, C=r .* 1e-8, G=r .* 1e-5)
-    core = LineParameters(v.R .+ im .* omega .* v.L, v.G .+ im .* omega .* v.C, f)
+    core = LineParameters(v.R .+ im .* omega .* v.L, v.G .+ im .* omega .* v.C, f; line_length=1.0)
     metadata = (port_order=["a", "b"], formulation=NamedTuple(Formulation()), axes=nothing)
     deterministic = report(BenchmarkTableDefinition((R,); bands=(:all,)),
         (reference=(result=core, metadata=metadata), result=(result=core, metadata=metadata));observation_options=(length_unit=:base,))
@@ -545,7 +545,7 @@ end
         [summaries], nothing, nothing, UInt64(7), UInt64[8], [2])
     m = map(a -> measurement.(a, sqrt(2) * 0.1 .* a), v)
     lep = LinearErrorResult(LinearError(Formulation()), [LineParameters(
-        m.R .+ im .* omega .* m.L, m.G .+ im .* omega .* m.C, measurement.(f, 0.0))])
+        m.R .+ im .* omega .* m.L, m.G .+ im .* omega .* m.C, measurement.(f, 0.0); line_length=1.0)])
     uq = report(BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands=(:all,)),
         (reference=(result=mc, metadata=metadata), result=(result=lep, metadata=metadata));observation_options=(length_unit=:base,))
     for (artifact, request, expected) in ((deterministic, (R,), r),
@@ -636,7 +636,7 @@ end
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     f = [1.0, 10.0, 100.0]
     z = [complex(i+j+k, k) for i in 1:2, j in 1:2, k in 1:3]
-    data = LineParameters(z, z .* 1e-6, f)
+    data = LineParameters(z, z .* 1e-6, f; line_length=1.0)
     page = LineCableModels.plot(data, (R,); backend=:cairo, display_plot=false,
         controls=true, open_export=false, length_unit=:base, xscale=:linear)
     first_axis, last_axis = first(page.axes), last(page.axes)
@@ -669,7 +669,7 @@ end
     @test sum((first_axis.targetlimits[].origin[2], first_axis.targetlimits[].widths[2])) ≈ 10.0
     @test Z(data) == z
 
-    negative = LineParameters(z, fill(-1e-6 + 1e-6im, 2, 2, 3), f)
+    negative = LineParameters(z, fill(-1e-6 + 1e-6im, 2, 2, 3), f; line_length=1.0)
     operand = (result=negative,
         metadata=(port_order=["a", "b"], formulation=NamedTuple(Formulation()), axes=nothing))
     comparison = report(BenchmarkTableDefinition((G,)), (reference=operand, result=operand))
@@ -760,7 +760,7 @@ end
     )
         resistance = fill(value, 1, 1, 3)
         parameters = LineParameters(complex.(resistance, one.(resistance)),
-            fill(1.0im, 1, 1, 3), [1.0, 10.0, 100.0])
+            fill(1.0im, 1, 1, 3), [1.0, 10.0, 100.0]; line_length=1.0)
         plot = Makie.plot(parameters, R; backend=:cairo, display_plot=false,
             controls=false, length_unit=:base, quantity_units=:base, clip=false)
         axis = only(plot.axes)
@@ -791,7 +791,7 @@ end
 
     f = [1.0, 10.0, 100.0]
     z = fill(measurement(1e-14, 4e-15) + im * measurement(1e-14, 0.0), 1, 1, 3)
-    data = LineParameters(z, z, f)
+    data = LineParameters(z, z, f; line_length=1.0)
     page = LineCableModels.plot(data, (R,); backend=:cairo, display_plot=false,
         controls=true, open_export=false, length_unit=:base, clip=false)
     axis = only(page.axes)
@@ -818,8 +818,8 @@ end
 @testitem "Makie addons / scale controls and visibility keep multipliers synchronized" tags=[:visual, :makie] begin
     using CairoMakie
     frequency = [1.0, 10.0, 100.0]
-    small = LineParameters(fill(1e-14 + 1.0im, 1, 1, 3), fill(1.0im, 1, 1, 3), frequency)
-    large = LineParameters(fill(1e8 + 1.0im, 1, 1, 3), fill(1.0im, 1, 1, 3), frequency)
+    small = LineParameters(fill(1e-14 + 1.0im, 1, 1, 3), fill(1.0im, 1, 1, 3), frequency; line_length=1.0)
+    large = LineParameters(fill(1e8 + 1.0im, 1, 1, 3), fill(1.0im, 1, 1, 3), frequency; line_length=1.0)
     plot = Makie.plot((; small, large), R; backend=:cairo, display_plot=false,
         controls=true, length_unit=:base, quantity_units=:base, clip=false)
     axis = only(plot.axes)

@@ -58,15 +58,9 @@ end
 formula_parameters(selected::Formula) = selected.parameters
 formula_parameters(::AbstractFormulation) = (;)
 
-# Total coefficients with a declared normalization length scale the roots by that length.
-# Per unit length, or with no declared length, the scale is `unit`.
+# Total coefficients scale the roots by the line length. Per unit length, the scale is `unit`.
 _root_scale(::Units.PerUnitLength, ell0, unit) = unit
-function _root_scale(::Units.TotalLength, ell0, unit)
-    ell0 === nothing && return unit
-    ell0 isa Real && !(ell0 isa Bool) && isfinite(nominal(ell0)) && nominal(ell0) > 0 ||
-        throw(ArgumentError("total coefficients require a positive source normalization length"))
-    return nominal(ell0)
-end
+_root_scale(::Units.TotalLength, ell0, unit) = nominal(ell0)
 
 function ModalAnalysisWorkspace(source::LineParameters, selected::AbstractFormulation)
     Zp = nominal(source.Z.values)
@@ -180,11 +174,9 @@ Base.@constprop :aggressive function _modal_completion(parameters, formulation, 
     descriptions=vcat(get(source_fields,:all,NamedTuple[]),modal_descriptions)
     fields=merge(source_fields,
         (all=descriptions,Z=copy(descriptions),Y=copy(descriptions)))
-    added=NamedTuple{(:source_gridpoint,:phase_coordinates,:coordinates,:modal,:formulation_fields),
-        Tuple{Any,Any,Vector{String},NamedTuple,NamedTuple}}((
+    added=NamedTuple{(:source_gridpoint,:modal,:formulation_fields),
+        Tuple{Any,NamedTuple,NamedTuple}}((
          get(parameters.details.data, :gridpoint, nothing),
-         get(parameters.details.data, :coordinates, nothing),
-         string.(1:size(parameters.Z,1)),
          (identifier=formula_id(selected), requested=NamedTuple(formulation.definition),
             effective=NamedTuple(selected), rotate=execution.data.rotate, diagnostics=diagnostics),
          fields))
@@ -220,7 +212,7 @@ function compute(
     return LineParameters(modal,
         SeriesImpedance{eltype(workspace.Zm),Basis}(copy(workspace.Zm)),
         ShuntAdmittance{eltype(workspace.Ym),Basis}(copy(workspace.Ym)),
-        parameters.f, retained)
+        parameters.f, parameters.terminals, parameters.line_length, retained)
 end
 
 """Restore phase coefficients using the retained modal-to-phase bases."""
@@ -236,12 +228,10 @@ function transform(::Type{PhaseDomain}, parameters::LineParameters{T,U,D,Basis})
         @views impedance[:, :, frequency] .= (Tvf * parameters.Z.values[:, :, frequency]) / Tif
         @views admittance[:, :, frequency] .= (Tif * parameters.Y.values[:, :, frequency]) / Tvf
     end
-    retained = ComputationDetails(merge(parameters.details.data,
-        (coordinates=get(parameters.details.data,:phase_coordinates,nothing),)))
-    return LineParameters(PhaseDomain,
+    return LineParameters(PhaseDomain(),
         SeriesImpedance{S,Basis}(impedance),
         ShuntAdmittance{S,Basis}(admittance), parameters.f,
-        retained)
+        parameters.terminals, parameters.line_length, parameters.details)
 end
 
 description(::ModalAnalysisProblem; compact::Bool = false) = "Modal analysis"

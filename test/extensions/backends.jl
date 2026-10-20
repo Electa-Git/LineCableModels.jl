@@ -26,7 +26,7 @@
                 parameters = LineCableModels.LineParameters(
                     reshape(ComplexF64[1+im, 2+im], 1, 1, 2),
                     reshape(ComplexF64[1+im, 2+im], 1, 1, 2) .* 1e-6,
-                    [1.0, 10.0])
+                    [1.0, 10.0]; line_length=1.0)
                 page = LineCableModels.plot(parameters, (LineCableModels.R,);
                     backend, display_plot=false, open_export=false)
                 available = Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) !== nothing

@@ -9,8 +9,7 @@
     parameters=LineParameters(
         zeros(ComplexF64, 2, 2, 2),
         zeros(ComplexF64, 2, 2, 2),
-        frequencies
-    )
+        frequencies; line_length=1.0)
 
     @test TD.engineering(0.00183245, :meter) == "1.83245 mm"
     @test TD.engineering(1.7241e-8, :ohm_meter) == "17.241 nΩ·m"

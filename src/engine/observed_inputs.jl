@@ -143,12 +143,13 @@ function completed_formulation(formulation::LineParametersFormulation,
         typeof(declaration)((declaration.backend, declaration.requested, recorded, declaration.options)))
 end
 
-# Description contents and runtime geometry do not specialize the result type.
+# Description contents and runtime geometry do not specialize the record's named tuple.
 """
 $(TYPEDSIGNATURES)
 
-Store captured completion records without specializing the result type on runtime
-geometry or nested description contents. Persistence uses this same operation.
+Store a captured completion record. Each nested named tuple is held as `NamedTuple`, so the
+type of the record's named tuple follows its keys and leaf types, not runtime geometry or
+nested description contents.
 """
 function completion_details(record::NamedTuple{names,T}) where {names,T}
     types=map(value -> value isa NamedTuple ? NamedTuple : typeof(value),values(record))
@@ -161,11 +162,17 @@ function Commons.observation_gridpoint(source::Union{LineParameters,CableConstan
     return Commons.detach((id=get(retained,:gridpoint,nothing), inputs,
         source_gridpoint=get(retained,:source_gridpoint,nothing),
         formulations=get(retained,:formulations,nothing),formulation_fields=get(retained,:formulation_fields,(;)),
-        coordinates=get(retained,:coordinates,source isa CableConstants ? source.cores : nothing),
+        coordinates=source.terminals,
         uncertainty=get(retained,:uncertainty,nothing),
         uncertainty_descriptions=get(retained,:uncertainty_descriptions,nothing),
         transformation=get(retained,:modal,nothing),
         missing_reason=inputs===nothing ? :physical_inputs_not_supplied : nothing))
+end
+
+# The coefficient axes of a modal result are its modes, indexed and unnamed.
+function Commons.observation_gridpoint(source::LineParameters{<:Any, <:Any, <:ModalDomain})
+    phase=invoke(Commons.observation_gridpoint,Tuple{Union{LineParameters,CableConstants}},source)
+    return merge(phase,(coordinates=string.(1:size(source.Z,1)),))
 end
 
 # Updating an association reuses numerical storage. It does not recompute or
@@ -188,17 +195,10 @@ is unchanged. Built-in results retain their numerical arrays and replace only co
 """
 function retain_gridpoint(source::LineParameters; fields)
     retained=completion_details(merge(details(source).data,fields))
-    return LineParameters(source.domain,source.Z,source.Y,source.f,retained)
+    return LineParameters(source.domain,source.Z,source.Y,source.f,source.terminals,
+        source.line_length,retained)
 end
 function retain_gridpoint(source::CableConstants; fields)
     retained=completion_details(merge(details(source).data,fields))
-    return CableConstants(source.cores,source.R,source.L,source.C,source.G,source.frequency,retained)
+    return CableConstants(source.terminals,source.R,source.L,source.C,source.G,source.frequency,retained)
 end
-
-function line_length(source::AbstractCoreResult)
-    inputs=get(details(source).data,:inputs,nothing)
-    inputs===nothing && return nothing
-    system=get(inputs,:system,nothing)
-    return system===nothing ? nothing : system.line_length
-end
-line_length(source) = nothing

@@ -7,11 +7,12 @@
     voltage=[complex(i+2j+k/10, i-j+k/5) for i in 1:3,j in 1:3,k in eachindex(f)]
     current=[complex(2i+j+k/5, j-i-k/10) for i in 1:3,j in 1:3,k in eachindex(f)]
     modal=LineParameters(ModalDomain(ModalOperators(voltage,current),fill(.01+.02im,3,4)),
-        SeriesImpedance(voltage),ShuntAdmittance(current.*1e-6),f,
-        ComputationDetails((inputs=(system=(line_length=20.0,),),
-            phase_coordinates=["core","screen","armor"])))
+        SeriesImpedance(voltage),ShuntAdmittance(current.*1e-6),f;
+        terminals=["core","screen","armor"],line_length=20.0,
+        details=ComputationDetails((inputs=(system=(line_length=20.0,),),)))
     source_id=G.gridpoint_id().source_id
-    modal_points=[E.retain_gridpoint(modal,
+    modal_points=[E.retain_gridpoint(LineParameters(modal.domain,modal.Z,modal.Y,modal.f;
+            terminals=modal.terminals,line_length=20.0index,details=modal.details),
         G.gridpoint_id(;source_id,problem_index=index,formulation_index=1);
         fields=(inputs=(system=(line_length=20.0index,),),)) for index in 1:2]
     segments=collect(Gridspace{PropagationParameters}((Grid(modal_points),)))
@@ -73,8 +74,9 @@
     @test length(named)==2
     @test all(page -> [curve.label[] for curve in lines(page.axes[1])]==
         ["Conductor core","Conductor screen","Conductor armor"],named)
-    different_names=observables(PropagationParameters(E.retain_gridpoint(modal,G.gridpoint_id();
-        fields=(phase_coordinates=["inner","shield","outer"],))),requests)
+    different_names=observables(PropagationParameters(E.retain_gridpoint(
+        LineParameters(modal.domain,modal.Z,modal.Y,modal.f;terminals=["inner","shield","outer"],
+            line_length=modal.line_length,details=modal.details),G.gridpoint_id())),requests)
     labelled=LineCableModels.plot([first(observed),different_names], ((Tv,abs),);options...)
     append!(kept,labelled)
     @test all(axis -> [curve.label[] for curve in lines(axis)]==
@@ -150,7 +152,7 @@ end
     f=[10.0,20.0,40.0]
     z=[complex(measurement(i+2j+k/10,.05i),measurement(j-i,.02))
        for i in 1:2,j in 1:2,k in eachindex(f)]
-    source=LineParameters(z,z.*1e-6,f)
+    source=LineParameters(z,z.*1e-6,f; line_length=1.0)
     observed=observables(source,(R,X);length_unit=:base,clip=false)
     page=LineCableModels.plot(observed, (R,);overlay=:rows,
         backend=:cairo,display_plot=false,open_export=false,errorbar_sampling=:all)

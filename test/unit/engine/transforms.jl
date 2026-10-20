@@ -19,7 +19,7 @@
             measurement(diagonal ? 5e-9 : 0.5e-9, 1e-12)
         )
     end
-    parameters=LineParameters(PhaseDomain, impedance, admittance, [50.0])
+    parameters=LineParameters(PhaseDomain, impedance, admittance, [50.0]; line_length=1.0)
     modal=@inferred compute(
         ModalAnalysisProblem(parameters),
         ModalAnalysisFormulation(:default)
@@ -54,7 +54,7 @@ end
     impedance[:, :, 2]=[2.2+8im 0.21+0.2im; 0.21+0.2im 3.2+10im]
     admittance[:, :, 1]=[4+8im -0.5-1im; -0.5-1im 5+9im] .* 1e-9
     admittance[:, :, 2]=[4.2+16im -0.55-2im; -0.55-2im 5.2+18im] .* 1e-9
-    parameters=LineParameters(PhaseDomain, impedance, admittance, frequencies)
+    parameters=LineParameters(PhaseDomain, impedance, admittance, frequencies; line_length=1.0)
 
     for identifier in keys(descriptions)
         formulation=ModalAnalysisFormulation(identifier)
@@ -125,8 +125,7 @@ end
         PhaseDomain,
         smooth_impedance,
         smooth_admittance,
-        smooth_frequencies
-    )
+        smooth_frequencies; line_length=1.0)
     for identifier in keys(descriptions)
         transformed=compute(
             ModalAnalysisProblem(smooth_parameters),
@@ -156,7 +155,7 @@ end
     A = ComplexF64[1 0.3; 0.1im 2]
     B = ComplexF64[2 0.2im; 0.4 1]
     selected=ModalFormulaFixtures.FixedModalMaps(reshape(copy(A),2,2,1),reshape(copy(B),2,2,1))
-    phase = LineParameters(PhaseDomain, Z, Y, [50.0])
+    phase = LineParameters(PhaseDomain, Z, Y, [50.0]; line_length=1.0)
     modal = compute(ModalAnalysisProblem(phase),
         ModalAnalysisFormulation(selected);
         options = (offdiagonal_tolerance = 2.0,))
@@ -177,7 +176,7 @@ end
     q=[cos(theta) -sin(theta);sin(theta) cos(theta)]
     zs=[q*Diagonal([1+s*1e-3,3+s*2e-3])*transpose(q) for s in 2pi*im.*f]
     ys=[q*Diagonal([1e-6+s*1e-9,3e-6+s*2e-9])*transpose(q) for s in 2pi*im.*f]
-    source=LineParameters(cat(zs...;dims=3),cat(ys...;dims=3),f)
+    source=LineParameters(cat(zs...;dims=3),cat(ys...;dims=3),f; line_length=1.0)
     modes=compute(ModalAnalysisProblem(source),ModalAnalysisFormulation())
     restored=LineCableModels.ModalAnalysis.transform(PhaseDomain,modes)
     @test Z(restored) ≈ Z(source) rtol=1e-10

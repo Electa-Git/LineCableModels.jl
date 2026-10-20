@@ -49,7 +49,7 @@ end
     frequency = [10.0, 100.0, 1000.0]
     impedance = fill(ComplexF64(1e-4, 1e-3), 1, 1, 3)
     admittance = fill(ComplexF64(0.0, 1e-8), 1, 1, 3)
-    parameters = LineParameters(copy(impedance), copy(admittance), frequency)
+    parameters = LineParameters(copy(impedance), copy(admittance), frequency; line_length=1.0)
     options = (; backend=:cairo, display_plot=false, controls=false,
         length_unit=:base, quantity_units=:base)
     plot = Makie.plot(parameters, (R, 1, 1, :); options..., yscale=:log10)
@@ -75,7 +75,7 @@ end
         push!(controls,addwidget!((p,cell) -> Button(cell;label="Count"),p,:count;
             event=button -> button.clicks,callback=(p,_) -> (calls[]+=1),success="Counted"))
     end
-    raw=LineParameters(fill(1+2im,1,1,3),fill(1+2im,1,1,3),[1.,10.,100.])
+    raw=LineParameters(fill(1+2im,1,1,3),fill(1+2im,1,1,3),[1.,10.,100.]; line_length=1.0)
     options=(backend=:cairo,display_plot=false,open_export=false)
     pages=LineCableModels.plot(raw, (R,L);widgets=(custom,),options...)
     @test constructions[]==2 && calls[]==0

@@ -1,8 +1,8 @@
 @testitem "Makie / retained units coordinates and ragged frequencies" tags=[:visual, :makie, :slow] begin
     using CairoMakie
     z=reshape(complex.(1.:12.,101.:112.),2,2,3)
-    a=ObservedResult(LineParameters(z,2z,[1.,10.,100.]);length_unit=:base)
-    b=ObservedResult(LineParameters(z,2z,[1.,10.,100.]),
+    a=ObservedResult(LineParameters(z,2z,[1.,10.,100.]; line_length=1.0);length_unit=:base)
+    b=ObservedResult(LineParameters(z,2z,[1.,10.,100.]; line_length=1.0),
         ((R,[2,1],[2,1],[1,3]),(X,[2,1],[2,1],[1,3]),
          (G,[2,1],[2,1],[2,3]),(B,[2,1],[2,1],[2,3]));
         length_unit=:kilo,frequency_unit=:kilo)
@@ -33,7 +33,7 @@ end
     for i in 1:3
         z[i,i,:].=i+2im
     end
-    raw=LineParameters(z,z.*1e-6,[1.,10.])
+    raw=LineParameters(z,z.*1e-6,[1.,10.]; line_length=1.0)
     retained=ObservedResult(raw,(R,L);clip=false,length_unit=:base)
     # The source owner declares modal coordinates. The renderer must not infer diag.
     modal=ObservedResult(retained.gridpoint,
@@ -61,7 +61,7 @@ end
         coordinates=merge(q.coordinates,(extent=(3,2,2),columns=[1,2])),))
     rectangular=ObservedResult((id=nothing,),[rect],[],(;))
     @test length(LineCableModels.plot(rectangular;options...).axes)==6
-    one=LineParameters(reshape([1+2im],1,1,1),reshape([1+2im],1,1,1),[1.])
+    one=LineParameters(reshape([1+2im],1,1,1),reshape([1+2im],1,1,1),[1.]; line_length=1.0)
     single=LineCableModels.plot(one, (R,);options...)
     @test length(single.axes)==1
     @test any(p -> p isa Makie.Scatter && length(p[1][])==1,only(single.axes).scene.plots)
@@ -70,8 +70,8 @@ end
 @testitem "Makie / retained assembly unions and element-index points" tags=[:visual, :makie, :slow] begin
     using CairoMakie,Measurements
     options=(backend=:cairo,display_plot=false,controls=true,open_export=false)
-    a=CableConstants([:core,:sheath],[1.,2.],[.1,.2],[.01,.02],[.001,.002],50.)
-    b=CableConstants([:core,:screen],[3.,4.],[.3,.4],[.03,.04],[.003,.004],60.)
+    a=CableConstants(["core", "sheath"],[1.,2.],[.1,.2],[.01,.02],[.001,.002],50.)
+    b=CableConstants(["core", "screen"],[3.,4.],[.3,.4],[.03,.04],[.003,.004],60.)
     observed=[ObservedResult(a;length_unit=:base),ObservedResult(b;length_unit=:base)]
     page=LineCableModels.plot(observed, (R,);options...)
     axis=only(page.axes)
@@ -95,8 +95,8 @@ end
     @test assembly_curves[1].color[]==Makie.to_color(:red)
     @test assembly_curves[2].color[]==Makie.to_color(:blue)
     @test Set(values(assembly_overlay.plot_state.labels))==Set(("core","sheath"))
-    reversed=CableConstants([:sheath,:core],[20.,10.],[.2,.1],[.02,.01],[.002,.001],60.)
-    singleton=CableConstants([:sheath],[30.],[.3],[.03],[.003],70.)
+    reversed=CableConstants(["sheath", "core"],[20.,10.],[.2,.1],[.02,.01],[.002,.001],60.)
+    singleton=CableConstants(["sheath"],[30.],[.3],[.03],[.003],70.)
     varied=LineCableModels.plot((a,reversed,singleton), R;overlay=:coordinates,
         series_labels=("Core","Sheath"),
         series_attributes=((color=:red,),(color=:blue,)),options...)
@@ -149,7 +149,7 @@ end
 @testitem "ObservedResult / retained band associations and sample intersections" tags=[:integration, :engine] begin
     using LineCableModels.Engine: retain_gridpoint,compare
     using LineCableModels.Commons: gridpoint_id,observation_product
-    base=LineParameters(reshape(complex.([1.,2.,3.],[2.,3.,4.]),1,1,3),fill(1+2im,1,1,3),[1.,10.,100.])
+    base=LineParameters(reshape(complex.([1.,2.,3.],[2.,3.,4.]),1,1,3),fill(1+2im,1,1,3),[1.,10.,100.]; line_length=1.0)
     reference=retain_gridpoint(base,gridpoint_id())
     results=[retain_gridpoint(base,gridpoint_id()) for _ in 1:2]
     errors=compare(reference,results,[R];bands=((10.,100.),))
@@ -182,7 +182,7 @@ end
         @test which(Makie.plot,Tuple{T}).module===extension
     end
     @test which(Makie.plot,Tuple{Vector{Float64}}).module!==extension
-    source=LineParameters(fill(1.0+2im,1,1,3),fill(1e-6+2e-6im,1,1,3),[1.,10.,100.])
+    source=LineParameters(fill(1.0+2im,1,1,3),fill(1e-6+2e-6im,1,1,3),[1.,10.,100.]; line_length=1.0)
     observed=ObservedResult(source,(R,X);clip=false)
     for input in (observed,[observed],(observed,observed))
         p=Makie.plot(input, (R,);backend=:cairo,display_plot=false,controls=false)
@@ -201,7 +201,7 @@ end
     source_id=gridpoint_id().source_id
     z=reshape(complex.(1.:12.,21.:32.),2,2,3)
     f=[10.,100.,1000.]
-    point(index;values=z,frequency=f)=retain_gridpoint(LineParameters(copy(values),values.*1e-6,frequency),
+    point(index;values=z,frequency=f)=retain_gridpoint(LineParameters(copy(values),values.*1e-6,frequency; line_length=1.0),
         gridpoint_id(;source_id,problem_index=index,formulation_index=index);fields=completed_formulation(Formulation()))
     a,b=point(1),point(2;values=2z)
     reference=point(3;values=.5z)

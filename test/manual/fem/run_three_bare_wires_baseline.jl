@@ -21,7 +21,7 @@ end
 
 function baseline_write_result(directory, result, expected_frequencies)
     f = LineCableModels.frequencies(result)
-    labels = String.(details(result).data.coordinates)
+    labels = result.terminals
     @assert f == expected_frequencies
     @assert labels == ["cable:$i:core" for i in 1:3]
     @assert length(unique(labels)) == 3

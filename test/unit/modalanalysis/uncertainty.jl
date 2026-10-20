@@ -4,7 +4,7 @@
 
     x=measurement(2.0,0.1)
     phase=LineParameters(reshape([complex(x,zero(x))],1,1,1),
-        reshape([3.0+0im],1,1,1),[50.0])
+        reshape([3.0+0im],1,1,1),[50.0]; line_length=1.0)
     modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation())
     root=real(gamma(modal)[1,1])
     @test nominal(root)≈sqrt(6.0)
@@ -29,8 +29,8 @@ end
     maps=ModalOperators(reshape(copy(basis_matrix),2,2,1),
         reshape(copy(basis_matrix),2,2,1))
     modal=LineParameters(E.ModalDomain(maps,reshape([q1,q2],2,1)),
-        SeriesImpedance(coefficients),ShuntAdmittance(copy(coefficients)),[50.0],
-        ComputationDetails())
+        SeriesImpedance(coefficients),ShuntAdmittance(copy(coefficients)),[50.0];
+        line_length=1.0)
     segment=PropagationParameters(modal;line_length=1.0)
     voltage_H=Base.Fix2(H,(domain=PhaseDomain,field=:voltage))
     observed=ObservedResult(segment,((voltage_H,abs,1,2,:),);complete_pairs=true)

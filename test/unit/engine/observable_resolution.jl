@@ -6,7 +6,7 @@
     z=fill(1.0+im,2,2,3)
     y=fill(1e-13+1e-18im,2,2,3)
     y[2,2,:].=1e-4 .+ 2π.*f.*1e-9im
-    source=LineParameters(z,y,f)
+    source=LineParameters(z,y,f; line_length=1.0)
     saved=deepcopy((z,y,f))
     selected=((G,1,1,:),(B,1,1,:))
     a=ObservedResult(source,selected;length_unit=:base)
@@ -46,7 +46,7 @@ end
         g=reshape(T[cutoff/2,cutoff,2cutoff],1,1,:)
         z=fill(complex(one(T),one(T)),1,1,3)
         y=complex.(g,zero(T))
-        a=LineParameters(z,y,f);b=LineParameters(z,2y,f)
+        a=LineParameters(z,y,f; line_length=1.0);b=LineParameters(z,2y,f; line_length=1.0)
         base=observe(ObservedResult(a;length_unit=:base,atol=(G=cutoff,)),G)
         @test eltype(base)===T
         @test vec(base)==T[0,0,2cutoff]
@@ -60,8 +60,9 @@ end
             @test only(error.details.data.unresolved_samples).result>0
         end
         @test !ismissing(only(compare(a,b,G;band=:wide,atol=cutoff).relative))
-        total=LineParameters(10z,10y,f;basis=:total)
-        @test_throws ArgumentError ObservedResult(total)
+        # The default floor of a total result is the per-unit-length floor times its length.
+        total=LineParameters(10z,10y,f; line_length=10.0,basis=:total)
+        @test observe(ObservedResult(total),G)≈10base
         @test observe(ObservedResult(total;atol=(R=0.,X=0.,G=10cutoff,B=0.)),G)≈10base
         @test compare(a,b,G;atol=0).relative≈fill(one(T),1,1)
         small=fill(T(1e-30),1,1,3)
@@ -70,7 +71,7 @@ end
     end
     f=[1.,10.,100.]
     z=fill(1.0+im,2,2,3);y=fill(2e-12+1e-6im,2,2,3)
-    a=LineParameters(z,copy(y),f);b=LineParameters(z,copy(y),f)
+    a=LineParameters(z,copy(y),f; line_length=1.0);b=LineParameters(z,copy(y),f; line_length=1.0)
     b.Y.values[2,2,:].=1e20
     @test observe(ObservedResult(a),G,1,1,:)==observe(ObservedResult(b),G,1,1,:)
     standalone=ShuntAdmittance(fill(1e-18im,2,2,3))
@@ -88,11 +89,11 @@ end
     @test ismissing(observe(ObservedResult(a),G,1,1,1))
     @test ismissing(compare(a,b,G).absolute[1,1])
     @test !ismissing(compare(a,b,G;band=(10.,100.)).absolute[1,1])
-    dc=ObservedResult(LineParameters(z,y,[0.,10.,100.]),(R,L,G,C))
+    dc=ObservedResult(LineParameters(z,y,[0.,10.,100.]; line_length=1.0),(R,L,G,C))
     @test ismissing(observe(dc,C,1,1,1))
     @test all(isfinite,observe(dc,C,1,1,2:3))
-    single=LineParameters(ones(ComplexF32,1,1,3),fill(ComplexF32(1e-6),1,1,3),f)
-    double=LineParameters(ones(ComplexF64,1,1,3),fill(complex((Float64(Float32(1e-12))+1e-12)/2),1,1,3),f)
+    single=LineParameters(ones(ComplexF32,1,1,3),fill(ComplexF32(1e-6),1,1,3),f; line_length=1.0)
+    double=LineParameters(ones(ComplexF64,1,1,3),fill(complex((Float64(Float32(1e-12))+1e-12)/2),1,1,3),f; line_length=1.0)
     @test all(iszero,observe(ObservedResult(double),G))
     @test ismissing(only(compare(single,double,G).relative))
     @test ismissing(only(compare(double,single,G).relative))
@@ -112,7 +113,7 @@ end
         cutoff=T(1e-12)
         original=measurement.(T[cutoff/2,cutoff/2,cutoff,2cutoff],T[cutoff/2,2cutoff,cutoff/2,2cutoff])
         y=reshape(complex.(original,zero.(original)),1,1,:)
-        source=LineParameters(copy(y),y,T[1,10,100,1000])
+        source=LineParameters(copy(y),y,T[1,10,100,1000]; line_length=1.0)
         for length_unit in (:base,:kilo)
             factor=length_unit===:base ? T(1) : T(1000)
             observed=ObservedResult(source;length_unit,atol=(G=cutoff,))
@@ -132,7 +133,7 @@ end
     value=complex(measurement(1e-18,2e-12),measurement(1e-18,3e-12))
     resolution=observation_resolution(value,Y;atol=(G=1e-12,B=1e-12))
     @test resolution.unresolved && resolution.available
-    observed=ObservedResult(LineParameters(fill(value,1,1,1),fill(value,1,1,1),[1.]),
+    observed=ObservedResult(LineParameters(fill(value,1,1,1),fill(value,1,1,1),[1.]; line_length=1.0),
         ((Y,abs),(Y,angle));atol=(G=1e-12,B=1e-12),length_unit=:base)
     @test ismissing(only(observe(observed,Y,angle)))
     @test nominal(only(observe(observed,Y,abs)))==0

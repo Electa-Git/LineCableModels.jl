@@ -9,10 +9,11 @@
     source_id=gridpoint_id().source_id
     choices=[Formulation(earth_impedance=:saad1996,earth_admittance=:unified),
         Formulation(earth_impedance=:xue2018,earth_admittance=:xue2018)]
-    points=[retain_gridpoint(LineParameters(k*z,k*y,f),gridpoint_id(;source_id,formulation_index=index);
-        fields=merge(completed_formulation(choices[index]),(inputs=(radius=.01,resistivity=100.),coordinates=["a","b"])))
+    points=[retain_gridpoint(LineParameters(k*z,k*y,f; terminals=["a","b"], line_length=1.0),
+        gridpoint_id(;source_id,formulation_index=index);
+        fields=merge(completed_formulation(choices[index]),(inputs=(radius=.01,resistivity=100.),)))
         for (index,k) in enumerate((2,3))]
-    reference=LineParameters(z,y,f)
+    reference=LineParameters(z,y,f; terminals=["a","b"], line_length=1.0)
     results=ParametricResult(nothing,points,(problems=[:unavailable],formulations=choices),ComputationDetails())
     completed=LineCableModels.Engine.compare(reference,results,[Z,Y,R,L,G,C];bands=(:all,:wide))
     timings=[(result_id=point.details.data.gridpoint,seconds=Float64(index),scope=:compute_call_wall,
@@ -88,7 +89,7 @@ end
     source_id=gridpoint_id().source_id
     shared=measurement(1.,.1)
     values=(shared,shared,measurement(1.,.1),measurement(1.,.4))
-    points=[retain_gridpoint(LineParameters(fill(complex(value,2value),1,1,3),fill(1e-6im,1,1,3),[1.,10.,100.]),
+    points=[retain_gridpoint(LineParameters(fill(complex(value,2value),1,1,3),fill(1e-6im,1,1,3),[1.,10.,100.]; line_length=1.0),
         gridpoint_id(;source_id,formulation_index=index);fields=completed_formulation(Formulation()))
         for (index,value) in enumerate(values)]
     observed=observables(points)
@@ -110,11 +111,11 @@ end
     choices=[Formulation(earth_impedance=z,earth_admittance=y) for (z,y) in
         ((:unified,:unified),(:pollaczek1926,:pollaczek1926),(:saad1996,:unified),(:wedepohl1973,:unified),(:xue2018,:xue2018))]
     f=[1.,50.,1e3,1e7]
-    base=LineParameters(fill(1.0+2im,1,1,4),fill(3e-6+4e-6im,1,1,4),f)
+    base=LineParameters(fill(1.0+2im,1,1,4),fill(3e-6+4e-6im,1,1,4),f; line_length=1.0)
     points=[retain_gridpoint(base,gridpoint_id(;source_id,formulation_index=index);
         fields=merge(completed_formulation(choice),(inputs=(radius=.01,resistivity=100.),)))
         for (index,choice) in enumerate(choices)]
-    artifact=report(BenchmarkTableDefinition(),(reference=LineParameters(Z(base),Y(base),f),result=points))
+    artifact=report(BenchmarkTableDefinition(),(reference=LineParameters(Z(base),Y(base),f; line_length=1.0),result=points))
     for (request,count) in ((R,5),(X,5),(G,3),(B,3))
         @test length(observation_groups(artifact.observed;request))==count
         page=LineCableModels.plot(artifact, (request,);backend=:cairo,display_plot=false,controls=false,open_export=false)

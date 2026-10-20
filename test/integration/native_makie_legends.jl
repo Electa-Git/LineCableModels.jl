@@ -4,8 +4,8 @@
     frequency = [1.0, 10.0, 100.0]
     impedance = [complex(i + 2j + k, i + j + 2k) for i in 1:2, j in 1:2, k in 1:3]
     admittance = impedance .* 1e-6
-    reference = LineParameters(copy(impedance), copy(admittance), frequency)
-    result = LineParameters(2impedance, 2admittance, frequency)
+    reference = LineParameters(copy(impedance), copy(admittance), frequency; line_length=1.0)
+    result = LineParameters(2impedance, 2admittance, frequency; line_length=1.0)
     sources = (; reference, result)
     requests = ((R, 1, 1:2, :),)
     options = (; backend = :cairo, display_plot = false, controls = false,

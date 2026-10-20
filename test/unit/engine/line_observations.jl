@@ -11,7 +11,7 @@
     admittance = conductance .+ im .* omega .* capacitance
 
     for result_basis in (:pul, :total)
-        line = LineParameters(copy(impedance), copy(admittance), frequency; basis=result_basis)
+        line = LineParameters(copy(impedance), copy(admittance), frequency; line_length=1.0, basis=result_basis)
         series, shunt = line.Z, line.Y
         expected_basis = LineCableModels.Units.LengthBasis(result_basis)
         @test basis(typeof(line)) === expected_basis

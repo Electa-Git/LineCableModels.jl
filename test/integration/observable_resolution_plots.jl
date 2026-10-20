@@ -5,8 +5,8 @@
     f = [1.0, 1e3, 1e7]
     z = fill(1.0 + im, 1, 1, 3)
     y = fill(1e-13 + 1e-18im, 1, 1, 3)
-    reference = LineParameters(PhaseDomain, z, y, f; details=ComputationDetails(;coordinates=["a"],))
-    result = LineParameters(PhaseDomain, 2z, 2y, f; details=ComputationDetails(;coordinates=["a"],))
+    reference = LineParameters(PhaseDomain, z, y, f; line_length=1.0, terminals=["a"])
+    result = LineParameters(PhaseDomain, 2z, 2y, f; line_length=1.0, terminals=["a"])
     using LineCableModels.Engine: retain_gridpoint
     using LineCableModels.Commons: gridpoint_id
     reference=retain_gridpoint(reference,gridpoint_id())
@@ -58,7 +58,7 @@ end
                 fill(3e-25, 13), nothing, fill(3e-25,13)),
             (fill(1e-27, 13), fill(4e-10, 13), zeros(13), zeros(13)))
         c = reshape(measurement.(means, spreads), 1, 1, :)
-        source = LineParameters(one.(c) .+ im .* one.(c), im .* omega .* c, f)
+        source = LineParameters(one.(c) .+ im .* one.(c), im .* omega .* c, f; line_length=1.0)
         before = deepcopy((Z(source), Y(source), frequencies(source)))
         expected = clean_means === nothing ? nominal.(vec(observe(source, C))) : clean_means
         for raw in (false, true)

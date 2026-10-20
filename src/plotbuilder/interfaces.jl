@@ -153,7 +153,7 @@ using LineCableModels: plot
 using CairoMakie
 frequency = [1.0, 10.0, 100.0]
 impedance = reshape(complex.([1.0, 2.0, 3.0], [2.0, 3.0, 4.0]), 1, 1, :)
-raw = LineParameters(impedance, impedance .* 1e-6, frequency)
+raw = LineParameters(impedance, impedance .* 1e-6, frequency; line_length = 1000.0)
 r_request = @observe R[:, :, :]
 pair = (@observe(R[:, :, :]), @observe(L[:, :, :]))
 a = plot(raw, (r_request,); clip=true, length_unit=:kilo)

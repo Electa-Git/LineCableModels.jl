@@ -2,10 +2,10 @@
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     using DataFrames
     f=[0.1,10.,50.,1e3,1e6,1e7]
-    reference=LineParameters(fill(1.0+1im,1,1,6),zeros(ComplexF64,1,1,6),f;
-        details=ComputationDetails(;coordinates=["core"],))
-    result=LineParameters(fill(1.2+1im,1,1,6),zeros(ComplexF64,1,1,6),f;
-        details=ComputationDetails(;coordinates=["core"],))
+    reference=LineParameters(fill(1.0+1im,1,1,6),zeros(ComplexF64,1,1,6),f; line_length=1.0,
+        terminals=["core"])
+    result=LineParameters(fill(1.2+1im,1,1,6),zeros(ComplexF64,1,1,6),f; line_length=1.0,
+        terminals=["core"])
     artifact=report(BenchmarkTableDefinition((R,G);bands=(:all,:dc,:harmonic,:narrow,:wide)),(;reference,result))
     @test artifact[R]===artifact.tables.quantities[1].Z.R
     @test artifact[1,R]===artifact[R]
@@ -71,7 +71,7 @@ end
     using DataFrames, Measurements, Statistics
     const RB=LineCableModels.ReportBuilder
     const U=LineCableModels.Units
-    constants=CableConstants(1e-4,2e-7,3e-10,4e-12;frequency=50)
+    constants=CableConstants(1e-4,2e-7,3e-10,4e-12;terminal="core",frequency=50)
     r=report(constants, (R,L,G,C);length_unit=:kilo,
         quantity_units=(R=:base,L=:milli,G=:micro,C=:micro))
     original=deepcopy(r.observed.quantities)
@@ -137,7 +137,7 @@ end
     end
 
     z=reshape(complex.(1.:800.,801.:1600.),2,2,200)
-    source=LineParameters(z,fill(3e-6+4e-6im,2,2,200),collect(1.:200.))
+    source=LineParameters(z,fill(3e-6+4e-6im,2,2,200),collect(1.:200.); line_length=1.0)
     collection=report([source,source], (R,L,G,C);frequency_unit=:kilo)
     for size in ((24,80),(40,120),(10,40),(5,30),(2,8),(1,1))
         context=IOContext(IOBuffer(),:limit=>true,:displaysize=>size,:color=>false)
@@ -208,7 +208,7 @@ end
     shared=measurement(1e-4,1e-6)
     uncertain=report(CableConstants(shared,2shared,3shared,4shared), R;clip=false)
     bigsource=LineParameters(fill(complex(-big"1.23456789e-40",big"0"),1,1,2),
-        fill(complex(big"0",big"1e-6"),1,1,2),BigFloat[50,500])
+        fill(complex(big"0",big"1e-6"),1,1,2),BigFloat[50,500]; line_length=1.0)
     precise=report(bigsource, R;clip=false)
     for artifact in (uncertain,precise)
         table=artifact[R]

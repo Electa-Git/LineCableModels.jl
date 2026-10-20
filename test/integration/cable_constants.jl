@@ -8,7 +8,7 @@
     constants=CableConstants(design)
     row=only(constants)
 
-    @test row.core === :core
+    @test row.terminal == "cable:$(design.cable_id):core"
     @test row.R > 0
     @test row.L > 0
     @test row.C > 0
@@ -295,7 +295,7 @@
     unsheathed_problem=CableConstantsProblem(unsheathed_design; frequency = 50.0)
     @test unsheathed_problem.design === unsheathed_design
     unsheathed=only(compute(unsheathed_problem, CableConstantsFormulation()))
-    @test unsheathed.core === :unsheathed_core
+    @test unsheathed.terminal == "cable:unsheathed-core:unsheathed_core"
     @test unsheathed.R > 0
     @test unsheathed.L > 0
     @test unsheathed.C > 0
@@ -318,8 +318,9 @@
         unsheathed_pair_problem,
         CableConstantsFormulation()
     )
-    @test unsheathed_pair_constants.cores ==
-          [:left_unsheathed_core, :right_unsheathed_core]
+    @test unsheathed_pair_constants.terminals ==
+          ["cable:two-unsheathed-assemblies:left_unsheathed_core",
+           "cable:two-unsheathed-assemblies:right_unsheathed_core"]
     @test all(>(0), unsheathed_pair_constants.R)
     @test all(>(0), unsheathed_pair_constants.L)
     @test all(>(0), unsheathed_pair_constants.C)
@@ -355,7 +356,7 @@
     combined=CableConstants(multicore; frequency = 50.0)
     left_constants=CableConstants(build(CableDesign, "left", left); frequency = 50.0)
     right_constants=CableConstants(build(CableDesign, "right", right); frequency = 50.0)
-    @test combined.cores == [:left_core, :right_core]
+    @test combined.terminals == ["cable:two-assembly:left_core", "cable:two-assembly:right_core"]
     @test combined.R ≈ [only(left_constants).R, only(right_constants).R]
     @test combined.L ≈ [only(left_constants).L, only(right_constants).L]
     @test combined.C ≈ [only(left_constants).C, only(right_constants).C]
@@ -418,7 +419,7 @@
         many_layer_design;
         frequency = 50.0
     )
-    @test many_layer_constants.cores == [:terminal_1]
+    @test many_layer_constants.terminals == ["cable:$(many_layer_design.cable_id):terminal_1"]
     @test all(isfinite,
         Iterators.flatten((
             many_layer_constants.R,

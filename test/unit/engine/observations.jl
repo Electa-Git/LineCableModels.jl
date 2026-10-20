@@ -14,7 +14,7 @@
     angular=reshape(2π .* frequency, 1, 1, :)
     impedance=complex.(resistance, inductance .* angular)
     admittance=complex.(conductance, capacitance .* angular)
-    parameters=LineParameters(impedance, admittance, frequency)
+    parameters=LineParameters(impedance, admittance, frequency; line_length=1.0)
 
     @test observables(typeof(parameters)) == (
         frequencies, Z, Y, R, X, L, G, B, C,
@@ -98,7 +98,7 @@ end
     using DataFrames, Tables
     using LineCableModels.ReportBuilder: tabulate
     const GR=LineCableModels.Commons
-    constants=CableConstants([:a,:b],[1e-4,2e-4],[3e-7,4e-7],[5e-10,6e-10],[7e-9,8e-9],50.)
+    constants=CableConstants(["a","b"],[1e-4,2e-4],[3e-7,4e-7],[5e-10,6e-10],[7e-9,8e-9],50.)
     observed=observables(constants;length_unit=:base,quantity_units=:base)
     @test !Tables.istable(typeof(observed))
     @test length(observed.quantities)==4

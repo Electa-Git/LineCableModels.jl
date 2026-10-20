@@ -144,23 +144,22 @@ varies fastest. Two-dimensional indexing accepts those indices directly.
 
 $(TYPEDFIELDS)
 """
-struct ParametricResult{T, F, A <: NamedTuple, D <: ComputationDetails} <:
-       AbstractParametricResult{T}
+struct ParametricResult{T, F, A <: NamedTuple} <: AbstractParametricResult{T}
     "Higher-order formulation used for the computation."
     formulation::F
     "Core results in problem-index-fastest formulation order."
     values::Vector{T}
     "Problem and resolved-formulation sources aligned with `values`."
     axes::A
-    "Typed supplemental output retained by the traversal."
-    details::D
+    "Supplemental output retained by the traversal."
+    details::ComputationDetails
 
     function ParametricResult(
             formulation::F,
             values::Vector{T},
             axes::A,
-            details::D
-    ) where {T, F, A <: NamedTuple, D <: ComputationDetails}
+            details::ComputationDetails
+    ) where {T, F, A <: NamedTuple}
         validate(T, ParametricResult)
         if !isempty(axes)
             keys(axes) == (:problems, :formulations) || throw(ArgumentError(
@@ -179,7 +178,7 @@ struct ParametricResult{T, F, A <: NamedTuple, D <: ComputationDetails} <:
             throw(DimensionMismatch(
                 "retained details must contain one entry per core result",
             ))
-        return new{T, F, A, D}(formulation, values, axes, details)
+        return new{T, F, A}(formulation, values, axes, details)
     end
 end
 

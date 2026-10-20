@@ -156,14 +156,15 @@ ComputationOptions(options::ComputationOptions) = options
 $(TYPEDEF)
 
 Retain computation-owned supplemental output. The producing computation defines its contents. Immutability is shallow: arrays and other mutable payload values
-are neither copied nor frozen. Nested diagnostic type bounds are preserved.
+are neither copied nor frozen. Every record has this one type: its contents change the keys
+of `data`, never the type of the record or of the result that holds it.
 
 $(TYPEDFIELDS)
 """
-struct ComputationDetails{NT <: NamedTuple}
+struct ComputationDetails
     "Named-tuple supplemental output, accessed explicitly through `.data`."
-    data::NT
-    ComputationDetails(data::NamedTuple) = new{typeof(data)}(data)
+    data::NamedTuple
+    ComputationDetails(data::NamedTuple) = new(data)
 end
 
 """

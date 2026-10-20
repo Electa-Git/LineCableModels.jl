@@ -148,12 +148,12 @@ function Base.show(io::IO, ::MIME"text/plain", constants::CableConstants)
     get(io, :compact, false) && return show(io, constants)
     rows = Tuple((
         label = string(
-            constants.cores[index], "  R=", constants.R[index],
+            constants.terminals[index], "  R=", constants.R[index],
             " Ω/m  L=", constants.L[index], " H/m  C=", constants.C[index],
             " F/m  G=", constants.G[index], " S/m"
         ),
         noun = "assemblies",
-    ) for index in eachindex(constants.cores))
+    ) for index in eachindex(constants.terminals))
     return TextDisplay.tree(io,
         "Cable constants · $(constants.frequency) Hz", rows; noun = "assemblies")
 end

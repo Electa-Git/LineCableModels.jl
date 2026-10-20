@@ -53,7 +53,7 @@
     end
 
     parameters=LineParameters(reshape(ComplexF64[1,2],1,1,2),
-        reshape(ComplexF64[1im,2im],1,1,2),[1.,100.];details=ComputationDetails(;coordinates=["core"],))
+        reshape(ComplexF64[1im,2im],1,1,2),[1.,100.]; line_length=1.0,terminals=["core"])
     artifact=report(BenchmarkTableDefinition((R,);bands=(:all,:dc)),
         (reference=parameters,result=parameters,
             measurements=(;execution,performance)))

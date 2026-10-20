@@ -2,7 +2,7 @@
     using DataFrames, LinearAlgebra, Measurements
     using LineCableModels.ReportBuilder: tabulate
     using LineCableModels.Commons: observation_requests
-    line=LineParameters(reshape(ComplexF64.(1:12),2,2,3),fill(3.0+4im,2,2,3),[0.,1.,2.])
+    line=LineParameters(reshape(ComplexF64.(1:12),2,2,3),fill(3.0+4im,2,2,3),[0.,1.,2.]; line_length=1.0)
     observed=ObservedResult(line)
     @test_throws ArgumentError ObservedResult(line,(R,))
     @test_throws ArgumentError ObservedResult(line,(X,L))
@@ -21,14 +21,14 @@
     for requests in ((R,X),(R,L),((Z,abs),(Z,angle)),(G,B),(G,C),((Y,abs),(Y,angle)))
         @test length(ObservedResult(line,requests).quantities)==4
     end
-    dc=LineParameters(fill(1.0+0im,1,1,1),fill(1.0+0im,1,1,1),[0.])
+    dc=LineParameters(fill(1.0+0im,1,1,1),fill(1.0+0im,1,1,1),[0.]; line_length=1.0)
     proxies=ObservedResult(dc,(R,L,G,C))
     @test ismissing(only(observe(proxies,L)))
     @test only(observe(proxies,R))==1000
     scalar=ObservedResult(dc,((R,1,1,1),(L,1,1,1),(G,1,1,1),(C,1,1,1)))
     @test ismissing(observe(scalar,L))
     shared=measurement(0.,.2)
-    uncertain=LineParameters(fill(complex(shared,2shared),1,1,2),fill(1.0+2im,1,1,2),[1.,2.])
+    uncertain=LineParameters(fill(complex(shared,2shared),1,1,2),fill(1.0+2im,1,1,2),[1.,2.]; line_length=1.0)
     polar=ObservedResult(uncertain,((Z,abs),(Z,angle)))
     @test all(ismissing,observe(polar,Z,abs))
     @test all(ismissing,observe(polar,Z,angle))
@@ -41,10 +41,10 @@ end
     using LineCableModels.Engine: compare, retain_gridpoint
     using LineCableModels.Commons: gridpoint_id, observation_groups
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
-    base=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.])
+    base=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),[1.,2.,3.]; line_length=1.0)
     reference=retain_gridpoint(base,gridpoint_id())
     source=gridpoint_id().source_id
-    results=[retain_gridpoint(LineParameters(base.Z.*factor,base.Y,[1.,2.,3.]),
+    results=[retain_gridpoint(LineParameters(base.Z.*factor,base.Y,[1.,2.,3.]; line_length=1.0),
         gridpoint_id(source_id=source,problem_index=index)) for (index,factor) in enumerate((1.1,1.2))]
     errors=compare(reference,results,[R,L];bands=(:all,))
     timings=[(result_id=LineCableModels.Commons.observation_gridpoint(result).id,seconds=index)
@@ -83,7 +83,7 @@ end
     using LineCableModels.ReportBuilder: tabulate
     using LineCableModels.Commons: gridpoint_id
     f=[1.,2.,3.]
-    base=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),f)
+    base=LineParameters(fill(1.0+2im,2,2,3),fill(3.0+4im,2,2,3),f; line_length=1.0)
     trials=(R=reshape(collect(1.:60.),2,2,3,5),L=fill(0.001,2,2,3,5),C=fill(1e-9,2,2,3,5),G=fill(1e-6,2,2,3,5))
     summaries=map(array -> [SampleSummary(vec(array[i,j,k,:])) for i in 1:2,j in 1:2,k in 1:3],trials)
     core=LineCableModels.materialize(base,summaries)
@@ -124,7 +124,7 @@ end
     trials.R .= -1
     @test all(>(0),observed_quantity.distribution.qq.sample)
     shared=measurement(1.,.2)
-    uncertain=LineParameters(fill(complex(shared,2shared),2,2,3),fill(complex(3shared,4shared),2,2,3),f)
+    uncertain=LineParameters(fill(complex(shared,2shared),2,2,3),fill(complex(3shared,4shared),2,2,3),f; line_length=1.0)
     ordinary=report(uncertain)
     @test ordinary.observed isa ObservedResult
     observed=ordinary.observed
@@ -148,7 +148,7 @@ end
     end
     setprecision(BigFloat,384) do
         precise=LineParameters(fill(complex(big"1.234567890123456789012345678901",big"2"),1,1,2),
-            fill(complex(big"3",big"4"),1,1,2),BigFloat[1,2])
+            fill(complex(big"3",big"4"),1,1,2),BigFloat[1,2]; line_length=1.0)
         original=ObservedResult(precise;length_unit=:base)
         encoded=LineCableModels.ImportExport.serialize_value(original)
         restored=setprecision(BigFloat,128) do

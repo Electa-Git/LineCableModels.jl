@@ -126,7 +126,8 @@ Base.@constprop :aggressive function traverse(
     # Constant options do not reach the steps defined in the run below. The owner of the
     # formulations normalizes them here, once, into a record in which the options that change
     # the type of a value are types.
-    # Timing changes the type of the details, and its switch becomes a type here too.
+    # Timing changes the type of the fields that a point records, and its switch becomes a
+    # type here too.
     execution = computation_options(eltype(formulations), record)
     timing = get(record.data, :timing, false) ? Val(true) : Val(false)
     return traverse(problem, formulation, problems, formulations, execution, timing;

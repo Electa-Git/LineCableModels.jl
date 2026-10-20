@@ -101,7 +101,7 @@ end
     # Distinct self and mutual entries and both signs expose ordering and parsing errors.
     z[1,2,:].*=-1
     y[2,1,:].*=-1
-    parameters=LineParameters(z,y,frequencies(source))
+    parameters=LineParameters(z,y,frequencies(source); line_length=1.0)
     mktempdir() do directory
         path=joinpath(directory,"matrices.xml")
         @test export_data(:atp,parameters;file_name=path)==path

@@ -4,7 +4,7 @@
     f = measurement.([1.0, 10.0, 100.0], [0.1, 0.2, 0.3])
     z = [measurement(i+2j+k, 0.1i+0.01j+0.001k) + im*measurement(i+j+k, 0.2)
          for i in 1:2, j in 1:2, k in eachindex(f)]
-    source = LineParameters(z, z .* 1e-6, f)
+    source = LineParameters(z, z .* 1e-6, f; line_length=1.0)
     before = deepcopy((Z(source), Y(source), frequencies(source)))
     options = (backend = :cairo, display_plot = false, open_export = false,
         length_unit = :base, quantity_units = :base, frequency_unit = :base, clip = false)
@@ -80,9 +80,9 @@ end
     errors = fill(0.05, length(f))
     errors[1] = 3.0 # Use an endpoint interval. A sparse interior glyph would omit the endpoint.
     z = reshape(complex.(measurement.(resistance, errors), 0.1), 1, 1, :)
-    reference = LineParameters(z, z .* 1e-6, measurement.(f, 0.01))
+    reference = LineParameters(z, z .* 1e-6, measurement.(f, 0.01); line_length=1.0)
     other_z = reshape(complex.(measurement.(1.05 .* resistance, 0.02), 0.1), 1, 1, :)
-    compared_result = LineParameters(other_z, other_z .* 1e-6, measurement.(f, 0.02))
+    compared_result = LineParameters(other_z, other_z .* 1e-6, measurement.(f, 0.02); line_length=1.0)
     axes = (problems = [:one], formulations = [NamedTuple(Formulation())])
     result = ParametricResult(nothing, [compared_result], axes, ComputationDetails((;)))
     before = deepcopy((Z(reference), Y(reference), frequencies(reference), Z(compared_result)))
@@ -176,7 +176,7 @@ end
         z = [measurement(offset + i + 2j + k, 0.1offset + 0.01i + 0.001k) +
              im * measurement(2offset + i + j + k, 0.2offset)
              for i in 1:2, j in 1:2, k in eachindex(f)]
-        LineParameters(z, z .* 1e-6, f)
+        LineParameters(z, z .* 1e-6, f; line_length=1.0)
     end
     page = LineCableModels.plot(sources..., (R,);
         backend = :cairo, display_plot = false, controls = true, open_export = false,
@@ -220,7 +220,7 @@ end
             z = [measurement(offset+i+2j+k, yspread*(0.1offset+0.01i+0.001k)) +
                  im*measurement(2offset+i+j+k, yspread*0.2offset)
                  for i in 1:2, j in 1:2, k in eachindex(f)]
-            LineParameters(z, z .* 1e-6, frequency)
+            LineParameters(z, z .* 1e-6, frequency; line_length=1.0)
         end
         originals = map(p -> (copy(Z(p)), copy(Y(p)), copy(frequencies(p))), sources)
         attributes = markers ? ((marker = :circle,), (marker = :utriangle,)) : nothing
@@ -294,7 +294,7 @@ end
     f = [1.0, 10.0, 100.0]
     z = [measurement(i+2j+k, 0.1i+0.01j+0.001k) + im*measurement(i+j+k, 0.2)
          for i in 1:3, j in 1:3, k in eachindex(f)]
-    parameters = LineParameters(z, z .* 1e-6, measurement.(f, 0.01f))
+    parameters = LineParameters(z, z .* 1e-6, measurement.(f, 0.01f); line_length=1.0)
     options = (
         backend = :cairo, display_plot = false, controls = true, open_export = false,
         length_unit = :base, quantity_units = :base, clip = false, fig_size = (1000, 700))
@@ -369,7 +369,7 @@ end
 
     f = [1.0, 10.0, 100.0]
     z = reshape(complex.(measurement.([1.0, 2.0, 3.0], 0.4), 1.0), 1, 1, :)
-    source = LineParameters(z, z .* 1e-6, f)
+    source = LineParameters(z, z .* 1e-6, f; line_length=1.0)
     page = LineCableModels.plot(
         source, (R,); backend = :cairo, display_plot = false,
         controls = false, open_export = false, series_labels = ("uncertain",),
@@ -411,7 +411,7 @@ end
     using CairoMakie, Measurements
     f = [1.0, 10.0, 100.0]
     sources = Tuple(LineParameters(fill(measurement(Float64(i), 0.1)+im, 1, 1, 3),
-                        fill(measurement(1e-6, 1e-8)+1e-6im, 1, 1, 3), f) for i in 1:24)
+                        fill(measurement(1e-6, 1e-8)+1e-6im, 1, 1, 3), f; line_length=1.0) for i in 1:24)
     legend_bounds = Observable(Rect2f(0, 0, 300, 100))
     page = LineCableModels.plot(
         sources..., (R,); backend = :cairo, display_plot = false,
@@ -442,7 +442,7 @@ end
     using CairoMakie, Measurements
     frequency=collect(1.0:20.0)
     values=measurement.(fill(2.0, 20), [fill(0.1, 19); 20.0])
-    raw=LineParameters(reshape(complex.(values, values), 1, 1, :), fill(1+2im, 1, 1, 20), frequency)
+    raw=LineParameters(reshape(complex.(values, values), 1, 1, :), fill(1+2im, 1, 1, 20), frequency; line_length=1.0)
     observed=ObservedResult(raw, (R, X); clip = false, length_unit = :base)
     p=LineCableModels.plot(observed, (R,); errorbar_sampling = :staggered,
         backend = :cairo, display_plot = false, open_export = false)

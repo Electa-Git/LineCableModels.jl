@@ -4,15 +4,15 @@ $(TYPEDEF)
 Store earth-free cable constants per unit length for one or more independent
 concentric assemblies.
 
-Every entry of `cores`, `R`, `L`, `C`, and `G` describes one assembly. Values
+Every entry of `terminals`, `R`, `L`, `C`, and `G` describes one assembly. Values
 are evaluated at `frequency`. `R`, `L`, `C`, and `G` use Ω/m, H/m, F/m, and
 S/m respectively.
 
 $(TYPEDFIELDS)
 """
-struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
-    "Innermost active terminal of each concentric assembly."
-    cores::Vector{Symbol}
+struct CableConstants{T <: Real} <: AbstractCoreResult
+    "Innermost active terminal of each concentric assembly, `\"cable:<cable id>:<terminal>\"`."
+    terminals::Vector{String}
     "Series resistance per unit length [Ω/m]."
     R::Vector{T}
     "Series inductance per unit length [H/m]."
@@ -25,10 +25,10 @@ struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
     frequency::T
 
     "Requested/resolved formulas and shunt-model diagnostics."
-    details::D
+    details::ComputationDetails
 
     function CableConstants{T}(
-            cores::Vector{Symbol},
+            terminals::Vector{String},
             R::Vector{T},
             L::Vector{T},
             C::Vector{T},
@@ -36,16 +36,16 @@ struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
             frequency::T,
             details::ComputationDetails = ComputationDetails()
     ) where {T <: Real}
-        count = length(cores)
+        count = length(terminals)
         iszero(count) && throw(ArgumentError(
             "cable constants require at least one concentric assembly",
         ))
         all(length(values) == count for values in (R, L, C, G)) ||
             throw(DimensionMismatch(
-                "cores, R, L, C, and G must contain the same number of entries",
+                "terminals, R, L, C, and G must contain the same number of entries",
             ))
-        allunique(cores) || throw(ArgumentError(
-            "cable-constant core names must be unique",
+        allunique(terminals) || throw(ArgumentError(
+            "cable-constant terminal names must be unique",
         ))
         isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
             frequency,
@@ -57,12 +57,12 @@ struct CableConstants{T <: Real, D <: ComputationDetails} <: AbstractCoreResult
         ))
         retained=haskey(details.data,:gridpoint) ? details :
             completion_details(merge(details.data,(gridpoint=Commons.gridpoint_id(),)))
-        return new{T, typeof(retained)}(cores, R, L, C, G, frequency, retained)
+        return new{T}(terminals, R, L, C, G, frequency, retained)
     end
 end
 
 function CableConstants(
-        cores::AbstractVector{Symbol},
+        terminals::AbstractVector{<:AbstractString},
         R::AbstractVector{<:Real},
         L::AbstractVector{<:Real},
         C::AbstractVector{<:Real},
@@ -74,7 +74,7 @@ function CableConstants(
         eltype(R), eltype(L), eltype(C), eltype(G), typeof(float(frequency))
     )
     return CableConstants{T}(
-        collect(Symbol, cores),
+        convert(Vector{String}, terminals),
         T.(R),
         T.(L),
         T.(C),
@@ -89,13 +89,13 @@ function CableConstants(
         L::Real,
         C::Real,
         G::Real = 0;
-        core::Symbol = :core,
+        terminal::AbstractString = "1",
         frequency::Real = 50
 )
     values = promote(R, L, C, G, frequency)
     T = typeof(first(values))
     return CableConstants{T}(
-        Symbol[core],
+        String[terminal],
         T[values[1]],
         T[values[2]],
         T[values[3]],
@@ -105,25 +105,25 @@ function CableConstants(
 end
 
 function Base.:(==)(left::CableConstants, right::CableConstants)
-    left.cores == right.cores && left.R == right.R && left.L == right.L &&
+    left.terminals == right.terminals && left.R == right.R && left.L == right.L &&
         left.C == right.C && left.G == right.G && left.frequency == right.frequency
 end
 
-Base.length(constants::CableConstants) = length(constants.cores)
+Base.length(constants::CableConstants) = length(constants.terminals)
 details(constants::CableConstants) = constants.details
 Base.size(constants::CableConstants) = (length(constants),)
 function Base.eltype(::Type{CableConstants{T}}) where {T}
     NamedTuple{
-        (:core, :R, :L, :C, :G),
-        Tuple{Symbol, T, T, T, T}
+        (:terminal, :R, :L, :C, :G),
+        Tuple{String, T, T, T, T}
     }
 end
-Base.firstindex(constants::CableConstants) = firstindex(constants.cores)
-Base.lastindex(constants::CableConstants) = lastindex(constants.cores)
+Base.firstindex(constants::CableConstants) = firstindex(constants.terminals)
+Base.lastindex(constants::CableConstants) = lastindex(constants.terminals)
 
 function Base.getindex(constants::CableConstants, index::Integer)
     return (
-        core = constants.cores[index],
+        terminal = constants.terminals[index],
         R = constants.R[index],
         L = constants.L[index],
         C = constants.C[index],
@@ -547,8 +547,8 @@ function _solve!(
         buffers.C[assembly] = imag(Y) / ω
     end
     return CableConstants(
-        Symbol[workspace.cable.terminals[first(chain)]
-               for chain in workspace.cable.assemblies],
+        ["cable:$(problem.design.cable_id):$(workspace.cable.terminals[first(chain)])"
+         for chain in workspace.cable.assemblies],
         buffers.R,
         buffers.L,
         buffers.C,

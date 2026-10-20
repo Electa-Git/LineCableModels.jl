@@ -37,7 +37,7 @@
     end
 
     phase=LineParameters(reshape(ComplexF64[2+im,3+im],1,1,2),
-        reshape(ComplexF64[1e-6im,2e-6im],1,1,2),[50.0,100.0];
+        reshape(ComplexF64[1e-6im,2e-6im],1,1,2),[50.0,100.0];line_length=10.0,
         details=ComputationDetails((inputs=(system=(line_length=10.0,),),)))
     selected=ModalAnalysisFormulation(Formula(:diagonal_example))
     modal=compute(ModalAnalysisProblem(phase),selected)

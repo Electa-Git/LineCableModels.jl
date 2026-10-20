@@ -30,6 +30,8 @@ function Base.getindex(
         SeriesImpedance{T, Basis}(Array(view(lp.Z.values,:,:,selected))),
         ShuntAdmittance{T, Basis}(Array(view(lp.Y.values,:,:,selected))),
         selected_frequencies,
+        lp.terminals,
+        lp.line_length,
         selectdetails(lp.details,lp.domain,selected)
     )
 end

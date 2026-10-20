@@ -29,7 +29,7 @@
             end
         end
         result = @inferred compute(TestFixtures.known_case_problem(Symbol(case); frequencies), formulation)
-        @test details(result).data.coordinates == labels
+        @test result.terminals == labels
         for (k, f) in enumerate(frequencies), (quantity, selector) in (("Z", Z), ("Y", Y))
             computed = observe(result, selector)[:, :, k]
             @test isapprox(computed, reference[("analytical", quantity, f)]; rtol = 1e-12)

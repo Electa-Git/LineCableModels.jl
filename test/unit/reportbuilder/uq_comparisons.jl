@@ -14,8 +14,8 @@
     end
     means=map(array -> mean.(array), summaries)
     core=LineParameters(
-        means.R .+ im .* angular .* means.L, means.G .+ im .* angular .* means.C, f;
-        details = ComputationDetails(;coordinates = ["a", "b"],))
+        means.R .+ im .* angular .* means.L, means.G .+ im .* angular .* means.C, f; line_length=1.0,
+        terminals=["a", "b"])
     core=LineCableModels.materialize(core,summaries)
     histograms=map(trials) do array
         [HistogramDensity(vec(array[i, j, k, :]); bins = 3)
@@ -102,7 +102,7 @@
     # when its corresponding mean is zero. Both are separate requests.
     uncertain_core=LineParameters(
         complex.(measurement.(zeros(2, 2, 6), fill(1e-4, 2, 2, 6))),
-        zeros(ComplexF64, 2, 2, 6), f)
+        zeros(ComplexF64, 2, 2, 6), f; line_length=1.0)
     spread=LinearErrorResult(LinearError(Formulation()), [uncertain_core])
     @test all(iszero, observe(only(compare(spread, spread, (statistics, R, std))), relative_error))
     @test all(ismissing, observe(only(compare(spread, spread, (statistics, R, mean))), relative_error))

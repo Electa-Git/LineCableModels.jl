@@ -44,9 +44,8 @@
     roots=sqrt.(z.*y)
     Zp=Tv0*Diagonal(z)/Ti0
     Yp=Ti0*Diagonal(y)/Tv0
-    details0=ComputationDetails((inputs=(system=(line_length=600.0,),),))
     phase=LineParameters(PhaseDomain,SeriesImpedance(reshape(Zp,2,2,1)),
-        ShuntAdmittance(reshape(Yp,2,2,1)),[50.0],details0)
+        ShuntAdmittance(reshape(Yp,2,2,1)),[50.0];line_length=600.0)
     selected=FixedModal(reshape(Tv0,2,2,1),reshape(Ti0,2,2,1),
         reshape(roots,2,1),Ref(0),Ref(0))
     mf=ModalAnalysisFormulation(selected)
@@ -77,7 +76,7 @@
     @test H(short,PhaseDomain;field=:voltage)[:,:,1]*Zc(short,PhaseDomain)[:,:,1]≈
         Zc(short,PhaseDomain)[:,:,1]*H(short,PhaseDomain;field=:current)[:,:,1]
     zero_roots=LineParameters(E.ModalDomain(operators(modal),zeros(ComplexF64,size(gamma(modal)))),
-        modal.Z,modal.Y,modal.f,modal.details)
+        modal.Z,modal.Y,modal.f,modal.terminals,modal.line_length,modal.details)
     first_zero=PropagationParameters(zero_roots;line_length=100.0)
     second_zero=PropagationParameters(first_zero;line_length=200.0)
     @test H(first_zero)==H(second_zero)
@@ -85,7 +84,7 @@
     @test selected.calculations[]==1
 
     total=LineParameters(PhaseDomain,SeriesImpedance(reshape(Zp.*600,2,2,1);basis=:total),
-        ShuntAdmittance(reshape(Yp.*600,2,2,1);basis=:total),[50.0],details0)
+        ShuntAdmittance(reshape(Yp.*600,2,2,1);basis=:total),[50.0];line_length=600.0)
     total_selected=FixedModal(selected.voltage,selected.current,selected.roots.*600,
         Ref(0),Ref(0))
     total_modal=compute(ModalAnalysisProblem(total),ModalAnalysisFormulation(total_selected))
@@ -163,11 +162,12 @@
     @test H(loaded_segment)==H(short)
     @test Z(transform(PhaseDomain,loaded_modal))[:,:,1]≈Zp
     @test selected.calculations[]==7
-    no_length=LineParameters(reshape(Zp,2,2,1),reshape(Yp,2,2,1),[50.0])
-    unbound=compute(ModalAnalysisProblem(no_length),mf)
-    @test line_length(unbound)===nothing
-    @test_throws ArgumentError PropagationParameters(unbound)
-    @test line_length(PropagationParameters(unbound;line_length=25.0))==25.0
+    @test_throws UndefKeywordError LineParameters(reshape(Zp,2,2,1),reshape(Yp,2,2,1),[50.0])
+    declared=compute(ModalAnalysisProblem(LineParameters(reshape(Zp,2,2,1),reshape(Yp,2,2,1),
+        [50.0];line_length=40.0)),mf)
+    @test line_length(declared)==40.0
+    @test line_length(PropagationParameters(declared))==40.0
+    @test line_length(PropagationParameters(declared;line_length=25.0))==25.0
     @test SavedResults.same(SavedResults.round_trip(modal), modal)
 
     timed_phase=E.retain_gridpoint(phase,details(phase).data.gridpoint;

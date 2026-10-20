@@ -1,14 +1,14 @@
 @testitem "ModalAnalysis / structural state and forward imaginary branch" tags=[:unit, :engine] begin
     import LineCableModels.Engine as E
     impedance=reshape(ComplexF64[-im],1,1,1)
-    phase=LineParameters(impedance,copy(impedance),[50.0])
+    phase=LineParameters(impedance,copy(impedance),[50.0]; line_length=1.0)
     modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(:default))
     @test gamma(modal)[1,1]≈im
     @test_throws DimensionMismatch ModalOperators(operators(modal).Tv,
         zeros(ComplexF64,2,2,1))
     large=reshape(ComplexF64[1,0,0,1],2,2,1)
     @test_throws DimensionMismatch LineParameters(modal.domain,
-        SeriesImpedance(large),ShuntAdmittance(copy(large)),[50.0],ComputationDetails())
+        SeriesImpedance(large),ShuntAdmittance(copy(large)),[50.0];line_length=1.0)
     @test_throws ArgumentError PropagationParameters(phase,-1.0,ComputationDetails())
     @test_throws ArgumentError PropagationParameters(modal,-1.0,ComputationDetails())
     @test_throws ArgumentError PropagationParameters(modal,10.0,
@@ -26,7 +26,7 @@ end
     import LineCableModels.Units as U
     impedance=reshape(ComplexF64[2+im],1,1,1)
     admittance=reshape(ComplexF64[1e-6im],1,1,1)
-    base=LineParameters(impedance,admittance,[50.0];
+    base=LineParameters(impedance,admittance,[50.0];line_length=10.0,
         details=ComputationDetails((inputs=(system=(line_length=10.0,),),)))
     point=details(base).data.gridpoint
     first_phase=E.retain_gridpoint(base,point;
@@ -142,7 +142,7 @@ end
 
     z=reshape(ComplexF64[2+im],1,1,1)
     y=reshape(ComplexF64[1e-6im],1,1,1)
-    base=LineParameters(z,y,[50.0])
+    base=LineParameters(z,y,[50.0]; line_length=1.0)
     phase=E.retain_gridpoint(base,details(base).data.gridpoint;
         fields=E.completed_formulation(Formulation()))
     first_modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(ScaleModal(1.0)))

@@ -40,7 +40,7 @@
     # Both Newton trajectories reach the same eigenpair. Direct fallback restores rank.
     z=cat(Matrix{ComplexF64}(I, 2, 2), ComplexF64[2 -1; -1 2]; dims = 3)
     y=cat(Matrix{ComplexF64}(I, 2, 2), Matrix{ComplexF64}(I, 2, 2); dims = 3)
-    collapsed=compute(ModalAnalysisProblem(LineParameters(z, y, [1.0, 2.0])),
+    collapsed=compute(ModalAnalysisProblem(LineParameters(z, y, [1.0, 2.0]; line_length=1.0)),
         ModalAnalysisFormulation(:wedepohl1996))
     diagnostics=details(collapsed).data.modal.diagnostics
     @test diagnostics.fallback_frequencies==[2]
@@ -60,7 +60,7 @@
     # A zero product is a valid normalized eigensystem. It must not divide by zero.
     zero_product=compute(
         ModalAnalysisProblem(LineParameters(ones(ComplexF64, 1, 1, 2),
-            zeros(ComplexF64, 1, 1, 2), [1.0, 2.0])),
+            zeros(ComplexF64, 1, 1, 2), [1.0, 2.0]; line_length=1.0)),
         ModalAnalysisFormulation(:wedepohl1996))
     @test iszero(gamma(zero_product))
     @test H(PropagationParameters(zero_product; line_length = 10.0))==ones(ComplexF64, 1, 2)
@@ -134,7 +134,7 @@ end
     voltage=copy(current)
     roots=repeat(sqrt.(z .* y), 1, 3)
     phase=LineParameters(
-        cat(fill(impedance, 3)...; dims = 3), cat(fill(admittance, 3)...; dims = 3), f;
+        cat(fill(impedance, 3)...; dims = 3), cat(fill(admittance, 3)...; dims = 3), f; line_length=1.0,
         details = ComputationDetails((
             gridpoint = G.gridpoint_id(), selections = (Z = :example, Y = :example))))
     selected=ModalAnalysisFormulation(FixedOrientation(voltage, current, roots))
@@ -191,7 +191,8 @@ end
     @test all(result->details(result).data.modal.rotate===false, results)
     @test gamma(results[1])==gamma(results[2])
     total=LineParameters(PhaseDomain, SeriesImpedance(Z(phase) .* 25; basis = :total),
-        ShuntAdmittance(Y(phase) .* 25; basis = :total), phase.f, phase.details)
+        ShuntAdmittance(Y(phase) .* 25; basis = :total), phase.f;
+        line_length = phase.line_length, details = phase.details)
     @test H(PropagationParameters(compute(ModalAnalysisProblem(total), selected)))≈H(PropagationParameters(results[1]))
     retained=results[1][[4, 2]]
     @test gamma(retained)==gamma(results[1])[:, [4, 2]]
@@ -199,7 +200,7 @@ end
     observed=observables(PropagationParameters(retained), (gamma, Zc, H, Tv, Ti))
     @test size(report(observed)[alpha])==(2, 4)
     x=measurement(2.0, 0.1)
-    uncertain=LineParameters(reshape([complex(x, 0)], 1, 1, 1), reshape([3+0im], 1, 1, 1), [50.0])
+    uncertain=LineParameters(reshape([complex(x, 0)], 1, 1, 1), reshape([3+0im], 1, 1, 1), [50.0]; line_length=1.0)
     modal=@inferred compute(ModalAnalysisProblem(uncertain), selected)
     @test Measurements.derivative(real(only(gamma(modal))), x)≈3/(2sqrt(6))
     problem=TestFixtures.three_bare_wires_problem(frequencies = [50.0, 80.0])

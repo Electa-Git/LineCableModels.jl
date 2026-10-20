@@ -512,8 +512,9 @@ function clean_variable_list(data, order)
     return data_padded
 end
 
-#  Direct TRALIN constructor
-function LineParameters(::Val{:tralin}, file_name::AbstractString)
+# Direct TRALIN constructor. The report has per-unit-length matrices, and the caller gives
+# the length of the line.
+function LineParameters(::Val{:tralin}, file_name::AbstractString; line_length::Real)
     f, Z_tralin, Y_tralin, _ = parse_tralin_file(file_name)
 
     # Convert parsed values to the requested numeric types.
@@ -521,15 +522,15 @@ function LineParameters(::Val{:tralin}, file_name::AbstractString)
     Y = ComplexF64.(Y_tralin)
     fv = Float64.(f)
 
-    return LineParameters(SeriesImpedance(Z), ShuntAdmittance(Y), fv)
+    return LineParameters(SeriesImpedance(Z), ShuntAdmittance(Y), fv; line_length)
 end
 
 # Select the parser from the requested format.
-function LineParameters(file_name::AbstractString; format::Symbol = :auto)
+function LineParameters(file_name::AbstractString; format::Symbol = :auto, line_length::Real)
     fmt = format === :auto ? (endswith(lowercase(file_name), ".f09") ? :tralin : :unknown) :
           format
     if fmt === :tralin
-        return LineParameters(Val(:tralin), file_name)
+        return LineParameters(Val(:tralin), file_name; line_length)
     else
         throw(
             ArgumentError("Unknown/unsupported format for '$file_name' (format=$format)."),

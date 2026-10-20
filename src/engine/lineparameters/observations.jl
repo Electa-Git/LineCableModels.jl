@@ -139,8 +139,9 @@ function line_coordinates(source,request,frequencies)
     samples=last(selected)
     f=_resolution_frequencies(source,frequencies)
     f===nothing || length(f)==dimensions[3] || throw(DimensionMismatch("frequency count differs from tensor depth"))
-    labels=source isa LineParameters ? get(details(source).data,:coordinates,nothing) : nothing
-    labels=labels===nothing ? string.(1:dimensions[1]) : copy(labels)
+    # Phase-domain rows are the line's terminals. Modal rows are modes, indexed and unnamed.
+    labels=source isa LineParameters{<:Any,<:Any,PhaseDomain} ? copy(source.terminals) :
+        string.(1:dimensions[1])
     return (kind=diagonal ? :diagonal : :matrix,indices,rows,columns,samples,
         frequencies=f===nothing ? nothing : copy(f[samples]),frequency_unit=Units.units(:base,:hertz),
         extent=dimensions,labels,domain=source isa LineParameters ? nameof(domain(source)) : :unspecified)
@@ -234,7 +235,7 @@ function Commons.observation_quantity(source::CableConstants,request;
     factor=Units.scale_factor(Units.native_unit(q,Units.PerUnitLength()),target,T)
     return (request,quantity=q,family=:constants,statistic=:value,values=Commons.detach(resolved,factor),
         unit=target,basis=Units.PerUnitLength(),coordinates=(kind=:assemblies,indices=(index,),assemblies=selected,
-            labels=copy(source.cores),frequencies=[source.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(source),1)),
+            labels=copy(source.terminals),frequencies=[source.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(source),1)),
         thresholds=(kind=resolution.kind,values=Commons.detach(resolution.atol,factor),unit=target),
         available=resolution.available,engineering_zero=resolution.unresolved,clipped=clip,missing_reason=nothing)
 end

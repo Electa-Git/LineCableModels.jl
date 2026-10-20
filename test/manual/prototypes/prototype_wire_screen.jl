@@ -35,7 +35,7 @@ function ws_read_result(path)
     bytes2hex(open(sha256, path)) == digest || error("Changed numerical payload: $path")
     jldopen(path, "r") do f
         f["basis"] == :pul || error("This experiment requires per-unit-length operands.")
-        LineParameters(PhaseDomain, f["Z"], f["Y"], f["frequencies"]; basis = :pul)
+        LineParameters(PhaseDomain, f["Z"], f["Y"], f["frequencies"]; line_length=1.0, basis = :pul)
     end
 end
 
@@ -278,7 +278,7 @@ function ws_replace_internal(baseline, C, expected_previous)
             @assert updated[left, right] == P[left, right]
         end
     end
-    LineParameters(PhaseDomain, copy(observe(baseline, Z)), corrected, f; basis = :pul)
+    LineParameters(PhaseDomain, copy(observe(baseline, Z)), corrected, f; line_length=1.0, basis = :pul)
 end
 
 function ws_run(campaign, case_id, levels, source_fraction;

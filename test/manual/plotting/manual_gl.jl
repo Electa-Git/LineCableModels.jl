@@ -25,8 +25,7 @@ capacitance_values = fill(4.0e-10, 2, 2, length(frequency))
 parameters = LineParameters(
     complex.(resistance_values, inductance_values .* omega),
     complex.(conductance_values, capacitance_values .* omega),
-    frequency
-)
+    frequency; line_length=1.0)
 
 plots = Makie.plot(
     parameters,

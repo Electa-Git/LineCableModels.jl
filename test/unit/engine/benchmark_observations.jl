@@ -2,8 +2,8 @@
     using LineCableModels.Engine: absolute_error, relative_error
     a = reshape(ComplexF64[1, 2, 3, 4], 2, 2, 1)
     z = zeros(ComplexF64, 2, 2, 1)
-    reference = LineParameters(PhaseDomain, a, z, [50.0])
-    compared_result = LineParameters(PhaseDomain, 2a, z, [50.0])
+    reference = LineParameters(PhaseDomain, a, z, [50.0]; line_length=1.0)
+    compared_result = LineParameters(PhaseDomain, 2a, z, [50.0]; line_length=1.0)
     result = LineCableModels.Engine.compare(reference, compared_result)
     @test basis(result) === LineCableModels.Units.PerUnitLength()
     @test observe(result, Z, absolute_error, 2, 1) == 2.0

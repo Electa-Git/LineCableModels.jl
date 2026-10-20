@@ -5,7 +5,7 @@
     frequency = 10.0 .^ range(-1, 7; length=13)
     z = [complex(10.0^(i-j)*(1+log10(f+1)), i+j+f*1e-3)
         for i in 1:5, j in 1:5, f in frequency]
-    parameters = LineParameters(z, z.*1e-6, frequency)
+    parameters = LineParameters(z, z.*1e-6, frequency; line_length=1.0)
     options = (; backend=:cairo, display_plot=false, controls=true,
         open_export=false, length_unit=:base, fig_size=(1200,800))
     pages = LineCableModels.plot(parameters, (R,); layout=(2,3), options...,
@@ -52,7 +52,7 @@
     @test [page.plot_state.panel_page.index for page in sparse] == [(1,1),(1,2),(3,1),(3,2)]
     @test Set(coordinate for page in sparse for coordinate in keys(page.plot_state.panel_data)) ==
         Set(((1,2),(1,5),(5,2),(5,5)))
-    small = LineParameters(z[1:2,1:2,:], z[1:2,1:2,:].*1e-6, frequency)
+    small = LineParameters(z[1:2,1:2,:], z[1:2,1:2,:].*1e-6, frequency; line_length=1.0)
     full = LineCableModels.plot(small, (R,); options...)
     @test full isa UIPlot && length(full.axes) == 4
     @test full.plot_state.panel_page.dimensions==(2,2)
@@ -96,14 +96,14 @@ end
 
     frequency = 10.0 .^ range(-1,7; length=101)
     z = reshape(complex.(1 .+ log10.(frequency.+1), frequency.*1e-4),1,1,:)
-    reference = LineParameters(z,z.*1e-6,frequency)
+    reference = LineParameters(z,z.*1e-6,frequency; terminals=["core"], line_length=1.0)
     records = [Formulation(earth_impedance=id)
         for id in (:xue2018,:default,:pollaczek1926,:saad1996,:wedepohl1973)]
     source_id = LineCableModels.Commons.gridpoint_id().source_id
     completed = [LineCableModels.Engine.retain_gridpoint(reference,
         LineCableModels.Commons.gridpoint_id(;source_id,formulation_index=index);
         fields=merge(LineCableModels.Engine.completed_formulation(formula),
-            (inputs=(resistivity=100.,),coordinates=["core"])))
+            (inputs=(resistivity=100.,),)))
         for (index,formula) in enumerate(records)]
     result = ParametricResult(nothing,completed,
         (problems=[:one],formulations=records), ComputationDetails((;)))
@@ -190,7 +190,7 @@ end
     using CairoMakie
     f=[1.,10.,100.]
     z=[complex(i+j+k,i-j+k) for i in 1:3,j in 1:3,k in 1:3]
-    raw=LineParameters(z,z.*1e-6,f)
+    raw=LineParameters(z,z.*1e-6,f; line_length=1.0)
     pages=LineCableModels.plot(raw, (R,L);layout=(2,2),fig_size=(1000,700),
         controls=false,display_plot=false,backend=:cairo,clip=false)
     @test length(pages)==8
@@ -251,7 +251,7 @@ end
     ext=Base.get_extension(LineCableModels,:LineCableModelsMakieExt)
     f=[1.,10.,100.]
     z=[complex(10i+j+k,i-j+k) for i in 1:4,j in 1:4,k in 1:3]
-    raw=LineParameters(z,z.*1e-6,f)
+    raw=LineParameters(z,z.*1e-6,f; line_length=1.0)
     options=(;controls=false,display_plot=false,backend=:cairo,clip=false,fig_size=(1000,650))
     for coordinate in ((1,1),(2,2))
         i,j=coordinate

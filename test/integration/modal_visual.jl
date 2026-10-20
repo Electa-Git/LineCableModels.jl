@@ -5,9 +5,9 @@
 
     z=reshape(ComplexF64[1+im,2+im,3+im],1,1,3)
     y=reshape(ComplexF64[1e-6im,2e-6im,3e-6im],1,1,3)
-    phase=retain_gridpoint(LineParameters(z,y,[10.0,50.0,100.0]),gridpoint_id();
-        fields=merge(completed_formulation(Formulation()),
-            (inputs=(system=(line_length=10.0,),),coordinates=["core"])))
+    phase=retain_gridpoint(LineParameters(z,y,[10.0,50.0,100.0];terminals=["core"],line_length=10.0),
+        gridpoint_id();fields=merge(completed_formulation(Formulation()),
+            (inputs=(system=(line_length=10.0,),),)))
     modal=compute(ModalAnalysisProblem(phase),ModalAnalysisFormulation(:default))
     segment=PropagationParameters(modal)
     observed=ObservedResult(segment,((H,abs),(Tv,abs));complete_pairs=true)
@@ -38,8 +38,8 @@ end
     roots=fill(0.01+0.02im,n,length(f))
     modal=LineParameters(ModalDomain(ModalOperators(voltage,current),roots),
         SeriesImpedance(ones(ComplexF64,n,n,length(f))),
-        ShuntAdmittance(ones(ComplexF64,n,n,length(f))),f,
-        ComputationDetails((inputs=(system=(line_length=20.0,),),)))
+        ShuntAdmittance(ones(ComplexF64,n,n,length(f))),f;line_length=20.0,
+        details=ComputationDetails((inputs=(system=(line_length=20.0,),),)))
     observed=observables(PropagationParameters(modal),((Tv,abs),(Tv,angle),(Ti,abs),(Ti,angle)))
     pages=LineCableModels.plot(observed;overlay=:coordinates,
         backend=:cairo,display_plot=false,controls=true,open_export=false,
@@ -84,9 +84,8 @@ end
         y[mode,mode,k]=roots[mode,k]
     end
     modal=LineParameters(E.ModalDomain(ModalOperators(voltage,current),roots),
-        SeriesImpedance(z),ShuntAdmittance(y),f,
-        ComputationDetails((inputs=(system=(line_length=20.0,),),
-            phase_coordinates=["core","sheath"])))
+        SeriesImpedance(z),ShuntAdmittance(y),f;terminals=["core","sheath"],line_length=20.0,
+        details=ComputationDetails((inputs=(system=(line_length=20.0,),),)))
     first_segment=PropagationParameters(modal)
     second_segment=PropagationParameters(first_segment;line_length=30.0)
     first_point=ObservedResult(first_segment,(gamma,Tv,velocity))

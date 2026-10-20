@@ -52,7 +52,7 @@ end
     constants = compute(problem, CableConstantsFormulation())
     precise = setprecision(BigFloat, 384) do
         LineParameters(fill(complex(parse(BigFloat, "1.234567890123456789012345678901"), 2), 1, 1, 2),
-            fill(complex(BigFloat(3), 4), 1, 1, 2), BigFloat[1, 2])
+            fill(complex(BigFloat(3), 4), 1, 1, 2), BigFloat[1, 2]; line_length=1.0)
     end
     for result in (constants, precise)
         mktempdir() do directory

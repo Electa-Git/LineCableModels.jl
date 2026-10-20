@@ -10,8 +10,8 @@
         @test vec(classified.unresolved)==[false,true,true]
         @test all(classified.available)
         @test all(observation_resolution(zero.(resistance),R;atol=0).unresolved)
-        a=LineParameters(PhaseDomain,complex.(resistance,one(T)),fill(complex(one(T),one(T)),1,1,3),frequency)
-        b=LineParameters(PhaseDomain,complex.(2resistance,one(T)),a.Y,frequency)
+        a=LineParameters(PhaseDomain,complex.(resistance,one(T)),fill(complex(one(T),one(T)),1,1,3),frequency; line_length=1.0)
+        b=LineParameters(PhaseDomain,complex.(2resistance,one(T)),a.Y,frequency; line_length=1.0)
         for normalization in (:reference_rms,:pointwise)
             result=compare(a,b,R;atol=(R=cutoff,),normalization)
             @test ismissing(only(result.absolute))
@@ -35,7 +35,7 @@
     @test vec(resolution.unresolved)==[true,false]
     @test_throws ArgumentError observation_resolution(z,Z;atol=(Z=1e-10,))
     @test_throws ArgumentError observation_resolution(z,Z;atol=(X=1e-10,L=1e-15,))
-    a=LineParameters(PhaseDomain,fill(1.0+1im,1,1,2),fill(1.0+1im,1,1,2),[0.,1.])
+    a=LineParameters(PhaseDomain,fill(1.0+1im,1,1,2),fill(1.0+1im,1,1,2),[0.,1.]; line_length=1.0)
     @test ismissing(only(compare(a,a,L).absolute))
     @test only(compare(a,a,R).absolute)==0
     a.Z.values[1,1,1]=complex(NaN,0)
@@ -91,7 +91,7 @@ end
     using Measurements, Calculus
     shared=Measurements.measurement(5e-13,1e-20)
     x=[shared,2shared]
-    constants=CableConstants([:first,:second],ones(2),ones(2),ones(2),x,50.)
+    constants=CableConstants(["first","second"],ones(2),ones(2),ones(2),x,50.)
     observed=ObservedResult(constants,(G,);length_unit=:base)
     shifted=observe(observed,G)
     @test Measurements.value.(shifted)==zeros(2)

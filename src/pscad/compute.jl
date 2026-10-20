@@ -113,8 +113,8 @@ function _pscad_inputs(problem::LineParametersProblem, formulation::PSCADFormula
         throw(ArgumentError("PSCAD equivalent components must represent every terminal exactly once"))
     requested_order = problem.system.terminal_order[sortperm(problem.system.connection_order)]
     permutation = [only(findall(==(terminal), native_order)) for terminal in requested_order]
-    coordinates = ["cable:$(native_cables[index]):$(native_order[index].terminal)"
-                   for index in permutation]
+    terminals = ["cable:$(native_cables[index]):$(native_order[index].terminal)"
+                 for index in permutation]
     document = _pscad_project(problem.system, problem.earth_props, frequency, blueprints,
         formulation, temperature; native_settings = setting[(:ground, :frequency)])
     project = sprint(print, document)
@@ -127,7 +127,7 @@ function _pscad_inputs(problem::LineParametersProblem, formulation::PSCADFormula
             (; cable, layer, requested, exported, capped = requested > 10)
         end
     end
-    return (; setting, project, native_order, permutation, coordinates, dielectric_losses)
+    return (; setting, project, native_order, permutation, terminals, dielectric_losses)
 end
 
 function _stage_pscad_project(inputs, work_root::AbstractString)
@@ -243,7 +243,8 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     native_readback == expected_readback || throw(ArgumentError(
         "PSCAD result has no matching native-settings readback: $(execution.output_dir)"))
     parameters = try
-        read_pscad_result(execution.output_dir, problem.frequencies, _pscad_size(problem))
+        read_pscad_result(execution.output_dir, problem.frequencies, _pscad_size(problem),
+            problem.system.line_length)
     catch error
         verbosity(execution_options, :progress) > 0 && @info "PSCAD result validation failed" _group=:progress exception=error
         throw(ErrorException("PSCAD result validation failed: $(sprint(showerror, error))" *
@@ -284,16 +285,16 @@ function _pscad_result(problem, formulation, options, inputs, native; batch_reus
     permutation = inputs.permutation
     parameters = LineParameters(PhaseDomain,
         Z(native.parameters)[permutation, permutation, :], Y(native.parameters)[permutation, permutation, :],
-        copy(frequencies(native.parameters)); details = details(native.parameters))
-    parameters = LineParameters(parameters, options.data.output_basis,
-        problem.system.line_length)
+        copy(frequencies(native.parameters)); terminals = copy(inputs.terminals),
+        line_length = problem.system.line_length, details = details(native.parameters))
+    parameters = LineParameters(parameters, options.data.output_basis)
     all(isfinite, Z(parameters)) || throw(DomainError(Z(parameters),
         "completed PSCAD series impedance must contain only finite entries"))
     all(isfinite, Y(parameters)) || throw(DomainError(Y(parameters),
         "completed PSCAD shunt admittance must contain only finite entries"))
     execution = native.execution
     batch_reuse && (execution=merge(execution, (reused=true,)))
-    retained = (files = deepcopy(native.files), coordinates = copy(inputs.coordinates),
+    retained = (files = deepcopy(native.files),
         native_terminal_order = copy(inputs.native_order), requested_frequencies = copy(problem.frequencies),
         formulations = computation_details(formulation).data, native_setting = inputs.setting,
         base_frequency = formulation.options.data.base_frequency, loss_tangent_limit = 10.0,
@@ -301,7 +302,8 @@ function _pscad_result(problem, formulation, options, inputs, native; batch_reus
         native_frequencies = copy(details(native.parameters).data.native_frequencies),
         dielectric_losses = deepcopy(inputs.dielectric_losses), exported_project = inputs.project,
         execution = deepcopy(execution))
-    return LineParameters(parameters.domain, parameters.Z, parameters.Y, parameters.f, Engine.completion_details(retained))
+    return LineParameters(parameters.domain, parameters.Z, parameters.Y, parameters.f,
+        parameters.terminals, parameters.line_length, Engine.completion_details(retained))
 end
 
 """

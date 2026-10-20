@@ -89,7 +89,8 @@ end
 function read_pscad_result(
         output_dir::AbstractString,
         expected_frequencies::AbstractVector,
-        expected_size::NTuple{3, Int}
+        expected_size::NTuple{3, Int},
+        line_length::Real
 )
     isdir(output_dir) ||
         throw(ArgumentError("PSCAD output directory is missing: $output_dir"))
@@ -117,6 +118,7 @@ function read_pscad_result(
         admittance,
         frequencies_value;
         basis = Units.PerUnitLength(),
+        line_length,
         details = ComputationDetails(; native_frequencies = copy(observed_frequencies))
     )
 end

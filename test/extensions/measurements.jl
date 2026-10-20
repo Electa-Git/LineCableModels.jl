@@ -64,8 +64,8 @@ end
     f=[measurement(50.0,0.1),measurement(1000.0,0.2)]
     z=reshape([complex(q,2q),complex(3q,-q)],1,1,2)
     y=reshape([complex(4q,-2q),complex(-q,5q)],1,1,2)
-    line=LineParameters(PhaseDomain,z,y,f)
-    cable=CableConstants([:core],[q],[2q],[-q],[3q],f[1],ComputationDetails())
+    line=LineParameters(PhaseDomain,z,y,f; line_length=1.0)
+    cable=CableConstants(["core"],[q],[2q],[-q],[3q],f[1],ComputationDetails())
     for core in (line,cable)
         summaries=map((R=R(core),L=L(core),C=C(core),G=G(core))) do values
             map(values) do x
@@ -348,8 +348,7 @@ end
         PhaseDomain,
         reshape(ComplexF64[2.0 + 20.0angular * im], 1, 1, 1),
         reshape(ComplexF64[0.0 + 200.0angular * im], 1, 1, 1),
-        frequency
-    )
+        frequency; line_length=1.0)
     line_stats=[(
         R = reshape([stats[1].R[1]], 1, 1, 1),
         L = reshape([stats[1].L[1]], 1, 1, 1),
@@ -379,8 +378,7 @@ end
     # Transport every design point, even without retaining Monte Carlo samples.
     # Marginal reconstruction must neither merge points nor invent covariance.
     second_parameters = LineParameters(
-        PhaseDomain, 2 .* parameters.Z.values, 2 .* parameters.Y.values, frequency
-    )
+        PhaseDomain, 2 .* parameters.Z.values, 2 .* parameters.Y.values, frequency; line_length=1.0)
     second_stats = map(only(line_stats)) do quantities
         map(quantities) do summary
             SampleSummary(2 .* [summary.min, summary.median, summary.max])
