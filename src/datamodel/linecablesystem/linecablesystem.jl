@@ -103,7 +103,7 @@ Base.convert(::Type{LineCableSystem{T}}, system::LineCableSystem{T}) where {T <:
 # positions.
 function Base.convert(::Type{LineCableSystem{T}}, system::LineCableSystem) where {T <: Real}
     return build(LineCableSystem, system.designs, system.positions, system.connections,
-        system.environment, system.system_id, convert(T, system.line_length))::LineCableSystem{T}
+        system.environment, system.system_id, convert(T, system.line_length))
 end
 
 ncables(system::LineCableSystem) = length(system.designs)
@@ -240,11 +240,11 @@ function build(
         "placement count must match the cable-design count"
     ))
 
-    T = promote_type(
-        typeof(float(line_length)),
-        (eltype(design) for design in declared_designs)...,
-        (eltype(position) for position in position_values)...
-    )
+    # The scalar type comes from the designs, the poses and the length, before the poses take
+    # it. It folds to a constant when the designs and the poses each have one concrete type.
+    T = mapreduce(eltype, promote_type, declared_designs;
+        init = mapreduce(eltype, promote_type, position_values;
+            init = typeof(float(line_length))))
     poses = Pose2{T}[convert(Pose2{T}, position) for position in position_values]
     positions, _ = clearance_geometry(declared_designs, poses;
         interface = environment !== nothing)
@@ -340,10 +340,10 @@ end
 function _declared_poses(
         placement::Union{Pose2, Tuple{Real, Real}, Tuple{Real, Real, Real}}
 )
-    return Pose2[_declared_pose(placement)]
+    return [_declared_pose(placement)]
 end
 function _declared_poses(placements::Union{AbstractVector, Tuple})
-    return Pose2[_declared_pose(position) for position in placements]
+    return [_declared_pose(position) for position in placements]
 end
 function _declared_poses(placements)
     throw(ArgumentError(
@@ -455,7 +455,7 @@ end
 $(TYPEDSIGNATURES)
 
 Build one system from placed cables. Each placed cable is a `(design, pose, connections)`
-record, and a formation is a collection of them that contributes its records in order.
+record, and a formation is a vector of them that contributes its records in order.
 Returns a `LineCableSystem`, or a `Gridspace{LineCableSystem}` when an input is a `Grid` or
 `Gridspace`.
 """
@@ -467,15 +467,16 @@ function build(
         line_length = 1,
         combine::Symbol = :product
 )
-    entries(placement) = (placement,)
-    entries(formation::Union{Tuple, AbstractVector}) = formation
     caller = function (placements, environment, system_id, line_length)
-        records = [validate(record, LineCableSystem)
-                   for placement in placements for record in entries(placement)]
-        isempty(records) && throw(ArgumentError(
+        isempty(placements) && throw(ArgumentError(
             "placed cable declarations must be a nonempty collection"))
-        return build(LineCableSystem, getproperty.(records, :design),
-            getproperty.(records, :pose), getproperty.(records, :connections),
+        # The placed cables are the concatenation of the placements. A formation contributes
+        # its records in order. The call takes the first placement as its own argument and
+        # never matches the empty `vcat()`, which returns `Any[]`.
+        records = [validate(record, LineCableSystem)
+                   for record in vcat(first(placements), placements[2:end]...)]
+        return build(LineCableSystem, [record.design for record in records],
+            [record.pose for record in records], [record.connections for record in records],
             environment, system_id, line_length)
     end
     values = (placements, environment, system_id, line_length)

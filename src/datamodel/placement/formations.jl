@@ -72,9 +72,9 @@ function build(::TrefoilBuilder, design; center = Pose2(0, 0), spacing, connecti
     side = max(validate(spacing, trefoil), 2outer_radius(design) + _CABLE_CLEARANCE)
     # The centers lie on a circle through the triangle's vertices, at 90°, 210° and 330°.
     distance = side / 2 / cosd(30)
-    poses = Pose2[Pose2(zero(distance), distance, 0),
+    poses = (Pose2(zero(distance), distance, 0),
         Pose2(distance * cosd(210), distance * sind(210), 0),
-        Pose2(distance * cosd(330), distance * sind(330), 0)]
+        Pose2(distance * cosd(330), distance * sind(330), 0))
     origin = center * Pose2(0, 0, φ0)
     return _formation(design, poses, origin, connections)
 end
@@ -83,8 +83,7 @@ end
 function _flat(design, center, spacing, connections, pose)
     adjacent = max(spacing, 2outer_radius(design) + _CABLE_CLEARANCE)
     offsets = (-adjacent, zero(adjacent), adjacent)
-    poses = Pose2[pose(offset) for offset in offsets]
-    return _formation(design, poses, center, connections)
+    return _formation(design, map(pose, offsets), center, connections)
 end
 
 struct HflatBuilder <: Builder{Vector} end

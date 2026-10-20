@@ -82,6 +82,35 @@ end
     @test @inferred(compute(constants, CableConstantsFormulation())) isa CableConstants
 end
 
+@testitem "Engine / problems / systems and problems built from a concrete design infer" tags=[:unit, :engine] begin
+    copper = Material(:conductor, 1.7241e-8)
+    xlpe = Material(:insulator, 1.97e14, 2.5)
+    design = build(CableDesign, "inferred", Stack(
+        Group(:core, Region(:core, Disk(0.01), copper)),
+        Region(:insulation, Shell(0.005), xlpe)))
+    earth = homogeneous(rho = 100.0)
+    connections = (core = (1, 2, 3),)
+    records = @inferred trefoil(design; center = at(0.0, -1.0), spacing = 0.1, connections)
+    for formation in (hflat, vflat)
+        @test length(@inferred formation(design; center = at(0.0, -1.0), spacing = 0.1,
+            connections)) == 3
+    end
+    placed = @inferred build(LineCableSystem, records; line_length = 100.0)
+    @test placed.positions == [record.pose for record in records]
+    system = @inferred build(LineCableSystem, [design, design],
+        [Pose2(-0.1, -1.0), Pose2(0.1, -1.0)]; connections = [Dict(:core => 1), Dict(:core => 2)])
+    # The block macro builds the same system from its placed cables.
+    declared(design) = @system "line-cable-system" begin
+        @at design (-0.1, -1.0) core = 1
+        @at design (0.1, -1.0) core = 2
+    end
+    @test (@inferred declared(design)).positions == system.positions
+    problem = @inferred LineParametersProblem(system; earth_props = earth, frequencies = [50.0])
+    @test problem.system.positions == system.positions
+    @test (@inferred LineParametersProblem(records; earth_props = earth,
+        frequencies = [50.0])).system.positions == placed.positions
+end
+
 @testitem "Engine / problems / a Grid inside an options or connections named tuple lifts" tags=[:unit, :engine] begin
     copper = Material(:conductor, 1.7241e-8)
     xlpe = Material(:insulator, 1.97e14, 2.5)
