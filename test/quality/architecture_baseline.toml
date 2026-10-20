@@ -144,6 +144,22 @@
 "src/uq/observedresult.jl" = { applicable = 0, eval = 0, isa = 14, kind = 0 }
 "src/uq/results.jl" = { applicable = 0, eval = 0, isa = 29, kind = 0 }
 
+[absence]
+"ext/LineCableModelsGmshExt" = 58
+"ext/LineCableModelsMakieExt" = 255
+"src/commons" = 107
+"src/datamodel" = 138
+"src/earth" = 16
+"src/engine" = 250
+"src/importexport" = 38
+"src/materials" = 6
+"src/parametricbuilder" = 41
+"src/pscad" = 58
+"src/reportbuilder" = 70
+"src/textdisplay" = 1
+"src/units" = 26
+"src/uq" = 75
+
 [storage]
 "src/engine/cableconstants.jl | CableConstantsWorkspace" = 3
 "src/engine/modalanalysis/compute.jl | ModalAnalysisWorkspace" = 8

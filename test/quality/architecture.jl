@@ -27,8 +27,8 @@
     const RESERVED_VERB = r"^_*(validate|check|require|assert|verify|ensure)_"
     # Tables of the structural guards (A) and of the Commons and helper guards (C).
     const A_TABLES = ("ownership", "placement", "direction", "names", "shadowing",
-        "validate", "reserved_verbs", "switches", "storage", "dispatch", "repeats",
-        "lifting", "builders")
+        "validate", "reserved_verbs", "switches", "absence", "storage", "dispatch",
+        "repeats", "lifting", "builders")
     const C_TABLES = ("commons", "vocabulary", "fingerprints", "clones", "helpers", "root")
     const TABLES = (A_TABLES..., C_TABLES...)
     const SWITCHES = ("applicable", "eval", "isa", "kind")
@@ -574,6 +574,60 @@
         return found
     end
 
+    const NOTHING_TYPES = ((:Nothing,), (:Base, :Nothing), (:Core, :Nothing))
+    const IDENTITY_COMPARISONS = ((:(===),), (:(!==),))
+
+    # The module directory of a source file: `src` for the root module, `src/<module>` for a
+    # top-level submodule and its children, and `ext/<extension>`.
+    function module_directory(path)
+        parts = splitpath(path)
+        length(parts) > 2 && return join(parts[1:2], "/")
+        return parts[1] == "ext" ? string("ext/", first(splitext(parts[2]))) : parts[1]
+    end
+
+    # Whether a `::` node types a positional or keyword argument, with or without a default.
+    function typed_argument(node)
+        parent = node.parent
+        parent !== nothing && kind(parent) == K"=" && parent[1] === node &&
+            (node = parent; parent = node.parent)
+        parent === nothing && return false
+        kind(parent) == K"->" && return parent[1] === node
+        return kind(parent) in (K"call", K"parameters", K"tuple")
+    end
+
+    # Decisions by absence, per module directory. The guard counts the comparisons
+    # `x === nothing` and `x !== nothing`, with `nothing` on either side, and the references
+    # to `isnothing`, called or passed. It counts the positional and keyword arguments typed
+    # `::Nothing`, and `Nothing` as a type parameter, as in `Union{Nothing, T}` or
+    # `Quantity{Name, Nothing}`. It skips a default `= nothing`.
+    function absences(files, directory)
+        found = Dict{String, Int}()
+        for file in files
+            key = module_directory(relative(file, directory))
+            visit(parse_source(file)) do node
+                k = kind(node)
+                if k == K"call" && numchildren(node) == 3
+                    operator, left, right = is_prefix_call(node) ?
+                        (node[1], node[2], node[3]) : (node[2], node[1], node[3])
+                    syntax_name(operator) in IDENTITY_COMPARISONS &&
+                        (:nothing,) in (syntax_name(left), syntax_name(right)) &&
+                        count!(found, key)
+                elseif k == K"Identifier" && node.val === :isnothing
+                    count!(found, key)
+                elseif k == K"::" && syntax_name(last_child(node)) in NOTHING_TYPES &&
+                       typed_argument(node)
+                    count!(found, key)
+                elseif k == K"curly"
+                    for parameter in children(node)[2:end]
+                        syntax_name(parameter) in NOTHING_TYPES && count!(found, key)
+                    end
+                end
+                return true
+            end
+        end
+        return found
+    end
+
     const WORKSPACE_FIELDS = (:input, :plan, :buffers)
     const STORAGE_NAMES = (:work, :scratch, :storage, :cache)
     const STORAGE_TYPE = r"(Buffer|Storage|Scratch|Cache)$"
@@ -928,20 +982,23 @@
         return m
     end
 
-    # The texts of the checkout's `.jl` files under `directory`, except those under
+    # The texts of the checkout's `.jl` files under `directory`, by path, except those under
     # `excluded` subdirectories.
     function test_sources(directory; excluded = ())
-        texts = String[]
+        texts = Dict{String, String}()
         for file in repository_files(directory)
             endswith(file, ".jl") &&
                 !any(x -> inside(file, joinpath(directory, x)), excluded) &&
-                push!(texts, read(file, String))
+                (texts[file] = read(file, String))
         end
         return texts
     end
 
-    named(texts, name) = (pattern = Regex("(?<![\\w!@])\\Q" * string(name) * "\\E(?![\\w!])");
-        any(text -> occursin(pattern, text), texts))
+    # The paths of the texts that name `name`, sorted.
+    function naming(texts, name)
+        pattern = Regex("(?<![\\w!@])\\Q" * string(name) * "\\E(?![\\w!])")
+        return sort!([path for (path, text) in texts if occursin(pattern, text)])
+    end
 
     commons_module(tree::PackageTree) = (C = isdefined(tree.root, COMMONS) ?
         getfield(tree.root, COMMONS) : nothing; C isa Module ? C : nothing)
@@ -962,17 +1019,9 @@
         return hooks, api
     end
 
-    # Commons admission. Each Commons name is public, documented and named in a Commons unit
-    # test. Unless it is user API, methods of at least two owners outside
-    # Commons use it, directly or through public Commons definitions. Unless it
-    # is a hook or user API, it has a vocabulary entry. Macros are used where
-    # source code calls them.
-    function commons_admission(methods, tree::PackageTree, homes, vocabulary)
-        found = Dict{String, Int}()
-        C = commons_module(tree)
-        C === nothing && return found
-        defined = definitions(C)
-        hooks, api = commons_roles(methods, tree, C, defined)
+    # The owners outside Commons whose methods use each Commons name, directly or through
+    # the `public` Commons definitions. Macros are used where source code calls them.
+    function commons_owners(methods, tree::PackageTree, C::Module, defined, public, homes)
         name_of = IdDict{Any, Symbol}(value => name for (name, value) in defined)
         # Owners of every Commons value, nested functions and keyword bodies included.
         owners = IdDict{Any, Set{Module}}(value => Set{Module}() for value in values(defined))
@@ -1040,7 +1089,6 @@
                 return true
             end
         end
-        public = Set(name for name in keys(defined) if Base.ispublic(C, name))
         # Public definitions pass their owners to what they use, also through
         # their nested functions and keyword bodies. Private definitions pass none.
         changed = true
@@ -1057,13 +1105,27 @@
                 end
             end
         end
-        users = Dict(name => owners[value] for (name, value) in defined)
+        return Dict(name => owners[value] for (name, value) in defined)
+    end
+
+    # Commons admission. Each Commons name is public, documented and named in a Commons unit
+    # test. Unless it is user API, methods of at least two owners outside
+    # Commons use it, directly or through public Commons definitions. Unless it
+    # is a hook or user API, it has a vocabulary entry.
+    function commons_admission(methods, tree::PackageTree, homes, vocabulary)
+        found = Dict{String, Int}()
+        C = commons_module(tree)
+        C === nothing && return found
+        defined = definitions(C)
+        hooks, api = commons_roles(methods, tree, C, defined)
+        public = Set(name for name in keys(defined) if Base.ispublic(C, name))
+        users = commons_owners(methods, tree, C, defined, public, homes)
         tests = test_sources(joinpath(tree.directory, COMMONS_TESTS))
         for name in keys(defined)
             for (criterion, met) in (("public", name in public),
                     ("docstring", Base.Docs.hasdoc(C, name)),
                     ("owners", name in api || length(users[name]) >= 2),
-                    ("tests", named(tests, name)),
+                    ("tests", !isempty(naming(tests, name))),
                     ("vocabulary", name in hooks || name in api || haskey(vocabulary, name)))
                 met || (found[string(name, " | ", criterion)] = 1)
             end
@@ -1317,8 +1379,9 @@
     end
 
     # Tiny private helpers. Private module-level functions with one method and at most three body
-    # statements, referenced by exactly one method and named in no test file, are
-    # tiny helpers. Exact forwarders count whatever their references.
+    # statements, referenced by exactly one method, are tiny helpers. Exact forwarders count
+    # whatever their references. Each helper comes with its file and the test files that
+    # name it.
     function tiny_helpers(methods, tree::PackageTree, tests)
         callers = IdDict{Any, Set{Method}}()
         for m in methods
@@ -1329,7 +1392,7 @@
             end
         end
         trees = Dict{String, Any}()
-        found = Dict{String, Int}()
+        found = Tuple{String, Symbol, Vector{String}}[]
         for M in tree.modules, (name, value) in definitions(M)
             value isa Function && !startswith(string(name), "@") &&
                 !Base.ispublic(M, name) && length(Base.methods(value)) == 1 || continue
@@ -1338,9 +1401,18 @@
             path === nothing && continue
             node = definition_node(trees, normpath(string(m.file)), m.line, name)
             (node !== nothing && body_statements(node) <= 3) || continue
-            named(tests, name) && continue
             references = length(setdiff(get(callers, value, Set{Method}()), (m,)))
-            (references == 1 || forwards(node)) && count!(found, path)
+            (references == 1 || forwards(node)) &&
+                push!(found, (path, name, naming(tests, name)))
+        end
+        return found
+    end
+
+    # The tiny helpers per file that no test file names.
+    function unnamed_helpers(helpers)
+        found = Dict{String, Int}()
+        for (path, _, tests) in helpers
+            isempty(tests) && count!(found, path)
         end
         return found
     end
@@ -1365,6 +1437,7 @@
             "validate" => () -> validate_returns(files, tree.directory),
             "reserved_verbs" => () -> reserved_verbs(files, tree.directory),
             "switches" => () -> switches(files, tree.directory),
+            "absence" => () -> absences(files, tree.directory),
             "storage" => () -> storage_vocabulary(files, tree.directory),
             "dispatch" => () -> dispatch(methods, tree),
             "repeats" => () -> repeated_access_names(files, tree.directory),
@@ -1374,10 +1447,69 @@
             "vocabulary" => () -> reserved_vocabulary(files, tree.directory, vocabulary),
             "fingerprints" => () -> fingerprints(files, tree.directory),
             "clones" => () -> clones(files, methods, tree),
-            "helpers" => () -> tiny_helpers(methods, tree,
-                test_sources(joinpath(tree.directory, "test"); excluded = NOT_TESTS)),
+            "helpers" => () -> unnamed_helpers(tiny_helpers(methods, tree,
+                test_sources(joinpath(tree.directory, "test"); excluded = NOT_TESTS))),
             "root" => () -> root_definitions(tree))
         return Dict{String, Any}(table => guards[table]() for table in tables)
+    end
+
+    # The names that the calls, broadcasts and macro calls of the files call.
+    function called_names(files)
+        found = Set{Symbol}()
+        for file in files
+            visit(parse_source(file)) do node
+                k = kind(node)
+                k in (K"call", K"dotcall", K"macrocall") && numchildren(node) > 0 ||
+                    return true
+                callee = k != K"macrocall" && !is_prefix_call(node) ? node[2] : node[1]
+                kind(callee) == K"curly" && (callee = callee[1])
+                name = syntax_name(callee)
+                isempty(name) || push!(found, last(name))
+                return true
+            end
+        end
+        return found
+    end
+
+    # The readings of the inventory tool, which no guard ratchets.
+    # - `decisions`: the private functions with two or more methods of one arity, which
+    #   decide by argument type, and their method counts.
+    # - `named_helpers`: each tiny helper that only the mention in a test file exempts, with
+    #   those files.
+    # - `owners`: the owners outside Commons of each exported or `public` Commons name.
+    # - `mentions`: each Commons name that the tests under `test/unit/commons` name and never
+    #   call, with the files that name it.
+    function readings(tree::PackageTree)
+        methods = package_methods(tree)
+        decisions = Dict{String, Int}()
+        for M in tree.modules, (name, value) in definitions(M)
+            value isa Function && !startswith(string(name), "@") &&
+                !Base.ispublic(M, name) || continue
+            arities = Dict{Int, Int}()
+            for m in Base.methods(value)
+                count!(arities, length(Base.unwrap_unionall(m.sig).parameters))
+            end
+            n = sum((k for k in values(arities) if k >= 2); init = 0)
+            n == 0 && continue
+            files = sort!(unique(source_name(tree, m) for m in Base.methods(value)))
+            decisions[string(module_name(tree, M), " | ", name, " | ", join(files, ", "))] = n
+        end
+        tests = test_sources(joinpath(tree.directory, "test"); excluded = NOT_TESTS)
+        named_helpers = Dict(string(path, " | ", name) =>
+                [relative(file, tree.directory) for file in files]
+            for (path, name, files) in tiny_helpers(methods, tree, tests) if !isempty(files))
+        C = commons_module(tree)
+        defined = definitions(C)
+        public = Set(name for name in keys(defined) if Base.ispublic(C, name))
+        users = commons_owners(methods, tree, C, defined, public, home_directories(tree))
+        owners = Dict(string(name) => sort!([module_name(tree, M) for M in users[name]])
+            for name in public)
+        units = test_sources(joinpath(tree.directory, COMMONS_TESTS))
+        called = called_names(keys(units))
+        mentions = Dict(string(name) => [relative(file, tree.directory) for file in files]
+            for (name, files) in ((name, naming(units, name)) for name in keys(defined))
+            if !isempty(files) && name ∉ called)
+        return (; decisions, named_helpers, owners, mentions)
     end
 
     function live_tree()
@@ -1514,6 +1646,12 @@ end
 
 @testitem "Quality / architecture / symbol switches and probes" tags=[:quality] setup=[ArchitectureGuards] begin
     result = ArchitectureGuards.check("switches")
+    @test result.added == String[]
+    @test result.stale == String[]
+end
+
+@testitem "Quality / architecture / decisions by absence" tags=[:quality] setup=[ArchitectureGuards] begin
+    result = ArchitectureGuards.check("absence")
     @test result.added == String[]
     @test result.stale == String[]
 end
@@ -1692,6 +1830,28 @@ end
         shape(source) = source.source.primitive
         width(x) = x.x + x.:x
         """
+    # Each form of a decision by absence, in the root module's directory. The files of
+    # `src/early` add to one count, and each extension has its own.
+    planted_files["src/absence.jl"] = raw"""
+        compared(x) = x === nothing || x !== nothing || nothing === x || ===(x, nothing)
+        tested(x) = isnothing(x) || Base.isnothing(x) || all(!isnothing, x) || any(isnothing, x)
+        annotated(x::Nothing, ::Nothing; y::Nothing = nothing, z::Base.Nothing) = x
+        positional(x::Nothing = nothing) = x
+        anonymous = (x::Nothing) -> x
+        single = x::Nothing -> x
+        mapped(values) = map(values) do x::Nothing
+            x
+        end
+        struct Holder{T <: Union{Nothing, Int}}
+            value::Union{Int, Nothing}
+        end
+        bounded(x::T) where {T <: Union{Real, Nothing}} = x
+        parametric(x::Union{Nothing, Int}, ::Type{Nothing}) = Quantity{Name, Core.Nothing}()
+        """
+    planted_files["src/early/absent.jl"] = "absent(x) = isnothing(x)\n"
+    planted_files["src/early/nested/absent.jl"] = "nested(x) = x === nothing\n"
+    planted_files["ext/ProbeAbsent.jl"] = "absent(x::Nothing) = x\n"
+    planted_files["ext/ProbeFolder/part.jl"] = "part() = Union{Nothing, Int}\n"
     planted_expected = Dict{String, Any}(
         "ownership" => Dict(
             "Consumer | Early.extend | src/consumer/Consumer.jl" => 1,
@@ -1706,6 +1866,8 @@ end
             "src/sources.jl | require_kind" => 1, "src/sources.jl | __validate_shape" => 1),
         "switches" => Dict("src/sources.jl" =>
             Dict("applicable" => 2, "eval" => 2, "isa" => 3, "kind" => 7)),
+        "absence" => Dict("src" => 22, "src/early" => 2, "ext/ProbeAbsent" => 1,
+            "ext/ProbeFolder" => 1),
         "storage" => Dict(
             "src/storage.jl | ProbeWorkspace" => 2, "src/storage.jl | FormulaBuffers" => 1,
             "src/storage.jl | KernelCache" => 1, "src/storage.jl | AbstractStorage" => 1,
@@ -1856,6 +2018,17 @@ end
         nested(record) = record.result.result + record.x.x
         other(x) = x.y + getfield(x, :x)
         text = "x.x" # x.x
+        """
+    # A keyword default `= nothing`, a returned `nothing`, other comparisons, a `::Nothing`
+    # return type, `Missing` in a `Union` and the forms in a string or a comment count none.
+    clean_files["src/absence.jl"] = raw"""
+        defaulted(x; fallback = nothing) = something(fallback, x)
+        passed() = defaulted(1; fallback = nothing)
+        returned() = nothing
+        compared(x) = x === :none || x == missing || x !== Some(1)
+        annotated(x::Missing; y::Union{Missing, Int} = missing)::Nothing = nothing
+        held = Vector{Union{Missing, Int}}()
+        text = "x === nothing, isnothing(x), ::Nothing, Union{Nothing, Int}" # isnothing(x)
         """
     planted = A.probe_inventory(planted_files, "ArchitectureProbePlanted";
         order = (:Early, :Late, :Consumer), tables = A.A_TABLES)

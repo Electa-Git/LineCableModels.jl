@@ -10,8 +10,6 @@
         (XLSXReportDefinition(),ObservedResult(line)),
         (TableReportDefinition((R,)),ObservedResult(cable)))
     for (definition,observed) in cases
-        @test applicable(RB.select,definition,observed)
-        @test applicable(RB.tabulate,definition,observed)
         @test RB.select(definition,observed) !== nothing
         @test RB.tabulate(definition,observed) !== nothing
         @test which(report,(typeof(definition),typeof(observed))).module === RB

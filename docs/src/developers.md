@@ -174,6 +174,15 @@ package method and parse every Julia file under `src/` and `ext/`.
   calls, `@eval` calls, `isa` tests in the forms `x isa T` and `isa(x, T)`, and
   comparisons of a `kind` field against symbols, negated comparisons included. These
   counts can decrease and never increase.
+- Decisions by absence (`absence`). Each module directory has one count: `src` for the
+  root module, `src/<module>` for a top-level submodule and its children, and
+  `ext/<extension>`. It counts the comparisons `x === nothing` and `x !== nothing`, the
+  references to `isnothing`, called or passed, and the positional and keyword arguments
+  typed `::Nothing`. It also counts `Nothing` as a type parameter, as in
+  `Union{Nothing, T}` in a field, a bound or a signature, or `Quantity{Name, Nothing}`. A
+  keyword default `= nothing` does not count. A decision that moves inside a module does
+  not change the counts, and one that moves to another module shows. These counts can
+  decrease and never increase.
 - Storage vocabulary (`storage`). A `*Workspace` struct has exactly the fields `input`,
   `plan` and `buffers`, and optionally `trace`. No function name ends in `_workspace` or
   `_storage`, and only `initialize_buffers` ends in `_buffers`. Only `Commons` defines a
@@ -260,6 +269,14 @@ listed entry without a live violation, or a count below it, also fails. A change
 removes a violation deletes or lowers its entry. `test/tools/architecture_inventory.jl`
 prints the live inventory in the baseline format. Fix a new violation in the source.
 Never add it to the baseline.
+
+After the inventory, the tool prints four readings as comments, and no guard ratchets
+them. The first lists each private module-level function with two or more methods of one
+arity, which decides by argument type. The second lists
+each tiny helper that only the mention in a test file exempts, with that file. The third
+lists each exported or `public` `Commons` name with its owners outside `Commons`. The
+fourth lists each `Commons` name that a test under `test/unit/commons/` names and never
+calls.
 
 Entries can be deleted or lowered, and none can be added or raised. Before the tests,
 the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull request
