@@ -89,14 +89,17 @@ end
 
 @testitem "PSCAD / station arguments for both modes" tags=[:integration, :pscad] begin
     const P = LineCableModels.PSCAD
-    for port in (nothing, 50000), formulation in (Formulation(:pscad), P.PSCADTransientFormulation())
+    for port in (nothing, 50000)
         config = P.RemoteConfig("fixture", "shared", "station-root", "julia", "python";
             local_root = @__DIR__, pscad_port = port)
-        command = P._supervisor_command(config, "shared-case", "scratch-case", "generated",
-            formulation, [1.0, 1e6]; output_stem = "fixture")
-        @test occursin("-PSCADPort $(something(port, 0))", command)
-        @test occursin("-RemoteRoot 'station-root'", command)
-        @test occursin("-Mode '$(P._remote_protocol(formulation, [1.0, 1e6]).mode)'", command)
+        for (formulation, expected_port, mode) in ((Formulation(:pscad), 0, "constants"),
+                (P.PSCADTransientFormulation(), something(port, 0), "transient"))
+            command = P._supervisor_command(config, "shared-case", "scratch-case", "generated",
+                formulation, [1.0, 1e6]; output_stem = "fixture")
+            @test occursin("-PSCADPort $expected_port", command)
+            @test occursin("-RemoteRoot 'station-root'", command)
+            @test occursin("-Mode '$mode'", command)
+        end
     end
     cancel = P._cancel_command("shared-toolkit", "scratch-case")
     @test occursin("shared-toolkit\\lifecycle.ps1", cancel)

@@ -106,6 +106,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- PSCAD line-constants computations always launch a private application. `pscad_port` selects a desktop listener for transient computations.
+
 - The run timeout of the remote configuration (`RemoteConfig.timeout`) bounds the PSCAD line-constants matrix wait.
 
 - `validate` is owned by `Commons`. `LineCableModels.validate` and

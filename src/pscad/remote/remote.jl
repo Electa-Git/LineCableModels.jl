@@ -174,6 +174,9 @@ function _remote_protocol(formulation::PSCADTransientFormulation, frequencies_va
         elapsed_field = :run_call_seconds, elapsed_scope = "project.run()")
 end
 
+_pscad_port(::PSCADFormulation, ::RemoteConfig) = 0
+_pscad_port(::PSCADTransientFormulation, config::RemoteConfig) = something(config.pscad_port, 0)
+
 function _supervisor_command(
         config::RemoteConfig,
         shared_case::AbstractString,
@@ -203,7 +206,7 @@ function _supervisor_command(
             "-FrequencyEnd $(_ps_quote(string(last(frequencies_value))))",
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
             "-PSCADVersion $(_ps_quote(config.pscad_version))",
-            "-PSCADPort $(something(config.pscad_port, 0))",
+            "-PSCADPort $(_pscad_port(formulation, config))",
             "-Verbosity $(_ps_quote(string(verbosity)))",
             "-TimeoutSeconds $(_ps_quote(string(config.timeout)))"
         ),
@@ -401,7 +404,7 @@ function run_remote_pscad(
             stdout_path = transport_stdout,
             stderr_path = transport_stderr,
             stream = verbosity >= 2,
-            timeout = config.timeout + (config.pscad_port === nothing ? 60 : 160),
+            timeout = config.timeout + (_pscad_port(formulation, config) == 0 ? 60 : 160),
             on_interrupt = () -> _cancel_remote(config, shared_toolkit, remote_case; verbosity)
         )
         nothing
