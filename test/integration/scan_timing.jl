@@ -150,16 +150,17 @@
               4progress
     end
     # Rejected physical builds do not create successful timing entries.
+    rejected=Ref(0)
     rejected_space=Gridspace{LineParametersProblem}(
         radius->begin
-            radius>0||throw(DomainError(radius, "wire radius must be positive"))
+            radius>0||(rejected[]+=1; throw(DomainError(radius, "wire radius must be positive")))
             TestFixtures.three_bare_wires_problem(; frequencies = [50.0], radius)
         end,
         (Grid(0.005, AbsoluteError(0.01)),))
     retried=compute(ParametricProblem(rejected_space, ComputationOptions(timing = true)),
         MonteCarlo(formulation; trials = 4, seed = 19, retain_details = true,
-            on_error = :resample, max_failures = 50))
-    @test !isempty(only(details(retried).data.failures))
+            max_failures = 50))
+    @test rejected[] > 0
     @test length(only(details(retried).data.timing)) == only(retried.trial_counts) == 4
     function replace_details(value, retained)
         MonteCarloResult(value.formulation, value.values, value.stats, value.sample_values,

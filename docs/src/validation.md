@@ -72,8 +72,8 @@ Declare dependent dimensions with a joint builder and justify feasibility over
 its complete support. Successful draws establish feasibility for those
 realizations only. Arbitrary callbacks and independent unbounded normal
 inputs cannot be certified from marginal means and standard uncertainties.
-`MonteCarlo(...; options=(on_error=:resample, retain_details=true))` conditions
-the output distribution on successful construction and calculation.
+`MonteCarlo` draws again a draw whose build or computation throws `DomainError`, so its
+output distribution is conditional on successful construction and calculation.
 
 Exterior cable clearance follows its own rule. A formation lays its cables at least
 1 μm apart, using the outer radius of each realization of its design, so it never

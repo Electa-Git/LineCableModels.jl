@@ -78,7 +78,6 @@ end
         distribution=:uniform,return_samples=true,return_histograms=true,retain_details=true))
     @test sampled.trial_counts==[N,N]
     @test length(unique(sampled.point_seeds))==2
-    @test all(isempty,sampled.details.data.failures)
     # Rebuild each retained draw through scalar compute. Statistics below are
     # arithmetic checks on these samples, not distribution-accuracy claims.
     for (index,point) in enumerate(LineCableModels.points(space))

@@ -172,26 +172,12 @@ Existing keyword shorthand such as `MonteCarlo(formulation; trials=1000, seed=42
 uses the same validation. Normalized settings are stored in
 `formulation.options`. An options type or cast is unnecessary.
 
-The default error mode propagates every exception. Conditional rejection of
-unsupported realizations is explicit:
-
-```julia
-MonteCarlo(
-    formulation;
-    trials=1000,
-    options=(
-        retain_details=true,
-        on_error=:resample,
-        max_failures=100,
-    ),
-)
-```
-
-Only `DomainError` is retryable. Rejected values do not enter samples or
-statistics. `details(result).data.failure_summary` reports attempts, accepted and
-failed counts, acceptance rate, and failure counts by error type and stage.
-The resulting distribution is conditional on successful problem construction
-and computation.
+A draw whose build throws `OverlapError`, or whose build or computation throws
+`DomainError`, is infeasible. Monte Carlo discards the infeasible draw and draws again,
+so that draw enters neither samples nor statistics, and nothing records it. After
+`max_failures` infeasible draws in a row for one trial, the study throws an error with
+that count and the last exception. Any other exception propagates. The resulting
+distribution is conditional on feasible draws.
 
 When `trials=nothing`, Monte Carlo uses a simultaneous
 Dvoretzky-Kiefer-Wolfowitz bound. For `M` scalar marginals and confidence

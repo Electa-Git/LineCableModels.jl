@@ -35,7 +35,6 @@
     sampled=compute(parametric,method)
     log_inputs[]=false
     @test sampled.trial_counts==[N,N]
-    @test all(isempty,sampled.details.data.failures)
     @test length(unique(sampled.point_seeds))==2
     # The builder log contains the inputs passed to the actual scalar computation.
     # Reconstruct the exact retained draws through the current sampler, then

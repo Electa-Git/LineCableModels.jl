@@ -149,12 +149,10 @@ their scientific products. `details(result)` returns an empty `ComputationDetail
 default. Its payload is available through `.data`. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
 `options=(retain_details=true,)` only when the core computation owner has
 registered a `computation_details` method and those records are needed.
-Monte Carlo uses strict failure propagation by default. Physically unsupported
-draws can be rejected explicitly with
-`options=(retain_details=true, on_error=:resample, max_failures=100)`. Only
-`DomainError` permits resampling. Retained details report every rejected argument
-tuple and its error summary. The resulting statistics are conditional on a
-successful realization.
+Monte Carlo draws again a draw whose build throws `OverlapError`, or whose build or
+computation throws `DomainError`, and records nothing about it. `max_failures` such draws
+in a row for one trial stop the study. Any other exception propagates. The resulting
+statistics are conditional on a successful realization.
 
 Physics and numerical-method choices belong to `Formulation`. Execution choices
 are passed as a named tuple. For a materialized line system, pass

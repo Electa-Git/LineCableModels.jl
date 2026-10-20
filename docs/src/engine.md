@@ -1098,12 +1098,9 @@ MonteCarlo(formulation; trials=100, options=(retain_details=true,))
 ```
 
 Parametric and linear computations retain `ComputationDetails(points=records)`, with one record
-per core result. Monte Carlo retains `trials`, `failures`, and
-`failure_summary`, each aligned by Gridspace point. `trials` contains one inner
-computation record per accepted trial. Each failure record contains the
-attempt, target trial, failure stage, realized argument tuple, error type and
-message, and a bounded stack summary. Statistics, samples, histograms, seeds,
-and accepted-trial counts remain dedicated result fields.
+per core result. Monte Carlo retains `trials`, aligned by Gridspace point. `trials`
+contains one inner computation record per accepted trial. Statistics, samples,
+histograms, seeds, and accepted-trial counts remain dedicated result fields.
 
 ## Formulation options
 
@@ -1353,12 +1350,11 @@ compose them with `merge`. Each owner rejects unknown keys and returns a
 fixed-key normalized tuple. There is no general fallback and no conversion
 from dictionaries, pairs, or `nothing`.
 
-`MonteCarlo` defines a separate outer computation-option tuple. Its normalized
-keys are `retain_details`, `on_error`, and `max_failures`. `on_error=:fail` is
-the default and rethrows every exception. `on_error=:resample` requires
-`retain_details=true` and rejects only `DomainError` realizations until the
-requested accepted-trial count is reached or `max_failures` is exhausted.
-Other exception types always propagate immediately.
+`MonteCarlo` defines a separate outer computation-option tuple, normalized by
+`computation_options(MonteCarlo, options)`. A draw whose build throws `OverlapError`, or
+whose build or computation throws `DomainError`, is drawn again. `max_failures` such
+draws in a row for one trial stop the study. Other exception types always propagate
+immediately.
 
 ## Saving results
 

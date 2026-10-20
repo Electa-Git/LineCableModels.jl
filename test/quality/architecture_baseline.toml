@@ -139,10 +139,10 @@
 "src/textdisplay/TextDisplay.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/uq/comparisons.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/uq/formulations.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
-"src/uq/montecarlo/compute.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
-"src/uq/observations.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
+"src/uq/montecarlo/compute.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
+"src/uq/observations.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/uq/observedresult.jl" = { applicable = 0, eval = 0, isa = 14, kind = 0 }
-"src/uq/results.jl" = { applicable = 0, eval = 0, isa = 29, kind = 0 }
+"src/uq/results.jl" = { applicable = 0, eval = 0, isa = 15, kind = 0 }
 
 [absence]
 "ext/LineCableModelsGmshExt" = 58
@@ -158,7 +158,7 @@
 "src/reportbuilder" = 70
 "src/textdisplay" = 1
 "src/units" = 26
-"src/uq" = 75
+"src/uq" = 72
 
 [storage]
 "src/engine/cableconstants.jl | CableConstantsWorkspace" = 3
@@ -328,7 +328,7 @@
 "src/textdisplay/TextDisplay.jl" = 2
 "src/units/scaling.jl" = 1
 "src/units/units.jl" = 2
-"src/uq/montecarlo/compute.jl" = 4
+"src/uq/montecarlo/compute.jl" = 2
 "src/uq/results.jl" = 2
 
 [root]

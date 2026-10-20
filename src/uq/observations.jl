@@ -125,16 +125,13 @@ $(TYPEDSIGNATURES)
 
 Return the simultaneous DKW bound for all retained real marginal summaries at
 one outer point. Both matrix orientations are counted conservatively. This is
-an iid-sampling bound, not measured CDF error. Resampling concerns the
-population conditional on success. A fixed trial count is insufficient to certify the configured target.
+an iid-sampling bound, not measured CDF error. A fixed trial count is insufficient to
+certify the configured target.
 """
 function confidence(value::MonteCarloResult, point::Integer)
     count = sum(length, values(value.stats[point]))
     trials = trial_count(value,point)
     bound = sqrt(log(2count / (1-confidence(value))) / (2trials))
-    retained=details(value).data
-    diagnostics = isempty(retained) ? nothing :
-        (failures=retained.failures[point],failure_summary=retained.failure_summary[point])
     mean_standard_error=map(value.stats[point]) do summaries
         map(summary -> summary.n>1 ? summary.std/sqrt(summary.n) : missing,summaries)
     end
@@ -142,8 +139,7 @@ function confidence(value::MonteCarloResult, point::Integer)
         target_cdf=cdf_tolerance(value), cdf_bound=min(1.0,bound),
         target_supported=bound <= cdf_tolerance(value), scope=:point_all_retained_marginals,
         assumption=:iid, distribution=sampling_distribution(value),
-        conditioning=(value.formulation isa NamedTuple ? value.formulation.options : value.formulation.options.data).on_error === :resample ? :successful_realizations : :none,
-        diagnostics, mean_standard_error, root_seed=root_seed(value), point_seed=point_seed(value,point),
+        mean_standard_error, root_seed=root_seed(value), point_seed=point_seed(value,point),
         samples_retained=samples(value) !== nothing, histograms_retained=histograms(value) !== nothing)
 end
 

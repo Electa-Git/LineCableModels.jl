@@ -350,7 +350,7 @@ for each selected outer point
         redraw uncertain leaves within that point
         build a fresh complete core problem
         Engine.compute
-        optionally reject DomainError realizations with a bounded number of resampling attempts
+        discard an infeasible draw and draw again, at most max_failures times in a row
     aggregate that point's draws
 end
 ```
@@ -359,13 +359,12 @@ Each nominal and error point produces its own aggregate. `MonteCarloResult` dire
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
 
-The default `on_error=:fail` rethrows every exception. With
-`options=(retain_details=true, on_error=:resample, max_failures=n)`, only
-`DomainError` is treated as an unsupported realization. Rejected draws do not
-enter samples or statistics, and resampling stops when the requested accepted-trial
-count is reached or `n` failures have occurred. This estimates the conditional
-distribution of the output when problem construction and computation
-succeed. The retained failure summary makes the conditioning rate explicit.
+A draw whose build throws `OverlapError`, or whose build or computation throws
+`DomainError`, is infeasible. Monte Carlo discards it and draws again, and nothing
+records the discarded draw. After `max_failures=n` infeasible draws in a row for one
+trial, the study throws an error with that count and the last exception. Any other
+exception propagates. This estimates the conditional distribution of the output when
+problem construction and computation succeed.
 
 For cable-constant Monte Carlo computations, the representative stored in the
 result space remains a `CableConstants` core result. Retained samples,
@@ -412,7 +411,7 @@ are never pooled. The shared Engine RMS applies the same two-sided numerical
 resolution rule to each selected statistic and frequency band.
 
 `confidence(mc_result, point)` reports the actual simultaneous DKW bound,
-configured target, marginal count, trial count and conditioning. It counts
+configured target, marginal count and trial count. It counts
 both matrix orientations conservatively and applies per outer point, not
 campaign-wide. Fixed trials need not certify the configured target. Its
 `mean_standard_error` is `s/sqrt(n)` for `n>1`, not an exact confidence interval.

@@ -176,85 +176,6 @@ function _aggregate(
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
 
-const _MONTE_CARLO_STACKTRACE_LIMIT = 8
-
-function _failure_stack(backtrace)
-    summaries = @NamedTuple{
-        function_name::String,
-        file::String,
-        line::Int
-    }[]
-    for frame in Iterators.take(
-        Base.StackTraces.stacktrace(backtrace),
-        _MONTE_CARLO_STACKTRACE_LIMIT
-    )
-        push!(summaries,
-            (
-                function_name = string(frame.func),
-                file = string(frame.file),
-                line = Int(frame.line)
-            ))
-    end
-    return summaries
-end
-
-function _failure_record(
-        attempt::Int,
-        target_trial::Int,
-        stage::Symbol,
-        sample,
-        exception,
-        backtrace
-)
-    return (
-        attempt,
-        target_trial,
-        stage,
-        sample,
-        error = (
-            type = string(typeof(exception)),
-            message = sprint(showerror, exception),
-            stack = _failure_stack(backtrace)
-        )
-    )
-end
-
-function _failure_summary(failures, accepted::Int, attempts::Int)
-    by_type = Dict{String, Int}()
-    by_stage = Dict{Symbol, Int}()
-    for failure in failures
-        error_type = failure.error.type
-        by_type[error_type] = get(by_type, error_type, 0) + 1
-        by_stage[failure.stage] = get(by_stage, failure.stage, 0) + 1
-    end
-    type_counts = [(type = error_type, count = by_type[error_type])
-                   for error_type in sort!(collect(keys(by_type)))]
-    stage_counts = [(stage, count = by_stage[stage])
-                    for stage in sort!(collect(keys(by_stage)))]
-    return (
-        attempts,
-        accepted,
-        failed = length(failures),
-        acceptance_rate = accepted / attempts,
-        by_type = type_counts,
-        by_stage = stage_counts
-    )
-end
-
-function _resampling_limit_error(failures, accepted::Int, attempts::Int, maximum::Int)
-    summary = _failure_summary(failures, accepted, attempts)
-    final_failure = last(failures)
-    stack = final_failure.error.stack
-    location = isempty(stack) ? "unknown location" :
-               "$(first(stack).file):$(first(stack).line) in $(first(stack).function_name)"
-    throw(ErrorException(
-        "Monte Carlo resampling limit of $maximum failures was exhausted after " *
-        "$(summary.attempts) attempts ($(summary.accepted) accepted); final " *
-        "$(final_failure.error.type) during $(final_failure.stage) at $location: " *
-        final_failure.error.message,
-    ))
-end
-
 _uncertain_arguments(point::Gridpoint) = _uncertain_arguments(NamedTuple[], point, ())
 # The uncertain arguments below `value` at `path`, appended to `records`.
 function _uncertain_arguments(records, value::UncertainValue, path)
@@ -274,76 +195,39 @@ function _uncertain_arguments(records, value::Union{Tuple,AbstractArray}, path)
 end
 _uncertain_arguments(records, value, path) = records
 
-# Draw the arguments, build the problem and compute it, once. A draw whose cables overlap
-# is discarded, as if it was never drawn, and drawn again. `max_failures` overlapping draws
-# in a row stop the study. After a failure that the study resamples, add its record to
-# `failures` and return `nothing`. `stage` and `drawn` keep the stage and the drawn
-# arguments for that record.
-function _attempt(rng, sampler, attempts::Int, accepted::Int)
-    (; point, formulation, child_options, failures, stage, drawn) = sampler
+# Draw the arguments, build the problem and compute it. A draw is infeasible when its build
+# throws `OverlapError`, or when its build or computation throws `DomainError`. The next
+# draw replaces it as if it was never drawn. `max_failures` infeasible draws in a row stop
+# the study. Any other exception propagates.
+function _attempt(rng, sampler)
+    (; point, formulation, child_options) = sampler
     discarded = 0
-    try
-        while true
-            stage[] = :sample
-            drawn[] = nothing
-            arguments = realize_arguments(rng, point, formulation.options.data.distribution)
-            drawn[] = arguments
-            stage[] = :build
-            realization = try
-                realize(point, arguments)
-            catch exception
-                exception isa DataModel.OverlapError || rethrow()
-                discarded += 1
-                discarded < formulation.options.data.max_failures || throw(ErrorException(
-                    "Monte Carlo discarded $discarded overlapping draws in a row, the " *
-                    "max_failures limit; the last: " * sprint(showerror, exception)))
-                continue
-            end
-            stage[] = :compute
-            return compute(realization, formulation.inner; options = child_options)
+    while true
+        arguments = realize_arguments(rng, point, formulation.options.data.distribution)
+        try
+            return compute(realize(point, arguments), formulation.inner;
+                options = child_options)
+        catch exception
+            exception isa Union{DataModel.OverlapError, DomainError} || rethrow()
+            discarded += 1
+            discarded < formulation.options.data.max_failures || throw(ErrorException(
+                "Monte Carlo discarded $discarded infeasible draws in a row, the " *
+                "max_failures limit; the last: " * sprint(showerror, exception)))
         end
-    catch exception
-        backtrace = catch_backtrace()
-        formulation.options.data.on_error === :resample && exception isa DomainError ||
-            rethrow()
-        push!(failures, _failure_record(
-            attempts,
-            accepted + 1,
-            stage[],
-            drawn[],
-            exception,
-            backtrace
-        ))
-        length(failures) < formulation.options.data.max_failures ||
-            _resampling_limit_error(
-                failures,
-                accepted,
-                attempts,
-                formulation.options.data.max_failures
-            )
-        return nothing
     end
 end
 
 function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options)
     rng = Random.Xoshiro(seed)
-    failures = NamedTuple[]
     timing = get(options.data, :timing, false)
     timing isa Bool || throw(ArgumentError("timing must be Bool"))
     trial_timings = timing ? NamedTuple[] : nothing
     progress = verbosity(options, :progress) > 0
     started = progress ? time_ns() : UInt64(0)
-    sampler = (; point, formulation, child_options, failures,
-        stage = Ref(:sample), drawn = Ref{Any}(nothing))
+    sampler = (; point, formulation, child_options)
 
-    # Pilot: draw until the first accepted realization.
-    attempts = 0
-    pilot = nothing
-    while pilot === nothing
-        attempts += 1
-        pilot = _attempt(rng, sampler, attempts, 0)
-    end
-    first_result = something(pilot)
+    # Pilot: the first accepted realization.
+    first_result = _attempt(rng, sampler)
 
     # The storage of every trial, allocated once from the pilot result.
     record = formulation.options.data.retain_details ?
@@ -362,24 +246,15 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     retained = formulation.options.data.retain_details ?
                Vector{typeof(record)}(undef, ntrials) : nothing
 
-    trials = _trials!(rng, first_result, sample_values, retained, record, sampler,
-        details_owner, sample_axis, trial_timings, attempts, ntrials, progress, started)
-    attempts = trials.attempts
-    accepted = ntrials
+    last_log = _trials!(rng, first_result, sample_values, retained, record, sampler,
+        details_owner, sample_axis, trial_timings, ntrials, progress, started)
 
-    failure_summary = _failure_summary(failures, accepted, attempts)
-    retained_details = retained === nothing ? nothing :
-                       (
-        trials = retained,
-        failures,
-        failure_summary
-    )
     aggregation_started = progress ? time_ns() : UInt64(0)
     aggregate = _aggregate(sample_values, first_result, formulation)
     if progress
         now = time_ns()
-        if now - trials.last_log >= 5_000_000_000
-            @info "Monte Carlo aggregation completed" _group=:progress accepted trials=ntrials attempts rejected=length(failures) aggregation_seconds=(now-aggregation_started)*1e-9 elapsed_seconds=(now-started)*1e-9
+        if now - last_log >= 5_000_000_000
+            @info "Monte Carlo aggregation completed" _group=:progress trials=ntrials aggregation_seconds=(now-aggregation_started)*1e-9 elapsed_seconds=(now-started)*1e-9
         end
     end
     # The trials computed with `formulation.inner`. The record of the first one holds that
@@ -396,16 +271,14 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             uncertainty = (estimator = :empirical, representation = :marginal_mean_std),
             uncertainty_descriptions = _uncertainty_descriptions(MonteCarlo))))
     return merge(aggregate, (; representation, trials = ntrials, seed,
-        details = retained_details, timing = trial_timings))
+        details = retained, timing = trial_timings))
 end
 
 # Record the pilot result in `buffers`, then draw and record further trials until the study
-# accepts `ntrials` of them. Return `attempts` and the time of the last progress message.
+# accepts `ntrials` of them. Return the time of the last progress message.
 function _trials!(rng, first_result::R, buffers, retained, record, sampler, details_owner,
-        sample_axis, trial_timings, attempts::Int, ntrials::Int, progress::Bool,
-        started::UInt64) where {R}
+        sample_axis, trial_timings, ntrials::Int, progress::Bool, started::UInt64) where {R}
     formulation = sampler.formulation
-    failures = sampler.failures
     previous = started
     last_log = started
     average_seconds = 0.0
@@ -422,16 +295,12 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
             average_seconds = accepted == 1 ? interval : 0.2 * interval + 0.8 * average_seconds
             previous = now
             if now - last_log >= 5_000_000_000
-                @info "Monte Carlo sampling progress" _group=:progress accepted trials=ntrials attempts rejected=length(failures) elapsed_seconds=(now-started)*1e-9 eta_hours=(ntrials-accepted)*average_seconds/3600
+                @info "Monte Carlo sampling progress" _group=:progress accepted trials=ntrials elapsed_seconds=(now-started)*1e-9 eta_hours=(ntrials-accepted)*average_seconds/3600
                 last_log = now
             end
         end
         accepted < ntrials || break
-        result = nothing
-        while result === nothing
-            attempts += 1
-            result = _attempt(rng, sampler, attempts, accepted)
-        end
+        result = _attempt(rng, sampler)
         record = formulation.options.data.retain_details ?
                  computation_details(details_owner, result) : nothing
         _sample_shunt_model(result) == _sample_shunt_model(first_result) || throw(ArgumentError(
@@ -441,7 +310,7 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
         ))
         value = result
     end
-    return (; attempts, last_log)
+    return last_log
 end
 
 # Monte Carlo samples the arguments of the points of a space. A scalar problem is the space
@@ -585,12 +454,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         "problem-space iteration exceeded its declared cardinality",
     ))
 
-    retained_details = retained === nothing ? (;) :
-                       (
-        trials = getproperty.(retained, :trials),
-        failures = getproperty.(retained, :failures),
-        failure_summary = getproperty.(retained, :failure_summary)
-    )
+    retained_details = retained === nothing ? (;) : (; trials = retained)
     timing && (retained_details=merge(retained_details, (timing=population_timings,)))
     result = MonteCarloResult(
         formulation,

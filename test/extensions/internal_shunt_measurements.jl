@@ -101,7 +101,6 @@ end
         MonteCarlo(inner; trials = 12, seed = 314,
             distribution = :normal, return_samples = true, retain_details = true))
     @test sampled.trial_counts == [12]
-    @test all(isempty, sampled.details.data.failures)
     @test only(sampled.values).details.data.shunt_model.requested === :boundary
     @test only(linear.values).details.data.shunt_model.requested === :boundary
     restored=SavedResults.round_trip(linear)
@@ -119,7 +118,7 @@ end
         insulation_admittance = :lossy)
     @test_throws BoundarySolveError compute(
         problem, MonteCarlo(strict;
-            trials = 2, seed = 314, on_error = :resample, retain_details = true))
+            trials = 2, seed = 314, retain_details = true))
     # Sharing solved groups must not erase independent Measurements sources.
     independent = CableConstantsProblem(internal_shunt_test_design(
         epsilon = measurement(2.5, 0.0025), tapes = false, count = 4))

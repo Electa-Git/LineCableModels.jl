@@ -198,7 +198,6 @@ end
         MonteCarlo(selected; trials = 3, seed = 314, distribution = :normal,
             return_samples = true, retain_details = true))
     @test sampled.trial_counts == [3]
-    @test all(isempty, details(sampled).data.failures)
     for trial in only(details(sampled).data.trials),
         family in (:earth_impedance, :earth_admittance)
 

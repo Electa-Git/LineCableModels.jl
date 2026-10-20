@@ -1,4 +1,4 @@
-@testitem "UQ / resampling preserves accepted trials, source identities and seeded replay" tags=[:integration, :measurements] setup=[TestFixtures] begin
+@testitem "UQ / redrawing infeasible draws preserves accepted trials, source identities and seeded replay" tags=[:integration, :measurements] setup=[TestFixtures] begin
     using Measurements
     using Statistics
     design = TestFixtures.coaxial_design()
@@ -15,7 +15,7 @@
     inner = CableConstantsFormulation()
     formulation = MonteCarlo(inner; trials=4, seed=71, distribution=:uniform,
         return_samples=true, return_histograms=true, bins=2,
-        options=(on_error=:resample, retain_details=true, max_failures=3))
+        options=(retain_details=true, max_failures=3))
     sampled = compute(ParametricProblem(space), formulation)
     @test length(sampled) == 2
     @test sampled.trial_counts == [4, 4]
@@ -25,26 +25,7 @@
     @test all(isconcretetype, (eltype(sampled.values), eltype(sampled.stats),
         eltype(sampled.sample_values), eltype(sampled.histogram_values)))
     @test length.(sampled.details.data.trials) == [4, 4]
-    @test length.(sampled.details.data.failures) == [2, 0]
-    first_summary, second_summary = sampled.details.data.failure_summary
-    @test first_summary.attempts == 6
-    @test first_summary.accepted == 4
-    @test first_summary.failed == 2
-    @test first_summary.acceptance_rate == 4 / 6
-    @test first_summary.by_type == [(type="DomainError", count=2)]
-    @test first_summary.by_stage == [(stage=:build, count=2)]
-    @test second_summary.attempts == second_summary.accepted == 4
-    @test second_summary.failed == 0
-    for (index, failure) in enumerate(first(sampled.details.data.failures))
-        @test failure.attempt == index
-        @test failure.target_trial == 1
-        @test failure.stage === :build
-        @test failure.sample !== nothing
-        @test occursin("injected rejection", failure.error.message)
-        @test !isempty(failure.error.stack)
-        @test length(failure.error.stack) <= 8
-        @test all(frame -> frame.line > 0 && !isempty(frame.function_name), failure.error.stack)
-    end
+    @test keys(sampled.details.data) == (:trials,)
     for point in 1:2
         accepted_temperatures = attempted_temperatures[point==1 ? (3:6) : (8:11)]
         expected = [compute(CableConstantsProblem(design; temperature), inner)
@@ -59,25 +40,21 @@
     before_observation=length(attempted_temperatures)
     observed=observables(sampled)
     @test length(attempted_temperatures)==before_observation
-    @test observed[1].gridpoint.sampling.diagnostics.failure_summary==first_summary
-    @test observed[1].gridpoint.sampling.diagnostics.failures[1].sample==sampled.details.data.failures[1][1].sample
     recorded = copy(attempted_temperatures)
     empty!(attempted_temperatures)
     replay = compute(ParametricProblem(space), formulation)
     @test attempted_temperatures == recorded
     @test samples(replay) == samples(sampled)
     @test replay.point_seeds == sampled.point_seeds
-    @test replay.details.data.failure_summary == sampled.details.data.failure_summary
 
 end
 
-@testitem "UQ / resampling does not hide non-domain errors or run past its limit" tags=[:integration, :uq] begin
+@testitem "UQ / redrawing does not hide other errors or run past its limit" tags=[:integration, :uq] begin
     using Measurements
     inner = CableConstantsFormulation()
-    for (injected, on_error, expected_attempts) in (
-        (DomainError(-1, "invalid input marker"), :fail, 1),
-        (ArgumentError("programming error marker"), :resample, 1),
-        (DomainError(-1, "unrecoverable input marker"), :resample, 3),
+    for (injected, expected_attempts) in (
+        (ArgumentError("programming error marker"), 1),
+        (DomainError(-1, "unrecoverable input marker"), 3),
     )
         attempts = Ref(0)
         space = Gridspace{CableConstantsProblem}(
@@ -88,7 +65,7 @@ end
             (Grid((1.0,)),),
         )
         formulation = MonteCarlo(inner; trials=2, seed=71,
-            options=(on_error=on_error, retain_details=true, max_failures=3))
+            options=(retain_details=true, max_failures=3))
         failure = try
             compute(ParametricProblem(space), formulation)
         catch exception
@@ -100,16 +77,14 @@ end
         else
             @test failure isa ErrorException
             message = sprint(showerror, failure)
-            @test occursin("resampling limit of 3", message)
-            @test occursin("3 attempts (0 accepted)", message)
-            @test occursin("during build", message)
+            @test occursin("discarded 3 infeasible draws in a row", message)
+            @test occursin("max_failures", message)
             @test occursin("unrecoverable input marker", message)
         end
     end
-    @test_throws ArgumentError MonteCarlo(inner; options=(on_error=:resample,))
 end
 
-@testitem "UQ / negative physical radius / failure and resampling records" tags=[:integration, :measurements] begin
+@testitem "UQ / negative physical radius / redraws, their limit and source records" tags=[:integration, :measurements] begin
     using Measurements
     attempts=Float64[]
     function physical_problem(radius)
@@ -126,21 +101,17 @@ end
         (Grid(.005,AbsoluteError(.001)),)))
     inner=CableConstantsFormulation()
     negative=(_rng,mean,_sigma)->-mean
-    @test_throws DomainError compute(problem,MonteCarlo(inner;trials=2,seed=103,
-        distribution=negative,on_error=:fail))
-    @test attempts==[-.005]
-    empty!(attempts)
     failure=try
         compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=negative,
-            on_error=:resample,max_failures=3,retain_details=true))
+            max_failures=3,retain_details=true))
     catch error
         error
     end
     @test attempts==fill(-.005,3)
     @test failure isa ErrorException
-    @test occursin("3 attempts (0 accepted)",sprint(showerror,failure))
+    @test occursin("discarded 3 infeasible draws in a row",sprint(showerror,failure))
     @test occursin("physical radius must be positive",sprint(showerror,failure))
-    # This deterministic control tests conditioning and source records only. No claim
+    # This deterministic control tests the redraw and source records only. No claim
     # is made that accepted draws follow an unconditioned input law.
     calls=Ref(0)
     alternating=(_rng,mean,_sigma)->begin
@@ -149,12 +120,9 @@ end
     end
     empty!(attempts)
     sampled=compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=alternating,
-        on_error=:resample,max_failures=3,retain_details=true,return_samples=true))
+        max_failures=3,retain_details=true,return_samples=true))
     @test sampled.trial_counts==[2]
     @test attempts==[-.005,.005,-.005,.005,.005]
     @test only(sampled.values).details.data.inputs.interpretation===:nominal_declaration
     @test only(only(sampled.values).details.data.inputs.uncertain_arguments).standard_deviation==.001
-    @test length(only(sampled.details.data.failures))==2
-    @test only(sampled.details.data.failure_summary).accepted==2
-    @test only(sampled.details.data.failure_summary).failed==2
 end

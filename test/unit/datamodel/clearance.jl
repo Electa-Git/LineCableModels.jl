@@ -150,18 +150,11 @@ end
     @test discarded > 0
     @test length(drawn) == 8 + discarded + 1 # accepted, discarded, the nominal record
     @test sampled.trial_counts == [8]
-    @test keys(sampled.details.data) == (:trials, :failures, :failure_summary)
-    @test isempty(only(sampled.details.data.failures))
-    @test only(sampled.details.data.failure_summary).attempts == 8
+    @test keys(sampled.details.data) == (:trials,)
     accepted=filter(>=(0.02), drawn[1:(end - 1)])
     replay=compute(ParametricProblem(space), formulation)
     @test samples(replay) == samples(sampled)
     @test filter(>=(0.02), drawn[(8 + discarded + 2):(end - 1)]) == accepted
-
-    # Resampling records the failures it resamples, never a discarded overlap.
-    resampled=compute(ParametricProblem(space), MonteCarlo(inner; trials = 8, seed = 8,
-        retain_details = true, on_error = :resample))
-    @test isempty(only(resampled.details.data.failures))
 
     # `max_failures` overlapping draws in a row stop a study that cannot draw a feasible case.
     empty!(drawn)

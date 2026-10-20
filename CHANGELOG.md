@@ -25,9 +25,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Between two cables, it expands the placements about their centroid. At the interface,
   it translates each half-space group. Gaps use nominal values. The system checks its pair
   gaps, and a `LineParametersProblem` checks the interface gaps.
-- `MonteCarlo` discards a draw that throws `OverlapError`, as if it was never drawn, and
-  draws again. It records nothing about the draw. `max_failures` overlapping draws in a
-  row stop the study.
+- `MonteCarlo` draws again, with no record, when a build throws `OverlapError` or a build
+  or computation throws `DomainError`. After `max_failures` such draws in a row for one
+  trial, it throws an error with that count and the last exception.
 - `trefoil`, `hflat` and `vflat` lay their cables at `max(spacing, 2R + 1 μm)`, where `R`
   is the outer radius of the design they receive. A formation never overlaps, and a
   smaller spacing lays its cables touching. Each realization of an uncertain design is laid

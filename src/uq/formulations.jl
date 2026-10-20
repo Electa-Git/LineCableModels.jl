@@ -41,12 +41,15 @@ $(TYPEDEF)
 
 Select conditional Monte Carlo propagation over a
 [`ParametricProblem`](@ref). Randomness is local and reproducible when `seed`
-is supplied. Computation option `on_error=:fail` propagates every exception.
-`on_error=:resample` rejects only realizations that raise `DomainError` and retains
-their sampled arguments and error summaries. Sampling continues until the requested
-number of successful trials is obtained or `max_failures` is reached. Resampling
-mode requires `retain_details=true` and estimates the output distribution
-conditional on successful problem construction and computation.
+is supplied.
+
+A draw is infeasible when its build throws
+[`OverlapError`](@ref LineCableModels.DataModel.OverlapError), or when its build or
+computation throws `DomainError`. The study discards an infeasible draw as if it was never
+drawn and draws again. It records nothing about the discarded draw. After `max_failures`
+infeasible draws in a row for one trial, the study throws an error with that count and the
+last exception. Any other exception propagates. The output distribution is conditional on
+feasible draws.
 
 Load `Measurements` before computation. Aggregation stores marginal
 uncertainty-bearing cores from accepted sample means and sample standard
@@ -55,12 +58,7 @@ not retained by the marginal surrogate. Access and transport reuse the stored
 uncertainty-source identities.
 
 Line-system construction checks exterior clearance on every realization. A draw
-whose cables overlap throws
-[`OverlapError`](@ref LineCableModels.DataModel.OverlapError) at its build. The
-study discards that draw as if it was never drawn and draws again, whatever
-`on_error` says. It records nothing about the discarded draw. `max_failures`
-overlapping draws in a row stop the study. Invalid dimensions and infeasible internal
-cable constructions remain errors subject to `on_error`.
+whose cables overlap throws `OverlapError` at its build.
 
 Use one joint `Gridspace` builder for dependent internal dimensions. Derive
 stack geometric boundaries and wire placements from its shared inputs. Repeating a Grid
@@ -86,9 +84,8 @@ or as keywords of the same names. Both forms are normalized by
 - `return_samples=false`: retain joint samples.
 - `return_histograms=false`: retain marginal histogram densities.
 - `bins=nothing`: positive histogram bin count, or automatic binning.
-- `retain_details=false`: retain accepted-trial details and failure diagnostics.
-- `on_error=:fail`: propagate exceptions. `:resample` rejects `DomainError` realizations and requires `retain_details=true`.
-- `max_failures=100`: positive maximum rejected-trial count per parameter point.
+- `retain_details=false`: retain the computation details of each accepted trial.
+- `max_failures=100`: positive maximum count of infeasible draws in a row for one trial.
 
 The concrete type of `options` retains the sampler type.
 
@@ -97,7 +94,7 @@ $(TYPEDFIELDS)
 struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractTraversal
     "Formulation used for each sampled problem."
     inner::F
-    "Normalized sampling, error-handling and supplemental-output computation options."
+    "Normalized sampling and supplemental-output computation options."
     options::O
 
     MonteCarlo(inner::F, options::O) where {F <: AbstractFormulation, O <: ComputationOptions} =
@@ -141,7 +138,7 @@ function computation_options(
         trials = nothing, confidence = 0.95, cdf_tol = 0.02,
         distribution = :normal, seed = nothing,
         return_samples = false, return_histograms = false, bins = nothing,
-        retain_details = false, on_error = :fail, max_failures = 100
+        retain_details = false, max_failures = 100
     )
     unknown = filter(key -> key ∉ keys(defaults), keys(options))
     isempty(unknown) || throw(ArgumentError(
@@ -175,16 +172,6 @@ function computation_options(
         throw(ArgumentError(
             "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
         ))
-    normalized.on_error === :fail || normalized.on_error === :resample ||
-        throw(ArgumentError(
-            "MonteCarlo on_error must be :fail or :resample",
-        ))
-    normalized.on_error === :resample && !normalized.retain_details &&
-        throw(
-            ArgumentError(
-            "MonteCarlo on_error=:resample requires retain_details=true",
-        ),
-        )
     return ComputationOptions(;
         trials = normalized.trials === nothing ? nothing : Int(normalized.trials),
         confidence = Float64(normalized.confidence),
@@ -195,7 +182,6 @@ function computation_options(
         return_histograms = normalized.return_histograms,
         bins = normalized.bins === nothing ? nothing : Int(normalized.bins),
         retain_details = normalized.retain_details,
-        on_error = normalized.on_error,
         max_failures = Int(normalized.max_failures)
     )
 end

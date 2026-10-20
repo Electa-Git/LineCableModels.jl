@@ -81,7 +81,7 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <: AbstractUncertainty
     point_seeds::Vector{UInt64}
     "Accepted-trial count used for each Gridspace point."
     trial_counts::Vector{Int}
-    "Accepted-trial details and failure diagnostics retained by the propagation."
+    "Accepted-trial details retained by the propagation."
     details::ComputationDetails
 
     function MonteCarloResult(
@@ -110,7 +110,7 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <: AbstractUncertainty
 end
 
 # Checks the stored cores, the empirical products of each point against its core result,
-# and the retained trial, failure and timing details.
+# and the retained trial and timing details.
 function validate(result::MonteCarloResult{T}) where {T}
     (; values, stats, sample_values, histogram_values, point_seeds, trial_counts, details) =
         result
@@ -217,8 +217,8 @@ function validate(result::MonteCarloResult{T}) where {T}
     end
     if !isempty(details.data)
         fields = Tuple(key for key in keys(details.data) if key !== :timing)
-        fields in ((), (:trials, :failures, :failure_summary)) || throw(ArgumentError(
-            "MonteCarloResult details must contain timing, the full trial/failure bundle, or both",
+        fields in ((), (:trials,)) || throw(ArgumentError(
+            "MonteCarloResult details must contain timing, trials, or both",
         ))
         point_count = length(values)
         if haskey(details.data, :timing)
@@ -243,72 +243,9 @@ function validate(result::MonteCarloResult{T}) where {T}
         if !isempty(fields)
             for point in eachindex(values)
                 records = details.data.trials[point]
-                failures = details.data.failures[point]
-                summary = details.data.failure_summary[point]
                 length(records) == trial_counts[point] || throw(DimensionMismatch(
                     "retained details must contain one entry per accepted Monte Carlo trial",
                 ))
-                failures isa AbstractVector || throw(ArgumentError(
-                    "retained Monte Carlo failures must be stored in vectors",
-                ))
-                for record in failures
-                    record isa NamedTuple &&
-                        keys(record) == (:attempt, :target_trial, :stage, :sample, :error) ||
-                        throw(ArgumentError(
-                        "Monte Carlo failure records must contain attempt, target_trial, stage, sample, and error",
-                    ))
-                    record.attempt isa Int && record.attempt > 0 || throw(ArgumentError(
-                        "Monte Carlo failure attempts must be positive integers",
-                    ))
-                    record.target_trial isa Int && record.target_trial > 0 || throw(ArgumentError(
-                        "Monte Carlo failure target trials must be positive integers",
-                    ))
-                    record.stage in (:sample, :build, :compute) || throw(ArgumentError(
-                        "Monte Carlo failure stages must be :sample, :build, or :compute",
-                    ))
-                    error = record.error
-                    error isa NamedTuple && keys(error) == (:type, :message, :stack) || throw(
-                        ArgumentError(
-                            "Monte Carlo failure errors must contain type, message, and stack",
-                        ),
-                    )
-                    error.type isa String && error.message isa String || throw(ArgumentError(
-                        "Monte Carlo failure type and message summaries must be strings",
-                    ))
-                    error.stack isa AbstractVector || throw(ArgumentError(
-                        "Monte Carlo failure stacks must be vectors",
-                    ))
-                    all(error.stack) do frame
-                        frame isa NamedTuple &&
-                            keys(frame) == (:function_name, :file, :line) &&
-                            frame.function_name isa String && frame.file isa String && frame.line isa Int
-                    end || throw(ArgumentError(
-                        "Monte Carlo failure stack frames must contain function_name, file, and line",
-                    ))
-                end
-                accepted = trial_counts[point]
-                summary isa NamedTuple && keys(summary) == (
-                    :attempts, :accepted, :failed, :acceptance_rate, :by_type, :by_stage
-                ) || throw(ArgumentError(
-                    "Monte Carlo failure summaries have an invalid schema",
-                ))
-                summary.attempts isa Int && summary.attempts > 0 || throw(ArgumentError(
-                    "Monte Carlo failure-summary attempts must be positive integers",
-                ))
-                summary.accepted == accepted || throw(DimensionMismatch(
-                    "Monte Carlo failure-summary accepted counts must match trial counts",
-                ))
-                summary.failed == length(failures) || throw(DimensionMismatch(
-                    "Monte Carlo failure-summary failed counts must match retained failures",
-                ))
-                summary.attempts == summary.accepted + summary.failed || throw(DimensionMismatch(
-                    "Monte Carlo failure-summary attempts must equal accepted plus failed trials",
-                ))
-                summary.acceptance_rate == summary.accepted / summary.attempts || throw(
-                    ArgumentError(
-                        "Monte Carlo failure-summary acceptance rates are inconsistent",
-                    ),
-                )
             end
         end
     end
