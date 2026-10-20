@@ -918,13 +918,32 @@ julia --project=test benchmarks/verification_tables.jl <run folders>... <output 
 
 Supply the time-domain, model-settings and PSCAD folders listed in
 `time_domain_sources.txt`, the consolidated DC behaviour folders, the option study
-folder and the transient sensitivity folders. Supply each folder once.
+folders and the transient sensitivity folders. Supply each folder once.
+Add the PSCAD-like reference folders, which contain `pscad_like_references.json`, for the earth-model comparison.
 DC reruns follow argument order. A final result replaces an earlier result.
 Different time steps and interpolation settings remain separate configurations.
 
 The generator counts detections in each configuration class and in the pooled data.
 The classes describe contrasts against each study's baseline.
-They do not infer a physical cause from an error or diagnostic.
+
+The generator keeps each row's configuration class before it compares the earth models.
+The comparison requires equal cable and scenario identifiers, with exactly equal window and step controls.
+The archived reference time vectors must also be equal.
+The generator checks native text timestamps as before and compares samples directly.
+Other grids keep only the unified outcome, with an explicit reason.
+
+A row that fails against unified NLT and passes against PSCAD-like NLT belongs to `earth model`.
+A row that fails against both keeps its configuration class and records both outcomes.
+Each failure definition makes its own reassignment.
+`cause_class` uses the strict limits, and `cause_class_loose` uses the loose limits.
+`configuration_cause_class` keeps the original class.
+
+Short DC windows map to `step_single_point`.
+Long DC windows have no reference with the same controls.
+
+`verification_earth.csv` gives both outcomes and comparison availability for every PSCAD row.
+`verification_class_changes.csv` records counts before and after the reassignment.
+The detection tables and silent lists use the class for their own failure definition.
 
 | Study | Configuration rule |
 | --- | --- |
@@ -937,7 +956,7 @@ They do not infer a physical cause from an error or diagnostic.
 The original scenario windows are the simulation defaults in each study.
 Changes to several controls within one class remain in that class.
 Changes across classes receive a separate mixed class, with every component retained.
-They do not enter either single-class count.
+Unreassigned mixed rows do not enter either component's count.
 
 Coarse-grid Marti combines fit settings and model structure.
 Coarse-grid ULM with double interpolation combines fit and simulation settings.

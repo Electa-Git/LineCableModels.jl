@@ -232,7 +232,8 @@ function native_checks!(row, directory, status, range_rows)
     return controls
 end
 
-function transient_outcomes!(row, observed, reference, growth_rows, sheath_rows; endpoint = false)
+function transient_outcomes!(row, observed, reference, growth_rows, sheath_rows;
+        endpoint = false, reference_model = "unified")
     response, target = voltage_data(observed), voltage_data(reference)
     response.labels == target.labels || error("Terminal order differs: $(row["source"])")
     length(response.times) == length(target.times) &&
@@ -262,7 +263,7 @@ function transient_outcomes!(row, observed, reference, growth_rows, sheath_rows;
             row["receiving_energized_sheath_peak_error_percent"] = deviation
         end
         push!(sheath_rows, merge(Dict(k => row[k] for k in ("study", "cable", "fit", "scenario", "source")),
-            Dict("terminal" => label, "peak_kV" => actual / 1000, "reference_peak_kV" => expected / 1000,
+            Dict("reference_model" => reference_model, "terminal" => label, "peak_kV" => actual / 1000, "reference_peak_kV" => expected / 1000,
                 "peak_error_percent" => deviation, "scaled_peak_error_percent" => scaled,
                 "reference_peak_scale_kV" => sheath_scale / 1000)))
     end
@@ -286,7 +287,7 @@ function transient_outcomes!(row, observed, reference, growth_rows, sheath_rows;
         row["late_growth"] |= independent
         row["reference_qualified_growth"] |= qualified
         push!(growth_rows, merge(Dict(k => row[k] for k in ("study", "cable", "fit", "scenario", "source")),
-            Dict("end" => side == 1 ? "sending" : "receiving", "terminal" => label,
+            Dict("reference_model" => reference_model, "end" => side == 1 ? "sending" : "receiving", "terminal" => label,
                 "growth_ratio" => actual.ratio, "reference_growth_ratio" => exact.ratio,
                 "late_peak_relative_to_scale" => actual.late / scale,
                 "late_peak_excess_relative_to_scale" => (actual.late - exact.late) / scale,
@@ -295,6 +296,57 @@ function transient_outcomes!(row, observed, reference, growth_rows, sheath_rows;
     if endpoint
         tail = findall(>=(0.9tmax), response.times)
         row["DC_endpoint_error_percent"] = 100(mean(model_core[tail]) - mean(exact_core[tail])) / mean(exact_core[tail])
+    end
+end
+
+function failure_outcomes!(row)
+    row["divergence"] = get(row, "nonfinite_output", false) || get(row, "reference_qualified_growth", false)
+    for (name, core, sheath) in (("strict", 2, 10), ("loose", 5, 20))
+        row["failed_" * name] = row["divergence"] || any(get(row, key, nothing) !== nothing && abs(row[key]) > limit
+            for (key, limit) in (("receiving_core_peak_error_percent", core),
+                ("receiving_sheath_scaled_peak_error_percent", sheath), ("DC_endpoint_error_percent", 5)))
+    end
+end
+
+# Compare the same samples only when the archived controls and reference grids agree exactly.
+function pscad_outcomes!(row, observed, reference, references, growth_rows, sheath_rows; endpoint = false)
+    if observed === nothing
+        row["nonfinite_output"] = true
+    else
+        transient_outcomes!(row, observed, reference, growth_rows, sheath_rows; endpoint)
+    end
+    row["pscad_like_evaluated"] = false
+    scenario = row["study"] == "dc_behaviour" && row["scenario"] == "step_short" ?
+        "step_single_point" : row["scenario"]
+    candidates = get(references, (row["cable"], scenario), [])
+    if isempty(candidates)
+        row["pscad_like_comparison"] = "unified only: no reference for this cable and scenario"
+        return
+    end
+    times = voltage_data(reference).times
+    match_index = findlast(candidate -> candidate.window.tmax == row["duration_seconds"] &&
+        candidate.window.step == row["step_seconds"] && voltage_data(candidate.observed).times == times, candidates)
+    if match_index === nothing
+        row["pscad_like_comparison"] = "unified only: window, step or archived reference time grid differs"
+        return
+    end
+    matched = candidates[match_index]
+    row["pscad_like_evaluated"] = true
+    row["pscad_like_reference_source"] = matched.source
+    row["pscad_like_reference_scenario"] = scenario
+    row["pscad_like_comparison"] = "exact window, step and archived reference grid; no interpolation"
+    identity = ("study", "cable", "fit", "scenario", "source", "duration_seconds")
+    comparison = Dict(key => row[key] for key in identity)
+    if observed === nothing
+        comparison["nonfinite_output"] = true
+    else
+        transient_outcomes!(comparison, observed, matched.observed, growth_rows, sheath_rows;
+            endpoint, reference_model = "pscad_like")
+    end
+    failure_outcomes!(comparison)
+    for (key, value) in comparison
+        key in identity && continue
+        row["pscad_like_" * key] = value
     end
 end
 
@@ -309,12 +361,7 @@ function complete_checks!(row)
         value = get(row, field, nothing)
         row[check] = value === nothing ? nothing : value > threshold
     end
-    row["divergence"] = get(row, "nonfinite_output", false) || get(row, "reference_qualified_growth", false)
-    for (name, core, sheath) in (("strict", 2, 10), ("loose", 5, 20))
-        row["failed_" * name] = row["divergence"] || any(get(row, key, nothing) !== nothing && abs(row[key]) > limit
-            for (key, limit) in (("receiving_core_peak_error_percent", core),
-                ("receiving_sheath_scaled_peak_error_percent", sheath), ("DC_endpoint_error_percent", 5)))
-    end
+    failure_outcomes!(row)
     row["any_check"] = any(get(row, key, nothing) === true for key in VERIFICATION_CHECKS)
     row["any_check_fit2pct"] = any(get(row, key, nothing) === true for key in VERIFICATION_CHECKS if key != "fit_error_0.2pct")
     row["any_check_rms2pct"] = any(get(row, key, nothing) === true for key in VERIFICATION_CHECKS
@@ -324,9 +371,10 @@ end
 
 function detection_counts(rows)
     detection, compact, silent = [Dict{String, Any}[] for _ in 1:3]
-    classes = sort(unique(row["cause_class"] for row in rows))
+    classes = sort(unique([row[key] for row in rows for key in ("cause_class", "cause_class_loose")]))
     for cause in ("pooled", classes...), definition in ("strict", "loose")
-        subset = cause == "pooled" ? rows : filter(row -> row["cause_class"] == cause, rows)
+        class_key = definition == "strict" ? "cause_class" : "cause_class_loose"
+        subset = cause == "pooled" ? rows : filter(row -> row[class_key] == cause, rows)
         all_failed = count(row -> row["failed_" * definition], subset)
         all_fine = length(subset) - all_failed
         for check in (VERIFICATION_CHECKS..., "any_check", "any_check_fit2pct", "any_check_rms2pct")
@@ -343,7 +391,7 @@ function detection_counts(rows)
                 "sensitivity_count" => "$(data["flagged_and_failed"])/$all_failed",
                 "specificity_count" => "$(data["quiet_and_fine"])/$all_fine")))
             if cause != "pooled" && startswith(check, "any_check")
-                append!(silent, [merge(row, Dict("definition" => definition, "check_set" => check)) for row in subset
+                append!(silent, [merge(row, Dict("cause_class" => cause, "definition" => definition, "check_set" => check)) for row in subset
                     if row["failed_" * definition] && !row[check]])
             end
         end
@@ -355,10 +403,26 @@ function verification_tables(folders, output)
     validate(folders, verification_tables, output)
     rows, ranges, growth, sheaths, coverage = [Dict{String, Any}[] for _ in 1:5]
     dc_folders = String[]
+    pscad_references = Dict{Tuple{String, String}, Any}()
+    for folder in folders
+        path = joinpath(folder, "pscad_like_references.json")
+        isfile(path) || continue
+        cable = basename(dirname(folder))
+        for point in import_data(:observed, path)
+            study = point.gridpoint.study
+            push!(get!(pscad_references, (cable, string(study.scenario)), []),
+                (; observed = point, source = path, window = study.window))
+            push!(coverage, Dict("study" => "pscad_like_reference", "source" => path,
+                "fit" => string(study.scenario), "status" => study.status, "included" => false,
+                "reason" => "reference trace; no fitted model"))
+        end
+    end
     for folder in folders
         cable = basename(dirname(folder))
         println("Reading ", folder); flush(stdout)
-        if isfile(joinpath(folder, "dc_behaviour.toml"))
+        if isfile(joinpath(folder, "pscad_like_references.json"))
+            continue
+        elseif isfile(joinpath(folder, "dc_behaviour.toml"))
             push!(dc_folders, folder)
         elseif isfile(joinpath(folder, "pscad_options.toml"))
             metadata = TOML.parsefile(joinpath(folder, "pscad_options.toml"))
@@ -409,10 +473,13 @@ function verification_tables(folders, output)
                         "J. Marti constant transformation; frequency=$(fit.variant.frequency)")
                 end
                 classify_configuration!(row; fit = fit_changes, simulation = simulation_changes, structure = structure_changes)
-                if state == "completed"
-                    reference = get!(refs, status["reference"]) do
-                        import_data(:observed, joinpath(folder, status["reference"]))
-                    end
+                reference = get!(refs, status["reference"]) do
+                    import_data(:observed, joinpath(folder, status["reference"]))
+                end
+                if status["backend"] == "pscad"
+                    observed = state == "completed" ? import_data(:observed, joinpath(directory, "response.json")) : nothing
+                    pscad_outcomes!(row, observed, reference, pscad_references, growth, sheaths)
+                elseif state == "completed"
                     transient_outcomes!(row, import_data(:observed, joinpath(directory, "response.json")), reference, growth, sheaths)
                 else
                     row["nonfinite_output"] = true
@@ -443,13 +510,15 @@ function verification_tables(folders, output)
                     scenario_band(status["scenario"], evidence.N, evidence.T))
                 row["status"] = state
                 row["duration_seconds"] = evidence.window.tmax
+                row["step_seconds"] = evidence.window.step
                 controls = native_checks!(row, directory, status, ranges)
                 fit_changes = row["method"] == "fd_mode" ? String[] :
                     ["$key=$(controls[key]) (baseline $value)" for (key, value) in
                         ("YMaxP" => 20, "AMaxP" => 20, "DCenab" => 0, "CPASS" => 1) if controls[key] != value]
                 classify_configuration!(row; fit = fit_changes,
                     structure = row["method"] == "fd_mode" ? ["FD-Mode constant transformation"] : String[])
-                state == "completed" ? transient_outcomes!(row, import_data(:observed, joinpath(directory, "response.json")), reference, growth, sheaths) : (row["nonfinite_output"] = true)
+                observed = state == "completed" ? import_data(:observed, joinpath(directory, "response.json")) : nothing
+                pscad_outcomes!(row, observed, reference, pscad_references, growth, sheaths)
                 push!(rows, row)
             end
         elseif isfile(joinpath(folder, "line_models.json"))
@@ -538,6 +607,7 @@ function verification_tables(folders, output)
                 short ? scenario_band(scenario, 4096, 1.25duration) : scenario_band(scenario, 8192, 2duration))
             row["status"] = state
             row["duration_seconds"] = get(status, "duration_seconds", duration)
+            row["step_seconds"] = get(status, "step_seconds", voltage_data(reference).times[2] - first(voltage_data(reference).times))
             fit_changes, line_changes = String[], String[]
             if startswith(name, "dc_pscad")
                 controls = native_checks!(row, directory, status, ranges)
@@ -558,7 +628,10 @@ function verification_tables(folders, output)
                 fit.enforce && push!(fit_changes, "passivity enforcement=true (baseline false)")
             end
             classify_configuration!(row; fit = fit_changes, line = line_changes, long_window = !short)
-            if state == "completed"
+            if startswith(name, "dc_pscad")
+                observed = state == "completed" ? import_data(:observed, joinpath(directory, "response.json")) : nothing
+                pscad_outcomes!(row, observed, reference, pscad_references, growth, sheaths; endpoint = !short)
+            elseif state == "completed"
                 transient_outcomes!(row, import_data(:observed, joinpath(directory, "response.json")), reference, growth, sheaths; endpoint = !short)
             else
                 row["nonfinite_output"] = true
@@ -568,20 +641,57 @@ function verification_tables(folders, output)
         end
     end
     foreach(complete_checks!, rows)
+    for row in rows
+        configuration = row["cause_class"]
+        row["configuration_cause_class"] = configuration
+        for definition in ("strict", "loose")
+            earth = get(row, "pscad_like_evaluated", false) && row["failed_" * definition] &&
+                !row["pscad_like_failed_" * definition]
+            row[definition == "strict" ? "cause_class" : "cause_class_loose"] = earth ? "earth model" : configuration
+        end
+    end
     sort!(rows; by = row -> (row["study"], row["cable"], row["fit"], row["scenario"]))
     mkpath(output)
     fields = sort(unique(vcat([collect(keys(row)) for row in rows]...)))
     identity = ["study", "cable", "fit", "scenario", "method", "source"]
+    comparisons = filter(row -> haskey(row, "pscad_like_comparison"), rows)
+    write_tables(output, "verification_earth", comparisons,
+        [identity..., "configuration_cause_class", "cause_class", "cause_class_loose", "pscad_like_comparison",
+            "duration_seconds", "step_seconds", "pscad_like_reference_source", "pscad_like_reference_scenario",
+            "receiving_core_peak_error_percent", "receiving_core_scaled_rms", "receiving_sheath_scaled_peak_error_percent",
+            "divergence", "failed_strict", "failed_loose", "pscad_like_receiving_core_peak_error_percent",
+            "pscad_like_receiving_core_scaled_rms", "pscad_like_receiving_energized_sheath_peak_error_percent",
+            "pscad_like_receiving_sheath_scaled_peak_error_percent", "pscad_like_divergence",
+            "pscad_like_failed_strict", "pscad_like_failed_loose"];
+        caption = "Native outcomes against unified and PSCAD-like NLT references. The second comparison requires exactly equal windows, steps and archived reference time vectors. Native text timestamps keep their existing validation. Samples are never interpolated.",
+        tex_columns = [identity[1:5]..., "cause_class", "cause_class_loose", "receiving_core_peak_error_percent",
+            "receiving_sheath_scaled_peak_error_percent", "pscad_like_receiving_core_peak_error_percent",
+            "pscad_like_receiving_sheath_scaled_peak_error_percent", "pscad_like_comparison"])
     write_tables(output, "verification_fits", rows, vcat(identity, setdiff(fields, identity));
         caption = "One archived fitted configuration and scenario per row. Empty fields mean unavailable. Errors are percent; scaled RMS is a fraction.",
-        tex_columns = ["cause_class", identity[1:5]..., "receiving_core_peak_error_percent", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence", "failed_strict", "failed_loose"])
+        tex_columns = ["cause_class", "cause_class_loose", identity[1:5]..., "receiving_core_peak_error_percent", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence", "failed_strict", "failed_loose"])
     (; detection, compact, silent) = detection_counts(rows)
     classes = [Dict("cause_class" => r["cause_class"], "definition" => r["definition"],
         "rows" => r["all_failed"] + r["all_fine"], "failed" => r["all_failed"], "fine" => r["all_fine"],
         "silent" => r["missed_failures"]) for r in compact if r["check"] == "any_check"]
+    class_changes = Dict{String, Any}[]
+    all_classes = sort(unique(vcat([row["configuration_cause_class"] for row in rows],
+        [row[key] for row in rows for key in ("cause_class", "cause_class_loose")])))
+    for cause in ("pooled", all_classes...), definition in ("strict", "loose")
+        class_key = definition == "strict" ? "cause_class" : "cause_class_loose"
+        before = filter(row -> cause == "pooled" || row["configuration_cause_class"] == cause, rows)
+        after = filter(row -> cause == "pooled" || row[class_key] == cause, rows)
+        push!(class_changes, Dict("cause_class" => cause, "definition" => definition,
+            "rows_before" => length(before), "rows_after" => length(after),
+            "failed_before" => count(row -> row["failed_" * definition], before),
+            "failed_after" => count(row -> row["failed_" * definition], after)))
+    end
+    write_tables(output, "verification_class_changes", class_changes,
+        ["cause_class", "definition", "rows_before", "rows_after", "failed_before", "failed_after"];
+        caption = "Failure counts before and after the earth-model reassignment, under each failure definition. Unified outcomes are unchanged.")
     write_tables(output, "verification_classes", classes,
         ["cause_class", "definition", "rows", "failed", "fine", "silent"];
-        caption = "Configuration classes and silent failures with the default combined check set. Mixed classes are disjoint from the individual classes.")
+        caption = "Cause classes and silent failures with the default combined check set. Earth-model attribution requires failure against unified and a pass against PSCAD-like NLT under the same definition. Mixed classes remain separate.")
     write_tables(output, "verification_detection", detection,
         ["cause_class", "definition", "check", "flagged_and_failed", "flagged_and_fine", "missed_failures", "quiet_and_fine", "unavailable_failed", "unavailable_fine"];
         caption = "Detection counts use only available checks. Unavailable checks have separate failure and fine counts. Fine means no observed threshold exceedance in retained outcomes.")
@@ -591,14 +701,16 @@ function verification_tables(folders, output)
         caption = "Sensitivity is flagged-failed / all-failed; specificity is quiet-fine / all-fine. Unavailable checks remain in the denominators and count in neither numerator. A zero denominator has no rate.",
         tex_columns = ["cause_class", "definition", "check", "sensitivity_count", "specificity_count", "unavailable_failed", "unavailable_fine"])
     write_tables(output, "verification_silent", silent,
-        ["cause_class", "definition", "check_set", identity..., "reported_max_fit_error_percent", "reported_rms_fit_error_percent", "receiving_core_peak_error_percent", "receiving_core_scaled_rms", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence", "unchecked_checks"];
+        ["cause_class", "definition", "check_set", "configuration_cause_class", identity...,
+            "pscad_like_comparison", "pscad_like_receiving_core_peak_error_percent",
+            "pscad_like_receiving_sheath_scaled_peak_error_percent", "pscad_like_failed_strict", "pscad_like_failed_loose", "reported_max_fit_error_percent", "reported_rms_fit_error_percent", "receiving_core_peak_error_percent", "receiving_core_scaled_rms", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence", "unchecked_checks"];
         caption = "Failures with no available check flag. Missing checks are listed; silence does not imply every check passed.")
-    write_tables(output, "verification_mixed", filter(row -> startswith(row["cause_class"], "mixed:"), rows),
-        ["cause_class", "configuration_changes", identity..., "failed_strict", "failed_loose"];
+    write_tables(output, "verification_mixed", filter(row -> startswith(row["cause_class"], "mixed:") || startswith(row["cause_class_loose"], "mixed:"), rows),
+        ["cause_class", "cause_class_loose", "configuration_cause_class", "configuration_changes", identity..., "failed_strict", "failed_loose"];
         caption = "Configurations changing more than one cause class. These rows have their own detection counts and do not enter either single-class count.")
     for (name, data, columns) in (("verification_ranges", ranges, [identity[1:4]..., "lower_Hz", "upper_Hz", "smallest_eigenvalue", "location", "source"]),
-            ("verification_growth", growth, [identity[1:4]..., "end", "terminal", "growth_ratio", "reference_growth_ratio", "late_peak_relative_to_scale", "late_peak_excess_relative_to_scale", "late_growth", "reference_qualified_growth", "source"]),
-            ("verification_sheaths", sheaths, [identity[1:4]..., "terminal", "peak_kV", "reference_peak_kV", "peak_error_percent", "scaled_peak_error_percent", "reference_peak_scale_kV", "source"]),
+            ("verification_growth", growth, [identity[1:4]..., "reference_model", "end", "terminal", "growth_ratio", "reference_growth_ratio", "late_peak_relative_to_scale", "late_peak_excess_relative_to_scale", "late_growth", "reference_qualified_growth", "source"]),
+            ("verification_sheaths", sheaths, [identity[1:4]..., "reference_model", "terminal", "peak_kV", "reference_peak_kV", "peak_error_percent", "scaled_peak_error_percent", "reference_peak_scale_kV", "source"]),
             ("verification_coverage", coverage, ["study", "source", "fit", "status", "included", "reason"]))
         write_tables(output, name, data, columns; caption = "Archived evidence and availability for the verification comparison.")
     end
@@ -618,7 +730,9 @@ function verification_tables(folders, output)
         println(io, "Passivity uses final archived fit records; native successful enforcement supersedes earlier negative samples. Native failed enforcement uses initial samples of the unenforced model. Eigenvalue normalizations differ by backend.")
         println(io, "Physical-input transient_sensitivity points are exact NLT responses, not fitted-model outcomes, and are listed in coverage only. Fit/configuration failures without transient outcomes are also excluded.")
         println(io, "Rows retain model settings and time-step/interpolation configurations separately. Repeated DC attempts consolidate in argument order; final attempts replace earlier attempts.")
-        println(io, "Cause classes describe configuration contrasts, not established physical causes. Classification never uses an outcome or a diagnostic value.")
+        println(io, "Configuration classes describe contrasts against each study's baseline. The original class remains in configuration_cause_class. Earth-model attribution is the only outcome-based reassignment: a native row fails against unified and passes against PSCAD-like NLT under the same strict or loose definition. cause_class uses strict; cause_class_loose uses loose. Detection counts and silent lists use the class for their own definition.")
+        println(io, "PSCAD-like references are supplied as run folders containing pscad_like_references.json. Matching requires the same cable and scenario, exactly equal archived duration and step, and exactly equal unified/PSCAD-like reference time vectors. Native printed timestamps retain the existing validation against those samples. No interpolation occurs. Nonfinite output fails both references when its declared grid matches. Other grids retain only unified outcomes, with the reason in pscad_like_comparison. Short DC scenarios map to step_single_point; long DC scenarios have no such reference.")
+        println(io, "Unified outcome columns and their failure flags are unchanged. pscad_like_ columns record the second outcome. A row failing both keeps its configuration class. Auxiliary terminal tables identify reference_model. verification_earth.csv lists every native row and comparison availability.")
         println(io, "time_domain Julia baseline: dense baseline grid, ULM orders 16/16, H time rows enabled, passivity enforcement enabled, no DC correction, single interpolation, original scenario window. Order/time-row/passivity/DC/sampling changes are fit settings. Marti and FDCM are model-structure changes; FDCM is not labelled a constant transformation. Coarse Marti is mixed fit settings + model structure.")
         println(io, "time_domain PSCAD baseline: FD-Phase orders 20/20, DCenab=0, CPASS=1, unchanged fitting band, original scenario window and travel interpolation. Changed order/DC/passivity controls are fit settings. FD-Mode is model structure.")
         println(io, "pscad_options baseline: the archived variant 1 per backend, divisor=0 and native Interp1=1 or Julia interp=single. Compare fitting controls to variant 1; ignore sweep names, so duplicate default configurations remain baseline. Divisor/interpolation changes are simulation settings. FD-Mode/Marti and their transformation frequencies are model structure. Changes in multiple fitting controls remain one fit-settings class.")
@@ -631,11 +745,15 @@ function verification_tables(folders, output)
             subset = filter(row -> row["study"] == study, rows)
             println(io, study, ": ", length(subset), "; failures strict/loose = ", count(row -> row["failed_strict"], subset), "/", count(row -> row["failed_loose"], subset))
         end
+        println(io, "\nClass reassignment: class | definition | rows before | rows after | failed before | failed after")
+        for row in class_changes
+            println(io, join([row[key] for key in ("cause_class", "definition", "rows_before", "rows_after", "failed_before", "failed_after")], " | "))
+        end
         println(io, "\nClass counts: class | definition | rows | failed | fine | silent (default combined checks)")
         for row in classes
             println(io, join([row[key] for key in ("cause_class", "definition", "rows", "failed", "fine", "silent")], " | "))
         end
-        for cause in ("pooled", sort(unique(row["cause_class"] for row in rows))...), definition in ("strict", "loose")
+        for cause in ("pooled", all_classes...), definition in ("strict", "loose")
             subset = filter(row -> row["cause_class"] == cause && row["definition"] == definition, detection)
             println(io, "\n", cause, "; ", definition, " detection: check | flagged-failed | flagged-fine | missed | quiet-fine | unavailable-failed | unavailable-fine")
             for row in subset
@@ -644,7 +762,7 @@ function verification_tables(folders, output)
         end
         println(io, "\nSilent failures (full identities and outcomes in verification_silent.csv): ", length(silent))
         for row in silent
-            println(io, join([get(row, k, "") for k in ("cause_class", "definition", "check_set", "study", "cable", "fit", "scenario", "receiving_core_peak_error_percent", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence")], " | "))
+            println(io, join([get(row, k, "") for k in ("cause_class", "definition", "check_set", "study", "cable", "fit", "scenario", "receiving_core_peak_error_percent", "receiving_energized_sheath_peak_error_percent", "receiving_sheath_scaled_peak_error_percent", "DC_endpoint_error_percent", "divergence", "pscad_like_receiving_core_peak_error_percent", "pscad_like_receiving_sheath_scaled_peak_error_percent")], " | "))
         end
     end
     write(joinpath(output, "verification_sources.txt"), join(folders, '\n') * "\n")
