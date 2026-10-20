@@ -501,10 +501,6 @@ Expose complete requested and resolved formula selections and reduction options.
 Selections retain scientific identity and data. Serialization belongs to the writer.
 """
 function Base.NamedTuple(value::LineParametersFormulation)
-    # Copy record containers, not their scalar leaves: measurement sources and
-    # other immutable scientific values keep their identities and correlations.
-    copy_containers(value) = value isa Union{NamedTuple, Tuple, AbstractArray} ?
-                             map(copy_containers, value) : value
     record = function (selected)
         selected === nothing && return nothing
         selected isa Symbol && return NamedTuple(formula(selected))
@@ -515,6 +511,6 @@ function Base.NamedTuple(value::LineParametersFormulation)
     # parameter tuple or concrete selection type. The stored values remain unchanged.
     Record=NamedTuple{(:backend,:requested,:formulas,:options),
         Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
-    return Record((:coaxial,copy_containers(map(record,value.definitions)),
-        copy_containers(map(record,value.formulas)),copy_containers(value.options.data)))
+    return Record((:coaxial,map(record,value.definitions),map(record,value.formulas),
+        value.options.data))
 end

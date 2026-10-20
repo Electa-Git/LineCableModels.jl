@@ -21,13 +21,13 @@ end
 
 _input_record(design::CableDesign) = (cable_id=design.cable_id,
     tree=_input_record(design.tree),
-    terminal_order=copy(design.terminal_order))
+    terminal_order=design.terminal_order)
 
 function _input_record(system::LineCableSystem)
     return (system_id=system.system_id, field_descriptions=Commons.input_fields(typeof(system)), line_length=system.line_length,
         designs=_input_record(system.designs), positions=_input_record(system.positions),
         connections=_input_record(system.connections), environment=_input_record(system.environment),
-        terminal_order=copy(system.terminal_order), connection_order=copy(system.connection_order))
+        terminal_order=system.terminal_order, connection_order=system.connection_order)
 end
 
 """
@@ -41,7 +41,7 @@ function completed_inputs(problem::LineParametersProblem)
     Record=NamedTuple{(:system,:temperature,:earth_props,:frequencies,:field_descriptions),
         Tuple{NamedTuple,typeof(problem.temperature),NamedTuple,typeof(problem.frequencies),NamedTuple}}
     return Record((_input_record(problem.system),problem.temperature,_input_record(problem.earth_props),
-        copy(problem.frequencies),(temperature=(name="temperature",unit="°C"),)))
+        problem.frequencies,(temperature=(name="temperature",unit="°C"),)))
 end
 function completed_inputs(problem::CableConstantsProblem)
     Record=NamedTuple{(:design,:temperature,:frequency,:field_descriptions),

@@ -81,8 +81,9 @@ abstract type AbstractUncertaintyResult{T} <: AbstractResultSpace{T} end
 $(TYPEDEF)
 
 Retain formulation-owned inputs. The selected formulation defines defaults and
-validation. Construction preserves the supplied named tuple, including the
-identity of mutable values within it.
+validation. Construction copies the supplied named tuple once, with `deepcopy`, which makes
+the record a value that an edit of an array the caller passed does not reach. Uncertain
+values keep their correlations.
 
 $(TYPEDFIELDS)
 """
@@ -104,7 +105,7 @@ validation occur when the formulation resolves the options, not when this record
 constructed.
 """
 function FormulationOptions(data::NamedTuple)
-    caller = data -> FormulationOptions{typeof(data)}(data)
+    caller = data -> (copied = deepcopy(data); FormulationOptions{typeof(copied)}(copied))
     return parameterize(FormulationOptions, caller, (data,))
 end
 

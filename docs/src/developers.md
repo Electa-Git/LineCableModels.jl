@@ -4,6 +4,13 @@ LineCableModels has three global computation roles: a complete problem and a for
 modules may add concrete types below these roots, but they do not add parallel
 computation entry points.
 
+Problems and formulations are values: a value changes only when a new one is built. When
+it is built, a formulation copies its options once, with `deepcopy`, so an edit of an array
+that the caller passed does not reach it. Each problem keeps the system or design that it
+is given. Both are values that their builders make, and the builders copy what the
+caller passes, as a problem copies its frequencies. An edit of an internal field in place is
+outside the interface.
+
 The type trees below are generated from the loaded package during the
 documentation build.
 

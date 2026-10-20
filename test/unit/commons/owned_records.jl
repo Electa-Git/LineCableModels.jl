@@ -1,6 +1,7 @@
 @testitem "Commons / owned records / payload identity and value semantics" tags=[:unit, :commons] begin
     payload = (rtol=1e-8, nested=(enabled=true,), values=[1.0, 2.0], data=:field)
-    @test (@inferred FormulationOptions(payload)).data === payload
+    # A formulation copies its data when built. Computation options and details keep it.
+    @test isequal((@inferred FormulationOptions(payload)).data, payload)
     @test (@inferred ComputationOptions(payload)).data === payload
     @test (@inferred ComputationDetails(payload)).data === payload
     @test FormulationOptions !== ComputationOptions !== ComputationDetails
@@ -11,10 +12,12 @@
         value = Record(payload)
         @test !(value isa NamedTuple)
         @test fieldtype(typeof(value), :data) === typeof(payload)
-        @test value.data === payload
-        @test value.data.values === payload.values
+        kept = Record !== FormulationOptions
+        @test kept ? value.data === payload : isequal(value.data, payload)
+        @test (value.data.values === payload.values) == kept
         @test value.data.data === :field
-        @test Record(; payload...).data === payload
+        @test kept ? Record(; payload...).data === payload :
+              isequal(Record(; payload...).data, payload)
         @test Record().data === NamedTuple()
         @test Record((other=3,)).data === (other=3,)
         @test_throws MethodError Record(Dict(:rtol=>1e-8))

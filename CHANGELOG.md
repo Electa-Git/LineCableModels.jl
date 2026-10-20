@@ -384,6 +384,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its keywords.
 - `FormulationOptions` lifts over its named tuple and its keywords. `ComputationOptions`
   throws an `ArgumentError` for a `Grid`, since computation options do not vary.
+- Problems and formulations are values. `FormulationOptions` copies its data once, with
+  `deepcopy`, when it is built. A problem keeps the system or design that it is given, both
+  values that their builders make. Result records hold the data of the formulation and the
+  problem without a further copy.
 - The integrand of a `SpectralIntegral` is a `Function`.
 - `Region(tag::Symbol, primitive, material)` takes an `AbstractPrimitive` or `Shell` and an
   `AbstractMaterial`.

@@ -123,7 +123,7 @@ end
     end
 end
 
-@testitem "Engine / completed prescriptions are detached without replacing uncertainty sources" tags=[:unit, :importexport] setup=[
+@testitem "Engine / prescribed options are values that keep their uncertainty sources" tags=[:unit, :importexport] setup=[
     TestFixtures, FormulaFixtures, SavedResults] begin
     using Measurements
     E=LineCableModels.Engine
@@ -134,23 +134,18 @@ end
     formulation=Formulation(earth_impedance = selection, earth_admittance = selection)
     first_result=compute(problem, formulation)
     first_Z, first_Y=copy(Z(first_result)), copy(Y(first_result))
-    record=details(first_result).data.formulations
-    for family in (:earth_impedance, :earth_admittance)
-        @test getproperty(record.formulas, family).options.Γ == original
-        @test getproperty(record.requested, family).options.Γ == original
-        @test getproperty(record.formulas, family).options.Γ !==
-              getproperty(formulation.formulas, family).options.data.Γ
-    end
-    for family in (:earth_impedance, :earth_admittance)
-        getproperty(formulation.formulas, family).options.data.Γ[2]=7e-4im
-    end
+    # An edit of the array that the caller passed reaches neither the formulation nor a
+    # result.
     supplied[2]=7e-4im
+    for family in (:earth_impedance, :earth_admittance)
+        @test getproperty(formulation.formulas, family).options.data.Γ == original
+    end
     second_result=compute(problem, formulation)
     @test Z(first_result) == first_Z && Y(first_result) == first_Y
-    @test Z(second_result) != first_Z || Y(second_result) != first_Y
+    @test Z(second_result) == first_Z && Y(second_result) == first_Y
     restored=SavedResults.round_trip(first_result)
     @test SavedResults.same(restored, first_result)
-    for retained in (first_result, restored),
+    for retained in (first_result, second_result, restored),
         family in (:earth_impedance, :earth_admittance)
 
         data=details(retained).data.formulations
