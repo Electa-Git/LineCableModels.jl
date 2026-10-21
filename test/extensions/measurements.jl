@@ -408,7 +408,7 @@ end
     for (index, problem) in enumerate(modal_problems)
         point_parameters = problem.parameters
         @test point_parameters.f == frequency
-        @test LineCableModels.basis(point_parameters) == LineCableModels.basis(parameters)
+        @test line_length(point_parameters) == line_length(parameters)
         @test point_parameters.domain isa PhaseDomain
         @test first(point_parameters.Z.values) isa Complex{Measurement{Float64}}
         for quantity in (R, L, C, G)

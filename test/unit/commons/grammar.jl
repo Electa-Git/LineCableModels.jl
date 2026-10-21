@@ -141,7 +141,7 @@ end
     @test C.ComputationOptions(; trace = false).data == (trace = false,)
 
     # The generics of the grammar, which modules extend for their own types.
-    for generic in (C.add!, C.build, C.homogenize, C.constitutive, C.basis, C.line_length,
+    for generic in (C.add!, C.build, C.homogenize, C.constitutive, C.line_length,
             C.resistance, C.inductance, C.capacitance, C.description)
         @test parentmodule(generic) === C
     end

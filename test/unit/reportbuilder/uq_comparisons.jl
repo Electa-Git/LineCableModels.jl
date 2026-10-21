@@ -83,19 +83,19 @@
         a=fill(T(1), 2, 2, length(f));
         b=copy(a)
         b[1, 2, 2]=T(1e-30)
-        error=compare(a, b, quantity; frequencies = frequency, result_basis = :pul)
+        error=compare(a, b, quantity; frequencies = frequency)
         @test ismissing(observe(error, relative_error)[1, 2])
         @test ismissing(observe(error,absolute_error)[1,2])
         @test eltype(observe(error, absolute_error))===Union{Missing, T}
         @test all(ismissing,
             observe(
                 compare(a, b, quantity; frequencies = frequency,
-                    result_basis = :pul, band = (2e7, 3e7)),
+                    band = (2e7, 3e7)),
                 relative_error))
         @test all(iszero,
             skipmissing(observe(
                 compare(a, b, quantity; frequencies = frequency,
-                    result_basis = :pul, band = (1e7, 1e7)),
+                    band = (1e7, 1e7)),
                 relative_error)))
     end
     # A physically nonzero LEP uncertainty remains visible and compared even

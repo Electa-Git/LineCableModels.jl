@@ -236,7 +236,7 @@ plot(artifact, (R,))
 Comparison records join by original result identities. A reference remains
 outside the result collection. External data needs explicit retained identity
 for a benchmark. Absent physical descriptions remain explicitly absent. Arithmetic
-checks cover coordinates, dimensions, units, basis, and frequency agreement.
+checks cover coordinates, dimensions, units, and frequency agreement.
 Scientific comparability is the caller's responsibility. The samples retain their original frequencies without interpolation.
 `ReportArtifact.observed` and `.reference` contain only observations. `.tables`
 contains the organized tables. Raw conveniences construct and delegate once.
@@ -278,7 +278,7 @@ points include it. Reporting does not invent per-point timings.
 
 Each `ObservedResult` stores one point's inputs, selected formulations,
 quantities, comparisons, and execution measurements. Quantity records include
-basis, units, coordinates, applied cutoffs, availability, and missing-value
+units, coordinates, applied cutoffs, availability, and missing-value
 reasons. `ReportBuilder.tabulate` creates tables from these records on demand.
 `ReportArtifact` retains `.observed`, a separate `.reference`, and `.tables`.
 FEM completion records identify the selected GetDP executable through
@@ -386,7 +386,7 @@ Describe the implemented operation.
 
 # Keywords
 
-- `basis`: `:pul` or `:total`. Default: `:pul`.
+- `length_prefix`: metric prefix of a per-length denominator. Default: `:kilo`.
 
 # Returns
 
@@ -394,12 +394,12 @@ Describe the implemented operation.
 
 # Errors
 
-- Throws `ArgumentError` when `basis` is unsupported.
+- Throws `ArgumentError` when `length_prefix` is unsupported.
 
 # Examples
 
 ```jldoctest
-result = $(FUNCTIONNAME)(1.0; basis=:pul) # [unit]
+result = $(FUNCTIONNAME)(1.0; length_prefix=:kilo) # [unit]
 @assert isfinite(result)
 # output
 ```

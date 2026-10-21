@@ -190,10 +190,8 @@ end
     @test length(results)==2 && isconcretetype(eltype(results))
     @test all(result->details(result).data.modal.rotate===false, results)
     @test gamma(results[1])==gamma(results[2])
-    total=LineParameters(PhaseDomain, SeriesImpedance(Z(phase) .* 25; basis = :total),
-        ShuntAdmittance(Y(phase) .* 25; basis = :total), phase.f;
-        line_length = phase.line_length, details = phase.details)
-    @test H(PropagationParameters(compute(ModalAnalysisProblem(total), selected)))≈H(PropagationParameters(results[1]))
+    # The line's totals are the per-meter values times its length.
+    @test H(PropagationParameters(results[1]; line_length = line_length(phase)))≈H(PropagationParameters(results[1]))
     retained=results[1][[4, 2]]
     @test gamma(retained)==gamma(results[1])[:, [4, 2]]
     @test details(retained).data.modal.rotate===false

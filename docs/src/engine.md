@@ -865,8 +865,10 @@ has one row and supports `only(constants)`.
 
 `AbstractCoreResult` marks direct LineCableModels-owned computation results.
 `CableConstants` and `LineParameters` are the current core result types.
-A result's type parameters are its physics: `LineParameters{T, U, D, Basis}` has the
-coefficient and frequency types, the domain and the length basis. `LineParameters` also
+A result's type parameters are its physics: `LineParameters{T, U, D}` has the
+coefficient and frequency types and the domain. Z is in Ω/m and Y in S/m. The whole
+line's matrices are `Z(result) .* line_length(result)` and
+`Y(result) .* line_length(result)`. `LineParameters` also
 has `terminals`, the line's terminals after reduction, `"cable:<cable id>:<terminal>"` or
 `"bundle:[...]"` for a reduced bundle, and `line_length`, the length of the line in
 meters. A modal result keeps the line's terminals, the phase side of its transformation.
@@ -960,8 +962,8 @@ base quantity itself. Ordinary calls use scientific selector functions:
 ```julia
 label(R)
 symbol(Z, angle)
-native_unit(R, :pul)
-display_unit(Z, abs, :total)
+native_unit(R)
+display_unit(Z, abs)
 ```
 
 The selector methods delegate to the quantity's label and unit methods. The
@@ -1277,7 +1279,6 @@ The coaxial backend accepts:
 ```julia
 (
     verbosity = (default = 0,),
-    output_basis = :pul,
     trace = false,
     timing = false,
     on_result = nothing,
@@ -1301,7 +1302,6 @@ The PSCAD backend accepts:
     output_stem = "case_name",
     remote = remote_config,
     verbosity = (default = 0, PSCAD = 2),
-    output_basis = :pul,
     on_result = nothing,
 )
 ```

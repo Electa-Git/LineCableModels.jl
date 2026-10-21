@@ -285,7 +285,7 @@ comma-separated `R+Xi` and `G+Bi` entries.
 Units are printed in the XML file according to the ATPDraw specifications:
 
 - `freq` (XML `Freq` attribute): \\[Hz\\]
-- `Z` and `Y` entries retain the numerical basis stored by `line_params`.
+- `Z` and `Y` entries: \\[Ω/m\\] and \\[S/m\\], as stored by `line_params`.
 - XML `Length`: cable-system length \\[m\\], or `1.0` when `cable_system` is
   absent.
 

@@ -10,12 +10,12 @@ function _observed_indices(indices,extent,name)
 end
 
 function _validate_observed_quantity(product)
-    _observed_fields(product,(:request,:quantity,:family,:statistic,:values,:unit,:basis,
+    _observed_fields(product,(:request,:quantity,:family,:statistic,:values,:unit,
         :coordinates,:thresholds,:available,:engineering_zero,:clipped,:missing_reason),"observed quantity")
     request_quantity(product.request)==product.quantity || throw(ArgumentError("request and quantity disagree"))
     product.family isa Symbol && product.statistic isa Symbol && product.clipped isa Bool ||
         throw(ArgumentError("family/statistic must be symbols and clipped must be Boolean"))
-    scale_factor(native_unit(product.quantity,product.basis),product.unit)
+    scale_factor(native_unit(product.quantity),product.unit)
     c=product.coordinates
     _observed_fields(c,(:kind,:indices,:extent),"quantity coordinates")
     c.extent isa Tuple && all(n -> n isa Integer && n>=0,c.extent) || throw(ArgumentError("invalid coordinate extent"))
@@ -127,7 +127,7 @@ function _validate_observed_quantity(product)
         threshold_unit=product.thresholds.unit
         phase=request_identity(product.request) isa Tuple && angle in request_identity(product.request)
         threshold_quantity=phase ? quantity(first(request_identity(product.request))) : product.quantity
-        scale_factor(native_unit(threshold_quantity,product.basis),threshold_unit)
+        scale_factor(native_unit(threshold_quantity),threshold_unit)
         samples=haskey(c,:samples) ? length(c.samples) : nothing
         validate(product.thresholds.values,observation_quantity,samples)
     end
@@ -172,7 +172,7 @@ function _validate_observed_comparison(row)
     for id in (row.result_id,row.reference_id)
         _validate_observed_id(id)
     end
-    _observed_fields(row.settings,(:basis,:indices,:sample_count,:status,:normalization_reason),"comparison settings")
+    _observed_fields(row.settings,(:indices,:sample_count,:status,:normalization_reason),"comparison settings")
     _observed_fields(row.maxima,(:absolute,:relative),"comparison maxima")
     request_quantity(row.request)==row.quantity || throw(ArgumentError("comparison request and quantity disagree"))
     row.absolute isa AbstractMatrix && row.relative isa AbstractMatrix && size(row.absolute)==size(row.relative) ||
@@ -188,7 +188,7 @@ function _validate_observed_comparison(row)
         _observed_fields(maximum,(:value,:index),"comparison maximum")
     end
     all(ismissing.(row.absolute).==ismissing.(row.relative)) || throw(ArgumentError("absolute and relative errors must share eligibility"))
-    scale_factor(native_unit(row.quantity,row.settings.basis),row.absolute_unit)
+    scale_factor(native_unit(row.quantity),row.absolute_unit)
     scale_factor(Units.units(:base,:dimensionless),row.relative_unit)
     return nothing
 end

@@ -59,8 +59,6 @@ Return retained histogram products, or `nothing` when retention was disabled.
 """
 histograms(value::MonteCarloResult) = value.histogram_values
 
-basis(value::MonteCarloResult) = basis(first(value.values))
-basis(value::LinearErrorResult) = basis(first(value.values))
 
 """
 $(TYPEDSIGNATURES)
@@ -442,7 +440,7 @@ function observation_resolution(source::Union{MonteCarloResult,LinearErrorResult
     frequencies === nothing || frequencies == f || throw(ArgumentError("supplied frequencies differ from the UQ point"))
     sample = length(indices) == 3 ? last(indices) : Colon()
     values = observe(source, request...)
-    return observation_resolution(values, identity[2]; atol, frequencies=f[sample], result_basis=basis(core))
+    return observation_resolution(values, identity[2]; atol, frequencies=f[sample])
 end
 
 @inline _product_value(value, ::Tuple{}) = value

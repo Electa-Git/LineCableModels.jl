@@ -104,7 +104,7 @@ end
     impedance_labels=G.observation_labels(modal_impedance;request=E.G)
     @test impedance_labels[1]!=impedance_labels[2]
     phase_Zc=Base.Fix2(Zc,(domain=PhaseDomain,))
-    target=only(G.unit_targets(((phase_Zc,abs),),:pul;
+    target=only(G.unit_targets(((phase_Zc,abs),);
         overrides=Dict(Zc=>:kilo)))
     @test target==U.units(:kilo,:ohm)
     mktempdir() do folder

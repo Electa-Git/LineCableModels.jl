@@ -103,9 +103,6 @@ function deserialize_extension(::Val{:Quantity},record)
     return haskey(record,"component") ?
         Units.quantity(base,deserialize_value(record["component"])) : base
 end
-# ImportExport saves a basis as the Symbol that writes it.
-serialize_value(basis::Units.LengthBasis) = Dict("__type__"=>"LengthBasis","value"=>string(Symbol(basis)))
-deserialize_extension(::Val{:LengthBasis},record) = Units.LengthBasis(Symbol(record["value"]))
 serialize_value(value::Units.Unit) = Dict("__type__"=>"Unit","name"=>string(value.name),"prefix"=>string(value.prefix))
 deserialize_extension(::Val{:Unit},record) = Units.Unit(Symbol(record["name"]),Symbol(record["prefix"]))
 serialize_value(value::Units.UnitExpr) = Dict("__type__"=>"UnitExpr",

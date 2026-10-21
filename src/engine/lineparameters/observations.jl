@@ -161,8 +161,7 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
     diagonal=diag in prefix
     original=polar ? (diagonal ? observe(source,selector,diag,indices...) : observe(source,selector,indices...)) :
         _line_observation_values(source,request;frequencies=f)
-    resolution=observation_resolution(original,selector;atol,frequencies=sampled_f,
-        result_basis=basis(source),line_length=line_length(source))
+    resolution=observation_resolution(original,selector;atol,frequencies=sampled_f)
     values=polar ? (phase ? angle.(original) : abs.(original)) : original
     available=resolution.available .& resolution_available.(values)
     exact_origin=polar ? iszero.(nominal.(original)) : false
@@ -179,8 +178,8 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
             clip && phase && unresolved ? :engineering_zero_phase : nothing
     end
     q=Commons.request_quantity(request)
-    native=Units.native_unit(q,basis(source))
-    target=unit===nothing ? Units.display_unit(q,basis(source)) : unit
+    native=Units.native_unit(q)
+    target=unit===nothing ? Units.display_unit(q) : unit
     T=typeof(float(real(nominal(zero(Base.nonmissingtype(eltype(original)))))))
     factor=Units.scale_factor(native,target,T)
     threshold_unit=resolution.unit
@@ -190,9 +189,9 @@ function _line_observation_quantity(source::_ObservedLineSource,request;
     # Components are retained only for the undefined first-order polar value.
     # They are scientific values, never a reference back to the source tensor.
     components=undefined ? (nominal_magnitude=Commons.detach(abs.(nominal.(original))),real=Commons.detach(real.(original)),imaginary=Commons.detach(imag.(original)),
-        unit=Units.native_unit(selector,basis(source))) : nothing
+        unit=Units.native_unit(selector)) : nothing
     return (request,quantity=q,family=Symbol(nameof(_primary_family(selector))),statistic=:value,
-        values=Commons.detach(resolved isa AbstractArray && ndims(resolved)==0 ? only(resolved) : resolved,factor),unit=target,basis=basis(source),coordinates,
+        values=Commons.detach(resolved isa AbstractArray && ndims(resolved)==0 ? only(resolved) : resolved,factor),unit=target,coordinates,
         assumptions=observation_assumptions(source,selector),
         thresholds=(kind=resolution.kind,values=Commons.detach(resolution.atol,threshold_factor),
             unit=phase ? threshold_unit : target),available,engineering_zero=mask,clipped=clip,
@@ -218,7 +217,7 @@ function Commons.observation_quantity(source::CableConstants,request;
     selected=observation_indices(index,length(source))
     selector=request_identity(request)
     values=getindex(observe(source,selector),index)
-    resolution=observation_resolution(values,selector;atol,result_basis=Units.PerUnitLength())
+    resolution=observation_resolution(values,selector;atol)
     resolved = if !clip
         values
     elseif resolution.unresolved === nothing
@@ -230,11 +229,11 @@ function Commons.observation_quantity(source::CableConstants,request;
         end
     end
     q=Units.quantity(selector)
-    target=unit===nothing ? Units.display_unit(q,Units.PerUnitLength()) : unit
+    target=unit===nothing ? Units.display_unit(q) : unit
     T=typeof(float(nominal(zero(eltype(values)))))
-    factor=Units.scale_factor(Units.native_unit(q,Units.PerUnitLength()),target,T)
+    factor=Units.scale_factor(Units.native_unit(q),target,T)
     return (request,quantity=q,family=:constants,statistic=:value,values=Commons.detach(resolved,factor),
-        unit=target,basis=Units.PerUnitLength(),coordinates=(kind=:assemblies,indices=(index,),assemblies=selected,
+        unit=target,coordinates=(kind=:assemblies,indices=(index,),assemblies=selected,
             labels=copy(source.terminals),frequencies=[source.frequency],frequency_unit=Units.units(:base,:hertz),extent=(length(source),1)),
         thresholds=(kind=resolution.kind,values=Commons.detach(resolution.atol,factor),unit=target),
         available=resolution.available,engineering_zero=resolution.unresolved,clipped=clip,missing_reason=nothing)

@@ -47,22 +47,12 @@ admittance of two [`LineParameters`](@ref) objects.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersBenchmark{T <: Real, Basis} <: AbstractProblemResult
+struct LineParametersBenchmark{T <: Real} <: AbstractProblemResult
     "Series-impedance error."
     Z::RMSError{T}
     "Shunt-admittance error."
     Y::RMSError{T}
 end
-
-function LineParametersBenchmark(
-        impedance::RMSError{T},
-        admittance::RMSError{T};
-        basis = Units.PerUnitLength()
-) where {T <: Real}
-    return LineParametersBenchmark{T, typeof(Units.LengthBasis(basis))}(impedance, admittance)
-end
-
-basis(::LineParametersBenchmark{T, Basis}) where {T, Basis} = Basis()
 
 function observe(benchmark::LineParametersBenchmark, ::typeof(Z), ::typeof(absolute_error), indices...)
     getindex(benchmark.Z.absolute, indices...)
@@ -198,9 +188,9 @@ matrix term, the default `normalization=:reference_rms` uses:
 {\\sum_{k=1}^{N_f}\\left|A_{ij,k}\\right|^2}}
 ```
 
-The operands must have identical frequency samples, tensor dimensions, basis,
-and domain. Comparison does not reorder conductors, interpolate frequency
-samples, convert basis, or apply a reduction.
+The operands must have identical frequency samples, tensor dimensions and
+domain. Comparison does not reorder conductors, interpolate frequency
+samples or apply a reduction.
 
 Every original operand sample must pass the shared engineering-zero classifier.
 Complex zero requires both Cartesian components to satisfy their own cutoffs.
@@ -220,18 +210,17 @@ error retains its selected samples and numerical-zero classification.
 
 # Returns
 
-- A [`LineParametersBenchmark`](@ref). Absolute Z errors use the impedance
-  units selected by the result basis, and absolute Y errors use the corresponding
-  admittance units. Relative errors are dimensionless.
+- A [`LineParametersBenchmark`](@ref). Absolute Z errors are in Ω/m and absolute Y
+  errors in S/m. Relative errors are dimensionless.
 
 # Errors
 
 - `DimensionMismatch` when Z/Y tensor dimensions differ.
-- `ArgumentError` when frequencies, basis, or domain differ.
+- `ArgumentError` when frequencies or domains differ.
 """
 function compare(reference::LineParameters, result::LineParameters; kwargs...)
     return LineParametersBenchmark(compare(reference, result, Z; kwargs...),
-        compare(reference, result, Y; kwargs...); basis = basis(reference))
+        compare(reference, result, Y; kwargs...))
 end
 
 """
@@ -242,8 +231,8 @@ The first operand sets the relative-error normalization, not scientific truth.
 
 # Arguments
 
-- `reference`, `result`: results with identical frequency coordinates, basis,
-  domain, and matrix dimensions.
+- `reference`, `result`: results with identical frequency coordinates, domain and
+  matrix dimensions.
 - `quantity`: `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, or `C`. Comparing `G`
   separately prevents displacement current from hiding dielectric-loss differences.
 
@@ -258,13 +247,12 @@ The first operand sets the relative-error normalization, not scientific truth.
 - `fundamental`: fundamental frequency in Hz. Default 50.
 - `harmonics`: upper harmonic order. Default 50. Every stored sample in the
   harmonic band is used, not only samples at integer harmonics.
-- `atol`: declared absolute reporting resolution in the observable's native basis
-  units, not a certified floating-point error bound.
+- `atol`: declared absolute reporting resolution in the observable's native units,
+  not a certified floating-point error bound.
   Use a scalar for the requested quantity or a NamedTuple to select tolerances
   by component symbol. Defaults per meter are 1e-10 Ω/m for R, 1e-12 S/m for G,
   1e-15 H/m for L, and 1e-16 F/m for C. X and B thresholds are linked through
-  2πf. Total-basis defaults scale by retained physical length. Otherwise explicit
-  total-unit cutoffs are required. Complex requests require component-keyed cutoffs.
+  2πf. Complex requests require component-keyed cutoffs.
   Unless overridden directly, X/B use `2πf*atol_L`/`2πf*atol_C`,
   Z uses `atol_R + 2πf*atol_L` and Y uses
   `atol_G + 2πf*atol_C` at each sample. A fixed admittance threshold would
@@ -316,13 +304,12 @@ function compare(reference::AbstractCoreResult, result::AbstractCoreResult,
     isempty(f) && throw(ArgumentError("reference frequencies cannot be empty"))
     f == frequencies(result) || throw(ArgumentError(
         "reference and result frequencies must match exactly and in order"))
-    basis(reference) === basis(result) || throw(ArgumentError("reference and result basis must match"))
     domain(reference) === domain(result) || throw(ArgumentError("reference and result domains must match"))
     issorted(f) || throw(ArgumentError("frequency-band comparison requires ascending stored frequencies"))
     left, right = _line_observation_values(reference,quantity), _line_observation_values(result,quantity)
     declared = merge(get(details(result).data, :comparison_unsupported, (;)),
         get(details(reference).data, :comparison_unsupported, (;)), unsupported)
-    return compare(left, right, quantity; frequencies=f, result_basis=basis(reference),
+    return compare(left, right, quantity; frequencies=f,
         reference_resolution=observation_resolution(reference, quantity; atol, frequencies=f),
         result_resolution=observation_resolution(result, quantity; atol, frequencies=f),
         normalization, band, fundamental, harmonics, atol, unsupported=declared)
@@ -332,18 +319,16 @@ end
 $(TYPEDSIGNATURES)
 
 Compare physical tensors on an explicit frequency axis using the same band and
-two-sided resolution rules as core results. Arrays use native units in
-`result_basis`, a `Units.LengthBasis` or the Symbol `:pul` or `:total` that writes it.
+two-sided resolution rules as core results. Arrays use native units, per meter.
 Frequencies use Hz. Owner-supplied resolution
 records preserve operand-specific precision. The operation preserves each sample without a physical calculation.
 """
 function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::AbstractArray{<:Union{Missing,Number},3},
-        quantity::Function; frequencies::AbstractVector, result_basis,
+        quantity::Function; frequencies::AbstractVector,
         reference_resolution=nothing, result_resolution=nothing,
         normalization::Symbol=:reference_rms, band=:all, fundamental::Real=50.0,
         harmonics::Integer=50, atol=nothing, unsupported::NamedTuple=(;))
     validate((; normalization, band, fundamental, harmonics, atol, unsupported), compare)
-    result_basis = Units.LengthBasis(result_basis)
     quantity in _LINE_RESOLUTION_QUANTITIES || throw(ArgumentError("unsupported physical RMS quantity"))
     f = frequencies
     !isempty(f) && issorted(f) && all(value -> isfinite(value) && value >= 0, f) ||
@@ -384,9 +369,9 @@ function compare(left::AbstractArray{<:Union{Missing,Number},3}, right::Abstract
         typeof(float(real(zero(Base.nonmissingtype(eltype(right)))))))
     name = Symbol(nameof(quantity))
     resolution = reference_resolution === nothing ?
-        observation_resolution(left, quantity; atol, frequencies=f, result_basis) : reference_resolution
+        observation_resolution(left, quantity; atol, frequencies=f) : reference_resolution
     result_resolution = result_resolution === nothing ?
-        observation_resolution(right, quantity; atol, frequencies=f, result_basis) : result_resolution
+        observation_resolution(right, quantity; atol, frequencies=f) : result_resolution
     tolerance = _comparison_cutoffs(resolution.atol,indices)
     result_tolerance = _comparison_cutoffs(result_resolution.atol,indices)
     reason = get(unsupported, name, nothing)
@@ -484,11 +469,11 @@ function compare(reference,result,requests::AbstractVector;
             result_id===nothing && throw(ArgumentError("the result needs an explicit retained gridpoint identity"))
             absolute=observe(error,absolute_error)
             relative=observe(error,relative_error)
-            information=merge(details(error).data,(basis=basis(right),requested_atol=get(kwargs,:atol,nothing),unsupported=get(kwargs,:unsupported,(;))))
+            information=merge(details(error).data,(requested_atol=get(kwargs,:atol,nothing),unsupported=get(kwargs,:unsupported,(;))))
             identity=request_identity(request)
             statistic=identity isa Tuple && first(identity)!==Z && first(identity)!==Y ?
                 (last(identity) isa Base.Fix2 ? Symbol("quantile_",last(identity).x) : nameof(last(identity))) : :value
-            unit=Units.native_unit(Commons.request_quantity(request),basis(right))
+            unit=Units.native_unit(Commons.request_quantity(request))
             push!(completed,Commons.detach((result_id,reference_id,request,
                 quantity=Commons.request_quantity(request),statistic,band,normalization,
                 absolute,relative,absolute_unit=unit,relative_unit=Units.units(:base,:dimensionless),

@@ -42,7 +42,7 @@ function _reexpress_product(product;unit=nothing,frequency_unit=nothing)
     c=result.coordinates
     if frequency_unit!==nothing && haskey(c,:frequencies) && c.frequencies!==nothing
         # A frequency unit is given by its metric prefix or as a unit expression.
-        target_frequency=display_unit(Units.Quantity{Units.Frequency, Nothing}(),product.basis,frequency_unit)
+        target_frequency=display_unit(Units.Quantity{Units.Frequency, Nothing}(),frequency_unit)
         scale_factor(c.frequency_unit,target_frequency)
         result=merge(result,(coordinates=merge(c,(
             frequencies=_observed_scale(c.frequencies,c.frequency_unit,target_frequency),

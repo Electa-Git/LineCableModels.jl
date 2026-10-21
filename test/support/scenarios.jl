@@ -164,7 +164,7 @@ module CurrentScenarios
             for q in (:R,:L,:G,:C)))
         omega=reshape(2pi.*f,1,1,:)
         return LineParameters(channels.R .+ im.*omega.*channels.L,
-            channels.G .+ im.*omega.*channels.C, f; line_length=1.0, basis=:pul,
+            channels.G .+ im.*omega.*channels.C, f; line_length=1.0,
             terminals=["west","east"])
     end
 

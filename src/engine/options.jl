@@ -46,42 +46,32 @@ function computation_options(
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
-    allowed = (:verbosity, :output_basis, :trace, :on_result, :timing)
+    allowed = (:verbosity, :trace, :on_result, :timing)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsCoaxial computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
-        (verbosity = (default = 0,), output_basis = Units.PerUnitLength(),
-            trace = false, on_result = nothing, timing = false),
+        (verbosity = (default = 0,), trace = false, on_result = nothing, timing = false),
         options
     )
-    return computation_options(LineCableModelsCoaxial, normalized,
-        Units.LengthBasis(normalized.output_basis))
+    levels = verbosity(normalized.verbosity)
+    normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
+    normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
+    execution = (verbosity = levels, trace = Val(false),
+        on_result = normalized.on_result, timing = normalized.timing)
+    normalized.trace && return ComputationOptions(merge(execution, (trace = Val(true),)))
+    return ComputationOptions(execution)
 end
 
 # The coaxial backend normalizes the computation options of a line-parameter formulation.
 computation_options(::Type{<:LineParametersFormulation}, record::ComputationOptions) =
     computation_options(LineCableModelsCoaxial, record)
 
-# A normalized record stores the basis and the trace switch as types. This method returns it
-# as it is.
+# A normalized record stores the trace switch as a type. This method returns it as it is.
 computation_options(::Type{LineCableModelsCoaxial},
-    record::ComputationOptions{<:NamedTuple{(:verbosity, :output_basis, :trace, :on_result,
-        :timing), <:Tuple{NamedTuple, Units.LengthBasis, Val, Any, Bool}}}) = record
-
-# This method builds the options record after `LengthBasis` decides the basis, so a
-# Symbol read at run time still gives one concrete record per basis.
-function computation_options(::Type{LineCableModelsCoaxial}, normalized::NamedTuple,
-        basis::Units.LengthBasis)::ComputationOptions
-    levels = verbosity(normalized.verbosity)
-    normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
-    normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
-    execution = (verbosity = levels, output_basis = basis, trace = Val(false),
-        on_result = normalized.on_result, timing = normalized.timing)
-    normalized.trace && return ComputationOptions(merge(execution, (trace = Val(true),)))
-    return ComputationOptions(execution)
-end
+    record::ComputationOptions{<:NamedTuple{(:verbosity, :trace, :on_result, :timing),
+        <:Tuple{NamedTuple, Val, Any, Bool}}}) = record
 
 
 description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
@@ -136,8 +126,6 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `frequency_workers=2`: maximum concurrent frequency solver processes.
   - `solver_threads=1`: BLAS and OpenMP threads per solver process.
   - `verbosity=(default=0,)`: logging in Julia levels from 0 through 2.
-  - `output_basis=Units.PerUnitLength()`, written `:pul`: per-unit-length matrices.
-    `Units.TotalLength()`, written `:total`, scales by line length.
   - `trace=false`: retain `Z_primitive`, `P_primitive` and a copied `phase_map`
     under `details(result).data.fem.primitive`. The primitive arrays refer to the
     completed FEM scan arrays.
@@ -149,21 +137,21 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 # Returns
 
 - A fixed-key [`ComputationOptions`](@ref) named tuple. Paths and integer controls
-  take their normal form, `output_basis` becomes a `Units.LengthBasis`, and `trace`
-  becomes a `Val`.
+  take their normal form, and `trace` becomes a `Val`. The result is per meter, and the
+  whole line's matrices are `Z(result) .* line_length(result)` and
+  `Y(result) .* line_length(result)`.
 
 # Errors
 
 - `ArgumentError`: unknown keys, invalid controls or empty paths.
 """
-# A normalized record stores its basis and trace switch as types. This method returns it as
-# it is.
+# A normalized record stores its trace switch as a type. This method returns it as it is.
 computation_options(::Type{<:LineCableModelsFEM},
-    record::ComputationOptions{<:NamedTuple{(:verbosity, :output_basis, :trace, :on_result,
+    record::ComputationOptions{<:NamedTuple{(:verbosity, :trace, :on_result,
         :timing, :ui, :plot_field_maps, :mesh_mode, :mesh_path, :domain_skin_depths,
         :keep_run_directory, :getdp_executable, :gmsh_verbosity, :getdp_verbosity,
         :frequency_workers, :solver_threads, :log_file, :resume_run_directory),
-        <:Tuple{NamedTuple, Units.LengthBasis, Val, Any, Bool, Bool, Bool, Symbol, Any,
+        <:Tuple{NamedTuple, Val, Any, Bool, Bool, Bool, Symbol, Any,
             Float64, Bool, Any, Int, Int, Int, Int, Any, Any}}}) = record
 
 function computation_options(::Type{<:LineCableModelsFEM}, record::ComputationOptions)::ComputationOptions
@@ -173,7 +161,7 @@ function computation_options(::Type{<:LineCableModelsFEM}, record::ComputationOp
         keep_run_directory=false, getdp_executable=nothing,
         gmsh_verbosity=2, getdp_verbosity=2, frequency_workers=2, solver_threads=1,
         log_file=nothing, resume_run_directory=nothing)
-    standard_keys = (:verbosity, :output_basis, :trace, :on_result, :timing)
+    standard_keys = (:verbosity, :trace, :on_result, :timing)
     unknown = setdiff(keys(options), (keys(defaults)..., standard_keys...))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsFEM computation options: $(Tuple(unknown))"))

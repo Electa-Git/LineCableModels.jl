@@ -25,11 +25,10 @@ Return the family of a physical quantity: `Val(:series)`, `Val(:shunt)`, or
 """
 function family end
 
-public family, Frequency, Dimensionless, LengthBasis, PerUnitLength, TotalLength
+public family, Frequency, Dimensionless
 
 include("units.jl")
 include("quantities.jl")
-include("basis.jl")
 include("accessors.jl")
 include("scaling.jl")
 include("definitions.jl")

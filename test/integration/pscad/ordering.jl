@@ -67,9 +67,9 @@
         @test Z(reused)[1,2,1] == 121
         @test Y(reused)[3,1,1] ≈ 311e-6
         @test bytes2hex(open(sha256,joinpath(source,"outputs","result_zm.out"))) == raw_hash
-        total = compute(permuted,selected;options=(;remote,resume_run_directory=source,output_basis=:total))
-        @test Z(total) == 42 .* Z(first_result)
-        @test Y(total) == 42 .* Y(first_result)
+        total = compute(permuted,selected;options=(;remote,resume_run_directory=source))
+        @test Z(total) .* line_length(total) == 42 .* Z(first_result)
+        @test Y(total) .* line_length(total) == 42 .* Y(first_result)
         repeated = compute(permuted,selected;options=(;remote))
         @test launches[] == 2
         @test !details(repeated).data.execution.reused
@@ -131,10 +131,10 @@
             connections=[Dict(:core=>1,:sheath=>2),Dict(:core=>3)],line_length=floatmax(Float64))
         overflowing = LineParametersProblem(oversized;earth_props=natural.earth_props,
             frequencies=natural.frequencies)
-        overflow_callbacks = Int[]
-        @test_throws DomainError compute(overflowing,selected;options=(;remote,output_basis=:total,
-            on_result=(p,i,r)->push!(overflow_callbacks,i)))
-        @test isempty(overflow_callbacks)
+        overflowed = compute(overflowing,selected;options=(;remote))
+        # The line's totals overflow, and the result per meter does not.
+        @test !all(isfinite, Z(overflowed) .* line_length(overflowed))
+        @test all(isfinite, Z(overflowed))
         # A completion from the former protocol never qualifies for new reuse.
         old = joinpath(directory,"old-protocol"); mkpath(old)
         open(io->TOML.print(io,Dict("schema_version"=>3)),joinpath(old,"complete.toml"),"w")

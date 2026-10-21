@@ -395,7 +395,7 @@ end
             foreach(a->fill!(a, NaN), (materials.rho, materials.epsilon, materials.mu))
         end
         E._solve!(w, selection)
-        first_result=E._finish(w, problem, selection, execution.data.output_basis)
+        first_result=E._finish(w, problem, selection)
         Z, Y=copy(first_result.Z.values), copy(first_result.Y.values)
         @test all(isfinite, Z) && all(isfinite, Y)
         @test Z[:, :, 1] == Z[:, :, 2] && Y[:, :, 1] == Y[:, :, 2]

@@ -117,7 +117,6 @@ function read_pscad_result(
         impedance,
         admittance,
         frequencies_value;
-        basis = Units.PerUnitLength(),
         line_length,
         details = ComputationDetails(; native_frequencies = copy(observed_frequencies))
     )

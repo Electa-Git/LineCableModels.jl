@@ -5,7 +5,6 @@
     end
     G.observe(source::ObservationSource, ::typeof(R)) = source.values
     G.observe(source::ObservationSource, ::typeof(R), index::Int) = source.values[index]
-    G.basis(::ObservationSource) = LineCableModels.Units.PerUnitLength()
 
     for value in (Float32(1), 1.0, big"1.0", missing, [1.0, 2.0])
         source = ObservationSource(value)
@@ -15,7 +14,7 @@
         @test typeof(product.values) === typeof(value)
         value isa AbstractArray && @test product.values !== value
         expected = G.detach(value, LineCableModels.Units.scale_factor(
-            LineCableModels.Units.native_unit(product.quantity, :pul), product.unit))
+            LineCableModels.Units.native_unit(product.quantity), product.unit))
         @test isequal(product.values, expected)
         malformed = merge(product, (coordinates=merge(product.coordinates, (extent=(3,),)),))
         @test_throws DimensionMismatch G._validate_observed_quantity(malformed)

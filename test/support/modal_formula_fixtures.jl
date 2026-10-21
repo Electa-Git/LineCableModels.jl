@@ -34,7 +34,7 @@
 
             workspace.roots[mode, frequency] = sqrt((workspace.input.Y[
                 :, :, frequency] * workspace.input.Z[:, :, frequency])[
-                mode, mode])*workspace.input.root_scale
+                mode, mode])
         end
         return workspace
     end

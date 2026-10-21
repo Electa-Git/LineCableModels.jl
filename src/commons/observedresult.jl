@@ -146,13 +146,13 @@ function observation_quantity(source,request;unit=nothing,clip=true,atol=nothing
         throw(ArgumentError("observable requests must be selector functions or nonempty tuples"))
     end
     q=request_quantity(request)
-    native=native_unit(q,basis(source))
-    displayed=unit===nothing ? display_unit(q,basis(source)) : unit
+    native=native_unit(q)
+    displayed=unit===nothing ? display_unit(q) : unit
     coordinate=(kind=:array,indices=request_indices(request),
         extent=values isa AbstractArray ? size(values) : (),)
     return (request,quantity=q,family=:other,statistic=:value,
         values=detach(values,scale_factor(native,displayed)),unit=displayed,
-        basis=basis(source),coordinates=coordinate,thresholds=nothing,
+        coordinates=coordinate,thresholds=nothing,
         available=nothing,engineering_zero=nothing,clipped=false,missing_reason=nothing)
 end
 
@@ -189,8 +189,8 @@ function ObservedResult(source,requests::Tuple=();comparisons=(),timings=(;),gri
         request=selected[index]
         q=request_quantity(request)
         unit=isempty(units) ? q isa Units.Quantity{Units.Frequency, Nothing} ? Units.units(frequency_unit,:hertz) :
-            display_unit(q,basis(source),_unit_override(quantity_units,request);length_prefix=length_unit) :
-            display_unit(q,basis(source),units[index];length_prefix=length_unit)
+            display_unit(q,_unit_override(quantity_units,request);length_prefix=length_unit) :
+            display_unit(q,units[index];length_prefix=length_unit)
         record=observation_quantity(source,request;unit,clip,atol,frequencies)
         if haskey(record.coordinates,:frequencies) && record.coordinates.frequencies!==nothing
             frequency_target=Units.units(frequency_unit,:hertz)
@@ -221,12 +221,6 @@ coordinates. No source extraction, clipping, or absent-quantity derivation occur
 function observe(observed::ObservedResult,selectors...)
     request=length(selectors)==1 ? only(selectors) : selectors
     return detach(observation_product(observed,request).values)
-end
-
-function basis(observed::ObservedResult)
-    bases=unique(q.basis for q in observed.quantities)
-    length(bases)==1 || throw(ArgumentError("observation does not have one quantity basis"))
-    return only(bases)
 end
 
 observation_gridpoint(observed::ObservedResult) = detach(observed.gridpoint)
@@ -368,7 +362,7 @@ function observation_groups(points;request,band=nothing,normalization=nothing,re
             length(matches)==1 || throw(ArgumentError("requested completed comparison is absent or ambiguous"))
             row=only(matches)
             (quantity=row.quantity,statistic=row.statistic,coordinates=row.coordinates,
-                basis=get(row.settings,:basis,nothing),unit=row.absolute_unit,
+                unit=row.absolute_unit,
                 thresholds=(reference=get(row.settings,:atol,nothing),result=get(row.settings,:result_atol,nothing)),
                 available=get(row.settings,:status,nothing),engineering_zero=nothing,
                 assumptions=get(row,:assumptions,nothing),values=(absolute=row.absolute,relative=row.relative),
@@ -381,7 +375,7 @@ function observation_groups(points;request,band=nothing,normalization=nothing,re
         selector=identity isa Tuple ? first(identity) : identity
         key=(physical,assumptions,selector isa Base.Fix2 ? identity : nothing,
             product.quantity,product.statistic,
-            get(point.gridpoint,:uncertainty,nothing),product.coordinates,product.basis,
+            get(point.gridpoint,:uncertainty,nothing),product.coordinates,
             product.unit,product.thresholds,
             band,normalization,reference,get(product,:interpretation,nothing))
         semantic=physical===nothing || assumptions===nothing || ismissing(assumptions) ? Int[] :

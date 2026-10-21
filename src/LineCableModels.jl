@@ -21,7 +21,7 @@ export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables
 export ObservedResult, kron_reduce
 export quantity, native_unit, display_unit, scale_factor, label, symbol
-export basis, line_length, domain, frequencies, nconductors, nfrequencies, ncables, nphases
+export line_length, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
 export series_impedance, shunt_admittance,
        resistance, reactance, inductance,
@@ -108,7 +108,7 @@ using .Commons:
                 observe, @observe, observables, ObservedResult, kron_reduce
 import .Commons: compute, validate
 using .Commons: FormulaDefinition, Expression, Functor
-using .Commons: add!, build, homogenize, constitutive, basis, line_length, description,
+using .Commons: add!, build, homogenize, constitutive, line_length, description,
                 R, L, C, resistance, inductance, capacitance, formula, formula_id
 using .Commons: Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid,
                 AbstractGrid, AbstractUncertainGrid, UncertainValue, Gridspace, Gridpoint,

@@ -76,10 +76,10 @@
     # Results of different sizes name different terminals.
     @test_throws ArgumentError compare(reference, different_size)
 
-    total=LineParameters(
+    # Line parameters are per meter, and no constructor takes a basis.
+    @test_throws MethodError LineParameters(
         PhaseDomain, impedance, admittance, frequencies_value; line_length=1.0, basis = :total
     )
-    @test_throws ArgumentError compare(reference, total)
 
     modal_source=LineParameters(
         PhaseDomain,

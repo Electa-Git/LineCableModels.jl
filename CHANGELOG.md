@@ -229,10 +229,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `typeof(Engine.absolute_error)`, and `Nothing` for the base quantity. The magnitude, angle, real part, imaginary part and errors each take their
   unit, label and symbol from the base quantity by one rule. A saved quantity records
   its selector or its type, and its component. Observed comparison errors save and load.
-- `Units.LengthBasis`, with `Units.PerUnitLength` and `Units.TotalLength`, is the length
-  basis of line results, observation records and computation options. `basis(result)`
-  returns `PerUnitLength()` or `TotalLength()`. Options, keywords and the unit functions
-  also take `:pul` and `:total`, and saved records and reports write `pul` and `total`.
+- Line parameters are per meter. `LineParameters`, `SeriesImpedance` and
+  `ShuntAdmittance` hold Z in Ω/m and Y in S/m, and every backend (coaxial, FEM, PSCAD)
+  returns them so. The whole line's matrices are `Z(result) .* line_length(result)` and
+  `Y(result) .* line_length(result)`. `native_unit(R)` is Ω/m and `display_unit(R)` is
+  Ω/km. `display_unit(quantity, override; length_prefix)` sets the prefix of a per-length
+  denominator, and `unit_targets(requests; length_prefix, overrides)` aligns display
+  units with requests.
 - Plots and reports set the frequency display unit with `frequency_unit`. A standalone
   `SeriesImpedance` or `ShuntAdmittance` takes its frequency samples through
   `frequencies`. `legend_max_fraction` limits the size of a plot's legend, and
@@ -388,7 +391,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `deepcopy`, when it is built. A problem keeps the system or design that it is given, both
   values that their builders make. Result records hold the data of the formulation and the
   problem without a further copy.
-- A result's type parameters are its physics: `LineParameters{T, U, D, Basis}`,
+- A result's type parameters are its physics: `LineParameters{T, U, D}`,
   `CableConstants{T}`, `PropagationParameters{P, L}`, `ParametricResult{T, F, A}`,
   `LinearErrorResult{T, F}`, `MonteCarloResult{T, F, ST, S, H}` and `RMSError{T}`. Each holds
   one `ComputationDetails`, whose named tuple `data` is in a field typed `NamedTuple`, so
@@ -398,7 +401,6 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `line_length`, the length of the line in meters. A modal result keeps the terminals of
   its source and indexes its modes by position. Every constructor takes `line_length`, and
   matrices given without `terminals` name them `"1"` to `"n"`.
-  `LineParameters(parameters, basis)` gives total coefficients from `line_length`.
   `LineParameters(path; line_length)` reads a TRALIN report.
 - `CableConstants` has `terminals`, the innermost terminal of each assembly as
   `"cable:<cable id>:<terminal>"`. Its rows are `(terminal, R, L, C, G)`, and

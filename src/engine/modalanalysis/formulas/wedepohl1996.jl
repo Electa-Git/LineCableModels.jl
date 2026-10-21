@@ -101,8 +101,6 @@ function decompose!(::Formula{:wedepohl1996}, workspace::ModalAnalysisWorkspace,
     for frequency in 1:nf
         copyto!(buffers.Zslice, @view(input.Z[:, :, frequency]))
         copyto!(buffers.Yslice, @view(input.Y[:, :, frequency]))
-        buffers.Zslice ./= input.root_scale
-        buffers.Yslice ./= input.root_scale
         matrix=buffers.admittance_impedance_product
         mul!(matrix, buffers.Yslice, buffers.Zslice)
         use_newton_result=frequency>1
@@ -174,7 +172,7 @@ function decompose!(::Formula{:wedepohl1996}, workspace::ModalAnalysisWorkspace,
             value=buffers.eigenvalues[mode]
             root=sqrt(value)
             (real(root)<0 || (iszero(real(root)) && imag(root)<0)) && (root=-root)
-            workspace.roots[mode, frequency]=root*input.root_scale
+            workspace.roots[mode, frequency]=root
             mul!(buffers.eigen_residual, matrix, vector)
             buffers.eigen_residual .-= value .* vector
             denominator=(norm(matrix, Inf)+abs(value))*norm(vector, Inf)

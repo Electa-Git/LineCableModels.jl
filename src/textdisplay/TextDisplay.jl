@@ -386,11 +386,6 @@ function Base.show(io::IO, quantity::Units.Quantity)
 end
 Base.show(io::IO, ::MIME"text/plain", quantity::Units.Quantity) = show(io, quantity)
 
-# A basis shows as the Symbol that writes it.
-Base.summary(io::IO, basis::Units.LengthBasis) = print(io, "Length basis ", Symbol(basis))
-Base.show(io::IO, basis::Units.LengthBasis) = print(io, Symbol(basis))
-Base.show(io::IO, ::MIME"text/plain", basis::Units.LengthBasis) = show(io, basis)
-
 name(::Type{<:FormulaDefinition}) = "FormulaDefinition"
 name(::Type{<:UncertainValue}) = "UncertainValue"
 name(::Type{<:AbsoluteError}) = "AbsoluteError"

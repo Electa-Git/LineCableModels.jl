@@ -191,7 +191,7 @@ end
 function _array_summary(name, value, selector)
     return string(
         name, "(", join(size(value), '×'), "; unit=",
-        _engine_unit(_result_unit(value, selector)), ")"
+        _engine_unit(Units.native_unit(selector)), ")"
     )
 end
 
@@ -203,7 +203,7 @@ Base.show(io::IO, value::SeriesImpedance) =
 function Base.show(io::IO, ::MIME"text/plain", value::SeriesImpedance)
     get(io, :compact, false) && return show(io, value)
     TextDisplay.tree(io, "Series impedance · $(join(size(value), '×'))", (
-        (label = "unit  $(_engine_unit(_result_unit(value, Z)))", noun = "fields"),
+        (label = "unit  $(_engine_unit(Units.native_unit(Z)))", noun = "fields"),
         (label = "values summarized; use observables for extraction", noun = "fields"),
     ))
 end
@@ -216,7 +216,7 @@ Base.show(io::IO, value::ShuntAdmittance) =
 function Base.show(io::IO, ::MIME"text/plain", value::ShuntAdmittance)
     get(io, :compact, false) && return show(io, value)
     TextDisplay.tree(io, "Shunt admittance · $(join(size(value), '×'))", (
-        (label = "unit  $(_engine_unit(_result_unit(value, Y)))", noun = "fields"),
+        (label = "unit  $(_engine_unit(Units.native_unit(Y)))", noun = "fields"),
         (label = "values summarized; use observables for extraction", noun = "fields"),
     ))
 end
@@ -229,13 +229,13 @@ end
 function Base.show(io::IO, parameters::LineParameters)
     print(io, "LineParameters(", _domain_name(domain(parameters)), "; ",
         nconductors(parameters), '×', nconductors(parameters), '×',
-        nfrequencies(parameters), ", basis=:", basis(parameters), ")")
+        nfrequencies(parameters), ")")
     has_uncertainty_type(eltype(parameters)) && print(io, " ±")
 end
 function Base.show(io::IO, ::MIME"text/plain", parameters::LineParameters)
     get(io, :compact, false) && return show(io, parameters)
-    zunit = _engine_unit(_result_unit(parameters, Z))
-    yunit = _engine_unit(_result_unit(parameters, Y))
+    zunit = _engine_unit(Units.native_unit(Z))
+    yunit = _engine_unit(Units.native_unit(Y))
     shape = join(size(parameters.Z), '×')
     children = (
         (label = "f  $(_frequency_span(parameters.f))", noun = "fields"),
@@ -275,8 +275,7 @@ TextDisplay.name(::Type{<:LineParametersBenchmark}) = "LineParametersBenchmark"
 Base.summary(io::IO, benchmark::LineParametersBenchmark) =
     print(io, "Line-parameters benchmark, ", join(size(benchmark.Z.absolute), '×'))
 function Base.show(io::IO, benchmark::LineParametersBenchmark)
-    print(io, "LineParametersBenchmark(", join(size(benchmark.Z.absolute), '×'),
-        "; basis=:", basis(benchmark), ")")
+    print(io, "LineParametersBenchmark(", join(size(benchmark.Z.absolute), '×'), ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", benchmark::LineParametersBenchmark)
     get(io, :compact, false) && return show(io, benchmark)
@@ -284,7 +283,6 @@ function Base.show(io::IO, ::MIME"text/plain", benchmark::LineParametersBenchmar
     return TextDisplay.tree(io, "Line-parameters benchmark", (
         (label = "Z  $shape RMS errors", noun = "fields"),
         (label = "Y  $shape RMS errors", noun = "fields"),
-        (label = "basis  :$(basis(benchmark))", noun = "fields"),
     ))
 end
 

@@ -106,9 +106,10 @@
     execution=LineCableModels.computation_options(owner, ComputationOptions((
             output_stem = "case",
             remote = config,
-            verbosity = (default = 0, PSCAD = 2),
-            output_basis = :total
+            verbosity = (default = 0, PSCAD = 2)
         )))
+    @test_throws ArgumentError LineCableModels.computation_options(owner,
+        ComputationOptions(; remote=config, output_basis=:total))
     for timing in (0, 1, nothing, :yes)
         @test_throws ArgumentError LineCableModels.computation_options(owner,
             ComputationOptions(; remote=config, timing))
@@ -119,7 +120,6 @@
         remote = config,
         verbosity = (default = 0, PSCAD = 2),
         timing = false,
-        output_basis = LineCableModels.Units.TotalLength(),
         on_result = nothing,
         resume_run_directory = nothing,
         solver_identity = nothing

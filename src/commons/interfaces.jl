@@ -293,11 +293,6 @@ Evaluate the constitutive relation selected for a material value.
 function constitutive end
 
 """
-Return the physical storage basis of a result.
-"""
-function basis end
-
-"""
 Return the physical length of a line, a system or a result \\[m\\].
 """
 function line_length end
@@ -305,17 +300,17 @@ function line_length end
 line_length(source) = nothing
 
 """
-Select or return the series resistance of a result per unit length or in total.
+Select or return the series resistance of a result, per meter \\[Ω/m\\].
 """
 function R end
 
 """
-Select or return the series inductance of a result per unit length or in total.
+Select or return the series inductance of a result, per meter \\[H/m\\].
 """
 function L end
 
 """
-Select or return the shunt capacitance of a result per unit length or in total.
+Select or return the shunt capacitance of a result, per meter \\[F/m\\].
 """
 function C end
 

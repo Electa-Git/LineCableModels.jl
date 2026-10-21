@@ -9,7 +9,7 @@
     @test all(>(0), constants.L)
     @test all(>(0), constants.C)
     @test all(>=(0), constants.G)
-    @test basis(constants) === LineCableModels.Units.PerUnitLength()
+    @test LineCableModels.Units.label(LineCableModels.Units.native_unit(R)) == "Ω/m"
     constants_display=sprint(show, constants)
     @test occursin("CableConstants(assemblies=1", constants_display)
     @test resistance(constants) === constants.R
@@ -30,7 +30,7 @@
     @test names(constants_table)==["frequency",terminal]
     @test constants_table.frequency==[constants.frequency]
     @test constants_table[!,terminal]≈1_000constants.R
-    @test DataFrames.metadata(constants_table,"basis")===basis(constants)
+    @test !("basis" in DataFrames.metadatakeys(constants_table))
     constants_columns=LineCableModels.ReportBuilder.observation_columns(constants_table)
     @test getproperty(constants_columns,Symbol(terminal)).assembly==1
     @test LineCableModels.Units.label(getproperty(constants_columns,Symbol(terminal)).unit)=="Ω/km"
@@ -49,11 +49,10 @@
     parameters=LineParameters(
         impedance,
         admittance,
-        frequency; line_length=1.0,
-        basis = :total
+        frequency; line_length=1.0
     )
 
-    @test basis(parameters) === LineCableModels.Units.TotalLength()
+    @test line_length(parameters) == 1.0
     @test frequencies(parameters) == frequency
     @test nconductors(parameters) == 2
     @test nfrequencies(parameters) == 3
@@ -81,15 +80,15 @@
     @test observe(parameters, Z) === parameters.Z.values
     @test observe(parameters, Y) === parameters.Y.values
     parameter_observables=observables(parameters,((Z,abs,1,2,:),(Z,angle,1,2,:));
-        atol=(R=0.,X=0.,G=0.,B=0.))
+        atol=(R=0.,X=0.,G=0.,B=0.),length_unit=:base)
     @test parameter_observables isa ObservedResult
     @test first(parameter_observables.quantities).coordinates.frequencies==frequency
     @test observe(parameter_observables,Z,abs)≈abs.(impedance[1,2,:])
     @test observe(parameter_observables,Z,angle)≈rad2deg.(angle.(impedance[1,2,:]))
     @test first(parameter_observables.quantities).coordinates.frequencies !== parameters.f
 
-    series=SeriesImpedance(impedance; basis = :total)
-    shunt=ShuntAdmittance(admittance; basis = :total)
+    series=SeriesImpedance(impedance)
+    shunt=ShuntAdmittance(admittance)
     @test series_impedance(series) === series.values
     @test shunt_admittance(shunt) === shunt.values
     @test Z(series) == impedance
@@ -106,42 +105,38 @@
         @test eltype(typeof(container)) == ComplexF64
         @test Base.IndexStyle(typeof(container)) == IndexCartesian()
         @test container[1, 2, 2] == container.values[1, 2, 2]
-        @test basis(typeof(container)) === LineCableModels.Units.TotalLength()
-        @test basis(container) === LineCableModels.Units.TotalLength()
+        @test typeof(container) in (SeriesImpedance{ComplexF64}, ShuntAdmittance{ComplexF64})
+        @test container.values isa Array{ComplexF64, 3}
     end
     @test occursin("2×2×3", sprint(show, series))
-    @test occursin("unit=Ω", sprint(show, series))
+    @test occursin("unit=Ω/m", sprint(show, series))
     @test occursin("2×2×3", sprint(show, shunt))
-    @test occursin("unit=S", sprint(show, shunt))
+    @test occursin("unit=S/m", sprint(show, shunt))
 
     reconstructed=LineParameters(series, shunt, frequency; line_length=1.0)
     @test reconstructed.Z === series
     @test reconstructed.Y === shunt
-    @test occursin("LineParameters(phase domain; 2×2×3, basis=:total)", sprint(show, reconstructed))
+    @test occursin("LineParameters(phase domain; 2×2×3)", sprint(show, reconstructed))
     detailed=sprint(show, MIME"text/plain"(), reconstructed)
     @test occursin("LineParameters · phase domain", detailed)
-    @test occursin("Z  2×2×3 · Ω", detailed)
-    @test occursin("Y  2×2×3 · S", detailed)
+    @test occursin("Z  2×2×3 · Ω/m", detailed)
+    @test occursin("Y  2×2×3 · S/m", detailed)
 
     promoted=LineParameters(
-        SeriesImpedance(ComplexF32.(impedance); basis = :total),
+        SeriesImpedance(ComplexF32.(impedance)),
         shunt,
         frequency; line_length=1.0)
     @test eltype(promoted) === ComplexF64
-    @test_throws ArgumentError SeriesImpedance(impedance; basis = :invalid)
-    @test_throws ArgumentError ShuntAdmittance(admittance; basis = :invalid)
-    # A basis parameter that is not a `Units.LengthBasis` has no constructor.
-    @test_throws MethodError SeriesImpedance{ComplexF64, 1}(impedance)
-    @test_throws MethodError ShuntAdmittance{ComplexF64, 1}(admittance)
-    @test_throws ArgumentError LineParameters(
-        impedance, admittance, frequency; line_length=1.0, basis = :invalid)
-    @test_throws ArgumentError LineParameters(
-        SeriesImpedance(impedance; basis = :total),
-        ShuntAdmittance(admittance; basis = :pul),
-        frequency; line_length=1.0)
+    # Line parameters are per meter: no basis keyword or type parameter exists.
+    @test_throws MethodError SeriesImpedance(impedance; basis = :total)
+    @test_throws MethodError ShuntAdmittance(admittance; basis = :total)
+    @test_throws "too many parameters" SeriesImpedance{ComplexF64, 1}(impedance)
+    @test_throws "too many parameters" ShuntAdmittance{ComplexF64, 1}(admittance)
+    @test_throws MethodError LineParameters(
+        impedance, admittance, frequency; line_length=1.0, basis = :total)
 
     selected=parameters[2:3]
-    @test basis(selected) === LineCableModels.Units.TotalLength()
+    @test line_length(selected) == line_length(parameters)
     @test domain(selected) === domain(parameters)
     @test frequencies(selected) == frequency[2:3]
     @test selected.Z.values == impedance[:, :, 2:3]
@@ -156,14 +151,14 @@
         @observe(G[:, :, :]),
         @observe(C[:, :, :])
     )
-    retained=ObservedResult(parameters,requests;atol=(R=0.,L=0.,G=0.,C=0.))
+    retained=ObservedResult(parameters,requests;atol=(R=0.,L=0.,G=0.,C=0.),length_unit=:base)
     tables=LineCableModels.ReportBuilder.tabulate(retained)
     parameter_table=tables.Z.R
     @test names(parameter_table)==["frequency","[1,1]","[1,2]","[2,1]","[2,2]"]
     @test nrow(parameter_table)==3
     @test collect(parameter_table[1,2:5])==vec(resistance_values[:,:,1])[[1,3,2,4]]
-    @test DataFrames.metadata(parameter_table,"basis")===basis(parameters)
-    @test LineCableModels.Units.label(LineCableModels.ReportBuilder.observation_columns(parameter_table)[Symbol("[1,1]")].unit)=="Ω"
+    @test !("basis" in DataFrames.metadatakeys(parameter_table))
+    @test LineCableModels.Units.label(LineCableModels.ReportBuilder.observation_columns(parameter_table)[Symbol("[1,1]")].unit)=="Ω/m"
     subset_table=LineCableModels.ReportBuilder.tabulate(retained,(R,2,1,2:3))
     @test names(subset_table)==["frequency","[2,1]"]
     @test subset_table.frequency==frequency[2:3]
@@ -374,7 +369,7 @@ end
     summary_observed=ObservedResult(complete,1,((statistics,R,1),);quantity_units=(R=:milli,))
     histogram_observed=ObservedResult(complete,1,((histograms,R,1),);units=(:milli,))
     @test length(summary_observed.quantities)==7
-    summary_factor=scale_factor(R,basis(complete),first(summary_observed.quantities).unit)
+    summary_factor=scale_factor(R,first(summary_observed.quantities).unit)
     @test observe(summary_observed,statistics,R,mean)==summary_product.R[1].mean*summary_factor
     @test observe(summary_observed,statistics,R,std)==summary_product.R[1].std*abs(summary_factor)
     @test only(histogram_observed.quantities).distribution.edges==histogram_product.R[1].edges.*summary_factor

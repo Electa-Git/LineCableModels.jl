@@ -58,18 +58,11 @@ end
 formula_parameters(selected::Formula) = selected.parameters
 formula_parameters(::AbstractFormulation) = (;)
 
-# Total coefficients scale the roots by the line length. Per unit length, the scale is `unit`.
-_root_scale(::Units.PerUnitLength, ell0, unit) = unit
-_root_scale(::Units.TotalLength, ell0, unit) = nominal(ell0)
-
 function ModalAnalysisWorkspace(source::LineParameters, selected::AbstractFormulation)
     Zp = nominal(source.Z.values)
     Yp = nominal(source.Y.values)
     n, _, nf = size(Zp)
-    ell0 = line_length(source)
-    factor = _root_scale(basis(source), ell0, one(real(zero(eltype(Zp)))))
-    input = (Z=Zp, Y=Yp, f=nominal(source.f),
-        root_scale=factor, source_basis=basis(source))
+    input = (Z=Zp, Y=Yp, f=nominal(source.f))
     T = float(promote_type(eltype(input.Z), eltype(input.Y)))
     Tv = Array{T,3}(undef, n, n, nf)
     Ti = similar(Tv)
@@ -175,9 +168,9 @@ Compute the modal analysis of one point: the modal decomposition of the phase-do
 parameters of the problem.
 """
 function compute(
-        resolved::Resolved{<:ModalAnalysisProblem{<:LineParameters{T,U,PhaseDomain,Basis}}},
+        resolved::Resolved{<:ModalAnalysisProblem{<:LineParameters{<:Any,<:Any,PhaseDomain}}},
         formulation::ModalAnalysisFormulation;
-        options::Union{NamedTuple,ComputationOptions}=ComputationOptions()) where {T,U,Basis}
+        options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
     execution = computation_options(LineCableModelsModal, ComputationOptions(options))
     parameters=resolved.problem.parameters
     selected = formulation.formula
@@ -207,13 +200,13 @@ function compute(
                 diagnostics=diagnostics),
             formulation, source))))
     return LineParameters(modal,
-        SeriesImpedance{eltype(workspace.Zm),Basis}(copy(workspace.Zm)),
-        ShuntAdmittance{eltype(workspace.Ym),Basis}(copy(workspace.Ym)),
+        SeriesImpedance{eltype(workspace.Zm)}(copy(workspace.Zm)),
+        ShuntAdmittance{eltype(workspace.Ym)}(copy(workspace.Ym)),
         parameters.f, parameters.terminals, parameters.line_length, retained)
 end
 
 """Restore phase coefficients using the retained modal-to-phase bases."""
-function transform(::Type{PhaseDomain}, parameters::LineParameters{T,U,D,Basis}) where {T,U,D<:ModalDomain,Basis}
+function transform(::Type{PhaseDomain}, parameters::LineParameters{T,U,D}) where {T,U,D<:ModalDomain}
     maps = parameters.domain.operators
     dimensions = size(parameters.Z.values)
     S = promote_type(T, eltype(maps.Tv), eltype(maps.Ti))
@@ -226,8 +219,8 @@ function transform(::Type{PhaseDomain}, parameters::LineParameters{T,U,D,Basis})
         @views admittance[:, :, frequency] .= (Tif * parameters.Y.values[:, :, frequency]) / Tvf
     end
     return LineParameters(PhaseDomain(),
-        SeriesImpedance{S,Basis}(impedance),
-        ShuntAdmittance{S,Basis}(admittance), parameters.f,
+        SeriesImpedance{S}(impedance),
+        ShuntAdmittance{S}(admittance), parameters.f,
         parameters.terminals, parameters.line_length, parameters.details)
 end
 

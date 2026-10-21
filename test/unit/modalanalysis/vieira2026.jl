@@ -177,13 +177,10 @@ end
     modal=compute(ModalAnalysisProblem(phase), selected)
     segment=PropagationParameters(modal)
     @test H(segment) ≈ exp.(-gamma(modal) .* 25)
-    total=LineParameters(PhaseDomain, SeriesImpedance(Z(phase) .* 25; basis = :total),
-        ShuntAdmittance(Y(phase) .* 25; basis = :total), phase.f;
-        line_length = phase.line_length, details = phase.details)
-    total_modal=compute(ModalAnalysisProblem(total), selected)
-    @test gamma(total_modal) ≈ gamma(modal) .* 25
-    @test H(PropagationParameters(total_modal)) ≈ H(segment)
-    @test Zc(total_modal) ≈ Zc(modal)
+    # The line's totals are the per-meter values times its length.
+    @test line_length(modal) == 25
+    @test H(PropagationParameters(modal; line_length = line_length(modal))) ≈ H(segment)
+    @test Zc(segment) ≈ Zc(modal)
     for selection in (2, 2:3, [4, 2], :)
         indices=selection isa Int ? (selection:selection) : selection
         retained=modal[selection]

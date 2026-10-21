@@ -322,8 +322,8 @@ function _modal_observation_quantity(source,request;unit=nothing,clip=true,atol=
     end
     resolved=broadcast((value,valid)->valid ? value : missing,values,available)
     q=Commons.request_quantity(request)
-    native=Units.native_unit(q,basis(source))
-    target=unit===nothing ? Units.display_unit(q,basis(source)) : unit
+    native=Units.native_unit(q)
+    target=unit===nothing ? Units.display_unit(q) : unit
     T=typeof(float(real(nominal(zero(eltype(raw))))))
     factor=Units.scale_factor(native,target,T)
     assumptions=Engine.observation_assumptions(source,selector)
@@ -331,10 +331,10 @@ function _modal_observation_quantity(source,request;unit=nothing,clip=true,atol=
         reasons isa AbstractArray ? reasons : (reasons,))
     components=undefined ? (nominal_magnitude=Commons.detach(abs.(nominal.(original))),
         real=Commons.detach(real.(original)),imaginary=Commons.detach(imag.(original)),
-        unit=Units.native_unit(selector isa Base.Fix2 ? selector.f : selector,basis(source))) : nothing
+        unit=Units.native_unit(selector isa Base.Fix2 ? selector.f : selector)) : nothing
     return (request,quantity=q,family=Symbol(nameof(selector isa Base.Fix2 ? selector.f : selector)),
         statistic=:value,values=Commons.detach(resolved,factor),unit=target,
-        basis=basis(source),coordinates=_modal_coordinates(source,request,raw),
+        coordinates=_modal_coordinates(source,request,raw),
         assumptions,thresholds=nothing,available,engineering_zero=false,clipped=false,
         missing_reason=reasons,unavailable_components=components)
 end

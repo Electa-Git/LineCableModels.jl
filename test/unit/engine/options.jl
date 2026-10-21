@@ -55,18 +55,16 @@
         formulation_owner, FormulationOptions(unknown = true))
 
     default_execution=@inferred Commons.computation_options(computation_type, ComputationOptions((;)))
-    @test default_execution.data.output_basis === LineCableModels.Units.PerUnitLength()
+    @test !haskey(default_execution.data, :output_basis)
     @test default_execution.data.trace == Val(false)
     @test default_execution.data.on_result === nothing
     execution=Commons.computation_options(
         computation_type, ComputationOptions((
             verbosity = (default = 1, NLsolve = 0),
-            output_basis = :total,
             trace = true
         )))
     @test execution.data == (
         verbosity = (default = 1, NLsolve = 0),
-        output_basis = LineCableModels.Units.TotalLength(),
         trace = Val(true),
         on_result = nothing,
         timing = false
@@ -76,7 +74,7 @@
     @test_throws ArgumentError Commons.computation_options(
         computation_type, ComputationOptions((unknown = true,)))
     @test_throws ArgumentError Commons.computation_options(
-        computation_type, ComputationOptions((output_basis = :unknown,)))
+        computation_type, ComputationOptions((output_basis = :total,)))
 end
 
 @testitem "Engine / FEM computation option ownership" tags=[:unit, :engine] begin
@@ -91,6 +89,7 @@ end
     @test_throws ArgumentError LineCableModelsFEM(options=(domain_skin_depths=1.5,))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((physics=:quasi_fw,)))
     @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((unknown=true,)))
+    @test_throws ArgumentError computation_options(LineCableModelsFEM, ComputationOptions((output_basis=:total,)))
     defaults = @inferred computation_options(LineCableModelsFEM, ComputationOptions((;)))
     @test defaults isa ComputationOptions
     @test defaults.data.domain_skin_depths === 2.0

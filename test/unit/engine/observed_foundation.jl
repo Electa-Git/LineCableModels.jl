@@ -22,7 +22,7 @@
         changed=original .+ T(1e-11)
         if any(changed .!= original)
             result=compare(complex.(original,zero(T)),complex.(changed,zero(T)),R;
-                frequencies=frequency,result_basis=:pul,atol=(R=cutoff,))
+                frequencies=frequency,atol=(R=cutoff,))
             @test 0 < only(result.absolute) < cutoff
             @test only(result.absolute) ≈ norm(vec(changed-original))/sqrt(T(3))
         end

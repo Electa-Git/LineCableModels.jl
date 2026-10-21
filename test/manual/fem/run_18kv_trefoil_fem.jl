@@ -29,7 +29,6 @@ fem_options = (
     resume_run_directory=nothing,
     keep_run_directory=true,
     trace=true,
-    output_basis=:pul,
     verbosity=(default=1,),
     gmsh_verbosity=2,
     getdp_verbosity=4,

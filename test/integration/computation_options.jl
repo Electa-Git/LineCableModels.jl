@@ -19,7 +19,7 @@
     end
 end
 
-@testitem "Execution options / callbacks and output basis survive all traversal paths" tags=[:integration, :measurements] setup=[TestFixtures] begin
+@testitem "Execution options / callbacks and the line length survive all traversal paths" tags=[:integration, :measurements] setup=[TestFixtures] begin
     using LineCableModels.Engine: completed_formulation
     using Measurements
     problem = TestFixtures.line_parameters_problem()
@@ -27,31 +27,30 @@ end
     space = Gridspace{LineParametersProblem}(identity, (Grid((problem,)),))
     calls = Int[]
     callback = function (problem, index, result)
-        @test basis(result) === LineCableModels.Units.TotalLength()
+        @test line_length(result) == problem.system.line_length
         @test length(result.terminals) == size(result.Z, 1)
         @test completed_formulation(details(result)).formulations.formulas.earth_impedance.identifier === :unified
         push!(calls, index)
     end
-    options = (output_basis=:total, on_result=callback)
-    # The selected basis is represented by Val. A runtime Symbol determines
-    # that field's type. The normalized record must still retain concrete fields.
+    options = (on_result=callback,)
+    # The normalized record retains concrete fields.
     execution = LineCableModels.computation_options(LineCableModelsCoaxial, ComputationOptions(options))
     @test execution.data.on_result === callback
     @test fieldtype(typeof(execution.data), :on_result) === typeof(callback)
     batch = compute(problem, Grid((inner, inner)); options)
     @test calls == [1, 2]
-    @test all(value -> basis(value) === LineCableModels.Units.TotalLength(), batch)
+    @test all(value -> line_length(value) == problem.system.line_length, batch)
     empty!(calls)
     value = compute(LineCableModels.materialize(first(LineCableModels.points(space))), inner;
         options)
     @test calls == [1]
-    @test basis(value) === LineCableModels.Units.TotalLength()
+    @test line_length(value) == problem.system.line_length
     for (outer, count) in ((Combinatorial(inner), 1), (LinearError(inner), 1),
             (MonteCarlo(inner; options=(trials=2, seed=1)), 2))
         empty!(calls)
         result = compute(ParametricProblem(space, ComputationOptions(options)), outer)
         @test calls == fill(1, count)
-        @test basis(first(result)) === LineCableModels.Units.TotalLength()
+        @test line_length(first(result)) == problem.system.line_length
     end
 end
 
@@ -61,17 +60,27 @@ end
     problem = TestFixtures.three_bare_wires_problem(frequencies=[1e7], line_length=floatmax(Float64))
     selected = Formulation(options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
     calls = Int[]
-    callback = (problem, index, result) -> push!(calls, index)
     pul = compute(problem, selected)
     @test all(isfinite, Z(pul)) && all(isfinite, Y(pul))
+    # The line's totals overflow, and the result per meter does not.
+    @test !all(isfinite, Z(pul) .* line_length(pul))
+    ordinary = TestFixtures.three_bare_wires_problem(frequencies=[50.])
+    # When the compute of a point fails during the run, the runner does not log success
+    # or call `on_result`.
+    struct FailingFormulation <: AbstractFormulation end
+    LineCableModels.computation_options(::Type{<:FailingFormulation}, options::ComputationOptions) =
+        options
+    LineCableModels.compute(::LineCableModels.Resolved{<:LineParametersProblem}, ::FailingFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()) =
+        throw(DomainError(Inf, "the point fails during the run"))
+    callback = (_, index, _) -> push!(calls, index)
     failure_log = Test.TestLogger()
     with_logger(failure_log) do
-        @test_throws DomainError compute(problem, selected;
-            options=(timing=true, output_basis=:total, on_result=callback, verbosity=(default=1,)))
+        @test_throws DomainError compute(ordinary, FailingFormulation();
+            options=(timing=true, on_result=callback, verbosity=(default=1,)))
     end
     @test !any(record -> occursin("completed successfully", string(record.message)), failure_log.logs)
     @test isempty(calls)
-    ordinary = TestFixtures.three_bare_wires_problem(frequencies=[50.])
     failed_callback = function (_, index, result)
         push!(calls, index)
         @test haskey(details(result).data, :formulation)
@@ -107,7 +116,7 @@ end
         buffer = getproperty(workspace.buffers, field)
         saved = buffer[1]
         buffer[1] = complex(Inf)
-        @test_throws DomainError E._finish(workspace, ordinary, selected, LineCableModels.Units.PerUnitLength())
+        @test_throws DomainError E._finish(workspace, ordinary, selected)
         buffer[1] = saved
     end
 end

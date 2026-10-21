@@ -76,8 +76,7 @@ end
 function _finish(
         workspace::LineParametersWorkspace,
         problem::LineParametersProblem,
-        formulation::LineParametersFormulation,
-        basis::Units.LengthBasis;
+        formulation::LineParametersFormulation;
         physical_inputs=completed_inputs(problem),
         gridpoint=Commons.gridpoint_id()
 )
@@ -93,19 +92,18 @@ function _finish(
         "bundle:[" * join(names[members], ",") * "]" : names[index]
     end
     result = LineParameters(PhaseDomain(),
-        SeriesImpedance{eltype(impedance), Units.PerUnitLength}(impedance),
-        ShuntAdmittance{eltype(admittance), Units.PerUnitLength}(admittance),
+        SeriesImpedance{eltype(impedance)}(impedance),
+        ShuntAdmittance{eltype(admittance)}(admittance),
         workspace.input.freq, terminals, workspace.input.line_length,
         ComputationDetails(merge(retained.data,
             NamedTuple{(:formulation,:choices,:inputs,:gridpoint),
                 Tuple{LineParametersFormulation,EarthPlan,NamedTuple,NamedTuple}}(
                 (formulation,workspace.plan.earth,physical_inputs,gridpoint)))))
-    completed = LineParameters(result, basis)
-    all(isfinite, completed.Z.values) || throw(DomainError(completed.Z.values,
+    all(isfinite, result.Z.values) || throw(DomainError(result.Z.values,
         "completed series impedance must contain only finite entries"))
-    all(isfinite, completed.Y.values) || throw(DomainError(completed.Y.values,
+    all(isfinite, result.Y.values) || throw(DomainError(result.Y.values,
         "completed shunt admittance must contain only finite entries"))
-    return completed
+    return result
 end
 
 """
@@ -146,8 +144,7 @@ function compute(resolved::Resolved{<:LineParametersProblem},
     (; problem, input) = resolved
     workspace = LineParametersWorkspace(problem, formulation, execution, input.line, input.shunt)
     _solve!(workspace, formulation)
-    return _finish(workspace, problem, formulation, execution.data.output_basis;
-        physical_inputs = input.physical_inputs)
+    return _finish(workspace, problem, formulation; physical_inputs = input.physical_inputs)
 end
 
 description(::LineParametersProblem; compact::Bool = false) = "Line parameters"
@@ -180,7 +177,8 @@ is normalized once into a backend-owned workspace, and all reusable numerical st
 allocated before the frequency loop. `trace=true` copies `Zin`, `Pin`, `Zg`, `Pg`, `Z`, `P`,
 `phase_map`, `cable_map` and the integration records into `details(result).data.trace`.
 These arrays remain available after the workspace is reused. The result type remains
-unchanged.
+unchanged. The result is per meter, with Z in Ω/m and Y in S/m. The whole line's matrices
+are `Z(result) .* line_length(result)` and `Y(result) .* line_length(result)`.
 
 # Arguments
 
@@ -189,7 +187,7 @@ unchanged.
 
 # Keywords
 
-- `options`: named tuple containing `verbosity`, `output_basis`, `trace`, `timing` and
+- `options`: named tuple containing `verbosity`, `trace`, `timing` and
   `on_result`. The optional callable `on_result(problem, index, result)` runs
   synchronously after each completed point and before the next computation. `index` gives
   the position of the point in the space (`1` for a scalar call). Its return value is ignored.

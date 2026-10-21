@@ -21,12 +21,12 @@
         calculations[]+=1
         product=workspace.buffers.diagonal_product
         for k in eachindex(product)
-            z=workspace.input.Z[1,1,k]/workspace.input.root_scale
-            y=workspace.input.Y[1,1,k]/workspace.input.root_scale
+            z=workspace.input.Z[1,1,k]
+            y=workspace.input.Y[1,1,k]
             product[k]=z*y
             root=sqrt(product[k])
             (real(root)<0 || (iszero(real(root)) && imag(root)<0)) && (root=-root)
-            workspace.roots[1,k]=root*workspace.input.root_scale
+            workspace.roots[1,k]=root
             workspace.Tv[1,1,k]=one(root)
             workspace.Ti[1,1,k]=one(root)
             workspace.diagnostics.eigen_residual[1,k]=zero(real(root))

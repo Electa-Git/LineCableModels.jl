@@ -90,7 +90,6 @@ function Base.show(io::IO, ::MIME"text/plain", source::PropagationParameters)
             (label = "modes  $(size(Tv(source),1))", noun = "fields"),
             (
                 label = "frequency  $(first(frequencies(source)))–$(last(frequencies(source))) Hz ($(length(frequencies(source))) samples)",
-                noun = "fields"),
-            (label = "basis  :pul", noun = "fields")
+                noun = "fields")
         ))
 end

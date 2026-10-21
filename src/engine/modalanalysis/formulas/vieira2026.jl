@@ -289,8 +289,6 @@ function decompose!(formula::Formula{:vieira2026}, workspace::ModalAnalysisWorks
     for frequency in 1:nf
         copyto!(buffers.Zslice, @view(input.Z[:, :, frequency]))
         copyto!(buffers.Yslice, @view(input.Y[:, :, frequency]))
-        buffers.Zslice ./= input.root_scale
-        buffers.Yslice ./= input.root_scale
         mul!(buffers.admittance_impedance_product, buffers.Yslice, buffers.Zslice)
         omega = 2 * (unit * π) * R(input.f[frequency])
         scale = -(omega^2) * epsilon0 * mu0
@@ -376,7 +374,7 @@ function decompose!(formula::Formula{:vieira2026}, workspace::ModalAnalysisWorks
             eigenvalue = buffers.propagation_eigenvalues[mode]
             root = sqrt(eigenvalue)
             (real(root) < 0 || (iszero(real(root)) && imag(root) < 0)) && (root = -root)
-            workspace.roots[mode, frequency] = root * input.root_scale
+            workspace.roots[mode, frequency] = root
             mul!(buffers.eigen_residual, buffers.admittance_impedance_product, vector)
             buffers.eigen_residual .-= eigenvalue .* vector
             denominator = (norm(buffers.admittance_impedance_product, Inf) + abs(eigenvalue)) *

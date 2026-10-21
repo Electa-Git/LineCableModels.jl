@@ -83,15 +83,11 @@
     @test details(first_zero).data.gridpoint!=details(second_zero).data.gridpoint
     @test selected.calculations[]==1
 
-    total=LineParameters(PhaseDomain,SeriesImpedance(reshape(Zp.*600,2,2,1);basis=:total),
-        ShuntAdmittance(reshape(Yp.*600,2,2,1);basis=:total),[50.0];line_length=600.0)
-    total_selected=FixedModal(selected.voltage,selected.current,selected.roots.*600,
-        Ref(0),Ref(0))
-    total_modal=compute(ModalAnalysisProblem(total),ModalAnalysisFormulation(total_selected))
-    @test gamma(total_modal)[:,1]≈roots.*600
-    @test Zc(total_modal)≈Zc(modal)
-    @test gamma(PropagationParameters(total_modal))≈gamma(segment)
-    @test H(PropagationParameters(total_modal))≈H(segment)
+    # The line's totals are the per-meter values times its length.
+    @test gamma(modal)[:,1].*line_length(modal)≈roots.*600
+    @test Zc(segment)≈Zc(modal)
+    @test gamma(segment)≈gamma(modal)
+    @test H(segment)[:,1]≈exp.(-roots.*line_length(modal))
 
     phase_results=ParametricResult(Combinatorial(mf),[phase,phase])
     problems=Gridspace{ModalAnalysisProblem}(phase_results)

@@ -101,9 +101,9 @@
         @test details(result).data.execution.solver_identity["version"] == "5.1.0"
     end
     @test any(loss.requested > 0 for values in details(last(batch)).data.dielectric_losses for loss in values)
-    total = compute(problem,selected;options=(;options...,resume_run_directory=source,output_basis=:total))
-    @test Z(total) == 42 .* Z(first_result)
-    @test Y(total) == 42 .* Y(first_result)
+    total = compute(problem,selected;options=(;options...,resume_run_directory=source))
+    @test Z(total) .* line_length(total) == 42 .* Z(first_result)
+    @test Y(total) .* line_length(total) == 42 .* Y(first_result)
     untimed = compute(problem,selected;options=(;options...,timing=false,resume_run_directory=source))
     @test !haskey(details(untimed).data, :timing)
     @test details(untimed).data.execution.input_sha256 == details(first_result).data.execution.input_sha256

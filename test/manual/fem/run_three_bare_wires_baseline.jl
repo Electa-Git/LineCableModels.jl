@@ -143,13 +143,13 @@ function run_three_bare_wires_baseline(; analytical = true, fem = true)
         "unified" => (
             Formulation(earth_impedance = formula(:unified),
                 earth_admittance = formula(:unified);
-                options = reductions), (trace = true, output_basis = :pul)))
+                options = reductions), (trace = true,)))
     fem && push!(selections,
         "fem" => (
             Formulation(:fem;
                 options = merge((physics = :quasi_fw,), reductions)),
             (ui = false, mesh_mode = :remesh, resume_run_directory = nothing,
-                keep_run_directory = true, trace = true, output_basis = :pul,
+                keep_run_directory = true, trace = true,
                 verbosity = (default = 1,), gmsh_verbosity = 2, getdp_verbosity = 4,
                 frequency_workers = 2, solver_threads = 4, plot_field_maps = false)))
     # Each public call computes a complete fresh scan without reordering or resuming a previous solve.

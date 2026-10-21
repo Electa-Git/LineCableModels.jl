@@ -332,6 +332,6 @@ function materialize(source::Engine.LineParameters,
     return Engine.LineParameters(source.domain,
         complex.(materialize.(summaries.R), materialize.(summaries.L) .* angular),
         complex.(materialize.(summaries.G), materialize.(summaries.C) .* angular),
-        frequencies(source); basis=basis(source), terminals=source.terminals,
+        frequencies(source); terminals=source.terminals,
         line_length=source.line_length, details)
 end

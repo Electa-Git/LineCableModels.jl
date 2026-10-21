@@ -30,7 +30,7 @@
     @test_throws ArgumentError ObservedResult(source,selected;atol=(oops=0.,))
     for q in (R,X,L,G,B,C,Z,Y)
         comparison=compare(source,source,q)
-        @test comparison.details.data.resolution.unit==LineCableModels.Units.native_unit(q,:pul)
+        @test comparison.details.data.resolution.unit==LineCableModels.Units.native_unit(q)
     end
     @test compare(source,source,B).details.data.atol≈2π.*f.*compare(source,source,C).details.data.atol
     @test compare(source,source,X).details.data.atol≈2π.*f.*compare(source,source,L).details.data.atol
@@ -60,10 +60,10 @@ end
             @test only(error.details.data.unresolved_samples).result>0
         end
         @test !ismissing(only(compare(a,b,G;band=:wide,atol=cutoff).relative))
-        # The default floor of a total result is the per-unit-length floor times its length.
-        total=LineParameters(10z,10y,f; line_length=10.0,basis=:total)
-        @test observe(ObservedResult(total),G)≈10base
-        @test observe(ObservedResult(total;atol=(R=0.,X=0.,G=10cutoff,B=0.)),G)≈10base
+        # The line's totals are the per-meter observations times its length.
+        line=LineParameters(z,y,f; line_length=10.0)
+        @test observe(ObservedResult(line;length_unit=:base),G).*line_length(line)≈10base
+        @test observe(ObservedResult(line;length_unit=:base,atol=(R=0.,X=0.,G=cutoff,B=0.)),G).*line_length(line)≈10base
         @test compare(a,b,G;atol=0).relative≈fill(one(T),1,1)
         small=fill(T(1e-30),1,1,3)
         @test only(compare(small,2small).absolute)>0

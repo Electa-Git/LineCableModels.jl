@@ -49,7 +49,7 @@ function Commons.observation_quantity(source::Union{MonteCarloResult,LinearError
     product,selector=identity[1:2]
     indices=request_indices(request)
     q=request_quantity(request)
-    target=unit===nothing ? Units.display_unit(q,basis(core)) : unit
+    target=unit===nothing ? Units.display_unit(q) : unit
     distribution=nothing
     if product===histograms
         rank=core isa Engine.LineParameters ? 3 : 1
@@ -59,7 +59,7 @@ function Commons.observation_quantity(source::Union{MonteCarloResult,LinearError
         bins=length(indices)==rank ? nothing : last(indices)
         model=observe(source,histograms,selector,point,marginal...,bins)
         T=typeof(float(first(model.edges)))
-        factor=Units.scale_factor(Units.native_unit(q,basis(core)),target,T)
+        factor=Units.scale_factor(Units.native_unit(q),target,T)
         model=detach(model,factor)
         retained_samples=samples(source)===nothing ? nothing :
             vec(detach(observe(source,samples,selector,point,marginal...,Colon()),factor))
@@ -81,7 +81,7 @@ function Commons.observation_quantity(source::Union{MonteCarloResult,LinearError
         values=(lower=edges[1:end-1],upper=edges[2:end],density=copy(model.density),
             probability=probabilities,count=counts===nothing ? fill(missing,length(probabilities)) : counts)
         coordinates=merge(_uq_coordinates(core,selector,marginal),(kind=:histogram,))
-        return (request,quantity=q,family=:statistics,statistic=:histogram,values,unit=target,basis=basis(core),coordinates,
+        return (request,quantity=q,family=:statistics,statistic=:histogram,values,unit=target,coordinates,
             thresholds=nothing,available=true,engineering_zero=false,clipped=false,missing_reason=nothing,
             assumptions=nothing,distribution,ordinate_units=(density=inv(target),
                 probability=Units.units(:base,:dimensionless),count=Units.units(:base,:dimensionless)))
@@ -93,7 +93,7 @@ function Commons.observation_quantity(source::Union{MonteCarloResult,LinearError
     end
     values=observe(source,identity...,point,acquisition_indices...)
     T=typeof(float(real(nominal(zero(eltype(values))))))
-    factor=Units.scale_factor(Units.native_unit(q,basis(core)),target,T)
+    factor=Units.scale_factor(Units.native_unit(q),target,T)
     coordinate_indices=product===samples && !isempty(indices) ? indices[1:(core isa Engine.LineParameters ? 3 : 1)] : indices
     coordinates=_uq_coordinates(core,selector,coordinate_indices)
     if product===samples
@@ -108,7 +108,7 @@ function Commons.observation_quantity(source::Union{MonteCarloResult,LinearError
     statistic=product===samples ? :samples : last(identity) isa Base.Fix2 ?
         Symbol("quantile_",last(identity).x) : nameof(last(identity))
     return (request,quantity=q,family=:statistics,statistic,values=detach(retained,factor),
-        unit=target,basis=basis(core),coordinates,thresholds=nothing,available,
+        unit=target,coordinates,thresholds=nothing,available,
         engineering_zero=false,clipped=false,missing_reason=map(valid -> valid ? nothing : :nonfinite_value,available),
         assumptions=nothing,distribution)
 end
@@ -129,18 +129,16 @@ function Commons.ObservedResult(source::Union{MonteCarloResult,LinearErrorResult
     selected=Commons.observation_requests(source,requests;point,complete_pairs).retained
     isempty(units) || length(units)==length(selected) || throw(DimensionMismatch("units must align with retained requests"))
     targets = if isempty(units)
-        Commons.unit_targets(selected, basis(source);
-            length_prefix=length_unit, overrides=quantity_units)
+        Commons.unit_targets(selected; length_prefix=length_unit, overrides=quantity_units)
     else
         map(selected, units) do request, unit
-            Units.display_unit(request_quantity(request), basis(source), unit;
-                length_prefix=length_unit)
+            Units.display_unit(request_quantity(request), unit; length_prefix=length_unit)
         end
     end
     description=gridpoint===nothing ? Commons.observation_gridpoint(source[point]) : gridpoint
     sampling=source isa MonteCarloResult ? merge(confidence(source,point),
-        (frequencies=source[point] isa Engine.LineParameters ? detach(Engine.frequencies(source[point])) :
-            [source[point].frequency],basis=basis(source))) : nothing
+        (; frequencies=source[point] isa Engine.LineParameters ? detach(Engine.frequencies(source[point])) :
+            [source[point].frequency])) : nothing
     description=merge(description,(sampling,
         uncertainty_descriptions=_uncertainty_descriptions(source isa MonteCarloResult ? MonteCarlo : LinearError),
         uncertainty=(estimator=source isa MonteCarloResult ? :empirical : :first_order,

@@ -443,10 +443,10 @@ end
         )
     )
     duplicate_result=@inferred compute(duplicate_problem, bundle_only)
-    # Passing the options as an argument keeps output_basis a runtime Symbol.
-    # Basis and optional details may vary, but the public result must not widen to Any.
+    # Passing the options as an argument keeps them runtime values.
+    # Optional details may vary, but the public result must not widen to Any.
     calculate(problem, formulation, options)=compute(problem, formulation; options)
-    runtime_options=(output_basis = :pul, verbosity = (default = 0,))
+    runtime_options=(verbosity = (default = 0,),)
     inferred=only(Base.return_types(calculate,
         Tuple{typeof(duplicate_problem), typeof(bundle_only), typeof(runtime_options)}))
     @test inferred <: LineParameters

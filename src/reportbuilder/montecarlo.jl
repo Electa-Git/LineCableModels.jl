@@ -44,13 +44,13 @@ function _sampling_tables(points,reference)
         record=get(point.gridpoint,:sampling,nothing)
         record===nothing && continue
         scalar=(; (key=>(value===nothing ? missing : value isa Union{Number,Bool,Symbol,AbstractString,Missing} ? value : string(value))
-            for (key,value) in pairs(record) if !(key in (:mean_standard_error,:frequencies,:basis)))...)
+            for (key,value) in pairs(record) if !(key in (:mean_standard_error,:frequencies)))...)
         push!(sampling,merge(scalar,(role,point=id===nothing ? record.point : id.problem_index,
             formulation_index=id===nothing ? missing : id.formulation_index,
             method=only(Commons.observation_labels([point])),std_sampling_precision=missing)))
         for (quantity,values) in pairs(record.mean_standard_error),index in CartesianIndices(values)
             coordinates=Tuple(index)
-            unit=Units.native_unit(Units.quantity(getfield(Engine,quantity)),record.basis)
+            unit=Units.native_unit(Units.quantity(getfield(Engine,quantity)))
             push!(precision,(role,identity=id,point=id===nothing ? record.point : id.problem_index,
                 formulation_index=id===nothing ? missing : id.formulation_index,
                 method=only(Commons.observation_labels([point])),quantity,index=coordinates,

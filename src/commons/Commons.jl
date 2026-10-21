@@ -49,7 +49,7 @@ export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables, validate
 export nominal, uncertainty
-export add!, build, homogenize, constitutive, basis, line_length, description
+export add!, build, homogenize, constitutive, line_length, description
 export R, L, C, resistance, inductance, capacitance
 export formula, formula_id
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid

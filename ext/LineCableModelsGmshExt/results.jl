@@ -375,7 +375,7 @@ function _line_parameters(
         primitive = trace
     ),
     )
-    parameters = LineParameters(
+    return LineParameters(
         PhaseDomain(),
         SeriesImpedance(Z),
         ShuntAdmittance(Y),
@@ -384,7 +384,6 @@ function _line_parameters(
         model.problem.system.line_length,
         details
     )
-    return LineParameters(parameters, execution.data.output_basis)
 end
 
 function _merge_maps!(paths::Vector{String})

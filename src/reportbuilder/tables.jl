@@ -261,7 +261,6 @@ function _quantity_table(product; gridpoint_id=nothing)
     metadata!(table,"statistic",Commons.detach(product.statistic);style=:note)
     metadata!(table,"family",product.family;style=:note)
     metadata!(table,"unit",product.unit;style=:note)
-    metadata!(table,"basis",product.basis;style=:note)
     metadata!(table,"missing_reason",Commons.detach(product.missing_reason);style=:note)
     gridpoint_id===nothing || metadata!(table,"gridpoint_id",gridpoint_id;style=:note)
     return table

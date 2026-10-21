@@ -9,10 +9,8 @@ struct PropagationParameters{P <: LineParameters, L <: Real} <: AbstractCoreResu
     line_length::L
     details::ComputationDetails
 
-    # Only per-unit-length coefficients bind to a segment.
     function PropagationParameters(parameters::P, line_length::L,
-            details::ComputationDetails) where {
-            P <: LineParameters{<:Any, <:Any, <:Any, Units.PerUnitLength}, L <: Real}
+            details::ComputationDetails) where {P <: LineParameters, L <: Real}
         Engine.domain(parameters)===ModalDomain || throw(ArgumentError(
             "PropagationParameters require modal-domain coefficients"))
         _segment_length(line_length)
@@ -35,21 +33,6 @@ function _segment_length(value)
     return value
 end
 
-function per_unit_length(parameters::LineParameters{
-        T, U, D, Units.PerUnitLength}) where {T, U, D <: ModalDomain}
-    return parameters
-end
-
-function per_unit_length(parameters::LineParameters{
-        T, U, D, Units.TotalLength}) where {T, U, D <: ModalDomain}
-    ell0 = parameters.line_length
-    modal = ModalDomain(parameters.domain.operators, gamma(parameters) ./ ell0)
-    return LineParameters(modal,
-        SeriesImpedance(parameters.Z.values ./ ell0; basis = Units.PerUnitLength()),
-        ShuntAdmittance(parameters.Y.values ./ ell0; basis = Units.PerUnitLength()),
-        parameters.f, parameters.terminals, ell0, parameters.details)
-end
-
 function PropagationParameters(parameters::LineParameters{T, U, D};
         line_length = LineCableModels.line_length(parameters), combine::Symbol = :product) where {
         T, U, D <: ModalDomain}
@@ -59,7 +42,6 @@ end
 function _bind_segment(parameters::LineParameters{T, U, D}, line_length) where {
         T, U, D <: ModalDomain}
     segment_length = _segment_length(line_length)
-    per_unit_length_parameters = per_unit_length(parameters)
     source_length = LineCableModels.line_length(parameters)
     source_gridpoint = get(parameters.details.data, :gridpoint, nothing)
     segment_gridpoint = isequal(segment_length, source_length) ? source_gridpoint :
@@ -72,7 +54,7 @@ function _bind_segment(parameters::LineParameters{T, U, D}, line_length) where {
         (gridpoint = segment_gridpoint, source_gridpoint,
             segment = (line_length = segment_length, normalization_length = source_length)))
     completed_details = ComputationDetails(segment_details)
-    return PropagationParameters(per_unit_length_parameters, segment_length, completed_details)
+    return PropagationParameters(parameters, segment_length, completed_details)
 end
 
 function PropagationParameters(source::PropagationParameters;
@@ -97,7 +79,6 @@ function _bind_segment(source::PropagationParameters, line_length)
 end
 
 line_length(source::PropagationParameters) = source.line_length
-basis(::PropagationParameters) = Units.PerUnitLength()
 frequencies(source::PropagationParameters) = frequencies(source.parameters)
 details(source::PropagationParameters) = source.details
 Tv(source::PropagationParameters) = Tv(source.parameters)

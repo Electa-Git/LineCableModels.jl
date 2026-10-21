@@ -110,7 +110,7 @@ function deserialize_value(value)
         marker == "NamedTuple" && return NamedTuple{Tuple(Symbol.(value["names"]))}(
             Tuple(deserialize_value(item) for item in value["values"]))
         marker in ("UInt64", "Observable", "Quantile", "ModalRepresentation", "ObservedArchive",
-            "UUID", "Colon", "Quantity", "Unit", "UnitExpr", "LengthBasis", "ScientificType") &&
+            "UUID", "Colon", "Quantity", "Unit", "UnitExpr", "ScientificType") &&
             return deserialize_extension(Val(Symbol(marker)),value)
         if marker == "Measurement"
             applicable(deserialize_extension, Val(Symbol(marker)), value) || throw(

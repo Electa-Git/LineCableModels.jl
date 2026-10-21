@@ -29,7 +29,7 @@ export LineParametersProblem, CableConstantsProblem,
        series_impedance, shunt_admittance,
        resistance, reactance, inductance,
        conductance, susceptance, capacitance,
-       frequencies, nconductors, nfrequencies, basis
+       frequencies, nconductors, nfrequencies
 export AbstractFormulation, LineParametersFormulation, CableConstantsFormulation,
        Formulation
 export LineCableModelsCoaxial, LineCableModelsFEM,
@@ -47,7 +47,7 @@ export compute
 using LinearAlgebra: diag, lu, I
 import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: basis, line_length, build, R, L, C,
+import ..LineCableModels: line_length, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,

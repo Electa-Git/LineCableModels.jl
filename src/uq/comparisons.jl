@@ -29,8 +29,8 @@ function Engine.compare(reference::Union{MonteCarloResult, LinearErrorResult},
     sort!(selected; by = last)
     for (left_index, right_index) in selected
         left, right = reference[left_index], result[right_index]
-        basis(left) === basis(right) && Engine.domain(left) === Engine.domain(right) ||
-            throw(ArgumentError("UQ point basis or domain differs"))
+        Engine.domain(left) === Engine.domain(right) ||
+            throw(ArgumentError("UQ point domain differs"))
         frequencies(left) == frequencies(right) ||
             throw(ArgumentError("UQ point frequencies differ"))
         left.terminals == right.terminals ||
@@ -40,8 +40,7 @@ function Engine.compare(reference::Union{MonteCarloResult, LinearErrorResult},
         left=reference[left_index]
         a = observe(reference, identity..., left_index)
         b = observe(result, identity..., right_index)
-        error = Engine.compare(a, b, identity[2]; frequencies = frequencies(left),
-            result_basis = basis(left), kwargs...)
+        error = Engine.compare(a, b, identity[2]; frequencies = frequencies(left), kwargs...)
         return Engine.RMSError{Base.nonmissingtype(eltype(observe(error, Engine.absolute_error)))}(
             observe(error, Engine.absolute_error), observe(error, Engine.relative_error);
             details = ComputationDetails(merge(details(error).data, (; request = identity,

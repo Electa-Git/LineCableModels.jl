@@ -99,17 +99,17 @@ existing plots. Recreate the plot to add its button.
 ## Result access
 
 `CableConstants` stores R/L/C values per meter. `LineParameters`
-stores its frequency domain and either a `:pul` or `:total` basis:
+stores its frequency domain and Z/Y per meter, in Ω/m and S/m:
 
 ```julia
-basis(line_parameters)
+Z(line_parameters) .* line_length(line_parameters)   # the whole line, in Ω
 @observe line_parameters R[1, 1, :]       # complete frequency response
 @observe line_parameters Z[1, 1, 2:5]     # selected frequency samples
 @observe line_parameters (Z, abs)[1, 2, :]
 
 label(R)                         # "Series resistance"
 symbol(Z, angle)                 # "∠Z"
-label(display_unit(R, :pul))     # "Ω/km"
+label(display_unit(R))           # "Ω/km"
 ```
 
 Complete parameter traversals return `ParametricResult{T}`, including a space
@@ -155,9 +155,9 @@ in a row for one trial stop the study. Any other exception propagates. The resul
 statistics are conditional on a successful realization.
 
 Physics and numerical-method choices belong to `Formulation`. Execution choices
-are passed as a named tuple. For a materialized line system, pass
-`options=(output_basis=:total,)` to `compute` to scale both Z and Y by the line
-length. Composite calculations select their operation explicitly, such as
+are passed as a named tuple. Line parameters are always per meter. The whole
+line's Z and Y are `Z(result) .* line_length(result)` and
+`Y(result) .* line_length(result)`. Composite calculations select their operation explicitly, such as
 `compute(ParametricProblem(space), Combinatorial(Formulation()))`.
 
 Write results to an XLSX workbook with `report`:

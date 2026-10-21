@@ -14,7 +14,7 @@
     @test row.C > 0
     @test row.G >= 0
     @test constants.frequency == 50.0
-    @test basis(constants) === LineCableModels.Units.PerUnitLength()
+    @test LineCableModels.Units.label(LineCableModels.Units.native_unit(R)) == "Ω/m"
     @test resistance(constants) === constants.R
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C

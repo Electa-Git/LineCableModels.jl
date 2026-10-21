@@ -105,12 +105,12 @@
         sample_log=Test.TestLogger()
         total=with_logger(sample_log) do
             compute(problem, Formulation(:pscad); options = (;
-                options..., output_basis = :total, verbosity=(default=0,)))
+                options..., verbosity=(default=0,)))
         end
         @test isempty(sample_log.logs)
         @test launches[] == 1
-        @test Z(total) == 42 .* Z(first_result)
-        @test Y(total) == 42 .* Y(first_result)
+        @test Z(total) .* line_length(total) == 42 .* Z(first_result)
+        @test Y(total) .* line_length(total) == 42 .* Y(first_result)
         @test original ==
               Dict(path=>(bytes2hex(open(sha256, path)), mtime(path)) for path in files)
         callbacks=Int[]

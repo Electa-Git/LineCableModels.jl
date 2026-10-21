@@ -69,11 +69,19 @@ modal_formulations = ModalAnalysisFormulation(Grid((
 Execution settings use the `options` keyword:
 
 ```julia
-compute(problem, formulation; options=(output_basis=:total,))
+compute(problem, formulation; options=(trace=true,))
 ```
 
-`output_basis=:total` scales both impedance and admittance by the system
-length. Cable constants use a separate earth-free workflow:
+Line parameters are always per meter, with Z in Ω/m and Y in S/m. The whole line's
+matrices are the per-meter ones times the line length stored in the result:
+
+```julia
+parameters = compute(problem, formulation)
+Z(parameters) .* line_length(parameters)   # Ω
+Y(parameters) .* line_length(parameters)   # S
+```
+
+Cable constants use a separate earth-free workflow:
 
 ```julia
 constants_problem = CableConstantsProblem(
@@ -95,10 +103,8 @@ placement, propagation constant, transposition, or bundle option.
 [`CableConstants`](@ref) stores R/L/C/G values per meter. Its aligned vectors
 contain one row per independent concentric assembly. `only(constants)` returns
 the scalar row of a conventional single-core coaxial cable. [`LineParameters`](@ref)
-stores frequency-dependent Z/Y matrices and records their physical domain and
-length basis. `basis(parameters)` returns `Units.PerUnitLength()` or
-`Units.TotalLength()`, which options and keywords also accept written as `:pul` or
-`:total`. Scientific extraction goes through `observe` or `observables`.
+stores frequency-dependent Z/Y matrices per meter and records their physical domain
+and the line length. Scientific extraction goes through `observe` or `observables`.
 
 [`observe`](@ref) reads one scientific quantity:
 
@@ -131,7 +137,7 @@ display units come from the quantity metadata:
 ```julia
 label(R)                             # "Series resistance"
 symbol(Z, angle)                     # "∠Z"
-label(display_unit(R, :pul))         # "Ω/km"
+label(display_unit(R))               # "Ω/km"
 ```
 
 ## Parameter spaces and uncertainty

@@ -634,7 +634,7 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
         execution = (;
             (key => value
         for (key, value) in pairs(execution.data)
-        if key ∉ (:verbosity, :output_basis, :trace, :on_result, :log_file, :timing,
+        if key ∉ (:verbosity, :trace, :on_result, :log_file, :timing,
             :resume_run_directory))...),
         supplied_mesh = mesh_path === nothing || !isfile(mesh_path) ? nothing :
                         bytes2hex(open(sha256, mesh_path)),
@@ -709,8 +709,8 @@ function _compute_fem(resolved::Commons.Resolved, formulation::LineCableModelsFE
         retained = merge(retained,
             (fem=merge(retained.fem, (run=merge(retained.fem.run, (reused=true,)),)),))
         LineParameters(PhaseDomain(),
-            SeriesImpedance(copy(source.Z.values); basis = Engine.basis(source)),
-            ShuntAdmittance(copy(source.Y.values); basis = Engine.basis(source)),
+            SeriesImpedance(copy(source.Z.values)),
+            ShuntAdmittance(copy(source.Y.values)),
             copy(source.f), copy(source.terminals), source.line_length,
             ComputationDetails(retained))
     end

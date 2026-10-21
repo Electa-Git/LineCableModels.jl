@@ -109,7 +109,7 @@
         @test entry.row==entry.index[1] && entry.column==entry.index[2]
         @test entry.frequency_Hz==frequencies[entry.index[3]]
         @test entry.unit==LineCableModels.Units.label(LineCableModels.Units.native_unit(
-            LineCableModels.Units.quantity(selector),:pul))
+            LineCableModels.Units.quantity(selector)))
     end
     @test all(==(:empirical),[point.gridpoint.uncertainty.estimator for point in artifact.observed])
 end

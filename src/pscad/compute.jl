@@ -1,16 +1,15 @@
-# A normalized record stores its basis as a type. This method returns it as it is.
+# A normalized record is returned as it is.
 computation_options(::Type{<:PSCADFormulation},
     record::ComputationOptions{<:NamedTuple{(:work_root, :output_stem, :remote, :verbosity,
-        :timing, :output_basis, :on_result, :resume_run_directory, :solver_identity),
-        <:Tuple{String, String, RemoteConfig, NamedTuple, Bool, Units.LengthBasis,
-            Any, Any, Any}}}) = record
+        :timing, :on_result, :resume_run_directory, :solver_identity),
+        <:Tuple{String, String, RemoteConfig, NamedTuple, Bool, Any, Any, Any}}}) = record
 
 function computation_options(
         ::Type{<:PSCADFormulation},
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
-    allowed = (:output_stem, :remote, :verbosity, :output_basis, :on_result,
+    allowed = (:output_stem, :remote, :verbosity, :on_result,
         :resume_run_directory, :solver_identity, :work_root, :timing)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
@@ -27,7 +26,6 @@ function computation_options(
             output_stem = "lcm",
             work_root = options.remote.local_root,
             verbosity = (default = 0,),
-            output_basis = Units.PerUnitLength(),
             on_result = nothing,
             resume_run_directory = nothing,
             solver_identity = nothing,
@@ -45,7 +43,6 @@ function computation_options(
         ))
     levels = verbosity(normalized.verbosity)
     normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
-    output_basis = Units.LengthBasis(normalized.output_basis)
     resume = normalized.resume_run_directory
     (resume === nothing || resume === :latest || resume isa AbstractString) ||
         throw(ArgumentError("PSCAD resume_run_directory must be nothing, :latest, or a completed run path"))
@@ -68,7 +65,6 @@ function computation_options(
         remote = options.remote,
         verbosity = levels,
         timing = normalized.timing,
-        output_basis,
         on_result = normalized.on_result,
         resume_run_directory = resume isa AbstractString ? abspath(resume) : resume,
         solver_identity = identity
@@ -281,13 +277,12 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     return (; parameters, native_readback, files, execution)
 end
 
-function _pscad_result(problem, formulation, options, inputs, native; batch_reuse = false)
+function _pscad_result(problem, formulation, inputs, native; batch_reuse = false)
     permutation = inputs.permutation
     parameters = LineParameters(PhaseDomain,
         Z(native.parameters)[permutation, permutation, :], Y(native.parameters)[permutation, permutation, :],
         copy(frequencies(native.parameters)); terminals = copy(inputs.terminals),
         line_length = problem.system.line_length, details = details(native.parameters))
-    parameters = LineParameters(parameters, options.data.output_basis)
     all(isfinite, Z(parameters)) || throw(DomainError(Z(parameters),
         "completed PSCAD series impedance must contain only finite entries"))
     all(isfinite, Y(parameters)) || throw(DomainError(Y(parameters),
@@ -354,8 +349,7 @@ function compute(resolved::Resolved{<:LineParametersProblem}, formulation::PSCAD
     native = reused ? input.runs[input.key] :
              (input.runs[input.key] = _compute_pscad(problem, formulation, execution, input.inputs))
     input.identity[] === nothing && (input.identity[] = native.execution.solver_identity)
-    value = _pscad_result(problem, formulation, execution, input.inputs, native;
-        batch_reuse = reused)
+    value = _pscad_result(problem, formulation, input.inputs, native; batch_reuse = reused)
     return Engine.retain_gridpoint(value, gridpoint_id();
         fields = (formulation = formulation, choices = (), inputs = input.physical_inputs))
 end

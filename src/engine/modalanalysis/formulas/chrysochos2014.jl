@@ -298,8 +298,6 @@ function decompose!(formula::Formula{:chrysochos2014}, workspace::ModalAnalysisW
     @inbounds for frequency_index in 1:nfrequencies
         copyto!(workspace.buffers.Zslice,@view(impedance[:,:,frequency_index]))
         copyto!(workspace.buffers.Yslice,@view(admittance[:,:,frequency_index]))
-        workspace.buffers.Zslice ./= workspace.input.root_scale
-        workspace.buffers.Yslice ./= workspace.input.root_scale
         Zslice=workspace.buffers.Zslice
         Yslice=workspace.buffers.Yslice
         frequency = convert(R, frequencies[frequency_index])
@@ -373,7 +371,7 @@ function decompose!(formula::Formula{:chrysochos2014}, workspace::ModalAnalysisW
             @views workspace.Tv[:,mode,frequency_index] .= buffers.voltage_vector ./ divisor
             root = sqrt((previous_eigenvalues[mode]+one(T))*scale)
             (real(root)<0 || (iszero(real(root)) && imag(root)<0)) && (root=-root)
-            workspace.roots[mode,frequency_index] = root*workspace.input.root_scale
+            workspace.roots[mode,frequency_index] = root
             eigenvalue=(previous_eigenvalues[mode]+one(T))*scale
             mul!(buffers.eigenpair_assignment.residual,admittance_impedance_product,vector)
             buffers.eigenpair_assignment.residual .-= eigenvalue .* vector

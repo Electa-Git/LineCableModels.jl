@@ -38,24 +38,26 @@
 end
 
 @testitem "Engine / fixed public options retain phase and modal result types" tags=[:unit, :parametric] setup=[TestFixtures] begin
-    function fixed_options(problem, selected, ::Val{Basis}, ::Val{Trace}, ::Val{Timing}) where {Basis, Trace, Timing}
+    function fixed_options(problem, selected, ::Val{Trace}, ::Val{Timing}) where {Trace, Timing}
         compute(problem, selected;
-            options=(output_basis=Basis, trace=Trace, timing=Timing, verbosity=(default=0,)))
+            options=(trace=Trace, timing=Timing, verbosity=(default=0,)))
     end
     function phase_and_modal(problem, selected)
-        phase=compute(problem, selected; options=(output_basis=:pul, trace=false, timing=false))
+        phase=compute(problem, selected; options=(trace=false, timing=false))
         modal=compute(ModalAnalysisProblem(phase), ModalAnalysisFormulation(:default);
             options=(rotate=true,))
         return phase, modal
     end
     problem=TestFixtures.line_parameters_problem(TestFixtures.two_wire_system(); frequencies=[50.0, 500.0])
     selected=Formulation(options=(reduce_bundle=false, kron_reduction=false, ideal_transposition=false))
-    reference=@inferred fixed_options(problem, selected, Val(:pul), Val(false), Val(false))
-    for basis in (:pul, :total), trace in (false, true), timing in (false, true)
-        result=@inferred fixed_options(problem, selected, Val(basis), Val(trace), Val(timing))
-        multiplier=basis===:pul ? 1.0 : problem.system.line_length
-        @test Z(result)==multiplier.*Z(reference)
-        @test Y(result)==multiplier.*Y(reference)
+    reference=@inferred fixed_options(problem, selected, Val(false), Val(false))
+    for trace in (false, true), timing in (false, true)
+        result=@inferred fixed_options(problem, selected, Val(trace), Val(timing))
+        @test Z(result)==Z(reference)
+        @test Y(result)==Y(reference)
+        # The line's totals are the per-meter values times its length.
+        @test Z(result).*line_length(result)==problem.system.line_length.*Z(reference)
+        @test Y(result).*line_length(result)==problem.system.line_length.*Y(reference)
         @test frequencies(result)==frequencies(reference)
         @test haskey(details(result).data, :trace)==trace
         @test haskey(details(result).data, :timing)==timing

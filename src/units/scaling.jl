@@ -39,77 +39,43 @@ function scale_factor(from::UnitExpr,to::UnitExpr,::Type{T}) where {T<:AbstractF
         (T(π)/T(180))^(degrees(from)-degrees(to))
 end
 
-# Per unit length keeps the length in the denominator, with `length_prefix`. The total
-# line length removes it.
-function _with_basis(expression::UnitExpr, ::PerUnitLength; length_prefix::Symbol = :base)
-    has_length = any(unit -> unit.name === :meter, expression.denominator)
-    retained = filter(unit -> unit.name !== :meter, expression.denominator)
-    denominator = has_length ? (retained..., Unit(:meter, length_prefix)) : retained
-    return UnitExpr(expression.numerator, denominator)
-end
-function _with_basis(expression::UnitExpr, ::TotalLength; length_prefix::Symbol = :base)
-    retained = filter(unit -> unit.name !== :meter, expression.denominator)
-    return UnitExpr(expression.numerator, retained)
-end
-
-function native_unit(quantity::Quantity, basis::Union{Symbol, LengthBasis})
-    _with_basis(native_unit(quantity), LengthBasis(basis))
-end
-function display_unit(
-        quantity::Quantity,
-        basis::Union{Symbol, LengthBasis};
-        length_prefix::Symbol = :kilo,
-        prefix::Union{Nothing, Symbol} = nothing
-)
-    expression = _with_basis(display_unit(quantity), LengthBasis(basis); length_prefix)
-    prefix === nothing && return expression
-    isempty(expression.numerator) && return expression
-    numerator = (
-        Unit(first(expression.numerator).name, prefix),
-        Base.tail(expression.numerator)...
-    )
-    return UnitExpr(numerator, expression.denominator)
-end
-
 """
 $(TYPEDSIGNATURES)
 
-Resolve a display unit for a quantity and basis from one optional override.
+Resolve a display unit for a quantity from one optional override.
 
-The value `nothing` retains the registered display unit, a `Symbol` replaces
-its numerator metric prefix, and a `UnitExpr` is returned unchanged.
+The value `nothing` retains the registered display unit, with `length_prefix` as the
+metric prefix of a per-length denominator. A `Symbol` also replaces its numerator metric
+prefix, and a `UnitExpr` is returned unchanged.
 
 # Errors
 
 - Throws `ArgumentError` for unsupported override values or invalid metric
   prefixes.
 """
-function display_unit(
-        quantity::Quantity,
-        basis::Union{Symbol, LengthBasis},
-        override;
-        length_prefix::Symbol = :kilo
-)
+function display_unit(quantity::Quantity, override; length_prefix::Symbol = :kilo)
     throw(ArgumentError(
         "display-unit overrides must be a metric prefix, UnitExpr, or nothing",
     ))
 end
-function display_unit(quantity::Quantity, basis::Union{Symbol, LengthBasis}, ::Nothing;
-        length_prefix::Symbol = :kilo)
-    return display_unit(quantity, basis; length_prefix)
+function display_unit(quantity::Quantity, ::Nothing; length_prefix::Symbol = :kilo)
+    expression = display_unit(quantity)
+    has_length = any(unit -> unit.name === :meter, expression.denominator)
+    retained = filter(unit -> unit.name !== :meter, expression.denominator)
+    denominator = has_length ? (retained..., Unit(:meter, length_prefix)) : retained
+    return UnitExpr(expression.numerator, denominator)
 end
-function display_unit(quantity::Quantity, basis::Union{Symbol, LengthBasis}, override::UnitExpr;
-        length_prefix::Symbol = :kilo)
+function display_unit(quantity::Quantity, override::UnitExpr; length_prefix::Symbol = :kilo)
     return override
 end
-function display_unit(quantity::Quantity, basis::Union{Symbol, LengthBasis}, override::Symbol;
-        length_prefix::Symbol = :kilo)
-    return display_unit(quantity, basis; length_prefix, prefix = override)
+function display_unit(quantity::Quantity, override::Symbol; length_prefix::Symbol = :kilo)
+    expression = display_unit(quantity, nothing; length_prefix)
+    isempty(expression.numerator) && return expression
+    numerator = (Unit(first(expression.numerator).name, override),
+        Base.tail(expression.numerator)...)
+    return UnitExpr(numerator, expression.denominator)
 end
 
 function scale_factor(quantity::Quantity, target::UnitExpr)
     scale_factor(native_unit(quantity), target)
-end
-function scale_factor(quantity::Quantity, basis::Union{Symbol, LengthBasis}, target::UnitExpr)
-    scale_factor(native_unit(quantity, basis), target)
 end

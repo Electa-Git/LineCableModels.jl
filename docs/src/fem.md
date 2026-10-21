@@ -265,8 +265,8 @@ condition number of each frequency in the result details.
 The returned value is the package-native `LineParameters` in `PhaseDomain`,
 with ``Z`` in Ω/m, ``Y`` in S/m, and the exact input frequency vector in Hz.
 Pass `options=(trace=true,)` to `compute` to retain primitive ``Z/P`` in result
-details. `output_basis=:total` continues to use the shared computation option
-and scales by line length.
+details. The result is per meter. The whole line's matrices are
+`Z(result) .* line_length(result)` and `Y(result) .* line_length(result)`.
 
 ## Schema authority and reconciliation
 
@@ -295,7 +295,7 @@ rejected.
 | Temperature | `LineParametersProblem.temperature` | Prescribed input to the selected temperature law. The default uses material `T0` and `alpha` |
 | Earth material | `LineParametersProblem.earth_props` | Declared air plus one horizontal soil half-space. The soil law is evaluated per frequency |
 | Optional environment declaration | `LineCableSystem.environment` | `nothing` and `EarthModel` are accepted. Other declarations produce a typed unsupported-feature error |
-| Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is the default. Total basis scales Z and Y by line length |
+| Line length | `LineCableSystem.line_length` | Z and Y are per meter. The result stores the line length, and `Z(result) .* line_length(result)` gives the whole line |
 | Propagation constant | backend-owned ``\Gamma\to0`` limit, with independent or first-order coupled fields selected by formulation `options.physics` | Selected by the formulation. The FEM problem supplies geometry, materials, and frequencies |
 | Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region. Per-frequency earth skin depth controls the exterior domain, and air-soil propagation scales constrain surrounding-medium resolution | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
 

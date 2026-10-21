@@ -9,7 +9,7 @@ using LineCableModels, GLMakie, LinearAlgebra
 
 frequency_grid = 10.0 .^ range(-1, 8; length = 321)
 source_length = 2_000.0
-phase_options = (output_basis = :pul, verbosity = (default = 0,))
+phase_options = (verbosity = (default = 0,),)
 
 # Table IV radii are measured from the cable center. The table omits
 # dielectric bulk resistivity and conductor temperature coefficients. Infinite

@@ -28,7 +28,7 @@ import ...Commons: AbstractProblemDefinition, AbstractFormulation,
 import ...Commons: AbstractResultSpace
 import ...Commons: observe, observables, request_identity, request_indices, observation_indices
 import ..Engine: LineParameters, LineParametersFormulation, LineParametersProblem,
-                 PhaseDomain, ModalDomain, SeriesImpedance, ShuntAdmittance, basis, frequencies,
+                 PhaseDomain, ModalDomain, SeriesImpedance, ShuntAdmittance, frequencies,
                  description, formula_id, selectdomain, selectdetails
 using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
                      eigen!, issuccess, ldiv!, lu!, mul!, norm, rdiv!, svd!, svdvals!

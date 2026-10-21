@@ -214,7 +214,6 @@ Resolve display-unit targets aligned with a tuple of scientific requests.
 # Arguments
 
 - `requests`: selector functions or selector tuples.
-- `result_basis`: a `Units.LengthBasis`, or the Symbol `:pul` or `:total` that writes it.
 
 # Keywords
 
@@ -225,19 +224,9 @@ Resolve display-unit targets aligned with a tuple of scientific requests.
 
 - A tuple of concrete `UnitExpr` values aligned with `requests`.
 """
-function unit_targets(
-        requests::Tuple,
-        result_basis::Union{Symbol, Units.LengthBasis};
-        length_prefix::Symbol = :kilo,
-        overrides = nothing
-)
+function unit_targets(requests::Tuple; length_prefix::Symbol = :kilo, overrides = nothing)
     return map(requests) do request
-        display_unit(
-            request_quantity(request),
-            result_basis,
-            _unit_override(overrides, request);
-            length_prefix
-        )
+        display_unit(request_quantity(request), _unit_override(overrides, request); length_prefix)
     end
 end
 
@@ -264,7 +253,7 @@ Result owners extend this operation. The fallback leaves precision unspecified.
 
 # Arguments
 
-- `source`: result defining the requested values and native physical basis.
+- `source`: result defining the requested values and their native units.
 - `request`: an observable selector or indexed request.
 
 # Keywords

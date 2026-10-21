@@ -106,7 +106,7 @@ function encode(definition::XLSXReportDefinition,observed,tables,illustration;re
         index=id===nothing ? string(point_index) : string(id.source_id,"_",id.problem_index,"_",id.formulation_index)
         destination=joinpath(dirname(requested),stem*"_"*index*"_"*name*".xlsx")
         any(book -> book.destination==destination,workbooks) && throw(ArgumentError("duplicate workbook destination"))
-        entries=(quantity=string(product.quantity),unit=Units.label(product.unit),basis=string(product.basis),
+        entries=(quantity=string(product.quantity),unit=Units.label(product.unit),
             coordinates=repr(product.coordinates),gridpoint=repr(point.gridpoint),
             cutoffs=repr(product.thresholds),missing_reason=repr(product.missing_reason))
         cells=Matrix{Any}(undef,length(entries),2)

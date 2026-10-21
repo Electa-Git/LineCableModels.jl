@@ -322,15 +322,10 @@ end
     @test shifted_reference.Y.values[:, :, 2] ==
           direct_reference.Y.values[:, :, 1]
 
-    total=compute(
-        problem,
-        formulation;
-        options = (output_basis = :total,)
-    )
-    @test basis(parameters) === LineCableModels.Units.PerUnitLength()
-    @test basis(total) === LineCableModels.Units.TotalLength()
-    @test total.Z.values ≈ problem.system.line_length .* parameters.Z.values
-    @test total.Y.values ≈ problem.system.line_length .* parameters.Y.values
+    # The line's totals are the per-meter values times its length.
+    @test line_length(parameters) == problem.system.line_length
+    @test Z(parameters) .* line_length(parameters) ≈ problem.system.line_length .* parameters.Z.values
+    @test Y(parameters) .* line_length(parameters) ≈ problem.system.line_length .* parameters.Y.values
 end
 
 @testitem "Engine / lossy dielectric / Gridspace Monte Carlo samples before assembly" tags=[:unit, :measurements] setup=[
@@ -440,14 +435,10 @@ end
               getproperty(only(samples(sampled)), component)
     end
 
-    total=compute(
-        ParametricProblem(problem, ComputationOptions((output_basis = :total,))),
-        monte_carlo
-    )
-    @test basis(only(sampled)) === LineCableModels.Units.PerUnitLength()
-    @test basis(only(total)) === LineCableModels.Units.TotalLength()
+    # The line's totals are the per-meter samples times its length.
+    @test line_length(only(sampled)) == 1000.0
     for component in (:R, :L, :G, :C)
-        @test getproperty(only(samples(total)), component) ≈
+        @test getproperty(only(samples(sampled)), component) .* line_length(only(sampled)) ≈
               1000.0 .* getproperty(only(samples(sampled)), component)
     end
 end
