@@ -48,11 +48,10 @@
         Combinatorial(formulation_space; options=(retain_details=true,)))
     @test length(run) == length(problems) * length(formulations)
     @test length(details(run).data.points) == length(run)
-    @test formula_id.(getproperty.(
-        getproperty.(run.axes.formulations, :formulas),
-        :earth_impedance
-    )) == [:LayerImpedance, :LayerImpedance]
-    @test [f.formulas.earth_impedance.parameters.scale for f in run.axes.formulations] == [1.0, 2.0]
+    columns = [details(run[1, j]).data.formulation for j in eachindex(formulations)]
+    @test formula_id.([f.formulas.earth_impedance for f in columns]) ==
+          [:LayerImpedance, :LayerImpedance]
+    @test [f.formulas.earth_impedance.parameters.scale for f in columns] == [1.0, 2.0]
     for index in eachindex(expected)
         @test same_parameters(run[index], expected[index])
     end
@@ -155,7 +154,7 @@
         ModalAnalysisProblem(direct[index]),ModalAnalysisFormulation(:default))),
         1:length(composed))
     @test_throws ArgumentError compute(first(problems),first(formulations);
-        modal_options=(timing=true,))
+        modal_options=(rotate=true,))
     completed_modal_grid=Grid(Tuple(modal_formulations))
     composed_grid=compute(first(problems),first(formulations);
         modal=completed_modal_grid)

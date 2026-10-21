@@ -1082,7 +1082,7 @@ in `src/engine/modalanalysis/formulas/chrysochos2014.jl`.
 
 [`ComputationDetails`](@ref) is an immutable record of supplemental computation
 output. Its named-tuple payload is in a field typed `NamedTuple`, so every record has the
-same type, and options such as `timing` and `trace` only add keys to `.data`. Access its
+same type, and options such as `trace` only add keys to `.data`. Access its
 fields through `.data`.
 [`computation_details`](@ref) returns the fixed-key details record supplied by the
 formulation's owner. Higher-order computations dispatch on `typeof(formulation)`
@@ -1186,31 +1186,37 @@ the higher-order formulation's own `ComputationOptions` record.
 
 ### Scan timing and progress
 
-Line-parameter computations accept `timing::Bool=false` independently of logging:
+Timing is a log of the run, at the `timing` level of `verbosity`. A result does not
+record timing. At level 1 or more, each point writes one `Info` record in the group `:timing`
+with its `gridpoint` and its measurements:
 
 ```julia
-execution = ComputationOptions(timing=true, verbosity=(default=0, progress=1))
-result = compute(problem, formulation; options=execution)
-scan = details(result).data.timing
+using Logging, Test
+log = Test.TestLogger()
+result = with_logger(log) do
+    compute(problem, formulation; options=(verbosity=(default=0, timing=1, progress=1),))
+end
+timings = [(; record.kwargs...) for record in log.logs if record.group === :timing]
 ```
 
 For a higher-order computation, keep these controls in
 `ParametricProblem(problem_space, execution)`. Cable-constant computations do not take
 computation options.
 
-Each measurement describes one point, which is one materialized problem and formulation
-over the complete requested frequency vector. The runner uses `Base.@timed` around the
-backend's point method, for every backend. The shared work that `resolve` does once
-per problem, timing attachment, `on_result`, and progress logging lie outside the
-measured expression. 3 executed formulations produce three measurements. Shared input
-construction is neither duplicated nor apportioned. Compilation that occurs before
-the measured expression begins is not included.
+Each record describes one point, which is one materialized problem and formulation over
+the complete requested frequency vector. The runner uses `Base.@timed` around the
+backend's point method, for every backend. The shared work that `resolve` does once per
+problem, `on_result`, and progress logging lie outside the measured expression. 3
+executed formulations produce three records. Shared input construction is neither
+duplicated nor apportioned. Compilation that occurs before the measured expression begins
+is not included.
 
-`details(result).data.timing` holds `wall_seconds`, `bytes`, `gc_seconds`,
-`compile_seconds` and `recompile_seconds`. All durations are in seconds. `bytes` is
-Julia allocation volume, not retained size or peak memory, and does not describe
-native memory use. A point that reuses a native run is timed like any other point.
-With `timing=false`, the field is absent.
+A record holds the `gridpoint` of the point and its `wall_seconds`, `bytes`,
+`gc_seconds`, `compile_seconds` and `recompile_seconds`. All durations are in seconds.
+`bytes` is Julia allocation volume, not retained size or peak memory, and does not
+describe native memory use. A point that reuses a native run is timed like any other
+point. The gridpoint of a point of a space is the gridpoint in the details of its value. A
+scalar call is a run of one point, and its record has the indices `(1, 1)` of that run.
 
 The native backends record their own durations in their run records. FEM records the
 native phase durations of a run in `details(result).data.fem.run.durations`:
@@ -1224,12 +1230,8 @@ facts in `details(result).data.fem.run`. PSCAD records its execution facts in
 the worker's `line.compile()` call and excludes output-readiness waiting, and
 `reused`. Required native timing files and recovery checks remain active.
 
-Parametric and linear-error results keep measurements in their scalar values.
-Monte Carlo retains one record per accepted and stored trial at
-`details(result).data.timing[population_index][accepted_trial_index]`, independently
-of `retain_details`, `return_samples`, and histogram retention. Failed attempts
-are not successful measurements, and aggregate mean and standard-deviation values do not receive scan
-timing. A saved result keeps its timing records (see [Saving results](@ref)).
+Each Monte Carlo trial is a run of one point and writes its own record. Failed attempts
+write none.
 
 Progress uses ordinary structured Julia `@info` messages with `_group=:progress`.
 The effective level is `get(verbosity, :progress, verbosity.default)`. Other
@@ -1240,39 +1242,28 @@ not override a `NullLogger`, parent threshold or custom filter. Explicit FEM fil
 logging and native Gmsh/GetDP/PSCAD diagnostic settings retain their own behavior.
 
 An outer traversal suppresses child progress while preserving other options and
-backend diagnostics. It logs start and successful completion and checks for
-intermediate publication at existing completion points, at most every five
-seconds per traversal.
-ETA uses an exponential moving average with weight 0.2 on the newest completed
-interval. Parametric intervals are divided by the returned batch's result count.
-MC intervals between accepted trials include rejected attempts. MC resets the
+backend diagnostics. It logs start and successful completion. A point that ends in a
+later five-second interval of the run than the one in which it started logs the number
+of completed points, the elapsed time and an estimate of the remaining time. The
+estimate is the number of remaining points times the mean time of a completed point.
+Monte Carlo estimates its own remaining time: MC intervals between accepted trials include rejected attempts. MC resets the
 sampling estimate for each population and estimates overall remaining time only
 after a population completes. Estimates use the current traversal's completed
 intervals.
 Successful completion is reported after result construction and callbacks.
 
-For bounded repetition, use [`LineCableModels.benchmark`](@ref):
+Repetitions under one logger collect the records of every repetition, in the order of
+their points:
 
 ```julia
-measurement = LineCableModels.benchmark(; samples=3, warmup=1) do
-    compute(problem, formulation;
-        options=(timing=true, verbosity=(default=0,)))
+log = Test.TestLogger()
+with_logger(log) do
+    for _ in 1:3
+        compute(problem, formulation; options=(verbosity=(default=0, timing=1),))
+    end
 end
-result, timings = measurement
+timings = [(; record.kwargs...) for record in log.logs if record.group === :timing]
 ```
-
-The defaults are one measured repetition and no warmup. Positive measured counts
-and nonnegative warmup counts must be integers other than `Bool`. The function
-returns `(; result, timings)` with the final scientific result and detached small
-measurements for each repetition. Scalar records stay scalar. Ordinary batches
-retain formulation order. Parametric results retain problem-index-fastest value
-order. Linear-error results retain value order. MC retains population and trial order.
-Missing requested timing raises an error. Empty reuse records remain empty.
-
-The callable defines options, seeds, callbacks, and reuse. The returned timings
-are the measurements recorded by each computation. Earlier results are released
-after their timing records are extracted. Read the repetition records through
-the returned `timings` value.
 
 The coaxial backend accepts:
 
@@ -1280,7 +1271,6 @@ The coaxial backend accepts:
 (
     verbosity = (default = 0,),
     trace = false,
-    timing = false,
     on_result = nothing,
 )
 ```
@@ -1375,7 +1365,7 @@ An external package may own a backend identity and a separate formulation
 type. The backend's point method, `compute` on the `Resolved` value of one problem
 and one formulation, normalizes execution options before doing work. A call
 `compute(problem, formulation; options)` reaches it through the runner, `traverse`,
-which adds the timing record, progress and `on_result`:
+which logs the timing and progress of each point and calls `on_result`:
 
 ```julia
 import LineCableModels:

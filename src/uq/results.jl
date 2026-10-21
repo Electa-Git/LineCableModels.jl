@@ -1,23 +1,18 @@
 """
 $(TYPEDEF)
 
-Store ordered core results from a [`LinearError`](@ref) computation.
+Store ordered core results from a [`LinearError`](@ref) computation. Each value records
+its estimator and representation in its own details.
 
 $(TYPEDFIELDS)
 """
-struct LinearErrorResult{T, F} <: AbstractUncertaintyResult{T}
-    "Higher-order formulation used for the computation."
-    formulation::F
+struct LinearErrorResult{T} <: AbstractUncertaintyResult{T}
     "Uncertainty-bearing core results in Gridspace traversal order."
     values::Vector{T}
     "Supplemental output retained by the propagation."
     details::ComputationDetails
 
-    function LinearErrorResult(
-            formulation::F,
-            values::Vector{T},
-            details::ComputationDetails
-    ) where {T, F}
+    function LinearErrorResult(values::Vector{T}, details::ComputationDetails) where {T}
         validate(T, LinearErrorResult)
         isempty(details.data) || keys(details.data) == (:points,) ||
             throw(ArgumentError(
@@ -27,11 +22,9 @@ struct LinearErrorResult{T, F} <: AbstractUncertaintyResult{T}
             throw(DimensionMismatch(
                 "retained details must contain one entry per core result",
             ))
-        return new{T, F}(formulation, values, details)
+        return new{T}(values, details)
     end
 end
-
-LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, ComputationDetails())
 
 _monte_carlo_keys(::Type{<:Engine.CableConstants}) = (:R, :L, :C, :G)
 _monte_carlo_keys(::Type{<:Engine.LineParameters}) = (:R, :L, :C, :G)
@@ -64,9 +57,9 @@ the retained uncertainty-source identities.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <: AbstractUncertaintyResult{T}
-    "Higher-order formulation used for the computation."
-    formulation::F
+struct MonteCarloResult{T, ST <: AbstractVector, S, H} <: AbstractUncertaintyResult{T}
+    "Sampling of the computation: `confidence`, `cdf_tol` and `distribution`."
+    sampling::NamedTuple
     "Stored mean ± sample standard deviation core results in Gridspace traversal order."
     values::Vector{T}
     "Per-observable sample summaries."
@@ -85,7 +78,7 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <: AbstractUncertainty
     details::ComputationDetails
 
     function MonteCarloResult(
-            formulation::F,
+            sampling::NamedTuple,
             values::Vector{T},
             stats::ST,
             sample_values::S,
@@ -94,9 +87,9 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <: AbstractUncertainty
             point_seeds::Vector{UInt64},
             trial_counts::Vector{Int},
             details::ComputationDetails
-    ) where {T, F, ST <: AbstractVector, S, H}
-        return validate(new{T, F, ST, S, H}(
-            formulation,
+    ) where {T, ST <: AbstractVector, S, H}
+        return validate(new{T, ST, S, H}(
+            sampling,
             values,
             stats,
             sample_values,
@@ -110,11 +103,14 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <: AbstractUncertainty
 end
 
 # Checks the stored cores, the empirical products of each point against its core result,
-# and the retained trial and timing details.
+# and the retained trial details.
 function validate(result::MonteCarloResult{T}) where {T}
-    (; values, stats, sample_values, histogram_values, point_seeds, trial_counts, details) =
-        result
+    (; sampling, values, stats, sample_values, histogram_values, point_seeds, trial_counts,
+        details) = result
     validate(T, MonteCarloResult)
+    keys(sampling) == (:confidence, :cdf_tol, :distribution) || throw(ArgumentError(
+        "Monte Carlo sampling must contain exactly confidence, cdf_tol, distribution",
+    ))
     isempty(values) && throw(ArgumentError(
         "MonteCarloResult requires at least one core result",
     ))
@@ -216,44 +212,23 @@ function validate(result::MonteCarloResult{T}) where {T}
         ))
     end
     if !isempty(details.data)
-        fields = Tuple(key for key in keys(details.data) if key !== :timing)
-        fields in ((), (:trials,)) || throw(ArgumentError(
-            "MonteCarloResult details must contain timing, trials, or both",
+        keys(details.data) == (:trials,) || throw(ArgumentError(
+            "MonteCarloResult details must contain only trials",
         ))
-        point_count = length(values)
-        if haskey(details.data, :timing)
-            details.data.timing isa AbstractVector || throw(ArgumentError(
-                "Monte Carlo timing must be a vector of population vectors"))
-        end
-        all(length(product) == point_count
-        for product in Base.values(details.data)) ||
-            throw(DimensionMismatch(
+        length(details.data.trials) == length(values) || throw(DimensionMismatch(
             "retained Monte Carlo details must contain one entry per Gridspace point",
         ))
-        if haskey(details.data, :timing)
-            timing = details.data.timing
-            for point in eachindex(values)
-                records = timing[point]
-                records isa AbstractVector && all(record -> record isa NamedTuple, records) ||
-                    throw(ArgumentError("Monte Carlo timing must contain vectors of named tuples"))
-                length(records) == trial_counts[point] || throw(DimensionMismatch(
-                    "Monte Carlo timing must contain one record per accepted trial"))
-            end
-        end
-        if !isempty(fields)
-            for point in eachindex(values)
-                records = details.data.trials[point]
-                length(records) == trial_counts[point] || throw(DimensionMismatch(
-                    "retained details must contain one entry per accepted Monte Carlo trial",
-                ))
-            end
+        for point in eachindex(values)
+            length(details.data.trials[point]) == trial_counts[point] || throw(DimensionMismatch(
+                "retained details must contain one entry per accepted Monte Carlo trial",
+            ))
         end
     end
     return result
 end
 
 function MonteCarloResult(
-        formulation,
+        sampling,
         values,
         stats,
         sample_values,
@@ -263,7 +238,7 @@ function MonteCarloResult(
         trial_counts
 )
     return MonteCarloResult(
-        formulation,
+        sampling,
         values,
         stats,
         sample_values,

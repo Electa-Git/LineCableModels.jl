@@ -1,4 +1,5 @@
 @testitem "Commons / runner / one point, a space and a parametric problem" tags=[:unit, :commons] begin
+    using Logging
     const C = LineCableModels.Commons
     struct CountProblem <: AbstractProblemDefinition
         value::Int
@@ -41,7 +42,7 @@
     @test collect(result) == CountResult.([1, 2, 10, 20])
     @test indices == [1, 3, 2, 4]
     @test result[2, 2] == CountResult(20)
-    @test result.formulation isa C.Combinatorial
+    @test result.gridpoints == CartesianIndices((2, 2))
 
     # A parametric problem runs its space with its options, and a Combinatorial
     # formulation sets the retention of details.
@@ -63,13 +64,19 @@
     @test_throws ArgumentError Every(Scale{1}(); unused = true)
     @test_throws ArgumentError Every(Scale{1}(), C.ComputationOptions())
 
-    # A point retains the five timing fields about a timed call and an empty record about an
-    # untimed one.
-    @test C.timed(Val(false), () -> 7) == (7, (;))
-    value, fields = C.timed(Val(true), () -> 7)
-    @test value == 7
-    @test keys(fields.timing) ==
-          (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+    # At level 1 in the `timing` group, each point logs one record with its gridpoint and
+    # the five timing fields, and the result does not record timing.
+    timing_log = Test.TestLogger(min_level = Logging.Info)
+    timed = Logging.with_logger(timing_log) do
+        compute(problems, C.Grid((Scale{1}(), Scale{10}()));
+            options = (verbosity = (default = 0, timing = 1),))
+    end
+    @test collect(timed) == CountResult.([1, 2, 10, 20])
+    records = [record for record in timing_log.logs if record.group === :timing]
+    @test [(record.kwargs[:gridpoint].problem_index, record.kwargs[:gridpoint].formulation_index)
+           for record in records] == [(1, 1), (1, 2), (2, 1), (2, 2)]
+    @test all(record -> keys(record.kwargs) == (:gridpoint, :wall_seconds, :bytes,
+        :gc_seconds, :compile_seconds, :recompile_seconds), records)
     # A formulation type of one's own defines its normalizer, here one that keeps the options.
     @test computation_options(Scale{1}, options) === options
 

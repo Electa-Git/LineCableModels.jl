@@ -15,7 +15,7 @@
         map(value -> UQ.SampleSummary([0.5value, 1.5value]), values)
     end
     sampled_parameters = LineCableModels.materialize(parameters,summaries)
-    source = MonteCarloResult(MonteCarlo(Formulation(); trials=2, seed=7),
+    source = MonteCarloResult((confidence=0.95, cdf_tol=0.02, distribution=:normal),
         [sampled_parameters], [summaries], nothing, nothing, UInt64(7), UInt64[11], [2])
     RB=LineCableModels.ReportBuilder
     for indices in ((),(:,:,:),(2,:,:),(:,1,:),(:,:,2),(2,1,2),([2,1],[2],[2,1]))
@@ -72,7 +72,7 @@
     uncertain_z = measurement.(real.(parameters.Z), 1e-6) .+
         im .* measurement.(imag.(parameters.Z), 2e-6)
     lep_core = LineParameters(uncertain_z, parameters.Y, frequencies; line_length=1.0)
-    lep = LinearErrorResult(LinearError(Formulation()), [lep_core])
+    lep = LinearErrorResult([lep_core], ComputationDetails())
     @test only(lep) === lep_core
     @test observe(lep, statistics, R, mean, 1) == quantities.R
     @test observe(lep, statistics, R, std, 1) == fill(1e-6, 2, 2, 2)
@@ -91,7 +91,7 @@
     @test observe(restored_lep,statistics,R,std,1) == observe(lep,statistics,R,std,1)
     shared=measurement(1.0,0.1)
     correlated=LineParameters(fill(shared+im*shared,2,2,2),fill(2shared+im*shared,2,2,2),frequencies; line_length=1.0)
-    restored=SavedResults.round_trip(LinearErrorResult(LinearError(Formulation()),[correlated]))
+    restored=SavedResults.round_trip(LinearErrorResult([correlated],ComputationDetails()))
     @test uncertainty(real(only(restored).Z[1])-real(only(restored).Z[2])) == 0
     @test uncertainty(real(only(restored).Y[1])-2real(only(restored).Z[1])) == 0
     @test uncertainty(real(only(restored).Z[1])-shared) ≈ sqrt(2)*uncertainty(shared)

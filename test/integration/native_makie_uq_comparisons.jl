@@ -10,14 +10,14 @@
         for i in 1:2,j in 1:2,k in eachindex(f)] for q in (:R,:L,:C,:G)))
     summaries=map(a -> map(x -> SampleSummary([.9x,x,1.1x]),a),parts)
     core=LineParameters(complex.(parts.R,omega.*parts.L),complex.(parts.G,omega.*parts.C),f; line_length=1.0)
-    mc=MonteCarloResult(MonteCarlo(Formulation();trials=3,seed=1),
+    mc=MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
         [LineCableModels.materialize(core,summaries)],[summaries],nothing,nothing,UInt64(1),UInt64[2],[3])
     measured=map(a -> measurement.(1.05 .* a,0.03 .* a),parts)
     source_id=gridpoint_id().source_id
     results=[retain_gridpoint(LineParameters(factor.*complex.(measured.R,omega.*measured.L),
         factor.*complex.(measured.G,omega.*measured.C),f; line_length=1.0),gridpoint_id(;source_id,problem_index=index);
         fields=(inputs=(temperature=20index,),)) for (index,factor) in enumerate((1.,1.2))]
-    lep=LinearErrorResult(LinearError(Formulation()),results)
+    lep=LinearErrorResult(results,ComputationDetails())
     requests=(R,X,G,B,(statistics,R,mean),(statistics,R,std))
     artifact=report(BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std));bands=(:all,)),
         (reference=mc,result=lep,context=(id=:benchmark_uq_title_probe,));requests,
@@ -86,11 +86,12 @@ end
         for i in 1:3,j in 1:3,k in eachindex(f)] for q in (:R,:L,:C,:G)))
     stats=map(a -> map(x -> SampleSummary([.9x,1.1x]),a),parts)
     core=LineParameters(complex.(parts.R,omega.*parts.L),complex.(parts.G,omega.*parts.C),f; line_length=1.0)
-    reference=MonteCarloResult(MonteCarlo(Formulation();trials=2,seed=7),
+    reference=MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
         [LineCableModels.materialize(core,stats)],[stats],nothing,nothing,UInt64(7),UInt64[8],[2])
     measured=map(a -> measurement.(a,sqrt(2) * 0.1 .* a),parts)
-    result=LinearErrorResult(LinearError(Formulation()),[LineParameters(
-        complex.(measured.R,omega.*measured.L),complex.(measured.G,omega.*measured.C),measurement.(f,0.); line_length=1.0)])
+    result=LinearErrorResult([LineParameters(
+        complex.(measured.R,omega.*measured.L),complex.(measured.G,omega.*measured.C),measurement.(f,0.); line_length=1.0)],
+        ComputationDetails())
     requests=((statistics,R,mean),(statistics,R,std),(statistics,B,mean))
     artifact=report(BenchmarkTableDefinition(requests;bands=(:all,:wide)),
         (reference,result,context=(id=:benchmark_uq_statistics,));observation_options=(length_unit=:base,))

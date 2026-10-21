@@ -2,6 +2,7 @@
     using Test
     using LinearAlgebra
     using Serialization
+    using Logging
     import LineCableModels.ModalAnalysis as MA
     import LineCableModels.Engine as E
     import LineCableModels.Commons as G
@@ -89,7 +90,7 @@
     @test gamma(segment)≈gamma(modal)
     @test H(segment)[:,1]≈exp.(-roots.*line_length(modal))
 
-    phase_results=ParametricResult(Combinatorial(mf),[phase,phase])
+    phase_results=ParametricResult([phase,phase],CartesianIndices((2,1)),ComputationDetails())
     problems=Gridspace{ModalAnalysisProblem}(phase_results)
     @test length(problems)==2
     run=compute(problems,mf)
@@ -166,15 +167,16 @@
     @test line_length(PropagationParameters(declared;line_length=25.0))==25.0
     @test SavedResults.same(SavedResults.round_trip(modal), modal)
 
-    timed_phase=E.retain_gridpoint(phase,details(phase).data.gridpoint;
-        fields=(timing=(wall_seconds=1.0,),))
-    untimed=compute(ModalAnalysisProblem(timed_phase),mf)
-    @test !haskey(details(untimed).data,:timing)
-    modal_timed=compute(ModalAnalysisProblem(phase),mf;options=(timing=true,))
-    @test haskey(details(modal_timed).data,:timing)
+    # A timed modal point logs its timing, and its result does not record it.
+    timing_log=Test.TestLogger(min_level=Logging.Info)
+    modal_timed=Logging.with_logger(timing_log) do
+        compute(ModalAnalysisProblem(phase),mf;options=(verbosity=(default=0,timing=1),))
+    end
+    @test only(record.group for record in timing_log.logs)===:timing
+    @test !haskey(details(modal_timed).data,:timing)
     @test details(modal_timed).data.gridpoint==details(modal).data.gridpoint
     @test details(modal_timed).data.source_gridpoint==details(modal).data.source_gridpoint
-    @test !haskey(details(PropagationParameters(modal_timed)).data,:timing)
+    @test_throws ArgumentError compute(ModalAnalysisProblem(phase),mf;options=(timing=true,))
 
     voltage_H=Base.Fix2(H,(domain=PhaseDomain,field=:voltage))
     current_H=Base.Fix2(H,(domain=PhaseDomain,field=:current))

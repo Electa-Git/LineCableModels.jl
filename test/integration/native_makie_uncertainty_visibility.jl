@@ -83,8 +83,8 @@ end
     reference = LineParameters(z, z .* 1e-6, measurement.(f, 0.01); line_length=1.0)
     other_z = reshape(complex.(measurement.(1.05 .* resistance, 0.02), 0.1), 1, 1, :)
     compared_result = LineParameters(other_z, other_z .* 1e-6, measurement.(f, 0.02); line_length=1.0)
-    axes = (problems = [:one], formulations = [NamedTuple(Formulation())])
-    result = ParametricResult(nothing, [compared_result], axes, ComputationDetails((;)))
+    gridpoints = CartesianIndices((1, 1))
+    result = ParametricResult([compared_result], gridpoints, ComputationDetails((;)))
     before = deepcopy((Z(reference), Y(reference), frequencies(reference), Z(compared_result)))
     options = (; backend = :cairo, display_plot = false, open_export = false,
         reference, length_unit = :base, quantity_units = :base,
@@ -142,7 +142,7 @@ end
     end
 
     for n in (1, 2)
-        short = ParametricResult(nothing, [compared_result[1:n]], axes, ComputationDetails((;)))
+        short = ParametricResult([compared_result[1:n]], gridpoints, ComputationDetails((;)))
         plot = LineCableModels.plot(short, ((R, 1, 1, :),); options..., reference = reference[1:n])
         for group in values(plot.plot_state.groups)
             marker = only(filter(p -> p isa Makie.Scatter, group))

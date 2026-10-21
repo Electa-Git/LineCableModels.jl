@@ -369,8 +369,11 @@ the same change as the new `Manifest.toml`, with the counts of
 and types added and removed since `REF`, the net lines of `src` and `ext`, and the
 `absence` ceilings.
 `julia --project=test --startup-file=no test/tools/latency.jl` prints the first-call
-times of a scalar computation, of the chained modal computation after it and of a
-product space, each sequence in a new process.
+times of a scalar computation, of the chained modal computation after it, of a
+product space, and of a space chained into a modal analysis, with the `modal` keyword
+and with a modal formulation, each sequence in a new process. The `slow` quality item
+of `test/quality/chain_latency.jl` runs the chained space sequence alone and kills it at
+300 s. It fails when the two first calls together take more than 30 s.
 
 The local tools compare the working tree with a git revision `REF`. Each checks out
 `REF` in a temporary git worktree. That test environment starts from the repository
@@ -601,9 +604,22 @@ Cartesian product of their points:
    fastest.
 
 The runner writes the work around the points once. It logs the run and its progress with
-the action that `description(problem)` returns. It attaches the `timing` record and the
-gridpoint to each value, and it calls `on_result(problem, index, value)` with the position
-of the point in the space as `index`. The backends leave this work to the runner.
+the action that `description(problem)` returns, and the timing of each point in the group
+`:timing`. It attaches the gridpoint to each value of a space, and it calls
+`on_result(problem, index, value)` with the position of the point in the space as `index`.
+The backends leave this work to the runner. The run's controls are data: the verbosity
+levels, the start time of the run and the user's `on_result`. Progress does not keep state:
+a point computes it from its position in the run and the elapsed time. Each point is a
+`traverse` method on the formulation's type, so it compiles for concrete types.
+
+The run of a space is called through `Base.invokelatest`. This call is the barrier between
+the orchestration and the work: inference does not enter it, and the run compiles from
+the values that it receives. The types of a space are known only from its values.
+Without the barrier, the compiler walks the whole run, and a chained computation after
+it, with partly known types, and the first call of a space chained into a modal analysis
+compiles in tens of seconds to hours instead of about one second. A scalar call has no
+such barrier, and its result type infers. `test/quality/chain_latency.jl` guards this
+barrier.
 
 Each formulation space contains the formulations of one backend, whose formula choices may
 vary. The runner refuses a space that mixes backends with an `ArgumentError`, and comparing

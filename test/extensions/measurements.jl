@@ -73,8 +73,8 @@ end
                 SampleSummary([mu-sigma,mu,mu+sigma])
             end
         end
-        for result in (LinearErrorResult(LinearError(Formulation()),[core,core]),
-                MonteCarloResult(MonteCarlo(Formulation();trials=3,seed=7),
+        for result in (LinearErrorResult([core,core],ComputationDetails()),
+                MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
                     [core,core],[summaries,summaries],nothing,nothing,UInt64(7),UInt64[8,9],[3,3]))
             restored=SavedResults.round_trip(result)
             @test SavedResults.same(restored, result)
@@ -295,8 +295,7 @@ end
     UseEngineSupport, TestNumerics] begin
     using Measurements
     using Statistics
-    formulation=MonteCarlo(Formulation(); trials = 3, seed = 9,
-        return_samples = true)
+    sampling=(confidence = 0.95, cdf_tol = 0.02, distribution = :normal)
     values=[CableConstants(2.0, 20.0, 200.0)]
     stats=[(
         R = [SampleSummary(2.0, 1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 3)],
@@ -311,7 +310,7 @@ end
         G = zeros(1, 3)
     )]
     completed=MonteCarloResult(
-        formulation, map(LineCableModels.materialize,values,stats), stats, sample_values, nothing,
+        sampling, map(LineCableModels.materialize,values,stats), stats, sample_values, nothing,
         UInt64(9), UInt64[9], [3]
     )
 
@@ -356,7 +355,7 @@ end
         G = reshape([stats[1].G[1]], 1, 1, 1)
     )]
     line_completed=MonteCarloResult(
-        formulation,
+        sampling,
         [LineCableModels.materialize(parameters,only(line_stats))],
         line_stats,
         nothing,
@@ -385,7 +384,7 @@ end
         end
     end
     two_points = MonteCarloResult(
-        formulation, [LineCableModels.materialize(parameters,only(line_stats)),
+        sampling, [LineCableModels.materialize(parameters,only(line_stats)),
             LineCableModels.materialize(second_parameters,second_stats)],
         [only(line_stats), second_stats], nothing, nothing,
         UInt64(9), UInt64[9, 10], [3, 3]

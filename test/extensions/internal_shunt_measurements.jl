@@ -109,7 +109,7 @@ end
     @test details(only(restored.values)).data.shunt_model.requested === :boundary
     # One shared uncertain input must remain one source across distinct points.
     duplicated=LineCableModels.UQ.LinearErrorResult(
-        LinearError(inner), [original, original], ComputationDetails((;)))
+        [original, original], ComputationDetails((;)))
     copied=SavedResults.round_trip(duplicated)
     @test Measurements.uncertainty(copied.values[1].C[1]-copied.values[2].C[1]) == 0
     @test Measurements.uncertainty(copied.values[1].C[1]-original.C[1]) > 0

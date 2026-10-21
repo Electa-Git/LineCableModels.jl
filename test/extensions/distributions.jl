@@ -44,7 +44,7 @@ end
     shifted_draw=rand(MersenneTwister(41), uncertain; distribution = Normal(10, 3))
     @test standard_draw == shifted_draw
     @test isfinite(standard_draw)
-    # A saved Monte Carlo result keeps the law of its formulation.
+    # A saved Monte Carlo result keeps the law of its sampling.
     design=TestFixtures.coaxial_design()
     space=LineCableModels.Gridspace{LineCableModels.CableConstantsProblem}(
         temperature -> LineCableModels.CableConstantsProblem(design; temperature),
@@ -55,7 +55,7 @@ end
                 trials=2, seed=41, distribution=law))
         restored=SavedResults.round_trip(sampled)
         @test SavedResults.same(restored, sampled)
-        @test restored.formulation.options.data.distribution === law
+        @test LineCableModels.sampling_distribution(restored) === law
     end
 
     density=LineCableModels.UQ.HistogramDensity(

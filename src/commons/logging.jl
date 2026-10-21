@@ -3,8 +3,8 @@ $(TYPEDSIGNATURES)
 
 Validate verbosity levels, or select a level from execution options. Levels
 0, 1, and 2 permit warnings, information, and debug messages respectively.
-The `progress` group uses its explicit level or `default`. Other messages use
-the nearest explicitly configured module ancestor before falling back to `default`.
+The `progress` and `timing` groups use their explicit level or `default`. Other messages
+use the nearest explicitly configured module ancestor before falling back to `default`.
 """
 function verbosity(levels::NamedTuple)
     haskey(levels, :default) ||
@@ -19,7 +19,7 @@ function verbosity(record::ComputationOptions, key::Symbol)
     return get(levels, key, levels.default)
 end
 function verbosity(levels::NamedTuple, source::Union{Module, Nothing}, group)
-    group === :progress && return get(levels, :progress, levels.default)
+    group in (:progress, :timing) && return get(levels, group, levels.default)
     source === nothing && return levels.default
     while true
         haskey(levels, nameof(source)) && return levels[nameof(source)]

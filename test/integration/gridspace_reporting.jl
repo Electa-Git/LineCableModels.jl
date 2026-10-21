@@ -9,7 +9,7 @@
     reference=compute(problem,Formulation())
     results=compute(problem,space)
     errors=compare(reference,results,Z)
-    @test errors.axes === results.axes
+    @test errors.gridpoints == results.gridpoints
     @test length(errors)==2
     for i in 1:2
         scalar=compare(reference,results[i],Z)
@@ -42,7 +42,7 @@
     @test_throws ArgumentError compare(results,results,Z)
     paired=compare(results,results,Z;pairing=[(1,1),(2,2)])
     @test all(error -> all(iszero,skipmissing(error.absolute)),paired)
-    @test paired.axes === results.axes
+    @test paired.gridpoints == results.gridpoints
     labels=artifact.tables.formulations.label[artifact.tables.formulations.role .== :result]
     @test labels[1] != labels[2]
     @test occursin("unified",lowercase(labels[1]))

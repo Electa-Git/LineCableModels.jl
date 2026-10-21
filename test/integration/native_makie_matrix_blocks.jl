@@ -104,8 +104,8 @@ end
         LineCableModels.Commons.gridpoint_id(;source_id,formulation_index=index);
         fields=(formulation=formula,choices=(),inputs=(resistivity=100.,)))
         for (index,formula) in enumerate(records)]
-    result = ParametricResult(nothing,completed,
-        (problems=[:one],formulations=records), ComputationDetails((;)))
+    result = ParametricResult(completed,
+        CartesianIndices((1,length(records))), ComputationDetails((;)))
     options = (; backend=:cairo,display_plot=false,controls=true,open_export=false,
         fig_size=(1000,650),length_unit=:base)
     page = LineCableModels.plot(result, (R,); reference,options...)
@@ -146,7 +146,7 @@ end
     plain = LineCableModels.plot(result, (R,); reference, marker=nothing, options...)
     @test !any(plot -> plot isa Makie.Scatter,only(plain.axes).scene.plots)
     short_reference = reference[1:2]
-    short_result = ParametricResult(nothing,[point[1:2] for point in completed],result.axes, ComputationDetails((;)))
+    short_result = ParametricResult([point[1:2] for point in completed],result.gridpoints, ComputationDetails((;)))
     short = LineCableModels.plot(short_result, (R,); reference=short_reference,options...)
     @test all(group -> any(plot -> plot isa Makie.Scatter && !isempty(plot[1][]),group),
         values(short.plot_state.groups))

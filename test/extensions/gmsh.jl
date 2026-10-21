@@ -1224,7 +1224,7 @@ end
         formulation_controls = (
                 getdp_verbosity = 0,
                 gmsh_verbosity = 0,
-                keep_run_directory = true, timing = true
+                keep_run_directory = true
             )
         formulation_space = Formulation(:fem;
             earth_properties = Grid((formula(:default), nothing)),
@@ -1233,9 +1233,15 @@ end
         selected = collect(formulation_space)
         completions = Tuple[]
         on_result = (resolved, index, result) -> push!(completions, (index, result))
-        batch = compute(ParametricProblem(problem, ComputationOptions((;formulation_controls..., trace = true, on_result = on_result))),
-            Combinatorial(formulation_space; options = (retain_details = true,)))
+        timing_log = Test.TestLogger()
+        batch = with_logger(timing_log) do
+            compute(ParametricProblem(problem, ComputationOptions((;formulation_controls...,
+                    trace = true, on_result = on_result, verbosity = (default = 0, timing = 1)))),
+                Combinatorial(formulation_space; options = (retain_details = true,)))
+        end
         @test length(batch) == 4
+        timings = [record.kwargs for record in timing_log.logs if record.group === :timing]
+        @test length(timings) == 4
         @test first.(completions) == collect(eachindex(selected))
         @test all(index -> completions[index][2].Z.values == batch[index].Z.values,
             eachindex(selected))
@@ -1292,17 +1298,19 @@ end
         @test result.details.data.fem.run.completed_columns ==
               length(problem.frequencies) * length(result.details.data.fem.terminal_ids)
         @test run_directory !== nothing
-        timing=result.details.data.timing
+        timing=only(record for record in timings
+            if record[:gridpoint] == result.details.data.gridpoint)
         durations=result.details.data.fem.run.durations
         @test result.details.data.fem.run.columns == result.details.data.fem.run.completed_columns
         @test result.details.data.fem.run.recovered_columns == 0
         @test !result.details.data.fem.run.reused
-        @test keys(timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds,
-            :recompile_seconds)
+        @test keys(timing) == (:gridpoint, :wall_seconds, :bytes, :gc_seconds,
+            :compile_seconds, :recompile_seconds)
         @test keys(durations) == (:constraint_seconds, :assembly_seconds,
             :solve_seconds, :output_seconds, :worker_wall_seconds)
-        @test timing.wall_seconds >= 0
+        @test timing[:wall_seconds] >= 0
         @test durations.worker_wall_seconds >= 0
+        @test !haskey(result.details.data, :timing)
         @test !haskey(result.details.data.fem, :timing)
         extension=Base.get_extension(LineCableModels,:LineCableModelsGmshExt)
         native=[extension._column_timing(extension._column_paths(
@@ -1390,11 +1398,12 @@ end
             @test snapshot_files(run_directory) == before_reuse
         end
         # Timing does not alter native compatibility, including completed reuse.
-        untimed = compute(problem, selected[last(default_indices)]; options=(;
-            formulation_controls..., timing=false, trace=true, resume_run_directory=run_directory))
-        @test !haskey(details(untimed).data, :timing)
-        @test JSON3.write(details(untimed).data.fem.inputs) == JSON3.write(details(repeated).data.fem.inputs)
-        @test Z(untimed) == Z(result) && Y(untimed) == Y(result)
+        timed = compute(problem, selected[last(default_indices)]; options=(;
+            formulation_controls..., trace=true, resume_run_directory=run_directory,
+            verbosity=(default=0, timing=1)))
+        @test !haskey(details(timed).data, :timing)
+        @test JSON3.write(details(timed).data.fem.inputs) == JSON3.write(details(repeated).data.fem.inputs)
+        @test Z(timed) == Z(result) && Y(timed) == Y(result)
         @test snapshot_files(run_directory) == before_reuse
         # Reopen this test-owned run with one missing column. The remaining
         # completed work must be recovered without becoming a fresh timing sample.

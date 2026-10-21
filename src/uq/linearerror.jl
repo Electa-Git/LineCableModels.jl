@@ -11,5 +11,5 @@ function compute(problem::ParametricProblem, formulation::LinearError)
                     estimator = :first_order, representation = :dependency_preserving),
                 uncertainty_descriptions = _uncertainty_descriptions(LinearError)))
     end
-    return LinearErrorResult(formulation, values, traversed.details)
+    return LinearErrorResult(values, traversed.details)
 end

@@ -273,9 +273,8 @@ retained_histograms = map(x -> [HistogramDensity(vec(x); bins = 2)], retained_sa
 retained_core = CableConstants(mean(retained_samples.R), mean(retained_samples.L),
     mean(retained_samples.C), mean(retained_samples.G));
 retained_core = LineCableModels.materialize(retained_core, retained_statistics);
-mc_formulation = MonteCarlo(Formulation(); trials = 4, seed = 41,
-    return_samples = true, return_histograms = true);
-mc_result = MonteCarloResult(mc_formulation, [retained_core], [retained_statistics],
+sampling = (confidence = 0.95, cdf_tol = 0.02, distribution = :normal);
+mc_result = MonteCarloResult(sampling, [retained_core], [retained_statistics],
     [retained_samples], [retained_histograms], UInt64(41), UInt64[42], [4]);
 nothing #hide
 ````

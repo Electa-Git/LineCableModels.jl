@@ -118,8 +118,8 @@ using .Commons: Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGr
 using .Commons: verbosity, VerbosityLogger
 public verbosity, VerbosityLogger
 using .Commons: Combinatorial, ParametricProblem, ParametricResult, resolve, Resolved,
-                traverse, retain_gridpoint, timed
-public Resolved, traverse, retain_gridpoint, timed
+                traverse, retain_gridpoint
+public Resolved, traverse, retain_gridpoint
 
 # Bounded text formatting consumes the completed shared declaration grammar.
 include("textdisplay/TextDisplay.jl")
@@ -208,10 +208,6 @@ using .UQ:
            statistics, samples, histograms, uncertain,
            root_seed, point_seed, trial_count,
            confidence, cdf_tolerance, sampling_distribution
-
-# Completed-result measurement projections.
-include("performance.jl")
-public benchmark
 
 # Submodule `ReportBuilder`
 include("reportbuilder/ReportBuilder.jl")

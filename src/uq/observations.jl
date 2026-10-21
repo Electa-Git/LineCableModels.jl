@@ -97,26 +97,21 @@ $(TYPEDSIGNATURES)
 
 Return the simultaneous empirical-CDF confidence of a Monte Carlo computation.
 """
-confidence(value::MonteCarloResult) = value.formulation.options.data.confidence
-# An imported result stores the record of its formulation.
-confidence(value::MonteCarloResult{<:Any, <:NamedTuple}) = value.formulation.options.confidence
+confidence(value::MonteCarloResult) = value.sampling.confidence
 
 """
 $(TYPEDSIGNATURES)
 
 Return the empirical-CDF tolerance used to size a Monte Carlo computation.
 """
-cdf_tolerance(value::MonteCarloResult) = value.formulation.options.data.cdf_tol
-cdf_tolerance(value::MonteCarloResult{<:Any, <:NamedTuple}) = value.formulation.options.cdf_tol
+cdf_tolerance(value::MonteCarloResult) = value.sampling.cdf_tol
 
 """
 $(TYPEDSIGNATURES)
 
 Return the sampling distribution of a Monte Carlo computation.
 """
-sampling_distribution(value::MonteCarloResult) = value.formulation.options.data.distribution
-sampling_distribution(value::MonteCarloResult{<:Any, <:NamedTuple}) =
-    value.formulation.options.distribution
+sampling_distribution(value::MonteCarloResult) = value.sampling.distribution
 
 """
 $(TYPEDSIGNATURES)

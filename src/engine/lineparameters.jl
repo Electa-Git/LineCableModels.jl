@@ -154,7 +154,7 @@ $(TYPEDSIGNATURES)
 
 Compute line parameters with the default formulation. See the method with a formulation.
 """
-Base.@constprop :aggressive function compute(
+function compute(
         problem::LineParametersProblem;
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
@@ -187,9 +187,10 @@ are `Z(result) .* line_length(result)` and `Y(result) .* line_length(result)`.
 
 # Keywords
 
-- `options`: named tuple containing `verbosity`, `trace`, `timing` and
-  `on_result`. The optional callable `on_result(problem, index, result)` runs
-  synchronously after each completed point and before the next computation. `index` gives
+- `options`: named tuple containing `verbosity`, `trace` and `on_result`. With
+  `verbosity = (default = 0, timing = 1)`, each point logs its timing. The optional callable
+  `on_result(problem, index, result)` runs synchronously after each completed point and
+  before the next computation. `index` gives
   the position of the point in the space (`1` for a scalar call). Its return value is ignored.
   Exceptions propagate. The callback must not mutate the problem or result. The default is
   `nothing`.
@@ -201,7 +202,7 @@ are `Z(result) .* line_length(result)` and `Y(result) .* line_length(result)`.
 
 - One [`LineParameters`](@ref) result, or a `ParametricResult` of them for a space.
 """
-Base.@constprop :aggressive function compute(
+function compute(
         problem::ScalarOrGrid{LineParametersProblem},
         formulation::ScalarOrGrid{AbstractFormulation};
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),

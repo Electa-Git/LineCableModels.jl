@@ -1,8 +1,8 @@
 # A normalized record is returned as it is.
 computation_options(::Type{<:PSCADFormulation},
     record::ComputationOptions{<:NamedTuple{(:work_root, :output_stem, :remote, :verbosity,
-        :timing, :on_result, :resume_run_directory, :solver_identity),
-        <:Tuple{String, String, RemoteConfig, NamedTuple, Bool, Any, Any, Any}}}) = record
+        :on_result, :resume_run_directory, :solver_identity),
+        <:Tuple{String, String, RemoteConfig, NamedTuple, Any, Any, Any}}}) = record
 
 function computation_options(
         ::Type{<:PSCADFormulation},
@@ -10,7 +10,7 @@ function computation_options(
 )::ComputationOptions
     options = record.data
     allowed = (:output_stem, :remote, :verbosity, :on_result,
-        :resume_run_directory, :solver_identity, :work_root, :timing)
+        :resume_run_directory, :solver_identity, :work_root)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown PSCAD computation options: $(sort!(collect(unknown)))",
@@ -28,8 +28,7 @@ function computation_options(
             verbosity = (default = 0,),
             on_result = nothing,
             resume_run_directory = nothing,
-            solver_identity = nothing,
-            timing = false
+            solver_identity = nothing
         ),
         options
     )
@@ -42,7 +41,6 @@ function computation_options(
             "PSCAD output_stem must contain 1–20 ASCII letters, digits, or underscores",
         ))
     levels = verbosity(normalized.verbosity)
-    normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
     resume = normalized.resume_run_directory
     (resume === nothing || resume === :latest || resume isa AbstractString) ||
         throw(ArgumentError("PSCAD resume_run_directory must be nothing, :latest, or a completed run path"))
@@ -64,7 +62,6 @@ function computation_options(
         output_stem,
         remote = options.remote,
         verbosity = levels,
-        timing = normalized.timing,
         on_result = normalized.on_result,
         resume_run_directory = resume isa AbstractString ? abspath(resume) : resume,
         solver_identity = identity

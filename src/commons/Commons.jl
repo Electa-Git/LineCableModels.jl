@@ -103,5 +103,5 @@ public normalize_observation_selector
 public Gridpoint, Composition, Product, Zip, ScalarOrGrid, parameterize, materialize, points
 public Builder, FormulaBuilder, target
 public realize, realize_arguments, sample_uncertainty
-public resolve, Resolved, traverse, retain_gridpoint, timed
+public resolve, Resolved, traverse, retain_gridpoint
 end # module Commons

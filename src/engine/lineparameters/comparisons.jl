@@ -1,15 +1,14 @@
 """
 $(TYPEDSIGNATURES)
 
-Compare one reference with every result while retaining the problem and
-formulation axes. The returned ParametricResult contains per-term RMSError
-values in the same order as the input results. No formulation is evaluated.
+Compare one reference with every result. The returned ParametricResult contains per-term
+RMSError values in the same order as the input results, with their gridpoints. No
+formulation is evaluated.
 """
 function compare(reference::AbstractCoreResult, result::ParametricResult,
         quantity::Union{Function,Tuple}; kwargs...)
-    isempty(result.axes) && throw(ArgumentError("comparison requires retained problem/formulation axes"))
     errors=[compare(reference, value, quantity::Union{Function,Tuple}; kwargs...) for value in result]
-    return ParametricResult(result.formulation, errors, result.axes, ComputationDetails())
+    return ParametricResult(errors, result.gridpoints, ComputationDetails())
 end
 
 """
@@ -28,7 +27,7 @@ function compare(reference::ParametricResult, result::ParametricResult,
     foreach(pair -> validate(pair, compare, reference), pairing)
     ordered=sort(collect(pairing); by=last)
     errors=[compare(reference[i], result[j], quantity::Union{Function,Tuple}; kwargs...) for (i,j) in ordered]
-    return ParametricResult(result.formulation, errors, result.axes, ComputationDetails())
+    return ParametricResult(errors, result.gridpoints, ComputationDetails())
 end
 
 # One pair of a comparison pairing: a reference index within the reference result, and a

@@ -65,7 +65,7 @@
         remote=P.RemoteConfig(
             "fixture", directory, "unused", "julia", "python";
             local_root=directory, transport = :completed_run_fixture)
-        options=(; remote, resume_run_directory = :latest, timing=true)
+        options=(; remote, resume_run_directory = :latest)
         for value in (:invalid, "", 1)
             @test_throws ArgumentError computation_options(P.PSCADFormulation, ComputationOptions((; remote, resume_run_directory = value)))
         end
@@ -73,9 +73,11 @@
             remote, solver_identity = 1)))
         quiet_log=Test.TestLogger()
         first_result=with_logger(quiet_log) do
-            compute(problem, Formulation(:pscad); options)
+            compute(problem, Formulation(:pscad);
+                options=(; options..., verbosity=(default=0, timing=1)))
         end
-        @test isempty(quiet_log.logs)
+        # A quiet run logs only the timing record of its point.
+        @test [record.group for record in quiet_log.logs] == [:timing]
         @test launches[] == 1
         @test !details(first_result).data.execution.reused
         @test identifications[] == 0
@@ -88,7 +90,7 @@
         verbose_log=Test.TestLogger(min_level=Logging.Debug)
         reused=with_logger(verbose_log) do
             compute(problem, Formulation(:pscad; earth_impedance = :pollaczek1926);
-                options=(; options..., verbosity=(default=0, PSCAD=2)))
+                options=(; options..., verbosity=(default=0, PSCAD=2, timing=1)))
         end
         @test identifications[] == 1
         @test any(record->record.message == "PSCAD reuses a verified completed run", verbose_log.logs)
@@ -97,9 +99,11 @@
         @test Y(reused) == Y(first_result)
         @test details(reused).data.execution.reused
         # A point that reuses a native run is timed like any point.
-        @test keys(details(reused).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+        @test keys(only(record.kwargs for record in verbose_log.logs if record.group === :timing)) ==
+              (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+        @test !haskey(details(reused).data, :timing)
         @test details(first_result).data.execution.compile_call_seconds == 3.25
-        @test details(first_result).data.timing.wall_seconds >= 0
+        @test only(quiet_log.logs).kwargs[:wall_seconds] >= 0
         @test !haskey(details(reused).data.execution, :elapsed_seconds)
         @test completed_formulation(details(reused)).formulations.requested.earth_impedance.identifier === :pollaczek1926
         sample_log=Test.TestLogger()
@@ -119,14 +123,16 @@
             compute(problem,
                 Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = :pollaczek1926)));
                 options = (;
-                    options..., on_result = (problem, index, result)->begin
+                    options..., verbosity=(default=0, timing=1),
+                    on_result = (problem, index, result)->begin
                         push!(callbacks, index)
                         @info "optional callback diagnostic"
                         @warn "visible callback warning"
                     end))
         end
-        @test count(record->record.level == Logging.Warn, callback_log.logs) == 2
-        @test all(record->record.level >= Logging.Warn, callback_log.logs)
+        warnings=filter(record->record.group !== :timing, callback_log.logs)
+        @test count(record->record.level == Logging.Warn, warnings) == 2
+        @test all(record->record.level >= Logging.Warn, warnings)
         @test launches[] == 1
         @test callbacks == [1, 2]
         @test completed_formulation(details(batch[1])).formulations.requested.earth_impedance.identifier === :default
@@ -135,7 +141,9 @@
             details(batch[2]).data.native_setting.interactions.earth_impedance)
         @test Z(batch[1]) == Z(batch[2])
         @test Z(batch[1]) !== Z(batch[2])
-        @test keys(details(batch[2]).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+        batch_timings=[record.kwargs for record in callback_log.logs if record.group === :timing]
+        @test [record[:gridpoint].formulation_index for record in batch_timings] == [1, 2]
+        @test all(record -> keys(record) == (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds), batch_timings)
         homogeneous_choices = (air = :default, earth = :default, mixed = :default)
         represented = compute(problem,
             Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)));
@@ -206,13 +214,17 @@
         # The first cache entry may be reused while a later selection is fresh.
         before = launches[]
         source_root = dirname(details(first(heterogeneous)).data.execution.source_run)
-        mixed = compute(problem, Grid((Formulation(:pscad),
-            Formulation(:pscad; options=(base_frequency=55.0,)))); options=(;
-                remote, work_root=source_root, timing=true, resume_run_directory=:latest))
+        mixed_log = Test.TestLogger()
+        mixed = with_logger(mixed_log) do
+            compute(problem, Grid((Formulation(:pscad),
+                Formulation(:pscad; options=(base_frequency=55.0,)))); options=(;
+                    remote, work_root=source_root, verbosity=(default=0, timing=1),
+                    resume_run_directory=:latest))
+        end
         @test launches[] == before + 1
         @test details(first(mixed)).data.execution.reused
-        @test keys(details(first(mixed)).data.timing) ==
-              (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+        @test keys(first(record.kwargs for record in mixed_log.logs if record.group === :timing)) ==
+              (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
         @test !details(last(mixed)).data.execution.reused
         @test details(last(mixed)).data.execution.compile_call_seconds == 3.25
         @test typeof(first(mixed)) === typeof(last(mixed))

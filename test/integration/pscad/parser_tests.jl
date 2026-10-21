@@ -110,7 +110,7 @@
         )))
     @test_throws ArgumentError LineCableModels.computation_options(owner,
         ComputationOptions(; remote=config, output_basis=:total))
-    for timing in (0, 1, nothing, :yes)
+    for timing in (true, false, 1, nothing, :yes)
         @test_throws ArgumentError LineCableModels.computation_options(owner,
             ComputationOptions(; remote=config, timing))
     end
@@ -119,7 +119,6 @@
         output_stem = "case",
         remote = config,
         verbosity = (default = 0, PSCAD = 2),
-        timing = false,
         on_result = nothing,
         resume_run_directory = nothing,
         solver_identity = nothing

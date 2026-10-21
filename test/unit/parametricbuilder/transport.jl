@@ -15,8 +15,8 @@
     struct TransportFormulation <: Commons.AbstractFormulation end
 
     values=TransportResult[TransportResult(1.0), TransportResult(2.0)]
-    combinatorial=Commons.Combinatorial(TransportFormulation())
-    source=Commons.ParametricResult(combinatorial, values)
+    source=Commons.ParametricResult(values, CartesianIndices((2, 1)),
+        Commons.ComputationDetails())
     transported=PB.Gridspace{DownstreamProblem}(source)
 
     @test transported.grids === (source,)
@@ -24,15 +24,14 @@
     @test eltype(transported) === DownstreamProblem
     @test collect(transported) == DownstreamProblem.(values)
 
-    linear=UQ.LinearErrorResult(
-        UQ.LinearError(TransportFormulation()),
-        values
-    )
+    linear=UQ.LinearErrorResult(values, Commons.ComputationDetails())
     uncertain_transport=PB.Gridspace{DownstreamProblem}(linear)
     @test uncertain_transport.grids === (linear,)
     @test collect(uncertain_transport) == DownstreamProblem.(values)
 
-    unsupported=Commons.ParametricResult(TransportFormulation(), values)
+    # A result space of another owner transports only through its owner's method.
+    struct UnsupportedResults <: Commons.AbstractResultSpace{TransportResult} end
+    unsupported=UnsupportedResults()
     error=try
         PB.Gridspace{DownstreamProblem}(unsupported)
         nothing
@@ -41,13 +40,13 @@
     end
     @test error isa ArgumentError
     message=sprint(showerror, error)
-    @test occursin("Gridspace transport from ParametricResult", message)
+    @test occursin("Gridspace transport from UnsupportedResults", message)
     @test occursin("to problem DownstreamProblem", message)
     @test occursin("?Gridspace", message)
     @test occursin("electa-git.github.io/LineCableModels.jl/dev/gridspace/", message)
 
     monte_carlo=UQ.MonteCarloResult(
-        UQ.MonteCarlo(TransportFormulation(); trials = 1, seed = 1),
+        (confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
         TransportResult[TransportResult(1.0)],
         [1],
         nothing,

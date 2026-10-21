@@ -49,7 +49,7 @@ function _bind_segment(parameters::LineParameters{T, U, D}, line_length) where {
     source_record=(;
         (key=>value
     for (key, value) in pairs(parameters.details.data)
-    if key ∉ (:timing, :comparison_unsupported))...)
+    if key !== :comparison_unsupported)...)
     segment_details = merge(source_record,
         (gridpoint = segment_gridpoint, source_gridpoint,
             segment = (line_length = segment_length, normalization_length = source_length)))
@@ -70,7 +70,7 @@ function _bind_segment(source::PropagationParameters, line_length)
     source_record=(;
         (key=>value
     for (key, value) in pairs(source.details.data)
-    if key ∉ (:timing, :comparison_unsupported))...)
+    if key !== :comparison_unsupported)...)
     segment_details = merge(source_record,
         (gridpoint = Commons.gridpoint_id(),
             source_gridpoint = get(source.details.data, :gridpoint, nothing),

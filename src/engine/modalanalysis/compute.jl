@@ -21,12 +21,12 @@ computation_options(::Type{<:ModalAnalysisFormulation}, record::ComputationOptio
 
 # A normalized record is returned as it is.
 computation_options(::Type{LineCableModelsModal},
-    record::ComputationOptions{<:NamedTuple{(:offdiagonal_tolerance, :on_result, :timing,
-        :rotate, :verbosity), <:Tuple{Real, Any, Bool, Bool, Any}}}) = record
+    record::ComputationOptions{<:NamedTuple{(:offdiagonal_tolerance, :on_result,
+        :rotate, :verbosity), <:Tuple{Real, Any, Bool, Any}}}) = record
 
 function computation_options(::Type{LineCableModelsModal}, record::ComputationOptions)::ComputationOptions
     options = record.data
-    isempty(setdiff(keys(options), (:rotate, :offdiagonal_tolerance, :on_result, :timing, :verbosity))) ||
+    isempty(setdiff(keys(options), (:rotate, :offdiagonal_tolerance, :on_result, :verbosity))) ||
         throw(ArgumentError("unknown modal action options: $(Tuple(keys(options)))"))
     tolerance = get(options, :offdiagonal_tolerance, 1e-6)
     tolerance isa Real && isfinite(tolerance) && tolerance >= 0 ||
@@ -34,12 +34,10 @@ function computation_options(::Type{LineCableModelsModal}, record::ComputationOp
     callback = get(options, :on_result, nothing)
     (callback === nothing || callback isa Function) ||
         throw(ArgumentError("on_result must be a callable function or nothing"))
-    timing = get(options, :timing, false)
-    timing isa Bool || throw(ArgumentError("timing must be Bool"))
     rotate = get(options, :rotate, true)
     rotate isa Bool || throw(ArgumentError("rotate must be Bool"))
     return ComputationOptions(; offdiagonal_tolerance=tolerance, on_result=callback,
-        timing, rotate, verbosity=get(options, :verbosity, 0))
+        rotate, verbosity=get(options, :verbosity, 0))
 end
 
 """Store one scalar modal computation's results, common arrays, selected work, and diagnostics."""
@@ -186,10 +184,10 @@ function compute(
     all(isfinite, roots) || throw(DomainError(roots, "modal roots must be finite"))
     modal = ModalDomain(maps, roots)
     diagnostics = map(copy,workspace.diagnostics)
-    # The record keeps the source's entries, except its timing, then adds the modal entries,
-    # among them the source's record as the choice of the modal formulation.
+    # The record keeps the source's entries, then adds the modal entries, among them the
+    # source's record as the choice of the modal formulation.
     source = parameters.details
-    kept = filter(∉((:timing, :comparison_unsupported, :source_gridpoint, :modal, :formulation,
+    kept = filter(∉((:comparison_unsupported, :source_gridpoint, :modal, :formulation,
         :choices)), keys(source.data))
     retained = ComputationDetails(merge(NamedTuple{kept}(source.data),
         NamedTuple{(:source_gridpoint, :modal, :formulation, :choices),

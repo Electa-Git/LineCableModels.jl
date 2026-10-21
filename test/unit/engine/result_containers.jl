@@ -262,8 +262,7 @@ end
     expected_edges=[2.0, 5.0, 8.0]
     expected_density=[2/4/3, 2/4/3]
     complete=MonteCarloResult(
-        MonteCarlo(Formulation(); trials=4, seed=2027,
-            return_samples=true, return_histograms=true),
+        (confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
         [LineCableModels.materialize(CableConstants(mean(raw_samples.R), mean(raw_samples.L),
             mean(raw_samples.C), mean(raw_samples.G)),map(x->[SampleSummary(vec(x))],raw_samples))],
         [map(x->[SampleSummary(vec(x))], raw_samples)],
@@ -278,7 +277,7 @@ end
     @test_throws BoundsError UQ.point_seed(complete, 2)
     @test_throws BoundsError UQ.trial_count(complete, 2)
     sample_only=MonteCarloResult(
-        complete.formulation,
+        complete.sampling,
         complete.values,
         complete.stats,
         complete.sample_values,
@@ -288,7 +287,7 @@ end
         complete.trial_counts
     )
     histogram_only=MonteCarloResult(
-        complete.formulation,
+        complete.sampling,
         complete.values,
         complete.stats,
         nothing,
@@ -298,7 +297,7 @@ end
         complete.trial_counts
     )
     summaries_only=MonteCarloResult(
-        complete.formulation,
+        complete.sampling,
         complete.values,
         complete.stats,
         nothing,
@@ -329,7 +328,7 @@ end
     @test_throws ArgumentError observe(histogram_only, samples, R, 1, 1, :)
     @test_throws ArgumentError observe(sample_only, histograms, R, 1, 1)
     @test_throws DimensionMismatch MonteCarloResult(
-        complete.formulation,
+        complete.sampling,
         complete.values,
         [(R = summary, L = summary, C = summary, G = summary)],
         complete.sample_values,
@@ -339,7 +338,7 @@ end
         complete.trial_counts
     )
     @test_throws DimensionMismatch MonteCarloResult(
-        complete.formulation,
+        complete.sampling,
         complete.values,
         complete.stats,
         [(R = [1.0], L = [1.0], C = [1.0], G = [1.0])],
@@ -395,7 +394,7 @@ end
     line_histograms=(R = line_histogram, L = line_histogram,
         C = line_histogram, G = line_histogram)
     line_result=MonteCarloResult(
-        complete.formulation,
+        complete.sampling,
         [LineCableModels.materialize(parameters,line_statistics)],
         [line_statistics],
         [sample_values],
@@ -412,7 +411,7 @@ end
     malformed_samples=(R = sample_values.R[:, :, 1:1, :], L = sample_values.L,
         C = sample_values.C, G = sample_values.G)
     @test_throws DimensionMismatch MonteCarloResult(
-        complete.formulation,
+        complete.sampling,
         line_result.values,
         [line_statistics],
         [malformed_samples],

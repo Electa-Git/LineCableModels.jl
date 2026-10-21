@@ -100,7 +100,7 @@
 "src/engine/lineparameters/lineparameters.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/lineparameters/observations.jl" = { applicable = 0, eval = 0, isa = 18, kind = 0 }
 "src/engine/lineparameters/resolution.jl" = { applicable = 0, eval = 0, isa = 23, kind = 0 }
-"src/engine/modalanalysis/compute.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
+"src/engine/modalanalysis/compute.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/engine/modalanalysis/formulas/chrysochos2014.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/engine/modalanalysis/formulas/vieira2026.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/modalanalysis/formulas/wedepohl1996.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
@@ -109,7 +109,7 @@
 "src/engine/modalanalysis/propagation.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/engine/modalanalysis/quantities.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/observed_inputs.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
-"src/engine/options.jl" = { applicable = 0, eval = 0, isa = 14, kind = 0 }
+"src/engine/options.jl" = { applicable = 0, eval = 0, isa = 13, kind = 0 }
 "src/engine/problems.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
 "src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/shuntmodel/geometry.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
@@ -123,8 +123,7 @@
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
-"src/performance.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
-"src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
+"src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/pscad/formulations.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/pscad/importexport/pscad.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/pscad/remote/configuration.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
@@ -139,10 +138,10 @@
 "src/textdisplay/TextDisplay.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/uq/comparisons.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/uq/formulations.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
-"src/uq/montecarlo/compute.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
+"src/uq/montecarlo/compute.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/uq/observations.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/uq/observedresult.jl" = { applicable = 0, eval = 0, isa = 14, kind = 0 }
-"src/uq/results.jl" = { applicable = 0, eval = 0, isa = 15, kind = 0 }
+"src/uq/results.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
 
 [absence]
 "ext/LineCableModelsGmshExt" = 58
@@ -158,7 +157,7 @@
 "src/reportbuilder" = 70
 "src/textdisplay" = 1
 "src/units" = 24
-"src/uq" = 72
+"src/uq" = 71
 
 [storage]
 "src/engine/cableconstants.jl | CableConstantsWorkspace" = 3
@@ -332,4 +331,4 @@
 "src/uq/results.jl" = 2
 
 [root]
-"LineCableModels" = 5
+"LineCableModels" = 4

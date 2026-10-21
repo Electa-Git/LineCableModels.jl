@@ -540,12 +540,13 @@ end
     deterministic = report(BenchmarkTableDefinition((R,); bands=(:all,)),
         (reference=(result=core, metadata=metadata), result=(result=core, metadata=metadata));observation_options=(length_unit=:base,))
     summaries = map(a -> map(x -> SampleSummary([0.9x, 1.1x]), a), v)
-    mc = MonteCarloResult(MonteCarlo(Formulation(); trials=2, seed=7),
+    mc = MonteCarloResult((confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
         [LineCableModels.materialize(core,summaries)],
         [summaries], nothing, nothing, UInt64(7), UInt64[8], [2])
     m = map(a -> measurement.(a, sqrt(2) * 0.1 .* a), v)
-    lep = LinearErrorResult(LinearError(Formulation()), [LineParameters(
-        m.R .+ im .* omega .* m.L, m.G .+ im .* omega .* m.C, measurement.(f, 0.0); line_length=1.0)])
+    lep = LinearErrorResult([LineParameters(
+        m.R .+ im .* omega .* m.L, m.G .+ im .* omega .* m.C, measurement.(f, 0.0); line_length=1.0)],
+        ComputationDetails())
     uq = report(BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands=(:all,)),
         (reference=(result=mc, metadata=metadata), result=(result=lep, metadata=metadata));observation_options=(length_unit=:base,))
     for (artifact, request, expected) in ((deterministic, (R,), r),

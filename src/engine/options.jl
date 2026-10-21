@@ -46,20 +46,18 @@ function computation_options(
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
-    allowed = (:verbosity, :trace, :on_result, :timing)
+    allowed = (:verbosity, :trace, :on_result)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsCoaxial computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
-        (verbosity = (default = 0,), trace = false, on_result = nothing, timing = false),
+        (verbosity = (default = 0,), trace = false, on_result = nothing),
         options
     )
     levels = verbosity(normalized.verbosity)
     normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
-    normalized.timing isa Bool || throw(ArgumentError("timing must be Bool"))
-    execution = (verbosity = levels, trace = Val(false),
-        on_result = normalized.on_result, timing = normalized.timing)
+    execution = (verbosity = levels, trace = Val(false), on_result = normalized.on_result)
     normalized.trace && return ComputationOptions(merge(execution, (trace = Val(true),)))
     return ComputationOptions(execution)
 end
@@ -70,8 +68,8 @@ computation_options(::Type{<:LineParametersFormulation}, record::ComputationOpti
 
 # A normalized record stores the trace switch as a type. This method returns it as it is.
 computation_options(::Type{LineCableModelsCoaxial},
-    record::ComputationOptions{<:NamedTuple{(:verbosity, :trace, :on_result, :timing),
-        <:Tuple{NamedTuple, Val, Any, Bool}}}) = record
+    record::ComputationOptions{<:NamedTuple{(:verbosity, :trace, :on_result),
+        <:Tuple{NamedTuple, Val, Any}}}) = record
 
 
 description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
@@ -129,7 +127,6 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
   - `trace=false`: retain `Z_primitive`, `P_primitive` and a copied `phase_map`
     under `details(result).data.fem.primitive`. The primitive arrays refer to the
     completed FEM scan arrays.
-  - `timing=false`: retain fresh complete-scan measurements in result details.
   - `on_result=nothing`: optional callback `(problem, index, result)`.
   - `log_file=nothing`: optional Julia log path.
   - `resume_run_directory=nothing`: resume a compatible path or `:latest`.
@@ -148,10 +145,10 @@ The field model is selected separately by `formulation_options(LineCableModelsFE
 # A normalized record stores its trace switch as a type. This method returns it as it is.
 computation_options(::Type{<:LineCableModelsFEM},
     record::ComputationOptions{<:NamedTuple{(:verbosity, :trace, :on_result,
-        :timing, :ui, :plot_field_maps, :mesh_mode, :mesh_path, :domain_skin_depths,
+        :ui, :plot_field_maps, :mesh_mode, :mesh_path, :domain_skin_depths,
         :keep_run_directory, :getdp_executable, :gmsh_verbosity, :getdp_verbosity,
         :frequency_workers, :solver_threads, :log_file, :resume_run_directory),
-        <:Tuple{NamedTuple, Val, Any, Bool, Bool, Bool, Symbol, Any,
+        <:Tuple{NamedTuple, Val, Any, Bool, Bool, Symbol, Any,
             Float64, Bool, Any, Int, Int, Int, Int, Any, Any}}}) = record
 
 function computation_options(::Type{<:LineCableModelsFEM}, record::ComputationOptions)::ComputationOptions
@@ -161,7 +158,7 @@ function computation_options(::Type{<:LineCableModelsFEM}, record::ComputationOp
         keep_run_directory=false, getdp_executable=nothing,
         gmsh_verbosity=2, getdp_verbosity=2, frequency_workers=2, solver_threads=1,
         log_file=nothing, resume_run_directory=nothing)
-    standard_keys = (:verbosity, :trace, :on_result, :timing)
+    standard_keys = (:verbosity, :trace, :on_result)
     unknown = setdiff(keys(options), (keys(defaults)..., standard_keys...))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsFEM computation options: $(Tuple(unknown))"))

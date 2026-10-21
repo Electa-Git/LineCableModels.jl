@@ -66,8 +66,7 @@
     @test execution.data == (
         verbosity = (default = 1, NLsolve = 0),
         trace = Val(true),
-        on_result = nothing,
-        timing = false
+        on_result = nothing
     )
     @test Engine.verbosity(execution, :NLsolve) == 0
     @test Engine.verbosity(execution, :unlisted) == 1

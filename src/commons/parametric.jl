@@ -136,40 +136,33 @@ end
 """
 $(TYPEDEF)
 
-Store core results over resolved problem and formulation axes.
+Store the results of a parametric computation: the computed values, the gridpoints of the
+space that computed them and the retained details. A result does not contain a problem
+space, a formulation space or a run control.
 
-Linear indexing remains compatible with ordinary result-space iteration.
-Values use column-major `(problem, formulation)` order: the problem index
-varies fastest. Two-dimensional indexing accepts those indices directly.
+The values follow column-major `(problem, formulation)` order: the problem index varies
+fastest. Linear indexing and iteration run over the values. `gridpoints` gives the problem
+and formulation indices of each point, and two-dimensional indexing accepts those indices.
+Each value of a space computed by [`traverse`](@ref) also records its gridpoint identity in
+its own details.
 
 $(TYPEDFIELDS)
 """
-struct ParametricResult{T, F, A <: NamedTuple} <: AbstractParametricResult{T}
-    "Higher-order formulation used for the computation."
-    formulation::F
+struct ParametricResult{T} <: AbstractParametricResult{T}
     "Core results in problem-index-fastest formulation order."
     values::Vector{T}
-    "Problem and resolved-formulation sources aligned with `values`."
-    axes::A
+    "Problem and formulation indices of the points of the space, in the order of `values`."
+    gridpoints::CartesianIndices{2, NTuple{2, Base.OneTo{Int}}}
     "Supplemental output retained by the traversal."
     details::ComputationDetails
 
-    function ParametricResult(
-            formulation::F,
-            values::Vector{T},
-            axes::A,
-            details::ComputationDetails
-    ) where {T, F, A <: NamedTuple}
+    function ParametricResult(values::Vector{T},
+            gridpoints::CartesianIndices{2, NTuple{2, Base.OneTo{Int}}},
+            details::ComputationDetails) where {T}
         validate(T, ParametricResult)
-        if !isempty(axes)
-            keys(axes) == (:problems, :formulations) || throw(ArgumentError(
-                "ParametricResult axes must contain problems and formulations",
-            ))
-            length(axes.problems) * length(axes.formulations) == length(values) ||
-                throw(DimensionMismatch(
-                    "ParametricResult axes must span every stored core result",
-                ))
-        end
+        length(gridpoints) == length(values) || throw(DimensionMismatch(
+            "ParametricResult gridpoints must span every stored core result",
+        ))
         isempty(details.data) || keys(details.data) == (:points,) ||
             throw(ArgumentError(
                 "ParametricResult details must be empty or contain only points",
@@ -178,14 +171,9 @@ struct ParametricResult{T, F, A <: NamedTuple} <: AbstractParametricResult{T}
             throw(DimensionMismatch(
                 "retained details must contain one entry per core result",
             ))
-        return new{T, F, A}(formulation, values, axes, details)
+        return new{T}(values, gridpoints, details)
     end
 end
-
-function ParametricResult(formulation, values, details::ComputationDetails)
-    ParametricResult(formulation, values, (;), details)
-end
-ParametricResult(formulation, values) = ParametricResult(formulation, values, (;), ComputationDetails())
 
 Base.length(value::ParametricResult) = length(value.values)
 Base.size(value::ParametricResult) = (length(value),)
@@ -197,26 +185,9 @@ Base.lastindex(value::ParametricResult) = lastindex(value.values)
 """
 Return one result selected by its problem and formulation indices.
 """
-function Base.getindex(
-        value::ParametricResult,
-        problem_index::Integer,
-        formulation_index::Integer
-)
-    isempty(value.axes) && throw(ArgumentError(
-        "this ParametricResult does not retain problem/formulation axes",
-    ))
-    problem_count = length(value.axes.problems)
-    formulation_count = length(value.axes.formulations)
-    1 <= problem_index <= problem_count || throw(BoundsError(
-        value,
-        (problem_index, formulation_index)
-    ))
-    1 <= formulation_index <= formulation_count || throw(BoundsError(
-        value,
-        (problem_index, formulation_index)
-    ))
-    index = problem_index + (formulation_index - 1) * problem_count
-    return value.values[index]
+function Base.getindex(value::ParametricResult, problem_index::Integer,
+        formulation_index::Integer)
+    return value.values[LinearIndices(value.gridpoints)[problem_index, formulation_index]]
 end
 
 details(value::ParametricResult) = value.details
@@ -224,21 +195,8 @@ details(value::ParametricResult) = value.details
 """
 $(TYPEDSIGNATURES)
 
-Transport every completed combinatorial result into one target-bearing
-downstream problem point while preserving source cardinality and order.
+Transport every completed parametric result into one target-bearing downstream problem
+point while preserving source cardinality and order.
 """
-function Gridspace{Target}(
-        source::ParametricResult{T, F}
-) where {Target, T, F <: Combinatorial}
-    return Gridspace{Target}(Target, (source,))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Expose the formulation, ordered values, resolved axes and computation details as
-a native record. Arrays and axes retain their identity. The method returns these retained objects without calculating or copying them.
-"""
-function Base.NamedTuple(value::ParametricResult)
-    return (formulation=value.formulation, values=value.values, axes=value.axes, details=value.details)
-end
+Gridspace{Target}(source::ParametricResult) where {Target} =
+    Gridspace{Target}(Target, (source,))

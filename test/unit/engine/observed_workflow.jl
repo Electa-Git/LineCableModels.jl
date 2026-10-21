@@ -88,7 +88,7 @@ end
     summaries=map(array -> [SampleSummary(vec(array[i,j,k,:])) for i in 1:2,j in 1:2,k in 1:3],trials)
     core=LineCableModels.materialize(base,summaries)
     core=LineCableModels.Engine.retain_gridpoint(core,gridpoint_id())
-    mc=MonteCarloResult(MonteCarlo(Formulation();trials=5,seed=12,return_samples=true),
+    mc=MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
         [core],[summaries],[trials],nothing,UInt64(12),UInt64[13],[5])
     product=ObservedResult(mc,1,((statistics,R,mean),(statistics,R,std)))
     @test length(product.quantities)==2
@@ -128,7 +128,7 @@ end
     ordinary=report(uncertain)
     @test ordinary.observed isa ObservedResult
     observed=ordinary.observed
-    lep=LinearErrorResult(LinearError(Formulation()),[uncertain])
+    lep=LinearErrorResult([uncertain],ComputationDetails())
     @test only(report(lep, R).tables).Z.R==report(uncertain, R).tables.Z.R
     @test length(observed.quantities)==4
     @test all(q -> q.statistic===:value,observed.quantities)

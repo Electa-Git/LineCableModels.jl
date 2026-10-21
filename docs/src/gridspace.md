@@ -316,23 +316,23 @@ and diagnostic storage belong to each workspace. Modal analysis uses the default
 PSCAD and FEM share one table of native runs per problem, so a later point with the
 same native input reuses the run that an earlier point launched.
 
-`ParametricResult` retains both axes:
+`ParametricResult` contains the values, their gridpoints and the retained details. It
+does not contain the spaces that produced them:
 
 ```julia
-run.axes.problems
-run.axes.formulations
+run.gridpoints
 run[problem_index, formulation_index]
 ```
 
 Its `values` vector and ordinary linear iteration remain available. Storage is
 column-major in `(problem, formulation)` coordinates: the problem index varies
-fastest. The formulation for column `j` is stored in `run.axes.formulations[j]`.
-Use `formula_id(run.axes.formulations[j].formulas.earth_impedance)` to identify
-its earth-impedance method.
+fastest. Each value records the formulation that computed it, so
+`formula_id(details(run[1, j]).data.formulation.formulas.earth_impedance)` identifies
+the earth-impedance method of column `j`.
 
 Direct linear propagation uses the same traversal. The Measurements extension
 changes only how an uncertain descriptor materializes. `LinearErrorResult`
-stores only its formulation and ordered core results.
+stores only its ordered core results and their retained details.
 
 `traverse` computes the first point and allocates a vector of that exact result type
 with the analytic Cartesian cardinality. It writes every later value at its index in
@@ -357,7 +357,8 @@ end
 
 Each nominal and error point produces its own aggregate. `MonteCarloResult` directly owns sample-mean core results, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
-and trial counts.
+trial counts, and its sampling: the `confidence`, `cdf_tol` and `distribution` of the
+computation.
 
 A draw whose build throws `OverlapError`, or whose build or computation throws
 `DomainError`, is infeasible. Monte Carlo discards it and draws again, and nothing
@@ -449,8 +450,8 @@ to calculate modal parameters and then finite-length responses:
 
 ```julia
 # phase_a and phase_b are completed phase LineParameters with declared lengths.
-phase_results = ParametricResult(Combinatorial(line_formulation),
-    [phase_a, phase_b])
+phase_results = ParametricResult([phase_a, phase_b], CartesianIndices((2, 1)),
+    ComputationDetails())
 modal_formulation = ModalAnalysisFormulation(:default)
 
 # One scalar action and direct target-bearing Gridspace action.

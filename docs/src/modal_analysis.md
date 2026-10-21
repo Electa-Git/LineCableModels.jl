@@ -49,8 +49,8 @@ same way. Cable constants are not line parameters and do not compose with modal 
 `modal`. The upstream solver, including its selected backend and batched path,
 completes before modal analysis begins. Upstream `on_result`, progress, and
 timing belong to that upstream call. Modal `on_result`, progress, and timing
-belong to the downstream call. Timed results preserve the source gridpoint
-identity. A missed iteration or coupling target produces a warning and a
+belong to the downstream call. Each modal result keeps the gridpoint identity
+of its source. A missed iteration or coupling target produces a warning and a
 diagnostic record. Finite results are returned. The iteration convergence
 setting is a numerical target. It does not bound the physical error. Inspect
 `details(modal).data.modal.diagnostics` for fallback and missed frequency

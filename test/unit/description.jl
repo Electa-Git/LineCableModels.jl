@@ -73,7 +73,7 @@ end
         fields=(formulation=selection,choices=()))
     points=[completed(LineParameters(scale*z,y,f; line_length=1.0,terminals=ports),choices[index],index)
         for (index,scale) in enumerate((1.1,1.2,1.3))]
-    results=ParametricResult(nothing,points,(problems=[:one],formulations=choices), ComputationDetails((;)))
+    results=ParametricResult(points,CartesianIndices((1,length(choices))), ComputationDetails((;)))
     source=(reference=ref,result=results)
     result=report(BenchmarkTableDefinition((R,X,G,B);bands=(:all,:dc,:harmonic,:narrow,:wide)),source)
     @test any(contains("TestAlpha"),result.tables.formulations.label)
@@ -100,8 +100,8 @@ end
     routed=Formulation(
         earth_impedance=(air=:carson1926,earth=:pollaczek1926,mixed=:lucca1994),
         earth_admittance=formula(:default;options=(integration=(method=:quad,options=(rtol=1e-9,)),)))
-    routed_result=ParametricResult(nothing,[completed(points[1],routed,1),completed(points[2],normal,2)],
-        (problems=[:one],formulations=[routed,normal]), ComputationDetails((;)))
+    routed_result=ParametricResult([completed(points[1],routed,1),completed(points[2],normal,2)],
+        CartesianIndices((1,2)), ComputationDetails((;)))
     routed_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,result=routed_result))
     @test any(contains("earth Z(air)=Carson"),first(routed_report.tables.features).relative.formula)
@@ -109,8 +109,8 @@ end
     selected_inner=FormulaFixtures.SurfaceLaw()
     single=Formulation(insulation_admittance=FormulaFixtures.InsulationLaw(),
         internal_impedance=selected_inner)
-    single_data=ParametricResult(nothing,[completed(points[1],single,1)],
-        (problems=[:one],formulations=[single]), ComputationDetails((;)))
+    single_data=ParametricResult([completed(points[1],single,1)],
+        CartesianIndices((1,1)), ComputationDetails((;)))
     single_report=report(BenchmarkTableDefinition((R,B);bands=(:all,)),
         (reference=ref,result=single_data))
     single_label=only(last(single_report.tables.features).relative.formula)
@@ -134,7 +134,7 @@ end
     Base.NamedTuple(value::BrokenEarthLeaf)=(identifier=formula_id(value),parameters=(;),options=(;))
     broken=E.LineParametersFormulation(merge(normal.formulas,(earth_impedance=BrokenEarthLeaf(),)),
         normal.options,merge(normal.definitions,(earth_impedance=BrokenEarthLeaf(),)))
-    bad=ParametricResult(nothing,[points[1]],(problems=[:one],formulations=[broken]), ComputationDetails((;)))
+    bad=ParametricResult([points[1]],CartesianIndices((1,1)), ComputationDetails((;)))
     @test_throws r"test-owned description failed" E.completed_formulation(broken)
     @test only(report(BenchmarkTableDefinition(),(reference=ref,result=bad)).observed).gridpoint.formulations==NamedTuple(choices[1])
 

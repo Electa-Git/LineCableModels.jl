@@ -154,10 +154,11 @@ end
     earth_definition=formula(:default; order = :before)
     soil_definition=formula(:default; parameters = (tolerance = 1e-6,))
     constants=CableConstants(1e-4, 2e-7, 3e-10)
-    results=ParametricResult(combinatorial, [constants])
-    empty_results=ParametricResult(combinatorial, typeof(constants)[])
-    linear_results=LinearErrorResult(linear, [constants])
-    empty_linear=LinearErrorResult(linear, typeof(constants)[])
+    results=ParametricResult([constants], CartesianIndices((1, 1)), ComputationDetails())
+    empty_results=ParametricResult(typeof(constants)[], CartesianIndices((0, 1)),
+        ComputationDetails())
+    linear_results=LinearErrorResult([constants], ComputationDetails())
+    empty_linear=LinearErrorResult(typeof(constants)[], ComputationDetails())
     mc_results=TestFixtures.cable_monte_carlo_result()
     histogram=UQ.HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
     objects=(

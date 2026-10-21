@@ -172,8 +172,7 @@
     @test run[2, 1] == CountedResult(2)
     @test run[1, 2] == CountedResult(10)
     @test run[2, 2] == CountedResult(20)
-    @test run.axes.problems === problem_space
-    @test run.axes.formulations isa Vector{<:AbstractFormulation}
+    @test run.gridpoints == CartesianIndices((2, 2))
     @test_throws BoundsError run[3, 1]
 
     # A completed scalar problem stays a scalar, without iteration.
@@ -191,12 +190,6 @@
     @test builds[] == 4
     @test collect(linear) == CountedResult.(Int[1, 2])
 
-    unindexed=ParametricResult(
-        Combinatorial(CountedFormulation{:first}()),
-        CountedResult[CountedResult(1)]
-    )
-    @test isempty(unindexed.axes)
-    @test_throws ArgumentError unindexed[1, 1]
     # A plain Grid of formulations is a space of them.
     @test collect(compute(CountedProblem(1), formulas)) == CountedResult.(Int[1, 10])
     @test_throws ArgumentError Combinatorial(Grid((1, 2)))
@@ -218,8 +211,7 @@
     @test builds[] == 2
     @test formulation_builds[] == 2
     @test collect(automatic) == CountedResult.(Int[1, 2, 10, 20])
-    @test automatic.axes.problems === problem_space
-    @test automatic.formulation isa Combinatorial
+    @test automatic.gridpoints == CartesianIndices((2, 2))
     @test isempty(details(automatic).data)
     @test collect(compute(scalar, formulation_space)) == CountedResult.(Int[7, 70])
     @test collect(compute(scalar_problem, formulation_space)) == CountedResult.(Int[7, 70])

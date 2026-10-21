@@ -196,9 +196,9 @@ end
     @test any(i -> key(i) in engine && owner(i) === :engine, items)
     @test any(i -> key(i) in engine && owner(i) === :makie, items)
     @test !any(i -> key(i) in engine && owner(i) === :datamodel, items)
-    @test !any(i -> key(i) in engine && :slow in i.tags, items)
+    @test !any(i -> key(i) in setdiff(engine, quality) && :slow in i.tags, items)
     # Root files and extensions count at their load position.
-    @test select("src/performance.jl") == select("src/uq/UQ.jl")
+    @test select("src/docstrings.jl") == select("src/units/Units.jl")
     @test select("src/commons/logging.jl") == select("src/commons/Commons.jl")
     @test select("src/engine/lineparameters.jl", "src/uq/UQ.jl") == engine
     fem = select("ext/LineCableModelsGmshExt/LineCableModelsGmshExt.jl")

@@ -341,13 +341,16 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in `Commons` and holds DataModel's geometric methods too.
 - The runner writes the work around the points once. `on_result(problem, index, value)`
   runs after each point in computation order, and `index` gives the position of the point
-  in the space. The `timing` record holds `wall_seconds`, `bytes`, `gc_seconds`,
-  `compile_seconds` and `recompile_seconds` for every backend, also for a point that
-  reuses a native run. The log lines take the action from `description(problem)`, as in
+  in the space. Timing is a log of the run: at level 1 in the `timing` group of
+  `verbosity`, each point writes one `Info` record in the group `:timing` with its
+  `gridpoint` and its `wall_seconds`, `bytes`, `gc_seconds`, `compile_seconds` and
+  `recompile_seconds`, for every backend, also for a point that reuses a native run. A
+  result does not record timing. The log lines take the action from `description(problem)`, as in
   "Line parameters computation started". The library emits its records only at the
-  progress levels that ask for them. When the options set `verbosity` or `on_result`, each
-  point computes in a `VerbosityLogger` at the `verbosity` levels, level 0 by default, which
-  filters the records of `on_result` too.
+  levels that ask for them. When the options set `verbosity` or `on_result`, the run
+  computes in one `VerbosityLogger` at the `verbosity` levels, level 0 by default, which
+  filters the records of `on_result` too. The run of a space is called through
+  `Base.invokelatest`, so it compiles from the values that it receives.
 - A vector of formulations is one value. Alternatives are a `Grid` or a `Gridspace`, as in
   `compute(problem, Grid((first, second)))`. A formulation space contains the formulations
   of one backend, whose formula choices may vary. Comparing backends takes one computation per
@@ -362,11 +365,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   own formulation types. A space that mixes backends, or a formulation type without a
   `computation_options` method, throws an `ArgumentError` that states the rule and the
   extension point.
-  `timed(timing, call)` returns the value of a call and the timing record that a point
-  retains about it.
 - `AbstractTraversal`, `ParametricProblem`, `Combinatorial` and `ParametricResult` are
-  defined in `Commons`, and `timed`, `verbosity`, `VerbosityLogger` and `retain_gridpoint`
-  are public in `Commons`.
+  defined in `Commons`, and `verbosity`, `VerbosityLogger` and `retain_gridpoint` are
+  public in `Commons`. A `ParametricResult` holds its values, their gridpoints (the problem
+  and formulation indices of the points) and the retained details, and a
+  `LinearErrorResult` its values and details. Neither contains the space that produced it.
+  A `MonteCarloResult` holds its `sampling`, `(; confidence, cdf_tol, distribution)`,
+  which `confidence`, `cdf_tolerance` and `sampling_distribution` read.
 - Each builder of the user-facing language is the singleton of a subtype of
   `Builder{Target}`, and one call method lifts it over all its arguments and keywords. Its
   scalar body is a `build` method. A user extends a builder for an own type with a `build`
@@ -392,10 +397,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   values that their builders make. Result records hold the data of the formulation and the
   problem without a further copy.
 - A result's type parameters are its physics: `LineParameters{T, U, D}`,
-  `CableConstants{T}`, `PropagationParameters{P, L}`, `ParametricResult{T, F, A}`,
-  `LinearErrorResult{T, F}`, `MonteCarloResult{T, F, ST, S, H}` and `RMSError{T}`. Each holds
+  `CableConstants{T}`, `PropagationParameters{P, L}`, `ParametricResult{T}`,
+  `LinearErrorResult{T}`, `MonteCarloResult{T, ST, S, H}` and `RMSError{T}`. Each holds
   one `ComputationDetails`, whose named tuple `data` is in a field typed `NamedTuple`, so
-  options such as `timing` and `trace` change its keys, never the type of a result.
+  options such as `trace` change its keys, never the type of a result.
 - `LineParameters` has `terminals`, the line's terminals after reduction
   (`"cable:<cable id>:<terminal>"`, or `"bundle:[...]"` for a reduced bundle), and
   `line_length`, the length of the line in meters. A modal result keeps the terminals of

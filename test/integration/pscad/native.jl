@@ -1,6 +1,6 @@
 @testitem "PSCAD / real station repair acceptance" tags=[:pscad_native, :integration, :makie] begin
     using LineCableModels.Engine: completed_formulation
-    using TOML, SHA, CairoMakie, LinearAlgebra
+    using TOML, SHA, CairoMakie, LinearAlgebra, Logging
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     const P = LineCableModels.PSCAD
     config_path = get(ENV, "LINECABLEMODELS_PSCAD_CONFIG", "")
@@ -17,12 +17,20 @@
             temperature=60.0,frequencies=10.0 .^ range(log10(50.0),log10(1000.0);length=101))
     end
     problem = native_problem([1,2,3,4])
-    options = (timing=true, remote=remote,verbosity=(default=0,PSCAD=1))
+    options = (remote=remote,verbosity=(default=0,PSCAD=1,timing=1))
     selected = Formulation(:pscad)
-    first_timing = @timed compute(problem,selected;options)
+    # Each point logs its timing in the group :timing, and a result does not record it.
+    timing_log = Test.TestLogger()
+    timings() = [record.kwargs for record in timing_log.logs if record.group === :timing]
+    first_timing = @timed with_logger(() -> compute(problem,selected;options), timing_log)
     first_result = first_timing.value
-    next_timing = @timed compute(problem,selected;options)
+    next_timing = @timed with_logger(() -> compute(problem,selected;options), timing_log)
     next_result = next_timing.value
+    @test length(timings()) == 2
+    for record in timings()
+        @test keys(record) == (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+        @test all(>=(0), (record[key] for key in keys(record) if key !== :gridpoint))
+    end
     @test !details(first_result).data.execution.reused
     @test !details(next_result).data.execution.reused
     @test details(first_result).data.execution.source_run != details(next_result).data.execution.source_run
@@ -53,18 +61,21 @@
         @test iszero(Y(first_result)[1,3,k])
     end
     for result in (first_result, next_result)
-        @test keys(details(result).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
-        @test all(>=(0), values(details(result).data.timing))
+        @test !haskey(details(result).data, :timing)
         @test details(result).data.execution.compile_call_seconds >= 0
         @test !haskey(details(result).data.execution, :elapsed_seconds)
     end
     source = details(first_result).data.execution.source_run
     source_hash = bytes2hex(open(sha256,joinpath(source,"outputs","result_zm.out")))
-    reuse_timing = @timed compute(native_problem([3,1,4,2]),selected;
-        options=(;options...,resume_run_directory=source))
+    reuse_timing = @timed with_logger(timing_log) do
+        compute(native_problem([3,1,4,2]),selected;
+            options=(;options...,resume_run_directory=source))
+    end
     reordered = reuse_timing.value
     @test details(reordered).data.execution.reused
-    @test keys(details(reordered).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+    # A point that reuses a native run is timed like any other point.
+    @test length(timings()) == 3
+    @test keys(last(timings())) == (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
     @test Z(reordered) == Z(first_result)[[2,4,1,3],[2,4,1,3],:]
     @test Y(reordered) == Y(first_result)[[2,4,1,3],[2,4,1,3],:]
     @test bytes2hex(open(sha256,joinpath(source,"outputs","result_zm.out"))) == source_hash
@@ -74,12 +85,16 @@
         Formulation(:pscad;earth_impedance=(air=:gary1976,earth=:wedepohl1973,mixed=:ametani2009)),
         Formulation(:pscad;earth_impedance=(air=:gary1976,earth=:saad1996,mixed=:lucca1994),
             insulation_admittance=:lossy)]
-    batch = compute(problem,Grid(Tuple(selections));options=(;options...,resume_run_directory=:latest,
-        on_result=(p,i,r)->push!(callbacks,i)))
+    batch = with_logger(timing_log) do
+        compute(problem,Grid(Tuple(selections));options=(;options...,resume_run_directory=:latest,
+            on_result=(p,i,r)->push!(callbacks,i)))
+    end
     # The first two selections share native settings. Distinct settings require
     # separate native outputs, which :latest may reuse from an earlier test run.
     @test callbacks == collect(1:length(selections))
-    @test keys(details(batch[2]).data.timing) == (:wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+    @test [record[:gridpoint].formulation_index for record in timings()[4:end]] ==
+          collect(1:length(selections))
+    @test all(record -> keys(record) == (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds), timings())
     @test all(result -> typeof(result) === typeof(first(batch)), batch)
     @test Z(batch[1]) == Z(batch[2])
     @test Z(batch[1]) !== Z(batch[2])
@@ -104,7 +119,8 @@
     total = compute(problem,selected;options=(;options...,resume_run_directory=source))
     @test Z(total) .* line_length(total) == 42 .* Z(first_result)
     @test Y(total) .* line_length(total) == 42 .* Y(first_result)
-    untimed = compute(problem,selected;options=(;options...,timing=false,resume_run_directory=source))
+    untimed = compute(problem,selected;options=(;options...,verbosity=(default=0,PSCAD=1),
+        resume_run_directory=source))
     @test !haskey(details(untimed).data, :timing)
     @test details(untimed).data.execution.input_sha256 == details(first_result).data.execution.input_sha256
     @test Z(untimed) == Z(first_result) && Y(untimed) == Y(first_result)
@@ -151,7 +167,7 @@ end
         frequencies=10.0 .^ range(0,3;length=101))
     work_root = mktempdir(mkpath(remote.local_root);prefix="identity-rejection-",cleanup=false)
     @test_throws r"does not match the expected solver identity" compute(problem,Formulation(:pscad);
-        options=(;timing=true,remote,work_root,solver_identity=expected))
+        options=(;remote,work_root,solver_identity=expected))
     run_directory = only(readdir(work_root;join=true))
     @test !isfile(joinpath(run_directory,"complete.toml"))
     console = read(joinpath(run_directory,"outputs","pscad-console.txt"),String)

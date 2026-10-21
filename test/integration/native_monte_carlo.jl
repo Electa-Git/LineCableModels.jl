@@ -54,7 +54,7 @@ end
     @test retained.edges == HistogramDensity(vec(only(result.sample_values).R);bins=2).edges
     @test_throws ArgumentError Makie.stairs(result, R; bins=0, backend=:cairo,
         display_plot=false)
-    without_samples = MonteCarloResult(result.formulation, result.values, result.stats,
+    without_samples = MonteCarloResult(result.sampling, result.values, result.stats,
         nothing, result.histogram_values, result.root_seed, result.point_seeds,
         result.trial_counts)
     @test_throws r"return_samples=true" Makie.stairs(without_samples, R; bins=3,

@@ -49,23 +49,6 @@ other value as it is.
 """
 retain_gridpoint(result; fields = (;)) = result
 
-"""
-    timed(timing, call)
-
-Return the value of `call()` and the fields that a point retains about the call.
-`timed(Val(false), call)` returns `(call(), (;))`. `timed(Val(true), call)` returns the value
-and `(timing = (; wall_seconds, bytes, gc_seconds, compile_seconds, recompile_seconds),)`,
-measured with `Base.@timed`.
-"""
-timed(::Val{false}, call) = (call(), (;))
-function timed(::Val{true}, call)
-    statistics = Base.@timed call()
-    return statistics.value, (timing = (wall_seconds = statistics.time,
-        bytes = statistics.bytes, gc_seconds = statistics.gctime,
-        compile_seconds = statistics.compile_time,
-        recompile_seconds = statistics.recompile_time),)
-end
-
 # Each formulation space contains the formulations of one backend, whose owner normalizes
 # their options. This method refuses a space that mixes backends and a formulation type
 # without an owner method.
@@ -90,32 +73,33 @@ formulation; options)`.
 Before the first point, the owner of the formulations normalizes the options once with
 `computation_options(F, options)`, where `F` is the element type of the formulations. A
 formulation space contains the formulations of one backend, and a space that mixes backends
-raises an `ArgumentError`. The traversal writes the
-work around the points once. The library emits its records only at the progress levels that
-ask for them. When the options set `verbosity` or `on_result`, each point computes in a
+raises an `ArgumentError`. The library emits its records only at the levels that enable
+them. When the options set `verbosity` or `on_result`, the run computes in one
 `VerbosityLogger` at the `verbosity` levels, level 0 by default, which filters the records
 of `on_result` too.
-The traversal logs the start, the progress and the end of the run. With `timing = true`,
-each value records `wall_seconds`, `bytes`, `gc_seconds`, `compile_seconds` and
-`recompile_seconds`. Each value of a space receives its gridpoint. After each point,
-`on_result(problem, index, value)` runs, with the position of the point in the space as
-`index`.
+
+The traversal logs the start, the progress and the end of the run in the group
+`:progress`. At level 1 or more in the group `:timing`, each point writes one `Info` record
+in that group with its `gridpoint` and the `wall_seconds`, `bytes`, `gc_seconds`,
+`compile_seconds` and `recompile_seconds` of its computation, measured with `Base.@timed`.
+A result does not record timing. Each value of a space receives its gridpoint. After each
+point, `on_result(problem, index, value)` runs, with the position of the point in the space
+as `index`.
 
 A scalar problem and a scalar formulation are a run of one point, and `traverse` returns its
 value. Otherwise it returns the values in the order of the space, the problem index fastest,
-the retained details and the axes, `(; values, details, axes)`, from which a higher-order
-formulation builds its result. A [`Combinatorial`](@ref) formulation sets the retention of
-details.
+the retained details and the gridpoints, the problem and formulation indices of the points,
+`(; values, details, gridpoints)`, from which a higher-order formulation builds its result.
+A [`Combinatorial`](@ref) formulation sets the retention of details.
 """
-Base.@constprop :aggressive function traverse(
+function traverse(
         problem::ScalarOrGrid{AbstractProblemDefinition},
         formulation::ScalarOrGrid{AbstractFormulation};
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
-    record = validate(ComputationOptions(options), traverse)
+    record = ComputationOptions(options)
     # A problem's constructor validates it, and materializing a problem constructs it. A
-    # scalar call keeps its one problem and formulation in tuples. A space keeps vectors,
-    # which the steps of its points share by reference. Its formulations take the element type
-    # of their source and are the record of the formulation axis.
+    # scalar call keeps its one problem and formulation in tuples. A space keeps vectors.
+    # Its formulations take the element type of their source.
     spaced = has_grid((problem, formulation))
     problems = map(materialize, points(problem))
     formulations = spaced ? collect(Grid(Combinatorial(formulation).inner)) :
@@ -123,127 +107,115 @@ Base.@constprop :aggressive function traverse(
         points(validate(formulation, Combinatorial)))
     isempty(problems) && throw(ArgumentError("a traversal needs at least one problem"))
     isempty(formulations) && throw(ArgumentError("a traversal needs at least one formulation"))
-    # Constant options do not reach the steps defined in the run below. The owner of the
-    # formulations normalizes them here, once, into a record in which the options that change
-    # the type of a value are types.
-    # Timing changes the type of the fields that a point records, and its switch becomes a
-    # type here too.
+    # The owner of the formulations normalizes the options here, once, into a record in
+    # which the options that change the type of a value are types.
     execution = computation_options(eltype(formulations), record)
-    timing = get(record.data, :timing, false) ? Val(true) : Val(false)
-    return traverse(problem, formulation, problems, formulations, execution, timing;
-        options = record)
+    levels = verbosity(get(record.data, :verbosity, (default = 0,)))
+    on_result = get(record.data, :on_result, nothing)
+    # The run's controls are data: the levels decide progress and timing once, and
+    # `on_result` is the user's callable. The points of a run share its source identity.
+    run = (; problems, formulations, execution, on_result,
+        count = length(problems) * length(formulations),
+        spaced, source_id = gridpoint_id().source_id,
+        progress = get(levels, :progress, levels.default) > 0,
+        timing = get(levels, :timing, levels.default) > 0, started = time_ns())
+    # The types of a space are known only from its values. Its run is called in the latest
+    # world, which inference does not enter: the run compiles from the values it receives,
+    # and the compiler does not walk the computation with partly known types. A scalar run
+    # infers.
+    scoped = haskey(record.data, :verbosity) || on_result !== nothing
+    spaced || return traverse(problem, formulation, run, scoped, levels)
+    return Base.invokelatest(traverse, problem, formulation, run, scoped, levels)
 end
 
-# The run on the decided parts. Options read at run time give a small union of record types,
-# and each concrete record type compiles its own run.
-function traverse(problem, formulation, problems, formulations, execution::ComputationOptions,
-        timing::Val; options::ComputationOptions)
-    levels = verbosity(get(options.data, :verbosity, (default = 0,)))
-    on_result = get(options.data, :on_result, nothing)
-    spaced = has_grid((problem, formulation))
-    progress = get(levels, :progress, levels.default) > 0
-    count = length(problems) * length(formulations)
-    started = time_ns()
-    # A point of a space takes the identity of the run and its indices. A scalar value keeps
-    # the identity that its backend gave it, and the fields to retain merge into its details.
-    identified = if spaced
-        let source_id = gridpoint_id().source_id
-            (value, fields, problem_index, formulation_index) -> retain_gridpoint(value,
-                gridpoint_id(; source_id, problem_index, formulation_index); fields)
-        end
-    else
-        (value, fields, _, _) -> isempty(fields) ? value : retain_gridpoint(value; fields)
-    end
-    # A point computes its value with the backend, timed or not, then records its gridpoint
-    # and calls `on_result`. The step receives the resolved input and the formulation of the
-    # point. A space of formulations of different types dispatches once per point, and the
-    # step compiles for each formulation type.
-    point = function (problem_index, formulation_index, input, selected)
-        result, fields = timed(timing, () -> compute(input, selected; options = execution))
-        result = identified(result, fields, problem_index, formulation_index)
-        index = problem_index + (formulation_index - 1) * length(problems)
-        on_result === nothing || on_result(problems[problem_index], index, result)
-        return result
-    end
-    # The library emits its records only at the progress levels that ask for them. Only a
-    # logger scope filters the records of user code. When the options set `verbosity` or
-    # `on_result`, each point runs in a `VerbosityLogger`, `on_result` included. The step
-    # builds the logger from the levels, whose type is concrete, and not from a captured
-    # current logger, whose type inference cannot know. This is decided once, before the
-    # first point.
-    logged = if haskey(options.data, :verbosity) || on_result !== nothing
-        function (arguments...)
-            logger = VerbosityLogger(Logging.current_logger(), levels)
-            return Logging.with_logger(logger) do
-                point(arguments...)
+# Only a logger scope filters the records of user code. When the options set `verbosity` or
+# `on_result`, the run computes in one `VerbosityLogger`.
+function traverse(problem::ScalarOrGrid{AbstractProblemDefinition},
+        formulation::ScalarOrGrid{AbstractFormulation}, run::NamedTuple, scoped::Bool,
+        levels::NamedTuple)
+    scoped || return traverse(problem, formulation, run)
+    return Logging.with_logger(() -> traverse(problem, formulation, run),
+        VerbosityLogger(Logging.current_logger(), levels))
+end
+
+# The run computes problem by problem and resolves each problem once. A scalar run returns
+# the value of its one point, and a space allocates its values from the type of the first.
+function traverse(problem::ScalarOrGrid{AbstractProblemDefinition},
+        formulation::ScalarOrGrid{AbstractFormulation}, run::NamedTuple)
+    (; problems, formulations, execution) = run
+    run.progress && @info "$(description(first(problems))) computation started" _group = :progress total = run.count
+    resolved = resolve(first(problems), formulations; options = execution)
+    value = traverse(run, 1, 1, first(resolved), first(formulations))
+    result = if has_grid((problem, formulation))
+        values = Vector{typeof(value)}(undef, run.count)
+        values[1] = value
+        traverse(values, run, resolved)
+        details = if Combinatorial(formulation).options.data.retain_details
+            first_record = computation_details(typeof(first(formulations)), first(values))
+            records = Vector{typeof(first_record)}(undef, run.count)
+            for index in eachindex(values)
+                records[index] = computation_details(
+                    typeof(formulations[cld(index, length(problems))]), values[index])
             end
+            ComputationDetails((points = records,))
+        else
+            ComputationDetails()
         end
+        (; values, details,
+            gridpoints = CartesianIndices((length(problems), length(formulations))))
     else
-        point
+        value
     end
-    # Progress is decided once. With progress, the step reports it around each point.
-    # Otherwise the step computes the point alone.
-    step = if progress
-        action = description(first(problems))
-        completed, last_log, previous, average = Ref(0), Ref(started), Ref(started), Ref(0.0)
-        function (arguments...)
-            result = logged(arguments...)
-            now = time_ns()
-            completed[] += 1
-            interval = (now - previous[]) * 1e-9
-            average[] = completed[] == 1 ? interval : 0.2 * interval + 0.8 * average[]
-            previous[] = now
-            if now - last_log[] >= 5_000_000_000
-                elapsed = (now - started) * 1e-9
-                eta = (count - completed[]) * average[] / 3600
-                @info "$action progress" _group = :progress completed = completed[] total = count elapsed_seconds = elapsed eta_hours = eta
-                last_log[] = now
-            end
-            return result
-        end
-    else
-        logged
+    run.progress && @info "$(description(first(problems))) computation completed successfully" _group = :progress completed = run.count total = run.count elapsed_seconds = (time_ns() - run.started) * 1e-9
+    return result
+end
+
+# The points after the first, into `values` at their positions in the space, the problem
+# index fastest. Each later problem is resolved once.
+function traverse(values::Vector, run::NamedTuple, resolved::AbstractVector)
+    (; problems, formulations, execution) = run
+    for formulation_index in 2:length(formulations)
+        values[1 + (formulation_index - 1) * length(problems)] = traverse(run, 1,
+            formulation_index, resolved[formulation_index], formulations[formulation_index])
     end
-    close_run = function (result)
-        if progress
-            name = description(first(problems))
-            elapsed = (time_ns() - started) * 1e-9
-            @info "$name computation completed successfully" _group = :progress completed = count total = count elapsed_seconds = elapsed
-        end
-        return result
-    end
-    progress && @info "$(description(first(problems))) computation started" _group = :progress total = count
-    first_resolved = resolve(first(problems), formulations; options = execution)
-    value = step(1, 1, first(first_resolved), first(formulations))
-    spaced || return close_run(value)
-    values = Vector{typeof(value)}(undef, count)
-    values[1] = value
-    slots = reshape(values, length(problems), length(formulations))
-    map!(index -> step(1, index, first_resolved[index], formulations[index]),
-        view(slots, 1, 2:length(formulations)), 2:length(formulations))
     for problem_index in 2:length(problems)
-        resolved = resolve(problems[problem_index], formulations; options = execution)
-        map!(index -> step(problem_index, index, resolved[index], formulations[index]),
-            view(slots, problem_index, :), eachindex(formulations))
+        inputs = resolve(problems[problem_index], formulations; options = execution)
+        for formulation_index in eachindex(formulations)
+            values[problem_index + (formulation_index - 1) * length(problems)] =
+                traverse(run, problem_index, formulation_index, inputs[formulation_index],
+                    formulations[formulation_index])
+        end
     end
-    details = if Combinatorial(formulation).options.data.retain_details
-        first_record = computation_details(typeof(first(formulations)), first(values))
-        records = Vector{typeof(first_record)}(undef, count)
-        map!(index -> computation_details(
-                typeof(formulations[cld(index, length(problems))]), values[index]),
-            records, eachindex(values))
-        ComputationDetails((points = records,))
-    else
-        ComputationDetails()
-    end
-    return close_run((; values, details, axes = (problems = Grid(problem), formulations)))
+    return values
 end
 
-# A traversal reads its timing switch from the computation options.
-function validate(options::ComputationOptions, ::typeof(traverse))
-    timing = get(options.data, :timing, false)
-    timing === true || timing === false || throw(ArgumentError("timing must be Bool"))
-    return options
+# The point computes its value with the backend and the formulation of the point. A point
+# of a space takes its gridpoint, and then `on_result` receives the value. This method
+# dispatches on the type of the formulation, once per point of a space of formulations of
+# different types. A point that ends in a later five-second interval of the run than the
+# one in which it started logs the progress from its position and the elapsed time.
+function traverse(run::NamedTuple, problem_index::Int, formulation_index::Int, input,
+        selected::AbstractFormulation)
+    started = time_ns()
+    gridpoint = gridpoint_id(; run.source_id, problem_index, formulation_index)
+    value = if run.timing
+        statistics = Base.@timed compute(input, selected; options = run.execution)
+        @info "Point computed" _group = :timing gridpoint wall_seconds = statistics.time bytes = statistics.bytes gc_seconds = statistics.gctime compile_seconds = statistics.compile_time recompile_seconds = statistics.recompile_time
+        statistics.value
+    else
+        compute(input, selected; options = run.execution)
+    end
+    value = run.spaced ? retain_gridpoint(value, gridpoint) : value
+    index = problem_index + (formulation_index - 1) * length(run.problems)
+    run.on_result === nothing || run.on_result(run.problems[problem_index], index, value)
+    run.progress || return value
+    now = time_ns()
+    if fld(now - run.started, 5_000_000_000) > fld(started - run.started, 5_000_000_000)
+        completed = (problem_index - 1) * length(run.formulations) + formulation_index
+        elapsed = (now - run.started) * 1e-9
+        @info "$(description(input.problem)) progress" _group = :progress completed total = run.count elapsed_seconds = elapsed eta_hours = (run.count - completed) * elapsed / completed / 3600
+    end
+    return value
 end
 
 """
@@ -273,5 +245,5 @@ function compute(problem::ParametricProblem,
         return traverse(problem.space, formulation; options = problem.options)
     combinatorial = Combinatorial(formulation)
     traversed = traverse(problem.space, combinatorial; options = problem.options)
-    return ParametricResult(combinatorial, traversed.values, traversed.axes, traversed.details)
+    return ParametricResult(traversed.values, traversed.gridpoints, traversed.details)
 end

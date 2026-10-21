@@ -634,7 +634,7 @@ function _fem_input_record(model::FEMResolvedModel, formulation::LineCableModels
         execution = (;
             (key => value
         for (key, value) in pairs(execution.data)
-        if key ∉ (:verbosity, :trace, :on_result, :log_file, :timing,
+        if key ∉ (:verbosity, :trace, :on_result, :log_file,
             :resume_run_directory))...),
         supplied_mesh = mesh_path === nothing || !isfile(mesh_path) ? nothing :
                         bytes2hex(open(sha256, mesh_path)),

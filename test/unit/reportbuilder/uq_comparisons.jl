@@ -22,8 +22,7 @@
          for i in 1:2, j in 1:2, k in eachindex(f)]
     end
     mc=MonteCarloResult(
-        MonteCarlo(Formulation(); trials = 17, seed = 12,
-            return_samples = true, return_histograms = true),
+        (confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
         [core], [summaries], [trials], [histograms], UInt64(12), UInt64[13], [17])
     expected=dropdims(std(trials.R .+ im .* reshape(angular, 1, 1, :, 1) .* trials.L; dims = 4); dims = 4)
     @test observe(mc, statistics, Z, std, 1)≈expected
@@ -61,7 +60,7 @@
     @test all(iszero,skipmissing(physical_report.tables.terms.relative_rms_percent))
 
     two=MonteCarloResult(
-        mc.formulation, [core, core], [summaries, summaries], nothing, nothing,
+        mc.sampling, [core, core], [summaries, summaries], nothing, nothing,
         UInt64(12), UInt64[13, 14], [17, 17])
     @test_throws ArgumentError compare(two, two, (statistics, R, mean))
     @test_throws ArgumentError compare(two, two, (statistics, R, mean); pairing = (
@@ -103,10 +102,10 @@
     uncertain_core=LineParameters(
         complex.(measurement.(zeros(2, 2, 6), fill(1e-4, 2, 2, 6))),
         zeros(ComplexF64, 2, 2, 6), f; line_length=1.0)
-    spread=LinearErrorResult(LinearError(Formulation()), [uncertain_core])
+    spread=LinearErrorResult([uncertain_core], ComputationDetails())
     @test all(iszero, observe(only(compare(spread, spread, (statistics, R, std))), relative_error))
     @test all(ismissing, observe(only(compare(spread, spread, (statistics, R, mean))), relative_error))
-    lep=LinearErrorResult(LinearError(Formulation()), [core])
+    lep=LinearErrorResult([core], ComputationDetails())
     @test_throws ArgumentError report(
         BenchmarkTableDefinition(((statistics, R, median),)), (
             reference = mc, result = lep))
@@ -125,7 +124,7 @@
             array)
     end
     large=MonteCarloResult(
-        MonteCarlo(Formulation(); trials = 1700, seed = 12, return_samples = true),
+        (confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
         [core], [large_summaries], [large_samples], nothing, UInt64(12), UInt64[13], [1700])
     definition=BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands = (:all,))
     report(definition, (reference = mc, result = mc))

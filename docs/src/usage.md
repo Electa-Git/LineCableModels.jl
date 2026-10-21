@@ -145,14 +145,13 @@ label(display_unit(R))               # "Ω/km"
 `ParametricResult`, `LinearErrorResult`, and `MonteCarloResult` are finite
 one-dimensional collections. Indexing and iteration return stored core
 results. `first`, `only`, `collect`, `map`, and `zip` retain their ordinary
-Julia meanings. A `ParametricResult` also retains its resolved axes and permits
-two-axis lookup:
+Julia meanings. A `ParametricResult` also holds the gridpoints of its values and
+permits two-axis lookup. Each value records the formulation that computed it:
 
 ```julia
-run.axes.problems
-run.axes.formulations
+run.gridpoints
 selected = run[problem_index, formulation_index]
-formula_id(run.axes.formulations[formulation_index].formulas.earth_impedance)
+formula_id(details(selected).data.formulation.formulas.earth_impedance)
 ```
 
 Linear storage is column-major in `(problem, formulation)` coordinates, with the problem index varying fastest. Scalar formulations produce a singleton

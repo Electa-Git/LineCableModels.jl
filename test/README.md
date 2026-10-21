@@ -89,9 +89,9 @@ items have no owner tag.
 covers and the kind tags. The runner, the architecture guards and the tools read it.
 It also gives each source file the owner of its load position. A file that
 `src/LineCableModels.jl` includes directly takes the owner of the last module included
-before it, so `src/logging.jl` belongs to `commons` and `src/performance.jl` to
-`uq`. TextDisplay and PlotBuilder belong to `commons`. The files of a child module take
-the owner of its parent: the formula families and ModalAnalysis belong to `engine`.
+before it, or the first owner, so `src/docstrings.jl` belongs to `units`. TextDisplay
+and PlotBuilder belong to `commons`. The files of a child module take the owner of its
+parent: the formula families and ModalAnalysis belong to `engine`.
 
 Each item also has at least one kind tag: `unit`, `integration`, `extension`,
 `visual`, `quality` or `aqua`. The environment tags `visual`, `fem_numerical`,

@@ -77,14 +77,14 @@ end
     failure_log = Test.TestLogger()
     with_logger(failure_log) do
         @test_throws DomainError compute(ordinary, FailingFormulation();
-            options=(timing=true, on_result=callback, verbosity=(default=1,)))
+            options=(on_result=callback, verbosity=(default=1, timing=1)))
     end
     @test !any(record -> occursin("completed successfully", string(record.message)), failure_log.logs)
     @test isempty(calls)
     failed_callback = function (_, index, result)
         push!(calls, index)
         @test haskey(details(result).data, :formulation)
-        @test haskey(details(result).data, :timing)
+        @test !haskey(details(result).data, :timing)
         error("injected callback failure")
     end
     for choice in (selected, Grid((selected, selected)))
@@ -92,7 +92,7 @@ end
         empty!(failure_log.logs)
         with_logger(failure_log) do
             @test_throws ErrorException compute(ordinary, choice;
-                options=(timing=true, on_result=failed_callback, verbosity=(default=1,)))
+                options=(on_result=failed_callback, verbosity=(default=1, timing=1)))
         end
         @test !any(record -> occursin("completed successfully", string(record.message)), failure_log.logs)
         @test calls == [1]

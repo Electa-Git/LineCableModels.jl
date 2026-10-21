@@ -219,9 +219,6 @@ end
 
 function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options)
     rng = Random.Xoshiro(seed)
-    timing = get(options.data, :timing, false)
-    timing isa Bool || throw(ArgumentError("timing must be Bool"))
-    trial_timings = timing ? NamedTuple[] : nothing
     progress = verbosity(options, :progress) > 0
     started = progress ? time_ns() : UInt64(0)
     sampler = (; point, formulation, child_options)
@@ -247,7 +244,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                Vector{typeof(record)}(undef, ntrials) : nothing
 
     last_log = _trials!(rng, first_result, sample_values, retained, record, sampler,
-        details_owner, sample_axis, trial_timings, ntrials, progress, started)
+        details_owner, sample_axis, ntrials, progress, started)
 
     aggregation_started = progress ? time_ns() : UInt64(0)
     aggregate = _aggregate(sample_values, first_result, formulation)
@@ -271,13 +268,13 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
             uncertainty = (estimator = :empirical, representation = :marginal_mean_std),
             uncertainty_descriptions = _uncertainty_descriptions(MonteCarlo))))
     return merge(aggregate, (; representation, trials = ntrials, seed,
-        details = retained, timing = trial_timings))
+        details = retained))
 end
 
 # Record the pilot result in `buffers`, then draw and record further trials until the study
 # accepts `ntrials` of them. Return the time of the last progress message.
 function _trials!(rng, first_result::R, buffers, retained, record, sampler, details_owner,
-        sample_axis, trial_timings, ntrials::Int, progress::Bool, started::UInt64) where {R}
+        sample_axis, ntrials::Int, progress::Bool, started::UInt64) where {R}
     formulation = sampler.formulation
     previous = started
     last_log = started
@@ -288,7 +285,6 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
         accepted += 1
         _record_sample!(buffers, value, accepted, sample_axis)
         retained === nothing || (retained[accepted] = record)
-        trial_timings === nothing || push!(trial_timings, details(value).data.timing)
         if progress
             now = time_ns()
             interval = (now - previous) * 1e-9
@@ -380,9 +376,6 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     seeds[1] = first_aggregate.seed
     trial_counts[1] = first_aggregate.trials
     retained === nothing || (retained[1] = first_aggregate.details)
-    timing = get(problem.options.data, :timing, false)
-    population_timings = timing ? Vector{Vector{NamedTuple}}(undef, point_count) : nothing
-    timing && (population_timings[1]=first_aggregate.timing)
     if progress
         now = time_ns()
         average_seconds = (now - previous) * 1e-9
@@ -438,7 +431,6 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
             ))
             retained[index] = aggregate.details
         end
-        timing && (population_timings[index]=aggregate.timing)
         if progress
             now = time_ns()
             interval = (now - previous) * 1e-9
@@ -455,9 +447,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     ))
 
     retained_details = retained === nothing ? (;) : (; trials = retained)
-    timing && (retained_details=merge(retained_details, (timing=population_timings,)))
     result = MonteCarloResult(
-        formulation,
+        formulation.options.data[(:confidence, :cdf_tol, :distribution)],
         values,
         stats_values,
         sample_values,
