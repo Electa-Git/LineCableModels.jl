@@ -281,9 +281,8 @@ quantities, comparisons, and execution measurements. Quantity records include
 units, coordinates, applied cutoffs, availability, and missing-value
 reasons. `ReportBuilder.tabulate` creates tables from these records on demand.
 `ReportArtifact` retains `.observed`, a separate `.reference`, and `.tables`.
-FEM completion records identify the selected GetDP executable through
-`getdp_selection`. File checksums verify integrity. Source revisions identify
-the code used for the computation.
+File checksums check integrity. Source revisions identify the code used for the
+computation.
 
 ## Text display and tables
 

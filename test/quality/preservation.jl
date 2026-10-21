@@ -125,7 +125,7 @@ end
     using JET
     P = PreservationLocks
     P.check_environment()
-    E, M, C = LineCableModels.Engine, LineCableModels.ModalAnalysis, LineCableModels.Commons
+    E, M = LineCableModels.Engine, LineCableModels.ModalAnalysis
     include(joinpath(P.REPOSITORY, "test", "support", "scenarios.jl"))
     using .CurrentScenarios: line_parameters_problem, three_phase_system
 
@@ -155,7 +155,7 @@ end
         @report_opt target_modules=(LineCableModels,) E.earth!(workspace, 1,
             plan.earth.calculations, buffers.earth.calculations))
     found["reduce_line_matrices!"] = JET.get_reports(
-        @report_opt target_modules=(LineCableModels,) C.reduce_line_matrices!(
+        @report_opt target_modules=(LineCableModels,) E.reduce_line_matrices!(
             view(buffers.Zout, :, :, 1), view(buffers.Yout, :, :, 1), buffers.Zprimitive,
             buffers.Pprimitive, jω, plan.reduction, buffers.reduction))
     phase = compute(problem, formulation)
@@ -314,6 +314,49 @@ end
         @test moved() == String[]
         scenarios(["t | 2 frequencies | allocations" => 7])
         @test moved() == ["allocations | t | 2 frequencies | allocations: 7 (absent at HEAD)"]
+    end
+
+    # An `@inferred` floor can fall by the lines of a deleted item that references an
+    # identifier that `src/` contained at the reference and contains nowhere now. A deleted
+    # item that references only live identifiers and a line removed from an item that
+    # remains fail.
+    mktempdir() do repository
+        git(arguments...) = run(pipeline(Base.invokelatest(ratchet.git, repository,
+            "-c", "user.name=Probe", "-c", "user.email=probe@example.invalid",
+            arguments...); stdout = devnull, stderr = devnull))
+        result() = Base.invokelatest(ratchet.moved, repository, "HEAD", ratchet.PRESERVATION)
+        items = Dict("retired" => "@inferred Retired()", "kept" => "@inferred Kept()",
+            "live" => "@inferred identity(Kept())")
+        function tests(names; kept = items["kept"])
+            text = join(("@testitem \"$name\" begin\n    $(name == "kept" ? kept : items[name])\nend\n"
+                for name in names), "\n")
+            write(joinpath(repository, "test", "x.jl"), text)
+        end
+        recorded(count) = write(joinpath(repository, ratchet.PRESERVATION),
+            "[directions]\ninferred = \"floor\"\n[inferred]\n\"test/x.jl\" = $count\n")
+        source(text) = write(joinpath(repository, "src", "Backend.jl"), text)
+        mkpath(joinpath(repository, "src"))
+        mkpath(dirname(joinpath(repository, ratchet.PRESERVATION)))
+        source("struct Retired end\nstruct Kept end\n")
+        tests(("retired", "kept", "live"))
+        recorded(3)
+        git("init", "-q")
+        git("add", "-A")
+        git("commit", "-q", "--no-verify", "--no-gpg-sign", "-m", "start")
+        # `Retired` leaves `src/` with the item that tested it.
+        source("struct Kept end\n")
+        tests(("kept", "live"))
+        recorded(2)
+        @test result().lines == String[]
+        @test occursin("@testitem \"retired\" references `Retired`", only(result().accepted))
+        # The deleted item references only `identity` and `Kept`, which remain.
+        source("struct Retired end\nstruct Kept end\n")
+        tests(("retired", "kept"))
+        @test result().lines == ["inferred | test/x.jl: 2 (3 at HEAD)"]
+        # The item remains and loses its `@inferred` line, though `Retired` leaves `src/`.
+        source("struct Kept end\n")
+        tests(("retired", "kept", "live"); kept = "Kept()")
+        @test result().lines == ["inferred | test/x.jl: 2 (3 at HEAD)"]
     end
 
     # The measured tables refuse another Julia version or another Manifest.

@@ -33,7 +33,7 @@ modal = compute(line_problem, line_formulation;
     modal_options=(offdiagonal_tolerance=1e-6,))
 ```
 
-The native, FEM and PSCAD line-parameter calls and the parametric studies accept the
+The native and PSCAD line-parameter calls and the parametric studies accept the
 `modal` keyword. The positional form takes a `ModalAnalysisFormulation` and composes any
 formulation whose `compute(problem, formulation; options)` returns `LineParameters`. A
 user-owned formulation composes too:

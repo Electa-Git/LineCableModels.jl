@@ -72,8 +72,7 @@ export preview, show_material_scale
 
 # Engine:
 export Formulation, LineParametersFormulation, CableConstantsFormulation,
-       LineCableModelsCoaxial,
-       LineCableModelsFEM, LineCableModelsFEMError, BoundarySolveError,
+       LineCableModelsCoaxial, BoundarySolveError,
        SeriesImpedance, ShuntAdmittance,
        LineParameters, PhaseDomain, ModalDomain
 export ModalAnalysisProblem, ModalAnalysisFormulation,
@@ -105,7 +104,7 @@ using .Commons:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                observe, @observe, observables, ObservedResult, kron_reduce
+                observe, @observe, observables, ObservedResult
 import .Commons: compute, validate
 using .Commons: FormulaDefinition, Expression, Functor
 using .Commons: add!, build, homogenize, constitutive, line_length, description,
@@ -173,12 +172,11 @@ using .Engine: LineParameters, LineParametersProblem, CableConstants,
                CableConstantsProblem, CableConstantsFormulation, SeriesImpedance,
                ShuntAdmittance, Formulation,
                LineParametersFormulation, LineCableModelsCoaxial,
-               LineCableModelsFEM,
-               LineCableModelsFEMError, BoundarySolveError,
+               BoundarySolveError,
                domain, frequencies, nconductors, nfrequencies,
                Z, Y, X, G, B, series_impedance, shunt_admittance,
                reactance, conductance, susceptance,
-               LineParamsDomain, PhaseDomain, ModalDomain
+               LineParamsDomain, PhaseDomain, ModalDomain, kron_reduce
 
 public LineParamsDomain
 

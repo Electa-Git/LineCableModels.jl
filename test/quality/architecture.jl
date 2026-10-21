@@ -8,7 +8,7 @@
     using TOML: TOML
     import DataFrames, LinearAlgebra, Statistics, Random, Logging
     # These packages load the extensions checked by `explicit_imports.jl`.
-    import Measurements, Distributions, Gmsh, Calculus, XLSX, CairoMakie
+    import Measurements, Distributions, Calculus, XLSX, CairoMakie
 
     # A module may reference only earlier modules, its ancestors and its
     # descendants. The root module and package extensions are exempt. The load
@@ -16,7 +16,7 @@
     Base.include(@__MODULE__, joinpath(@__DIR__, "..", "support", "taxonomy.jl"))
     const ORDER = keys(MODULE_OWNERS)
     const EXTENSIONS = (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
-        :LineCableModelsGmshExt, :LineCableModelsXLSXExt, :LineCableModelsMakieExt,
+        :LineCableModelsXLSXExt, :LineCableModelsMakieExt,
         :LineCableModelsCairoMakieExt)
     # Base and the standard libraries whose exported names share a user's scope with
     # the names that the root module exports.
@@ -36,25 +36,29 @@
 
     const COMMONS = :Commons
     const COMMONS_DIRECTORY = "src/commons"
-    const CONSTANTS_FILE = "src/commons/consts.jl"
+    # The home file of each constant whose numeric fingerprint the guards read.
+    const CONSTANTS_FILES = (permittivity = "src/commons/consts.jl",
+        permeability = "src/engine/consts.jl")
     const COMMONS_TESTS = "test/unit/commons"
     # Directories under `test/` whose files name definitions without testing them.
     const NOT_TESTS = ("quality", "tools")
-    # Each Commons public name and the definition names it reserves outside Commons.
-    const VOCABULARY = Dict{Symbol, Regex}(
-        :vacuum_permittivity =>
+    # Each reserving name maps to its home and to the definition names it reserves outside
+    # that home. The home of a name is the directory of the module that defines it. Engine
+    # is the one owner of the matrix reductions and of the vacuum permeability, so their
+    # home is `src/engine`. The other names live in Commons.
+    const VOCABULARY = Dict{Symbol, Pair{String, Regex}}(
+        :vacuum_permittivity => COMMONS_DIRECTORY =>
             r"(?i)^_*(\w+_)?(vacuum_permittivity|eps(ilon)?_?[0₀]|[εϵ]_?[0₀])$",
-        :vacuum_permeability =>
+        :vacuum_permeability => "src/engine" =>
             r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$",
-        :ideal_transposition! => r"transpos",
-        :kron_reduce! => r"kron",
-        :merge_bundles! => r"merge_bundle",
-        :bundle_operations => r"^_*bundle_(operations|pairs)$",
-        :reorder_indices => r"^_*reorder(_|$)",
-        :ReductionPlan => r"(?i)^_*reduction_?(plan|map)$",
-        :ReductionBuffers => r"(?i)^_*reduction_?buffers$",
-        :reduce_line_matrices! => r"^_*reduce_(line|primitive)_matrices",
-        :FormulaBuilder => r"^_*FormulaBuilder$")
+        :ideal_transposition! => "src/engine" => r"transpos",
+        :kron_reduce! => "src/engine" => r"kron",
+        :merge_bundles! => "src/engine" => r"merge_bundle",
+        :bundle_operations => "src/engine" => r"^_*bundle_(operations|pairs)$",
+        :reorder_indices => "src/engine" => r"^_*reorder(_|$)",
+        :ReductionPlan => "src/engine" => r"(?i)^_*reduction_?(plan|map)$",
+        :reduce_line_matrices! => "src/engine" => r"^_*reduce_(line|primitive)_matrices",
+        :FormulaBuilder => COMMONS_DIRECTORY => r"^_*FormulaBuilder$")
     const SHINGLE = 8
     const CLONE_TOKENS = 30
     const CLONE_SHARE = 0.75
@@ -1134,7 +1138,7 @@
     end
 
     function reserving(vocabulary, name)
-        for (owner, pattern) in vocabulary
+        for (owner, (_, pattern)) in vocabulary
             occursin(pattern, string(name)) && return owner
         end
         return nothing
@@ -1158,25 +1162,25 @@
         return Symbol[]
     end
 
-    # Reserved vocabulary. Outside Commons, no function, constant or assigned local takes a
-    # name reserved by a Commons definition. A local assigned from a call to
-    # the reserving definition is exempt.
+    # Reserved vocabulary. Outside the home of a reserving name, no function, constant or
+    # assigned local takes a name that it reserves. A local assigned from a call to the
+    # reserving definition is exempt.
     function reserved_vocabulary(files, directory, vocabulary)
         found = Dict{String, Int}()
-        commons = joinpath(directory, COMMONS_DIRECTORY)
         for file in files
-            inside(file, commons) && continue
             path = relative(file, directory)
+            home(owner) = inside(file, joinpath(directory, first(vocabulary[owner])))
             visit(parse_source(file)) do node
                 if kind(node) == K"function"
                     name = definition_name(node)
-                    name isa Symbol && reserving(vocabulary, name) !== nothing &&
+                    owner = name isa Symbol ? reserving(vocabulary, name) : nothing
+                    owner === nothing || home(owner) ||
                         count!(found, string(path, " | ", name))
                 elseif kind(node) == K"=" && numchildren(node) == 2 &&
                         !(node.parent !== nothing && kind(node.parent) in NOT_ASSIGNED)
                     for name in assigned_names(node[1])
                         owner = reserving(vocabulary, name)
-                        owner === nothing || calls(node[2], owner) ||
+                        owner === nothing || home(owner) || calls(node[2], owner) ||
                             count!(found, string(path, " | ", name))
                     end
                 end
@@ -1210,27 +1214,30 @@
             exponent.val == -7 && any_node(n -> kind(n) == K"Integer" && n.val == 10, base)
     end
 
+    # The home file of the constant whose numeric fingerprint `node` is, or nothing.
     function fingerprint(node)
         if is_number(node)
             digits = filter(isdigit, JuliaSyntax.sourcetext(node))
-            (occursin("8854187", digits) || occursin("299792458", digits)) && return true
+            (occursin("8854187", digits) || occursin("299792458", digits)) &&
+                return CONSTANTS_FILES.permittivity
             value = node.val
-            value isa AbstractFloat && value == oftype(value, 1e-7) || return false
+            value isa AbstractFloat && value == oftype(value, 1e-7) || return nothing
         else
-            minus_seventh_power(node) || return false
+            minus_seventh_power(node) || return nothing
         end
-        return any_node(is_pi, statement(node))
+        return any_node(is_pi, statement(node)) ? CONSTANTS_FILES.permeability : nothing
     end
 
-    # Literal fingerprints. Numeric fingerprints of the Commons constants appear only in the
-    # constants file: digits of ε₀ or c₀, and 10⁻⁷ in a statement with π.
+    # Literal fingerprints. The numeric fingerprints of the vacuum constants appear only in
+    # their home files: digits of ε₀ or c₀ in Commons, and 10⁻⁷ in a statement with π in
+    # Engine.
     function fingerprints(files, directory)
         found = Dict{String, Int}()
         for file in files
             path = relative(file, directory)
-            path == CONSTANTS_FILE && continue
             visit(parse_source(file)) do node
-                fingerprint(node) && count!(found, path)
+                home = fingerprint(node)
+                home === nothing || home == path || count!(found, path)
                 return true
             end
         end
@@ -2067,9 +2074,25 @@ end
 end
 
 @testitem "Quality / architecture / reserved vocabulary" tags=[:quality] setup=[ArchitectureGuards] begin
-    result = ArchitectureGuards.check("vocabulary")
+    A = ArchitectureGuards
+    result = A.check("vocabulary")
     @test result.added == String[]
     @test result.stale == String[]
+    # A name that Engine defines reserves similar names outside Engine. Engine defines the
+    # name, and the guard reports a similar name in Commons and in another module.
+    mktempdir() do directory
+        sources = ("src/engine/matrixops.jl" => "function kron_reduce!(m)\n    m\nend\n",
+            "src/commons/reduce.jl" => "function _kron_eliminate!(m)\n    m\nend\n",
+            "src/pscad/reduce.jl" => "function _kron_eliminate!(m)\n    m\nend\n")
+        for (path, text) in sources
+            mkpath(dirname(joinpath(directory, path)))
+            write(joinpath(directory, path), text)
+        end
+        files = [joinpath(directory, path) for (path, _) in sources]
+        @test A.reserved_vocabulary(files, directory, A.VOCABULARY) ==
+              Dict("src/commons/reduce.jl | _kron_eliminate!" => 1,
+                  "src/pscad/reduce.jl | _kron_eliminate!" => 1)
+    end
 end
 
 @testitem "Quality / architecture / literal fingerprints" tags=[:quality] setup=[ArchitectureGuards] begin
@@ -2105,12 +2128,14 @@ end
 @testitem "Quality / architecture / negative controls of the Commons guards" tags=[:quality] setup=[ArchitectureGuards] begin
     A = ArchitectureGuards
 
-    vocabulary = Dict{Symbol, Regex}(:shared => r"^_*shared$", :lonely => r"^_*lonely$",
-        :undocumented => r"^_*undocumented$", :untested => r"^_*untested$",
-        :ideal_transposition! => r"transpos", :inner_only => r"^_*inner_only$",
-        :kernel => r"^_*kernel$", :scale_of => r"^_*scale_of$", :front => r"^_*front$",
-        :vacuum_permittivity => A.VOCABULARY[:vacuum_permittivity],
-        :vacuum_permeability => A.VOCABULARY[:vacuum_permeability])
+    # The probe's Commons defines every reserving name of this vocabulary.
+    vocabulary = Dict{Symbol, Pair{String, Regex}}(name => A.COMMONS_DIRECTORY => pattern
+        for (name, pattern) in (:shared => r"^_*shared$", :lonely => r"^_*lonely$",
+            :undocumented => r"^_*undocumented$", :untested => r"^_*untested$",
+            :ideal_transposition! => r"transpos", :inner_only => r"^_*inner_only$",
+            :kernel => r"^_*kernel$", :scale_of => r"^_*scale_of$", :front => r"^_*front$",
+            :vacuum_permittivity => last(A.VOCABULARY[:vacuum_permittivity]),
+            :vacuum_permeability => last(A.VOCABULARY[:vacuum_permeability])))
     matrixops = """
         "Average a square matrix over its cyclic diagonals."
         function ideal_transposition!(matrix::AbstractMatrix)

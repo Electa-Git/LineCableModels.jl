@@ -157,7 +157,7 @@ end
     options=(backend=:cairo,display_plot=false,controls=false,open_export=false)
     source_id=gridpoint_id().source_id
     analytical=Formulation(earth_impedance=:unified,earth_admittance=:unified)
-    fem=Formulation(:fem)
+    constants=CableConstantsFormulation()
     z=reshape(complex.(1.:12.,21.:32.),2,2,3)
     function point(formulation,index;rho=100.,problem=1)
         inputs=(rho=rho,radius=.0425,field_descriptions=(rho=(name="electrical resistivity",unit="Ω·m"),radius=(name="radius",unit="m")))
@@ -166,13 +166,14 @@ end
             fields=(formulation=formulation,choices=(),inputs=inputs))
     end
     a=point(analytical,1)
-    # Synthetic numerical fixture retains a FEM identity. No FEM solve is claimed.
-    reference=point(fem,2)
+    # The synthetic reference records a cable-constants formulation, which selects no earth
+    # formula. No computation made it.
+    reference=point(constants,2)
     pages=LineCableModels.plot(a, (R,X,G,B);reference,length_unit=:base,options...)
     @test length(pages)==4
     results=LineCableModels.plot(a, (R,X,G,B);length_unit=:base,options...)
     native_lines(axis)=filter(item -> item isa Makie.Lines,axis.scene.plots)
-    expected_reference=description(fem;compact=true)*" (reference)"
+    expected_reference=description(constants;compact=true)*" (reference)"
     for (page,solo,request) in zip(pages,results,(R,X,G,B))
         method=request in (R,X) ? analytical.formulas.earth_impedance : analytical.formulas.earth_admittance
         @test Set(values(page.plot_state.labels))==Set((description(method;compact=true),expected_reference))

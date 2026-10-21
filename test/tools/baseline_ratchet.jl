@@ -24,6 +24,12 @@
 # line appears again in another file, unchanged apart from indentation, and these lines
 # cover the drop.
 #
+# An `[inferred]` floor can also fall by the `@inferred` lines of a `@testitem` that no test
+# file of the working tree declares any more, when that item at `REF` references an
+# identifier that `src/` or `ext/` contain at `REF` and contain nowhere now, a word match as
+# `git grep -w`. Such an item tested code that is gone. The ratchet prints each fall it
+# accepts this way. Every other fall fails.
+#
 # In `[switches]`, each row holds counters. Each counter is an entry of the form
 # `table | key | counter`. A zero count of a counter is not an entry. A counter that no row
 # of its table had at `REF` extends that guard, and the ratchet does not compare its
@@ -40,7 +46,7 @@ const MEASURED = ("jet", "allocations")
 # Ceilings keyed by the scenarios of the preservation corpus.
 const CORPUS = ("allocations",)
 # Floors that count, per test file, the lines that contain a marker. These lines can move
-# to another file.
+# to another file, or leave with an item that tested code that is gone.
 const RELOCATABLE = Dict("inferred" => "@inferred")
 const REPOSITORY = normpath(joinpath(@__DIR__, "..", ".."))
 
@@ -209,18 +215,68 @@ function changed_lines(repository, reference)
 end
 
 # Whether each line with `marker` removed from `file` appears again as an added line of
-# another file. Each added line matches one removed line, and the matched lines contain
-# `marker` at least `drop` times. `unmatched` counts the available added lines per file.
-function relocated!(unmatched, removed, file, marker, drop)
+# another file or is a line of a retired item. Each added or retired line matches one
+# removed line, and the matched lines contain `marker` at least `drop` times. `unmatched`
+# counts the available added lines per file, and `retired` the retired lines of `file`.
+function relocated!(unmatched, removed, file, marker, drop, retired = Dict{String, Int}())
     found, files = 0, sort!(collect(keys(unmatched)))
     for line in get(removed, file, String[])
         occursin(marker, line) || continue
-        index = findfirst(name -> name != file && get(unmatched[name], line, 0) > 0, files)
-        index === nothing && return false
-        unmatched[files[index]][line] -= 1
+        if get(retired, line, 0) > 0
+            retired[line] -= 1
+        else
+            index = findfirst(name -> name != file && get(unmatched[name], line, 0) > 0, files)
+            index === nothing && return false
+            unmatched[files[index]][line] -= 1
+        end
         found += count(marker, line)
     end
     return found >= drop
+end
+
+# The retired items of `file`: its `@testitem`s at `reference` that no test file of the
+# working tree declares, each referencing an identifier that `src/` or `ext/` contain at
+# `reference` and contain nowhere now. Returns the lines with `marker` of those items,
+# without indentation, and one description per item.
+function retired(repository, reference, file, marker)
+    lines, items = Dict{String, Int}(), String[]
+    success(pipeline(git(repository, "cat-file", "-e", "$reference:$file");
+        stderr = devnull)) || return (; lines, items)
+    text = read(git(repository, "show", "$reference:$file"), String)
+    source = split(text, '\n')
+    declarations = [read(joinpath(repository, name), String) for name in split(read(git(
+        repository, "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--",
+        "test"), String), '\0'; keepempty = false)
+        if endswith(name, ".jl") && isfile(joinpath(repository, name))]
+    named(arguments...) = success(pipeline(git(repository, "grep", "-q", "-w", "-F",
+        arguments...); stdout = devnull, stderr = devnull))
+    gone(name) = named("-e", name, reference, "--", "src", "ext") &&
+        !named("--untracked", "-e", name, "--", "src", "ext")
+    nodes = Meta.parseall(text; filename = file).args
+    for (index, node) in pairs(nodes)
+        Meta.isexpr(node, :macrocall) && node.args[1] === Symbol("@testitem") &&
+            node.args[3] isa String || continue
+        item = node.args[3]
+        any(source -> occursin("@testitem " * repr(item), source), declarations) && continue
+        identifiers = Set{String}()
+        visit(x) = x isa Symbol ? push!(identifiers, String(x)) : x isa QuoteNode ?
+            visit(x.value) : x isa Expr ? foreach(visit, x.args) : nothing
+        visit(node)
+        candidates = sort!([name for name in identifiers
+            if occursin(r"^[A-Za-z_][A-Za-z0-9_!]*$", name)])
+        identifier = findfirst(gone, candidates)
+        identifier === nothing && continue
+        first_line = node.args[2].line
+        next = findfirst(x -> x isa LineNumberNode, nodes[(index + 1):end])
+        last_line = next === nothing ? length(source) : nodes[index + next].line - 1
+        for line in source[first_line:last_line]
+            occursin(marker, line) || continue
+            stripped = String(lstrip(line))
+            lines[stripped] = get(lines, stripped, 0) + 1
+        end
+        push!(items, string("@testitem ", repr(item), " references `", candidates[identifier], "`"))
+    end
+    return (; lines, items)
 end
 
 # The direction, "floor" or "ceiling", of each table of `document`, a version of `file`.
@@ -237,9 +293,10 @@ function directions(file, document)
 end
 
 # The entries of `file` that moved against their table's direction since `reference`,
-# as lines, and the tables new since `reference`, or nothing when `reference` has no
-# `file`. A new table belongs to a lock introduced after `reference`, and its keys are
-# not compared. So are the entries of a counter new to its table.
+# as lines, the tables new since `reference` and the floor falls accepted because their
+# items are retired, or nothing when `reference` has no `file`. A new table belongs to a
+# lock introduced after `reference`, and its keys are not compared. So are the entries of
+# a counter new to its table.
 function moved(repository, reference, file)
     success(pipeline(git(repository, "rev-parse", "--verify", "--quiet",
         reference * "^{commit}"); stdout = devnull)) ||
@@ -276,7 +333,7 @@ function moved(repository, reference, file)
     # A corpus table admits new scenarios while it keeps every scenario of `reference`.
     complete = Dict(table => all(key -> haskey(now, key),
         (key for key in keys(before) if first(split(key, " | ")) == table)) for table in CORPUS)
-    lines = String[]
+    lines, accepted = String[], String[]
     changes = nothing
     unmatched = Dict{String, Dict{String, Int}}()
     function relocated(table, path, drop)
@@ -288,7 +345,14 @@ function moved(repository, reference, file)
                 counts[line] = get(counts, line, 0) + 1
             end
         end
-        return relocated!(unmatched, changes.removed, path, RELOCATABLE[table], drop)
+        items = retired(repository, reference, path, RELOCATABLE[table])
+        available = sum(values(items.lines); init = 0)
+        relocated!(unmatched, changes.removed, path, RELOCATABLE[table], drop, items.lines) ||
+            return false
+        sum(values(items.lines); init = 0) < available && push!(accepted,
+            string(table, " | ", path, ": fell by the lines of ", join(items.items, ", "),
+                ", which src/ and ext/ contain nowhere now"))
+        return true
     end
     for key in sort!(collect(union(keys(now), keys(before))))
         table, entry = split(key, " | "; limit = 2)
@@ -311,7 +375,7 @@ function moved(repository, reference, file)
         (direction[table] == "ceiling" ? now[key] > before[key] : now[key] < before[key]) &&
             push!(lines, string(key, ": ", now[key], " (", before[key], " at ", reference, ")"))
     end
-    return (; lines, tables)
+    return (; lines, tables, accepted)
 end
 
 # The architecture baseline keys added or raised since `reference`.
@@ -329,6 +393,7 @@ function main(arguments)
         end
         isempty(result.tables) || println(file, ": tables introduced since ", reference, ": ",
             join(result.tables, ", "), ".")
+        foreach(line -> println(file, ": accepted, ", line, "."), result.accepted)
         if isempty(result.lines)
             count = length(entries(TOML.parsefile(joinpath(REPOSITORY, file))))
             println(file, ": ", count, " entries, none moved against its direction since ",

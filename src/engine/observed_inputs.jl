@@ -156,31 +156,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Read a FEM formulation as data, for a point whose choices are empty. Its declaration also
-states the field equations and the material assumptions of the FEM computation.
-"""
-function completed_formulation(formulation::LineCableModelsFEM, ::Tuple{})
-    quasi_full = formulation.options.data.physics === Symbol("quasi-fw")
-    return completed_formulation(formulation, merge((
-        schema_version = 5,
-        assumptions = (
-            impedance = "Axial current-driven A_z/u_r finite-element equations",
-            admittance = quasi_full ?
-                "Coupled first-order Maxwell A_z/A_t/phi equations; axial current supplies normalized leakage; vertical path voltage includes A_t/Gamma; Y = inv(P)" :
-                "Scalar electrodynamic Helmholtz equation in surrounding media; equipotential terminals with unit transverse-current excitation; Y = inv(P)",
-            earth = "Horizontal air and one semi-infinite soil; soil constitutive properties evaluated at each frequency",
-            propagation = quasi_full ?
-                "Gamma -> 0 with A_t/Gamma and phi/Gamma retained; conduction and displacement; one coupled factorization" :
-                "Gamma = 0; medium diffusion and displacement retained; independent Z/P blocks in one factorization",
-            semicon_domain = "Passive material region, without electrical terminal ownership",
-            enclosure = "Supported enclosures are represented by their material and terminal domains"
-        )
-    ), NamedTuple(formulation)))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Read the formulation that `record` holds, with the choices its point made, as data. A
 computed or loaded record holds the entries `formulation` and `choices`. A record without
 them, such as that of a result built from matrices, reads as no formulation.

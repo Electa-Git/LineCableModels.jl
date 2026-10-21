@@ -50,7 +50,7 @@ end
     for value in (0.0,-1.0,NaN,Inf,1+im,[1.0])
         @test_throws DomainError constitutive(M.ConstantResistivity(value),material,80.0)
     end
-    for constructor in (Formulation,CableConstantsFormulation,LineCableModelsFEM)
+    for constructor in (Formulation,CableConstantsFormulation)
         @test constructor(temperature_dependence=nothing).formulas.temperature_dependence === nothing
         @test constructor(temperature_dependence=selected).formulas.temperature_dependence === selected
         @test_throws ArgumentError constructor(options=(temperature_correction=true,))

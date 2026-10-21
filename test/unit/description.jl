@@ -41,7 +41,6 @@ end
         normal.options,merge(normal.definitions,(earth_impedance=leaf,))) for leaf in leaves]
     push!(choices,normal)
     @test description(LineCableModelsCoaxial())==description(LineCableModelsCoaxial)=="coaxial"
-    @test description(LineCableModelsFEM())==description(LineCableModelsFEM)=="FEM"
     @test description(Formulation(:pscad))==description(PSCAD.PSCADFormulation)=="PSCAD"
     pscad=Formulation(:pscad;options=(base_frequency=60.0,))
     pscad_capture=E.completed_formulation(pscad)
@@ -50,7 +49,7 @@ end
         first(pscad_capture.formulation_fields.Z).control_fields)
     @test description(PSCAD.PSCADFormulation,Val(:reduce_bundle),false;compact=true)==
         description(LineParametersFormulation,Val(:reduce_bundle),false;compact=true)
-    for value in (normal,LineCableModelsFEM(),Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
+    for value in (normal,Formulation(:pscad),MonteCarlo(normal),LinearError(normal))
         @test description(typeof(value))==description(value)
     end
     labels=description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:result])
@@ -66,7 +65,7 @@ end
     y=reshape(complex.(collect(201.:224.),collect(301.:324.)),2,2,6)*1e-6
     ports=["a","b"]
     ref=LineParameters(z,y,f;terminals=ports,line_length=1.0,
-        details=ComputationDetails(;formulation=LineCableModelsFEM(),choices=()))
+        details=ComputationDetails(;formulation=Formulation(),choices=()))
     source_id=LineCableModels.Commons.gridpoint_id().source_id
     completed(value,selection,index)=E.retain_gridpoint(value,
         LineCableModels.Commons.gridpoint_id(;source_id,formulation_index=index);
@@ -120,9 +119,10 @@ end
     @test any(control -> last(control.scope)===:scale,insulation.control_fields)
     @test !occursin("insulation Y",only(first(single_report.tables.features).relative.formula))
     @test isempty(selected_inner.evaluations) && isempty(selected_inner.state_inputs)
-    fem_labels=description([LineCableModelsFEM(),LineCableModelsFEM(options=(physics=:quasi_fw,))];
+    pscad_labels=description([Formulation(:pscad),Formulation(:pscad;options=(base_frequency=60.0,))];
         roles=[:reference,:reference])
-    @test occursin("quasi-tem",first(fem_labels)) && occursin("quasi-fw",last(fem_labels))
+    @test occursin("base_frequency = 50.0",first(pscad_labels)) &&
+        occursin("base_frequency = 60.0",last(pscad_labels))
     @test description([missing];roles=[:reference])==["Reference · method unavailable"]
 
     # A programming error is not absent metadata. The real composed consumer
@@ -183,7 +183,7 @@ end
         "shunt geometry=equivalent annular layer; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
 end
 
-@testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit, :importexport, :slow] begin
+@testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit, :pscad, :slow] begin
     import LineCableModels: description,formula_id,formulation_options
     using LineCableModels.Engine: retain_gridpoint
     using LineCableModels.Commons: gridpoint_id,observation_labels,observation_groups
@@ -197,11 +197,11 @@ end
         ObservedResult(retain_gridpoint(raw,gridpoint_id(;source_id,problem_index=problem,formulation_index=index);fields))
     end
     a=Formulation(earth_impedance=:unified,earth_admittance=:unified)
-    fem=Formulation(:fem)
-    points=[point(a,1),point(fem,2)]
+    constants=CableConstantsFormulation()
+    points=[point(a,1),point(constants,2)]
     for request in (R,X,G,B)
         method=request in (R,X) ? a.formulas.earth_impedance : a.formulas.earth_admittance
-        @test observation_labels(points;request)==[description(method;compact=true),description(fem;compact=true)]
+        @test observation_labels(points;request)==[description(method;compact=true),description(constants;compact=true)]
     end
     @test all(field -> field.meaning ∉ ((:earth_impedance,),(:earth_admittance,)),points[2].gridpoint.formulation_fields.all)
     physical=[point(a,1),point(a,1;rho=500.,problem=2)]
@@ -215,9 +215,10 @@ end
     reductions=[point(Formulation(options=(kron_reduction=choice,)),i) for (i,choice) in enumerate((false,true))]
     @test observation_labels(reductions;request=R)==[
         description(LineParametersFormulation,Val(:kron_reduction),v;compact=true) for v in (false,true)]
-    physics=[Formulation(:fem;options=(physics=choice,)) for choice in (:quasi_tem,:quasi_fw)]
-    @test observation_labels([point(f,i) for (i,f) in enumerate(physics)];request=B)==[
-        description(LineCableModelsFEM,Val(:physics),f.options.data.physics;compact=true) for f in physics]
+    frequencies=[Formulation(:pscad;options=(base_frequency=choice,)) for choice in (50.0,60.0)]
+    @test observation_labels([point(f,i) for (i,f) in enumerate(frequencies)];request=B)==[
+        description(PSCAD.PSCADFormulation,Val(:base_frequency),f.options.data.base_frequency;compact=true)
+        for f in frequencies]
     reordered=Formulation(options=(ideal_transposition=false,kron_reduction=true,reduce_bundle=true))
     @test observation_labels([point(a,1),point(reordered,2)];request=R)==fill(description(a.formulas.earth_impedance;compact=true),2)
 

@@ -28,13 +28,14 @@
     @test typeof(results[1]) == typeof(results[2])
     trace = details(first_result).data.trace
     options = reduced_formula.options.data
-    plan = LineCableModels.Commons.ReductionPlan(problem.system.connection_order;
+    plan = LineCableModels.Engine.ReductionPlan(problem.system.connection_order;
         options.reduce_bundle, options.kron_reduction, options.ideal_transposition)
-    buffers = LineCableModels.Commons.ReductionBuffers{eltype(trace.Z)}(plan)
+    buffers = LineCableModels.Commons.initialize_buffers(plan, eltype(trace.Z), (;), (;),
+        (;)).reduction
     for k in eachindex(problem.frequencies)
         reduced_Z = similar(trace.Z, length(plan.keep), length(plan.keep))
         reduced_Y = similar(reduced_Z)
-        LineCableModels.Commons.reduce_line_matrices!(reduced_Z, reduced_Y, trace.Z[:, :, k],
+        LineCableModels.Engine.reduce_line_matrices!(reduced_Z, reduced_Y, trace.Z[:, :, k],
             trace.P[:, :, k], 2pi*im*problem.frequencies[k], plan, buffers)
         @test observe(results[3], Z)[:, :, k] ≈ reduced_Z
         @test observe(results[3], Y)[:, :, k] ≈ reduced_Y rtol=1e-10

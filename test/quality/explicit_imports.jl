@@ -2,31 +2,21 @@
     using ExplicitImports: test_explicit_imports, improper_qualified_accesses
     # These adapters participate in the numerical/UQ paths. Check the loaded
     # extensions too. A cold root-only scan cannot see their ownership errors.
-    import Measurements, Distributions, Gmsh, Calculus, XLSX, CairoMakie
+    import Measurements, Distributions, Calculus, XLSX, CairoMakie
     for name in (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
-            :LineCableModelsGmshExt, :LineCableModelsXLSXExt)
+            :LineCableModelsXLSXExt)
         @test Base.get_extension(LineCableModels, name) !== nothing
     end
     renderer = Base.get_extension(LineCableModels, :LineCableModelsMakieExt)
     cairo = Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt)
-    extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     @test renderer !== nothing
     @test cairo !== nothing
     import Logging, JSON3
 
-    # Gmsh's generated API deliberately uses qualified calls without export/
-    # public annotations. Accept its documented bindings, not arbitrary private
-    # names. The documented logger and JSON protocols below also require these checks.
-    function documented_fem_access(owner::Module, name::Symbol)
-        # Generated API/build metadata needed to identify the numerical library.
-        owner === Gmsh.gmsh && name in (:GMSH_API_VERSION, :lib) && return true
-        ancestor = owner
-        while ancestor !== Gmsh.gmsh && parentmodule(ancestor) !== ancestor
-            ancestor = parentmodule(ancestor)
-        end
-        allowed = (ancestor === Gmsh.gmsh && !startswith(string(name), "_")) ||
-            (owner === Gmsh && name === :finalize) ||
-            (owner === Logging && name in (:catch_exceptions, :handle_message,
+    # The documented logger and JSON protocols use qualified calls without export or
+    # public annotations. Accept their documented bindings, not arbitrary private names.
+    function documented_access(owner::Module, name::Symbol)
+        allowed = (owner === Logging && name in (:catch_exceptions, :handle_message,
                 :min_enabled_level, :shouldlog)) ||
             (owner === JSON3 && name in (:read, :write, :pretty))
         allowed && isdefined(owner, name) || return false
@@ -40,7 +30,7 @@
     # workaround is explicitly recommended by its upstream maintainer. It is
     # not a general permission to consume Makie or package-owned internals.
     function supported_external_access(consumer, owner, name)
-        consumer === LineCableModels.Commons && owner === Base && name === :unalias &&
+        consumer === LineCableModels.Engine && owner === Base && name === :unalias &&
             Base.Docs.hasdoc(Base, :unalias) && return true
         consumer === cairo && owner === CairoMakie && name === :activate! && return true
         consumer === renderer && owner === CairoMakie.Makie && name in (
@@ -49,7 +39,7 @@
             :defaultlimits, :fast_string_boundingboxes) && return true
         consumer === renderer && owner === CairoMakie.Makie.GridLayoutBase &&
             name === :remove_from_gridlayout! && return true
-        consumer in (renderer, extension) && owner === Base && name === :IOError && return true
+        consumer === renderer && owner === Base && name === :IOError && return true
         return false
     end
 
@@ -62,9 +52,8 @@
             row.public_access && continue
             row.self_qualified && continue # Covered by the existing separate check.
             row.accessing_from === Base && Base.ispublic(Core, row.name) && continue
-            row.accessing_from === Logging && documented_fem_access(Logging, row.name) && continue
-            consumer === LineCableModels.ImportExport && row.accessing_from === JSON3 && documented_fem_access(JSON3, row.name) && continue
-            consumer === extension && documented_fem_access(row.accessing_from, row.name) && continue
+            row.accessing_from === Logging && documented_access(Logging, row.name) && continue
+            consumer === LineCableModels.ImportExport && row.accessing_from === JSON3 && documented_access(JSON3, row.name) && continue
             supported_external_access(consumer, row.accessing_from, row.name) && continue
             push!(unexpected, "$(row.accessing_from).$(row.name) at $(row.location)")
         end
@@ -93,16 +82,14 @@ end
             row.name===:private_value && !row.public_access,
             Iterators.flatten(accesses for (_,accesses) in checked))
     end
-    @test documented_fem_access(Gmsh.gmsh.model, :add_physical_group)
-    @test !documented_fem_access(Gmsh.gmsh.model, :_unregistered_helper)
-    @test !documented_fem_access(LineCableModels.Engine, :compute)
-    @test !documented_fem_access(JSON3, :StructTypes)
+    @test !documented_access(LineCableModels.Engine, :compute)
+    @test !documented_access(JSON3, :StructTypes)
     @test supported_external_access(renderer, CairoMakie.Makie, :get_ticks)
     @test supported_external_access(renderer, CairoMakie.Makie, :inverse_transform)
     @test supported_external_access(renderer, CairoMakie.Makie, :CategoricalConversion)
     @test supported_external_access(renderer, CairoMakie.Makie, :defaultlimits)
-    @test supported_external_access(LineCableModels.Commons, Base, :unalias)
-    @test !supported_external_access(LineCableModels.Engine, Base, :unalias)
+    @test supported_external_access(LineCableModels.Engine, Base, :unalias)
+    @test !supported_external_access(LineCableModels.Commons, Base, :unalias)
     @test !supported_external_access(renderer, Base, :unalias)
     @test !supported_external_access(LineCableModels.Engine, CairoMakie.Makie, :inverse_transform)
     @test !supported_external_access(LineCableModels.Engine, CairoMakie.Makie, :get_ticks)

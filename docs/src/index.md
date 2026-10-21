@@ -80,9 +80,6 @@ and do not represent country-level telemetry.
 
 The source code is licensed under the
 [BSD 3-Clause License](https://github.com/Electa-Git/LineCableModels.jl/LICENSE).
-The optional FEM backend invokes GetDP as an external program. Its notice and
-source link are recorded in
-[`THIRD_PARTY_NOTICES.md`](https://github.com/Electa-Git/LineCableModels.jl/blob/main/THIRD_PARTY_NOTICES.md).
 
 ---
 ```@raw html

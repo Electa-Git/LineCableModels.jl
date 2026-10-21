@@ -124,7 +124,7 @@ end
 
 @testitem "Engine / a backend formulation is built by its identity" tags=[:unit, :pscad] begin
     backends = (coaxial = LineParametersFormulation, cable_constants = CableConstantsFormulation,
-        fem = LineCableModelsFEM, pscad = PSCAD.PSCADFormulation)
+        pscad = PSCAD.PSCADFormulation)
     for (tag, backend) in pairs(backends)
         built = Formulation(tag)
         @test built isa backend && formula_id(built) === tag
@@ -135,7 +135,7 @@ end
     @test Formulation(:coaxial; earth_impedance = :carson1926).formulas.earth_impedance isa
           LineCableModels.Engine.EarthImpedance.Formula{:carson1926}
     # Each backend has one identity. `ModalAnalysisFormulation` builds a modal analysis.
-    for tag in (:LineCableModelsFEM, :PSCAD, :modal, :unknown)
+    for tag in (:LineCableModelsCoaxial, :PSCAD, :modal, :unknown)
         @test_throws ArgumentError("unknown backend formulation :$tag") Formulation(tag)
     end
 end

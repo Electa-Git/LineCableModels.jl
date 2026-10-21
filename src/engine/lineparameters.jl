@@ -167,7 +167,7 @@ $(TYPEDSIGNATURES)
 
 Compute the frequency-dependent line parameters of a problem or a space of problems with a
 formulation or a space of formulations, through [`traverse`](@ref LineCableModels.Commons.traverse).
-The formulation selects the coaxial, FEM or PSCAD backend.
+The formulation selects the coaxial or PSCAD backend.
 
 The coaxial backend uses the equivalent concentric representation of the completed data
 model for series impedance and ordinary radial dielectric intervals. Eligible open wire and
@@ -217,13 +217,6 @@ end
 
 function computation_details(
         ::Type{<:LineParametersFormulation},
-        result::LineParameters
-)::ComputationDetails
-    return details(result)
-end
-
-function computation_details(
-        ::Type{<:LineCableModelsFEM},
         result::LineParameters
 )::ComputationDetails
     return details(result)

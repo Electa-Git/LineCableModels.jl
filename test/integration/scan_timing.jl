@@ -181,15 +181,13 @@
     @test_throws ArgumentError replace_details(sampled, ComputationDetails(timing = [NamedTuple[], NamedTuple[]]))
     @test_throws ArgumentError replace_details(sampled, ComputationDetails(timing = Vector{NamedTuple}[]))
     @test_throws ArgumentError replace_details(sampled, ComputationDetails(unrelated = [1]))
-    for owner in (LineCableModelsCoaxial, LineCableModelsFEM), value in (1, :yes, nothing)
-
-        @test_throws ArgumentError computation_options(owner, ComputationOptions(timing = value))
+    for value in (1, :yes, nothing)
+        @test_throws ArgumentError computation_options(LineCableModelsCoaxial,
+            ComputationOptions(timing = value))
     end
-    for owner in (LineCableModelsCoaxial, LineCableModelsFEM)
-        @test !haskey(computation_options(owner, ComputationOptions()).data, :timing)
-        @test_throws ArgumentError computation_options(
-            owner, ComputationOptions(timing = true, unrelated = true))
-    end
+    @test !haskey(computation_options(LineCableModelsCoaxial, ComputationOptions()).data, :timing)
+    @test_throws ArgumentError computation_options(
+        LineCableModelsCoaxial, ComputationOptions(timing = true, unrelated = true))
     @test_throws ArgumentError computation_options(CableConstantsFormulation, ComputationOptions(timing = true))
     @test_throws ArgumentError compute(ParametricProblem(space, ComputationOptions(timing = 1)), mc)
 end

@@ -6,7 +6,7 @@ conductors of each active phase, `kron_reduction=true` eliminates conductors wit
 phase zero, and `ideal_transposition=false` leaves the retained matrices
 untransposed. With `ideal_transposition=true`, the retained ``Z`` and
 potential-coefficient matrix ``P`` are averaged over cyclic transposition before
-``P`` is inverted to ``Y``. `LineCableModelsFEM` shares these options.
+the inversion of ``P`` to ``Y``.
 """
 function formulation_options(
         ::Type{LineParametersFormulation},
@@ -72,138 +72,9 @@ computation_options(::Type{LineCableModelsCoaxial},
         <:Tuple{NamedTuple, Val, Any}}}) = record
 
 
-description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
+description(::Type{<:LineParametersFormulation},
     ::Val{:reduce_bundle},value::Bool;compact::Bool=false) = "bundle reduction="*string(value)
-description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
+description(::Type{<:LineParametersFormulation},
     ::Val{:kron_reduction},value::Bool;compact::Bool=false) = "Kron reduction="*string(value)
-description(::Type{<:Union{LineParametersFormulation,LineCableModelsFEM}},
+description(::Type{<:LineParametersFormulation},
     ::Val{:ideal_transposition},value::Bool;compact::Bool=false) = "ideal transposition="*string(value)
-
-"""Describe the active FEM field equations without executing a field solve."""
-description(::Type{LineCableModelsFEM},::Val{:physics},value::Symbol;compact::Bool=false) =
-    description(LineCableModelsFEM,Val(:physics),Val(value);compact)
-description(::Type{LineCableModelsFEM},::Val{:physics},::Val{Symbol("quasi-tem")};compact::Bool=false) =
-    "quasi-TEM"
-description(::Type{LineCableModelsFEM},::Val{:physics},::Val{Symbol("quasi-fw")};compact::Bool=false) =
-    "quasi-full-wave"
-
-function formulation_options(::Type{LineCableModelsFEM}, record::FormulationOptions)::FormulationOptions
-    options = record.data
-    physics = get(options, :physics, :quasi_tem)
-    physics isa Union{Symbol, AbstractString} || throw(ArgumentError(
-        "physics must be :quasi_tem or :quasi_fw"))
-    physics = Symbol(replace(String(physics), '_' => '-'))
-    physics in (Symbol("quasi-tem"), Symbol("quasi-fw")) || throw(ArgumentError(
-        "physics must be :quasi_tem or :quasi_fw (also accepted as hyphenated strings or Symbols)"))
-    reductions = formulation_options(LineParametersFormulation,
-        FormulationOptions(; (key => value for (key, value) in pairs(options) if key !== :physics)...))
-    return FormulationOptions(; reductions.data..., physics)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Validate Gmsh/GetDP execution controls supplied to `compute(...; options)`.
-The field model is selected separately by `formulation_options(LineCableModelsFEM, ...)`.
-
-# Arguments
-
-- `owner`: the `LineCableModelsFEM` computation owner.
-- `options`: caller-supplied named tuple. Supported keys and defaults are:
-  - `ui=false`: open the Gmsh graphical interface.
-  - `plot_field_maps=false`: emit spatial field maps for every solve.
-  - `mesh_mode=:reuse`: reuse compatible meshes. `:remesh` regenerates them.
-  - `mesh_path=nothing`: optional existing `.msh` path.
-  - `domain_skin_depths=2.0`: minimum finite earth-domain radius in conductive
-    skin depths \\[dimensionless\\]. The layout can require a larger radius.
-    Must be finite and positive. Changing it retains local mesh-size targets.
-  - `keep_run_directory=false`: retain successful run artifacts.
-  - `getdp_executable=nothing`: executable override. Otherwise resolve the
-    environment override, package artifact, or unsupported-platform `PATH` fallback.
-  - `gmsh_verbosity=2`, `getdp_verbosity=2`: native message levels from 0 through 5.
-  - `frequency_workers=2`: maximum concurrent frequency solver processes.
-  - `solver_threads=1`: BLAS and OpenMP threads per solver process.
-  - `verbosity=(default=0,)`: logging in Julia levels from 0 through 2.
-  - `trace=false`: retain `Z_primitive`, `P_primitive` and a copied `phase_map`
-    under `details(result).data.fem.primitive`. The primitive arrays refer to the
-    completed FEM scan arrays.
-  - `on_result=nothing`: optional callback `(problem, index, result)`.
-  - `log_file=nothing`: optional Julia log path.
-  - `resume_run_directory=nothing`: resume a compatible path or `:latest`.
-
-# Returns
-
-- A fixed-key [`ComputationOptions`](@ref) named tuple. Paths and integer controls
-  take their normal form, and `trace` becomes a `Val`. The result is per meter, and the
-  whole line's matrices are `Z(result) .* line_length(result)` and
-  `Y(result) .* line_length(result)`.
-
-# Errors
-
-- `ArgumentError`: unknown keys, invalid controls or empty paths.
-"""
-# A normalized record stores its trace switch as a type. This method returns it as it is.
-computation_options(::Type{<:LineCableModelsFEM},
-    record::ComputationOptions{<:NamedTuple{(:verbosity, :trace, :on_result,
-        :ui, :plot_field_maps, :mesh_mode, :mesh_path, :domain_skin_depths,
-        :keep_run_directory, :getdp_executable, :gmsh_verbosity, :getdp_verbosity,
-        :frequency_workers, :solver_threads, :log_file, :resume_run_directory),
-        <:Tuple{NamedTuple, Val, Any, Bool, Bool, Symbol, Any,
-            Float64, Bool, Any, Int, Int, Int, Int, Any, Any}}}) = record
-
-function computation_options(::Type{<:LineCableModelsFEM}, record::ComputationOptions)::ComputationOptions
-    options = record.data
-    defaults = (ui=false, plot_field_maps=false, mesh_mode=:reuse,
-        mesh_path=nothing, domain_skin_depths=2.0,
-        keep_run_directory=false, getdp_executable=nothing,
-        gmsh_verbosity=2, getdp_verbosity=2, frequency_workers=2, solver_threads=1,
-        log_file=nothing, resume_run_directory=nothing)
-    standard_keys = (:verbosity, :trace, :on_result)
-    unknown = setdiff(keys(options), (keys(defaults)..., standard_keys...))
-    isempty(unknown) || throw(ArgumentError(
-        "unknown LineCableModelsFEM computation options: $(Tuple(unknown))"))
-    standard = computation_options(LineCableModelsCoaxial,
-        ComputationOptions(; (key => value for (key, value) in pairs(options) if key in standard_keys)...))
-    normalized = merge(defaults,
-        (; (key => value for (key, value) in pairs(options) if key in keys(defaults))...))
-    for name in (:ui, :plot_field_maps, :keep_run_directory)
-        getproperty(normalized, name) isa Bool || throw(ArgumentError("$name must be Bool"))
-    end
-    normalized.mesh_mode in (:reuse, :remesh) || throw(ArgumentError(
-        "mesh_mode must be :reuse or :remesh"))
-    radius_factor = normalized.domain_skin_depths
-    radius_factor isa Real && !(radius_factor isa Bool) &&
-        isfinite(radius_factor) && 0 < radius_factor <= floatmax(Float64) &&
-        Float64(radius_factor) > 0 || throw(ArgumentError(
-            "domain_skin_depths must be a finite positive Float64-representable number"))
-    for name in (:mesh_path, :getdp_executable, :log_file)
-        value = getproperty(normalized, name)
-        value isa Union{Nothing, AbstractString} || throw(ArgumentError(
-            "$name must be a path string or nothing"))
-        value === nothing || !isempty(value) || throw(ArgumentError("$name cannot be empty"))
-    end
-    for name in (:gmsh_verbosity, :getdp_verbosity)
-        value = getproperty(normalized, name)
-        value isa Integer && !(value isa Bool) && value in 0:5 || throw(ArgumentError(
-            "$name must be an integer from 0 through 5"))
-    end
-    for name in (:frequency_workers, :solver_threads)
-        value = getproperty(normalized, name)
-        value isa Integer && !(value isa Bool) && 1 <= value <= typemax(Int) ||
-            throw(ArgumentError("$name must be a positive integer"))
-    end
-    resume = normalized.resume_run_directory
-    resume === nothing || resume === :latest || resume isa AbstractString && !isempty(resume) ||
-        throw(ArgumentError("resume_run_directory must be nothing, :latest, or a nonempty path string"))
-    return ComputationOptions(; standard.data...,
-        ui=normalized.ui, plot_field_maps=normalized.plot_field_maps,
-        mesh_mode=normalized.mesh_mode,
-        mesh_path=normalized.mesh_path === nothing ? nothing : String(normalized.mesh_path),
-        domain_skin_depths=Float64(radius_factor),
-        keep_run_directory=normalized.keep_run_directory,
-        getdp_executable=normalized.getdp_executable === nothing ? nothing : String(normalized.getdp_executable),
-        gmsh_verbosity=Int(normalized.gmsh_verbosity), getdp_verbosity=Int(normalized.getdp_verbosity),
-        frequency_workers=Int(normalized.frequency_workers), solver_threads=Int(normalized.solver_threads),
-        log_file=normalized.log_file === nothing ? nothing : String(normalized.log_file),
-        resume_run_directory=resume isa AbstractString ? String(resume) : resume)
-end

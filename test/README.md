@@ -47,8 +47,7 @@ the CPU threads, at most 8. Under CI, which sets `CI`, the default is 1. With on
 the selection runs in the current process. `--list` always lists in the current process.
 The run fails when any process fails.
 
-With more workers, each worker takes whole test files. The files with a `fem` item share
-one worker, because they use the same FEM runs directory. The runner packs the files by
+With more workers, each worker takes whole test files. The runner packs the files by
 the item durations that earlier runs measured, kept in `.linecablemodels/test/durations.tsv`,
 or by item count without them. The `quality` items run in a separate new process that
 starts with the workers, or in two when one would take longer than the longest worker.
@@ -82,7 +81,7 @@ in load order, whose code the item exercises. A change in one layer can affect o
 layer and the layers loaded after it. `changed:REF` relies on this order. The owner tags
 in load order are `units`, `commons`, `materials`, `earth`, `datamodel`, `engine`,
 `parametric`, `uq`, `report`, `importexport` and `pscad`. The extension owners
-follow them: `measurements`, `distributions`, `xlsx`, `fem` and `makie`. `quality`
+follow them: `measurements`, `distributions`, `xlsx` and `makie`. `quality`
 items have no owner tag.
 
 `test/support/taxonomy.jl` defines the owner tags, the package module that each owner
@@ -94,8 +93,8 @@ and PlotBuilder belong to `commons`. The files of a child module take the owner 
 parent: the formula families and ModalAnalysis belong to `engine`.
 
 Each item also has at least one kind tag: `unit`, `integration`, `extension`,
-`visual`, `quality` or `aqua`. The environment tags `visual`, `fem_numerical`,
-`pscad_native`, `core_only` and `aqua` keep items out of ordinary runs. `slow` marks
+`visual`, `quality` or `aqua`. The environment tags `visual`, `pscad_native`,
+`core_only` and `aqua` keep items out of ordinary runs. `slow` marks
 items that took more than 10 s in the last serial full run (`--workers=1`).
 
 The quality items check the taxonomy. An item outside `quality` has one owner tag and a
@@ -122,7 +121,7 @@ It lists the items above 10 s without `slow`, the `slow` items below 5 s and the
 per owner tag. It reports these findings and leaves the tags unchanged.
 
 ```sh
-julia --project=test test/tools/durations.jl .linecablemodels/test/RUN/worker-*.log visual.log fem_numerical.log
+julia --project=test test/tools/durations.jl .linecablemodels/test/RUN/worker-*.log visual.log
 ```
 
 ## Cadence
@@ -192,8 +191,6 @@ source rules are part of these checks.
 
 | Command | What it executes |
 | --- | --- |
-| `DISPLAY= julia --project=test --compiled-modules=no test/runtests.jl tag:fem_numerical` | Native GetDP/Gmsh execution, extraction, material transport, reductions, failure and resume. The UI item is skipped here. |
-| `julia --project=test test/runtests.jl extensions/fem_ui.jl` | Four UI lifecycle scenarios in fresh processes. Requires an accessible `DISPLAY`. CI uses `xvfb-run -a`. |
 | `julia --project=test/core test/runtests.jl tag:core_only` | Optional-extension behavior with core dependencies only. |
 | `LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual --compiled-modules=no test/runtests.jl tag:visual` | Existing rendering, plot lifecycle, layout and output checks. No new calibration. |
 | `julia --project=test test/runtests.jl tag:pscad_native` | Real PSCAD acceptance. Set `LINECABLEMODELS_PSCAD_CONFIG` to your private TOML filename. Requires the configured live station. |
@@ -201,7 +198,7 @@ source rules are part of these checks.
 | `julia --project=docs docs/doctest.jl` and `julia --project=docs docs/make.jl` | Docstrings and documentation build. Instantiate with `docs/instantiate.jl`. |
 | `julia --project=src/pscad/remote test/integration/pscad/remote_runner_protocol.jl` | Remote-runner protocol against a mocked Python automation interface. Does not execute PSCAD or validate solver numerics. |
 
-Ordinary exclusions are `quality`, `aqua`, `visual`, `core_only`, `fem_numerical` and `pscad_native`.
+Ordinary exclusions are `quality`, `aqua`, `visual`, `core_only` and `pscad_native`.
 These tags describe purpose and environment, never outcome.
 PSCAD native tests require the explicit `tag:pscad_native` selector. A filename or item-name
 search alone cannot launch a station. Ordinary local PSCAD tests use Julia protocol
@@ -229,7 +226,7 @@ julia --project=. -e 'using Pkg; Pkg.test(coverage=true)'
 Run the additional environments above with `--code-coverage=@.`. For activation,
 use `julia --project=test/visual --code-coverage=@. test/runtests.jl "loaded extension activation"`
 for Cairo. CI contains the temporary-environment commands for GLMakie and WGLMakie.
-Complete the display-dependent UI run as well. Then merge and enforce the gate:
+Then merge and enforce the gate:
 
 ```sh
 julia --project=test/coverage test/coverage.jl check
@@ -245,8 +242,7 @@ the line percentage passes.
 The [execution report](../local/validation-refoundation/2026-09-15/execution/report.md)
 records scopes and measured wall times on the shared local machine.
 The ATP file selection took 41 s. Core-only environment setup plus six checks took
-74 s. Quality took 279 s. Native FEM and the existing visual selection took
-about 25 minutes each. These include compilation and are not isolated CI timing
+74 s. Quality took 279 s. The visual selection took about 25 minutes. These include compilation and are not isolated CI timing
 predictions.
 
 The archived runs describe an earlier solver inventory and are not validation

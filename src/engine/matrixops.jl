@@ -366,50 +366,28 @@ function ReductionPlan(phase_map::AbstractVector{<:Integer}; reduce_bundle::Bool
 end
 
 """
-$(TYPEDEF)
-
-Hold the storage of [`reduce_line_matrices!`](@ref) for one [`ReductionPlan`](@ref)
-and one element type.
-
-$(TYPEDFIELDS)
-"""
-struct ReductionBuffers{T <: Number}
-    "Reordered primitive matrix, reused for `Z` and `P`."
-    ordered::Matrix{T}
-    "Retained potential coefficients, factorized in place."
-    potential::Matrix{T}
-    "Kron elimination block of the eliminated indices."
-    factor::Matrix{T}
-    "Kron elimination block coupling retained to eliminated indices."
-    coupling::Matrix{T}
-    "Kron elimination right-hand side."
-    right_hand_side::Matrix{T}
-    "Identity of the retained size."
-    identity::Matrix{T}
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Allocate the storage of [`reduce_line_matrices!`](@ref) for `plan` with elements of
-type `T`.
-"""
-function ReductionBuffers{T}(plan::ReductionPlan) where {T <: Number}
-    n, retained, removed = length(plan.permutation), length(plan.keep), length(plan.eliminate)
-    return ReductionBuffers{T}(Matrix{T}(undef, n, n), Matrix{T}(undef, retained, retained),
-        Matrix{T}(undef, removed, removed), Matrix{T}(undef, retained, removed),
-        Matrix{T}(undef, removed, retained), Matrix{T}(I, retained, retained))
-end
-
-"""
 $(TYPEDSIGNATURES)
 
 Extend `buffers` with `reduction`, the storage of [`reduce_line_matrices!`](@ref) for
-`reduction` with elements of type `T`.
+`reduction` with elements of type `T`:
+
+- `ordered`: the reordered primitive matrix, reused for `Z` and `P`.
+- `potential`: the retained potential coefficients, factorized in place.
+- `factor`: the Kron elimination block of the eliminated indices.
+- `coupling`: the Kron elimination block coupling retained to eliminated indices.
+- `right_hand_side`: the Kron elimination right-hand side.
+- `identity`: the identity of the retained size.
 """
 function initialize_buffers(reduction::ReductionPlan, ::Type{T}, input, plan,
         buffers) where {T <: Number}
-    return merge(buffers, (reduction = ReductionBuffers{T}(reduction),))
+    n, retained = length(reduction.permutation), length(reduction.keep)
+    removed = length(reduction.eliminate)
+    return merge(buffers, (reduction = (ordered = Matrix{T}(undef, n, n),
+        potential = Matrix{T}(undef, retained, retained),
+        factor = Matrix{T}(undef, removed, removed),
+        coupling = Matrix{T}(undef, retained, removed),
+        right_hand_side = Matrix{T}(undef, removed, retained),
+        identity = Matrix{T}(I, retained, retained)),))
 end
 
 """
@@ -421,7 +399,8 @@ Reduce one frequency of primitive line matrices to the retained phases of `plan`
 reordered, merged by bundle and Kron-reduced. With ideal transposition, the
 retained `Z` and `P` are averaged. `Z` receives the retained series impedance and
 `Y` receives the shunt admittance ``Y = s P^{-1}`` \\[S/m\\] of the retained `P`,
-with `s = jω`. `buffers` comes from [`ReductionBuffers`](@ref) for `plan`.
+with `s = jω`. `buffers` is the `reduction` record that
+[`initialize_buffers`](@ref LineCableModels.Commons.initialize_buffers) builds for `plan`.
 
 With `diagnostics = Val(true)`, nonfinite `P` or `Y` throws `ArgumentError`, and the
 return value is the infinity-norm residual of ``P P^{-1} - I`` and the 2-norm
@@ -436,7 +415,7 @@ function reduce_line_matrices!(
         Pprimitive::AbstractMatrix,
         s::Number,
         plan::ReductionPlan,
-        buffers::ReductionBuffers{T},
+        buffers::NamedTuple,
         diagnostics::Union{Val{true}, Val{false}} = Val(false)
 ) where {T <: Number}
     function retain!(retained, primitive)

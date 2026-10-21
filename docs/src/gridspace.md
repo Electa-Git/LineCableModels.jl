@@ -313,8 +313,8 @@ potential coefficients of the formulations together. Each point then allocates a
 solves one independent workspace. The cable-constant path follows the same
 one-flatten rule. Mutable matrices, formula-dependent earth data, reduction maps,
 and diagnostic storage belong to each workspace. Modal analysis uses the default `resolve`.
-PSCAD and FEM share one table of native runs per problem, so a later point with the
-same native input reuses the run that an earlier point launched.
+PSCAD shares one table of native runs per problem. A later point with the same native input
+reuses the run that an earlier point launched.
 
 `ParametricResult` contains the values, their gridpoints and the retained details. It
 does not contain the spaces that produced them:

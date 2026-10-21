@@ -185,8 +185,8 @@ observations under the same selection raise an error. Saved results remain intac
 Default labels show only relevant differences across results and reference,
 omitting common physical inputs and individual controls. Names are captured from
 owner-dispatched `description(...; compact=true)` methods used by report tables:
-`FEM (reference)`, `PSCAD (reference)`, `Monte Carlo (reference)`, and results
-such as `LEP` or `earth Z=Saad`, without result numbering.
+`PSCAD (reference)`, `Monte Carlo (reference)`, and results such as `LEP` or
+`earth Z=Saad`, without result numbering.
 `formulations=[3,1]` selects recorded original formulation identities, preserving
 order and colors. Explicit `series_labels` and styles follow the retained source.
 When nothing varies, labels use the applicable compact owner description.

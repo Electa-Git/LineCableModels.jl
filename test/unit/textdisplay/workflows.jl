@@ -16,8 +16,7 @@
     modal=compute(ModalAnalysisProblem(parameters), ModalAnalysisFormulation())
     benchmark=EN.compare(parameters, parameters)
     constants=CableConstants(1e-4, 2e-7, 3e-10, 4e-12)
-    backend=LineCableModelsFEM(options = (physics = :quasi_fw,))
-    backend_options=computation_options(LineCableModelsFEM, ComputationOptions((mesh_mode=:remesh,)))
+    backend_options=computation_options(LineCableModelsCoaxial, ComputationOptions((trace=true,)))
     blueprints=LineCableModels.DataModel.CableBlueprint{eltype(line_problem)}[LineCableModels.DataModel.flatten(design, eltype(line_problem))
                                                        for design in line_problem.system.designs]
     workspaces=map((false, true)) do trace
@@ -33,7 +32,7 @@
     end
     objects=(
         problem, line_problem, formulation, cable_formulation, constants,
-        LineCableModelsCoaxial(), backend,
+        LineCableModelsCoaxial(),
         EN.PhaseDomain(), modal.domain, parameters.Z, parameters.Y,
         parameters, modal, benchmark, benchmark.Z, workspaces...
     )
@@ -82,7 +81,7 @@
     @test occursin("RMS errors", sprint(show, MIME"text/plain"(), benchmark))
     @test occursin("relative", sprint(show, MIME"text/plain"(), benchmark.Z))
     @test occursin("G=", sprint(show, MIME"text/plain"(), constants))
-    @test occursin("remesh", sprint(show, backend_options))
+    @test occursin("trace = Val{true}()", sprint(show, backend_options))
     @test occursin("modal domain", sprint(show, modal))
     @test occursin("Modal domain", sprint(summary, modal.domain))
 end

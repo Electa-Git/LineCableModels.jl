@@ -32,8 +32,7 @@ export LineParametersProblem, CableConstantsProblem,
        frequencies, nconductors, nfrequencies
 export AbstractFormulation, LineParametersFormulation, CableConstantsFormulation,
        Formulation
-export LineCableModelsCoaxial, LineCableModelsFEM,
-       LineCableModelsFEMError, LineParametersWorkspace
+export LineCableModelsCoaxial, LineParametersWorkspace
 export constitutive, formula_id, EarthPair
 export verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance, PipeImpedance
@@ -44,7 +43,7 @@ export ModalAnalysis
 export compute
 
 # Module-specific dependencies
-using LinearAlgebra: diag, lu, I
+using LinearAlgebra: axpy!, checksquare, cond, diag, ldiv!, lu, lu!, mul!, I
 import LinearAlgebra: norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: line_length, build, R, L, C,
@@ -72,8 +71,7 @@ import ..Commons: AbstractProblemDefinition, AbstractFormulation,
 
 using ..Units
 import ..Commons
-using ..Commons: vacuum_permittivity, vacuum_permeability
-using ..Commons: kron_reduce!, ReductionPlan, reduce_line_matrices!
+using ..Commons: vacuum_permittivity
 import ..Commons: Functor
 import ..Commons: initialize_buffers
 using ..Materials
@@ -87,6 +85,8 @@ import ..LineCableModels: validate
 import SpecialFunctions
 using QuadGK: alloc_segbuf, quadgk
 
+include("consts.jl")
+include("matrixops.jl")
 include("interfaces.jl")
 include("formulations.jl")
 include("earthplan.jl")
@@ -153,6 +153,7 @@ include("textdisplay.jl")
 include("modalanalysis/ModalAnalysis.jl")
 using .ModalAnalysis: ModalAnalysis
 
+public vacuum_permeability, kron_reduce
 public completed_inputs, completed_formulation, retain_gridpoint
 public selectdetails
 public SpectralIntegral, integrate

@@ -28,7 +28,6 @@
 [direction]
 
 [names]
-"_line!" = 2
 
 [shadowing]
 
@@ -43,14 +42,6 @@
 "src/engine/modalanalysis/observations.jl | _validate_phase_selector" = 1
 
 [switches]
-"ext/LineCableModelsGmshExt/compute.jl" = { applicable = 0, eval = 0, isa = 13, kind = 0 }
-"ext/LineCableModelsGmshExt/geometry.jl" = { applicable = 0, eval = 0, isa = 2, kind = 2 }
-"ext/LineCableModelsGmshExt/getdp.jl" = { applicable = 0, eval = 0, isa = 1, kind = 1 }
-"ext/LineCableModelsGmshExt/mesh.jl" = { applicable = 0, eval = 0, isa = 1, kind = 1 }
-"ext/LineCableModelsGmshExt/model.jl" = { applicable = 0, eval = 0, isa = 7, kind = 4 }
-"ext/LineCableModelsGmshExt/results.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
-"ext/LineCableModelsGmshExt/voltage_paths.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
-"ext/LineCableModelsGmshExt/workers.jl" = { applicable = 0, eval = 0, isa = 16, kind = 0 }
 "ext/LineCableModelsMakieExt/LineCableModelsMakieExt.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "ext/LineCableModelsMakieExt/attributes.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "ext/LineCableModelsMakieExt/controls.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
@@ -89,7 +80,7 @@
 "src/engine/earthimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/earthplan.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/engine/earthreturn.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
-"src/engine/formulations.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
+"src/engine/formulations.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/engine/input.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/insulationimpedance/interface.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/integration.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
@@ -109,7 +100,7 @@
 "src/engine/modalanalysis/propagation.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/engine/modalanalysis/quantities.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/observed_inputs.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
-"src/engine/options.jl" = { applicable = 0, eval = 0, isa = 13, kind = 0 }
+"src/engine/options.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/problems.jl" = { applicable = 0, eval = 0, isa = 9, kind = 0 }
 "src/engine/shuntmodel/charge_collocation.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/engine/shuntmodel/geometry.jl" = { applicable = 0, eval = 0, isa = 7, kind = 0 }
@@ -144,12 +135,11 @@
 "src/uq/results.jl" = { applicable = 0, eval = 0, isa = 12, kind = 0 }
 
 [absence]
-"ext/LineCableModelsGmshExt" = 58
 "ext/LineCableModelsMakieExt" = 255
-"src/commons" = 107
+"src/commons" = 106
 "src/datamodel" = 138
 "src/earth" = 16
-"src/engine" = 248
+"src/engine" = 235
 "src/importexport" = 38
 "src/materials" = 6
 "src/parametricbuilder" = 41
@@ -289,14 +279,6 @@
 [clones]
 
 [helpers]
-"ext/LineCableModelsGmshExt/compute.jl" = 2
-"ext/LineCableModelsGmshExt/geometry.jl" = 3
-"ext/LineCableModelsGmshExt/getdp.jl" = 2
-"ext/LineCableModelsGmshExt/mesh.jl" = 1
-"ext/LineCableModelsGmshExt/model.jl" = 2
-"ext/LineCableModelsGmshExt/onelab.jl" = 1
-"ext/LineCableModelsGmshExt/results.jl" = 2
-"ext/LineCableModelsGmshExt/workers.jl" = 3
 "ext/LineCableModelsMakieExt/controls.jl" = 1
 "ext/LineCableModelsMakieExt/export_presentation.jl" = 1
 "ext/LineCableModelsMakieExt/layout.jl" = 3
@@ -313,7 +295,6 @@
 "src/datamodel/preview/materials.jl" = 1
 "src/earth/base.jl" = 2
 "src/engine/cableconstants.jl" = 1
-"src/engine/formulations.jl" = 1
 "src/engine/problems.jl" = 1
 "src/importexport/deserialize.jl" = 1
 "src/importexport/observed.jl" = 1

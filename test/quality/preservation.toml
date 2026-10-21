@@ -10,7 +10,7 @@
 # together with a change of this environment.
 [environment]
 julia = "1.12.7"
-manifest = "5ecf11c9fd831e437ae143e2840cfd570f5108949b804048957067e9453f76cd"
+manifest = "4fdf5b8399aa62ba49ecbf5efeae0559c2374c69248cab4e79dcf069bc99d2bf"
 
 [directions]
 inferred = "floor"
@@ -50,7 +50,7 @@ allocations = "ceiling"
 "test/unit/engine/internal_shunt.jl" = 4
 "test/unit/engine/line_observations.jl" = 5
 "test/unit/engine/observations.jl" = 3
-"test/unit/engine/options.jl" = 4
+"test/unit/engine/options.jl" = 2
 "test/unit/engine/pipe_formulations.jl" = 1
 "test/unit/engine/problems.jl" = 9
 "test/unit/engine/radial_dielectric.jl" = 3

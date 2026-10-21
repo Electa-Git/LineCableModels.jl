@@ -10,20 +10,16 @@
 # only because LineCableModels is not registered yet. Dependency resolution is
 # otherwise the same as for a registry install.
 #
-# Edit `run_fem`, `case_id`, and `frequency_grid` below, then re-include this
-# file in a fresh session when changing the backend or case.
+# Edit `case_id` and `frequency_grid` below, then re-include this file in a fresh
+# session for another case.
 
 repository = normpath(joinpath(@__DIR__, "..", "..", ".."))
 gauntlet_project = joinpath(repository, "gauntlet")
 gauntlet_project in LOAD_PATH || push!(LOAD_PATH, gauntlet_project)
 
-# Set `run_fem` to false for the analytical coaxial solver, or true for FEM.
-run_fem = false
-
 # Revise is optional. Load it in your IDE session to update loaded package
 # methods as you edit their source.
 using LineCableModels
-run_fem && (@eval using Gmsh)
 isdefined(@__MODULE__, :Gauntlet) || include(joinpath(gauntlet_project, "Gauntlet.jl"))
 
 manual_output = joinpath(get(ENV, "LINECABLEMODELS_MANUAL_OUTPUT",
@@ -40,41 +36,12 @@ problem = loaded_case.problem
 system = problem.system
 earth = problem.earth_props
 
-println("\n", run_fem ? "FEM" : "Analytical", ": ", case_id,
+println("\nAnalytical: ", case_id,
     " | ", length(frequency_grid), " frequencies")
 println("Terminal order: ", loaded_case.port_order)
 
 output_file = fullfile("pscad_export.pscx")
 export_file = export_data(:pscad, system, earth, file_name = output_file);
-
-if run_fem
-    # FEM field-model choices. Execution controls belong to compute(.... Options).
-    fem_formulation = Formulation(:fem;
-        options = (
-            physics = :quasi_tem,
-            reduce_bundle = false,
-            kron_reduction = false,
-            ideal_transposition = false
-        ))
-    fem_options = (
-        mesh_mode = :remesh,
-        resume_run_directory = nothing,
-        keep_run_directory = true,
-        trace = true,
-        verbosity = (default = 1,),
-        gmsh_verbosity = 2,
-        getdp_verbosity = 4,
-        frequency_workers = 2,
-        solver_threads = 1,
-        plot_field_maps = false
-    )
-
-    fem_result = @time compute(problem, fem_formulation; options = fem_options)
-    Zfem = observe(fem_result, Z)  # ohm/m
-    Yfem = observe(fem_result, Y)  # S/m
-    println("Run directory: ", details(fem_result).data.fem.run.run_directory)
-    println("Zfem / Yfem: ", size(Zfem), " | result: fem_result")
-end
 
 # Analytical solver defaults. These are the same selections as Formulation().
 analytical_formulation = Formulation(

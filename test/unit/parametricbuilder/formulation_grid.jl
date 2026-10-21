@@ -107,37 +107,6 @@
     @test [value.formula.options.data.iteration.convergence for value in modal_assumptions] ==
           [1e-4, 1e-8]
 
-    fem=LineCableModelsFEM(
-        options = Grid((
-        (; physics = :quasi_tem),
-        (; physics = :quasi_fw)
-    )),
-    )
-    @test fem isa Gridspace{LineCableModelsFEM}
-    @test length(fem) == 2
-
-    for name in keys(selections)
-        keyword=NamedTuple{(name,)}((getproperty(selections, name),))
-        if name in (:internal_impedance, :insulation_impedance, :earth_impedance,
-                :earth_admittance, :pipe_impedance)
-            @test_throws MethodError Formulation(:fem; keyword...)
-            continue
-        end
-        space=Formulation(:fem; keyword...)
-        @test space isa Gridspace{LineCableModelsFEM}
-        @test length(space) == 2
-        if name!==:options
-            @test all(value -> haskey(value.definitions, name), space)
-        end
-    end
-    fem_zipped=Formulation(:fem;
-        insulation_admittance = Grid((:default, :lossy)),
-        semicon_admittance = Grid((:default, :lossy)), combine = :zip)
-    @test length(fem_zipped) == 2
-    @test [(formula_id(value.formulas.insulation_admittance),
-               formula_id(value.formulas.semicon_admittance)) for value in fem_zipped] ==
-          [(:lossless, :lossless), (:lossy, :lossy)]
-
     struct CountedProblem<:AbstractProblemDefinition
         value::Int
     end

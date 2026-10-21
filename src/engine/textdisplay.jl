@@ -23,14 +23,6 @@ TextDisplay.@showfields AirVoltageSpectrum "AirVoltageSpectrum" kernel -> (
     radius = TextDisplay.engineering(kernel.geometry.radius, :meter)
 )
 
-TextDisplay.@showfields LineCableModelsFEMError "LineCableModelsFEMError" error -> (
-    category = error.category,
-    object = error.object_id,
-    field = error.field,
-    message = error.message,
-    run_directory = error.run_directory
-)
-
 function _frequency_span(values)
     isempty(values) && return "no points"
     count = length(values)
@@ -46,25 +38,6 @@ Base.summary(io::IO, ::LineCableModelsCoaxial) =
 Base.show(io::IO, ::LineCableModelsCoaxial) = print(io, "LineCableModelsCoaxial()")
 Base.show(io::IO, ::MIME"text/plain", backend::LineCableModelsCoaxial) =
     show(io, backend)
-
-TextDisplay.name(::Type{<:LineCableModelsFEM}) = "LineCableModelsFEM"
-Base.summary(io::IO, ::LineCableModelsFEM) = print(io, "LineCableModels FEM backend")
-function Base.show(io::IO, backend::LineCableModelsFEM)
-    print(io, "LineCableModelsFEM(", length(backend.formulas), " material laws)")
-end
-function Base.show(io::IO, ::MIME"text/plain", backend::LineCableModelsFEM)
-    get(io, :compact, false) && return show(io, backend)
-    selections = map(backend.formulas) do selected
-        selected === nothing && return nothing
-        description(selected;compact=true)
-    end
-    return TextDisplay.fields(
-        io,
-        "LineCableModels FEM backend",
-        (; selections..., options = backend.options);
-        multiline = true
-    )
-end
 
 TextDisplay.name(::Type{PhaseDomain}) = "Phase domain"
 Base.summary(io::IO, ::PhaseDomain) = print(io, "Phase domain")

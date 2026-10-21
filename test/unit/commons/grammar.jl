@@ -178,3 +178,19 @@ end
     @test [(C.formula_id(s), NamedTuple(s).order) for s in paired] ==
           [(:carson1926, :before), (:deri1973, :after)]
 end
+
+@testitem "Commons / grammar / buffers extend the calculation record" tags=[:unit, :engine] begin
+    const Engine=LineCableModels.Engine
+    plan=Engine.ReductionPlan([1, 2, 2, 0]; reduce_bundle=true, kron_reduction=true,
+        ideal_transposition=false)
+    existing=(destination = zeros(ComplexF64, 2, 2),)
+    buffers=LineCableModels.Commons.initialize_buffers(plan, ComplexF64, (;), (;), existing)
+    @test keys(buffers) == (:destination, :reduction)
+    @test buffers.destination === existing.destination
+    @test keys(buffers.reduction) ==
+          (:ordered, :potential, :factor, :coupling, :right_hand_side, :identity)
+    @test all(matrix -> matrix isa Matrix{ComplexF64}, buffers.reduction)
+    @test size(buffers.reduction.ordered) == (4, 4)
+    @test size(buffers.reduction.potential) == (length(plan.keep), length(plan.keep))
+    @test size(buffers.reduction.factor) == (length(plan.eliminate), length(plan.eliminate))
+end

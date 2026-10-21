@@ -115,10 +115,8 @@ The `validate` tests check owner dispatch, required interfaces, unchanged valid
 inputs and rejection of damaged inputs through validation and computation. The
 standards require checks to remain with the defining validator. Inspection of every method body requires a separate review beyond representative behavioral tests.
 
-The native FEM environment uses pinned GetDP 3.5.0. Keep tests of its actual
-execution, extraction, terminal identity, material and option transport and resume
-behavior. Physical cross-backend accuracy and domain-convergence acceptance
-belong to explicit research work under the testing requirements below. See the
+Physical cross-backend accuracy belongs to explicit research work under the testing
+requirements below. See the
 [test commands](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for the implementation checks and their
 execution environments.
 
@@ -127,7 +125,7 @@ The workspace provides the buffers, and formulas use them.
 every part of the workflow. A formula or shared component builds its own buffers in its
 `initialize_buffers` method, usually as a named tuple of preallocated arrays. The method
 returns them in the workspace's `buffers` record. A named `*Buffers` type exists only for a
-component that several owners share, in `Commons`, such as `ReductionBuffers`. The
+component that several owners share, in `Commons`. The
 storage vocabulary guard below checks the names.
 
 ### Structural guards
@@ -232,13 +230,17 @@ helpers from accumulating elsewhere.
   `Commons` definition count for the definitions it uses. A definition with one
   remaining owner moves to that owner. Algorithm-local helpers are nested functions
   inside the public definition.
-- Reserved vocabulary (`vocabulary`). `VOCABULARY` maps each `Commons` public name to the
-  definition names it reserves. Outside `src/commons/`, no function, constant or
-  assigned local takes a reserved name. A local assigned from a call to the
-  reserving definition is exempt, as in `μ0 = vacuum_permeability(T)`.
-- Literal fingerprints (`fingerprints`). Outside `src/commons/consts.jl`, no numeric literal
-  contains the digits `8854187` or `299792458`, and no statement that names `π`
-  contains `1e-7` or a power of a base containing 10 with exponent `-7`.
+- Reserved vocabulary (`vocabulary`). `VOCABULARY` maps each reserving name to its home
+  and to the definition names it reserves. The home is the directory of the module that
+  defines the name: `src/engine/matrixops.jl` and `src/engine/consts.jl` define the matrix
+  reductions and the vacuum permeability, and `src/commons/` defines the other names.
+  Outside the home of a name, no function, constant or assigned local takes a name it
+  reserves. A local assigned from a call to the reserving definition is exempt, as in
+  `ε0 = vacuum_permittivity(T)`.
+- Literal fingerprints (`fingerprints`). Numeric literals with the digits `8854187` or
+  `299792458` appear only in `src/commons/consts.jl`. A statement that names `π` and
+  contains `1e-7`, or a power of a base containing 10 with exponent `-7`, appears only in
+  `src/engine/consts.jl`.
 - Clones of Commons bodies (`clones`). Function bodies are tokenized with each identifier replaced by its
   role (call, field or name), and compared through runs of 8 tokens. Statements of
   the form `x || throw(...)` or `x && throw(...)`, with `throw`, `rethrow` or
@@ -319,7 +321,11 @@ check lists the fallen rows in one line, and the end of a track records them aga
 the earlier revision.
 
 - `@inferred` floor. The number of `@inferred` uses in each test file. Deleting a
-  failing inference test lowers the floor and fails.
+  failing inference test lowers the floor and fails. The ratchet accepts a lower floor in
+  two cases. The lines moved unchanged to another file. Or they left with a `@testitem`
+  that no test file declares any more and that references an identifier, which `src/` or
+  `ext/` contained at the earlier revision and contain nowhere now. The ratchet prints
+  each fall of the second kind.
 - JET ceilings. `JET.report_opt` with `target_modules = (LineCableModels,)` analyses the
   frequency-loop kernels with the concrete arguments of the default coaxial computation
   of a three-phase cable system: `_solve!`, `cable_impedance!`, `cable_potential!`,
@@ -653,9 +659,9 @@ end
 
 A tuple of formulations gives a tuple of `Resolved` values, which a scalar call keeps
 without a vector. Without a `resolve` method, a backend gives each formulation
-`Resolved(problem, (;))`. PSCAD and FEM share a table of their native runs by the content
-keys of their inputs. A point whose run is not in the table launches it, and a later point
-with the same native input reuses it. Each point completes its result for its own
+`Resolved(problem, (;))`. PSCAD shares a table of its native runs by the content keys of
+its inputs. A point whose run is not in the table launches it, and a later point with the
+same native input reuses it. Each point completes its result for its own
 formulation.
 
 A higher-order formulation, such as `LinearError` or `MonteCarlo`, subtypes
@@ -763,8 +769,8 @@ The following external interfaces are used by the package:
 | Access | Supported use |
 | --- | --- |
 | `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html). Cairo adapter only. |
-| `Base.IOError` | Native I/O exception, including [filesystem errors](https://docs.julialang.org/en/v1/base/file/). Renderer export errors and FEM recovery from file and process errors. |
-| `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by the allocating Kron entry point in `Commons` to preserve source and destination aliasing. The reduction path uses separate preallocated buffers. |
+| `Base.IOError` | Native I/O exception, such as [filesystem errors](https://docs.julialang.org/en/v1/base/file/). Renderer export errors. |
+| `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by the allocating Kron entry point in `Engine` to preserve source and destination aliasing. The reduction path uses separate preallocated buffers. |
 | `Base.get_extension` | Identifies the loaded Cairo extension. Its public `CairoMakie` binding supplies the native save backend. |
 | `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api). Renderer only. |
 | `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api). Renderer only. |

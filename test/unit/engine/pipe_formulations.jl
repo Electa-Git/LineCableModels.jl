@@ -28,9 +28,6 @@
         @test failure isa ArgumentError
         @test sprint(showerror, failure) == "ArgumentError: $expected"
     end
-    # FEM enclosure support is exercised by its geometry and numerical suites.
-    @test !haskey(LineCableModelsFEM().formulas, :pipe_impedance)
-    @test_throws MethodError LineCableModelsFEM(pipe_impedance=formula(:default))
     @test_throws ArgumentError E.PipeImpedance.Formula(:UnimplementedPipe2026)
     @test_throws ArgumentError E.PipeImpedance.Formula(:default; parameters = (invented = true,))
     @test_throws ArgumentError Formulation(pipe_impedance = formula(:default; order = :before))

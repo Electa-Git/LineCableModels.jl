@@ -143,14 +143,14 @@ end
           [(-1.0, 20.0), (-2.0, 90.0)]
 end
 
-@testitem "Engine / problems / a formulation space contains one backend" tags=[:unit, :engine] setup=[TestFixtures] begin
+@testitem "Engine / problems / a formulation space contains one backend" tags=[:unit, :pscad] setup=[TestFixtures] begin
     # The formulation of a backend tag lifts over the keywords of that backend.
-    fem = Formulation(:fem; insulation_admittance = Grid((:default, :lossy)))
-    @test fem isa Gridspace{LineCableModels.Engine.LineCableModelsFEM}
-    @test length(fem) == 2
+    pscad = Formulation(:pscad; internal_impedance = Grid((:default, :schelkunoff1934)))
+    @test pscad isa Gridspace{LineCableModels.PSCAD.PSCADFormulation}
+    @test length(pscad) == 2
     # A space that mixes backends is refused before the first point. Comparing backends
     # takes one computation per backend.
     problem = TestFixtures.three_bare_wires_problem(frequencies = [50.0])
     @test_throws r"formulation space contains the formulations of one backend" compute(
-        problem, Grid((Formulation(), Formulation(:fem))))
+        problem, Grid((Formulation(), Formulation(:pscad))))
 end

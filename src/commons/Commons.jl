@@ -6,15 +6,7 @@ ParametricBuilder, UQ, and external implementations.
 
 # Physical constants
 
-- `vacuum_permittivity` and `vacuum_permeability` return the vacuum constants in
-  a requested scalar type.
-
-# Matrix reductions
-
-- `ReductionPlan` fixes the terminal reorder, bundle merge, Kron elimination and
-  ideal transposition of primitive line matrices.
-- `reduce_line_matrices!` applies a plan to one frequency and inverts the potential
-  coefficients to the shunt admittance, in `ReductionBuffers`.
+- `vacuum_permittivity` returns the vacuum permittivity in a requested scalar type.
 
 # Public actions
 
@@ -63,11 +55,9 @@ import Logging
 import UUIDs
 import Random
 import ..Units
-using LinearAlgebra: I, axpy!, checksquare, cond, diag, ldiv!, lu!, mul!, norm
 using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
 
 include("consts.jl")
-include("matrixops.jl")
 include("types.jl")
 include("logging.jl")
 include("base.jl")
@@ -86,10 +76,8 @@ include("observed_validation.jl")
 include("observedresult.jl")
 include("retained_products.jl")
 
-public vacuum_permittivity, vacuum_permeability
-public ideal_transposition!, reorder_indices, kron_reduce, kron_reduce!,
-       bundle_operations, merge_bundles!
-public ReductionPlan, ReductionBuffers, reduce_line_matrices!, initialize_buffers
+public vacuum_permittivity
+public initialize_buffers
 public FormulaDefinition, Expression, Functor, formulas
 public validate_observables, unit_targets, detach
 public observation_request, observation_indices, materialize_observation

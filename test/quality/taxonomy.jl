@@ -81,7 +81,7 @@ end
     # The owner and kind check reports each planted defect once and accepts the valid items.
     valid = [item("test/unit/engine/a.jl", "valid", :unit, :engine),
         item("test/quality/q.jl", "quality", :quality),
-        item("test/extensions/x.jl", "slow extension", :extension, :fem_numerical, :fem, :slow)]
+        item("test/extensions/x.jl", "slow extension", :extension, :visual, :makie, :slow)]
     @test G.owner_and_kind_tags(valid) == String[]
     planted = [item("test/unit/engine/a.jl", "no owner", :unit),
         item("test/unit/engine/a.jl", "two owners", :unit, :engine, :uq),
@@ -127,9 +127,9 @@ end
             "src/units/inner.jl" => "",
             "src/engine/Engine.jl" => "\"Docstring.\"\nmodule Engine\nend\n",
             "ext/LineCableModelsXLSXExt.jl" => "module LineCableModelsXLSXExt\nend\n",
-            "ext/LineCableModelsGmshExt/LineCableModelsGmshExt.jl" =>
-                "module LineCableModelsGmshExt\ninclude(\"mesh.jl\")\nend\n",
-            "ext/LineCableModelsGmshExt/mesh.jl" => "")
+            "ext/LineCableModelsMakieExt/LineCableModelsMakieExt.jl" =>
+                "module LineCableModelsMakieExt\ninclude(\"mesh.jl\")\nend\n",
+            "ext/LineCableModelsMakieExt/mesh.jl" => "")
         for (path, text) in files
             mkpath(dirname(joinpath(repository, path)))
             write(joinpath(repository, path), text)
@@ -139,10 +139,10 @@ end
             "src/units/Units.jl" => :units, "src/units/inner.jl" => :units,
             "src/between.jl" => :units, "src/engine/Engine.jl" => :engine,
             "src/modalanalysis/late.jl" => :engine, "ext/LineCableModelsXLSXExt.jl" => :xlsx,
-            "ext/LineCableModelsGmshExt/LineCableModelsGmshExt.jl" => :fem,
-            "ext/LineCableModelsGmshExt/mesh.jl" => :fem)
+            "ext/LineCableModelsMakieExt/LineCableModelsMakieExt.jl" => :makie,
+            "ext/LineCableModelsMakieExt/mesh.jl" => :makie)
         @test T.path_owner(loaded, "src/engine/data.toml") === :engine
-        @test T.path_owner(loaded, "ext/LineCableModelsGmshExt/remote/run.py") === :fem
+        @test T.path_owner(loaded, "ext/LineCableModelsMakieExt/remote/run.py") === :makie
         @test T.path_owner(loaded, "src/new/file.jl") === :units
         @test T.path_owner(loaded, "test/support/runner.jl") === nothing
         @test T.directory_owner(loaded, "src/modalanalysis") === :engine
@@ -201,8 +201,8 @@ end
     @test select("src/docstrings.jl") == select("src/units/Units.jl")
     @test select("src/commons/logging.jl") == select("src/commons/Commons.jl")
     @test select("src/engine/lineparameters.jl", "src/uq/UQ.jl") == engine
-    fem = select("ext/LineCableModelsGmshExt/LineCableModelsGmshExt.jl")
-    @test all(k -> k in quality || owner(only(i for i in items if key(i) == k)) in (:fem, :makie), fem)
+    xlsx = select("ext/LineCableModelsXLSXExt.jl")
+    @test all(k -> k in quality || owner(only(i for i in items if key(i) == k)) in (:xlsx, :makie), xlsx)
 
     # A changed test file selects all its items, slow ones too, and the files that use
     # a setup it defines. Its environment items remain excluded.
@@ -211,7 +211,7 @@ end
     @test select(file) == union(quality, Set(key(i) for i in items if i.file == file))
     tracking = select("test/unit/modalanalysis/vieira2026.jl")
     @test any(k -> first(k) == "test/unit/modalanalysis/wedepohl1996.jl", tracking)
-    @test select("test/extensions/fem_artifact.jl") == quality
+    @test select("test/integration/pscad/native.jl") == quality
 
     # A change under `test/support/` selects every non-slow item and every item under
     # `test/unit/core/`, so a planted change to the runner selects the harness test.
@@ -253,10 +253,11 @@ end
     T = G.T
     item(file, name, tags...) = (; file, name, tags = Symbol[tags...])
     items = [item("a.jl", "a1"), item("a.jl", "a2"), item("a.jl", "a3"), item("b.jl", "b1"),
-        item("c.jl", "c1", :fem), item("d.jl", "d1"), item("e.jl", "e1", :fem)]
-    # File a weighs 3 and goes first. The FEM files c and e weigh 2 together.
-    @test T.partition(items, _ -> 1.0, 2) == [items[[1, 2, 3, 6]], items[[4, 5, 7]]]
-    @test T.partition(items, _ -> 1.0, 9) == [items[1:3], items[[5, 7]], items[[4]], items[[6]]]
+        item("c.jl", "c1"), item("d.jl", "d1"), item("e.jl", "e1")]
+    # File a weighs 3 and goes first. Each later file goes to the lightest worker.
+    @test T.partition(items, _ -> 1.0, 2) == [items[[1, 2, 3, 7]], items[[4, 5, 6]]]
+    @test T.partition(items, _ -> 1.0, 9) ==
+          [items[1:3], items[[4]], items[[5]], items[[6]], items[[7]]]
     @test T.partition(items[1:0], _ -> 1.0, 4) == []
 
     ordinary = [i for i in T.inventory(G.REPOSITORY).items
@@ -270,7 +271,6 @@ end
         @test sort!([(i.file, i.name) for w in workers for i in w]) ==
               sort!([(i.file, i.name) for i in ordinary])
         @test allunique([file for w in workers for file in unique(i.file for i in w)])
-        @test count(w -> any(i -> :fem in i.tags, w), workers) == 1
         @test all(w -> issorted(w; by = i -> order[(i.file, i.name)]), workers)
     end
 end

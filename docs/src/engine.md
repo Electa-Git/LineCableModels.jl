@@ -338,8 +338,7 @@ For the analytical families, the default routes are:
 
 Each selected equation enforces its applicability requirements. `:none` accepts
 coaxial geometry, which does not require an additional pipe term. Conductive pipe systems
-require a pipe formulation. `:unified` requires supported earth geometry. PSCAD defines its native selections. FEM defines its field equations and accepts supported
-material selections.
+need a pipe formulation. `:unified` requires supported earth geometry. PSCAD defines its native selections.
 
 Numerical defaults belong to `formulation_options(::Expression{<:MySelection,
 typeof(operation), ...})`. Empty defaults exclude controls. Unknown or unused
@@ -690,9 +689,7 @@ They identify the requested native controls, not a guarantee that native equatio
 material assumptions or results equal LCM's implementations. The exported ground
 permittivity remains the supplied material value.
 PSCAD's earth-impedance `:default` retains the explicit three-branch composition above. PSCAD rejects analytical
-kernel selections or numerical controls it cannot execute. FEM accepts only its four constitutive
-selections and rejects analytical kernel keywords at construction. It executes
-resolved material contributions without a second author registration. Constitutive
+kernel selections or numerical controls it cannot execute. Constitutive
 selections passed to PSCAD remain subject to its documented export limits.
 
 PSCAD export applies the selected temperature law to the same resolved conductor
@@ -705,16 +702,9 @@ limits and the complete exported project accompany the results. Frequency-depend
 soil laws are rejected until their native parameter convention is verified. A
 Julia material law is never converted into guessed Portela coefficients.
 
-FEM batches reuse a field solve only when effective material, mesh and execution
-inputs agree. Every request retains its metadata and independent result arrays.
-Saved-run checks include inputs, implementation sources, executable identity and
-artifact checksums. Incomplete compatible runs resume missing jobs. UI and explicit
-remeshing requests execute separately. See [FEM](fem.md) for execution details.
-
 `pipe_impedance=formula(:default)` uses the same selection grammar. Concentric
 assemblies do not require an additional pipe term. Eccentric or multicore conducting
-enclosures fail explicitly on the coaxial backend. FEM retains its supported
-physical enclosure geometry.
+enclosures fail explicitly on the coaxial backend.
 
 ## Cable-material temperature dependence
 
@@ -732,7 +722,7 @@ The Materials-owned `TemperatureDependent` family evaluates electrical
 resistivity. Its `:default` routes to `:linear`, which implements
 ``\rho(T)=\rho_0[1+\alpha(T-T_0)]`` using each material's reference calibration.
 `temperature_dependence=nothing` retains reference resistivity. The same slot
-is available in `CableConstantsFormulation` and `LineCableModelsFEM`.
+is available in `CableConstantsFormulation`.
 Temperature is prescribed in this electromagnetic computation. No thermal
 rating or temperature-field equation is implied.
 
@@ -1218,14 +1208,7 @@ describe native memory use. A point that reuses a native run is timed like any o
 point. The gridpoint of a point of a space is the gridpoint in the details of its value. A
 scalar call is a run of one point, and its record has the indices `(1, 1)` of that run.
 
-The native backends record their own durations in their run records. FEM records the
-native phase durations of a run in `details(result).data.fem.run.durations`:
-`constraint_seconds`, `assembly_seconds`, `solve_seconds`, `output_seconds` and
-`worker_wall_seconds`. The phase durations sum the native column measurements, and
-`worker_wall_seconds` sums newly executed process durations, not elapsed scan time. A
-reused or partially recovered run has empty durations `(;)`, and an unavailable
-optional native metric is `nothing`. FEM records reuse, recovery and factorization
-facts in `details(result).data.fem.run`. PSCAD records its execution facts in
+The PSCAD backend records its execution facts in its run record,
 `details(result).data.execution`, among them `compile_call_seconds`, which measures
 the worker's `line.compile()` call and excludes output-readiness waiting, and
 `reused`. Required native timing files and recovery checks remain active.
@@ -1238,8 +1221,8 @@ The effective level is `get(verbosity, :progress, verbosity.default)`. Other
 messages use the nearest explicitly configured module ancestor, then `default`.
 Levels 0, 1, and 2 permit warnings, information, and debug messages respectively.
 The caller's current logger still controls acceptance and output: verbosity does
-not override a `NullLogger`, parent threshold or custom filter. Explicit FEM file
-logging and native Gmsh/GetDP/PSCAD diagnostic settings retain their own behavior.
+not override a `NullLogger`, parent threshold or custom filter. Verbosity does not change
+the native PSCAD diagnostic settings.
 
 An outer traversal suppresses child progress while preserving other options and
 backend diagnostics. It logs start and successful completion. A point that ends in a
@@ -1278,7 +1261,7 @@ The coaxial backend accepts:
 `trace=true` preallocates the workspace's trace record and attaches
 the retained matrices to `details(result).data.trace` after computation.
 
-Coaxial, FEM, and PSCAD computations accept an optional callable
+Coaxial and PSCAD computations accept an optional callable
 `on_result(problem, index, result)`. It runs synchronously after each completed
 formulation, including a reused result, before computing the next selection.
 The index refers to the submitted formulation collection (`1` for a scalar

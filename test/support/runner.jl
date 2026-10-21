@@ -6,8 +6,7 @@ include(joinpath(@__DIR__, "taxonomy.jl"))
 
 # Tags describe purpose or environment, never the observed outcome. Explicit
 # selectors can reach every item, including those excluded from ordinary runs.
-const ORDINARY_EXCLUDED_TAGS = Set((:quality, :aqua, :visual, :core_only,
-    :fem_numerical, :pscad_native))
+const ORDINARY_EXCLUDED_TAGS = Set((:quality, :aqua, :visual, :core_only, :pscad_native))
 # The tags of the additional environments. `changed:REF` excludes them too.
 const ENVIRONMENT_TAGS = setdiff(ORDINARY_EXCLUDED_TAGS, (:quality,))
 
@@ -108,25 +107,21 @@ end
 
 # Packs the test files of `items` onto at most `count` workers, longest first by the
 # summed `weight` of their items. `items` are inventory items in inventory order. The
-# items of a file stay on one worker. The files with a `:fem` item share one worker,
-# because they use the FEM runs root, which has no setting. Each worker's items keep the
-# order of `items`. One worker runs today's order.
+# items of a file stay on one worker. Each worker's items keep the order of `items`. One
+# worker runs today's order.
 function partition(items, weight, count)
     files = unique(item.file for item in items)
-    fem = Set(item.file for item in items if :fem in item.tags)
-    units = [[file] for file in files if file ∉ fem]
-    isempty(fem) || push!(units, [file for file in files if file in fem])
     load = Dict(file => 0.0 for file in files)
     for item in items
         load[item.file] += weight(item)
     end
-    workers = [Set{String}() for _ in 1:min(count, length(units))]
+    workers = [Set{String}() for _ in 1:min(count, length(files))]
     totals = zeros(length(workers))
-    # The sort is stable: units of equal load keep the order of their files.
-    for unit in sort(units; by = unit -> sum(file -> load[file], unit), rev = true)
+    # The sort is stable: files of equal load keep their order.
+    for file in sort(files; by = file -> load[file], rev = true)
         k = argmin(totals)
-        union!(workers[k], unit)
-        totals[k] += sum(file -> load[file], unit)
+        push!(workers[k], file)
+        totals[k] += load[file]
     end
     return [[item for item in items if item.file in worker] for worker in workers]
 end

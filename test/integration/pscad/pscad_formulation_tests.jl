@@ -24,7 +24,6 @@
         :wedepohl1973
     @test_throws ArgumentError P.pscad_setting(
         Formulation(:pscad;internal_impedance=:schelkunoff1934),underground)
-    @test_throws MethodError LineCableModelsFEM(internal_impedance=(inner=:default,outer=:default,transfer=:default))
     for selected_problem in (overhead, underground)
         resolved=Formulation(:pscad)
         @test map(formula_id, resolved.formulas.earth_impedance) ==

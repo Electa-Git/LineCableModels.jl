@@ -177,23 +177,14 @@ established `export_data(:xlsx, line_parameters; ...)` call delegates to the
 same report and returns its output path. Relative paths and the default
 `ZY_export.xlsx` resolve from the caller's current working directory.
 
-## Finite-element calculations
-
-Load `Gmsh` to activate the optional `LineCableModelsFEM` formulation, which
-uses Gmsh for meshing and GetDP for field calculations. The geometry model
-includes sector-shaped conductors. Supported geometry and material assumptions
-depend on the selected formulation. See the [FEM guide](docs/src/fem.md)
-and [cable data model](docs/src/data-model.md).
-
-See the [documentation](https://electa-git.github.io/LineCableModels.jl/) and
-[examples](examples) for model construction and parameter calculations.
+See the [documentation](https://electa-git.github.io/LineCableModels.jl/), the
+[cable data model](docs/src/data-model.md) and [examples](examples) for model
+construction and parameter calculations.
 
 ## License and citation
 
 LineCableModels.jl is distributed under the [BSD 3-Clause License](LICENSE).
-The optional FEM backend invokes third-party GetDP under its own license. See
-[Third-party notices](THIRD_PARTY_NOTICES.md). Citation metadata is provided in
-[CITATION.cff](CITATION.cff).
+[CITATION.cff](CITATION.cff) holds the citation metadata.
 
 ## Acknowledgments
 

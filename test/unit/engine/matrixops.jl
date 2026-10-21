@@ -1,19 +1,19 @@
-@testitem "Commons / matrix reductions / reorder, Kron, bundle and transposition invariants" tags=[:unit, :commons] setup=[
+@testitem "Engine / matrix reductions / reorder, Kron, bundle and transposition invariants" tags=[:unit, :engine] setup=[
     UseEngineSupport,
     TestNumerics
 ] begin
     using LinearAlgebra
-    const Commons=LineCableModels.Commons
+    const Engine=LineCableModels.Engine
 
     phase_map=[2, 0, 1, 2, 0, 1]
-    @test Commons.reorder_indices(phase_map) == [1, 3, 4, 6, 2, 5]
+    @test Engine.reorder_indices(phase_map) == [1, 3, 4, 6, 2, 5]
     matrix=ComplexF64[4 1 2; 1 5 3; 2 3 8]
     reduction_map=[1, 2, 0]
     expected=matrix[1:2, 1:2]-matrix[1:2, 3:3]*
                               inv(matrix[3:3, 3:3])*matrix[3:3, 1:2]
     @test TestNumerics.isapprox_scaled(kron_reduce(matrix, reduction_map), expected)
     destination=zeros(ComplexF64, 2, 2)
-    @test Commons.kron_reduce!(matrix, reduction_map, destination) === nothing
+    @test Engine.kron_reduce!(matrix, reduction_map, destination) === nothing
     @test TestNumerics.isapprox_scaled(destination, expected)
 
     # Complex asymmetric entries and ordered, noncontiguous indices expose
@@ -23,7 +23,7 @@
                             1 3+im 10+2im 2; 4im 1-im 3+im 11]
         keep, eliminate = [4, 1], [3, 2]
         reduced = zeros(Complex{T}, 2, 2)
-        actual = Commons.kron_reduce!(ordered, keep, eliminate, reduced,
+        actual = Engine.kron_reduce!(ordered, keep, eliminate, reduced,
             similar(reduced), similar(reduced), similar(reduced))
         expected_ordered = ordered[keep, keep] - ordered[keep, eliminate] *
             (ordered[eliminate, eliminate] \ ordered[eliminate, keep])
@@ -33,31 +33,31 @@
             ordered[[1, 3], [2, 4]] * (ordered[[2, 4], [2, 4]] \ ordered[[2, 4], [1, 3]])
         @test kron_reduce(ordered, [1, 2, 3, 4]) == ordered
         aliased = copy(ordered)
-        @test Commons.kron_reduce!(aliased, [1, 2, 3, 4], aliased) === nothing
+        @test Engine.kron_reduce!(aliased, [1, 2, 3, 4], aliased) === nothing
         @test aliased == ordered
     end
     @test_throws SingularException kron_reduce(ComplexF64[1 2; 3 0], [1, 0])
     @test_throws DimensionMismatch kron_reduce(matrix, [1, 0])
 
-    bundled, merged_map=Commons.merge_bundles!(copy(matrix), [1, 1, 0])
+    bundled, merged_map=Engine.merge_bundles!(copy(matrix), [1, 1, 0])
     @test merged_map == [1, 0, 0]
     change_of_basis=Matrix{ComplexF64}(I, 3, 3)
     change_of_basis[1, 2]=-1
     @test bundled == transpose(change_of_basis) * matrix * change_of_basis
 
     unconnected=ComplexF64[4 1 2; 1 5 3; 2 3 8]
-    unchanged, unconnected_map=Commons.merge_bundles!(copy(unconnected), [0, 0, 1])
+    unchanged, unconnected_map=Engine.merge_bundles!(copy(unconnected), [0, 0, 1])
     @test unchanged == unconnected
     @test unconnected_map == [0, 0, 1]
 
     mixed=ComplexF64[6 1 2 3; 1 7 4 5; 2 4 8 6; 3 5 6 9]
     mixed_basis=Matrix{ComplexF64}(I, 4, 4)
     mixed_basis[1, 2]=-1
-    mixed_result, mixed_map=Commons.merge_bundles!(copy(mixed), [2, 2, 0, 0])
+    mixed_result, mixed_map=Engine.merge_bundles!(copy(mixed), [2, 2, 0, 0])
     @test mixed_result == transpose(mixed_basis)*mixed*mixed_basis
     @test mixed_map == [2, 0, 0, 0]
-    @test_throws ArgumentError Commons.merge_bundles!(ones(2, 3), [1, 1])
-    @test Commons.bundle_operations([2, 0, 1, 2, 1, 2]) == [(1, 4), (3, 5), (1, 6)]
+    @test_throws ArgumentError Engine.merge_bundles!(ones(2, 3), [1, 1])
+    @test Engine.bundle_operations([2, 0, 1, 2, 1, 2]) == [(1, 4), (3, 5), (1, 6)]
 
     # Each option combination fixes the retained rows of the reordered terminals
     # [1, 3, 4, 6, 2, 5] with phases [2, 1, 2, 1, 0, 0].
@@ -66,29 +66,29 @@
             (true, false, [1, 2, 5, 6], [3, 4], [2, 1, -1, -1], [(1, 3), (2, 4)]),
             (false, true, [1, 2, 3, 4], [5, 6], [2, 1, 2, 1], Tuple{Int, Int}[]),
             (false, false, collect(1:6), Int[], [2, 1, 2, 1, 0, 0], Tuple{Int, Int}[]))
-        plan=Commons.ReductionPlan(phase_map; reduce_bundle, kron_reduction,
+        plan=Engine.ReductionPlan(phase_map; reduce_bundle, kron_reduction,
             ideal_transposition = false)
         @test plan.permutation == [1, 3, 4, 6, 2, 5]
         @test (plan.keep, plan.eliminate, plan.phase_map, plan.bundles) ==
               (keep, eliminate, retained, bundles)
         @test plan.indices == plan.permutation[keep]
-        buffers=Commons.ReductionBuffers{ComplexF64}(plan)
+        buffers=LineCableModels.Commons.initialize_buffers(plan, ComplexF64, (;), (;), (;)).reduction
         @test size(buffers.potential) == (length(keep), length(keep))
         @test size(buffers.factor) == (length(eliminate), length(eliminate))
     end
 
     matrix=[Float64(2i+3j+i*j) for i in 1:3, j in 1:3]
     circulant=copy(matrix)
-    @test Commons.ideal_transposition!(circulant) === circulant
+    @test Engine.ideal_transposition!(circulant) === circulant
     @test all(circulant[i, j] == circulant[mod1(i + 1, 3), mod1(j + 1, 3)]
     for i in 1:3, j in 1:3)
     @test sum(circulant) ≈ sum(matrix)
-    @test_throws DimensionMismatch Commons.ideal_transposition!(ones(2, 3))
+    @test_throws DimensionMismatch Engine.ideal_transposition!(ones(2, 3))
 end
 
-@testitem "Commons / matrix reductions / passive network constrained solves" tags=[:unit, :commons] begin
+@testitem "Engine / matrix reductions / passive network constrained solves" tags=[:unit, :engine] begin
     using LinearAlgebra
-    const Commons=LineCableModels.Commons
+    const Engine=LineCableModels.Engine
     incidence=[1.0 0 0 1 1 0;0 1 0 -1 0 1;0 0 1 0 -1 -1]
     for f in (10.0,100.0,1000.0)
         s=2pi*im*f
@@ -107,10 +107,11 @@ end
             @test kron_reduce(matrix,[1,2,0]) ≈ expected rtol=1e-10 atol=0
         end
         function reduced(phase_map; reduce_bundle)
-            plan=Commons.ReductionPlan(phase_map; reduce_bundle, kron_reduction=true,
+            plan=Engine.ReductionPlan(phase_map; reduce_bundle, kron_reduction=true,
                 ideal_transposition=false)
             Zr=zeros(ComplexF64,2,2);Yr=similar(Zr)
-            Commons.reduce_line_matrices!(Zr,Yr,z,p,s,plan,Commons.ReductionBuffers{ComplexF64}(plan))
+            buffers=LineCableModels.Commons.initialize_buffers(plan, ComplexF64, (;), (;), (;))
+            Engine.reduce_line_matrices!(Zr,Yr,z,p,s,plan,buffers.reduction)
             return Zr,Yr
         end
         Zr,Yr=reduced([1,2,0];reduce_bundle=false)
@@ -123,21 +124,21 @@ end
     end
 end
 
-@testitem "Commons / matrix reductions / admittance inversion diagnostics" tags=[:unit, :commons] begin
+@testitem "Engine / matrix reductions / admittance inversion diagnostics" tags=[:unit, :engine] begin
     using LinearAlgebra
-    const Commons=LineCableModels.Commons
-    plan=Commons.ReductionPlan([1, 2]; reduce_bundle=false, kron_reduction=false,
+    const Engine=LineCableModels.Engine
+    plan=Engine.ReductionPlan([1, 2]; reduce_bundle=false, kron_reduction=false,
         ideal_transposition=false)
-    buffers=Commons.ReductionBuffers{ComplexF64}(plan)
+    buffers=LineCableModels.Commons.initialize_buffers(plan, ComplexF64, (;), (;), (;)).reduction
     Zr, Yr=zeros(ComplexF64, 2, 2), zeros(ComplexF64, 2, 2)
     s=2pi*50im
     for potential in (ComplexF64[2.0 0.25; 0.25 1.5], ComplexF64[3.0+0.1im 0.5; 0.5 2.0+0.2im])
-        record=Commons.reduce_line_matrices!(Zr, Yr, potential, potential, s, plan, buffers,
+        record=Engine.reduce_line_matrices!(Zr, Yr, potential, potential, s, plan, buffers,
             Val(true))
         @test Zr == potential
         @test potential * Yr ≈ s * I
         @test record.residual ≤ 100eps(Float64)
-        @test Commons.reduce_line_matrices!(Zr, Yr, potential, potential, s, plan,
+        @test Engine.reduce_line_matrices!(Zr, Yr, potential, potential, s, plan,
             buffers) === nothing
         @test potential * Yr ≈ s * I
     end
@@ -145,47 +146,34 @@ end
     # inverse is finite and remains the result of the original LU operation.
     ill_conditioned=ComplexF64[1e-200 0; 0 1e200]
     record=@test_logs (:warn, r"condition estimate is not finite") begin
-        Commons.reduce_line_matrices!(Zr, Yr, ill_conditioned, ill_conditioned, one(s), plan,
+        Engine.reduce_line_matrices!(Zr, Yr, ill_conditioned, ill_conditioned, one(s), plan,
             buffers, Val(true))
     end
     @test Yr == inv(ill_conditioned)
     @test isinf(record.condition_number)
     @test record.residual ≤ 100eps(Float64)
-    @test_throws ArgumentError Commons.reduce_line_matrices!(Zr, Yr, ill_conditioned,
+    @test_throws ArgumentError Engine.reduce_line_matrices!(Zr, Yr, ill_conditioned,
         fill(ComplexF64(NaN), 2, 2), s, plan, buffers, Val(true))
-    @test_throws SingularException Commons.reduce_line_matrices!(Zr, Yr, ill_conditioned,
+    @test_throws SingularException Engine.reduce_line_matrices!(Zr, Yr, ill_conditioned,
         zeros(ComplexF64, 2, 2), s, plan, buffers, Val(true))
 end
 
-@testitem "Commons / matrix reductions / ideal transposition averages P before inversion" tags=[:unit, :commons] begin
+@testitem "Engine / matrix reductions / ideal transposition averages P before inversion" tags=[:unit, :engine] begin
     using LinearAlgebra
-    const Commons=LineCableModels.Commons
+    const Engine=LineCableModels.Engine
     # Symmetric and not circulant. Its cyclic diagonals have the means 5, 2 and 2.
     P=ComplexF64[6 2 1; 2 5 3; 1 3 4]
     averaged=ComplexF64[5 2 2; 2 5 2; 2 2 5]
     s=2pi*50im
-    plan=Commons.ReductionPlan([1, 2, 3]; reduce_bundle=false, kron_reduction=false,
+    plan=Engine.ReductionPlan([1, 2, 3]; reduce_bundle=false, kron_reduction=false,
         ideal_transposition=true)
     Zr, Yr=zeros(ComplexF64, 3, 3), zeros(ComplexF64, 3, 3)
-    Commons.reduce_line_matrices!(Zr, Yr, P, P, s, plan, Commons.ReductionBuffers{ComplexF64}(plan))
+    buffers=LineCableModels.Commons.initialize_buffers(plan, ComplexF64, (;), (;), (;))
+    Engine.reduce_line_matrices!(Zr, Yr, P, P, s, plan, buffers.reduction)
     @test Zr == averaged
     # The inverse of `averaged` is `[7 -2 -2; -2 7 -2; -2 -2 7] / 27`.
     @test Yr ≈ s*ComplexF64[7 -2 -2; -2 7 -2; -2 -2 7]/27
     @test Yr ≈ s*inv(averaged)
     # Averaging Y after the inversion is the convention this test rejects.
-    @test !isapprox(Yr, Commons.ideal_transposition!(s*inv(P)); rtol=1e-2)
-end
-
-@testitem "Commons / matrix reductions / buffers extend the calculation record" tags=[:unit, :commons] begin
-    const Commons=LineCableModels.Commons
-    plan=Commons.ReductionPlan([1, 2, 2, 0]; reduce_bundle=true, kron_reduction=true,
-        ideal_transposition=false)
-    existing=(destination = zeros(ComplexF64, 2, 2),)
-    buffers=Commons.initialize_buffers(plan, ComplexF64, (;), (;), existing)
-    @test keys(buffers) == (:destination, :reduction)
-    @test buffers.destination === existing.destination
-    @test buffers.reduction isa Commons.ReductionBuffers{ComplexF64}
-    @test size(buffers.reduction.ordered) == (4, 4)
-    @test size(buffers.reduction.potential) == (length(plan.keep), length(plan.keep))
-    @test size(buffers.reduction.factor) == (length(plan.eliminate), length(plan.eliminate))
+    @test !isapprox(Yr, Engine.ideal_transposition!(s*inv(P)); rtol=1e-2)
 end

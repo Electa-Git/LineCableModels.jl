@@ -82,8 +82,7 @@ cable to the air-earth interface, to 1 μm. A larger overlap throws
 [`OverlapError`](@ref). The system checks its pair gaps, and a line problem checks the
 interface gaps. Gaps use nominal values, so uncertainty never moves the nominal geometry.
 `MonteCarlo` discards a draw that throws `OverlapError` and draws again. Internal
-geometric and statistical repairs remain prohibited. Gmsh's tolerances are not used as
-manufacturing clearances.
+geometric and statistical repairs remain prohibited.
 
 ## Observable resolution and comparison
 

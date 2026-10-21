@@ -19,7 +19,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Pose2` is callable. `pose(point)` rotates a point by the pose's orientation and
   translates it by the pose's position.
 - `initialize_buffers(reduction::ReductionPlan, T, input, plan, buffers)` adds
-  `reduction`, the `ReductionBuffers` of a reduction plan, to a buffer record.
+  `reduction`, the named tuple of the matrices of a reduction plan, to a buffer record.
 - `OverlapError` reports cable exteriors that overlap, or a cable exterior that crosses the
   air-earth interface. A line-system build raises a gap from zero up to 1 μm to 1 μm.
   Between two cables, it expands the placements about their centroid. At the interface,
@@ -91,7 +91,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - One `formulation_options(formula, expressions)` projection serves every formula family and
   reports an unused option as `unused formulation options (...) for :id`.
 - `Formulation(tag; kwargs...)` builds the backend formulations `:coaxial`,
-  `:cable_constants`, `:fem` and `:pscad`, and throws for an unknown tag.
+  `:cable_constants` and `:pscad`, and throws for an unknown tag.
 - `save(result, path)` writes a computed result, one result or a space of results, with
   Julia's `Serialization`, and `import_data(path, :result)` reads it back with the same code.
   The loaded uncertainty sources are new ones, one for each source of the file. JSON holds
@@ -135,15 +135,14 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   best-effort candidates for feasible search inputs that cannot meet every limit.
 - Consolidated shared problem, formulation, and result roots plus the common
   action generics under `LineCableModels.Commons`.
-- The coaxial and FEM backends share one matrix reduction,
-  `Commons.reduce_line_matrices!`. Ideal transposition now averages the
-  potential-coefficient matrix ``P`` before inverting it to ``Y`` in every backend.
+- The line-parameter matrix reduction is `Engine.reduce_line_matrices!`. Ideal
+  transposition now averages the potential-coefficient matrix ``P`` before its inversion
+  to ``Y`` in every backend.
   The coaxial engine previously averaged ``Y`` after the inversion.
-- `ideal_transposition` now defaults to `false` for line-parameter and FEM
-  formulations.
+- `ideal_transposition` now defaults to `false` for line-parameter formulations.
 - Defined the vacuum constants once as `Commons.vacuum_permittivity(T)` and
-  `Commons.vacuum_permeability(T)`. The FEM input writer, PSCAD import, and boundary
-  shunt model now use the shared Float64 permittivity, one ulp below the former
+  `Engine.vacuum_permeability(T)`. PSCAD import and the boundary shunt model now use
+  the shared Float64 permittivity, one ulp below the former
   `8.8541878128e-12` literal.
 - Replaced the prototype parameter and uncertainty paths with typed `Grid` and
   inferred `Gridspace` construction from the public declarative builders.
@@ -230,7 +229,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unit, label and symbol from the base quantity by one rule. A saved quantity records
   its selector or its type, and its component. Observed comparison errors save and load.
 - Line parameters are per meter. `LineParameters`, `SeriesImpedance` and
-  `ShuntAdmittance` hold Z in Ω/m and Y in S/m, and every backend (coaxial, FEM, PSCAD)
+  `ShuntAdmittance` hold Z in Ω/m and Y in S/m, and every backend (coaxial, PSCAD)
   returns them so. The whole line's matrices are `Z(result) .* line_length(result)` and
   `Y(result) .* line_length(result)`. `native_unit(R)` is Ω/m and `display_unit(R)` is
   Ω/km. `display_unit(quantity, override; length_prefix)` sets the prefix of a per-length
@@ -336,8 +335,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for a tuple, which holds the problem and what one formulation needs from it. A backend
   computes one point with `compute(resolved, formulation; options)`. The coaxial and
   cable-constant backends share the blueprints of one problem between its formulations.
-  PSCAD and FEM share a table of native runs per problem by the content keys of their
-  inputs, and each point completes its result for its own formulation. `resolve` is public
+  PSCAD shares a table of native runs per problem by the content keys of its inputs.
+  Each point completes its result for its own formulation. `resolve` is public
   in `Commons` and holds DataModel's geometric methods too.
 - The runner writes the work around the points once. `on_result(problem, index, value)`
   runs after each point in computation order, and `index` gives the position of the point
@@ -355,14 +354,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `compute(problem, Grid((first, second)))`. A formulation space contains the formulations
   of one backend, whose formula choices may vary. Comparing backends takes one computation per
   backend.
-- FEM records the native phase durations of a run in `details(result).data.fem.run.durations`.
-  PSCAD records `compile_call_seconds` among its execution facts in
+- PSCAD records `compile_call_seconds` among its execution facts in
   `details(result).data.execution`.
 - Before the first point, `traverse` normalizes the options once with
   `computation_options(F, options)`, where `F` is the element type of the formulations. A
   line-parameter formulation reaches the coaxial backend's method and a modal formulation
-  the modal backend's method, and cable constants, PSCAD and FEM normalize them by their
-  own formulation types. A space that mixes backends, or a formulation type without a
+  the modal backend's method, and cable constants and PSCAD normalize them by their own
+  formulation types. A space that mixes backends, or a formulation type without a
   `computation_options` method, throws an `ArgumentError` that states the rule and the
   extension point.
 - `AbstractTraversal`, `ParametricProblem`, `Combinatorial` and `ParametricResult` are

@@ -27,7 +27,7 @@ import ..Engine: EarthImpedanceFormulation, formula_id
 import ...LineCableModels: FormulaDefinition, Expression
 import ..Engine: description, conductivity, special_besselk
 import ..Engine: formulation_options
-using ...Commons: vacuum_permeability
+using ..Engine: vacuum_permeability
 #! explicit-imports: on
 
 include("interface.jl")
