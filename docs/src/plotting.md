@@ -13,7 +13,6 @@ using LineCableModels
 using CairoMakie
 using LinearAlgebra: diag
 using Measurements: measurement
-using Statistics: mean
 ````
 
 ## Figures, titles, and legends
@@ -258,24 +257,20 @@ cable_system = build(
 nothing #hide
 ````
 
-The following synthetic samples, moments, and histograms illustrate the
-UQ plotting methods.
+A Monte Carlo computation of the cable constants of `mv_design` at an uncertain
+operating temperature retains the samples, moments, and histograms that the UQ
+plotting methods show.
 
 ````@example plotting
-retained_samples = (
-    R = reshape([2.0, 3.0, 5.0, 8.0] .* 1e-4, 1, :),
-    L = reshape([11.0, 13.0, 17.0, 19.0] .* 1e-7, 1, :),
-    C = reshape([23.0, 29.0, 31.0, 37.0] .* 1e-11, 1, :),
-    G = reshape([41.0, 43.0, 47.0, 53.0] .* 1e-10, 1, :)
+temperature_space = Gridspace{CableConstantsProblem}(
+    temperature -> CableConstantsProblem(mv_design; temperature),
+    (Grid(20.0, AbsoluteError(5.0)),)
 );
-retained_statistics = map(x -> [SampleSummary(vec(x))], retained_samples);
-retained_histograms = map(x -> [HistogramDensity(vec(x); bins = 2)], retained_samples);
-retained_core = CableConstants(mean(retained_samples.R), mean(retained_samples.L),
-    mean(retained_samples.C), mean(retained_samples.G));
-retained_core = LineCableModels.materialize(retained_core, retained_statistics);
-sampling = (confidence = 0.95, cdf_tol = 0.02, distribution = :normal);
-mc_result = MonteCarloResult(sampling, [retained_core], [retained_statistics],
-    [retained_samples], [retained_histograms], UInt64(41), UInt64[42], [4]);
+mc_result = compute(
+    ParametricProblem(temperature_space),
+    MonteCarlo(CableConstantsFormulation(); trials = 200, seed = 41,
+        return_samples = true, return_histograms = true)
+);
 nothing #hide
 ````
 

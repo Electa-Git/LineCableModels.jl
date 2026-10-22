@@ -96,7 +96,9 @@ end
 function Base.show(io::IO, result::MonteCarloResult)
     trials = all(==(first(result.trial_counts)), result.trial_counts) ?
              string(first(result.trial_counts)) : "varying"
-    print(io, "MonteCarloResult($(length(result)) points; trials=", trials, ")")
+    print(io, "MonteCarloResult($(length(result)) points; trials=", trials)
+    isempty(result.failures) || print(io, "; $(length(result.failures)) failed")
+    print(io, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", result::MonteCarloResult)
     get(io, :compact, false) && return show(io, result)
@@ -116,5 +118,7 @@ function Base.show(io::IO, ::MIME"text/plain", result::MonteCarloResult)
         (label = "histograms   retained", noun = "fields"))
     isempty(result.details.data) || push!(children,
         (label = "details      $(length(result.details.data)) entries", noun = "fields"))
-    return TextDisplay.tree(io, "Monte Carlo result · $(length(result)) points", Tuple(children))
+    failed = isempty(result.failures) ? "" : ", $(length(result.failures)) failed"
+    return TextDisplay.tree(io, "Monte Carlo result · $(length(result)) points$failed",
+        Tuple(children))
 end

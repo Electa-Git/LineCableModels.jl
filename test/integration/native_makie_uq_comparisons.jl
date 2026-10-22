@@ -11,7 +11,8 @@
     summaries=map(a -> map(x -> SampleSummary([.9x,x,1.1x]),a),parts)
     core=LineParameters(complex.(parts.R,omega.*parts.L),complex.(parts.G,omega.*parts.C),f; line_length=1.0)
     mc=MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
-        [LineCableModels.materialize(core,summaries)],[summaries],nothing,nothing,UInt64(1),UInt64[2],[3])
+        [LineCableModels.materialize(core,summaries)],fieldtype(ParametricResult, :failures)(),
+        [summaries],nothing,nothing,UInt64(1),UInt64[2],[3],ComputationDetails())
     measured=map(a -> measurement.(1.05 .* a,0.03 .* a),parts)
     source_id=gridpoint_id().source_id
     results=[retain_gridpoint(LineParameters(factor.*complex.(measured.R,omega.*measured.L),
@@ -88,7 +89,8 @@ end
     stats=map(a -> map(x -> SampleSummary([.9x,1.1x]),a),parts)
     core=LineParameters(complex.(parts.R,omega.*parts.L),complex.(parts.G,omega.*parts.C),f; line_length=1.0)
     reference=MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
-        [LineCableModels.materialize(core,stats)],[stats],nothing,nothing,UInt64(7),UInt64[8],[2])
+        [LineCableModels.materialize(core,stats)],fieldtype(ParametricResult, :failures)(),
+        [stats],nothing,nothing,UInt64(7),UInt64[8],[2],ComputationDetails())
     measured=map(a -> measurement.(a,sqrt(2) * 0.1 .* a),parts)
     result=LinearErrorResult([LineParameters(
         complex.(measured.R,omega.*measured.L),complex.(measured.G,omega.*measured.C),measurement.(f,0.); line_length=1.0)],

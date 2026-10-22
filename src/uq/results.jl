@@ -59,7 +59,11 @@ $(TYPEDEF)
 
 Store uncertainty-bearing core results and their empirical Monte Carlo products.
 The marginal representation is materialized during computation. Access reuses
-the retained uncertainty-source identities.
+the retained uncertainty-source identities. The values are those of the computed points,
+in the order of the space. A failed point has no value: `failures` holds its gridpoint
+identity and the exception it threw, in the same order. Each point of a Monte Carlo
+computation is a `MonteCarloResult` of one point, whose root seed is the seed of the point,
+and the result of the study joins them.
 
 $(TYPEDFIELDS)
 """
@@ -68,6 +72,8 @@ struct MonteCarloResult{T, ST <: AbstractVector, S, H} <: AbstractUncertaintyRes
     sampling::NamedTuple
     "Stored mean ± sample standard deviation core results in Gridspace traversal order."
     values::Vector{T}
+    "Gridpoint identity and exception of each failed point, in the same order."
+    failures::fieldtype(Commons.ParametricResult, :failures)
     "Per-observable sample summaries."
     stats::ST
     "Retained joint samples, or `nothing` when not requested."
@@ -76,9 +82,9 @@ struct MonteCarloResult{T, ST <: AbstractVector, S, H} <: AbstractUncertaintyRes
     histogram_values::H
     "Resolved root random seed."
     root_seed::UInt64
-    "Deterministic random seed for each Gridspace point."
+    "Deterministic random seed of each computed point."
     point_seeds::Vector{UInt64}
-    "Accepted-trial count used for each Gridspace point."
+    "Accepted-trial count of each computed point."
     trial_counts::Vector{Int}
     "Accepted-trial details retained by the propagation."
     details::ComputationDetails
@@ -86,6 +92,7 @@ struct MonteCarloResult{T, ST <: AbstractVector, S, H} <: AbstractUncertaintyRes
     function MonteCarloResult(
             sampling::NamedTuple,
             values::Vector{T},
+            failures::fieldtype(Commons.ParametricResult, :failures),
             stats::ST,
             sample_values::S,
             histogram_values::H,
@@ -97,6 +104,7 @@ struct MonteCarloResult{T, ST <: AbstractVector, S, H} <: AbstractUncertaintyRes
         return validate(new{T, ST, S, H}(
             sampling,
             values,
+            failures,
             stats,
             sample_values,
             histogram_values,
@@ -108,8 +116,9 @@ struct MonteCarloResult{T, ST <: AbstractVector, S, H} <: AbstractUncertaintyRes
     end
 end
 
-# Checks the stored cores, the empirical products of each point against its core result,
-# and the retained trial details.
+# Checks the type of the stored cores: concrete, and for line parameters and cable
+# constants, uncertainty-bearing by their scalar type. Then the empirical products of each
+# point against its core result, and the retained trial details.
 function validate(result::MonteCarloResult{T}) where {T}
     (; sampling, values, stats, sample_values, histogram_values, point_seeds, trial_counts,
         details) = result
@@ -153,7 +162,7 @@ function validate(result::MonteCarloResult{T}) where {T}
         ArgumentError("retained histograms must use a concrete product type"),
     )
     if T <: Union{Engine.CableConstants, Engine.LineParameters}
-        Engine.has_uncertainty_type(eltype(observe(first(values),R))) || throw(ArgumentError(
+        Engine.has_uncertainty_type(T) || throw(ArgumentError(
             "MonteCarloResult requires stored uncertainty-bearing cores; materialize the empirical summaries before construction"))
         expected_keys = _monte_carlo_keys(T)
         for point in eachindex(values)
@@ -231,29 +240,6 @@ function validate(result::MonteCarloResult{T}) where {T}
         end
     end
     return result
-end
-
-function MonteCarloResult(
-        sampling,
-        values,
-        stats,
-        sample_values,
-        histogram_values,
-        root_seed,
-        point_seeds,
-        trial_counts
-)
-    return MonteCarloResult(
-        sampling,
-        values,
-        stats,
-        sample_values,
-        histogram_values,
-        root_seed,
-        point_seeds,
-        trial_counts,
-        ComputationDetails()
-    )
 end
 
 details(value::LinearErrorResult) = value.details

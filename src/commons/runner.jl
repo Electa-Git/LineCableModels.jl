@@ -7,7 +7,9 @@ one primitive or contextual layer against itself.
 tuple for a tuple, and shares between them the parts that the formulations need equally.
 [`traverse`](@ref) resolves each problem once, before its points. A backend that shares work
 between the formulations of one problem adds a method. The default method gives each
-formulation `Resolved(problem, (;))`.
+formulation `Resolved(problem, (;))`. A Monte Carlo study builds a `Resolved` value for
+each point before the run, with the uncertain point beside the nominal problem, and
+`resolve` returns that value for each formulation.
 """
 function resolve end
 
@@ -30,6 +32,9 @@ end
 
 resolve(problem::AbstractProblemDefinition, formulations; options) =
     map(Returns(Resolved(problem, (;))), formulations)
+resolve(resolved::Resolved, formulations; options) = map(Returns(resolved), formulations)
+# The description of a `Resolved` value is the description of its problem.
+description(resolved::Resolved; compact::Bool = false) = description(resolved.problem; compact)
 
 """
     retain_gridpoint(result, gridpoint; fields = (;))
@@ -68,9 +73,10 @@ Return `exception` when `study` records it as the failure of a point, and stop `
 otherwise. A study calls it inside the `catch` block of the point that threw, and records
 that exception when it returns. A [`Combinatorial`](@ref) study records the failed point
 beside its values and continues, and `LinearError` does so through the `Combinatorial`
-study that it traverses. A `MonteCarlo` study draws the trial again. The fallback stops the
-study with `rethrow()`. The exception keeps its backtrace, and a bug stops a study with its
-stack trace.
+study that it traverses. A `MonteCarlo` study draws the trial again, and the
+`Combinatorial` study of its points records a point whose nominal design or whose draws are
+infeasible. The fallback stops the study with `rethrow()`. The exception keeps its
+backtrace, and a bug stops a study with its stack trace.
 
 A `Combinatorial` study records a `DomainError`, an input outside the domain of a formula,
 and an `OverlapError`, cable exteriors that overlap. The owner of an exception type declares

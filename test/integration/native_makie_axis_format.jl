@@ -542,7 +542,8 @@ end
     summaries = map(a -> map(x -> SampleSummary([0.9x, 1.1x]), a), v)
     mc = MonteCarloResult((confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
         [LineCableModels.materialize(core,summaries)],
-        [summaries], nothing, nothing, UInt64(7), UInt64[8], [2])
+        fieldtype(ParametricResult, :failures)(),
+        [summaries], nothing, nothing, UInt64(7), UInt64[8], [2], ComputationDetails())
     m = map(a -> measurement.(a, sqrt(2) * 0.1 .* a), v)
     lep = LinearErrorResult([LineParameters(
         m.R .+ im .* omega .* m.L, m.G .+ im .* omega .* m.C, measurement.(f, 0.0); line_length=1.0)],

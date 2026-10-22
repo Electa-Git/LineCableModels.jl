@@ -50,12 +50,14 @@
     monte_carlo=UQ.MonteCarloResult(
         (confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
         TransportResult[TransportResult(1.0)],
+        fieldtype(ParametricResult, :failures)(),
         [1],
         nothing,
         nothing,
         UInt64(1),
         UInt64[1],
-        [1]
+        [1],
+        ComputationDetails()
     )
     monte_error=try
         PB.Gridspace{DownstreamProblem}(monte_carlo)

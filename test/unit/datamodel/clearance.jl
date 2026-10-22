@@ -148,31 +148,33 @@ end
     sampled=@test_logs compute(ParametricProblem(space), formulation)
     discarded=count(<(0.02), drawn)
     @test discarded > 0
-    @test length(drawn) == 8 + discarded + 1 # accepted, discarded, the nominal record
+    @test length(drawn) == 1 + 8 + discarded # the nominal problem, accepted, discarded
+    @test first(drawn) == 0.021
     @test sampled.trial_counts == [8]
     @test keys(sampled.details.data) == (:trials,)
-    accepted=filter(>=(0.02), drawn[1:(end - 1)])
+    accepted=filter(>=(0.02), drawn[2:end])
     replay=compute(ParametricProblem(space), formulation)
     @test samples(replay) == samples(sampled)
-    @test filter(>=(0.02), drawn[(8 + discarded + 2):(end - 1)]) == accepted
+    @test filter(>=(0.02), drawn[(8 + discarded + 3):end]) == accepted
 
-    # `max_failures` overlapping draws in a row stop a study that cannot draw a feasible
-    # case. The distribution of the point has no feasible draw, a `DomainError` that a
-    # Combinatorial study records.
+    # `max_failures` overlapping draws in a row end a point that cannot draw a feasible
+    # case. The distribution of the point has no feasible draw, a `DomainError` that the
+    # Combinatorial study of the points records. Point 2 draws feasible cases.
     empty!(drawn)
     infeasible=MonteCarlo(inner; trials = 2, seed = 8, max_failures = 5,
         distribution = (_rng, mean, sigma)->mean-4sigma)
-    failure=try
-        compute(ParametricProblem(space), infeasible)
-    catch error
-        error
-    end
+    two=Gridspace{LineParametersProblem}(space.build,
+        (Grid((0.021, 0.03), AbsoluteError(0.002)),))
+    partial=compute(ParametricProblem(two), infeasible)
+    @test partial.trial_counts == [2]
+    gridpoint, failure=only(partial.failures)
+    @test gridpoint.problem_index == 1
     @test failure isa DomainError
     @test only(failure.val).standard_deviation == 0.002
     @test occursin("max_failures", sprint(showerror, failure))
     @test occursin("OverlapError", sprint(showerror, failure))
     @test LineCableModels.on_error(Combinatorial(inner), failure) === failure
-    @test length(drawn) == 5
+    @test length(drawn) == 2 + 5 + 2 # the nominal problems, then the draws of each point
 
     # A grid point is a requested case, and the study records an overlapping one.
     requested=Gridspace{LineParametersProblem}(
@@ -182,6 +184,55 @@ end
     recorded=compute(ParametricProblem(requested), Combinatorial(inner))
     @test length(recorded) == 1
     @test last(only(recorded.failures)) isa OverlapError
+end
+
+@testitem "UQ / exterior clearance / Monte Carlo records a point whose nominal overlaps" tags=[:integration, :measurements] setup=[ClearanceFixtures] begin
+    using LineCableModels
+    using Measurements
+    fixture=ClearanceFixtures
+    earth=homogeneous(rho = 100.0)
+    drawn=Float64[]
+    # The nominal spacing of point 2 is below the 0.02 m of two touching cables.
+    space=Gridspace{LineParametersProblem}(
+        spacing->begin
+            push!(drawn, spacing)
+            LineParametersProblem(fixture.pair(0.01, spacing); earth_props = earth,
+                frequencies = [50.0])
+        end,
+        (Grid((0.03, 0.015), AbsoluteError(0.002)),))
+    inner=Formulation(options = (kron_reduction = false,
+        reduce_bundle = false, ideal_transposition = false))
+    formulation=MonteCarlo(inner; trials = 3, seed = 8)
+
+    # The nominal problems of both points build before the first draw. Point 2 fails at its
+    # nominal build and draws nothing. Point 1 computes, and `on_result` receives its
+    # `MonteCarloResult` of one point.
+    received=[]
+    result=compute(ParametricProblem(space, ComputationOptions((on_result =
+            (problem, index, point) -> push!(received, (; problem, index, point)),))),
+        formulation)
+    @test drawn[1:2] == [0.03, 0.015]
+    @test length(drawn) == 2 + 3
+    @test length(result) == 1
+    @test result.trial_counts == [3]
+    gridpoint, failure=only(result.failures)
+    @test gridpoint.problem_index == 2
+    @test failure isa OverlapError
+    (; problem, index, point)=only(received)
+    @test index == 1
+    @test problem isa LineParametersProblem
+    @test point isa MonteCarloResult
+    @test length(point) == 1
+    @test isempty(point.failures)
+    @test only(point.values) === only(result.values)
+    @test point.point_seeds == result.point_seeds == [point.root_seed]
+    @test point.root_seed == result.root_seed == 8
+
+    # The work of one trial compiles from the drawn problem and infers.
+    sampler=(; point = first(LineCableModels.points(space)), formulation,
+        options = LineCableModels.computation_options(typeof(inner), ComputationOptions()))
+    trial=@inferred LineCableModels.UQ._attempt(problem, sampler)
+    @test trial isa LineParameters
 end
 
 @testitem "DataModel / exterior clearance / a study records infeasible points" tags=[:integration, :measurements] setup=[ClearanceFixtures, SavedResults] begin

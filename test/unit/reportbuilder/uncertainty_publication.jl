@@ -16,7 +16,8 @@
     end
     sampled_parameters = LineCableModels.materialize(parameters,summaries)
     source = MonteCarloResult((confidence=0.95, cdf_tol=0.02, distribution=:normal),
-        [sampled_parameters], [summaries], nothing, nothing, UInt64(7), UInt64[11], [2])
+        [sampled_parameters], fieldtype(ParametricResult, :failures)(), [summaries], nothing, nothing,
+        UInt64(7), UInt64[11], [2], ComputationDetails())
     RB=LineCableModels.ReportBuilder
     for indices in ((),(:,:,:),(2,:,:),(:,1,:),(:,:,2),(2,1,2),([2,1],[2],[2,1]))
         selected=isempty(indices) ? ([1,2],[1,2],[1,2]) :

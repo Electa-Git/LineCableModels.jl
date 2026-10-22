@@ -200,19 +200,19 @@ _uncertain_arguments(records, value, path) = records
 on_error(::MonteCarlo, exception::DomainError) = exception
 on_error(::MonteCarlo, exception::DataModel.OverlapError) = exception
 
-# Draw the arguments, build the problem and compute it. A draw whose exception `on_error`
-# returns for the study is infeasible, and the next draw replaces it as if it was never
-# drawn. `max_failures` infeasible draws in a row throw a `DomainError` with the uncertain
+# Draw the arguments, build the problem and compute it with the point method of the inner
+# formulation's backend: a trial is not a run. A draw whose exception `on_error` returns
+# for the study is infeasible, and the next draw replaces it as if it was never drawn.
+# `max_failures` infeasible draws in a row throw a `DomainError` with the uncertain
 # arguments of the point: its distribution has no feasible draw. Any other exception
 # propagates.
-function _attempt(rng, sampler)
-    (; point, formulation, child_options) = sampler
+function _attempt(rng::Random.AbstractRNG, sampler)
+    (; point, formulation) = sampler
     discarded = 0
     while true
         arguments = realize_arguments(rng, point, formulation.options.data.distribution)
         try
-            return compute(realize(point, arguments), formulation.inner;
-                options = child_options)
+            return _attempt(realize(point, arguments), sampler)
         catch exception
             on_error(formulation, exception)
             discarded += 1
@@ -224,11 +224,33 @@ function _attempt(rng, sampler)
     end
 end
 
-function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner, child_options)
+# The work of one trial. The type of a drawn problem is known only from its build, which is
+# the user's: this method compiles the trial's computation from the problem it receives.
+function _attempt(drawn::AbstractProblemDefinition, sampler)
+    (; formulation, options) = sampler
+    return compute(only(resolve(drawn, (formulation.inner,); options)), formulation.inner;
+        options)
+end
+
+"""
+    compute(resolved::Resolved, formulation::MonteCarlo; options)
+
+Compute the trials of one point of a Monte Carlo study and return the `MonteCarloResult` of
+that point, whose root seed is the seed of the point. `resolved.problem` is the nominal
+problem of the point, built from the means of its uncertain arguments before the first
+draw, and `resolved.input` holds the uncertain point, its seed and its gridpoint identity.
+Each trial is a point of the inner formulation's backend, computed with the `options` that
+its owner normalized. A trial that ends in a later five-second interval of the point than
+the one in which it began logs the accepted count, the elapsed time and an estimate of the
+remaining time in the group `:progress`.
+"""
+function compute(resolved::Resolved, formulation::MonteCarlo; options::ComputationOptions)
+    (; point, seed, gridpoint) = resolved.input
     rng = Random.Xoshiro(seed)
     progress = verbosity(options, :progress) > 0
     started = progress ? time_ns() : UInt64(0)
-    sampler = (; point, formulation, child_options)
+    sampler = (; point, formulation, options)
+    details_owner = typeof(formulation.inner)
 
     # Pilot: the first accepted realization.
     first_result = _attempt(rng, sampler)
@@ -250,57 +272,48 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     retained = formulation.options.data.retain_details ?
                Vector{typeof(record)}(undef, ntrials) : nothing
 
-    last_log = _trials!(rng, first_result, sample_values, retained, record, sampler,
-        details_owner, sample_axis, ntrials, progress, started)
-
-    aggregation_started = progress ? time_ns() : UInt64(0)
+    _trials!(rng, first_result, sample_values, retained, record, sampler, details_owner,
+        sample_axis, ntrials, progress, started)
     aggregate = _aggregate(sample_values, first_result, formulation)
-    if progress
-        now = time_ns()
-        if now - last_log >= 5_000_000_000
-            @info "Monte Carlo aggregation completed" _group=:progress trials=ntrials aggregation_seconds=(now-aggregation_started)*1e-9 elapsed_seconds=(now-started)*1e-9
-        end
-    end
     # The trials computed with `formulation.inner`. The record of the first one holds that
     # formulation and the choices its point made, such as the equivalent earth of each earth
-    # formula.
+    # formula. The inputs are those of the nominal problem.
     completion = details(first_result).data[(:formulation, :choices)]
-    # Capture the nominal physical declaration once after successful sampling. A Monte
-    # Carlo builder need not accept first-order numbers.
-    declaration = realize(Random.Xoshiro(0), point, (_rng, mean, _sigma) -> mean)
-    physical_inputs = merge(Engine.completed_inputs(declaration),
+    physical_inputs = merge(Engine.completed_inputs(resolved.problem),
         (interpretation = :nominal_declaration, uncertain_arguments = _uncertain_arguments(point)))
-    representation = Engine.retain_gridpoint(aggregate.representation, Commons.gridpoint_id();
+    representation = Engine.retain_gridpoint(aggregate.representation, gridpoint;
         fields = merge(completion, (inputs = physical_inputs,
             uncertainty = (estimator = :empirical, representation = :marginal_mean_std),
             uncertainty_descriptions = _uncertainty_descriptions(MonteCarlo))))
-    return merge(aggregate, (; representation, trials = ntrials, seed,
-        details = retained))
+    data = formulation.options.data
+    return MonteCarloResult(data[(:confidence, :cdf_tol, :distribution)], [representation],
+        fieldtype(ParametricResult, :failures)(), [aggregate.statistics],
+        data.return_samples ? [aggregate.samples] : nothing,
+        data.return_histograms ? [aggregate.histograms] : nothing, seed, [seed], [ntrials],
+        data.retain_details ? ComputationDetails((; trials = [retained])) : ComputationDetails())
 end
 
 # Record the pilot result in `buffers`, then draw and record further trials until the study
-# accepts `ntrials` of them. Return the time of the last progress message.
+# accepts `ntrials` of them. A trial that ends in a later five-second interval of the point
+# than the one in which it began logs the accepted count, the elapsed time and an estimate
+# of the remaining time: the remaining trials times the mean time of an accepted trial.
 function _trials!(rng, first_result::R, buffers, retained, record, sampler, details_owner,
         sample_axis, ntrials::Int, progress::Bool, started::UInt64) where {R}
     formulation = sampler.formulation
-    previous = started
-    last_log = started
-    average_seconds = 0.0
     accepted = 0
     value = first_result
+    began = started
     while true
         accepted += 1
         _record_sample!(buffers, value, accepted, sample_axis)
         retained === nothing || (retained[accepted] = record)
         if progress
             now = time_ns()
-            interval = (now - previous) * 1e-9
-            average_seconds = accepted == 1 ? interval : 0.2 * interval + 0.8 * average_seconds
-            previous = now
-            if now - last_log >= 5_000_000_000
-                @info "Monte Carlo sampling progress" _group=:progress accepted trials=ntrials elapsed_seconds=(now-started)*1e-9 eta_hours=(ntrials-accepted)*average_seconds/3600
-                last_log = now
+            if fld(now - started, 5_000_000_000) > fld(began - started, 5_000_000_000)
+                elapsed = (now - started) * 1e-9
+                @info "Monte Carlo sampling progress" _group=:progress accepted trials=ntrials elapsed_seconds=elapsed eta_hours=(ntrials-accepted)*elapsed/accepted/3600
             end
+            began = now
         end
         accepted < ntrials || break
         result = _attempt(rng, sampler)
@@ -313,7 +326,52 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
         ))
         value = result
     end
-    return last_log
+    return buffers
+end
+
+# A Monte Carlo study builds the nominal problem of each point of its space from the means
+# of the uncertain arguments, before the first draw: the constructor of the problem
+# validates it. When `on_error` returns the exception of a nominal build for the
+# `Combinatorial` study of the points, the point fails and the run continues. Each built
+# point is resolved here, with the uncertain point, its seed and its gridpoint identity,
+# and the runner computes its trials as one point.
+function traverse(problem::ScalarOrGrid{AbstractProblemDefinition}, formulation::MonteCarlo,
+        root_seed::UInt64; options::ComputationOptions)
+    sources = points(problem)
+    formulations = [formulation]
+    # The owner of the inner formulation normalizes the options of the trials once.
+    execution = computation_options(typeof(formulation.inner), options)
+    levels = verbosity(get(options.data, :verbosity, (default = 0,)))
+    on_result = get(options.data, :on_result, nothing)
+    gridpoints = CartesianIndices((length(sources), 1))
+    source_id = Commons.gridpoint_id().source_id
+    progress = get(levels, :progress, levels.default) > 0
+    timing = get(levels, :timing, levels.default) > 0
+    started = time_ns()
+    scoped = haskey(options.data, :verbosity) || on_result !== nothing
+    study = Combinatorial(formulation)
+    failures = fieldtype(ParametricResult, :failures)()
+    attempts = map(enumerate(sources)) do (problem_index, source)
+        gridpoint = Commons.gridpoint_id(; source_id, problem_index)
+        try
+            nominal = realize(Random.Xoshiro(0), source, (_rng, mean, _sigma) -> mean)
+            Resolved(nominal, (; point = source,
+                seed = root_seed ⊻ (UInt64(problem_index - 1) * 0x9e3779b97f4a7c15),
+                gridpoint))
+        catch exception
+            on_error(study, exception)
+            push!(failures, gridpoint => exception)
+            exception
+        end
+    end
+    problem_indices = isempty(failures) ? eachindex(attempts) :
+                      setdiff!(collect(eachindex(attempts)),
+        (gridpoint.problem_index for (gridpoint, _) in failures))
+    problems = isempty(failures) ? attempts :
+               map(Base.Fix1(getindex, attempts), problem_indices)
+    return Base.invokelatest(traverse, problem, formulation,
+        (; problems, problem_indices, study, failures, formulations, execution, on_result,
+            gridpoints, spaced = true, source_id, progress, timing, started), scoped, levels)
 end
 
 # Monte Carlo samples the arguments of the points of a space. A scalar problem is the space
@@ -323,149 +381,40 @@ function compute(problem::ParametricProblem{<:AbstractProblemDefinition}, formul
     return compute(ParametricProblem(space, problem.options), formulation)
 end
 
+"""
+    compute(problem::ParametricProblem, formulation::MonteCarlo)
+
+Sample the uncertain arguments of each point of the problem's space and return the
+[`MonteCarloResult`](@ref) of the computed points and the failed ones. The study runs
+through [`traverse`](@ref LineCableModels.Commons.traverse) with the problem's options: it
+builds the nominal problem of every point before the first draw, then computes each point
+with `compute(resolved, formulation; options)`, from the point's seed, the root seed
+`formulation.options.data.seed` or a fresh one, combined with the position of the point.
+The result joins the `MonteCarloResult` of each computed point in the order of the space.
+A study with no computed point throws.
+"""
 function compute(problem::ParametricProblem, formulation::MonteCarlo)
-    levels = verbosity(get(problem.options.data, :verbosity, (default=0,)))
-    progress = get(levels, :progress, levels.default) > 0
-    # The study reports its progress, and the computation of each trial does not.
-    child_options = progress ? ComputationOptions(merge(problem.options.data,
-        (verbosity = merge(problem.options.data.verbosity, (progress = 0,)),))) : problem.options
-    logger = haskey(problem.options.data, :verbosity) ? VerbosityLogger(Logging.current_logger(), levels) : Logging.current_logger()
-    return Logging.with_logger(logger) do
-    started = progress ? time_ns() : UInt64(0)
-    previous = started
-    last_log = started
-    average_seconds = 0.0
-    source_id=Commons.gridpoint_id().source_id
     Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing &&
         throw(ArgumentError("MonteCarlo requires the Measurements extension to construct its result; " *
             "load it with `using Measurements` before compute"))
-    point_count = length(problem.space)
-    point_count > 0 || throw(ArgumentError(
-        "higher-order problem space must contain at least one core problem",
-    ))
-    progress && @info "Monte Carlo computation started" _group=:progress populations=point_count trials=formulation.options.data.trials
-    root_seed = formulation.options.data.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
-                formulation.options.data.seed
-    details_owner = formulation.options.data.retain_details ?
-                    typeof(formulation.inner) : nothing
-    point_source = points(problem.space)
-    first_item = iterate(point_source)
-    first_item === nothing && throw(DimensionMismatch(
-        "problem-space iteration ended before its declared cardinality",
-    ))
-    first_point, state = first_item
-    first_seed = root_seed
-    first_aggregate = _monte_carlo(
-        first_point,
-        formulation,
-        problem.options,
-        first_seed,
-        details_owner,
-        child_options
-    )
-    values = Vector{typeof(first_aggregate.representation)}(undef, point_count)
-    stats_values = Vector{typeof(first_aggregate.statistics)}(undef, point_count)
-    sample_values = formulation.options.data.return_samples ?
-                    Vector{typeof(first_aggregate.samples)}(undef, point_count) : nothing
-    histogram_values = formulation.options.data.return_histograms ?
-                       Vector{typeof(first_aggregate.histograms)}(undef, point_count) :
-                       nothing
-    seeds = Vector{UInt64}(undef, point_count)
-    trial_counts = Vector{Int}(undef, point_count)
-    retained = formulation.options.data.retain_details ?
-               Vector{typeof(first_aggregate.details)}(undef, point_count) : nothing
-
-    values[1] = Engine.retain_gridpoint(first_aggregate.representation,Commons.gridpoint_id(;source_id))
-    stats_values[1] = first_aggregate.statistics
-    sample_values === nothing || (sample_values[1] = first_aggregate.samples)
-    histogram_values === nothing ||
-        (histogram_values[1] = first_aggregate.histograms)
-    seeds[1] = first_aggregate.seed
-    trial_counts[1] = first_aggregate.trials
-    retained === nothing || (retained[1] = first_aggregate.details)
-    if progress
-        now = time_ns()
-        average_seconds = (now - previous) * 1e-9
-        previous = now
-        if now - last_log >= 5_000_000_000
-            @info "Monte Carlo population progress" _group=:progress completed=1 populations=point_count elapsed_seconds=(now-started)*1e-9 eta_hours=(point_count-1)*average_seconds/3600
-            last_log = now
-        end
-    end
-
-    for index in 2:point_count
-        item = iterate(point_source, state)
-        item === nothing && throw(DimensionMismatch(
-            "problem-space iteration ended before its declared cardinality",
-        ))
-        point, state = item
-        point_seed = root_seed ⊻ (UInt64(index - 1) * 0x9e3779b97f4a7c15)
-        aggregate = _monte_carlo(
-            point,
-            formulation,
-            problem.options,
-            point_seed,
-            details_owner,
-            child_options
-        )
-        typeof(aggregate.representation) === eltype(values) || throw(ArgumentError(
-            "Monte Carlo points produced incompatible core result types",
-        ))
-        typeof(aggregate.statistics) === eltype(stats_values) || throw(ArgumentError(
-            "Monte Carlo points produced incompatible statistics product types",
-        ))
-        values[index] = Engine.retain_gridpoint(aggregate.representation,
-            Commons.gridpoint_id(;source_id,problem_index=index))
-        stats_values[index] = aggregate.statistics
-        if sample_values !== nothing
-            typeof(aggregate.samples) === eltype(sample_values) || throw(ArgumentError(
-                "Monte Carlo points produced incompatible sample product types",
-            ))
-            sample_values[index] = aggregate.samples
-        end
-        if histogram_values !== nothing
-            typeof(aggregate.histograms) === eltype(histogram_values) ||
-                throw(ArgumentError(
-                    "Monte Carlo points produced incompatible histogram product types",
-                ))
-            histogram_values[index] = aggregate.histograms
-        end
-        seeds[index] = aggregate.seed
-        trial_counts[index] = aggregate.trials
-        if retained !== nothing
-            typeof(aggregate.details) === eltype(retained) || throw(ArgumentError(
-                "Monte Carlo points produced incompatible details product types",
-            ))
-            retained[index] = aggregate.details
-        end
-        if progress
-            now = time_ns()
-            interval = (now - previous) * 1e-9
-            average_seconds = 0.2 * interval + 0.8 * average_seconds
-            previous = now
-            if now - last_log >= 5_000_000_000
-                @info "Monte Carlo population progress" _group=:progress completed=index populations=point_count elapsed_seconds=(now-started)*1e-9 eta_hours=(point_count-index)*average_seconds/3600
-                last_log = now
-            end
-        end
-    end
-    iterate(point_source, state) === nothing || throw(DimensionMismatch(
-        "problem-space iteration exceeded its declared cardinality",
-    ))
-
-    retained_details = retained === nothing ? (;) : (; trials = retained)
-    result = MonteCarloResult(
-        formulation.options.data[(:confidence, :cdf_tol, :distribution)],
-        values,
-        stats_values,
-        sample_values,
-        histogram_values,
+    data = formulation.options.data
+    root_seed = data.seed === nothing ? rand(Random.RandomDevice(), UInt64) : data.seed
+    traversed = traverse(problem.space, formulation, root_seed; options = problem.options)
+    # The result of each computed point, a `MonteCarloResult` of one point, joined in the
+    # order of the space.
+    computed = traversed.values
+    return MonteCarloResult(
+        data[(:confidence, :cdf_tol, :distribution)],
+        [only(point.values) for point in computed],
+        traversed.failures,
+        [only(point.stats) for point in computed],
+        data.return_samples ? [only(point.sample_values) for point in computed] : nothing,
+        data.return_histograms ? [only(point.histogram_values) for point in computed] : nothing,
         root_seed,
-        seeds,
-        trial_counts,
-        ComputationDetails(retained_details)
+        [only(point.point_seeds) for point in computed],
+        [only(point.trial_counts) for point in computed],
+        data.retain_details ? ComputationDetails((;
+            trials = [only(details(point).data.trials) for point in computed])) :
+        ComputationDetails()
     )
-    progress && @info "Monte Carlo computation completed successfully" _group=:progress completed=point_count populations=point_count elapsed_seconds=(time_ns()-started)*1e-9
-    result
-    end
 end

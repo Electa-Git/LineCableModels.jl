@@ -56,9 +56,9 @@ end
         reduce_bundle = false, ideal_transposition = false))
     sampled = compute(ParametricProblem(space), MonteCarlo(inner; trials = 8, seed = 5))
     @test sampled.trial_counts == [8]
-    @test length(built) == 8 + 1 # every draw, and the nominal record
+    @test length(built) == 1 + 8 # the nominal problem, and every draw
     smallest = [nominal(minimum(gaps(system))) for system in built]
     @test all(>=(1e-6 - 1e-15), smallest)
-    @test count(gap -> isapprox(gap, 1e-6; atol = 1e-12), smallest[1:8]) > 0
-    @test count(gap -> gap > 1e-6 + 1e-12, smallest[1:8]) > 0
+    @test count(gap -> isapprox(gap, 1e-6; atol = 1e-12), smallest[2:9]) > 0
+    @test count(gap -> gap > 1e-6 + 1e-12, smallest[2:9]) > 0
 end

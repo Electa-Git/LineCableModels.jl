@@ -21,8 +21,7 @@ import ..LineCableModels
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: frequencies, R, L, C, nominal, uncertainty
 import ..LineCableModels: points, realize, realize_arguments, Gridpoint, materialize, UncertainValue
-import ..LineCableModels: verbosity, VerbosityLogger
-import Logging
+import ..LineCableModels: verbosity
 import ..DataModel
 import ..Engine
 import ..Commons
@@ -30,15 +29,15 @@ import ..Commons: compute, computation_options, computation_details, details,
                   observe, observables, validate,
                   detach, request_identity, request_indices,
                   observation_indices, observation_resolution, observation_request,
-                  initialize_buffers, on_error
+                  initialize_buffers, on_error, traverse
 using ..Commons: request_quantity
 import ..Units
 import ..TextDisplay
 using ..Commons:
                  AbstractProblemDefinition, AbstractFormulation, AbstractTraversal,
-                 AbstractUncertaintyResult, Grid, Gridspace,
+                 AbstractUncertaintyResult, Grid, Gridspace, Resolved, ScalarOrGrid, resolve,
                  ComputationOptions, ComputationDetails
-using ..LineCableModels: ParametricProblem, Combinatorial, traverse
+using ..LineCableModels: ParametricProblem, ParametricResult, Combinatorial
 
 include("formulations.jl")
 include("statistics.jl")

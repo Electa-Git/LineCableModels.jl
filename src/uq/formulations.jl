@@ -43,16 +43,29 @@ Select conditional Monte Carlo propagation over a
 [`ParametricProblem`](@ref). Randomness is local and reproducible when `seed`
 is supplied.
 
+A study computes its points through the runner, `traverse`. Before the first draw, it
+builds the nominal problem of each point from the means of its uncertain arguments, and the
+constructor of the problem validates it. Every point then computes its trials with the
+backend of the inner formulation and returns its own `MonteCarloResult`, and the result of
+the study joins these results. The run logs the timing of each point, and its progress
+between the points and between the trials of a point. After each computed point,
+`on_result(problem, index, point)` receives the nominal problem, the position of the point
+in the space and the `MonteCarloResult` of that point.
+
 A draw is infeasible when its build throws
 [`OverlapError`](@ref LineCableModels.DataModel.OverlapError), or when its build or
 computation throws `DomainError`: [`on_error`](@ref LineCableModels.Commons.on_error)
 returns these exceptions for a `MonteCarlo` study. The study discards an infeasible draw as
-if it was never drawn, records nothing about it and draws again. Any other exception
-propagates. The output distribution is conditional on feasible draws.
+if it was never drawn, records nothing about it and draws again. The output distribution is
+conditional on feasible draws.
 
-After `max_failures` infeasible draws in a row for one trial, the study throws a
+After `max_failures` infeasible draws in a row for one trial, the point fails with a
 `DomainError`: the distribution of the point has no feasible draw. Its value is the
 uncertain arguments of the point, and its message gives that count and the last exception.
+A [`Combinatorial`](@ref) study runs the points. When `on_error` returns the exception of a
+point for that study, as it does for this `DomainError` and for an `OverlapError` of a
+nominal problem, the result records the point in its `failures`, and the study continues.
+Any other exception stops the study.
 
 Load `Measurements` before computation. Aggregation stores marginal
 uncertainty-bearing cores from accepted sample means and sample standard

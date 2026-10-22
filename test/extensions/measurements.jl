@@ -76,7 +76,8 @@ end
         for result in (LinearErrorResult([core,core],
             fieldtype(LinearErrorResult, :failures)(), ComputationDetails()),
                 MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
-                    [core,core],[summaries,summaries],nothing,nothing,UInt64(7),UInt64[8,9],[3,3]))
+                    [core,core],fieldtype(ParametricResult, :failures)(),[summaries,summaries],nothing,nothing,
+                    UInt64(7),UInt64[8,9],[3,3],ComputationDetails()))
             restored=SavedResults.round_trip(result)
             @test SavedResults.same(restored, result)
             for quantity in (R,L,C,G)
@@ -311,8 +312,9 @@ end
         G = zeros(1, 3)
     )]
     completed=MonteCarloResult(
-        sampling, map(LineCableModels.materialize,values,stats), stats, sample_values, nothing,
-        UInt64(9), UInt64[9], [3]
+        sampling, map(LineCableModels.materialize,values,stats),
+        fieldtype(ParametricResult, :failures)(), stats, sample_values, nothing,
+        UInt64(9), UInt64[9], [3], ComputationDetails()
     )
 
     struct ConstantsProblem<:AbstractProblemDefinition
@@ -358,12 +360,14 @@ end
     line_completed=MonteCarloResult(
         sampling,
         [LineCableModels.materialize(parameters,only(line_stats))],
+        fieldtype(ParametricResult, :failures)(),
         line_stats,
         nothing,
         nothing,
         UInt64(9),
         UInt64[9],
-        [3]
+        [3],
+        ComputationDetails()
     )
     modal_space=Gridspace{ModalAnalysisProblem}(line_completed)
     modal_problem=only(modal_space)
@@ -387,8 +391,9 @@ end
     two_points = MonteCarloResult(
         sampling, [LineCableModels.materialize(parameters,only(line_stats)),
             LineCableModels.materialize(second_parameters,second_stats)],
+        fieldtype(ParametricResult, :failures)(),
         [only(line_stats), second_stats], nothing, nothing,
-        UInt64(9), UInt64[9, 10], [3, 3]
+        UInt64(9), UInt64[9, 10], [3, 3], ComputationDetails()
     )
     transported_points = Gridspace{ModalAnalysisProblem}(two_points)
     @test length(transported_points) == 2

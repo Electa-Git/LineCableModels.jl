@@ -45,13 +45,19 @@ end
         options)
     @test calls == [1]
     @test line_length(value) == problem.system.line_length
-    for (outer, count) in ((Combinatorial(inner), 1), (LinearError(inner), 1),
-            (MonteCarlo(inner; options=(trials=2, seed=1)), 2))
+    for outer in (Combinatorial(inner), LinearError(inner))
         empty!(calls)
         result = compute(ParametricProblem(space, ComputationOptions(options)), outer)
-        @test calls == fill(1, count)
+        @test calls == [1]
         @test line_length(first(result)) == problem.system.line_length
     end
+    # A Monte Carlo point calls `on_result` once, with the result of that point.
+    empty!(calls)
+    sampled = compute(ParametricProblem(space, ComputationOptions((on_result =
+            (problem, index, point) -> callback(problem, index, only(point)),))),
+        MonteCarlo(inner; options=(trials=2, seed=1)))
+    @test calls == [1]
+    @test line_length(first(sampled)) == problem.system.line_length
 end
 
 @testitem "Execution options / completed tensors and callback precede success notification" tags=[:integration, :engine] setup=[TestFixtures] begin

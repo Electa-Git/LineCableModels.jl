@@ -89,7 +89,8 @@ end
     core=LineCableModels.materialize(base,summaries)
     core=LineCableModels.Engine.retain_gridpoint(core,gridpoint_id())
     mc=MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
-        [core],[summaries],[trials],nothing,UInt64(12),UInt64[13],[5])
+        [core],fieldtype(ParametricResult, :failures)(),[summaries],[trials],nothing,
+        UInt64(12),UInt64[13],[5],ComputationDetails())
     product=ObservedResult(mc,1,((statistics,R,mean),(statistics,R,std)))
     @test length(product.quantities)==2
     @test observe(product,statistics,R,mean)≈mean.(summaries.R).*1000

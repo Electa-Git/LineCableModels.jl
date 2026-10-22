@@ -6,7 +6,8 @@
     space = Gridspace{CableConstantsProblem}(
         temperature -> begin
             push!(attempted_temperatures, temperature)
-            length(attempted_temperatures) <= 2 && throw(DomainError(
+            # The nominal problems of both points build first. The first two draws fail.
+            length(attempted_temperatures) in 3:4 && throw(DomainError(
                 temperature, "injected rejection before resolving the cable"))
             CableConstantsProblem(design; temperature)
         end,
@@ -20,14 +21,14 @@
     @test length(sampled) == 2
     @test sampled.trial_counts == [4, 4]
     @test length(attempted_temperatures) == 12
-    @test attempted_temperatures[[7,12]] == [20.,40.]
+    @test attempted_temperatures[[1,2]] == [20.,40.]
     @test length(unique(sampled.point_seeds)) == 2
     @test all(isconcretetype, (eltype(sampled.values), eltype(sampled.stats),
         eltype(sampled.sample_values), eltype(sampled.histogram_values)))
     @test length.(sampled.details.data.trials) == [4, 4]
     @test keys(sampled.details.data) == (:trials,)
     for point in 1:2
-        accepted_temperatures = attempted_temperatures[point==1 ? (3:6) : (8:11)]
+        accepted_temperatures = attempted_temperatures[point==1 ? (5:8) : (9:12)]
         expected = [compute(CableConstantsProblem(design; temperature), inner)
                     for temperature in accepted_temperatures]
         for quantity in (R, L, C, G)
@@ -49,18 +50,21 @@
 
 end
 
-@testitem "UQ / redrawing does not hide other errors or run past its limit" tags=[:integration, :uq] begin
+@testitem "UQ / redrawing does not hide other errors or run past its limit" tags=[:integration, :uq] setup=[TestFixtures] begin
     using Measurements
     inner = CableConstantsFormulation()
+    design = TestFixtures.coaxial_design()
     for (injected, expected_attempts) in (
-        (ArgumentError("programming error marker"), 1),
-        (DomainError(-1, "unrecoverable input marker"), 3),
+        (ArgumentError("programming error marker"), 2),
+        (DomainError(-1, "unrecoverable input marker"), 4),
     )
         attempts = Ref(0)
+        # The nominal problem builds, and every draw throws.
         space = Gridspace{CableConstantsProblem}(
             _ -> begin
                 attempts[] += 1
-                throw(injected)
+                attempts[] > 1 && throw(injected)
+                CableConstantsProblem(design)
             end,
             (Grid((1.0,)),),
         )
@@ -72,12 +76,15 @@ end
             exception
         end
         @test attempts[] == expected_attempts
-        if expected_attempts == 1
+        if expected_attempts == 2
             @test failure === injected
         else
-            @test failure isa DomainError
-            @test isempty(failure.val)
+            # The point fails, and a study with no computed point throws.
+            @test failure isa ErrorException
             message = sprint(showerror, failure)
+            @test occursin("all 1 points of the space failed", message)
+            # The point's `DomainError` holds its uncertain arguments: none.
+            @test occursin("DomainError with NamedTuple[]:", message)
             @test occursin("discarded 3 infeasible draws in a row", message)
             @test occursin("max_failures", message)
             @test occursin("unrecoverable input marker", message)
@@ -101,14 +108,17 @@ end
     problem=ParametricProblem(Gridspace{CableConstantsProblem}(physical_problem,
         (Grid(.005,AbsoluteError(.001)),)))
     inner=CableConstantsFormulation()
-    negative=(_rng,mean,_sigma)->-mean
-    failure=try
-        compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=negative,
-            max_failures=3,retain_details=true))
-    catch error
-        error
-    end
-    @test attempts==fill(-.005,3)
+    # Point 1 has a feasible nominal radius and negative draws only, so it fails. Point 2
+    # draws its nominal radius.
+    negative=(_rng,mean,_sigma)->mean<.0055 ? -mean : mean
+    two=ParametricProblem(Gridspace{CableConstantsProblem}(physical_problem,
+        (Grid((.005,.006),AbsoluteError(.001)),)))
+    sampled=compute(two,MonteCarlo(inner;trials=2,seed=103,distribution=negative,
+        max_failures=3,retain_details=true))
+    @test attempts==[.005,.006,-.005,-.005,-.005,.006,.006]
+    @test sampled.trial_counts==[2]
+    gridpoint,failure=only(sampled.failures)
+    @test gridpoint.problem_index==1
     @test failure isa DomainError
     @test only(failure.val).standard_deviation==.001
     @test occursin("discarded 3 infeasible draws in a row",sprint(showerror,failure))
@@ -124,7 +134,7 @@ end
     sampled=compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=alternating,
         max_failures=3,retain_details=true,return_samples=true))
     @test sampled.trial_counts==[2]
-    @test attempts==[-.005,.005,-.005,.005,.005]
+    @test attempts==[.005,-.005,.005,-.005,.005]
     @test only(sampled.values).details.data.inputs.interpretation===:nominal_declaration
     @test only(only(sampled.values).details.data.inputs.uncertain_arguments).standard_deviation==.001
 end

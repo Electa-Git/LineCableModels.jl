@@ -100,8 +100,12 @@
         @test length(traversed) == 2
         @test Z(first(traversed)) == Z(first_result)
         @test [details(result).data.gridpoint.formulation_index for result in traversed] == [1,2]
+        # The builder records the scalar type of each realization that it builds, the
+        # deterministic point and the Monte Carlo nominal and trials included.
+        built_types = Type[]
         function realized_problem(radius)
             T = typeof(radius)
+            push!(built_types, T)
             design = build(CableDesign,"realization",terminal(:core,
                 core(Material(:conductor,convert(T,1.72e-8),1.0);r=radius),
                 insulation(insulator;t=0.002)))
@@ -122,7 +126,12 @@
         sampled = compute(parametric,MonteCarlo(selected;trials=2,seed=71,return_samples=true))
         @test sampled isa MonteCarloResult{<:LineParameters}
         @test launches[] == before + 3
-        @test length(realized_types) == 3
+        # The deterministic point, the nominal and the two trials build with plain numbers.
+        @test length(built_types) == 4
+        @test all(T->!LineCableModels.Engine.has_uncertainty_type(T),built_types)
+        # `on_result` runs once per point: the deterministic point and the Monte Carlo
+        # point, with its nominal problem.
+        @test length(realized_types) == 2
         @test all(T->!LineCableModels.Engine.has_uncertainty_type(T),realized_types)
         @test_throws r"PSCAD does not support Measurement" compute(parametric,Combinatorial(selected))
         @test_throws r"PSCAD does not support Measurement" compute(parametric,LinearError(selected))

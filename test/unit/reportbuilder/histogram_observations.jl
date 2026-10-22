@@ -17,18 +17,26 @@
     line = LineParameters(2.5e-4 .* scale .+ im .* omega .* 2.5e-7 .* scale,
         2.5e-9 .* scale .+ im .* omega .* 2.5e-10 .* scale, frequency; line_length=1.0)
     line = LineCableModels.materialize(line,summaries)
-    matrix = MonteCarloResult(cable.sampling, [line], [summaries], [sample_arrays],
-        [models], cable.root_seed, cable.point_seeds, cable.trial_counts)
+    matrix = MonteCarloResult(cable.sampling, [line],
+        fieldtype(ParametricResult, :failures)(), [summaries], [sample_arrays],
+        [models], cable.root_seed, cable.point_seeds, cable.trial_counts,
+        ComputationDetails())
 
     for (source, indices) in ((cable, (1,)), (matrix, (2, 1, 2)))
-        samples_only = MonteCarloResult(source.sampling, source.values, source.stats,
+        samples_only = MonteCarloResult(source.sampling, source.values,
+            fieldtype(ParametricResult, :failures)(), source.stats,
             source.sample_values, nothing, source.root_seed, source.point_seeds,
-            source.trial_counts)
-        model_only = MonteCarloResult(source.sampling, source.values, source.stats,
+            source.trial_counts,
+            ComputationDetails())
+        model_only = MonteCarloResult(source.sampling, source.values,
+            fieldtype(ParametricResult, :failures)(), source.stats,
             nothing, source.histogram_values, source.root_seed, source.point_seeds,
-            source.trial_counts)
-        summaries_only = MonteCarloResult(source.sampling, source.values, source.stats,
-            nothing, nothing, source.root_seed, source.point_seeds, source.trial_counts)
+            source.trial_counts,
+            ComputationDetails())
+        summaries_only = MonteCarloResult(source.sampling, source.values,
+            fieldtype(ParametricResult, :failures)(), source.stats,
+            nothing, nothing, source.root_seed, source.point_seeds, source.trial_counts,
+            ComputationDetails())
         for selector in (R, L, C, G)
             retained = observe(source, histograms, selector, 1, indices...)
             sample = observe(source, samples, selector, 1, indices..., :)
@@ -64,8 +72,9 @@
     constant_stats = map(_ -> [SampleSummary(fill(2.0, 4))], only(cable.stats))
     constant = MonteCarloResult(cable.sampling,
         [LineCableModels.materialize(CableConstants(2.0, 2.0, 2.0, 2.0),constant_stats)],
+        fieldtype(ParametricResult, :failures)(),
         [constant_stats], [constant_samples], nothing, cable.root_seed,
-        cable.point_seeds, cable.trial_counts)
+        cable.point_seeds, cable.trial_counts, ComputationDetails())
     for bins in (nothing, 1, 4)
         model = observe(constant, histograms, R, 1, 1, bins)
         @test length(model.density) == 1

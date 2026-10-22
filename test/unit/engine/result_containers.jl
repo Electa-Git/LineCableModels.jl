@@ -265,9 +265,10 @@ end
         (confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
         [LineCableModels.materialize(CableConstants(mean(raw_samples.R), mean(raw_samples.L),
             mean(raw_samples.C), mean(raw_samples.G)),map(x->[SampleSummary(vec(x))],raw_samples))],
+        fieldtype(ParametricResult, :failures)(),
         [map(x->[SampleSummary(vec(x))], raw_samples)],
         [raw_samples], [map(x->[HistogramDensity(vec(x); bins=2)], raw_samples)],
-        UInt64(2027), UInt64[2039], [4])
+        UInt64(2027), UInt64[2039], [4], ComputationDetails())
     @test UQ.root_seed(complete) == UInt64(2027)
     @test UQ.point_seed(complete, 1) == UInt64(2039)
     @test UQ.trial_count(complete, 1) == 4
@@ -279,32 +280,38 @@ end
     sample_only=MonteCarloResult(
         complete.sampling,
         complete.values,
+        fieldtype(ParametricResult, :failures)(),
         complete.stats,
         complete.sample_values,
         nothing,
         complete.root_seed,
         complete.point_seeds,
-        complete.trial_counts
+        complete.trial_counts,
+        ComputationDetails()
     )
     histogram_only=MonteCarloResult(
         complete.sampling,
         complete.values,
+        fieldtype(ParametricResult, :failures)(),
         complete.stats,
         nothing,
         complete.histogram_values,
         complete.root_seed,
         complete.point_seeds,
-        complete.trial_counts
+        complete.trial_counts,
+        ComputationDetails()
     )
     summaries_only=MonteCarloResult(
         complete.sampling,
         complete.values,
+        fieldtype(ParametricResult, :failures)(),
         complete.stats,
         nothing,
         nothing,
         complete.root_seed,
         complete.point_seeds,
-        complete.trial_counts
+        complete.trial_counts,
+        ComputationDetails()
     )
     for source in (complete,sample_only,histogram_only,summaries_only)
         @test only(observables(source)) isa ObservedResult
@@ -330,22 +337,26 @@ end
     @test_throws DimensionMismatch MonteCarloResult(
         complete.sampling,
         complete.values,
+        fieldtype(ParametricResult, :failures)(),
         [(R = summary, L = summary, C = summary, G = summary)],
         complete.sample_values,
         complete.histogram_values,
         complete.root_seed,
         complete.point_seeds,
-        complete.trial_counts
+        complete.trial_counts,
+        ComputationDetails()
     )
     @test_throws DimensionMismatch MonteCarloResult(
         complete.sampling,
         complete.values,
+        fieldtype(ParametricResult, :failures)(),
         complete.stats,
         [(R = [1.0], L = [1.0], C = [1.0], G = [1.0])],
         complete.histogram_values,
         complete.root_seed,
         complete.point_seeds,
-        complete.trial_counts
+        complete.trial_counts,
+        ComputationDetails()
     )
 
     retained=ObservedResult(complete,1,((statistics,R,mean,1),(samples,R,1,:),(histograms,R,1));
@@ -396,12 +407,14 @@ end
     line_result=MonteCarloResult(
         complete.sampling,
         [LineCableModels.materialize(parameters,line_statistics)],
+        fieldtype(ParametricResult, :failures)(),
         [line_statistics],
         [sample_values],
         [line_histograms],
         complete.root_seed,
         complete.point_seeds,
-        [2]
+        [2],
+        ComputationDetails()
     )
     @test observe(line_result, samples, R, 1, 1, 1, 1, :) == fill(1.0e-4, 2)
     @test observe(line_result, frequencies, 1, :) == frequency
@@ -413,11 +426,13 @@ end
     @test_throws DimensionMismatch MonteCarloResult(
         complete.sampling,
         line_result.values,
+        fieldtype(ParametricResult, :failures)(),
         [line_statistics],
         [malformed_samples],
         [line_histograms],
         complete.root_seed,
         complete.point_seeds,
-        [2]
+        [2],
+        ComputationDetails()
     )
 end

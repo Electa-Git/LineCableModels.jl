@@ -361,20 +361,24 @@ through each formulation's computation owner. `Combinatorial` keeps its result s
 `values`, `failures`, `gridpoints` and `details`. `LinearError` uses one scalar formulation
 and consumes `values`, `failures` and `details`.
 
-Monte Carlo selects each outer point once and derives a deterministic seed for that point. It repeatedly realizes the same point:
+Monte Carlo runs through `traverse`, and each outer point is one point of the run with a
+deterministic seed. It repeatedly realizes the same point:
 
 ```text
-for each selected outer point
+build the nominal problem of each outer point, from the means of its uncertain leaves
+for each outer point whose nominal problem built
     until the requested successful trials are collected
         redraw uncertain leaves within that point
         build a fresh complete core problem
-        Engine.compute
+        compute it with the inner formulation's backend
         discard an infeasible draw and draw again, at most max_failures times in a row
-    aggregate that point's draws
+    aggregate that point's draws into the MonteCarloResult of one point
 end
+join the results of the computed points
 ```
 
-Each nominal and error point produces its own aggregate. `MonteCarloResult` directly owns sample-mean core results, statistics,
+Each nominal and error point produces its own aggregate, and `on_result` receives it.
+`MonteCarloResult` directly owns sample-mean core results, the failed points, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 trial counts, and its sampling: the `confidence`, `cdf_tol` and `distribution` of the
 computation.
@@ -382,11 +386,13 @@ computation.
 A draw whose build throws `OverlapError`, or whose build or computation throws
 `DomainError`, is infeasible: `on_error` returns it for a `MonteCarlo` study. Monte Carlo
 discards it and draws again, and nothing records the discarded draw. After
-`max_failures=n` infeasible draws in a row for one trial, the study throws a `DomainError`:
-the distribution of the point has no feasible draw. Its value is the uncertain arguments of
-the point, and its message gives that count and the last exception. Any other exception
-propagates. This estimates the conditional distribution of the output when problem
-construction and computation succeed.
+`max_failures=n` infeasible draws in a row for one trial, the point fails with a
+`DomainError`: the distribution of the point has no feasible draw. Its value is the
+uncertain arguments of the point, and its message gives that count and the last exception.
+The `Combinatorial` study of the points records it in `failures`, as it records a nominal
+problem that overlaps, and continues. Any other exception stops the study. This estimates
+the conditional distribution of the output when problem construction and computation
+succeed.
 
 For cable-constant Monte Carlo computations, the representative stored in the
 result space remains a `CableConstants` core result. Retained samples,

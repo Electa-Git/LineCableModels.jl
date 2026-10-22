@@ -1213,8 +1213,8 @@ The PSCAD backend records its execution facts in its run record,
 the worker's `line.compile()` call and excludes output-readiness waiting, and
 `reused`. Required native timing files and recovery checks remain active.
 
-Each Monte Carlo trial is a run of one point and writes its own record. Failed attempts
-write none.
+Each point of a Monte Carlo study writes one record for its trials and the draws that it
+discarded. A point that fails writes none.
 
 Progress uses ordinary structured Julia `@info` messages with `_group=:progress`.
 The effective level is `get(verbosity, :progress, verbosity.default)`. Other
@@ -1224,15 +1224,13 @@ The caller's current logger still controls acceptance and output: verbosity does
 not override a `NullLogger`, parent threshold or custom filter. Verbosity does not change
 the native PSCAD diagnostic settings.
 
-An outer traversal suppresses child progress while preserving other options and
-backend diagnostics. It logs start and successful completion. A point that ends in a
+The runner logs the start and the successful completion of a run. A point that ends in a
 later five-second interval of the run than the one in which it started logs the number
 of completed points, the elapsed time and an estimate of the remaining time. The
 estimate is the number of remaining points times the mean time of a completed point.
-Monte Carlo estimates its own remaining time: MC intervals between accepted trials include rejected attempts. MC resets the
-sampling estimate for each population and estimates overall remaining time only
-after a population completes. Estimates use the current traversal's completed
-intervals.
+The trials of a Monte Carlo point follow the same rule within the point, with the count
+of accepted trials. The estimate is the number of remaining trials times the mean time of
+an accepted trial, and that mean includes the draws that the point discarded.
 Successful completion is reported after result construction and callbacks.
 
 Repetitions under one logger collect the records of every repetition, in the order of
@@ -1266,7 +1264,9 @@ Coaxial and PSCAD computations accept an optional callable
 formulation, including a reused result, before computing the next selection.
 The index refers to the submitted formulation collection (`1` for a scalar
 call). Manual campaigns can save each completed result before the rest of the batch finishes. The callback must not mutate its arguments. Its return
-value is ignored and any exception stops execution. The default is `nothing`.
+value is ignored and any exception stops execution. The default is `nothing`. In a Monte
+Carlo study, it runs once per computed point, with the nominal problem of the point, its
+position in the space and the `MonteCarloResult` of that point.
 
 The PSCAD backend accepts:
 
@@ -1326,8 +1326,8 @@ from dictionaries, pairs, or `nothing`.
 `MonteCarlo` defines a separate outer computation-option tuple, normalized by
 `computation_options(MonteCarlo, options)`. A draw whose build throws `OverlapError`, or
 whose build or computation throws `DomainError`, is drawn again. `max_failures` such
-draws in a row for one trial throw a `DomainError`. Other exception types always propagate
-immediately.
+draws in a row for one trial fail the point with a `DomainError`, which the study records
+beside its values. Other exception types stop the study.
 
 ## Saving results
 

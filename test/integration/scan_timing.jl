@@ -119,8 +119,8 @@
     @test statistics(sampled) == statistics(replay)
     @test sampled.point_seeds == replay.point_seeds
     @test sampled.trial_counts == replay.trial_counts == [4, 4]
-    # Each trial is a run of one point and logs its own record.
-    @test length(timings(sampled_log)) == 8
+    # Each point of the study logs its own record. Its trials are inside the point.
+    @test length(timings(sampled_log)) == 2
     @test isempty(details(sampled).data)
     @test samples(sampled) === nothing
     @test histograms(sampled) === nothing
@@ -151,7 +151,7 @@
         @test statistics(values[4]) == statistics(sampled)
         @test values[4].point_seeds == sampled.point_seeds
         @test isempty(details(values[4]).data)
-        @test length(timings(combination_log)) == timing * (3 + 6 + 2 + 8)
+        @test length(timings(combination_log)) == timing * (3 + 6 + 2 + 2)
         @test count(record -> endswith(string(record.message), "started"), combination_log.logs) ==
               4progress
         @test count(record -> endswith(string(record.message), "completed successfully"), combination_log.logs) ==
@@ -172,9 +172,11 @@
                 max_failures = 50))
     end
     @test rejected[] > 0
-    @test length(timings(retried_log)) == only(retried.trial_counts) == 4
+    @test length(timings(retried_log)) == 1
+    @test only(retried.trial_counts) == 4
     function replace_details(value, retained)
-        MonteCarloResult(value.sampling, value.values, value.stats, value.sample_values,
+        MonteCarloResult(value.sampling, value.values, value.failures, value.stats,
+            value.sample_values,
             value.histogram_values, value.root_seed, value.point_seeds, value.trial_counts, retained)
     end
     # A Monte Carlo result retains trials only. Timing is a log of the run.

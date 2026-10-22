@@ -37,6 +37,9 @@ function Base.getindex(
 end
 
 """
-Return whether a scalar type encodes explicit numerical uncertainty.
+Return whether a scalar type encodes explicit numerical uncertainty. A line-parameter or
+cable-constant result type encodes it when its scalar type does.
 """
 has_uncertainty_type(::Type) = false
+has_uncertainty_type(::Type{<:LineParameters{T}}) where {T} = has_uncertainty_type(T)
+has_uncertainty_type(::Type{<:CableConstants{T}}) where {T} = has_uncertainty_type(T)

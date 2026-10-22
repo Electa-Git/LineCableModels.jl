@@ -23,7 +23,8 @@
     end
     mc=MonteCarloResult(
         (confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
-        [core], [summaries], [trials], [histograms], UInt64(12), UInt64[13], [17])
+        [core], fieldtype(ParametricResult, :failures)(), [summaries], [trials], [histograms],
+        UInt64(12), UInt64[13], [17], ComputationDetails())
     expected=dropdims(std(trials.R .+ im .* reshape(angular, 1, 1, :, 1) .* trials.L; dims = 4); dims = 4)
     @test observe(mc, statistics, Z, std, 1)≈expected
     for stat in (mean, std, minimum, median, maximum,
@@ -60,8 +61,8 @@
     @test all(iszero,skipmissing(physical_report.tables.terms.relative_rms_percent))
 
     two=MonteCarloResult(
-        mc.sampling, [core, core], [summaries, summaries], nothing, nothing,
-        UInt64(12), UInt64[13, 14], [17, 17])
+        mc.sampling, [core, core], fieldtype(ParametricResult, :failures)(), [summaries, summaries],
+        nothing, nothing, UInt64(12), UInt64[13, 14], [17, 17], ComputationDetails())
     @test_throws ArgumentError compare(two, two, (statistics, R, mean))
     @test_throws ArgumentError compare(two, two, (statistics, R, mean); pairing = (
         (1, 1), (2, 1)))
@@ -127,7 +128,8 @@
     end
     large=MonteCarloResult(
         (confidence = 0.95, cdf_tol = 0.02, distribution = :normal),
-        [core], [large_summaries], [large_samples], nothing, UInt64(12), UInt64[13], [1700])
+        [core], fieldtype(ParametricResult, :failures)(), [large_summaries], [large_samples], nothing,
+        UInt64(12), UInt64[13], [1700], ComputationDetails())
     definition=BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands = (:all,))
     report(definition, (reference = mc, result = mc))
     report(definition, (reference = large, result = large))

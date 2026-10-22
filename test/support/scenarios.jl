@@ -180,8 +180,9 @@ module CurrentScenarios
         representation=CableConstants(mean(samples.R),mean(samples.L),
             mean(samples.C),mean(samples.G))
         representation=LineCableModels.materialize(representation,statistics)
-        return MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),[representation],[statistics],
-            [samples],[histograms],UInt64(2027),UInt64[2039],[4])
+        return MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
+            [representation],fieldtype(ParametricResult, :failures)(),[statistics],[samples],[histograms],
+            UInt64(2027),UInt64[2039],[4],ComputationDetails())
     end
 
     # Counters of the equivalence check: `materialized()` runs once per point a

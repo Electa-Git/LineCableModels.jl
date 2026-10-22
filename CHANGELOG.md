@@ -27,19 +27,28 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   gaps, and a `LineParametersProblem` checks the interface gaps.
 - `MonteCarlo` draws again, with no record, when a build throws `OverlapError` or a build
   or computation throws `DomainError`. After `max_failures` such draws in a row for one
-  trial, it throws a `DomainError`. Its value is the uncertain arguments of the point, and
-  its message gives that count and the last exception.
+  trial, the point fails with a `DomainError`. Its value is the uncertain arguments of the
+  point, and its message gives that count and the last exception.
+- A Monte Carlo study runs through the runner, `traverse`. Before the first draw it builds
+  the nominal problem of every point from the means of its uncertain arguments, and the
+  problem's constructor validates it. Each point computes its trials with the inner
+  formulation's backend and returns the `MonteCarloResult` of that point, which
+  `on_result(problem, index, point)` receives with the nominal problem, and the result of
+  the study joins the computed points. The run logs one timing record per point, and the
+  progress between points and between the trials of a point by the runner's five-second
+  rule.
 - A space records a failed point beside its values and continues. A point fails when the
   build or the resolve of its problem, or its computation, throws an exception that
   `on_error(study, exception)` returns for the study. Any other exception stops the study
   with its backtrace.
 - `on_error` is public in `Commons` and in the root. A `Combinatorial` study, and
   `LinearError` through it, records an `OverlapError` and a `DomainError`. A `MonteCarlo`
-  trial draws again after them. A user records an exception type of their own with one
+  trial draws again after them, and the `Combinatorial` study of the Monte Carlo points
+  records them. A user records an exception type of their own with one
   method, `LineCableModels.on_error(::Combinatorial, exception::MyError) = exception`.
-- `ParametricResult` and `LinearErrorResult` hold `failures`, the gridpoint identity and the
-  exception of each failed point, in the order of the space. Their values, `length`,
-  iteration and `result[k]` cover the computed points.
+- `ParametricResult`, `LinearErrorResult` and `MonteCarloResult` hold `failures`, the
+  gridpoint identity and the exception of each failed point, in the order of the space.
+  Their values, `length`, iteration and `result[k]` cover the computed points.
 - `result[i, j]` of a failed point throws an error that shows its exception. `compare`
   keeps the failures, `show` gives their count and a saved result keeps them.
 - A space with no computed point throws an error that gives the count of its points and

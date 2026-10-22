@@ -192,9 +192,12 @@ uses the same validation. Normalized settings are stored in
 A draw whose build throws `OverlapError`, or whose build or computation throws
 `DomainError`, is infeasible. Monte Carlo discards the infeasible draw and draws again,
 so that draw enters neither samples nor statistics, and nothing records it. After
-`max_failures` infeasible draws in a row for one trial, the study throws a `DomainError`
-whose message gives that count and the last exception. Any other exception propagates. The
-resulting distribution is conditional on feasible draws.
+`max_failures` infeasible draws in a row for one trial, the point fails with a `DomainError`
+whose message gives that count and the last exception. Monte Carlo builds the nominal
+problem of every point, from the means of its uncertain arguments, before the first draw,
+and a nominal problem that overlaps fails its point. The study records a failed point in
+`sampled.failures`, as a `ParametricResult` does, and continues. Any other exception stops
+the study. The resulting distribution is conditional on feasible draws.
 
 When `trials=nothing`, Monte Carlo uses a simultaneous
 Dvoretzky-Kiefer-Wolfowitz bound. For `M` scalar marginals and confidence
