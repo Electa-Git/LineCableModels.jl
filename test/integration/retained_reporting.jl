@@ -18,7 +18,9 @@
     @test all(ismissing,filter(row -> row.quantity === :G,artifact.tables.terms).relative_rms_percent)
     @test all(ismissing,filter(row -> row.quantity === :G,artifact.tables.terms).absolute_rms)
     far=LineParameters(PhaseDomain,z,y,Float32[1e7,2e7]; line_length=1.0,terminals=["a","b"])
-    space=ParametricResult([reference,far],CartesianIndices((2,1)), ComputationDetails((;)))
+    space=ParametricResult([reference,far],
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((2,1)), ComputationDetails((;)))
     errors=compare(space,space,Z;pairing=[(1,1),(2,2)],band=:wide)
     @test isconcretetype(eltype(errors))
     @test typeof(errors[1]) === typeof(errors[2])

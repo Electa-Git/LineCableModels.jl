@@ -22,7 +22,7 @@ ParametricBuilder, UQ, and external implementations.
   through the runner `traverse`. `resolve` gives a backend what one formulation needs from
   a problem as a `Resolved` value, and `retain_gridpoint` records the identity of a point
   in its result. `ParametricProblem`, `Combinatorial` and `ParametricResult` declare and
-  hold a parametric run.
+  hold a parametric run. `on_error` decides whether a study records a failed point or stops.
 - `verbosity` and `VerbosityLogger` select and filter log records by execution verbosity.
 - `Grid` declares a finite source, `Gridspace` a lazy space of finite sources combined
   by `Product` or `Zip`, and `parameterize` lifts a call over them. `has_grid` tells
@@ -91,5 +91,5 @@ public normalize_observation_selector
 public Gridpoint, Composition, Product, Zip, ScalarOrGrid, parameterize, materialize, points
 public Builder, FormulaBuilder, target
 public realize, realize_arguments, sample_uncertainty
-public resolve, Resolved, traverse, retain_gridpoint
+public resolve, Resolved, traverse, retain_gridpoint, on_error
 end # module Commons

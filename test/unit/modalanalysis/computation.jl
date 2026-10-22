@@ -90,7 +90,9 @@
     @test gamma(segment)≈gamma(modal)
     @test H(segment)[:,1]≈exp.(-roots.*line_length(modal))
 
-    phase_results=ParametricResult([phase,phase],CartesianIndices((2,1)),ComputationDetails())
+    phase_results=ParametricResult([phase,phase],
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((2,1)),ComputationDetails())
     problems=Gridspace{ModalAnalysisProblem}(phase_results)
     @test length(problems)==2
     run=compute(problems,mf)

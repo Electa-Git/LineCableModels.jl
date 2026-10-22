@@ -72,7 +72,8 @@
     uncertain_z = measurement.(real.(parameters.Z), 1e-6) .+
         im .* measurement.(imag.(parameters.Z), 2e-6)
     lep_core = LineParameters(uncertain_z, parameters.Y, frequencies; line_length=1.0)
-    lep = LinearErrorResult([lep_core], ComputationDetails())
+    lep = LinearErrorResult([lep_core],
+        fieldtype(LinearErrorResult, :failures)(), ComputationDetails())
     @test only(lep) === lep_core
     @test observe(lep, statistics, R, mean, 1) == quantities.R
     @test observe(lep, statistics, R, std, 1) == fill(1e-6, 2, 2, 2)
@@ -91,7 +92,8 @@
     @test observe(restored_lep,statistics,R,std,1) == observe(lep,statistics,R,std,1)
     shared=measurement(1.0,0.1)
     correlated=LineParameters(fill(shared+im*shared,2,2,2),fill(2shared+im*shared,2,2,2),frequencies; line_length=1.0)
-    restored=SavedResults.round_trip(LinearErrorResult([correlated],ComputationDetails()))
+    restored=SavedResults.round_trip(LinearErrorResult([correlated],
+        fieldtype(LinearErrorResult, :failures)(), ComputationDetails()))
     @test uncertainty(real(only(restored).Z[1])-real(only(restored).Z[2])) == 0
     @test uncertainty(real(only(restored).Y[1])-2real(only(restored).Z[1])) == 0
     @test uncertainty(real(only(restored).Z[1])-shared) ≈ sqrt(2)*uncertainty(shared)

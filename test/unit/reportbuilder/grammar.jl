@@ -211,7 +211,9 @@ end
         @test length(result.tables)==2
         @test result.tables[1].Z.R==result.tables[2].Z.R
     end
-    study=ParametricResult(points, CartesianIndices((2, 1)), ComputationDetails())
+    study=ParametricResult(points,
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((2, 1)), ComputationDetails())
     @test report(study, R).tables==report(points, R).tables
     @test [point.gridpoint.id.problem_index for point in report(study).observed]==[3, 1]
     @test length(report(points[1:1]).observed)==1

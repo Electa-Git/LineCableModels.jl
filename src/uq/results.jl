@@ -2,17 +2,23 @@
 $(TYPEDEF)
 
 Store ordered core results from a [`LinearError`](@ref) computation. Each value records
-its estimator and representation in its own details.
+its estimator and representation in its own details. The values are the results of the
+computed points. A failed point has no value: `failures` holds its gridpoint identity and
+the exception it threw, in the same order.
 
 $(TYPEDFIELDS)
 """
 struct LinearErrorResult{T} <: AbstractUncertaintyResult{T}
-    "Uncertainty-bearing core results in Gridspace traversal order."
+    "Uncertainty-bearing core results of the computed points in Gridspace traversal order."
     values::Vector{T}
+    "Gridpoint identity and exception of each failed point, in the same order."
+    failures::fieldtype(Commons.ParametricResult, :failures)
     "Supplemental output retained by the propagation."
     details::ComputationDetails
 
-    function LinearErrorResult(values::Vector{T}, details::ComputationDetails) where {T}
+    function LinearErrorResult(values::Vector{T},
+            failures::fieldtype(Commons.ParametricResult, :failures),
+            details::ComputationDetails) where {T}
         validate(T, LinearErrorResult)
         isempty(details.data) || keys(details.data) == (:points,) ||
             throw(ArgumentError(
@@ -22,7 +28,7 @@ struct LinearErrorResult{T} <: AbstractUncertaintyResult{T}
             throw(DimensionMismatch(
                 "retained details must contain one entry per core result",
             ))
-        return new{T}(values, details)
+        return new{T}(values, failures, details)
     end
 end
 

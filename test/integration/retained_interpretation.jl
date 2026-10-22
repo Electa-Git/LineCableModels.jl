@@ -213,7 +213,9 @@ end
     explicit=LineCableModels.plot(retained, (request,);options...)
     @test data(raw)==data(explicit)
     @test keys(raw.plot_state.panel_data)==keys(explicit.plot_state.panel_data)
-    for inputs in ([a,b],(a,b),ParametricResult([a,b],CartesianIndices((1,2)),ComputationDetails()))
+    for inputs in ([a,b],(a,b),ParametricResult([a,b],
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((1,2)),ComputationDetails()))
         p=LineCableModels.plot(inputs, (request,);length_unit=:base,reference,options...)
         @test last.(curves(p)[1][1][])≈real.(z[1,1,:])
         @test last.(curves(p)[2][1][])≈2real.(z[1,1,:])

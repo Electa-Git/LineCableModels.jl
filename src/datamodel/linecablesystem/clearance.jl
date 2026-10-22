@@ -5,7 +5,8 @@ const _CABLE_CLEARANCE = 1.0e-6
 $(TYPEDEF)
 
 Cable exteriors that overlap, or a cable exterior that crosses the air-earth interface. A
-line-system build throws it. `MonteCarlo` discards a draw that throws it and draws again.
+line-system build throws it. A `Combinatorial` study records the point whose build throws
+it and continues, and `MonteCarlo` discards a draw that throws it and draws again.
 
 $(TYPEDFIELDS)
 """
@@ -22,6 +23,9 @@ function Base.showerror(io::IO, error::OverlapError)
     print(io, "OverlapError: ", error.message, " (", length(error.cables) == 1 ? "cable " :
         "cables ", join(error.cables, ", "), "; surface gap ", error.gap, " m)")
 end
+
+# A point whose cables overlap is an infeasible design: the study records it and continues.
+Commons.on_error(::Commons.Combinatorial, exception::OverlapError) = exception
 
 # The exterior circle of a placed cable. A circular boundary keeps its eccentric local @at
 # coordinates in the center, not inside a norm about the declaration origin. Other

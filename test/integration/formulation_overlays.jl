@@ -14,7 +14,9 @@
         fields=(formulation=choices[index],choices=(),inputs=(radius=.01,resistivity=100.)))
         for (index,k) in enumerate((2,3))]
     reference=LineParameters(z,y,f; terminals=["a","b"], line_length=1.0)
-    results=ParametricResult(points,CartesianIndices((1,length(choices))),ComputationDetails())
+    results=ParametricResult(points,
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((1,length(choices))),ComputationDetails())
     completed=LineCableModels.Engine.compare(reference,results,[Z,Y,R,L,G,C];bands=(:all,:wide))
     timings=[(result_id=point.details.data.gridpoint,seconds=Float64(index),scope=:compute_call_wall,
         context=(id=:benchmark_title_probe,)) for (index,point) in enumerate(points)]

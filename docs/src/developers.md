@@ -609,6 +609,10 @@ Cartesian product of their points:
    Any other call returns a `ParametricResult`, its values in space order, the problem index
    fastest.
 
+A space records a point whose problem build, resolve or computation throws an exception that
+`on_error(study, exception)` returns for the `Combinatorial` study. It keeps the point in the
+`failures` of the result and continues. Any other exception stops the run with its backtrace.
+
 The runner writes the work around the points once. It logs the run and its progress with
 the action that `description(problem)` returns, and the timing of each point in the group
 `:timing`. It attaches the gridpoint to each value of a space, and it calls
@@ -677,7 +681,7 @@ The family's keyword constructor, `T(inner; options, keywords...)`, normalizes t
 with `computation_options(T, options)`, which admits `retain_details` unless the type adds
 its own method, as `MonteCarlo` does. Its method `compute(problem::ParametricProblem,
 formulation)` calls `traverse` on the problem's space and builds its own result from the
-returned `(; values, details, axes)`.
+returned `(; values, failures, details, gridpoints)`.
 
 ## Developer paths
 

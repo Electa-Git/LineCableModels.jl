@@ -45,11 +45,14 @@ is supplied.
 
 A draw is infeasible when its build throws
 [`OverlapError`](@ref LineCableModels.DataModel.OverlapError), or when its build or
-computation throws `DomainError`. The study discards an infeasible draw as if it was never
-drawn and draws again. It records nothing about the discarded draw. After `max_failures`
-infeasible draws in a row for one trial, the study throws an error with that count and the
-last exception. Any other exception propagates. The output distribution is conditional on
-feasible draws.
+computation throws `DomainError`: [`on_error`](@ref LineCableModels.Commons.on_error)
+returns these exceptions for a `MonteCarlo` study. The study discards an infeasible draw as
+if it was never drawn, records nothing about it and draws again. Any other exception
+propagates. The output distribution is conditional on feasible draws.
+
+After `max_failures` infeasible draws in a row for one trial, the study throws a
+`DomainError`: the distribution of the point has no feasible draw. Its value is the
+uncertain arguments of the point, and its message gives that count and the last exception.
 
 Load `Measurements` before computation. Aggregation stores marginal
 uncertainty-bearing cores from accepted sample means and sample standard

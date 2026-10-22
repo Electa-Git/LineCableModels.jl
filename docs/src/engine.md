@@ -1326,7 +1326,7 @@ from dictionaries, pairs, or `nothing`.
 `MonteCarlo` defines a separate outer computation-option tuple, normalized by
 `computation_options(MonteCarlo, options)`. A draw whose build throws `OverlapError`, or
 whose build or computation throws `DomainError`, is drawn again. `max_failures` such
-draws in a row for one trial stop the study. Other exception types always propagate
+draws in a row for one trial throw a `DomainError`. Other exception types always propagate
 immediately.
 
 ## Saving results

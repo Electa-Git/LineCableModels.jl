@@ -17,7 +17,8 @@
     results=[retain_gridpoint(LineParameters(factor.*complex.(measured.R,omega.*measured.L),
         factor.*complex.(measured.G,omega.*measured.C),f; line_length=1.0),gridpoint_id(;source_id,problem_index=index);
         fields=(inputs=(temperature=20index,),)) for (index,factor) in enumerate((1.,1.2))]
-    lep=LinearErrorResult(results,ComputationDetails())
+    lep=LinearErrorResult(results,
+        fieldtype(LinearErrorResult, :failures)(), ComputationDetails())
     requests=(R,X,G,B,(statistics,R,mean),(statistics,R,std))
     artifact=report(BenchmarkTableDefinition(((statistics,R,mean),(statistics,R,std));bands=(:all,)),
         (reference=mc,result=lep,context=(id=:benchmark_uq_title_probe,));requests,
@@ -91,7 +92,7 @@ end
     measured=map(a -> measurement.(a,sqrt(2) * 0.1 .* a),parts)
     result=LinearErrorResult([LineParameters(
         complex.(measured.R,omega.*measured.L),complex.(measured.G,omega.*measured.C),measurement.(f,0.); line_length=1.0)],
-        ComputationDetails())
+        fieldtype(LinearErrorResult, :failures)(), ComputationDetails())
     requests=((statistics,R,mean),(statistics,R,std),(statistics,B,mean))
     artifact=report(BenchmarkTableDefinition(requests;bands=(:all,:wide)),
         (reference,result,context=(id=:benchmark_uq_statistics,));observation_options=(length_unit=:base,))

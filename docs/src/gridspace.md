@@ -301,6 +301,19 @@ for each problem
 end
 ```
 
+When a point fails, the space records it beside its values and continues, and a long study
+keeps the points that it computed. The build or the resolve of a problem, or the
+computation of a point, fails the point when it throws an exception that
+`on_error(study, exception)` returns for the `Combinatorial` study, and a failed build or
+resolve fails every point of its problem. The
+study records an `OverlapError` and a `DomainError`. Any other exception stops the study
+with its backtrace, and a bug shows its stack trace. A user records an exception type of
+their own with one method:
+
+```julia
+LineCableModels.on_error(::Combinatorial, exception::MyError) = exception
+```
+
 Each problem-formulation pair is evaluated. Composition inside a formulation
 constructor remains local to that formulation: `combine=:product` or
 `combine=:zip` determines its formulation points, while the outer
@@ -316,31 +329,37 @@ and diagnostic storage belong to each workspace. Modal analysis uses the default
 PSCAD shares one table of native runs per problem. A later point with the same native input
 reuses the run that an earlier point launched.
 
-`ParametricResult` contains the values, their gridpoints and the retained details. It
-does not contain the spaces that produced them:
+`ParametricResult` contains the values of the computed points, the failed points, the
+gridpoints of the space and the retained details. It does not contain the spaces that
+produced them:
 
 ```julia
 run.gridpoints
+run.failures
 run[problem_index, formulation_index]
 ```
 
-Its `values` vector and ordinary linear iteration remain available. Storage is
-column-major in `(problem, formulation)` coordinates: the problem index varies
-fastest. Each value records the formulation that computed it, so
+Its `values` vector and ordinary linear iteration remain available. They hold the
+computed points, and `run.failures` holds the gridpoint identity and the exception of each
+failed point. `run[problem_index, formulation_index]` of a failed point throws an error
+that names it and shows its exception. Storage is column-major in `(problem, formulation)`
+coordinates: the problem index varies fastest. Each value records the formulation that computed it, so
 `formula_id(details(run[1, j]).data.formulation.formulas.earth_impedance)` identifies
 the earth-impedance method of column `j`.
 
 Direct linear propagation uses the same traversal. The Measurements extension
 changes only how an uncertain descriptor materializes. `LinearErrorResult`
-stores only its ordered core results and their retained details.
+stores only its ordered core results, its failures and their retained details.
 
-`traverse` computes the first point and allocates a vector of that exact result type
-with the analytic Cartesian cardinality. It writes every later value at its index in
-the space. A scalar problem and a scalar formulation are a run of one point, and
-`compute` returns its value. Optional detail records are resolved through each
-formulation's computation owner. `Combinatorial` keeps its result space as `values`,
-`axes` and `details`. `LinearError` uses one scalar formulation and consumes
-`values` and `details`.
+`traverse` takes the result type of the first point that computes and allocates a vector
+of that exact type with the analytic Cartesian cardinality. It writes every later value at
+its index in the space, and the vector keeps the values of the computed points. A space
+with no computed point throws an error that gives the count of its points and shows the
+first recorded exception. A scalar problem and a scalar formulation are a run of one
+point, and `compute` returns its value or throws. Optional detail records are resolved
+through each formulation's computation owner. `Combinatorial` keeps its result space as
+`values`, `failures`, `gridpoints` and `details`. `LinearError` uses one scalar formulation
+and consumes `values`, `failures` and `details`.
 
 Monte Carlo selects each outer point once and derives a deterministic seed for that point. It repeatedly realizes the same point:
 
@@ -361,11 +380,13 @@ trial counts, and its sampling: the `confidence`, `cdf_tol` and `distribution` o
 computation.
 
 A draw whose build throws `OverlapError`, or whose build or computation throws
-`DomainError`, is infeasible. Monte Carlo discards it and draws again, and nothing
-records the discarded draw. After `max_failures=n` infeasible draws in a row for one
-trial, the study throws an error with that count and the last exception. Any other
-exception propagates. This estimates the conditional distribution of the output when
-problem construction and computation succeed.
+`DomainError`, is infeasible: `on_error` returns it for a `MonteCarlo` study. Monte Carlo
+discards it and draws again, and nothing records the discarded draw. After
+`max_failures=n` infeasible draws in a row for one trial, the study throws a `DomainError`:
+the distribution of the point has no feasible draw. Its value is the uncertain arguments of
+the point, and its message gives that count and the last exception. Any other exception
+propagates. This estimates the conditional distribution of the output when problem
+construction and computation succeed.
 
 For cable-constant Monte Carlo computations, the representative stored in the
 result space remains a `CableConstants` core result. Retained samples,
@@ -444,14 +465,15 @@ A completed result space enters another scalar computation through the target
 modal_problems = Gridspace{ModalAnalysisProblem}(phase_results)
 ```
 
-The following example starts with two completed phase scans and a completed
-line formulation. It uses public collection constructors and compute methods
-to calculate modal parameters and then finite-length responses:
+The following example computes the phase line parameters of a space of two
+line-parameter problems with a completed line formulation. It then transports that result
+and calculates modal parameters and finite-length responses:
 
 ```julia
-# phase_a and phase_b are completed phase LineParameters with declared lengths.
-phase_results = ParametricResult([phase_a, phase_b], CartesianIndices((2, 1)),
-    ComputationDetails())
+# problem_space is a Gridspace of two LineParametersProblem points, as above, and
+# formulation a completed line formulation.
+phase_results = compute(problem_space, formulation)
+phase_a = first(phase_results)
 modal_formulation = ModalAnalysisFormulation(:default)
 
 # One scalar action and direct target-bearing Gridspace action.

@@ -1,14 +1,14 @@
 """
 $(TYPEDSIGNATURES)
 
-Compare one reference with every result. The returned ParametricResult contains per-term
-RMSError values in the same order as the input results, with their gridpoints. No
-formulation is evaluated.
+Compare one reference with every computed result. The returned ParametricResult contains
+per-term RMSError values in the same order as the input results, with their gridpoints and
+the failed points of `result`. No formulation is evaluated.
 """
 function compare(reference::AbstractCoreResult, result::ParametricResult,
         quantity::Union{Function,Tuple}; kwargs...)
     errors=[compare(reference, value, quantity::Union{Function,Tuple}; kwargs...) for value in result]
-    return ParametricResult(errors, result.gridpoints, ComputationDetails())
+    return ParametricResult(errors, result.failures, result.gridpoints, ComputationDetails())
 end
 
 """
@@ -16,7 +16,9 @@ $(TYPEDSIGNATURES)
 
 Compare two retained result spaces with an explicit reference index for every
 result point. `pairing` is a vector of `(reference_index, result_index)`
-pairs. Each result must occur exactly once. Use the declared pairs even when the lengths are equal.
+pairs of linear indices of computed results. Each result must occur exactly once. Use the
+declared pairs even when the lengths are equal. The comparison keeps the failed points of
+`result`.
 """
 function compare(reference::ParametricResult, result::ParametricResult,
         quantity::Union{Function,Tuple}; pairing=nothing, kwargs...)
@@ -27,7 +29,7 @@ function compare(reference::ParametricResult, result::ParametricResult,
     foreach(pair -> validate(pair, compare, reference), pairing)
     ordered=sort(collect(pairing); by=last)
     errors=[compare(reference[i], result[j], quantity::Union{Function,Tuple}; kwargs...) for (i,j) in ordered]
-    return ParametricResult(errors, result.gridpoints, ComputationDetails())
+    return ParametricResult(errors, result.failures, result.gridpoints, ComputationDetails())
 end
 
 # One pair of a comparison pairing: a reference index within the reference result, and a

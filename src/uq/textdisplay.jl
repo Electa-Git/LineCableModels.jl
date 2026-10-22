@@ -73,12 +73,17 @@ TextDisplay.name(::Type{<:LinearErrorResult}) = "LinearErrorResult"
 function Base.summary(io::IO, result::LinearErrorResult)
     print(io, "Linear-error result with $(length(result)) values")
 end
-Base.show(io::IO, result::LinearErrorResult) =
-    print(io, "LinearErrorResult($(length(result)) values)")
+# The count of failed points follows the count of values when there are failed points.
+function Base.show(io::IO, result::LinearErrorResult)
+    print(io, "LinearErrorResult($(length(result)) values")
+    isempty(result.failures) || print(io, ", $(length(result.failures)) failed")
+    print(io, ")")
+end
 function Base.show(io::IO, ::MIME"text/plain", result::LinearErrorResult)
     get(io, :compact, false) && return show(io, result)
     kind = isempty(result.values) ? "none" : String(nameof(eltype(result.values)))
-    return TextDisplay.tree(io, "Linear-error result · $(length(result)) values", (
+    failed = isempty(result.failures) ? "" : ", $(length(result.failures)) failed"
+    return TextDisplay.tree(io, "Linear-error result · $(length(result)) values$failed", (
         (label = "result type  $kind", noun = "fields"),
         (label = "details      $(length(result.details.data)) entries", noun = "fields"),
     ))

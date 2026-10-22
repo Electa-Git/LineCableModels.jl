@@ -185,7 +185,9 @@ end
     using Measurements, LinearAlgebra
     phase, _=ModalTrackingExamples.phase_scan()
     selected=ModalAnalysisFormulation(:wedepohl1996)
-    source=ParametricResult([phase, phase], CartesianIndices((2, 1)), ComputationDetails())
+    source=ParametricResult([phase, phase],
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((2, 1)), ComputationDetails())
     results=compute(Gridspace{ModalAnalysisProblem}(source), selected; options = (rotate = false,))
     @test length(results)==2 && isconcretetype(eltype(results))
     @test all(result->details(result).data.modal.rotate===false, results)

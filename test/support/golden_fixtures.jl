@@ -67,7 +67,9 @@ function comparison(;uncertain=false)
         1.3G(reference).+im.*omega.*1.4C(reference),reference.f; line_length=1.0,
         terminals=["west","east"])
     selections=[NamedTuple(Formulation()),NamedTuple(Formulation(earth_impedance=:pollaczek1926))]
-    points=ParametricResult([reference,result],CartesianIndices((1,2)), ComputationDetails((;)))
+    points=ParametricResult([reference,result],
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((1,2)), ComputationDetails((;)))
     baseline=(result=reference,metadata=(port_order=["west","east"],formulation=selections[1],axes=nothing))
     artifact=report(BenchmarkTableDefinition((R,);bands=(:all,)),(reference=baseline,result=points))
     return LineCableModels.plot(artifact, (R,);plot_options...)

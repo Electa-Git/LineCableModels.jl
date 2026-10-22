@@ -422,13 +422,17 @@ name(::Type{<:ParametricResult}) = "ParametricResult"
 function Base.summary(io::IO, result::ParametricResult)
     print(io, "Parametric result with $(length(result)) values")
 end
+# The count of failed points follows the count of values when there are failed points.
 function Base.show(io::IO, result::ParametricResult)
-    print(io, "ParametricResult($(length(result)) values)")
+    print(io, "ParametricResult($(length(result)) values")
+    isempty(result.failures) || print(io, ", $(length(result.failures)) failed")
+    print(io, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", result::ParametricResult)
     get(io, :compact, false) && return show(io, result)
     value_type = isempty(result.values) ? "none" : String(nameof(eltype(result.values)))
-    return tree(io, "ParametricResult · $(length(result)) values", (
+    failed = isempty(result.failures) ? "" : ", $(length(result.failures)) failed"
+    return tree(io, "ParametricResult · $(length(result)) values$failed", (
         (label = "result type  $value_type", noun = "fields"),
         (label = "details      $(length(result.details.data)) entries", noun = "fields"),
     ))

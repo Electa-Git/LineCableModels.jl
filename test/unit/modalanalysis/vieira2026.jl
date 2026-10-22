@@ -212,7 +212,9 @@ end
     @test Measurements.derivative(root, x) ≈ 3/(2sqrt(6))
     factor=real(only(H(PropagationParameters(propagated; line_length = 10.0))))
     @test Measurements.derivative(factor, x) ≈ -10exp(-10sqrt(6))*3/(2sqrt(6))
-    source=ParametricResult([phase, phase], CartesianIndices((2, 1)), ComputationDetails())
+    source=ParametricResult([phase, phase],
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((2, 1)), ComputationDetails())
     results=compute(Gridspace{ModalAnalysisProblem}(source), selected)
     @test length(results) == 2
     @test isconcretetype(eltype(results))

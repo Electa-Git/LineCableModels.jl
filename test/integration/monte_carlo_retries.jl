@@ -75,7 +75,8 @@ end
         if expected_attempts == 1
             @test failure === injected
         else
-            @test failure isa ErrorException
+            @test failure isa DomainError
+            @test isempty(failure.val)
             message = sprint(showerror, failure)
             @test occursin("discarded 3 infeasible draws in a row", message)
             @test occursin("max_failures", message)
@@ -108,7 +109,8 @@ end
         error
     end
     @test attempts==fill(-.005,3)
-    @test failure isa ErrorException
+    @test failure isa DomainError
+    @test only(failure.val).standard_deviation==.001
     @test occursin("discarded 3 infeasible draws in a row",sprint(showerror,failure))
     @test occursin("physical radius must be positive",sprint(showerror,failure))
     # This deterministic control tests the redraw and source records only. No claim

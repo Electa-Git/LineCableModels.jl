@@ -136,32 +136,36 @@ end
 """
 $(TYPEDEF)
 
-Store the results of a parametric computation: the computed values, the gridpoints of the
-space that computed them and the retained details. A result does not contain a problem
-space, a formulation space or a run control.
+Store the results of a parametric computation and the failed points of its space. A result
+does not contain a problem space, a formulation space or a run control.
 
 The values follow column-major `(problem, formulation)` order: the problem index varies
-fastest. Linear indexing and iteration run over the values. `gridpoints` gives the problem
-and formulation indices of each point, and two-dimensional indexing accepts those indices.
-Each value of a space computed by [`traverse`](@ref) also records its gridpoint identity in
-its own details.
+fastest. Linear indexing and iteration run over the values of the computed points. A failed
+point has no value: `failures` holds its gridpoint identity and the exception it threw, in
+the same order. `gridpoints` gives the problem and formulation indices of every point,
+computed or failed, and two-dimensional indexing accepts those indices. For a failed point
+it throws an error with the indices of the point and its exception. Each value of a space
+computed by [`traverse`](@ref) also records its gridpoint identity in its own details.
 
 $(TYPEDFIELDS)
 """
 struct ParametricResult{T} <: AbstractParametricResult{T}
-    "Core results in problem-index-fastest formulation order."
+    "Core results of the computed points in problem-index-fastest formulation order."
     values::Vector{T}
-    "Problem and formulation indices of the points of the space, in the order of `values`."
+    "Gridpoint identity and exception of each failed point, in the same order."
+    failures::Vector{Pair{typeof(gridpoint_id()), Exception}}
+    "Problem and formulation indices of the points of the space, computed or failed."
     gridpoints::CartesianIndices{2, NTuple{2, Base.OneTo{Int}}}
     "Supplemental output retained by the traversal."
     details::ComputationDetails
 
     function ParametricResult(values::Vector{T},
+            failures::Vector{Pair{typeof(gridpoint_id()), Exception}},
             gridpoints::CartesianIndices{2, NTuple{2, Base.OneTo{Int}}},
             details::ComputationDetails) where {T}
         validate(T, ParametricResult)
-        length(gridpoints) == length(values) || throw(DimensionMismatch(
-            "ParametricResult gridpoints must span every stored core result",
+        length(values) + length(failures) == length(gridpoints) || throw(DimensionMismatch(
+            "ParametricResult gridpoints must span every computed and failed point",
         ))
         isempty(details.data) || keys(details.data) == (:points,) ||
             throw(ArgumentError(
@@ -171,7 +175,7 @@ struct ParametricResult{T} <: AbstractParametricResult{T}
             throw(DimensionMismatch(
                 "retained details must contain one entry per core result",
             ))
-        return new{T}(values, gridpoints, details)
+        return new{T}(values, failures, gridpoints, details)
     end
 end
 
@@ -183,11 +187,22 @@ Base.firstindex(value::ParametricResult) = firstindex(value.values)
 Base.lastindex(value::ParametricResult) = lastindex(value.values)
 
 """
-Return one result selected by its problem and formulation indices.
+Return the result of a point selected by its problem and formulation indices. For a failed
+point, throw an error with the indices of the point and the exception that it threw.
 """
 function Base.getindex(value::ParametricResult, problem_index::Integer,
         formulation_index::Integer)
-    return value.values[LinearIndices(value.gridpoints)[problem_index, formulation_index]]
+    index = LinearIndices(value.gridpoints)[problem_index, formulation_index]
+    # The values leave out the failed points before the point.
+    preceding = 0
+    for (gridpoint, exception) in value.failures
+        failed = LinearIndices(value.gridpoints)[gridpoint.problem_index,
+            gridpoint.formulation_index]
+        failed == index && throw(ErrorException("the point of problem $problem_index " *
+            "and formulation $formulation_index failed: " * sprint(showerror, exception)))
+        preceding += failed < index
+    end
+    return value.values[index - preceding]
 end
 
 details(value::ParametricResult) = value.details

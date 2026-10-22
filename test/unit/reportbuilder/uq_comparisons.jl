@@ -102,10 +102,12 @@
     uncertain_core=LineParameters(
         complex.(measurement.(zeros(2, 2, 6), fill(1e-4, 2, 2, 6))),
         zeros(ComplexF64, 2, 2, 6), f; line_length=1.0)
-    spread=LinearErrorResult([uncertain_core], ComputationDetails())
+    spread=LinearErrorResult([uncertain_core],
+        fieldtype(LinearErrorResult, :failures)(), ComputationDetails())
     @test all(iszero, observe(only(compare(spread, spread, (statistics, R, std))), relative_error))
     @test all(ismissing, observe(only(compare(spread, spread, (statistics, R, mean))), relative_error))
-    lep=LinearErrorResult([core], ComputationDetails())
+    lep=LinearErrorResult([core],
+        fieldtype(LinearErrorResult, :failures)(), ComputationDetails())
     @test_throws ArgumentError report(
         BenchmarkTableDefinition(((statistics, R, median),)), (
             reference = mc, result = lep))

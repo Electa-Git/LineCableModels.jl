@@ -156,7 +156,9 @@ end
     @test samples(replay) == samples(sampled)
     @test filter(>=(0.02), drawn[(8 + discarded + 2):(end - 1)]) == accepted
 
-    # `max_failures` overlapping draws in a row stop a study that cannot draw a feasible case.
+    # `max_failures` overlapping draws in a row stop a study that cannot draw a feasible
+    # case. The distribution of the point has no feasible draw, a `DomainError` that a
+    # Combinatorial study records.
     empty!(drawn)
     infeasible=MonteCarlo(inner; trials = 2, seed = 8, max_failures = 5,
         distribution = (_rng, mean, sigma)->mean-4sigma)
@@ -165,15 +167,76 @@ end
     catch error
         error
     end
-    @test failure isa ErrorException
+    @test failure isa DomainError
+    @test only(failure.val).standard_deviation == 0.002
     @test occursin("max_failures", sprint(showerror, failure))
     @test occursin("OverlapError", sprint(showerror, failure))
+    @test LineCableModels.on_error(Combinatorial(inner), failure) === failure
     @test length(drawn) == 5
 
-    # A grid point is a requested case. An overlapping grid point throws.
+    # A grid point is a requested case, and the study records an overlapping one.
     requested=Gridspace{LineParametersProblem}(
         spacing->LineParametersProblem(fixture.pair(0.01, spacing); earth_props = earth,
             frequencies = [50.0]),
         (Grid((0.03, 0.015)),))
-    @test_throws OverlapError compute(ParametricProblem(requested), Combinatorial(inner))
+    recorded=compute(ParametricProblem(requested), Combinatorial(inner))
+    @test length(recorded) == 1
+    @test last(only(recorded.failures)) isa OverlapError
+end
+
+@testitem "DataModel / exterior clearance / a study records infeasible points" tags=[:integration, :measurements] setup=[ClearanceFixtures, SavedResults] begin
+    using LineCableModels
+    using Measurements
+    fixture=ClearanceFixtures
+    inner=Formulation(options = (kron_reduction = false,
+        reduce_bundle = false, ideal_transposition = false))
+    # The cables of point 2 overlap, and the earth of point 3 has no permittivity: both
+    # builds throw. The earth of point 4 has a layer over the half space. The space builds two
+    # problem types. `shift` is the uncertainty of the spacing.
+    earth(eps_r, layered)=layered ? build(EarthModel,
+        (layer(; rho = 100.0, eps_r, thickness = 0.5), layer(rho = 500.0, eps_r = 20.0))) :
+        homogeneous(; rho = 100.0, eps_r)
+    problem=(spacing, eps_r, layered, shift)->LineParametersProblem(
+        fixture.pair(0.01, spacing + shift); earth_props = earth(eps_r, layered),
+        frequencies = [50.0, 1e3])
+    space(shift)=Gridspace{LineParametersProblem}(problem,
+        (Grid((0.03, 0.015, 0.03, 0.04)), Grid((10.0, 10.0, 0.0, 10.0)),
+            Grid((false, false, false, true)), shift);
+        combine = :zip)
+    formulations=Grid((inner, Formulation()))
+    result=compute(ParametricProblem(space(Grid((0.0,)))), Combinatorial(formulations))
+    gridpoints(value)=[(gridpoint.problem_index, gridpoint.formulation_index)
+                       for (gridpoint, _) in value.failures]
+    @test gridpoints(result) == [(2, 1), (3, 1), (2, 2), (3, 2)]
+    @test [typeof(exception) for (_, exception) in result.failures] ==
+          [OverlapError, DomainError, OverlapError, DomainError]
+    # The values equal a run without the failed points.
+    alone=compute(Gridspace{LineParametersProblem}(problem,
+            (Grid((0.03, 0.04)), Grid((10.0, 10.0)), Grid((false, true)), Grid((0.0,)));
+            combine = :zip),
+        formulations)
+    @test isempty(alone.failures)
+    @test length(result) == length(alone) == 4
+    for (computed, reference) in zip(result, alone)
+        @test Z(computed) == Z(reference)
+        @test Y(computed) == Y(reference)
+    end
+    @test Z(result[4, 2]) == Z(alone[2, 2])
+    @test_throws ErrorException result[2, 1]
+    # A comparison compares the computed points and keeps the failures.
+    compared=LineCableModels.Engine.compare(first(alone), result, Z)
+    @test length(compared) == 4
+    @test compared.failures === result.failures
+    # Linear propagation over the same space records the same failures.
+    linear=compute(ParametricProblem(space(Grid(0.0, AbsoluteError(1e-4)))), LinearError(inner))
+    @test gridpoints(linear) == [(2, 1), (3, 1)]
+    @test [typeof(exception) for (_, exception) in linear.failures] == [OverlapError, DomainError]
+    @test length(linear) == 2
+    @test sprint(show, linear) == "LinearErrorResult(2 values, 2 failed)"
+    # A saved result keeps its failures.
+    for saved in (result, linear)
+        restored=SavedResults.round_trip(saved)
+        @test SavedResults.same(restored, saved)
+        @test gridpoints(restored) == gridpoints(saved)
+    end
 end

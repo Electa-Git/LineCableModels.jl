@@ -128,7 +128,8 @@ end
     ordinary=report(uncertain)
     @test ordinary.observed isa ObservedResult
     observed=ordinary.observed
-    lep=LinearErrorResult([uncertain],ComputationDetails())
+    lep=LinearErrorResult([uncertain],
+        fieldtype(LinearErrorResult, :failures)(), ComputationDetails())
     @test only(report(lep, R).tables).Z.R==report(uncertain, R).tables.Z.R
     @test length(observed.quantities)==4
     @test all(q -> q.statistic===:value,observed.quantities)

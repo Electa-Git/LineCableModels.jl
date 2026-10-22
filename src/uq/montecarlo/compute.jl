@@ -195,10 +195,16 @@ function _uncertain_arguments(records, value::Union{Tuple,AbstractArray}, path)
 end
 _uncertain_arguments(records, value, path) = records
 
-# Draw the arguments, build the problem and compute it. A draw is infeasible when its build
-# throws `OverlapError`, or when its build or computation throws `DomainError`. The next
-# draw replaces it as if it was never drawn. `max_failures` infeasible draws in a row stop
-# the study. Any other exception propagates.
+# A draw is infeasible when its build throws `OverlapError`, or when its build or
+# computation throws `DomainError`. Monte Carlo draws the trial again.
+on_error(::MonteCarlo, exception::DomainError) = exception
+on_error(::MonteCarlo, exception::DataModel.OverlapError) = exception
+
+# Draw the arguments, build the problem and compute it. A draw whose exception `on_error`
+# returns for the study is infeasible, and the next draw replaces it as if it was never
+# drawn. `max_failures` infeasible draws in a row throw a `DomainError` with the uncertain
+# arguments of the point: its distribution has no feasible draw. Any other exception
+# propagates.
 function _attempt(rng, sampler)
     (; point, formulation, child_options) = sampler
     discarded = 0
@@ -208,9 +214,10 @@ function _attempt(rng, sampler)
             return compute(realize(point, arguments), formulation.inner;
                 options = child_options)
         catch exception
-            exception isa Union{DataModel.OverlapError, DomainError} || rethrow()
+            on_error(formulation, exception)
             discarded += 1
-            discarded < formulation.options.data.max_failures || throw(ErrorException(
+            discarded < formulation.options.data.max_failures || throw(DomainError(
+                _uncertain_arguments(point),
                 "Monte Carlo discarded $discarded infeasible draws in a row, the " *
                 "max_failures limit; the last: " * sprint(showerror, exception)))
         end

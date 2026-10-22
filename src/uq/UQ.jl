@@ -30,7 +30,7 @@ import ..Commons: compute, computation_options, computation_details, details,
                   observe, observables, validate,
                   detach, request_identity, request_indices,
                   observation_indices, observation_resolution, observation_request,
-                  initialize_buffers
+                  initialize_buffers, on_error
 using ..Commons: request_quantity
 import ..Units
 import ..TextDisplay

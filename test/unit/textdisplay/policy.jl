@@ -195,7 +195,9 @@ end
     cables=CablesLibrary()
     add!(cables, design)
     parameters=TestFixtures.two_conductor_results()
-    parametric=ParametricResult([parameters], CartesianIndices((1, 1)), ComputationDetails())
+    parametric=ParametricResult([parameters],
+        fieldtype(ParametricResult, :failures)(),
+        CartesianIndices((1, 1)), ComputationDetails())
     monte_carlo=TestFixtures.cable_monte_carlo_result()
 
     families=(

@@ -83,3 +83,146 @@
     # The default returns a result type without retained details as it is.
     @test C.retain_gridpoint(CountResult(1), C.gridpoint_id()) == CountResult(1)
 end
+
+@testitem "Commons / runner / a space records a failed point and continues" tags=[:unit, :commons] begin
+    const C = LineCableModels.Commons
+    struct FailProblem <: AbstractProblemDefinition
+        value::Int
+    end
+    LineCableModels.validate(problem::FailProblem) = problem
+    struct OtherProblem <: AbstractProblemDefinition
+        value::Int
+    end
+    LineCableModels.validate(problem::OtherProblem) = problem
+    struct Weight{K} <: AbstractFormulation end
+    LineCableModels.computation_options(::Type{<:Weight}, options::C.ComputationOptions) =
+        options
+    struct WeightResult <: AbstractCoreResult
+        value::Int
+    end
+    struct Refused <: Exception end
+    # The point of problem 3 is outside the domain of the heavier formulation, and problem 5
+    # refuses every formulation with an exception of its own.
+    function LineCableModels.compute(resolved::C.Resolved{<:FailProblem}, ::Weight{K};
+            options = C.ComputationOptions()) where {K}
+        value = resolved.problem.value
+        value == 3 && K == 10 && throw(DomainError(value, "outside the domain"))
+        value == 5 && throw(Refused())
+        return WeightResult(K * value)
+    end
+    LineCableModels.compute(resolved::C.Resolved{<:OtherProblem}, ::Weight{K};
+        options = C.ComputationOptions()) where {K} = WeightResult(100K * resolved.problem.value)
+    LineCableModels.computation_details(::Type{<:Weight}, result::WeightResult) =
+        C.ComputationDetails((value = result.value,))
+    # The cables of problem 2 overlap: its build throws.
+    overlapping = value -> value == 2 ?
+        throw(OverlapError((1, 2), -1e-3, "cable exteriors overlap")) : FailProblem(value)
+    space = C.Gridspace{FailProblem}(overlapping, (C.Grid((1, 2, 3, 4)),))
+    formulations = C.Grid((Weight{1}(), Weight{10}()))
+
+    # The study records the overlapping problem for each formulation and the point outside
+    # the domain, in the order of the space. It computes every other point, and `on_result`
+    # runs for the computed points only.
+    indices = Int[]
+    result = compute(space, formulations;
+        options = (on_result = (_, index, _) -> push!(indices, index),))
+    @test [(gridpoint.problem_index, gridpoint.formulation_index)
+           for (gridpoint, _) in result.failures] == [(2, 1), (2, 2), (3, 2)]
+    @test [typeof(exception) for (_, exception) in result.failures] ==
+          [OverlapError, OverlapError, DomainError]
+    @test result.failures isa Vector{Pair{typeof(C.gridpoint_id()), Exception}}
+    @test indices == [1, 5, 3, 4, 8]
+    @test length(result) + length(result.failures) == length(result.gridpoints) == 8
+    # The values equal those of a run without the failed points. A scalar point infers.
+    alone = [@inferred(compute(FailProblem(value), weight))
+             for (value, weight) in ((1, Weight{1}()), (3, Weight{1}()), (4, Weight{1}()),
+        (1, Weight{10}()), (4, Weight{10}()))]
+    @test collect(result) == alone
+    @test [result[1, 1], result[3, 1], result[4, 1], result[1, 2], result[4, 2]] == alone
+    lookup = try
+        result[2, 1]
+    catch exception
+        exception
+    end
+    @test lookup isa ErrorException
+    @test occursin("problem 2 and formulation 1", sprint(showerror, lookup))
+    @test occursin("cable exteriors overlap", sprint(showerror, lookup))
+    @test_throws ErrorException result[3, 2]
+    @test sprint(show, result) == "ParametricResult(5 values, 3 failed)"
+    @test occursin("5 values, 3 failed", sprint(show, MIME("text/plain"), result))
+    # Retained details cover the computed points.
+    retained = compute(C.ParametricProblem(space),
+        C.Combinatorial(formulations; options = (retain_details = true,)))
+    @test [record.data.value for record in details(retained).data.points] ==
+          [1, 3, 4, 10, 40]
+
+    # A space whose points build two problem types computes as a run of each, and records
+    # the failed points among them.
+    mixed = value -> value == 2 ? OtherProblem(value) : overlapping(value)
+    both = compute(C.Gridspace{AbstractProblemDefinition}(mixed, (C.Grid((1, 2, 4)),)),
+        formulations)
+    @test isempty(both.failures)
+    @test collect(both) == WeightResult.([1, 200, 4, 10, 2000, 40])
+    recorded = compute(C.Gridspace{AbstractProblemDefinition}(
+            value -> value == 4 ? OtherProblem(value) : overlapping(value),
+            (C.Grid((1, 2, 3, 4)),)),
+        formulations)
+    @test [(gridpoint.problem_index, gridpoint.formulation_index)
+           for (gridpoint, _) in recorded.failures] == [(2, 1), (2, 2), (3, 2)]
+    @test collect(recorded) == WeightResult.([1, 3, 400, 10, 4000])
+
+    # An exception that the study does not record stops it with its own backtrace.
+    struct Broken <: AbstractFormulation end
+    LineCableModels.computation_options(::Type{<:Broken}, options::C.ComputationOptions) =
+        options
+    broken_root(value) = sqrt("$(value)")
+    LineCableModels.compute(resolved::C.Resolved{<:FailProblem}, ::Broken;
+        options = C.ComputationOptions()) =
+        resolved.problem.value == 4 ? broken_root(4) : WeightResult(0)
+    stopped, trace = try
+        compute(C.Gridspace{FailProblem}(FailProblem, (C.Grid((1, 4)),)), Broken())
+    catch exception
+        exception, catch_backtrace()
+    end
+    @test stopped isa MethodError
+    @test any(frame -> frame.func === :broken_root, stacktrace(trace))
+
+    # A space with no computed point throws, with the count and the first failure.
+    every = try
+        compute(C.Gridspace{FailProblem}(overlapping, (C.Grid((2, 2)),)), Weight{1}())
+    catch exception
+        exception
+    end
+    @test every isa ErrorException
+    @test occursin("all 2 points", sprint(showerror, every))
+    @test occursin("cable exteriors overlap", sprint(showerror, every))
+
+    # A user records an exception of their own with one method.
+    refusing = C.Gridspace{FailProblem}(FailProblem, (C.Grid((1, 5)),))
+    @test_throws Refused compute(refusing, Weight{1}())
+    LineCableModels.on_error(::C.Combinatorial, exception::Refused) = exception
+    own = compute(refusing, Weight{1}())
+    @test collect(own) == [WeightResult(1)]
+    @test last(only(own.failures)) === Refused()
+
+    # The owners of the exception types declare what a study records. Monte Carlo draws
+    # again after an infeasible draw, and any other exception stops a study.
+    study = C.Combinatorial(Weight{1}())
+    domain = DomainError(1, "outside the domain")
+    @test @inferred(C.on_error(study, domain)) === domain
+    overlap = OverlapError((1, 2), -1e-3, "overlap")
+    @test @inferred(C.on_error(study, overlap)) === overlap
+    @test_throws ArgumentError try
+        throw(ArgumentError("not recorded"))
+    catch exception
+        C.on_error(study, exception)
+    end
+    sampled = MonteCarlo(Formulation())
+    @test C.on_error(sampled, overlap) === overlap
+    @test C.on_error(sampled, domain) === domain
+    @test_throws Refused try
+        throw(Refused())
+    catch exception
+        C.on_error(sampled, exception)
+    end
+end

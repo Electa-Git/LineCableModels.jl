@@ -117,8 +117,8 @@ using .Commons: Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGr
 using .Commons: verbosity, VerbosityLogger
 public verbosity, VerbosityLogger
 using .Commons: Combinatorial, ParametricProblem, ParametricResult, resolve, Resolved,
-                traverse, retain_gridpoint
-public Resolved, traverse, retain_gridpoint
+                traverse, retain_gridpoint, on_error
+public Resolved, traverse, retain_gridpoint, on_error
 
 # Bounded text formatting consumes the completed shared declaration grammar.
 include("textdisplay/TextDisplay.jl")

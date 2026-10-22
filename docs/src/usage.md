@@ -157,6 +157,18 @@ formula_id(details(selected).data.formulation.formulas.earth_impedance)
 Linear storage is column-major in `(problem, formulation)` coordinates, with the problem index varying fastest. Scalar formulations produce a singleton
 formulation axis and preserve the established scalar numerical computation.
 
+When one point of a study fails, the space records it and continues, and the study keeps
+the points that it computed. The build or the resolve of a problem, or the computation of a
+point, fails the point when it throws an exception that `on_error(study, exception)` returns
+for the study. Cables that overlap (`OverlapError`) and an input outside the domain of a formula
+(`DomainError`) are infeasible designs, and a study records them. Any other exception stops
+the study with its backtrace. A `ParametricResult` and a `LinearErrorResult` hold the values
+of the computed points, and `run.failures` holds the gridpoint identity and the exception of
+each failed point, in the same order. Indexing, iteration and `length` cover the computed
+points, and two-axis lookup of a failed point throws an error that shows its exception. A
+study with no computed point throws. A user records an exception type of their own with one
+method, `LineCableModels.on_error(::Combinatorial, exception::MyError) = exception`.
+
 Use the product accessors for uncertainty computations:
 
 ```julia
@@ -180,9 +192,9 @@ uses the same validation. Normalized settings are stored in
 A draw whose build throws `OverlapError`, or whose build or computation throws
 `DomainError`, is infeasible. Monte Carlo discards the infeasible draw and draws again,
 so that draw enters neither samples nor statistics, and nothing records it. After
-`max_failures` infeasible draws in a row for one trial, the study throws an error with
-that count and the last exception. Any other exception propagates. The resulting
-distribution is conditional on feasible draws.
+`max_failures` infeasible draws in a row for one trial, the study throws a `DomainError`
+whose message gives that count and the last exception. Any other exception propagates. The
+resulting distribution is conditional on feasible draws.
 
 When `trials=nothing`, Monte Carlo uses a simultaneous
 Dvoretzky-Kiefer-Wolfowitz bound. For `M` scalar marginals and confidence

@@ -73,7 +73,8 @@ end
                 SampleSummary([mu-sigma,mu,mu+sigma])
             end
         end
-        for result in (LinearErrorResult([core,core],ComputationDetails()),
+        for result in (LinearErrorResult([core,core],
+            fieldtype(LinearErrorResult, :failures)(), ComputationDetails()),
                 MonteCarloResult((confidence=0.95,cdf_tol=0.02,distribution=:normal),
                     [core,core],[summaries,summaries],nothing,nothing,UInt64(7),UInt64[8,9],[3,3]))
             restored=SavedResults.round_trip(result)

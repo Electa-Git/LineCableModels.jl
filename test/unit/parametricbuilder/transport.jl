@@ -15,7 +15,8 @@
     struct TransportFormulation <: Commons.AbstractFormulation end
 
     values=TransportResult[TransportResult(1.0), TransportResult(2.0)]
-    source=Commons.ParametricResult(values, CartesianIndices((2, 1)),
+    source=Commons.ParametricResult(values,
+        fieldtype(Commons.ParametricResult, :failures)(), CartesianIndices((2, 1)),
         Commons.ComputationDetails())
     transported=PB.Gridspace{DownstreamProblem}(source)
 
@@ -24,7 +25,8 @@
     @test eltype(transported) === DownstreamProblem
     @test collect(transported) == DownstreamProblem.(values)
 
-    linear=UQ.LinearErrorResult(values, Commons.ComputationDetails())
+    linear=UQ.LinearErrorResult(values,
+        fieldtype(UQ.LinearErrorResult, :failures)(), Commons.ComputationDetails())
     uncertain_transport=PB.Gridspace{DownstreamProblem}(linear)
     @test uncertain_transport.grids === (linear,)
     @test collect(uncertain_transport) == DownstreamProblem.(values)

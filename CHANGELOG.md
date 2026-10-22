@@ -27,7 +27,23 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   gaps, and a `LineParametersProblem` checks the interface gaps.
 - `MonteCarlo` draws again, with no record, when a build throws `OverlapError` or a build
   or computation throws `DomainError`. After `max_failures` such draws in a row for one
-  trial, it throws an error with that count and the last exception.
+  trial, it throws a `DomainError`. Its value is the uncertain arguments of the point, and
+  its message gives that count and the last exception.
+- A space records a failed point beside its values and continues. A point fails when the
+  build or the resolve of its problem, or its computation, throws an exception that
+  `on_error(study, exception)` returns for the study. Any other exception stops the study
+  with its backtrace.
+- `on_error` is public in `Commons` and in the root. A `Combinatorial` study, and
+  `LinearError` through it, records an `OverlapError` and a `DomainError`. A `MonteCarlo`
+  trial draws again after them. A user records an exception type of their own with one
+  method, `LineCableModels.on_error(::Combinatorial, exception::MyError) = exception`.
+- `ParametricResult` and `LinearErrorResult` hold `failures`, the gridpoint identity and the
+  exception of each failed point, in the order of the space. Their values, `length`,
+  iteration and `result[k]` cover the computed points.
+- `result[i, j]` of a failed point throws an error that shows its exception. `compare`
+  keeps the failures, `show` gives their count and a saved result keeps them.
+- A space with no computed point throws an error that gives the count of its points and
+  shows the first recorded exception.
 - `trefoil`, `hflat` and `vflat` lay their cables at `max(spacing, 2R + 1 μm)`, where `R`
   is the outer radius of the design they receive. A formation never overlaps, and a
   smaller spacing lays its cables touching. Each realization of an uncertain design is laid
@@ -365,9 +381,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   extension point.
 - `AbstractTraversal`, `ParametricProblem`, `Combinatorial` and `ParametricResult` are
   defined in `Commons`, and `verbosity`, `VerbosityLogger` and `retain_gridpoint` are
-  public in `Commons`. A `ParametricResult` holds its values, their gridpoints (the problem
-  and formulation indices of the points) and the retained details, and a
-  `LinearErrorResult` its values and details. Neither contains the space that produced it.
+  public in `Commons`. A `ParametricResult` holds its values, its failures, the gridpoints
+  of the space (the problem and formulation indices of the points) and the retained
+  details, and a `LinearErrorResult` its values, failures and details. Neither contains the
+  space that produced it.
   A `MonteCarloResult` holds its `sampling`, `(; confidence, cdf_tol, distribution)`,
   which `confidence`, `cdf_tolerance` and `sampling_distribution` read.
 - Each builder of the user-facing language is the singleton of a subtype of

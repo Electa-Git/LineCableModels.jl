@@ -546,7 +546,7 @@ end
     m = map(a -> measurement.(a, sqrt(2) * 0.1 .* a), v)
     lep = LinearErrorResult([LineParameters(
         m.R .+ im .* omega .* m.L, m.G .+ im .* omega .* m.C, measurement.(f, 0.0); line_length=1.0)],
-        ComputationDetails())
+        fieldtype(LinearErrorResult, :failures)(), ComputationDetails())
     uq = report(BenchmarkTableDefinition(((statistics, R, mean), (statistics, R, std)); bands=(:all,)),
         (reference=(result=mc, metadata=metadata), result=(result=lep, metadata=metadata));observation_options=(length_unit=:base,))
     for (artifact, request, expected) in ((deterministic, (R,), r),
