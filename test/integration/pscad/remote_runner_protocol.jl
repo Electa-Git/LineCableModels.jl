@@ -120,7 +120,7 @@ importlib.metadata.version = lambda name: "3.1.2" if name == "mhi.pscad" else "f
 runpy.run_path = lambda path: {"identify": lambda version, app: dict(IDENTITY)}
 """
 
-function runner_arguments(directory,output;verbosity="0")
+function runner_arguments(directory,output)
     project=joinpath(directory,"generated.pscx")
     write(project,"fixture")
     input=Dict(
@@ -135,7 +135,7 @@ function runner_arguments(directory,output;verbosity="0")
         TOML.print(io,input;sorted=true)
     end
     return [project,output,"generated","fixture","pscad","10.0","1000.0","2",
-        "5.1.0",verbosity]
+        "5.1.0"]
 end
 
 @testset "Remote PSCAD runner protocol without PSCAD" begin
@@ -153,17 +153,28 @@ end
     mktempdir() do directory
         output=joinpath(directory,"outputs")
         arguments=runner_arguments(directory,output)
-        @test_throws ArgumentError main(setindex!(copy(arguments),"3",10))
+        @test_throws ArgumentError main(vcat(arguments,"2"))
         @test_throws ArgumentError main(setindex!(copy(arguments),"5.0.2",9))
         @test_throws ArgumentError main(setindex!(copy(arguments),"bad-stem",4))
 
         python_environment=pyimport("os").environ
         python_environment["LCM_RUNNER_FIXTURE_OUTPUT"]=output
-        try
-            @test main(arguments) === nothing
+        # The runner prints its step lines to the standard output always, and the diagnostics
+        # stay in the console log.
+        printed=try
+            mktemp() do path,io
+                redirect_stdout(io) do
+                    @test main(arguments) === nothing
+                end
+                flush(io)
+                read(path,String)
+            end
         finally
             python_environment.pop("LCM_RUNNER_FIXTURE_OUTPUT",nothing)
         end
+        @test occursin("Starting PSCAD line-constants computation",printed)
+        @test occursin("Collected detailed PSCAD Z and Y outputs",printed)
+        @test !occursin("PSCAD messages:",printed)
         for name in ("result_zm.out","result_zp.out","result_ym.out","result_yp.out")
             @test _data_rows(joinpath(output,name)) == 3
         end
@@ -180,7 +191,7 @@ end
 
     mktempdir() do directory
         output=joinpath(directory,"failed")
-        arguments=runner_arguments(directory,output;verbosity="2")
+        arguments=runner_arguments(directory,output)
         python_environment=pyimport("os").environ
         python_environment["LCM_RUNNER_FIXTURE_OUTPUT"]=output
         python_environment["LCM_RUNNER_FIXTURE_FAIL"]="1"

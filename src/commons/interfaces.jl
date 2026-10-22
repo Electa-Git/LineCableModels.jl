@@ -27,11 +27,13 @@ end
 """
 $(SIGNATURES)
 
-Validate and normalize the options owned by a formulation type.
+Validate and normalize the options owned by a formulation type: the controls that the
+formulation determines or needs.
 
 The implementation that owns `FormulationType` defines a method for the type
-itself. Dispatch requires an explicitly supported type. An unregistered formulation
-raises `MethodError`.
+itself. A study whose formulation of a problem space has options of its own, such as
+`MonteCarlo`, defines one too. Dispatch requires an explicitly supported type. An
+unregistered formulation raises `MethodError`.
 
 # Arguments
 
@@ -81,7 +83,8 @@ end
 """
 $(SIGNATURES)
 
-Validate and normalize the options owned by one computation.
+Validate and normalize the options owned by one computation: the controls of the engine or
+of the backend, whatever the formulation.
 
 The implementation that owns `OwnerType` defines a method for the type itself.
 `OwnerType` may identify a core solver or another composite computation owner.
@@ -92,7 +95,9 @@ The runner normalizes the options of a formulation space once, with
 formulation space contains the formulations of one backend. Each formulation type defines
 `computation_options(::Type{<:T}, options)`. A space that mixes backends raises an
 `ArgumentError`, as does a formulation type without such a method. Comparing backends takes
-one computation per backend.
+one computation per backend. The computation options of the run of a study, `verbosity`,
+`on_result` and `retain_details`, are normalized by `computation_options(T, options)` for
+the study type `T`, one method for every study.
 
 # Arguments
 

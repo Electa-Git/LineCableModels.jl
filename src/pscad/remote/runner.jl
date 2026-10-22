@@ -61,14 +61,13 @@ function _messages(project)
     return join((_string(message) for message in messages), '\n') * "\n"
 end
 
-function _report(console::IO, verbosity::Int, level::Int, message::AbstractString)
+# A step line goes to the console log and to the standard output, which the caller relays.
+function _report(console::IO, message::AbstractString)
     line = "[$(round(time(); digits = 3))] $(String(message))"
     println(console, line)
     flush(console)
-    if verbosity >= level
-        println(stdout, line)
-        flush(stdout)
-    end
+    println(stdout, line)
+    flush(stdout)
     return nothing
 end
 
@@ -83,35 +82,22 @@ function _project_diagnostics(project)
     return join(parts, '\n')
 end
 
-function _record_diagnostics(
-        console::IO,
-        project,
-        verbosity::Int,
-        heading::AbstractString;
-        error_stream::Bool = false
-)
+# PSCAD's project diagnostics go to the console log only. The exception of a failure shows
+# their last lines and the log's path.
+function _record_diagnostics(console::IO, project, heading::AbstractString)
     text="$(String(heading))\n$(_project_diagnostics(project))"
     println(console, text)
     flush(console)
-    if verbosity >= 2
-        stream=error_stream ? stderr : stdout
-        println(stream, text)
-        flush(stream)
-    end
     return text
 end
 
 function main(arguments)
-    length(arguments) == 10 || throw(ArgumentError(
+    length(arguments) == 9 || throw(ArgumentError(
         "runner expects project, output, project name, output stem, formulation, " *
-        "FS, FE, Numf, PSCAD version, " *
-        "and verbosity",
+        "FS, FE, Numf and PSCAD version",
     ))
     project_path, output, project_name, output_stem, formulation,
-    fs, fe, numf, pscad_version,
-    verbosity_text = arguments
-    verbosity = parse(Int, verbosity_text)
-    verbosity in 0:2 || throw(ArgumentError("verbosity must be 0, 1, or 2"))
+    fs, fe, numf, pscad_version = arguments
     pscad_version == "5.1.0" || throw(ArgumentError("PSCAD 5.1.0 is required"))
     occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", output_stem) ||
         throw(ArgumentError("invalid PSCAD output stem $output_stem"))
@@ -133,7 +119,7 @@ function main(arguments)
         ))
         pscad = pyimport("mhi.pscad")
         phase = "PSCAD launch"
-        _report(console, verbosity, 1, "Launching PSCAD 5.1.0")
+        _report(console, "Launching PSCAD 5.1.0")
         app = cd(abspath(output)) do
             pscad.launch(;
                 version = pscad_version,
@@ -152,7 +138,7 @@ function main(arguments)
         expected_identity === nothing || initial_identity == expected_identity ||
             error("PSCAD installation does not match the expected solver identity")
         phase = "project load"
-        _report(console, verbosity, 1, "Loading generated project $project_name")
+        _report(console, "Loading generated project $project_name")
         app.load(abspath(project_path))
         project = app.project(project_name)
         lines = vcat(
@@ -166,8 +152,6 @@ function main(arguments)
         _set!(line, "Name", output_stem)
         _report(
             console,
-            verbosity,
-            2,
             "Found line-data row $(_string(line.defn_name)); output stem is $output_stem"
         )
         canvas = try
@@ -199,8 +183,6 @@ function main(arguments)
         end
         _report(
             console,
-            verbosity,
-            2,
             "Applied frequency range $fs Hz to $fe Hz and formulation $formulation"
         )
         # The generated PSCAD project retains every requested cable port.
@@ -223,21 +205,19 @@ function main(arguments)
                 ))
             end
         end
-        _report(console, verbosity, 2, "Verified that all cable terminals are retained")
+        _report(console, "Verified that all cable terminals are retained")
         project.save()
-        _record_diagnostics(console, project, verbosity, "PSCAD diagnostics before computation")
+        _record_diagnostics(console, project, "PSCAD diagnostics before computation")
         phase = "line-constants computation"
-        _report(console, verbosity, 1, "Starting PSCAD line-constants computation")
+        _report(console, "Starting PSCAD line-constants computation")
         started = time_ns()
         line.compile()
         elapsed = (time_ns() - started)*1e-9
         _report(
             console,
-            verbosity,
-            1,
             "PSCAD compile call returned in $(round(elapsed; digits = 3)) seconds"
         )
-        _record_diagnostics(console, project, verbosity, "PSCAD diagnostics after compile call")
+        _record_diagnostics(console, project, "PSCAD diagnostics after compile call")
         write(joinpath(output, "timing.txt"), string(elapsed))
         roots = [
             abspath(output),
@@ -248,8 +228,6 @@ function main(arguments)
         expected_rows=parse(Int, numf) + 1
         _report(
             console,
-            verbosity,
-            1,
             "Waiting for $expected_rows rows in each detailed PSCAD matrix file"
         )
         for (suffix, name) in OUTPUT_SUFFIXES
@@ -259,9 +237,9 @@ function main(arguments)
             _data_rows(destination) == expected_rows || throw(ArgumentError(
                 "copied PSCAD output $destination is incomplete",
             ))
-            _report(console, verbosity, 2, "Validated $name with $expected_rows rows")
+            _report(console, "Validated $name with $expected_rows rows")
         end
-        _report(console, verbosity, 1, "Collected detailed PSCAD Z and Y outputs")
+        _report(console, "Collected detailed PSCAD Z and Y outputs")
         observed = pyconvert(Dict{String, String}, identify(pscad_version, app))
         observed == initial_identity ||
             error("PSCAD installation changed during computation")
@@ -269,13 +247,8 @@ function main(arguments)
             TOML.print(io, observed; sorted = true)
         end
     catch error
-        project === nothing || _record_diagnostics(
-            console,
-            project,
-            verbosity,
-            "PSCAD diagnostics at failure";
-            error_stream = true
-        )
+        project === nothing ||
+            _record_diagnostics(console, project, "PSCAD diagnostics at failure")
         message="PSCAD runner failed during $phase: $(sprint(showerror, error))"
         println(console, message)
         flush(console)

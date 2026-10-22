@@ -262,7 +262,15 @@ Materialization and realization are internal. Developers extend the public gramm
 concrete builders and supported uncertainty extensions, not
 by exposing unresolved points as application data.
 
-## Higher-order computation
+## Studies
+
+Grids vary the inputs of one scalar problem and formulation. The calls that process
+spaces take no `Grid`: `compute` on a parametric problem, the runner and the studies
+(`Combinatorial`, `LinearError`, `MonteCarlo`) operate on spaces of core problems and core
+formulations, whose results are the core products, such as `CableConstants`,
+`LineParameters` and modal analysis. A study's own options and the computation options of
+its run are scalars, a study's inner formulation is a core formulation, a parametric problem
+holds core problems, and a `compute` on a parametric problem makes no `Gridspace`.
 
 Passing a formulation `Gridspace` directly to `compute` selects default
 `Combinatorial` traversal:
@@ -274,19 +282,23 @@ run = compute(ParametricProblem(problem_space, ComputationOptions(options)), for
 ```
 
 The result is a `ParametricResult` in all three cases: the first two calls compute the
-`ParametricProblem` of their problem and `options`, as the third does. A scalar problem
-forms a singleton problem axis. `options` belong to the core computations. An
-existing `ParametricProblem` retains its stored options. For traversal settings
-such as retaining supplemental details, select `Combinatorial` explicitly:
+`ParametricProblem` of their problem with the `Combinatorial` study of
+`formulation_space`, as the third does. A scalar problem forms a singleton problem axis. The
+options follow two levels. The options of a `ParametricProblem` are the computation options
+of the backend for every point. The options of the parametric call are the computation
+options of the run: `verbosity`, `on_result`, and `retain_details`, which retains
+supplemental details. The first two calls give each key of `options` to its owner. A study
+is the formulation of the problem space, selected explicitly with its own options:
 
 ```julia
 run = compute(ParametricProblem(problem_space, ComputationOptions(options)),
-    Combinatorial(formulation_space; options=(retain_details=true,)))
+    Combinatorial(formulation_space); options=(retain_details=true,))
 ```
 
-`Combinatorial` accepts one completed formulation, a deterministic
+`Combinatorial` accepts one core formulation, a deterministic
 target-bearing formulation `Gridspace`, or a deterministic `Grid` containing
-completed formulations. A formulation space contains the formulations of one backend,
+core formulations. Since a study is not a formulation, a study of a study throws a
+`MethodError`. A formulation space contains the formulations of one backend,
 whose formula choices may vary. Comparing backends takes one computation per backend. The runner, `traverse`, materializes and validates the
 problems and formulations before the first point, then computes problem by problem:
 
@@ -304,7 +316,7 @@ end
 When a point fails, the space records it beside its values and continues, and a long study
 keeps the points that it computed. The build or the resolve of a problem, or the
 computation of a point, fails the point when it throws an exception that
-`on_error(study, exception)` returns for the `Combinatorial` study, and a failed build or
+`on_error(study, exception)` returns for the study, and a failed build or
 resolve fails every point of its problem. The
 study records an `OverlapError` and a `DomainError`. Any other exception stops the study
 with its backtrace, and a bug shows its stack trace. A user records an exception type of

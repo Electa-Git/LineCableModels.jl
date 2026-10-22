@@ -31,8 +31,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   point, and its message gives that count and the last exception.
 - A Monte Carlo study runs through the runner, `traverse`. Before the first draw it builds
   the nominal problem of every point from the means of its uncertain arguments, and the
-  problem's constructor validates it. Each point computes its trials with the inner
-  formulation's backend and returns the `MonteCarloResult` of that point, which
+  problem's constructor validates it. Each point computes its trials from the uncertain
+  point at its index in the space, with the seed of the point and the inner formulation's
+  backend, and returns the `MonteCarloResult` of that point, which
   `on_result(problem, index, point)` receives with the nominal problem, and the result of
   the study joins the computed points. The run logs one timing record per point, and the
   progress between points and between the trials of a point by the runner's five-second
@@ -41,11 +42,12 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   build or the resolve of its problem, or its computation, throws an exception that
   `on_error(study, exception)` returns for the study. Any other exception stops the study
   with its backtrace.
-- `on_error` is public in `Commons` and in the root. A `Combinatorial` study, and
-  `LinearError` through it, records an `OverlapError` and a `DomainError`. A `MonteCarlo`
-  trial draws again after them, and the `Combinatorial` study of the Monte Carlo points
-  records them. A user records an exception type of their own with one
-  method, `LineCableModels.on_error(::Combinatorial, exception::MyError) = exception`.
+- `on_error` is public in `Commons` and in the root. A `Combinatorial` study records an
+  `OverlapError` and a `DomainError`, and a `LinearError` study what `Combinatorial`
+  records. A `MonteCarlo` trial draws again after them, and the `MonteCarlo` study records
+  a point whose nominal design or whose draws are infeasible. A user records an exception
+  type of their own with one method for each study,
+  `LineCableModels.on_error(::Combinatorial, exception::MyError) = exception`.
 - `ParametricResult`, `LinearErrorResult` and `MonteCarloResult` hold `failures`, the
   gridpoint identity and the exception of each failed point, in the order of the space.
   Their values, `length`, iteration and `result[k]` cover the computed points.
@@ -332,9 +334,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `build` of `CableDesign` and `LineCableSystem`. A scalar input of the wrong type throws a
   `MethodError`.
 - `Commons` defines the lifting grammar: `Grid`, `Gridspace`, `has_grid`, `parameterize`
-  and the composition types `Product` and `Zip`. Every input of a computation may be a
-  scalar or a `Grid` or `Gridspace`, at any depth of the tuples, vectors, named tuples and
-  pairs that contain it. A constructor lifts through the family method of its input family,
+  and the composition types `Product` and `Zip`. Every input of a scalar problem and of a
+  core formulation may be a scalar or a `Grid` or `Gridspace`, at any depth of the tuples,
+  vectors, named tuples and pairs that contain it. A study's own options, the computation
+  options, a study's inner formulation and the problems of a `ParametricProblem` are core
+  values: the calls that process spaces take no `Grid`. A constructor lifts through the family method of its input family,
   `(::Type{T})(arguments...; combine) where {T <: Family}`. A type outside a family lifts
   with one method of its own that calls `parameterize`.
 - `ScalarOrGrid{T}` is a `T`, a `Gridspace` of `T` or a non-empty deterministic `Grid` of
@@ -343,19 +347,47 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it receives a scalar and a space of it. `LineParametersProblem(system; …)`, `homogenize`,
   the target of `stranded`, `ParametricProblem`, `CableConstantsProblem(design; …)`,
   `CableConstants(design; …)` and the modal composition take it.
-- `compute(problem, formulation; options)` computes `ParametricProblem(problem, options)`,
-  and `compute(problem::ParametricProblem, formulation)` runs every action through one
-  runner in `Commons`, `traverse`, for a scalar or a space of problems and of formulations.
-  It materializes and validates the problems and the formulations before the first point,
-  then computes problem by problem. A scalar problem and a scalar formulation are a run of
-  one point, which returns its value. Any other call returns a `ParametricResult`, the
-  problem index fastest. A `ParametricProblem` keeps a scalar problem as a scalar, and
-  `LinearError` and `MonteCarlo` compute it as the space of one point.
-- `AbstractTraversal` is the supertype of `Combinatorial`, `LinearError` and `MonteCarlo`.
-  Each takes its options as `T(inner; options, keywords...)`, where a keyword sets the
-  option of the same name, normalized by `computation_options(T, options)`. The positional
-  constructor `T(inner, options)` takes normalized options and throws `ArgumentError` for
-  any other record.
+- `compute(problem, formulation; options)`, one method for a core formulation, a space of
+  them or a study, computes the `ParametricProblem` of the problem. Its `options` go to the
+  owner of each key: the computation options of the run, `verbosity`, `on_result` and
+  `retain_details`, to the call, and the others to the problem, as the options of the
+  backend, in every call, scalar or parametric. A core problem and a core formulation are a
+  run of one point, chosen by dispatch, which returns its value. A space with a core
+  formulation computes its default study, `Combinatorial`.
+  `compute(problem::ParametricProblem, study; options)` runs every action through one
+  runner in `Commons`, `traverse`. It materializes and validates the problems and the
+  formulations before the first point, then computes problem by problem. A `Combinatorial`
+  study returns a `ParametricResult`, the problem index fastest. A `ParametricProblem` keeps
+  a scalar problem as a scalar, a source of one point, and a study on it returns the
+  study's result.
+- No backend takes `verbosity` or `on_result`: the coaxial backend takes `trace`, the modal
+  backend `rotate` and `offdiagonal_tolerance`, and PSCAD its station, its files and its
+  reuse. A backend's native tool levels are its own computation options under keys of its
+  own. The PSCAD station's runner prints a line for each step, which the session relays as
+  a debug record of the `PSCAD` module, shown only by a logger that admits debug records. PSCAD's
+  project diagnostics stay in `pscad-console.txt`, and the exception of a failure shows their
+  last lines and the file's path. `PSCAD.RemoteConfig` takes no verbosity.
+- A line-parameter study chained into modal analysis, by `modal=` or by the modal
+  formulation in third place, chains each point: `Combinatorial` and `LinearError` give each
+  point's line parameters to modal analysis. A `MonteCarlo` study chained into modal analysis
+  throws an `ArgumentError`: Monte Carlo of the modal outputs is not built.
+- `AbstractTraversal` is the supertype of the studies `Combinatorial`, `LinearError` and
+  `MonteCarlo`, and `AbstractProblemSpace` the supertype of `ParametricProblem`. A study is
+  the formulation of a problem space, not of a problem, and a problem space is not a
+  problem, so a study of a study and a parametric problem of a parametric problem throw a
+  `MethodError`.
+- Options follow two levels, with one grammar, `compute(problem, formulation; options)`, at
+  each. The options of `ParametricProblem(space, options)` are the computation options of
+  the backend for every point. `Combinatorial` and `LinearError` have no options of their
+  own. The options of `MonteCarlo` are `trials`, `confidence`, `cdf_tol`, `distribution`,
+  `seed`, `max_failures`, `return_samples`, `return_histograms` and `bins`.
+  `formulation_options(MonteCarlo, options)` normalizes them, `formulation_options(study)`
+  returns them, and `MonteCarlo(inner; options, keywords...)` merges the keywords into
+  them. The
+  computation options of the run, `verbosity`, `on_result` and `retain_details`, are the
+  options of `compute(problem::ParametricProblem, study; options)`, which
+  `computation_options(T, options)` normalizes, one method for every study. A `Grid` among
+  the options of a study or of a run is refused at the call.
 - `resolve(problem, formulations; options)` returns one `Resolved` per formulation, a tuple
   for a tuple, which holds the problem and what one formulation needs from it. A backend
   computes one point with `compute(resolved, formulation; options)`. The coaxial and
@@ -370,10 +402,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `gridpoint` and its `wall_seconds`, `bytes`, `gc_seconds`, `compile_seconds` and
   `recompile_seconds`, for every backend, also for a point that reuses a native run. A
   result does not record timing. The log lines take the action from `description(problem)`, as in
-  "Line parameters computation started". The library emits its records only at the
-  levels that ask for them. When the options set `verbosity` or `on_result`, the run
-  computes in one `VerbosityLogger` at the `verbosity` levels, level 0 by default, which
-  filters the records of `on_result` too. The run of a space is called through
+  "Line parameters computation started". The runner's own progress and timing lines appear
+  only when `verbosity` asks for them. Without `verbosity` or `on_result` among the options,
+  LineCableModels does not filter log records, and the caller's logger decides. With
+  either, the run computes in one `VerbosityLogger`, which filters the records, those of
+  `on_result` too, by the `verbosity` levels, level 0 by default. The run of a space is called through
   `Base.invokelatest`, so it compiles from the values that it receives.
 - A vector of formulations is one value. Alternatives are a `Grid` or a `Gridspace`, as in
   `compute(problem, Grid((first, second)))`. A formulation space contains the formulations
@@ -381,15 +414,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   backend.
 - PSCAD records `compile_call_seconds` among its execution facts in
   `details(result).data.execution`.
-- Before the first point, `traverse` normalizes the options once with
+- Before the first point, `traverse` normalizes the options of the backend once with
   `computation_options(F, options)`, where `F` is the element type of the formulations. A
   line-parameter formulation reaches the coaxial backend's method and a modal formulation
   the modal backend's method, and cable constants and PSCAD normalize them by their own
   formulation types. A space that mixes backends, or a formulation type without a
   `computation_options` method, throws an `ArgumentError` that states the rule and the
   extension point.
-- `AbstractTraversal`, `ParametricProblem`, `Combinatorial` and `ParametricResult` are
-  defined in `Commons`, and `verbosity`, `VerbosityLogger` and `retain_gridpoint` are
+- `AbstractTraversal`, `AbstractProblemSpace`, `ParametricProblem`, `Combinatorial` and
+  `ParametricResult` are defined in `Commons`, and `verbosity`, `VerbosityLogger` and `retain_gridpoint` are
   public in `Commons`. A `ParametricResult` holds its values, its failures, the gridpoints
   of the space (the problem and formulation indices of the points) and the retained
   details, and a `LinearErrorResult` its values, failures and details. Neither contains the

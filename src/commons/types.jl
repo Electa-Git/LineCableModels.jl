@@ -8,22 +8,35 @@ abstract type AbstractProblemDefinition end
 """
 $(TYPEDEF)
 
-Supertype for scientific and higher-order computation selections.
+Supertype of the core formulations: the scientific and numerical methods selected to compute
+one problem.
 """
 abstract type AbstractFormulation end
 
 """
 $(TYPEDEF)
 
-Supertype of the higher-order formulations that compute every point of a problem space with
-an `inner` formulation: [`Combinatorial`](@ref), `LinearError` and `MonteCarlo`. Each
-subtype has the fields `inner` and `options` and one type parameter for each. The family
-has one keyword constructor, `T(inner; options, keywords...)`, which merges the keywords
-into `options` and normalizes them with `computation_options(T, options)`. Its positional
-constructor `T(inner, options)` takes normalized options and checks the built formulation
-with `validate`.
+Supertype of the studies that compute every point of a problem space with an `inner`
+formulation: [`Combinatorial`](@ref), `LinearError` and `MonteCarlo`. The inner formulation
+is a core formulation, an `AbstractFormulation`, and a study is a formulation of a problem
+space, not of a problem. Each subtype has the field `inner`. A study whose formulation
+determines or needs controls of its own, such as the trials of `MonteCarlo`, stores them in
+`options`. They are scalars, and `formulation_options` of its type normalizes them. The
+computation options of the run, `verbosity`, `on_result` and `retain_details`, are the
+`options` of `compute(problem::ParametricProblem, study; options)`, which
+`computation_options(T, options)` normalizes once, one method for every study.
 """
-abstract type AbstractTraversal <: AbstractFormulation end
+abstract type AbstractTraversal end
+
+"""
+$(TYPEDEF)
+
+Supertype of the spaces of core problems that a study computes:
+[`ParametricProblem`](@ref). A problem space stores a core problem, an
+`AbstractProblemDefinition`, or a space of them, and the computation options of the backend
+for every point.
+"""
+abstract type AbstractProblemSpace end
 
 """
 $(TYPEDEF)

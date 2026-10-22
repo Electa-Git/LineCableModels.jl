@@ -52,14 +52,13 @@ import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id,
                           Expression, FormulaDefinition
 import ..LineCableModels: parameterize
-using ..LineCableModels: AbstractGrid, Gridspace, ScalarOrGrid, ParametricResult,
-                         ParametricProblem, Resolved
+using ..LineCableModels: AbstractGrid, Gridspace, ScalarOrGrid, ParametricResult, Resolved
 import ..LineCableModels: resolve, retain_gridpoint
 import ..LineCableModels: verbosity
 #! explicit-imports: off
 import ..LineCableModels: description
 #! explicit-imports: on
-import ..Commons: AbstractProblemDefinition, AbstractFormulation,
+import ..Commons: AbstractProblemDefinition, AbstractFormulation, AbstractTraversal,
                   AbstractProblemResult, AbstractCoreResult,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,

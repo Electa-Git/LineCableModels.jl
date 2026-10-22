@@ -21,23 +21,21 @@ computation_options(::Type{<:ModalAnalysisFormulation}, record::ComputationOptio
 
 # A normalized record is returned as it is.
 computation_options(::Type{LineCableModelsModal},
-    record::ComputationOptions{<:NamedTuple{(:offdiagonal_tolerance, :on_result,
-        :rotate, :verbosity), <:Tuple{Real, Any, Bool, Any}}}) = record
+    record::ComputationOptions{<:NamedTuple{(:offdiagonal_tolerance, :rotate),
+        <:Tuple{Real, Bool}}}) = record
 
+# The modal backend's computation options are `rotate` and `offdiagonal_tolerance`. The
+# verbosity and the callable of a computation are options of its run.
 function computation_options(::Type{LineCableModelsModal}, record::ComputationOptions)::ComputationOptions
     options = record.data
-    isempty(setdiff(keys(options), (:rotate, :offdiagonal_tolerance, :on_result, :verbosity))) ||
+    isempty(setdiff(keys(options), (:rotate, :offdiagonal_tolerance))) ||
         throw(ArgumentError("unknown modal action options: $(Tuple(keys(options)))"))
     tolerance = get(options, :offdiagonal_tolerance, 1e-6)
     tolerance isa Real && isfinite(tolerance) && tolerance >= 0 ||
         throw(ArgumentError("offdiagonal_tolerance must be finite and nonnegative"))
-    callback = get(options, :on_result, nothing)
-    (callback === nothing || callback isa Function) ||
-        throw(ArgumentError("on_result must be a callable function or nothing"))
     rotate = get(options, :rotate, true)
     rotate isa Bool || throw(ArgumentError("rotate must be Bool"))
-    return ComputationOptions(; offdiagonal_tolerance=tolerance, on_result=callback,
-        rotate, verbosity=get(options, :verbosity, 0))
+    return ComputationOptions(; offdiagonal_tolerance=tolerance, rotate)
 end
 
 """Store one scalar modal computation's results, common arrays, selected work, and diagnostics."""

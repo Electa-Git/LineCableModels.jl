@@ -21,7 +21,7 @@ import ...LineCableModels: Expression, nominal, FormulaDefinition, formula, para
 import ...LineCableModels: line_length
 import ...LineCableModels: Grid, Gridspace, ScalarOrGrid, ParametricProblem, Resolved
 import ...LineCableModels
-import ...Commons: AbstractProblemDefinition, AbstractFormulation,
+import ...Commons: AbstractProblemDefinition, AbstractFormulation, AbstractTraversal,
                   FormulationOptions, ComputationOptions, ComputationDetails,
                   compute, computation_options, computation_details, formulation_options, details,
                   initialize_buffers, formulas

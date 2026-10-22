@@ -75,34 +75,52 @@
     end
 end
 
-@testitem "PSCAD / completion verbosity and compile-call timing scope" tags=[:integration, :pscad] begin
+@testitem "PSCAD / relayed station lines, completion records and compile-call timing scope" tags=[:integration, :pscad] begin
     using Logging
     const P = LineCableModels.PSCAD
     function P.remote_command(::Val{:local_completion_probe}, config::P.RemoteConfig, command::AbstractString)
         output = joinpath(config.local_root, "case", "outputs")
-        script = "for name in (\"pscad-console.txt\", \"result_zm.out\", \"result_zp.out\", \"result_ym.out\", \"result_yp.out\"); write(joinpath(" *
+        script = "println(\"[0.0] Starting PSCAD line-constants computation\"); " *
+            "println(stderr, \"station diagnostic\"); " *
+            "for name in (\"pscad-console.txt\", \"result_zm.out\", \"result_zp.out\", \"result_ym.out\", \"result_yp.out\"); write(joinpath(" *
             repr(output) * ", name), \"fixture\"); end; write(joinpath(" * repr(output) *
             ", \"timing.txt\"), \"0.0328471\")"
         return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
     end
-    for level in 0:2
+    # Each line of the station's standard output is a debug record of the PSCAD module, as is
+    # the completion record. A logger that admits debug records shows them. A run's verbosity
+    # narrows the caller's logger and never widens it. The standard error stays in its file.
+    narrowed(levels) = log -> LineCableModels.VerbosityLogger(log, levels)
+    for (min_level, scope, shown) in ((Logging.Info, identity, false),
+            (Logging.Debug, identity, true),
+            (Logging.Debug, narrowed((default = 0,)), false),
+            (Logging.Debug, narrowed((default = 0, PSCAD = 1)), false),
+            (Logging.Debug, narrowed((default = 0, PSCAD = 2)), true),
+            (Logging.Info, narrowed((default = 0, PSCAD = 2)), false))
         mktempdir() do root
             config = P.RemoteConfig("fixture", root, "scratch", "julia", "python";
                 local_root=root, transport=:local_completion_probe)
             directory = mkpath(joinpath(root, "case"))
             project = joinpath(directory, "generated.pscx")
             write(project, "protocol fixture")
-            log = Test.TestLogger(min_level=Logging.Debug)
-            result = with_logger(log) do
+            log = Test.TestLogger(min_level=min_level)
+            result = with_logger(scope(log)) do
                 P.run_remote_pscad(config, project, joinpath(directory, "outputs"),
                         Formulation(:pscad), 10.0.^range(-1, 7; length=101);
-                    output_stem="fixture", verbosity=level)
+                    output_stem="fixture")
             end
             @test result.elapsed_seconds ≈ 0.0328471
             @test result.elapsed_scope == P.PSCAD_TIMING_SCOPE
+            relayed = filter(record -> record.message ==
+                                       "[0.0] Starting PSCAD line-constants computation", log.logs)
+            @test length(relayed) == (shown ? 1 : 0)
+            @test all(record -> record.level == Logging.Debug && record._module === P, relayed)
+            @test !any(record -> occursin("station diagnostic", string(record.message)), log.logs)
+            @test read(joinpath(directory, "outputs", "transport-stderr.txt"), String) ==
+                  "station diagnostic\n"
             completions = filter(record->record.message == "PSCAD frequency scan completed", log.logs)
-            if level < 2
-                @test isempty(log.logs)
+            if !shown
+                @test isempty(completions)
             else
                 record = only(completions)
                 @test record.kwargs[:compile_call_seconds] ≈ 0.0328471

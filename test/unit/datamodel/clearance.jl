@@ -141,11 +141,11 @@ end
         (Grid(0.021, AbsoluteError(0.002)),))
     inner=Formulation(options = (kron_reduction = false,
         reduce_bundle = false, ideal_transposition = false))
-    formulation=MonteCarlo(inner; trials = 8, seed = 8, return_samples = true,
-        retain_details = true)
+    formulation=MonteCarlo(inner; trials = 8, seed = 8, return_samples = true)
+    retained=(retain_details = true,)
 
     # A draw whose cables overlap is discarded, as if it was never drawn, and drawn again.
-    sampled=@test_logs compute(ParametricProblem(space), formulation)
+    sampled=@test_logs compute(ParametricProblem(space), formulation; options = retained)
     discarded=count(<(0.02), drawn)
     @test discarded > 0
     @test length(drawn) == 1 + 8 + discarded # the nominal problem, accepted, discarded
@@ -153,13 +153,13 @@ end
     @test sampled.trial_counts == [8]
     @test keys(sampled.details.data) == (:trials,)
     accepted=filter(>=(0.02), drawn[2:end])
-    replay=compute(ParametricProblem(space), formulation)
+    replay=compute(ParametricProblem(space), formulation; options = retained)
     @test samples(replay) == samples(sampled)
     @test filter(>=(0.02), drawn[(8 + discarded + 3):end]) == accepted
 
     # `max_failures` overlapping draws in a row end a point that cannot draw a feasible
     # case. The distribution of the point has no feasible draw, a `DomainError` that the
-    # Combinatorial study of the points records. Point 2 draws feasible cases.
+    # study records. Point 2 draws feasible cases.
     empty!(drawn)
     infeasible=MonteCarlo(inner; trials = 2, seed = 8, max_failures = 5,
         distribution = (_rng, mean, sigma)->mean-4sigma)
@@ -208,9 +208,8 @@ end
     # nominal build and draws nothing. Point 1 computes, and `on_result` receives its
     # `MonteCarloResult` of one point.
     received=[]
-    result=compute(ParametricProblem(space, ComputationOptions((on_result =
-            (problem, index, point) -> push!(received, (; problem, index, point)),))),
-        formulation)
+    result=compute(ParametricProblem(space), formulation; options = (on_result =
+        (problem, index, point) -> push!(received, (; problem, index, point)),))
     @test drawn[1:2] == [0.03, 0.015]
     @test length(drawn) == 2 + 3
     @test length(result) == 1

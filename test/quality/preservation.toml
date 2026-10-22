@@ -30,7 +30,7 @@ allocations = "ceiling"
 "test/unit/commons/gridspace.jl" = 10
 "test/unit/commons/observation_quantity.jl" = 9
 "test/unit/commons/owned_records.jl" = 7
-"test/unit/commons/runner.jl" = 5
+"test/unit/commons/runner.jl" = 6
 "test/unit/datamodel/annular_strand.jl" = 2
 "test/unit/datamodel/assembly_lowering.jl" = 2
 "test/unit/datamodel/baseparams/geometry.jl" = 1
@@ -70,7 +70,7 @@ allocations = "ceiling"
 "test/unit/reportbuilder/histogram_observations.jl" = 1
 "test/unit/reportbuilder/uq_comparisons.jl" = 3
 "test/unit/textdisplay/policy.jl" = 2
-"test/unit/uq/formulations.jl" = 10
+"test/unit/uq/formulations.jl" = 11
 # Ceiling: JET optimization reports per frequency-loop kernel, with
 # `target_modules = (LineCableModels,)` on the default coaxial computation of a
 # three-phase cable system and on each modal formula. The current reports come from the

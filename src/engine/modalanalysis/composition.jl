@@ -9,12 +9,15 @@ function compute(problem::ScalarOrGrid{LineParametersProblem},
     return _modal_results(phase,ModalAnalysisFormulation(modal),modal_options)
 end
 
-# A parametric study composes with modal analysis of each completed line-parameter result.
+# A parametric problem composes with modal analysis of each completed line-parameter result,
+# computed with a core formulation, a space of them or a study whose result space transports
+# into modal problems. `options` are the computation options of the parametric run.
 function compute(problem::ParametricProblem,
-        formulation::ScalarOrGrid{AbstractFormulation},
+        formulation::Union{ScalarOrGrid{AbstractFormulation}, AbstractTraversal},
         modal::ScalarOrGrid{ModalAnalysisFormulation};
+        options::Union{NamedTuple,ComputationOptions}=ComputationOptions(),
         modal_options::Union{NamedTuple,ComputationOptions}=ComputationOptions())
-    phase=compute(problem,formulation)
+    phase=compute(problem,formulation;options)
     return _modal_results(phase,modal,modal_options)
 end
 

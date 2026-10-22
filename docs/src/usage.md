@@ -33,7 +33,13 @@ sampled = compute(
 [`Formulation`](@ref) selects the physical and numerical methods used for one
 problem. `Combinatorial` evaluates every selected point. `LinearError` applies
 direct linear uncertainty propagation. `MonteCarlo` samples independent
-realizations within each selected point.
+realizations within each selected point. These three are studies, the formulations of a
+problem space: each computes the points of a space of core problems with a core
+formulation. Options follow two levels. The options of `ParametricProblem(problem_space,
+options)` are the computation options of the backend for every point, and the options of
+the parametric call, `compute(problem, study; options)`, are the computation options of the
+run: `verbosity`, `on_result` and `retain_details`. Grids vary the inputs of one problem and
+formulation, never a study, its options, or the options of a run.
 
 Any final formulation slot can be an explicit finite source. The constructor
 then returns a target-bearing formulation space. The following declaration
@@ -183,11 +189,13 @@ Monte Carlo settings and resolved point data are available through
 `root_seed`, `point_seed`, `trial_count`, `confidence`, `cdf_tolerance`, and
 `sampling_distribution`.
 
-Every Monte Carlo execution control may be supplied in an ordinary named
-tuple, such as `MonteCarlo(formulation; options=(trials=1000, seed=42))`.
-Existing keyword shorthand such as `MonteCarlo(formulation; trials=1000, seed=42)`
-uses the same validation. Normalized settings are stored in
-`formulation.options`. An options type or cast is unnecessary.
+Every Monte Carlo option may be supplied in an ordinary named tuple, such as
+`MonteCarlo(formulation; options=(trials=1000, seed=42))`. Existing keyword shorthand such
+as `MonteCarlo(formulation; trials=1000, seed=42)` uses the same validation. The constructor
+stores the normalized options in `study.options`, and they never vary. An options type or
+cast is unnecessary. `retain_details`, which retains the computation details of each
+accepted trial, is a computation option of the run:
+`compute(problem_space, study; options=(retain_details=true,))`.
 
 A draw whose build throws `OverlapError`, or whose build or computation throws
 `DomainError`, is infeasible. Monte Carlo discards the infeasible draw and draws again,

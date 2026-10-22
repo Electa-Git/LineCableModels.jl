@@ -33,10 +33,13 @@ end
         push!(calls, index)
     end
     options = (on_result=callback,)
-    # The normalized record retains concrete fields.
-    execution = LineCableModels.computation_options(LineCableModelsCoaxial, ComputationOptions(options))
+    # The callable is an option of the run, whose normalized record retains concrete fields,
+    # and not of the backend.
+    execution = LineCableModels.computation_options(AbstractTraversal, ComputationOptions(options))
     @test execution.data.on_result === callback
     @test fieldtype(typeof(execution.data), :on_result) === typeof(callback)
+    @test_throws ArgumentError LineCableModels.computation_options(LineCableModelsCoaxial,
+        ComputationOptions(options))
     batch = compute(problem, Grid((inner, inner)); options)
     @test calls == [1, 2]
     @test all(value -> line_length(value) == problem.system.line_length, batch)
@@ -45,17 +48,17 @@ end
         options)
     @test calls == [1]
     @test line_length(value) == problem.system.line_length
+    # The callable is a computation option of the run of a study, in its call.
     for outer in (Combinatorial(inner), LinearError(inner))
         empty!(calls)
-        result = compute(ParametricProblem(space, ComputationOptions(options)), outer)
+        result = compute(ParametricProblem(space), outer; options)
         @test calls == [1]
         @test line_length(first(result)) == problem.system.line_length
     end
     # A Monte Carlo point calls `on_result` once, with the result of that point.
     empty!(calls)
-    sampled = compute(ParametricProblem(space, ComputationOptions((on_result =
-            (problem, index, point) -> callback(problem, index, only(point)),))),
-        MonteCarlo(inner; options=(trials=2, seed=1)))
+    sampled = compute(ParametricProblem(space), MonteCarlo(inner; options=(trials=2, seed=1));
+        options = (on_result = (problem, index, point) -> callback(problem, index, only(point)),))
     @test calls == [1]
     @test line_length(first(sampled)) == problem.system.line_length
 end
@@ -138,11 +141,12 @@ end
         (Grid((20.0, 40.0), AbsoluteError(0.5)),))
     problem = ParametricProblem(space)
     options = (trials=4, seed=71, distribution=Normal(10, 3),
-        return_samples=true, return_histograms=true, bins=2, retain_details=true)
+        return_samples=true, return_histograms=true, bins=2)
     formulation = @inferred MonteCarlo(inner; options)
     @test formulation.options.data.distribution === options.distribution
-    sampled = compute(problem, formulation)
-    replay = compute(problem, MonteCarlo(inner; options...))
+    retained = (retain_details=true,)
+    sampled = compute(problem, formulation; options = retained)
+    replay = compute(problem, MonteCarlo(inner; options...); options = retained)
     @test samples(sampled) == samples(replay)
     @test statistics(sampled) == statistics(replay)
     @test sampled.point_seeds == replay.point_seeds

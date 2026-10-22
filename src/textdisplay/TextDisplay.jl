@@ -395,7 +395,7 @@ name(::Type{<:AbsoluteGrid}) = "Absolute-error Grid"
 name(::Type{<:Gridspace{Target}}) where {Target} = string(name(Target), " parameter space")
 
 name(::Type{<:Combinatorial}) = "Combinatorial"
-Base.summary(io::IO, ::Combinatorial) = print(io, "Combinatorial formulation")
+Base.summary(io::IO, ::Combinatorial) = print(io, "Combinatorial study")
 function Base.show(io::IO, formulation::Combinatorial)
     print(io, "Combinatorial(")
     show(IOContext(io, :compact => true), formulation.inner)

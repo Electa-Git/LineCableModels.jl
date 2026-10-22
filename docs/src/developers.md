@@ -21,12 +21,19 @@ println("Problem definitions")
 print(Main.DocumentationTrees.type_tree(AbstractProblemDefinition))
 println("\nFormulations")
 print(Main.DocumentationTrees.type_tree(AbstractFormulation))
+println("\nStudies")
+print(Main.DocumentationTrees.type_tree(AbstractTraversal))
+println("\nProblem spaces")
+print(Main.DocumentationTrees.type_tree(AbstractProblemSpace))
 println("\nResults")
 print(Main.DocumentationTrees.type_tree(AbstractProblemResult))
 ```
 
-`Combinatorial`, `LinearError`, and `MonteCarlo` occupy the same formulation
-tree. UQ uses the same computation supertypes. Its completed
+`Combinatorial`, `LinearError` and `MonteCarlo` are studies, subtypes of
+`AbstractTraversal`, and `ParametricProblem` is a problem space, a subtype of
+`AbstractProblemSpace`. A study computes a space of core problems with a core formulation.
+It is not a formulation, and a problem space is not a problem. UQ uses the same computation
+supertypes. Its completed
 collections are subtypes of `AbstractUncertaintyResult`, while deterministic finite
 collections are subtypes of `AbstractParametricResult`.
 
@@ -477,10 +484,14 @@ against itself.
 
 ## Lifting
 
-Every input of a computation may be a scalar or a finite space at any depth of the tuples,
-vectors, named tuples and pairs that contain it. A finite space is a `Grid` or a
-`Gridspace`, and `has_grid` tells whether a value holds one. `Commons` defines this grammar,
-and the modules extend it by dispatch.
+Every input of a scalar problem and of a core formulation, its formulation options
+included, may be a scalar or a finite space at any depth of the tuples, vectors, named
+tuples and pairs that contain it. A finite space is a `Grid` or a `Gridspace`, and
+`has_grid` tells whether a value holds one. `Commons` defines this grammar, and the modules
+extend it by dispatch. The calls that process spaces take scalars. A study's own options,
+the computation options of a run, a study's inner formulation and the problems of a
+`ParametricProblem` are core values, so no study holds a study and no parametric problem
+holds a parametric problem.
 
 - A call without a `Grid` or a `Gridspace` is the scalar call, at no extra cost. A call
   with one returns a `Gridspace{Target}` of what the scalar call returns, and each point
@@ -494,8 +505,8 @@ and the modules extend it by dispatch.
 - A source selects its points by index. A source type of your own that subtypes
   `AbstractGrid` defines `length` and `getindex`.
 
-What dispatches on a scalar `T` dispatches on a space of `T`. `ScalarOrGrid{T}` writes that
-rule in one signature. It admits a `T` and a `Gridspace` of `T`, and also a non-empty `Grid`
+Within the inputs of one scalar problem and formulation, what dispatches on a scalar `T`
+dispatches on a space of `T`. `ScalarOrGrid{T}` writes that rule in one signature. It admits a `T` and a `Gridspace` of `T`, and also a non-empty `Grid`
 of `T`, whose values can mix subtypes of `T`. A vector is one value, and alternatives are a `Grid`, as in
 `Grid((a, b))`. A `Gridpoint` and an uncertain grid are not members. Uncertain values lift
 through the family methods, which accept any `Grid`. A method typed `ScalarOrGrid{T}` lifts a
@@ -594,24 +605,27 @@ The first method types its `material` as a `ScalarOrGrid` of materials, so that 
 
 ## Running a computation
 
-Every call `compute(problem, formulation; options)`, scalar or space, computes
-`ParametricProblem(problem, options)`, which runs through one runner in `Commons`,
-`traverse`. It takes a problem and a formulation, each a `ScalarOrGrid`, and computes the
-Cartesian product of their points:
+A call `compute(problem, formulation; options)`, for a core formulation, a space of them or a
+study, computes the `ParametricProblem` of `problem` and the computation options of the
+backend, with the computation options of the run in the call. A core problem and a core
+formulation are a run of one point, chosen by dispatch. A space with a core formulation
+computes its default study, `Combinatorial`. Both run through one runner in `Commons`,
+`traverse`, which computes the Cartesian product of the points of the problem's space and of
+the formulations of the study:
 
-1. It materializes and validates the problems and the formulations before the first point,
-   and the owner of the formulations normalizes the options once, with
-   `computation_options(F, options)` for their element type `F`.
+1. It materializes and validates the problems and the formulations before the first point.
+   Each owner normalizes its options once. The owner of the formulations normalizes those of
+   the backend with `computation_options(F, options)` for their element type `F`. The study
+   normalizes those of the run with `computation_options(T, options)` for its type `T`.
 2. Problem by problem, it calls `resolve(problem, formulations; options)` once.
 3. For each formulation it calls the backend's point method,
    `compute(resolved, formulation; options)`, on the `Resolved` value of that formulation.
-4. A scalar problem and a scalar formulation are a run of one point, which returns its value.
-   Any other call returns a `ParametricResult`, its values in space order, the problem index
-   fastest.
+4. A run of one point returns its value. A study returns its result, for `Combinatorial` a
+   `ParametricResult`, its values in space order, the problem index fastest.
 
-A space records a point whose problem build, resolve or computation throws an exception that
-`on_error(study, exception)` returns for the `Combinatorial` study. It keeps the point in the
-`failures` of the result and continues. Any other exception stops the run with its backtrace.
+A study records a point whose problem build, resolve or computation throws an exception that
+`on_error(study, exception)` returns for the study. It keeps the point in the `failures` of
+the result and continues. Any other exception stops the run with its backtrace.
 
 The runner writes the work around the points once. It logs the run and its progress with
 the action that `description(problem)` returns, and the timing of each point in the group
@@ -668,20 +682,29 @@ its inputs. A point whose run is not in the table launches it, and a later point
 same native input reuses it. Each point completes its result for its own
 formulation.
 
-A higher-order formulation, such as `LinearError` or `MonteCarlo`, subtypes
-`AbstractTraversal`. It has the fields `inner` and `options` and one inner constructor,
-which validates what it builds:
+A study, such as `LinearError` or `MonteCarlo`, subtypes `AbstractTraversal`. It has the
+field `inner`, a core formulation, and its inner constructor validates what it builds:
 
 ```julia
-LinearError(inner::F, options::O) where {F <: AbstractFormulation, O <: ComputationOptions} =
-    validate(new{F, O}(inner, options))
+LinearError(inner::F) where {F <: AbstractFormulation} = validate(new{F}(inner))
 ```
 
-The family's keyword constructor, `T(inner; options, keywords...)`, normalizes the options
-with `computation_options(T, options)`, which admits `retain_details` unless the type adds
-its own method, as `MonteCarlo` does. Its method `compute(problem::ParametricProblem,
-formulation)` calls `traverse` on the problem's space and builds its own result from the
-returned `(; values, failures, details, gridpoints)`.
+A study whose formulation determines or needs controls of its own holds them in `options`,
+which `formulation_options` of its type normalizes, as `MonteCarlo` does with its trials and
+sampling. The computation options of its run are those of the parametric call, and
+`computation_options(T, options)` normalizes them, one method for every study. Its method
+`compute(problem::ParametricProblem, study; options)` calls `traverse(problem, study;
+options)` and builds its own result from the returned `(; values, failures, details,
+gridpoints)`.
+
+The type of the study selects the steps of a point that differ between studies. The runner
+builds each point with `materialize(study, source)` and resolves each problem once with
+`resolve(study, problem, formulations; options)`. The value of a point is the backend's
+`compute(resolved, formulation; options)`, or a `traverse` method on the type of a study
+whose points compute otherwise. A Monte Carlo study builds the nominal problem of each point
+before the first draw and takes it as `Resolved(problem, (;))`. Its points compute their
+trials from the uncertain point at their index in the space, which the run of the study
+keeps, with the seed of the point.
 
 ## Developer paths
 

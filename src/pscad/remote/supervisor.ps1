@@ -22,9 +22,6 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $PSCADVersion,
     [Parameter(Mandatory = $true)]
-    [ValidateRange(0, 2)]
-    [int] $Verbosity,
-    [Parameter(Mandatory = $true)]
     [ValidateRange(1, 2147483647)]
     [int] $TimeoutSeconds
 )
@@ -221,8 +218,7 @@ $runnerArguments = @(
     "`"$FrequencyStart`"",
     "`"$FrequencyEnd`"",
     "`"$FrequencyIncrements`"",
-    "`"$PSCADVersion`"",
-    "`"$Verbosity`""
+    "`"$PSCADVersion`""
 )
 $invokeLines = @(
     "@echo off",
@@ -247,16 +243,12 @@ try {
         -PassThru `
         -WindowStyle Hidden
     Set-Content -LiteralPath $ownerPath -Value @($process.Id, $invokePath)
-    if ($Verbosity -ge 2) {
-        [Console]::Out.WriteLine("Started PSCAD runner process $($process.Id)")
-    }
 
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
+    # The runner's lines pass through as it writes them.
     while (-not $process.HasExited) {
-        if ($Verbosity -ge 2) {
-            Write-NewLines -Path $stdoutPath -Count ([ref] $stdoutCount) -ErrorStream $false
-            Write-NewLines -Path $stderrPath -Count ([ref] $stderrCount) -ErrorStream $true
-        }
+        Write-NewLines -Path $stdoutPath -Count ([ref] $stdoutCount) -ErrorStream $false
+        Write-NewLines -Path $stderrPath -Count ([ref] $stderrCount) -ErrorStream $true
         if ($stopwatch.Elapsed.TotalSeconds -ge $TimeoutSeconds) {
             $timedOut = $true
             break
@@ -285,17 +277,10 @@ try {
             [Console]::Error.WriteLine("PSCAD runner did not write an exit code")
             $exitCode = 1
         }
-        if ($Verbosity -ge 2) {
-            [Console]::Out.WriteLine(
-                "PSCAD runner process $($process.Id) exited with code $exitCode"
-            )
-        }
     }
 
-    if ($Verbosity -ge 2) {
-        Write-NewLines -Path $stdoutPath -Count ([ref] $stdoutCount) -ErrorStream $false
-        Write-NewLines -Path $stderrPath -Count ([ref] $stderrCount) -ErrorStream $true
-    }
+    Write-NewLines -Path $stdoutPath -Count ([ref] $stdoutCount) -ErrorStream $false
+    Write-NewLines -Path $stderrPath -Count ([ref] $stderrCount) -ErrorStream $true
 } catch {
     [Console]::Error.WriteLine($_.Exception.ToString())
     if ($null -ne $process -and -not $process.HasExited) {

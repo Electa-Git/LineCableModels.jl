@@ -161,8 +161,8 @@
 
     # A plain Grid of formulations is a space of them.
     @test collect(compute(CountedProblem(1), formulas)) == CountedResult.(Int[1, 10])
-    @test_throws ArgumentError Combinatorial(Grid((1, 2)))
-    @test_throws ArgumentError Combinatorial(
+    @test_throws MethodError Combinatorial(Grid((1, 2)))
+    @test_throws MethodError Combinatorial(
         Gridspace{Int}(identity, (Grid((1, 2)),)),
     )
 

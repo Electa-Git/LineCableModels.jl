@@ -196,7 +196,7 @@ end
         (Grid(0.1, AbsoluteError(0.001)),))
     sampled=compute(ParametricProblem(space),
         MonteCarlo(selected; trials = 3, seed = 314, distribution = :normal,
-            return_samples = true, retain_details = true))
+            return_samples = true); options = (retain_details = true,))
     @test sampled.trial_counts == [3]
     for trial in only(details(sampled).data.trials),
         family in (:earth_impedance, :earth_admittance)

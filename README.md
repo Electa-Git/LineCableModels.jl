@@ -144,11 +144,11 @@ summary = DataFrame(observables(
 After loading a Makie package, `Makie.hist`, `Makie.stairs`, `Makie.ecdfplot`,
 `Makie.lines`, and `Makie.qqplot` display retained distribution information.
 
-Higher-order calculations keep supplemental computation output separate from
-their scientific products. `details(result)` returns an empty `ComputationDetails` by
-default. Its payload is available through `.data`. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
-`options=(retain_details=true,)` only when the core computation owner has
-registered a `computation_details` method and those records are needed.
+Studies keep supplemental computation output separate from their scientific products.
+`details(result)` returns an empty `ComputationDetails` by default. Its payload is
+available through `.data`. Pass `options=(retain_details=true,)` to the computation of a
+`Combinatorial`, `LinearError`, or `MonteCarlo` study only when the core computation owner
+has registered a `computation_details` method and those records are needed.
 Monte Carlo draws again a draw whose build throws `OverlapError`, or whose build or
 computation throws `DomainError`, and records nothing about it. `max_failures` such draws
 in a row for one trial stop the study. Any other exception propagates. The resulting

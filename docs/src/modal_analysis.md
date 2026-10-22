@@ -48,8 +48,11 @@ same way. Cable constants are not line parameters and do not compose with modal 
 `modal_options` controls the modal action only. A nonempty value requires
 `modal`. The upstream solver, including its selected backend and batched path,
 completes before modal analysis begins. Upstream `on_result`, progress, and
-timing belong to that upstream call. Modal `on_result`, progress, and timing
-belong to the downstream call. Each modal result keeps the gridpoint identity
+timing belong to the run of that upstream call. Modal `on_result`, progress, and timing
+belong to the run of the downstream call, with the modal options `rotate` and
+`offdiagonal_tolerance`. A `Combinatorial` or `LinearError` study chains each point's line
+parameters into modal analysis. A `MonteCarlo` study chained into modal analysis is refused,
+because Monte Carlo of the modal outputs is not built. Each modal result keeps the gridpoint identity
 of its source. A missed iteration or coupling target produces a warning and a
 diagnostic record. Finite results are returned. The iteration convergence
 setting is a numerical target. It does not bound the physical error. Inspect

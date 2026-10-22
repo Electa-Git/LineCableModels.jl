@@ -168,8 +168,7 @@ end
           Set((p, q) for p in 1:3 for q in 1:3)
     @test any(r->r.estimated_error>1e-14*abs(r.value), records)
     @test all(isfinite, result.Z.values)&&all(isfinite, result.Y.values)
-    execution=computation_options(LineCableModelsCoaxial,
-        ComputationOptions(trace = true, verbosity = (default = 0,)))
+    execution=computation_options(LineCableModelsCoaxial, ComputationOptions(trace = true))
     blueprints=[LineCableModels.DataModel.flatten(d, Float64)
                 for d in problem.system.designs]
     w=E.LineParametersWorkspace(problem, Formulation(), execution, blueprints)

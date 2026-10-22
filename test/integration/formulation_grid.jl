@@ -44,8 +44,8 @@
               for formulation in formulations
               for problem in problems]
 
-    run=compute(ParametricProblem(problem_space),
-        Combinatorial(formulation_space; options=(retain_details=true,)))
+    run=compute(ParametricProblem(problem_space), Combinatorial(formulation_space);
+        options=(retain_details=true,))
     @test length(run) == length(problems) * length(formulations)
     @test length(details(run).data.points) == length(run)
     columns = [details(run[1, j]).data.formulation for j in eachindex(formulations)]
@@ -95,10 +95,11 @@
         )
     end
 
-    for source in (problem_space, ParametricProblem(problem_space, ComputationOptions((; on_result))))
+    # The callable is a computation option of the run, in the call for a space and for a
+    # parametric problem alike.
+    for source in (problem_space, ParametricProblem(problem_space))
         empty!(completions)
-        automatic=source isa ParametricProblem ? compute(source, formulation_space) :
-            compute(source, formulation_space; options = (; on_result))
+        automatic=compute(source, formulation_space; options = (; on_result))
         @test all(same_parameters.(collect(automatic), expected))
         @test length(completions) == length(expected)
         # Problem by problem, each value at its index in the space, the problem index fastest.

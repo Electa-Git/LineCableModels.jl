@@ -176,7 +176,7 @@ function _aggregate(
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
 
-_uncertain_arguments(point::Gridpoint) = _uncertain_arguments(NamedTuple[], point, ())
+_uncertain_arguments(point) = _uncertain_arguments(NamedTuple[], point, ())
 # The uncertain arguments below `value` at `path`, appended to `records`.
 function _uncertain_arguments(records, value::UncertainValue, path)
     return push!(records,(argument_path=path,nominal=value.nominal,standard_deviation=value.sigma))
@@ -232,66 +232,82 @@ function _attempt(drawn::AbstractProblemDefinition, sampler)
         options)
 end
 
-"""
-    compute(resolved::Resolved, formulation::MonteCarlo; options)
+# A point of a Monte Carlo study builds its nominal problem from the means of its uncertain
+# arguments before the first draw, and the constructor of the problem validates it.
+materialize(::MonteCarlo, source) =
+    realize(Random.Xoshiro(0), source, (_rng, mean, _sigma) -> mean)
 
-Compute the trials of one point of a Monte Carlo study and return the `MonteCarloResult` of
-that point, whose root seed is the seed of the point. `resolved.problem` is the nominal
-problem of the point, built from the means of its uncertain arguments before the first
-draw, and `resolved.input` holds the uncertain point, its seed and its gridpoint identity.
-Each trial is a point of the inner formulation's backend, computed with the `options` that
-its owner normalized. A trial that ends in a later five-second interval of the point than
-the one in which it began logs the accepted count, the elapsed time and an estimate of the
-remaining time in the group `:progress`.
-"""
-function compute(resolved::Resolved, formulation::MonteCarlo; options::ComputationOptions)
-    (; point, seed, gridpoint) = resolved.input
+# The run of a Monte Carlo study keeps the space of its problem: each point computes its
+# trials from the uncertain point at its index.
+traverse(space::ScalarOrGrid{AbstractProblemDefinition}, ::MonteCarlo, run::NamedTuple) =
+    traverse(merge(run, (; space)))
+
+# The input of a point of a Monte Carlo study is its nominal problem alone. The backend
+# resolves each drawn problem of the point's trials.
+resolve(::MonteCarlo, problem, formulations; options) =
+    map(Returns(Resolved(problem, (;))), formulations)
+
+# The value of a point of a Monte Carlo study comes from the trials of its uncertain point,
+# the point of the problem's space at its index. The seed of the point combines the root
+# seed of the study with that index. It returns the `MonteCarloResult` of that point, whose root
+# seed is the seed of the point. `input.problem` is the nominal problem of the point. Each
+# trial is a point of the inner formulation's backend, computed with the options of the
+# problem that its owner normalized. A trial that ends in a later five-second interval of
+# the point than the one in which it began logs the accepted count, the elapsed time and an
+# estimate of the remaining time in the group `:progress`.
+function traverse(study::MonteCarlo, run::NamedTuple, gridpoint::NamedTuple, input,
+        ::AbstractFormulation)
+    point = points(run.space, gridpoint.problem_index)
+    seed = study.options.data.seed ⊻
+           (UInt64(gridpoint.problem_index - 1) * 0x9e3779b97f4a7c15)
     rng = Random.Xoshiro(seed)
-    progress = verbosity(options, :progress) > 0
+    progress = verbosity(run.record, :progress) > 0
     started = progress ? time_ns() : UInt64(0)
-    sampler = (; point, formulation, options)
-    details_owner = typeof(formulation.inner)
+    retain_details = run.record.data.retain_details
+    sampler = (; point, formulation = study, options = run.execution, retain_details)
+    details_owner = typeof(study.inner)
 
     # Pilot: the first accepted realization.
     first_result = _attempt(rng, sampler)
 
     # The storage of every trial, allocated once from the pilot result.
-    record = formulation.options.data.retain_details ?
-             computation_details(details_owner, first_result) : nothing
+    record = retain_details ? computation_details(details_owner, first_result) : nothing
     ntrials = something(
-        formulation.options.data.trials,
+        study.options.data.trials,
         _dkw_trials(
             _observable_count(first_result),
-            formulation.options.data.confidence,
-            formulation.options.data.cdf_tol
+            study.options.data.confidence,
+            study.options.data.cdf_tol
         )
     )
-    sample_values = initialize_buffers(formulation, Float64, first_result,
+    sample_values = initialize_buffers(study, Float64, first_result,
         (; trials = ntrials), (;))
     sample_axis = _sample_axis(first_result)
-    retained = formulation.options.data.retain_details ?
-               Vector{typeof(record)}(undef, ntrials) : nothing
+    retained = retain_details ? Vector{typeof(record)}(undef, ntrials) : nothing
 
     _trials!(rng, first_result, sample_values, retained, record, sampler, details_owner,
         sample_axis, ntrials, progress, started)
-    aggregate = _aggregate(sample_values, first_result, formulation)
-    # The trials computed with `formulation.inner`. The record of the first one holds that
+    aggregate = _aggregate(sample_values, first_result, study)
+    # The trials computed with `study.inner`. The record of the first one holds that
     # formulation and the choices its point made, such as the equivalent earth of each earth
     # formula. The inputs are those of the nominal problem.
     completion = details(first_result).data[(:formulation, :choices)]
-    physical_inputs = merge(Engine.completed_inputs(resolved.problem),
+    physical_inputs = merge(Engine.completed_inputs(input.problem),
         (interpretation = :nominal_declaration, uncertain_arguments = _uncertain_arguments(point)))
     representation = Engine.retain_gridpoint(aggregate.representation, gridpoint;
         fields = merge(completion, (inputs = physical_inputs,
             uncertainty = (estimator = :empirical, representation = :marginal_mean_std),
             uncertainty_descriptions = _uncertainty_descriptions(MonteCarlo))))
-    data = formulation.options.data
+    data = study.options.data
     return MonteCarloResult(data[(:confidence, :cdf_tol, :distribution)], [representation],
         fieldtype(ParametricResult, :failures)(), [aggregate.statistics],
         data.return_samples ? [aggregate.samples] : nothing,
         data.return_histograms ? [aggregate.histograms] : nothing, seed, [seed], [ntrials],
-        data.retain_details ? ComputationDetails((; trials = [retained])) : ComputationDetails())
+        retain_details ? ComputationDetails((; trials = [retained])) : ComputationDetails())
 end
+
+# The retained details of a point of a Monte Carlo study are those of its trials.
+computation_details(::Type{<:AbstractFormulation}, point::MonteCarloResult) = details(point)
 
 # Record the pilot result in `buffers`, then draw and record further trials until the study
 # accepts `ntrials` of them. A trial that ends in a later five-second interval of the point
@@ -299,7 +315,6 @@ end
 # of the remaining time: the remaining trials times the mean time of an accepted trial.
 function _trials!(rng, first_result::R, buffers, retained, record, sampler, details_owner,
         sample_axis, ntrials::Int, progress::Bool, started::UInt64) where {R}
-    formulation = sampler.formulation
     accepted = 0
     value = first_result
     began = started
@@ -317,8 +332,7 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
         end
         accepted < ntrials || break
         result = _attempt(rng, sampler)
-        record = formulation.options.data.retain_details ?
-                 computation_details(details_owner, result) : nothing
+        record = sampler.retain_details ? computation_details(details_owner, result) : nothing
         _sample_shunt_model(result) == _sample_shunt_model(first_result) || throw(ArgumentError(
             "Monte Carlo realizations changed shunt-model coverage; select a fixed geometry model for this study"))
         result isa R || throw(ArgumentError(
@@ -329,80 +343,38 @@ function _trials!(rng, first_result::R, buffers, retained, record, sampler, deta
     return buffers
 end
 
-# A Monte Carlo study builds the nominal problem of each point of its space from the means
-# of the uncertain arguments, before the first draw: the constructor of the problem
-# validates it. When `on_error` returns the exception of a nominal build for the
-# `Combinatorial` study of the points, the point fails and the run continues. Each built
-# point is resolved here, with the uncertain point, its seed and its gridpoint identity,
-# and the runner computes its trials as one point.
-function traverse(problem::ScalarOrGrid{AbstractProblemDefinition}, formulation::MonteCarlo,
-        root_seed::UInt64; options::ComputationOptions)
-    sources = points(problem)
-    formulations = [formulation]
-    # The owner of the inner formulation normalizes the options of the trials once.
-    execution = computation_options(typeof(formulation.inner), options)
-    levels = verbosity(get(options.data, :verbosity, (default = 0,)))
-    on_result = get(options.data, :on_result, nothing)
-    gridpoints = CartesianIndices((length(sources), 1))
-    source_id = Commons.gridpoint_id().source_id
-    progress = get(levels, :progress, levels.default) > 0
-    timing = get(levels, :timing, levels.default) > 0
-    started = time_ns()
-    scoped = haskey(options.data, :verbosity) || on_result !== nothing
-    study = Combinatorial(formulation)
-    failures = fieldtype(ParametricResult, :failures)()
-    attempts = map(enumerate(sources)) do (problem_index, source)
-        gridpoint = Commons.gridpoint_id(; source_id, problem_index)
-        try
-            nominal = realize(Random.Xoshiro(0), source, (_rng, mean, _sigma) -> mean)
-            Resolved(nominal, (; point = source,
-                seed = root_seed ⊻ (UInt64(problem_index - 1) * 0x9e3779b97f4a7c15),
-                gridpoint))
-        catch exception
-            on_error(study, exception)
-            push!(failures, gridpoint => exception)
-            exception
-        end
-    end
-    problem_indices = isempty(failures) ? eachindex(attempts) :
-                      setdiff!(collect(eachindex(attempts)),
-        (gridpoint.problem_index for (gridpoint, _) in failures))
-    problems = isempty(failures) ? attempts :
-               map(Base.Fix1(getindex, attempts), problem_indices)
-    return Base.invokelatest(traverse, problem, formulation,
-        (; problems, problem_indices, study, failures, formulations, execution, on_result,
-            gridpoints, spaced = true, source_id, progress, timing, started), scoped, levels)
-end
-
-# Monte Carlo samples the arguments of the points of a space. A scalar problem is the space
-# of one point, whose argument is the problem.
-function compute(problem::ParametricProblem{<:AbstractProblemDefinition}, formulation::MonteCarlo)
-    space = Gridspace{typeof(problem.space)}(identity, (Grid((problem.space,)),))
-    return compute(ParametricProblem(space, problem.options), formulation)
-end
-
 """
-    compute(problem::ParametricProblem, formulation::MonteCarlo)
+    compute(problem::ParametricProblem, study::MonteCarlo; options)
 
 Sample the uncertain arguments of each point of the problem's space and return the
 [`MonteCarloResult`](@ref) of the computed points and the failed ones. The study runs
-through [`traverse`](@ref LineCableModels.Commons.traverse) with the problem's options: it
-builds the nominal problem of every point before the first draw, then computes each point
-with `compute(resolved, formulation; options)`, from the point's seed, the root seed
-`formulation.options.data.seed` or a fresh one, combined with the position of the point.
-The result joins the `MonteCarloResult` of each computed point in the order of the space.
-A study with no computed point throws.
+through [`traverse`](@ref LineCableModels.Commons.traverse): the problem's options are the
+computation options of the inner formulation's backend for every trial, and `options` are
+those of the run. It builds the nominal problem of every point before the first draw, then
+computes the trials of each point from the point's seed: the root seed of the study, its
+option `seed` or a fresh one that the computation fills in, combined with the position of
+the point. The result joins the `MonteCarloResult` of each computed point in the order of
+the space. A study with no computed point throws.
 """
-function compute(problem::ParametricProblem, formulation::MonteCarlo)
+function compute(problem::ParametricProblem, study::MonteCarlo;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
     Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing &&
         throw(ArgumentError("MonteCarlo requires the Measurements extension to construct its result; " *
             "load it with `using Measurements` before compute"))
-    data = formulation.options.data
-    root_seed = data.seed === nothing ? rand(Random.RandomDevice(), UInt64) : data.seed
-    traversed = traverse(problem.space, formulation, root_seed; options = problem.options)
+    # A study without a seed computes from a fresh root seed, which the study then stores.
+    data = study.options.data
+    seeded = if data.seed === nothing
+        filled = merge(data, (seed = rand(Random.RandomDevice(), UInt64),))
+        MonteCarlo(study.inner, FormulationOptions{typeof(filled)}(filled))
+    else
+        study
+    end
+    traversed = traverse(problem, seeded; options)
     # The result of each computed point, a `MonteCarloResult` of one point, joined in the
-    # order of the space.
+    # order of the space. The retained details of the run contain the details of the trials
+    # of each point.
     computed = traversed.values
+    retained = traversed.details.data
     return MonteCarloResult(
         data[(:confidence, :cdf_tol, :distribution)],
         [only(point.values) for point in computed],
@@ -410,11 +382,26 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         [only(point.stats) for point in computed],
         data.return_samples ? [only(point.sample_values) for point in computed] : nothing,
         data.return_histograms ? [only(point.histogram_values) for point in computed] : nothing,
-        root_seed,
+        seeded.options.data.seed,
         [only(point.point_seeds) for point in computed],
         [only(point.trial_counts) for point in computed],
-        data.retain_details ? ComputationDetails((;
-            trials = [only(details(point).data.trials) for point in computed])) :
-        ComputationDetails()
+        isempty(retained) ? ComputationDetails() :
+        ComputationDetails((; trials = [only(point.data.trials) for point in retained.points]))
     )
+end
+
+# A Monte Carlo study chained into modal analysis is refused at the call. Monte Carlo of the
+# modal outputs is not built: the chain would propagate the marginal mean ± std of the line
+# parameters through modal analysis, which is a different method.
+function compute(::ScalarOrGrid{Engine.LineParametersProblem}, ::MonteCarlo,
+        ::Union{Symbol, ScalarOrGrid{Engine.ModalAnalysis.ModalAnalysisFormulation}};
+        keywords...)
+    throw(ArgumentError("Monte Carlo of the modal outputs is not built: a MonteCarlo study " *
+        "chained into modal analysis would propagate the marginal mean ± std of the line " *
+        "parameters through modal analysis, which is a different method"))
+end
+# The parametric problem of a space refuses the chain as the space does.
+function compute(problem::ParametricProblem, study::MonteCarlo,
+        modal::ScalarOrGrid{Engine.ModalAnalysis.ModalAnalysisFormulation}; keywords...)
+    return compute(problem.space, study, modal)
 end

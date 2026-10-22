@@ -69,23 +69,19 @@ function _run_remote(
     error_buffer = IOBuffer()
     output_file = stdout_path === nothing ? nothing : open(stdout_path, "w")
     error_file = stderr_path === nothing ? nothing : open(stderr_path, "w")
+    # The station's lines on the standard output are relayed, each as a debug record of this
+    # module, which a logger shows when it admits debug records. The standard error stays in
+    # its file and in the exception of a failure.
     output_task = @async for line in eachline(output)
         println(output_buffer, line)
         output_file === nothing || println(output_file, line)
         output_file === nothing || flush(output_file)
-        if stream
-            println(stdout, line)
-            flush(stdout)
-        end
+        stream && @debug line
     end
     error_task = @async for line in eachline(errors)
         println(error_buffer, line)
         error_file === nothing || println(error_file, line)
         error_file === nothing || flush(error_file)
-        if stream
-            println(stderr, line)
-            flush(stderr)
-        end
     end
     interrupted = nothing
     try
@@ -164,8 +160,7 @@ function _supervisor_command(
         project_name::AbstractString,
         formulation::PSCADFormulation,
         frequencies_value::AbstractVector;
-        output_stem::AbstractString,
-        verbosity::Integer = 0
+        output_stem::AbstractString
 )
     label = only(description([formulation];roles=[:none]))
     increments = length(frequencies_value) - 1
@@ -184,7 +179,6 @@ function _supervisor_command(
             "-FrequencyEnd $(_ps_quote(string(last(frequencies_value))))",
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
             "-PSCADVersion $(_ps_quote(config.pscad_version))",
-            "-Verbosity $(_ps_quote(string(verbosity)))",
             "-TimeoutSeconds $(_ps_quote(string(config.timeout)))"
         ),
         ' ')
@@ -212,12 +206,8 @@ function _cancel_command(remote_case::AbstractString)
            "Remove-Item -LiteralPath \$ownerPath -Force -ErrorAction SilentlyContinue"
 end
 
-function _cancel_remote(
-        config::RemoteConfig,
-        remote_case::AbstractString;
-        verbosity::Integer = 0
-)
-    _run_remote(config, _cancel_command(remote_case); stream = verbosity >= 2,
+function _cancel_remote(config::RemoteConfig, remote_case::AbstractString)
+    _run_remote(config, _cancel_command(remote_case); stream = true,
         timeout = min(config.timeout, 30))
     return nothing
 end
@@ -317,10 +307,8 @@ function run_remote_pscad(
         local_output::AbstractString,
         formulation::PSCADFormulation,
         frequencies_value::AbstractVector;
-        output_stem::AbstractString,
-        verbosity::Integer = 0
+        output_stem::AbstractString
 )
-    verbosity in 0:2 || throw(ArgumentError("PSCAD verbosity must be 0, 1, or 2"))
     isdir(local_output) && !isempty(readdir(local_output)) &&
         throw(ArgumentError(
             "PSCAD output directory is not empty; select a new run directory: $local_output"))
@@ -344,25 +332,24 @@ function run_remote_pscad(
         _remote_project_name(local_project),
         formulation,
         frequencies_value;
-        output_stem,
-        verbosity
+        output_stem
     )
-    verbosity >= 2 && @debug "Executing PSCAD frequency scan" host=config.host run_id formulation=only(description([formulation];roles=[:none])) frequencies=length(frequencies_value) timeout=config.timeout
+    @debug "Executing PSCAD frequency scan" host=config.host run_id formulation=only(description([formulation];roles=[:none])) frequencies=length(frequencies_value) timeout=config.timeout
     execution_error = try
         _run_remote(
             config,
             command;
             stdout_path = transport_stdout,
             stderr_path = transport_stderr,
-            stream = verbosity >= 2,
+            stream = true,
             timeout = config.timeout + 60,
-            on_interrupt = () -> _cancel_remote(config, remote_case; verbosity)
+            on_interrupt = () -> _cancel_remote(config, remote_case)
         )
         nothing
     catch error
         if !(error isa InterruptException)
             try
-                _cancel_remote(config, remote_case; verbosity)
+                _cancel_remote(config, remote_case)
             catch cancellation_error
                 @warn "Remote PSCAD cancellation could not be confirmed" host=config.host run_id exception=(
                     cancellation_error, catch_backtrace())
@@ -388,7 +375,7 @@ function run_remote_pscad(
             "\nRemote scratch: $remote_case",
         ))
     end
-    verbosity >= 2 && @debug "Checking PSCAD outputs" host=config.host run_id destination=local_output
+    @debug "Checking PSCAD outputs" host=config.host run_id destination=local_output
     required = (
         "pscad-console.txt", "timing.txt", "result_zm.out", "result_zp.out",
         "result_ym.out", "result_yp.out"
@@ -399,7 +386,7 @@ function run_remote_pscad(
         filesize(path) > 0 || throw(ArgumentError("required PSCAD output is empty: $path"))
     end
     elapsed = parse(Float64, strip(read(joinpath(local_output, "timing.txt"), String)))
-    verbosity >= 2 && @debug "PSCAD frequency scan completed" host=config.host run_id compile_call_seconds=elapsed timing_scope=PSCAD_TIMING_SCOPE
+    @debug "PSCAD frequency scan completed" host=config.host run_id compile_call_seconds=elapsed timing_scope=PSCAD_TIMING_SCOPE
     return (
         elapsed_seconds = elapsed,
         elapsed_scope = PSCAD_TIMING_SCOPE,

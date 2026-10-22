@@ -10,20 +10,22 @@ power-cell compaction. Strand counts and clipping topology are nominal discrete
 choices. A smooth linear model cannot describe a study across such a transition.
 First-order moments need not equal nonlinear Monte Carlo moments.
 
+The study has no options of its own: the computation options of its run are those of the
+parametric call, `compute(problem, study; options)`. A point fails as a point of a
+[`Combinatorial`](@ref) study does, and the result records it in its `failures`.
+
 $(TYPEDFIELDS)
 """
-struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractTraversal
+struct LinearError{F <: AbstractFormulation} <: AbstractTraversal
     "Formulation used for each materialized problem."
     inner::F
-    "Supplemental-output retention options owned by this propagation."
-    options::O
 
-    LinearError(inner::F, options::O) where {F <: AbstractFormulation, O <: ComputationOptions} =
-        validate(new{F, O}(inner, options))
+    LinearError(inner::F) where {F <: AbstractFormulation} = validate(new{F}(inner))
 end
 
+# The record of linear propagation contains its inner formulation and an empty set of options.
 function Base.NamedTuple(value::LinearError)
-    return (kind = :linear_error, inner = NamedTuple(value.inner), options = value.options.data)
+    return (kind = :linear_error, inner = NamedTuple(value.inner), options = (;))
 end
 
 """Identify first-order uncertainty propagation without inspecting its inner owner."""
@@ -31,9 +33,8 @@ description(::Type{<:LinearError}; compact::Bool=false) = "LEP"
 description(::LinearError; compact::Bool=false) = description(LinearError;compact)
 formula_id(::Type{<:LinearError}) = :LinearError
 formula_id(::LinearError) = :LinearError
-computation_options(value::LinearError) = value.options
 function Base.pairs(value::LinearError; quantity = nothing)
-    pairs(LinearError, (inner = value.inner, options = value.options.data); quantity)
+    pairs(LinearError, (inner = value.inner, options = (;)); quantity)
 end
 
 """
@@ -45,12 +46,15 @@ is supplied.
 
 A study computes its points through the runner, `traverse`. Before the first draw, it
 builds the nominal problem of each point from the means of its uncertain arguments, and the
-constructor of the problem validates it. Every point then computes its trials with the
-backend of the inner formulation and returns its own `MonteCarloResult`, and the result of
-the study joins these results. The run logs the timing of each point, and its progress
-between the points and between the trials of a point. After each computed point,
-`on_result(problem, index, point)` receives the nominal problem, the position of the point
-in the space and the `MonteCarloResult` of that point.
+constructor of the problem validates it. Every point then computes its trials from its
+uncertain arguments with the backend of the inner formulation and returns its own
+`MonteCarloResult`, and the result of the study joins these results. The run logs the
+timing of each point, and its progress between the points and between the trials of a
+point. After each computed point, `on_result(problem, index, point)` receives the nominal
+problem, the position of the point in the space and the `MonteCarloResult` of that point.
+`verbosity`, `on_result` and `retain_details`, which retains the computation details of each
+accepted trial, are the computation options of the run, passed in the parametric call
+`compute(problem, study; options)`.
 
 A draw is infeasible when its build throws
 [`OverlapError`](@ref LineCableModels.DataModel.OverlapError), or when its build or
@@ -62,10 +66,9 @@ conditional on feasible draws.
 After `max_failures` infeasible draws in a row for one trial, the point fails with a
 `DomainError`: the distribution of the point has no feasible draw. Its value is the
 uncertain arguments of the point, and its message gives that count and the last exception.
-A [`Combinatorial`](@ref) study runs the points. When `on_error` returns the exception of a
-point for that study, as it does for this `DomainError` and for an `OverlapError` of a
-nominal problem, the result records the point in its `failures`, and the study continues.
-Any other exception stops the study.
+When `on_error` returns the exception of a point for the study, as it does for this
+`DomainError` and for an `OverlapError` of a nominal problem, the result records the point in
+its `failures`, and the study continues. Any other exception stops the study.
 
 Load `Measurements` before computation. Aggregation stores marginal
 uncertainty-bearing cores from accepted sample means and sample standard
@@ -86,9 +89,12 @@ the complete joint support to feasible designs. Select this law only when the
 uniform distribution is a justified statistical assumption. Changing the
 marginal law neither repairs the geometry nor supplies a correlation.
 
-`MonteCarlo(inner; options = (;), keywords...)` takes its execution controls in `options`
-or as keywords of the same names. Both forms are normalized by
-`computation_options(MonteCarlo, options)`, and a key supplied in both places is an error.
+`MonteCarlo(inner; options = (;), keywords...)` takes the options of the study in `options`
+or as keywords of the same names, and a key supplied in both places is an error. The
+constructor `MonteCarlo(inner, options)` normalizes them with
+`formulation_options(MonteCarlo, options)`, and `formulation_options(study)` returns them.
+They are scalars: a `Grid` among them makes a parameter space of option records, which no
+method of `MonteCarlo` accepts.
 
 # Keywords
 
@@ -100,21 +106,22 @@ or as keywords of the same names. Both forms are normalized by
 - `return_samples=false`: retain joint samples.
 - `return_histograms=false`: retain marginal histogram densities.
 - `bins=nothing`: positive histogram bin count, or automatic binning.
-- `retain_details=false`: retain the computation details of each accepted trial.
 - `max_failures=100`: positive maximum count of infeasible draws in a row for one trial.
 
 The concrete type of `options` retains the sampler type.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarlo{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractTraversal
+struct MonteCarlo{F <: AbstractFormulation, O <: FormulationOptions} <: AbstractTraversal
     "Formulation used for each sampled problem."
     inner::F
-    "Normalized sampling and supplemental-output computation options."
+    "The normalized options of the study: its sampling and what its result retains."
     options::O
 
-    MonteCarlo(inner::F, options::O) where {F <: AbstractFormulation, O <: ComputationOptions} =
-        validate(new{F, O}(inner, options))
+    function MonteCarlo(inner::F, record::FormulationOptions) where {F <: AbstractFormulation}
+        options = formulation_options(MonteCarlo, record)
+        return validate(new{F, typeof(options)}(inner, options))
+    end
 end
 
 """Identify Monte Carlo propagation without sampling or configuring a solver."""
@@ -134,7 +141,6 @@ function _uncertainty_descriptions(owner)
 end
 formula_id(::Type{<:MonteCarlo}) = :MonteCarlo
 formula_id(::MonteCarlo) = :MonteCarlo
-computation_options(value::MonteCarlo) = value.options
 function Base.pairs(value::MonteCarlo; quantity = nothing)
     pairs(MonteCarlo, (inner = value.inner, options = value.options.data); quantity)
 end
@@ -145,20 +151,31 @@ function Base.pairs(owner::Type{<:Union{MonteCarlo, LinearError}}, retained::Nam
 end
 description(::Type{<:Union{MonteCarlo, LinearError}}, ::Val{:inner}; compact::Bool=false) = "inner method"
 
-function computation_options(
+function MonteCarlo(inner; options::NamedTuple = (;), keywords...)
+    duplicates = filter(key -> haskey(options, key), keys(keywords))
+    isempty(duplicates) || throw(ArgumentError(
+        "MonteCarlo options supplied both as keywords and in options: $(collect(duplicates))",
+    ))
+    return MonteCarlo(inner, FormulationOptions(merge(options, values(keywords))))
+end
+
+# Normalize the options of a Monte Carlo study. The record stores the values themselves, so a
+# sampler function stays the same object.
+function formulation_options(
         ::Type{<:MonteCarlo},
-        record::ComputationOptions
-)::ComputationOptions
+        record::FormulationOptions
+)::FormulationOptions
     options = record.data
     defaults = (
         trials = nothing, confidence = 0.95, cdf_tol = 0.02,
         distribution = :normal, seed = nothing,
         return_samples = false, return_histograms = false, bins = nothing,
-        retain_details = false, max_failures = 100
+        max_failures = 100
     )
     unknown = filter(key -> key ∉ keys(defaults), keys(options))
     isempty(unknown) || throw(ArgumentError(
-        "unknown MonteCarlo computation options: $(sort!(collect(unknown)))",
+        "unknown MonteCarlo options: $(sort!(collect(unknown))). The computation options " *
+        "of the run are those of compute(problem, study; options)",
     ))
     normalized = merge(defaults, options)
     for key in (:trials, :bins, :max_failures)
@@ -174,7 +191,7 @@ function computation_options(
             "MonteCarlo $key must lie strictly between zero and one as Float64",
         ))
     end
-    for key in (:return_samples, :return_histograms, :retain_details)
+    for key in (:return_samples, :return_histograms)
         getproperty(normalized, key) isa Bool || throw(ArgumentError(
             "MonteCarlo $key must be Bool",
         ))
@@ -188,7 +205,7 @@ function computation_options(
         throw(ArgumentError(
             "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
         ))
-    return ComputationOptions(;
+    data = (
         trials = normalized.trials === nothing ? nothing : Int(normalized.trials),
         confidence = Float64(normalized.confidence),
         cdf_tol = Float64(normalized.cdf_tol),
@@ -197,10 +214,11 @@ function computation_options(
         return_samples = normalized.return_samples,
         return_histograms = normalized.return_histograms,
         bins = normalized.bins === nothing ? nothing : Int(normalized.bins),
-        retain_details = normalized.retain_details,
         max_failures = Int(normalized.max_failures)
     )
+    return FormulationOptions{typeof(data)}(data)
 end
+formulation_options(study::MonteCarlo) = study.options
 
 function Base.NamedTuple(value::MonteCarlo)
     return (kind = :monte_carlo, inner = NamedTuple(value.inner), options = value.options.data)

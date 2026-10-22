@@ -56,20 +56,19 @@
 
     default_execution=@inferred Commons.computation_options(computation_type, ComputationOptions((;)))
     @test !haskey(default_execution.data, :output_basis)
-    @test default_execution.data.trace == Val(false)
-    @test default_execution.data.on_result === nothing
-    execution=Commons.computation_options(
-        computation_type, ComputationOptions((
-            verbosity = (default = 1, NLsolve = 0),
-            trace = true
-        )))
-    @test execution.data == (
-        verbosity = (default = 1, NLsolve = 0),
-        trace = Val(true),
-        on_result = nothing
-    )
-    @test Engine.verbosity(execution, :NLsolve) == 0
-    @test Engine.verbosity(execution, :unlisted) == 1
+    @test default_execution.data == (trace = Val(false),)
+    execution=Commons.computation_options(computation_type, ComputationOptions((trace = true,)))
+    @test execution.data == (trace = Val(true),)
+    # The verbosity and the callable of a computation are options of its run, which the
+    # run normalizes, whatever the backend.
+    for run_option in ((verbosity = (default = 1, NLsolve = 0),), (on_result = identity,))
+        @test_throws ArgumentError Commons.computation_options(
+            computation_type, ComputationOptions(run_option))
+    end
+    run=Commons.computation_options(AbstractTraversal,
+        ComputationOptions((verbosity = (default = 1, NLsolve = 0),)))
+    @test Engine.verbosity(run, :NLsolve) == 0
+    @test Engine.verbosity(run, :unlisted) == 1
     @test_throws ArgumentError Commons.computation_options(
         computation_type, ComputationOptions((unknown = true,)))
     @test_throws ArgumentError Commons.computation_options(

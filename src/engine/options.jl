@@ -41,25 +41,21 @@ function formulation_options(
     )
 end
 
+# The coaxial backend's one computation option is `trace`. The verbosity and the callable of
+# a computation are options of its run.
 function computation_options(
         ::Type{LineCableModelsCoaxial},
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
-    allowed = (:verbosity, :trace, :on_result)
-    unknown = filter(key -> key ∉ allowed, keys(options))
+    unknown = filter(key -> key !== :trace, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsCoaxial computation options: $(sort!(collect(unknown)))",
     ))
-    normalized = merge(
-        (verbosity = (default = 0,), trace = false, on_result = nothing),
-        options
-    )
-    levels = verbosity(normalized.verbosity)
-    normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
-    execution = (verbosity = levels, trace = Val(false), on_result = normalized.on_result)
-    normalized.trace && return ComputationOptions(merge(execution, (trace = Val(true),)))
-    return ComputationOptions(execution)
+    trace = get(options, :trace, false)
+    trace isa Bool || throw(ArgumentError("trace must be Bool"))
+    trace && return ComputationOptions((trace = Val(true),))
+    return ComputationOptions((trace = Val(false),))
 end
 
 # The coaxial backend normalizes the computation options of a line-parameter formulation.
@@ -68,8 +64,7 @@ computation_options(::Type{<:LineParametersFormulation}, record::ComputationOpti
 
 # A normalized record stores the trace switch as a type. This method returns it as it is.
 computation_options(::Type{LineCableModelsCoaxial},
-    record::ComputationOptions{<:NamedTuple{(:verbosity, :trace, :on_result),
-        <:Tuple{NamedTuple, Val, Any}}}) = record
+    record::ComputationOptions{<:NamedTuple{(:trace,), <:Tuple{Val}}}) = record
 
 
 description(::Type{<:LineParametersFormulation},

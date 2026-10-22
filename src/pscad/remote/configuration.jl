@@ -35,14 +35,9 @@ function RemoteConfig(
         local_root::AbstractString,
         pscad_version::AbstractString = "5.1.0",
         transport::Symbol = :ssh,
-        verbosity = nothing,
         timeout::Integer = 1800,
         command::AbstractVector{<:AbstractString} = String[]
 )
-    verbosity === nothing || throw(ArgumentError(
-        "RemoteConfig no longer owns verbosity; set it with " *
-        "options=(verbosity=(default=0, PSCAD=2),) in compute",
-    ))
     isempty(strip(host)) && throw(ArgumentError("PSCAD host cannot be empty"))
     isempty(strip(local_root)) && throw(ArgumentError("PSCAD local root cannot be empty"))
     isempty(strip(shared_root)) && throw(ArgumentError(

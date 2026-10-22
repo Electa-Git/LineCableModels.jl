@@ -105,9 +105,9 @@ end
     @test_throws TypeError compute(problem, formulation; options=FormulationOptions())
     @test_throws MethodError ParametricProblem(problem, (;))
 
-    for outer in (LinearError(formulation; options=(retain_details=true,)),
-            MonteCarlo(formulation; trials=2, seed=13, retain_details=true, return_samples=true))
-        result = compute(ParametricProblem(problem), outer)
+    for outer in (LinearError(formulation),
+            MonteCarlo(formulation; trials=2, seed=13, return_samples=true))
+        result = compute(ParametricProblem(problem), outer; options=(retain_details=true,))
         @test fieldtype(typeof(result), :details) === typeof(details(result))
         @test isconcretetype(eltype(result.values))
         restored = SavedResults.round_trip(result)

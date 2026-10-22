@@ -13,7 +13,8 @@ module LineCableModels
 # Core generics:
 export add!, build, homogenize, validate, description, constitutive
 export formula, formula_id
-export AbstractProblemDefinition, AbstractFormulation, AbstractTraversal, AbstractProblemResult
+export AbstractProblemDefinition, AbstractFormulation, AbstractTraversal, AbstractProblemSpace
+export AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
@@ -99,7 +100,7 @@ using .Units: quantity, native_unit, display_unit, scale_factor, label, symbol
 include("commons/Commons.jl")
 using .Commons:
                 AbstractProblemDefinition, AbstractFormulation, AbstractTraversal,
-                AbstractProblemResult,
+                AbstractProblemSpace, AbstractProblemResult,
                 AbstractCoreResult, AbstractResultSpace,
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,

@@ -87,11 +87,10 @@
         (Grid((20.0, 25.0)),))
     choices=Gridspace{typeof(formulation)}(identity, (Grid(Tuple(forms)),))
     log=Test.TestLogger()
+    # The verbosity of the run is a computation option of the parametric call.
     product=with_logger(log) do
-        compute(
-            ParametricProblem(space,
-                ComputationOptions(verbosity = (default = 0, progress = 1, timing = 1))),
-            Combinatorial(choices))
+        compute(ParametricProblem(space), Combinatorial(choices);
+            options = (verbosity = (default = 0, progress = 1, timing = 1),))
     end
     @test builds[] == 2
     @test length(product) == 6
@@ -106,15 +105,16 @@
     uncertain_space=Gridspace{LineParametersProblem}(
         radius->TestFixtures.three_bare_wires_problem(; frequencies = problem.frequencies, radius),
         (Grid((0.04, 0.0425), AbsoluteError(0.0001)),))
-    study=ParametricProblem(uncertain_space, ComputationOptions(; timed...))
+    study=ParametricProblem(uncertain_space)
     linear_log=Test.TestLogger()
-    linear=with_logger(() -> compute(study, LinearError(formulation)), linear_log)
+    linear=with_logger(() -> compute(study, LinearError(formulation); options = timed),
+        linear_log)
     @test isempty(details(linear).data)
     @test length(timings(linear_log)) == 2
     @test SavedResults.same(SavedResults.round_trip(linear), linear)
     mc=MonteCarlo(formulation; trials = 4, seed = 71)
     sampled_log=Test.TestLogger()
-    sampled=with_logger(() -> compute(study, mc), sampled_log)
+    sampled=with_logger(() -> compute(study, mc; options = timed), sampled_log)
     replay=compute(ParametricProblem(uncertain_space), mc)
     @test statistics(sampled) == statistics(replay)
     @test sampled.point_seeds == replay.point_seeds
@@ -128,8 +128,8 @@
     for retain_details in (false, true), return_samples in (false, true),
         return_histograms in (false, true)
         value=compute(ParametricProblem(uncertain_space),
-            MonteCarlo(formulation; trials = 2, seed = 71, retain_details,
-                return_samples, return_histograms, bins = 2))
+            MonteCarlo(formulation; trials = 2, seed = 71,
+                return_samples, return_histograms, bins = 2); options = (; retain_details))
         @test haskey(details(value).data, :trials) == retain_details
         @test SavedResults.same(SavedResults.round_trip(value), value)
     end
@@ -139,9 +139,9 @@
         local combination_log=Test.TestLogger()
         values=with_logger(combination_log) do
             (compute(problem, forms; options),
-                compute(ParametricProblem(space, options), Combinatorial(choices)),
-                compute(ParametricProblem(uncertain_space, options), LinearError(formulation)),
-                compute(ParametricProblem(uncertain_space, options), mc))
+                compute(ParametricProblem(space), Combinatorial(choices); options),
+                compute(ParametricProblem(uncertain_space), LinearError(formulation); options),
+                compute(ParametricProblem(uncertain_space), mc; options))
         end
         @test all(value -> Z(value) == Z(plain) && Y(value) == Y(plain), values[1])
         @test Z.(values[2]) == Z.(product)
@@ -167,9 +167,9 @@
         (Grid(0.005, AbsoluteError(0.01)),))
     retried_log=Test.TestLogger()
     retried=with_logger(retried_log) do
-        compute(ParametricProblem(rejected_space, ComputationOptions(; timed...)),
-            MonteCarlo(formulation; trials = 4, seed = 19, retain_details = true,
-                max_failures = 50))
+        compute(ParametricProblem(rejected_space),
+            MonteCarlo(formulation; trials = 4, seed = 19, max_failures = 50);
+            options = (; timed..., retain_details = true))
     end
     @test rejected[] > 0
     @test length(timings(retried_log)) == 1

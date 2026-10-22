@@ -105,9 +105,13 @@
     @test_throws ArgumentError LineCableModels.computation_options(owner, ComputationOptions((;)))
     execution=LineCableModels.computation_options(owner, ComputationOptions((
             output_stem = "case",
-            remote = config,
-            verbosity = (default = 0, PSCAD = 2)
+            remote = config
         )))
+    # The verbosity and the callable of a computation are options of its run, not of PSCAD.
+    for run_option in ((verbosity = (default = 0, PSCAD = 2),), (on_result = identity,))
+        @test_throws ArgumentError LineCableModels.computation_options(owner,
+            ComputationOptions(merge((; remote = config), run_option)))
+    end
     @test_throws ArgumentError LineCableModels.computation_options(owner,
         ComputationOptions(; remote=config, output_basis=:total))
     for timing in (true, false, 1, nothing, :yes)
@@ -118,8 +122,6 @@
         work_root=config.local_root,
         output_stem = "case",
         remote = config,
-        verbosity = (default = 0, PSCAD = 2),
-        on_result = nothing,
         resume_run_directory = nothing,
         solver_identity = nothing
     )
@@ -146,16 +148,9 @@
     @test_throws ArgumentError harness.RemoteConfig(
         "host", "shared", "remote", "julia", "python"; local_root=mktempdir(), timeout = 0
     )
-    verbosity_error=try
-        harness.RemoteConfig(
-            "host", "shared", "remote", "julia", "python"; local_root=mktempdir(), verbosity = 2
-        )
-        nothing
-    catch error
-        error
-    end
-    @test verbosity_error isa ArgumentError
-    @test occursin("options=(verbosity=", sprint(showerror, verbosity_error))
+    @test_throws MethodError harness.RemoteConfig(
+        "host", "shared", "remote", "julia", "python"; local_root=mktempdir(), verbosity = 2
+    )
     @test_throws ArgumentError validate(
         collect(10.0 .^ range(0, stop = 6, length = 61)), harness.PSCADFormulation
     )
@@ -174,14 +169,13 @@
         "generated",
         overhead,
         frequency_probe;
-        output_stem = "pscad",
-        verbosity = 2
+        output_stem = "pscad"
     )
     @test occursin("supervisor.ps1", supervisor_command)
     @test occursin(raw"Z:\pscad\benchmarks\.work\case\current", supervisor_command)
     @test occursin(raw"C:\pscad\case\current", supervisor_command)
     @test occursin("-OutputStem 'pscad'", supervisor_command)
-    @test occursin("-Verbosity '2'", supervisor_command)
+    @test !occursin("-Verbosity", supervisor_command)
     @test occursin("-TimeoutSeconds '60'", supervisor_command)
     @test !occursin("-EarthField", supervisor_command)
     @test !occursin("OpenStandardInput", supervisor_command)
@@ -192,8 +186,7 @@
         "generated",
         Formulation(:pscad; earth_impedance = :saad1996),
         frequency_probe;
-        output_stem = "saad",
-        verbosity = 0
+        output_stem = "saad"
     )
     cancel_command=harness._cancel_command(raw"C:\pscad\case\current")
     @test occursin("owner.txt", cancel_command)

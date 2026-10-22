@@ -9,7 +9,6 @@ function Base.show(io::IO, ::MIME"text/plain", formulation::LinearError)
     get(io, :compact, false) && return show(io, formulation)
     return TextDisplay.tree(io, "Linear uncertainty propagation", (
         (label = "inner    $(_uq_compact(formulation.inner))", noun = "fields"),
-        (label = "details  $(formulation.options.data.retain_details ? "retained" : "not retained")", noun = "fields"),
     ))
 end
 

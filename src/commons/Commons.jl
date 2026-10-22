@@ -34,7 +34,8 @@ ParametricBuilder, UQ, and external implementations.
 """
 module Commons
 
-export AbstractProblemDefinition, AbstractFormulation, AbstractTraversal, AbstractProblemResult
+export AbstractProblemDefinition, AbstractFormulation, AbstractTraversal, AbstractProblemSpace
+export AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails

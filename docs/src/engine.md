@@ -1075,18 +1075,19 @@ output. Its named-tuple payload is in a field typed `NamedTuple`, so every recor
 same type, and options such as `trace` only add keys to `.data`. Access its
 fields through `.data`.
 [`computation_details`](@ref) returns the fixed-key details record supplied by the
-formulation's owner. Higher-order computations dispatch on `typeof(formulation)`
+formulation's owner. Studies dispatch on `typeof(formulation)`
 when collecting these records. A formulation without a method raises `MethodError`.
 
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
 [`MonteCarloResult`](@ref) store a `ComputationDetails` of their own. Retention is
-disabled by default, so `details(result) == ComputationDetails()`. The higher-order formulation
-defines the retention option:
+disabled by default, so `details(result) == ComputationDetails()`. `retain_details` is a
+computation option of the run of a study, passed in the parametric call:
 
 ```julia
-Combinatorial(formulation; options=(retain_details=true,))
-LinearError(formulation; options=(retain_details=true,))
-MonteCarlo(formulation; trials=100, options=(retain_details=true,))
+compute(ParametricProblem(problem_space), Combinatorial(formulation);
+    options=(retain_details=true,))
+compute(problem_space, LinearError(formulation); options=(retain_details=true,))
+compute(problem_space, MonteCarlo(formulation; trials=100); options=(retain_details=true,))
 ```
 
 Parametric and linear computations retain `ComputationDetails(points=records)`, with one record
@@ -1136,8 +1137,8 @@ used. The stored voltage and current operators are retained for inverse transfor
 
 [`computation_options`](@ref) validates values belonging to one execution.
 Selected equation controls belong to `FormulationOptions`, even when they set
-quadrature or iteration tolerances. Backend execution options govern output,
-tracing, logging and callbacks.
+quadrature or iteration tolerances. The options of a backend set its output and tracing,
+and those of the run set logging and callbacks.
 
 Public `options=(...)` keywords accept ordinary named tuples or the appropriate
 owned record. They wrap tuples once before passing them to the owner. Direct
@@ -1151,28 +1152,46 @@ and sampler types. Access payload fields through `.data`. Implicit conversions a
 arrays are not copied or frozen. Nested numerical groups, physical parameters,
 scientific products, axes and plotting attributes remain ordinary named tuples.
 
-`Combinatorial`, `LinearError` and `MonteCarlo` form the `AbstractTraversal` family. Its
-one keyword constructor, `T(inner; options, keywords...)`, normalizes the execution options
-with `computation_options(T, options)`. The positional constructor `T(inner, options)` takes
-normalized options and rejects any other record.
-The complete set of Monte Carlo controls is stored in `MonteCarlo.options` and passes through
-`computation_options(MonteCarlo, options)`. A keyword sets the option of the same name:
+Options follow two levels, with one grammar, `compute(problem, formulation; options)`, at
+each. Formulation options are the controls that a formulation determines or needs, and they
+may be Grids. Computation options control the engine or the backend, whatever the
+formulation, and they never vary. A scalar computation takes a core problem, a core
+formulation and, in `options`, the computation options of the backend and of its run. In a
+parametric computation, the owner of each record normalizes it once:
+
+- `ParametricProblem(space, options)` holds the computation options of the backend for
+  every point. The owner of the formulations normalizes them before the first point, with
+  `computation_options(F, options)` for the formulation type `F`: the problem cannot
+  normalize them at construction because the backend is not selected yet.
+- The study, `Combinatorial`, `LinearError` or `MonteCarlo`, is the formulation of the
+  problem space, with its own options. `Combinatorial` and `LinearError` have none. The
+  options of `MonteCarlo` are stored in `MonteCarlo.options`, which
+  `formulation_options(MonteCarlo, options)` normalizes.
+- The `options` of the parametric call, `compute(problem::ParametricProblem, study;
+  options)`, are the computation options of the run: `verbosity`, `on_result` and
+  `retain_details`, which `computation_options(T, options)` normalizes, one method for
+  every study type `T`.
+
+Nothing at the parametric level is a `Grid`, and a `Grid` among the options of a study or
+of a run is refused at the call. The convenience `compute(problem, x; options)`, written
+once for a core formulation or a study, gives the keys of the run to the call. The others go
+to the `ParametricProblem` as the options of the backend. A core problem and a core
+formulation are then a run of one point, chosen by dispatch, and a space with a core
+formulation computes its default study, `Combinatorial`. The families keep the two levels
+apart: `AbstractProblemDefinition`
+and `AbstractFormulation` for the scalar level, `AbstractProblemSpace` and
+`AbstractTraversal` for the parametric level.
+
+A keyword of `MonteCarlo` sets the option of the same name:
 
 ```julia
-MonteCarlo(formulation; options=(trials=100, seed=42, retain_details=true))
-MonteCarlo(formulation; trials=100, seed=42, options=(retain_details=true,))
+MonteCarlo(formulation; options=(trials=100, seed=42))
+MonteCarlo(formulation; trials=100, options=(seed=42,))
 ```
 
 These two calls are equivalent. Supplying the same key both as a keyword and
 inside `options` raises `ArgumentError`. Unknown keys and invalid values also
 raise `ArgumentError`.
-
-`ParametricProblem(space, ComputationOptions(...))` stores options for the **inner computation**.
-Grid, batch, combinatorial and uncertainty traversal forward that record to the
-selected core solver, whose `computation_options` method validates it. The
-problem cannot normalize it at construction because the solver has not yet
-been selected. Traversal retention and Monte Carlo sampling controls belong to
-the higher-order formulation's own `ComputationOptions` record.
 
 ### Scan timing and progress
 
@@ -1189,8 +1208,9 @@ end
 timings = [(; record.kwargs...) for record in log.logs if record.group === :timing]
 ```
 
-For a higher-order computation, keep these controls in
-`ParametricProblem(problem_space, execution)`. Cable-constant computations do not take
+For a study, these controls are computation options of the run, whatever the backend, in
+the parametric call: `compute(ParametricProblem(problem_space), study;
+options=(verbosity=(default=0, timing=1),))`. A scalar cable-constant computation takes no
 computation options.
 
 Each record describes one point, which is one materialized problem and formulation over
@@ -1216,13 +1236,17 @@ the worker's `line.compile()` call and excludes output-readiness waiting, and
 Each point of a Monte Carlo study writes one record for its trials and the draws that it
 discarded. A point that fails writes none.
 
-Progress uses ordinary structured Julia `@info` messages with `_group=:progress`.
-The effective level is `get(verbosity, :progress, verbosity.default)`. Other
-messages use the nearest explicitly configured module ancestor, then `default`.
-Levels 0, 1, and 2 permit warnings, information, and debug messages respectively.
-The caller's current logger still controls acceptance and output: verbosity does
-not override a `NullLogger`, parent threshold or custom filter. Verbosity does not change
-the native PSCAD diagnostic settings.
+Without `verbosity` or `on_result` among the options, LineCableModels does not filter log
+records, and the caller's logger decides which ones show. With either, the run computes in
+one `VerbosityLogger`, which filters the records by the `verbosity` levels, level 0 by
+default. Levels 0, 1, and 2 permit warnings, information, and debug messages respectively.
+Progress uses ordinary structured Julia `@info` messages with `_group=:progress`, at the
+level `get(verbosity, :progress, verbosity.default)`. Other messages use the nearest
+explicitly configured module ancestor, then `default`. The runner's own progress and timing
+lines appear only when `verbosity` asks for them. The caller's current logger still controls
+acceptance and output: verbosity narrows it and never widens it, so it does not override a
+`NullLogger`, parent threshold or custom filter. Verbosity does not change the native PSCAD
+diagnostic settings.
 
 The runner logs the start and the successful completion of a run. A point that ends in a
 later five-second interval of the run than the one in which it started logs the number
@@ -1246,21 +1270,14 @@ end
 timings = [(; record.kwargs...) for record in log.logs if record.group === :timing]
 ```
 
-The coaxial backend accepts:
+The coaxial backend accepts `trace = false`. `trace=true` preallocates the workspace's
+trace record and attaches the retained matrices to `details(result).data.trace` after
+computation. `verbosity` and `on_result` are computation options of the run, in every call,
+scalar or parametric, whatever the backend, and no backend reads them. A backend's native
+tool levels are computation options of that backend under keys of its own.
 
-```julia
-(
-    verbosity = (default = 0,),
-    trace = false,
-    on_result = nothing,
-)
-```
-
-`trace=true` preallocates the workspace's trace record and attaches
-the retained matrices to `details(result).data.trace` after computation.
-
-Coaxial and PSCAD computations accept an optional callable
-`on_result(problem, index, result)`. It runs synchronously after each completed
+Every computation accepts an optional callable `on_result(problem, index, result)` among
+the options of its run. It runs synchronously after each completed
 formulation, including a reused result, before computing the next selection.
 The index refers to the submitted formulation collection (`1` for a scalar
 call). Manual campaigns can save each completed result before the rest of the batch finishes. The callback must not mutate its arguments. Its return
@@ -1274,13 +1291,19 @@ The PSCAD backend accepts:
 (
     output_stem = "case_name",
     remote = remote_config,
-    verbosity = (default = 0, PSCAD = 2),
-    on_result = nothing,
 )
 ```
 
 `remote` must be a `PSCAD.RemoteConfig`. `output_stem` names files
 created by that execution. Both values belong to that execution rather than `PSCADFormulation`.
+
+The station's runner prints a line for each step of a native run. The session relays each
+line as a debug record of the `PSCAD` module, which Julia's default logger hides. A logger
+that admits debug records shows them, as does `JULIA_DEBUG=PSCAD` with the default logger.
+Within a run's `verbosity`, they show at level 2 of `PSCAD`, as with
+`verbosity=(default=0, PSCAD=2)`, when the caller's logger admits debug records. PSCAD's
+project diagnostics stay in `pscad-console.txt`, and the exception of a failure shows their
+last lines and the path of the file.
 
 Construct a station from a user-selected TOML filename:
 
@@ -1323,8 +1346,8 @@ compose them with `merge`. Each owner rejects unknown keys and returns a
 fixed-key normalized tuple. There is no general fallback and no conversion
 from dictionaries, pairs, or `nothing`.
 
-`MonteCarlo` defines a separate outer computation-option tuple, normalized by
-`computation_options(MonteCarlo, options)`. A draw whose build throws `OverlapError`, or
+`formulation_options(MonteCarlo, options)` normalizes the options of a Monte Carlo study. A
+draw whose build throws `OverlapError`, or
 whose build or computation throws `DomainError`, is drawn again. `max_failures` such
 draws in a row for one trial fail the point with a `DomainError`, which the study records
 beside its values. Other exception types stop the study.

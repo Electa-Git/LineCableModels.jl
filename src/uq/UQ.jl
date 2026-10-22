@@ -25,18 +25,18 @@ import ..LineCableModels: verbosity
 import ..DataModel
 import ..Engine
 import ..Commons
-import ..Commons: compute, computation_options, computation_details, details,
+import ..Commons: compute, computation_details, details, formulation_options,
                   observe, observables, validate,
                   detach, request_identity, request_indices,
                   observation_indices, observation_resolution, observation_request,
-                  initialize_buffers, on_error, traverse
+                  initialize_buffers, on_error, resolve, traverse
 using ..Commons: request_quantity
 import ..Units
 import ..TextDisplay
 using ..Commons:
                  AbstractProblemDefinition, AbstractFormulation, AbstractTraversal,
-                 AbstractUncertaintyResult, Grid, Gridspace, Resolved, ScalarOrGrid, resolve,
-                 ComputationOptions, ComputationDetails
+                 AbstractUncertaintyResult, Resolved, ScalarOrGrid,
+                 ComputationOptions, ComputationDetails, FormulationOptions
 using ..LineCableModels: ParametricProblem, ParametricResult, Combinatorial
 
 include("formulations.jl")

@@ -139,9 +139,11 @@ end
     ScalarOrGrid{T}
 
 A value of `T` or a finite space of values of `T`: `T` itself, a `Gridspace` whose points are
-of `T`, or a non-empty deterministic `Grid` of values of `T`. What dispatches on a scalar `T`
-dispatches on a space of `T`, and this type writes that rule in one signature. The method
-receives both, lifts a space and builds or computes a scalar. `homogenize` takes a
+of `T`, or a non-empty deterministic `Grid` of values of `T`. Within the inputs of one scalar
+problem and formulation, what dispatches on a scalar `T` dispatches on a space of `T`, and
+this type writes that rule in one signature. The method receives both, lifts a space and
+builds or computes a scalar. The studies and the parametric problem are not inputs of a
+problem or a formulation, so their constructors do not lift. `homogenize` takes a
 `ScalarOrGrid{CableDesign}`.
 
 The values of a `Grid` can mix subtypes of `T`. A vector is one value, and alternatives are
@@ -366,6 +368,7 @@ points(space::Gridspace) = (points(space, index) for index in 1:length(space))
 points(problem::AbstractProblemDefinition) = (problem,)
 points(formulation::AbstractFormulation) = (formulation,)
 points(source::Union{AbstractGrid, AbstractResultSpace}, index::Integer) = source[index]
+points(problem::AbstractProblemDefinition, index::Integer) = points(problem)[index]
 # The points of `sources` at `indices`, one per source. The tuple is unrolled, so a nested
 # space with more sources than its parent still infers: a recursive tuple `map` at both
 # levels would widen the inner one.
@@ -413,6 +416,17 @@ function materialize(
 end
 
 """
+    materialize(study, source)
+
+Build the problem of a point of the space of `study`, a study such as
+[`Combinatorial`](@ref), before its first point: the problem that the point declares, which
+its constructor validates. The type of a study whose points build otherwise selects its own
+method, as `MonteCarlo` does for the nominal problem, from the means of the uncertain
+arguments of the point.
+"""
+materialize(::AbstractTraversal, source) = materialize(source)
+
+"""
 Return a deterministic value unchanged during stochastic realization.
 """
 realize(::Random.AbstractRNG, value, _) = value
@@ -422,11 +436,13 @@ function realize(rng::Random.AbstractRNG, value::UncertainValue, distribution)
 end
 
 """
-Draw the arguments of a selected Gridspace point without invoking its builder.
+Draw the arguments of a selected Gridspace point without invoking its builder. A problem is
+a source of one point, itself, without arguments to draw.
 """
 function realize_arguments(rng::Random.AbstractRNG, point::Gridpoint, distribution)
     return map(value -> realize(rng, value, distribution), point.args)
 end
+realize_arguments(::Random.AbstractRNG, ::AbstractProblemDefinition, _) = ()
 
 """
 Build a selected Gridspace point from an already realized argument tuple.
@@ -439,6 +455,8 @@ function realize(
 ) where {Target <: AbstractProblemDefinition}
     return point.build(arguments...)::Target
 end
+# A problem, a source of one point, builds as itself.
+realize(problem::AbstractProblemDefinition, ::Tuple{}) = problem
 
 """
 Recursively realize a selected Gridspace point using the caller's RNG.

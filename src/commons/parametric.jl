@@ -3,72 +3,52 @@ $(TYPEDEF)
 
 Evaluate every point in a [`ParametricProblem`](@ref) with `inner`.
 
-`inner` may be one completed formulation, a deterministic target-bearing
-formulation [`Gridspace`](@ref) or a deterministic [`Grid`](@ref) containing
-completed formulations. Problem and formulation points always form a
-Cartesian product. Uncertainty belongs to the problem space and is rejected
-from the formulation source.
+`inner` is one core formulation, a deterministic [`Gridspace`](@ref) of them or a
+deterministic [`Grid`](@ref) of them, a `ScalarOrGrid{AbstractFormulation}`.
+Problem and formulation points always form a Cartesian product. Uncertainty belongs to the
+problem space and is rejected from the formulation source. The study has no options of its
+own: the computation options of its run are those of the parametric call.
 
 $(TYPEDFIELDS)
 """
-struct Combinatorial{F, O <: ComputationOptions} <: AbstractTraversal
+struct Combinatorial{F} <: AbstractTraversal
     "Formulation used for each core problem."
     inner::F
-    "Supplemental-output retention options owned by this traversal."
-    options::O
 
-    Combinatorial(inner::F, options::O) where {
-        F <: Union{AbstractFormulation, AbstractGrid, Gridspace}, O <: ComputationOptions} =
-        validate(new{F, O}(inner, options))
+    Combinatorial(inner::F) where {F <: ScalarOrGrid{AbstractFormulation}} =
+        validate(new{F}(inner))
 end
 
-function (::Type{T})(inner;
-        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
-        keywords...) where {T <: AbstractTraversal}
-    record = ComputationOptions(options)
-    duplicates = filter(key -> haskey(record.data, key), keys(keywords))
-    isempty(duplicates) || throw(ArgumentError(
-        "$(nameof(T)) computation options supplied both as keywords and in options: " *
-        "$(collect(duplicates))",
-    ))
-    merged = ComputationOptions(merge(record.data, values(keywords)))
-    return T(inner, computation_options(T, merged))
-end
-
-# A traversal retains the details of its points or not.
+# The computation options of the run of a study, whatever the study, are `verbosity`,
+# `on_result` and `retain_details`.
 function computation_options(
-        ::Type{T},
+        ::Type{<:AbstractTraversal},
         record::ComputationOptions
-)::ComputationOptions where {T <: AbstractTraversal}
+)::ComputationOptions
     options = record.data
-    unknown = filter(key -> key !== :retain_details, keys(options))
+    defaults = (verbosity = (default = 0,), on_result = nothing, retain_details = false)
+    unknown = filter(key -> !haskey(defaults, key), keys(options))
     isempty(unknown) || throw(ArgumentError(
-        "unknown $(nameof(T)) computation options: $(sort!(collect(unknown)))",
+        "unknown computation options of a parametric run: $(sort!(collect(unknown))). " *
+        "The computation options of the backend for every point are the options of " *
+        "ParametricProblem(space, options)",
     ))
-    normalized = merge((retain_details = false,), options)
-    normalized.retain_details isa Bool || throw(ArgumentError(
-        "$(nameof(T)) retain_details must be Bool",
-    ))
-    return ComputationOptions(; retain_details = normalized.retain_details)
+    normalized = merge(defaults, options)
+    normalized.retain_details isa Bool || throw(ArgumentError("retain_details must be Bool"))
+    return ComputationOptions(; verbosity = verbosity(normalized.verbosity),
+        normalized.on_result, normalized.retain_details)
 end
 
-# A traversal stores a valid inner formulation and normalized options.
-function validate(formulation::T) where {T <: AbstractTraversal}
-    validate(formulation.inner, T)
-    computation_options(T, formulation.options) === formulation.options ||
-        throw(ArgumentError(
-            "$(nameof(T)) options must be normalized; construct it with keywords",
-        ))
-    return formulation
+# A study stores a valid inner formulation.
+function validate(study::T) where {T <: AbstractTraversal}
+    validate(study.inner, T)
+    return study
 end
 
-# The inner formulation of a traversal: one completed formulation, or, for a Combinatorial
-# computation, a deterministic space or Grid of them.
+# The inner formulation of a study: one core formulation, or, for a Combinatorial study, a
+# deterministic space or Grid of them.
 validate(formulation::AbstractFormulation, ::Type{<:AbstractTraversal}) = formulation
-function validate(inner::Gridspace{Target}, ::Type{<:Combinatorial}) where {Target}
-    Target <: AbstractFormulation || throw(ArgumentError(
-        "Combinatorial Gridspace target must subtype AbstractFormulation; got $Target",
-    ))
+function validate(inner::Gridspace, ::Type{<:Combinatorial})
     has_uncertainty(inner) && throw(ArgumentError(
         "Combinatorial formulation spaces must be deterministic",
     ))
@@ -78,40 +58,32 @@ function validate(inner::AbstractGrid, ::Type{<:Combinatorial})
     has_uncertainty(inner) && throw(ArgumentError(
         "Combinatorial formulation grids must be deterministic",
     ))
-    foreach(value -> validate(value, Combinatorial), inner)
     return inner
 end
-function validate(value, ::Type{T}) where {T <: AbstractTraversal}
-    throw(ArgumentError(
-        "$(nameof(T)) formulation sources must contain completed AbstractFormulation " *
-        "values; got $(nameof(typeof(value)))"
-    ))
-end
 
-# A Combinatorial formulation is its own record of the traversal.
-Combinatorial(formulation::Combinatorial) = formulation
-
-# A Combinatorial formulation's points are those of its source, and it varies when its
-# source does.
-points(formulation::Combinatorial) = points(formulation.inner)
-has_grid(formulation::Combinatorial) = has_grid(formulation.inner)
+# A Combinatorial study's formulations are the points of its source.
+points(study::Combinatorial) = points(study.inner)
 
 """
 $(TYPEDEF)
 
-Pair a problem or a lazy parameter space of problems with the computation options of a
-computation. A scalar problem stays a scalar, a run of one point. The problem itself need
-not implement iteration.
+Pair a core problem or a lazy parameter space of core problems with the computation
+options of the backend for every point. The owner of the formulations of a study normalizes
+these options once, before the first point. A scalar problem is a space of one point, and
+the problem itself need not implement iteration. As a problem space, an
+[`AbstractProblemSpace`](@ref), a parametric problem contains core problems, never a
+parametric problem. Its options never vary, and the computation options of the run are those
+of the parametric call, `compute(problem, study; options)`.
 
 $(TYPEDFIELDS)
 """
 struct ParametricProblem{
     S <: ScalarOrGrid{AbstractProblemDefinition},
     O <: ComputationOptions
-} <: AbstractProblemDefinition
+} <: AbstractProblemSpace
     "A complete core problem or a lazy space of them."
     space::S
-    "Options forwarded to each core computation for owner-specific normalization."
+    "Computation options of the backend for every point, which its owner normalizes."
     options::O
 
     function ParametricProblem(space::S, options::O) where {

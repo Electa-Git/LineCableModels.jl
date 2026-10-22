@@ -15,9 +15,8 @@
     )
     inner = CableConstantsFormulation()
     formulation = MonteCarlo(inner; trials=4, seed=71, distribution=:uniform,
-        return_samples=true, return_histograms=true, bins=2,
-        options=(retain_details=true, max_failures=3))
-    sampled = compute(ParametricProblem(space), formulation)
+        return_samples=true, return_histograms=true, bins=2, options=(max_failures=3,))
+    sampled = compute(ParametricProblem(space), formulation; options=(retain_details=true,))
     @test length(sampled) == 2
     @test sampled.trial_counts == [4, 4]
     @test length(attempted_temperatures) == 12
@@ -43,7 +42,7 @@
     @test length(attempted_temperatures)==before_observation
     recorded = copy(attempted_temperatures)
     empty!(attempted_temperatures)
-    replay = compute(ParametricProblem(space), formulation)
+    replay = compute(ParametricProblem(space), formulation; options=(retain_details=true,))
     @test attempted_temperatures == recorded
     @test samples(replay) == samples(sampled)
     @test replay.point_seeds == sampled.point_seeds
@@ -68,10 +67,9 @@ end
             end,
             (Grid((1.0,)),),
         )
-        formulation = MonteCarlo(inner; trials=2, seed=71,
-            options=(retain_details=true, max_failures=3))
+        formulation = MonteCarlo(inner; trials=2, seed=71, options=(max_failures=3,))
         failure = try
-            compute(ParametricProblem(space), formulation)
+            compute(ParametricProblem(space), formulation; options=(retain_details=true,))
         catch exception
             exception
         end
@@ -114,7 +112,7 @@ end
     two=ParametricProblem(Gridspace{CableConstantsProblem}(physical_problem,
         (Grid((.005,.006),AbsoluteError(.001)),)))
     sampled=compute(two,MonteCarlo(inner;trials=2,seed=103,distribution=negative,
-        max_failures=3,retain_details=true))
+        max_failures=3);options=(retain_details=true,))
     @test attempts==[.005,.006,-.005,-.005,-.005,.006,.006]
     @test sampled.trial_counts==[2]
     gridpoint,failure=only(sampled.failures)
@@ -132,7 +130,7 @@ end
     end
     empty!(attempts)
     sampled=compute(problem,MonteCarlo(inner;trials=2,seed=103,distribution=alternating,
-        max_failures=3,retain_details=true,return_samples=true))
+        max_failures=3,return_samples=true);options=(retain_details=true,))
     @test sampled.trial_counts==[2]
     @test attempts==[.005,-.005,.005,-.005,.005]
     @test only(sampled.values).details.data.inputs.interpretation===:nominal_declaration

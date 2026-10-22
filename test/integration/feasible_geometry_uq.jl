@@ -29,10 +29,9 @@
     @test length(linear.values)==2
     N=4
     seed=2029
-    method=MonteCarlo(inner;trials=N,seed,distribution=:uniform,
-        return_samples=true,retain_details=true)
+    method=MonteCarlo(inner;trials=N,seed,distribution=:uniform,return_samples=true)
     log_inputs[]=true
-    sampled=compute(parametric,method)
+    sampled=compute(parametric,method;options=(retain_details=true,))
     log_inputs[]=false
     @test sampled.trial_counts==[N,N]
     @test length(unique(sampled.point_seeds))==2

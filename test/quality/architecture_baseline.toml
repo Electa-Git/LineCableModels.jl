@@ -91,7 +91,7 @@
 "src/engine/lineparameters/lineparameters.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/lineparameters/observations.jl" = { applicable = 0, eval = 0, isa = 18, kind = 0 }
 "src/engine/lineparameters/resolution.jl" = { applicable = 0, eval = 0, isa = 23, kind = 0 }
-"src/engine/modalanalysis/compute.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
+"src/engine/modalanalysis/compute.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/engine/modalanalysis/formulas/chrysochos2014.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "src/engine/modalanalysis/formulas/vieira2026.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/engine/modalanalysis/formulas/wedepohl1996.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
@@ -139,15 +139,15 @@
 "src/commons" = 106
 "src/datamodel" = 138
 "src/earth" = 16
-"src/engine" = 235
+"src/engine" = 234
 "src/importexport" = 38
 "src/materials" = 6
 "src/parametricbuilder" = 41
-"src/pscad" = 58
+"src/pscad" = 57
 "src/reportbuilder" = 70
 "src/textdisplay" = 1
 "src/units" = 24
-"src/uq" = 62
+"src/uq" = 61
 
 [storage]
 "src/engine/cableconstants.jl | CableConstantsWorkspace" = 3

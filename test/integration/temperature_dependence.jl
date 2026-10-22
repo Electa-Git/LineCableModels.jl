@@ -75,7 +75,8 @@ end
     N=8
     seed=2027
     sampled=compute(problem,MonteCarlo(CableConstantsFormulation();trials=N,seed,
-        distribution=:uniform,return_samples=true,return_histograms=true,retain_details=true))
+        distribution=:uniform,return_samples=true,return_histograms=true);
+        options=(retain_details=true,))
     @test sampled.trial_counts==[N,N]
     @test length(unique(sampled.point_seeds))==2
     # Rebuild each retained draw through scalar compute. Statistics below are

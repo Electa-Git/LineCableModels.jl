@@ -146,7 +146,7 @@ end
     parametric=ParametricProblem(nested)
     inner=CableConstantsFormulation()
     combinatorial=Combinatorial(inner)
-    linear=LinearError(inner; options = (retain_details = true,))
+    linear=LinearError(inner)
     automatic=MonteCarlo(inner)
     explicit=MonteCarlo(inner; trials = 12, seed = 17, distribution = Uniform(-1, 1),
         return_samples = true, return_histograms = true)
@@ -189,7 +189,7 @@ end
     @test !occursin("%", sprint(show, absolute))
     @test occursin("2 points", sprint(show, nested))
     @test occursin("CableConstantsProblem", sprint(show, nested))
-    @test occursin("retained", sprint(show, MIME"text/plain"(), linear))
+    @test occursin("inner    CableConstantsFormulation", sprint(show, MIME"text/plain"(), linear))
     @test occursin("DKW-sized", sprint(show, automatic))
     shown=sprint(show, MIME"text/plain"(), explicit)
     @test occursin("12", shown)

@@ -1,16 +1,15 @@
 # A normalized record is returned as it is.
 computation_options(::Type{<:PSCADFormulation},
-    record::ComputationOptions{<:NamedTuple{(:work_root, :output_stem, :remote, :verbosity,
-        :on_result, :resume_run_directory, :solver_identity),
-        <:Tuple{String, String, RemoteConfig, NamedTuple, Any, Any, Any}}}) = record
+    record::ComputationOptions{<:NamedTuple{(:work_root, :output_stem, :remote,
+        :resume_run_directory, :solver_identity),
+        <:Tuple{String, String, RemoteConfig, Any, Any}}}) = record
 
 function computation_options(
         ::Type{<:PSCADFormulation},
         record::ComputationOptions
 )::ComputationOptions
     options = record.data
-    allowed = (:output_stem, :remote, :verbosity, :on_result,
-        :resume_run_directory, :solver_identity, :work_root)
+    allowed = (:output_stem, :remote, :resume_run_directory, :solver_identity, :work_root)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown PSCAD computation options: $(sort!(collect(unknown)))",
@@ -25,8 +24,6 @@ function computation_options(
         (
             output_stem = "lcm",
             work_root = options.remote.local_root,
-            verbosity = (default = 0,),
-            on_result = nothing,
             resume_run_directory = nothing,
             solver_identity = nothing
         ),
@@ -40,7 +37,6 @@ function computation_options(
         throw(ArgumentError(
             "PSCAD output_stem must contain 1–20 ASCII letters, digits, or underscores",
         ))
-    levels = verbosity(normalized.verbosity)
     resume = normalized.resume_run_directory
     (resume === nothing || resume === :latest || resume isa AbstractString) ||
         throw(ArgumentError("PSCAD resume_run_directory must be nothing, :latest, or a completed run path"))
@@ -61,8 +57,6 @@ function computation_options(
         work_root,
         output_stem,
         remote = options.remote,
-        verbosity = levels,
-        on_result = normalized.on_result,
         resume_run_directory = resume isa AbstractString ? abspath(resume) : resume,
         solver_identity = identity
     )
@@ -223,8 +217,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         end
         @debug "Computing PSCAD line parameters" system=problem.system.system_id
         execution = run_remote_pscad(config, staged, joinpath(root, "outputs"),
-            formulation, problem.frequencies; output_stem = execution_options.data.output_stem,
-            verbosity = verbosity(execution_options, :PSCAD))
+            formulation, problem.frequencies; output_stem = execution_options.data.output_stem)
         actual = Dict{String, String}(validate(
             TOML.parsefile(joinpath(execution.output_dir, "solver.toml")), config))
         expected === nothing || actual == expected || throw(ArgumentError(
@@ -239,7 +232,6 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         read_pscad_result(execution.output_dir, problem.frequencies, _pscad_size(problem),
             problem.system.line_length)
     catch error
-        verbosity(execution_options, :progress) > 0 && @info "PSCAD result validation failed" _group=:progress exception=error
         throw(ErrorException("PSCAD result validation failed: $(sprint(showerror, error))" *
             "\nLast PSCAD diagnostics:\n$(_diagnostic_tail(execution.console_path))" *
             "\nFull PSCAD diagnostics: $(execution.console_path)"))

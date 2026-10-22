@@ -117,13 +117,17 @@
         space = Gridspace{LineParametersProblem}(realized_problem,
             (Grid((0.004,),AbsoluteError(0.0001)),))
         realized_types = Type[]
-        parametric = ParametricProblem(space,ComputationOptions((;remote,
-            on_result=(p,i,r)->push!(realized_types,eltype(p)))))
+        # The backend's options are those of the problem, and the callable is an option of
+        # the run, in the parametric call.
+        parametric = ParametricProblem(space,ComputationOptions((;remote)))
+        callback = (on_result=(p,i,r)->push!(realized_types,eltype(p)),)
         before = launches[]
         deterministic = Gridspace{LineParametersProblem}(realized_problem,(Grid((0.004,)),))
-        nominal = compute(ParametricProblem(deterministic,parametric.options),Combinatorial(selected))
+        nominal = compute(ParametricProblem(deterministic,parametric.options),Combinatorial(selected);
+            options=callback)
         @test only(nominal) isa LineParameters
-        sampled = compute(parametric,MonteCarlo(selected;trials=2,seed=71,return_samples=true))
+        sampled = compute(parametric,MonteCarlo(selected;trials=2,seed=71,return_samples=true);
+            options=callback)
         @test sampled isa MonteCarloResult{<:LineParameters}
         @test launches[] == before + 3
         # The deterministic point, the nominal and the two trials build with plain numbers.

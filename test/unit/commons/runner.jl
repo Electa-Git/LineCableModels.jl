@@ -24,9 +24,9 @@
     @test C.resolve(problem, [Scale{1}()]; options) isa Vector{<:C.Resolved}
 
     # A scalar call is a run of one point and returns its value, as does the parametric
-    # problem of a scalar problem.
+    # problem of a scalar problem with a core formulation.
     @test @inferred(compute(problem, Scale{3}())) == CountResult(6)
-    @test C.traverse(problem, Scale{3}()) == CountResult(6)
+    @test @inferred(C.traverse(C.ParametricProblem(problem), Scale{3}())) == CountResult(6)
     @test @inferred(compute(C.ParametricProblem(problem), Scale{3}())) == CountResult(6)
     one = compute(problem, C.Grid((Scale{1}(), Scale{3}())))
     @test collect(one) == CountResult.([2, 6])
@@ -44,25 +44,29 @@
     @test result[2, 2] == CountResult(20)
     @test result.gridpoints == CartesianIndices((2, 2))
 
-    # A parametric problem runs its space with its options, and a Combinatorial
-    # formulation sets the retention of details.
-    run = compute(C.ParametricProblem(problems),
-        C.Combinatorial(Scale{2}(); options = (retain_details = true,)))
+    # A parametric problem runs its space with its options, and the computation options of
+    # the run, in the call, set the retention of details.
+    run = compute(C.ParametricProblem(problems), C.Combinatorial(Scale{2}());
+        options = (retain_details = true,))
     @test collect(run) == CountResult.([2, 4])
     @test length(details(run).data.points) == 2
 
-    # A traversal family member takes its options as keywords, and its positional
-    # constructor validates what it builds.
-    struct Every{F, O <: C.ComputationOptions} <: C.AbstractTraversal
+    # A study of one's own holds its inner formulation, and the computation options of its
+    # run are normalized by the one method of every study. A study is not a formulation,
+    # and a parametric problem is a problem space.
+    struct Every{F} <: C.AbstractTraversal
         inner::F
-        options::O
-        Every(inner::F, options::O) where {F <: AbstractFormulation, O <: C.ComputationOptions} =
-            validate(new{F, O}(inner, options))
+        Every(inner::F) where {F <: AbstractFormulation} = validate(new{F}(inner))
     end
-    @test Every(Scale{1}(); retain_details = true).options ==
-          C.ComputationOptions(; retain_details = true)
-    @test_throws ArgumentError Every(Scale{1}(); unused = true)
-    @test_throws ArgumentError Every(Scale{1}(), C.ComputationOptions())
+    @test computation_options(Every, C.ComputationOptions(retain_details = true)) ==
+          C.ComputationOptions(; verbosity = (default = 0,), on_result = nothing,
+        retain_details = true)
+    @test_throws ArgumentError computation_options(Every, C.ComputationOptions(unused = true))
+    @test !(Every(Scale{1}()) isa AbstractFormulation)
+    @test C.ParametricProblem(problem) isa C.AbstractProblemSpace
+    @test !(C.ParametricProblem(problem) isa AbstractProblemDefinition)
+    @test_throws MethodError C.ParametricProblem(C.ParametricProblem(problem))
+    @test_throws MethodError C.Combinatorial(C.Combinatorial(Scale{1}()))
 
     # At level 1 in the `timing` group, each point logs one record with its gridpoint and
     # the five timing fields, and the result does not record timing.
@@ -151,8 +155,8 @@ end
     @test sprint(show, result) == "ParametricResult(5 values, 3 failed)"
     @test occursin("5 values, 3 failed", sprint(show, MIME("text/plain"), result))
     # Retained details cover the computed points.
-    retained = compute(C.ParametricProblem(space),
-        C.Combinatorial(formulations; options = (retain_details = true,)))
+    retained = compute(C.ParametricProblem(space), C.Combinatorial(formulations);
+        options = (retain_details = true,))
     @test [record.data.value for record in details(retained).data.points] ==
           [1, 3, 4, 10, 40]
 
@@ -217,6 +221,10 @@ end
     catch exception
         C.on_error(study, exception)
     end
+    # Linear propagation records what Combinatorial records, the user's exception included.
+    linear = LinearError(Formulation())
+    @test C.on_error(linear, overlap) === overlap
+    @test C.on_error(linear, Refused()) === Refused()
     sampled = MonteCarlo(Formulation())
     @test C.on_error(sampled, overlap) === overlap
     @test C.on_error(sampled, domain) === domain
