@@ -13,6 +13,8 @@ end
 
 @testset "architecture" begin
     tree = Guards.PackageTree(LineCableModels, Module[], pkgdir(LineCableModels))
+    files = Guards.source_files(pkgdir(LineCableModels))
+    directory = pkgdir(LineCableModels)
     methods = Guards.package_methods(tree)
     homes = Guards.home_directories(tree)
 
@@ -41,6 +43,34 @@ end
         for M in tree.core
         if M !== tree.root && parentmodule(M) === tree.root) ⊆ Set(Guards.ORDER)
         @test Guards.direction(methods, tree, Guards.ORDER) == Dict{String, Int}()
+    end
+
+    @testset "validate returns its subject" begin
+        @test Guards.validate_returns(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "reserved verbs" begin
+        @test Guards.reserved_verbs(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "storage vocabulary" begin
+        @test Guards.storage_vocabulary(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "repeated access names" begin
+        @test Guards.repeated_access_names(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "symbol switches and probes" begin
+        @test Guards.symbol_switches(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "decisions by absence" begin
+        @test Guards.absences(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "file hygiene" begin
+        @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
     end
 
     @testset "negative controls" begin
@@ -99,5 +129,57 @@ end
             extension = "ImportsProbeCleanExt")
         @test Base.invokelatest(Guards.explicit_imports, clean, clean_extensions) ==
               Dict{String, Int}()
+
+        directory = joinpath(@__DIR__, "probes", "sources", "planted")
+        files = Guards.source_files(directory)
+        @test Guards.validate_returns(files, directory) ==
+              Dict{String, Int}("src/validate.jl" => 6)
+        @test Guards.reserved_verbs(files, directory) == Dict{String, Int}(
+            "src/validate.jl | __validate_shape" => 1,
+            "src/validate.jl | _check_input" => 1,
+            "src/validate.jl | ensure_ready" => 1,
+            "src/validate.jl | require_kind" => 1)
+        @test Guards.storage_vocabulary(files, directory) == Dict{String, Int}(
+            "src/storage.jl | AbstractStorage" => 1,
+            "src/storage.jl | FormulaBuffers" => 1,
+            "src/storage.jl | KernelCache" => 1,
+            "src/storage.jl | ProbeWorkspace" => 2,
+            "src/storage.jl | cache" => 2,
+            "src/storage.jl | kernel_workspace" => 1,
+            "src/storage.jl | sample_storage" => 1,
+            "src/storage.jl | scratch" => 1,
+            "src/storage.jl | storage" => 1,
+            "src/storage.jl | trace_buffers" => 1,
+            "src/storage.jl | work" => 2)
+        @test Guards.repeated_access_names(files, directory) ==
+              Dict{String, Int}("src/repeats.jl" => 3)
+        @test Guards.symbol_switches(files, directory) == Dict{String, Int}(
+            "src/switches.jl | applicable" => 2,
+            "src/switches.jl | eval" => 2,
+            "src/switches.jl | symbol" => 9,
+            "src/switches.jl | type test" => 9)
+        @test Guards.absences(files, directory) == Dict{String, Int}(
+            "src/absence.jl | argument" => 9,
+            "src/absence.jl | comparison" => 9,
+            "src/absence.jl | ismissing" => 1,
+            "src/absence.jl | isnothing" => 4,
+            "src/absence.jl | parameter" => 7,
+            "src/absence.jl | something" => 1)
+        @test Guards.file_hygiene(files, directory) == Dict{String, Int}(
+            "ext/hygiene.jl | homedir" => 1,
+            "src/hygiene.jl | homedir" => 1,
+            "src/hygiene.jl | mktempdir" => 1,
+            "src/hygiene.jl | tempdir" => 1,
+            "src/hygiene.jl | tempname" => 1)
+
+        directory = joinpath(@__DIR__, "probes", "sources", "clean")
+        files = Guards.source_files(directory)
+        @test Guards.validate_returns(files, directory) == Dict{String, Int}()
+        @test Guards.reserved_verbs(files, directory) == Dict{String, Int}()
+        @test Guards.storage_vocabulary(files, directory) == Dict{String, Int}()
+        @test Guards.repeated_access_names(files, directory) == Dict{String, Int}()
+        @test Guards.symbol_switches(files, directory) == Dict{String, Int}()
+        @test Guards.absences(files, directory) == Dict{String, Int}()
+        @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
     end
 end
