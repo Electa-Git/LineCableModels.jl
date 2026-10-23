@@ -15,6 +15,8 @@ end
     tree = Guards.PackageTree(LineCableModels, Module[], pkgdir(LineCableModels))
     files = Guards.source_files(pkgdir(LineCableModels))
     directory = pkgdir(LineCableModels)
+    called = Guards.called_names(keys(Guards.test_sources(
+        joinpath(directory, "test"); excluded = Guards.NOT_TESTS)))
     methods = Guards.package_methods(tree)
     homes = Guards.home_directories(tree)
 
@@ -71,6 +73,39 @@ end
 
     @testset "file hygiene" begin
         @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "Commons admission" begin
+        @test Guards.commons_admission(methods, tree, homes) == Dict{String, Int}()
+    end
+
+    @testset "reserved vocabulary" begin
+        @test Guards.reserved_vocabulary(files, directory, Guards.VOCABULARY) ==
+              Dict{String, Int}()
+    end
+
+    @testset "literal fingerprints" begin
+        @test Guards.fingerprints(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "clones of Commons bodies" begin
+        @test Guards.clones(files, methods, tree) == Dict{String, Int}()
+    end
+
+    @testset "tiny private helpers" begin
+        @test Guards.tiny_helpers(methods, tree, called) == Dict{String, Int}()
+    end
+
+    @testset "root module" begin
+        @test Guards.root_definitions(tree) == Dict{String, Int}()
+    end
+
+    @testset "boxed captures" begin
+        @test Guards.boxed_captures(methods, tree) == Dict{String, Int}()
+    end
+
+    @testset "typed values" begin
+        @test Guards.typed_values(tree) == Dict{String, Int}()
     end
 
     @testset "negative controls" begin
@@ -181,5 +216,86 @@ end
         @test Guards.symbol_switches(files, directory) == Dict{String, Int}()
         @test Guards.absences(files, directory) == Dict{String, Int}()
         @test Guards.file_hygiene(files, directory) == Dict{String, Int}()
+
+        vocabulary = Dict{Symbol, Pair{String, Regex}}(
+            :ideal_transposition! => "src/commons" => r"transpos",
+            :vacuum_permittivity => "src/commons" => r"(?i)^_*(\w+_)?(vacuum_permittivity|eps(ilon)?_?[0₀]|[εϵ]_?[0₀])$",
+            :vacuum_permeability => "src/commons" => r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$")
+        planted,
+        _ = probe("commons/planted", "CommonsProbePlanted";
+            extension = "CommonsProbePlantedExt")
+        planted_methods = Base.invokelatest(Guards.package_methods, planted)
+        planted_homes = Base.invokelatest(Guards.home_directories, planted)
+        planted_files = Guards.source_files(planted.directory)
+        planted_called = Guards.called_names(keys(Guards.test_sources(
+            joinpath(planted.directory, "test"); excluded = Guards.NOT_TESTS)))
+        @test Base.invokelatest(Guards.commons_admission, planted_methods, planted, planted_homes) ==
+              Dict{String, Int}(
+            "Lone | owners" => 1,
+            "extension_shared | owners" => 1,
+            "hidden | docstring" => 1,
+            "hidden | owners" => 1,
+            "hidden | public" => 1,
+            "hidden | tests" => 1,
+            "hidden_wrapper | docstring" => 1,
+            "hidden_wrapper | public" => 1,
+            "hidden_wrapper | tests" => 1,
+            "inner_only | owners" => 1,
+            "lonely | owners" => 1,
+            "undocumented | docstring" => 1,
+            "untested | tests" => 1,
+            "welcome | tests" => 1)
+        @test Base.invokelatest(Guards.reserved_vocabulary, planted_files, planted.directory, vocabulary) ==
+              Dict{String, Int}(
+            "src/alpha/Alpha.jl | EPS0" => 1,
+            "src/alpha/Alpha.jl | transposed!" => 1,
+            "src/alpha/Alpha.jl | μ0" => 1)
+        @test Base.invokelatest(Guards.fingerprints, planted_files, planted.directory) ==
+              Dict{String, Int}("src/alpha/Alpha.jl" => 2, "src/beta/Beta.jl" => 2)
+        @test Base.invokelatest(Guards.clones, planted_files, planted_methods, planted) ==
+              Dict{String, Int}("src/beta/Beta.jl | average_cyclic! ~ ideal_transposition!" => 1)
+        @test Base.invokelatest(Guards.tiny_helpers, planted_methods, planted, planted_called) ==
+              Dict{String, Int}("src/alpha/Alpha.jl" => 2, "src/beta/Beta.jl" => 1)
+        @test Base.invokelatest(Guards.root_definitions, planted) ==
+              Dict{String, Int}("CommonsProbePlanted" => 2)
+
+        clean,
+        _ = probe("commons/clean", "CommonsProbeClean";
+            extension = "CommonsProbeCleanExt")
+        clean_methods = Base.invokelatest(Guards.package_methods, clean)
+        clean_homes = Base.invokelatest(Guards.home_directories, clean)
+        clean_files = Guards.source_files(clean.directory)
+        clean_called = Guards.called_names(keys(Guards.test_sources(
+            joinpath(clean.directory, "test"); excluded = Guards.NOT_TESTS)))
+        @test Base.invokelatest(Guards.commons_admission, clean_methods, clean, clean_homes) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.reserved_vocabulary, clean_files, clean.directory, vocabulary) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.fingerprints, clean_files, clean.directory) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.clones, clean_files, clean_methods, clean) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.tiny_helpers, clean_methods, clean, clean_called) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.root_definitions, clean) == Dict{String, Int}()
+
+        planted, _ = probe("values/planted", "ValuesProbePlanted")
+        planted_methods = Base.invokelatest(Guards.package_methods, planted)
+        @test Base.invokelatest(Guards.boxed_captures, planted_methods, planted) ==
+              Dict{String, Int}("ValuesProbePlanted | boxed | src/ValuesProbePlanted.jl" => 1)
+        @test Base.invokelatest(Guards.typed_values, planted) == Dict{String, Int}(
+            "ValuesProbePlanted | Loose | constructor | src/ValuesProbePlanted.jl" => 1,
+            "ValuesProbePlanted | Loose | x" => 1,
+            "ValuesProbePlanted | Open | constructor | src/ValuesProbePlanted.jl" => 1,
+            "ValuesProbePlanted | Open | x" => 1,
+            "ValuesProbePlanted | Plain | constructor | src/ValuesProbePlanted.jl" => 3,
+            "ValuesProbePlanted | Wide | constructor | src/ValuesProbePlanted.jl" => 1,
+            "ValuesProbePlanted | Wide | x" => 1)
+
+        clean, _ = probe("values/clean", "ValuesProbeClean")
+        clean_methods = Base.invokelatest(Guards.package_methods, clean)
+        @test Base.invokelatest(Guards.boxed_captures, clean_methods, clean) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.typed_values, clean) == Dict{String, Int}()
     end
 end

@@ -20,6 +20,16 @@ const DEPENDENCIES = (Base,)
 # The home of Commons, the one module that defines `*Buffers` types.
 const COMMONS_DIRECTORY = "src/commons"
 const RESERVED_VERB = r"^_*(validate|check|require|assert|verify|ensure)_"
+const COMMONS = :Commons
+const COMMONS_TESTS = "test/commons"
+# Directories under `test/` whose files name definitions without testing them.
+const NOT_TESTS = ("architecture",)
+# Each reserving name maps to its home and to the definition names it reserves outside that
+# home. The physical constants and the matrix reductions enter it with their definitions.
+const VOCABULARY = Dict{Symbol, Pair{String, Regex}}()
+const SHINGLE = 8
+const CLONE_TOKENS = 30
+const CLONE_SHARE = 0.75
 
 # The core modules, the loaded extension modules and the repository
 # directory that holds `src/` and `ext/`.
@@ -899,6 +909,573 @@ function file_hygiene(files, directory)
             kind(node) == K"Identifier" && node.val in UNHYGIENIC &&
                 count!(found, string(relative(file, directory), " | ", node.val))
             return true
+        end
+    end
+    return found
+end
+
+function upper(T)
+    T isa TypeVar ? upper(T.ub) :
+    T isa Core.TypeofVararg ? (isdefined(T, :T) ? upper(T.T) : Any) : T
+end
+
+type_name(T) = (T = Base.unwrap_unionall(T); T isa DataType ? nameof(T) : nothing)
+
+# The functions, types and constants that a module defines, by name.
+function definitions(M::Module)
+    found = Dict{Symbol, Any}()
+    for name in names(M; all = true)
+        (startswith(string(name), "#") || name in (:eval, :include) ||
+         name === nameof(M)) && continue
+        isdefined(M, name) || continue
+        value = getfield(M, name)
+        value isa Module && continue
+        owner = value isa Function ? value_owner(value) :
+                value isa Type && type_name(value) === name ? type_owner(value) :
+                isconst(M, name) ? Base.binding_module(M, name) : nothing
+        owner === M && (found[name] = value)
+    end
+    return found
+end
+
+# The function or type whose method `m` is. A keyword sorter belongs to its
+# function, and a method of a nested function to the type of that function.
+function method_subject(m::Method)
+    signature = Base.unwrap_unionall(m.sig).parameters
+    F = Base.unwrap_unionall(signature[1])
+    F isa DataType || return nothing
+    F === typeof(Core.kwcall) && length(signature) >= 3 &&
+        (F = Base.unwrap_unionall(signature[3]); F isa DataType || return nothing)
+    if F.name === Type.body.name
+        T = F.parameters[1]
+        T = Base.unwrap_unionall(T isa TypeVar ? T.ub : T)
+        return T isa DataType ? T.name.wrapper : nothing
+    end
+    return isdefined(F, :instance) ? F.instance : F.name.wrapper
+end
+
+# The root module, a top-level core submodule or a top-level extension module.
+function top_owner(tree::PackageTree, m::Module)
+    while m !== tree.root && parentmodule(m) !== m && parentmodule(m) !== tree.root &&
+              parentmodule(m) in tree.modules
+        m = parentmodule(m)
+    end
+    return m
+end
+
+# The texts of the checkout's `.jl` files under `directory`, by path, except those under
+# `excluded` subdirectories.
+function test_sources(directory; excluded = ())
+    texts = Dict{String, String}()
+    for file in repository_files(directory)
+        endswith(file, ".jl") &&
+            !any(x -> inside(file, joinpath(directory, x)), excluded) &&
+            (texts[file] = read(file, String))
+    end
+    return texts
+end
+
+# The paths of the texts that name `name`, sorted.
+function naming(texts, name)
+    pattern = Regex("(?<![\\w!@])\\Q" * string(name) * "\\E(?![\\w!])")
+    return sort!([path for (path, text) in texts if occursin(pattern, text)])
+end
+
+function commons_module(tree::PackageTree)
+    (C = isdefined(tree.root, COMMONS) ?
+         getfield(tree.root, COMMONS) : nothing;
+        C isa Module ? C : nothing)
+end
+
+# The grammar and the user API of Commons. The grammar is the Commons functions with a method
+# defined outside Commons and the Commons abstract types with a subtype defined outside
+# Commons. The user API is the Commons names that the root module exports or declares public.
+function commons_roles(methods, tree::PackageTree, C::Module, defined)
+    functions = IdDict{Any, Symbol}(value => name
+    for (name, value) in defined
+    if value isa Function)
+    abstracts = IdDict{Any, Symbol}(value => name
+    for (name, value) in defined
+    if value isa Type && isabstracttype(Base.unwrap_unionall(value)))
+    grammar = Set{Symbol}()
+    for m in methods
+        within(m.module, C, tree.root) && continue
+        name = get(functions, method_subject(m), nothing)
+        name === nothing || push!(grammar, name)
+    end
+    for M in tree.modules
+        within(M, C, tree.root) && continue
+        for value in values(definitions(M))
+            value isa Type || continue
+            S = supertype(Base.unwrap_unionall(value))
+            while S !== Any
+                name = get(abstracts, S.name.wrapper, nothing)
+                name === nothing || push!(grammar, name)
+                S = supertype(S)
+            end
+        end
+    end
+    api = Set(name
+    for (name, value) in defined
+    if Base.ispublic(tree.root, name) &&
+       isdefined(tree.root, name) && getfield(tree.root, name) === value)
+    return grammar, api
+end
+
+# The owners outside Commons whose methods use each Commons name, directly or through
+# the `public` Commons definitions. Macros are used where source code calls them.
+function commons_owners(methods, tree::PackageTree, C::Module, defined, public, homes)
+    name_of = IdDict{Any, Symbol}(value => name for (name, value) in defined)
+    # Owners of every Commons value, nested functions and keyword bodies included.
+    owners = IdDict{Any, Set{Module}}(value => Set{Module}() for value in values(defined))
+    # The Commons values that each Commons method subject references.
+    references = IdDict{Any, Base.IdSet{Any}}()
+    unnamed(value) = !haskey(name_of, value) && (value isa Function &&
+                      within(parentmodule(typeof(value)), C, tree.root) ||
+                      value isa Type && value <: Function &&
+                      within(parentmodule(value), C, tree.root))
+    function use!(M::Module, @nospecialize(subject), @nospecialize(value))
+        haskey(name_of, value) || unnamed(value) || return
+        if within(M, C, tree.root)
+            subject === nothing || subject === value ||
+                push!(get!(Base.IdSet{Any}, references, subject), value)
+        elseif haskey(name_of, value)
+            push!(owners[value], top_owner(tree, M))
+        end
+    end
+    # Loops instead of anonymous functions: an anonymous function compiles once
+    # per type it receives.
+    for m in methods
+        subject = method_subject(m)
+        use!(m.module, subject, subject)
+        types = Base.IdSet{DataType}()
+        for p in Base.unwrap_unionall(m.sig).parameters[2:end]
+            mentioned!(types, p)
+        end
+        for T in types
+            use!(m.module, subject, T.name.wrapper)
+        end
+        code = lowered_code(m)
+        code === nothing && continue
+        for value in referenced_values(code)
+            use!(m.module, subject, value)
+        end
+    end
+    # Supertypes and field types of every package type.
+    for M in tree.modules, value in values(definitions(M))
+
+        T = value isa Type ? Base.unwrap_unionall(value) : nothing
+        T isa DataType || continue
+        related = Base.IdSet{DataType}()
+        S = supertype(T)
+        while S !== Any
+            push!(related, S)
+            S = supertype(S)
+        end
+        if isstructtype(T)
+            for F in Base.datatype_fieldtypes(T)
+                mentioned!(related, F)
+            end
+        end
+        for S in related
+            use!(M, value, S.name.wrapper)
+        end
+    end
+    macros = Set(name for name in keys(defined) if startswith(string(name), "@"))
+    for file in source_files(tree.directory)
+        isempty(macros) && break
+        home = nearest_home(homes, file)
+        home === nothing && continue
+        M = first(homes[home])
+        visit(parse_source(file)) do node
+            kind(node) == K"macrocall" && numchildren(node) > 0 || return true
+            name = syntax_name(node[1])
+            !isempty(name) && last(name) in macros && use!(M, nothing, defined[last(name)])
+            return true
+        end
+    end
+    # Public definitions pass their owners to what they use, also through
+    # their nested functions and keyword bodies. Private definitions pass none.
+    changed = true
+    while changed
+        changed = false
+        for (subject, targets) in references
+            haskey(name_of, subject) && name_of[subject] ∉ public && continue
+            from = get!(Set{Module}, owners, subject)
+            for target in targets
+                to = get!(Set{Module}, owners, target)
+                issubset(from, to) && continue
+                union!(to, from)
+                changed = true
+            end
+        end
+    end
+    return Dict(name => owners[value] for (name, value) in defined)
+end
+
+# Commons admission. Each Commons name is public, documented and named in a Commons test.
+# Unless it is grammar or user API, methods of at least two owners outside Commons use it,
+# directly or through public Commons definitions. An extension is not an owner.
+function commons_admission(methods, tree::PackageTree, homes)
+    found = Dict{String, Int}()
+    C = commons_module(tree)
+    C === nothing && return found
+    defined = definitions(C)
+    grammar, api = commons_roles(methods, tree, C, defined)
+    public = Set(name for name in keys(defined) if Base.ispublic(C, name))
+    users = commons_owners(methods, tree, C, defined, public, homes)
+    tests = test_sources(joinpath(tree.directory, COMMONS_TESTS))
+    for name in keys(defined)
+        owners = count(in(tree.core), users[name])
+        for (criterion, met) in (("public", name in public),
+            ("docstring", Base.Docs.hasdoc(C, name)),
+            ("owners", name in grammar || name in api || owners >= 2),
+            ("tests", !isempty(naming(tests, name))))
+            met || (found[string(name, " | ", criterion)] = 1)
+        end
+    end
+    return found
+end
+
+function reserving(vocabulary, name)
+    for (owner, (_, pattern)) in vocabulary
+        occursin(pattern, string(name)) && return owner
+    end
+    return nothing
+end
+
+# Reserved vocabulary. Outside the home of a reserving name, no function, constant or
+# assigned local takes a name that it reserves. A local assigned from a call to the
+# reserving definition is exempt.
+function reserved_vocabulary(files, directory, vocabulary)
+    found = Dict{String, Int}()
+    for file in files
+        path = relative(file, directory)
+        home(owner) = inside(file, joinpath(directory, first(vocabulary[owner])))
+        visit(parse_source(file)) do node
+            if kind(node) == K"function"
+                name = definition_name(node)
+                owner = name isa Symbol ? reserving(vocabulary, name) : nothing
+                owner === nothing || home(owner) ||
+                    count!(found, string(path, " | ", name))
+            elseif kind(node) == K"=" && numchildren(node) == 2 &&
+                   !(node.parent !== nothing && kind(node.parent) in NOT_ASSIGNED)
+                for name in assigned_names(node[1])
+                    owner = reserving(vocabulary, name)
+                    owner === nothing || home(owner) || calls(node[2], (owner,)) ||
+                        count!(found, string(path, " | ", name))
+                end
+            end
+            return true
+        end
+    end
+    return found
+end
+
+function any_node(predicate, node)
+    predicate(node) ||
+        (!is_leaf(node) && any(child -> any_node(predicate, child), children(node)))
+end
+
+# The innermost statement around a node.
+function statement(node)
+    while node.parent !== nothing && !(kind(node.parent) in (K"block", K"toplevel"))
+        node = node.parent
+    end
+    return node
+end
+
+is_pi(node) = kind(node) == K"Identifier" && node.val in (:π, :pi)
+function is_number(node)
+    kind(node) in (K"Integer", K"Float", K"Float32", K"HexInt", K"OctInt",
+        K"BinInt")
+end
+
+# `base ^ -7` with a literal 10 in `base`.
+function minus_seventh_power(node)
+    kind(node) == K"call" && numchildren(node) == 3 || return false
+    operator, base,
+    exponent = is_prefix_call(node) ?
+               (node[1], node[2], node[3]) : (node[2], node[1], node[3])
+    return syntax_name(operator) == (:^,) && kind(exponent) == K"Integer" &&
+           exponent.val == -7 && any_node(n -> kind(n) == K"Integer" && n.val == 10, base)
+end
+
+# Whether `node` is a numeric fingerprint of a vacuum constant: the digits of ε₀ or c₀, or
+# 10⁻⁷ in a statement that names π.
+function fingerprint(node)
+    if is_number(node)
+        digits = filter(isdigit, JuliaSyntax.sourcetext(node))
+        (occursin("8854187", digits) || occursin("299792458", digits)) && return true
+        value = node.val
+        value isa AbstractFloat && value == oftype(value, 1e-7) || return false
+    else
+        minus_seventh_power(node) || return false
+    end
+    return any_node(is_pi, statement(node))
+end
+
+# Literal fingerprints. The numeric fingerprints of the vacuum constants appear in one file,
+# the home of the physical constants. When several files hold them, each file counts them.
+function fingerprints(files, directory)
+    found = Dict{String, Int}()
+    for file in files
+        path = relative(file, directory)
+        visit(parse_source(file)) do node
+            fingerprint(node) && count!(found, path)
+            return true
+        end
+    end
+    return length(found) > 1 ? found : Dict{String, Int}()
+end
+
+# A statement `x || throw(...)` or `x && throw(...)`, chains included.
+function throw_guard(node)
+    kind(node) in (K"||", K"&&") || return false
+    while kind(node) in (K"||", K"&&") && numchildren(node) > 0
+        node = last_child(node)
+    end
+    return kind(node) == K"call" && is_prefix_call(node) && syntax_name(node[1]) in THROWS
+end
+
+# A body's tokens, without throw guards, with each identifier replaced by
+# its role.
+function body_tokens(body)
+    bytes = Vector{UInt8}(JuliaSyntax.sourcetext(body))
+    offset = first(JuliaSyntax.byte_range(body)) - 1
+    visit(body) do node
+        statement = node === body ||
+                    (node.parent !== nothing &&
+                     kind(node.parent) in (K"block", K"toplevel"))
+        statement && throw_guard(node) || return true
+        bytes[JuliaSyntax.byte_range(node) .- offset] .= UInt8(' ')
+        return false
+    end
+    text = String(bytes)
+    raw = [(kind(t), JuliaSyntax.untokenize(t, text))
+           for t in JuliaSyntax.tokenize(text)
+           if !(kind(t) in (K"Whitespace", K"NewlineWs", K"Comment"))]
+    tokens = String[]
+    for (i, (k, token)) in enumerate(raw)
+        if k == K"Identifier" && !Base.isoperator(Symbol(token))
+            previous = i > 1 ? raw[i - 1][2] : ""
+            next = i < length(raw) ? raw[i + 1][2] : ""
+            token = previous == "." ? "FIELD" : next == "(" ? "CALL" : "NAME"
+        end
+        push!(tokens, token)
+    end
+    return tokens
+end
+
+function shingles(tokens)
+    Set(join(view(tokens, i:(i + SHINGLE - 1)), '\x1f')
+    for i in 1:(length(tokens) - SHINGLE + 1))
+end
+
+function function_bodies(trees)
+    found = Tuple{String, Any, Any}[]
+    for (path, tree) in trees
+        visit(tree) do node
+            kind(node) == K"function" && numchildren(node) == 2 &&
+                push!(found, (path, node, node[2]))
+            return true
+        end
+    end
+    return found
+end
+
+# Clones of Commons bodies. No function body contains `CLONE_SHARE` of the token shingles of a
+# Commons public function body of at least `CLONE_TOKENS` tokens. Hooks are
+# not references.
+function clones(files, methods, tree::PackageTree; share = CLONE_SHARE)
+    found = Dict{String, Int}()
+    C = commons_module(tree)
+    C === nothing && return found
+    hooks, _ = commons_roles(methods, tree, C, definitions(C))
+    public = Set(name
+    for name in names(C; all = true)
+    if Base.ispublic(C, name) && name ∉ hooks)
+    trees = [(relative(file, tree.directory), parse_source(file)) for file in files]
+    bodies = [(path, node, shingles(body_tokens(body)))
+              for (path, node, body) in function_bodies(trees)]
+    commons = COMMONS_DIRECTORY * "/"
+    for (path, reference, body) in function_bodies(trees)
+        startswith(path, commons) && definition_name(reference) in public || continue
+        tokens = body_tokens(body)
+        length(tokens) >= CLONE_TOKENS || continue
+        expected = shingles(tokens)
+        for (candidate_path, candidate, candidate_shingles) in bodies
+            candidate === reference && continue
+            count(in(candidate_shingles), expected) >= share * length(expected) &&
+                count!(found,
+                    string(candidate_path, " | ",
+                        something(definition_name(candidate), "anonymous"), " ~ ",
+                        definition_name(reference)))
+        end
+    end
+    return found
+end
+
+function definition_node(trees, file, line, name)
+    tree = get!(() -> parse_source(file), trees, file)
+    found = nothing
+    visit(tree) do node
+        kind(node) == K"function" && JuliaSyntax.source_line(node) == line &&
+            definition_name(node) === name && (found = node)
+        return found === nothing
+    end
+    return found
+end
+
+function body_statements(node)
+    body = node[2]
+    return kind(body) == K"block" ? numchildren(body) : 1
+end
+
+function argument_name(node)
+    kind(node) == K"Identifier" && return node.val
+    kind(node) in (K"::", K"=") && numchildren(node) == 2 && return argument_name(node[1])
+    kind(node) == K"..." && numchildren(node) == 1 &&
+        (name = argument_name(node[1]); return name === nothing ? nothing : (name, :...))
+    return nothing
+end
+
+function forwarded_name(node)
+    kind(node) == K"=" && numchildren(node) == 2 && kind(node[2]) == K"Identifier" &&
+        argument_name(node[1]) === node[2].val && return node[2].val
+    kind(node) == K"..." && numchildren(node) == 1 &&
+        (name = forwarded_name(node[1]); return name === nothing ? nothing : (name, :...))
+    return kind(node) == K"Identifier" ? node.val : nothing
+end
+
+# Positional and keyword argument names of a call, by `name`.
+function call_arguments(call, name)
+    positional, keywords = Any[], Any[]
+    for argument in children(call)[2:end]
+        if kind(argument) == K"parameters"
+            append!(keywords, map(name, children(argument)))
+        else
+            push!(positional, name(argument))
+        end
+    end
+    return positional, keywords
+end
+
+# A body that is one call passing the definition's own arguments, unchanged,
+# in order and keywords included.
+function forwards(node)
+    signature = signature_call(node)
+    signature === nothing && return false
+    body = node[2]
+    kind(body) == K"block" && numchildren(body) == 1 && (body = body[1])
+    kind(body) == K"return" && numchildren(body) == 1 && (body = body[1])
+    kind(body) == K"call" && is_prefix_call(body) || return false
+    own = call_arguments(signature, argument_name)
+    passed = call_arguments(body, forwarded_name)
+    return !isempty(own[1]) && !any(isnothing, own[1]) && !any(isnothing, own[2]) &&
+           own == passed
+end
+
+# Tiny private helpers. Private module-level functions with one method and at most three body
+# statements, referenced by exactly one method, are tiny helpers; exact forwarders count
+# whatever their references. A helper that a test calls is exempt. Per file, the helpers.
+function tiny_helpers(methods, tree::PackageTree, called)
+    callers = IdDict{Any, Set{Method}}()
+    for m in methods
+        code = lowered_code(m)
+        code === nothing && continue
+        for value in referenced_values(code)
+            value isa Function && push!(get!(Set{Method}, callers, value), m)
+        end
+    end
+    trees = Dict{String, Any}()
+    found = Dict{String, Int}()
+    for M in tree.modules, (name, value) in definitions(M)
+
+        value isa Function && !startswith(string(name), "@") &&
+        !Base.ispublic(M, name) && length(Base.methods(value)) == 1 || continue
+        m = only(Base.methods(value))
+        path = source_path(tree, m.file)
+        path === nothing && continue
+        node = definition_node(trees, normpath(string(m.file)), m.line, name)
+        (node !== nothing && body_statements(node) <= 3) || continue
+        references = length(setdiff(get(callers, value, Set{Method}()), (m,)))
+        (references == 1 || forwards(node)) && name ∉ called && count!(found, path)
+    end
+    return found
+end
+
+# The names that the calls, broadcasts and macro calls of the files call.
+function called_names(files)
+    found = Set{Symbol}()
+    for file in files
+        visit(parse_source(file)) do node
+            k = kind(node)
+            k in (K"call", K"dotcall", K"macrocall") && numchildren(node) > 0 ||
+                return true
+            callee = k != K"macrocall" && !is_prefix_call(node) ? node[2] : node[1]
+            kind(callee) == K"curly" && (callee = callee[1])
+            name = syntax_name(callee)
+            isempty(name) || push!(found, last(name))
+            return true
+        end
+    end
+    return found
+end
+
+# Root module. The number of functions, types and constants the root module defines.
+function root_definitions(tree::PackageTree)
+    n = length(definitions(tree.root))
+    return n == 0 ? Dict{String, Int}() : Dict(module_name(tree, tree.root) => n)
+end
+
+boxes(x::GlobalRef) = x.mod === Core && x.name === :Box
+boxes(x::Expr) = any(boxes, x.args)
+boxes(_) = false
+
+# Boxed captures. The methods whose lowered code holds a `Core.Box`, the cell of a captured
+# variable that is assigned after its capture.
+function boxed_captures(methods, tree::PackageTree)
+    found = Dict{String, Int}()
+    for m in methods
+        startswith(string(m.name), "#") && continue
+        code = lowered_code(m)
+        code === nothing && continue
+        any(boxes, code) &&
+            count!(found, string(module_name(tree, m.module), " | ", m.name,
+                " | ", source_name(tree, m)))
+    end
+    return found
+end
+
+# A field type that admits values of more than one concrete layout: an abstract type, a
+# `Union`, a `UnionAll` or a type parameter bounded by `Any`.
+loose(F::TypeVar) = F.ub === Any
+loose(F::DataType) = isabstracttype(F)
+loose(_) = true
+
+# Typed values. Per package struct, each field of a loose type, and per constructor method of
+# the struct, the positional values typed `Any`; Julia's converting default constructor counts.
+function typed_values(tree::PackageTree)
+    found = Dict{String, Int}()
+    for M in tree.modules, (name, value) in definitions(M)
+
+        value isa Type || continue
+        T = Base.unwrap_unionall(value)
+        T isa DataType && isstructtype(T) || continue
+        key(what) = string(module_name(tree, M), " | ", name, " | ", what)
+        for (field, F) in zip(fieldnames(T), T.types)
+            loose(F) && count!(found, key(field))
+        end
+        for m in Base.methods(value)
+            m.module in tree.modules || continue
+            F = Base.unwrap_unionall(m.sig).parameters[1]
+            F isa DataType && F.name === Type.body.name && F.parameters[1] === value ||
+                continue
+            untyped = count(p -> upper(p) === Any, Base.unwrap_unionall(m.sig).parameters[2:end])
+            untyped == 0 && continue
+            what = key(string("constructor | ", source_name(tree, m)))
+            found[what] = get(found, what, 0) + untyped
         end
     end
     return found
