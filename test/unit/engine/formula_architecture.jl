@@ -127,8 +127,6 @@ end
         EP.EarthLayer(100.0, 10.0, 1.0, 0.5), EP.EarthLayer(200.0, 20.0, 1.0)))
     problem=LineParametersProblem(system; earth_props = three, frequencies = [50.0])
     recorded(result, slot)=getproperty(completed_formulation(details(result)).formulations.formulas, slot).equivalent_earth
-    requested(result, slot)=get(getproperty(completed_formulation(details(result)).formulations.requested, slot),
-        :equivalent_earth, nothing)
     potential=M.selection(M.EA)
     # The layered fixture sees all three media, as do a formula with typed runtime arguments
     # and a formula with generic layers. The record of each keeps `equivalent_earth` at
@@ -145,7 +143,7 @@ end
     @test !isempty(typed.media) && all(==(3), typed.media)
     @test !isempty(generic.media) && all(==(3), generic.media)
     # A homogeneous formula on the same earth consumes the `:default` reduction and records
-    # it as an explicit one would. The requested selection stays as declared.
+    # it as an explicit one would. The formulation's formula does not contain a reduction.
     unspecified=compute(problem, Formulation())
     explicit=formula(:default; equivalent_earth = formula(:default))
     given=compute(problem, Formulation(earth_impedance = explicit, earth_admittance = explicit))
@@ -154,7 +152,7 @@ end
         @test recorded(unspecified, slot).order === :after
         @test recorded(unspecified, slot).rule.identifier === :bottommost
         @test recorded(unspecified, slot) == recorded(given, slot)
-        @test requested(unspecified, slot) === nothing
+        @test getproperty(details(unspecified).data.formulation.formulas, slot).equivalent_earth === nothing
     end
     # An explicit reduction on a layered formula applies, and the record shows it.
     empty!(M.calls)

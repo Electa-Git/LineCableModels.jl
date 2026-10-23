@@ -449,7 +449,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its keywords.
 - `FormulationOptions` lifts over its named tuple and its keywords. `ComputationOptions`
   throws an `ArgumentError` for a `Grid`, since computation options do not vary.
-- Problems and formulations are values. `FormulationOptions` copies its data once, with
+- Problems and formulations are values. A formulation contains its formulas and options,
+  and two formulations that contain equal formulas and options are equal, as
+  `Formulation(earth_impedance = :unified) == Formulation(earth_impedance = formula(:unified))`.
+  Its labels show each formula with its controls, defaults included.
+  `FormulationOptions` copies its data once, with
   `deepcopy`, when it is built. A problem keeps the system or design that it is given, both
   values that their builders make. Result records hold the data of the formulation and the
   problem without a further copy.

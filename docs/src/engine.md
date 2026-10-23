@@ -618,9 +618,8 @@ the family-owned operation.
 The frequency loop calls the bound methods directly. Register each distinct
 equation under its own identity.
 
-Result details retain one requested and resolved formulation record. Its `requested`
-field preserves the declaration. `formulas` records the selected identities,
-physical parameters and owner-held numerical controls, including each explicit
+Result details retain one formulation record. Its `formulas` field records the selected
+identities, physical parameters and owner-held numerical controls, including each explicit
 equivalent-earth choice and order. Unspecified numerical defaults remain owned by
 the selected equation.
 Absence of an equivalent-earth selection remains `nothing`.
@@ -1064,8 +1063,8 @@ A custom decomposition is a completed formulation implementing
 `Commons.initialize_buffers(selected, T, input, plan, common)` and
 `ModalAnalysis.decompose!(selected, workspace, parameters, options)`.
 The latter fills `workspace.Tv`, `workspace.Ti`, and `workspace.roots`.
-`ModalAnalysisFormulation` retains its
-requested declaration and resolved selection for the common inspection protocol.
+`ModalAnalysisFormulation` contains the resolved modal formula with its parameters and
+normalized controls.
 The default tracks eigenpairs with Levenberg–Marquardt iteration, retaining a
 matched conventional eigensolution when iteration fails. Its bibliography stays
 in `src/engine/modalanalysis/formulas/chrysochos2014.jl`.
@@ -1526,14 +1525,14 @@ The record of a computed result contains the formulation that its point used,
 `details(result).data.choices`. A coaxial point records its earth plan as its choices,
 and a modal point records the record of its source. The other backends record `()`.
 `Engine.completed_formulation(details(result))` reads them as data when it is called. Its
-`formulations` field is the declaration `record`, whose `requested` and `formulas` fields
-hold complete requested and resolved records, including physical parameters and numerical
-controls. Its `selections` field holds the formula identifiers of each quantity, and its
+`formulations` field is the declaration `record`, whose `formulas` field holds the complete
+record of each formula, including physical parameters and numerical controls. Its
+`selections` field holds the formula identifiers of each quantity, and its
 `formulation_fields` field describes each selection and its controls. No description is
 built while computing. Saving a result keeps its formulation as a value, and the loaded
 result reads as the live one does. Formula identifiers are available
-as `record.requested.earth_admittance.identifier` (or through the corresponding
-`air`, `earth`, `mixed` leaf). Resolved identities are under `formulas`. A leaf's
+as `record.formulas.earth_admittance.identifier` (or through the corresponding
+`air`, `earth`, `mixed` leaf). A leaf's
 `equivalent_earth` field contains the reduction that its calculation consumed, explicit or
 chosen by the earth plan, and its order. Realized local
 shunt outcomes remain in `details(result).data.shunt_model`.

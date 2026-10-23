@@ -38,7 +38,7 @@ end
     normal=Formulation()
     leaves=(TestEarthLeaf{:TestAlpha}(),TestEarthLeaf{:TestBeta}())
     choices=[E.LineParametersFormulation(merge(normal.formulas,(earth_impedance=leaf,)),
-        normal.options,merge(normal.definitions,(earth_impedance=leaf,))) for leaf in leaves]
+        normal.options) for leaf in leaves]
     push!(choices,normal)
     @test description(LineCableModelsCoaxial())==description(LineCableModelsCoaxial)=="coaxial"
     @test description(Formulation(:pscad))==description(PSCAD.PSCADFormulation)=="PSCAD"
@@ -53,11 +53,13 @@ end
         @test description(typeof(value))==description(value)
     end
     labels=description([MonteCarlo(normal),LinearError(normal)];roles=[:reference,:result])
-    @test labels == ["Reference · Monte Carlo", "LEP"]
-    @test all(label->!occursin("earth Z",label),labels)
+    @test labels == ["Reference · Monte Carlo; internal Z=Schelkunoff (options=(inner = NamedTuple(), outer = NamedTuple(), transfer = NamedTuple())); earth Z=Unified (options=(Γ = 0,)); earth Y=Unified (options=(Γ = 0,))",
+        "LEP; internal Z=Schelkunoff (options=(inner = NamedTuple(), outer = NamedTuple(), transfer = NamedTuple())); earth Z=Unified (options=(Γ = 0,)); earth Y=Unified (options=(Γ = 0,))"]
+    @test all(label->occursin("earth Z=Unified (options=(Γ = 0,))",label),labels)
     explicit_default=Formulation(earth_impedance=:unified)
     @test formula_id(normal,R)==formula_id(explicit_default,R)
-    @test description([normal,explicit_default];quantity=R)==["coaxial","coaxial"]
+    @test description([normal,explicit_default];quantity=R)==
+        fill("internal Z=Schelkunoff (options=(inner = NamedTuple(), outer = NamedTuple(), transfer = NamedTuple())); earth Z=Unified (options=(Γ = 0,))",2)
     @test description([normal];quantity=R)==description([explicit_default];quantity=R)
 
     f=[0.1,50.,100.,1e3,1e6,1e7]
@@ -87,7 +89,7 @@ end
     @test result.observed[1].gridpoint.formulations==NamedTuple(choices[1])
     labels=description(choices[[3,1]];quantity=R)
     @test occursin("earth Z=Unified",labels[1]) && occursin("earth Z=Display-TestAlpha",labels[2])
-    @test all(label->!occursin("internal Z",label),labels)
+    @test all(label->occursin("internal Z=Schelkunoff (options=(inner = NamedTuple(), outer = NamedTuple(), transfer = NamedTuple()))",label),labels)
     @test all(feature -> !occursin("earth Y",join(feature.relative.formula)),
         filter(feature -> feature.quantity in (:R,:X),result.tables.features))
 
@@ -137,7 +139,7 @@ end
     formulation_options(::BrokenEarthLeaf)=FormulationOptions()
     Base.NamedTuple(value::BrokenEarthLeaf)=(identifier=formula_id(value),parameters=(;),options=(;))
     broken=E.LineParametersFormulation(merge(normal.formulas,(earth_impedance=BrokenEarthLeaf(),)),
-        normal.options,merge(normal.definitions,(earth_impedance=BrokenEarthLeaf(),)))
+        normal.options)
     bad=ParametricResult([points[1]],
         fieldtype(ParametricResult, :failures)(),
         CartesianIndices((1,1)), ComputationDetails((;)))
@@ -186,7 +188,7 @@ end
     @test formula_id(MonteCarlo(a),Y)!=formula_id(LinearError(a),Y)
     @test ismissing(formula_id(missing,Y))
     @test description([Formulation()];quantity=Y)==[
-        "shunt geometry=equivalent annular layer; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified; soil law=Constant; temperature law=Linear"]
+        "shunt geometry=equivalent annular layer; insulation Y=Lossless; semicon Y=Lossless; earth Y=Unified (options=(Γ = 0,)); soil law=Constant; temperature law=Linear"]
 end
 
 @testitem "Descriptions / detached differences use compact owner dispatch" tags=[:unit, :pscad, :slow] begin
@@ -267,8 +269,7 @@ end
     end
     formulation_options(::DetachedNamingLeaf)=FormulationOptions()
     Base.NamedTuple(::DetachedNamingLeaf)=(identifier=:fixture_unrelated_identifier,parameters=(;),options=(;))
-    f=E.LineParametersFormulation(merge(a.formulas,(earth_impedance=DetachedNamingLeaf(),)),a.options,
-        merge(a.definitions,(earth_impedance=DetachedNamingLeaf(),)))
+    f=E.LineParametersFormulation(merge(a.formulas,(earth_impedance=DetachedNamingLeaf(),)),a.options)
     extended=point(f,3)
     @test !isempty(compact_calls) && all(compact_calls)
     poison[]=true

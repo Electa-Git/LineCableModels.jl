@@ -152,7 +152,6 @@ end
 
         data=completed_formulation(details(retained)).formulations
         @test getproperty(data.formulas, family).options.Γ == original
-        @test getproperty(data.requested, family).options.Γ == original
         @test Z(retained) == first_Z && Y(retained) == first_Y
     end
     rho=measurement(1.0, 0.01)

@@ -28,7 +28,6 @@
         resolved=Formulation(:pscad)
         @test map(formula_id, resolved.formulas.earth_impedance) ==
             (air=:carson1926, earth=:pollaczek1926, mixed=:lucca1994)
-        @test formula_id(resolved.definitions.earth_impedance) === :default
         @test all(control -> control.value == 2, P.pscad_setting(resolved, selected_problem).ground)
     end
     @test only(P.pscad_setting(Formulation(:pscad), overhead).interactions.earth_impedance).source == 1
@@ -42,7 +41,7 @@
     @test_throws r"not yet implemented" compute(underground, Formulation(earth_impedance = :pollaczek1926))
     @test P.pscad_setting(Formulation(:pscad; earth_impedance=:pollaczek1926), underground).ground ==
           P.pscad_setting(Formulation(:pscad), underground).ground
-    for key in keys(Formulation(:pscad).definitions)
+    for key in keys(Formulation(:pscad).formulas)
         selection=NamedTuple{(key,)}((Grid((formula(:default), formula(:default))),))
         space=Formulation(:pscad; selection...)
         @test space isa Gridspace{P.PSCADFormulation}
@@ -174,9 +173,9 @@ end
         rm(project.root; recursive = true)
     end
     record = NamedTuple(selected)
-    @test map(value -> value.identifier,record.requested.earth_impedance) == choices
+    @test map(value -> value.identifier,record.formulas.earth_impedance) == choices
     @test record.formulas.earth_admittance.identifier === :ideal
-    @test record.requested.earth_impedance.air.identifier === :gary1976
+    @test record.formulas.earth_impedance.air.identifier === :gary1976
     vertical = LineParametersProblem(build(LineCableSystem, [design, design],
         [Pose2(0, -1), Pose2(0, -2)]; connections = [Dict(:core => 1), Dict(:core => 2)]);
         earth_props = homogeneous(rho = 100.0), frequencies = [50.0])

@@ -28,7 +28,7 @@ including default branches, in quantity-relevant legends.
 
 Formulation owners expose ordered `(owner, route_tuple) => selection` pairs
 through `pairs(source; quantity)` and `pairs(owner, retained; quantity)`.
-Each selected leaf is paired with its declaration controls.
+Each pair contains a selected formula and its controls.
 `formulation_options(selection)` reads the live selection's `FormulationOptions`.
 Consumers obtain identity from `formula_id`, structure and ordering from `pairs`,
 and display text from `description`. The contextual

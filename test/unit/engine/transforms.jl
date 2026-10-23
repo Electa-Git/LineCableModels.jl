@@ -161,7 +161,6 @@ end
         options = (offdiagonal_tolerance = 2.0,))
     @test modal.Z.values[:, :, 1] ≈ A \ (Z[:, :, 1] * B)
     @test modal.Y.values[:, :, 1] ≈ B \ (Y[:, :, 1] * A)
-    @test details(modal).data.modal.requested.identifier === :FixedModalMaps
     @test details(modal).data.modal.effective.identifier === :FixedModalMaps
     @test details(modal).data.modal.identifier === :FixedModalMaps
     rebuilt = LineCableModels.ModalAnalysis.transform(PhaseDomain,modal)

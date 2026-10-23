@@ -87,8 +87,8 @@ function completed_formulation(formulation, declaration::NamedTuple=NamedTuple(f
             name=isempty(route) ? "" : description(owner,Val(first(route));compact=true)
             length(route)>1 && (name *= "("*join(string.(Base.tail(route)),",")*")")
             controls=selected isa Pair ? Commons.detach(last(selected)) : (;)
-            # The description compares applied controls, including defaults.
-            # Keep the original selection identity used by scientific grouping.
+            # The description compares the applied controls of the recorded formula, which
+            # contains the equivalent earth that the point's earth plan chose.
             effective=get(declaration,:formulas,nothing)
             for key in route
                 effective=effective isa NamedTuple ? get(effective,key,nothing) : nothing
@@ -126,7 +126,7 @@ $(TYPEDSIGNATURES)
 Read `formulation` as the line-parameter computation applied it on the earth plan `earth`.
 Each earth formula records the equivalent earth that its calculation in the plan consumed. A
 reduction that the plan resolved through `:default` appears as that formula's
-`equivalent_earth`, as an explicit one does. The requested selections remain as declared.
+`equivalent_earth`, as an explicit one does.
 """
 function completed_formulation(formulation::LineParametersFormulation, earth::EarthPlan)
     declaration = NamedTuple(formulation)
@@ -150,7 +150,7 @@ function completed_formulation(formulation::LineParametersFormulation, earth::Ea
     recorded = merge(declaration.formulas,
         map(record, formulation.formulas[slots], declaration.formulas[slots]))
     return completed_formulation(formulation,
-        typeof(declaration)((declaration.backend, declaration.requested, recorded, declaration.options)))
+        typeof(declaration)((declaration.backend, recorded, declaration.options)))
 end
 
 """

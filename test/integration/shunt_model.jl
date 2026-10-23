@@ -70,7 +70,7 @@
           Vector{E.InternalCapacitance{Float32}}
     first_result = compute(problem, boundary)
     explicit_lossless = CableConstantsFormulation(
-        shunt_model = boundary.definitions.shunt_model,
+        shunt_model = boundary.formulas.shunt_model,
         insulation_admittance = :lossless, semicon_admittance = :lossless)
     @test compute(problem, explicit_lossless) == first_result
     workspace = E.CableConstantsWorkspace(problem, boundary, E.LocalCableData(blueprint), shunt)
@@ -94,7 +94,7 @@
     @test E.BoundarySolveError === E.ShuntModel.BoundarySolveError
     @test which(show, (IO, MIME"text/plain", BoundarySolveError)).module === E.ShuntModel
     for formulation in
-        (boundary, Formulation(shunt_model = boundary.definitions.shunt_model))
+        (boundary, Formulation(shunt_model = boundary.formulas.shunt_model))
         @test occursin("boundary", description(formulation, C))
     end
     for source in (first_result, nominal)

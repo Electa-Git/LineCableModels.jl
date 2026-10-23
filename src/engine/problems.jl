@@ -239,14 +239,12 @@ Store the physical methods selected for a line-parameter computation.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersFormulation{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
+struct LineParametersFormulation{M <: NamedTuple, O <: FormulationOptions} <:
        AbstractFormulation
     "Owner-resolved physical methods. Context-dependent defaults remain deferred."
     formulas::M
     "Shared physical computation options."
     options::O
-    "Requested selections retained before owner and problem-context resolution."
-    definitions::D
 end
 
 """Identify the owned coaxial computation without report numbering."""
@@ -319,51 +317,47 @@ description(::Type{LineParametersFormulation},::Val{:temperature_dependence}; co
 
 """Expose typed children and controls without serializing the formulation."""
 Base.pairs(value::LineParametersFormulation; quantity=nothing) =
-    pairs(LineParametersFormulation,(formulas=value.formulas,requested=value.definitions,options=value.options.data);quantity)
+    pairs(LineParametersFormulation,(formulas=value.formulas,options=value.options.data);quantity)
 formulation_options(value::LineParametersFormulation) = value.options
 
 """
 $(TYPEDSIGNATURES)
 
 Iterate owner-scoped selections from a formulation's declared child interface.
-`retained.formulas` contains typed children.
-`retained.requested` contains their explicit controls. `pairs(owner; quantity)`
+`retained.formulas` contains typed children. Each selection pairs a formula with its
+parameters, options and equivalent earth. `pairs(owner; quantity)`
 owns child order and relevance. The empty route identifies the owner itself.
 """
 function Base.pairs(::Type{LineParametersFormulation}, retained::NamedTuple;
         quantity=nothing,owner=LineParametersFormulation)
-    # A selection pair contains passive explicit controls and excludes option inputs.
-    explicit = function (value)
-        record = value isa Union{FormulaDefinition, AbstractFormulation} ? NamedTuple(value) : value
-        record isa NamedTuple || return (;)
-        return (; (key => record[key] for key in (:parameters, :options, :equivalent_earth)
-            if haskey(record, key) && record[key] !== nothing &&
-                !(record[key] isa NamedTuple && isempty(record[key])))...)
-    end
-    entries=Pair{Tuple,Any}[(owner,()) => (owner => retained.options)]
+    selections=Pair{Tuple,Any}[]
     for (slot,family) in pairs(owner;quantity)
         selected=retained.formulas[slot]
-        requested=retained.requested[slot]
         if selected isa NamedTuple
             children = pairs(family)
             issubset(keys(selected), (key for (key,_) in children)) || throw(ArgumentError(
                 "retained $slot selections contain unknown owning formula slots"))
-            for (route,_) in children
-                haskey(selected, route) || continue
-                value=selected[route]
-                controls=explicit(requested isa NamedTuple ? requested[route] : requested)
-                push!(entries,(owner,(slot,route)) => (value===nothing || ismissing(value) ? value : value => controls))
-            end
+            append!(selections,
+                [(slot,route) => selected[route] for (route,_) in children if haskey(selected, route)])
         else
-            controls=explicit(requested)
-            push!(entries,(owner,(slot,)) => (selected===nothing || ismissing(selected) ? selected : selected => controls))
+            push!(selections,(slot,) => selected)
+        end
+    end
+    entries=Pair{Tuple,Any}[(owner,()) => (owner => retained.options)]
+    for (route,value) in selections
+        if value===nothing || ismissing(value)
+            push!(entries,(owner,route) => value)
+        else
+            # A selection pair contains the formula and each of its control sections that
+            # is not empty.
+            record=NamedTuple(value)
+            controls=(; (key => record[key] for key in (:parameters, :options, :equivalent_earth)
+                if haskey(record, key) && record[key] !== nothing &&
+                    !(record[key] isa NamedTuple && isempty(record[key])))...)
+            push!(entries,(owner,route) => (value => controls))
         end
     end
     return entries
-end
-
-function LineParametersFormulation(formulas::NamedTuple, options::FormulationOptions)
-    LineParametersFormulation(formulas, options, formulas)
 end
 
 function _line_formulation(
@@ -379,7 +373,7 @@ function _line_formulation(
         temperature_dependence,
         options::FormulationOptions
 )
-    selected = LineParametersFormulation((;
+    return LineParametersFormulation((;
         internal_impedance = InternalImpedance.Formula(internal_impedance),
         insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
         earth_impedance = EarthImpedance.Formula(earth_impedance),
@@ -393,14 +387,6 @@ function _line_formulation(
         temperature_dependence = temperature_dependence === nothing ? nothing :
                                  TemperatureDependent.Formula(temperature_dependence)),
         formulation_options(LineParametersFormulation, options))
-    definitions = (; internal_impedance, insulation_impedance,
-        earth_impedance = earth_impedance isa NamedTuple ?
-            NamedTuple{keys(selected.formulas.earth_impedance)}(earth_impedance) : earth_impedance,
-        shunt_model, insulation_admittance, semicon_admittance,
-        earth_admittance = earth_admittance isa NamedTuple ?
-            NamedTuple{keys(selected.formulas.earth_admittance)}(earth_admittance) : earth_admittance,
-        earth_properties, pipe_impedance, temperature_dependence)
-    return LineParametersFormulation(selected.formulas, selected.options, definitions)
 end
 
 """
@@ -497,20 +483,17 @@ Formulation(::Val{:coaxial}; kwargs...) = LineParametersFormulation(; kwargs...)
 """
 $(TYPEDSIGNATURES)
 
-Expose complete requested and resolved formula selections and reduction options.
+Expose the complete formula selections and reduction options.
 Selections retain scientific identity and data. Serialization belongs to the writer.
 """
 function Base.NamedTuple(value::LineParametersFormulation)
     record = function (selected)
         selected === nothing && return nothing
-        selected isa Symbol && return NamedTuple(formula(selected))
         selected isa NamedTuple && return map(record,selected)
         return NamedTuple(selected)
     end
     # Retain complete records without specializing result containers on each
     # parameter tuple or concrete selection type. The stored values remain unchanged.
-    Record=NamedTuple{(:backend,:requested,:formulas,:options),
-        Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
-    return Record((:coaxial,map(record,value.definitions),map(record,value.formulas),
-        value.options.data))
+    Record=NamedTuple{(:backend,:formulas,:options),Tuple{Symbol,NamedTuple,NamedTuple}}
+    return Record((:coaxial,map(record,value.formulas),value.options.data))
 end

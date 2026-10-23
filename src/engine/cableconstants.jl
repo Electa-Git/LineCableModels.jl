@@ -244,17 +244,12 @@ computation.
 
 $(TYPEDFIELDS)
 """
-struct CableConstantsFormulation{
-    M <: NamedTuple,
-    O <: FormulationOptions,
-    D <: NamedTuple
-} <: AbstractFormulation
+struct CableConstantsFormulation{M <: NamedTuple, O <: FormulationOptions} <:
+       AbstractFormulation
     "Registered physical formula selections."
     formulas::M
     "Cable-constant formulation options."
     options::O
-    "Requested declarations retained before formula-owner resolution."
-    definitions::D
 end
 
 function formulation_options(
@@ -284,25 +279,21 @@ function description(::Type{CableConstantsFormulation}, slot::Val; compact::Bool
 end
 function Base.pairs(value::CableConstantsFormulation; quantity = nothing)
     pairs(CableConstantsFormulation,
-        (formulas = value.formulas, requested = value.definitions,
-            options = value.options.data); quantity)
+        (formulas = value.formulas, options = value.options.data); quantity)
 end
 function Base.pairs(::Type{CableConstantsFormulation}, retained::NamedTuple; quantity = nothing)
     pairs(LineParametersFormulation, retained; quantity, owner = CableConstantsFormulation)
 end
 
-"""Expose requested and resolved local formulas for passive scientific records."""
+"""Expose the local formulas for passive scientific records."""
 function Base.NamedTuple(value::CableConstantsFormulation)
     record = function (selected)
         selected === nothing && return nothing
-        selected isa Symbol && return NamedTuple(formula(selected))
         selected isa NamedTuple && return map(record, selected)
         return NamedTuple(selected)
     end
-    Record = NamedTuple{(:backend, :requested, :formulas, :options),
-        Tuple{Symbol, NamedTuple, NamedTuple, NamedTuple}}
-    return Record((:cable_constants, map(record, value.definitions),
-        map(record, value.formulas), value.options.data))
+    Record = NamedTuple{(:backend, :formulas, :options), Tuple{Symbol, NamedTuple, NamedTuple}}
+    return Record((:cable_constants, map(record, value.formulas), value.options.data))
 end
 
 function _constants_formulation(
@@ -327,9 +318,7 @@ function _constants_formulation(
     )
     return CableConstantsFormulation(
         formulas,
-        formulation_options(CableConstantsFormulation, options),
-        (; internal_impedance, insulation_impedance, shunt_model, insulation_admittance,
-            semicon_admittance, pipe_impedance, temperature_dependence)
+        formulation_options(CableConstantsFormulation, options)
     )
 end
 

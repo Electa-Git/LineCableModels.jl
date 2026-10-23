@@ -134,6 +134,8 @@ end
     # `Formulation` passes its keywords to the backend's constructor.
     @test Formulation(:coaxial; earth_impedance = :carson1926).formulas.earth_impedance isa
           LineCableModels.Engine.EarthImpedance.Formula{:carson1926}
+    # A formulation is the formulas and options that it contains, whatever their spelling.
+    @test Formulation(earth_impedance = :unified) == Formulation(earth_impedance = formula(:unified))
     # Each backend has one identity. `ModalAnalysisFormulation` builds a modal analysis.
     for tag in (:LineCableModelsCoaxial, :PSCAD, :modal, :unknown)
         @test_throws ArgumentError("unknown backend formulation :$tag") Formulation(tag)

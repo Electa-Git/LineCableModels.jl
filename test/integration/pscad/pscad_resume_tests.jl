@@ -105,7 +105,7 @@
         @test details(first_result).data.execution.compile_call_seconds == 3.25
         @test only(quiet_log.logs).kwargs[:wall_seconds] >= 0
         @test !haskey(details(reused).data.execution, :elapsed_seconds)
-        @test completed_formulation(details(reused)).formulations.requested.earth_impedance.identifier === :pollaczek1926
+        @test completed_formulation(details(reused)).formulations.formulas.earth_impedance.identifier === :pollaczek1926
         sample_log=Test.TestLogger()
         total=with_logger(sample_log) do
             compute(problem, Formulation(:pscad); options = (;
@@ -135,8 +135,9 @@
         @test all(record->record.level >= Logging.Warn, warnings)
         @test launches[] == 1
         @test callbacks == [1, 2]
-        @test completed_formulation(details(batch[1])).formulations.requested.earth_impedance.identifier === :default
-        @test completed_formulation(details(batch[2])).formulations.requested.earth_impedance.identifier === :pollaczek1926
+        @test map(record -> record.identifier,completed_formulation(details(batch[1])).formulations.formulas.earth_impedance) ==
+              (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)
+        @test completed_formulation(details(batch[2])).formulations.formulas.earth_impedance.identifier === :pollaczek1926
         @test all(record -> record.formula === :pollaczek1926,
             details(batch[2]).data.native_setting.interactions.earth_impedance)
         @test Z(batch[1]) == Z(batch[2])
@@ -149,8 +150,10 @@
             Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)));
             options)
         @test launches[] == 1
-        @test completed_formulation(details(represented[1])).formulations.requested.earth_impedance.identifier === :default
-        @test map(record -> record.identifier,completed_formulation(details(represented[2])).formulations.requested.earth_impedance) == homogeneous_choices
+        @test map(record -> record.identifier,completed_formulation(details(represented[1])).formulations.formulas.earth_impedance) ==
+              (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)
+        @test map(record -> record.identifier,completed_formulation(details(represented[2])).formulations.formulas.earth_impedance) ==
+              (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)
         @test Z(represented[1]) == Z(represented[2])
         @test Z(represented[1]) !== Z(represented[2])
         changed_earth=LineParametersProblem(

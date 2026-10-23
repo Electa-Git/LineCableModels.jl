@@ -115,7 +115,7 @@ Label ordered formulation selections using their owner-supplied descriptions.
 
 Owners expose native children through `pairs(source; quantity)` and retained
 children through `pairs(owner, record; quantity)`, scoped
-identity through `formula_id`, explicit controls in those selection pairs, and
+identity through `formula_id`, the controls in those selection pairs, and
 text through `description`. This formatter only decides common-field omission
 and reference prefixes. Unsupported owner methods are not caught.
 """

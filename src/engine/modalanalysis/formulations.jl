@@ -54,41 +54,37 @@ Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
 """
 $(TYPEDEF)
 
-Own a modal computation's requested declaration and resolved equation.
-The requested formula and controls are retained before default resolution and
-normalization. The resolved formula and effective controls are stored separately.
+Own a modal computation's resolved decomposition, with its model parameters and
+normalized controls.
 
 $(TYPEDFIELDS)
 """
-struct ModalAnalysisFormulation{F <: AbstractFormulation, D} <: AbstractFormulation
+struct ModalAnalysisFormulation{F <: AbstractFormulation} <: AbstractFormulation
     "Resolved modal decomposition."
     formula::F
-    "Requested selection before default resolution and control normalization."
-    definition::D
 
-    function ModalAnalysisFormulation(formula::F, definition::D) where {
-            F <: AbstractFormulation, D <: Union{FormulaDefinition, AbstractFormulation}}
-        return new{F, D}(formula, definition)
-    end
+    # One positional argument is a selection, which the outer method resolves.
+    ModalAnalysisFormulation{F}(formula::F) where {F <: AbstractFormulation} = new{F}(formula)
 end
 
 ModalAnalysisFormulation() = ModalAnalysisFormulation(:default)
 
 function _modal_formulation(identifier::Symbol, controls::NamedTuple)
-    selection = formula(identifier; controls...)
-    return ModalAnalysisFormulation(Formula(selection), selection)
+    selected = Formula(formula(identifier; controls...))
+    return ModalAnalysisFormulation{typeof(selected)}(selected)
 end
 
 function _modal_formulation(selection::FormulaDefinition, controls::NamedTuple)
     isempty(controls) || throw(ArgumentError(
         "formula(...) already contains its modal parameters and numerical controls"))
-    return ModalAnalysisFormulation(Formula(selection), selection)
+    selected = Formula(selection)
+    return ModalAnalysisFormulation{typeof(selected)}(selected)
 end
 
 function _modal_formulation(selected::AbstractFormulation, controls::NamedTuple)
     isempty(controls) || throw(ArgumentError(
         "a completed modal formulation cannot receive additional controls"))
-    return ModalAnalysisFormulation(selected, selected)
+    return ModalAnalysisFormulation{typeof(selected)}(selected)
 end
 
 function _modal_formulation(selected::ModalAnalysisFormulation, controls::NamedTuple)
@@ -124,8 +120,7 @@ formulation_options(::ModalAnalysisFormulation) = FormulationOptions()
 
 function Base.pairs(value::ModalAnalysisFormulation; quantity=nothing)
     return pairs(ModalAnalysisFormulation,
-        (formulas=(transformation=value.formula,),
-         requested=(transformation=value.definition,), options=(;)); quantity)
+        (formulas=(transformation=value.formula,), options=(;)); quantity)
 end
 
 function Base.pairs(::Type{ModalAnalysisFormulation}, retained::NamedTuple; quantity=nothing)
@@ -133,6 +128,5 @@ function Base.pairs(::Type{ModalAnalysisFormulation}, retained::NamedTuple; quan
 end
 
 function Base.NamedTuple(value::ModalAnalysisFormulation)
-    return (backend=:modal, requested=(transformation=NamedTuple(value.definition),),
-        formulas=(transformation=NamedTuple(value.formula),), options=(;))
+    return (backend=:modal, formulas=(transformation=NamedTuple(value.formula),), options=(;))
 end

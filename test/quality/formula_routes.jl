@@ -125,6 +125,5 @@ end
     custom=ModalFormulaFixtures.FixedModalMaps(maps.Tv,maps.Ti)
     action=ModalAnalysisFormulation(custom)
     @test action.formula === custom
-    @test action.definition === custom
     @test all(isfinite,Z(compute(ModalAnalysisProblem(source),action)))
 end

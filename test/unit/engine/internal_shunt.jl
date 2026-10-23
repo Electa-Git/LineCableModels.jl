@@ -181,7 +181,7 @@ end
     end
     scalar = @inferred compute(CableConstantsProblem(exposed), selected)
     gridded = compute(CableConstantsProblem(Grid((exposed,)); frequency = Grid((50.0, 60.0))),
-        CableConstantsFormulation(shunt_model = Grid((selected.definitions.shunt_model,))))
+        CableConstantsFormulation(shunt_model = Grid((selected.formulas.shunt_model,))))
     @test length(gridded) == 2
     @test all(result -> isapprox(result.C, scalar.C; rtol = 1e-12), gridded)
     @test all(result -> result.C == compute(
@@ -208,7 +208,7 @@ end
     @test sort!(unique(wire.layer for wire in joined.wires)) == [3, 6]
     @test all(isfinite, compute(CableConstantsProblem(two_fills), selected).C)
     @test_throws r"lossless dielectric laws" compute(CableConstantsProblem(exposed),
-        CableConstantsFormulation(shunt_model = selected.definitions.shunt_model,
+        CableConstantsFormulation(shunt_model = selected.formulas.shunt_model,
             semicon_admittance = :lossy))
 end
 

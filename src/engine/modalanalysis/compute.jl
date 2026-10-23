@@ -191,9 +191,8 @@ function compute(
         NamedTuple{(:source_gridpoint, :modal, :formulation, :choices),
             Tuple{Any, NamedTuple, ModalAnalysisFormulation, ComputationDetails}}((
             get(source.data, :gridpoint, nothing),
-            (identifier=formula_id(selected), requested=NamedTuple(formulation.definition),
-                effective=NamedTuple(selected), rotate=execution.data.rotate,
-                diagnostics=diagnostics),
+            (identifier=formula_id(selected), effective=NamedTuple(selected),
+                rotate=execution.data.rotate, diagnostics=diagnostics),
             formulation, source))))
     return LineParameters(modal,
         SeriesImpedance{eltype(workspace.Zm)}(copy(workspace.Zm)),

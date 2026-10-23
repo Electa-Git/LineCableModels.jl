@@ -17,9 +17,7 @@
     @test typeof(results[1]) === typeof(results[2])
     for (result, selection, beta) in zip(results, choices, coefficients)
         record=completed_formulation(details(result)).formulations
-        @test record.requested == NamedTuple(selection).requested
         @test record.formulas == NamedTuple(selection).formulas
-        @test record.requested.earth_properties.parameters.beta === beta
         @test record.formulas.earth_properties.parameters.beta === beta
     end
     artifact=report(BenchmarkTableDefinition(), (
@@ -42,12 +40,11 @@
     selected=Formulation(earth_properties = custom)
     changed=compute(problem, selected)
     @test !isempty(custom.seen)
-    @test completed_formulation(details(changed)).formulations.requested.earth_properties==NamedTuple(custom)
     @test completed_formulation(details(changed)).formulations.formulas.earth_properties==NamedTuple(custom)
     @test completed_formulation(details(changed)).formulations.formulas.earth_properties.identifier === :DispersiveEarth
     @test typeof(changed) === typeof(results[1])
     grid=Formulation(
-        earth_properties = Grid([c.definitions.earth_properties for c in choices]);
+        earth_properties = Grid([c.formulas.earth_properties for c in choices]);
         combine = :zip)
     batch=compute(problem, grid)
     @test isconcretetype(eltype(batch))

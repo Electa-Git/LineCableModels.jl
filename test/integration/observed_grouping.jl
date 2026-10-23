@@ -6,10 +6,10 @@
     source_id=gridpoint_id().source_id
     base=LineParameters(fill(1.0+2im,1,1,3),fill(3.0+4im,1,1,3),[1.,10.,100.]; line_length=1.0)
     # The second formulation differs from the first in an admittance formula only, the third
-    # in an explicit control of both earth formulas.
+    # in a control of both earth formulas.
     formulations=(Formulation(),Formulation(earth_admittance=:ideal),
-        Formulation(earth_impedance=formula(:unified;options=(Γ=0,)),
-            earth_admittance=formula(:unified;options=(Γ=0,))))
+        Formulation(earth_impedance=formula(:unified;options=(Γ=1e-6im,)),
+            earth_admittance=formula(:unified;options=(Γ=1e-6im,))))
     function point(problem,formula;rho=100.,value=base)
         retain_gridpoint(value,gridpoint_id(;source_id,problem_index=problem,formulation_index=formula);
             fields=(inputs=(radius=.01,earth_resistivity=rho),

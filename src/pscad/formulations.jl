@@ -3,14 +3,12 @@ import LineCableModels: formula_id
 """
     PSCADFormulation
 
-Store shared formula selections, requested definitions, and physical options
-for PSCAD. Backend execution settings remain computation options.
+Store shared formula selections and physical options for PSCAD. Backend execution
+settings remain computation options.
 """
-struct PSCADFormulation{M <: NamedTuple, O <: FormulationOptions, D <: NamedTuple} <:
-       AbstractFormulation
+struct PSCADFormulation{M <: NamedTuple, O <: FormulationOptions} <: AbstractFormulation
     formulas::M
     options::O
-    definitions::D
 end
 
 """Identify PSCAD without server access or native setting compilation."""
@@ -25,7 +23,7 @@ function Base.pairs(::Type{PSCADFormulation}; quantity=nothing)
         if name !== :shunt_model)...))
 end
 Base.pairs(value::PSCADFormulation;quantity=nothing) =
-    pairs(PSCADFormulation,(formulas=value.formulas,requested=value.definitions,options=value.options.data);quantity)
+    pairs(PSCADFormulation,(formulas=value.formulas,options=value.options.data);quantity)
 description(::Type{PSCADFormulation},slot::Val;compact::Bool=false) =
     description(LineParametersFormulation,slot;compact)
 description(::Type{PSCADFormulation},slot::Union{Val{:reduce_bundle},Val{:kron_reduction},Val{:ideal_transposition}},
@@ -134,10 +132,7 @@ function _pscad_formulation(internal_impedance, insulation_impedance, earth_impe
             selected
         end
     end for (name, owner) in pairs(PSCADFormulation))...)
-    definitions = map(selections, formulas) do requested, selected
-        requested isa NamedTuple ? NamedTuple{keys(selected)}(requested) : requested
-    end
-    return PSCADFormulation(formulas, normalized, definitions)
+    return PSCADFormulation(formulas, normalized)
 end
 
 """
@@ -352,15 +347,13 @@ function computation_details(::Type{<:PSCADFormulation}, result::LineParameters)
     return details(result)
 end
 
-"""Expose complete requested PSCAD formula choices and native configuration options."""
+"""Expose the complete PSCAD formula choices and native configuration options."""
 function Base.NamedTuple(value::PSCADFormulation)
     record = function (selected)
         selected === nothing && return nothing
-        selected isa Symbol && return NamedTuple(formula(selected))
         selected isa NamedTuple && return map(record,selected)
         return NamedTuple(selected)
     end
-    Record=NamedTuple{(:backend,:requested,:formulas,:options),
-        Tuple{Symbol,NamedTuple,NamedTuple,NamedTuple}}
-    return Record((:pscad,map(record,value.definitions),map(record,value.formulas),value.options.data))
+    Record=NamedTuple{(:backend,:formulas,:options),Tuple{Symbol,NamedTuple,NamedTuple}}
+    return Record((:pscad,map(record,value.formulas),value.options.data))
 end

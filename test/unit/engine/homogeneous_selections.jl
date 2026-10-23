@@ -34,7 +34,7 @@
     end
     @test map(value -> value.identifier, completed_formulation(details(custom)).formulations.formulas.earth_impedance)==
         (air=:HalfSpaceImpedance,earth=:HalfSpaceImpedance,mixed=:HalfSpaceImpedance)
-    @test completed_formulation(details(custom)).formulations.requested.earth_impedance.earth.parameters.scale==2.0
+    @test completed_formulation(details(custom)).formulations.formulas.earth_impedance.earth.parameters.scale==2.0
 
     # Partial Unified publication must still use the complete physical system.
     # The other entries come from the explicit manufactured equation above.
@@ -88,7 +88,6 @@ end
     reordered=Formulation(earth_impedance = (
         mixed = same.mixed, earth = same.earth, air = same.air))
     @test keys(reordered.formulas.earth_impedance) === (:air, :earth, :mixed)
-    @test keys(reordered.definitions.earth_impedance) === (:air, :earth, :mixed)
     @test_throws "homogeneous selection is not defined for source in layer 2 and target in layer 3" E.Expression(
         reordered.formulas.earth_impedance, E.EarthPair(1, 2, (-0.25, -1.5), 1.0, (2, 3)))
     model=build(E.EarthModel,
