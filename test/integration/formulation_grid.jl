@@ -137,32 +137,8 @@
         @test same_parameters(modal_batch[index], modal_scalar[index])
     end
 
-    stages=Symbol[]
-    composed=compute(first(problems),Grid(Tuple(formulations));
-        options=(on_result=(problem,index,value)->begin
-            @test domain(value)===PhaseDomain
-            push!(stages,:phase)
-        end,),
-        modal=ModalAnalysisFormulation(:default),
-        modal_options=(on_result=(problem,index,value)->begin
-            @test domain(value)===ModalDomain
-            push!(stages,:modal)
-        end,))
-    @test stages==[:phase,:phase,:modal,:modal]
-    @test eltype(composed) <: LineParameters
-    @test length(composed)==length(formulations)
-    @test all(index -> Z(composed[index])≈Z(compute(
-        ModalAnalysisProblem(direct[index]),ModalAnalysisFormulation(:default))),
-        1:length(composed))
     @test_throws ArgumentError compute(first(problems),first(formulations);
         modal_options=(rotate=true,))
-    completed_modal_grid=Grid(Tuple(modal_formulations))
-    composed_grid=compute(first(problems),first(formulations);
-        modal=completed_modal_grid)
-    @test length(composed_grid)==2
-    @test all(value -> value isa LineParameters,composed_grid)
-    @test all(index -> Z(composed_grid[index])≈Z(compute(
-        ModalAnalysisProblem(direct[1]),modal_formulations[index])),1:2)
 
     transported=Gridspace{ModalAnalysisProblem}(run)
     @test length(transported) == length(run)

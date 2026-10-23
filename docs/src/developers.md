@@ -383,10 +383,11 @@ and types added and removed since `REF`, the net lines of `src` and `ext`, and t
 `absence` ceilings.
 `julia --project=test --startup-file=no test/tools/latency.jl` prints the first-call
 times of a scalar computation, of the chained modal computation after it, of a
-product space, and of a space chained into a modal analysis, with the `modal` keyword
-and with a modal formulation, each sequence in a new process. The `slow` quality item
-of `test/quality/chain_latency.jl` runs the chained space sequence alone and kills it at
-300 s. It fails when the two first calls together take more than 30 s.
+product space, and of a space followed by the explicit two-step,
+`compute(Gridspace{ModalAnalysisProblem}(result), modal)` on the space's result, each
+sequence in a new process. The `slow` quality item of `test/quality/chain_latency.jl` runs
+the last sequence alone and kills it at 300 s. It fails when its two first calls together
+take more than 30 s.
 
 The local tools compare the working tree with a git revision `REF`. Each checks out
 `REF` in a temporary git worktree. That test environment starts from the repository
@@ -639,11 +640,10 @@ a point computes it from its position in the run and the elapsed time. Each poin
 The run of a space is called through `Base.invokelatest`. This call is the barrier between
 the orchestration and the work: inference does not enter it, and the run compiles from
 the values that it receives. The types of a space are known only from its values.
-Without the barrier, the compiler walks the whole run, and a chained computation after
-it, with partly known types, and the first call of a space chained into a modal analysis
-compiles in tens of seconds to hours instead of about one second. A scalar call has no
-such barrier, and its result type infers. `test/quality/chain_latency.jl` guards this
-barrier.
+Without the barrier, the compiler walks the whole run with partly known types, and the
+first call of a space compiles in tens of seconds to hours instead of about one second. A
+scalar call has no such barrier, and its result type infers.
+`test/quality/chain_latency.jl` guards this barrier.
 
 Each formulation space contains the formulations of one backend, whose formula choices may
 vary. The runner refuses a space that mixes backends with an `ArgumentError`, and comparing

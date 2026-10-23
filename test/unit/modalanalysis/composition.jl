@@ -23,15 +23,9 @@
         (Grid((10.0, 100.0)),))
     @test same(compute(LineCableModels.materialize(first(LineCableModels.points(space))),
         fixed, modal))
-    for composed in (compute(space, fixed; modal = :default), compute(space, fixed, modal),
-            compute(ParametricProblem(space), Combinatorial(fixed), modal))
-        @test composed isa ParametricResult
-        @test length(composed) == 2
-        @test all(same, composed)
-    end
-    study = compute(ParametricProblem(space), Combinatorial(fixed))
-    twostep = compute(Gridspace{ModalAnalysisProblem}(study), modal)
-    composed = compute(ParametricProblem(space), Combinatorial(fixed), modal)
-    @test [Z(value) for value in composed] == [Z(value) for value in twostep]
-    @test [gamma(value) for value in composed] == [gamma(value) for value in twostep]
+    # The modal analysis of the results of a space is a computation of its own.
+    twostep = compute(Gridspace{ModalAnalysisProblem}(compute(space, fixed)), modal)
+    @test twostep isa ParametricResult
+    @test length(twostep) == 2
+    @test all(same, twostep)
 end

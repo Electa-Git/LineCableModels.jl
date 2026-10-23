@@ -389,19 +389,3 @@ function compute(problem::ParametricProblem, study::MonteCarlo;
         ComputationDetails((; trials = [only(point.data.trials) for point in retained.points]))
     )
 end
-
-# A Monte Carlo study chained into modal analysis is refused at the call. Monte Carlo of the
-# modal outputs is not built: the chain would propagate the marginal mean ± std of the line
-# parameters through modal analysis, which is a different method.
-function compute(::ScalarOrGrid{Engine.LineParametersProblem}, ::MonteCarlo,
-        ::Union{Symbol, ScalarOrGrid{Engine.ModalAnalysis.ModalAnalysisFormulation}};
-        keywords...)
-    throw(ArgumentError("Monte Carlo of the modal outputs is not built: a MonteCarlo study " *
-        "chained into modal analysis would propagate the marginal mean ± std of the line " *
-        "parameters through modal analysis, which is a different method"))
-end
-# The parametric problem of a space refuses the chain as the space does.
-function compute(problem::ParametricProblem, study::MonteCarlo,
-        modal::ScalarOrGrid{Engine.ModalAnalysis.ModalAnalysisFormulation}; keywords...)
-    return compute(problem.space, study, modal)
-end

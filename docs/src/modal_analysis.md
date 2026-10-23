@@ -29,31 +29,39 @@ The convenience call performs the same two public actions in sequence:
 ```julia
 modal = compute(line_problem, line_formulation; modal=:default)
 modal = compute(line_problem, line_formulation;
-    modal=formula(:default; options=(iteration=(convergence=1e-8,),)),
+    modal=ModalAnalysisFormulation(:default; options=(iteration=(convergence=1e-8,),)),
     modal_options=(offdiagonal_tolerance=1e-6,))
 ```
 
-The native and PSCAD line-parameter calls and the parametric studies accept the
-`modal` keyword. The positional form takes a `ModalAnalysisFormulation` and composes any
-formulation whose `compute(problem, formulation; options)` returns `LineParameters`. A
-user-owned formulation composes too:
+The native and PSCAD line-parameter calls accept the `modal` keyword. The positional form
+takes a `ModalAnalysisFormulation` or its identifier and composes any formulation whose
+`compute(problem, formulation; options)` returns `LineParameters`. A user-owned formulation
+composes too:
 
 ```julia
 modal = compute(line_problem, user_formulation, ModalAnalysisFormulation(:default))
 ```
 
-A problem `Gridspace`, one of its grid points and a `ParametricProblem` compose in the
-same way. Cable constants are not line parameters and do not compose with modal analysis.
+The convenience takes one line-parameter problem, one formulation and one modal
+formulation or its identifier. The modal analysis of the results of a space or of a study
+is a computation of its own on the transported results, as the section on collections
+and observations below describes:
+
+```julia
+phase_results = compute(problem_space, line_formulation)
+modal_results = compute(Gridspace{ModalAnalysisProblem}(phase_results),
+    ModalAnalysisFormulation(:default))
+```
+
+Cable constants are not line parameters and do not compose with modal analysis.
 
 `modal_options` controls the modal action only. A nonempty value requires
-`modal`. The upstream solver, including its selected backend and batched path,
-completes before modal analysis begins. Upstream `on_result`, progress, and
-timing belong to the run of that upstream call. Modal `on_result`, progress, and timing
-belong to the run of the downstream call, with the modal options `rotate` and
-`offdiagonal_tolerance`. A `Combinatorial` or `LinearError` study chains each point's line
-parameters into modal analysis. A `MonteCarlo` study chained into modal analysis is refused,
-because Monte Carlo of the modal outputs is not built. Each modal result keeps the gridpoint identity
-of its source. A missed iteration or coupling target produces a warning and a
+`modal`. The upstream solver, including its selected backend, completes before modal
+analysis begins. Upstream `on_result`, progress, and timing belong to the run of that
+upstream call. Modal `on_result`, progress, and timing belong to the run of the downstream
+call, with the modal options `rotate` and `offdiagonal_tolerance`. Each modal result of a
+transported result space keeps the gridpoint identity of its source. A missed iteration or
+coupling target produces a warning and a
 diagnostic record. Finite results are returned. The iteration convergence
 setting is a numerical target. It does not bound the physical error. Inspect
 `details(modal).data.modal.diagnostics` for fallback and missed frequency

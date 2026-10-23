@@ -677,9 +677,10 @@ The implementation is split across:
   materialization, and realization.
 - material, cable, position, and system files: scalar construction and lifting
   rules and concrete callable algorithms.
-- `src/parametricbuilder/traversal.jl`: combinatorial traversal and the
-  phase-to-modal composition of a `ParametricProblem`.
-- `src/engine/modalanalysis/composition.jl`: public phase-to-modal composition.
+- `src/commons/parametric.jl` and `src/commons/runner.jl`: `ParametricProblem`,
+  `Combinatorial`, `ParametricResult` and the runner, `traverse`.
+- `src/engine/modalanalysis/composition.jl`: the phase-to-modal composition of one
+  line-parameter computation.
   `src/engine/modalanalysis/problems.jl`, `compute.jl`, and `propagation.jl` own
   modal scalar computation and line segment binding.
 - `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and

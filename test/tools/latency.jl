@@ -1,17 +1,18 @@
-# First-call latency of the preservation corpus at 2 frequencies and of a chained space.
-# Run `julia --project=test --startup-file=no test/tools/latency.jl` from the repository
-# root, or add one sequence name to run that sequence alone.
+# First-call latency of the preservation corpus at 2 frequencies, and of a space and the
+# modal analysis of its results. Run `julia --project=test --startup-file=no
+# test/tools/latency.jl` from the repository root, or add one sequence name to run that
+# sequence alone.
 #
 # One fresh process times the first call of the scalar coaxial computation and then the
 # first call of the chained modal computation. A second fresh process times the first
 # call of the product space. A third fresh process, `chain`, builds a formulation that
 # returns fixed line parameters and a space of two problems, then times the first call of
-# that space with the `modal` keyword and then the first call of the space chained into a
-# modal formulation. This file starts the three processes. Each first call includes its
-# compilation, and the times leave out the construction of the corpus. The times are
-# samples of the machine's load. One check reads the `chain` sequence:
-# `test/quality/chain_latency.jl` fails when its two times together exceed 30 s. No check
-# reads the other sequences.
+# that space and then the first call of the explicit two-step,
+# `compute(Gridspace{ModalAnalysisProblem}(result), modal)` on that space's result. This
+# file starts the three processes. Each first call includes its compilation, and the
+# times leave out the construction of the corpus. The times are samples of the machine's
+# load. Only the `chain` sequence has a check: `test/quality/chain_latency.jl` fails when
+# its two times together exceed 30 s.
 const SEQUENCES = ("scalar", "space", "chain")
 
 if isempty(ARGS)
@@ -36,8 +37,8 @@ else
         space = @elapsed compute(corpus.product...)
         println("product space first call: ", round(space; digits = 1), " s")
     else
-        # A formulation that returns its stored line parameters. The chained calls then
-        # compile the runner and the modal analysis, not the coaxial backend.
+        # A formulation that returns its stored line parameters. Both calls then compile
+        # the runner and the modal analysis, not the coaxial backend.
         struct FixedPhase{P <: LineParameters} <: AbstractFormulation
             parameters::P
         end
@@ -52,11 +53,10 @@ else
         space = Gridspace{LineParametersProblem}(
             rho -> three_bare_wires_problem(; rho, frequencies), (Grid((10.0, 100.0)),))
         modal = ModalAnalysisFormulation(:default)
-        keyword = @elapsed compute(space, fixed; modal = :default)
-        chained = @elapsed compute(space, fixed, modal)
-        println("chained space first call with the modal keyword: ",
-            round(keyword; digits = 2), " s")
-        println("chained space first call with a modal formulation after it: ",
-            round(chained; digits = 2), " s")
+        computed = @timed compute(space, fixed)
+        twostep = @elapsed compute(Gridspace{ModalAnalysisProblem}(computed.value), modal)
+        println("space first call: ", round(computed.time; digits = 2), " s")
+        println("two-step modal analysis of its result, first call after it: ",
+            round(twostep; digits = 2), " s")
     end
 end

@@ -165,10 +165,11 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compute the frequency-dependent line parameters of a problem or a space of problems with a
-formulation, a space of formulations or a study, through
-[`traverse`](@ref LineCableModels.Commons.traverse). The formulation selects the coaxial or
-PSCAD backend.
+Compute the frequency-dependent line parameters of one problem with one formulation, a run
+of one point through [`traverse`](@ref LineCableModels.Commons.traverse). The formulation
+selects the coaxial or PSCAD backend. A space of problems or of formulations, or a study,
+computes through the parametric `compute` of `Commons`, which returns a `ParametricResult`
+of these results or the result of the study.
 
 The coaxial backend uses the equivalent concentric representation of the completed data
 model for series impedance and ordinary radial dielectric intervals. Eligible open wire and
@@ -183,32 +184,28 @@ are `Z(result) .* line_length(result)` and `Y(result) .* line_length(result)`.
 
 # Arguments
 
-- `problem`: completed line-parameter problem, or a space of them.
-- `formulation`: selected line-parameter physical methods, a space of them or a study.
+- `problem`: completed line-parameter problem.
+- `formulation`: selected line-parameter physical methods.
 
 # Keywords
 
-- `options`: named tuple of the computation options of the run, `verbosity`, `on_result`
-  and, for a study, `retain_details`, and of the backend, such as `trace`. With
-  `verbosity = (default = 0, timing = 1)`, each point logs its timing. The optional callable
-  `on_result(problem, index, result)` runs synchronously after each completed point and
-  before the next computation. `index` gives
-  the position of the point in the space (`1` for a scalar call). Its return value is ignored.
-  Exceptions propagate. The callback must not mutate the problem or result. The default is
-  `nothing`.
-- `modal`: a modal-analysis formulation, a space of them or the identifier of one. The
-  result is then the modal analysis of each line-parameter result: for a study, the chain
-  inside each point. A `MonteCarlo` study chained into modal analysis is refused.
+- `options`: named tuple of the computation options of the run, `verbosity` and
+  `on_result`, and of the backend, such as `trace`. With
+  `verbosity = (default = 0, timing = 1)`, the point logs its timing. The optional callable
+  `on_result(problem, index, result)` runs synchronously after the computation, with
+  `index` equal to `1`, the position of the point. Its return value is ignored. Exceptions
+  propagate. The callback must not mutate the problem or result. The default is `nothing`.
+- `modal`: a modal-analysis formulation or the identifier of one. The result is then the
+  modal analysis of the line-parameter result.
 - `modal_options`: the options of the modal analysis.
 
 # Returns
 
-- One [`LineParameters`](@ref) result, a `ParametricResult` of them for a space, or the
-  result of the study.
+- One [`LineParameters`](@ref) result.
 """
 function compute(
-        problem::ScalarOrGrid{LineParametersProblem},
-        formulation::Union{ScalarOrGrid{AbstractFormulation}, AbstractTraversal};
+        problem::LineParametersProblem,
+        formulation::AbstractFormulation;
         options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
         modal=nothing, modal_options::Union{NamedTuple, ComputationOptions}=ComputationOptions()
 )
@@ -216,8 +213,7 @@ function compute(
         return compute(problem, formulation, modal; options, modal_options)
     isempty(ComputationOptions(modal_options).data) ||
         throw(ArgumentError("modal_options require a modal formulation"))
-    # A run of one point, or the parametric computation of a space or a study, as `Commons`
-    # writes it once for every problem.
+    # A run of one point, as `Commons` writes it once for every problem.
     return invoke(compute, Tuple{ScalarOrGrid{AbstractProblemDefinition},
             Union{ScalarOrGrid{AbstractFormulation}, AbstractTraversal}},
         problem, formulation; options)

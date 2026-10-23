@@ -345,8 +345,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `T`. It is public in `Commons` and not exported. The values of the `Grid` can mix subtypes
   of `T`. A vector, a `Gridpoint` and an uncertain grid are not members. A method typed with
   it receives a scalar and a space of it. `LineParametersProblem(system; …)`, `homogenize`,
-  the target of `stranded`, `ParametricProblem`, `CableConstantsProblem(design; …)`,
-  `CableConstants(design; …)` and the modal composition take it.
+  the target of `stranded`, `ParametricProblem`, `CableConstantsProblem(design; …)` and
+  `CableConstants(design; …)` take it.
 - `compute(problem, formulation; options)`, one method for a core formulation, a space of
   them or a study, computes the `ParametricProblem` of the problem. Its `options` go to the
   owner of each key: the computation options of the run, `verbosity`, `on_result` and
@@ -367,10 +367,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a debug record of the `PSCAD` module, shown only by a logger that admits debug records. PSCAD's
   project diagnostics stay in `pscad-console.txt`, and the exception of a failure shows their
   last lines and the file's path. `PSCAD.RemoteConfig` takes no verbosity.
-- A line-parameter study chained into modal analysis, by `modal=` or by the modal
-  formulation in third place, chains each point: `Combinatorial` and `LinearError` give each
-  point's line parameters to modal analysis. A `MonteCarlo` study chained into modal analysis
-  throws an `ArgumentError`: Monte Carlo of the modal outputs is not built.
+- The modal chain, `compute(problem, formulation, modal)` and its `modal=` keyword, takes
+  one `LineParametersProblem`, one core formulation and one modal formulation or its
+  identifier. The modal analysis of the results of a space or of a study is a computation of
+  its own, `compute(Gridspace{ModalAnalysisProblem}(result), modal)`.
 - `AbstractTraversal` is the supertype of the studies `Combinatorial`, `LinearError` and
   `MonteCarlo`, and `AbstractProblemSpace` the supertype of `ParametricProblem`. A study is
   the formulation of a problem space, not of a problem, and a problem space is not a
