@@ -9,6 +9,7 @@ using ExplicitImports: check_no_implicit_imports, check_no_stale_explicit_import
                        check_all_qualified_accesses_via_owners,
                        check_all_qualified_accesses_are_public,
                        check_no_self_qualified_accesses
+using TOML: TOML
 using JuliaSyntax: JuliaSyntax, SyntaxNode, @K_str, kind, children, numchildren, is_leaf,
                    is_prefix_call
 
@@ -314,10 +315,12 @@ function direction(methods, tree::PackageTree, order)
     return found
 end
 
-# Names. Distinct functions or types, owned by different package modules,
-# that share a name. The value is the number of modules that define the name.
+# Names. Distinct functions or types, owned by different package modules, that share a name.
+# Types share a name when each descends from one abstract type that Commons owns: the
+# namespace specializes one concept. The value is the number of modules that define the name.
 function shared_names(tree::PackageTree)
     owners = Dict{Symbol, Vector{Module}}()
+    values = Dict{Symbol, Vector{Any}}()
     for M in tree.modules, name in names(M; all = true)
 
         (startswith(string(name), "#") || name in (:eval, :include) ||
@@ -326,9 +329,28 @@ function shared_names(tree::PackageTree)
         value = getfield(M, name)
         (value isa Function || value isa Type) && value_owner(value) === M || continue
         push!(get!(owners, name, Module[]), M)
+        push!(get!(values, name, Any[]), value)
     end
+    C = commons_module(tree)
     return Dict{String, Int}(string(name) => length(modules)
-    for (name, modules) in owners if length(modules) > 1)
+    for (name, modules) in owners
+    if length(modules) > 1 && !family(values[name], tree, C))
+end
+
+# Whether all `values` are types that descend from one abstract type that Commons owns.
+function family(values, tree::PackageTree, C)
+    C === nothing && return false
+    all(value -> value isa Type, values) || return false
+    function ancestors(value)
+        found = Any[]
+        S = supertype(Base.unwrap_unionall(value))
+        while S !== Any
+            within(S.name.module, C, tree.root) && push!(found, S.name.wrapper)
+            S = supertype(S)
+        end
+        return found
+    end
+    return !isempty(intersect(map(ancestors, values)...))
 end
 
 # Shadowing. A package-owned name that the root module exports, and so `using`
@@ -1479,6 +1501,288 @@ function typed_values(tree::PackageTree)
         end
     end
     return found
+end
+
+# The path of a module below the root, or from its top extension module for an extension.
+function module_path(tree::PackageTree, M::Module)
+    M === tree.root && return ""
+    M in tree.extensions || return module_name(tree, M)
+    parts = [nameof(M)]
+    # A package extension is a top-level module: its parent is itself.
+    while parentmodule(M) !== M && parentmodule(M) in tree.extensions
+        M = parentmodule(M)
+        pushfirst!(parts, nameof(M))
+    end
+    return join(parts, ".")
+end
+
+# The types that a signature parameter admits: the members of a `Union`, the bound of a type
+# variable.
+function admitted_types(T)
+    T isa Union ? [admitted_types(T.a); admitted_types(T.b)] :
+    T isa TypeVar ? admitted_types(T.ub) :
+    T isa Core.TypeofVararg ? Any[] : Any[Base.unwrap_unionall(T)]
+end
+
+# Names. A name's chunks are its lowercase pieces between underscores and case transitions,
+# without leading underscores, a leading `@` or a trailing `!`. Digits stay with their piece.
+function chunks(name)
+    text = replace(string(name), r"^[_@]+" => "", r"!$" => "")
+    found = String[]
+    for part in split(text, '_'; keepempty = false)
+        for piece in
+            eachmatch(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z0-9]+|[A-Z]+[0-9]*|[^\W_]+", part)
+            push!(found, lowercase(piece.match))
+        end
+    end
+    return found
+end
+
+# The role of the terms in each list of a section of the names file.
+const ROLES = Dict("verbs" => :verb, "nouns" => :noun, "qualifiers" => :qualifier,
+    "symbols" => :symbol)
+
+# The sanctioned terms that a name in `path` may use, with their roles: the global section and
+# the sections of the module path's prefixes, root side first.
+function vocabulary(names, path)
+    found = Dict{String, Symbol}()
+    sections = Any[names["global"]]
+    parts = split(path, '.'; keepempty = false)
+    for i in eachindex(parts)
+        section = get(get(names, "modules", Dict()), join(parts[1:i], "."), nothing)
+        section === nothing || push!(sections, section)
+    end
+    for section in sections, (role, entries) in section
+
+        for term in (entries isa AbstractDict ? keys(entries) : entries)
+            found[term] = ROLES[role]
+        end
+    end
+    for term in names["shape"]["predicates"]
+        found[term] = :predicate
+    end
+    found[names["shape"]["marker"]] = :marker
+    return found
+end
+
+# The splits of `name` into terms with the fewest terms. A term matches whole chunks, several
+# chunks joined by underscores (a compound) or part of a chunk (a squashed word).
+function splits(name, terms)
+    text = collect(join(chunks(name), "_"))
+    candidates = [collect(term) for term in keys(terms)]
+    memo = Dict{Int, Vector{Vector{String}}}()
+    function from(i)
+        i > length(text) && return [String[]]
+        text[i] == '_' && return from(i + 1)
+        haskey(memo, i) && return memo[i]
+        best = Vector{String}[]
+        for term in candidates
+            j = i + length(term) - 1
+            j <= length(text) && text[i:j] == term || continue
+            for rest in from(j + 1)
+                option = [String(term); rest]
+                if isempty(best) || length(option) < length(first(best))
+                    best = [option]
+                elseif length(option) == length(first(best))
+                    push!(best, option)
+                end
+            end
+        end
+        return memo[i] = best
+    end
+    return from(1)
+end
+
+# Every name the package owns: modules below the root, types, functions (macros included),
+# constants, struct fields and method keywords, each with its kind, its module path, whether
+# the root exports it and its value. The names Julia or Pkg impose are left out; an extension
+# module is no module's submodule, so its own name is never read.
+function owned_names(tree::PackageTree, mandated)
+    found = NamedTuple{
+        (:kind, :path, :name, :exported, :value), Tuple{Symbol, String, Symbol, Bool, Any}}[]
+    path(M) = module_path(tree, M)
+    exported(M,
+        name,
+        value) = Base.isexported(tree.root, name) &&
+                 isdefined(tree.root, name) && getfield(tree.root, name) === value
+    for M in tree.modules
+        for name in names(M; all = true)
+            (startswith(string(name), "#") || name in (:eval, :include) ||
+             string(name) in mandated || name === nameof(M)) && continue
+            isdefined(M, name) || continue
+            value = getfield(M, name)
+            value isa Module && parentmodule(value) === M && value !== M &&
+                push!(found,
+                    (kind = :module, path = path(M), name,
+                        exported = exported(M, name, value), value))
+        end
+        for (name, value) in definitions(M)
+            string(name) in mandated && continue
+            kind = value isa Function ? :function : value isa Type ? :type : :constant
+            push!(found, (;
+                kind, path = path(M), name, exported = exported(M, name, value), value))
+            if value isa Type
+                T = Base.unwrap_unionall(value)
+                T isa DataType && isstructtype(T) &&
+                    for field in fieldnames(T)
+                        field isa Symbol && push!(found,
+                            (kind = :field, path = path(M), name = field,
+                                exported = false, value = nothing))
+                    end
+            end
+            if value isa Function || value isa Type
+                for m in Base.methods(value), keyword in Base.kwarg_decl(m)
+
+                    endswith(string(keyword), "...") ||
+                        push!(found,
+                            (kind = :keyword, path = path(M), name = keyword,
+                                exported = false, value = nothing))
+                end
+            end
+        end
+    end
+    return unique(item -> (item.kind, item.path, item.name), found)
+end
+
+# The form of a name, from the roles of its terms: `nothing` when it conforms.
+function form(kind, roles, abstract)
+    roles = copy(roles)
+    kind === :type && abstract && !isempty(roles) && roles[1] === :marker &&
+        popfirst!(roles)
+    (isempty(roles) || :marker in roles) && return "form"
+    if kind === :function
+        roles[1] === :predicate &&
+            return length(roles) == 2 && !(roles[2] in (:verb, :predicate)) ? nothing :
+                   "form"
+        roles[1] === :verb &&
+            return length(roles) == 1 || roles[2] in (:noun, :symbol) ? nothing : "form"
+        (:verb in roles || :predicate in roles) && return "form"
+        return length(roles) == 1 || roles[end] in (:noun, :symbol) ? nothing : "form"
+    end
+    (:verb in roles || :predicate in roles) && return "form"
+    kind in (:field, :keyword) && roles == [:qualifier] && return nothing
+    return roles[end] in (:noun, :symbol) ? nothing : "form"
+end
+
+# The chunks of a module path, without the root's chunks and an extension's `ext`, as the
+# context of the names it holds.
+function context(tree::PackageTree, path)
+    root = Set(chunks(nameof(tree.root)))
+    return Set(c for part in split(path, '.'; keepempty = false)
+    for c in chunks(part)
+    if !(c in root) && c != "ext")
+end
+
+# Names. The checks of the naming rule over every name the package owns, with the sanctioned
+# terms of `names`: terms, shape, subject, context, verb homes and Base names. Each violation
+# counts once, keyed by check, kind, module path and name.
+function naming_rule(methods, tree::PackageTree, names)
+    found = Dict{String, Int}()
+    shape = names["shape"]
+    rejected = names["rejected"]
+    verbs = keys(names["global"]["verbs"])
+    C = commons_module(tree)
+    base = Set(string(n) for M in (Base, Core) for n in Base.names(M))
+    split_of = Dict{Tuple{String, Symbol}, Vector{String}}()
+    entry(check,
+        item,
+        detail = "") = (found[join(
+        filter(!isempty, [check, string(item.kind),
+            item.path, string(item.name), detail]), " | ")] = 1)
+    items = owned_names(tree, shape["mandated"])
+    for item in items
+        terms = vocabulary(names, item.path)
+        for c in chunks(item.name)
+            haskey(rejected, c) &&
+                entry("terms", item, string("rejected ", c, " -> ", rejected[c]))
+        end
+        options = splits(item.name, terms)
+        if length(options) != 1
+            entry("terms", item, isempty(options) ? "unknown" : "ambiguous")
+            continue
+        end
+        split_of[(item.path, item.name)] = only(options)
+        roles = [terms[t] for t in only(options)]
+        abstract = item.value isa Type && isabstracttype(Base.unwrap_unionall(item.value))
+        cap = shape[string(item.kind)] + (abstract && roles[1] === :marker ? 1 : 0)
+        length(roles) > cap && entry("shape", item, "length")
+        length(roles) <= cap && form(item.kind, roles, abstract) !== nothing &&
+            entry("shape", item, "form")
+        if item.kind in (:function, :type, :constant, :module) && !item.exported
+            clash = intersect(Set(c for t in only(options) for c in split(t, '_')), context(tree, item.path))
+            isempty(clash) || entry("context", item, join(sort!(collect(clash)), ","))
+        end
+        if item.kind === :function
+            roles[1] === :verb && only(options)[1] in verbs &&
+                (C === nothing || !within(parentmodule(item.value), C, tree.root)) &&
+                entry("verbs", item, only(options)[1])
+            string(item.name) in base && entry("base", item)
+        end
+    end
+    # The subject: a function's terms against the terms of the package types its methods take.
+    for item in items
+        item.kind === :function && haskey(split_of, (item.path, item.name)) || continue
+        own = Set(split_of[(item.path, item.name)])
+        for m in Base.methods(item.value),
+            p in Base.unwrap_unionall(m.sig).parameters[2:end]
+
+            for T in admitted_types(p)
+                T isa DataType && T.name.module in tree.modules || continue
+                type_terms = get(split_of, (module_path(tree, T.name.module), T.name.name), String[])
+                clash = intersect(own, type_terms)
+                isempty(clash) || entry("subject", item, join(sort!(collect(clash)), ","))
+            end
+        end
+    end
+    return merge!(found, naming_file(names, split_of))
+end
+
+# The file of sanctioned terms. Each term is used by a name in its section's scope and is
+# sanctioned once along a module path; no term is a preposition or a rejected word; a global
+# noun, qualifier or symbol is used by root names or by names of two top-level modules.
+function naming_file(names, split_of)
+    found = Dict{String, Int}()
+    entry(section, term, problem) = (found[join(("file", section, term, problem), " | ")] = 1)
+    users = Dict{String, Set{String}}()
+    for ((path, _), terms) in split_of, term in terms
+
+        push!(get!(Set{String}, users, term), path)
+    end
+    sections = Pair{String, Any}["global" => names["global"]]
+    for (path, section) in get(names, "modules", Dict())
+        push!(sections, path => section)
+    end
+    sanctioned(section) = Set(term for (_, entries) in section
+    for term in (entries isa AbstractDict ? keys(entries) : entries))
+    for (path, section) in sections
+        seen = Set{String}()
+        above = path == "global" ? Set{String}() :
+                union(sanctioned(names["global"]),
+            (sanctioned(names["modules"][prefix])
+            for prefix in prefixes(path)
+            if prefix != path && haskey(names["modules"], prefix))...)
+        for (role, entries) in section,
+            term in (entries isa AbstractDict ? keys(entries) : entries)
+
+            (term in seen || term in above) && entry(path, term, "sanctioned twice")
+            push!(seen, term)
+            term in names["shape"]["prepositions"] && entry(path, term, "preposition")
+            haskey(names["rejected"], term) && entry(path, term, "rejected")
+            paths = get(users, term, Set{String}())
+            scope = path == "global" ? paths :
+                    Set(p for p in paths if p == path || startswith(p, path * "."))
+            isempty(scope) && entry(path, term, "unused")
+            path == "global" && role != "verbs" && !isempty(paths) && !("" in paths) &&
+                length(Set(first(split(p, '.')) for p in paths)) < 2 &&
+                entry(path, term, "one module")
+        end
+    end
+    return found
+end
+
+# The module path and its prefixes, root side first.
+function prefixes(path)
+    (parts = split(path, '.'); [join(parts[1:i], ".") for i in eachindex(parts)])
 end
 
 end

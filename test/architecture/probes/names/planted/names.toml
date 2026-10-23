@@ -1,0 +1,35 @@
+[shape]
+function = 2
+type = 3
+module = 2
+constant = 2
+field = 2
+keyword = 2
+predicates = ["is", "has"]
+marker = "abstract"
+prepositions = ["in", "per", "to", "by", "of", "or", "for", "from", "with", "at", "on"]
+mandated = ["__init__"]
+
+[rejected]
+get = "the name of the quantity"
+check = "validate"
+
+[global]
+nouns = ["commons", "earth", "engine", "formula", "plan", "resistivity", "unused", "check"]
+qualifiers = ["of"]
+symbols = []
+
+[global.verbs]
+compute = "run one computation"
+
+[modules.Commons]
+nouns = ["formulation"]
+
+[modules.Earth]
+nouns = ["ring", "layer", "coefficients", "path", "poses", "extent", "mesh", "disk", "count", "a", "ab", "bc", "c", "formula", "length"]
+qualifiers = ["mean", "free", "radial", "half", "outer"]
+symbols = []
+
+[modules.Earth.verbs]
+build = "assemble a plan"
+spread = "spread a value"

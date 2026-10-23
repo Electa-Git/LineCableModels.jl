@@ -1,0 +1,34 @@
+[shape]
+function = 2
+type = 3
+module = 2
+constant = 2
+field = 2
+keyword = 2
+predicates = ["is", "has"]
+marker = "abstract"
+prepositions = ["in", "per", "to", "by", "of", "or", "for", "from", "with", "at", "on"]
+mandated = ["__init__"]
+
+[rejected]
+get = "the name of the quantity"
+check = "validate"
+
+[global]
+nouns = ["commons", "earth", "engine", "formula"]
+qualifiers = []
+symbols = []
+
+[global.verbs]
+compute = "run one computation"
+
+[modules.Commons]
+nouns = ["formulation"]
+
+[modules.Earth]
+nouns = ["model", "layers", "layer", "pose2", "angle", "line", "system", "count", "line_length", "figure", "legend"]
+qualifiers = ["open", "stranded", "compact"]
+symbols = ["mu_r"]
+
+[modules.Earth.verbs]
+homogenize = "reduce a layered description to an equivalent homogeneous one"

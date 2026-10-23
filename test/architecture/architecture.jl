@@ -108,6 +108,11 @@ end
         @test Guards.typed_values(tree) == Dict{String, Int}()
     end
 
+    @testset "naming rule" begin
+        names = Guards.TOML.parsefile(joinpath(@__DIR__, "names.toml"))
+        @test Guards.naming_rule(methods, tree, names) == Dict{String, Int}()
+    end
+
     @testset "negative controls" begin
         planted, _ = probe("structure/planted", "ArchitectureProbePlanted")
         planted_methods = Base.invokelatest(Guards.package_methods, planted)
@@ -297,5 +302,41 @@ end
         @test Base.invokelatest(Guards.boxed_captures, clean_methods, clean) ==
               Dict{String, Int}()
         @test Base.invokelatest(Guards.typed_values, clean) == Dict{String, Int}()
+
+        planted, _ = probe("names/planted", "NamesProbePlanted")
+        planted_methods = Base.invokelatest(Guards.package_methods, planted)
+        planted_names = Guards.TOML.parsefile(joinpath(planted.directory, "names.toml"))
+        @test Base.invokelatest(Guards.naming_rule, planted_methods, planted, planted_names) ==
+              Dict{String, Int}(
+            "base | function | Earth | length" => 1,
+            "context | function | Earth | earth_layer | earth" => 1,
+            "file | Earth | formula | sanctioned twice" => 1,
+            "file | global | check | rejected" => 1,
+            "file | global | check | unused" => 1,
+            "file | global | of | preposition" => 1,
+            "file | global | of | unused" => 1,
+            "file | global | resistivity | one module" => 1,
+            "file | global | unused | unused" => 1,
+            "shape | field | Earth | mean_free_path | length" => 1,
+            "shape | function | Earth | mesh_build | form" => 1,
+            "shape | function | Earth | radial_half_extent | length" => 1,
+            "shape | keyword | Earth | outer_layer_count | length" => 1,
+            "shape | type | Earth | AbstractDisk | form" => 1,
+            "shape | type | Earth | BuildPlan | form" => 1,
+            "subject | function | Earth | ring_poses | ring" => 1,
+            "terms | function | Earth | abc | ambiguous" => 1,
+            "terms | function | Earth | frobnicate | unknown" => 1,
+            "terms | function | Earth | get_radius | rejected get -> the name of the quantity" => 1,
+            "terms | function | Earth | get_radius | unknown" => 1,
+            "verbs | function | Earth | compute | compute" => 1)
+        @test Base.invokelatest(Guards.shared_names, planted) ==
+              Dict{String, Int}("Plan" => 2, "compute" => 2)
+
+        clean, _ = probe("names/clean", "NamesProbeClean")
+        clean_methods = Base.invokelatest(Guards.package_methods, clean)
+        clean_names = Guards.TOML.parsefile(joinpath(clean.directory, "names.toml"))
+        @test Base.invokelatest(Guards.naming_rule, clean_methods, clean, clean_names) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.shared_names, clean) == Dict{String, Int}()
     end
 end

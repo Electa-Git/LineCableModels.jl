@@ -7,6 +7,7 @@ authors = ["Amauri Martins"]
 Aqua = "0.8"
 ExplicitImports = "1.15"
 JuliaSyntax = "1"
+TOML = "1"
 Test = "1"
 julia = "1.12"
 
@@ -14,7 +15,8 @@ julia = "1.12"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "ExplicitImports", "JuliaSyntax", "Test"]
+test = ["Aqua", "ExplicitImports", "JuliaSyntax", "TOML", "Test"]
