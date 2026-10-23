@@ -1,3 +1,7 @@
 /Manifest.toml
 /local/
 /.linecablemodels/
+# Vale packages that the prose job downloads.
+/.github/prose/styles/ai-tells/
+/.github/prose/styles/STE/
+/.github/prose/styles/config/templates/

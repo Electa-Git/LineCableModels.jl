@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+  "version": "0.2",
+  "language": "en-US",
+  "unknownWords": "report-common-typos",
+  "dictionaries": [
+    "julia"
+  ],
+  "useGitignore": false,
+  "noConfigSearch": true,
+  "validateDirectives": true,
+  "ignoreRegExpList": [
+    "/\\$\\$[\\s\\S]*?\\$\\$/g",
+    "/\\\\[A-Za-z]+/g"
+  ],
+  "overrides": [
+    {
+      "filename": "**/*",
+      "languageId": ""
+    },
+    {
+      "filename": ["**/*.md", "**/*.markdown"],
+      "ignoreRegExpList": ["/(?<![\\w$])\\$(?![$(])[^$\\n]+\\$(?![\\w$])/g"]
+    }
+  ]
+}

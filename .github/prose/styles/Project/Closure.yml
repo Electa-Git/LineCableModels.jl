@@ -1,0 +1,26 @@
+extends: existence
+message: "Use '%s' only for the literal act of closing something."
+level: error
+ignorecase: true
+tokens:
+  - closures?
+exceptions:
+  # Closing a GUI window terminates its event loop.
+  - '(?i)(?:window|GUI|viewer|dialog)\s+closures?'
+  - '(?i)closures?\s+of\s+(?:the\s+)?(?:window|GUI|viewer|dialog)'
+tests:
+  - name: generic use fails
+    input: "The review provides closure."
+    contains: Project.Closure
+  - name: closing a window
+    input: "Window closure stops the event loop."
+    want: ""
+  - name: uppercase plural
+    input: "CLOSURES"
+    contains: Project.Closure
+  - name: generic plural
+    input: "Review closures are recorded."
+    contains: Project.Closure
+  - name: nearby generic use
+    input: "Window closure stops the event loop. Review closure remains pending."
+    contains: Project.Closure

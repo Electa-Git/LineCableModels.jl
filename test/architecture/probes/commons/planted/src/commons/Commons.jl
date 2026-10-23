@@ -1,7 +1,7 @@
 module Commons
 export shared, lonely, undocumented, untested, ideal_transposition!, welcome, extended
 export inner_only, extension_shared, Lone
-"Reached only through the closure of a private wrapper."
+"Reached only through the anonymous function of a private wrapper."
 inner_only(x) = x + 7
 hidden_wrapper(values) = map(value -> inner_only(value), values)
 "User API that no test names."

@@ -410,7 +410,7 @@ function explicit_imports(tree::PackageTree, extensions)
             "no_self_qualified_accesses" => check_no_self_qualified_accesses(M, file; throw = false))
         for (check, exception) in checks
             exception === nothing && continue
-            # Every check exception holds its module, then its rows.
+            # A check exception stores its module, then its rows.
             for row in getfield(exception, 2)
                 found[string(check, " | ", nameof(exception.mod), " | ", row.name)] = 1
             end
@@ -1771,7 +1771,7 @@ function naming_rule(methods, tree::PackageTree, names)
             string(item.name) in base && entry("base", item)
         end
     end
-    # The subject: a function's terms against the terms of the package types its methods take.
+    # Compare the terms of each function with the terms of the package types its methods take.
     for item in items
         item.kind === :function && haskey(split_of, (item.path, item.name)) || continue
         own = Set(split_of[(item.path, item.name)])
@@ -1790,7 +1790,7 @@ function naming_rule(methods, tree::PackageTree, names)
 end
 
 # The file of sanctioned terms. Each term is used by a name in its section's scope and is
-# sanctioned once along a module path; no term is a preposition or a rejected word; a global
+# sanctioned once along a module path. No term is a preposition or a rejected word. A global
 # noun, qualifier or symbol is used by root names or by names of two top-level modules.
 function naming_file(names, split_of)
     found = Dict{String, Int}()

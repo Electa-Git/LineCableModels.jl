@@ -18,7 +18,7 @@ jobs:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
+    permissions: # The Julia cache step deletes the old caches that it created.
       actions: write
       contents: read
     strategy:
@@ -42,3 +42,66 @@ jobs:
           save-always: 'false'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+  prose:
+    name: Writing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Install writing tools
+        id: prose_tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/prose-tools"
+          mkdir -p "$tools" "$RUNNER_TEMP/prose-reports"
+          release=https://github.com/vale-cli/vale/releases/download/v3.23.0
+          curl --fail --location --retry 3 "$release/vale_3.23.0_Linux_64-bit.tar.gz" -o "$tools/vale.tar.gz"
+          curl --fail --location --retry 3 "$release/vale_3.23.0_checksums.txt" -o "$tools/checksums.txt"
+          expected=$(awk '$2 == "vale_3.23.0_Linux_64-bit.tar.gz" {print $1}' "$tools/checksums.txt")
+          test -n "$expected"
+          echo "$expected  $tools/vale.tar.gz" | sha256sum --check
+          tar -xzf "$tools/vale.tar.gz" -C "$tools"
+          cp .github/prose/package{,-lock}.json "$tools/"
+          npm ci --prefix "$tools"
+          echo "$tools" >> "$GITHUB_PATH"
+          echo "$tools/node_modules/.bin" >> "$GITHUB_PATH"
+          "$tools/vale" sync --no-global --config=.github/prose/vale.ini
+      - name: Select all maintained writing
+        id: prose_inputs
+        run: bash .github/prose/files.sh "$RUNNER_TEMP/prose-reports"
+      - name: Verify writing rules and exclusions
+        shell: bash
+        run: |
+          set -euo pipefail
+          vale test --no-global --config=.github/prose/vale.ini --coverage .github/prose/styles/Project .github/prose/fixtures | tee "$RUNNER_TEMP/prose-reports/rules.log"
+          bash .github/prose/fixtures/check.sh | tee "$RUNNER_TEMP/prose-reports/checks.log"
+      - name: Check prose with Vale
+        if: ${{ !cancelled() && steps.prose_tools.outcome == 'success' && steps.prose_inputs.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/prose-reports/vale-files.txt"
+          vale --no-global --config=.github/prose/vale.ini --no-color "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/vale.log"
+      - name: Check spelling with cspell
+        if: ${{ !cancelled() && steps.prose_tools.outcome == 'success' && steps.prose_inputs.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < "$RUNNER_TEMP/prose-reports/cspell-files.txt"
+          cspell lint --config=.github/prose/cspell.json --no-progress --no-cache "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/cspell.log"
+      - name: Retain writing reports
+        if: ${{ !cancelled() && steps.prose_inputs.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: writing-reports
+          path: ${{ runner.temp }}/prose-reports
+          if-no-files-found: error

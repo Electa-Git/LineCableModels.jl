@@ -1,0 +1,13 @@
+extends: existence
+message: "Split the statements at '%s' into separate sentences."
+level: error
+nonword: true
+tokens:
+  - ';'
+tests:
+  - name: prose punctuation
+    input: "Read the file; check its contents."
+    contains: Project.Semicolons
+  - name: code punctuation
+    input: "Call `f(x; y = 1)`."
+    want: ""
