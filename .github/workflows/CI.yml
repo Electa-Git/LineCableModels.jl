@@ -170,11 +170,6 @@ jobs:
             push!(ARGS, "loaded extension activation")
             include(joinpath(pwd(), "test", "runtests.jl"))
           '
-      - name: Collect remote PSCAD runner coverage
-        if: ${{ !cancelled() }}
-        run: |
-          julia --project=src/pscad/remote --code-coverage=@. --color=yes -e 'using Pkg; Pkg.instantiate()'
-          julia --project=src/pscad/remote --code-coverage=@. --color=yes test/integration/pscad/remote_runner_protocol.jl
       - name: Enforce source-amended 95% coverage
         if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
         run: julia --project=test/coverage --color=yes test/coverage.jl check

@@ -30,7 +30,6 @@ Manifest.toml
 # job deletes it and resolves afresh.
 !/Manifest.toml
 !showcase/bonito/Manifest.toml
-!src/pscad/remote/Manifest.toml
 
 # the hidden folder of shame
 temp/
@@ -75,7 +74,7 @@ test/fixtures/reference/*
 # Python junk
 __pycache__/
 *.py[cod]
-
+.CondaPkg/
 .linecablemodels/
 
 # Vale packages downloaded by the documentation job.

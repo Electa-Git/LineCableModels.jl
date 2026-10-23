@@ -1,11 +1,7 @@
-@testitem "PSCAD / deterministic numeric validation precedes staging and transport" tags=[:integration, :measurements] begin
+@testitem "PSCAD / deterministic numeric validation precedes staging and connecting" tags=[:integration, :measurements] setup=[PSCADStandIn] begin
     using Measurements, Calculus
     const P = LineCableModels.PSCAD
-    const contacts = Ref(0)
-    function P.remote_command(::Val{:preflight_probe}, ::P.RemoteConfig, ::AbstractString)
-        contacts[] += 1
-        error("preflight contacted transport")
-    end
+    const S = PSCADStandIn
     function model(; radius=0.004, rho=1.72e-8, soil=100.0, temperature=20.0,
             frequency=10.0 .^ range(-1, 5; length=101))
         # Materialize the system at the problem's numeric type. This test targets
@@ -19,8 +15,8 @@
     end
     mktempdir() do directory
         root = joinpath(directory, "untouched")
-        remote = P.RemoteConfig("fixture", "shared", "scratch", "julia", "python";
-            local_root=root, transport=:preflight_probe)
+        application = S.install(root)
+        remote = S.remote(root)
         selected = Formulation(:pscad)
         for sigma in (0.0, 0.001)
             uncertain(x) = measurement(x, abs(x) * sigma)
@@ -56,20 +52,31 @@
             frequencies=plain.frequencies)
         @test_throws ArgumentError compute(excessive,selected;options=(;remote))
         @test !ispath(root)
-        @test contacts[] == 0
+        @test S.connects(application) == 0
     end
 end
 
-@testitem "PSCAD / caller deadline terminates a silent transport" tags=[:integration, :pscad] begin
+@testitem "PSCAD / a start that never listens fails within the timeout" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
     const P = LineCableModels.PSCAD
-    function P.remote_command(::Val{:deadline_probe}, ::P.RemoteConfig, ::AbstractString)
-        `$(Base.julia_cmd()) --startup-file=no --handle-signals=no --project=@stdlib -e 'sleep(30)'`
-    end
+    const S = PSCADStandIn
     mktempdir() do directory
-        remote = P.RemoteConfig("fixture", "shared", "scratch", "julia", "python";
-            local_root=directory, transport=:deadline_probe)
+        application = S.install(directory; listening = false)
+        touch(joinpath(S.STATION[], "never-listens"))
+        remote = S.remote(directory; timeout = 5)
         started = time()
-        @test_throws r"transport exceeded its timeout" P._run_remote(remote, "unused"; timeout=0.5)
-        @test time() - started < 10
+        caught = try
+            P.identify(remote)
+            nothing
+        catch error
+            error
+        end
+        @test caught isa ErrorException
+        message = sprint(showerror, caught)
+        @test occursin("PSCAD did not start on station with $(S.PSCAD_EXECUTABLE) in " *
+                       "$(S.SHARED_ROOT) and serve automation on port $(S.PORT) within 5 " *
+                       "seconds", message)
+        @test time() - started < 20
+        @test S.connects(application) == 0
+        @test all(S.ended, [S.processes("forward"); S.processes("start")])
     end
 end

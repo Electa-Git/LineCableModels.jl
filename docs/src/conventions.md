@@ -136,8 +136,8 @@ package-neutral requests and completed values, but it does not import Makie,
 XLSX, Measurements, or Distributions.
 
 `ext/` holds package extensions only. The source of a core submodule is under `src/`,
-also when the submodule runs an external program. PSCAD is in `src/pscad/`. The project
-of its remote runner, which runs apart from the package, is in `src/pscad/remote/`.
+also when the submodule runs an external program. PSCAD is in `src/pscad/`, and the
+extension that connects it to PSCAD's automation server is `ext/LineCableModelsPSCADExt.jl`.
 
 Prefer conceptual groupings such as:
 

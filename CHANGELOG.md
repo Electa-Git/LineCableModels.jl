@@ -93,6 +93,24 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- PSCAD native runs connect to PSCAD's automation server with `mhi.pscad` 3.1.2 through the
+  `LineCableModelsPSCADExt` extension, which `using PythonCall` loads, and CondaPkg installs
+  `mhi-pscad`. `PSCAD.RemoteConfig` holds `host`, `ssh`, `port`, `pscad_executable`,
+  `local_root`, `shared_root` and `timeout`, from its constructor
+  `RemoteConfig(host, port, shared_root, pscad_executable; local_root, ssh, timeout)` or a
+  TOML file with those fields. A run reads the station's `netstat -ano -p TCP` listing
+  through the `ssh` command to check whether PSCAD listens on the port, and forwards that port
+  through the same command. It borrows a listening PSCAD, sets its `silence` flag and resets
+  the flag at the end. Otherwise it starts `pscad_executable` over SSH with its working
+  directory at `shared_root` and quits it at the end. It loads the staged project from the
+  shared directory. Its line takes the name of its run directory, and the run moves that
+  line's detailed files and log into its outputs. `PSCAD.identify` returns the version-2 record of
+  PSCAD's version, the caller's `mhi.pscad` and `mhi.common` and the selected line-constants
+  program. The run and completion records are version 5. The `transport` and `command`
+  fields, the station's Julia runner and its environment, the PowerShell supervisor,
+  `identity.py`, `remote_command` and the `output_stem` option are removed. The PSCAD
+  exporter writes the system id with every character outside `[A-Za-z0-9_]` replaced by `_`
+  as the project's namespace.
 - `validate` is owned by `Commons`. `LineCableModels.validate` and
   `import LineCableModels: validate` are unchanged. Every `validate` method takes the
   checked input first and returns it unchanged or throws. Further arguments say what the

@@ -1,15 +1,17 @@
 # A normalized record is returned as it is.
 computation_options(::Type{<:PSCADFormulation},
-    record::ComputationOptions{<:NamedTuple{(:work_root, :output_stem, :remote,
+    record::ComputationOptions{<:NamedTuple{(:work_root, :remote,
         :resume_run_directory, :solver_identity),
-        <:Tuple{String, String, RemoteConfig, Any, Any}}}) = record
+        <:Tuple{String, RemoteConfig, Any, Any}}}) = record
 
 function computation_options(
         ::Type{<:PSCADFormulation},
         record::ComputationOptions
 )::ComputationOptions
+    Base.get_extension(LineCableModels, :LineCableModelsPSCADExt) === nothing &&
+        throw(ArgumentError("PSCAD native runs require `using PythonCall`"))
     options = record.data
-    allowed = (:output_stem, :remote, :resume_run_directory, :solver_identity, :work_root)
+    allowed = (:remote, :resume_run_directory, :solver_identity, :work_root)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown PSCAD computation options: $(sort!(collect(unknown)))",
@@ -22,21 +24,12 @@ function computation_options(
     ))
     normalized = merge(
         (
-            output_stem = "lcm",
             work_root = options.remote.local_root,
             resume_run_directory = nothing,
             solver_identity = nothing
         ),
         options
     )
-    normalized.output_stem isa AbstractString || throw(ArgumentError(
-        "PSCAD output_stem must be a string",
-    ))
-    output_stem = String(normalized.output_stem)
-    occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", output_stem) ||
-        throw(ArgumentError(
-            "PSCAD output_stem must contain 1–20 ASCII letters, digits, or underscores",
-        ))
     resume = normalized.resume_run_directory
     (resume === nothing || resume === :latest || resume isa AbstractString) ||
         throw(ArgumentError("PSCAD resume_run_directory must be nothing, :latest, or a completed run path"))
@@ -48,14 +41,11 @@ function computation_options(
         throw(ArgumentError("PSCAD solver_identity must be the record returned by identify(remote)"))
     identity = identity === nothing ? nothing :
                Dict{String, String}(validate(identity, options.remote))
-    options.remote.transport === :local && !Sys.iswindows() && throw(ArgumentError(
-        "PSCAD local transport requires a Windows caller"))
     work_root = abspath(normalized.work_root)
     first(splitpath(relpath(work_root, options.remote.local_root))) == ".." &&
         throw(ArgumentError("PSCAD work_root must be inside remote.local_root"))
     return ComputationOptions(;
         work_root,
-        output_stem,
         remote = options.remote,
         resume_run_directory = resume isa AbstractString ? abspath(resume) : resume,
         solver_identity = identity
@@ -117,12 +107,16 @@ function _pscad_inputs(problem::LineParametersProblem, formulation::PSCADFormula
     return (; setting, project, native_order, permutation, terminals, dielectric_losses)
 end
 
-function _stage_pscad_project(inputs, work_root::AbstractString)
+# The run directory contains the project as `<namespace>.pscx`, since PSCAD names a loaded
+# project after its file. The run's line takes the name of the directory, and the detailed
+# files that PSCAD writes into the shared directory carry that name.
+function _stage_pscad_project(inputs, work_root::AbstractString, system::LineCableSystem)
     root = mktempdir(mkpath(abspath(work_root)); prefix = "run-", cleanup = false)
     @debug "Exporting PSCAD computation project"
-    staged = joinpath(root, "generated.pscx")
+    staged = joinpath(root, _pscad_namespace(system) * ".pscx")
     write(staged, inputs.project)
-    return (; root, staged)
+    line_name = "lcm_" * chop(basename(root); head = 4, tail = 0)
+    return (; root, staged, line_name)
 end
 
 const PSCAD_COMPLETED_OUTPUTS = ("result_zm.out", "result_zp.out", "result_ym.out",
@@ -136,15 +130,14 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     config = execution_options.data.remote
     setting = inputs.setting
     input = Dict{String, Any}(
-        "schema_version" => 4,
+        "schema_version" => 5,
         "project_sha256" => bytes2hex(sha256(inputs.project)),
         "frequencies" => Float64.(problem.frequencies),
         "matrix_size" => collect(_pscad_size(problem)),
         "native_settings" => Dict(string(component) => Dict(string(field) => Dict(
             "value" => control.value, "readback" => control.readback)
             for (field, control) in pairs(getproperty(setting, component)))
-            for component in (:ground, :frequency, :configuration)),
-        "toolkit" => Dict(name => bytes2hex(sha256(source)) for (name, source) in PSCAD_REMOTE_SOURCES))
+            for component in (:ground, :frequency, :configuration)))
     # Expected identity constrains execution, not numerical compatibility. The
     # completion record independently authenticates the complete request.
     signature = _pscad_digest(input)
@@ -162,9 +155,9 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         record_path = joinpath(candidate, "complete.toml")
         isfile(record_path) || throw(ArgumentError("PSCAD run has no completion record: $candidate"))
         record = TOML.parsefile(record_path)
-        if get(record, "schema_version", nothing) != 4
+        if get(record, "schema_version", nothing) != 5
             resume === :latest && continue
-            throw(ArgumentError("PSCAD completed run requires a fresh version-4 computation: $candidate"))
+            throw(ArgumentError("PSCAD completed run requires a fresh version-5 computation: $candidate"))
         end
         if get(record, "input_sha256", nothing) != signature
             resume === :latest && continue
@@ -177,12 +170,6 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
         pop!(numerical, "expected_solver", nothing)
         _pscad_digest(numerical) == signature || throw(ArgumentError(
             "PSCAD completed-run numerical input integrity check failed: $candidate"))
-        bytes2hex(open(sha256, joinpath(candidate, "generated.pscx"))) == stored["project_sha256"] ||
-            throw(ArgumentError("PSCAD completed-run exported project changed: $candidate"))
-        for (name, digest) in stored["toolkit"]
-            bytes2hex(open(sha256, joinpath(candidate, "toolkit", name))) == digest ||
-                throw(ArgumentError("PSCAD completed-run solver source changed: $candidate/toolkit/$name"))
-        end
         for name in PSCAD_COMPLETED_OUTPUTS
             path = joinpath(candidate, "outputs", name)
             isfile(path) && bytes2hex(open(sha256, path)) == get(record["outputs"], name, nothing) ||
@@ -206,18 +193,16 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     if reused
         @debug "PSCAD reuses a verified completed run" source_run=source_root
         output = joinpath(source_root, "outputs")
-        execution = (exit_code = 0,
-            stdout_path = joinpath(output, "stdout.txt"), stderr_path = joinpath(output, "stderr.txt"),
-            console_path = joinpath(output, "pscad-console.txt"), output_dir = output)
+        execution = (console_path = joinpath(output, "pscad-console.txt"), output_dir = output)
     else
-        root, staged = _stage_pscad_project(inputs, parent)
+        root, staged, line_name = _stage_pscad_project(inputs, parent, problem.system)
         source_root = root
         open(joinpath(root, "computation.toml"), "w") do io
             TOML.print(io, input; sorted = true)
         end
         @debug "Computing PSCAD line parameters" system=problem.system.system_id
         execution = run_remote_pscad(config, staged, joinpath(root, "outputs"),
-            formulation, problem.frequencies; output_stem = execution_options.data.output_stem)
+            input["native_settings"], problem.frequencies; line_name, expected_identity = expected)
         actual = Dict{String, String}(validate(
             TOML.parsefile(joinpath(execution.output_dir, "solver.toml")), config))
         expected === nothing || actual == expected || throw(ArgumentError(
@@ -239,7 +224,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     source_elapsed = parse(Float64, strip(read(joinpath(execution.output_dir, "timing.txt"), String)))
     isfinite(source_elapsed) && source_elapsed >= 0 || throw(ArgumentError("invalid PSCAD execution timing"))
     if !reused
-        completion = Dict("schema_version" => 4, "input_sha256" => signature,
+        completion = Dict("schema_version" => 5, "input_sha256" => signature,
             "request_sha256" => _pscad_digest(input), "observed_solver" => actual,
             "outputs" => Dict(name => bytes2hex(open(sha256, joinpath(execution.output_dir, name)))
                 for name in PSCAD_COMPLETED_OUTPUTS))
@@ -260,7 +245,7 @@ function _compute_pscad(problem::LineParametersProblem, formulation::PSCADFormul
     # The public remote call's duration is transient. The scan projects it once.
     execution = (; (key => value for (key, value) in pairs(execution)
         if key ∉ (:elapsed_seconds, :elapsed_scope))...)
-    execution = merge(execution, (backend = :pscad, pscad_version = config.pscad_version,
+    execution = merge(execution, (backend = :pscad, pscad_version = PSCAD_VERSION,
         reused, source_run = source_root, input_sha256 = signature, solver_identity = actual,
         compile_call_seconds = source_elapsed))
     return (; parameters, native_readback, files, execution)

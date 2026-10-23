@@ -1229,7 +1229,7 @@ scalar call is a run of one point, and its record has the indices `(1, 1)` of th
 
 The PSCAD backend records its execution facts in its run record,
 `details(result).data.execution`, among them `compile_call_seconds`, which measures
-the worker's `line.compile()` call and excludes output-readiness waiting, and
+the `line.compile()` call and excludes output-readiness waiting, and
 `reused`. Required native timing files and recovery checks remain active.
 
 Each point of a Monte Carlo study writes one record for its trials and the draws that it
@@ -1284,55 +1284,89 @@ value is ignored and any exception stops execution. The default is `nothing`. In
 Carlo study, it runs once per computed point, with the nominal problem of the point, its
 position in the space and the `MonteCarloResult` of that point.
 
+The PSCAD backend runs on PSCAD 5.1 through its automation server on the station.
+`using PythonCall` loads the backend, and CondaPkg installs `mhi-pscad` 3.1.2 in the
+caller's Python environment. A run reads the station's listing of its TCP sockets,
+`netstat -ano -p TCP` through the `ssh` command, to check whether PSCAD listens on the
+configured port. A listening PSCAD is borrowed: it
+runs in the station's desktop session with its working directory at the station's side of the
+shared directory, as started with `/startup:au /port:<port>` in that directory. The run sets
+its `silence` flag, which suppresses modal dialogs, and resets the flag to its previous value
+when it ends. A borrowed PSCAD keeps running. When no PSCAD listens, the run starts
+`pscad_executable` over SSH with `/startup:au /port:<port> /silence:true /splash:false` and
+its working directory at `shared_root`, and quits it at the end. That PSCAD runs in the
+station's session 0, which computes line constants. It ends with its SSH command. The run then
+forwards PSCAD's automation port to a free port of the caller through the `ssh` command and
+connects there. It loads the staged project from the shared directory, solves the line
+constants and unloads the project. Every exit, an error or an interrupt included, ends the
+forward and the SSH command that started PSCAD.
+
 The PSCAD backend accepts:
 
 ```julia
 (
-    output_stem = "case_name",
     remote = remote_config,
 )
 ```
 
-`remote` must be a `PSCAD.RemoteConfig`. `output_stem` names files
-created by that execution. Both values belong to that execution rather than `PSCADFormulation`.
+`remote` must be a `PSCAD.RemoteConfig`. It belongs to that execution rather than
+`PSCADFormulation`. The line of each run takes the name of its run directory. The detailed
+files and the log of the line-constants program that PSCAD writes into its working directory
+carry that name, and the run moves them into its `outputs` folder.
 
-The station's runner prints a line for each step of a native run. The session relays each
-line as a debug record of the `PSCAD` module, which Julia's default logger hides. A logger
-that admits debug records shows them, as does `JULIA_DEBUG=PSCAD` with the default logger.
-Within a run's `verbosity`, they show at level 2 of `PSCAD`, as with
-`verbosity=(default=0, PSCAD=2)`, when the caller's logger admits debug records. PSCAD's
-project diagnostics stay in `pscad-console.txt`, and the exception of a failure shows their
-last lines and the path of the file.
+Each step of a native run is a line of the run's `pscad-console.txt` and a debug record of
+the `PSCAD` module, which Julia's default logger hides. A logger that admits debug records
+shows them, as does `JULIA_DEBUG=PSCAD` with the default logger. Within a run's
+`verbosity`, they show at level 2 of `PSCAD`, as with `verbosity=(default=0, PSCAD=2)`, when
+the caller's logger admits debug records. PSCAD's messages before and after the compile call
+go to `pscad-console.txt`. The exception of a failure states the step, PSCAD's messages and
+the path of the log.
 
-Construct a station from a user-selected TOML filename:
+Construct the configuration from a user-selected TOML filename:
 
 ```julia
+using LineCableModels, PythonCall
 station = PSCAD.RemoteConfig(ENV["LINECABLEMODELS_PSCAD_CONFIG"])
 result = compute(problem, Formulation(:pscad); options=(remote=station,))
 ```
 
 Pass the configuration filename explicitly. This example reads it from a
-caller-selected environment variable. Loading the TOML file reads station
-settings and resolves paths. Keep machine settings outside version control.
-A sanitized template is provided in `examples/pscad/remote.example.toml`.
-Relative `local_root` paths are resolved against the configuration file's directory.
-`local_root` and `shared_root` expose the same files on caller and station.
-`remote_root` is separate station scratch storage. Executable and station paths
-are supplied by the user.
+caller-selected environment variable. Loading the TOML file reads the
+configuration and resolves paths. Keep machine settings outside version control.
+A sanitized template is provided in `examples/pscad/remote.example.toml`. Its fields are:
 
-The default `transport="ssh"` supports ordinary SSH aliases, tunnels, and network
-addresses. `transport="local"` invokes PowerShell directly from a Windows caller.
-For a custom wrapper, use `transport="command"` and an argument array such as
-`command=["ts", "ssh", "{host}", "--direct", "--"]`. Exact `{host}` arguments are
-replaced by the configured host. Encoded PowerShell arguments are appended without
-shell evaluation. Caller-defined `remote_command` methods remain supported.
+- `host`: the SSH destination of the station.
+- `ssh`: the command that opens an SSH connection to the station, `["ssh"]` by default. A prefix such as
+  `["ts", "ssh"]` works when it passes OpenSSH options through.
+- `port`: PSCAD's automation port on the station, from 1024 to 65535.
+- `pscad_executable`: the station's path of `Pscad.exe`.
+- `local_root` and `shared_root`: one directory on the caller and on the station. A
+  relative `local_root` is resolved against the configuration file's directory.
+  `shared_root` is the station's path, retained verbatim, and PSCAD's working directory.
+- `timeout`: the bound of every wait of a run, the forward, a started PSCAD's port and the
+  detailed files, \[s\], 1800 by default.
+
+A station reached through `ts ssh`, a wrapper command that passes OpenSSH options through,
+uses:
+
+```toml
+host = "station"
+ssh = ["ts", "ssh"]
+port = 64339
+pscad_executable = 'C:\Program Files (x86)\PSCAD\5.1.0\bin\win64\Pscad.exe'
+local_root = "exchange"
+shared_root = 'Z:\shared\exchange'
+```
 
 Fresh calls execute PSCAD once per distinct native request. Explicit
 `resume_run_directory=:latest` or a completed-run path requests verified native
-reuse. `solver_identity` optionally pins the installation. Reuse checks the current
-station, exported project, complete native settings, worker sources, and outputs.
-Resuming requires a complete version-4 run record that passes these checks.
-`work_root` defaults to the configured `local_root`. These are computation options.
+reuse. `solver_identity` optionally pins the installation: the record of
+`PSCAD.identify(remote)`, with PSCAD's version, the caller's `mhi.pscad` and `mhi.common`
+versions and the line-constants program that PSCAD's settings select. A run whose server
+reports another identity stops before it loads the project. Reuse checks the current
+server's identity, the complete native request and the outputs. Resuming requires a
+complete version-5 run record that passes these checks. `work_root` defaults to the
+configured `local_root`. These are computation options.
 
 PSCAD requires deterministic inputs, including base frequency, and rejects
 measurement objects even when their standard deviation is zero. It returns normal

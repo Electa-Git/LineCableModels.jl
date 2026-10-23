@@ -1,88 +1,62 @@
-@testmodule PSCADReaderFailures begin
-    const RemoteConfig = NamedTuple
-    const fail_at_eof = Ref(false)
-    const readers_started = Channel{Nothing}(2)
-    const child = Ref{Base.Process}()
-
-    remote_command(config::RemoteConfig, ::AbstractString) = config.command
-    function run(command; wait)
-        child[] = Base.run(command; wait)
+@testitem "PSCAD / reader failures propagate and a failed diagnostics read keeps the failure" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
+    const P = LineCableModels.PSCAD
+    const S = PSCADStandIn
+    frequencies = 10.0 .^ range(-1, 5; length = 101)
+    function staged(root)
+        design = build(CableDesign, "wire", terminal(:core,
+            core(Material(:conductor, 1.72e-8, 1.0); r = 0.004),
+            insulation(Material(:insulator, 1e14, 2.3); t = 0.002)))
+        system = build(LineCableSystem, [design], [Pose2(0, -1)];
+            connections = [Dict(:core => 1)], system_id = "stand-in")
+        problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies)
+        project = joinpath(mkpath(joinpath(root, "case")), "stand_in.pscx")
+        write(project, P._pscad_inputs(problem, Formulation(:pscad),
+            P._pscad_blueprints(system)).project)
+        return project
     end
-
-    struct Lines{T}
-        source::T
-    end
-    function eachline(pipe::Pipe)
-        put!(readers_started, nothing)
-        return Lines(Base.eachline(pipe))
-    end
-    function Base.iterate(lines::Lines, state...)
-        entry = iterate(lines.source, state...)
-        entry === nothing && fail_at_eof[] && error("synthetic reader cleanup failure")
-        entry === nothing || first(entry) != "FAIL" || error("synthetic reader failure")
-        return entry
-    end
-
-    # Execute the production transport method with isolated IO fault injection.
-    Base.include(@__MODULE__,
-        joinpath(@__DIR__, "../../../src/pscad/remote/remote.jl")) do expression
-        expression isa Expr && expression.head === :function &&
-        expression.args[1] isa Expr && expression.args[1].head === :call &&
-        expression.args[1].args[1] === :_run_remote ? expression : nothing
-    end
-end
-
-@testitem "PSCAD / reader failures propagate and cancellation retains secondary diagnostics" tags=[:integration, :pscad] default_imports=false setup=[PSCADReaderFailures] begin
-    using Test, Logging
-    const P=PSCADReaderFailures
-    for stream in ("stdout", "stderr")
-        script="println($stream, \"partial\"); println($stream, \"FAIL\"); flush($stream); sleep(30)"
-        command=`$(Base.julia_cmd()) --startup-file=no --handle-signals=no --project=@stdlib -e $script`
-        mktempdir() do root
-            stdout_path, stderr_path=joinpath(root, "out.log"), joinpath(root, "err.log")
-            caught=try
-                P._run_remote((; command, timeout = 10.0), "unused"; stdout_path, stderr_path)
-            catch exception
-                exception
-            end
-            @test caught isa TaskFailedException
-            @test occursin("synthetic reader failure", sprint(showerror, caught))
-            @test process_exited(P.child[])
-            @test read(stream == "stdout" ? stdout_path : stderr_path, String) ==
-                  "partial\n"
-            take!(P.readers_started)
-            take!(P.readers_started)
+    settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
+    function failure(root; timeout = 60)
+        project = staged(root)
+        return try
+            P.run_remote_pscad(S.remote(root; timeout), project,
+                joinpath(dirname(project), "outputs"), settings, frequencies; line_name = "lcm_read")
+            nothing
+        catch error
+            error
         end
     end
-
-    command=`$(Base.julia_cmd()) --startup-file=no --handle-signals=no --project=@stdlib -e 'sleep(30)'`
-    P.fail_at_eof[]=true
-    logger=Test.TestLogger(min_level = Logging.Warn)
-    canceled=Ref(false)
-    interrupted=InterruptException()
-    try
-        task=with_logger(logger) do
-            @async try
-                P._run_remote((; command, timeout = 10.0), "unused";
-                    on_interrupt = () -> (canceled[] = true))
-            catch exception
-                exception
-            end
-        end
-        take!(P.readers_started)
-        take!(P.readers_started)
-        schedule(task, interrupted; error = true)
-        @test fetch(task) === interrupted
-        @test canceled[]
-        @test process_exited(P.child[])
-        @test Set(record.kwargs[:stream] for record in logger.logs) ==
-              Set((:stdout, :stderr))
-        @test all(record -> occursin("reader failed during cleanup", string(record.message)), logger.logs)
-        @test all(
-            record -> occursin("synthetic reader cleanup failure",
-                sprint(showerror, first(record.kwargs[:exception]))),
-            logger.logs)
-    finally
-        P.fail_at_eof[]=false
+    # A detailed file that never completes fails the run, and the run's error states the phase
+    # and the reader's failure.
+    mktempdir() do root
+        application = S.install(root)
+        application.solves = false
+        caught = failure(root; timeout = 1)
+        @test caught isa ErrorException
+        message = sprint(showerror, caught)
+        @test occursin("during detailed-output completion", message)
+        @test occursin("did not become complete within 1 seconds; last observed 0 of 101 rows. " *
+                       "PSCAD writes the detailed files into its working directory, which must " *
+                       "be the configuration's `shared_root`. A borrowed PSCAD must have been " *
+                       "started there.", message)
+        @test isempty(S.loaded(application))
+        @test !S.silence(application)
+    end
+    # A failed read of PSCAD's diagnostics takes their place, and the failure stays the error.
+    mktempdir() do root
+        application = S.install(root)
+        application.compile_error = "synthetic compile failure"
+        application.output_error = "synthetic output failure"
+        caught = failure(root)
+        @test caught isa ErrorException
+        message = sprint(showerror, caught)
+        @test occursin("during line-constants computation: Python: RuntimeError: " *
+                       "synthetic compile failure", message)
+        @test occursin("PSCAD diagnostics are unavailable", message)
+        @test occursin("synthetic output failure", message)
+        console = read(joinpath(root, "case", "outputs", "pscad-console.txt"), String)
+        @test occursin("synthetic compile failure", console)
+        @test occursin("synthetic output failure", console)
+        @test isempty(S.loaded(application))
+        @test !S.silence(application)
     end
 end

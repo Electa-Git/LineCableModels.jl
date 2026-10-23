@@ -2,11 +2,11 @@
     PSCAD
 
 PSCAD model exchange and native line-parameter computation. Loading this module
-defines the backend without contacting a station or launching PSCAD.
+defines the backend without contacting PSCAD. Native runs connect to PSCAD's automation
+server through the `LineCableModelsPSCADExt` extension, which `using PythonCall` loads.
 """
 module PSCAD
 
-using Base64: base64encode
 using SHA: sha256
 import TOML
 using LineCableModels
@@ -39,15 +39,14 @@ using EzXML: ElementNode, XMLDocument, addelement!, nodename,
              readxml, root, setroot!
 
 export PSCADFormulation, RemoteConfig,
-       read_pscad_result, remote_command, run_remote_pscad, identify
-public pscad_setting
+       read_pscad_result, run_remote_pscad, identify
+public pscad_setting, PSCAD_VERSION
 
 include("formulations.jl")
 include("importexport/pscad.jl")
 include("results.jl")
 include("validate.jl")
 include("remote/configuration.jl")
-include("remote/files.jl")
 include("remote/remote.jl")
 include("compute.jl")
 

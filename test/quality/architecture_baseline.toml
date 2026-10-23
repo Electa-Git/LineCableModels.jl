@@ -114,12 +114,11 @@
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
-"src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
+"src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
 "src/pscad/formulations.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/pscad/importexport/pscad.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/pscad/remote/configuration.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
-"src/pscad/remote/remote.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
-"src/pscad/remote/runner.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
+"src/pscad/remote/configuration.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
+"src/pscad/remote/remote.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/reportbuilder/comparisons.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/reportbuilder/grammar.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/reportbuilder/montecarlo.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
@@ -143,7 +142,7 @@
 "src/importexport" = 38
 "src/materials" = 6
 "src/parametricbuilder" = 41
-"src/pscad" = 57
+"src/pscad" = 36
 "src/reportbuilder" = 70
 "src/textdisplay" = 1
 "src/units" = 24

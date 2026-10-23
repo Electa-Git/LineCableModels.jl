@@ -58,7 +58,8 @@
         document=readxml(output)
         project=root(document)
         @test nodename(project) == "project"
-        @test project["name"] == system.system_id
+        # The namespace keeps only PSCAD's characters of the system id. The line keeps the id.
+        @test project["name"] == "export_current"
 
         definitions=findall("./definitions/Definition", project)
         @test length(definitions) == 3
@@ -155,16 +156,16 @@
         @test station_wire["name"] == "Main"
         @test station_wire["defn"] == "Main"
         main_reference=only(findall("./User", station_wire))
-        @test main_reference["name"] == "$(system.system_id):Main"
-        @test main_reference["defn"] == "$(system.system_id):Main"
+        @test main_reference["name"] == "export_current:Main"
+        @test main_reference["defn"] == "export_current:Main"
 
         main_canvas=only(findall("./schematic", main))
         @test main_canvas["classid"] == "UserCanvas"
         cable_wire=only(findall("./Wire", main_canvas))
         @test cable_wire["classid"] == "Cable"
-        @test cable_wire["name"] == "$(system.system_id):CableSystem"
+        @test cable_wire["name"] == "export_current:CableSystem"
         cable_reference=only(findall("./User", cable_wire))
-        @test cable_reference["defn"] == "$(system.system_id):CableSystem"
+        @test cable_reference["defn"] == "export_current:CableSystem"
         instance_values=parameters(cable_reference)
         @test instance_values["Name"] == system.system_id
         @test parse(Float64, instance_values["Freq"]) == 50.0
@@ -172,7 +173,7 @@
 
         hierarchy=only(findall("./hierarchy/call", project))
         @test hierarchy["link"] == "100000001"
-        @test hierarchy["name"] == "$(system.system_id):DS"
+        @test hierarchy["name"] == "export_current:DS"
         main_call=only(findall("./call", hierarchy))
         @test main_call["link"] == "100000003"
         cable_call=only(findall("./call", main_call))

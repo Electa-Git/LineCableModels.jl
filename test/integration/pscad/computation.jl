@@ -1,41 +1,48 @@
-@testitem "PSCAD / transport failure retains diagnostics and interruption cancels" tags=[:integration, :pscad] begin
+@testitem "PSCAD / compile failure retains diagnostics and an interruption unloads the project" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
     const P = LineCableModels.PSCAD
-    using Logging
-    function P.remote_command(::Val{:local_failure_probe}, config::P.RemoteConfig, command::AbstractString)
-        script = occursin("-SharedCase", command) ?
-            "println(stderr, \"synthetic transport failure\"); exit(9)" :
-            "write(" * repr(joinpath(config.local_root, "canceled")) * ", \"canceled\")"
-        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
+    const S = PSCADStandIn
+    frequencies = 10.0 .^ range(-1, 5; length = 101)
+    # The exported project of one insulated wire, staged under `root`.
+    function staged(root)
+        design = build(CableDesign, "wire", terminal(:core,
+            core(Material(:conductor, 1.72e-8, 1.0); r = 0.004),
+            insulation(Material(:insulator, 1e14, 2.3); t = 0.002)))
+        system = build(LineCableSystem, [design], [Pose2(0, -1)];
+            connections = [Dict(:core => 1)], system_id = "stand-in")
+        problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies)
+        project = joinpath(mkpath(joinpath(root, "case")), "stand_in.pscx")
+        write(project, P._pscad_inputs(problem, Formulation(:pscad),
+            P._pscad_blueprints(system)).project)
+        return project
     end
-    function P.remote_command(::Val{:local_interrupt_probe}, config::P.RemoteConfig, command::AbstractString)
-        # Model a transport command with default OS termination. Julia's native
-        # SIGTERM diagnostic handler can deadlock while printing its own stack.
-        script = "write(" * repr(joinpath(config.local_root, "started")) *
-            ", \"started\"); println(\"running\"); println(stderr, \"diagnostic\"); flush(stdout); flush(stderr); sleep(30)"
-        return `$(Base.julia_cmd()) --startup-file=no --handle-signals=no --project=@stdlib -e $script`
-    end
+    settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
     mktempdir() do root
-        config = P.RemoteConfig("local-fixture", root, "scratch", "julia", "python";
-            local_root = root, transport = :local_failure_probe)
-        directory = mkpath(joinpath(root, "nested", "case"))
-        project = joinpath(directory, "generated.pscx")
-        write(project, "protocol fixture")
-        output = joinpath(directory, "outputs")
+        application = S.install(root)
+        application.compile_error = "synthetic compile failure"
+        project = staged(root)
+        output = joinpath(dirname(project), "outputs")
         caught = try
-            P.run_remote_pscad(config, project, output, Formulation(:pscad),
-                10.0.^range(-1, 5; length = 101); output_stem = "fixture")
+            P.run_remote_pscad(S.remote(root), project, output, settings, frequencies;
+                line_name = "lcm_failed")
             nothing
         catch error
             error
         end
         @test caught isa ErrorException
-        @test occursin("Full PSCAD diagnostics:", sprint(showerror, caught))
-        @test occursin("Transport stderr:", sprint(showerror, caught))
-        @test read(joinpath(output, "transport-stderr.txt"), String) == "synthetic transport failure\n"
-        @test isfile(joinpath(root, "canceled"))
-        @test occursin("before the remote failure", read(joinpath(output, "pscad-console.txt"), String))
-        @test_throws ArgumentError P.run_remote_pscad(config, project, output,
-            Formulation(:pscad), 10.0.^range(-1, 5; length = 101); output_stem = "fixture")
+        message = sprint(showerror, caught)
+        @test occursin("during line-constants computation", message)
+        @test occursin("synthetic compile failure", message)
+        @test occursin("PSCAD stand-in message", message)
+        @test occursin("Full PSCAD log: $(joinpath(output, "pscad-console.txt"))", message)
+        console = read(joinpath(output, "pscad-console.txt"), String)
+        @test occursin("PSCAD stand-in message", console)
+        @test occursin("stand-in project output", console)
+        @test occursin("synthetic compile failure", console)
+        @test isempty(S.loaded(application))
+        @test !S.silence(application)
+        @test all(S.ended, S.processes("forward"))
+        @test_throws ArgumentError P.run_remote_pscad(S.remote(root), project, output, settings,
+            frequencies; line_name = "lcm_failed")
         missing = joinpath(root, "missing.log")
         @test P._diagnostic_tail(missing) == "PSCAD produced no diagnostic log."
         write(missing, "\n   \n")
@@ -43,53 +50,57 @@
         write(missing, "one\n\ntwo\nthree\n")
         @test P._diagnostic_tail(missing; count = 2) == "two\nthree"
     end
-    for callback_fails in (false, true)
-        mktempdir() do root
-            config = P.RemoteConfig("local-fixture", root, "scratch", "julia", "python";
-                local_root = root, transport = :local_interrupt_probe)
-            canceled = Ref(false)
-            callback = () -> begin
-                canceled[] = true
-                callback_fails && error("synthetic cancellation diagnostic")
-            end
-            log = Test.TestLogger(min_level=Logging.Debug)
-            task = with_logger(log) do
-                @async try
-                    P._run_remote(config, "ignored";
-                        stdout_path = joinpath(root, "out.log"),
-                        stderr_path = joinpath(root, "err.log"),
-                        stream = true, on_interrupt = callback)
-                catch error
-                    error
-                end
-            end
-            ready = timedwait(() -> isfile(joinpath(root, "started")) || istaskdone(task), 15)
-            @test ready === :ok
-            @test !istaskdone(task)
-            schedule(task, InterruptException(); error = true)
-            @test fetch(task) isa InterruptException
-            @test canceled[]
-            @test callback_fails == any(record -> occursin("cancellation could not be confirmed",
-                string(record.message)), log.logs)
+    mktempdir() do root
+        application = S.install(root)
+        application.solves = false
+        project = staged(root)
+        console = joinpath(dirname(project), "outputs", "pscad-console.txt")
+        task = @async try
+            P.run_remote_pscad(S.remote(root), project, dirname(console), settings, frequencies;
+                line_name = "lcm_interrupted")
+        catch error
+            error
         end
+        waiting = timedwait(() -> istaskdone(task) ||
+            (isfile(console) && occursin("Waiting for", read(console, String))), 60)
+        @test waiting === :ok
+        @test !istaskdone(task)
+        @test S.loaded(application) == ["stand_in"]
+        @test S.silence(application)
+        schedule(task, InterruptException(); error = true)
+        @test fetch(task) isa InterruptException
+        log = read(console, String)
+        @test occursin("during detailed-output completion", log)
+        @test occursin("PSCAD stand-in message", log)
+        @test isempty(S.loaded(application))
+        @test !S.silence(application)
+        @test all(S.ended, S.processes("forward"))
     end
 end
 
-@testitem "PSCAD / relayed station lines, completion records and compile-call timing scope" tags=[:integration, :pscad] begin
-    using Logging
+@testitem "PSCAD / step lines, completion records and compile-call timing scope" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
+    using Logging, TOML
+    using PythonCall: pyconvert
     const P = LineCableModels.PSCAD
-    function P.remote_command(::Val{:local_completion_probe}, config::P.RemoteConfig, command::AbstractString)
-        output = joinpath(config.local_root, "case", "outputs")
-        script = "println(\"[0.0] Starting PSCAD line-constants computation\"); " *
-            "println(stderr, \"station diagnostic\"); " *
-            "for name in (\"pscad-console.txt\", \"result_zm.out\", \"result_zp.out\", \"result_ym.out\", \"result_yp.out\"); write(joinpath(" *
-            repr(output) * ", name), \"fixture\"); end; write(joinpath(" * repr(output) *
-            ", \"timing.txt\"), \"0.0328471\")"
-        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
+    const S = PSCADStandIn
+    const E = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
+    frequencies = 10.0 .^ range(-1, 7; length = 101)
+    function staged(root)
+        design = build(CableDesign, "wire", terminal(:core,
+            core(Material(:conductor, 1.72e-8, 1.0); r = 0.004),
+            insulation(Material(:insulator, 1e14, 2.3); t = 0.002)))
+        system = build(LineCableSystem, [design], [Pose2(0, -1)];
+            connections = [Dict(:core => 1)], system_id = "stand-in")
+        problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies)
+        project = joinpath(mkpath(joinpath(root, "case")), "stand_in.pscx")
+        write(project, P._pscad_inputs(problem, Formulation(:pscad),
+            P._pscad_blueprints(system)).project)
+        return project
     end
-    # Each line of the station's standard output is a debug record of the PSCAD module, as is
-    # the completion record. A logger that admits debug records shows them. A run's verbosity
-    # narrows the caller's logger and never widens it. The standard error stays in its file.
+    settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
+    # Each step line of a run is a line of its log and a debug record of the PSCAD module, as
+    # is the completion record. A logger that admits debug records shows them. A run's
+    # verbosity narrows the caller's logger and never widens it.
     narrowed(levels) = log -> LineCableModels.VerbosityLogger(log, levels)
     for (min_level, scope, shown) in ((Logging.Info, identity, false),
             (Logging.Debug, identity, true),
@@ -98,36 +109,95 @@ end
             (Logging.Debug, narrowed((default = 0, PSCAD = 2)), true),
             (Logging.Info, narrowed((default = 0, PSCAD = 2)), false))
         mktempdir() do root
-            config = P.RemoteConfig("fixture", root, "scratch", "julia", "python";
-                local_root=root, transport=:local_completion_probe)
-            directory = mkpath(joinpath(root, "case"))
-            project = joinpath(directory, "generated.pscx")
-            write(project, "protocol fixture")
-            log = Test.TestLogger(min_level=min_level)
+            application = S.install(root)
+            project = staged(root)
+            output = joinpath(dirname(project), "outputs")
+            log = Test.TestLogger(min_level = min_level)
             result = with_logger(scope(log)) do
-                P.run_remote_pscad(config, project, joinpath(directory, "outputs"),
-                        Formulation(:pscad), 10.0.^range(-1, 7; length=101);
-                    output_stem="fixture")
+                P.run_remote_pscad(S.remote(root), project, output, settings, frequencies;
+                    line_name = "lcm_steps")
             end
-            @test result.elapsed_seconds ≈ 0.0328471
-            @test result.elapsed_scope == P.PSCAD_TIMING_SCOPE
-            relayed = filter(record -> record.message ==
-                                       "[0.0] Starting PSCAD line-constants computation", log.logs)
-            @test length(relayed) == (shown ? 1 : 0)
-            @test all(record -> record.level == Logging.Debug && record._module === P, relayed)
-            @test !any(record -> occursin("station diagnostic", string(record.message)), log.logs)
-            @test read(joinpath(directory, "outputs", "transport-stderr.txt"), String) ==
-                  "station diagnostic\n"
-            completions = filter(record->record.message == "PSCAD frequency scan completed", log.logs)
+            @test result.elapsed_seconds ==
+                  parse(Float64, read(joinpath(output, "timing.txt"), String)) >= 0
+            @test result.elapsed_scope == E.PSCAD_TIMING_SCOPE
+            @test result.console_path == joinpath(output, "pscad-console.txt")
+            @test result.output_dir == output
+            steps = filter(record -> record.message ==
+                                     "Starting PSCAD line-constants computation", log.logs)
+            @test length(steps) == (shown ? 1 : 0)
+            @test all(record -> record.level == Logging.Debug && record._module === P, steps)
+            @test occursin("Starting PSCAD line-constants computation",
+                read(result.console_path, String))
+            completions = filter(record -> record.message == "PSCAD frequency scan completed",
+                log.logs)
             if !shown
                 @test isempty(completions)
             else
                 record = only(completions)
-                @test record.kwargs[:compile_call_seconds] ≈ 0.0328471
-                @test record.kwargs[:timing_scope] == P.PSCAD_TIMING_SCOPE
+                @test record._module === P
+                @test record.kwargs[:compile_call_seconds] == result.elapsed_seconds
+                @test record.kwargs[:timing_scope] == E.PSCAD_TIMING_SCOPE
                 @test !haskey(record.kwargs, :elapsed_seconds)
             end
+            # PSCAD loads the project from the station's side of the shared directory, and
+            # every file of the run's line moves from that directory into the outputs.
+            @test pyconvert(Vector{String}, application.loads) ==
+                  [raw"Z:\exchange\case\stand_in.pscx"]
+            @test sort(readdir(output)) == ["lcm_steps.log", "lcm_steps_zs.out",
+                "native-settings.toml", "pscad-console.txt", "result_ym.out", "result_yp.out",
+                "result_zm.out", "result_zp.out", "solver.toml", "timing.txt"]
+            @test !any(startswith("lcm_steps"), readdir(root))
+            @test TOML.parsefile(joinpath(output, "solver.toml"))["version"] == "5.1.0"
+            @test isempty(S.loaded(application))
+            @test !S.silence(application)
         end
+    end
+end
+
+
+@testitem "PSCAD / borrowed and started applications" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
+    const P = LineCableModels.PSCAD
+    const S = PSCADStandIn
+    frequencies = 10.0 .^ range(-1, 5; length = 101)
+    function staged(root)
+        design = build(CableDesign, "wire", terminal(:core,
+            core(Material(:conductor, 1.72e-8, 1.0); r = 0.004),
+            insulation(Material(:insulator, 1e14, 2.3); t = 0.002)))
+        system = build(LineCableSystem, [design], [Pose2(0, -1)];
+            connections = [Dict(:core => 1)], system_id = "stand-in")
+        problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies)
+        project = joinpath(mkpath(joinpath(root, "case")), "stand_in.pscx")
+        write(project, P._pscad_inputs(problem, Formulation(:pscad),
+            P._pscad_blueprints(system)).project)
+        return project
+    end
+    settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
+    solve(root) = P.run_remote_pscad(S.remote(root), staged(root), joinpath(root, "case", "outputs"),
+        settings, frequencies; line_name = "lcm_application")
+    # A PSCAD that listens on the station is borrowed: its silence returns, it keeps running,
+    # and the run ends its forward.
+    mktempdir() do root
+        application = S.install(root)
+        @test isfile(solve(root).console_path)
+        @test !isfile(joinpath(S.STATION[], "started.txt"))
+        @test isempty(S.processes("start"))
+        @test !S.silence(application)
+        @test S.quits(application) == 0
+        @test length(S.processes("forward")) == 1
+        @test all(S.ended, S.processes("forward"))
+    end
+    # Otherwise the run starts PSCAD in the shared directory and quits it.
+    mktempdir() do root
+        application = S.install(root; listening = false)
+        @test isfile(solve(root).console_path)
+        @test read(joinpath(S.STATION[], "started.txt"), String) ==
+              "cmd /c \"cd /d Z:\\exchange && \"C:\\Program Files (x86)\\PSCAD\\5.1.0\\bin\\win64\\" *
+              "Pscad.exe\" /startup:au /port:64339 /silence:true /splash:false\""
+        @test S.quits(application) == 1
+        @test length(S.processes("start")) == 1
+        @test length(S.processes("forward")) == 1
+        @test all(S.ended, [S.processes("forward"); S.processes("start")])
+        @test isempty(S.loaded(application))
     end
 end
 

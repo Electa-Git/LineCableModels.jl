@@ -1,7 +1,10 @@
-# Include from an IDE/REPL or run with
-# `julia --project=. test/manual/pscad/run_pscad.jl`.
-# Uses the active environment. Each execution starts a fresh PSCAD computation.
+# Include from an IDE/REPL whose environment provides PythonCall, or run with
+# `JULIA_CONDAPKG_ENV=$PWD/.linecablemodels/condapkg julia --project=test test/manual/pscad/run_pscad.jl`,
+# which keeps the Python environment out of the tracked folders. Each execution borrows the
+# PSCAD that serves automation on the configured port, or starts one over SSH, and runs a
+# fresh PSCAD computation.
 using LineCableModels
+using PythonCall # loads the PSCAD backend
 
 # Edit this filename to use another station configuration.
 config_path = joinpath(@__DIR__, "local-pscad.toml")

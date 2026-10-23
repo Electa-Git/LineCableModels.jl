@@ -7,6 +7,10 @@ function _pscad_output_path(system::LineCableSystem, file_name)
     return joinpath(directory, "$(system.system_id)_$name")
 end
 
+# PSCAD renames on load a namespace with characters outside `[A-Za-z0-9_]`, which a staged
+# project would no longer match.
+_pscad_namespace(system::LineCableSystem) = replace(system.system_id, r"[^A-Za-z0-9_]" => "_")
+
 const _PSCAD_DEFINITION_DATE = "0"
 const _PSCAD_IDS = (
     station = 100000001,
@@ -129,7 +133,7 @@ function _pscad_main_definition!(
         system::LineCableSystem,
         base_frequency
 )
-    namespace = system.system_id
+    namespace = _pscad_namespace(system)
     main = addelement!(definitions, "Definition")
     _pscad_attributes!(main,
         (
@@ -388,8 +392,9 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
     document = XMLDocument()
     project = ElementNode("project")
     setroot!(document, project)
+    namespace = _pscad_namespace(system)
     _pscad_attributes!(project, (
-        name = system.system_id,
+        name = namespace,
         version = "5.0.2",
         schema = "",
         Target = "EMTDC"
@@ -398,7 +403,7 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
     _pscad_project_scaffolding!(project)
 
     definitions = addelement!(project, "definitions")
-    _pscad_station_definition!(definitions, system.system_id)
+    _pscad_station_definition!(definitions, namespace)
     _pscad_main_definition!(definitions, system, base_frequency)
 
     definition = addelement!(definitions, "Definition")
@@ -482,6 +487,6 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
     end
     _pscad_user!(schematic, identifier, _PSCAD_GROUND_BINDING,
         ground_parameters; x = 504, y = 288)
-    _pscad_hierarchy!(project, system.system_id)
+    _pscad_hierarchy!(project, namespace)
     return document
 end

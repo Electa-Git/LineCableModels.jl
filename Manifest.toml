@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "9e47f9401b79d252a8581e2243466dfb97ec2cc1"
+project_hash = "be89e7cfacd672455510bd4ae0214116150c1b57"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -310,6 +310,12 @@ deps = ["Observables", "Preferences"]
 git-tree-sha1 = "7bc84b769c1d384315e7b5c4ac03a6c303e6cf35"
 uuid = "95dc2771-c249-4cd0-9c9f-1f3b4330693c"
 version = "0.1.8"
+
+[[deps.CondaPkg]]
+deps = ["FileWatching", "JSON", "Markdown", "MicroMamba", "Pkg", "Preferences", "Scratch", "TOML", "pixi_jll"]
+git-tree-sha1 = "5105aafa8fedef75ad7f44d7dbf85a1b7196e406"
+uuid = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
+version = "0.2.38"
 
 [[deps.ConstructionBase]]
 git-tree-sha1 = "b4b092499347b18a015186eae3042f72267106cb"
@@ -923,6 +929,11 @@ git-tree-sha1 = "f88f3ccef05a6a72a0cf0ed417c8fd68530f4ab2"
 uuid = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 version = "1.4.1"
 
+[[deps.LazyArtifacts]]
+deps = ["Artifacts", "Pkg"]
+uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
+version = "1.11.0"
+
 [[deps.LazyModules]]
 git-tree-sha1 = "a560dd966b386ac9ae60bdd3a3d3a326062d3c3e"
 uuid = "8cdb02fc-e678-4876-92c5-9defec4f444e"
@@ -994,7 +1005,7 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.42.0+0"
 
 [[deps.LineCableModels]]
-deps = ["Base64", "DataFrames", "Dates", "DocStringExtensions", "EzXML", "GeometryBasics", "JSON3", "LinearAlgebra", "Logging", "Printf", "QuadGK", "Random", "RequiredInterfaces", "SHA", "Serialization", "SpecialFunctions", "Statistics", "TOML", "UUIDs"]
+deps = ["DataFrames", "Dates", "DocStringExtensions", "EzXML", "GeometryBasics", "JSON3", "LinearAlgebra", "Logging", "Printf", "QuadGK", "Random", "RequiredInterfaces", "SHA", "Serialization", "SpecialFunctions", "Statistics", "TOML", "UUIDs"]
 path = "."
 uuid = "dffb7669-8cd4-4628-99dd-7694e356ba37"
 version = "0.2.0"
@@ -1005,6 +1016,7 @@ version = "0.2.0"
     LineCableModelsGLMakieExt = ["Makie", "GLMakie"]
     LineCableModelsMakieExt = ["Makie", "Colors"]
     LineCableModelsMeasurementsExt = ["Measurements", "Calculus"]
+    LineCableModelsPSCADExt = "PythonCall"
     LineCableModelsWGLMakieExt = ["Makie", "WGLMakie"]
     LineCableModelsXLSXExt = "XLSX"
 
@@ -1016,6 +1028,7 @@ version = "0.2.0"
     GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
     Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
     Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
+    PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
     WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
     XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 
@@ -1104,6 +1117,12 @@ version = "2.14.1"
     RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
     SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+
+[[deps.MicroMamba]]
+deps = ["Pkg", "Scratch", "micromamba_jll"]
+git-tree-sha1 = "535656ce55266bfed0575cd051acc4f36dc869a0"
+uuid = "0b3b1443-0f03-428d-bdfb-f27f9c1191ea"
+version = "0.1.15"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -1354,6 +1373,20 @@ version = "1.11.0"
 git-tree-sha1 = "4fbbafbc6251b883f4d2705356f3641f3652a7fe"
 uuid = "43287f4e-b6f4-7ad1-bb20-aadabca52c3d"
 version = "1.4.0"
+
+[[deps.PythonCall]]
+deps = ["CondaPkg", "Dates", "Libdl", "MacroTools", "Markdown", "Preferences", "Serialization", "Tables", "UnsafePointers"]
+git-tree-sha1 = "00d3a883b716a8482da76d08dae1f6084bbfeb23"
+uuid = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+version = "0.9.37"
+
+    [deps.PythonCall.extensions]
+    CategoricalArraysExt = "CategoricalArrays"
+    PyCallExt = "PyCall"
+
+    [deps.PythonCall.weakdeps]
+    CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+    PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
@@ -1792,6 +1825,11 @@ version = "1.29.0"
     NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
     Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
+[[deps.UnsafePointers]]
+git-tree-sha1 = "c81331b3b2e60a982be57c046ec91f599ede674a"
+uuid = "e17b2a0c-0bdf-430a-bd0c-3a23cae4ff39"
+version = "1.0.0"
+
 [[deps.WebP]]
 deps = ["CEnum", "ColorTypes", "FileIO", "FixedPointNumbers", "ImageCore", "libwebp_jll"]
 git-tree-sha1 = "aa1ca3c47f119fbdae8770c29820e5e6119b83f2"
@@ -1972,6 +2010,12 @@ git-tree-sha1 = "52d3b9475133c3bc8c0a7f90f18bfc8cdb5a443a"
 uuid = "c5f90fcd-3b7e-5836-afba-fc50a0988cb2"
 version = "1.6.1+0"
 
+[[deps.micromamba_jll]]
+deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl"]
+git-tree-sha1 = "717df6f6892af4ee13279a73aa58474e58a88667"
+uuid = "f8abcde7-e9b7-5caa-b8af-a437887ae8e4"
+version = "2.3.1+0"
+
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
@@ -1981,6 +2025,12 @@ version = "1.64.0+1"
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 version = "17.7.0+0"
+
+[[deps.pixi_jll]]
+deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl"]
+git-tree-sha1 = "56c56fede8f01e1be7e2fdf1eb911487640619a0"
+uuid = "4d7b5844-a134-5dcd-ac86-c8f19cd51bed"
+version = "0.76.2+0"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]

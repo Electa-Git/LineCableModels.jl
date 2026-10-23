@@ -1,6 +1,6 @@
 @testitem "PSCAD / real station repair acceptance" tags=[:pscad_native, :integration, :makie] begin
     using LineCableModels.Engine: completed_formulation
-    using TOML, SHA, CairoMakie, LinearAlgebra, Logging
+    using TOML, SHA, CairoMakie, LinearAlgebra, Logging, PythonCall
     using LineCableModels.ReportBuilder: BenchmarkTableDefinition
     const P = LineCableModels.PSCAD
     config_path = get(ENV, "LINECABLEMODELS_PSCAD_CONFIG", "")
@@ -133,7 +133,7 @@
     for (index,page) in enumerate(pages)
         CairoMakie.save(joinpath(remote.local_root,"native-$(basename(source))-$index.png"),page.figure)
     end
-    evidence = Dict("transport"=>string(remote.transport), "source_run"=>source,
+    evidence = Dict("server"=>"$(remote.host):$(remote.port)", "source_run"=>source,
         "first_compute_seconds"=>first_timing.time,"next_compute_seconds"=>next_timing.time,
         "reuse_seconds"=>reuse_timing.time,
         "first_compile_seconds"=>details(first_result).data.execution.compile_call_seconds,
@@ -154,10 +154,11 @@
 end
 
 @testitem "PSCAD / real station expected identity precedes compilation" tags=[:pscad_native, :integration, :pscad] begin
+    using PythonCall
     const P = LineCableModels.PSCAD
     remote = P.RemoteConfig(ENV["LINECABLEMODELS_PSCAD_CONFIG"])
     expected = P.identify(remote)
-    expected["line_constants_sha256"] = repeat("0",64)
+    expected["line_constants"] = "another line-constants program"
     metal = Material(:conductor,1.72e-8,1.0)
     dielectric = Material(:insulator,1e14,2.3)
     design = build(CableDesign,"identity-guard",terminal(:core,
@@ -170,9 +171,13 @@ end
         options=(;remote,work_root,solver_identity=expected))
     run_directory = only(readdir(work_root;join=true))
     @test !isfile(joinpath(run_directory,"complete.toml"))
+    # The refusal precedes the project load. The run leaves PSCAD without a detailed file to write.
     console = read(joinpath(run_directory,"outputs","pscad-console.txt"),String)
-    @test count("Launching PSCAD 5.1.0",console) == 1
+    @test occursin("Connected to PSCAD 5.1.0",console)
+    @test !occursin("Loading project",console)
     @test !occursin("Starting PSCAD line-constants computation",console)
     @test !isfile(joinpath(run_directory,"outputs","result_zm.out"))
+    line_name = "lcm_" * chop(basename(run_directory); head = 4, tail = 0)
+    @test !any(startswith(line_name * "_"), readdir(remote.local_root))
     println("Native identity rejection evidence: ",run_directory)
 end

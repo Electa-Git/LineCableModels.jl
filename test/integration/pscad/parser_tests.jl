@@ -1,6 +1,5 @@
-@testitem "PSCAD / parser and fixed mappings" tags=[:integration, :pscad, :slow] begin
+@testitem "PSCAD / parser and fixed mappings" tags=[:integration, :pscad, :slow] setup=[PSCADStandIn] begin
     pscad = Formulation(:pscad)
-    using Base64: base64decode
     using Test
     import LineCableModels
     using LineCableModels: description
@@ -87,15 +86,8 @@
             2, 2, 2), 1.0)
     end
 
-    config=harness.RemoteConfig(
-        "host",
-        raw"Z:\pscad\benchmarks\.work",
-        raw"C:\pscad",
-        "julia",
-        "python"; local_root=mktempdir(),
-        transport = :ssh,
-        timeout = 60
-    )
+    config=harness.RemoteConfig("host", 54330, raw"Z:\pscad\benchmarks\.work",
+        raw"C:\PSCAD\Pscad.exe"; local_root=mktempdir(), timeout = 60)
     owner=harness.PSCADFormulation
     @test LineCableModels.formulation_options(owner, FormulationOptions()) == overhead.options
     @test_throws ArgumentError LineCableModels.formulation_options(
@@ -103,10 +95,7 @@
         FormulationOptions(output_stem = "case")
     )
     @test_throws ArgumentError LineCableModels.computation_options(owner, ComputationOptions((;)))
-    execution=LineCableModels.computation_options(owner, ComputationOptions((
-            output_stem = "case",
-            remote = config
-        )))
+    execution=LineCableModels.computation_options(owner, ComputationOptions((remote = config,)))
     # The verbosity and the callable of a computation are options of its run, not of PSCAD.
     for run_option in ((verbosity = (default = 0, PSCAD = 2),), (on_result = identity,))
         @test_throws ArgumentError LineCableModels.computation_options(owner,
@@ -120,36 +109,22 @@
     end
     @test execution.data == (
         work_root=config.local_root,
-        output_stem = "case",
         remote = config,
         resume_run_directory = nothing,
         solver_identity = nothing
     )
+    @test LineCableModels.computation_options(owner, execution) === execution
+    # A run's directory gives the name of its line and of the files that PSCAD writes.
     @test_throws ArgumentError LineCableModels.computation_options(
-        owner, ComputationOptions((
-            output_stem = "benchmark_525kV_1600mm2_bipole_pscad",
-            remote = config
-        )))
-    powershell="[IO.Directory]::CreateDirectory('C:\\pscad') | Out-Null"
-    command=harness.remote_command(config, powershell)
-    @test command.exec[1] == "ssh"
-    @test "host" in command.exec
-    @test "-EncodedCommand" in command.exec
-    encoded=command.exec[end]
-    bytes=base64decode(encoded)
-    decoded=transcode(String, ltoh.(collect(reinterpret(UInt16, bytes))))
-    @test decoded == "\$ProgressPreference='SilentlyContinue'; $powershell"
-    @test !occursin("Out-Null", encoded)
-    @test harness._remote_project_name(raw"C:\pscad\case\generated.pscx") ==
-          "generated"
+        owner, ComputationOptions((output_stem = "case", remote = config)))
     root=config.local_root
     @test LineCableModels.computation_options(owner, ComputationOptions((remote=config,work_root=joinpath(root,"any","depth")))).data.work_root == joinpath(root,"any","depth")
     @test_throws ArgumentError LineCableModels.computation_options(owner, ComputationOptions((remote=config,work_root=dirname(root))))
     @test_throws ArgumentError harness.RemoteConfig(
-        "host", "shared", "remote", "julia", "python"; local_root=mktempdir(), timeout = 0
+        "host", 54330, "shared", "Pscad.exe"; local_root=mktempdir(), timeout = 0
     )
     @test_throws MethodError harness.RemoteConfig(
-        "host", "shared", "remote", "julia", "python"; local_root=mktempdir(), verbosity = 2
+        "host", 54330, "shared", "Pscad.exe"; local_root=mktempdir(), verbosity = 2
     )
     @test_throws ArgumentError validate(
         collect(10.0 .^ range(0, stop = 6, length = 61)), harness.PSCADFormulation
@@ -162,58 +137,10 @@
     @test_throws DomainError validate(
         collect(10.0 .^ range(-2, stop = 6, length = 101)), harness.PSCADFormulation
     )
-    supervisor_command=harness._supervisor_command(
-        config,
-        raw"Z:\pscad\benchmarks\.work\case\current",
-        raw"C:\pscad\case\current",
-        "generated",
-        overhead,
-        frequency_probe;
-        output_stem = "pscad"
-    )
-    @test occursin("supervisor.ps1", supervisor_command)
-    @test occursin(raw"Z:\pscad\benchmarks\.work\case\current", supervisor_command)
-    @test occursin(raw"C:\pscad\case\current", supervisor_command)
-    @test occursin("-OutputStem 'pscad'", supervisor_command)
-    @test !occursin("-Verbosity", supervisor_command)
-    @test occursin("-TimeoutSeconds '60'", supervisor_command)
-    @test !occursin("-EarthField", supervisor_command)
-    @test !occursin("OpenStandardInput", supervisor_command)
-    saad_command=harness._supervisor_command(
-        config,
-        raw"Z:\pscad\benchmarks\.work\case\current",
-        raw"C:\pscad\case\current",
-        "generated",
-        Formulation(:pscad; earth_impedance = :saad1996),
-        frequency_probe;
-        output_stem = "saad"
-    )
-    cancel_command=harness._cancel_command(raw"C:\pscad\case\current")
-    @test occursin("owner.txt", cancel_command)
-    @test occursin("taskkill.exe /PID", cancel_command)
-    @test occursin("CommandLine.IndexOf", cancel_command)
 
-    mktempdir() do directory
-        run_directory=joinpath(directory, "case", "current")
-        output=joinpath(run_directory, "outputs")
-        project=joinpath(run_directory, "generated.pscx")
-        mkpath(run_directory)
-        write(project, "fixture")
-        staged=harness._stage_toolkit(project, output)
-        @test staged == joinpath(run_directory, "toolkit")
-        @test sort(readdir(staged)) == [
-            "Manifest.toml",
-            "Project.toml",
-            "files.jl",
-            "identity.py",
-            "runner.jl",
-            "supervisor.ps1"
-        ]
-        for (name, source) in harness.PSCAD_REMOTE_SOURCES
-            @test read(joinpath(staged, name), String) == source
-        end
-    end
-
+    extension=Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
+    @test extension._remote_path(raw"Z:\pscad\exchange\\", "run-a", "case.pscx") ==
+          raw"Z:\pscad\exchange\run-a\case.pscx"
     mktempdir() do directory
         partial=joinpath(directory, "fixture_zm.out")
         write(partial, "header\n")
@@ -224,76 +151,29 @@
                 println(io, "1.0 10.0 3.0")
             end
         end
-        completed=harness._wait_output(
-            [directory], "_zm.out", 2;
-            timeout = 1,
-            poll_interval = 0.01
-        )
+        completed=extension._wait_output(partial, 2; timeout = 1, poll_interval = 0.01)
         wait(writer)
-        @test completed == realpath(partial)
-        @test harness._data_rows(completed) == 2
+        @test completed == partial
+        @test extension._data_rows(completed) == 2
+        open(partial, "a") do io
+            println(io, "2.0 100.0 4.0")
+        end
+        @test_throws r"contains 3 rows; expected 2" extension._wait_output(partial, 2;
+            timeout = 1, poll_interval = 0.01)
     end
     mktempdir() do directory
         partial=joinpath(directory, "fixture_zm.out")
         write(partial, "header\n")
         error=try
-            harness._wait_output(
-                [directory], "_zm.out", 2;
-                timeout = 0.05,
-                poll_interval = 0.01
-            )
+            extension._wait_output(partial, 2; timeout = 0.05, poll_interval = 0.01)
             nothing
         catch caught
             caught
         end
         @test error isa ArgumentError
         @test occursin("0 of 2 rows", sprint(showerror, error))
-    end
-
-    function harness.remote_command(
-            ::Val{:fixture_fail}, config::harness.RemoteConfig, powershell::AbstractString
-    )
-        Cmd(["julia", "--startup-file=no", "-e", "exit(7)"])
-    end
-    function harness.remote_command(
-            ::Val{:fixture_logs},
-            config::harness.RemoteConfig,
-            powershell::AbstractString
-    )
-        executable=Base.julia_cmd().exec[1]
-        return Cmd([
-            executable,
-            "--startup-file=no",
-            "-e",
-            "println(\"runner output\"); println(stderr, \"runner error\")"
-        ])
-    end
-    failed_config=harness.RemoteConfig(
-        "host", "shared", raw"C:\pscad", "julia", "python"; local_root=mktempdir(),
-        transport = :fixture_fail
-    )
-    mktempdir() do directory
-        stdout_path=joinpath(directory, "stdout.txt")
-        stderr_path=joinpath(directory, "stderr.txt")
-        @test_throws ErrorException harness._run_remote(
-            failed_config, "ignored"; stdout_path, stderr_path
-        )
-        @test isfile(stdout_path)
-        @test isfile(stderr_path)
-    end
-    mktempdir() do directory
-        logs_config=harness.RemoteConfig(
-            "host", "shared", raw"C:\pscad", "julia", "python"; local_root=mktempdir(),
-            transport = :fixture_logs
-        )
-        stdout_path=joinpath(directory, "stdout.txt")
-        stderr_path=joinpath(directory, "stderr.txt")
-        output=harness._run_remote(
-            logs_config, "ignored"; stdout_path, stderr_path
-        )
-        @test occursin("runner output", output)
-        @test read(stdout_path, String) == "runner output\n"
-        @test read(stderr_path, String) == "runner error\n"
+        @test_throws r"0 of 2 rows" extension._wait_output(joinpath(directory, "absent_zm.out"),
+            2; timeout = 0.05, poll_interval = 0.01)
     end
 
     for count in (101,201,501,1001), T in (Float32,Float64)

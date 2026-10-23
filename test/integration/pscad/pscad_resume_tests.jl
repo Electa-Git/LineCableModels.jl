@@ -1,56 +1,12 @@
-@testitem "PSCAD / verified completed-run reuse" tags=[:integration, :pscad, :slow] begin
+@testitem "PSCAD / verified completed-run reuse" tags=[:integration, :pscad, :slow] setup=[PSCADStandIn] begin
     using LineCableModels.Engine: completed_formulation
     using LineCableModels
     using TOML, SHA, Logging
+    using PythonCall: pydict
     const P=LineCableModels.PSCAD
-    const launches=Ref(0)
-    const identifications=Ref(0)
-    const mismatched_readback=Ref(false)
-    const incomplete_matrix=Ref(false)
-    const station_identity=Dict("schema"=>"1", "version"=>"5.1.0",
-        "pscad_sha256"=>repeat("1", 64), "line_constants_sha256"=>repeat("2", 64),
-        "master_library_sha256"=>repeat("3", 64))
-    # Exercise export, staging, parsing and checkpoints with an isolated
-    # transport fixture. These matrices are protocol fixtures, not references.
-    function P.remote_command(::Val{:completed_run_fixture}, config::P.RemoteConfig, command::AbstractString)
-        if occursin("-SharedCase", command)
-            launches[]+=1
-            root=replace(only(match(r"-SharedCase '([^']+)'", command).captures), '\\'=>'/')
-            script="""
-              using TOML
-              root = $(repr(root))
-              input = TOML.parsefile(joinpath(root, "computation.toml"))
-              identity = TOML.parse($(repr(sprint(TOML.print, station_identity))))
-              get(input, "expected_solver", identity) == identity || error("unexpected solver identity")
-              output = joinpath(root, "outputs")
-              for (name, value) in (("zm", 2.0), ("zp", 30.0), ("ym", 0.001), ("yp", 75.0))
-                  open(joinpath(output, "result_" * name * ".out"), "w") do io
-                      println(io, "LOG10(FN) FN element")
-                      for frequency in input["frequencies"]
-                          println(io, log10(frequency), " ", frequency, " ", value)
-                      end
-                  end
-              end
-              open(joinpath(output, "native-settings.toml"), "w") do io
-                  observed = Dict(component => Dict(field => control["readback"]
-                      for (field, control) in controls) for (component, controls) in input["native_settings"])
-                  $(mismatched_readback[]) && (observed["ground"]["EarthForm"] = "UNEXPECTED")
-                  TOML.print(io, observed)
-              end
-              $(incomplete_matrix[]) && write(joinpath(output, "result_zm.out"), "LOG10(FN) FN element\n")
-              write(joinpath(output, "timing.txt"), "3.25")
-              write(joinpath(output, "pscad-console.txt"), "protocol fixture")
-              open(joinpath(output, "solver.toml"), "w") do io
-                  TOML.print(io, identity)
-              end
-              """
-        else
-            occursin("identify.py", command) && (identifications[] += 1)
-            script="print("*repr(sprint(TOML.print, station_identity))*")"
-        end
-        return `$(Base.julia_cmd()) --startup-file=no --project=@stdlib -e $script`
-    end
-
+    const S=PSCADStandIn
+    # Exercise export, staging, parsing and checkpoints with the stand-in PSCAD. Its
+    # matrices are protocol fixtures, not references.
     directory=mktempdir()
     try
         copper=Material(:conductor, 1.72e-8, 1.0)
@@ -62,9 +18,9 @@
             connections = [Dict(:core=>1)], system_id = basename(directory), line_length = 42.0)
         frequency=collect(10.0 .^ range(-1, 6; length = 101))
         problem=LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = frequency)
-        remote=P.RemoteConfig(
-            "fixture", directory, "unused", "julia", "python";
-            local_root=directory, transport = :completed_run_fixture)
+        application=S.install(directory)
+        launches()=S.compiles(application)
+        remote=S.remote(directory)
         options=(; remote, resume_run_directory = :latest)
         for value in (:invalid, "", 1)
             @test_throws ArgumentError computation_options(P.PSCADFormulation, ComputationOptions((; remote, resume_run_directory = value)))
@@ -78,9 +34,10 @@
         end
         # A quiet run logs only the timing record of its point.
         @test [record.group for record in quiet_log.logs] == [:timing]
-        @test launches[] == 1
+        @test launches() == 1
         @test !details(first_result).data.execution.reused
-        @test identifications[] == 0
+        # A fresh run reads the identity on its own connection.
+        @test S.connects(application) == 1
         @test !haskey(details(first_result).data.execution, :elapsed_scope)
         source=details(first_result).data.execution.source_run
         files=[joinpath(root, file) for (root, _, names) in walkdir(source)
@@ -92,9 +49,10 @@
             compute(problem, Formulation(:pscad; earth_impedance = :pollaczek1926);
                 options=(; options..., verbosity=(default=0, PSCAD=2, timing=1)))
         end
-        @test identifications[] == 1
+        # Reuse reads the identity of the current server once, without a run.
+        @test S.connects(application) == 2
         @test any(record->record.message == "PSCAD reuses a verified completed run", verbose_log.logs)
-        @test launches[] == 1
+        @test launches() == 1
         @test Z(reused) == Z(first_result)
         @test Y(reused) == Y(first_result)
         @test details(reused).data.execution.reused
@@ -102,7 +60,9 @@
         @test keys(only(record.kwargs for record in verbose_log.logs if record.group === :timing)) ==
               (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
         @test !haskey(details(reused).data, :timing)
-        @test details(first_result).data.execution.compile_call_seconds == 3.25
+        # The compile call's seconds are those that the run recorded.
+        @test details(first_result).data.execution.compile_call_seconds ==
+              parse(Float64, read(joinpath(source, "outputs", "timing.txt"), String))
         @test only(quiet_log.logs).kwargs[:wall_seconds] >= 0
         @test !haskey(details(reused).data.execution, :elapsed_seconds)
         @test completed_formulation(details(reused)).formulations.formulas.earth_impedance.identifier === :pollaczek1926
@@ -112,7 +72,7 @@
                 options..., verbosity=(default=0,)))
         end
         @test isempty(sample_log.logs)
-        @test launches[] == 1
+        @test launches() == 1
         @test Z(total) .* line_length(total) == 42 .* Z(first_result)
         @test Y(total) .* line_length(total) == 42 .* Y(first_result)
         @test original ==
@@ -133,7 +93,7 @@
         warnings=filter(record->record.group !== :timing, callback_log.logs)
         @test count(record->record.level == Logging.Warn, warnings) == 2
         @test all(record->record.level >= Logging.Warn, warnings)
-        @test launches[] == 1
+        @test launches() == 1
         @test callbacks == [1, 2]
         @test map(record -> record.identifier,completed_formulation(details(batch[1])).formulations.formulas.earth_impedance) ==
               (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)
@@ -149,7 +109,7 @@
         represented = compute(problem,
             Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)));
             options)
-        @test launches[] == 1
+        @test launches() == 1
         @test map(record -> record.identifier,completed_formulation(details(represented[1])).formulations.formulas.earth_impedance) ==
               (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)
         @test map(record -> record.identifier,completed_formulation(details(represented[2])).formulations.formulas.earth_impedance) ==
@@ -171,13 +131,13 @@
             options = (; remote, resume_run_directory = source))
         @test_throws ArgumentError compute(problem, Formulation(:pscad);
             options = (; remote, solver_identity = Dict("version"=>"changed")))
-        @test launches[] == 1
+        @test launches() == 1
         compute(problem, Formulation(:pscad; earth_impedance = :saad1996); options)
-        @test launches[] == 2
-        station_identity["line_constants_sha256"]=repeat("4", 64)
+        @test launches() == 2
+        application.file_lcp=raw"$(HomeDir)\bin\win64\other.exe"
         compute(problem, Formulation(:pscad); options)
-        @test launches[] == 3
-        station_identity["line_constants_sha256"]=repeat("2", 64)
+        @test launches() == 3
+        application.file_lcp=raw"$(HomeDir)\bin\win64\tline.exe"
         # A partial run must never be accepted as a completed numerical result.
         partial=mktempdir(directory)
         cp(joinpath(source, "computation.toml"), joinpath(partial, "computation.toml"))
@@ -187,13 +147,16 @@
             println(io, "damaged")
         end
         @test_throws ArgumentError compute(problem, Formulation(:pscad); options)
-        @test launches[] == 3
+        @test launches() == 3
         @test endswith(read(joinpath(source, "outputs", "result_zm.out"), String), "damaged\n")
-        mismatched_readback[] = true
-        @test_throws ArgumentError compute(problem, Formulation(:pscad); options = (; remote))
-        @test launches[] == 4
-        mismatched_readback[] = false
-        incomplete_matrix[] = true
+        # A rejected native setting stops the run before its solve.
+        application.readbacks=pydict(Dict("EarthForm" => "UNEXPECTED"))
+        @test_throws r"PSCAD field EarthForm rejected" compute(problem, Formulation(:pscad);
+            options = (; remote))
+        @test launches() == 3
+        @test isempty(S.loaded(application))
+        application.readbacks=pydict()
+        application.malformed = true
         caught = try
             compute(problem, Formulation(:pscad); options = (; remote))
             nothing
@@ -203,19 +166,20 @@
         @test caught isa ErrorException
         @test occursin("PSCAD result validation failed", sprint(showerror, caught))
         @test occursin("Full PSCAD diagnostics:", sprint(showerror, caught))
-        incomplete_matrix[] = false
+        @test launches() == 4
+        application.malformed = false
         # Distinct physical settings in one batch require distinct native runs.
-        before = launches[]
+        before = launches()
         heterogeneous = compute(problem,
             Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = :saad1996)));
             options = (; remote))
-        @test launches[] == before + 2
+        @test launches() == before + 2
         @test !details(heterogeneous[1]).data.execution.reused
         @test !details(heterogeneous[2]).data.execution.reused
         @test details(heterogeneous[1]).data.native_setting.ground !=
             details(heterogeneous[2]).data.native_setting.ground
         # The first cache entry may be reused while a later selection is fresh.
-        before = launches[]
+        before = launches()
         source_root = dirname(details(first(heterogeneous)).data.execution.source_run)
         mixed_log = Test.TestLogger()
         mixed = with_logger(mixed_log) do
@@ -224,12 +188,13 @@
                     remote, work_root=source_root, verbosity=(default=0, timing=1),
                     resume_run_directory=:latest))
         end
-        @test launches[] == before + 1
+        @test launches() == before + 1
         @test details(first(mixed)).data.execution.reused
         @test keys(first(record.kwargs for record in mixed_log.logs if record.group === :timing)) ==
               (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
         @test !details(last(mixed)).data.execution.reused
-        @test details(last(mixed)).data.execution.compile_call_seconds == 3.25
+        @test details(last(mixed)).data.execution.compile_call_seconds == parse(Float64,
+            read(joinpath(details(last(mixed)).data.execution.source_run, "outputs", "timing.txt"), String))
         @test typeof(first(mixed)) === typeof(last(mixed))
     finally
         rm(directory; recursive = true)

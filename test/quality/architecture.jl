@@ -8,7 +8,7 @@
     using TOML: TOML
     import DataFrames, LinearAlgebra, Statistics, Random, Logging
     # These packages load the extensions checked by `explicit_imports.jl`.
-    import Measurements, Distributions, Calculus, XLSX, CairoMakie
+    import Measurements, Distributions, Calculus, XLSX, CairoMakie, PythonCall
 
     # A module may reference only earlier modules, its ancestors and its
     # descendants. The root module and package extensions are exempt. The load
@@ -17,7 +17,7 @@
     const ORDER = keys(MODULE_OWNERS)
     const EXTENSIONS = (:LineCableModelsMeasurementsExt, :LineCableModelsDistributionsExt,
         :LineCableModelsXLSXExt, :LineCableModelsMakieExt,
-        :LineCableModelsCairoMakieExt)
+        :LineCableModelsCairoMakieExt, :LineCableModelsPSCADExt)
     # Base and the standard libraries whose exported names share a user's scope with
     # the names that the root module exports.
     const DEPENDENCIES = (Base, LinearAlgebra, Statistics, Random,

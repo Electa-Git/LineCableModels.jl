@@ -63,7 +63,7 @@
         Formulation(:pscad; insulation_admittance = :lossy))
     resolved=requested
     root=mktempdir()
-    staged_projects=[P._stage_pscad_project(P._pscad_inputs(underground, value, P._pscad_blueprints(underground.system)), root) for value in resolved]
+    staged_projects=[P._stage_pscad_project(P._pscad_inputs(underground, value, P._pscad_blueprints(underground.system)), root, underground.system) for value in resolved]
     try
         @test length(unique(getproperty.(staged_projects, :root))) == 3
         @test all(project -> dirname(project.root) == root,staged_projects)
@@ -155,7 +155,7 @@ end
         Formulation(:pscad; earth_impedance = (
             air = formula(:gary1976; options = (integration = (method = :quad,),)),
             earth = :saad1996, mixed = :lucca1994)), problem)
-    project = P._stage_pscad_project(P._pscad_inputs(problem, selected, P._pscad_blueprints(problem.system)), mktempdir())
+    project = P._stage_pscad_project(P._pscad_inputs(problem, selected, P._pscad_blueprints(problem.system)), mktempdir(), problem.system)
     try
         document = EzXML.readxml(project.staged)
         ground = only(EzXML.findall("//User[@defn='master:Line_Ground']", document))
