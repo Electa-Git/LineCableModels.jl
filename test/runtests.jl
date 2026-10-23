@@ -6,4 +6,5 @@ using LineCableModels
     @testset "Aqua" begin
         Aqua.test_all(LineCableModels)
     end
+    include("architecture/architecture.jl")
 end
