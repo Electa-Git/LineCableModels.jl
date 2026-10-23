@@ -2,6 +2,9 @@
 # confirmation, when the first name that uses it arrives, and leaves when no name uses it.
 # [global] holds the grammar verbs, defined only in Commons, and the terms of several modules;
 # [modules."<Module>"] holds the terms of one module and its children.
+# [register."<Module>".public] and [register."<Module>".private] list every function, type and
+# constant the module defines, each with its meaning. A name enters with the user's
+# confirmation, in the step that introduces it, and leaves with its definition.
 
 [shape]
 function = 2

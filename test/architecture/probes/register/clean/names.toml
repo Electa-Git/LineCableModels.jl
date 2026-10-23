@@ -1,0 +1,17 @@
+[shape]
+mandated = ["__init__"]
+
+[register.Commons.public]
+measure = "the measure of a value"
+
+[register.Alpha.public]
+Item = "one item and its value"
+area = "the square of an item's value"
+
+[register.Alpha.private]
+scale = "an item's value times a factor"
+magnitude = "the absolute value of a number"
+totals = "the total area of items"
+
+[register.RegisterProbeCleanExt.public]
+draw = "an item's area plus one"

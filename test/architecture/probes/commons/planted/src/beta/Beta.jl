@@ -22,7 +22,4 @@ function average_cyclic!(values::AbstractMatrix)
     end
     return values
 end
-_forward(x; scale = 1) = Commons.shared(x; scale = scale)
-first_use(x) = _forward(x) + 1
-second_use(x) = _forward(x; scale = 2) + 1
 end

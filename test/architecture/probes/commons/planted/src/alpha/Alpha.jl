@@ -12,9 +12,5 @@ function permeability(T)
     μ0 = 4π * 1e-7
     return T(μ0)
 end
-_tiny(x) = x + 1
-twice(x) = 2 * _tiny(x)
-_named(x) = x + 2
-uses_named(x) = 3 * _named(x)
 Commons.extended(x::Int) = x
 end

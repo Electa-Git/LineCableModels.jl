@@ -23,8 +23,6 @@ const COMMONS_DIRECTORY = "src/commons"
 const RESERVED_VERB = r"^_*(validate|check|require|assert|verify|ensure)_"
 const COMMONS = :Commons
 const COMMONS_TESTS = "test/commons"
-# Directories under `test/` whose files name definitions without testing them.
-const NOT_TESTS = ("architecture",)
 # Each reserving name maps to its home and to the definition names it reserves outside that
 # home. The physical constants and the matrix reductions enter it with their definitions.
 const VOCABULARY = Dict{Symbol, Pair{String, Regex}}()
@@ -1349,11 +1347,6 @@ function definition_node(trees, file, line, name)
     return found
 end
 
-function body_statements(node)
-    body = node[2]
-    return kind(body) == K"block" ? numchildren(body) : 1
-end
-
 function argument_name(node)
     kind(node) == K"Identifier" && return node.val
     kind(node) in (K"::", K"=") && numchildren(node) == 2 && return argument_name(node[1])
@@ -1398,49 +1391,108 @@ function forwards(node)
            own == passed
 end
 
-# Tiny private helpers. Private module-level functions with one method and at most three body
-# statements, referenced by exactly one method, are tiny helpers; exact forwarders count
-# whatever their references. A helper that a test calls is exempt. Per file, the helpers.
-function tiny_helpers(methods, tree::PackageTree, called)
-    callers = IdDict{Any, Set{Method}}()
-    for m in methods
-        code = lowered_code(m)
-        code === nothing && continue
-        for value in referenced_values(code)
-            value isa Function && push!(get!(Set{Method}, callers, value), m)
+# The register. The functions (macros included), types and constants each package module
+# defines, against its section of the register in `names`: a table of public names and one of
+# private names, each name with its meaning. A name that Julia or Pkg imposes is left out.
+function register_differences(tree::PackageTree, names)
+    found = Dict{String, Int}()
+    register = get(names, "register", Dict{String, Any}())
+    mandated = names["shape"]["mandated"]
+    label(path) = path == "" ? module_name(tree, tree.root) : path
+    entry(path, name, problem) = (found[join((label(path), name, problem), " | ")] = 1)
+    defined = Dict{String, Module}()
+    for M in tree.modules
+        path = module_path(tree, M)
+        defined[path] = M
+        section = get(register, path, Dict{String, Any}())
+        public, private = get(section, "public", Dict()), get(section, "private", Dict())
+        for name in keys(definitions(M))
+            key = string(name)
+            key in mandated && continue
+            listed = haskey(public, key) ? "public" :
+                     haskey(private, key) ? "private" :
+                     nothing
+            listed === nothing && (entry(path, key, "unregistered"); continue)
+            visibility = Base.ispublic(M, name) ? "public" : "private"
+            visibility == listed ||
+                entry(path, key, string(visibility, ", registered ", listed))
         end
     end
-    trees = Dict{String, Any}()
-    found = Dict{String, Int}()
-    for M in tree.modules, (name, value) in definitions(M)
+    for (path, section) in register
+        M = get(defined, path, nothing)
+        M === nothing && (found[string(label(path), " | stale module")] = 1; continue)
+        names_defined = Set(string(name) for name in keys(definitions(M)))
+        public, private = get(section, "public", Dict()), get(section, "private", Dict())
+        for (visibility, table) in ("public" => public, "private" => private),
+            (key, meaning) in table
 
-        value isa Function && !startswith(string(name), "@") &&
-        !Base.ispublic(M, name) && length(Base.methods(value)) == 1 || continue
-        m = only(Base.methods(value))
-        path = source_path(tree, m.file)
-        path === nothing && continue
-        node = definition_node(trees, normpath(string(m.file)), m.line, name)
-        (node !== nothing && body_statements(node) <= 3) || continue
-        references = length(setdiff(get(callers, value, Set{Method}()), (m,)))
-        (references == 1 || forwards(node)) && name ∉ called && count!(found, path)
+            key in names_defined || entry(path, key, "stale")
+            visibility == "public" && haskey(private, key) && entry(path, key, "twice")
+            meaning isa AbstractString && !isempty(strip(meaning)) ||
+                entry(path, key, "meaning")
+        end
     end
     return found
 end
 
-# The names that the calls, broadcasts and macro calls of the files call.
-function called_names(files)
-    found = Set{Symbol}()
+# The kinds whose children are a body: a definition inside one is local.
+const BODIES = (K"function", K"->", K"do", K"let", K"macro")
+# The statement lists in which an assignment binds a local.
+const STATEMENTS = (K"block", K"local", K"global")
+
+# Named local functions. A method defined inside a function body, an anonymous function, a
+# `do` block, a `let` or a macro, and a local bound to an anonymous function, by file and
+# name. Quoted code is not read.
+function local_functions(files, directory)
+    found = Dict{String, Int}()
     for file in files
-        visit(parse_source(file)) do node
-            k = kind(node)
-            k in (K"call", K"dotcall", K"macrocall") && numchildren(node) > 0 ||
-                return true
-            callee = k != K"macrocall" && !is_prefix_call(node) ? node[2] : node[1]
-            kind(callee) == K"curly" && (callee = callee[1])
-            name = syntax_name(callee)
-            isempty(name) || push!(found, last(name))
-            return true
-        end
+        local_definitions!(
+            found, relative(file, directory), parse_source(file), K"toplevel",
+            false)
+    end
+    return found
+end
+
+function local_definitions!(found, path, node, parent, inside)
+    k = kind(node)
+    k == K"quote" && return found
+    if inside && k == K"function" && signature_call(node) !== nothing
+        name = definition_name(node)
+        count!(found, string(path, " | ", name === nothing ? "call" : name))
+    elseif inside && k == K"=" && parent in STATEMENTS && numchildren(node) == 2 &&
+           anonymous(node[2])
+        target = kind(node[1]) == K"::" ? node[1][1] : node[1]
+        kind(target) == K"Identifier" && count!(found, string(path, " | ", target.val))
+    end
+    is_leaf(node) && return found
+    for child in children(node)
+        local_definitions!(found, path, child, k, inside || k in BODIES)
+    end
+    return found
+end
+
+function anonymous(node)
+    kind(node) == K"->" ||
+        (kind(node) == K"function" && signature_call(node) === nothing)
+end
+
+# Forwarders. The functions the package owns whose every method is one call that passes the
+# method's own arguments, unchanged: a second name for that call. By module and name.
+function forwarders(tree::PackageTree)
+    found = Dict{String, Int}()
+    trees = Dict{String, Any}()
+    for M in tree.modules, (name, value) in definitions(M)
+
+        value isa Function && !startswith(string(name), "@") || continue
+        nodes = [definition_node(trees, normpath(string(m.file)), m.line, name)
+                 for m in Base.methods(value) if source_path(tree, m.file) !== nothing]
+        !isempty(nodes) && all(node -> node !== nothing && forwards(node), nodes) &&
+            count!(found,
+                string(
+                    module_path(tree, M) == "" ? module_name(tree, M) :
+                    module_path(tree, M),
+                    " | ",
+                    name))
     end
     return found
 end

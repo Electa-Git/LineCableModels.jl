@@ -15,8 +15,6 @@ end
     tree = Guards.PackageTree(LineCableModels, Module[], pkgdir(LineCableModels))
     files = Guards.source_files(pkgdir(LineCableModels))
     directory = pkgdir(LineCableModels)
-    called = Guards.called_names(keys(Guards.test_sources(
-        joinpath(directory, "test"); excluded = Guards.NOT_TESTS)))
     methods = Guards.package_methods(tree)
     homes = Guards.home_directories(tree)
 
@@ -92,8 +90,17 @@ end
         @test Guards.clones(files, methods, tree) == Dict{String, Int}()
     end
 
-    @testset "tiny private helpers" begin
-        @test Guards.tiny_helpers(methods, tree, called) == Dict{String, Int}()
+    @testset "register" begin
+        names = Guards.TOML.parsefile(joinpath(@__DIR__, "names.toml"))
+        @test Guards.register_differences(tree, names) == Dict{String, Int}()
+    end
+
+    @testset "local functions" begin
+        @test Guards.local_functions(files, directory) == Dict{String, Int}()
+    end
+
+    @testset "forwarders" begin
+        @test Guards.forwarders(tree) == Dict{String, Int}()
     end
 
     @testset "root module" begin
@@ -232,8 +239,6 @@ end
         planted_methods = Base.invokelatest(Guards.package_methods, planted)
         planted_homes = Base.invokelatest(Guards.home_directories, planted)
         planted_files = Guards.source_files(planted.directory)
-        planted_called = Guards.called_names(keys(Guards.test_sources(
-            joinpath(planted.directory, "test"); excluded = Guards.NOT_TESTS)))
         @test Base.invokelatest(Guards.commons_admission, planted_methods, planted, planted_homes) ==
               Dict{String, Int}(
             "Lone | owners" => 1,
@@ -259,8 +264,6 @@ end
               Dict{String, Int}("src/alpha/Alpha.jl" => 2, "src/beta/Beta.jl" => 2)
         @test Base.invokelatest(Guards.clones, planted_files, planted_methods, planted) ==
               Dict{String, Int}("src/beta/Beta.jl | average_cyclic! ~ ideal_transposition!" => 1)
-        @test Base.invokelatest(Guards.tiny_helpers, planted_methods, planted, planted_called) ==
-              Dict{String, Int}("src/alpha/Alpha.jl" => 2, "src/beta/Beta.jl" => 1)
         @test Base.invokelatest(Guards.root_definitions, planted) ==
               Dict{String, Int}("CommonsProbePlanted" => 2)
 
@@ -270,8 +273,6 @@ end
         clean_methods = Base.invokelatest(Guards.package_methods, clean)
         clean_homes = Base.invokelatest(Guards.home_directories, clean)
         clean_files = Guards.source_files(clean.directory)
-        clean_called = Guards.called_names(keys(Guards.test_sources(
-            joinpath(clean.directory, "test"); excluded = Guards.NOT_TESTS)))
         @test Base.invokelatest(Guards.commons_admission, clean_methods, clean, clean_homes) ==
               Dict{String, Int}()
         @test Base.invokelatest(Guards.reserved_vocabulary, clean_files, clean.directory, vocabulary) ==
@@ -279,8 +280,6 @@ end
         @test Base.invokelatest(Guards.fingerprints, clean_files, clean.directory) ==
               Dict{String, Int}()
         @test Base.invokelatest(Guards.clones, clean_files, clean_methods, clean) ==
-              Dict{String, Int}()
-        @test Base.invokelatest(Guards.tiny_helpers, clean_methods, clean, clean_called) ==
               Dict{String, Int}()
         @test Base.invokelatest(Guards.root_definitions, clean) == Dict{String, Int}()
 
@@ -338,5 +337,47 @@ end
         @test Base.invokelatest(Guards.naming_rule, clean_methods, clean, clean_names) ==
               Dict{String, Int}()
         @test Base.invokelatest(Guards.shared_names, clean) == Dict{String, Int}()
+
+        planted,
+        _ = probe("register/planted", "RegisterProbePlanted";
+            extension = "RegisterProbePlantedExt")
+        planted_names = Guards.TOML.parsefile(joinpath(planted.directory, "names.toml"))
+        planted_files = Guards.source_files(planted.directory)
+        @test Base.invokelatest(Guards.register_differences, planted, planted_names) ==
+              Dict{String, Int}(
+            "Alpha | @twice | unregistered" => 1,
+            "Alpha | Shapes | unregistered" => 1,
+            "Alpha | _ABSENT | unregistered" => 1,
+            "Alpha | _Absent | unregistered" => 1,
+            "Alpha | _half | unregistered" => 1,
+            "Alpha | area | twice" => 1,
+            "Alpha | depth | private, registered public" => 1,
+            "Alpha | gone | stale" => 1,
+            "Alpha | half | unregistered" => 1,
+            "Alpha | outer | meaning" => 1,
+            "Alpha | radius | public, registered private" => 1,
+            "Commons | _pad | unregistered" => 1,
+            "Missing | stale module" => 1,
+            "RegisterProbePlantedExt | _mesh | unregistered" => 1)
+        @test Base.invokelatest(Guards.local_functions, planted_files, planted.directory) ==
+              Dict{String, Int}(
+            "src/alpha/Alpha.jl | double" => 1,
+            "src/alpha/Alpha.jl | inner" => 1,
+            "src/alpha/Alpha.jl | shift" => 1,
+            "src/alpha/Alpha.jl | shifted" => 1)
+        @test Base.invokelatest(Guards.forwarders, planted) == Dict{String, Int}(
+            "Alpha | alias" => 1,
+            "RegisterProbePlantedExt | draw" => 1)
+
+        clean,
+        _ = probe("register/clean", "RegisterProbeClean";
+            extension = "RegisterProbeCleanExt")
+        clean_names = Guards.TOML.parsefile(joinpath(clean.directory, "names.toml"))
+        clean_files = Guards.source_files(clean.directory)
+        @test Base.invokelatest(Guards.register_differences, clean, clean_names) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.local_functions, clean_files, clean.directory) ==
+              Dict{String, Int}()
+        @test Base.invokelatest(Guards.forwarders, clean) == Dict{String, Int}()
     end
 end
