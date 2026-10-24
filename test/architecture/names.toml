@@ -47,8 +47,29 @@ storage = "workspace, plan, buffers or the component's name"
 cache = "workspace, plan, buffers or the component's name"
 
 [global]
-nouns = []
+nouns = ["commons", "materials", "earth"]
 qualifiers = []
-symbols = []
+symbols = ["rho", "eps_r", "mu_r"]
 
 [global.verbs]
+validate = "check an input before its consumer uses it; return it unchanged, or throw"
+
+[modules.Materials]
+nouns = ["material", "kind"]
+symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
+
+[modules.Earth]
+nouns = ["layer", "layers", "model", "thickness"]
+qualifiers = ["homogeneous"]
+
+[register.Commons.public]
+validate = "check an input before its consumer uses it; return it unchanged, or throw"
+
+[register.Materials.public]
+Material = "the electromagnetic and thermal properties of one material, its class the type parameter"
+material = "the Material of a class with the properties given as keywords"
+
+[register.Earth.public]
+EarthLayer = "the static properties and thickness of one earth or air layer"
+EarthModel = "an ordered stack of earth layers, semi-infinite air first"
+homogeneous = "the earth model of air above one semi-infinite earth layer"

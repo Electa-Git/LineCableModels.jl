@@ -3,8 +3,12 @@ uuid = "dffb7669-8cd4-4628-99dd-7694e356ba37"
 version = "0.1.0"
 authors = ["Amauri Martins"]
 
+[deps]
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+
 [compat]
 Aqua = "0.8"
+DocStringExtensions = "0.9.3"
 ExplicitImports = "1.15"
 JuliaSyntax = "1"
 TOML = "1"
