@@ -248,7 +248,7 @@ function _pscad_hierarchy!(project, namespace::AbstractString)
 end
 
 function _pscad_part_parameters(blueprint::DataModel.CableBlueprint, index::Int, slot::Int,
-        frequency, formulation, temperature)
+        frequency, formulas, temperature)
     radii = (("R1", "R2", "R3"), ("R4", "R4", "R5"),
         ("R6", "R6", "R7"), ("R8", "R8", "R9"))
     resistivities = ("RHOC", "RHOS", "RHOA", "RHOO")
@@ -259,7 +259,6 @@ function _pscad_part_parameters(blueprint::DataModel.CableBlueprint, index::Int,
     conductor_name = "CONNAM$slot"
     inner_name, outer_name, insulation_name = radii[slot]
     T = eltype(blueprint)
-    formulas = formulation.formulas
     (; conductor, layers, mu_r_ins) = blueprint[index]
     metal = conductor.material
     operating = temperature === nothing ? nothing : convert(T, temperature)
@@ -300,8 +299,7 @@ function _pscad_part_parameters(blueprint::DataModel.CableBlueprint, index::Int,
     slot == 1 && append!(parameters, [
         "SemiCL" => "0", "SL2" => "0.0000", "SL1" => "0.0000"
     ])
-    # The loss tangent before the cap, which native runs record.
-    return (; parameters, loss)
+    return parameters
 end
 
 function _empty_pscad_part(index::Int)
@@ -336,7 +334,7 @@ function _pscad_cable_parameters(
         connections,
         index::Int,
         base_frequency,
-        formulation,
+        formulas,
         temperature
 )
     conductors = blueprint.assembly_ranges[assembly]
@@ -368,8 +366,8 @@ function _pscad_cable_parameters(
     ]
     for (slot, conductor) in enumerate(conductors)
         append!(parameters, _pscad_part_parameters(
-            blueprint, conductor, slot, base_frequency, formulation, temperature
-        ).parameters)
+            blueprint, conductor, slot, base_frequency, formulas, temperature
+        ))
         if slot > 1
             elimination = "elim$(slot - 1)"
             parameter_index = findlast(pair -> first(pair) == elimination, parameters)
@@ -385,10 +383,63 @@ function _pscad_cable_parameters(
     return parameters
 end
 
-function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequency,
-        blueprints, formulation, temperature; native_settings::NamedTuple = (;))
-    isempty(setdiff(keys(native_settings), (:ground, :frequency))) || throw(ArgumentError(
-        "PSCAD native settings require ground and frequency fields"))
+"""
+    pscad_project(system, earth, formulas; base_freq, temperature = nothing)
+
+Return the PSCAD project of `system` on `earth` as an `EzXML.XMLDocument`.
+
+The project contains one frequency-dependent row definition, `CableSystem`, with PSCAD's
+`master:Line_FrePhase_Options`, `master:Cable_Coax` and `master:Line_Ground` components,
+and the instance of the row with the line length and the base frequency. The project's
+name, its namespace, is the system id with every character outside `[A-Za-z0-9_]`
+replaced by `_`, and the instance keeps the system id as its `Name`. PSCAD may normalize
+the deterministic placeholder identifiers when it opens the project.
+
+Each coaxial group of each design becomes one `Cable_Coax` at the group's position, with
+its geometry and phase eliminations. Each conductor writes its resistivity at
+`temperature`. The writer evaluates each dielectric group at `base_freq` and
+`temperature`. `EPS` is the group's equivalent relative permittivity, and `LT` its ratio
+G/(ωC) of conductance to susceptance. The ground component stores the resistivity, the
+relative permittivity and the relative permeability of the soil, and the frequency
+component the static scan range.
+
+!!! note
+    PSCAD reads the conductance of a group as ωC·LT, and the writer caps `LT` at
+    ten. Where G/(ωC) exceeds ten, the writer writes ten, and PSCAD receives
+    10ωC: a fraction 10ωC/G of the group's conductance. This happens only where
+    conduction dominates the group, as in an interval of semicon alone or at very low
+    frequency. Below the bound, the written group matches the selected laws at
+    `base_freq`, not necessarily at every frequency of a later PSCAD scan.
+
+# Arguments
+
+- `system`: materialized line and cable geometry.
+- `earth`: physical air and one infinite homogeneous soil half-space.
+- `formulas`: the formulas of a formulation. Their `insulation_admittance`,
+  `semicon_admittance` and `temperature_dependence` laws evaluate the materials.
+
+# Keywords
+
+- `base_freq`: base frequency \\[Hz\\], positive and finite.
+- `temperature`: operating temperature \\[°C\\]. With `nothing`, each material stays at
+  its reference temperature. Default: `nothing`.
+
+# Errors
+
+- `ArgumentError` for uncertain inputs and for an earth other than air over one
+  homogeneous soil half-space.
+- `DomainError` for a base frequency that is not positive and finite.
+"""
+function pscad_project(system::LineCableSystem, earth::EarthModel, formulas::NamedTuple;
+        base_freq::Real, temperature::Union{Nothing, Real} = nothing)
+    _pscad_deterministic(eltype(system), eltype(earth), typeof(base_freq), typeof(temperature))
+    isfinite(base_freq) && base_freq > zero(base_freq) || throw(DomainError(
+        base_freq, "PSCAD base frequency must be positive and finite"
+    ))
+    validate(earth, pscad_project)
+    T = eltype(system)
+    blueprints = DataModel.CableBlueprint{T}[DataModel.flatten(design, T)
+                                            for design in system.designs]
     document = XMLDocument()
     project = ElementNode("project")
     setroot!(document, project)
@@ -404,7 +455,7 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
 
     definitions = addelement!(project, "definitions")
     _pscad_station_definition!(definitions, namespace)
-    _pscad_main_definition!(definitions, system, base_frequency)
+    _pscad_main_definition!(definitions, system, base_freq)
 
     definition = addelement!(definitions, "Definition")
     _pscad_attributes!(definition,
@@ -435,12 +486,6 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
     frequency_parameters = [
         "FS" => "0.5", "FE" => "1.0E6", "Numf" => "100",
         "DCCOR" => "1", "CPASS" => "0", "enablf" => "1", "shntcab" => "0.0"]
-    for (field, setting) in pairs(get(native_settings, :frequency, (;)))
-        index = findfirst(pair -> first(pair) == string(field), frequency_parameters)
-        index === nothing &&
-            throw(ArgumentError("unsupported PSCAD frequency field $field"))
-        frequency_parameters[index] = string(field) => _pscad_value(setting.value)
-    end
     _pscad_user!(schematic, identifier, _PSCAD_FREQUENCY_BINDING,
         frequency_parameters; x = 576, y = 180)
     addelement!(schematic, "grouping")
@@ -465,8 +510,8 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
                 position,
                 connections,
                 cable,
-                base_frequency,
-                formulation,
+                base_freq,
+                formulas,
                 temperature
             );
             x = 234 + (cable - 1) * 400,
@@ -480,13 +525,28 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
         "GrRho" => "0", "GRRES" => _pscad_value(ground.rho),
         "GPERM" => _pscad_value(ground.mu_r), "K0" => "0.001",
         "K1" => "0.01", "alpha" => "0.7", "GRP" => _pscad_value(ground.eps_r)]
-    for (field, setting) in pairs(get(native_settings, :ground, (;)))
-        index = findfirst(pair -> first(pair) == string(field), ground_parameters)
-        index === nothing && throw(ArgumentError("unsupported PSCAD ground field $field"))
-        ground_parameters[index] = string(field) => _pscad_value(setting.value)
-    end
     _pscad_user!(schematic, identifier, _PSCAD_GROUND_BINDING,
         ground_parameters; x = 504, y = 288)
     _pscad_hierarchy!(project, namespace)
     return document
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Check the physical earth inventory accepted by PSCAD model export and execution.
+The supported model consists of air and one infinite horizontal soil half-space.
+"""
+function validate(model::EarthModel, ::typeof(pscad_project))
+    _pscad_deterministic(eltype(model))
+    !model.vertical_layers && length(model.layers) == 2 &&
+    all(layer -> isinf(layer.thickness), model.layers) || throw(ArgumentError(
+        "PSCAD supports physical air and one homogeneous horizontal soil half-space"))
+    return model
+end
+
+function _pscad_deterministic(types::Type...)
+    any(Engine.has_uncertainty_type, types) && throw(ArgumentError(
+        "PSCAD does not support Measurement values. Supply deterministic inputs."))
+    return nothing
 end

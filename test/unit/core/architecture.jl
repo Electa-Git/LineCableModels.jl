@@ -32,7 +32,8 @@ end
     ).module === WirePatterns
 
     @test Engine.Formulation() isa Engine.LineParametersFormulation
-    @test_throws ArgumentError("unknown backend formulation :unregistered") Engine.Formulation(:unregistered)
+    @test_throws ArgumentError("unknown backend formulation :unregistered. A backend held " *
+        "in a package extension loads with its trigger package.") Engine.Formulation(:unregistered)
     @test_throws MethodError ImportExport.export_data(:unregistered, nothing)
     @test_throws MethodError ImportExport.import_data(:unregistered, nothing)
 end

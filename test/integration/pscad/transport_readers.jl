@@ -1,5 +1,5 @@
 @testitem "PSCAD / reader failures propagate and a failed diagnostics read keeps the failure" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
-    const P = LineCableModels.PSCAD
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const S = PSCADStandIn
     frequencies = 10.0 .^ range(-1, 5; length = 101)
     function staged(root)
@@ -11,14 +11,14 @@
         problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies)
         project = joinpath(mkpath(joinpath(root, "case")), "stand_in.pscx")
         write(project, P._pscad_inputs(problem, Formulation(:pscad),
-            P._pscad_blueprints(system)).project)
+            LineCableModels.DataModel.flatten.(system.designs)).project)
         return project
     end
     settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
     function failure(root; timeout = 60)
         project = staged(root)
         return try
-            P.run_remote_pscad(S.remote(root; timeout), project,
+            P.run_remote_pscad(P.RemoteConfig(S.remote(root; timeout)), project,
                 joinpath(dirname(project), "outputs"), settings, frequencies; line_name = "lcm_read")
             nothing
         catch error

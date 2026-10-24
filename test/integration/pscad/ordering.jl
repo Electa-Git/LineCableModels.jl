@@ -1,7 +1,7 @@
 @testitem "PSCAD / matrix coordinates and complete native reuse keys" tags=[:integration, :measurements, :slow] setup=[PSCADStandIn] begin
     using LineCableModels.Engine: completed_formulation
     using TOML, SHA, Measurements
-    const P = LineCableModels.PSCAD
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const S = PSCADStandIn
     # The stand-in's matrices are deliberately nonsymmetric protocol matrices, not
     # scientific references.
@@ -54,7 +54,7 @@
         @test [details(result).data.gridpoint.formulation_index for result in batch] == [1,2]
         @test completed_formulation(details(batch[2])).formulations.formulas.earth_impedance.identifier === :pollaczek1926
         near = [Formulation(:pscad;options=(base_frequency=f,)) for f in (50.000001,50.000002)]
-        project_inputs = [P._pscad_inputs(permuted,f,P._pscad_blueprints(permuted.system)) for f in near]
+        project_inputs = [P._pscad_inputs(permuted,f,LineCableModels.DataModel.flatten.(permuted.system.designs)) for f in near]
         @test project_inputs[1].project == project_inputs[2].project
         distinct = compute(permuted,Grid(Tuple(near));options=(;remote))
         @test launches() == 5
@@ -118,8 +118,8 @@
         @test all(isfinite, Z(overflowed))
         # A completion from the former protocol never qualifies for new reuse.
         old = joinpath(directory,"old-protocol"); mkpath(old)
-        open(io->TOML.print(io,Dict("schema_version"=>4)),joinpath(old,"complete.toml"),"w")
-        @test_throws r"fresh version-5" compute(permuted,selected;options=(;remote,resume_run_directory=old))
+        open(io->TOML.print(io,Dict("schema_version"=>5)),joinpath(old,"complete.toml"),"w")
+        @test_throws r"fresh version-6" compute(permuted,selected;options=(;remote,resume_run_directory=old))
         before = launches()
         latest = compute(permuted,selected;options=(;remote,resume_run_directory=:latest))
         @test details(latest).data.execution.reused

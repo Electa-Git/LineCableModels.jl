@@ -120,7 +120,7 @@ end
     @test -1e-12 <= linear / exact - 1 <= variance * dT^2
 end
 
-@testitem "DataModel / reductions / each export reproduces the cable constants of its cores" tags=[:integration, :pscad] setup=[TestFixtures] begin
+@testitem "DataModel / reductions / each export reproduces the cable constants of its cores" tags=[:integration, :importexport] setup=[TestFixtures] begin
     using EzXML
     # The item reads each format back and forms the capacitance and conductance of each core
     # group as that format does. It compares the admittance of each group, G + jωC, with

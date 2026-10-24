@@ -18,9 +18,6 @@
 "Engine.SemiconAdmittance | Engine.SemiconAdmittanceFormulation | src/engine/semiconadmittance/interface.jl" = 2
 "ImportExport | Engine.LineParameters | src/importexport/tralin.jl" = 4
 "Materials.TemperatureDependent | Commons.constitutive | src/materials/temperaturedependent/interface.jl" = 1
-"PSCAD | Engine.Formulation | src/pscad/formulations.jl" = 1
-"PSCAD | ImportExport.export_data | src/pscad/importexport/pscad.jl" = 1
-"PSCAD | ImportExport.import_data | src/pscad/importexport/import.jl" = 1
 "UQ | Commons.materialize | src/uq/results.jl" = 2
 
 [placement]
@@ -58,6 +55,10 @@
 "ext/LineCableModelsMakieExt/recipes/preview_render.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "ext/LineCableModelsMakieExt/series_styles.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
 "ext/LineCableModelsMakieExt/shell.jl" = { applicable = 0, eval = 0, isa = 17, kind = 0 }
+"ext/LineCableModelsPSCADExt/compute.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
+"ext/LineCableModelsPSCADExt/configuration.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
+"ext/LineCableModelsPSCADExt/formulations.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
+"ext/LineCableModelsPSCADExt/remote.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/commons/formulas.jl" = { applicable = 0, eval = 0, isa = 3, kind = 0 }
 "src/commons/interfaces.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
 "src/commons/logging.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
@@ -114,11 +115,6 @@
 "src/materials/temperaturedependent/interface.jl" = { applicable = 0, eval = 0, isa = 0, kind = 1 }
 "src/parametricbuilder/construction_macros.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/parametricbuilder/textdisplay.jl" = { applicable = 1, eval = 0, isa = 0, kind = 0 }
-"src/pscad/compute.jl" = { applicable = 0, eval = 0, isa = 5, kind = 0 }
-"src/pscad/formulations.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/pscad/importexport/pscad.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
-"src/pscad/remote/configuration.jl" = { applicable = 0, eval = 0, isa = 4, kind = 0 }
-"src/pscad/remote/remote.jl" = { applicable = 0, eval = 0, isa = 2, kind = 0 }
 "src/reportbuilder/comparisons.jl" = { applicable = 0, eval = 0, isa = 6, kind = 0 }
 "src/reportbuilder/grammar.jl" = { applicable = 0, eval = 0, isa = 8, kind = 0 }
 "src/reportbuilder/montecarlo.jl" = { applicable = 0, eval = 0, isa = 1, kind = 0 }
@@ -135,14 +131,14 @@
 
 [absence]
 "ext/LineCableModelsMakieExt" = 255
+"ext/LineCableModelsPSCADExt" = 12
 "src/commons" = 106
 "src/datamodel" = 138
 "src/earth" = 16
 "src/engine" = 233
-"src/importexport" = 38
+"src/importexport" = 52
 "src/materials" = 6
 "src/parametricbuilder" = 41
-"src/pscad" = 36
 "src/reportbuilder" = 70
 "src/textdisplay" = 1
 "src/units" = 24
@@ -286,6 +282,8 @@
 "ext/LineCableModelsMakieExt/recipes/preview_data.jl" = 2
 "ext/LineCableModelsMakieExt/recipes/preview_render.jl" = 1
 "ext/LineCableModelsMakieExt/shell.jl" = 5
+"ext/LineCableModelsPSCADExt/compute.jl" = 1
+"ext/LineCableModelsPSCADExt/results.jl" = 3
 "src/commons/observed_validation.jl" = 1
 "src/datamodel/cableslibrary/vdeparse.jl" = 2
 "src/datamodel/flatten.jl" = 6
@@ -297,13 +295,11 @@
 "src/engine/problems.jl" = 1
 "src/importexport/deserialize.jl" = 1
 "src/importexport/observed.jl" = 1
+"src/importexport/pscad/import.jl" = 2
+"src/importexport/pscad/project.jl" = 2
+"src/importexport/pscad/schema.jl" = 1
 "src/parametricbuilder/physicaltree.jl" = 1
 "src/parametricbuilder/wirepatterns/gauges.jl" = 1
-"src/pscad/compute.jl" = 1
-"src/pscad/importexport/import.jl" = 2
-"src/pscad/importexport/project.jl" = 2
-"src/pscad/importexport/schema.jl" = 1
-"src/pscad/results.jl" = 3
 "src/textdisplay/TextDisplay.jl" = 2
 "src/units/scaling.jl" = 1
 "src/units/units.jl" = 2

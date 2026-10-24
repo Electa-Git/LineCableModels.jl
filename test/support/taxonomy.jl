@@ -16,9 +16,10 @@ const MODULE_OWNERS = (Units = :units, Commons = :commons, TextDisplay = :common
     PlotBuilder = :commons, Materials = :materials, Earth = :earth,
     DataModel = :datamodel, Engine = :engine,
     ParametricBuilder = :parametric, UQ = :uq, ReportBuilder = :report,
-    ImportExport = :importexport, PSCAD = :pscad)
+    ImportExport = :importexport)
 
-const EXTENSION_OWNERS = (LineCableModelsMeasurementsExt = :measurements,
+const EXTENSION_OWNERS = (LineCableModelsPSCADExt = :pscad,
+    LineCableModelsMeasurementsExt = :measurements,
     LineCableModelsDistributionsExt = :distributions, LineCableModelsXLSXExt = :xlsx,
     LineCableModelsMakieExt = :makie,
     LineCableModelsCairoMakieExt = :makie, LineCableModelsGLMakieExt = :makie,

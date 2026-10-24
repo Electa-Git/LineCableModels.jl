@@ -1,6 +1,5 @@
 @testitem "PSCAD / deterministic numeric validation precedes staging and connecting" tags=[:integration, :measurements] setup=[PSCADStandIn] begin
     using Measurements, Calculus
-    const P = LineCableModels.PSCAD
     const S = PSCADStandIn
     function model(; radius=0.004, rho=1.72e-8, soil=100.0, temperature=20.0,
             frequency=10.0 .^ range(-1, 5; length=101))
@@ -57,15 +56,18 @@
 end
 
 @testitem "PSCAD / a start that never listens fails within the timeout" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
-    const P = LineCableModels.PSCAD
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const S = PSCADStandIn
     mktempdir() do directory
         application = S.install(directory; listening = false)
         touch(joinpath(S.STATION[], "never-listens"))
-        remote = S.remote(directory; timeout = 5)
+        remote = P.RemoteConfig(S.remote(directory; timeout = 5))
+        settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
         started = time()
         caught = try
-            P.identify(remote)
+            P.run_remote_pscad(remote, joinpath(directory, "case.pscx"),
+                joinpath(directory, "outputs"), settings, 10.0 .^ range(-1, 5; length = 101);
+                line_name = "lcm_start")
             nothing
         catch error
             error

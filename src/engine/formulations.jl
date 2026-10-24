@@ -357,9 +357,10 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the backend formulation whose identity is `tag`: `:coaxial`, `:cable_constants`
-or `:pscad`. `Formulation(::Val{tag}; kwargs...)` forwards `kwargs` to the
-backend's constructor. PSCAD defines its own method.
+Build the backend formulation whose identity is `tag`: `:coaxial` or `:cable_constants`.
+`Formulation(::Val{tag}; kwargs...)` forwards `kwargs` to the backend's constructor. A
+package extension adds the tag of its backend, as the PSCAD extension adds `:pscad` when
+PythonCall is loaded.
 
 # Errors
 
@@ -368,7 +369,8 @@ backend's constructor. PSCAD defines its own method.
 Formulation(tag::Symbol; kwargs...) = Formulation(Val(tag); kwargs...)
 
 Formulation(::Val{tag}; kwargs...) where {tag} =
-    throw(ArgumentError("unknown backend formulation :$tag"))
+    throw(ArgumentError("unknown backend formulation :$tag. A backend held in a package " *
+                        "extension loads with its trigger package."))
 
 # An earth equation admits an equivalent-earth reduction only through its own method.
 function validate(reduction::EquivalentHomogeneous.AbstractRule,

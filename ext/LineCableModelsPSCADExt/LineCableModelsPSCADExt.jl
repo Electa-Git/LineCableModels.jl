@@ -1,18 +1,45 @@
 """
     LineCableModelsPSCADExt
 
-Run native PSCAD line-parameter computations through PSCAD's automation server with
-`mhi.pscad`, which PythonCall loads. The caller connects to the PSCAD that runs on the
-station, loads the staged project from the shared directory and reads the run's files from
-its own side of that directory.
+The PSCAD backend, which `using PythonCall` loads. It adds `Formulation(:pscad)` and runs
+native PSCAD line-parameter computations through PSCAD's automation server with
+`mhi.pscad`. The caller stages the project of `ImportExport.pscad_project` in the shared
+directory. The PSCAD of the station loads it there, and the caller reads the run's files
+from its own side of that directory.
 """
 module LineCableModelsPSCADExt
 
-using LineCableModels: validate
-using LineCableModels.PSCAD: PSCAD, PSCAD_VERSION, RemoteConfig
-import LineCableModels.PSCAD: identify, run_remote_pscad
+import LineCableModels
+import LineCableModels.DataModel
+import LineCableModels.Engine
+import LineCableModels.ImportExport
+using LineCableModels.Commons: AbstractFormulation, ComputationDetails, ComputationOptions,
+                               Expression, FormulationOptions, Resolved, details, formula,
+                               gridpoint_id, parameterize
+import LineCableModels.Commons: computation_details, computation_options, compute,
+                                description, formula_id, formulation_options, resolve,
+                                validate
+using LineCableModels.Engine: EarthAdmittance, EarthImpedance, InsulationAdmittance,
+                              InsulationImpedance, InternalImpedance, LineParameters,
+                              LineParametersFormulation, LineParametersProblem,
+                              PhaseDomain, SemiconAdmittance, Y, Z, frequencies
+import LineCableModels.Engine: Formulation
+import LineCableModels.Engine.EarthAdmittance: earth_potential_coefficient
+import LineCableModels.Engine.EarthImpedance: earth_impedance
+import LineCableModels.Engine.InsulationImpedance: insulation_impedance
+import LineCableModels.Engine.InternalImpedance: internal_impedance
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+import EzXML
 using PythonCall: Py, PyException, pyconvert, pydict, pyimport, pystr
+using SHA: sha256
 import TOML
+
+include("formulations.jl")
+include("results.jl")
+include("validate.jl")
+include("configuration.jl")
+include("remote.jl")
+include("compute.jl")
 
 # `app._load` takes the station's path verbatim. `app.load` would make it absolute on the
 # caller. This version of `mhi.pscad` has the remote method.
@@ -214,26 +241,12 @@ function _connected(f, config::RemoteConfig)
     end
 end
 
-# A PSCAD in session 0 cannot read its settings through `app.settings()`. The remote method
-# `app._settings` reads the selected line-constants program verbatim.
-function _identity(app)
-    metadata = pyimport("importlib.metadata")
-    return Dict{String, String}(
-        "schema" => "2",
-        "version" => _string(app.version),
-        "automation_version" => _string(metadata.version("mhi.pscad")),
-        "common_version" => _string(metadata.version("mhi.common")),
-        "line_constants" => _string(app._settings(pydict())["file_lcp"]))
-end
-
-identify(config::RemoteConfig) = _connected(app -> validate(_identity(app), config), config)
-
-# Each step of a run writes a line of the run's log and a debug record of the PSCAD module,
-# which a run's verbosity shows at level 2 of `PSCAD`.
+# Each step of a run writes a line of the run's log and a debug record of this extension,
+# which a run's verbosity shows at level 2 of `LineCableModelsPSCADExt`.
 function _report(console::IO, message::AbstractString)
     println(console, "[", round(time(); digits = 3), "] ", message)
     flush(console)
-    @debug message _module = PSCAD
+    @debug message
     return nothing
 end
 
@@ -280,7 +293,7 @@ end
 
 function run_remote_pscad(config::RemoteConfig, project::AbstractString,
         output::AbstractString, settings::AbstractDict, frequencies::AbstractVector;
-        line_name::AbstractString, expected_identity = nothing)
+        line_name::AbstractString)
     isdir(output) && !isempty(readdir(output)) && throw(ArgumentError(
         "PSCAD output directory is not empty; select a new run directory: $output"))
     parts = splitpath(relpath(abspath(project), config.local_root))
@@ -288,23 +301,30 @@ function run_remote_pscad(config::RemoteConfig, project::AbstractString,
         "PSCAD project must be inside remote.local_root: $project"))
     return _connected(config) do app
         _run(app, config, project, _remote_path(config.shared_root, parts...), output,
-            settings, frequencies, line_name, expected_identity)
+            settings, frequencies, line_name)
     end
 end
 
-# The run on a connected application. It checks the identity before it loads the project from
-# the shared directory. After the settings, it solves the line constants and collects the
-# detailed files. Every exit unloads the project that the run loaded.
+# The run on a connected application. It reads the identity of the solver before it loads the
+# project from the shared directory. After the settings, it solves the line constants and
+# collects the detailed files. Every exit unloads the project that the run loaded.
 function _run(app, config::RemoteConfig, project, station, output, settings, frequencies,
-        line_name, expected_identity)
+        line_name)
     mkpath(output)
     console_path = joinpath(output, "pscad-console.txt")
     console = open(console_path, "w")
     try
         _report(console, "Connected to PSCAD $PSCAD_VERSION at $(config.host):$(config.port)")
-        identity = validate(_identity(app), config)
-        something(expected_identity, identity) == identity || throw(ErrorException(
-            "PSCAD installation does not match the expected solver identity"))
+        # The identity of the solver. A PSCAD in session 0 cannot read its settings through
+        # `app.settings()`. The remote method `app._settings` reads the selected
+        # line-constants program verbatim.
+        metadata = pyimport("importlib.metadata")
+        identity = validate(Dict{String, String}(
+            "schema" => "2",
+            "version" => _string(app.version),
+            "automation_version" => _string(metadata.version("mhi.pscad")),
+            "common_version" => _string(metadata.version("mhi.common")),
+            "line_constants" => _string(app._settings(pydict())["file_lcp"])), config)
         name = first(splitext(basename(project)))
         # Whether PSCAD holds a project of the run's name, and PSCAD's messages about a project.
         held() = any(entry -> _string(entry["name"]) == name, app.projects())
@@ -399,7 +419,7 @@ function _run(app, config::RemoteConfig, project, station, output, settings, fre
             _report(console, "Collected detailed PSCAD Z and Y outputs")
             open(io -> TOML.print(io, identity; sorted = true),
                 joinpath(output, "solver.toml"), "w")
-            @debug("PSCAD frequency scan completed", _module = PSCAD,
+            @debug("PSCAD frequency scan completed",
                 compile_call_seconds = elapsed, timing_scope = PSCAD_TIMING_SCOPE)
             return (elapsed_seconds = elapsed, elapsed_scope = PSCAD_TIMING_SCOPE,
                 console_path, output_dir = String(output))

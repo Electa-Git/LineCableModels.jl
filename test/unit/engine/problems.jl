@@ -144,9 +144,10 @@ end
 end
 
 @testitem "Engine / problems / a formulation space contains one backend" tags=[:unit, :pscad] setup=[TestFixtures] begin
+    using PythonCall
     # The formulation of a backend tag lifts over the keywords of that backend.
     pscad = Formulation(:pscad; internal_impedance = Grid((:default, :schelkunoff1934)))
-    @test pscad isa Gridspace{LineCableModels.PSCAD.PSCADFormulation}
+    @test pscad isa Gridspace{Base.get_extension(LineCableModels, :LineCableModelsPSCADExt).PSCADFormulation}
     @test length(pscad) == 2
     # A space that mixes backends is refused before the first point. Comparing backends
     # takes one computation per backend.

@@ -1,5 +1,3 @@
-import LineCableModels: formula_id
-
 """
     PSCADFormulation
 
@@ -36,7 +34,8 @@ Base.pairs(::Type{PSCADFormulation},retained::NamedTuple;quantity=nothing) =
 function formulation_options(::Type{PSCADFormulation}, record::FormulationOptions)::FormulationOptions
     options = record.data
     base_frequency = get(options, :base_frequency, 50.0)
-    _pscad_deterministic(typeof(base_frequency))
+    Engine.has_uncertainty_type(typeof(base_frequency)) && throw(ArgumentError(
+        "PSCAD does not support Measurement values. Supply deterministic inputs."))
     isfinite(base_frequency) && base_frequency >= 0.1 || throw(DomainError(
         base_frequency, "PSCAD base frequency must be finite and at least 0.1 Hz"))
     physical = (;
@@ -260,13 +259,14 @@ insulation_impedance(::InsulationImpedance.Formula{:ametani1980}, ::PSCADFormula
 Compile every required native setting from the physical indexed interactions.
 """
 function pscad_setting(formulation::PSCADFormulation, problem::LineParametersProblem)
-    _pscad_deterministic(eltype(problem), typeof(formulation.options.data.base_frequency))
-    return pscad_setting(formulation, problem, _pscad_blueprints(problem.system))
+    T = eltype(problem.system)
+    return pscad_setting(formulation, problem,
+        DataModel.CableBlueprint{T}[DataModel.flatten(design, T)
+                                    for design in problem.system.designs])
 end
 
 function pscad_setting(formulation::PSCADFormulation, problem::LineParametersProblem, blueprints)
-    model = problem.earth_props
-    validate(model, PSCADFormulation)
+    validate(problem.earth_props, ImportExport.pscad_project)
     relation = formulation.formulas.earth_properties
     (relation === nothing ||
      relation === LineCableModels.Earth.FrequencyDependent.Formula(:default)) ||

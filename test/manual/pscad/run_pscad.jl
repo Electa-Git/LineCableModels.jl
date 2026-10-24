@@ -8,7 +8,6 @@ using PythonCall # loads the PSCAD backend
 
 # Edit this filename to use another station configuration.
 config_path = joinpath(@__DIR__, "local-pscad.toml")
-station = PSCAD.RemoteConfig(config_path)
 
 # 2 insulated copper wires, buried 1 m deep and spaced 1 m apart.
 copper = Material(:conductor, 1.72e-8, 1.0)
@@ -22,7 +21,7 @@ problem = LineParametersProblem(system; earth_props=homogeneous(rho=100.0),
 selected = Formulation(:pscad; earth_impedance=:wedepohl1973)
 
 @time result = compute(problem, selected;
-    options=(remote=station, verbosity=(default=0, PSCAD=1)))
+    options=(remote=config_path, verbosity=(default=0, LineCableModelsPSCADExt=1)))
 Zresult = Z(result) # Series impedance in ohm/m: terminal × terminal × frequency.
 Yresult = Y(result) # Shunt admittance in S/m, with the same ordering.
 println("PSCAD run: ", details(result).data.execution.source_run)

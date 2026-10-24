@@ -117,8 +117,8 @@ end
         using TestItemRunner
         include($(repr(runner)))
         import LineCableModels
-        include_string(LineCableModels.PSCAD, "planted_probe(::Val{:planted}) = 1", $(repr(planted)))
-        method = only(methods(LineCableModels.PSCAD.planted_probe))
+        include_string(LineCableModels.ImportExport, "planted_probe(::Val{:planted}) = 1", $(repr(planted)))
+        method = only(methods(LineCableModels.ImportExport.planted_probe))
         println("PLANTED ", String(method.file))
         ValidationTestRunner.run_changed($(repr(root)),
             Set([("test/unit/units/units.jl", "Units / locked public vocabulary")]);

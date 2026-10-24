@@ -3,7 +3,6 @@ using PythonCall # loads the PSCAD backend
 
 # The backend uses the filename supplied by the caller without searching for one.
 config_path = isempty(ARGS) ? ENV["LINECABLEMODELS_PSCAD_CONFIG"] : only(ARGS)
-station = PSCAD.RemoteConfig(config_path)
 
 copper = Material(:conductor, 1.72e-8, 1.0)
 dielectric = Material(:insulator, 1e14, 2.3)
@@ -15,6 +14,6 @@ problem = LineParametersProblem(system; earth_props=homogeneous(rho=100.0),
     frequencies=10.0 .^ range(-1, 6; length=101))
 selected = Formulation(:pscad; earth_impedance=:wedepohl1973)
 @time result = compute(problem, selected;
-    options=(remote=station, verbosity=(default=0, PSCAD=1)))
+    options=(remote=config_path, verbosity=(default=0, LineCableModelsPSCADExt=1)))
 Zresult = Z(result)
 Yresult = Y(result)

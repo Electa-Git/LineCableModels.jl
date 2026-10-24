@@ -5,7 +5,7 @@
     using LineCableModels: description
     using LineCableModels.Engine
 
-    harness=LineCableModels.PSCAD
+    harness=Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     overhead=Formulation(:pscad; earth_impedance = :gary1976)
     underground=Formulation(:pscad; earth_impedance = :wedepohl1973)
     @test overhead isa harness.PSCADFormulation
@@ -86,8 +86,8 @@
             2, 2, 2), 1.0)
     end
 
-    config=harness.RemoteConfig("host", 54330, raw"Z:\pscad\benchmarks\.work",
-        raw"C:\PSCAD\Pscad.exe"; local_root=mktempdir(), timeout = 60)
+    config=(host = "host", port = 54330, shared_root = raw"Z:\pscad\benchmarks\.work",
+        pscad_executable = raw"C:\PSCAD\Pscad.exe", local_root = mktempdir(), timeout = 60)
     owner=harness.PSCADFormulation
     @test LineCableModels.formulation_options(owner, FormulationOptions()) == overhead.options
     @test_throws ArgumentError LineCableModels.formulation_options(
@@ -97,7 +97,7 @@
     @test_throws ArgumentError LineCableModels.computation_options(owner, ComputationOptions((;)))
     execution=LineCableModels.computation_options(owner, ComputationOptions((remote = config,)))
     # The verbosity and the callable of a computation are options of its run, not of PSCAD.
-    for run_option in ((verbosity = (default = 0, PSCAD = 2),), (on_result = identity,))
+    for run_option in ((verbosity = (default = 0, LineCableModelsPSCADExt = 2),), (on_result = identity,))
         @test_throws ArgumentError LineCableModels.computation_options(owner,
             ComputationOptions(merge((; remote = config), run_option)))
     end
@@ -107,12 +107,11 @@
         @test_throws ArgumentError LineCableModels.computation_options(owner,
             ComputationOptions(; remote=config, timing))
     end
-    @test execution.data == (
-        work_root=config.local_root,
-        remote = config,
-        resume_run_directory = nothing,
-        solver_identity = nothing
-    )
+    @test keys(execution.data) == (:work_root, :remote, :resume_run_directory)
+    @test execution.data.work_root == config.local_root
+    @test execution.data.resume_run_directory === nothing
+    @test all(getfield(execution.data.remote, name) == getfield(harness.RemoteConfig(config), name)
+        for name in fieldnames(harness.RemoteConfig))
     @test LineCableModels.computation_options(owner, execution) === execution
     # A run's directory gives the name of its line and of the files that PSCAD writes.
     @test_throws ArgumentError LineCableModels.computation_options(

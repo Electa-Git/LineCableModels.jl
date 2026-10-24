@@ -3,7 +3,7 @@
     using LineCableModels
     using TOML, SHA, Logging
     using PythonCall: pydict
-    const P=LineCableModels.PSCAD
+    const P=Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const S=PSCADStandIn
     # Exercise export, staging, parsing and checkpoints with the stand-in PSCAD. Its
     # matrices are protocol fixtures, not references.
@@ -25,8 +25,6 @@
         for value in (:invalid, "", 1)
             @test_throws ArgumentError computation_options(P.PSCADFormulation, ComputationOptions((; remote, resume_run_directory = value)))
         end
-        @test_throws ArgumentError computation_options(P.PSCADFormulation, ComputationOptions((;
-            remote, solver_identity = 1)))
         quiet_log=Test.TestLogger()
         first_result=with_logger(quiet_log) do
             compute(problem, Formulation(:pscad);
@@ -47,10 +45,10 @@
         verbose_log=Test.TestLogger(min_level=Logging.Debug)
         reused=with_logger(verbose_log) do
             compute(problem, Formulation(:pscad; earth_impedance = :pollaczek1926);
-                options=(; options..., verbosity=(default=0, PSCAD=2, timing=1)))
+                options=(; options..., verbosity=(default=0, LineCableModelsPSCADExt=2, timing=1)))
         end
-        # Reuse reads the identity of the current server once, without a run.
-        @test S.connects(application) == 2
+        # Reuse does not connect to the station.
+        @test S.connects(application) == 1
         @test any(record->record.message == "PSCAD reuses a verified completed run", verbose_log.logs)
         @test launches() == 1
         @test Z(reused) == Z(first_result)
@@ -129,15 +127,9 @@
         @test_throws ArgumentError compute(
             problem, Formulation(:pscad; earth_impedance = :saad1996);
             options = (; remote, resume_run_directory = source))
-        @test_throws ArgumentError compute(problem, Formulation(:pscad);
-            options = (; remote, solver_identity = Dict("version"=>"changed")))
         @test launches() == 1
         compute(problem, Formulation(:pscad; earth_impedance = :saad1996); options)
         @test launches() == 2
-        application.file_lcp=raw"$(HomeDir)\bin\win64\other.exe"
-        compute(problem, Formulation(:pscad); options)
-        @test launches() == 3
-        application.file_lcp=raw"$(HomeDir)\bin\win64\tline.exe"
         # A partial run must never be accepted as a completed numerical result.
         partial=mktempdir(directory)
         cp(joinpath(source, "computation.toml"), joinpath(partial, "computation.toml"))
@@ -147,13 +139,13 @@
             println(io, "damaged")
         end
         @test_throws ArgumentError compute(problem, Formulation(:pscad); options)
-        @test launches() == 3
+        @test launches() == 2
         @test endswith(read(joinpath(source, "outputs", "result_zm.out"), String), "damaged\n")
         # A rejected native setting stops the run before its solve.
         application.readbacks=pydict(Dict("EarthForm" => "UNEXPECTED"))
         @test_throws r"PSCAD field EarthForm rejected" compute(problem, Formulation(:pscad);
             options = (; remote))
-        @test launches() == 3
+        @test launches() == 2
         @test isempty(S.loaded(application))
         application.readbacks=pydict()
         application.malformed = true
@@ -166,7 +158,7 @@
         @test caught isa ErrorException
         @test occursin("PSCAD result validation failed", sprint(showerror, caught))
         @test occursin("Full PSCAD diagnostics:", sprint(showerror, caught))
-        @test launches() == 4
+        @test launches() == 3
         application.malformed = false
         # Distinct physical settings in one batch require distinct native runs.
         before = launches()

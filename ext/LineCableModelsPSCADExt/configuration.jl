@@ -11,9 +11,11 @@ The station that runs PSCAD for native runs and the directory it shares with the
 run reads the station's listing of its TCP sockets with the `ssh` command, and borrows a
 PSCAD that listens on `port`. Otherwise it starts `pscad_executable` over SSH with
 `/startup:au /port:<port>` and its working directory at `shared_root`, and quits it at the
-end. It forwards PSCAD's automation port to the caller with the same command. `local_root` and `shared_root` name one directory on
-the caller and on the station. Construction from field values does not perform I/O.
-Construction from a TOML filename only reads that file.
+end. It forwards PSCAD's automation port to the caller with the same command. `local_root`
+and `shared_root` name one directory on the caller and on the station. The normalizer of
+the computation options builds the configuration once from the `remote` option, which is
+the path of a TOML file or a named tuple of the same fields. Construction from field values
+does not perform I/O, and construction from a TOML filename only reads that file.
 
 $(TYPEDFIELDS)
 """
@@ -88,3 +90,25 @@ function RemoteConfig(path::AbstractString)
         local_root = isabspath(local_root) ? local_root : joinpath(dirname(abspath(path)), local_root),
         ssh, timeout)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build a PSCAD configuration from a named tuple of the fields of its TOML file: `host`,
+`port`, `local_root`, `shared_root` and `pscad_executable`, and optionally `ssh` and
+`timeout`. A relative `local_root` is resolved against the current directory.
+"""
+function RemoteConfig(fields::NamedTuple)
+    required = (:host, :port, :local_root, :shared_root, :pscad_executable)
+    unknown = setdiff(keys(fields), (required..., :ssh, :timeout))
+    isempty(unknown) || throw(ArgumentError("unknown PSCAD configuration fields: $(sort!(unknown))"))
+    absent = setdiff(required, keys(fields))
+    isempty(absent) || throw(ArgumentError("PSCAD configuration requires the fields $absent"))
+    return RemoteConfig(fields.host, fields.port, fields.shared_root, fields.pscad_executable;
+        (name => value for (name, value) in pairs(fields)
+         if name in (:local_root, :ssh, :timeout))...)
+end
+
+# The station of the `remote` option is a TOML path or a named tuple of its fields.
+RemoteConfig(value) = throw(ArgumentError("PSCAD computation option remote must be the " *
+    "path of a station TOML file or a named tuple of its fields; got $(typeof(value))"))

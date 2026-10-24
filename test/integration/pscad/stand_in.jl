@@ -202,6 +202,9 @@ sys.modules["mhi.pscad"] = pscad
     # another thread would meet a GC safepoint without those handlers.
     const SSH = joinpath(mktempdir(), "ssh.jl")
     write(SSH, raw"""
+        # The stand-in, a program of its own, loads the standard library whatever load path
+        # its caller passes on.
+        push!(LOAD_PATH, "@stdlib")
         using Sockets
         station, arguments = ARGS[1], ARGS[2:end]
         listens = joinpath(station, "pscad-listens")
@@ -243,10 +246,12 @@ sys.modules["mhi.pscad"] = pscad
         return application
     end
 
+    # The station of the stand-in, the named tuple form of the `remote` computation option.
     remote(local_root::AbstractString; timeout = 60) =
-        LineCableModels.PSCAD.RemoteConfig("station", PORT, SHARED_ROOT, PSCAD_EXECUTABLE;
-            local_root, timeout, ssh = [joinpath(Sys.BINDIR, Base.julia_exename()),
-                "--startup-file=no", "--handle-signals=no", "--threads=1,0", SSH, STATION[]])
+        (host = "station", port = PORT, shared_root = SHARED_ROOT,
+            pscad_executable = PSCAD_EXECUTABLE, local_root, timeout,
+            ssh = [joinpath(Sys.BINDIR, Base.julia_exename()), "--startup-file=no",
+                "--handle-signals=no", "--threads=1,0", SSH, STATION[]])
 
     # The processes of the SSH command's stand-in that a run started, by their process ids.
     processes(kind) = [parse(Int, chop(file; head = length(kind) + 1, tail = 4))

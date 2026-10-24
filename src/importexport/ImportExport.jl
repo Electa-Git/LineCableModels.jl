@@ -36,13 +36,14 @@ import ..Commons
 import ..Units
 import UUIDs
 import ..Commons: observe
+using ..Commons: vacuum_permittivity
 import ..ReportBuilder
 using ..Materials: AbstractMaterial, Material, MaterialsLibrary
 using ..Earth: EarthLayer, EarthModel
 import ..DataModel
 using ..DataModel.BaseParams: equivalent_eps, equivalent_conductivity
 using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
-                   Region, Stack, Group, Assembly, Enclosure,
+                   AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
                    Disk, Rectangle, Ellipse,
                    Sector, Annulus, Shell,
                    Polygon, Pose2,
@@ -56,7 +57,8 @@ import ..Engine: ModalAnalysis
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
                  frequencies, Z, Y, C
 import EzXML
-using EzXML: ElementNode, XMLDocument, addelement!, prettyprint, setroot!
+using EzXML: ElementNode, XMLDocument, addelement!, nodename, prettyprint, readxml, root,
+             setroot!
 using Printf: @printf, @sprintf
 import JSON3
 import Serialization
@@ -77,9 +79,11 @@ include("cableslibrary.jl")
 include("materialslibrary.jl")
 include("atp.jl")
 include("tralin.jl")
+include("pscad/pscad.jl")
 
 public encode_observation, decode_observation_measurement, observation_sources
 public serialize_value, deserialize_value, deserialize_extension
 public ResultReader
+public pscad_project
 
 end # module ImportExport

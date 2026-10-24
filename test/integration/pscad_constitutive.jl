@@ -1,4 +1,4 @@
-@testitem "ImportExport / PSCAD / selected constitutive laws and operating temperature" tags=[:integration, :pscad] begin
+@testitem "ImportExport / PSCAD / selected constitutive laws and operating temperature" tags=[:integration, :importexport] begin
     using EzXML
     const IE = LineCableModels.ImportExport
     copper = Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
@@ -89,10 +89,9 @@
             insulation(Material(:insulator, 1.0, 2.3); t=0.002)))
         lossy_blueprint = LineCableModels.DataModel.flatten(lossy)
         selected = Formulation(insulation_admittance=:lossy)
-        part = LineCableModels.PSCAD._pscad_part_parameters(lossy_blueprint, 1, 1, 50.0,
-            selected, 20.0)
-        @test part.loss > 10
-        @test parse(Float64, Dict(part.parameters)["LT1"]) == 10
+        parameters = IE._pscad_part_parameters(lossy_blueprint, 1, 1, 50.0, selected.formulas,
+            20.0)
+        @test parse(Float64, Dict(parameters)["LT1"]) == 10
 
         bare = build(CableDesign, "bare-wire", terminal(:core, solid(copper, Disk(0.0425))))
         bare_system = build(LineCableSystem, [bare], [Pose2(0, -1)];
@@ -108,8 +107,8 @@
             _, imported = import_data(:pscad, path)
             @test length(only(imported.designs).geometry.regions) == 1
         end
-        insulated_values = Dict(LineCableModels.PSCAD._pscad_cable_parameters(design,
-            blueprint, 1, Pose2(0, -1), [1], 1, frequency, Formulation(), nothing))
+        insulated_values = Dict(IE._pscad_cable_parameters(design,
+            blueprint, 1, Pose2(0, -1), [1], 1, frequency, Formulation().formulas, nothing))
         @test insulated_values["LL"] == "1"
     end
 end

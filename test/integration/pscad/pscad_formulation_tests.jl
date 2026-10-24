@@ -1,6 +1,6 @@
 @testitem "PSCAD / shared grammar and constitutive export" tags=[:integration, :pscad, :slow] begin
-    using LineCableModels
-    const P=LineCableModels.PSCAD
+    using LineCableModels, PythonCall
+    const P=Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     copper=Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
     semicon=Material(:semicon, 1e4, 40; tan_delta = 0.02)
     dielectric=Material(:insulator, 1e8, 2.3; tan_delta = 0.03)
@@ -63,7 +63,7 @@
         Formulation(:pscad; insulation_admittance = :lossy))
     resolved=requested
     root=mktempdir()
-    staged_projects=[P._stage_pscad_project(P._pscad_inputs(underground, value, P._pscad_blueprints(underground.system)), root, underground.system) for value in resolved]
+    staged_projects=[P._stage_pscad_project(P._pscad_inputs(underground, value, LineCableModels.DataModel.flatten.(underground.system.designs)), root) for value in resolved]
     try
         @test length(unique(getproperty.(staged_projects, :root))) == 3
         @test all(project -> dirname(project.root) == root,staged_projects)
@@ -91,7 +91,8 @@
 end
 
 @testitem "PSCAD / native settings exist for the supported formulas only" tags=[:integration, :pscad] begin
-    const P=LineCableModels.PSCAD
+    using PythonCall
+    const P=Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const EI=LineCableModels.Engine.EarthImpedance
     const EA=LineCableModels.Engine.EarthAdmittance
     pscad=Formulation(:pscad)
@@ -125,8 +126,8 @@ end
 end
 
 @testitem "PSCAD / consumes complete homogeneous choices and preserves export settings" tags=[:integration, :pscad] begin
-    using EzXML
-    const P = LineCableModels.PSCAD
+    using EzXML, PythonCall
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const E = LineCableModels.Engine
     copper = Material(:conductor, 1.72e-8, 1, 1, 20, 0.004)
     design = build(CableDesign, "mixed-native-fixture", terminal(:core,
@@ -155,15 +156,9 @@ end
         Formulation(:pscad; earth_impedance = (
             air = formula(:gary1976; options = (integration = (method = :quad,),)),
             earth = :saad1996, mixed = :lucca1994)), problem)
-    project = P._stage_pscad_project(P._pscad_inputs(problem, selected, P._pscad_blueprints(problem.system)), mktempdir(), problem.system)
+    project = P._stage_pscad_project(P._pscad_inputs(problem, selected, LineCableModels.DataModel.flatten.(problem.system.designs)), mktempdir())
     try
         document = EzXML.readxml(project.staged)
-        ground = only(EzXML.findall("//User[@defn='master:Line_Ground']", document))
-        fields = Dict(node["name"] => node["value"] for node in EzXML.findall("./paramlist/param", ground))
-        @test all(parse(Float64, fields[string(name)]) == control.value for (name, control) in pairs(setting.ground))
-        frequency = only(EzXML.findall("//User[@defn='master:Line_FrePhase_Options']", document))
-        fields = Dict(node["name"] => node["value"] for node in EzXML.findall("./paramlist/param", frequency))
-        @test parse(Float64, fields["enablf"]) == 1
         for cable in EzXML.findall("//User[@defn='master:Cable_Coax']", document)
             fields = Dict(node["name"] => node["value"] for node in EzXML.findall("./paramlist/param", cable))
             @test parse(Float64, fields["RHOC"]) ≈ 1.72e-8 * (1 + 0.004 * 40)

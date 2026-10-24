@@ -136,8 +136,10 @@ package-neutral requests and completed values, but it does not import Makie,
 XLSX, Measurements, or Distributions.
 
 `ext/` holds package extensions only. The source of a core submodule is under `src/`,
-also when the submodule runs an external program. PSCAD is in `src/pscad/`, and the
-extension that connects it to PSCAD's automation server is `ext/LineCableModelsPSCADExt.jl`.
+also when the submodule runs an external program. The static PSCAD export and import are
+ImportExport's, in `src/importexport/pscad/`. The PSCAD backend, which runs PSCAD through
+its automation server, is the extension `ext/LineCableModelsPSCADExt/`, which PythonCall
+loads.
 
 Prefer conceptual groupings such as:
 

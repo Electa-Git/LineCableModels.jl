@@ -153,7 +153,7 @@ package method and parse every Julia file under `src/` and `ext/`.
   around a method's file belongs to the method's module or one of its ancestors.
 - Direction (`direction`). The submodules have the order Units, Commons, TextDisplay,
   PlotBuilder, Materials, Earth, DataModel, Engine, ParametricBuilder, UQ, ReportBuilder,
-  ImportExport, PSCAD. Engine's child modules, the formula families and ModalAnalysis, take
+  ImportExport. Engine's child modules, the formula families and ModalAnalysis, take
   Engine's position. `MODULE_OWNERS` in
   `test/support/taxonomy.jl` defines this order once, for the guards and for the test
   runner. The lowered code of a submodule method references earlier submodules, the

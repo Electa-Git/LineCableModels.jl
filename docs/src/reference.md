@@ -96,16 +96,6 @@ Public = true
 Private = false
 ```
 
-## PSCAD backend
-
-```@autodocs
-Modules = [LineCableModels.PSCAD]
-Order = [:module, :constant, :type, :function, :macro]
-Filter = api_reference_entry
-Public = true
-Private = false
-```
-
 ## Plots, reports, and tables
 
 ```@docs

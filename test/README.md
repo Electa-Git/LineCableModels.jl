@@ -80,8 +80,8 @@ Each item outside `quality` has exactly one owner tag. The owner tag is the late
 in load order, whose code the item exercises. A change in one layer can affect only that
 layer and the layers loaded after it. `changed:REF` relies on this order. The owner tags
 in load order are `units`, `commons`, `materials`, `earth`, `datamodel`, `engine`,
-`parametric`, `uq`, `report`, `importexport` and `pscad`. The extension owners
-follow them: `measurements`, `distributions`, `xlsx` and `makie`. `quality`
+`parametric`, `uq`, `report` and `importexport`. The extension owners follow
+them: `pscad`, `measurements`, `distributions`, `xlsx` and `makie`. `quality`
 items have no owner tag.
 
 `test/support/taxonomy.jl` defines the owner tags, the package module that each owner

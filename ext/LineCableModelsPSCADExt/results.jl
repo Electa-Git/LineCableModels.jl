@@ -5,21 +5,21 @@ end
 
 const PSCAD_FREQUENCY_RTOL = 5.0e-8
 
-function _pscad_number(text::AbstractString)
-    value = replace(strip(text), 'D' => 'E', 'd' => 'e')
-    value = replace(value, r"^([+-])\." => s"\g<1>0.")
-    value = replace(value, r"^\." => "0.")
-    value = replace(
-        value,
-        r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))([+-]\d+)$" => s"\g<1>E\g<2>"
-    )
-    parsed = tryparse(Float64, value)
-    parsed === nothing && throw(ArgumentError("invalid PSCAD numeric field $(repr(text))"))
-    return parsed
-end
-
+# The numbers of a row of a detailed file. PSCAD writes a `D` exponent, an exponent without
+# its letter or a mantissa without its leading zero.
 function _float_row(line::AbstractString)
-    return _pscad_number.(split(strip(line)))
+    return map(split(strip(line))) do text
+        value = replace(strip(text), 'D' => 'E', 'd' => 'e')
+        value = replace(value, r"^([+-])\." => s"\g<1>0.")
+        value = replace(value, r"^\." => "0.")
+        value = replace(
+            value,
+            r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))([+-]\d+)$" => s"\g<1>E\g<2>"
+        )
+        parsed = tryparse(Float64, value)
+        parsed === nothing && throw(ArgumentError("invalid PSCAD numeric field $(repr(text))"))
+        parsed
+    end
 end
 
 function _read_detailed(path::AbstractString)

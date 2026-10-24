@@ -1,4 +1,4 @@
-@testitem "ImportExport / PSCAD / system structure and physical values" tags=[:integration, :pscad] setup=[
+@testitem "ImportExport / PSCAD / system structure and physical values" tags=[:integration, :importexport] setup=[
     UseImportExportSupport,
     TestFixtures
 ] begin
@@ -184,7 +184,7 @@
     end
 end
 
-@testitem "ImportExport / PSCAD / four-component limit" tags=[:integration, :pscad] setup=[
+@testitem "ImportExport / PSCAD / four-component limit" tags=[:integration, :importexport] setup=[
     UseImportExportSupport
 ] begin
     using LineCableModels
@@ -241,7 +241,7 @@ end
     end
 end
 
-@testitem "ImportExport / PSCAD / materialized round trip" tags=[:integration, :pscad] setup=[
+@testitem "ImportExport / PSCAD / materialized round trip" tags=[:integration, :importexport] setup=[
     UseImportExportSupport,
     TestFixtures
 ] begin

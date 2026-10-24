@@ -123,8 +123,9 @@ end
 end
 
 @testitem "Engine / a backend formulation is built by its identity" tags=[:unit, :pscad] begin
+    using PythonCall
     backends = (coaxial = LineParametersFormulation, cable_constants = CableConstantsFormulation,
-        pscad = PSCAD.PSCADFormulation)
+        pscad = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt).PSCADFormulation)
     for (tag, backend) in pairs(backends)
         built = Formulation(tag)
         @test built isa backend && formula_id(built) === tag
@@ -138,6 +139,7 @@ end
     @test Formulation(earth_impedance = :unified) == Formulation(earth_impedance = formula(:unified))
     # Each backend has one identity. `ModalAnalysisFormulation` builds a modal analysis.
     for tag in (:LineCableModelsCoaxial, :PSCAD, :modal, :unknown)
-        @test_throws ArgumentError("unknown backend formulation :$tag") Formulation(tag)
+        @test_throws ArgumentError("unknown backend formulation :$tag. A backend held in a " *
+            "package extension loads with its trigger package.") Formulation(tag)
     end
 end

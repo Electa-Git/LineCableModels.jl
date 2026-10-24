@@ -1,33 +1,7 @@
-"""
-$(TYPEDSIGNATURES)
-
-Check the physical earth inventory accepted by PSCAD model export and execution.
-The supported model consists of air and one infinite horizontal soil half-space.
-"""
-function validate(model::EarthModel, ::Type{<:PSCADFormulation})
-    _pscad_deterministic(eltype(model))
-    !model.vertical_layers && length(model.layers) == 2 &&
-    all(layer -> isinf(layer.thickness), model.layers) || throw(ArgumentError(
-        "PSCAD supports physical air and one homogeneous horizontal soil half-space"))
-    return model
-end
-
-function _pscad_deterministic(types::Type...)
-    any(Engine.has_uncertainty_type, types) && throw(ArgumentError(
-        "PSCAD does not support Measurement values. Supply deterministic inputs."))
-    return nothing
-end
-
-function _pscad_blueprints(system::LineCableSystem)
-    _pscad_deterministic(eltype(system))
-    T = eltype(system)
-    return DataModel.CableBlueprint{T}[DataModel.flatten(design, T)
-                                       for design in system.designs]
-end
-
 # Computation frequencies of the PSCAD phase-scan adapter.
 function validate(values::AbstractVector, ::Type{<:PSCADFormulation})
-    _pscad_deterministic(eltype(values))
+    Engine.has_uncertainty_type(eltype(values)) && throw(ArgumentError(
+        "PSCAD does not support Measurement values. Supply deterministic inputs."))
     isempty(values) && throw(ArgumentError("PSCAD requires computation frequencies"))
     invalid = findall(value -> !isfinite(value) || value < 0.1, values)
     isempty(invalid) || throw(DomainError(values[invalid],

@@ -1,5 +1,5 @@
 @testitem "PSCAD / compile failure retains diagnostics and an interruption unloads the project" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
-    const P = LineCableModels.PSCAD
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const S = PSCADStandIn
     frequencies = 10.0 .^ range(-1, 5; length = 101)
     # The exported project of one insulated wire, staged under `root`.
@@ -12,7 +12,7 @@
         problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies)
         project = joinpath(mkpath(joinpath(root, "case")), "stand_in.pscx")
         write(project, P._pscad_inputs(problem, Formulation(:pscad),
-            P._pscad_blueprints(system)).project)
+            LineCableModels.DataModel.flatten.(system.designs)).project)
         return project
     end
     settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
@@ -22,8 +22,8 @@
         project = staged(root)
         output = joinpath(dirname(project), "outputs")
         caught = try
-            P.run_remote_pscad(S.remote(root), project, output, settings, frequencies;
-                line_name = "lcm_failed")
+            P.run_remote_pscad(P.RemoteConfig(S.remote(root)), project, output, settings,
+                frequencies; line_name = "lcm_failed")
             nothing
         catch error
             error
@@ -41,8 +41,8 @@
         @test isempty(S.loaded(application))
         @test !S.silence(application)
         @test all(S.ended, S.processes("forward"))
-        @test_throws ArgumentError P.run_remote_pscad(S.remote(root), project, output, settings,
-            frequencies; line_name = "lcm_failed")
+        @test_throws ArgumentError P.run_remote_pscad(P.RemoteConfig(S.remote(root)), project,
+            output, settings, frequencies; line_name = "lcm_failed")
         missing = joinpath(root, "missing.log")
         @test P._diagnostic_tail(missing) == "PSCAD produced no diagnostic log."
         write(missing, "\n   \n")
@@ -56,8 +56,8 @@
         project = staged(root)
         console = joinpath(dirname(project), "outputs", "pscad-console.txt")
         task = @async try
-            P.run_remote_pscad(S.remote(root), project, dirname(console), settings, frequencies;
-                line_name = "lcm_interrupted")
+            P.run_remote_pscad(P.RemoteConfig(S.remote(root)), project, dirname(console),
+                settings, frequencies; line_name = "lcm_interrupted")
         catch error
             error
         end
@@ -81,9 +81,8 @@ end
 @testitem "PSCAD / step lines, completion records and compile-call timing scope" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
     using Logging, TOML
     using PythonCall: pyconvert
-    const P = LineCableModels.PSCAD
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const S = PSCADStandIn
-    const E = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     frequencies = 10.0 .^ range(-1, 7; length = 101)
     function staged(root)
         design = build(CableDesign, "wire", terminal(:core,
@@ -94,32 +93,32 @@ end
         problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies)
         project = joinpath(mkpath(joinpath(root, "case")), "stand_in.pscx")
         write(project, P._pscad_inputs(problem, Formulation(:pscad),
-            P._pscad_blueprints(system)).project)
+            LineCableModels.DataModel.flatten.(system.designs)).project)
         return project
     end
     settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
-    # Each step line of a run is a line of its log and a debug record of the PSCAD module, as
+    # Each step line of a run is a line of its log and a debug record of the extension, as
     # is the completion record. A logger that admits debug records shows them. A run's
     # verbosity narrows the caller's logger and never widens it.
     narrowed(levels) = log -> LineCableModels.VerbosityLogger(log, levels)
     for (min_level, scope, shown) in ((Logging.Info, identity, false),
             (Logging.Debug, identity, true),
             (Logging.Debug, narrowed((default = 0,)), false),
-            (Logging.Debug, narrowed((default = 0, PSCAD = 1)), false),
-            (Logging.Debug, narrowed((default = 0, PSCAD = 2)), true),
-            (Logging.Info, narrowed((default = 0, PSCAD = 2)), false))
+            (Logging.Debug, narrowed((default = 0, LineCableModelsPSCADExt = 1)), false),
+            (Logging.Debug, narrowed((default = 0, LineCableModelsPSCADExt = 2)), true),
+            (Logging.Info, narrowed((default = 0, LineCableModelsPSCADExt = 2)), false))
         mktempdir() do root
             application = S.install(root)
             project = staged(root)
             output = joinpath(dirname(project), "outputs")
             log = Test.TestLogger(min_level = min_level)
             result = with_logger(scope(log)) do
-                P.run_remote_pscad(S.remote(root), project, output, settings, frequencies;
-                    line_name = "lcm_steps")
+                P.run_remote_pscad(P.RemoteConfig(S.remote(root)), project, output, settings,
+                    frequencies; line_name = "lcm_steps")
             end
             @test result.elapsed_seconds ==
                   parse(Float64, read(joinpath(output, "timing.txt"), String)) >= 0
-            @test result.elapsed_scope == E.PSCAD_TIMING_SCOPE
+            @test result.elapsed_scope == P.PSCAD_TIMING_SCOPE
             @test result.console_path == joinpath(output, "pscad-console.txt")
             @test result.output_dir == output
             steps = filter(record -> record.message ==
@@ -136,7 +135,7 @@ end
                 record = only(completions)
                 @test record._module === P
                 @test record.kwargs[:compile_call_seconds] == result.elapsed_seconds
-                @test record.kwargs[:timing_scope] == E.PSCAD_TIMING_SCOPE
+                @test record.kwargs[:timing_scope] == P.PSCAD_TIMING_SCOPE
                 @test !haskey(record.kwargs, :elapsed_seconds)
             end
             # PSCAD loads the project from the station's side of the shared directory, and
@@ -156,7 +155,7 @@ end
 
 
 @testitem "PSCAD / borrowed and started applications" tags=[:integration, :pscad] setup=[PSCADStandIn] begin
-    const P = LineCableModels.PSCAD
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     const S = PSCADStandIn
     frequencies = 10.0 .^ range(-1, 5; length = 101)
     function staged(root)
@@ -168,12 +167,12 @@ end
         problem = LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies)
         project = joinpath(mkpath(joinpath(root, "case")), "stand_in.pscx")
         write(project, P._pscad_inputs(problem, Formulation(:pscad),
-            P._pscad_blueprints(system)).project)
+            LineCableModels.DataModel.flatten.(system.designs)).project)
         return project
     end
     settings = Dict(row => Dict{String, Any}() for row in ("ground", "frequency", "configuration"))
-    solve(root) = P.run_remote_pscad(S.remote(root), staged(root), joinpath(root, "case", "outputs"),
-        settings, frequencies; line_name = "lcm_application")
+    solve(root) = P.run_remote_pscad(P.RemoteConfig(S.remote(root)), staged(root),
+        joinpath(root, "case", "outputs"), settings, frequencies; line_name = "lcm_application")
     # A PSCAD that listens on the station is borrowed: its silence returns, it keeps running,
     # and the run ends its forward.
     mktempdir() do root
@@ -202,7 +201,8 @@ end
 end
 
 @testitem "PSCAD / unsupported indexed equations fail without fallback" tags=[:integration, :pscad] begin
-    const P = LineCableModels.PSCAD
+    using PythonCall
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     pscad = Formulation(:pscad)
     selected = pscad.formulas
     for (equation, selection) in ((P.earth_impedance, selected.earth_impedance.air),
@@ -241,8 +241,9 @@ end
 end
 
 @testitem "PSCAD / mixed native equations survive coaxial author withdrawal" tags=[:integration, :pscad, :slow] begin
+    using PythonCall
     const E = LineCableModels.Engine
-    const P = LineCableModels.PSCAD
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     selected = E.EarthImpedance.Formula(:ametani2009)
     @test occursin("mixed", description(selected))
     pscad = Formulation(:pscad; earth_impedance=:ametani2009)

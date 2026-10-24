@@ -1,32 +1,10 @@
 """
-    identify(config::RemoteConfig)
-
-Read the identity of the PSCAD installation of the station of `config`, without loading a
-project. It borrows or starts PSCAD as a run does, and it requires `using PythonCall`.
-
-# Arguments
-
-- `config`: the station and the shared directory.
-
-# Returns
-
-- A `Dict{String, String}`: `schema`, PSCAD's `version`, the caller's `automation_version`
-  and `common_version` (the installed `mhi.pscad` and `mhi.common`), and
-  `line_constants`, the line-constants program that PSCAD's settings select.
-
-# Notes
-
-Passing this record as the `solver_identity` computation option requires that
-installation. A fresh run reads the identity on its own connection before it loads the
-project. Completed-run reuse reads the identity of the current server before acceptance.
-"""
-function identify end
-
-"""
-    run_remote_pscad(config, project, output, settings, frequencies; line_name, expected_identity)
+    run_remote_pscad(config, project, output, settings, frequencies; line_name)
 
 Run the line-constants solve of the staged PSCAD `project` on the station of `config`, and
-collect its files into the directory `output`. It requires `using PythonCall`.
+collect its files into the directory `output`. It reads the identity of the solver from
+the automation server before it loads the project, and records it in `solver.toml` in
+`output`.
 
 # Arguments
 
@@ -38,8 +16,6 @@ collect its files into the directory `output`. It requires `using PythonCall`.
 - `frequencies`: the computation frequencies \\[Hz\\].
 - `line_name`: the name of the line, and of the detailed files that PSCAD writes into its
   working directory.
-- `expected_identity`: a record of [`identify`](@ref) that the server must report before
-  the run loads the project.
 
 # Returns
 

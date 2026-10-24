@@ -93,24 +93,34 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- PSCAD native runs connect to PSCAD's automation server with `mhi.pscad` 3.1.2 through the
-  `LineCableModelsPSCADExt` extension, which `using PythonCall` loads, and CondaPkg installs
-  `mhi-pscad`. `PSCAD.RemoteConfig` holds `host`, `ssh`, `port`, `pscad_executable`,
-  `local_root`, `shared_root` and `timeout`, from its constructor
-  `RemoteConfig(host, port, shared_root, pscad_executable; local_root, ssh, timeout)` or a
-  TOML file with those fields. A run reads the station's `netstat -ano -p TCP` listing
-  through the `ssh` command to check whether PSCAD listens on the port, and forwards that port
-  through the same command. It borrows a listening PSCAD, sets its `silence` flag and resets
-  the flag at the end. Otherwise it starts `pscad_executable` over SSH with its working
-  directory at `shared_root` and quits it at the end. It loads the staged project from the
-  shared directory. Its line takes the name of its run directory, and the run moves that
-  line's detailed files and log into its outputs. `PSCAD.identify` returns the version-2 record of
-  PSCAD's version, the caller's `mhi.pscad` and `mhi.common` and the selected line-constants
-  program. The run and completion records are version 5. The `transport` and `command`
-  fields, the station's Julia runner and its environment, the PowerShell supervisor,
-  `identity.py`, `remote_command` and the `output_stem` option are removed. The PSCAD
-  exporter writes the system id with every character outside `[A-Za-z0-9_]` replaced by `_`
-  as the project's namespace.
+- The PSCAD backend is the `LineCableModelsPSCADExt` extension, which `using PythonCall`
+  loads: `PSCADFormulation`, `Formulation(:pscad)`, the computation and the completed-run
+  reuse. Without PythonCall, `Formulation(:pscad)` throws an `ArgumentError`, whose message
+  says that the backend loads with its trigger package. Native runs connect to PSCAD's
+  automation server with `mhi.pscad` 3.1.2, which CondaPkg installs. The `remote`
+  computation option is the station: the path of a
+  TOML file or a named tuple of `host`, `port`, `local_root`, `shared_root` and
+  `pscad_executable`, with the optional `ssh` and `timeout`. A run reads the station's
+  `netstat -ano -p TCP` listing through the `ssh` command to check whether PSCAD listens on
+  the port, and forwards that port through the same command. It borrows a listening PSCAD,
+  sets its `silence` flag and resets the flag at the end. Otherwise it starts
+  `pscad_executable` over SSH with its working directory at `shared_root` and quits it at
+  the end. It loads the staged project from the shared directory and sets the native
+  settings through the automation server. Its line takes the name of its run directory, and
+  the run moves that line's detailed files and log into its outputs. Each result records the
+  identity of the solver that computed it, PSCAD's version, the caller's `mhi.pscad` and
+  `mhi.common` and the selected line-constants program, in
+  `details(result).data.execution.solver_identity` and in `outputs/solver.toml`. Reuse
+  checks the digests of the run's records and the hashes of its outputs, and it does not
+  connect to the station. The run and completion records are version 6. The `transport`
+  and `command` fields, the station's Julia runner and its environment, the PowerShell
+  supervisor, `identity.py`, `remote_command` and the `output_stem` option are removed. The
+  static PSCAD export and import are ImportExport's, and they work without the extension.
+  `ImportExport.pscad_project(system, earth, formulas; base_freq, temperature)` returns the
+  project document, and `export_data(:pscad, ...)` writes it with the formulas of a
+  `LineParametersFormulation` or a `CableConstantsFormulation`, which select the dielectric
+  and temperature laws. The project's namespace is the system id with every character
+  outside `[A-Za-z0-9_]` replaced by `_`.
 - `validate` is owned by `Commons`. `LineCableModels.validate` and
   `import LineCableModels: validate` are unchanged. Every `validate` method takes the
   checked input first and returns it unchanged or throws. Further arguments say what the
@@ -298,8 +308,6 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     `nothing`. `guide_gap` is `(left, right, bottom, top)`, and `guide_spacing` is
     `(rowgap = ..., colgap = ...)`.
   - `problem` and `formulations` take a number or a collection of original identities.
-- The PSCAD sources moved from the extensions directory to `src/pscad/`, and its remote
-  runner project to `src/pscad/remote/`. `LineCableModels.PSCAD` is unchanged.
 - `Commons` owns `initialize_buffers`, which builds every buffer of a computation.
   Each formula and shared component extends `Commons.initialize_buffers(selected, T,
   input, plan, buffers)` and shapes its own buffers, usually as a named tuple of arrays.
@@ -381,10 +389,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - No backend takes `verbosity` or `on_result`: the coaxial backend takes `trace`, the modal
   backend `rotate` and `offdiagonal_tolerance`, and PSCAD its station, its files and its
   reuse. A backend's native tool levels are its own computation options under keys of its
-  own. The PSCAD station's runner prints a line for each step, which the session relays as
-  a debug record of the `PSCAD` module, shown only by a logger that admits debug records. PSCAD's
-  project diagnostics stay in `pscad-console.txt`, and the exception of a failure shows their
-  last lines and the file's path. `PSCAD.RemoteConfig` takes no verbosity.
+  own. Each step of a PSCAD run is a debug record of the `LineCableModelsPSCADExt`
+  extension, shown only by a logger that admits debug records. PSCAD's project diagnostics
+  stay in `pscad-console.txt`, and the exception of a failure shows their last lines and the
+  file's path. The PSCAD station takes no verbosity.
 - The modal chain, `compute(problem, formulation, modal)` and its `modal=` keyword, takes
   one `LineParametersProblem`, one core formulation and one modal formulation or its
   identifier. The modal analysis of the results of a space or of a study is a computation of

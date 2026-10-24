@@ -1,4 +1,4 @@
-@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration, :pscad] setup=[FormulaFixtures] begin
+@testitem "Engine / shared temperature law reaches scalar, Gridspace, constants and export" tags=[:integration, :importexport] setup=[FormulaFixtures] begin
     using LineCableModels.Engine: completed_formulation
     copper = Material(:conductor,1.72e-8,1,1,20,0.004)
     dielectric = Material(:insulator,1e7,2.3,1,20,-0.003;tan_delta=0.025)

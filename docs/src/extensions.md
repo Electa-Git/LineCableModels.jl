@@ -250,6 +250,19 @@ formula owns `diagonal_product`. It writes phase-row by mode-column bases
 and mode-by-frequency roots. The owner checks structural shape and finite arithmetic before computing intrinsic coefficients. It then copies the returned arrays and records diagnostics. Numerical targets are reported as warnings and facts,
 without becoming result-admission rules.
 
+## Backends in package extensions
+
+A backend that needs an optional package is a package extension, which loads with its
+trigger package. The extension contains the backend's formulation type, its
+`Formulation(::Val{tag})` method and its `resolve` and `compute` methods, and it uses only
+exported or public names of LineCableModels. The PSCAD backend is the extension
+`LineCableModelsPSCADExt`, whose trigger is PythonCall: `using PythonCall` adds
+`Formulation(:pscad)`, and `Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)`
+returns the extension module. Without PythonCall, `Formulation(:pscad)` throws an
+`ArgumentError`. The extension writes its project with ImportExport's public writer,
+`ImportExport.pscad_project`, which `export_data(:pscad, ...)` also writes. The static
+export works without the extension.
+
 ## Input validation
 
 A materialized input defines one direct `validate(::OwnedType)` method. The method

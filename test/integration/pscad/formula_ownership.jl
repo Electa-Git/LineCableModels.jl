@@ -1,4 +1,5 @@
 @testitem "PSCAD / Engine owns scientific selections and explicit defaults" tags=[:integration, :pscad] begin
+    using PythonCall
     const E = LineCableModels.Engine
     const Expression = LineCableModels.Expression
     selected = Formulation(:pscad)
@@ -34,8 +35,9 @@
 end
 
 @testitem "PSCAD / ideal potential registration and native selection limits" tags=[:integration, :pscad] begin
+    using PythonCall
     const E = LineCableModels.Engine
-    const P = LineCableModels.PSCAD
+    const P = Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
     metal = Material(:conductor, 1.72e-8, 1.0)
     dielectric = Material(:insulator, 1e14, 2.3)
     design = build(CableDesign, "ideal-potential", terminal(:core,

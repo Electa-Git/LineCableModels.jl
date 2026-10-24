@@ -51,8 +51,8 @@ end
     # Module owners follow load order, and each core owner covers at least one module.
     ranks = map(T.rank, values(T.MODULE_OWNERS))
     @test all(>(0), ranks) && issorted(ranks)
-    @test Set(values(T.MODULE_OWNERS)) == Set(T.OWNERS[1:T.rank(:pscad)])
-    @test Set(values(T.EXTENSION_OWNERS)) == Set(T.OWNERS[T.rank(:pscad)+1:end])
+    @test Set(values(T.MODULE_OWNERS)) == Set(T.OWNERS[1:T.rank(:importexport)])
+    @test Set(values(T.EXTENSION_OWNERS)) == Set(T.OWNERS[T.rank(:importexport)+1:end])
     @test isempty(intersect(Set(T.OWNERS), union(Set(T.KINDS), T.ORDINARY_EXCLUDED_TAGS)))
     # Every Julia file under `src/` and `ext/` has an owner.
     owners = T.loaded_owners(TaxonomyGuards.REPOSITORY)
