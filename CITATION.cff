@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use LineCableModels.jl, please cite this software."
+title: "LineCableModels.jl"
+type: software
+version: 0.2.0
+date-released: 2026-08-13
+authors:
+  - family-names: Martins
+    given-names: Amauri
+    alias: amaurigmartins
+repository-code: "https://github.com/Electa-Git/LineCableModels.jl"
+url: "https://electa-git.github.io/LineCableModels.jl/"
+license: BSD-3-Clause

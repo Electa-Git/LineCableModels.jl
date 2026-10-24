@@ -1,0 +1,819 @@
+# Commons invariants
+
+LineCableModels has three global computation roles: a complete problem and a formulation that selects how to calculate it, followed by a completed result. Package
+modules may add concrete types below these roots, but they do not add parallel
+computation entry points.
+
+Problems and formulations are values: a value changes only when a new one is built. When
+it is built, a formulation copies its options once, with `deepcopy`, so an edit of an array
+that the caller passed does not reach it. Each problem keeps the system or design that it
+is given. Both are values that their builders make, and the builders copy what the
+caller passes, as a problem copies its frequencies. An edit of an internal field in place is
+outside the interface.
+
+The type trees below are generated from the loaded package during the
+documentation build.
+
+```@example grammar_type_trees
+using LineCableModels
+
+println("Problem definitions")
+print(Main.DocumentationTrees.type_tree(AbstractProblemDefinition))
+println("\nFormulations")
+print(Main.DocumentationTrees.type_tree(AbstractFormulation))
+println("\nStudies")
+print(Main.DocumentationTrees.type_tree(AbstractTraversal))
+println("\nProblem spaces")
+print(Main.DocumentationTrees.type_tree(AbstractProblemSpace))
+println("\nResults")
+print(Main.DocumentationTrees.type_tree(AbstractProblemResult))
+```
+
+`Combinatorial`, `LinearError` and `MonteCarlo` are studies, subtypes of
+`AbstractTraversal`, and `ParametricProblem` is a problem space, a subtype of
+`AbstractProblemSpace`. A study computes a space of core problems with a core formulation.
+It is not a formulation, and a problem space is not a problem. UQ uses the same computation
+supertypes. Its completed
+collections are subtypes of `AbstractUncertaintyResult`, while deterministic finite
+collections are subtypes of `AbstractParametricResult`.
+
+`LineParamsDomain` is independent of this computation grammar. It tags the
+physical coordinate system of a completed line-parameter matrix:
+
+```@example grammar_type_trees
+print(Main.DocumentationTrees.type_tree(LineCableModels.LineParamsDomain))
+```
+
+## Fixed actions
+
+One declarative action defines a fixed sequence selected by an abstract definition
+type:
+
+| Action | Definition root | Fixed sequence |
+|:--|:--|:--|
+| `ReportBuilder.report` | `AbstractReportDefinition` | `select → tabulate → illustrate → encode → write → ReportArtifact` |
+
+```@example grammar_type_trees
+using LineCableModels.ReportBuilder: AbstractReportDefinition
+
+println("Report definitions")
+print(Main.DocumentationTrees.type_tree(AbstractReportDefinition))
+```
+
+Each action has one method at its declared abstract root. Concrete definitions
+implement stage methods. They do not specialize the public action itself.
+Required stages are declared with RequiredInterfaces where the type family
+admits that form. Optional stages have an explicit no-op at the abstract root.
+Plotting is deliberately not such an action: the optional Makie extension
+constructs native figures directly from published observations.
+
+Observation uses a different structure. Result owners add `observe` methods.
+Commons owns one `observables(source, requests::Tuple; ...)` publication
+method. Standalone arrays and external result types do not need a shared
+abstract observation type.
+
+## Architecture checks
+
+The architecture that the quality, core and integration tests protect requires:
+
+- the action and its abstract root to belong to the same module.
+- one public action method, with no more-specific definition methods.
+- every fixed stage to remain visible in the declared action.
+- every package-owned concrete definition to implement its required stages.
+- every package-owned definition to remain below its declared root.
+- one Commons-owned observation publication method with positional requests.
+- wide scientific tables whose quantity and unit metadata remain attached to
+  their columns.
+- no calls to another package module's private functions or types, including
+  through aliases, and no private wrappers whose methods only forward unchanged
+  arguments to the same package-owned function. Owner-local numerical kernels
+  and type-dispatch branches remain valid.
+
+A new definition must satisfy these standards. Native interface and import checks,
+tests through actual composed consumers and the structural guards below provide the
+protection. Unchanged forwarding wrappers remain an advisory ReLint finding.
+
+The quality selection also runs advisory source diagnostics. Fatou applies the
+explicit rules in `fatou.toml`. ReLint identifies runtime-evaluation spellings,
+empty or constant-result catches, and unchanged private forwarding methods.
+These scans read all Julia files under `src/` and `ext/` without executing them.
+They report candidates for review, including typed forwarding methods whose
+dispatch purpose has not been determined. Macro expansion, arbitrary binding
+ownership, and global architectural redundancy are outside their analysis.
+Source findings do not fail the job. Tool setup errors, incomplete scans, and
+failed integration controls do. The scans leave source files unchanged and
+do not contribute executed-code coverage. See the
+[test instructions](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md#advisory-source-diagnostics)
+for pinned tool installation, commands, and the retained CI report.
+
+Integration tests also count actual blueprint lowering calls: one per selected
+design point, shared by every formulation and the frequency sweep.
+They check material evaluation before local calculations, paired exterior
+calculation before assembly and reduction at each frequency and explicit
+phase-to-modal result transport without another geometry lowering. The visual
+suite applies the ownership checks to the loaded Makie extensions and verifies
+that material colors consume `Material` or `EarthLayer` objects directly.
+
+`validate(subject, context...)` checks an input before its consumer uses it. It throws on
+invalid input and returns its subject. It may warn on input that is computable but
+questionable.
+
+The `validate` tests check owner dispatch, required interfaces, unchanged valid
+inputs and rejection of damaged inputs through validation and computation. The
+standards require checks to remain with the defining validator. Inspection of every method body requires a separate review beyond representative behavioral tests.
+
+Physical cross-backend accuracy belongs to explicit research work under the testing
+requirements below. See the
+[test commands](https://github.com/Electa-Git/LineCableModels.jl/blob/main/test/README.md) for the implementation checks and their
+execution environments.
+
+The workspace provides the buffers, and formulas use them.
+`Commons.initialize_buffers` is the one action that builds buffers, for every formula and
+every part of the workflow. A formula or shared component builds its own buffers in its
+`initialize_buffers` method, usually as a named tuple of preallocated arrays. The method
+returns them in the workspace's `buffers` record. A named `*Buffers` type exists only for a
+component that several owners share, in `Commons`. The
+storage vocabulary guard below checks the names.
+
+### Structural guards
+
+`test/quality/architecture.jl` enforces the ownership rule stated in `AGENTS.md`,
+which assigns one owner, one name and one implementation to a concept and one
+meaning to a name. The guards load the
+package with the extensions that `explicit_imports.jl` loads. They enumerate every
+package method and parse every Julia file under `src/` and `ext/`.
+
+- Ownership (`ownership`). A core method that extends a function owned by another package
+  module mentions a type owned by its own module or a descendant. For a constructor,
+  the function owner is the owner of the constructed type. For methods of the root
+  module, functions and types of its submodules count as owned by another module.
+  Extension methods are exempt.
+- Placement (`placement`). No core method is defined in a file under `ext/`. The home of a
+  module is the directory that holds its `<ModuleName>.jl` file. The nearest home
+  around a method's file belongs to the method's module or one of its ancestors.
+- Direction (`direction`). The submodules have the order Units, Commons, TextDisplay,
+  PlotBuilder, Materials, Earth, DataModel, Engine, ParametricBuilder, UQ, ReportBuilder,
+  ImportExport. Engine's child modules, the formula families and ModalAnalysis, take
+  Engine's position. `MODULE_OWNERS` in
+  `test/support/taxonomy.jl` defines this order once, for the guards and for the test
+  runner. The lowered code of a submodule method references earlier submodules, the
+  ancestors and descendants of its own module, and no later submodule. Each top-level submodule has a position in
+  the order. The root module and the extensions are exempt.
+- Names (`names`). Functions and types owned by different package modules have
+  distinct names. The per-family `Formula` types are exempt.
+- Shadowing (`shadowing`). Each name that the root module exports is in scope after
+  `using LineCableModels`. It refers to the same object as the name that Base,
+  LinearAlgebra, Statistics, Random, Dates or Logging exports. A name that only a
+  submodule exports stays in that namespace, and a name that DataFrames also exports
+  does not conflict.
+- validate returns its subject (`validate`). Each `validate` definition names its first
+  positional argument. Each path through its body returns that argument or calls
+  `throw`, `rethrow` or `error`. A body that does more than return the argument also uses
+  it in that work, so an identity method passes and a check of another argument fails. The
+  guard reads source code. A path that it cannot classify counts as a violation. Its
+  baseline table is empty.
+- Reserved verbs (`reserved_verbs`). No function name starts with `validate_`, `check_`,
+  `require_`, `assert_`, `verify_` or `ensure_`, after any leading `_` characters.
+  `validate` is the input-check verb.
+- Symbol switches and probes (`switches`). Each source file has counts of `applicable`
+  calls, `@eval` calls, `isa` tests in the forms `x isa T` and `isa(x, T)`, and
+  comparisons of a `kind` field against symbols, negated comparisons included. These
+  counts can decrease and never increase.
+- Decisions by absence (`absence`). Each module directory has one count: `src` for the
+  root module, `src/<module>` for a top-level submodule and its children, and
+  `ext/<extension>`. It counts the comparisons `x === nothing` and `x !== nothing`, the
+  references to `isnothing`, called or passed, and the positional and keyword arguments
+  typed `::Nothing`. It also counts `Nothing` as a type parameter, as in
+  `Union{Nothing, T}` in a field, a bound or a signature, or `Quantity{Name, Nothing}`. A
+  keyword default `= nothing` does not count. A decision that moves inside a module does
+  not change the counts, and one that moves to another module shows. These counts can
+  decrease and never increase.
+- Storage vocabulary (`storage`). A `*Workspace` struct has exactly the fields `input`,
+  `plan` and `buffers`, and optionally `trace`. No function name ends in `_workspace` or
+  `_storage`, and only `initialize_buffers` ends in `_buffers`. Only `Commons` defines a
+  `*Buffers` struct, and no type name ends in `Buffer`, `Storage`, `Scratch` or `Cache`.
+  No field, named tuple key, parameter, local or loop variable takes the name `work`,
+  `scratch`, `storage` or `cache`. The guard reads source code. The modal and
+  cable-constant workspaces keep other fields until their restructuring, and the
+  baseline lists them.
+- Dispatch convention (`dispatch`). A formula method takes the formula object first, and
+  its `Val` tags follow it. The guard examines each function with a method whose first
+  argument is a formula, a subtype of `AbstractFormulation`, or a `Union` that contains
+  one. Another method of that function whose first argument is a `Val`, or a `Union` that
+  contains one, is a violation. In any function, a first argument `Val{ID}`, or a `Union`
+  that contains one, where `ID` is an identifier that a formula family registers through
+  `formulas`, is a violation: it passes the formula as its tag. Type constructors are
+  exempt, such as `Formula(::Val{ID})`. The guard reads the method table. Its baseline
+  table is empty.
+- Lifting (`lifting`). The owner of an input family lifts its constructors with one family
+  method, `(::Type{T})(arguments...) where {T <: Family}`, which dispatch reaches only when
+  no other method accepts the arguments. The family types are the package types under the
+  bound of a family method. Every other constructor method of a family type, except one
+  that calls `parameterize`, types each value position, so a `Grid` or a `Gridspace`
+  never matches it. A method with keywords that calls `parameterize` types no keyword but
+  `combine` narrower than a space. The guard reads the method table. Its baseline table
+  is empty.
+- Builders (`builders`). A builder is a concrete subtype of `Builder` that the package
+  defines. It has no call method of its own type, at least one `build` method, and no
+  `build` method that declares `combine`. The guard reads the method table. Its baseline
+  table is empty.
+- Repeated access names (`repeats`). The base binding of an access chain and its first
+  field have different names, unlike `placed.placed` or `x.:x`. The guard ignores a field
+  repeated inside a field, as in `record.result.result`. Each source file has a count. The
+  guard reads source code. Its baseline table is empty.
+
+`Commons` contains only definitions that several owners use. An owner is the root
+module, a top-level submodule or a package extension. The Commons guards stop
+helpers from accumulating elsewhere.
+
+- Commons admission (`commons`). Each function, type and constant defined in `Commons` is
+  exported or declared `public`, has a docstring and is named in a test file under
+  `test/unit/commons/`. A hook is a `Commons` function with a method defined outside
+  `Commons`. The user API is the `Commons` names that the root module exports or
+  declares `public`. Unless a name is user API, methods of at least two owners
+  outside `Commons` use it. Unless it is a hook or user API, it has an entry in the
+  reserved vocabulary. A use is a reference in lowered code, a method
+  signature, a method extension, a supertype or a field type. Uses by a public
+  `Commons` definition count for the definitions it uses. A definition with one
+  remaining owner moves to that owner. Algorithm-local helpers are nested functions
+  inside the public definition.
+- Reserved vocabulary (`vocabulary`). `VOCABULARY` maps each reserving name to its home
+  and to the definition names it reserves. The home is the directory of the module that
+  defines the name: `src/engine/matrixops.jl` and `src/engine/consts.jl` define the matrix
+  reductions and the vacuum permeability, and `src/commons/` defines the other names.
+  Outside the home of a name, no function, constant or assigned local takes a name it
+  reserves. A local assigned from a call to the reserving definition is exempt, as in
+  `ε0 = vacuum_permittivity(T)`.
+- Literal fingerprints (`fingerprints`). Numeric literals with the digits `8854187` or
+  `299792458` appear only in `src/commons/consts.jl`. A statement that names `π` and
+  contains `1e-7`, or a power of a base containing 10 with exponent `-7`, appears only in
+  `src/engine/consts.jl`.
+- Clones of Commons bodies (`clones`). Function bodies are tokenized with each identifier replaced by its
+  role (call, field or name), and compared through runs of 8 tokens. Statements of
+  the form `x || throw(...)` or `x && throw(...)`, with `throw`, `rethrow` or
+  `error`, are left out. No function body under `src/` or `ext/` contains 75 % of the
+  runs of a `Commons` public function body of at least 30 tokens. Hooks are not
+  compared.
+- Tiny private helpers (`helpers`). A tiny helper is a private module-level function with one
+  method and at most three body statements. Exactly one method references it, and
+  no test file names it. Files under `test/quality/` and `test/tools/` are not test
+  files here. An exact forwarder counts as a tiny helper for any number of
+  references. Its body is one call with the forwarder's own arguments,
+  unchanged and in order, keywords included. Inline a new tiny helper, import the
+  owner's definition, or test it directly.
+- Root freeze (`root`). The number of functions, types and constants defined by the root
+  module does not grow. New shared definitions go to `Commons` under Commons admission.
+
+Each guard is a function of its inputs. The negative controls of the architecture
+guards and the negative controls of the Commons guards apply each guard to a probe
+package with planted violations and to a clean probe package. A guard reports exactly
+the planted violations and nothing in the clean probe.
+
+`test/quality/architecture_baseline.toml` records the violations present when the guards
+were introduced, with one table per guard. A table whose violations are all removed
+stays in the file, empty. The ratchet keeps comparing it, and its guard fails on any
+violation. Every table name must appear in `TABLES`, or the architecture test fails.
+Keys contain no line numbers. An unlisted violation or a count above its entry fails. A
+listed entry without a live violation, or a count below it, also fails. A change that
+removes a violation deletes or lowers its entry. `test/tools/architecture_inventory.jl`
+prints the live inventory in the baseline format. Fix a new violation in the source.
+Never add it to the baseline.
+
+After the inventory, the tool prints four readings as comments, and no guard ratchets
+them. The first lists each private module-level function with two or more methods of one
+arity, which decides by argument type. The second lists
+each tiny helper that only the mention in a test file exempts, with that file. The third
+lists each exported or `public` `Commons` name with its owners outside `Commons`. The
+fourth lists each `Commons` name that a test under `test/unit/commons/` names and never
+calls.
+
+Entries can be deleted or lowered, and none can be added or raised. Before the tests,
+the quality CI job runs `test/tools/baseline_ratchet.jl` against the pull request
+base or the previous push. An added entry or a raised count fails the job. The same
+ratchet checks `test/quality/preservation.toml`, described below, in the direction that
+each of its tables declares. Its allocation table admits new keys, as the preservation
+locks describe.
+
+The ratchet first applies to the earlier keys the file renames that git detects, and the
+module renames of renamed or moved entry files `<Module>.jl` that declare their module on
+both sides. A module's full name on each side comes from the entry files of the enclosing
+directories, so an entry file that moves into another module's directory takes that
+module's name as a prefix. An
+ownership key has the form `defining module | Owner.function | file`. A change of `Owner`
+alone, the module that defines the extended function, keeps the entry and its count.
+Any other key renamed without a matching git rename counts as added. A table absent from the
+earlier baseline belongs to a guard introduced since, and the ratchet lists it
+without comparing its keys. In `[switches]`, each row holds counters, and the ratchet
+compares each counter on its own. A zero count is not an entry. A counter that no row of its
+table had in the earlier baseline extends that guard, so the ratchet does not compare it
+either. When a table has no counter rows in the earlier baseline, the ratchet compares all its
+keys. Run
+`julia test/tools/baseline_ratchet.jl HEAD` to compare local changes with the last
+commit.
+
+### Preservation locks
+
+A refactor keeps type stability, allocations, speed and results. Quality checks and
+local tools protect them. `test/quality/preservation.toml` records the counts
+of the quality checks. Each table declares its direction in `[directions]`. The
+`@inferred` table is a floor, which may only rise. The JET and allocation tables are
+ceilings, which may only fall.
+
+A quality check fails when a count passes its limit. The `@inferred` and JET tables
+always record the current state: their checks also fail when a count improves on the
+table. A change that improves one of their counts
+updates the table in the same commit. An allocation row whose count falls passes. The
+check lists the fallen rows in one line, and the end of a track records them again.
+`test/tools/baseline_ratchet.jl` rejects a lowered floor or a raised ceiling against
+the earlier revision.
+
+- `@inferred` floor. The number of `@inferred` uses in each test file. Deleting a
+  failing inference test lowers the floor and fails. The ratchet accepts a lower floor in
+  two cases. The lines moved unchanged to another file. Or they left with a `@testitem`
+  that no test file declares any more and that references an identifier, which `src/` or
+  `ext/` contained at the earlier revision and contain nowhere now. The ratchet prints
+  each fall of the second kind.
+- JET ceilings. `JET.report_opt` with `target_modules = (LineCableModels,)` analyses the
+  frequency-loop kernels with the concrete arguments of the default coaxial computation
+  of a three-phase cable system: `_solve!`, `cable_impedance!`, `cable_potential!`,
+  `earth!`, `reduce_line_matrices!` and the modal `decompose!` of each formula. The
+  table counts the reports of each kernel. The current reports all come from the boxed
+  earth-return records.
+- Allocation ceilings. `preservation_corpus(n)` in `test/support/scenarios.jl` defines one
+  scenario per computation shape. Each scenario lists the positional arguments of
+  `compute` for a coaxial cable system, three bare wires in air and in earth, a modal
+  composition, CableConstants, a product and a zip parametric study, LinearError and
+  MonteCarlo with a fixed seed. `three_layer` puts the coaxial system on an earth of three
+  soil layers with the default formulation, which consumes the `:default` reduction.
+  `three_layer_before_fd` uses the same earth with a dispersive soil law before the
+  bottommost reduction. `trefoil` computes three cables of tutorial 2, with stranded
+  cores, wire screens, a tape and semiconducting screens. `test/tools/allocations.jl` runs the corpus at 2 and at 4
+  frequencies in a new process and prints the table rows. A row records the allocation
+  count of one warmed-up call, which must repeat exactly on each call, and the smallest
+  byte total of three calls. Measurements stores a partial derivative only when it is
+  nonzero. Whether a round-off derivative is exactly zero depends on the machine's last
+  bits. So a count may differ from its row by the scenario's allowance, the number of
+  uncertain real scalars that its result publishes. Real and imaginary parts count
+  separately. The tool computes the allowances from the live results and does not record
+  them. Scenarios of plain numbers have allowance zero and compare exactly. Byte totals
+  fail above the recorded total plus 512 B for byte accounting and the allowance times one
+  derivative entry. The counts depend on what the
+  process computed before. New scenarios go at the end of the corpus. A change that
+  reorders or edits a scenario records again every row from that scenario onward. An
+  allocation key is a corpus scenario, and a new scenario cannot hide another scenario's
+  count. So the ratchet accepts a new row when every row of the earlier revision is still
+  present. A row that appears while another disappears is a rename, and the ratchet
+  rejects it.
+
+A test that moves to another file keeps its `@inferred` uses. The ratchet accepts a
+lower `@inferred` floor when the removed `@inferred` lines appear again in another file,
+unchanged apart from indentation, and cover the difference.
+
+The JET and allocation tables hold for the environment in `[environment]`: the Julia
+version and the SHA-256 of the committed `Manifest.toml`. The CI quality job uses that
+version and instantiates that Manifest. The other CI jobs delete the Manifest and
+resolve the newest compatible versions. In another environment, both checks fail with
+a request to record the tables again. A dependency update records both tables again in
+the same change as the new `Manifest.toml`, with the counts of
+`test/tools/allocations.jl` and of the JET check. A JET or allocation ceiling may rise only in a change that also changes
+`[environment]`.
+
+`julia --startup-file=no test/tools/displacement.jl REF` prints the private definitions
+and types added and removed since `REF`, the net lines of `src` and `ext`, and the
+`absence` ceilings.
+`julia --project=test --startup-file=no test/tools/latency.jl` prints the first-call
+times of a scalar computation, of the chained modal computation after it, of a
+product space, and of a space followed by the explicit two-step,
+`compute(Gridspace{ModalAnalysisProblem}(result), modal)` on the space's result, each
+sequence in a new process. The `slow` quality item of `test/quality/chain_latency.jl` runs
+the last sequence alone and kills it at 300 s. It fails when its two first calls together
+take more than 30 s.
+
+The local tools compare the working tree with a git revision `REF`. Each checks out
+`REF` in a temporary git worktree. That test environment starts from the repository
+`Manifest.toml`, so both sides use the same dependency versions where `REF` allows
+them. Each side runs its own revision's corpus. A revision without one uses the working
+tree's copy, and the report says which copy each side used.
+
+The timing comparison is `julia --project=test test/tools/performance.jl REF`. One worker
+process per side holds its corpus. Both workers run on the same logical CPU, a
+performance core on a hybrid machine. Only one of them runs at any moment. Each
+scenario runs in 6 rounds of 0.5 s per side, and the side that goes first alternates.
+Machine load only adds time. Each side keeps its fastest sample. When the fastest
+samples of the rounds on one side differ by more than 2 %, the scenario is unstable and
+has no verdict. Separate builds of identical code differ by up to about 4 % on the
+development machine, because each worktree builds its own package image. That is the
+noise floor of the tool. A scenario more than 10 % slower, or one that fails on the working
+tree, gives exit status 1. A scenario 5 to 10 % slower is a possible slowdown below the
+resolution of the tool, and an unstable scenario also gives exit status 2. Exit status 2
+means no verdict, not a regression. A possible slowdown that repeats over three runs goes to a person as a likely
+regression. Both revisions run on the machine that runs the tool, a developer machine or a
+CI runner. Other load on that machine makes scenarios unstable.
+The exact performance checks are the `@inferred` floor and the JET and allocation
+ceilings. The timing comparison catches large algorithmic slowdowns.
+
+The workflow `.github/workflows/timing.yml` runs the timing comparison on a CI runner,
+with the Julia version and the `Manifest.toml` of the quality job. Each push to a pull
+request compares the new head with the previous one. A manual run of the workflow
+compares with the commit given as its `base` input. The comparison is advisory. Exit
+status 1 and exit status 2 both pass the run with a warning, which lists each flagged
+scenario with its change and verdict. The run fails only when the tool ends without its
+verdict, because the tool did not finish. Pushes never wait for an idle local machine.
+
+The equivalence check is `julia --project=test test/tools/equivalence.jl REF [ALLOWED]`.
+On each side, `test/tools/fingerprint.jl` records every node of the inputs and the result
+of each scenario, with the type of the node and the bits of its value. Type names consist
+of the module that defines them followed by the name. The recording also counts
+the points that each parametric scenario materializes and the blueprint lowerings of its
+designs. It then records the reduction corpus, `reduction_corpus()` in
+`test/support/scenarios.jl`, with the result of each scenario only:
+
+- the files that the ATP, PSCAD and TRALIN exporters write for the three-phase system, two
+  tutorial cable systems and a three-core assembly.
+- LineParameters and CableConstants for cables with open wire screens, tapes,
+  semiconducting screens, armor and three cores, as built and after `homogenize`.
+
+The allocation ceilings and the timing comparison do not run the reduction corpus. The
+optional `ALLOWED` file declares the expected differences, one per line:
+
+```text
+rename | Old => New
+scenario | path prefix | value
+```
+
+Renames apply to whole identifiers in the type names, path segments and Symbol values
+recorded at `REF`. Each declaration states one kind of difference: `value`, `type` or
+`path`. An empty prefix declares the whole scenario. A `value` declaration covers
+different values under the same type and never hides a changed type. Any undeclared
+difference fails. The report lists renames and declarations that match no difference.
+
+### Independent references
+
+The safety net is `julia --project=test test/tools/safety_net.jl BASE [OTHER]`, with
+`OTHER` at `HEAD` by default. Each revision runs its own tutorials, `examples/tutorial*.jl`, with its
+own code in its own worktree. The tool records the cable constants, line parameters,
+modal results, numeric globals and written files of each tutorial. It compares them key by
+key in `.linecablemodels/checkpoint/comparison.md`. Each difference maps to a declared
+decision, or it is a regression.
+
+`julia --project=test test/tools/fem_references.jl [FEM_CHECKOUT]` compares the analytical
+results of this branch with saved FEM runs of the FEM investigation worktree.
+The tool builds the cases of `known_case_problem` in `test/support/known_cases/`.
+For each case, the tool reads the newest `matrices.csv`. It reports e_Z and e_Y against
+the FEM columns, scaled by the largest diagonal entry of this branch. It also reports
+the largest relative difference of one entry from the analytical columns of the FEM
+checkout. The tables go to `.linecablemodels/checkpoint/fem/comparison.md`.
+
+The item `Engine / known cases` in `test/integration/known_cases.jl` checks every case
+of `test/integration/known_cases/` at the 11 FEM frequencies. `status.toml` records the
+deviation curves, statuses and explanations.
+The slow item `Engine / known cases / boundary shunt` pins the `analytical_boundary`
+rows and checks the `fem_boundary` deviation curves against FEM.
+Their `compute` calls use `@inferred`, and the cases also enter the preservation corpus
+for allocation ceilings and for timing and equivalence checks.
+
+FEM decides: discrepancies against PSCAD lose to FEM. PSCAD curves are advisory and
+do not need an explanation. The analytical model collapses insulators and semicons
+into one generic insulation bundle. Against FEM, this is the same type of discrepancy
+as the lay (helical path) correction of stranded cores.
+
+FEM discrepancies are judged as curves. A continuous, smooth, monotonic deviation that
+follows FEM's trend is generally accepted. Within 5 % of FEM a curve is accepted. A
+larger deviation known from this state is advisory. The test fails when a FEM deviation
+rises at any frequency. The analytical pin (rtol 1e-12) keeps the engine from changing
+against itself.
+
+## Lifting
+
+Every input of a scalar problem and of a core formulation, its formulation options
+included, may be a scalar or a finite space at any depth of the tuples, vectors, named
+tuples and pairs that contain it. A finite space is a `Grid` or a `Gridspace`, and
+`has_grid` tells whether a value holds one. `Commons` defines this grammar, and the modules
+extend it by dispatch. The calls that process spaces take scalars. A study's own options,
+the computation options of a run, a study's inner formulation and the problems of a
+`ParametricProblem` are core values, so no study holds a study and no parametric problem
+holds a parametric problem.
+
+- A call without a `Grid` or a `Gridspace` is the scalar call, at no extra cost. A call
+  with one returns a `Gridspace{Target}` of what the scalar call returns, and each point
+  calls it again with scalars.
+- `combine = :product`, the default, forms the Cartesian product. The first source varies
+  fastest, in the order in which the call writes its arguments and keywords.
+  `combine = :zip` pairs the direct parameters of one call, row by row, and a one-point
+  source pairs as its only point. A zip refuses a nested space that varies. To pair
+  complete objects, pass a `Grid` of them. `:product` and `:zip` select the types
+  `Product` and `Zip`.
+- A source selects its points by index. A source type of your own that subtypes
+  `AbstractGrid` defines `length` and `getindex`.
+
+Within the inputs of one scalar problem and formulation, what dispatches on a scalar `T`
+dispatches on a space of `T`. `ScalarOrGrid{T}` writes that rule in one signature. It admits a `T` and a `Gridspace` of `T`, and also a non-empty `Grid`
+of `T`, whose values can mix subtypes of `T`. A vector is one value, and alternatives are a `Grid`, as in
+`Grid((a, b))`. A `Gridpoint` and an uncertain grid are not members. Uncertain values lift
+through the family methods, which accept any `Grid`. A method typed `ScalarOrGrid{T}` lifts a
+space and builds a scalar with its scalar body, a `build` method, as a builder does:
+
+```julia
+homogenize(original::ScalarOrGrid{CableDesign}; new_id = "", combine = :product) =
+    parameterize(CableDesign, Base.Fix1(build, homogenize), (original,), (; new_id);
+        combine)
+build(::typeof(homogenize), original::CableDesign; new_id::AbstractString = "") = ...
+homogenize(Grid((first, second)); new_id = "reduced")   # a Gridspace{CableDesign}
+```
+
+### Family methods
+
+A constructor lifts through the family method of its input family, which the family's owner
+defines once:
+
+```julia
+(::Type{T})(arguments...; combine = :product) where {T <: AbstractShape} =
+    parameterize(T, arguments; combine)
+```
+
+Dispatch reaches it only when no scalar method accepts the arguments. So every other
+constructor of a family type types each value position, which the `lifting` guard checks.
+
+### Builders
+
+A builder is a call of the user-facing language, such as `insulation`, `wires` or `formula`.
+Each is the singleton of a subtype of `Builder{Target}`. Its one call method, in `Commons`,
+lifts the call over all its arguments and keywords and takes `combine`. The owner writes
+only the scalar body, a `build` method that receives scalars:
+
+```julia
+struct InsulationBuilder <: Builder{Region} end
+const insulation = InsulationBuilder()
+build(::InsulationBuilder, material; t, tag = :insulation) =
+    Region(tag, Shell(t), validate(material, Region, :insulation, (:insulator,)))
+```
+
+Inside a scalar body every value is a scalar. A body that uses another builder calls its
+scalar body, as `build(assembly, members...; pattern, names)`.
+
+To accept a material type of your own, add a scalar body for it. Lifting, `combine` and zip
+come with it:
+
+```julia
+LineCableModels.build(::typeof(insulation), m::MyMaterial; t, tag = :insulation) =
+    Region(tag, Shell(t), Material(:insulator, m.rho, m.eps_r))
+insulation(Grid((mine, yours)); t = Grid((5.5e-3, 6e-3)), combine = :zip)  # two Regions
+```
+
+Do not add a call method `(::typeof(insulation))(m::MyMaterial; t)`. Julia does not dispatch
+on keywords, so such a method takes the call before the grammar does. A `Grid` keyword then
+reaches it unlifted, and `combine` is refused. The `builders` guard checks that no builder
+of the package has one.
+
+### Targets
+
+A builder's target is the type of what it builds, and of the points of its `Gridspace` when a
+call lifts. It is the `Target` of `Builder{Target}` unless the owner adds a `target` method for
+the scalar type of the call's subject, its first argument. A subject that is a `Grid` or a
+`Gridspace` selects by the type of its points. The methods take scalar types only. `at`
+builds a pose by default, and its subject chooses what it places:
+
+```julia
+struct AtBuilder <: Builder{Pose2} end
+const at = AtBuilder()
+target(::AtBuilder, ::Type{<:AbstractCablePart}) = AssemblyMember
+target(::AtBuilder, ::Type{<:CableDesign}) = NamedTuple
+build(::AtBuilder, x::Real, y::Real; φ = 0) = Pose2(x, y, φ)
+build(::AtBuilder, part::AbstractCablePart, pose::Pose2) = AssemblyMember(part, pose)
+build(builder::AtBuilder, subject, x::Real, y::Real; φ = 0, keywords...) =
+    build(builder, subject, Pose2(x, y, φ); keywords...)
+at(Grid((0.1, 0.2)), 0.0)          # a Gridspace{Pose2}
+at(part, Grid((0.1, 0.2)), 0.0)    # a Gridspace{AssemblyMember}
+```
+
+Keywords do not select a method. A target that follows a keyword has one method that
+receives the keyword and passes it on as the subject. `stranded` builds a bounded group for
+rectangular strands and an enclosure for Disk wires:
+
+```julia
+function target(builder::StrandedBuilder, material::ScalarOrGrid{Materials.AbstractMaterial};
+        shape, keywords...)
+    return target(builder, shape)
+end
+target(::StrandedBuilder, ::Type{<:DataModel.Rectangle}) = DataModel.Group
+target(::StrandedBuilder, ::Type{<:DataModel.Disk}) = DataModel.Enclosure
+stranded(copper; shape = Grid((Disk(0.5e-3), Disk(0.6e-3))))   # a Gridspace{Enclosure}
+```
+
+The first method types its `material` as a `ScalarOrGrid` of materials, so that the
+`shape` value passed on never reaches it again. A mixed or empty source of shapes keeps the default,
+`AbstractCablePart`.
+
+## Running a computation
+
+A call `compute(problem, formulation; options)`, for a core formulation, a space of them or a
+study, computes the `ParametricProblem` of `problem` and the computation options of the
+backend, with the computation options of the run in the call. A core problem and a core
+formulation are a run of one point, chosen by dispatch. A space with a core formulation
+computes its default study, `Combinatorial`. Both run through one runner in `Commons`,
+`traverse`, which computes the Cartesian product of the points of the problem's space and of
+the formulations of the study:
+
+1. It materializes and validates the problems and the formulations before the first point.
+   Each owner normalizes its options once. The owner of the formulations normalizes those of
+   the backend with `computation_options(F, options)` for their element type `F`. The study
+   normalizes those of the run with `computation_options(T, options)` for its type `T`.
+2. Problem by problem, it calls `resolve(problem, formulations; options)` once.
+3. For each formulation it calls the backend's point method,
+   `compute(resolved, formulation; options)`, on the `Resolved` value of that formulation.
+4. A run of one point returns its value. A study returns its result, for `Combinatorial` a
+   `ParametricResult`, its values in space order, the problem index fastest.
+
+A study records a point whose problem build, resolve or computation throws an exception that
+`on_error(study, exception)` returns for the study. It keeps the point in the `failures` of
+the result and continues. Any other exception stops the run with its backtrace.
+
+The runner writes the work around the points once. It logs the run and its progress with
+the action that `description(problem)` returns, and the timing of each point in the group
+`:timing`. It attaches the gridpoint to each value of a space, and it calls
+`on_result(problem, index, value)` with the position of the point in the space as `index`.
+The backends leave this work to the runner. The run's controls are data: the verbosity
+levels, the start time of the run and the user's `on_result`. Progress does not keep state:
+a point computes it from its position in the run and the elapsed time. Each point is a
+`traverse` method on the formulation's type, so it compiles for concrete types.
+
+The run of a space is called through `Base.invokelatest`. This call is the barrier between
+the orchestration and the work: inference does not enter it, and the run compiles from
+the values that it receives. The types of a space are known only from its values.
+Without the barrier, the compiler walks the whole run with partly known types, and the
+first call of a space compiles in tens of seconds to hours instead of about one second. A
+scalar call has no such barrier, and its result type infers.
+`test/quality/chain_latency.jl` guards this barrier.
+
+Each formulation space contains the formulations of one backend, whose formula choices may
+vary. The runner refuses a space that mixes backends with an `ArgumentError`, and comparing
+backends takes one computation per backend. A backend adds three methods. Its
+`computation_options(::Type{<:F}, options)` method normalizes the options of its
+formulation type `F`, once, before the first point. Its point method computes one point
+from a `Resolved` value, which holds the problem and what one formulation needs from it:
+
+```julia
+function compute(resolved::Resolved{<:LineParametersProblem},
+        formulation::LineParametersFormulation; options)
+    execution = computation_options(LineCableModelsCoaxial, ComputationOptions(options))
+    (; problem, input) = resolved
+    workspace = LineParametersWorkspace(problem, formulation, execution, input.line, input.shunt)
+    ...
+end
+```
+
+Its `resolve` method shares the work that the formulations of one problem need equally. The
+coaxial backend flattens the designs and builds the line input once per problem, and
+completes the internal potential coefficients of every formulation together:
+
+```julia
+function resolve(problem::LineParametersProblem,
+        formulations::Union{Tuple{LineParametersFormulation, Vararg{LineParametersFormulation}},
+            AbstractVector{<:LineParametersFormulation}}; options)
+    ...
+    return map(shunt -> Resolved(problem, (; line, shunt, physical_inputs)), shunts)
+end
+```
+
+A tuple of formulations gives a tuple of `Resolved` values, which a scalar call keeps
+without a vector. Without a `resolve` method, a backend gives each formulation
+`Resolved(problem, (;))`. PSCAD shares a table of its native runs by the content keys of
+its inputs. A point whose run is not in the table launches it, and a later point with the
+same native input reuses it. Each point completes its result for its own
+formulation.
+
+A study, such as `LinearError` or `MonteCarlo`, subtypes `AbstractTraversal`. It has the
+field `inner`, a core formulation, and its inner constructor validates what it builds:
+
+```julia
+LinearError(inner::F) where {F <: AbstractFormulation} = validate(new{F}(inner))
+```
+
+A study whose formulation determines or needs controls of its own holds them in `options`,
+which `formulation_options` of its type normalizes, as `MonteCarlo` does with its trials and
+sampling. The computation options of its run are those of the parametric call, and
+`computation_options(T, options)` normalizes them, one method for every study. Its method
+`compute(problem::ParametricProblem, study; options)` calls `traverse(problem, study;
+options)` and builds its own result from the returned `(; values, failures, details,
+gridpoints)`.
+
+The type of the study selects the steps of a point that differ between studies. The runner
+builds each point with `materialize(study, source)` and resolves each problem once with
+`resolve(study, problem, formulations; options)`. The value of a point is the backend's
+`compute(resolved, formulation; options)`, or a `traverse` method on the type of a study
+whose points compute otherwise. A Monte Carlo study builds the nominal problem of each point
+before the first draw and takes it as `Resolved(problem, (;))`. Its points compute their
+trials from the uncertain point at their index in the space, which the run of the study
+keeps, with the seed of the point.
+
+## Developer paths
+
+- [Extension API](extensions.md) lists the equation methods and definition types omitted
+  from the user API reference.
+- [Computational engine](engine.md) covers formulations, options, supplemental
+  computation output, and external implementations.
+- [Makie plotting](plotting.md) covers the small high-level API and native ownership.
+- [Conventions](conventions.md) defines placement, dispatch, naming, and
+  docstring rules.
+
+## Testing requirements
+
+### Release status and regressions
+
+The package has no published stable API. Development changes update the
+implementation, callers, and relevant tests together.
+
+In this repository, a regression test protects against a bug detected in a
+published stable release. It identifies the reported tracker issue and affected release, together with the protected behavior. Tests of current development behavior belong
+to the behavior, mathematical implementation, integration, or architecture
+suites, according to what they exercise.
+
+Tests follow the current API and its intended behavior. Preserve independent
+scientific expectations when updating callers. Architectural tests verify each module through its consumers and native interfaces.
+
+### Verification coverage
+
+The harness checks that the current implementation works and follows the
+codebase standards. It exercises actual public workflows and their owned
+kernels: calculations, dispatch, units, ordering, data transport, errors,
+resource handling and side effects. Tests use current input builders and small,
+distinguishable examples with an expected result or rejection.
+
+Mathematical implementation tests remain appropriate. Checking an implemented
+formula against a directly calculable result, a matrix reduction against a
+constrained solve, or a derivative of a simple function verifies code correctness.
+It does not certify the physical applicability of the model. Imports, shapes,
+finiteness and round trips provide useful limited checks. They do not replace
+value assertions where the implemented behavior has a decidable expectation.
+
+Float32 support means that valid ordinary inputs containing Float32 values work
+without type-induced crashes. It includes no additional numerical accuracy
+promise. Do not impose a high-precision reference target on Float32 and then
+change owned numerical code to meet it. No Float32-specific widening, compensated
+arithmetic or precision infrastructure is justified by such a test. Preserve
+existing dispatch, hooks, uncertainty and supported types. Keep API conversions
+when an actual API or dependency interface requires them. A requested tolerance
+does not create an accuracy guarantee.
+
+Scientific validity, comparison of physical approximations, broad accuracy
+claims, convergence research and scientific acceptance are outside the test
+harness. Scientific acceptance belongs to the researcher's interpretation, not
+the test runner. Such research is not a required CI job, and unfinished scientific
+evidence is not a failing software check. Apply this distinction to passing and failing
+experiments alike.
+
+A fabricated failure is as unacceptable as a fabricated success. Verify an
+assertion's premise before treating its outcome as a product defect. Correct or
+remove a defective criterion with its reason. Do not preserve it merely because
+it was fixed before execution. Do not change inputs, outputs or tolerances just
+to obtain a pass. Preserve observed differences and distinguish assertion
+failures from execution errors or unavailable verification.
+
+### Architecture and coverage
+
+Architectural tests protect current responsibilities through real behavior and
+native method and interface checks: owner-local dispatch, fixed report stages,
+observation and table owners, validated inputs, optional integrations and
+caller-owned state. A conforming new leaf must work through the actual composed consumer.
+
+The existing source-amended production line-coverage gate remains at 95%, with
+its current `src/` and `ext/` inventory. Measure executed code, then cover actual
+missing behavior in its existing test owner. Assertion counts, obsolete guards,
+denominator changes and fabricated expectations cannot satisfy this objective.
+Keep incomplete executions and real bugs visible. Coverage does not turn them
+into successes.
+
+## External interface methods
+
+`test/quality/explicit_imports.jl` loads the numerical, XLSX and Cairo adapters
+explicitly. All mechanical ownership and import checks remain active. Each
+exception identifies an exact consumer, owner and name for a documented
+upstream interface that lacks a Julia `public` annotation. Access to
+package-private names remains prohibited.
+
+The following external interfaces are used by the package:
+
+| Access | Supported use |
+| --- | --- |
+| `CairoMakie.activate!` | Documented [backend activation](https://docs.makie.org/stable/explanations/backends/cairomakie.html). Cairo adapter only. |
+| `Base.IOError` | Native I/O exception, such as [filesystem errors](https://docs.julialang.org/en/v1/base/file/). Renderer export errors. |
+| `Base.unalias` | Documented native preventative-copy operation in Julia 1.12's `base/abstractarray.jl`. Used only by the allocating Kron entry point in `Engine` to preserve source and destination aliasing. The reduction path uses separate preallocated buffers. |
+| `Base.get_extension` | Identifies the loaded Cairo extension. Its public `CairoMakie` binding supplies the native save backend. |
+| `Makie.automatic` | Documented [native attribute default](https://docs.makie.org/stable/api). Renderer only. |
+| `Makie.current_backend` | Documented [backend-dependent API default](https://docs.makie.org/stable/api). Renderer only. |
+| `Makie.get_ticks`, `Makie.get_tickvalues` | Documented [axis extension hooks](https://docs.makie.org/stable/reference/blocks/axis.html). Renderer only. |
+| `Makie.pseudolog10` | Documented [axis scale](https://docs.makie.org/stable/reference/blocks/axis.html). Renderer only. |
+| `Makie.inverse_transform` | Documented [custom axis scale interface](https://docs.makie.org/stable/reference/blocks/axis.html#xscale). The renderer applies axis margins to full uncertainty bounds in the selected scale, then maps them back without a second inverse-scale mapping. |
+| `Makie.CategoricalConversion` | Documented [categorical axis conversion](https://docs.makie.org/stable/reference/generic/dimensional/). Renderer assembly axes only. |
+| `Makie.defaultlimits` | The documented native scale-default hook named by Makie's Axis attributes. The renderer queries it only when an empty axis changes scale. The native scale then supplies its valid interval. |
+| `propertynames`, `Makie.default_theme` | Axis attributes use `propertynames` and the native `palette` keyword. Scatter attributes use the exported [`default_theme`](https://docs.makie.org/v0.24/explanations/recipes) method. |
+| `LegendElement.plots` | Associates legend glyphs with source plots through the documented [LegendElement extension interface](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/makielayout/types.jl). |
+| `on`, `off`, `ObserverFunction.observable` | Manage visibility subscriptions using the documented [`ObserverFunction.observable`](https://juliagizmos.github.io/Observables.jl/stable/#Observables.ObserverFunction) notification target. |
+| `Makie.fast_string_boundingboxes(Text)` | Public attribute subscriptions query the documented [text bounds](https://github.com/MakieOrg/Makie.jl/blob/v0.24.13/Makie/src/basic_recipes/text.jl), retaining marker-space extents. |
+| `GridLayoutBase.remove_from_gridlayout!` | Retained as the [maintainer-prescribed nested-layout removal](https://discourse.julialang.org/t/makie-removing-gridlayouts/103935) workaround. It is not an exported stable API. Only this renderer call is admitted. Existing legend recreation and layout tests protect it. |
+
+These integration methods are scoped to the supported Makie 0.24 family.
+The layout workaround needs review when that compatibility range changes.
+The owned legend, uncertainty visibility, series style and colorbar endpoint tests
+exercise the actual affected paths. Behavioral compatibility requires execution of the affected paths. Negative gate controls reject unlisted renderer
+internals, different consumers and package-owned private calls.

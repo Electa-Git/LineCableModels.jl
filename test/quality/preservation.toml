@@ -1,0 +1,225 @@
+# Preservation locks, checked by `test/quality/preservation.jl`. Each table declares
+# its direction: a floor may only rise and a ceiling may only fall, which
+# `test/tools/baseline_ratchet.jl REF` checks across commits. The quality checks
+# require the [inferred] and [jet] counts to equal the live counts. An [allocations] row
+# fails only when its live count rises beyond its tolerance. The end of a track records
+# again the rows that fell.
+
+# The measured ceilings ([jet], [allocations]) hold for this Julia version and the
+# committed `Manifest.toml` with this SHA-256 only. An increase in them is accepted only
+# together with a change of this environment.
+[environment]
+julia = "1.12.7"
+manifest = "273d4330a90e9df7e4bf560f4411a4dccc03a9631769f3de4fb902ee90c1a7cc"
+
+[directions]
+inferred = "floor"
+jet = "ceiling"
+allocations = "ceiling"
+
+# Floor: `@inferred` uses per test file.
+[inferred]
+"test/extensions/measurements.jl" = 2
+"test/integration/cable_constants.jl" = 3
+"test/integration/computation_options.jl" = 1
+"test/integration/internal_shunt.jl" = 1
+"test/integration/known_cases.jl" = 2
+"test/integration/line_parameters.jl" = 3
+"test/integration/shunt_model.jl" = 2
+"test/unit/commons/grammar.jl" = 7
+"test/unit/commons/gridspace.jl" = 10
+"test/unit/commons/observation_quantity.jl" = 9
+"test/unit/commons/owned_records.jl" = 7
+"test/unit/commons/runner.jl" = 6
+"test/unit/datamodel/annular_strand.jl" = 2
+"test/unit/datamodel/assembly_lowering.jl" = 2
+"test/unit/datamodel/baseparams/geometry.jl" = 1
+"test/unit/datamodel/clearance.jl" = 1
+"test/unit/datamodel/family_lifting.jl" = 2
+"test/unit/datamodel/geometry_v1.jl" = 3
+"test/unit/datamodel/physical_tree_v1.jl" = 2
+"test/unit/datamodel/placement_geometry.jl" = 7
+"test/unit/earth/properties.jl" = 3
+"test/unit/engine/analytical_earth_impedance.jl" = 3
+"test/unit/engine/constitutive_defaults.jl" = 2
+"test/unit/engine/earth_inference.jl" = 4
+"test/unit/engine/formula_architecture.jl" = 1
+"test/unit/engine/formulations.jl" = 7
+"test/unit/engine/ideal_earth_potential.jl" = 2
+"test/unit/engine/insulation_admittance.jl" = 2
+"test/unit/engine/internal_selections.jl" = 2
+"test/unit/engine/internal_shunt.jl" = 4
+"test/unit/engine/line_observations.jl" = 5
+"test/unit/engine/observations.jl" = 3
+"test/unit/engine/options.jl" = 2
+"test/unit/engine/pipe_formulations.jl" = 1
+"test/unit/engine/problems.jl" = 9
+"test/unit/engine/radial_dielectric.jl" = 3
+"test/unit/engine/result_containers.jl" = 3
+"test/unit/engine/transforms.jl" = 2
+"test/unit/engine/unified_earth_return.jl" = 1
+"test/unit/materials/temperaturedependent.jl" = 1
+"test/unit/modalanalysis/vieira2026.jl" = 2
+"test/unit/modalanalysis/wedepohl1996.jl" = 3
+"test/unit/parametricbuilder/architecture.jl" = 2
+"test/unit/parametricbuilder/builders.jl" = 5
+"test/unit/parametricbuilder/construction_api.jl" = 1
+"test/unit/parametricbuilder/gridspace.jl" = 4
+"test/unit/parametricbuilder/placement_composition.jl" = 6
+"test/unit/parametricbuilder/region_grid.jl" = 3
+"test/unit/reportbuilder/histogram_observations.jl" = 1
+"test/unit/reportbuilder/uq_comparisons.jl" = 3
+"test/unit/textdisplay/policy.jl" = 2
+"test/unit/uq/formulations.jl" = 11
+# Ceiling: JET optimization reports per frequency-loop kernel, with
+# `target_modules = (LineCableModels,)` on the default coaxial computation of a
+# three-phase cable system and on each modal formula. The current reports come from the
+# known boxing of earth-return records. The abstract `earth_calculations` tuple dispatches
+# at the `_solve!` barrier, and `earth!` recurses over the record tuple.
+[jet]
+"cable_impedance!" = 0
+"cable_potential!" = 0
+"coaxial _solve!" = 1
+"decompose! chrysochos2014" = 0
+"decompose! vieira2026" = 0
+"decompose! wedepohl1996" = 0
+"earth!" = 1
+"reduce_line_matrices!" = 0
+
+# Ceiling: allocations of the preservation corpus (`CurrentScenarios.preservation_corpus`),
+# printed by `test/tools/allocations.jl`. `allocations` counts the allocated objects of one
+# warmed-up `compute` call, which repeat exactly on every call. Measurements stores a
+# partial derivative only when it is nonzero, and whether a round-off derivative is exactly
+# zero depends on the machine. A count may differ from its row by the scenario's allowance,
+# the uncertain real scalars of its result, which the tool computes and this table does not
+# record. `bytes` is the minimum over three calls and may grow by 512 B plus the allowance
+# times one derivative entry. Record a row's bytes again whenever its counts change.
+[allocations]
+"coaxial | 2 frequencies | allocations" = 2784
+"coaxial | 2 frequencies | bytes" = 199232
+"overhead | 2 frequencies | allocations" = 1667
+"overhead | 2 frequencies | bytes" = 130320
+"buried | 2 frequencies | allocations" = 1683
+"buried | 2 frequencies | bytes" = 132560
+"modal | 2 frequencies | allocations" = 3025
+"modal | 2 frequencies | bytes" = 227680
+"cable_constants | 2 frequencies | allocations" = 702
+"cable_constants | 2 frequencies | bytes" = 44160
+"product | 2 frequencies | allocations" = 17614
+"product | 2 frequencies | bytes" = 1291936
+"zip | 2 frequencies | allocations" = 8884
+"zip | 2 frequencies | bytes" = 650672
+"linear_error | 2 frequencies | allocations" = 622535
+"linear_error | 2 frequencies | bytes" = 30062760
+"monte_carlo | 2 frequencies | allocations" = 16267
+"monte_carlo | 2 frequencies | bytes" = 1141920
+"three_layer | 2 frequencies | allocations" = 3044
+"three_layer | 2 frequencies | bytes" = 221200
+"three_layer_before_fd | 2 frequencies | allocations" = 2937
+"three_layer_before_fd | 2 frequencies | bytes" = 204096
+"trefoil | 2 frequencies | allocations" = 78831
+"trefoil | 2 frequencies | bytes" = 2537512
+"coaxial | 4 frequencies | allocations" = 2822
+"coaxial | 4 frequencies | bytes" = 204416
+"overhead | 4 frequencies | allocations" = 1681
+"overhead | 4 frequencies | bytes" = 132944
+"buried | 4 frequencies | allocations" = 1713
+"buried | 4 frequencies | bytes" = 137424
+"modal | 4 frequencies | allocations" = 3175
+"modal | 4 frequencies | bytes" = 249952
+"cable_constants | 4 frequencies | allocations" = 702
+"cable_constants | 4 frequencies | bytes" = 44160
+"product | 4 frequencies | allocations" = 17918
+"product | 4 frequencies | bytes" = 1333408
+"zip | 4 frequencies | allocations" = 9036
+"zip | 4 frequencies | bytes" = 671408
+"linear_error | 4 frequencies | allocations" = 1221990
+"linear_error | 4 frequencies | bytes" = 58849752
+"monte_carlo | 4 frequencies | allocations" = 17083
+"monte_carlo | 4 frequencies | bytes" = 1205536
+"three_layer | 4 frequencies | allocations" = 3110
+"three_layer | 4 frequencies | bytes" = 238128
+"three_layer_before_fd | 4 frequencies | allocations" = 2971
+"three_layer_before_fd | 4 frequencies | bytes" = 207744
+"trefoil | 4 frequencies | allocations" = 78869
+"trefoil | 4 frequencies | bytes" = 2542824
+"cable_132kv_630mm2_flathor | 2 frequencies | allocations" = 54065
+"cable_132kv_630mm2_flathor | 2 frequencies | bytes" = 1883864
+"cable_132kv_cigre_tb880_case0_630cu_trefoil | 2 frequencies | allocations" = 3025
+"cable_132kv_cigre_tb880_case0_630cu_trefoil | 2 frequencies | bytes" = 232112
+"cable_18kv_1000mm2_trefoil | 2 frequencies | allocations" = 78617
+"cable_18kv_1000mm2_trefoil | 2 frequencies | bytes" = 2579672
+"cable_18kv_1000mm2_trefoil_homogenized | 2 frequencies | allocations" = 3989
+"cable_18kv_1000mm2_trefoil_homogenized | 2 frequencies | bytes" = 401624
+"cable_220kv_milliken_1x2500_252_trefoil | 2 frequencies | allocations" = 1460132
+"cable_220kv_milliken_1x2500_252_trefoil | 2 frequencies | bytes" = 40618328
+"cable_30kv_na2xs2y_630mm2_trefoil | 2 frequencies | allocations" = 91375
+"cable_30kv_na2xs2y_630mm2_trefoil | 2 frequencies | bytes" = 2825576
+"cable_320kv_armoured_dc_bipole | 2 frequencies | allocations" = 125851
+"cable_320kv_armoured_dc_bipole | 2 frequencies | bytes" = 3726112
+"cable_320kv_no_armour_dc_bipole | 2 frequencies | allocations" = 121415
+"cable_320kv_no_armour_dc_bipole | 2 frequencies | bytes" = 3384800
+"cable_380kv_2000mm2_flatver | 2 frequencies | allocations" = 51830
+"cable_380kv_2000mm2_flatver | 2 frequencies | bytes" = 1817192
+"cable_380kv_armoured_ac_flat | 2 frequencies | allocations" = 188395
+"cable_380kv_armoured_ac_flat | 2 frequencies | bytes" = 5566976
+"cable_380kv_no_armour_ac_flat | 2 frequencies | allocations" = 181737
+"cable_380kv_no_armour_ac_flat | 2 frequencies | bytes" = 5052512
+"cable_525kv_1600mm2_bipole | 2 frequencies | allocations" = 125879
+"cable_525kv_1600mm2_bipole | 2 frequencies | bytes" = 3743936
+"cable_525kv_land_no_armour_ac_flat | 2 frequencies | allocations" = 3318
+"cable_525kv_land_no_armour_ac_flat | 2 frequencies | bytes" = 308264
+"cable_525kv_land_no_armour_dc_bipole | 2 frequencies | allocations" = 2469
+"cable_525kv_land_no_armour_dc_bipole | 2 frequencies | bytes" = 221888
+"cable_525kv_subsea_armoured_ac_flat | 2 frequencies | allocations" = 9742
+"cable_525kv_subsea_armoured_ac_flat | 2 frequencies | bytes" = 793160
+"cable_525kv_subsea_armoured_dc_bipole | 2 frequencies | allocations" = 6749
+"cable_525kv_subsea_armoured_dc_bipole | 2 frequencies | bytes" = 543568
+"cable_640kv_2000mm2_bipole | 2 frequencies | allocations" = 31961
+"cable_640kv_2000mm2_bipole | 2 frequencies | bytes" = 1089360
+"solid_1000mm2_single | 2 frequencies | allocations" = 928
+"solid_1000mm2_single | 2 frequencies | bytes" = 73088
+"two_bare_wires | 2 frequencies | allocations" = 1368
+"two_bare_wires | 2 frequencies | bytes" = 105488
+"two_insulated_wires | 2 frequencies | allocations" = 1472
+"two_insulated_wires | 2 frequencies | bytes" = 116752
+"cable_132kv_630mm2_flathor | 4 frequencies | allocations" = 54095
+"cable_132kv_630mm2_flathor | 4 frequencies | bytes" = 1897912
+"cable_132kv_cigre_tb880_case0_630cu_trefoil | 4 frequencies | allocations" = 3059
+"cable_132kv_cigre_tb880_case0_630cu_trefoil | 4 frequencies | bytes" = 240272
+"cable_18kv_1000mm2_trefoil | 4 frequencies | allocations" = 78647
+"cable_18kv_1000mm2_trefoil | 4 frequencies | bytes" = 2593720
+"cable_18kv_1000mm2_trefoil_homogenized | 4 frequencies | allocations" = 4019
+"cable_18kv_1000mm2_trefoil_homogenized | 4 frequencies | bytes" = 415672
+"cable_220kv_milliken_1x2500_252_trefoil | 4 frequencies | allocations" = 1460162
+"cable_220kv_milliken_1x2500_252_trefoil | 4 frequencies | bytes" = 40632376
+"cable_30kv_na2xs2y_630mm2_trefoil | 4 frequencies | allocations" = 91409
+"cable_30kv_na2xs2y_630mm2_trefoil | 4 frequencies | bytes" = 2833736
+"cable_320kv_armoured_dc_bipole | 4 frequencies | allocations" = 125885
+"cable_320kv_armoured_dc_bipole | 4 frequencies | bytes" = 3734272
+"cable_320kv_no_armour_dc_bipole | 4 frequencies | allocations" = 121445
+"cable_320kv_no_armour_dc_bipole | 4 frequencies | bytes" = 3390720
+"cable_380kv_2000mm2_flatver | 4 frequencies | allocations" = 51860
+"cable_380kv_2000mm2_flatver | 4 frequencies | bytes" = 1831240
+"cable_380kv_armoured_ac_flat | 4 frequencies | allocations" = 188425
+"cable_380kv_armoured_ac_flat | 4 frequencies | bytes" = 5581024
+"cable_380kv_no_armour_ac_flat | 4 frequencies | allocations" = 181771
+"cable_380kv_no_armour_ac_flat | 4 frequencies | bytes" = 5060672
+"cable_525kv_1600mm2_bipole | 4 frequencies | allocations" = 125913
+"cable_525kv_1600mm2_bipole | 4 frequencies | bytes" = 3752096
+"cable_525kv_land_no_armour_ac_flat | 4 frequencies | allocations" = 3352
+"cable_525kv_land_no_armour_ac_flat | 4 frequencies | bytes" = 316424
+"cable_525kv_land_no_armour_dc_bipole | 4 frequencies | allocations" = 2499
+"cable_525kv_land_no_armour_dc_bipole | 4 frequencies | bytes" = 227808
+"cable_525kv_subsea_armoured_ac_flat | 4 frequencies | allocations" = 9772
+"cable_525kv_subsea_armoured_ac_flat | 4 frequencies | bytes" = 807208
+"cable_525kv_subsea_armoured_dc_bipole | 4 frequencies | allocations" = 6783
+"cable_525kv_subsea_armoured_dc_bipole | 4 frequencies | bytes" = 551728
+"cable_640kv_2000mm2_bipole | 4 frequencies | allocations" = 31995
+"cable_640kv_2000mm2_bipole | 4 frequencies | bytes" = 1097520
+"solid_1000mm2_single | 4 frequencies | allocations" = 942
+"solid_1000mm2_single | 4 frequencies | bytes" = 74528
+"two_bare_wires | 4 frequencies | allocations" = 1398
+"two_bare_wires | 4 frequencies | bytes" = 109712
+"two_insulated_wires | 4 frequencies | allocations" = 1502
+"two_insulated_wires | 4 frequencies | bytes" = 120976

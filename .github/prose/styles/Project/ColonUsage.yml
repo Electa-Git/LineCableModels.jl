@@ -1,0 +1,24 @@
+extends: ai-tells.ColonUsage
+# Vale masks inline code with asterisks. A code label can introduce a standalone
+# description, including DocStringExtensions field labels. Check later colons
+# in the same description normally.
+tokens:
+  - '(?<!\*)(?<!:[^ ]+?):\s(?!I\b)[A-Z][a-z]*\b'
+exceptions:
+  # Proper names retain their original capitalization.
+  - 'Reference:\s+(?:G\.\s+Ciuprina|L\.\s+M\.\s+Wedepohl)'
+  # Exact published title, including the subtitle capitalization.
+  - 'Power-Transmission\s+Systems:\s+System-Model\s+and\s+Wave-Propagation\s+Characteristics'
+tests:
+  - name: proper name
+    input: "Reference: G. Ciuprina."
+    want: ""
+  - name: ordinary capitalization
+    input: "Use this format: Ordinary text."
+    contains: Project.ColonUsage
+  - name: code label
+    input: "`x::Float64`: Physical length."
+    want: ""
+  - name: prose after a code label
+    input: "`x::Float64`: Physical length. Read this: Ordinary text."
+    contains: Project.ColonUsage

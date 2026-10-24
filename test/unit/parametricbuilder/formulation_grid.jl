@@ -1,0 +1,193 @@
+@testitem "ParametricBuilder / formulation grids / construction and traversal" tags=[:unit, :uq, :slow] setup=[
+    UseEngineSupport,FormulaFixtures,
+] begin
+    internal=FormulaFixtures.SurfaceLaw()
+    insulation=FormulaFixtures.InsulationReactance(0)
+    selections=(
+        internal_impedance = Grid((
+            :default, internal)),
+        insulation_impedance = Grid((:default,
+            insulation)),
+        earth_impedance = Grid((:pollaczek1926, :default)),
+        insulation_admittance = Grid((:lossy, :default)),
+        semicon_admittance = Grid((:default, :lossy)),
+        earth_admittance = Grid((:pollaczek1926, :default)),
+        earth_properties = Grid((nothing, :default)),
+        temperature_dependence = Grid((nothing, :default)),
+        pipe_impedance = Grid((:default, formula(:default))),
+        options = Grid((
+            (; ideal_transposition = false),
+            (; ideal_transposition = true)
+        ))
+    )
+    for name in keys(selections)
+        keyword=NamedTuple{(name,)}((getproperty(selections, name),))
+        space=Formulation(; keyword...)
+        @test space isa Gridspace{LineParametersFormulation}
+        @test length(space) == 2
+        @test all(value -> value isa LineParametersFormulation, space)
+        @test all(space) do value
+            all(
+                item -> !(item isa Union{
+                    AbstractGrid,
+                    Gridspace,
+                    Symbol,
+                    LineCableModels.FormulaDefinition
+                }),
+                values(value.formulas)
+            ) &&
+                !(value.options isa Union{AbstractGrid, Gridspace})
+        end
+    end
+
+    product=Formulation(
+        earth_impedance = Grid((:pollaczek1926, :default)),
+        earth_admittance = Grid((:pollaczek1926, :default))
+    )
+    @test length(product) == 4
+    @test Set((
+                  formula_id(value.formulas.earth_impedance),
+                  formula_id(value.formulas.earth_admittance)
+              ) for value in product) == Set((
+        (:pollaczek1926, :pollaczek1926),
+        (:unified, :pollaczek1926),
+        (:pollaczek1926, :unified),
+        (:unified, :unified)
+    ))
+
+    zipped=Formulation(
+        earth_impedance = Grid((:pollaczek1926, :default)),
+        earth_admittance = Grid((:pollaczek1926, :default));
+        combine = :zip
+    )
+    @test length(zipped) == 2
+    @test [(
+               formula_id(value.formulas.earth_impedance),
+               formula_id(value.formulas.earth_admittance)
+           ) for value in zipped] == [
+        (:pollaczek1926, :pollaczek1926),
+        (:unified, :unified)
+    ]
+
+    broadcast_zip=Formulation(
+        earth_impedance = Grid((:pollaczek1926, :default)),
+        earth_admittance = Grid(:pollaczek1926);
+        combine = :zip
+    )
+    @test length(broadcast_zip) == 2
+    @test [formula_id(value.formulas.earth_admittance)
+           for value in broadcast_zip] == fill(:pollaczek1926, 2)
+
+    reductions=Formulation(earth_impedance = Grid((
+        formula(:default; equivalent_earth = formula(:default; order = :before)),
+        formula(:default; equivalent_earth = formula(:default; order = :after)))))
+    @test length(reductions) == 2
+    @test first(reductions).formulas.earth_impedance.equivalent_earth isa
+          LineCableModels.Earth.EquivalentHomogeneous.BeforeFD
+    @test last(collect(reductions)).formulas.earth_impedance.equivalent_earth isa
+          LineCableModels.Earth.EquivalentHomogeneous.AfterFD
+    @test all(value -> value.formulas.earth_admittance.equivalent_earth === nothing, reductions)
+
+    constants=CableConstantsFormulation(
+        insulation_admittance = Grid((:default, :lossy)),
+    )
+    @test constants isa Gridspace{CableConstantsFormulation}
+    @test length(constants) == 2
+
+    modal=ModalAnalysisFormulation(
+        Grid((:default, :default)),
+    )
+    @test modal isa Gridspace{ModalAnalysisFormulation}
+    @test formula_id.(collect(modal)) == [:modal, :modal]
+
+    modal_assumptions=ModalAnalysisFormulation(Grid((
+        formula(:default; options = (iteration = (convergence = 1e-4,),)),
+        formula(:default; options = (iteration = (convergence = 1e-8,),))
+    )))
+    @test [value.formula.options.data.iteration.convergence for value in modal_assumptions] ==
+          [1e-4, 1e-8]
+
+    struct CountedProblem<:AbstractProblemDefinition
+        value::Int
+    end
+    LineCableModels.validate(problem::CountedProblem)=problem
+    struct CountedFormulation{ID}<:AbstractFormulation end
+    LineCableModels.computation_options(::Type{<:CountedFormulation}, options::ComputationOptions) = options
+    struct CountedResult<:AbstractCoreResult
+        value::Int
+    end
+    builds=Ref(0)
+    make_problem(value)=(builds[]+=1; CountedProblem(value))
+    problem_space=Gridspace{CountedProblem}(make_problem, (Grid((1, 2)),))
+    formulas=Grid((CountedFormulation{:first}(), CountedFormulation{:second}()))
+    LineCableModels.compute(
+        resolved::LineCableModels.Resolved{<:CountedProblem},
+        ::CountedFormulation{:first};
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
+    )=CountedResult(resolved.problem.value)
+    LineCableModels.compute(
+        resolved::LineCableModels.Resolved{<:CountedProblem},
+        ::CountedFormulation{:second};
+        options::Union{NamedTuple,ComputationOptions} = ComputationOptions()
+    )=CountedResult(10resolved.problem.value)
+
+    run=compute(
+        ParametricProblem(problem_space),
+        Combinatorial(formulas)
+    )
+    @test builds[] == 2
+    @test collect(run) == CountedResult.(Int[1, 2, 10, 20])
+    @test run[1, 1] == CountedResult(1)
+    @test run[2, 1] == CountedResult(2)
+    @test run[1, 2] == CountedResult(10)
+    @test run[2, 2] == CountedResult(20)
+    @test run.gridpoints == CartesianIndices((2, 2))
+    @test_throws BoundsError run[3, 1]
+
+    # A completed scalar problem stays a scalar, without iteration.
+    scalar=CountedProblem(7)
+    scalar_problem=ParametricProblem(scalar)
+    @test scalar_problem.space === scalar
+    scalar_run=compute(scalar_problem, Combinatorial(formulas))
+    @test collect(scalar_run) == CountedResult.(Int[7, 70])
+    @test scalar_run[1, 2] == CountedResult(70)
+
+    linear=compute(
+        ParametricProblem(problem_space),
+        LinearError(CountedFormulation{:first}())
+    )
+    @test builds[] == 4
+    @test collect(linear) == CountedResult.(Int[1, 2])
+
+    # A plain Grid of formulations is a space of them.
+    @test collect(compute(CountedProblem(1), formulas)) == CountedResult.(Int[1, 10])
+    @test_throws MethodError Combinatorial(Grid((1, 2)))
+    @test_throws MethodError Combinatorial(
+        Gridspace{Int}(identity, (Grid((1, 2)),)),
+    )
+
+    struct UnsupportedFormulation<:AbstractFormulation end
+    @test_throws MethodError compute(
+        CountedProblem(1),
+        UnsupportedFormulation[UnsupportedFormulation()]
+    )
+
+    formulation_builds=Ref(0)
+    formulation_space=Gridspace{CountedFormulation}(
+        value -> (formulation_builds[]+=1; value), (formulas,))
+    builds[]=0
+    automatic=compute(problem_space, formulation_space)
+    @test builds[] == 2
+    @test formulation_builds[] == 2
+    @test collect(automatic) == CountedResult.(Int[1, 2, 10, 20])
+    @test automatic.gridpoints == CartesianIndices((2, 2))
+    @test isempty(details(automatic).data)
+    @test collect(compute(scalar, formulation_space)) == CountedResult.(Int[7, 70])
+    @test collect(compute(scalar_problem, formulation_space)) == CountedResult.(Int[7, 70])
+    @test_throws MethodError compute(scalar, Gridspace{Int}(identity, (Grid((1, 2)),)))
+    @test_throws ArgumentError compute(scalar,
+        Gridspace{CountedFormulation}(identity, (Grid(()),)))
+    uncertain=Gridspace{CountedFormulation}(
+        _ -> CountedFormulation{:first}(), (Grid(1.0, AbsoluteError(0.1)),))
+    @test_throws ArgumentError compute(scalar, uncertain)
+end

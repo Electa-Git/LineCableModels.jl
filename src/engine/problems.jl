@@ -1,0 +1,499 @@
+"""
+$(TYPEDEF)
+
+Define one scalar line-parameter computation over a completed cable system.
+Operating temperature and analysis frequencies are fields of the problem.
+
+$(TYPEDFIELDS)
+"""
+struct LineParametersProblem{
+    T <: Real,
+    S <: LineCableSystem{T},
+    E <: EarthModel{T}
+} <: AbstractProblemDefinition
+    "Physical cable system."
+    system::S
+    "Operating temperature \\[°C\\]."
+    temperature::T
+    "Static earth model."
+    earth_props::E
+    "Strictly positive, sorted analysis frequencies \\[Hz\\]."
+    frequencies::Vector{T}
+
+    function LineParametersProblem{T, S, E}(
+            system::S,
+            temperature::T,
+            earth_props::E,
+            frequencies::Vector{T}
+    ) where {
+            T <: Real,
+            S <: LineCableSystem{T},
+            E <: EarthModel{T}
+    }
+        return validate(new{T, S, E}(
+            system,
+            temperature,
+            earth_props,
+            frequencies
+        ))
+    end
+end
+
+Base.eltype(::LineParametersProblem{T}) where {T} = T
+Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
+line_length(problem::LineParametersProblem) = line_length(problem.system)
+
+function validate(problem::LineParametersProblem)
+    # The system checked its pair gaps when it was built. The earth adds the interface.
+    DataModel.clearance_geometry(problem.system.designs, problem.system.positions;
+        pairs = false, interface = true, adjust = false)
+    phases = unique(problem.system.connection_order)
+    active = filter(>(0), phases)
+    isempty(active) && throw(ArgumentError(
+        "at least one conductor must be assigned to an active phase",
+    ))
+    maximum(active) <= nphases(problem.system) || throw(DomainError(
+        active,
+        "an active-phase assignment exceeds the number of distinct active phases"
+    ))
+    isfinite(problem.temperature) || throw(DomainError(problem.temperature,
+        "operating temperature must be finite"))
+    isempty(problem.frequencies) && throw(ArgumentError("frequencies cannot be empty"))
+    all(value -> isfinite(value) && value > zero(value), problem.frequencies) ||
+        throw(DomainError(
+            problem.frequencies, "frequencies must be positive and finite"
+        ))
+    issorted(problem.frequencies) || throw(ArgumentError("frequencies must be sorted"))
+    return problem
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a problem, or a `Gridspace{LineParametersProblem}` when the system or a keyword
+is a `Grid` or `Gridspace`. Each problem takes the floating type that the system, operating
+temperature, static earth model and frequency types promote to.
+
+# Keywords
+
+- `temperature=20`: operating temperature \\[°C\\].
+- `earth_props`: static earth model.
+- `frequencies=[50]`: positive sorted analysis frequencies \\[Hz\\].
+- `combine=:product`: composition rule when an input varies.
+"""
+function LineParametersProblem(
+        system::ScalarOrGrid{LineCableSystem};
+        temperature = 20,
+        earth_props,
+        frequencies = [50],
+        combine::Symbol = :product
+)
+    values = (system, temperature, earth_props, frequencies)
+    return parameterize(LineParametersProblem, LineParametersProblem, values; combine)
+end
+
+function LineParametersProblem(
+        system::LineCableSystem,
+        temperature::Real,
+        earth_props::EarthModel,
+        frequencies::AbstractVector{<:Real}
+)
+    isempty(frequencies) && throw(ArgumentError("frequencies cannot be empty"))
+    # Integer inputs are neutral: the input types promote as they are, then float.
+    T = float(promote_type(
+        eltype(system), typeof(temperature), eltype(earth_props), typeof(first(frequencies))
+    ))
+    converted_system = DataModel.interface_clearance(convert(LineCableSystem{T}, system))
+    converted_earth = convert(EarthModel{T}, earth_props)
+    return LineParametersProblem{
+        T,
+        typeof(converted_system),
+        typeof(converted_earth)
+    }(
+        converted_system,
+        convert(T, float(temperature)),
+        converted_earth,
+        T[convert(T, float(value)) for value in frequencies]
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a line-parameter problem from placed cables: `(design, pose, connections)`
+records, or formations of them, as `at` and the formations produce. Each point builds its
+system with `build(LineCableSystem, placements; environment, system_id, line_length)`,
+then its problem.
+
+# Keywords
+
+- `environment=nothing`: optional physical environment declaration.
+- `system_id="line-cable-system"`: stable system identifier.
+- `line_length=1`: physical line length in meters.
+- `temperature=20`: operating temperature in °C.
+- `earth_props`: static earth model.
+- `frequencies=[50]`: positive sorted analysis frequencies in Hz.
+- `combine=:product`: composition rule when an input varies.
+
+# Returns
+
+One validated [`LineParametersProblem`](@ref), or a `Gridspace{LineParametersProblem}`
+over the seven values when one of them is a `Grid` or `Gridspace`.
+"""
+function LineParametersProblem(
+        placements::Union{Tuple, AbstractVector,
+            Gridspace{<:Union{Tuple, AbstractVector, NamedTuple}}};
+        environment = nothing,
+        system_id = "line-cable-system",
+        line_length = 1,
+        temperature = 20,
+        earth_props,
+        frequencies = [50],
+        combine::Symbol = :product
+)
+    caller = function (placements, environment, system_id, line_length, temperature,
+            earth_props, frequencies)
+        system = build(LineCableSystem, placements; environment, system_id, line_length)
+        return LineParametersProblem(system, temperature, earth_props, frequencies)
+    end
+    values = (placements, environment, system_id, line_length, temperature, earth_props,
+        frequencies)
+    return parameterize(LineParametersProblem, caller, values; combine)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a line-parameter problem from completed cable designs and physical
+placements.
+
+# Arguments
+
+- `designs`: one completed design, or a collection aligned with `placements`.
+- `placements`: one placement or a collection of physical placements.
+
+# Keywords
+
+- `connections=nothing`: terminal-to-active-phase declarations. Use one-based active
+  phase IDs and `0` for grounded or eliminated conductors.
+- `environment=nothing`: optional physical environment declaration.
+- `system_id="line-cable-system"`: stable system identifier.
+- `line_length=1`: physical line length in meters.
+- `temperature=20`: operating temperature in °C.
+- `earth_props`: static earth model.
+- `frequencies=[50]`: positive sorted analysis frequencies in Hz.
+- `combine=:product`: composition rule when an input varies.
+
+# Returns
+
+One validated [`LineParametersProblem`](@ref) containing a completed
+[`LineCableSystem`](@ref), or a `Gridspace{LineParametersProblem}` over the nine values
+when one of them is a `Grid` or `Gridspace`.
+"""
+function LineParametersProblem(
+        designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple, AbstractGrid,
+            Gridspace},
+        placements::Union{DataModel.Pose2, Tuple, AbstractVector, AbstractGrid, Gridspace};
+        connections = nothing,
+        environment = nothing,
+        system_id = "line-cable-system",
+        line_length = 1,
+        temperature = 20,
+        earth_props,
+        frequencies = [50],
+        combine::Symbol = :product
+)
+    return LineParametersProblem(designs, placements, connections, environment, system_id,
+        line_length, temperature, earth_props, frequencies; combine)
+end
+
+function LineParametersProblem(
+        designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple},
+        placements::Union{DataModel.Pose2, Tuple, AbstractVector},
+        connections::Union{Nothing, Tuple, AbstractVector, AbstractDict, NamedTuple},
+        environment::Union{Nothing, EarthModel},
+        system_id::AbstractString,
+        line_length::Real,
+        temperature::Real,
+        earth_props::EarthModel,
+        frequencies::AbstractVector{<:Real};
+        combine::Symbol = :product
+)
+    system = build(
+        LineCableSystem,
+        designs,
+        placements;
+        connections,
+        environment,
+        system_id,
+        line_length,
+        combine
+    )
+    return LineParametersProblem(system, temperature, earth_props, frequencies)
+end
+
+"""
+$(TYPEDEF)
+
+Store the physical methods selected for a line-parameter computation.
+
+$(TYPEDFIELDS)
+"""
+struct LineParametersFormulation{M <: NamedTuple, O <: FormulationOptions} <:
+       AbstractFormulation
+    "Owner-resolved physical methods. Context-dependent defaults remain deferred."
+    formulas::M
+    "Shared physical computation options."
+    options::O
+end
+
+"""Identify the owned coaxial computation without report numbering."""
+description(::Type{<:LineParametersFormulation}; compact::Bool=false) = description(LineCableModelsCoaxial;compact)
+description(::LineParametersFormulation; compact::Bool=false) = description(LineParametersFormulation;compact)
+formula_id(::Type{<:LineParametersFormulation}) = :coaxial
+formula_id(::LineParametersFormulation) = :coaxial
+
+"""
+$(TYPEDSIGNATURES)
+
+Describe the selected earth-return methods relevant to `quantity`. This compact
+summary identifies the analytical computation when compared with another
+backend. Individual constitutive selections remain separately described.
+"""
+function description(::Type{LineParametersFormulation}, source::LineParametersFormulation;
+        quantity=nothing, compact::Bool=false)
+    entries=pairs(source;quantity)
+    selected=[(route,value) for ((_,route),value) in entries
+        if !isempty(route) && first(route) in (:earth_impedance,:earth_admittance) &&
+            value !== nothing && !ismissing(value)]
+    isempty(selected) && return description(source;compact)
+    length(unique(formula_id(value) for (_,value) in selected))==1 &&
+        return description(last(first(selected));compact)
+    return join(map(selected) do (route,value)
+        name=description(LineParametersFormulation,Val(first(route));compact)
+        length(route)>1 && (name *= "("*join(string.(Base.tail(route)),",")*")")
+        name*"="*description(value;compact)
+    end," / ")
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Iterate ordered formula-slot owners relevant to a physical quantity. With
+`quantity=nothing`, retain every declared slot. This is a declaration read,
+not problem-dependent formula resolution.
+"""
+function Base.pairs(::Type{LineParametersFormulation}; quantity=nothing)
+    selected=(internal_impedance=InternalImpedance.Formula,
+        insulation_impedance=InsulationImpedance.Formula,
+        earth_impedance=EarthImpedance.Formula,
+        shunt_model=ShuntModel.Formula,
+        insulation_admittance=InsulationAdmittance.Formula,
+        semicon_admittance=SemiconAdmittance.Formula,
+        earth_admittance=EarthAdmittance.Formula,
+        earth_properties=Earth.FrequencyDependent.Formula,
+        pipe_impedance=PipeImpedance.Formula,
+        temperature_dependence=TemperatureDependent.Formula)
+    quantity===nothing && return pairs(selected)
+    q=Commons.request_quantity(quantity)
+    family=Units.family(q)
+    family===nothing && throw(ArgumentError("no line-formulation selections for $q"))
+    omitted=family===Val(:series) ?
+        (:shunt_model,:insulation_admittance,:semicon_admittance,:earth_admittance) :
+        (:internal_impedance,:insulation_impedance,:earth_impedance,:pipe_impedance)
+    return pairs((; (key=>value for (key,value) in pairs(selected) if key ∉ omitted)...))
+end
+
+description(::Type{LineParametersFormulation},::Val{:internal_impedance}; compact::Bool=false) = "internal Z"
+description(::Type{LineParametersFormulation},::Val{:insulation_impedance}; compact::Bool=false) = "insulation Z"
+description(::Type{LineParametersFormulation},::Val{:earth_impedance}; compact::Bool=false) = "earth Z"
+description(::Type{LineParametersFormulation},::Val{:shunt_model}; compact::Bool=false) = "shunt geometry"
+description(::Type{LineParametersFormulation},::Val{:insulation_admittance}; compact::Bool=false) = "insulation Y"
+description(::Type{LineParametersFormulation},::Val{:semicon_admittance}; compact::Bool=false) = "semicon Y"
+description(::Type{LineParametersFormulation},::Val{:earth_admittance}; compact::Bool=false) = "earth Y"
+description(::Type{LineParametersFormulation},::Val{:earth_properties}; compact::Bool=false) = "soil law"
+description(::Type{LineParametersFormulation},::Val{:pipe_impedance}; compact::Bool=false) = "pipe Z"
+description(::Type{LineParametersFormulation},::Val{:temperature_dependence}; compact::Bool=false) = "temperature law"
+
+"""Expose typed children and controls without serializing the formulation."""
+Base.pairs(value::LineParametersFormulation; quantity=nothing) =
+    pairs(LineParametersFormulation,(formulas=value.formulas,options=value.options.data);quantity)
+formulation_options(value::LineParametersFormulation) = value.options
+
+"""
+$(TYPEDSIGNATURES)
+
+Iterate owner-scoped selections from a formulation's declared child interface.
+`retained.formulas` contains typed children. Each selection pairs a formula with its
+parameters, options and equivalent earth. `pairs(owner; quantity)`
+owns child order and relevance. The empty route identifies the owner itself.
+"""
+function Base.pairs(::Type{LineParametersFormulation}, retained::NamedTuple;
+        quantity=nothing,owner=LineParametersFormulation)
+    selections=Pair{Tuple,Any}[]
+    for (slot,family) in pairs(owner;quantity)
+        selected=retained.formulas[slot]
+        if selected isa NamedTuple
+            children = pairs(family)
+            issubset(keys(selected), (key for (key,_) in children)) || throw(ArgumentError(
+                "retained $slot selections contain unknown owning formula slots"))
+            append!(selections,
+                [(slot,route) => selected[route] for (route,_) in children if haskey(selected, route)])
+        else
+            push!(selections,(slot,) => selected)
+        end
+    end
+    entries=Pair{Tuple,Any}[(owner,()) => (owner => retained.options)]
+    for (route,value) in selections
+        if value===nothing || ismissing(value)
+            push!(entries,(owner,route) => value)
+        else
+            # A selection pair contains the formula and each of its control sections that
+            # is not empty.
+            record=NamedTuple(value)
+            controls=(; (key => record[key] for key in (:parameters, :options, :equivalent_earth)
+                if haskey(record, key) && record[key] !== nothing &&
+                    !(record[key] isa NamedTuple && isempty(record[key])))...)
+            push!(entries,(owner,route) => (value => controls))
+        end
+    end
+    return entries
+end
+
+function _line_formulation(
+        internal_impedance,
+        insulation_impedance,
+        earth_impedance,
+        shunt_model,
+        insulation_admittance,
+        semicon_admittance,
+        earth_admittance,
+        earth_properties,
+        pipe_impedance,
+        temperature_dependence,
+        options::FormulationOptions
+)
+    return LineParametersFormulation((;
+        internal_impedance = InternalImpedance.Formula(internal_impedance),
+        insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
+        earth_impedance = EarthImpedance.Formula(earth_impedance),
+        shunt_model = ShuntModel.Formula(shunt_model),
+        insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
+        semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
+        earth_admittance = EarthAdmittance.Formula(earth_admittance),
+        earth_properties = earth_properties === nothing ? nothing :
+                           Earth.FrequencyDependent.Formula(earth_properties),
+        pipe_impedance = PipeImpedance.Formula(pipe_impedance),
+        temperature_dependence = temperature_dependence === nothing ? nothing :
+                                 TemperatureDependent.Formula(temperature_dependence)),
+        formulation_options(LineParametersFormulation, options))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Select the complete physical-method bundle for a line-parameter computation.
+`Formulation(; kwargs...)` and `Formulation(:coaxial; kwargs...)` call it.
+
+`shunt_model=:default` (or `:equivalent`) selects the equivalent annular layer as local shunt
+geometry.
+`:boundary` explicitly computes a lossless wire and tape boundary correction.
+This choice is independent of `insulation_admittance` and `semicon_admittance`,
+which select material constitutive laws. Geometric boundary numerical controls
+belong to `formula(:boundary; options)`.
+
+`internal_impedance` accepts one formula. A solid primitive requests only its `outer`
+surface, and a tubular primitive all three. Before the frequency loop, the computation
+checks that the formula has an expression for the surface impedances that it requests.
+
+`earth_impedance` and `earth_admittance` each accept one formula or a NamedTuple
+with the required subset of `air`, `earth`, and `mixed` selections. On air and one
+homogeneous earth, these select `(s,t)=(1,1)`, `(2,2)`, and the two cross-layer mutual
+directions. Actual kind and source and target method dispatch governs equation
+applicability. Missing cases have no implicit fallback. A recipe describes a homogeneous
+earth, so each of its formulas stops at layer 2, and a multilayer formula is used alone. On
+an earth with more layers, the slot takes one equivalent earth: the explicit reduction that
+its formulas agree on, or the `:default` reduction. Its routes then resolve on layers 1 and
+2. Model parameters and numerical options remain local to each selected entry.
+
+`temperature_dependence=formula(:default)` selects the Materials-owned linear
+resistivity law. `nothing` retains reference resistivity. Operating temperature
+belongs to the problem. Reference temperature and coefficients belong to each
+material.
+
+Each formula slot and the complete `options` tuple accepts either one scalar
+selection or an explicit
+[`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
+inputs return one [`LineParametersFormulation`](@ref). Varying inputs return a
+`Gridspace{LineParametersFormulation}` whose points contain only completed,
+owner-resolved formula values. `:default` routes to an explicit implementation.
+The scalar problem supplies its geometry and earth context for validation.
+
+`combine=:product` forms the Cartesian product among varying fields in this
+formulation. `combine=:zip` aligns equally sized fields and broadcasts
+singletons. This composition is independent of the Cartesian product between
+problem points and formulation points performed by
+[`Combinatorial`](@ref LineCableModels.Commons.Combinatorial).
+"""
+function LineParametersFormulation(;
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        earth_impedance = formula(:default),
+        shunt_model = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        earth_admittance = formula(:default),
+        earth_properties = formula(:default),
+        pipe_impedance = formula(:default),
+        temperature_dependence = formula(:default),
+        options = FormulationOptions(),
+        combine::Symbol = :product
+)
+    values = (
+        internal_impedance,
+        insulation_impedance,
+        earth_impedance,
+        shunt_model,
+        insulation_admittance,
+        semicon_admittance,
+        earth_admittance,
+        earth_properties,
+        pipe_impedance,
+        temperature_dependence,
+        options
+    )
+    return parameterize(
+        LineParametersFormulation,
+        (inputs...) -> _line_formulation(inputs[1:end-1]..., FormulationOptions(last(inputs))),
+        values;
+        combine
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build the coaxial formulation, [`LineParametersFormulation`](@ref), from the same keywords.
+"""
+Formulation(; kwargs...) = LineParametersFormulation(; kwargs...)
+
+Formulation(::Val{:coaxial}; kwargs...) = LineParametersFormulation(; kwargs...)
+
+"""
+$(TYPEDSIGNATURES)
+
+Expose the complete formula selections and reduction options.
+Selections retain scientific identity and data. Serialization belongs to the writer.
+"""
+function Base.NamedTuple(value::LineParametersFormulation)
+    record = function (selected)
+        selected === nothing && return nothing
+        selected isa NamedTuple && return map(record,selected)
+        return NamedTuple(selected)
+    end
+    # Retain complete records without specializing result containers on each
+    # parameter tuple or concrete selection type. The stored values remain unchanged.
+    Record=NamedTuple{(:backend,:formulas,:options),Tuple{Symbol,NamedTuple,NamedTuple}}
+    return Record((:coaxial,map(record,value.formulas),value.options.data))
+end

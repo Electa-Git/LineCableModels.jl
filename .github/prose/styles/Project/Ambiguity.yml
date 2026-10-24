@@ -1,0 +1,14 @@
+extends: STE.Ambiguity
+tokens-:
+  - '\betc\.?'
+  - '\b[a-z]{3,}/[a-z]{3,}\b'
+tokens+:
+  - '\betc\b\.?'
+  - '(?-i:\b[a-z]{3,}/[a-z]{3,}\b)'
+tests:
+  - name: abbreviations and alternatives
+    input: "Use bolts, etc. Select input/output."
+    contains: Project.Ambiguity
+  - name: institution and protocol names
+    input: "Etch Competence Hub uses HTTP/TLS."
+    want: ""

@@ -1,0 +1,15 @@
+# Copy to a private filename of your choice and edit the station's values. Its path is the
+# `remote` computation option of a PSCAD computation.
+# The SSH destination of the station, and the command that connects to it.
+host = "station"
+ssh = ["ssh"]
+# PSCAD's automation port on the station. A run borrows a PSCAD 5.1 that serves automation on
+# this port in the station's desktop session, started with `/startup:au /port:64339` and its
+# working directory at shared_root. Otherwise the run starts pscad_executable over SSH.
+port = 64339
+pscad_executable = 'C:\Program Files (x86)\PSCAD\5.1.0\bin\win64\Pscad.exe'
+# local_root and shared_root name one directory on this machine and on the station.
+local_root = "exchange"
+shared_root = 'Z:\shared\exchange'
+# The bound of every wait of a run, in seconds.
+timeout = 1800

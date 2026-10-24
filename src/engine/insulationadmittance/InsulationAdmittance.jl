@@ -1,27 +1,52 @@
 """
-	LineCableModels.Engine.InsulationAdmittance
+    LineCableModels.Engine.InsulationAdmittance
+
+Define registered constitutive relations for cable-insulation admittance.
+`:lossy` retains material conduction and displacement current. `:lossless`
+explicitly selects the lossless approximation. `:default` routes to
+`:lossless`.
 
 # Dependencies
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module InsulationAdmittance
+import ...Commons: FormulationOptions, formulas
+using ...Commons: Functor
+import ...Commons: formulation_options
 
 # Export public API
-export Lossless, ParallelRC
+export Formula, formula_id, formulas
 
 # Module-specific dependencies
-using ...Commons
-import ...Commons: get_description
-using ...Utils: _to_σ
-import ..Engine: InsulationAdmittanceFormulation
-using Measurements
+#! explicit-imports: off
+# IMPORTS is expanded in this module docstring rather than called as Julia code.
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+#! explicit-imports: on
+import ..Engine: InsulationAdmittanceFormulation, formula_id, validate
+import ...LineCableModels: FormulaDefinition, Expression
+using ...Materials: Material
+#! explicit-imports: off
+import ..Engine: description, conductivity
+using ...Commons: vacuum_permittivity
+#! explicit-imports: on
 
-include("lossless.jl")
-include("parallelrc.jl")
+include("interface.jl")
+
+public insulation_material
+
+#! explicit-imports: off
+const FORMULAS = (
+    include("formulas/default.jl"),
+    include("formulas/lossless.jl"),
+    include("formulas/lossy.jl"),
+)
+#! explicit-imports: on
+
+"""
+Return the built-in insulation-admittance formula identifiers.
+"""
+formulas(::Type{<:Formula}) = FORMULAS
 
 end # module InsulationAdmittance

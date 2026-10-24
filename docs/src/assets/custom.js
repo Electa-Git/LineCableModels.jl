@@ -1,6 +1,8 @@
+// ```javascript
 // document.addEventListener("DOMContentLoaded", function () {
 //     localStorage.setItem("documenter-theme", "catppuccin-mocha");
 // });
+// ```
 
 (function () {
     const theme = "documenter-dark";
@@ -14,6 +16,7 @@
     document.documentElement.setAttribute("data-theme", theme);
 })();
 
+// ```javascript
 // document.addEventListener("DOMContentLoaded", function () {
 //     document.querySelectorAll("html.theme--catppuccin-mocha a").forEach(el => {
 //         el.addEventListener("mouseover", function () {
@@ -21,9 +24,10 @@
 //                 this.style.color = "#4493f8";
 //             }
 //         });
-
+//
 //         el.addEventListener("mouseout", function () {
 //             this.style.color = ""; // Resets to default when not hovered
 //         });
 //     });
 // });
+// ```

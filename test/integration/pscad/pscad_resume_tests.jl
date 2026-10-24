@@ -1,0 +1,194 @@
+@testitem "PSCAD / verified completed-run reuse" tags=[:integration, :pscad, :slow] setup=[PSCADStandIn] begin
+    using LineCableModels.Engine: completed_formulation
+    using LineCableModels
+    using TOML, SHA, Logging
+    using PythonCall: pydict
+    const P=Base.get_extension(LineCableModels, :LineCableModelsPSCADExt)
+    const S=PSCADStandIn
+    # Exercise export, staging, parsing and checkpoints with the stand-in PSCAD. Its
+    # matrices are protocol fixtures, not references.
+    directory=mktempdir()
+    try
+        copper=Material(:conductor, 1.72e-8, 1.0)
+        design=build(CableDesign,
+            "resume-fixture",
+            terminal(:core,
+                solid(copper, Disk(0.004)), insulation(Material(:insulator, 1e14, 2.3); t = 0.002)))
+        system=build(LineCableSystem, [design], [Pose2(0, -1)];
+            connections = [Dict(:core=>1)], system_id = basename(directory), line_length = 42.0)
+        frequency=collect(10.0 .^ range(-1, 6; length = 101))
+        problem=LineParametersProblem(system; earth_props = homogeneous(rho = 100.0), frequencies = frequency)
+        application=S.install(directory)
+        launches()=S.compiles(application)
+        remote=S.remote(directory)
+        options=(; remote, resume_run_directory = :latest)
+        for value in (:invalid, "", 1)
+            @test_throws ArgumentError computation_options(P.PSCADFormulation, ComputationOptions((; remote, resume_run_directory = value)))
+        end
+        quiet_log=Test.TestLogger()
+        first_result=with_logger(quiet_log) do
+            compute(problem, Formulation(:pscad);
+                options=(; options..., verbosity=(default=0, timing=1)))
+        end
+        # A quiet run logs only the timing record of its point.
+        @test [record.group for record in quiet_log.logs] == [:timing]
+        @test launches() == 1
+        @test !details(first_result).data.execution.reused
+        # A fresh run reads the identity on its own connection.
+        @test S.connects(application) == 1
+        @test !haskey(details(first_result).data.execution, :elapsed_scope)
+        source=details(first_result).data.execution.source_run
+        files=[joinpath(root, file) for (root, _, names) in walkdir(source)
+               for file in names]
+        original=Dict(path=>(bytes2hex(open(sha256, path)), mtime(path)) for path in files)
+        @test isfile(joinpath(source, "complete.toml"))
+        verbose_log=Test.TestLogger(min_level=Logging.Debug)
+        reused=with_logger(verbose_log) do
+            compute(problem, Formulation(:pscad; earth_impedance = :pollaczek1926);
+                options=(; options..., verbosity=(default=0, LineCableModelsPSCADExt=2, timing=1)))
+        end
+        # Reuse does not connect to the station.
+        @test S.connects(application) == 1
+        @test any(record->record.message == "PSCAD reuses a verified completed run", verbose_log.logs)
+        @test launches() == 1
+        @test Z(reused) == Z(first_result)
+        @test Y(reused) == Y(first_result)
+        @test details(reused).data.execution.reused
+        # A point that reuses a native run is timed like any point.
+        @test keys(only(record.kwargs for record in verbose_log.logs if record.group === :timing)) ==
+              (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+        @test !haskey(details(reused).data, :timing)
+        # The compile call's seconds are those that the run recorded.
+        @test details(first_result).data.execution.compile_call_seconds ==
+              parse(Float64, read(joinpath(source, "outputs", "timing.txt"), String))
+        @test only(quiet_log.logs).kwargs[:wall_seconds] >= 0
+        @test !haskey(details(reused).data.execution, :elapsed_seconds)
+        @test completed_formulation(details(reused)).formulations.formulas.earth_impedance.identifier === :pollaczek1926
+        sample_log=Test.TestLogger()
+        total=with_logger(sample_log) do
+            compute(problem, Formulation(:pscad); options = (;
+                options..., verbosity=(default=0,)))
+        end
+        @test isempty(sample_log.logs)
+        @test launches() == 1
+        @test Z(total) .* line_length(total) == 42 .* Z(first_result)
+        @test Y(total) .* line_length(total) == 42 .* Y(first_result)
+        @test original ==
+              Dict(path=>(bytes2hex(open(sha256, path)), mtime(path)) for path in files)
+        callbacks=Int[]
+        callback_log=Test.TestLogger()
+        batch=with_logger(callback_log) do
+            compute(problem,
+                Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = :pollaczek1926)));
+                options = (;
+                    options..., verbosity=(default=0, timing=1),
+                    on_result = (problem, index, result)->begin
+                        push!(callbacks, index)
+                        @info "optional callback diagnostic"
+                        @warn "visible callback warning"
+                    end))
+        end
+        warnings=filter(record->record.group !== :timing, callback_log.logs)
+        @test count(record->record.level == Logging.Warn, warnings) == 2
+        @test all(record->record.level >= Logging.Warn, warnings)
+        @test launches() == 1
+        @test callbacks == [1, 2]
+        @test map(record -> record.identifier,completed_formulation(details(batch[1])).formulations.formulas.earth_impedance) ==
+              (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)
+        @test completed_formulation(details(batch[2])).formulations.formulas.earth_impedance.identifier === :pollaczek1926
+        @test all(record -> record.formula === :pollaczek1926,
+            details(batch[2]).data.native_setting.interactions.earth_impedance)
+        @test Z(batch[1]) == Z(batch[2])
+        @test Z(batch[1]) !== Z(batch[2])
+        batch_timings=[record.kwargs for record in callback_log.logs if record.group === :timing]
+        @test [record[:gridpoint].formulation_index for record in batch_timings] == [1, 2]
+        @test all(record -> keys(record) == (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds), batch_timings)
+        homogeneous_choices = (air = :default, earth = :default, mixed = :default)
+        represented = compute(problem,
+            Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = homogeneous_choices)));
+            options)
+        @test launches() == 1
+        @test map(record -> record.identifier,completed_formulation(details(represented[1])).formulations.formulas.earth_impedance) ==
+              (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)
+        @test map(record -> record.identifier,completed_formulation(details(represented[2])).formulations.formulas.earth_impedance) ==
+              (air = :carson1926, earth = :pollaczek1926, mixed = :lucca1994)
+        @test Z(represented[1]) == Z(represented[2])
+        @test Z(represented[1]) !== Z(represented[2])
+        changed_earth=LineParametersProblem(
+            system; earth_props = homogeneous(rho = 200.0), frequencies = frequency)
+        @test_throws ArgumentError compute(changed_earth, Formulation(:pscad);
+            options = (; remote, resume_run_directory = source))
+        changed_frequencies=LineParametersProblem(
+            system; earth_props = homogeneous(rho = 100.0),
+            frequencies = collect(10.0 .^ range(-1, 5; length = 101)))
+        @test_throws ArgumentError compute(changed_frequencies, Formulation(:pscad);
+            options = (; remote, resume_run_directory = source))
+
+        @test_throws ArgumentError compute(
+            problem, Formulation(:pscad; earth_impedance = :saad1996);
+            options = (; remote, resume_run_directory = source))
+        @test launches() == 1
+        compute(problem, Formulation(:pscad; earth_impedance = :saad1996); options)
+        @test launches() == 2
+        # A partial run must never be accepted as a completed numerical result.
+        partial=mktempdir(directory)
+        cp(joinpath(source, "computation.toml"), joinpath(partial, "computation.toml"))
+        @test_throws ArgumentError compute(problem, Formulation(:pscad);
+            options = (; remote, resume_run_directory = partial))
+        open(joinpath(source, "outputs", "result_zm.out"), "a") do io
+            println(io, "damaged")
+        end
+        @test_throws ArgumentError compute(problem, Formulation(:pscad); options)
+        @test launches() == 2
+        @test endswith(read(joinpath(source, "outputs", "result_zm.out"), String), "damaged\n")
+        # A rejected native setting stops the run before its solve.
+        application.readbacks=pydict(Dict("EarthForm" => "UNEXPECTED"))
+        @test_throws r"PSCAD field EarthForm rejected" compute(problem, Formulation(:pscad);
+            options = (; remote))
+        @test launches() == 2
+        @test isempty(S.loaded(application))
+        application.readbacks=pydict()
+        application.malformed = true
+        caught = try
+            compute(problem, Formulation(:pscad); options = (; remote))
+            nothing
+        catch error
+            error
+        end
+        @test caught isa ErrorException
+        @test occursin("PSCAD result validation failed", sprint(showerror, caught))
+        @test occursin("Full PSCAD diagnostics:", sprint(showerror, caught))
+        @test launches() == 3
+        application.malformed = false
+        # Distinct physical settings in one batch require distinct native runs.
+        before = launches()
+        heterogeneous = compute(problem,
+            Grid((Formulation(:pscad), Formulation(:pscad; earth_impedance = :saad1996)));
+            options = (; remote))
+        @test launches() == before + 2
+        @test !details(heterogeneous[1]).data.execution.reused
+        @test !details(heterogeneous[2]).data.execution.reused
+        @test details(heterogeneous[1]).data.native_setting.ground !=
+            details(heterogeneous[2]).data.native_setting.ground
+        # The first cache entry may be reused while a later selection is fresh.
+        before = launches()
+        source_root = dirname(details(first(heterogeneous)).data.execution.source_run)
+        mixed_log = Test.TestLogger()
+        mixed = with_logger(mixed_log) do
+            compute(problem, Grid((Formulation(:pscad),
+                Formulation(:pscad; options=(base_frequency=55.0,)))); options=(;
+                    remote, work_root=source_root, verbosity=(default=0, timing=1),
+                    resume_run_directory=:latest))
+        end
+        @test launches() == before + 1
+        @test details(first(mixed)).data.execution.reused
+        @test keys(first(record.kwargs for record in mixed_log.logs if record.group === :timing)) ==
+              (:gridpoint, :wall_seconds, :bytes, :gc_seconds, :compile_seconds, :recompile_seconds)
+        @test !details(last(mixed)).data.execution.reused
+        @test details(last(mixed)).data.execution.compile_call_seconds == parse(Float64,
+            read(joinpath(details(last(mixed)).data.execution.source_run, "outputs", "timing.txt"), String))
+        @test typeof(first(mixed)) === typeof(last(mixed))
+    finally
+        rm(directory; recursive = true)
+    end
+end

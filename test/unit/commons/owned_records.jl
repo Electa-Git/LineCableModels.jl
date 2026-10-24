@@ -1,0 +1,128 @@
+@testitem "Commons / owned records / payload identity and value semantics" tags=[:unit, :commons] begin
+    payload = (rtol=1e-8, nested=(enabled=true,), values=[1.0, 2.0], data=:field)
+    # A formulation copies its data when built. Computation options and details keep it.
+    @test isequal((@inferred FormulationOptions(payload)).data, payload)
+    @test (@inferred ComputationOptions(payload)).data === payload
+    @test (@inferred ComputationDetails(payload)).data === payload
+    @test typeof(ComputationDetails(payload)) === typeof(ComputationDetails()) === ComputationDetails
+    @test FormulationOptions !== ComputationOptions !== ComputationDetails
+    @test LineCableModels.FormulaDefinition === LineCableModels.Commons.FormulaDefinition
+    @test LineCableModels.Expression === LineCableModels.Commons.Expression
+
+    for Record in (FormulationOptions, ComputationOptions, ComputationDetails)
+        value = Record(payload)
+        @test !(value isa NamedTuple)
+        # The record of a computation has one type, whatever its contents.
+        @test fieldtype(typeof(value), :data) ===
+              (Record === ComputationDetails ? NamedTuple : typeof(payload))
+        kept = Record !== FormulationOptions
+        @test kept ? value.data === payload : isequal(value.data, payload)
+        @test (value.data.values === payload.values) == kept
+        @test value.data.data === :field
+        @test kept ? Record(; payload...).data === payload :
+              isequal(Record(; payload...).data, payload)
+        @test Record().data === NamedTuple()
+        @test Record((other=3,)).data === (other=3,)
+        @test_throws MethodError Record(Dict(:rtol=>1e-8))
+        @test_throws MethodError Record((1, 2))
+        @test_throws MethodError Record(3)
+        Record === ComputationDetails ||
+            @test_throws MethodError Record{NamedTuple}(payload)
+        @test Record(value) === value
+        for Other in (FormulationOptions, ComputationOptions, ComputationDetails)
+            Other === Record && continue
+            @test_throws MethodError Record(Other(payload))
+            @test value != Other(payload)
+            @test !isequal(value, Other(payload))
+        end
+        @test value != payload
+        @test !isequal(value, payload)
+        for (a, b) in (((values=[1, 2],), (values=[1.0, 2.0],)),
+                ((x=NaN,), (x=NaN,)), ((x=0.0,), (x=-0.0,)),
+                ((x=missing,), (x=missing,)))
+            @test isequal(Record(a) == Record(b), a == b)
+            @test isequal(Record(a), Record(b)) == isequal(a, b)
+            isequal(a, b) && @test hash(Record(a)) == hash(Record(b))
+        end
+        bounded = NamedTuple{(:shunt_model,), Tuple{NamedTuple}}(((iterations=4,),))
+        @test fieldtype(typeof(Record(bounded).data), :shunt_model) === NamedTuple
+        @test occursin(string(nameof(Record)), sprint(show, value))
+    end
+
+    retained = ComputationDetails(payload)
+    payload.values[1] = 7.0
+    @test retained.data.values[1] == 7.0
+end
+
+@testitem "Commons / owned records / owner-specific option normalization" tags=[:unit, :engine] begin
+    using LineCableModels.Commons: formulation_options, computation_options
+    resolved = @inferred formulation_options(LineParametersFormulation, FormulationOptions())
+    @test resolved isa FormulationOptions
+    @test resolved.data == (reduce_bundle=true, kron_reduction=true, ideal_transposition=false)
+    execution = @inferred computation_options(LineCableModelsCoaxial, ComputationOptions())
+    @test execution isa ComputationOptions
+    @test execution.data.trace === Val(false)
+    @test !haskey(execution.data, :output_basis)
+    @test_throws MethodError formulation_options(LineParametersFormulation, (;))
+    @test_throws MethodError formulation_options(LineParametersFormulation, ComputationOptions())
+    @test_throws MethodError computation_options(LineCableModelsCoaxial, (;))
+    @test_throws MethodError computation_options(LineCableModelsCoaxial, FormulationOptions())
+    @test_throws ArgumentError formulation_options(LineParametersFormulation, FormulationOptions(unknown=true))
+    @test_throws ArgumentError computation_options(LineCableModelsCoaxial, ComputationOptions(trace="yes"))
+    @test_throws ArgumentError computation_options(LineCableModelsCoaxial, ComputationOptions(ui=true))
+    @test_throws TypeError formula(:default; options=ComputationDetails())
+end
+
+@testitem "Commons / owned records / saved records and results" tags=[:unit, :measurements] setup=[TestFixtures, SavedResults] begin
+    using Measurements
+    using Serialization
+    payload = (resolution=(enabled=true,), values=[1.0, 2.0])
+    for Record in (FormulationOptions, ComputationOptions, ComputationDetails)
+        record = Record(payload)
+        @test_throws MethodError keys(record)
+        @test_throws MethodError iterate(record)
+        @test_throws MethodError NamedTuple(record)
+        @test_throws MethodError merge(record, (;))
+        buffer = IOBuffer()
+        serialize(buffer, record)
+        seekstart(buffer)
+        @test isequal(deserialize(buffer), record)
+    end
+
+    problem = CableConstantsProblem(TestFixtures.coaxial_design())
+    formulation = CableConstantsFormulation()
+    scalar = @inferred compute(problem, formulation; options=ComputationOptions())
+    bundled = @inferred ParametricResult compute(problem, Grid((formulation, formulation)))
+    @test isconcretetype(eltype(bundled))
+    @test all(value -> typeof(value) === typeof(scalar), bundled)
+    @test scalar == compute(problem, formulation; options=(;))
+    @test details(scalar) isa ComputationDetails
+    @test fieldtype(typeof(scalar), :details) === typeof(details(scalar))
+    @test fieldtype(typeof(details(scalar).data), :shunt_model) === NamedTuple
+    restored_scalar=SavedResults.round_trip(scalar)
+    @test SavedResults.same(restored_scalar, scalar)
+    @test fieldtype(typeof(details(restored_scalar).data), :shunt_model) === NamedTuple
+    @test_throws TypeError compute(problem, formulation; options=FormulationOptions())
+    @test_throws MethodError ParametricProblem(problem, (;))
+
+    for outer in (LinearError(formulation),
+            MonteCarlo(formulation; trials=2, seed=13, return_samples=true))
+        result = compute(ParametricProblem(problem), outer; options=(retain_details=true,))
+        @test fieldtype(typeof(result), :details) === typeof(details(result))
+        @test isconcretetype(eltype(result.values))
+        restored = SavedResults.round_trip(result)
+        @test SavedResults.same(restored, result)
+        @test fieldtype(typeof(details(first(restored)).data), :shunt_model) === NamedTuple
+        restored_records=outer isa LinearError ? details(restored).data.points :
+            first(details(restored).data.trials)
+        @test all(record -> fieldtype(typeof(record.data), :shunt_model) === NamedTuple,
+            restored_records)
+    end
+    # A saved Monte Carlo result keeps its formulation and all 64 bits of its seeds.
+    for seed in (UInt64(0), UInt64(1) << 63, typemax(UInt64))
+        sampled = compute(ParametricProblem(problem), MonteCarlo(formulation; trials=2, seed))
+        restored = SavedResults.round_trip(sampled)
+        @test restored.root_seed === seed
+        @test SavedResults.same(restored, sampled)
+    end
+end

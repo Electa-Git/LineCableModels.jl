@@ -1,0 +1,516 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "root": {
+        "kind": "line_parameters_problem",
+        "earth_props": {
+            "kind": "earth_model",
+            "vertical_layers": false,
+            "layers": [
+                {
+                    "kind": "earth_layer",
+                    "thickness": {
+                        "special": "Inf",
+                        "__type__": "Float64"
+                    },
+                    "eps_r": {
+                        "value": 1,
+                        "__type__": "Float64"
+                    },
+                    "mu_r": {
+                        "value": 1,
+                        "__type__": "Float64"
+                    },
+                    "rho": {
+                        "special": "Inf",
+                        "__type__": "Float64"
+                    }
+                },
+                {
+                    "kind": "earth_layer",
+                    "thickness": {
+                        "special": "Inf",
+                        "__type__": "Float64"
+                    },
+                    "eps_r": {
+                        "value": 1,
+                        "__type__": "Float64"
+                    },
+                    "mu_r": {
+                        "value": 1,
+                        "__type__": "Float64"
+                    },
+                    "rho": {
+                        "value": 0.1,
+                        "__type__": "Float64"
+                    }
+                }
+            ]
+        },
+        "Gamma": null,
+        "frequencies": [
+            {
+                "value": 0.1,
+                "__type__": "Float64"
+            },
+            {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            {
+                "value": 10,
+                "__type__": "Float64"
+            },
+            {
+                "value": 100,
+                "__type__": "Float64"
+            },
+            {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            {
+                "value": 10000,
+                "__type__": "Float64"
+            },
+            {
+                "value": 100000,
+                "__type__": "Float64"
+            },
+            {
+                "value": 1000000,
+                "__type__": "Float64"
+            },
+            {
+                "value": 10000000,
+                "__type__": "Float64"
+            }
+        ],
+        "system": {
+            "kind": "line_cable_system",
+            "input_positions": [
+                {
+                    "kind": "pose2",
+                    "x": {
+                        "value": 0,
+                        "__type__": "Float64"
+                    },
+                    "φ": {
+                        "value": 0,
+                        "__type__": "Float64"
+                    },
+                    "y": {
+                        "value": -1,
+                        "__type__": "Float64"
+                    }
+                },
+                {
+                    "kind": "pose2",
+                    "x": {
+                        "value": 1,
+                        "__type__": "Float64"
+                    },
+                    "φ": {
+                        "value": 0,
+                        "__type__": "Float64"
+                    },
+                    "y": {
+                        "value": -1,
+                        "__type__": "Float64"
+                    }
+                },
+                {
+                    "kind": "pose2",
+                    "x": {
+                        "value": 2,
+                        "__type__": "Float64"
+                    },
+                    "φ": {
+                        "value": 0,
+                        "__type__": "Float64"
+                    },
+                    "y": {
+                        "value": 1,
+                        "__type__": "Float64"
+                    }
+                }
+            ],
+            "clearances": [
+                [
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    },
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    },
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    }
+                ],
+                [
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    },
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    },
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    }
+                ],
+                [
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    },
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    },
+                    {
+                        "value": 1.0e-6,
+                        "__type__": "Float64"
+                    }
+                ]
+            ],
+            "connections": [
+                [
+                    1
+                ],
+                [
+                    2
+                ],
+                [
+                    3
+                ]
+            ],
+            "line_length": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "environment": null,
+            "system_id": "three_bare_wires_air_3",
+            "positions": [
+                {
+                    "kind": "pose2",
+                    "x": {
+                        "value": 0,
+                        "__type__": "Float64"
+                    },
+                    "φ": {
+                        "value": 0,
+                        "__type__": "Float64"
+                    },
+                    "y": {
+                        "value": -1,
+                        "__type__": "Float64"
+                    }
+                },
+                {
+                    "kind": "pose2",
+                    "x": {
+                        "value": 1,
+                        "__type__": "Float64"
+                    },
+                    "φ": {
+                        "value": 0,
+                        "__type__": "Float64"
+                    },
+                    "y": {
+                        "value": -1,
+                        "__type__": "Float64"
+                    }
+                },
+                {
+                    "kind": "pose2",
+                    "x": {
+                        "value": 2,
+                        "__type__": "Float64"
+                    },
+                    "φ": {
+                        "value": 0,
+                        "__type__": "Float64"
+                    },
+                    "y": {
+                        "value": 1,
+                        "__type__": "Float64"
+                    }
+                }
+            ],
+            "designs": [
+                {
+                    "kind": "cable_design",
+                    "cable_id": "three_bare_wires_air_3",
+                    "nominal_data": [
+                    ],
+                    "origin": {
+                        "kind": "stack",
+                        "items": [
+                            {
+                                "kind": "group",
+                                "name": "core",
+                                "pattern": null,
+                                "compact": null,
+                                "item": {
+                                    "kind": "region",
+                                    "tag": "core_metal",
+                                    "material": {
+                                        "value": {
+                                            "kind": "conductor",
+                                            "rho_thermal": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "T0": {
+                                                "value": 20,
+                                                "__type__": "Float64"
+                                            },
+                                            "theta_max": {
+                                                "value": 90,
+                                                "__type__": "Float64"
+                                            },
+                                            "alpha": {
+                                                "value": 0.00393,
+                                                "__type__": "Float64"
+                                            },
+                                            "eps_r": {
+                                                "value": 1,
+                                                "__type__": "Float64"
+                                            },
+                                            "mu_r": {
+                                                "value": 0.999994,
+                                                "__type__": "Float64"
+                                            },
+                                            "tan_delta": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "sigma_solar": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "rho": {
+                                                "value": 1.7241e-8,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "type": "material"
+                                    },
+                                    "primitive": {
+                                        "kind": "disk",
+                                        "r": {
+                                            "value": 0.0425,
+                                            "__type__": "Float64"
+                                        }
+                                    }
+                                },
+                                "at": {
+                                    "kind": "pose2",
+                                    "x": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "φ": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "y": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    }
+                                },
+                                "path": null,
+                                "boundary": null
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "cable_design",
+                    "cable_id": "three_bare_wires_air_3",
+                    "nominal_data": [
+                    ],
+                    "origin": {
+                        "kind": "stack",
+                        "items": [
+                            {
+                                "kind": "group",
+                                "name": "core",
+                                "pattern": null,
+                                "compact": null,
+                                "item": {
+                                    "kind": "region",
+                                    "tag": "core_metal",
+                                    "material": {
+                                        "value": {
+                                            "kind": "conductor",
+                                            "rho_thermal": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "T0": {
+                                                "value": 20,
+                                                "__type__": "Float64"
+                                            },
+                                            "theta_max": {
+                                                "value": 90,
+                                                "__type__": "Float64"
+                                            },
+                                            "alpha": {
+                                                "value": 0.00393,
+                                                "__type__": "Float64"
+                                            },
+                                            "eps_r": {
+                                                "value": 1,
+                                                "__type__": "Float64"
+                                            },
+                                            "mu_r": {
+                                                "value": 0.999994,
+                                                "__type__": "Float64"
+                                            },
+                                            "tan_delta": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "sigma_solar": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "rho": {
+                                                "value": 1.7241e-8,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "type": "material"
+                                    },
+                                    "primitive": {
+                                        "kind": "disk",
+                                        "r": {
+                                            "value": 0.0425,
+                                            "__type__": "Float64"
+                                        }
+                                    }
+                                },
+                                "at": {
+                                    "kind": "pose2",
+                                    "x": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "φ": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "y": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    }
+                                },
+                                "path": null,
+                                "boundary": null
+                            }
+                        ]
+                    }
+                },
+                {
+                    "kind": "cable_design",
+                    "cable_id": "three_bare_wires_air_3",
+                    "nominal_data": [
+                    ],
+                    "origin": {
+                        "kind": "stack",
+                        "items": [
+                            {
+                                "kind": "group",
+                                "name": "core",
+                                "pattern": null,
+                                "compact": null,
+                                "item": {
+                                    "kind": "region",
+                                    "tag": "core_metal",
+                                    "material": {
+                                        "value": {
+                                            "kind": "conductor",
+                                            "rho_thermal": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "T0": {
+                                                "value": 20,
+                                                "__type__": "Float64"
+                                            },
+                                            "theta_max": {
+                                                "value": 90,
+                                                "__type__": "Float64"
+                                            },
+                                            "alpha": {
+                                                "value": 0.00393,
+                                                "__type__": "Float64"
+                                            },
+                                            "eps_r": {
+                                                "value": 1,
+                                                "__type__": "Float64"
+                                            },
+                                            "mu_r": {
+                                                "value": 0.999994,
+                                                "__type__": "Float64"
+                                            },
+                                            "tan_delta": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "sigma_solar": {
+                                                "value": 0,
+                                                "__type__": "Float64"
+                                            },
+                                            "rho": {
+                                                "value": 1.7241e-8,
+                                                "__type__": "Float64"
+                                            }
+                                        },
+                                        "type": "material"
+                                    },
+                                    "primitive": {
+                                        "kind": "disk",
+                                        "r": {
+                                            "value": 0.0425,
+                                            "__type__": "Float64"
+                                        }
+                                    }
+                                },
+                                "at": {
+                                    "kind": "pose2",
+                                    "x": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "φ": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "y": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    }
+                                },
+                                "path": null,
+                                "boundary": null
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "temperature": {
+            "value": 20,
+            "__type__": "Float64"
+        }
+    },
+    "format": "linecablemodels.line_parameters_problem",
+    "version": "1.0.0"
+}

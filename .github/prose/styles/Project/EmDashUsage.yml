@@ -1,0 +1,14 @@
+extends: ai-tells.EmDashUsage
+# Documenter inserts a dash between the binding and its category.
+scope: '~doc(details.docstring > summary)'
+exceptions:
+  # Numerical ranges and established mathematical names retain their spelling.
+  - '\d+(?:\.\d+)?[–−]\d+(?:\.\d+)?\s*'
+  - '(?:Levenberg–Marquardt|Gauss–Kronrod|Gauss–Jacobi|Newton–Raphson|Cauchy–Riemann|Gauss–Legendre|Euler–Mascheroni|Clenshaw–Curtis)\s*'
+tests:
+  - name: numerical range
+    input: "Read pages 12–15."
+    want: ""
+  - name: prose aside
+    input: "Read the file — then check it."
+    contains: Project.EmDashUsage

@@ -1,0 +1,149 @@
+- name: unpublished Julia docstrings and comments
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    """
+    provenance
+    """
+    function f() end
+    "contract"
+    g() = 1
+    raw"""provenance"""
+    h() = 2
+    @doc "contract" f
+    # provenance
+    #= contract =#
+    identifier = "provenance"
+  contains: '2:'
+  absent:
+    - '12:'
+- name: ordinary strings are code
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    identifier = "provenance"
+    canonical = :contract
+    @warn "provenance" key="contract"
+  want: ""
+- name: ordinary single-line docstring
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    "contract"
+    f() = 1
+  contains: '1:'
+- name: block comment
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    #= contract =#
+  contains: '1:'
+- name: raw single-line docstring
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    raw"contract"
+    f() = 1
+  contains: Project.BannedTerms
+- name: explicit triple-quoted docstring
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    @doc """
+    provenance
+    """ f
+  contains: '2:'
+- name: explicit raw docstring
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    @doc raw"contract" f
+  contains: Project.BannedTerms
+- name: explicit raw triple-quoted docstring
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    @doc raw"""
+    provenance
+    """ f
+  contains: '2:'
+- name: comments beside identifiers
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    contract = 1 # provenance
+  contains: '1:16:Project.BannedTerms:'
+- name: docstring after an inline definition
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    @inline first(x) = x
+    """
+    $(TYPEDSIGNATURES)
+
+    contract
+    """
+    function second(x)
+        x
+    end
+  contains: '5:'
+- name: field documentation
+  rule: ../styles/Project/BannedTerms.yml
+  format: jl
+  view: Julia
+  input: |
+    struct Sample
+        "contract"
+        value::Int
+    end
+  contains: '2:'
+- name: Literate directives
+  rule: ../styles/Project/NounString.yml
+  format: jl
+  view: Julia
+  input: |
+    f[1] #hide
+    f[2] #hide
+    f[3] #hide
+    f[4] #hide
+  want: ""
+- name: GetDP comments
+  rule: ../styles/Project/BannedTerms.yml
+  format: pro
+  view: GetDP
+  input: |
+    // provenance
+    a = "contract";
+  contains: Project.BannedTerms
+- name: workflow names
+  rule: ../styles/Project/BannedTerms.yml
+  format: yml
+  view: Workflow
+  input: |
+    name: contract
+    run: echo provenance
+  contains: Project.BannedTerms
+- name: JSON descriptions
+  rule: ../styles/Project/BannedTerms.yml
+  format: json
+  view: Descriptions
+  input: '{"description": "provenance", "key": "contract"}'
+  contains: Project.BannedTerms
+- name: ignore-file comments
+  rule: ../styles/Project/BannedTerms.yml
+  format: txt
+  view: HashComments
+  input: |
+    # provenance
+    contract/
+  contains: Project.BannedTerms

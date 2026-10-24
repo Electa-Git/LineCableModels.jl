@@ -1,0 +1,132 @@
+"""
+$(TYPEDEF)
+
+Select a modal decomposition with model parameters and normalized numerical
+controls. The modal workspace supplies common numerical storage. The selected
+formula implements `decompose!` and allocates additional operation-specific
+work through `initialize_buffers`.
+
+$(TYPEDFIELDS)
+"""
+struct Formula{ID, P <: NamedTuple, O <: FormulationOptions} <: AbstractFormulation
+    "Resolved model parameters."
+    parameters::P
+    "Normalized numerical sections for the modal algorithm."
+    options::O
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a modal decomposition with model parameters and numerical controls.
+Custom formulations extend `initialize_buffers` and `decompose!`.
+"""
+function Formula{ID}(; parameters::NamedTuple=(;), options::Union{NamedTuple, FormulationOptions} = FormulationOptions()) where {ID}
+    options = FormulationOptions(options)
+    isempty(parameters) || throw(ArgumentError("modal :$ID has no physical parameters"))
+    selected = Formula{ID, typeof(parameters), typeof(options)}(parameters, options)
+    normalized = formulation_options(Expression(selected, decompose!), options)
+    return Formula{ID, typeof(parameters), typeof(normalized)}(parameters, normalized)
+end
+
+Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+Formula(::Val{ID}; kwargs...) where {ID} = Formula{ID}(; kwargs...)
+Formula(selected::Formula) = selected
+
+function Formula(selection::FormulaDefinition{ID, Order}) where {ID, Order}
+    Order === :default || throw(ArgumentError("order applies only to equivalent_earth"))
+    selection.equivalent_earth === nothing || throw(ArgumentError(
+        "modal formulas cannot consume equivalent_earth"))
+    return Formula{ID}(; parameters=selection.parameters, options=selection.options)
+end
+
+formula_id(::Formula{ID}) where {ID} = ID
+formula_id(::Type{<:Formula{ID}}) where {ID} = ID
+description(value::Formula; compact::Bool=false) = description(typeof(value); compact)
+formulation_options(value::Formula) = value.options
+
+"""Expose a selected modal equation and its model and numerical controls."""
+Base.NamedTuple(value::Formula) = (identifier=formula_id(value),
+    parameters=value.parameters, options=value.options.data)
+
+Base.pairs(::Type{<:Formula}; quantity=nothing) = pairs((;))
+
+"""
+$(TYPEDEF)
+
+Own a modal computation's resolved decomposition, with its model parameters and
+normalized controls.
+
+$(TYPEDFIELDS)
+"""
+struct ModalAnalysisFormulation{F <: AbstractFormulation} <: AbstractFormulation
+    "Resolved modal decomposition."
+    formula::F
+
+    # One positional argument is a selection, which the outer method resolves.
+    ModalAnalysisFormulation{F}(formula::F) where {F <: AbstractFormulation} = new{F}(formula)
+end
+
+ModalAnalysisFormulation() = ModalAnalysisFormulation(:default)
+
+function _modal_formulation(identifier::Symbol, controls::NamedTuple)
+    selected = Formula(formula(identifier; controls...))
+    return ModalAnalysisFormulation{typeof(selected)}(selected)
+end
+
+function _modal_formulation(selection::FormulaDefinition, controls::NamedTuple)
+    isempty(controls) || throw(ArgumentError(
+        "formula(...) already contains its modal parameters and numerical controls"))
+    selected = Formula(selection)
+    return ModalAnalysisFormulation{typeof(selected)}(selected)
+end
+
+function _modal_formulation(selected::AbstractFormulation, controls::NamedTuple)
+    isempty(controls) || throw(ArgumentError(
+        "a completed modal formulation cannot receive additional controls"))
+    return ModalAnalysisFormulation{typeof(selected)}(selected)
+end
+
+function _modal_formulation(selected::ModalAnalysisFormulation, controls::NamedTuple)
+    isempty(controls) || throw(ArgumentError(
+        "a completed modal formulation cannot receive additional controls"))
+    return selected
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Select one or more modal computations. A symbol, formula declaration, or
+completed user-owned formulation selects one equation. `Grid` and `Gridspace`
+vary complete selections with product or zip composition.
+"""
+function ModalAnalysisFormulation(selection; combine::Symbol=:product, kwargs...)
+    return parameterize(ModalAnalysisFormulation, _modal_formulation,
+        (selection, (; kwargs...)); combine)
+end
+
+formula_id(::Type{<:ModalAnalysisFormulation}) = :modal
+formula_id(::ModalAnalysisFormulation) = :modal
+description(::Type{<:ModalAnalysisFormulation}; compact::Bool=false) = "modal"
+description(::ModalAnalysisFormulation; compact::Bool=false) = "modal"
+description(::Type{ModalAnalysisFormulation}, ::Val{:transformation}; compact::Bool=false) = "modal operators"
+description(::Type{ModalAnalysisFormulation},selected::AbstractFormulation;
+    compact::Bool=false,quantity=nothing) = description(selected;compact)
+description(::Type{ModalAnalysisFormulation},selected::Pair{<:AbstractFormulation,<:NamedTuple};
+    compact::Bool=false,quantity=nothing) =
+    description(ModalAnalysisFormulation,first(selected);compact,quantity)
+Base.pairs(::Type{ModalAnalysisFormulation}; quantity=nothing) = pairs((transformation=Formula,))
+formulation_options(::ModalAnalysisFormulation) = FormulationOptions()
+
+function Base.pairs(value::ModalAnalysisFormulation; quantity=nothing)
+    return pairs(ModalAnalysisFormulation,
+        (formulas=(transformation=value.formula,), options=(;)); quantity)
+end
+
+function Base.pairs(::Type{ModalAnalysisFormulation}, retained::NamedTuple; quantity=nothing)
+    return pairs(LineParametersFormulation, retained; quantity, owner=ModalAnalysisFormulation)
+end
+
+function Base.NamedTuple(value::ModalAnalysisFormulation)
+    return (backend=:modal, formulas=(transformation=NamedTuple(value.formula),), options=(;))
+end

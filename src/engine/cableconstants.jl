@@ -1,0 +1,624 @@
+"""
+$(TYPEDEF)
+
+Store earth-free cable constants per unit length for one or more independent
+concentric assemblies.
+
+Every entry of `terminals`, `R`, `L`, `C`, and `G` describes one assembly. Values
+are evaluated at `frequency`. `R`, `L`, `C`, and `G` use Ω/m, H/m, F/m, and
+S/m respectively.
+
+$(TYPEDFIELDS)
+"""
+struct CableConstants{T <: Real} <: AbstractCoreResult
+    "Innermost active terminal of each concentric assembly, `\"cable:<cable id>:<terminal>\"`."
+    terminals::Vector{String}
+    "Series resistance per unit length [Ω/m]."
+    R::Vector{T}
+    "Series inductance per unit length [H/m]."
+    L::Vector{T}
+    "Shunt capacitance per unit length [F/m]."
+    C::Vector{T}
+    "Shunt conductance per unit length [S/m]."
+    G::Vector{T}
+    "Evaluation frequency [Hz]."
+    frequency::T
+
+    "Requested/resolved formulas and shunt-model diagnostics."
+    details::ComputationDetails
+
+    function CableConstants{T}(
+            terminals::Vector{String},
+            R::Vector{T},
+            L::Vector{T},
+            C::Vector{T},
+            G::Vector{T},
+            frequency::T,
+            details::ComputationDetails = ComputationDetails()
+    ) where {T <: Real}
+        count = length(terminals)
+        iszero(count) && throw(ArgumentError(
+            "cable constants require at least one concentric assembly",
+        ))
+        all(length(values) == count for values in (R, L, C, G)) ||
+            throw(DimensionMismatch(
+                "terminals, R, L, C, and G must contain the same number of entries",
+            ))
+        allunique(terminals) || throw(ArgumentError(
+            "cable-constant terminal names must be unique",
+        ))
+        isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
+            frequency,
+            "cable-constant frequency must be positive and finite"
+        ))
+        all(isfinite, Iterators.flatten((R, L, C, G))) || throw(DomainError(
+            (R, L, C, G),
+            "cable constants must be finite"
+        ))
+        retained=haskey(details.data,:gridpoint) ? details :
+            ComputationDetails(merge(details.data,(gridpoint=Commons.gridpoint_id(),)))
+        return new{T}(terminals, R, L, C, G, frequency, retained)
+    end
+end
+
+function CableConstants(
+        terminals::AbstractVector{<:AbstractString},
+        R::AbstractVector{<:Real},
+        L::AbstractVector{<:Real},
+        C::AbstractVector{<:Real},
+        G::AbstractVector{<:Real},
+        frequency::Real,
+        details::ComputationDetails = ComputationDetails()
+)
+    T = promote_type(
+        eltype(R), eltype(L), eltype(C), eltype(G), typeof(float(frequency))
+    )
+    return CableConstants{T}(
+        convert(Vector{String}, terminals),
+        T.(R),
+        T.(L),
+        T.(C),
+        T.(G),
+        convert(T, float(frequency)),
+        details
+    )
+end
+
+function CableConstants(
+        R::Real,
+        L::Real,
+        C::Real,
+        G::Real = 0;
+        terminal::AbstractString = "1",
+        frequency::Real = 50
+)
+    values = promote(R, L, C, G, frequency)
+    T = typeof(first(values))
+    return CableConstants{T}(
+        String[terminal],
+        T[values[1]],
+        T[values[2]],
+        T[values[3]],
+        T[values[4]],
+        values[5]
+    )
+end
+
+function Base.:(==)(left::CableConstants, right::CableConstants)
+    left.terminals == right.terminals && left.R == right.R && left.L == right.L &&
+        left.C == right.C && left.G == right.G && left.frequency == right.frequency
+end
+
+Base.length(constants::CableConstants) = length(constants.terminals)
+details(constants::CableConstants) = constants.details
+Base.size(constants::CableConstants) = (length(constants),)
+function Base.eltype(::Type{CableConstants{T}}) where {T}
+    NamedTuple{
+        (:terminal, :R, :L, :C, :G),
+        Tuple{String, T, T, T, T}
+    }
+end
+Base.firstindex(constants::CableConstants) = firstindex(constants.terminals)
+Base.lastindex(constants::CableConstants) = lastindex(constants.terminals)
+
+function Base.getindex(constants::CableConstants, index::Integer)
+    return (
+        terminal = constants.terminals[index],
+        R = constants.R[index],
+        L = constants.L[index],
+        C = constants.C[index],
+        G = constants.G[index]
+    )
+end
+
+function Base.iterate(constants::CableConstants, state::Int = 1)
+    state > length(constants) && return nothing
+    return constants[state], state + 1
+end
+
+observe(constants::CableConstants, ::typeof(R)) = constants.R
+observe(constants::CableConstants, ::typeof(L)) = constants.L
+observe(constants::CableConstants, ::typeof(C)) = constants.C
+observe(constants::CableConstants, ::typeof(G)) = constants.G
+
+R(constants::CableConstants) = observe(constants, R)
+L(constants::CableConstants) = observe(constants, L)
+C(constants::CableConstants) = observe(constants, C)
+G(constants::CableConstants) = observe(constants, G)
+resistance(constants::CableConstants) = observe(constants, R)
+inductance(constants::CableConstants) = observe(constants, L)
+capacitance(constants::CableConstants) = observe(constants, C)
+conductance(constants::CableConstants) = observe(constants, G)
+observables(::Type{<:CableConstants}) = (R, L, C, G)
+
+
+"""
+$(TYPEDEF)
+
+Define one earth-free cable-constant computation for a completed cable design.
+
+The innermost terminal of every concentric assembly is active and every
+additional outward terminal, when present, is grounded. The computation is
+restricted to the 50 Hz or 60 Hz base frequency used by cable datasheets.
+
+$(TYPEDFIELDS)
+"""
+struct CableConstantsProblem{
+    T <: Real,
+    D <: CableDesign
+} <: AbstractProblemDefinition
+    "Completed physical cable design."
+    design::D
+    "Operating temperature [°C]."
+    temperature::T
+    "Evaluation frequency [Hz]."
+    frequency::T
+
+    function CableConstantsProblem{T, D}(
+            design::D,
+            temperature::T,
+            frequency::T
+    ) where {T <: Real, D <: CableDesign}
+        return validate(new{T, D}(design, temperature, frequency))
+    end
+end
+
+Base.eltype(::CableConstantsProblem{T}) where {T} = T
+Base.eltype(::Type{<:CableConstantsProblem{T}}) where {T} = T
+
+function validate(problem::CableConstantsProblem)
+    isfinite(problem.temperature) || throw(DomainError(
+        problem.temperature,
+        "cable-constant temperature must be finite"
+    ))
+    problem.frequency in (oftype(problem.frequency, 50), oftype(problem.frequency, 60)) ||
+        throw(DomainError(
+            problem.frequency,
+            "cable-constant base frequency must be 50 Hz or 60 Hz"
+        ))
+    return problem
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct an earth-free cable-constant problem.
+
+# Keywords
+
+- `temperature=20`: operating temperature [°C].
+- `frequency=50`: base frequency, either 50 Hz or 60 Hz.
+- `combine=:product`: composition rule when an input varies.
+
+# Returns
+
+- A validated [`CableConstantsProblem`](@ref), or a `Gridspace{CableConstantsProblem}`
+  when the design or a keyword is a `Grid` or `Gridspace`.
+"""
+function CableConstantsProblem(
+        design::ScalarOrGrid{CableDesign};
+        temperature = 20,
+        frequency = 50,
+        combine::Symbol = :product
+)
+    values = (design, temperature, frequency)
+    return parameterize(CableConstantsProblem, CableConstantsProblem, values; combine)
+end
+
+function CableConstantsProblem(design::CableDesign, temperature::Real, frequency::Real)
+    # Integer inputs are neutral: the input types promote as they are, then float.
+    T = float(promote_type(eltype(design), typeof(temperature), typeof(frequency)))
+    value = convert(T, float(frequency))
+    return CableConstantsProblem{T, typeof(design)}(
+        design,
+        convert(T, float(temperature)),
+        value
+    )
+end
+
+"""
+$(TYPEDEF)
+
+Select the conductor and dielectric formulas used by a cable-constant
+computation.
+
+$(TYPEDFIELDS)
+"""
+struct CableConstantsFormulation{M <: NamedTuple, O <: FormulationOptions} <:
+       AbstractFormulation
+    "Registered physical formula selections."
+    formulas::M
+    "Cable-constant formulation options."
+    options::O
+end
+
+function formulation_options(
+        ::Type{CableConstantsFormulation},
+        options::FormulationOptions
+)::FormulationOptions
+    isempty(options.data) || throw(ArgumentError(
+        "unknown cable-constant formulation options: $(keys(options.data))"))
+    return FormulationOptions()
+end
+
+description(::Type{<:CableConstantsFormulation}; compact::Bool = false) = "Cable constants"
+function description(::CableConstantsFormulation; compact::Bool = false)
+    description(CableConstantsFormulation; compact)
+end
+formula_id(::Type{<:CableConstantsFormulation}) = :cable_constants
+formula_id(::CableConstantsFormulation) = :cable_constants
+formulation_options(value::CableConstantsFormulation) = value.options
+function Base.pairs(::Type{CableConstantsFormulation}; quantity = nothing)
+    return pairs((;
+        (key=>family
+    for (key, family) in pairs(LineParametersFormulation; quantity)
+    if key ∉ (:earth_impedance, :earth_admittance, :earth_properties))...))
+end
+function description(::Type{CableConstantsFormulation}, slot::Val; compact::Bool=false)
+    description(LineParametersFormulation, slot; compact)
+end
+function Base.pairs(value::CableConstantsFormulation; quantity = nothing)
+    pairs(CableConstantsFormulation,
+        (formulas = value.formulas, options = value.options.data); quantity)
+end
+function Base.pairs(::Type{CableConstantsFormulation}, retained::NamedTuple; quantity = nothing)
+    pairs(LineParametersFormulation, retained; quantity, owner = CableConstantsFormulation)
+end
+
+"""Expose the local formulas for passive scientific records."""
+function Base.NamedTuple(value::CableConstantsFormulation)
+    record = function (selected)
+        selected === nothing && return nothing
+        selected isa NamedTuple && return map(record, selected)
+        return NamedTuple(selected)
+    end
+    Record = NamedTuple{(:backend, :formulas, :options), Tuple{Symbol, NamedTuple, NamedTuple}}
+    return Record((:cable_constants, map(record, value.formulas), value.options.data))
+end
+
+function _constants_formulation(
+        internal_impedance,
+        insulation_impedance,
+        shunt_model,
+        insulation_admittance,
+        semicon_admittance,
+        pipe_impedance,
+        temperature_dependence,
+        options::FormulationOptions
+)
+    formulas = (
+        internal_impedance = InternalImpedance.Formula(internal_impedance),
+        insulation_impedance = InsulationImpedance.Formula(insulation_impedance),
+        shunt_model = ShuntModel.Formula(shunt_model),
+        insulation_admittance = InsulationAdmittance.Formula(insulation_admittance),
+        semicon_admittance = SemiconAdmittance.Formula(semicon_admittance),
+        pipe_impedance = PipeImpedance.Formula(pipe_impedance),
+        temperature_dependence = temperature_dependence === nothing ? nothing :
+                                 TemperatureDependent.Formula(temperature_dependence)
+    )
+    return CableConstantsFormulation(
+        formulas,
+        formulation_options(CableConstantsFormulation, options)
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct the cable-constant formula bundle.
+
+Each formula slot and the complete `options` tuple accepts a scalar selection
+or an explicit [`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
+inputs return one [`CableConstantsFormulation`](@ref). Varying inputs return a
+`Gridspace{CableConstantsFormulation}` of completed formulations.
+
+# Keywords
+
+- `internal_impedance`: conductor surface-impedance recipe.
+- `insulation_impedance`: longitudinal insulation-impedance recipe.
+- `shunt_model`: local geometry model. `:default`/`:equivalent` uses the equivalent
+  annular layer, `:boundary` explicitly computes lossless open-screen coupling.
+- `insulation_admittance`: insulation constitutive relation.
+- `semicon_admittance`: semiconducting-layer constitutive relation.
+- `pipe_impedance`: pipe-type selection. The coaxial pipe implementation is not
+  yet available. Ordinary concentric assemblies have no additional pipe term.
+- `temperature_dependence`: resistivity law. `:default` is linear and `nothing`
+  retains reference resistivity.
+- `options`: formulation controls. Currently empty.
+- `combine`: `:product` or `:zip` composition among varying fields.
+"""
+function CableConstantsFormulation(;
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        shunt_model = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        pipe_impedance = formula(:default),
+        temperature_dependence = formula(:default),
+        options = FormulationOptions(),
+        combine::Symbol = :product
+)
+    values = (
+        internal_impedance,
+        insulation_impedance,
+        shunt_model,
+        insulation_admittance,
+        semicon_admittance,
+        pipe_impedance,
+        temperature_dependence,
+        options
+    )
+    return parameterize(
+        CableConstantsFormulation,
+        (inputs...) -> _constants_formulation(inputs[1:(end - 1)]...,
+            FormulationOptions(last(inputs))),
+        values;
+        combine
+    )
+end
+
+Formulation(::Val{:cable_constants}; kwargs...) = CableConstantsFormulation(; kwargs...)
+
+function computation_options(
+        ::Type{<:CableConstantsFormulation},
+        options::ComputationOptions
+)::ComputationOptions
+    isempty(options.data) || throw(ArgumentError(
+        "CableConstants compute does not accept computation options",
+    ))
+    return ComputationOptions()
+end
+
+"""
+$(TYPEDEF)
+
+Own the local cable arrays, corrected resistivities, the completed shunt model and
+reusable matrices for one cable-constant computation. The constructor consumes the
+completed blueprint without retaining a duplicate representation.
+
+$(TYPEDFIELDS)
+"""
+struct CableConstantsWorkspace{T <: Real, L, P, B}
+    "Concrete array payload used by local primitive assemblers."
+    cable::L
+    "Temperature-corrected conductor resistivities [Ω·m]."
+    rho::Vector{T}
+    "Completed shunt model of the cable, in `shunt`."
+    plan::P
+    "Reusable primitive, reduction, and result storage."
+    buffers::B
+end
+
+function CableConstantsWorkspace(
+        problem::CableConstantsProblem{T},
+        formulation::CableConstantsFormulation,
+        blueprint::CableBlueprint{T}
+) where {T <: Real}
+    shunt = only(internal_potential_coefficients([problem.design], [blueprint], [formulation]))
+    return CableConstantsWorkspace(
+        problem,
+        formulation,
+        LocalCableData(blueprint),
+        shunt
+    )
+end
+
+function CableConstantsWorkspace(
+        problem::CableConstantsProblem{T},
+        formulation::CableConstantsFormulation,
+        cable::LocalCableData{T},
+        shunt::NamedTuple
+) where {T <: Real}
+    @inbounds for assembly in cable.assemblies
+        isempty(cable.dielectric_ranges[first(assembly)]) && throw(ArgumentError(
+            "assembly core :$(cable.terminals[first(assembly)]) has no radial dielectric path",
+        ))
+    end
+    count = length(cable.terminals)
+    rho = Vector{T}(undef, length(cable.conductor_materials))
+
+    maximum_size = maximum(length, cable.assemblies)
+    removed = maximum_size - 1
+    buffers = (
+        Z = Matrix{Complex{T}}(undef, count, count),
+        Y = Matrix{Complex{T}}(undef, count, count),
+        reduced = Matrix{Complex{T}}(undef, 1, 1),
+        factor = Matrix{Complex{T}}(undef, removed, removed),
+        coupling = Matrix{Complex{T}}(undef, 1, removed),
+        right_hand_side = Matrix{Complex{T}}(undef, removed, 1),
+        indices = collect(1:maximum_size),
+        layer_coefficients = Vector{Complex{T}}(
+            undef, length(cable.dielectric_materials)
+        ),
+        rho_layer = Vector{T}(undef, length(cable.dielectric_materials)),
+        dielectric_admittivity = Vector{Complex{T}}(undef, length(cable.dielectric_materials)),
+        R = Vector{T}(undef, length(cable.assemblies)),
+        L = Vector{T}(undef, length(cable.assemblies)),
+        C = Vector{T}(undef, length(cable.assemblies)),
+        G = Vector{T}(undef, length(cable.assemblies)),
+        observations = nothing
+    )
+    # The internal formula has an expression for each surface impedance that the geometry
+    # needs.
+    for kind in (any(>(0), cable.r_in) ? (:inner, :outer, :transfer) : (:outer,))
+        validate(Expression(formulation.formulas.internal_impedance,
+            InternalImpedance.internal_impedance, Val(kind)))
+    end
+    plan = (; shunt)
+    buffers = initialize_buffers(formulation.formulas, T, cable, plan, buffers)
+    return CableConstantsWorkspace{T, typeof(cable), typeof(plan), typeof(buffers)}(
+        cable, rho, plan, buffers
+    )
+end
+
+function _solve!(
+        workspace::CableConstantsWorkspace{T},
+        problem::CableConstantsProblem{T},
+        formulation::CableConstantsFormulation;
+        physical_inputs=completed_inputs(problem), gridpoint=Commons.gridpoint_id()
+) where {T <: Real}
+    buffers = workspace.buffers
+    ω = 2 * (one(T) * π) * problem.frequency
+    s = complex(zero(T), ω)
+    for (index, material) in pairs(workspace.cable.conductor_materials)
+        workspace.rho[index] = constitutive(formulation.formulas.temperature_dependence,
+            material, problem.temperature; workspace)
+    end
+    for (layer, material) in pairs(workspace.cable.dielectric_materials)
+        buffers.rho_layer[layer] = constitutive(formulation.formulas.temperature_dependence,
+            material, problem.temperature; workspace)
+    end
+    dielectric!(buffers.dielectric_admittivity, workspace.cable, buffers.rho_layer,
+        formulation.formulas, problem.frequency, problem.temperature; workspace)
+    cable_impedance!(
+        buffers.Z,
+        workspace.cable,
+        workspace.rho,
+        formulation.formulas,
+        s; workspace
+    )
+    cable_admittance!(
+        buffers.Y,
+        workspace.cable,
+        workspace.plan.shunt,
+        buffers.dielectric_admittivity,
+        s,
+        buffers.layer_coefficients
+    )
+    keep = @view buffers.indices[1:1]
+    @inbounds for (assembly, chain) in pairs(workspace.cable.assemblies)
+        count = length(chain)
+        Z = @view buffers.Z[chain, chain]
+        eliminate = @view buffers.indices[2:count]
+        factor = @view buffers.factor[1:(count - 1), 1:(count - 1)]
+        coupling = @view buffers.coupling[:, 1:(count - 1)]
+        right_hand_side = @view buffers.right_hand_side[1:(count - 1), :]
+        kron_reduce!(
+            Z,
+            keep,
+            eliminate,
+            buffers.reduced,
+            factor,
+            coupling,
+            right_hand_side
+        )
+        equivalent = buffers.reduced[1, 1]
+        buffers.R[assembly] = real(equivalent)
+        buffers.L[assembly] = imag(equivalent) / ω
+
+        Y = buffers.Y[first(chain), first(chain)]
+        iszero(Y) && throw(ArgumentError(
+            "assembly core :$(workspace.cable.terminals[first(chain)]) has no finite radial dielectric path",
+        ))
+        buffers.G[assembly] = real(Y)
+        buffers.C[assembly] = imag(Y) / ω
+    end
+    return CableConstants(
+        ["cable:$(problem.design.cable_id):$(workspace.cable.terminals[first(chain)])"
+         for chain in workspace.cable.assemblies],
+        buffers.R,
+        buffers.L,
+        buffers.C,
+        buffers.G,
+        problem.frequency,
+        ComputationDetails(NamedTuple{(:formulation,:choices,:shunt_model,:inputs,:gridpoint),
+            Tuple{CableConstantsFormulation,Tuple{},NamedTuple,NamedTuple,NamedTuple}}((
+            formulation,(),workspace.plan.shunt.details,physical_inputs,gridpoint)))
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute earth-free cable constants with the default coaxial formulation.
+"""
+function compute(
+        problem::CableConstantsProblem;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions()
+)
+    return compute(problem, CableConstantsFormulation(); options)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Resolve the parts of a cable-constant problem that its formulations share. Once per
+problem, it builds the blueprint of the design, its local cable data and the completed
+inputs. It completes the internal potential coefficients of each formulation. Return one
+`Resolved` per formulation.
+"""
+function resolve(problem::CableConstantsProblem,
+        formulations::Union{Tuple{CableConstantsFormulation, Vararg{CableConstantsFormulation}},
+            AbstractVector{<:CableConstantsFormulation}};
+        options)
+    blueprint = DataModel.flatten(problem.design, eltype(problem))
+    cable = LocalCableData(blueprint)
+    physical_inputs = completed_inputs(problem)
+    shunts = internal_potential_coefficients([problem.design], [blueprint], formulations)
+    return map(shunt -> Resolved(problem, (; cable, shunt, physical_inputs)), shunts)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute the earth-free cable constants of one point from what `resolve` shares.
+"""
+function compute(resolved::Resolved{<:CableConstantsProblem},
+        formulation::CableConstantsFormulation;
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions())
+    computation_options(CableConstantsFormulation, ComputationOptions(options))
+    (; problem, input) = resolved
+    workspace = CableConstantsWorkspace(problem, formulation, input.cable, input.shunt)
+    return _solve!(workspace, problem, formulation; physical_inputs = input.physical_inputs)
+end
+
+description(::CableConstantsProblem; compact::Bool = false) = "Cable constants"
+
+"""
+$(TYPEDSIGNATURES)
+
+Calculate earth-free constants of one completed cable design: `compute` of the
+[`CableConstantsProblem`](@ref) with `formulation`. Scalar inputs return one
+[`CableConstants`](@ref). When the design, `temperature`, `frequency` or a formulation
+selector is a `Grid` or `Gridspace`, `compute` returns the `Combinatorial` result space:
+the problem inputs combine by `combine`, and the formulations multiply the problems.
+"""
+function CableConstants(
+        design::ScalarOrGrid{CableDesign};
+        temperature = 20,
+        frequency = 50,
+        formulation = CableConstantsFormulation(),
+        options::Union{NamedTuple, ComputationOptions} = ComputationOptions(),
+        combine::Symbol = :product
+)
+    problem = CableConstantsProblem(design; temperature, frequency, combine)
+    return compute(problem, formulation; options)
+end
+
+function computation_details(
+        ::Type{<:CableConstantsFormulation},
+        result::CableConstants
+)::ComputationDetails
+    return details(result)
+end
