@@ -1145,8 +1145,11 @@ function _surface_faces!(registry::FEMLoopRegistry, shape, mesh_size)
     if !touching
         return Int[gmsh.model.geo.add_plane_surface([outer_loop.ccw; getproperty.(hole_loops, :cw)])]
     end
-    return _material_faces!(registry,
+    faces, holes = _material_faces!(registry,
         (outer_loop.oriented, (-loop.oriented for loop in hole_loops)...))
+    isempty(faces) && throw(ArgumentError("FEM material has no positive-area face"))
+    isempty(holes) || throw(ArgumentError("uncontained FEM material hole"))
+    return faces
 end
 
 function _material_faces!(registry::FEMLoopRegistry, boundaries)
@@ -1240,7 +1243,6 @@ function _material_faces!(registry::FEMLoopRegistry, boundaries)
     end
     areas = _signed_area.(polygons)
     outers = findall(>(0), areas)
-    isempty(outers) && throw(ArgumentError("FEM material has no positive-area face"))
     interiors = Dict(index => Int[] for index in outers)
     function contains(polygon, point)
         inside = false
@@ -1252,15 +1254,27 @@ function _material_faces!(registry::FEMLoopRegistry, boundaries)
         end
         return inside
     end
+    outside = Int[]
     for index in findall(<(0), areas)
-        parents = filter(parent -> contains(polygons[parent], first(polygons[index])), outers)
-        isempty(parents) && throw(ArgumentError("uncontained FEM material hole"))
+        # A cycle around touching outlines passes through their contacts, which are
+        # corners of the pockets: probe with a point inside its first edge.
+        values = samples[first(cycles[index])]
+        middle = length(values) ÷ 2
+        probe = ((values[middle][1] + values[middle+1][1]) / 2,
+                 (values[middle][2] + values[middle+1][2]) / 2)
+        parents = filter(parent -> contains(polygons[parent], probe), outers)
+        if isempty(parents)
+            push!(outside, index)
+            continue
+        end
         parent = parents[argmin(areas[parents])]
         push!(interiors[parent], index)
     end
-    loops = [gmsh.model.geo.add_curve_loop(cycle) for cycle in cycles]
-    return [gmsh.model.geo.add_plane_surface([loops[index]; loops[interiors[index]]])
-            for index in outers]
+    loops = [index in outside ? 0 : gmsh.model.geo.add_curve_loop(cycle)
+             for (index, cycle) in enumerate(cycles)]
+    faces = [gmsh.model.geo.add_plane_surface([loops[index]; loops[interiors[index]]])
+             for index in outers]
+    return faces, cycles[outside]
 end
 
 function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
@@ -1336,7 +1350,10 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
         # Neighbouring wires may also touch each other. The annular sector is
         # then a pinched walk, not one face: trace each material-left component
         # with the same contact rule used by every other enclosure boundary.
-        append!(surfaces, _material_faces!(registry, (curves,)))
+        faces, holes = _material_faces!(registry, (curves,))
+        isempty(faces) && throw(ArgumentError("FEM material has no positive-area face"))
+        isempty(holes) || throw(ArgumentError("uncontained FEM material hole"))
+        append!(surfaces, faces)
     end
     for (start_angle, span) in plan.outer_spans
         push!(surfaces,
@@ -1559,6 +1576,19 @@ function _build_physical_geometry!(
             append!(cable_curves[cable_index], loop.curves)
         end
     end
+    # A medium is meshed as all faces of the cable outlines on its side. Outlines
+    # that touch in a closed cycle enclose pockets of the medium; the other cycles
+    # are the holes of the medium's main face, which the native source builds.
+    medium_holes = Dict(host => reduce(vcat, cable_loop_curves[model.cable_hosts .=== host];
+        init = Vector{Int}[]) for host in (:air, :earth))
+    medium_faces = Dict(host => Int[] for host in (:air, :earth))
+    for host in (:air, :earth)
+        points = [Set(point for curve in curves for point in registry.curve_points[abs(curve)])
+                  for curves in medium_holes[host]]
+        any(i -> any(j -> !isdisjoint(points[i], points[j]), 1:(i - 1)), eachindex(points)) ||
+            continue
+        medium_faces[host], medium_holes[host] = _material_faces!(registry, medium_holes[host])
+    end
     _apply_point_mesh_sizes!(registry)
     gmsh.model.geo.synchronize()
     # Interior anchors are geometry facts, not reference vertices. Retain a
@@ -1593,7 +1623,7 @@ function _build_physical_geometry!(
     end
 
     return (; anchors, metal_dimensions, material_surfaces, region_surfaces,
-        sector_partitions, annular_partitions, terminal_surfaces, cable_curves, cable_loops, cable_loop_curves,
+        sector_partitions, annular_partitions, terminal_surfaces, cable_curves, cable_loops, medium_holes, medium_faces,
         polygon_mesh=registry.polygon_mesh)
 end
 
@@ -1680,7 +1710,7 @@ end
 function _write_physical_geometry(path, model, physical)
     gmsh.model.geo.synchronize()
     (;material_surfaces,region_surfaces,terminal_surfaces,cable_curves,cable_loops,
-        sector_partitions,annular_partitions,anchors,metal_dimensions,cable_loop_curves,polygon_mesh) = physical
+        sector_partitions,annular_partitions,anchors,metal_dimensions,medium_holes,medium_faces,polygon_mesh) = physical
     layers = [(shape=plan.shape, curves=_entity_boundary(region_surfaces[j]))
         for (j,plan) in pairs(model.region_plans)
         if plan.shape isa DataModel.Annulus &&
@@ -1752,12 +1782,15 @@ function _write_physical_geometry(path, model, physical)
             emit("FEMLayerBoundaryPoints~{$(i-1)}",boundary.points)
             emit("FEMLayerBoundaryCables~{$(i-1)}",boundary.cables)
         end
-        println(io,"FEMAirHoles() = {}; FEMEarthHoles() = {};")
-        for cable in eachindex(cable_curves)
-            for curves in cable_loop_curves[cable]
+        for (host,medium) in ((:air,"Air"),(:earth,"Earth"))
+            println(io,"FEM",medium,"Holes() = {};")
+            for curves in medium_holes[host]
                 println(io,"FEMHole = newll; Curve Loop(FEMHole) = {",join(curves,","),"};")
-                println(io,model.cable_hosts[cable] === :air ? "FEMAirHoles" : "FEMEarthHoles","() += {FEMHole};")
+                println(io,"FEM",medium,"Holes() += {FEMHole};")
             end
+            emit("FEM$(medium)Pockets",medium_faces[host])
+        end
+        for cable in eachindex(cable_curves)
             emit("FEMCableCurves~{$(cable-1)}",cable_curves[cable])
             _write_native_physical_group(io,1,model.tags.cable_contour_base+cable,
                 @sprintf("LCM/cable_contour/%04d/%s",cable,model.problem.system.designs[cable].cable_id),cable_curves[cable])

@@ -113,12 +113,14 @@ FEMAirOutline() += {-FEMVertical~{1}~{2}};
 FEMEarthOutline() += {FEMVertical~{FEMNx-2}~{1}};
 FEMLoop = newll; Curve Loop(FEMLoop) = {FEMFiniteInterface(),FEMAirOutline()};
 FEMAirSurface = news; Plane Surface(FEMAirSurface) = {FEMLoop,FEMAirHoles()};
+FEMAirSurfaces() = {FEMAirSurface,FEMAirPockets()};
 FEMReverseInterface() = {};
 For i In {#FEMFiniteInterface()-1:0:-1}
   FEMReverseInterface() += {-FEMFiniteInterface(i)};
 EndFor
 FEMLoop = newll; Curve Loop(FEMLoop) = {FEMReverseInterface(),FEMEarthOutline()};
 FEMEarthSurface = news; Plane Surface(FEMEarthSurface) = {FEMLoop,FEMEarthHoles()};
+FEMEarthSurfaces() = {FEMEarthSurface,FEMEarthPockets()};
 FEMAirPml() = {}; FEMEarthPml() = {}; FEMOuterAir() = {}; FEMOuterEarth() = {};
 FEMInterfaceCurves() = FEMFiniteInterface();
 For ix In {0:FEMNx-2}
@@ -191,8 +193,8 @@ For terminal In {0:NumTerminals-1}
   EndIf
   Physical Curve(Sprintf("LCM/measurement_line/%04g",terminal+1),MEASUREMENT_LINE+terminal) = {FEMMeasurement()};
 EndFor
-Physical Surface("LCM/domain/air",AIR_EM) = {FEMAirSurface};
-Physical Surface("LCM/domain/earth",EARTH_EM) = {FEMEarthSurface};
+Physical Surface("LCM/domain/air",AIR_EM) = {FEMAirSurfaces()};
+Physical Surface("LCM/domain/earth",EARTH_EM) = {FEMEarthSurfaces()};
 Physical Surface("LCM/domain/air_pml",AIR_PML) = {FEMAirPml()};
 Physical Surface("LCM/domain/earth_pml",EARTH_PML) = {FEMEarthPml()};
 Physical Surface("LCM/domain/pml",DOMAIN_PML) = {FEMAirPml(),FEMEarthPml()};
@@ -201,4 +203,4 @@ Physical Curve("LCM/boundary/electric_reference_air",OUTBND_ELE_AIR) = {FEMOuter
 Physical Curve("LCM/boundary/electric_reference_earth",OUTBND_ELE_REF) = {FEMOuterEarth()};
 Physical Curve("LCM/boundary/pml_inner",INNER_PML_BND) = {FEMAirOutline(),FEMEarthOutline()};
 Physical Curve("LCM/interface/air_earth",INTERFACE_AIR_SOIL) = {FEMInterfaceCurves()};
-Physical Surface("LCM/domain/field_maps",6003) = {FEMMaterialSurfaces(),FEMAirSurface,FEMEarthSurface,FEMAirPml(),FEMEarthPml()};
+Physical Surface("LCM/domain/field_maps",6003) = {FEMMaterialSurfaces(),FEMAirSurfaces(),FEMEarthSurfaces(),FEMAirPml(),FEMEarthPml()};

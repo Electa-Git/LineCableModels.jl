@@ -94,9 +94,9 @@ Field[FEMField].SurfacesList = {FEMMaterialSurfaces()}; FEMBackground() += {FEMF
 For medium In {0:1}
   FEMMeasurementSources~{medium}() = FEMMeasurementCommon();
   If(medium == 0)
-    FEMSurfaces() = {FEMAirSurface,FEMAirPml()}; FEMRemote = MeshRemoteAir; FEMWave = MeshWaveAir; FEMDecay = MeshDecayAir;
+    FEMSurfaces() = {FEMAirSurfaces(),FEMAirPml()}; FEMRemote = MeshRemoteAir; FEMWave = MeshWaveAir; FEMDecay = MeshDecayAir;
   Else
-    FEMSurfaces() = {FEMEarthSurface,FEMEarthPml()}; FEMRemote = MeshRemoteEarth; FEMWave = MeshWaveEarth; FEMDecay = MeshDecayEarth;
+    FEMSurfaces() = {FEMEarthSurfaces(),FEMEarthPml()}; FEMRemote = MeshRemoteEarth; FEMWave = MeshWaveEarth; FEMDecay = MeshDecayEarth;
   EndIf
   FEMRadial = FEMNextField; FEMNextField += 1; Field[FEMRadial] = MathEval;
   Field[FEMRadial].F = Sprintf("Min(%.17g,%.17g+%.17g*Max(0,Sqrt((x-(%.17g))^2+y^2)-%.17g))",FEMRemote,MeshBulk,MeshGrowthSlope,Xcenter,MeshExteriorStart);
@@ -343,7 +343,7 @@ If(FEMEarthLayerActive)
   Field[FEMEarthLayer].CurvesList = {FEMFiniteInterface()};
   Field[FEMEarthLayer].Size = MeshWaveEarth; Field[FEMEarthLayer].Ratio = 1.4;
   Field[FEMEarthLayer].Thickness = FEMEarthLayerThickness; Field[FEMEarthLayer].Quads = 0;
-  FEMExcluded() = Surface{:}; FEMExcluded() -= {FEMEarthSurface};
+  FEMExcluded() = Surface{:}; FEMExcluded() -= {FEMEarthSurfaces()};
   Field[FEMEarthLayer].ExcludedSurfacesList = {FEMExcluded()};
   BoundaryLayer Field = FEMEarthLayer;
   FEMLayerSize = FEMNextField; FEMNextField += 1; Field[FEMLayerSize] = MathEval;
