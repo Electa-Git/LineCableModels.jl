@@ -5,7 +5,7 @@ Define the grammar that the other modules extend with methods.
 """
 module Commons
 
-export resolve, validate
+export build, resolve, validate
 
 """
     validate(subject, context...)
@@ -34,5 +34,13 @@ geometry to the layer or part declared around it, and a placement locates a cros
 its frame.
 """
 function resolve end
+
+"""
+    build(Target, declarations...)
+
+Construct one completed `Target` from its declarations, such as the design of a cable from
+its declared parts.
+"""
+function build end
 
 end

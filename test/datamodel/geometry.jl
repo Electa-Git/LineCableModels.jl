@@ -31,6 +31,24 @@
         @test support(wire) ≈ hypot(3.0e-3, 1.0) + 1.5e-3
     end
 
+    @testset "the nearest distance of a shape from the origin" begin
+        @test distance(Circle(1.0e-3, Placement(3.0e-3, 0))) ≈ 2.0e-3
+        @test distance(Circle(1.0e-3)) == 0
+        @test distance(Annulus(2.0e-3, 3.0e-3)) == 2.0e-3
+        strip = placements(CircularPattern(18; r = 9.0e-3), Rectangle(3.0e-3, 3.0e-3)).shape
+        @test distance(strip) ≈ 7.5e-3
+    end
+
+    @testset "a cross-section with holes" begin
+        hole = Circle(1.0e-3, Placement(2.0e-3, 0))
+        shape = LineCableModels.DifferenceShape(Circle(4.0e-3), [hole])
+        @test area(shape) ≈ 15π * 1.0e-6
+        @test all(centroid(shape) .≈ (-2.0e-3 / 15, 0))
+        @test (support(shape), distance(shape)) == (4.0e-3, 0)
+        moved = LineCableModels.resolve(Placement(1.0e-3, 0), shape)
+        @test all(centroid(moved) .≈ (1.0e-3 - 2.0e-3 / 15, 0))
+    end
+
     @testset "a lay lengthens the helical path" begin
         helix = Helix(LayRatio(12))
         @test overlength(helix, 3.0e-3) ≈ sqrt(1 + (π / 12)^2)

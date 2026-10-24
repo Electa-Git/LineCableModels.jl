@@ -47,16 +47,17 @@ storage = "workspace, plan, buffers or the component's name"
 cache = "workspace, plan, buffers or the component's name"
 
 [global]
-nouns = ["commons", "materials", "earth", "data_model"]
+nouns = ["commons", "materials", "earth", "data_model", "material"]
 qualifiers = []
 symbols = ["rho", "eps_r", "mu_r"]
 
 [global.verbs]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
 resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
+build = "construct a completed object of a type from its declarations"
 
 [modules.Materials]
-nouns = ["material", "kind"]
+nouns = ["kind"]
 symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
 
 [modules.Earth]
@@ -66,8 +67,11 @@ qualifiers = ["homogeneous"]
 [modules.DataModel]
 nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "shell", "strip",
     "pattern", "helix", "lay", "ratio", "area", "centroid", "support", "boundary", "placements",
-    "overlength", "pitch", "span"]
-qualifiers = ["bent", "circular"]
+    "overlength", "pitch", "span", "distance", "holes", "part", "region", "stack", "terminal",
+    "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
+    "regions", "id", "tree", "terminals", "assemblies", "repeats", "lays", "compactions",
+    "fills"]
+qualifiers = ["bent", "circular", "empty", "difference", "placed", "cable", "outer"]
 symbols = ["x", "y", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir",
     "r_in", "r_ex"]
 prepositions = ["at"]
@@ -75,6 +79,7 @@ prepositions = ["at"]
 [register.Commons.public]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
 resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
+build = "construct a completed object of a type from its declarations"
 
 [register.Materials.public]
 Material = "the electromagnetic and thermal properties of one material, its class the type parameter"
@@ -106,3 +111,17 @@ r_ex = "the outer radius of a circular shape"
 placements = "the placements and the shared cross-section of the members a pattern lays"
 overlength = "the length of a helical path over the length of the cable"
 pitch = "the lay length of a helix at a radius"
+DifferenceShape = "a cross-section without the cross-sections inside it, such as the fill between wires"
+distance = "the radius of a circle about the origin that a shape does not enter"
+AbstractCablePart = "the supertype of the declared parts of a cable"
+Region = "a part of one material in one cross-section"
+Stack = "parts layered outward, each resolved against the outline of the parts inside it"
+Terminal = "the name that identifies, within its scope, the circuit node of the conductive regions of a part"
+Repeat = "copies of a part at the placements of a pattern, each copy a scope of its terminals"
+Lay = "the helix that the copies of a repeat follow along the cable"
+Enclosure = "a fill region whose cross-section is a container without the parts inside it"
+PlacedRegion = "a declared region with its resolved cross-section"
+CableDesign = "a cable described: its declared parts, its placed regions and the tables that map them"
+
+[register.DataModel.private]
+EmptyBoundary = "the outline at the center of a cable, before its first part"

@@ -78,6 +78,9 @@ function validate(pattern::CircularPattern, rectangle::Rectangle)
     return pattern
 end
 
+# A circular pattern with an explicit radius keeps it in any context.
+resolve(::Union{EmptyBoundary, AbstractShape}, pattern::CircularPattern) = pattern
+
 """
     placements(pattern, member)
 

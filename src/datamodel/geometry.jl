@@ -323,6 +323,40 @@ function validate(strip::BentStrip)
 end
 
 """
+$(TYPEDEF)
+
+Represent a cross-section with holes: the outer cross-section without the cross-sections
+inside it, such as the fill between the wires of a course.
+
+$(TYPEDFIELDS)
+"""
+struct DifferenceShape{
+    T <: Real, O <: AbstractShape{T}, H <: AbstractVector{<:AbstractShape}} <:
+       AbstractShape{T}
+    "Outer cross-section."
+    outer::O
+    "Cross-sections removed from the outer one. They lie inside it and do not overlap."
+    holes::H
+    function DifferenceShape(outer::O,
+            holes::H) where {
+            T <: Real, O <: AbstractShape{T}, H <: AbstractVector{<:AbstractShape}}
+        return new{T, O, H}(outer, holes)
+    end
+end
+
+"""
+$(TYPEDEF)
+
+Represent the outline at the center of a cable, before its first part. The first part keeps
+its declared cross-section.
+"""
+struct EmptyBoundary
+    EmptyBoundary() = new()
+end
+
+Base.eltype(::AbstractShape{T}) where {T} = T
+
+"""
     area(shape)
 
 Return the cross-sectional area of `shape` \\[m²\\].
@@ -333,6 +367,9 @@ area(circle::Circle) = π * circle.r^2
 area(annulus::Annulus) = π * (annulus.ro^2 - annulus.ri^2)
 area(rectangle::Rectangle) = rectangle.w * rectangle.h
 area(strip::BentStrip) = strip.span * (strip.ro^2 - strip.ri^2) / 2
+function area(shape::DifferenceShape)
+    return area(shape.outer) - sum(area, shape.holes; init = zero(eltype(shape)))
+end
 
 """
     centroid(shape)
@@ -353,9 +390,17 @@ function centroid end
 centroid(shape::Union{Circle, Annulus}) = (shape.at.x, shape.at.y)
 
 function centroid(strip::BentStrip)
-    distance = 4sin(strip.span / 2) * (strip.ro^3 - strip.ri^3) /
-               (3strip.span * (strip.ro^2 - strip.ri^2))
-    return strip.at((distance, zero(distance)))
+    d = 4sin(strip.span / 2) * (strip.ro^3 - strip.ri^3) /
+        (3strip.span * (strip.ro^2 - strip.ri^2))
+    return strip.at((d, zero(d)))
+end
+
+function centroid(shape::DifferenceShape)
+    x, y = area(shape.outer) .* centroid(shape.outer)
+    for hole in shape.holes
+        x, y = (x, y) .- area(hole) .* centroid(hole)
+    end
+    return (x, y) ./ area(shape)
 end
 
 """
@@ -369,6 +414,31 @@ function support end
 support(circle::Circle) = hypot(circle.at.x, circle.at.y) + circle.r
 support(annulus::Annulus) = hypot(annulus.at.x, annulus.at.y) + annulus.ro
 support(strip::BentStrip) = hypot(strip.at.x, strip.at.y) + strip.ro
+support(shape::DifferenceShape) = support(shape.outer)
+
+"""
+    distance(shape)
+
+Return the radius of a circle about the origin that `shape` does not enter \\[m\\]:
+
+```math
+\\max(0, d - r_o, r_i - d),
+```
+
+where ``d`` is the distance from the origin to the center of `shape`, and ``r_i`` and
+``r_o`` are its inner and outer radii. The inner radius of a circle is zero, and the center of
+a bent strip is its center of curvature.
+"""
+function distance end
+
+distance(circle::Circle) = max(zero(circle.r), hypot(circle.at.x, circle.at.y) - circle.r)
+
+function distance(shape::Union{Annulus, BentStrip})
+    offset = hypot(shape.at.x, shape.at.y)
+    return max(zero(offset), offset - shape.ro, shape.ri - offset)
+end
+
+distance(shape::DifferenceShape) = distance(shape.outer)
 
 """
     boundary(shape)
@@ -380,6 +450,7 @@ function boundary end
 
 boundary(circle::Circle) = circle
 boundary(annulus::Annulus) = Circle(annulus.ro, annulus.at)
+boundary(shape::DifferenceShape) = boundary(shape.outer)
 
 """
     r_in(shape)
@@ -403,6 +474,9 @@ r_ex(circle::Circle) = circle.r
 r_ex(annulus::Annulus) = annulus.ro
 r_ex(strip::BentStrip) = strip.ro
 
+# The first part of a cable keeps its declared cross-section.
+resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
+
 # A shell around a circle or an annulus is the annulus of its thickness at the same placement.
 function resolve(inner::Union{Circle, Annulus}, shell::Shell)
     return Annulus(r_ex(inner), r_ex(inner) + shell.t, inner.at)
@@ -420,4 +494,8 @@ function resolve(at::Placement, annulus::Annulus)
 end
 function resolve(at::Placement, strip::BentStrip)
     return BentStrip(strip.ri, strip.ro, strip.span, at * strip.at)
+end
+function resolve(at::Placement, shape::DifferenceShape)
+    return DifferenceShape(resolve(at, shape.outer), [resolve(at, hole)
+                                                      for hole in shape.holes])
 end

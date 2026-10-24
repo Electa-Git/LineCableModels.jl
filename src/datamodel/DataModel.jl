@@ -1,20 +1,27 @@
 """
     LineCableModels.DataModel
 
-Describe the cross-section of a cable: the geometry of its parts, and the rings and helical
-lays of its repeated wires.
+Describe the cross-section of a cable. Its declared parts build a design, which holds the
+placed regions and the tables that map them to terminals, repeats, lays and fills.
 """
 module DataModel
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..Commons: resolve, validate
+import ..Commons: build, resolve, validate
+using ..Materials: Material
 
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Shell
 export BentStrip
 export CircularPattern, Helix, LayRatio
-export area, centroid, support, boundary, r_in, r_ex, placements, overlength, pitch
+export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,
+       pitch
+export DifferenceShape
+export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure
+export PlacedRegion, CableDesign
 
 include("geometry.jl")
 include("placement.jl")
+include("parts.jl")
+include("design.jl")
 
 end
