@@ -20,11 +20,13 @@ export area, centroid, support, distance, boundary, r_in, r_ex, placements, over
 export DifferenceShape
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure
 export PlacedRegion, CableDesign, CableSystem
+export CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 
 include("geometry.jl")
 include("placement.jl")
 include("parts.jl")
 include("design.jl")
 include("system.jl")
+include("blueprint.jl")
 
 end

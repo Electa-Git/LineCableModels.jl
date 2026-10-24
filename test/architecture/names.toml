@@ -70,11 +70,15 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "s
     "overlength", "pitch", "span", "distance", "holes", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "terminals", "assemblies", "repeats", "lays", "compactions",
-    "fills", "system", "designs", "connections", "line_length"]
+    "fills", "system", "designs", "connections", "line_length", "blueprint", "conductor",
+    "dielectric", "conductors", "dielectrics", "ranges", "assembly", "positions"]
 qualifiers = ["bent", "circular", "empty", "difference", "placed", "cable", "outer"]
 symbols = ["x", "y", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir",
-    "r_in", "r_ex"]
+    "r_in", "r_ex", "mu_r_ins"]
 prepositions = ["at"]
+
+[modules.DataModel.verbs]
+flatten = "reduce a cable design to the equivalent tubes and dielectric layers of its blueprint"
 
 [register.Commons.public]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
@@ -123,6 +127,10 @@ Enclosure = "a fill region whose cross-section is a container without the parts 
 PlacedRegion = "a declared region with its resolved cross-section"
 CableDesign = "a cable described: its declared parts, its placed regions and the tables that map them"
 CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"
+CableBlueprint = "a cable described for coaxial formulations: equivalent tubes, their dielectric layers and assemblies"
+BlueprintConductor = "one terminal of a cable as an equivalent tube and its material"
+BlueprintDielectric = "one dielectric layer of the interval of an equivalent tube"
+flatten = "the blueprint of a cable design"
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"
