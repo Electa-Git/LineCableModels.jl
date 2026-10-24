@@ -317,6 +317,7 @@ end
             "file | global | resistivity | one module" => 1,
             "file | global | unused | unused" => 1,
             "shape | field | Earth | mean_free_path | length" => 1,
+            "shape | function | Earth | at | form" => 1,
             "shape | function | Earth | mesh_build | form" => 1,
             "shape | function | Earth | radial_half_extent | length" => 1,
             "shape | keyword | Earth | outer_layer_count | length" => 1,

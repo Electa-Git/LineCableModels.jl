@@ -5,7 +5,7 @@ Define the grammar that the other modules extend with methods.
 """
 module Commons
 
-export validate
+export resolve, validate
 
 """
     validate(subject, context...)
@@ -25,5 +25,14 @@ compute but that is questionable, such as one outside a formula's range of valid
   condition.
 """
 function validate end
+
+"""
+    resolve(context, declaration)
+
+Return the geometry that `declaration` takes in `context`. The outline of a part gives its
+geometry to the layer or part declared around it, and a placement locates a cross-section in
+its frame.
+"""
+function resolve end
 
 end

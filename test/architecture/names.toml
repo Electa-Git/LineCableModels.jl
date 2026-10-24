@@ -47,12 +47,13 @@ storage = "workspace, plan, buffers or the component's name"
 cache = "workspace, plan, buffers or the component's name"
 
 [global]
-nouns = ["commons", "materials", "earth"]
+nouns = ["commons", "materials", "earth", "data_model"]
 qualifiers = []
 symbols = ["rho", "eps_r", "mu_r"]
 
 [global.verbs]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
+resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
 
 [modules.Materials]
 nouns = ["material", "kind"]
@@ -62,8 +63,18 @@ symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"
 nouns = ["layer", "layers", "model", "thickness"]
 qualifiers = ["homogeneous"]
 
+[modules.DataModel]
+nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "shell", "strip",
+    "pattern", "helix", "lay", "ratio", "area", "centroid", "support", "boundary", "placements",
+    "overlength", "pitch", "span"]
+qualifiers = ["bent", "circular"]
+symbols = ["x", "y", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir",
+    "r_in", "r_ex"]
+prepositions = ["at"]
+
 [register.Commons.public]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
+resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
 
 [register.Materials.public]
 Material = "the electromagnetic and thermal properties of one material, its class the type parameter"
@@ -73,3 +84,25 @@ material = "the Material of a class with the properties given as keywords"
 EarthLayer = "the static properties and thickness of one earth or air layer"
 EarthModel = "an ordered stack of earth layers, semi-infinite air first"
 homogeneous = "the earth model of air above one semi-infinite earth layer"
+
+[register.DataModel.public]
+Placement = "a planar translation and rotation relative to a parent frame"
+AbstractShape = "the supertype of the exact cross-sections of cable parts"
+AbstractPrimitive = "the supertype of the shapes a part declares, with dimensions and a placement"
+Circle = "a circular cross-section with its placement"
+Annulus = "an annular cross-section with its placement"
+Rectangle = "a rectangular strand before a circular pattern bends it"
+Shell = "a layer of uniform thickness around the part it follows"
+BentStrip = "a rectangular strand bent onto its course, an annular sector of the same area"
+CircularPattern = "n members placed evenly on a circle about the center of the enclosing part"
+Helix = "the helical path of the members of a course along the cable"
+LayRatio = "the lay length of a helix over the mean diameter of its course"
+area = "the cross-sectional area of a shape"
+centroid = "the centroid of a shape in the cable cross-section"
+support = "the radius of a circle about the origin that contains a shape"
+boundary = "the outline of a shape that the next part resolves against"
+r_in = "the inner radius of a circular shape"
+r_ex = "the outer radius of a circular shape"
+placements = "the placements and the shared cross-section of the members a pattern lays"
+overlength = "the length of a helical path over the length of the cable"
+pitch = "the lay length of a helix at a radius"

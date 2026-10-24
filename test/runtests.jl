@@ -9,5 +9,6 @@ using LineCableModels
     include("commons/commons.jl")
     include("materials/materials.jl")
     include("earth/earth.jl")
+    include("datamodel/geometry.jl")
     include("architecture/architecture.jl")
 end

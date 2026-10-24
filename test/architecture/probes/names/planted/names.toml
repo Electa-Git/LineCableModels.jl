@@ -29,6 +29,7 @@ nouns = ["formulation"]
 nouns = ["ring", "layer", "coefficients", "path", "poses", "extent", "mesh", "disk", "count", "a", "ab", "bc", "c", "formula", "length"]
 qualifiers = ["mean", "free", "radial", "half", "outer"]
 symbols = []
+prepositions = ["at"]
 
 [modules.Earth.verbs]
 build = "assemble a plan"

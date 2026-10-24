@@ -10,12 +10,13 @@ struct Pose2
 end
 struct LineSystem
     count::Int
+    check_list::Vector{Int}
 end
 struct Formula <: Commons.AbstractFormulation end
 line_length(::LineSystem) = 1.0
 figurelegend(x) = x
 is_open(x) = true
-stranded(x; compact = false) = x
+stranded(x; compact = false, at = 0) = x
 homogenize(x) = x
 Commons.compute(::Formula) = 1
 Base.length(::LineSystem) = 2

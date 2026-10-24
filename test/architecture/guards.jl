@@ -1590,9 +1590,10 @@ function chunks(name)
     return found
 end
 
-# The role of the terms in each list of a section of the names file.
+# The role of the terms in each list of a section of the names file. A preposition is
+# sanctioned only as a whole field or keyword name.
 const ROLES = Dict("verbs" => :verb, "nouns" => :noun, "qualifiers" => :qualifier,
-    "symbols" => :symbol)
+    "symbols" => :symbol, "prepositions" => :preposition)
 
 # The sanctioned terms that a name in `path` may use, with their roles: the global section and
 # the sections of the module path's prefixes, root side first.
@@ -1702,6 +1703,8 @@ function form(kind, roles, abstract)
     kind === :type && abstract && !isempty(roles) && roles[1] === :marker &&
         popfirst!(roles)
     (isempty(roles) || :marker in roles) && return "form"
+    :preposition in roles &&
+        return kind in (:field, :keyword) && roles == [:preposition] ? nothing : "form"
     if kind === :function
         roles[1] === :predicate &&
             return length(roles) == 2 && !(roles[2] in (:verb, :predicate)) ? nothing :
@@ -1744,11 +1747,13 @@ function naming_rule(methods, tree::PackageTree, names)
     items = owned_names(tree, shape["mandated"])
     for item in items
         terms = vocabulary(names, item.path)
-        for c in chunks(item.name)
-            haskey(rejected, c) &&
-                entry("terms", item, string("rejected ", c, " -> ", rejected[c]))
-        end
         options = splits(item.name, terms)
+        # The rejected words are looked up among the terms of the name's one split, or among its
+        # chunks when it has none, so that a sanctioned compound counts as one term.
+        for word in (length(options) == 1 ? only(options) : chunks(item.name))
+            haskey(rejected, word) &&
+                entry("terms", item, string("rejected ", word, " -> ", rejected[word]))
+        end
         if length(options) != 1
             entry("terms", item, isempty(options) ? "unknown" : "ambiguous")
             continue
@@ -1818,7 +1823,8 @@ function naming_file(names, split_of)
 
             (term in seen || term in above) && entry(path, term, "sanctioned twice")
             push!(seen, term)
-            term in names["shape"]["prepositions"] && entry(path, term, "preposition")
+            role != "prepositions" && term in names["shape"]["prepositions"] &&
+                entry(path, term, "preposition")
             haskey(names["rejected"], term) && entry(path, term, "rejected")
             paths = get(users, term, Set{String}())
             scope = path == "global" ? paths :

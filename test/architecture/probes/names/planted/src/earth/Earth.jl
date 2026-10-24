@@ -21,6 +21,7 @@ radial_half_extent(x) = x
 mesh_build(x) = x
 get_radius(x) = x
 frobnicate(x) = x
+at(x) = x
 abc(x) = x
 spread(x; outer_layer_count = 1) = x
 length(::Layer) = 1

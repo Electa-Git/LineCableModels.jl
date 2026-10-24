@@ -26,9 +26,10 @@ compute = "run one computation"
 nouns = ["formulation"]
 
 [modules.Earth]
-nouns = ["model", "layers", "layer", "pose2", "angle", "line", "system", "count", "line_length", "figure", "legend"]
+nouns = ["model", "layers", "layer", "pose2", "angle", "line", "system", "count", "line_length", "figure", "legend", "check_list"]
 qualifiers = ["open", "stranded", "compact"]
 symbols = ["mu_r"]
+prepositions = ["at"]
 
 [modules.Earth.verbs]
 homogenize = "reduce a layered description to an equivalent homogeneous one"
