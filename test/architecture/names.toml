@@ -70,7 +70,7 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "s
     "overlength", "pitch", "span", "distance", "holes", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "terminals", "assemblies", "repeats", "lays", "compactions",
-    "fills"]
+    "fills", "system", "designs", "connections", "line_length"]
 qualifiers = ["bent", "circular", "empty", "difference", "placed", "cable", "outer"]
 symbols = ["x", "y", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir",
     "r_in", "r_ex"]
@@ -122,6 +122,7 @@ Lay = "the helix that the copies of a repeat follow along the cable"
 Enclosure = "a fill region whose cross-section is a container without the parts inside it"
 PlacedRegion = "a declared region with its resolved cross-section"
 CableDesign = "a cable described: its declared parts, its placed regions and the tables that map them"
+CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"

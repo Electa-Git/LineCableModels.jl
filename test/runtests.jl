@@ -11,5 +11,6 @@ using LineCableModels
     include("earth/earth.jl")
     include("datamodel/geometry.jl")
     include("datamodel/design.jl")
+    include("datamodel/system.jl")
     include("architecture/architecture.jl")
 end

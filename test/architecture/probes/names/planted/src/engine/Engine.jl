@@ -2,5 +2,5 @@ module Engine
 import ..Commons
 struct Formula <: Commons.AbstractFormulation end
 struct Plan end
-Commons.compute(::Formula) = 1
+Commons.compute(::Formula; tolerance = 0.1) = 1
 end

@@ -1,14 +1,15 @@
 """
 $(TYPEDEF)
 
-Represent one region as the cable places it: its declaration and its resolved cross-section.
+Represent one region as a cable or a system places it: its declaration and its resolved
+cross-section.
 
 $(TYPEDFIELDS)
 """
 struct PlacedRegion{R <: Region, S <: AbstractShape}
     "Declared region."
     source::R
-    "Resolved cross-section in the frame of the cable."
+    "Resolved cross-section in the frame of the cable or the system that places the region."
     shape::S
     function PlacedRegion(source::R, shape::S) where {R <: Region, S <: AbstractShape}
         return new{R, S}(source, shape)
@@ -89,6 +90,8 @@ struct CableDesign{
             repeats, lays, compactions, fills))
     end
 end
+
+Base.eltype(::CableDesign{T}) where {T} = T
 
 # The regions cover the outline of the cable, and each conductive region has a terminal.
 function validate(design::CableDesign)

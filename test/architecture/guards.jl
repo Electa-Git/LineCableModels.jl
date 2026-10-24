@@ -1648,8 +1648,9 @@ end
 
 # Every name the package owns: modules below the root, types, functions (macros included),
 # constants, struct fields and method keywords, each with its kind, its module path, whether
-# the root exports it and its value. The names Julia or Pkg impose are left out; an extension
-# module is no module's submodule, so its own name is never read.
+# the root exports it and its value. A keyword belongs to the module that defines its
+# method, which may extend a function of another module. The names Julia or Pkg impose are
+# left out; an extension module is no module's submodule, so its own name is never read.
 function owned_names(tree::PackageTree, mandated)
     found = NamedTuple{
         (:kind, :path, :name, :exported, :value), Tuple{Symbol, String, Symbol, Bool, Any}}[]
@@ -1688,7 +1689,8 @@ function owned_names(tree::PackageTree, mandated)
 
                     endswith(string(keyword), "...") ||
                         push!(found,
-                            (kind = :keyword, path = path(M), name = keyword,
+                            (kind = :keyword,
+                                path = path(parentmodule(m)), name = keyword,
                                 exported = false, value = nothing))
                 end
             end

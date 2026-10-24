@@ -12,7 +12,7 @@ using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, 
                   Shell, BentStrip, CircularPattern, Helix, LayRatio, area, centroid,
                   support, distance, boundary, r_in, r_ex, placements, overlength, pitch,
                   DifferenceShape, AbstractCablePart, Region, Stack, Terminal, Repeat, Lay,
-                  Enclosure, PlacedRegion, CableDesign
+                  Enclosure, PlacedRegion, CableDesign, CableSystem
 
 export Material, material, EarthLayer, EarthModel, homogeneous
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Shell
@@ -20,7 +20,7 @@ export CircularPattern, Helix, LayRatio
 export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,
        pitch
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, CableDesign,
-       build
+       CableSystem, build
 public Commons, Materials, Earth, DataModel, validate, resolve, BentStrip, DifferenceShape
 public PlacedRegion
 

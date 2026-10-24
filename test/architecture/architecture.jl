@@ -328,6 +328,7 @@ end
             "terms | function | Earth | frobnicate | unknown" => 1,
             "terms | function | Earth | get_radius | rejected get -> the name of the quantity" => 1,
             "terms | function | Earth | get_radius | unknown" => 1,
+            "terms | keyword | Engine | tolerance | unknown" => 1,
             "verbs | function | Earth | compute | compute" => 1)
         @test Base.invokelatest(Guards.shared_names, planted) ==
               Dict{String, Int}("Plan" => 2, "compute" => 2)
