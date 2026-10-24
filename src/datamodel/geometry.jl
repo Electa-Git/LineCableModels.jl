@@ -236,15 +236,17 @@ end
 """
 $(TYPEDEF)
 
-Declare a layer of uniform thickness around the part that it follows, such as an insulation,
-a semiconducting screen or a jacket.
+Declare a distance outward from the outline of the part inside, which the offset resolves
+against. As the cross-section of a region, it is a layer of that thickness around the
+outline, such as an insulation, a semiconducting screen or a jacket. As the radius of a
+[`CircularPattern`](@ref), it is the clearance between the outline and the members.
 
 $(TYPEDFIELDS)
 """
-struct Shell{T <: Real}
-    "Thickness \\[m\\]."
+struct Offset{T <: Real}
+    "Distance outward from the outline \\[m\\]."
     t::T
-    function Shell{T}(t::T) where {T <: Real}
+    function Offset{T}(t::T) where {T <: Real}
         return validate(new{T}(t))
     end
 end
@@ -252,18 +254,18 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Declare a layer of thickness `t` \\[m\\].
+Declare the distance `t` \\[m\\] outward from the outline of the part inside.
 
 # Errors
 
-- Throws `DomainError` when `t` is not positive and finite.
+- Throws `DomainError` when `t` is negative or not finite.
 """
-Shell(t::Real) = Shell{typeof(float(t))}(float(t))
+Offset(t::Real) = Offset{typeof(float(t))}(float(t))
 
-function validate(shell::Shell)
-    isfinite(shell.t) && shell.t > zero(shell.t) ||
-        throw(DomainError(shell.t, "Shell.t must be positive and finite"))
-    return shell
+function validate(offset::Offset)
+    isfinite(offset.t) && offset.t >= zero(offset.t) ||
+        throw(DomainError(offset.t, "Offset.t must be nonnegative and finite"))
+    return offset
 end
 
 """
@@ -477,9 +479,10 @@ r_ex(strip::BentStrip) = strip.ro
 # The first part of a cable keeps its declared cross-section.
 resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
 
-# A shell around a circle or an annulus is the annulus of its thickness at the same placement.
-function resolve(inner::Union{Circle, Annulus}, shell::Shell)
-    return Annulus(r_ex(inner), r_ex(inner) + shell.t, inner.at)
+# An offset around a circle or an annulus is the annulus of its thickness at the same
+# placement.
+function resolve(inner::Union{Circle, Annulus}, offset::Offset)
+    return Annulus(r_ex(inner), r_ex(inner) + offset.t, inner.at)
 end
 
 # A declared annulus keeps its radii and takes the placement of the part inside it.

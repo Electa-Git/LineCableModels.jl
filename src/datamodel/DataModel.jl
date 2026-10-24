@@ -12,7 +12,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: build, resolve, validate
 using ..Materials: Material
 
-export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Shell
+export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export BentStrip
 export CircularPattern, Helix, LayRatio
 export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,

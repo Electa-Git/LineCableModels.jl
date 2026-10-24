@@ -9,7 +9,7 @@
     @testset "a wire is its own tube" begin
         wire = flatten(build(CableDesign, "insulated_wire",
             Terminal(:core, Region(:core_metal, Circle(0.0425), copper)),
-            Region(:core_insulation, Shell(1.0e-3), polymer)))
+            Region(:core_insulation, Offset(1.0e-3), polymer)))
         tube = only(wire.conductors)
         @test [tube.r_in, tube.r_ex] ≈ [0.0, 0.0425]
         @test tube.material.rho ≈ copper.rho && tube.material.mu_r ≈ 1
@@ -21,7 +21,7 @@
         core = flatten(build(CableDesign, "wire_and_tube",
             Terminal(:core,
                 Stack(Region(:core_wire, Circle(1.0e-3), copper),
-                    Region(:core_tube, Shell(1.0e-3), copper)))))
+                    Region(:core_tube, Offset(1.0e-3), copper)))))
         tube = only(core.conductors)
         @test [tube.r_in, tube.r_ex] ≈ [0.0, 2.0e-3]
         @test tube.material.rho ≈ copper.rho && tube.material.mu_r ≈ 1
@@ -44,14 +44,14 @@
                 Terminal(:core,
                     Enclosure(Region(:core_fill, Circle(10.5e-3), air),
                         Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
-                Region(:core_semicon_inner, Shell(1.0e-3), semicon),
-                Region(:core_insulation, Shell(8.0e-3), polymer),
-                Region(:core_semicon_outer, Shell(1.0e-3), semicon),
+                Region(:core_semicon_inner, Offset(1.0e-3), semicon),
+                Region(:core_insulation, Offset(8.0e-3), polymer),
+                Region(:core_semicon_outer, Offset(1.0e-3), semicon),
                 Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
-                Region(:sheath_bedding, Shell(3.0e-3), polymer),
+                Region(:sheath_bedding, Offset(3.0e-3), polymer),
                 Terminal(:armour,
-                    Enclosure(Region(:armour_fill, Shell(4.0e-3), air), armour)),
-                Region(:armour_jacket, Shell(4.0e-3), polymer)))
+                    Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+                Region(:armour_jacket, Offset(4.0e-3), polymer)))
             @test [tube.terminal for tube in blueprint.conductors] == [1, 2, 3]
             @test [tube.r_in for tube in blueprint.conductors] ≈ [0.0, 20.5e-3, 24.5e-3]
             @test [tube.r_ex for tube in blueprint.conductors] ≈ [10.5e-3, 21.5e-3, 28.5e-3]
@@ -85,7 +85,7 @@
                 Terminal(:core,
                     Enclosure(Region(:core_fill, Circle(7.5e-3), air),
                         Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
-                Region(:core_insulation, Shell(8.0e-3), polymer)))
+                Region(:core_insulation, Offset(8.0e-3), polymer)))
             return only(core.mu_r_ins)
         end
         @test relative[2] < relative[1]
@@ -98,8 +98,8 @@
             Terminal(:core,
                 Enclosure(Region(:core_fill, Circle(1.5e-3), air),
                     Stack(Region(:core_centre, Circle(0.5e-3), copper), strands))),
-            Region(:core_insulation, Shell(1.0e-3), polymer),
-            Terminal(:screen, Region(:core_screen, Shell(0.5e-3), copper)))
+            Region(:core_insulation, Offset(1.0e-3), polymer),
+            Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))
         cores = Repeat(CircularPattern(3; r = 3.5e-3), core)
         pipe = Region(:pipe_fill, Circle(6.5e-3), polymer)
         @test_throws ArgumentError flatten(build(CableDesign, "three_cores",
@@ -110,7 +110,7 @@
         @test_throws ArgumentError flatten(build(CableDesign, "two_temperatures",
             Terminal(:core,
                 Stack(Region(:core_wire, Circle(1.0e-3), copper),
-                    Region(:core_tube, Shell(1.0e-3), warm)))))
+                    Region(:core_tube, Offset(1.0e-3), warm)))))
     end
 
     @testset "Float32 inputs" begin

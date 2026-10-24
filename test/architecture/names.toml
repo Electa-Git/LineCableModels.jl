@@ -65,7 +65,7 @@ nouns = ["layer", "layers", "model", "thickness"]
 qualifiers = ["homogeneous"]
 
 [modules.DataModel]
-nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "shell", "strip",
+nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "offset", "strip",
     "pattern", "helix", "lay", "ratio", "area", "centroid", "support", "boundary", "placements",
     "overlength", "pitch", "span", "distance", "holes", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
@@ -101,9 +101,9 @@ AbstractPrimitive = "the supertype of the shapes a part declares, with dimension
 Circle = "a circular cross-section with its placement"
 Annulus = "an annular cross-section with its placement"
 Rectangle = "a rectangular strand before a circular pattern bends it"
-Shell = "a layer of uniform thickness around the part it follows"
+Offset = "a distance outward from the outline inside: the thickness of a layer or the clearance of a circular pattern"
 BentStrip = "a rectangular strand bent onto its course, an annular sector of the same area"
-CircularPattern = "n members placed evenly on a circle about the center of the enclosing part"
+CircularPattern = "n members placed evenly on a circle about the center of the enclosing part, at a radius or an offset"
 Helix = "the helical path of the members of a course along the cable"
 LayRatio = "the lay length of a helix over the mean diameter of its course"
 area = "the cross-sectional area of a shape"

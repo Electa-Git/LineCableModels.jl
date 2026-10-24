@@ -21,15 +21,15 @@ Declare a part of one material in one cross-section.
 
 $(TYPEDFIELDS)
 """
-struct Region{P <: Union{AbstractPrimitive, Shell}, M <: Material} <: AbstractCablePart
+struct Region{P <: Union{AbstractPrimitive, Offset}, M <: Material} <: AbstractCablePart
     "Name of the region within the cable."
     tag::Symbol
-    "Declared cross-section: a primitive, or a shell around the part inside the region."
+    "Declared cross-section: a primitive, or an offset from the outline of the part inside."
     primitive::P
     "Material of the region. Its class tells whether the region conducts."
     material::M
     function Region(tag::Symbol, primitive::P,
-            material::M) where {P <: Union{AbstractPrimitive, Shell}, M <: Material}
+            material::M) where {P <: Union{AbstractPrimitive, Offset}, M <: Material}
         return new{P, M}(tag, primitive, material)
     end
 end
@@ -154,7 +154,8 @@ end
 
 # The pattern places a strand, and it bends a rectangular strand into a strip on its course.
 function resolve(described::NamedTuple, repeat::Repeat{<:CircularPattern, <:Region})
-    course = placements(resolve(described.outer, repeat.pattern), repeat.part.primitive)
+    course = placements(resolve(described.outer, repeat.pattern, repeat.part.primitive),
+        repeat.part.primitive)
     shapes = [validate(resolve(at, course.shape), repeat, described.outer)
               for at in course.placements]
     start = length(described.regions)
@@ -173,7 +174,7 @@ end
 # those of its copies.
 function resolve(described::NamedTuple, repeat::Repeat)
     member = resolve(EmptyBoundary(), repeat.part)
-    course = placements(resolve(described.outer, repeat.pattern), member.outer)
+    course = placements(resolve(described.outer, repeat.pattern, member.outer), member.outer)
     index = length(described.repeats) + 1
     offsets = [(at = at,
                    region = length(described.regions) + (k - 1) * length(member.regions),
@@ -247,13 +248,13 @@ end
 $(TYPEDEF)
 
 Fill a container around parts with a material. The fill region declares the container as its
-primitive, either explicitly or as a shell around the part inside the enclosure, and takes
+primitive, either explicitly or as an offset from the part inside the enclosure, and takes
 it without the regions of the contents. The outline of the enclosure is the outline of its
 container.
 
 $(TYPEDFIELDS)
 """
-struct Enclosure{F <: Region{<:Union{Circle, Annulus, Shell}}, C <: AbstractCablePart} <:
+struct Enclosure{F <: Region{<:Union{Circle, Annulus, Offset}}, C <: AbstractCablePart} <:
        AbstractCablePart
     "Region of the fill material, whose primitive declares the container."
     fill::F
@@ -261,7 +262,7 @@ struct Enclosure{F <: Region{<:Union{Circle, Annulus, Shell}}, C <: AbstractCabl
     contents::C
     function Enclosure(fill::F,
             contents::C) where {
-            F <: Region{<:Union{Circle, Annulus, Shell}}, C <: AbstractCablePart}
+            F <: Region{<:Union{Circle, Annulus, Offset}}, C <: AbstractCablePart}
         return new{F, C}(fill, contents)
     end
 end

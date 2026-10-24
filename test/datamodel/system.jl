@@ -6,7 +6,7 @@
         Terminal(:core, Region(:core_metal, Circle(0.0425), copper)))
     wire = build(CableDesign, "insulated_wire",
         Terminal(:core, Region(:core_metal, Circle(0.0425), copper)),
-        Region(:core_insulation, Shell(1.0e-3), polymer))
+        Region(:core_insulation, Offset(1.0e-3), polymer))
 
     @testset "two wires side by side" begin
         for design in (bare, wire)
@@ -36,14 +36,14 @@
                 Terminal(:core,
                     Enclosure(Region(:core_fill, Circle(10.5e-3), air),
                         Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
-                Region(:core_semicon_inner, Shell(1.0e-3), semicon),
-                Region(:core_insulation, Shell(8.0e-3), polymer),
-                Region(:core_semicon_outer, Shell(1.0e-3), semicon),
+                Region(:core_semicon_inner, Offset(1.0e-3), semicon),
+                Region(:core_insulation, Offset(8.0e-3), polymer),
+                Region(:core_semicon_outer, Offset(1.0e-3), semicon),
                 Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
-                Region(:sheath_bedding, Shell(3.0e-3), polymer),
+                Region(:sheath_bedding, Offset(3.0e-3), polymer),
                 Terminal(:armour,
-                    Enclosure(Region(:armour_fill, Shell(4.0e-3), air), armour)),
-                Region(:armour_jacket, Shell(4.0e-3), polymer))
+                    Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+                Region(:armour_jacket, Offset(4.0e-3), polymer))
             system = build(CableSystem, [design], [Placement(0.0, -1.0)];
                 connections = [(core = 1, sheath = 2, armour = 3)], id = "coaxial",
                 line_length = 1000.0)
@@ -79,8 +79,8 @@
             Terminal(:core,
                 Enclosure(Region(:core_fill, Circle(1.5e-3), air),
                     Stack(Region(:core_centre, Circle(0.5e-3), copper), strands))),
-            Region(:core_insulation, Shell(1.0e-3), polymer),
-            Terminal(:screen, Region(:core_screen, Shell(0.5e-3), copper)))
+            Region(:core_insulation, Offset(1.0e-3), polymer),
+            Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))
         pipe = build(CableDesign, "three_cores",
             Enclosure(Region(:pipe_fill, Circle(6.5e-3), polymer),
                 Repeat(CircularPattern(3; r = 3.5e-3), core)))
@@ -92,8 +92,8 @@
     @testset "the checks of a system" begin
         screened = build(CableDesign, "screened",
             Terminal(:core, Region(:core_metal, Circle(1.0e-3), copper)),
-            Region(:core_insulation, Shell(1.0e-3), polymer),
-            Terminal(:screen, Region(:core_screen, Shell(0.5e-3), copper)))
+            Region(:core_insulation, Offset(1.0e-3), polymer),
+            Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))
         at = [Placement(0.0, -1.0)]
         @test_throws DimensionMismatch build(CableSystem, [wire, wire],
             [Placement(0.0, -1.0), Placement(1.0, -1.0)];

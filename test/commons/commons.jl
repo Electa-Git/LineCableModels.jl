@@ -7,7 +7,7 @@
     end
 
     @testset "resolve gives a layer its place around a part" begin
-        @test LineCableModels.resolve(Circle(1.0e-3), Shell(1.0e-3)) ==
+        @test LineCableModels.resolve(Circle(1.0e-3), Offset(1.0e-3)) ==
               Annulus(1.0e-3, 2.0e-3)
     end
 

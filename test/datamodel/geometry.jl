@@ -1,8 +1,8 @@
 @testset "DataModel geometry" begin
-    @testset "a shell around a part is an annulus" begin
-        insulation = LineCableModels.resolve(Circle(1.5e-3), Shell(1.0e-3))
+    @testset "an offset around a part is an annulus" begin
+        insulation = LineCableModels.resolve(Circle(1.5e-3), Offset(1.0e-3))
         @test (r_in(insulation), r_ex(insulation)) == (1.5e-3, 2.5e-3)
-        jacket = LineCableModels.resolve(insulation, Shell(2.0e-3))
+        jacket = LineCableModels.resolve(insulation, Offset(2.0e-3))
         @test r_ex(jacket) ≈ 4.5e-3
         @test_throws DomainError LineCableModels.resolve(insulation, Annulus(2.0e-3, 3.0e-3))
     end
@@ -12,6 +12,16 @@
         @test length(course.placements) == 6
         @test all(placement -> hypot(placement.x, placement.y) ≈ 3.0e-3, course.placements)
         @test_throws DomainError placements(CircularPattern(7; r = 3.0e-3), Circle(1.5e-3))
+    end
+
+    @testset "a circular pattern at an offset lies against the outline inside" begin
+        pattern = CircularPattern(6; r = Offset(0))
+        @test LineCableModels.resolve(Circle(1.5e-3), pattern, Circle(1.5e-3)).r ≈ 3.0e-3
+        @test LineCableModels.resolve(Circle(1.5e-3), pattern, Rectangle(3.0e-3, 3.0e-3)).r ≈
+              3.0e-3
+        clearance = CircularPattern(12; r = Offset(1.0e-3))
+        @test LineCableModels.resolve(Circle(4.5e-3), clearance, Circle(1.5e-3)).r ≈ 7.0e-3
+        @test_throws DomainError Offset(-1.0e-3)
     end
 
     @testset "a circular pattern bends rectangular strands into strips of their area" begin
@@ -57,7 +67,7 @@
     end
 
     @testset "Float32 and mixed inputs" begin
-        @test LineCableModels.resolve(Circle(1.5f-3), Shell(1.0f-3)) isa Annulus{Float32}
+        @test LineCableModels.resolve(Circle(1.5f-3), Offset(1.0f-3)) isa Annulus{Float32}
         @test Annulus(1, 2.0f0) isa Annulus{Float32}
         @test placements(CircularPattern(6; r = 3.0f-3), Circle(1.5f-3)).shape isa
               Circle{Float32}

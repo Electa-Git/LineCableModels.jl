@@ -14,7 +14,7 @@
     @testset "an insulation carries no terminal" begin
         wire = build(CableDesign, "insulated_wire",
             Terminal(:core, Region(:core_metal, Circle(0.0425), copper)),
-            Region(:core_insulation, Shell(1.0e-3), polymer))
+            Region(:core_insulation, Offset(1.0e-3), polymer))
         @test [(row.name, row.regions) for row in wire.terminals] == [(:core, [1])]
         insulation = wire.regions[2].shape
         @test r_in(insulation) == 0.0425 && r_ex(insulation) ≈ 0.0435
@@ -26,25 +26,34 @@
         steel = Material(:conductor, 1.7475e-7, 1.0, 36.6326, 20.0, 0.0045)
         for (strand, metal) in ((Circle(1.5e-3), 37π * 1.5e-3^2),
             (Rectangle(3.0e-3, 3.0e-3), π * 1.5e-3^2 + 36 * 9.0e-6))
-            courses = [Lay(Helix(LayRatio(12)),
-                           Repeat(CircularPattern(n; r = 3.0e-3k),
-                               Region(Symbol(:core_strands_, k), strand, copper)))
-                       for (k, n) in enumerate((6, 12, 18))]
-            armour = Lay(Helix(LayRatio(10)),
-                Repeat(CircularPattern(40; r = 26.5e-3),
-                    Region(:armour_wires, Circle(2.0e-3), steel)))
-            design = build(CableDesign, "coaxial",
-                Terminal(:core,
-                    Enclosure(Region(:core_fill, Circle(10.5e-3), air),
-                        Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
-                Region(:core_semicon_inner, Shell(1.0e-3), semicon),
-                Region(:core_insulation, Shell(8.0e-3), polymer),
-                Region(:core_semicon_outer, Shell(1.0e-3), semicon),
-                Terminal(:sheath, Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
-                Region(:sheath_bedding, Shell(3.0e-3), polymer),
-                Terminal(:armour,
-                    Enclosure(Region(:armour_fill, Shell(4.0e-3), air), armour)),
-                Region(:armour_jacket, Shell(4.0e-3), polymer))
+            # The courses and the armour at their radii, and at no offset from the part inside.
+            design,
+            contextual = map(((3.0e-3, 6.0e-3, 9.0e-3, 26.5e-3),
+                ntuple(_ -> Offset(0), 4))) do radii
+                courses = [Lay(Helix(LayRatio(12)),
+                               Repeat(CircularPattern(n; r = radii[k]),
+                                   Region(Symbol(:core_strands_, k), strand, copper)))
+                           for (k, n) in enumerate((6, 12, 18))]
+                armour = Lay(Helix(LayRatio(10)),
+                    Repeat(CircularPattern(40; r = radii[4]),
+                        Region(:armour_wires, Circle(2.0e-3), steel)))
+                return build(CableDesign, "coaxial",
+                    Terminal(:core,
+                        Enclosure(Region(:core_fill, Circle(10.5e-3), air),
+                            Stack(Region(:core_centre, Circle(1.5e-3), copper), courses...))),
+                    Region(:core_semicon_inner, Offset(1.0e-3), semicon),
+                    Region(:core_insulation, Offset(8.0e-3), polymer),
+                    Region(:core_semicon_outer, Offset(1.0e-3), semicon),
+                    Terminal(:sheath,
+                        Region(:sheath_copper, Annulus(20.5e-3, 21.5e-3), copper)),
+                    Region(:sheath_bedding, Offset(3.0e-3), polymer),
+                    Terminal(:armour,
+                        Enclosure(Region(:armour_fill, Offset(4.0e-3), air), armour)),
+                    Region(:armour_jacket, Offset(4.0e-3), polymer))
+            end
+            @test all(map((a, b) -> a.radii ≈ b.radii, design.lays, contextual.lays))
+            @test all(map((a, b) -> support(a.shape) ≈ support(b.shape), design.regions,
+                contextual.regions))
             @test length(design.regions) == 85
             @test [row.name for row in design.terminals] == [:core, :sheath, :armour]
             @test [length(row.regions) for row in design.terminals] == [37, 1, 40]
@@ -64,12 +73,12 @@
 
     @testset "a terminal around terminals, and one name for two parts" begin
         wire = Region(:core_metal, Circle(1.0e-3), copper)
-        tube = Region(:core_tube, Shell(1.0e-3), copper)
+        tube = Region(:core_tube, Offset(1.0e-3), copper)
         nested = build(CableDesign, "nested",
             Terminal(:phase, Stack(Terminal(:inner, wire), Terminal(:outer, tube))))
         @test [(row.name, row.regions) for row in nested.terminals] == [(:phase, [1, 2])]
         shared = build(CableDesign, "shared", Terminal(:core, wire),
-            Region(:core_insulation, Shell(1.0e-3), polymer), Terminal(:core, tube))
+            Region(:core_insulation, Offset(1.0e-3), polymer), Terminal(:core, tube))
         @test [(row.name, row.regions) for row in shared.terminals] == [(:core, [1, 3])]
     end
 
@@ -80,8 +89,8 @@
             Terminal(:core,
                 Enclosure(Region(:core_fill, Circle(1.5e-3), air),
                     Stack(Region(:core_centre, Circle(0.5e-3), copper), strands))),
-            Region(:core_insulation, Shell(1.0e-3), polymer),
-            Terminal(:screen, Region(:core_screen, Shell(0.5e-3), copper)))
+            Region(:core_insulation, Offset(1.0e-3), polymer),
+            Terminal(:screen, Region(:core_screen, Offset(0.5e-3), copper)))
         cores = Repeat(CircularPattern(3; r = 3.5e-3), core)
         pipe = Region(:pipe_fill, Circle(6.5e-3), polymer)
         separate = build(CableDesign, "three_cores", Enclosure(pipe, cores))
