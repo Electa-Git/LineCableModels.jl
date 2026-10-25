@@ -14,5 +14,9 @@ using LineCableModels
     include("datamodel/system.jl")
     include("datamodel/blueprint.jl")
     include("datamodel/builders.jl")
+    include("engine/problem.jl")
+    include("engine/laws.jl")
+    include("engine/formulation.jl")
+    include("engine/result.jl")
     include("architecture/architecture.jl")
 end

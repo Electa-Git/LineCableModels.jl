@@ -44,6 +44,8 @@ struct CableSystem{
     end
 end
 
+Base.eltype(::CableSystem{T}) where {T} = T
+
 # A connection specifies a conductor index, or zero, for each terminal name of its cable
 # and for no other name.
 function validate(

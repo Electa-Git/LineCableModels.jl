@@ -8,4 +8,8 @@ law(kind::Symbol) = law(Val(kind))
 part(law::Law, ::Val{:inner}) = law
 inner(law::Law) = part(law, Val(:inner))
 end
+module Uses
+import ..Laws: law
+law(kind::String) = law(Val(Symbol(kind)))
+end
 end

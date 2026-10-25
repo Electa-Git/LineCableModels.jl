@@ -49,14 +49,20 @@ storage = "workspace, plan, buffers or the component's name"
 cache = "workspace, plan, buffers or the component's name"
 
 [global]
-nouns = ["commons", "materials", "earth", "data_model", "material"]
+nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
+    "options", "backend", "insulation", "system", "line_length", "terminals"]
 qualifiers = []
-symbols = ["rho", "eps_r", "mu_r"]
+symbols = ["rho", "eps_r", "mu_r", "y"]
 
 [global.verbs]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
 resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
 build = "construct a completed object of a type from its declarations"
+compute = "run one computation of a problem by a formulation, on the backend that runs it"
+select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
+
+[modules.Commons]
+nouns = ["computation", "defaults", "values"]
 
 [modules.Materials]
 nouns = ["kind"]
@@ -71,23 +77,45 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "pattern", "helix", "lay", "ratio", "area", "centroid", "support", "boundary", "placements",
     "overlength", "pitch", "span", "distance", "holes", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
-    "regions", "id", "tree", "terminals", "assemblies", "repeats", "lays", "compactions",
-    "fills", "system", "designs", "connections", "line_length", "blueprint", "conductor",
-    "dielectric", "conductors", "dielectrics", "ranges", "assembly", "positions", "core",
-    "insulation", "screen", "sheath", "bedding", "jacket", "armor", "center"]
+    "regions", "id", "tree", "assemblies", "repeats", "lays", "compactions", "fills",
+    "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
+    "dielectrics", "ranges", "assembly", "positions", "core", "screen", "sheath", "bedding",
+    "jacket", "armor", "center"]
 qualifiers = ["bent", "circular", "empty", "difference", "placed", "cable", "outer",
     "stranded", "layout"]
-symbols = ["x", "y", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir",
-    "r_in", "r_ex", "mu_r_ins"]
+symbols = ["x", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir", "r_in",
+    "r_ex", "mu_r_ins"]
 prepositions = ["at"]
 
 [modules.DataModel.verbs]
 flatten = "reduce a cable design to the equivalent tubes and dielectric layers of its blueprint"
 
+[modules.Engine]
+nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
+    "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
+    "line_parameters", "problem", "gmsh", "fem", "return", "shunt", "buffers", "trace",
+    "frequencies"]
+qualifiers = ["vacuum", "coaxial", "internal"]
+symbols = ["z"]
+
+[modules.Engine.verbs]
+prepare = "fill a formula's per-frequency state that its quantity methods read"
+initialize = "build the arrays of a computation once, before its loop"
+
+[register.Commons]
+lifts = ["select"]
+
 [register.Commons.public]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
 resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
 build = "construct a completed object of a type from its declarations"
+compute = "run one computation of a problem by a formulation, on the backend that runs it"
+select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
+defaults = "the option keys of an owner with their default values and types"
+AbstractFormulation = "the supertype of the formulations and of the formula families"
+AbstractBackend = "the supertype of the singletons that run a formulation"
+FormulationOptions = "the options of a formula or a formulation, its owner the first type parameter"
+ComputationOptions = "the options of a backend for one computation, its owner the first type parameter"
 
 [register.Materials]
 lifts = ["material"]
@@ -152,3 +180,73 @@ armor = "a course of round armor wires laid on the part inside it, in a fill as 
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"
+
+[register.Engine.public]
+vacuum_permittivity = "ε₀, the permittivity of vacuum [F/m]"
+vacuum_permeability = "μ₀ = 4π·1e-7, the permeability of vacuum [H/m]"
+CoaxialBackend = "the backend that runs the analytical coaxial computation"
+GmshBackend = "the backend that runs the finite-element computation, defined by the Gmsh extension"
+backend = "the backend that runs a formulation type"
+AbstractInternalImpedance = "the supertype of the formulas of the surface impedances of a tubular conductor"
+AbstractInsulationImpedance = "the supertype of the formulas of the magnetic term across an annular dielectric"
+AbstractInsulationAdmittance = "the supertype of the admittivity laws of insulating layers"
+AbstractSemiconAdmittance = "the supertype of the admittivity laws of semiconducting layers"
+AbstractEarthReturn = "the supertype of the formulas of the earth-return impedance and potential coefficients"
+AbstractShunt = "the supertype of the formulas that form the potential coefficients inside a cable"
+AbstractResistivity = "the supertype of the temperature laws of a conductor's resistivity"
+AbstractEarthProperties = "the supertype of the frequency laws of the earth's properties"
+LineParametersProblem = "the cables of a line, the earth, the operating temperature and the frequencies of a scan"
+LineParametersFormulation = "the formula of each slot of the coaxial computation and the reductions it applies"
+FEM = "the laws and options of the finite-element computation of line parameters"
+LineParameters = "the series impedance and shunt admittance per unit length of a line at each frequency, with the labels of its rows and the formulation"
+admittivity = "the admittivity of a dielectric layer at a frequency [S/m]"
+resistivity = "the resistivity of a conductor's material at a temperature [Ω·m]"
+properties = "the resistivity, relative permittivity and relative permeability of an earth layer at a frequency"
+"impedance!" = "series impedances per unit length written into a matrix [Ω/m]"
+"potential!" = "potential coefficients per unit length written into a matrix [m/F]"
+"prepare!" = "fill a formula's per-frequency state that its quantity methods read"
+initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
+
+[register."Engine.InternalImpedance".public]
+Formula = "an internal-impedance formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.InsulationImpedance".public]
+Formula = "an insulation-impedance formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.InsulationAdmittance".public]
+Formula = "an insulation-admittance formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.InsulationAdmittance".formulas]
+lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (fem-investigation insulationadmittance/formulas/lossless.jl)"
+
+[register."Engine.SemiconAdmittance".public]
+Formula = "a semicon-admittance formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.SemiconAdmittance".formulas]
+lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (fem-investigation semiconadmittance/formulas/lossless.jl)"
+
+[register."Engine.EarthReturn".public]
+Formula = "an earth-return formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.Shunt".public]
+Formula = "a shunt formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.Resistivity".public]
+Formula = "a resistivity formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.Resistivity".formulas]
+linear = "ρ₀ [1 + α (θ − T₀)] within 150 K of T₀ (fem-investigation materials/temperaturedependent/formulas/linear.jl)"
+
+[register."Engine.EarthProperties".public]
+Formula = "an earth-properties formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.EarthProperties".formulas]
+constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (fem-investigation earth/frequencydependent/formulas/constant.jl)"

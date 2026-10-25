@@ -120,6 +120,11 @@ end
         @test Guards.val_tags(methods, tree, names) == Dict{String, Int}()
     end
 
+    @testset "formula registry" begin
+        names = Guards.TOML.parsefile(joinpath(@__DIR__, "names.toml"))
+        @test Guards.formula_registry(methods, tree, names) == Dict{String, Int}()
+    end
+
     @testset "naming rule" begin
         names = Guards.TOML.parsefile(joinpath(@__DIR__, "names.toml"))
         @test Guards.naming_rule(methods, tree, names) == Dict{String, Int}()
@@ -318,12 +323,31 @@ end
             "Laws | choose | Val(x)" => 1,
             "Laws | gone | stale lift" => 1,
             "Laws | law | Val first" => 1,
-            "Laws | pick | Val(x)" => 1)
+            "Laws | pick | Val(x)" => 1,
+            "Uses | pick | Val(x)" => 1)
 
         clean, _ = probe("tags/clean", "TagsProbeClean")
         clean_methods = Base.invokelatest(Guards.package_methods, clean)
         clean_names = Guards.TOML.parsefile(joinpath(clean.directory, "names.toml"))
         @test Base.invokelatest(Guards.val_tags, clean_methods, clean, clean_names) ==
+              Dict{String, Int}()
+
+        planted, _ = probe("formulas/planted", "FormulasProbePlanted")
+        planted_methods = Base.invokelatest(Guards.package_methods, planted)
+        planted_names = Guards.TOML.parsefile(joinpath(planted.directory, "names.toml"))
+        @test Base.invokelatest(
+            Guards.formula_registry, planted_methods, planted, planted_names) ==
+              Dict{String, Int}(
+            "Laws | ghost | FORMULAS" => 1,
+            "Laws | ghost | defaults" => 1,
+            "Laws | ghost | physics" => 1,
+            "Laws | idle | physics" => 1,
+            "Laws | orphan | FORMULAS" => 1)
+
+        clean, _ = probe("formulas/clean", "FormulasProbeClean")
+        clean_methods = Base.invokelatest(Guards.package_methods, clean)
+        clean_names = Guards.TOML.parsefile(joinpath(clean.directory, "names.toml"))
+        @test Base.invokelatest(Guards.formula_registry, clean_methods, clean, clean_names) ==
               Dict{String, Int}()
 
         planted, _ = probe("names/planted", "NamesProbePlanted")

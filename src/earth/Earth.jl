@@ -102,6 +102,8 @@ function EarthModel(layers::Tuple{EarthLayer{T}, Vararg{EarthLayer{T}}}) where {
     return EarthModel{T, length(layers)}(layers)
 end
 
+Base.eltype(::EarthModel{T}) where {T} = T
+
 function validate(model::EarthModel)
     length(model.layers) == 2 || throw(ArgumentError(
         "EarthModel.layers must be air and one earth layer; received " *

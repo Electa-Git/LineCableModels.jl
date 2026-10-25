@@ -25,7 +25,9 @@ const COMMONS = :Commons
 const COMMONS_TESTS = "test/commons"
 # Each reserving name maps to its home and to the definition names it reserves outside that
 # home. The physical constants and the matrix reductions enter it with their definitions.
-const VOCABULARY = Dict{Symbol, Pair{String, Regex}}()
+const VOCABULARY = Dict{Symbol, Pair{String, Regex}}(
+    :vacuum_permittivity => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permittivity|eps(ilon)?_?[0₀]|[εϵ]_?[0₀])$",
+    :vacuum_permeability => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$")
 const SHINGLE = 8
 const CLONE_TOKENS = 30
 const CLONE_SHARE = 0.75
@@ -1568,10 +1570,10 @@ function computed_tags(code)
 end
 
 # `Val` tags. A method whose first positional argument is a `Val` is a constructor or a
-# method of a function that the register lists under the `lifts` of its module; so is a
-# method that calls `Val(x)` with an argument that is not a literal, a keyword body counting
-# as its method; the keyword sorters only pass the call on. A listed lift that is no
-# function of its module is stale.
+# method of a function that the register lists under the `lifts` of the module that owns the
+# function, wherever the method is defined; so is a method that calls `Val(x)` with an
+# argument that is not a literal, a keyword body counting as its method; the keyword sorters
+# only pass the call on. A listed lift that is no function of its module is stale.
 function val_tags(methods, tree::PackageTree, names)
     found = Dict{String, Int}()
     register = get(names, "register", Dict{String, Any}())
@@ -1584,7 +1586,8 @@ function val_tags(methods, tree::PackageTree, names)
         sorts(m) && continue
         owner = keyword_method(m, bodies)
         constructs(owner) && continue
-        string(owner.name) in lifts(owner.module) && continue
+        home = value_owner(method_subject(owner))
+        string(owner.name) in lifts(home in tree.modules ? home : owner.module) && continue
         key(what) = string(label(owner.module), " | ", owner.name, " | ", what)
         signature = Base.unwrap_unionall(m.sig).parameters
         owner === m && length(signature) >= 2 && tagged(signature[2]) &&
@@ -1597,6 +1600,62 @@ function val_tags(methods, tree::PackageTree, names)
 
         get(definitions(M), Symbol(name), nothing) isa Function ||
             count!(found, string(label(M), " | ", name, " | stale lift"))
+    end
+    return found
+end
+
+# The identifier `ID` of a formula type `Formula{ID}` of the type name `name`, or `nothing`.
+function formula_identifier(T, name)
+    T = Base.unwrap_unionall(T)
+    return T isa DataType && T.name === name && !isempty(T.parameters) &&
+           T.parameters[1] isa Symbol ? T.parameters[1] : nothing
+end
+
+# The formula registry. Per module that defines a type `Formula`, a constant `FORMULAS` or a
+# `formulas` table in its section of the register: the identifiers with a method of Commons'
+# `defaults` on their formula type, `FORMULAS` and the table hold the same identifiers, and
+# each identifier has a method of a package function outside Commons whose first positional
+# argument is its formula. An empty `FORMULAS` and no table agree.
+function formula_registry(methods, tree::PackageTree, names)
+    found = Dict{String, Int}()
+    register = get(names, "register", Dict{String, Any}())
+    C = commons_module(tree)
+    defaults = C !== nothing && isdefined(C, :defaults) ? getfield(C, :defaults) : nothing
+    for M in tree.modules
+        defined = definitions(M)
+        path = module_path(tree, M)
+        table = get(get(register, path, Dict{String, Any}()), "formulas", Dict{
+            String, Any}())
+        F = get(defined, :Formula, nothing)
+        haskey(defined, :FORMULAS) || F isa Type || !isempty(table) || continue
+        name = F isa Type ? Base.unwrap_unionall(F).name : nothing
+        declared, physics = Set{Symbol}(), Set{Symbol}()
+        for m in methods
+            sorts(m) && continue
+            signature = Base.unwrap_unionall(m.sig).parameters
+            length(signature) >= 2 || continue
+            subject = method_subject(m)
+            if subject === defaults
+                T = Base.unwrap_unionall(signature[2])
+                T isa DataType && T.name === Type.body.name || continue
+                id = formula_identifier(T.parameters[1], name)
+                id === nothing || push!(declared, id)
+            elseif subject isa Function && value_owner(subject) in tree.modules &&
+                   !(C !== nothing && within(value_owner(subject), C, tree.root))
+                id = formula_identifier(signature[2], name)
+                id === nothing || push!(physics, id)
+            end
+        end
+        listed = Set{Symbol}(get(defined, :FORMULAS, ()))
+        tabled = Set{Symbol}(Symbol(key) for key in keys(table))
+        label = path == "" ? module_name(tree, tree.root) : path
+        for id in union(declared, listed, tabled),
+            (what, holders) in (
+                ("defaults", declared), ("FORMULAS", listed), ("table", tabled),
+                ("physics", physics))
+
+            id in holders || count!(found, string(label, " | ", id, " | ", what))
+        end
     end
     return found
 end

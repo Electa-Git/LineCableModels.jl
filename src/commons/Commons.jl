@@ -1,11 +1,15 @@
 """
     LineCableModels.Commons
 
-Define the grammar that the other modules extend with methods.
+Define the grammar that the other modules extend with methods, and the option records of
+formulations and backends.
 """
 module Commons
 
-export build, resolve, validate
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+
+export build, resolve, validate, compute, defaults, select
+export AbstractFormulation, AbstractBackend, FormulationOptions, ComputationOptions
 
 """
     validate(subject, context...)
@@ -42,5 +46,47 @@ Construct one completed `Target` from its declarations, such as the design of a 
 its declared parts.
 """
 function build end
+
+"""
+    compute(problem, formulation; kw...)
+
+Run one computation of `problem` by `formulation`. The backend that runs the formulation
+defines the computation as a method of this function, and the keywords are the options of
+that backend.
+"""
+function compute end
+
+"""
+    defaults(owner)
+
+Return the option keys of `owner` with their default values, as a `NamedTuple`. The type of
+each default is the type of its option. The owner is a formula, formulation or backend type.
+"""
+function defaults end
+
+"""
+    select(default, value)
+
+Fit the selection `value` to the slot or option key whose default is `default`. A scalar
+option takes the type of its default, and a slot lifts a formula identifier to the formula
+it names.
+"""
+function select end
+
+"""
+    AbstractFormulation
+
+Supertype of the formulations and of the formula families.
+"""
+abstract type AbstractFormulation end
+
+"""
+    AbstractBackend
+
+Supertype of the singletons that run a formulation.
+"""
+abstract type AbstractBackend end
+
+include("options.jl")
 
 end

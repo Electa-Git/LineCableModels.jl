@@ -6,4 +6,8 @@ pick(kind::Symbol) = law(Val(kind))
 choose(kind::Symbol; scale = 1) = (law(Val(kind)), scale)
 inner(law::Law) = (law, Val(:inner))
 end
+module Uses
+import ..Laws: pick
+pick(kind::String) = pick(Val(Symbol(kind)))
+end
 end
