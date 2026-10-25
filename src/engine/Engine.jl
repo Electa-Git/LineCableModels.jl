@@ -20,7 +20,7 @@ export vacuum_permittivity, vacuum_permeability
 export AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
-export admittivity, resistivity, properties, impedance!, potential!, prepare!,
+export admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
        initialize_buffers
 export LineParametersProblem, LineParametersFormulation, FEM, CoaxialBackend, GmshBackend,
        backend, LineParameters
@@ -68,6 +68,14 @@ the earth `layer` at the frequency `f` \\[Hz\\] by `formula`, as
 `(rho = …, eps_r = …, mu_r = …)`.
 """
 function properties end
+
+"""
+    impedance(formula, …)
+
+Return the series impedance per unit length that `formula` gives \\[Ω/m\\], or a named tuple
+of the impedances that it gives together.
+"""
+function impedance end
 
 """
     impedance!(Z, formula, …)

@@ -202,6 +202,7 @@ LineParameters = "the series impedance and shunt admittance per unit length of a
 admittivity = "the admittivity of a dielectric layer at a frequency [S/m]"
 resistivity = "the resistivity of a conductor's material at a temperature [Ω·m]"
 properties = "the resistivity, relative permittivity and relative permeability of an earth layer at a frequency"
+impedance = "a series impedance per unit length, or a named tuple of them, that a formula gives [Ω/m]"
 "impedance!" = "series impedances per unit length written into a matrix [Ω/m]"
 "potential!" = "potential coefficients per unit length written into a matrix [m/F]"
 "prepare!" = "fill a formula's per-frequency state that its quantity methods read"
@@ -211,9 +212,15 @@ initialize_buffers = "build the preallocated arrays of a computation once, befor
 Formula = "an internal-impedance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
+[register."Engine.InternalImpedance".formulas]
+schelkunoff1934 = "the inner, outer and transfer surface impedances of a tubular conductor (Schelkunoff 1934; fem-investigation internalimpedance/formulas/schelkunoff1934.jl)"
+
 [register."Engine.InsulationImpedance".public]
 Formula = "an insulation-impedance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.InsulationImpedance".formulas]
+ametani1980 = "s μ₀ μ_r ln(r_ex / r_in) / 2π across an annular dielectric (Ametani 1980; fem-investigation insulationimpedance/formulas/ametani1980.jl)"
 
 [register."Engine.InsulationAdmittance".public]
 Formula = "an insulation-admittance formula, its identifier the type parameter"

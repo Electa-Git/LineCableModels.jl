@@ -10,11 +10,14 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractInternalImpedance
+import ..Engine: impedance
+using ..Engine: vacuum_permeability
+using SpecialFunctions: besselix, besselkx
 
 export Formula, FORMULAS
 
 "Identifiers of the internal-impedance formulas."
-const FORMULAS = ()
+const FORMULAS = (:schelkunoff1934,)
 
 """
 $(TYPEDEF)
@@ -49,5 +52,7 @@ function defaults(::Type{Formula{ID}}) where {ID}
     throw(ArgumentError(
         "unknown internal-impedance formula :$ID; the formulas are $FORMULAS"))
 end
+
+include("schelkunoff1934.jl")
 
 end

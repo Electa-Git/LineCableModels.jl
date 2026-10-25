@@ -5,12 +5,14 @@ authors = ["Amauri Martins"]
 
 [deps]
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
 Aqua = "0.8"
 DocStringExtensions = "0.9.3"
 ExplicitImports = "1.15"
 JuliaSyntax = "1"
+SpecialFunctions = "2.5"
 TOML = "1"
 Test = "1"
 julia = "1.12"

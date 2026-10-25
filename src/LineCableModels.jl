@@ -22,7 +22,7 @@ using .Engine: vacuum_permittivity, vacuum_permeability, AbstractInternalImpedan
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
                AbstractResistivity, AbstractEarthProperties, admittivity, resistivity,
-               properties, impedance!, potential!, prepare!, initialize_buffers,
+               properties, impedance, impedance!, potential!, prepare!, initialize_buffers,
                LineParametersProblem, LineParametersFormulation, FEM, CoaxialBackend,
                GmshBackend, backend, LineParameters
 
@@ -43,7 +43,7 @@ public vacuum_permittivity, vacuum_permeability, CoaxialBackend, GmshBackend, ba
 public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
-public admittivity, resistivity, properties, impedance!, potential!, prepare!,
+public admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
        initialize_buffers
 
 end

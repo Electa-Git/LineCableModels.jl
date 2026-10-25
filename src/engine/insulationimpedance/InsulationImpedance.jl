@@ -9,11 +9,13 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractInsulationImpedance
+import ..Engine: impedance
+using ..Engine: vacuum_permeability
 
 export Formula, FORMULAS
 
 "Identifiers of the insulation-impedance formulas."
-const FORMULAS = ()
+const FORMULAS = (:ametani1980,)
 
 """
 $(TYPEDEF)
@@ -48,5 +50,7 @@ function defaults(::Type{Formula{ID}}) where {ID}
     throw(ArgumentError(
         "unknown insulation-impedance formula :$ID; the formulas are $FORMULAS"))
 end
+
+include("ametani1980.jl")
 
 end
