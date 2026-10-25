@@ -43,6 +43,42 @@ Running a script again gives analytical values identical to the bit and FEM valu
 1e-8 of the largest diagonal entry. FEM meshes depend on incidental state such as the length of
 the run directory's path.
 
+## Intermediate matrices
+
+Each case folder also holds `stages.csv`, and the folder of `two_insulated_wires` holds
+`stages-gamma.csv`. They give the four matrices from which the analytical computation builds `Z`
+and `Y`, at the same 101 frequencies:
+
+- `Zin`, per conductor: the series impedance inside each cable from its conductors to its outer
+  surface, in Ω/m.
+- `Pin`, per conductor: the potential coefficients inside each cable in m/F.
+- `Zg`, per cable: the earth-return impedance of the cables from their outer surfaces in Ω/m.
+- `Pg`, per cable: the earth-return potential coefficients of the cables from their outer
+  surfaces in m/F.
+
+A copy of each case script computed them at `989af96c`, in the runs below. The copy keeps the
+script's system and formulation, leaves out FEM, computes with `options = (trace = true,)` and
+writes the four matrices of `details(result).data.trace`. The comment lines give the conductors
+and the cables in row and column order, and the units. Each row is one entry of one matrix:
+`source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`, `real`, `imaginary`.
+
+`Z` is `Zin` plus `Zg`, whose entry for two cables adds to every pair of their conductors, and `Y`
+is `jω (Pin + Pg)⁻¹`, with `Pg` added in the same way. Rebuilt so, each `stages.csv` gives the
+analytical rows of its `matrices.csv` within 4e-15 of the largest diagonal entry.
+
+`stages.csv` uses `Γ = 0`, as `matrices.csv` does. `stages-gamma.csv` prescribes the longitudinal
+wavenumber `Γ_k = j·1.01·2π·f_k/c` on both earth matrices, with `c = 299792458` m/s. It changes
+`Zg` and `Pg` by up to 7.5e-4 of their values and leaves `Zin` and `Pin` unchanged. A second run of
+each copy gives its file again, byte for byte.
+
+| File | Run |
+|---|---|
+| `two_bare_wires/stages.csv` | `20261025-151919` |
+| `two_insulated_wires/stages.csv` | `20261025-151919` |
+| `two_insulated_wires/stages-gamma.csv` | `20261025-152032` |
+| `coaxial_circular_strands/stages.csv` | `20261025-151920` |
+| `coaxial_rectangular_strands/stages.csv` | `20261025-152029` |
+
 ## Status
 
 FEM against the analytical results, per FEM frequency, as e_Z = max|ΔZ_ij| / max|Z_ii| and
