@@ -13,8 +13,9 @@ module Engine
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: compute, defaults, select, validate
 using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions
+using ..Materials: Material
 using ..Earth: EarthModel
-using ..DataModel: CableSystem, support
+using ..DataModel: Placement, CableSystem, support, flatten
 
 export vacuum_permittivity, vacuum_permeability
 export AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
@@ -125,5 +126,6 @@ include("problem.jl")
 include("formulation.jl")
 include("backends.jl")
 include("result.jl")
+include("input.jl")
 
 end

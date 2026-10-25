@@ -2,13 +2,13 @@
 $(TYPEDEF)
 
 Describe one computation of line parameters: the cables of the line, the earth below them,
-the operating temperature and the frequencies of the scan. The problem keeps the system and
-the earth as given. `T` is the floating type of the temperature and the frequencies, and the
-computation converts the values that it reads to `T`.
+the operating temperature and the frequencies of the scan. `T` is the floating type of the
+earth, the temperature and the frequencies, at least `Float64`. The problem keeps the system
+as given, and the computation converts the values that it reads to `T`.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersProblem{T <: Real, S <: CableSystem, E <: EarthModel}
+struct LineParametersProblem{T <: Real, S <: CableSystem, E <: EarthModel{T}}
     "Cables of the line in one cross-section, with the conductor index of each terminal."
     system::S
     "Air and the earth below the cables."
@@ -18,7 +18,7 @@ struct LineParametersProblem{T <: Real, S <: CableSystem, E <: EarthModel}
     "Frequencies of the scan, increasing \\[Hz\\]."
     frequencies::Vector{T}
     function LineParametersProblem{T}(system::S, earth::E, temperature::T,
-            frequencies::Vector{T}) where {T <: Real, S <: CableSystem, E <: EarthModel}
+            frequencies::Vector{T}) where {T <: Real, S <: CableSystem, E <: EarthModel{T}}
         return validate(new{T, S, E}(system, earth, temperature, frequencies))
     end
 end
@@ -26,9 +26,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the problem of the cables of `system` above or in `earth`. The temperature and the
-frequencies take the floating type that the system, the earth, the temperature and the
-frequencies promote to.
+Build the problem of the cables of `system` above or in `earth`. The earth, the temperature
+and the frequencies take the floating type that `Float64`, the system, the earth, the
+temperature and the frequencies promote to. A `Float32` input computes in `Float64`.
 
 # Arguments
 
@@ -55,10 +55,10 @@ frequencies promote to.
 """
 function LineParametersProblem(system::CableSystem, earth::EarthModel;
         temperature::Real = 20, frequencies::AbstractVector{<:Real})
-    T = promote_type(eltype(system), eltype(earth), typeof(float(temperature)),
+    T = promote_type(Float64, eltype(system), eltype(earth), typeof(float(temperature)),
         float(eltype(frequencies)))
-    return LineParametersProblem{T}(
-        system, earth, convert(T, temperature), convert(Vector{T}, frequencies))
+    return LineParametersProblem{T}(system, convert(EarthModel{T}, earth),
+        convert(T, temperature), convert(Vector{T}, frequencies))
 end
 
 # The frequencies increase, the temperature is finite, and a terminal connects to a live

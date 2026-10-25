@@ -59,6 +59,11 @@ function EarthLayer(rho::Real, eps_r::Real, mu_r::Real)
     return EarthLayer{T}(values..., T(Inf))
 end
 
+function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T <: Real}
+    return EarthLayer{T}(convert(T, layer.rho), convert(T, layer.eps_r),
+        convert(T, layer.mu_r), convert(T, layer.thickness))
+end
+
 function validate(layer::EarthLayer)
     isnan(layer.rho) && throw(DomainError(layer.rho, "EarthLayer.rho must not be NaN"))
     layer.rho > zero(layer.rho) ||
@@ -103,6 +108,10 @@ function EarthModel(layers::Tuple{EarthLayer{T}, Vararg{EarthLayer{T}}}) where {
 end
 
 Base.eltype(::EarthModel{T}) where {T} = T
+
+function Base.convert(::Type{EarthModel{T}}, model::EarthModel) where {T <: Real}
+    return EarthModel(map(layer -> convert(EarthLayer{T}, layer), model.layers))
+end
 
 function validate(model::EarthModel)
     length(model.layers) == 2 || throw(ArgumentError(

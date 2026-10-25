@@ -109,6 +109,14 @@ function material(;
         tan_delta, sigma_solar)
 end
 
+function Base.convert(::Type{Material{T}}, material::Material{
+        <:Real, K}) where {T <: Real, K}
+    return Material{T, K}(convert(T, material.rho), convert(T, material.eps_r),
+        convert(T, material.mu_r), convert(T, material.T0), convert(T, material.alpha),
+        convert(T, material.rho_thermal), convert(T, material.theta_max),
+        convert(T, material.tan_delta), convert(T, material.sigma_solar))
+end
+
 function validate(material::Material{<:Real, K}) where {K}
     throw(DomainError(material,
         "Material class :$K must be :conductor, :insulator or :semicon"))

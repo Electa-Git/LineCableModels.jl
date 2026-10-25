@@ -50,9 +50,10 @@ cache = "workspace, plan, buffers or the component's name"
 
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
-    "options", "backend", "insulation", "system", "line_length", "terminals"]
-qualifiers = []
-symbols = ["rho", "eps_r", "mu_r", "y"]
+    "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
+    "layer", "layers"]
+qualifiers = ["cable"]
+symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins"]
 
 [global.verbs]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
@@ -69,7 +70,7 @@ nouns = ["kind"]
 symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
 
 [modules.Earth]
-nouns = ["layer", "layers", "model", "thickness"]
+nouns = ["model", "thickness"]
 qualifiers = ["homogeneous"]
 
 [modules.DataModel]
@@ -77,14 +78,13 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "pattern", "helix", "lay", "ratio", "area", "centroid", "support", "boundary", "placements",
     "overlength", "pitch", "span", "distance", "holes", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
-    "regions", "id", "tree", "assemblies", "repeats", "lays", "compactions", "fills",
+    "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
     "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
     "dielectrics", "ranges", "assembly", "positions", "core", "screen", "sheath", "bedding",
     "jacket", "armor", "center"]
-qualifiers = ["bent", "circular", "empty", "difference", "placed", "cable", "outer",
-    "stranded", "layout"]
-symbols = ["x", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir", "r_in",
-    "r_ex", "mu_r_ins"]
+qualifiers = ["bent", "circular", "empty", "difference", "placed", "outer", "stranded",
+    "layout"]
+symbols = ["φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir"]
 prepositions = ["at"]
 
 [modules.DataModel.verbs]
@@ -94,9 +94,9 @@ flatten = "reduce a cable design to the equivalent tubes and dielectric layers o
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
     "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
     "line_parameters", "problem", "gmsh", "fem", "return", "shunt", "buffers", "trace",
-    "frequencies"]
-qualifiers = ["vacuum", "coaxial", "internal"]
-symbols = ["z"]
+    "frequencies", "input", "connection", "label", "radius", "permutation", "bundles"]
+qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated"]
+symbols = ["z", "r_ins_ex"]
 
 [modules.Engine.verbs]
 prepare = "fill a formula's per-frequency state that its quantity methods read"
@@ -207,6 +207,9 @@ impedance = "a series impedance per unit length, or a named tuple of them, that 
 "potential!" = "potential coefficients per unit length written into a matrix [m/F]"
 "prepare!" = "fill a formula's per-frequency state that its quantity methods read"
 initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
+
+[register.Engine.private]
+CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"
 
 [register."Engine.InternalImpedance".public]
 Formula = "an internal-impedance formula, its identifier the type parameter"

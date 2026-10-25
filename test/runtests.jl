@@ -17,6 +17,7 @@ using LineCableModels
     include("engine/problem.jl")
     include("engine/laws.jl")
     include("engine/impedance.jl")
+    include("engine/input.jl")
     include("engine/formulation.jl")
     include("engine/result.jl")
     include("architecture/architecture.jl")

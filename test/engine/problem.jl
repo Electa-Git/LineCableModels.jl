@@ -18,8 +18,10 @@
             connections = [(core = 1,), (core = 2,)], id = "two_wires", line_length = 1.0f0)
         earth32 = homogeneous(rho = 100.0f0, eps_r = 10.0f0)
         frequencies = Float32[50, 1000]
-        @test LineParametersProblem(system32, earth32; temperature = 20.0f0, frequencies) isa
-              LineParametersProblem{Float32}
+        problem32 = LineParametersProblem(system32, earth32; temperature = 20.0f0, frequencies)
+        @test problem32 isa LineParametersProblem{Float64}
+        @test problem32.earth isa EarthModel{Float64, 2}
+        @test last(problem32.earth.layers).rho == 100 && problem32.frequencies == [50, 1000]
         @test LineParametersProblem(system32, earth32; temperature = 20, frequencies) isa
               LineParametersProblem{Float64}
     end
