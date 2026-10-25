@@ -27,7 +27,9 @@ const COMMONS_TESTS = "test/commons"
 # home. The physical constants and the matrix reductions enter it with their definitions.
 const VOCABULARY = Dict{Symbol, Pair{String, Regex}}(
     :vacuum_permittivity => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permittivity|eps(ilon)?_?[0₀]|[εϵ]_?[0₀])$",
-    :vacuum_permeability => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$")
+    :vacuum_permeability => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$",
+    :transposition! => "src/engine/reductions" => r"transpos",
+    :eliminate! => "src/engine/reductions" => r"kron")
 const SHINGLE = 8
 const CLONE_TOKENS = 30
 const CLONE_SHARE = 0.75

@@ -94,13 +94,16 @@ flatten = "reduce a cable design to the equivalent tubes and dielectric layers o
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
     "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
     "line_parameters", "problem", "gmsh", "fem", "return", "shunt", "buffers", "trace",
-    "frequencies", "input", "connection", "label", "radius", "permutation", "bundles"]
+    "frequencies", "input", "connection", "label", "radius", "permutation", "bundles",
+    "transposition"]
 qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated"]
 symbols = ["z", "r_ins_ex"]
 
 [modules.Engine.verbs]
 prepare = "fill a formula's per-frequency state that its quantity methods read"
 initialize = "build the arrays of a computation once, before its loop"
+bundle = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
+eliminate = "remove the eliminated rows and columns of a matrix by the Kron elimination, the Schur complement of the kept ones"
 
 [register.Commons]
 lifts = ["select"]
@@ -208,6 +211,9 @@ impedance = "a series impedance per unit length, or a named tuple of them, that 
 "prepare!" = "fill a formula's per-frequency state that its quantity methods read"
 initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
 CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"
+"bundle!" = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
+"eliminate!" = "the Kron elimination: the Schur complement of the kept rows and columns of a matrix, written into a buffer"
+"transposition!" = "the ideal transposition: the mean of a matrix over the cyclic permutations of its rows and columns"
 
 
 [register."Engine.InternalImpedance".public]

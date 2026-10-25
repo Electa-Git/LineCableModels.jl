@@ -16,6 +16,7 @@ using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions
 using ..Materials: Material
 using ..Earth: EarthModel
 using ..DataModel: Placement, CableSystem, support, flatten
+using LinearAlgebra: checksquare, ldiv!, lu!, mul!
 
 export vacuum_permittivity, vacuum_permeability
 export AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
@@ -25,6 +26,7 @@ export admittivity, resistivity, properties, impedance, impedance!, potential!, 
        initialize_buffers
 export LineParametersProblem, LineParametersFormulation, FEM, CoaxialBackend, GmshBackend,
        backend, LineParameters
+export bundle!, eliminate!, transposition!
 public CoaxialInput
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
@@ -129,5 +131,6 @@ include("formulation.jl")
 include("backends.jl")
 include("result.jl")
 include("assembly.jl")
+include("reductions/reductions.jl")
 
 end
