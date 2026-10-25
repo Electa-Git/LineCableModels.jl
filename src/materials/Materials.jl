@@ -13,9 +13,9 @@ export Material, material
 """
 $(TYPEDEF)
 
-Store the electromagnetic and thermal properties of one material. Its class, such as
-`:conductor`, `:insulator` or `:semicon`, is the type parameter `K`, so laws and formulations
-dispatch on it.
+Store the electromagnetic and thermal properties of one material. Its class, `:conductor`,
+`:insulator` or `:semicon`, is the type parameter `K`, so laws and formulations dispatch on
+it.
 
 $(TYPEDFIELDS)
 """
@@ -58,6 +58,7 @@ Construct a material of class `K`, given as `Val(K)` so that the compiler knows 
 
 - Throws `DomainError` when a property is outside its physical domain or is not finite. The
   resistivity alone can be infinite.
+- Throws `DomainError` when the class is not `:conductor`, `:insulator` or `:semicon`.
 """
 function Material(::Val{K}, rho::Real, eps_r::Real, mu_r::Real, T0::Real, alpha::Real,
         rho_thermal::Real, theta_max::Real, tan_delta::Real, sigma_solar::Real) where {K}
@@ -81,6 +82,7 @@ Construct a material of class `kind`. The arguments and keywords are the fields 
 
 - Throws `DomainError` when a property is outside its physical domain or is not finite. The
   resistivity alone can be infinite.
+- Throws `DomainError` when the class is not `:conductor`, `:insulator` or `:semicon`.
 """
 function Material(kind::Symbol, rho::Real, eps_r::Real = 1, mu_r::Real = 1, T0::Real = 20,
         alpha::Real = 0; rho_thermal::Real = 0, theta_max::Real = 90, tan_delta::Real = 0,
@@ -107,7 +109,13 @@ function material(;
         tan_delta, sigma_solar)
 end
 
-function validate(material::Material)
+function validate(material::Material{<:Real, K}) where {K}
+    throw(DomainError(material,
+        "Material class :$K must be :conductor, :insulator or :semicon"))
+end
+
+function validate(material::Union{Material{T, :conductor}, Material{T, :insulator},
+        Material{T, :semicon}}) where {T}
     isnan(material.rho) && throw(DomainError(material.rho, "Material.rho must not be NaN"))
     material.rho > zero(material.rho) ||
         throw(DomainError(material.rho, "Material.rho must be positive"))

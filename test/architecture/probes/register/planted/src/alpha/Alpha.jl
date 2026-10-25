@@ -33,4 +33,5 @@ macro twice(ex)
     return :(2 * $(esc(ex)))
 end
 alias(x; scale = 1) = Commons.shared(x; scale = scale)
+const total = sum
 end

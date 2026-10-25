@@ -15,7 +15,7 @@ using ..Materials: Material
 
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
 export BentStrip
-export CircularPattern, Helix, LayRatio
+export AbstractLayoutPattern, CircularPattern, Helix, LayRatio
 export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,
        pitch
 export DifferenceShape

@@ -1,13 +1,22 @@
 """
 $(TYPEDEF)
 
+Supertype of the patterns that place the copies of a [`Repeat`](@ref). A pattern resolves
+against the outline inside its members, and [`placements`](@ref) gives the placement of each
+member and the cross-section that the members share.
+"""
+abstract type AbstractLayoutPattern end
+
+"""
+$(TYPEDEF)
+
 Place `n` members evenly on a circle about the center of the enclosing part. The circle has
 a declared radius, or it lies at an [`Offset`](@ref) from the outline of the part inside the
 members, which the pattern resolves against with its members.
 
 $(TYPEDFIELDS)
 """
-struct CircularPattern{T <: Real, R <: Union{T, Offset{T}}}
+struct CircularPattern{T <: Real, R <: Union{T, Offset{T}}} <: AbstractLayoutPattern
     "Number of members \\[dimensionless\\]."
     n::Int
     """

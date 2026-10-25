@@ -9,16 +9,17 @@ using .Commons: build, resolve, validate
 using .Materials: Material, material
 using .Earth: EarthLayer, EarthModel, homogeneous
 using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
-                  Offset, BentStrip, CircularPattern, Helix, LayRatio, area, centroid,
-                  support, distance, boundary, r_in, r_ex, placements, overlength, pitch,
-                  DifferenceShape, AbstractCablePart, Region, Stack, Terminal, Repeat, Lay,
-                  Enclosure, PlacedRegion, CableDesign, CableSystem, CableBlueprint,
-                  BlueprintConductor, BlueprintDielectric, flatten, @cable, @terminal, core,
-                  insulation, screen, sheath, bedding, jacket, stranded, armor
+                  Offset, BentStrip, AbstractLayoutPattern, CircularPattern, Helix,
+                  LayRatio, area, centroid, support, distance, boundary, r_in, r_ex,
+                  placements, overlength, pitch, DifferenceShape, AbstractCablePart, Region,
+                  Stack, Terminal, Repeat, Lay, Enclosure, PlacedRegion, CableDesign,
+                  CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
+                  flatten, @cable, @terminal, core, insulation, screen, sheath, bedding,
+                  jacket, stranded, armor
 
 export Material, material, EarthLayer, EarthModel, homogeneous
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
-export CircularPattern, Helix, LayRatio
+export AbstractLayoutPattern, CircularPattern, Helix, LayRatio
 export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,
        pitch
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, CableDesign,

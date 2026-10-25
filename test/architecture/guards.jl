@@ -614,7 +614,6 @@ function assigned_names(target)
     return Symbol[]
 end
 
-const WORKSPACE_FIELDS = (:input, :plan, :buffers)
 const STORAGE_NAMES = (:work, :scratch, :storage, :cache)
 const STORAGE_TYPE = r"(Buffer|Storage|Scratch|Cache)$"
 const STORAGE_FUNCTION = r"_(workspace|storage|buffers)!?$"
@@ -670,12 +669,10 @@ function in_struct_body(node)
         node.parent.parent !== nothing && kind(node.parent.parent) == K"struct"
 end
 
-# Storage vocabulary. A `*Workspace` struct has exactly the fields `input`, `plan` and
-# `buffers`, and optionally `trace`. Its entry counts the missing and the other fields.
-# No function name ends in `_workspace` or `_storage`, and only `initialize_buffers`
-# ends in `_buffers`. Only Commons defines a `*Buffers` struct, and no type name ends
-# in `Buffer`, `Storage`, `Scratch` or `Cache`. No field, named tuple key, parameter,
-# local or loop variable takes the name `work`, `scratch`, `storage` or `cache`.
+# Storage vocabulary. No function name ends in `_workspace` or `_storage`, and only
+# `initialize_buffers` ends in `_buffers`. Only Commons defines a `*Buffers` struct, and no
+# type name ends in `Buffer`, `Storage`, `Scratch` or `Cache`. No field, named tuple key,
+# parameter, local or loop variable takes the name `work`, `scratch`, `storage` or `cache`.
 function storage_vocabulary(files, directory)
     found = Dict{String, Int}()
     commons = joinpath(directory, COMMONS_DIRECTORY)
@@ -694,11 +691,6 @@ function storage_vocabulary(files, directory)
                 text = string(name)
                 fields = filter(!isnothing, map(field_name, children(node[2])))
                 names!(fields)
-                if endswith(text, "Workspace")
-                    entry(name,
-                        count(!in(fields), WORKSPACE_FIELDS) +
-                        count(!in((WORKSPACE_FIELDS..., :trace)), fields))
-                end
                 endswith(text, "Buffers") && !inside(file, commons) && entry(name)
                 occursin(STORAGE_TYPE, text) && entry(name)
             elseif k in (K"abstract", K"primitive")
@@ -941,7 +933,8 @@ end
 
 type_name(T) = (T = Base.unwrap_unionall(T); T isa DataType ? nameof(T) : nothing)
 
-# The functions, types and constants that a module defines, by name.
+# The functions, types and constants that a module defines, by name. A const binding of a
+# function that another module owns is a name the module defines.
 function definitions(M::Module)
     found = Dict{Symbol, Any}()
     for name in names(M; all = true)
@@ -953,7 +946,8 @@ function definitions(M::Module)
         owner = value isa Function ? value_owner(value) :
                 value isa Type && type_name(value) === name ? type_owner(value) :
                 isconst(M, name) ? Base.binding_module(M, name) : nothing
-        owner === M && (found[name] = value)
+        alias = value isa Function && isconst(M, name) && Base.binding_module(M, name) === M
+        (owner === M || alias) && (found[name] = value)
     end
     return found
 end
@@ -1507,26 +1501,118 @@ boxes(x::GlobalRef) = x.mod === Core && x.name === :Box
 boxes(x::Expr) = any(boxes, x.args)
 boxes(_) = false
 
+# A method of `Core.kwcall`, which sorts the keywords of a call into its keyword body.
+sorts(m::Method) = Base.unwrap_unionall(m.sig).parameters[1] === typeof(Core.kwcall)
+
+# The method that each keyword body among `methods` belongs to, by the body: the method
+# with keywords and the positional arguments, whose last call is its body, not the keyword
+# sorter.
+function keyword_bodies(methods)
+    found = IdDict{Any, Method}()
+    for m in methods
+        (sorts(m) || isempty(Base.kwarg_decl(m))) && continue
+        body = Base.bodyfunction(m)
+        body === nothing || (found[body] = m)
+    end
+    return found
+end
+
+# The method that `m` is the keyword body of, or `m`.
+keyword_method(m::Method, bodies) = get(bodies, method_subject(m), m)
+
+# Whether a method constructs an instance of a type.
+function constructs(m::Method)
+    F = Base.unwrap_unionall(Base.unwrap_unionall(m.sig).parameters[1])
+    return F isa DataType && F.name === Type.body.name
+end
+
 # Boxed captures. The methods whose lowered code holds a `Core.Box`, the cell of a captured
-# variable that is assigned after its capture.
+# variable that is assigned after its capture, keyword bodies and closures included. A
+# keyword body counts under its function.
 function boxed_captures(methods, tree::PackageTree)
     found = Dict{String, Int}()
+    bodies = keyword_bodies(methods)
     for m in methods
-        startswith(string(m.name), "#") && continue
         code = lowered_code(m)
         code === nothing && continue
         any(boxes, code) &&
-            count!(found, string(module_name(tree, m.module), " | ", m.name,
-                " | ", source_name(tree, m)))
+            count!(found,
+                string(module_name(tree, m.module), " | ",
+                    keyword_method(m, bodies).name, " | ", source_name(tree, m)))
+    end
+    return found
+end
+
+# A `Val` type, or a type variable bounded by one.
+tagged(p::DataType) = p.name === Val.body.name
+tagged(p::TypeVar) = tagged(Base.unwrap_unionall(p.ub))
+tagged(_) = false
+
+# The number of `Val(x)` calls in lowered code whose argument is not a literal.
+function computed_tags(code)
+    resolved = Dict{Int, Any}()
+    resolve(x::GlobalRef) = isdefined(x.mod, x.name) ? getglobal(x.mod, x.name) : nothing
+    resolve(x::Core.SSAValue) = get(resolved, x.id, nothing)
+    resolve(_) = nothing
+    n = 0
+    for (i, statement) in enumerate(code)
+        statement isa GlobalRef && (resolved[i] = resolve(statement))
+        call = statement isa Expr && statement.head === :(=) ? statement.args[2] : statement
+        call isa Expr && call.head === :call && length(call.args) == 2 &&
+            resolve(call.args[1]) === Val &&
+            call.args[2] isa
+            Union{Core.SlotNumber, Core.SSAValue, Core.Argument, GlobalRef} &&
+            (n += 1)
+    end
+    return n
+end
+
+# `Val` tags. A method whose first positional argument is a `Val` is a constructor or a
+# method of a function that the register lists under the `lifts` of its module; so is a
+# method that calls `Val(x)` with an argument that is not a literal, a keyword body counting
+# as its method; the keyword sorters only pass the call on. A listed lift that is no
+# function of its module is stale.
+function val_tags(methods, tree::PackageTree, names)
+    found = Dict{String, Int}()
+    register = get(names, "register", Dict{String, Any}())
+    label(M) = (
+        path = module_path(tree, M); path == "" ? module_name(tree, tree.root) : path)
+    lifts(M) = get(get(register, module_path(tree, M), Dict{String, Any}()), "lifts",
+        String[])
+    bodies = keyword_bodies(methods)
+    for m in methods
+        sorts(m) && continue
+        owner = keyword_method(m, bodies)
+        constructs(owner) && continue
+        string(owner.name) in lifts(owner.module) && continue
+        key(what) = string(label(owner.module), " | ", owner.name, " | ", what)
+        signature = Base.unwrap_unionall(m.sig).parameters
+        owner === m && length(signature) >= 2 && tagged(signature[2]) &&
+            count!(found, key("Val first"))
+        code = lowered_code(m)
+        n = code === nothing ? 0 : computed_tags(code)
+        n > 0 && (found[key("Val(x)")] = get(found, key("Val(x)"), 0) + n)
+    end
+    for M in tree.modules, name in lifts(M)
+
+        get(definitions(M), Symbol(name), nothing) isa Function ||
+            count!(found, string(label(M), " | ", name, " | stale lift"))
     end
     return found
 end
 
 # A field type that admits values of more than one concrete layout: an abstract type, a
-# `Union`, a `UnionAll` or a type parameter bounded by `Any`.
+# `Union`, a `UnionAll`, a type parameter bounded by `Any`, or a type with such a type among
+# its parameters (`Vector{Any}`, `Dict{Symbol, Any}`, `Vector{AbstractCablePart}`).
 loose(F::TypeVar) = F.ub === Any
-loose(F::DataType) = isabstracttype(F)
+loose(F::DataType) = isabstracttype(F) || any(loose_parameter, F.parameters)
 loose(_) = true
+
+# A parameter of a field type: a type variable is fixed per instance, and a value such as an
+# integer or a symbol is no type.
+loose_parameter(p::Type) = loose(p)
+loose_parameter(p::Core.TypeofVararg) = isdefined(p, :T) && loose_parameter(p.T)
+loose_parameter(_) = false
 
 # Typed values. Per package struct, each field of a loose type, and per constructor method of
 # the struct, the positional values typed `Any`; Julia's converting default constructor counts.
@@ -1687,7 +1773,7 @@ function owned_names(tree::PackageTree, mandated)
             if value isa Function || value isa Type
                 for m in Base.methods(value), keyword in Base.kwarg_decl(m)
 
-                    endswith(string(keyword), "...") ||
+                    m.module in tree.modules && !endswith(string(keyword), "...") &&
                         push!(found,
                             (kind = :keyword,
                                 path = path(parentmodule(m)), name = keyword,

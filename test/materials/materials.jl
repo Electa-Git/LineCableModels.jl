@@ -5,6 +5,7 @@
         @test Material(:semicon, 1000.0, 1000.0) isa Material{Float64, :semicon}
         @test material(kind = :insulator, rho = Inf, eps_r = 2.3) ===
               Material(:insulator, Inf, 2.3)
+        @test_throws DomainError Material(:conductr, 1.7241e-8)
     end
 
     @testset "Float32 and mixed inputs" begin

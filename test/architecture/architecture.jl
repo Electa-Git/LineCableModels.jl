@@ -115,6 +115,11 @@ end
         @test Guards.typed_values(tree) == Dict{String, Int}()
     end
 
+    @testset "Val tags" begin
+        names = Guards.TOML.parsefile(joinpath(@__DIR__, "names.toml"))
+        @test Guards.val_tags(methods, tree, names) == Dict{String, Int}()
+    end
+
     @testset "naming rule" begin
         names = Guards.TOML.parsefile(joinpath(@__DIR__, "names.toml"))
         @test Guards.naming_rule(methods, tree, names) == Dict{String, Int}()
@@ -190,7 +195,6 @@ end
             "src/storage.jl | AbstractStorage" => 1,
             "src/storage.jl | FormulaBuffers" => 1,
             "src/storage.jl | KernelCache" => 1,
-            "src/storage.jl | ProbeWorkspace" => 2,
             "src/storage.jl | cache" => 2,
             "src/storage.jl | kernel_workspace" => 1,
             "src/storage.jl | sample_storage" => 1,
@@ -286,10 +290,14 @@ end
         planted, _ = probe("values/planted", "ValuesProbePlanted")
         planted_methods = Base.invokelatest(Guards.package_methods, planted)
         @test Base.invokelatest(Guards.boxed_captures, planted_methods, planted) ==
-              Dict{String, Int}("ValuesProbePlanted | boxed | src/ValuesProbePlanted.jl" => 1)
+              Dict{String, Int}(
+            "ValuesProbePlanted | boxed | src/ValuesProbePlanted.jl" => 1,
+            "ValuesProbePlanted | boxed_keyword | src/ValuesProbePlanted.jl" => 1)
         @test Base.invokelatest(Guards.typed_values, planted) == Dict{String, Int}(
             "ValuesProbePlanted | Loose | constructor | src/ValuesProbePlanted.jl" => 1,
             "ValuesProbePlanted | Loose | x" => 1,
+            "ValuesProbePlanted | Nested | x" => 1,
+            "ValuesProbePlanted | Nested | y" => 1,
             "ValuesProbePlanted | Open | constructor | src/ValuesProbePlanted.jl" => 1,
             "ValuesProbePlanted | Open | x" => 1,
             "ValuesProbePlanted | Plain | constructor | src/ValuesProbePlanted.jl" => 3,
@@ -301,6 +309,22 @@ end
         @test Base.invokelatest(Guards.boxed_captures, clean_methods, clean) ==
               Dict{String, Int}()
         @test Base.invokelatest(Guards.typed_values, clean) == Dict{String, Int}()
+
+        planted, _ = probe("tags/planted", "TagsProbePlanted")
+        planted_methods = Base.invokelatest(Guards.package_methods, planted)
+        planted_names = Guards.TOML.parsefile(joinpath(planted.directory, "names.toml"))
+        @test Base.invokelatest(Guards.val_tags, planted_methods, planted, planted_names) ==
+              Dict{String, Int}(
+            "Laws | choose | Val(x)" => 1,
+            "Laws | gone | stale lift" => 1,
+            "Laws | law | Val first" => 1,
+            "Laws | pick | Val(x)" => 1)
+
+        clean, _ = probe("tags/clean", "TagsProbeClean")
+        clean_methods = Base.invokelatest(Guards.package_methods, clean)
+        clean_names = Guards.TOML.parsefile(joinpath(clean.directory, "names.toml"))
+        @test Base.invokelatest(Guards.val_tags, clean_methods, clean, clean_names) ==
+              Dict{String, Int}()
 
         planted, _ = probe("names/planted", "NamesProbePlanted")
         planted_methods = Base.invokelatest(Guards.package_methods, planted)
@@ -358,6 +382,7 @@ end
             "Alpha | half | unregistered" => 1,
             "Alpha | outer | meaning" => 1,
             "Alpha | radius | public, registered private" => 1,
+            "Alpha | total | unregistered" => 1,
             "Commons | _pad | unregistered" => 1,
             "Missing | stale module" => 1,
             "RegisterProbePlantedExt | _mesh | unregistered" => 1)

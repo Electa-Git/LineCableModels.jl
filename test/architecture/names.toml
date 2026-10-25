@@ -5,7 +5,9 @@
 # and its children.
 # [register."<Module>".public] and [register."<Module>".private] list every function, type and
 # constant the module defines, each with its meaning. A name enters with the user's
-# confirmation, in the step that introduces it, and leaves with its definition.
+# confirmation, in the step that introduces it, and leaves with its definition. In
+# [register."<Module>"], the list lifts = ["<name>", ...] names the functions of the module
+# that lift a value to a type with `Val`.
 
 [shape]
 function = 2
@@ -74,7 +76,7 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "dielectric", "conductors", "dielectrics", "ranges", "assembly", "positions", "core",
     "insulation", "screen", "sheath", "bedding", "jacket", "armor", "center"]
 qualifiers = ["bent", "circular", "empty", "difference", "placed", "cable", "outer",
-    "stranded"]
+    "stranded", "layout"]
 symbols = ["x", "y", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir",
     "r_in", "r_ex", "mu_r_ins"]
 prepositions = ["at"]
@@ -86,6 +88,9 @@ flatten = "reduce a cable design to the equivalent tubes and dielectric layers o
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
 resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
 build = "construct a completed object of a type from its declarations"
+
+[register.Materials]
+lifts = ["material"]
 
 [register.Materials.public]
 Material = "the electromagnetic and thermal properties of one material, its class the type parameter"
@@ -103,6 +108,7 @@ AbstractPrimitive = "the supertype of the shapes a part declares, with dimension
 Circle = "a circular cross-section with its placement"
 Annulus = "an annular cross-section with its placement"
 Rectangle = "a rectangular strand before a circular pattern bends it"
+AbstractLayoutPattern = "the supertype of the patterns that place the copies of a repeat"
 Offset = "a distance outward from the outline inside: the thickness of a layer or the clearance of a circular pattern"
 BentStrip = "a rectangular strand bent onto its course, an annular sector of the same area"
 CircularPattern = "n members placed evenly on a circle about the center of the enclosing part, at a radius or an offset"

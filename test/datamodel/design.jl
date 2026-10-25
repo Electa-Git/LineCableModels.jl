@@ -1,3 +1,13 @@
+# A pattern of explicit placements, declared outside the package: a repeat takes any
+# pattern.
+struct Listed <: AbstractLayoutPattern
+    at::Vector{Placement{Float64}}
+end
+LineCableModels.resolve(_, pattern::Listed, ::Circle) = pattern
+function LineCableModels.placements(pattern::Listed, circle::Circle)
+    return (placements = pattern.at, shape = circle)
+end
+
 @testset "DataModel designs" begin
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
     polymer = Material(:insulator, 1.0e14, 2.3)
@@ -82,6 +92,15 @@
         @test [(row.name, row.regions) for row in shared.terminals] == [(:core, [1, 3])]
     end
 
+    @testset "a repeat places its copies by any pattern" begin
+        pair = Repeat(Listed([Placement(-2.0e-3, 0.0), Placement(2.0e-3, 0.0)]),
+            Region(:pair_wires, Circle(1.0e-3), copper))
+        design = build(CableDesign, "pair",
+            Enclosure(Region(:pair_fill, Circle(3.0e-3), air), Terminal(:pair, pair)))
+        @test [centroid(placed.shape) for placed in design.regions[1:2]] ==
+              [(-2.0e-3, 0.0), (2.0e-3, 0.0)]
+    end
+
     @testset "each copy of a repeat is a scope of its own terminals" begin
         strands = Lay(Helix(LayRatio(12)),
             Repeat(CircularPattern(6; r = 1.0e-3), Region(:core_wires, Circle(0.5e-3), copper)))
@@ -117,6 +136,9 @@
         @test_throws DomainError build(CableDesign, "protrusion",
             Terminal(:core,
                 Enclosure(Region(:core_fill, Circle(4.0e-3), air), Stack(wire, course))))
+        box = Region(:box_fill, Rectangle(4.0e-3, 4.0e-3), air)
+        @test_throws ArgumentError build(CableDesign, "box",
+            Enclosure(box, Terminal(:core, wire)))
     end
 
     @testset "Float32 inputs" begin

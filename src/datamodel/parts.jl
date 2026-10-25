@@ -129,13 +129,13 @@ every copy. The outline of the copies is the circle about the center that contai
 
 $(TYPEDFIELDS)
 """
-struct Repeat{P <: CircularPattern, R <: AbstractCablePart} <: AbstractCablePart
+struct Repeat{P <: AbstractLayoutPattern, R <: AbstractCablePart} <: AbstractCablePart
     "Pattern that places the copies."
     pattern::P
     "Part that the pattern copies."
     part::R
     function Repeat(pattern::P, part::R) where {
-            P <: CircularPattern, R <: AbstractCablePart}
+            P <: AbstractLayoutPattern, R <: AbstractCablePart}
         return new{P, R}(pattern, part)
     end
 end
@@ -153,7 +153,7 @@ function validate(shape::AbstractShape, repeat::Repeat, outline::AbstractShape)
 end
 
 # The pattern places a strand, and it bends a rectangular strand into a strip on its course.
-function resolve(described::NamedTuple, repeat::Repeat{<:CircularPattern, <:Region})
+function resolve(described::NamedTuple, repeat::Repeat{<:AbstractLayoutPattern, <:Region})
     course = placements(resolve(described.outer, repeat.pattern, repeat.part.primitive),
         repeat.part.primitive)
     shapes = [validate(resolve(at, course.shape), repeat, described.outer)
@@ -250,21 +250,28 @@ $(TYPEDEF)
 Fill a container around parts with a material. The fill region declares the container as its
 primitive, either explicitly or as an offset from the part inside the enclosure, and takes
 it without the regions of the contents. The outline of the enclosure is the outline of its
-container.
+container. The container is a circle or an annulus, and the regions inside it lie between its
+inner and outer radii. `resolve` throws `ArgumentError` for any other container.
 
 $(TYPEDFIELDS)
 """
-struct Enclosure{F <: Region{<:Union{Circle, Annulus, Offset}}, C <: AbstractCablePart} <:
-       AbstractCablePart
+struct Enclosure{F <: Region, C <: AbstractCablePart} <: AbstractCablePart
     "Region of the fill material, whose primitive declares the container."
     fill::F
     "Parts inside the container."
     contents::C
-    function Enclosure(fill::F,
-            contents::C) where {
-            F <: Region{<:Union{Circle, Annulus, Offset}}, C <: AbstractCablePart}
+    function Enclosure(fill::F, contents::C) where {F <: Region, C <: AbstractCablePart}
         return new{F, C}(fill, contents)
     end
+end
+
+# A circle or an annulus contains the regions between its inner and outer radii.
+validate(container::Union{Circle, Annulus}, ::Enclosure) = container
+
+function validate(container::AbstractShape, enclosure::Enclosure)
+    throw(ArgumentError(
+        "the container of :$(enclosure.fill.tag) is a $(nameof(typeof(container))); " *
+        "an enclosure takes a circle or an annulus as its container"))
 end
 
 # A region inside an enclosure lies inside its container.
@@ -280,7 +287,7 @@ function validate(shape::AbstractShape, enclosure::Enclosure, container::Abstrac
 end
 
 function resolve(described::NamedTuple, enclosure::Enclosure)
-    container = resolve(described.outer, enclosure.fill.primitive)
+    container = validate(resolve(described.outer, enclosure.fill.primitive), enclosure)
     inner = resolve(described, enclosure.contents)
     contents = (length(described.regions) + 1):length(inner.regions)
     holes = [validate(inner.regions[index].shape, enclosure, container)

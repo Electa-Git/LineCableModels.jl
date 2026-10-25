@@ -13,6 +13,7 @@ area(item::Item) = item.x^2
 @inline scale(item::Item, k) = item.x * k
 magnitude(x::BigFloat) = sqrt(x * x)
 magnitude(x) = abs(x)
+const summed = sum
 function totals(items::Vector{<:Item})
     total = sum(items; init = 0) do item
         area(item)

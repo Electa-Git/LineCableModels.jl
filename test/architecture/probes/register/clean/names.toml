@@ -12,6 +12,7 @@ area = "the square of an item's value"
 scale = "an item's value times a factor"
 magnitude = "the absolute value of a number"
 totals = "the total area of items"
+summed = "the sum of values"
 
 [register.RegisterProbeCleanExt.public]
 draw = "an item's area plus one"
