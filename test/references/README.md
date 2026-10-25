@@ -3,16 +3,20 @@
 Per-unit-length line parameters of the four cable systems of this release, computed with the
 Unified earth formulation and with FEM. The tests compare the package against them.
 
-They were computed on the branch `release/v0.2.0-fem-investigation` of this repository, with the
-package at commit `a7640beb`, by the case scripts in its `test/manual/cases/`. Commit `2bff171d`
-adds the two coaxial scripts to `a7640beb` and changes nothing else. Each script is run from the
-repository root as `julia --project=test test/manual/cases/<case>.jl`.
+The case scripts in `test/manual/cases/` of the branch `release/v0.2.0-fem-investigation` of
+this repository computed them, each at the commit that the table gives. Commit `2bff171d` adds
+the two coaxial scripts to `a7640beb` and changes nothing else. Commit `989af96c` reduces every
+terminal to its equivalent conductor by the current share of its regions, as this release does.
+This reduction changes only the core of `coaxial_circular_strands`. At `989af96c`, the other
+three runs repeat their analytical values within 4e-15 of the largest diagonal entry, and their
+FEM values within 1e-8. Run each script from the repository root as
+`julia --project=test test/manual/cases/<case>.jl`.
 
-| Case | System | Script at | Run |
+| Case | System | Commit | Run |
 |---|---|---|---|
 | `two_bare_wires` | two copper wires of radius 42.5 mm, 1 m apart, buried 1 m deep in earth of 0.1 Ω·m (εr 1) | `a7640beb` | `20261016-162340` |
 | `two_insulated_wires` | the same wires with 1 mm of insulation (εr 2.3) | `a7640beb` | `20261016-162539` |
-| `coaxial_circular_strands` | one coaxial cable with a core of circular strands, buried 1 m deep in earth of 100 Ω·m (εr 10) | `2bff171d` | `20261023-215253` |
+| `coaxial_circular_strands` | one coaxial cable with a core of circular strands, buried 1 m deep in earth of 100 Ω·m (εr 10) | `989af96c` | `20261025-000358` |
 | `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `2bff171d` | `20261023-215619` |
 
 The coaxial cable, from the center out:
@@ -56,8 +60,9 @@ e_Y = max|ΔY_ij| / max|Y_ii|. The FEM accuracy level is 1 %.
   - e_Z below about 25 Hz, up to 4.5 % in Z33: the armor lay correction, which the analytical
     equivalent conductor carries and a two-dimensional FEM model does not. With straight armor
     wires, e_Z at 0.1 Hz is 0.49 %.
-  - e_Z above about 40 kHz, rising to 5.2 % in Z11 at 10 MHz: the core lay correction, in the
-    same way. With a straight core, at lay ratio 1e6, e_Z at 10 MHz is 0.55 %.
+  - e_Z above about 40 kHz: the core lay correction, in the same way. In Z11 at 10 MHz, e_Z
+    reaches 5.2 % for the rectangular strands and 4.9 % for the circular strands. With a
+    straight core, at lay ratio 1e6, e_Z at 10 MHz is 0.55 %.
   - e_Z from 25 Hz to 40 kHz, 1.1 % to 1.9 % with both lays straight: the magnetic armor wires
     against the tube.
   - With the armor as a tube and a straight core, e_Z is at most 0.42 % and e_Y at most
