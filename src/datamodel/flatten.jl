@@ -31,110 +31,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate the geometric mean distance between two conductor-zone element sets
-\\[m\\]. Coincident element centers use the greater element radius as their
-finite self-distance. Element areas weight heterogeneous zones by their
-cross-sectional participation.
-
-# Arguments
-
-- `left_coordinates`: Element centers of the accumulated zone \\[m\\].
-- `left_radius`: Element radius of the accumulated zone \\[m\\].
-- `right_coordinates`: Element centers of the added zone \\[m\\].
-- `right_radius`: Element radius of the added zone \\[m\\].
-- `left_element_area`: Area represented by each accumulated element \\[m²\\].
-- `right_element_area`: Area represented by each added element \\[m²\\].
-
-# Returns
-
-- Area-weighted geometric mean distance \\[m\\].
-"""
-function geometric_mean_distance(
-        left_coordinates,
-        left_radius::Real,
-        right_coordinates,
-        right_radius::Real,
-        left_element_area::Real = one(float(left_radius)),
-        right_element_area::Real = one(float(right_radius))
-)
-    isempty(left_coordinates) && throw(ArgumentError(
-        "the first conductor zone requires at least one element coordinate"
-    ))
-    isempty(right_coordinates) && throw(ArgumentError(
-        "the second conductor zone requires at least one element coordinate"
-    ))
-    logarithmic_sum, weights = promote(
-        zero(float(left_radius)),
-        zero(float(right_radius))
-    )
-    weight = left_element_area * right_element_area
-    weight > zero(weight) || throw(DomainError(
-        weight, "conductor-zone element areas must be positive"
-    ))
-    for left in left_coordinates, right in right_coordinates
-
-        distance = hypot(left[1] - right[1], left[2] - right[2])
-        effective_distance = iszero(distance) ? max(left_radius, right_radius) : distance
-        effective_distance > zero(effective_distance) || throw(DomainError(
-            effective_distance, "conductor-zone distance must be positive"
-        ))
-        logarithmic_sum += weight * log(effective_distance)
-        weights += weight
-    end
-    return exp(logarithmic_sum / weights)
-end
-
-function geometric_mean_distance(
-        left_coordinates,
-        left_radii::AbstractVector,
-        right_coordinates,
-        right_radii::AbstractVector,
-        left_element_areas::AbstractVector,
-        right_element_areas::AbstractVector
-)
-    isempty(left_coordinates) && throw(ArgumentError(
-        "the first conductor zone requires at least one element coordinate"
-    ))
-    isempty(right_coordinates) && throw(ArgumentError(
-        "the second conductor zone requires at least one element coordinate"
-    ))
-    length(left_coordinates) == length(left_radii) == length(left_element_areas) ||
-        throw(DimensionMismatch(
-            "first conductor coordinates, radii, and areas must have equal lengths"
-        ))
-    length(right_coordinates) == length(right_radii) == length(right_element_areas) ||
-        throw(DimensionMismatch(
-            "second conductor coordinates, radii, and areas must have equal lengths"
-        ))
-    logarithmic_sum,
-    weights = promote(
-        zero(float(first(left_radii))),
-        zero(float(first(right_radii)))
-    )
-    for left in eachindex(left_coordinates), right in eachindex(right_coordinates)
-
-        weight = left_element_areas[left] * right_element_areas[right]
-        weight > zero(weight) || throw(DomainError(
-            weight, "conductor-zone element areas must be positive"
-        ))
-        distance = hypot(
-            left_coordinates[left][1] - right_coordinates[right][1],
-            left_coordinates[left][2] - right_coordinates[right][2]
-        )
-        effective_distance = iszero(distance) ?
-                             max(left_radii[left], right_radii[right]) : distance
-        effective_distance > zero(effective_distance) || throw(DomainError(
-            effective_distance, "conductor-zone distance must be positive"
-        ))
-        logarithmic_sum += weight * log(effective_distance)
-        weights += weight
-    end
-    return exp(logarithmic_sum / weights)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Calculate the equivalent radial permeability of dielectric layers and apply
 the helical-solenoid correction associated with the enclosed conductor.
 
@@ -168,241 +64,6 @@ function equivalent_dielectric_permeability(
         conductor_radius,
         dielectric_radius
     )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Reduce one geometrically uniform conductor zone to resistance, GMR, path, and
-cross-sectional values. Primitive-specific methods preserve the implemented
-disk, annulus, and equivalent-area cable-sector assumptions.
-"""
-
-function conductor_zone(
-        definition::Disk,
-        primitive::Disk,
-        zone,
-        ::Type{T},
-        expected_inner
-) where {T <: Real}
-    source = first(zone)
-    material = convert(Material{T}, source.source.material)
-    radius = convert(T, primitive.r)
-    all(item -> isapprox(
-            area(item.primitive),
-            (one(T) * pi) * radius^2
-        ), zone) || throw(ArgumentError(
-        "resolved disk strands do not preserve their declared area"
-    ))
-    coordinates = Tuple{T, T}[convert.(T, centroid(item.primitive))
-                              for item in zone]
-    centre = conductor_zone_position(zone)
-    centre_radius = hypot(
-        first(coordinates)[1] - centre[1],
-        first(coordinates)[2] - centre[2]
-    )
-    circular_locus = all(
-        point -> isapprox(
-            hypot(point[1] - centre[1], point[2] - centre[2]),
-            centre_radius
-        ), coordinates)
-    element_area = (one(T) * pi) * radius^2
-    zone_area = length(zone) * element_area
-    zone_r_in,
-    zone_r_ex = if length(zone) == 1 && iszero(centre_radius)
-        zero(T), radius
-    elseif !circular_locus
-        outer_radius = maximum(coordinates) do point
-            hypot(point[1] - centre[1], point[2] - centre[2]) + radius
-        end
-        expected_outer = expected_inner + 2radius
-        isapprox(outer_radius, expected_outer) || throw(ArgumentError(
-            "noncircular disk strand course must extend one strand diameter " *
-            "beyond the preceding course"
-        ))
-        expected_inner, outer_radius
-    else
-        declared_inner = centre_radius - radius
-        isapprox(declared_inner, expected_inner) || throw(ArgumentError(
-            "disk strand layer does not begin at the preceding radial boundary"
-        ))
-        expected_inner, expected_inner + 2radius
-    end
-    patterned = any(entry -> entry.owner === Group, source.placement.patterns)
-    uniform_paths = all(item -> item.paths == source.paths, zone)
-    turns = uniform_paths ? turns_per_length(source.paths, T) :
-            sum(item -> turns_per_length(item.paths, T), zone) / length(zone)
-    base_resistance = tubular_resistance(
-        zero(T),
-        radius,
-        material.rho
-    )
-    resistance = if uniform_paths
-        path_corrected_resistance(base_resistance, source.paths) / length(zone)
-    else
-        resistances = map(zone) do item
-            path_corrected_resistance(base_resistance, item.paths)
-        end
-        reduce(parallel, resistances)
-    end
-    gmr = patterned ?
-          (circular_locus ?
-           strand_gmr(
-        centre_radius,
-        length(zone),
-        radius,
-        material.mu_r
-    ) :
-           strand_gmr(coordinates, radius, material.mu_r)) :
-          tubular_gmr(zone_r_ex, zone_r_in, material.mu_r)
-    return (
-        r_in = zone_r_in,
-        r_ex = zone_r_ex,
-        area = zone_area,
-        wires = patterned ? length(zone) : 0,
-        turns = convert(T, turns),
-        resistance,
-        gmr,
-        element_radius = radius,
-        element_area,
-        coordinates,
-        position = centre,
-        material,
-        pairwise_gmd = patterned
-    )
-end
-
-function conductor_zone(
-        definition::Annulus,
-        primitive::Annulus,
-        zone,
-        ::Type{T},
-        expected_inner
-) where {T <: Real}
-    length(zone) == 1 || throw(ArgumentError(
-        "flatten requires one region per annular conductor layer"
-    ))
-    source = only(zone)
-    material = convert(Material{T}, source.source.material)
-    centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
-    zone_r_in = convert(T, primitive.ri)
-    zone_r_ex = convert(T, primitive.ro)
-    zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
-    isapprox(area(source.primitive), zone_area) || throw(ArgumentError(
-        "resolved annular conductor does not preserve its declared area"
-    ))
-    turns = turns_per_length(source.paths, T)
-    resistance = path_corrected_resistance(
-        material.rho / zone_area,
-        source.paths
-    )
-    return (
-        r_in = zone_r_in,
-        r_ex = zone_r_ex,
-        area = zone_area,
-        wires = isempty(source.paths) ? 0 : 1,
-        turns = convert(T, turns),
-        resistance,
-        gmr = tubular_gmr(zone_r_ex, zone_r_in, material.mu_r),
-        element_radius = zone_r_ex,
-        element_area = zone_area,
-        coordinates = Tuple{T, T}[centre],
-        position = centre,
-        material,
-        pairwise_gmd = false
-    )
-end
-
-function conductor_zone(
-        definition::Shell,
-        primitive::Annulus,
-        zone,
-        ::Type{T},
-        expected_inner
-) where {T <: Real}
-    length(zone) == 1 || throw(ArgumentError(
-        "flatten requires one region per contextual conductor shell"
-    ))
-    source = only(zone)
-    material = convert(Material{T}, source.source.material)
-    centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
-    zone_r_in = convert(T, primitive.ri)
-    zone_r_ex = convert(T, primitive.ro)
-    isapprox(zone_r_in, expected_inner) || throw(ArgumentError(
-        "resolved conductor shell does not begin at the preceding radial boundary"
-    ))
-    isapprox(zone_r_ex - zone_r_in, definition.t) || throw(ArgumentError(
-        "resolved conductor shell does not preserve its declared thickness"
-    ))
-    zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
-    turns = turns_per_length(source.paths, T)
-    resistance = path_corrected_resistance(
-        material.rho / zone_area,
-        source.paths
-    )
-    return (
-        r_in = zone_r_in,
-        r_ex = zone_r_ex,
-        area = zone_area,
-        wires = isempty(source.paths) ? 0 : 1,
-        turns = convert(T, turns),
-        resistance,
-        gmr = tubular_gmr(zone_r_ex, zone_r_in, material.mu_r),
-        element_radius = zone_r_ex,
-        element_area = zone_area,
-        coordinates = Tuple{T, T}[centre],
-        position = centre,
-        material,
-        pairwise_gmd = false
-    )
-end
-
-function conductor_zone(
-        definition::Sector,
-        primitive::SectorShape,
-        zone,
-        ::Type{T},
-        expected_inner
-) where {T <: Real}
-    length(zone) == 1 || throw(ArgumentError(
-        "flatten requires one region per sector conductor"
-    ))
-    source = only(zone)
-    isempty(source.paths) || throw(ArgumentError(
-        "flatten does not support a helical sector conductor"
-    ))
-    material = convert(Material{T}, source.source.material)
-    zone_area = convert(T, area(primitive))
-    equivalent_radius = sqrt(zone_area / (one(T) * pi))
-    centre = convert.(T, centroid(primitive))
-    return (
-        r_in = zero(T),
-        r_ex = equivalent_radius,
-        area = zone_area,
-        wires = 0,
-        turns = zero(T),
-        resistance = material.rho / zone_area,
-        gmr = equivalent_radius * exp(-material.mu_r / 4),
-        element_radius = equivalent_radius,
-        element_area = zone_area,
-        coordinates = Tuple{T, T}[centre],
-        position = centre,
-        material,
-        pairwise_gmd = false
-    )
-end
-
-function conductor_zone(
-        definition::AbstractPrimitive,
-        primitive::AbstractShape,
-        zone,
-        ::Type,
-        expected_inner
-)
-    throw(ArgumentError(
-        "flatten does not support conductor source/resolved pair " *
-        "$(nameof(typeof(definition))) → $(nameof(typeof(primitive)))"
-    ))
 end
 
 """
@@ -473,21 +134,6 @@ function dielectric_layer(
     ))
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Reduce a nested repeated-wire conductor to parallel resistance,
-current-share-weighted GMR, equivalent temperature coefficient, turns, and
-radial extent.
-"""
-function member_resistance(definition::Disk, material)
-    return tubular_resistance(zero(definition.r), definition.r, material.rho)
-end
-
-function member_resistance(definition::Rectangle, material)
-    return strip_resistance(definition.h, definition.w, material.rho)
-end
-
 function radial_extent(shape::Disk, centre)
     return hypot(shape.at.x - centre[1], shape.at.y - centre[2]) + shape.r
 end
@@ -536,6 +182,10 @@ function radial_extent(shape::Rectangle, centre)
         hypot(x - centre[1], y - centre[2])
     end
 end
+
+# A sector conductor becomes the circle of its area about its centroid, as its
+# sector dielectric layers do.
+radial_extent(shape::SectorShape, centre) = sqrt(area(shape) / pi)
 
 """
 $(TYPEDSIGNATURES)
@@ -596,6 +246,14 @@ function geometric_mean_distance(left::Annulus, right::Annulus)
     return invoke(geometric_mean_distance, Tuple{Annulus, AbstractShape}, outer, inner)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Reduce the conductive regions of one terminal to parallel resistance,
+current-share-weighted GMR, equivalent temperature coefficient, turns, and
+radial extent. Each region has the resistance of its resistivity over its
+area, times the overlength of its paths.
+"""
 function nested_conductor_zone(
         sources,
         ::Type{T},
@@ -605,11 +263,10 @@ function nested_conductor_zone(
         "a nested conductor requires at least one resolved primitive"
     ))
     all(sources) do source
-        source.source.primitive isa Union{Disk, Rectangle} &&
-            source.primitive isa Union{Disk, Rectangle, Polygon, BentStrip, Annulus}
+        source.primitive isa Union{Disk, Rectangle, Polygon, BentStrip, Annulus, SectorShape}
     end || throw(ArgumentError(
-        "nested conductor flattening requires Disk or Rectangle source members " *
-        "resolved as Disk, Rectangle, Polygon, BentStrip, or Annulus geometry"
+        "flatten requires conductor regions resolved as Disk, Rectangle, Polygon, " *
+        "BentStrip, Annulus, or SectorShape geometry"
     ))
 
     materials = Material{T}[convert(Material{T}, source.source.material)
@@ -619,7 +276,11 @@ function nested_conductor_zone(
         ArgumentError("all nested conductor materials must share one reference temperature")
     )
 
-    areas = T[convert(T, area(source.source.primitive)) for source in sources]
+    # Compaction keeps the area a strand declares; a shell or a sector has the
+    # area of its resolved shape.
+    areas = T[convert(T, area(source.source.primitive isa Union{Disk, Rectangle} ?
+                             source.source.primitive : source.primitive))
+              for source in sources]
     all(eachindex(sources)) do index
         isapprox(
             convert(T, area(sources[index].primitive)),
@@ -634,10 +295,7 @@ function nested_conductor_zone(
     total_area = sum(areas)
     centre = convert.(T, conductor_zone_position(sources))
     resistances = T[path_corrected_resistance(
-                        member_resistance(
-                            sources[index].source.primitive,
-                            materials[index]
-                        ),
+                        materials[index].rho / areas[index],
                         sources[index].paths
                     ) for index in eachindex(sources)]
 
@@ -793,134 +451,6 @@ end
 
 function same_radial_chain(left::PlacedRegion, right_position)
     return same_radial_position(radial_position(left), right_position)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Initialize the scalar conductor reduction from its innermost zone.
-"""
-function initialize_conductor(zone)
-    return (
-        r_in = zone.r_in,
-        r_ex = zone.r_ex,
-        cross_section = zone.area,
-        num_wires = zone.wires,
-        num_turns = zone.turns,
-        resistance = zone.resistance,
-        alpha = zone.material.alpha,
-        gmr = zone.gmr,
-        reference_temperature = zone.material.T0,
-        position = zone.position,
-        coordinates = copy(zone.coordinates),
-        element_radii = fill(zone.element_radius, length(zone.coordinates)),
-        element_areas = fill(zone.element_area, length(zone.coordinates)),
-        previous_coordinates = zone.coordinates,
-        previous_radius = zone.element_radius,
-        previous_element_area = zone.element_area,
-        pairwise_gmd = zone.pairwise_gmd
-    )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Combine the strand-count-weighted turns per unit length of two conductor
-zones \\[1/m\\]. A zone without explicit wires leaves the accumulated value
-unchanged.
-"""
-function equivalent_turns(
-        num_wires::Integer,
-        num_turns::Real,
-        added_wires::Integer,
-        added_turns::Real
-)
-    iszero(added_wires) && return num_turns
-    total_wires = num_wires + added_wires
-    return (num_wires * num_turns + added_wires * added_turns) / total_wires
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Add one concentric conductor zone to an accumulated scalar reduction. The
-resistances combine in parallel, while GMR and temperature coefficient are
-updated from the properties of the two zones.
-"""
-function add_conductor_zone(conductor, zone)
-    same_radial_position(zone.position, conductor.position) || throw(ArgumentError(
-        "conductor zones must share one radial centre"
-    ))
-    isapprox(zone.r_in, conductor.r_ex) || throw(ArgumentError(
-        "conductor zones must be radially contiguous"
-    ))
-    isapprox(zone.material.T0, conductor.reference_temperature) || throw(
-        ArgumentError("all cable materials must share one reference temperature")
-    )
-    pairwise_gmd = conductor.pairwise_gmd || zone.pairwise_gmd
-    distance = if pairwise_gmd
-        geometric_mean_distance(
-            conductor.coordinates,
-            conductor.element_radii,
-            zone.coordinates,
-            fill(zone.element_radius, length(zone.coordinates)),
-            conductor.element_areas,
-            fill(zone.element_area, length(zone.coordinates))
-        )
-    else
-        geometric_mean_distance(
-            conductor.previous_coordinates,
-            conductor.previous_radius,
-            zone.coordinates,
-            zone.element_radius,
-            conductor.previous_element_area,
-            zone.element_area
-        )
-    end
-    return (
-        r_in = conductor.r_in,
-        r_ex = zone.r_ex,
-        cross_section = conductor.cross_section + zone.area,
-        num_wires = conductor.num_wires + zone.wires,
-        num_turns = equivalent_turns(
-            conductor.num_wires,
-            conductor.num_turns,
-            zone.wires,
-            zone.turns
-        ),
-        resistance = parallel(
-            conductor.resistance,
-            zone.resistance
-        ),
-        alpha = equivalent_alpha(
-            conductor.alpha,
-            conductor.resistance,
-            zone.material.alpha,
-            zone.resistance
-        ),
-        gmr = equivalent_gmr(
-            conductor.gmr,
-            conductor.cross_section,
-            zone.gmr,
-            zone.area,
-            distance
-        ),
-        reference_temperature = conductor.reference_temperature,
-        position = conductor.position,
-        coordinates = append!(copy(conductor.coordinates), zone.coordinates),
-        element_radii = append!(
-            copy(conductor.element_radii),
-            fill(zone.element_radius, length(zone.coordinates))
-        ),
-        element_areas = append!(
-            copy(conductor.element_areas),
-            fill(zone.element_area, length(zone.coordinates))
-        ),
-        previous_coordinates = zone.coordinates,
-        previous_radius = zone.element_radius,
-        previous_element_area = zone.element_area,
-        pairwise_gmd
-    )
 end
 
 """
@@ -1172,13 +702,6 @@ function _radial_regions(regions)
     return radial
 end
 
-function same_path_definitions(left, right)
-    length(left) == length(right) || return false
-    return all(eachindex(left)) do index
-        left[index].path == right[index].path
-    end
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -1240,91 +763,31 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
                      terminal_starts[terminal_index + 1] - 1
         block = @view regions[first_index:last_index]
 
-        zone_ranges = UnitRange{Int}[]
-        cursor = firstindex(block)
-        while cursor <= lastindex(block) && block[cursor].terminal === terminal
-            start = cursor
-            source = block[cursor]
-            signature = map(entry -> entry.pattern, source.placement.patterns)
-            while cursor < lastindex(block)
-                next = block[cursor + 1]
-                next_signature = map(entry -> entry.pattern, next.placement.patterns)
-                same_zone = next.terminal === terminal &&
-                            next.source == source.source &&
-                            same_path_definitions(next.paths, source.paths) &&
-                            next_signature == signature
-                same_zone || break
-                cursor += 1
-            end
-            push!(zone_ranges, start:cursor)
-            cursor += 1
-        end
-        isempty(zone_ranges) && throw(ArgumentError(
-            "terminal :$terminal has no conductive zone"
-        ))
+        cursor = something(
+            findfirst(region -> region.terminal !== terminal, block),
+            lastindex(block) + 1
+        )
         any(index -> block[index].terminal !== nothing, cursor:lastindex(block)) &&
             throw(ArgumentError(
                 "terminal :$terminal reappears after its dielectric interval"
             ))
 
         conductor_sources = @view block[firstindex(block):(cursor - 1)]
-        nested = any(conductor_sources) do source
-            source.primitive isa Union{Polygon, BentStrip} ||
-                source.source.primitive isa Rectangle ||
-                any(
-                    entry -> entry.pattern isa BoundedPlacement,
-                    source.placement.patterns
-                ) ||
-                count(entry -> entry.owner === Group, source.placement.patterns) > 1 ||
-                length(source.paths) > 1
-        end
-        conductor = if nested
-            zone_position = conductor_zone_position(conductor_sources)
-            expected_inner = if first_index > firstindex(regions) &&
-                                same_radial_chain(regions[first_index - 1], zone_position)
-                convert(T, r_ex(regions[first_index - 1].primitive))
-            else
-                zero(T)
-            end
-            nested_conductor_zone(
-                conductor_sources,
-                T,
-                expected_inner
-            )
+        zone_position = conductor_zone_position(conductor_sources)
+        expected_inner = if first_index > firstindex(regions) &&
+                            same_radial_chain(regions[first_index - 1], zone_position)
+            convert(T, r_ex(regions[first_index - 1].primitive))
+        elseif first(conductor_sources).primitive isa Annulus
+            # Nothing fills the hole of an innermost tube.
+            convert(T, first(conductor_sources).primitive.ri)
         else
-            accumulated = nothing
-            for (zone_index, indices) in enumerate(zone_ranges)
-                zone = @view block[indices]
-                source = first(zone)
-                source.source.material.kind === :conductor || throw(ArgumentError(
-                    "terminal :$terminal contains a nonconductor physical region"
-                ))
-                all(item -> item.source.material == source.source.material, zone) ||
-                    throw(ArgumentError("one conductor zone must use one material"))
-                all(item -> item.source.primitive == source.source.primitive, zone) ||
-                    throw(ArgumentError("one conductor zone must use one primitive"))
-                zone_position = conductor_zone_position(zone)
-                expected_inner = if zone_index > 1
-                    accumulated.r_ex
-                elseif first_index > firstindex(regions) &&
-                       same_radial_chain(regions[first_index - 1], zone_position)
-                    convert(T, r_ex(regions[first_index - 1].primitive))
-                else
-                    zero(T)
-                end
-                values = conductor_zone(
-                    source.source.primitive,
-                    source.primitive,
-                    zone,
-                    T,
-                    expected_inner
-                )
-                accumulated = zone_index == 1 ?
-                              initialize_conductor(values) :
-                              add_conductor_zone(accumulated, values)
-            end
-            accumulated
+            zero(T)
         end
+        conductor = nested_conductor_zone(
+            conductor_sources,
+            T,
+            expected_inner
+        )
 
         dielectric_sources = cursor > lastindex(block) ?
                              @view(block[1:0]) : @view(block[cursor:lastindex(block)])

@@ -76,7 +76,7 @@
     helical = build(CableDesign, "helical-assemblies", assembly(member;
         pattern=Ring(3; r=0.01), names=(:a, :b, :c), path=helix))
     rows = EN.flatten(engine, helical, Float64).conductors
-    @test all(row -> row.num_wires == 0, rows)
+    @test all(row -> row.num_wires == 1, rows)
     @test all(row -> row.resistance ≈ copper.rho / area(wire) * overlength(helix, 0.01), rows)
     @test all(region -> only(region.paths).path === helix, helical.geometry.regions)
     @test all(region -> only(region.paths).radius ≈ 0.01, helical.geometry.regions)
