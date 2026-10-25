@@ -25,6 +25,7 @@ export admittivity, resistivity, properties, impedance, impedance!, potential!, 
        initialize_buffers
 export LineParametersProblem, LineParametersFormulation, FEM, CoaxialBackend, GmshBackend,
        backend, LineParameters
+public CoaxialInput
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
 
@@ -79,15 +80,15 @@ of the impedances that it gives together.
 function impedance end
 
 """
-    impedance!(Z, formula, …)
+    impedance!(formula, Z, …)
 
 Write into the matrix `Z` the series impedances per unit length that `formula` gives
-\\[Ω/m\\].
+\\[Ω/m\\]. A method of several formulas takes them all before `Z`.
 """
 function impedance! end
 
 """
-    potential!(P, formula, …)
+    potential!(formula, P, …)
 
 Write into the matrix `P` the potential coefficients per unit length that `formula` gives
 \\[m/F\\].
@@ -114,6 +115,8 @@ none.
 initialize_buffers(::AbstractFormulation, problem, input, buffers) = buffers
 
 include("constants/constants.jl")
+include("problem.jl")
+include("input.jl")
 include("internalimpedance/InternalImpedance.jl")
 include("insulationimpedance/InsulationImpedance.jl")
 include("insulationadmittance/InsulationAdmittance.jl")
@@ -122,10 +125,9 @@ include("earthreturn/EarthReturn.jl")
 include("shunt/Shunt.jl")
 include("resistivity/Resistivity.jl")
 include("earthproperties/EarthProperties.jl")
-include("problem.jl")
 include("formulation.jl")
 include("backends.jl")
 include("result.jl")
-include("input.jl")
+include("assembly.jl")
 
 end

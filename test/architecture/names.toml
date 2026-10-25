@@ -207,9 +207,8 @@ impedance = "a series impedance per unit length, or a named tuple of them, that 
 "potential!" = "potential coefficients per unit length written into a matrix [m/F]"
 "prepare!" = "fill a formula's per-frequency state that its quantity methods read"
 initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
-
-[register.Engine.private]
 CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"
+
 
 [register."Engine.InternalImpedance".public]
 Formula = "an internal-impedance formula, its identifier the type parameter"
@@ -246,6 +245,9 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.Shunt".formulas]
+series = "the series chain of the potential coefficients s ln(r_ex / r_in) / 2πκ of the annular layers, summed from each conductor outward (fem-investigation src/engine/admittance.jl)"
 
 [register."Engine.Resistivity".public]
 Formula = "a resistivity formula, its identifier the type parameter"

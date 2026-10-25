@@ -69,9 +69,9 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     eliminated::Vector{Int}
     "Label of each kept row: the label of its conductor, or the labels of a bundle joined by `+`."
     terminals::Vector{String}
-    function CoaxialInput(problem::LineParametersProblem{T},
-            options::Union{FormulationOptions{LineParametersFormulation},
-                FormulationOptions{FEM}}) where {T <: Real}
+    function CoaxialInput(
+            problem::LineParametersProblem{T}, options::FormulationOptions) where {T <:
+                                                                                   Real}
         system = problem.system
         blueprints = [flatten(design) for design in system.designs]
         tubes = [tube for blueprint in blueprints for tube in blueprint.conductors]
