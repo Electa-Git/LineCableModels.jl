@@ -4,7 +4,8 @@
 Describe the cross-section of a cable. Its declared parts build a design, which holds the
 placed regions and the tables that map them to terminals, repeats, lays and fills. Designs
 placed in one cross-section of a line, with the conductor index of each terminal, build a
-system.
+system. The macros [`@cable`](@ref) and [`@terminal`](@ref) and the builders of the layers,
+the stranded conductor and the armor declare the parts of a cable.
 """
 module DataModel
 
@@ -21,6 +22,7 @@ export DifferenceShape
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure
 export PlacedRegion, CableDesign, CableSystem
 export CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
+export @cable, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded, armor
 
 include("geometry.jl")
 include("placement.jl")
@@ -28,5 +30,6 @@ include("parts.jl")
 include("design.jl")
 include("system.jl")
 include("blueprint.jl")
+include("builders.jl")
 
 end

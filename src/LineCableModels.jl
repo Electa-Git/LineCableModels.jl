@@ -13,7 +13,8 @@ using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, 
                   support, distance, boundary, r_in, r_ex, placements, overlength, pitch,
                   DifferenceShape, AbstractCablePart, Region, Stack, Terminal, Repeat, Lay,
                   Enclosure, PlacedRegion, CableDesign, CableSystem, CableBlueprint,
-                  BlueprintConductor, BlueprintDielectric, flatten
+                  BlueprintConductor, BlueprintDielectric, flatten, @cable, @terminal, core,
+                  insulation, screen, sheath, bedding, jacket, stranded, armor
 
 export Material, material, EarthLayer, EarthModel, homogeneous
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
@@ -22,6 +23,7 @@ export area, centroid, support, distance, boundary, r_in, r_ex, placements, over
        pitch
 export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, CableDesign,
        CableSystem, build
+export @cable, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded, armor
 public Commons, Materials, Earth, DataModel, validate, resolve, BentStrip, DifferenceShape
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 

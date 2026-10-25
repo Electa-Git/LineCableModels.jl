@@ -13,5 +13,6 @@ using LineCableModels
     include("datamodel/design.jl")
     include("datamodel/system.jl")
     include("datamodel/blueprint.jl")
+    include("datamodel/builders.jl")
     include("architecture/architecture.jl")
 end

@@ -71,8 +71,10 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "terminals", "assemblies", "repeats", "lays", "compactions",
     "fills", "system", "designs", "connections", "line_length", "blueprint", "conductor",
-    "dielectric", "conductors", "dielectrics", "ranges", "assembly", "positions"]
-qualifiers = ["bent", "circular", "empty", "difference", "placed", "cable", "outer"]
+    "dielectric", "conductors", "dielectrics", "ranges", "assembly", "positions", "core",
+    "insulation", "screen", "sheath", "bedding", "jacket", "armor", "center"]
+qualifiers = ["bent", "circular", "empty", "difference", "placed", "cable", "outer",
+    "stranded"]
 symbols = ["x", "y", "φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir",
     "r_in", "r_ex", "mu_r_ins"]
 prepositions = ["at"]
@@ -131,6 +133,16 @@ CableBlueprint = "a cable described for coaxial formulations: equivalent tubes, 
 BlueprintConductor = "one terminal of a cable as an equivalent tube and its material"
 BlueprintDielectric = "one dielectric layer of the interval of an equivalent tube"
 flatten = "the blueprint of a cable design"
+"@cable" = "the cable design built from the parts of a block, from the inside out"
+"@terminal" = "the terminal of a name around the parts of a block"
+core = "a solid round conductor at the center of a cable"
+insulation = "an insulation layer of a thickness around the part inside it"
+screen = "a screen layer of a thickness around the part inside it"
+sheath = "a sheath layer of a thickness around the part inside it"
+bedding = "a bedding layer of a thickness around the part inside it"
+jacket = "a jacket layer of a thickness around the part inside it"
+stranded = "a stranded conductor: courses of round wires or rectangular strands around a center wire, inside an outline that a fill completes"
+armor = "a course of round armor wires laid on the part inside it, in a fill as thick as the wires"
 
 [register.DataModel.private]
 EmptyBoundary = "the outline at the center of a cable, before its first part"
