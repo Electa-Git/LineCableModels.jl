@@ -9,12 +9,17 @@ module EarthReturn
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
-using ..Engine: AbstractEarthReturn
+using ...DataModel: support
+using ..Engine: AbstractEarthReturn, CoaxialInput, LineParametersProblem, SpectralIntegral,
+                integrate, nominal, ray!, vacuum_permittivity, vacuum_permeability
+import ..Engine: impedance!, potential!, prepare!, initialize_buffers
+using LinearAlgebra: ldiv!, lu!
+using SpecialFunctions: besselix, besselkx, besseljx, besselk
 
 export Formula, FORMULAS
 
 "Identifiers of the earth-return formulas."
-const FORMULAS = ()
+const FORMULAS = (:unified,)
 
 """
 $(TYPEDEF)
@@ -55,5 +60,10 @@ end
 function validate(formula::Formula{ID}, verb) where {ID}
     throw(DomainError(formula, "the earth-return formula :$ID gives no $(nameof(verb))"))
 end
+
+# Formulas of one identifier are equal when their options are equal.
+Base.:(==)(a::Formula{ID}, b::Formula{ID}) where {ID} = a.options == b.options
+
+include("unified.jl")
 
 end

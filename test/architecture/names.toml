@@ -106,6 +106,9 @@ bundle = "merge each other conductor of a bundle into the first conductor of its
 eliminate = "remove the eliminated rows and columns of a matrix by the Kron elimination, the Schur complement of the kept ones"
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
 
+[modules."Engine.EarthReturn"]
+symbols = ["i0m1"]
+
 [register.Commons]
 lifts = ["select"]
 
@@ -252,6 +255,12 @@ lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (fem-i
 [register."Engine.EarthReturn".public]
 Formula = "an earth-return formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.EarthReturn".private]
+i0m1 = "I₀(z) − 1 without the cancellation of the difference; Unified's, two call sites with different arguments, the per-cable state and J₀(rλ) − 1 in the air-voltage integrand"
+
+[register."Engine.EarthReturn".formulas]
+unified = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ (fem-investigation earthimpedance/formulas/unified.jl, unified/kernels.jl, unified/current.jl)"
 
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"
