@@ -6,7 +6,7 @@
     semicon = Material(:semicon, 1000.0, 1000.0)
     steel = Material(:conductor, 1.7475e-7, 1.0, 36.6326, 20.0, 0.0045)
     air = material(kind = :insulator, rho = Inf)
-    reductions = FormulationOptions(CoaxialFormulation)
+    options = FormulationOptions(CoaxialFormulation)
 
     @testset "the wires of the references" begin
         metal = Terminal(:core, Region(:core_metal, Circle(0.0425), copper))
@@ -20,7 +20,8 @@
                 [Placement(0.0, -1.0), Placement(1.0, -1.0)];
                 connections = [(core = 1,), (core = 2,)], id = design.id, line_length = 1.0)
             problem = LineParametersProblem(system, homogeneous(rho = 0.1); frequencies = [50.0])
-            input = CoaxialInput(problem, reductions)
+            input = CoaxialInput(problem, options)
+            plan = LineCableModels.reductions(problem.system, options)
             @test input.cable == [1, 2] && input.label == ["cable:1:core", "cable:2:core"]
             @test input.r_in == [0.0, 0.0] && input.r_ex == [0.0425, 0.0425]
             @test [tube.rho for tube in input.material] ≈ [copper.rho, copper.rho]
@@ -29,9 +30,9 @@
             @test input.r_ins_ex ≈ [outer, outer] && input.radius ≈ [outer, outer]
             @test input.x == [0.0, 1.0] && input.y == [-1.0, -1.0]
             @test input.assemblies == [1:1, 2:2]
-            @test input.kept == [1, 2]
-            @test isempty(input.bundles) && isempty(input.eliminated)
-            @test input.terminals == input.label
+            @test plan.kept == [1, 2]
+            @test isempty(plan.bundles) && isempty(plan.eliminated)
+            @test plan.terminals == input.label
         end
     end
 
@@ -65,7 +66,8 @@
                 line_length = 1.0)
             problem = LineParametersProblem(system, homogeneous(rho = 100, eps_r = 10);
                 frequencies = [50.0])
-            input = CoaxialInput(problem, reductions)
+            input = CoaxialInput(problem, options)
+            plan = LineCableModels.reductions(problem.system, options)
             @test input.r_in ≈ [0.0, 20.5e-3, 24.5e-3]
             @test input.r_ex ≈ [10.5e-3, 21.5e-3, 28.5e-3]
             values = [(tube.rho, tube.mu_r, mu)
@@ -83,8 +85,8 @@
             @test input.x == [0.0] && input.y == [-1.0]
             @test input.radius == [support(design.outer)] && input.assemblies == [1:3]
             @test input.connection == [1, 2, 3]
-            @test input.kept == [1, 2, 3] && isempty(input.eliminated)
-            @test input.terminals == ["cable:1:core", "cable:1:sheath", "cable:1:armour"]
+            @test plan.kept == [1, 2, 3] && isempty(plan.eliminated)
+            @test plan.terminals == ["cable:1:core", "cable:1:sheath", "cable:1:armour"]
         end
     end
 
@@ -108,19 +110,21 @@
                 [2], ["cable:1:core", "cable:1:armour"]),
             (false, false, Tuple{Int, Int}[], [1, 3, 2], Int[],
                 ["cable:1:core", "cable:1:armour", "cable:1:sheath"]))
-            options = FormulationOptions(CoaxialFormulation; bundle, kron)
-            input = CoaxialInput(problem, options)
-            @test input.bundles == bundles && input.kept == kept
-            @test input.eliminated == eliminated && input.terminals == terminals
+            plan = LineCableModels.reductions(
+                problem.system, FormulationOptions(CoaxialFormulation; bundle, kron))
+            @test plan.bundles == bundles && plan.kept == kept
+            @test plan.eliminated == eliminated && plan.terminals == terminals
         end
         two = build(
             CableSystem, [design, design], [Placement(0.0, -1.0), Placement(1.0, -1.0)];
             connections = [
                 (core = 1, sheath = 0, armour = 0), (core = 2, sheath = 0, armour = 0)],
             id = "two_cables", line_length = 1.0)
-        input = CoaxialInput(LineParametersProblem(two, earth; frequencies = [50.0]), reductions)
-        @test input.kept == [1, 4]
-        @test input.terminals == ["cable:1:core", "cable:2:core"]
+        problem = LineParametersProblem(two, earth; frequencies = [50.0])
+        input = CoaxialInput(problem, options)
+        plan = LineCableModels.reductions(problem.system, options)
+        @test plan.kept == [1, 4]
+        @test plan.terminals == ["cable:1:core", "cable:2:core"]
         @test input.layers == [1:1, 2:2, 3:2, 3:3, 4:4, 5:4]
         @test input.assemblies == [1:3, 4:6]
     end
@@ -135,7 +139,7 @@
             connections = [(core = 1,)], id = "float32", line_length = 1.0f0)
         problem = LineParametersProblem(system, homogeneous(rho = 100.0f0);
             temperature = 20.0f0, frequencies = Float32[50])
-        input = CoaxialInput(problem, reductions)
+        input = CoaxialInput(problem, options)
         @test input isa CoaxialInput{Float64}
         @test input.material isa Vector{Material{Float64, :conductor}}
         @test only(input.layer_material) isa Material{Float64, :insulator}

@@ -28,7 +28,7 @@ export admittivity, resistivity, properties, impedance, impedance!, potential!, 
        initialize_buffers
 export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
-export bundle!, eliminate!, transposition!, formulas
+export bundle!, eliminate!, transposition!, formulas, reductions
 export SpectralIntegral, integrate, nominal, ray!
 public CoaxialInput
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
@@ -157,13 +157,19 @@ function impedance end
     impedance!(formula, Z, …)
 
 Write the series-impedance matrix of a formula. A method that combines formulas takes
-them all before `Z`.
+them all before `Z`. An earth-return method takes
+`buffers, input, media, s, k` after `Z`.
 
 # Arguments
 
 - `formula`: series-impedance formula.
 - `Z`: destination for the matrix in \\[Ω/m\\].
-- `…`: inputs of the selected method.
+- `buffers`: preallocated computation arrays for an earth-return method.
+- `input`: numerical cable geometry and connections.
+- `media`: air and earth properties at the frequency.
+- `s`: complex frequency, `j 2π f`, \\[1/s\\].
+- `k`: frequency index.
+- `…`: inputs of another selected method.
 
 # Returns
 
@@ -174,13 +180,19 @@ function impedance! end
 """
     potential!(formula, P, …)
 
-Write the potential-coefficient matrix of a formula.
+Write the potential-coefficient matrix of a formula. An earth-return method takes
+`buffers, input, media, s, k` after `P`.
 
 # Arguments
 
 - `formula`: potential-coefficient formula.
 - `P`: destination for the matrix in \\[m/F\\].
-- `…`: inputs of the selected method.
+- `buffers`: preallocated computation arrays for an earth-return method.
+- `input`: numerical cable geometry and connections.
+- `media`: air and earth properties at the frequency.
+- `s`: complex frequency, `j 2π f`, \\[1/s\\].
+- `k`: frequency index.
+- `…`: inputs of another selected method.
 
 # Returns
 

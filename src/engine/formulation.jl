@@ -20,9 +20,9 @@ struct CoaxialFormulation{
     O <: FormulationOptions
 } <: AbstractFormulation
     "Formula for the surface impedances of each equivalent conductor."
-    internal::I
+    internal_impedance::I
     "Formula for the magnetic series-impedance term across each dielectric interval."
-    insulation::D
+    insulation_impedance::D
     "Admittivity law for insulator layers."
     insulation_admittance::K
     "Admittivity law for semicon layers."
@@ -36,13 +36,13 @@ struct CoaxialFormulation{
     "Temperature law for conductor resistivity."
     resistivity::R
     "Frequency law for air and earth material properties."
-    properties::P
+    earth_properties::P
     "Options: the longitudinal wavenumber `Γ` \\[1/m\\] and the reductions."
     options::O
     function CoaxialFormulation(
-            internal::I, insulation::D, insulation_admittance::K,
+            internal_impedance::I, insulation_impedance::D, insulation_admittance::K,
             semicon_admittance::S, earth_impedance::Z, earth_admittance::Y, shunt::U,
-            resistivity::R, properties::P,
+            resistivity::R, earth_properties::P,
             options::O) where {
             I <: InternalImpedance.Formula,
             D <: InsulationImpedance.Formula,
@@ -59,9 +59,9 @@ struct CoaxialFormulation{
         validate(earth_admittance, potential!)
         validate((earth_impedance, earth_admittance), CoaxialFormulation)
         return new{I, D, K, S, Z, Y, U, R, P, O}(
-            internal, insulation, insulation_admittance,
+            internal_impedance, insulation_impedance, insulation_admittance,
             semicon_admittance, earth_impedance, earth_admittance, shunt, resistivity,
-            properties, options)
+            earth_properties, options)
     end
 end
 
@@ -78,15 +78,15 @@ options. Earth slots with the same identifier must hold equal formulas.
 
 # Keywords
 
-- `internal`: conductor surface-impedance formula. Default: `:schelkunoff1934`.
-- `insulation`: magnetic dielectric-interval formula. Default: `:ametani1980`.
+- `internal_impedance`: conductor surface-impedance formula. Default: `:schelkunoff1934`.
+- `insulation_impedance`: magnetic dielectric-interval formula. Default: `:ametani1980`.
 - `insulation_admittance`: admittivity law for insulator layers. Default: `:lossless`.
 - `semicon_admittance`: admittivity law for semicon layers. Default: `:lossless`.
 - `earth_impedance`: earth-return impedance formula. Default: `:unified`.
 - `earth_admittance`: earth-return potential-coefficient formula. Default: `:unified`.
 - `shunt`: formula for potential coefficients inside cables. Default: `:series`.
 - `resistivity`: conductor resistivity law. Default: `:linear`.
-- `properties`: air and earth properties law. Default: `:constant`.
+- `earth_properties`: air and earth properties law. Default: `:constant`.
 - `Γ`: longitudinal wavenumber \\[1/m\\], one value or one per frequency. Default: `0`.
 - `bundle`: merge conductors with the same positive connection index. Default: `true`.
 - `kron`: remove conductors with connection index zero by [`eliminate!`](@ref). Default:
@@ -106,18 +106,18 @@ options. Earth slots with the same identifier must hold equal formulas.
 - Throws `DomainError` when `Γ` is empty or nonfinite.
 """
 function CoaxialFormulation(;
-        internal = :schelkunoff1934, insulation = :ametani1980,
+        internal_impedance = :schelkunoff1934, insulation_impedance = :ametani1980,
         insulation_admittance = :lossless, semicon_admittance = :lossless,
         earth_impedance = :unified, earth_admittance = :unified, shunt = :series,
-        resistivity = :linear, properties = :constant, kw...)
-    return CoaxialFormulation(select(InternalImpedance.Formula, internal),
-        select(InsulationImpedance.Formula, insulation),
+        resistivity = :linear, earth_properties = :constant, kw...)
+    return CoaxialFormulation(select(InternalImpedance.Formula, internal_impedance),
+        select(InsulationImpedance.Formula, insulation_impedance),
         select(InsulationAdmittance.Formula, insulation_admittance),
         select(SemiconAdmittance.Formula, semicon_admittance),
         select(EarthReturn.Formula, earth_impedance),
         select(EarthReturn.Formula, earth_admittance),
         select(Shunt.Formula, shunt), select(Resistivity.Formula, resistivity),
-        select(EarthProperties.Formula, properties),
+        select(EarthProperties.Formula, earth_properties),
         FormulationOptions(CoaxialFormulation; kw...))
 end
 
@@ -234,11 +234,11 @@ struct FEM{
     "Temperature law for conductor resistivity."
     resistivity::R
     "Frequency law for air and earth material properties."
-    properties::P
+    earth_properties::P
     "Options: the longitudinal wavenumber `Γ` \\[1/m\\] and the reductions."
     options::O
     function FEM(insulation_admittance::K, semicon_admittance::S, resistivity::R,
-            properties::P,
+            earth_properties::P,
             options::O) where {
             K <: InsulationAdmittance.Formula,
             S <: SemiconAdmittance.Formula,
@@ -247,7 +247,8 @@ struct FEM{
             O <: FormulationOptions{FEM}
     }
         return new{K, S, R, P, O}(
-            insulation_admittance, semicon_admittance, resistivity, properties, options)
+            insulation_admittance, semicon_admittance, resistivity,
+            earth_properties, options)
     end
 end
 
@@ -267,7 +268,7 @@ options.
 - `insulation_admittance`: admittivity law for insulator layers. Default: `:lossless`.
 - `semicon_admittance`: admittivity law for semicon layers. Default: `:lossless`.
 - `resistivity`: conductor resistivity law. Default: `:linear`.
-- `properties`: air and earth properties law. Default: `:constant`.
+- `earth_properties`: air and earth properties law. Default: `:constant`.
 - `Γ`: longitudinal wavenumber \\[1/m\\], one value or one per frequency. Default: `0`.
 - `bundle`: merge conductors with the same positive connection index. Default: `true`.
 - `kron`: remove conductors with connection index zero by [`eliminate!`](@ref). Default:
@@ -284,11 +285,11 @@ options.
 - Throws `DomainError` when `Γ` is empty or nonfinite.
 """
 function FEM(; insulation_admittance = :lossless, semicon_admittance = :lossless,
-        resistivity = :linear, properties = :constant, kw...)
+        resistivity = :linear, earth_properties = :constant, kw...)
     return FEM(select(InsulationAdmittance.Formula, insulation_admittance),
         select(SemiconAdmittance.Formula, semicon_admittance),
         select(Resistivity.Formula, resistivity),
-        select(EarthProperties.Formula, properties), FormulationOptions(FEM; kw...))
+        select(EarthProperties.Formula, earth_properties), FormulationOptions(FEM; kw...))
 end
 
 # Γ is one finite value, or one finite value per frequency.

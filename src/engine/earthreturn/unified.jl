@@ -424,12 +424,17 @@ Copy the earth-return impedances computed by [`prepare!`](@ref) into the destina
 - `formula`: unified earth-return formula.
 - `Zg`: destination for cable impedances in \\[Ω/m\\].
 - `buffers`: computation arrays with the prepared `unified.Ze` matrix.
+- `input`: numerical cable geometry and connections.
+- `media`: air and earth properties at the frequency.
+- `s`: complex frequency, `j 2π f`, \\[1/s\\].
+- `k`: frequency index.
 
 # Returns
 
 - `Zg`, with earth-return impedances \\[Ω/m\\].
 """
-function impedance!(formula::Formula{:unified}, Zg::AbstractMatrix, buffers)
+function impedance!(
+        formula::Formula{:unified}, Zg::AbstractMatrix, buffers, input, media, s, k)
     return copyto!(Zg, buffers.unified.Ze)
 end
 
@@ -444,12 +449,17 @@ destination.
 - `formula`: unified earth-return formula.
 - `Pg`: destination cable potential-coefficient matrix \\[m/F\\].
 - `buffers`: computation arrays with the prepared `unified.Pe` matrix.
+- `input`: numerical cable geometry and connections.
+- `media`: air and earth properties at the frequency.
+- `s`: complex frequency, `j 2π f`, \\[1/s\\].
+- `k`: frequency index.
 
 # Returns
 
 - `Pg`, with earth-return potential coefficients \\[m/F\\].
 """
-function potential!(formula::Formula{:unified}, Pg::AbstractMatrix, buffers)
+function potential!(
+        formula::Formula{:unified}, Pg::AbstractMatrix, buffers, input, media, s, k)
     return copyto!(Pg, buffers.unified.Pe)
 end
 

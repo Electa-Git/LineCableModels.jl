@@ -251,8 +251,8 @@ using SpecialFunctions: besseli
         for (k, f) in enumerate(frequencies)
             media = map(layer -> Engine.properties(law, layer, f), problem.earth.layers)
             Engine.prepare!(formula, buffers, input, media, im * (2 * π * f), k)
-            Engine.impedance!(formula, Zg, buffers)
-            Engine.potential!(formula, Pg, buffers)
+            Engine.impedance!(formula, Zg, buffers, input, media, im * (2 * π * f), k)
+            Engine.potential!(formula, Pg, buffers, input, media, im * (2 * π * f), k)
             for (matrix, target) in
                 ((Zg, targets["Zg"][:, :, k]), (Pg, targets["Pg"][:, :, k]))
                 @test maximum(abs, matrix - target) <= 1e-9 * maximum(abs, diag(target))

@@ -14,10 +14,10 @@ end
 
     @testset "the coaxial formulation and its earth slots" begin
         formulation = CoaxialFormulation()
-        @test (formulation.internal, formulation.insulation,
+        @test (formulation.internal_impedance, formulation.insulation_impedance,
             formulation.insulation_admittance, formulation.semicon_admittance,
             formulation.earth_impedance, formulation.shunt, formulation.resistivity,
-            formulation.properties) ===
+            formulation.earth_properties) ===
               (Engine.InternalImpedance.Formula(Val(:schelkunoff1934)),
             Engine.InsulationImpedance.Formula(Val(:ametani1980)),
             Engine.InsulationAdmittance.Formula(Val(:lossless)),
@@ -37,10 +37,11 @@ end
         @test_throws ArgumentError(
             "the earth slots hold two different :unified formulas; a formula that gives Z and P " *
             "together is one formula in both slots") CoaxialFormulation(
-            formulation.internal, formulation.insulation, formulation.insulation_admittance,
-            formulation.semicon_admittance, formulation.earth_impedance,
+            formulation.internal_impedance, formulation.insulation_impedance,
+            formulation.insulation_admittance, formulation.semicon_admittance,
+            formulation.earth_impedance,
             Engine.EarthReturn.Formula(Val(:unified); section...), formulation.shunt,
-            formulation.resistivity, formulation.properties, formulation.options)
+            formulation.resistivity, formulation.earth_properties, formulation.options)
         @test_throws "two different :unified formulas" CoaxialFormulation(;
             earth_impedance = :unified => section)
         @test_throws DomainError CoaxialFormulation(; earth_impedance = :declared)
@@ -51,10 +52,15 @@ end
     @testset "the finite-element formulation and its options" begin
         fem = FEM()
         @test (fem.insulation_admittance, fem.semicon_admittance, fem.resistivity,
-            fem.properties) === (Engine.InsulationAdmittance.Formula(Val(:lossless)),
+            fem.earth_properties) === (Engine.InsulationAdmittance.Formula(Val(:lossless)),
             Engine.SemiconAdmittance.Formula(Val(:lossless)),
             Engine.Resistivity.Formula(Val(:linear)),
             Engine.EarthProperties.Formula(Val(:constant)))
+        for material in
+            (Material(:insulator, 1.0e14, 2.3), Material(:semicon, 1000.0, 1000.0))
+            @test Engine.admittivity(FEM(), material, 50.0) ==
+                  Engine.admittivity(CoaxialFormulation(), material, 50.0)
+        end
         @test FEM(; Γ = [complex(0.0, 1.0)]).options.Γ == [complex(0.0, 1.0)]
         @test_throws DomainError FEM(; Γ = complex(NaN))
         @test_throws DomainError FEM(; Γ = ComplexF64[])

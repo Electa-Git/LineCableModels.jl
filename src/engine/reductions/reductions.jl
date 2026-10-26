@@ -1,6 +1,60 @@
 """
 $(TYPEDSIGNATURES)
 
+Return the plan of the bundle and Kron reductions of a system under the formulation's
+options. The plan lists the conductor indices of the reductions and the labels of the
+conductors and of the kept rows. The rows of the reduced matrices start with the first
+conductor of each conductor index `k ≥ 1`, in the order of the system. The other conductors
+of each index follow, and the conductors of index zero come last. With `bundle`, the
+reductions merge each of the other conductors into the first of its index and remove its
+row. With `kron`, they remove the rows of index zero.
+
+# Arguments
+
+- `system`: cable designs, placements, and conductor connections.
+- `options`: formulation options that select the bundle and Kron reductions.
+
+# Returns
+
+- `label`: label of each conductor, `cable:<i>:<terminal>`.
+- `bundles`: conductor pairs `(first, other)` to merge, empty when `bundle` is false.
+- `kept`: conductor indices to keep, in result order.
+- `eliminated`: conductor indices to remove.
+- `terminals`: labels of the kept rows, with a bundle's conductor labels joined by `+`.
+"""
+function reductions(system::CableSystem, options::FormulationOptions)
+    connection = [row.connection for row in system.terminals]
+    label = ["cable:$(row.cable):$(system.designs[row.cable].terminals[row.terminal].name)"
+             for row in system.terminals]
+    firsts = [i
+              for i in eachindex(connection)
+              if connection[i] > 0 && connection[i] ∉ view(connection, 1:(i - 1))]
+    others = [i
+              for j in firsts
+              for i in eachindex(connection)
+              if i > j && connection[i] == connection[j]]
+    grounded = [i for i in eachindex(connection) if iszero(connection[i])]
+    permutation = [firsts; others; grounded]
+    merged = length(firsts) .+ eachindex(others)
+    zeroed = (length(firsts) + length(others)) .+ eachindex(grounded)
+    bundles = [(k, row)
+               for (row, i) in zip(merged, others)
+               for k in eachindex(firsts) if connection[firsts[k]] == connection[i]]
+    eliminated = [options.bundle ? merged : Int[]; options.kron ? zeroed : Int[]]
+    kept = setdiff(eachindex(permutation), eliminated)
+    terminals = [options.bundle && connection[i] > 0 ?
+                 join(label[connection .== connection[i]], "+") : label[i]
+                 for i in permutation[kept]]
+    bundles = [(permutation[first], permutation[other]) for (first, other) in bundles]
+    kept = permutation[kept]
+    eliminated = permutation[eliminated]
+    return (; label, bundles = options.bundle ? bundles : Tuple{Int, Int}[], kept,
+        eliminated, terminals)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Merge each other conductor of a bundle into the first conductor of its index, in the rows
 and columns of `matrix`. The conductors of a bundle share one voltage and carry its current
 together. For the pairs ``(i, j)`` of `pairs`, with ``i`` the first conductor of a bundle

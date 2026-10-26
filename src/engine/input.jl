@@ -3,17 +3,11 @@ $(TYPEDEF)
 
 Hold the numerical input of a computation in the coaxial model. Each conductor of the system
 is an equivalent tube, and the dielectric layers of its interval surround it. Each cable has
-a center and an outer radius. A plan orders the conductors for the reductions that the
-`bundle` and `kron` options of the formulation select. `CoaxialInput(problem, options)`
-builds the input once from the blueprints of the designs and from the placements and the
-connections of the system. The values have the problem's type `T`, and the conductors follow
-the terminals of the system, cable by cable and from the inside out.
-
-The rows of the reduced matrices start with the first conductor of each conductor index
-`k ≥ 1`, in the order of the system. The other conductors of each index follow, and the
-conductors of index zero come last. With `bundle`, a bundle merges each of the other
-conductors into the first of its index, and the reductions remove its row. With `kron`, they
-remove the rows of index zero.
+a center and an outer radius. Its plan comes from [`reductions`](@ref) under the `bundle`
+and `kron` options of the formulation. `CoaxialInput(problem, options)` builds the input
+once from the blueprints of the designs and from the placements and the connections of the
+system. The values have the problem's type `T`, and the conductors follow the terminals of
+the system, cable by cable and from the inside out.
 
 $(TYPEDFIELDS)
 """
@@ -82,8 +76,7 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
                                [length(blueprint.dielectrics) for blueprint in blueprints]])
         cable = [row.cable for row in system.terminals]
         connection = [row.connection for row in system.terminals]
-        label = ["cable:$(row.cable):$(system.designs[row.cable].terminals[row.terminal].name)"
-                 for row in system.terminals]
+        (; label, bundles, kept, eliminated, terminals) = reductions(system, options)
         r_in = [convert(T, tube.r_in) for tube in tubes]
         r_ex = [convert(T, tube.r_ex) for tube in tubes]
         material = [convert(Material{T}, tube.material) for tube in tubes]
@@ -105,32 +98,10 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         x = [convert(T, center.x) for center in centers]
         y = [convert(T, center.y) for center in centers]
         radius = [convert(T, support(design.outer)) for design in system.designs]
-        firsts = [i
-                  for i in eachindex(connection)
-                  if connection[i] > 0 && connection[i] ∉ view(connection, 1:(i - 1))]
-        others = [i
-                  for j in firsts
-                  for i in eachindex(connection)
-                  if i > j && connection[i] == connection[j]]
-        grounded = [i for i in eachindex(connection) if iszero(connection[i])]
-        permutation = [firsts; others; grounded]
-        merged = length(firsts) .+ eachindex(others)
-        zeroed = (length(firsts) + length(others)) .+ eachindex(grounded)
-        bundles = [(k, row)
-                   for (row, i) in zip(merged, others)
-                   for k in eachindex(firsts) if connection[firsts[k]] == connection[i]]
-        eliminated = [options.bundle ? merged : Int[]; options.kron ? zeroed : Int[]]
-        kept = setdiff(eachindex(permutation), eliminated)
-        terminals = [options.bundle && connection[i] > 0 ?
-                     join(label[connection .== connection[i]], "+") : label[i]
-                     for i in permutation[kept]]
-        bundles = [(permutation[first], permutation[other]) for (first, other) in bundles]
-        kept = permutation[kept]
-        eliminated = permutation[eliminated]
         return new{T, typeof(layer_material)}(
             cable, connection, label, r_in, r_ex, material,
             r_ins_ex, mu_r_ins, layers, layer_r_in, layer_r_ex, layer_material, assemblies,
-            x, y, radius, options.bundle ? bundles : Tuple{Int, Int}[], kept,
+            x, y, radius, bundles, kept,
             eliminated, terminals)
     end
 end

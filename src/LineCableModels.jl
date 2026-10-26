@@ -25,7 +25,7 @@ using .Engine: vacuum_permittivity, vacuum_permeability, AbstractInternalImpedan
                properties, impedance, impedance!, potential!, prepare!, initialize_buffers,
                LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
                GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
-               SpectralIntegral, integrate, nominal, ray!, formulas
+               SpectralIntegral, integrate, nominal, ray!, formulas, reductions
 
 export Material, material, EarthLayer, EarthModel, homogeneous
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
@@ -46,6 +46,6 @@ public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulatio
        AbstractEarthProperties
 public admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
        initialize_buffers, bundle!, eliminate!, transposition!, SpectralIntegral, integrate,
-       nominal, ray!, formulas
+       nominal, ray!, formulas, reductions
 
 end

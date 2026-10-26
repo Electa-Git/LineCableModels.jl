@@ -93,9 +93,9 @@ flatten = "reduce a cable design to the equivalent tubes and dielectric layers o
 [modules.Engine]
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
     "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
-    "line_parameters", "problem", "gmsh", "fem", "return", "shunt", "buffers", "trace",
+    "line_parameters", "problem", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "label", "radius", "bundles",
-    "transposition", "integral", "integrand", "points", "ray"]
+    "transposition", "integral", "integrand", "points", "ray", "reductions"]
 qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
 symbols = ["z", "r_ins_ex"]
 
@@ -224,6 +224,7 @@ integrate = "evaluate an integral by the method that its tag selects, with the c
 nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the hook of an uncertainty extension"
 "ray!" = "the ray of a spectral integral on [0, ∞) below its singularities, with the points where the quadrature subdivides it written into the engine's integral block"
 formulas = "the distinct formulas of a formulation's slots, the two earth slots once when they are one formula"
+reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
 
 [register.Engine.private]
 "solve!" = "LCMBackend's loop of a CoaxialFormulation over the problem's frequencies: at each frequency it evaluates the formulas, assembles Z and P, applies the reductions, and writes Z, Y and, when traced, the stage matrices into the result"

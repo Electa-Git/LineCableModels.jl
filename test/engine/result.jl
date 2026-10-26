@@ -15,6 +15,8 @@
             Z, Y[1:1, 1:1, :], frequencies, labels, 1.0, FEM(), trace)
         @test_throws DimensionMismatch result(
             Z, Y, frequencies, labels[1:1], 1.0, FEM(), trace)
+        @test_throws DimensionMismatch result(
+            Z, Y, frequencies, labels, 1.0, FEM(), (Z = Z[:, :, 1:2],))
     end
 
     @testset "Z and Y are finite" begin

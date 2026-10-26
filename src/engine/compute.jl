@@ -15,18 +15,19 @@ function formulas(formulation::CoaxialFormulation{<:InternalImpedance.Formula,
         <:InsulationImpedance.Formula, <:InsulationAdmittance.Formula,
         <:SemiconAdmittance.Formula, E, E}) where {E <: EarthReturn.Formula}
     return (
-        formulation.internal, formulation.insulation, formulation.insulation_admittance,
-        formulation.semicon_admittance, formulation.earth_impedance, formulation.shunt,
-        formulation.resistivity, formulation.properties)
+        formulation.internal_impedance, formulation.insulation_impedance,
+        formulation.insulation_admittance, formulation.semicon_admittance,
+        formulation.earth_impedance, formulation.shunt, formulation.resistivity,
+        formulation.earth_properties)
 end
 
 # Earth slots of different types each contribute their formula.
 function formulas(formulation::CoaxialFormulation)
     return (
-        formulation.internal, formulation.insulation, formulation.insulation_admittance,
-        formulation.semicon_admittance, formulation.earth_impedance,
-        formulation.earth_admittance, formulation.shunt, formulation.resistivity,
-        formulation.properties)
+        formulation.internal_impedance, formulation.insulation_impedance,
+        formulation.insulation_admittance, formulation.semicon_admittance,
+        formulation.earth_impedance, formulation.earth_admittance, formulation.shunt,
+        formulation.resistivity, formulation.earth_properties)
 end
 
 """
@@ -36,7 +37,7 @@ Evaluate the insulator admittivity law selected by the formulation.
 
 # Arguments
 
-- `formulation`: coaxial formulation with the material laws.
+- `formulation`: coaxial or finite-element formulation with the material laws.
 - `material`: insulator material.
 - `f`: frequency \\[Hz\\].
 
@@ -45,14 +46,14 @@ Evaluate the insulator admittivity law selected by the formulation.
 - Admittivity \\[S/m\\].
 """
 function admittivity(
-        formulation::CoaxialFormulation, material::Material{
+        formulation::Union{CoaxialFormulation, FEM}, material::Material{
             T, :insulator}, f) where {T <: Real}
     return admittivity(formulation.insulation_admittance, material, f)
 end
 
 # A semicon layer takes the semicon admittivity law.
 function admittivity(
-        formulation::CoaxialFormulation, material::Material{
+        formulation::Union{CoaxialFormulation, FEM}, material::Material{
             T, :semicon}, f) where {T <: Real}
     return admittivity(formulation.semicon_admittance, material, f)
 end
@@ -168,8 +169,10 @@ function solve!(
         for l in eachindex(kappa)
             kappa[l] = admittivity(formulation, input.layer_material[l], f)
         end
-        media = map(layer -> properties(formulation.properties, layer, f), problem.earth.layers)
-        impedance!(formulation.internal, formulation.insulation, Zin, input, rho, s)
+        media = map(layer -> properties(formulation.earth_properties, layer, f),
+            problem.earth.layers)
+        impedance!(formulation.internal_impedance,
+            formulation.insulation_impedance, Zin, input, rho, s)
         potential!(formulation.shunt, Pin, input, kappa, s)
         if options.trace
             copyto!(view(trace.Zin,:,:,k), Zin)
@@ -178,8 +181,8 @@ function solve!(
         # The map compiles each call over the tuple of formulas, where foreach's fold dispatches at run time.
         map(formula -> prepare!(formula, buffers, input, media, s, k),
             formulas(formulation))
-        impedance!(formulation.earth_impedance, Zg, buffers)
-        potential!(formulation.earth_admittance, Pg, buffers)
+        impedance!(formulation.earth_impedance, Zg, buffers, input, media, s, k)
+        potential!(formulation.earth_admittance, Pg, buffers, input, media, s, k)
         if options.trace
             copyto!(view(trace.Zg,:,:,k), Zg)
             copyto!(view(trace.Pg,:,:,k), Pg)
