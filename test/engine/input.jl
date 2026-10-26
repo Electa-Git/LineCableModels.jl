@@ -29,7 +29,7 @@
             @test input.r_ins_ex ≈ [outer, outer] && input.radius ≈ [outer, outer]
             @test input.x == [0.0, 1.0] && input.y == [-1.0, -1.0]
             @test input.assemblies == [1:1, 2:2]
-            @test input.permutation == [1, 2] && input.kept == [1, 2]
+            @test input.kept == [1, 2]
             @test isempty(input.bundles) && isempty(input.eliminated)
             @test input.terminals == input.label
         end
@@ -82,7 +82,7 @@
             @test input.layer_r_ex ≈ [11.5e-3, 19.5e-3, 20.5e-3, 24.5e-3, 32.5e-3]
             @test input.x == [0.0] && input.y == [-1.0]
             @test input.radius == [support(design.outer)] && input.assemblies == [1:3]
-            @test input.connection == [1, 2, 3] && input.permutation == [1, 2, 3]
+            @test input.connection == [1, 2, 3]
             @test input.kept == [1, 2, 3] && isempty(input.eliminated)
             @test input.terminals == ["cable:1:core", "cable:1:sheath", "cable:1:armour"]
         end
@@ -101,17 +101,17 @@
             line_length = 1.0)
         problem = LineParametersProblem(bonded, earth; frequencies = [50.0])
         joined = "cable:1:core+cable:1:armour"
-        for (bundle, kron, bundles, kept, terminals) in (
-            (true, true, [(1, 2)], [1], [joined]),
-            (true, false, [(1, 2)], [1, 3], [joined, "cable:1:sheath"]),
-            (false, true, Tuple{Int, Int}[], [1, 2], ["cable:1:core", "cable:1:armour"]),
-            (false, false, Tuple{Int, Int}[], [1, 2, 3],
+        for (bundle, kron, bundles, kept, eliminated, terminals) in (
+            (true, true, [(1, 3)], [1], [3, 2], [joined]),
+            (true, false, [(1, 3)], [1, 2], [3], [joined, "cable:1:sheath"]),
+            (false, true, Tuple{Int, Int}[], [1, 3],
+                [2], ["cable:1:core", "cable:1:armour"]),
+            (false, false, Tuple{Int, Int}[], [1, 3, 2], Int[],
                 ["cable:1:core", "cable:1:armour", "cable:1:sheath"]))
             options = FormulationOptions(CoaxialFormulation; bundle, kron)
             input = CoaxialInput(problem, options)
-            @test input.permutation == [1, 3, 2]
             @test input.bundles == bundles && input.kept == kept
-            @test input.eliminated == setdiff(1:3, kept) && input.terminals == terminals
+            @test input.eliminated == eliminated && input.terminals == terminals
         end
         two = build(
             CableSystem, [design, design], [Placement(0.0, -1.0), Placement(1.0, -1.0)];
@@ -119,7 +119,7 @@
                 (core = 1, sheath = 0, armour = 0), (core = 2, sheath = 0, armour = 0)],
             id = "two_cables", line_length = 1.0)
         input = CoaxialInput(LineParametersProblem(two, earth; frequencies = [50.0]), reductions)
-        @test input.permutation == [1, 4, 2, 3, 5, 6] && input.kept == [1, 2]
+        @test input.kept == [1, 4]
         @test input.terminals == ["cable:1:core", "cable:2:core"]
         @test input.layers == [1:1, 2:2, 3:2, 3:3, 4:4, 5:4]
         @test input.assemblies == [1:3, 4:6]

@@ -56,16 +56,14 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     y::Vector{T}
     "Outer radius of each cable \\[m\\]."
     radius::Vector{T}
-    "Conductor at each row of the reduced matrices, before the reductions."
-    permutation::Vector{Int}
     """
-    Rows `(first, other)` of each conductor that a bundle merges into the first conductor of
-    its index, in the order of `permutation`. The list is empty without `bundle`.
+    Conductor indices `(first, other)` of each conductor that a bundle merges into the first
+    conductor of its index. The list is empty without `bundle`.
     """
     bundles::Vector{Tuple{Int, Int}}
-    "Rows that the reductions keep, in the order of `permutation`."
+    "Conductor indices that the reductions keep, in the order of the result's rows."
     kept::Vector{Int}
-    "Rows that the reductions remove, in the order of `permutation`."
+    "Conductor indices that the reductions remove."
     eliminated::Vector{Int}
     "Label of each kept row: the label of its conductor, or the labels of a bundle joined by `+`."
     terminals::Vector{String}
@@ -124,10 +122,13 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
         terminals = [options.bundle && connection[i] > 0 ?
                      join(label[connection .== connection[i]], "+") : label[i]
                      for i in permutation[kept]]
+        bundles = [(permutation[first], permutation[other]) for (first, other) in bundles]
+        kept = permutation[kept]
+        eliminated = permutation[eliminated]
         return new{T, typeof(layer_material)}(
             cable, connection, label, r_in, r_ex, material,
             r_ins_ex, mu_r_ins, layers, layer_r_in, layer_r_ex, layer_material, assemblies,
-            x, y, radius, permutation, options.bundle ? bundles : Tuple{Int, Int}[], kept,
+            x, y, radius, options.bundle ? bundles : Tuple{Int, Int}[], kept,
             eliminated, terminals)
     end
 end

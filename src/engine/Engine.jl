@@ -12,11 +12,12 @@ module Engine
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..Commons: compute, defaults, select, validate
-using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions
+using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
+                 ComputationOptions
 using ..Materials: Material
 using ..Earth: EarthModel
 using ..DataModel: Placement, CableSystem, support, flatten
-using LinearAlgebra: checksquare, ldiv!, lu!, mul!
+using LinearAlgebra: I, checksquare, ldiv!, lu!, mul!
 using QuadGK: alloc_segbuf, quadgk
 
 export vacuum_permittivity, vacuum_permeability
@@ -27,7 +28,7 @@ export admittivity, resistivity, properties, impedance, impedance!, potential!, 
        initialize_buffers
 export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
-export bundle!, eliminate!, transposition!
+export bundle!, eliminate!, transposition!, formulas
 export SpectralIntegral, integrate, nominal, ray!
 public CoaxialInput
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
@@ -146,5 +147,6 @@ include("backends.jl")
 include("result.jl")
 include("assembly.jl")
 include("reductions/reductions.jl")
+include("compute.jl")
 
 end

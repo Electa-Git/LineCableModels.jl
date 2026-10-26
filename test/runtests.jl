@@ -23,6 +23,7 @@ using LineCableModels
     include("engine/integral.jl")
     include("engine/unified.jl")
     include("engine/formulation.jl")
+    include("engine/compute.jl")
     include("engine/result.jl")
     include("architecture/architecture.jl")
 end

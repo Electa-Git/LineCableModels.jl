@@ -58,6 +58,7 @@ struct CoaxialFormulation{
     }
         validate(earth_impedance, impedance!)
         validate(earth_admittance, potential!)
+        validate((earth_impedance, earth_admittance), CoaxialFormulation)
         return new{I, D, K, S, Z, Y, U, R, P, O}(
             internal, insulation, insulation_admittance,
             semicon_admittance, earth_impedance, earth_admittance, shunt, resistivity,
@@ -103,14 +104,12 @@ function CoaxialFormulation(;
         insulation_admittance = :lossless, semicon_admittance = :lossless,
         earth_impedance = :unified, earth_admittance = :unified, shunt = :series,
         resistivity = :linear, properties = :constant, kw...)
-    impedance_formula = select(EarthReturn.Formula, earth_impedance)
-    admittance_formula = select(EarthReturn.Formula, earth_admittance)
-    validate((impedance_formula, admittance_formula), CoaxialFormulation)
     return CoaxialFormulation(select(InternalImpedance.Formula, internal),
         select(InsulationImpedance.Formula, insulation),
         select(InsulationAdmittance.Formula, insulation_admittance),
-        select(SemiconAdmittance.Formula, semicon_admittance), impedance_formula,
-        impedance_formula == admittance_formula ? impedance_formula : admittance_formula,
+        select(SemiconAdmittance.Formula, semicon_admittance),
+        select(EarthReturn.Formula, earth_impedance),
+        select(EarthReturn.Formula, earth_admittance),
         select(Shunt.Formula, shunt), select(Resistivity.Formula, resistivity),
         select(EarthProperties.Formula, properties),
         FormulationOptions(CoaxialFormulation; kw...))

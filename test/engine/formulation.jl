@@ -31,7 +31,16 @@ end
         section = (integral = (rtol = 1e-10,),)
         shared = CoaxialFormulation(; earth_impedance = :unified => section,
             earth_admittance = :unified => section)
-        @test shared.earth_impedance === shared.earth_admittance
+        @test length(Engine.formulas(CoaxialFormulation())) == 8 &&
+              count(==(formulation.earth_impedance), Engine.formulas(CoaxialFormulation())) ==
+              1
+        @test_throws ArgumentError(
+            "the earth slots hold two different :unified formulas; a formula that gives Z and P " *
+            "together is one formula in both slots") CoaxialFormulation(
+            formulation.internal, formulation.insulation, formulation.insulation_admittance,
+            formulation.semicon_admittance, formulation.earth_impedance,
+            Engine.EarthReturn.Formula(Val(:unified); section...), formulation.shunt,
+            formulation.resistivity, formulation.properties, formulation.options)
         @test_throws "two different :unified formulas" CoaxialFormulation(;
             earth_impedance = :unified => section)
         @test_throws DomainError CoaxialFormulation(; earth_impedance = :declared)

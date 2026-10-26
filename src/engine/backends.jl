@@ -26,8 +26,24 @@ function compute(problem::LineParametersProblem, formulation::AbstractFormulatio
     return compute(backend(typeof(formulation)), problem, formulation; kw...)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Compute `problem` by `formulation` on `backend`. The keywords are that backend's options.
+"""
+function compute(backend::AbstractBackend, problem::LineParametersProblem,
+        formulation::AbstractFormulation; kw...)
+    return compute(backend, problem, formulation, ComputationOptions(typeof(backend); kw...))
+end
+
+# A backend implements the formulations it has a method for.
+function compute(backend::AbstractBackend, ::LineParametersProblem,
+        formulation::AbstractFormulation, ::ComputationOptions)
+    throw(ArgumentError("$(nameof(typeof(backend))) does not implement $(nameof(typeof(formulation)))"))
+end
+
 # The Gmsh extension defines the finite-element computation.
 function compute(::GmshBackend, ::LineParametersProblem, ::AbstractFormulation; kw...)
     throw(ArgumentError(
-        "the finite-element backend needs the Gmsh extension: run `using Gmsh` first"))
+        "the Gmsh backend implements FEM and needs the Gmsh extension: run `using Gmsh` first"))
 end

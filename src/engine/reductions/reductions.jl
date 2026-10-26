@@ -65,7 +65,7 @@ for ``M_{ee}^{-1} M_{ek}``. Without an eliminated row, ``M_{\\mathrm{r}} = M_{kk
   ``M_{ee}``.
 - `coupling`: matrix of `length(kept)` rows and `length(eliminated)` columns that receives
   ``M_{ke}``.
-- `right_hand_side`: matrix of `length(eliminated)` rows and `length(kept)` columns that
+- `rhs`: matrix of `length(eliminated)` rows and `length(kept)` columns that
   receives ``M_{ee}^{-1} M_{ek}``.
 
 # Returns
@@ -76,7 +76,7 @@ function eliminate!(
         reduced::AbstractMatrix{Complex{T}}, matrix::AbstractMatrix{Complex{T}},
         kept::AbstractVector{Int}, eliminated::AbstractVector{Int},
         factor::AbstractMatrix{Complex{T}}, coupling::AbstractMatrix{Complex{T}},
-        right_hand_side::AbstractMatrix{Complex{T}}) where {T <: Real}
+        rhs::AbstractMatrix{Complex{T}}) where {T <: Real}
     retained = length(kept)
     removed = length(eliminated)
     for column in 1:retained, row in 1:retained
@@ -94,10 +94,10 @@ function eliminate!(
     end
     for column in 1:retained, row in 1:removed
 
-        right_hand_side[row, column] = matrix[eliminated[row], kept[column]]
+        rhs[row, column] = matrix[eliminated[row], kept[column]]
     end
-    ldiv!(lu!(factor), right_hand_side)
-    return mul!(reduced, coupling, right_hand_side, -one(Complex{T}), one(Complex{T}))
+    ldiv!(lu!(factor), rhs)
+    return mul!(reduced, coupling, rhs, -one(Complex{T}), one(Complex{T}))
 end
 
 """
