@@ -1,8 +1,15 @@
 """
 $(TYPEDSIGNATURES)
 
-Return the options of the formula `:unified` with their defaults. `integral` is the section
-of the method that evaluates the spectral integrals.
+Return the declared options of the unified earth-return formula.
+
+# Arguments
+
+- `Formula{:unified}`: earth-return formula type.
+
+# Returns
+
+- `integral`: the default integration selection, `integrate => :quad`.
 """
 function defaults(::Type{Formula{:unified}})
     return (integral = integrate => :quad,)
@@ -11,11 +18,20 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check the controls of the integration section of the formula `:unified`.
+Check the integration controls of the unified earth-return formula.
+
+# Arguments
+
+- `options`: formula options with an integration section.
+
+# Returns
+
+- `options`, unchanged.
 
 # Errors
 
-- Throws `ArgumentError` for controls that `integrate` refuses.
+- Throws `ArgumentError` for a negative or nonfinite tolerance, two zero tolerances, or a
+  nonpositive evaluation limit.
 """
 function validate(options::FormulationOptions{Formula{:unified}})
     validate(options.integral, integrate, options.integral.method)
@@ -25,9 +41,18 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check that `formula` can compute `problem`. The formula averages each source over the outer
-circumference of its cable, which must lie wholly in the air or wholly in the earth. The
-outer radius of each cable stays below its distance to the interface.
+Check that each outer cable circumference lies strictly within one medium. The
+circumference-current formula requires an outer radius smaller than the distance from the
+cable center to the interface.
+
+# Arguments
+
+- `problem`: cable geometry and earth model.
+- `formula`: unified earth-return formula that consumes the problem.
+
+# Returns
+
+- `problem`, unchanged.
 
 # Errors
 
@@ -52,10 +77,20 @@ validate(formula::Formula{:unified}, ::typeof(potential!)) = formula
 """
 $(TYPEDSIGNATURES)
 
-Return `buffers` with the arrays of the formula under the key `unified`, and the engine's
-integral block of its integration method. The block `unified` has the matrices `K`, `H`, `L`,
-`Ze`, `Pe`, `factor` and `rhs` of the cables, and their state `x`, `A`, `F`, `i0minus` and
-`scaling`.
+Allocate cable matrices and state vectors under `unified`, then add the integral arrays for
+the selected quadrature method.
+
+# Arguments
+
+- `formula`: unified earth-return formula with integration controls.
+- `LineParametersProblem`: problem whose computation needs the arrays.
+- `input`: numerical cable geometry.
+- `buffers`: computation arrays already allocated.
+
+# Returns
+
+- `buffers` extended with the `unified` and `integral` blocks. [`prepare!`](@ref) fills the
+  `unified` arrays.
 """
 function initialize_buffers(formula::Formula{:unified}, ::LineParametersProblem,
         input::CoaxialInput{T}, buffers) where {T}
@@ -79,26 +114,67 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Fill `buffers.unified` with the earth-return state of the cables at the frequency of index
-`k`, of complex frequency `s` \\[1/s\\]. `media` gives the resistivity, the relative
-permittivity and the relative permeability of the air and of the earth. The longitudinal
-wavenumber ``\\Gamma`` \\[1/m\\] of the frequency is `buffers.gamma[k]`, which the
-formulation fills from its option `Γ`.
-
-The formula averages the field of each source over the outer circumference of its cable.
-Each medium ``m`` has the admittivity ``\\sigma_m + s \\varepsilon_m`` and the wavenumber
-``k_m = \\sqrt{s \\mu_m (\\sigma_m + s \\varepsilon_m) - \\Gamma^2}``. Each ordered pair of
-cables gives an impedance term ``k`` and a potential term ``h``. These are spectral
-integrals along the ray of `ray!`, with the direct and image term ``K_0(k D) - K_0(k d)``
-of two cables in one medium. An air receiver takes its potential to the interface below it.
-The currents close on the circumferences:
+Compute the circumference-current state and earth-return matrices at one frequency. For each
+medium ``m``, form admittivity ``\\eta_m`` \\[S/m\\] and squared radial wavenumber ``k_m^2``
+\\[1/m²\\]:
 
 ```math
-P_e L = H, \\qquad Z_e L = K + \\Gamma^2 H / s, \\qquad L = A^{-1} - F K,
+\\eta_m = \\frac{1}{\\rho_m} + s\\varepsilon_0\\varepsilon_{r,m}, \\qquad
+k_m^2 = s \\mu_0 \\mu_{r,m} \\eta_m - \\Gamma^2.
 ```
 
-for the earth-return impedances `Ze` \\[Ω/m\\] and potential coefficients `Pe` \\[m/F\\], where
-``A`` holds ``I_0(x_p)`` and ``F`` the current factors of the cables.
+Here ``\\rho_m`` is resistivity \\[Ω·m\\], ``\\varepsilon_{r,m}`` and ``\\mu_{r,m}`` are
+relative permittivity and permeability \\[dimensionless\\], and ``\\varepsilon_0`` and
+``\\mu_0`` are [`vacuum_permittivity`](@ref) and [`vacuum_permeability`](@ref). Read the
+longitudinal wavenumber ``\\Gamma`` from `buffers.gamma[k]`, in \\[1/m\\].
+
+For a cable ``p`` of radius ``r_p`` in \\[m\\] and medium ``m``, set ``x_p=k_m r_p`` and
+``b_p=|\\operatorname{Re}x_p|``. The scaled receiver factor is ``a_p=e^{-b_p}I_0(x_p)``,
+with ``I_\\nu`` the modified Bessel function of order ``\\nu``. The factor for circumference
+currents is ``F_p`` in \\[S·m\\]:
+
+```math
+F_p=2\\pi\\eta_m r_p^2
+\\begin{cases}
+\\frac12-\\frac{x_p^2}{16}+\\frac{x_p^4}{96}-\\frac{11x_p^6}{6144},
+    & |\\operatorname{nominal}(x_p)|<10^{-3},\\\\
+\\frac{I_1(x_p)}{x_p I_0(x_p)}, & \\text{otherwise}.
+\\end{cases}
+```
+
+Evaluate magnetic, electric, and potential spectral integrals on the ray selected by
+[`ray!`](@ref). Same-medium cable pairs also include direct and image Bessel terms. Air
+receivers reference potential to the interface below them. Store the scaled impedance kernel
+``K`` \\[Ω/m\\] and potential kernel ``H`` \\[m/F\\], then solve
+
+```math
+L_{pq}=\\frac{\\delta_{pq}}{a_p}-F_p K_{pq}, \\qquad
+P_e L=H, \\qquad Z_e L=K+\\frac{\\Gamma^2}{s}H.
+```
+
+Here ``L`` is the dimensionless current matrix, ``\\delta_{pq}`` is the Kronecker delta,
+``P_e`` holds earth-return potential coefficients \\[m/F\\], and ``Z_e`` holds earth-return
+impedances \\[Ω/m\\]. Transposed LU solves apply the common right factor ``L^{-1}``.
+
+# Arguments
+
+- `formula`: unified earth-return formula with integration controls.
+- `buffers`: computation arrays with `gamma`, `integral`, and `unified`.
+- `input`: cable centers and outer radii.
+- `media`: air and earth records with resistivity `rho` in \\[Ω·m\\] and relative `eps_r`,
+  `mu_r` \\[dimensionless\\].
+- `s`: complex frequency, `j 2π f`, \\[1/s\\].
+- `k`: frequency index.
+
+# Returns
+
+- `buffers`, with `unified.Ze` \\[Ω/m\\], `unified.Pe` \\[m/F\\], and their shared state
+  filled.
+
+# Errors
+
+- Throws `DomainError` for a nonfinite weighted earth kernel, a nonfinite integral, or a
+  spectral ray whose geometric weight grows.
 """
 function prepare!(formula::Formula{:unified}, buffers, input::CoaxialInput, media, s, k)
     unified = buffers.unified
@@ -341,8 +417,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Write into `Zg` the earth-return impedances of the cables \\[Ω/m\\] that `prepare!` left in
-`buffers.unified`.
+Copy the earth-return impedances computed by [`prepare!`](@ref) into the destination.
+
+# Arguments
+
+- `formula`: unified earth-return formula.
+- `Zg`: destination for cable impedances in \\[Ω/m\\].
+- `buffers`: computation arrays with the prepared `unified.Ze` matrix.
+
+# Returns
+
+- `Zg`, with earth-return impedances \\[Ω/m\\].
 """
 function impedance!(formula::Formula{:unified}, Zg::AbstractMatrix, buffers)
     return copyto!(Zg, buffers.unified.Ze)
@@ -351,8 +436,18 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Write into `Pg` the earth-return potential coefficients of the cables \\[m/F\\] that
-`prepare!` left in `buffers.unified`.
+Copy the earth-return potential coefficients computed by [`prepare!`](@ref) into the
+destination.
+
+# Arguments
+
+- `formula`: unified earth-return formula.
+- `Pg`: destination cable potential-coefficient matrix \\[m/F\\].
+- `buffers`: computation arrays with the prepared `unified.Pe` matrix.
+
+# Returns
+
+- `Pg`, with earth-return potential coefficients \\[m/F\\].
 """
 function potential!(formula::Formula{:unified}, Pg::AbstractMatrix, buffers)
     return copyto!(Pg, buffers.unified.Pe)
@@ -361,9 +456,24 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return ``I_0(z) - 1`` without the cancellation of the difference. For a nominal ``|z|`` of at
-most 0.5, it sums the power series of ``I_0`` from its second term. Otherwise, it uses the
-exponentially scaled Bessel function.
+Evaluate the modified Bessel difference without subtraction near zero:
+
+```math
+I_0(z)-1=\\sum_{n=1}^{\\infty}\\frac{(z^2/4)^n}{(n!)^2}.
+```
+
+Here ``I_0`` is the modified Bessel function of order zero. For nominal ``|z|\\leq0.5``,
+sum at most 1000 terms and stop when another term leaves the sum unchanged. Otherwise,
+evaluate ``e^{|\\operatorname{Re}z|}I_{0,\\mathrm{scaled}}(z)-1`` with the exponentially
+scaled Bessel function.
+
+# Arguments
+
+- `z`: Bessel argument in \\[dimensionless\\].
+
+# Returns
+
+- The difference ``I_0(z)-1``, in \\[dimensionless\\].
 """
 function i0m1(z)
     if abs(nominal(z)) > 0.5

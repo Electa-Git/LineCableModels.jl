@@ -1,10 +1,8 @@
 """
 $(TYPEDEF)
 
-Store the options of a formula or a formulation. The owner `O`, a formula or formulation
-type, selects the defaults and the checks. `NT` is the type of the options, each in its
-declared order and type. The records of one owner have one type, whichever keywords built
-them. An option reads as a property, such as `options.bundle`.
+Store the declared options of a formula or formulation owner `O` as a typed record.
+Read option values through properties of the record.
 
 $(TYPEDFIELDS)
 """
@@ -19,9 +17,21 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the options of the owner `O` from [`defaults`](@ref) of `O` and the keywords given.
-Each value takes the type of its default through [`select`](@ref), and `validate` checks the
-record.
+Build the options of `O` from [`defaults`](@ref) and the supplied keywords.
+[`select`](@ref) converts each value to its declared type, then [`validate`](@ref)
+checks the record.
+
+# Arguments
+
+- `O`: formula or formulation type that declares the options.
+
+# Keywords
+
+- `kw...`: option values that replace the defaults.
+
+# Returns
+
+- A `FormulationOptions` record with the declared keys in their declared order.
 
 # Errors
 
@@ -34,9 +44,8 @@ end
 """
 $(TYPEDEF)
 
-Store the options of a backend for one computation, such as whether it keeps the
-intermediate matrices. The owner `B` is the backend type, and the record has the form of
-[`FormulationOptions`](@ref).
+Store the declared options of a backend owner `B` for one computation.
+Read option values through properties of the record.
 
 $(TYPEDFIELDS)
 """
@@ -51,9 +60,21 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the options of the backend `B` from [`defaults`](@ref) of `B` and the keywords given.
-Each value takes the type of its default through [`select`](@ref), and `validate` checks the
-record.
+Build the options of `B` from [`defaults`](@ref) and the supplied keywords.
+[`select`](@ref) converts each value to its declared type, then [`validate`](@ref)
+checks the record.
+
+# Arguments
+
+- `B`: backend type that declares the options.
+
+# Keywords
+
+- `kw...`: option values that replace the defaults.
+
+# Returns
+
+- A `ComputationOptions` record with the declared keys in their declared order.
 
 # Errors
 
@@ -89,9 +110,17 @@ select(default::Complex, values::AbstractVector) = convert(Vector{typeof(default
 """
 $(TYPEDSIGNATURES)
 
-Fit the `supplied` options to the `declared` ones. The result has the declared keys in their
-order. A supplied value replaces its default, and [`select`](@ref) fits each value to the
-type of its default.
+Merge supplied options into their defaults, then convert each value through
+[`select`](@ref).
+
+# Arguments
+
+- `declared`: option keys and default values.
+- `supplied`: option values that replace defaults.
+
+# Returns
+
+- A `NamedTuple` with the declared keys, order, and value types.
 
 # Errors
 

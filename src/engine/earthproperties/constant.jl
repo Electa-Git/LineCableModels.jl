@@ -8,6 +8,7 @@ at every frequency.
 
 # Arguments
 
+- `Formula{:constant}`: frequency-independent properties law.
 - `layer`: layer of the earth or of the air.
 - `f`: frequency \\[Hz\\].
 

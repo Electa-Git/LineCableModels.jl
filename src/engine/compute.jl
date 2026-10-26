@@ -1,8 +1,15 @@
 """
 $(TYPEDSIGNATURES)
 
-Return the distinct formulas of `formulation` in slot order. An earth formula that fills both
-earth slots occurs once.
+Return formulas in slot order with one entry for the two earth slots of the same type.
+
+# Arguments
+
+- `formulation`: coaxial formulation whose earth slots share a formula type.
+
+# Returns
+
+- A tuple of formula objects, with the earth formula once.
 """
 function formulas(formulation::CoaxialFormulation{<:InternalImpedance.Formula,
         <:InsulationImpedance.Formula, <:InsulationAdmittance.Formula,
@@ -25,8 +32,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the admittivity of `material` at `f` \\[Hz\\] in \\[S/m\\], by the law of its
-material class in `formulation`.
+Evaluate the insulator admittivity law selected by the formulation.
+
+# Arguments
+
+- `formulation`: coaxial formulation with the material laws.
+- `material`: insulator material.
+- `f`: frequency \\[Hz\\].
+
+# Returns
+
+- Admittivity \\[S/m\\].
 """
 function admittivity(
         formulation::CoaxialFormulation, material::Material{
@@ -44,18 +60,37 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return `problem` unchanged for a formula without a condition on the problem.
+Accept a problem for a formula without a condition on the problem.
+
+# Arguments
+
+- `problem`: line-parameters problem.
+- `AbstractFormulation`: formulation or formula without a more specific validation method.
+
+# Returns
+
+- `problem`, unchanged.
 """
 validate(problem::LineParametersProblem, ::AbstractFormulation) = problem
 
 """
 $(TYPEDSIGNATURES)
 
-Build the arrays for the coaxial computation of `problem` once, then add the arrays of each
-distinct formula of `formulation`. Fill `gamma` with the longitudinal wavenumber \\[1/m\\]
-at each frequency. The matrices store impedances \\[Ω/m\\], potential coefficients \\[m/F\\]
-and their reductions. `rho` stores the resistivities of the conductors \\[Ω·m\\], and `kappa`
-the admittivities of the dielectric layers \\[S/m\\].
+Allocate the coaxial computation arrays, fill the longitudinal wavenumbers, and add the
+arrays of each formula from [`formulas`](@ref).
+
+# Arguments
+
+- `formulation`: formulas, longitudinal wavenumbers, and reductions.
+- `problem`: line-parameters problem.
+- `input`: numerical cable geometry and reduction indices.
+
+# Returns
+
+- A named tuple of conductor resistivities `rho` \\[Ω·m\\], dielectric admittivities `kappa`
+  \\[S/m\\], and longitudinal wavenumbers `gamma` \\[1/m\\].
+- The same tuple contains `Zin`, `Zg` \\[Ω/m\\], `Pin`, `Pg` \\[m/F\\], reduction arrays, an
+  identity matrix, and formula-specific arrays.
 """
 function initialize_buffers(
         formulation::CoaxialFormulation, problem::LineParametersProblem,
@@ -87,12 +122,34 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Write the series impedance `Z` \\[Ω/m\\] and shunt admittance `Y` \\[S/m\\] at each
-frequency of `problem`. Evaluate the conductor, dielectric and earth formulas, assemble the
-impedance and potential matrices, and apply the selected reductions. The admittance is
-``Y = s P^{-1}``, where ``P`` is the reduced potential matrix \\[m/F\\] and
-``s = \\mathrm{j} 2 \\pi f`` \\[1/s\\]. When `options.trace`, copy the matrices inside
-the cables and of the earth return into `trace` before assembly. Return `Z`.
+Write the series impedances and shunt admittances at every frequency. Evaluate material laws
+and cable formulas, prepare earth state once per formula, assemble the conductor matrices,
+and apply bundle and Kron reductions. The admittance is
+
+```math
+Y = s P_{\\mathrm{r}}^{-1}, \\qquad s = \\mathrm{j} 2 \\pi f,
+```
+
+where ``P_{\\mathrm{r}}`` is the reduced potential matrix \\[m/F\\] and ``f`` is frequency
+\\[Hz\\]. Apply the ideal transposition after reduction when selected.
+
+# Arguments
+
+- `Z`: destination series-impedance array, indexed by row, column, and frequency \\[Ω/m\\].
+- `Y`: destination shunt-admittance array in the same order \\[S/m\\].
+- `trace`: destinations for `Zin`, `Zg` \\[Ω/m\\] and `Pin`, `Pg` \\[m/F\\] at each
+  frequency.
+- `problem`: cable system, earth, temperature, and frequencies.
+- `input`: numerical cable geometry and reduction indices.
+- `formulation`: formulas and formulation controls.
+- `buffers`: preallocated material, matrix, and formula arrays.
+- `options`: computation controls. The option `trace` selects copies of the intermediate
+  matrices before assembly.
+
+# Returns
+
+- `Z`, with computed entries \\[Ω/m\\]. The method also fills `Y` and the selected trace
+  arrays.
 """
 function solve!(
         Z::AbstractArray{Complex{T}, 3}, Y::AbstractArray{Complex{T}, 3}, trace,
@@ -149,11 +206,27 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compute the line parameters of `problem` by the coaxial `formulation` on `LCMBackend`.
-Validate the inputs, build the numerical input and buffers, and solve at each frequency.
-Return the series impedances \\[Ω/m\\] and shunt admittances \\[S/m\\] in a
-[`LineParameters`](@ref) record, with the retained conductor labels and the stage matrices
-when `options.trace`.
+Validate the problem for the formulation and its formulas, build numerical input and
+buffers, and solve the coaxial line parameters at each frequency.
+
+# Arguments
+
+- `LCMBackend`: backend that executes the coaxial formulas.
+- `problem`: cable system, earth, temperature, and frequencies.
+- `formulation`: coaxial formulas and formulation controls.
+- `options`: backend controls. The option `trace` retains intermediate matrices when `true`.
+
+# Returns
+
+- A [`LineParameters`](@ref) record with series impedances in \\[Ω/m\\], shunt admittances
+  in \\[S/m\\], conductor labels, and the selected trace arrays.
+
+# Errors
+
+- Throws `DimensionMismatch` when a longitudinal-wavenumber vector has a different length
+  than the frequencies.
+- Throws `DomainError` when a cable touches the interface for the unified earth-return
+  formula.
 """
 function compute(
         ::LCMBackend, problem::LineParametersProblem{T},

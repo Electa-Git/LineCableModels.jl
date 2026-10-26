@@ -1,10 +1,10 @@
 """
 $(TYPEDSIGNATURES)
 
-Write into `Zin` the series impedances inside the cables, conductor by conductor, by the loop
-recursion of Ametani. In each concentric assembly, the current of a conductor returns through
-the conductor outside it, from the outermost conductor inward. Conductor ``k`` has the loop
-impedance
+Write into `Zin` the series impedances inside the cables, conductor by conductor, by the
+loop recursion of Ametani. In each concentric assembly, the current of a conductor returns
+through the conductor outside it, from the outermost conductor inward. Conductor ``k`` has
+the loop impedance
 
 ```math
 z_k = z_{\\mathrm{outer}, k} + z_{\\mathrm{inner}, k + 1} + z_{\\mathrm{insulation}, k},
@@ -13,16 +13,16 @@ z_k = z_{\\mathrm{outer}, k} + z_{\\mathrm{inner}, k + 1} + z_{\\mathrm{insulati
 where ``z_{\\mathrm{outer}, k}`` is the outer surface impedance of conductor ``k`` and
 ``z_{\\mathrm{insulation}, k}`` is the term of its dielectric interval. The inner surface
 impedance of the next conductor outward is ``z_{\\mathrm{inner}, k + 1}``, zero for the
-outermost conductor. The loop impedance adds to the diagonal entry of ``k``. Less the
-transfer impedance ``z_{\\mathrm{transfer}, k}``, it adds to the entries between ``k`` and each
-conductor inside it. Less twice that transfer impedance, it adds to the entries between two
-conductors inside ``k``.
+outermost conductor. All impedance terms have units \\[Ω/m\\]. The loop impedance adds to
+the diagonal entry of ``k``. Less the transfer impedance ``z_{\\mathrm{transfer}, k}``, it
+adds to the entries between ``k`` and each conductor inside it. Less twice that transfer
+impedance, it adds to the entries between two conductors inside ``k``.
 
 # Arguments
 
 - `internal`: formula of the surface impedances of each conductor.
 - `insulation`: formula of the term of each dielectric interval.
-- `Zin`: matrix that receives the impedances.
+- `Zin`: destination matrix of internal impedances \\[Ω/m\\].
 - `input`: numerical input of the cables.
 - `rho`: resistivity \\[Ω·m\\] of each conductor at the operating temperature.
 - `s`: complex frequency, `j 2π f`, in \\[1/s\\].

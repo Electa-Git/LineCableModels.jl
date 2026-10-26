@@ -1,8 +1,8 @@
 """
     LineCableModels.Engine.EarthReturn
 
-The formulas of the earth-return impedance and potential coefficients of the cables. A
-formula gives the impedance, the potential coefficients or both, by the methods it defines.
+Compute the earth-return impedances and potential coefficients of cables. A formula gives
+the impedance, the potential coefficients, or both, by the methods it defines.
 """
 module EarthReturn
 
@@ -24,8 +24,9 @@ const FORMULAS = (:unified,)
 """
 $(TYPEDEF)
 
-An earth-return formula, named by its identifier `ID`. Its options form a record
-of type `FormulationOptions{Formula{ID}}`.
+Represent an earth-return impedance and potential-coefficient formula.
+Its options form a record of type `FormulationOptions{Formula{ID}}`, with `ID` the formula
+identifier.
 
 $(TYPEDFIELDS)
 """
@@ -40,12 +41,24 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the formula `ID` with the options given as keywords, over the defaults of its type.
+Build the formula named by `ID` with its declared defaults and supplied options.
+
+# Arguments
+
+- `Val{ID}`: formula identifier from [`FORMULAS`](@ref).
+
+# Keywords
+
+- `kw...`: options declared by [`defaults`](@ref) for `Formula{ID}`.
+
+# Returns
+
+- A [`Formula`](@ref) with a typed option record.
 
 # Errors
 
-- Throws `ArgumentError` for an identifier that is not one of `FORMULAS`, or for an
-  option that the formula lacks.
+- Throws `ArgumentError` for an unknown identifier or option.
+- Throws `ArgumentError` for invalid integration controls.
 """
 Formula(::Val{ID}; kw...) where {ID} = Formula{ID}(FormulationOptions(Formula{ID}; kw...))
 

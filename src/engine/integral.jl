@@ -1,9 +1,8 @@
 """
 $(TYPEDEF)
 
-The integral of a function over ``[0, \\infty)``. The function is the complete integrand,
-its weights and Jacobians included, and `integrate` evaluates the integral by the method
-that its tag selects.
+Represent the integral of a complete integrand over ``[0, \\infty)``.
+The function includes the weights and Jacobians of its formula.
 
 $(TYPEDFIELDS)
 """
@@ -15,42 +14,42 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Evaluate `integral` over ``[0, \\infty)`` by the adaptive Gauss–Kronrod method of QuadGK,
-with the tolerances and the evaluation limit of `section`. The change of variable
+Evaluate an integral by adaptive Gauss–Kronrod quadrature with QuadGK. Transform its
+nonnegative coordinate ``\\lambda`` into ``t``:
 
 ```math
-\\int_0^\\infty f(\\lambda) \\, \\mathrm{d}\\lambda
-= \\int_0^1 f\\!\\left(\\frac{t}{1 - t}\\right) \\frac{\\mathrm{d}t}{(1 - t)^2}
+\\int_0^\\infty g(\\lambda)\\,\\mathrm{d}\\lambda
+= \\int_0^1 g\\!\\left(\\frac{t}{1-t}\\right)\\frac{\\mathrm{d}t}{(1-t)^2}.
 ```
 
-maps the breakpoints `points` into ``[0, 1)``, and each interval between two breakpoints
-seeds one segment, so that the refinement starts where the integrand changes character. The
-error norm is the magnitude of the nominal value.
+Here ``g`` is the complete integrand. Map each breakpoint into ``[0,1)`` and seed one
+segment between adjacent points. The error norm is the magnitude of the nominal value.
 
 # Arguments
 
-- `integral`: the integral to evaluate.
-- `section`: the section of the method, with the keys of `defaults(integrate, Val(:quad))`.
-- `buffers`: arrays of the computation, with the engine's integral block `integral`.
+- `integral`: complete integrand and its integral.
+- `Val(:quad)`: adaptive quadrature method tag.
+- `section`: controls `rtol`, `atol`, and `maxevals` from [`defaults`](@ref).
+- `buffers`: computation arrays with the `integral` block.
 
 # Keywords
 
-- `points`: breakpoints of the integrand in its own coordinate, finite and nonnegative.
+- `points`: finite, nonnegative breakpoints in the coordinate of the integrand.
 
 # Returns
 
-- The value of the integral.
-- The estimated absolute error, in the unit of the value.
+- The integral value, in the unit of the integrand times its coordinate.
+- The estimated absolute error, in the unit of the integral value.
 
 # Notes
 
-- An estimated error above `max(atol, rtol * abs(value))` gives a warning, and `integrate`
-  still returns the value.
+An estimated error above `max(atol, rtol * abs(nominal(value)))`, or a nonfinite estimate,
+produces a warning. The method still returns the value.
 
 # Errors
 
-- Throws `DomainError` for a breakpoint that is negative or not finite, and for a value
-  that is not finite.
+- Throws `DomainError` for a negative or nonfinite breakpoint, or a nonfinite integral
+  value.
 """
 function integrate(integral::SpectralIntegral, ::Val{:quad}, section::NamedTuple, buffers;
         points)
@@ -93,9 +92,19 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the section of the adaptive Gauss–Kronrod method `:quad` with its default values. Its
-keys are `method`, the relative tolerance `rtol`, the absolute tolerance `atol` in the unit
-of the integral, and the evaluation limit `maxevals`.
+Return the declared controls of adaptive Gauss–Kronrod quadrature.
+
+# Arguments
+
+- `integrate`: integral evaluation function.
+- `Val(:quad)`: adaptive quadrature method tag.
+
+# Returns
+
+- `method`: `:quad`.
+- `rtol`: relative tolerance, `1e-8`.
+- `atol`: absolute tolerance in the unit of the integral, `0.0`.
+- `maxevals`: evaluation limit, `10^7`.
 """
 function defaults(::typeof(integrate), ::Val{:quad})
     return (method = :quad, rtol = 1e-8, atol = 0.0, maxevals = 10^7)
@@ -109,12 +118,22 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check the section of the method `:quad` for the integrals that `integrate` evaluates.
+Check the quadrature controls before an integral evaluation.
+
+# Arguments
+
+- `section`: integration controls.
+- `integrate`: consumer of the controls.
+- `Val(:quad)`: adaptive quadrature method tag.
+
+# Returns
+
+- `section`, unchanged.
 
 # Errors
 
-- Throws `ArgumentError` when `rtol` or `atol` is negative or not finite, when neither is
-  positive, or when `maxevals` is not positive.
+- Throws `ArgumentError` for a negative or nonfinite tolerance, two zero tolerances, or a
+  nonpositive evaluation limit.
 """
 function validate(section::NamedTuple, ::typeof(integrate), ::Val{:quad})
     isfinite(section.rtol) && section.rtol >= 0 ||
@@ -130,17 +149,20 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return `buffers` with the engine's integral block under the key `integral`. Every formula
-that integrates declares this block in its `initialize_buffers`. The block has:
+Allocate the integral arrays. Coordinates use the type of the nominal value of `T`, and
+integrand values use `Complex{T}`.
 
-- `points` and `scales`, the breakpoints and the scales that `ray!` writes.
-- `segments`, `seeds` and `seed`, the segments of QuadGK and the segments between
-  breakpoints.
-- `prototype`, a value of the type of the integrand.
-- `mapped`, the breakpoints after the change of variable.
+# Arguments
 
-The coordinates have the type of the nominal value of `T`, and the integrand values have the
-type `Complex{T}`.
+- `SpectralIntegral`: integral type whose arrays the computation needs.
+- `Val(:quad)`: adaptive quadrature method tag.
+- `T`: numerical type of the formula.
+- `buffers`: arrays already allocated.
+
+# Returns
+
+- `buffers` extended with the `integral` block. It holds breakpoint and scale vectors plus
+  mapped points, QuadGK segment arrays, and a zero prototype.
 """
 function initialize_buffers(::Type{SpectralIntegral}, ::Val{:quad}, ::Type{T}, buffers) where {T}
     R = typeof(nominal(one(T)))
@@ -158,14 +180,21 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Lift the integration section of a formula's options. The default `integrate => :quad`
-names the function whose method the section selects, and the default method. The tuple
-`given` has the keys that the user gave, with or without `method`. The lifted section has
-the keys of the method in their declared types, and `method` becomes its tag.
+Build an integration section from method defaults and supplied controls, then replace
+its method identifier with a `Val` tag.
+
+# Arguments
+
+- `default`: pair of `integrate` and the default method identifier.
+- `given`: supplied controls, with or without a `method` key.
+
+# Returns
+
+- A named tuple with the method keys and their declared value types.
 
 # Errors
 
-- Throws `ArgumentError` for an unknown method or an unknown key of the method.
+- Throws `ArgumentError` for an unknown method or an unknown control key.
 """
 function select(default::Pair{typeof(integrate), Symbol}, given::NamedTuple)
     tag = Val(merge((method = last(default),), given).method)
@@ -181,50 +210,46 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the ray of a spectral integral over ``[0, \\infty)``, the complex number `ray`
-such that the integrand takes ``\\lambda = \\mathrm{ray} \\, t`` for ``t \\ge 0``. Write
-into `buffers.integral.points` the coordinates ``t`` where the quadrature subdivides the
-integral.
+Choose a complex spectral ray and write quadrature breakpoints in its dimensionless
+coordinate ``t``. The spectral coordinate is
 
-The ray leaves the real axis at an angle of at most π/6, so that the geometric factor
-``e^{-h \\lambda} \\cos(y \\lambda)`` still decays along it:
-``h \\cos\\theta - y \\sin\\theta > 0``, with ``y`` the `reach`. The ray also passes below
-each singularity in the first quadrant. These are the branch points
-``\\pm \\mathrm{j} k`` of the `wavenumbers` of the media and the `poles` of the integrand,
-where a zero pole stands for none. The modulus of the ray is the largest of the moduli of
-the wavenumbers and ``1 / h``. On the ray, the integrand takes its roots
-``\\sqrt{\\lambda^2 + k^2}`` by Julia's `sqrt`, whose real part is nonnegative. That is the
-sheet on which a field of the engine's time convention ``e^{\\mathrm{j} \\omega t}``
-decays away from its source.
+```math
+\\lambda = R e^{\\mathrm{j}\\theta}t, \\qquad
+R = \\max\\!\\left(\\max_m |k_m|,\\frac{1}{h}\\right), \\qquad
+h\\cos\\theta-y\\sin\\theta > 0.
+```
 
-The points mark where the integrand changes character. The adaptive Gauss–Kronrod rule
-starts its segments at them, so that its refinement begins where the integrand demands it.
-A scale ``s`` contributes the points ``s/2``, ``s`` and ``2s``. The scales are the moduli
-of the wavenumbers and the `scales` of the formula, with the reciprocal of the geometric
-decay along the ray. Each singularity adds five points around its projection on the ray.
-Points at factors of four bridge each gap between consecutive points.
+Here ``h`` is `height`, ``y`` is `reach`, and ``k_m`` are medium wavenumbers. The initial
+angle is the smaller of ``\\pi/6`` and ``\\arctan[h/(2\\max(y,\\epsilon))]``, with
+``\\epsilon`` the machine epsilon of the coordinate type. Reduce the angle to at most half
+the argument of each first-quadrant branch point ``\\pm\\mathrm{j}k_m`` or pole. These
+choices make the geometric weight ``e^{-h\\lambda}\\cos(y\\lambda)`` decay along the ray.
 
-`ray!` sorts the points and keeps each once, 1 among them. Without them the rule can step
-over a feature narrower than its nodes and return a converged wrong value. For the
-earth-return integrals with a longitudinal wavenumber, the default tolerance then misses by
-up to 4.6e-8 relative, against 4e-12 with them. This function is the one tool for that
-purpose: waypoints, complex paths and safe poles are other names for it.
+Use nominal values for all decisions. The scales are nonzero wavenumber magnitudes, finite
+positive formula scales, and the reciprocal geometric decay. Each scale contributes half,
+once, and twice its value. Each singularity contributes up to five positive points around
+its projection. Bridge gaps by factors of four, divide points by ``R``, include zero and
+one, then sort and remove duplicates.
 
 # Arguments
 
-- `buffers`: arrays of the computation, with the engine's integral block `integral`.
-- `wavenumbers`: the wavenumbers ``k`` of the media \\[1/m\\], a tuple.
-- `poles`: a tuple of the poles of the integrand \\[1/m\\]. A zero entry is no pole.
-- `scales`: a tuple of the scales that the formula adds \\[1/m\\]. Only a finite positive
-  scale counts.
-- `height`: the sum of the heights of the receiver and the source above the interface
+- `buffers`: computation arrays with the `integral` block.
+- `wavenumbers`: tuple of medium wavenumbers \\[1/m\\].
+- `poles`: tuple of poles of the integrand \\[1/m\\]. Ignore zero entries.
+- `scales`: tuple of formula-specific spectral scales \\[1/m\\]. Only finite positive values
+  contribute.
+- `height`: sum of source and receiver distances from the interface \\[m\\].
+- `reach`: horizontal separation, with any receiver-radius allowance needed by the integrand
   \\[m\\].
-- `reach`: the horizontal separation of the receiver and the source plus the radius of the
-  receiver \\[m\\].
+
+# Returns
+
+- The complex ray ``R e^{\\mathrm{j}\\theta}``, in \\[1/m\\]. The method also fills
+  `buffers.integral.points` with dimensionless breakpoints.
 
 # Errors
 
-- Throws `DomainError` when the geometric factor does not decay along the ray.
+- Throws `DomainError` when the geometric weight does not decay along the ray.
 """
 function ray!(buffers, wavenumbers::Tuple, poles::Tuple, scales::Tuple, height, reach)
     block = buffers.integral

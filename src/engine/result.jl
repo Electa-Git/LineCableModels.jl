@@ -24,8 +24,8 @@ struct LineParameters{T <: Real, F <: AbstractFormulation}
     "Formulation that computed the result."
     formulation::F
     """
-    The matrices that build `Z` and `Y`, or empty arrays when the computation did not keep
-    them. `Zin` \\[Ω/m\\] and `Pin` \\[m/F\\] are the matrices inside the cables, by
+    The matrices that build `Z` and `Y`, or four empty arrays when the computation did not
+    keep them. `Zin` \\[Ω/m\\] and `Pin` \\[m/F\\] are the matrices inside the cables, by
     conductor. `Zg` \\[Ω/m\\] and `Pg` \\[m/F\\] are the matrices of the earth return, by
     cable. The last index of each is the frequency.
     """

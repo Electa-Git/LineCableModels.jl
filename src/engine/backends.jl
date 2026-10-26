@@ -1,13 +1,30 @@
-"This package's own implementation of a formulation, which computes it in process."
+"""
+$(TYPEDEF)
+
+Represent the backend that executes the coaxial formulation in process.
+"""
 struct LCMBackend <: AbstractBackend end
 
-"Backend that runs the finite-element computation of [`FEM`](@ref), in the Gmsh extension."
+"""
+$(TYPEDEF)
+
+Represent the backend that executes [`FEM`](@ref) through the Gmsh extension.
+"""
 struct GmshBackend <: AbstractBackend end
 
 """
     backend(F)
 
-Return the backend that runs the formulations of type `F`.
+Return the default backend of a formulation type. Pass a backend first to
+[`compute`](@ref) to choose another.
+
+# Arguments
+
+- `F`: formulation type.
+
+# Returns
+
+- A backend singleton.
 """
 function backend end
 
@@ -19,8 +36,25 @@ defaults(::Type{LCMBackend}) = (trace = false,)
 """
 $(TYPEDSIGNATURES)
 
-Compute the line parameters of `problem` by `formulation`, on the backend that
-[`backend`](@ref) gives for its type. The keywords are the options of that backend.
+Compute line parameters with the default backend from [`backend`](@ref).
+
+# Arguments
+
+- `problem`: cable system, earth, temperature, and frequencies.
+- `formulation`: formulas and formulation controls.
+
+# Keywords
+
+- `kw...`: computation options of the default backend.
+
+# Returns
+
+- A [`LineParameters`](@ref) record.
+
+# Errors
+
+- Throws `ArgumentError` for an unknown computation option or an unavailable backend
+  implementation.
 """
 function compute(problem::LineParametersProblem, formulation::AbstractFormulation; kw...)
     return compute(backend(typeof(formulation)), problem, formulation; kw...)
@@ -29,7 +63,25 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compute `problem` by `formulation` on `backend`. The keywords are that backend's options.
+Build the computation options once and compute line parameters on the supplied backend.
+
+# Arguments
+
+- `backend`: backend singleton that executes the computation.
+- `problem`: cable system, earth, temperature, and frequencies.
+- `formulation`: formulas and formulation controls.
+
+# Keywords
+
+- `kw...`: computation options of `backend`.
+
+# Returns
+
+- A [`LineParameters`](@ref) record.
+
+# Errors
+
+- Throws `ArgumentError` for an unknown computation option or an unsupported formulation.
 """
 function compute(backend::AbstractBackend, problem::LineParametersProblem,
         formulation::AbstractFormulation; kw...)

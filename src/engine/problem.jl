@@ -1,10 +1,8 @@
 """
 $(TYPEDEF)
 
-Describe one computation of line parameters: the cables of the line, the earth below them,
-the operating temperature and the frequencies of the scan. `T` is the floating type of the
-earth, the temperature and the frequencies, at least `Float64`. The problem keeps the system
-as given, and the computation converts the values that it reads to `T`.
+Describe a line-parameters computation by its cable system, earth, temperature, and
+frequencies. The computation converts numerical inputs to `T`, which is at least `Float64`.
 
 $(TYPEDFIELDS)
 """
@@ -13,9 +11,9 @@ struct LineParametersProblem{T <: Real, S <: CableSystem, E <: EarthModel{T}}
     system::S
     "Air and the earth below the cables."
     earth::E
-    "Operating temperature of every conductor and dielectric \\[°C\\]."
+    "Temperature of every conductor and dielectric \\[°C\\]."
     temperature::T
-    "Frequencies of the scan, increasing \\[Hz\\]."
+    "Frequencies of the scan in strict order from low to high \\[Hz\\]."
     frequencies::Vector{T}
     function LineParametersProblem{T}(system::S, earth::E, temperature::T,
             frequencies::Vector{T}) where {T <: Real, S <: CableSystem, E <: EarthModel{T}}
@@ -26,20 +24,18 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the problem of the cables of `system` above or in `earth`. The earth, the temperature
-and the frequencies take the floating type that `Float64`, the system, the earth, the
-temperature and the frequencies promote to. A `Float32` input computes in `Float64`.
+Build a problem for the cables of `system` above or in `earth`. Promote numerical inputs
+with `Float64` to select the computation type.
 
 # Arguments
 
-- `system`: cables of the line in one cross-section.
-- `earth`: air and the earth below the cables.
+- `system`: cables and their connections in a cross-section, with the line length.
+- `earth`: air and earth material properties.
 
 # Keywords
 
-- `temperature`: operating temperature of every conductor and dielectric \\[°C\\]. Default:
-  `20`.
-- `frequencies`: frequencies of the scan, positive, finite and increasing \\[Hz\\].
+- `temperature`: temperature of every conductor and dielectric \\[°C\\]. Default: `20`.
+- `frequencies`: positive, finite frequencies in strict order from low to high \\[Hz\\].
 
 # Returns
 
@@ -47,11 +43,12 @@ temperature and the frequencies promote to. A `Float32` input computes in `Float
 
 # Errors
 
-- Throws `DomainError` when the frequencies are empty, not positive and finite, or not
-  increasing, or when the temperature is not finite.
-- Throws `ArgumentError` when no terminal connects to a conductor `k ≥ 1`, or when the
-  outline of a cable crosses the interface between the air and the earth. A cable can
-  touch the interface.
+- Throws `DomainError` for an empty frequency vector or a nonfinite temperature.
+- Throws `DomainError` for a nonpositive or nonfinite frequency or frequencies outside
+  strict order from low to high.
+- Throws `ArgumentError` when no terminal connects to a conductor index `k ≥ 1`.
+- Throws `ArgumentError` when a cable crosses the interface between air and earth. A cable
+  can touch the interface.
 """
 function LineParametersProblem(system::CableSystem, earth::EarthModel;
         temperature::Real = 20, frequencies::AbstractVector{<:Real})

@@ -1,8 +1,7 @@
 """
     LineCableModels.Engine.Shunt
 
-The formulas that form the potential coefficients inside a cable from the admittivities of
-its layers.
+Compute the potential coefficients inside a cable from the admittivities of its layers.
 """
 module Shunt
 
@@ -21,8 +20,9 @@ const FORMULAS = (:series,)
 """
 $(TYPEDEF)
 
-A shunt formula, named by its identifier `ID`. Its options form a record
-of type `FormulationOptions{Formula{ID}}`.
+Represent a formula for the potential coefficients inside a cable.
+Its options form a record of type `FormulationOptions{Formula{ID}}`, with `ID` the formula
+identifier.
 
 $(TYPEDFIELDS)
 """
@@ -37,12 +37,23 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the formula `ID` with the options given as keywords, over the defaults of its type.
+Build the formula named by `ID` with its declared defaults and supplied options.
+
+# Arguments
+
+- `Val{ID}`: formula identifier from [`FORMULAS`](@ref).
+
+# Keywords
+
+- `kw...`: options declared by [`defaults`](@ref) for `Formula{ID}`.
+
+# Returns
+
+- A [`Formula`](@ref) with a typed option record.
 
 # Errors
 
-- Throws `ArgumentError` for an identifier that is not one of `FORMULAS`, or for an
-  option that the formula lacks.
+- Throws `ArgumentError` for an unknown identifier or option.
 """
 Formula(::Val{ID}; kw...) where {ID} = Formula{ID}(FormulationOptions(Formula{ID}; kw...))
 

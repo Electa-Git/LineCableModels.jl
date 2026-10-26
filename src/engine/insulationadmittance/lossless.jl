@@ -3,18 +3,20 @@ defaults(::Type{Formula{:lossless}}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-Return the admittivity of an insulating layer of `material` at the frequency `f`, without
+Return the admittivity of an insulator layer of `material` at the frequency `f`, without
 conduction or polarization loss:
 
 ```math
 \\kappa = \\mathrm{j} 2 \\pi f \\varepsilon_0 \\varepsilon_r,
 ```
 
-where ``\\varepsilon_0`` is the permittivity of vacuum and ``\\varepsilon_r`` the relative
-permittivity `eps_r` of the material.
+Here ``f`` is frequency, ``\\kappa`` is admittivity, and ``\\varepsilon_r`` is the relative
+permittivity `eps_r` of the material \\[dimensionless\\]. The constant
+``\\varepsilon_0`` is [`vacuum_permittivity`](@ref).
 
 # Arguments
 
+- `Formula{:lossless}`: dielectric law without conduction or polarization loss.
 - `material`: material of the layer.
 - `f`: frequency \\[Hz\\].
 

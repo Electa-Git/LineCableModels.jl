@@ -12,7 +12,8 @@ M' = T M T^{\\mathsf{T}}, \\qquad T = I - \\sum_{(i, j)} e_j e_i^{\\mathsf{T}},
 
 where ``e_i`` is the unit vector of row ``i``. It subtracts column ``i`` from column ``j``,
 then row ``i`` from row ``j``. Row ``j`` then gives the voltage of ``j`` less that of ``i``,
-zero inside a bundle, and the Kron elimination of ``j`` (`eliminate!`) completes the merge.
+zero inside a bundle. The Kron elimination of ``j`` by [`eliminate!`](@ref) completes the
+merge.
 
 # Arguments
 
@@ -23,7 +24,7 @@ zero inside a bundle, and the Kron elimination of ``j`` (`eliminate!`) completes
 
 # Returns
 
-- `matrix`, with the merged columns and rows.
+- `matrix`, with transformed columns and rows, in its original unit \\[Ω/m or m/F\\].
 """
 function bundle!(matrix::AbstractMatrix, pairs::AbstractVector{Tuple{Int, Int}})
     for (first, other) in pairs
@@ -43,7 +44,7 @@ end
 $(TYPEDSIGNATURES)
 
 Write into `reduced` the Kron elimination of `matrix`, the Schur complement of the block of
-its eliminated rows and columns:
+eliminated rows and columns, retained on the kept rows and columns:
 
 ```math
 M_{\\mathrm{r}} = M_{kk} - M_{ke} M_{ee}^{-1} M_{ek},
@@ -51,26 +52,26 @@ M_{\\mathrm{r}} = M_{kk} - M_{ke} M_{ee}^{-1} M_{ek},
 
 where ``k`` indexes the kept rows and columns in the order of `kept`, and ``e`` the
 eliminated ones in the order of `eliminated`. An eliminated conductor is at zero voltage:
-grounded, or merged into a bundle by `bundle!`. The LU decomposition of ``M_{ee}`` solves
-for ``M_{ee}^{-1} M_{ek}``. Without an eliminated row, ``M_{\\mathrm{r}} = M_{kk}``.
+grounded, or merged into a bundle by [`bundle!`](@ref). The LU decomposition of ``M_{ee}``
+solves for ``M_{ee}^{-1} M_{ek}``. Without an eliminated row, ``M_{\\mathrm{r}} = M_{kk}``.
 
 # Arguments
 
-- `reduced`: matrix that receives the result, of `length(kept)` rows and columns.
+- `reduced`: destination matrix with `length(kept)` rows and columns \\[Ω/m or m/F\\].
 - `matrix`: square matrix of impedances \\[Ω/m\\] or potential coefficients \\[m/F\\], one
   row per conductor.
 - `kept`: rows of `matrix` that the elimination keeps.
 - `eliminated`: rows of `matrix` that the elimination removes.
-- `factor`: matrix of `length(eliminated)` rows and columns that receives the LU factors of
-  ``M_{ee}``.
+- `factor`: array for the LU factors of ``M_{ee}``, square with `length(eliminated)` rows.
+  Before factorization its unit is \\[Ω/m or m/F\\].
 - `coupling`: matrix of `length(kept)` rows and `length(eliminated)` columns that receives
-  ``M_{ke}``.
-- `rhs`: matrix of `length(eliminated)` rows and `length(kept)` columns that
-  receives ``M_{ee}^{-1} M_{ek}``.
+  ``M_{ke}`` \\[Ω/m or m/F\\].
+- `rhs`: matrix of `length(eliminated)` rows and `length(kept)` columns that receives
+  ``M_{ee}^{-1} M_{ek}`` \\[dimensionless\\].
 
 # Returns
 
-- `reduced`, in the unit of `matrix`.
+- `reduced`, in the unit of `matrix` \\[Ω/m or m/F\\].
 """
 function eliminate!(
         reduced::AbstractMatrix{Complex{T}}, matrix::AbstractMatrix{Complex{T}},
@@ -121,7 +122,7 @@ result is a circulant matrix.
 
 # Returns
 
-- `matrix`, circulant.
+- `matrix`, with circulant entries in its original unit \\[Ω/m or S/m\\].
 
 # Errors
 

@@ -9,12 +9,14 @@ Return the resistivity of `material` at `temperature` by the linear law:
 \\rho(\\theta) = \\rho_0 \\left[1 + \\alpha (\\theta - T_0)\\right],
 ```
 
-where ``\\rho_0`` is the resistivity `rho` of the material at its reference temperature
-``T_0``, the field `T0`. ``\\alpha`` is the coefficient `alpha`, and ``\\theta`` is the
-temperature. The law returns an infinite resistivity unchanged.
+Here ``\\rho_0`` is material resistivity `rho` \\[Ω·m\\] at the reference temperature
+``T_0``, the field `T0` \\[°C\\]. The coefficient ``\\alpha`` is `alpha` \\[1/K\\], and
+``\\theta`` is conductor temperature \\[°C\\]. The law returns infinite resistivity
+unchanged.
 
 # Arguments
 
+- `Formula{:linear}`: linear temperature law.
 - `material`: material of the conductor.
 - `temperature`: temperature of the conductor \\[°C\\].
 
@@ -24,8 +26,9 @@ temperature. The law returns an infinite resistivity unchanged.
 
 # Errors
 
-- Throws `DomainError` when `temperature` lies 150 K or more from `T0`, the range of the
-  law, or when the factor in brackets is not positive and finite.
+- Throws `DomainError` when the temperature difference from `T0` is nonfinite or at least
+  150 K.
+- Throws `DomainError` when the factor in brackets is nonpositive or nonfinite.
 """
 function resistivity(
         ::Formula{:linear}, material::Material{T}, temperature::T) where {T <: Real}

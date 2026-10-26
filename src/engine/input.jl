@@ -31,13 +31,13 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     "Material of the tube of each conductor."
     material::Vector{Material{T, :conductor}}
     """
-    For each conductor, the outer radius of its dielectric interval, or its own outer radius
-    when the interval is empty \\[m\\].
+    For each conductor, the outer radius of its dielectric interval, or the conductor's own
+    outer radius for an empty interval \\[m\\].
     """
     r_ins_ex::Vector{T}
     """
     For each conductor, the relative permeability of its dielectric interval, with the
-    correction for the helical path of its current \\[dimensionless\\].
+    correction for the helical current path \\[dimensionless\\].
     """
     mu_r_ins::Vector{T}
     "Range of the dielectric layers in the interval of each conductor."
@@ -56,16 +56,18 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     y::Vector{T}
     "Outer radius of each cable \\[m\\]."
     radius::Vector{T}
-    """
-    Conductor indices `(first, other)` of each conductor that a bundle merges into the first
-    conductor of its index. The list is empty without `bundle`.
-    """
+    "Conductor pairs `(first, other)` to merge with [`bundle!`](@ref), or an empty list."
     bundles::Vector{Tuple{Int, Int}}
-    "Conductor indices that the reductions keep, in the order of the result's rows."
+    """
+    Indices to keep in result order, with the first conductor of each positive index first.
+    """
     kept::Vector{Int}
-    "Conductor indices that the reductions remove."
+    "Indices to remove: other conductors with `bundle`, index zero with `kron`."
     eliminated::Vector{Int}
-    "Label of each kept row: the label of its conductor, or the labels of a bundle joined by `+`."
+    """
+    Label of each kept row: the label of its conductor, or the labels of a bundle joined by
+    `+`.
+    """
     terminals::Vector{String}
     function CoaxialInput(
             problem::LineParametersProblem{T}, options::FormulationOptions) where {T <:

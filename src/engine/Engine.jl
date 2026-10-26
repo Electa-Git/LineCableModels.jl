@@ -1,12 +1,12 @@
 """
     LineCableModels.Engine
 
-Compute the series impedance and the shunt admittance per unit length of the cables of a
-line. A problem describes the cables, the earth, the operating temperature and the
-frequencies.
-A formulation selects the formula of each part of the computation, and a backend runs it.
-Each formula family is a child module with one `Formula` type, whose identifier names the
-formula.
+Compute the series impedances and shunt admittances of cables per unit length. A problem
+describes the cables, the earth, the operating temperature, and the frequencies. A
+formulation selects the formulas, and a backend executes the computation. The trait
+[`backend`](@ref) gives a formulation type's default backend. A backend passed first to
+[`compute`](@ref) chooses another. Each formula family is a child module with one `Formula`
+type whose identifier names the formula.
 """
 module Engine
 
@@ -34,98 +34,216 @@ public CoaxialInput
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
 
-"Supertype of the formulas of the surface impedances of a tubular conductor."
+"""
+$(TYPEDEF)
+
+Represent the common supertype of surface-impedance formulas for tubular conductors.
+"""
 abstract type AbstractInternalImpedance <: AbstractFormulation end
-"Supertype of the formulas of the magnetic term across an annular dielectric."
+"""
+$(TYPEDEF)
+
+Represent the common supertype of magnetic series-impedance formulas across annular
+dielectrics.
+"""
 abstract type AbstractInsulationImpedance <: AbstractFormulation end
-"Supertype of the admittivity laws of insulating layers."
+"""
+$(TYPEDEF)
+
+Represent the common supertype of admittivity laws for insulator layers.
+"""
 abstract type AbstractInsulationAdmittance <: AbstractFormulation end
-"Supertype of the admittivity laws of semiconducting layers."
+"""
+$(TYPEDEF)
+
+Represent the common supertype of admittivity laws for semicon layers.
+"""
 abstract type AbstractSemiconAdmittance <: AbstractFormulation end
-"Supertype of the formulas of the earth-return impedance and potential coefficients."
+"""
+$(TYPEDEF)
+
+Represent the common supertype of earth-return impedance and potential-coefficient formulas.
+"""
 abstract type AbstractEarthReturn <: AbstractFormulation end
-"Supertype of the formulas that form the potential coefficients inside a cable."
+"""
+$(TYPEDEF)
+
+Represent the common supertype of formulas for potential coefficients inside cables.
+"""
 abstract type AbstractShunt <: AbstractFormulation end
-"Supertype of the temperature laws of the resistivity of a conductor."
+"""
+$(TYPEDEF)
+
+Represent the common supertype of temperature laws for conductor resistivity.
+"""
 abstract type AbstractResistivity <: AbstractFormulation end
-"Supertype of the frequency laws of the properties of the earth."
+"""
+$(TYPEDEF)
+
+Represent the common supertype of frequency laws for earth properties.
+"""
 abstract type AbstractEarthProperties <: AbstractFormulation end
 
 """
     admittivity(formula, material, f)
 
-Return the admittivity of a dielectric layer of `material` at the frequency `f` \\[Hz\\] by
-`formula`, in \\[S/m\\].
+Return the admittivity of a dielectric layer at a frequency.
+
+# Arguments
+
+- `formula`: admittivity law.
+- `material`: material of the dielectric layer.
+- `f`: frequency \\[Hz\\].
+
+# Returns
+
+- Admittivity \\[S/m\\].
 """
 function admittivity end
 
 """
     resistivity(formula, material, temperature)
 
-Return the resistivity of a conductor of `material` at `temperature` \\[°C\\] by
-`formula`, in \\[Ω·m\\].
+Return the conductor resistivity at a temperature.
+
+# Arguments
+
+- `formula`: resistivity law.
+- `material`: material of the conductor.
+- `temperature`: temperature of the conductor \\[°C\\].
+
+# Returns
+
+- Resistivity \\[Ω·m\\].
 """
 function resistivity end
 
 """
     properties(formula, layer, f)
 
-Return the resistivity \\[Ω·m\\], the relative permittivity and the relative permeability of
-the earth `layer` at the frequency `f` \\[Hz\\] by `formula`, as
-`(rho = …, eps_r = …, mu_r = …)`.
+Return the material properties of an earth or air layer at a frequency.
+
+# Arguments
+
+- `formula`: earth-properties law.
+- `layer`: earth or air layer.
+- `f`: frequency \\[Hz\\].
+
+# Returns
+
+- `rho`: resistivity \\[Ω·m\\].
+- `eps_r`: relative permittivity \\[dimensionless\\].
+- `mu_r`: relative permeability \\[dimensionless\\].
 """
 function properties end
 
 """
     impedance(formula, …)
 
-Return the series impedance per unit length that `formula` gives \\[Ω/m\\], or a named tuple
-of the impedances that it gives together.
+Return the series-impedance terms of a formula.
+
+# Arguments
+
+- `formula`: series-impedance formula.
+- `…`: physical inputs of the selected method.
+
+# Returns
+
+- An impedance \\[Ω/m\\] or a named tuple of impedance terms in the same unit.
 """
 function impedance end
 
 """
     impedance!(formula, Z, …)
 
-Write into the matrix `Z` the series impedances per unit length that `formula` gives
-\\[Ω/m\\]. A method of several formulas takes them all before `Z`.
+Write the series-impedance matrix of a formula. A method that combines formulas takes
+them all before `Z`.
+
+# Arguments
+
+- `formula`: series-impedance formula.
+- `Z`: destination for the matrix in \\[Ω/m\\].
+- `…`: inputs of the selected method.
+
+# Returns
+
+- `Z`, with the computed entries \\[Ω/m\\].
 """
 function impedance! end
 
 """
     potential!(formula, P, …)
 
-Write into the matrix `P` the potential coefficients per unit length that `formula` gives
-\\[m/F\\].
+Write the potential-coefficient matrix of a formula.
+
+# Arguments
+
+- `formula`: potential-coefficient formula.
+- `P`: destination for the matrix in \\[m/F\\].
+- `…`: inputs of the selected method.
+
+# Returns
+
+- `P`, with the computed entries \\[m/F\\].
 """
 function potential! end
 
 """
-    prepare!(formula, buffers, input, media, s, k)
+$(TYPEDSIGNATURES)
 
-Fill in `buffers` the state of `formula` at the frequency of index `k`, which its quantity
-methods read. `s = j 2π f` \\[1/s\\] is the complex frequency, and `media` gives the
-properties of air and of the earth at that frequency. A formula without such state has
-nothing to prepare.
+Fill the shared state of a formula in `buffers` at the frequency of index `k`. Its quantity
+methods read this state. A formula without such state returns `buffers` unchanged, as this
+method does.
+
+# Arguments
+
+- `formula`: formula whose state needs preparation.
+- `buffers`: preallocated computation arrays.
+- `input`: numerical cable geometry and connections.
+- `media`: air and earth properties at the frequency.
+- `s`: complex frequency, `j 2π f`, \\[1/s\\].
+- `k`: frequency index.
+
+# Returns
+
+- `buffers`.
 """
 prepare!(::AbstractFormulation, buffers, input, media, s, k) = buffers
 
 """
-    initialize_buffers(formula, problem, input, buffers)
+$(TYPEDSIGNATURES)
 
-Return `buffers` with the preallocated arrays that `formula` needs to compute `problem`,
-built once, before the loop over the frequencies. A formula without arrays of its own adds
-none.
+Add the preallocated arrays that a formula needs to compute `problem` to `buffers` once,
+before the loop over frequencies. A formula without arrays of its own returns `buffers`
+unchanged, as this method does.
+
+# Arguments
+
+- `formula`: formula whose arrays the computation needs.
+- `problem`: line-parameters problem.
+- `input`: numerical cable geometry and connections.
+- `buffers`: arrays already allocated.
+
+# Returns
+
+- `buffers`.
 """
 initialize_buffers(::AbstractFormulation, problem, input, buffers) = buffers
 
 """
-    nominal(value)
+$(TYPEDSIGNATURES)
 
-Return the nominal value of a quantity: a real number itself, and a complex number with the
-nominal values of its real and imaginary parts. A decision that must not depend on the
-uncertainty of a value reads its nominal value. Such decisions are the branch of a kernel and
-the breakpoints of an integral.
+Return a real number unchanged or a complex number with nominal real and imaginary parts.
+Kernel branches and integration breakpoints use nominal values to exclude uncertainty
+from their decisions.
+
+# Arguments
+
+- `value`: numeric quantity.
+
+# Returns
+
+- The nominal value, in the unit of `value`.
 """
 nominal(value::Real) = value
 nominal(value::Complex) = complex(nominal(real(value)), nominal(imag(value)))

@@ -49,41 +49,69 @@ function build end
 
 """
     compute(problem, formulation; kw...)
+    compute(backend, problem, formulation; kw...)
 
-Run one computation of `problem` by `formulation`. The backend that runs the formulation
-defines the computation as a method of this function, and the keywords are the options of
-that backend.
+Run one computation of `problem` with `formulation`. A method of [`backend`](@ref)
+selects the default backend. A backend passed first chooses another.
+
+# Arguments
+
+- `problem`: problem to compute.
+- `formulation`: formulas and their controls.
+
+# Keywords
+
+- `kw...`: computation options of the selected backend.
+
+# Returns
+
+- The result of the selected backend.
 """
 function compute end
 
 """
     defaults(owner)
 
-Return the option keys of `owner` with their default values, as a `NamedTuple`. The type of
-each default is the type of its option. The owner is a formula, formulation or backend type.
+Return the declared option keys and default values of an owner.
+
+# Arguments
+
+- `owner`: formula, formulation, or backend type.
+
+# Returns
+
+- A `NamedTuple` whose value types define the option types.
 """
 function defaults end
 
 """
     select(default, value)
 
-Fit the selection `value` to the slot or option key whose default is `default`. A scalar
-option takes the type of its default, and a slot lifts a formula identifier to the formula
-it names.
+Convert an option to its declared type or lift a formula selection into its slot.
+
+# Arguments
+
+- `default`: default value or formula family that determines the selection type.
+- `value`: supplied option value or formula selection. A selection is an identifier, an
+  identifier paired with options, or a formula.
+
+# Returns
+
+- The converted option or selected formula.
 """
 function select end
 
 """
-    AbstractFormulation
+$(TYPEDEF)
 
-Supertype of the formulations and of the formula families.
+Represent the common supertype of formulations and formula families.
 """
 abstract type AbstractFormulation end
 
 """
-    AbstractBackend
+$(TYPEDEF)
 
-Supertype of the singletons that run a formulation.
+Represent the common supertype of backend singletons that execute a formulation.
 """
 abstract type AbstractBackend end
 

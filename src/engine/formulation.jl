@@ -1,10 +1,9 @@
 """
 $(TYPEDEF)
 
-Select the formula of each part of the coaxial computation of line parameters. The options
-are the longitudinal wavenumber `Γ` and the reductions of the matrices. Each slot takes a
-formula of its family. Equal earth slots are one formula, which prepares its state once per
-frequency.
+Select the formulas for a coaxial line-parameters computation, with the longitudinal
+wavenumber `Γ` \\[1/m\\] and matrix reductions as options.
+Equal earth slots share one formula and its state at each frequency.
 
 $(TYPEDFIELDS)
 """
@@ -20,23 +19,23 @@ struct CoaxialFormulation{
     P <: EarthProperties.Formula,
     O <: FormulationOptions
 } <: AbstractFormulation
-    "Surface impedances of each equivalent conductor."
+    "Formula for the surface impedances of each equivalent conductor."
     internal::I
-    "Magnetic term of the series impedance across each dielectric interval."
+    "Formula for the magnetic series-impedance term across each dielectric interval."
     insulation::D
-    "Admittivity of the insulating layers."
+    "Admittivity law for insulator layers."
     insulation_admittance::K
-    "Admittivity of the semiconducting layers."
+    "Admittivity law for semicon layers."
     semicon_admittance::S
-    "Earth-return impedance of the cables."
+    "Formula for the earth-return impedances of the cables."
     earth_impedance::Z
-    "Earth-return potential coefficients of the cables."
+    "Formula for the earth-return potential coefficients of the cables."
     earth_admittance::Y
-    "Potential coefficients inside each cable, from the admittivities of its layers."
+    "Formula for potential coefficients inside each cable."
     shunt::U
-    "Resistivity of the conductors at the operating temperature."
+    "Temperature law for conductor resistivity."
     resistivity::R
-    "Resistivity, permittivity and permeability of the air and the earth at each frequency."
+    "Frequency law for air and earth material properties."
     properties::P
     "Options: the longitudinal wavenumber `Γ` \\[1/m\\] and the reductions."
     options::O
@@ -73,31 +72,38 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the coaxial formulation. Each slot keyword takes the identifier of a formula of its
-family, an identifier with the options of its formula, or a formula. Equal earth slots are
-one formula, which prepares its state once per frequency. Formulas of one identifier in the
-earth slots must be equal. The other keywords are the options.
+Build a coaxial formulation. Each formula keyword accepts `:id`,
+`:id => (key = value, ...)`, or a formula of its family. Other keywords set the formulation
+options. Earth slots with the same identifier must hold equal formulas.
 
 # Keywords
 
-- `internal`: surface impedances of the conductors. Default: `:schelkunoff1934`.
-- `insulation`: magnetic term across the dielectric intervals. Default: `:ametani1980`.
-- `insulation_admittance`: admittivity of the insulating layers. Default: `:lossless`.
-- `semicon_admittance`: admittivity of the semicon layers. Default: `:lossless`.
-- `earth_impedance`: earth-return impedance. Default: `:unified`.
-- `earth_admittance`: earth-return potential coefficients. Default: `:unified`.
-- `shunt`: potential coefficients inside the cables. Default: `:series`.
-- `resistivity`: resistivity of the conductors. Default: `:linear`.
-- `properties`: properties of the air and the earth. Default: `:constant`.
+- `internal`: conductor surface-impedance formula. Default: `:schelkunoff1934`.
+- `insulation`: magnetic dielectric-interval formula. Default: `:ametani1980`.
+- `insulation_admittance`: admittivity law for insulator layers. Default: `:lossless`.
+- `semicon_admittance`: admittivity law for semicon layers. Default: `:lossless`.
+- `earth_impedance`: earth-return impedance formula. Default: `:unified`.
+- `earth_admittance`: earth-return potential-coefficient formula. Default: `:unified`.
+- `shunt`: formula for potential coefficients inside cables. Default: `:series`.
+- `resistivity`: conductor resistivity law. Default: `:linear`.
+- `properties`: air and earth properties law. Default: `:constant`.
 - `Γ`: longitudinal wavenumber \\[1/m\\], one value or one per frequency. Default: `0`.
-- `bundle`, `kron`, `transposition`: the reductions. Default: `true`, `true`, `false`.
+- `bundle`: merge conductors with the same positive connection index. Default: `true`.
+- `kron`: remove conductors with connection index zero by [`eliminate!`](@ref). Default:
+  `true`.
+- `transposition`: apply ideal cyclic transposition. Default: `false`.
+
+# Returns
+
+- A [`CoaxialFormulation`](@ref) with typed formula slots and options.
 
 # Errors
 
-- Throws `ArgumentError` for an unknown formula identifier or option.
+- Throws `ArgumentError` for an unknown formula identifier or option, or invalid integration
+  controls.
 - Throws `ArgumentError` for different formulas of one identifier in the earth slots.
 - Throws `DomainError` for an earth formula that does not give the quantity of its slot.
-- Throws `DomainError` when `Γ` is empty or not finite.
+- Throws `DomainError` when `Γ` is empty or nonfinite.
 """
 function CoaxialFormulation(;
         internal = :schelkunoff1934, insulation = :ametani1980,
@@ -118,9 +124,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check the earth slots of a coaxial formulation whose formulas share an identifier. A formula
-of that identifier gives the impedance and the potential coefficients from one set of
-currents on the circumferences of the cables. Both slots must take the same formula.
+Check that earth slots with one identifier share one formula. Its impedance and
+potential coefficients depend on the same circumference currents.
+
+# Arguments
+
+- `earth`: pair of earth-return formulas with the same identifier.
+- `CoaxialFormulation`: formulation type that consumes the slots.
+
+# Returns
+
+- `earth`, unchanged.
 
 # Errors
 
@@ -200,10 +214,9 @@ select(::Type{F}, formula::F) where {F <: EarthProperties.Formula} = formula
 """
 $(TYPEDEF)
 
-Select the laws of the finite-element computation of line parameters, which it shares with
-[`CoaxialFormulation`](@ref), and its options: the longitudinal wavenumber `Γ` and
-the reductions. The field solver of the Gmsh extension takes the place of the other
-formulas.
+Select the material laws for a finite-element line-parameters computation, with the
+longitudinal wavenumber `Γ` \\[1/m\\] and matrix reductions as options. The Gmsh extension
+supplies the field solver.
 
 $(TYPEDFIELDS)
 """
@@ -214,13 +227,13 @@ struct FEM{
     P <: EarthProperties.Formula,
     O <: FormulationOptions
 } <: AbstractFormulation
-    "Admittivity of the insulating layers."
+    "Admittivity law for insulator layers."
     insulation_admittance::K
-    "Admittivity of the semiconducting layers."
+    "Admittivity law for semicon layers."
     semicon_admittance::S
-    "Resistivity of the conductors at the operating temperature."
+    "Temperature law for conductor resistivity."
     resistivity::R
-    "Resistivity, permittivity and permeability of the air and the earth at each frequency."
+    "Frequency law for air and earth material properties."
     properties::P
     "Options: the longitudinal wavenumber `Γ` \\[1/m\\] and the reductions."
     options::O
@@ -245,23 +258,30 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Build the finite-element formulation. Each law keyword takes the identifier of a formula of
-its family, an identifier with the options of its formula, or a formula. The other keywords
-are the options.
+Build a finite-element formulation. Each formula keyword accepts `:id`,
+`:id => (key = value, ...)`, or a formula of its family. Other keywords set the formulation
+options.
 
 # Keywords
 
-- `insulation_admittance`: admittivity of the insulating layers. Default: `:lossless`.
-- `semicon_admittance`: admittivity of the semiconducting layers. Default: `:lossless`.
-- `resistivity`: resistivity of the conductors. Default: `:linear`.
-- `properties`: properties of the air and the earth. Default: `:constant`.
+- `insulation_admittance`: admittivity law for insulator layers. Default: `:lossless`.
+- `semicon_admittance`: admittivity law for semicon layers. Default: `:lossless`.
+- `resistivity`: conductor resistivity law. Default: `:linear`.
+- `properties`: air and earth properties law. Default: `:constant`.
 - `Γ`: longitudinal wavenumber \\[1/m\\], one value or one per frequency. Default: `0`.
-- `bundle`, `kron`, `transposition`: the reductions. Default: `true`, `true`, `false`.
+- `bundle`: merge conductors with the same positive connection index. Default: `true`.
+- `kron`: remove conductors with connection index zero by [`eliminate!`](@ref). Default:
+  `true`.
+- `transposition`: apply ideal cyclic transposition. Default: `false`.
+
+# Returns
+
+- An [`FEM`](@ref) formulation with typed material laws and options.
 
 # Errors
 
 - Throws `ArgumentError` for an unknown formula identifier or option.
-- Throws `DomainError` when `Γ` is empty or not finite.
+- Throws `DomainError` when `Γ` is empty or nonfinite.
 """
 function FEM(; insulation_admittance = :lossless, semicon_admittance = :lossless,
         resistivity = :linear, properties = :constant, kw...)
@@ -282,11 +302,21 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Check that `formulation` can compute `problem`: a vector `Γ` has one value per frequency.
+Check that a vector longitudinal wavenumber has one entry per frequency.
+
+# Arguments
+
+- `problem`: line-parameters problem.
+- `formulation`: formulation with a scalar or vector `Γ` option \\[1/m\\].
+
+# Returns
+
+- `problem`, unchanged.
 
 # Errors
 
-- Throws `DimensionMismatch` for a `Γ` vector of another length than the frequencies.
+- Throws `DimensionMismatch` when a `Γ` vector and the frequency vector have different
+  lengths.
 """
 function validate(problem::LineParametersProblem,
         formulation::Union{CoaxialFormulation, FEM})
