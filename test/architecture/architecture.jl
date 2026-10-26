@@ -12,7 +12,10 @@ function probe(directory, name; extension = nothing)
 end
 
 @testset "architecture" begin
-    tree = Guards.PackageTree(LineCableModels, Module[], pkgdir(LineCableModels))
+    extensions = [E
+                  for E in (Base.get_extension(LineCableModels, :LineCableModelsGmshExt),)
+                  if E isa Module]
+    tree = Guards.PackageTree(LineCableModels, extensions, pkgdir(LineCableModels))
     files = Guards.source_files(pkgdir(LineCableModels))
     directory = pkgdir(LineCableModels)
     methods = Guards.package_methods(tree)
@@ -35,7 +38,7 @@ end
     end
 
     @testset "explicit imports" begin
-        @test Guards.explicit_imports(tree, Module[]) == Dict{String, Int}()
+        @test Guards.explicit_imports(tree, extensions) == Dict{String, Int}()
     end
 
     @testset "direction" begin

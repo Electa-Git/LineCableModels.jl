@@ -110,6 +110,10 @@ solve = "find the line parameters of a problem at each of its frequencies"
 [modules."Engine.EarthReturn"]
 symbols = ["i0m1"]
 
+[modules.LineCableModelsGmshExt]
+nouns = ["getdp", "artifact", "overrides", "interval"]
+qualifiers = ["low", "high", "closed"]
+
 [register.Commons]
 lifts = ["select"]
 
@@ -287,3 +291,10 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 
 [register."Engine.EarthProperties".formulas]
 constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (fem-investigation earth/frequencydependent/formulas/constant.jl)"
+
+[register.LineCableModelsGmshExt.public]
+GetdpArtifact = "the GetDP 3.5.0 executable of the package's artifact, or the one LINECABLEMODELS_GETDP names when that variable is set"
+
+[register.LineCableModelsGmshExt.private]
+OVERRIDES = "the table of the native expert controls: each native name with its default and its range"
+Interval = "a real interval in the ranges of the native controls, the one range Base has no type for; its low bound is inside when it is closed, its high bound never"
