@@ -95,8 +95,8 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
     "line_parameters", "problem", "gmsh", "fem", "return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "label", "radius", "permutation", "bundles",
-    "transposition"]
-qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated"]
+    "transposition", "integral", "integrand", "points", "ray"]
+qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal"]
 symbols = ["z", "r_ins_ex"]
 
 [modules.Engine.verbs]
@@ -104,6 +104,7 @@ prepare = "fill a formula's per-frequency state that its quantity methods read"
 initialize = "build the arrays of a computation once, before its loop"
 bundle = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 eliminate = "remove the eliminated rows and columns of a matrix by the Kron elimination, the Schur complement of the kept ones"
+integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
 
 [register.Commons]
 lifts = ["select"]
@@ -214,6 +215,10 @@ CoaxialInput = "the numerical input of a computation in the coaxial model: each 
 "bundle!" = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 "eliminate!" = "the Kron elimination: the Schur complement of the kept rows and columns of a matrix, written into a buffer"
 "transposition!" = "the ideal transposition: the mean of a matrix over the cyclic permutations of its rows and columns"
+SpectralIntegral = "the integral of a function over [0, ∞), its complete integrand the field, that integrate evaluates by the method its tag selects"
+integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
+nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the hook of an uncertainty extension"
+"ray!" = "the ray of a spectral integral on [0, ∞) below its singularities, with the points where the quadrature subdivides it written into the engine's integral block"
 
 
 [register."Engine.InternalImpedance".public]

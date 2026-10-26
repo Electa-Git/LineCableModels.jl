@@ -17,6 +17,7 @@ using ..Materials: Material
 using ..Earth: EarthModel
 using ..DataModel: Placement, CableSystem, support, flatten
 using LinearAlgebra: checksquare, ldiv!, lu!, mul!
+using QuadGK: alloc_segbuf, quadgk
 
 export vacuum_permittivity, vacuum_permeability
 export AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
@@ -27,6 +28,7 @@ export admittivity, resistivity, properties, impedance, impedance!, potential!, 
 export LineParametersProblem, LineParametersFormulation, FEM, CoaxialBackend, GmshBackend,
        backend, LineParameters
 export bundle!, eliminate!, transposition!
+export SpectralIntegral, integrate, nominal, ray!
 public CoaxialInput
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
@@ -116,9 +118,21 @@ none.
 """
 initialize_buffers(::AbstractFormulation, problem, input, buffers) = buffers
 
+"""
+    nominal(value)
+
+Return the nominal value of a quantity: a real number itself, and a complex number with the
+nominal values of its real and imaginary parts. A decision that must not depend on the
+uncertainty of a value reads its nominal value. Such decisions are the branch of a kernel and
+the breakpoints of an integral.
+"""
+nominal(value::Real) = value
+nominal(value::Complex) = complex(nominal(real(value)), nominal(imag(value)))
+
 include("constants/constants.jl")
 include("problem.jl")
 include("input.jl")
+include("integral.jl")
 include("internalimpedance/InternalImpedance.jl")
 include("insulationimpedance/InsulationImpedance.jl")
 include("insulationadmittance/InsulationAdmittance.jl")

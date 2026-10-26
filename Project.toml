@@ -6,6 +6,7 @@ authors = ["Amauri Martins"]
 [deps]
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
@@ -14,6 +15,7 @@ DocStringExtensions = "0.9.3"
 ExplicitImports = "1.15"
 JuliaSyntax = "1"
 LinearAlgebra = "1"
+QuadGK = "2.11"
 SpecialFunctions = "2.5"
 TOML = "1"
 Test = "1"

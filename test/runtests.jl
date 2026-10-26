@@ -20,6 +20,7 @@ using LineCableModels
     include("engine/input.jl")
     include("engine/stages.jl")
     include("engine/reductions.jl")
+    include("engine/integral.jl")
     include("engine/formulation.jl")
     include("engine/result.jl")
     include("architecture/architecture.jl")
