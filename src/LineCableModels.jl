@@ -23,7 +23,7 @@ using .Engine: vacuum_permittivity, vacuum_permeability, AbstractInternalImpedan
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
                AbstractResistivity, AbstractEarthProperties, admittivity, resistivity,
                properties, impedance, impedance!, potential!, prepare!, initialize_buffers,
-               LineParametersProblem, LineParametersFormulation, FEM, CoaxialBackend,
+               LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
                GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
                SpectralIntegral, integrate, nominal, ray!
 
@@ -37,10 +37,10 @@ export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, Cable
 export @cable, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded, armor
 public Commons, Materials, Earth, DataModel, validate, resolve, BentStrip, DifferenceShape
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
-export compute, LineParametersProblem, LineParametersFormulation, FEM, LineParameters
+export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
 public Engine, defaults, select, AbstractFormulation, AbstractBackend, FormulationOptions,
        ComputationOptions
-public vacuum_permittivity, vacuum_permeability, CoaxialBackend, GmshBackend, backend
+public vacuum_permittivity, vacuum_permeability, LCMBackend, GmshBackend, backend
 public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties

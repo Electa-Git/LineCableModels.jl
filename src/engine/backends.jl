@@ -1,5 +1,5 @@
-"Backend that runs the coaxial computation of a [`LineParametersFormulation`](@ref)."
-struct CoaxialBackend <: AbstractBackend end
+"This package's own implementation of a formulation, which computes it in process."
+struct LCMBackend <: AbstractBackend end
 
 "Backend that runs the finite-element computation of [`FEM`](@ref), in the Gmsh extension."
 struct GmshBackend <: AbstractBackend end
@@ -11,10 +11,10 @@ Return the backend that runs the formulations of type `F`.
 """
 function backend end
 
-backend(::Type{<:LineParametersFormulation}) = CoaxialBackend()
+backend(::Type{<:CoaxialFormulation}) = LCMBackend()
 backend(::Type{<:FEM}) = GmshBackend()
 
-defaults(::Type{CoaxialBackend}) = (trace = false,)
+defaults(::Type{LCMBackend}) = (trace = false,)
 
 """
 $(TYPEDSIGNATURES)

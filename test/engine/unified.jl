@@ -11,7 +11,7 @@ using SpecialFunctions: besseli
     EarthReturn = Engine.EarthReturn
     formula = EarthReturn.Formula(Val(:unified))
     law = LineCableModels.Engine.EarthProperties.Formula(Val(:constant))
-    reductions = LineCableModels.FormulationOptions(LineParametersFormulation)
+    reductions = LineCableModels.FormulationOptions(CoaxialFormulation)
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
     # Each case gives the outer radius of each cable in m, the placements and the earth. A state
     # row gives the frequency index, the cable, x, A and F. A term row gives the frequency index,
@@ -279,7 +279,7 @@ using SpecialFunctions: besseli
             connections = [(core = 1,), (core = 2,)], id = "pair", line_length = 1.0),
         homogeneous(rho = 0.1); frequencies = [1.0e3, 1.0e4, 1.0e5])
     @test_throws DimensionMismatch Engine.validate(buried,
-        LineParametersFormulation(; Γ = [0.1im, 0.2im]))
+        CoaxialFormulation(; Γ = [0.1im, 0.2im]))
     # The formula computes cables in contact, with no guard between them. After the first call,
     # the preparation allocates only the pivot vector of its LU decomposition.
     contact = LineCableModels.Engine.EarthReturn.Formula(Val(:unified))

@@ -25,7 +25,7 @@ export AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulatio
        AbstractEarthProperties
 export admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
        initialize_buffers
-export LineParametersProblem, LineParametersFormulation, FEM, CoaxialBackend, GmshBackend,
+export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
 export bundle!, eliminate!, transposition!
 export SpectralIntegral, integrate, nominal, ray!

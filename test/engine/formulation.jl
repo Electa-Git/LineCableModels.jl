@@ -8,12 +8,12 @@ end
     backend = LineCableModels.backend
 
     @testset "a backend runs each formulation type" begin
-        @test backend(LineParametersFormulation) === LineCableModels.CoaxialBackend()
+        @test backend(CoaxialFormulation) === LineCableModels.LCMBackend()
         @test backend(typeof(FEM())) === LineCableModels.GmshBackend()
     end
 
     @testset "the coaxial formulation and its earth slots" begin
-        formulation = LineParametersFormulation()
+        formulation = CoaxialFormulation()
         @test (formulation.internal, formulation.insulation,
             formulation.insulation_admittance, formulation.semicon_admittance,
             formulation.earth_impedance, formulation.shunt, formulation.resistivity,
@@ -29,14 +29,14 @@ end
             formulation.options.transposition) === (complex(0.0), true, true, false)
         # A formula of one identifier in both earth slots is one formula.
         section = (integral = (rtol = 1e-10,),)
-        shared = LineParametersFormulation(; earth_impedance = :unified => section,
+        shared = CoaxialFormulation(; earth_impedance = :unified => section,
             earth_admittance = :unified => section)
         @test shared.earth_impedance === shared.earth_admittance
-        @test_throws "two different :unified formulas" LineParametersFormulation(;
+        @test_throws "two different :unified formulas" CoaxialFormulation(;
             earth_impedance = :unified => section)
-        @test_throws DomainError LineParametersFormulation(; earth_impedance = :declared)
-        @test LineParametersFormulation(; Γ = [0.1im]).options.Γ == [0.1im]
-        @test_throws DomainError LineParametersFormulation(; Γ = complex(Inf))
+        @test_throws DomainError CoaxialFormulation(; earth_impedance = :declared)
+        @test CoaxialFormulation(; Γ = [0.1im]).options.Γ == [0.1im]
+        @test_throws DomainError CoaxialFormulation(; Γ = complex(Inf))
     end
 
     @testset "the finite-element formulation and its options" begin

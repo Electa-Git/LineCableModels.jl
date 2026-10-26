@@ -8,7 +8,7 @@ frequency.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersFormulation{
+struct CoaxialFormulation{
     I <: InternalImpedance.Formula,
     D <: InsulationImpedance.Formula,
     K <: InsulationAdmittance.Formula,
@@ -40,7 +40,7 @@ struct LineParametersFormulation{
     properties::P
     "Options: the longitudinal wavenumber `Γ` \\[1/m\\] and the reductions."
     options::O
-    function LineParametersFormulation(
+    function CoaxialFormulation(
             internal::I, insulation::D, insulation_admittance::K,
             semicon_admittance::S, earth_impedance::Z, earth_admittance::Y, shunt::U,
             resistivity::R, properties::P,
@@ -54,7 +54,7 @@ struct LineParametersFormulation{
             U <: Shunt.Formula,
             R <: Resistivity.Formula,
             P <: EarthProperties.Formula,
-            O <: FormulationOptions{LineParametersFormulation}
+            O <: FormulationOptions{CoaxialFormulation}
     }
         validate(earth_impedance, impedance!)
         validate(earth_admittance, potential!)
@@ -65,7 +65,7 @@ struct LineParametersFormulation{
     end
 end
 
-function defaults(::Type{LineParametersFormulation})
+function defaults(::Type{CoaxialFormulation})
     return (Γ = complex(0.0), bundle = true, kron = true, transposition = false)
 end
 
@@ -98,22 +98,22 @@ earth slots must be equal. The other keywords are the options.
 - Throws `DomainError` for an earth formula that does not give the quantity of its slot.
 - Throws `DomainError` when `Γ` is empty or not finite.
 """
-function LineParametersFormulation(;
+function CoaxialFormulation(;
         internal = :schelkunoff1934, insulation = :ametani1980,
         insulation_admittance = :lossless, semicon_admittance = :lossless,
         earth_impedance = :unified, earth_admittance = :unified, shunt = :series,
         resistivity = :linear, properties = :constant, kw...)
     impedance_formula = select(EarthReturn.Formula, earth_impedance)
     admittance_formula = select(EarthReturn.Formula, earth_admittance)
-    validate((impedance_formula, admittance_formula), LineParametersFormulation)
-    return LineParametersFormulation(select(InternalImpedance.Formula, internal),
+    validate((impedance_formula, admittance_formula), CoaxialFormulation)
+    return CoaxialFormulation(select(InternalImpedance.Formula, internal),
         select(InsulationImpedance.Formula, insulation),
         select(InsulationAdmittance.Formula, insulation_admittance),
         select(SemiconAdmittance.Formula, semicon_admittance), impedance_formula,
         impedance_formula == admittance_formula ? impedance_formula : admittance_formula,
         select(Shunt.Formula, shunt), select(Resistivity.Formula, resistivity),
         select(EarthProperties.Formula, properties),
-        FormulationOptions(LineParametersFormulation; kw...))
+        FormulationOptions(CoaxialFormulation; kw...))
 end
 
 """
@@ -128,7 +128,7 @@ currents on the circumferences of the cables. Both slots must take the same form
 - Throws `ArgumentError` when the two formulas differ.
 """
 function validate(earth::Tuple{EarthReturn.Formula{ID}, EarthReturn.Formula{ID}},
-        ::Type{LineParametersFormulation}) where {ID}
+        ::Type{CoaxialFormulation}) where {ID}
     first(earth) == last(earth) || throw(ArgumentError(
         "the earth slots hold two different :$ID formulas; a formula that gives Z and P " *
         "together is one formula in both slots"))
@@ -137,7 +137,7 @@ end
 
 # Formulas of two identifiers give each the quantity of its own slot.
 function validate(earth::Tuple{EarthReturn.Formula, EarthReturn.Formula},
-        ::Type{LineParametersFormulation})
+        ::Type{CoaxialFormulation})
     return earth
 end
 
@@ -202,7 +202,7 @@ select(::Type{F}, formula::F) where {F <: EarthProperties.Formula} = formula
 $(TYPEDEF)
 
 Select the laws of the finite-element computation of line parameters, which it shares with
-[`LineParametersFormulation`](@ref), and its options: the longitudinal wavenumber `Γ` and
+[`CoaxialFormulation`](@ref), and its options: the longitudinal wavenumber `Γ` and
 the reductions. The field solver of the Gmsh extension takes the place of the other
 formulas.
 
@@ -273,7 +273,7 @@ function FEM(; insulation_admittance = :lossless, semicon_admittance = :lossless
 end
 
 # Γ is one finite value, or one finite value per frequency.
-function validate(options::FormulationOptions{<:Union{LineParametersFormulation, FEM}})
+function validate(options::FormulationOptions{<:Union{CoaxialFormulation, FEM}})
     Γ = options.Γ
     !isempty(Γ) && all(isfinite, Γ) || throw(DomainError(Γ,
         "the option Γ must be finite: one value, or one value per frequency"))
@@ -290,7 +290,7 @@ Check that `formulation` can compute `problem`: a vector `Γ` has one value per 
 - Throws `DimensionMismatch` for a `Γ` vector of another length than the frequencies.
 """
 function validate(problem::LineParametersProblem,
-        formulation::Union{LineParametersFormulation, FEM})
+        formulation::Union{CoaxialFormulation, FEM})
     Γ = formulation.options.Γ
     ndims(Γ) == 0 || length(Γ) == length(problem.frequencies) ||
         throw(DimensionMismatch(

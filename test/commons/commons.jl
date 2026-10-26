@@ -44,20 +44,20 @@ end
         FormulationOptions = LineCableModels.FormulationOptions
         ComputationOptions = LineCableModels.ComputationOptions
         defaults = LineCableModels.defaults
-        reductions = FormulationOptions(LineParametersFormulation; kron = false)
+        reductions = FormulationOptions(CoaxialFormulation; kron = false)
         @test (reductions.bundle, reductions.kron, reductions.transposition) ==
               (true, false, false)
-        @test typeof(reductions) === typeof(FormulationOptions(LineParametersFormulation))
+        @test typeof(reductions) === typeof(FormulationOptions(CoaxialFormulation))
         @test getfield(FormulationOptions(FEM), :values) == defaults(FEM)
         @test FormulationOptions(FEM; Γ = 1).Γ === complex(1.0)
         @test @inferred((options -> options.Γ)(FormulationOptions(FEM))) === complex(0.0)
         @test FormulationOptions(FEM; Γ = 0.5im) == FormulationOptions(FEM; Γ = 0.5im)
         @test FormulationOptions(FEM; Γ = 0.5im) != FormulationOptions(FEM)
-        @test_throws ArgumentError FormulationOptions(LineParametersFormulation; bundled = false)
+        @test_throws ArgumentError FormulationOptions(CoaxialFormulation; bundled = false)
         @test_throws DomainError FormulationOptions(FEM; Γ = complex(NaN))
-        @test ComputationOptions(LineCableModels.CoaxialBackend; trace = true).trace
+        @test ComputationOptions(LineCableModels.LCMBackend; trace = true).trace
         @test_throws ArgumentError ComputationOptions(
-            LineCableModels.CoaxialBackend; traced = true)
+            LineCableModels.LCMBackend; traced = true)
     end
 
     @testset "select fits a selection to its declared default" begin

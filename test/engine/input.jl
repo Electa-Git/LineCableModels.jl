@@ -6,7 +6,7 @@
     semicon = Material(:semicon, 1000.0, 1000.0)
     steel = Material(:conductor, 1.7475e-7, 1.0, 36.6326, 20.0, 0.0045)
     air = material(kind = :insulator, rho = Inf)
-    reductions = FormulationOptions(LineParametersFormulation)
+    reductions = FormulationOptions(CoaxialFormulation)
 
     @testset "the wires of the references" begin
         metal = Terminal(:core, Region(:core_metal, Circle(0.0425), copper))
@@ -107,7 +107,7 @@
             (false, true, Tuple{Int, Int}[], [1, 2], ["cable:1:core", "cable:1:armour"]),
             (false, false, Tuple{Int, Int}[], [1, 2, 3],
                 ["cable:1:core", "cable:1:armour", "cable:1:sheath"]))
-            options = FormulationOptions(LineParametersFormulation; bundle, kron)
+            options = FormulationOptions(CoaxialFormulation; bundle, kron)
             input = CoaxialInput(problem, options)
             @test input.permutation == [1, 3, 2]
             @test input.bundles == bundles && input.kept == kept
