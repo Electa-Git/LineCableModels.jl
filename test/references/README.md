@@ -39,6 +39,12 @@ conductors in row and column order, and the units. Each row is one entry of one 
 `column`, `real`, `imaginary`. The analytical rows hold 101 frequencies from 0.1 Hz to 10 MHz,
 evenly spaced on a logarithmic scale. The FEM rows hold 11 of them, one per 0.8 decade.
 
+Each case folder also holds `physical.geo`, the geometry file of the FEM run of its
+script. At fem-investigation commit `989af96c`, all four scripts ran unchanged with
+gmsh_jll 4.15.2. Their FEM rows match `matrices.csv` within 5.4e-9 of the largest
+diagonal entry. Each `physical.geo` is byte-identical to the retained file of its case's run of
+2026-10-25. The geometry tests compare against these files.
+
 Running a script again gives analytical values identical to the bit and FEM values within about
 1e-8 of the largest diagonal entry. FEM meshes depend on incidental state such as the length of
 the run directory's path.

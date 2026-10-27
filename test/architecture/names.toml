@@ -51,7 +51,8 @@ cache = "workspace, plan, buffers or the component's name"
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
-    "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes"]
+    "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes",
+    "points", "positions"]
 qualifiers = ["cable", "outer"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "r"]
 prepositions = ["at"]
@@ -81,7 +82,7 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
     "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
-    "dielectrics", "ranges", "assembly", "positions", "core", "screen", "sheath", "bedding",
+    "dielectrics", "ranges", "assembly", "core", "screen", "sheath", "bedding",
     "jacket", "armor"]
 qualifiers = ["annular", "circular", "empty", "difference", "placed", "stranded",
     "layout"]
@@ -95,7 +96,7 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
-    "transposition", "integral", "integrand", "points", "ray", "reductions"]
+    "transposition", "integral", "integrand", "ray", "reductions"]
 qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
 symbols = ["z", "r_ins_ex"]
 
@@ -118,9 +119,16 @@ symbols = ["a", "b"]
 draw = "draw a system, a design, a placed region, a shape, a contour, a path or a curve on a target, in the target's own primitives"
 
 [modules.LineCableModelsGmshExt]
-nouns = ["getdp", "artifact", "overrides", "interval", "field", "tags", "strand", "air", "scale"]
+nouns = ["getdp", "artifact", "overrides", "interval", "field", "tags", "strand", "air", "scale",
+    "geometry", "key", "point", "buckets", "lines", "arcs", "ends", "curves", "breaks",
+    "contacts", "loops", "surfaces", "patches", "outlines", "pockets", "anchors", "faces",
+    "compartments", "direction", "inside"]
 qualifiers = ["low", "high", "closed"]
 symbols = ["gamma"]
+
+[modules.LineCableModelsGmshExt.verbs]
+cut = "cut a circle of the geometry at angles so that every curve that ends there shares the point"
+walk = "walk oriented boundaries into the cycles that bound faces"
 
 [register.Commons]
 lifts = ["select"]
@@ -162,7 +170,7 @@ AnnularSector = "an annular sector: the region between two radii over an angular
 CircularPattern = "n members placed evenly on a circle about the center of the enclosing part, at a radius or an offset"
 Helix = "the helical path of the members of a course along the cable"
 LayRatio = "the lay length of a helix over the mean diameter of its course"
-area = "the cross-sectional area of a shape"
+area = "the cross-sectional area of a shape, or the signed area of a closed polyline, positive counterclockwise"
 centroid = "the centroid of a shape in the cable cross-section"
 support = "the radius of a circle about the origin that contains a shape"
 boundary = "the outline of a shape: a circle or a sector itself, an annulus's outer circle, a difference's outer's; the next part resolves against it and an enclosure removes it from its fill"
@@ -315,3 +323,13 @@ OVERRIDES = "the table of the native expert controls: each native name with its 
 Interval = "a real interval in the ranges of the native controls, the one range Base has no type for; its low bound is inside when it is closed, its high bound never"
 FieldModel = "the finite-element model of a problem under a formulation: the material groups and the region, terminal and cable data that the later steps read"
 TAGS = "the tags of the physical groups that the native sources expect, by role"
+Geometry = "the Gmsh geometry of one cross-section under construction, built once per computation and read by the writer"
+key = "the registry key of a geometric entity: its defining numbers rounded to 15 significant digits, so that two constructions of one entity meet; of a coordinate pair, the registered pair within 64 eps of it, else its own key; of an angle on a circle, the circle's break within 1e-12 rad of it, else the angle in [0, 2π)"
+"point!" = "the Gmsh point at a coordinate pair, created once"
+"cut!" = "cut a circle at an angle, matched to its breaks within 1e-12 rad, keeping the exact contact point when given; with no angle, at its four quadrants; cut the circles of a contour or shape, a fill at its compartments, all circles at their contacts and concentric annuli at each other's breaks"
+"faces!" = "the plane surfaces of a contour: one of its outer loop with its holes' clockwise loops when no two loops share a point, the walked faces when they do; a shape by its contour; a fill by its compartments and the free spans of its shell when it is a course of wires, else by its contour"
+compartments = "the course of wires tangent to the inner circle of a fill: its center, the inner, contact and shell radii, the wires' angles and holes, and the free spans of the shell; with no wires when the fill is not such a course"
+"walk!" = "walk oriented boundaries, each with its material on the left, into their cycles: the plane surfaces of the positive cycles with the negative cycles they contain, and the negative cycles no face contains"
+direction = "the direction of an oriented curve leaving its first point, measured at a distance along it, so that tangent arcs of different radii compare"
+isinside = "whether a point lies inside a closed polygon, by the even-odd rule"
+"patches!" = "the four-sided patches of a passive annulus between its circles at their shared breaks, each with its arcs, spokes and corners, recorded for a region"

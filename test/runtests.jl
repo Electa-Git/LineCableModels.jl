@@ -29,5 +29,6 @@ using LineCableModels
     include("engine/result.jl")
     include("gmsh/options.jl")
     include("gmsh/model.jl")
+    include("gmsh/geometry.jl")
     include("architecture/architecture.jl")
 end

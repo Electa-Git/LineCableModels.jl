@@ -2,14 +2,20 @@
     LineCableModelsGmshExt
 
 Declare and validate the computation options of the Gmsh backend for finite elements.
+Build a cable cross-section with shared contact points in the caller's Gmsh session.
 """
 module LineCableModelsGmshExt
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import LineCableModels.Commons: compute, defaults, select, validate
-using LineCableModels.Commons: ComputationOptions
+using Gmsh: gmsh
+import LineCableModels.Commons: build, compute, defaults, select, validate
+using LineCableModels.Commons: ComputationOptions, resolve
 using LineCableModels.Materials: Material
-using LineCableModels.DataModel: support
+import LineCableModels.DataModel: area
+using LineCableModels.DataModel: AbstractShape, Circle, Annulus, AnnularSector,
+                                 DifferenceShape, Placement, support
+import LineCableModels.CAD: draw
+using LineCableModels.CAD: Segment, Arc, Curve, Contour
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, admittivity,
                               resistivity, reductions, vacuum_permittivity
 
@@ -17,6 +23,7 @@ public GetdpArtifact
 
 include("options.jl")
 include("model.jl")
+include("geometry.jl")
 
 """
 $(TYPEDSIGNATURES)
