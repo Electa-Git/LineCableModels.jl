@@ -52,7 +52,7 @@ cache = "workspace, plan, buffers or the component's name"
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
     "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes",
-    "points", "positions", "kind"]
+    "points", "positions"]
 qualifiers = ["cable", "outer"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "r"]
 prepositions = ["at"]
@@ -68,6 +68,7 @@ select = "fit a user's selection to the slot or option key it fills, lifting a S
 nouns = ["computation", "defaults", "values"]
 
 [modules.Materials]
+nouns = ["kind"]
 symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
 
 [modules.Earth]
@@ -121,11 +122,13 @@ draw = "draw a system, a design, a placed region, a shape, a contour, a path or 
 nouns = ["getdp", "artifact", "overrides", "interval", "field", "tags", "strand", "air", "scale",
     "geometry", "key", "point", "buckets", "lines", "arcs", "ends", "curves", "breaks",
     "contacts", "loops", "surfaces", "patches", "outlines", "pockets", "anchors", "faces",
-    "compartments", "direction", "inside", "anchor", "dimension", "turn"]
+    "compartments", "direction", "inside", "anchor", "dimension", "turn", "section"]
 qualifiers = ["low", "high", "closed", "lowest"]
 symbols = ["gamma"]
 
 [modules.LineCableModelsGmshExt.verbs]
+mesh = "write the validated meshes of the cross-section at every frequency with Gmsh, each with its gauge tree, at most workers processes at once"
+gauge = "write the gauge tree and the sampling nodes into a mesh"
 cut = "cut a circle of the geometry at angles so that every curve that ends there shares the point"
 walk = "walk oriented boundaries into the cycles that bound faces"
 
@@ -318,6 +321,8 @@ draw = "draw a system, a design, a placed region, a shape, a contour or a path o
 GetdpArtifact = "the GetDP 3.5.0 executable of the package's artifact, or the one LINECABLEMODELS_GETDP names when that variable is set"
 
 [register.LineCableModelsGmshExt.private]
+mesh = "write the validated meshes of the cross-section at every frequency with Gmsh, each with its gauge tree, at most workers processes at once"
+"gauge!" = "write the gauge tree and the sampling nodes into a mesh"
 OVERRIDES = "the table of the native expert controls: each native name with its default and its range"
 Interval = "a real interval in the ranges of the native controls, the one range Base has no type for; its low bound is inside when it is closed, its high bound never"
 FieldModel = "the finite-element model of a problem under a formulation: the material groups and the region, terminal and cable data that the later steps read"
@@ -337,4 +342,4 @@ dimension = "the smallest metal dimension of a region: a circle's diameter, an a
 anchor = "the measurement anchor of terminal t: the first probe point inside its metal, upward from the lowest point of each of its regions at the offsets of its dimension, for a shift of 0 and 1 % of the terminal's smallest dimension; refused when none is"
 curves = "the boundary curves of plane surfaces, sorted"
 turn = "the turn of an arc about its circle's center: its fraction of a revolution and its length"
-kind = "the native section kind: 1 a Circle, 2 an Annulus, 3 a Rectangle, 0 an AnnularSector, a DifferenceShape its outer's; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"
+section = "the native section of a shape or region: its kind, 1 a Circle, 2 an Annulus, 3 a Rectangle, 0 an AnnularSector, a DifferenceShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), a sector's bent height and width; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"

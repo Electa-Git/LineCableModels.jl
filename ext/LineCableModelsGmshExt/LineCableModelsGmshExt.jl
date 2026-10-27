@@ -7,7 +7,7 @@ Build a cable cross-section with shared contact points in the caller's Gmsh sess
 module LineCableModelsGmshExt
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-using Gmsh: gmsh
+using Gmsh: Gmsh, gmsh
 using Printf: @sprintf
 import LineCableModels.Commons: build, compute, defaults, select, validate
 using LineCableModels.Commons: ComputationOptions, resolve
@@ -19,13 +19,16 @@ using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annul
 import LineCableModels.CAD: draw
 using LineCableModels.CAD: Segment, Arc, Curve, Contour
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, admittivity,
-                              resistivity, reductions, vacuum_permittivity
+                              resistivity, reductions, properties, vacuum_permittivity,
+                              vacuum_permeability
 
 public GetdpArtifact
 
 include("options.jl")
 include("model.jl")
 include("geometry.jl")
+include("mesh.jl")
+include("getdp.jl")
 
 """
 $(TYPEDSIGNATURES)
@@ -47,7 +50,7 @@ Return the declared computation options of the Gmsh backend.
 - `workers`: number of Gmsh and GetDP processes at once.
 - `solver_threads`: number of BLAS and OpenMP threads of each GetDP process.
 - `keep_run_directory`: whether to keep the run directory.
-- `trace`: whether to keep the primitive matrices `Z` \\[Ω/m\\] and `P` \\[m/F\\] by
+- `trace`: whether to keep the primitive matrices `Z` \\[Ω/m\\] and `P` \\[Ω·m\\] by
   terminal in the result.
 - `getdp_executable`: GetDP executable as a path or [`GetdpArtifact`](@ref).
 - `gmsh_verbosity`: Gmsh's `-v` level, from 0 to 5.

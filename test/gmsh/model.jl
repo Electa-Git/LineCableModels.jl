@@ -3,17 +3,29 @@ using LineCableModels.Engine: admittivity, resistivity, reductions
 @testset "Gmsh field model" begin
     FieldModel = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FieldModel
     formulation = FEM()
-    @testset "$case" for ((case, reference), regions, groups) in
-                         zip(REFERENCES, (2, 4, 85, 85), (1, 2, 5, 5))
+    @testset "$case" for ((case, reference), regions, groups, layers, expected_layers) in
+                         zip(REFERENCES, (2, 4, 85, 85), (1, 2, 5, 5), (0, 2, 5, 5),
+        (Symbol[], [:core_insulation, :core_insulation],
+            [:core_semicon_inner, :core_insulation, :core_semicon_outer,
+                :sheath_bedding, :armour_jacket],
+            [:core_semicon_inner, :core_insulation, :core_semicon_outer,
+                :sheath_bedding, :armour_jacket]))
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature,
             frequencies = reference.frequencies[1:10:end])
         model = FieldModel(problem, formulation)
+        earth = problem.earth.layers[2]
+        @test length(model.earth) == length(problem.frequencies)
+        @test all(state == (rho = earth.rho, eps_r = earth.eps_r, mu_r = earth.mu_r)
+        for state in model.earth)
         @test length(model.material) == length(problem.system.regions) == regions
         @test model.label == reductions(problem.system, FEM().options).label
         @test length(model.label) == length(problem.system.terminals)
         @test all(!, model.air)
         @test length(model.materials) == groups
+        @test count(model.layer) == layers
+        @test [region.source.tag for region in problem.system.regions[findall(model.layer)]] ==
+              expected_layers
         for (r, region) in enumerate(problem.system.regions)
             material = region.source.material
             group = model.materials[model.material[r]]

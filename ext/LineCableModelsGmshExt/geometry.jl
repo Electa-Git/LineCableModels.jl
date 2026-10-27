@@ -872,16 +872,13 @@ function build(::Type{Geometry}, model::FieldModel, options::ComputationOptions{
         cut!(geometry, contour)
     end
     cut!(geometry)
-    annuli = findall(
-        i -> system.regions[i].shape isa Annulus &&
-             !model.materials[model.material[i]].conductor,
-        eachindex(system.regions))
+    annuli = findall(model.layer)
     strips = options.overrides.ThinLayerStrips == 1
     if strips
         cut!(geometry, Annulus[system.regions[i].shape for i in annuli])
     end
     for (i, region) in enumerate(system.regions)
-        geometry.surfaces[i] = strips && i in annuli ?
+        geometry.surfaces[i] = strips && model.layer[i] ?
                                patches!(geometry, region.shape, i) :
                                faces!(geometry, region.shape)
     end
@@ -1051,79 +1048,93 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return native section kind 1 for a circle. Its center and radius are in \\[m\\].
+Return the native section record of `shape`, a circle with center and radius in \\[m\\].
+The record holds `kind = 1`, `a = shape.r` \\[m\\], and `b = 0` \\[m\\].
 """
-function kind(::Circle)
-    return 1
+function section(shape::Circle)
+    return (kind = 1, a = shape.r, b = zero(shape.r))
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return native section kind 2 for an annulus. Its center and radii are in \\[m\\].
+Return the native section record of `shape`, an annulus with center and radii in \\[m\\].
+The record holds `kind = 2`, outer radius `a` \\[m\\], and inner radius `b` \\[m\\].
 """
-function kind(::Annulus)
-    return 2
+function section(shape::Annulus)
+    return (kind = 2, a = shape.ro, b = shape.ri)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return native section kind 3 for a rectangle. Its center, width, and height are in
-\\[m\\] and its rotation in \\[rad\\].
+Return the native section record of `shape`, a rectangle with center, width, and height in
+\\[m\\] and rotation in \\[rad\\]. The record holds `kind = 3`, width `a` \\[m\\],
+and height `b` \\[m\\].
 """
-function kind(::Rectangle)
-    return 3
+function section(shape::Rectangle)
+    return (kind = 3, a = shape.w, b = shape.h)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return native section kind 0 for an annular sector. Its center and radii are in \\[m\\]
-and its angle and span in \\[rad\\].
+Return the native section record of `shape`, an annular sector with center and radii in
+\\[m\\] and angular span and rotation in \\[rad\\]. The record holds `kind = 0` and
+its bent rectangle's height and width:
+
+```math
+a = r_o - r_i, \\qquad b = \\varphi (r_o + r_i) / 2,
+```
+
+where ``r_o`` and ``r_i`` are the outer and inner radii \\[m\\], ``\\varphi`` is the
+angular span \\[rad\\], and ``a`` and ``b`` are lengths \\[m\\].
 """
-function kind(::AnnularSector)
-    return 0
+function section(shape::AnnularSector)
+    return (kind = 0, a = shape.ro - shape.ri,
+        b = shape.span * (shape.ro + shape.ri) / 2)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the native section kind of `shape`'s outer shape. Coordinates and dimensions are
-in \\[m\\] and angles in \\[rad\\].
+Return the native section record of `shape`'s outer shape. Coordinates and the returned
+lengths `a` and `b` are in \\[m\\], and angles are in \\[rad\\].
 """
-function kind(shape::DifferenceShape)
-    return kind(shape.outer)
+function section(shape::DifferenceShape)
+    return section(shape.outer)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the native section kind of `region` from its declared primitive and resolved shape.
-Coordinates and dimensions are in \\[m\\] and angles in \\[rad\\].
+Return the native section record of `region` from its declared primitive and resolved shape.
+Coordinates and the returned lengths `a` and `b` are in \\[m\\], and angles are in
+\\[rad\\].
 """
-function kind(region::PlacedRegion)
-    return kind(region.source.primitive, region.shape)
+function section(region::PlacedRegion)
+    return section(region.source.primitive, region.shape)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the native section kind of `primitive` for its resolved `shape`. Coordinates and
-dimensions are in \\[m\\] and angles in \\[rad\\].
+Return the native section record of `primitive` for its resolved `shape`. Coordinates and
+the returned lengths `a` and `b` are in \\[m\\], and angles are in \\[rad\\].
 """
-function kind(primitive::AbstractPrimitive, ::AbstractShape)
-    return kind(primitive)
+function section(primitive::AbstractPrimitive, ::AbstractShape)
+    return section(primitive)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the native section kind of the resolved `shape` of an offset. The offset's thickness
-and the resolved coordinates and dimensions are in \\[m\\], and angles in \\[rad\\].
+Return the native section record of the resolved `shape` of an offset. The offset's
+thickness, resolved coordinates, and returned lengths `a` and `b` are in \\[m\\], and angles
+are in \\[rad\\].
 """
-function kind(::Offset, shape::AbstractShape)
-    return kind(shape)
+function section(::Offset, shape::AbstractShape)
+    return section(shape)
 end
 
 """
@@ -1148,7 +1159,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
     cable_curves = [abs.(outline.curves) for outline in geometry.outlines]
     layers = [(shape = region.shape, curves = curves(geometry.surfaces[i]))
               for (i, region) in enumerate(system.regions)
-              if region.shape isa Annulus && !model.materials[model.material[i]].conductor]
+              if model.layer[i]]
     conductor_boundaries = [curves(geometry.surfaces[i])
                             for i in eachindex(system.regions)
                             if model.materials[model.material[i]].conductor]
@@ -1256,7 +1267,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
             shape = system.regions[i].shape
             material = model.material[i]
             conductor = model.materials[material].conductor
-            isconductor = kind(shape) > 0 && conductor
+            isconductor = section(shape).kind > 0 && conductor
             println(io, "FEMPassive~{", i - 1, "} = ", Int(!conductor), ";")
             println(io, "FEMConductor~{", i - 1, "} = ", Int(isconductor), ";")
             isconductor || continue
@@ -1264,7 +1275,7 @@ function Base.write(path::AbstractString, geometry::Geometry)
             width = r_ex(shape) - r_in(shape)
             println(io, "FEMConductorWidth~{", i - 1, "} = ",
                 @sprintf("%.17g", Float64(width)), ";")
-            println(io, "FEMConductorKind~{", i - 1, "} = ", kind(shape), ";")
+            println(io, "FEMConductorKind~{", i - 1, "} = ", section(shape).kind, ";")
             println(io, "FEMConductorSector~{", i - 1, "} = 0;")
             arcs = [turn(geometry, edge) for edge in edges]
             center = key(shape.at.x, shape.at.y)

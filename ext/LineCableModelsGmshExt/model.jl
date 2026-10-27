@@ -26,6 +26,9 @@ $(TYPEDEF)
 Store the terminal labels, material groups, repeated regions, cable media, and geometric
 scales of a finite-element computation.
 
+Resistivity `rho` is in \\[Ω·m\\]. Relative permittivity `eps_r` and permeability `mu_r`
+are in \\[dimensionless\\].
+
 $(TYPEDFIELDS)
 """
 struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
@@ -45,10 +48,14 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     material::Vector{Int}
     "Whether each region belongs to a copy of a repeat."
     strand::Vector{Bool}
+    "Whether each region is a passive annulus, partitioned into thin-layer strips."
+    layer::Vector{Bool}
     "Whether each cable lies in the air."
     air::Vector{Bool}
     "Longitudinal wavenumber Γ at each frequency \\[1/m\\]."
     gamma::Vector{Complex{T}}
+    "Properties of the earth at each frequency."
+    earth::Vector{@NamedTuple{rho::T, eps_r::T, mu_r::T}}
     "Mean horizontal placement of the cables \\[m\\]."
     center::T
     "Smallest radius of the cable outlines, used to size CAD points \\[m\\]."
@@ -69,6 +76,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     ``\\varepsilon_0`` is vacuum permittivity \\[F/m\\], and ``\\varepsilon_r`` is
     relative permittivity \\[dimensionless\\]. Dielectric regions use the formulation's
     admittivity law for their class.
+    Evaluate the formulation's earth law at every frequency.
 
     # Arguments
 
@@ -84,6 +92,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     - Throws `DomainError` when a conductive region's conductivity is not finite and
       positive.
     - Throws `DomainError` when a cable's outer circle touches the ground surface.
+    - Throws `DomainError` when earth conductivity is not finite and nonnegative.
     """
     function FieldModel(problem::LineParametersProblem{T}, formulation::FEM) where {T <:
                                                                                     Real}
@@ -137,22 +146,31 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
             end
             offset += length(design.regions)
         end
+        layer = fill(false, length(sources))
+        for r in findall(
+            i -> problem.system.regions[i].shape isa Annulus &&
+                 !materials[material[i]].conductor,
+            eachindex(problem.system.regions))
+            layer[r] = true
+        end
         air = [at.y - support(design.outer) > 0
                for (design, at) in zip(problem.system.designs, problem.system.placements)]
         gamma = Vector{Complex{T}}(undef, length(problem.frequencies))
         gamma .= formulation.options.Γ
+        earth = [properties(formulation.earth_properties, problem.earth.layers[2], f)
+                 for f in problem.frequencies]
         center = convert(T, sum(at.x for at in problem.system.placements) /
                             length(problem.system.placements))
         scale = convert(T, minimum(design -> support(design.outer), problem.system.designs))
         return validate(new{T, typeof(problem)}(
-            problem, label, materials, material, strand, air, gamma, center, scale))
+            problem, label, materials, material, strand, layer, air, gamma, earth, center, scale))
     end
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Check the conductive regions' conductivity and the cables' contact with the ground surface.
+Check the regions' and earth's conductivity and the cables' contact with the ground surface.
 
 # Arguments
 
@@ -164,14 +182,21 @@ Check the conductive regions' conductivity and the cables' contact with the grou
 
 # Errors
 
-- Throws `DomainError` when conductivity \\[S/m\\] is not finite and positive at every
-  frequency.
+- Throws `DomainError` when a conductive region's conductivity \\[S/m\\] is not finite
+  and positive at every frequency.
 - Throws `DomainError` when a cable's outer circle touches the ground surface.
+- Throws `DomainError` when earth conductivity is not finite and nonnegative.
 
-Each error identifies the cable. An error about conductivity also identifies the region's
-tag.
+An error about a cable identifies its index. A conductive region's error also identifies its
+tag. An error about earth conductivity identifies the frequency.
 """
 function validate(model::FieldModel)
+    for (k, state) in enumerate(model.earth)
+        σ = inv(state.rho)
+        isfinite(σ) && σ >= 0 || throw(DomainError(σ,
+            "earth conductivity must be finite and nonnegative at frequency " *
+            "$(model.problem.frequencies[k]) Hz"))
+    end
     offset = 0
     for (k, design) in enumerate(model.problem.system.designs)
         for r in eachindex(design.regions)
