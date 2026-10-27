@@ -49,6 +49,64 @@ end
                     @test length(actual.entities[name]) == length(frozen.entities[name])
                     @test actual.entities[name] == frozen.entities[name]
                 end
+                written = joinpath(directory, "written.geo")
+                write(written, geometry)
+                @test !isfile(written * "_unrolled")
+                actual_lines = readlines(written)
+                expected_lines = readlines(joinpath(
+                    @__DIR__, "..", "references", case, "physical.geo"))
+                @test length(actual_lines) == length(expected_lines)
+                number = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
+                largest = 0.0
+                terminal = 0
+                cable = 0
+                differing = Tuple{Int, String, String}[]
+                for (line, (actual_line, expected_line)) in
+                    enumerate(zip(actual_lines, expected_lines))
+                    if startswith(expected_line, "Physical Surface(\"LCM/terminal/")
+                        terminal += 1
+                        pattern = r"^Physical Surface\(\"([^\"]+)\",(\d+)\) = \{([^}]*)\};$"
+                        name = "LCM/terminal/$(lpad(terminal, 4, '0'))/$(geometry.model.label[terminal])"
+                    elseif startswith(expected_line, "Physical Curve(\"LCM/cable_contour/")
+                        cable += 1
+                        pattern = r"^Physical Curve\(\"([^\"]+)\",(\d+)\) = \{([^}]*)\};$"
+                        name = "LCM/cable_contour/$(lpad(cable, 4, '0'))/$(geometry.model.problem.system.designs[cable].id)"
+                    else
+                        actual_numbers = [parse(Float64, value.match)
+                                          for value in eachmatch(number, actual_line)]
+                        expected_numbers = [parse(Float64, value.match)
+                                            for value in eachmatch(number, expected_line)]
+                        if replace(actual_line, number => "") !=
+                           replace(expected_line, number => "") ||
+                           length(actual_numbers) != length(expected_numbers)
+                            push!(differing, (line, actual_line, expected_line))
+                        end
+                        if length(actual_numbers) == length(expected_numbers)
+                            largest = max(largest,
+                                maximum(abs.(actual_numbers .- expected_numbers); init = 0.0))
+                        end
+                        continue
+                    end
+                    actual_group = match(pattern, actual_line)
+                    expected_group = match(pattern, expected_line)
+                    if actual_group === nothing ||
+                       actual_group[2] != expected_group[2] ||
+                       parse.(Int, split(actual_group[3], ',')) !=
+                       parse.(Int, split(expected_group[3], ',')) ||
+                       actual_group[1] != name
+                        push!(differing, (line, actual_line, expected_line))
+                    end
+                end
+                @test isempty(differing)
+                @test largest <= 1e-12
+                for (name, values) in (("FEMReceiverX", [p.x for p in geometry.anchors]),
+                    ("FEMReceiverY", [p.y for p in geometry.anchors]),
+                    ("FEMReceiverMetalDimension", [p.dimension for p in geometry.anchors]))
+                    line = only(filter(line -> startswith(line, name * "()"), expected_lines))
+                    frozen_values = parse.(Float64, split(match(r"\{([^}]*)\}", line)[1], ','))
+                    @test length(values) == length(frozen_values)
+                    @test all(abs.(values .- frozen_values) .<= 1e-12)
+                end
             end
         finally
             gmsh.model.remove()
@@ -132,6 +190,16 @@ end
             @test isempty(geometry.pockets.air)
             @test length(geometry.holes.earth) == 1
             @test length(geometry.pockets.earth) == 1
+            mktempdir() do directory
+                path = joinpath(directory, "trefoil.geo")
+                write(path, geometry)
+                lines = readlines(path)
+                earth = only(filter(line -> startswith(line, "FEMEarthPockets()"), lines))
+                air = only(filter(line -> startswith(line, "FEMAirPockets()"), lines))
+                @test parse.(Int, split(match(r"\{([^}]*)\}", earth)[1], ',')) ==
+                      geometry.pockets.earth
+                @test isempty(match(r"\{([^}]*)\}", air)[1])
+            end
         finally
             gmsh.model.remove()
             gmsh.finalize()
@@ -156,6 +224,17 @@ end
             @test isempty(geometry.pockets.air)
             @test length(geometry.holes.earth) == 1
             @test isempty(geometry.pockets.earth)
+            mktempdir() do directory
+                path = joinpath(directory, "row.geo")
+                write(path, geometry)
+                lines = readlines(path)
+                for medium in ("Air", "Earth")
+                    line = only(filter(
+                        line -> startswith(line, "FEM" * medium *
+                                                 "Pockets()"), lines))
+                    @test isempty(match(r"\{([^}]*)\}", line)[1])
+                end
+            end
         finally
             gmsh.model.remove()
             gmsh.finalize()

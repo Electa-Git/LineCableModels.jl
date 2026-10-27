@@ -117,6 +117,14 @@
     f[3] #hide
     f[4] #hide
   want: ""
+- name: GetDP comments
+  rule: ../styles/Project/BannedTerms.yml
+  format: pro
+  view: GetDP
+  input: |
+    // provenance
+    a = "contract";
+  contains: Project.BannedTerms
 - name: workflow names
   rule: ../styles/Project/BannedTerms.yml
   format: yml

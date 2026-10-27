@@ -52,7 +52,7 @@ cache = "workspace, plan, buffers or the component's name"
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
     "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes",
-    "points", "positions"]
+    "points", "positions", "kind"]
 qualifiers = ["cable", "outer"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "r"]
 prepositions = ["at"]
@@ -68,7 +68,6 @@ select = "fit a user's selection to the slot or option key it fills, lifting a S
 nouns = ["computation", "defaults", "values"]
 
 [modules.Materials]
-nouns = ["kind"]
 symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
 
 [modules.Earth]
@@ -122,8 +121,8 @@ draw = "draw a system, a design, a placed region, a shape, a contour, a path or 
 nouns = ["getdp", "artifact", "overrides", "interval", "field", "tags", "strand", "air", "scale",
     "geometry", "key", "point", "buckets", "lines", "arcs", "ends", "curves", "breaks",
     "contacts", "loops", "surfaces", "patches", "outlines", "pockets", "anchors", "faces",
-    "compartments", "direction", "inside"]
-qualifiers = ["low", "high", "closed"]
+    "compartments", "direction", "inside", "anchor", "dimension", "turn"]
+qualifiers = ["low", "high", "closed", "lowest"]
 symbols = ["gamma"]
 
 [modules.LineCableModelsGmshExt.verbs]
@@ -333,3 +332,9 @@ compartments = "the course of wires tangent to the inner circle of a fill: its c
 direction = "the direction of an oriented curve leaving its first point, measured at a distance along it, so that tangent arcs of different radii compare"
 isinside = "whether a point lies inside a closed polygon, by the even-odd rule"
 "patches!" = "the four-sided patches of a passive annulus between its circles at their shared breaks, each with its arcs, spokes and corners, recorded for a region"
+lowest = "the lowest point: of a segment its lower end; of an arc the bottom of its circle when the arc passes it, else its lower end; of a contour the lowest of its outer path's curves, least y then least x"
+dimension = "the smallest metal dimension of a region: a circle's diameter, an annulus's thickness, a sector's shorter bounding-box side"
+anchor = "the measurement anchor of terminal t: the first probe point inside its metal, upward from the lowest point of each of its regions at the offsets of its dimension, for a shift of 0 and 1 % of the terminal's smallest dimension; refused when none is"
+curves = "the boundary curves of plane surfaces, sorted"
+turn = "the turn of an arc about its circle's center: its fraction of a revolution and its length"
+kind = "the native section kind: 1 a Circle, 2 an Annulus, 3 a Rectangle, 0 an AnnularSector, a DifferenceShape its outer's; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"

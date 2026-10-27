@@ -12,7 +12,7 @@ while IFS= read -r -d '' file; do
         .github/prose/fixtures/*|.github/prose/styles/config/*) continue ;;
     esac
     case "$file" in
-        *.md|*.markdown|*.txt|*.jl|*.js|*.css|*.sh|*.yml|*.yaml|*.json|*.toml|.gitignore)
+        *.md|*.markdown|*.txt|*.jl|*.js|*.css|*.pro|*.sh|*.yml|*.yaml|*.json|*.toml|.gitignore)
             test -f "$file"
             printf '%s\n' "$file" >> "$source_files" ;;
     esac

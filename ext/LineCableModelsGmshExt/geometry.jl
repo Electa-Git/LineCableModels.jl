@@ -857,7 +857,7 @@ $(TYPEDSIGNATURES)
 Build the geometry of `model` in an initialized Gmsh session under `options`. Add the model
 named by the system's `id` and leave it in the session for the caller to remove. The native
 `ThinLayerStrips` control selects patches for passive annuli. Coordinates and radii are
-in \\[m\\] and angles in \\[rad\\]. Return the completed geometry with empty anchors.
+in \\[m\\] and angles in \\[rad\\]. Return the completed geometry with terminal anchors.
 """
 function build(::Type{Geometry}, model::FieldModel, options::ComputationOptions{GmshBackend})
     system = model.problem.system
@@ -904,5 +904,424 @@ function build(::Type{Geometry}, model::FieldModel, options::ComputationOptions{
         append!(holes, outside)
     end
     gmsh.model.geo.synchronize()
+    append!(geometry.anchors, [anchor(geometry, t) for t in eachindex(system.terminals)])
     return geometry
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the lowest point of `contour`'s outer path, ordered by least `y`, then least `x`.
+Coordinates and radii are in \\[m\\] and angles in \\[rad\\]. The returned coordinate
+pair is in \\[m\\].
+"""
+function lowest(contour::Contour)
+    return argmin(xy -> (xy[2], xy[1]), [lowest(curve) for curve in contour.outer])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the lower endpoint of `segment`, ordered by least `y`, then least `x`.
+The endpoints and returned coordinate pair are in \\[m\\].
+"""
+function lowest(segment::Segment)
+    return argmin(xy -> (xy[2], xy[1]), (segment(0), segment(1)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the lowest point of `arc`: the bottom of its circle when its signed span passes
+that point, otherwise its lower endpoint. Order ties by least `x`. The center, radius,
+and returned coordinates are in \\[m\\], and the first angle and span in \\[rad\\].
+"""
+function lowest(arc::Arc)
+    endpoints = (arc(0), arc(1))
+    if mod(sign(arc.span) * (3π / 2 - arc.at.φ), 2π) <= abs(arc.span)
+        return argmin(xy -> (xy[2], xy[1]),
+            (endpoints..., (arc.at.x, arc.at.y - arc.r)))
+    end
+    return argmin(xy -> (xy[2], xy[1]), endpoints)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the diameter of `shape` \\[m\\] as its smallest metal dimension in `geometry`.
+The circle's center and radius are in \\[m\\], and `surfaces` holds its plane surface tags.
+"""
+function dimension(::Geometry, shape::Circle, surfaces::AbstractVector{<:Integer})
+    return 2shape.r
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the thickness `ro - ri` of `shape` \\[m\\] as its smallest metal dimension in
+`geometry`. The annulus's center and radii are in \\[m\\], and `surfaces` holds its
+plane surface tags.
+"""
+function dimension(::Geometry, shape::Annulus, surfaces::AbstractVector{<:Integer})
+    return shape.ro - shape.ri
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the shorter bounding-box side \\[m\\] of the first plane surface in `surfaces`
+as the smallest metal dimension of `shape` in `geometry`. The sector's center and radii
+are in \\[m\\] and its angle and span in \\[rad\\].
+"""
+function dimension(::Geometry, shape::AnnularSector, surfaces::AbstractVector{<:Integer})
+    bounds = gmsh.model.getBoundingBox(2, first(surfaces))
+    return min(bounds[4] - bounds[1], bounds[5] - bounds[2])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Find the measurement anchor of terminal `t` in `geometry`. Probe upward from each region's
+lowest point. Its metal dimension sets the vertical and horizontal offsets. Accept the
+first point that lies inside the metal for horizontal shifts of 0 and 1 % of the smallest
+metal dimension of the terminal.
+
+# Returns
+
+- `x`, `y`: anchor coordinates \\[m\\].
+- `dimension`: the smallest metal dimension of the terminal \\[m\\].
+
+# Errors
+
+- Throws `ArgumentError` when no probe lies inside the terminal's metal.
+"""
+function anchor(geometry::Geometry, t::Integer)
+    system = geometry.model.problem.system
+    indices = system.terminals[t].regions
+    dimensions = [dimension(geometry, system.regions[i].shape, geometry.surfaces[i])
+                  for i in indices]
+    minimum_dimension = minimum(dimensions)
+    for (i, width) in zip(indices, dimensions)
+        low = lowest(Contour(system.regions[i].shape))
+        for dy in (0.125, 0.25, 0.5, 0.75), dx in (0.0, 0.125, -0.125, 0.25, -0.25)
+
+            xy = (low[1] + dx * width, low[2] + dy * width)
+            if any(geometry.surfaces[i]) do surface
+                return all(
+                    shift -> gmsh.model.isInside(2, surface,
+                        [xy[1] + shift * minimum_dimension, xy[2], 0.0]) > 0,
+                    (0.0, 0.01))
+            end
+                return (x = Float64(xy[1]), y = Float64(xy[2]),
+                    dimension = Float64(minimum_dimension))
+            end
+        end
+    end
+    return throw(ArgumentError("cannot locate an interior metal anchor for terminal $t"))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the sorted unique boundary curve tags of the plane `surfaces`. Gmsh removes curves
+shared by two surfaces.
+"""
+function curves(surfaces::AbstractVector{<:Integer})
+    isempty(surfaces) && return Int[]
+    boundaries = gmsh.model.getBoundary([(2, surface) for surface in surfaces],
+        true, false, false)
+    tags = [Int(tag) for (dim, tag) in boundaries if dim == 1]
+    return sort!(unique(tags))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the fraction of a revolution \\[dimensionless\\] and length \\[m\\] of the
+stored circular curve tagged `arc` in `geometry`. Read its radius \\[m\\] and signed
+span \\[rad\\] from the CAD curve: the fraction is `abs(span) / (2π)` and the length
+is `abs(span) * r`.
+"""
+function turn(geometry::Geometry, arc::Integer)
+    curve = geometry.curves[abs(arc)]
+    span = abs(curve.span)
+    return (fraction = span / (2π), length = span * curve.r)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return native section kind 1 for a circle. Its center and radius are in \\[m\\].
+"""
+function kind(::Circle)
+    return 1
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return native section kind 2 for an annulus. Its center and radii are in \\[m\\].
+"""
+function kind(::Annulus)
+    return 2
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return native section kind 3 for a rectangle. Its center, width, and height are in
+\\[m\\] and its rotation in \\[rad\\].
+"""
+function kind(::Rectangle)
+    return 3
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return native section kind 0 for an annular sector. Its center and radii are in \\[m\\]
+and its angle and span in \\[rad\\].
+"""
+function kind(::AnnularSector)
+    return 0
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the native section kind of `shape`'s outer shape. Coordinates and dimensions are
+in \\[m\\] and angles in \\[rad\\].
+"""
+function kind(shape::DifferenceShape)
+    return kind(shape.outer)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the native section kind of `region` from its declared primitive and resolved shape.
+Coordinates and dimensions are in \\[m\\] and angles in \\[rad\\].
+"""
+function kind(region::PlacedRegion)
+    return kind(region.source.primitive, region.shape)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the native section kind of `primitive` for its resolved `shape`. Coordinates and
+dimensions are in \\[m\\] and angles in \\[rad\\].
+"""
+function kind(primitive::AbstractPrimitive, ::AbstractShape)
+    return kind(primitive)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the native section kind of the resolved `shape` of an offset. The offset's thickness
+and the resolved coordinates and dimensions are in \\[m\\], and angles in \\[rad\\].
+"""
+function kind(::Offset, shape::AbstractShape)
+    return kind(shape)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write `geometry` to `path` as the frequency-independent physical CAD read by the native
+sources. Write Gmsh's unrolled geometry to `path * "_unrolled"`, replace each point's size
+with `MeshFine`, append the native lists and physical groups, and remove the unrolled file.
+Coordinates, radii, thicknesses, arc lengths, and anchor dimensions are in \\[m\\].
+Angular fractions are dimensionless. Numbers use 17 significant digits.
+"""
+function Base.write(path::AbstractString, geometry::Geometry)
+    gmsh.model.geo.synchronize()
+    model = geometry.model
+    system = model.problem.system
+    material_surfaces = [Int[] for _ in model.materials]
+    for (i, g) in enumerate(model.material)
+        append!(material_surfaces[g], geometry.surfaces[i])
+    end
+    terminal_surfaces = [reduce(vcat, geometry.surfaces[terminal.regions]; init = Int[])
+                         for terminal in system.terminals]
+    cable_curves = [abs.(outline.curves) for outline in geometry.outlines]
+    layers = [(shape = region.shape, curves = curves(geometry.surfaces[i]))
+              for (i, region) in enumerate(system.regions)
+              if region.shape isa Annulus && !model.materials[model.material[i]].conductor]
+    conductor_boundaries = [curves(geometry.surfaces[i])
+                            for i in eachindex(system.regions)
+                            if model.materials[model.material[i]].conductor]
+    conductor_curves = reduce(vcat, conductor_boundaries; init = Int[])
+    layer_boundaries = reduce(vcat, [layer.curves for layer in layers]; init = Int[])
+    layer_curves = sort!(setdiff(unique(layer_boundaries), conductor_curves))
+    boundaries = map(layer_curves) do edge
+        adjacent = filter(layer -> edge in layer.curves, layers)
+        shape = first(adjacent).shape
+        p = first(geometry.ends[edge])
+        xy = geometry.positions[p]
+        radius = hypot(xy[1] - shape.at.x, xy[2] - shape.at.y)
+        thickness = minimum(layer.shape.ro - layer.shape.ri for layer in adjacent)
+        points = unique(last.(gmsh.model.getBoundary([(1, edge)], false, false, false)))
+        cables = [k - 1 for (k, tags) in enumerate(cable_curves) if edge in tags]
+        return (radius = radius, thickness = thickness, points = points,
+            cables = cables, fraction = turn(geometry, edge).fraction)
+    end
+    raw = path * "_unrolled"
+    gmsh.write(raw)
+    open(path, "w") do io
+        println(io, "// Frequency-independent physical CAD; numerical sizing is native.")
+        for line in eachline(raw)
+            startswith(line, "Transfinite") && continue
+            startswith(line, "Recombine") && continue
+            occursin(r"^cl__\d+ =", line) && continue
+            matched = match(r"^Point\((\d+)\)", line)
+            if matched !== nothing
+                tag = parse(Int, matched[1])
+                xyz = gmsh.model.getValue(0, tag, Float64[])
+                numbers = [@sprintf("%.17g", Float64(number)) for number in xyz]
+                println(io, "Point(", tag, ") = {", join(numbers, ", "), ", MeshFine};")
+            else
+                println(io, line)
+            end
+        end
+        boundary_radii = [boundary.radius for boundary in boundaries]
+        boundary_thicknesses = [boundary.thickness for boundary in boundaries]
+        boundary_fractions = [boundary.fraction for boundary in boundaries]
+        for (name, entries) in (("FEMPolygonCurves", Int[]),
+            ("FEMPolygonFirstPoints", Int[]), ("FEMPolygonLastPoints", Int[]),
+            ("FEMPolygonLengths", Int[]), ("FEMPolygonAreaScales", Int[]),
+            ("FEMMaterialSurfaces", reduce(vcat, material_surfaces; init = Int[])),
+            ("FEMCableCurves", unique(reduce(vcat, cable_curves; init = Int[]))),
+            ("FEMLayerBoundaryCurves", layer_curves),
+            ("FEMLayerBoundaryRadii", boundary_radii),
+            ("FEMLayerBoundaryThicknesses", boundary_thicknesses),
+            ("FEMLayerBoundaryFractions", boundary_fractions))
+            numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+            println(io, name, "() = {", join(numbers, ", "), "};")
+        end
+        for (i, patch) in enumerate(geometry.patches)
+            for (name, entries) in (("Arcs", patch.arcs), ("Spokes", patch.spokes),
+                ("Corners", patch.corners))
+                numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+                println(io, "FEMAnnular", name, "~{", i - 1, "}() = {",
+                    join(numbers, ", "), "};")
+            end
+            println(io, "FEMAnnularSurface~{", i - 1, "} = ", patch.surface, ";")
+            println(io, "FEMAnnularRegion~{", i - 1, "} = ", patch.region - 1, ";")
+            shape = system.regions[patch.region].shape
+            for (name, number) in (("Fraction", patch.fraction), ("Radius", shape.ro),
+                ("Thickness", shape.ro - shape.ri))
+                println(io, "FEMAnnular", name, "~{", i - 1, "} = ",
+                    @sprintf("%.17g", Float64(number)), ";")
+            end
+        end
+        println(io, "FEMAnnularPatches = ", length(geometry.patches), ";")
+        for (i, boundary) in enumerate(boundaries)
+            lists = (("Points", boundary.points), ("Cables", boundary.cables))
+            for (name, entries) in lists
+                numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+                println(io, "FEMLayerBoundary", name, "~{", i - 1, "}() = {",
+                    join(numbers, ", "), "};")
+            end
+        end
+        for (medium, holes, pockets) in (("Air", geometry.holes.air, geometry.pockets.air),
+            ("Earth", geometry.holes.earth, geometry.pockets.earth))
+            println(io, "FEM", medium, "Holes() = {};")
+            for tags in holes
+                println(io, "FEMHole = newll; Curve Loop(FEMHole) = {", join(tags, ","), "};")
+                println(io, "FEM", medium, "Holes() += {FEMHole};")
+            end
+            numbers = [@sprintf("%.17g", Float64(number)) for number in pockets]
+            println(io, "FEM", medium, "Pockets() = {", join(numbers, ", "), "};")
+        end
+        for (k, tags) in enumerate(cable_curves)
+            numbers = [@sprintf("%.17g", Float64(number)) for number in tags]
+            println(io, "FEMCableCurves~{", k - 1, "}() = {", join(numbers, ", "), "};")
+            name = @sprintf("LCM/cable_contour/%04d/%s", k, system.designs[k].id)
+            escaped = replace(name, '\\' => "\\\\", '"' => "\\\"")
+            println(io, "Physical Curve(\"", escaped, "\",", TAGS.cable_contour_base + k,
+                ") = {", join(tags, ","), "};")
+        end
+        for (i, surfaces) in enumerate(geometry.surfaces)
+            edges = curves(surfaces)
+            dimtags = [(1, edge) for edge in edges]
+            tags = unique(last.(gmsh.model.getBoundary(dimtags, false, false, false)))
+            lists = (("Surfaces", surfaces), ("Curves", edges), ("Points", tags))
+            for (name, entries) in lists
+                numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+                println(io, "FEMRegion", name, "~{", i - 1, "}() = {",
+                    join(numbers, ", "), "};")
+            end
+            shape = system.regions[i].shape
+            material = model.material[i]
+            conductor = model.materials[material].conductor
+            isconductor = kind(shape) > 0 && conductor
+            println(io, "FEMPassive~{", i - 1, "} = ", Int(!conductor), ";")
+            println(io, "FEMConductor~{", i - 1, "} = ", Int(isconductor), ";")
+            isconductor || continue
+            println(io, "FEMConductorMaterial~{", i - 1, "} = ", material, ";")
+            width = r_ex(shape) - r_in(shape)
+            println(io, "FEMConductorWidth~{", i - 1, "} = ",
+                @sprintf("%.17g", Float64(width)), ";")
+            println(io, "FEMConductorKind~{", i - 1, "} = ", kind(shape), ";")
+            println(io, "FEMConductorSector~{", i - 1, "} = 0;")
+            arcs = [turn(geometry, edge) for edge in edges]
+            center = key(shape.at.x, shape.at.y)
+            thicknesses = map(edges) do edge
+                thickness = Inf
+                for layer in layers
+                    edge in layer.curves || continue
+                    key(layer.shape.at.x, layer.shape.at.y) == center || continue
+                    thickness = min(thickness, layer.shape.ro - layer.shape.ri)
+                end
+                return isfinite(thickness) ? thickness : 0.0
+            end
+            for (name, entries) in (("ArcLengths", [arc.length for arc in arcs]),
+                ("ArcFractions", [arc.fraction for arc in arcs]),
+                ("LayerThickness", thicknesses), ("BulkSurfaces", surfaces))
+                numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+                println(io, "FEMConductor", name, "~{", i - 1, "}() = {",
+                    join(numbers, ", "), "};")
+            end
+        end
+        for (g, material) in enumerate(model.materials)
+            escaped = replace(material.name, '\\' => "\\\\", '"' => "\\\"")
+            println(io, "Physical Surface(\"", escaped, "\",", material.tag, ") = {",
+                join(material_surfaces[g], ","), "};")
+        end
+        conductor = Int[]
+        passive = Int[]
+        for (g, material) in enumerate(model.materials)
+            append!(material.conductor ? conductor : passive, material_surfaces[g])
+        end
+        for (tag, name, entities) in
+            ((TAGS.conductors, "LCM/domain/conductors", conductor),
+            (TAGS.passive, "LCM/domain/passive_cable_media", passive))
+            isempty(entities) && continue
+            println(io, "Physical Surface(\"", name, "\",", tag, ") = {",
+                join(entities, ","), "};")
+        end
+        for (t, surfaces) in enumerate(terminal_surfaces)
+            groups = (
+                ("Surface", TAGS.terminal_base + t,
+                    @sprintf("LCM/terminal/%04d/%s", t, model.label[t]), surfaces),
+                ("Curve", TAGS.terminal_contour_base + t,
+                    @sprintf("LCM/terminal_contour/%04d", t), curves(surfaces)))
+            for (entity, tag, name, entities) in groups
+                escaped = replace(name, '\\' => "\\\\", '"' => "\\\"")
+                println(io, "Physical ", entity, "(\"", escaped, "\",", tag, ") = {",
+                    join(entities, ","), "};")
+            end
+        end
+        for (name, entries) in (("X", [p.x for p in geometry.anchors]),
+            ("Y", [p.y for p in geometry.anchors]),
+            ("MetalDimension", [p.dimension for p in geometry.anchors]))
+            numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
+            println(io, "FEMReceiver", name, "() = {", join(numbers, ", "), "};")
+        end
+        return
+    end
+    rm(raw)
+    return
 end

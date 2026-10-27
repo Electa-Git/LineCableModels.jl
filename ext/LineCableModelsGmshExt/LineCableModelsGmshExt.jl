@@ -8,12 +8,14 @@ module LineCableModelsGmshExt
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Gmsh: gmsh
+using Printf: @sprintf
 import LineCableModels.Commons: build, compute, defaults, select, validate
 using LineCableModels.Commons: ComputationOptions, resolve
 using LineCableModels.Materials: Material
 import LineCableModels.DataModel: area
-using LineCableModels.DataModel: AbstractShape, Circle, Annulus, AnnularSector,
-                                 DifferenceShape, Placement, support
+using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus,
+                                 Rectangle, Offset, AnnularSector, DifferenceShape,
+                                 PlacedRegion, Placement, support, r_in, r_ex
 import LineCableModels.CAD: draw
 using LineCableModels.CAD: Segment, Arc, Curve, Contour
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, admittivity,
