@@ -8,11 +8,15 @@ module LineCableModelsGmshExt
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import LineCableModels.Commons: compute, defaults, select, validate
 using LineCableModels.Commons: ComputationOptions
-using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem
+using LineCableModels.Materials: Material
+using LineCableModels.DataModel: support
+using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, admittivity,
+                              resistivity, reductions, vacuum_permittivity
 
 public GetdpArtifact
 
 include("options.jl")
+include("model.jl")
 
 """
 $(TYPEDSIGNATURES)

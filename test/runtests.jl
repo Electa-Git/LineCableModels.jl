@@ -18,6 +18,7 @@ using LineCableModels
     include("engine/laws.jl")
     include("engine/impedance.jl")
     include("engine/input.jl")
+    include("references/problems.jl")
     include("engine/stages.jl")
     include("engine/reductions.jl")
     include("engine/integral.jl")
@@ -26,5 +27,6 @@ using LineCableModels
     include("engine/compute.jl")
     include("engine/result.jl")
     include("gmsh/options.jl")
+    include("gmsh/model.jl")
     include("architecture/architecture.jl")
 end

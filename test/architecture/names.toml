@@ -51,7 +51,7 @@ cache = "workspace, plan, buffers or the component's name"
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
-    "layer", "layers"]
+    "layer", "layers", "model", "problem", "center", "label"]
 qualifiers = ["cable"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins"]
 
@@ -70,7 +70,7 @@ nouns = ["kind"]
 symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
 
 [modules.Earth]
-nouns = ["model", "thickness"]
+nouns = ["thickness"]
 qualifiers = ["homogeneous"]
 
 [modules.DataModel]
@@ -81,7 +81,7 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
     "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
     "dielectrics", "ranges", "assembly", "positions", "core", "screen", "sheath", "bedding",
-    "jacket", "armor", "center"]
+    "jacket", "armor"]
 qualifiers = ["bent", "circular", "empty", "difference", "placed", "outer", "stranded",
     "layout"]
 symbols = ["φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir"]
@@ -93,8 +93,8 @@ flatten = "reduce a cable design to the equivalent tubes and dielectric layers o
 [modules.Engine]
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
     "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
-    "line_parameters", "problem", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
-    "frequencies", "input", "connection", "label", "radius", "bundles",
+    "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
+    "frequencies", "input", "connection", "radius", "bundles",
     "transposition", "integral", "integrand", "points", "ray", "reductions"]
 qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
 symbols = ["z", "r_ins_ex"]
@@ -111,8 +111,9 @@ solve = "find the line parameters of a problem at each of its frequencies"
 symbols = ["i0m1"]
 
 [modules.LineCableModelsGmshExt]
-nouns = ["getdp", "artifact", "overrides", "interval"]
+nouns = ["getdp", "artifact", "overrides", "interval", "field", "tags", "strand", "air", "scale"]
 qualifiers = ["low", "high", "closed"]
+symbols = ["gamma"]
 
 [register.Commons]
 lifts = ["select"]
@@ -298,3 +299,5 @@ GetdpArtifact = "the GetDP 3.5.0 executable of the package's artifact, or the on
 [register.LineCableModelsGmshExt.private]
 OVERRIDES = "the table of the native expert controls: each native name with its default and its range"
 Interval = "a real interval in the ranges of the native controls, the one range Base has no type for; its low bound is inside when it is closed, its high bound never"
+FieldModel = "the finite-element model of a problem under a formulation: the material groups and the region, terminal and cable data that the later steps read"
+TAGS = "the tags of the physical groups that the native sources expect, by role"
