@@ -302,6 +302,8 @@ end
             "ValuesProbePlanted | boxed | src/ValuesProbePlanted.jl" => 1,
             "ValuesProbePlanted | boxed_keyword | src/ValuesProbePlanted.jl" => 1)
         @test Base.invokelatest(Guards.typed_values, planted) == Dict{String, Int}(
+            "ValuesProbePlanted | Blend | x" => 1,
+            "ValuesProbePlanted | Either | x" => 1,
             "ValuesProbePlanted | Loose | constructor | src/ValuesProbePlanted.jl" => 1,
             "ValuesProbePlanted | Loose | x" => 1,
             "ValuesProbePlanted | Nested | x" => 1,

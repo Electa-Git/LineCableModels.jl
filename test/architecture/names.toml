@@ -51,9 +51,10 @@ cache = "workspace, plan, buffers or the component's name"
 [global]
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
-    "layer", "layers", "model", "problem", "center", "label"]
-qualifiers = ["cable"]
-symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins"]
+    "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes"]
+qualifiers = ["cable", "outer"]
+symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "r"]
+prepositions = ["at"]
 
 [global.verbs]
 validate = "check an input before its consumer uses it; return it unchanged, or throw"
@@ -76,16 +77,15 @@ qualifiers = ["homogeneous"]
 [modules.DataModel]
 nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "offset", "sector",
     "pattern", "helix", "lay", "ratio", "area", "centroid", "support", "boundary", "placements",
-    "overlength", "pitch", "span", "distance", "holes", "part", "region", "stack", "terminal",
+    "overlength", "pitch", "distance", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
     "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
     "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
     "dielectrics", "ranges", "assembly", "positions", "core", "screen", "sheath", "bedding",
     "jacket", "armor"]
-qualifiers = ["annular", "circular", "empty", "difference", "placed", "outer", "stranded",
+qualifiers = ["annular", "circular", "empty", "difference", "placed", "stranded",
     "layout"]
-symbols = ["φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir"]
-prepositions = ["at"]
+symbols = ["φ", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir"]
 
 [modules.DataModel.verbs]
 flatten = "reduce a cable design to the equivalent tubes and dielectric layers of its blueprint"
@@ -109,6 +109,13 @@ solve = "find the line parameters of a problem at each of its frequencies"
 
 [modules."Engine.EarthReturn"]
 symbols = ["i0m1"]
+
+[modules.CAD]
+nouns = ["segment", "arc", "curve", "contour"]
+symbols = ["a", "b"]
+
+[modules.CAD.verbs]
+draw = "draw a system, a design, a placed region, a shape, a contour, a path or a curve on a target, in the target's own primitives"
 
 [modules.LineCableModelsGmshExt]
 nouns = ["getdp", "artifact", "overrides", "interval", "field", "tags", "strand", "air", "scale"]
@@ -292,6 +299,13 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 
 [register."Engine.EarthProperties".formulas]
 constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (fem-investigation earth/frequencydependent/formulas/constant.jl)"
+
+[register.CAD.public]
+Segment = "a straight curve between two points of the cross-section plane"
+Arc = "a circular curve of a radius about a placement, from its x-axis over a signed angular span"
+Curve = "a curve of a contour: a segment or an arc, the union of the two, written once"
+Contour = "the closed paths of curves that bound a shape: its outer path and the path of each hole, each counterclockwise"
+draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
 
 [register.LineCableModelsGmshExt.public]
 GetdpArtifact = "the GetDP 3.5.0 executable of the package's artifact, or the one LINECABLEMODELS_GETDP names when that variable is set"

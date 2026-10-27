@@ -5,6 +5,7 @@ include("materials/Materials.jl")
 include("earth/Earth.jl")
 include("datamodel/DataModel.jl")
 include("engine/Engine.jl")
+include("cad/CAD.jl")
 
 using .Commons: build, resolve, validate, compute, defaults, select, AbstractFormulation,
                 AbstractBackend, FormulationOptions, ComputationOptions
@@ -39,7 +40,8 @@ public Commons, Materials, Earth, DataModel, validate, resolve, AnnularSector,
        DifferenceShape
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
-public Engine, defaults, select, AbstractFormulation, AbstractBackend, FormulationOptions,
+public Engine, CAD, defaults, select, AbstractFormulation, AbstractBackend,
+       FormulationOptions,
        ComputationOptions
 public vacuum_permittivity, vacuum_permeability, LCMBackend, GmshBackend, backend
 public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,

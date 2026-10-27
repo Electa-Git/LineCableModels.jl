@@ -14,7 +14,7 @@ using JuliaSyntax: JuliaSyntax, SyntaxNode, @K_str, kind, children, numchildren,
                    is_prefix_call
 
 # The module layout, in load order. Engine's children take Engine's position.
-const ORDER = (:Commons, :Materials, :Earth, :DataModel, :Engine)
+const ORDER = (:Commons, :Materials, :Earth, :DataModel, :Engine, :CAD)
 # Base and the standard libraries whose exported names share a user's scope with the names
 # that the root module exports.
 const DEPENDENCIES = (Base,)
@@ -1025,7 +1025,9 @@ function commons_roles(methods, tree::PackageTree, C::Module, defined)
         within(M, C, tree.root) && continue
         for value in values(definitions(M))
             value isa Type || continue
-            S = supertype(Base.unwrap_unionall(value))
+            T = Base.unwrap_unionall(value)
+            T isa DataType || continue
+            S = supertype(T)
             while S !== Any
                 name = get(abstracts, S.name.wrapper, nothing)
                 name === nothing || push!(grammar, name)
@@ -1664,7 +1666,9 @@ end
 
 # A field type that admits values of more than one concrete layout: an abstract type, a
 # `Union`, a `UnionAll`, a type parameter bounded by `Any`, or a type with such a type among
-# its parameters (`Vector{Any}`, `Dict{Symbol, Any}`, `Vector{AbstractCablePart}`).
+# its parameters (`Vector{Any}`, `Dict{Symbol, Any}`, `Vector{AbstractCablePart}`). A
+# `Union` of concrete types as a parameter is one layout per member, stored inline, and is
+# admitted.
 loose(F::TypeVar) = F.ub === Any
 loose(F::DataType) = isabstracttype(F) || any(loose_parameter, F.parameters)
 loose(_) = true
@@ -1672,6 +1676,9 @@ loose(_) = true
 # A parameter of a field type: a type variable is fixed per instance, and a value such as an
 # integer or a symbol is no type.
 loose_parameter(p::Type) = loose(p)
+# A `Union` of concrete types as a parameter is one layout per member, stored inline, and
+# is admitted; it is loose when a member is.
+loose_parameter(p::Union) = loose_parameter(p.a) || loose_parameter(p.b)
 loose_parameter(p::Core.TypeofVararg) = isdefined(p, :T) && loose_parameter(p.T)
 loose_parameter(_) = false
 

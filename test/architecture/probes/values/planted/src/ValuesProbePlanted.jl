@@ -17,6 +17,14 @@ struct Nested
     y::Dict{Symbol, Any}
     Nested(x::Vector{Real}, y::Dict{Symbol, Any}) = new(x, y)
 end
+struct Either
+    x::Union{Float64, Int}
+    Either(x::Union{Float64, Int}) = new(x)
+end
+struct Blend
+    x::Vector{Union{Integer, Float64}}
+    Blend(x::Vector{Union{Integer, Float64}}) = new(x)
+end
 function boxed_keyword(values; start = 0)
     total = start
     foreach(value -> (total += value), values)

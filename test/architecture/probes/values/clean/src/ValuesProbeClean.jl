@@ -13,6 +13,14 @@ struct Grid
     cells::Vector{Float64}
     Grid(cells::Vector{Float64}) = new(cells)
 end
+struct Mixed
+    x::Vector{Union{Tight{Float64}, Named}}
+    y::Dict{Int, Union{Tight{Float64}, Named}}
+    function Mixed(x::Vector{Union{Tight{Float64}, Named}},
+            y::Dict{Int, Union{Tight{Float64}, Named}})
+        return new(x, y)
+    end
+end
 Tight(x::Integer, y::Integer) = Tight(x + y)
 function weighted(values; weight = 2)
     total = sum(values)
