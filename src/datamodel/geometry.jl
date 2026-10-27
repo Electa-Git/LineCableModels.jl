@@ -335,7 +335,7 @@ struct DifferenceShape{
        AbstractShape{T}
     "Outer cross-section."
     outer::O
-    "Cross-sections removed from the outer one. They lie inside it and do not overlap."
+    "Outlines removed from the outer one. They lie inside it, and each lies outside the others."
     holes::H
     function DifferenceShape(outer::O,
             holes::H) where {
@@ -443,13 +443,16 @@ distance(shape::DifferenceShape) = distance(shape.outer)
 """
     boundary(shape)
 
-Return the outline of `shape` for the next part. The outline of a circle is the circle itself.
-The outline of an annulus is the circle of its outer radius.
+Return the outline of `shape`. A circle and an annular sector are their own outlines. The
+outline of an annulus is the circle of its outer radius. The outline of a
+[`DifferenceShape`](@ref) is the outline of its outer cross-section. The next part resolves
+against the outline, and an enclosure removes it from its fill.
 """
 function boundary end
 
 boundary(circle::Circle) = circle
 boundary(annulus::Annulus) = Circle(annulus.ro, annulus.at)
+boundary(sector::AnnularSector) = sector
 boundary(shape::DifferenceShape) = boundary(shape.outer)
 
 """

@@ -250,10 +250,14 @@ end
 $(TYPEDEF)
 
 Fill a container around parts with a material. The fill region declares the container as its
-primitive, either explicitly or as an offset from the part inside the enclosure, and takes
-it without the regions of the contents. The outline of the enclosure is the outline of its
-container. The container is a circle or an annulus, and the regions inside it lie between its
-inner and outer radii. `resolve` throws `ArgumentError` for any other container.
+primitive, either explicitly or as an offset from the part inside the enclosure. It takes the
+container without the outlines of the outermost regions of its contents, those that lie inside
+no other content's outline. The design refuses an empty hollow inside such an outline as a
+gap.
+
+The outline of the enclosure is the outline of its container. The container is a circle or an
+annulus, and the regions inside it lie between its inner and outer radii. `resolve` throws
+`ArgumentError` for any other container.
 
 $(TYPEDFIELDS)
 """
@@ -292,8 +296,15 @@ function resolve(described::NamedTuple, enclosure::Enclosure)
     container = validate(resolve(described.outer, enclosure.fill.primitive), enclosure)
     inner = resolve(described, enclosure.contents)
     contents = (length(described.regions) + 1):length(inner.regions)
-    holes = [validate(inner.regions[index].shape, enclosure, container)
-             for index in contents]
+    shapes = [validate(inner.regions[index].shape, enclosure, container)
+              for index in contents]
+    outlines = map(boundary, shapes)
+    holes = [outlines[i]
+             for i in eachindex(shapes)
+             if !any(support(resolve(Placement(-outline.at.x, -outline.at.y), shapes[i])) <=
+                     outline.r +
+                     sqrt(eps(float(outline.r))) * max(one(outline.r), outline.r)
+    for (j, outline) in pairs(outlines) if j != i && outline isa Circle)]
     placed = PlacedRegion(enclosure.fill, DifferenceShape(container, holes))
     row = (region = length(inner.regions) + 1, contents = collect(contents))
     return merge(inner,

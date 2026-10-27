@@ -78,6 +78,16 @@ end
             @test [length(row.contents) for row in design.fills] == [37, 40]
             core = design.regions[first(design.fills).region].shape
             @test area(core) ≈ π * 10.5e-3^2 - metal
+            @test [length(design.regions[row.region].shape.holes) for row in design.fills] ==
+                  [37, 40]
+            for row in design.fills
+                shape = design.regions[row.region].shape
+                expected = LineCableModels.DifferenceShape(shape.outer,
+                    [design.regions[index].shape for index in row.contents])
+                @test area(shape) ≈ area(expected)
+                @test centroid(shape) == centroid(expected)
+                @test distance(shape) == distance(expected)
+            end
         end
     end
 
@@ -120,9 +130,41 @@ end
         @test [row.repeat for row in separate.lays] == [2, 3, 4]
         @test all(row -> hypot(row.axis...) ≈ 3.5e-3, separate.lays)
         @test [length(row.contents) for row in separate.fills] == [7, 7, 7, 30]
+        fill = separate.regions[last(separate.fills).region].shape
+        @test length(fill.holes) == 3
+        @test all(hole -> hole isa Circle, fill.holes)
+        @test all(hole -> hole.r ≈ 3.0e-3, fill.holes)
+        for (hole, angle) in zip(fill.holes, (0, 2π / 3, 4π / 3))
+            @test hole.at.x ≈ 3.5e-3 * cos(angle)
+            @test hole.at.y ≈ 3.5e-3 * sin(angle)
+        end
+        @test area(fill) ≈ π * 6.5e-3^2 - 3π * 3.0e-3^2
+        @test [length(separate.regions[row.region].shape.holes)
+               for row in separate.fills[1:3]] == [7, 7, 7]
         bonded = build(CableDesign, "bonded", Terminal(:phase, Enclosure(pipe, cores)))
         @test [(row.name, length(row.regions)) for row in bonded.terminals] ==
               [(:phase, 24)]
+    end
+
+    @testset "a fill takes the outlines of its outermost contents" begin
+        design = build(CableDesign, "layers",
+            Enclosure(Region(:core_fill, Circle(5.0e-3), polymer),
+                Terminal(:core,
+                    Stack(Region(:core_metal, Circle(1.0e-3), copper),
+                        Region(:core_inner, Offset(1.0e-3), polymer),
+                        Region(:core_outer, Offset(0.5e-3), polymer)))))
+        fill = design.regions[only(design.fills).region].shape
+        @test length(fill.holes) == 1
+        hole = only(fill.holes)
+        @test hole isa Circle
+        @test hole.r ≈ 2.5e-3
+        @test centroid(hole) == (0.0, 0.0)
+        @test area(fill) ≈ π * (5.0e-3^2 - 2.5e-3^2)
+
+        hollow = Enclosure(Region(:core_fill, Circle(5.0e-3), polymer),
+            Region(:core_tube, Annulus(1.0e-3, 2.0e-3), polymer))
+        @test_throws DomainError build(CableDesign, "hollow", hollow)
+        @test_throws "a gap or an overlap" build(CableDesign, "hollow", hollow)
     end
 
     @testset "the checks of a design" begin
@@ -147,5 +189,13 @@ end
                 Region(:core_metal, Circle(1.5f-3),
                     material(kind = :conductor, rho = 1.7241f-8))))
         @test r_ex(wire.outer) ≈ 1.5f-3
+        filled = build(CableDesign, "float32_fill",
+            Enclosure(Region(:core_fill, Circle(5.0f-3), polymer),
+                Terminal(:core,
+                    Region(:core_metal, Circle(1.5f-3),
+                        material(kind = :conductor, rho = 1.7241f-8)))))
+        fill = filled.regions[only(filled.fills).region].shape
+        @test length(fill.holes) == 1
+        @test eltype(only(fill.holes)) === Float32
     end
 end
