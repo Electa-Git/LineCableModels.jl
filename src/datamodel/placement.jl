@@ -122,7 +122,7 @@ end
 # The members of a pattern at an offset lie on a circle beyond the outline inside them. Its
 # radius adds the offset and the radial half extent of a member to the outer radius of that
 # outline. That half extent is the radius of a circle, or half the height of a rectangle
-# that the pattern bends into a strip.
+# that the pattern bends into an annular sector.
 function resolve(outline::AbstractShape, pattern::CircularPattern{T, Offset{T}},
         circle::Circle) where {T}
     return CircularPattern(pattern.n; r = support(outline) + pattern.r.t + circle.r,
@@ -141,8 +141,8 @@ end
 Return the course that `pattern` lays with `member`, as `(placements, shape)`: the placement of
 each member in the frame of the enclosing part, and the cross-section that every member
 shares. A circular pattern places a circle as it is. It bends a rectangle into a
-[`BentStrip`](@ref) of the same area that spans the height of the rectangle about the pattern
-radius.
+[`AnnularSector`](@ref) of the same area that spans the height of the rectangle about the
+pattern radius.
 
 # Errors
 
@@ -170,7 +170,7 @@ function placements(pattern::CircularPattern{T, T}, rectangle::Rectangle) where 
     members = [Placement(zero(span), zero(span), pattern.φ0 + k * step)
                for k in 0:(pattern.n - 1)]
     return (placements = members,
-        shape = BentStrip(inner, outer, span, Placement(zero(span), zero(span))))
+        shape = AnnularSector(inner, outer, span, Placement(zero(span), zero(span))))
 end
 
 """

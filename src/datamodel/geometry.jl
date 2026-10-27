@@ -271,29 +271,27 @@ end
 """
 $(TYPEDEF)
 
-Represent a rectangular strand bent onto its course. The strip is an annular sector,
-symmetric about the x-axis of its placement. Its area equals the area of the rectangle of width
-``w`` and height ``h``:
+Represent an annular sector: the region between the inner radius ``r_i`` and the outer
+radius ``r_o`` over the angular span ``\\Delta\\phi``, symmetric about the x-axis of its
+placement. A circular pattern bends a rectangular strand of width ``w`` and height ``h``
+into an annular sector of the same area:
 
 ```math
-\\frac{\\Delta\\phi}{2}\\left(r_o^2 - r_i^2\\right) = w h,
+\\frac{\\Delta\\phi}{2}\\left(r_o^2 - r_i^2\\right) = w h.
 ```
-
-where ``\\Delta\\phi`` is the angular span and ``r_i`` and ``r_o`` are the inner and outer
-radii.
 
 $(TYPEDFIELDS)
 """
-struct BentStrip{T <: Real} <: AbstractShape{T}
+struct AnnularSector{T <: Real} <: AbstractShape{T}
     "Inner radius \\[m\\]."
     ri::T
     "Outer radius \\[m\\]."
     ro::T
     "Angular span \\[rad\\]."
     span::T
-    "Placement of the center of curvature. Its x-axis is the symmetry axis of the strip."
+    "Placement of the center of curvature. Its x-axis is the symmetry axis of the sector."
     at::Placement{T}
-    function BentStrip{T}(ri::T, ro::T, span::T, at::Placement{T}) where {T <: Real}
+    function AnnularSector{T}(ri::T, ro::T, span::T, at::Placement{T}) where {T <: Real}
         return validate(new{T}(ri, ro, span, at))
     end
 end
@@ -301,27 +299,27 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct a bent strip from its fields, in the floating type that they promote to.
+Construct an annular sector from its fields, in the floating type that they promote to.
 
 # Errors
 
 - Throws `DomainError` when a radius is negative or not finite, when `ro` does not exceed
   `ri`, or when `span` is outside (0, 2π\\].
 """
-function BentStrip(ri::Real, ro::Real, span::Real, at::Placement)
+function AnnularSector(ri::Real, ro::Real, span::Real, at::Placement)
     T = float(promote_type(typeof(ri), typeof(ro), typeof(span), eltype(at)))
-    return BentStrip{T}(convert(T, ri), convert(T, ro), convert(T, span),
+    return AnnularSector{T}(convert(T, ri), convert(T, ro), convert(T, span),
         convert(Placement{T}, at))
 end
 
-function validate(strip::BentStrip)
-    isfinite(strip.ri) && strip.ri >= zero(strip.ri) ||
-        throw(DomainError(strip.ri, "BentStrip.ri must be nonnegative and finite"))
-    isfinite(strip.ro) && strip.ro > strip.ri ||
-        throw(DomainError(strip.ro, "BentStrip.ro must be finite and exceed BentStrip.ri"))
-    zero(strip.span) < strip.span <= 2π ||
-        throw(DomainError(strip.span, "BentStrip.span must lie in (0, 2π]"))
-    return strip
+function validate(sector::AnnularSector)
+    isfinite(sector.ri) && sector.ri >= zero(sector.ri) ||
+        throw(DomainError(sector.ri, "AnnularSector.ri must be nonnegative and finite"))
+    isfinite(sector.ro) && sector.ro > sector.ri ||
+        throw(DomainError(sector.ro, "AnnularSector.ro must be finite and exceed AnnularSector.ri"))
+    zero(sector.span) < sector.span <= 2π ||
+        throw(DomainError(sector.span, "AnnularSector.span must lie in (0, 2π]"))
+    return sector
 end
 
 """
@@ -368,7 +366,7 @@ function area end
 area(circle::Circle) = π * circle.r^2
 area(annulus::Annulus) = π * (annulus.ro^2 - annulus.ri^2)
 area(rectangle::Rectangle) = rectangle.w * rectangle.h
-area(strip::BentStrip) = strip.span * (strip.ro^2 - strip.ri^2) / 2
+area(sector::AnnularSector) = sector.span * (sector.ro^2 - sector.ri^2) / 2
 function area(shape::DifferenceShape)
     return area(shape.outer) - sum(area, shape.holes; init = zero(eltype(shape)))
 end
@@ -376,8 +374,8 @@ end
 """
     centroid(shape)
 
-Return the centroid `(x, y)` of `shape` in the cable cross-section \\[m\\]. For a bent strip, the
-centroid lies on its symmetry axis at the distance
+Return the centroid `(x, y)` of `shape` in the cable cross-section \\[m\\]. For an annular
+sector, the centroid lies on its symmetry axis at the distance
 
 ```math
 d = \\frac{4 \\sin(\\Delta\\phi / 2) \\left(r_o^3 - r_i^3\\right)}
@@ -391,10 +389,10 @@ function centroid end
 
 centroid(shape::Union{Circle, Annulus}) = (shape.at.x, shape.at.y)
 
-function centroid(strip::BentStrip)
-    d = 4sin(strip.span / 2) * (strip.ro^3 - strip.ri^3) /
-        (3strip.span * (strip.ro^2 - strip.ri^2))
-    return strip.at((d, zero(d)))
+function centroid(sector::AnnularSector)
+    d = 4sin(sector.span / 2) * (sector.ro^3 - sector.ri^3) /
+        (3sector.span * (sector.ro^2 - sector.ri^2))
+    return sector.at((d, zero(d)))
 end
 
 function centroid(shape::DifferenceShape)
@@ -415,7 +413,7 @@ function support end
 
 support(circle::Circle) = hypot(circle.at.x, circle.at.y) + circle.r
 support(annulus::Annulus) = hypot(annulus.at.x, annulus.at.y) + annulus.ro
-support(strip::BentStrip) = hypot(strip.at.x, strip.at.y) + strip.ro
+support(sector::AnnularSector) = hypot(sector.at.x, sector.at.y) + sector.ro
 support(shape::DifferenceShape) = support(shape.outer)
 
 """
@@ -429,13 +427,13 @@ Return the radius of a circle about the origin that `shape` does not enter \\[m\
 
 where ``d`` is the distance from the origin to the center of `shape`, and ``r_i`` and
 ``r_o`` are its inner and outer radii. The inner radius of a circle is zero, and the center of
-a bent strip is its center of curvature.
+an annular sector is its center of curvature.
 """
 function distance end
 
 distance(circle::Circle) = max(zero(circle.r), hypot(circle.at.x, circle.at.y) - circle.r)
 
-function distance(shape::Union{Annulus, BentStrip})
+function distance(shape::Union{Annulus, AnnularSector})
     offset = hypot(shape.at.x, shape.at.y)
     return max(zero(offset), offset - shape.ro, shape.ri - offset)
 end
@@ -463,7 +461,7 @@ function r_in end
 
 r_in(circle::Circle) = zero(circle.r)
 r_in(annulus::Annulus) = annulus.ri
-r_in(strip::BentStrip) = strip.ri
+r_in(sector::AnnularSector) = sector.ri
 
 """
     r_ex(shape)
@@ -474,7 +472,7 @@ function r_ex end
 
 r_ex(circle::Circle) = circle.r
 r_ex(annulus::Annulus) = annulus.ro
-r_ex(strip::BentStrip) = strip.ro
+r_ex(sector::AnnularSector) = sector.ro
 
 # The first part of a cable keeps its declared cross-section.
 resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
@@ -495,8 +493,8 @@ resolve(at::Placement, circle::Circle) = Circle(circle.r, at * circle.at)
 function resolve(at::Placement, annulus::Annulus)
     return Annulus(annulus.ri, annulus.ro, at * annulus.at)
 end
-function resolve(at::Placement, strip::BentStrip)
-    return BentStrip(strip.ri, strip.ro, strip.span, at * strip.at)
+function resolve(at::Placement, sector::AnnularSector)
+    return AnnularSector(sector.ri, sector.ro, sector.span, at * sector.at)
 end
 function resolve(at::Placement, shape::DifferenceShape)
     return DifferenceShape(resolve(at, shape.outer), [resolve(at, hole)

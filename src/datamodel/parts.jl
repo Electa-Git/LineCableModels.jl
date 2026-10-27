@@ -123,9 +123,10 @@ $(TYPEDEF)
 
 Repeat a part at the placements of a pattern. The part is declared in its own frame, and the
 pattern places each copy about the center of the enclosing part. A repeated region is a
-strand, and the pattern bends a rectangular strand into a strip of the same area on its
-course. Each copy is a scope: the terminals declared in the part are distinct terminals in
-every copy. The outline of the copies is the circle about the center that contains them.
+strand, and the pattern bends a rectangular strand into an annular sector of the same area
+on its course. Each copy is a scope: the terminals declared in the part are distinct
+terminals in every copy. The outline of the copies is the circle about the center that
+contains them.
 
 $(TYPEDFIELDS)
 """
@@ -152,7 +153,8 @@ function validate(shape::AbstractShape, repeat::Repeat, outline::AbstractShape)
     return shape
 end
 
-# The pattern places a strand, and it bends a rectangular strand into a strip on its course.
+# The pattern places a strand, and it bends a rectangular strand into an annular sector on
+# its course.
 function resolve(described::NamedTuple, repeat::Repeat{<:AbstractLayoutPattern, <:Region})
     course = placements(resolve(described.outer, repeat.pattern, repeat.part.primitive),
         repeat.part.primitive)

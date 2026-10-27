@@ -74,7 +74,7 @@ nouns = ["thickness"]
 qualifiers = ["homogeneous"]
 
 [modules.DataModel]
-nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "offset", "strip",
+nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "offset", "sector",
     "pattern", "helix", "lay", "ratio", "area", "centroid", "support", "boundary", "placements",
     "overlength", "pitch", "span", "distance", "holes", "part", "region", "stack", "terminal",
     "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
@@ -82,7 +82,7 @@ nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "o
     "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
     "dielectrics", "ranges", "assembly", "positions", "core", "screen", "sheath", "bedding",
     "jacket", "armor"]
-qualifiers = ["bent", "circular", "empty", "difference", "placed", "outer", "stranded",
+qualifiers = ["annular", "circular", "empty", "difference", "placed", "outer", "stranded",
     "layout"]
 symbols = ["φ", "r", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir"]
 prepositions = ["at"]
@@ -151,7 +151,7 @@ Annulus = "an annular cross-section with its placement"
 Rectangle = "a rectangular strand before a circular pattern bends it"
 AbstractLayoutPattern = "the supertype of the patterns that place the copies of a repeat"
 Offset = "a distance outward from the outline inside: the thickness of a layer or the clearance of a circular pattern"
-BentStrip = "a rectangular strand bent onto its course, an annular sector of the same area"
+AnnularSector = "an annular sector: the region between two radii over an angular span, symmetric about the x-axis of its placement; a circular pattern bends a rectangular strand into one of the same area"
 CircularPattern = "n members placed evenly on a circle about the center of the enclosing part, at a radius or an offset"
 Helix = "the helical path of the members of a course along the cable"
 LayRatio = "the lay length of a helix over the mean diameter of its course"

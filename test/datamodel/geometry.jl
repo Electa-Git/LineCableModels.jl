@@ -24,12 +24,12 @@
         @test_throws DomainError Offset(-1.0e-3)
     end
 
-    @testset "a circular pattern bends rectangular strands into strips of their area" begin
+    @testset "a circular pattern bends rectangular strands into annular sectors of their area" begin
         strand = Rectangle(3.0e-3, 3.0e-3)
-        strip = placements(CircularPattern(12; r = 6.0e-3), strand).shape
-        @test r_in(strip) ≈ 4.5e-3 && r_ex(strip) ≈ 7.5e-3
-        @test strip.span ≈ 0.5
-        @test area(strip) ≈ area(strand)
+        sector = placements(CircularPattern(12; r = 6.0e-3), strand).shape
+        @test r_in(sector) ≈ 4.5e-3 && r_ex(sector) ≈ 7.5e-3
+        @test sector.span ≈ 0.5
+        @test area(sector) ≈ area(strand)
         annulus = placements(CircularPattern(1; r = 3.0e-3), Rectangle(6π * 1.0e-3, 1.0e-3)).shape
         @test annulus.span ≈ 2π
         @test all(abs.(centroid(annulus)) .< 1.0e-15)
@@ -45,8 +45,8 @@
         @test distance(Circle(1.0e-3, Placement(3.0e-3, 0))) ≈ 2.0e-3
         @test distance(Circle(1.0e-3)) == 0
         @test distance(Annulus(2.0e-3, 3.0e-3)) == 2.0e-3
-        strip = placements(CircularPattern(18; r = 9.0e-3), Rectangle(3.0e-3, 3.0e-3)).shape
-        @test distance(strip) ≈ 7.5e-3
+        sector = placements(CircularPattern(18; r = 9.0e-3), Rectangle(3.0e-3, 3.0e-3)).shape
+        @test distance(sector) ≈ 7.5e-3
     end
 
     @testset "a cross-section with holes" begin

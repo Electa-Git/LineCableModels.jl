@@ -127,8 +127,8 @@ $(TYPEDSIGNATURES)
 Declare a stranded conductor of `material` at the center of the cable. Courses of round wires
 or rectangular strands lie around a center wire, inside the outline that `boundary`
 declares. Each course lies on the course inside it, at no offset from its outline. A
-circular pattern bends a rectangular strand into a strip of the same area on its course. A
-fill takes `boundary` without the wires and strips, and its region takes the name
+circular pattern bends a rectangular strand into an annular sector of the same area on its
+course. A fill takes `boundary` without the wires and sectors, and its region takes the name
 `<tag>_fill`.
 
 # Keywords
@@ -150,7 +150,7 @@ fill takes `boundary` without the wires and strips, and its region takes the nam
 # Errors
 
 - Throws `DomainError` when a course does not fit on the course inside it, or when a wire or
-  strip crosses `boundary`.
+  sector crosses `boundary`.
 """
 function stranded(material::Material; center, shape,
         n::Union{Tuple{Vararg{Integer}}, AbstractVector{<:Integer}}, lay, boundary,
