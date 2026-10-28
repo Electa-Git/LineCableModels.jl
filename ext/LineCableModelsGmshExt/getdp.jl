@@ -161,6 +161,9 @@ Install the GetDP 3.5.0 artifact on first use and return the real path of its ex
 function Base.realpath(::GetdpBinary{:download})
     toml = joinpath(@__DIR__, "..", "..", "Artifacts.toml")
     root = ensure_artifact_installed("getdp", toml)
+    if Sys.iswindows()
+        return realpath(joinpath(root, "getdp-3.5.0-Windows64", "getdp.exe"))
+    end
     folder = Sys.isapple() ? "getdp-3.5.0-MacOSX" : "getdp-3.5.0-Linux64"
     return realpath(joinpath(root, folder, "bin", "getdp"))
 end

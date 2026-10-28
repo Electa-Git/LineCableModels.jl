@@ -28,3 +28,13 @@ os = "macos"
     [[getdp.download]]
     sha256 = "ba514f4d6009b385ff27f6083f2843ff11a4cb1f3a829fdc0a5f8a2613646077"
     url = "https://getdp.info/bin/MacOSX/getdp-3.5.0-MacOSXc.tgz"
+
+[[getdp]]
+arch = "x86_64"
+git-tree-sha1 = "09343a12bf18a11a671d1a384bb5b924fc32e293"
+lazy = true
+os = "windows"
+
+    [[getdp.download]]
+    sha256 = "0f33b62795474214991e907563f6b7d48ea0397ccb6f020720fa894648b4040b"
+    url = "https://github.com/Electa-Git/LineCableModels.jl/releases/download/getdp-3.5.0/getdp-3.5.0-Windows64c.tar.gz"

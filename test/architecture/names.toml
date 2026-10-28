@@ -318,7 +318,7 @@ Contour = "the closed paths of curves that bound a shape: its outer path and the
 draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
 
 [register.LineCableModelsGmshExt.public]
-GetdpBinary = "the GetDP binary a computation runs, by the action in its type: :discover, the one found on PATH when its -info reports version 3.5 and complex arithmetic, else the downloaded one; :download, the GetDP 3.5.0 complex build the package downloads from getdp.info by its pinned hash on first use; a path given as a string is used as is"
+GetdpBinary = "the GetDP binary a computation runs, by the action in its type: :discover, the one found on PATH when its -info reports version 3.5 and complex arithmetic, else the downloaded one; :download, getdp.info's GetDP 3.5.0 complex build, downloaded by its pinned hash on first use; a path given as a string is used as is"
 
 [register.LineCableModelsGmshExt.private]
 directory = "the run directory of a computation under .linecablemodels/fem"

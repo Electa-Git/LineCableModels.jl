@@ -3,15 +3,14 @@ $(TYPEDEF)
 
 Represent the GetDP binary that a computation runs, chosen by the action `S`. The default
 `:discover` runs the GetDP found on `PATH` when its `-info` reports version 3.5 and complex
-arithmetic, and the downloaded one otherwise. `:download` runs the GetDP 3.5.0 complex
-build that the package downloads from getdp.info by its pinned hash. A path given as a
-string runs as is.
+arithmetic, and the downloaded one otherwise. `:download` runs getdp.info's GetDP 3.5.0
+complex build, downloaded by its pinned hash. The Windows build is the same files repacked
+as a tarball in the package's release `getdp-3.5.0`. A path given as a string runs as is.
 
 The download happens once per Julia depot, at the first use, and needs the network then.
 `:discover` looks at `PATH` first at every run, so a suitable GetDP installed later runs in
 place of the download. The downloaded copy stays under the depot's `artifacts/` folder
-until `Pkg.gc()` removes it. Windows has no download, so `:discover` needs a GetDP on
-`PATH` there.
+until `Pkg.gc()` removes it.
 """
 struct GetdpBinary{S} end
 
