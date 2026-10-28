@@ -26,6 +26,25 @@
               LineParametersProblem{Float64}
     end
 
+    @testset "mapping preserves the two-wire problem" begin
+        problem = LineParametersProblem(system, earth; frequencies = [50.0, 1000.0])
+        mapped = map(identity, problem)
+        @test mapped.temperature == problem.temperature
+        @test mapped.frequencies == problem.frequencies
+        @test mapped.earth.layers == problem.earth.layers
+        for name in (:id, :line_length, :placements, :regions, :terminals)
+            @test getfield(mapped.system, name) == getfield(problem.system, name)
+        end
+        @test length(mapped.system.designs) == length(problem.system.designs)
+        for (actual, expected) in zip(mapped.system.designs, problem.system.designs)
+            @test actual.tree.items == expected.tree.items
+            for name in (:id, :regions, :outer, :terminals, :assemblies, :repeats, :lays,
+                :compactions, :fills)
+                @test getfield(actual, name) == getfield(expected, name)
+            end
+        end
+    end
+
     @testset "the frequencies increase, positive and finite, at a finite temperature" begin
         for frequencies in
             (Float64[], [0.0, 50.0], [50.0, Inf], [1000.0, 50.0], [50.0, 50.0])

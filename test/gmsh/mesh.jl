@@ -1,3 +1,22 @@
+@testset "Native processes" begin
+    mktempdir() do directory
+        commands = [`sh -c 'exit 3'`, `sleep 60`, `true`]
+        logs = [joinpath(directory, "$k.log") for k in 1:3]
+        labels = ["one", "two", "three"]
+        failures = Exception[]
+        elapsed = @elapsed try
+            run(commands, logs, labels, ComputationOptions(GmshBackend; workers = 2))
+        catch exception
+            push!(failures, exception)
+        end
+        @test only(failures) isa ErrorException
+        @test startswith(only(failures).msg, "one, log ")
+        @test occursin("exit code 3, signal 0", only(failures).msg)
+        @test elapsed < 10
+        @test all(isfile, logs)
+    end
+end
+
 @testset "Gmsh mesh" begin
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     options = ComputationOptions(GmshBackend; workers = 2)

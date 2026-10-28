@@ -174,9 +174,9 @@ end
 $(TYPEDSIGNATURES)
 
 Scan the frequencies with at most `options.workers` GetDP processes at once.
-Each process uses one mesh and reuses its factorization for every terminal basis. Read its
-outputs after it exits, keep its log under `logs/`, and remove its work directory. Write the
-combined rows to `results/Z.tsv` and `results/P.tsv`.
+Each process uses one mesh and reuses its factorization for every terminal basis. Read the
+outputs after every process stops, keep each log under `logs/`, and remove each work
+directory. Write the combined rows to `results/Z.tsv` and `results/P.tsv`.
 
 # Arguments
 
@@ -191,7 +191,7 @@ combined rows to `results/Z.tsv` and `results/P.tsv`.
 
 # Errors
 
-- Throws for an unavailable executable, a failed identity check, or a native path of
+- Throws for an unavailable executable, a failed identity check, or an executable path of
   256 bytes or more.
 - Throws `ErrorException` for a failed process or output check.
 - Rethrows `InterruptException` after all processes stop.
@@ -203,171 +203,111 @@ function scan(directory::AbstractString, model::FieldModel{T},
         options::ComputationOptions{GmshBackend}) where {T}
     executable = realpath(options.getdp_executable)
     isfile(executable) || error("getdp_executable: not a file: $executable")
-    for (name, path) in (("getdp_executable", executable), ("model", "model.pro"),
-        ("ModelDataPath", "model_data.pro"), ("RunDirectory", "."),
-        ("RawDirectory", "results"), ("BasisListPath", "bases.pro"))
-        ncodeunits(path) < 256 ||
-            error("$name: native paths must be shorter than 256 bytes: $path")
-    end
-    for k in eachindex(model.problem.frequencies)
-        path = @sprintf("../../mesh/frequency-%04d.msh", k)
-        ncodeunits(path) < 256 ||
-            error("mesh: native paths must be shorter than 256 bytes: $path")
-    end
-    output = try
-        buffer = IOBuffer()
-        run(pipeline(Cmd([executable, "-info"]); stdout = buffer, stderr = buffer))
-        String(take!(buffer))
-    catch exception
-        exception isa InterruptException && rethrow()
-        error("getdp_executable: failed to execute $executable -info: " *
-              sprint(showerror, exception))
-    end
+    ncodeunits(executable) < 256 ||
+        error("getdp_executable: native paths must be shorter than 256 bytes: $executable")
+    buffer = IOBuffer()
+    run(pipeline(Cmd([executable, "-info"]); stdout = buffer, stderr = buffer))
+    output = String(take!(buffer))
     occursin("getdp", lowercase(output)) && occursin(r"\d+\.\d+", output) ||
         error("getdp_executable: identity check did not report GetDP: $executable")
     n = length(model.label)
     nf = length(model.problem.frequencies)
     Z = Array{Complex{T}, 3}(undef, n, n, nf)
     P = Array{Complex{T}, 3}(undef, n, n, nf)
-    processes = Base.Process[]
-    stopping = Ref(false)
-    failures = Pair{Int, Exception}[]
-    pool = @async asyncmap(eachindex(model.problem.frequencies); ntasks = options.workers) do k
-        stopping[] && return
-        try
-            stem = @sprintf("frequency-%04d", k)
-            folder = joinpath(directory, "work", stem)
-            mkpath(joinpath(folder, "results", "jobs"))
-            for source in readdir(joinpath(directory, "input", "getdp"); join = true)
-                endswith(source, ".pro") && cp(source, joinpath(folder, basename(source)))
-            end
-            cp(joinpath(directory, "input", "model_data.pro"),
-                joinpath(folder, "model_data.pro"))
-            write(joinpath(folder, "bases.pro"),
-                "RequestedBases() = {" * join(1:n, ", ") * "};\n")
-            mesh_path = @sprintf("../../mesh/frequency-%04d.msh", k)
-            controls = options.overrides
-            tolerance = string(controls.MumpsBackwardErrorTolerance)
-            arguments = [executable, "model.pro", "-solve", "LineCableModelsFEMScan",
-                "-setnumber", "Physics", "1", "-setnumber", "PreparedGaugeTree", "1",
-                "-msh", mesh_path, "-name", "solver", "-v", string(options.getdp_verbosity),
-                "-setstring", "ModelDataPath", "model_data.pro",
-                "-setstring", "RunDirectory", ".", "-setstring", "RawDirectory", "results",
-                "-setstring", "BasisListPath", "bases.pro",
-                "-setnumber", "FrequencyIndex", string(k),
-                "-setnumber", "PlotFieldMaps", "0", "-setnumber", "ReuseFactorization", "1",
-                "-setnumber", "LinearSolver", "0",
-                "-setnumber", "MumpsOrdering", string(controls.MumpsOrdering),
-                "-setnumber", "PetscPrealloc", string(controls.PetscPrealloc),
-                "-setnumber", "MumpsErrorAnalysis", string(controls.MumpsErrorAnalysis),
-                "-setnumber", "MumpsRefinementMax", string(controls.MumpsRefinementMax),
-                "-setnumber", "MumpsBackwardErrorTolerance", tolerance]
-            if options.getdp_verbosity >= 4
-                append!(arguments, ["-cpu", "-ksp_view", "-log_view", ":petsc.log"])
-            end
-            threads = string(options.solver_threads)
-            command = addenv(Cmd(Cmd(arguments); dir = folder),
-                "OPENBLAS_NUM_THREADS" => threads, "OPENBLAS_DEFAULT_NUM_THREADS" => threads,
-                "OMP_NUM_THREADS" => threads, "MKL_NUM_THREADS" => threads)
-            log_path = joinpath(folder, "getdp.log")
-            io = open(log_path, "w")
-            try
-                process = run(pipeline(command; stdout = io, stderr = io); wait = false)
-                push!(processes, process)
-                wait(process)
-                if !success(process) && !stopping[]
-                    error("exit code $(process.exitcode), signal $(process.termsignal)")
-                end
-            finally
-                close(io)
-            end
-            stopping[] && return
-            for path in readdir(joinpath(folder, "results", "jobs"); join = true)
-                mv(path, joinpath(directory, "results", "jobs", basename(path)))
-            end
-            log_path = joinpath(directory, "logs", stem * ".log")
-            mv(joinpath(folder, "getdp.log"), log_path)
-            petsc_path = joinpath(folder, "petsc.log")
-            if isfile(petsc_path)
-                mv(petsc_path, joinpath(directory, "logs", stem * "-petsc.log"))
-            end
-            rm(folder; recursive = true)
-            primitives = read(directory, model, k)
-            Z[:, :, k] = primitives.Z
-            P[:, :, k] = primitives.P
-            if !iszero(controls.MumpsErrorAnalysis)
-                text = read(log_path, String)
-                blocks = eachmatch(r"(?ms)^KSP Object:.*?(?=^KSP Object:|\z)", text)
-                for (basis, block) in enumerate(blocks)
-                    pattern = r"RINFOG\(7\),\s*RINFOG\(8\)\s*\(backward error est\):\s*([^,\s]+),\s*(\S+)"
-                    found = match(pattern, block.match)
-                    if found === nothing
-                        @warn "MUMPS diagnostics unavailable; inspect native log" frequency_hz=model.problem.frequencies[k] basis log=log_path
-                        continue
-                    end
-                    omega1 = tryparse(Float64, found[1])
-                    omega2 = tryparse(Float64, found[2])
-                    if omega1 === nothing || omega2 === nothing
-                        @warn "MUMPS diagnostics unavailable; inspect native log" frequency_hz=model.problem.frequencies[k] basis log=log_path
-                        continue
-                    end
-                    backward_error = omega1 + omega2
-                    target = controls.MumpsBackwardErrorTolerance
-                    if !isfinite(backward_error) || backward_error > target
-                        @warn "MUMPS backward-error target not met; result retained" frequency_hz=model.problem.frequencies[k] basis backward_error target log=log_path
-                    end
-                end
-            end
-        catch exception
-            if !stopping[]
-                if exception isa InterruptException
-                    push!(failures, k => exception)
-                else
-                    stem = @sprintf("frequency-%04d", k)
-                    log_path = joinpath(directory, "logs", stem * ".log")
-                    if !isfile(log_path)
-                        log_path = joinpath(directory, "work", stem, "getdp.log")
-                    end
-                    tail = isfile(log_path) ? join(last(readlines(log_path), 20), '\n') : ""
-                    pattern = r"(?i)(unknown|syntax error).*?(GenerateRHS|SolveAgain)"
-                    capability = occursin(pattern, tail)
-                    requirement = capability ?
-                                  "GetDP 3.5 with GenerateRHSGroup and SolveAgain is required.\n" :
-                                  ""
-                    message = "solve: frequency $(model.problem.frequencies[k]) Hz, " *
-                              "run directory $directory, log $log_path\n" *
-                              sprint(showerror, exception) * "\n" * requirement * tail
-                    push!(failures, k => ErrorException(message))
-                end
-                stopping[] = true
-            end
+    commands = Vector{Cmd}(undef, nf)
+    logs = Vector{String}(undef, nf)
+    labels = Vector{String}(undef, nf)
+    for (k, f) in enumerate(model.problem.frequencies)
+        stem = @sprintf("frequency-%04d", k)
+        folder = joinpath(directory, "work", stem)
+        mkpath(joinpath(folder, "results", "jobs"))
+        for source in readdir(joinpath(directory, "input", "getdp"); join = true)
+            endswith(source, ".pro") && cp(source, joinpath(folder, basename(source)))
         end
-        return
+        cp(joinpath(directory, "input", "model_data.pro"),
+            joinpath(folder, "model_data.pro"))
+        write(joinpath(folder, "bases.pro"),
+            "RequestedBases() = {" * join(1:n, ", ") * "};\n")
+        mesh_path = @sprintf("../../mesh/frequency-%04d.msh", k)
+        controls = options.overrides
+        tolerance = string(controls.MumpsBackwardErrorTolerance)
+        arguments = [executable, "model.pro", "-solve", "LineCableModelsFEMScan",
+            "-setnumber", "Physics", "1", "-setnumber", "PreparedGaugeTree", "1",
+            "-msh", mesh_path, "-name", "solver", "-v", string(options.getdp_verbosity),
+            "-setstring", "ModelDataPath", "model_data.pro",
+            "-setstring", "RunDirectory", ".", "-setstring", "RawDirectory", "results",
+            "-setstring", "BasisListPath", "bases.pro",
+            "-setnumber", "FrequencyIndex", string(k),
+            "-setnumber", "PlotFieldMaps", "0", "-setnumber", "ReuseFactorization", "1",
+            "-setnumber", "LinearSolver", "0",
+            "-setnumber", "MumpsOrdering", string(controls.MumpsOrdering),
+            "-setnumber", "PetscPrealloc", string(controls.PetscPrealloc),
+            "-setnumber", "MumpsErrorAnalysis", string(controls.MumpsErrorAnalysis),
+            "-setnumber", "MumpsRefinementMax", string(controls.MumpsRefinementMax),
+            "-setnumber", "MumpsBackwardErrorTolerance", tolerance]
+        if options.getdp_verbosity >= 4
+            append!(arguments, ["-cpu", "-ksp_view", "-log_view", ":petsc.log"])
+        end
+        threads = string(options.solver_threads)
+        commands[k] = addenv(Cmd(Cmd(arguments); dir = folder),
+            "OPENBLAS_NUM_THREADS" => threads, "OPENBLAS_DEFAULT_NUM_THREADS" => threads,
+            "OMP_NUM_THREADS" => threads, "MKL_NUM_THREADS" => threads)
+        logs[k] = joinpath(folder, "getdp.log")
+        labels[k] = "solve: frequency $f Hz, run directory $directory"
     end
     try
-        while !istaskdone(pool) && !stopping[]
-            sleep(0.02)
+        run(commands, logs, labels, options)
+    catch exception
+        if exception isa ErrorException &&
+           occursin(r"(?i)(unknown|syntax error).*?(GenerateRHS|SolveAgain)", exception.msg)
+            parts = split(exception.msg, '\n'; limit = 3)
+            error(parts[1] * "\n" * parts[2] * "\n" *
+                  "GetDP 3.5 with GenerateRHSGroup and SolveAgain is required.\n" *
+                  parts[3])
         end
-    finally
-        stopping[] = true
-        deadline = time() + 2
-        terminated = Set{Base.Process}()
-        while !istaskdone(pool) || any(process_running, processes)
-            for process in processes
-                if process_running(process) &&
-                   (!(process in terminated) || time() >= deadline)
-                    kill(process, time() < deadline ? Base.SIGTERM : Base.SIGKILL)
-                    push!(terminated, process)
+        rethrow()
+    end
+    for k in eachindex(model.problem.frequencies)
+        stem = @sprintf("frequency-%04d", k)
+        folder = joinpath(directory, "work", stem)
+        controls = options.overrides
+        for path in readdir(joinpath(folder, "results", "jobs"); join = true)
+            mv(path, joinpath(directory, "results", "jobs", basename(path)))
+        end
+        log_path = joinpath(directory, "logs", stem * ".log")
+        mv(joinpath(folder, "getdp.log"), log_path)
+        petsc_path = joinpath(folder, "petsc.log")
+        if isfile(petsc_path)
+            mv(petsc_path, joinpath(directory, "logs", stem * "-petsc.log"))
+        end
+        rm(folder; recursive = true)
+        primitives = read(directory, model, k)
+        Z[:, :, k] = primitives.Z
+        P[:, :, k] = primitives.P
+        if !iszero(controls.MumpsErrorAnalysis)
+            text = read(log_path, String)
+            blocks = eachmatch(r"(?ms)^KSP Object:.*?(?=^KSP Object:|\z)", text)
+            for (basis, block) in enumerate(blocks)
+                pattern = r"RINFOG\(7\),\s*RINFOG\(8\)\s*\(backward error est\):\s*([^,\s]+),\s*(\S+)"
+                found = match(pattern, block.match)
+                if found === nothing
+                    @warn "MUMPS diagnostics unavailable; inspect native log" frequency_hz=model.problem.frequencies[k] basis log=log_path
+                    continue
+                end
+                omega1 = tryparse(Float64, found[1])
+                omega2 = tryparse(Float64, found[2])
+                if omega1 === nothing || omega2 === nothing
+                    @warn "MUMPS diagnostics unavailable; inspect native log" frequency_hz=model.problem.frequencies[k] basis log=log_path
+                    continue
+                end
+                backward_error = omega1 + omega2
+                target = controls.MumpsBackwardErrorTolerance
+                if !isfinite(backward_error) || backward_error > target
+                    @warn "MUMPS backward-error target not met; result retained" frequency_hz=model.problem.frequencies[k] basis backward_error target log=log_path
                 end
             end
-            sleep(0.02)
         end
-        for process in processes
-            wait(process)
-        end
-        wait(pool)
     end
-    isempty(failures) || throw(last(first(failures)))
     header = "frequency_index\tfrequency_hz\tresponse_terminal\tbasis_terminal\treal\timaginary"
     for name in ("Z", "P")
         open(joinpath(directory, "results", name * ".tsv"), "w") do io

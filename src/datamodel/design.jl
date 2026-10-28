@@ -148,3 +148,7 @@ function build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart
         described.terminals, [cable], described.repeats, described.lays, NamedTuple[],
         described.fills)
 end
+
+function Base.map(f, design::CableDesign)
+    return build(CableDesign, design.id, map.(f, design.tree.items)...)
+end

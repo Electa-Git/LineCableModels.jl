@@ -82,3 +82,8 @@ function validate(problem::LineParametersProblem)
     end
     return problem
 end
+
+function Base.map(f, problem::LineParametersProblem)
+    return LineParametersProblem(map(f, problem.system), map(f, problem.earth);
+        temperature = f(problem.temperature), frequencies = map(f, problem.frequencies))
+end

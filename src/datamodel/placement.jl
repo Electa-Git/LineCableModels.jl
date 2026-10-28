@@ -269,3 +269,14 @@ Return the lay length of `helix` at the lay radius `radius` \\[m\\]: ``p = 2 q r
 is the lay ratio and ``r`` the radius.
 """
 pitch(helix::Helix{<:LayRatio}, radius::Real) = 2helix.lay.q * radius
+
+function Base.map(f, pattern::CircularPattern{T, T}) where {T}
+    return CircularPattern(pattern.n; r = f(pattern.r), φ0 = f(pattern.φ0),
+        span = f(pattern.span), gap_frac = f(pattern.gap_frac))
+end
+function Base.map(f, pattern::CircularPattern{T, Offset{T}}) where {T}
+    return CircularPattern(pattern.n; r = map(f, pattern.r), φ0 = f(pattern.φ0),
+        span = f(pattern.span), gap_frac = f(pattern.gap_frac))
+end
+Base.map(f, lay::LayRatio) = LayRatio(f(lay.q))
+Base.map(f, helix::Helix) = Helix(map(f, helix.lay); dir = helix.dir, φ0 = f(helix.φ0))

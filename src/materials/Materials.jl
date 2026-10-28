@@ -109,6 +109,13 @@ function material(;
         tan_delta, sigma_solar)
 end
 
+function Base.map(f, value::Material{T, K}) where {T, K}
+    return material(; kind = K, rho = f(value.rho), eps_r = f(value.eps_r),
+        mu_r = f(value.mu_r), T0 = f(value.T0), alpha = f(value.alpha),
+        rho_thermal = f(value.rho_thermal), theta_max = f(value.theta_max),
+        tan_delta = f(value.tan_delta), sigma_solar = f(value.sigma_solar))
+end
+
 function Base.convert(::Type{Material{T}}, material::Material{
         <:Real, K}) where {T <: Real, K}
     return Material{T, K}(convert(T, material.rho), convert(T, material.eps_r),

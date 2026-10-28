@@ -132,3 +132,12 @@ function build(::Type{CableSystem}, designs::AbstractVector{<:CableDesign},
     return CableSystem{T}(
         String(id), convert(T, line_length), designs, frames, regions, terminals)
 end
+
+function Base.map(f, system::CableSystem)
+    connections = [(;
+                       (design.terminals[row.terminal].name => row.connection
+                   for row in system.terminals if row.cable == k)...)
+                   for (k, design) in enumerate(system.designs)]
+    return build(CableSystem, map.(f, system.designs), map.(f, system.placements);
+        connections, id = system.id, line_length = f(system.line_length))
+end

@@ -59,6 +59,10 @@ function EarthLayer(rho::Real, eps_r::Real, mu_r::Real)
     return EarthLayer{T}(values..., T(Inf))
 end
 
+function Base.map(f, layer::EarthLayer)
+    return EarthLayer(f(layer.rho), f(layer.eps_r), f(layer.mu_r), f(layer.thickness))
+end
+
 function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T <: Real}
     return EarthLayer{T}(convert(T, layer.rho), convert(T, layer.eps_r),
         convert(T, layer.mu_r), convert(T, layer.thickness))
@@ -106,6 +110,8 @@ Construct an earth model from its layers, semi-infinite air first.
 function EarthModel(layers::Tuple{EarthLayer{T}, Vararg{EarthLayer{T}}}) where {T <: Real}
     return EarthModel{T, length(layers)}(layers)
 end
+
+Base.map(f, model::EarthModel) = EarthModel(map.(f, model.layers))
 
 Base.eltype(::EarthModel{T}) where {T} = T
 

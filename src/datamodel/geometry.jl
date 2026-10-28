@@ -41,6 +41,10 @@ end
 
 Base.eltype(::Placement{T}) where {T} = T
 
+function Base.map(f, placement::Placement)
+    return Placement(f(placement.x), f(placement.y), f(placement.φ))
+end
+
 function Base.convert(::Type{Placement{T}}, placement::Placement) where {T <: Real}
     return Placement{T}(
         convert(T, placement.x), convert(T, placement.y), convert(T, placement.φ))
@@ -502,4 +506,19 @@ end
 function resolve(at::Placement, shape::DifferenceShape)
     return DifferenceShape(resolve(at, shape.outer), [resolve(at, hole)
                                                       for hole in shape.holes])
+end
+
+Base.map(f, circle::Circle) = Circle(f(circle.r), map(f, circle.at))
+function Base.map(f, annulus::Annulus)
+    return Annulus(f(annulus.ri), f(annulus.ro), map(f, annulus.at))
+end
+function Base.map(f, rectangle::Rectangle)
+    w, h = f(rectangle.w), f(rectangle.h)
+    at = map(f, rectangle.at)
+    T = float(promote_type(typeof(w), typeof(h), eltype(at)))
+    return Rectangle{T}(convert(T, w), convert(T, h), convert(Placement{T}, at))
+end
+Base.map(f, offset::Offset) = Offset(f(offset.t))
+function Base.map(f, sector::AnnularSector)
+    return AnnularSector(f(sector.ri), f(sector.ro), f(sector.span), map(f, sector.at))
 end

@@ -23,7 +23,8 @@ using LineCableModels.CAD: Segment, Arc, Curve, Contour
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, transposition!, admittivity,
-                              resistivity, reductions, properties, vacuum_permittivity,
+                              resistivity, reductions, properties, nominal,
+                              vacuum_permittivity,
                               vacuum_permeability
 
 public GetdpArtifact
@@ -130,9 +131,10 @@ every frequency, and apply the selected conductor reductions.
 """
 function compute(::GmshBackend, problem::LineParametersProblem{T}, formulation::FEM,
         options::ComputationOptions{GmshBackend}) where {T <: Real}
-    validate(problem, formulation)
-    model = FieldModel(problem, formulation)
-    path = directory(problem)
+    mapped = map(x -> Float64(nominal(x)), problem)
+    validate(mapped, formulation)
+    model = FieldModel(mapped, formulation)
+    path = directory(mapped)
     for name in (joinpath("input", "getdp"), "mesh", joinpath("results", "jobs"),
         "logs", "work")
         mkpath(joinpath(path, name))
@@ -151,7 +153,6 @@ function compute(::GmshBackend, problem::LineParametersProblem{T}, formulation::
     owned && gmsh.initialize(String[], false, false)
     current = gmsh.model.getCurrent()
     models = Set(gmsh.model.list())
-    views = Set(gmsh.view.getTags())
     terminal = gmsh.option.getNumber("General.Terminal")
     verbosity = gmsh.option.getNumber("General.Verbosity")
     result = try
@@ -160,33 +161,31 @@ function compute(::GmshBackend, problem::LineParametersProblem{T}, formulation::
         geometry = build(Geometry, model, options)
         write(joinpath(path, "input", "physical.geo"), geometry)
         mesh(path, model, options)
-        plan = reductions(problem.system, formulation.options)
+        plan = reductions(mapped.system, formulation.options)
         n = length(model.label)
         m = length(plan.kept)
         e = length(plan.eliminated)
-        nf = length(problem.frequencies)
-        Z = Array{Complex{T}, 3}(undef, m, m, nf)
-        Y = Array{Complex{T}, 3}(undef, m, m, nf)
+        nf = length(mapped.frequencies)
+        Z = Array{ComplexF64, 3}(undef, m, m, nf)
+        Y = Array{ComplexF64, 3}(undef, m, m, nf)
         trace = options.trace ?
-                (Z = Array{Complex{T}, 3}(undef, n, n, nf),
-            P = Array{Complex{T}, 3}(undef, n, n, nf)) :
-                (Z = Array{Complex{T}, 3}(undef, 0, 0, 0),
-            P = Array{Complex{T}, 3}(undef, 0, 0, 0))
-        buffers = (factor = Matrix{Complex{T}}(undef, e, e),
-            coupling = Matrix{Complex{T}}(undef, m, e),
-            rhs = Matrix{Complex{T}}(undef, e, m),
-            reduced = Matrix{Complex{T}}(undef, m, m),
-            identity = Matrix{Complex{T}}(I, m, m))
+                (Z = Array{ComplexF64, 3}(undef, n, n, nf),
+            P = Array{ComplexF64, 3}(undef, n, n, nf)) :
+                (Z = Array{ComplexF64, 3}(undef, 0, 0, 0),
+            P = Array{ComplexF64, 3}(undef, 0, 0, 0))
+        buffers = (factor = Matrix{ComplexF64}(undef, e, e),
+            coupling = Matrix{ComplexF64}(undef, m, e),
+            rhs = Matrix{ComplexF64}(undef, e, m),
+            reduced = Matrix{ComplexF64}(undef, m, m),
+            identity = Matrix{ComplexF64}(I, m, m))
         solve!(Z, Y, trace, path, model, formulation, buffers, options)
-        LineParameters{T}(Z, Y, problem.frequencies, plan.terminals,
-            convert(T, problem.system.line_length), formulation, trace)
+        LineParameters{T}(Array{Complex{T}, 3}(Z), Array{Complex{T}, 3}(Y),
+            problem.frequencies, plan.terminals, convert(T, problem.system.line_length),
+            formulation, map(array -> Array{Complex{T}, 3}(array), trace))
     finally
         if owned
             gmsh.finalize()
         else
-            for tag in setdiff(Set(gmsh.view.getTags()), views)
-                gmsh.view.remove(tag)
-            end
             for name in setdiff(Set(gmsh.model.list()), models)
                 gmsh.model.setCurrent(name)
                 gmsh.model.remove()

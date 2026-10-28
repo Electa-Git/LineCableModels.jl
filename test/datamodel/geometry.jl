@@ -1,4 +1,13 @@
 @testset "DataModel geometry" begin
+    @testset "mapping scales real fields" begin
+        placement = Placement(1.0, -2.0, 0.25)
+        mapped = map(x -> 2x, placement)
+        @test (mapped.x, mapped.y, mapped.φ) == (2.0, -4.0, 0.5)
+        circle = map(x -> 2x, Circle(1.5e-3, placement))
+        @test circle.r == 3.0e-3
+        @test (circle.at.x, circle.at.y, circle.at.φ) == (2.0, -4.0, 0.5)
+    end
+
     @testset "an offset around a part is an annulus" begin
         insulation = LineCableModels.resolve(Circle(1.5e-3), Offset(1.0e-3))
         @test (r_in(insulation), r_ex(insulation)) == (1.5e-3, 2.5e-3)

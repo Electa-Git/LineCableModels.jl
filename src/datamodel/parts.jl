@@ -311,3 +311,14 @@ function resolve(described::NamedTuple, enclosure::Enclosure)
         (regions = [inner.regions; placed], outer = boundary(container),
             fills = [inner.fills; row]))
 end
+
+function Base.map(f, region::Region)
+    return Region(region.tag, map(f, region.primitive), map(f, region.material))
+end
+Base.map(f, stack::Stack) = Stack(map.(f, stack.items))
+Base.map(f, terminal::Terminal) = Terminal(terminal.name, map(f, terminal.part))
+Base.map(f, repeat::Repeat) = Repeat(map(f, repeat.pattern), map(f, repeat.part))
+Base.map(f, lay::Lay) = Lay(map(f, lay.helix), map(f, lay.part))
+function Base.map(f, enclosure::Enclosure)
+    return Enclosure(map(f, enclosure.fill), map(f, enclosure.contents))
+end

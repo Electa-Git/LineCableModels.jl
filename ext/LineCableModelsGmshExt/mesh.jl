@@ -1,67 +1,42 @@
 """
 $(TYPEDSIGNATURES)
 
-Write the meshes of `model` at every frequency \\[Hz\\] under `directory`, with at most
-`options.workers` native Gmsh processes at once. Keep each process's log under `logs/`.
-After every process ends, validate each mesh and add its gauge tree in the caller's
-initialized Gmsh session. Return the mesh paths in frequency order.
+Run `commands` with at most `options.workers` processes at once. Each process writes its
+output to the path of the same index in `logs`. The first failure stops the other processes
+with SIGTERM, then SIGKILL after two seconds. Return nothing after every process stops.
 
 # Errors
 
-- Throws `ErrorException` for a failed process or mesh check.
-- Rethrows `InterruptException` after the pool stops its processes.
-
-The error identifies the frequency, run directory, log path, and last twenty log lines.
-A process failure includes its exit code and signal. The run directory stays on failure.
+- Throws `ErrorException` with the label, log path, cause, and last twenty log lines of the
+  first failed command.
+- A process failure gives its exit code and signal in the cause.
+- Rethrows `InterruptException` after all processes stop.
 """
-function mesh(directory::AbstractString, model::FieldModel,
+function Base.run(commands::Vector{Cmd}, logs::Vector{String}, labels::Vector{String},
         options::ComputationOptions{GmshBackend})
     processes = Base.Process[]
     stopping = Ref(false)
     failures = Pair{Int, Exception}[]
-    pool = @async asyncmap(eachindex(model.problem.frequencies); ntasks = options.workers) do k
-        stopping[] && return
+    pool = @async asyncmap(eachindex(commands); ntasks = options.workers) do k
         try
-            stem = @sprintf("mesh-%04d", k)
-            folder = joinpath(directory, "work", stem)
-            mkpath(folder)
-            for source in readdir(joinpath(directory, "input", "getdp"); join = true)
-                cp(source, joinpath(folder, basename(source)))
-            end
-            for name in ("model_data.pro", "physical.geo")
-                cp(joinpath(directory, "input", name), joinpath(folder, name))
-            end
-            entry = "Include \"model_data.pro\";\n" *
-                    "Include \"parameters.pro\";\n" *
-                    "Include \"physical.geo\";\n" *
-                    "Include \"geometry.geo\";\n" *
-                    "Include \"mesh.geo\";\n"
-            write(joinpath(folder, "model.geo"), entry)
-            log_path = joinpath(directory, "logs", stem * ".log")
-            command = Cmd(
-                `$(Gmsh.gmsh_jll.gmsh()) model.geo -setnumber FrequencyIndex $k -setstring MeshMetadataPath mesh-metadata.txt -2 -o model.msh -v $(options.gmsh_verbosity)`;
-                dir = folder)
-            io = open(log_path, "w")
-            try
-                process = run(pipeline(command; stdout = io, stderr = io); wait = false)
+            open(logs[k], "w") do io
+                stopping[] && return
+                process = run(pipeline(commands[k]; stdout = io, stderr = io); wait = false)
                 push!(processes, process)
                 wait(process)
                 if !success(process) && !stopping[]
                     error("exit code $(process.exitcode), signal $(process.termsignal)")
                 end
-            finally
-                close(io)
+                return
             end
         catch exception
             if !stopping[]
                 if exception isa InterruptException
                     push!(failures, k => exception)
                 else
-                    log_path = joinpath(directory, "logs", @sprintf("mesh-%04d.log", k))
-                    tail = isfile(log_path) ? join(last(readlines(log_path), 20), '\n') : ""
-                    message = "mesh: frequency $(model.problem.frequencies[k]) Hz, " *
-                              "run directory $directory, log $log_path\n" *
-                              sprint(showerror, exception) * "\n$tail"
+                    cause = sprint(showerror, exception)
+                    tail = isfile(logs[k]) ? join(last(readlines(logs[k]), 20), '\n') : ""
+                    message = labels[k] * ", log " * logs[k] * "\n" * cause * "\n" * tail
                     push!(failures, k => ErrorException(message))
                 end
                 stopping[] = true
@@ -93,6 +68,54 @@ function mesh(directory::AbstractString, model::FieldModel,
         wait(pool)
     end
     isempty(failures) || throw(last(first(failures)))
+    return
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write the meshes of `model` at every frequency \\[Hz\\] under `directory`, with at most
+`options.workers` native Gmsh processes at once. Keep each process's log under `logs/`.
+After every process ends, validate each mesh and add its gauge tree in the caller's
+initialized Gmsh session. Return the mesh paths in frequency order.
+
+# Errors
+
+- Throws `ErrorException` for a failed process or mesh check.
+- Rethrows `InterruptException` after the pool stops its processes.
+
+The error identifies the frequency, run directory, log path, and last twenty log lines.
+A process failure includes its exit code and signal. The run directory stays on failure.
+"""
+function mesh(directory::AbstractString, model::FieldModel,
+        options::ComputationOptions{GmshBackend})
+    nf = length(model.problem.frequencies)
+    commands = Vector{Cmd}(undef, nf)
+    logs = Vector{String}(undef, nf)
+    labels = Vector{String}(undef, nf)
+    for (k, f) in enumerate(model.problem.frequencies)
+        stem = @sprintf("mesh-%04d", k)
+        folder = joinpath(directory, "work", stem)
+        mkpath(folder)
+        for source in readdir(joinpath(directory, "input", "getdp"); join = true)
+            cp(source, joinpath(folder, basename(source)))
+        end
+        for name in ("model_data.pro", "physical.geo")
+            cp(joinpath(directory, "input", name), joinpath(folder, name))
+        end
+        entry = "Include \"model_data.pro\";\n" *
+                "Include \"parameters.pro\";\n" *
+                "Include \"physical.geo\";\n" *
+                "Include \"geometry.geo\";\n" *
+                "Include \"mesh.geo\";\n"
+        write(joinpath(folder, "model.geo"), entry)
+        logs[k] = joinpath(directory, "logs", stem * ".log")
+        commands[k] = Cmd(
+            `$(Gmsh.gmsh_jll.gmsh()) model.geo -setnumber FrequencyIndex $k -setstring MeshMetadataPath mesh-metadata.txt -2 -o model.msh -v $(options.gmsh_verbosity)`;
+            dir = folder)
+        labels[k] = "mesh: frequency $f Hz, run directory $directory"
+    end
+    run(commands, logs, labels, options)
     paths = String[]
     for index in eachindex(model.problem.frequencies)
         stem = @sprintf("mesh-%04d", index)
