@@ -30,7 +30,7 @@ export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
 export bundle!, eliminate!, transposition!, formulas, reductions
 export SpectralIntegral, integrate, nominal, ray!
-public CoaxialInput
+public CoaxialInput, solve!
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
 

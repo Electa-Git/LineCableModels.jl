@@ -34,5 +34,6 @@ using LineCableModels
     include("gmsh/model.jl")
     include("gmsh/geometry.jl")
     include("gmsh/mesh.jl")
+    include("gmsh/compute.jl")
     include("architecture/architecture.jl")
 end

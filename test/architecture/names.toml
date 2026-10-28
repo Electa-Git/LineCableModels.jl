@@ -122,7 +122,7 @@ draw = "draw a system, a design, a placed region, a shape, a contour, a path or 
 nouns = ["getdp", "artifact", "overrides", "interval", "field", "tags", "strand", "air", "scale",
     "geometry", "key", "point", "buckets", "lines", "arcs", "ends", "curves", "breaks",
     "contacts", "loops", "surfaces", "patches", "outlines", "pockets", "anchors", "faces",
-    "compartments", "direction", "inside", "anchor", "dimension", "turn", "section"]
+    "compartments", "direction", "inside", "anchor", "dimension", "turn", "section", "directory"]
 qualifiers = ["low", "high", "closed", "lowest"]
 symbols = ["gamma"]
 
@@ -249,8 +249,7 @@ nominal = "the nominal value of a quantity: the identity on a real number and co
 formulas = "the distinct formulas of a formulation's slots, the two earth slots once when they are one formula"
 reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
 
-[register.Engine.private]
-"solve!" = "LCMBackend's loop of a CoaxialFormulation over the problem's frequencies: at each frequency it evaluates the formulas, assembles Z and P, applies the reductions, and writes Z, Y and, when traced, the stage matrices into the result"
+"solve!" = "a backend's loop over the problem's frequencies that fills Z and Y and, when traced, its stage matrices"
 
 [register."Engine.InternalImpedance".public]
 Formula = "an internal-impedance formula, its identifier the type parameter"
@@ -322,6 +321,7 @@ draw = "draw a system, a design, a placed region, a shape, a contour or a path o
 GetdpArtifact = "the GetDP 3.5.0 executable of the package's artifact, or the one LINECABLEMODELS_GETDP names when that variable is set"
 
 [register.LineCableModelsGmshExt.private]
+directory = "the run directory of a computation under .linecablemodels/fem"
 mesh = "write the validated meshes of the cross-section at every frequency with Gmsh, each with its gauge tree, at most workers processes at once"
 "gauge!" = "write the gauge tree and the sampling nodes into a mesh"
 OVERRIDES = "the table of the native expert controls: each native name with its default and its range"

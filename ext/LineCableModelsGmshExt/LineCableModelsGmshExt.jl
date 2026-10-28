@@ -1,14 +1,15 @@
 """
     LineCableModelsGmshExt
 
-Declare and validate the computation options of the Gmsh backend for finite elements.
-Build a cable cross-section with shared contact points in the caller's Gmsh session.
+Compute finite-element series impedances and shunt admittances with Gmsh and GetDP.
+Build and mesh the cross-section, solve every frequency, and reduce the terminal matrices.
 """
 module LineCableModelsGmshExt
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Gmsh: Gmsh, gmsh
 using Printf: @sprintf
+using LinearAlgebra: I, ldiv!, lu!
 using Pkg.Artifacts: ensure_artifact_installed
 import LineCableModels.Commons: build, compute, defaults, select, validate
 using LineCableModels.Commons: ComputationOptions, resolve
@@ -19,7 +20,9 @@ using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annul
                                  PlacedRegion, Placement, support, r_in, r_ex
 import LineCableModels.CAD: draw
 using LineCableModels.CAD: Segment, Arc, Curve, Contour
-using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, admittivity,
+import LineCableModels.Engine: solve!
+using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
+                              bundle!, eliminate!, transposition!, admittivity,
                               resistivity, reductions, properties, vacuum_permittivity,
                               vacuum_permeability
 
@@ -30,6 +33,7 @@ include("model.jl")
 include("geometry.jl")
 include("mesh.jl")
 include("getdp.jl")
+include("result.jl")
 
 """
 $(TYPEDSIGNATURES)
@@ -98,6 +102,107 @@ function compute(backend::GmshBackend, problem::LineParametersProblem,
         formulation::FEM; kw...)
     options = ComputationOptions(GmshBackend; kw...)
     return compute(backend, problem, formulation, options)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Validate the problem, build and mesh its cross-section, solve the finite-element problem at
+every frequency, and apply the selected conductor reductions.
+
+# Arguments
+
+- `GmshBackend`: backend that runs Gmsh and GetDP.
+- `problem`: cables, earth, temperature \\[°C\\], and frequencies \\[Hz\\].
+- `formulation`: finite-element material laws and reduction controls.
+- `options`: mesh, solver, trace, and run-directory controls.
+
+# Returns
+
+- A `LineParameters` record with series impedances \\[Ω/m\\], shunt admittances
+  \\[S/m\\], terminal labels, and primitive matrices when traced.
+
+# Errors
+
+- Throws for invalid problem data or unavailable native executables.
+- Retains the run directory on failure. Native process errors identify the frequency and
+  log, with its last twenty lines.
+"""
+function compute(::GmshBackend, problem::LineParametersProblem{T}, formulation::FEM,
+        options::ComputationOptions{GmshBackend}) where {T <: Real}
+    validate(problem, formulation)
+    model = FieldModel(problem, formulation)
+    path = directory(problem)
+    for name in (joinpath("input", "getdp"), "mesh", joinpath("results", "jobs"),
+        "logs", "work")
+        mkpath(joinpath(path, name))
+    end
+    for source in readdir(joinpath(@__DIR__, "getdp"); join = true)
+        cp(source, joinpath(path, "input", "getdp", basename(source)))
+    end
+    write(joinpath(path, "input", "model_data.pro"), model, options)
+    entry = "Include \"model_data.pro\";\n" *
+            "Include \"getdp/parameters.pro\";\n" *
+            "Include \"physical.geo\";\n" *
+            "Include \"getdp/geometry.geo\";\n" *
+            "Include \"getdp/mesh.geo\";\n"
+    write(joinpath(path, "input", "model.geo"), entry)
+    owned = !Bool(gmsh.isInitialized())
+    owned && gmsh.initialize(String[], false, false)
+    current = gmsh.model.getCurrent()
+    models = Set(gmsh.model.list())
+    views = Set(gmsh.view.getTags())
+    terminal = gmsh.option.getNumber("General.Terminal")
+    verbosity = gmsh.option.getNumber("General.Verbosity")
+    result = try
+        gmsh.option.setNumber("General.Terminal", options.gmsh_verbosity > 0 ? 1 : 0)
+        gmsh.option.setNumber("General.Verbosity", options.gmsh_verbosity)
+        geometry = build(Geometry, model, options)
+        write(joinpath(path, "input", "physical.geo"), geometry)
+        mesh(path, model, options)
+        plan = reductions(problem.system, formulation.options)
+        n = length(model.label)
+        m = length(plan.kept)
+        e = length(plan.eliminated)
+        nf = length(problem.frequencies)
+        Z = Array{Complex{T}, 3}(undef, m, m, nf)
+        Y = Array{Complex{T}, 3}(undef, m, m, nf)
+        trace = options.trace ?
+                (Z = Array{Complex{T}, 3}(undef, n, n, nf),
+            P = Array{Complex{T}, 3}(undef, n, n, nf)) :
+                (Z = Array{Complex{T}, 3}(undef, 0, 0, 0),
+            P = Array{Complex{T}, 3}(undef, 0, 0, 0))
+        buffers = (factor = Matrix{Complex{T}}(undef, e, e),
+            coupling = Matrix{Complex{T}}(undef, m, e),
+            rhs = Matrix{Complex{T}}(undef, e, m),
+            reduced = Matrix{Complex{T}}(undef, m, m),
+            identity = Matrix{Complex{T}}(I, m, m))
+        solve!(Z, Y, trace, path, model, formulation, buffers, options)
+        LineParameters{T}(Z, Y, problem.frequencies, plan.terminals,
+            convert(T, problem.system.line_length), formulation, trace)
+    finally
+        if owned
+            gmsh.finalize()
+        else
+            for tag in setdiff(Set(gmsh.view.getTags()), views)
+                gmsh.view.remove(tag)
+            end
+            for name in setdiff(Set(gmsh.model.list()), models)
+                gmsh.model.setCurrent(name)
+                gmsh.model.remove()
+            end
+            isempty(current) || gmsh.model.setCurrent(current)
+            gmsh.option.setNumber("General.Terminal", terminal)
+            gmsh.option.setNumber("General.Verbosity", verbosity)
+        end
+    end
+    if options.keep_run_directory
+        @info "FEM run directory" directory=path
+    else
+        rm(path; recursive = true)
+        isempty(readdir(dirname(path))) && rm(dirname(path))
+    end
+    return result
 end
 
 end

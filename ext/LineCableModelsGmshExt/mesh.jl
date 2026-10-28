@@ -16,9 +16,6 @@ A process failure includes its exit code and signal. The run directory stays on 
 """
 function mesh(directory::AbstractString, model::FieldModel,
         options::ComputationOptions{GmshBackend})
-    for name in ("work", "logs", "mesh")
-        mkpath(joinpath(directory, name))
-    end
     processes = Base.Process[]
     stopping = Ref(false)
     failures = Pair{Int, Exception}[]

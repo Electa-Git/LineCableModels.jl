@@ -6,7 +6,9 @@
             temperature = reference.temperature, frequencies = reference.frequencies[1:1])
         model = extension.FieldModel(problem, FEM())
         mktempdir() do directory
-            mkpath(joinpath(directory, "input"))
+            for name in ("input", "mesh", joinpath("results", "jobs"), "logs", "work")
+                mkpath(joinpath(directory, name))
+            end
             cp(joinpath(@__DIR__, "..", "..", "ext", "LineCableModelsGmshExt", "getdp"),
                 joinpath(directory, "input", "getdp"))
             write(joinpath(directory, "input", "model_data.pro"), model, options)

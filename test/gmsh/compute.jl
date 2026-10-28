@@ -1,0 +1,134 @@
+@testset "Gmsh computation" begin
+    extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+    @testset "$case" for ((case, reference), (tolerance, expected)) in zip(REFERENCES,
+        ((1e-6, (Z = 0.00568, Y = 0.00798)), (1e-6, (Z = 0.00407, Y = 0.000447)),
+            (1e-2, (Z = 0.0492, Y = 0.105)), (1e-2, (Z = 0.0522, Y = 0.104))))
+        problem = LineParametersProblem(reference.system, reference.earth;
+            temperature = reference.temperature, frequencies = reference.frequencies[1:10:end])
+        formulation = FEM(; bundle = false, kron = false, transposition = false)
+        n = length(problem.system.terminals)
+        targets = Dict((source, quantity) => zeros(ComplexF64, n, n, 11)
+        for source in ("fem", "analytical"), quantity in ("Z", "Y"))
+        for line in eachline(joinpath(@__DIR__, "..", "references", case, "matrices.csv"))
+            fields = split(line, ',')
+            haskey(targets, (fields[1], get(fields, 3, ""))) || continue
+            f = parse(Float64, fields[2])
+            k = findfirst(==(f), problem.frequencies)
+            k === nothing && continue
+            row = parse(Int, fields[4])
+            column = parse(Int, fields[5])
+            value = complex(parse(Float64, fields[6]), parse(Float64, fields[7]))
+            targets[(fields[1], fields[3])][row, column, k] = value
+        end
+        mktempdir() do folder
+            cd(folder) do
+                path = extension.directory(problem)
+                @test dirname(path) == joinpath(folder, ".linecablemodels", "fem", case)
+                @test occursin(r"^\d{8}-\d{6}-[a-z0-9]{4}$", basename(path))
+                @test !ispath(path)
+                result = compute(problem, formulation; trace = true, keep_run_directory = true)
+                root = dirname(path)
+                retained = only(readdir(root; join = true))
+                @test result.frequencies == problem.frequencies
+                @test result.terminals ==
+                      ["cable:$(row.cable):$(problem.system.designs[row.cable].terminals[row.terminal].name)"
+                       for row in problem.system.terminals]
+                @test result.line_length == problem.system.line_length
+                for (quantity, computed, status) in
+                    (("Z", result.Z, expected.Z), ("Y", result.Y, expected.Y))
+                    target = targets[("fem", quantity)]
+                    for k in eachindex(problem.frequencies)
+                        @test maximum(abs, computed[:, :, k] - target[:, :, k]) <=
+                              tolerance * maximum(abs(target[i, i, k]) for i in 1:n)
+                    end
+                    analytical = targets[("analytical", quantity)]
+                    errors = [maximum(abs, computed[:, :, k] - analytical[:, :, k]) /
+                              maximum(abs(analytical[i, i, k]) for i in 1:n)
+                              for k in eachindex(problem.frequencies)]
+                    @test abs(maximum(errors) - status) <= 0.002
+                end
+                @test size(result.trace.Z) == (n, n, 11)
+                @test size(result.trace.P) == (n, n, 11)
+                model = extension.FieldModel(problem, formulation)
+                for k in eachindex(problem.frequencies)
+                    primitives = read(retained, model, k)
+                    @test result.trace.Z[:, :, k] == primitives.Z
+                    @test result.trace.P[:, :, k] == primitives.P
+                end
+                for name in
+                    (joinpath("input", "getdp"), "mesh", joinpath("results", "jobs"),
+                    "logs", "work")
+                    @test isdir(joinpath(retained, name))
+                end
+                sources = readdir(joinpath(@__DIR__, "..", "..", "ext",
+                    "LineCableModelsGmshExt", "getdp"))
+                @test readdir(joinpath(retained, "input", "getdp")) == sources
+                for name in ("model_data.pro", "physical.geo", "model.geo")
+                    @test isfile(joinpath(retained, "input", name))
+                end
+                for name in ("Z.tsv", "P.tsv")
+                    @test isfile(joinpath(retained, "results", name))
+                end
+                for k in eachindex(problem.frequencies)
+                    index = lpad(k, 4, '0')
+                    @test isfile(joinpath(retained, "mesh", "frequency-$index.msh"))
+                    @test isfile(joinpath(retained, "logs", "mesh-$index.log"))
+                    @test isfile(joinpath(retained, "logs", "mesh-$index-metadata.txt"))
+                    @test isfile(joinpath(retained, "logs", "frequency-$index.log"))
+                    for b in 1:n, suffix in (".done", "-Z.tsv", "-P.tsv")
+
+                        basis = lpad(b, 4, '0')
+                        @test isfile(joinpath(retained, "results", "jobs",
+                            "getdp-f$index-b$basis$suffix"))
+                    end
+                end
+                @test isempty(readdir(joinpath(retained, "work")))
+            end
+        end
+        mktempdir() do folder
+            cd(folder) do
+                single = LineParametersProblem(reference.system, reference.earth;
+                    temperature = reference.temperature,
+                    frequencies = problem.frequencies[1:1])
+                result = compute(single, formulation; trace = false, keep_run_directory = false)
+                @test size(result.trace.Z) == (0, 0, 0)
+                @test size(result.trace.P) == (0, 0, 0)
+                @test isempty(readdir(joinpath(folder, ".linecablemodels", "fem")))
+            end
+        end
+    end
+    @testset "Conductor reductions" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.3)
+        design = build(CableDesign, "coaxial",
+            Terminal(:core, Region(:core_metal, Circle(10e-3), copper)),
+            Region(:core_insulation, Offset(10e-3), polymer),
+            Terminal(:sheath, Region(:sheath_copper, Annulus(20e-3, 21e-3), copper)),
+            Region(:sheath_jacket, Offset(3e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1, sheath = 0), (core = 1, sheath = 2)],
+            id = "two cables/grounded", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
+        mktempdir() do folder
+            cd(folder) do
+                path = extension.directory(problem)
+                @test basename(dirname(path)) == "two_cables_grounded"
+                result = compute(problem, FEM(); trace = true)
+                coaxial = compute(problem, CoaxialFormulation())
+                @test result.terminals == coaxial.terminals
+                @test result.terminals == ["cable:1:core+cable:2:core", "cable:2:sheath"]
+                @test size(result.Z) == (2, 2, 1)
+                @test size(result.Y) == (2, 2, 1)
+                C = [1.0 0.0; 0.0 0.0; 1.0 0.0; 0.0 1.0]
+                expected_Z = inv(transpose(C) * inv(result.trace.Z[:, :, 1]) * C)
+                expected_Y = transpose(C) * inv(result.trace.P[:, :, 1]) * C
+                @test norm(result.Z[:, :, 1] - expected_Z) <=
+                      1e-12 * norm(result.Z[:, :, 1])
+                @test norm(result.Y[:, :, 1] - expected_Y) <=
+                      1e-12 * norm(result.Y[:, :, 1])
+                @test isempty(readdir(joinpath(folder, ".linecablemodels", "fem")))
+            end
+        end
+    end
+end

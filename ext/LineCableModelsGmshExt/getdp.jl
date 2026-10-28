@@ -229,9 +229,6 @@ function scan(directory::AbstractString, model::FieldModel{T},
     nf = length(model.problem.frequencies)
     Z = Array{Complex{T}, 3}(undef, n, n, nf)
     P = Array{Complex{T}, 3}(undef, n, n, nf)
-    for name in ("work", "logs", joinpath("results", "jobs"))
-        mkpath(joinpath(directory, name))
-    end
     processes = Base.Process[]
     stopping = Ref(false)
     failures = Pair{Int, Exception}[]

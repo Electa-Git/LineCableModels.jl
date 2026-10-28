@@ -90,6 +90,51 @@ each copy gives its file again, byte for byte.
 FEM against the analytical results, per FEM frequency, as e_Z = max|ΔZ_ij| / max|Z_ii| and
 e_Y = max|ΔY_ij| / max|Y_ii|. The FEM accuracy level is 1 %.
 
+The port's run gives these maxima against the analytical rows:
+
+| Case | e_Z | e_Y |
+|---|---|---|
+| `two_bare_wires` | 0.568 % | 0.798 % |
+| `two_insulated_wires` | 0.407 % | 0.0447 % |
+| `coaxial_circular_strands` | 4.92 % | 10.5 % |
+| `coaxial_rectangular_strands` | 5.22 % | 10.4 % |
+
+For `two_bare_wires` and `two_insulated_wires`, the meshes coincide with the source meshes.
+Their rows agree with the frozen `fem` rows within 1e-6 scaled.
+For the coaxial cases, the maxima against the frozen `fem` rows are:
+
+| Case | Scaled difference in Z | Scaled difference in Y |
+|---|---|---|
+| `coaxial_circular_strands` | 5.84e-5 | 3.53e-3 |
+| `coaxial_rectangular_strands` | 1.08e-5 | 1.36e-3 |
+
+The coaxial meshes are two discretizations of identical definitions.
+Many points of the core and armor wires lie on common circles.
+Triangulation breaks ties on those circles by round-off.
+The port coordinates and native size values differ from source values by one or two units in the last place.
+The port composes the data model definitions.
+The source evaluated each point at its construction site.
+
+All scaled differences and the spreads `D_Z` and `D_Y` below are dimensionless.
+Diagnostic A runs the port solve on the source meshes.
+Diagnostic B uses the source numbers in the port inputs and keeps the port names.
+It substitutes 367 lines of `physical.geo` for the circular case and 442 for the rectangular case.
+It substitutes 11 lines of `model_data.pro` for each case.
+The meshes are identical, with 57 816 nodes for the circular case and 45 353 for the rectangular case at the first frequency.
+The maximum scaled differences are:
+
+| Case | A, Z | A, Y | B, Z | B, Y |
+|---|---|---|---|---|
+| `coaxial_circular_strands` | 6.5e-11 | 6.5e-12 | 6.5e-11 | 6.1e-12 |
+| `coaxial_rectangular_strands` | 4.4e-10 | 3.2e-10 | 4.4e-10 | 8.2e-11 |
+
+Diagnostic C compares the default mesh with `mesh_size_factor = 0.5` at the first and last frequency.
+Across the two cases, D_Z reaches 1.8e-4 at the first frequency and 2.4e-3 at the last.
+D_Y is 3.1e-3 for the circular case and 1.1e-3 to 1.7e-3 for the rectangular case.
+The difference between the port and source is 0.24 to 1.26 times D_Y.
+
+The source gives the following results against the analytical rows:
+
 - `two_bare_wires`: e_Z at most 0.57 % and e_Y at most 0.80 %, under 1 %.
 - `two_insulated_wires`: e_Z at most 0.41 % and e_Y at most 0.045 %, under 1 %.
 - `coaxial_circular_strands` and `coaxial_rectangular_strands`: e_Y from 8.5 % to 10.5 %, e_Z up
