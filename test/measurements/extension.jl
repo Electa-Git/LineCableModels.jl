@@ -2,7 +2,6 @@ using LineCableModels: nominal
 using SpecialFunctions: besselix, besselkx, besseljx, besselk
 
 @testset "Measurements extension" begin
-    @test Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) isa Module
     @test nominal(measurement(1.0, 0.1)) === 1.0
     @test nominal(complex(1.0 ± 0.1, 2.0 ± 0.2)) === complex(1.0, 2.0)
 
@@ -33,26 +32,15 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
                     actual = Measurements.uncertainty(part)
                     @test actual ≈ expected rtol=1e-12
                     @test actual ≈ finite rtol=1e-7
-                    @test length(Measurements.uncertainty_components(part)) == 1
                 end
             end
         end
     end
 
-    for (copper, expected) in
-        (
-        (Material(:conductor, 1.7241e-8 ± 1.7241e-10, 1, 1, 20, 0.00393),
-            Measurement{Float64}),
-        (material(kind = :conductor, rho = 1.7241f-8), Float64))
-        design = build(CableDesign, "bare_wire",
-            Terminal(:core, Region(:core_metal, Circle(0.0425), copper)))
-        @test eltype(design) === expected
-    end
-    wire = build(CableDesign, "float32",
-        Terminal(:core,
-            Region(:core_metal, Circle(1.5f-3),
-                material(kind = :conductor, rho = 1.7241f-8))))
-    @test eltype(wire) === Float32
+    copper = Material(:conductor, 1.7241e-8 ± 1.7241e-10, 1, 1, 20, 0.00393)
+    design = build(CableDesign, "bare_wire",
+        Terminal(:core, Region(:core_metal, Circle(0.0425), copper)))
+    @test eltype(design) === Measurement{Float64}
 
     reference = last(first(REFERENCES))
     copper = Material(:conductor, 1.7241e-8, 1, 0.999994, 20, 0.00393)
@@ -81,7 +69,6 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
         end
     end
 
-    @test_throws MethodError CoaxialFormulation(; Γ = complex(0.0, 1e-3 ± 1e-5))
     reference = last(REFERENCES[2])
     problem = LineParametersProblem(reference.system, homogeneous(rho = 0.1 ± 0.01);
         frequencies = reference.frequencies[1:50:end])

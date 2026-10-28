@@ -5,9 +5,8 @@ using LineCableModels.Engine: GmshBackend
 @testset "Gmsh computation options" begin
     GetdpBinary = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).GetdpBinary
     options = ComputationOptions(GmshBackend; mesh_size_factor = 2.0)
-    for (name, value) in pairs(merge(defaults(GmshBackend), (mesh_size_factor = 2.0,)))
-        @test getproperty(options, name) === value
-    end
+    @test getfield(options, :values) ===
+          merge(defaults(GmshBackend), (mesh_size_factor = 2.0,))
     @test_throws ArgumentError ComputationOptions(GmshBackend; mesh_policy = :reuse)
 
     native = (
@@ -40,9 +39,7 @@ using LineCableModels.Engine: GmshBackend
     @test defaults(GmshBackend).overrides == native
 
     options = ComputationOptions(GmshBackend; overrides = (PmlSideLayers = 48,))
-    for (name, value) in pairs(merge(native, (PmlSideLayers = 48,)))
-        @test options.overrides[name] === value
-    end
+    @test options.overrides === merge(native, (PmlSideLayers = 48,))
     @test ComputationOptions(GmshBackend;
         overrides = (PmlSideLayers = 48.0,)).overrides.PmlSideLayers === 48
 

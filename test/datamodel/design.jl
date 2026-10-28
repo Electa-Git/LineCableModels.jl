@@ -82,11 +82,7 @@ end
                   [37, 40]
             for row in design.fills
                 shape = design.regions[row.region].shape
-                expected = LineCableModels.DifferenceShape(shape.outer,
-                    [design.regions[index].shape for index in row.contents])
-                @test area(shape) ≈ area(expected)
-                @test centroid(shape) == centroid(expected)
-                @test distance(shape) == distance(expected)
+                @test shape.holes == [design.regions[index].shape for index in row.contents]
             end
         end
     end

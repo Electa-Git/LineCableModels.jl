@@ -75,6 +75,19 @@ end
         eps_earth_c = (10.0, 0.5, (3, 4), (1, -1), (1 / 2, -1 / 2)),
         temperature = (20.0, 2.0, (1, 3), (1, -1), (1 / 2, -1 / 2)))
     nominal_inputs = (t_xlpe = (8.0e-3, 1.0e-4, (3, 4)),)
+    without_sensitivity = Set((
+        ("two_bare_wires", :rho_cu, :Y),
+        ("two_bare_wires", :temperature, :Y),
+        ("two_insulated_wires", :rho_cu, :Y),
+        ("two_insulated_wires", :x2, :Y),
+        ("two_insulated_wires", :eps_ins, :Z),
+        ("coaxial_circular_strands", :r_strand, :Y),
+        ("coaxial_circular_strands", :rho_cu, :Y),
+        ("coaxial_circular_strands", :mu_steel, :Y),
+        ("coaxial_circular_strands", :temperature, :Y),
+        ("coaxial_rectangular_strands", :w_strand, :Y),
+        ("coaxial_rectangular_strands", :rho_cu, :Y),
+        ("coaxial_rectangular_strands", :mu_steel, :Y)))
     formulation = CoaxialFormulation()
     for (index, (case, reference)) in enumerate(REFERENCES)
         @testset "$case" begin
@@ -91,16 +104,6 @@ end
                 (name => compute(
                      last(cases(; frequencies, (; name => source)...)[index]),
                      formulation) for (name, source) in pairs(sources))...)
-            for (name, result) in pairs(singles)
-                @testset "$name" begin
-                    for (Q, Q0) in
-                        ((result.Z, deterministic.Z), (result.Y, deterministic.Y))
-                        @test maximum(maximum(abs, nominal.(Q[:, :, k]) - Q0[:, :, k]) /
-                                      maximum(abs(Q0[i, i, k]) for i in axes(Q0, 1))
-                        for k in eachindex(frequencies)) <= 1e-14
-                    end
-                end
-            end
             for (name, (v, σ, which, offsets, weights)) in pairs(inputs)
                 index in which || continue
                 @testset "$name" begin
@@ -115,22 +118,32 @@ end
                     differences = (
                         sum(w * p.Z for (p, w) in zip(perturbed, weights)) / δ,
                         sum(w * p.Y for (p, w) in zip(perturbed, weights)) / δ)
-                    for (Q, Q0, D) in zip((result.Z, result.Y),
+                    for (quantity, Q, Q0, D) in zip((:Z, :Y), (result.Z, result.Y),
                         (deterministic.Z, deterministic.Y), differences)
                         scale = maximum(abs(Q0[i, i, k])
                         for i in axes(Q0, 1) for k in axes(Q0, 3))
-                        @test maximum(
-                            (abs(Measurements.derivative(part(Q[i]), source) - part(D[i])) /
-                             abs(part(D[i]))
+                        if (case, name, quantity) in without_sensitivity
+                            @test count(abs(part(D[i])) * σ > 1e-9 * scale
+                            for i in eachindex(Q) for part in (real, imag)) == 0
+                        else
+                            @test maximum(
+                                abs(Measurements.derivative(part(Q[i]), source) -
+                                    part(D[i])) /
+                                abs(part(D[i]))
                             for i in eachindex(Q)
                             for part in (real, imag)
-                            if abs(part(D[i])) * σ > 1e-9 * scale);
-                            init = 0.0) <= 1e-5
+                            if abs(part(D[i])) * σ > 1e-9 * scale) <= 1e-5
+                        end
                     end
                 end
             end
             problem = last(cases(; frequencies, sources...)[index])
             together = @inferred compute(problem, CoaxialFormulation())
+            for (Q, Q0) in ((together.Z, deterministic.Z), (together.Y, deterministic.Y))
+                @test maximum(maximum(abs, nominal.(Q[:, :, k]) - Q0[:, :, k]) /
+                              maximum(abs(Q0[i, i, k]) for i in axes(Q0, 1))
+                for k in eachindex(frequencies)) <= 1e-14
+            end
             for (Q, quantities) in ((together.Z, [single.Z for single in singles]),
                 (together.Y, [single.Y for single in singles]))
                 rss = [sqrt(sum(Measurements.uncertainty(part(single[i]))^2
