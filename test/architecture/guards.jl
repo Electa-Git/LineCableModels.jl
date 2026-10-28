@@ -834,7 +834,8 @@ const MISSING_TYPES = ((:Missing,), (:Base, :Missing), (:Core, :Missing))
 const ABSENT_TYPES = (NOTHING_TYPES..., MISSING_TYPES...)
 const ABSENT_VALUES = ((:nothing,), (:missing,))
 # The Julia functions that return `nothing` by their protocol.
-const PROTOCOL = (:iterate, :findfirst, :findnext, :findlast, :findprev, :match, :tryparse)
+const PROTOCOL = (
+    :iterate, :findfirst, :findnext, :findlast, :findprev, :match, :tryparse, :which)
 
 # The nearest enclosing function, anonymous function or `do` block, or the file.
 function scope(node)

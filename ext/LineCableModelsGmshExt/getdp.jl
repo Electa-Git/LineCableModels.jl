@@ -158,11 +158,32 @@ $(TYPEDSIGNATURES)
 
 Install the GetDP 3.5.0 artifact on first use and return the real path of its executable.
 """
-function Base.realpath(::GetdpArtifact)
+function Base.realpath(::GetdpBinary{:download})
     toml = joinpath(@__DIR__, "..", "..", "Artifacts.toml")
     root = ensure_artifact_installed("getdp", toml)
     folder = Sys.isapple() ? "getdp-3.5.0-MacOSX" : "getdp-3.5.0-Linux64"
     return realpath(joinpath(root, folder, "bin", "getdp"))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the real path of GetDP on `PATH` when it reports version 3.5 and complex
+arithmetic. Otherwise, install the artifact on first use and return its executable's
+real path.
+"""
+function Base.realpath(::GetdpBinary{:discover})
+    path = Sys.which("getdp")
+    if path !== nothing
+        buffer = IOBuffer()
+        run(pipeline(ignorestatus(Cmd([path, "-info"])); stdout = buffer, stderr = buffer))
+        output = String(take!(buffer))
+        if occursin(r"Version\s*:\s*3\.5(?:\.|\s|$)", output) &&
+           occursin("complex arithmetic", output)
+            return realpath(path)
+        end
+    end
+    return realpath(GetdpBinary{:download}())
 end
 
 """
@@ -205,6 +226,11 @@ function scan(directory::AbstractString, model::FieldModel{T},
     output = String(take!(buffer))
     occursin("getdp", lowercase(output)) && occursin(r"\d+\.\d+", output) ||
         error("getdp_executable: identity check did not report GetDP: $executable")
+    open(joinpath(directory, "logs", "getdp-info.log"), "w") do io
+        println(io, executable)
+        println(io, options.getdp_executable)
+        write(io, output)
+    end
     n = length(model.label)
     nf = length(model.problem.frequencies)
     Z = Array{Complex{T}, 3}(undef, n, n, nf)

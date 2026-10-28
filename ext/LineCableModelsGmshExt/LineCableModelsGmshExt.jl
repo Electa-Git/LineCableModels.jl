@@ -27,7 +27,7 @@ using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParam
                               vacuum_permittivity,
                               vacuum_permeability
 
-public GetdpArtifact
+public GetdpBinary
 
 include("options.jl")
 include("model.jl")
@@ -58,7 +58,8 @@ Return the declared computation options of the Gmsh backend.
 - `keep_run_directory`: whether to keep the run directory.
 - `trace`: whether to keep the primitive matrices `Z` \\[Ω/m\\] and `P` \\[Ω·m\\] by
   terminal in the result.
-- `getdp_executable`: GetDP executable as a path or [`GetdpArtifact`](@ref).
+- `getdp_executable`: GetDP binary as `:discover`, `:download`, or a path
+  ([`GetdpBinary`](@ref)).
 - `gmsh_verbosity`: Gmsh's `-v` level, from 0 to 5.
 - `getdp_verbosity`: GetDP's `-v` level, from 0 to 5.
 - `overrides`: native expert controls by native name, each at its default in
@@ -72,7 +73,7 @@ function defaults(::Type{GmshBackend})
         solver_threads = 1,
         keep_run_directory = false,
         trace = false,
-        getdp_executable = GetdpArtifact(),
+        getdp_executable = GetdpBinary{:discover}(),
         gmsh_verbosity = 2,
         getdp_verbosity = 2,
         overrides = map(entry -> entry.default, OVERRIDES))

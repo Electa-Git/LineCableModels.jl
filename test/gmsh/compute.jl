@@ -26,9 +26,14 @@
                 @test dirname(path) == joinpath(folder, ".linecablemodels", "fem", case)
                 @test occursin(r"^\d{8}-\d{6}-[a-z0-9]{4}$", basename(path))
                 @test !ispath(path)
-                result = compute(problem, formulation; trace = true, keep_run_directory = true)
+                result = compute(
+                    problem, formulation; trace = true, keep_run_directory = true,
+                    getdp_executable = :download)
                 root = dirname(path)
                 retained = only(readdir(root; join = true))
+                lines = readlines(joinpath(retained, "logs", "getdp-info.log"))
+                @test lines[1] == realpath(extension.GetdpBinary{:download}())
+                @test lines[2] == string(extension.GetdpBinary{:download}())
                 @test result.frequencies == problem.frequencies
                 @test result.terminals ==
                       ["cable:$(row.cable):$(problem.system.designs[row.cable].terminals[row.terminal].name)"
@@ -90,7 +95,9 @@
                 single = LineParametersProblem(reference.system, reference.earth;
                     temperature = reference.temperature,
                     frequencies = problem.frequencies[1:1])
-                result = compute(single, formulation; trace = false, keep_run_directory = false)
+                result = compute(
+                    single, formulation; trace = false, keep_run_directory = false,
+                    getdp_executable = :download)
                 @test size(result.trace.Z) == (0, 0, 0)
                 @test size(result.trace.P) == (0, 0, 0)
                 @test isempty(readdir(joinpath(folder, ".linecablemodels", "fem")))
@@ -107,7 +114,7 @@
         problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
         mktempdir() do folder
             cd(folder) do
-                result = compute(problem, FEM())
+                result = compute(problem, FEM(); getdp_executable = :download)
                 @test result isa LineParameters{Float64}
                 @test all(isfinite, result.Z)
                 @test all(isfinite, result.Y)
@@ -131,7 +138,7 @@
             cd(folder) do
                 path = extension.directory(problem)
                 @test basename(dirname(path)) == "two_cables_grounded"
-                result = compute(problem, FEM(); trace = true)
+                result = compute(problem, FEM(); trace = true, getdp_executable = :download)
                 coaxial = compute(problem, CoaxialFormulation())
                 @test result.terminals == coaxial.terminals
                 @test result.terminals == ["cable:1:core+cable:2:core", "cable:2:sheath"]

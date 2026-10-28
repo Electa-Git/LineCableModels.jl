@@ -18,3 +18,13 @@ os = "macos"
     [[getdp.download]]
     sha256 = "ba514f4d6009b385ff27f6083f2843ff11a4cb1f3a829fdc0a5f8a2613646077"
     url = "https://getdp.info/bin/MacOSX/getdp-3.5.0-MacOSXc.tgz"
+
+[[getdp]]
+arch = "aarch64"
+git-tree-sha1 = "7b00816601f7ad2ea7e83f6b12262fd27e0e1d6d"
+lazy = true
+os = "macos"
+
+    [[getdp.download]]
+    sha256 = "ba514f4d6009b385ff27f6083f2843ff11a4cb1f3a829fdc0a5f8a2613646077"
+    url = "https://getdp.info/bin/MacOSX/getdp-3.5.0-MacOSXc.tgz"

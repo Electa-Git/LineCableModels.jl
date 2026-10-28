@@ -3,7 +3,7 @@ using LineCableModels.Commons: ComputationOptions, defaults
 using LineCableModels.Engine: GmshBackend
 
 @testset "Gmsh computation options" begin
-    GetdpArtifact = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).GetdpArtifact
+    GetdpBinary = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).GetdpBinary
     options = ComputationOptions(GmshBackend; mesh_size_factor = 2.0)
     for (name, value) in pairs(merge(defaults(GmshBackend), (mesh_size_factor = 2.0,)))
         @test getproperty(options, name) === value
@@ -57,5 +57,9 @@ using LineCableModels.Engine: GmshBackend
 
     @test ComputationOptions(GmshBackend;
         getdp_executable = "/some/path").getdp_executable === "/some/path"
-    @test ComputationOptions(GmshBackend).getdp_executable === GetdpArtifact()
+    @test ComputationOptions(GmshBackend).getdp_executable === GetdpBinary{:discover}()
+    @test ComputationOptions(GmshBackend;
+        getdp_executable = :download).getdp_executable === GetdpBinary{:download}()
+    @test_throws ArgumentError ComputationOptions(GmshBackend; getdp_executable = :foo)
+    @test_throws r":discover.*:download" ComputationOptions(GmshBackend; getdp_executable = :foo)
 end

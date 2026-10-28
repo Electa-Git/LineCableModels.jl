@@ -19,7 +19,7 @@ end
 
 @testset "Gmsh mesh" begin
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    options = ComputationOptions(GmshBackend; workers = 2)
+    options = ComputationOptions(GmshBackend; workers = 2, getdp_executable = :download)
     @testset "$case" for (case, reference) in REFERENCES[1:2]
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature, frequencies = reference.frequencies[1:1])
@@ -69,7 +69,7 @@ end
                 end
                 @test isfile(joinpath(directory, "logs", "frequency-0001.log"))
                 @test isempty(readdir(joinpath(directory, "work")))
-                executable = realpath(extension.GetdpArtifact())
+                executable = realpath(extension.GetdpBinary{:download}())
                 @test isfile(executable)
                 buffer = IOBuffer()
                 run(pipeline(Cmd([executable, "-info"]); stdout = buffer, stderr = buffer))
@@ -87,13 +87,35 @@ end
         mktempdir() do directory
             absent = ComputationOptions(GmshBackend; getdp_executable = "/none")
             @test_throws Base.IOError extension.scan(directory, model, absent)
-            executable = realpath(extension.GetdpArtifact())
+            executable = realpath(extension.GetdpBinary{:download}())
             folder = joinpath(directory, repeat("a", 120), repeat("b", 120))
             mkpath(folder)
             path = joinpath(folder, "getdp")
             cp(executable, path)
             oversized = ComputationOptions(GmshBackend; getdp_executable = path)
             @test_throws "getdp_executable" extension.scan(directory, model, oversized)
+        end
+        mktempdir() do directory
+            path = joinpath(directory, "getdp")
+            executable = realpath(extension.GetdpBinary{:download}())
+            for (version, arithmetic, expected) in
+                (("3.5.0", "complex", joinpath(realpath(directory), "getdp")),
+                ("3.5.0", "real", executable), ("4.0.0", "complex", executable))
+                write(path,
+                    "#!/bin/sh\n" *
+                    "if [ \"\$1\" = \"-info\" ]; then\n" *
+                    "  echo 'Version : $version' >&2\n" *
+                    "  echo 'PETSc version : 3.14.4 ($arithmetic arithmetic)' >&2\n" *
+                    "fi\n")
+                chmod(path, 0o755)
+                withenv("PATH" => directory) do
+                    @test realpath(extension.GetdpBinary{:discover}()) == expected
+                end
+            end
+            rm(path)
+            withenv("PATH" => directory) do
+                @test realpath(extension.GetdpBinary{:discover}()) == executable
+            end
         end
     end
 end

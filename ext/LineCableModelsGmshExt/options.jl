@@ -1,11 +1,27 @@
 """
 $(TYPEDEF)
 
-Represent the GetDP 3.5.0 executable of the package's artifact.
-"""
-struct GetdpArtifact end
+Represent the GetDP binary that a computation runs, chosen by the action `S`. The default
+`:discover` runs the GetDP found on `PATH` when its `-info` reports version 3.5 and complex
+arithmetic, and the downloaded one otherwise. `:download` runs the GetDP 3.5.0 complex
+build that the package downloads from getdp.info by its pinned hash. A path given as a
+string runs as is.
 
-select(::GetdpArtifact, path::AbstractString) = String(path)
+The download happens once per Julia depot, at the first use, and needs the network then.
+`:discover` looks at `PATH` first at every run, so a suitable GetDP installed later runs in
+place of the download. The downloaded copy stays under the depot's `artifacts/` folder
+until `Pkg.gc()` removes it. Windows has no download, so `:discover` needs a GetDP on
+`PATH` there.
+"""
+struct GetdpBinary{S} end
+
+select(default::GetdpBinary, id::Symbol) = select(default, GetdpBinary{id}())
+select(::GetdpBinary, binary::GetdpBinary{:discover}) = binary
+select(::GetdpBinary, binary::GetdpBinary{:download}) = binary
+function select(::GetdpBinary, ::GetdpBinary)
+    throw(ArgumentError("getdp_executable must be :discover, :download, or a path"))
+end
+select(::GetdpBinary, path::AbstractString) = String(path)
 
 """
 $(TYPEDEF)
