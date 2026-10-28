@@ -104,6 +104,33 @@
             end
         end
     end
+    @testset "Caller-owned Gmsh session" begin
+        reference = last(first(REFERENCES))
+        problem = LineParametersProblem(reference.system, reference.earth;
+            temperature = reference.temperature, frequencies = reference.frequencies[1:1])
+        mktempdir() do folder
+            cd(folder) do
+                gmsh.initialize()
+                try
+                    gmsh.model.add("caller")
+                    gmsh.option.setNumber("General.Terminal", 0)
+                    gmsh.option.setNumber("General.Verbosity", 4)
+                    models = gmsh.model.list()
+                    current = gmsh.model.getCurrent()
+                    terminal = gmsh.option.getNumber("General.Terminal")
+                    verbosity = gmsh.option.getNumber("General.Verbosity")
+                    compute(problem, FEM(); getdp_executable = :download)
+                    @test Bool(gmsh.isInitialized())
+                    @test gmsh.model.list() == models
+                    @test gmsh.model.getCurrent() == current
+                    @test gmsh.option.getNumber("General.Terminal") == terminal
+                    @test gmsh.option.getNumber("General.Verbosity") == verbosity
+                finally
+                    gmsh.finalize()
+                end
+            end
+        end
+    end
     @testset "Float32 inputs" begin
         thin = build(CableDesign, "float32",
             Terminal(:core,
@@ -182,6 +209,37 @@
                 @test norm(result.Y[:, :, 1] - expected_Y) <=
                       1e-12 * norm(result.Y[:, :, 1])
                 @test isempty(readdir(joinpath(folder, ".linecablemodels", "fem")))
+            end
+        end
+    end
+    @testset "FEM transposition" begin
+        copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
+        polymer = Material(:insulator, 1.0e14, 2.3)
+        design = build(CableDesign, "coaxial",
+            Terminal(:core, Region(:core_metal, Circle(10e-3), copper)),
+            Region(:core_insulation, Offset(10e-3), polymer),
+            Terminal(:sheath, Region(:sheath_copper, Annulus(20e-3, 21e-3), copper)),
+            Region(:sheath_jacket, Offset(3e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1, sheath = 0), (core = 1, sheath = 2)],
+            id = "two cables/grounded", line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 100); frequencies = [50.0])
+        mktempdir() do folder
+            cd(folder) do
+                transposed = compute(problem,
+                    FEM(; bundle = false, kron = false, transposition = true);
+                    getdp_executable = :download)
+                unreduced = compute(problem,
+                    FEM(; bundle = false, kron = false, transposition = false);
+                    getdp_executable = :download)
+                for (computed, original) in ((transposed.Z, unreduced.Z),
+                    (transposed.Y, unreduced.Y))
+                    @test all(norm(computed[:, :, k] -
+                                   sum(original[circshift(1:4, j), circshift(1:4, j), k]
+                              for j in 0:3) / 4) <= 1e-14 * norm(original[:, :, k])
+                    for k in eachindex(problem.frequencies))
+                end
             end
         end
     end

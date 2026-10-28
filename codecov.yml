@@ -1,0 +1,23 @@
+coverage:
+  precision: 2
+  round: down
+  range: "95...100"
+  status:
+    project:
+      default:
+        target: 95%
+        threshold: 0%
+        paths:
+          - "src/"
+          - "ext/"
+        only_pulls: true
+    patch: off
+
+codecov:
+  notify:
+    after_n_builds: 4
+    wait_for_ci: true
+
+comment:
+  layout: "reach,diff,flags,files"
+  require_changes: true

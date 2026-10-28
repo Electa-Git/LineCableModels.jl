@@ -209,6 +209,53 @@ using SpecialFunctions: besseli
         end
     end
 
+    @testset "Air receiver at the Unified split" begin
+        r = 0.0425
+        wire = build(CableDesign, "wire",
+            Terminal(:core, Region(:core_metal, Circle(r), copper)))
+        for placements in ([Placement(0.0, 1.0), Placement(1.0, 1.0)],
+            [Placement(0.0, 1.0), Placement(1.0, -1.0)])
+            system = build(CableSystem, [wire, wire], placements;
+                connections = [(core = 1,), (core = 2,)], id = "unified",
+                line_length = 1.0)
+            problem = LineParametersProblem(system, homogeneous(rho = 100, eps_r = 10);
+                frequencies = [50.0, 1e4, 1e6])
+            input = Engine.CoaxialInput(problem, reductions)
+            buffers = [Engine.initialize_buffers(formula, problem, input,
+                           (gamma = fill(im * scale / r, length(problem.frequencies)),))
+                       for scale in (299.0, 299.9, 300.1, 301.0)]
+            terms = [(H = zeros(ComplexF64, 2, 2, 3), K = zeros(ComplexF64, 2, 2, 3),
+                         Pg = zeros(ComplexF64, 2, 2, 3)) for _ in buffers]
+            Pg = zeros(ComplexF64, 2, 2)
+            for (k, f) in enumerate(problem.frequencies)
+                media = map(layer -> Engine.properties(law, layer, f), problem.earth.layers)
+                for (buffer, term) in zip(buffers, terms)
+                    Engine.prepare!(formula, buffer, input, media, im * (2 * π * f), k)
+                    Engine.potential!(
+                        formula, Pg, buffer, input, media, im * (2 * π * f), k)
+                    term.H[:, :, k] = buffer.unified.H
+                    term.K[:, :, k] = buffer.unified.K
+                    term.Pg[:, :, k] = Pg
+                end
+                @test abs(real(buffers[1].unified.x[1])) < 300
+                @test abs(real(buffers[2].unified.x[1])) < 300
+                @test abs(real(buffers[3].unified.x[1])) > 300
+                @test abs(real(buffers[4].unified.x[1])) > 300
+            end
+            for quantity in (:H, :K, :Pg)
+                A₁ = getfield(terms[1], quantity)
+                A₂ = getfield(terms[2], quantity)
+                A₃ = getfield(terms[3], quantity)
+                A₄ = getfield(terms[4], quantity)
+                below = A₂ + (A₂ - A₁) * (0.1 / 0.9)
+                above = A₃ - (A₄ - A₃) * (0.1 / 0.9)
+                @test maximum(maximum(abs, above[:, :, k] - below[:, :, k]) /
+                              maximum(abs, below[:, :, k])
+                for k in eachindex(problem.frequencies)) <= 1e-7
+            end
+        end
+    end
+
     # The earth-return matrices of the references at their 101 frequencies, against the stage
     # targets. The coaxial references share the cable, the earth and these matrices.
     frequencies = 10.0 .^ range(-1, 7; length = 101)
