@@ -9,6 +9,7 @@ module LineCableModelsGmshExt
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Gmsh: Gmsh, gmsh
 using Printf: @sprintf
+using Pkg.Artifacts: ensure_artifact_installed
 import LineCableModels.Commons: build, compute, defaults, select, validate
 using LineCableModels.Commons: ComputationOptions, resolve
 using LineCableModels.Materials: Material
