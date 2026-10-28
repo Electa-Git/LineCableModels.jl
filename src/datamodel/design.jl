@@ -23,6 +23,7 @@ Describe one cable by its declared parts and the regions that they resolve to, w
 that map the regions to terminals, sub-cables, repeats, lays, compactions and fills. Each
 table row holds resolved values in the floating type `T`, to which numbers from shapes and
 materials promote. A row exists only for a fact that holds. The declarations stay in `tree`.
+The resolved shapes of all regions are in `T`.
 
 $(TYPEDFIELDS)
 """
@@ -143,10 +144,13 @@ function build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart
     T = mapreduce(
         placed -> promote_type(eltype(placed.shape), eltype(placed.source.material)),
         promote_type, described.regions)
+    regions = [PlacedRegion(placed.source, map(x -> convert(T, x), placed.shape))
+               for placed in described.regions]
     cable = (
-        at = Placement(zero(T), zero(T)), regions = collect(eachindex(described.regions)),
+        at = Placement(zero(T), zero(T)), regions = collect(eachindex(regions)),
         members = Int[])
-    return CableDesign{T}(String(id), tree, described.regions, described.outer,
+    return CableDesign{T}(
+        String(id), tree, regions, map(x -> convert(T, x), described.outer),
         described.terminals, [cable], described.repeats, described.lays, NamedTuple[],
         described.fills)
 end

@@ -522,3 +522,6 @@ Base.map(f, offset::Offset) = Offset(f(offset.t))
 function Base.map(f, sector::AnnularSector)
     return AnnularSector(f(sector.ri), f(sector.ro), f(sector.span), map(f, sector.at))
 end
+function Base.map(f, shape::DifferenceShape)
+    return DifferenceShape(map(f, shape.outer), [map(f, hole) for hole in shape.holes])
+end
