@@ -200,7 +200,9 @@ function flatten(design::CableDesign)
             for i in eachindex(shapes) for j in (i + 1):length(shapes));
             init = zero(eltype(shares)))
         gmr = sum(shares .^ 2 .* own) + 2cross
-        tube = [regions[index].shape for index in blocks[k]]
+        contents = [index for fill in design.fills if fill.region in blocks[k]
+                    for index in fill.contents]
+        tube = [regions[index].shape for index in blocks[k] if index ∉ contents]
         inner = convert(T, minimum(distance, tube))
         outer = convert(T, maximum(support, tube))
         term = iszero(inner) ? zero(outer) :

@@ -244,7 +244,7 @@ CoaxialInput = "the numerical input of a computation in the coaxial model: each 
 "transposition!" = "the ideal transposition: the mean of a matrix over the cyclic permutations of its rows and columns"
 SpectralIntegral = "the integral of a function over [0, ∞), its complete integrand the field, that integrate evaluates by the method its tag selects"
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
-nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the hook of an uncertainty extension"
+nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the Measurements extension gives a measurement's nominal value"
 "ray!" = "the ray of a spectral integral on [0, ∞) below its singularities, with the points where the quadrature subdivides it written into the engine's integral block"
 formulas = "the distinct formulas of a formulation's slots, the two earth slots once when they are one formula"
 reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
@@ -345,3 +345,6 @@ curves = "the boundary curves of plane surfaces, sorted"
 turn = "the turn of an arc about its circle's center: its fraction of a revolution and its length"
 scan = "scan the frequencies of a problem with GetDP: at most workers processes, one per frequency, from the meshes of the run directory, each process's job files read when it exits, results/Z.tsv and results/P.tsv written after the last, the primitive Z in Ω/m and P in Ω·m of every frequency returned by terminal"
 section = "the native section of a shape or region: its kind, 1 a Circle, 2 an Annulus, 3 a Rectangle, 0 an AnnularSector, a DifferenceShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), a sector's bent height and width; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"
+
+# LineCableModelsMeasurementsExt defines no name: its methods extend Engine's nominal and SpecialFunctions' Bessel functions.
+[register.LineCableModelsMeasurementsExt]

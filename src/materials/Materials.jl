@@ -116,6 +116,8 @@ function Base.map(f, value::Material{T, K}) where {T, K}
         tan_delta = f(value.tan_delta), sigma_solar = f(value.sigma_solar))
 end
 
+Base.eltype(::Material{T, K}) where {T, K} = T
+
 function Base.convert(::Type{Material{T}}, material::Material{
         <:Real, K}) where {T <: Real, K}
     return Material{T, K}(convert(T, material.rho), convert(T, material.eps_r),

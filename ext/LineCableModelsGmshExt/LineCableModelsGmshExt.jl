@@ -110,7 +110,9 @@ end
 $(TYPEDSIGNATURES)
 
 Validate the problem, build and mesh its cross-section, solve the finite-element problem at
-every frequency, and apply the selected conductor reductions.
+every frequency, and apply the selected conductor reductions. For any number type of
+`problem`, the backend computes the nominal problem with each number replaced by the
+`Float64` value of its `nominal`.
 
 # Arguments
 
@@ -121,8 +123,9 @@ every frequency, and apply the selected conductor reductions.
 
 # Returns
 
-- A `LineParameters` record with series impedances \\[Ω/m\\], shunt admittances
-  \\[S/m\\], terminal labels, and primitive matrices when traced.
+- A `LineParameters{Float64}` record without uncertainty, with series impedances
+  \\[Ω/m\\], shunt admittances \\[S/m\\], terminal labels, and primitive matrices when
+  traced.
 
 # Errors
 
@@ -130,8 +133,8 @@ every frequency, and apply the selected conductor reductions.
 - Retains the run directory on failure. Native process errors identify the frequency and
   log, with its last twenty lines.
 """
-function compute(::GmshBackend, problem::LineParametersProblem{T}, formulation::FEM,
-        options::ComputationOptions{GmshBackend}) where {T <: Real}
+function compute(::GmshBackend, problem::LineParametersProblem, formulation::FEM,
+        options::ComputationOptions{GmshBackend})
     mapped = map(x -> Float64(nominal(x)), problem)
     validate(mapped, formulation)
     model = FieldModel(mapped, formulation)
@@ -180,9 +183,8 @@ function compute(::GmshBackend, problem::LineParametersProblem{T}, formulation::
             reduced = Matrix{ComplexF64}(undef, m, m),
             identity = Matrix{ComplexF64}(I, m, m))
         solve!(Z, Y, trace, path, model, formulation, buffers, options)
-        LineParameters{T}(Array{Complex{T}, 3}(Z), Array{Complex{T}, 3}(Y),
-            problem.frequencies, plan.terminals, convert(T, problem.system.line_length),
-            formulation, map(array -> Array{Complex{T}, 3}(array), trace))
+        LineParameters{Float64}(Z, Y, mapped.frequencies, plan.terminals,
+            mapped.system.line_length, formulation, trace)
     finally
         if owned
             gmsh.finalize()

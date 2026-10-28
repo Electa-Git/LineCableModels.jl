@@ -1,6 +1,7 @@
 using Test
 using Aqua
 using LineCableModels
+using Measurements
 
 @testset "LineCableModels" begin
     @testset "Aqua" begin
@@ -30,6 +31,7 @@ using LineCableModels
     include("engine/formulation.jl")
     include("engine/compute.jl")
     include("engine/result.jl")
+    include("measurements/extension.jl")
     include("gmsh/options.jl")
     include("gmsh/model.jl")
     include("gmsh/geometry.jl")

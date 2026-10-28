@@ -247,7 +247,7 @@ $(TYPEDSIGNATURES)
 
 Return a real number unchanged or a complex number with nominal real and imaginary parts.
 Kernel branches and integration breakpoints use nominal values to exclude uncertainty
-from their decisions.
+from their decisions. The Measurements extension gives a `Measurement` its nominal value.
 
 # Arguments
 

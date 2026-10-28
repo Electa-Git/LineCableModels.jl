@@ -121,6 +121,36 @@
             end
         end
     end
+    @testset "Measurement inputs" begin
+        reference = last(first(REFERENCES))
+        copper = Material(:conductor, 1.7241e-8, 1, 0.999994, 20, 0.00393)
+        wire = build(CableDesign, "bare_wire",
+            Terminal(:core, Region(:core_metal, Circle(0.0425 ± 1e-4), copper)))
+        system = build(CableSystem, [wire, wire],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_bare_wires", line_length = 1.0)
+        frequencies = reference.frequencies[1:1]
+        problem = LineParametersProblem(system, reference.earth; frequencies)
+        deterministic = LineParametersProblem(reference.system, reference.earth; frequencies)
+        mktempdir() do folder
+            cd(folder) do
+                result = compute(problem,
+                    FEM(; bundle = false, kron = false, transposition = false);
+                    getdp_executable = :download)
+                expected = compute(deterministic,
+                    FEM(; bundle = false, kron = false, transposition = false);
+                    getdp_executable = :download)
+                @test result isa LineParameters{Float64}
+                for quantity in (:Z, :Y)
+                    actual = getfield(result, quantity)
+                    target = getfield(expected, quantity)
+                    scaled = maximum(abs, actual - target) /
+                             maximum(abs(target[i, i, 1]) for i in axes(target, 1))
+                    @test scaled <= 1e-6
+                end
+            end
+        end
+    end
     @testset "Conductor reductions" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         polymer = Material(:insulator, 1.0e14, 2.3)

@@ -21,8 +21,8 @@ $(TYPEDEF)
 
 Describe one cable by its declared parts and the regions that they resolve to, with tables
 that map the regions to terminals, sub-cables, repeats, lays, compactions and fills. Each
-row of a table holds resolved values in the floating type `T`, and a row exists only for a
-fact that holds. The declarations stay in `tree`.
+table row holds resolved values in the floating type `T`, to which numbers from shapes and
+materials promote. A row exists only for a fact that holds. The declarations stay in `tree`.
 
 $(TYPEDFIELDS)
 """
@@ -140,7 +140,9 @@ the one sub-cable of its design, at the origin.
 function build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart...)
     tree = Stack(parts...)
     described = resolve(EmptyBoundary(), tree)
-    T = mapreduce(placed -> eltype(placed.shape), promote_type, described.regions)
+    T = mapreduce(
+        placed -> promote_type(eltype(placed.shape), eltype(placed.source.material)),
+        promote_type, described.regions)
     cable = (
         at = Placement(zero(T), zero(T)), regions = collect(eachindex(described.regions)),
         members = Int[])

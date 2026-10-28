@@ -13,9 +13,11 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [weakdeps]
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 
 [extensions]
 LineCableModelsGmshExt = "Gmsh"
+LineCableModelsMeasurementsExt = "Measurements"
 
 [compat]
 Aqua = "0.8"
@@ -25,6 +27,7 @@ Gmsh = "0.3.1"
 JET = "0.12"
 JuliaSyntax = "1"
 LinearAlgebra = "1"
+Measurements = "2.11"
 Pkg = "1.12"
 Printf = "1"
 QuadGK = "2.11"
@@ -39,8 +42,9 @@ ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "ExplicitImports", "Gmsh", "JET", "JuliaSyntax", "TOML", "Test"]
+test = ["Aqua", "ExplicitImports", "Gmsh", "JET", "JuliaSyntax", "Measurements", "TOML", "Test"]
