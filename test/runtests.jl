@@ -33,7 +33,10 @@ using LineCableModels
     include("gmsh/options.jl")
     include("gmsh/model.jl")
     include("gmsh/geometry.jl")
-    include("gmsh/mesh.jl")
-    include("gmsh/compute.jl")
+    # The FEM workflow sets LINECABLEMODELS_FEM to run the tests that mesh and solve.
+    if haskey(ENV, "LINECABLEMODELS_FEM")
+        include("gmsh/mesh.jl")
+        include("gmsh/compute.jl")
+    end
     include("architecture/architecture.jl")
 end

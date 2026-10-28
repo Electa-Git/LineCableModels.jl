@@ -156,14 +156,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the real path of the executable named by `LINECABLEMODELS_GETDP` when set.
-Otherwise, install the GetDP 3.5.0 artifact on first use and return its executable path.
-Base throws when the selected path does not exist.
+Install the GetDP 3.5.0 artifact on first use and return the real path of its executable.
 """
 function Base.realpath(::GetdpArtifact)
-    if haskey(ENV, "LINECABLEMODELS_GETDP")
-        return realpath(ENV["LINECABLEMODELS_GETDP"])
-    end
     toml = joinpath(@__DIR__, "..", "..", "Artifacts.toml")
     root = ensure_artifact_installed("getdp", toml)
     folder = Sys.isapple() ? "getdp-3.5.0-MacOSX" : "getdp-3.5.0-Linux64"

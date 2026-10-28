@@ -1,8 +1,7 @@
 """
 $(TYPEDEF)
 
-Represent the GetDP 3.5.0 executable of the package's artifact, or the one
-`LINECABLEMODELS_GETDP` names when that variable exists in the environment.
+Represent the GetDP 3.5.0 executable of the package's artifact.
 """
 struct GetdpArtifact end
 

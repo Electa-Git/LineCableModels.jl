@@ -318,7 +318,7 @@ Contour = "the closed paths of curves that bound a shape: its outer path and the
 draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
 
 [register.LineCableModelsGmshExt.public]
-GetdpArtifact = "the GetDP 3.5.0 executable of the package's artifact, or the one LINECABLEMODELS_GETDP names when that variable is set"
+GetdpArtifact = "the GetDP 3.5.0 executable of the package's artifact"
 
 [register.LineCableModelsGmshExt.private]
 directory = "the run directory of a computation under .linecablemodels/fem"

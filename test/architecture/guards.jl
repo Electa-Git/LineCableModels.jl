@@ -82,7 +82,9 @@ function module_name(tree::PackageTree, m::Module)
     return join(path, ".")
 end
 
-inside(path, directory) = startswith(path, joinpath(directory, ""))
+# `normpath` gives both paths the separator of the system, so a home written with `/` also
+# matches on Windows.
+inside(path, directory) = startswith(normpath(path), normpath(joinpath(directory, "")))
 
 # Methods generated in `boot.jl` and similar report a relative file.
 function source_path(tree::PackageTree, file)
