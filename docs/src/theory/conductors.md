@@ -23,10 +23,6 @@ the resistance of the tube includes it, as [Cable data model](../data-model.md) 
 The resistivity of each conductor follows from its material at the operating temperature of
 the problem by the resistivity law, before the surface impedances are computed.
 
-The formula `:schelkunoff1934` ports fem-investigation's
-`internalimpedance/formulas/schelkunoff1934.jl`, and the law `:linear` its
-`materials/temperaturedependent/formulas/linear.jl`.
-
 ## Internal impedance
 
 ```@autodocs

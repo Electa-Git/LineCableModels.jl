@@ -73,8 +73,7 @@ otherwise downloads GetDP 3.5.0 at its first use.
 Many further features have already been prototyped, tested and validated in the development
 versions of the package, and are being progressively migrated to the stable release. These include:
 
-- **Earth-return formulas.** Carson, Pollaczek, Wise, Saad, Wedepohl and Wilcox, Gary, Lucca,
-  Ametani 2009 and Xue.
+- **Earth-return formulas.** Carson, Pollaczek, Wise, Saad, Wedepohl and Wilcox, Gary, Lucca and Xue.
 - **Earth models.** Layered, frequency-dependent and equivalent homogeneous earth.
 - **Cable components.** Lossy dielectrics, pipe-type cables and ducts, sector and Milliken
   conductors, tapes, rectangular armor wires and compacted conductors.
