@@ -49,6 +49,38 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: ${{ matrix.os }}
           fail_ci_if_error: true
+  install:
+    name: Install
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1.12'
+      - name: Install into an empty depot, without and with the extensions
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JULIA_DEPOT_PATH
+          JULIA_DEPOT_PATH="$(mktemp -d)"
+          julia --startup-file=no --color=yes -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.add(PackageSpec(path = pwd()))
+            using LineCableModels
+            @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
+            @assert Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing
+            Pkg.add("Measurements")
+            using Measurements
+            @assert Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) !== nothing
+            @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
+            Pkg.add("Gmsh")
+            using Gmsh
+            @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) !== nothing
+          '
   prose:
     name: Writing
     runs-on: ubuntu-latest
