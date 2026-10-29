@@ -167,7 +167,7 @@ $(TYPEDSIGNATURES)
 
 Declare a course of round armor wires of `material` laid on the part inside it. The wires
 lie at no offset from the outline of that part. A fill completes the layer that they occupy,
-as thick as their diameter, and its region takes the name `<tag>_fill`.
+as thick as their diameter. Its region takes the name `<tag>_fill`.
 
 # Keywords
 

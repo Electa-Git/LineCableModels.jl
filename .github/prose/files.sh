@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# List the maintained inputs.
+# List the maintained inputs and the pages created by Documenter.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 reports=${1:?Provide the report directory}
@@ -18,7 +18,13 @@ while IFS= read -r -d '' file; do
     esac
 done < <(git ls-files -z)
 test -s "$source_files"
-sort -u "$source_files" > "$reports/vale-files.txt"
+test -s docs/build/index.html
+test -d docs/src/tutorials
+find docs/src -type f -name '*.md' -print > "$reports/generated-files.txt"
+grep -q '^docs/src/tutorials/.*\.md$' "$reports/generated-files.txt"
+cat "$source_files" "$reports/generated-files.txt" | sort -u > "$reports/cspell-files.txt"
 # Rule patterns and deliberate misspellings are data, not spelling inputs.
-sed -e '\|^\.github/prose/styles/|d' -e '\|^\.github/prose/cspell.json$|d' \
-    "$reports/vale-files.txt" > "$reports/cspell-files.txt"
+sed -i -e '\|^\.github/prose/styles/|d' -e '\|^\.github/prose/cspell.json$|d' "$reports/cspell-files.txt"
+find docs/build -type f -name '*.html' ! -path 'docs/build/bibliography/*' ! -path 'docs/build/bibliography.html' -print > "$reports/html-files.txt"
+test -s "$reports/html-files.txt"
+cat "$source_files" "$reports/generated-files.txt" "$reports/html-files.txt" | sort -u > "$reports/vale-files.txt"

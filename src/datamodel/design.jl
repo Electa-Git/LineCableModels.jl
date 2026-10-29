@@ -44,7 +44,7 @@ struct CableDesign{
     """
     Terminals, each as `(name, scope, regions)`, in the order of their first region. A row
     gives the declared name and the regions of the terminal. Its scope lists the copies that
-    hold the terminal as `(repeat, copy)` rows, from the outermost, and it is empty for a
+    contain the terminal as `(repeat, copy)` rows, from the outermost, and it is empty for a
     terminal of the cable's own scope.
     """
     terminals::Vector{@NamedTuple{

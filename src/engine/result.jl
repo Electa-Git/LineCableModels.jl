@@ -8,9 +8,9 @@ conductor, and the record keeps the formulation that computed it and the length 
 $(TYPEDFIELDS)
 """
 struct LineParameters{T <: Real, F <: AbstractFormulation, N <: NamedTuple}
-    "Series impedance of the line \\[Ω/m\\], by row, column and frequency."
+    "Series impedance of the line \\[Ω/m\\], with one matrix per frequency."
     Z::Array{Complex{T}, 3}
-    "Shunt admittance of the line \\[S/m\\], by row, column and frequency."
+    "Shunt admittance of the line \\[S/m\\], with one matrix per frequency."
     Y::Array{Complex{T}, 3}
     "Frequencies of the scan \\[Hz\\]."
     frequencies::Vector{T}

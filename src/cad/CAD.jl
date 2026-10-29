@@ -219,8 +219,8 @@ $(TYPEDSIGNATURES)
 
 Construct the closed path of `sector`, whose radii and center coordinates are in \\[m\\]
 and whose angular span and placement rotation are in \\[rad\\]. A partial turn follows the
-outer arc, the radial edge, the inner arc in reverse and the closing radial edge. A zero
-inner radius joins the outer arc to the center with two segments. A full turn gives the
+outer arc, the radial edge, the inner arc in reverse and the closing radial edge. With a
+zero inner radius, two segments join the outer arc to the center. A full turn gives the
 contour of a circle or annulus.
 """
 function Contour(sector::AnnularSector{T}) where {T}
@@ -273,7 +273,7 @@ A system or design returns a vector of results from its regions.
 A placed region returns the result for `placed.shape`.
 An `AbstractShape` returns the result for its contour.
 A contour returns a named tuple of `outer` and `holes` results.
-A path returns a vector of results from its curves.
+For a path, the result is a vector of results from its curves.
 """
 function draw end
 

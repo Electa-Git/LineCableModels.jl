@@ -51,8 +51,8 @@ function build end
     compute(problem, formulation; kw...)
     compute(backend, problem, formulation; kw...)
 
-Run one computation of `problem` with `formulation`. A method of [`backend`](@ref)
-selects the default backend. A backend passed first chooses another.
+Run one computation of `problem` with `formulation`. A method of `backend` selects the
+default backend. A backend passed first chooses another.
 
 # Arguments
 

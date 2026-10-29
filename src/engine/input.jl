@@ -30,8 +30,8 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     """
     r_ins_ex::Vector{T}
     """
-    For each conductor, the relative permeability of its dielectric interval, with the
-    correction for the helical current path \\[dimensionless\\].
+    Relative permeability of the dielectric interval of each conductor, corrected for the
+    helical path of its current \\[dimensionless\\].
     """
     mu_r_ins::Vector{T}
     "Range of the dielectric layers in the interval of each conductor."
@@ -48,7 +48,7 @@ struct CoaxialInput{T <: Real, L <: AbstractVector{<:Material{T}}}
     x::Vector{T}
     "Vertical coordinate of the center of each cable in the frame of the system \\[m\\]."
     y::Vector{T}
-    "Outer radius of each cable \\[m\\]."
+    "Outer radius \\[m\\] of each cable."
     radius::Vector{T}
     "Conductor pairs `(first, other)` to merge with [`bundle!`](@ref), or an empty list."
     bundles::Vector{Tuple{Int, Int}}

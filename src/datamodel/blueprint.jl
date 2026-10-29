@@ -59,7 +59,7 @@ $(TYPEDFIELDS)
 struct CableBlueprint{T <: Real, V <: AbstractVector{<:BlueprintDielectric}}
     "Name of the cable."
     id::String
-    "Equivalent tubes, one per terminal, from the inside out."
+    "Equivalent tube of each terminal, from the inside out."
     conductors::Vector{BlueprintConductor{T}}
     "Dielectric layers, from the inside out."
     dielectrics::V
@@ -72,7 +72,7 @@ struct CableBlueprint{T <: Real, V <: AbstractVector{<:BlueprintDielectric}}
     mu_r_ins::Vector{T}
     "Range of the conductors of each concentric assembly."
     assembly_ranges::Vector{UnitRange{Int}}
-    "Center of each concentric assembly in the frame of the cable \\[m\\]."
+    "Center of each concentric assembly in the frame of the cable, in \\[m\\]."
     positions::Vector{Tuple{T, T}}
     function CableBlueprint{T}(id::String, conductors::Vector{BlueprintConductor{T}},
             dielectrics::V, dielectric_ranges::Vector{UnitRange{Int}}, mu_r_ins::Vector{T},

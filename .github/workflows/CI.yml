@@ -52,13 +52,34 @@ jobs:
   prose:
     name: Writing
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
+    timeout-minutes: 30
+    permissions: # The deployment pushes the site and reports its status.
+      contents: write
+      statuses: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1.12'
+      - uses: julia-actions/cache@v3
+        with:
+          cache-compiled: 'false'
+          save-always: 'false'
+          delete-old-caches: 'false'
+      - name: Instantiate documentation
+        run: julia --project=docs --color=yes -e 'using Pkg; Pkg.instantiate()'
+      - name: Generate package-server usage map
+        run: julia --project=docs --color=yes docs/package_stats.jl
+      - name: Upload package-server usage map
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-server-usage-map
+          path: docs/src/assets/user-statistics.svg
+      - name: Build documentation
+        id: docs_build
+        run: julia --project=docs --color=yes docs/make.jl
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "24"
@@ -106,9 +127,15 @@ jobs:
           mapfile -t files < "$RUNNER_TEMP/prose-reports/cspell-files.txt"
           cspell lint --config=.github/prose/cspell.json --no-progress --no-cache "${files[@]}" 2>&1 | tee "$RUNNER_TEMP/prose-reports/cspell.log"
       - name: Retain writing reports
-        if: ${{ !cancelled() && steps.prose_inputs.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.docs_build.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: writing-reports
           path: ${{ runner.temp }}/prose-reports
           if-no-files-found: error
+      - name: Deploy documentation
+        if: ${{ success() && github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+        run: julia --project=docs --color=yes docs/deploy.jl

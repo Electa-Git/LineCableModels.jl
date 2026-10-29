@@ -1,7 +1,7 @@
 """
     LineCableModels.Engine
 
-Compute the series impedances and shunt admittances of cables per unit length. A problem
+Compute the series impedances and shunt admittances of cables per unit length. The problem
 describes the cables, the earth, the operating temperature, and the frequencies. A
 formulation selects the formulas, and a backend executes the computation. The trait
 [`backend`](@ref) gives a formulation type's default backend. A backend passed first to

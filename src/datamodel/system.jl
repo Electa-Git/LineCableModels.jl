@@ -3,7 +3,7 @@ $(TYPEDEF)
 
 Describe the cables of a line in one cross-section: the design of each cable, its placement
 and the conductor index of each of its terminals. A conductor index `k ≥ 1` connects a
-terminal to the conductor `k` of the circuit, terminals with one index form one conductor,
+terminal to the conductor `k` of the circuit. Terminals with one index form one conductor,
 and the index zero eliminates a terminal. The system places the regions of each cable in its
 own frame. Cables can touch, and the system keeps their placements as declared.
 
@@ -97,8 +97,8 @@ touch.
 
 # Keywords
 
-- `connections`: one `NamedTuple` per cable that maps each terminal name of its design to a
-  conductor index `k ≥ 1`, or to zero to eliminate it, such as
+- `connections`: one `NamedTuple` per cable. It maps each terminal name of its design to a
+  conductor index `k ≥ 1`, or to zero to eliminate the terminal, as in
   `(core = 1, sheath = 2, armour = 0)`.
 - `id`: name of the system.
 - `line_length`: length of the line \\[m\\].

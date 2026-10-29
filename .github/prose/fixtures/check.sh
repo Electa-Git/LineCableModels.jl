@@ -174,14 +174,18 @@ test "$(grep -c 'Unknown word (recieve)' "$scratch/languages.log")" -eq 4
 
 # A tracked README remains checked even when Git ignores its directory.
 git init --quiet "$scratch/repository"
-mkdir -p "$scratch/repository/test/fixtures/reference"
+mkdir -p "$scratch/repository/test/fixtures/reference" "$scratch/repository/docs/src/tutorials" "$scratch/repository/docs/build"
 printf 'test/fixtures/reference/\n' > "$scratch/repository/.gitignore"
 printf 'Read and recieve the result.\n' > "$scratch/repository/test/fixtures/reference/README.md"
 printf 'License CONTRACT\n' > "$scratch/repository/LICENSE"
+printf 'Generated prose.\n' > "$scratch/repository/docs/src/tutorials/example.md"
+printf '<p>Generated prose.</p>\n' > "$scratch/repository/docs/build/index.html"
 git -C "$scratch/repository" add .gitignore LICENSE
 git -C "$scratch/repository" add --force test/fixtures/reference/README.md
 (cd "$scratch/repository" && bash "$root/.github/prose/files.sh" "$scratch/selection")
 grep -Fxq test/fixtures/reference/README.md "$scratch/selection/vale-files.txt"
+grep -Fxq docs/src/tutorials/example.md "$scratch/selection/cspell-files.txt"
+grep -Fxq docs/build/index.html "$scratch/selection/vale-files.txt"
 ! grep -Fxq LICENSE "$scratch/selection/vale-files.txt"
 if cspell "${cspell_args[@]}" "$scratch/repository/test/fixtures/reference/README.md" > "$scratch/ignored.log" 2>&1; then
     echo 'cspell skipped a tracked file under an ignored directory.' >&2
@@ -193,6 +197,8 @@ grep -Fq 'Unknown word (recieve)' "$scratch/ignored.log"
 test -s "$scratch/invalid.json"
 test -s "$scratch/spelling.log"
 test "$(grep -c 'steps.prose_tools.outcome.*steps.prose_inputs.outcome' "$root/.github/workflows/CI.yml")" -eq 2
+grep -Fq 'if: ${{ success()' "$root/.github/workflows/CI.yml"
+grep -Fq 'steps.docs_build.outcome' "$root/.github/workflows/CI.yml"
 
 if vale --no-global --config="$scratch/missing.ini" "$scratch/advisory.md" > "$scratch/bad-config.log" 2>&1; then
     echo 'Vale accepted a missing configuration.' >&2
@@ -217,6 +223,12 @@ fi
 rm "$scratch/repository/test/fixtures/reference/README.md"
 if (cd "$scratch/repository" && bash "$root/.github/prose/files.sh" "$scratch/deleted"); then
     echo 'Input selection accepted a missing tracked file.' >&2
+    exit 1
+fi
+printf 'Maintained prose.\n' > "$scratch/repository/test/fixtures/reference/README.md"
+rm "$scratch/repository/docs/build/index.html"
+if (cd "$scratch/repository" && bash "$root/.github/prose/files.sh" "$scratch/missing"); then
+    echo 'Input selection accepted a missing documentation build.' >&2
     exit 1
 fi
 echo 'Writing checks passed.'
