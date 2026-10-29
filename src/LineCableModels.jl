@@ -1,91 +1,63 @@
+"""
+    LineCableModels
+
+Compute the series impedances and shunt admittances of cables per unit length. The data
+model declares the parts of a cable, and a problem places cables above or in the earth. A
+formulation selects the formulas, and a backend executes the computation. The Gmsh and
+Measurements extensions add the finite-element backend and the propagation of input
+uncertainty.
+"""
 module LineCableModels
 
-## Public API
-# -------------------------------------------------------------------------
-# Core generics:
-export add!, set_verbosity!, set_backend!
-
-# Materials:
-export Material, MaterialsLibrary
-
-# Data model (design + system):
-export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector, SectorParams, SectorInsulator
-export ConductorGroup, InsulatorGroup
-export CableComponent, CableDesign, NominalData
-export CablesLibrary
-export CablePosition, LineCableSystem
-export trifoil_formation, flat_formation, preview, equivalent, MaxFill
-
-# Earth properties:
-export EarthModel
-
-# Engine:
-export LineParametersProblem,
-	FormulationSet, compute!, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify,
-	LineParameters, PhaseDomain, ModalDomain
-
-# Parametric builder:
-# export make_stranded, make_screened
-# export conductor, insulator
-
-# Import/Export:
-export export_data, save, load!
-# -------------------------------------------------------------------------
-
-import DocStringExtensions: DocStringExtensions
-
-# Submodule `Commons`
 include("commons/Commons.jl")
-using .Commons: IMPORTS, EXPORTS, add!, PhaseDomain, ModalDomain, domain
-# Submodule `UncertainBessels`
-include("uncertainbessels/UncertainBessels.jl")
-
-# Submodule `Utils`
-include("utils/Utils.jl")
-using .Utils: set_verbosity!
-
-# Submodule `UnitHandler`
-include("unithandler/UnitHandler.jl")
-
-# Submodule `Validation`
-include("validation/Validation.jl")
-
-# Submodule `PlotBuilder`
-include("plotbuilder/PlotBuilder.jl")
-using .PlotBuilder.BackendHandler: set_backend!
-
-# Submodule `Materials`
 include("materials/Materials.jl")
-using .Materials: Material, MaterialsLibrary
-
-# Submodule `EarthProps`
-include("earthprops/EarthProps.jl")
-using .EarthProps: EarthModel
-
-# Submodule `DataModel`
+include("earth/Earth.jl")
 include("datamodel/DataModel.jl")
-using .DataModel: Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular, Semicon,
-	Insulator, ConductorGroup, InsulatorGroup, CableComponent, CableDesign, NominalData,
-	CablesLibrary, CablePosition, LineCableSystem, trifoil_formation, flat_formation,
-	preview, equivalent, MaxFill, Sector, SectorParams, SectorInsulator
-
-# Submodule `Engine`
 include("engine/Engine.jl")
-using .Engine: LineParametersProblem, compute!, LineParameters, SeriesImpedance,
-	ShuntAdmittance, per_km, per_m, kronify, FormulationSet
+include("cad/CAD.jl")
 
-# Submodule `ParametricBuilder`
-include("parametricbuilder/ParametricBuilder.jl")
+using .Commons: build, resolve, validate, compute, defaults, select, AbstractFormulation,
+                AbstractBackend, FormulationOptions, ComputationOptions
+using .Materials: Material, material
+using .Earth: EarthLayer, EarthModel, homogeneous
+using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle,
+                  Offset, AnnularSector, AbstractLayoutPattern, CircularPattern, Helix,
+                  LayRatio, area, centroid, support, distance, boundary, r_in, r_ex,
+                  placements, overlength, pitch, DifferenceShape, AbstractCablePart, Region,
+                  Stack, Terminal, Repeat, Lay, Enclosure, PlacedRegion, CableDesign,
+                  CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
+                  flatten, @cable, @terminal, core, insulation, screen, sheath, bedding,
+                  jacket, stranded, armor
+using .Engine: vacuum_permittivity, vacuum_permeability, AbstractInternalImpedance,
+               AbstractInsulationImpedance, AbstractInsulationAdmittance,
+               AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
+               AbstractResistivity, AbstractEarthProperties, admittivity, resistivity,
+               properties, impedance, impedance!, potential!, prepare!, initialize_buffers,
+               LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
+               GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
+               SpectralIntegral, integrate, nominal, ray!, formulas, reductions
 
-# Submodule `UQ`
-include("uq/UQ.jl")
-
-# Submodule `ImportExport`
-include("importexport/ImportExport.jl")
-using .ImportExport: export_data, load!, save
-
-# Aliases for backward compatibility
-const WireArray = CircStrands  # alias for now
-export WireArray  # export aliases
+export Material, material, EarthLayer, EarthModel, homogeneous
+export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
+export AbstractLayoutPattern, CircularPattern, Helix, LayRatio
+export area, centroid, support, distance, boundary, r_in, r_ex, placements, overlength,
+       pitch
+export AbstractCablePart, Region, Stack, Terminal, Repeat, Lay, Enclosure, CableDesign,
+       CableSystem, build
+export @cable, @terminal, core, insulation, screen, sheath, bedding, jacket, stranded, armor
+public Commons, Materials, Earth, DataModel, validate, resolve, AnnularSector,
+       DifferenceShape
+public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
+export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
+public Engine, CAD, defaults, select, AbstractFormulation, AbstractBackend,
+       FormulationOptions,
+       ComputationOptions
+public vacuum_permittivity, vacuum_permeability, LCMBackend, GmshBackend, backend
+public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
+       AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
+       AbstractEarthProperties
+public admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
+       initialize_buffers, bundle!, eliminate!, transposition!, SpectralIntegral, integrate,
+       nominal, ray!, formulas, reductions
 
 end

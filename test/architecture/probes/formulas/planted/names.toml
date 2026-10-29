@@ -1,0 +1,5 @@
+[register.Laws.formulas]
+linear = "a law with its defaults, its identifier and a physics method"
+idle = "a law without a physics method"
+orphan = "a law missing from FORMULAS"
+ghost = "a table line without a method"

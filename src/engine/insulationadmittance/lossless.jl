@@ -1,38 +1,22 @@
-struct Lossless <: InsulationAdmittanceFormulation end
-get_description(::Lossless) = "Lossless insulation (ideal dielectric)"
+defaults(::Type{Formula{:lossless}}) = (;)
 
-@inline function (f::Lossless)(
-	r_in::T,
-	r_ex::T,
-	epsr_i::T,
-	jω::Complex{T},
-	loss_factor::T,
-) where {T <: REALSCALAR}
+"""
+$(TYPEDSIGNATURES)
 
-	if isapprox(r_in, 0.0, atol = eps(T)) || isapprox(r_in, r_ex, atol = eps(T))
-		# TODO: Implement consistent handling of admittance for bare conductors
-		# Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/17
-		return zero(Complex{T})
-	end
+Return the admittivity of an insulator layer of `material` at the frequency `f`, by the
+formula `Formula{:lossless}`, whose equation is in the section "Formulas" of
+[`InsulationAdmittance`](@ref).
 
-	# Constants
-	eps_i = T(ε₀) * epsr_i
+# Arguments
 
+- `Formula{:lossless}`: dielectric law without conduction or polarization loss.
+- `material`: material of the layer.
+- `f`: frequency \\[Hz\\].
 
-	return Complex{T}(log(r_ex / r_in) / (2π * eps_i))
-end
+# Returns
 
-@inline function potential_coefficient(
-	f::Lossless,
-	ws,
-	component_idx::Int,
-	jω::Complex{T},
-) where {T <: REALSCALAR}
-	return f(
-		ws.r_ins_in[component_idx],
-		ws.r_ins_ext[component_idx],
-		ws.eps_ins[component_idx],
-		jω,
-		ws.tan_ins[component_idx],
-	)
+- Admittivity \\[S/m\\].
+"""
+function admittivity(::Formula{:lossless}, material::Material{T}, f::T) where {T <: Real}
+    return im * 2π * f * vacuum_permittivity * material.eps_r
 end

@@ -1,54 +1,33 @@
 # API reference
 
-This page provides a comprehensive API reference for the [`LineCableModels.jl`](@ref) package. It documents all public modules, types, functions, and constants, organized by functional area. Each section corresponds to a major module in the package, with detailed information about parameters, return values, and usage examples.
-
-## Contents
-```@contents
-Pages = ["reference.md"]
-Depth = 3
+```@meta
+CurrentModule = LineCableModels
 ```
 
----
+The public names of the package, module by module. The formula families of the engine, the
+reductions, the scan and the functions that the families extend are on the
+[theory pages](theory/contents.md).
 
-## Data model
+## LineCableModels
+
 ```@autodocs
-Modules = [LineCableModels.DataModel]
+Modules = [LineCableModels]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = false
 ```
 
-### Base parameters (R, L, C, G)
+## Commons
+
 ```@autodocs
-Modules = [LineCableModels.DataModel.BaseParams]
+Modules = [LineCableModels.Commons]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = false
 ```
 
----
+## Materials
 
-## Earth properties
-```@autodocs
-Modules = [LineCableModels.EarthProps]
-Order = [:module, :constant, :type, :function, :macro]
-Public = true
-Private = false
-```
-
----
-
-## Import & export
-```@autodocs
-Modules = [LineCableModels.ImportExport]
-Order = [:module, :constant, :type, :function, :macro]
-Public = true
-Private = false
-```
-
----
-
-## Materials library
 ```@autodocs
 Modules = [LineCableModels.Materials]
 Order = [:module, :constant, :type, :function, :macro]
@@ -56,66 +35,74 @@ Public = true
 Private = false
 ```
 
----
+## Earth
 
-## Utilities
 ```@autodocs
-Modules = [LineCableModels.Utils]
+Modules = [LineCableModels.Earth]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = false
 ```
 
----
+## DataModel
 
-## Uncertain Bessels
-```@autodocs
-Modules = [LineCableModels.UncertainBessels]
-Order = [:module, :constant, :type, :function, :macro]
-Public = true
-Private = false
-```
-
----
-
-## Private API
-
-#### Data model
 ```@autodocs
 Modules = [LineCableModels.DataModel]
 Order = [:module, :constant, :type, :function, :macro]
-Public = false
-Private = true
+Public = true
+Private = false
 ```
 
-#### Earth properties
+```@docs
+build(::Type{CableDesign}, id::AbstractString, parts::AbstractCablePart...)
+build(::Type{CableSystem}, designs::AbstractVector{<:CableDesign}, placements::AbstractVector{<:Placement})
+Base.:*(parent::Placement, child::Placement)
+```
+
+## Engine
+
 ```@autodocs
-Modules = [LineCableModels.EarthProps]
+Modules = [LineCableModels.Engine]
 Order = [:module, :constant, :type, :function, :macro]
-Public = false
-Private = true
+Public = true
+Private = false
+Filter = t -> !(t in (LineCableModels.Engine.impedance, LineCableModels.Engine.impedance!, LineCableModels.Engine.potential!, LineCableModels.Engine.prepare!, LineCableModels.Engine.initialize_buffers, LineCableModels.Engine.admittivity, LineCableModels.Engine.resistivity, LineCableModels.Engine.properties, LineCableModels.Engine.reductions, LineCableModels.Engine.bundle!, LineCableModels.Engine.eliminate!, LineCableModels.Engine.transposition!, LineCableModels.Engine.solve!, LineCableModels.Engine.SpectralIntegral, LineCableModels.Engine.integrate, LineCableModels.Engine.ray!))
 ```
 
-#### Materials library
+```@docs
+compute(problem::LineParametersProblem, formulation::AbstractFormulation)
+compute(backend::AbstractBackend, problem::LineParametersProblem, formulation::AbstractFormulation)
+compute(::LCMBackend, problem::LineParametersProblem{T}, formulation::CoaxialFormulation, options::ComputationOptions{LCMBackend}) where {T <: Real}
+validate(problem::LineParametersProblem, ::AbstractFormulation)
+validate(problem::LineParametersProblem, formulation::Union{CoaxialFormulation, FEM})
+validate(earth::Tuple{Engine.EarthReturn.Formula{ID}, Engine.EarthReturn.Formula{ID}}, ::Type{CoaxialFormulation}) where {ID}
+```
+
+## CAD
+
 ```@autodocs
-Modules = [LineCableModels.Materials]
+Modules = [LineCableModels.CAD]
 Order = [:module, :constant, :type, :function, :macro]
-Public = false
-Private = true
+Public = true
+Private = false
 ```
 
-#### Utilities
+## Gmsh extension
+
 ```@autodocs
-Modules = [LineCableModels.Utils]
+Modules = [Main.GmshExt]
 Order = [:module, :constant, :type, :function, :macro]
-Public = false
-Private = true
+Public = true
+Private = false
 ```
 
----
+```@docs
+defaults(::Type{GmshBackend})
+compute(backend::GmshBackend, problem::LineParametersProblem, formulation::FEM)
+compute(::GmshBackend, problem::LineParametersProblem, formulation::FEM, options::ComputationOptions{GmshBackend})
+```
 
 ## Index
+
 ```@index
-Pages   = ["reference.md"]
-Order   = [:module, :constant, :type, :function, :macro]
 ```

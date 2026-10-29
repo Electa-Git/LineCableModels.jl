@@ -1,0 +1,7 @@
+style = "sciml"
+ignore = [
+    "bibliography",
+    "designs",
+    "papers",
+    "local",
+]

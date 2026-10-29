@@ -1,0 +1,37 @@
+name: FEM
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  fem:
+    if: ${{ !github.event.pull_request.draft }}
+    name: FEM - Julia 1.12 - ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: # The Julia cache step deletes the old caches that it created.
+      actions: write
+      contents: read
+    env:
+      LINECABLEMODELS_FEM: 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1.12'
+      - uses: julia-actions/cache@v3
+        with:
+          cache-compiled: true
+          # Do not publish incomplete depots from failed test runs.
+          save-always: 'false'
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v7
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: fem
+          fail_ci_if_error: true

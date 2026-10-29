@@ -1,0 +1,26 @@
+extends: existence
+message: "Replace '%s' with a specific description."
+level: error
+ignorecase: true
+tokens:
+  - provenances?
+  - contracts?
+tests:
+  - name: forbidden words and plurals
+    input: "Provenance PROVENANCES contract Contracts"
+    contains: Project.BannedTerms
+  - name: scientific word with a different meaning
+    input: "The contraction maps the interval into itself."
+    want: ""
+  - name: uppercase
+    input: "PROVENANCE"
+    contains: Project.BannedTerms
+  - name: plural
+    input: "provenances"
+    contains: Project.BannedTerms
+  - name: other forbidden word
+    input: "contract"
+    contains: Project.BannedTerms
+  - name: uppercase plural
+    input: "CONTRACTS"
+    contains: Project.BannedTerms

@@ -1,0 +1,26 @@
+@testset "Materials" begin
+    @testset "the class is the type parameter" begin
+        @test Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393) isa
+              Material{Float64, :conductor}
+        @test Material(:semicon, 1000.0, 1000.0) isa Material{Float64, :semicon}
+        @test material(kind = :insulator, rho = Inf, eps_r = 2.3) ===
+              Material(:insulator, Inf, 2.3)
+        @test_throws DomainError Material(:conductr, 1.7241e-8)
+    end
+
+    @testset "Float32 and mixed inputs" begin
+        @test Material(:conductor, 1.7241f-8, 1, 1, 20, 0.00393f0) isa
+              Material{Float32, :conductor}
+        @test Material(:conductor, 1.7241f-8, 1, 1, 20, 0.00393) isa
+              Material{Float64, :conductor}
+    end
+
+    @testset "a conversion keeps the class and the values" begin
+        polymer = Material(:insulator, 1.0f14, 2.3f0, 1, 20, 0; rho_thermal = 3.5f0,
+            theta_max = 90, tan_delta = 1.0f-4, sigma_solar = 0.4f0)
+        converted = convert(Material{Float64}, polymer)
+        @test converted isa Material{Float64, :insulator}
+        @test all(getfield(converted, name) == getfield(polymer, name)
+        for name in fieldnames(Material))
+    end
+end

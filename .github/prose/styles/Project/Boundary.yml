@@ -1,0 +1,30 @@
+extends: existence
+message: "Use '%s' only for geometry or a physical condition."
+level: error
+ignorecase: true
+tokens:
+  - boundar(?:y|ies)
+exceptions:
+  # Geometric surfaces and prescribed conditions in field equations.
+  - '(?i)(?:physical|geometric|material|conductor|domain|outer|inner|earth|air|far|surface|mesh)\s+boundar(?:y|ies)'
+  - '(?i)boundar(?:y|ies)\s+(?:conditions?|values?|elements?|integrals?|charges?|surfaces?|curves?|edges?|nodes?|facets?|segments?|loops?)'
+  - '(?i)boundary[- ]value\s+problems?'
+  # Cross-sectional outlines, mesh topology, and local field discretizations.
+  - '(?i)(?:core|cable|cell|disk|sector|enclosure|layer|dielectric|metal|host|source|hole|filler|polygon|polygonal|circular|curved|parallel|outward|formation|Robin)\s+boundar(?:y|ies)'
+  - '(?i)boundary[- ](?:shunt|collocation|grid|integral|domain|resolved|discretization|circle|edge|incidence|perimeter|coefficients?|equations?|correction|solve)\s*'
+tests:
+  - name: software use fails
+    input: "The API boundary validates the request."
+    contains: Project.Boundary
+  - name: geometry
+    input: "Apply the boundary conditions at the outer boundary."
+    want: ""
+  - name: adjacent software use still fails
+    input: "The boundary conditions are fixed. The API boundary validates input."
+    contains: Project.Boundary
+  - name: uppercase plural
+    input: "BOUNDARIES"
+    contains: Project.Boundary
+  - name: software plural
+    input: "The API boundaries are fixed."
+    contains: Project.Boundary

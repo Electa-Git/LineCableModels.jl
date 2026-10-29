@@ -1,0 +1,350 @@
+# The terms of the package's own names: modules, types, functions, constants, fields and
+# keywords. A term enters with the user's confirmation, when the first name that uses it
+# arrives, and leaves when no name uses it. [global] holds the grammar verbs, defined only in
+# Commons, and the terms of several modules. [modules."<Module>"] holds the terms of one module
+# and its children.
+# [register."<Module>".public] and [register."<Module>".private] list every function, type and
+# constant the module defines, each with its meaning. A name enters with the user's
+# confirmation, in the step that introduces it, and leaves with its definition. In
+# [register."<Module>"], the list lifts = ["<name>", ...] names the functions of the module
+# that lift a value to a type with `Val`.
+
+[shape]
+function = 2
+type = 3
+module = 2
+constant = 2
+field = 2
+keyword = 2
+predicates = ["is", "has"]
+marker = "abstract"
+prepositions = ["in", "per", "to", "by", "of", "or", "for", "from", "with", "at", "on"]
+mandated = ["__init__"]
+
+[rejected]
+check = "validate"
+verify = "validate"
+ensure = "validate"
+require = "validate"
+assert = "validate"
+get = "the name of the quantity"
+set = "the name of the quantity, with !"
+make = "the constructor"
+create = "the constructor"
+calc = "the name of the quantity"
+calculate = "the name of the quantity"
+same = "==, isequal or isapprox"
+valid = "isvalid"
+match = "=="
+matches = "=="
+equal = "isequal"
+data = "the name of what it holds"
+info = "the name of what it holds"
+helper = "a method of the function it serves"
+util = "a method of the function it serves"
+utils = "a method of the function it serves"
+work = "workspace, plan, buffers or the component's name"
+scratch = "workspace, plan, buffers or the component's name"
+storage = "workspace, plan, buffers or the component's name"
+cache = "workspace, plan, buffers or the component's name"
+
+[global]
+nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
+    "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
+    "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes",
+    "points", "positions"]
+qualifiers = ["cable", "outer"]
+symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "r"]
+prepositions = ["at"]
+
+[global.verbs]
+validate = "check an input before its consumer uses it; return it unchanged, or throw"
+resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
+build = "construct a completed object of a type from its declarations"
+compute = "run one computation of a problem by a formulation, on the backend that runs it"
+select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
+
+[modules.Commons]
+nouns = ["computation", "defaults", "values"]
+
+[modules.Materials]
+nouns = ["kind"]
+symbols = ["t0", "alpha", "rho_thermal", "theta_max", "tan_delta", "sigma_solar"]
+
+[modules.Earth]
+nouns = ["thickness"]
+qualifiers = ["homogeneous"]
+
+[modules.DataModel]
+nouns = ["placement", "shape", "primitive", "circle", "annulus", "rectangle", "offset", "sector",
+    "pattern", "helix", "lay", "ratio", "area", "centroid", "support", "boundary", "placements",
+    "overlength", "pitch", "distance", "part", "region", "stack", "terminal",
+    "repeat", "enclosure", "design", "tag", "items", "name", "contents", "fill", "source",
+    "regions", "id", "tree", "repeats", "lays", "compactions", "fills",
+    "designs", "connections", "blueprint", "conductor", "dielectric", "conductors",
+    "dielectrics", "ranges", "assembly", "core", "screen", "sheath", "bedding",
+    "jacket", "armor"]
+qualifiers = ["annular", "circular", "empty", "difference", "placed", "stranded",
+    "layout"]
+symbols = ["φ", "ri", "ro", "w", "h", "t", "n", "φ0", "gap_frac", "q", "dir"]
+
+[modules.DataModel.verbs]
+flatten = "reduce a cable design to the equivalent tubes and dielectric layers of its blueprint"
+
+[modules.Engine]
+nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
+    "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
+    "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
+    "frequencies", "input", "connection", "radius", "bundles",
+    "transposition", "integral", "integrand", "ray", "reductions"]
+qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
+symbols = ["z", "r_ins_ex"]
+
+[modules.Engine.verbs]
+prepare = "fill a formula's per-frequency state that its quantity methods read"
+initialize = "build the arrays of a computation once, before its loop"
+bundle = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
+eliminate = "remove the eliminated rows and columns of a matrix by the Kron elimination, the Schur complement of the kept ones"
+integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
+solve = "find the line parameters of a problem at each of its frequencies"
+
+[modules."Engine.EarthReturn"]
+symbols = ["i0m1"]
+
+[modules.CAD]
+nouns = ["segment", "arc", "curve", "contour"]
+symbols = ["a", "b"]
+
+[modules.CAD.verbs]
+draw = "draw a system, a design, a placed region, a shape, a contour, a path or a curve on a target, in the target's own primitives"
+
+[modules.LineCableModelsGmshExt]
+nouns = ["getdp", "binary", "overrides", "interval", "field", "tags", "strand", "air", "scale",
+    "geometry", "key", "point", "buckets", "lines", "arcs", "ends", "curves", "breaks",
+    "contacts", "loops", "surfaces", "patches", "outlines", "pockets", "anchors", "faces",
+    "compartments", "direction", "inside", "anchor", "dimension", "turn", "section", "directory"]
+qualifiers = ["low", "high", "closed", "lowest"]
+symbols = ["gamma"]
+
+[modules.LineCableModelsGmshExt.verbs]
+scan = "scan the frequencies of a problem with GetDP"
+mesh = "write the validated meshes of the cross-section at every frequency with Gmsh, each with its gauge tree, at most workers processes at once"
+gauge = "write the gauge tree and the sampling nodes into a mesh"
+cut = "cut a circle of the geometry at angles so that every curve that ends there shares the point"
+walk = "walk oriented boundaries into the cycles that bound faces"
+
+[register.Commons]
+lifts = ["select"]
+
+[register.Commons.public]
+validate = "check an input before its consumer uses it; return it unchanged, or throw"
+resolve = "give a declared part or layer its geometry in its context, or place a shape in a frame"
+build = "construct a completed object of a type from its declarations"
+compute = "run one computation of a problem by a formulation, on the backend that runs it"
+select = "fit a user's selection to the slot or option key it fills, lifting a Symbol to its type"
+defaults = "the option keys of an owner with their default values and types"
+AbstractFormulation = "the supertype of the formulations and of the formula families"
+AbstractBackend = "the supertype of the singletons that run a formulation"
+FormulationOptions = "the options of a formula or a formulation, its owner the first type parameter"
+ComputationOptions = "the options of a backend for one computation, its owner the first type parameter"
+
+[register.Materials]
+lifts = ["material"]
+
+[register.Materials.public]
+Material = "the electromagnetic and thermal properties of one material, its class the type parameter"
+material = "the Material of a class with the properties given as keywords"
+
+[register.Earth.public]
+EarthLayer = "the static properties and thickness of one earth or air layer"
+EarthModel = "an ordered stack of earth layers, semi-infinite air first"
+homogeneous = "the earth model of air above one semi-infinite earth layer"
+
+[register.DataModel.public]
+Placement = "a planar translation and rotation relative to a parent frame"
+AbstractShape = "the supertype of the exact cross-sections of cable parts"
+AbstractPrimitive = "the supertype of the shapes a part declares, with dimensions and a placement"
+Circle = "a circular cross-section with its placement"
+Annulus = "an annular cross-section with its placement"
+Rectangle = "a rectangular strand before a circular pattern bends it"
+AbstractLayoutPattern = "the supertype of the patterns that place the copies of a repeat"
+Offset = "a distance outward from the outline inside: the thickness of a layer or the clearance of a circular pattern"
+AnnularSector = "an annular sector: the region between two radii over an angular span, symmetric about the x-axis of its placement; a circular pattern bends a rectangular strand into one of the same area"
+CircularPattern = "n members placed evenly on a circle about the center of the enclosing part, at a radius or an offset"
+Helix = "the helical path of the members of a course along the cable"
+LayRatio = "the lay length of a helix over the mean diameter of its course"
+area = "the cross-sectional area of a shape, or the signed area of a closed polyline, positive counterclockwise"
+centroid = "the centroid of a shape in the cable cross-section"
+support = "the radius of a circle about the origin that contains a shape"
+boundary = "the outline of a shape: a circle or a sector itself, an annulus's outer circle, a difference's outer's; the next part resolves against it and an enclosure removes it from its fill"
+r_in = "the inner radius of a circular shape"
+r_ex = "the outer radius of a circular shape"
+placements = "the placements and the shared cross-section of the members a pattern lays"
+overlength = "the length of a helical path over the length of the cable"
+pitch = "the lay length of a helix at a radius"
+DifferenceShape = "a cross-section without the cross-sections inside it, such as the fill between wires"
+distance = "the radius of a circle about the origin that a shape does not enter"
+AbstractCablePart = "the supertype of the declared parts of a cable"
+Region = "a part of one material in one cross-section"
+Stack = "parts layered outward, each resolved against the outline of the parts inside it"
+Terminal = "the name that identifies, within its scope, the circuit node of the conductive regions of a part"
+Repeat = "copies of a part at the placements of a pattern, each copy a scope of its terminals"
+Lay = "the helix that the copies of a repeat follow along the cable"
+Enclosure = "a fill region whose cross-section is a container without the parts inside it"
+PlacedRegion = "a declared region with its resolved cross-section"
+CableDesign = "a cable described: its declared parts, its placed regions and the tables that map them"
+CableSystem = "the cables of a line in one cross-section, placed, with the conductor index of each terminal"
+CableBlueprint = "a cable described for coaxial formulations: equivalent tubes, their dielectric layers and assemblies"
+BlueprintConductor = "one terminal of a cable as an equivalent tube and its material"
+BlueprintDielectric = "one dielectric layer of the interval of an equivalent tube"
+flatten = "the blueprint of a cable design"
+"@cable" = "the cable design built from the parts of a block, from the inside out"
+"@terminal" = "the terminal of a name around the parts of a block"
+core = "a solid round conductor at the center of a cable"
+insulation = "an insulation layer of a thickness around the part inside it"
+screen = "a screen layer of a thickness around the part inside it"
+sheath = "a sheath layer of a thickness around the part inside it"
+bedding = "a bedding layer of a thickness around the part inside it"
+jacket = "a jacket layer of a thickness around the part inside it"
+stranded = "a stranded conductor: courses of round wires or rectangular strands around a center wire, inside an outline that a fill completes"
+armor = "a course of round armor wires laid on the part inside it, in a fill as thick as the wires"
+
+[register.DataModel.private]
+EmptyBoundary = "the outline at the center of a cable, before its first part"
+
+[register.Engine.public]
+vacuum_permittivity = "ε₀, the permittivity of vacuum [F/m]"
+vacuum_permeability = "μ₀ = 4π·1e-7, the permeability of vacuum [H/m]"
+LCMBackend = "this package's own implementation of a formulation, in process"
+GmshBackend = "the backend that runs the finite-element computation, defined by the Gmsh extension"
+backend = "the default backend of a formulation type; a backend passed first to compute chooses another"
+AbstractInternalImpedance = "the supertype of the formulas of the surface impedances of a tubular conductor"
+AbstractInsulationImpedance = "the supertype of the formulas of the magnetic term across an annular dielectric"
+AbstractInsulationAdmittance = "the supertype of the admittivity laws of insulating layers"
+AbstractSemiconAdmittance = "the supertype of the admittivity laws of semiconducting layers"
+AbstractEarthReturn = "the supertype of the formulas of the earth-return impedance and potential coefficients"
+AbstractShunt = "the supertype of the formulas that form the potential coefficients inside a cable"
+AbstractResistivity = "the supertype of the temperature laws of a conductor's resistivity"
+AbstractEarthProperties = "the supertype of the frequency laws of the earth's properties"
+LineParametersProblem = "the cables of a line, the earth, the operating temperature and the frequencies of a scan"
+CoaxialFormulation = "the methodology of concentric tubes: the formula of each step, Γ and the reductions"
+FEM = "the laws and options of the finite-element computation of line parameters"
+LineParameters = "the series impedance and shunt admittance per unit length of a line at each frequency, with the labels of its rows and the formulation"
+admittivity = "the admittivity of a dielectric layer at a frequency [S/m]"
+resistivity = "the resistivity of a conductor's material at a temperature [Ω·m]"
+properties = "the resistivity, relative permittivity and relative permeability of an earth layer at a frequency"
+impedance = "a series impedance per unit length, or a named tuple of them, that a formula gives [Ω/m]"
+"impedance!" = "series impedances per unit length written into a matrix [Ω/m]"
+"potential!" = "potential coefficients per unit length written into a matrix [m/F]"
+"prepare!" = "fill a formula's per-frequency state that its quantity methods read"
+initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
+CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"
+"bundle!" = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
+"eliminate!" = "the Kron elimination: the Schur complement of the kept rows and columns of a matrix, written into a matrix the caller gives"
+"transposition!" = "the ideal transposition: the mean of a matrix over the cyclic permutations of its rows and columns"
+SpectralIntegral = "the integral of a function over [0, ∞), its complete integrand the field, that integrate evaluates by the method its tag selects"
+integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
+nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the Measurements extension gives a measurement's nominal value"
+"ray!" = "the ray of a spectral integral on [0, ∞) below its singularities, with the points where the quadrature subdivides it written into the engine's integral block"
+formulas = "the distinct formulas of a formulation's slots, the two earth slots once when they are one formula"
+reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
+
+"solve!" = "a backend's loop over the problem's frequencies that fills Z and Y and, when traced, its stage matrices"
+
+[register."Engine.InternalImpedance".public]
+Formula = "an internal-impedance formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.InternalImpedance".formulas]
+schelkunoff1934 = "the inner, outer and transfer surface impedances of a tubular conductor (Schelkunoff 1934; commit 989af96c, internalimpedance/formulas/schelkunoff1934.jl)"
+
+[register."Engine.InsulationImpedance".public]
+Formula = "an insulation-impedance formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.InsulationImpedance".formulas]
+ametani1980 = "s μ₀ μ_r ln(r_ex / r_in) / 2π across an annular dielectric (Ametani 1980; commit 989af96c, insulationimpedance/formulas/ametani1980.jl)"
+
+[register."Engine.InsulationAdmittance".public]
+Formula = "an insulation-admittance formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.InsulationAdmittance".formulas]
+lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (commit 989af96c, insulationadmittance/formulas/lossless.jl)"
+
+[register."Engine.SemiconAdmittance".public]
+Formula = "a semicon-admittance formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.SemiconAdmittance".formulas]
+lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (commit 989af96c, semiconadmittance/formulas/lossless.jl)"
+
+[register."Engine.EarthReturn".public]
+Formula = "an earth-return formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.EarthReturn".private]
+i0m1 = "I₀(z) − 1 without the cancellation of the difference; Unified's, two call sites with different arguments, the per-cable state and J₀(rλ) − 1 in the air-voltage integrand"
+
+[register."Engine.EarthReturn".formulas]
+unified = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ (commit 989af96c, earthimpedance/formulas/unified.jl, unified/kernels.jl, unified/current.jl)"
+
+[register."Engine.Shunt".public]
+Formula = "a shunt formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.Shunt".formulas]
+series = "the series chain of the potential coefficients s ln(r_ex / r_in) / 2πκ of the annular layers, summed from each conductor outward (commit 989af96c, src/engine/admittance.jl)"
+
+[register."Engine.Resistivity".public]
+Formula = "a resistivity formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.Resistivity".formulas]
+linear = "ρ₀ [1 + α (θ − T₀)] within 150 K of T₀ (commit 989af96c, materials/temperaturedependent/formulas/linear.jl)"
+
+[register."Engine.EarthProperties".public]
+Formula = "an earth-properties formula, its identifier the type parameter"
+FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
+
+[register."Engine.EarthProperties".formulas]
+constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (commit 989af96c, earth/frequencydependent/formulas/constant.jl)"
+
+[register.CAD.public]
+Segment = "a straight curve between two points of the cross-section plane"
+Arc = "a circular curve of a radius about a placement, from its x-axis over a signed angular span"
+Curve = "a curve of a contour: a segment or an arc, the union of the two, written once"
+Contour = "the closed paths of curves that bound a shape: its outer path and the path of each hole, each counterclockwise"
+draw = "draw a system, a design, a placed region, a shape, a contour or a path on a target as the curves the target draws, returning what the target made"
+
+[register.LineCableModelsGmshExt.public]
+GetdpBinary = "the GetDP binary a computation runs, by the action in its type: :discover, the one found on PATH when its -info reports version 3.5 and complex arithmetic, else the downloaded one; :download, getdp.info's GetDP 3.5.0 complex build, downloaded by its pinned hash on first use; a path given as a string is used as is"
+
+[register.LineCableModelsGmshExt.private]
+directory = "the run directory of a computation under .linecablemodels/fem"
+mesh = "write the validated meshes of the cross-section at every frequency with Gmsh, each with its gauge tree, at most workers processes at once"
+"gauge!" = "write the gauge tree and the sampling nodes into a mesh"
+OVERRIDES = "the table of the native expert controls: each native name with its default and its range"
+Interval = "a real interval in the ranges of the native controls, the one range Base has no type for; its low bound is inside when it is closed, its high bound never"
+FieldModel = "the finite-element model of a problem under a formulation: the material groups and the region, terminal and cable data that the later steps read"
+TAGS = "the tags of the physical groups that the native sources expect, by role"
+Geometry = "the Gmsh geometry of one cross-section under construction, built once per computation and read by the writer"
+key = "the registry key of a geometric entity: its defining numbers rounded to 15 significant digits, so that two constructions of one entity meet; of a coordinate pair, the registered pair within 64 eps of it, else its own key; of an angle on a circle, the circle's break within 1e-12 rad of it, else the angle in [0, 2π)"
+"point!" = "the Gmsh point at a coordinate pair, created once"
+"cut!" = "cut a circle at an angle, matched to its breaks within 1e-12 rad, keeping the exact contact point when given; with no angle, at its four quadrants; cut the circles of a contour or shape, a fill at its compartments, all circles at their contacts and concentric annuli at each other's breaks"
+"faces!" = "the plane surfaces of a contour: one of its outer loop with its holes' clockwise loops when no two loops share a point, the walked faces when they do; a shape by its contour; a fill by its compartments and the free spans of its shell when it is a course of wires, else by its contour"
+compartments = "the course of wires tangent to the inner circle of a fill: its center, the inner, contact and shell radii, the wires' angles and holes, and the free spans of the shell; with no wires when the fill is not such a course"
+"walk!" = "walk oriented boundaries, each with its material on the left, into their cycles: the plane surfaces of the positive cycles with the negative cycles they contain, and the negative cycles no face contains"
+direction = "the direction of an oriented curve leaving its first point, measured at a distance along it, so that tangent arcs of different radii compare"
+isinside = "whether a point lies inside a closed polygon, by the even-odd rule"
+"patches!" = "the four-sided patches of a passive annulus between its circles at their shared breaks, each with its arcs, spokes and corners, recorded for a region"
+lowest = "the lowest point: of a segment its lower end; of an arc the bottom of its circle when the arc passes it, else its lower end; of a contour the lowest of its outer path's curves, least y then least x"
+dimension = "the smallest metal dimension of a region: a circle's diameter, an annulus's thickness, a sector's shorter bounding-box side"
+anchor = "the measurement anchor of terminal t: the first probe point inside its metal, upward from the lowest point of each of its regions at the offsets of its dimension, for a shift of 0 and 1 % of the terminal's smallest dimension; refused when none is"
+curves = "the boundary curves of plane surfaces, sorted"
+turn = "the turn of an arc about its circle's center: its fraction of a revolution and its length"
+scan = "scan the frequencies of a problem with GetDP: at most workers processes, one per frequency, from the meshes of the run directory, each process's job files read when it exits, results/Z.tsv and results/P.tsv written after the last, the primitive Z in Ω/m and P in Ω·m of every frequency returned by terminal"
+section = "the native section of a shape or region: its kind, 1 a Circle, 2 an Annulus, 3 a Rectangle, 0 an AnnularSector, a DifferenceShape its outer's, with the two lengths the native size law reads, (r, 0), (ro, ri), (w, h), a sector's bent height and width; of a placed region, its declared primitive's, or its resolved shape's when the primitive is an Offset"
+
+# LineCableModelsMeasurementsExt defines no name: its methods extend Engine's nominal and SpecialFunctions' Bessel functions.
+[register.LineCableModelsMeasurementsExt]

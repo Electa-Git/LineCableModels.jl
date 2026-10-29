@@ -1,0 +1,31 @@
+extends: existence
+message: "Use '%s' only for a specified linear-algebra construction."
+level: error
+ignorecase: true
+tokens:
+  - canonical(?:s|ly)?
+exceptions:
+  # Standard coordinate vectors in linear algebra.
+  - '(?i)canonical\s+bas(?:is|es)'
+tests:
+  - name: software use fails
+    input: "Read the canonical configuration."
+    contains: Project.Canonical
+  - name: linear algebra
+    input: "Express the vector in the canonical basis."
+    want: ""
+  - name: uppercase
+    input: "CANONICAL"
+    contains: Project.Canonical
+  - name: adverb
+    input: "Describe it canonically."
+    contains: Project.Canonical
+  - name: noun plural
+    input: "CANONICALS"
+    contains: Project.Canonical
+  - name: nearby software use
+    input: "Compare the canonical bases. Read the canonical configuration."
+    contains: Project.Canonical
+  - name: uppercase scientific phrase
+    input: "Use the CANONICAL BASIS."
+    want: ""

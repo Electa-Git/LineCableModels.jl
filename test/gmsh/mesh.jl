@@ -1,0 +1,123 @@
+@testset "Native processes" begin
+    mktempdir() do directory
+        commands = [`sh -c 'exit 3'`, `sleep 60`, `true`]
+        logs = [joinpath(directory, "$k.log") for k in 1:3]
+        labels = ["one", "two", "three"]
+        failures = Exception[]
+        elapsed = @elapsed try
+            run(commands, logs, labels, ComputationOptions(GmshBackend; workers = 2))
+        catch exception
+            push!(failures, exception)
+        end
+        @test only(failures) isa ErrorException
+        @test startswith(only(failures).msg, "one, log ")
+        @test occursin("exit code 3, signal 0", only(failures).msg)
+        @test elapsed < 10
+        @test all(isfile, logs)
+    end
+end
+
+@testset "Gmsh mesh" begin
+    extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+    options = ComputationOptions(GmshBackend; workers = 2, getdp_executable = :download)
+    references = Dict(REFERENCES)
+    @testset "$case" for case in ("two_bare_wires", "two_insulated_wires")
+        reference = references[case]
+        problem = LineParametersProblem(reference.system, reference.earth;
+            temperature = reference.temperature, frequencies = reference.frequencies[1:1])
+        model = extension.FieldModel(problem, FEM())
+        mktempdir() do directory
+            for name in ("input", "mesh", joinpath("results", "jobs"), "logs", "work")
+                mkpath(joinpath(directory, name))
+            end
+            cp(joinpath(@__DIR__, "..", "..", "ext", "LineCableModelsGmshExt", "getdp"),
+                joinpath(directory, "input", "getdp"))
+            write(joinpath(directory, "input", "model_data.pro"), model, options)
+            gmsh.initialize()
+            try
+                geometry = build(extension.Geometry, model, options)
+                write(joinpath(directory, "input", "physical.geo"), geometry)
+                paths = extension.mesh(directory, model, options)
+                path = joinpath(directory, "mesh", "frequency-0001.msh")
+                @test paths == [path]
+                @test isfile(path)
+                @test extension.validate(path, model) == path
+                gmsh.model.add("mesh-counts")
+                gmsh.merge(path)
+                @test (1, 9001) in gmsh.model.getPhysicalGroups(1)
+                @test (0, 9002) in gmsh.model.getPhysicalGroups(0)
+                gmsh.model.remove()
+            finally
+                gmsh.finalize()
+            end
+            @testset "GetDP" begin
+                primitives = extension.scan(directory, model, options)
+                n = length(model.label)
+                @test size(primitives.Z) == (n, n, 1)
+                @test size(primitives.P) == (n, n, 1)
+                @test all(isfinite, primitives.Z)
+                @test all(isfinite, primitives.P)
+                for suffix in (".done", "-Z.tsv", "-P.tsv")
+                    @test all(
+                        b -> isfile(joinpath(directory, "results", "jobs",
+                            "getdp-f0001-b" * lpad(b, 4, '0') * suffix)),
+                        1:n)
+                end
+                header = "frequency_index\tfrequency_hz\tresponse_terminal\tbasis_terminal\treal\timaginary"
+                for name in ("Z", "P")
+                    lines = readlines(joinpath(directory, "results", name * ".tsv"))
+                    @test first(lines) == header
+                    @test length(lines) == n^2 + 1
+                end
+                @test isfile(joinpath(directory, "logs", "frequency-0001.log"))
+                @test isempty(readdir(joinpath(directory, "work")))
+                executable = realpath(extension.GetdpBinary{:download}())
+                @test isfile(executable)
+                buffer = IOBuffer()
+                run(pipeline(Cmd([executable, "-info"]); stdout = buffer, stderr = buffer))
+                output = String(take!(buffer))
+                @test occursin("getdp", lowercase(output))
+                @test occursin(r"Version\s*:\s*3\.5(?:\.|\s|$)", output)
+            end
+        end
+    end
+    @testset "GetDP executable" begin
+        reference = last(first(REFERENCES))
+        problem = LineParametersProblem(reference.system, reference.earth;
+            temperature = reference.temperature, frequencies = reference.frequencies[1:1])
+        model = extension.FieldModel(problem, FEM())
+        mktempdir() do directory
+            absent = ComputationOptions(GmshBackend; getdp_executable = "/none")
+            @test_throws Base.IOError extension.scan(directory, model, absent)
+            executable = realpath(extension.GetdpBinary{:download}())
+            folder = joinpath(directory, repeat("a", 120), repeat("b", 120))
+            mkpath(folder)
+            path = joinpath(folder, "getdp")
+            cp(executable, path)
+            oversized = ComputationOptions(GmshBackend; getdp_executable = path)
+            @test_throws "getdp_executable" extension.scan(directory, model, oversized)
+        end
+        mktempdir() do directory
+            path = joinpath(directory, "getdp")
+            executable = realpath(extension.GetdpBinary{:download}())
+            for (version, arithmetic, expected) in
+                (("3.5.0", "complex", joinpath(realpath(directory), "getdp")),
+                ("3.5.0", "real", executable), ("4.0.0", "complex", executable))
+                write(path,
+                    "#!/bin/sh\n" *
+                    "if [ \"\$1\" = \"-info\" ]; then\n" *
+                    "  echo 'Version : $version' >&2\n" *
+                    "  echo 'PETSc version : 3.14.4 ($arithmetic arithmetic)' >&2\n" *
+                    "fi\n")
+                chmod(path, 0o755)
+                withenv("PATH" => directory) do
+                    @test realpath(extension.GetdpBinary{:discover}()) == expected
+                end
+            end
+            rm(path)
+            withenv("PATH" => directory) do
+                @test realpath(extension.GetdpBinary{:discover}()) == executable
+            end
+        end
+    end
+end

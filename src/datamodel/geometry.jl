@@ -1,0 +1,569 @@
+"""
+$(TYPEDEF)
+
+Represent a planar translation and a rotation relative to a parent frame.
+
+$(TYPEDFIELDS)
+"""
+struct Placement{T <: Real}
+    "Horizontal translation \\[m\\]."
+    x::T
+    "Vertical translation \\[m\\]."
+    y::T
+    "Counterclockwise rotation \\[rad\\]."
+    φ::T
+    function Placement{T}(x::T, y::T, φ::T) where {T <: Real}
+        return validate(new{T}(x, y, φ))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a placement after floating and promoting its coordinates. The arguments are the
+fields of [`Placement`](@ref), and the rotation is zero unless given.
+
+# Errors
+
+- Throws `DomainError` when a coordinate or the rotation is not finite.
+"""
+function Placement(x::Real, y::Real, φ::Real = 0)
+    values = map(float, promote(x, y, φ))
+    return Placement{eltype(values)}(values...)
+end
+
+function validate(placement::Placement)
+    all(isfinite, (placement.x, placement.y, placement.φ)) || throw(DomainError(
+        (placement.x, placement.y, placement.φ),
+        "Placement coordinates and rotation must be finite"))
+    return placement
+end
+
+Base.eltype(::Placement{T}) where {T} = T
+
+function Base.map(f, placement::Placement)
+    return Placement(f(placement.x), f(placement.y), f(placement.φ))
+end
+
+function Base.convert(::Type{Placement{T}}, placement::Placement) where {T <: Real}
+    return Placement{T}(
+        convert(T, placement.x), convert(T, placement.y), convert(T, placement.φ))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compose `child`, a placement in the frame of `parent`, into the frame that holds `parent`:
+
+```math
+x = x_p + x_c \\cos\\phi_p - y_c \\sin\\phi_p, \\qquad
+y = y_p + x_c \\sin\\phi_p + y_c \\cos\\phi_p, \\qquad
+\\phi = \\phi_p + \\phi_c,
+```
+
+where ``(x_p, y_p)`` and ``(x_c, y_c)`` are the positions of `parent` and `child` \\[m\\], and
+``\\phi_p`` and ``\\phi_c`` are their rotations \\[rad\\].
+"""
+function Base.:*(parent::Placement, child::Placement)
+    return Placement(parent.x + cos(parent.φ) * child.x - sin(parent.φ) * child.y,
+        parent.y + sin(parent.φ) * child.x + cos(parent.φ) * child.y, parent.φ + child.φ)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Rotate `point` by the rotation of `placement`, then translate it by the position of
+`placement`:
+
+```math
+x = x_0 + u \\cos\\phi - v \\sin\\phi, \\qquad y = y_0 + u \\sin\\phi + v \\cos\\phi,
+```
+
+where ``(u, v)`` is `point` \\[m\\], ``(x_0, y_0)`` is the position of `placement` \\[m\\] and
+``\\phi`` is its rotation \\[rad\\].
+
+# Returns
+
+- The point `(x, y)` in the parent frame \\[m\\].
+"""
+function (placement::Placement)(point::Tuple{Real, Real})
+    return (placement.x + cos(placement.φ) * point[1] - sin(placement.φ) * point[2],
+        placement.y + sin(placement.φ) * point[1] + cos(placement.φ) * point[2])
+end
+
+"""
+$(TYPEDEF)
+
+Supertype of the exact cross-sections of the parts of a cable, in the floating type `T`.
+"""
+abstract type AbstractShape{T <: Real} end
+
+"""
+$(TYPEDEF)
+
+Supertype of the cross-sections that a part declares. A primitive states its dimensions and
+its placement.
+"""
+abstract type AbstractPrimitive{T <: Real} <: AbstractShape{T} end
+
+"""
+$(TYPEDEF)
+
+Represent a circular cross-section, such as a solid conductor or a round wire.
+
+$(TYPEDFIELDS)
+"""
+struct Circle{T <: Real} <: AbstractPrimitive{T}
+    "Radius \\[m\\]."
+    r::T
+    "Placement of the center in the cable cross-section."
+    at::Placement{T}
+    function Circle{T}(r::T, at::Placement{T}) where {T <: Real}
+        return validate(new{T}(r, at))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a circle of radius `r` \\[m\\] centered at the origin.
+"""
+Circle(r::Real) = Circle(r, Placement(zero(r), zero(r)))
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a circle of radius `r` \\[m\\] at the placement `at`, in the floating type that both
+promote to.
+
+# Errors
+
+- Throws `DomainError` when `r` is not positive and finite.
+"""
+function Circle(r::Real, at::Placement)
+    T = float(promote_type(typeof(r), eltype(at)))
+    return Circle{T}(convert(T, r), convert(Placement{T}, at))
+end
+
+function validate(circle::Circle)
+    isfinite(circle.r) && circle.r > zero(circle.r) ||
+        throw(DomainError(circle.r, "Circle.r must be positive and finite"))
+    return circle
+end
+
+"""
+$(TYPEDEF)
+
+Represent an annular cross-section, such as a tubular conductor or an insulation layer.
+
+$(TYPEDFIELDS)
+"""
+struct Annulus{T <: Real} <: AbstractPrimitive{T}
+    "Inner radius \\[m\\]."
+    ri::T
+    "Outer radius \\[m\\]."
+    ro::T
+    "Placement of the center in the cable cross-section."
+    at::Placement{T}
+    function Annulus{T}(ri::T, ro::T, at::Placement{T}) where {T <: Real}
+        return validate(new{T}(ri, ro, at))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct an annulus between the radii `ri` and `ro` \\[m\\], centered at the origin.
+"""
+Annulus(ri::Real, ro::Real) = Annulus(ri, ro, Placement(zero(ri), zero(ro)))
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct an annulus between the radii `ri` and `ro` \\[m\\] at the placement `at`, in the
+floating type that they promote to.
+
+# Errors
+
+- Throws `DomainError` when `ri` is negative or not finite, or when `ro` is not finite or does
+  not exceed `ri`.
+"""
+function Annulus(ri::Real, ro::Real, at::Placement)
+    T = float(promote_type(typeof(ri), typeof(ro), eltype(at)))
+    return Annulus{T}(convert(T, ri), convert(T, ro), convert(Placement{T}, at))
+end
+
+function validate(annulus::Annulus)
+    isfinite(annulus.ri) && annulus.ri >= zero(annulus.ri) ||
+        throw(DomainError(annulus.ri, "Annulus.ri must be nonnegative and finite"))
+    isfinite(annulus.ro) && annulus.ro > annulus.ri ||
+        throw(DomainError(annulus.ro, "Annulus.ro must be finite and exceed Annulus.ri"))
+    return annulus
+end
+
+# An annulus that follows a part begins at or outside the part's outer radius.
+function validate(annulus::Annulus, inner::Union{Circle, Annulus})
+    radius = r_ex(inner)
+    tolerance = sqrt(eps(float(radius))) * max(one(radius), radius)
+    annulus.ri + tolerance >= radius || throw(DomainError(annulus.ri,
+        "Annulus.ri must not be less than $radius m, the outer radius of the part inside it"))
+    return annulus
+end
+
+"""
+$(TYPEDEF)
+
+Represent a rectangular strand before a circular pattern bends it onto its course: its width
+lies along the course and its height across it.
+
+$(TYPEDFIELDS)
+"""
+struct Rectangle{T <: Real} <: AbstractPrimitive{T}
+    "Width along the local x-axis \\[m\\]."
+    w::T
+    "Height along the local y-axis \\[m\\]."
+    h::T
+    "Placement of the center in the cable cross-section."
+    at::Placement{T}
+    function Rectangle{T}(w::T, h::T, at::Placement{T}) where {T <: Real}
+        return validate(new{T}(w, h, at))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a rectangle of width `w` and height `h` \\[m\\] centered at the origin, in the floating
+type that they promote to.
+
+# Errors
+
+- Throws `DomainError` when `w` or `h` is not positive and finite.
+"""
+function Rectangle(w::Real, h::Real)
+    T = float(promote_type(typeof(w), typeof(h)))
+    return Rectangle{T}(convert(T, w), convert(T, h), Placement(zero(T), zero(T)))
+end
+
+function validate(rectangle::Rectangle)
+    isfinite(rectangle.w) && rectangle.w > zero(rectangle.w) ||
+        throw(DomainError(rectangle.w, "Rectangle.w must be positive and finite"))
+    isfinite(rectangle.h) && rectangle.h > zero(rectangle.h) ||
+        throw(DomainError(rectangle.h, "Rectangle.h must be positive and finite"))
+    return rectangle
+end
+
+"""
+$(TYPEDEF)
+
+Declare a distance outward from the outline of the part inside, which the offset resolves
+against. As the cross-section of a region, it is a layer of that thickness around the
+outline, such as an insulation, a semiconducting screen or a jacket. As the radius of a
+[`CircularPattern`](@ref), it is the clearance between the outline and the members.
+
+$(TYPEDFIELDS)
+"""
+struct Offset{T <: Real}
+    "Distance outward from the outline \\[m\\]."
+    t::T
+    function Offset{T}(t::T) where {T <: Real}
+        return validate(new{T}(t))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare the distance `t` \\[m\\] outward from the outline of the part inside.
+
+# Errors
+
+- Throws `DomainError` when `t` is negative or not finite.
+"""
+Offset(t::Real) = Offset{typeof(float(t))}(float(t))
+
+function validate(offset::Offset)
+    isfinite(offset.t) && offset.t >= zero(offset.t) ||
+        throw(DomainError(offset.t, "Offset.t must be nonnegative and finite"))
+    return offset
+end
+
+"""
+$(TYPEDEF)
+
+Represent an annular sector: the region between the inner radius ``r_i`` and the outer
+radius ``r_o`` over the angular span ``\\Delta\\phi``, symmetric about the x-axis of its
+placement. A circular pattern bends a rectangular strand of width ``w`` and height ``h``
+into an annular sector of the same area:
+
+```math
+\\frac{\\Delta\\phi}{2}\\left(r_o^2 - r_i^2\\right) = w h.
+```
+
+$(TYPEDFIELDS)
+"""
+struct AnnularSector{T <: Real} <: AbstractShape{T}
+    "Inner radius \\[m\\]."
+    ri::T
+    "Outer radius \\[m\\]."
+    ro::T
+    "Angular span \\[rad\\]."
+    span::T
+    "Placement of the center of curvature. Its x-axis is the symmetry axis of the sector."
+    at::Placement{T}
+    function AnnularSector{T}(ri::T, ro::T, span::T, at::Placement{T}) where {T <: Real}
+        return validate(new{T}(ri, ro, span, at))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct an annular sector from its fields, in the floating type that they promote to.
+
+# Errors
+
+- Throws `DomainError` when a radius is negative or not finite, when `ro` does not exceed
+  `ri`, or when `span` is outside (0, 2π\\].
+"""
+function AnnularSector(ri::Real, ro::Real, span::Real, at::Placement)
+    T = float(promote_type(typeof(ri), typeof(ro), typeof(span), eltype(at)))
+    return AnnularSector{T}(convert(T, ri), convert(T, ro), convert(T, span),
+        convert(Placement{T}, at))
+end
+
+function validate(sector::AnnularSector)
+    isfinite(sector.ri) && sector.ri >= zero(sector.ri) ||
+        throw(DomainError(sector.ri, "AnnularSector.ri must be nonnegative and finite"))
+    isfinite(sector.ro) && sector.ro > sector.ri ||
+        throw(DomainError(sector.ro, "AnnularSector.ro must be finite and exceed AnnularSector.ri"))
+    zero(sector.span) < sector.span <= 2π ||
+        throw(DomainError(sector.span, "AnnularSector.span must lie in (0, 2π]"))
+    return sector
+end
+
+"""
+$(TYPEDEF)
+
+Represent a cross-section with holes: the outer cross-section without the cross-sections
+inside it, such as the fill between the wires of a course.
+
+$(TYPEDFIELDS)
+"""
+struct DifferenceShape{
+    T <: Real, O <: AbstractShape{T}, H <: AbstractVector{<:AbstractShape}} <:
+       AbstractShape{T}
+    "Outer cross-section."
+    outer::O
+    "Outlines removed from the outer one. They lie inside it, and each lies outside the others."
+    holes::H
+    function DifferenceShape(outer::O,
+            holes::H) where {
+            T <: Real, O <: AbstractShape{T}, H <: AbstractVector{<:AbstractShape}}
+        return new{T, O, H}(outer, holes)
+    end
+end
+
+"""
+$(TYPEDEF)
+
+Represent the outline at the center of a cable, before its first part. The first part keeps
+its declared cross-section.
+"""
+struct EmptyBoundary
+    EmptyBoundary() = new()
+end
+
+Base.eltype(::AbstractShape{T}) where {T} = T
+
+"""
+    area(shape)
+
+Return the cross-sectional area of `shape` \\[m²\\]:
+
+```math
+A_\\mathrm{circle} = \\pi r^2, \\qquad
+A_\\mathrm{annulus} = \\pi \\left(r_o^2 - r_i^2\\right), \\qquad
+A_\\mathrm{rectangle} = w h, \\qquad
+A_\\mathrm{sector} = \\frac{\\Delta\\phi}{2} \\left(r_o^2 - r_i^2\\right),
+```
+
+where ``r`` is the radius of a circle, ``r_i`` and ``r_o`` are inner and outer radii, ``w``
+and ``h`` are the width and height of a rectangle \\[m\\], and ``\\Delta\\phi`` \\[rad\\] is
+the angular span of a sector. A [`DifferenceShape`](@ref) has the area of its outer
+cross-section less the areas of its holes.
+"""
+function area end
+
+area(circle::Circle) = π * circle.r^2
+area(annulus::Annulus) = π * (annulus.ro^2 - annulus.ri^2)
+area(rectangle::Rectangle) = rectangle.w * rectangle.h
+area(sector::AnnularSector) = sector.span * (sector.ro^2 - sector.ri^2) / 2
+function area(shape::DifferenceShape)
+    return area(shape.outer) - sum(area, shape.holes; init = zero(eltype(shape)))
+end
+
+"""
+    centroid(shape)
+
+Return the centroid `(x, y)` of `shape` in the cable cross-section \\[m\\]. For an annular
+sector, the centroid lies on its symmetry axis at the distance
+
+```math
+d = \\frac{4 \\sin(\\Delta\\phi / 2) \\left(r_o^3 - r_i^3\\right)}
+    {3 \\Delta\\phi \\left(r_o^2 - r_i^2\\right)}
+```
+
+from its center of curvature, where ``\\Delta\\phi`` is its angular span and ``r_i`` and ``r_o``
+are its inner and outer radii. A circle and an annulus have their centroid at their center. A
+[`DifferenceShape`](@ref) of area ``A`` has the centroid
+
+```math
+\\mathbf c = \\frac{A_o \\mathbf c_o - \\sum_h A_h \\mathbf c_h}{A},
+```
+
+where ``A_o`` and ``\\mathbf c_o`` are the area and centroid of its outer cross-section, and
+``A_h`` and ``\\mathbf c_h`` those of each hole.
+"""
+function centroid end
+
+centroid(shape::Union{Circle, Annulus}) = (shape.at.x, shape.at.y)
+
+function centroid(sector::AnnularSector)
+    d = 4sin(sector.span / 2) * (sector.ro^3 - sector.ri^3) /
+        (3sector.span * (sector.ro^2 - sector.ri^2))
+    return sector.at((d, zero(d)))
+end
+
+function centroid(shape::DifferenceShape)
+    x, y = area(shape.outer) .* centroid(shape.outer)
+    for hole in shape.holes
+        x, y = (x, y) .- area(hole) .* centroid(hole)
+    end
+    return (x, y) ./ area(shape)
+end
+
+"""
+    support(shape)
+
+Return the radius of a circle about the origin that contains `shape` \\[m\\]:
+
+```math
+S = \\sqrt{x_c^2 + y_c^2} + r_o,
+```
+
+where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. A
+[`DifferenceShape`](@ref) has the support of its outer cross-section.
+"""
+function support end
+
+support(circle::Circle) = hypot(circle.at.x, circle.at.y) + circle.r
+support(annulus::Annulus) = hypot(annulus.at.x, annulus.at.y) + annulus.ro
+support(sector::AnnularSector) = hypot(sector.at.x, sector.at.y) + sector.ro
+support(shape::DifferenceShape) = support(shape.outer)
+
+"""
+    distance(shape)
+
+Return the radius of a circle about the origin that `shape` does not enter \\[m\\]:
+
+```math
+\\max(0, d - r_o, r_i - d),
+```
+
+where ``d`` is the distance from the origin to the center of `shape`, and ``r_i`` and
+``r_o`` are its inner and outer radii. The inner radius of a circle is zero, and the center of
+an annular sector is its center of curvature.
+"""
+function distance end
+
+distance(circle::Circle) = max(zero(circle.r), hypot(circle.at.x, circle.at.y) - circle.r)
+
+function distance(shape::Union{Annulus, AnnularSector})
+    offset = hypot(shape.at.x, shape.at.y)
+    return max(zero(offset), offset - shape.ro, shape.ri - offset)
+end
+
+distance(shape::DifferenceShape) = distance(shape.outer)
+
+"""
+    boundary(shape)
+
+Return the outline of `shape`. A circle and an annular sector are their own outlines. The
+outline of an annulus is the circle of its outer radius. The outline of a
+[`DifferenceShape`](@ref) is the outline of its outer cross-section. The next part resolves
+against the outline, and an enclosure removes it from its fill.
+"""
+function boundary end
+
+boundary(circle::Circle) = circle
+boundary(annulus::Annulus) = Circle(annulus.ro, annulus.at)
+boundary(sector::AnnularSector) = sector
+boundary(shape::DifferenceShape) = boundary(shape.outer)
+
+"""
+    r_in(shape)
+
+Return the inner radius of a circular shape \\[m\\]: zero for a circle.
+"""
+function r_in end
+
+r_in(circle::Circle) = zero(circle.r)
+r_in(annulus::Annulus) = annulus.ri
+r_in(sector::AnnularSector) = sector.ri
+
+"""
+    r_ex(shape)
+
+Return the outer radius of a circular shape \\[m\\].
+"""
+function r_ex end
+
+r_ex(circle::Circle) = circle.r
+r_ex(annulus::Annulus) = annulus.ro
+r_ex(sector::AnnularSector) = sector.ro
+
+# The first part of a cable keeps its declared cross-section.
+resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
+
+# An offset around a circle or an annulus is the annulus of its thickness at the same
+# placement.
+function resolve(inner::Union{Circle, Annulus}, offset::Offset)
+    return Annulus(r_ex(inner), r_ex(inner) + offset.t, inner.at)
+end
+
+# A declared annulus keeps its radii and takes the placement of the part inside it.
+function resolve(inner::Union{Circle, Annulus}, annulus::Annulus)
+    return Annulus(validate(annulus, inner).ri, annulus.ro, inner.at)
+end
+
+# Each method composes `at` with the placement of the part that it places.
+resolve(at::Placement, circle::Circle) = Circle(circle.r, at * circle.at)
+function resolve(at::Placement, annulus::Annulus)
+    return Annulus(annulus.ri, annulus.ro, at * annulus.at)
+end
+function resolve(at::Placement, sector::AnnularSector)
+    return AnnularSector(sector.ri, sector.ro, sector.span, at * sector.at)
+end
+function resolve(at::Placement, shape::DifferenceShape)
+    return DifferenceShape(resolve(at, shape.outer), [resolve(at, hole)
+                                                      for hole in shape.holes])
+end
+
+Base.map(f, circle::Circle) = Circle(f(circle.r), map(f, circle.at))
+function Base.map(f, annulus::Annulus)
+    return Annulus(f(annulus.ri), f(annulus.ro), map(f, annulus.at))
+end
+function Base.map(f, rectangle::Rectangle)
+    w, h = f(rectangle.w), f(rectangle.h)
+    at = map(f, rectangle.at)
+    T = float(promote_type(typeof(w), typeof(h), eltype(at)))
+    return Rectangle{T}(convert(T, w), convert(T, h), convert(Placement{T}, at))
+end
+Base.map(f, offset::Offset) = Offset(f(offset.t))
+function Base.map(f, sector::AnnularSector)
+    return AnnularSector(f(sector.ri), f(sector.ro), f(sector.span), map(f, sector.at))
+end
+function Base.map(f, shape::DifferenceShape)
+    return DifferenceShape(map(f, shape.outer), [map(f, hole) for hole in shape.holes])
+end

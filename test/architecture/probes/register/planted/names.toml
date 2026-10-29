@@ -1,0 +1,25 @@
+[shape]
+mandated = ["__init__"]
+
+[register.Commons.public]
+shared = "a value times a scale"
+
+[register.Alpha.public]
+area = "the square of a value"
+depth = "a value less one"
+
+[register.Alpha.private]
+area = "the square of a value"
+radius = "half the square root of a value"
+outer = ""
+scaled = "a value doubled and shifted"
+summed = "the shifted values, summed"
+width = "the width of a value"
+alias = "a shared value"
+gone = "a name no module defines"
+
+[register.RegisterProbePlantedExt.private]
+draw = "the mesh of a value"
+
+[register.Missing.private]
+thing = "a name of a module that does not exist"
