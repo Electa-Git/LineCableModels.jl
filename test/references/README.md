@@ -1,6 +1,6 @@
 # Reference results
 
-Per-unit-length line parameters of the four cable systems of this release, computed with the
+Per-unit-length line parameters of the six cable systems of this release, computed with the
 Unified earth formulation and with FEM. The tests compare the package against them.
 
 The case scripts in `test/manual/cases/` of the branch `release/v0.2.0-fem-investigation` of
@@ -18,6 +18,8 @@ FEM values within 1e-8. Run each script from the repository root as
 | `two_insulated_wires` | the same wires with 1 mm of insulation (εr 2.3) | `a7640beb` | `20261016-162539` |
 | `coaxial_circular_strands` | one coaxial cable with a core of circular strands, buried 1 m deep in earth of 100 Ω·m (εr 10) | `989af96c` | `20261025-000358` |
 | `coaxial_rectangular_strands` | the same cable with a core of rectangular strands | `2bff171d` | `20261023-215619` |
+| `overhead_bare_wires` | two bare copper wires of radius 42.5 mm, 1 m apart, 1 m above earth of 0.1 Ω·m (εr 1) | `9621e504` | `20261028-235359` |
+| `mixed_bare_wires` | the same wires at (0, 1) m and (1, −1) m, one overhead and one buried | `9621e504` | `20261028-235548` |
 
 The coaxial cable, from the center out:
 
@@ -62,11 +64,13 @@ and `Y`, at the same 101 frequencies:
 - `Pg`, per cable: the earth-return potential coefficients of the cables from their outer
   surfaces in m/F.
 
-A copy of each case script computed them at `989af96c`, in the runs below. The copy keeps the
-script's system and formulation, leaves out FEM, computes with `options = (trace = true,)` and
-writes the four matrices of `details(result).data.trace`. The comment lines give the conductors
-and the cables in row and column order, and the units. Each row is one entry of one matrix:
-`source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`, `real`, `imaginary`.
+Copies of the four original case scripts computed them at `989af96c`. Copies of the overhead
+and mixed scripts computed them at `9621e504`. The runs appear below. Each copy keeps the
+script's system and formulation, leaves out FEM, computes with `options = (trace = true,)`
+and writes the four matrices of `details(result).data.trace`. The comment lines give the
+conductors and the cables in row and column order, and the units. Each row is one entry of
+one matrix: `source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`, `real`,
+`imaginary`.
 
 `Z` is `Zin` plus `Zg`, whose entry for two cables adds to every pair of their conductors, and `Y`
 is `jω (Pin + Pg)⁻¹`, with `Pg` added in the same way. Rebuilt so, each `stages.csv` gives the
@@ -84,6 +88,8 @@ each copy gives its file again, byte for byte.
 | `two_insulated_wires/stages-gamma.csv` | `20261025-152032` |
 | `coaxial_circular_strands/stages.csv` | `20261025-151920` |
 | `coaxial_rectangular_strands/stages.csv` | `20261025-152029` |
+| `overhead_bare_wires/stages.csv` | `20261028-235644` |
+| `mixed_bare_wires/stages.csv` | `20261028-235756` |
 
 ## Status
 
@@ -98,8 +104,11 @@ The port's run gives these maxima against the analytical rows:
 | `two_insulated_wires` | 0.407 % | 0.0447 % |
 | `coaxial_circular_strands` | 4.92 % | 10.5 % |
 | `coaxial_rectangular_strands` | 5.22 % | 10.4 % |
+| `overhead_bare_wires` | 0.610 % | 0.817 % |
+| `mixed_bare_wires` | 0.609 % | 0.617 % |
 
-For `two_bare_wires` and `two_insulated_wires`, the meshes coincide with the source meshes.
+For `two_bare_wires`, `two_insulated_wires`, `overhead_bare_wires` and
+`mixed_bare_wires`, the meshes coincide with the source meshes.
 Their rows agree with the frozen `fem` rows within 1e-6 scaled.
 For the coaxial cases, the maxima against the frozen `fem` rows are:
 

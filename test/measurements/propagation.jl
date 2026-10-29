@@ -89,7 +89,9 @@ end
         ("coaxial_rectangular_strands", :rho_cu, :Y),
         ("coaxial_rectangular_strands", :mu_steel, :Y)))
     formulation = CoaxialFormulation()
-    for (index, (case, reference)) in enumerate(REFERENCES)
+    references = Dict(REFERENCES)
+    for (index, (case, _)) in enumerate(cases())
+        reference = references[case]
         @testset "$case" begin
             frequencies = reference.frequencies[1:10:end]
             deterministic = compute(

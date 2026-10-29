@@ -1,3 +1,5 @@
+# Reference order: the buried bare and insulated wire pairs, the two coaxial cases,
+# then the overhead and mixed bare-wire pairs. The first two entries keep their positions.
 const REFERENCES = let
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
     # The wire cases take the copper of the materials library that their scripts read.
@@ -45,6 +47,15 @@ const REFERENCES = let
         push!(cases,
             case => LineParametersProblem(system, homogeneous(rho = 100, eps_r = 10);
                 frequencies))
+    end
+    design = build(CableDesign, "bare_wire", metal)
+    for (case, placements) in (
+        ("overhead_bare_wires", [Placement(0.0, 1.0), Placement(1.0, 1.0)]),
+        ("mixed_bare_wires", [Placement(0.0, 1.0), Placement(1.0, -1.0)]))
+        system = build(CableSystem, [design, design], placements;
+            connections = [(core = 1,), (core = 2,)], id = case, line_length = 1.0)
+        push!(cases,
+            case => LineParametersProblem(system, homogeneous(rho = 0.1); frequencies))
     end
     cases
 end

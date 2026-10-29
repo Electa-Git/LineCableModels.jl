@@ -267,6 +267,10 @@ using SpecialFunctions: besseli
             [Placement(0.0, -1.0), Placement(1.0, -1.0)], homogeneous(rho = 0.1), zero_gamma),
         ("coaxial_circular_strands", "stages.csv", 0.0325, [Placement(0.0, -1.0)],
             homogeneous(rho = 100, eps_r = 10), zero_gamma),
+        ("overhead_bare_wires", "stages.csv", 0.0425,
+            [Placement(0.0, 1.0), Placement(1.0, 1.0)], homogeneous(rho = 0.1), zero_gamma),
+        ("mixed_bare_wires", "stages.csv", 0.0425,
+            [Placement(0.0, 1.0), Placement(1.0, -1.0)], homogeneous(rho = 0.1), zero_gamma),
         ("two_insulated_wires", "stages-gamma.csv", 0.0435,
             [Placement(0.0, -1.0), Placement(1.0, -1.0)], homogeneous(rho = 0.1),
             [im * 1.01 * 2π * f / 299792458 for f in frequencies])]

@@ -3,13 +3,20 @@ using LineCableModels.Engine: admittivity, resistivity, reductions
 @testset "Gmsh field model" begin
     FieldModel = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FieldModel
     formulation = FEM()
-    @testset "$case" for ((case, reference), regions, groups, layers, expected_layers) in
-                         zip(REFERENCES, (2, 4, 85, 85), (1, 2, 5, 5), (0, 2, 5, 5),
-        (Symbol[], [:core_insulation, :core_insulation],
+    facts = Dict(
+        "two_bare_wires" => (2, 1, 0, Symbol[], [false, false]),
+        "two_insulated_wires" => (4, 2, 2,
+            [:core_insulation, :core_insulation], [false, false]),
+        "coaxial_circular_strands" => (85, 5, 5,
             [:core_semicon_inner, :core_insulation, :core_semicon_outer,
-                :sheath_bedding, :armour_jacket],
+                :sheath_bedding, :armour_jacket], [false]),
+        "coaxial_rectangular_strands" => (85, 5, 5,
             [:core_semicon_inner, :core_insulation, :core_semicon_outer,
-                :sheath_bedding, :armour_jacket]))
+                :sheath_bedding, :armour_jacket], [false]),
+        "overhead_bare_wires" => (2, 1, 0, Symbol[], [true, true]),
+        "mixed_bare_wires" => (2, 1, 0, Symbol[], [true, false]))
+    @testset "$case" for (case, reference) in REFERENCES
+        regions, groups, layers, expected_layers, air = facts[case]
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature,
             frequencies = reference.frequencies[1:10:end])
@@ -21,7 +28,7 @@ using LineCableModels.Engine: admittivity, resistivity, reductions
         @test length(model.material) == length(problem.system.regions) == regions
         @test model.label == reductions(problem.system, FEM().options).label
         @test length(model.label) == length(problem.system.terminals)
-        @test all(!, model.air)
+        @test model.air == air
         @test length(model.materials) == groups
         @test count(model.layer) == layers
         @test [region.source.tag for region in problem.system.regions[findall(model.layer)]] ==

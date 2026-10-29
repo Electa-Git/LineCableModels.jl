@@ -20,7 +20,9 @@ end
 @testset "Gmsh mesh" begin
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
     options = ComputationOptions(GmshBackend; workers = 2, getdp_executable = :download)
-    @testset "$case" for (case, reference) in REFERENCES[1:2]
+    references = Dict(REFERENCES)
+    @testset "$case" for case in ("two_bare_wires", "two_insulated_wires")
+        reference = references[case]
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature, frequencies = reference.frequencies[1:1])
         model = extension.FieldModel(problem, FEM())

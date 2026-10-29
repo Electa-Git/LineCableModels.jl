@@ -1,8 +1,14 @@
 @testset "Gmsh computation" begin
     extension = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
-    @testset "$case" for ((case, reference), (tolerance, expected)) in zip(REFERENCES,
-        ((1e-6, (Z = 0.00568, Y = 0.00798)), (1e-6, (Z = 0.00407, Y = 0.000447)),
-            (1e-2, (Z = 0.0492, Y = 0.105)), (1e-2, (Z = 0.0522, Y = 0.104))))
+    facts = Dict(
+        "two_bare_wires" => (1e-6, (Z = 0.00568, Y = 0.00798)),
+        "two_insulated_wires" => (1e-6, (Z = 0.00407, Y = 0.000447)),
+        "coaxial_circular_strands" => (1e-2, (Z = 0.0492, Y = 0.105)),
+        "coaxial_rectangular_strands" => (1e-2, (Z = 0.0522, Y = 0.104)),
+        "overhead_bare_wires" => (1e-6, (Z = 0.00610, Y = 0.00817)),
+        "mixed_bare_wires" => (1e-6, (Z = 0.00609, Y = 0.00617)))
+    @testset "$case" for (case, reference) in REFERENCES
+        tolerance, expected = facts[case]
         problem = LineParametersProblem(reference.system, reference.earth;
             temperature = reference.temperature, frequencies = reference.frequencies[1:10:end])
         formulation = FEM(; bundle = false, kron = false, transposition = false)
