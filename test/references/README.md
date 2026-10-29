@@ -3,8 +3,8 @@
 Per-unit-length line parameters of the six cable systems of this release, computed with the
 Unified earth formulation and with FEM. The tests compare the package against them.
 
-The case scripts in `test/manual/cases/` of the branch `release/v0.2.0-fem-investigation` of
-this repository computed them, each at the commit that the table gives. Commit `2bff171d` adds
+The case scripts in `test/manual/cases/` computed them, each at the commit of this repository
+that the table gives. Commit `2bff171d` adds
 the two coaxial scripts to `a7640beb` and changes nothing else. Commit `989af96c` reduces every
 terminal to its equivalent conductor by the current share of its regions, as this release does.
 This reduction changes only the core of `coaxial_circular_strands`. At `989af96c`, the other
@@ -42,7 +42,7 @@ conductors in row and column order, and the units. Each row is one entry of one 
 evenly spaced on a logarithmic scale. The FEM rows hold 11 of them, one per 0.8 decade.
 
 Each case folder also holds `physical.geo`, the geometry file of the FEM run of its
-script. At fem-investigation commit `989af96c`, all four scripts ran unchanged with
+script. At commit `989af96c`, all four scripts ran unchanged with
 gmsh_jll 4.15.2. Their FEM rows match `matrices.csv` within 5.4e-9 of the largest
 diagonal entry. Each `physical.geo` is byte-identical to the retained file of its case's run of
 2026-10-25. The geometry tests compare against these files.
@@ -79,7 +79,7 @@ analytical rows of its `matrices.csv` within 4e-15 of the largest diagonal entry
 `stages.csv` uses `Γ = 0`, as `matrices.csv` does. `stages-gamma.csv` prescribes the longitudinal
 wavenumber `Γ_k = j·1.01·2π·f_k/c` on both earth matrices, with `c = 299792458` m/s. It changes
 `Zg` and `Pg` by up to 7.5e-4 of their values and leaves `Zin` and `Pin` unchanged. A second run of
-each copy gives its file again, byte for byte.
+each copy gives its data rows again, byte for byte.
 
 | File | Run |
 |---|---|

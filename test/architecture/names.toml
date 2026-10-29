@@ -256,28 +256,28 @@ Formula = "an internal-impedance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.InternalImpedance".formulas]
-schelkunoff1934 = "the inner, outer and transfer surface impedances of a tubular conductor (Schelkunoff 1934; fem-investigation internalimpedance/formulas/schelkunoff1934.jl)"
+schelkunoff1934 = "the inner, outer and transfer surface impedances of a tubular conductor (Schelkunoff 1934; commit 989af96c, internalimpedance/formulas/schelkunoff1934.jl)"
 
 [register."Engine.InsulationImpedance".public]
 Formula = "an insulation-impedance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.InsulationImpedance".formulas]
-ametani1980 = "s μ₀ μ_r ln(r_ex / r_in) / 2π across an annular dielectric (Ametani 1980; fem-investigation insulationimpedance/formulas/ametani1980.jl)"
+ametani1980 = "s μ₀ μ_r ln(r_ex / r_in) / 2π across an annular dielectric (Ametani 1980; commit 989af96c, insulationimpedance/formulas/ametani1980.jl)"
 
 [register."Engine.InsulationAdmittance".public]
 Formula = "an insulation-admittance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.InsulationAdmittance".formulas]
-lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (fem-investigation insulationadmittance/formulas/lossless.jl)"
+lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (commit 989af96c, insulationadmittance/formulas/lossless.jl)"
 
 [register."Engine.SemiconAdmittance".public]
 Formula = "a semicon-admittance formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.SemiconAdmittance".formulas]
-lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (fem-investigation semiconadmittance/formulas/lossless.jl)"
+lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (commit 989af96c, semiconadmittance/formulas/lossless.jl)"
 
 [register."Engine.EarthReturn".public]
 Formula = "an earth-return formula, its identifier the type parameter"
@@ -287,28 +287,28 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 i0m1 = "I₀(z) − 1 without the cancellation of the difference; Unified's, two call sites with different arguments, the per-cable state and J₀(rλ) − 1 in the air-voltage integrand"
 
 [register."Engine.EarthReturn".formulas]
-unified = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ (fem-investigation earthimpedance/formulas/unified.jl, unified/kernels.jl, unified/current.jl)"
+unified = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ (commit 989af96c, earthimpedance/formulas/unified.jl, unified/kernels.jl, unified/current.jl)"
 
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.Shunt".formulas]
-series = "the series chain of the potential coefficients s ln(r_ex / r_in) / 2πκ of the annular layers, summed from each conductor outward (fem-investigation src/engine/admittance.jl)"
+series = "the series chain of the potential coefficients s ln(r_ex / r_in) / 2πκ of the annular layers, summed from each conductor outward (commit 989af96c, src/engine/admittance.jl)"
 
 [register."Engine.Resistivity".public]
 Formula = "a resistivity formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.Resistivity".formulas]
-linear = "ρ₀ [1 + α (θ − T₀)] within 150 K of T₀ (fem-investigation materials/temperaturedependent/formulas/linear.jl)"
+linear = "ρ₀ [1 + α (θ − T₀)] within 150 K of T₀ (commit 989af96c, materials/temperaturedependent/formulas/linear.jl)"
 
 [register."Engine.EarthProperties".public]
 Formula = "an earth-properties formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.EarthProperties".formulas]
-constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (fem-investigation earth/frequencydependent/formulas/constant.jl)"
+constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (commit 989af96c, earth/frequencydependent/formulas/constant.jl)"
 
 [register.CAD.public]
 Segment = "a straight curve between two points of the cross-section plane"

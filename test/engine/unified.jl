@@ -1,8 +1,8 @@
 using LinearAlgebra: I, diag, lu!
 using SpecialFunctions: besseli
 
-# The targets come from the Unified formula of the branch release/v0.2.0-fem-investigation at
-# 989af96c: the state of the cables and the pair terms. It ran with Γ = 0 at 0.1 Hz, 1 kHz and
+# The targets come from the Unified formula of commit 989af96c of this repository: the state
+# of the cables and the pair terms. It ran with Γ = 0 at 0.1 Hz, 1 kHz and
 # 10 MHz. The earth-return terms read only the centers and the outer radii of the cables. A
 # wire of the outer radius of a reference cable stands for that cable. The formulation fills
 # the buffer `gamma` with its option Γ at each frequency. Here the test gives that buffer.

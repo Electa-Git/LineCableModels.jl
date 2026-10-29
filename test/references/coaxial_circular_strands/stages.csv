@@ -2,7 +2,7 @@
 # Conductors of Zin and Pin in row/column order: 1 = cable:1:core, 2 = cable:1:sheath, 3 = cable:1:armour
 # Cables of Zg and Pg in row/column order: 1 to 1; cable of each conductor: 1, 1, 1
 # Units: frequency in Hz; Zin and Zg in ohm/m, Pin and Pg in m/F, per unit length
-# Source: analytical = release/v0.2.0-fem-investigation at 989af96c, Unified earth (Γ = 0),
+# Source: analytical = commit 989af96c, Unified earth (Γ = 0),
 #         default shunt model, options = (trace = true,), 101 frequencies
 source,frequency_hz,matrix,row,column,real,imaginary
 analytical,0.10000000000000001,Zin,1,1,6.8081350791695741e-05,3.0502599986066538e-07

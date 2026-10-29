@@ -1,5 +1,5 @@
-# The targets come from the schelkunoff1934 and ametani1980 formulas of the branch
-# release/v0.2.0-fem-investigation at 989af96c, with s = j 2π f. They are the equivalent tubes
+# The targets come from the schelkunoff1934 and ametani1980 formulas of commit 989af96c of
+# this repository, with s = j 2π f. They are the equivalent tubes
 # and the dielectric layers of the coaxial references.
 @testset "Engine impedances" begin
     Engine = LineCableModels.Engine
