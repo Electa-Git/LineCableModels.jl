@@ -3,7 +3,7 @@
 /.linecablemodels/
 /docs/build/
 /docs/Manifest.toml
-/docs/src/tutorials/
+/docs/src/examples/
 # Vale packages that the prose job downloads.
 /.github/prose/styles/ai-tells/
 /.github/prose/styles/STE/

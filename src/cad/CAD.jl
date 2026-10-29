@@ -191,8 +191,9 @@ end
 $(TYPEDSIGNATURES)
 
 Construct the four counterclockwise quadrant arcs of `circle`, whose radius and center
-coordinates are in \\[m\\]. The angles start at zero, independent of the placement's
-rotation \\[rad\\]. The contour has no holes.
+coordinates are in \\[m\\]. Arc ``k = 0, \\ldots, 3`` starts at the angle ``k \\pi / 2`` and
+spans ``\\pi / 2`` \\[rad\\], independent of the placement's rotation. The contour has no
+holes.
 """
 function Contour(circle::Circle{T}) where {T}
     c = circle.at
@@ -218,8 +219,11 @@ end
 $(TYPEDSIGNATURES)
 
 Construct the closed path of `sector`, whose radii and center coordinates are in \\[m\\]
-and whose angular span and placement rotation are in \\[rad\\]. A partial turn follows the
-outer arc, the radial edge, the inner arc in reverse and the closing radial edge. With a
+and whose angular span and placement rotation are in \\[rad\\]. A partial turn of span
+``\\Delta\\phi`` about the rotation ``\\phi`` follows the outer arc from
+``\\phi - \\Delta\\phi / 2`` with span ``\\Delta\\phi``, the radial edge, the inner arc
+from ``\\phi + \\Delta\\phi / 2`` with span ``-\\Delta\\phi`` and the closing radial
+edge. With a
 zero inner radius, two segments join the outer arc to the center. A full turn gives the
 contour of a circle or annulus.
 """

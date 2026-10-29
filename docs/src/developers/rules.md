@@ -1,15 +1,121 @@
 # Rules and patterns
 
-This page states the rules that every change to LineCableModels follows, with the reason for
-each and the patterns that extend the package within them. The guards of
+This page states the principles behind LineCableModels, the rules that every change
+follows, with the reason for each, and the patterns that extend the package within them. The guards of
 `test/architecture/` enforce the rules mechanically. A guard failure blocks a change. There
-is no baseline, and an exemption exists only in the rule's own text. The instructions given
-to automated agents that work on this repository use the same text.
+is no baseline, and an exemption exists only in the rule's own text.
 
 Every rule serves one intent. Dispatch comes first, and the vocabulary is narrow, with short
 action verbs. Dispatch gives a function its subject, and the module namespace and the
 dispatch type give its context. Types select behavior, and names are few with one meaning
 each. Structure replaces machinery.
+
+## Principles
+
+These principles underlie the rules below. The vocabulary of the package shows them in a few
+verbs and many types, with modules made of methods of verbs that already existed.
+
+### Protocols are the interface
+
+A type joins the package by implementing protocols that already exist, those of Julia, such as
+`convert`, `promote`, `==`, `map`, `eltype`, `write`, `read`, `run`, `in` and `show`, and those of the
+grammar, `validate`, `resolve`, `build`, `compute`, `defaults` and `select`. The set of
+verbs is closed. The set of types is open. A new capability is a new type with methods of
+existing verbs, placed with the owner of the type. The package has no interface of its own
+beyond its grammar, and a reader who knows the grammar knows every module.
+
+### A verb exists only for an act with no native name
+
+Before a verb is proposed, its call is written with a function of Base or of the grammar. If
+that call reads true, the verb does not exist. Starting a process is `run`, writing a file is
+`write`, decoding one is `read`, converting a record is `map`, comparing is `==`. The package
+defines verbs only for acts Julia has no word for. Its verbs flatten a design, draw a
+contour, integrate a spectral integrand, mesh a cross-section and scan frequencies with a
+solver. An act
+made of two acts is two lines, never one name.
+
+### Predictability is the measure of a module
+
+A module has the right form when a reader can write the signature of each definition from
+its purpose before reading it. The definitions follow the computation in order, each a
+method of a known verb on an owned type. Variety of names is a cost, never a feature. A
+module that reads as a tedious sequence of expected overloads is a module that is right.
+
+### Declarations are passive, and few verbs act on them
+
+The nouns of the package are types with typed fields and no behavior: materials, layers,
+parts, designs, systems, problems, formulations, records and results. The verbs act on them.
+No declaration computes, caches or decides. A choice that selects behavior is a type
+parameter set at construction, because dispatch reads it. A name that only identifies, such
+as a terminal name or a region tag, stays a value, because only a table reads it.
+
+### The structure is designed for the domain and implemented for the subset released
+
+The data model is designed for every cable construction the field knows, and the engine for
+every formula of its families, before either is implemented for the cases a release covers.
+A later feature adds a type and its methods inside that structure. It never adds a second
+structure, a flag or a mode, and never re-implements a concept for one case.
+
+### Capability is refused where it is missing, at the call
+
+The structure above a formula never rejects a physically valid input for a formula's sake.
+The data model encodes, describes and draws equivalences. A formula that cannot treat an
+input throws when it is called. A backend refuses before it runs what it cannot honor. The
+refusal states the thing that is missing.
+
+### Each component treats its own limitations
+
+A shared layer never bends to the limitation of one consumer. A mesh that cannot resolve
+contact between cables meshes the contact region itself. A formula that needs a cable in one
+medium checks that itself. A check in a shared layer exists for a physical or structural fact
+and for nothing else.
+
+### Operators are named for their action, elements for what they are
+
+A physical element takes a physical noun: `Circle`, `Annulus`, `CircularPattern`,
+`Helix`. An operator on an element takes the name of its action: `Offset`, `Repeat`, `Lay`,
+`Enclosure`. A selector symbol stands for a definite act, law or source: `:discover`,
+`:download`, `:unified`, `:schelkunoff1934`. No selector is `:auto`, `:default` or a vague
+quality.
+
+### Equality is equality of the computation
+
+Selections are equal when they produce one computation. A formula is its identifier and its
+options, records compare by value, and equal formulas have one type. The same formula
+object means the same computation on every backend. A result records the formulation that
+computed it, so that a result never claims a computation that did not take place.
+
+### Selection happens once, evaluation reads types
+
+Each choice is made at construction. A Symbol becomes a type by its lift, a keyword fills a
+typed record, and a formula fills a typed slot. The computation that follows reads types and never
+decides. What a reader sees inside a loop is physics and arithmetic.
+
+### Reference results are frozen with their origin, and deviations are explained
+
+A reference is a file with the commit, the script and the run that produced it, and a
+computation is held to it at a stated level. Each deviation is recorded with its cause as the
+known status of that case. Tolerances are not chosen from the difference that was achieved,
+and a failing case stays in the set.
+
+### A measurement precedes a design decision
+
+A choice between structures rests on a number, such as an allocation count, a timing, an
+inference report or a difference against a reference. A passing check, an existing test or a page of
+documentation is evidence of what it encodes, never the reason a structure stays. Physics and
+structure are the arguments.
+
+### Generality is bounded by the mathematics
+
+A generalization with a physical meaning is implemented when its mathematics is within
+reach, never deferred because no present case needs it, whereas a convenience keeps the
+scope it was given and grows into nothing.
+
+### The notation of the physics is the vocabulary
+
+The symbols of the equations are terms of the lexicon: `rho`, `eps_r`, `mu_r`, `r_in`,
+`r_ex`, `Γ`, `s`. The code writes the equation with the symbols the docstring defines, once,
+inline, so that the physics is read where it is computed.
 
 ## Rules
 
@@ -27,13 +133,14 @@ concepts. The naming guards check this on every run.
 
 The package defines only the names that `test/architecture/names.toml` lists. Everything
 else is a method of a registered function or type, or of a function of Base, a standard
-library or a dependency. A name enters the register with the author's confirmation, in the
-change that introduces it, with its meaning. It leaves with its definition.
+library or a dependency. A name enters the register with the maintainers' confirmation, in
+the change that introduces it, with its meaning. It leaves with its definition.
 
 Reason: a private helper exists because naming a fragment costs its writer less than finding
-the fragment's owner. Every threshold on the form of a helper is a door, and automated
-agents take the cheapest door. So the gate judges no name. It brings every name to the
-author for confirmation, and no other path can define behavior under a new name.
+the fragment's owner. Every threshold on the form of a helper is a door, and the cheapest
+form that passes the threshold is the one that gets written. So the gate judges no name. It
+brings every name to the maintainers for confirmation, and no other path can define behavior
+under a new name.
 
 A helper takes these forms.
 
@@ -84,18 +191,16 @@ select(EarthReturn.Formula, :unified)                # lifts :unified to Formula
 ```
 
 Reason: a Symbol comparison inside a computation is a hidden switch that dispatch cannot
-see. The code this release was ported from had 208 of them. The one admitted home of a
-Symbol or string comparison is the module that owns external data. The Gmsh extension
-decodes the native outputs of its own solver runs, and no package module decodes external
-data.
+see, and each one hides a default. The one admitted home of a Symbol or string
+comparison is the module that owns external data. The Gmsh extension decodes the native
+outputs of its own solver runs, and no package module decodes external data.
 
 ### No value stands for absence
 
 The code calls none of `isnothing`, `ismissing` and `something`. It compares nothing with
 `nothing` or `missing`, and no argument or type parameter is `Nothing` or `Missing`. The one
-exemption is
-the result of a Julia function that returns `nothing` by its own protocol, such as
-`findfirst`, `match`, `tryparse` or `Sys.which`, tested directly.
+exemption is the result of a Julia function that returns `nothing` by its own protocol, such
+as `findfirst`, `match`, `tryparse` or `Sys.which`, tested directly.
 
 A fact that does not hold is a row that does not exist. A result without a trace stores an
 empty record. An optional external resource takes a positive default: a public type that
@@ -107,8 +212,8 @@ getdp_executable = :download                  # the pinned artifact
 getdp_executable = "/opt/getdp/bin/getdp"     # a path, used as is
 ```
 
-Reason: the code this release was ported from decided by absence 452 times. Each decision
-was a hidden branch with a hidden default.
+Reason: a decision by absence is a hidden branch with a hidden default, and the type system
+cannot see either.
 
 ### Typed fields and typed constructors
 
@@ -177,7 +282,7 @@ state initialized as `nothing` or a type discovered inside a loop. Fix the struc
 the decision first and allocate before the loop, which is its own method. Never wrap the
 symptom in a helper. No package method's lowered code contains a `Core.Box`.
 
-### The levels of tools
+### Levels of tools
 
 Each name is defined at the level whose every member uses it, and nowhere higher. An engine
 tool is one every formula of its concern uses, delivered through the engine's buffers and a
@@ -231,9 +336,9 @@ share a word with the module's path. A global verb is defined only in `Commons`,
 verb only in that module. No function of the package takes a name that Base or Core exports.
 Methods of Base and other packages are free.
 
-Reason: the previous release had 1 171 functions over 821 words. Among them, 122 names
-repeated a word of their own module, and 73 repeated a word of a type they dispatch on. A
-narrow vocabulary with dispatch as the subject keeps one name per concept.
+Reason: a vocabulary that repeats the subject or the context inside names grows without
+bound, and one concept soon has several names. A narrow vocabulary with dispatch as the
+subject keeps one name per concept.
 
 ### Tests
 
@@ -249,15 +354,15 @@ check feature results, not by tests written to touch lines.
 Docstrings follow the [conventions](conventions.md). Every physical argument, return value,
 field and constant states its SI unit. A docstring describes implemented behavior and states
 each fact once. Vale and cspell pass on every maintained file. A finding is fixed by
-rewriting the sentence, never by a directive, and a word joins the dictionary only by the
-author's decision.
+rewriting the sentence, never by a directive, and a word joins the dictionary only by a
+decision of the maintainers.
 
 ## Patterns
 
-Each pattern below is the complete list of what a change adds. Anything more is a question
-for the author.
+Each pattern below is the complete list of what a change adds. Anything more is a change to
+the architecture and is discussed with the maintainers first.
 
-### A formula in an existing family
+### Add a formula to a family
 
 Three parts. The example is an earth-return formula that gives the impedance alone.
 
@@ -282,9 +387,10 @@ own controls declares them in `defaults` and checks them in `validate(options)`.
 with shared state between its quantities defines `prepare!` and reads its state in
 `impedance!` and `potential!`. A formula that needs arrays adds
 `initialize_buffers(formula, problem, input, buffers)` and returns the buffers merged with
-its own, keyed by its identifier.
+its own, keyed by its identifier. Its equations go to the "Formulas" section of the family
+module's docstring, as the [conventions](conventions.md) say.
 
-### A slot of the formulation
+### Add a slot to the formulation
 
 A new slot is a field with a default in `CoaxialFormulation`, typed by its family, and a
 keyword with its default identifier in the keyword constructor. The family is a child module
@@ -292,18 +398,19 @@ of `Engine` with `Formula`, `FORMULAS` and the lift. The function the family's m
 extend is declared in `Engine`, with its docstring, and the loop calls it at the step where
 its quantity enters.
 
-### A backend
+### Add a backend
 
 A backend is a singleton of `AbstractBackend` in `Engine`. It adds four things.
 
 - `defaults(::Type{B})`, its computation options.
 - `compute(::B, problem, formulation; kw...)`, which builds the options once.
 - `compute(::B, problem, formulation, options::ComputationOptions{B})`, which computes.
-- `validate(formulation, ::B)` per formulation it implements, with a throwing fallback. A
-  backend implemented in an extension defines its methods there and leaves its singleton in
-  `Engine`, as `GmshBackend` does. A formulation's default backend is one `backend` method.
+- `validate(formulation, ::B)` per formulation it implements, with a throwing fallback.
 
-### A cross-section
+A backend implemented in an extension defines its methods there and leaves its singleton in
+`Engine`, as `GmshBackend` does. A formulation's default backend is one `backend` method.
+
+### Add a cross-section
 
 A cross-section is one type under `AbstractPrimitive` with the methods of the unary
 interface. The methods are `area`, `centroid`, `support`, `distance` and `boundary`,
@@ -311,13 +418,13 @@ interface. The methods are `area`, `centroid`, `support`, `distance` and `bounda
 circular. The `CAD` module adds its `Contour`. The Gmsh extension adds its native section.
 Nothing in the parts, the design or the engine changes.
 
-### A part or a builder
+### Add a part or a builder
 
 A part is a node type under `AbstractCablePart` with one job and one `resolve` method.
 Builders are functions that lower to existing nodes and do not add a capability. Both enter
 the register with their meanings.
 
-### An extension
+### Add an extension
 
 An extension declares its weak dependency in `Project.toml` and imports each name it uses
 from its owner. It defines methods of registered functions and of Base. A name of its own
@@ -325,36 +432,9 @@ enters a `[register.<Extension>]` table of `names.toml`, with its terms sanction
 extension's own section. The extension never defines a core method, and the rules apply to
 it as to a package module.
 
-### A name
+### Add a name
 
 A new name is proposed with its meaning and its terms. The proposal says why the effect is
-not inline code, a method of a Base function, or a method of a registered name. The author
-confirms it. The register and the lexicon are updated in the same change as the definition.
-
-## What never returns
-
-These constructs were used in the previous release, or were proposed during this one, and
-were withdrawn. They do not come back under another name.
-
-- A `FormulaDefinition`, an `Expression`, a `Functor` or a `:default` identifier. A formula
-  is its `defaults` method, its registry line and its physics methods.
-- An author-named formula type such as `Ametani()`. The corpus has hundreds of formulas over
-  ninety years, and one author proposes several. The family module and the identifier are
-  the disambiguation.
-- A wrapper that pairs an impedance formula with a potential formula in one slot. Both earth
-  slots and the equality rule do that by type.
-- Kernel types for the spectral terms, a `weighted` fold, a `contour!` function, a
-  `Sommerfeld` family or a `Quadrature` family. The engine gives `SpectralIntegral`,
-  `integrate` and `ray!`, and a formula writes its integrands inline.
-- A `*Workspace` type with fixed fields, a storage type per formula, or a helper that wraps
-  lost inference.
-- A sentinel type for an absent or deferred value, such as a connections-absent marker or a
-  count that stands for as many members as fit.
-- A verb such as `launch`, `start` or `spawn` that bundles the preparation of inputs and the
-  start of a process.
-- A clearance that moves cables apart by a micrometer to help a mesh. The system keeps the
-  declared placements, and each backend treats contact.
-- `nothing` as the value of an optional resource, a `Dict` of connections, a `Shell` layer
-  named as a physical element.
-- Counts, baselines and ratchets in the guards. A guard blocks at zero.
-- A runner, an error budget, a refinement loop or an audit inside `compute`.
+not inline code, a method of a Base function, or a method of a registered name. The
+maintainers confirm it. The register and the lexicon are updated in the same change as the
+definition.

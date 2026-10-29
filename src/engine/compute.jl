@@ -125,7 +125,15 @@ $(TYPEDSIGNATURES)
 
 Write the series impedances and shunt admittances at every frequency. Evaluate material laws
 and cable formulas, prepare earth state once per formula, assemble the conductor matrices,
-and apply bundle and Kron reductions. The admittance is
+and apply bundle and Kron reductions. The conductor matrices add the earth-return matrices of
+the cables to the matrices inside them,
+
+```math
+Z_{ij} = Z_{\\mathrm{in}, ij} + Z_{g, c_i c_j}, \\qquad
+P_{ij} = P_{\\mathrm{in}, ij} + P_{g, c_i c_j},
+```
+
+where ``c_i`` is the cable of conductor ``i``. The admittance is
 
 ```math
 Y = s P_{\\mathrm{r}}^{-1}, \\qquad s = \\mathrm{j} 2 \\pi f,

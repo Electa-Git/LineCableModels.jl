@@ -69,6 +69,12 @@ where ``R`` is resistance, ``L`` is inductance, and ``f`` is frequency.
 Accessors, forwarding methods, and bookkeeping functions do not need a
 mathematical section unless they evaluate the documented expression.
 
+A formula of a family, `Formula{:id}`, keeps its equations in one place. The
+docstring of the family module has a section "Formulas" with one block per
+formula, headed `Formula{:id}`, that gives its equations, defines their symbols
+and cites its references. The methods of the formula state what they return and
+point to that section, without repeating the equations.
+
 ### DocStringExtensions abbreviations
 
 - `$(TYPEDSIGNATURES)` is the default opening for functions and constructors.

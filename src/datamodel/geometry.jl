@@ -53,7 +53,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compose `child`, a placement in the frame of `parent`, into the frame that holds `parent`.
+Compose `child`, a placement in the frame of `parent`, into the frame that holds `parent`:
+
+```math
+x = x_p + x_c \\cos\\phi_p - y_c \\sin\\phi_p, \\qquad
+y = y_p + x_c \\sin\\phi_p + y_c \\cos\\phi_p, \\qquad
+\\phi = \\phi_p + \\phi_c,
+```
+
+where ``(x_p, y_p)`` and ``(x_c, y_c)`` are the positions of `parent` and `child` \\[m\\], and
+``\\phi_p`` and ``\\phi_c`` are their rotations \\[rad\\].
 """
 function Base.:*(parent::Placement, child::Placement)
     return Placement(parent.x + cos(parent.φ) * child.x - sin(parent.φ) * child.y,
@@ -64,7 +73,14 @@ end
 $(TYPEDSIGNATURES)
 
 Rotate `point` by the rotation of `placement`, then translate it by the position of
-`placement`.
+`placement`:
+
+```math
+x = x_0 + u \\cos\\phi - v \\sin\\phi, \\qquad y = y_0 + u \\sin\\phi + v \\cos\\phi,
+```
+
+where ``(u, v)`` is `point` \\[m\\], ``(x_0, y_0)`` is the position of `placement` \\[m\\] and
+``\\phi`` is its rotation \\[rad\\].
 
 # Returns
 
@@ -363,7 +379,19 @@ Base.eltype(::AbstractShape{T}) where {T} = T
 """
     area(shape)
 
-Return the cross-sectional area of `shape` \\[m²\\].
+Return the cross-sectional area of `shape` \\[m²\\]:
+
+```math
+A_\\mathrm{circle} = \\pi r^2, \\qquad
+A_\\mathrm{annulus} = \\pi \\left(r_o^2 - r_i^2\\right), \\qquad
+A_\\mathrm{rectangle} = w h, \\qquad
+A_\\mathrm{sector} = \\frac{\\Delta\\phi}{2} \\left(r_o^2 - r_i^2\\right),
+```
+
+where ``r`` is the radius of a circle, ``r_i`` and ``r_o`` are inner and outer radii, ``w``
+and ``h`` are the width and height of a rectangle \\[m\\], and ``\\Delta\\phi`` \\[rad\\] is
+the angular span of a sector. A [`DifferenceShape`](@ref) has the area of its outer
+cross-section less the areas of its holes.
 """
 function area end
 
@@ -387,7 +415,15 @@ d = \\frac{4 \\sin(\\Delta\\phi / 2) \\left(r_o^3 - r_i^3\\right)}
 ```
 
 from its center of curvature, where ``\\Delta\\phi`` is its angular span and ``r_i`` and ``r_o``
-are its inner and outer radii.
+are its inner and outer radii. A circle and an annulus have their centroid at their center. A
+[`DifferenceShape`](@ref) of area ``A`` has the centroid
+
+```math
+\\mathbf c = \\frac{A_o \\mathbf c_o - \\sum_h A_h \\mathbf c_h}{A},
+```
+
+where ``A_o`` and ``\\mathbf c_o`` are the area and centroid of its outer cross-section, and
+``A_h`` and ``\\mathbf c_h`` those of each hole.
 """
 function centroid end
 
@@ -410,8 +446,14 @@ end
 """
     support(shape)
 
-Return the distance from the origin to the center of `shape` plus its outer radius \\[m\\]: the
-radius of a circle about the origin that contains `shape`.
+Return the radius of a circle about the origin that contains `shape` \\[m\\]:
+
+```math
+S = \\sqrt{x_c^2 + y_c^2} + r_o,
+```
+
+where ``(x_c, y_c)`` is the center of `shape` and ``r_o`` its outer radius \\[m\\]. A
+[`DifferenceShape`](@ref) has the support of its outer cross-section.
 """
 function support end
 

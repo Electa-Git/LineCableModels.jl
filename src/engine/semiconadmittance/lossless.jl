@@ -3,16 +3,9 @@ defaults(::Type{Formula{:lossless}}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-Return the admittivity of a semicon layer of `material` at the frequency `f`, without
-conduction or polarization loss:
-
-```math
-\\kappa = \\mathrm{j} 2 \\pi f \\varepsilon_0 \\varepsilon_r,
-```
-
-Here ``f`` is frequency, ``\\kappa`` is admittivity, and ``\\varepsilon_r`` is the relative
-permittivity `eps_r` of the material \\[dimensionless\\]. The constant
-``\\varepsilon_0`` is [`vacuum_permittivity`](@ref).
+Return the admittivity of a semicon layer of `material` at the frequency `f`, by the
+formula `Formula{:lossless}`, whose equation is in the section "Formulas" of
+[`SemiconAdmittance`](@ref).
 
 # Arguments
 

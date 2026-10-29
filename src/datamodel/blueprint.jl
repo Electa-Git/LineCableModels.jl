@@ -111,7 +111,8 @@ An annulus about the center of inner radius ``a`` and outer radius ``b`` has the
     - \\frac{3a^2 - b^2}{4 (b^2 - a^2)}\\right],
 ```
 
-which is ``\\log b - \\mu_i / 4`` for a circle. Any other region has the self term
+which is ``\\log b - \\mu_i / 4`` for a circle and ``\\log b`` for a thin shell,
+``a = b``. Any other region has the self term
 ``\\log \\sqrt{A_i / \\pi} - \\mu_i / 4`` of the circle of its area. The mutual distance
 ``d_{ij}`` is the distance between the centroids. For a region inside the hole of an annulus, it
 is the mean distance of Rosa (1908), Eq. (57):
@@ -122,8 +123,17 @@ is the mean distance of Rosa (1908), Eq. (57):
 
 The tube of inner radius ``r_i`` and outer radius ``r_e`` takes the resistivity
 ``R \\pi (r_e^2 - r_i^2)``. Its relative permeability gives the self term of an annulus the
-value ``\\log g``. The interval of the tube reaches from ``r_e`` to ``r_d``, and its layer ``k``
-of relative permeability ``\\mu_k`` reaches from ``a_k`` to ``b_k``. The interval has
+value ``\\log g``:
+
+```math
+\\mu_\\mathrm{tube} = \\frac{\\log r_e - \\log g}
+    {\\frac{r_i^4}{(r_e^2 - r_i^2)^2} \\log\\frac{r_e}{r_i}
+        - \\frac{3 r_i^2 - r_e^2}{4 (r_e^2 - r_i^2)}},
+```
+
+with the first term of the denominator zero for ``r_i = 0``. The interval of the tube
+reaches from ``r_e`` to ``r_d``, and its layer ``k`` of relative permeability ``\\mu_k``
+reaches from ``a_k`` to ``b_k``. The interval has
 
 ```math
 \\mu_{ins} = \\frac{\\sum_k \\mu_k \\log(b_k / a_k)}{\\log(r_d / r_e)}

@@ -2,6 +2,23 @@
     LineCableModels.Engine.InsulationImpedance
 
 Compute the magnetic series-impedance term across an annular dielectric.
+
+# Formulas
+
+## `Formula{:ametani1980}`
+
+Magnetic term of the series impedance across an annular dielectric layer, from the field
+between its radii [Ametani1980, Ametani2015b](@cite):
+
+```math
+z = \\frac{s \\mu_0 \\mu_r}{2 \\pi} \\ln \\frac{r_\\mathrm{ex}}{r_\\mathrm{in}},
+```
+
+where ``s`` is the complex frequency \\[1/s\\], ``r_\\mathrm{in}`` and
+``r_\\mathrm{ex}`` are the inner and outer radii of the layer \\[m\\], and ``\\mu_r`` is its
+relative permeability \\[dimensionless\\]. The constant ``\\mu_0`` is
+[`vacuum_permeability`](@ref). The term is zero when ``r_\\mathrm{in}`` is zero or equals
+``r_\\mathrm{ex}``.
 """
 module InsulationImpedance
 

@@ -13,10 +13,17 @@ z_k = z_{\\mathrm{outer}, k} + z_{\\mathrm{inner}, k + 1} + z_{\\mathrm{insulati
 where ``z_{\\mathrm{outer}, k}`` is the outer surface impedance of conductor ``k`` and
 ``z_{\\mathrm{insulation}, k}`` is the term of its dielectric interval. The inner surface
 impedance of the next conductor outward is ``z_{\\mathrm{inner}, k + 1}``, zero for the
-outermost conductor. All impedance terms have units \\[Ω/m\\]. The loop impedance adds to
-the diagonal entry of ``k``. Less the transfer impedance ``z_{\\mathrm{transfer}, k}``, it
-adds to the entries between ``k`` and each conductor inside it. Less twice that transfer
-impedance, it adds to the entries between two conductors inside ``k``.
+outermost conductor. With the conductors of the assembly numbered ``1, \\ldots, n`` from the
+inside out, the loop impedances and the transfer impedances ``z_{\\mathrm{transfer}, k}``
+give the entries
+
+```math
+Z_{\\mathrm{in}, ij} = \\sum_{k = \\max(i, j)}^{n}
+    \\left(z_k - \\left([i < k] + [j < k]\\right) z_{\\mathrm{transfer}, k}\\right),
+```
+
+where ``[\\cdot]`` is 1 when its condition holds and 0 otherwise. All impedance terms have
+units \\[Ω/m\\].
 
 # Arguments
 

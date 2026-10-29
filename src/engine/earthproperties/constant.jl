@@ -3,8 +3,9 @@ defaults(::Type{Formula{:constant}}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-Return the properties of the earth `layer` at the frequency `f`: its static values, the same
-at every frequency.
+Return the properties of the earth `layer` at the frequency `f` by the formula
+`Formula{:constant}`, whose equation is in the section "Formulas" of
+[`EarthProperties`](@ref).
 
 # Arguments
 

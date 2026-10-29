@@ -2,6 +2,19 @@
     LineCableModels.Engine.EarthProperties
 
 Compute the resistivity, relative permittivity, and relative permeability of earth and air.
+
+# Formulas
+
+## `Formula{:constant}`
+
+Properties of a layer of the earth or of the air independent of the frequency ``f``:
+
+```math
+\\rho(f) = \\rho, \\qquad \\varepsilon_r(f) = \\varepsilon_r, \\qquad \\mu_r(f) = \\mu_r,
+```
+
+where ``\\rho`` is the resistivity of the layer \\[Ω·m\\], and ``\\varepsilon_r`` and
+``\\mu_r`` are its relative permittivity and permeability \\[dimensionless\\].
 """
 module EarthProperties
 

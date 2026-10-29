@@ -3,19 +3,9 @@ defaults(::Type{Formula{:series}}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-Write into `Pin` the potential coefficients inside the cables, conductor by conductor, from
-the series chain of their annular dielectric layers. A layer between radii ``a`` and ``b``
-\\[m\\], of admittivity ``\\kappa`` \\[S/m\\], has the coefficient ``p`` \\[m/F\\]:
-
-```math
-p = \\frac{s \\ln(b / a)}{2 \\pi \\kappa},
-```
-
-where ``s`` is complex frequency. The coefficient is zero when ``a`` is zero or equals
-``b``. The coefficients of the layers in the interval of a conductor add to its own
-coefficient. In each concentric assembly, the own coefficients add from the cable's surface
-inward. Their sum at a conductor is the potential coefficient between that conductor and the
-cable's surface. The entry between two conductors takes that coefficient of the outer one.
+Write into `Pin` the potential coefficients inside the cables, conductor by conductor, by
+the formula `Formula{:series}`, whose equations are in the section "Formulas" of
+[`Shunt`](@ref).
 
 # Arguments
 

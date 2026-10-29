@@ -8,18 +8,18 @@ const SITE_URL = "https://electa-git.github.io/LineCableModels.jl"
 
 project = TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))
 
-# The tutorials, in the order of the contents, rendered from their scripts at every build.
-tutorial_files = ["solid_1000mm2_single.jl", "cable_380kv_no_armour_ac_flat.jl",
+# The examples, in the order of the contents, rendered from their scripts at every build.
+example_files = ["solid_1000mm2_single.jl", "cable_380kv_no_armour_ac_flat.jl",
     "cable_320kv_armoured_dc_bipole.jl", "cable_525kv_subsea_armoured_ac_flat.jl"]
-rm(joinpath(@__DIR__, "src", "tutorials"); recursive = true, force = true)
-for file in tutorial_files
+rm(joinpath(@__DIR__, "src", "examples"); recursive = true, force = true)
+for file in example_files
     Literate.markdown(joinpath(@__DIR__, "..", "examples", file),
-        joinpath(@__DIR__, "src", "tutorials"); documenter = true, credit = false)
+        joinpath(@__DIR__, "src", "examples"); documenter = true, credit = false)
 end
-tutorials = [String(chopprefix(readline(joinpath(@__DIR__, "..", "examples", file)),
-                 "# # ")) => joinpath("tutorials", replace(file, ".jl" => ".md"))
-             for file in tutorial_files]
-tutorial_pages = last.(tutorials)
+examples = [String(chopprefix(readline(joinpath(@__DIR__, "..", "examples", file)),
+                "# # ")) => joinpath("examples", replace(file, ".jl" => ".md"))
+            for file in example_files]
+example_pages = last.(examples)
 
 DocMeta.setdocmeta!(LineCableModels, :DocTestSetup, :(using LineCableModels);
     recursive = true)
@@ -58,12 +58,12 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
-        "Tutorials" => Any["Contents" => "tutorials.md", tutorials...],
+        "Examples" => Any["Contents" => "examples.md", examples...],
         "User guide" => Any[
             "Cable data model" => "data-model.md",
             "Line parameters" => "computing.md",
-            "Finite elements with Gmsh and GetDP" => "fem.md",
-            "Uncertainty" => "uncertainty.md"
+            "Finite element solver" => "fem.md",
+            "Uncertainty quantification" => "uncertainty.md"
         ],
         "Theory" => Any[
             "Contents" => "theory/contents.md",
@@ -76,8 +76,6 @@ makedocs(;
         "Developers" => Any[
             "Architecture" => "developers/architecture.md",
             "Rules and patterns" => "developers/rules.md",
-            "Development of the package" => "developers/workflow.md",
-            "Planned, changed, delivered" => "developers/history.md",
             "Conventions" => "developers/conventions.md"
         ],
         "Bibliography" => "bibliography.md"

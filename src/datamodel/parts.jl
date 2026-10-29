@@ -216,7 +216,15 @@ end
 $(TYPEDEF)
 
 Lay the copies of a repeat along the cable. Each copy follows the helix about the center of
-the repeat, at the distance of its centroid.
+the repeat, at the lay radius of its centroid:
+
+```math
+r = \\left| \\frac{\\sum_i A_i \\mathbf c_i}{\\sum_i A_i} \\right|,
+```
+
+where ``A_i`` \\[m²\\] and ``\\mathbf c_i`` \\[m\\] are the area and centroid of each region of the
+copy. The helix has the [`pitch`](@ref) and [`overlength`](@ref) at that radius, the pitch
+signed by the direction of the helix.
 
 $(TYPEDFIELDS)
 """

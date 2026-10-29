@@ -24,9 +24,6 @@ breakpoints of the quadrature, and [`integrate`](@ref) evaluates each integral b
 quadrature. The option `integral` of the formula selects the method and its controls,
 `integral = (method = :quad, rtol, atol, maxevals)`.
 
-The published solutions that the formula contains are those of the underground case
-[5437464](@cite) and of the mixed overhead and underground case [MartinsBritto2024](@cite).
-
 ## Validity of the default formula
 
 The default formula, `:unified`, holds within two ranges.

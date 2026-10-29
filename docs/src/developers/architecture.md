@@ -1,10 +1,9 @@
 # Architecture
 
-This page is the architectural specification of LineCableModels 0.1.0. It states the
-structure that the code implements and that every change must preserve. The [rules and
-patterns](rules.md) say how to extend the package without breaking that structure. The
-[workflow](workflow.md) page says how the work is organized. The [history](history.md) page
-records what was planned, what changed on the way, and what was delivered.
+This page is the architectural specification of LineCableModels. It states the structure
+that the code implements and that every change preserves. The [rules and
+patterns](rules.md) say how to extend the package within that structure, and the
+[conventions](conventions.md) say how the code and its documentation are written.
 
 The package computes the series impedance and the shunt admittance of cable systems per unit
 length. A problem describes the cables, the earth, the temperature and the frequencies. The
@@ -47,7 +46,7 @@ backend. A control belongs to whoever makes the approximation it controls.
 The package is six modules in one load order, and two extensions.
 
 | Module | Owns |
-|---|---|
+| --- | --- |
 | `Commons` | the grammar: `validate`, `resolve`, `build`, `compute`, `defaults`, `select`, the abstract types `AbstractFormulation` and `AbstractBackend`, the option records |
 | `Materials` | `Material{T, K}`, the properties of a material with its class `K` as a type parameter |
 | `Earth` | `EarthLayer`, `EarthModel`, `homogeneous`: the air and the earth as a stack of layers |
@@ -74,12 +73,12 @@ A method that extends a function of another module mentions a type of its own mo
 Constructors belong to the owner of their type. Every file of a module lies under the
 directory of its module file. No core method is defined under `ext/`.
 
-## The grammar
+## Grammar
 
 `Commons` defines the verbs that the other modules extend with methods.
 
 | Function | Meaning |
-|---|---|
+| --- | --- |
 | `validate(subject, context...)` | reject an invalid input before its consumer uses it, and return `subject` unchanged |
 | `resolve(context, declaration)` | give a declared part or layer its geometry in its context, or place a cross-section in a frame |
 | `build(Target, declarations...)` | construct one completed object of `Target` from its declarations |
@@ -99,30 +98,29 @@ unknown key throws. Each value takes its declared type. `validate` checks the va
 type of a record does not depend on which keys the caller passed, so one computation
 compiles one specialization.
 
-## The data model
+## Data model
 
 The data model has three layers. It encodes a cable as a declaration and describes the cable
 as resolved regions with tables. From the description it draws the equivalences that the
-formulations read. It never rejects
-a physically valid design for a missing formula. A formula that cannot treat an input throws
-when it is called.
+formulations read. It never rejects a physically valid design for a missing formula. A
+formula that cannot treat an input throws when it is called.
 
-### Shapes
+### Cross-sections
 
 A cross-section is one type with the methods of one unary interface: `area`, `centroid`,
-`support`, `distance`, `boundary` and `resolve`. `r_in` and `r_ex` exist on circular shapes
-only. No method takes two cross-sections. The primitives are `Circle`, `Annulus`,
-`Rectangle` and `AnnularSector`. `Offset(t)` is an operator: a layer declared by its
-thickness, resolved on the outline of the part inside it. `DifferenceShape` is the
+`support`, `distance`, `boundary` and `resolve`. `r_in` and `r_ex` exist on circular
+cross-sections only. No method takes two cross-sections. The primitives are `Circle`,
+`Annulus`, `Rectangle` and `AnnularSector`. `Offset(t)` is an operator: a layer declared by
+its thickness, resolved on the outline of the part inside it. `DifferenceShape` is the
 cross-section of a fill, a container without the outlines of its contents. A new kind of
 cross-section is one type and its methods. The structure above it does not change.
 
-### The declaration
+### Declaration
 
 A cable is a tree of parts. Each node has one job.
 
 | Node | Job |
-|---|---|
+| --- | --- |
 | `Region(tag, primitive, material)` | one material in one cross-section, named by its tag |
 | `Stack(parts...)` | outward layering: each part resolves against the outline of the part inside it |
 | `Terminal(name, part)` | every conductive region of `part` belongs to the terminal `name` |
@@ -135,7 +133,7 @@ terminal. A region of an insulator or a semicon belongs to no terminal. A termin
 is an identification and nothing else. The circuit role of a terminal belongs to the
 connections of the system.
 
-### The description
+### Description
 
 `build(CableDesign, id, parts...)` resolves the tree into a `CableDesign`. The design stores
 the placed regions from the inside out, the outline, and tables of the terminals, the
@@ -145,7 +143,7 @@ materials. An uncertain material widens `T`. The design validates itself at cons
 The regions cover the outline without gaps or overlaps. Every region of an enclosure lies
 inside its container. Every conductive region belongs to a terminal.
 
-### The equivalence
+### Equivalence
 
 `flatten(design)` builds a `CableBlueprint` for the coaxial formulations. Each terminal
 becomes an equivalent tube. A course of laid wires becomes a tube whose material reproduces
@@ -155,7 +153,7 @@ permeability of the dielectric interval, `mu_r_ins`. The dielectric layers betwe
 consecutive conductors form the interval of the inner one. The lay correction is made in the
 equivalence. The earth-return formulas never see it.
 
-### The system
+### System
 
 `build(CableSystem, designs, placements; connections, id, line_length)` places cables in one
 cross-section. `connections` is one named tuple per cable, keyed by terminal name. An index
@@ -164,7 +162,7 @@ Every terminal name must appear. The system rejects overlapping cables and keeps
 declared placements. A cable may touch the interface between air and earth and may never
 cross it. The unified formula and the finite-element model refuse a cable that touches it.
 
-### The surface syntax
+### Surface syntax
 
 `@cable` and `@terminal` and the builders `core`, `insulation`, `screen`, `sheath`,
 `bedding`, `jacket`, `stranded` and `armor` lower to the nodes above. They do not add a
@@ -181,7 +179,7 @@ wire = @cable "insulated_wire" begin
 end
 ```
 
-## The engine
+## Engine
 
 ### Formula families
 
@@ -201,7 +199,7 @@ method, a no-op by default. A formula that needs arrays of its own adds an
 `initialize_buffers` method.
 
 | Family | Formula | Methods it defines |
-|---|---|---|
+| --- | --- | --- |
 | `InternalImpedance` | `:schelkunoff1934` | `impedance(formula, r_in, r_ex, rho, mu_r, s)`, the inner, outer and transfer surface impedances |
 | `InsulationImpedance` | `:ametani1980` | `impedance(formula, r_in, r_ex, mu_r, s)`, the magnetic term of an annular dielectric |
 | `InsulationAdmittance` | `:lossless` | `admittivity(formula, material, f)` of an insulator |
@@ -211,7 +209,7 @@ method, a no-op by default. A formula that needs arrays of its own adds an
 | `Resistivity` | `:linear` | `resistivity(formula, material, temperature)` |
 | `EarthProperties` | `:constant` | `properties(formula, layer, f)` |
 
-### The formulation
+### Formulation
 
 `CoaxialFormulation` is a struct of nine typed slots and one options record. A slot accepts
 `:id`, `:id => (key = value, ...)` or a `Formula` of its family. The keyword constructor
@@ -281,7 +279,7 @@ At each frequency the loop runs these steps in order.
 After the first call, the loop allocates only the pivot vectors of `lu!`. The test of the
 loop measures that number exactly.
 
-### Buffers and the levels of tools
+### Buffers and tool levels
 
 `initialize_buffers` is the one action that builds buffers. It builds the base keys and
 folds over `formulas(formulation)`, so that a formula adds its own arrays. A base key is a
@@ -297,7 +295,7 @@ declares. Everything else is the formula's, in the bodies of its physics methods
 unified formula defines its kernels, its direct terms and its pair loop inside `prepare!`,
 and one private operation, `i0m1`.
 
-### The result
+### Result
 
 `LineParameters{T, F, N}` stores `Z` and `Y` as arrays indexed by row, column and frequency.
 It also stores the frequencies, the label of each retained conductor, the line length, the
@@ -313,9 +311,9 @@ and never crashes. A `Measurement` input keeps its type through the data model a
 engine. `BigFloat` is unsupported: SpecialFunctions has no Bessel methods for it, and the
 honest error is the `MethodError` at the first call.
 
-## The extensions
+## Extensions
 
-### The finite-element backend
+### Finite-element backend
 
 `using Gmsh` loads `LineCableModelsGmshExt`. The extension reads the engine's problem, the
 laws of `FEM` and the reduction plan of `reductions`. From the data model it reads the
@@ -328,8 +326,8 @@ problem: the material groups, the terminals and the medium of each cable. `geome
 builds the Gmsh geometry through `draw` and writes `physical.geo`. `mesh.jl` writes the
 model data and meshes every frequency, one Gmsh process at a time per worker. `getdp.jl`
 selects the executable and scans the frequencies with GetDP. `result.jl` reduces the
-terminal matrices and builds the result. The twelve native sources under `getdp/` keep the
-code of the finite-element investigation branch byte for byte.
+terminal matrices and builds the result. The twelve native sources under `getdp/` are the
+GetDP problem definitions, kept byte for byte.
 
 The backend refuses four things before it runs.
 
@@ -356,7 +354,7 @@ refuse a `Measurement`, because a control is not a physical input. The test tree
 nominal parts against the deterministic engine and the sensitivities against finite
 differences.
 
-## The register and the lexicon
+## Register and lexicon
 
 `test/architecture/names.toml` is the one record of every name the package defines. It has
 two halves.
@@ -379,17 +377,17 @@ value to a type with a `Val`.
 unified = "the circumferentially averaged earth return of air, earth and mixed systems ..."
 ```
 
-A name enters the register with the author's confirmation, in the change that introduces it,
-and leaves with its definition. Everything else is a method of a registered function or
+A name enters the register with the maintainers' confirmation, in the change that introduces
+it, and leaves with its definition. Everything else is a method of a registered function or
 type, or of a function of Base, a standard library or a dependency.
 
-## The guards
+## Guards
 
 `test/architecture/` enforces the structure on every test run. Each guard blocks at zero.
 A baseline, a ratchet or a count does not exist.
 
 | Guard | What it checks |
-|---|---|
+| --- | --- |
 | ownership | a method that extends a foreign function mentions a type of its own module |
 | placement | a module's files lie under its home, and no core method lies under `ext/` |
 | names | functions and types of different modules have different names, unless they descend from one abstract type of `Commons` |
@@ -419,6 +417,5 @@ A baseline, a ratchet or a count does not exist.
 
 A set of planted probes, the negative controls, proves that each guard reports a violation.
 Beside the guards, Aqua checks the project, JET and `@inferred` check the inference of
-`compute`, and the loop's allocation is measured exactly. The test tree checks the physics
-against the finite-element results of the investigation branch with six frozen reference
-cases.
+`compute`, and the loop's allocation is measured exactly. Under `test/references/`, six frozen
+reference cases hold the physics to finite-element results.

@@ -12,7 +12,15 @@ $(TYPEDEF)
 
 Place `n` members evenly on a circle about the center of the enclosing part. The circle has
 a declared radius, or it lies at an [`Offset`](@ref) from the outline of the part inside the
-members, which the pattern resolves against with its members.
+members, which the pattern resolves against with its members. The offset ``t`` gives the
+radius
+
+```math
+R = S + t + \\delta,
+```
+
+where ``S`` is the [`support`](@ref) of that outline \\[m\\], and ``\\delta`` is the radial half
+extent of a member: the radius of a circle, or half the height of a rectangle \\[m\\].
 
 $(TYPEDFIELDS)
 """
@@ -140,9 +148,21 @@ end
 
 Return the course that `pattern` lays with `member`, as `(placements, shape)`: the placement of
 each member in the frame of the enclosing part, and the cross-section that every member
-shares. A circular pattern places a circle as it is. It bends a rectangle into a
-[`AnnularSector`](@ref) of the same area that spans the height of the rectangle about the
-pattern radius.
+shares. A circular pattern of radius ``R``, first angle ``\\phi_0`` and span ``\\Delta\\phi``
+places member ``k = 0, \\ldots, n - 1`` at the angle ``\\phi_k = \\phi_0 + k \\delta``.
+
+A circle is placed unchanged, centered at ``(R \\cos\\phi_k, R \\sin\\phi_k)``, with the
+step ``\\delta = \\Delta\\phi / n`` for a full turn, ``\\delta = \\Delta\\phi / (n - 1)`` for a
+partial span, and ``\\delta = 0`` for one member. A rectangle of width ``w`` and height ``h``
+becomes an [`AnnularSector`](@ref) of the same area about the center of the part, rotated by
+``\\phi_k``, with ``\\delta = \\Delta\\phi / n`` and
+
+```math
+r_i = \\max\\left(0, R - \\frac{h}{2}\\right), \\qquad r_o = r_i + h, \\qquad
+\\Delta\\phi_\\mathrm{sector} = \\frac{2 w h}{r_o^2 - r_i^2}.
+```
+
+Radii, widths and heights are in \\[m\\], and angles in \\[rad\\].
 
 # Errors
 
@@ -265,8 +285,13 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the lay length of `helix` at the lay radius `radius` \\[m\\]: ``p = 2 q r``, where ``q``
-is the lay ratio and ``r`` the radius.
+Return the lay length of `helix` at the lay radius `radius` \\[m\\]:
+
+```math
+p = 2 q r,
+```
+
+where ``q`` is the lay ratio \\[dimensionless\\] and ``r`` the radius \\[m\\].
 """
 pitch(helix::Helix{<:LayRatio}, radius::Real) = 2helix.lay.q * radius
 

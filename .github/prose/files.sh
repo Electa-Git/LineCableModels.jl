@@ -19,9 +19,9 @@ while IFS= read -r -d '' file; do
 done < <(git ls-files -z)
 test -s "$source_files"
 test -s docs/build/index.html
-test -d docs/src/tutorials
+test -d docs/src/examples
 find docs/src -type f -name '*.md' -print > "$reports/generated-files.txt"
-grep -q '^docs/src/tutorials/.*\.md$' "$reports/generated-files.txt"
+grep -q '^docs/src/examples/.*\.md$' "$reports/generated-files.txt"
 cat "$source_files" "$reports/generated-files.txt" | sort -u > "$reports/cspell-files.txt"
 # Rule patterns and deliberate misspellings are data, not spelling inputs.
 sed -i -e '\|^\.github/prose/styles/|d' -e '\|^\.github/prose/cspell.json$|d' "$reports/cspell-files.txt"

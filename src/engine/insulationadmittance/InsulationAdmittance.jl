@@ -2,6 +2,21 @@
     LineCableModels.Engine.InsulationAdmittance
 
 Compute the admittivity of insulator layers.
+
+# Formulas
+
+## `Formula{:lossless}`
+
+Admittivity of a dielectric without conduction or polarization loss, the frequency-domain
+constitutive relation of its displacement current:
+
+```math
+\\kappa = \\mathrm{j} 2 \\pi f \\varepsilon_0 \\varepsilon_r,
+```
+
+where ``f`` is the frequency \\[Hz\\], ``\\kappa`` is the admittivity \\[S/m\\] and
+``\\varepsilon_r`` is the relative permittivity `eps_r` of the material \\[dimensionless\\].
+The constant ``\\varepsilon_0`` is [`vacuum_permittivity`](@ref).
 """
 module InsulationAdmittance
 

@@ -148,3 +148,10 @@ table {
     scrollbar-width: thin;
     scrollbar-color: #888 transparent;
 }
+
+/* Widen the content column, so that code, matrices and equations fit without a scrollbar */
+@media screen and (min-width: 1056px) {
+    #documenter .docs-main {
+        max-width: 72rem !important;
+    }
+}

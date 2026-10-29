@@ -114,47 +114,11 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compute the circumference-current state and earth-return matrices at one frequency. For each
-medium ``m``, form admittivity ``\\eta_m`` \\[S/m\\] and squared radial wavenumber ``k_m^2``
-\\[1/m²\\]:
-
-```math
-\\eta_m = \\frac{1}{\\rho_m} + s\\varepsilon_0\\varepsilon_{r,m}, \\qquad
-k_m^2 = s \\mu_0 \\mu_{r,m} \\eta_m - \\Gamma^2.
-```
-
-Here ``\\rho_m`` is resistivity \\[Ω·m\\], ``\\varepsilon_{r,m}`` and ``\\mu_{r,m}`` are
-relative permittivity and permeability \\[dimensionless\\], and ``\\varepsilon_0`` and
-``\\mu_0`` are [`vacuum_permittivity`](@ref) and [`vacuum_permeability`](@ref). Read the
-longitudinal wavenumber ``\\Gamma`` from `buffers.gamma[k]`, in \\[1/m\\].
-
-For a cable ``p`` of radius ``r_p`` in \\[m\\] and medium ``m``, set ``x_p=k_m r_p`` and
-``b_p=|\\operatorname{Re}x_p|``. The scaled receiver factor is ``a_p=e^{-b_p}I_0(x_p)``,
-with ``I_\\nu`` the modified Bessel function of order ``\\nu``. The factor for circumference
-currents is ``F_p`` in \\[S·m\\]:
-
-```math
-F_p=2\\pi\\eta_m r_p^2
-\\begin{cases}
-\\frac12-\\frac{x_p^2}{16}+\\frac{x_p^4}{96}-\\frac{11x_p^6}{6144},
-    & |\\operatorname{nominal}(x_p)|<10^{-3},\\\\
-\\frac{I_1(x_p)}{x_p I_0(x_p)}, & \\text{otherwise}.
-\\end{cases}
-```
-
-Evaluate magnetic, electric, and potential spectral integrals on the ray selected by
-[`ray!`](@ref). Same-medium cable pairs also include direct and image Bessel terms. Air
-receivers reference potential to the interface below them. Store the scaled impedance kernel
-``K`` \\[Ω/m\\] and potential kernel ``H`` \\[m/F\\], then solve
-
-```math
-L_{pq}=\\frac{\\delta_{pq}}{a_p}-F_p K_{pq}, \\qquad
-P_e L=H, \\qquad Z_e L=K+\\frac{\\Gamma^2}{s}H.
-```
-
-Here ``L`` is the dimensionless current matrix, ``\\delta_{pq}`` is the Kronecker delta,
-``P_e`` holds earth-return potential coefficients \\[m/F\\], and ``Z_e`` holds earth-return
-impedances \\[Ω/m\\]. Transposed LU solves apply the common right factor ``L^{-1}``.
+Compute the earth-return impedances and potential coefficients of the cables at the
+frequency of index `k` by the formula `Formula{:unified}`, whose equations are in the
+section "Formulas" of [`EarthReturn`](@ref). The longitudinal wavenumber is
+`buffers.gamma[k]`. The results and the shared state of the two quantities stay in
+`buffers.unified`, which [`impedance!`](@ref) and [`potential!`](@ref) read.
 
 # Arguments
 

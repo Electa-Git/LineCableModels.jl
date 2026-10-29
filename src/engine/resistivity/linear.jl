@@ -3,16 +3,8 @@ defaults(::Type{Formula{:linear}}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-Return the resistivity of `material` at `temperature` by the linear law:
-
-```math
-\\rho(\\theta) = \\rho_0 \\left[1 + \\alpha (\\theta - T_0)\\right],
-```
-
-Here ``\\rho_0`` is material resistivity `rho` \\[Ω·m\\] at the reference temperature
-``T_0``, the field `T0` \\[°C\\]. The coefficient ``\\alpha`` is `alpha` \\[1/K\\], and
-``\\theta`` is conductor temperature \\[°C\\]. The law returns infinite resistivity
-unchanged.
+Return the resistivity of `material` at `temperature` by the formula `Formula{:linear}`,
+whose equation is in the section "Formulas" of [`Resistivity`](@ref).
 
 # Arguments
 

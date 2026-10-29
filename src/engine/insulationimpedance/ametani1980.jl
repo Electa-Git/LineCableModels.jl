@@ -3,15 +3,9 @@ defaults(::Type{Formula{:ametani1980}}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-Return the magnetic term of the series impedance across an annular dielectric layer:
-
-```math
-z = \\frac{s \\mu_0 \\mu_r}{2 \\pi} \\ln \\frac{r_\\mathrm{ex}}{r_\\mathrm{in}},
-```
-
-Here ``s`` is complex frequency, ``r_\\mathrm{in}`` and ``r_\\mathrm{ex}`` are the layer
-radii, and ``\\mu_r`` is relative permeability. The constant ``\\mu_0`` is
-[`vacuum_permeability`](@ref). The term is zero when `r_in` is zero or equals `r_ex`.
+Return the magnetic term of the series impedance across an annular dielectric layer by the
+formula `Formula{:ametani1980}`, whose equation is in the section "Formulas" of
+[`InsulationImpedance`](@ref).
 
 # Arguments
 

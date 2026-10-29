@@ -4,18 +4,18 @@
 CurrentModule = LineCableModels
 ```
 
-The data model describes the cross-section of a cable and the cables of a line. A cable is a
-tree of declared parts. [`build`](@ref) resolves the parts into a [`CableDesign`](@ref): its
-placed regions and the tables that map them to terminals, repeats, lays and fills. Designs
-placed in one cross-section, with a conductor index for each terminal, form a
-[`CableSystem`](@ref). The computations read the system through a problem, which
-[Line parameters](computing.md) describes.
+The data model describes the cross-section of each cable and the arrangement of the cables
+in a line. A cable is declared as a tree of parts, which [`build`](@ref) resolves into a
+[`CableDesign`](@ref) containing the placed regions of the cable and the tables that relate
+them to terminals, repeats, lays and fills. The designs placed in one cross-section, with a
+conductor index assigned to each terminal, form a [`CableSystem`](@ref). The computations
+receive the system through a problem, as described in [Line parameters](computing.md).
 
 ## Materials
 
-A [`Material`](@ref) stores the properties of one material. Its class is the type parameter
-`K`: `:conductor`, `:insulator` or `:semicon`, so that the laws and the formulations dispatch
-on it. Its nine properties are, in order:
+A [`Material`](@ref) stores the properties of one material. The class of the material,
+`:conductor`, `:insulator` or `:semicon`, is the type parameter `K`, so that the material
+laws and the formulations dispatch on it. The properties of a material are, in order:
 
 | Field | Meaning | Unit |
 | --- | --- | --- |
@@ -26,64 +26,68 @@ on it. Its nine properties are, in order:
 | `alpha` | temperature coefficient of the resistivity | 1/°C |
 | `rho_thermal` | thermal resistivity | K·m/W |
 | `theta_max` | maximum continuous operating temperature | °C |
-| `tan_delta` | polarization loss tangent, apart from the conduction that `rho` gives | dimensionless |
+| `tan_delta` | polarization loss tangent, apart from the conduction given by `rho` | dimensionless |
 | `sigma_solar` | solar-absorption coefficient | dimensionless |
 
-`Material(kind, rho, eps_r, mu_r, T0, alpha, …)` takes them by position after the class, and
-[`material`](@ref) takes the same values as keywords with the same defaults.
+The constructor `Material(kind, rho, eps_r, mu_r, T0, alpha, …)` takes the properties by
+position after the class, whereas [`material`](@ref) takes the same values as keywords, with
+the same defaults.
 
 ## Shapes
 
-A region declares its cross-section with a primitive, a subtype of
-[`AbstractPrimitive`](@ref), or with an offset:
+The cross-section of a region is declared by a primitive, a subtype of
+[`AbstractPrimitive`](@ref), or by an offset:
 
-- [`Circle`](@ref): a circular cross-section, such as a solid conductor or a round wire.
-- [`Annulus`](@ref): an annular cross-section, such as a tubular conductor.
-- [`Rectangle`](@ref): a rectangular strand before a circular pattern bends it onto its
-  course. Its width lies along the course and its height across it.
-- [`Offset`](@ref) declares a layer of thickness `t` around the outline of the part inside it,
-  the cross-section of an insulation, a semicon screen, a sheath or a jacket. The offset resolves against that
-  outline when the design is built.
+- [`Circle`](@ref): circular cross-section, such as a solid conductor or a round wire.
+- [`Annulus`](@ref): annular cross-section, such as a tubular conductor.
+- [`Rectangle`](@ref): rectangular strand, before it is bent onto its layer by a circular
+  pattern. Its width lies along the layer and its height across it.
+- [`Offset`](@ref): layer of thickness `t` around the outline of the part beneath it. An
+  offset represents an insulation, a semicon screen, a sheath or a jacket, and is resolved
+  against that outline when the design is built.
 
-The resolution produces cross-sections that no region declares: [`AnnularSector`](@ref), the
-bent rectangular strand of the same area, and [`DifferenceShape`](@ref), a cross-section with
-holes, such as the fill between the wires of a course. A [`Placement`](@ref) is a translation and a rotation relative to a parent frame.
+The resolution also produces cross-sections that are not declared by any region, namely the
+[`AnnularSector`](@ref), which is the bent rectangular strand of the same area, and the
+[`DifferenceShape`](@ref), which is a cross-section with holes, such as the filler between
+the wires of a layer. A [`Placement`](@ref) is a translation and a rotation relative to a
+parent frame.
 
-## Parts
+## Cable parts
 
-Every part is an [`AbstractCablePart`](@ref):
+All parts are subtypes of [`AbstractCablePart`](@ref):
 
-- [`Region`](@ref): one material in one cross-section, with a tag that names it.
-- [`Stack`](@ref): parts layered outward, each resolved against the outline of the parts
-  inside it.
-- [`Terminal`](@ref): the conductive regions of a part assigned to one terminal, one node of
-  the circuit.
-- [`Repeat`](@ref): a part repeated at the placements of a pattern. With a
-  [`CircularPattern`](@ref), `n` copies lie evenly on a circle about the center of the
-  enclosing part, at a declared radius or at an [`Offset`](@ref) from the outline inside them.
-  The pattern bends a rectangular strand into an annular sector of the same area.
-- [`Lay`](@ref): the copies of a repeat laid along the cable on a [`Helix`](@ref), whose
-  [`LayRatio`](@ref) is the ratio of its lay length to the mean diameter of its course.
-  [`pitch`](@ref) and [`overlength`](@ref) give the lay length and the length of the helix per
-  unit length of cable.
-- [`Enclosure`](@ref): a fill of one material around parts, the container without the
-  outlines of its outermost contents.
+- [`Region`](@ref): one material in one cross-section, identified by a tag.
+- [`Stack`](@ref): parts layered outward, each one resolved against the outline of the parts
+  beneath it.
+- [`Terminal`](@ref): conductive regions of a part assigned to one terminal, which is one
+  node of the circuit.
+- [`Repeat`](@ref): part repeated at the placements of a pattern. With a
+  [`CircularPattern`](@ref), `n` copies are evenly distributed on a circle around the center
+  of the enclosing part, either at a declared radius or at an [`Offset`](@ref) from the
+  outline beneath them. The pattern bends a rectangular strand into an annular sector of the
+  same area.
+- [`Lay`](@ref): copies of a repeat laid along the cable on a [`Helix`](@ref), whose
+  [`LayRatio`](@ref) is the ratio of the lay length to the mean diameter of the layer. The
+  functions [`pitch`](@ref) and [`overlength`](@ref) return the lay length and the length of
+  the helix per unit length of cable, respectively.
+- [`Enclosure`](@ref): filler of one material around other parts, occupying the container
+  without the outlines of its outermost contents.
 
 ## Builders
 
-The macro [`@cable`](@ref) builds a design from the parts of its block, from the inside out,
-and [`@terminal`](@ref) assigns the conductive regions of its block to one terminal. The
-builders return the parts of the usual layers:
+The macro [`@cable`](@ref) builds a design from the parts listed in its block, from the
+inside out, and the macro [`@terminal`](@ref) assigns the conductive regions of its block to
+one terminal. The builders below return the parts of the usual cable layers:
 
-- [`core`](@ref): a solid conductor of radius `r`.
+- [`core`](@ref): solid conductor of radius `r`.
 - [`insulation`](@ref), [`screen`](@ref), [`sheath`](@ref), [`bedding`](@ref) and
-  [`jacket`](@ref): a layer of thickness `t` on the outline of the part inside it.
-- [`stranded`](@ref): the center wire and the courses of round wires or rectangular strands
-  on helices, with the fill of the conductor.
-- [`armor`](@ref): one course of round wires on a helix at no offset from the outline inside
-  them, with the fill of their layer.
+  [`jacket`](@ref): layer of thickness `t` over the outline of the part beneath it.
+- [`stranded`](@ref): central wire and layers of round wires or rectangular strands on
+  helices, with the filler of the conductor.
+- [`armor`](@ref): one layer of round wires on a helix, placed directly over the outline
+  beneath them and completed by the filler of the layer.
 
-The insulated wire of the [`@cable`](@ref) example:
+Build the insulated wire of the [`@cable`](@ref) example and inspect its outer radius:
 
 ```@example data-model
 using LineCableModels
@@ -98,47 +102,49 @@ end
 r_ex(wire.outer) # [m]
 ```
 
-## Designs
+## Cable designs
 
-`build(CableDesign, id, parts...)` resolves the parts into a [`CableDesign`](@ref). The
-design stores its declared tree, its placed regions from the inside out, each a
-[`PlacedRegion`](@ref) with its declaration and its resolved cross-section, and the tables of
-terminals, sub-cables, repeats, lays, compactions and fills. Each table row stores resolved
-values in the floating type `T` of the design, to which the numbers of the cross-sections and
-the materials promote, and the resolved cross-sections of all regions are in `T`.
+The call `build(CableDesign, id, parts...)` resolves the parts into a [`CableDesign`](@ref).
+The design stores the declared tree, the placed regions from the inside out and the tables of
+terminals, sub-cables, repeats, lays, compactions and fills. Each placed region is a
+[`PlacedRegion`](@ref) containing its declaration and its resolved cross-section. The
+resolved values are stored in the floating-point type `T` of the design, to which the numbers
+of the cross-sections and the materials are promoted.
 
-## Blueprints
+## Equivalent coaxial representation
 
-A coaxial formulation reads a cable as concentric tubes. `LineCableModels.flatten(design)`
-returns that view, a [`CableBlueprint`](@ref): one [`BlueprintConductor`](@ref) per terminal
-and the [`BlueprintDielectric`](@ref) layers of the interval of each conductor. The tube of a
-terminal spans its conductive regions and the fills between them, and its material reproduces
-the direct-current resistance and the geometric mean radius of those regions. A strand on a
-helix is longer than the cable by its overlength, which raises the resistivity of the tube.
-The helical path of the current adds the solenoid factor to the relative permeability of the
-interval, `mu_r_ins`. The equations are in the docstring of [`flatten`](@ref).
+The coaxial formulations represent a cable as a set of concentric tubes. The function
+`LineCableModels.flatten(design)` returns this representation as a
+[`CableBlueprint`](@ref), composed of one [`BlueprintConductor`](@ref) per terminal and of
+the [`BlueprintDielectric`](@ref) layers in the insulation interval of each conductor. The
+tube of a terminal spans its conductive regions and the fillers between them, and its
+material reproduces the DC resistance and the geometric mean radius of those regions. A
+strand laid on a helix is longer than the cable by its overlength, which increases the
+resistivity of the tube. The helical path of the current also introduces a solenoid
+correction in the relative permeability of the interval, `mu_r_ins`. The equations are given
+in the docstring of [`flatten`](@ref).
 
-## Systems
+## Cable systems
 
-`build(CableSystem, designs, placements; connections, id, line_length)` places each design at
-its [`Placement`](@ref) in the frame of the system. The connection of a cable maps each
-terminal name of its design to a conductor index:
+The call `build(CableSystem, designs, placements; connections, id, line_length)` places each
+design at its [`Placement`](@ref) in the frame of the system. The connections of each cable
+assign a conductor index to each terminal of its design:
 
 - An index `k ≥ 1` connects the terminal to conductor `k` of the circuit.
-- Terminals with one index form one conductor, a bundle.
-- The index `0` grounds the terminal, which the Kron reduction then removes.
+- Terminals with the same index are bonded and form one conductor, called a bundle.
+- The index `0` grounds the terminal, which is then eliminated by the Kron reduction.
 
-## The earth
+## Earth model
 
-An [`EarthModel`](@ref) is semi-infinite air above the earth, each an [`EarthLayer`](@ref)
-with its resistivity, relative permittivity and relative permeability. This release admits
-one semi-infinite earth layer. [`homogeneous`](@ref) builds the model of air, of relative
-permittivity and permeability 1, above one homogeneous earth.
+An [`EarthModel`](@ref) consists of a semi-infinite air layer above the earth, each
+represented by an [`EarthLayer`](@ref) with its resistivity, relative permittivity and
+relative permeability. The earth is represented by one semi-infinite layer. The function [`homogeneous`](@ref) builds the model of an air layer, with relative permittivity
+and permeability equal to 1, above a homogeneous earth.
 
-## The interface between air and earth
+## Interface between air and earth
 
-The surface of the earth is the line `y = 0` of the system's frame. A cable above it lies in
-air and a cable below it in the earth. A cable may touch the interface and never cross it:
-[`LineParametersProblem`](@ref) throws an `ArgumentError` for a cable that crosses it. The
-unified earth-return formula and the finite-element model refuse a cable that touches the
-interface.
+The earth surface corresponds to the line `y = 0` in the frame of the system. Cables above
+this line are located in air, and cables below it in the earth. A cable may touch
+the interface but cannot cross it, and [`LineParametersProblem`](@ref) throws an
+`ArgumentError` for a cable that crosses it. The unified earth-return formula and the
+finite-element model also reject a cable that touches the interface.

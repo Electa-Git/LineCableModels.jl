@@ -22,8 +22,9 @@ nonnegative coordinate ``\\lambda`` into ``t``:
 = \\int_0^1 g\\!\\left(\\frac{t}{1-t}\\right)\\frac{\\mathrm{d}t}{(1-t)^2}.
 ```
 
-Here ``g`` is the complete integrand. Map each breakpoint into ``[0,1)`` and seed one
-segment between adjacent points. The error norm is the magnitude of the nominal value.
+Here ``g`` is the complete integrand. Map each breakpoint ``\\lambda_b`` to
+``t_b = \\lambda_b / (1 + \\lambda_b)`` in ``[0, 1)`` and seed one segment between adjacent
+points. The error norm is the magnitude of the nominal value.
 
 # Arguments
 
@@ -219,10 +220,16 @@ R = \\max\\!\\left(\\max_m |k_m|,\\frac{1}{h}\\right), \\qquad
 h\\cos\\theta-y\\sin\\theta > 0.
 ```
 
-Here ``h`` is `height`, ``y`` is `reach`, and ``k_m`` are medium wavenumbers. The initial
-angle is the smaller of ``\\pi/6`` and ``\\arctan[h/(2\\max(y,\\epsilon))]``, with
-``\\epsilon`` the machine epsilon of the coordinate type. Reduce the angle to at most half
-the argument of each first-quadrant branch point ``\\pm\\mathrm{j}k_m`` or pole. These
+Here ``h`` is `height`, ``y`` is `reach`, and ``k_m`` are medium wavenumbers. The angle is
+
+```math
+\\theta = \\min\\left(\\frac{\\pi}{6},
+    \\arctan\\frac{h}{2 \\max(y, \\epsilon)},
+    \\min_{\\zeta} \\frac{\\arg \\zeta}{2}\\right),
+```
+
+where ``\\epsilon`` is the machine epsilon of the coordinate type and ``\\zeta`` runs over the
+branch points ``\\pm\\mathrm{j}k_m`` and the poles in the open first quadrant. These
 choices make the geometric weight ``e^{-h\\lambda}\\cos(y\\lambda)`` decay along the ray.
 
 Use nominal values for all decisions. The scales are nonzero wavenumber magnitudes, finite
