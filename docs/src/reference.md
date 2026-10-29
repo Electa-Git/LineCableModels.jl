@@ -87,7 +87,7 @@ Public = true
 Private = false
 ```
 
-## The Gmsh extension
+## Gmsh extension
 
 ```@autodocs
 Modules = [Main.GmshExt]
