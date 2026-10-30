@@ -1,41 +1,41 @@
 """
 $(TYPEDEF)
 
-Represent the integral of a complete integrand over ``[0, \\infty)``.
-The function includes the weights and Jacobians of its formula.
+Represent the integral of an integrand over ``[0, \\infty)`` along a complex path. The
+integrand is a function of the spectral coordinate ``\\lambda`` and includes the weights of its
+formula. [`integrate`](@ref) applies the path's Jacobian.
 
 $(TYPEDFIELDS)
 """
-struct SpectralIntegral{F <: Function}
-    "Complete integrand, a function of the nonnegative real coordinate."
+struct SpectralIntegral{F <: Function, C <: Number}
+    "Complete integrand in the spectral coordinate λ of its formula, the path's Jacobian excluded."
     integrand::F
+    "Path of the integral: λ equals ζ times t, for t ≥ 0 \\[1/m\\]."
+    ζ::C
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Evaluate an integral by adaptive Gauss–Kronrod quadrature with QuadGK. Transform its
-nonnegative coordinate ``\\lambda`` into ``t``:
+Evaluate an integral along its path by adaptive Gauss–Kronrod quadrature with QuadGK.
+Substitute ``\\lambda = \\zeta u`` for ``u \\geq 0`` and transform ``u`` into ``t``:
 
 ```math
-\\int_0^\\infty g(\\lambda)\\,\\mathrm{d}\\lambda
-= \\int_0^1 g\\!\\left(\\frac{t}{1-t}\\right)\\frac{\\mathrm{d}t}{(1-t)^2}.
+\\int_0^{\\infty} g(\\zeta u)\\,\\zeta\\,\\mathrm{d}u
+= \\int_0^1 \\zeta\\, g\\!\\left(\\frac{\\zeta t}{1-t}\\right)\\frac{\\mathrm{d}t}{(1-t)^2}.
 ```
 
-Here ``g`` is the complete integrand. Map each breakpoint ``\\lambda_b`` to
-``t_b = \\lambda_b / (1 + \\lambda_b)`` in ``[0, 1)`` and seed one segment between adjacent
-points. The error norm is the magnitude of the nominal value.
+Here ``g`` is the integrand and ``\\zeta`` the path. Map each breakpoint ``u_b`` to
+``t_b = u_b / (1 + u_b)`` in ``[0, 1)`` and seed one segment between adjacent points. The error
+norm is the magnitude of the nominal value.
 
 # Arguments
 
-- `integral`: complete integrand and its integral.
+- `integral`: integrand and its path.
 - `Val(:quad)`: adaptive quadrature method tag.
 - `section`: controls `rtol`, `atol`, and `maxevals` from [`defaults`](@ref).
-- `buffers`: computation arrays with the `integral` block.
-
-# Keywords
-
-- `points`: finite, nonnegative breakpoints in the coordinate of the integrand.
+- `buffers`: computation arrays with the `integral` block, whose `points` hold finite,
+  nonnegative breakpoints in the coordinate ``u``.
 
 # Returns
 
@@ -52,13 +52,12 @@ produces a warning. The method still returns the value.
 - Throws `DomainError` for a negative or nonfinite breakpoint, or a nonfinite integral
   value.
 """
-function integrate(integral::SpectralIntegral, ::Val{:quad}, section::NamedTuple, buffers;
-        points)
+function integrate(integral::SpectralIntegral, ::Val{:quad}, section::NamedTuple, buffers)
     block = buffers.integral
     R = eltype(block.mapped)
     mapped = empty!(block.mapped)
     push!(mapped, zero(R))
-    for point in points
+    for point in block.points
         isfinite(point) && point >= 0 ||
             throw(DomainError(point, "integration points must be finite nonnegative real coordinates"))
         push!(mapped, R(point) / (one(R) + R(point)))
@@ -72,10 +71,11 @@ function integrate(integral::SpectralIntegral, ::Val{:quad}, section::NamedTuple
             segbuf = block.seed, norm = z -> abs(nominal(z)))
         append!(seeds, block.seed)
     end
+    ζ = integral.ζ
     value,
     estimate = quadgk(t -> begin
             scale = inv(one(R) - t)
-            integral.integrand(t * scale) * scale^2
+            ζ * integral.integrand(ζ * (t * scale)) * scale^2
         end, zero(R),
         one(R); rtol = section.rtol, atol = section.atol,
         maxevals = section.maxevals, segbuf = block.segments,
@@ -211,11 +211,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Choose a complex spectral ray and write quadrature breakpoints in its dimensionless
-coordinate ``t``. The spectral coordinate is
+Construct the integral of `integrand` along a complex path. Choose the path and write the
+quadrature breakpoints in its dimensionless coordinate ``t`` into the `integral` block of
+`buffers`. The spectral coordinate is
 
 ```math
-\\lambda = R e^{\\mathrm{j}\\theta}t, \\qquad
+\\lambda = \\zeta t, \\qquad \\zeta = R e^{\\mathrm{j}\\theta}, \\qquad
 R = \\max\\!\\left(\\max_m |k_m|,\\frac{1}{h}\\right), \\qquad
 h\\cos\\theta-y\\sin\\theta > 0.
 ```
@@ -225,12 +226,12 @@ Here ``h`` is `height`, ``y`` is `reach`, and ``k_m`` are medium wavenumbers. Th
 ```math
 \\theta = \\min\\left(\\frac{\\pi}{6},
     \\arctan\\frac{h}{2 \\max(y, \\epsilon)},
-    \\min_{\\zeta} \\frac{\\arg \\zeta}{2}\\right),
+    \\min_{p} \\frac{\\arg p}{2}\\right),
 ```
 
-where ``\\epsilon`` is the machine epsilon of the coordinate type and ``\\zeta`` runs over the
+where ``\\epsilon`` is the machine epsilon of the coordinate type and ``p`` runs over the
 branch points ``\\pm\\mathrm{j}k_m`` and the poles in the open first quadrant. These
-choices make the geometric weight ``e^{-h\\lambda}\\cos(y\\lambda)`` decay along the ray.
+choices make the geometric weight ``e^{-h\\lambda}\\cos(y\\lambda)`` decay along the path.
 
 Use nominal values for all decisions. The scales are nonzero wavenumber magnitudes, finite
 positive formula scales, and the reciprocal geometric decay. Each scale contributes half,
@@ -240,6 +241,7 @@ one, then sort and remove duplicates.
 
 # Arguments
 
+- `integrand`: function of the spectral coordinate, the path's Jacobian excluded.
 - `buffers`: computation arrays with the `integral` block.
 - `wavenumbers`: tuple of medium wavenumbers \\[1/m\\].
 - `poles`: tuple of poles of the integrand \\[1/m\\]. Ignore zero entries.
@@ -251,14 +253,15 @@ one, then sort and remove duplicates.
 
 # Returns
 
-- The complex ray ``R e^{\\mathrm{j}\\theta}``, in \\[1/m\\]. The method also fills
+- The integral with its path ``\\zeta`` in \\[1/m\\]. The constructor also fills
   `buffers.integral.points` with dimensionless breakpoints.
 
 # Errors
 
-- Throws `DomainError` when the geometric weight does not decay along the ray.
+- Throws `DomainError` when the geometric weight does not decay along the path.
 """
-function ray!(buffers, wavenumbers::Tuple, poles::Tuple, scales::Tuple, height, reach)
+function SpectralIntegral(integrand::F, buffers::NamedTuple, wavenumbers::Tuple,
+        poles::Tuple, scales::Tuple, height::Number, reach::Number) where {F <: Function}
     block = buffers.integral
     R = eltype(block.points)
     angle = min(R(π) / 6, atan(R(nominal(height)) / (2max(R(nominal(reach)), eps(R)))))
@@ -311,5 +314,6 @@ function ray!(buffers, wavenumbers::Tuple, poles::Tuple, scales::Tuple, height, 
     points ./= magnitude
     push!(points, one(R))
     unique!(sort!(points; alg = Base.Sort.QuickSort))
-    return magnitude * cis(angle)
+    ζ = magnitude * cis(angle)
+    return SpectralIntegral{F, typeof(ζ)}(integrand, ζ)
 end

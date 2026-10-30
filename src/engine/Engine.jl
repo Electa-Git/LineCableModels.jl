@@ -29,8 +29,8 @@ export admittivity, resistivity, properties, impedance, impedance!, potential!, 
 export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
 export bundle!, eliminate!, transposition!, formulas, reductions
-export SpectralIntegral, integrate, nominal, ray!
-public CoaxialInput, solve!
+export SpectralIntegral, integrate, nominal
+public CoaxialInput, solve!, Λ
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,
        EarthReturn, Shunt, Resistivity, EarthProperties
 
@@ -241,6 +241,38 @@ unchanged, as this method does.
 - `buffers`.
 """
 initialize_buffers(::AbstractFormulation, problem, input, buffers) = buffers
+
+"""
+    Λ(formula, Val(:self), κ, r, h)
+    Λ(formula, Val(:mutual), κ, r, D, D′)
+
+Return the circumferential mean of the direct and image fields of a source on a receiver in
+one medium:
+
+```math
+\\Lambda_{ii} = K_0(\\kappa r) - I_0(\\kappa r) K_0(2 \\kappa h), \\qquad
+\\Lambda_{ij} = I_0(\\kappa r) \\left[K_0(\\kappa D) - K_0(\\kappa D')\\right].
+```
+
+# Arguments
+
+- `formula`: earth-return formula.
+- `κ`: transverse propagation parameter of the medium \\[1/m\\].
+- `r`: exterior radius of the receiver \\[m\\].
+- `h`: distance from the receiver to the interface \\[m\\].
+- `D`: distance from the center of the receiver to the source \\[m\\].
+- `D′`: distance from the center of the receiver to the image of the source \\[m\\].
+
+# Returns
+
+- The mean \\[dimensionless\\].
+
+# Notes
+
+The earth-return family defines the method that each of its formulas gets. A formula with
+another direct and image term defines its own method.
+"""
+function Λ end
 
 """
 $(TYPEDSIGNATURES)

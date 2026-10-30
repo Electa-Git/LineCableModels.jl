@@ -52,7 +52,7 @@ cache = "workspace, plan, buffers or the component's name"
 nouns = ["commons", "materials", "earth", "data_model", "engine", "material", "formulation",
     "options", "backend", "insulation", "system", "line_length", "terminals", "assemblies",
     "layer", "layers", "model", "problem", "center", "label", "cad", "span", "holes",
-    "points", "positions"]
+    "positions"]
 qualifiers = ["cable", "outer"]
 symbols = ["rho", "eps_r", "mu_r", "y", "x", "r_in", "r_ex", "mu_r_ins", "r"]
 prepositions = ["at"]
@@ -96,9 +96,9 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
-    "transposition", "integral", "integrand", "ray", "reductions"]
+    "transposition", "integral", "integrand", "reductions"]
 qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
-symbols = ["Z", "Y", "r_ins_ex"]
+symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ"]
 
 [modules.Engine.verbs]
 prepare = "fill a formula's per-frequency state that its quantity methods read"
@@ -120,7 +120,7 @@ draw = "draw a system, a design, a placed region, a shape, a contour, a path or 
 
 [modules.LineCableModelsGmshExt]
 nouns = ["getdp", "binary", "overrides", "interval", "field", "tags", "strand", "air", "scale",
-    "geometry", "key", "point", "buckets", "lines", "arcs", "ends", "curves", "breaks",
+    "geometry", "key", "point", "points", "buckets", "lines", "arcs", "ends", "curves", "breaks",
     "contacts", "loops", "surfaces", "patches", "outlines", "pockets", "anchors", "faces",
     "compartments", "direction", "inside", "anchor", "dimension", "turn", "section", "directory"]
 qualifiers = ["low", "high", "closed", "lowest"]
@@ -242,10 +242,10 @@ CoaxialInput = "the numerical input of a computation in the coaxial model: each 
 "bundle!" = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 "eliminate!" = "the Kron elimination: the Schur complement of the kept rows and columns of a matrix, written into a matrix the caller gives"
 "transposition!" = "the ideal transposition: the mean of a matrix over the cyclic permutations of its rows and columns"
-SpectralIntegral = "the integral of a function over [0, ∞), its complete integrand the field, that integrate evaluates by the method its tag selects"
+SpectralIntegral = "the integral of a kernel in λ over [0, ∞) along the path ζ its constructor chooses, which integrate evaluates by the method its tag selects"
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
 nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the Measurements extension gives a measurement's nominal value"
-"ray!" = "the ray of a spectral integral on [0, ∞) below its singularities, with the points where the quadrature subdivides it written into the engine's integral block"
+"Λ" = "the circumferential mean of the direct and image fields of a source on a receiver in one medium, the family tool of the earth return; a formula overrides it"
 formulas = "the distinct formulas of a formulation's slots, the two earth slots once when they are one formula"
 reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
 

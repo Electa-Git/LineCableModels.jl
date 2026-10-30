@@ -138,7 +138,7 @@ section "Formulas" of [`EarthReturn`](@ref). The longitudinal wavenumber is
 # Errors
 
 - Throws `DomainError` for a nonfinite weighted earth kernel, a nonfinite integral, or a
-  spectral ray whose geometric weight grows.
+  spectral path whose geometric weight grows.
 """
 function prepare!(formula::Formula{:unified}, buffers, input::CoaxialInput, media, s, k)
     unified = buffers.unified
@@ -201,77 +201,70 @@ function prepare!(formula::Formula{:unified}, buffers, input::CoaxialInput, medi
         own = if P == Q
             kP = wavenumbers[P]
             d = hypot(input.x[p] - input.x[q], hp + hq)
-            D = p == q ? r : hypot(input.x[p] - input.x[q], input.y[p] - input.y[q])
-            if abs(nominal(kP * d)) < 0.5
-                difference = iszero(kP) ? log(d / D) :
-                             besselk(0, kP * D) - besselk(0, kP * d)
-                if p == q
-                    correction = iszero(kP) ? zero(kP) :
-                                 unified.i0minus[p] * besselk(0, kP * d)
-                    exp(sq) * (difference - correction)
-                else
-                    unified.A[p] * exp(sp + sq) * difference
-                end
-            elseif p == q
-                direct = besselkx(0, kP * r) * exp(sq - kP * r)
-                image = unified.A[p] * besselkx(0, kP * d) * exp(sp + sq - kP * d)
-                direct - image
-            else
-                unified.A[p] * (besselkx(0, kP * D) * exp(sp + sq - kP * D) -
-                 besselkx(0, kP * d) * exp(sp + sq - kP * d))
-            end
+            exp(sq) * (p == q ? Λ(formula, Val(:self), kP, r, hp) :
+             Λ(formula, Val(:mutual), kP, r,
+                hypot(input.x[p] - input.x[q], input.y[p] - input.y[q]), d))
         else
             zero(s)
         end
-        # The magnetic, electric and voltage terms share the heights and the ray.
+        # The magnetic, electric and voltage terms share the heights and the path.
         height = hp + hq
         logscale = sp + sq
-        ray = ray!(buffers, wavenumbers, poles, scales, height, y + zero_r)
         z = s / πT * unified.A[p] *
             first(integrate(
-                SpectralIntegral(t -> begin
-                    λ = ray * t
-                    a = (sqrt(λ^2 + k2[1]), sqrt(λ^2 + k2[2]))
-                    exponent = logscale -
-                               hp * (iszero(k2[P]) ? zero(a[P]) : k2[P] / (a[P] + λ)) -
-                               hq * (iszero(k2[Q]) ? zero(a[Q]) : k2[Q] / (a[Q] + λ))
-                    amplitude = mu[1] * mu[2] / (mu[2] * a[1] + mu[1] * a[2])
-                    value = amplitude * (exp(exponent - (height + im * y) * λ) +
-                             exp(exponent - (height - im * y) * λ)) / 2
-                    isfinite(value) ||
-                        throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
-                    return ray * value
-                end),
+                SpectralIntegral(
+                    λ -> begin
+                        a = (sqrt(λ^2 + k2[1]), sqrt(λ^2 + k2[2]))
+                        exponent = logscale -
+                                   hp * (iszero(k2[P]) ? zero(a[P]) : k2[P] / (a[P] + λ)) -
+                                   hq * (iszero(k2[Q]) ? zero(a[Q]) : k2[Q] / (a[Q] + λ))
+                        amplitude = mu[1] * mu[2] / (mu[2] * a[1] + mu[1] * a[2])
+                        value = amplitude * (exp(exponent - (height + im * y) * λ) +
+                                 exp(exponent - (height - im * y) * λ)) / 2
+                        isfinite(value) ||
+                            throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
+                        return value
+                    end,
+                    buffers,
+                    wavenumbers,
+                    poles,
+                    scales,
+                    height,
+                    y + zero_r),
                 section.method,
                 section,
-                buffers;
-                points = buffers.integral.points))
+                buffers))
         P == Q && (z += s * mu[P] / (2πT) * own)
         phi = zero(z)
         if !iszero(Γ)
             phi = s / πT * unified.A[p] *
                   first(integrate(
-                      SpectralIntegral(t -> begin
-                          λ = ray * t
-                          a = (sqrt(λ^2 + k2[1]), sqrt(λ^2 + k2[2]))
-                          exponent = logscale -
-                                     hp *
-                                     (iszero(k2[P]) ? zero(a[P]) : k2[P] / (a[P] + λ)) -
-                                     hq *
-                                     (iszero(k2[Q]) ? zero(a[Q]) : k2[Q] / (a[Q] + λ))
-                          amplitude = (mu[1] * a[1] + mu[2] * a[2]) /
-                                      ((mu[2] * a[1] + mu[1] * a[2]) *
-                                       (sh[2] * a[1] + sh[1] * a[2]))
-                          value = amplitude * (exp(exponent - (height + im * y) * λ) +
-                                   exp(exponent - (height - im * y) * λ)) / 2
-                          isfinite(value) ||
-                              throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
-                          return ray * value
-                      end),
+                      SpectralIntegral(
+                          λ -> begin
+                              a = (sqrt(λ^2 + k2[1]), sqrt(λ^2 + k2[2]))
+                              exponent = logscale -
+                                         hp *
+                                         (iszero(k2[P]) ? zero(a[P]) : k2[P] / (a[P] + λ)) -
+                                         hq *
+                                         (iszero(k2[Q]) ? zero(a[Q]) : k2[Q] / (a[Q] + λ))
+                              amplitude = (mu[1] * a[1] + mu[2] * a[2]) /
+                                          ((mu[2] * a[1] + mu[1] * a[2]) *
+                                           (sh[2] * a[1] + sh[1] * a[2]))
+                              value = amplitude * (exp(exponent - (height + im * y) * λ) +
+                                       exp(exponent - (height - im * y) * λ)) / 2
+                              isfinite(value) ||
+                                  throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
+                              return value
+                          end,
+                          buffers,
+                          wavenumbers,
+                          poles,
+                          scales,
+                          height,
+                          y + zero_r),
                       section.method,
                       section,
-                      buffers;
-                      points = buffers.integral.points))
+                      buffers))
             P == Q && (phi += s / (2πT * sh[P]) * own)
         end
         kpq = z - Γ^2 / s * phi
@@ -280,86 +273,103 @@ function prepare!(formula::Formula{:unified}, buffers, input::CoaxialInput, medi
             # The potential of the air receiver to the interface, its two terms combined.
             padding = hq / 2
             i0minus = unified.i0minus[p]
-            air_ray = ray!(buffers, wavenumbers, poles, scales, hq - padding, y + r)
             s / πT * first(integrate(
-                SpectralIntegral(t -> begin
-                    λ = air_ray * t
-                    a0 = sqrt(λ^2 + k2[1])
-                    ag = sqrt(λ^2 + k2[2])
-                    aq = Q == 1 ? a0 : ag
-                    exponent = sq - hq * (iszero(k2[Q]) ? zero(aq) : k2[Q] / (aq + λ))
-                    amplitude = ag * (if iszero(a0)
-                        argument = r * λ
-                        j0 = exp(-padding * λ + abs(imag(argument))) *
-                             besseljx(0, argument)
-                        -hp * j0
-                    elseif abs(nominal(r * λ)) < 0.5
-                        jminus = i0m1(im * (r * λ))
-                        envelope = exp(-padding * λ)
-                        envelope * (i0minus * exp(-hp * a0) + expm1(-hp * a0) - jminus) /
-                        a0
-                    else
-                        argument = r * λ
-                        envelope = exp(-padding * λ + abs(imag(argument)))
-                        scaled = iszero(abs(nominal(envelope))) ? zero(envelope) :
-                                 envelope * besseljx(0, argument)
-                        ((one(i0minus) + i0minus) * exp(-padding * λ - hp * a0) - scaled) /
-                        a0
-                    end) / (sh[2] * a0 + sh[1] * ag)
-                    value = amplitude * (exp(exponent - ((hq - padding) + im * y) * λ) +
-                             exp(exponent - ((hq - padding) - im * y) * λ)) / 2
-                    isfinite(value) ||
-                        throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
-                    return air_ray * value
-                end),
+                SpectralIntegral(
+                    λ -> begin
+                        a0 = sqrt(λ^2 + k2[1])
+                        ag = sqrt(λ^2 + k2[2])
+                        aq = Q == 1 ? a0 : ag
+                        exponent = sq - hq * (iszero(k2[Q]) ? zero(aq) : k2[Q] / (aq + λ))
+                        amplitude = ag * (if iszero(a0)
+                            argument = r * λ
+                            j0 = exp(-padding * λ + abs(imag(argument))) *
+                                 besseljx(0, argument)
+                            -hp * j0
+                        elseif abs(nominal(r * λ)) < 0.5
+                            jminus = i0m1(im * (r * λ))
+                            envelope = exp(-padding * λ)
+                            envelope *
+                            (i0minus * exp(-hp * a0) + expm1(-hp * a0) - jminus) /
+                            a0
+                        else
+                            argument = r * λ
+                            envelope = exp(-padding * λ + abs(imag(argument)))
+                            scaled = iszero(abs(nominal(envelope))) ? zero(envelope) :
+                                     envelope * besseljx(0, argument)
+                            ((one(i0minus) + i0minus) * exp(-padding * λ - hp * a0) -
+                             scaled) /
+                            a0
+                        end) / (sh[2] * a0 + sh[1] * ag)
+                        value = amplitude *
+                                (exp(exponent - ((hq - padding) + im * y) * λ) +
+                                 exp(exponent - ((hq - padding) - im * y) * λ)) / 2
+                        isfinite(value) ||
+                            throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
+                        return value
+                    end,
+                    buffers,
+                    wavenumbers,
+                    poles,
+                    scales,
+                    hq - padding,
+                    y + r),
                 section.method,
                 section,
-                buffers;
-                points = buffers.integral.points))
+                buffers))
         else
             s / πT * unified.A[p] *
             first(integrate(
-                SpectralIntegral(t -> begin
-                    λ = ray * t
-                    a = (sqrt(λ^2 + k2[1]), sqrt(λ^2 + k2[2]))
-                    exponent = logscale -
-                               hp * (iszero(k2[P]) ? zero(a[P]) : k2[P] / (a[P] + λ)) -
-                               hq * (iszero(k2[Q]) ? zero(a[Q]) : k2[Q] / (a[Q] + λ))
-                    amplitude = (P == 2 ? a[1] / a[2] : a[2] / a[1]) /
-                                (sh[2] * a[1] + sh[1] * a[2])
-                    value = amplitude * (exp(exponent - (height + im * y) * λ) +
-                             exp(exponent - (height - im * y) * λ)) / 2
-                    isfinite(value) ||
-                        throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
-                    return ray * value
-                end),
+                SpectralIntegral(
+                    λ -> begin
+                        a = (sqrt(λ^2 + k2[1]), sqrt(λ^2 + k2[2]))
+                        exponent = logscale -
+                                   hp * (iszero(k2[P]) ? zero(a[P]) : k2[P] / (a[P] + λ)) -
+                                   hq * (iszero(k2[Q]) ? zero(a[Q]) : k2[Q] / (a[Q] + λ))
+                        amplitude = (P == 2 ? a[1] / a[2] : a[2] / a[1]) /
+                                    (sh[2] * a[1] + sh[1] * a[2])
+                        value = amplitude * (exp(exponent - (height + im * y) * λ) +
+                                 exp(exponent - (height - im * y) * λ)) / 2
+                        isfinite(value) ||
+                            throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
+                        return value
+                    end,
+                    buffers,
+                    wavenumbers,
+                    poles,
+                    scales,
+                    height,
+                    y + zero_r),
                 section.method,
                 section,
-                buffers;
-                points = buffers.integral.points))
+                buffers))
         end
         P == Q && (h += s / (2πT * sh[P]) * own)
         if P == 1 && !combined
             # The potential of the interface below the air receiver.
-            reference_ray = ray!(buffers, wavenumbers, poles, scales, hq, y + r)
             h += s / πT * first(integrate(
-                SpectralIntegral(t -> begin
-                    λ = reference_ray * t
-                    a = (sqrt(λ^2 + k2[1]), sqrt(λ^2 + k2[2]))
-                    exponent = sq - hq * (iszero(k2[Q]) ? zero(a[Q]) : k2[Q] / (a[Q] + λ))
-                    amplitude = -a[2] / (a[1] * (sh[2] * a[1] + sh[1] * a[2]))
-                    growth = abs(imag(r * λ))
-                    value = amplitude * (exp(exponent - (hq + im * y) * λ + growth) +
-                             exp(exponent - (hq - im * y) * λ + growth)) / 2
-                    isfinite(value) ||
-                        throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
-                    return reference_ray * (iszero(abs(nominal(value))) ? value :
-                            value * besseljx(0, r * λ))
-                end),
+                SpectralIntegral(
+                    λ -> begin
+                        a = (sqrt(λ^2 + k2[1]), sqrt(λ^2 + k2[2]))
+                        exponent = sq -
+                                   hq * (iszero(k2[Q]) ? zero(a[Q]) : k2[Q] / (a[Q] + λ))
+                        amplitude = -a[2] / (a[1] * (sh[2] * a[1] + sh[1] * a[2]))
+                        growth = abs(imag(r * λ))
+                        value = amplitude * (exp(exponent - (hq + im * y) * λ + growth) +
+                                 exp(exponent - (hq - im * y) * λ + growth)) / 2
+                        isfinite(value) ||
+                            throw(DomainError((λ, value), "nonfinite weighted earth kernel"))
+                        return (iszero(abs(nominal(value))) ? value :
+                                value * besseljx(0, r * λ))
+                    end,
+                    buffers,
+                    wavenumbers,
+                    poles,
+                    scales,
+                    hq,
+                    y + r),
                 section.method,
                 section,
-                buffers;
-                points = buffers.integral.points))
+                buffers))
         end
         unified.K[p, q] = kpq
         unified.H[p, q] = h

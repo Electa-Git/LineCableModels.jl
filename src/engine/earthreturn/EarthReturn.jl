@@ -135,7 +135,7 @@ F_{ii} = \\frac{2 \\pi \\widehat\\sigma_t r_i I_1(\\kappa_t r_i)}{\\kappa_t I_0(
 The internal impedances of the conductors are not part of ``\\mathbf Z_g``: the impedance
 inside each cable, `Zin`, gives them.
 
-The integrals run along the complex ray that [`ray!`](@ref) selects, and
+The integrals run along the complex path that each [`SpectralIntegral`](@ref) chooses, and
 [`integrate`](@ref) evaluates them. The kernel ``\\widetilde\\Phi_{ij}`` enters only for
 ``\\Gamma \\neq 0``. With ``\\xi = \\kappa_t r_i``, the ratio ``I_1(\\xi) / (\\xi I_0(\\xi))`` in
 ``F_{ii}`` is the series ``1/2 - \\xi^2/16 + \\xi^4/96 - 11 \\xi^6/6144`` for a nominal
@@ -152,8 +152,8 @@ import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
 using ...DataModel: support
 using ..Engine: AbstractEarthReturn, CoaxialInput, LineParametersProblem, SpectralIntegral,
-                integrate, nominal, ray!, vacuum_permittivity, vacuum_permeability
-import ..Engine: impedance!, potential!, prepare!, initialize_buffers
+                integrate, nominal, vacuum_permittivity, vacuum_permeability
+import ..Engine: impedance!, potential!, prepare!, initialize_buffers, Λ
 using LinearAlgebra: ldiv!, lu!
 using SpecialFunctions: besselix, besselkx, besseljx, besselk
 
@@ -217,6 +217,30 @@ end
 
 # Formulas of one identifier are equal when their options are equal.
 Base.:(==)(a::Formula{ID}, b::Formula{ID}) where {ID} = a.options == b.options
+
+# The direct and image mean of the family, the paper's Λ_ii and Λ_ij. Below a nominal |κ D′|
+# of 0.5 it evaluates the two terms together, with their logarithmic limit at κ = 0. Above, it
+# combines the exponents of the exponentially scaled Bessel functions.
+function Λ(::Formula, ::Val{:self}, κ, r, h)
+    D′ = 2h
+    if abs(nominal(κ * D′)) < 0.5
+        iszero(κ) && return log(D′ / r)
+        return (besselk(0, κ * r) - besselk(0, κ * D′)) - i0m1(κ * r) * besselk(0, κ * D′)
+    end
+    ξ = κ * r
+    return besselkx(0, ξ) * exp(-ξ) -
+           besselix(0, ξ) * besselkx(0, κ * D′) * exp(abs(real(ξ)) - κ * D′)
+end
+function Λ(::Formula, ::Val{:mutual}, κ, r, D, D′)
+    if abs(nominal(κ * D′)) < 0.5
+        iszero(κ) && return log(D′ / D)
+        return besselix(0, κ * r) * exp(abs(real(κ * r))) *
+               (besselk(0, κ * D) - besselk(0, κ * D′))
+    end
+    ξ = κ * r
+    return besselix(0, ξ) * (besselkx(0, κ * D) * exp(abs(real(ξ)) - κ * D) -
+            besselkx(0, κ * D′) * exp(abs(real(ξ)) - κ * D′))
+end
 
 include("unified.jl")
 
