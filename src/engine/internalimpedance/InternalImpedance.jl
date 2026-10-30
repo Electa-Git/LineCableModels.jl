@@ -45,7 +45,6 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractInternalImpedance
-import ..Engine: impedance
 using ..Engine: vacuum_permeability
 using SpecialFunctions: besselix, besselkx
 

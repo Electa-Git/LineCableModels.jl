@@ -24,7 +24,6 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractSemiconAdmittance
-import ..Engine: admittivity
 using ..Engine: vacuum_permittivity
 using ...Materials: Material
 

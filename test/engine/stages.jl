@@ -31,7 +31,7 @@
                 Int, fields[5]), k] = complex(
                 parse(Float64, fields[6]), parse(Float64, fields[7]))
         end
-        rho = [Engine.resistivity(law, tube, problem.temperature)
+        rho = [law(tube, problem.temperature)
                for tube in input.material]
         semicons = findall(layer -> layer isa Material{Float64, :semicon},
             input.layer_material)
@@ -39,8 +39,7 @@
         Pin = similar(Zin)
         for (k, f) in enumerate(problem.frequencies)
             s = im * (2π * f)
-            kappa = ComplexF64[Engine.admittivity(
-                                   i in semicons ? semiconducting : insulating, layer, f)
+            kappa = ComplexF64[(i in semicons ? semiconducting : insulating)(layer, f)
                                for (i, layer) in enumerate(input.layer_material)]
             Engine.impedance!(internal, term, view(Zin,:,:,k), input, rho, s)
             Engine.potential!(shunt, view(Pin,:,:,k), input, kappa, s)

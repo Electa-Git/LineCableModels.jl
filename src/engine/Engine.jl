@@ -24,7 +24,7 @@ export vacuum_permittivity, vacuum_permeability
 export AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
-export admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
+export admittivity, impedance!, potential!, prepare!,
        initialize_buffers
 export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
@@ -85,13 +85,14 @@ Represent the common supertype of frequency laws for earth properties.
 abstract type AbstractEarthProperties <: AbstractFormulation end
 
 """
-    admittivity(formula, material, f)
+    admittivity(formulation, material, f)
 
-Return the admittivity of a dielectric layer at a frequency.
+Return the admittivity of a dielectric layer at a frequency, by the law of its class in the
+formulation.
 
 # Arguments
 
-- `formula`: admittivity law.
+- `formulation`: formulation that holds the admittivity laws.
 - `material`: material of the dielectric layer.
 - `f`: frequency \\[Hz\\].
 
@@ -100,58 +101,6 @@ Return the admittivity of a dielectric layer at a frequency.
 - Admittivity \\[S/m\\].
 """
 function admittivity end
-
-"""
-    resistivity(formula, material, temperature)
-
-Return the conductor resistivity at a temperature.
-
-# Arguments
-
-- `formula`: resistivity law.
-- `material`: material of the conductor.
-- `temperature`: temperature of the conductor \\[°C\\].
-
-# Returns
-
-- Resistivity \\[Ω·m\\].
-"""
-function resistivity end
-
-"""
-    properties(formula, layer, f)
-
-Return the material properties of an earth or air layer at a frequency.
-
-# Arguments
-
-- `formula`: earth-properties law.
-- `layer`: earth or air layer.
-- `f`: frequency \\[Hz\\].
-
-# Returns
-
-- `rho`: resistivity \\[Ω·m\\].
-- `eps_r`: relative permittivity \\[dimensionless\\].
-- `mu_r`: relative permeability \\[dimensionless\\].
-"""
-function properties end
-
-"""
-    impedance(formula, …)
-
-Return the series-impedance terms of a formula.
-
-# Arguments
-
-- `formula`: series-impedance formula.
-- `…`: physical inputs of the selected method.
-
-# Returns
-
-- An impedance \\[Ω/m\\] or a named tuple of impedance terms in the same unit.
-"""
-function impedance end
 
 """
     impedance!(formula, Z, …)

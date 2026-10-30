@@ -46,9 +46,9 @@ function impedance!(internal::InternalImpedance.Formula,
         inside = zero(s)
         for position in length(conductors):-1:1
             i = conductors[position]
-            surfaces = impedance(internal, input.r_in[i], input.r_ex[i], rho[i],
+            surfaces = internal(input.r_in[i], input.r_ex[i], rho[i],
                 input.material[i].mu_r, s)
-            term = impedance(insulation, input.r_ex[i], input.r_ins_ex[i],
+            term = insulation(input.r_ex[i], input.r_ins_ex[i],
                 input.mu_r_ins[i], s)
             loop = surfaces.outer + inside + term
             for row in 1:(position - 1), column in 1:(position - 1)

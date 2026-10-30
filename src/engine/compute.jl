@@ -48,14 +48,14 @@ Evaluate the insulator admittivity law selected by the formulation.
 function admittivity(
         formulation::Union{CoaxialFormulation, FEM}, material::Material{
             T, :insulator}, f) where {T <: Real}
-    return admittivity(formulation.insulation_admittance, material, f)
+    return formulation.insulation_admittance(material, f)
 end
 
 # A semicon layer takes the semicon admittivity law.
 function admittivity(
         formulation::Union{CoaxialFormulation, FEM}, material::Material{
             T, :semicon}, f) where {T <: Real}
-    return admittivity(formulation.semicon_admittance, material, f)
+    return formulation.semicon_admittance(material, f)
 end
 
 """
@@ -168,7 +168,7 @@ function solve!(
 ) where {T <: Real}
     (; rho, kappa, Zin, Pin, Zg, Pg, reduced, factor, coupling, rhs, identity) = buffers
     for i in eachindex(rho)
-        rho[i] = resistivity(formulation.resistivity, input.material[i], problem.temperature)
+        rho[i] = formulation.resistivity(input.material[i], problem.temperature)
     end
     for (k, f) in enumerate(problem.frequencies)
         Zk = view(Z,:,:,k)
@@ -177,8 +177,7 @@ function solve!(
         for l in eachindex(kappa)
             kappa[l] = admittivity(formulation, input.layer_material[l], f)
         end
-        media = map(layer -> properties(formulation.earth_properties, layer, f),
-            problem.earth.layers)
+        media = map(layer -> formulation.earth_properties(layer, f), problem.earth.layers)
         impedance!(formulation.internal_impedance,
             formulation.insulation_impedance, Zin, input, rho, s)
         potential!(formulation.shunt, Pin, input, kappa, s)

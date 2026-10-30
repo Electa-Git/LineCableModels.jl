@@ -3,9 +3,8 @@ defaults(::Type{Formula{:constant}}) = (;)
 """
 $(TYPEDSIGNATURES)
 
-Return the properties of the earth `layer` at the frequency `f` by the formula
-`Formula{:constant}`, whose equation is in the section "Formulas" of
-[`EarthProperties`](@ref).
+Return the earth `layer` at the frequency `f` by the formula `Formula{:constant}`, whose equation
+is in the section "Formulas" of [`EarthProperties`](@ref).
 
 # Arguments
 
@@ -15,10 +14,8 @@ Return the properties of the earth `layer` at the frequency `f` by the formula
 
 # Returns
 
-- `rho`: resistivity \\[Ω·m\\].
-- `eps_r`: relative permittivity \\[dimensionless\\].
-- `mu_r`: relative permeability \\[dimensionless\\].
+- `layer`, whose properties hold at every frequency.
 """
-function properties(::Formula{:constant}, layer::EarthLayer{T}, f::T) where {T <: Real}
-    return (rho = layer.rho, eps_r = layer.eps_r, mu_r = layer.mu_r)
+function (::Formula{:constant})(layer::EarthLayer{T}, f::T) where {T <: Real}
+    return layer
 end

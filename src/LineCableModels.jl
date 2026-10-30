@@ -31,8 +31,8 @@ using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, 
 using .Engine: vacuum_permittivity, vacuum_permeability, AbstractInternalImpedance,
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
-               AbstractResistivity, AbstractEarthProperties, admittivity, resistivity,
-               properties, impedance, impedance!, potential!, prepare!, initialize_buffers,
+               AbstractResistivity, AbstractEarthProperties, admittivity,
+               impedance!, potential!, prepare!, initialize_buffers,
                LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
                GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
                SpectralIntegral, integrate, nominal, Λ, formulas, reductions
@@ -56,7 +56,7 @@ public vacuum_permittivity, vacuum_permeability, LCMBackend, GmshBackend, backen
 public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
-public admittivity, resistivity, properties, impedance, impedance!, potential!, prepare!,
+public admittivity, impedance!, potential!, prepare!,
        initialize_buffers, bundle!, eliminate!, transposition!, SpectralIntegral, integrate,
        nominal, Λ, formulas, reductions
 

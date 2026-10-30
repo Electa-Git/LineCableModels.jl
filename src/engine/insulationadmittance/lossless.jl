@@ -17,6 +17,6 @@ formula `Formula{:lossless}`, whose equation is in the section "Formulas" of
 
 - Admittivity \\[S/m\\].
 """
-function admittivity(::Formula{:lossless}, material::Material{T}, f::T) where {T <: Real}
+function (::Formula{:lossless})(material::Material{T}, f::T) where {T <: Real}
     return im * 2π * f * vacuum_permittivity * material.eps_r
 end

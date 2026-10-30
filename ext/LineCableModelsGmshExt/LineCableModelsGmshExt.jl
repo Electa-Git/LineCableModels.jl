@@ -14,6 +14,7 @@ using Pkg.Artifacts: ensure_artifact_installed
 import LineCableModels.Commons: build, compute, defaults, select, validate
 using LineCableModels.Commons: ComputationOptions, resolve
 using LineCableModels.Materials: Material
+using LineCableModels.Earth: EarthLayer
 import LineCableModels.DataModel: area
 using LineCableModels.DataModel: AbstractShape, AbstractPrimitive, Circle, Annulus,
                                  Rectangle, Offset, AnnularSector, DifferenceShape,
@@ -23,7 +24,7 @@ using LineCableModels.CAD: Segment, Arc, Curve, Contour
 import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, transposition!, admittivity,
-                              resistivity, reductions, properties, nominal,
+                              reductions, nominal,
                               vacuum_permittivity,
                               vacuum_permeability
 

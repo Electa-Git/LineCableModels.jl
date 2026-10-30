@@ -193,7 +193,7 @@ using SpecialFunctions: besseli
         buffers = Engine.initialize_buffers(formula, problem, input,
             (gamma = zeros(ComplexF64, 3),))
         for (k, f) in enumerate(problem.frequencies)
-            media = map(layer -> Engine.properties(law, layer, f), problem.earth.layers)
+            media = map(layer -> law(layer, f), problem.earth.layers)
             Engine.prepare!(formula, buffers, input, media, im * (2 * π * f), k)
             for (index, p, x, A, F) in case.state
                 index == k || continue
@@ -228,7 +228,7 @@ using SpecialFunctions: besseli
                          Pg = zeros(ComplexF64, 2, 2, 3)) for _ in buffers]
             Pg = zeros(ComplexF64, 2, 2)
             for (k, f) in enumerate(problem.frequencies)
-                media = map(layer -> Engine.properties(law, layer, f), problem.earth.layers)
+                media = map(layer -> law(layer, f), problem.earth.layers)
                 for (buffer, term) in zip(buffers, terms)
                     Engine.prepare!(formula, buffer, input, media, im * (2 * π * f), k)
                     Engine.potential!(
@@ -300,7 +300,7 @@ using SpecialFunctions: besseli
         Zg = zeros(ComplexF64, c, c)
         Pg = zeros(ComplexF64, c, c)
         for (k, f) in enumerate(frequencies)
-            media = map(layer -> Engine.properties(law, layer, f), problem.earth.layers)
+            media = map(layer -> law(layer, f), problem.earth.layers)
             Engine.prepare!(formula, buffers, input, media, im * (2 * π * f), k)
             Engine.impedance!(formula, Zg, buffers, input, media, im * (2 * π * f), k)
             Engine.potential!(formula, Pg, buffers, input, media, im * (2 * π * f), k)
@@ -337,7 +337,7 @@ using SpecialFunctions: besseli
     input = LineCableModels.Engine.CoaxialInput(buried, reductions)
     buffers = LineCableModels.initialize_buffers(contact, buried, input,
         (gamma = zeros(ComplexF64, 3),))
-    media = map(layer -> LineCableModels.properties(law, layer, 1.0e3), buried.earth.layers)
+    media = map(layer -> law(layer, 1.0e3), buried.earth.layers)
     s = im * (2 * π * 1.0e3)
     LineCableModels.prepare!(contact, buffers, input, media, s, 1)
     @test all(isfinite, buffers.unified.Ze) && all(isfinite, buffers.unified.Pe)

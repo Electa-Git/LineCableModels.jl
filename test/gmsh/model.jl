@@ -1,4 +1,4 @@
-using LineCableModels.Engine: admittivity, resistivity, reductions
+using LineCableModels.Engine: admittivity, reductions
 
 @testset "Gmsh field model" begin
     FieldModel = Base.get_extension(LineCableModels, :LineCableModelsGmshExt).FieldModel
@@ -23,8 +23,7 @@ using LineCableModels.Engine: admittivity, resistivity, reductions
         model = FieldModel(problem, formulation)
         earth = problem.earth.layers[2]
         @test length(model.earth) == length(problem.frequencies)
-        @test all(state == (rho = earth.rho, eps_r = earth.eps_r, mu_r = earth.mu_r)
-        for state in model.earth)
+        @test all(state == earth for state in model.earth)
         @test length(model.material) == length(problem.system.regions) == regions
         @test model.label == reductions(problem.system, FEM().options).label
         @test length(model.label) == length(problem.system.terminals)
@@ -39,8 +38,7 @@ using LineCableModels.Engine: admittivity, resistivity, reductions
             if material isa Material{<:Real, :conductor}
                 @test real.(group.admittivity) ==
                       fill(
-                    inv(resistivity(formulation.resistivity, material,
-                        problem.temperature)),
+                    inv(formulation.resistivity(material, problem.temperature)),
                     length(problem.frequencies))
             else
                 expected = [admittivity(CoaxialFormulation(), material, f)

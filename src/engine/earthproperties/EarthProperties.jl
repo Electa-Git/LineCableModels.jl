@@ -22,7 +22,6 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractEarthProperties
-import ..Engine: properties
 using ...Earth: EarthLayer
 
 export Formula, FORMULAS

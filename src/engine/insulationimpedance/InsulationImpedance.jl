@@ -26,7 +26,6 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractInsulationImpedance
-import ..Engine: impedance
 using ..Engine: vacuum_permeability
 
 export Formula, FORMULAS

@@ -25,7 +25,6 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractResistivity
-import ..Engine: resistivity
 using ...Materials: Material
 
 export Formula, FORMULAS

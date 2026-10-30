@@ -3,7 +3,6 @@
 # and the dielectric layers of the coaxial references.
 @testset "Engine impedances" begin
     Engine = LineCableModels.Engine
-    impedance = Engine.impedance
     schelkunoff = Engine.InternalImpedance.Formula(Val(:schelkunoff1934))
     ametani = Engine.InsulationImpedance.Formula(Val(:ametani1980))
     # The radii in m, the resistivity in Ω·m and the relative permeability of each tube, and the
@@ -59,7 +58,7 @@
 
     @testset "the surfaces of the tubes, and of the solid core" begin
         for (part, f, inner, outer, transfer) in surfaces
-            surface = impedance(schelkunoff, tubes[part]..., im * (2π * f))
+            surface = schelkunoff(tubes[part]..., im * (2π * f))
             @test isapprox(surface.inner, inner; rtol = 1.0e-13)
             @test isapprox(surface.outer, outer; rtol = 1.0e-13)
             @test isapprox(surface.transfer, transfer; rtol = 1.0e-13)
@@ -68,27 +67,27 @@
 
     @testset "the magnetic term across the layers" begin
         for (part, f, term) in terms
-            @test isapprox(impedance(ametani, layers[part]..., im * (2π * f)), term;
+            @test isapprox(ametani(layers[part]..., im * (2π * f)), term;
                 rtol = 1.0e-13)
         end
-        @test iszero(impedance(ametani, 10.5e-3, 10.5e-3, 1.0, im * (2π * 50.0)))
+        @test iszero(ametani(10.5e-3, 10.5e-3, 1.0, im * (2π * 50.0)))
     end
 
     @testset "a tube has ordered radii, a conductive material and a frequency" begin
         s = im * (2π * 50.0)
-        @test_throws DomainError impedance(schelkunoff, 2.0e-3, 1.0e-3, 1.7241e-8, 1.0, s)
-        @test_throws DomainError impedance(schelkunoff, 0.0, 1.0e-3, 0.0, 1.0, s)
-        @test_throws DomainError impedance(schelkunoff, 0.0, 1.0e-3, 1.7241e-8, -1.0, s)
-        @test_throws DomainError impedance(schelkunoff, 0.0, 1.0e-3, 1.7241e-8, 1.0, 0.0im)
+        @test_throws DomainError schelkunoff(2.0e-3, 1.0e-3, 1.7241e-8, 1.0, s)
+        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 0.0, 1.0, s)
+        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 1.7241e-8, -1.0, s)
+        @test_throws DomainError schelkunoff(0.0, 1.0e-3, 1.7241e-8, 1.0, 0.0im)
     end
 
     @testset "the impedances are inferred" begin
         s = im * (2π * 50.0)
-        @test @inferred(impedance(schelkunoff, tubes["sheath"]..., s)).outer isa ComplexF64
-        @test @inferred(impedance(ametani, layers["insulation"]..., s)) isa ComplexF64
+        @test @inferred(schelkunoff(tubes["sheath"]..., s)).outer isa ComplexF64
+        @test @inferred(ametani(layers["insulation"]..., s)) isa ComplexF64
         s32 = ComplexF32(s)
-        @test real(@inferred(impedance(
-            schelkunoff, 0.0f0, 1.0f-3, 1.7241f-8, 1.0f0, s32)).outer) > 0
-        @test iszero(@inferred(impedance(ametani, 1.0f-3, 1.0f-3, 1.0f0, s32)))
+        @test real(@inferred(schelkunoff(
+            0.0f0, 1.0f-3, 1.7241f-8, 1.0f0, s32)).outer) > 0
+        @test iszero(@inferred(ametani(1.0f-3, 1.0f-3, 1.0f0, s32)))
     end
 end
