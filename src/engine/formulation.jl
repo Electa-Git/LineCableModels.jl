@@ -3,7 +3,7 @@ $(TYPEDEF)
 
 Select the formulas for a coaxial line-parameters computation, with the longitudinal
 wavenumber `Γ` \\[1/m\\] and matrix reductions as options.
-Equal earth slots share one formula and its state at each frequency.
+Equal earth formulas share one block at each frequency.
 
 $(TYPEDFIELDS)
 """
@@ -12,11 +12,13 @@ struct CoaxialFormulation{
     D <: InsulationImpedance.Formula,
     K <: InsulationAdmittance.Formula,
     S <: SemiconAdmittance.Formula,
-    Z <: EarthReturn.Formula,
-    Y <: EarthReturn.Formula,
+    Z <: NamedTuple{(:air, :earth, :mixed), <:Tuple{Vararg{EarthReturn.Formula}}},
+    Y <: NamedTuple{(:air, :earth, :mixed), <:Tuple{Vararg{EarthReturn.Formula}}},
     U <: Shunt.Formula,
     R <: Resistivity.Formula,
     P <: EarthProperties.Formula,
+    E <: EarthProperties.Formula,
+    L <: Tuple{Vararg{AbstractFormulation}},
     O <: FormulationOptions
 } <: AbstractFormulation
     "Formula for the surface impedances of each equivalent conductor."
@@ -27,9 +29,9 @@ struct CoaxialFormulation{
     insulation_admittance::K
     "Admittivity law for semicon layers."
     semicon_admittance::S
-    "Formula for the earth-return impedances of the cables."
+    "Earth-return impedance formula of each domain of a pair, `(air, earth, mixed)`."
     earth_impedance::Z
-    "Formula for the earth-return potential coefficients of the cables."
+    "Earth-return potential-coefficient formula of each domain of a pair, `(air, earth, mixed)`."
     earth_admittance::Y
     "Formula for potential coefficients inside each cable."
     shunt::U
@@ -37,31 +39,45 @@ struct CoaxialFormulation{
     resistivity::R
     "Frequency law for air and earth material properties."
     earth_properties::P
+    "Model of the equivalent earth of the layers below the air."
+    equivalent_earth::E
+    "Distinct formulas of the slots, computed once at construction."
+    formulas::L
     "Options: the longitudinal wavenumber `Γ` \\[1/m\\] and the reductions."
     options::O
     function CoaxialFormulation(
             internal_impedance::I, insulation_impedance::D, insulation_admittance::K,
             semicon_admittance::S, earth_impedance::Z, earth_admittance::Y, shunt::U,
-            resistivity::R, earth_properties::P,
+            resistivity::R, earth_properties::P, equivalent_earth::E,
             options::O) where {
             I <: InternalImpedance.Formula,
             D <: InsulationImpedance.Formula,
             K <: InsulationAdmittance.Formula,
             S <: SemiconAdmittance.Formula,
-            Z <: EarthReturn.Formula,
-            Y <: EarthReturn.Formula,
+            Z <: NamedTuple{(:air, :earth, :mixed), <:Tuple{Vararg{EarthReturn.Formula}}},
+            Y <: NamedTuple{(:air, :earth, :mixed), <:Tuple{Vararg{EarthReturn.Formula}}},
             U <: Shunt.Formula,
             R <: Resistivity.Formula,
             P <: EarthProperties.Formula,
+            E <: EarthProperties.Formula,
             O <: FormulationOptions{CoaxialFormulation}
     }
-        validate(earth_impedance, impedance!)
-        validate(earth_admittance, potential!)
-        validate((earth_impedance, earth_admittance), CoaxialFormulation)
-        return new{I, D, K, S, Z, Y, U, R, P, O}(
-            internal_impedance, insulation_impedance, insulation_admittance,
-            semicon_admittance, earth_impedance, earth_admittance, shunt, resistivity,
-            earth_properties, options)
+        map(formula -> validate(formula, impedance!), earth_impedance)
+        map(formula -> validate(formula, potential!), earth_admittance)
+        validate((Tuple(earth_impedance)..., Tuple(earth_admittance)...), CoaxialFormulation)
+        validate(earth_properties, EarthLayer)
+        validate(equivalent_earth, EarthModel)
+        formulas = foldl(
+            (found, formula) -> any(f -> f == formula, found) ? found : (found..., formula),
+            (internal_impedance, insulation_impedance,
+                insulation_admittance, semicon_admittance,
+                Tuple(earth_impedance)..., Tuple(earth_admittance)..., shunt, resistivity,
+                earth_properties, equivalent_earth);
+            init = ())
+        return new{I, D, K, S, Z, Y, U, R, P, E, typeof(formulas), O}(
+            internal_impedance, insulation_impedance, insulation_admittance, semicon_admittance,
+            earth_impedance, earth_admittance, shunt, resistivity, earth_properties,
+            equivalent_earth, formulas, options)
     end
 end
 
@@ -73,8 +89,9 @@ end
 $(TYPEDSIGNATURES)
 
 Build a coaxial formulation. Each formula keyword accepts `:id`,
-`:id => (key = value, ...)`, or a formula of its family. Other keywords set the formulation
-options. Earth slots with the same identifier must hold equal formulas.
+`:id => (key = value, ...)`, a formula of its family, or `:default`, the default of its slot.
+Other keywords set the formulation options. Earth slots with the same identifier must hold
+equal formulas.
 
 # Keywords
 
@@ -82,11 +99,15 @@ options. Earth slots with the same identifier must hold equal formulas.
 - `insulation_impedance`: magnetic dielectric-interval formula. Default: `:ametani1980`.
 - `insulation_admittance`: admittivity law for insulator layers. Default: `:lossless`.
 - `semicon_admittance`: admittivity law for semicon layers. Default: `:lossless`.
-- `earth_impedance`: earth-return impedance formula. Default: `:martins2026`.
-- `earth_admittance`: earth-return potential-coefficient formula. Default: `:martins2026`.
+- `earth_impedance`: earth-return impedance formula, or a record `(air, earth, mixed)` of them.
+  A domain left out takes the default. Default: `:martins2026`.
+- `earth_admittance`: earth-return potential-coefficient formula, or a record
+  `(air, earth, mixed)` of them. A domain left out takes the default. Default: `:martins2026`.
 - `shunt`: formula for potential coefficients inside cables. Default: `:series`.
 - `resistivity`: conductor resistivity law. Default: `:linear`.
 - `earth_properties`: air and earth properties law. Default: `:constant`.
+- `equivalent_earth`: model of the equivalent earth of the layers below the air. Default:
+  `:bottommost`.
 - `Γ`: longitudinal wavenumber \\[1/m\\], one value or one per frequency. Default: `0`.
 - `bundle`: merge conductors with the same positive connection index. Default: `true`.
 - `kron`: remove conductors with connection index zero by [`eliminate!`](@ref). Default:
@@ -103,21 +124,26 @@ options. Earth slots with the same identifier must hold equal formulas.
   controls.
 - Throws `ArgumentError` for different formulas of one identifier in the earth slots.
 - Throws `DomainError` for an earth formula that does not give the quantity of its slot.
+- Throws `DomainError` for a model of the equivalent earth in `earth_properties`, or a law in
+  `equivalent_earth`.
 - Throws `DomainError` when `Γ` is empty or nonfinite.
 """
 function CoaxialFormulation(;
-        internal_impedance = :schelkunoff1934, insulation_impedance = :ametani1980,
-        insulation_admittance = :lossless, semicon_admittance = :lossless,
-        earth_impedance = :martins2026, earth_admittance = :martins2026, shunt = :series,
-        resistivity = :linear, earth_properties = :constant, kw...)
-    return CoaxialFormulation(select(InternalImpedance.Formula, internal_impedance),
-        select(InsulationImpedance.Formula, insulation_impedance),
-        select(InsulationAdmittance.Formula, insulation_admittance),
-        select(SemiconAdmittance.Formula, semicon_admittance),
-        select(EarthReturn.Formula, earth_impedance),
-        select(EarthReturn.Formula, earth_admittance),
-        select(Shunt.Formula, shunt), select(Resistivity.Formula, resistivity),
-        select(EarthProperties.Formula, earth_properties),
+        internal_impedance = :default, insulation_impedance = :default,
+        insulation_admittance = :default, semicon_admittance = :default,
+        earth_impedance = :default, earth_admittance = :default, shunt = :default,
+        resistivity = :default, earth_properties = :default, equivalent_earth = :default, kw...)
+    return CoaxialFormulation(
+        select(CoaxialFormulation, Val(:internal_impedance), internal_impedance),
+        select(CoaxialFormulation, Val(:insulation_impedance), insulation_impedance),
+        select(CoaxialFormulation, Val(:insulation_admittance), insulation_admittance),
+        select(CoaxialFormulation, Val(:semicon_admittance), semicon_admittance),
+        select(CoaxialFormulation, Val(:earth_impedance), earth_impedance),
+        select(CoaxialFormulation, Val(:earth_admittance), earth_admittance),
+        select(CoaxialFormulation, Val(:shunt), shunt),
+        select(CoaxialFormulation, Val(:resistivity), resistivity),
+        select(CoaxialFormulation, Val(:earth_properties), earth_properties),
+        select(CoaxialFormulation, Val(:equivalent_earth), equivalent_earth),
         FormulationOptions(CoaxialFormulation; kw...))
 end
 
@@ -154,62 +180,14 @@ function validate(earth::Tuple{EarthReturn.Formula, EarthReturn.Formula},
     return earth
 end
 
-# A slot takes a formula of its family, or the identifier of the formula, alone or paired
-# with its options.
-select(::Type{F}, id::Symbol) where {F <: InternalImpedance.Formula} = F(Val(id))
-function select(::Type{F},
-        selection::Pair{Symbol, <:NamedTuple}) where {F <: InternalImpedance.Formula}
-    return F(Val(first(selection)); last(selection)...)
-end
-select(::Type{F}, formula::F) where {F <: InternalImpedance.Formula} = formula
+# Places of the earth slots with one identifier must store equal formulas.
+function validate(places::NTuple{6, EarthReturn.Formula}, ::Type{CoaxialFormulation})
+    for a in places, b in places
 
-select(::Type{F}, id::Symbol) where {F <: InsulationImpedance.Formula} = F(Val(id))
-function select(::Type{F},
-        selection::Pair{Symbol, <:NamedTuple}) where {F <: InsulationImpedance.Formula}
-    return F(Val(first(selection)); last(selection)...)
+        validate((a, b), CoaxialFormulation)
+    end
+    return places
 end
-select(::Type{F}, formula::F) where {F <: InsulationImpedance.Formula} = formula
-
-select(::Type{F}, id::Symbol) where {F <: InsulationAdmittance.Formula} = F(Val(id))
-function select(::Type{F},
-        selection::Pair{Symbol, <:NamedTuple}) where {F <: InsulationAdmittance.Formula}
-    return F(Val(first(selection)); last(selection)...)
-end
-select(::Type{F}, formula::F) where {F <: InsulationAdmittance.Formula} = formula
-
-select(::Type{F}, id::Symbol) where {F <: SemiconAdmittance.Formula} = F(Val(id))
-function select(::Type{F},
-        selection::Pair{Symbol, <:NamedTuple}) where {F <: SemiconAdmittance.Formula}
-    return F(Val(first(selection)); last(selection)...)
-end
-select(::Type{F}, formula::F) where {F <: SemiconAdmittance.Formula} = formula
-
-select(::Type{F}, id::Symbol) where {F <: EarthReturn.Formula} = F(Val(id))
-function select(
-        ::Type{F}, selection::Pair{Symbol, <:NamedTuple}) where {F <: EarthReturn.Formula}
-    return F(Val(first(selection)); last(selection)...)
-end
-select(::Type{F}, formula::F) where {F <: EarthReturn.Formula} = formula
-
-select(::Type{F}, id::Symbol) where {F <: Shunt.Formula} = F(Val(id))
-function select(::Type{F}, selection::Pair{Symbol, <:NamedTuple}) where {F <: Shunt.Formula}
-    return F(Val(first(selection)); last(selection)...)
-end
-select(::Type{F}, formula::F) where {F <: Shunt.Formula} = formula
-
-select(::Type{F}, id::Symbol) where {F <: Resistivity.Formula} = F(Val(id))
-function select(
-        ::Type{F}, selection::Pair{Symbol, <:NamedTuple}) where {F <: Resistivity.Formula}
-    return F(Val(first(selection)); last(selection)...)
-end
-select(::Type{F}, formula::F) where {F <: Resistivity.Formula} = formula
-
-select(::Type{F}, id::Symbol) where {F <: EarthProperties.Formula} = F(Val(id))
-function select(::Type{F},
-        selection::Pair{Symbol, <:NamedTuple}) where {F <: EarthProperties.Formula}
-    return F(Val(first(selection)); last(selection)...)
-end
-select(::Type{F}, formula::F) where {F <: EarthProperties.Formula} = formula
 
 """
 $(TYPEDEF)
@@ -246,6 +224,7 @@ struct FEM{
             P <: EarthProperties.Formula,
             O <: FormulationOptions{FEM}
     }
+        validate(earth_properties, EarthLayer)
         return new{K, S, R, P, O}(
             insulation_admittance, semicon_admittance, resistivity,
             earth_properties, options)
@@ -260,8 +239,8 @@ end
 $(TYPEDSIGNATURES)
 
 Build a finite-element formulation. Each formula keyword accepts `:id`,
-`:id => (key = value, ...)`, or a formula of its family. Other keywords set the formulation
-options.
+`:id => (key = value, ...)`, a formula of its family, or `:default`, the default of its slot.
+Other keywords set the formulation options.
 
 # Keywords
 
@@ -284,12 +263,101 @@ options.
 - Throws `ArgumentError` for an unknown formula identifier or option.
 - Throws `DomainError` when `Γ` is empty or nonfinite.
 """
-function FEM(; insulation_admittance = :lossless, semicon_admittance = :lossless,
-        resistivity = :linear, earth_properties = :constant, kw...)
-    return FEM(select(InsulationAdmittance.Formula, insulation_admittance),
-        select(SemiconAdmittance.Formula, semicon_admittance),
-        select(Resistivity.Formula, resistivity),
-        select(EarthProperties.Formula, earth_properties), FormulationOptions(FEM; kw...))
+function FEM(; insulation_admittance = :default, semicon_admittance = :default,
+        resistivity = :default, earth_properties = :default, kw...)
+    return FEM(select(FEM, Val(:insulation_admittance), insulation_admittance),
+        select(FEM, Val(:semicon_admittance), semicon_admittance),
+        select(FEM, Val(:resistivity), resistivity),
+        select(FEM, Val(:earth_properties), earth_properties), FormulationOptions(FEM; kw...))
+end
+
+# A Symbol lifts to its tag and a pair to its tag with options. A formula stands.
+function select(
+        ::Type{F}, slot::Val, id::Symbol) where {F <: Union{CoaxialFormulation, FEM}}
+    return select(F, slot, Val(id))
+end
+function select(::Type{F}, slot::Val,
+        selection::Pair{Symbol, <:NamedTuple}) where {F <: Union{CoaxialFormulation, FEM}}
+    return select(F, slot, Val(first(selection)); last(selection)...)
+end
+function select(::Type{F}, ::Val,
+        formula::AbstractFormulation) where {F <: Union{CoaxialFormulation, FEM}}
+    return formula
+end
+# An identifier lifts through the family of the slot, which the struct declares.
+function select(::Type{F}, ::Val{S}, ::Val{ID};
+        kw...) where {F <: Union{CoaxialFormulation, FEM}, S, ID}
+    return fieldtype(F, S)(Val(ID); kw...)
+end
+
+# The default formula of each slot, the one place it is read and changed.
+function select(::Type{CoaxialFormulation}, ::Val{:internal_impedance}, ::Val{:default}; kw...)
+    return InternalImpedance.Formula(Val(:schelkunoff1934); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:insulation_impedance}, ::Val{:default}; kw...)
+    return InsulationImpedance.Formula(Val(:ametani1980); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:insulation_admittance}, ::Val{:default}; kw...)
+    return InsulationAdmittance.Formula(Val(:lossless); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:semicon_admittance}, ::Val{:default}; kw...)
+    return SemiconAdmittance.Formula(Val(:lossless); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, ::Val{:default}; kw...)
+    return select(CoaxialFormulation, Val(:earth_impedance), Val(:martins2026); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, ::Val{:default}; kw...)
+    return select(CoaxialFormulation, Val(:earth_admittance), Val(:martins2026); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:shunt}, ::Val{:default}; kw...)
+    return Shunt.Formula(Val(:series); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:resistivity}, ::Val{:default}; kw...)
+    return Resistivity.Formula(Val(:linear); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:earth_properties}, ::Val{:default}; kw...)
+    return EarthProperties.Formula(Val(:constant); kw...)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:equivalent_earth}, ::Val{:default}; kw...)
+    return EarthProperties.Formula(Val(:bottommost); kw...)
+end
+
+function select(::Type{FEM}, ::Val{:insulation_admittance}, ::Val{:default}; kw...)
+    return InsulationAdmittance.Formula(Val(:lossless); kw...)
+end
+function select(::Type{FEM}, ::Val{:semicon_admittance}, ::Val{:default}; kw...)
+    return SemiconAdmittance.Formula(Val(:lossless); kw...)
+end
+function select(::Type{FEM}, ::Val{:resistivity}, ::Val{:default}; kw...)
+    return Resistivity.Formula(Val(:linear); kw...)
+end
+function select(::Type{FEM}, ::Val{:earth_properties}, ::Val{:default}; kw...)
+    return EarthProperties.Formula(Val(:constant); kw...)
+end
+
+# An earth slot stores one formula per domain. One selection fills the three domains. A
+# selection per domain leaves the others to the default.
+function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, ::Val{ID}; kw...) where {ID}
+    formula = EarthReturn.Formula(Val(ID); kw...)
+    return (air = formula, earth = formula, mixed = formula)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, formula::EarthReturn.Formula)
+    return (air = formula, earth = formula, mixed = formula)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:earth_impedance}, selection::NamedTuple)
+    return merge(select(CoaxialFormulation, Val(:earth_impedance), Val(:default)),
+        map(domain -> select(CoaxialFormulation, Val(:earth_impedance), domain).air, selection))
+end
+function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, ::Val{ID}; kw...) where {ID}
+    formula = EarthReturn.Formula(Val(ID); kw...)
+    return (air = formula, earth = formula, mixed = formula)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, formula::EarthReturn.Formula)
+    return (air = formula, earth = formula, mixed = formula)
+end
+function select(::Type{CoaxialFormulation}, ::Val{:earth_admittance}, selection::NamedTuple)
+    return merge(select(CoaxialFormulation, Val(:earth_admittance), Val(:default)),
+        map(domain -> select(CoaxialFormulation, Val(:earth_admittance), domain).air, selection))
 end
 
 # Γ is one finite value, or one finite value per frequency.

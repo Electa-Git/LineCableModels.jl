@@ -1,6 +1,21 @@
 using LinearAlgebra: I, lu!, norm
 using JET
 
+# An earth-return identifier that the test declares for the mixed pairs, so that one slot holds
+# three distinct formulas.
+function LineCableModels.defaults(::Type{LineCableModels.Engine.EarthReturn.Formula{:crossing}})
+    (;)
+end
+function LineCableModels.validate(
+        formula::LineCableModels.Engine.EarthReturn.Formula{:crossing},
+        ::typeof(LineCableModels.Engine.potential!))
+    return formula
+end
+function (::LineCableModels.Engine.EarthReturn.Formula{:crossing})(
+        ::Val{:P}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
+    return complex(1.0e10)
+end
+
 @testset "Engine coaxial computation" begin
     Engine = LineCableModels.Engine
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
@@ -113,4 +128,24 @@ using JET
     @test eltype(result32.Z) == eltype(result32.Y) == ComplexF64
     @test_throws ArgumentError("LCMBackend does not implement FEM") compute(
         Engine.LCMBackend(), problem, FEM())
+
+    @testset "the three arms of a slot" begin
+        mixed = Dict(REFERENCES)["mixed_bare_wires"]
+        arms = CoaxialFormulation(;
+            earth_admittance = (air = :ideal, earth = :martins2026, mixed = :crossing))
+        @test length(unique(map(typeof, Tuple(arms.earth_admittance)))) == 3
+        input = Engine.CoaxialInput(mixed, arms.options)
+        buffers = Engine.initialize_buffers(arms, mixed, input)
+        media = mixed.earth.layers
+        s = complex(0.0, 2π * first(mixed.frequencies))
+        map(formula -> Engine.to_buffer!(formula, buffers, input, media, s, 1), arms.formulas)
+        Pg = zeros(ComplexF64, 2, 2)
+        Engine.potential!(arms, Pg, buffers, input, media, s, 1)
+        @test Pg[1, 1] ==
+              arms.earth_admittance.air(Val(:P), Val(:self), 1, buffers, input, media, s, 1)
+        @test Pg[2, 2] == Engine.from_buffer(arms.earth_admittance.earth, buffers).Pg[2, 2]
+        @test Pg[1, 2] == Pg[2, 1] == complex(1.0e10)
+        JET.@test_opt target_modules=(LineCableModels,) Engine.potential!(
+            arms, Pg, buffers, input, media, s, 1)
+    end
 end

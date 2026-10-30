@@ -15,19 +15,23 @@ Properties of a layer of the earth or of the air independent of the frequency ``
 
 where ``\\rho`` is the resistivity of the layer \\[Ω·m\\], and ``\\varepsilon_r`` and
 ``\\mu_r`` are its relative permittivity and permeability \\[dimensionless\\].
+
+## `Formula{:bottommost}`
+
+Equivalent earth of the layers below the air: the deepest described layer, the identity for one layer.
 """
 module EarthProperties
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ...Commons: defaults
+import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
 using ..Engine: AbstractEarthProperties
-using ...Earth: EarthLayer
+using ...Earth: EarthLayer, EarthModel
 
 export Formula, FORMULAS
 
 "Identifiers of the earth-properties formulas."
-const FORMULAS = (:constant,)
+const FORMULAS = (:constant, :bottommost)
 
 """
 $(TYPEDEF)
@@ -76,5 +80,18 @@ function defaults(::Type{Formula{ID}}) where {ID}
 end
 
 include("constant.jl")
+include("bottommost.jl")
+
+# A law describes a layer, and a model reduces the described layers of an earth model to one.
+validate(formula::Formula{:constant}, ::Type{EarthLayer}) = formula
+validate(formula::Formula{:bottommost}, ::Type{EarthModel}) = formula
+function validate(formula::Formula{ID}, ::Type{EarthLayer}) where {ID}
+    throw(DomainError(formula,
+        "the earth-properties formula :$ID describes no layer; a model of the equivalent earth belongs in the slot equivalent_earth"))
+end
+function validate(formula::Formula{ID}, ::Type{EarthModel}) where {ID}
+    throw(DomainError(formula,
+        "the earth-properties formula :$ID reduces no earth model; a law belongs in the slot earth_properties"))
+end
 
 end

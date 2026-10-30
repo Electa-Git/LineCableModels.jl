@@ -15,7 +15,7 @@ import ..Commons: compute, defaults, select, validate
 using ..Commons: AbstractFormulation, AbstractBackend, FormulationOptions,
                  ComputationOptions
 using ..Materials: Material
-using ..Earth: EarthModel
+using ..Earth: EarthLayer, EarthModel
 using ..DataModel: Placement, CableSystem, support, flatten
 using LinearAlgebra: I, checksquare, ldiv!, lu!, mul!
 using QuadGK: alloc_segbuf, quadgk
@@ -28,7 +28,7 @@ export admittivity, impedance!, potential!, to_buffer!, from_buffer,
        initialize_buffers
 export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
-export bundle!, eliminate!, transposition!, formulas, reductions
+export bundle!, eliminate!, transposition!, reductions
 export SpectralIntegral, integrate, nominal
 public CoaxialInput, solve!, Λ
 public InternalImpedance, InsulationImpedance, InsulationAdmittance, SemiconAdmittance,

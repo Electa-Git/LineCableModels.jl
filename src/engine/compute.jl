@@ -1,38 +1,6 @@
 """
 $(TYPEDSIGNATURES)
 
-Return formulas in slot order with one entry for the two earth slots of the same type.
-
-# Arguments
-
-- `formulation`: coaxial formulation whose earth slots share a formula type.
-
-# Returns
-
-- A tuple of formula objects, with the earth formula once.
-"""
-function formulas(formulation::CoaxialFormulation{<:InternalImpedance.Formula,
-        <:InsulationImpedance.Formula, <:InsulationAdmittance.Formula,
-        <:SemiconAdmittance.Formula, E, E}) where {E <: EarthReturn.Formula}
-    return (
-        formulation.internal_impedance, formulation.insulation_impedance,
-        formulation.insulation_admittance, formulation.semicon_admittance,
-        formulation.earth_impedance, formulation.shunt, formulation.resistivity,
-        formulation.earth_properties)
-end
-
-# Earth slots of different types each contribute their formula.
-function formulas(formulation::CoaxialFormulation)
-    return (
-        formulation.internal_impedance, formulation.insulation_impedance,
-        formulation.insulation_admittance, formulation.semicon_admittance,
-        formulation.earth_impedance, formulation.earth_admittance, formulation.shunt,
-        formulation.resistivity, formulation.earth_properties)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Evaluate the insulator admittivity law selected by the formulation.
 
 # Arguments
@@ -78,7 +46,7 @@ validate(problem::LineParametersProblem, ::AbstractFormulation) = problem
 $(TYPEDSIGNATURES)
 
 Allocate the coaxial computation arrays, fill the longitudinal wavenumbers, and add the
-arrays of each formula from [`formulas`](@ref).
+arrays of each formula from the distinct formulas of the formulation.
 
 # Arguments
 
@@ -117,7 +85,7 @@ function initialize_buffers(
     base.gamma .= formulation.options.Γ
     return foldl(
         (buffers, formula) -> initialize_buffers(formula, problem, input, buffers),
-        formulas(formulation); init = base)
+        formulation.formulas; init = base)
 end
 
 """
@@ -177,7 +145,8 @@ function solve!(
         for l in eachindex(kappa)
             kappa[l] = admittivity(formulation, input.layer_material[l], f)
         end
-        media = map(layer -> formulation.earth_properties(layer, f), problem.earth.layers)
+        described = map(layer -> formulation.earth_properties(layer, f), problem.earth.layers)
+        media = (first(described), formulation.equivalent_earth(Base.tail(described), f))
         impedance!(formulation.internal_impedance,
             formulation.insulation_impedance, Zin, input, rho, s)
         potential!(formulation.shunt, Pin, buffers, input, kappa, s)
@@ -187,7 +156,7 @@ function solve!(
         end
         # The map compiles each call over the tuple of formulas, where foreach's fold dispatches at run time.
         map(formula -> to_buffer!(formula, buffers, input, media, s, k),
-            formulas(formulation))
+            formulation.formulas)
         impedance!(formulation, Zg, buffers, input, media, s, k)
         potential!(formulation, Pg, buffers, input, media, s, k)
         if options.trace
@@ -244,7 +213,7 @@ function compute(
         options::ComputationOptions{LCMBackend}
 ) where {T <: Real}
     validate(problem, formulation)
-    map(formula -> validate(problem, formula), formulas(formulation))
+    map(formula -> validate(problem, formula), formulation.formulas)
     input = CoaxialInput(problem, formulation.options)
     buffers = initialize_buffers(formulation, problem, input)
     n = length(input.cable)

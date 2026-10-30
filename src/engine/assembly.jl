@@ -69,8 +69,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Write into `Zg` the earth-return impedances of the cables, pair by pair, from the formula of the
-slot `earth_impedance`. The recipe alone writes the matrix.
+Write into `Zg` the earth-return impedances of the cables, pair by pair, from the formula of
+each pair's domain in the slot `earth_impedance`. The recipe alone writes the matrix.
 
 # Arguments
 
@@ -88,14 +88,22 @@ slot `earth_impedance`. The recipe alone writes the matrix.
 """
 function impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers,
         input::CoaxialInput, media, s, k)
-    formula = formulation.earth_impedance
+    (; air, earth, mixed) = formulation.earth_impedance
     for i in eachindex(input.radius)
-        Zg[i, i] = formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)
+        Zg[i, i] = (input.y[i] > 0 ? air : earth)(
+            Val(:Z), Val(:self), i, buffers, input, media, s, k)
     end
     for j in eachindex(input.radius), i in eachindex(input.radius)
 
         i == j && continue
-        Zg[i, j] = formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
+        above_i, above_j = input.y[i] > 0, input.y[j] > 0
+        Zg[i, j] = if above_i && above_j
+            air(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
+        elseif !above_i && !above_j
+            earth(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
+        else
+            mixed(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
+        end
     end
     return Zg
 end
@@ -103,8 +111,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Write into `Pg` the earth-return potential coefficients of the cables, pair by pair, from the formula of the
-slot `earth_admittance`. The recipe alone writes the matrix.
+Write into `Pg` the earth-return potential coefficients of the cables, pair by pair, from
+the formula of each pair's domain in the slot `earth_admittance`. The recipe alone writes
+the matrix.
 
 # Arguments
 
@@ -122,14 +131,22 @@ slot `earth_admittance`. The recipe alone writes the matrix.
 """
 function potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers,
         input::CoaxialInput, media, s, k)
-    formula = formulation.earth_admittance
+    (; air, earth, mixed) = formulation.earth_admittance
     for i in eachindex(input.radius)
-        Pg[i, i] = formula(Val(:P), Val(:self), i, buffers, input, media, s, k)
+        Pg[i, i] = (input.y[i] > 0 ? air : earth)(
+            Val(:P), Val(:self), i, buffers, input, media, s, k)
     end
     for j in eachindex(input.radius), i in eachindex(input.radius)
 
         i == j && continue
-        Pg[i, j] = formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+        above_i, above_j = input.y[i] > 0, input.y[j] > 0
+        Pg[i, j] = if above_i && above_j
+            air(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+        elseif !above_i && !above_j
+            earth(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+        else
+            mixed(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+        end
     end
     return Pg
 end

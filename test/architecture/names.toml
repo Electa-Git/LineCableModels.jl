@@ -97,7 +97,7 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
     "transposition", "integral", "integrand", "reductions"]
-qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
+qualifiers = ["vacuum", "coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ"]
 
 [modules.Engine.verbs]
@@ -245,7 +245,6 @@ SpectralIntegral = "the integral of a kernel in λ over [0, ∞) along the path 
 integrate = "evaluate an integral by the method that its tag selects, with the controls of its section"
 nominal = "the nominal value of a quantity: the identity on a real number and componentwise on a complex number; the Measurements extension gives a measurement's nominal value"
 "Λ" = "the circumferential mean of the direct and image fields of a source on a receiver in one medium, the family tool of the earth return; a formula overrides it"
-formulas = "the distinct formulas of a formulation's slots, the two earth slots once when they are one formula"
 reductions = "the conductor indices that the bundle and Kron reductions of a system merge, keep and remove under the formulation's options, with the labels of its conductors and of the kept rows"
 
 "solve!" = "a backend's loop over the problem's frequencies that fills Z and Y and, when traced, its stage matrices"
@@ -308,6 +307,7 @@ Formula = "an earth-properties formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.EarthProperties".formulas]
+bottommost = "the equivalent earth of a layered model is its deepest layer; the identity at two layers (commit 9676ae6c, earth/equivalenthomogeneous/formulas/bottommost.jl)"
 constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (commit 989af96c, earth/frequencydependent/formulas/constant.jl)"
 
 [register.CAD.public]
