@@ -42,7 +42,7 @@
             kappa = ComplexF64[(i in semicons ? semiconducting : insulating)(layer, f)
                                for (i, layer) in enumerate(input.layer_material)]
             Engine.impedance!(internal, term, view(Zin,:,:,k), input, rho, s)
-            Engine.potential!(shunt, view(Pin,:,:,k), input, kappa, s)
+            Engine.potential!(shunt, view(Pin,:,:,k), (;), input, kappa, s)
         end
         for (computed, target) in ((Zin, targets["Zin"]), (Pin, targets["Pin"]))
             @test all(maximum(abs, computed[:, :, k] - target[:, :, k]) <=

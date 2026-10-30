@@ -1,15 +1,15 @@
 using LinearAlgebra: I, diag, lu!
 using SpecialFunctions: besseli
 
-# The targets come from the Unified formula of commit 989af96c of this repository: the state
+# The targets come from the martins2026 formula of commit 989af96c of this repository: the state
 # of the cables and the pair terms. It ran with Γ = 0 at 0.1 Hz, 1 kHz and
 # 10 MHz. The earth-return terms read only the centers and the outer radii of the cables. A
 # wire of the outer radius of a reference cable stands for that cable. The formulation fills
 # the buffer `gamma` with its option Γ at each frequency. Here the test gives that buffer.
-@testset "Engine Unified earth return" begin
+@testset "Engine martins2026 earth return" begin
     Engine = LineCableModels.Engine
     EarthReturn = Engine.EarthReturn
-    formula = EarthReturn.Formula(Val(:unified))
+    formula = EarthReturn.Formula(Val(:martins2026))
     law = LineCableModels.Engine.EarthProperties.Formula(Val(:constant))
     reductions = LineCableModels.FormulationOptions(CoaxialFormulation)
     copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
@@ -184,7 +184,7 @@ using SpecialFunctions: besseli
                        Terminal(:core, Region(:core_metal, Circle(r), copper)))
                    for r in case.radii]
         system = build(CableSystem, designs, case.placements;
-            connections = [(core = i,) for i in eachindex(designs)], id = "unified",
+            connections = [(core = i,) for i in eachindex(designs)], id = "martins2026",
             line_length = 1.0)
         problem = LineParametersProblem(system, case.earth; frequencies = [
             0.1, 1.0e3, 1.0e7])
@@ -194,29 +194,29 @@ using SpecialFunctions: besseli
             (gamma = zeros(ComplexF64, 3),))
         for (k, f) in enumerate(problem.frequencies)
             media = map(layer -> law(layer, f), problem.earth.layers)
-            Engine.prepare!(formula, buffers, input, media, im * (2 * π * f), k)
+            Engine.to_buffer!(formula, buffers, input, media, im * (2 * π * f), k)
             for (index, p, x, A, F) in case.state
                 index == k || continue
-                @test isapprox(buffers.unified.x[p], x; rtol = 1e-12)
-                @test isapprox(buffers.unified.A[p], A; rtol = 1e-12)
-                @test isapprox(buffers.unified.F[p], F; rtol = 1e-12)
+                @test isapprox(buffers.martins2026.ξ[p], x; rtol = 1e-12)
+                @test isapprox(buffers.martins2026.W[p], A; rtol = 1e-12)
+                @test isapprox(buffers.martins2026.F[p], F; rtol = 1e-12)
             end
             for (index, p, q, k_target, h_target) in case.terms
                 index == k || continue
-                @test isapprox(buffers.unified.K[p, q], k_target; rtol = 1e-12)
-                @test isapprox(buffers.unified.H[p, q], h_target; rtol = 1e-12)
+                @test isapprox(buffers.martins2026.K̃[p, q], k_target; rtol = 1e-12)
+                @test isapprox(buffers.martins2026.P̃[p, q], h_target; rtol = 1e-12)
             end
         end
     end
 
-    @testset "Air receiver at the Unified split" begin
+    @testset "Air receiver at the martins2026 split" begin
         r = 0.0425
         wire = build(CableDesign, "wire",
             Terminal(:core, Region(:core_metal, Circle(r), copper)))
         for placements in ([Placement(0.0, 1.0), Placement(1.0, 1.0)],
             [Placement(0.0, 1.0), Placement(1.0, -1.0)])
             system = build(CableSystem, [wire, wire], placements;
-                connections = [(core = 1,), (core = 2,)], id = "unified",
+                connections = [(core = 1,), (core = 2,)], id = "martins2026",
                 line_length = 1.0)
             problem = LineParametersProblem(system, homogeneous(rho = 100, eps_r = 10);
                 frequencies = [50.0, 1e4, 1e6])
@@ -230,17 +230,17 @@ using SpecialFunctions: besseli
             for (k, f) in enumerate(problem.frequencies)
                 media = map(layer -> law(layer, f), problem.earth.layers)
                 for (buffer, term) in zip(buffers, terms)
-                    Engine.prepare!(formula, buffer, input, media, im * (2 * π * f), k)
+                    Engine.to_buffer!(formula, buffer, input, media, im * (2 * π * f), k)
                     Engine.potential!(
-                        formula, Pg, buffer, input, media, im * (2 * π * f), k)
-                    term.H[:, :, k] = buffer.unified.H
-                    term.K[:, :, k] = buffer.unified.K
+                        CoaxialFormulation(), Pg, buffer, input, media, im * (2 * π * f), k)
+                    term.H[:, :, k] = buffer.martins2026.P̃
+                    term.K[:, :, k] = buffer.martins2026.K̃
                     term.Pg[:, :, k] = Pg
                 end
-                @test abs(real(buffers[1].unified.x[1])) < 300
-                @test abs(real(buffers[2].unified.x[1])) < 300
-                @test abs(real(buffers[3].unified.x[1])) > 300
-                @test abs(real(buffers[4].unified.x[1])) > 300
+                @test abs(real(buffers[1].martins2026.ξ[1])) < 300
+                @test abs(real(buffers[2].martins2026.ξ[1])) < 300
+                @test abs(real(buffers[3].martins2026.ξ[1])) > 300
+                @test abs(real(buffers[4].martins2026.ξ[1])) > 300
             end
             for quantity in (:H, :K, :Pg)
                 A₁ = getfield(terms[1], quantity)
@@ -301,9 +301,11 @@ using SpecialFunctions: besseli
         Pg = zeros(ComplexF64, c, c)
         for (k, f) in enumerate(frequencies)
             media = map(layer -> law(layer, f), problem.earth.layers)
-            Engine.prepare!(formula, buffers, input, media, im * (2 * π * f), k)
-            Engine.impedance!(formula, Zg, buffers, input, media, im * (2 * π * f), k)
-            Engine.potential!(formula, Pg, buffers, input, media, im * (2 * π * f), k)
+            Engine.to_buffer!(formula, buffers, input, media, im * (2 * π * f), k)
+            Engine.impedance!(
+                CoaxialFormulation(), Zg, buffers, input, media, im * (2 * π * f), k)
+            Engine.potential!(
+                CoaxialFormulation(), Pg, buffers, input, media, im * (2 * π * f), k)
             for (matrix, target) in
                 ((Zg, targets["Zg"][:, :, k]), (Pg, targets["Pg"][:, :, k]))
                 @test maximum(abs, matrix - target) <= 1e-9 * maximum(abs, diag(target))
@@ -333,19 +335,19 @@ using SpecialFunctions: besseli
         CoaxialFormulation(; Γ = [0.1im, 0.2im]))
     # The formula computes cables in contact, with no guard between them. After the first call,
     # the preparation allocates only the pivot vector of its LU decomposition.
-    contact = LineCableModels.Engine.EarthReturn.Formula(Val(:unified))
+    contact = LineCableModels.Engine.EarthReturn.Formula(Val(:martins2026))
     input = LineCableModels.Engine.CoaxialInput(buried, reductions)
     buffers = LineCableModels.initialize_buffers(contact, buried, input,
         (gamma = zeros(ComplexF64, 3),))
     media = map(layer -> law(layer, 1.0e3), buried.earth.layers)
     s = im * (2 * π * 1.0e3)
-    LineCableModels.prepare!(contact, buffers, input, media, s, 1)
-    @test all(isfinite, buffers.unified.Ze) && all(isfinite, buffers.unified.Pe)
+    LineCableModels.to_buffer!(contact, buffers, input, media, s, 1)
+    @test all(isfinite, buffers.martins2026.Zg) && all(isfinite, buffers.martins2026.Pg)
     block = Matrix{ComplexF64}(I, 2, 2)
     lu!(copy(block))
     pivots = @allocated lu!(block)
     # The arguments pass through an anonymous function, where their types are concrete.
     @test only(map(
-        (f, b, c, m, z) -> @allocated(LineCableModels.prepare!(f, b, c, m, z, 1)),
+        (f, b, c, m, z) -> @allocated(LineCableModels.to_buffer!(f, b, c, m, z, 1)),
         (contact,), (buffers,), (input,), (media,), (s,))) == pivots
 end

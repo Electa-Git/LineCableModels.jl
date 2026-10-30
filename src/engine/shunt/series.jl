@@ -34,6 +34,7 @@ the formula `Formula{:series}`, whose equations are in the section "Formulas" of
 
 - `shunt`: annular dielectric series-chain formula.
 - `Pin`: destination matrix of potential coefficients \\[m/F\\].
+- `buffers`: preallocated computation arrays, which this formula does not read.
 - `input`: numerical input of the cables.
 - `kappa`: admittivity of each dielectric layer \\[S/m\\].
 - `s`: complex frequency, `j 2π f`, in \\[1/s\\].
@@ -42,7 +43,7 @@ the formula `Formula{:series}`, whose equations are in the section "Formulas" of
 
 - `Pin`, its entries in \\[m/F\\].
 """
-function potential!(shunt::Formula{:series}, Pin::AbstractMatrix{Complex{T}},
+function potential!(shunt::Formula{:series}, Pin::AbstractMatrix{Complex{T}}, buffers,
         input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}},
         s::Complex{T}) where {T <: Real}
     fill!(Pin, zero(Complex{T}))

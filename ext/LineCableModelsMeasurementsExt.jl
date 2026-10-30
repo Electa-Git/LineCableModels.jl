@@ -5,7 +5,7 @@ Compute linear propagation of uncertainty. A `Measurement` input gives series im
 `Z` \\[Ω/m\\] and shunt admittances `Y` \\[S/m\\] with uncertain real and imaginary parts.
 Define the `nominal` method and four methods of SpecialFunctions Bessel functions on an
 uncertain complex argument. The engine calls these functions for Schelkunoff surface
-impedances and Unified kernels.
+impedances and the kernels of `:martins2026`.
 
 For ``z = x + iy``, write the scaled functions as
 ``I^s_\\nu(z) = \\mathrm{e}^{-|x|} I_\\nu(z)`` (`besselix`),

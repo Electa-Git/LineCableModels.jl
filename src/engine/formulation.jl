@@ -82,8 +82,8 @@ options. Earth slots with the same identifier must hold equal formulas.
 - `insulation_impedance`: magnetic dielectric-interval formula. Default: `:ametani1980`.
 - `insulation_admittance`: admittivity law for insulator layers. Default: `:lossless`.
 - `semicon_admittance`: admittivity law for semicon layers. Default: `:lossless`.
-- `earth_impedance`: earth-return impedance formula. Default: `:unified`.
-- `earth_admittance`: earth-return potential-coefficient formula. Default: `:unified`.
+- `earth_impedance`: earth-return impedance formula. Default: `:martins2026`.
+- `earth_admittance`: earth-return potential-coefficient formula. Default: `:martins2026`.
 - `shunt`: formula for potential coefficients inside cables. Default: `:series`.
 - `resistivity`: conductor resistivity law. Default: `:linear`.
 - `earth_properties`: air and earth properties law. Default: `:constant`.
@@ -108,7 +108,7 @@ options. Earth slots with the same identifier must hold equal formulas.
 function CoaxialFormulation(;
         internal_impedance = :schelkunoff1934, insulation_impedance = :ametani1980,
         insulation_admittance = :lossless, semicon_admittance = :lossless,
-        earth_impedance = :unified, earth_admittance = :unified, shunt = :series,
+        earth_impedance = :martins2026, earth_admittance = :martins2026, shunt = :series,
         resistivity = :linear, earth_properties = :constant, kw...)
     return CoaxialFormulation(select(InternalImpedance.Formula, internal_impedance),
         select(InsulationImpedance.Formula, insulation_impedance),

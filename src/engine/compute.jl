@@ -124,9 +124,9 @@ end
 $(TYPEDSIGNATURES)
 
 Write the series impedances and shunt admittances at every frequency. Evaluate material laws
-and cable formulas, prepare earth state once per formula, assemble the conductor matrices,
-and apply bundle and Kron reductions. The conductor matrices add the earth-return matrices of
-the cables to the matrices inside them,
+and cable formulas, and move the terms of each formula to its block. Assemble the conductor
+matrices, and apply bundle and Kron reductions. The conductor matrices add the earth-return
+matrices of the cables to the matrices inside them,
 
 ```math
 Z_{ij} = Z_{\\mathrm{in}, ij} + Z_{g, c_i c_j}, \\qquad
@@ -180,16 +180,16 @@ function solve!(
         media = map(layer -> formulation.earth_properties(layer, f), problem.earth.layers)
         impedance!(formulation.internal_impedance,
             formulation.insulation_impedance, Zin, input, rho, s)
-        potential!(formulation.shunt, Pin, input, kappa, s)
+        potential!(formulation.shunt, Pin, buffers, input, kappa, s)
         if options.trace
             copyto!(view(trace.Zin,:,:,k), Zin)
             copyto!(view(trace.Pin,:,:,k), Pin)
         end
         # The map compiles each call over the tuple of formulas, where foreach's fold dispatches at run time.
-        map(formula -> prepare!(formula, buffers, input, media, s, k),
+        map(formula -> to_buffer!(formula, buffers, input, media, s, k),
             formulas(formulation))
-        impedance!(formulation.earth_impedance, Zg, buffers, input, media, s, k)
-        potential!(formulation.earth_admittance, Pg, buffers, input, media, s, k)
+        impedance!(formulation, Zg, buffers, input, media, s, k)
+        potential!(formulation, Pg, buffers, input, media, s, k)
         if options.trace
             copyto!(view(trace.Zg,:,:,k), Zg)
             copyto!(view(trace.Pg,:,:,k), Pg)
@@ -235,8 +235,8 @@ buffers, and solve the coaxial line parameters at each frequency.
 
 - Throws `DimensionMismatch` when a longitudinal-wavenumber vector has a different length
   than the frequencies.
-- Throws `DomainError` when a cable touches the interface for the unified earth-return
-  formula.
+- Throws `DomainError` when a cable touches the interface for the earth-return formula
+  `:martins2026`.
 """
 function compute(
         ::LCMBackend, problem::LineParametersProblem{T},

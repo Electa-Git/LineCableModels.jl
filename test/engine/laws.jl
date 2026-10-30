@@ -37,7 +37,7 @@
         @test select(Formula, :linear => (;)) === law
         @test select(Formula, law) === law
         @test_throws "the formulas are (:linear,)" select(Formula, :quadratic)
-        @test_throws "the formulas are (:unified,)" select(
+        @test_throws "the formulas are (:martins2026, :ideal)" select(
             Engine.EarthReturn.Formula, :carson1926)
         @test_throws ArgumentError select(Formula, :linear => (rate = 1.0,))
     end

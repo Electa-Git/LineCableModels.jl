@@ -101,7 +101,8 @@ qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral",
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ"]
 
 [modules.Engine.verbs]
-prepare = "fill a formula's per-frequency state that its quantity methods read"
+to_buffer = "move a formula's per-frequency terms into its block of the buffers"
+from_buffer = "the block of the buffers that holds a formula's terms, keyed by its identifier"
 initialize = "build the arrays of a computation once, before its loop"
 bundle = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
 eliminate = "remove the eliminated rows and columns of a matrix by the Kron elimination, the Schur complement of the kept ones"
@@ -231,9 +232,10 @@ CoaxialFormulation = "the methodology of concentric tubes: the formula of each s
 FEM = "the laws and options of the finite-element computation of line parameters"
 LineParameters = "the series impedance and shunt admittance per unit length of a line at each frequency, with the labels of its rows and the formulation"
 admittivity = "the admittivity of a dielectric layer at a frequency, by the law of its class in the formulation"
-"impedance!" = "series impedances per unit length written into a matrix [Ω/m]"
-"potential!" = "potential coefficients per unit length written into a matrix [m/F]"
-"prepare!" = "fill a formula's per-frequency state that its quantity methods read"
+"impedance!" = "series impedances per unit length written into a matrix [Ω/m]: the assembly of the cable-internal terms, and the earth step's recipe on the formulation"
+"potential!" = "potential coefficients per unit length written into a matrix [m/F]: the shunt step's chain with the buffers, and the earth step's recipe on the formulation"
+"to_buffer!" = "move a formula's per-frequency terms into its block of the buffers, at one frequency"
+from_buffer = "the block of the buffers that holds a formula's terms, keyed by its identifier"
 initialize_buffers = "build the preallocated arrays of a computation once, before its loop"
 CoaxialInput = "the numerical input of a computation in the coaxial model: each cable's equivalent tubular conductors and dielectric layers, the cables' centers and radii, and the reduction plan for the formulation's bundle and kron"
 "bundle!" = "merge each other conductor of a bundle into the first conductor of its index, in the rows and columns of a matrix"
@@ -281,10 +283,11 @@ Formula = "an earth-return formula, its identifier the type parameter"
 FORMULAS = "the identifiers of the family's formulas, which the unknown-identifier error prints"
 
 [register."Engine.EarthReturn".private]
-i0m1 = "I₀(z) − 1 without the cancellation of the difference; Unified's, two call sites with different arguments, the per-cable state and J₀(rλ) − 1 in the air-voltage integrand"
+i0m1 = "I₀(z) − 1 without the cancellation of the difference; three call sites: the family's Λ, the per-cable I₀ − 1, the interface kernel"
 
 [register."Engine.EarthReturn".formulas]
-unified = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ (commit 989af96c, earthimpedance/formulas/unified.jl, unified/kernels.jl, unified/current.jl)"
+martins2026 = "the circumferentially averaged earth return of air, earth and mixed systems with the complete current closure and a prescribed Γ, in the form of the paper (MartinsBritto2026); commit 989af96c for the implementation it continues"
+ideal = "the images of a perfectly conducting earth: the potential coefficients ln(2h/r) and ln(D′/D) over 2π ε₁ of overhead pairs, zero for a buried or mixed pair"
 
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"

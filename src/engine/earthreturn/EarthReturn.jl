@@ -6,7 +6,7 @@ the impedance, the potential coefficients, or both, by the methods it defines.
 
 # Formulas
 
-## `Formula{:unified}`
+## `Formula{:martins2026}`
 
 Earth-return impedances and potential coefficients of conductors in two homogeneous
 half-spaces, the air, medium 1 with ``y > 0``, and the earth, medium 2 with ``y < 0``, for
@@ -16,15 +16,16 @@ which lies wholly in one medium. The field of each conductor is that of one axia
 source, and each conductor takes the circumferential mean of the field on its circumference, the
 zeroth azimuthal harmonic. The formula contains the solutions of the underground case
 [5437464](@cite) and of the mixed overhead and underground case [MartinsBritto2024](@cite).
+Its form follows [MartinsBritto2026](@cite).
 
-For each medium ``t``, the complex conductivity ``\\widehat\\sigma_t`` \\[S/m\\], the
+For each medium ``t``, the complex conductivity ``\\widetilde\\sigma_t`` \\[S/m\\], the
 permeability ``\\mu_t`` \\[H/m\\], the transverse propagation parameter ``\\kappa_t`` \\[1/m\\]
 and the vertical decay parameter ``a_t`` \\[1/m\\] are
 
 ```math
-\\widehat\\sigma_t = \\frac{1}{\\rho_t} + s \\varepsilon_0 \\varepsilon_{r,t}, \\qquad
+\\widetilde\\sigma_t = \\frac{1}{\\rho_t} + s \\varepsilon_0 \\varepsilon_{r,t}, \\qquad
 \\mu_t = \\mu_0 \\mu_{r,t}, \\qquad
-\\kappa_t^2 = s \\mu_t \\widehat\\sigma_t - \\Gamma^2, \\qquad
+\\kappa_t^2 = s \\mu_t \\widetilde\\sigma_t - \\Gamma^2, \\qquad
 a_t = \\sqrt{\\lambda^2 + \\kappa_t^2},
 ```
 
@@ -37,7 +38,7 @@ roots take the decaying branch. The spectral denominators are
 
 ```math
 \\Delta_\\mu = \\mu_2 a_1 + \\mu_1 a_2, \\qquad
-\\Delta_\\sigma = \\widehat\\sigma_2 a_1 + \\widehat\\sigma_1 a_2.
+\\Delta_\\sigma = \\widetilde\\sigma_2 a_1 + \\widetilde\\sigma_1 a_2.
 ```
 
 Conductor ``i`` has its center at ``(x_i, y_i)``, the distance ``h_i = |y_i|`` to the
@@ -59,7 +60,7 @@ the interface corrections are
 J_{ij} &= \\int_0^\\infty \\frac{\\mu_{\\bar s}}{\\Delta_\\mu}
     e^{-a_s (h_i + h_j)} \\cos(\\lambda x_{ij}) \\, \\mathrm{d}\\lambda, \\qquad
 M_{ij} = \\int_0^\\infty
-    \\frac{\\widehat\\sigma_s (\\mu_s a_s + \\mu_{\\bar s} a_{\\bar s})}{\\Delta_\\mu \\Delta_\\sigma}
+    \\frac{\\widetilde\\sigma_s (\\mu_s a_s + \\mu_{\\bar s} a_{\\bar s})}{\\Delta_\\mu \\Delta_\\sigma}
     e^{-a_s (h_i + h_j)} \\cos(\\lambda x_{ij}) \\, \\mathrm{d}\\lambda,
 \\end{aligned}
 ```
@@ -71,7 +72,7 @@ vector-potential kernel ``\\widetilde L_{ij}`` \\[H/m\\] and the scalar-potentia
 ```math
 \\widetilde L_{ij} = \\frac{\\mu_s}{2 \\pi}
     \\left[\\Lambda_{ij} + 2 I_0(\\kappa_s r_i) J_{ij}\\right], \\qquad
-\\widetilde\\Phi_{ij} = \\frac{s}{2 \\pi \\widehat\\sigma_s}
+\\widetilde\\Phi_{ij} = \\frac{s}{2 \\pi \\widetilde\\sigma_s}
     \\left[\\Lambda_{ij} + 2 I_0(\\kappa_s r_i) M_{ij}\\right]
 ```
 
@@ -99,11 +100,11 @@ coefficients ``\\widetilde P_{ij}`` \\[m/F\\] are
 
 ```math
 \\begin{aligned}
-\\widetilde P_{ij} &= \\delta_{ts} \\frac{s}{2 \\pi \\widehat\\sigma_2} \\Lambda_{ij}
+\\widetilde P_{ij} &= \\delta_{ts} \\frac{s}{2 \\pi \\widetilde\\sigma_2} \\Lambda_{ij}
     + \\frac{s}{\\pi} I_0(\\kappa_2 r_i) \\int_0^\\infty \\frac{a_1}{a_2 \\Delta_\\sigma}
     e^{-a_2 h_i - a_s h_j} \\cos(\\lambda x_{ij}) \\, \\mathrm{d}\\lambda,
     & t &= 2, \\\\
-\\widetilde P_{ij} &= \\delta_{ts} \\frac{s}{2 \\pi \\widehat\\sigma_1} \\Lambda_{ij}
+\\widetilde P_{ij} &= \\delta_{ts} \\frac{s}{2 \\pi \\widetilde\\sigma_1} \\Lambda_{ij}
     + \\frac{s}{\\pi} \\int_0^\\infty \\frac{a_2}{a_1 \\Delta_\\sigma}
     \\left[I_0(\\kappa_1 r_i) e^{-a_1 h_i} - J_0(\\lambda r_i)\\right]
     e^{-a_s h_j} \\cos(\\lambda x_{ij}) \\, \\mathrm{d}\\lambda,
@@ -115,15 +116,15 @@ where ``\\delta`` is the Kronecker delta and ``J_0`` is the Bessel function of o
 which averages the interface endpoint over the horizontal extent of the circumference.
 
 The enclosed currents follow from the complete field on the circumferences, with the reflected and mutual
-fields, through the dimensionless current matrix ``\\mathbf T``, held as `L` in the state of
-the formula, and the diagonal matrices ``\\mathbf W`` \\[dimensionless\\] and ``\\mathbf F``
+fields, through the dimensionless current matrix ``\\mathbf T``, the key `T` of the formula's
+block, and the diagonal matrices ``\\mathbf W`` \\[dimensionless\\] and ``\\mathbf F``
 \\[m/Ω\\]. Elimination of the source amplitudes gives the earth-return potential coefficients
 ``\\mathbf P_g`` \\[m/F\\] and impedances ``\\mathbf Z_g`` \\[Ω/m\\]:
 
 ```math
 \\mathbf T = \\mathbf W^{-1} - \\mathbf F \\widetilde{\\mathbf K}, \\qquad
 W_{ii} = I_0(\\kappa_t r_i), \\qquad
-F_{ii} = \\frac{2 \\pi \\widehat\\sigma_t r_i I_1(\\kappa_t r_i)}{\\kappa_t I_0(\\kappa_t r_i)},
+F_{ii} = \\frac{2 \\pi \\widetilde\\sigma_t r_i I_1(\\kappa_t r_i)}{\\kappa_t I_0(\\kappa_t r_i)},
 ```
 
 ```math
@@ -144,6 +145,20 @@ The integrals run along the complex path that each [`SpectralIntegral`](@ref) ch
 ``\\kappa_s = 0``, with ``D_{ii} = r_i``. The implementation scales the column of each
 source ``j`` by ``e^{|\\operatorname{Re} \\kappa_s r_j|}`` with exponentially scaled Bessel
 functions, and the scaling cancels in ``\\mathbf P_g`` and ``\\mathbf Z_g``.
+## `Formula{:ideal}`
+
+Potential coefficients of conductors over an earth of infinite conductivity, from the images of
+the sources, for conductors in the air:
+
+```math
+P_{g,ii} = \\frac{\\ln(2 h_i / r_i)}{2 \\pi \\varepsilon_1}, \\qquad
+P_{g,ij} = \\frac{\\ln(D'_{ij} / D_{ij})}{2 \\pi \\varepsilon_1},
+```
+
+where ``\\varepsilon_1 = \\varepsilon_0 \\varepsilon_{r,1}`` is the permittivity of the air
+\\[F/m\\]. These are ``\\Lambda_{ii}`` and ``\\Lambda_{ij}`` at ``\\kappa = 0``. The earth shields
+a buried conductor, so each coefficient of a buried or mixed pair is zero. The formula gives
+the potential coefficients alone.
 """
 module EarthReturn
 
@@ -153,14 +168,14 @@ using ...Commons: FormulationOptions
 using ...DataModel: support
 using ..Engine: AbstractEarthReturn, CoaxialInput, LineParametersProblem, SpectralIntegral,
                 integrate, nominal, vacuum_permittivity, vacuum_permeability
-import ..Engine: impedance!, potential!, prepare!, initialize_buffers, Λ
+import ..Engine: impedance!, potential!, to_buffer!, from_buffer, initialize_buffers, Λ
 using LinearAlgebra: ldiv!, lu!
 using SpecialFunctions: besselix, besselkx, besseljx, besselk
 
 export Formula, FORMULAS
 
 "Identifiers of the earth-return formulas."
-const FORMULAS = (:unified,)
+const FORMULAS = (:martins2026, :ideal)
 
 """
 $(TYPEDEF)
@@ -218,6 +233,9 @@ end
 # Formulas of one identifier are equal when their options are equal.
 Base.:(==)(a::Formula{ID}, b::Formula{ID}) where {ID} = a.options == b.options
 
+# A formula's block in the buffers, keyed by its identifier.
+from_buffer(::Formula{ID}, buffers) where {ID} = getproperty(buffers, ID)
+
 # The direct and image mean of the family, the paper's Λ_ii and Λ_ij. Below a nominal |κ D′|
 # of 0.5 it evaluates the two terms together, with their logarithmic limit at κ = 0. Above, it
 # combines the exponents of the exponentially scaled Bessel functions.
@@ -242,6 +260,7 @@ function Λ(::Formula, ::Val{:mutual}, κ, r, D, D′)
             besselkx(0, κ * D′) * exp(abs(real(ξ)) - κ * D′))
 end
 
-include("unified.jl")
+include("martins2026.jl")
+include("ideal.jl")
 
 end

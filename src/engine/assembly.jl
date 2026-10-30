@@ -65,3 +65,71 @@ function impedance!(internal::InternalImpedance.Formula,
     end
     return Zin
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write into `Zg` the earth-return impedances of the cables, pair by pair, from the formula of the
+slot `earth_impedance`. The recipe alone writes the matrix.
+
+# Arguments
+
+- `formulation`: coaxial formulation with its earth-return formulas.
+- `Zg`: destination matrix of cable impedances \\[Ω/m\\].
+- `buffers`: preallocated computation arrays.
+- `input`: numerical cable geometry and connections.
+- `media`: air and earth layers as the law describes them at the frequency.
+- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
+- `k`: frequency index.
+
+# Returns
+
+- `Zg`, its entries in \\[Ω/m\\].
+"""
+function impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers,
+        input::CoaxialInput, media, s, k)
+    formula = formulation.earth_impedance
+    for i in eachindex(input.radius)
+        Zg[i, i] = formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)
+    end
+    for j in eachindex(input.radius), i in eachindex(input.radius)
+
+        i == j && continue
+        Zg[i, j] = formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)
+    end
+    return Zg
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Write into `Pg` the earth-return potential coefficients of the cables, pair by pair, from the formula of the
+slot `earth_admittance`. The recipe alone writes the matrix.
+
+# Arguments
+
+- `formulation`: coaxial formulation with its earth-return formulas.
+- `Pg`: destination matrix of cable potential coefficients \\[m/F\\].
+- `buffers`: preallocated computation arrays.
+- `input`: numerical cable geometry and connections.
+- `media`: air and earth layers as the law describes them at the frequency.
+- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
+- `k`: frequency index.
+
+# Returns
+
+- `Pg`, its entries in \\[m/F\\].
+"""
+function potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers,
+        input::CoaxialInput, media, s, k)
+    formula = formulation.earth_admittance
+    for i in eachindex(input.radius)
+        Pg[i, i] = formula(Val(:P), Val(:self), i, buffers, input, media, s, k)
+    end
+    for j in eachindex(input.radius), i in eachindex(input.radius)
+
+        i == j && continue
+        Pg[i, j] = formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)
+    end
+    return Pg
+end

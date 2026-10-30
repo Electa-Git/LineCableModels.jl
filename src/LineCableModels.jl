@@ -32,7 +32,7 @@ using .Engine: vacuum_permittivity, vacuum_permeability, AbstractInternalImpedan
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
                AbstractResistivity, AbstractEarthProperties, admittivity,
-               impedance!, potential!, prepare!, initialize_buffers,
+               impedance!, potential!, to_buffer!, from_buffer, initialize_buffers,
                LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
                GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
                SpectralIntegral, integrate, nominal, Λ, formulas, reductions
@@ -56,7 +56,7 @@ public vacuum_permittivity, vacuum_permeability, LCMBackend, GmshBackend, backen
 public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
-public admittivity, impedance!, potential!, prepare!,
+public admittivity, impedance!, potential!, to_buffer!, from_buffer,
        initialize_buffers, bundle!, eliminate!, transposition!, SpectralIntegral, integrate,
        nominal, Λ, formulas, reductions
 

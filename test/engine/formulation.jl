@@ -22,28 +22,28 @@ end
             Engine.InsulationImpedance.Formula(Val(:ametani1980)),
             Engine.InsulationAdmittance.Formula(Val(:lossless)),
             Engine.SemiconAdmittance.Formula(Val(:lossless)),
-            Engine.EarthReturn.Formula(Val(:unified)), Engine.Shunt.Formula(Val(:series)),
+            Engine.EarthReturn.Formula(Val(:martins2026)), Engine.Shunt.Formula(Val(:series)),
             Engine.Resistivity.Formula(Val(:linear)),
             Engine.EarthProperties.Formula(Val(:constant)))
         @test (formulation.options.Γ, formulation.options.bundle, formulation.options.kron,
             formulation.options.transposition) === (complex(0.0), true, true, false)
         # A formula of one identifier in both earth slots is one formula.
         section = (integral = (rtol = 1e-10,),)
-        shared = CoaxialFormulation(; earth_impedance = :unified => section,
-            earth_admittance = :unified => section)
+        shared = CoaxialFormulation(; earth_impedance = :martins2026 => section,
+            earth_admittance = :martins2026 => section)
         @test length(Engine.formulas(CoaxialFormulation())) == 8 &&
               count(==(formulation.earth_impedance), Engine.formulas(CoaxialFormulation())) ==
               1
         @test_throws ArgumentError(
-            "the earth slots hold two different :unified formulas; a formula that gives Z and P " *
+            "the earth slots hold two different :martins2026 formulas; a formula that gives Z and P " *
             "together is one formula in both slots") CoaxialFormulation(
             formulation.internal_impedance, formulation.insulation_impedance,
             formulation.insulation_admittance, formulation.semicon_admittance,
             formulation.earth_impedance,
-            Engine.EarthReturn.Formula(Val(:unified); section...), formulation.shunt,
+            Engine.EarthReturn.Formula(Val(:martins2026); section...), formulation.shunt,
             formulation.resistivity, formulation.earth_properties, formulation.options)
-        @test_throws "two different :unified formulas" CoaxialFormulation(;
-            earth_impedance = :unified => section)
+        @test_throws "two different :martins2026 formulas" CoaxialFormulation(;
+            earth_impedance = :martins2026 => section)
         @test_throws DomainError CoaxialFormulation(; earth_impedance = :declared)
         @test CoaxialFormulation(; Γ = [0.1im]).options.Γ == [0.1im]
         @test_throws DomainError CoaxialFormulation(; Γ = complex(Inf))
