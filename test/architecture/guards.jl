@@ -1580,7 +1580,8 @@ end
 # method of a function that the register lists under the `lifts` of the module that owns the
 # function, wherever the method is defined; so is a method that calls `Val(x)` with an
 # argument that is not a literal, a keyword body counting as its method; the keyword sorters
-# only pass the call on. A listed lift that is no function of its module is stale.
+# only pass the call on. A tag after a callable formula is no such method. A listed lift that
+# is no function of its module is stale.
 function val_tags(methods, tree::PackageTree, names)
     found = Dict{String, Int}()
     register = get(names, "register", Dict{String, Any}())
@@ -1598,7 +1599,7 @@ function val_tags(methods, tree::PackageTree, names)
         key(what) = string(label(owner.module), " | ", owner.name, " | ", what)
         signature = Base.unwrap_unionall(m.sig).parameters
         owner === m && length(signature) >= 2 && tagged(signature[2]) &&
-            count!(found, key("Val first"))
+            !callable_formula(signature[1]) && count!(found, key("Val first"))
         code = lowered_code(m)
         n = code === nothing ? 0 : computed_tags(code)
         n > 0 && (found[key("Val(x)")] = get(found, key("Val(x)"), 0) + n)
@@ -1611,6 +1612,14 @@ function val_tags(methods, tree::PackageTree, names)
     return found
 end
 
+# A formula type as the callee of a method: `Formula{ID, …}` with a Symbol identifier. A literal
+# tag in the first slot after it selects a variant of the formula and is no `Val`-first method.
+function callable_formula(F)
+    F = Base.unwrap_unionall(F)
+    return F isa DataType && F.name.name === :Formula && !isempty(F.parameters) &&
+           F.parameters[1] isa Symbol
+end
+
 # The identifier `ID` of a formula type `Formula{ID}` of the type name `name`, or `nothing`.
 function formula_identifier(T, name)
     T = Base.unwrap_unionall(T)
@@ -1621,8 +1630,9 @@ end
 # The formula registry. Per module that defines a type `Formula`, a constant `FORMULAS` or a
 # `formulas` table in its section of the register: the identifiers with a method of Commons'
 # `defaults` on their formula type, `FORMULAS` and the table hold the same identifiers, and
-# each identifier has a method of a package function outside Commons whose first positional
-# argument is its formula. An empty `FORMULAS` and no table agree.
+# each identifier has its physics: a method of a package function outside Commons whose first
+# positional argument is its formula, or a method of the formula itself. `:default` is the
+# router and identifies no formula. An empty `FORMULAS` and no table agree.
 function formula_registry(methods, tree::PackageTree, names)
     found = Dict{String, Int}()
     register = get(names, "register", Dict{String, Any}())
@@ -1651,11 +1661,17 @@ function formula_registry(methods, tree::PackageTree, names)
                    !(C !== nothing && within(value_owner(subject), C, tree.root))
                 id = formula_identifier(signature[2], name)
                 id === nothing || push!(physics, id)
+            else
+                # A method of the formula itself, its callable: physics of the formula.
+                id = formula_identifier(signature[1], name)
+                id === nothing || push!(physics, id)
             end
         end
         listed = Set{Symbol}(get(defined, :FORMULAS, ()))
         tabled = Set{Symbol}(Symbol(key) for key in keys(table))
         label = path == "" ? module_name(tree, tree.root) : path
+        :default in union(declared, listed, tabled, physics) &&
+            count!(found, string(label, " | default | router"))
         for id in union(declared, listed, tabled),
             (what, holders) in (
                 ("defaults", declared), ("FORMULAS", listed), ("table", tabled),
@@ -1733,15 +1749,16 @@ function admitted_types(T)
     T isa Core.TypeofVararg ? Any[] : Any[Base.unwrap_unionall(T)]
 end
 
-# Names. A name's chunks are its lowercase pieces between underscores and case transitions,
-# without leading underscores, a leading `@` or a trailing `!`. Digits stay with their piece.
+# Names. A name's chunks are its pieces between underscores and case transitions, without
+# leading underscores, a leading `@` or a trailing `!`. A piece is lowercase, except that a
+# one-letter piece keeps its case. Digits stay with their piece.
 function chunks(name)
     text = replace(string(name), r"^[_@]+" => "", r"!$" => "")
     found = String[]
     for part in split(text, '_'; keepempty = false)
         for piece in
             eachmatch(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z0-9]+|[A-Z]+[0-9]*|[^\W_]+", part)
-            push!(found, lowercase(piece.match))
+            push!(found, length(piece.match) == 1 ? piece.match : lowercase(piece.match))
         end
     end
     return found

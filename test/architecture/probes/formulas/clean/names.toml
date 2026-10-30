@@ -1,2 +1,3 @@
 [register.Laws.formulas]
 linear = "a law with its defaults, its identifier and a physics method"
+cubic = "a law whose physics is its callable"

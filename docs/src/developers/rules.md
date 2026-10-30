@@ -75,8 +75,8 @@ and for nothing else.
 A physical element takes a physical noun: `Circle`, `Annulus`, `CircularPattern`,
 `Helix`. An operator on an element takes the name of its action: `Offset`, `Repeat`, `Lay`,
 `Enclosure`. A selector symbol stands for a definite act, law or source: `:discover`,
-`:download`, `:unified`, `:schelkunoff1934`. No selector is `:auto`, `:default` or a vague
-quality.
+`:download`, `:unified`, `:schelkunoff1934`. No selector is `:auto` or a vague quality.
+`:default` selects no formula: it routes to the slot's default formula at construction.
 
 ### Equality is equality of the computation
 
@@ -88,7 +88,8 @@ computed it, so that a result never claims a computation that did not take place
 ### Selection happens once, evaluation reads types
 
 Each choice is made at construction. A Symbol becomes a type by its lift, a keyword fills a
-typed record, and a formula fills a typed slot. The computation that follows reads types and never
+typed record, and a formula fills a typed slot. `:default` resolves to the slot's default
+formula, which then fills the slot. The computation that follows reads types and never
 decides. What a reader sees inside a loop is physics and arithmetic.
 
 ### Reference results are frozen with their origin, and deviations are explained

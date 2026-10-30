@@ -27,6 +27,7 @@ nouns = ["formulation"]
 
 [modules.Engine]
 nouns = ["tolerance"]
+symbols = ["Γ", "γ", "Λ"]
 
 [modules.Earth]
 nouns = ["model", "layers", "layer", "pose2", "angle", "line", "system", "count", "line_length", "figure", "legend", "check_list"]

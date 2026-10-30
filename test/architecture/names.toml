@@ -98,7 +98,7 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "frequencies", "input", "connection", "radius", "bundles",
     "transposition", "integral", "integrand", "ray", "reductions"]
 qualifiers = ["vacuum", "coaxial", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
-symbols = ["z", "r_ins_ex"]
+symbols = ["Z", "Y", "r_ins_ex"]
 
 [modules.Engine.verbs]
 prepare = "fill a formula's per-frequency state that its quantity methods read"

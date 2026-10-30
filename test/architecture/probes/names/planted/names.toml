@@ -25,6 +25,9 @@ compute = "run one computation"
 [modules.Commons]
 nouns = ["formulation"]
 
+[modules.Engine]
+symbols = ["Γ"]
+
 [modules.Earth]
 nouns = ["ring", "layer", "coefficients", "path", "poses", "extent", "mesh", "disk", "count", "a", "ab", "bc", "c", "formula", "length"]
 qualifiers = ["mean", "free", "radial", "half", "outer"]
