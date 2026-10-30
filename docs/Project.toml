@@ -11,11 +11,11 @@ LineCableModels = "dffb7669-8cd4-4628-99dd-7694e356ba37"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 
-[sources]
-LineCableModels = {path = ".."}
+[sources.LineCableModels]
+path = ".."
 
 [compat]
-CSV = "0.10"
+CSV = "0.10, 1"
 CairoMakie = "0.15"
 Documenter = "1.19"
 DocumenterCitations = "1.5"
