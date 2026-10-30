@@ -21,7 +21,7 @@ LineCableModelsMeasurementsExt = "Measurements"
 
 [compat]
 Aqua = "0.8"
-DocStringExtensions = "0.9.3"
+DocStringExtensions = "0.9.3, 0.10"
 ExplicitImports = "1.15"
 Gmsh = "0.3.1"
 JET = "0.12"
