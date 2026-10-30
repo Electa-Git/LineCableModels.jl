@@ -1,23 +1,5 @@
 defaults(::Type{Formula{:series}}) = (;)
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the potential coefficient of one annular dielectric layer by the formula
-`Formula{:series}`. Its equations are in [`Shunt`](@ref).
-
-# Arguments
-
-- `Formula{:series}`: formula of the series chain.
-- `r_in`: inner radius of the layer \\[m\\].
-- `r_ex`: outer radius of the layer \\[m\\].
-- `κ`: admittivity of the layer \\[S/m\\].
-- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
-
-# Returns
-
-- Potential coefficient \\[m/F\\], zero when `r_in` is zero or equals `r_ex`.
-"""
 function (::Formula{:series})(
         r_in::T, r_ex::T, κ::Complex{T}, s::Complex{T}) where {T <: Real}
     return iszero(r_in) || r_in == r_ex ? zero(s) : s / (2π * κ / log(r_ex / r_in))

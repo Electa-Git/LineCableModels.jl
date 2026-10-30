@@ -306,11 +306,6 @@ function to_buffer!(f::Formula{:martins2026}, buffers, input::CoaxialInput, medi
     return buffers
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the integrand of the magnetic coupling of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (::Formula{:martins2026})(::Val{:J}, λ, medium, pair)
     (; κ², μ) = medium
     (; t, h_i, h_j, y, logscale) = pair
@@ -328,11 +323,6 @@ function (::Formula{:martins2026})(::Val{:J}, λ, medium, pair)
     return value
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the integrand of the scalar-potential correction of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (::Formula{:martins2026})(::Val{:M}, λ, medium, pair)
     (; κ², μ, σ̃) = medium
     (; t, h_i, h_j, y, logscale) = pair
@@ -354,11 +344,6 @@ function (::Formula{:martins2026})(::Val{:M}, λ, medium, pair)
     return value
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the integrand of the averaged interface correction of an overhead receiver of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (::Formula{:martins2026})(::Val{:Θ}, λ, medium, pair)
     (; κ², σ̃) = medium
     (; h_i, h_j, y, r, scaling_j, i0minus_i) = pair
@@ -396,11 +381,6 @@ function (::Formula{:martins2026})(::Val{:Θ}, λ, medium, pair)
     return value
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the integrand of the voltage correction of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (::Formula{:martins2026})(::Val{:P̃}, λ, medium, pair)
     (; κ², σ̃) = medium
     (; t, h_i, h_j, y, logscale) = pair
@@ -419,11 +399,6 @@ function (::Formula{:martins2026})(::Val{:P̃}, λ, medium, pair)
     return value
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the integrand of the interface endpoint of that correction of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (::Formula{:martins2026})(::Val{:Θ}, ::Val{:interface}, λ, medium, pair)
     (; κ², σ̃) = medium
     (; h_j, y, r, scaling_j) = pair
@@ -441,39 +416,19 @@ function (::Formula{:martins2026})(::Val{:Θ}, ::Val{:interface}, λ, medium, pa
             value * besseljx(0, r * λ))
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return an entry of the earth-return impedance \\[Ω/m\\] of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (f::Formula{:martins2026})(::Val{:Z}, ::Val{:self}, i, buffers, input, media, s, k)
     from_buffer(f, buffers).Zg[i, i]
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return an entry of the earth-return impedance \\[Ω/m\\] of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (f::Formula{:martins2026})(
         ::Val{:Z}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
     from_buffer(f, buffers).Zg[i, j]
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return an entry of the earth-return potential coefficients \\[m/F\\] of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (f::Formula{:martins2026})(::Val{:P}, ::Val{:self}, i, buffers, input, media, s, k)
     from_buffer(f, buffers).Pg[i, i]
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Return an entry of the earth-return potential coefficients \\[m/F\\] of `Formula{:martins2026}`. Its equations are in [`EarthReturn`](@ref).
-"""
 function (f::Formula{:martins2026})(
         ::Val{:P}, ::Val{:mutual}, i, j, buffers, input, media, s, k)
     from_buffer(f, buffers).Pg[i, j]

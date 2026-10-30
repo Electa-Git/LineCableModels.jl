@@ -10,7 +10,7 @@ The air above the interface `y = 0` and the earth below it are homogeneous half-
 with its resistivity ``\rho``, relative permittivity ``\varepsilon_r`` and relative
 permeability ``\mu_r``. Each cable is a source of circumferential currents on its exterior
 circle, which lies wholly in one medium. The formula closes the circumference currents of all
-cables completely through the matrix `L` of its state, and the fields vary along the line as
+cables completely through its current matrix ``\mathbf T``. The fields vary along the line as
 ``e^{-\Gamma x}``, with a prescribed longitudinal wavenumber ``\Gamma``, zero by default.
 
 The formula gives two quantities per pair of cables, from their exterior surfaces: the
@@ -19,14 +19,15 @@ matrices ``\mathbf Z_{\mathrm{env}}`` and ``\mathbf P_{\mathrm{env}}`` of the
 [matrix formulation](matrix.md), added to every pair of conductors of each pair of cables.
 
 The fields of each medium are spectral integrals over the real line of the transverse
-wavenumber. The formula evaluates them on a complex ray, which [`ray!`](@ref) chooses with the
-breakpoints of the quadrature, and [`integrate`](@ref) evaluates each integral by adaptive
-quadrature. The option `integral` of the formula selects the method and its controls,
+wavenumber. The formula evaluates them on a complex path, which the constructor of
+[`SpectralIntegral`](@ref) chooses with the breakpoints of the quadrature, and
+[`integrate`](@ref) evaluates each integral by adaptive quadrature. The option `integral` of
+the formula selects the method and its controls,
 `integral = (method = :quad, rtol, atol, maxevals)`.
 
 ## Validity of the default formula
 
-The default formula, `:unified`, holds within two ranges.
+The default formula, `:martins2026`, holds within two ranges.
 
 - **Prescribed Γ.** A nonzero Γ lies between the propagation constants of the two media. It
   is in range at a frequency where Im γ_air ≤ Im Γ ≤ Im γ_earth and Re Γ ≤ Re γ_earth. Γ = 0,
@@ -57,8 +58,10 @@ buried conductors only. In air at Γ = 0, κ ≈ k₀, so a 20 mm radius reaches
 ## The properties of the air and the earth
 
 The law of the slot `earth_properties` gives the resistivity, the relative permittivity and the
-relative permeability of the air and of the earth at each frequency. The one law of this
-release, `:constant`, gives the static values of each layer at every frequency.
+relative permeability of each layer at each frequency. The model of the slot `equivalent_earth`
+then reduces the described layers below the air to the one earth that the earth-return formulas
+read. The one law of this release, `:constant`, gives the static values of each layer at every
+frequency, and the one model, `:bottommost`, takes the deepest layer.
 
 ## Earth-return formulas
 
@@ -70,13 +73,14 @@ Private = false
 ```
 
 ```@docs
-defaults(::Type{EarthReturn.Formula{:unified}})
-validate(options::FormulationOptions{EarthReturn.Formula{:unified}})
-validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:unified})
-initialize_buffers(formula::EarthReturn.Formula{:unified}, ::LineParametersProblem, input::CoaxialInput{T}, buffers) where {T}
-prepare!(formula::EarthReturn.Formula{:unified}, buffers, input::CoaxialInput, media, s, k)
-impedance!(formula::EarthReturn.Formula{:unified}, Zg::AbstractMatrix, buffers, input, media, s, k)
-potential!(formula::EarthReturn.Formula{:unified}, Pg::AbstractMatrix, buffers, input, media, s, k)
+Λ
+defaults(::Type{EarthReturn.Formula{:martins2026}})
+validate(options::FormulationOptions{EarthReturn.Formula{:martins2026}})
+validate(problem::LineParametersProblem, formula::EarthReturn.Formula{:martins2026})
+initialize_buffers(formula::EarthReturn.Formula{:martins2026}, ::LineParametersProblem, input::CoaxialInput{T}, buffers) where {T}
+to_buffer!(f::EarthReturn.Formula{:martins2026}, buffers, input::CoaxialInput, media, s, k)
+impedance!(formulation::CoaxialFormulation, Zg::AbstractMatrix, buffers, input::CoaxialInput, media, s, k)
+potential!(formulation::CoaxialFormulation, Pg::AbstractMatrix, buffers, input::CoaxialInput, media, s, k)
 ```
 
 ## Spectral integrals
@@ -84,7 +88,6 @@ potential!(formula::EarthReturn.Formula{:unified}, Pg::AbstractMatrix, buffers, 
 ```@docs
 SpectralIntegral
 integrate
-ray!
 defaults(::typeof(integrate), ::Val{:quad})
 validate(section::NamedTuple, ::typeof(integrate), ::Val{:quad})
 select(default::Pair{typeof(integrate), Symbol}, given::NamedTuple)
@@ -98,10 +101,6 @@ Modules = [EarthProperties]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
-```
-
-```@docs
-properties(::EarthProperties.Formula{:constant}, layer::EarthProperties.EarthLayer{T}, f::T) where {T <: Real}
 ```
 
 [Back to Contents](contents.md)

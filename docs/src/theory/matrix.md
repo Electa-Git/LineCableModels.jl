@@ -173,7 +173,7 @@ Private = false
 ```
 
 ```@docs
-potential!(::Shunt.Formula{:series}, Pin::AbstractMatrix{Complex{T}}, input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}}, s::Complex{T}) where {T <: Real}
+potential!(shunt::Shunt.Formula{:series}, Pin::AbstractMatrix{Complex{T}}, buffers, input::CoaxialInput{T}, kappa::AbstractVector{Complex{T}}, s::Complex{T}) where {T <: Real}
 ```
 
 ## Reductions
@@ -199,20 +199,18 @@ The computation of [`LCMBackend`](@ref) evaluates the formulas at each frequency
 solve!(Z::AbstractArray{Complex{T}, 3}, Y::AbstractArray{Complex{T}, 3}, trace, problem::LineParametersProblem{T}, input::CoaxialInput{T}, formulation::CoaxialFormulation, buffers, options::ComputationOptions) where {T <: Real}
 ```
 
-The formula families extend these functions of the engine. A formula method takes the formula
-first.
+The recipes of the formulation and the programmatic methods of the formulas extend these
+functions of the engine. A method of a formula takes the formula first.
 
 ```@docs
-impedance
 impedance!
 potential!
-prepare!(::AbstractFormulation, buffers, input, media, s, k)
+to_buffer!(::AbstractFormulation, buffers, input, media, s, k)
+from_buffer
 initialize_buffers(::AbstractFormulation, problem, input, buffers)
 initialize_buffers(formulation::CoaxialFormulation, problem::LineParametersProblem, input::CoaxialInput{T}) where {T <: Real}
 admittivity
 admittivity(formulation::Union{CoaxialFormulation, FEM}, material::Material{T, :insulator}, f) where {T <: Real}
-resistivity
-properties
 ```
 
 [Back to Contents](contents.md)

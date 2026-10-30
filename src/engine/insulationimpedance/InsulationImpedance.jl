@@ -19,6 +19,15 @@ where ``s`` is the complex frequency \\[1/s\\], ``r_\\mathrm{in}`` and
 relative permeability \\[dimensionless\\]. The constant ``\\mu_0`` is
 [`vacuum_permeability`](@ref). The term is zero when ``r_\\mathrm{in}`` is zero or equals
 ``r_\\mathrm{ex}``.
+
+### Callable
+
+`formula(r_in, r_ex, μ_r, s)` returns ``z`` \\[Ω/m\\].
+
+- `r_in`: inner radius \\[m\\].
+- `r_ex`: outer radius, in \\[m\\].
+- `μ_r`: relative permeability \\[dimensionless\\].
+- `s`: complex frequency, `j 2π f` \\[1/s\\].
 """
 module InsulationImpedance
 

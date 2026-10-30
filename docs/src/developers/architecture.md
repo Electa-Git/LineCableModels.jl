@@ -160,7 +160,7 @@ cross-section. `connections` is one named tuple per cable, keyed by terminal nam
 `k ≥ 1` is a live conductor, a repeated index bundles conductors, and `0` eliminates one.
 Every terminal name must appear. The system rejects overlapping cables and keeps the
 declared placements. A cable may touch the interface between air and earth and may never
-cross it. The unified formula and the finite-element model refuse a cable that touches it.
+cross it. `:martins2026` and the finite-element model refuse a cable that touches it.
 
 ### Surface syntax
 
@@ -185,51 +185,77 @@ end
 
 A formula is one object per family: `Family.Formula{ID, O}`. The identifier `ID` is a
 `Symbol` in the type. The options `O` are a `FormulationOptions{Formula{ID}}` record. The
-family module is the context: `EarthReturn.Formula{:unified}` and
+family module is the context: `EarthReturn.Formula{:martins2026}` and
 `InternalImpedance.Formula{:schelkunoff1934}` never meet. Each family exports `Formula` and
 `FORMULAS`, the tuple of its identifiers. The unknown-identifier error prints that tuple.
 
 A new formula is three parts and nothing else. It adds a `defaults` method for its options,
 a line of the registry in `names.toml` mirrored by `FORMULAS`, and its physics methods.
-`FormulaDefinition`, `Expression`, `Functor` and a `:default` identifier do not exist.
+`FormulaDefinition`, `Expression` and `Functor` do not exist. `:default` is never an
+identifier: it is the one router symbol, which `select` resolves at construction to the slot's
+default formula.
 
-Formula methods take the formula object first. The `!` marks a mutating method. The
-destination follows the formula. A formula's per-frequency shared state is its `prepare!`
-method, a no-op by default. A formula that needs arrays of its own adds an
-`initialize_buffers` method.
+The physics of a formula is its callable. Each mathematical expression is a method of the
+formula's own type. A literal tag selects the expression when the formula has more than one. A
+component of one expression is a field of the record it returns.
 
-| Family | Formula | Methods it defines |
+A formula's programmatic methods take the formula object first: `defaults`, `validate`,
+`initialize_buffers`, `to_buffer!` and `from_buffer`. `to_buffer!` moves the formula's
+per-frequency terms into its block of the buffers and does nothing by default. `from_buffer`
+returns the block. The formulation's methods of `impedance!` and `potential!` assemble the
+matrices of a computation. A formula does not write a matrix of the computation.
+
+| Family | Formula | Callable |
 | --- | --- | --- |
-| `InternalImpedance` | `:schelkunoff1934` | `impedance(formula, r_in, r_ex, rho, mu_r, s)`, the inner, outer and transfer surface impedances |
-| `InsulationImpedance` | `:ametani1980` | `impedance(formula, r_in, r_ex, mu_r, s)`, the magnetic term of an annular dielectric |
-| `InsulationAdmittance` | `:lossless` | `admittivity(formula, material, f)` of an insulator |
-| `SemiconAdmittance` | `:lossless` | `admittivity(formula, material, f)` of a semicon |
-| `EarthReturn` | `:unified` | `prepare!`, `impedance!`, `potential!`, `initialize_buffers`, `validate` |
-| `Shunt` | `:series` | `potential!(formula, Pin, input, kappa, s)`, the series chain of the layers |
-| `Resistivity` | `:linear` | `resistivity(formula, material, temperature)` |
-| `EarthProperties` | `:constant` | `properties(formula, layer, f)` |
+| `InternalImpedance` | `:schelkunoff1934` | `formula(r_in, r_ex, ρ, μ_r, s)`, the inner, outer and transfer surface impedances |
+| `InsulationImpedance` | `:ametani1980` | `formula(r_in, r_ex, μ_r, s)`, the magnetic term of an annular dielectric |
+| `InsulationAdmittance` | `:lossless` | `formula(material, f)`, the admittivity of an insulator |
+| `SemiconAdmittance` | `:lossless` | `formula(material, f)`, the admittivity of a semicon |
+| `EarthReturn` | `:martins2026` | the kernels `formula(Val(:J), λ, medium, pair)` and the entries `formula(Val(:Z), Val(:self), i, ...)` |
+| `EarthReturn` | `:ideal` | the entries `formula(Val(:P), Val(:self), i, ...)` of an overhead pair |
+| `Shunt` | `:series` | `formula(r_in, r_ex, κ, s)`, the coefficient of one layer, with the chain `potential!(formula, Pin, buffers, input, kappa, s)` |
+| `Resistivity` | `:linear` | `formula(material, θ)` |
+| `EarthProperties` | `:constant` | `formula(layer, f)`, a law: the layer at a frequency |
+| `EarthProperties` | `:bottommost` | `formula(layers, f)`, a model: the equivalent earth of the layers |
 
 ### Formulation
 
-`CoaxialFormulation` is a struct of nine typed slots and one options record. A slot accepts
-`:id`, `:id => (key = value, ...)` or a `Formula` of its family. The keyword constructor
-lifts each selection once, through `select`. The options are `Γ`, the longitudinal
-wavenumber the computation assumes, and the reductions `bundle`, `kron` and `transposition`.
+`CoaxialFormulation` is a struct of ten typed slots, the tuple of its distinct formulas and
+one options record. A slot accepts `:id`, `:id => (key = value, ...)`, a `Formula` of its family
+or `:default`. The keyword constructor lifts each selection once, through the slot-tagged
+`select`, and one method of `select` per slot names its default formula. The options are `Γ`,
+the longitudinal wavenumber the computation assumes, and the reductions `bundle`, `kron` and
+`transposition`.
 
 ```julia
-CoaxialFormulation(; internal_impedance = :schelkunoff1934, insulation_impedance = :ametani1980,
-    insulation_admittance = :lossless, semicon_admittance = :lossless,
-    earth_impedance = :unified, earth_admittance = :unified, shunt = :series,
-    resistivity = :linear, earth_properties = :constant, Γ = complex(0.0),
-    bundle = true, kron = true, transposition = false)
+CoaxialFormulation(; internal_impedance = :default, insulation_impedance = :default,
+    insulation_admittance = :default, semicon_admittance = :default,
+    earth_impedance = :default, earth_admittance = :default, shunt = :default,
+    resistivity = :default, earth_properties = :default, equivalent_earth = :default,
+    Γ = complex(0.0), bundle = true, kron = true, transposition = false)
 ```
 
-Both earth slots are typed by one family, `EarthReturn`. A formula of that family gives the
-impedance, the potential coefficients, or both, by the methods it defines. A formula in a
-slot whose quantity it does not give is refused at construction. If both slots take a
-formula of one identifier, the two formulas must be equal, because a formula that gives both
-quantities is one computation. Equal formulas have one type, so `formulas(formulation)`
-lists the earth formula once by dispatch, and its `prepare!` runs once per frequency.
+Both earth slots are typed by one family, `EarthReturn`. Each records one formula per domain of
+a pair of conductors:
+
+- `air`: both conductors lie above the interface.
+- `earth`: both conductors lie below the interface.
+- `mixed`: one conductor lies above the interface and the other below it.
+
+One selection fills the three places. A selection per domain,
+`earth_impedance = (air = :martins2026,)`, fills the places it names, and the others take the
+slot's default.
+
+A formula of the family gives the impedance, the potential coefficients, or both, by the
+methods it defines. A formula in a slot whose quantity it does not give is refused at
+construction. Formulas of one identifier among the six places must be equal, because a formula
+that gives both quantities is one computation. The constructor stores each distinct formula
+once in the field `formulas`, so `to_buffer!` runs once per formula and frequency.
+
+The slots `earth_properties` and `equivalent_earth` hold formulas of one family, of two kinds.
+The law describes each layer of the earth model at a frequency. Then the model reduces the
+described layers below the air to the one earth that the earth-return formulas read. The loop
+fixes that order. A law in the model's slot and a model in the law's are refused at construction.
 
 `FEM` is the formulation of the field solve. It keeps the four law slots that the field
 solve reads, `insulation_admittance`, `semicon_admittance`, `resistivity` and
@@ -266,11 +292,12 @@ it arrives, calls it per point, never the reverse. Its steps are fixed.
 
 At each frequency the loop runs these steps in order.
 
-1. The admittivity of each layer and the properties of the air and the earth.
+1. The admittivity of each layer, the described layers of the earth model and their equivalent
+   earth.
 2. The series matrix inside each cable, by the loop recursion of the surface impedances.
 3. The potential matrix inside each cable, by the series chain of the layers.
-4. `prepare!` of each distinct earth formula, then its impedances and potential
-   coefficients.
+4. `to_buffer!` of each distinct formula, then `impedance!` and `potential!` of the
+   formulation, which fill `Zg` and `Pg` pair by pair.
 5. The earth matrices added to every pair of conductors.
 6. The bundle and Kron reductions.
 7. `Y = s P⁻¹` from the reduced potential matrix.
@@ -282,18 +309,21 @@ loop measures that number exactly.
 ### Buffers and tool levels
 
 `initialize_buffers` is the one action that builds buffers. It builds the base keys and
-folds over `formulas(formulation)`, so that a formula adds its own arrays. A base key is a
+folds over `formulation.formulas`, so that a formula adds its own arrays. A base key is a
 value computed once and read again, or a value one step hands to the next. A value made and
 used inside one step is inline. One formula's scratch is never a base key.
 
 A name is defined at the level whose every member uses it, and nowhere higher. The engine
-defines three spectral tools. `SpectralIntegral` is the complete integrand of a
-Sommerfeld-type integral. `integrate` processes it by a method selected with a `Val` tag.
-`ray!` chooses the ray of the integral and the points where the quadrature subdivides. Every
-spectral earth-return formula uses them. A family defines what every formula of the family
-declares. Everything else is the formula's, in the bodies of its physics methods. The
-unified formula defines its kernels, its direct terms and its pair loop inside `prepare!`,
-and one private operation, `i0m1`.
+defines two spectral tools. `SpectralIntegral` is an integral of a kernel in λ, and its
+constructor chooses the complex path and the points where the quadrature subdivides.
+`integrate` evaluates it by a method selected with a `Val` tag, and maps the path and applies
+its Jacobian. Every spectral earth-return formula uses them.
+
+A family defines what every formula of the family declares. `EarthReturn` gives each formula
+`Λ`, the mean of the direct and image fields, and a formula can override it. Everything else
+is the formula's, in the bodies of its physics methods. `:martins2026` writes its kernels as
+tagged variants of the formula and its pair terms in `to_buffer!`. The family has one private
+operation, `i0m1`.
 
 ### Result
 
@@ -374,7 +404,7 @@ value to a type with a `Val`.
 
 ```toml
 [register."Engine.EarthReturn".formulas]
-unified = "the circumferentially averaged earth return of air, earth and mixed systems ..."
+martins2026 = "the circumferentially averaged earth return of air, earth and mixed systems ..."
 ```
 
 A name enters the register with the maintainers' confirmation, in the change that introduces

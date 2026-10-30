@@ -26,10 +26,6 @@ Public = true
 Private = false
 ```
 
-```@docs
-impedance(::InsulationImpedance.Formula{:ametani1980}, r_in::T, r_ex::T, mu_r::T, s::Complex{T}) where {T <: Real}
-```
-
 ## Insulation admittance
 
 ```@autodocs
@@ -39,10 +35,6 @@ Public = true
 Private = false
 ```
 
-```@docs
-admittivity(::InsulationAdmittance.Formula{:lossless}, material::Material{T}, f::T) where {T <: Real}
-```
-
 ## Semicon admittance
 
 ```@autodocs
@@ -50,10 +42,6 @@ Modules = [SemiconAdmittance]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
-```
-
-```@docs
-admittivity(::SemiconAdmittance.Formula{:lossless}, material::Material{T}, f::T) where {T <: Real}
 ```
 
 [Back to Contents](contents.md)

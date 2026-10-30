@@ -72,8 +72,11 @@ mathematical section unless they evaluate the documented expression.
 A formula of a family, `Formula{:id}`, keeps its equations in one place. The
 docstring of the family module has a section "Formulas" with one block per
 formula, headed `Formula{:id}`, that gives its equations, defines their symbols
-and cites its references. The methods of the formula state what they return and
-point to that section, without repeating the equations.
+and cites its references. The block also lists each callable of the formula with
+its call form, arguments and return. A callable has no docstring of its own.
+Julia keys such a docstring by the argument types alone, and two formulas of one
+family would share it. The programmatic methods of the formula state what they
+return and point to that section, without repeating the equations.
 
 ### DocStringExtensions abbreviations
 
@@ -169,3 +172,18 @@ reports. A finding is fixed by rewriting the sentence, never by altering the spe
 word or by adding a disable directive. The dictionary gains a word, and a rule changes, only
 by a decision of the maintainers.
 
+## Symbols and identifiers
+
+A formula's expression uses the symbols of its docstring and its source, in its
+locals, positional arguments, buffer keys and tags. A decorated symbol is a base
+letter and a Unicode mark. The complex conductivity `σ̃` is U+03C3 and the tilde
+U+0303, and `K̃`, `P̃` and `Z̃` have the same form. A symbol used as the name of a
+function, a field or a keyword is a term of the lexicon. Its case counts: `Γ` and
+`γ` are two terms. The recipe and programmatic verbs, the slots and the keywords
+of a formulation are plain words, because a user types them.
+
+A formula takes the short identifier that best says what it is. Plain physics
+takes its plain name: `:lossless`, `:ideal`, `:series`. A formula of the literature
+takes `:authorYear`: `:carson1926`, `:martins2026`. Formulas of one author and year
+add `a` and `b`, as in `:xue2018a` and `:xue2018b`. Each identifier is its own
+formula, and no option of a formula selects a model.

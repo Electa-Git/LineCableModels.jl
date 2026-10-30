@@ -1,7 +1,7 @@
 # Reference results
 
 Per-unit-length line parameters of the six cable systems of this release, computed with the
-Unified earth formulation and with FEM. The tests compare the package against them.
+earth-return formula `:martins2026` and with FEM. The tests compare the package against them.
 
 The case scripts in `test/manual/cases/` computed them, each at the commit of this repository
 that the table gives. Commit `2bff171d` adds

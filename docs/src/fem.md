@@ -147,9 +147,9 @@ Z_{ij} = K_{ij} + \Gamma^2 P_{ij}, \qquad
 where ``w_i`` and ``V_i`` are the axial drive and the floating potential of terminal ``i`` in
 column ``j``, ``P`` is in Ω·m, ``K`` and ``Z`` in Ω/m, and ``Y`` in S/m. The potential
 coefficients of the coaxial computation correspond to ``\mathrm{j}\omega P``. The
-starting points of the lines reproduce the voltage references of the unified earth-return
-formula: the interface for a conductor in the air, and infinite depth for a conductor in the
-earth. Each line is shifted horizontally by ``\min(10^{-5}, 0.01 d_i)`` m from the anchor of
+starting points of the lines reproduce the voltage references of `:martins2026`. The reference
+is the interface for a conductor in the air and infinite depth for a conductor in the earth.
+Each line is shifted horizontally by ``\min(10^{-5}, 0.01 d_i)`` m from the anchor of
 the terminal, where ``d_i`` is the smallest metal dimension of the terminal, and the metal
 interiors add nothing to the integral. The matrices are then reduced by bundling, Kron
 elimination and ideal transposition, as in the coaxial computation.

@@ -32,10 +32,6 @@ Public = true
 Private = false
 ```
 
-```@docs
-impedance(::InternalImpedance.Formula{:schelkunoff1934}, r_in::T, r_ex::T, rho::T, mu_r::T, s::Complex{T}) where {T <: Real}
-```
-
 ## Resistivity
 
 ```@autodocs
@@ -43,10 +39,6 @@ Modules = [Resistivity]
 Order = [:module, :constant, :type, :function]
 Public = true
 Private = false
-```
-
-```@docs
-resistivity(::Resistivity.Formula{:linear}, material::Material{T}, temperature::T) where {T <: Real}
 ```
 
 [Back to Contents](contents.md)

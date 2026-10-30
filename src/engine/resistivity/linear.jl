@@ -1,27 +1,5 @@
 defaults(::Type{Formula{:linear}}) = (;)
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the resistivity of `material` at the temperature `θ` by the formula `Formula{:linear}`,
-whose equation is in the section "Formulas" of [`Resistivity`](@ref).
-
-# Arguments
-
-- `Formula{:linear}`: linear temperature law.
-- `material`: material of the conductor.
-- `θ`: temperature of the conductor \\[°C\\].
-
-# Returns
-
-- Resistivity \\[Ω·m\\].
-
-# Errors
-
-- Throws `DomainError` when the temperature difference from `T0` is nonfinite or at least
-  150 K.
-- Throws `DomainError` when the factor in brackets is nonpositive or nonfinite.
-"""
 function (::Formula{:linear})(material::Material{T}, θ::T) where {T <: Real}
     difference = θ - material.T0
     abs(difference) < 150 || throw(DomainError(θ,

@@ -145,6 +145,29 @@ The integrals run along the complex path that each [`SpectralIntegral`](@ref) ch
 ``\\kappa_s = 0``, with ``D_{ii} = r_i``. The implementation scales the column of each
 source ``j`` by ``e^{|\\operatorname{Re} \\kappa_s r_j|}`` with exponentially scaled Bessel
 functions, and the scaling cancels in ``\\mathbf P_g`` and ``\\mathbf Z_g``.
+
+### Callables
+
+The kernels are the integrands of the integrals of a pair in ``\\lambda``, with the states
+`medium` and `pair` that [`to_buffer!`](@ref) builds:
+
+- `formula(Val(:J), λ, medium, pair)`: the magnetic coupling.
+- `formula(Val(:M), λ, medium, pair)`: the scalar-potential correction.
+- `formula(Val(:P̃), λ, medium, pair)`: the voltage correction.
+- `formula(Val(:Θ), λ, medium, pair)`: the averaged interface correction of a target in the
+  air.
+- `formula(Val(:Θ), Val(:interface), λ, medium, pair)`: the interface endpoint of that
+  correction.
+
+The entries read the block of the formula, with `i` the target and `j` the source:
+
+- `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` and
+  `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)`: an entry of
+  ``\\mathbf Z_g`` \\[Ω/m\\].
+- `formula(Val(:P), Val(:self), i, buffers, input, media, s, k)` and
+  `formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)`: an entry of
+  ``\\mathbf P_g`` \\[m/F\\].
+
 ## `Formula{:ideal}`
 
 Potential coefficients of conductors over an earth of infinite conductivity, from the images of
@@ -159,6 +182,12 @@ where ``\\varepsilon_1 = \\varepsilon_0 \\varepsilon_{r,1}`` is the permittivity
 \\[F/m\\]. These are ``\\Lambda_{ii}`` and ``\\Lambda_{ij}`` at ``\\kappa = 0``. The earth shields
 a buried conductor, so each coefficient of a buried or mixed pair is zero. The formula gives
 the potential coefficients alone.
+
+### Callables
+
+`formula(Val(:P), Val(:self), i, buffers, input, media, s, k)` and
+`formula(Val(:P), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
+``\\mathbf P_g`` \\[m/F\\], with `i` the target and `j` the source.
 """
 module EarthReturn
 

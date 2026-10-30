@@ -1,24 +1,5 @@
 defaults(::Type{Formula{:ametani1980}}) = (;)
 
-"""
-$(TYPEDSIGNATURES)
-
-Return the magnetic term of the series impedance across an annular dielectric layer by the
-formula `Formula{:ametani1980}`, whose equation is in the section "Formulas" of
-[`InsulationImpedance`](@ref).
-
-# Arguments
-
-- `Formula{:ametani1980}`: magnetic annular-dielectric formula.
-- `r_in`: inner radius \\[m\\].
-- `r_ex`: outer radius, in \\[m\\].
-- `μ_r`: relative permeability \\[dimensionless\\].
-- `s`: complex frequency, `j 2π f`, in \\[1/s\\].
-
-# Returns
-
-- Impedance \\[Ω/m\\].
-"""
 function (::Formula{:ametani1980})(
         r_in::T, r_ex::T, μ_r::T, s::Complex{T}) where {T <: Real}
     factor = s * vacuum_permeability * μ_r / 2π

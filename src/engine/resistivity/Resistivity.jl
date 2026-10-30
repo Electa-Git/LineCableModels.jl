@@ -18,6 +18,16 @@ where ``\\rho_0`` is the resistivity `rho` of the material at the reference temp
 ``T_0``, the field `T0` \\[°C\\], in \\[Ω·m\\], ``\\alpha`` is the temperature coefficient
 `alpha` \\[1/K\\], and ``\\theta`` is the conductor temperature \\[°C\\]. The law holds
 within 150 K of ``T_0`` and returns an infinite resistivity unchanged.
+
+### Callable
+
+`formula(material, θ)` returns ``\\rho(\\theta)`` \\[Ω·m\\].
+
+- `material`: material of the conductor.
+- `θ`: temperature of the conductor \\[°C\\].
+
+It throws `DomainError` when the temperature difference from `T0` is nonfinite or at least
+150 K, and when the factor in brackets is nonpositive or nonfinite.
 """
 module Resistivity
 

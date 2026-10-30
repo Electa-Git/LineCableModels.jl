@@ -25,6 +25,16 @@ where ``s`` is the complex frequency \\[1/s\\], ``a_l`` and ``b_l`` are in \\[m\
 ``\\kappa_l`` is the admittivity of the layer \\[S/m\\], and the coefficients are in
 \\[m/F\\]. A layer with ``a_l = 0`` or ``a_l = b_l`` has ``p_l = 0``. Conductors of
 different assemblies have no entry in ``\\mathbf P_\\mathrm{in}``.
+
+### Callable
+
+`formula(r_in, r_ex, κ, s)` returns ``p_l`` \\[m/F\\], zero when `r_in` is zero or equals
+`r_ex`.
+
+- `r_in`: inner radius of the layer \\[m\\].
+- `r_ex`: outer radius of the layer \\[m\\].
+- `κ`: admittivity of the layer \\[S/m\\].
+- `s`: complex frequency, `j 2π f` \\[1/s\\].
 """
 module Shunt
 

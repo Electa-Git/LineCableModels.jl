@@ -146,5 +146,5 @@ and permeability equal to 1, above a homogeneous earth.
 The earth surface corresponds to the line `y = 0` in the frame of the system. Cables above
 this line are located in air, and cables below it in the earth. A cable may touch
 the interface but cannot cross it, and [`LineParametersProblem`](@ref) throws an
-`ArgumentError` for a cable that crosses it. The unified earth-return formula and the
+`ArgumentError` for a cable that crosses it. The earth-return formula `:martins2026` and the
 finite-element model also reject a cable that touches the interface.

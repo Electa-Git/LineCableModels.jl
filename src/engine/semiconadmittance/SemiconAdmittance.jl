@@ -17,6 +17,13 @@ constitutive relation of its displacement current:
 where ``f`` is the frequency \\[Hz\\], ``\\kappa`` is the admittivity \\[S/m\\] and
 ``\\varepsilon_r`` is the relative permittivity `eps_r` of the material \\[dimensionless\\].
 The constant ``\\varepsilon_0`` is [`vacuum_permittivity`](@ref).
+
+### Callable
+
+`formula(material, f)` returns ``\\kappa`` \\[S/m\\] of a semicon layer.
+
+- `material`: material of the layer.
+- `f`: frequency \\[Hz\\].
 """
 module SemiconAdmittance
 

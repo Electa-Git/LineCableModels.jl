@@ -38,6 +38,21 @@ A solid conductor, with ``r_\\mathrm{in} = 0``, has no inner surface: its inner 
 impedances are zero, and its outer impedance is
 ``s \\mu I_0(w_\\mathrm{ex}) / (2 \\pi w_\\mathrm{ex} I_1(w_\\mathrm{ex}))``. The
 implementation evaluates the Bessel functions in their exponentially scaled form.
+
+### Callable
+
+`formula(r_in, r_ex, ρ, μ_r, s)` returns the record `(; inner, outer, transfer)`, the
+impedances of the inner and outer surfaces and the transfer impedance between them
+\\[Ω/m\\].
+
+- `r_in`: inner radius \\[m\\].
+- `r_ex`: outer radius, in \\[m\\].
+- `ρ`: resistivity \\[Ω·m\\].
+- `μ_r`: relative permeability \\[dimensionless\\].
+- `s`: complex frequency, `j 2π f` \\[1/s\\].
+
+It throws `DomainError` unless the radii are finite with `0 ≤ r_in < r_ex`, `ρ` and `μ_r`
+are positive and finite, and `s` is finite and nonzero.
 """
 module InternalImpedance
 

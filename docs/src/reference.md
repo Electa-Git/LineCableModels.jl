@@ -66,7 +66,7 @@ Modules = [LineCableModels.Engine]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = false
-Filter = t -> !(t in (LineCableModels.Engine.impedance, LineCableModels.Engine.impedance!, LineCableModels.Engine.potential!, LineCableModels.Engine.prepare!, LineCableModels.Engine.initialize_buffers, LineCableModels.Engine.admittivity, LineCableModels.Engine.resistivity, LineCableModels.Engine.properties, LineCableModels.Engine.reductions, LineCableModels.Engine.bundle!, LineCableModels.Engine.eliminate!, LineCableModels.Engine.transposition!, LineCableModels.Engine.solve!, LineCableModels.Engine.SpectralIntegral, LineCableModels.Engine.integrate, LineCableModels.Engine.ray!))
+Filter = t -> !(t in (LineCableModels.Engine.impedance!, LineCableModels.Engine.potential!, LineCableModels.Engine.to_buffer!, LineCableModels.Engine.from_buffer, LineCableModels.Engine.Λ, LineCableModels.Engine.initialize_buffers, LineCableModels.Engine.admittivity, LineCableModels.Engine.reductions, LineCableModels.Engine.bundle!, LineCableModels.Engine.eliminate!, LineCableModels.Engine.transposition!, LineCableModels.Engine.solve!, LineCableModels.Engine.SpectralIntegral, LineCableModels.Engine.integrate))
 ```
 
 ```@docs

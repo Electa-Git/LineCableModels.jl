@@ -34,8 +34,8 @@ norm is the magnitude of the nominal value.
 - `integral`: integrand and its path.
 - `Val(:quad)`: adaptive quadrature method tag.
 - `section`: controls `rtol`, `atol`, and `maxevals` from [`defaults`](@ref).
-- `buffers`: computation arrays with the `integral` block, whose `points` hold finite,
-  nonnegative breakpoints in the coordinate ``u``.
+- `buffers`: computation arrays. The `points` of the `integral` block are the breakpoints in
+  the coordinate ``u``, finite and nonnegative.
 
 # Returns
 

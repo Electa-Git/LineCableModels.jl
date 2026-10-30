@@ -80,7 +80,8 @@ abstract type AbstractResistivity <: AbstractFormulation end
 """
 $(TYPEDEF)
 
-Represent the common supertype of frequency laws for earth properties.
+Represent the common supertype of the laws of earth properties and of the models of the
+equivalent earth.
 """
 abstract type AbstractEarthProperties <: AbstractFormulation end
 

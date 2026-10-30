@@ -21,8 +21,8 @@ together with `Float64`, so that the number type `T` of the problem is at least 
 
 The [`CoaxialFormulation`](@ref) selects one formula for each physical contribution. Each
 slot takes a formula of its family, and the corresponding keyword accepts `:id`,
-`:id => (key = value, ...)` with the options of the formula, or a formula object. The
-default formulas are summarized below.
+`:id => (key = value, ...)` with the options of the formula, a formula object, or `:default`,
+which selects the default formula of the slot. The default formulas are summarized below.
 
 | Keyword | Family | Default | Contribution |
 | --- | --- | --- | --- |
@@ -30,15 +30,23 @@ default formulas are summarized below.
 | `insulation_impedance` | `InsulationImpedance` | `:ametani1980` | magnetic series term of a dielectric interval |
 | `insulation_admittance` | `InsulationAdmittance` | `:lossless` | admittivity of insulator layers |
 | `semicon_admittance` | `SemiconAdmittance` | `:lossless` | admittivity of semicon layers |
-| `earth_impedance` | `EarthReturn` | `:unified` | earth-return impedance |
-| `earth_admittance` | `EarthReturn` | `:unified` | earth-return potential coefficients |
+| `earth_impedance` | `EarthReturn` | `:martins2026` | earth-return impedance |
+| `earth_admittance` | `EarthReturn` | `:martins2026` | earth-return potential coefficients |
 | `shunt` | `Shunt` | `:series` | potential coefficients inside the cables |
 | `resistivity` | `Resistivity` | `:linear` | resistivity of the conductors at the temperature |
-| `earth_properties` | `EarthProperties` | `:constant` | properties of the air and the earth |
+| `earth_properties` | `EarthProperties` | `:constant` | properties of each layer of the air and the earth |
+| `equivalent_earth` | `EarthProperties` | `:bottommost` | equivalent earth of the layers below the air |
 
-When both earth slots take the same identifier, their formulas must be equal, since the
-unified formula obtains the impedance and the potential coefficients from the same
-circumferential currents. The remaining keywords are the options of the formulation:
+An earth slot records one formula per domain of a pair of cables:
+
+- `air`: both cables lie above the interface.
+- `earth`: both cables lie below the interface.
+- `mixed`: one cable lies above the interface and the other below it.
+
+One selection fills the three domains. With `earth_impedance = (air = :martins2026,)`, each
+domain not given takes the default of the slot. Formulas of one identifier in the earth slots
+must be equal. `:martins2026` obtains the impedance and the potential coefficients from the
+same circumferential currents. The remaining keywords are the options of the formulation:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
