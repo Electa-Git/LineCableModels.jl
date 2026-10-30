@@ -113,7 +113,11 @@ coefficients ``\\widetilde P_{ij}`` \\[m/F\\] are
 ```
 
 where ``\\delta`` is the Kronecker delta and ``J_0`` is the Bessel function of order zero,
-which averages the interface endpoint over the horizontal extent of the circumference.
+which averages the interface endpoint over the horizontal extent of the circumference. For
+``s = 1``, the integral of the line ``t = 1`` is ``-\\Theta_{ij} / \\widetilde\\sigma_1``, with
+``\\Theta_{ij}`` the averaged interface correction of [MartinsBritto2026](@cite). The kernels
+evaluate it as one integral for a nominal ``|\\operatorname{Re} \\kappa_1 r_i| < 300`` and as its
+two endpoint terms above.
 
 The enclosed currents follow from the complete field on the circumferences, with the reflected and mutual
 fields, through the dimensionless current matrix ``\\mathbf T``, the key `T` of the formula's
@@ -271,7 +275,7 @@ from_buffer(::Formula{ID}, buffers) where {ID} = getproperty(buffers, ID)
 function Λ(::Formula, ::Val{:self}, κ, r, h)
     D′ = 2h
     if abs(nominal(κ * D′)) < 0.5
-        iszero(κ) && return log(D′ / r)
+        iszero(κ) && return complex(log(D′ / r))
         return (besselk(0, κ * r) - besselk(0, κ * D′)) - i0m1(κ * r) * besselk(0, κ * D′)
     end
     ξ = κ * r
@@ -280,7 +284,7 @@ function Λ(::Formula, ::Val{:self}, κ, r, h)
 end
 function Λ(::Formula, ::Val{:mutual}, κ, r, D, D′)
     if abs(nominal(κ * D′)) < 0.5
-        iszero(κ) && return log(D′ / D)
+        iszero(κ) && return complex(log(D′ / D))
         return besselix(0, κ * r) * exp(abs(real(κ * r))) *
                (besselk(0, κ * D) - besselk(0, κ * D′))
     end

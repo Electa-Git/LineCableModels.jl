@@ -1,5 +1,5 @@
 using LinearAlgebra: I, diag, lu!
-using SpecialFunctions: besseli
+using SpecialFunctions: besseli, besselk
 
 # The targets come from the martins2026 formula of commit 989af96c of this repository: the state
 # of the cables and the pair terms. It ran with Γ = 0 at 0.1 Hz, 1 kHz and
@@ -207,6 +207,19 @@ using SpecialFunctions: besseli
                 @test isapprox(buffers.martins2026.P̃[p, q], h_target; rtol = 1e-12)
             end
         end
+    end
+
+    @testset "the direct and image mean returns a complex value" begin
+        κ = complex(0.3, 0.4)
+        r, h, D, D′ = 0.0425, 1.0, 1.0, 2.0
+        @test @inferred(Engine.Λ(formula, Val(:self), zero(κ), r, h)) ==
+              complex(log(2h / r))
+        @test @inferred(Engine.Λ(formula, Val(:mutual), zero(κ), r, D, D′)) ==
+              complex(log(D′ / D))
+        @test @inferred(Engine.Λ(formula, Val(:self), κ, r, h)) ≈
+              besselk(0, κ * r) - besseli(0, κ * r) * besselk(0, 2κ * h)
+        @test @inferred(Engine.Λ(formula, Val(:mutual), κ, r, D, D′)) ≈
+              besseli(0, κ * r) * (besselk(0, κ * D) - besselk(0, κ * D′))
     end
 
     @testset "Air receiver at the martins2026 split" begin
