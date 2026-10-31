@@ -312,6 +312,15 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 [register."Engine.EarthProperties".formulas]
 bottommost = "the equivalent earth of a layered model is its deepest layer; the identity at two layers (commit 9676ae6c, earth/equivalenthomogeneous/formulas/bottommost.jl)"
 constant = "the layer's static ρ, εᵣ, μᵣ at every frequency (commit 989af96c, earth/frequencydependent/formulas/constant.jl)"
+alipio2014 = "ρ(f) and ε_r(f) of a soil layer by Alipio and Visacro (2014, commit 9676ae6c, earth/frequencydependent/formulas/alipio2014.jl)"
+cigre2019 = "ρ(f) and ε_r(f) of a soil layer by CIGRE WG C4.33 (2019, commit 9676ae6c, earth/frequencydependent/formulas/cigre2019.jl)"
+datsios2019 = "ρ(f) and ε_r(f) of a soil layer by Datsios and Mikropoulos (2019, commit 9676ae6c, earth/frequencydependent/formulas/datsios2019.jl)"
+longmire1975 = "ρ(f) and ε_r(f) of a soil layer by Longmire and Smith (1975, commit 9676ae6c, earth/frequencydependent/formulas/longmire1975.jl)"
+messier1985 = "ρ(f) and ε_r(f) of a soil layer by Messier (1985, commit 9676ae6c, earth/frequencydependent/formulas/messier1985.jl)"
+portela1999 = "ρ(f) and ε_r(f) of a soil layer by Portela (1999, commit 9676ae6c, earth/frequencydependent/formulas/portela1999.jl)"
+scott1967 = "ρ(f) and ε_r(f) of a soil layer by Scott, Carroll and Cunningham (1967, commit 9676ae6c, earth/frequencydependent/formulas/scott1967.jl)"
+visacro1987 = "ρ(f) and ε_r(f) of a soil layer by Visacro and Portela (1987, commit 9676ae6c, earth/frequencydependent/formulas/visacro1987.jl)"
+visacro2012 = "ρ(f) and ε_r(f) of a soil layer by Visacro and Alipio (2012, commit 9676ae6c, earth/frequencydependent/formulas/visacro2012.jl)"
 
 [register.CAD.public]
 Segment = "a straight curve between two points of the cross-section plane"

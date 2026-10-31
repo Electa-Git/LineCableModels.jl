@@ -215,7 +215,7 @@ matrices of a computation. A formula does not write a matrix of the computation.
 | `EarthReturn` | `:ideal` | the entries `formula(Val(:P), Val(:self), i, ...)` of an overhead pair |
 | `Shunt` | `:series` | `formula(r_in, r_ex, κ, s)`, the coefficient of one layer, with the chain `potential!(formula, Pin, buffers, input, kappa, s)` |
 | `Resistivity` | `:linear` | `formula(material, θ)` |
-| `EarthProperties` | `:constant` | `formula(layer, f)`, a law: the layer at a frequency |
+| `EarthProperties` | `:constant` and the nine soil laws | `formula(layer, f)`, a law: the layer at a frequency |
 | `EarthProperties` | `:bottommost` | `formula(layers, f)`, a model: the equivalent earth of the layers |
 
 ### Formulation
