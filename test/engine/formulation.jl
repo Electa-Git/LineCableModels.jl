@@ -120,6 +120,55 @@ end
         @test_throws DomainError FEM(; Γ = ComplexF64[])
     end
 
+    @testset "a block lowers to the constructor" begin
+        domains = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)
+        @test (@formulation begin
+            earth_impedance = @air :gary1976 @earth :saad1996 @mixed :lucca1994
+            earth_admittance = :ideal
+            transposition = true
+        end) === CoaxialFormulation(;
+            earth_impedance = domains, earth_admittance = :ideal, transposition = true)
+        @test (@formulation begin
+            earth_impedance = @mixed :lucca1994 @air :gary1976 @earth :saad1996
+        end) === CoaxialFormulation(; earth_impedance = domains)
+        @test (@formulation begin
+            earth_admittance = @air :ideal
+        end) === CoaxialFormulation(; earth_admittance = (air = :ideal,))
+        section = (integral = (rtol = 1e-6,),)
+        @test (@formulation begin
+            earth_impedance = @air :martins2026 => section @earth :martins2026 => section @mixed :martins2026 => section
+            earth_admittance = :martins2026 => section
+        end) === CoaxialFormulation(; earth_impedance = :martins2026 => section,
+            earth_admittance = :martins2026 => section)
+        saad = Engine.EarthReturn.Formula(Val(:saad1996))
+        @test (@formulation begin
+            earth_impedance = @earth saad
+        end) === CoaxialFormulation(; earth_impedance = (earth = saad,))
+        @test (@formulation FEM begin
+            earth_properties = :alipio2014
+            Γ = 1e-3im
+        end) === FEM(; earth_properties = :alipio2014, Γ = 1e-3im)
+        @test (@formulation begin end) === CoaxialFormulation()
+
+        @test_throws "unknown options (:pipe,)" @formulation begin
+            pipe = :none
+        end
+        @test_throws "unknown options (:earth_impedance,)" @formulation FEM begin
+            earth_impedance = :saad1996
+        end
+        @test_throws "does not read Γ" @formulation begin
+            earth_impedance = @air :gary1976 @earth :saad1996 @mixed :lucca1994
+            earth_admittance = :ideal
+            Γ = 1e-3im
+        end
+        @test_throws "the earth slots hold two different :martins2026 formulas" @formulation begin
+            earth_impedance = @air :martins2026 => section
+        end
+        @test_throws "invalid keyword argument syntax" eval(:(@formulation begin
+            earth_admittance:ideal
+        end))
+    end
+
     @testset "the finite-element computation needs the Gmsh extension" begin
         copper = Material(:conductor, 1.7241e-8, 1, 1, 20, 0.00393)
         wire = build(CableDesign, "bare_wire",

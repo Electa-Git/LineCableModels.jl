@@ -28,6 +28,7 @@ export admittivity, impedance!, potential!, to_buffer!, from_buffer,
        initialize_buffers
 export LineParametersProblem, CoaxialFormulation, FEM, LCMBackend, GmshBackend,
        backend, LineParameters
+export @formulation, @air, @earth, @mixed
 export bundle!, eliminate!, transposition!, reductions
 export SpectralIntegral, integrate, nominal
 public CoaxialInput, solve!, Λ

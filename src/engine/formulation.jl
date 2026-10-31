@@ -458,3 +458,107 @@ function validate(problem::LineParametersProblem, formulation::CoaxialFormulatio
     validate(problem, formulation.options)
     return problem
 end
+
+"""
+    @air(selection, rest...)
+
+Select the formula of the air domain of an earth slot, in a line of [`@formulation`](@ref). The
+tags of a chain merge into one record with a key per domain, in any order. A domain not given
+takes the default of the slot.
+
+# Arguments
+
+- `selection`: what the slot accepts, `:id`, `:id => (key = value, ...)` or a formula.
+- `rest`: the tags after this one.
+
+# Returns
+
+- A `NamedTuple` with the key `air` and the keys of the tags after it.
+"""
+macro air(selection, rest...)
+    return :(merge((air = $(esc(selection)),), $(map(esc, rest)...)))
+end
+
+"""
+    @earth(selection, rest...)
+
+Select the formula of the earth domain of an earth slot, in a chain of tags as [`@air`](@ref)
+describes.
+
+# Arguments
+
+- `selection`: what the slot accepts, `:id`, `:id => (key = value, ...)` or a formula.
+- `rest`: the tags after this one.
+
+# Returns
+
+- A `NamedTuple` with the key `earth` and the keys of the tags after it.
+"""
+macro earth(selection, rest...)
+    return :(merge((earth = $(esc(selection)),), $(map(esc, rest)...)))
+end
+
+"""
+    @mixed(selection, rest...)
+
+Select the formula of the mixed domain of an earth slot, in a chain of tags as [`@air`](@ref)
+describes.
+
+# Arguments
+
+- `selection`: what the slot accepts, `:id`, `:id => (key = value, ...)` or a formula.
+- `rest`: the tags after this one.
+
+# Returns
+
+- A `NamedTuple` with the key `mixed` and the keys of the tags after it.
+"""
+macro mixed(selection, rest...)
+    return :(merge((mixed = $(esc(selection)),), $(map(esc, rest)...)))
+end
+
+"""
+    @formulation Type begin
+        lines...
+    end
+
+Build a formulation from the lines of a block. Each line is a keyword of the constructor of
+`Type`, or of [`CoaxialFormulation`](@ref) without a type. A selection per domain is a chain of
+the tags [`@air`](@ref), [`@earth`](@ref) and [`@mixed`](@ref).
+
+# Arguments
+
+- `Type`: formulation type.
+- `block`: one line per keyword, a slot or an option of the formulation.
+
+# Returns
+
+- The formulation that the constructor builds from the keywords.
+
+# Errors
+
+- The constructor throws `ArgumentError` for a slot or option that the formulation lacks.
+- Julia refuses a line that is not an assignment when it lowers the call.
+
+# Examples
+
+```jldoctest
+formulation = @formulation begin
+    earth_impedance = @air :gary1976 @earth :saad1996 @mixed :lucca1994
+    earth_admittance = :ideal
+    transposition = true
+end
+@assert formulation === CoaxialFormulation(;
+    earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994),
+    earth_admittance = :ideal, transposition = true)
+# output
+```
+"""
+macro formulation(block)
+    lines = [line for line in block.args if !(line isa LineNumberNode)]
+    return Expr(:call, CoaxialFormulation, Expr(:parameters, map(esc, lines)...))
+end
+macro formulation(type, block)
+    lines = [line for line in block.args if !(line isa LineNumberNode)]
+    return Expr(:call, esc(type), Expr(:parameters, map(esc, lines)...))
+end

@@ -35,7 +35,8 @@ using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                impedance!, potential!, to_buffer!, from_buffer, initialize_buffers,
                LineParametersProblem, CoaxialFormulation, FEM, LCMBackend,
                GmshBackend, backend, LineParameters, bundle!, eliminate!, transposition!,
-               SpectralIntegral, integrate, nominal, Λ, reductions
+               SpectralIntegral, integrate, nominal, Λ, reductions,
+               @formulation, @air, @earth, @mixed
 
 export Material, material, EarthLayer, EarthModel, homogeneous
 export Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, Rectangle, Offset
@@ -49,6 +50,7 @@ public Commons, Materials, Earth, DataModel, validate, resolve, AnnularSector,
        DifferenceShape
 public PlacedRegion, CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
+export @formulation, @air, @earth, @mixed
 public Engine, CAD, defaults, select, AbstractFormulation, AbstractBackend,
        FormulationOptions,
        ComputationOptions

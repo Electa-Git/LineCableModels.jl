@@ -60,6 +60,24 @@ potential coefficients from the same circumferential currents. The remaining key
 A nonzero `Γ` needs a formula that reads it in each place of both earth slots, and the
 constructor refuses any other.
 
+The macro [`@formulation`](@ref) writes a formulation as a block, one keyword per line, and the
+tags [`@air`](@ref), [`@earth`](@ref) and [`@mixed`](@ref) write a selection per domain. The macro
+lowers to the constructor and does not add a capability. The refusals above apply to it. With a
+type first, it builds that formulation:
+
+```@example computing
+using LineCableModels
+formulation = @formulation begin
+    earth_impedance = @air :gary1976 @earth :saad1996 @mixed :lucca1994
+    earth_admittance = :ideal
+    transposition = true
+end
+fem = @formulation FEM begin
+    earth_properties = :alipio2014
+end
+nothing # hide
+```
+
 The formulas are described in the theory pages [Matrix formulation](theory/matrix.md),
 [Conductors](theory/conductors.md), [Dielectrics](theory/dielectrics.md) and
 [Earth return](theory/earth.md).
@@ -126,7 +144,6 @@ of its default, and the record is checked by [`validate`](@ref). The defaults of
 formulation are:
 
 ```@example computing
-using LineCableModels
 LineCableModels.defaults(CoaxialFormulation)
 ```
 

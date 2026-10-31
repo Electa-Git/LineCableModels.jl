@@ -249,6 +249,10 @@ One selection fills the three places. A selection per domain,
 slot's default. A formula declares the pairs it treats. The computation refuses a formula in a
 place whose pairs it does not treat, before it runs.
 
+`@formulation` writes the keywords of a constructor as the lines of a block, and the tags `@air`,
+`@earth` and `@mixed` write a selection per domain. They lower to the constructor and do not add
+a capability. The constructor refuses a line for a slot or option that the formulation lacks.
+
 A formula of the family gives the impedance, the potential coefficients, or both, by the
 methods it defines. A formula in a slot whose quantity it does not give is refused at
 construction. Formulas of one identifier among the six places must be equal, because a formula

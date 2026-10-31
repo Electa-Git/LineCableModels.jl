@@ -96,8 +96,8 @@ nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resist
     "properties", "admittance", "semicon", "temperature",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
-    "transposition", "integral", "integrand", "reductions"]
-qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
+    "transposition", "integral", "integrand", "reductions", "air"]
+qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "nominal", "lcm", "mixed"]
 symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
 
 [modules.Engine.verbs]
@@ -229,6 +229,10 @@ AbstractResistivity = "the supertype of the temperature laws of a conductor's re
 AbstractEarthProperties = "the supertype of the laws of the earth's properties and of the models of the equivalent earth"
 LineParametersProblem = "the cables of a line, the earth, the operating temperature and the frequencies of a scan"
 CoaxialFormulation = "the methodology of concentric tubes: the formula of each step, Γ and the reductions"
+"@formulation" = "the formulation of a block of slot and option lines, lowered to the constructor"
+"@air" = "the selection of the air domain of an earth slot, merged with the tags after it"
+"@earth" = "the selection of the earth domain of an earth slot, merged with the tags after it"
+"@mixed" = "the selection of the mixed domain of an earth slot, merged with the tags after it"
 FEM = "the laws, the equivalent earth and the options of the finite-element computation of line parameters"
 LineParameters = "the series impedance and shunt admittance per unit length of a line at each frequency, with the labels of its rows and the formulation"
 admittivity = "the admittivity of a dielectric layer at a frequency, by the law of its class in the formulation"
