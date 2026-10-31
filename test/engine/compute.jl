@@ -163,9 +163,11 @@ end
         @test_throws "treats no pair of a receiver in the air and a source in the earth" compute(
             mixed, arms)
         closed = CoaxialFormulation(earth_impedance = (air = :gary1976, earth = :saad1996))
+        places = CoaxialFormulation(earth_impedance = (
+            air = :gary1976, earth = :saad1996, mixed = :lucca1994))
         @test all(isfinite, compute(mixed, closed).Z)
         bytes = Int[]
-        for formulation in (CoaxialFormulation(), closed)
+        for formulation in (CoaxialFormulation(), closed, places)
             input = Engine.CoaxialInput(mixed, formulation.options)
             buffers = Engine.initialize_buffers(formulation, mixed, input)
             m = length(input.kept)
@@ -193,5 +195,6 @@ end
                     (options,))))
         end
         @test bytes[1] == bytes[2]
+        @test bytes[1] == bytes[3]
     end
 end

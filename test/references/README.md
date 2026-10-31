@@ -205,6 +205,8 @@ at the same 101 frequencies. The reference problem of `problems.jl` computed it 
 | `gary1976.csv` of `overhead_bare_wires` | `earth_impedance = :gary1976` |
 | `wedepohl1973.csv` of `two_bare_wires`, `two_insulated_wires` and the two coaxial cases | `earth_impedance = :wedepohl1973` |
 | `saad1996.csv` of those four cases | `earth_impedance = :saad1996` |
+| `lucca1994.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)` |
+| `ametani2009.csv` of `mixed_bare_wires` | `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :ametani2009)` |
 
 These formulas give `Zg` alone, so each `Pg` and `Y` is that of the reference. The table gives the
 deviation e_Z of `Z`. Its maximum and RMS over the 101 frequencies compare with the `analytical`
@@ -229,3 +231,25 @@ Each deviation follows from the approximation of the formula:
   `|m r| < 0.25` by its source.
 - `:saad1996` approximates the interface integral in closed form, and it takes each cable as a
   filament of the exterior radius.
+
+A mixed formula gives the entries of a pair across the interface, so the air and earth places give
+the other entries of `Zg`. The table gives e_Z of `mixed_bare_wires` for each mixed formula, under
+two selections of those places. With `:martins2026` in them, e_Z is the deviation of the mixed
+entries alone:
+
+| Mixed place | Air and earth places | Maximum | RMS | Maximum against FEM |
+| --- | --- | --- | --- | --- |
+| `:lucca1994` | `:gary1976`, `:saad1996` | 0.0921 | 0.0502 | 0.0924 |
+| `:lucca1994` | `:martins2026` | 0.0907 | 0.0427 | 0.0879 |
+| `:ametani2009` | `:gary1976`, `:saad1996` | 0.0921 | 0.0305 | 0.0924 |
+| `:ametani2009` | `:martins2026` | 0.0258 | 0.0122 | 0.0239 |
+
+At 631 kHz the mixed entry of `Zg` is `-4.61e-4 + 6.80e-4j` Ω/m under `:martins2026`,
+`5.98e-2 + 6.35e-2j` under `:lucca1994` and `-3.03e-4 + 5.10e-4j` under `:ametani2009`. `:lucca1994`
+and `:ametani2009` differ by at most 0.101 of the largest diagonal entry of `Zg`, at 13.2 kHz.
+
+Each deviation of a mixed formula follows from its approximation:
+
+- `:lucca1994` takes an image at a complex depth and one correction term. Its logarithm does not
+  decay with depth.
+- `:ametani2009` multiplies that logarithm by the decay `exp(-h_g / p)` over the depth `h_g`.

@@ -293,6 +293,8 @@ ideal = "the images of a perfectly conducting earth: the potential coefficients 
 gary1976 = "the impedance of overhead conductors from an image plane at a complex depth (Gary 1976; commit 9676ae6c, earthimpedance/formulas/gary1976.jl)"
 wedepohl1973 = "the impedance of buried conductors by the low-order expansion of Wedepohl and Wilcox (1973; commit 9676ae6c, earthimpedance/formulas/wedepohl1973.jl)"
 saad1996 = "the impedance of buried conductors by the closed form of Saad, Gaba and Giroux (1996; commit 9676ae6c, earthimpedance/formulas/saad1996.jl)"
+lucca1994 = "the mutual impedance between an overhead and a buried conductor from an image at a complex depth and one correction term (Lucca 1994; commit 9676ae6c, earthimpedance/formulas/lucca1994.jl)"
+ametani2009 = "the mutual impedance between an overhead and a buried conductor from a complex-depth logarithm with an exponential decay in the depth (Ametani, Yoneda, Baba and Nagaoka 2009, eq. 27)"
 
 [register."Engine.Shunt".public]
 Formula = "a shunt formula, its identifier the type parameter"

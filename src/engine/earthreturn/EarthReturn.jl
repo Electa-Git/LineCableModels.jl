@@ -265,6 +265,55 @@ gives the impedance alone. A computation refuses a magnetic earth layer.
 `formula(Val(:Z), Val(:self), i, buffers, input, media, s, k)` and
 `formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` return an entry of
 ``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source.
+
+## `Formula{:lucca1994}`
+
+Mutual impedance between a conductor in the air and a conductor in a nonmagnetic earth, by the
+approximation of Lucca [Lucca1994](@cite). Equation (28) of [Ametani2009](@cite) prints the expression.
+With the complex depth ``p = 1 / \\sqrt{s \\mu_0 \\sigma_2}`` \\[m\\]:
+
+```math
+\\begin{aligned}
+V &= h_a + h_g, \\qquad H_c = V + 2 p, \\qquad
+S = \\sqrt{H_c^2 + y_{ij}^2}, \\qquad D = \\sqrt{V^2 + y_{ij}^2}, \\\\
+Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} \\left[\\ln\\frac{S}{D}
+    - \\frac{2}{3} \\left(\\frac{p}{S^2}\\right)^3 H_c \\left(H_c^2 - 3 y_{ij}^2\\right)\\right],
+\\end{aligned}
+```
+
+where ``h_a`` is the height of the conductor in the air and ``h_g`` the depth of the conductor in
+the earth \\[m\\]. The horizontal distance is ``y_{ij}`` \\[m\\], and ``\\sigma_2 = 1 / \\rho_2`` \\[S/m\\].
+The formula leaves out the displacement current of the earth. It gives the entries of a mixed pair
+alone, so other formulas fill the air and earth places. A computation refuses a magnetic earth layer.
+
+### Callables
+
+`formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` returns an entry of
+``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source, in either order of a mixed pair.
+
+## `Formula{:ametani2009}`
+
+Mutual impedance between a conductor in the air and a conductor in a nonmagnetic earth, by
+equation (27) of Ametani, Yoneda, Baba and Nagaoka [Ametani2009](@cite). With
+``m = \\sqrt{s \\mu_0 / \\rho_2}`` \\[1/m\\] and the complex depth ``p = 1 / m`` \\[m\\]:
+
+```math
+\\begin{aligned}
+S &= \\sqrt{(h_a + h_g + 2 p)^2 + y_{ij}^2}, \\qquad
+D = \\sqrt{(h_a + h_g)^2 + y_{ij}^2}, \\\\
+Z_{g,ij} &= \\frac{s \\mu_0}{2 \\pi} e^{-h_g / p} \\ln\\frac{S}{D},
+\\end{aligned}
+```
+
+where ``h_a``, ``h_g`` and ``y_{ij}`` are the lengths of `Formula{:lucca1994}`. The exponential takes
+``h_g`` as a positive depth. The formula leaves out the displacement current of the earth. It gives
+the entries of a mixed pair alone, so other formulas fill the air and earth places. A computation
+refuses a magnetic earth layer.
+
+### Callables
+
+`formula(Val(:Z), Val(:mutual), i, j, buffers, input, media, s, k)` returns an entry of
+``\\mathbf Z_g`` \\[Ω/m\\], with `i` the target and `j` the source, in either order of a mixed pair.
 """
 module EarthReturn
 
@@ -281,7 +330,8 @@ using SpecialFunctions: besselix, besselkx, besseljx, besselk
 export Formula, FORMULAS
 
 "Identifiers of the earth-return formulas."
-const FORMULAS = (:martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996)
+const FORMULAS = (
+    :martins2026, :ideal, :gary1976, :wedepohl1973, :saad1996, :lucca1994, :ametani2009)
 
 """
 $(TYPEDEF)
@@ -388,5 +438,7 @@ include("ideal.jl")
 include("gary1976.jl")
 include("wedepohl1973.jl")
 include("saad1996.jl")
+include("lucca1994.jl")
+include("ametani2009.jl")
 
 end

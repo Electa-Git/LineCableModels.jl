@@ -31,7 +31,7 @@ each slot and the other formulas that the slot admits.
 | `insulation_impedance` | `InsulationImpedance` | `:ametani1980` | | magnetic series term of a dielectric interval |
 | `insulation_admittance` | `InsulationAdmittance` | `:lossless` | `:lossy` | admittivity of insulator layers |
 | `semicon_admittance` | `SemiconAdmittance` | `:lossless` | `:lossy` | admittivity of semicon layers |
-| `earth_impedance` | `EarthReturn` | `:martins2026` | `:gary1976`, `:wedepohl1973`, `:saad1996` | earth-return impedance |
+| `earth_impedance` | `EarthReturn` | `:martins2026` | `:gary1976`, `:wedepohl1973`, `:saad1996`, `:lucca1994`, `:ametani2009` | earth-return impedance |
 | `earth_admittance` | `EarthReturn` | `:martins2026` | `:ideal` | earth-return potential coefficients |
 | `shunt` | `Shunt` | `:series` | | potential coefficients inside the cables |
 | `resistivity` | `Resistivity` | `:linear` | | resistivity of the conductors at the temperature |
@@ -45,9 +45,10 @@ An earth slot records one formula per domain of a pair of cables:
 - `mixed`: one cable lies above the interface and the other below it.
 
 One selection fills the three domains. With `earth_impedance = (air = :martins2026,)`, each
-domain not given takes the default of the slot. Formulas of one identifier in the earth slots
-must be equal. `:martins2026` obtains the impedance and the potential coefficients from the
-same circumferential currents. The remaining keywords are the options of the formulation:
+domain not given takes the default of the slot. A formula that treats one domain goes in that
+place, as `earth_impedance = (air = :gary1976, earth = :saad1996, mixed = :lucca1994)`. Formulas of
+one identifier in the earth slots must be equal. `:martins2026` obtains the impedance and the
+potential coefficients from the same circumferential currents. The remaining keywords are the options of the formulation:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
