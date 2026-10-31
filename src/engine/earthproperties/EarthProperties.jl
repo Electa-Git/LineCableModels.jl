@@ -1,14 +1,14 @@
 """
     LineCableModels.Engine.EarthProperties
 
-Compute the resistivity, relative permittivity, and relative permeability of earth and air,
-and the equivalent earth of the layers below the air.
+Compute the resistivity, relative permittivity, and relative permeability of the earth layers,
+and their equivalent earth.
 
 # Formulas
 
 ## `Formula{:constant}`
 
-Properties of a layer of the earth or of the air independent of the frequency ``f``:
+Properties of an earth layer independent of the frequency ``f``:
 
 ```math
 \\rho(f) = \\rho, \\qquad \\varepsilon_r(f) = \\varepsilon_r, \\qquad \\mu_r(f) = \\mu_r,
@@ -21,7 +21,7 @@ where ``\\rho`` is the resistivity of the layer \\[Ω·m\\], and ``\\varepsilon_
 
 `formula(layer, f)` returns `layer`, whose properties hold at every frequency.
 
-- `layer`: layer of the earth or of the air.
+- `layer`: earth layer.
 - `f`: frequency \\[Hz\\].
 
 ## `Formula{:bottommost}`
@@ -52,7 +52,7 @@ const FORMULAS = (:constant, :bottommost)
 """
 $(TYPEDEF)
 
-Represent a law of the properties of earth and air, or a model of the equivalent earth.
+Represent a law of the properties of an earth layer, or a model of the equivalent earth.
 Its options form a record of type `FormulationOptions{Formula{ID}}`, with `ID` the formula
 identifier.
 

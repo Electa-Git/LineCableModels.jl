@@ -426,12 +426,14 @@ enters, and the field `formulas` holds it once.
 
 ### Add a backend
 
-A backend is a singleton of `AbstractBackend` in `Engine`. It adds four things.
+A backend is a singleton of `AbstractBackend` in `Engine`. It adds three things.
 
 - `defaults(::Type{B})`, its computation options.
 - `compute(::B, problem, formulation; kw...)`, which builds the options once.
 - `compute(::B, problem, formulation, options::ComputationOptions{B})`, which computes.
-- `validate(formulation, ::B)` per formulation it implements, with a throwing fallback.
+
+A backend that has something to refuse adds `validate(formulation, ::B)`. Otherwise the refusal
+is the fallback of `compute`.
 
 A backend implemented in an extension defines its methods there and leaves its singleton in
 `Engine`, as `GmshBackend` does. A formulation's default backend is one `backend` method.

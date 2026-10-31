@@ -58,8 +58,8 @@ buried conductors only. In air at Γ = 0, κ ≈ k₀, so a 20 mm radius reaches
 ## The properties of the air and the earth
 
 The law of the slot `earth_properties` gives the resistivity, the relative permittivity and the
-relative permeability of each layer at each frequency. The model of the slot `equivalent_earth`
-then reduces the described layers below the air to the one earth that the earth-return formulas
+relative permeability of each earth layer at each frequency. The air keeps its declared values.
+The model of the slot `equivalent_earth` then reduces the described layers below the air to the one earth that the earth-return formulas
 read. The one law of this release, `:constant`, gives the static values of each layer at every
 frequency, and the one model, `:bottommost`, takes the deepest layer.
 

@@ -161,7 +161,7 @@ Move the per-frequency terms of a formula into its block of `buffers`, at the fr
 - `formula`: formula whose terms the recipes read.
 - `buffers`: preallocated computation arrays.
 - `input`: numerical cable geometry and connections.
-- `media`: air and earth layers as the law describes them at the frequency.
+- `media`: the air and the equivalent earth at the frequency.
 - `s`: complex frequency, `j 2π f`, \\[1/s\\].
 - `k`: frequency index.
 

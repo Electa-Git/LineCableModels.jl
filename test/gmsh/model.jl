@@ -78,4 +78,11 @@ using LineCableModels.Engine: admittivity, reductions
     problem = LineParametersProblem(system, reference.earth;
         frequencies = reference.frequencies[1:10:end])
     @test_throws DomainError FieldModel(problem, formulation)
+    @testset "a layered earth reaches the model as its equivalent earth" begin
+        air, bottom = reference.earth.layers
+        layered = LineParametersProblem(reference.system,
+            EarthModel((air, EarthLayer(100.0, 1.0, 1.0, 5.0), bottom));
+            frequencies = reference.frequencies[1:10:end])
+        @test all(layer -> layer === bottom, FieldModel(layered, formulation).earth)
+    end
 end

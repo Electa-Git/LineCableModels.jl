@@ -78,6 +78,14 @@ end
         @test_throws "reduces no earth model" CoaxialFormulation(;
             equivalent_earth = :constant)
         @test CoaxialFormulation(; Γ = [0.1im]).options.Γ == [0.1im]
+        # A nonzero Γ needs a formula that reads it in every earth place.
+        @test CoaxialFormulation(; Γ = 1.0e-3im).options.Γ == 1.0e-3im
+        @test_throws ":ideal does not read Γ" CoaxialFormulation(;
+            earth_admittance = :ideal, Γ = 1.0e-3im)
+        @test_throws ":ideal does not read Γ" CoaxialFormulation(;
+            earth_admittance = (air = :ideal,), Γ = [0.0im, 1.0e-3im])
+        @test CoaxialFormulation(;
+            earth_admittance = :ideal, Γ = [0.0im]).options.Γ == [0.0im]
         @test_throws DomainError CoaxialFormulation(; Γ = complex(Inf))
     end
 
@@ -89,8 +97,11 @@ end
             Engine.Resistivity.Formula(Val(:linear)),
             Engine.EarthProperties.Formula(Val(:constant)))
         @test FEM(; insulation_admittance = :default, semicon_admittance = :default,
-            resistivity = :default, earth_properties = :default) === fem
+            resistivity = :default, earth_properties = :default,
+            equivalent_earth = :default) === fem
         @test_throws "describes no layer" FEM(; earth_properties = :bottommost)
+        @test FEM(; equivalent_earth = :bottommost) === fem
+        @test_throws "reduces no earth model" FEM(; equivalent_earth = :constant)
         for material in
             (Material(:insulator, 1.0e14, 2.3), Material(:semicon, 1000.0, 1000.0))
             @test Engine.admittivity(FEM(), material, 50.0) ==

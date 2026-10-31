@@ -34,7 +34,7 @@ which selects the default formula of the slot. The default formulas are summariz
 | `earth_admittance` | `EarthReturn` | `:martins2026` | earth-return potential coefficients |
 | `shunt` | `Shunt` | `:series` | potential coefficients inside the cables |
 | `resistivity` | `Resistivity` | `:linear` | resistivity of the conductors at the temperature |
-| `earth_properties` | `EarthProperties` | `:constant` | properties of each layer of the air and the earth |
+| `earth_properties` | `EarthProperties` | `:constant` | properties of each earth layer |
 | `equivalent_earth` | `EarthProperties` | `:bottommost` | equivalent earth of the layers below the air |
 
 An earth slot records one formula per domain of a pair of cables:
@@ -54,6 +54,9 @@ same circumferential currents. The remaining keywords are the options of the for
 | `bundle` | `true` | merge the conductors that share a positive connection index |
 | `kron` | `true` | remove the conductors of connection index zero by [`eliminate!`](@ref) |
 | `transposition` | `false` | apply the ideal cyclic transposition |
+
+A nonzero `Γ` needs a formula that reads it in each place of both earth slots, and the
+constructor refuses any other.
 
 The formulas are described in the theory pages [Matrix formulation](theory/matrix.md),
 [Conductors](theory/conductors.md), [Dielectrics](theory/dielectrics.md) and

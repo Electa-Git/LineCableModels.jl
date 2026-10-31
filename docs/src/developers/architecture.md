@@ -250,16 +250,18 @@ A formula of the family gives the impedance, the potential coefficients, or both
 methods it defines. A formula in a slot whose quantity it does not give is refused at
 construction. Formulas of one identifier among the six places must be equal, because a formula
 that gives both quantities is one computation. The constructor stores each distinct formula
-once in the field `formulas`, so `to_buffer!` runs once per formula and frequency.
+once in the field `formulas`, so `to_buffer!` runs once per formula and frequency. A nonzero `Γ`
+needs a formula that reads it in each of the six places, and the constructor refuses any other.
 
 The slots `earth_properties` and `equivalent_earth` hold formulas of one family, of two kinds.
 The law describes each layer of the earth model at a frequency. Then the model reduces the
 described layers below the air to the one earth that the earth-return formulas read. The loop
-fixes that order. A law in the model's slot and a model in the law's are refused at construction.
+fixes that order, and the air passes as declared. A law in the model's slot and a model in the
+law's are refused at construction.
 
-`FEM` is the formulation of the field solve. It keeps the four law slots that the field
-solve reads, `insulation_admittance`, `semicon_admittance`, `resistivity` and
-`earth_properties`, and the same options. Every control of the field solve belongs to the
+`FEM` is the formulation of the field solve. It keeps the five slots that the field solve
+reads, `insulation_admittance`, `semicon_admittance`, `resistivity`, `earth_properties` and
+`equivalent_earth`, and the same options. Every control of the field solve belongs to the
 Gmsh backend.
 
 ### Backends and dispatch

@@ -37,7 +37,7 @@ struct CoaxialFormulation{
     shunt::U
     "Temperature law for conductor resistivity."
     resistivity::R
-    "Frequency law for air and earth material properties."
+    "Frequency law for the properties of each earth layer."
     earth_properties::P
     "Model of the equivalent earth of the layers below the air."
     equivalent_earth::E
@@ -65,6 +65,8 @@ struct CoaxialFormulation{
         map(formula -> validate(formula, impedance!), earth_impedance)
         map(formula -> validate(formula, potential!), earth_admittance)
         validate((Tuple(earth_impedance)..., Tuple(earth_admittance)...), CoaxialFormulation)
+        map(formula -> validate(options.Γ, formula),
+            (Tuple(earth_impedance)..., Tuple(earth_admittance)...))
         validate(earth_properties, EarthLayer)
         validate(equivalent_earth, EarthModel)
         formulas = foldl(
@@ -105,7 +107,7 @@ equal formulas.
   `(air, earth, mixed)` of them. A domain left out takes the default. Default: `:martins2026`.
 - `shunt`: formula for potential coefficients inside cables. Default: `:series`.
 - `resistivity`: conductor resistivity law. Default: `:linear`.
-- `earth_properties`: air and earth properties law. Default: `:constant`.
+- `earth_properties`: frequency law of each earth layer. Default: `:constant`.
 - `equivalent_earth`: model of the equivalent earth of the layers below the air. Default:
   `:bottommost`.
 - `Γ`: longitudinal wavenumber \\[1/m\\], one value or one per frequency. Default: `0`.
@@ -126,6 +128,7 @@ equal formulas.
 - Throws `DomainError` for an earth formula that does not give the quantity of its slot.
 - Throws `DomainError` for a model of the equivalent earth in `earth_properties`, or a law in
   `equivalent_earth`.
+- Throws `DomainError` for a nonzero `Γ` with an earth formula that does not read it.
 - Throws `DomainError` when `Γ` is empty or nonfinite.
 """
 function CoaxialFormulation(;
@@ -203,6 +206,7 @@ struct FEM{
     S <: SemiconAdmittance.Formula,
     R <: Resistivity.Formula,
     P <: EarthProperties.Formula,
+    E <: EarthProperties.Formula,
     O <: FormulationOptions
 } <: AbstractFormulation
     "Admittivity law for insulator layers."
@@ -211,23 +215,27 @@ struct FEM{
     semicon_admittance::S
     "Temperature law for conductor resistivity."
     resistivity::R
-    "Frequency law for air and earth material properties."
+    "Frequency law for the properties of each earth layer."
     earth_properties::P
+    "Model of the equivalent earth of the layers below the air."
+    equivalent_earth::E
     "Options: the longitudinal wavenumber `Γ` \\[1/m\\] and the reductions."
     options::O
     function FEM(insulation_admittance::K, semicon_admittance::S, resistivity::R,
-            earth_properties::P,
+            earth_properties::P, equivalent_earth::E,
             options::O) where {
             K <: InsulationAdmittance.Formula,
             S <: SemiconAdmittance.Formula,
             R <: Resistivity.Formula,
             P <: EarthProperties.Formula,
+            E <: EarthProperties.Formula,
             O <: FormulationOptions{FEM}
     }
         validate(earth_properties, EarthLayer)
-        return new{K, S, R, P, O}(
+        validate(equivalent_earth, EarthModel)
+        return new{K, S, R, P, E, O}(
             insulation_admittance, semicon_admittance, resistivity,
-            earth_properties, options)
+            earth_properties, equivalent_earth, options)
     end
 end
 
@@ -247,7 +255,9 @@ Other keywords set the formulation options.
 - `insulation_admittance`: admittivity law for insulator layers. Default: `:lossless`.
 - `semicon_admittance`: admittivity law for semicon layers. Default: `:lossless`.
 - `resistivity`: conductor resistivity law. Default: `:linear`.
-- `earth_properties`: air and earth properties law. Default: `:constant`.
+- `earth_properties`: frequency law of each earth layer. Default: `:constant`.
+- `equivalent_earth`: model of the equivalent earth of the layers below the air. Default:
+  `:bottommost`.
 - `Γ`: longitudinal wavenumber \\[1/m\\], one value or one per frequency. Default: `0`.
 - `bundle`: merge conductors with the same positive connection index. Default: `true`.
 - `kron`: remove conductors with connection index zero by [`eliminate!`](@ref). Default:
@@ -261,14 +271,17 @@ Other keywords set the formulation options.
 # Errors
 
 - Throws `ArgumentError` for an unknown formula identifier or option.
+- Throws `DomainError` for a model of the equivalent earth in `earth_properties`, or a law in
+  `equivalent_earth`.
 - Throws `DomainError` when `Γ` is empty or nonfinite.
 """
 function FEM(; insulation_admittance = :default, semicon_admittance = :default,
-        resistivity = :default, earth_properties = :default, kw...)
+        resistivity = :default, earth_properties = :default, equivalent_earth = :default, kw...)
     return FEM(select(FEM, Val(:insulation_admittance), insulation_admittance),
         select(FEM, Val(:semicon_admittance), semicon_admittance),
         select(FEM, Val(:resistivity), resistivity),
-        select(FEM, Val(:earth_properties), earth_properties), FormulationOptions(FEM; kw...))
+        select(FEM, Val(:earth_properties), earth_properties),
+        select(FEM, Val(:equivalent_earth), equivalent_earth), FormulationOptions(FEM; kw...))
 end
 
 # A Symbol lifts to its tag and a pair to its tag with options. A formula stands.
@@ -333,6 +346,9 @@ function select(::Type{FEM}, ::Val{:resistivity}, ::Val{:default}; kw...)
 end
 function select(::Type{FEM}, ::Val{:earth_properties}, ::Val{:default}; kw...)
     return EarthProperties.Formula(Val(:constant); kw...)
+end
+function select(::Type{FEM}, ::Val{:equivalent_earth}, ::Val{:default}; kw...)
+    return EarthProperties.Formula(Val(:bottommost); kw...)
 end
 
 # An earth slot stores one formula per domain. One selection fills the three domains. A

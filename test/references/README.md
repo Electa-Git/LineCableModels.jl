@@ -42,7 +42,7 @@ conductors in row and column order, and the units. Each row is one entry of one 
 evenly spaced on a logarithmic scale. The FEM rows hold 11 of them, one per 0.8 decade.
 
 Each case folder also holds `physical.geo`, the geometry file of the FEM run of its
-script. At commit `989af96c`, all four scripts ran unchanged with
+script. At commit `989af96c`, the four original scripts ran unchanged with
 gmsh_jll 4.15.2. Their FEM rows match `matrices.csv` within 5.4e-9 of the largest
 diagonal entry. Each `physical.geo` is byte-identical to the retained file of its case's run of
 2026-10-25. The geometry tests compare against these files.
@@ -67,7 +67,7 @@ and `Y`, at the same 101 frequencies:
 Copies of the four original case scripts computed them at `989af96c`. Copies of the overhead
 and mixed scripts computed them at `9621e504`. The runs appear below. Each copy keeps the
 script's system and formulation, leaves out FEM, computes with `options = (trace = true,)`
-and writes the four matrices of `details(result).data.trace`. The comment lines give the
+and writes the four matrices of `result.trace`. The comment lines give the
 conductors and the cables in row and column order, and the units. Each row is one entry of
 one matrix: `source` (`analytical`), `frequency_hz`, `matrix`, `row`, `column`, `real`,
 `imaginary`.

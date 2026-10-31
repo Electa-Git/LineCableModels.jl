@@ -138,7 +138,8 @@ assign a conductor index to each terminal of its design:
 
 An [`EarthModel`](@ref) consists of a semi-infinite air layer above the earth, each
 represented by an [`EarthLayer`](@ref) with its resistivity, relative permittivity and
-relative permeability. The earth is represented by one semi-infinite layer. The function [`homogeneous`](@ref) builds the model of an air layer, with relative permittivity
+relative permeability. The last earth layer is semi-infinite, and each layer above it has a
+finite thickness. The function [`homogeneous`](@ref) builds the model of an air layer, with relative permittivity
 and permeability equal to 1, above a homogeneous earth.
 
 ## Interface between air and earth

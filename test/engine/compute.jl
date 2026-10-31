@@ -129,6 +129,18 @@ end
     @test_throws ArgumentError("LCMBackend does not implement FEM") compute(
         Engine.LCMBackend(), problem, FEM())
 
+    @testset "a layered earth under the bottommost model" begin
+        reference = Dict(REFERENCES)["two_bare_wires"]
+        air, bottom = reference.earth.layers
+        layered = LineParametersProblem(reference.system,
+            EarthModel((air, EarthLayer(100.0, 1.0, 1.0, 5.0), bottom));
+            temperature = reference.temperature, frequencies = reference.frequencies)
+        result = compute(layered, CoaxialFormulation())
+        expected = compute(reference, CoaxialFormulation())
+        @test reinterpret(UInt64, result.Z) == reinterpret(UInt64, expected.Z)
+        @test reinterpret(UInt64, result.Y) == reinterpret(UInt64, expected.Y)
+    end
+
     @testset "the three arms of a slot" begin
         mixed = Dict(REFERENCES)["mixed_bare_wires"]
         arms = CoaxialFormulation(;

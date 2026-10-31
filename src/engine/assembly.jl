@@ -78,7 +78,7 @@ each pair's domain in the slot `earth_impedance`. The recipe alone writes the ma
 - `Zg`: destination matrix of cable impedances \\[Ω/m\\].
 - `buffers`: preallocated computation arrays.
 - `input`: numerical cable geometry and connections.
-- `media`: air and earth layers as the law describes them at the frequency.
+- `media`: the air and the equivalent earth at the frequency.
 - `s`: complex frequency, `j 2π f`, in \\[1/s\\].
 - `k`: frequency index.
 
@@ -121,7 +121,7 @@ the matrix.
 - `Pg`: destination matrix of cable potential coefficients \\[m/F\\].
 - `buffers`: preallocated computation arrays.
 - `input`: numerical cable geometry and connections.
-- `media`: air and earth layers as the law describes them at the frequency.
+- `media`: the air and the equivalent earth at the frequency.
 - `s`: complex frequency, `j 2π f`, in \\[1/s\\].
 - `k`: frequency index.
 

@@ -145,8 +145,10 @@ function solve!(
         for l in eachindex(kappa)
             kappa[l] = admittivity(formulation, input.layer_material[l], f)
         end
-        described = map(layer -> formulation.earth_properties(layer, f), problem.earth.layers)
-        media = (first(described), formulation.equivalent_earth(Base.tail(described), f))
+        air = first(problem.earth.layers)
+        described = map(layer -> formulation.earth_properties(layer, f),
+            Base.tail(problem.earth.layers))
+        media = (air, formulation.equivalent_earth(described, f))
         impedance!(formulation.internal_impedance,
             formulation.insulation_impedance, Zin, input, rho, s)
         potential!(formulation.shunt, Pin, buffers, input, kappa, s)

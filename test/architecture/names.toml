@@ -158,7 +158,7 @@ material = "the Material of a class with the properties given as keywords"
 
 [register.Earth.public]
 EarthLayer = "the static properties and thickness of one earth or air layer"
-EarthModel = "an ordered stack of earth layers, semi-infinite air first"
+EarthModel = "an ordered stack of earth layers, semi-infinite air first, the last layer semi-infinite"
 homogeneous = "the earth model of air above one semi-infinite earth layer"
 
 [register.DataModel.public]
@@ -229,7 +229,7 @@ AbstractResistivity = "the supertype of the temperature laws of a conductor's re
 AbstractEarthProperties = "the supertype of the laws of the earth's properties and of the models of the equivalent earth"
 LineParametersProblem = "the cables of a line, the earth, the operating temperature and the frequencies of a scan"
 CoaxialFormulation = "the methodology of concentric tubes: the formula of each step, Γ and the reductions"
-FEM = "the laws and options of the finite-element computation of line parameters"
+FEM = "the laws, the equivalent earth and the options of the finite-element computation of line parameters"
 LineParameters = "the series impedance and shunt admittance per unit length of a line at each frequency, with the labels of its rows and the formulation"
 admittivity = "the admittivity of a dielectric layer at a frequency, by the law of its class in the formulation"
 "impedance!" = "series impedances per unit length written into a matrix [Ω/m]: the assembly of the cable-internal terms, and the earth step's recipe on the formulation"

@@ -61,7 +61,8 @@ keywords are:
 | `insulation_admittance` | `:lossless` | admittivity law for insulator layers |
 | `semicon_admittance` | `:lossless` | admittivity law for semicon layers |
 | `resistivity` | `:linear` | conductor resistivity law |
-| `earth_properties` | `:constant` | air and earth properties law |
+| `earth_properties` | `:constant` | frequency law of each earth layer |
+| `equivalent_earth` | `:bottommost` | model of the equivalent earth of the layers below the air |
 | `Γ` | `0` | longitudinal wavenumber in 1/m, one value or one per frequency |
 | `bundle` | `true` | merge the conductors that share a positive connection index |
 | `kron` | `true` | remove the conductors of connection index zero |

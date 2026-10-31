@@ -263,6 +263,14 @@ function validate(formula::Formula{ID}, verb) where {ID}
     throw(DomainError(formula, "the earth-return formula :$ID gives no $(nameof(verb))"))
 end
 
+# A formula that does not read Γ takes none: a result records its formulation.
+function validate(Γ::Union{Number, AbstractVector}, formula::Formula{ID}) where {ID}
+    all(iszero, Γ) || throw(DomainError(Γ,
+        "the earth-return formula :$ID does not read Γ; a nonzero Γ needs a formula that " *
+        "models the longitudinal dependence in every earth place"))
+    return Γ
+end
+
 # Formulas of one identifier are equal when their options are equal.
 Base.:(==)(a::Formula{ID}, b::Formula{ID}) where {ID} = a.options == b.options
 

@@ -54,7 +54,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     air::Vector{Bool}
     "Longitudinal wavenumber Γ at each frequency \\[1/m\\]."
     gamma::Vector{Complex{T}}
-    "Properties of the earth at each frequency."
+    "Equivalent earth at each frequency."
     earth::Vector{EarthLayer{T}}
     "Mean horizontal placement of the cables \\[m\\]."
     center::T
@@ -76,7 +76,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
     ``\\varepsilon_0`` is vacuum permittivity \\[F/m\\], and ``\\varepsilon_r`` is
     relative permittivity \\[dimensionless\\]. Dielectric regions use the formulation's
     admittivity law for their class.
-    Evaluate the formulation's earth law at every frequency.
+    Evaluate the formulation's earth law and equivalent earth at every frequency.
 
     # Arguments
 
@@ -157,8 +157,10 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
                for (design, at) in zip(problem.system.designs, problem.system.placements)]
         gamma = Vector{Complex{T}}(undef, length(problem.frequencies))
         gamma .= formulation.options.Γ
-        earth = [formulation.earth_properties(problem.earth.layers[2], f)
-                 for f in problem.frequencies]
+        earth = [formulation.equivalent_earth(
+                     map(layer -> formulation.earth_properties(layer, f),
+                         Base.tail(problem.earth.layers)),
+                     f) for f in problem.frequencies]
         center = convert(T, sum(at.x for at in problem.system.placements) /
                             length(problem.system.placements))
         scale = convert(T, minimum(design -> support(design.outer), problem.system.designs))

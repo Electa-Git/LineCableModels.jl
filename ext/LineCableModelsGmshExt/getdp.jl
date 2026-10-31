@@ -20,7 +20,7 @@ Permeability is ``\\mu`` \\[H/m\\], and vacuum permeability is ``\\mu_0`` \\[H/m
 The factor ``\\mu_r`` is relative permeability \\[dimensionless\\].
 
 Earth uses the formulation's properties from `model.earth` at each frequency. Air uses the
-declared properties of the first earth layer, written once. Both use resistivity ``\\rho``
+declared properties of the first layer of the earth model, written once. Both use resistivity ``\\rho``
 \\[Ω·m\\] with ``\\sigma = 1/\\rho``, and relative permittivity ``\\varepsilon_r``
 \\[dimensionless\\] with ``\\varepsilon = \\varepsilon_0\\varepsilon_r``, where
 ``\\varepsilon_0`` is vacuum permittivity \\[F/m\\]. Coordinates and lengths are in \\[m\\],
