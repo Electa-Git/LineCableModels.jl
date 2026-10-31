@@ -22,20 +22,21 @@ together with `Float64`, so that the number type `T` of the problem is at least 
 The [`CoaxialFormulation`](@ref) selects one formula for each physical contribution. Each
 slot takes a formula of its family, and the corresponding keyword accepts `:id`,
 `:id => (key = value, ...)` with the options of the formula, a formula object, or `:default`,
-which selects the default formula of the slot. The default formulas are summarized below.
+which selects the default formula of the slot. The table below gives the default formula of
+each slot and the other formulas that the slot admits.
 
-| Keyword | Family | Default | Contribution |
-| --- | --- | --- | --- |
-| `internal_impedance` | `InternalImpedance` | `:schelkunoff1934` | surface impedances of the conductors |
-| `insulation_impedance` | `InsulationImpedance` | `:ametani1980` | magnetic series term of a dielectric interval |
-| `insulation_admittance` | `InsulationAdmittance` | `:lossless` | admittivity of insulator layers |
-| `semicon_admittance` | `SemiconAdmittance` | `:lossless` | admittivity of semicon layers |
-| `earth_impedance` | `EarthReturn` | `:martins2026` | earth-return impedance |
-| `earth_admittance` | `EarthReturn` | `:martins2026` | earth-return potential coefficients |
-| `shunt` | `Shunt` | `:series` | potential coefficients inside the cables |
-| `resistivity` | `Resistivity` | `:linear` | resistivity of the conductors at the temperature |
-| `earth_properties` | `EarthProperties` | `:constant` | properties of each earth layer |
-| `equivalent_earth` | `EarthProperties` | `:bottommost` | equivalent earth of the layers below the air |
+| Keyword | Family | Default | Also admits | Contribution |
+| --- | --- | --- | --- | --- |
+| `internal_impedance` | `InternalImpedance` | `:schelkunoff1934` | | surface impedances of the conductors |
+| `insulation_impedance` | `InsulationImpedance` | `:ametani1980` | | magnetic series term of a dielectric interval |
+| `insulation_admittance` | `InsulationAdmittance` | `:lossless` | `:lossy` | admittivity of insulator layers |
+| `semicon_admittance` | `SemiconAdmittance` | `:lossless` | `:lossy` | admittivity of semicon layers |
+| `earth_impedance` | `EarthReturn` | `:martins2026` | | earth-return impedance |
+| `earth_admittance` | `EarthReturn` | `:martins2026` | `:ideal` | earth-return potential coefficients |
+| `shunt` | `Shunt` | `:series` | | potential coefficients inside the cables |
+| `resistivity` | `Resistivity` | `:linear` | | resistivity of the conductors at the temperature |
+| `earth_properties` | `EarthProperties` | `:constant` | | properties of each earth layer |
+| `equivalent_earth` | `EarthProperties` | `:bottommost` | | equivalent earth of the layers below the air |
 
 An earth slot records one formula per domain of a pair of cables:
 

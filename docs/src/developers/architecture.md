@@ -209,8 +209,8 @@ matrices of a computation. A formula does not write a matrix of the computation.
 | --- | --- | --- |
 | `InternalImpedance` | `:schelkunoff1934` | `formula(r_in, r_ex, ρ, μ_r, s)`, the inner, outer and transfer surface impedances |
 | `InsulationImpedance` | `:ametani1980` | `formula(r_in, r_ex, μ_r, s)`, the magnetic term of an annular dielectric |
-| `InsulationAdmittance` | `:lossless` | `formula(material, f)`, the admittivity of an insulator |
-| `SemiconAdmittance` | `:lossless` | `formula(material, f)`, the admittivity of a semicon |
+| `InsulationAdmittance` | `:lossless`, `:lossy` | `formula(material, f)`, the admittivity of an insulator |
+| `SemiconAdmittance` | `:lossless`, `:lossy` | `formula(material, f)`, the admittivity of a semicon |
 | `EarthReturn` | `:martins2026` | the kernels `formula(Val(:J), λ, medium, pair)` and the entries `formula(Val(:Z), Val(:self), i, ...)` |
 | `EarthReturn` | `:ideal` | the entries `formula(Val(:P), Val(:self), i, ...)` of an overhead pair |
 | `Shunt` | `:series` | `formula(r_in, r_ex, κ, s)`, the coefficient of one layer, with the chain `potential!(formula, Pin, buffers, input, kappa, s)` |

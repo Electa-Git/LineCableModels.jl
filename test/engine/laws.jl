@@ -37,6 +37,53 @@
               im * 2π * f * 8.8541878128e-12 * semicon.eps_r
     end
 
+    @testset "the lossy admittivity of insulators and semicons" begin
+        insulating = Engine.InsulationAdmittance.Formula(Val(:lossy))
+        semiconducting = Engine.SemiconAdmittance.Formula(Val(:lossy))
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        semicon = Material(:semicon, 1000.0, 1000.0; tan_delta = 0.05)
+        for f in (50.0, 1.0e3, 1.0e6),
+            (law, material) in ((insulating, polymer), (semiconducting, semicon))
+
+            ω = 2π * f
+            ε = 8.8541878128e-12 * material.eps_r
+            @test @inferred(law(material, f)) ≈
+                  complex(1 / material.rho + ω * ε * material.tan_delta, ω * ε) rtol = 1.0e-15
+        end
+        polymer32 = Material(:insulator, 1.0f14, 2.3f0; tan_delta = 1.0f-3)
+        semicon32 = Material(:semicon, 1000.0f0, 1000.0f0; tan_delta = 0.05f0)
+        @test real(@inferred(insulating(polymer32, 50.0f0))) > 0
+        @test real(@inferred(semiconducting(semicon32, 50.0f0))) > 0
+    end
+
+    @testset "the lossy admittivity without loss is the lossless one" begin
+        insulator = Material(:insulator, Inf, 2.3)
+        semicon = Material(:semicon, Inf, 1000.0)
+        for f in (50.0, 1.0e3, 1.0e6)
+            @test Engine.InsulationAdmittance.Formula(Val(:lossy))(insulator, f) ===
+                  Engine.InsulationAdmittance.Formula(Val(:lossless))(insulator, f)
+            @test Engine.SemiconAdmittance.Formula(Val(:lossy))(semicon, f) ===
+                  Engine.SemiconAdmittance.Formula(Val(:lossless))(semicon, f)
+        end
+    end
+
+    @testset "a lossy insulation gives the shunt admittance its conductance" begin
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        design = build(CableDesign, "insulated_wire",
+            Terminal(:core, Region(:core_metal, Circle(0.0425), copper)),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_insulated_wires",
+            line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 0.1);
+            frequencies = 10.0 .^ range(-1, 7; length = 101))
+        lossless = compute(problem, CoaxialFormulation())
+        lossy = compute(problem, CoaxialFormulation(insulation_admittance = :lossy))
+        @test all(>(0), real.(lossy.Y[1, 1, :]))
+        @test all(real.(lossy.Y[1, 1, :]) .> real.(lossless.Y[1, 1, :]))
+    end
+
     @testset "a slot takes an identifier, an identifier with options or a formula" begin
         Formula = Engine.Resistivity.Formula
         law = Formula(Val(:linear))

@@ -85,4 +85,21 @@ using LineCableModels.Engine: admittivity, reductions
             frequencies = reference.frequencies[1:10:end])
         @test all(layer -> layer === bottom, FieldModel(layered, formulation).earth)
     end
+    @testset "a lossy insulation reaches the model with the value of its law" begin
+        polymer = Material(:insulator, 1.0e14, 2.3; tan_delta = 1.0e-3)
+        metal = Region(:core_metal, Circle(0.0425), Material(:conductor, 1.7241e-8))
+        design = build(CableDesign, "insulated_wire", Terminal(:core, metal),
+            Region(:core_insulation, Offset(1.0e-3), polymer))
+        system = build(CableSystem, [design, design],
+            [Placement(0.0, -1.0), Placement(1.0, -1.0)];
+            connections = [(core = 1,), (core = 2,)], id = "two_insulated_wires",
+            line_length = 1.0)
+        problem = LineParametersProblem(system, homogeneous(rho = 0.1);
+            frequencies = reference.frequencies[1:10:end])
+        lossy = FEM(insulation_admittance = :lossy)
+        model = FieldModel(problem, lossy)
+        r = findfirst(region -> region.source.tag == :core_insulation, problem.system.regions)
+        @test model.materials[model.material[r]].admittivity ==
+              [lossy.insulation_admittance(polymer, f) for f in problem.frequencies]
+    end
 end

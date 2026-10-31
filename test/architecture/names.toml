@@ -269,6 +269,7 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 
 [register."Engine.InsulationAdmittance".formulas]
 lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (commit 989af96c, insulationadmittance/formulas/lossless.jl)"
+lossy = "κ = 1/ρ + ω ε₀ ε_r tan δ + j ω ε₀ ε_r: conduction, polarization loss and displacement current of a dielectric"
 
 [register."Engine.SemiconAdmittance".public]
 Formula = "a semicon-admittance formula, its identifier the type parameter"
@@ -276,6 +277,7 @@ FORMULAS = "the identifiers of the family's formulas, which the unknown-identifi
 
 [register."Engine.SemiconAdmittance".formulas]
 lossless = "κ = jωε₀εᵣ, conduction and polarization loss left out (commit 989af96c, semiconadmittance/formulas/lossless.jl)"
+lossy = "κ = 1/ρ + ω ε₀ ε_r tan δ + j ω ε₀ ε_r: conduction, polarization loss and displacement current of a dielectric"
 
 [register."Engine.EarthReturn".public]
 Formula = "an earth-return formula, its identifier the type parameter"
