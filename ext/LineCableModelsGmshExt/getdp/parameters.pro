@@ -105,9 +105,11 @@ For medium In {0:1}
 EndFor
 // Resolve air waves only when cable fields can reach the interface.
 FEMAirExcited = FEMRootA~{1} == 0;
+FEMAirConductor = 0;
 For cable In {0:NumCables-1}
   If(CableY(cable)+CableRadius(cable) > 0)
     FEMAirExcited = 1;
+    FEMAirConductor = 1;
   ElseIf(FEMRootA~{1} > 0)
     If(-CableY(cable)-CableRadius(cable) < 6/FEMRootA~{1}) FEMAirExcited = 1; EndIf
   EndIf
@@ -151,9 +153,10 @@ FEMPmlTarget = -Log[PmlReflection]/2;
 
 // Quasi-static engineering extent cap. The specified rate floor caps added stretch.
 // The original geometrical layer thickness remains part of its full length.
+// A conductor in air disables the cap: its voltage integrates the air field.
 FEMCapFactor = 100;
 FEMCapRate = FEMPmlTarget/(FEMCapFactor*DomainHalfwidth);
-FEMCapQuasistatic = FEMBaseMagnitude~{0}*FEMCapFactor*DomainHalfwidth <= .1;
+FEMCapQuasistatic = !FEMAirConductor && FEMBaseMagnitude~{0}*FEMCapFactor*DomainHalfwidth <= .1;
 FEMCapActive() = {0,0,0};
 FEMCapThicknesses() = {PmlSideThickness,PmlTopThickness,PmlBottomThickness};
 For direction In {0:2}

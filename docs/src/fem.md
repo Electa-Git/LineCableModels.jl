@@ -207,10 +207,15 @@ T = -\frac{\ln R}{2},
 ```
 
 where ``\nu_m = 0`` for ``b_m \leq 0``, ``\beta_m = 1`` for ``b_m \geq 0``, and ``R`` is
-`pml_reflection`. When the air field is quasi-static over 100 half-widths,
-``100 |q_{0,a}| D \leq 0.1``, and the rate of a layer is below ``T / (100 D)``, the layer
-takes ``\eta_d = 0`` and the rate ``\max(T / (100 D), a_m / C_m, 0.1 b_{0,m})``, which limits
-the added real stretch to 100 half-widths. With ``X_d = L_d(1 + A_d/4 -
+`pml_reflection`.
+
+A limit applies when every conductor lies below the interface. If the air
+field is quasi-static over 100 half-widths, ``100 |q_{0,a}| D \leq 0.1``, and the rate of a
+layer is below ``T / (100 D)``, the layer takes ``\eta_d = 0`` and the rate
+``\max(T / (100 D), a_m / C_m, 0.1 b_{0,m})``, which limits the added real stretch to 100
+half-widths. A conductor that extends above the interface disables this limit. Its voltage
+integrates the air field, and the field that a buried source transmits into air extends to
+distances of order ``1/|q_{0,a}|``. With ``X_d = L_d(1 + A_d/4 -
 \mathrm{j}\eta_d A_d/4)``, the net exponent
 ``\operatorname{Re}[q_m(D + X_d)]`` must be positive in every medium of each layer, except
 at the exact cutoff ``q_m = 0``. Otherwise, GetDP stops with an error.
