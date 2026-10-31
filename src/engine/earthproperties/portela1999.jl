@@ -9,7 +9,7 @@ function (formula::Formula{:portela1999})(layer::EarthLayer{T}, f::T) where {T <
     ω = convert(T, 2) * convert(T, π) * f
     σ = σ_low + β * convert(T, 1e-6) * ω^α
     ε_r = β * convert(T, 1e-6) * tan(convert(T, π) * α / convert(T, 2)) *
-          ω^(α - one(T)) / convert(T, vacuum_permittivity)
+          ω^(α - one(T)) / convert(T, ε₀)
     ρ = inv(σ)
     return EarthLayer{T}(ρ, ε_r, layer.mu_r, layer.thickness)
 end

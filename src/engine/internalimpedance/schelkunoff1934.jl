@@ -7,7 +7,7 @@ function (::Formula{:schelkunoff1934})(
     isfinite(ρ) && ρ > zero(T) && isfinite(μ_r) && μ_r > zero(T) ||
         throw(DomainError((ρ, μ_r), "conductor resistivity and permeability must be positive and finite"))
     isfinite(s) && !iszero(s) || throw(DomainError(s, "jω must be finite and nonzero"))
-    mu = vacuum_permeability * μ_r
+    mu = μ₀ * μ_r
     sigma = inv(ρ)
     m = sqrt(s * mu * sigma)
     w_ex = m * r_ex

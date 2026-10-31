@@ -23,7 +23,7 @@ function (formula::Formula{:longmire1975})(layer::EarthLayer{T}, f::T) where {T 
         decade *= convert(T, 10)
     end
     ε_r = ε_high + Σε
-    σ = σ_low + convert(T, 2) * convert(T, π) * f * convert(T, vacuum_permittivity) * Σσ
+    σ = σ_low + convert(T, 2) * convert(T, π) * f * convert(T, ε₀) * Σσ
     ρ = inv(σ)
     return EarthLayer{T}(ρ, ε_r, layer.mu_r, layer.thickness)
 end

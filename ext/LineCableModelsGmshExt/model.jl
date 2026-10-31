@@ -104,7 +104,7 @@ struct FieldModel{T <: Real, P <: LineParametersProblem{T}}
         for r in findall(source -> source isa Material{T, :conductor}, sources)
             source = sources[r]
             ρ = formulation.resistivity(source, problem.temperature)
-            κ[r] = Complex{T}[complex(inv(ρ), 2π * f * vacuum_permittivity * source.eps_r)
+            κ[r] = Complex{T}[complex(inv(ρ), 2π * f * ε₀ * source.eps_r)
                               for f in problem.frequencies]
             conductor[r] = true
         end

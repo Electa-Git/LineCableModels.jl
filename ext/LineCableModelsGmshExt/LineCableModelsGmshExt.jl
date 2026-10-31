@@ -25,8 +25,8 @@ import LineCableModels.Engine: solve!
 using LineCableModels.Engine: GmshBackend, FEM, LineParametersProblem, LineParameters,
                               bundle!, eliminate!, transposition!, admittivity,
                               reductions, nominal,
-                              vacuum_permittivity,
-                              vacuum_permeability
+                              ε₀,
+                              μ₀
 
 public GetdpBinary
 

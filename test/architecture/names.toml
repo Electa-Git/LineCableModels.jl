@@ -93,12 +93,12 @@ flatten = "reduce a cable design to the equivalent tubes and dielectric layers o
 
 [modules.Engine]
 nouns = ["formula", "formulas", "impedance", "potential", "admittivity", "resistivity",
-    "properties", "admittance", "semicon", "temperature", "permittivity", "permeability",
+    "properties", "admittance", "semicon", "temperature",
     "line_parameters", "gmsh", "fem", "earth_return", "shunt", "buffers", "trace",
     "frequencies", "input", "connection", "radius", "bundles",
     "transposition", "integral", "integrand", "reductions"]
-qualifiers = ["vacuum", "coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
-symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ"]
+qualifiers = ["coaxial", "equivalent", "internal", "kept", "eliminated", "spectral", "nominal", "lcm"]
+symbols = ["Z", "Y", "r_ins_ex", "Λ", "ζ", "ε₀", "μ₀"]
 
 [modules.Engine.verbs]
 to_buffer = "move a formula's per-frequency terms into its block of the buffers"
@@ -214,8 +214,8 @@ armor = "a course of round armor wires laid on the part inside it, in a fill as 
 EmptyBoundary = "the outline at the center of a cable, before its first part"
 
 [register.Engine.public]
-vacuum_permittivity = "ε₀, the permittivity of vacuum [F/m]"
-vacuum_permeability = "μ₀ = 4π·1e-7, the permeability of vacuum [H/m]"
+"ε₀" = "the permittivity of vacuum [F/m]"
+"μ₀" = "the permeability of vacuum, 4π·1e-7 [H/m]"
 LCMBackend = "this package's own implementation of a formulation, in process"
 GmshBackend = "the backend that runs the finite-element computation, defined by the Gmsh extension"
 backend = "the default backend of a formulation type; a backend passed first to compute chooses another"

@@ -16,7 +16,7 @@ constitutive relation of its displacement current:
 
 where ``f`` is the frequency \\[Hz\\], ``\\kappa`` is the admittivity \\[S/m\\] and
 ``\\varepsilon_r`` is the relative permittivity `eps_r` of the material \\[dimensionless\\].
-The constant ``\\varepsilon_0`` is [`vacuum_permittivity`](@ref).
+The constant ``\\varepsilon_0`` is [`ε₀`](@ref).
 
 ### Callable
 
@@ -51,7 +51,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractSemiconAdmittance
-using ..Engine: vacuum_permittivity
+using ..Engine: ε₀
 using ...Materials: Material
 
 export Formula, FORMULAS

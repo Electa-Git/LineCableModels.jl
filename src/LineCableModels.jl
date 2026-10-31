@@ -28,7 +28,7 @@ using .DataModel: Placement, AbstractShape, AbstractPrimitive, Circle, Annulus, 
                   CableSystem, CableBlueprint, BlueprintConductor, BlueprintDielectric,
                   flatten, @cable, @terminal, core, insulation, screen, sheath, bedding,
                   jacket, stranded, armor
-using .Engine: vacuum_permittivity, vacuum_permeability, AbstractInternalImpedance,
+using .Engine: ε₀, μ₀, AbstractInternalImpedance,
                AbstractInsulationImpedance, AbstractInsulationAdmittance,
                AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt,
                AbstractResistivity, AbstractEarthProperties, admittivity,
@@ -52,7 +52,7 @@ export compute, LineParametersProblem, CoaxialFormulation, FEM, LineParameters
 public Engine, CAD, defaults, select, AbstractFormulation, AbstractBackend,
        FormulationOptions,
        ComputationOptions
-public vacuum_permittivity, vacuum_permeability, LCMBackend, GmshBackend, backend
+public ε₀, μ₀, LCMBackend, GmshBackend, backend
 public AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties

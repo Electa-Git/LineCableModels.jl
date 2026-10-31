@@ -2,7 +2,7 @@ defaults(::Type{Formula{:wedepohl1973}}) = (;)
 
 function (::Formula{:wedepohl1973})(
         r_in::T, r_ex::T, ρ::T, μ_r::T, s::Complex{T}) where {T <: Real}
-    μ = vacuum_permeability * μ_r
+    μ = μ₀ * μ_r
     σ = inv(ρ)
     m = sqrt(s * μ * σ)
     if iszero(r_in)

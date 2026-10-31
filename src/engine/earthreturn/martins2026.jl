@@ -148,8 +148,8 @@ function to_buffer!(f::Formula{:martins2026}, buffers, input::CoaxialInput, medi
     R = eltype(buffers.integral.points)
     Γ = buffers.gamma[k]
     # The medium state of the air and of the earth.
-    σ̃ = map(m -> inv(m.rho) + s * (vacuum_permittivity * m.eps_r), media)
-    μ = map(m -> vacuum_permeability * m.mu_r, media)
+    σ̃ = map(m -> inv(m.rho) + s * (ε₀ * m.eps_r), media)
+    μ = map(m -> μ₀ * m.mu_r, media)
     κ² = map((m, a) -> sqrt(s * m * a)^2 - Γ^2, μ, σ̃)
     κ = map(sqrt, κ²)
     # The candidates of the squared electric denominator are poles where the denominator is

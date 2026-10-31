@@ -118,7 +118,7 @@ function Base.write(path::AbstractString, model::FieldModel,
         conductive = [material.conductor for material in model.materials]
         losses = [any(value -> !iszero(real(value)), material.admittivity)
                   for material in model.materials]
-        permeabilities = [vacuum_permeability * material.mu_r
+        permeabilities = [μ₀ * material.mu_r
                           for material in model.materials]
         for (name, entries) in (("MaterialRegionTags", tags),
             ("MaterialIsConductor", conductive), ("MaterialHasLoss", losses),
@@ -135,16 +135,16 @@ function Base.write(path::AbstractString, model::FieldModel,
             end
         end
         earth_sigma = [inv(state.rho) for state in model.earth]
-        earth_epsilon = [vacuum_permittivity * state.eps_r for state in model.earth]
-        earth_mu = [vacuum_permeability * state.mu_r for state in model.earth]
+        earth_epsilon = [ε₀ * state.eps_r for state in model.earth]
+        earth_mu = [μ₀ * state.mu_r for state in model.earth]
         for (name, entries) in (("EarthSigma", earth_sigma),
             ("EarthEpsilon", earth_epsilon), ("EarthMu", earth_mu))
             numbers = [@sprintf("%.17g", Float64(number)) for number in entries]
             println(io, name, "() = {", join(numbers, ", "), "};")
         end
         for (name, number) in (("AirSigma", inv(air.rho)),
-            ("AirEpsilon", vacuum_permittivity * air.eps_r),
-            ("AirMu", vacuum_permeability * air.mu_r),
+            ("AirEpsilon", ε₀ * air.eps_r),
+            ("AirMu", μ₀ * air.mu_r),
             ("Xcenter", model.center), ("Ycenter", 0), ("Zcenter", 0))
             println(io, name, " = ", @sprintf("%.17g", Float64(number)), ";")
         end

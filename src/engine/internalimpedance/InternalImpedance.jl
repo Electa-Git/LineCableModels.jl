@@ -31,7 +31,7 @@ of the corresponding conductor surface \\[m\\], ``m`` is the radial wavenumber \
 ``\\sigma`` is the conductivity \\[S/m\\], ``\\rho`` is the resistivity \\[Ω·m\\],
 ``\\mu`` is the permeability \\[H/m\\] and ``\\mu_r`` is the relative permeability
 \\[dimensionless\\].
-The constant ``\\mu_0`` is [`vacuum_permeability`](@ref). The modified Bessel functions
+The constant ``\\mu_0`` is [`μ₀`](@ref). The modified Bessel functions
 ``I_\\nu`` and ``K_\\nu`` have order ``\\nu``.
 
 A solid conductor, with ``r_\\mathrm{in} = 0``, has no inner surface: its inner and transfer
@@ -103,7 +103,7 @@ import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
 using ...DataModel: flatten
 using ..Engine: AbstractInternalImpedance, LineParametersProblem
-using ..Engine: vacuum_permeability
+using ..Engine: μ₀
 using SpecialFunctions: besselix, besselkx
 
 export Formula, FORMULAS

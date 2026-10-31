@@ -6,9 +6,9 @@ function (formula::Formula{:messier1985})(layer::EarthLayer{T}, f::T) where {T <
     ε_high = convert(T, formula.options.epsilon_high)
     σ_low = inv(layer.rho)
     ε_r = ε_high +
-          sqrt(σ_low * ε_high / (convert(T, π) * f * convert(T, vacuum_permittivity)))
+          sqrt(σ_low * ε_high / (convert(T, π) * f * convert(T, ε₀)))
     σ = σ_low + sqrt(convert(T, 4) * convert(T, π) * f * σ_low *
-             convert(T, vacuum_permittivity) * ε_high)
+                     convert(T, ε₀) * ε_high)
     ρ = inv(σ)
     return EarthLayer{T}(ρ, ε_r, layer.mu_r, layer.thickness)
 end

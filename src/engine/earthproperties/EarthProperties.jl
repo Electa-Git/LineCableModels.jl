@@ -8,7 +8,7 @@ A soil law reads the resistivity ``\\rho_\\mathrm{low}`` \\[Ω·m\\] of a layer,
 ``\\sigma_\\mathrm{low} = 1 / \\rho_\\mathrm{low}`` \\[S/m\\] and the frequency ``f`` \\[Hz\\]. It gives
 the resistivity ``\\rho(f)`` \\[Ω·m\\], which is ``1 / \\sigma(f)`` unless the law states otherwise,
 and the relative permittivity ``\\varepsilon_r(f)`` \\[dimensionless\\]. The described layer keeps
-the relative permeability and the thickness of `layer`. The constant ``\\varepsilon_0`` is [`vacuum_permittivity`](@ref).
+the relative permeability and the thickness of `layer`. The constant ``\\varepsilon_0`` is [`ε₀`](@ref).
 
 # Formulas
 
@@ -253,7 +253,7 @@ module EarthProperties
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
-using ..Engine: AbstractEarthProperties, LineParametersProblem, vacuum_permittivity
+using ..Engine: AbstractEarthProperties, LineParametersProblem, ε₀
 using ...Earth: EarthLayer, EarthModel
 
 export Formula, FORMULAS

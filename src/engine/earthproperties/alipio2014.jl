@@ -14,7 +14,7 @@ function (formula::Formula{:alipio2014})(layer::EarthLayer{T}, f::T) where {T <:
     ε_r = ε_high +
           tan(convert(T, π) * γ / convert(T, 2)) *
           convert(T, 1e-3) * σ_low * D * f^(γ - one(T)) /
-          (convert(T, 2) * convert(T, π) * convert(T, vacuum_permittivity) *
+          (convert(T, 2) * convert(T, π) * convert(T, ε₀) *
            convert(T, 10)^(convert(T, 6) * γ))
     σ = σ_low * (one(T) + D * (f / convert(T, 1e6))^γ)
     ρ = convert(T, 1000) / σ

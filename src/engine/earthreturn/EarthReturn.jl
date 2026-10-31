@@ -33,7 +33,7 @@ where ``s = \\mathrm{j} 2 \\pi f`` is the complex frequency \\[1/s\\], ``\\rho_t
 resistivity \\[Ω·m\\], ``\\varepsilon_{r,t}`` and ``\\mu_{r,t}`` are the relative permittivity
 and permeability \\[dimensionless\\], ``\\Gamma`` is the longitudinal wavenumber \\[1/m\\], and
 ``\\lambda`` is the transverse Fourier variable \\[1/m\\]. The constants ``\\varepsilon_0`` and
-``\\mu_0`` are [`vacuum_permittivity`](@ref) and [`vacuum_permeability`](@ref). The square
+``\\mu_0`` are [`ε₀`](@ref) and [`μ₀`](@ref). The square
 roots take the decaying branch. The spectral denominators are
 
 ```math
@@ -200,7 +200,7 @@ import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
 using ...DataModel: support
 using ..Engine: AbstractEarthReturn, CoaxialInput, LineParametersProblem, SpectralIntegral,
-                integrate, nominal, vacuum_permittivity, vacuum_permeability
+                integrate, nominal, ε₀, μ₀
 import ..Engine: impedance!, potential!, to_buffer!, from_buffer, initialize_buffers, Λ
 using LinearAlgebra: ldiv!, lu!
 using SpecialFunctions: besselix, besselkx, besseljx, besselk

@@ -17,7 +17,7 @@ z = \\frac{s \\mu_0 \\mu_r}{2 \\pi} \\ln \\frac{r_\\mathrm{ex}}{r_\\mathrm{in}},
 where ``s`` is the complex frequency \\[1/s\\], ``r_\\mathrm{in}`` and
 ``r_\\mathrm{ex}`` are the inner and outer radii of the layer \\[m\\], and ``\\mu_r`` is its
 relative permeability \\[dimensionless\\]. The constant ``\\mu_0`` is
-[`vacuum_permeability`](@ref). The term is zero when ``r_\\mathrm{in}`` is zero or equals
+[`μ₀`](@ref). The term is zero when ``r_\\mathrm{in}`` is zero or equals
 ``r_\\mathrm{ex}``.
 
 ### Callable
@@ -35,7 +35,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...Commons: defaults
 using ...Commons: FormulationOptions
 using ..Engine: AbstractInsulationImpedance
-using ..Engine: vacuum_permeability
+using ..Engine: μ₀
 
 export Formula, FORMULAS
 

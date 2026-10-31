@@ -26,8 +26,8 @@ const COMMONS_TESTS = "test/commons"
 # Each reserving name maps to its home and to the definition names it reserves outside that
 # home. The physical constants and the matrix reductions enter it with their definitions.
 const VOCABULARY = Dict{Symbol, Pair{String, Regex}}(
-    :vacuum_permittivity => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permittivity|eps(ilon)?_?[0₀]|[εϵ]_?[0₀])$",
-    :vacuum_permeability => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$",
+    :ε₀ => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permittivity|eps(ilon)?_?[0₀]|[εϵ]_?[0₀])$",
+    :μ₀ => "src/engine/constants" => r"(?i)^_*(\w+_)?(vacuum_permeability|mu_?[0₀]|[μµ]_?[0₀])$",
     :transposition! => "src/engine/reductions" => r"transpos",
     :eliminate! => "src/engine/reductions" => r"kron")
 const SHINGLE = 8

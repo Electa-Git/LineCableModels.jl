@@ -20,7 +20,7 @@ using ..DataModel: Placement, CableSystem, support, flatten
 using LinearAlgebra: I, checksquare, ldiv!, lu!, mul!
 using QuadGK: alloc_segbuf, quadgk
 
-export vacuum_permittivity, vacuum_permeability
+export ε₀, μ₀
 export AbstractInternalImpedance, AbstractInsulationImpedance, AbstractInsulationAdmittance,
        AbstractSemiconAdmittance, AbstractEarthReturn, AbstractShunt, AbstractResistivity,
        AbstractEarthProperties
