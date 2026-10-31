@@ -27,7 +27,7 @@ each slot and the other formulas that the slot admits.
 
 | Keyword | Family | Default | Also admits | Contribution |
 | --- | --- | --- | --- | --- |
-| `internal_impedance` | `InternalImpedance` | `:schelkunoff1934` | | surface impedances of the conductors |
+| `internal_impedance` | `InternalImpedance` | `:schelkunoff1934` | `:wedepohl1973` | surface impedances of the conductors |
 | `insulation_impedance` | `InsulationImpedance` | `:ametani1980` | | magnetic series term of a dielectric interval |
 | `insulation_admittance` | `InsulationAdmittance` | `:lossless` | `:lossy` | admittivity of insulator layers |
 | `semicon_admittance` | `SemiconAdmittance` | `:lossless` | `:lossy` | admittivity of semicon layers |

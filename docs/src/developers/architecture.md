@@ -207,7 +207,7 @@ matrices of a computation. A formula does not write a matrix of the computation.
 
 | Family | Formula | Callable |
 | --- | --- | --- |
-| `InternalImpedance` | `:schelkunoff1934` | `formula(r_in, r_ex, ρ, μ_r, s)`, the inner, outer and transfer surface impedances |
+| `InternalImpedance` | `:schelkunoff1934`, `:wedepohl1973` | `formula(r_in, r_ex, ρ, μ_r, s)`, the inner, outer and transfer surface impedances |
 | `InsulationImpedance` | `:ametani1980` | `formula(r_in, r_ex, μ_r, s)`, the magnetic term of an annular dielectric |
 | `InsulationAdmittance` | `:lossless`, `:lossy` | `formula(material, f)`, the admittivity of an insulator |
 | `SemiconAdmittance` | `:lossless`, `:lossy` | `formula(material, f)`, the admittivity of a semicon |

@@ -163,3 +163,32 @@ The source gives the following results against the analytical rows:
     against the tube.
   - With the armor as a tube and a straight core, e_Z is at most 0.42 % and e_Y at most
     0.094 % for the rectangular strands, and 0.63 % and 0.13 % for the circular strands.
+
+## Internal approximation
+
+The formula `:wedepohl1973` approximates the surface impedances of `:schelkunoff1934` by the closed
+forms of its paper. The copper sheath of the coaxial cases has inner radius 20.5 mm and outer radius
+21.5 mm. Its relative deviation over the 101 frequencies of the analytical rows is:
+
+| Surface | Maximum | At | RMS |
+| --- | --- | --- | --- |
+| `inner` | 1.55e-4 | 11 kHz | 5.95e-5 |
+| `outer` | 1.49e-4 | 11 kHz | 5.68e-5 |
+| `transfer` | 2.75e-4 | 10 MHz | 1.39e-4 |
+
+The derivation of the paper takes the curvature of the sheath as constant across its wall.
+
+The formula enters `Z` alone, and `Y` of each reference is unchanged to the bit. With
+`internal_impedance = :wedepohl1973`, the largest scaled deviation of `Z` from the reference is:
+
+| Case | Scaled difference in Z | At |
+| --- | --- | --- |
+| `two_bare_wires` | 1.43e-3 | 14 Hz |
+| `two_insulated_wires` | 1.43e-3 | 14 Hz |
+| `coaxial_circular_strands` | 1.10e-3 | 275 Hz |
+| `coaxial_rectangular_strands` | 1.04e-3 | 229 Hz |
+| `overhead_bare_wires` | 1.42e-3 | 14 Hz |
+| `mixed_bare_wires` | 1.42e-3 | 14 Hz |
+
+Each maximum lies near `|m r| = 3.5`, in the solid conductor. The paper gives that value for the largest
+error of the reactive part of its form for a solid conductor.

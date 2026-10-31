@@ -53,20 +53,63 @@ impedances of the inner and outer surfaces and the transfer impedance between th
 
 It throws `DomainError` unless the radii are finite with `0 ≤ r_in < r_ex`, `ρ` and `μ_r`
 are positive and finite, and `s` is finite and nonzero.
+
+## `Formula{:wedepohl1973}`
+
+Closed forms of the surface impedances of a thin tube, equations (4) to (6) of
+[Wedepohl1973](@cite):
+
+```math
+\\begin{aligned}
+z_\\mathrm{inner} &= \\frac{\\rho m}{2 \\pi r_\\mathrm{in}} \\coth(m \\Delta)
+    - \\frac{\\rho}{2 \\pi r_\\mathrm{in} (r_\\mathrm{in} + r_\\mathrm{ex})}, \\\\
+z_\\mathrm{outer} &= \\frac{\\rho m}{2 \\pi r_\\mathrm{ex}} \\coth(m \\Delta)
+    + \\frac{\\rho}{2 \\pi r_\\mathrm{ex} (r_\\mathrm{in} + r_\\mathrm{ex})}, \\\\
+z_\\mathrm{transfer} &= \\frac{\\rho m}{\\pi (r_\\mathrm{in} + r_\\mathrm{ex})
+    \\sinh(m \\Delta)},
+\\end{aligned}
+```
+
+where ``\\Delta = r_\\mathrm{ex} - r_\\mathrm{in}`` is the thickness of the tube \\[m\\]. The
+other symbols are as in `Formula{:schelkunoff1934}`. At zero frequency each of the three
+impedances equals the direct-current resistance of the annulus. The paper states good accuracy
+for ``\\Delta / (r_\\mathrm{in} + r_\\mathrm{ex}) < 1/8``, and a computation warns for a thicker
+tube.
+
+A solid conductor, with ``r_\\mathrm{in} = 0``, has no inner surface: its inner and transfer
+impedances are zero, and its outer impedance is equation (3) of the paper:
+
+```math
+z_\\mathrm{outer} = \\frac{\\rho m}{2 \\pi r_\\mathrm{ex}} \\coth(0.777 m r_\\mathrm{ex})
+    + \\frac{0.356 \\rho}{\\pi r_\\mathrm{ex}^2}.
+```
+
+### Callable
+
+`formula(r_in, r_ex, ρ, μ_r, s)` returns the record `(; inner, outer, transfer)`, the
+impedances of the inner and outer surfaces and the transfer impedance between them
+\\[Ω/m\\].
+
+- `r_in`: inner radius \\[m\\].
+- `r_ex`: outer radius, in \\[m\\].
+- `ρ`: resistivity \\[Ω·m\\].
+- `μ_r`: relative permeability \\[dimensionless\\].
+- `s`: complex frequency, `j 2π f` \\[1/s\\].
 """
 module InternalImpedance
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ...Commons: defaults
+import ...Commons: defaults, validate
 using ...Commons: FormulationOptions
-using ..Engine: AbstractInternalImpedance
+using ...DataModel: flatten
+using ..Engine: AbstractInternalImpedance, LineParametersProblem
 using ..Engine: vacuum_permeability
 using SpecialFunctions: besselix, besselkx
 
 export Formula, FORMULAS
 
 "Identifiers of the internal-impedance formulas."
-const FORMULAS = (:schelkunoff1934,)
+const FORMULAS = (:schelkunoff1934, :wedepohl1973)
 
 """
 $(TYPEDEF)
@@ -115,5 +158,6 @@ function defaults(::Type{Formula{ID}}) where {ID}
 end
 
 include("schelkunoff1934.jl")
+include("wedepohl1973.jl")
 
 end
